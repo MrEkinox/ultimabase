@@ -41,7 +41,7 @@ const softDeleteDefinition = definePlugin<SoftDelete>({
 	redirect: {
 		delete: ({ where, queries }) =>
 			queries.update(
-				{ where, data: { deletedAt: new Date() } },
+				{ where, data: { deletedAt: new Date(Date.now()) } },
 				{ as: master },
 			),
 	},

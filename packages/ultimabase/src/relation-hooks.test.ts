@@ -1,6 +1,6 @@
 // Hooks across relations (D-71, D-88): `beforeFind` at every level, relation
 // values a hook or a default writes, and the update hooks of a moved row.
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { asUser } from '@ultimabase/testing'
 import { defineApp, defineModel, master, memory } from './index.ts'
 import { query } from './engine.ts'
@@ -141,6 +141,7 @@ beforeEach(async () => {
 	dropped = undefined
 })
 afterEach(async () => {
+	vi.restoreAllMocks()
 	await app.stop()
 })
 
@@ -286,8 +287,9 @@ describe('a row a relation write moves (D-88)', () => {
 
 	it('runs the update hooks of each row it connects', async () => {
 		const before = await stored()
-		// The next millisecond, so the moved row's updatedAt differs.
-		await new Promise((done) => setTimeout(done, 2))
+		// A later clock, which every stored date reads.
+		const at = Date.now() + 60_000
+		vi.spyOn(Date, 'now').mockReturnValue(at)
 		await pens({ connect: [{ id: pen }] })
 		const after = await stored()
 		expect(log).toEqual(['beforeUpdate', 'afterUpdate', 'afterUpdateCommit'])
@@ -299,9 +301,7 @@ describe('a row a relation write moves (D-88)', () => {
 			record: { ...after, desk: { id: desk } },
 			previous: { ...before, desk: null },
 		})
-		expect(after?.updatedAt.getTime()).toBeGreaterThan(
-			before?.updatedAt.getTime() ?? Number.POSITIVE_INFINITY,
-		)
+		expect(after?.updatedAt.getTime()).toBe(at)
 	})
 
 	it('gives a disconnect as { disconnect: true }', async () => {

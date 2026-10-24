@@ -268,7 +268,7 @@ export async function updatePlan(
 			kind: 'update',
 			model: model.name,
 			where: byId(id),
-			set: { ...context.set, updatedAt: new Date() },
+			set: { ...context.set, updatedAt: new Date(Date.now()) },
 		},
 		...context.after,
 	)

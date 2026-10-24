@@ -230,7 +230,7 @@ export function cascadeWhere(
 				kind: 'update' as const,
 				model: group.model.name,
 				where: left(group.model, group.filters),
-				set: { [group.field]: null, updatedAt: new Date() },
+				set: { [group.field]: null, updatedAt: new Date(Date.now()) },
 			})),
 		...[...deleted]
 			.toSorted(([, a], [, b]) => b.depth - a.depth)
