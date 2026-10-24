@@ -96,7 +96,7 @@ export type Attempt =
 
 /** The `n`th most recent failure but `id` matching `where`, if there is one. */
 async function nth(
-	where: { readonly subject: string; readonly address?: string },
+	where: { readonly subject?: string; readonly address?: string },
 	id: string,
 	n: number,
 ): Promise<Date | undefined> {
@@ -111,7 +111,8 @@ async function nth(
  * Counts an attempt as failed until `run` succeeds, so concurrent attempts
  * cannot pass the limit; the eleventh from one address within 15 minutes is
  * refused, as the 101st from any (D-114) and the 101st from one address on
- * any subject, and a success clears its address's count (D-113). An attempt refused as busy is not counted (D-114).
+ * any subject, and a success clears its address's count (D-113). An attempt
+ * refused as busy is not counted (D-114).
  */
 export async function limited<T>(
 	attempt: Attempt,
