@@ -1,5 +1,5 @@
 // password's limits against many addresses (D-114): IPv6 networks, the
-// account ceiling, the hashing queue and the sign-up limit.
+// account and address ceilings, the hashing queue and the sign-up limit.
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { PublicError } from 'ultimabase'
 import { hashPassword, lanes, waiting } from './hash.ts'
@@ -78,6 +78,23 @@ describe('the sign-in limit', () => {
 		).catch((error: unknown) => error)
 		expect(succeeded).toMatchObject(tooMany)
 		expect(await fail('bob@example.com', '198.51.100.1')).toMatchObject({
+			code: 'INVALID_CREDENTIALS',
+		})
+	})
+
+	it('refuses the 101st failure from an address on any account', async () => {
+		await server()
+		const now = Date.now()
+		for (let failure = 0; failure < 100; failure += 1) {
+			vi.spyOn(Date, 'now').mockReturnValue(now + failure * 1000)
+			await fail(`user${failure}@example.com`, '192.0.2.1')
+		}
+		vi.spyOn(Date, 'now').mockReturnValue(now + 100 * 1000)
+		expect(await fail('ada@example.com', '192.0.2.1')).toMatchObject({
+			...tooMany,
+			details: { retryAfter: 800 },
+		})
+		expect(await fail('ada@example.com', '198.51.100.1')).toMatchObject({
 			code: 'INVALID_CREDENTIALS',
 		})
 	})

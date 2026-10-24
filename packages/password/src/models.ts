@@ -110,8 +110,8 @@ async function nth(
 /**
  * Counts an attempt as failed until `run` succeeds, so concurrent attempts
  * cannot pass the limit; the eleventh from one address within 15 minutes is
- * refused, as the 101st from any (D-114), and a success clears its address's
- * count (D-113). An attempt refused as busy is not counted (D-114).
+ * refused, as the 101st from any (D-114) and the 101st from one address on
+ * any subject, and a success clears its address's count (D-113). An attempt refused as busy is not counted (D-114).
  */
 export async function limited<T>(
 	attempt: Attempt,
@@ -127,10 +127,11 @@ export async function limited<T>(
 		{ data: { subject, address, at: new Date(now) } },
 		M,
 	)
-	// Both may be reached: the later one says when to retry.
+	// Several may be reached: the latest says when to retry.
 	const [oldest] = [
 		await nth({ subject, address }, id, limit),
 		await nth({ subject }, id, ceiling),
+		await nth({ address }, id, ceiling),
 	]
 		.filter((at) => at !== undefined)
 		.toSorted((a, b) => b.getTime() - a.getTime())

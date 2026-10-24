@@ -5203,7 +5203,9 @@ Choice: completes D-113.
 2. Each subject, whatever the address, has a ceiling: the 101st failed
    attempt within 15 minutes is refused with `TOO_MANY_ATTEMPTS`, for every
    address, until the oldest of the hundred is 15 minutes old. A success
-   clears its own address's failures only.
+   clears its own address's failures only. Each address, whatever the
+   subject, has the same ceiling: the 101st failed attempt from it within
+   15 minutes is refused on every subject (amended 2026-10-24).
 3. At most `os.availableParallelism()` Argon2 computations run at once in a
    process, and 64 more wait; one more fails with `TOO_MANY_ATTEMPTS` and
    `retryAfter: 1`, and an attempt that fails so is not counted.
@@ -5216,7 +5218,11 @@ Why: an IPv6 client holds a /64 at least, so counting each address gives
 one attacker as many limits as it wants. The per-pair limit alone lets an
 attacker with a thousand addresses try ten thousand passwords on an account
 every 15 minutes; the ceiling caps that at a hundred, at the cost of a
-victim that many addresses can lock out for 15 minutes. Argon2 holds 19 MiB
+victim that many addresses can lock out for 15 minutes. Without the
+address's ceiling, one address tries a common password on every account it
+knows, one failure each, and is never refused; with it, a hundred accounts
+every 15 minutes, at the cost of the clients behind one shared address, such
+as a mobile carrier's NAT, that one attacker among them can lock out. Argon2 holds 19 MiB
 and a thread for each computation, so a burst of sign-ins would exhaust the
 memory and the threadpool; a busy server refuses at once rather than queue
 without end. A sign-up hashes a password and creates rows, so it is limited
@@ -5271,7 +5277,8 @@ Choice: amends D-112, D-113 and D-114.
    and a function cannot tell one client from another; `signUp`'s
    `UNIQUE_VIOLATION` tells an email has an account, which only email
    verification can hide; a hundred failures from many addresses lock an
-   account for 15 minutes (D-114).
+   account for 15 minutes, and a hundred from one address lock that address
+   out of every account (D-114).
 8. A test pins that a mutation over GET, and a POST that is not JSON, fail
    without running, so a page on another site cannot use the cookie.
 
