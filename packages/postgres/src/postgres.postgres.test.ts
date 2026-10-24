@@ -3,7 +3,13 @@
 import { randomUUID } from 'node:crypto'
 import { asUser, testAdapter } from '@ultimabase/testing'
 import { Client } from 'pg'
-import type { Adapter, Logger, Schema } from 'ultimabase'
+import type {
+	Adapter,
+	Logger,
+	Schema,
+	SchemaField,
+	SchemaModel,
+} from 'ultimabase'
 import {
 	CheckFailed,
 	defineApp,
@@ -15,6 +21,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { createAdapter, requireVersion } from './adapter.ts'
 import { postgres } from './index.ts'
 import { Catalog, constraint } from './names.ts'
+import { snapshotOf } from './snapshot.ts'
 import { translate } from './write.ts'
 
 const servers =
@@ -503,5 +510,98 @@ describe('the catalog', () => {
 	it('refuses a server below PostgreSQL 15', () => {
 		expect(() => requireVersion('140010')).toThrow('PostgreSQL 15 or later')
 		expect(() => requireVersion('150000')).not.toThrow()
+	})
+})
+
+const scalar = (name: string, more: object = {}): SchemaField => ({
+	kind: 'scalar',
+	name,
+	type: 'string',
+	optional: false,
+	unique: false,
+	...more,
+})
+const one = (name: string, target: string): SchemaField => ({
+	kind: 'one',
+	name,
+	target,
+	inverse: 'back',
+	stored: true,
+	unique: false,
+	optional: false,
+	onDelete: 'restrict',
+})
+const model = (
+	name: string,
+	fields: SchemaField[],
+	more: Partial<SchemaModel> = {},
+): SchemaModel => ({ name, fields, indexes: [], ...more })
+
+const refused = (models: SchemaModel[]) => () =>
+	snapshotOf(new Catalog({ models }))
+const many = (name: string, target: string): SchemaField => ({
+	kind: 'many',
+	name,
+	target,
+	inverse: target === 'Tag' ? 'books' : 'tags',
+	join: true,
+})
+
+describe('two things stored under one name', () => {
+	it('refuses two tables', () => {
+		const models = [model('Post', []), model('Article', [], { dbName: 'post' })]
+		expect(refused(models)).toThrow(
+			'the table of Post and the table of Article are both stored as "post".',
+		)
+		// It refuses before it connects.
+		const adapter = postgres({ url: 'postgres://nowhere.invalid/none' })
+		return expect(adapter.start({ models })).rejects.toThrow('"post"')
+	})
+
+	it('refuses a model named as a join table', () => {
+		const models = [
+			model('Book', [many('tags', 'Tag')]),
+			model('Tag', [many('books', 'Book')]),
+			model('BookTags', []),
+		]
+		expect(refused(models)).toThrow(
+			'the table of BookTags and the join table of Book.tags are both stored as "book_tags".',
+		)
+	})
+
+	it('refuses two constraints', () => {
+		const models = [
+			model(
+				'Thing',
+				[scalar('aB', { unique: true }), scalar('a'), scalar('b')],
+				{
+					indexes: [{ fields: ['a', 'b'], unique: true }],
+				},
+			),
+		]
+		expect(refused(models)).toThrow(
+			'the unique key on Thing(aB) and the unique key on Thing(a, b) are both stored as "thing_a_b_key".',
+		)
+	})
+
+	it('refuses two foreign keys of two tables', () => {
+		const models = [
+			model('Team', []),
+			model('Post', [one('authorTeam', 'Team')]),
+			model('PostAuthor', [one('team', 'Team')]),
+		]
+		expect(refused(models)).toThrow(
+			'the foreign key of Post.authorTeam and the foreign key of PostAuthor.team are both stored as "post_author_team_id_fkey".',
+		)
+	})
+
+	it('refuses two columns of a table', () => {
+		const models = [
+			model('Team', []),
+			model('Post', [one('team', 'Team'), scalar('teamId')]),
+		]
+		expect(refused(models)).toThrow(
+			'Post.team and Post.teamId are both stored as "team_id".',
+		)
 	})
 })

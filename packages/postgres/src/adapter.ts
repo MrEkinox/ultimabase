@@ -102,6 +102,9 @@ export function createAdapter(options: Options): Adapter {
 	}
 	return {
 		start: async (schema: Schema) => {
+			const catalog = new Catalog(schema)
+			// Refuses two things stored under one name before it connects.
+			snapshotOf(catalog)
 			const pool = new Pool({ connectionString: options.url })
 			// An idle connection the server ends would crash the process unheard:
 			// the pool drops it and the next query opens another.
@@ -111,7 +114,6 @@ export function createAdapter(options: Options): Adapter {
 				dialect,
 				...(options.log === undefined ? {} : { log: options.log }),
 			})
-			const catalog = new Catalog(schema)
 			try {
 				const { rows } = await sql<{
 					server_version_num: string

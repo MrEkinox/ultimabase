@@ -21,10 +21,12 @@ export type Table = {
 }
 
 /**
- * A many-to-many side: its join table, the column of this side's ids and of
- * the other's, and the tables those ids belong to.
+ * A many-to-many side: the relation its join table is named after, the join
+ * table, the column of this side's ids and of the other's, and the tables
+ * those ids belong to.
  */
 export type Join = {
+	readonly relation: string
 	readonly table: string
 	readonly self: string
 	readonly other: string
@@ -142,7 +144,9 @@ export class Catalog {
 				const name = `${table.name}_${snake(field.name)}`
 				const mine = self ? `${snake(field.inverse)}_id` : `${table.name}_id`
 				const theirs = self ? `${snake(field.name)}_id` : `${target.name}_id`
-				joins.set(`${table.model.name}.${field.name}`, {
+				const relation = `${table.model.name}.${field.name}`
+				joins.set(relation, {
+					relation,
 					table: name,
 					self: mine,
 					other: theirs,
@@ -150,6 +154,7 @@ export class Catalog {
 					target: target.name,
 				})
 				joins.set(`${target.model.name}.${field.inverse}`, {
+					relation,
 					table: name,
 					self: theirs,
 					other: mine,

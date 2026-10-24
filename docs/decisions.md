@@ -3378,6 +3378,10 @@ Choice:
      of its hash.
    - When `<table>_pkey` or a `_key` refuses a write, the adapter reports
      `UniqueViolation` with the model's field names.
+   - Two things stored under one name are refused, naming both: two tables
+     (a model's or a join table), two keys, checks or indexes in the schema,
+     or two columns of a table. `start` refuses before it connects, and so
+     does a snapshot (amended 2026-10-24).
 5. Round-trip counts. `testAdapter(name, create, { roundTrips })` requires
    a counter and runs the counts of D-46 and D-48, so no adapter passes the
    contract without them (D-99).

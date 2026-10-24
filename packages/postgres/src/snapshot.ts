@@ -58,11 +58,35 @@ type Building = {
 	foreignKeys: Record<string, ForeignKey>
 }
 
-function empty(model: string, table: string, keys: string[]): Building {
+type Claim = (name: string, what: string) => string
+
+/** Refuses two things stored under one name (D-98). */
+function claimer(): Claim {
+	const owners = new Map<string, string>()
+	return (name, what) => {
+		const prior = owners.get(name)
+		if (prior !== undefined) {
+			throw new Error(`${prior} and ${what} are both stored as "${name}".`)
+		}
+		owners.set(name, what)
+		return name
+	}
+}
+
+/** Tables, keys and indexes share a schema's names; columns, a table's. */
+type Claims = { readonly schema: Claim; readonly columns: Claim }
+
+function empty(
+	claims: Claims,
+	model: string,
+	table: string,
+	keys: string[],
+): Building {
+	const name = claims.schema(constraint(`${table}_pkey`), `the key of ${model}`)
 	return {
 		model,
 		columns: {},
-		primaryKey: { name: constraint(`${table}_pkey`), columns: keys },
+		primaryKey: { name, columns: keys },
 		uniques: {},
 		checks: {},
 		indexes: {},
@@ -70,18 +94,27 @@ function empty(model: string, table: string, keys: string[]): Building {
 	}
 }
 
-function index(building: Building, table: string, columns: string[]): void {
-	building.indexes[constraint(`${table}_${columns.join('_')}_idx`)] = columns
+function index(
+	claims: Claims,
+	building: Building,
+	table: string,
+	columns: string[],
+	what: string,
+): void {
+	const name = constraint(`${table}_${columns.join('_')}_idx`)
+	building.indexes[claims.schema(name, `the index on ${what}`)] = columns
 }
 
 function field(
 	catalog: Catalog,
+	claims: Claims,
 	table: Table,
 	building: Building,
 	given: SchemaField,
 ): void {
 	if (given.kind === 'many' || (given.kind === 'one' && !given.stored)) return
-	const column = catalog.column(table, given.name)
+	const what = `${table.model.name}.${given.name}`
+	const column = claims.columns(catalog.column(table, given.name), what)
 	const type = given.kind === 'one' ? 'uuid' : types[given.type]
 	building.columns[column] = {
 		field: given.name,
@@ -89,51 +122,66 @@ function field(
 		nullable: given.optional,
 	}
 	if (given.kind === 'scalar' && given.type === 'enum') {
-		building.checks[constraint(`${table.name}_${column}_check`)] = {
+		const name = constraint(`${table.name}_${column}_check`)
+		building.checks[claims.schema(name, `the check on ${what}`)] = {
 			column,
 			values: [...(given.values ?? [])],
 		}
 	}
 	if (given.kind !== 'one') return
-	building.foreignKeys[constraint(`${table.name}_${column}_fkey`)] = {
+	const key = constraint(`${table.name}_${column}_fkey`)
+	building.foreignKeys[claims.schema(key, `the foreign key of ${what}`)] = {
 		column,
 		table: catalog.table(given.target).name,
 		cascade: false,
 	}
-	if (!given.unique) index(building, table.name, [column])
+	if (!given.unique) index(claims, building, table.name, [column], what)
 }
+
+/** The fields of a key or an index, as `Thing(a, b)`. */
+const on = (model: string, fields: readonly string[]) =>
+	`${model}(${fields.join(', ')})`
 
 /** The snapshot of the catalog's tables, join tables last. */
 export function snapshotOf(catalog: Catalog): Snapshot {
 	const tables: Record<string, Building> = {}
+	const schema = claimer()
 	for (const table of catalog.tables.values()) {
-		const building = empty(table.model.name, table.name, ['id'])
+		const model = table.model.name
+		const claims = { schema, columns: claimer() }
+		schema(table.name, `the table of ${model}`)
+		const building = empty(claims, model, table.name, ['id'])
 		for (const [column, name, type] of [
 			['id', 'id', 'uuid'],
 			['created_at', 'createdAt', 'timestamptz'],
 			['updated_at', 'updatedAt', 'timestamptz'],
 		] as const) {
+			claims.columns(column, `${model}.${name}`)
 			building.columns[column] = { field: name, type, nullable: false }
 		}
 		for (const given of table.model.fields) {
-			field(catalog, table, building, given)
+			field(catalog, claims, table, building, given)
 		}
 		const [, ...uniques] = table.uniques
 		for (const { name, fields } of uniques) {
-			building.uniques[name] = fields.map((given) =>
+			const what = `the unique key on ${on(model, fields)}`
+			building.uniques[schema(name, what)] = fields.map((given) =>
 				catalog.column(table, given),
 			)
 		}
 		for (const { fields, unique } of table.model.indexes) {
 			if (unique) continue
 			const columns = fields.map((name) => catalog.column(table, name))
-			index(building, table.name, columns)
+			index(claims, building, table.name, columns, on(model, fields))
 		}
 		tables[table.name] = building
 	}
-	for (const [relation, join] of catalog.joins) {
-		if (tables[join.table] !== undefined) continue
-		const building = empty(relation, join.table, [join.self, join.other])
+	for (const [side, join] of catalog.joins) {
+		// Both sides of a relation share its table.
+		if (side !== join.relation) continue
+		const claims = { schema, columns: claimer() }
+		schema(join.table, `the join table of ${side}`)
+		const building = empty(claims, side, join.table, [join.self, join.other])
 		for (const column of [join.self, join.other]) {
 			building.columns[column] = {
 				field: column,
@@ -145,13 +193,14 @@ export function snapshotOf(catalog: Catalog): Snapshot {
 			[join.self, join.owner],
 			[join.other, join.target],
 		] as const) {
-			building.foreignKeys[constraint(`${join.table}_${column}_fkey`)] = {
+			const key = constraint(`${join.table}_${column}_fkey`)
+			building.foreignKeys[schema(key, `the foreign key of ${side}`)] = {
 				column,
 				table,
 				cascade: true,
 			}
 		}
-		index(building, join.table, [join.other])
+		index(claims, building, join.table, [join.other], side)
 		tables[join.table] = building
 	}
 	return { postgres: 1, tables }
