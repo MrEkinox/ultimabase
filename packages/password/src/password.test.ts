@@ -5,7 +5,7 @@ import { authPlugin, defineUser } from '@ultimabase/auth'
 import { graphqlPlugin } from '@ultimabase/graphql'
 import { httpPlugin } from '@ultimabase/http'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import type { Adapter, Caller } from 'ultimabase'
+import type { Adapter, Caller, Client } from 'ultimabase'
 import { defineApp, defineModel, memory } from 'ultimabase'
 import { password, passwordPlugin } from './index.ts'
 import { hashPassword } from './hash.ts'
@@ -351,6 +351,31 @@ describe('signing in', () => {
 			const refused = await signIn(url)
 			expect(errorOf(refused.body)).toMatchObject({ code: 'INTERNAL' })
 		}
+	})
+
+	it('is the command User.signIn, counted and with a cookie for a client', async () => {
+		const { url } = await server()
+		await signUp(url)
+		const set: string[] = []
+		const client: Client = {
+			address: '203.0.113.7',
+			cookies: {
+				get: () => undefined,
+				set: (name) => set.push(name),
+				clear: () => undefined,
+			},
+		}
+		const failed = async () =>
+			User.signIn({ ...ada, password: 'wrong password' }, { client }).catch(
+				(error: unknown) => error,
+			)
+		for (let failure = 0; failure < 10; failure += 1) {
+			expect(await failed()).toMatchObject(wrong)
+		}
+		expect(await failed()).toMatchObject({ code: 'TOO_MANY_ATTEMPTS' })
+		const other = { ...client, address: '198.51.100.1' }
+		await User.signIn(ada, { client: other })
+		expect(set).toStrictEqual(['ultimabase_session'])
 	})
 
 	it('is the command User.signIn, uncounted and without a cookie', async () => {

@@ -4,6 +4,7 @@ import type { Auth, AuthApi } from '@ultimabase/auth'
 import { authPlugin } from '@ultimabase/auth'
 import type {
 	Caller,
+	Client,
 	ExposedModel,
 	PluginOf,
 	PluginTypes,
@@ -41,6 +42,8 @@ export interface PasswordOptions {
 }
 
 type Options = { readonly as?: Caller }
+/** A transport's client, which counts the attempt and gets the cookie (D-115). */
+type SignInOptions = Options & { readonly client?: Client }
 type CreateData<F> = Parameters<Queries<F>['create']>[0]['data']
 type UserRow<F> = Awaited<ReturnType<Queries<F>['delete']>>
 
@@ -51,8 +54,14 @@ export interface PasswordCommands<F> {
 		args: Credentials & { readonly data: CreateData<F> },
 		options?: Options,
 	): Promise<UserRow<F>>
-	/** Opens a session, without a cookie; server code, so never limited. */
-	signIn(args: Credentials, options?: Options): Promise<SignedIn<UserRow<F>>>
+	/**
+	 * Opens a session; with a `client`, counted and with its cookie as the
+	 * signIn function, otherwise never limited.
+	 */
+	signIn(
+		args: Credentials,
+		options?: SignInOptions,
+	): Promise<SignedIn<UserRow<F>>>
 	/**
 	 * Replaces the password and ends every session, as Master or as the user.
 	 * It takes no current password: check the user's intent first, as
@@ -197,16 +206,13 @@ const definition = definePlugin<Password>({
 				// oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the user model's row, created by its own queries.
 				return user as UserRow<object>
 			},
-			signIn: async ({ email, password }) => {
+			signIn: async ({ email, password }, options) => {
 				const state = stateOf(plugins.auth)
 				const subject = valid(emailOf, email, 'email')
-				const checked = await verified(
-					state,
-					subject,
-					password,
-					attemptOf(subject, undefined),
-				)
-				const opened = await signedIn(state, checked, undefined)
+				const client = options?.client
+				const attempt = attemptOf(subject, client)
+				const checked = await verified(state, subject, password, attempt)
+				const opened = await signedIn(state, checked, client)
 				// oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the user model's row, read by its own queries.
 				return opened as SignedIn<UserRow<object>>
 			},
