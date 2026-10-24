@@ -5320,3 +5320,102 @@ httpPlugin({ proxies: 2 })
 
 Routes and plugins read `clientOf(c).client.address` and `c.var.address` as
 before.
+
+## D-117: Password reset and email verification
+
+Choice: completes D-113 point 12 and D-115.
+
+1. Sending. `passwordPlugin({ sendEmail })` takes the function that sends
+   an email: it receives `{ kind: 'reset' | 'verify', to, token, userId }`
+   and writes the text, builds the link and picks the service. Without it,
+   the functions of point 2 are absent, as `signUp: false` removes `signUp`.
+2. The functions, each public: `requestPasswordReset(input: { email })`,
+   `resetPassword(input: { token, password })`, `verifyEmail(input:
+{ token })` and `sendVerificationEmail`, which needs a signed-in user.
+   Each returns `Boolean!`, `true`.
+3. No enumeration. `requestPasswordReset` returns `true` whether the email
+   has an account or not, before the user is read: the token and the email
+   are made after the response, so its time tells nothing either. An
+   unknown email sends nothing. A failed send is logged with
+   `logger.error`; the client sees no difference. Stopping the application
+   waits for the sends under way.
+4. `resetPassword` sets the password, which ends every session (D-113), and
+   opens none. It marks the email verified: the user received it.
+5. Tokens. 32 random bytes in base64url; `PasswordToken` stores their
+   SHA-256 hash with the user, the kind and the expiry. A token is used
+   once and lasts one hour for a reset, 24 hours for a verification. A new
+   token replaces the older one of its kind; setting a password deletes the
+   pending reset tokens. A wrong, used or expired token fails with
+   `INVALID_CREDENTIALS`, "This link is invalid or has expired.". No
+   numeric codes.
+6. Limits. `requestPasswordReset` and `sendVerificationEmail` each refuse
+   the eleventh request from one address within one hour, counted as
+   sign-ups are (D-114). An account receives three emails per hour, of
+   either kind: past that, `sendVerificationEmail` fails with
+   `TOO_MANY_ATTEMPTS` and `requestPasswordReset` sends nothing, still
+   returning `true`. The values are fixed.
+7. `password()` adds `emailVerified: boolean`, `false` by default, to the
+   user model, which only Master writes: rules read `user.emailVerified`.
+   `signUp` may not list it. The column exists without `sendEmail`, and
+   stays `false`.
+8. Signing in before verification is allowed. With `sendEmail`, the
+   `signUp` function sends the verification email once the user exists;
+   the `User.signUp` command sends nothing. `signUp` keeps refusing a taken
+   email with `UNIQUE_VIOLATION` (D-115).
+
+Why: without a reset, a forgotten password needs an administrator; without
+verification, an application cannot tell whether an email reaches its
+user. A function keeps texts, languages and the sending service the
+application's, with no dependency, and a later email plugin can provide
+it. Hashing the tokens makes a leaked database give no working link;
+replacing older ones leaves one link alive per purpose. Opening no session
+after a reset is OWASP's advice: it adds sensitive session code for little
+gain. Without a per-account limit, many addresses could flood one inbox;
+refusing past it on a reset would tell that the account exists. A field on
+the user model is what a rule reads, as Parse's `emailVerified`.
+Rejected: built-in email templates, which are the application's; an email
+plugin now; six-digit codes, which can be guessed and need limits of their
+own; signing in after a reset; the status in a password model or on
+`AuthAccount`, which a rule cannot read simply; verification required
+before any sign-in, which would make `signUp`'s type depend on an option;
+options for the limits and the lifetimes. Out of this decision: changing an
+email, and linking an OAuth account by its verified email.
+Example:
+
+```ts
+// Before: a forgotten password needs an administrator's User.setPassword
+passwordPlugin({ signUp: ['name'] })
+
+// After
+passwordPlugin({
+	signUp: ['name'],
+	sendEmail: async ({ kind, to, token }) => {
+		await resend.emails.send({
+			from: 'hello@app.example',
+			to,
+			subject: kind === 'reset' ? 'Reset your password' : 'Confirm your email',
+			text: `https://app.example/${kind}?token=${token}`,
+		})
+	},
+})
+
+// Only confirmed emails publish
+defineModel({ name: 'Post', fields: (f) => ({ text: f.string() }) }).with({
+	access: { create: signedIn(({ user }) => user.emailVerified) },
+})
+```
+
+```graphql
+mutation {
+	requestPasswordReset(input: { email: "ada@example.com" })
+}
+mutation {
+	resetPassword(input: { token: "…", password: "new secret" })
+}
+mutation {
+	verifyEmail(input: { token: "…" })
+}
+mutation {
+	sendVerificationEmail
+}
+```
