@@ -95,6 +95,7 @@ const client = (): Client & { readonly sent: unknown[] } => {
 	return {
 		address: '203.0.113.7',
 		cookies: {
+			get: () => undefined,
 			set: (...args) => sent.push(['set', ...args]),
 			clear: (...args) => sent.push(['clear', ...args]),
 		},

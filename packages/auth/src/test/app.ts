@@ -101,9 +101,14 @@ export async function started(database: Adapter = memory()) {
 }
 
 /** Signs `id` in: its token, and the cookie the response sets. */
-export async function signIn(url: string, id: string) {
+export async function signIn(
+	url: string,
+	id: string,
+	headers: Record<string, string> = {},
+) {
 	const response = await fetch(`${url}/sign-in`, {
 		method: 'POST',
+		headers,
 		body: JSON.stringify({ id }),
 	})
 	const body: unknown = await response.json()

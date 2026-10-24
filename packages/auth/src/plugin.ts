@@ -26,6 +26,7 @@ import { authFunctions, callerTokens } from './functions.ts'
 import type { Opened } from './sessions.ts'
 import {
 	AuthSession,
+	closeSession,
 	openSession,
 	revokeSessions,
 	sessionUser,
@@ -39,7 +40,7 @@ export type { Opened } from './sessions.ts'
 export interface AuthApi {
 	/**
 	 * Opens a session for `userId`, and sets its cookie when a transport's
-	 * `client` is given.
+	 * `client` is given, ending the session the cookie it replaces held.
 	 */
 	signIn(userId: string, client?: Client): Promise<Opened>
 	/** Ends every session of a user. */
@@ -162,6 +163,9 @@ const auth = definePlugin<Auth>({
 		states.set(context, { cookie, users: usersOf(context.models) })
 		return {
 			signIn: async (userId, client) => {
+				// The cookie it replaces would leave a session nobody can end (D-115).
+				const replaced = client?.cookies.get(cookie.name)
+				if (replaced !== undefined) await closeSession(replaced)
 				const opened = await openSession(userId)
 				client?.cookies.set(cookie.name, opened.token, {
 					...cookie.options,

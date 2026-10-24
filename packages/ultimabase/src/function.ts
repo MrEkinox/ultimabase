@@ -107,8 +107,10 @@ export interface CookieOptions {
 export interface Client {
 	/** The connection's address, `''` when the transport has none. */
 	readonly address: string
-	/** Written on the transport's HTTP response. */
+	/** Read from the request, written on the transport's HTTP response. */
 	readonly cookies: {
+		/** The request's cookie `name`, `undefined` when it sent none. */
+		get(name: string): string | undefined
 		set(name: string, value: string, options?: CookieOptions): void
 		/** Its `path` and `domain` must be those it was set with. */
 		clear(name: string, options?: CookieOptions): void

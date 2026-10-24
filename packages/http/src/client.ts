@@ -1,7 +1,7 @@
-// A function's client over HTTP (D-113): the connection's address, and the
-// cookies its run sets, added to the response the route returns.
+// A function's client over HTTP (D-113, D-115): the connection's address, the
+// request's cookies, and those its run sets, added to the route's response.
 import type { Context } from 'hono'
-import { generateCookie } from 'hono/cookie'
+import { generateCookie, getCookie } from 'hono/cookie'
 import type { Client } from 'ultimabase'
 import type { HttpEnv } from './app.ts'
 
@@ -15,6 +15,7 @@ export function clientOf(c: Context<HttpEnv>): {
 		client: {
 			address: c.var.address,
 			cookies: {
+				get: (name) => getCookie(c, name),
 				set: (name, value, options) => {
 					cookies.push(generateCookie(name, value, options))
 				},

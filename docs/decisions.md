@@ -5202,3 +5202,65 @@ const response = await fetch('/graphql', {
 ```
 
 The application's code does not change.
+
+## D-115: auth and password after their audit
+
+Choice: amends D-112, D-113 and D-114.
+
+1. A function's `client` reads the request's cookies:
+   `client.cookies.get(name)`, `undefined` when the request has none. When
+   auth's `signIn(userId, client)` sets the session's cookie, it first ends
+   the session the request's cookie held, whoever's it was.
+2. Outside production the cookie is neither `Secure` nor `__Host-`
+   (D-112). auth logs one warning per running application the first time
+   it identifies a request for a host that is not local (`localhost`,
+   `*.localhost`, `127.0.0.1` or `[::1]`), naming `NODE_ENV=production`.
+3. `User.signIn({ email, password }, { client })` counts the attempt and
+   sets the cookie as the `signIn` function does; without `client` it is
+   still not counted (D-113 point 11).
+4. Each sign-in deletes every expired session, not only the user's;
+   `AuthSession` gets an index on `expiresAt`.
+5. A password is normalized to NFKC before it is measured, hashed or
+   checked; an email is lowercased then normalized to NFC.
+6. A session also ends one year after its sign-in, however often it is
+   used: a renewal never sets `expiresAt` past it.
+7. Known and kept, written in the plugins' documentation: the token is in
+   `SignedIn` even when the cookie is set, since a mobile client needs it
+   and a function cannot tell one client from another; `signUp`'s
+   `UNIQUE_VIOLATION` tells an email has an account, which only email
+   verification can hide; a hundred failures from many addresses lock an
+   account for 15 minutes (D-114).
+8. A test pins that a mutation over GET, and a POST that is not JSON, fail
+   without running, so a page on another site cannot use the cookie.
+
+Why: a browser that signs in again overwrites its cookie, and the session it
+held stayed valid for 30 days with nobody able to end it; a Bearer client
+keeps its old token and may still sign out with it. An application served
+over HTTPS without `NODE_ENV=production` sends its session cookie over plain
+HTTP too, silently. A command without limits, called from an application's
+own sign-in route, is an unlimited password oracle. Expired sessions of users
+who never sign in again stayed forever. One password typed as composed or
+decomposed characters gave two hashes (NIST SP 800-63B asks for NFKC). A
+stolen token used every fortnight lived forever.
+Rejected: closing the request's session through a `caller` given to
+`signIn`, an API change for every sign-in method, which would also end a
+Bearer client's session it may still use; deriving `Secure` from the
+request, which a proxy hides until D-113's forwarded address is decided; a
+scheduled cleanup, infrastructure no other need asks for; one lifetime of
+30 days from sign-in, D-112's rejected choice.
+Example:
+
+```ts
+// Before: an application's own sign-in route, never limited
+routes().post('/login', async (c) => {
+	const { email, password } = await c.req.json()
+	return c.json(await User.signIn({ email, password }))
+})
+
+// After: limited, and the browser gets its cookie
+routes().post('/login', async (c) => {
+	const { email, password } = await c.req.json()
+	const { client, sent } = clientOf(c)
+	return sent(c.json(await User.signIn({ email, password }, { client })))
+})
+```

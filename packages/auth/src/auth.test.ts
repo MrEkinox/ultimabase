@@ -172,6 +172,17 @@ describe('a session’s lifetime', () => {
 		expect(used?.expiresAt).toStrictEqual(opened?.expiresAt)
 	})
 
+	it('signing in again ends the cookie’s session, not a Bearer’s', async () => {
+		const { url, ada } = await server()
+		const kept = await signIn(url, ada.id)
+		const replaced = await signIn(url, ada.id)
+		const again = await signIn(url, ada.id, cookie(replaced.token))
+		await signIn(url, ada.id, bearer(kept.token))
+		expect((await callerOf(url, bearer(replaced.token))).status).toBe(401)
+		expect((await callerOf(url, bearer(kept.token))).status).toBe(200)
+		expect((await callerOf(url, bearer(again.token))).status).toBe(200)
+	})
+
 	it('signing in ends the user’s expired sessions', async () => {
 		const { url, ada } = await server()
 		await signIn(url, ada.id)
