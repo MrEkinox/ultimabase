@@ -243,6 +243,18 @@ export interface Migrations {
 	apply(run: Run): Promise<void>
 	/** Drops every table, for `ultimabase reset`; returns the models' tables. */
 	reset(): Promise<readonly string[]>
+	/** The database's host when it is not on this machine: `reset` then needs `--force`. */
+	readonly remote?: string
+}
+
+/** A host only this machine reaches (D-66, D-105, D-115). */
+export function isLocalHost(hostname: string): boolean {
+	return (
+		hostname === 'localhost' ||
+		hostname.endsWith('.localhost') ||
+		hostname === '127.0.0.1' ||
+		hostname === '[::1]'
+	)
 }
 
 /** A storage adapter: its own slot, not a plugin (D-02, D-73). */
@@ -265,6 +277,36 @@ export class UniqueViolation extends Error {
 		this.name = 'UniqueViolation'
 		this.model = model
 		this.fields = fields
+	}
+}
+
+/**
+ * A foreign key refused a write that raced another (D-99): `model.field`
+ * links a `target` deleted meanwhile, or, `restricted`, the write deleted a
+ * `target` that `model.field` still links.
+ */
+export class RelationViolation extends Error {
+	readonly model: string
+	readonly field: string
+	readonly target: string
+	readonly restricted: boolean
+
+	constructor(
+		model: string,
+		field: string,
+		target: string,
+		restricted: boolean,
+	) {
+		super(
+			restricted
+				? `${model}.${field} still links a deleted ${target}.`
+				: `${model}.${field} links a missing ${target}.`,
+		)
+		this.name = 'RelationViolation'
+		this.model = model
+		this.field = field
+		this.target = target
+		this.restricted = restricted
 	}
 }
 

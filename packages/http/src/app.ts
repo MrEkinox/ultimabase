@@ -1,5 +1,6 @@
-// The Hono application `httpPlugin` serves (D-66, D-106): CORS, the body
-// limit, each request's caller, the routes, and errors as D-72 sends them.
+// The Hono application `httpPlugin` serves (D-66, D-106): CORS, forms from
+// other origins, the body limit, each request's caller, the routes, and
+// errors as D-72 sends them.
 import { randomUUID } from 'node:crypto'
 import { STATUS_CODES } from 'node:http'
 import type { Context } from 'hono'
@@ -10,7 +11,7 @@ import { HTTPException } from 'hono/http-exception'
 import type { ContentfulStatusCode } from 'hono/utils/http-status'
 import { getPath } from 'hono/utils/url'
 import type { Caller, ErrorCode, Logger } from 'ultimabase'
-import { PublicError } from 'ultimabase'
+import { isLocalHost, PublicError } from 'ultimabase'
 import { addresses, proxiesOf } from './address.ts'
 import { hold } from './request.ts'
 
@@ -94,15 +95,17 @@ function failed(error: unknown, c: Context, logger: Logger): Response {
 	)
 }
 
-/** `http://localhost` or `http://127.0.0.1`, on any port (D-66). */
+/** A local host over `http:`, on any port. */
 function isLocal(origin: string): boolean {
 	if (!URL.canParse(origin)) return false
 	const { protocol, hostname } = new URL(origin)
-	return (
-		protocol === 'http:' &&
-		(hostname === 'localhost' || hostname === '127.0.0.1')
-	)
+	return protocol === 'http:' && isLocalHost(hostname)
 }
+
+const safe = new Set(['GET', 'HEAD', 'OPTIONS'])
+/** What an HTML form sends, `text/plain` when it names none. */
+const form =
+	/^(application\/x-www-form-urlencoded|multipart\/form-data|text\/plain)\b/i
 
 /**
  * Hono's path, with control characters left encoded: a route never matches
@@ -164,6 +167,26 @@ export function appOf(
 			c.header('access-control-allow-credentials', 'true')
 		}
 		c.header('vary', 'Origin', { append: true })
+	})
+	// A browser sends a form to any site, with that site's cookies, and no
+	// CORS check stops it: one that carries cookies comes from an allowed
+	// origin (D-106). A webhook sends no cookie.
+	app.use(async (c, next) => {
+		const origin = c.req.header('origin') ?? ''
+		if (
+			!safe.has(c.req.method) &&
+			form.test(c.req.header('content-type') ?? 'text/plain') &&
+			c.req.header('cookie') !== undefined &&
+			c.req.header('sec-fetch-site') !== 'same-origin' &&
+			origin !== new URL(c.req.url).origin &&
+			allowed(origin) === null
+		) {
+			throw new PublicError(
+				'ACCESS_DENIED',
+				'A form from another origin cannot send cookies.',
+			)
+		}
+		await next()
 	})
 	app.use(
 		bodyLimit({

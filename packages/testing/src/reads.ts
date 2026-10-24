@@ -148,6 +148,19 @@ export function reads(create: () => Adapter): void {
 			expect(await titles({ title: { startsWith: '_' } })).toEqual([])
 		})
 
+		it('matches part of an id as a string', async () => {
+			// An id begins with its time, shared by rows created together.
+			const id = authors.ada
+			expect(await names({ id: { startsWith: id.slice(0, 30) } })).toEqual([
+				'Ada',
+			])
+			expect(await names({ id: { contains: id.slice(24, 32) } })).toEqual([
+				'Ada',
+			])
+			expect(await names({ id: { endsWith: id.slice(24) } })).toEqual(['Ada'])
+			expect(await names({ id: { contains: 'Z' } })).toEqual([])
+		})
+
 		it('compares numbers, dates, booleans, enums and json', async () => {
 			expect(await titles({ pages: { lt: 300 } })).toEqual(['Engines'])
 			expect(await titles({ pages: { lte: 300 } })).toEqual([
@@ -248,6 +261,19 @@ export function reads(create: () => Adapter): void {
 			])
 			// Without an order, rows come in the order they were created.
 			expect(await ordered([])).toEqual(['Analysis', 'Engines', 'Compilers'])
+		})
+
+		it('orders strings by code point, as the bytes of their UTF-8', async () => {
+			// UTF-16 puts U+FF5A above U+1F600, which is above it as a code point.
+			await Tag.create({ data: { label: '😀' } }, M)
+			await Tag.create({ data: { label: 'ｚ' } }, M)
+			const tags = await Tag.findMany({ orderBy: { label: 'asc' } }, M)
+			expect(tags.map(({ label }) => label)).toEqual([
+				'art',
+				'math',
+				'ｚ',
+				'😀',
+			])
 		})
 
 		it('skips, takes and starts at a cursor, forwards and backwards', async () => {

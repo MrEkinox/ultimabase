@@ -3,18 +3,27 @@
 import { randomUUID } from 'node:crypto'
 import { asUser, testAdapter } from '@ultimabase/testing'
 import { Client } from 'pg'
-import type { Adapter, Logger, Schema } from 'ultimabase'
+import type {
+	Adapter,
+	Logger,
+	Schema,
+	SchemaField,
+	SchemaModel,
+} from 'ultimabase'
 import {
 	CheckFailed,
 	defineApp,
 	defineModel,
 	master,
+	RelationViolation,
+	transaction,
 	UniqueViolation,
 } from 'ultimabase'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { createAdapter, requireVersion } from './adapter.ts'
 import { postgres } from './index.ts'
 import { Catalog, constraint } from './names.ts'
+import { snapshotOf } from './snapshot.ts'
 import { translate } from './write.ts'
 
 const servers =
@@ -33,9 +42,14 @@ async function run(url: string, statement: string): Promise<void> {
 	}
 }
 
+/**
+ * `url` on `schema`, in a session whose time zone gives old dates an offset
+ * in seconds, which a date read in it loses.
+ */
 function inSchema(url: string, schema: string): string {
 	const separator = url.includes('?') ? '&' : '?'
-	return `${url}${separator}options=${encodeURIComponent(`-c search_path=${schema}`)}`
+	const options = `-c search_path=${schema} -c TimeZone=Europe/Paris`
+	return `${url}${separator}options=${encodeURIComponent(options)}`
 }
 
 for (const url of urls) {
@@ -129,6 +143,22 @@ describe('postgres()', () => {
 			await expect(insert('a')).rejects.toBeInstanceOf(UniqueViolation)
 			// A refusal that is not a unique key's arrives as PostgreSQL's.
 			await expect(insert(null)).rejects.toMatchObject({ code: '23502' })
+		} finally {
+			await adapter.stop()
+		}
+	})
+
+	it('outlives a server that ends its idle connection', async () => {
+		const name = `application_name=${schema}`
+		const adapter = postgres({ url: `${inSchema(url, schema)}&${name}` })
+		await started(adapter, thing)
+		try {
+			await run(
+				url,
+				`select pg_terminate_backend(pid) from pg_stat_activity where application_name = '${schema}'`,
+			)
+			await new Promise((resolve) => setTimeout(resolve, 100))
+			expect(await adapter.find({ model: 'Thing' })).toEqual([])
 		} finally {
 			await adapter.stop()
 		}
@@ -281,6 +311,38 @@ describe('a write on postgres()', () => {
 		])
 	})
 
+	it('reports a link its own COMMIT refuses', async () => {
+		const failed = adapter.write({
+			changes: [
+				{
+					kind: 'link',
+					model: 'Book',
+					field: 'tags',
+					id: book.id,
+					targets: [randomUUID()],
+				},
+				{
+					kind: 'unlink',
+					model: 'Book',
+					field: 'tags',
+					id: book.id,
+					targets: [first.id],
+				},
+				{
+					kind: 'link',
+					model: 'Tag',
+					field: 'books',
+					id: first.id,
+					targets: [book.id],
+				},
+			],
+		})
+		await expect(failed).rejects.toEqual(
+			new RelationViolation('Book', 'tags', 'Tag', false),
+		)
+		expect(sent.slice(-2)).toEqual(['commit', 'rollback'])
+	})
+
 	it('writes nothing when a check fails, and names it', async () => {
 		const failed = adapter.write({
 			checks: [
@@ -384,6 +446,30 @@ describe('a write on postgres()', () => {
 		expect(found?.['id']).toBe(book.id)
 		expect(sent[1]).toContain('for update')
 	})
+
+	it('gives back its connection when a commit fails', async () => {
+		// More failed commits than the pool holds connections.
+		for (let attempt = 0; attempt < 11; attempt += 1) {
+			const tx = await adapter.begin()
+			await tx.write({
+				changes: [
+					{
+						kind: 'link',
+						model: 'Book',
+						field: 'tags',
+						id: book.id,
+						targets: [randomUUID()],
+					},
+				],
+			})
+			// The foreign key is checked at commit (D-98).
+			await expect(tx.commit()).rejects.toEqual(
+				new RelationViolation('Book', 'tags', 'Tag', false),
+			)
+		}
+		const found = await adapter.find(tags(book.id))
+		expect(found[0]?.['tags']).toHaveLength(1)
+	}, 2000)
 })
 
 const quiet: Logger = {
@@ -437,6 +523,72 @@ describe('a user write on postgres()', () => {
 	})
 })
 
+const M = { as: master }
+
+const Genre = defineModel({
+	name: 'Genre',
+	fields: (f) => ({ songs: f.many(() => Song) }),
+})
+const Song = defineModel({
+	name: 'Song',
+	fields: (f) => ({ genre: f.one(() => Genre, { inverse: 'songs' }) }),
+})
+
+describe('a write that races a delete on postgres()', () => {
+	const url = urls[0] ?? ''
+	let schema = ''
+	let database: Adapter
+	let app: ReturnType<typeof defineApp>
+	beforeEach(async () => {
+		schema = `t_${randomUUID().replaceAll('-', '')}`
+		await run(url, `create schema "${schema}"`)
+		database = createAdapter({ url: inSchema(url, schema) })
+		app = defineApp({ database, models: [Genre, Song], logger: quiet })
+		await app.start()
+	})
+	afterEach(async () => {
+		await app.stop()
+		await run(url, `drop schema "${schema}" cascade`)
+	})
+
+	it('reports a connected row deleted before its commit as missing', async () => {
+		const genre = await Genre.create({ data: {} }, M)
+		const linked = Promise.withResolvers<void>()
+		const deleted = Promise.withResolvers<void>()
+		const linking = transaction(async () => {
+			await Song.create({ data: { genre: { connect: { id: genre.id } } } }, M)
+			linked.resolve()
+			await deleted.promise
+		})
+		await linked.promise
+		// Outside the transaction: the delete sees no song and commits first.
+		await Genre.delete({ where: { id: genre.id } }, M)
+		deleted.resolve()
+		await expect(linking).rejects.toMatchObject({
+			code: 'NOT_FOUND',
+			message: 'A connected Genre does not exist.',
+		})
+		expect(await Song.count({}, M)).toBe(0)
+	})
+
+	it('tells a delete its own COMMIT restricts', async () => {
+		const genre = await Genre.create({ data: {} }, M)
+		const tx = await database.begin()
+		// The delete's check is due first at the commit.
+		await tx.write({
+			changes: [{ kind: 'delete', model: 'Genre', where: byId(genre.id) }],
+		})
+		await tx.write({
+			changes: [
+				{ kind: 'insert', model: 'Song', row: { ...stamp(), genre: genre.id } },
+			],
+		})
+		await expect(tx.commit()).rejects.toEqual(
+			new RelationViolation('Song', 'genre', 'Genre', true),
+		)
+	})
+})
+
 describe('the catalog', () => {
 	const catalog = new Catalog(thing)
 
@@ -457,13 +609,111 @@ describe('the catalog', () => {
 		)
 	})
 
-	it('passes on a unique refusal it does not know', () => {
-		const error = { code: '23505', constraint: 'elsewhere_key' }
-		expect(translate(catalog, error)).toBe(error)
+	it('passes on a refusal it does not know', () => {
+		for (const code of ['23505', '23503']) {
+			const error = Object.assign(new Error('refused'), {
+				code,
+				constraint: 'elsewhere_key',
+			})
+			expect(translate(catalog, error)).toBe(error)
+		}
 	})
 
 	it('refuses a server below PostgreSQL 15', () => {
 		expect(() => requireVersion('140010')).toThrow('PostgreSQL 15 or later')
 		expect(() => requireVersion('150000')).not.toThrow()
+	})
+})
+
+const scalar = (name: string, more: object = {}): SchemaField => ({
+	kind: 'scalar',
+	name,
+	type: 'string',
+	optional: false,
+	unique: false,
+	...more,
+})
+const one = (name: string, target: string): SchemaField => ({
+	kind: 'one',
+	name,
+	target,
+	inverse: 'back',
+	stored: true,
+	unique: false,
+	optional: false,
+	onDelete: 'restrict',
+})
+const model = (
+	name: string,
+	fields: SchemaField[],
+	more: Partial<SchemaModel> = {},
+): SchemaModel => ({ name, fields, indexes: [], ...more })
+
+const refused = (models: SchemaModel[]) => () =>
+	snapshotOf(new Catalog({ models }))
+const many = (name: string, target: string): SchemaField => ({
+	kind: 'many',
+	name,
+	target,
+	inverse: target === 'Tag' ? 'books' : 'tags',
+	join: true,
+})
+
+describe('two things stored under one name', () => {
+	it('refuses two tables', () => {
+		const models = [model('Post', []), model('Article', [], { dbName: 'post' })]
+		expect(refused(models)).toThrow(
+			'the table of Post and the table of Article are both stored as "post".',
+		)
+		// It refuses before it connects.
+		const adapter = postgres({ url: 'postgres://nowhere.invalid/none' })
+		return expect(adapter.start({ models })).rejects.toThrow('"post"')
+	})
+
+	it('refuses a model named as a join table', () => {
+		const models = [
+			model('Book', [many('tags', 'Tag')]),
+			model('Tag', [many('books', 'Book')]),
+			model('BookTags', []),
+		]
+		expect(refused(models)).toThrow(
+			'the table of BookTags and the join table of Book.tags are both stored as "book_tags".',
+		)
+	})
+
+	it('refuses two constraints', () => {
+		const models = [
+			model(
+				'Thing',
+				[scalar('aB', { unique: true }), scalar('a'), scalar('b')],
+				{
+					indexes: [{ fields: ['a', 'b'], unique: true }],
+				},
+			),
+		]
+		expect(refused(models)).toThrow(
+			'the unique key on Thing(aB) and the unique key on Thing(a, b) are both stored as "thing_a_b_key".',
+		)
+	})
+
+	it('refuses two foreign keys of two tables', () => {
+		const models = [
+			model('Team', []),
+			model('Post', [one('authorTeam', 'Team')]),
+			model('PostAuthor', [one('team', 'Team')]),
+		]
+		expect(refused(models)).toThrow(
+			'the foreign key of Post.authorTeam and the foreign key of PostAuthor.team are both stored as "post_author_team_id_fkey".',
+		)
+	})
+
+	it('refuses two columns of a table', () => {
+		const models = [
+			model('Team', []),
+			model('Post', [one('team', 'Team'), scalar('teamId')]),
+		]
+		expect(refused(models)).toThrow(
+			'Post.team and Post.teamId are both stored as "team_id".',
+		)
 	})
 })

@@ -289,7 +289,8 @@ const definition = definePlugin<Password>({
  * Known and kept (D-115): `signUp` refuses a taken email with
  * `UNIQUE_VIOLATION`, which tells that the email has an account until email
  * verification can hide it; a hundred failures on one account within 15
- * minutes, from any addresses, lock it for everyone (D-114); `SignedIn`
+ * minutes, from any addresses, lock it for everyone, and a hundred from one
+ * address lock that address out of every account (D-114); `SignedIn`
  * holds the token even when the cookie is set.
  */
 export const passwordPlugin: PluginOf<Password> = definition.plugin

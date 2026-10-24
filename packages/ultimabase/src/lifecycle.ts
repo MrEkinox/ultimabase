@@ -87,6 +87,7 @@ export function lifecycle(options: LifecycleOptions): Lifecycle {
 	const { database, models } = options
 	let started: Started | undefined
 	let stopping: Promise<void> | undefined
+	let starting = false
 
 	const shutDown = async ({ app, plugins, onSigterm }: Started) => {
 		process.off('SIGTERM', onSigterm)
@@ -110,7 +111,19 @@ export function lifecycle(options: LifecycleOptions): Lifecycle {
 	}
 
 	const start = async (): Promise<void> => {
-		if (started !== undefined) throw new Error('The application is running.')
+		if (started !== undefined || starting) {
+			throw new Error('The application is running.')
+		}
+		// Set before the first await: a second start meanwhile is refused.
+		starting = true
+		try {
+			await launch()
+		} finally {
+			starting = false
+		}
+	}
+
+	const launch = async (): Promise<void> => {
 		const { plugins: records, apiOrder } = installed(options.plugins ?? [])
 		const resolved = resolve(
 			models,
@@ -131,7 +144,6 @@ export function lifecycle(options: LifecycleOptions): Lifecycle {
 		)
 		identifiers.push(...pluginIdentifiers(records, plugins))
 		await database.start(resolved.schema)
-		await follow(database, resolved.schema, logger)
 		const apis = new Map<string, unknown>()
 		const app: Running = {
 			resolved,
@@ -141,9 +153,10 @@ export function lifecycle(options: LifecycleOptions): Lifecycle {
 			functions: functions.definitions,
 			work: new Work(),
 		}
-		register(app)
 		const ran: Installed[] = []
 		try {
+			await follow(database, resolved.schema, logger)
+			register(app)
 			// An API may read the APIs it needs as it is built (D-89).
 			buildApis(plugins, apis)
 			for (const plugin of plugins) {

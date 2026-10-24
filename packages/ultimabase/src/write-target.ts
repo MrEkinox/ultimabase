@@ -3,7 +3,7 @@
 // D-104).
 import type { Condition, Filter, Read, Row } from './adapter.ts'
 import { and } from './access.ts'
-import { CheckFailed, UniqueViolation } from './adapter.ts'
+import { CheckFailed, RelationViolation, UniqueViolation } from './adapter.ts'
 import { PublicError } from './errors.ts'
 import type { Context } from './query-context.ts'
 import { isObject } from './query-where.ts'
@@ -13,6 +13,22 @@ import type { Checked } from './write-plan.ts'
 
 /** A row read without a lock changed before the write: it starts over. */
 export class Stale extends Error {}
+
+/** A relation the database refused, as the kernel's own checks word it. */
+export function refused(error: RelationViolation): PublicError {
+	const { model, field } = error
+	return error.restricted
+		? new PublicError(
+				'RELATION_RESTRICTED',
+				`${model}.${field} references a ${error.target} the delete removes (D-54).`,
+				{ details: { model, field }, cause: error },
+			)
+		: new PublicError(
+				'NOT_FOUND',
+				`A connected ${error.target} does not exist.`,
+				{ cause: error },
+			)
+}
 
 export async function guarded(
 	run: Promise<Row[]>,
@@ -34,6 +50,7 @@ export async function guarded(
 		if (failed !== undefined) {
 			throw new PublicError('NOT_FOUND', failed.message, { cause: error })
 		}
+		if (error instanceof RelationViolation) throw refused(error)
 		if (error instanceof UniqueViolation) {
 			throw new PublicError('UNIQUE_VIOLATION', error.message, {
 				details: { model: error.model, fields: [...error.fields] },

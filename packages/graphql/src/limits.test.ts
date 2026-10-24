@@ -3,6 +3,8 @@
 // application's middlewares before it.
 import { routes } from '@ultimabase/http'
 import { getIntrospectionQuery } from 'graphql'
+import type { Adapter } from 'ultimabase'
+import { memory } from 'ultimabase'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { GraphqlOptions } from './index.ts'
 import {
@@ -82,6 +84,33 @@ describe('the token limit', () => {
 			const longest = `{ posts { totalCount ${aliases.join(' ')} } }`
 			expect((await post(url, longest)).errors).toBeUndefined()
 		})
+	})
+})
+
+describe('a count', () => {
+	it('is read once for a connection, however many aliases ask', async () => {
+		const base = memory()
+		let counts = 0
+		const counting: Adapter = {
+			...base,
+			count: async (read) => {
+				counts += 1
+				return base.count(read)
+			},
+		}
+		const running = await started({}, counting)
+		try {
+			const result = await post(
+				`${running.url}/graphql`,
+				`{ posts { a: totalCount b: totalCount totalCount } }`,
+			)
+			expect(result).toStrictEqual({
+				data: { posts: { a: 0, b: 0, totalCount: 0 } },
+			})
+			expect(counts).toBe(1)
+		} finally {
+			await running.app.stop()
+		}
 	})
 })
 

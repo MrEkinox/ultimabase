@@ -1,5 +1,5 @@
 // What a read's jsonb holds, back as the rows the kernel expects (D-73): a
-// date arrives as text, everything else as written.
+// date arrives as text in UTC without its zone, everything else as written.
 import type { Nested, Row } from 'ultimabase'
 import type { Catalog } from './names.ts'
 
@@ -30,7 +30,7 @@ function decodeRow(
 			typeof item === 'string' &&
 			(dates.has(name) || (field?.kind === 'scalar' && field.type === 'date'))
 		) {
-			row[name] = new Date(item)
+			row[name] = new Date(`${item}Z`)
 		} else if (inner !== undefined && field?.kind === 'many') {
 			row[name] = decodeRows(catalog, field.target, item, inner)
 		} else if (inner !== undefined && field?.kind === 'one' && item !== null) {

@@ -1,6 +1,6 @@
 // `httpPlugin()` (D-66, D-106): routes that read the caller, errors as D-72
-// sends them, CORS, the body limit, the port, the client's address behind
-// proxies (D-116) and a stop that waits, 10 s at most.
+// sends them, CORS, forms from other origins, the body limit, the port, the
+// client's address behind proxies (D-116) and a stop that waits, 10 s at most.
 import { createServer, IncomingMessage } from 'node:http'
 import { Socket } from 'node:net'
 import { streamSSE } from 'hono/streaming'
@@ -337,6 +337,11 @@ describe('CORS', () => {
 		expect(await allowed(url, 'http://127.0.0.1:8080')).toBe(
 			'http://127.0.0.1:8080',
 		)
+		// The hosts auth expects an insecure cookie on (D-115).
+		for (const origin of ['http://app.localhost:5173', 'http://[::1]:5173']) {
+			expect(await allowed(url, origin)).toBe(origin)
+		}
+		expect(await allowed(url, 'http://localhost.example.com')).toBeNull()
 		expect(await allowed(url, 'https://evil.example.com')).toBeNull()
 		expect(await allowed(url, 'https://localhost:5173')).toBeNull()
 		expect(await allowed(url, 'not an origin')).toBeNull()
@@ -398,6 +403,74 @@ describe('CORS', () => {
 			headers: { origin, 'access-control-request-method': 'GET' },
 		})
 		expect(preflight.status).toBe(204)
+	})
+})
+
+const forms = routes()
+	.get('/form', (c) => c.text('read'))
+	.post('/form', (c) => c.text('sent'))
+const posted = async (url: string, headers: Record<string, string>) =>
+	fetch(`${url}/form`, {
+		method: 'POST',
+		headers: {
+			'content-type': 'application/x-www-form-urlencoded',
+			...headers,
+		},
+		body: 'text=hi',
+	})
+
+describe('a form from another origin', () => {
+	it('is refused when it carries cookies', async () => {
+		const { url } = await server({ port: 0, routes: [forms] })
+		const cookie = 'session=token'
+		const foreign = await posted(url, {
+			cookie,
+			origin: 'https://evil.example.com',
+		})
+		expect(foreign.status).toBe(403)
+		expect(await foreign.json()).toEqual({
+			code: 'ACCESS_DENIED',
+			message: 'A form from another origin cannot send cookies.',
+		})
+		// A sibling subdomain is the same site, not the same origin.
+		const sibling = await posted(url, { cookie, 'sec-fetch-site': 'same-site' })
+		expect(sibling.status).toBe(403)
+		const plain = await fetch(`${url}/form`, {
+			method: 'POST',
+			headers: { cookie },
+		})
+		expect(plain.status).toBe(403)
+	})
+
+	it('passes from its own origin, an allowed one, or without cookies', async () => {
+		const { url } = await server({
+			port: 0,
+			routes: [forms],
+			cors: ['https://app.example.com'],
+		})
+		const cookie = 'session=token'
+		const passed = [
+			{ cookie, origin: url },
+			{ cookie, 'sec-fetch-site': 'same-origin' },
+			{ cookie, origin: 'https://app.example.com' },
+			{ cookie, origin: 'http://localhost:5173' },
+			// A webhook.
+			{},
+			{ origin: 'https://evil.example.com' },
+		]
+		for (const headers of passed) {
+			expect(await (await posted(url, headers)).text()).toBe('sent')
+		}
+		const json = await fetch(`${url}/form`, {
+			method: 'POST',
+			headers: { cookie, 'content-type': 'application/json' },
+			body: '{}',
+		})
+		expect(await json.text()).toBe('sent')
+		const read = await fetch(`${url}/form`, {
+			headers: { cookie, origin: 'https://evil.example.com' },
+		})
+		expect(await read.text()).toBe('read')
 	})
 })
 
@@ -585,11 +658,12 @@ describe('a client’s address behind proxies (D-116)', () => {
 		expect(await addressOf(url, '6.6.6.6, 203.0.113.7')).toBe('203.0.113.7')
 	})
 
-	it('is the leftmost entry, or the connection’s, when fewer are sent', async () => {
+	it('is the connection’s when fewer entries than proxies are sent', async () => {
 		const { url } = await server({ port: 0, proxies: 2, routes: [reading] })
 		expect(await addressOf(url, '6.6.6.6, 203.0.113.7')).toBe('6.6.6.6')
 		expect(await addressOf(url, ' 2001:db8::1 ,10.0.0.1')).toBe('2001:db8::1')
-		expect(await addressOf(url, '203.0.113.7')).toBe('203.0.113.7')
+		// A client that went around the proxies wrote this entry itself.
+		expect(loopback).toContain(await addressOf(url, '203.0.113.7'))
 		expect(loopback).toContain(await addressOf(url))
 	})
 

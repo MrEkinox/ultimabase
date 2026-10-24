@@ -14,8 +14,9 @@ const usage = `Usage: ultimabase <command> [--config <path>]
                          database, and restart it when a file changes.
   start                  Start the application in production.
   sync [--force]         Sync the development database to the models.
-  reset                  Rebuild the development database from the
-                         migrations: every table is dropped.
+  reset [--force]        Rebuild the development database from the
+                         migrations: every table is dropped. --force
+                         allows a database on another machine.
   migrate create <name>  Write the models' changes as a migration, or an
                          empty one for your SQL.
   migrate deploy         Apply the pending migrations.
@@ -102,7 +103,7 @@ async function run(args: readonly string[], io: Io): Promise<number> {
 		const said = await sync(app, values.force)
 		if (said !== undefined) io.out(said)
 	} else if (command === 'reset') {
-		for (const line of await reset(app, dir)) io.out(line)
+		for (const line of await reset(app, dir, values.force)) io.out(line)
 	} else if (sub === 'deploy') {
 		for (const line of await migrateDeploy(app, dir)) io.out(line)
 	} else if (sub === 'status') {

@@ -137,7 +137,7 @@ const sortOrder = (registry: Registry): GraphQLEnumType =>
 			}),
 	)
 
-/** `PostOrderByInput`: scalar fields only, as the kernel sorts. */
+/** `PostOrderByInput`: scalar fields but json, as the kernel sorts (D-94). */
 export function orderByInput(
 	registry: Registry,
 	model: string,
@@ -147,7 +147,9 @@ export function orderByInput(
 		const type = sortOrder(registry)
 		const names = ['id', 'createdAt', 'updatedAt']
 		for (const field of readable(registry.entry(model))) {
-			if (field.kind === 'scalar') names.push(field.name)
+			if (field.kind === 'scalar' && field.type !== 'json') {
+				names.push(field.name)
+			}
 		}
 		return new GraphQLInputObjectType({
 			name,

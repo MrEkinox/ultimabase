@@ -37,7 +37,7 @@ function scalars(model: ModelInfo): string[] {
 function integer(value: unknown, path: string, least?: number): number {
 	if (
 		typeof value !== 'number' ||
-		!Number.isInteger(value) ||
+		!Number.isSafeInteger(value) ||
 		(least !== undefined && value < least)
 	) {
 		const range = least === undefined ? '' : ` of at least ${least}`
@@ -64,6 +64,12 @@ function orderBy(
 					: known.kind !== 'scalar'
 			) {
 				throw unknownKey(`${at}.${field}`, model.name)
+			}
+			if (known?.kind === 'scalar' && known.type === 'json') {
+				throw new InvalidQuery(
+					`${at}.${field}`,
+					`${at}.${field} is a json field, which cannot be sorted (D-94).`,
+				)
 			}
 			scope?.check(model, field, `${at}.${field}`, 'sorts')
 			if (direction !== 'asc' && direction !== 'desc') {

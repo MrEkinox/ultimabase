@@ -13,7 +13,13 @@ import type {
 	UseOf,
 	UserOf,
 } from 'ultimabase'
-import { definePlugin, isMaster, master, PublicError } from 'ultimabase'
+import {
+	definePlugin,
+	isLocalHost,
+	isMaster,
+	master,
+	PublicError,
+} from 'ultimabase'
 import manifest from '../package.json' with { type: 'json' }
 import {
 	accountOf,
@@ -33,13 +39,7 @@ import {
 	sessionUser,
 } from './sessions.ts'
 import type { Cookie } from './token.ts'
-import {
-	bearerOf,
-	cookieAge,
-	cookieOf,
-	cookieTokenOf,
-	isLocalHost,
-} from './token.ts'
+import { bearerOf, cookieAge, cookieOf, cookieTokenOf } from './token.ts'
 
 export type { Opened } from './sessions.ts'
 

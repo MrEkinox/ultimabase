@@ -463,7 +463,18 @@ describe('the cookie', () => {
 				headers: { 'content-type': type, ...cookie(token) },
 				body: JSON.stringify({ query }),
 			})
-			expect(posted.status).toBe(415)
+			// http refuses a form with cookies from no allowed origin (D-106).
+			expect(posted.status).toBe(403)
+			const ownPage = await fetch(`${url}/graphql`, {
+				method: 'POST',
+				headers: {
+					'content-type': type,
+					'sec-fetch-site': 'same-origin',
+					...cookie(token),
+				},
+				body: JSON.stringify({ query }),
+			})
+			expect(ownPage.status).toBe(415)
 		}
 		expect((await callerOf(url, cookie(token))).status).toBe(200)
 		expect(await AuthSession.count({}, M)).toBe(1)

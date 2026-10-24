@@ -27,12 +27,16 @@ function any(parts: readonly Sql[]): Sql {
 	return sql`(${sql.join(parts, sql` or `)})`
 }
 
-/** A value as a parameter of its column's type. */
+/**
+ * A value as a parameter of its column's type. A date goes in UTC: `pg`
+ * writes it in local time to the minute, and a local offset of an old date
+ * has seconds, as Paris's +00:09:21 before 1911.
+ */
 export function value(kind: Kind, item: unknown): Sql {
 	if (kind === 'json' && item !== null) {
 		return sql`cast(${JSON.stringify(item)} as jsonb)`
 	}
-	return sql`${item}`
+	return item instanceof Date ? sql`${item.toISOString()}` : sql`${item}`
 }
 
 function isFilters(
@@ -178,6 +182,8 @@ export class Filters {
 	): Sql {
 		const column = this.column(table, alias, name)
 		const kind = this.catalog.kind(table, name)
+		// An id matches and compares as its string, as in `memory()`.
+		const text = kind === 'id' ? sql`cast(${column} as text)` : column
 		const parts: Sql[] = []
 		for (const [operator, operand] of Object.entries(condition)) {
 			if (operand === undefined) continue
@@ -198,22 +204,21 @@ export class Filters {
 					break
 				}
 				case 'contains':
-					parts.push(sql`${column} like ${pattern(operand, '%', '%')}`)
+					parts.push(sql`${text} like ${pattern(operand, '%', '%')}`)
 					break
 				case 'startsWith':
-					parts.push(sql`${column} like ${pattern(operand, '', '%')}`)
+					parts.push(sql`${text} like ${pattern(operand, '', '%')}`)
 					break
 				case 'endsWith':
-					parts.push(sql`${column} like ${pattern(operand, '%', '')}`)
+					parts.push(sql`${text} like ${pattern(operand, '%', '')}`)
 					break
 				default: {
-					const left = kind === 'id' ? sql`cast(${column} as text)` : column
 					const right = value(kind, operand)
 					const compare = { lt: '<', lte: '<=', gt: '>', gte: '>=' }[operator]
 					if (compare === undefined) {
 						throw new Error(`Unknown operator ${operator}.`)
 					}
-					parts.push(sql`${left} ${sql.raw(compare)} ${right}`)
+					parts.push(sql`${text} ${sql.raw(compare)} ${right}`)
 				}
 			}
 		}

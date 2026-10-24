@@ -665,6 +665,7 @@ __metadata:
     "@ultimabase/testing": "workspace:*"
     kysely: "npm:0.29.6"
     pg: "npm:8.23.1"
+    pg-connection-string: "npm:2.14.1"
     ultimabase: "workspace:*"
     vite: "npm:8.3.4"
     vitest: "npm:5.0.5"
@@ -691,8 +692,11 @@ __metadata:
   resolution: "@ultimabase/testing@workspace:packages/testing"
   dependencies:
     ultimabase: "workspace:*"
+    vite: "npm:8.3.4"
+    vitest: "npm:5.0.5"
   peerDependencies:
-    vitest: 5.0.5
+    ultimabase: ^0.0.0
+    vitest: ^5.0.5
   languageName: unknown
   linkType: soft
 
@@ -1256,7 +1260,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"pg-connection-string@npm:^2.14.1":
+"pg-connection-string@npm:2.14.1, pg-connection-string@npm:^2.14.1":
   version: 2.14.1
   resolution: "pg-connection-string@npm:2.14.1"
   checksum: 10c0/7321eed97579b4972a714909e7a444beb2186780fe7fd86ea719ff7c8f1fad07d7e5f85722c4992245b23683ed7d2fe2bdda8f7469fed4c016bb5c3379c575ca
@@ -1687,6 +1691,7 @@ __metadata:
     oxlint-tsgolint: "npm:7.0.2004"
     pg: "npm:8.23.1"
     prettier: "npm:^3.6.2"
+    semver: "npm:7.8.5"
     typescript: "npm:7.0.2"
     vite: "npm:8.3.4"
     vitest: "npm:5.0.5"

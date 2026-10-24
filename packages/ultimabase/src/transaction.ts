@@ -3,9 +3,11 @@
 import { AsyncLocalStorage } from 'node:async_hooks'
 import { randomUUID } from 'node:crypto'
 import type { Transaction } from './adapter.ts'
+import { RelationViolation } from './adapter.ts'
 import type { Logger } from './app-options.ts'
 import type { Running } from './running.ts'
 import { current } from './running.ts'
+import { refused } from './write-target.ts'
 
 /** What a query reads and writes through. */
 export type Store = Pick<Transaction, 'find' | 'count' | 'write'> & {
@@ -108,7 +110,12 @@ async function atomic<R>(
 		await rollback(open)
 		throw open.failure.error
 	}
-	await (await open.tx)?.commit()
+	try {
+		await (await open.tx)?.commit()
+	} catch (error) {
+		// A deferred foreign key checks at the commit (D-99).
+		throw error instanceof RelationViolation ? refused(error) : error
+	}
 	// Outside the transaction: a commit hook's queries open their own.
 	await committed(app.logger, open.commits)
 	return result

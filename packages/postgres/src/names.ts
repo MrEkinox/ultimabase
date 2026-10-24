@@ -21,10 +21,12 @@ export type Table = {
 }
 
 /**
- * A many-to-many side: its join table, the column of this side's ids and of
- * the other's, and the tables those ids belong to.
+ * A many-to-many side: the relation its join table is named after, the join
+ * table, the column of this side's ids and of the other's, and the tables
+ * those ids belong to.
  */
 export type Join = {
+	readonly relation: string
 	readonly table: string
 	readonly self: string
 	readonly other: string
@@ -54,11 +56,20 @@ export function constraint(name: string): string {
 	return `${head}_${hash}`
 }
 
+/** The relation field a foreign key belongs to, and the model it links. */
+export type Relation = {
+	readonly model: string
+	readonly field: string
+	readonly target: string
+}
+
 export class Catalog {
 	readonly tables: ReadonlyMap<string, Table>
 	readonly joins: ReadonlyMap<string, Join>
 	/** Constraint name → the model and fields a refusal reports. */
 	readonly uniques: ReadonlyMap<string, { model: string; fields: string[] }>
+	/** Foreign key name → the relation a refusal reports (D-99). */
+	readonly foreignKeys: ReadonlyMap<string, Relation>
 
 	constructor(schema: Schema) {
 		const tables = new Map<string, Table>()
@@ -94,6 +105,7 @@ export class Catalog {
 		}
 		this.uniques = uniques
 		this.joins = this.joinsOf()
+		this.foreignKeys = this.foreignKeysOf()
 	}
 
 	table(model: string): Table {
@@ -127,7 +139,30 @@ export class Catalog {
 		return join
 	}
 
-	/** Both sides of each many-to-many, named after the side sorting first. */
+	/** Named as the snapshot names them: a `one` key, a join's column. */
+	private foreignKeysOf(): Map<string, Relation> {
+		const keys = new Map<string, Relation>()
+		for (const table of this.tables.values()) {
+			const model = table.model.name
+			for (const field of table.model.fields) {
+				let key: string
+				if (field.kind === 'one' && field.stored) {
+					key = `${table.name}_${this.column(table, field.name)}_fkey`
+				} else if (field.kind === 'many' && field.join) {
+					const join = this.join(model, field.name)
+					key = `${join.table}_${join.other}_fkey`
+				} else continue
+				const target = field.target
+				keys.set(constraint(key), { model, field: field.name, target })
+			}
+		}
+		return keys
+	}
+
+	/**
+	 * Both sides of each many-to-many, named after the side whose table sorts
+	 * first, so a model renamed with its `dbName` keeps its join (D-98).
+	 */
 	private joinsOf(): Map<string, Join> {
 		const joins = new Map<string, Join>()
 		for (const table of this.tables.values()) {
@@ -137,12 +172,14 @@ export class Catalog {
 				const self = table === target
 				const first = self
 					? field.name < field.inverse
-					: table.model.name < target.model.name
+					: table.name < target.name
 				if (!first) continue
 				const name = `${table.name}_${snake(field.name)}`
 				const mine = self ? `${snake(field.inverse)}_id` : `${table.name}_id`
 				const theirs = self ? `${snake(field.name)}_id` : `${target.name}_id`
-				joins.set(`${table.model.name}.${field.name}`, {
+				const relation = `${table.model.name}.${field.name}`
+				joins.set(relation, {
+					relation,
 					table: name,
 					self: mine,
 					other: theirs,
@@ -150,6 +187,7 @@ export class Catalog {
 					target: target.name,
 				})
 				joins.set(`${target.model.name}.${field.inverse}`, {
+					relation,
 					table: name,
 					self: theirs,
 					other: mine,

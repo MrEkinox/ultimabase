@@ -47,13 +47,14 @@ const shown = (type: string): string => type.replace(' collate "C"', '')
 const column = (name: string, type: string, nullable: boolean): string =>
 	`${id(name)} ${type}${nullable ? '' : ' not null'}`
 
-/** Columns as a rename compares them: names, types and nullability. */
+/**
+ * Columns as a rename compares them: names, types and nullability, sorted,
+ * because a stored snapshot's columns come back in jsonb's order.
+ */
 const shape = (table: TableSnapshot): unknown =>
-	Object.entries(table.columns).map(([name, { type, nullable }]) => [
-		name,
-		type,
-		nullable,
-	])
+	Object.entries(table.columns)
+		.map(([name, { type, nullable }]) => [name, type, nullable])
+		.toSorted(([a], [b]) => String(a).localeCompare(String(b)))
 
 function create(name: string, table: TableSnapshot): string {
 	const parts = [

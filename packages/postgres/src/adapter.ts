@@ -14,7 +14,7 @@ import type {
 	Write,
 } from 'ultimabase'
 import { decodeRows } from './decode.ts'
-import { apply, reset, stored } from './migrations.ts'
+import { apply, remoteOf, reset, stored } from './migrations.ts'
 import { Catalog } from './names.ts'
 import { plan } from './plan.ts'
 import { compileCount, compileFind } from './read.ts'
@@ -95,6 +95,7 @@ export function requireVersion(version: string | undefined): void {
 }
 
 export function createAdapter(options: Options): Adapter {
+	const remote = remoteOf(options.url)
 	let state: { db: Kysely<object>; catalog: Catalog } | undefined
 	const started = () => {
 		if (state === undefined) throw new Error('postgres() is not started.')
@@ -102,13 +103,18 @@ export function createAdapter(options: Options): Adapter {
 	}
 	return {
 		start: async (schema: Schema) => {
+			const catalog = new Catalog(schema)
+			// Refuses two things stored under one name before it connects.
+			snapshotOf(catalog)
 			const pool = new Pool({ connectionString: options.url })
+			// An idle connection the server ends would crash the process unheard:
+			// the pool drops it and the next query opens another.
+			pool.on('error', () => undefined)
 			const dialect = new PostgresDialect({ pool })
 			const db = new Kysely<object>({
 				dialect,
 				...(options.log === undefined ? {} : { log: options.log }),
 			})
-			const catalog = new Catalog(schema)
 			try {
 				const { rows } = await sql<{
 					server_version_num: string
@@ -132,9 +138,14 @@ export function createAdapter(options: Options): Adapter {
 			const statements = compileWrite(catalog, given)
 			// One statement is atomic alone: no BEGIN, no COMMIT (D-99).
 			if (statements.length <= 1) return run(catalog, db, given, statements)
-			return db
-				.transaction()
-				.execute(async (trx) => run(catalog, trx, given, statements))
+			try {
+				return await db
+					.transaction()
+					.execute(async (trx) => run(catalog, trx, given, statements))
+			} catch (error) {
+				// A deferred foreign key checks at the COMMIT (D-99).
+				throw translate(catalog, error)
+			}
 		},
 		migrations: {
 			snapshot: (schema) => snapshotOf(new Catalog(schema)),
@@ -146,6 +157,7 @@ export function createAdapter(options: Options): Adapter {
 			stored: async () => stored(started().db),
 			apply: async (given) => apply(started().db, given),
 			reset: async () => reset(started().db),
+			...(remote === undefined ? {} : { remote }),
 		},
 		begin: async (): Promise<Transaction> => {
 			const { catalog, db } = started()
@@ -154,7 +166,15 @@ export function createAdapter(options: Options): Adapter {
 				find: async (read) => find(catalog, trx, read),
 				count: async (read) => count(catalog, trx, read),
 				write: async (given) => write(catalog, trx, given),
-				commit: async () => trx.commit().execute(),
+				commit: async () => {
+					try {
+						await trx.commit().execute()
+					} catch (error) {
+						// A failed COMMIT keeps its connection until a ROLLBACK frees it.
+						await trx.rollback().execute()
+						throw translate(catalog, error)
+					}
+				},
 				rollback: async () => trx.rollback().execute(),
 			}
 		},

@@ -45,6 +45,30 @@ export function entries(value: unknown, path: string): [string, unknown][] {
 	return Object.entries(value).filter(([, item]) => item !== undefined)
 }
 
+/** A string PostgreSQL stores as written: no NUL, no lone surrogate (D-94). */
+export const clean = (value: string): boolean =>
+	value.isWellFormed() && !value.includes('\0')
+
+/** A date of years 1 to 9999 in UTC, which PostgreSQL reads back (D-94). */
+export const storedDate = (value: unknown): value is Date => {
+	const year = value instanceof Date ? value.getUTCFullYear() : Number.NaN
+	return year >= 1 && year <= 9999
+}
+
+/** JSON data whose strings and keys are clean (D-94). */
+export function isJson(value: unknown): boolean {
+	if (value === null || typeof value === 'boolean') return true
+	if (typeof value === 'string') return clean(value)
+	if (typeof value === 'number') return Number.isFinite(value)
+	if (Array.isArray(value)) return value.every(isJson)
+	if (!isObject(value) || Object.getPrototypeOf(value) !== Object.prototype) {
+		return false
+	}
+	return Object.entries(value).every(
+		([key, item]) => clean(key) && isJson(item),
+	)
+}
+
 export function unknownKey(path: string, model: string): InvalidQuery {
 	return new InvalidQuery(path, `Unknown key '${path}' on ${model}.`)
 }
@@ -60,16 +84,16 @@ const fits: {
 		field: FieldInfo | undefined,
 	) => boolean
 } = {
-	id: (value) => typeof value === 'string',
-	string: (value) => typeof value === 'string',
+	id: (value) => typeof value === 'string' && clean(value),
+	string: (value) => typeof value === 'string' && clean(value),
 	enum: (value, field) =>
 		typeof value === 'string' &&
 		field?.kind === 'scalar' &&
 		(field.values ?? []).includes(value),
 	number: (value) => typeof value === 'number' && Number.isFinite(value),
 	boolean: (value) => typeof value === 'boolean',
-	date: (value) => value instanceof Date && !Number.isNaN(value.getTime()),
-	json: () => true,
+	date: storedDate,
+	json: isJson,
 }
 
 const base = new Set(['equals', 'not', 'in', 'notIn'])
@@ -118,8 +142,8 @@ function scalarCondition(
 				check(item, `${at}.${index}`, false),
 			)
 		} else if (text.has(operator)) {
-			if (typeof operand !== 'string') {
-				throw new InvalidQuery(at, `${at} must be a string.`)
+			if (typeof operand !== 'string' || !clean(operand)) {
+				throw new InvalidQuery(at, `${at} must be a clean string.`)
 			}
 			condition[operator] = operand
 		} else {

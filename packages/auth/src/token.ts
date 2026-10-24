@@ -22,16 +22,6 @@ export function cookieOf(): Cookie {
 	}
 }
 
-/** A host only this machine reaches, where an insecure cookie is expected (D-115). */
-export function isLocalHost(hostname: string): boolean {
-	return (
-		hostname === 'localhost' ||
-		hostname.endsWith('.localhost') ||
-		hostname === '127.0.0.1' ||
-		hostname === '[::1]'
-	)
-}
-
 /**
  * The token the `Authorization` header sends, `''` for a Bearer without one,
  * `undefined` without a Bearer header, which another plugin may read.

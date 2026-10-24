@@ -8,6 +8,8 @@ export type FakeState = {
 	runs: Run[]
 	/** A statement's SQL, or a text in a file, the database refuses. */
 	refuses?: string
+	/** The host of a database on another machine. */
+	remote?: string
 }
 
 type Models = { readonly [model: string]: readonly string[] }
@@ -138,6 +140,7 @@ export function migrating(state: FakeState = fakeState()): Adapter {
 				state.stored = undefined
 				return snapshot === undefined ? [] : Object.keys(modelsOf(snapshot))
 			},
+			...(state.remote === undefined ? {} : { remote: state.remote }),
 		},
 	}
 }

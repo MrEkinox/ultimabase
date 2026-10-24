@@ -81,11 +81,15 @@ function rootFields(registry: Registry, entry: Entry): Fields {
 					queries.findMany({ ...read, select }, as(context)),
 				)
 				if (page === undefined) return rows
+				let counted: Promise<unknown> | undefined
 				return {
 					...connection(rowsOf(rows), page),
-					// Called by the default resolver, so counted only when selected.
-					totalCount: () =>
-						run(() => queries.count(whereOf(args), as(context))),
+					// Called by the default resolver, so counted only when selected,
+					// and once however many aliases ask.
+					totalCount: async () => {
+						counted ??= run(() => queries.count(whereOf(args), as(context)))
+						return counted
+					},
 				}
 			},
 		},

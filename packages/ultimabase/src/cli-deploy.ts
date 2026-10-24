@@ -166,10 +166,14 @@ export async function migrateStatus(
 	}
 }
 
-/** Drops a development database's tables, then applies every migration. */
+/**
+ * Drops a development database's tables, then applies every migration; one
+ * on another machine only with `force`.
+ */
 export async function reset(
 	{ options }: Internals,
 	dir: string,
+	force: boolean,
 ): Promise<readonly string[]> {
 	if (production()) {
 		throw new Refused(
@@ -178,6 +182,11 @@ export async function reset(
 	}
 	const { database } = options
 	const migrations = migrationsOf(database)
+	if (migrations.remote !== undefined && !force) {
+		throw new Refused(
+			`reset drops every table, and ${migrations.remote} is not this machine: pass --force if it holds a development database.`,
+		)
+	}
 	const schema = schemaOf(options)
 	const { files, snapshot } = await read(dir)
 	await database.start(schema)

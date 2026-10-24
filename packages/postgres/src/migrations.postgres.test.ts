@@ -8,7 +8,7 @@ import { join as joinPath } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { Client } from 'pg'
 import type { Adapter, Migrations, Schema, SchemaField } from 'ultimabase'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { postgres } from './index.ts'
 
 const url =
@@ -145,6 +145,24 @@ const onto = (target: string): Schema => ({
 			fields: [scalar('label', 'string'), one('shelf', target, 'boxes')],
 			indexes: [],
 		}),
+})
+
+/** Posts and tags, the tag model named `tag` and stored as `tags`. */
+const posts = (tag: string): Schema => ({
+	models: [
+		{
+			name: 'Post',
+			dbName: 'posts',
+			fields: [scalar('title', 'string'), many('tags', tag, 'posts', true)],
+			indexes: [],
+		},
+		{
+			name: tag,
+			dbName: 'tags',
+			fields: [scalar('label', 'string'), many('posts', 'Post', 'tags', true)],
+			indexes: [],
+		},
+	],
 })
 
 let schema = ''
@@ -305,6 +323,36 @@ describe('a sync on postgres()', () => {
 			by: 'sync',
 			applied: [],
 		})
+	})
+
+	it('offers a rename from the snapshot it stored, whose columns jsonb sorts', async () => {
+		await sync(undefined, before)
+		const stored = await migrations.stored()
+		const statements = migrations.plan(
+			stored?.snapshot,
+			migrations.snapshot(after),
+		)
+		expect(statements.find(({ model }) => model === 'Old')?.rename?.to).toBe(
+			'New',
+		)
+	})
+
+	it('keeps the join of a model renamed with its dbName', async () => {
+		await sync(undefined, posts('Tag'))
+		await query(
+			inSchema(schema),
+			`with p as (insert into posts values (gen_random_uuid(), now(), now(), 'Hi') returning id),
+			t as (insert into tags values (gen_random_uuid(), now(), now(), 'art') returning id)
+			insert into posts_tags select p.id, t.id from p, t`,
+		)
+		// `Label` sorts before `Post`, `tags` after `posts`.
+		expect(await sync(posts('Tag'), posts('Label'))).toStrictEqual([])
+		expect(
+			await query(
+				inSchema(schema),
+				'select count(*)::int as n from posts_tags',
+			),
+		).toStrictEqual([{ n: 1 }])
 	})
 
 	it('refuses tables that no snapshot describes', async () => {
@@ -529,6 +577,10 @@ describe('a deploy of a file without a transaction', () => {
 	})
 })
 
+/** The host `reset` calls another machine's for a URL. */
+const remote = (connection: string) =>
+	postgres({ url: connection }).migrations?.remote
+
 describe('a reset on postgres()', () => {
 	it("leaves an extension's tables", async () => {
 		await query(inSchema(schema), 'create table owned (id integer)')
@@ -559,6 +611,25 @@ describe('a reset on postgres()', () => {
 				`select table_name from information_schema.tables where table_schema = '${schema}'`,
 			),
 		).toStrictEqual([])
+	})
+
+	it('names the host of a database on another machine, read as pg reads it', () => {
+		expect(remote('postgres://u:p@db.example.com:5432/app')).toBe(
+			'db.example.com',
+		)
+		expect(remote('postgres://u@db.example.com/app?host=localhost')).toBe(
+			undefined,
+		)
+		expect(remote('postgres://localhost/app')).toBe(undefined)
+		expect(remote('postgres://[::1]:5432/app')).toBe(undefined)
+		expect(remote('postgres://%2Fvar%2Frun%2Fpostgresql/app')).toBe(undefined)
+		expect(remote('postgres://[2001:db8::1]/app')).toBe('2001:db8::1')
+		expect(remote(url)).toBe(undefined)
+		vi.stubEnv('PGHOST', '')
+		expect(remote('postgres:///app')).toBe(undefined)
+		vi.stubEnv('PGHOST', 'db.example.com')
+		expect(remote('postgres:///app')).toBe('db.example.com')
+		vi.unstubAllEnvs()
 	})
 })
 
@@ -714,6 +785,19 @@ describe('the commands on postgres()', () => {
 			'Development sync changed this database since its last deploy',
 		)
 	}, 60_000)
+
+	it('refuses a reset of a database on another machine without --force', async () => {
+		await config('label: f.string()')
+		const refused = await ultimabase(dir, ['reset'], {
+			...development(),
+			DATABASE_URL: 'postgres://u@db.example.com/app',
+		})
+		expect(refused).toStrictEqual({
+			code: 1,
+			output:
+				'reset drops every table, and db.example.com is not this machine: pass --force if it holds a development database.\n',
+		})
+	})
 
 	it('tests a data migration on a copy of production, then deploys it', async () => {
 		await config('label: f.string()')

@@ -22,7 +22,13 @@ export type {
 	Transaction,
 	Write,
 } from './adapter.ts'
-export { CheckFailed, MigrationFailed, UniqueViolation } from './adapter.ts'
+export {
+	CheckFailed,
+	isLocalHost,
+	MigrationFailed,
+	RelationViolation,
+	UniqueViolation,
+} from './adapter.ts'
 export type { Logger, MasterKey } from './app-options.ts'
 export { defineApp } from './define-app.ts'
 export type {

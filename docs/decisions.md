@@ -2,7 +2,8 @@
 
 The design of UltimaBase, decided with the maintainer before any code is
 written. One entry per decision; a later entry may replace an earlier one by
-naming it.
+naming it, and the earlier one then says so under its title:
+`Amended by D-104.` Read an entry together with the ones that amend it.
 
 Entries also cover features planned after the first release. Code written
 today follows them: when a planned feature needs a shape now, build that
@@ -674,6 +675,8 @@ Why: knowing them now keeps today's code from blocking them.
 
 ## D-26: Migrations are SQL files, safe changes sync in development
 
+Amended by D-105.
+
 Choice: in development, the PostgreSQL adapter applies safe changes at startup
 (new table, new optional field, new index) and refuses destructive or ambiguous
 ones (drop, rename, type change) with a message saying what to run.
@@ -948,7 +951,9 @@ Choice: the `auth` plugin issues opaque session tokens stored in the database,
 so they can be revoked. A client sends one as a `Bearer` header or an httpOnly
 cookie; the format is the same. The cookie is `SameSite=Lax`, and the GraphQL
 transport refuses requests that are not JSON, which together block cross-site
-request forgery without a CSRF token.
+request forgery without a CSRF token; the HTTP plugin refuses, on every
+route, a form that carries cookies from another origin (D-106, amended
+2026-10-24).
 Why: revocation needs server state; the cookie keeps browsers safe by default
 while mobile and server clients keep a plain header.
 Rejected: JWT sessions (cannot be revoked before they expire).
@@ -1095,6 +1100,8 @@ fields: (f) => ({
 ```
 
 ## D-45: Function types become GraphQL types, with an escape hatch
+
+Amended by D-109.
 
 Choice: a function's `input` is any Standard Schema; its `output` is a model
 (`Todo`), a list (`[Todo]`), a named object mixing models and schemas
@@ -1367,6 +1374,8 @@ Later: an iterator reading a large table in batches by cursor
 
 ## D-56: Passwords use Argon2id, sign-in is rate limited
 
+Amended by D-113.
+
 Choice: the `password` plugin hashes passwords with Argon2id from Node's
 `node:crypto` (OWASP parameters: 19 MiB memory, 2 passes, parallelism 1) and
 stores the algorithm and parameters with each hash, so they can change later
@@ -1383,6 +1392,8 @@ built in); a native `argon2` package; sign-in protection left to a general
 rate-limit plugin.
 
 ## D-57: A plugin is an interface of types and one `definePlugin`
+
+Amended by D-89.
 
 Choice: a plugin declares its types in an interface extending `PluginTypes`:
 its `name` and the parts it has, `options` (its entry's, `softDelete({ ... })`),
@@ -1510,6 +1521,8 @@ fields: (f) => ({
 ```
 
 ## D-58: One pino-compatible logger
+
+Amended by D-93.
 
 Choice: `defineApp({ logger })` takes any logger with pino's interface
 (`info`, `warn`, `error`, `child`); without one, the kernel writes JSON lines
@@ -1677,8 +1690,9 @@ Rejected: timestamps without time zone.
 Choice: CORS allows no origin until the developer lists them
 (`httpPlugin({ cors: ['https://app.example.com'] })`), and a listed origin may
 send the master key header (D-49). When `NODE_ENV` is not `production`,
-local origins (`http://localhost` and `http://127.0.0.1`, any port) are also
-allowed without configuration. Request bodies are limited to 1 MB by
+local origins (`http:` on `localhost`, `*.localhost`, `127.0.0.1` or
+`[::1]`, any port; amended 2026-10-24: the hosts auth calls local, D-115)
+are also allowed without configuration. Request bodies are limited to 1 MB by
 default, configurable. Transactions keep PostgreSQL's default isolation (read
 committed); writes lock their rows (D-48).
 Why: the same rule as D-04: forgetting an option must not open the server. A
@@ -1690,6 +1704,8 @@ production (a missing `NODE_ENV` would open a deployed server); a stricter
 isolation level by default, which adds retries for no common need.
 
 ## D-67: One fixed order for every operation
+
+Amended by D-89.
 
 Choice: an operation runs in this order: the model's access rule (D-10), the
 fields' access rules on the data the caller sent (D-44), defaults (D-53),
@@ -1907,6 +1923,8 @@ throw new PublicError('VALIDATION_FAILED', 'Too short.', {
 ```
 
 ## D-73: The adapter contract
+
+Amended by D-105.
 
 Choice: an adapter implements six methods. `start(schema)` receives every
 model with its fields, relations, indexes and `dbName` overrides; `stop()`
@@ -2715,6 +2733,8 @@ slug: f.string({
 
 ## D-89: Plugins at run time
 
+Amended by D-96.
+
 Choice: seven details of D-15, D-57, D-67 and D-71 at run time. It replaces
 D-67's place for `redirect` and D-57's name `adds`.
 
@@ -3108,7 +3128,8 @@ kernel's planning in every test and break with each change of D-73); a
 `reset` the suite calls between tests (an adapter on a fresh database is
 simpler to write and cannot leak rows from one test to the next).
 
-Three details every adapter follows, checked by the suite:
+The details every adapter follows, checked by the suite (amended
+2026-10-24):
 
 - `%` and `_` are characters in `contains`, `startsWith` and `endsWith`, not
   patterns: an SQL adapter escapes them in its `LIKE`.
@@ -3116,6 +3137,28 @@ Three details every adapter follows, checked by the suite:
   without pages does not fail `every: { pages: { gt: 200 } }`.
 - Two json values are equal when their content is, keys in any order
   (`jsonb` in PostgreSQL).
+- Strings sort by code point, the order of their UTF-8 bytes and of
+  PostgreSQL's `C` collation: `ｚ` (U+FF5A) before `😀` (U+1F600), which
+  UTF-16 code units order the other way.
+- The kernel refuses what a database would change or fail on: a string, an
+  id, a text operand or a json string or key with a NUL or a lone surrogate,
+  and a date outside years 1 to 9999 in UTC. A write fails with
+  `VALIDATION_FAILED`, a filter or a `connect` with `INVALID_QUERY`.
+- A json field cannot be sorted: `orderBy: { meta: 'asc' }` fails with
+  `INVALID_QUERY`, and GraphQL's `OrderByInput` has no json field. Each
+  database orders json its own way.
+- A date goes to the database and comes back in UTC, whatever the time zone
+  of the server process and of the database session: an offset in seconds,
+  as Paris's +00:09:21 before 1911, is lost otherwise.
+
+Why the refusals (amended 2026-10-24): PostgreSQL refuses a NUL in `text`
+and `jsonb`, replaces a lone surrogate, and stores the years 0 and 10000
+but reads them back as an invalid date. Refused by the kernel, these values
+fail the same way on every adapter, with the field's path, and no stored
+row comes back different from what was written.
+
+Limit (amended 2026-10-24): a json object comes back with its keys in the
+order its database keeps, sorted in PostgreSQL; its content is unchanged.
 
 Limit: how an adapter makes other writes wait during a transaction is its
 own (memory takes a lock, PostgreSQL row locks); the suite checks only that
@@ -3137,6 +3180,22 @@ import { testAdapter } from '@ultimabase/testing'
 import { postgres } from '@ultimabase/postgres'
 
 testAdapter('postgres', () => postgres({ url: process.env.TEST_DATABASE_URL }))
+```
+
+Example of the refusals (amended 2026-10-24):
+
+```ts
+// Before: memory() stores it, PostgreSQL fails with a raw driver error
+await Post.create({ data: { title: 'a\u0000b' } })
+// memory: stored; PostgreSQL: invalid byte sequence for encoding "UTF8": 0x00
+await Post.create({ data: { publishedAt: new Date('+010000-01-01') } })
+// PostgreSQL: stored, then every read of the row throws "Invalid time value"
+
+// After: both refused alike, before the database
+await Post.create({ data: { title: 'a\u0000b' } })
+// VALIDATION_FAILED, title: "Expected a string without a NUL or a lone surrogate."
+await Post.findMany({ orderBy: { meta: 'asc' } })
+// INVALID_QUERY, orderBy.meta: "is a json field, which cannot be sorted"
 ```
 
 ## D-95: The manifest's version checks
@@ -3320,6 +3379,8 @@ await Note.create({ data }, { as: asUser({ id: 'ada' }) })
 
 ## D-98: The PostgreSQL adapter's tables, names and test setup
 
+Amended by D-105.
+
 Choice:
 
 1. Tables. `start` refuses a server below PostgreSQL 15 (D-50). When the
@@ -3345,20 +3406,25 @@ Choice:
    - A condition on `id` with a string that is not a lowercase UUID matches
      no row, as in `memory()`, instead of failing in PostgreSQL.
 3. Many-to-many. The join table is named `<table>_<field>` after the side
-   whose model name sorts first, and its columns are named `<table>_id`. So
-   `Book.tags` with `Tag.books` gives `book_tags(book_id, tag_id)`, with a
-   primary key on both columns and an index on the second. A relation of a
-   model to itself is named after the field that sorts first, and each column
-   after the field that lists its ids. So `User.followers` with
-   `User.following` gives `user_followers(followers_id, following_id)`. The
-   join's foreign keys cascade, so a deleted row's links go with it, as in
-   `memory()`.
+   whose table name sorts first (amended 2026-10-24: not its model name, so
+   a model renamed with its `dbName` keeps its join and its links), and its
+   columns are named `<table>_id`. So `Book.tags` with `Tag.books` gives
+   `book_tags(book_id, tag_id)`, with a primary key on both columns and an
+   index on the second. A relation of a model to itself is named after the
+   field that sorts first, and each column after the field that lists its
+   ids. So `User.followers` with `User.following` gives
+   `user_followers(followers_id, following_id)`. The join's foreign keys
+   cascade, so a deleted row's links go with it, as in `memory()`.
 4. Constraint names:
    - `<table>_pkey`, `<table>_<columns>_key`, `_fkey`, `_check` and `_idx`.
    - A name over 63 bytes keeps its first 54 and ends with 8 hex characters
      of its hash.
    - When `<table>_pkey` or a `_key` refuses a write, the adapter reports
      `UniqueViolation` with the model's field names.
+   - Two things stored under one name are refused, naming both: two tables
+     (a model's or a join table), two keys, checks or indexes in the schema,
+     or two columns of a table. `start` refuses before it connects, and so
+     does a snapshot (amended 2026-10-24).
 5. Round-trip counts. `testAdapter(name, create, { roundTrips })` requires
    a counter and runs the counts of D-46 and D-48, so no adapter passes the
    contract without them (D-99).
@@ -3384,7 +3450,8 @@ Why:
 
 - Starting on an empty database is the only migration that needs no diff.
 - The `C` collation and `jsonb` give PostgreSQL the comparisons `memory()`
-  already has, so the contract holds on both.
+  has, strings by code point (D-94, amended 2026-10-24), so the contract
+  holds on both.
 - A foreign key keeps hand-written SQL honest without running the kernel's
   cascades a second time.
 - A schema per test is faster than a database per test, and isolates the
@@ -3417,6 +3484,8 @@ await app.start()
 ```
 
 ## D-99: A write in one statement, checked inside it, in a transaction only when one serves
+
+Amended by D-104.
 
 Choice:
 
@@ -3457,6 +3526,16 @@ Choice:
    refuse it as a `uuid` before a check could.
 7. The contract suite counts round trips, BEGIN, COMMIT and ROLLBACK
    included: `testAdapter(name, create, { roundTrips })` (D-98).
+8. A race the checks miss (amended 2026-10-24). A connect check takes no
+   lock, so a concurrent delete can commit between it and the COMMIT, where
+   PostgreSQL's deferred foreign key refuses the write. The adapter throws
+   `RelationViolation(model, field, target, restricted)` for a foreign key
+   it knows, and the kernel reports what the checks would have reported in
+   either order: `NOT_FOUND`, "A connected Genre does not exist.", for a
+   target deleted meanwhile; `RELATION_RESTRICTED` (D-54) for a delete a
+   row linked meanwhile restricts. PostgreSQL's message alone tells the two
+   apart: a server whose messages are not in English reports each one as
+   `NOT_FOUND`.
 
 Why:
 
@@ -3475,6 +3554,8 @@ Rejected:
 - A transaction around every write.
 - Serializable isolation instead of row locks: a conflicting write fails
   and the application retries it.
+- Locking each connected row (`for key share`) to rule out the race: a lock
+  on every connect for a race a refusal already reports.
 - Skipping the read of an update by a unique field other than `id`: the
   read after it follows the row by `id`, which the kernel has not loaded.
 
@@ -3960,7 +4041,12 @@ index. A failure then reads`It ran without a transaction, so nothing was rolled 
      extension's, such as PostGIS's `spatial_ref_sys`, then
      applies every migration file and stores `schema.json`'s snapshot, as a
      deploy would; with no file, the next start builds the tables. It is
-     refused in production and asks nothing (amended 2026-10-22).
+     refused in production and asks nothing (amended 2026-10-22). A
+     database on another machine, a host the kernel's `isLocalHost` does
+     not call local, needs `reset --force`: `NODE_ENV` unset on a laptop
+     holding a production `DATABASE_URL` would otherwise wipe it. A unix
+     socket and an empty host are this machine; the adapter reads the host
+     as its driver does (amended 2026-10-24).
 
 8. The adapter contract (D-73) gains an optional `migrations` member, which
    the kernel's commands and `start` call; `memory()` has none, since it
@@ -3979,6 +4065,9 @@ index. A failure then reads`It ran without a transaction, so nothing was rolled 
    	apply(run: Run): Promise<void>
    	/** Drops every table; returns the models' ones it dropped. */
    	reset(): Promise<readonly string[]>
+   	/** The database's host when it is not on this machine: `reset` then
+   	 * needs `--force` (amended 2026-10-24). */
+   	readonly remote?: string
    }
    class MigrationFailed extends Error {
    	/** The statement's SQL, or the file's name. */
@@ -4080,7 +4169,10 @@ Rejected:
   second bookkeeping for a development copy that a dump or `reset` rebuilds
   in seconds.
 - Down migrations: a rollback is a new migration, as with Prisma.
-- Asking before `reset`: it is refused where it could lose real data.
+- Asking before `reset`: it is refused in production, and needs `--force`
+  for a database on another machine.
+- Marking a development database, as Rails stores its environment: a dump
+  of production restored for a test carries production's mark.
 - A command that runs arbitrary SQL: `psql` does it.
 
 Limits:
@@ -4143,6 +4235,8 @@ npx ultimabase migrate deploy            # Applied 20261022150000_add_kind.sql.
 npx ultimabase migrate deploy && npx ultimabase start
 # Back to a clean development database
 npx ultimabase reset                     # Dropped locker. Applied ….sql.
+# A development database on another host
+npx ultimabase reset --force
 ```
 
 ## D-106: `httpPlugin()`, its Hono routes and the caller they read
@@ -4190,18 +4284,31 @@ Choice: completes D-27, D-49, D-59 and D-66.
    then closes the connections left and logs a warning; the delay is fixed,
    not an option (amended 2026-10-23).
 5. CORS (D-66) and the body limit use Hono's middlewares. `cors` lists the
-   allowed origins; outside production, `http://localhost` and
-   `http://127.0.0.1` on any port are also allowed. `bodyLimit` is in bytes,
+   allowed origins; outside production, the local origins of D-66 are
+   also allowed (amended 2026-10-24: the kernel's `isLocalHost(hostname)`,
+   which auth and `reset` use too, tells them). `bodyLimit` is in bytes,
    1 MB by default. Only a preflight, an `OPTIONS` with
    `Access-Control-Request-Method`, is answered by `cors`; any other
    `OPTIONS` reaches its route, with the CORS headers, or `NOT_FOUND`
    (amended 2026-10-23).
+6. A browser posts an HTML form to any site with that site's cookies, and
+   CORS never stops it. A request that is not `GET`, `HEAD` or `OPTIONS`,
+   whose content type a form sends (form-urlencoded, multipart or
+   `text/plain`; none counts as `text/plain`) and which carries a `Cookie`
+   header, is refused with `ACCESS_DENIED` (403) unless its
+   `Sec-Fetch-Site` is `same-origin` or its `Origin` is the server's own or
+   one `cors` allows. A request without cookies passes: it holds no session
+   to abuse, and a webhook sends none (amended 2026-10-24).
 
 Why: Hono is a small router built on the web's `Request` and `Response`,
 whose context already carries typed variables, so a route reads the caller
 with nothing to learn. Identify belongs to the kernel, since the master key
 and the session are the same for HTTP and GraphQL (D-49); a transport only
 hands it the request.
+`SameSite=Lax` keeps a cookie from another site's form, not from a sibling
+subdomain's, which is the same site: point 6 covers it, and GraphQL refuses
+forms anyway (D-39). Hono's `csrf` middleware refuses a form without cookies
+too, so it breaks form webhooks (Twilio, Slack), and answers in plain text.
 Rejected: a `defineRoute` wrapper (D-27); the caller as a function argument
 (`(c, caller) => …`), which is not Hono's shape; test helpers, since Hono's
 `routes().request(…)` and a server on port 0 already test a route; the API
@@ -4523,6 +4630,8 @@ curl -X POST localhost:3000/webhooks/stripe -H 'content-type: application/json' 
 ```
 
 ## D-109: `defineFunction` and `defineType`, at run time and over GraphQL
+
+Amended by D-113.
 
 Choice: completes D-27, D-45, D-75 and D-107, and amends D-45's outputs.
 
@@ -4880,6 +4989,8 @@ const { count } = await Notification.deleteMany(
 
 ## D-112: auth's sessions, Identify and the API of sign-in methods
 
+Amended by D-113 and D-115.
+
 Choice: completes D-33, D-39, D-62, D-79 and D-106.
 
 1. `@ultimabase/auth` exports `authPlugin()`, `defineUser` (D-62),
@@ -4967,6 +5078,8 @@ curl localhost:3000/graphql -H 'authorization: Bearer expired…' -d '…'
 ```
 
 ## D-113: `passwordPlugin()`, linked accounts, plugin functions and `viewer`
+
+Amended by D-115.
 
 Choice: completes D-33, D-56, D-109 and D-112, and amends D-56, D-109 and
 D-112.
@@ -5163,6 +5276,8 @@ mutation {
 
 ## D-114: `passwordPlugin()`'s limits against many addresses
 
+Amended by D-115.
+
 Choice: completes D-113.
 
 1. An IPv6 address counts as its /64 network, an IPv4-mapped IPv6 address
@@ -5170,7 +5285,9 @@ Choice: completes D-113.
 2. Each subject, whatever the address, has a ceiling: the 101st failed
    attempt within 15 minutes is refused with `TOO_MANY_ATTEMPTS`, for every
    address, until the oldest of the hundred is 15 minutes old. A success
-   clears its own address's failures only.
+   clears its own address's failures only. Each address, whatever the
+   subject, has the same ceiling: the 101st failed attempt from it within
+   15 minutes is refused on every subject (amended 2026-10-24).
 3. At most `os.availableParallelism()` Argon2 computations run at once in a
    process, and 64 more wait; one more fails with `TOO_MANY_ATTEMPTS` and
    `retryAfter: 1`, and an attempt that fails so is not counted.
@@ -5183,7 +5300,11 @@ Why: an IPv6 client holds a /64 at least, so counting each address gives
 one attacker as many limits as it wants. The per-pair limit alone lets an
 attacker with a thousand addresses try ten thousand passwords on an account
 every 15 minutes; the ceiling caps that at a hundred, at the cost of a
-victim that many addresses can lock out for 15 minutes. Argon2 holds 19 MiB
+victim that many addresses can lock out for 15 minutes. Without the
+address's ceiling, one address tries a common password on every account it
+knows, one failure each, and is never refused; with it, a hundred accounts
+every 15 minutes, at the cost of the clients behind one shared address, such
+as a mobile carrier's NAT, that one attacker among them can lock out. Argon2 holds 19 MiB
 and a thread for each computation, so a burst of sign-ins would exhaust the
 memory and the threadpool; a busy server refuses at once rather than queue
 without end. A sign-up hashes a password and creates rows, so it is limited
@@ -5212,6 +5333,8 @@ The application's code does not change.
 
 ## D-115: auth and password after their audit
 
+Amended by D-116.
+
 Choice: amends D-112, D-113 and D-114.
 
 1. A function's `client` reads the request's cookies:
@@ -5221,7 +5344,8 @@ Choice: amends D-112, D-113 and D-114.
 2. Outside production the cookie is neither `Secure` nor `__Host-`
    (D-112). auth logs one warning per running application the first time
    it identifies a request for a host that is not local (`localhost`,
-   `*.localhost`, `127.0.0.1` or `[::1]`), naming `NODE_ENV=production`.
+   `*.localhost`, `127.0.0.1` or `[::1]`, the kernel's `isLocalHost`, amended
+   2026-10-24), naming `NODE_ENV=production`.
 3. `User.signIn({ email, password }, { client })` counts the attempt and
    sets the cookie as the `signIn` function does; without `client` it is
    still not counted (D-113 point 11).
@@ -5236,7 +5360,8 @@ Choice: amends D-112, D-113 and D-114.
    and a function cannot tell one client from another; `signUp`'s
    `UNIQUE_VIOLATION` tells an email has an account, which only email
    verification can hide; a hundred failures from many addresses lock an
-   account for 15 minutes (D-114).
+   account for 15 minutes, and a hundred from one address lock that address
+   out of every account (D-114).
 8. A test pins that a mutation over GET, and a POST that is not JSON, fail
    without running, so a page on another site cannot use the cookie.
 
@@ -5281,8 +5406,8 @@ from the request.
    server, 0 by default: a whole number, or startup fails.
 2. With `proxies: n`, a client's address is the n-th entry of
    `X-Forwarded-For` from the right, each proxy having appended the address
-   it saw. With fewer entries, it is the leftmost; with none, the
-   connection's.
+   it saw. With fewer entries, or none, it is the connection's (amended
+   2026-10-24).
 3. When that entry is not an IP address, the address is the connection's.
 4. Only `X-Forwarded-For` is read: neither `Forwarded`, nor a host's own
    header, nor the forwarded protocol or host. The cookie's `Secure` still
@@ -5295,8 +5420,11 @@ Why: behind a proxy every client has the proxy's address, so ten wrong
 passwords from anyone lock an account for everyone (D-113). A client writes
 what it wants on the left of `X-Forwarded-For`; only the entries the proxies
 appended can be trusted, and their number is what the application knows of
-its hosting. Trusting the header by default would let any client of a
-server reached directly pick its address and escape every limit. An entry
+its hosting. Fewer entries than proxies means the request went around one,
+so the client may have written all of them: taking the leftmost let a
+client that reaches the server directly pick a new address for each
+request. Trusting the header by default would let any client of a server
+reached directly pick its address and escape every limit. An entry
 that is not an address, from a proxy that appends a port for instance,
 would give a limit per value written. The warning names a mistake that
 otherwise shows only when accounts are locked; a public address does not

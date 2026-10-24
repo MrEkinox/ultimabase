@@ -101,16 +101,24 @@ class Compiler {
 		return result
 	}
 
+	/** A scalar column, a date in UTC whatever the session's time zone. */
+	private scalar(table: Table, alias: string, name: string): Sql {
+		const column = this.filters.column(table, alias, name)
+		return this.catalog.kind(table, name) === 'date'
+			? sql`(${column} at time zone 'UTC')`
+			: column
+	}
+
 	/** A row as jsonb: its fields, each `one` as `{ id }`, then its includes. */
 	row(model: string, alias: string, nested: Nested): Sql {
 		const table = this.catalog.table(model)
 		const pairs = new Map<string, Sql>()
 		for (const name of ['id', 'createdAt', 'updatedAt']) {
-			pairs.set(name, this.filters.column(table, alias, name))
+			pairs.set(name, this.scalar(table, alias, name))
 		}
 		for (const field of table.model.fields) {
 			if (field.kind === 'scalar') {
-				pairs.set(field.name, this.filters.column(table, alias, field.name))
+				pairs.set(field.name, this.scalar(table, alias, field.name))
 			} else if (field.kind === 'one' && field.stored) {
 				const key = this.filters.column(table, alias, field.name)
 				pairs.set(

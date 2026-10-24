@@ -79,7 +79,6 @@ describe('reads', () => {
 		expect(await books({ title: { in: [] } })).toEqual([])
 		expect(await books({ title: { notIn: [] } })).toEqual(['b1', 'b2'])
 		expect(await books({ published: { gt: false } })).toEqual(['b1'])
-		expect(await books({ meta: { lt: { rank: 2 } } })).toEqual(['b2'])
 		// A text operator on a value that is not text matches nothing.
 		expect(await books({ pages: { contains: '3' } })).toEqual([])
 		// `null` stays unknown under NOT: Engines' pages match neither way.

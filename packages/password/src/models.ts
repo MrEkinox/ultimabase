@@ -96,7 +96,7 @@ export type Attempt =
 
 /** The `n`th most recent failure but `id` matching `where`, if there is one. */
 async function nth(
-	where: { readonly subject: string; readonly address?: string },
+	where: { readonly subject?: string; readonly address?: string },
 	id: string,
 	n: number,
 ): Promise<Date | undefined> {
@@ -109,9 +109,9 @@ async function nth(
 
 /**
  * Counts an attempt as failed until `run` succeeds, so concurrent attempts
- * cannot pass the limit; the eleventh from one address within 15 minutes is
- * refused, as the 101st from any (D-114), and a success clears its address's
- * count (D-113). An attempt refused as busy is not counted (D-114).
+ * cannot pass the limit (D-113, D-114). Within 15 minutes, the 11th from one
+ * address on a subject is refused, as the 101st on it or from the address;
+ * a success clears its address's count, a busy refusal is not counted.
  */
 export async function limited<T>(
 	attempt: Attempt,
@@ -127,10 +127,11 @@ export async function limited<T>(
 		{ data: { subject, address, at: new Date(now) } },
 		M,
 	)
-	// Both may be reached: the later one says when to retry.
+	// Several may be reached: the latest says when to retry.
 	const [oldest] = [
 		await nth({ subject, address }, id, limit),
 		await nth({ subject }, id, ceiling),
+		await nth({ address }, id, ceiling),
 	]
 		.filter((at) => at !== undefined)
 		.toSorted((a, b) => b.getTime() - a.getTime())
