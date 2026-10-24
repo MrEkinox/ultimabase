@@ -2,6 +2,7 @@
 // cookie, its lifetime, sign-out, revocation and the one user model.
 import { httpPlugin } from '@ultimabase/http'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import type { Adapter } from 'ultimabase'
 import { defineApp, memory } from 'ultimabase'
 import { authPlugin, defineUser } from './index.ts'
 import { AuthSession } from './sessions.ts'
@@ -24,6 +25,27 @@ afterEach(async () => {
 	await stop?.()
 	stop = undefined
 })
+
+/** A database where a session's renewal meets its sign-out. */
+function signingOutOnRenewal(): Adapter {
+	const database = memory()
+	return {
+		start: async (schema) => database.start(schema),
+		stop: async () => database.stop(),
+		begin: async () => database.begin(),
+		find: async (read) => database.find(read),
+		count: async (read) => database.count(read),
+		write: async (write) => {
+			const [change] = write.changes
+			if (change?.kind === 'update' && change.model === 'AuthSession') {
+				await database.write({
+					changes: [{ kind: 'delete', model: 'AuthSession', where: {} }],
+				})
+			}
+			return database.write(write)
+		},
+	}
+}
 
 async function server() {
 	const running = await started()
@@ -124,6 +146,15 @@ describe('a session’s lifetime', () => {
 		expect((await callerOf(url, bearer(token))).status).toBe(200)
 		const [renewed] = await AuthSession.findMany({}, M)
 		expect(renewed?.expiresAt.getTime()).toBe(now + 50 * day)
+	})
+
+	it('ends when signed out while it is renewed', async () => {
+		const running = await started(signingOutOnRenewal())
+		stop = async () => running.app.stop()
+		const { token } = await signIn(running.url, running.ada.id)
+		vi.spyOn(Date, 'now').mockReturnValue(Date.now() + 20 * day)
+		const renewed = await callerOf(running.url, bearer(token))
+		expect(renewed.status).toBe(401)
 	})
 
 	it('keeps its end when used with more than 15 days left', async () => {

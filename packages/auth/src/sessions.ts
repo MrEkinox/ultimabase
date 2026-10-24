@@ -2,7 +2,7 @@
 // SHA-256 digest, ending 30 days after its last use.
 import { createHash, randomBytes } from 'node:crypto'
 import type { Field, ModelOf, ScalarOptions } from 'ultimabase'
-import { defineModel, master } from 'ultimabase'
+import { defineModel, master, PublicError } from 'ultimabase'
 
 const M = { as: master }
 const day = 24 * 60 * 60 * 1000
@@ -68,10 +68,18 @@ export async function sessionUser(token: string): Promise<string | undefined> {
 		return undefined
 	}
 	if (left < renewal) {
-		await AuthSession.update(
-			{ where: { tokenHash }, data: { expiresAt: new Date(now + lifetime) } },
-			M,
-		)
+		try {
+			await AuthSession.update(
+				{ where: { tokenHash }, data: { expiresAt: new Date(now + lifetime) } },
+				M,
+			)
+		} catch (error) {
+			// Signed out between the read and the renewal: the session ended.
+			if (error instanceof PublicError && error.code === 'NOT_FOUND') {
+				return undefined
+			}
+			throw error
+		}
 	}
 	return session.userId
 }
