@@ -1360,11 +1360,12 @@ Later: an iterator reading a large table in batches by cursor
 
 ## D-56: Passwords use Argon2id, sign-in is rate limited
 
-Choice: the `auth` plugin hashes passwords with Argon2id from Node's
+Choice: the `password` plugin hashes passwords with Argon2id from Node's
 `node:crypto` (OWASP parameters: 19 MiB memory, 2 passes, parallelism 1) and
 stores the algorithm and parameters with each hash, so they can change later
 and old hashes are upgraded at the next sign-in. It limits sign-in and
-password reset attempts per account and per address, stored in the database.
+password reset attempts per account and address together, stored in the
+database (D-113, amended 2026-10-24).
 Why: Argon2id is OWASP's first recommendation and Node's LTS ships it, so no
 native dependency is compiled; a brute-force guard must not depend on an
 optional plugin.
@@ -4604,7 +4605,8 @@ Choice: completes D-27, D-45, D-75 and D-107, and amends D-45's outputs.
 9. The kernel gives every plugin's `api`, `start` and `stop` the
    application's `functions`, as it gives `models` (D-107): each function's
    name, `query`, its input and output, its `.with` key for that plugin, and
-   `run(input, { as })` (D-75). The kernel checks the access rule, closed to
+   `run(input, { as })` (D-75), those of plugins included (D-113, amended
+   2026-10-24). The kernel checks the access rule, closed to
    all but Master by default (D-04), before it validates the input, then
    runs the function, as `run` from server code does.
 
@@ -4902,11 +4904,12 @@ Choice: completes D-33, D-39, D-62, D-79 and D-106.
    overwrite; outside, `ultimabase_session`, so it works on
    `http://localhost`. `httpPlugin()`'s CORS allows credentials for the
    origins it allows, so a front end on another origin sends the cookie.
-6. auth's API, for the sign-in methods (D-33): `signIn(c, userId)` opens a
-   session, sets its cookie on the response of the Hono context `c`, and
-   returns `{ token, expiresAt }`; `revokeSessions(userId)` ends every
-   session of a user. auth mounts `POST /auth/sign-out`, which ends the
-   request's session and clears the cookie, with status 204.
+6. auth's API, for the sign-in methods (D-33): `signIn(userId, client?)`
+   opens a session, sets its cookie through the function's `client` when
+   there is one, and returns `{ token, expiresAt }`; `revokeSessions(userId)`
+   ends every session of a user. auth's function `signOut` ends the
+   request's session and clears the cookie; auth mounts no route (D-113,
+   amended 2026-10-24).
 
 Why: an opaque token stored hashed is revocable (D-39) and useless when the
 database leaks; SHA-256 fits a random token, as Argon2id fits a password
@@ -4943,15 +4946,179 @@ export default defineApp({
 })
 // Any rule, hook or function reads `caller.user.role`, with no query.
 
-// A sign-in method's route
-signIn.post('/auth/sign-in', async (c) => {
-	const user = await checkPassword(await c.req.json())
-	const { token } = await plugins.auth.signIn(c, user.id)
-	return c.json({ token, user })
-})
+// A sign-in method's function (amended 2026-10-24 by D-113)
+run: async ({ input, client }) => {
+	const user = await checkPassword(input)
+	const { token, expiresAt } = await plugins.auth.signIn(user.id, client)
+	return { token, expiresAt, user }
+}
 ```
 
 ```bash
 curl localhost:3000/graphql -H 'authorization: Bearer expired…' -d '…'
 # 401 { "code": "UNAUTHENTICATED", "message": "The session expired or was revoked: sign in again." }
+```
+
+## D-113: `passwordPlugin()`, linked accounts, plugin functions and `viewer`
+
+Choice: completes D-33, D-56, D-109 and D-112, and amends D-56, D-109 and
+D-112.
+
+1. Plugin functions. `definePlugin({ functions })` gives a plugin
+   `defineFunction` values of its own, exposed by every transport as the
+   application's are (D-109): a name another function or a root field takes
+   stops startup, naming both. A plugin's function may return the
+   application's models, never its own (D-110).
+2. The client. `run` receives `client` when a transport calls the function,
+   `undefined` when server code does (D-75): `client.address`, the
+   connection's address, and `client.cookies.set(name, value, options)` and
+   `client.cookies.clear(name)`, which the transport applies to its HTTP
+   response. auth's API becomes `signIn(userId, client?)`, which sets the
+   session's cookie only with a client, and `revokeSessions(userId)`.
+3. Linked accounts. auth owns `AuthAccount { userId, method, subject }`,
+   unique on `(method, subject)`: one row per way a user signs in, the email
+   for a password, the provider's user id for OAuth (D-33). Deleting the user
+   deletes them. auth's API adds `linkAccount(userId, method, subject)` and
+   `accountOf(method, subject)`. A method keeps its secrets in its own models,
+   never in `AuthAccount` nor on the user.
+4. auth's functions. `signOut: Boolean!` ends the request's session and
+   clears the cookie; it replaces D-112's `POST /auth/sign-out`, so auth mounts
+   no route. `viewer: User`, a query, is the caller's user read again as the
+   caller, so the user model's field rules apply; `null` when anonymous or
+   when the user's read rule refuses its own row. auth adds the command
+   `User.revokeSessions({ id }, options)`.
+5. `@ultimabase/password` exports `passwordPlugin(options)` and `password()`.
+   It requires auth. The user model declares `use: [password()]`, which types
+   its commands and deletes the user's hash with the user; `passwordPlugin()`
+   without it stops startup, naming the line to add. The email is trimmed and
+   lowercased, and is the account's `subject`: the user model needs no
+   `email` field, and one it declares is its own.
+6. Functions, each taking one named input (D-109):
+   `signUp(input: SignUpInput!): SignedIn!`,
+   `signIn(input: SignInInput!): SignedIn!` and
+   `changePassword(input: ChangePasswordInput!): SignedIn!`, where
+   `SignedIn` is `{ token, expiresAt, user: User }`, its user read again as
+   itself. `SignUpInput` holds `email`, `password` and the user fields
+   `passwordPlugin({ signUp: [...] })` lists, typed from the user model; any
+   other field fails with `VALIDATION_FAILED`. `signUp` creates the user, its
+   account and its hash in one transaction, with the user model's validation
+   and hooks. `signUp: false` removes the function. `changePassword` needs a
+   signed-in caller and the current password, ends every session of the user
+   and opens one for this client.
+7. Commands, on the user model: `User.signUp({ email, password, data })`,
+   `User.signIn({ email, password })`, which returns `SignedIn` without a
+   cookie, and `User.setPassword({ id, password })`, which ends the user's
+   sessions. As Master they skip `signUp: false`, the field list and the
+   attempt limit; as another caller they apply them, as the functions do.
+8. Hash. Argon2id from `node:crypto`, `m=19456, t=2, p=1`, a 16-byte salt,
+   stored as a PHC string (`$argon2id$v=19$m=19456,t=2,p=1$…`) in the plugin's
+   `PasswordHash { userId (unique), hash }`; a sign-in rehashes a hash whose
+   parameters differ. `crypto.argon2` came in Node 24.7.0, so every package's
+   `engines` becomes `>=24.7.0`. A password has 8 to 256 characters, with no
+   composition rule (NIST SP 800-63B).
+9. Errors. An unknown email and a wrong password both fail with
+   `INVALID_CREDENTIALS` (401), and the unknown email is checked against a
+   dummy hash, so the time taken does not tell an account exists. An email
+   already taken fails with `UNIQUE_VIOLATION` (409).
+10. Attempts. Ten failures for one `(subject, address)` within 15 minutes
+    fail the next attempts with `TOO_MANY_ATTEMPTS`, a kernel code sent with
+    status 429 and `retryAfter`, in seconds, in the error's extensions (and
+    `Retry-After` over REST). A success clears the count. The failures are
+    rows of the plugin's `PasswordAttempt`. Server code without a client is
+    not counted.
+11. Out of this decision, until a second sign-in method or an email plugin:
+    unlinking an account, keeping a user's last method, linking by verified
+    email, password reset and email verification.
+
+Why: each method stays an ordinary plugin with its own functions, models,
+hooks and options, so a community method is written as any plugin; the
+accounts table is what lets a password and Google reach one user, and the
+rule for linking is the same for every method, so it is auth's. Functions
+rather than HTTP routes give an application that serves only GraphQL no
+route it did not ask for, and give REST the same functions in phase 7. One
+named input types a client's form (`SignUpInput`), as `PostCreateInput`
+does. Fields at sign-up save a second request and the sign-up that succeeds
+while its profile update fails; a closed list keeps a forgotten rule from
+letting a client sign up with `role: 'admin'`. Limiting per account alone
+would let anyone lock a victim out with ten wrong passwords; per address
+alone would let one attacker try every account. `viewer` and `SignedIn`
+read the user again because `caller.user` is read as Master (D-112).
+Limit: behind a proxy every client has the proxy's address, so the limit
+counts per account until `httpPlugin()` reads a forwarded address it can
+trust, a separate decision. An OAuth callback is a URL the provider calls,
+so it will be an HTTP route.
+Rejected: `authPlugin({ methods: [password()] })`, the previous base's
+ADR-0326, which re-exposes each plugin capability through a second extension
+point; the hash on the user row; the email copied to the user model; HTTP
+routes `/auth/sign-up` and `/auth/sign-in`; flat arguments; sign-up fields
+checked by the user model's field rules as the anonymous caller, open by
+default; `plugins.password.createAccount`, less discoverable than a command;
+limiting per account alone.
+Example:
+
+```ts
+// Before: Parse
+const user = new Parse.User()
+user.set({ username: email, password, pseudonym })
+await user.signUp()
+const signed = await Parse.User.logIn(email, password) // signed.getSessionToken()
+const me = Parse.User.current()
+
+// After: the application
+export const User = defineUser({
+	name: 'User',
+	use: [password()],
+	fields: (f) => ({
+		pseudonym: f.string(),
+		birthDate: f.date({ optional: true }),
+		role: f.enumOf(['reader', 'editor'], { default: 'reader' }),
+	}),
+})
+export default defineApp({
+	database: postgres({ url: process.env.DATABASE_URL }),
+	plugins: [
+		httpPlugin(),
+		graphqlPlugin(),
+		authPlugin(),
+		passwordPlugin({ signUp: ['pseudonym', 'birthDate'] }),
+	],
+	models: [User, Post],
+})
+
+// Server code: a seed, an invitation, a back office
+const ada = await User.signUp(
+	{ email: 'ada@example.com', password, data: { pseudonym: 'ada' } },
+	{ as: master },
+)
+await User.setPassword({ id: ada.id, password: next }, { as: master })
+```
+
+```graphql
+mutation SignUp($input: SignUpInput!) {
+	signUp(input: $input) {
+		user {
+			id
+			pseudonym
+		}
+	}
+}
+query {
+	viewer {
+		pseudonym
+	}
+}
+mutation {
+	signOut
+}
+```
+
+```json
+{
+	"errors": [
+		{
+			"message": "Too many attempts: try again later.",
+			"extensions": { "code": "TOO_MANY_ATTEMPTS", "retryAfter": 900 }
+		}
+	]
+}
 ```

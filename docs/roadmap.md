@@ -136,12 +136,18 @@ Exit: a full CRUD example over GraphQL against PostgreSQL.
 ## Phase 5: Authentication
 
 - [x] `auth`: `defineUser`, sessions, Identify (D-33, D-39, D-62).
-- [ ] `passwordPlugin()`: Argon2id, sign-in rate limit (D-56).
+- [ ] `passwordPlugin()`: Argon2id, sign-in rate limit (D-56, D-113).
+- [ ] Plugin functions and a function's `client`; auth's `signOut`,
+      `viewer` and `AuthAccount` (D-113).
+- [ ] Decide how `httpPlugin()` reads a client's address behind a proxy
+      (D-113).
 - [x] Decide how a plugin keeps its own models, as the sessions, out of the
       transports: D-24 has every transport act on every model (D-110).
 - [x] A plugin's own models at run time (D-110).
 - [x] `deleteMany`, a delete's rules and hooks on each row (D-111).
 - [x] Decide auth's sessions, Identify and the API of sign-in methods (D-112).
+- [x] Decide `passwordPlugin()`, linked accounts and plugin functions
+      (D-113).
 
 Exit: an example with sign-up, sign-in and rules on `caller.user`.
 
