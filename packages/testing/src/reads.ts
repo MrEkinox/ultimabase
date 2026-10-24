@@ -149,11 +149,12 @@ export function reads(create: () => Adapter): void {
 		})
 
 		it('matches part of an id as a string', async () => {
+			// An id begins with its time, shared by rows created together.
 			const id = authors.ada
-			expect(await names({ id: { startsWith: id.slice(0, 13) } })).toEqual([
+			expect(await names({ id: { startsWith: id.slice(0, 30) } })).toEqual([
 				'Ada',
 			])
-			expect(await names({ id: { contains: id.slice(14, 23) } })).toEqual([
+			expect(await names({ id: { contains: id.slice(24, 32) } })).toEqual([
 				'Ada',
 			])
 			expect(await names({ id: { endsWith: id.slice(24) } })).toEqual(['Ada'])
