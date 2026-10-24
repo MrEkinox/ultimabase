@@ -133,6 +133,22 @@ describe('postgres()', () => {
 			await adapter.stop()
 		}
 	})
+
+	it('outlives a server that ends its idle connection', async () => {
+		const name = `application_name=${schema}`
+		const adapter = postgres({ url: `${inSchema(url, schema)}&${name}` })
+		await started(adapter, thing)
+		try {
+			await run(
+				url,
+				`select pg_terminate_backend(pid) from pg_stat_activity where application_name = '${schema}'`,
+			)
+			await new Promise((resolve) => setTimeout(resolve, 100))
+			expect(await adapter.find({ model: 'Thing' })).toEqual([])
+		} finally {
+			await adapter.stop()
+		}
+	})
 })
 
 const shelved: Schema = {

@@ -103,6 +103,9 @@ export function createAdapter(options: Options): Adapter {
 	return {
 		start: async (schema: Schema) => {
 			const pool = new Pool({ connectionString: options.url })
+			// An idle connection the server ends would crash the process unheard:
+			// the pool drops it and the next query opens another.
+			pool.on('error', () => undefined)
 			const dialect = new PostgresDialect({ pool })
 			const db = new Kysely<object>({
 				dialect,
