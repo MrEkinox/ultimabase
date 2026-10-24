@@ -216,6 +216,27 @@ describe('plugins', () => {
 	})
 })
 
+describe('start', () => {
+	it('stops its database when another application is running', async () => {
+		await app.start()
+		const other = started()
+		await expect(other.start()).rejects.toThrow('already running')
+		expect(log.filter((line) => line === 'database.stop')).toHaveLength(1)
+		expect(listeners()).toBe(before + 1)
+	})
+
+	it('refuses a second start while the first runs', async () => {
+		const [first, second] = await Promise.allSettled([app.start(), app.start()])
+		expect(first.status).toBe('fulfilled')
+		expect(second).toMatchObject({
+			status: 'rejected',
+			reason: new Error('The application is running.'),
+		})
+		// The refused start left the database of the first one started.
+		await expect(Note.count({}, M)).resolves.toBe(1)
+	})
+})
+
 describe('stop', () => {
 	it('waits for running operations and their commit hooks', async () => {
 		await app.start()
