@@ -5046,7 +5046,14 @@ D-112.
     `User.setPassword` runs as Master or as that user, refuses any other
     caller with `ACCESS_DENIED` and fails with `NOT_FOUND` for a user without
     a password. `changePassword` counts its failures for `(user id, address)`.
-    `SignedIn.user` is nullable, as `viewer`.
+    `SignedIn.user` is nullable, as `viewer`. `User.setPassword` takes no
+    current password: server code checks the user's intent first.
+    Each hash has a stamp, new each time the password is set: a sign-in
+    reads it again once its session is open and, when it changed, ends the
+    user's sessions and fails with `INVALID_CREDENTIALS`; a rehash writes
+    only to the stamp it read. A password over 256 characters is refused
+    without being hashed. A stored hash over 256 MiB, 16 passes or 16 lanes,
+    or with a tag outside 16 to 64 bytes, fails as one that is not Argon2id.
 12. Out of this decision, until a second sign-in method or an email plugin:
     unlinking an account, keeping a user's last method, linking by verified
     email, password reset and email verification.

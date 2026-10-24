@@ -43,6 +43,24 @@ export async function hashPassword(password: string): Promise<string> {
 }
 
 /**
+ * Whether a stored hash is one this plugin could verify: up to 256 MiB, 16
+ * passes and 16 lanes, and a tag of 16 to 64 bytes, so a tampered row
+ * neither exhausts the server nor matches too easily.
+ */
+const bounded = (
+	{ memory, passes, parallelism }: Parameters,
+	length: number,
+): boolean =>
+	parallelism >= 1 &&
+	parallelism <= 16 &&
+	memory >= 8 * parallelism &&
+	memory <= 262_144 &&
+	passes >= 1 &&
+	passes <= 16 &&
+	length >= 16 &&
+	length <= 64
+
+/**
  * Whether `password` matches `stored`, and whether `stored` was made with
  * other parameters, so a sign-in rehashes it.
  */
@@ -59,6 +77,9 @@ export async function verifyPassword(
 		parallelism: Number(p),
 	}
 	const expected = Buffer.from(hash, 'base64')
+	if (!bounded(parameters, expected.length)) {
+		throw new Error('A stored password hash has out-of-bounds parameters.')
+	}
 	const key = await derive(
 		password,
 		Buffer.from(salt, 'base64'),

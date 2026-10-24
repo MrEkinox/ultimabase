@@ -49,8 +49,8 @@ export function passwordFunctions(
 		run: async ({ input: { input }, client }) => {
 			const state = stateOf()
 			const { email, password, ...data } = input
-			const user = await createUser(state, email, password, data)
-			return signedIn(state, user.id, client)
+			const { user, stamp } = await createUser(state, email, password, data)
+			return signedIn(state, { userId: user.id, stamp }, client)
 		},
 	}).with({ access: allow.public })
 	const signIn = defineFunction({
@@ -61,8 +61,8 @@ export function passwordFunctions(
 			const state = stateOf()
 			const { email, password } = input
 			const attempt = attemptOf(email, client)
-			const userId = await verified(state, email, password, attempt)
-			return signedIn(state, userId, client)
+			const checked = await verified(state, email, password, attempt)
+			return signedIn(state, checked, client)
 		},
 	}).with({ access: allow.public })
 	const changePassword = defineFunction({
@@ -79,8 +79,8 @@ export function passwordFunctions(
 			const state = stateOf()
 			const { id } = caller.user
 			await checkCurrent(id, input.currentPassword, attemptOf(id, client))
-			await setPassword(state, id, input.newPassword)
-			return signedIn(state, id, client)
+			const stamp = await setPassword(state, id, input.newPassword)
+			return signedIn(state, { userId: id, stamp }, client)
 		},
 	}).with({ access: allow.public })
 	return fields === false

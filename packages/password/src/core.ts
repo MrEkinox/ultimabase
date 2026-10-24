@@ -1,5 +1,6 @@
 // What the functions and the commands share (D-113): signing a user up,
 // checking a password, setting one, and the session a success opens.
+import { randomUUID } from 'node:crypto'
 import type { AuthApi } from '@ultimabase/auth'
 import type { Caller, Client, ExposedModel, Row } from 'ultimabase'
 import { master, PublicError, transaction } from 'ultimabase'
@@ -45,21 +46,41 @@ export async function createUser(
 	email: string,
 	password: string,
 	data: object,
-): Promise<Row> {
+): Promise<{ readonly user: Row; readonly stamp: string }> {
 	const hash = await hashPassword(password)
+	const stamp = randomUUID()
 	return transaction(async () => {
 		const user = await state.users.queries.create({ data }, M)
 		await state.auth.linkAccount(user.id, method, email)
-		await PasswordHash.create({ data: { userId: user.id, hash } }, M)
-		return user
+		await PasswordHash.create({ data: { userId: user.id, hash, stamp } }, M)
+		return { user, stamp }
 	})
 }
 
-/** Whether `password` is `userId`'s, rehashing a stale hash on a match. */
+/** Rehashes the password `stamp` names, unless it was set since. */
+async function rehash(stamp: string, password: string): Promise<void> {
+	const hash = await hashPassword(password)
+	try {
+		await PasswordHash.update({ where: { stamp }, data: { hash } }, M)
+	} catch (error) {
+		if (!(error instanceof PublicError && error.code === 'NOT_FOUND')) {
+			throw error
+		}
+	}
+}
+
+/** No stored password is longer, so a longer one is not hashed. */
+const longest = 256
+
+/**
+ * The stamp of `userId`'s password when `password` is it, rehashing a stale
+ * hash; `undefined` otherwise.
+ */
 async function matches(
 	userId: string | undefined,
 	password: string,
-): Promise<boolean> {
+): Promise<string | undefined> {
+	if (Array.from(password).length > longest) return undefined
 	const stored =
 		userId === undefined
 			? null
@@ -69,15 +90,15 @@ async function matches(
 		password,
 		stored?.hash ?? (await dummyHash()),
 	)
-	if (stored === null || !valid) return false
-	if (stale) {
-		const hash = await hashPassword(password)
-		await PasswordHash.update(
-			{ where: { userId: stored.userId }, data: { hash } },
-			M,
-		)
-	}
-	return true
+	if (stored === null || !valid) return undefined
+	if (stale) await rehash(stored.stamp, password)
+	return stored.stamp
+}
+
+/** A user whose password checked, and the stamp it checked against. */
+export interface Verified {
+	readonly userId: string
+	readonly stamp: string
 }
 
 /** The user `email` and `password` sign in as, counting the attempt. */
@@ -86,13 +107,12 @@ export async function verified(
 	email: string,
 	password: string,
 	attempt: Attempt,
-): Promise<string> {
+): Promise<Verified> {
 	return limited(attempt, async () => {
 		const account = await state.auth.accountOf(method, email)
-		if (!(await matches(account?.userId, password)) || account === undefined) {
-			throw invalid()
-		}
-		return account.userId
+		const stamp = await matches(account?.userId, password)
+		if (stamp === undefined || account === undefined) throw invalid()
+		return { userId: account.userId, stamp }
 	})
 }
 
@@ -103,16 +123,16 @@ export async function checkCurrent(
 	attempt: Attempt,
 ): Promise<void> {
 	await limited(attempt, async () => {
-		if (!(await matches(userId, password))) throw invalid()
+		if ((await matches(userId, password)) === undefined) throw invalid()
 	})
 }
 
-/** Replaces `userId`'s hash and ends every session of the user. */
+/** Replaces `userId`'s hash and ends every session of the user; the new stamp. */
 export async function setPassword(
 	state: State,
 	userId: string,
 	password: string,
-): Promise<void> {
+): Promise<string> {
 	const stored = await PasswordHash.findUnique({ where: { userId } }, M)
 	if (stored === null) {
 		throw new PublicError(
@@ -121,8 +141,15 @@ export async function setPassword(
 		)
 	}
 	const hash = await hashPassword(password)
-	await PasswordHash.update({ where: { userId }, data: { hash } }, M)
+	const stamp = randomUUID()
+	await transaction(async () => {
+		await PasswordHash.update({ where: { userId }, data: { hash, stamp } }, M)
+		await state.auth.revokeSessions(userId)
+	})
+	// Again once the stamp is visible: a sign-in that read the old one opened
+	// its session before, so this ends it (see `signedIn`).
 	await state.auth.revokeSessions(userId)
+	return stamp
 }
 
 /** The user as it reads itself, so its own field rules apply (D-113). */
@@ -134,12 +161,21 @@ async function asItself(state: State, userId: string): Promise<Row | null> {
 	return queries.findUnique({ where: { id: userId } }, { as: caller })
 }
 
-/** Opens a session for `userId`, with its cookie when a client is given. */
+/**
+ * Opens a session for the user, with its cookie when a client is given. The
+ * stamp is read after: a password set since the check ends the user's
+ * sessions and fails, an older read means `setPassword` ends this one (D-113).
+ */
 export async function signedIn(
 	state: State,
-	userId: string,
+	{ userId, stamp }: Verified,
 	client: Client | undefined,
 ): Promise<SignedIn> {
 	const { token, expiresAt } = await state.auth.signIn(userId, client)
+	const stored = await PasswordHash.findUnique({ where: { userId } }, M)
+	if (stored?.stamp !== stamp) {
+		await state.auth.revokeSessions(userId)
+		throw invalid()
+	}
 	return { token, expiresAt, user: await asItself(state, userId) }
 }

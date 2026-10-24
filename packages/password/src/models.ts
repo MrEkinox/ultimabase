@@ -10,12 +10,18 @@ const window = 15 * 60 * 1000
 type HashFields = {
 	readonly userId: Field<string, { readonly unique: true }>
 	readonly hash: Field<string, ScalarOptions<string>>
+	/** New each time the password is set, kept when it is rehashed. */
+	readonly stamp: Field<string, { readonly unique: true }>
 }
 
 export const PasswordHash: ModelOf<'PasswordHash', HashFields, []> =
 	defineModel({
 		name: 'PasswordHash',
-		fields: (f) => ({ userId: f.string({ unique: true }), hash: f.string() }),
+		fields: (f) => ({
+			userId: f.string({ unique: true }),
+			hash: f.string(),
+			stamp: f.string({ unique: true }),
+		}),
 	})
 
 type AttemptFields = {

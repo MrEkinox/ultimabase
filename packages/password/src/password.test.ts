@@ -1,10 +1,11 @@
 // `passwordPlugin()` (D-113): signing up, in and changing a password over
 // GraphQL, the sign-in limit, the hashes, the commands and startup.
+import { argon2Sync } from 'node:crypto'
 import { authPlugin, defineUser } from '@ultimabase/auth'
 import { graphqlPlugin } from '@ultimabase/graphql'
 import { httpPlugin } from '@ultimabase/http'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import type { Caller } from 'ultimabase'
+import type { Adapter, Caller } from 'ultimabase'
 import { defineApp, defineModel, memory } from 'ultimabase'
 import { password, passwordPlugin } from './index.ts'
 import { hashPassword } from './hash.ts'
@@ -35,6 +36,58 @@ async function server(...given: Parameters<typeof started>) {
 }
 
 const ada = { email: 'ada@example.com', password: 'correct horse' }
+
+/** Ada's password hashed with one pass and 8 MiB, which a sign-in rehashes. */
+function staleHash(): string {
+	const key = argon2Sync('argon2id', {
+		message: ada.password,
+		nonce: Buffer.from('saltsaltsaltsalt'),
+		memory: 8192,
+		passes: 1,
+		parallelism: 1,
+		tagLength: 32,
+	})
+	const tag = key.toString('base64').replace(/=+$/, '')
+	return `$argon2id$v=19$m=8192,t=1,p=1$c2FsdHNhbHRzYWx0c2FsdA$${tag}`
+}
+
+/**
+ * A database that counts the reads of a hash; once `set` is called, the next
+ * one is followed by a password set elsewhere: `set`'s fields on every hash.
+ */
+function settingOnRead(): Adapter & {
+	set(fields: { readonly [field: string]: unknown }): void
+	readonly reads: number
+} {
+	const database = memory()
+	let pending: { readonly [field: string]: unknown } | undefined
+	let reads = 0
+	return {
+		get reads() {
+			return reads
+		},
+		start: async (schema) => database.start(schema),
+		stop: async () => database.stop(),
+		begin: async () => database.begin(),
+		find: async (read) => {
+			const rows = await database.find(read)
+			if (read.model === 'PasswordHash') reads += 1
+			if (read.model === 'PasswordHash' && pending !== undefined) {
+				const set = pending
+				pending = undefined
+				await database.write({
+					changes: [{ kind: 'update', model: 'PasswordHash', where: {}, set }],
+				})
+			}
+			return rows
+		},
+		count: async (read) => database.count(read),
+		write: async (write) => database.write(write),
+		set: (fields) => {
+			pending = fields
+		},
+	}
+}
 
 async function signUp(url: string, input: Record<string, unknown> = {}) {
 	return graphqlOf(url, signUpQuery, {
@@ -215,18 +268,8 @@ describe('signing in', () => {
 	it('rehashes a hash made with other parameters', async () => {
 		const { url } = await server()
 		await signUp(url)
-		const old = '$argon2id$v=19$m=8192,t=1,p=1$c2FsdHNhbHRzYWx0c2FsdA$'
 		const [stored] = await PasswordHash.findMany({}, M)
-		const { argon2Sync } = await import('node:crypto')
-		const key = argon2Sync('argon2id', {
-			message: ada.password,
-			nonce: Buffer.from('saltsaltsaltsalt'),
-			memory: 8192,
-			passes: 1,
-			parallelism: 1,
-			tagLength: 32,
-		})
-		const hash = old + key.toString('base64').replace(/=+$/, '')
+		const hash = staleHash()
 		await PasswordHash.update(
 			{ where: { userId: stored?.userId ?? '' }, data: { hash } },
 			M,
@@ -249,6 +292,65 @@ describe('signing in', () => {
 		)
 		const refused = await signIn(url)
 		expect(errorOf(refused.body)).toMatchObject({ code: 'INTERNAL' })
+	})
+
+	it('fails and ends the sessions when the password is set during a sign-in', async () => {
+		const database = settingOnRead()
+		const { url } = await server(undefined, database)
+		const earlier = tokenOf((await signUp(url)).body, 'signUp')
+		database.set({ stamp: 'set since' })
+		expect(errorOf((await signIn(url)).body)).toStrictEqual(wrong)
+		expect((await viewerOf(url, earlier)).status).toBe(401)
+	})
+
+	it('keeps a password set while its stale hash is rehashed', async () => {
+		const database = settingOnRead()
+		const { url } = await server(undefined, database)
+		await signUp(url)
+		const [stored] = await PasswordHash.findMany({}, M)
+		const where = { userId: stored?.userId ?? '' }
+		await PasswordHash.update({ where, data: { hash: staleHash() } }, M)
+		const newer = await hashPassword('battery staple')
+		database.set({ hash: newer, stamp: 'set since' })
+		expect(errorOf((await signIn(url)).body)).toStrictEqual(wrong)
+		const [kept] = await PasswordHash.findMany({}, M)
+		expect(kept).toMatchObject({ hash: newer, stamp: 'set since' })
+	})
+
+	it('refuses a password over 256 characters without hashing it', async () => {
+		const database = settingOnRead()
+		const { url } = await server(undefined, database)
+		const longest = '🔑'.repeat(256)
+		await signUp(url, { password: longest })
+		const signed = await signIn(url, { password: longest })
+		expect(errorOf(signed.body)).toBeUndefined()
+		const before = database.reads
+		const longer = await signIn(url, { password: `${longest}x` })
+		expect(errorOf(longer.body)).toStrictEqual(wrong)
+		expect(database.reads).toBe(before)
+	})
+
+	it('stops on a stored hash with out-of-bounds parameters', async () => {
+		const { url } = await server()
+		await signUp(url)
+		const [stored] = await PasswordHash.findMany({}, M)
+		const where = { userId: stored?.userId ?? '' }
+		const valid = stored?.hash ?? ''
+		const tampered = [
+			valid.replace('m=19456', 'm=4194304'),
+			valid.replace('m=19456', 'm=7'),
+			valid.replace('t=2', 't=0'),
+			valid.replace('t=2', 't=17'),
+			valid.replace('p=1', 'p=0'),
+			valid.replace('p=1', 'p=17'),
+			valid.replace(/\$[^$]+$/, '$AAAAAAAAAAAAAAAAAAAA'),
+			valid.replace(/\$[^$]+$/, `$${'A'.repeat(88)}`),
+		]
+		for (const hash of tampered) {
+			await PasswordHash.update({ where, data: { hash } }, M)
+			const refused = await signIn(url)
+			expect(errorOf(refused.body)).toMatchObject({ code: 'INTERNAL' })
+		}
 	})
 
 	it('is the command User.signIn, uncounted and without a cookie', async () => {

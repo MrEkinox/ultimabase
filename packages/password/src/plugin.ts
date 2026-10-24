@@ -51,9 +51,13 @@ export interface PasswordCommands<F> {
 		args: Credentials & { readonly data: CreateData<F> },
 		options?: Options,
 	): Promise<UserRow<F>>
-	/** Opens a session, without a cookie. */
+	/** Opens a session, without a cookie; server code, so never limited. */
 	signIn(args: Credentials, options?: Options): Promise<SignedIn<UserRow<F>>>
-	/** Replaces the password and ends every session, as Master or as the user. */
+	/**
+	 * Replaces the password and ends every session, as Master or as the user.
+	 * It takes no current password: check the user's intent first, as
+	 * changePassword does.
+	 */
 	setPassword(
 		args: { readonly id: string; readonly password: string },
 		options?: Options,
@@ -184,7 +188,7 @@ const definition = definePlugin<Password>({
 			signUp: async ({ email, password, data }, options) => {
 				const state = stateOf(plugins.auth)
 				const checked = signUpData(state, data, callerOf(options))
-				const user = await createUser(
+				const { user } = await createUser(
 					state,
 					valid(emailOf, email, 'email'),
 					valid(passwordOf, password, 'password'),
@@ -196,13 +200,13 @@ const definition = definePlugin<Password>({
 			signIn: async ({ email, password }) => {
 				const state = stateOf(plugins.auth)
 				const subject = valid(emailOf, email, 'email')
-				const userId = await verified(
+				const checked = await verified(
 					state,
 					subject,
 					password,
 					attemptOf(subject, undefined),
 				)
-				const opened = await signedIn(state, userId, undefined)
+				const opened = await signedIn(state, checked, undefined)
 				// oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the user model's row, read by its own queries.
 				return opened as SignedIn<UserRow<object>>
 			},
