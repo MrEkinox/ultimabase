@@ -190,6 +190,9 @@ describe('an error', () => {
 	failing.get('/missing', () => {
 		throw new PublicError('NOT_FOUND', 'No such invoice.')
 	})
+	failing.get('/wrong', () => {
+		throw new PublicError('INVALID_CREDENTIALS', 'Wrong email or password.')
+	})
 	failing.get('/crash', () => {
 		throw new Error('Connection refused.')
 	})
@@ -231,6 +234,8 @@ describe('an error', () => {
 			code: 'NOT_FOUND',
 			message: 'No such invoice.',
 		})
+		const wrong = await fetch(`${url}/wrong`)
+		expect(wrong.status).toBe(401)
 	})
 
 	it('masks any other error, and logs it with its correlation id', async () => {

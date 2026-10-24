@@ -1,0 +1,239 @@
+// `passwordPlugin()` and `password()` (D-113): a sign-in method, an ordinary
+// plugin with its functions, its models, its commands and its options.
+import type { Auth, AuthApi } from '@ultimabase/auth'
+import { authPlugin } from '@ultimabase/auth'
+import type {
+	Caller,
+	ExposedModel,
+	PluginOf,
+	PluginTypes,
+	Queries,
+	Register,
+	UseOf,
+	UserOf,
+} from 'ultimabase'
+import { definePlugin, isMaster, master, PublicError } from 'ultimabase'
+import manifest from '../package.json' with { type: 'json' }
+import type { SignedIn, State } from './core.ts'
+import {
+	attemptOf,
+	createUser,
+	setPassword,
+	signedIn,
+	verified,
+} from './core.ts'
+import { passwordFunctions } from './functions.ts'
+import type { Credentials, Property } from './input.ts'
+import { emailOf, fieldProperty, passwordOf, valid } from './input.ts'
+import { PasswordAttempt, PasswordHash } from './models.ts'
+
+/** The user fields a sign-up may take; any name before the user is registered. */
+export type UserField = Register extends { readonly user: unknown }
+	? Extract<
+			Exclude<keyof UserOf<Register>, 'id' | 'createdAt' | 'updatedAt'>,
+			string
+		>
+	: string
+
+export interface PasswordOptions {
+	/** The user fields `signUp` takes besides the email and the password; `false` closes sign-up. */
+	readonly signUp?: readonly UserField[] | false
+}
+
+type Options = { readonly as?: Caller }
+type CreateData<F> = Parameters<Queries<F>['create']>[0]['data']
+type UserRow<F> = Awaited<ReturnType<Queries<F>['delete']>>
+
+/** password's commands on the user model (D-113). */
+export interface PasswordCommands<F> {
+	/** Creates the user, its account and its hash; opens no session. */
+	signUp(
+		args: Credentials & { readonly data: CreateData<F> },
+		options?: Options,
+	): Promise<UserRow<F>>
+	/** Opens a session, without a cookie. */
+	signIn(args: Credentials, options?: Options): Promise<SignedIn<UserRow<F>>>
+	/** Replaces the password and ends every session, as Master or as the user. */
+	setPassword(
+		args: { readonly id: string; readonly password: string },
+		options?: Options,
+	): Promise<void>
+}
+
+/** password's types (D-57). */
+export interface Password extends PluginTypes {
+	readonly name: 'password'
+	readonly requires: Auth
+	readonly appOptions: PasswordOptions
+	readonly commands: PasswordCommands<this['fields']>
+}
+
+const M = { as: master }
+const states = new WeakMap<AuthApi, State>()
+/** The `create` of each model whose `use` lists `password()`. */
+const using = new WeakSet<object>()
+
+function stateOf(auth: AuthApi): State {
+	const state = states.get(auth)
+	if (state === undefined) throw new Error('password has not started.')
+	return state
+}
+
+/** The one model whose `use` lists `password()`. */
+function usersOf(models: readonly ExposedModel[]): ExposedModel {
+	// oxlint-disable-next-line typescript/unbound-method -- compared by identity, never called.
+	const users = models.filter(({ queries }) => using.has(queries.create))
+	const [first, second] = users
+	if (first === undefined) {
+		throw new Error(
+			'passwordPlugin() needs the user model to list it: add `use: [password()]` to defineUser (D-113).',
+		)
+	}
+	if (second !== undefined) {
+		throw new Error(
+			`${first.schema.name} and ${second.schema.name} both use password(): only the user model does (D-113).`,
+		)
+	}
+	return first
+}
+
+const reserved = new Set(['id', 'createdAt', 'updatedAt', 'email', 'password'])
+
+/** The listed fields' properties; an unknown, a reserved or a missing one stops startup. */
+function signUpFields(
+	users: ExposedModel,
+	listed: readonly string[],
+): ReadonlyMap<string, Property> {
+	const { name, fields } = users.schema
+	const where = `passwordPlugin({ signUp })`
+	const properties = new Map<string, Property>()
+	for (const field of listed) {
+		const found = fields.find((each) => each.name === field)
+		if (found === undefined || reserved.has(field)) {
+			throw new Error(
+				`${where}: ${name}.${field} is not a field sign-up may take (D-113).`,
+			)
+		}
+		properties.set(
+			field,
+			fieldProperty(found, users.required.includes(field), where),
+		)
+	}
+	const missing = users.required.filter((field) => !properties.has(field))
+	if (missing.length > 0) {
+		throw new Error(
+			`${where}: ${name} needs ${missing.join(', ')} to be created; list them (D-113).`,
+		)
+	}
+	return properties
+}
+
+/** A sign-up's data, checked against the list unless the caller is Master. */
+function signUpData(state: State, data: object, caller: Caller): object {
+	if (isMaster(caller)) return data
+	if (state.signUp === false) {
+		throw new PublicError('ACCESS_DENIED', 'Sign-up is closed (D-113).')
+	}
+	const { signUp } = state
+	const issues = Object.keys(data)
+		.filter((key) => !signUp.has(key))
+		.map((key) => ({ path: ['data', key], message: 'Unknown field.' }))
+	if (issues.length > 0) {
+		throw new PublicError(
+			'VALIDATION_FAILED',
+			'Sign-up takes the listed fields only.',
+			{
+				details: { issues },
+			},
+		)
+	}
+	return data
+}
+
+/** The user model and the sign-up fields, `false` when sign-up is closed. */
+function configOf(
+	options: PasswordOptions,
+	models: readonly ExposedModel[],
+): {
+	readonly users: ExposedModel
+	readonly fields: ReadonlyMap<string, Property> | false
+} {
+	const users = usersOf(models)
+	const listed = options.signUp ?? []
+	const fields = listed === false ? false : signUpFields(users, listed)
+	return { users, fields }
+}
+
+const callerOf = (options: Options | undefined): Caller =>
+	options?.as ?? { kind: 'anonymous' }
+
+const definition = definePlugin<Password>({
+	name: 'password',
+	manifest,
+	requires: { auth: authPlugin },
+	models: [PasswordHash, PasswordAttempt],
+	hooks: {
+		// The user's hash goes with them (D-113).
+		afterDelete: async ({ record }) => {
+			await PasswordHash.deleteMany({ where: { userId: record.id } }, M)
+		},
+	},
+	commands: ({ queries, plugins }) => {
+		using.add(queries.create)
+		return {
+			signUp: async ({ email, password, data }, options) => {
+				const state = stateOf(plugins.auth)
+				const checked = signUpData(state, data, callerOf(options))
+				const user = await createUser(
+					state,
+					valid(emailOf, email, 'email'),
+					valid(passwordOf, password, 'password'),
+					checked,
+				)
+				// oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the user model's row, created by its own queries.
+				return user as UserRow<object>
+			},
+			signIn: async ({ email, password }) => {
+				const state = stateOf(plugins.auth)
+				const subject = valid(emailOf, email, 'email')
+				const userId = await verified(
+					state,
+					subject,
+					password,
+					attemptOf(subject, undefined),
+				)
+				const opened = await signedIn(state, userId, undefined)
+				// oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the user model's row, read by its own queries.
+				return opened as SignedIn<UserRow<object>>
+			},
+			setPassword: async ({ id, password }, options) => {
+				const caller = callerOf(options)
+				const self = caller.kind === 'user' && caller.user.id === id
+				if (!self && !isMaster(caller)) {
+					throw new PublicError(
+						'ACCESS_DENIED',
+						'User.setPassword runs as Master or as the user (D-113).',
+					)
+				}
+				const state = stateOf(plugins.auth)
+				await setPassword(state, id, valid(passwordOf, password, 'password'))
+			},
+		}
+	},
+	// The functions are built before the APIs (D-89): they read the state
+	// when they run, and `api` stores it once auth's API exists.
+	api: ({ options, plugins, models }) => {
+		const { users, fields } = configOf(options, models)
+		const signUp = fields === false ? false : new Set(fields.keys())
+		states.set(plugins.auth, { auth: plugins.auth, users, signUp })
+	},
+	functions: ({ options, plugins, models }) => {
+		const { users, fields } = configOf(options, models)
+		return passwordFunctions(() => stateOf(plugins.auth), users, fields)
+	},
+})
+
+/** The password sign-in method; it requires `authPlugin()`. */
+export const passwordPlugin: PluginOf<Password> = definition.plugin
+/** The user model's entry: its commands, and its hash deleted with it. */
+export const password: UseOf<Password> = definition.use

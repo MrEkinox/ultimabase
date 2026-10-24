@@ -5017,8 +5017,9 @@ D-112.
 7. Commands, on the user model: `User.signUp({ email, password, data })`,
    `User.signIn({ email, password })`, which returns `SignedIn` without a
    cookie, and `User.setPassword({ id, password })`, which ends the user's
-   sessions. As Master they skip `signUp: false`, the field list and the
-   attempt limit; as another caller they apply them, as the functions do.
+   sessions. As Master `User.signUp` skips `signUp: false` and the field
+   list; as another caller it applies them, as the function does (amended
+   2026-10-24).
 8. Hash. Argon2id from `node:crypto`, `m=19456, t=2, p=1`, a 16-byte salt,
    stored as a PHC string (`$argon2id$v=19$m=19456,t=2,p=1$…`) in the plugin's
    `PasswordHash { userId (unique), hash }`; a sign-in rehashes a hash whose
@@ -5035,7 +5036,18 @@ D-112.
     extensions over GraphQL, and `Retry-After` over REST). A success clears the count. The failures are
     rows of the plugin's `PasswordAttempt`. Server code without a client is
     not counted.
-11. Out of this decision, until a second sign-in method or an email plugin:
+11. Details (amended 2026-10-24). `INVALID_CREDENTIALS` is a kernel code,
+    sent with status 401. `signUp` takes neither `id`, `createdAt`,
+    `updatedAt`, `email` nor `password` as a listed field, nor a relation or
+    JSON field; a required user field missing from the list stops startup,
+    `signUp` omitted listing none. Over GraphQL an unlisted field fails the
+    input type, before `VALIDATION_FAILED`. `signUp` is not limited. Commands
+    have no client, so `User.signIn` is never counted, whoever the caller;
+    `User.setPassword` runs as Master or as that user, refuses any other
+    caller with `ACCESS_DENIED` and fails with `NOT_FOUND` for a user without
+    a password. `changePassword` counts its failures for `(user id, address)`.
+    `SignedIn.user` is nullable, as `viewer`.
+12. Out of this decision, until a second sign-in method or an email plugin:
     unlinking an account, keeping a user's last method, linking by verified
     email, password reset and email verification.
 
