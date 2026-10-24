@@ -243,6 +243,18 @@ export interface Migrations {
 	apply(run: Run): Promise<void>
 	/** Drops every table, for `ultimabase reset`; returns the models' tables. */
 	reset(): Promise<readonly string[]>
+	/** The database's host when it is not on this machine: `reset` then needs `--force`. */
+	readonly remote?: string
+}
+
+/** A host only this machine reaches (D-66, D-105, D-115). */
+export function isLocalHost(hostname: string): boolean {
+	return (
+		hostname === 'localhost' ||
+		hostname.endsWith('.localhost') ||
+		hostname === '127.0.0.1' ||
+		hostname === '[::1]'
+	)
 }
 
 /** A storage adapter: its own slot, not a plugin (D-02, D-73). */

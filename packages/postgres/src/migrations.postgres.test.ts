@@ -8,7 +8,7 @@ import { join as joinPath } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { Client } from 'pg'
 import type { Adapter, Migrations, Schema, SchemaField } from 'ultimabase'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { postgres } from './index.ts'
 
 const url =
@@ -577,6 +577,10 @@ describe('a deploy of a file without a transaction', () => {
 	})
 })
 
+/** The host `reset` calls another machine's for a URL. */
+const remote = (connection: string) =>
+	postgres({ url: connection }).migrations?.remote
+
 describe('a reset on postgres()', () => {
 	it("leaves an extension's tables", async () => {
 		await query(inSchema(schema), 'create table owned (id integer)')
@@ -607,6 +611,25 @@ describe('a reset on postgres()', () => {
 				`select table_name from information_schema.tables where table_schema = '${schema}'`,
 			),
 		).toStrictEqual([])
+	})
+
+	it('names the host of a database on another machine, read as pg reads it', () => {
+		expect(remote('postgres://u:p@db.example.com:5432/app')).toBe(
+			'db.example.com',
+		)
+		expect(remote('postgres://u@db.example.com/app?host=localhost')).toBe(
+			undefined,
+		)
+		expect(remote('postgres://localhost/app')).toBe(undefined)
+		expect(remote('postgres://[::1]:5432/app')).toBe(undefined)
+		expect(remote('postgres://%2Fvar%2Frun%2Fpostgresql/app')).toBe(undefined)
+		expect(remote('postgres://[2001:db8::1]/app')).toBe('2001:db8::1')
+		expect(remote(url)).toBe(undefined)
+		vi.stubEnv('PGHOST', '')
+		expect(remote('postgres:///app')).toBe(undefined)
+		vi.stubEnv('PGHOST', 'db.example.com')
+		expect(remote('postgres:///app')).toBe('db.example.com')
+		vi.unstubAllEnvs()
 	})
 })
 
@@ -762,6 +785,19 @@ describe('the commands on postgres()', () => {
 			'Development sync changed this database since its last deploy',
 		)
 	}, 60_000)
+
+	it('refuses a reset of a database on another machine without --force', async () => {
+		await config('label: f.string()')
+		const refused = await ultimabase(dir, ['reset'], {
+			...development(),
+			DATABASE_URL: 'postgres://u@db.example.com/app',
+		})
+		expect(refused).toStrictEqual({
+			code: 1,
+			output:
+				'reset drops every table, and db.example.com is not this machine: pass --force if it holds a development database.\n',
+		})
+	})
 
 	it('tests a data migration on a copy of production, then deploys it', async () => {
 		await config('label: f.string()')

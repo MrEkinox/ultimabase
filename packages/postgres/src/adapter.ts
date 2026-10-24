@@ -14,7 +14,7 @@ import type {
 	Write,
 } from 'ultimabase'
 import { decodeRows } from './decode.ts'
-import { apply, reset, stored } from './migrations.ts'
+import { apply, remoteOf, reset, stored } from './migrations.ts'
 import { Catalog } from './names.ts'
 import { plan } from './plan.ts'
 import { compileCount, compileFind } from './read.ts'
@@ -95,6 +95,7 @@ export function requireVersion(version: string | undefined): void {
 }
 
 export function createAdapter(options: Options): Adapter {
+	const remote = remoteOf(options.url)
 	let state: { db: Kysely<object>; catalog: Catalog } | undefined
 	const started = () => {
 		if (state === undefined) throw new Error('postgres() is not started.')
@@ -156,6 +157,7 @@ export function createAdapter(options: Options): Adapter {
 			stored: async () => stored(started().db),
 			apply: async (given) => apply(started().db, given),
 			reset: async () => reset(started().db),
+			...(remote === undefined ? {} : { remote }),
 		},
 		begin: async (): Promise<Transaction> => {
 			const { catalog, db } = started()

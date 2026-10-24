@@ -2,7 +2,7 @@
 // session, the API sign-in methods open sessions and link accounts with, and
 // its functions and command.
 import type { Http } from '@ultimabase/http'
-import { httpPlugin, isLocalHost } from '@ultimabase/http'
+import { httpPlugin } from '@ultimabase/http'
 import type {
 	Caller,
 	Client,
@@ -13,7 +13,13 @@ import type {
 	UseOf,
 	UserOf,
 } from 'ultimabase'
-import { definePlugin, isMaster, master, PublicError } from 'ultimabase'
+import {
+	definePlugin,
+	isLocalHost,
+	isMaster,
+	master,
+	PublicError,
+} from 'ultimabase'
 import manifest from '../package.json' with { type: 'json' }
 import {
 	accountOf,

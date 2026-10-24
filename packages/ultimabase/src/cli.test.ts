@@ -520,6 +520,24 @@ describe('reset', () => {
 			'reset rebuilds only a development database: it is refused in production.',
 		)
 	})
+
+	it('refuses a database on another machine without --force', async () => {
+		const state = fakeState('reset-remote')
+		state.remote = 'db.example.com'
+		const file = await config('reset-remote', { Locker: ['label'] })
+		await run('sync', '--config', file)
+		expect(await run('reset', '--config', file)).toBe(1)
+		expect(err).toStrictEqual([
+			'reset drops every table, and db.example.com is not this machine: pass --force if it holds a development database.',
+		])
+		expect(state.stored?.by).toBe('sync')
+		out = []
+		expect(await run('reset', '--force', '--config', file)).toBe(0)
+		expect(out).toStrictEqual([
+			'Dropped Locker.',
+			'migrations/ holds no migration: the next start builds the tables.',
+		])
+	})
 })
 
 describe('sync', () => {

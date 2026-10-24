@@ -24,6 +24,7 @@ export type {
 } from './adapter.ts'
 export {
 	CheckFailed,
+	isLocalHost,
 	MigrationFailed,
 	RelationViolation,
 	UniqueViolation,

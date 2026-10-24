@@ -11,7 +11,7 @@ import { HTTPException } from 'hono/http-exception'
 import type { ContentfulStatusCode } from 'hono/utils/http-status'
 import { getPath } from 'hono/utils/url'
 import type { Caller, ErrorCode, Logger } from 'ultimabase'
-import { PublicError } from 'ultimabase'
+import { isLocalHost, PublicError } from 'ultimabase'
 import { addresses, proxiesOf } from './address.ts'
 import { hold } from './request.ts'
 
@@ -92,16 +92,6 @@ function failed(error: unknown, c: Context, logger: Logger): Response {
 	return c.json(
 		{ code: 'INTERNAL', message: 'Internal error.', correlationId },
 		500,
-	)
-}
-
-/** A host only this machine reaches (D-66, D-115). */
-export function isLocalHost(hostname: string): boolean {
-	return (
-		hostname === 'localhost' ||
-		hostname.endsWith('.localhost') ||
-		hostname === '127.0.0.1' ||
-		hostname === '[::1]'
 	)
 }
 

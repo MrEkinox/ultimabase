@@ -3,8 +3,9 @@
 // `ultimabase_migrations`, and every change under one advisory lock.
 import type { Kysely, Transaction } from 'kysely'
 import { sql } from 'kysely'
+import { parse } from 'pg-connection-string'
 import type { Migration, Run, Stored } from 'ultimabase'
-import { MigrationFailed } from 'ultimabase'
+import { isLocalHost, MigrationFailed } from 'ultimabase'
 import { id } from './plan.ts'
 import { parseSnapshot } from './snapshot.ts'
 
@@ -241,4 +242,17 @@ export async function reset(db: Kysely<object>): Promise<readonly string[]> {
 		dropped.push(...names.filter((name) => !tables.includes(name)))
 	})
 	return dropped
+}
+
+/**
+ * The host `url` connects to when it is not this machine, read as `pg`
+ * reads it: no host, or a socket's directory, is this machine.
+ */
+export function remoteOf(url: string): string | undefined {
+	const host = parse(url).host || process.env['PGHOST'] || ''
+	// pg reads an IPv6 host without the brackets a URL's hostname keeps.
+	const hostname = host.includes(':') ? `[${host}]` : host
+	return host === '' || host.startsWith('/') || isLocalHost(hostname)
+		? undefined
+		: host
 }

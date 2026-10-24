@@ -4041,7 +4041,12 @@ index. A failure then reads`It ran without a transaction, so nothing was rolled 
      extension's, such as PostGIS's `spatial_ref_sys`, then
      applies every migration file and stores `schema.json`'s snapshot, as a
      deploy would; with no file, the next start builds the tables. It is
-     refused in production and asks nothing (amended 2026-10-22).
+     refused in production and asks nothing (amended 2026-10-22). A
+     database on another machine, a host the kernel's `isLocalHost` does
+     not call local, needs `reset --force`: `NODE_ENV` unset on a laptop
+     holding a production `DATABASE_URL` would otherwise wipe it. A unix
+     socket and an empty host are this machine; the adapter reads the host
+     as its driver does (amended 2026-10-24).
 
 8. The adapter contract (D-73) gains an optional `migrations` member, which
    the kernel's commands and `start` call; `memory()` has none, since it
@@ -4060,6 +4065,9 @@ index. A failure then reads`It ran without a transaction, so nothing was rolled 
    	apply(run: Run): Promise<void>
    	/** Drops every table; returns the models' ones it dropped. */
    	reset(): Promise<readonly string[]>
+   	/** The database's host when it is not on this machine: `reset` then
+   	 * needs `--force` (amended 2026-10-24). */
+   	readonly remote?: string
    }
    class MigrationFailed extends Error {
    	/** The statement's SQL, or the file's name. */
@@ -4161,7 +4169,10 @@ Rejected:
   second bookkeeping for a development copy that a dump or `reset` rebuilds
   in seconds.
 - Down migrations: a rollback is a new migration, as with Prisma.
-- Asking before `reset`: it is refused where it could lose real data.
+- Asking before `reset`: it is refused in production, and needs `--force`
+  for a database on another machine.
+- Marking a development database, as Rails stores its environment: a dump
+  of production restored for a test carries production's mark.
 - A command that runs arbitrary SQL: `psql` does it.
 
 Limits:
@@ -4224,6 +4235,8 @@ npx ultimabase migrate deploy            # Applied 20261022150000_add_kind.sql.
 npx ultimabase migrate deploy && npx ultimabase start
 # Back to a clean development database
 npx ultimabase reset                     # Dropped locker. Applied ….sql.
+# A development database on another host
+npx ultimabase reset --force
 ```
 
 ## D-106: `httpPlugin()`, its Hono routes and the caller they read
@@ -4272,8 +4285,8 @@ Choice: completes D-27, D-49, D-59 and D-66.
    not an option (amended 2026-10-23).
 5. CORS (D-66) and the body limit use Hono's middlewares. `cors` lists the
    allowed origins; outside production, the local origins of D-66 are
-   also allowed (amended 2026-10-24: `isLocalHost(hostname)`, which
-   `@ultimabase/http` exports for auth, tells them). `bodyLimit` is in bytes,
+   also allowed (amended 2026-10-24: the kernel's `isLocalHost(hostname)`,
+   which auth and `reset` use too, tells them). `bodyLimit` is in bytes,
    1 MB by default. Only a preflight, an `OPTIONS` with
    `Access-Control-Request-Method`, is answered by `cors`; any other
    `OPTIONS` reaches its route, with the CORS headers, or `NOT_FOUND`
@@ -5331,7 +5344,7 @@ Choice: amends D-112, D-113 and D-114.
 2. Outside production the cookie is neither `Secure` nor `__Host-`
    (D-112). auth logs one warning per running application the first time
    it identifies a request for a host that is not local (`localhost`,
-   `*.localhost`, `127.0.0.1` or `[::1]`, http's `isLocalHost`, amended
+   `*.localhost`, `127.0.0.1` or `[::1]`, the kernel's `isLocalHost`, amended
    2026-10-24), naming `NODE_ENV=production`.
 3. `User.signIn({ email, password }, { client })` counts the attempt and
    sets the cookie as the `signIn` function does; without `client` it is
