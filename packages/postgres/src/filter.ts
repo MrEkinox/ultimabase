@@ -178,6 +178,8 @@ export class Filters {
 	): Sql {
 		const column = this.column(table, alias, name)
 		const kind = this.catalog.kind(table, name)
+		// An id matches and compares as its string, as in `memory()`.
+		const text = kind === 'id' ? sql`cast(${column} as text)` : column
 		const parts: Sql[] = []
 		for (const [operator, operand] of Object.entries(condition)) {
 			if (operand === undefined) continue
@@ -198,22 +200,21 @@ export class Filters {
 					break
 				}
 				case 'contains':
-					parts.push(sql`${column} like ${pattern(operand, '%', '%')}`)
+					parts.push(sql`${text} like ${pattern(operand, '%', '%')}`)
 					break
 				case 'startsWith':
-					parts.push(sql`${column} like ${pattern(operand, '', '%')}`)
+					parts.push(sql`${text} like ${pattern(operand, '', '%')}`)
 					break
 				case 'endsWith':
-					parts.push(sql`${column} like ${pattern(operand, '%', '')}`)
+					parts.push(sql`${text} like ${pattern(operand, '%', '')}`)
 					break
 				default: {
-					const left = kind === 'id' ? sql`cast(${column} as text)` : column
 					const right = value(kind, operand)
 					const compare = { lt: '<', lte: '<=', gt: '>', gte: '>=' }[operator]
 					if (compare === undefined) {
 						throw new Error(`Unknown operator ${operator}.`)
 					}
-					parts.push(sql`${left} ${sql.raw(compare)} ${right}`)
+					parts.push(sql`${text} ${sql.raw(compare)} ${right}`)
 				}
 			}
 		}

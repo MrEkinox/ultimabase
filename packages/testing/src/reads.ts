@@ -148,6 +148,18 @@ export function reads(create: () => Adapter): void {
 			expect(await titles({ title: { startsWith: '_' } })).toEqual([])
 		})
 
+		it('matches part of an id as a string', async () => {
+			const id = authors.ada
+			expect(await names({ id: { startsWith: id.slice(0, 13) } })).toEqual([
+				'Ada',
+			])
+			expect(await names({ id: { contains: id.slice(14, 23) } })).toEqual([
+				'Ada',
+			])
+			expect(await names({ id: { endsWith: id.slice(24) } })).toEqual(['Ada'])
+			expect(await names({ id: { contains: 'Z' } })).toEqual([])
+		})
+
 		it('compares numbers, dates, booleans, enums and json', async () => {
 			expect(await titles({ pages: { lt: 300 } })).toEqual(['Engines'])
 			expect(await titles({ pages: { lte: 300 } })).toEqual([
