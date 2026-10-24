@@ -1,5 +1,5 @@
-// password's own models (D-110, D-113, D-114): each user's hash, and what the
-// sign-in and sign-up limits count.
+// password's own models (D-110, D-113, D-114, D-117): each user's hash, and
+// what the sign-in limit and the hourly limits count.
 import { isIPv6 } from 'node:net'
 import type { Field, ModelOf, ScalarOptions } from 'ultimabase'
 import { defineModel, master, PublicError } from 'ultimabase'
@@ -8,8 +8,8 @@ const M = { as: master }
 const limit = 10
 const ceiling = 100
 const window = 15 * 60 * 1000
-const signUps = 10
-const hour = 60 * 60 * 1000
+const requests = 10
+export const hour: number = 60 * 60 * 1000
 
 type HashFields = {
 	readonly userId: Field<string, { readonly unique: true }>
@@ -41,16 +41,18 @@ export const PasswordAttempt: ModelOf<'PasswordAttempt', AttemptFields, []> =
 		indexes: [{ fields: ['subject', 'address'] }, { fields: ['at'] }],
 	})
 
-type SignUpFields = {
-	readonly address: Field<string, ScalarOptions<string>>
+type RequestFields = {
+	readonly kind: Field<string, ScalarOptions<string>>
+	/** An address's network, or a user for the emails it receives. */
+	readonly subject: Field<string, ScalarOptions<string>>
 	readonly at: Field<Date, ScalarOptions<Date>>
 }
 
-export const PasswordSignUp: ModelOf<'PasswordSignUp', SignUpFields, []> =
+export const PasswordRequest: ModelOf<'PasswordRequest', RequestFields, []> =
 	defineModel({
-		name: 'PasswordSignUp',
-		fields: (f) => ({ address: f.string(), at: f.date() }),
-		indexes: [{ fields: ['address'] }, { fields: ['at'] }],
+		name: 'PasswordRequest',
+		fields: (f) => ({ kind: f.string(), subject: f.string(), at: f.date() }),
+		indexes: [{ fields: ['kind', 'subject'] }, { fields: ['at'] }],
 	})
 
 const groups = (part: string): string[] => (part === '' ? [] : part.split(':'))
@@ -78,7 +80,7 @@ export function networkOf(address: string): string {
 	return `${prefix.map((group) => group.toString(16)).join(':')}::/64`
 }
 
-const tooMany = (oldest: Date, span: number, now: number) =>
+const tooMany = (oldest: Date, span: number, now: number): PublicError =>
 	new PublicError('TOO_MANY_ATTEMPTS', 'Too many attempts: try again later.', {
 		details: {
 			retryAfter: Math.max(
@@ -148,22 +150,41 @@ export async function limited<T>(
 	}
 }
 
-/** Counts a sign-up from `address`; the eleventh within one hour is refused (D-114). */
-export async function signUpLimited(address: string): Promise<void> {
-	const network = networkOf(address)
+/** What the hourly limits count (D-114, D-117). */
+export type RequestKind = 'signUp' | 'reset' | 'verify' | 'email'
+
+/**
+ * Counts a request of `kind` from `subject`; past `most` within one hour,
+ * the refusal instead, and the request is not counted.
+ */
+export async function hourly(
+	kind: RequestKind,
+	subject: string,
+	most: number,
+): Promise<PublicError | undefined> {
 	const now = Date.now()
-	await PasswordSignUp.deleteMany(
+	await PasswordRequest.deleteMany(
 		{ where: { at: { lte: new Date(now - hour) } } },
 		M,
 	)
-	const recent = await PasswordSignUp.findMany(
-		{ where: { address: network }, orderBy: { at: 'desc' }, take: signUps },
+	const recent = await PasswordRequest.findMany(
+		{ where: { kind, subject }, orderBy: { at: 'desc' }, take: most },
 		M,
 	)
-	const oldest = recent[signUps - 1]
-	if (oldest !== undefined) throw tooMany(oldest.at, hour, now)
-	await PasswordSignUp.create(
-		{ data: { address: network, at: new Date(now) } },
+	const oldest = recent[most - 1]
+	if (oldest !== undefined) return tooMany(oldest.at, hour, now)
+	await PasswordRequest.create(
+		{ data: { kind, subject, at: new Date(now) } },
 		M,
 	)
+	return undefined
+}
+
+/** Refuses the eleventh request of `kind` from `address` within one hour (D-114, D-117). */
+export async function requestLimited(
+	kind: RequestKind,
+	address: string,
+): Promise<void> {
+	const refused = await hourly(kind, networkOf(address), requests)
+	if (refused !== undefined) throw refused
 }

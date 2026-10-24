@@ -23,10 +23,13 @@ import {
 	signedIn,
 	verified,
 } from './core.ts'
+import type { SendEmail } from './email-functions.ts'
+import { emailFunctions } from './email-functions.ts'
 import { passwordFunctions } from './functions.ts'
 import type { Credentials, Property } from './input.ts'
 import { emailOf, fieldProperty, passwordOf, valid } from './input.ts'
-import { PasswordAttempt, PasswordHash, PasswordSignUp } from './models.ts'
+import { PasswordAttempt, PasswordHash, PasswordRequest } from './models.ts'
+import { PasswordToken } from './tokens.ts'
 
 /** The user fields a sign-up may take; any name before the user is registered. */
 export type UserField = Register extends { readonly user: unknown }
@@ -39,6 +42,11 @@ export type UserField = Register extends { readonly user: unknown }
 export interface PasswordOptions {
 	/** The user fields `signUp` takes besides the email and the password; `false` closes sign-up. */
 	readonly signUp?: readonly UserField[] | false
+	/**
+	 * Sends an email that carries a token: a reset or a verification link
+	 * the application writes. Without it, no function sends one (D-117).
+	 */
+	readonly sendEmail?: SendEmail
 }
 
 type Options = { readonly as?: Caller }
@@ -184,11 +192,15 @@ const definition = definePlugin<Password>({
 	name: 'password',
 	manifest,
 	requires: { auth: authPlugin },
-	models: [PasswordHash, PasswordAttempt, PasswordSignUp],
+	models: [PasswordHash, PasswordAttempt, PasswordRequest, PasswordToken],
 	hooks: {
-		// The user's hash goes with them (D-113).
+		// The user's hash and tokens go with them (D-113, D-117).
 		afterDelete: async ({ record }) => {
-			await PasswordHash.deleteMany({ where: { userId: record.id } }, M)
+			const where = { userId: record.id }
+			await PasswordHash.deleteMany({ where }, M)
+			await PasswordToken.deleteMany({ where }, M)
+			const emails = { kind: 'email', subject: record.id }
+			await PasswordRequest.deleteMany({ where: emails }, M)
 		},
 	},
 	commands: ({ queries, plugins }) => {
@@ -232,14 +244,24 @@ const definition = definePlugin<Password>({
 	},
 	// The functions are built before the APIs (D-89): they read the state
 	// when they run, and `api` stores it once auth's API exists.
-	api: ({ options, plugins, models }) => {
+	api: ({ options, plugins, models, logger }) => {
 		const { users, fields } = configOf(options, models)
 		const signUp = fields === false ? false : new Set(fields.keys())
-		states.set(plugins.auth, { auth: plugins.auth, users, signUp })
+		const { auth } = plugins
+		states.set(auth, { auth, users, signUp, logger, sending: new Set() })
+	},
+	// The emails under way still query: they end before the database closes.
+	stop: async ({ plugins }) => {
+		await Promise.all(stateOf(plugins.auth).sending)
 	},
 	functions: ({ options, plugins, models }) => {
 		const { users, fields } = configOf(options, models)
-		return passwordFunctions(() => stateOf(plugins.auth), users, fields)
+		const state = () => stateOf(plugins.auth)
+		const { sendEmail } = options
+		return [
+			...passwordFunctions(state, users, fields),
+			...(sendEmail === undefined ? [] : emailFunctions(state, sendEmail)),
+		]
 	},
 })
 

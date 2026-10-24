@@ -1,7 +1,9 @@
-// password on PostgreSQL (D-110, D-113): sign-up's transaction, the sign-in
-// limit's dates compared by the database, and the hash a deleted user leaves.
+// password on PostgreSQL (D-110, D-113, D-117): sign-up's transaction, the
+// sign-in limit's dates compared by the database, the hash a deleted user
+// leaves, and a reset's token and hourly counts.
 import { expect, it, vi } from 'vitest'
-import { PasswordAttempt, PasswordHash } from './models.ts'
+import type { Email } from './index.ts'
+import { PasswordAttempt, PasswordHash, PasswordRequest } from './models.ts'
 import {
 	graphqlOf,
 	M,
@@ -11,6 +13,7 @@ import {
 	User,
 } from './test/app.ts'
 import { database, urls } from './test/postgres.ts'
+import { PasswordToken } from './tokens.ts'
 
 const ada = { email: 'ada@example.com', password: 'correct horse' }
 const failed = (body: unknown): unknown =>
@@ -45,6 +48,65 @@ for (const url of urls) {
 
 			await User.deleteMany({ where: {} }, M)
 			expect(await PasswordHash.count({}, M)).toBe(0)
+		} finally {
+			vi.restoreAllMocks()
+			await running.app.stop()
+		}
+	})
+
+	it(`resets a password on ${new URL(url).host}`, async () => {
+		const outbox: Email[] = []
+		const sendEmail = async (email: Email) => {
+			outbox.push(email)
+		}
+		const running = await started(
+			{ signUp: ['name'], sendEmail },
+			database(url),
+		)
+		try {
+			const signUp = { input: { ...ada, name: 'Ada' } }
+			await graphqlOf(running.url, signUpQuery, signUp)
+			const now = Date.now()
+			vi.spyOn(Date, 'now').mockReturnValue(now)
+			const request = async () =>
+				graphqlOf(
+					running.url,
+					'mutation ($input: RequestPasswordResetInput!) { requestPasswordReset(input: $input) }',
+					{ input: { email: ada.email } },
+				)
+			for (let index = 0; index < 4; index += 1) await request()
+			await vi.waitFor(async () => {
+				expect(outbox).toHaveLength(3)
+				expect(
+					await PasswordRequest.count({ where: { kind: 'email' } }, M),
+				).toBe(3)
+			})
+			expect(await PasswordToken.count({}, M)).toBe(1)
+			const reset = async (token: string) =>
+				graphqlOf(
+					running.url,
+					'mutation ($input: ResetPasswordInput!) { resetPassword(input: $input) }',
+					{ input: { token, password: 'new secret!' } },
+				)
+			// The token's expiry is compared once read.
+			vi.spyOn(Date, 'now').mockReturnValue(now + 60 * 60 * 1000 - 1)
+			const token = outbox.at(-1)?.token ?? ''
+			expect((await reset(token)).body).toEqual({
+				data: { resetPassword: true },
+			})
+			expect(failed((await reset(token)).body)).toBe(true)
+			const input = { input: { ...ada, password: 'new secret!' } }
+			const signed = await graphqlOf(running.url, signInQuery, input)
+			expect(JSON.stringify(signed.body)).toContain('"name":"Ada"')
+			// Past one hour, the counts are purged and another email goes.
+			vi.spyOn(Date, 'now').mockReturnValue(now + 60 * 60 * 1000)
+			await request()
+			await vi.waitFor(() => {
+				expect(outbox).toHaveLength(4)
+			})
+			expect(await PasswordRequest.count({ where: { kind: 'email' } }, M)).toBe(
+				1,
+			)
 		} finally {
 			vi.restoreAllMocks()
 			await running.app.stop()

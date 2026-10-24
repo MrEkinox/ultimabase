@@ -7,7 +7,7 @@ import {
 	limited,
 	networkOf,
 	PasswordAttempt,
-	PasswordSignUp,
+	PasswordRequest,
 } from './models.ts'
 import { graphqlOf, M, signUpQuery, started } from './test/app.ts'
 
@@ -145,6 +145,6 @@ describe('the sign-up limit', () => {
 		)
 		vi.spyOn(Date, 'now').mockReturnValue(now + 60 * 60 * 1000)
 		expect((await signUp(11)).body).not.toHaveProperty('errors')
-		expect(await PasswordSignUp.count({}, M)).toBe(10)
+		expect(await PasswordRequest.count({}, M)).toBe(10)
 	})
 })

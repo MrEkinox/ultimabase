@@ -155,7 +155,7 @@ Exit: a full CRUD example over GraphQL against PostgreSQL.
 - [x] Decide auth and password after their audit (D-115).
 - [x] auth and password after their audit (D-115).
 - [x] Decide password reset and email verification (D-113, D-117).
-- [ ] Password reset: `sendEmail`, `requestPasswordReset`, `resetPassword`
+- [x] Password reset: `sendEmail`, `requestPasswordReset`, `resetPassword`
       (D-117).
 - [ ] Email verification: `emailVerified`, `verifyEmail`,
       `sendVerificationEmail` (D-117).

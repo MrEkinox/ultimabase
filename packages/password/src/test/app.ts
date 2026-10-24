@@ -25,13 +25,15 @@ export const User = defineUser({
 	access: { read: signedIn(({ user, where }) => where({ id: user.id })) },
 })
 
-function listening(lines: string[]): Logger {
+function listening(lines: string[], errors: string[]): Logger {
 	const logger: Logger = {
 		info: (first) => {
 			if (typeof first === 'string') lines.push(first)
 		},
 		warn: () => undefined,
-		error: () => undefined,
+		error: (first, message?: string) => {
+			errors.push(typeof first === 'string' ? first : String(message))
+		},
 		child: () => logger,
 	}
 	return logger
@@ -43,6 +45,7 @@ export async function started(
 	database: Adapter = memory(),
 ) {
 	const lines: string[] = []
+	const errors: string[] = []
 	const app = defineApp({
 		database,
 		plugins: [
@@ -52,12 +55,12 @@ export async function started(
 			passwordPlugin(options),
 		],
 		models: [User],
-		logger: listening(lines),
+		logger: listening(lines, errors),
 	})
 	await app.start()
 	const line = lines.find((first) => first.startsWith('Listening on')) ?? ''
 	const url = line.replace(/^Listening on (.*)\.$/, '$1')
-	return { app, url }
+	return { app, url, errors }
 }
 
 export const bearer = (token: string) => ({ authorization: `Bearer ${token}` })

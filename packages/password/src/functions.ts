@@ -12,7 +12,7 @@ import {
 	verified,
 } from './core.ts'
 import type { Property } from './input.ts'
-import { signUpLimited } from './models.ts'
+import { requestLimited } from './models.ts'
 import {
 	changePasswordInput,
 	outputSchema,
@@ -49,7 +49,7 @@ export function passwordFunctions(
 		output: SignedIn,
 		run: async ({ input: { input }, client }) => {
 			const state = stateOf()
-			if (client !== undefined) await signUpLimited(client.address)
+			if (client !== undefined) await requestLimited('signUp', client.address)
 			const { email, password, ...data } = input
 			const { user, stamp } = await createUser(state, email, password, data)
 			return signedIn(state, { userId: user.id, stamp }, client)

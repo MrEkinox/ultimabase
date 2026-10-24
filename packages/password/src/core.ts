@@ -2,16 +2,17 @@
 // checking a password, setting one, and the session a success opens.
 import { randomUUID } from 'node:crypto'
 import type { AuthApi } from '@ultimabase/auth'
-import type { Caller, Client, ExposedModel, Row } from 'ultimabase'
+import type { Caller, Client, ExposedModel, Logger, Row } from 'ultimabase'
 import { master, PublicError, transaction } from 'ultimabase'
 import { dummyHash, hashPassword, verifyPassword } from './hash.ts'
 import { normalized } from './input.ts'
 import type { Attempt } from './models.ts'
 import { limited, PasswordHash } from './models.ts'
+import { PasswordToken } from './tokens.ts'
 
 const M = { as: master }
 /** The method `AuthAccount` links a password's email with (D-113). */
-const method = 'password'
+export const method = 'password'
 
 /** What each running application's password reads, by auth's API. */
 export interface State {
@@ -19,6 +20,9 @@ export interface State {
 	readonly users: ExposedModel
 	/** The fields a sign-up other than Master's takes, `false` when closed. */
 	readonly signUp: ReadonlySet<string> | false
+	readonly logger: Logger
+	/** The sends under way, which stopping waits for (D-117). */
+	readonly sending: Set<Promise<void>>
 }
 
 /** What a sign-in returns: its session, and the user read as itself. */
@@ -134,7 +138,10 @@ export async function checkCurrent(
 	})
 }
 
-/** Replaces `userId`'s hash and ends every session of the user; the new stamp. */
+/**
+ * Replaces `userId`'s hash, ends every session of the user and deletes its
+ * pending reset tokens (D-117); the new stamp.
+ */
 export async function setPassword(
 	state: State,
 	userId: string,
@@ -151,6 +158,7 @@ export async function setPassword(
 	const stamp = randomUUID()
 	await transaction(async () => {
 		await PasswordHash.update({ where: { userId }, data: { hash, stamp } }, M)
+		await PasswordToken.deleteMany({ where: { userId, kind: 'reset' } }, M)
 		await state.auth.revokeSessions(userId)
 	})
 	// Again once the stamp is visible: a sign-in that read the old one opened

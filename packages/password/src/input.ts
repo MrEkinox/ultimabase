@@ -257,6 +257,26 @@ export const changePasswordInput: StandardSchema<
 	]),
 )
 
+type ResetPassword = { readonly token: string; readonly password: string }
+
+/** What `requestPasswordReset` takes (D-117). */
+export const requestResetInput: StandardSchema<
+	Named<{ readonly email: string }>,
+	Named<{ readonly email: string }>
+> = namedInput('RequestPasswordReset', new Map([['email', email]]))
+
+/** What `resetPassword` takes: the email's token and the new password (D-117). */
+export const resetPasswordInput: StandardSchema<
+	Named<ResetPassword>,
+	Named<ResetPassword>
+> = namedInput(
+	'ResetPassword',
+	new Map([
+		['token', property(text, string)],
+		['password', property(passwordOf, string)],
+	]),
+)
+
 /** The email, the password and the listed user fields, by their names. */
 export const signUpInput = (
 	fields: ReadonlyMap<string, Property>,
