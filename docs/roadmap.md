@@ -171,7 +171,9 @@ Exit: an example with sign-up, sign-in and rules on `caller.user`.
       under its 2,000 tokens: 1,993 copies of one field take 100 ms of CPU
       in graphql-js's overlapping-fields rule, which compares every two
       fields of one name; ten such requests a second fill a core (D-55,
-      D-107).
+      D-107). The bound also counts each root list field and its
+      `totalCount`: a document under 2,000 tokens holds about 150 aliased
+      roots, each a scan of its table when its filter matches little.
 - [ ] Publication, after confirmation.
 
 Exit: `npm create ultimabase` produces an application that starts.
