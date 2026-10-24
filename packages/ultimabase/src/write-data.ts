@@ -5,27 +5,18 @@ import type { Issue } from './errors.ts'
 import { InvalidQuery, PublicError } from './errors.ts'
 import type { Caller } from './rules.ts'
 import type { FieldInfo, ModelInfo } from './schema.ts'
-import { entries, isObject, unknownKey } from './query-where.ts'
+import {
+	clean,
+	entries,
+	isJson,
+	isObject,
+	storedDate,
+	unknownKey,
+} from './query-where.ts'
 import { validated } from './validation.ts'
 
 /** The data a `before*` hook changes in place (D-71). */
 export type Draft = { [field: string]: unknown }
-
-function isJson(value: unknown): boolean {
-	if (
-		value === null ||
-		typeof value === 'string' ||
-		typeof value === 'boolean'
-	) {
-		return true
-	}
-	if (typeof value === 'number') return Number.isFinite(value)
-	if (Array.isArray(value)) return value.every(isJson)
-	if (!isObject(value) || Object.getPrototypeOf(value) !== Object.prototype) {
-		return false
-	}
-	return Object.values(value).every(isJson)
-}
 
 type Scalar = Extract<FieldInfo, { readonly kind: 'scalar' }>
 
@@ -36,8 +27,12 @@ export const fits: {
 		field: Scalar,
 	) => string | undefined
 } = {
-	string: (value) =>
-		typeof value === 'string' ? undefined : 'Expected a string.',
+	string: (value) => {
+		if (typeof value !== 'string') return 'Expected a string.'
+		return clean(value)
+			? undefined
+			: 'Expected a string without a NUL or a lone surrogate.'
+	},
 	number: (value) =>
 		typeof value === 'number' && Number.isFinite(value)
 			? undefined
@@ -45,10 +40,11 @@ export const fits: {
 	boolean: (value) =>
 		typeof value === 'boolean' ? undefined : 'Expected a boolean.',
 	date: (value) =>
-		value instanceof Date && !Number.isNaN(value.getTime())
+		storedDate(value) ? undefined : 'Expected a Date of years 1 to 9999.',
+	json: (value) =>
+		isJson(value)
 			? undefined
-			: 'Expected a valid Date.',
-	json: (value) => (isJson(value) ? undefined : 'Expected JSON data.'),
+			: 'Expected JSON data, its strings without a NUL or a lone surrogate.',
 	enum: (value, field) =>
 		typeof value === 'string' && (field.values ?? []).includes(value)
 			? undefined
@@ -62,7 +58,8 @@ function ref(value: unknown, path: string): string {
 	if (
 		given.length !== 1 ||
 		first?.[0] !== 'id' ||
-		typeof first[1] !== 'string'
+		typeof first[1] !== 'string' ||
+		!clean(first[1])
 	) {
 		throw new InvalidQuery(path, `${path} must be { id }.`)
 	}

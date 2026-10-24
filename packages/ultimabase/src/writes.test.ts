@@ -106,8 +106,15 @@ describe('create', () => {
 		await expect(book).rejects.toMatchObject({
 			details: {
 				issues: [
-					{ path: ['releasedAt'], message: 'Expected a valid Date.' },
-					{ path: ['meta'], message: 'Expected JSON data.' },
+					{
+						path: ['releasedAt'],
+						message: 'Expected a Date of years 1 to 9999.',
+					},
+					{
+						path: ['meta'],
+						message:
+							'Expected JSON data, its strings without a NUL or a lone surrogate.',
+					},
 				],
 			},
 		})

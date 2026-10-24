@@ -79,6 +79,8 @@ describe('on the library', () => {
 		expect(await books({ skip: 1e300 })).toBe('skip')
 		expect(await books({ orderBy: { author: 'asc' } })).toBe('orderBy.author')
 		expect(await books({ orderBy: { ghost: 'asc' } })).toBe('orderBy.ghost')
+		// A json value has no order alike on every adapter (D-94).
+		expect(await books({ orderBy: { meta: 'asc' } })).toBe('orderBy.meta')
 		expect(await books({ orderBy: [{ title: 'up' }] })).toBe('orderBy.0.title')
 		expect(await books({ cursor: { id: {} } })).toBe('cursor.id')
 		expect(await books({ cursor: { id: null } })).toBe('cursor.id')

@@ -3127,7 +3127,8 @@ kernel's planning in every test and break with each change of D-73); a
 `reset` the suite calls between tests (an adapter on a fresh database is
 simpler to write and cannot leak rows from one test to the next).
 
-Three details every adapter follows, checked by the suite:
+The details every adapter follows, checked by the suite (amended
+2026-10-24):
 
 - `%` and `_` are characters in `contains`, `startsWith` and `endsWith`, not
   patterns: an SQL adapter escapes them in its `LIKE`.
@@ -3135,6 +3136,28 @@ Three details every adapter follows, checked by the suite:
   without pages does not fail `every: { pages: { gt: 200 } }`.
 - Two json values are equal when their content is, keys in any order
   (`jsonb` in PostgreSQL).
+- Strings sort by code point, the order of their UTF-8 bytes and of
+  PostgreSQL's `C` collation: `ｚ` (U+FF5A) before `😀` (U+1F600), which
+  UTF-16 code units order the other way.
+- The kernel refuses what a database would change or fail on: a string, an
+  id, a text operand or a json string or key with a NUL or a lone surrogate,
+  and a date outside years 1 to 9999 in UTC. A write fails with
+  `VALIDATION_FAILED`, a filter or a `connect` with `INVALID_QUERY`.
+- A json field cannot be sorted: `orderBy: { meta: 'asc' }` fails with
+  `INVALID_QUERY`, and GraphQL's `OrderByInput` has no json field. Each
+  database orders json its own way.
+- A date goes to the database and comes back in UTC, whatever the time zone
+  of the server process and of the database session: an offset in seconds,
+  as Paris's +00:09:21 before 1911, is lost otherwise.
+
+Why the refusals (amended 2026-10-24): PostgreSQL refuses a NUL in `text`
+and `jsonb`, replaces a lone surrogate, and stores the years 0 and 10000
+but reads them back as an invalid date. Refused by the kernel, these values
+fail the same way on every adapter, with the field's path, and no stored
+row comes back different from what was written.
+
+Limit (amended 2026-10-24): a json object comes back with its keys in the
+order its database keeps, sorted in PostgreSQL; its content is unchanged.
 
 Limit: how an adapter makes other writes wait during a transaction is its
 own (memory takes a lock, PostgreSQL row locks); the suite checks only that
@@ -3156,6 +3179,22 @@ import { testAdapter } from '@ultimabase/testing'
 import { postgres } from '@ultimabase/postgres'
 
 testAdapter('postgres', () => postgres({ url: process.env.TEST_DATABASE_URL }))
+```
+
+Example of the refusals (amended 2026-10-24):
+
+```ts
+// Before: memory() stores it, PostgreSQL fails with a raw driver error
+await Post.create({ data: { title: 'a\u0000b' } })
+// memory: stored; PostgreSQL: invalid byte sequence for encoding "UTF8": 0x00
+await Post.create({ data: { publishedAt: new Date('+010000-01-01') } })
+// PostgreSQL: stored, then every read of the row throws "Invalid time value"
+
+// After: both refused alike, before the database
+await Post.create({ data: { title: 'a\u0000b' } })
+// VALIDATION_FAILED, title: "Expected a string without a NUL or a lone surrogate."
+await Post.findMany({ orderBy: { meta: 'asc' } })
+// INVALID_QUERY, orderBy.meta: "is a json field, which cannot be sorted"
 ```
 
 ## D-95: The manifest's version checks
@@ -3409,7 +3448,8 @@ Why:
 
 - Starting on an empty database is the only migration that needs no diff.
 - The `C` collation and `jsonb` give PostgreSQL the comparisons `memory()`
-  already has, so the contract holds on both.
+  has, strings by code point (D-94, amended 2026-10-24), so the contract
+  holds on both.
 - A foreign key keeps hand-written SQL honest without running the kernel's
   cascades a second time.
 - A schema per test is faster than a database per test, and isolates the

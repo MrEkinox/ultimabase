@@ -110,6 +110,9 @@ describe('a list', () => {
 			} }`,
 		)
 		expect(titles(text)).toStrictEqual(['two'])
+		// A json field has no order (D-94).
+		const json = await ask(`{ posts(orderBy: [{ meta: asc }]) { totalCount } }`)
+		expect(json.errors?.[0]?.message).toContain('unknown field "meta"')
 	})
 
 	it('pages forward and backward with cursors', async () => {

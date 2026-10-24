@@ -263,6 +263,19 @@ export function reads(create: () => Adapter): void {
 			expect(await ordered([])).toEqual(['Analysis', 'Engines', 'Compilers'])
 		})
 
+		it('orders strings by code point, as the bytes of their UTF-8', async () => {
+			// UTF-16 puts U+FF5A above U+1F600, which is above it as a code point.
+			await Tag.create({ data: { label: '😀' } }, M)
+			await Tag.create({ data: { label: 'ｚ' } }, M)
+			const tags = await Tag.findMany({ orderBy: { label: 'asc' } }, M)
+			expect(tags.map(({ label }) => label)).toEqual([
+				'art',
+				'math',
+				'ｚ',
+				'😀',
+			])
+		})
+
 		it('skips, takes and starts at a cursor, forwards and backwards', async () => {
 			expect(await page({ skip: 1, take: 1 })).toEqual(['Compilers'])
 			expect(await page({ take: -2 })).toEqual(['Compilers', 'Engines'])

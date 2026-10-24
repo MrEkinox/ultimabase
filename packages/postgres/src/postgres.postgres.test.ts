@@ -40,9 +40,14 @@ async function run(url: string, statement: string): Promise<void> {
 	}
 }
 
+/**
+ * `url` on `schema`, in a session whose time zone gives old dates an offset
+ * in seconds, which a date read in it loses.
+ */
 function inSchema(url: string, schema: string): string {
 	const separator = url.includes('?') ? '&' : '?'
-	return `${url}${separator}options=${encodeURIComponent(`-c search_path=${schema}`)}`
+	const options = `-c search_path=${schema} -c TimeZone=Europe/Paris`
+	return `${url}${separator}options=${encodeURIComponent(options)}`
 }
 
 for (const url of urls) {

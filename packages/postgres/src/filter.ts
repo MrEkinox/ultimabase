@@ -27,12 +27,16 @@ function any(parts: readonly Sql[]): Sql {
 	return sql`(${sql.join(parts, sql` or `)})`
 }
 
-/** A value as a parameter of its column's type. */
+/**
+ * A value as a parameter of its column's type. A date goes in UTC: `pg`
+ * writes it in local time to the minute, and a local offset of an old date
+ * has seconds, as Paris's +00:09:21 before 1911.
+ */
 export function value(kind: Kind, item: unknown): Sql {
 	if (kind === 'json' && item !== null) {
 		return sql`cast(${JSON.stringify(item)} as jsonb)`
 	}
-	return sql`${item}`
+	return item instanceof Date ? sql`${item.toISOString()}` : sql`${item}`
 }
 
 function isFilters(

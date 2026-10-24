@@ -273,19 +273,25 @@ function scalar(value: unknown, condition: Condition): Truth {
 	return and(truths)
 }
 
-function rank(value: unknown): number | string {
-	if (value instanceof Date) return value.getTime()
-	if (typeof value === 'boolean') return value ? 1 : 0
-	if (typeof value === 'number' || typeof value === 'string') return value
-	return JSON.stringify(value)
+/** A surrogate sorts above U+FFFF, as the code point it is part of. */
+const weight = (unit: number): number => {
+	if (unit >= 0xd8_00 && unit <= 0xdf_ff) return unit + 0x20_00
+	return unit >= 0xe0_00 ? unit - 0x8_00 : unit
 }
 
-/** Strings compare by code unit, as PostgreSQL's `C` collation. */
+/**
+ * Strings compare by code point, as PostgreSQL's `C` collation (D-94);
+ * dates, numbers and booleans by their number. Json values are not sorted.
+ */
 function compareValues(a: unknown, b: unknown): number {
-	const left = rank(a)
-	const right = rank(b)
-	if (left < right) return -1
-	return left > right ? 1 : 0
+	if (typeof a === 'string' && typeof b === 'string') {
+		for (let index = 0; index < Math.min(a.length, b.length); index++) {
+			const order = weight(a.charCodeAt(index)) - weight(b.charCodeAt(index))
+			if (order !== 0) return order
+		}
+		return a.length - b.length
+	}
+	return Number(a) - Number(b)
 }
 
 /** `null` sorts last ascending and first descending, as in PostgreSQL. */

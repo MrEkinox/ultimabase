@@ -1,5 +1,6 @@
 // The writes of the contract (D-73): create, update and delete, the links of
-// every relation, and the refusals of a unique key and of a missing row.
+// every relation, and the refusals of a unique key, of a missing row and of
+// a value PostgreSQL cannot store as written (D-94).
 import type { Adapter } from 'ultimabase'
 import { defineApp, defineModel, master } from 'ultimabase'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
@@ -219,6 +220,55 @@ export function writes(create: () => Adapter): void {
 			expect(
 				await Player.count({ where: { name: 'Grace', team: { is: null } } }, M),
 			).toBe(1)
+		})
+
+		it('stores any well-formed text and the dates of years 1 to 9999', async () => {
+			const first = new Date('0001-01-01T00:00:00.000Z')
+			const last = new Date('9999-12-31T23:59:59.999Z')
+			const ada = await Player.create(
+				{ data: { name: '😀 Ada', stats: { 'é😀': ['ｚ'] }, bornAt: first } },
+				M,
+			)
+			await Player.create({ data: { name: 'Grace', bornAt: last } }, M)
+			expect(
+				await Player.findMany({ orderBy: { bornAt: 'asc' } }, M),
+			).toMatchObject([
+				{ name: '😀 Ada', stats: { 'é😀': ['ｚ'] }, bornAt: first },
+				{ name: 'Grace', bornAt: last },
+			])
+			expect(
+				await Player.count({ where: { id: ada.id, bornAt: first } }, M),
+			).toBe(1)
+		})
+
+		it('refuses a NUL, a lone surrogate or a year outside 1 to 9999', async () => {
+			const invalid = { code: 'VALIDATION_FAILED' }
+			for (const data of [
+				{ name: 'A\0da' },
+				{ name: '\uD800' },
+				{ name: 'Ada', stats: { 'k\0': 1 } },
+				{ name: 'Ada', stats: ['\uDC00'] },
+				{ name: 'Ada', bornAt: new Date('0000-12-31T23:59:59.999Z') },
+				{ name: 'Ada', bornAt: new Date('+010000-01-01T00:00:00.000Z') },
+			]) {
+				await expect(Player.create({ data }, M)).rejects.toMatchObject(invalid)
+			}
+			const query = { code: 'INVALID_QUERY' }
+			const late = new Date('+010000-01-01T00:00:00.000Z')
+			for (const where of [
+				{ name: 'A\0' },
+				{ name: { contains: '\uD800' } },
+				{ id: { in: ['\0'] } },
+				{ bornAt: { lt: late } },
+				{ stats: { equals: { a: '\0' } } },
+			]) {
+				await expect(Player.findMany({ where }, M)).rejects.toMatchObject(query)
+			}
+			const team = { connect: { id: '\0' } }
+			await expect(
+				Player.create({ data: { name: 'Ada', team } }, M),
+			).rejects.toMatchObject(query)
+			expect(await Player.count({}, M)).toBe(0)
 		})
 
 		it('refuses to connect a missing row, and writes nothing', async () => {

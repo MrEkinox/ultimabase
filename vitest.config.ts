@@ -42,6 +42,9 @@ export default defineConfig({
 				test: {
 					name: 'postgres',
 					include: [postgresTests],
+					// A zone whose old dates have an offset in seconds, which a
+					// date written in local time loses.
+					env: { TZ: 'Europe/Paris' },
 					exclude: ['**/node_modules/**'],
 				},
 			},

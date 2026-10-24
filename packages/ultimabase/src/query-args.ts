@@ -65,6 +65,12 @@ function orderBy(
 			) {
 				throw unknownKey(`${at}.${field}`, model.name)
 			}
+			if (known?.kind === 'scalar' && known.type === 'json') {
+				throw new InvalidQuery(
+					`${at}.${field}`,
+					`${at}.${field} is a json field, which cannot be sorted (D-94).`,
+				)
+			}
 			scope?.check(model, field, `${at}.${field}`, 'sorts')
 			if (direction !== 'asc' && direction !== 'desc') {
 				throw new InvalidQuery(
