@@ -35,7 +35,8 @@ export function defineUser<
 		...definition,
 		use: [authUse(), ...(definition.use ?? [])],
 	})
-	userModels.add(model)
 	// oxlint-disable-next-line typescript/no-unsafe-type-assertion -- defineModel's own model, with auth in its use; an omitted `use` leaves `U` at its default only when nobody passes it (D-62).
-	return model as ModelOf<N, F, WithAuth<U>, X>
+	const user = model as ModelOf<N, F, WithAuth<U>, X>
+	userModels.set(model, user.nullable())
+	return user
 }

@@ -4977,8 +4977,9 @@ D-112.
    connection's address (`''` when unknown, as `c.var.address` in a route),
    and `client.cookies.set(name, value, options)` and
    `client.cookies.clear(name, options)`, which the transport applies to its
-   HTTP response; clearing a `Secure` or `Path` cookie needs its options. auth's API becomes `signIn(userId, client?)`, which sets the
-   session's cookie only with a client, and `revokeSessions(userId)`.
+   HTTP response; clearing a `Secure` or `Path` cookie needs its options.
+   auth's API becomes `signIn(userId, client?)`, which sets the session's
+   cookie only with a client, and `revokeSessions(userId)`.
 3. Linked accounts. auth owns `AuthAccount { userId, method, subject }`,
    unique on `(method, subject)`: one row per way a user signs in, the email
    for a password, the provider's user id for OAuth (D-33). Deleting the user
@@ -4990,7 +4991,11 @@ D-112.
    no route. `viewer: User`, a query, is the caller's user read again as the
    caller, so the user model's field rules apply; `null` when anonymous or
    when the user's read rule refuses its own row. auth adds the command
-   `User.revokeSessions({ id }, options)`.
+   `User.revokeSessions({ id }, options)`, which runs as Master or as that
+   user and refuses any other caller with `ACCESS_DENIED`. So that a plugin's
+   command tells the kernel's Master from a forged one, the kernel exports
+   `isMaster(caller)`; it also exports the type `FunctionShape`, which a
+   plugin's `functions` returns (amended 2026-10-24).
 5. `@ultimabase/password` exports `passwordPlugin(options)` and `password()`.
    It requires auth. The user model declares `use: [password()]`, which types
    its commands and deletes the user's hash with the user; `passwordPlugin()`

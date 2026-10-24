@@ -1,9 +1,12 @@
-// `authPlugin()` and `defineUser` (D-112): a session's token by Bearer or
-// cookie, its lifetime, sign-out, revocation and the one user model.
+// `authPlugin()` and `defineUser` (D-112, D-113): a session's token by Bearer
+// or cookie, its lifetime, sign-out, revocation, `viewer`, linked accounts
+// and the one user model.
+import { graphqlPlugin } from '@ultimabase/graphql'
 import { httpPlugin } from '@ultimabase/http'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import type { Adapter } from 'ultimabase'
+import type { Adapter, Caller } from 'ultimabase'
 import { defineApp, memory } from 'ultimabase'
+import { AuthAccount } from './accounts.ts'
 import { authPlugin, defineUser } from './index.ts'
 import { AuthSession } from './sessions.ts'
 import {
@@ -11,13 +14,15 @@ import {
 	callerOf,
 	cookie,
 	day,
+	functionNamed,
+	given,
+	graphqlOf,
 	listening,
 	M,
 	signIn,
 	started,
 	User,
 } from './test/app.ts'
-import { cookieOf, setCookie } from './token.ts'
 
 let stop: (() => Promise<void>) | undefined
 afterEach(async () => {
@@ -177,26 +182,81 @@ describe('a session’s lifetime', () => {
 })
 
 const signOut = async (url: string, headers: Record<string, string>) =>
-	fetch(`${url}/auth/sign-out`, { method: 'POST', headers })
+	graphqlOf(url, 'mutation { signOut }', headers)
+const cleared = 'ultimabase_session=; Max-Age=0; Path=/; HttpOnly; SameSite=Lax'
 
 describe('signing out', () => {
 	it('ends the Bearer’s or the cookie’s session and clears the cookie', async () => {
 		const { url, ada } = await server()
 		for (const carry of [bearer, cookie]) {
 			const { token } = await signIn(url, ada.id)
-			const response = await signOut(url, carry(token))
-			expect(response.status).toBe(204)
-			expect(response.headers.get('set-cookie')).toBe(
-				'ultimabase_session=; Max-Age=0; Path=/; HttpOnly; SameSite=Lax',
-			)
+			const signedOut = await signOut(url, carry(token))
+			expect(signedOut).toStrictEqual({
+				status: 200,
+				body: { data: { signOut: true } },
+				setCookie: [cleared],
+			})
 			expect((await callerOf(url, bearer(token))).status).toBe(401)
 		}
 		expect(await AuthSession.count({}, M)).toBe(0)
 	})
 
-	it('answers 204 without a session', async () => {
+	it('ends only the request’s session', async () => {
+		const { url, ada } = await server()
+		const first = await signIn(url, ada.id)
+		const second = await signIn(url, ada.id)
+		await signOut(url, bearer(first.token))
+		expect((await callerOf(url, bearer(second.token))).status).toBe(200)
+	})
+
+	it('clears the cookie without a session, or with a stale one', async () => {
 		const { url } = await server()
-		expect((await signOut(url, {})).status).toBe(204)
+		for (const headers of [{}, cookie('nope')]) {
+			const signedOut = await signOut(url, headers)
+			expect(signedOut.body).toStrictEqual({ data: { signOut: true } })
+			expect(signedOut.setCookie).toStrictEqual([cleared])
+		}
+	})
+
+	it('is no route', async () => {
+		const { url } = await server()
+		const response = await fetch(`${url}/auth/sign-out`, { method: 'POST' })
+		expect(response.status).toBe(404)
+	})
+
+	it('from server code, ends no session and sets no cookie', async () => {
+		const { url, ada } = await server()
+		const { token } = await signIn(url, ada.id)
+		await expect(functionNamed('signOut').run(undefined, M)).resolves.toBe(
+			undefined,
+		)
+		expect((await callerOf(url, bearer(token))).status).toBe(200)
+	})
+})
+
+describe('viewer', () => {
+	it('is the caller’s user, read as the caller', async () => {
+		const { url, ada } = await server()
+		await User.update({ where: { id: ada.id }, data: { note: 'private' } }, M)
+		const { token } = await signIn(url, ada.id)
+		const read = await graphqlOf(url, '{ viewer { id email } }', bearer(token))
+		expect(read.body).toStrictEqual({
+			data: { viewer: { id: ada.id, email: ada.email } },
+		})
+		const caller: Caller = { kind: 'user', user: ada }
+		const viewed = await functionNamed('viewer').run(undefined, { as: caller })
+		expect(viewed).toMatchObject({ id: ada.id, email: ada.email })
+		expect(viewed).not.toHaveProperty('note')
+	})
+
+	it('is null when anonymous, as Master, or when the rule refuses the row', async () => {
+		const { url } = await server()
+		const read = await graphqlOf(url, '{ viewer { id } }')
+		expect(read.body).toStrictEqual({ data: { viewer: null } })
+		const viewer = functionNamed('viewer')
+		await expect(viewer.run(undefined, M)).resolves.toBeNull()
+		const ghost: Caller = { kind: 'user', user: { id: 'ghost' } }
+		await expect(viewer.run(undefined, { as: ghost })).resolves.toBeNull()
 	})
 })
 
@@ -218,6 +278,69 @@ describe('revoking', () => {
 		await signIn(url, ada.id)
 		await User.delete({ where: { id: ada.id } }, M)
 		expect(await AuthSession.count({}, M)).toBe(0)
+	})
+
+	it('is the command User.revokeSessions, as Master or as the user', async () => {
+		const { url, ada } = await server()
+		const grace = await User.create({ data: { email: 'grace@example.com' } }, M)
+		const asAda: Caller = { kind: 'user', user: ada }
+		const forged = { kind: 'master', master: { source: 'code' } } as const
+		const refusals = [
+			undefined,
+			{},
+			{ as: { kind: 'anonymous' } as const },
+			{ as: { kind: 'user', user: grace } as const },
+			{ as: forged },
+		]
+		const { token } = await signIn(url, ada.id)
+		for (const options of refusals) {
+			await expect(
+				User.revokeSessions({ id: ada.id }, options),
+			).rejects.toMatchObject({
+				code: 'ACCESS_DENIED',
+				message: 'User.revokeSessions runs as Master or as the user (D-113).',
+			})
+		}
+		expect((await callerOf(url, bearer(token))).status).toBe(200)
+		for (const options of [M, { as: asAda }]) {
+			const signed = await signIn(url, ada.id)
+			await User.revokeSessions({ id: ada.id }, options)
+			expect((await callerOf(url, bearer(signed.token))).status).toBe(401)
+		}
+	})
+})
+
+describe('linked accounts', () => {
+	it('find the user a method’s subject signs in as', async () => {
+		const { ada } = await server()
+		const auth = given.auth
+		await auth?.linkAccount(ada.id, 'password', 'ada@example.com')
+		await expect(
+			auth?.accountOf('password', 'ada@example.com'),
+		).resolves.toStrictEqual({ userId: ada.id })
+		await expect(
+			auth?.accountOf('google', 'ada@example.com'),
+		).resolves.toBeUndefined()
+	})
+
+	it('take a method’s subject once', async () => {
+		const { ada } = await server()
+		const grace = await User.create({ data: { email: 'grace@example.com' } }, M)
+		await given.auth?.linkAccount(ada.id, 'password', 'ada@example.com')
+		await given.auth?.linkAccount(ada.id, 'google', '1234')
+		await expect(
+			given.auth?.linkAccount(grace.id, 'password', 'ada@example.com'),
+		).rejects.toMatchObject({ code: 'UNIQUE_VIOLATION' })
+	})
+
+	it('go with the user', async () => {
+		const { ada } = await server()
+		const grace = await User.create({ data: { email: 'grace@example.com' } }, M)
+		await given.auth?.linkAccount(ada.id, 'password', 'ada@example.com')
+		await given.auth?.linkAccount(grace.id, 'password', 'grace@example.com')
+		await User.delete({ where: { id: ada.id } }, M)
+		const left = await AuthAccount.findMany({}, M)
+		expect(left.map(({ userId }) => userId)).toStrictEqual([grace.id])
 	})
 })
 
@@ -243,7 +366,7 @@ describe('the user model', () => {
 	it('is one', async () => {
 		const app = defineApp({
 			database: memory(),
-			plugins: [httpPlugin({ port: 0 }), authPlugin()],
+			plugins: [httpPlugin({ port: 0 }), graphqlPlugin(), authPlugin()],
 			models: [User, Member],
 			logger: listening([]),
 		})
@@ -259,21 +382,18 @@ describe('the cookie', () => {
 		process.env['NODE_ENV'] = environment
 	})
 
-	it('is Secure and __Host- in production', () => {
+	it('is Secure and __Host- in production, set and cleared so', async () => {
 		process.env['NODE_ENV'] = 'production'
-		const production = cookieOf()
-		expect(production).toStrictEqual({
-			name: '__Host-ultimabase_session',
-			secure: true,
-		})
-		const headers: string[] = []
-		setCookie(
-			{ header: (_, value) => headers.push(value ?? '') },
-			production,
-			't',
+		const { url, ada } = await server()
+		const signed = await signIn(url, ada.id)
+		expect(signed.setCookie).toBe(
+			`__Host-ultimabase_session=${signed.token}; Max-Age=34560000; Path=/; HttpOnly; Secure; SameSite=Lax`,
 		)
-		expect(headers).toStrictEqual([
-			'__Host-ultimabase_session=t; Max-Age=34560000; Path=/; HttpOnly; Secure; SameSite=Lax',
+		const session = { cookie: `__Host-ultimabase_session=${signed.token}` }
+		const signedOut = await signOut(url, session)
+		expect(signedOut.setCookie).toStrictEqual([
+			'__Host-ultimabase_session=; Max-Age=0; Path=/; HttpOnly; Secure; SameSite=Lax',
 		])
+		expect((await callerOf(url, bearer(signed.token))).status).toBe(401)
 	})
 })

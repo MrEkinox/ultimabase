@@ -5,5 +5,5 @@
 	"postgres": 3000,
 	"http": 575,
 	"graphql": 2650,
-	"auth": 450
+	"auth": 600
 }

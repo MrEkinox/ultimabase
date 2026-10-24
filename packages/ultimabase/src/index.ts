@@ -46,6 +46,7 @@ export type {
 	Client,
 	CookieOptions,
 	FunctionPlugin,
+	FunctionShape,
 	Nullable,
 	ObjectType,
 	OutputSpec,
@@ -68,7 +69,7 @@ export type {
 export type { Queries } from './query.ts'
 export { definePlugin } from './plugin.ts'
 export type { Caller, CallerRule, Register, UserOf } from './rules.ts'
-export { allOf, allow, anyOf, master } from './rules.ts'
+export { allOf, allow, anyOf, isMaster, master } from './rules.ts'
 export { transaction } from './transaction.ts'
 export type {
 	ArgsOf,

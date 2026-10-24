@@ -11,18 +11,17 @@
 	"exports": {
 		".": "./src/index.ts"
 	},
-	"dependencies": {
-		"hono": "4.13.13"
-	},
 	"peerDependencies": {
 		"@ultimabase/http": "^0.0.0",
 		"ultimabase": "^0.0.0"
 	},
 	"devDependencies": {
 		"@types/pg": "8.23.1",
+		"@ultimabase/graphql": "workspace:*",
 		"@ultimabase/http": "workspace:*",
 		"@ultimabase/postgres": "workspace:*",
 		"@ultimabase/testing": "workspace:*",
+		"graphql": "17.0.2",
 		"pg": "8.23.1",
 		"ultimabase": "workspace:*",
 		"vite": "8.3.4",

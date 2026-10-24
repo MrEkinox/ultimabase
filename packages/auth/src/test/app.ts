@@ -1,18 +1,28 @@
-// auth's application for tests (D-112): a user model, a sign-in method's
-// stand-in, and the requests a client sends.
+// auth's application for tests (D-112, D-113): a user model, a sign-in
+// method's stand-in, and the requests a client sends.
+import { graphql, graphqlPlugin } from '@ultimabase/graphql'
 import type { Http } from '@ultimabase/http'
-import { httpPlugin, routes } from '@ultimabase/http'
-import type { Adapter, Logger, PluginTypes } from 'ultimabase'
-import { defineApp, definePlugin, master, memory } from 'ultimabase'
-import type { Auth } from '../index.ts'
-import { authPlugin, defineUser } from '../index.ts'
+import { clientOf, httpPlugin, routes } from '@ultimabase/http'
+import type { Adapter, ExposedFunction, Logger, PluginTypes } from 'ultimabase'
+import { allow, defineApp, definePlugin, master, memory } from 'ultimabase'
+import type { Auth, AuthApi } from '../index.ts'
+import { authPlugin, defineUser, signedIn } from '../index.ts'
 
 export const M = { as: master }
 export const day = 24 * 60 * 60 * 1000
 
+// Each user reads their own row, but never its note.
 export const User = defineUser({
 	name: 'User',
-	fields: (f) => ({ email: f.string({ unique: true }) }),
+	use: [graphql()],
+	fields: (f) => ({
+		email: f.string({ unique: true }),
+		note: f.string({ optional: true }).with({
+			access: { read: allow.private },
+		}),
+	}),
+}).with({
+	access: { read: signedIn(({ user, where }) => where({ id: user.id })) },
 })
 
 const manifest = {
@@ -24,19 +34,29 @@ interface Signing extends PluginTypes {
 	readonly name: 'signing'
 	readonly requires: Http | Auth
 }
+/** What the stand-in was given: auth's API and the functions. */
+export const given: {
+	auth?: AuthApi
+	functions: readonly ExposedFunction[]
+} = { functions: [] }
 // A sign-in method's stand-in: it trusts the id it is sent.
 const signing = definePlugin<Signing>({
 	name: 'signing',
 	manifest,
 	requires: { http: httpPlugin, auth: authPlugin },
+	start: ({ functions }) => {
+		given.functions = functions
+	},
 	api: ({ plugins }) => {
+		given.auth = plugins.auth
 		plugins.http.mount(
 			routes()
 				.get('/caller', (c) => c.json(c.var.caller))
 				.post('/sign-in', async (c) => {
 					const { id } = await c.req.json<{ id: string }>()
-					const opened = await plugins.auth.signIn(c, id)
-					return c.json({ token: opened.token })
+					const { client, sent } = clientOf(c)
+					const opened = await plugins.auth.signIn(id, client)
+					return sent(c.json({ token: opened.token }))
 				})
 				.post('/revoke', async (c) => {
 					const { id } = await c.req.json<{ id: string }>()
@@ -64,7 +84,12 @@ export async function started(database: Adapter = memory()) {
 	const lines: string[] = []
 	const app = defineApp({
 		database,
-		plugins: [httpPlugin({ port: 0 }), authPlugin(), signing.plugin()],
+		plugins: [
+			httpPlugin({ port: 0 }),
+			graphqlPlugin(),
+			authPlugin(),
+			signing.plugin(),
+		],
 		models: [User],
 		logger: listening(lines),
 	})
@@ -95,4 +120,30 @@ export async function callerOf(url: string, headers: Record<string, string>) {
 	const response = await fetch(`${url}/caller`, { headers })
 	const body: unknown = await response.json()
 	return { status: response.status, body }
+}
+
+/** A GraphQL request's status, body and the cookies its response sets. */
+export async function graphqlOf(
+	url: string,
+	query: string,
+	headers: Record<string, string> = {},
+) {
+	const response = await fetch(`${url}/graphql`, {
+		method: 'POST',
+		headers: { 'content-type': 'application/json', ...headers },
+		body: JSON.stringify({ query }),
+	})
+	const body: unknown = await response.json()
+	return {
+		status: response.status,
+		body,
+		setCookie: response.headers.getSetCookie(),
+	}
+}
+
+/** The function `name` of the running application. */
+export function functionNamed(name: string): ExposedFunction {
+	const found = given.functions.find((fn) => fn.name === name)
+	if (found === undefined) throw new Error(`No function ${name}.`)
+	return found
 }

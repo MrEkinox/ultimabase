@@ -1,37 +1,25 @@
 // Where a request carries its session token (D-112): the Bearer header, then
-// the cookie, which auth sets and clears on a Hono response.
-import type { Context } from 'hono'
-import { generateCookie } from 'hono/cookie'
+// the cookie, which auth sets and clears through a function's client (D-113).
+import type { CookieOptions } from 'ultimabase'
 
 /** The longest a browser keeps a cookie: 400 days. */
-const cookieAge = 400 * 24 * 60 * 60
+export const cookieAge: number = 400 * 24 * 60 * 60
 
 /** The cookie's name and attributes, read once when the application starts. */
 export interface Cookie {
 	readonly name: string
-	readonly secure: boolean
+	/** Its attributes but `maxAge`, the same to set and to clear it. */
+	readonly options: CookieOptions
 }
 
 /** Secure and `__Host-` in production, so it works on `http://localhost`. */
 export function cookieOf(): Cookie {
 	const secure = process.env['NODE_ENV'] === 'production'
 	const name = secure ? '__Host-ultimabase_session' : 'ultimabase_session'
-	return { name, secure }
-}
-
-/** What auth writes on a response. */
-export type Reply = Pick<Context, 'header'>
-
-/** Sets the cookie to `token`, or clears it with an empty one. */
-export function setCookie(c: Reply, cookie: Cookie, token: string): void {
-	const value = generateCookie(cookie.name, token, {
-		httpOnly: true,
-		sameSite: 'Lax',
-		path: '/',
-		secure: cookie.secure,
-		maxAge: token === '' ? 0 : cookieAge,
-	})
-	c.header('set-cookie', value, { append: true })
+	return {
+		name,
+		options: { httpOnly: true, sameSite: 'Lax', path: '/', secure },
+	}
 }
 
 /**

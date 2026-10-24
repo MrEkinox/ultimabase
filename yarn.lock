@@ -588,10 +588,11 @@ __metadata:
   resolution: "@ultimabase/auth@workspace:packages/auth"
   dependencies:
     "@types/pg": "npm:8.23.1"
+    "@ultimabase/graphql": "workspace:*"
     "@ultimabase/http": "workspace:*"
     "@ultimabase/postgres": "workspace:*"
     "@ultimabase/testing": "workspace:*"
-    hono: "npm:4.13.13"
+    graphql: "npm:17.0.2"
     pg: "npm:8.23.1"
     ultimabase: "workspace:*"
     vite: "npm:8.3.4"
@@ -602,7 +603,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@ultimabase/graphql@workspace:packages/graphql":
+"@ultimabase/graphql@workspace:*, @ultimabase/graphql@workspace:packages/graphql":
   version: 0.0.0-use.local
   resolution: "@ultimabase/graphql@workspace:packages/graphql"
   dependencies:

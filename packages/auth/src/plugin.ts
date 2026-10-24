@@ -1,38 +1,65 @@
-// `authPlugin()` (D-112): the caller of each request from its session, the
-// API sign-in methods open sessions with, and the sign-out route.
+// `authPlugin()` (D-112, D-113): the caller of each request from its
+// session, the API sign-in methods open sessions and link accounts with, and
+// its functions and command.
 import type { Http } from '@ultimabase/http'
-import { httpPlugin, routes } from '@ultimabase/http'
+import { httpPlugin } from '@ultimabase/http'
 import type {
 	Caller,
-	ModelQueries,
+	Client,
+	OutputSpec,
 	PluginOf,
 	PluginTypes,
 	Register,
 	UseOf,
 	UserOf,
 } from 'ultimabase'
-import { definePlugin, master, PublicError } from 'ultimabase'
+import { definePlugin, isMaster, master, PublicError } from 'ultimabase'
 import manifest from '../package.json' with { type: 'json' }
+import {
+	accountOf,
+	AuthAccount,
+	linkAccount,
+	unlinkAccounts,
+} from './accounts.ts'
+import type { Users } from './functions.ts'
+import { authFunctions, callerTokens } from './functions.ts'
 import type { Opened } from './sessions.ts'
 import {
 	AuthSession,
-	closeSession,
 	openSession,
 	revokeSessions,
 	sessionUser,
 } from './sessions.ts'
-import type { Cookie, Reply } from './token.ts'
-import { bearerOf, cookieOf, cookieTokenOf, setCookie } from './token.ts'
+import type { Cookie } from './token.ts'
+import { bearerOf, cookieAge, cookieOf, cookieTokenOf } from './token.ts'
 
 export type { Opened } from './sessions.ts'
-export type { Reply } from './token.ts'
 
-/** What auth offers the sign-in methods (D-33, D-112). */
+/** What auth offers the sign-in methods (D-33, D-112, D-113). */
 export interface AuthApi {
-	/** Opens a session for `userId` and sets its cookie on `c`'s response. */
-	signIn(c: Reply, userId: string): Promise<Opened>
+	/**
+	 * Opens a session for `userId`, and sets its cookie when a transport's
+	 * `client` is given.
+	 */
+	signIn(userId: string, client?: Client): Promise<Opened>
 	/** Ends every session of a user. */
 	revokeSessions(userId: string): Promise<void>
+	/** Links `userId` to `subject` of `method`; a taken pair is a `UNIQUE_VIOLATION`. */
+	linkAccount(userId: string, method: string, subject: string): Promise<void>
+	/** The user `subject` of `method` signs in as, if any. */
+	accountOf(
+		method: string,
+		subject: string,
+	): Promise<{ readonly userId: string } | undefined>
+}
+
+/** auth's commands on the user model (D-113). */
+export interface AuthCommands {
+	/** Ends every session of the user, as Master or as the user. */
+	revokeSessions(
+		where: { readonly id: string },
+		options?: { readonly as?: Caller },
+	): Promise<void>
 }
 
 /** auth's types (D-57). */
@@ -40,15 +67,16 @@ export interface Auth extends PluginTypes {
 	readonly name: 'auth'
 	readonly requires: Http
 	readonly api: AuthApi
+	readonly commands: AuthCommands
 }
 
-/** The models `defineUser` returned. */
-export const userModels: WeakSet<object> = new WeakSet()
+/** The models `defineUser` returned, each with its output `User`, or `null`. */
+export const userModels: WeakMap<object, OutputSpec> = new WeakMap()
 
 /** What each running application's auth reads, by its context. */
 interface State {
 	readonly cookie: Cookie
-	readonly users: ModelQueries
+	readonly users: Users
 }
 const states = new WeakMap<object, State>()
 
@@ -61,8 +89,13 @@ function stateOf(context: object): State {
 }
 
 /** The one user model among the application's models (D-62). */
-function usersOf(models: readonly { readonly queries: ModelQueries }[]) {
-	const users = models.filter((model) => userModels.has(model.queries))
+function usersOf(
+	models: readonly { readonly queries: Users['queries'] }[],
+): Users {
+	const users = models.flatMap(({ queries }) => {
+		const output = userModels.get(queries)
+		return output === undefined ? [] : [{ queries, output }]
+	})
 	const [first, second] = users
 	if (first === undefined) {
 		throw new Error(
@@ -74,54 +107,71 @@ function usersOf(models: readonly { readonly queries: ModelQueries }[]) {
 			'models lists two models defineUser returned: an application has one user model (D-62).',
 		)
 	}
-	return first.queries
+	return first
 }
 
 /** The caller of a session's token, or `undefined` for an unknown one. */
 async function callerOf(
 	token: string,
-	users: ModelQueries,
+	users: Users,
 ): Promise<Caller | undefined> {
 	const userId = await sessionUser(token)
 	if (userId === undefined) return undefined
 	// A transport's queries are untyped; this is the user model's row.
-	const user: unknown = await users.findUnique({ where: { id: userId } }, M)
+	const user: unknown = await users.queries.findUnique(
+		{ where: { id: userId } },
+		M,
+	)
 	if (user === null) return undefined
 	// oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the user model is the one the application registers (D-62, D-80).
-	return { kind: 'user', user: user as UserOf<Register> }
+	const caller: Caller = { kind: 'user', user: user as UserOf<Register> }
+	callerTokens.set(caller, token)
+	return caller
 }
 
 const auth = definePlugin<Auth>({
 	name: 'auth',
 	manifest,
 	requires: { http: httpPlugin },
-	models: [AuthSession],
+	models: [AuthSession, AuthAccount],
 	hooks: {
-		// The user's sessions go with them (D-111).
+		// The user's sessions and accounts go with them (D-111, D-113).
 		afterDelete: async ({ record }) => {
 			await revokeSessions(record.id)
+			await unlinkAccounts(record.id)
 		},
 	},
+	commands: () => ({
+		revokeSessions: async ({ id }, options) => {
+			const caller = options?.as
+			const self = caller?.kind === 'user' && caller.user.id === id
+			if (!self && (caller === undefined || !isMaster(caller))) {
+				throw new PublicError(
+					'ACCESS_DENIED',
+					'User.revokeSessions runs as Master or as the user (D-113).',
+				)
+			}
+			await revokeSessions(id)
+		},
+	}),
+	// Its own cookie and user model: this context is not the API's.
+	functions: ({ models }) => authFunctions(cookieOf(), usersOf(models)),
 	// Built before any plugin starts, so before the server listens.
 	api: (context) => {
 		const cookie = cookieOf()
 		states.set(context, { cookie, users: usersOf(context.models) })
-		context.plugins.http.mount(
-			routes().post('/auth/sign-out', async (c) => {
-				const request = c.req.raw
-				const token = bearerOf(request) ?? cookieTokenOf(request, cookie)
-				if (token !== undefined) await closeSession(token)
-				setCookie(c, cookie, '')
-				return c.body(null, 204)
-			}),
-		)
 		return {
-			signIn: async (c, userId) => {
+			signIn: async (userId, client) => {
 				const opened = await openSession(userId)
-				setCookie(c, cookie, opened.token)
+				client?.cookies.set(cookie.name, opened.token, {
+					...cookie.options,
+					maxAge: cookieAge,
+				})
 				return opened
 			},
 			revokeSessions,
+			linkAccount,
+			accountOf,
 		}
 	},
 	identify: async (request, context) => {

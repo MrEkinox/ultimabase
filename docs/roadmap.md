@@ -137,7 +137,7 @@ Exit: a full CRUD example over GraphQL against PostgreSQL.
 
 - [x] `auth`: `defineUser`, sessions, Identify (D-33, D-39, D-62).
 - [ ] `passwordPlugin()`: Argon2id, sign-in rate limit (D-56, D-113).
-- [ ] Plugin functions and a function's `client`; auth's `signOut`,
+- [x] Plugin functions and a function's `client`; auth's `signOut`,
       `viewer` and `AuthAccount` (D-113).
 - [ ] Decide how `httpPlugin()` reads a client's address behind a proxy
       (D-113).
