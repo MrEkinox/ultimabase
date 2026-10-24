@@ -1,4 +1,4 @@
-// A function's client over HTTP (D-113, D-115): the connection's address, the
+// A function's client over HTTP (D-113, D-115, D-116): the client's address, the
 // request's cookies, and those its run sets, added to the route's response.
 import type { Context } from 'hono'
 import { generateCookie, getCookie } from 'hono/cookie'

@@ -1,7 +1,7 @@
 // The Hono application `httpPlugin` serves (D-66, D-106): CORS, the body
 // limit, each request's caller, the routes, and errors as D-72 sends them.
 import { randomUUID } from 'node:crypto'
-import { IncomingMessage, STATUS_CODES } from 'node:http'
+import { STATUS_CODES } from 'node:http'
 import type { Context } from 'hono'
 import { Hono } from 'hono'
 import { bodyLimit } from 'hono/body-limit'
@@ -11,11 +11,12 @@ import type { ContentfulStatusCode } from 'hono/utils/http-status'
 import { getPath } from 'hono/utils/url'
 import type { Caller, ErrorCode, Logger } from 'ultimabase'
 import { PublicError } from 'ultimabase'
+import { addresses, proxiesOf } from './address.ts'
 import { hold } from './request.ts'
 
 /**
  * What a route's context holds: `c.var.caller` (D-106) and `c.var.address`,
- * the connection's, `''` when unknown (D-113).
+ * the client's, `''` when unknown (D-113, D-116).
  */
 export type HttpEnv = { Variables: { caller: Caller; address: string } }
 
@@ -32,6 +33,8 @@ export interface HttpOptions {
 	readonly port?: number
 	/** In bytes; 1 MB by default. */
 	readonly bodyLimit?: number
+	/** In front of the server, which then reads the client's address from `X-Forwarded-For`; 0 by default (D-116). */
+	readonly proxies?: number
 }
 
 const statuses: ReadonlyMap<string, ContentfulStatusCode> = new Map<
@@ -101,16 +104,6 @@ function isLocal(origin: string): boolean {
 	)
 }
 
-/** The address of the Node connection `env` holds, `''` without one. */
-function addressOf(env: unknown): string {
-	const incoming: unknown =
-		typeof env === 'object' && env !== null
-			? Reflect.get(env, 'incoming')
-			: undefined
-	if (!(incoming instanceof IncomingMessage)) return ''
-	return incoming.socket.remoteAddress ?? ''
-}
-
 /**
  * Hono's path, with control characters left encoded: a route never matches
  * one, and the development log cannot print one (D-108).
@@ -133,6 +126,7 @@ export function appOf(
 	const listed = options.cors ?? []
 	const local = process.env['NODE_ENV'] !== 'production'
 	const maxSize = options.bodyLimit ?? 1024 * 1024
+	const addressOf = addresses(proxiesOf(options.proxies), logger)
 	const app = new Hono<HttpEnv>({ getPath: pathOf })
 	// Each request once answered, outside production (D-108).
 	if (local) {

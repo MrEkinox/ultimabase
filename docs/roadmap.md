@@ -141,7 +141,7 @@ Exit: a full CRUD example over GraphQL against PostgreSQL.
       `viewer` and `AuthAccount` (D-113).
 - [x] Decide how `httpPlugin()` reads a client's address behind a proxy
       (D-113, D-116).
-- [ ] `httpPlugin({ proxies })` and its warning (D-116).
+- [x] `httpPlugin({ proxies })` and its warning (D-116).
 - [x] Decide how a plugin keeps its own models, as the sessions, out of the
       transports: D-24 has every transport act on every model (D-110).
 - [x] A plugin's own models at run time (D-110).
