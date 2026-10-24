@@ -359,8 +359,9 @@ last item).
 
 ## Phase 1b: the user model
 
-auth's `defineUser` (D-13, D-62) lives in `prototype/auth.ts`, declared with
-the kernel's `ModelFields` and `ModelOf`; `example/user.ts` declares `User`
+auth's `defineUser` (D-13, D-62) lived in `prototype/auth.ts`, declared with
+the kernel's `ModelFields` and `ModelOf`, until `@ultimabase/auth` replaced it
+in Phase 5; `example/user.ts` declares `User`
 with it, and `example/caller-checks.ts` asserts that the model lists `auth`
 before its own plugins, that `defineApp` asks for `authPlugin()`, and that
 `.with` holds only the keys of the plugins the user model uses.
@@ -377,7 +378,8 @@ editing `example/user.ts`:
 The prototype's `defineUser` is declared, not written. A body that calls
 `defineModel` with `[auth(), ...use]` returns `[auth] | [auth, ...U]` when
 `use` is omitted, and the assertion to `U` fails Oxlint's
-`no-unsafe-type-assertion`.
+`no-unsafe-type-assertion`. `@ultimabase/auth` writes that body with the
+assertion, under a comment that says why.
 
 Measured as the functions were, three interleaved runs on 2026-10-20,
 "before" being `95be5f89`; the generated projects declare no user model, so

@@ -4,9 +4,9 @@ The path from the restart to the features of the previous base, then beyond.
 Each phase ends on a measurable exit criterion; the next phase starts once it
 is proven. The commit that meets a criterion ticks it here.
 
-Status: **Phase 5**. Phase 4 is closed: a whole CRUD runs over GraphQL on
-PostgreSQL 15 and 18 (`packages/graphql/src/crud.postgres.test.ts`), and
-functions are root fields (D-109).
+Status: **Phase 6**. Phase 5 is closed: `examples/password-sign-in` signs
+up, signs in and applies rules that read `caller.user`, started as
+`yarn start` does (`examples/password-sign-in/src/app.test.ts`).
 
 ## Phase 0: Tooling
 
@@ -135,10 +135,30 @@ Exit: a full CRUD example over GraphQL against PostgreSQL.
 
 ## Phase 5: Authentication
 
-- [ ] `auth`: `defineUser`, sessions, Identify (D-33, D-39, D-62).
-- [ ] `passwordPlugin()`: Argon2id, sign-in rate limit (D-56).
-- [ ] Decide how a plugin keeps its own models, as the sessions, out of the
-      transports: D-24 has every transport act on every model.
+- [x] `auth`: `defineUser`, sessions, Identify (D-33, D-39, D-62).
+- [x] `passwordPlugin()`: Argon2id, sign-in rate limit (D-56, D-113).
+- [x] Plugin functions and a function's `client`; auth's `signOut`,
+      `viewer` and `AuthAccount` (D-113).
+- [x] Decide how `httpPlugin()` reads a client's address behind a proxy
+      (D-113, D-116).
+- [x] `httpPlugin({ proxies })` and its warning (D-116).
+- [x] Decide how a plugin keeps its own models, as the sessions, out of the
+      transports: D-24 has every transport act on every model (D-110).
+- [x] A plugin's own models at run time (D-110).
+- [x] `deleteMany`, a delete's rules and hooks on each row (D-111).
+- [x] Decide auth's sessions, Identify and the API of sign-in methods (D-112).
+- [x] Decide `passwordPlugin()`, linked accounts and plugin functions
+      (D-113).
+- [x] Decide `passwordPlugin()`'s limits against many addresses (D-114).
+- [x] `passwordPlugin()`: IPv6 networks, the account ceiling, the hashing
+      queue and the sign-up limit (D-114).
+- [x] Decide auth and password after their audit (D-115).
+- [x] auth and password after their audit (D-115).
+- [x] Decide password reset and email verification (D-113, D-117).
+- [x] Password reset: `sendEmail`, `requestPasswordReset`, `resetPassword`
+      (D-117).
+- [x] Email verification: `emailVerified`, `verifyEmail`,
+      `sendVerificationEmail` (D-117).
 
 Exit: an example with sign-up, sign-in and rules on `caller.user`.
 
@@ -147,6 +167,11 @@ Exit: an example with sign-up, sign-in and rules on `caller.user`.
 - [ ] `@ultimabase/testing` (D-40, D-80), `create-ultimabase` (D-61).
 - [ ] `examples/` run by CI (D-31), Changesets (D-60).
 - [ ] Documentation website (D-31).
+- [ ] Decide how `graphqlPlugin()` bounds the cost of validating a document
+      under its 2,000 tokens: 1,993 copies of one field take 100 ms of CPU
+      in graphql-js's overlapping-fields rule, which compares every two
+      fields of one name; ten such requests a second fill a core (D-55,
+      D-107).
 - [ ] Publication, after confirmation.
 
 Exit: `npm create ultimabase` produces an application that starts.

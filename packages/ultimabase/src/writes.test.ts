@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { master } from './index.ts'
 import { query } from './engine.ts'
 import { Author, Book, Profile, Tag, library } from './test/library.ts'
@@ -11,6 +11,7 @@ beforeEach(async () => {
 	await app.start()
 })
 afterEach(async () => {
+	vi.restoreAllMocks()
 	await app.stop()
 })
 
@@ -167,15 +168,16 @@ describe('create', () => {
 describe('update', () => {
 	it('changes the values and moves updatedAt', async () => {
 		const author = await ada()
+		// A later clock, which every stored date reads.
+		const at = Date.now() + 60_000
+		vi.spyOn(Date, 'now').mockReturnValue(at)
 		const updated = await Author.update(
 			{ where: { id: author.id }, data: { level: 'senior' } },
 			as,
 		)
 		expect(updated.level).toBe('senior')
 		expect(updated.createdAt).toEqual(author.createdAt)
-		expect(updated.updatedAt.getTime()).toBeGreaterThanOrEqual(
-			author.updatedAt.getTime(),
-		)
+		expect(updated.updatedAt.getTime()).toBe(at)
 	})
 
 	it('targets a unique field', async () => {
@@ -260,6 +262,9 @@ describe('relation writes', () => {
 			as,
 		)
 		const grace = await Author.create({ data: { name: 'Grace' } }, as)
+		// A later clock, which every stored date reads.
+		const at = Date.now() + 60_000
+		vi.spyOn(Date, 'now').mockReturnValue(at)
 		await Author.update(
 			{
 				where: { id: grace.id },
@@ -272,6 +277,7 @@ describe('relation writes', () => {
 			as,
 		)
 		expect(found?.author.name).toBe('Grace')
+		expect(found?.updatedAt.getTime()).toBe(at)
 	})
 
 	it('cannot disconnect a required inverse', async () => {

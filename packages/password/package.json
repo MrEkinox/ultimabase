@@ -1,0 +1,30 @@
+{
+	"name": "@ultimabase/password",
+	"version": "0.0.0",
+	"private": true,
+	"description": "Passwords for UltimaBase: sign-up, sign-in and password changes, hashed with Argon2id.",
+	"type": "module",
+	"license": "Apache-2.0",
+	"engines": {
+		"node": ">=24.7.0"
+	},
+	"exports": {
+		".": "./src/index.ts"
+	},
+	"peerDependencies": {
+		"@ultimabase/auth": "^0.0.0",
+		"ultimabase": "^0.0.0"
+	},
+	"devDependencies": {
+		"@types/pg": "8.23.1",
+		"@ultimabase/auth": "workspace:*",
+		"@ultimabase/graphql": "workspace:*",
+		"@ultimabase/http": "workspace:*",
+		"@ultimabase/postgres": "workspace:*",
+		"graphql": "17.0.2",
+		"pg": "8.23.1",
+		"ultimabase": "workspace:*",
+		"vite": "8.3.4",
+		"vitest": "5.0.5"
+	}
+}

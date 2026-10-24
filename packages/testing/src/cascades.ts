@@ -167,6 +167,52 @@ export function cascades(create: () => Adapter): void {
 			).rejects.toMatchObject({ code: 'NOT_FOUND' })
 		})
 
+		it('deletes many rows and what they reach, as Master and as a user', async () => {
+			const reds = await stocked('reds')
+			await stocked('blues')
+			await stocked('greens')
+			const names = { name: { in: ['reds', 'blues'] } }
+			const removed = await Shop.deleteMany({ where: names }, M)
+			expect(removed).toEqual({ count: 2 })
+			expect(await counts()).toEqual([1, 1, 1, 0])
+			const clerk = await Clerk.findUnique(
+				{ where: { id: reds.clerk.id }, include: { shop: true } },
+				M,
+			)
+			expect(clerk?.shop).toBeNull()
+			expect(await Shop.deleteMany({ where: names }, M)).toEqual({ count: 0 })
+			expect(await Shop.deleteMany({}, user)).toEqual({ count: 1 })
+			expect(await counts()).toEqual([0, 0, 0, 0])
+		})
+
+		it('deletes no row of many when a restricting row stops one', async () => {
+			const reds = await stocked('reds')
+			const blues = await stocked('blues')
+			await order(reds.item.id, blues.shop.id)
+			for (const caller of [M, user]) {
+				await expect(
+					Shop.deleteMany({ where: { name: 'reds' } }, caller),
+				).rejects.toMatchObject({
+					code: 'RELATION_RESTRICTED',
+					details: { model: 'Order', field: 'item' },
+				})
+			}
+			expect(await counts()).toEqual([2, 2, 2, 1])
+		})
+
+		it('deletes many trees of one model', async () => {
+			const root = await Folder.create({ data: { name: 'root' } }, M)
+			await Folder.create({ data: { name: 'child', parent: by(root.id) } }, M)
+			await Folder.create({ data: { name: 'other' } }, M)
+			await Folder.create({ data: { name: 'kept' } }, M)
+			const roots = { name: { in: ['root', 'other'] } }
+			expect(await Folder.deleteMany({ where: roots }, M)).toEqual({
+				count: 2,
+			})
+			const left = await Folder.findMany({}, M)
+			expect(left.map((folder) => folder.name)).toEqual(['kept'])
+		})
+
 		it('follows a cascade back to its own model', async () => {
 			const root = await Folder.create({ data: { name: 'root' } }, M)
 			const child = await Folder.create(

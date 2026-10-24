@@ -467,13 +467,13 @@ departs from Prisma only where a recorded decision says so: the caller
 option (D-19), the model as entry point (D-18), plugin commands on the model.
 The first release ships the subset needed by its examples and its GraphQL
 (D-41); the rest follows Prisma's spelling when added. That subset is
-`findUnique`, `findFirst`, `findMany`, `count`, `create`, `update` and
-`delete`, with `where` (scalar filters, `is`/`isNot`, `some`/`every`/`none`,
-`AND`/`OR`/`NOT`), `select`, `include`, `orderBy`, `take`, `skip` and
-`cursor`, and relation writes by id: `connect` on a `one` and a `many`
-relation, `disconnect: true` to unset an optional `one` relation (`null` is
-refused, as in Prisma), `disconnect: [{ id }]` on a `many` relation in
-`update`. A `cursor` is a unique target (D-52) and also pages a nested list,
+`findUnique`, `findFirst`, `findMany`, `count`, `create`, `update`,
+`delete` and `deleteMany` (D-111), with `where` (scalar filters,
+`is`/`isNot`, `some`/`every`/`none`, `AND`/`OR`/`NOT`), `select`, `include`,
+`orderBy`, `take`, `skip` and `cursor`, and relation writes by id:
+`connect` on a `one` and a `many` relation, `disconnect: true` to unset an
+optional `one` relation (`null` is refused, as in Prisma),
+`disconnect: [{ id }]` on a `many` relation in `update`. A `cursor` is a unique target (D-52) and also pages a nested list,
 which a Relay connection needs. Like Prisma, the kernel refuses at run time any
 argument key it does not know, at any depth, in the caller's arguments and in
 the filters that rules and hooks add, with the `INVALID_QUERY` code and the
@@ -487,11 +487,10 @@ casts or values built at run time, and an ignored filter key widens a query:
 on a read filter it leaks rows (D-04).
 Later: Prisma's fluent relation API (`Post.findUnique(...).author()`), once it
 can run without an extra query per parent (no N+1). After the first release:
-`upsert` and the batch operations `createMany`, `updateMany` and
-`deleteMany`, once it is decided which rules and hooks they run (create's or
-update's for `upsert`, per row or per batch, and the soft-delete trash);
-`omit`, which `select` covers meanwhile; nested creation (`create` in a
-relation write), which ships before 1.0; `set`, `distinct` and aggregates;
+`upsert` and the batch operations `createMany` and `updateMany`, once it is
+decided which rules and hooks they run (create's or update's for `upsert`,
+per row or per batch); `omit`, which `select` covers meanwhile; nested
+creation (`create` in a relation write), which ships before 1.0; `set`, `distinct` and aggregates;
 case-insensitive filters (`mode: 'insensitive'`), left to a search plugin
 first.
 Rejected: a query syntax of our own; a function builder for `where` beside
@@ -789,6 +788,13 @@ Choice: `examples/` holds one folder per feature (`relation-many-to-many`,
 `custom-function`…), each a small working project run by the test suite. The
 documentation website and the landing page come back just before the first
 release.
+Each example is a Yarn workspace that imports the packages by their public
+names, and its own TypeScript program in `yarn typecheck`: an application
+declares its user model once (D-62), and checking the packages' sources under
+that declaration is what the packages' own tests cannot do. Its test starts it
+as `yarn start` does (`node src/server.ts`, on `PORT=0`) and uses it as a
+client would, over HTTP; the master key comes from `MASTER_KEY`. Coverage and
+line budgets measure packages only.
 Why: a developer finds how to do something by opening its folder, and code
 that runs in CI cannot be out of date. The previous website cost a lot to keep
 in sync while the API moved.
@@ -1361,11 +1367,12 @@ Later: an iterator reading a large table in batches by cursor
 
 ## D-56: Passwords use Argon2id, sign-in is rate limited
 
-Choice: the `auth` plugin hashes passwords with Argon2id from Node's
+Choice: the `password` plugin hashes passwords with Argon2id from Node's
 `node:crypto` (OWASP parameters: 19 MiB memory, 2 passes, parallelism 1) and
 stores the algorithm and parameters with each hash, so they can change later
 and old hashes are upgraded at the next sign-in. It limits sign-in and
-password reset attempts per account and per address, stored in the database.
+password reset attempts per account and address together, stored in the
+database (D-113, amended 2026-10-24).
 Why: Argon2id is OWASP's first recommendation and Node's LTS ships it, so no
 native dependency is compiled; a brute-force guard must not depend on an
 optional plugin.
@@ -1864,6 +1871,7 @@ union, and each keeps its meaning when the application throws it:
 | `VALIDATION_FAILED`   | 400  | `details.issues`: `{ path, message }` (D-23)   |
 | `UNIQUE_VIOLATION`    | 409  | a unique index refuses a write (D-52)          |
 | `RELATION_RESTRICTED` | 409  | `onDelete: 'restrict'` refuses a delete (D-54) |
+| `UNAUTHENTICATED`     | 401  | a session token is unknown or expired (D-112)  |
 | `INTERNAL`            | 500  | any other error, with a correlation id (D-28)  |
 
 An application's own code is sent with status 400. `details` is JSON, and
@@ -4163,7 +4171,8 @@ Choice: completes D-27, D-49, D-59 and D-66.
    - a key holding a space or a character outside visible ASCII stops
      `start`: a header drops the spaces around a value and mangles the rest,
      so such a key could never match (amended 2026-10-23);
-   - any other request is anonymous. The auth plugin's Identify hook (phase 5) adds the user here.
+   - any other request is anonymous, unless a plugin's `identify` knows it:
+     auth's reads the session (D-112).
 3. Errors follow D-28 and D-72. A `PublicError` is sent as
    `{ code, message, details }`, `details` only when set, with its D-72
    status. Any other error is sent as `{ code: 'INTERNAL', message:
@@ -4603,7 +4612,8 @@ Choice: completes D-27, D-45, D-75 and D-107, and amends D-45's outputs.
 9. The kernel gives every plugin's `api`, `start` and `stop` the
    application's `functions`, as it gives `models` (D-107): each function's
    name, `query`, its input and output, its `.with` key for that plugin, and
-   `run(input, { as })` (D-75). The kernel checks the access rule, closed to
+   `run(input, { as })` (D-75), those of plugins included (D-113, amended
+   2026-10-24). The kernel checks the access rule, closed to
    all but Master by default (D-04), before it validates the input, then
    runs the function, as `run` from server code does.
 
@@ -4728,5 +4738,695 @@ query {
 }
 mutation {
 	sendInvite(email: "a@example.com") # true
+}
+```
+
+## D-110: A plugin's own models stay out of every other plugin
+
+Choice: `definePlugin({ models: [AuthSession] })` gives a plugin models of its
+own, each an ordinary `defineModel` value the plugin does not have to export.
+The application does not list them. The kernel resolves them with the
+application's models: they get tables and migrations (D-26, D-105), queries,
+validation, hooks and transactions. No plugin's `context.models` holds them,
+the owner's included: a transport never exposes them, and the owner queries
+them through the values it imports, usually `as: master`. Without an access
+rule they refuse every other caller (D-04).
+
+1. A plugin's model relates only to models of the same plugin. It keeps an
+   application row's id as a scalar (`userId: f.string()`), and the plugin's
+   hooks on the models that use it delete what depends on a row, in the
+   operation's transaction (D-36).
+2. A plugin names its models after itself (`AuthSession`, stored as
+   `auth_session`, D-63). `start` refuses a model named like another, the
+   application's or a plugin's, naming its plugin.
+3. A function cannot return a plugin's model (D-109).
+4. A plugin that acts on every model, as ACL, acts on the application's.
+
+Why: sessions, sign-in attempts (D-39, D-56) and password hashes are no data
+an application exposes. Listing them in `models` and hiding them from each
+transport (`graphql: false`) would expose them through any transport added
+later, and the master key would read password hashes in GraphiQL. A
+relation to the user model would need its other side there (D-37), which
+reaches the hidden model from the user's GraphQL type (D-107), and auth's
+code cannot name the user model before `defineUser`. The cost is no
+foreign key: deleting a user removes its sessions in auth's hook.
+Rejected: the models in `defineApp({ models })`, hidden per transport;
+an `internal: true` flag on `defineModel`, which still needs a way to list
+the model; the previous base's private storage with its own narrow API
+(its ADR-0234), a second storage path and its own migrations; a relation
+to the application's models with no inverse side, against D-37.
+Example:
+
+```ts
+// Before: the application lists auth's models and hides them in each transport
+export const app = defineApp({
+	database: postgres(),
+	plugins: [httpPlugin(), graphqlPlugin(), authPlugin()],
+	models: [User, Post, AuthSession],
+})
+// and `.with({ graphql: false })` on AuthSession, then `rest: false` in phase 7
+
+// After: in @ultimabase/auth, a model it does not export
+const AuthSession = defineModel({
+	name: 'AuthSession',
+	fields: (f) => ({
+		tokenHash: f.string({ unique: true }),
+		userId: f.string(),
+		expiresAt: f.date(),
+	}),
+	indexes: [{ fields: ['userId'] }],
+})
+const authDefinition = definePlugin<Auth>({
+	name: 'auth',
+	manifest,
+	models: [AuthSession],
+	hooks: {
+		// What a user owns goes with it, in one write (D-111).
+		afterDelete: async ({ record }) => {
+			await AuthSession.deleteMany(
+				{ where: { userId: record.id } },
+				{ as: master },
+			)
+		},
+	},
+})
+// In the application: nothing to list
+export const app = defineApp({
+	database: postgres(),
+	plugins: [httpPlugin(), graphqlPlugin(), authPlugin()],
+	models: [User, Post],
+})
+```
+
+## D-111: `deleteMany` runs a delete's rules and hooks on each row
+
+Choice: `Model.deleteMany({ where }, { as })` deletes every row `where`
+selects that the caller reads, and returns `{ count }`, as in Prisma. Without
+`where` it selects every such row, as Prisma's `deleteMany()`. It takes no
+`take`, `orderBy` or `select`.
+
+1. Each row goes through what a `delete` runs (D-48, D-90): the `delete`
+   rule on its record, `beforeDelete`, a plugin's `redirect` (the soft-delete
+   trash), the cascades, `afterDelete` and `afterDeleteCommit`.
+2. It is all or nothing: one row the rule refuses fails the whole call with
+   `ACCESS_DENIED`, and nothing is deleted; so does a `restrict` relation
+   (D-54). A row the caller cannot read is left out, not refused (D-72), and
+   no row matching is `{ count: 0 }`, not `NOT_FOUND`.
+3. When no rule applies and nothing in the reach runs code, it is one write
+   (D-102): its `where` is the root filter, and the count comes from the rows
+   the write reads as they were. Otherwise the rows are loaded locked in the
+   write's transaction, as a delete's reach is (D-90): BEGIN, one read, one
+   write, COMMIT when nothing else runs.
+4. It is server code: neither `graphqlPlugin()` nor `httpPlugin()` exposes
+   it, since a client's delete of many rows is an application's function
+   (D-109).
+
+Why: a plugin removes what depends on a row in its hook, as auth's sessions
+of a deleted user (D-110), and a loop of `findMany` and `delete` costs one
+query per row and loses the one-write case. The kernel already deletes many
+rows per call through cascades, with the hooks and the trash per row, so
+`deleteMany` adds an entry point, not a pipeline.
+Limit: a user's `deleteMany` locks its rows, where a user's `delete` reads
+its row without a lock and checks it unchanged (D-104): the check of every
+row would grow with the count. The one-write case reads the deleted rows to
+count them.
+Rejected: a batch hook that receives every row at once, which a plugin
+written for `delete` would miss; skipping rules and hooks in bulk, against
+D-48; deleting the rows the rule allows and leaving the others, which hides a
+refusal; returning the rows, which Prisma does not.
+Later: `updateMany`, `createMany` and `upsert` stay as D-20 defers them.
+Example:
+
+```ts
+// Before: one query to list the sessions, then one per session
+afterDelete: async ({ record }) => {
+	const where = { userId: record.id }
+	for (const { id } of await AuthSession.findMany({ where }, { as: master })) {
+		await AuthSession.delete({ where: { id } }, { as: master })
+	}
+},
+
+// After: one write, since AuthSession has no hook or rule of its own
+afterDelete: async ({ record }) => {
+	await AuthSession.deleteMany({ where: { userId: record.id } }, { as: master })
+},
+
+// A user empties their read notifications: the delete rule runs on each row
+const { count } = await Notification.deleteMany(
+	{ where: { read: true } },
+	{ as: caller },
+)
+```
+
+## D-112: auth's sessions, Identify and the API of sign-in methods
+
+Choice: completes D-33, D-39, D-62, D-79 and D-106.
+
+1. `@ultimabase/auth` exports `authPlugin()`, `defineUser` (D-62),
+   `isAuthenticated` (D-10), `isSelf`, `signedIn`, `isOwner` and
+   `currentUser` (D-79). auth requires `httpPlugin()` (D-16).
+2. The kernel gives `definePlugin` an `identify(request, context)` that
+   returns a `Caller`, or `undefined` when the request is not its own.
+   The master key is checked first (D-49); then each plugin's `identify`
+   runs in the order of `plugins`, and the first caller wins; otherwise the
+   request is anonymous.
+3. A session is a row of auth's own model `AuthSession` (D-110):
+   `tokenHash`, `userId` and `expiresAt`. Its token is 32 random bytes in
+   base64url, shown once; the database keeps only its SHA-256 digest. A
+   session ends 30 days after its last use: one used with fewer than 15 days
+   left gets 30 days again, one write at most per 15 days. An expired session
+   met by Identify is deleted, and each sign-in deletes the user's expired
+   sessions. Deleting the user deletes their sessions (D-111).
+4. Identify reads `Authorization: Bearer <token>`, then the cookie; the
+   header wins when both are sent. An unknown or expired token in the
+   header fails the request with `UNAUTHENTICATED`, a kernel code sent with
+   status 401, so a client knows to sign in again. One in the cookie is
+   anonymous, since a browser's script cannot remove an httpOnly cookie and a
+   stale one must not lock it out of the sign-in route. A known token makes
+   `caller.user` the user's row, read as Master (D-62).
+5. The cookie is `HttpOnly`, `SameSite=Lax`, `Path=/`, and lives 400 days,
+   the browsers' longest; the session's own expiry decides, so the cookie
+   is not sent again when a session gets more days. In production it is
+   `Secure` and named `__Host-ultimabase_session`, which a subdomain cannot
+   overwrite; outside, `ultimabase_session`, so it works on
+   `http://localhost`. `httpPlugin()`'s CORS allows credentials for the
+   origins it allows, so a front end on another origin sends the cookie.
+6. auth's API, for the sign-in methods (D-33): `signIn(userId, client?)`
+   opens a session, sets its cookie through the function's `client` when
+   there is one, and returns `{ token, expiresAt }`; `revokeSessions(userId)`
+   ends every session of a user. auth's function `signOut` ends the
+   request's session and clears the cookie; auth mounts no route (D-113,
+   amended 2026-10-24).
+
+Why: an opaque token stored hashed is revocable (D-39) and useless when the
+database leaks; SHA-256 fits a random token, as Argon2id fits a password
+(D-56). Identify is the kernel's because every transport reads the same
+caller (D-106), and a plugin's `identify` serves a later API-key plugin too.
+A session that renews itself while used is what a user expects of a
+"remember me". The previous base refused a stale cookie and needed an
+exception for its sign-in routes (its ADR-0236).
+Limit: Identify takes two round trips, the session then the user, since
+`AuthSession` relates to no model of the application (D-110). The
+lifetime is fixed until an application asks for an option.
+Rejected: JWTs (D-39); the token stored in clear; one lifetime from sign-in
+on, which signs out an active user every month; refusing a stale cookie; a
+cookie sent again on each renewal, which Identify cannot do without the
+response.
+Example:
+
+```ts
+// Before: Parse
+const user = await Parse.User.logIn(email, password) // user.getSessionToken()
+Parse.Cloud.define('publish', ({ user }) => {
+	if (!user) throw new Parse.Error(209, 'Invalid session token')
+})
+
+// After: the application
+export const User = defineUser({
+	name: 'User',
+	fields: (f) => ({ role: f.enumOf(['reader', 'editor']) }),
+})
+export default defineApp({
+	database: postgres({ url: process.env.DATABASE_URL }),
+	plugins: [httpPlugin(), authPlugin(), passwordPlugin()],
+	models: [User, Post],
+})
+// Any rule, hook or function reads `caller.user.role`, with no query.
+
+// A sign-in method's function (amended 2026-10-24 by D-113)
+run: async ({ input, client }) => {
+	const user = await checkPassword(input)
+	const { token, expiresAt } = await plugins.auth.signIn(user.id, client)
+	return { token, expiresAt, user }
+}
+```
+
+```bash
+curl localhost:3000/graphql -H 'authorization: Bearer expired…' -d '…'
+# 401 { "code": "UNAUTHENTICATED", "message": "The session expired or was revoked: sign in again." }
+```
+
+## D-113: `passwordPlugin()`, linked accounts, plugin functions and `viewer`
+
+Choice: completes D-33, D-56, D-109 and D-112, and amends D-56, D-109 and
+D-112.
+
+1. Plugin functions. `definePlugin({ functions })` gives a plugin
+   `defineFunction` values of its own, exposed by every transport as the
+   application's are (D-109): a name another function or a root field takes
+   stops startup, naming both. A plugin's function may return the
+   application's models, never its own (D-110). A plugin lists them as
+   `functions: (context) => [...]`, called once at start with its context,
+   so a function can take its options and the application's models; GraphQL
+   names one `auth.signOut` in an error.
+2. The client. `run` receives `client` when a transport calls the function,
+   `undefined` when server code does (D-75): `client.address`, the
+   connection's address (`''` when unknown, as `c.var.address` in a route),
+   and `client.cookies.set(name, value, options)` and
+   `client.cookies.clear(name, options)`, which the transport applies to its
+   HTTP response; clearing a `Secure` or `Path` cookie needs its options.
+   auth's API becomes `signIn(userId, client?)`, which sets the session's
+   cookie only with a client, and `revokeSessions(userId)`.
+3. Linked accounts. auth owns `AuthAccount { userId, method, subject }`,
+   unique on `(method, subject)`: one row per way a user signs in, the email
+   for a password, the provider's user id for OAuth (D-33). Deleting the user
+   deletes them. auth's API adds `linkAccount(userId, method, subject)` and
+   `accountOf(method, subject)`. A method keeps its secrets in its own models,
+   never in `AuthAccount` nor on the user.
+4. auth's functions. `signOut: Boolean!` ends the request's session and
+   clears the cookie; it replaces D-112's `POST /auth/sign-out`, so auth mounts
+   no route. `viewer: User`, a query, is the caller's user read again as the
+   caller, so the user model's field rules apply; `null` when anonymous or
+   when the user's read rule refuses its own row. auth adds the command
+   `User.revokeSessions({ id }, options)`, which runs as Master or as that
+   user and refuses any other caller with `ACCESS_DENIED`. So that a plugin's
+   command tells the kernel's Master from a forged one, the kernel exports
+   `isMaster(caller)`; it also exports the type `FunctionShape`, which a
+   plugin's `functions` returns (amended 2026-10-24).
+5. `@ultimabase/password` exports `passwordPlugin(options)` and `password()`.
+   It requires auth. The user model declares `use: [password()]`, which types
+   its commands and deletes the user's hash with the user; `passwordPlugin()`
+   without it stops startup, naming the line to add. The email is trimmed and
+   lowercased, and is the account's `subject`: the user model needs no
+   `email` field, and one it declares is its own.
+6. Functions, each taking one named input (D-109):
+   `signUp(input: SignUpInput!): SignedIn!`,
+   `signIn(input: SignInInput!): SignedIn!` and
+   `changePassword(input: ChangePasswordInput!): SignedIn!`, where
+   `SignedIn` is `{ token, expiresAt, user: User }`, its user read again as
+   itself. `SignUpInput` holds `email`, `password` and the user fields
+   `passwordPlugin({ signUp: [...] })` lists, typed from the user model; any
+   other field fails with `VALIDATION_FAILED`. `signUp` creates the user, its
+   account and its hash in one transaction, with the user model's validation
+   and hooks. `signUp: false` removes the function. `changePassword` needs a
+   signed-in caller and the current password, ends every session of the user
+   and opens one for this client.
+7. Commands, on the user model: `User.signUp({ email, password, data })`,
+   `User.signIn({ email, password })`, which returns `SignedIn` without a
+   cookie, and `User.setPassword({ id, password })`, which ends the user's
+   sessions. As Master `User.signUp` skips `signUp: false` and the field
+   list; as another caller it applies them, as the function does (amended
+   2026-10-24).
+8. Hash. Argon2id from `node:crypto`, `m=19456, t=2, p=1`, a 16-byte salt,
+   stored as a PHC string (`$argon2id$v=19$m=19456,t=2,p=1$…`) in the plugin's
+   `PasswordHash { userId (unique), hash }`; a sign-in rehashes a hash whose
+   parameters differ. `crypto.argon2` came in Node 24.7.0, so every package's
+   `engines` becomes `>=24.7.0`. A password has 8 to 256 characters, with no
+   composition rule (NIST SP 800-63B).
+9. Errors. An unknown email and a wrong password both fail with
+   `INVALID_CREDENTIALS` (401), and the unknown email is checked against a
+   dummy hash, so the time taken does not tell an account exists. An email
+   already taken fails with `UNIQUE_VIOLATION` (409).
+10. Attempts. Ten failures for one `(subject, address)` within 15 minutes
+    fail the next attempts with `TOO_MANY_ATTEMPTS`, a kernel code sent with
+    status 429 and `details.retryAfter`, in seconds (D-72; in the error's
+    extensions over GraphQL, and `Retry-After` over REST). A success clears the count. The failures are
+    rows of the plugin's `PasswordAttempt`. Server code without a client is
+    not counted.
+11. Details (amended 2026-10-24). `INVALID_CREDENTIALS` is a kernel code,
+    sent with status 401. `signUp` takes neither `id`, `createdAt`,
+    `updatedAt`, `email` nor `password` as a listed field, nor a relation or
+    JSON field; a required user field missing from the list stops startup,
+    `signUp` omitted listing none. Over GraphQL an unlisted field fails the
+    input type, before `VALIDATION_FAILED`. `signUp` is not limited. Commands
+    have no client, so `User.signIn` is never counted, whoever the caller;
+    `User.setPassword` runs as Master or as that user, refuses any other
+    caller with `ACCESS_DENIED` and fails with `NOT_FOUND` for a user without
+    a password. `changePassword` counts its failures for `(user id, address)`.
+    `SignedIn.user` is nullable, as `viewer`. `User.setPassword` takes no
+    current password: server code checks the user's intent first.
+    Each hash has a stamp, new each time the password is set: a sign-in
+    reads it again once its session is open and, when it changed, ends the
+    user's sessions and fails with `INVALID_CREDENTIALS`; a rehash writes
+    only to the stamp it read. A password over 256 characters is refused
+    without being hashed. A stored hash over 256 MiB, 16 passes or 16 lanes,
+    or with a tag outside 16 to 64 bytes, fails as one that is not Argon2id.
+12. Out of this decision, until a second sign-in method or an email plugin:
+    unlinking an account, keeping a user's last method, linking by verified
+    email, password reset and email verification.
+
+Why: each method stays an ordinary plugin with its own functions, models,
+hooks and options, so a community method is written as any plugin; the
+accounts table is what lets a password and Google reach one user, and the
+rule for linking is the same for every method, so it is auth's. Functions
+rather than HTTP routes give an application that serves only GraphQL no
+route it did not ask for, and give REST the same functions in phase 7. One
+named input types a client's form (`SignUpInput`), as `PostCreateInput`
+does. Fields at sign-up save a second request and the sign-up that succeeds
+while its profile update fails; a closed list keeps a forgotten rule from
+letting a client sign up with `role: 'admin'`. Limiting per account alone
+would let anyone lock a victim out with ten wrong passwords; per address
+alone would let one attacker try every account. `viewer` and `SignedIn`
+read the user again because `caller.user` is read as Master (D-112).
+Limit: behind a proxy every client has the proxy's address, so the limit
+counts per account until `httpPlugin()` reads a forwarded address it can
+trust, a separate decision. An OAuth callback is a URL the provider calls,
+so it will be an HTTP route.
+Rejected: `authPlugin({ methods: [password()] })`, the previous base's
+ADR-0326, which re-exposes each plugin capability through a second extension
+point; the hash on the user row; the email copied to the user model; HTTP
+routes `/auth/sign-up` and `/auth/sign-in`; flat arguments; sign-up fields
+checked by the user model's field rules as the anonymous caller, open by
+default; `plugins.password.createAccount`, less discoverable than a command;
+limiting per account alone.
+Example:
+
+```ts
+// Before: Parse
+const user = new Parse.User()
+user.set({ username: email, password, pseudonym })
+await user.signUp()
+const signed = await Parse.User.logIn(email, password) // signed.getSessionToken()
+const me = Parse.User.current()
+
+// After: the application
+export const User = defineUser({
+	name: 'User',
+	use: [password()],
+	fields: (f) => ({
+		pseudonym: f.string(),
+		birthDate: f.date({ optional: true }),
+		role: f.enumOf(['reader', 'editor'], { default: 'reader' }),
+	}),
+})
+export default defineApp({
+	database: postgres({ url: process.env.DATABASE_URL }),
+	plugins: [
+		httpPlugin(),
+		graphqlPlugin(),
+		authPlugin(),
+		passwordPlugin({ signUp: ['pseudonym', 'birthDate'] }),
+	],
+	models: [User, Post],
+})
+
+// Server code: a seed, an invitation, a back office
+const ada = await User.signUp(
+	{ email: 'ada@example.com', password, data: { pseudonym: 'ada' } },
+	{ as: master },
+)
+await User.setPassword({ id: ada.id, password: next }, { as: master })
+```
+
+```graphql
+mutation SignUp($input: SignUpInput!) {
+	signUp(input: $input) {
+		user {
+			id
+			pseudonym
+		}
+	}
+}
+query {
+	viewer {
+		pseudonym
+	}
+}
+mutation {
+	signOut
+}
+```
+
+```json
+{
+	"errors": [
+		{
+			"message": "Too many attempts: try again later.",
+			"extensions": {
+				"code": "TOO_MANY_ATTEMPTS",
+				"details": { "retryAfter": 900 }
+			}
+		}
+	]
+}
+```
+
+## D-114: `passwordPlugin()`'s limits against many addresses
+
+Choice: completes D-113.
+
+1. An IPv6 address counts as its /64 network, an IPv4-mapped IPv6 address
+   as its IPv4 address; the sign-in limit and the sign-up limit count these.
+2. Each subject, whatever the address, has a ceiling: the 101st failed
+   attempt within 15 minutes is refused with `TOO_MANY_ATTEMPTS`, for every
+   address, until the oldest of the hundred is 15 minutes old. A success
+   clears its own address's failures only.
+3. At most `os.availableParallelism()` Argon2 computations run at once in a
+   process, and 64 more wait; one more fails with `TOO_MANY_ATTEMPTS` and
+   `retryAfter: 1`, and an attempt that fails so is not counted.
+4. The `signUp` function is limited per address: the 11th within one hour,
+   successful or not, is refused with `TOO_MANY_ATTEMPTS`. The `User.signUp`
+   command is not.
+5. These values are fixed: no option.
+
+Why: an IPv6 client holds a /64 at least, so counting each address gives
+one attacker as many limits as it wants. The per-pair limit alone lets an
+attacker with a thousand addresses try ten thousand passwords on an account
+every 15 minutes; the ceiling caps that at a hundred, at the cost of a
+victim that many addresses can lock out for 15 minutes. Argon2 holds 19 MiB
+and a thread for each computation, so a burst of sign-ins would exhaust the
+memory and the threadpool; a busy server refuses at once rather than queue
+without end. A sign-up hashes a password and creates rows, so it is limited
+as a sign-in is.
+Rejected: options for the values, until an application needs another one; a
+delay growing with the failures, which still holds a connection for each;
+counting IPv6 by /48 or /56, which groups unrelated clients of one provider.
+Example:
+
+```ts
+// A client's sign-in, unchanged; what it gets after many failures changes.
+const response = await fetch('/graphql', {
+	method: 'POST',
+	headers: { 'content-type': 'application/json' },
+	body: JSON.stringify({
+		query: signIn,
+		variables: { input: { email, password } },
+	}),
+})
+// Before (D-113): from 2001:db8::2 after ten failures from 2001:db8::1, a
+// fresh limit of ten. After: refused, one /64 network is one address
+// { "errors": [{ "extensions": { "code": "TOO_MANY_ATTEMPTS", "details": { "retryAfter": 840 } } }] }
+```
+
+The application's code does not change.
+
+## D-115: auth and password after their audit
+
+Choice: amends D-112, D-113 and D-114.
+
+1. A function's `client` reads the request's cookies:
+   `client.cookies.get(name)`, `undefined` when the request has none. When
+   auth's `signIn(userId, client)` sets the session's cookie, it first ends
+   the session the request's cookie held, whoever's it was.
+2. Outside production the cookie is neither `Secure` nor `__Host-`
+   (D-112). auth logs one warning per running application the first time
+   it identifies a request for a host that is not local (`localhost`,
+   `*.localhost`, `127.0.0.1` or `[::1]`), naming `NODE_ENV=production`.
+3. `User.signIn({ email, password }, { client })` counts the attempt and
+   sets the cookie as the `signIn` function does; without `client` it is
+   still not counted (D-113 point 11).
+4. Each sign-in deletes every expired session, not only the user's;
+   `AuthSession` gets an index on `expiresAt`.
+5. A password is normalized to NFKC before it is measured, hashed or
+   checked; an email is lowercased then normalized to NFC.
+6. A session also ends one year after its sign-in, however often it is
+   used: a renewal never sets `expiresAt` past it.
+7. Known and kept, written in the plugins' documentation: the token is in
+   `SignedIn` even when the cookie is set, since a mobile client needs it
+   and a function cannot tell one client from another; `signUp`'s
+   `UNIQUE_VIOLATION` tells an email has an account, which only email
+   verification can hide; a hundred failures from many addresses lock an
+   account for 15 minutes (D-114).
+8. A test pins that a mutation over GET, and a POST that is not JSON, fail
+   without running, so a page on another site cannot use the cookie.
+
+Why: a browser that signs in again overwrites its cookie, and the session it
+held stayed valid for 30 days with nobody able to end it; a Bearer client
+keeps its old token and may still sign out with it. An application served
+over HTTPS without `NODE_ENV=production` sends its session cookie over plain
+HTTP too, silently. A command without limits, called from an application's
+own sign-in route, is an unlimited password oracle. Expired sessions of users
+who never sign in again stayed forever. One password typed as composed or
+decomposed characters gave two hashes (NIST SP 800-63B asks for NFKC). A
+stolen token used every fortnight lived forever.
+Rejected: closing the request's session through a `caller` given to
+`signIn`, an API change for every sign-in method, which would also end a
+Bearer client's session it may still use; deriving `Secure` from the
+request, which a proxy hides until D-113's forwarded address is decided; a
+scheduled cleanup, infrastructure no other need asks for; one lifetime of
+30 days from sign-in, D-112's rejected choice.
+Example:
+
+```ts
+// Before: an application's own sign-in route, never limited
+routes().post('/login', async (c) => {
+	const { email, password } = await c.req.json()
+	return c.json(await User.signIn({ email, password }))
+})
+
+// After: limited, and the browser gets its cookie
+routes().post('/login', async (c) => {
+	const { email, password } = await c.req.json()
+	const { client, sent } = clientOf(c)
+	return sent(c.json(await User.signIn({ email, password }, { client })))
+})
+```
+
+## D-116: The client's address behind proxies
+
+Choice: completes D-113; replaces D-115's reason for not deriving `Secure`
+from the request.
+
+1. `httpPlugin({ proxies })` is the number of proxies in front of the
+   server, 0 by default: a whole number, or startup fails.
+2. With `proxies: n`, a client's address is the n-th entry of
+   `X-Forwarded-For` from the right, each proxy having appended the address
+   it saw. With fewer entries, it is the leftmost; with none, the
+   connection's.
+3. When that entry is not an IP address, the address is the connection's.
+4. Only `X-Forwarded-For` is read: neither `Forwarded`, nor a host's own
+   header, nor the forwarded protocol or host. The cookie's `Secure` still
+   follows `NODE_ENV` (D-112).
+5. With `proxies` at 0, the first request that has `X-Forwarded-For` from a
+   loopback or private address logs one warning per running application,
+   naming the address every client then counts as.
+
+Why: behind a proxy every client has the proxy's address, so ten wrong
+passwords from anyone lock an account for everyone (D-113). A client writes
+what it wants on the left of `X-Forwarded-For`; only the entries the proxies
+appended can be trusted, and their number is what the application knows of
+its hosting. Trusting the header by default would let any client of a
+server reached directly pick its address and escape every limit. An entry
+that is not an address, from a proxy that appends a port for instance,
+would give a limit per value written. The warning names a mistake that
+otherwise shows only when accounts are locked; a public address does not
+trigger it, so a client cannot make it advise `proxies` to a server reached
+directly. `NODE_ENV=production` already sets `Secure`, so nothing needs the
+forwarded protocol.
+Rejected: a list of trusted networks, Express's `trust proxy`, which needs
+the proxies' addresses that most hosts do not publish; `Forwarded`
+(RFC 7239), which few proxies send; `CF-Connecting-IP` and other hosts'
+headers, tied to one host and forged when the server is reached around it;
+a function computing the address, until an application needs one; a
+`TRUST_PROXY` variable or detecting the host, more ways to set one number.
+Example:
+
+```ts
+// Before: behind Render, every client is 10.0.0.5
+httpPlugin()
+
+// After: X-Forwarded-For: 6.6.6.6, 203.0.113.7, where the client wrote
+// 6.6.6.6 and Render appended 203.0.113.7
+httpPlugin({ proxies: 1 })
+// clientOf(c).client.address === '203.0.113.7'
+
+// Cloudflare in front of Render: X-Forwarded-For: 203.0.113.7, 172.70.1.1
+httpPlugin({ proxies: 2 })
+// clientOf(c).client.address === '203.0.113.7'
+```
+
+Routes and plugins read `clientOf(c).client.address` and `c.var.address` as
+before.
+
+## D-117: Password reset and email verification
+
+Choice: completes D-113 point 12 and D-115.
+
+1. Sending. `passwordPlugin({ sendEmail })` takes the function that sends
+   an email: it receives `{ kind: 'reset' | 'verify', to, token, userId }`
+   and writes the text, builds the link and picks the service. Without it,
+   the functions of point 2 are absent, as `signUp: false` removes `signUp`.
+2. The functions, each public: `requestPasswordReset(input: { email })`,
+   `resetPassword(input: { token, password })`, `verifyEmail(input:
+{ token })` and `sendVerificationEmail`, which needs a signed-in user.
+   Each returns `Boolean!`, `true`.
+3. No enumeration. `requestPasswordReset` returns `true` whether the email
+   has an account or not, before the user is read: the token and the email
+   are made after the response, so its time tells nothing either. An
+   unknown email sends nothing. A failed send is logged with
+   `logger.error`; the client sees no difference. Stopping the application
+   waits for the sends under way.
+4. `resetPassword` sets the password, which ends every session (D-113), and
+   opens none. It marks the email verified: the user received it.
+5. Tokens. 32 random bytes in base64url; `PasswordToken` stores their
+   SHA-256 hash with the user, the kind and the expiry. A token is used
+   once and lasts one hour for a reset, 24 hours for a verification. A new
+   token replaces the older one of its kind; setting a password deletes the
+   pending reset tokens. A wrong, used or expired token fails with
+   `INVALID_CREDENTIALS`, "This link is invalid or has expired.". No
+   numeric codes.
+6. Limits. `requestPasswordReset` and `sendVerificationEmail` each refuse
+   the eleventh request from one address within one hour, counted as
+   sign-ups are (D-114). An account receives three emails per hour, of
+   either kind: past that, `sendVerificationEmail` fails with
+   `TOO_MANY_ATTEMPTS` and `requestPasswordReset` sends nothing, still
+   returning `true`. The values are fixed.
+7. `password()` adds `emailVerified: boolean`, `false` by default, to the
+   user model, which only Master writes: rules read `user.emailVerified`.
+   `signUp` may not list it. The column exists without `sendEmail`, and
+   stays `false`.
+8. Signing in before verification is allowed. With `sendEmail`, the
+   `signUp` function sends the verification email once the user exists;
+   the `User.signUp` command sends nothing. `signUp` keeps refusing a taken
+   email with `UNIQUE_VIOLATION` (D-115).
+9. `sendVerificationEmail` sends to the email of the user's password
+   account, which `AuthApi.subjectOf(userId, method)` reads: the reverse of
+   `accountOf`, since auth keeps the accounts. For an email already
+   verified, it returns `true` and sends nothing.
+
+Why: without a reset, a forgotten password needs an administrator; without
+verification, an application cannot tell whether an email reaches its
+user. A function keeps texts, languages and the sending service the
+application's, with no dependency, and a later email plugin can provide
+it. Hashing the tokens makes a leaked database give no working link;
+replacing older ones leaves one link alive per purpose. Opening no session
+after a reset is OWASP's advice: it adds sensitive session code for little
+gain. Without a per-account limit, many addresses could flood one inbox;
+refusing past it on a reset would tell that the account exists. A field on
+the user model is what a rule reads, as Parse's `emailVerified`.
+Rejected: built-in email templates, which are the application's; an email
+plugin now; six-digit codes, which can be guessed and need limits of their
+own; signing in after a reset; the status in a password model or on
+`AuthAccount`, which a rule cannot read simply; verification required
+before any sign-in, which would make `signUp`'s type depend on an option;
+options for the limits and the lifetimes. Out of this decision: changing an
+email, and linking an OAuth account by its verified email.
+Example:
+
+```ts
+// Before: a forgotten password needs an administrator's User.setPassword
+passwordPlugin({ signUp: ['name'] })
+
+// After
+passwordPlugin({
+	signUp: ['name'],
+	sendEmail: async ({ kind, to, token }) => {
+		await resend.emails.send({
+			from: 'hello@app.example',
+			to,
+			subject: kind === 'reset' ? 'Reset your password' : 'Confirm your email',
+			text: `https://app.example/${kind}?token=${token}`,
+		})
+	},
+})
+
+// Only confirmed emails publish
+defineModel({ name: 'Post', fields: (f) => ({ text: f.string() }) }).with({
+	access: { create: signedIn(({ user }) => user.emailVerified) },
+})
+```
+
+```graphql
+mutation {
+	requestPasswordReset(input: { email: "ada@example.com" })
+}
+mutation {
+	resetPassword(input: { token: "…", password: "new secret" })
+}
+mutation {
+	verifyEmail(input: { token: "…" })
+}
+mutation {
+	sendVerificationEmail
 }
 ```

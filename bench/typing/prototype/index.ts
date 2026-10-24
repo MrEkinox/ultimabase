@@ -9,7 +9,8 @@ export {
 	isOwner,
 	isSelf,
 	signedIn,
-} from './auth.ts'
+} from '@ultimabase/auth'
+export { httpPlugin } from '@ultimabase/http'
 export { postgres } from './pending.ts'
 export { acl, aclPlugin, graphql, graphqlPlugin } from './plugin-values.ts'
 export { softDelete, softDeletePlugin } from '@ultimabase/soft-delete'

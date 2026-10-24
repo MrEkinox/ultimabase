@@ -224,4 +224,10 @@ export interface Queries<F, X = never> {
 		args: { readonly where: UniqueWhere<F, X> },
 		options?: QueryOptions,
 	): Promise<RecordOf<F>>
+	/** A delete of each row `where` selects, all or nothing (D-111). */
+	deleteMany(
+		this: void,
+		args?: { readonly where?: Where<F> | undefined },
+		options?: QueryOptions,
+	): Promise<{ readonly count: number }>
 }

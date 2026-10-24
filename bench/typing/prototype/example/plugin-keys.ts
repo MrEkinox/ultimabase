@@ -10,6 +10,7 @@ import {
 	defineModel,
 	graphql,
 	graphqlPlugin,
+	httpPlugin,
 	memory,
 	softDelete,
 	softDeletePlugin,
@@ -51,7 +52,13 @@ export const MissingPlugin = defineApp({
 // @ts-expect-error: a relation points to 'Tag', which is not in models
 export const MissingModel = defineApp({
 	database: memory(),
-	plugins: [softDeletePlugin(), aclPlugin(), graphqlPlugin(), authPlugin()],
+	plugins: [
+		softDeletePlugin(),
+		aclPlugin(),
+		graphqlPlugin(),
+		httpPlugin(),
+		authPlugin(),
+	],
 	models: [Post, User],
 })
 export const Plain = defineApp({ database: memory(), models: [SetOff] })

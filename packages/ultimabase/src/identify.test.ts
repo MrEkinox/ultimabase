@@ -1,7 +1,8 @@
-// How a transport finds who sends a request (D-49, D-106).
+// How a transport finds who sends a request (D-49, D-106, D-112).
 import { afterEach, describe, expect, it } from 'vitest'
 import type { Caller, MasterKey, PluginTypes } from './index.ts'
 import { defineApp, definePlugin, memory, PublicError } from './index.ts'
+import type { PluginValue } from './plugin.ts'
 import { isMaster } from './rules.ts'
 import { recording } from './test/migrating.ts'
 
@@ -104,6 +105,92 @@ describe('identify', () => {
 		}
 		const symbols = await callerOf('a-Z_0.9~!$', 'a-Z_0.9~!$')
 		expect(symbols.caller).toStrictEqual({
+			kind: 'master',
+			master: { source: 'key' },
+		})
+	})
+})
+
+interface Base extends PluginTypes {
+	readonly name: 'base'
+	readonly appOptions: { readonly id: string }
+}
+const base = definePlugin<Base>({
+	name: 'base',
+	manifest: { name: 'base', version: '1.0.0' },
+	// Its own requests only: those that name it.
+	identify: async (request, { options }) =>
+		request.headers.get('x-who') === 'base'
+			? { kind: 'user', user: { id: options.id } }
+			: undefined,
+})
+interface Greedy extends PluginTypes {
+	readonly name: 'greedy'
+	readonly requires: Base
+}
+const greedy = definePlugin<Greedy>({
+	name: 'greedy',
+	manifest: { name: 'greedy', version: '1.0.0' },
+	requires: { base: base.plugin },
+	// Every request that names someone.
+	identify: async (request) =>
+		request.headers.has('x-who')
+			? { kind: 'user', user: { id: 'greedy' } }
+			: undefined,
+})
+
+/** The caller of a request with `headers`, plugins in the order given. */
+async function pluginCaller(
+	plugins: readonly PluginValue<string, string>[],
+	headers: Record<string, string>,
+) {
+	const app = defineApp({
+		database: memory(),
+		models: [],
+		masterKey: 'secret',
+		plugins,
+	})
+	await app.start()
+	try {
+		const request = new Request('http://localhost/', { headers })
+		return await identify?.(request)
+	} finally {
+		await app.stop()
+	}
+}
+
+describe('a plugin’s identify', () => {
+	const all = [transport.plugin(), base.plugin({ id: 'ada' })]
+
+	it('finds the caller of the requests it knows, with its context', async () => {
+		expect(await pluginCaller(all, { 'x-who': 'base' })).toStrictEqual({
+			kind: 'user',
+			user: { id: 'ada' },
+		})
+		expect(await pluginCaller(all, { 'x-who': 'other' })).toStrictEqual({
+			kind: 'anonymous',
+		})
+	})
+
+	it('runs in the order of plugins, the first caller winning', async () => {
+		const who = { 'x-who': 'base' }
+		const first = await pluginCaller([...all, greedy.plugin()], who)
+		expect(first).toStrictEqual({ kind: 'user', user: { id: 'ada' } })
+		// greedy runs after base starts, and identifies first.
+		const listed = [
+			transport.plugin(),
+			greedy.plugin(),
+			base.plugin({ id: 'ada' }),
+		]
+		expect(await pluginCaller(listed, who)).toStrictEqual({
+			kind: 'user',
+			user: { id: 'greedy' },
+		})
+	})
+
+	it('runs after the master key, which wins', async () => {
+		const headers = { 'x-who': 'base', 'x-ultimabase-master-key': 'secret' }
+		expect(await pluginCaller(all, headers)).toStrictEqual({
 			kind: 'master',
 			master: { source: 'key' },
 		})

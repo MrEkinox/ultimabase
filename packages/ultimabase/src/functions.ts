@@ -1,6 +1,6 @@
-// The application's functions at `start` (D-27, D-109): each named once,
-// its plugins installed, the models it returns in `models`, and each type
-// named once, apart from the models.
+// The application's and the plugins' functions at `start` (D-27, D-109,
+// D-113): each named once, its plugins installed, the models it returns in
+// `models`, and each type named once, apart from the models.
 import type {
 	FunctionDefinition,
 	Output,
@@ -8,6 +8,7 @@ import type {
 	TypeDefinition,
 } from './definition.ts'
 import { called } from './define-function.ts'
+import type { Client } from './function.ts'
 import { functionDefinitions } from './definition.ts'
 import type { ExposedFunction } from './plugin.ts'
 import { isObject } from './query-where.ts'
@@ -23,8 +24,14 @@ function checkOutput(
 ): void {
 	if (output.kind === 'schema') return
 	if (output.kind === 'model') {
-		if (resolved.byValue.has(output.value)) return
-		throw new Error(`${name} returns ${output.name}, which is not in models.`)
+		const info = resolved.byValue.get(output.value)
+		if (info === undefined) {
+			throw new Error(`${name} returns ${output.name}, which is not in models.`)
+		}
+		if (info.owner === undefined) return
+		throw new Error(
+			`${name} returns ${output.name}, a model of ${info.owner} (D-110).`,
+		)
 	}
 	const { type } = output
 	const known = types.get(type.name)
@@ -41,58 +48,94 @@ function checkOutput(
 	}
 }
 
-/** The application's functions, by value, or startup stops with a message. */
+/** Functions listed by the application, or given by a plugin (D-113). */
+export type FunctionSource = {
+	readonly plugin: string | undefined
+	readonly values: readonly unknown[]
+}
+
+/** The application's and the plugins' functions, by value, and who gives each. */
+export type Functions = {
+	readonly definitions: ReadonlyMap<object, FunctionDefinition>
+	readonly plugins: ReadonlyMap<object, string>
+}
+
+const ownerOf = (plugin: string | undefined, name: string): string =>
+	plugin === undefined
+		? `the application's function ${name}`
+		: `${plugin}'s function ${name}`
+
+/** The functions, each named once, or startup stops with a message. */
 export function resolveFunctions(
-	values: readonly unknown[],
+	sources: readonly FunctionSource[],
 	resolved: Resolved,
 	plugins: readonly PluginCode[],
-): ReadonlyMap<object, FunctionDefinition> {
-	const functions = new Map<object, FunctionDefinition>()
-	const names = new Set<string>()
+): Functions {
+	const definitions = new Map<object, FunctionDefinition>()
+	const owners = new Map<object, string>()
+	const names = new Map<string, string>()
 	const types = new Map<string, TypeDefinition>()
-	for (const value of values) {
-		const definition = isObject(value)
-			? functionDefinitions.get(value)
-			: undefined
-		if (definition === undefined || !isObject(value)) {
-			throw new Error(
-				'functions lists a value that defineFunction did not return.',
-			)
+	for (const { plugin, values } of sources) {
+		const where = plugin === undefined ? 'functions' : `${plugin}.functions`
+		for (const value of values) {
+			const definition = isObject(value)
+				? functionDefinitions.get(value)
+				: undefined
+			if (definition === undefined || !isObject(value)) {
+				throw new Error(
+					`${where} lists a value that defineFunction did not return.`,
+				)
+			}
+			const { name } = definition
+			const owner = ownerOf(plugin, name)
+			const other = names.get(name)
+			if (other !== undefined) {
+				throw new Error(
+					other === owner
+						? `${where} lists two functions named ${name}.`
+						: `${owner} and ${other} are both named ${name}.`,
+				)
+			}
+			names.set(name, owner)
+			for (const use of definition.uses) {
+				checkInstalled(name, use.code, plugins)
+			}
+			if (definition.output !== undefined) {
+				checkOutput(name, definition.output, resolved, types)
+			}
+			definitions.set(value, definition)
+			if (plugin !== undefined) owners.set(value, plugin)
 		}
-		const { name } = definition
-		if (names.has(name)) {
-			throw new Error(`functions lists two functions named ${name}.`)
-		}
-		names.add(name)
-		for (const use of definition.uses) checkInstalled(name, use.code, plugins)
-		if (definition.output !== undefined) {
-			checkOutput(name, definition.output, resolved, types)
-		}
-		functions.set(value, definition)
 	}
-	return functions
+	return { definitions, plugins: owners }
 }
 
 /** The functions as the plugin `name` reads them, with its `.with` key. */
 export function exposedFunctions(
 	name: string,
-	functions: ReadonlyMap<object, FunctionDefinition>,
+	functions: Functions,
 ): readonly ExposedFunction[] {
-	return [...functions].map(([value, record]) => {
+	return [...functions.definitions].map(([value, record]) => {
 		const { rules, input } = record
 		const key: unknown =
 			rules === undefined ? undefined : Reflect.get(rules, name)
 		return Object.freeze({
 			name: record.name,
+			plugin: functions.plugins.get(value),
 			query: record.query,
 			input,
 			output: record.output,
 			with: key,
-			run: async (given: unknown, options: unknown): Promise<unknown> =>
+			run: async (
+				given: unknown,
+				options: unknown,
+				client?: Client,
+			): Promise<unknown> =>
 				called(
 					value,
 					record,
 					input === undefined ? [options] : [given, options],
+					client,
 				),
 		})
 	})

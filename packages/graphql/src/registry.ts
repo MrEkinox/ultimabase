@@ -12,7 +12,13 @@ import {
 	GraphQLFloat,
 	GraphQLString,
 } from 'graphql'
-import type { Caller, ExposedModel, SchemaField, SchemaModel } from 'ultimabase'
+import type {
+	Caller,
+	Client,
+	ExposedModel,
+	SchemaField,
+	SchemaModel,
+} from 'ultimabase'
 import { upper } from './names.ts'
 import { DateTime, JSONScalar } from './scalars.ts'
 
@@ -23,6 +29,8 @@ export type GraphqlWith =
 /** What every resolver receives, the generated ones and those `extend` adds. */
 export type Context = {
 	readonly caller: Caller
+	/** The request's client, which a function's `run` receives (D-113). */
+	readonly client: Client
 	/**
 	 * The kernel's `select` for what the client asks of the rows a field
 	 * returns, relations and their pages included; spread it to add a field.

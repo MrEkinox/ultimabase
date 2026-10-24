@@ -113,23 +113,18 @@ class Builder {
 		return built
 	}
 
-	field(fn: ExposedFunction, name: string): Field {
+	field(fn: ExposedFunction, name: string, owner: string): Field {
 		const { input, output } = fn
 		const base = upper(name)
 		const given =
 			input === undefined
 				? undefined
-				: inputArgs(input, at(fn.name, `${base}Input`, 'input'), this.#data)
+				: inputArgs(input, at(owner, `${base}Input`, 'input'), this.#data)
 		const root = fn.query ? 'Query' : 'Mutation'
 		const type =
 			output === undefined
 				? new GraphQLNonNull(GraphQLBoolean)
-				: this.output(
-						output,
-						at(fn.name, `${base}Output`, 'output'),
-						root,
-						name,
-					)
+				: this.output(output, at(owner, `${base}Output`, 'output'), root, name)
 		const registry = this.#registry
 		const take = this.#take
 		return {
@@ -137,7 +132,7 @@ class Builder {
 			args: given?.args ?? {},
 			resolve: async (_, args, context, info) => {
 				const sent = given?.flat === true ? args : args['input']
-				const value = await fn.run(plain(sent), as(context))
+				const value = await fn.run(plain(sent), as(context), context.client)
 				if (output === undefined) return true
 				if (value === undefined && type instanceof GraphQLNonNull) {
 					throw new TypeError(
@@ -166,8 +161,10 @@ export function functionFields(
 	for (const fn of functions) {
 		if (fn.with === false) continue
 		const name = checkName(fn.with?.name ?? fn.name, fn.name)
-		const field = builder.field(fn, name)
-		fields.push({ query: fn.query, name, owner: fn.name, field })
+		// A plugin's function is named with its plugin (D-113).
+		const owner = fn.plugin === undefined ? fn.name : `${fn.plugin}.${fn.name}`
+		const field = builder.field(fn, name, owner)
+		fields.push({ query: fn.query, name, owner, field })
 	}
 	return { fields, reads: builder.reads, owners: builder.owners }
 }

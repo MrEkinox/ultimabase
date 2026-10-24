@@ -1,6 +1,6 @@
 // Cascades at run time (D-54, D-90): what deleting a row does to the rows
 // that reference it, their hooks and their order.
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { asUser } from '@ultimabase/testing'
 import type { Field, PluginTypes } from './index.ts'
 import {
@@ -232,6 +232,20 @@ const Lamp = defineModel({
 	},
 })
 
+// A cascade without any hooks, planned in one write.
+const Shelf = defineModel({
+	name: 'Shelf',
+	fields: (f) => ({ name: f.string(), boxes: f.many(() => Box) }),
+})
+
+const Box = defineModel({
+	name: 'Box',
+	fields: (f) => ({
+		name: f.string(),
+		shelf: f.one(() => Shelf, { optional: true }),
+	}),
+})
+
 const started = () =>
 	defineApp({
 		database: memory(),
@@ -248,6 +262,8 @@ const started = () =>
 			Category,
 			Desk,
 			Lamp,
+			Shelf,
+			Box,
 		],
 	})
 let app: ReturnType<typeof started>
@@ -297,6 +313,7 @@ beforeEach(async () => {
 	locked = undefined
 })
 afterEach(async () => {
+	vi.restoreAllMocks()
 	await app.stop()
 })
 
@@ -394,9 +411,9 @@ describe('a cascade', () => {
 describe('setNull', () => {
 	it('runs the update hooks of the row whose key it empties', async () => {
 		const kept = await post('kept', bob, ada)
-		const before = await Post.findUnique({ where: { id: kept } }, M)
-		// The next millisecond, so the emptied row's updatedAt differs.
-		await new Promise((done) => setTimeout(done, 2))
+		// A later clock, which every stored date reads.
+		const at = Date.now() + 60_000
+		vi.spyOn(Date, 'now').mockReturnValue(at)
 		await User.delete({ where: { id: ada } }, M)
 		expect(facts.get('Post.beforeUpdate')).toStrictEqual({
 			editor: { disconnect: true },
@@ -410,9 +427,7 @@ describe('setNull', () => {
 			record: { editor: null },
 			previous: { editor: { id: ada } },
 		})
-		expect(after?.updatedAt.getTime()).toBeGreaterThan(
-			before?.updatedAt.getTime() ?? Number.POSITIVE_INFINITY,
-		)
+		expect(after?.updatedAt.getTime()).toBe(at)
 	})
 
 	it('runs the update hooks of a row a hook-less delete reaches', async () => {
@@ -428,17 +443,33 @@ describe('setNull', () => {
 			{ data: { label: 'gold', owner: by(ada) } },
 			M,
 		)
-		// The next millisecond, so the emptied row's updatedAt differs.
-		await new Promise((done) => setTimeout(done, 2))
+		// A later clock, which every stored date reads.
+		const at = Date.now() + 60_000
+		vi.spyOn(Date, 'now').mockReturnValue(at)
 		await User.delete({ where: { id: ada } }, M)
 		const after = await Badge.findUnique(
 			{ where: { id: badge.id }, include: { owner: true } },
 			M,
 		)
 		expect(after).toMatchObject({ label: 'gold', owner: null })
-		expect(after?.updatedAt.getTime()).toBeGreaterThan(
-			badge.updatedAt.getTime(),
+		expect(after?.updatedAt.getTime()).toBe(at)
+	})
+
+	it('empties the key when no model of the cascade has hooks', async () => {
+		const shelf = await Shelf.create({ data: { name: 'top' } }, M)
+		const box = await Box.create(
+			{ data: { name: 'tools', shelf: by(shelf.id) } },
+			M,
 		)
+		const at = Date.now() + 60_000
+		vi.spyOn(Date, 'now').mockReturnValue(at)
+		await Shelf.delete({ where: { id: shelf.id } }, M)
+		const after = await Box.findUnique(
+			{ where: { id: box.id }, include: { shelf: true } },
+			M,
+		)
+		expect(after).toMatchObject({ name: 'tools', shelf: null })
+		expect(after?.updatedAt.getTime()).toBe(at)
 	})
 })
 

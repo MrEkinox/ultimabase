@@ -583,7 +583,27 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@ultimabase/graphql@workspace:packages/graphql":
+"@ultimabase/auth@workspace:*, @ultimabase/auth@workspace:packages/auth":
+  version: 0.0.0-use.local
+  resolution: "@ultimabase/auth@workspace:packages/auth"
+  dependencies:
+    "@types/pg": "npm:8.23.1"
+    "@ultimabase/graphql": "workspace:*"
+    "@ultimabase/http": "workspace:*"
+    "@ultimabase/postgres": "workspace:*"
+    "@ultimabase/testing": "workspace:*"
+    graphql: "npm:17.0.2"
+    pg: "npm:8.23.1"
+    ultimabase: "workspace:*"
+    vite: "npm:8.3.4"
+    vitest: "npm:5.0.5"
+  peerDependencies:
+    "@ultimabase/http": ^0.0.0
+    ultimabase: ^0.0.0
+  languageName: unknown
+  linkType: soft
+
+"@ultimabase/graphql@workspace:*, @ultimabase/graphql@workspace:packages/graphql":
   version: 0.0.0-use.local
   resolution: "@ultimabase/graphql@workspace:packages/graphql"
   dependencies:
@@ -613,6 +633,26 @@ __metadata:
     vite: "npm:8.3.4"
     vitest: "npm:5.0.5"
   peerDependencies:
+    ultimabase: ^0.0.0
+  languageName: unknown
+  linkType: soft
+
+"@ultimabase/password@workspace:*, @ultimabase/password@workspace:packages/password":
+  version: 0.0.0-use.local
+  resolution: "@ultimabase/password@workspace:packages/password"
+  dependencies:
+    "@types/pg": "npm:8.23.1"
+    "@ultimabase/auth": "workspace:*"
+    "@ultimabase/graphql": "workspace:*"
+    "@ultimabase/http": "workspace:*"
+    "@ultimabase/postgres": "workspace:*"
+    graphql: "npm:17.0.2"
+    pg: "npm:8.23.1"
+    ultimabase: "workspace:*"
+    vite: "npm:8.3.4"
+    vitest: "npm:5.0.5"
+  peerDependencies:
+    "@ultimabase/auth": ^0.0.0
     ultimabase: ^0.0.0
   languageName: unknown
   linkType: soft
@@ -789,6 +829,21 @@ __metadata:
   checksum: 10c0/c12e3c2b2642d2bcae7d5aa495c60fa2f299160946535763969a1c83fc74518ffa9c2cd3a8b69ac56aea547df6a8aac25f729a342992ef0bbac5f1c73e78995d
   languageName: node
   linkType: hard
+
+"example-password-sign-in@workspace:examples/password-sign-in":
+  version: 0.0.0-use.local
+  resolution: "example-password-sign-in@workspace:examples/password-sign-in"
+  dependencies:
+    "@ultimabase/auth": "workspace:*"
+    "@ultimabase/graphql": "workspace:*"
+    "@ultimabase/http": "workspace:*"
+    "@ultimabase/password": "workspace:*"
+    graphql: "npm:17.0.2"
+    ultimabase: "workspace:*"
+    vite: "npm:8.3.4"
+    vitest: "npm:5.0.5"
+  languageName: unknown
+  linkType: soft
 
 "expect-type@npm:^1.4.0":
   version: 1.4.0

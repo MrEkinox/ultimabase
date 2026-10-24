@@ -134,6 +134,7 @@ const operations: readonly Operation[] = [
 	'create',
 	'update',
 	'delete',
+	'deleteMany',
 ]
 
 function createModel(definition: {

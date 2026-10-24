@@ -7,12 +7,13 @@ import type { Caller } from './rules.ts'
 import { isMaster } from './rules.ts'
 import { current } from './running.ts'
 import type { Context } from './query-context.ts'
-import { first, given, hiddenBy, picked } from './query-context.ts'
+import { filtered, first, given, hiddenBy, picked } from './query-context.ts'
 import { plan, project, restrict, uniqueWhere } from './query-args.ts'
 import { entries, isObject, unknownKey } from './query-where.ts'
 import { QueryScope, planned } from './scope.ts'
 import type { Commit, Store } from './transaction.ts'
 import { reading, writing } from './transaction.ts'
+import { removeMany } from './delete-many.ts'
 import { create, remove, update } from './writes.ts'
 
 export type Operation =
@@ -23,6 +24,7 @@ export type Operation =
 	| 'create'
 	| 'update'
 	| 'delete'
+	| 'deleteMany'
 
 const anonymous: Caller = Object.freeze({ kind: 'anonymous' })
 
@@ -128,22 +130,8 @@ async function count(
 	store: Store,
 	args: unknown,
 ): Promise<number> {
-	const { models, model, scope } = context
-	const found = given(args, model.name, ['where'], [])
-	const where = await planned(scope, () =>
-		and(
-			plan(
-				models,
-				model,
-				Object.fromEntries(found),
-				'',
-				'one',
-				new Set(['where']),
-				scope,
-			).read.where,
-			scope.readable(model.name),
-		),
-	)
+	const { model } = context
+	const where = await filtered(context, given(args, model.name, ['where'], []))
 	return store.count({ model: model.name, ...(where && { where }) })
 }
 
@@ -168,6 +156,7 @@ const writes: { readonly [O in Exclude<Operation, ReadOperation>]: Write } = {
 	create,
 	update,
 	delete: remove,
+	deleteMany: removeMany,
 }
 
 function isRead(operation: Operation): operation is ReadOperation {

@@ -2,10 +2,11 @@
 // travel with its values; nothing is declared globally (D-24).
 import type { Logger } from './app-options.ts'
 import type { FieldBuilders, StandardSchema } from './fields.ts'
+import type { Client, FunctionShape } from './function.ts'
 import type { Identify } from './identify.ts'
 import { pluginEntries, pluginValues } from './definition.ts'
 import { pluginCode } from './plugin-code.ts'
-import type { FieldShape, ModelHooks } from './model.ts'
+import type { FieldShape, ModelHooks, ModelShape } from './model.ts'
 import type { Row, SchemaModel } from './adapter.ts'
 import type { Queries, QueryOptions, UniqueWhere } from './query.ts'
 import type { Caller } from './rules.ts'
@@ -94,6 +95,8 @@ export interface ExposedModel<W = unknown> {
 	/** The plugin's key of the model's `.with`, if it was given. */
 	readonly with: W | undefined
 	readonly queries: ModelQueries
+	/** The `defineModel` value, which a plugin's function may return (D-113). */
+	readonly model: ModelShape
 }
 
 /** How an output holds a model or a type (D-109). */
@@ -118,6 +121,8 @@ export interface ExposedType {
 /** A function as transports read it (D-109). */
 export interface ExposedFunction<W = unknown> {
 	readonly name: string
+	/** The plugin that gives it, `undefined` for the application's (D-113). */
+	readonly plugin: string | undefined
 	/** A query, which a transport may serve over GET; a mutation otherwise. */
 	readonly query: boolean
 	readonly input: StandardSchema | undefined
@@ -125,8 +130,8 @@ export interface ExposedFunction<W = unknown> {
 	readonly output: ExposedOutput | undefined
 	/** The plugin's key of the function's `.with`, if it was given. */
 	readonly with: W | undefined
-	/** Checks access, validates the input, then runs it (D-75). */
-	run(input: unknown, options: QueryOptions): Promise<unknown>
+	/** Checks access, validates the input, then runs it for `client` (D-75, D-113). */
+	run(input: unknown, options: QueryOptions, client?: Client): Promise<unknown>
 }
 
 type WithOf<T> = T extends { readonly with: infer W } ? W : never
@@ -237,6 +242,23 @@ export type PluginDefinition<T extends PluginTypes> = {
 	readonly start?: (context: PluginContext<T>) => void | Promise<void>
 	/** Runs once when the application stops: close, flush (D-15). */
 	readonly stop?: (context: PluginContext<T>) => void | Promise<void>
+	/**
+	 * Who sends a request, or `undefined` when it is not the plugin's; the
+	 * first plugin to know it wins, after the master key (D-112).
+	 */
+	readonly identify?: (
+		request: Request,
+		context: PluginContext<T>,
+	) => Promise<Caller | undefined>
+	/** Its own models, which no plugin is given (D-110). */
+	readonly models?: readonly ModelShape[]
+	/**
+	 * Its `defineFunction` values, built once when the application starts and
+	 * exposed as the application's are (D-113).
+	 */
+	readonly functions?: (
+		context: Omit<PluginContext<T>, 'functions'>,
+	) => readonly FunctionShape[]
 } & CodePart<
 	T,
 	'commands',

@@ -76,7 +76,10 @@ describe('the token limit', () => {
 				'Syntax Error: Document contains more than 2000 tokens. Parsing aborted.',
 			])
 			expect(performance.now() - begin).toBeLessThan(1000)
-			const longest = `{ posts { ${'totalCount '.repeat(1993)}} }`
+			// 1,999 tokens, each field named once: graphql-js compares every two
+			// fields of one name, which takes seconds under coverage.
+			const aliases = Array.from({ length: 664 }, (_, i) => `a${i}: totalCount`)
+			const longest = `{ posts { totalCount ${aliases.join(' ')} } }`
 			expect((await post(url, longest)).errors).toBeUndefined()
 		})
 	})

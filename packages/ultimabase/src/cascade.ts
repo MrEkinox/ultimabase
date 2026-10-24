@@ -24,7 +24,7 @@ export type Nulled = {
 }
 
 export type Cascade = {
-	/** The deepest first, the row the caller deletes last. */
+	/** The deepest first, the rows the caller deletes last. */
 	readonly deleted: readonly Doomed[]
 	readonly nulled: readonly Nulled[]
 }
@@ -51,24 +51,25 @@ function referencesTo(
 const keyOf = (model: ModelInfo, id: string): string => `${model.name}:${id}`
 
 /**
- * Loads every row deleting `row` reaches, level by level, as stored: no
+ * Loads every row deleting `deleting` reaches, level by level, as stored: no
  * `beforeFind`, no access rules (D-54, D-90). Fails with
  * `RELATION_RESTRICTED` when a row the delete leaves references a deleted one.
  */
 export async function cascadeOf(
 	models: Models,
 	model: ModelInfo,
-	row: Row,
+	deleting: readonly Row[],
 	store: Reads,
 ): Promise<Cascade> {
+	const roots = deleting.map((row) => ({ model, row, redirected: false }))
 	const deleted = new Map<string, Doomed>()
-	deleted.set(keyOf(model, row.id), { model, row, redirected: false })
+	for (const root of roots) deleted.set(keyOf(model, root.row.id), root)
 	const restricted: (Reference & {
 		readonly id: string
 		readonly to: string
 	})[] = []
 	const nulled = new Map<string, Reference & { readonly rows: Row[] }>()
-	let level: readonly Doomed[] = [{ model, row, redirected: false }]
+	let level: readonly Doomed[] = roots
 	while (level.length > 0) {
 		const next: Doomed[] = []
 		const ids = new Map<ModelInfo, string[]>()
@@ -121,7 +122,11 @@ export async function cascadeOf(
 		)
 	}
 	return {
-		deleted: [...deleted.values()].toReversed(),
+		// The roots last, in the order they were read.
+		deleted: [...deleted.values()]
+			.slice(roots.length)
+			.toReversed()
+			.concat(roots),
 		nulled: [...nulled.values()].map((group) => ({
 			...group,
 			rows: group.rows.filter((found) => stays(group.model, found.id)),
@@ -225,7 +230,7 @@ export function cascadeWhere(
 				kind: 'update' as const,
 				model: group.model.name,
 				where: left(group.model, group.filters),
-				set: { [group.field]: null, updatedAt: new Date() },
+				set: { [group.field]: null, updatedAt: new Date(Date.now()) },
 			})),
 		...[...deleted]
 			.toSorted(([, a], [, b]) => b.depth - a.depth)

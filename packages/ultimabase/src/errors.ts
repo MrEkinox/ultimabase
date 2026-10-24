@@ -9,6 +9,9 @@ export type ErrorCode =
 	| 'VALIDATION_FAILED'
 	| 'UNIQUE_VIOLATION'
 	| 'RELATION_RESTRICTED'
+	| 'UNAUTHENTICATED'
+	| 'INVALID_CREDENTIALS'
+	| 'TOO_MANY_ATTEMPTS'
 	| 'INTERNAL'
 
 /** One failing value, as Standard Schema reports it (D-23). */
@@ -19,7 +22,9 @@ export type Issue = {
 
 type Details<C> = C extends 'VALIDATION_FAILED'
 	? { readonly issues: readonly Issue[] }
-	: JsonValue
+	: C extends 'TOO_MANY_ATTEMPTS'
+		? { /** In seconds (D-113). */ readonly retryAfter: number }
+		: JsonValue
 
 /** An error whose code, message and details reach the client. */
 export interface PublicError extends Error {

@@ -1,14 +1,12 @@
 // Soft delete (D-17, D-89, D-96) on `memory()`: a deleted row leaves every
 // read, the trash reads it, `restore` brings it back, each under its rule.
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { asUser } from '@ultimabase/testing'
 import type { Caller } from 'ultimabase'
 import { defineApp, defineModel, master, memory } from 'ultimabase'
 import { softDelete, softDeletePlugin } from './index.ts'
 
 const M = { as: master }
-// Asymmetric matchers are typed `any`.
-const aDate: unknown = expect.any(Date)
 
 const user = (id: string) => ({ as: asUser({ id }) })
 const isAda = (caller: Caller): boolean =>
@@ -61,12 +59,17 @@ beforeEach(async () => {
 	id = (await Post.create({ data: { title: 'Draft' } }, M)).id
 	await Post.create({ data: { title: 'Kept' } }, M)
 })
-afterEach(async () => app.stop())
+afterEach(async () => {
+	vi.restoreAllMocks()
+	await app.stop()
+})
 
 describe('a deleted row', () => {
 	it('leaves every read, Master included, and goes to the trash', async () => {
+		const at = Date.now() + 60_000
+		vi.spyOn(Date, 'now').mockReturnValue(at)
 		const post = await Post.delete({ where: { id } }, user('ada'))
-		expect(post).toMatchObject({ title: 'Draft', deletedAt: aDate })
+		expect(post).toMatchObject({ title: 'Draft', deletedAt: new Date(at) })
 		expect(await titles()).toEqual(['Kept'])
 		expect(await Post.findUnique({ where: { id } }, M)).toBeNull()
 		expect(await Post.count({}, M)).toBe(1)

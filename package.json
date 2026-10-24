@@ -6,10 +6,11 @@
 	"license": "Apache-2.0",
 	"packageManager": "yarn@4.18.1",
 	"engines": {
-		"node": ">=24.0.0"
+		"node": ">=24.7.0"
 	},
 	"workspaces": [
-		"packages/*"
+		"packages/*",
+		"examples/*"
 	],
 	"scripts": {
 		"budgets": "node scripts/check-budgets.ts",
@@ -18,7 +19,7 @@
 		"lint": "oxlint",
 		"test": "vitest run --project unit --coverage --passWithNoTests",
 		"test:postgres": "COVERAGE=postgres vitest run --project postgres --coverage --passWithNoTests",
-		"typecheck": "tsc --project tsconfig.json && tsc --project tsconfig.declarations.json && tsc --project bench/typing && tsc --project packages/ultimabase && tsc --project packages/testing && tsc --project packages/soft-delete && tsc --project packages/postgres && tsc --project packages/http && tsc --project packages/graphql",
+		"typecheck": "tsc --project tsconfig.json && tsc --project tsconfig.declarations.json && tsc --project bench/typing && tsc --project packages/ultimabase && tsc --project packages/testing && tsc --project packages/soft-delete && tsc --project packages/postgres && tsc --project packages/http && tsc --project packages/graphql && tsc --project packages/auth && tsc --project packages/password && tsc --project examples/password-sign-in",
 		"validate": "yarn format:check && yarn typecheck && yarn lint && yarn budgets && yarn test"
 	},
 	"devDependencies": {

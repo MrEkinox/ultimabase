@@ -1,5 +1,5 @@
-// How a transport finds who sends a request (D-49, D-106): Master with the
-// master key, anonymous otherwise, until auth's Identify hook (phase 5).
+// How a transport finds who sends a request (D-49, D-106, D-112): Master with
+// the master key, then the first plugin that knows it, anonymous otherwise.
 import { createHash, timingSafeEqual } from 'node:crypto'
 import type { Logger, MasterKey } from './app-options.ts'
 import { PublicError } from './errors.ts'
@@ -10,6 +10,8 @@ import { createMaster } from './rules.ts'
 export const masterKeyHeader = 'x-ultimabase-master-key'
 
 export type Identify = (request: Request) => Promise<Caller>
+/** A plugin's `identify`, bound to its context. */
+export type PluginIdentify = (request: Request) => Promise<Caller | undefined>
 
 const anonymous: Caller = Object.freeze({ kind: 'anonymous' })
 const keyMaster = createMaster('key')
@@ -32,8 +34,15 @@ function refusalOf(masterKey: MasterKey): string | undefined {
 	return undefined
 }
 
-/** Reads the master key and `NODE_ENV` once, when the application starts. */
-export function identifier(masterKey: MasterKey, logger: Logger): Identify {
+/**
+ * Reads the master key and `NODE_ENV` once, when the application starts.
+ * `plugins` is read on each request: it is filled once their contexts exist.
+ */
+export function identifier(
+	masterKey: MasterKey,
+	logger: Logger,
+	plugins: readonly PluginIdentify[],
+): Identify {
 	const refusal = refusalOf(masterKey)
 	const key = typeof masterKey === 'object' ? masterKey.key : masterKey
 	// A header drops the spaces around a value and mangles what is not ASCII:
@@ -49,7 +58,13 @@ export function identifier(masterKey: MasterKey, logger: Logger): Identify {
 	const audited = process.env['NODE_ENV'] === 'production'
 	return async (request) => {
 		const sent = request.headers.get(masterKeyHeader)
-		if (sent === null) return anonymous
+		if (sent === null) {
+			for (const identify of plugins) {
+				const caller = await identify(request)
+				if (caller !== undefined) return caller
+			}
+			return anonymous
+		}
 		const refused =
 			refusal ??
 			(timingSafeEqual(digest(sent), expected)

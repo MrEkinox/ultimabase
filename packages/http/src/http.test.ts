@@ -1,6 +1,8 @@
 // `httpPlugin()` (D-66, D-106): routes that read the caller, errors as D-72
-// sends them, CORS, the body limit, the port and a stop that waits, 10 s at most.
-import { createServer } from 'node:http'
+// sends them, CORS, the body limit, the port, the client's address behind
+// proxies (D-116) and a stop that waits, 10 s at most.
+import { createServer, IncomingMessage } from 'node:http'
+import { Socket } from 'node:net'
 import { streamSSE } from 'hono/streaming'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { Logger, PluginTypes } from 'ultimabase'
@@ -12,7 +14,8 @@ import {
 	PublicError,
 } from 'ultimabase'
 import type { HttpApi, Routes } from './index.ts'
-import { httpPlugin, routes } from './index.ts'
+import { clientOf, httpPlugin, routes } from './index.ts'
+import { addresses } from './address.ts'
 import { portOf } from './server.ts'
 
 const Note = defineModel({
@@ -190,11 +193,33 @@ describe('an error', () => {
 	failing.get('/missing', () => {
 		throw new PublicError('NOT_FOUND', 'No such invoice.')
 	})
+	failing.get('/wrong', () => {
+		throw new PublicError('INVALID_CREDENTIALS', 'Wrong email or password.')
+	})
 	failing.get('/crash', () => {
 		throw new Error('Connection refused.')
 	})
 	failing.get('/thrown', () => {
 		throw 'Connection refused.'
+	})
+	failing.get('/busy', () => {
+		throw new PublicError('TOO_MANY_ATTEMPTS', 'Wait a minute.', {
+			details: { retryAfter: 60 },
+		})
+	})
+
+	it('sends too many attempts as 429, with when to retry', async () => {
+		const { url } = await server({ port: 0, routes: [failing] })
+		const busy = await fetch(`${url}/busy`)
+		expect(busy.status).toBe(429)
+		expect(busy.headers.get('retry-after')).toBe('60')
+		expect(await busy.json()).toStrictEqual({
+			code: 'TOO_MANY_ATTEMPTS',
+			message: 'Wait a minute.',
+			details: { retryAfter: 60 },
+		})
+		const locked = await fetch(`${url}/locked`)
+		expect(locked.headers.get('retry-after')).toBeNull()
 	})
 
 	it('sends a public error with its status and details', async () => {
@@ -212,6 +237,8 @@ describe('an error', () => {
 			code: 'NOT_FOUND',
 			message: 'No such invoice.',
 		})
+		const wrong = await fetch(`${url}/wrong`)
+		expect(wrong.status).toBe(401)
 	})
 
 	it('masks any other error, and logs it with its correlation id', async () => {
@@ -328,6 +355,7 @@ describe('CORS', () => {
 			headers: { origin, 'x-ultimabase-master-key': 'wrong' },
 		})
 		expect(refused.headers.get('access-control-allow-origin')).toBe(origin)
+		expect(refused.headers.get('access-control-allow-credentials')).toBe('true')
 		const preflight = await fetch(`${url}/caller`, {
 			method: 'OPTIONS',
 			headers: {
@@ -339,6 +367,9 @@ describe('CORS', () => {
 		expect(preflight.status).toBe(204)
 		expect(preflight.headers.get('access-control-allow-headers')).toBe(
 			'x-ultimabase-master-key',
+		)
+		expect(preflight.headers.get('access-control-allow-credentials')).toBe(
+			'true',
 		)
 	})
 
@@ -353,11 +384,13 @@ describe('CORS', () => {
 		expect(await own.text()).toBe('allowed')
 		expect(own.headers.get('access-control-allow-origin')).toBe(origin)
 		expect(own.headers.get('vary')).toBe('Origin')
+		expect(own.headers.get('access-control-allow-credentials')).toBe('true')
 		const foreign = await fetch(`${url}/things`, {
 			method: 'OPTIONS',
 			headers: { origin: 'https://evil.example.com' },
 		})
 		expect(foreign.headers.get('access-control-allow-origin')).toBeNull()
+		expect(foreign.headers.get('access-control-allow-credentials')).toBeNull()
 		const unknown = await fetch(`${url}/nowhere`, { method: 'OPTIONS' })
 		expect(unknown.status).toBe(404)
 		const preflight = await fetch(`${url}/things`, {
@@ -477,5 +510,150 @@ describe('stop', () => {
 			first:
 				'Stopped 10 s after stop began: closed the requests still running.',
 		})
+	})
+})
+
+describe('a function’s client (D-113)', () => {
+	const signing = routes()
+	signing.get('/address', (c) => c.text(clientOf(c).client.address))
+	signing.post('/sign', (c) => {
+		const { client, sent } = clientOf(c)
+		client.cookies.set('session', 'token', { httpOnly: true, maxAge: 60 })
+		client.cookies.clear('theme', { path: '/app' })
+		// A Response of its own, as `graphql-http` returns.
+		return sent(new Response('signed', { status: 201 }))
+	})
+	signing.post('/none', (c) => {
+		const response = new Response('none')
+		return clientOf(c).sent(response) === response
+			? c.text('same')
+			: c.text('copied')
+	})
+
+	it('holds the connection’s address', async () => {
+		const { url } = await server({ port: 0, routes: [signing] })
+		const address = await (await fetch(`${url}/address`)).text()
+		expect(['127.0.0.1', '::1', '::ffff:127.0.0.1']).toContain(address)
+		expect(await (await signing.request('/address')).text()).toBe('')
+	})
+
+	it('adds the cookies its run set to the response', async () => {
+		const { url } = await server({ port: 0, routes: [signing] })
+		const signed = await fetch(`${url}/sign`, { method: 'POST' })
+		expect(signed.status).toBe(201)
+		expect(await signed.text()).toBe('signed')
+		expect(signed.headers.getSetCookie()).toStrictEqual([
+			'session=token; Max-Age=60; Path=/; HttpOnly',
+			'theme=; Max-Age=0; Path=/app',
+		])
+		const none = await fetch(`${url}/none`, { method: 'POST' })
+		expect(await none.text()).toBe('same')
+	})
+})
+
+const reading = routes().get('/address', (c) => c.text(c.var.address))
+const loopback = ['127.0.0.1', '::1', '::ffff:127.0.0.1']
+
+async function addressOf(url: string, forwarded?: string): Promise<string> {
+	const headers: Record<string, string> =
+		forwarded === undefined ? {} : { 'x-forwarded-for': forwarded }
+	return (await fetch(`${url}/address`, { headers })).text()
+}
+
+/** A Node request's `env` from `connection`, with these headers. */
+function forwardedFrom(connection: string | undefined, headers: string[]) {
+	const socket = new Socket()
+	Object.defineProperty(socket, 'remoteAddress', { value: connection })
+	const incoming = new IncomingMessage(socket)
+	incoming.headersDistinct = { 'x-forwarded-for': headers }
+	return { incoming }
+}
+
+/** Whether a forwarded request from `connection` warns, without proxies. */
+function warnedFor(connection: string | undefined): boolean {
+	const lines: Line[] = []
+	const read = addresses(0, recorder(lines))
+	expect(read(forwardedFrom(connection, ['198.51.100.1']))).toBe(
+		connection ?? '',
+	)
+	return lines.length === 1
+}
+
+describe('a client’s address behind proxies (D-116)', () => {
+	it('is the entry the proxies appended, counted from the right', async () => {
+		const { url } = await server({ port: 0, proxies: 1, routes: [reading] })
+		expect(await addressOf(url, '6.6.6.6, 203.0.113.7')).toBe('203.0.113.7')
+	})
+
+	it('is the leftmost entry, or the connection’s, when fewer are sent', async () => {
+		const { url } = await server({ port: 0, proxies: 2, routes: [reading] })
+		expect(await addressOf(url, '6.6.6.6, 203.0.113.7')).toBe('6.6.6.6')
+		expect(await addressOf(url, ' 2001:db8::1 ,10.0.0.1')).toBe('2001:db8::1')
+		expect(await addressOf(url, '203.0.113.7')).toBe('203.0.113.7')
+		expect(loopback).toContain(await addressOf(url))
+	})
+
+	it('is the connection’s when the entry is not an address', async () => {
+		const { url } = await server({ port: 0, proxies: 2, routes: [reading] })
+		expect(loopback).toContain(await addressOf(url, 'unknown, 10.0.0.1'))
+		expect(loopback).toContain(
+			await addressOf(url, '203.0.113.7:4711, 10.0.0.1'),
+		)
+	})
+
+	it('ignores the header without proxies, and warns once', async () => {
+		const { url, lines } = await server({ port: 0, routes: [reading] })
+		const warnings = () => lines.filter((line) => line.level === 'warn')
+		expect(loopback).toContain(await addressOf(url))
+		expect(warnings()).toStrictEqual([])
+		const address = await addressOf(url, '203.0.113.7')
+		expect(loopback).toContain(address)
+		expect(loopback).toContain(await addressOf(url, '203.0.113.8'))
+		expect(warnings()).toStrictEqual([
+			{
+				level: 'warn',
+				first: `A request came through a proxy (X-Forwarded-For) but httpPlugin({ proxies }) is not set: every client counts as ${address}. Set it to the number of proxies in front of the server (D-116).`,
+			},
+		])
+	})
+
+	it('warns only for a loopback or private connection', () => {
+		const nearby = [
+			'127.0.0.2',
+			'10.1.2.3',
+			'172.31.0.1',
+			'192.168.1.1',
+			'100.127.0.1',
+			'::1',
+			'fd00::1',
+			'fe80::1',
+			'::ffff:10.0.0.1',
+		]
+		const away = [
+			'203.0.113.7',
+			'172.15.255.255',
+			'172.32.0.1',
+			'100.63.255.255',
+			'100.128.0.1',
+			'2001:db8::1',
+			'fec0::1',
+			'ff02::1',
+		]
+		expect(nearby.filter((each) => !warnedFor(each))).toStrictEqual([])
+		expect([...away, undefined].filter(warnedFor)).toStrictEqual([])
+	})
+
+	it('reads several headers as one list', () => {
+		const env = forwardedFrom('10.0.0.2', ['6.6.6.6', '203.0.113.7, 10.0.0.1'])
+		expect(addresses(2, recorder([]))(env)).toBe('203.0.113.7')
+		expect(addresses(3, recorder([]))(env)).toBe('6.6.6.6')
+	})
+
+	it('stops startup when proxies is not a whole number', async () => {
+		for (const proxies of [-1, 1.5, Number.NaN]) {
+			await expect(started({ port: 0, proxies })).rejects.toThrow(
+				`proxies is ${proxies}, not a whole number of proxies in front of the server (D-116).`,
+			)
+		}
 	})
 })

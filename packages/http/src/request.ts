@@ -25,8 +25,13 @@ function malformed(
 	})
 }
 
-export function hold(c: Context<HttpEnv>, caller: Caller): void {
+export function hold(
+	c: Context<HttpEnv>,
+	caller: Caller,
+	address: string,
+): void {
 	c.set('caller', caller)
+	c.set('address', address)
 	// Only parsing the body throws these here, not the server's code.
 	malformed(c, 'json', SyntaxError, 'Malformed JSON in request body')
 	const form = 'Malformed form data in request body'

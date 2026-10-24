@@ -101,7 +101,7 @@ async function hooked(
 			data,
 		})
 		Reflect.deleteProperty(data, field)
-		const set = { [field]: to, updatedAt: new Date() }
+		const set = { [field]: to, updatedAt: new Date(Date.now()) }
 		changes.push({ kind: 'update', model, where: byId(row.id), set })
 		writing.events.push({
 			model: target,
@@ -125,7 +125,7 @@ async function move(step: Move, writing: Writing): Promise<Change[]> {
 	if (target === undefined) throw new Error(`Unknown model ${model}.`)
 	const filter = await scope.filter(model, trusted)
 	const access = trusted ? undefined : scope.access
-	const set = { [field]: to, updatedAt: new Date() }
+	const set = { [field]: to, updatedAt: new Date(Date.now()) }
 	if (access === undefined && !updated(target)) {
 		return [{ kind: 'update', model, where: and(where, filter), set }]
 	}
@@ -155,7 +155,7 @@ export async function moved(
 	if (updated(target)) return hooked(step, target, rows, writing)
 	if (rows.length === 0) return []
 	const { model, field, to } = step
-	const set = { [field]: to, updatedAt: new Date() }
+	const set = { [field]: to, updatedAt: new Date(Date.now()) }
 	return [
 		{ kind: 'update', model, where: byIds(rows.map((row) => row.id)), set },
 	]

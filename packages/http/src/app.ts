@@ -11,10 +11,14 @@ import type { ContentfulStatusCode } from 'hono/utils/http-status'
 import { getPath } from 'hono/utils/url'
 import type { Caller, ErrorCode, Logger } from 'ultimabase'
 import { PublicError } from 'ultimabase'
+import { addresses, proxiesOf } from './address.ts'
 import { hold } from './request.ts'
 
-/** What a route's context holds: `c.var.caller` (D-106). */
-export type HttpEnv = { Variables: { caller: Caller } }
+/**
+ * What a route's context holds: `c.var.caller` (D-106) and `c.var.address`,
+ * the client's, `''` when unknown (D-113, D-116).
+ */
+export type HttpEnv = { Variables: { caller: Caller; address: string } }
 
 /** Routes the application writes, read by `httpPlugin({ routes })`. */
 export type Routes = Hono<HttpEnv>
@@ -29,6 +33,8 @@ export interface HttpOptions {
 	readonly port?: number
 	/** In bytes; 1 MB by default. */
 	readonly bodyLimit?: number
+	/** In front of the server, which then reads the client's address from `X-Forwarded-For`; 0 by default (D-116). */
+	readonly proxies?: number
 }
 
 const statuses: ReadonlyMap<string, ContentfulStatusCode> = new Map<
@@ -40,6 +46,9 @@ const statuses: ReadonlyMap<string, ContentfulStatusCode> = new Map<
 	['VALIDATION_FAILED', 400],
 	['UNIQUE_VIOLATION', 409],
 	['RELATION_RESTRICTED', 409],
+	['UNAUTHENTICATED', 401],
+	['INVALID_CREDENTIALS', 401],
+	['TOO_MANY_ATTEMPTS', 429],
 	['INTERNAL', 500],
 ])
 
@@ -64,6 +73,15 @@ function failed(error: unknown, c: Context, logger: Logger): Response {
 		const { code, message, details } = error
 		// An application's own code is a client error (D-72).
 		const status = statuses.get(code) ?? 400
+		// Its details say when to retry, in seconds (D-113).
+		if (
+			code === 'TOO_MANY_ATTEMPTS' &&
+			typeof details === 'object' &&
+			details !== null
+		) {
+			const wait: unknown = Reflect.get(details, 'retryAfter')
+			if (typeof wait === 'number') c.header('retry-after', String(wait))
+		}
 		return details === undefined
 			? c.json({ code, message }, status)
 			: c.json({ code, message, details }, status)
@@ -108,6 +126,7 @@ export function appOf(
 	const listed = options.cors ?? []
 	const local = process.env['NODE_ENV'] !== 'production'
 	const maxSize = options.bodyLimit ?? 1024 * 1024
+	const addressOf = addresses(proxiesOf(options.proxies), logger)
 	const app = new Hono<HttpEnv>({ getPath: pathOf })
 	// Each request once answered, outside production (D-108).
 	if (local) {
@@ -129,7 +148,8 @@ export function appOf(
 	})
 	const allowed = (origin: string) =>
 		listed.includes(origin) || (local && isLocal(origin)) ? origin : null
-	const preflight = cors({ origin: allowed })
+	// An allowed origin sends its cookies, as auth's session (D-112).
+	const preflight = cors({ origin: allowed, credentials: true })
 	app.use(async (c, next) => {
 		// Hono's `cors` answers every OPTIONS: a route's own runs, unless the
 		// request is a preflight.
@@ -139,7 +159,10 @@ export function appOf(
 		}
 		await next()
 		const origin = allowed(c.req.header('origin') ?? '')
-		if (origin !== null) c.header('access-control-allow-origin', origin)
+		if (origin !== null) {
+			c.header('access-control-allow-origin', origin)
+			c.header('access-control-allow-credentials', 'true')
+		}
 		c.header('vary', 'Origin', { append: true })
 	})
 	app.use(
@@ -156,7 +179,7 @@ export function appOf(
 		}),
 	)
 	app.use(async (c, next) => {
-		hold(c, await identify(c.req.raw))
+		hold(c, await identify(c.req.raw), addressOf(c.env))
 		await next()
 	})
 	for (const routes of [...(options.routes ?? []), ...mounted]) {
