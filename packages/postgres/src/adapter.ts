@@ -154,7 +154,15 @@ export function createAdapter(options: Options): Adapter {
 				find: async (read) => find(catalog, trx, read),
 				count: async (read) => count(catalog, trx, read),
 				write: async (given) => write(catalog, trx, given),
-				commit: async () => trx.commit().execute(),
+				commit: async () => {
+					try {
+						await trx.commit().execute()
+					} catch (error) {
+						// A failed COMMIT keeps its connection until a ROLLBACK frees it.
+						await trx.rollback().execute()
+						throw error
+					}
+				},
 				rollback: async () => trx.rollback().execute(),
 			}
 		},

@@ -384,6 +384,28 @@ describe('a write on postgres()', () => {
 		expect(found?.['id']).toBe(book.id)
 		expect(sent[1]).toContain('for update')
 	})
+
+	it('gives back its connection when a commit fails', async () => {
+		// More failed commits than the pool holds connections.
+		for (let attempt = 0; attempt < 11; attempt += 1) {
+			const tx = await adapter.begin()
+			await tx.write({
+				changes: [
+					{
+						kind: 'link',
+						model: 'Book',
+						field: 'tags',
+						id: book.id,
+						targets: [randomUUID()],
+					},
+				],
+			})
+			// The foreign key is checked at commit (D-98).
+			await expect(tx.commit()).rejects.toMatchObject({ code: '23503' })
+		}
+		const found = await adapter.find(tags(book.id))
+		expect(found[0]?.['tags']).toHaveLength(1)
+	}, 2000)
 })
 
 const quiet: Logger = {
