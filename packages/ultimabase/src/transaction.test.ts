@@ -1,8 +1,15 @@
 // Transactions (D-36, D-88): one operation, or one `transaction` callback,
 // commits or rolls back as a whole; the `*Commit` hooks run after the commit.
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import type { Logger } from './index.ts'
-import { defineApp, defineModel, master, memory, transaction } from './index.ts'
+import type { Adapter, Logger } from './index.ts'
+import {
+	defineApp,
+	defineModel,
+	master,
+	memory,
+	RelationViolation,
+	transaction,
+} from './index.ts'
 
 const M = { as: master }
 const log: string[] = []
@@ -154,6 +161,59 @@ describe('a started application', () => {
 	it('is the only one running', async () => {
 		await expect(started().start()).rejects.toThrow(
 			'An application is already running; stop it first.',
+		)
+	})
+})
+
+/** Refuses each write alone and each commit, as a foreign key that raced. */
+function refusing(error: Error): Adapter {
+	const base = memory()
+	return {
+		...base,
+		write: async () => {
+			throw error
+		},
+		begin: async () => {
+			const tx = await base.begin()
+			return {
+				...tx,
+				commit: async () => {
+					await tx.rollback()
+					throw error
+				},
+			}
+		},
+	}
+}
+
+async function restart(error: Error): Promise<void> {
+	await app.stop()
+	app = defineApp({ database: refusing(error), models: [Account] })
+	await app.start()
+}
+
+describe('a relation the database refuses (D-99)', () => {
+	it('reports a missing target as the connect check does', async () => {
+		await restart(new RelationViolation('Account', 'team', 'Team', false))
+		await expect(create('ada')).rejects.toMatchObject({
+			code: 'NOT_FOUND',
+			message: 'A connected Team does not exist.',
+		})
+	})
+
+	it('reports a restricted delete at the commit as the cascade does', async () => {
+		await restart(new RelationViolation('Account', 'team', 'Team', true))
+		await expect(transaction(async () => create('ada'))).rejects.toMatchObject({
+			code: 'RELATION_RESTRICTED',
+			message: 'Account.team references a Team the delete removes (D-54).',
+			details: { model: 'Account', field: 'team' },
+		})
+	})
+
+	it('passes on any other refusal of the commit', async () => {
+		await restart(new Error('The server went away.'))
+		await expect(transaction(async () => create('ada'))).rejects.toThrow(
+			'The server went away.',
 		)
 	})
 })

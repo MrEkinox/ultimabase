@@ -137,9 +137,14 @@ export function createAdapter(options: Options): Adapter {
 			const statements = compileWrite(catalog, given)
 			// One statement is atomic alone: no BEGIN, no COMMIT (D-99).
 			if (statements.length <= 1) return run(catalog, db, given, statements)
-			return db
-				.transaction()
-				.execute(async (trx) => run(catalog, trx, given, statements))
+			try {
+				return await db
+					.transaction()
+					.execute(async (trx) => run(catalog, trx, given, statements))
+			} catch (error) {
+				// A deferred foreign key checks at the COMMIT (D-99).
+				throw translate(catalog, error)
+			}
 		},
 		migrations: {
 			snapshot: (schema) => snapshotOf(new Catalog(schema)),
@@ -165,7 +170,7 @@ export function createAdapter(options: Options): Adapter {
 					} catch (error) {
 						// A failed COMMIT keeps its connection until a ROLLBACK frees it.
 						await trx.rollback().execute()
-						throw error
+						throw translate(catalog, error)
 					}
 				},
 				rollback: async () => trx.rollback().execute(),

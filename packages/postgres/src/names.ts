@@ -56,11 +56,20 @@ export function constraint(name: string): string {
 	return `${head}_${hash}`
 }
 
+/** The relation field a foreign key belongs to, and the model it links. */
+export type Relation = {
+	readonly model: string
+	readonly field: string
+	readonly target: string
+}
+
 export class Catalog {
 	readonly tables: ReadonlyMap<string, Table>
 	readonly joins: ReadonlyMap<string, Join>
 	/** Constraint name → the model and fields a refusal reports. */
 	readonly uniques: ReadonlyMap<string, { model: string; fields: string[] }>
+	/** Foreign key name → the relation a refusal reports (D-99). */
+	readonly foreignKeys: ReadonlyMap<string, Relation>
 
 	constructor(schema: Schema) {
 		const tables = new Map<string, Table>()
@@ -96,6 +105,7 @@ export class Catalog {
 		}
 		this.uniques = uniques
 		this.joins = this.joinsOf()
+		this.foreignKeys = this.foreignKeysOf()
 	}
 
 	table(model: string): Table {
@@ -127,6 +137,26 @@ export class Catalog {
 		const join = this.joins.get(`${model}.${field}`)
 		if (join === undefined) throw new Error(`${model}.${field} has no join.`)
 		return join
+	}
+
+	/** Named as the snapshot names them: a `one` key, a join's column. */
+	private foreignKeysOf(): Map<string, Relation> {
+		const keys = new Map<string, Relation>()
+		for (const table of this.tables.values()) {
+			const model = table.model.name
+			for (const field of table.model.fields) {
+				let key: string
+				if (field.kind === 'one' && field.stored) {
+					key = `${table.name}_${this.column(table, field.name)}_fkey`
+				} else if (field.kind === 'many' && field.join) {
+					const join = this.join(model, field.name)
+					key = `${join.table}_${join.other}_fkey`
+				} else continue
+				const target = field.target
+				keys.set(constraint(key), { model, field: field.name, target })
+			}
+		}
+		return keys
 	}
 
 	/**

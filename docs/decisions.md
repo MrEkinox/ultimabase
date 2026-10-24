@@ -3525,6 +3525,16 @@ Choice:
    refuse it as a `uuid` before a check could.
 7. The contract suite counts round trips, BEGIN, COMMIT and ROLLBACK
    included: `testAdapter(name, create, { roundTrips })` (D-98).
+8. A race the checks miss (amended 2026-10-24). A connect check takes no
+   lock, so a concurrent delete can commit between it and the COMMIT, where
+   PostgreSQL's deferred foreign key refuses the write. The adapter throws
+   `RelationViolation(model, field, target, restricted)` for a foreign key
+   it knows, and the kernel reports what the checks would have reported in
+   either order: `NOT_FOUND`, "A connected Genre does not exist.", for a
+   target deleted meanwhile; `RELATION_RESTRICTED` (D-54) for a delete a
+   row linked meanwhile restricts. PostgreSQL's message alone tells the two
+   apart: a server whose messages are not in English reports each one as
+   `NOT_FOUND`.
 
 Why:
 
@@ -3543,6 +3553,8 @@ Rejected:
 - A transaction around every write.
 - Serializable isolation instead of row locks: a conflicting write fails
   and the application retries it.
+- Locking each connected row (`for key share`) to rule out the race: a lock
+  on every connect for a race a refusal already reports.
 - Skipping the read of an update by a unique field other than `id`: the
   read after it follows the row by `id`, which the kernel has not loaded.
 

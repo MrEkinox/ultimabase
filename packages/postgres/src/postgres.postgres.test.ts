@@ -15,6 +15,8 @@ import {
 	defineApp,
 	defineModel,
 	master,
+	RelationViolation,
+	transaction,
 	UniqueViolation,
 } from 'ultimabase'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
@@ -309,6 +311,38 @@ describe('a write on postgres()', () => {
 		])
 	})
 
+	it('reports a link its own COMMIT refuses', async () => {
+		const failed = adapter.write({
+			changes: [
+				{
+					kind: 'link',
+					model: 'Book',
+					field: 'tags',
+					id: book.id,
+					targets: [randomUUID()],
+				},
+				{
+					kind: 'unlink',
+					model: 'Book',
+					field: 'tags',
+					id: book.id,
+					targets: [first.id],
+				},
+				{
+					kind: 'link',
+					model: 'Tag',
+					field: 'books',
+					id: first.id,
+					targets: [book.id],
+				},
+			],
+		})
+		await expect(failed).rejects.toEqual(
+			new RelationViolation('Book', 'tags', 'Tag', false),
+		)
+		expect(sent.slice(-2)).toEqual(['commit', 'rollback'])
+	})
+
 	it('writes nothing when a check fails, and names it', async () => {
 		const failed = adapter.write({
 			checks: [
@@ -429,7 +463,9 @@ describe('a write on postgres()', () => {
 				],
 			})
 			// The foreign key is checked at commit (D-98).
-			await expect(tx.commit()).rejects.toMatchObject({ code: '23503' })
+			await expect(tx.commit()).rejects.toEqual(
+				new RelationViolation('Book', 'tags', 'Tag', false),
+			)
 		}
 		const found = await adapter.find(tags(book.id))
 		expect(found[0]?.['tags']).toHaveLength(1)
@@ -487,6 +523,72 @@ describe('a user write on postgres()', () => {
 	})
 })
 
+const M = { as: master }
+
+const Genre = defineModel({
+	name: 'Genre',
+	fields: (f) => ({ songs: f.many(() => Song) }),
+})
+const Song = defineModel({
+	name: 'Song',
+	fields: (f) => ({ genre: f.one(() => Genre, { inverse: 'songs' }) }),
+})
+
+describe('a write that races a delete on postgres()', () => {
+	const url = urls[0] ?? ''
+	let schema = ''
+	let database: Adapter
+	let app: ReturnType<typeof defineApp>
+	beforeEach(async () => {
+		schema = `t_${randomUUID().replaceAll('-', '')}`
+		await run(url, `create schema "${schema}"`)
+		database = createAdapter({ url: inSchema(url, schema) })
+		app = defineApp({ database, models: [Genre, Song], logger: quiet })
+		await app.start()
+	})
+	afterEach(async () => {
+		await app.stop()
+		await run(url, `drop schema "${schema}" cascade`)
+	})
+
+	it('reports a connected row deleted before its commit as missing', async () => {
+		const genre = await Genre.create({ data: {} }, M)
+		const linked = Promise.withResolvers<void>()
+		const deleted = Promise.withResolvers<void>()
+		const linking = transaction(async () => {
+			await Song.create({ data: { genre: { connect: { id: genre.id } } } }, M)
+			linked.resolve()
+			await deleted.promise
+		})
+		await linked.promise
+		// Outside the transaction: the delete sees no song and commits first.
+		await Genre.delete({ where: { id: genre.id } }, M)
+		deleted.resolve()
+		await expect(linking).rejects.toMatchObject({
+			code: 'NOT_FOUND',
+			message: 'A connected Genre does not exist.',
+		})
+		expect(await Song.count({}, M)).toBe(0)
+	})
+
+	it('tells a delete its own COMMIT restricts', async () => {
+		const genre = await Genre.create({ data: {} }, M)
+		const tx = await database.begin()
+		// The delete's check is due first at the commit.
+		await tx.write({
+			changes: [{ kind: 'delete', model: 'Genre', where: byId(genre.id) }],
+		})
+		await tx.write({
+			changes: [
+				{ kind: 'insert', model: 'Song', row: { ...stamp(), genre: genre.id } },
+			],
+		})
+		await expect(tx.commit()).rejects.toEqual(
+			new RelationViolation('Song', 'genre', 'Genre', true),
+		)
+	})
+})
+
 describe('the catalog', () => {
 	const catalog = new Catalog(thing)
 
@@ -507,9 +609,14 @@ describe('the catalog', () => {
 		)
 	})
 
-	it('passes on a unique refusal it does not know', () => {
-		const error = { code: '23505', constraint: 'elsewhere_key' }
-		expect(translate(catalog, error)).toBe(error)
+	it('passes on a refusal it does not know', () => {
+		for (const code of ['23505', '23503']) {
+			const error = Object.assign(new Error('refused'), {
+				code,
+				constraint: 'elsewhere_key',
+			})
+			expect(translate(catalog, error)).toBe(error)
+		}
 	})
 
 	it('refuses a server below PostgreSQL 15', () => {

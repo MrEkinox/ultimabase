@@ -7,7 +7,7 @@
 import type { RawBuilder } from 'kysely'
 import { sql } from 'kysely'
 import type { Change, Check, Filter, Read, Write } from 'ultimabase'
-import { UniqueViolation } from 'ultimabase'
+import { RelationViolation, UniqueViolation } from 'ultimabase'
 import type { Sql } from './filter.ts'
 import { Filters, uuid, value } from './filter.ts'
 import type { Catalog, Table } from './names.ts'
@@ -333,24 +333,36 @@ export function compileWrite(catalog: Catalog, write: Write): Statement[] {
 	})
 }
 
-function isUniqueError(
-	error: unknown,
-): error is { readonly code: string; readonly constraint: string } {
+type Refusal = {
+	readonly code: string
+	readonly constraint: string
+	readonly message: string
+}
+
+function isRefusal(error: unknown): error is Refusal {
 	return (
-		typeof error === 'object' &&
-		error !== null &&
+		error instanceof Error &&
 		'code' in error &&
-		error.code === '23505' &&
+		typeof error.code === 'string' &&
 		'constraint' in error &&
 		typeof error.constraint === 'string'
 	)
 }
 
-/** A unique constraint's refusal as the kernel's error; any other as is. */
+/** A constraint's refusal as the kernel's error; any other as is. */
 export function translate(catalog: Catalog, error: unknown): unknown {
-	if (!isUniqueError(error)) return error
-	const unique = catalog.uniques.get(error.constraint)
-	return unique === undefined
-		? error
-		: new UniqueViolation(unique.model, unique.fields)
+	if (!isRefusal(error)) return error
+	if (error.code === '23505') {
+		const unique = catalog.uniques.get(error.constraint)
+		if (unique !== undefined) {
+			return new UniqueViolation(unique.model, unique.fields)
+		}
+	}
+	const key = catalog.foreignKeys.get(error.constraint)
+	if (error.code === '23503' && key !== undefined) {
+		// Only the message tells the deleting side from the linking one.
+		const restricted = error.message.startsWith('update or delete')
+		return new RelationViolation(key.model, key.field, key.target, restricted)
+	}
+	return error
 }

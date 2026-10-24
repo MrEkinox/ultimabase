@@ -268,6 +268,36 @@ export class UniqueViolation extends Error {
 	}
 }
 
+/**
+ * A foreign key refused a write that raced another (D-99): `model.field`
+ * links a `target` deleted meanwhile, or, `restricted`, the write deleted a
+ * `target` that `model.field` still links.
+ */
+export class RelationViolation extends Error {
+	readonly model: string
+	readonly field: string
+	readonly target: string
+	readonly restricted: boolean
+
+	constructor(
+		model: string,
+		field: string,
+		target: string,
+		restricted: boolean,
+	) {
+		super(
+			restricted
+				? `${model}.${field} still links a deleted ${target}.`
+				: `${model}.${field} links a missing ${target}.`,
+		)
+		this.name = 'RelationViolation'
+		this.model = model
+		this.field = field
+		this.target = target
+		this.restricted = restricted
+	}
+}
+
 /** A check of a write found another count: nothing was written (D-99). */
 export class CheckFailed extends Error {
 	readonly index: number
