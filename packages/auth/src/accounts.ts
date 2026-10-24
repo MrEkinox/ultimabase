@@ -47,6 +47,18 @@ export async function accountOf(
 	return account === undefined ? undefined : { userId: account.userId }
 }
 
+/** The subject `userId` is known by to `method`, if linked (D-117). */
+export async function subjectOf(
+	userId: string,
+	method: string,
+): Promise<string | undefined> {
+	const [account] = await AuthAccount.findMany(
+		{ where: { userId, method }, take: 1 },
+		M,
+	)
+	return account?.subject
+}
+
 /** Unlinks every account of a user. */
 export async function unlinkAccounts(userId: string): Promise<void> {
 	await AuthAccount.deleteMany({ where: { userId } }, M)

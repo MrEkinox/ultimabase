@@ -5362,6 +5362,10 @@ Choice: completes D-113 point 12 and D-115.
    `signUp` function sends the verification email once the user exists;
    the `User.signUp` command sends nothing. `signUp` keeps refusing a taken
    email with `UNIQUE_VIOLATION` (D-115).
+9. `sendVerificationEmail` sends to the email of the user's password
+   account, which `AuthApi.subjectOf(userId, method)` reads: the reverse of
+   `accountOf`, since auth keeps the accounts. For an email already
+   verified, it returns `true` and sends nothing.
 
 Why: without a reset, a forgotten password needs an administrator; without
 verification, an application cannot tell whether an email reaches its

@@ -157,7 +157,7 @@ Exit: a full CRUD example over GraphQL against PostgreSQL.
 - [x] Decide password reset and email verification (D-113, D-117).
 - [x] Password reset: `sendEmail`, `requestPasswordReset`, `resetPassword`
       (D-117).
-- [ ] Email verification: `emailVerified`, `verifyEmail`,
+- [x] Email verification: `emailVerified`, `verifyEmail`,
       `sendVerificationEmail` (D-117).
 
 Exit: an example with sign-up, sign-in and rules on `caller.user`.

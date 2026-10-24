@@ -81,7 +81,8 @@ for (const url of urls) {
 					await PasswordRequest.count({ where: { kind: 'email' } }, M),
 				).toBe(3)
 			})
-			expect(await PasswordToken.count({}, M)).toBe(1)
+			// Sign-up's verification email counts among the three.
+			expect(await PasswordToken.count({}, M)).toBe(2)
 			const reset = async (token: string) =>
 				graphqlOf(
 					running.url,
@@ -90,7 +91,7 @@ for (const url of urls) {
 				)
 			// The token's expiry is compared once read.
 			vi.spyOn(Date, 'now').mockReturnValue(now + 60 * 60 * 1000 - 1)
-			const token = outbox.at(-1)?.token ?? ''
+			const token = outbox.findLast(({ kind }) => kind === 'reset')?.token ?? ''
 			expect((await reset(token)).body).toEqual({
 				data: { resetPassword: true },
 			})
@@ -98,6 +99,8 @@ for (const url of urls) {
 			const input = { input: { ...ada, password: 'new secret!' } }
 			const signed = await graphqlOf(running.url, signInQuery, input)
 			expect(JSON.stringify(signed.body)).toContain('"name":"Ada"')
+			const user = await User.findFirst({}, M)
+			expect(user?.emailVerified).toBe(true)
 			// Past one hour, the counts are purged and another email goes.
 			vi.spyOn(Date, 'now').mockReturnValue(now + 60 * 60 * 1000)
 			await request()

@@ -10,7 +10,7 @@ import { password, passwordPlugin } from '../index.ts'
 
 export const M = { as: master }
 
-// Each user reads their own row, but never its note.
+// Each user reads and updates their own row, but never reads its note.
 export const User = defineUser({
 	name: 'User',
 	use: [graphql(), password()],
@@ -22,7 +22,12 @@ export const User = defineUser({
 		}),
 	}),
 }).with({
-	access: { read: signedIn(({ user, where }) => where({ id: user.id })) },
+	access: {
+		read: signedIn(({ user, where }) => where({ id: user.id })),
+		create: allow.public,
+		update: ({ caller, record }) =>
+			caller.kind === 'user' && caller.user.id === record.id,
+	},
 })
 
 function listening(lines: string[], errors: string[]): Logger {

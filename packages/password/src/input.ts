@@ -277,6 +277,12 @@ export const resetPasswordInput: StandardSchema<
 	]),
 )
 
+/** What `verifyEmail` takes: the email's token (D-117). */
+export const verifyEmailInput: StandardSchema<
+	Named<{ readonly token: string }>,
+	Named<{ readonly token: string }>
+> = namedInput('VerifyEmail', new Map([['token', property(text, string)]]))
+
 /** The email, the password and the listed user fields, by their names. */
 export const signUpInput = (
 	fields: ReadonlyMap<string, Property>,

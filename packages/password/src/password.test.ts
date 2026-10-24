@@ -586,6 +586,9 @@ describe('starting', () => {
 		await expect(start([User], ['id'])).rejects.toThrow(
 			'User.id is not a field',
 		)
+		await expect(start([User], ['name', 'emailVerified'])).rejects.toThrow(
+			'User.emailVerified is not a field',
+		)
 		await expect(start([User], [])).rejects.toThrow(
 			'passwordPlugin({ signUp }): User needs name to be created; list them (D-113).',
 		)

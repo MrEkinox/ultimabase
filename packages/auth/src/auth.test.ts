@@ -354,6 +354,19 @@ describe('linked accounts', () => {
 		).resolves.toBeUndefined()
 	})
 
+	it('give the subject a user is known by to a method', async () => {
+		const { ada } = await server()
+		const grace = await User.create({ data: { email: 'grace@example.com' } }, M)
+		const auth = given.auth
+		await auth?.linkAccount(grace.id, 'password', 'grace@example.com')
+		await auth?.linkAccount(ada.id, 'google', '1234')
+		await auth?.linkAccount(ada.id, 'password', 'ada@example.com')
+		await expect(auth?.subjectOf(ada.id, 'password')).resolves.toBe(
+			'ada@example.com',
+		)
+		await expect(auth?.subjectOf(ada.id, 'github')).resolves.toBeUndefined()
+	})
+
 	it('take a method’s subject once', async () => {
 		const { ada } = await server()
 		const grace = await User.create({ data: { email: 'grace@example.com' } }, M)

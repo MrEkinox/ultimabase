@@ -19,6 +19,7 @@ import {
 	accountOf,
 	AuthAccount,
 	linkAccount,
+	subjectOf,
 	unlinkAccounts,
 } from './accounts.ts'
 import type { Users } from './functions.ts'
@@ -58,6 +59,8 @@ export interface AuthApi {
 		method: string,
 		subject: string,
 	): Promise<{ readonly userId: string } | undefined>
+	/** The subject `userId` is known by to `method`, if linked (D-117). */
+	subjectOf(userId: string, method: string): Promise<string | undefined>
 }
 
 /** auth's commands on the user model (D-113). */
@@ -184,6 +187,7 @@ const auth = definePlugin<Auth>({
 			revokeSessions,
 			linkAccount,
 			accountOf,
+			subjectOf,
 		}
 	},
 	identify: async (request, context) => {

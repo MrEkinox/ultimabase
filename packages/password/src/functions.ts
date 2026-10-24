@@ -11,6 +11,8 @@ import {
 	signedIn,
 	verified,
 } from './core.ts'
+import type { Mailer } from './email-functions.ts'
+import { later } from './email-functions.ts'
 import type { Property } from './input.ts'
 import { requestLimited } from './models.ts'
 import {
@@ -29,11 +31,15 @@ function nullable(model: ExposedModel['model']): OutputSpec {
 	return Reflect.apply(make, model, []) as OutputSpec
 }
 
-/** The functions, `signUp` only when sign-up is open; each is public. */
+/**
+ * The functions, `signUp` only when sign-up is open; each is public. With a
+ * `mailer`, `signUp` sends the verification email (D-117).
+ */
 export function passwordFunctions(
 	stateOf: () => State,
 	users: ExposedModel,
 	fields: ReadonlyMap<string, Property> | false,
+	mailer: Mailer | undefined,
 ): readonly FunctionShape[] {
 	const SignedIn = defineType({
 		name: 'SignedIn',
@@ -52,6 +58,11 @@ export function passwordFunctions(
 			if (client !== undefined) await requestLimited('signUp', client.address)
 			const { email, password, ...data } = input
 			const { user, stamp } = await createUser(state, email, password, data)
+			if (mailer !== undefined) {
+				later(state, async () => {
+					await mailer('verify', user.id, email)
+				})
+			}
 			return signedIn(state, { userId: user.id, stamp }, client)
 		},
 	}).with({ access: allow.public })

@@ -6,6 +6,7 @@ import type {
 	Caller,
 	Client,
 	ExposedModel,
+	Field,
 	PluginOf,
 	PluginTypes,
 	Queries,
@@ -24,7 +25,7 @@ import {
 	verified,
 } from './core.ts'
 import type { SendEmail } from './email-functions.ts'
-import { emailFunctions } from './email-functions.ts'
+import { emailFunctions, mailerOf } from './email-functions.ts'
 import { passwordFunctions } from './functions.ts'
 import type { Credentials, Property } from './input.ts'
 import { emailOf, fieldProperty, passwordOf, valid } from './input.ts'
@@ -86,6 +87,9 @@ export interface Password extends PluginTypes {
 	readonly name: 'password'
 	readonly requires: Auth
 	readonly appOptions: PasswordOptions
+	readonly addedFields: {
+		readonly emailVerified: Field<boolean, { readonly default: false }>
+	}
 	readonly commands: PasswordCommands<this['fields']>
 }
 
@@ -118,7 +122,14 @@ function usersOf(models: readonly ExposedModel[]): ExposedModel {
 	return first
 }
 
-const reserved = new Set(['id', 'createdAt', 'updatedAt', 'email', 'password'])
+const reserved = new Set([
+	'id',
+	'createdAt',
+	'updatedAt',
+	'email',
+	'password',
+	'emailVerified',
+])
 
 /** The listed fields' properties; an unknown, a reserved or a missing one stops startup. */
 function signUpFields(
@@ -193,6 +204,12 @@ const definition = definePlugin<Password>({
 	manifest,
 	requires: { auth: authPlugin },
 	models: [PasswordHash, PasswordAttempt, PasswordRequest, PasswordToken],
+	addedFields: (f) => ({
+		// Only Master confirms an email: rules read it (D-117).
+		emailVerified: f.boolean({ default: false }).with({
+			access: { create: () => false, update: () => false },
+		}),
+	}),
 	hooks: {
 		// The user's hash and tokens go with them (D-113, D-117).
 		afterDelete: async ({ record }) => {
@@ -216,7 +233,7 @@ const definition = definePlugin<Password>({
 					checked,
 				)
 				// oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the user model's row, created by its own queries.
-				return user as UserRow<object>
+				return user as UserRow<Password['addedFields']>
 			},
 			signIn: async ({ email, password }, options) => {
 				const state = stateOf(plugins.auth)
@@ -226,7 +243,7 @@ const definition = definePlugin<Password>({
 				const checked = await verified(state, subject, password, attempt)
 				const opened = await signedIn(state, checked, client)
 				// oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the user model's row, read by its own queries.
-				return opened as SignedIn<UserRow<object>>
+				return opened as SignedIn<UserRow<Password['addedFields']>>
 			},
 			setPassword: async ({ id, password }, options) => {
 				const caller = callerOf(options)
@@ -258,9 +275,10 @@ const definition = definePlugin<Password>({
 		const { users, fields } = configOf(options, models)
 		const state = () => stateOf(plugins.auth)
 		const { sendEmail } = options
+		const mailer = sendEmail === undefined ? undefined : mailerOf(sendEmail)
 		return [
-			...passwordFunctions(state, users, fields),
-			...(sendEmail === undefined ? [] : emailFunctions(state, sendEmail)),
+			...passwordFunctions(state, users, fields, mailer),
+			...(mailer === undefined ? [] : emailFunctions(state, mailer)),
 		]
 	},
 })
