@@ -37,7 +37,7 @@ function scalars(model: ModelInfo): string[] {
 function integer(value: unknown, path: string, least?: number): number {
 	if (
 		typeof value !== 'number' ||
-		!Number.isInteger(value) ||
+		!Number.isSafeInteger(value) ||
 		(least !== undefined && value < least)
 	) {
 		const range = least === undefined ? '' : ` of at least ${least}`

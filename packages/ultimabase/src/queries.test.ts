@@ -74,6 +74,9 @@ describe('on the library', () => {
 	it('checks order, pages and cursors', async () => {
 		expect(await books({ take: 1.5 })).toBe('take')
 		expect(await books({ skip: -1 })).toBe('skip')
+		// Beyond a safe integer a database would fail, or count wrong.
+		expect(await books({ take: 2 ** 53 })).toBe('take')
+		expect(await books({ skip: 1e300 })).toBe('skip')
 		expect(await books({ orderBy: { author: 'asc' } })).toBe('orderBy.author')
 		expect(await books({ orderBy: { ghost: 'asc' } })).toBe('orderBy.ghost')
 		expect(await books({ orderBy: [{ title: 'up' }] })).toBe('orderBy.0.title')
