@@ -14,13 +14,15 @@ type Package = {
 const isPackage = (value: unknown): value is Package =>
 	typeof value === 'object' && value !== null && 'version' in value
 
-const packages = readdirSync('packages').map((directory): Package => {
-	const read: unknown = JSON.parse(
-		readFileSync(join('packages', directory, 'package.json'), 'utf8'),
-	)
-	if (!isPackage(read)) throw new TypeError(`${directory} has no version.`)
-	return read
-})
+const packages = readdirSync('packages', { withFileTypes: true })
+	.filter((entry) => entry.isDirectory())
+	.map(({ name: directory }): Package => {
+		const read: unknown = JSON.parse(
+			readFileSync(join('packages', directory, 'package.json'), 'utf8'),
+		)
+		if (!isPackage(read)) throw new TypeError(`${directory} has no version.`)
+		return read
+	})
 const kernel = packages.find(({ name }) => name === 'ultimabase')
 
 it('publishes every package at the version of the kernel', () => {
