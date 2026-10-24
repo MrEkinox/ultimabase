@@ -31,6 +31,7 @@
 		"oxlint-tsgolint": "7.0.2004",
 		"pg": "8.23.1",
 		"prettier": "^3.6.2",
+		"semver": "7.8.5",
 		"typescript": "7.0.2",
 		"vite": "8.3.4",
 		"vitest": "5.0.5",

@@ -11,10 +11,13 @@
 	"exports": {
 		".": "./src/index.ts"
 	},
-	"dependencies": {
-		"ultimabase": "workspace:*"
-	},
 	"peerDependencies": {
+		"ultimabase": "^0.0.0",
+		"vitest": "^5.0.5"
+	},
+	"devDependencies": {
+		"ultimabase": "workspace:*",
+		"vite": "8.3.4",
 		"vitest": "5.0.5"
 	}
 }
