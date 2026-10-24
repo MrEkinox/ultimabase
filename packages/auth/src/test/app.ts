@@ -111,7 +111,7 @@ export async function signIn(
 ) {
 	const response = await fetch(`${url}/sign-in`, {
 		method: 'POST',
-		headers,
+		headers: { 'content-type': 'application/json', ...headers },
 		body: JSON.stringify({ id }),
 	})
 	const body: unknown = await response.json()

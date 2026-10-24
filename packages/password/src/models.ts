@@ -109,10 +109,9 @@ async function nth(
 
 /**
  * Counts an attempt as failed until `run` succeeds, so concurrent attempts
- * cannot pass the limit; the eleventh from one address within 15 minutes is
- * refused, as the 101st from any (D-114) and the 101st from one address on
- * any subject, and a success clears its address's count (D-113). An attempt
- * refused as busy is not counted (D-114).
+ * cannot pass the limit (D-113, D-114). Within 15 minutes, the 11th from one
+ * address on a subject is refused, as the 101st on it or from the address;
+ * a success clears its address's count, a busy refusal is not counted.
  */
 export async function limited<T>(
 	attempt: Attempt,
