@@ -585,11 +585,12 @@ describe('a client’s address behind proxies (D-116)', () => {
 		expect(await addressOf(url, '6.6.6.6, 203.0.113.7')).toBe('203.0.113.7')
 	})
 
-	it('is the leftmost entry, or the connection’s, when fewer are sent', async () => {
+	it('is the connection’s when fewer entries than proxies are sent', async () => {
 		const { url } = await server({ port: 0, proxies: 2, routes: [reading] })
 		expect(await addressOf(url, '6.6.6.6, 203.0.113.7')).toBe('6.6.6.6')
 		expect(await addressOf(url, ' 2001:db8::1 ,10.0.0.1')).toBe('2001:db8::1')
-		expect(await addressOf(url, '203.0.113.7')).toBe('203.0.113.7')
+		// A client that went around the proxies wrote this entry itself.
+		expect(loopback).toContain(await addressOf(url, '203.0.113.7'))
 		expect(loopback).toContain(await addressOf(url))
 	})
 

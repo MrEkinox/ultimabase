@@ -5323,8 +5323,8 @@ from the request.
    server, 0 by default: a whole number, or startup fails.
 2. With `proxies: n`, a client's address is the n-th entry of
    `X-Forwarded-For` from the right, each proxy having appended the address
-   it saw. With fewer entries, it is the leftmost; with none, the
-   connection's.
+   it saw. With fewer entries, or none, it is the connection's (amended
+   2026-10-24).
 3. When that entry is not an IP address, the address is the connection's.
 4. Only `X-Forwarded-For` is read: neither `Forwarded`, nor a host's own
    header, nor the forwarded protocol or host. The cookie's `Secure` still
@@ -5337,8 +5337,11 @@ Why: behind a proxy every client has the proxy's address, so ten wrong
 passwords from anyone lock an account for everyone (D-113). A client writes
 what it wants on the left of `X-Forwarded-For`; only the entries the proxies
 appended can be trusted, and their number is what the application knows of
-its hosting. Trusting the header by default would let any client of a
-server reached directly pick its address and escape every limit. An entry
+its hosting. Fewer entries than proxies means the request went around one,
+so the client may have written all of them: taking the leftmost let a
+client that reaches the server directly pick a new address for each
+request. Trusting the header by default would let any client of a server
+reached directly pick its address and escape every limit. An entry
 that is not an address, from a proxy that appends a port for instance,
 would give a limit per value written. The warning names a mistake that
 otherwise shows only when accounts are locked; a public address does not

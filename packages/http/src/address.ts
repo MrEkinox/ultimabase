@@ -62,11 +62,12 @@ export function addresses(
 			}
 			return connection
 		}
-		// Each proxy appended the address it saw: the client's is n from the right.
+		// Each proxy appended the address it saw: the client's is n from the
+		// right. With fewer, the client went around a proxy and wrote them.
 		const entries = forwarded
 			.flatMap((header) => header.split(','))
 			.map((entry) => entry.trim())
-		const entry = entries.at(-Math.min(proxies, entries.length)) ?? ''
-		return isIP(entry) === 0 ? connection : entry
+		const entry = entries.at(-proxies) ?? ''
+		return entries.length < proxies || isIP(entry) === 0 ? connection : entry
 	}
 }
