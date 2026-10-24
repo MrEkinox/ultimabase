@@ -67,12 +67,14 @@ const signing = definePlugin<Signing>({
 	},
 })
 
-export function listening(lines: string[]): Logger {
+export function listening(lines: string[], warnings: string[] = []): Logger {
 	const logger: Logger = {
 		info: (first) => {
 			if (typeof first === 'string') lines.push(first)
 		},
-		warn: () => undefined,
+		warn: (first) => {
+			if (typeof first === 'string') warnings.push(first)
+		},
 		error: () => undefined,
 		child: () => logger,
 	}
@@ -82,6 +84,7 @@ export function listening(lines: string[]): Logger {
 /** A started application on a free port, with a signed-up user. */
 export async function started(database: Adapter = memory()) {
 	const lines: string[] = []
+	const warnings: string[] = []
 	const app = defineApp({
 		database,
 		plugins: [
@@ -91,13 +94,13 @@ export async function started(database: Adapter = memory()) {
 			signing.plugin(),
 		],
 		models: [User],
-		logger: listening(lines),
+		logger: listening(lines, warnings),
 	})
 	await app.start()
 	const line = lines.find((first) => first.startsWith('Listening on')) ?? ''
 	const url = line.replace(/^Listening on (.*)\.$/, '$1')
 	const ada = await User.create({ data: { email: 'ada@example.com' } }, M)
-	return { app, url, ada }
+	return { app, url, ada, warnings }
 }
 
 /** Signs `id` in: its token, and the cookie the response sets. */

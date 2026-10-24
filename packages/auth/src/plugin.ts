@@ -32,7 +32,13 @@ import {
 	sessionUser,
 } from './sessions.ts'
 import type { Cookie } from './token.ts'
-import { bearerOf, cookieAge, cookieOf, cookieTokenOf } from './token.ts'
+import {
+	bearerOf,
+	cookieAge,
+	cookieOf,
+	cookieTokenOf,
+	isLocalHost,
+} from './token.ts'
 
 export type { Opened } from './sessions.ts'
 
@@ -80,6 +86,8 @@ interface State {
 	readonly users: Users
 }
 const states = new WeakMap<object, State>()
+/** The contexts whose insecure cookie was warned about (D-115). */
+const warned = new WeakSet<object>()
 
 const M = { as: master }
 
@@ -180,6 +188,17 @@ const auth = definePlugin<Auth>({
 	},
 	identify: async (request, context) => {
 		const { cookie, users } = stateOf(context)
+		const { hostname } = new URL(request.url)
+		if (
+			!cookie.options.secure &&
+			!warned.has(context) &&
+			!isLocalHost(hostname)
+		) {
+			warned.add(context)
+			context.logger.warn(
+				`auth serves ${hostname} a session cookie without Secure: set NODE_ENV=production (D-115).`,
+			)
+		}
 		const bearer = bearerOf(request)
 		if (bearer !== undefined) {
 			const caller = await callerOf(bearer, users)

@@ -2,6 +2,7 @@
 // or cookie, its lifetime, sign-out, revocation, `viewer`, linked accounts
 // and the one user model.
 import { graphqlPlugin } from '@ultimabase/graphql'
+import { get } from 'node:http'
 import { httpPlugin } from '@ultimabase/http'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { Adapter, Caller } from 'ultimabase'
@@ -387,10 +388,31 @@ describe('the user model', () => {
 	})
 })
 
+/** A request to `url` for `host`, which `fetch` cannot send. */
+const sentTo = async (url: string, host: string) =>
+	new Promise((resolve, reject) => {
+		get(`${url}/caller`, { headers: { host } }, (response) => {
+			response.resume().on('end', resolve)
+		}).on('error', reject)
+	})
+
 describe('the cookie', () => {
 	const environment = process.env['NODE_ENV']
 	afterEach(() => {
 		process.env['NODE_ENV'] = environment
+	})
+
+	it('warns once when sent to a host that is not local without Secure', async () => {
+		const { url, warnings } = await server()
+		for (const host of ['localhost', 'app.localhost', '127.0.0.1', '[::1]']) {
+			await sentTo(url, host)
+		}
+		expect(warnings).toStrictEqual([])
+		await sentTo(url, 'example.com')
+		await sentTo(url, 'example.com')
+		expect(warnings).toStrictEqual([
+			'auth serves example.com a session cookie without Secure: set NODE_ENV=production (D-115).',
+		])
 	})
 
 	it('is Secure and __Host- in production, set and cleared so', async () => {
