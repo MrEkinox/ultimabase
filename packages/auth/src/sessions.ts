@@ -1,5 +1,6 @@
 // Sessions (D-112): an opaque token, of which the database keeps only the
-// SHA-256 digest, ending 30 days after its last use.
+// SHA-256 digest, ending 30 days after its last use and one year after its
+// sign-in (D-115).
 import { createHash, randomBytes } from 'node:crypto'
 import type { Field, ModelOf, ScalarOptions } from 'ultimabase'
 import { defineModel, master, PublicError } from 'ultimabase'
@@ -9,6 +10,8 @@ const day = 24 * 60 * 60 * 1000
 const lifetime = 30 * day
 /** A session used with less left gets its lifetime again. */
 const renewal = 15 * day
+/** No renewal takes a session past this long after its sign-in (D-115). */
+const longest = 365 * day
 
 type SessionFields = {
 	readonly tokenHash: Field<string, { readonly unique: true }>
@@ -55,7 +58,8 @@ export async function openSession(userId: string): Promise<Opened> {
 
 /**
  * The user id of the session `token` opened, renewed when it has less than
- * 15 days left; `undefined` for an unknown one, or an expired one, deleted.
+ * 15 days left, up to one year after its sign-in; `undefined` for an unknown
+ * one, or an expired one, deleted.
  */
 export async function sessionUser(token: string): Promise<string | undefined> {
 	const tokenHash = digest(token)
@@ -67,10 +71,11 @@ export async function sessionUser(token: string): Promise<string | undefined> {
 		await AuthSession.deleteMany({ where: { tokenHash } }, M)
 		return undefined
 	}
-	if (left < renewal) {
+	const end = Math.min(now + lifetime, session.createdAt.getTime() + longest)
+	if (left < renewal && end > session.expiresAt.getTime()) {
 		try {
 			await AuthSession.update(
-				{ where: { tokenHash }, data: { expiresAt: new Date(now + lifetime) } },
+				{ where: { tokenHash }, data: { expiresAt: new Date(end) } },
 				M,
 			)
 		} catch (error) {

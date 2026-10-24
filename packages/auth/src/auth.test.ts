@@ -28,6 +28,7 @@ import {
 let stop: (() => Promise<void>) | undefined
 afterEach(async () => {
 	vi.restoreAllMocks()
+	vi.useRealTimers()
 	await stop?.()
 	stop = undefined
 })
@@ -152,6 +153,25 @@ describe('a session’s lifetime', () => {
 		expect((await callerOf(url, bearer(token))).status).toBe(200)
 		const [renewed] = await AuthSession.findMany({}, M)
 		expect(renewed?.expiresAt.getTime()).toBe(now + 50 * day)
+	})
+
+	it('ends one year after its sign-in, however often it is used', async () => {
+		const { url, ada } = await server()
+		const { token } = await signIn(url, ada.id)
+		const [opened] = await AuthSession.findMany({}, M)
+		const now = opened?.createdAt.getTime() ?? 0
+		// `new Date()` too, which stamps `updatedAt`.
+		vi.useFakeTimers({ toFake: ['Date'] })
+		for (let used = 20; used < 365; used += 20) {
+			vi.setSystemTime(now + used * day)
+			expect((await callerOf(url, bearer(token))).status).toBe(200)
+		}
+		const [renewed] = await AuthSession.findMany({}, M)
+		expect(renewed?.expiresAt.getTime()).toBe(now + 365 * day)
+		// Renewed to its end on day 340, it is not written again on day 360.
+		expect(renewed?.updatedAt.getTime()).toBe(now + 340 * day)
+		vi.setSystemTime(now + 365 * day + 1)
+		expect((await callerOf(url, bearer(token))).status).toBe(401)
 	})
 
 	it('ends when signed out while it is renewed', async () => {
