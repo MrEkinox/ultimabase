@@ -637,7 +637,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@ultimabase/password@workspace:packages/password":
+"@ultimabase/password@workspace:*, @ultimabase/password@workspace:packages/password":
   version: 0.0.0-use.local
   resolution: "@ultimabase/password@workspace:packages/password"
   dependencies:
@@ -829,6 +829,21 @@ __metadata:
   checksum: 10c0/c12e3c2b2642d2bcae7d5aa495c60fa2f299160946535763969a1c83fc74518ffa9c2cd3a8b69ac56aea547df6a8aac25f729a342992ef0bbac5f1c73e78995d
   languageName: node
   linkType: hard
+
+"example-password-sign-in@workspace:examples/password-sign-in":
+  version: 0.0.0-use.local
+  resolution: "example-password-sign-in@workspace:examples/password-sign-in"
+  dependencies:
+    "@ultimabase/auth": "workspace:*"
+    "@ultimabase/graphql": "workspace:*"
+    "@ultimabase/http": "workspace:*"
+    "@ultimabase/password": "workspace:*"
+    graphql: "npm:17.0.2"
+    ultimabase: "workspace:*"
+    vite: "npm:8.3.4"
+    vitest: "npm:5.0.5"
+  languageName: unknown
+  linkType: soft
 
 "expect-type@npm:^1.4.0":
   version: 1.4.0

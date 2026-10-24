@@ -2,7 +2,15 @@
 // checking a password, setting one, and the session a success opens.
 import { randomUUID } from 'node:crypto'
 import type { AuthApi } from '@ultimabase/auth'
-import type { Caller, Client, ExposedModel, Logger, Row } from 'ultimabase'
+import type {
+	Caller,
+	Client,
+	ExposedModel,
+	Logger,
+	Register,
+	Row,
+	UserOf,
+} from 'ultimabase'
 import { master, PublicError, transaction } from 'ultimabase'
 import { dummyHash, hashPassword, verifyPassword } from './hash.ts'
 import { normalized } from './input.ts'
@@ -170,9 +178,11 @@ export async function setPassword(
 /** The user as it reads itself, so its own field rules apply (D-113). */
 async function asItself(state: State, userId: string): Promise<Row | null> {
 	const { queries } = state.users
-	const user = await queries.findUnique({ where: { id: userId } }, M)
+	// A transport's queries are untyped; this is the user model's row.
+	const user: unknown = await queries.findUnique({ where: { id: userId } }, M)
 	if (user === null) return null
-	const caller: Caller = { kind: 'user', user }
+	// oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the user model is the one the application registers (D-62, D-80).
+	const caller: Caller = { kind: 'user', user: user as UserOf<Register> }
 	return queries.findUnique({ where: { id: userId } }, { as: caller })
 }
 

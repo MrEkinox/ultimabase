@@ -4,9 +4,9 @@ The path from the restart to the features of the previous base, then beyond.
 Each phase ends on a measurable exit criterion; the next phase starts once it
 is proven. The commit that meets a criterion ticks it here.
 
-Status: **Phase 5**. Phase 4 is closed: a whole CRUD runs over GraphQL on
-PostgreSQL 15 and 18 (`packages/graphql/src/crud.postgres.test.ts`), and
-functions are root fields (D-109).
+Status: **Phase 6**. Phase 5 is closed: `examples/password-sign-in` signs
+up, signs in and applies rules that read `caller.user`, started as
+`yarn start` does (`examples/password-sign-in/src/app.test.ts`).
 
 ## Phase 0: Tooling
 

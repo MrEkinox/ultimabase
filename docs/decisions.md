@@ -788,6 +788,13 @@ Choice: `examples/` holds one folder per feature (`relation-many-to-many`,
 `custom-function`…), each a small working project run by the test suite. The
 documentation website and the landing page come back just before the first
 release.
+Each example is a Yarn workspace that imports the packages by their public
+names, and its own TypeScript program in `yarn typecheck`: an application
+declares its user model once (D-62), and checking the packages' sources under
+that declaration is what the packages' own tests cannot do. Its test starts it
+as `yarn start` does (`node src/server.ts`, on `PORT=0`) and uses it as a
+client would, over HTTP; the master key comes from `MASTER_KEY`. Coverage and
+line budgets measure packages only.
 Why: a developer finds how to do something by opening its folder, and code
 that runs in CI cannot be out of date. The previous website cost a lot to keep
 in sync while the API moved.
