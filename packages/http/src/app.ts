@@ -95,14 +95,21 @@ function failed(error: unknown, c: Context, logger: Logger): Response {
 	)
 }
 
-/** `http://localhost` or `http://127.0.0.1`, on any port (D-66). */
+/** A host only this machine reaches (D-66, D-115). */
+export function isLocalHost(hostname: string): boolean {
+	return (
+		hostname === 'localhost' ||
+		hostname.endsWith('.localhost') ||
+		hostname === '127.0.0.1' ||
+		hostname === '[::1]'
+	)
+}
+
+/** A local host over `http:`, on any port. */
 function isLocal(origin: string): boolean {
 	if (!URL.canParse(origin)) return false
 	const { protocol, hostname } = new URL(origin)
-	return (
-		protocol === 'http:' &&
-		(hostname === 'localhost' || hostname === '127.0.0.1')
-	)
+	return protocol === 'http:' && isLocalHost(hostname)
 }
 
 const safe = new Set(['GET', 'HEAD', 'OPTIONS'])

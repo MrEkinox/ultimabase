@@ -11,6 +11,7 @@ import { hold } from './request.ts'
 import { closed, listening, portOf, serverOf } from './server.ts'
 
 export type { HttpEnv, HttpOptions, Routes } from './app.ts'
+export { isLocalHost } from './app.ts'
 export { clientOf } from './client.ts'
 export type { StandardSchema } from './validate.ts'
 export { validate } from './validate.ts'

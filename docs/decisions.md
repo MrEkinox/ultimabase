@@ -1690,8 +1690,9 @@ Rejected: timestamps without time zone.
 Choice: CORS allows no origin until the developer lists them
 (`httpPlugin({ cors: ['https://app.example.com'] })`), and a listed origin may
 send the master key header (D-49). When `NODE_ENV` is not `production`,
-local origins (`http://localhost` and `http://127.0.0.1`, any port) are also
-allowed without configuration. Request bodies are limited to 1 MB by
+local origins (`http:` on `localhost`, `*.localhost`, `127.0.0.1` or
+`[::1]`, any port; amended 2026-10-24: the hosts auth calls local, D-115)
+are also allowed without configuration. Request bodies are limited to 1 MB by
 default, configurable. Transactions keep PostgreSQL's default isolation (read
 committed); writes lock their rows (D-48).
 Why: the same rule as D-04: forgetting an option must not open the server. A
@@ -4270,8 +4271,9 @@ Choice: completes D-27, D-49, D-59 and D-66.
    then closes the connections left and logs a warning; the delay is fixed,
    not an option (amended 2026-10-23).
 5. CORS (D-66) and the body limit use Hono's middlewares. `cors` lists the
-   allowed origins; outside production, `http://localhost` and
-   `http://127.0.0.1` on any port are also allowed. `bodyLimit` is in bytes,
+   allowed origins; outside production, the local origins of D-66 are
+   also allowed (amended 2026-10-24: `isLocalHost(hostname)`, which
+   `@ultimabase/http` exports for auth, tells them). `bodyLimit` is in bytes,
    1 MB by default. Only a preflight, an `OPTIONS` with
    `Access-Control-Request-Method`, is answered by `cors`; any other
    `OPTIONS` reaches its route, with the CORS headers, or `NOT_FOUND`
@@ -5329,7 +5331,8 @@ Choice: amends D-112, D-113 and D-114.
 2. Outside production the cookie is neither `Secure` nor `__Host-`
    (D-112). auth logs one warning per running application the first time
    it identifies a request for a host that is not local (`localhost`,
-   `*.localhost`, `127.0.0.1` or `[::1]`), naming `NODE_ENV=production`.
+   `*.localhost`, `127.0.0.1` or `[::1]`, http's `isLocalHost`, amended
+   2026-10-24), naming `NODE_ENV=production`.
 3. `User.signIn({ email, password }, { client })` counts the attempt and
    sets the cookie as the `signIn` function does; without `client` it is
    still not counted (D-113 point 11).

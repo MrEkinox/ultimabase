@@ -2,7 +2,7 @@
 // session, the API sign-in methods open sessions and link accounts with, and
 // its functions and command.
 import type { Http } from '@ultimabase/http'
-import { httpPlugin } from '@ultimabase/http'
+import { httpPlugin, isLocalHost } from '@ultimabase/http'
 import type {
 	Caller,
 	Client,
@@ -33,13 +33,7 @@ import {
 	sessionUser,
 } from './sessions.ts'
 import type { Cookie } from './token.ts'
-import {
-	bearerOf,
-	cookieAge,
-	cookieOf,
-	cookieTokenOf,
-	isLocalHost,
-} from './token.ts'
+import { bearerOf, cookieAge, cookieOf, cookieTokenOf } from './token.ts'
 
 export type { Opened } from './sessions.ts'
 

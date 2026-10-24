@@ -337,6 +337,11 @@ describe('CORS', () => {
 		expect(await allowed(url, 'http://127.0.0.1:8080')).toBe(
 			'http://127.0.0.1:8080',
 		)
+		// The hosts auth expects an insecure cookie on (D-115).
+		for (const origin of ['http://app.localhost:5173', 'http://[::1]:5173']) {
+			expect(await allowed(url, origin)).toBe(origin)
+		}
+		expect(await allowed(url, 'http://localhost.example.com')).toBeNull()
 		expect(await allowed(url, 'https://evil.example.com')).toBeNull()
 		expect(await allowed(url, 'https://localhost:5173')).toBeNull()
 		expect(await allowed(url, 'not an origin')).toBeNull()
