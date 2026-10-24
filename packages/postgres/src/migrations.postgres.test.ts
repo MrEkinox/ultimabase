@@ -147,6 +147,24 @@ const onto = (target: string): Schema => ({
 		}),
 })
 
+/** Posts and tags, the tag model named `tag` and stored as `tags`. */
+const posts = (tag: string): Schema => ({
+	models: [
+		{
+			name: 'Post',
+			dbName: 'posts',
+			fields: [scalar('title', 'string'), many('tags', tag, 'posts', true)],
+			indexes: [],
+		},
+		{
+			name: tag,
+			dbName: 'tags',
+			fields: [scalar('label', 'string'), many('posts', 'Post', 'tags', true)],
+			indexes: [],
+		},
+	],
+})
+
 let schema = ''
 let adapter: Adapter
 let migrations: Migrations
@@ -317,6 +335,24 @@ describe('a sync on postgres()', () => {
 		expect(statements.find(({ model }) => model === 'Old')?.rename?.to).toBe(
 			'New',
 		)
+	})
+
+	it('keeps the join of a model renamed with its dbName', async () => {
+		await sync(undefined, posts('Tag'))
+		await query(
+			inSchema(schema),
+			`with p as (insert into posts values (gen_random_uuid(), now(), now(), 'Hi') returning id),
+			t as (insert into tags values (gen_random_uuid(), now(), now(), 'art') returning id)
+			insert into posts_tags select p.id, t.id from p, t`,
+		)
+		// `Label` sorts before `Post`, `tags` after `posts`.
+		expect(await sync(posts('Tag'), posts('Label'))).toStrictEqual([])
+		expect(
+			await query(
+				inSchema(schema),
+				'select count(*)::int as n from posts_tags',
+			),
+		).toStrictEqual([{ n: 1 }])
 	})
 
 	it('refuses tables that no snapshot describes', async () => {

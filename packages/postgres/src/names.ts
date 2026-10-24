@@ -129,7 +129,10 @@ export class Catalog {
 		return join
 	}
 
-	/** Both sides of each many-to-many, named after the side sorting first. */
+	/**
+	 * Both sides of each many-to-many, named after the side whose table sorts
+	 * first, so a model renamed with its `dbName` keeps its join (D-98).
+	 */
 	private joinsOf(): Map<string, Join> {
 		const joins = new Map<string, Join>()
 		for (const table of this.tables.values()) {
@@ -139,7 +142,7 @@ export class Catalog {
 				const self = table === target
 				const first = self
 					? field.name < field.inverse
-					: table.model.name < target.model.name
+					: table.name < target.name
 				if (!first) continue
 				const name = `${table.name}_${snake(field.name)}`
 				const mine = self ? `${snake(field.inverse)}_id` : `${table.name}_id`

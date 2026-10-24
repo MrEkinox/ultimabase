@@ -3405,14 +3405,15 @@ Choice:
    - A condition on `id` with a string that is not a lowercase UUID matches
      no row, as in `memory()`, instead of failing in PostgreSQL.
 3. Many-to-many. The join table is named `<table>_<field>` after the side
-   whose model name sorts first, and its columns are named `<table>_id`. So
-   `Book.tags` with `Tag.books` gives `book_tags(book_id, tag_id)`, with a
-   primary key on both columns and an index on the second. A relation of a
-   model to itself is named after the field that sorts first, and each column
-   after the field that lists its ids. So `User.followers` with
-   `User.following` gives `user_followers(followers_id, following_id)`. The
-   join's foreign keys cascade, so a deleted row's links go with it, as in
-   `memory()`.
+   whose table name sorts first (amended 2026-10-24: not its model name, so
+   a model renamed with its `dbName` keeps its join and its links), and its
+   columns are named `<table>_id`. So `Book.tags` with `Tag.books` gives
+   `book_tags(book_id, tag_id)`, with a primary key on both columns and an
+   index on the second. A relation of a model to itself is named after the
+   field that sorts first, and each column after the field that lists its
+   ids. So `User.followers` with `User.following` gives
+   `user_followers(followers_id, following_id)`. The join's foreign keys
+   cascade, so a deleted row's links go with it, as in `memory()`.
 4. Constraint names:
    - `<table>_pkey`, `<table>_<columns>_key`, `_fkey`, `_check` and `_idx`.
    - A name over 63 bytes keeps its first 54 and ends with 8 hex characters
