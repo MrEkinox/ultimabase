@@ -23,6 +23,11 @@ export interface State {
 
 /** What a sign-in returns: its session, and the user read as itself. */
 export interface SignedIn<U = Row> {
+	/**
+	 * The session's token, there even when the cookie carries it: a mobile
+	 * client needs it, and a function cannot tell one client from another
+	 * (D-115).
+	 */
 	readonly token: string
 	readonly expiresAt: Date
 	readonly user: U | null

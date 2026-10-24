@@ -152,7 +152,7 @@ Exit: a full CRUD example over GraphQL against PostgreSQL.
 - [x] `passwordPlugin()`: IPv6 networks, the account ceiling, the hashing
       queue and the sign-up limit (D-114).
 - [x] Decide auth and password after their audit (D-115).
-- [ ] auth and password after their audit (D-115).
+- [x] auth and password after their audit (D-115).
 - [ ] Decide password reset and email verification (D-113).
 
 Exit: an example with sign-up, sign-in and rules on `caller.user`.
