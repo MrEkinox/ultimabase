@@ -415,6 +415,28 @@ describe('the cookie', () => {
 		])
 	})
 
+	it('carries no mutation a page of another site can send (D-115)', async () => {
+		const { url, ada } = await server()
+		const { token } = await signIn(url, ada.id)
+		const query = 'mutation { signOut }'
+		// A link or an image sends a GET; a form, a POST that is not JSON.
+		const linked = await fetch(
+			`${url}/graphql?query=${encodeURIComponent(query)}`,
+			{ headers: { accept: 'application/json', ...cookie(token) } },
+		)
+		expect(linked.status).toBe(405)
+		for (const type of ['text/plain', 'application/x-www-form-urlencoded']) {
+			const posted = await fetch(`${url}/graphql`, {
+				method: 'POST',
+				headers: { 'content-type': type, ...cookie(token) },
+				body: JSON.stringify({ query }),
+			})
+			expect(posted.status).toBe(415)
+		}
+		expect((await callerOf(url, cookie(token))).status).toBe(200)
+		expect(await AuthSession.count({}, M)).toBe(1)
+	})
+
 	it('is Secure and __Host- in production, set and cleared so', async () => {
 		process.env['NODE_ENV'] = 'production'
 		const { url, ada } = await server()
