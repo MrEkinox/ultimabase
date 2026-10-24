@@ -140,6 +140,26 @@ describe('signing up', () => {
 		expect((await signIn(url)).status).toBe(200)
 	})
 
+	it('normalizes the email and the password, however they are typed', async () => {
+		const { url } = await server()
+		// Decomposed accents and a ligature, then composed ones and letters.
+		await signUp(url, {
+			email: 'jose\u0301@example.com',
+			password: 'cafe\u0301 \ufb01ne',
+		})
+		const signed = await signIn(url, {
+			email: 'jos\u00e9@example.com',
+			password: 'caf\u00e9 fine',
+		})
+		expect(errorOf(signed.body)).toBeUndefined()
+		// Typed as at sign-up, it is checked once normalized too.
+		const again = await signIn(url, {
+			email: 'JOSE\u0301@example.com',
+			password: 'cafe\u0301 \ufb01ne',
+		})
+		expect(errorOf(again.body)).toBeUndefined()
+	})
+
 	it('refuses a taken email and creates nothing', async () => {
 		const { url } = await server()
 		await signUp(url)

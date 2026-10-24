@@ -5,6 +5,7 @@ import type { AuthApi } from '@ultimabase/auth'
 import type { Caller, Client, ExposedModel, Row } from 'ultimabase'
 import { master, PublicError, transaction } from 'ultimabase'
 import { dummyHash, hashPassword, verifyPassword } from './hash.ts'
+import { normalized } from './input.ts'
 import type { Attempt } from './models.ts'
 import { limited, PasswordHash } from './models.ts'
 
@@ -78,8 +79,9 @@ const longest = 256
  */
 async function matches(
 	userId: string | undefined,
-	password: string,
+	typed: string,
 ): Promise<string | undefined> {
+	const password = normalized(typed)
 	if (Array.from(password).length > longest) return undefined
 	const stored =
 		userId === undefined

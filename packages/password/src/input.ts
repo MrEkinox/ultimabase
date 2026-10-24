@@ -36,24 +36,29 @@ const isObject = (value: unknown): value is Node =>
 const text = (value: unknown): Read =>
 	typeof value === 'string' ? { value } : { message: 'Expected a string.' }
 
-/** The email trimmed and lowercased, the account's subject (D-113). */
+/** The email trimmed, lowercased and in NFC, the account's subject (D-113, D-115). */
 export function emailOf(value: unknown): Read {
 	if (typeof value !== 'string') return { message: 'Expected a string.' }
-	const email = value.trim().toLowerCase()
+	const email = value.trim().toLowerCase().normalize('NFC')
 	if (email.length > 254 || !/^[^\s@]+@[^\s@]+$/.test(email)) {
 		return { message: 'Expected an email address.' }
 	}
 	return { value: email }
 }
 
-/** A password to store: 8 to 256 characters, no other rule (D-113). */
+/** How a password is typed does not change it: NFKC (D-115, NIST SP 800-63B). */
+export const normalized = (password: string): string =>
+	password.normalize('NFKC')
+
+/** A password to store, normalized: 8 to 256 characters, no other rule (D-113). */
 export function passwordOf(value: unknown): Read {
 	if (typeof value !== 'string') return { message: 'Expected a string.' }
-	const length = Array.from(value).length
+	const password = normalized(value)
+	const length = Array.from(password).length
 	if (length < 8 || length > 256) {
 		return { message: 'A password has 8 to 256 characters.' }
 	}
-	return { value }
+	return { value: password }
 }
 
 /** `read`'s value, or a `VALIDATION_FAILED` naming `path`. */
