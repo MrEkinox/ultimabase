@@ -5153,3 +5153,52 @@ mutation {
 	]
 }
 ```
+
+## D-114: `passwordPlugin()`'s limits against many addresses
+
+Choice: completes D-113.
+
+1. An IPv6 address counts as its /64 network, an IPv4-mapped IPv6 address
+   as its IPv4 address; the sign-in limit and the sign-up limit count these.
+2. Each subject, whatever the address, has a ceiling: the 101st failed
+   attempt within 15 minutes is refused with `TOO_MANY_ATTEMPTS`, for every
+   address, until the oldest of the hundred is 15 minutes old. A success
+   clears its own address's failures only.
+3. At most `os.availableParallelism()` Argon2 computations run at once in a
+   process, and 64 more wait; one more fails with `TOO_MANY_ATTEMPTS` and
+   `retryAfter: 1`, and an attempt that fails so is not counted.
+4. The `signUp` function is limited per address: the 11th within one hour,
+   successful or not, is refused with `TOO_MANY_ATTEMPTS`. The `User.signUp`
+   command is not.
+5. These values are fixed: no option.
+
+Why: an IPv6 client holds a /64 at least, so counting each address gives
+one attacker as many limits as it wants. The per-pair limit alone lets an
+attacker with a thousand addresses try ten thousand passwords on an account
+every 15 minutes; the ceiling caps that at a hundred, at the cost of a
+victim that many addresses can lock out for 15 minutes. Argon2 holds 19 MiB
+and a thread for each computation, so a burst of sign-ins would exhaust the
+memory and the threadpool; a busy server refuses at once rather than queue
+without end. A sign-up hashes a password and creates rows, so it is limited
+as a sign-in is.
+Rejected: options for the values, until an application needs another one; a
+delay growing with the failures, which still holds a connection for each;
+counting IPv6 by /48 or /56, which groups unrelated clients of one provider.
+Example:
+
+```ts
+// A client's sign-in, unchanged; what it gets after many failures changes.
+const response = await fetch('/graphql', {
+	method: 'POST',
+	headers: { 'content-type': 'application/json' },
+	body: JSON.stringify({
+		query: signIn,
+		variables: { input: { email, password } },
+	}),
+})
+// Before (D-113): from 2001:db8::2 after ten failures from 2001:db8::1, a
+// fresh limit of ten. After: refused, one /64 network is one address
+// { "errors": [{ "extensions": { "code": "TOO_MANY_ATTEMPTS", "details": { "retryAfter": 840 } } }] }
+```
+
+The application's code does not change.

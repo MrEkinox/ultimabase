@@ -1,4 +1,4 @@
-// password's functions (D-113): `signUp`, `signIn` and `changePassword`, each
+// password's functions (D-113, D-114): `signUp`, `signIn` and `changePassword`, each
 // taking one named input and returning `SignedIn`.
 import type { ExposedModel, FunctionShape, OutputSpec } from 'ultimabase'
 import { allow, defineFunction, defineType, PublicError } from 'ultimabase'
@@ -12,6 +12,7 @@ import {
 	verified,
 } from './core.ts'
 import type { Property } from './input.ts'
+import { signUpLimited } from './models.ts'
 import {
 	changePasswordInput,
 	outputSchema,
@@ -48,6 +49,7 @@ export function passwordFunctions(
 		output: SignedIn,
 		run: async ({ input: { input }, client }) => {
 			const state = stateOf()
+			if (client !== undefined) await signUpLimited(client.address)
 			const { email, password, ...data } = input
 			const { user, stamp } = await createUser(state, email, password, data)
 			return signedIn(state, { userId: user.id, stamp }, client)

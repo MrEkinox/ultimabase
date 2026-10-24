@@ -148,6 +148,9 @@ Exit: a full CRUD example over GraphQL against PostgreSQL.
 - [x] Decide auth's sessions, Identify and the API of sign-in methods (D-112).
 - [x] Decide `passwordPlugin()`, linked accounts and plugin functions
       (D-113).
+- [x] Decide `passwordPlugin()`'s limits against many addresses (D-114).
+- [x] `passwordPlugin()`: IPv6 networks, the account ceiling, the hashing
+      queue and the sign-up limit (D-114).
 
 Exit: an example with sign-up, sign-in and rules on `caller.user`.
 

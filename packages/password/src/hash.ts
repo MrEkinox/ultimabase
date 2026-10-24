@@ -1,5 +1,8 @@
-// Password hashes (D-113): Argon2id from `node:crypto`, stored as a PHC string.
+// Password hashes (D-113): Argon2id from `node:crypto`, stored as a PHC string,
+// a few at a time (D-114).
 import { argon2, randomBytes, timingSafeEqual } from 'node:crypto'
+import { availableParallelism } from 'node:os'
+import { PublicError } from 'ultimabase'
 
 type Parameters = {
 	readonly memory: number
@@ -16,7 +19,46 @@ const phc =
 const unpadded = (bytes: Buffer): string =>
 	bytes.toString('base64').replace(/=+$/, '')
 
+/** The computations that run at once, and how many more may wait (D-114). */
+export const lanes: number = availableParallelism()
+export const waiting = 64
+let running = 0
+const queue: (() => void)[] = []
+
+/** Runs `run` when a lane is free; refuses it when the queue is full. */
+async function queued<T>(run: () => Promise<T>): Promise<T> {
+	if (running < lanes) running += 1
+	else if (queue.length < waiting) {
+		await new Promise<void>((resolve) => queue.push(resolve))
+	} else {
+		throw new PublicError(
+			'TOO_MANY_ATTEMPTS',
+			'The server is busy: try again.',
+			{
+				details: { retryAfter: 1 },
+			},
+		)
+	}
+	try {
+		return await run()
+	} finally {
+		// The lane goes to the next computation waiting, or is freed.
+		const next = queue.shift()
+		if (next === undefined) running -= 1
+		else next()
+	}
+}
+
 async function derive(
+	password: string,
+	nonce: Buffer,
+	parameters: Parameters,
+	length: number,
+): Promise<Buffer> {
+	return queued(async () => compute(password, nonce, parameters, length))
+}
+
+async function compute(
 	password: string,
 	nonce: Buffer,
 	parameters: Parameters,

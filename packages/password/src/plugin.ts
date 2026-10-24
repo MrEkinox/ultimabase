@@ -25,7 +25,7 @@ import {
 import { passwordFunctions } from './functions.ts'
 import type { Credentials, Property } from './input.ts'
 import { emailOf, fieldProperty, passwordOf, valid } from './input.ts'
-import { PasswordAttempt, PasswordHash } from './models.ts'
+import { PasswordAttempt, PasswordHash, PasswordSignUp } from './models.ts'
 
 /** The user fields a sign-up may take; any name before the user is registered. */
 export type UserField = Register extends { readonly user: unknown }
@@ -175,7 +175,7 @@ const definition = definePlugin<Password>({
 	name: 'password',
 	manifest,
 	requires: { auth: authPlugin },
-	models: [PasswordHash, PasswordAttempt],
+	models: [PasswordHash, PasswordAttempt, PasswordSignUp],
 	hooks: {
 		// The user's hash goes with them (D-113).
 		afterDelete: async ({ record }) => {
