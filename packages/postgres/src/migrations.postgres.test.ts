@@ -307,6 +307,18 @@ describe('a sync on postgres()', () => {
 		})
 	})
 
+	it('offers a rename from the snapshot it stored, whose columns jsonb sorts', async () => {
+		await sync(undefined, before)
+		const stored = await migrations.stored()
+		const statements = migrations.plan(
+			stored?.snapshot,
+			migrations.snapshot(after),
+		)
+		expect(statements.find(({ model }) => model === 'Old')?.rename?.to).toBe(
+			'New',
+		)
+	})
+
 	it('refuses tables that no snapshot describes', async () => {
 		await query(inSchema(schema), 'create table shelf (id uuid)')
 		await expect(sync(undefined, before)).rejects.toThrow(
