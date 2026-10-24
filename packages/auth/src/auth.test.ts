@@ -184,9 +184,11 @@ describe('a session’s lifetime', () => {
 		expect((await callerOf(url, bearer(again.token))).status).toBe(200)
 	})
 
-	it('signing in ends the user’s expired sessions', async () => {
+	it('signing in ends every expired session, whoever’s it was', async () => {
 		const { url, ada } = await server()
+		const bob = await User.create({ data: { email: 'bob@example.com' } }, M)
 		await signIn(url, ada.id)
+		await signIn(url, bob.id)
 		vi.spyOn(Date, 'now').mockReturnValue(Date.now() + 31 * day)
 		await signIn(url, ada.id)
 		expect(await AuthSession.count({}, M)).toBe(1)

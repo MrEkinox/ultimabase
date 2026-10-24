@@ -25,7 +25,7 @@ export const AuthSession: ModelOf<'AuthSession', SessionFields, []> =
 			userId: f.string(),
 			expiresAt: f.date(),
 		}),
-		indexes: [{ fields: ['userId'] }],
+		indexes: [{ fields: ['userId'] }, { fields: ['expiresAt'] }],
 	})
 
 const digest = (token: string): string =>
@@ -37,11 +37,11 @@ export interface Opened {
 	readonly expiresAt: Date
 }
 
-/** Opens a session for `userId`, ending the user's expired ones. */
+/** Opens a session for `userId`, ending every expired one (D-115). */
 export async function openSession(userId: string): Promise<Opened> {
 	const now = Date.now()
 	await AuthSession.deleteMany(
-		{ where: { userId, expiresAt: { lte: new Date(now) } } },
+		{ where: { expiresAt: { lte: new Date(now) } } },
 		M,
 	)
 	const token = randomBytes(32).toString('base64url')
