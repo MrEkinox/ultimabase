@@ -1,6 +1,6 @@
 // `httpPlugin()` (D-66, D-106): routes that read the caller, errors as D-72
-// sends them, CORS, the body limit, the port, the client's address behind
-// proxies (D-116) and a stop that waits, 10 s at most.
+// sends them, CORS, forms from other origins, the body limit, the port, the
+// client's address behind proxies (D-116) and a stop that waits, 10 s at most.
 import { createServer, IncomingMessage } from 'node:http'
 import { Socket } from 'node:net'
 import { streamSSE } from 'hono/streaming'
@@ -398,6 +398,74 @@ describe('CORS', () => {
 			headers: { origin, 'access-control-request-method': 'GET' },
 		})
 		expect(preflight.status).toBe(204)
+	})
+})
+
+const forms = routes()
+	.get('/form', (c) => c.text('read'))
+	.post('/form', (c) => c.text('sent'))
+const posted = async (url: string, headers: Record<string, string>) =>
+	fetch(`${url}/form`, {
+		method: 'POST',
+		headers: {
+			'content-type': 'application/x-www-form-urlencoded',
+			...headers,
+		},
+		body: 'text=hi',
+	})
+
+describe('a form from another origin', () => {
+	it('is refused when it carries cookies', async () => {
+		const { url } = await server({ port: 0, routes: [forms] })
+		const cookie = 'session=token'
+		const foreign = await posted(url, {
+			cookie,
+			origin: 'https://evil.example.com',
+		})
+		expect(foreign.status).toBe(403)
+		expect(await foreign.json()).toEqual({
+			code: 'ACCESS_DENIED',
+			message: 'A form from another origin cannot send cookies.',
+		})
+		// A sibling subdomain is the same site, not the same origin.
+		const sibling = await posted(url, { cookie, 'sec-fetch-site': 'same-site' })
+		expect(sibling.status).toBe(403)
+		const plain = await fetch(`${url}/form`, {
+			method: 'POST',
+			headers: { cookie },
+		})
+		expect(plain.status).toBe(403)
+	})
+
+	it('passes from its own origin, an allowed one, or without cookies', async () => {
+		const { url } = await server({
+			port: 0,
+			routes: [forms],
+			cors: ['https://app.example.com'],
+		})
+		const cookie = 'session=token'
+		const passed = [
+			{ cookie, origin: url },
+			{ cookie, 'sec-fetch-site': 'same-origin' },
+			{ cookie, origin: 'https://app.example.com' },
+			{ cookie, origin: 'http://localhost:5173' },
+			// A webhook.
+			{},
+			{ origin: 'https://evil.example.com' },
+		]
+		for (const headers of passed) {
+			expect(await (await posted(url, headers)).text()).toBe('sent')
+		}
+		const json = await fetch(`${url}/form`, {
+			method: 'POST',
+			headers: { cookie, 'content-type': 'application/json' },
+			body: '{}',
+		})
+		expect(await json.text()).toBe('sent')
+		const read = await fetch(`${url}/form`, {
+			headers: { cookie, origin: 'https://evil.example.com' },
+		})
+		expect(await read.text()).toBe('read')
 	})
 })
 

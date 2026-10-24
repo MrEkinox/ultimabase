@@ -1,5 +1,6 @@
-// The Hono application `httpPlugin` serves (D-66, D-106): CORS, the body
-// limit, each request's caller, the routes, and errors as D-72 sends them.
+// The Hono application `httpPlugin` serves (D-66, D-106): CORS, forms from
+// other origins, the body limit, each request's caller, the routes, and
+// errors as D-72 sends them.
 import { randomUUID } from 'node:crypto'
 import { STATUS_CODES } from 'node:http'
 import type { Context } from 'hono'
@@ -104,6 +105,11 @@ function isLocal(origin: string): boolean {
 	)
 }
 
+const safe = new Set(['GET', 'HEAD', 'OPTIONS'])
+/** What an HTML form sends, `text/plain` when it names none. */
+const form =
+	/^(application\/x-www-form-urlencoded|multipart\/form-data|text\/plain)\b/i
+
 /**
  * Hono's path, with control characters left encoded: a route never matches
  * one, and the development log cannot print one (D-108).
@@ -164,6 +170,26 @@ export function appOf(
 			c.header('access-control-allow-credentials', 'true')
 		}
 		c.header('vary', 'Origin', { append: true })
+	})
+	// A browser sends a form to any site, with that site's cookies, and no
+	// CORS check stops it: one that carries cookies comes from an allowed
+	// origin (D-106). A webhook sends no cookie.
+	app.use(async (c, next) => {
+		const origin = c.req.header('origin') ?? ''
+		if (
+			!safe.has(c.req.method) &&
+			form.test(c.req.header('content-type') ?? 'text/plain') &&
+			c.req.header('cookie') !== undefined &&
+			c.req.header('sec-fetch-site') !== 'same-origin' &&
+			origin !== new URL(c.req.url).origin &&
+			allowed(origin) === null
+		) {
+			throw new PublicError(
+				'ACCESS_DENIED',
+				'A form from another origin cannot send cookies.',
+			)
+		}
+		await next()
 	})
 	app.use(
 		bodyLimit({

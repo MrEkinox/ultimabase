@@ -951,7 +951,9 @@ Choice: the `auth` plugin issues opaque session tokens stored in the database,
 so they can be revoked. A client sends one as a `Bearer` header or an httpOnly
 cookie; the format is the same. The cookie is `SameSite=Lax`, and the GraphQL
 transport refuses requests that are not JSON, which together block cross-site
-request forgery without a CSRF token.
+request forgery without a CSRF token; the HTTP plugin refuses, on every
+route, a form that carries cookies from another origin (D-106, amended
+2026-10-24).
 Why: revocation needs server state; the cookie keeps browsers safe by default
 while mobile and server clients keep a plain header.
 Rejected: JWT sessions (cannot be revoked before they expire).
@@ -4221,12 +4223,24 @@ Choice: completes D-27, D-49, D-59 and D-66.
    `Access-Control-Request-Method`, is answered by `cors`; any other
    `OPTIONS` reaches its route, with the CORS headers, or `NOT_FOUND`
    (amended 2026-10-23).
+6. A browser posts an HTML form to any site with that site's cookies, and
+   CORS never stops it. A request that is not `GET`, `HEAD` or `OPTIONS`,
+   whose content type a form sends (form-urlencoded, multipart or
+   `text/plain`; none counts as `text/plain`) and which carries a `Cookie`
+   header, is refused with `ACCESS_DENIED` (403) unless its
+   `Sec-Fetch-Site` is `same-origin` or its `Origin` is the server's own or
+   one `cors` allows. A request without cookies passes: it holds no session
+   to abuse, and a webhook sends none (amended 2026-10-24).
 
 Why: Hono is a small router built on the web's `Request` and `Response`,
 whose context already carries typed variables, so a route reads the caller
 with nothing to learn. Identify belongs to the kernel, since the master key
 and the session are the same for HTTP and GraphQL (D-49); a transport only
 hands it the request.
+`SameSite=Lax` keeps a cookie from another site's form, not from a sibling
+subdomain's, which is the same site: point 6 covers it, and GraphQL refuses
+forms anyway (D-39). Hono's `csrf` middleware refuses a form without cookies
+too, so it breaks form webhooks (Twilio, Slack), and answers in plain text.
 Rejected: a `defineRoute` wrapper (D-27); the caller as a function argument
 (`(c, caller) => …`), which is not Hono's shape; test helpers, since Hono's
 `routes().request(…)` and a server on port 0 already test a route; the API
