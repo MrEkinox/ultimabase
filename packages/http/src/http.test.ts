@@ -12,7 +12,7 @@ import {
 	PublicError,
 } from 'ultimabase'
 import type { HttpApi, Routes } from './index.ts'
-import { httpPlugin, routes } from './index.ts'
+import { clientOf, httpPlugin, routes } from './index.ts'
 import { portOf } from './server.ts'
 
 const Note = defineModel({
@@ -195,6 +195,25 @@ describe('an error', () => {
 	})
 	failing.get('/thrown', () => {
 		throw 'Connection refused.'
+	})
+	failing.get('/busy', () => {
+		throw new PublicError('TOO_MANY_ATTEMPTS', 'Wait a minute.', {
+			details: { retryAfter: 60 },
+		})
+	})
+
+	it('sends too many attempts as 429, with when to retry', async () => {
+		const { url } = await server({ port: 0, routes: [failing] })
+		const busy = await fetch(`${url}/busy`)
+		expect(busy.status).toBe(429)
+		expect(busy.headers.get('retry-after')).toBe('60')
+		expect(await busy.json()).toStrictEqual({
+			code: 'TOO_MANY_ATTEMPTS',
+			message: 'Wait a minute.',
+			details: { retryAfter: 60 },
+		})
+		const locked = await fetch(`${url}/locked`)
+		expect(locked.headers.get('retry-after')).toBeNull()
 	})
 
 	it('sends a public error with its status and details', async () => {
@@ -483,5 +502,43 @@ describe('stop', () => {
 			first:
 				'Stopped 10 s after stop began: closed the requests still running.',
 		})
+	})
+})
+
+describe('a function’s client (D-113)', () => {
+	const signing = routes()
+	signing.get('/address', (c) => c.text(clientOf(c).client.address))
+	signing.post('/sign', (c) => {
+		const { client, sent } = clientOf(c)
+		client.cookies.set('session', 'token', { httpOnly: true, maxAge: 60 })
+		client.cookies.clear('theme', { path: '/app' })
+		// A Response of its own, as `graphql-http` returns.
+		return sent(new Response('signed', { status: 201 }))
+	})
+	signing.post('/none', (c) => {
+		const response = new Response('none')
+		return clientOf(c).sent(response) === response
+			? c.text('same')
+			: c.text('copied')
+	})
+
+	it('holds the connection’s address', async () => {
+		const { url } = await server({ port: 0, routes: [signing] })
+		const address = await (await fetch(`${url}/address`)).text()
+		expect(['127.0.0.1', '::1', '::ffff:127.0.0.1']).toContain(address)
+		expect(await (await signing.request('/address')).text()).toBe('')
+	})
+
+	it('adds the cookies its run set to the response', async () => {
+		const { url } = await server({ port: 0, routes: [signing] })
+		const signed = await fetch(`${url}/sign`, { method: 'POST' })
+		expect(signed.status).toBe(201)
+		expect(await signed.text()).toBe('signed')
+		expect(signed.headers.getSetCookie()).toStrictEqual([
+			'session=token; Max-Age=60; Path=/; HttpOnly',
+			'theme=; Max-Age=0; Path=/app',
+		])
+		const none = await fetch(`${url}/none`, { method: 'POST' })
+		expect(await none.text()).toBe('same')
 	})
 })

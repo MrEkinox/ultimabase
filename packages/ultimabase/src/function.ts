@@ -92,10 +92,37 @@ export type FunctionWithKeys<U> = {
 		: never
 }
 
-/** What `run` receives: the caller, and the validated input if any. */
-export type RunFacts<I> = { readonly caller: Caller } & ([I] extends [
-	StandardSchema,
-]
+/** A cookie's attributes (D-113). */
+export interface CookieOptions {
+	/** In seconds. */
+	readonly maxAge?: number
+	readonly path?: string
+	readonly domain?: string
+	readonly httpOnly?: boolean
+	readonly secure?: boolean
+	readonly sameSite?: 'Strict' | 'Lax' | 'None'
+}
+
+/** Who calls a function through a transport (D-113). */
+export interface Client {
+	/** The connection's address, `''` when the transport has none. */
+	readonly address: string
+	/** Written on the transport's HTTP response. */
+	readonly cookies: {
+		set(name: string, value: string, options?: CookieOptions): void
+		/** Its `path` and `domain` must be those it was set with. */
+		clear(name: string, options?: CookieOptions): void
+	}
+}
+
+/**
+ * What `run` receives: the caller, its client when a transport calls it,
+ * and the validated input if any (D-113).
+ */
+export type RunFacts<I> = {
+	readonly caller: Caller
+	readonly client: Client | undefined
+} & ([I] extends [StandardSchema]
 	? { readonly input: SchemaTypes<I>['output'] }
 	: unknown)
 

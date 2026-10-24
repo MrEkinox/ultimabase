@@ -3,13 +3,15 @@
 import type { SchemaModel } from './adapter.ts'
 import { readRules } from './access.ts'
 import type { Logger } from './app-options.ts'
-import type { FunctionDefinition, PluginRecord } from './definition.ts'
+import type { PluginRecord } from './definition.ts'
+import type { FunctionSource, Functions } from './functions.ts'
 import type { Identify, PluginIdentify } from './identify.ts'
 import type { Caller } from './rules.ts'
 import type { ExposedFunction, ExposedModel, ModelQueries } from './plugin.ts'
+import type { ModelShape } from './model.ts'
 import type { ModelInfo, Resolved } from './schema.ts'
 import { pluginValues } from './definition.ts'
-import { exposedFunctions } from './functions.ts'
+import { exposedFunctions, resolveFunctions } from './functions.ts'
 import { isObject } from './query-where.ts'
 
 /** Each plugin after the plugins it needs; a cycle stops startup. */
@@ -98,6 +100,8 @@ function exposed(name: string, resolved: Resolved): readonly ExposedModel[] {
 			required: required(info),
 			with: key,
 			queries,
+			// oxlint-disable-next-line typescript/no-unsafe-type-assertion -- a `defineModel` value, keyed by it.
+			model: value as ModelShape,
 		})
 	})
 }
@@ -120,25 +124,48 @@ function schemaOf(resolved: Resolved, name: string): SchemaModel {
 	return found
 }
 
-/** Each plugin with its context; its logger names it (D-91). */
+/**
+ * Each plugin with its context, its logger naming it (D-91), and the
+ * functions, the application's then each plugin's (D-113).
+ */
 export function withContexts(
 	apiOrder: readonly PluginRecord[],
 	logger: Logger,
 	identify: Identify,
 	resolved: Resolved,
-	functions: ReadonlyMap<object, FunctionDefinition>,
-): readonly Installed[] {
-	return apiOrder.map(({ code, options }) => ({
+	appFunctions: readonly unknown[],
+): { readonly plugins: readonly Installed[]; readonly functions: Functions } {
+	const bases = apiOrder.map(({ code, options }) => ({
 		code,
-		context: {
+		base: {
 			options,
 			plugins: code.plugins,
 			logger: logger.child({ name: code.name }),
 			identify,
 			models: exposed(code.name, resolved),
-			functions: exposedFunctions(code.name, functions),
 		},
 	}))
+	const sources: FunctionSource[] = [
+		{ plugin: undefined, values: appFunctions },
+	]
+	for (const { code, base } of bases) {
+		if (code.functions === undefined) continue
+		const values: unknown = Reflect.apply(code.functions, undefined, [base])
+		if (!Array.isArray(values)) {
+			throw new TypeError(`${code.name}.functions returns an array (D-113).`)
+		}
+		sources.push({ plugin: code.name, values })
+	}
+	const functions = resolveFunctions(
+		sources,
+		resolved,
+		apiOrder.map((plugin) => plugin.code),
+	)
+	const plugins = bases.map(({ code, base }) => ({
+		code,
+		context: { ...base, functions: exposedFunctions(code.name, functions) },
+	}))
+	return { plugins, functions }
 }
 
 /** Builds each plugin's API into `apis`, in their order (D-16, D-89). */

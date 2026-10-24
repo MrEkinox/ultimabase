@@ -12,8 +12,8 @@ import {
 } from 'graphql'
 import { createHandler } from 'graphql-http/lib/use/fetch'
 import type { Http } from '@ultimabase/http'
-import { httpPlugin, routes } from '@ultimabase/http'
-import type { Caller, PluginOf, PluginTypes, UseOf } from 'ultimabase'
+import { clientOf, httpPlugin, routes } from '@ultimabase/http'
+import type { Caller, Client, PluginOf, PluginTypes, UseOf } from 'ultimabase'
 import { definePlugin } from 'ultimabase'
 import manifest from '../package.json' with { type: 'json' }
 import { depthRule, introspectionDepthRule } from './depth.ts'
@@ -101,12 +101,15 @@ const plugin = definePlugin<Graphql>({
 		const budget = rowBudget(registry, options.maxRows ?? 20_000, called.reads)
 		// The contexts of Master's requests, which no budget limits.
 		const exempt = new WeakSet<object>()
-		// The caller the HTTP plugin read, by its request.
-		const callers = new WeakMap<Request, Caller>()
-		const callerOf = (request: Request): Caller => {
-			const caller = callers.get(request)
-			if (caller === undefined) throw new Error('No caller was read.')
-			return caller
+		// The caller the HTTP plugin read and the client, by its request.
+		const requests = new WeakMap<
+			Request,
+			{ readonly caller: Caller; readonly client: Client }
+		>()
+		const heldOf = (request: Request) => {
+			const held = requests.get(request)
+			if (held === undefined) throw new Error('No caller was read.')
+			return held
 		}
 		const handler = createHandler<Context>({
 			schema,
@@ -114,9 +117,10 @@ const plugin = definePlugin<Graphql>({
 			// document is bounded before it is validated.
 			parse: (source) => parse(source, { maxTokens }),
 			context: (request) => {
-				const caller = callerOf(request.raw)
+				const { caller, client } = heldOf(request.raw)
 				const master = caller.kind === 'master'
-				const context = { caller, select: selectFor(registry, master) }
+				const select = selectFor(registry, master)
+				const context = { caller, client, select }
 				if (master) exempt.add(context)
 				return context
 			},
@@ -124,7 +128,7 @@ const plugin = definePlugin<Graphql>({
 				...specified.filter((rule) => rule !== MaxIntrospectionDepthRule),
 				introspectionDepthRule,
 				...closed,
-				...(callerOf(request.raw).kind === 'master' ? [] : [depth]),
+				...(heldOf(request.raw).caller.kind === 'master' ? [] : [depth]),
 			],
 			validate: (on, document, rules) =>
 				validate(on, document, rules, { hideSuggestions }),
@@ -159,8 +163,9 @@ const plugin = definePlugin<Graphql>({
 								body: await c.req.text(),
 							})
 						: c.req.raw
-				callers.set(request, c.var.caller)
-				return handler(request)
+				const { client, sent } = clientOf(c)
+				requests.set(request, { caller: c.var.caller, client })
+				return sent(await handler(request))
 			}),
 		)
 	},

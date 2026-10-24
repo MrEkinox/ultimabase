@@ -1,7 +1,7 @@
 // The Hono application `httpPlugin` serves (D-66, D-106): CORS, the body
 // limit, each request's caller, the routes, and errors as D-72 sends them.
 import { randomUUID } from 'node:crypto'
-import { STATUS_CODES } from 'node:http'
+import { IncomingMessage, STATUS_CODES } from 'node:http'
 import type { Context } from 'hono'
 import { Hono } from 'hono'
 import { bodyLimit } from 'hono/body-limit'
@@ -13,8 +13,11 @@ import type { Caller, ErrorCode, Logger } from 'ultimabase'
 import { PublicError } from 'ultimabase'
 import { hold } from './request.ts'
 
-/** What a route's context holds: `c.var.caller` (D-106). */
-export type HttpEnv = { Variables: { caller: Caller } }
+/**
+ * What a route's context holds: `c.var.caller` (D-106) and `c.var.address`,
+ * the connection's, `''` when unknown (D-113).
+ */
+export type HttpEnv = { Variables: { caller: Caller; address: string } }
 
 /** Routes the application writes, read by `httpPlugin({ routes })`. */
 export type Routes = Hono<HttpEnv>
@@ -41,6 +44,7 @@ const statuses: ReadonlyMap<string, ContentfulStatusCode> = new Map<
 	['UNIQUE_VIOLATION', 409],
 	['RELATION_RESTRICTED', 409],
 	['UNAUTHENTICATED', 401],
+	['TOO_MANY_ATTEMPTS', 429],
 	['INTERNAL', 500],
 ])
 
@@ -65,6 +69,15 @@ function failed(error: unknown, c: Context, logger: Logger): Response {
 		const { code, message, details } = error
 		// An application's own code is a client error (D-72).
 		const status = statuses.get(code) ?? 400
+		// Its details say when to retry, in seconds (D-113).
+		if (
+			code === 'TOO_MANY_ATTEMPTS' &&
+			typeof details === 'object' &&
+			details !== null
+		) {
+			const wait: unknown = Reflect.get(details, 'retryAfter')
+			if (typeof wait === 'number') c.header('retry-after', String(wait))
+		}
 		return details === undefined
 			? c.json({ code, message }, status)
 			: c.json({ code, message, details }, status)
@@ -85,6 +98,16 @@ function isLocal(origin: string): boolean {
 		protocol === 'http:' &&
 		(hostname === 'localhost' || hostname === '127.0.0.1')
 	)
+}
+
+/** The address of the Node connection `env` holds, `''` without one. */
+function addressOf(env: unknown): string {
+	const incoming: unknown =
+		typeof env === 'object' && env !== null
+			? Reflect.get(env, 'incoming')
+			: undefined
+	if (!(incoming instanceof IncomingMessage)) return ''
+	return incoming.socket.remoteAddress ?? ''
 }
 
 /**
@@ -161,7 +184,7 @@ export function appOf(
 		}),
 	)
 	app.use(async (c, next) => {
-		hold(c, await identify(c.req.raw))
+		hold(c, await identify(c.req.raw), addressOf(c.env))
 		await next()
 	})
 	for (const routes of [...(options.routes ?? []), ...mounted]) {

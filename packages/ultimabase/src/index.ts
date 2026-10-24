@@ -43,6 +43,8 @@ export type {
 } from './fields.ts'
 export { defineFunction, defineType } from './define-function.ts'
 export type {
+	Client,
+	CookieOptions,
 	FunctionPlugin,
 	Nullable,
 	ObjectType,

@@ -210,7 +210,7 @@ prototype/example/define-function.ts: a type's field is an output, not nothing.
 TS2322: Type 'undefined' is not assignable to type 'OutputSpec'.
 
 prototype/example/define-function.ts: without an input, `run` receives none.
-TS2339: Property 'input' does not exist on type '{ readonly caller: Caller; }'.
+TS2339: Property 'input' does not exist on type '{ readonly caller: Caller; readonly client: Client | undefined; }'.
 
 prototype/example/define-function.ts: an input typed `any` would hide the input's type.
 TS2375: Type 'ZodAny' is not assignable to type 'ZodAny & "the schema types its input as any"' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
@@ -246,7 +246,7 @@ TS2741: Property 'archived' is missing in type '{}' but required in type 'Archiv
 
 prototype/example/define-plugin.ts: the manifest is required.
 TS2345: Argument of type '{ name: "archive"; commands: (model: PluginModel<Record<never, never>, { readonly [option: string]: never; }, unknown>) => { archived: Queries<Record<never, never>, never>; }; }' is not assignable to parameter of type 'PluginDefinition<Archive>'.
-  Property 'manifest' is missing in type '{ name: "archive"; commands: (model: PluginModel<Record<never, never>, { readonly [option: string]: never; }, unknown>) => { archived: Queries<Record<never, never>, never>; }; }' but required in type '{ readonly name: "archive"; readonly manifest: Manifest; readonly hooks?: PluginHooks<Record<never, never>, { readonly [option: string]: never; }, unknown, "archived">; ... 4 more ...; readonly models?: readonly ModelShape[]; }'.
+  Property 'manifest' is missing in type '{ name: "archive"; commands: (model: PluginModel<Record<never, never>, { readonly [option: string]: never; }, unknown>) => { archived: Queries<Record<never, never>, never>; }; }' but required in type '{ readonly name: "archive"; readonly manifest: Manifest; readonly hooks?: PluginHooks<Record<never, never>, { readonly [option: string]: never; }, unknown, "archived">; ... 5 more ...; readonly functions?: (context: Omit<...>) => readonly FunctionShape[]; }'.
 
 prototype/example/define-plugin.ts: a manifest has a version.
 TS2741: Property 'version' is missing in type '{ name: string; }' but required in type 'Manifest'.

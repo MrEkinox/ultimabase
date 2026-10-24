@@ -16,7 +16,6 @@ import {
 } from './plugin-app.ts'
 import type { Running } from './running.ts'
 import { register, unregister, Work } from './running.ts'
-import { resolveFunctions } from './functions.ts'
 import { resolve } from './schema.ts'
 
 export type Lifecycle = {
@@ -117,18 +116,19 @@ export function lifecycle(options: LifecycleOptions): Lifecycle {
 			models,
 			records.map((plugin) => plugin.code),
 		)
-		const functions = resolveFunctions(
-			options.functions ?? [],
-			resolved,
-			records.map((plugin) => plugin.code),
-		)
 		const base = options.logger ?? consoleLogger()
 		const logger = base.child({ name: 'ultimabase' })
 		checkVersions(records, logger)
 		// Plugins identify with their contexts, which hold identify.
 		const identifiers: PluginIdentify[] = []
 		const identify = identifier(options.masterKey, logger, identifiers)
-		const plugins = withContexts(apiOrder, base, identify, resolved, functions)
+		const { plugins, functions } = withContexts(
+			apiOrder,
+			base,
+			identify,
+			resolved,
+			options.functions ?? [],
+		)
 		identifiers.push(...pluginIdentifiers(records, plugins))
 		await database.start(resolved.schema)
 		await follow(database, resolved.schema, logger)
@@ -138,7 +138,7 @@ export function lifecycle(options: LifecycleOptions): Lifecycle {
 			adapter: database,
 			logger,
 			apis,
-			functions,
+			functions: functions.definitions,
 			work: new Work(),
 		}
 		register(app)

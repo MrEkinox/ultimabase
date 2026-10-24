@@ -4968,12 +4968,16 @@ D-112.
    `defineFunction` values of its own, exposed by every transport as the
    application's are (D-109): a name another function or a root field takes
    stops startup, naming both. A plugin's function may return the
-   application's models, never its own (D-110).
+   application's models, never its own (D-110). A plugin lists them as
+   `functions: (context) => [...]`, called once at start with its context,
+   so a function can take its options and the application's models; GraphQL
+   names one `auth.signOut` in an error.
 2. The client. `run` receives `client` when a transport calls the function,
    `undefined` when server code does (D-75): `client.address`, the
-   connection's address, and `client.cookies.set(name, value, options)` and
-   `client.cookies.clear(name)`, which the transport applies to its HTTP
-   response. auth's API becomes `signIn(userId, client?)`, which sets the
+   connection's address (`''` when unknown, as `c.var.address` in a route),
+   and `client.cookies.set(name, value, options)` and
+   `client.cookies.clear(name, options)`, which the transport applies to its
+   HTTP response; clearing a `Secure` or `Path` cookie needs its options. auth's API becomes `signIn(userId, client?)`, which sets the
    session's cookie only with a client, and `revokeSessions(userId)`.
 3. Linked accounts. auth owns `AuthAccount { userId, method, subject }`,
    unique on `(method, subject)`: one row per way a user signs in, the email
@@ -5022,8 +5026,8 @@ D-112.
    already taken fails with `UNIQUE_VIOLATION` (409).
 10. Attempts. Ten failures for one `(subject, address)` within 15 minutes
     fail the next attempts with `TOO_MANY_ATTEMPTS`, a kernel code sent with
-    status 429 and `retryAfter`, in seconds, in the error's extensions (and
-    `Retry-After` over REST). A success clears the count. The failures are
+    status 429 and `details.retryAfter`, in seconds (D-72; in the error's
+    extensions over GraphQL, and `Retry-After` over REST). A success clears the count. The failures are
     rows of the plugin's `PasswordAttempt`. Server code without a client is
     not counted.
 11. Out of this decision, until a second sign-in method or an email plugin:
@@ -5117,7 +5121,10 @@ mutation {
 	"errors": [
 		{
 			"message": "Too many attempts: try again later.",
-			"extensions": { "code": "TOO_MANY_ATTEMPTS", "retryAfter": 900 }
+			"extensions": {
+				"code": "TOO_MANY_ATTEMPTS",
+				"details": { "retryAfter": 900 }
+			}
 		}
 	]
 }

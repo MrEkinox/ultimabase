@@ -20,6 +20,7 @@ import { callerOf } from './engine.ts'
 import { PublicError } from './errors.ts'
 import type { StandardSchema } from './fields.ts'
 import type {
+	Client,
 	FunctionPlugin,
 	FunctionWithKeys,
 	InputCheck,
@@ -124,11 +125,13 @@ function allowed(
 	throw refused({ function: name }, `${name} refused.`, caller, app.logger)
 }
 
-/** `run`'s call, the input first when the function takes one. */
+/** `run`'s call, the input first when the function takes one; a transport
+ * passes its client (D-113). */
 export async function called(
 	value: object,
 	record: FunctionDefinition,
 	args: readonly unknown[],
+	client?: Client,
 ): Promise<unknown> {
 	const app = current()
 	if (app?.functions.get(value) !== record) {
@@ -142,7 +145,7 @@ export async function called(
 	const caller = callerOf(options, name)
 	return app.work.run(async () => {
 		allowed(record, caller, app)
-		const facts: { [key: string]: unknown } = { caller }
+		const facts: { [key: string]: unknown } = { caller, client }
 		const standard = standardOf(schema)
 		if (standard !== undefined) {
 			const result = await checked(standard, input, [], name)
