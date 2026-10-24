@@ -5,7 +5,9 @@ The contract for every coding agent and contributor.
 ## Decisions
 
 [docs/decisions.md](docs/decisions.md) is agreed and binding; record a new
-decision there before building on a choice it does not cover.
+decision there before building on a choice it does not cover. It is long:
+list its entries with `grep -n '^## D-' docs/decisions.md`, read the ones a
+change cites, and the entries named in their `Amended by` line.
 [docs/roadmap.md](docs/roadmap.md) tracks the current phase.
 
 The previous implementation is reference material, never a contract. Read it

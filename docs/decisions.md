@@ -2,7 +2,8 @@
 
 The design of UltimaBase, decided with the maintainer before any code is
 written. One entry per decision; a later entry may replace an earlier one by
-naming it.
+naming it, and the earlier one then says so under its title:
+`Amended by D-104.` Read an entry together with the ones that amend it.
 
 Entries also cover features planned after the first release. Code written
 today follows them: when a planned feature needs a shape now, build that
@@ -674,6 +675,8 @@ Why: knowing them now keeps today's code from blocking them.
 
 ## D-26: Migrations are SQL files, safe changes sync in development
 
+Amended by D-105.
+
 Choice: in development, the PostgreSQL adapter applies safe changes at startup
 (new table, new optional field, new index) and refuses destructive or ambiguous
 ones (drop, rename, type change) with a message saying what to run.
@@ -1096,6 +1099,8 @@ fields: (f) => ({
 
 ## D-45: Function types become GraphQL types, with an escape hatch
 
+Amended by D-109.
+
 Choice: a function's `input` is any Standard Schema; its `output` is a model
 (`Todo`), a list (`[Todo]`), a named object mixing models and schemas
 (`defineType`, which replaces the anonymous `{ todo: Todo, created:
@@ -1367,6 +1372,8 @@ Later: an iterator reading a large table in batches by cursor
 
 ## D-56: Passwords use Argon2id, sign-in is rate limited
 
+Amended by D-113.
+
 Choice: the `password` plugin hashes passwords with Argon2id from Node's
 `node:crypto` (OWASP parameters: 19 MiB memory, 2 passes, parallelism 1) and
 stores the algorithm and parameters with each hash, so they can change later
@@ -1383,6 +1390,8 @@ built in); a native `argon2` package; sign-in protection left to a general
 rate-limit plugin.
 
 ## D-57: A plugin is an interface of types and one `definePlugin`
+
+Amended by D-89.
 
 Choice: a plugin declares its types in an interface extending `PluginTypes`:
 its `name` and the parts it has, `options` (its entry's, `softDelete({ ... })`),
@@ -1510,6 +1519,8 @@ fields: (f) => ({
 ```
 
 ## D-58: One pino-compatible logger
+
+Amended by D-93.
 
 Choice: `defineApp({ logger })` takes any logger with pino's interface
 (`info`, `warn`, `error`, `child`); without one, the kernel writes JSON lines
@@ -1690,6 +1701,8 @@ production (a missing `NODE_ENV` would open a deployed server); a stricter
 isolation level by default, which adds retries for no common need.
 
 ## D-67: One fixed order for every operation
+
+Amended by D-89.
 
 Choice: an operation runs in this order: the model's access rule (D-10), the
 fields' access rules on the data the caller sent (D-44), defaults (D-53),
@@ -1907,6 +1920,8 @@ throw new PublicError('VALIDATION_FAILED', 'Too short.', {
 ```
 
 ## D-73: The adapter contract
+
+Amended by D-105.
 
 Choice: an adapter implements six methods. `start(schema)` receives every
 model with its fields, relations, indexes and `dbName` overrides; `stop()`
@@ -2715,6 +2730,8 @@ slug: f.string({
 
 ## D-89: Plugins at run time
 
+Amended by D-96.
+
 Choice: seven details of D-15, D-57, D-67 and D-71 at run time. It replaces
 D-67's place for `redirect` and D-57's name `adds`.
 
@@ -3320,6 +3337,8 @@ await Note.create({ data }, { as: asUser({ id: 'ada' }) })
 
 ## D-98: The PostgreSQL adapter's tables, names and test setup
 
+Amended by D-105.
+
 Choice:
 
 1. Tables. `start` refuses a server below PostgreSQL 15 (D-50). When the
@@ -3417,6 +3436,8 @@ await app.start()
 ```
 
 ## D-99: A write in one statement, checked inside it, in a transaction only when one serves
+
+Amended by D-104.
 
 Choice:
 
@@ -4524,6 +4545,8 @@ curl -X POST localhost:3000/webhooks/stripe -H 'content-type: application/json' 
 
 ## D-109: `defineFunction` and `defineType`, at run time and over GraphQL
 
+Amended by D-113.
+
 Choice: completes D-27, D-45, D-75 and D-107, and amends D-45's outputs.
 
 1. Query or mutation. A function is a mutation unless its definition says
@@ -4880,6 +4903,8 @@ const { count } = await Notification.deleteMany(
 
 ## D-112: auth's sessions, Identify and the API of sign-in methods
 
+Amended by D-113 and D-115.
+
 Choice: completes D-33, D-39, D-62, D-79 and D-106.
 
 1. `@ultimabase/auth` exports `authPlugin()`, `defineUser` (D-62),
@@ -4967,6 +4992,8 @@ curl localhost:3000/graphql -H 'authorization: Bearer expired…' -d '…'
 ```
 
 ## D-113: `passwordPlugin()`, linked accounts, plugin functions and `viewer`
+
+Amended by D-115.
 
 Choice: completes D-33, D-56, D-109 and D-112, and amends D-56, D-109 and
 D-112.
@@ -5163,6 +5190,8 @@ mutation {
 
 ## D-114: `passwordPlugin()`'s limits against many addresses
 
+Amended by D-115.
+
 Choice: completes D-113.
 
 1. An IPv6 address counts as its /64 network, an IPv4-mapped IPv6 address
@@ -5211,6 +5240,8 @@ const response = await fetch('/graphql', {
 The application's code does not change.
 
 ## D-115: auth and password after their audit
+
+Amended by D-116.
 
 Choice: amends D-112, D-113 and D-114.
 
