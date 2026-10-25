@@ -7,6 +7,7 @@ import type {
 } from 'kysely'
 import { Kysely, PostgresDialect, sql } from 'kysely'
 import { Pool } from 'pg'
+import { parse } from 'pg-connection-string'
 import { CheckFailed } from 'ultimabase'
 import type {
 	Adapter,
@@ -29,6 +30,23 @@ import { compileWrite, translate } from './write.ts'
 export type Options = {
 	readonly url: string | undefined
 	readonly log?: (event: LogEvent) => void
+}
+
+/** The codes of a server the network does not reach, or does not know. */
+const unreachable =
+	/^(ECONNREFUSED|ENOTFOUND|EAI_AGAIN|ETIMEDOUT|EHOSTUNREACH|ENETUNREACH)$/
+
+/**
+ * `error`, or one naming the server `url` cannot reach, not its password
+ * (D-105).
+ */
+function reach(url: string, error: unknown): unknown {
+	const code: unknown = Reflect.get(Object(error), 'code')
+	if (typeof code !== 'string' || !unreachable.test(code)) return error
+	const { host, port } = parse(url)
+	const address = `${host || process.env['PGHOST'] || 'localhost'}:${port || 5432}`
+	const message = `Cannot reach PostgreSQL at ${address} (${code}): is it running, and is its url right?`
+	return Object.assign(new Error(message, { cause: error }), { code })
 }
 
 /** What the callback a rollback ends throws, which `rollback()` swallows. */
@@ -140,7 +158,7 @@ export function createAdapter(options: Options): Adapter {
 				requireVersion(rows[0]?.server_version_num)
 			} catch (error) {
 				await db.destroy()
-				throw error
+				throw reach(url, error)
 			}
 			state = { db, catalog }
 		},

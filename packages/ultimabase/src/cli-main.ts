@@ -7,6 +7,7 @@ import { parseArgs } from 'node:util'
 import { configPath, load } from './cli-config.ts'
 import { migrateDeploy, migrateStatus, reset } from './cli-deploy.ts'
 import { migrateCreate, sync } from './cli-migrate.ts'
+import { Refused } from './migrate.ts'
 
 const usage = `Usage: ultimabase <command> [--config <path>]
 
@@ -58,26 +59,43 @@ export const processIo: Io = {
 	node: runNode,
 }
 
-/** A refusal prints its message, any other error its stack. */
+/**
+ * An expected failure, a refusal or an error with a `code` (from Node,
+ * PostgreSQL or the kernel), prints its message; any other, a bug, its
+ * stack (D-105).
+ */
 function report(error: unknown, io: Io): number {
-	if (error instanceof Error && error.name === 'Refused') io.err(error.message)
-	else
-		io.err(
-			error instanceof Error ? (error.stack ?? error.message) : String(error),
-		)
+	if (!(error instanceof Error)) io.err(String(error))
+	else if (
+		error.name === 'Refused' ||
+		typeof Reflect.get(error, 'code') === 'string'
+	)
+		io.err(error.message)
+	else io.err(error.stack ?? error.message)
 	return 1
 }
 
+/** Reads `args`, refusing an option it does not know with its first sentence. */
+function read(args: readonly string[]) {
+	try {
+		return parseArgs({
+			args: [...args],
+			allowPositionals: true,
+			options: {
+				config: { type: 'string' },
+				force: { type: 'boolean', default: false },
+				help: { type: 'boolean', default: false },
+			},
+		})
+	} catch (error) {
+		const message: unknown = Reflect.get(Object(error), 'message')
+		const first = String(message).replace(/\.( .*)?$/s, '')
+		throw new Refused(`${first}. Run \`npx ultimabase --help\`.`)
+	}
+}
+
 async function run(args: readonly string[], io: Io): Promise<number> {
-	const { values, positionals } = parseArgs({
-		args: [...args],
-		allowPositionals: true,
-		options: {
-			config: { type: 'string' },
-			force: { type: 'boolean', default: false },
-			help: { type: 'boolean', default: false },
-		},
-	})
+	const { values, positionals } = read(args)
 	const [command, sub, name, ...rest] = positionals
 	const known =
 		rest.length === 0 &&
@@ -86,9 +104,15 @@ async function run(args: readonly string[], io: Io): Promise<number> {
 				(['deploy', 'status'].includes(sub ?? '') && name === undefined)
 			: ['dev', 'start', 'sync', 'reset'].includes(command ?? '') &&
 				sub === undefined)
-	if (values.help || !known) {
-		;(values.help ? io.out : io.err)(usage)
-		return values.help ? 0 : 1
+	if (values.help) {
+		io.out(usage)
+		return 0
+	}
+	if (!known) {
+		if (command !== undefined)
+			io.err(`Unknown command '${positionals.join(' ')}'.`)
+		io.err(usage)
+		return 1
 	}
 	const path = configPath(io.cwd, values.config)
 	if (command === 'dev') {

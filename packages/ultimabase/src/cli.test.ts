@@ -90,8 +90,35 @@ describe('the command line', () => {
 		expect(await run('migrate', 'create')).toBe(1)
 		expect(await run('migrate', 'deploy', 'now')).toBe(1)
 		expect(await run('sync', 'now')).toBe(1)
+		expect(err.filter((line) => !line.startsWith('Usage:'))).toStrictEqual([
+			"Unknown command 'deploy'.",
+			"Unknown command 'migrate create'.",
+			"Unknown command 'migrate deploy now'.",
+			"Unknown command 'sync now'.",
+		])
+		err = []
 		expect(await run()).toBe(1)
-		expect(err).toHaveLength(5)
+		expect(err).toStrictEqual([out[0]])
+	})
+
+	it('refuses an option it does not know in one sentence (D-105)', async () => {
+		expect(await run('sync', '--forse')).toBe(1)
+		expect(await run('sync', '--config')).toBe(1)
+		expect(await run('sync', '--force=yes')).toBe(1)
+		expect(err).toStrictEqual([
+			"Unknown option '--forse'. Run `npx ultimabase --help`.",
+			"Option '--config <value>' argument missing. Run `npx ultimabase --help`.",
+			"Option '--force' does not take an argument. Run `npx ultimabase --help`.",
+		])
+	})
+
+	it('prints the message alone of an error with a code (D-105)', async () => {
+		await writeFile(
+			join(dir, 'down.mjs'),
+			"throw Object.assign(new Error('Cannot reach it.'), { code: 'ECONNREFUSED' })\n",
+		)
+		expect(await run('sync', '--config', 'down.mjs')).toBe(1)
+		expect(err).toStrictEqual(['Cannot reach it.'])
 	})
 
 	it('writes to the process by default', async () => {

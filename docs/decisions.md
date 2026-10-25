@@ -3936,6 +3936,22 @@ Choice: amends D-26, D-73 and D-98 point 1.
    - `ultimabase start` sets `NODE_ENV` to `production` when it is unset, so
      a deployed server is never in development by omission (D-49);
    - both start the application and leave `SIGTERM` to it (D-59).
+
+   A command that fails exits 1 and says why. An expected failure prints
+   its message alone: a refusal, or an error with a `code`, which Node,
+   PostgreSQL, the command line and the kernel's own errors carry. Any other
+   error is a bug, and prints its stack. An unknown option adds
+   ``Run `npx ultimabase --help`.``, and an unknown command the usage. The
+   storage adapter names a server it cannot reach, since it alone knows the
+   address, and never prints a password (amended 2026-10-25):
+
+   ```
+   $ npx ultimabase sync --forse
+   Unknown option '--forse'. Run `npx ultimabase --help`.
+   $ npx ultimabase sync
+   Cannot reach PostgreSQL at localhost:5432 (ECONNREFUSED): is it running, and is its url right?
+   ```
+
 2. A snapshot describes what the storage adapter makes of the models: for
    PostgreSQL, every table with its columns, types, constraints and indexes.
    It is JSON, and its hash is the SHA-256 of its canonical form. Two places

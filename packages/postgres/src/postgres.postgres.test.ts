@@ -116,6 +116,8 @@ const row = (label: unknown) => ({
 	label,
 })
 
+const startAt = async (url: string) => postgres({ url }).start({ models: [] })
+
 describe('postgres()', () => {
 	const url = urls[0] ?? ''
 	let schema = ''
@@ -139,6 +141,25 @@ describe('postgres()', () => {
 				'postgres() was given no url: is the variable it reads set?',
 			)
 		}
+	})
+
+	it('names a server it cannot reach without its password, and passes a refusal through (D-105)', async () => {
+		// The whole message, so no password in it.
+		await expect(
+			startAt('postgres://postgres:secret@localhost:1/postgres'),
+		).rejects.toMatchObject({
+			code: 'ECONNREFUSED',
+			message:
+				'Cannot reach PostgreSQL at localhost:1 (ECONNREFUSED): is it running, and is its url right?',
+		})
+		await expect(
+			startAt('postgres://postgres:secret@nosuchhost.invalid/x'),
+		).rejects.toThrow(
+			/^Cannot reach PostgreSQL at nosuchhost\.invalid:5432 \((ENOTFOUND|EAI_AGAIN)\): is it running, and is its url right\?$/,
+		)
+		const wrong = new URL(url)
+		wrong.password = 'wrong'
+		await expect(startAt(wrong.href)).rejects.toMatchObject({ code: '28P01' })
 	})
 
 	it('names a long constraint by its hash, and reports what it refuses', async () => {
