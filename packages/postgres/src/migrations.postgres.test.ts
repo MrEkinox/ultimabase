@@ -130,6 +130,17 @@ const after: Schema = {
 	],
 }
 
+/** A shelf whose size is `type`. */
+const sized = (type: Scalar['type'], optional: boolean): Schema => ({
+	models: [
+		{
+			name: 'Shelf',
+			fields: [scalar('size', type, { optional })],
+			indexes: [],
+		},
+	],
+})
+
 /** Boxes on a shelf or on a rack: the same column, another foreign key. */
 const onto = (target: string): Schema => ({
 	models: ['Shelf', 'Rack']
@@ -302,6 +313,108 @@ describe('a sync on postgres()', () => {
 		expect((await migrations.stored())?.snapshot).toStrictEqual(
 			migrations.snapshot(before),
 		)
+	})
+
+	it('changes a type PostgreSQL cannot convert, without its values', async () => {
+		type Type = 'number' | 'boolean' | 'date' | 'json'
+		const pairs: [Type, Type][] = [
+			['number', 'boolean'],
+			['number', 'date'],
+			['number', 'json'],
+			['boolean', 'number'],
+			['boolean', 'date'],
+			['boolean', 'json'],
+			['date', 'number'],
+			['date', 'boolean'],
+			['date', 'json'],
+			['json', 'date'],
+		]
+		const values = { number: '3', boolean: 'true', date: 'now()', json: `'1'` }
+		const defaults = {
+			number: 0,
+			boolean: false,
+			date: new Date('2026-01-01T00:00:00.000Z'),
+			json: { a: 2 },
+		}
+		const cellOf = (at: 0 | 1, more: Partial<Scalar> = {}): Schema => ({
+			models: [
+				{
+					name: 'Cell',
+					fields: pairs.flatMap((pair, index) => {
+						const type = pair[at]
+						return [
+							scalar(`o${index}`, type, { optional: true, unique: true }),
+							scalar(`r${index}`, type, {
+								...(at === 1 ? { default: defaults[type] } : {}),
+								...more,
+							}),
+						]
+					}),
+					indexes: [],
+				},
+			],
+		})
+		await sync(undefined, cellOf(0))
+		const row = pairs.flatMap(([type]) => [values[type], values[type]])
+		await query(
+			inSchema(schema),
+			`insert into cell values (gen_random_uuid(), now(), now(), ${row.join(', ')})`,
+		)
+		const statements = await sync(cellOf(0), cellOf(1))
+		expect(statements[1]).toStrictEqual({
+			sql: 'alter table "cell" alter column "r0" type boolean using false',
+			model: 'Cell',
+			does: 'changed r0 to boolean, false in the rows it held',
+			loses:
+				'changing "Cell.r0" from double precision to boolean deletes its data: PostgreSQL converts no double precision to boolean',
+		})
+		expect(statements[0]?.sql).toBe(
+			'alter table "cell" alter column "o0" type boolean using null',
+		)
+		const [held] = await query(inSchema(schema), 'select * from cell')
+		expect(held).toMatchObject(
+			Object.fromEntries(
+				pairs.flatMap(([, type], index) => [
+					[`o${index}`, null],
+					[`r${index}`, defaults[type]],
+				]),
+			),
+		)
+		expect(
+			await query(
+				inSchema(schema),
+				`select count(*) from pg_indexes where tablename = 'cell' and indexdef like 'CREATE UNIQUE%'`,
+			),
+		).toStrictEqual([{ count: String(pairs.length + 1) }])
+
+		const back = migrations.plan(migrations.snapshot(cellOf(1)), cellOf(0))
+		expect(back[1]?.tries).toBe(
+			'changing "Cell.r0" from boolean to double precision empties it, which fails when Cell holds rows: make it optional, or give it a value as its default, not a function',
+		)
+		await expect(sync(cellOf(1), cellOf(0))).rejects.toMatchObject({
+			name: 'MigrationFailed',
+			at: 'alter table "cell" alter column "r0" type double precision using null',
+		})
+	})
+
+	it('tries a type change that reads text or json, and makes a field optional first', () => {
+		const statements = migrations.plan(
+			migrations.snapshot(sized('string', false)),
+			sized('boolean', true),
+		)
+		expect(statements.map(({ sql, tries }) => [sql, tries])).toStrictEqual([
+			['alter table "shelf" alter column "size" drop not null', undefined],
+			[
+				'alter table "shelf" alter column "size" type boolean using "size"::boolean',
+				'changing "Shelf.size" from text to boolean fails when a row holds a value it cannot convert',
+			],
+		])
+		expect(
+			migrations.plan(
+				migrations.snapshot(sized('json', false)),
+				sized('string', false),
+			)[0]?.tries,
+		).toBeUndefined()
 	})
 
 	it('tries a foreign key that moves on a column rows hold', () => {

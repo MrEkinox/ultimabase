@@ -157,6 +157,61 @@ function addColumn(
 	)
 }
 
+/** The types PostgreSQL converts no value of a type to, on PG 15 to 18. */
+const unconvertible: Named<readonly string[]> = {
+	'double precision': ['boolean', 'timestamptz', 'jsonb'],
+	boolean: ['double precision', 'timestamptz', 'jsonb'],
+	timestamptz: ['double precision', 'boolean', 'jsonb'],
+	jsonb: ['timestamptz'],
+}
+
+/** Whether converting text or json to another type reads each value. */
+const reads = (from: string, to: string): boolean =>
+	(from === 'jsonb' || from.startsWith('text')) && !to.startsWith('text')
+
+/**
+ * Changes a column's type. One PostgreSQL cannot convert loses its values,
+ * as an added column has none: null, or its fixed default when required.
+ */
+function retype(
+	table: string,
+	key: string,
+	[was, now]: [string, TableSnapshot['columns'][string]],
+	model: string,
+	fill: Fill | undefined,
+	emit: Emit,
+): void {
+	const change = `changing "${model}.${now.field}" from ${shown(was)} to ${shown(now.type)}`
+	const alter = `${table} alter column ${id(key)} type ${now.type}`
+	const does = `changed ${now.field} to ${shown(now.type)}`
+	if (!unconvertible[was]?.includes(now.type)) {
+		return emit(`${alter} using ${id(key)}::${now.type}`, does, {
+			loses: `${change} rewrites its data`,
+			...(reads(was, now.type)
+				? {
+						tries: `${change} fails when a row holds a value it cannot convert`,
+					}
+				: {}),
+		})
+	}
+	const loses = `${change} deletes its data: PostgreSQL converts no ${shown(was)} to ${shown(now.type)}`
+	if (!now.nullable && fill !== undefined) {
+		return emit(
+			`${alter} using ${fill.sql}`,
+			`${does}, ${fill.shown} in the rows it held`,
+			{ loses },
+		)
+	}
+	emit(`${alter} using null`, `${does} without its values`, {
+		loses,
+		...(now.nullable
+			? {}
+			: {
+					tries: `${change} empties it, which fails when ${model} holds rows: make it optional, or give it a value as its default, not a function`,
+				}),
+	})
+}
+
 /** Changes the columns of a table both snapshots hold. */
 function alterColumns(
 	name: string,
@@ -191,24 +246,23 @@ function alterColumns(
 			addColumn(table, key, now, to.model, fills[key], emit)
 			continue
 		}
-		if (was.type !== now.type) {
+		// Optional first, so a type that loses its values can hold none.
+		if (!was.nullable && now.nullable) {
 			emit(
-				`${table} alter column ${id(key)} type ${now.type} using ${id(key)}::${now.type}`,
-				`changed ${now.field} to ${shown(now.type)}`,
-				{
-					loses: `changing "${to.model}.${now.field}" from ${shown(was.type)} to ${shown(now.type)} rewrites its data`,
-				},
+				`${table} alter column ${id(key)} drop not null`,
+				`made ${now.field} optional`,
 			)
 		}
-		if (was.nullable !== now.nullable) {
+		if (was.type !== now.type) {
+			retype(table, key, [was.type, now], to.model, fills[key], emit)
+		}
+		if (was.nullable && !now.nullable) {
 			emit(
-				`${table} alter column ${id(key)} ${now.nullable ? 'drop' : 'set'} not null`,
-				`made ${now.field} ${now.nullable ? 'optional' : 'required'}`,
-				now.nullable
-					? {}
-					: {
-							tries: `making "${to.model}.${now.field}" required fails when a row holds no value`,
-						},
+				`${table} alter column ${id(key)} set not null`,
+				`made ${now.field} required`,
+				{
+					tries: `making "${to.model}.${now.field}" required fails when a row holds no value`,
+				},
 			)
 		}
 	}

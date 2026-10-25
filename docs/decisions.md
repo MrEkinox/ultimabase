@@ -4054,6 +4054,31 @@ Choice: amends D-26, D-73 and D-98 point 1.
    `-- a rename? keep its data: give Locker.title dbName: 'label'.`, and a
    migration file gets the SQL instead (point 5; amended 2026-10-22).
 
+   A type change casts the column's values. PostgreSQL converts no value
+   between number, boolean and date, from them to json, nor from json to
+   date: such a change keeps the column, its indexes and keys, and loses
+   its values as an added column has none, null when optional, its fixed
+   default when required, and is tried when required without one. A field
+   made optional drops `not null` before its type changes. A change from
+   text or json to another type reads each value, and is tried (amended
+   2026-10-25). Before, changing `done: f.boolean()` to
+   `done: f.number({ default: 0 })` failed on any table, an empty one
+   included, with `cannot cast type boolean to double precision` and the
+   advice to fix rows; now `sync --force` logs:
+
+   ```
+   Synced Note: changed done to double precision, 0 in the rows it held.
+   ```
+
+   ```sql
+   alter table "note" alter column "done" type double precision using 0;
+   ```
+
+   A migration file gets the same statement, under
+   `-- changing "Note.done" from boolean to double precision deletes its data: PostgreSQL converts no boolean to double precision.`;
+   a developer who means a conversion writes it in the `using` clause
+   (point 5).
+
    A database that holds tables but no snapshot is refused.
 
 4. In production, `start` applies nothing. It reads the database's snapshot
