@@ -187,6 +187,39 @@ export function reads(create: () => Adapter): void {
 			).toEqual(['Engines'])
 		})
 
+		it('takes -0 for 0, in a number and in json, as PostgreSQL does', async () => {
+			await Book.create(
+				{
+					data: {
+						title: 'Zero',
+						pages: -0,
+						meta: { rank: -0, list: [-0, 1] },
+						author: { connect: { id: authors.grace } },
+					},
+				},
+				M,
+			)
+			expect(await titles({ pages: 0 })).toEqual(['Zero'])
+			expect(await titles({ pages: { in: [0] } })).toEqual(['Zero'])
+			expect(await titles({ pages: { not: -0 } })).toEqual([
+				'Analysis',
+				'Engines',
+			])
+			expect(
+				await titles({ meta: { equals: { list: [0, 1], rank: 0 } } }),
+			).toEqual(['Zero'])
+			// A json array keeps its order and its length.
+			expect(
+				await titles({ meta: { equals: { rank: 0, list: [1, 0] } } }),
+			).toEqual([])
+			expect(
+				await titles({ meta: { equals: { rank: 0, list: [0] } } }),
+			).toEqual([])
+			expect(
+				await titles({ meta: { equals: { kind: 'book', rank: -0 } } }),
+			).toEqual(['Analysis'])
+		})
+
 		it('treats null as a value, and as unknown in a comparison', async () => {
 			expect(await titles({ pages: null })).toEqual(['Compilers'])
 			expect(await titles({ pages: { not: null } })).toEqual([

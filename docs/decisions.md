@@ -3147,6 +3147,8 @@ The details every adapter follows, checked by the suite (amended
   id, a text operand or a json string or key with a NUL or a lone surrogate,
   and a date outside years 1 to 9999 in UTC. A write fails with
   `VALIDATION_FAILED`, a filter or a `connect` with `INVALID_QUERY`.
+- `-0` equals `0` in a filter, in a number or in json, and in a unique field
+  (amended 2026-10-25).
 - A json field cannot be sorted: `orderBy: { meta: 'asc' }` fails typing
   (amended 2026-10-25) and, for JavaScript and casts, with `INVALID_QUERY`;
   GraphQL's `OrderByInput` has no json field. Each
