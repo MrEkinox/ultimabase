@@ -1905,7 +1905,8 @@ or delete of a record the caller cannot read fails with `NOT_FOUND`, not
 error's `code` is typed, not `any`.
 No message names a decision, a client's nor a developer's: an error, a log
 line or a refusal says what happened and what to do, and only comments and
-test titles cite `D-NN` (amended 2026-10-25).
+test titles cite `D-NN`; the lint rule `ultimabase/no-decision-in-string`
+refuses one in a production string (amended 2026-10-25).
 Why: a code that names the problem reads better than Parse's `141`, and a
 client tests the code, not the message. The kernel knows no transport (D-16),
 so an application error carries no HTTP status; one status for every
