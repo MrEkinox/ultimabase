@@ -597,10 +597,12 @@ forgetting an entry never removes a protection (D-04). A model's `.with` keys
 (D-42) and commands (D-15) are exactly those of the plugins in its `use`: a
 key of a plugin outside it fails on its own line. The `defineApp` line fails
 typing when a model uses a plugin missing from `plugins`, when a relation's
-target is missing from `models`, or when an `inverse` names no field of its
-target (D-37); startup stops with a message for each, for JavaScript and
-casts. `defineModel` and `defineFunction` register nothing; `migrate` (D-26)
-and tests (D-40) import the application without starting it.
+target is missing from `models`, when two models share a name (amended
+2026-10-25; a name typed `string`, from a model a function builds, is not
+compared), or when an `inverse` names no field of its target (D-37); startup
+stops with a message for each, for JavaScript and casts. `defineModel` and
+`defineFunction` register nothing; `migrate` (D-26) and tests (D-40) import
+the application without starting it.
 Why: nothing implicit. One file configures the whole application, and each
 model says which plugins act on it: a reader sees a model's behaviour in its
 file, and no key appears because a plugin is installed elsewhere. A model is a
@@ -609,7 +611,8 @@ declare before it. Relation cycles are avoided by thunks read lazily and
 callbacks in the final non-generic `.with`. Measured on 2026-10-20
 (`bench/typing/README.md`): typing cost within 0 % to 10 % of the previous
 `App.defineModel` form, at most 50 ms more on the `defineApp` line of 200
-models, which also checks the plugins and the relation targets.
+models, which also checks the plugins and the relation targets. The name
+check adds 6 % of instantiations on 200 models (2026-10-25).
 Rejected: `App.defineModel` from `UltimaBase.create({ database, plugins })`
 and `App.build({ models })` (the configuration split over two calls, every
 installed plugin's keys on every model, each model importing an application
@@ -3144,8 +3147,9 @@ The details every adapter follows, checked by the suite (amended
   id, a text operand or a json string or key with a NUL or a lone surrogate,
   and a date outside years 1 to 9999 in UTC. A write fails with
   `VALIDATION_FAILED`, a filter or a `connect` with `INVALID_QUERY`.
-- A json field cannot be sorted: `orderBy: { meta: 'asc' }` fails with
-  `INVALID_QUERY`, and GraphQL's `OrderByInput` has no json field. Each
+- A json field cannot be sorted: `orderBy: { meta: 'asc' }` fails typing
+  (amended 2026-10-25) and, for JavaScript and casts, with `INVALID_QUERY`;
+  GraphQL's `OrderByInput` has no json field. Each
   database orders json its own way.
 - A date goes to the database and comes back in UTC, whatever the time zone
   of the server process and of the database session: an offset in seconds,

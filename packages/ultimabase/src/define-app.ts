@@ -62,10 +62,30 @@ type Unlisted<M extends readonly ModelShape[]> = Exclude<
 	Targets<M[number]>,
 	M[number]['name']
 >
-type ModelCheck<M extends readonly ModelShape[]> = [Unlisted<M>] extends [never]
-	? unknown
+// Over the names alone, tail-recursive, so a long list stays cheap and within
+// TypeScript's depth. A name typed `string`, a model a function builds, is not
+// compared.
+type Names<M> = {
+	[I in keyof M]: M[I] extends { readonly name: infer N } ? N : never
+}
+type Twice<N, Seen = never, Found = never> = N extends readonly [
+	infer H,
+	...infer R,
+]
+	? string extends H
+		? Twice<R, Seen, Found>
+		: Twice<R, Seen | H, H extends Seen ? Found | H : Found>
+	: Found
+type ModelCheck<M extends readonly ModelShape[]> = [Twice<Names<M>>] extends [
+	never,
+]
+	? [Unlisted<M>] extends [never]
+		? unknown
+		: {
+				readonly modelError: `a relation points to '${Unlisted<M> & string}', which is not in models`
+			}
 	: {
-			readonly modelError: `a relation points to '${Unlisted<M> & string}', which is not in models`
+			readonly modelError: `two models are named '${Twice<Names<M>> & string}'`
 		}
 
 export function defineApp<

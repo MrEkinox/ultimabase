@@ -57,6 +57,12 @@ export type ValidationChecks = [
 await Profile.create({
 	data: { name: 'Ada', slug: 'ada', tags: ['a'], settings: { theme: 'dark' } },
 })
+// A json field is not sorted, with or without `.with` (D-94).
+await Profile.findMany({ orderBy: { name: 'asc', age: 'desc' } })
+// @ts-expect-error: a json field cannot be sorted.
+await Profile.findMany({ orderBy: { settings: 'asc' } })
+// @ts-expect-error: nor one without a schema.
+await Profile.findMany({ orderBy: [{ name: 'asc' }, { extra: 'desc' }] })
 await Profile.create({
 	data: {
 		name: 'Ada',
