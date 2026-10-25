@@ -53,7 +53,7 @@ describe('callers (D-19)', () => {
 	]
 
 	it.each(callers)(
-		'$name reads and writes nothing yet (D-04)',
+		'$name reads and writes nothing yet',
 		async ({ options }) => {
 			await start()
 			const ada = await Author.create({ data: { name: 'Ada' } }, as)

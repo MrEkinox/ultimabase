@@ -138,9 +138,7 @@ export async function checked(
 	const at = stored.applied.findIndex((file) => file.schema === hash)
 	const later = stored.applied.slice(at + 1).map((file) => file.name)
 	if (at === -1 || later.length === 0) {
-		throw new Refused(
-			`The database's tables are not the models' (D-105): ${deploy}`,
-		)
+		throw new Refused(`The database's tables are not the models': ${deploy}`)
 	}
 	logger.warn(ahead(later))
 }

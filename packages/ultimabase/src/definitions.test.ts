@@ -178,7 +178,7 @@ describe('schema resolution (D-37)', () => {
 			fields: (f) => ({ essays: f.many(() => Strict) }),
 		})
 		expect(() => resolve([Owner, Strict])).toThrow(
-			'Strict.writer: setNull needs an optional relation (D-54).',
+			'Strict.writer: setNull needs an optional relation.',
 		)
 	})
 

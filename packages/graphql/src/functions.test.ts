@@ -469,7 +469,7 @@ describe('calls', () => {
 		expect(at(read, 'errors', 0, 'message')).toBe('Internal error.')
 		const logged = lines.find((line) => line.level === 'error')
 		expect(at(logged?.first, 'err', 'message')).toBe(
-			'maybe returned undefined; make its output .nullable() and return null (D-109).',
+			'maybe returned undefined; make its output .nullable() and return null.',
 		)
 	})
 
@@ -588,7 +588,7 @@ describe('limits', () => {
 		expect(at(read, 'errors', 0, 'message')).toBe('Internal error.')
 		const logged = lines.find((line) => line.level === 'error')
 		expect(at(logged?.first, 'err', 'message')).toBe(
-			'recent returned 4 rows; a list counts take (1) rows, so it holds no more under a selected relation (D-109).',
+			'recent returned 4 rows; a list counts take (1) rows, so it holds no more under a selected relation.',
 		)
 	})
 })
@@ -619,7 +619,7 @@ describe('startup', () => {
 		],
 	])('refuses a union: %s', async (name, output) => {
 		await expect(serving({}, [returning(name, output)])).rejects.toThrow(
-			`${name}: output is a union, which GraphQL cannot type; keep one type, or one and null (D-109).`,
+			`${name}: output is a union, which GraphQL cannot type; keep one type, or one and null.`,
 		)
 	})
 
@@ -632,13 +632,13 @@ describe('startup', () => {
 			},
 		}
 		await expect(serving({}, [returning('bare', bare)])).rejects.toThrow(
-			'bare: output has no standard JSON Schema export (D-45).',
+			'bare: output has no standard JSON Schema export.',
 		)
 		const failing = exporting(() => {
 			throw new Error('Dates cannot be represented')
 		})
 		await expect(serving({}, [returning('failing', failing)])).rejects.toThrow(
-			'failing: output: Dates cannot be represented (D-45).',
+			'failing: output: Dates cannot be represented.',
 		)
 		await expect(
 			serving({}, [
@@ -654,7 +654,7 @@ describe('startup', () => {
 		await expect(
 			serving({}, [returning('one', same('a')), returning('two', same('b'))]),
 		).rejects.toThrow(
-			'one and two give the type Same two shapes; name each once (D-45).',
+			'one and two give the type Same two shapes; name each once.',
 		)
 		await expect(
 			serving({}, [

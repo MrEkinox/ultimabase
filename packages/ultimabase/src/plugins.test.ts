@@ -421,7 +421,7 @@ describe('plugin APIs', () => {
 			models: [Doc],
 		})
 		expect(() => Doc.who()).toThrow(
-			'archive: plugins.auth is read once the application starts (D-89).',
+			'archive: plugins.auth is read once the application starts.',
 		)
 		await withApis.start()
 		try {
@@ -534,19 +534,19 @@ describe('definePlugin', () => {
 		)
 		expect(defined({ manifest })).toThrow('definePlugin takes a name.')
 		expect(() => loose({ name: 'p', hooks: 1 })).toThrow(
-			new TypeError('p.hooks is an object (D-57).'),
+			new TypeError('p.hooks is an object.'),
 		)
 		expect(() => loose({ name: 'p', hooks: { afterCreate: 1 } })).toThrow(
-			new TypeError('p.hooks.afterCreate is a function (D-57).'),
+			new TypeError('p.hooks.afterCreate is a function.'),
 		)
 		expect(() => loose({ name: 'p', requires: 'auth' })).toThrow(
-			new TypeError('p.requires is an object (D-57).'),
+			new TypeError('p.requires is an object.'),
 		)
 		expect(() => loose({ name: 'p', redirect: { delete: true } })).toThrow(
-			new TypeError('p.redirect.delete is a function (D-57).'),
+			new TypeError('p.redirect.delete is a function.'),
 		)
 		expect(() => loose({ name: 'p', commands: {} })).toThrow(
-			new TypeError('p.commands is a function (D-57).'),
+			new TypeError('p.commands is a function.'),
 		)
 	})
 })
@@ -580,10 +580,10 @@ describe('a model’s use', () => {
 	it('refuses an added field that clashes', () => {
 		const adding = addingFields
 		expect(() => using(adding('a', titleField))).toThrow(
-			'Page.title: a adds a field Page already has (D-89).',
+			'Page.title: a adds a field Page already has.',
 		)
 		expect(() => using(adding('a', atField), adding('b', atField))).toThrow(
-			'Page.at: b adds a field a already has (D-89).',
+			'Page.at: b adds a field a already has.',
 		)
 		expect(() => using(adding('a', idField))).toThrow(
 			'Page.id: the kernel owns this name.',
@@ -599,29 +599,29 @@ describe('a model’s use', () => {
 	it('refuses commands that clash or are not functions', () => {
 		const adding = addingCommands
 		expect(() => using(adding('a', null))).toThrow(
-			new TypeError('a.commands returns an object (D-89).'),
+			new TypeError('a.commands returns an object.'),
 		)
 		expect(() => using(adding('a', { findMany: () => 1 }))).toThrow(
-			'Page.findMany: a adds a command named after a model method (D-89).',
+			'Page.findMany: a adds a command named after a model method.',
 		)
 		expect(() => using(adding('a', { with: () => 1 }))).toThrow(
-			'Page.with: a adds a command named after a model method (D-89).',
+			'Page.with: a adds a command named after a model method.',
 		)
 		const twice = { go: () => 1 }
 		expect(() => using(adding('a', twice), adding('b', twice))).toThrow(
-			'Page.go: a and b both add this command (D-89).',
+			'Page.go: a and b both add this command.',
 		)
 		expect(() => using(adding('a', { go: 1 }))).toThrow(
-			new TypeError('Page.go is a function or an object of functions (D-89).'),
+			new TypeError('Page.go is a function or an object of functions.'),
 		)
 		expect(() => using(adding('a', { go: { run: 1 } }))).toThrow(
-			new TypeError('Page.go is a function or an object of functions (D-89).'),
+			new TypeError('Page.go is a function or an object of functions.'),
 		)
 	})
 
 	it('refuses two plugins that redirect delete', () => {
 		expect(() => using(redirecting('a'), redirecting('b'))).toThrow(
-			'Page: a and b both redirect delete (D-89).',
+			'Page: a and b both redirect delete.',
 		)
 	})
 })
@@ -641,7 +641,7 @@ describe('start', () => {
 			'Page uses solo, which is not in plugins.',
 		)
 		await expect(startLoose([called(twin.plugin)], [Page])).rejects.toThrow(
-			'Page uses a solo from another definePlugin than the one in plugins (D-89).',
+			'Page uses a solo from another definePlugin than the one in plugins.',
 		)
 		await expect(startLoose([called(solo.plugin)], [Page])).resolves.toBe(
 			undefined,
@@ -654,7 +654,7 @@ describe('start', () => {
 		)
 		await expect(
 			startLoose([needs('a', 'b'), needs('b', 'a')]),
-		).rejects.toThrow('plugins need each other: a → b → a (D-89).')
+		).rejects.toThrow('plugins need each other: a → b → a.')
 	})
 })
 

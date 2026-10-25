@@ -117,7 +117,7 @@ export async function cascadeOf(
 		if (!stays(from, id)) continue
 		throw new PublicError(
 			'RELATION_RESTRICTED',
-			`${from.name}.${field} references a ${to} the delete removes (D-54).`,
+			`${from.name}.${field} references a ${to} the delete removes.`,
 			{ details: { model: from.name, field } },
 		)
 	}
@@ -280,7 +280,7 @@ export function cascadeWhere(
 				where: left(group.model, group.filters),
 				count: 0,
 			},
-			message: `${group.model.name}.${group.field} references a ${group.to} the delete removes (D-54).`,
+			message: `${group.model.name}.${group.field} references a ${group.to} the delete removes.`,
 			restricted: { model: group.model.name, field: group.field },
 		}))
 	// Each change filters on the rows the changes after it remove.

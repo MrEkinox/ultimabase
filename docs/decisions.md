@@ -1903,10 +1903,15 @@ for `VALIDATION_FAILED` lists the issues in Standard Schema's shape. An update
 or delete of a record the caller cannot read fails with `NOT_FOUND`, not
 `ACCESS_DENIED`, so it does not reveal that the record exists. A caught
 error's `code` is typed, not `any`.
+No message names a decision, a client's nor a developer's: an error, a log
+line or a refusal says what happened and what to do, and only comments and
+test titles cite `D-NN` (amended 2026-10-25).
 Why: a code that names the problem reads better than Parse's `141`, and a
 client tests the code, not the message. The kernel knows no transport (D-16),
 so an application error carries no HTTP status; one status for every
 application error is what Parse does.
+The decisions are the maintainers' record, which no package ships (D-118):
+`Sign-up is closed (D-113).` tells a visitor nothing, and a developer neither.
 Rejected: numeric codes; a `status` option on `PublicError`; a registry of the
 application's codes, which would be global augmentation (D-24) and only
 checks comparisons on the server.

@@ -38,7 +38,7 @@ export function addFields(
 		if (plugin !== undefined && fields.has(field)) {
 			const owner = owners.get(field) ?? model
 			throw new Error(
-				`${model}.${field}: ${plugin} adds a field ${owner} already has (D-89).`,
+				`${model}.${field}: ${plugin} adds a field ${owner} already has.`,
 			)
 		}
 		fields.set(field, recorded)
@@ -57,7 +57,7 @@ function wrapped(value: unknown, command: Command, path: string): unknown {
 			})
 	if (typeof value === 'function') return run(value)
 	const refused = new TypeError(
-		`${path} is a function or an object of functions (D-89).`,
+		`${path} is a function or an object of functions.`,
 	)
 	if (!isObject(value)) throw refused
 	const functions: { [key: string]: unknown } = {}
@@ -79,19 +79,19 @@ function commandsOf(
 		if (code.commands === undefined) continue
 		const built: unknown = Reflect.apply(code.commands, undefined, [given])
 		if (!isObject(built)) {
-			throw new TypeError(`${code.name}.commands returns an object (D-89).`)
+			throw new TypeError(`${code.name}.commands returns an object.`)
 		}
 		for (const [command, value] of Object.entries(built)) {
 			const path = `${model}.${command}`
 			if (methods.has(command)) {
 				throw new Error(
-					`${path}: ${code.name} adds a command named after a model method (D-89).`,
+					`${path}: ${code.name} adds a command named after a model method.`,
 				)
 			}
 			const other = owners.get(command)
 			if (other !== undefined) {
 				throw new Error(
-					`${path}: ${other} and ${code.name} both add this command (D-89).`,
+					`${path}: ${other} and ${code.name} both add this command.`,
 				)
 			}
 			owners.set(command, code.name)
@@ -139,7 +139,7 @@ export function usedBy(
 	const redirecting = uses.filter((each) => each.code.redirect !== undefined)
 	if (redirecting.length > 1) {
 		const names = redirecting.map((each) => each.code.name).join(' and ')
-		throw new Error(`${model}: ${names} both redirect delete (D-89).`)
+		throw new Error(`${model}: ${names} both redirect delete.`)
 	}
 	const methods = new Set(['name', 'with', 'nullable', ...Object.keys(queries)])
 	return { uses, commands: commandsOf(model, uses, methods) }

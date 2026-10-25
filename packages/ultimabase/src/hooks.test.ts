@@ -206,7 +206,7 @@ describe('create', () => {
 		patch = { total: 'many' }
 		await expect(Order.create({ data: {} }, M)).rejects.toThrow(
 			new TypeError(
-				'Order.total: Expected a finite number. A before hook or validate wrote it (D-88).',
+				'Order.total: Expected a finite number. A before hook or validate wrote it.',
 			),
 		)
 	})
@@ -214,7 +214,7 @@ describe('create', () => {
 	it('fails with a TypeError on hook data the kernel cannot read', async () => {
 		patch = { nope: 1 }
 		await expect(Order.create({ data: {} }, M)).rejects.toThrow(
-			/^Order: a before hook wrote invalid data \(D-88\)\./,
+			/^Order: a before hook wrote invalid data\./,
 		)
 	})
 
@@ -353,21 +353,19 @@ const odd = async (
 describe('hooks the types would refuse', () => {
 	it('fails with a TypeError when hooks is not an object', async () => {
 		await expect(odd(3)).rejects.toThrow(
-			new TypeError('Odd: hooks is an object (D-71).'),
+			new TypeError('Odd: hooks is an object.'),
 		)
 	})
 
 	it('fails with a TypeError when a hook is not a function', async () => {
 		await expect(odd({ beforeCreate: 1 })).rejects.toThrow(
-			new TypeError('Odd.hooks.beforeCreate is a function (D-71).'),
+			new TypeError('Odd.hooks.beforeCreate is a function.'),
 		)
 	})
 
 	it('fails with a TypeError when beforeFind returns no filter', async () => {
 		await expect(odd({ beforeFind: () => ({}) }, 'count')).rejects.toThrow(
-			new TypeError(
-				'Odd.hooks.beforeFind returns where({ ... }) or nothing (D-71).',
-			),
+			new TypeError('Odd.hooks.beforeFind returns where({ ... }) or nothing.'),
 		)
 	})
 })

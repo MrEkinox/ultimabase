@@ -29,18 +29,16 @@ function checkOutput(
 			throw new Error(`${name} returns ${output.name}, which is not in models.`)
 		}
 		if (info.owner === undefined) return
-		throw new Error(
-			`${name} returns ${output.name}, a model of ${info.owner} (D-110).`,
-		)
+		throw new Error(`${name} returns ${output.name}, a model of ${info.owner}.`)
 	}
 	const { type } = output
 	const known = types.get(type.name)
 	if (known === type) return
 	if (known !== undefined) {
-		throw new Error(`Two types are named ${type.name}; name each once (D-109).`)
+		throw new Error(`Two types are named ${type.name}; name each once.`)
 	}
 	if (resolved.models.has(type.name)) {
-		throw new Error(`The type ${type.name} is named like a model (D-109).`)
+		throw new Error(`The type ${type.name} is named like a model.`)
 	}
 	types.set(type.name, type)
 	for (const field of type.fields.values()) {

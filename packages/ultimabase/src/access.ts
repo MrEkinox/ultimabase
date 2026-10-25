@@ -35,7 +35,7 @@ function fieldRule(
 
 function run(rule: unknown, facts: object): unknown {
 	if (typeof rule !== 'function') {
-		throw new TypeError('An access rule is a function (D-10).')
+		throw new TypeError('An access rule is a function.')
 	}
 	const result: unknown = Reflect.apply(rule, undefined, [facts])
 	return result

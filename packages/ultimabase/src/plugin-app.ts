@@ -23,7 +23,7 @@ function needsFirst(plugins: readonly PluginRecord[]): readonly PluginRecord[] {
 		const { name, requires, optional } = plugin.code
 		if (path.includes(name)) {
 			const cycle = [...path.slice(path.indexOf(name)), name].join(' → ')
-			throw new Error(`plugins need each other: ${cycle} (D-89).`)
+			throw new Error(`plugins need each other: ${cycle}.`)
 		}
 		for (const needed of [...requires, ...optional]) {
 			const other = byName.get(needed)
@@ -152,7 +152,7 @@ export function withContexts(
 		if (code.functions === undefined) continue
 		const values: unknown = Reflect.apply(code.functions, undefined, [base])
 		if (!Array.isArray(values)) {
-			throw new TypeError(`${code.name}.functions returns an array (D-113).`)
+			throw new TypeError(`${code.name}.functions returns an array.`)
 		}
 		sources.push({ plugin: code.name, values })
 	}

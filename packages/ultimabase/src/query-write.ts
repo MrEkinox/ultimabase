@@ -50,7 +50,7 @@ function scalar(context: Context, field: FieldInfo, value: unknown): void {
 	const issue = fits[field.type](value, field)
 	if (issue !== undefined) {
 		throw new TypeError(
-			`${context.model.name}.${field.name}: ${issue} A before hook or validate wrote it (D-88).`,
+			`${context.model.name}.${field.name}: ${issue} A before hook or validate wrote it.`,
 		)
 	}
 	context.set[field.name] = value
@@ -196,7 +196,7 @@ async function fields(
 	} catch (error) {
 		if (!(error instanceof InvalidQuery)) throw error
 		throw new TypeError(
-			`${context.model.name}: a before hook wrote invalid data (D-88). ${error.message}`,
+			`${context.model.name}: a before hook wrote invalid data. ${error.message}`,
 			{ cause: error },
 		)
 	}

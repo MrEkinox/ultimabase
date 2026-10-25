@@ -131,7 +131,7 @@ describe('signing up', () => {
 		})
 		expect(JSON.stringify((await signUp(url)).body)).toContain('"token"')
 		await app.stop()
-		expect(errors).toEqual(['An email failed to send (D-117).'])
+		expect(errors).toEqual(['An email failed to send.'])
 	})
 
 	it('sends nothing by the command, nor without sendEmail', async () => {

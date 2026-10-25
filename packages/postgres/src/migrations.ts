@@ -99,7 +99,7 @@ async function refuseTables(
 	if (rows.length === 0) return
 	const list = rows.map((row) => row.table_name).join(', ')
 	throw new Error(
-		`The database already holds ${list}, and no UltimaBase snapshot says what they are: sync only builds an empty database (D-105).`,
+		`The database already holds ${list}, and no UltimaBase snapshot says what they are: sync only builds an empty database.`,
 	)
 }
 

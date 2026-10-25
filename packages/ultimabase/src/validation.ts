@@ -93,7 +93,7 @@ export async function validated(
 	}
 	if (typeof validate !== 'function') {
 		throw new TypeError(
-			`${model.name}.${field.name}: validate is a Standard Schema or a function (D-23).`,
+			`${model.name}.${field.name}: validate is a Standard Schema or a function.`,
 		)
 	}
 	try {

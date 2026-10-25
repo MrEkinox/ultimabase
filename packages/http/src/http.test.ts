@@ -201,7 +201,7 @@ describe('mount', () => {
 	it('throws once the server runs', async () => {
 		await server({}, mounting.plugin())
 		expect(() => late?.mount(routes())).toThrow(
-			"The HTTP server is running: mount routes from your plugin's api (D-107).",
+			"The HTTP server is running: mount routes from your plugin's api.",
 		)
 	})
 })
@@ -724,7 +724,7 @@ describe('a client’s address behind proxies (D-116)', () => {
 		expect(warnings()).toStrictEqual([
 			{
 				level: 'warn',
-				first: `A request came through a proxy (X-Forwarded-For) but httpPlugin({ proxies }) is not set: every client counts as ${address}. Set it to the number of proxies in front of the server (D-116).`,
+				first: `A request came through a proxy (X-Forwarded-For) but httpPlugin({ proxies }) is not set: every client counts as ${address}. Set it to the number of proxies in front of the server.`,
 			},
 		])
 	})
@@ -764,7 +764,7 @@ describe('a client’s address behind proxies (D-116)', () => {
 	it('stops startup when proxies is not a whole number', async () => {
 		for (const proxies of [-1, 1.5, Number.NaN]) {
 			await expect(started({ port: 0, proxies })).rejects.toThrow(
-				`proxies is ${proxies}, not a whole number of proxies in front of the server (D-116).`,
+				`proxies is ${proxies}, not a whole number of proxies in front of the server.`,
 			)
 		}
 	})

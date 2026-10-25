@@ -349,7 +349,7 @@ describe('migrate deploy', () => {
 		expect(await run('sync', '--config', file)).toBe(0)
 		await run('migrate', 'create', 'init', '--config', file)
 		const refused =
-			'Development sync changed this database since its last deploy: deploy applies migrations only to a database they built (D-105).'
+			'Development sync changed this database since its last deploy: deploy applies migrations only to a database they built.'
 		expect(await run('migrate', 'deploy', '--config', file)).toBe(1)
 		expect(err[0]).toBe(
 			`${refused}\nRestore the dump you test on, or rebuild this database from the migrations with \`npx ultimabase reset\`.`,

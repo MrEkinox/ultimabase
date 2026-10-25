@@ -10,17 +10,17 @@ import { isObject } from './query-where.ts'
 /** Checks a plugin's `manifest`: a name, a version and valid ranges. */
 export function manifestOf(value: unknown, plugin: string): Manifest {
 	const path = `${plugin}.manifest`
-	if (!isObject(value)) throw new TypeError(`${path} is an object (D-57).`)
+	if (!isObject(value)) throw new TypeError(`${path} is an object.`)
 	const { name, version, peerDependencies } = value
 	if (typeof name !== 'string' || name === '') {
-		throw new TypeError(`${path}.name is a package name (D-57).`)
+		throw new TypeError(`${path}.name is a package name.`)
 	}
 	if (typeof version !== 'string' || valid(version) === null) {
 		throw new TypeError(`${path}.version is a version, not ${String(version)}.`)
 	}
 	if (peerDependencies === undefined) return Object.freeze({ name, version })
 	if (!isObject(peerDependencies)) {
-		throw new TypeError(`${path}.peerDependencies is an object (D-57).`)
+		throw new TypeError(`${path}.peerDependencies is an object.`)
 	}
 	const ranges: { [name: string]: string } = {}
 	for (const [peer, range] of Object.entries(peerDependencies)) {

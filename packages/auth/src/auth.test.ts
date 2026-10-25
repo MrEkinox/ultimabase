@@ -335,7 +335,7 @@ describe('revoking', () => {
 				User.revokeSessions({ id: ada.id }, options),
 			).rejects.toMatchObject({
 				code: 'ACCESS_DENIED',
-				message: 'User.revokeSessions runs as Master or as the user (D-113).',
+				message: 'User.revokeSessions runs as Master or as the user.',
 			})
 		}
 		expect((await callerOf(url, bearer(token))).status).toBe(200)
@@ -409,7 +409,7 @@ describe('the user model', () => {
 			logger: listening([]),
 		})
 		await expect(app.start()).rejects.toThrow(
-			'authPlugin() needs a user model: declare it with defineUser (D-62).',
+			'authPlugin() needs a user model: declare it with defineUser.',
 		)
 	})
 
@@ -421,7 +421,7 @@ describe('the user model', () => {
 			logger: listening([]),
 		})
 		await expect(app.start()).rejects.toThrow(
-			'models lists two models defineUser returned: an application has one user model (D-62).',
+			'models lists two models defineUser returned: an application has one user model.',
 		)
 	})
 })
@@ -449,7 +449,7 @@ describe('the cookie', () => {
 		await sentTo(url, 'example.com')
 		await sentTo(url, 'example.com')
 		expect(warnings).toStrictEqual([
-			'auth serves example.com a session cookie without Secure: set NODE_ENV=production (D-115).',
+			'auth serves example.com a session cookie without Secure: set NODE_ENV=production.',
 		])
 	})
 

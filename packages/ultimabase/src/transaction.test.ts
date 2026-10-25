@@ -205,7 +205,7 @@ describe('a relation the database refuses (D-99)', () => {
 		await restart(new RelationViolation('Account', 'team', 'Team', true))
 		await expect(transaction(async () => create('ada'))).rejects.toMatchObject({
 			code: 'RELATION_RESTRICTED',
-			message: 'Account.team references a Team the delete removes (D-54).',
+			message: 'Account.team references a Team the delete removes.',
 			details: { model: 'Account', field: 'team' },
 		})
 	})

@@ -117,7 +117,7 @@ export async function reread(
 		// The budget counts `take` rows in a list (D-109).
 		if (items.length > call.take && counted > before) {
 			throw new RangeError(
-				`${call.name} returned ${items.length} rows; a list counts take (${call.take}) rows, so it holds no more under a selected relation (D-109).`,
+				`${call.name} returned ${items.length} rows; a list counts take (${call.take}) rows, so it holds no more under a selected relation.`,
 			)
 		}
 		return items

@@ -31,7 +31,7 @@ export function proxiesOf(option: number | undefined): number {
 	const proxies = option ?? 0
 	if (Number.isInteger(proxies) && proxies >= 0) return proxies
 	throw new Error(
-		`proxies is ${proxies}, not a whole number of proxies in front of the server (D-116).`,
+		`proxies is ${proxies}, not a whole number of proxies in front of the server.`,
 	)
 }
 
@@ -57,7 +57,7 @@ export function addresses(
 			if (!warned && isNearby(connection)) {
 				warned = true
 				logger.warn(
-					`A request came through a proxy (X-Forwarded-For) but httpPlugin({ proxies }) is not set: every client counts as ${connection}. Set it to the number of proxies in front of the server (D-116).`,
+					`A request came through a proxy (X-Forwarded-For) but httpPlugin({ proxies }) is not set: every client counts as ${connection}. Set it to the number of proxies in front of the server.`,
 				)
 			}
 			return connection

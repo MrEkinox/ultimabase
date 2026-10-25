@@ -92,7 +92,7 @@ async function write(
 /** Refuses a server below PostgreSQL 15 (D-50). */
 export function requireVersion(version: string | undefined): void {
 	if (!(Number(version) >= 150000)) {
-		throw new Error(`UltimaBase needs PostgreSQL 15 or later (D-50).`)
+		throw new Error(`UltimaBase needs PostgreSQL 15 or later.`)
 	}
 }
 

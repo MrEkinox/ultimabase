@@ -111,12 +111,12 @@ function usersOf(
 	const [first, second] = users
 	if (first === undefined) {
 		throw new Error(
-			'authPlugin() needs a user model: declare it with defineUser (D-62).',
+			'authPlugin() needs a user model: declare it with defineUser.',
 		)
 	}
 	if (second !== undefined) {
 		throw new Error(
-			'models lists two models defineUser returned: an application has one user model (D-62).',
+			'models lists two models defineUser returned: an application has one user model.',
 		)
 	}
 	return first
@@ -160,7 +160,7 @@ const auth = definePlugin<Auth>({
 			if (!self && (caller === undefined || !isMaster(caller))) {
 				throw new PublicError(
 					'ACCESS_DENIED',
-					'User.revokeSessions runs as Master or as the user (D-113).',
+					'User.revokeSessions runs as Master or as the user.',
 				)
 			}
 			await revokeSessions(id)
@@ -200,7 +200,7 @@ const auth = definePlugin<Auth>({
 		) {
 			warned.add(context)
 			context.logger.warn(
-				`auth serves ${hostname} a session cookie without Secure: set NODE_ENV=production (D-115).`,
+				`auth serves ${hostname} a session cookie without Secure: set NODE_ENV=production.`,
 			)
 		}
 		const bearer = bearerOf(request)

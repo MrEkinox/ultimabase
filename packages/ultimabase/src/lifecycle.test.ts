@@ -212,7 +212,7 @@ describe('plugins', () => {
 		const definition = { name: 'odd', manifest, start: 1 }
 		expect(() => {
 			Reflect.apply(definePlugin, undefined, [definition])
-		}).toThrow(new TypeError('odd.start is a function (D-57).'))
+		}).toThrow(new TypeError('odd.start is a function.'))
 	})
 })
 

@@ -71,7 +71,7 @@ function behind(files: readonly Migration[], hash: string): string | undefined {
 
 const syncedSince = (): Refused =>
 	refused(
-		'Development sync changed this database since its last deploy: deploy applies migrations only to a database they built (D-105).',
+		'Development sync changed this database since its last deploy: deploy applies migrations only to a database they built.',
 	)
 
 /** Applies `files`; a refused one names those applied before it. */

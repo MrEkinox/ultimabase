@@ -54,10 +54,10 @@ const started = async (...manifests: Manifest[]): Promise<void> => {
 describe('definePlugin', () => {
 	it('refuses a manifest without a name or a valid version', () => {
 		expect(defined(undefined)).toThrow(
-			new TypeError('p.manifest is an object (D-57).'),
+			new TypeError('p.manifest is an object.'),
 		)
 		expect(defined({ name: '', version: '1.0.0' })).toThrow(
-			new TypeError('p.manifest.name is a package name (D-57).'),
+			new TypeError('p.manifest.name is a package name.'),
 		)
 		expect(defined({ name: 'p', version: '1.0' })).toThrow(
 			new TypeError('p.manifest.version is a version, not 1.0.'),
@@ -67,7 +67,7 @@ describe('definePlugin', () => {
 	it('refuses a peer range that is not one', () => {
 		expect(
 			defined({ name: 'p', version: '1.0.0', peerDependencies: 1 }),
-		).toThrow(new TypeError('p.manifest.peerDependencies is an object (D-57).'))
+		).toThrow(new TypeError('p.manifest.peerDependencies is an object.'))
 		const peerDependencies = { ultimabase: '^1.x.y.z' }
 		expect(defined({ name: 'p', version: '1.0.0', peerDependencies })).toThrow(
 			new TypeError(

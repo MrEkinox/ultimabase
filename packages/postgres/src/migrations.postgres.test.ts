@@ -358,7 +358,7 @@ describe('a sync on postgres()', () => {
 	it('refuses tables that no snapshot describes', async () => {
 		await query(inSchema(schema), 'create table shelf (id uuid)')
 		await expect(sync(undefined, before)).rejects.toThrow(
-			'The database already holds shelf, and no UltimaBase snapshot says what they are: sync only builds an empty database (D-105).',
+			'The database already holds shelf, and no UltimaBase snapshot says what they are: sync only builds an empty database.',
 		)
 	})
 
@@ -748,7 +748,7 @@ describe('the commands on postgres()', () => {
 		expect(stale.output).toContain('The models changed after')
 		const behind = await ultimabase(dir, ['start'], deployed())
 		expect(behind.output).toBe(
-			"The database's tables are not the models' (D-105): run `npx ultimabase migrate deploy`, then start again.\n",
+			"The database's tables are not the models': run `npx ultimabase migrate deploy`, then start again.\n",
 		)
 		const refused = await ultimabase(dir, ['sync'], development())
 		expect(refused.code).toBe(1)

@@ -13,7 +13,7 @@ export function refused(error: RelationViolation): PublicError {
 	return error.restricted
 		? new PublicError(
 				'RELATION_RESTRICTED',
-				`${model}.${field} references a ${error.target} the delete removes (D-54).`,
+				`${model}.${field} references a ${error.target} the delete removes.`,
 				{ details: { model, field }, cause: error },
 			)
 		: new PublicError(

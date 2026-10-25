@@ -44,12 +44,12 @@ function ownHook(model: ModelInfo, name: HookName): Hook | undefined {
 		rules !== undefined && isObject(rules) ? rules['hooks'] : undefined
 	if (hooks === undefined) return undefined
 	if (!isObject(hooks)) {
-		throw new TypeError(`${model.name}: hooks is an object (D-71).`)
+		throw new TypeError(`${model.name}: hooks is an object.`)
 	}
 	const hook = hooks[name]
 	if (hook === undefined) return undefined
 	if (typeof hook !== 'function') {
-		throw new TypeError(`${model.name}.hooks.${name} is a function (D-71).`)
+		throw new TypeError(`${model.name}.hooks.${name} is a function.`)
 	}
 	const path = `${model.name}.hooks.${name}`
 	return { path, run: async (facts) => called(hook, facts) }
@@ -103,9 +103,7 @@ export async function beforeFind(
 		const result = await hook.run({ caller, where: readFilter })
 		if (result === undefined) continue
 		if (!isReadFilter(result)) {
-			throw new TypeError(
-				`${hook.path} returns where({ ... }) or nothing (D-71).`,
-			)
+			throw new TypeError(`${hook.path} returns where({ ... }) or nothing.`)
 		}
 		// Trusted server code, as a read rule's filter (D-86, D-88).
 		const where = normalizeWhere(models, model, filterOf(result), hook.path)

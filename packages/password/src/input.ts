@@ -136,7 +136,7 @@ export function fieldProperty(
 ): Property {
 	if (field.kind !== 'scalar' || field.type === 'json') {
 		throw new Error(
-			`${where}: ${field.name} is a relation or a JSON field, which sign-up does not take (D-113).`,
+			`${where}: ${field.name} is a relation or a JSON field, which sign-up does not take.`,
 		)
 	}
 	return property(readOf(field), jsonOf(field), required)

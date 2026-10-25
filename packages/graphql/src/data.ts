@@ -118,7 +118,7 @@ export class DataTypes {
 		}
 		if (known.key === key) return known.type
 		throw new Error(
-			`${known.owner} and ${owner} give the type ${name} two shapes; name each once (D-45).`,
+			`${known.owner} and ${owner} give the type ${name} two shapes; name each once.`,
 		)
 	}
 }
@@ -138,7 +138,7 @@ interface Scope<T extends GraphQLNullableType> {
 
 const union = (path: Path): Error =>
 	new Error(
-		`${path.owner}: ${path.at} is a union, which GraphQL cannot type; keep one type, or one and null (D-109).`,
+		`${path.owner}: ${path.at} is a union, which GraphQL cannot type; keep one type, or one and null.`,
 	)
 
 function refType<T extends GraphQLNullableType>(

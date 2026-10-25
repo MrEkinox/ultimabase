@@ -261,7 +261,7 @@ describe('a relation value the caller did not send', () => {
 		spare = untyped('v1')
 		await expect(Entry.create({ data: {} }, M)).rejects.toThrow(
 			new TypeError(
-				"Entry.spare: a relation's default is the target's { id } or a record of it (D-53).",
+				"Entry.spare: a relation's default is the target's { id } or a record of it.",
 			),
 		)
 	})

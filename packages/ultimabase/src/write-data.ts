@@ -150,7 +150,7 @@ function idOf(model: ModelInfo, field: FieldInfo, value: unknown): string {
 	const id = isObject(value) ? value['id'] : undefined
 	if (typeof id !== 'string') {
 		throw new TypeError(
-			`${model.name}.${field.name}: a relation's default is the target's { id } or a record of it (D-53).`,
+			`${model.name}.${field.name}: a relation's default is the target's { id } or a record of it.`,
 		)
 	}
 	return id

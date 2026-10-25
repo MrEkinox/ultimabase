@@ -68,7 +68,7 @@ function orderBy(
 			if (known?.kind === 'scalar' && known.type === 'json') {
 				throw new InvalidQuery(
 					`${at}.${field}`,
-					`${at}.${field} is a json field, which cannot be sorted (D-94).`,
+					`${at}.${field} is a json field, which cannot be sorted.`,
 				)
 			}
 			scope?.check(model, field, `${at}.${field}`, 'sorts')

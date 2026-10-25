@@ -145,8 +145,7 @@ describe('a validate the types would refuse', () => {
 	})
 
 	it('fails with a TypeError on a value that is neither form', async () => {
-		const message =
-			'Probe.n: validate is a Standard Schema or a function (D-23).'
+		const message = 'Probe.n: validate is a Standard Schema or a function.'
 		for (const validate of [3, null, { '~standard': {} }]) {
 			await expect(probe(validate)).rejects.toThrow(new TypeError(message))
 		}

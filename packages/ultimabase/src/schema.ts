@@ -41,7 +41,7 @@ type Linked = {
 }
 
 function fail(message: string): never {
-	throw new Error(`${message} (D-37)`)
+	throw new Error(message)
 }
 
 function inverseOf(link: Linked, links: readonly Linked[]): Linked {
@@ -115,7 +115,7 @@ function relationField(link: Linked, inverse: Linked): FieldInfo {
 		)
 	}
 	if (asked === 'setNull' && !optional) {
-		throw new Error(`${where}: setNull needs an optional relation (D-54).`)
+		throw new Error(`${where}: setNull needs an optional relation.`)
 	}
 	const onDelete =
 		asked === 'cascade' || asked === 'restrict' || asked === 'setNull'
@@ -170,7 +170,7 @@ export function checkInstalled(
 	const other = plugins.some((each) => each.name === name)
 	throw new Error(
 		other
-			? `${owner} uses a ${name} from another definePlugin than the one in plugins (D-89).`
+			? `${owner} uses a ${name} from another definePlugin than the one in plugins.`
 			: `${owner} uses ${name}, which is not in plugins.`,
 	)
 }
@@ -230,7 +230,7 @@ function definitionsOf(
 				throw new Error(
 					owner === other
 						? `${whose(owner)} two models named ${name}.`
-						: `${whose(owner)} a model named ${name}, as ${whose(other)}; name a plugin's models after it (D-110).`,
+						: `${whose(owner)} a model named ${name}, as ${whose(other)}; name a plugin's models after it.`,
 				)
 			}
 			definitions.set(name, definition)
@@ -262,7 +262,7 @@ export function resolve(
 			const owner = owners.get(model)
 			if (owner !== owners.get(target)) {
 				throw new Error(
-					`${model}.${name}: a plugin's model relates only to models of the same plugin; keep the id as a scalar (D-110).`,
+					`${model}.${name}: a plugin's model relates only to models of the same plugin; keep the id as a scalar.`,
 				)
 			}
 			links.push({ model, name, field, target })

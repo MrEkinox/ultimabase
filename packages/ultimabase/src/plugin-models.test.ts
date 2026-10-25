@@ -162,9 +162,7 @@ const owning = (name: string, models: unknown): unknown => {
 
 describe('a plugin’s own models are refused', () => {
 	it('when models is not an array', () => {
-		expect(() => owning('broken', Ticket)).toThrow(
-			'broken.models is an array (D-110).',
-		)
+		expect(() => owning('broken', Ticket)).toThrow('broken.models is an array.')
 	})
 
 	it('when one is no model', async () => {
@@ -180,11 +178,11 @@ describe('a plugin’s own models are refused', () => {
 			fields: (f) => ({ text: f.string() }),
 		})
 		expect(await refusal({ plugins: [keeper.plugin()], models: [Twin] })).toBe(
-			"keeper.models lists a model named KeeperTicket, as models lists; name a plugin's models after it (D-110).",
+			"keeper.models lists a model named KeeperTicket, as models lists; name a plugin's models after it.",
 		)
 		const other = owning('other', [Twin])
 		expect(await refusal({ plugins: [keeper.plugin(), other] })).toBe(
-			"other.models lists a model named KeeperTicket, as keeper.models lists; name a plugin's models after it (D-110).",
+			"other.models lists a model named KeeperTicket, as keeper.models lists; name a plugin's models after it.",
 		)
 		const twice = owning('twice', [Twin, Twin])
 		expect(await refusal({ plugins: [twice] })).toBe(
@@ -203,7 +201,7 @@ describe('a plugin’s own models are refused', () => {
 		})
 		const badges = owning('badges', [Badge])
 		expect(await refusal({ plugins: [badges], models: [Owner] })).toBe(
-			"Owner.badges: a plugin's model relates only to models of the same plugin; keep the id as a scalar (D-110).",
+			"Owner.badges: a plugin's model relates only to models of the same plugin; keep the id as a scalar.",
 		)
 	})
 
@@ -219,6 +217,6 @@ describe('a plugin’s own models are refused', () => {
 				models: [User],
 				functions: [tickets],
 			}),
-		).toBe('tickets returns KeeperTicket, a model of keeper (D-110).')
+		).toBe('tickets returns KeeperTicket, a model of keeper.')
 	})
 })

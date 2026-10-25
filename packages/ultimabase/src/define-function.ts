@@ -59,7 +59,7 @@ function outputOf(value: unknown, where: string): Output {
 	const listed = list.length === 1 ? namedOf(list[0]) : undefined
 	if (listed !== undefined) return { ...listed, form: 'list' }
 	throw new Error(
-		`${where} is a model, a type, a list of one, X.nullable() or a Standard Schema (D-109).`,
+		`${where} is a model, a type, a list of one, X.nullable() or a Standard Schema.`,
 	)
 }
 
@@ -113,7 +113,7 @@ function allowed(
 	if (isMaster(caller)) return
 	const rule = isObject(record.rules) ? record.rules['access'] : undefined
 	if (rule !== undefined && typeof rule !== 'function') {
-		throw new TypeError(`${record.name}: access is a function (D-27).`)
+		throw new TypeError(`${record.name}: access is a function.`)
 	}
 	const result: unknown =
 		rule === undefined ? false : Reflect.apply(rule, undefined, [{ caller }])
@@ -188,7 +188,7 @@ export function defineFunction<
 	if (typeof query !== 'boolean')
 		throw new Error(`${name}: query is a boolean.`)
 	if (input !== undefined && standardOf(input) === undefined) {
-		throw new Error(`${name}: input is a Standard Schema (D-27).`)
+		throw new Error(`${name}: input is a Standard Schema.`)
 	}
 	if (typeof run !== 'function') throw new Error(`${name}: run is a function.`)
 	const record: FunctionDefinition = {

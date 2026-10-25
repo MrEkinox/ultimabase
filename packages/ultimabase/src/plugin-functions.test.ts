@@ -153,7 +153,7 @@ describe('a plugin’s functions', () => {
 			functions: () => 1,
 		})
 		await expect(started([wrong.plugin()])).rejects.toThrow(
-			'wrong.functions returns an array (D-113).',
+			'wrong.functions returns an array.',
 		)
 		const stray = definePlugin<PluginTypes & { readonly name: 'stray' }>({
 			name: 'stray',
@@ -186,7 +186,7 @@ describe('a plugin’s functions', () => {
 			],
 		})
 		await expect(started([keeper.plugin()])).rejects.toThrow(
-			'secret returns Secret, a model of keeper (D-110).',
+			'secret returns Secret, a model of keeper.',
 		)
 	})
 })

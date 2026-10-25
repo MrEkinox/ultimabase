@@ -131,7 +131,7 @@ describe('requesting a reset', () => {
 			data: { requestPasswordReset: true },
 		})
 		await app.stop()
-		expect(errors).toEqual(['An email failed to send (D-117).'])
+		expect(errors).toEqual(['An email failed to send.'])
 	})
 
 	it('is absent without sendEmail', async () => {

@@ -23,7 +23,7 @@ export function later(state: State, work: () => Promise<void>): void {
 	const task: Promise<void> = Promise.resolve()
 		.then(work)
 		.catch((error: unknown) => {
-			state.logger.error({ err: error }, 'An email failed to send (D-117).')
+			state.logger.error({ err: error }, 'An email failed to send.')
 		})
 		.finally(() => {
 			state.sending.delete(task)
