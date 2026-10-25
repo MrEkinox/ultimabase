@@ -490,10 +490,11 @@ Later: Prisma's fluent relation API (`Post.findUnique(...).author()`), once it
 can run without an extra query per parent (no N+1). After the first release:
 `upsert` and the batch operations `createMany` and `updateMany`, once it is
 decided which rules and hooks they run (create's or update's for `upsert`,
-per row or per batch); `omit`, which `select` covers meanwhile; nested
-creation (`create` in a relation write), which ships before 1.0; `set`, `distinct` and aggregates;
+per row or per batch); `omit`, which `select` covers meanwhile; `set`,
+`distinct` and aggregates;
 case-insensitive filters (`mode: 'insensitive'`), left to a search plugin
-first.
+first. Nested creation (`create` in a relation write) ships in 0.1, designed
+in its own decision (D-68, amended 2026-10-25).
 Rejected: a query syntax of our own; a function builder for `where` beside
 the object form; ignoring unknown keys, which turns a typo into a wider read.
 Example:
@@ -665,7 +666,7 @@ await app.start()
 Choice: these come after the first release, as plugins, and the design leaves
 room for them now:
 
-- REST, right after GraphQL (D-34).
+- REST, which ships in 0.1 after all (D-68, amended 2026-10-25).
 - Files, early, in the shape of D-32.
 - OAuth and magic link, early, as methods of the auth plugin.
 - Realtime subscriptions, with access rules applied to each event.
@@ -1766,15 +1767,19 @@ need (D-20, D-31):
   D-56, D-62).
 - `@ultimabase/soft-delete` (D-17), which also proves the hooks of D-15.
 - `@ultimabase/testing` (D-40) and `create-ultimabase` (D-61).
+- REST (D-25), roles and ACL (D-13), and nested creation, `create` in a
+  relation write (D-20), each designed in its own decisions before its code
+  (amended 2026-10-25).
 
 The after-commit email plugin that D-15 asks for is an example in
-`examples/`, not a package. Everything else waits: D-25 (REST, files, OAuth,
-realtime…), roles and ACL, the later field types (D-09, D-65), other
+`examples/`, not a package. Everything else waits: the rest of D-25 (files,
+OAuth, realtime…), the later field types (D-09, D-65), other
 databases (D-51) and the `Later:` lines of D-20, D-44, D-55, D-56 and D-58.
 Why: the smallest set that builds a real application end to end, from a
-starter to production, and proves the plugin design.
-Rejected: roles and ACL in 0.1 (functions cover simple permissions, D-10);
-migrations after 0.1 (nothing could go to production).
+starter to production, and proves the plugin design. Most developers who
+would adopt UltimaBase call a REST API and manage permissions by role, as
+in Parse.
+Rejected: migrations after 0.1 (nothing could go to production).
 
 ## D-69: Vitest, and line budgets per package
 
