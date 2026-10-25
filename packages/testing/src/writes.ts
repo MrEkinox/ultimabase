@@ -55,12 +55,15 @@ const skillsOf = async (id: string): Promise<string[]> =>
 const skill = async (label: string) => Skill.create({ data: { label } }, M)
 
 export function writes(create: () => Adapter): void {
-	const started = () =>
-		defineApp({
-			database: create(),
+	let adapter = create()
+	const started = () => {
+		adapter = create()
+		return defineApp({
+			database: adapter,
 			models: [Team, Player, Badge, Skill],
 			logger: silent,
 		})
+	}
 	describe('writes', () => {
 		let app: ReturnType<typeof started>
 		beforeEach(async () => {
@@ -118,6 +121,30 @@ export function writes(create: () => Adapter): void {
 			await expect(
 				Player.delete({ where: { id: ada.id } }, M),
 			).rejects.toMatchObject({ code: 'NOT_FOUND' })
+		})
+
+		it('reads, with before, the rows its delete removed, as they were', async () => {
+			const ada = await Player.create({ data: { name: 'Ada' } }, M)
+			await Player.create({ data: { name: 'Bob' } }, M)
+			const read = { model: 'Player', where: {} }
+			const where = { name: { equals: 'Ada' } }
+			const removed = await adapter.write({
+				changes: [{ kind: 'delete', model: 'Player', where }],
+				read,
+				before: true,
+			})
+			expect(removed).toMatchObject([{ id: ada.id, name: 'Ada' }])
+			// Nothing left to remove, or no delete at all: no row (D-104).
+			const again = await adapter.write({
+				changes: [{ kind: 'delete', model: 'Player', where }],
+				read,
+				before: true,
+			})
+			expect(again).toEqual([])
+			expect(await adapter.write({ changes: [], read, before: true })).toEqual(
+				[],
+			)
+			expect(await Player.count({}, M)).toBe(1)
 		})
 
 		it('connects and disconnects a one-to-many', async () => {

@@ -38,18 +38,24 @@ function signingOutOnRenewal(): Adapter {
 	return {
 		start: async (schema) => database.start(schema),
 		stop: async () => database.stop(),
-		begin: async () => database.begin(),
+		begin: async () => {
+			const tx = await database.begin()
+			return {
+				...tx,
+				// Signed out just before the renewal locks its row (D-104).
+				find: async (read) => {
+					if (read.lock === true && read.model === 'AuthSession') {
+						await tx.write({
+							changes: [{ kind: 'delete', model: 'AuthSession', where: {} }],
+						})
+					}
+					return tx.find(read)
+				},
+			}
+		},
 		find: async (read) => database.find(read),
 		count: async (read) => database.count(read),
-		write: async (write) => {
-			const [change] = write.changes
-			if (change?.kind === 'update' && change.model === 'AuthSession') {
-				await database.write({
-					changes: [{ kind: 'delete', model: 'AuthSession', where: {} }],
-				})
-			}
-			return database.write(write)
-		},
+		write: async (write) => database.write(write),
 	}
 }
 

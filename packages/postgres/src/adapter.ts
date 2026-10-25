@@ -76,7 +76,9 @@ async function run(
 		throw translate(catalog, error)
 	}
 	const read = given.read
-	return read === undefined ? [] : decodeRows(catalog, read.model, rows, read)
+	// A `before` read of a model the write deletes nothing of reads none.
+	if (read === undefined || rows === undefined) return []
+	return decodeRows(catalog, read.model, rows, read)
 }
 
 async function write(

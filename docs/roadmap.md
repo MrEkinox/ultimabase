@@ -104,7 +104,7 @@ at 200 models with field rules and schemas, a query edit under 800 ms
       (D-46, D-47).
 - [x] Writes in the fewest round trips: one statement with its checks,
       nested writes through CTEs, a transaction only when one serves
-      (D-48, D-99), a user's row read without a lock and checked unchanged
+      (D-48, D-99), a write's answer taken from the rows it changed
       (D-104).
 - [x] A write benchmark: round trips and time per write case, on `memory()`
       and PostgreSQL (D-48), in [`bench/writes`](../bench/writes/README.md).

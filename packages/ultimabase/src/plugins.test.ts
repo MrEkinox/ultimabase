@@ -2,7 +2,7 @@
 // and redirected delete, and the APIs they build once the application starts.
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { asUser } from '@ultimabase/testing'
-import type { Adapter, Write } from './adapter.ts'
+import type { Adapter, Change } from './adapter.ts'
 import { modelDefinitions } from './definition.ts'
 import type { ExposedModel, Field, PluginTypes } from './index.ts'
 import {
@@ -282,16 +282,10 @@ describe('a redirected delete', () => {
 	})
 })
 
-/** A write where setting `purged` removes the row, as a database trigger
- * could. */
-const turned = (write: Write): Write => ({
-	...write,
-	changes: write.changes.map((change) =>
-		change.kind === 'update' && change.set['purged'] === true
-			? { kind: 'delete', model: change.model, where: change.where }
-			: change,
-	),
-})
+/**
+ * A database where setting `purged` removes the row once the update has
+ * answered, as a trigger could.
+ */
 function purging(): Adapter {
 	const base = memory()
 	return {
@@ -299,15 +293,25 @@ function purging(): Adapter {
 		stop: async () => base.stop(),
 		find: async (read) => base.find(read),
 		count: async (read) => base.count(read),
-		write: async (write) => base.write(turned(write)),
+		write: async (write) => base.write(write),
 		begin: async () => {
 			const tx = await base.begin()
+			const purged: Change[] = []
 			return {
-				find: async (read) => tx.find(read),
-				count: async (read) => tx.count(read),
-				write: async (write) => tx.write(turned(write)),
-				commit: async () => tx.commit(),
-				rollback: async () => tx.rollback(),
+				...tx,
+				find: async (read) => {
+					await tx.write({ changes: purged.splice(0) })
+					return tx.find(read)
+				},
+				write: async (write) => {
+					const rows = await tx.write(write)
+					for (const change of write.changes) {
+						if (change.kind === 'update' && change.set['purged'] === true) {
+							purged.push({ ...change, kind: 'delete' })
+						}
+					}
+					return rows
+				},
 			}
 		},
 	}

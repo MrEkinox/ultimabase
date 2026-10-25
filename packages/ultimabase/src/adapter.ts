@@ -140,8 +140,8 @@ export type Check = {
 /**
  * One whole write: its checks first, which write nothing when one fails,
  * then its changes, then `read`, in the same write. With `before`, the read
- * sees the database as it was before the changes, as a delete returns the
- * row it removes (D-102).
+ * selects among the rows of its model that the write's delete removed, as
+ * they were (D-102, D-104).
  */
 export type Write = {
 	readonly checks?: readonly Check[]

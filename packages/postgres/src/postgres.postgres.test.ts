@@ -479,51 +479,130 @@ const quiet: Logger = {
 	child: () => quiet,
 }
 
-const Note = defineModel({
-	name: 'Note',
-	fields: (f) => ({ text: f.string() }),
-}).with({ access: { read: () => true, update: () => true } })
+const M = { as: master }
 
-describe('a user write on postgres()', () => {
-	const url = urls[0] ?? ''
-	let schema = ''
-	let sent: string[] = []
-	let app: ReturnType<typeof defineApp>
-	beforeEach(async () => {
-		schema = `t_${randomUUID().replaceAll('-', '')}`
-		await run(url, `create schema "${schema}"`)
-		const database = createAdapter({
-			url: inSchema(url, schema),
-			log: (event) => sent.push(event.query.sql),
-		})
-		app = defineApp({ database, models: [Note], logger: quiet })
-		await app.start()
-	})
-	afterEach(async () => {
-		await app.stop()
-		await run(url, `drop schema "${schema}" cascade`)
-	})
-
-	it('starts over locked on a date SQL wrote in microseconds (D-104)', async () => {
-		const note = await Note.create({ data: { text: 'a' } }, { as: master })
-		await run(
-			inSchema(url, schema),
-			`update "note" set "updated_at" = now() + interval '1 microsecond'`,
-		)
-		sent = []
-		const user = { as: asUser({ id: randomUUID() }) }
-		const updated = await Note.update(
-			{ where: { id: note.id }, data: { text: 'b' } },
-			user,
-		)
-		expect(updated.text).toBe('b')
-		// The row, the failed check, then BEGIN, the locked row, the write, COMMIT.
-		expect(sent).toHaveLength(6)
-		expect(sent[3]).toContain('for update')
-	})
+const Locker = defineModel({
+	name: 'Locker',
+	fields: (f) => ({
+		code: f.string({ unique: true }),
+		label: f.string(),
+		owner: f.string(),
+	}),
+}).with({
+	access: {
+		read: () => true,
+		update: ({ caller, record }) =>
+			caller.kind === 'user' && caller.user.id === record.owner,
+		delete: ({ caller, record }) =>
+			caller.kind === 'user' && caller.user.id === record.owner,
+	},
 })
 
-const M = { as: master }
+/** Waits until a query on `locker` waits on a row lock. */
+async function waitingOnLock(watcher: Client): Promise<void> {
+	for (let tries = 0; tries < 200; tries += 1) {
+		const { rows } = await watcher.query<{ n: number }>(
+			`select count(*)::int as n from pg_stat_activity
+			 where wait_event_type = 'Lock' and query ilike '%"locker"%'`,
+		)
+		if ((rows[0]?.n ?? 0) > 0) return
+		await new Promise((resolve) => setTimeout(resolve, 10))
+	}
+	throw new Error('The write never waited on the row lock.')
+}
+
+const stored = async (id: string) => Locker.findUnique({ where: { id } }, M)
+
+for (const url of urls) {
+	describe(`a write that races another transaction on ${url}`, () => {
+		let schema = ''
+		let app: ReturnType<typeof defineApp>
+		let other: Client
+		let watcher: Client
+		beforeEach(async () => {
+			schema = `t_${randomUUID().replaceAll('-', '')}`
+			await run(url, `create schema "${schema}"`)
+			const database = createAdapter({ url: inSchema(url, schema) })
+			app = defineApp({ database, models: [Locker], logger: quiet })
+			await app.start()
+			other = new Client({ connectionString: inSchema(url, schema) })
+			await other.connect()
+			watcher = new Client({ connectionString: url })
+			await watcher.connect()
+		})
+		afterEach(async () => {
+			await other.end()
+			await watcher.end()
+			await app.stop()
+			await run(url, `drop schema "${schema}" cascade`)
+		})
+
+		/** Runs `statement` in another transaction, committed once `write` waits on it. */
+		async function raced(
+			statement: string,
+			values: readonly string[],
+			write: () => Promise<unknown>,
+		): Promise<unknown> {
+			await other.query('begin')
+			await other.query(statement, [...values])
+			const pending = write().catch((error: unknown) => error)
+			await waitingOnLock(watcher)
+			await other.query('commit')
+			return pending
+		}
+		const handed = `update "locker" set "owner" = $1 where "id" = $2`
+		const removed = `delete from "locker" where "id" = $1`
+		const alice = randomUUID()
+		const bob = randomUUID()
+		const created = async () =>
+			Locker.create({ data: { code: 'c', label: 'a', owner: alice } }, M)
+
+		it('refuses a user who lost the row while their update waited (D-104)', async () => {
+			const locker = await created()
+			const outcome = await raced(handed, [bob, locker.id], async () =>
+				Locker.update(
+					{ where: { id: locker.id }, data: { label: 'b' } },
+					{ as: asUser({ id: alice }) },
+				),
+			)
+			expect(outcome).toMatchObject({ code: 'ACCESS_DENIED' })
+			expect(await stored(locker.id)).toMatchObject({ owner: bob, label: 'a' })
+		})
+
+		it('refuses a user who lost the row while their delete waited (D-104)', async () => {
+			const locker = await created()
+			const outcome = await raced(handed, [bob, locker.id], async () =>
+				Locker.delete(
+					{ where: { id: locker.id } },
+					{ as: asUser({ id: alice }) },
+				),
+			)
+			expect(outcome).toMatchObject({ code: 'ACCESS_DENIED' })
+			expect(await stored(locker.id)).toMatchObject({ owner: bob })
+		})
+
+		it('counts none for a row another transaction deleted (D-104)', async () => {
+			const locker = await created()
+			const outcome = await raced(removed, [locker.id], async () =>
+				Locker.deleteMany({ where: { code: 'c' } }, M),
+			)
+			expect(outcome).toEqual({ count: 0 })
+		})
+
+		it('does not find a row another transaction deleted (D-104)', async () => {
+			const locker = await created()
+			const deleted = await raced(removed, [locker.id], async () =>
+				Locker.delete({ where: { code: 'c' } }, M),
+			)
+			expect(deleted).toMatchObject({ code: 'NOT_FOUND' })
+			const again = await created()
+			const updated = await raced(removed, [again.id], async () =>
+				Locker.update({ where: { id: again.id }, data: { label: 'b' } }, M),
+			)
+			expect(updated).toMatchObject({ code: 'NOT_FOUND' })
+		})
+	})
+}
 
 const Genre = defineModel({
 	name: 'Genre',

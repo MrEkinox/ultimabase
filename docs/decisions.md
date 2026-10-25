@@ -3518,7 +3518,8 @@ Choice:
    no read again). Inside `transaction()`, every query runs in it.
 5. Fewer reads. The kernel loads no row when Master updates by `id` a model
    without update hooks: the check `{ where: and(where, readable), count: 1 }`
-   stands for it. A relation written from the other side, on a model
+   stands for it, and an empty read after the update is `NOT_FOUND` (D-104,
+   amended 2026-10-25). A relation written from the other side, on a model
    without update hooks and without rules for the caller, is one update
    `where: and(where, filter)` instead of a read and an update.
 6. A connected id that is not a UUID is `NOT_FOUND` before any query: the
@@ -3693,6 +3694,8 @@ await Novel.update(
 
 ## D-102: A delete whose reach runs no hook is one write, its rows unloaded
 
+Amended by D-104.
+
 Choice:
 
 1. When no model a `delete` reaches has delete hooks or a `redirect`, no
@@ -3708,9 +3711,11 @@ Choice:
    the row exists, the `restrict` checks, the changes, and the row read as
    it was. A user's `delete` loads its row for the access rule, then writes
    the same way.
-3. `Write.before` asks the adapter for the read as the database was before
-   the changes. PostgreSQL runs it in the first statement, without the
-   views of D-99; `memory()` reads after the checks.
+3. `Write.before` asks the adapter for the rows of the read's model that
+   the write's delete of that model removed, as they were (amended
+   2026-10-25, D-104). PostgreSQL reads them from that delete's RETURNING,
+   in its statement, without the views of D-99; `memory()` reads before
+   the changes and keeps the rows gone after them.
 4. Any other delete loads its reach level by level, as D-90 says.
 
 Why: a delete with a cascade took one `SELECT ... FOR UPDATE` per level on
@@ -3796,90 +3801,80 @@ await Genre.create({ data: { label: 'myth' } }, { as: master })
 //   select (select ... from "#w0" as "t1" where "t1"."id" = $5) as "rows"
 ```
 
-## D-104: A user's write reads its row without a lock, then checks it unchanged
+## D-104: A write answers from the rows it changed; a user's write locks its row
 
-Choice: amends D-99 point 2 for the row an `update` or a `delete` targets.
+Choice: amends D-99 point 5 and D-102 point 3 (amended 2026-10-25: the
+first D-104 read a user's row without a lock and checked it unchanged in the
+write; it is withdrawn, see Why and Rejected).
 
-1. When a single-row write owns its transaction and has not begun it (no
-   `transaction()` around it), the kernel reads the row it targets alone,
-   without a lock, runs the access rules, `prepared` and `before*` hooks
-   from it, then writes with one more check: the row the rules saw is still
-   there, unchanged.
-2. Unchanged means the record a rule sees (D-72): `id`, `createdAt`,
-   `updatedAt`, every scalar and every stored `one` key equal to what was
-   read, as `{ equals: value }`, `{ equals: null }`, `{ is: { id: { equals } } }`
-   or `{ is: null }`.
-3. When that check fails, the write starts over once on the locked path of
-   D-99, its data read anew, its rules run again on the row as it now is.
-   No hook has run on another model by then; `beforeUpdate` and
-   `beforeDelete` of the root have not, since the path applies only to a
-   model without them.
-4. It applies to an `update` of a model without update hooks, unless its
-   relation writes reach a model with update hooks, and to a `delete` whose
-   reach runs no hook (D-102). Any other write, and every write inside
-   `transaction()`, locks as before.
-5. `Checked.stale` marks the check; `CheckFailed` on it is no error the
-   caller sees.
+1. A user's `update` or `delete` locks the row it targets, as D-99 point 2
+   says, inside `transaction()` or not: BEGIN, the `select ... for update`,
+   the rules, `prepared` and the `before*` hooks, the write, COMMIT.
+2. A write that loads no row answers from the rows its changes wrote, not
+   from its checks:
+   - Master's `update` by `id` (D-99 point 5) is `NOT_FOUND` when its read
+     comes back empty: the row went between the check and the update.
+   - `Write.before` (D-102 point 3) returns the rows of the read's model
+     that the write's delete of that model removed, as they were.
+     PostgreSQL reads them from that delete's RETURNING, in its statement;
+     `memory()` reads before the changes and keeps the rows gone after
+     them.
+   - Master's `delete` by a unique `where` is then `NOT_FOUND` when its
+     delete removed nothing, and `deleteMany` counts the rows it removed.
 
 Why:
 
-- The locked path is four round trips: BEGIN, the `select ... for update`,
-  the write, COMMIT. Read alone, then written with its check, it is two.
-  On PostgreSQL 18, 200 runs, a user's update under rules went from 4 round
-  trips and 1.91 ms to 2 and 1.39 ms, a user's delete from 4 and 1.70 ms to
-  2 and 1.19 ms (`bench/writes`).
-- Comparing the whole record, not `updatedAt` alone: two writes in the same
-  millisecond leave `updatedAt` equal, so a rule could allow a write from an
-  owner that changed in between.
-- A conflict is rare and costs the locked path plus two round trips; it
-  never fails a write that the locked path would have let through.
+- A check runs on its statement's snapshot. Under READ COMMITTED, an update
+  or a delete that waits on a row another transaction holds checks its own
+  `where` again once that one commits, but not the check, which PostgreSQL
+  computes once for the statement. The first D-104 therefore wrote a row its
+  rules never saw: another request gave Alice's locker to Bob, and Alice's
+  update, allowed from the row as it was, changed Bob's locker (PostgreSQL
+  15 and 18).
+- For the same reason, a check or a read before the changes counts rows
+  another transaction deleted meanwhile: `deleteMany` reported 2 rows it
+  never removed, a `delete` returned a row someone else removed, so a token
+  could be redeemed twice, and a Master `update` returned `null`. The rows a
+  change returns are the ones it wrote. Prisma answers the same way: its
+  `deleteMany` count is the database's count of affected rows, and its
+  `update` and `delete` fail with `P2025` when no row was written.
+- The lock is the simplest guarantee to reason about: the rules decide from
+  a row nobody else changes until the write commits.
+
+Cost: a user's update or delete under rules is 4 round trips again, 1.91 ms
+for an update and 1.70 ms for a delete on PostgreSQL 18, where the first
+D-104 took 2 round trips, 1.39 and 1.19 ms (`bench/writes`).
 
 Rejected:
 
-- Retrying the optimistic path up to three times, then failing with
-  `CONFLICT`: an error the locked path never raises.
-- Last writer wins, without the check: a rule decides from a row that may
-  no longer be there.
-- Pipelining the read and the write: `pg` sends one query at a time.
-- A per-process monotonic `updatedAt`: it does not hold across instances.
-- `updated_at = greatest(now, updated_at + 1 ms)` in SQL, and PostgreSQL's
-  `xmin` as a row version: both change the adapter contract; `xmin` stays
-  an option.
-
-Limits:
-
-- A date column SQL wrote with microseconds, as `now()` does, never equals
-  the millisecond `Date` the kernel read: that row always takes the locked
-  path, six round trips, until the kernel writes it again. A `createdAt`
-  written that way stays on the locked path for good.
-- Each stored `one` key adds an `exists` lookup by primary key to the check.
+- The first D-104, reading the row without a lock and checking it unchanged
+  in the write: unsafe under concurrency, as above.
+- Locking inside the check (`select ... for update` in `#checks`): it held
+  in the probe and keeps 2 round trips, but it rests on how PostgreSQL
+  re-checks a statement that waited on a lock, and keeps a second way of
+  deciding a write for every model under rules.
+- PostgreSQL's `xmin` as a row version: it would be checked on the same
+  snapshot.
+- Serializable isolation, as D-99 rejects it.
 
 Example:
 
 ```ts
-const Locker = defineModel({
-	name: 'Locker',
-	fields: (f) => ({ label: f.string(), owner: f.string() }),
-}).with({
-	access: {
-		update: ({ caller, record }) =>
-			caller.kind === 'user' && caller.user.id === record.owner,
-	},
-})
+// Alice owns the locker; meanwhile, another request gives it to Bob.
+await Locker.update({ where: { id }, data: { label: 'b' } }, { as: alice })
+// Before: allowed from Alice's row, written on Bob's.
+// After: waits for the other request, then ACCESS_DENIED; Bob's row stays.
 
-await Locker.update({ where: { id }, data: { label: 'b' } }, { as: user })
-// Before: 4 round trips
-//   begin
-//   select ... from "locker" where "id" = $1 limit 1 for update
-//   with "#w0" as (update "locker" set ... where "id" = $1 returning *) ...
-//   commit
-// After: 2 round trips
-//   select ... from "locker" where "id" = $1 limit 1
-//   with "#checks" as (select (select count(*) from "locker" where "id" = $1
-//       and "created_at" = $2 and "updated_at" = $3 and "label" = $4
-//       and "owner" = $5) = 1 as "c0"),
-//     "#w0" as (update "locker" set ... where "id" = $1
-//       and (select "c0" from "#checks") returning *) ...
+// Meanwhile, another request deletes both tickets.
+await Ticket.deleteMany({}, { as: master })
+// Before: { count: 2 }
+// After: { count: 0 }
+await Ticket.delete({ where: { code: 'A' } }, { as: master })
+// Before: the ticket, as if this call removed it
+// After: NOT_FOUND
+await Ticket.update({ where: { id }, data: { label: 'x' } }, { as: master })
+// Before: null
+// After: NOT_FOUND
 ```
 
 ## D-105: `ultimabase.config.ts`, the `ultimabase` commands and a schema snapshot
@@ -4943,7 +4938,7 @@ selects that the caller reads, and returns `{ count }`, as in Prisma. Without
    no row matching is `{ count: 0 }`, not `NOT_FOUND`.
 3. When no rule applies and nothing in the reach runs code, it is one write
    (D-102): its `where` is the root filter, and the count comes from the rows
-   the write reads as they were. Otherwise the rows are loaded locked in the
+   its delete removed (D-104, amended 2026-10-25). Otherwise the rows are loaded locked in the
    write's transaction, as a delete's reach is (D-90): BEGIN, one read, one
    write, COMMIT when nothing else runs.
 4. It is server code: neither `graphqlPlugin()` nor `httpPlugin()` exposes
@@ -4955,10 +4950,7 @@ of a deleted user (D-110), and a loop of `findMany` and `delete` costs one
 query per row and loses the one-write case. The kernel already deletes many
 rows per call through cascades, with the hooks and the trash per row, so
 `deleteMany` adds an entry point, not a pipeline.
-Limit: a user's `deleteMany` locks its rows, where a user's `delete` reads
-its row without a lock and checks it unchanged (D-104): the check of every
-row would grow with the count. The one-write case reads the deleted rows to
-count them.
+Limit: the one-write case counts the rows its delete removed (D-104).
 Rejected: a batch hook that receives every row at once, which a plugin
 written for `delete` would miss; skipping rules and hooks in bulk, against
 D-48; deleting the rows the rule allows and leaving the others, which hides a

@@ -77,7 +77,9 @@ class Draft {
 		if (read !== undefined && write.before === true) {
 			const rows = this.find(read)
 			this.change(write.changes)
-			return rows
+			// The rows the write's delete removed, as they were (D-104).
+			const table = this.reader.table(read.model)
+			return rows.filter((row) => !table.has(row.id))
 		}
 		this.change(write.changes)
 		return read === undefined ? [] : this.find(read)
