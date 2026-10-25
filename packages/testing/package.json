@@ -11,6 +11,20 @@
 	"exports": {
 		".": "./src/index.ts"
 	},
+	"files": [
+		"dist",
+		"src",
+		"!src/**/*.test.ts",
+		"!src/test"
+	],
+	"scripts": {
+		"prepack": "rm -rf dist && yarn run -T tsc --project tsconfig.build.json"
+	},
+	"publishConfig": {
+		"exports": {
+			".": "./dist/index.js"
+		}
+	},
 	"peerDependencies": {
 		"ultimabase": "^0.0.0",
 		"vitest": "^5.0.5"

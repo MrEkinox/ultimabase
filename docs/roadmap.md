@@ -165,6 +165,8 @@ Exit: an example with sign-up, sign-in and rules on `caller.user`.
 ## Phase 6: Release 0.1
 
 - [ ] `@ultimabase/testing` (D-40, D-80), `create-ultimabase` (D-61).
+- [x] Packages publish compiled JavaScript, installed from their packs and
+      run by `yarn test:packed` in CI (D-118).
 - [ ] `examples/` run by CI (D-31), Changesets (D-60).
 - [ ] Documentation website (D-31).
 - [ ] Decide how `graphqlPlugin()` bounds the cost of validating a document

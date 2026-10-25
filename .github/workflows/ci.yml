@@ -23,6 +23,15 @@ jobs:
       - uses: ./.github/actions/setup
       - run: yarn validate
 
+  packed:
+    name: Packed packages
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+      - uses: ./.github/actions/setup
+      - run: yarn test:packed
+
   postgres:
     name: PostgreSQL
     runs-on: ubuntu-24.04

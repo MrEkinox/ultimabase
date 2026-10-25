@@ -18,6 +18,7 @@
 		"format:check": "prettier . --check",
 		"lint": "oxlint",
 		"test": "vitest run --project unit --coverage --passWithNoTests",
+		"test:packed": "node scripts/test-packed.ts",
 		"test:postgres": "COVERAGE=postgres vitest run --project postgres --coverage --passWithNoTests",
 		"typecheck": "tsc --project tsconfig.json && tsc --project tsconfig.declarations.json && tsc --project bench/typing && tsc --project bench/typing/tsconfig.loose.json && tsc --project packages && tsc --project examples/password-sign-in",
 		"validate": "yarn format:check && yarn typecheck && yarn lint && yarn budgets && yarn test"

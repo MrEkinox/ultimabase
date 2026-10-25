@@ -1,0 +1,12 @@
+{
+	"extends": "./tsconfig.base.json",
+	"compilerOptions": {
+		"composite": false,
+		"rewriteRelativeImportExtensions": true,
+		"rootDir": "${configDir}/src",
+		"outDir": "${configDir}/dist",
+		"skipLibCheck": true
+	},
+	"include": ["${configDir}/src/**/*.ts"],
+	"exclude": ["${configDir}/src/**/*.test.ts", "${configDir}/src/**/test/**"]
+}

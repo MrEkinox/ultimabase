@@ -5564,3 +5564,49 @@ mutation {
 	sendVerificationEmail
 }
 ```
+
+## D-118: Packages publish compiled JavaScript
+
+Choice: completes D-60.
+
+1. A package's `exports` and `bin` name `./src/*.ts` in the repository, which
+   Node runs and Vitest and TypeScript read. Its `publishConfig` names
+   `./dist/*.js` instead: `yarn pack` and `yarn npm publish` write it into
+   the published manifest.
+2. Its `prepack` script deletes `dist` and compiles `src` with `tsc`, from
+   its `tsconfig.build.json`, which extends the root's: `.js` files and
+   their declarations, without the tests. `rewriteRelativeImportExtensions`
+   turns `./x.ts` into `./x.js` in the JavaScript; the declarations keep
+   `./x.ts`, which a consumer resolves without any option. `dist` is never
+   committed.
+3. A package publishes `dist` and `src` without its tests: the declaration
+   maps lead an editor's "go to definition" to the source. No JavaScript
+   source maps.
+4. `yarn test:packed` packs every package, installs the packs with npm in an
+   empty directory, imports each one, typechecks the example's code against
+   the published declarations, runs the installed `ultimabase --help`, and
+   starts the example to sign a user up. CI runs it on every change, outside
+   `yarn validate`: it needs the registry for the other dependencies.
+
+Why: Node strips no types under `node_modules`, so a package that exports
+`.ts` fails once installed with `ERR_UNSUPPORTED_NODE_MODULES_TYPE_STRIPPING`.
+The workspace's links resolve outside `node_modules`, which hides it: only
+an install from a pack shows it. Compiling at pack time keeps the repository
+free of a build step, and `tsc` is already the type checker; it builds a
+package in under a second.
+Rejected: a build step for development, or `dist` in the repository; a
+bundler, which the packages do not need; asking applications to run their
+dependencies through a loader; `.d.ts` files rewritten to `.js`, since
+TypeScript reads `./x.ts` in a declaration.
+Example:
+
+```sh
+# Before: in an application, after `npm install ultimabase`
+$ node app.ts
+Error [ERR_UNSUPPORTED_NODE_MODULES_TYPE_STRIPPING]: Stripping types is
+currently unsupported for files under node_modules, for
+".../node_modules/ultimabase/src/index.ts"
+
+# After: the application starts and logs "Listening on http://localhost:3000."
+$ node app.ts
+```
