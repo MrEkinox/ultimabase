@@ -14,7 +14,8 @@ export interface Logger {
 }
 
 /**
- * Refused in production unless written `{ key, production: true }` (D-49).
+ * Refused in production unless written `{ key, production: true }`, with 32
+ * characters at least (D-49).
  * `undefined` leaves it off, so an unset environment variable passes as is.
  */
 export type MasterKey =

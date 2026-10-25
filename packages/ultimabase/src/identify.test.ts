@@ -45,6 +45,8 @@ async function callerOf(masterKey: MasterKey, key?: string) {
 }
 
 const refused = (message: string) => new PublicError('ACCESS_DENIED', message)
+// What `openssl rand -base64 32` gives.
+const strong = 'q3Jx9vT0bL2mW8sZpR4nYc6hK1fD5gA7eU0iO3tE+/w='
 
 describe('identify', () => {
 	it('finds an anonymous caller in a request without the key', async () => {
@@ -58,8 +60,8 @@ describe('identify', () => {
 		expect(isMaster(caller ?? {})).toBe(true)
 		expect(lines).not.toContain('A request acts as Master with the master key.')
 		process.env['NODE_ENV'] = 'production'
-		const allowed = { key: 'secret', production: true } as const
-		const audited = await callerOf(allowed, 'secret')
+		const allowed = { key: strong, production: true } as const
+		const audited = await callerOf(allowed, strong)
 		expect(audited.lines).toContain(
 			'A request acts as Master with the master key.',
 		)
@@ -90,11 +92,26 @@ describe('identify', () => {
 		expect((await callerOf('secret', 'secret')).caller).toStrictEqual(
 			refused('The master key is refused in production.'),
 		)
-		const allowed = { key: 'secret', production: true } as const
-		expect((await callerOf(allowed, 'secret')).caller).toStrictEqual({
+		const allowed = { key: strong, production: true } as const
+		expect((await callerOf(allowed, strong)).caller).toStrictEqual({
 			kind: 'master',
 			master: { source: 'key' },
 		})
+	})
+
+	it('stops start in production with a key short enough to guess', async () => {
+		process.env['NODE_ENV'] = 'production'
+		const short = { key: strong.slice(0, 31), production: true } as const
+		await expect(callerOf(short)).rejects.toThrow(
+			'The master key is 31 characters long; production needs 32 at least: `openssl rand -base64 32` gives one.',
+		)
+		const just = { key: strong.slice(0, 32), production: true } as const
+		expect((await callerOf(just)).caller).toStrictEqual({ kind: 'anonymous' })
+		// A key production refuses opens nothing, whatever its length.
+		const refusedKey = await callerOf('secret', 'secret')
+		expect(refusedKey.caller).toStrictEqual(
+			refused('The master key is refused in production.'),
+		)
 	})
 
 	it('stops start with a key a header cannot carry', async () => {

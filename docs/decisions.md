@@ -1234,11 +1234,16 @@ declares an optional master key. A transport receiving it (the
 every refusal is logged, and every use in production, while outside it the
 HTTP plugin's line per request is enough (D-108, amended 2026-10-23).
 Without a configured key, a request carrying one is refused. When `NODE_ENV === 'production'`, the key is refused even if set,
-unless the developer writes `masterKey: { key, production: true }`. An unset
-key (`undefined`, in either form) leaves the master key off.
+unless the developer writes `masterKey: { key, production: true }`; that key
+then holds 32 characters at least, or `start` stops and names
+`openssl rand -base64 32` (amended 2026-10-25). An unset key (`undefined`, in
+either form) leaves the master key off.
 Why: front-end end-to-end tests seed their data through the API with the key,
 then test the interface; a key copied into production by mistake must not
-open the database.
+open the database. Nothing limits the keys a client tries, and Master obeys
+no rule: a short key in production is guessed. Outside production, a test's
+`'secret'` is enough. The length is counted, not the entropy, which no check
+measures reliably.
 Rejected: the key as an option of the HTTP plugin (the previous base), since
 Master belongs to the kernel and every transport reads it; a key enabled
 without configuration.

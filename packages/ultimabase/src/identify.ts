@@ -56,6 +56,18 @@ export function identifier(
 	// Outside production, the HTTP plugin's development log already shows
 	// each request (D-108); a use of the key is an audit line in production.
 	const audited = process.env['NODE_ENV'] === 'production'
+	// Nothing limits the keys a client tries: one that opens Master in
+	// production must not be guessed.
+	if (
+		audited &&
+		refusal === undefined &&
+		key !== undefined &&
+		key.length < 32
+	) {
+		throw new Error(
+			`The master key is ${key.length} characters long; production needs 32 at least: \`openssl rand -base64 32\` gives one.`,
+		)
+	}
 	return async (request) => {
 		const sent = request.headers.get(masterKeyHeader)
 		if (sent === null) {
