@@ -175,6 +175,9 @@ Exit: an example with sign-up, sign-in and rules on `caller.user`.
       D-107). The bound also counts each root list field and its
       `totalCount`: a document under 2,000 tokens holds about 150 aliased
       roots, each a scan of its table when its filter matches little.
+- [ ] Decide whether D-103 stays: reading the changed row from its
+      RETURNING saves no round trip, 0.06 to 0.09 ms in `bench/writes`, for
+      about 25 lines of the PostgreSQL write compiler.
 - [ ] Roles (`defineRole`, D-13) and ACL (D-68).
 - [ ] Nested creation, `create` in a relation write (D-20, D-68).
 - [ ] REST (D-25, D-68).

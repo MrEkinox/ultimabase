@@ -3555,6 +3555,8 @@ Choice:
    the adapter throws `CheckFailed` with that check's index, which the kernel
    reports as `NOT_FOUND`. The kernel checks the ids each `connect` names
    (D-86), and the row an update targets when it does not load it (point 5).
+   A check with `lock` locks the rows it counts, as `Read.lock` (point 2;
+   amended 2026-10-25).
 2. Locks. `Read.lock` locks the root rows until the transaction ends:
    `for update` on PostgreSQL; `memory()` ignores it, since its transaction
    holds the write lock. The kernel locks the rows it decides a write from:
@@ -3577,9 +3579,10 @@ Choice:
    atomic alone, when nothing follows them (no `after*` or `*Commit` hook,
    no read again). Inside `transaction()`, every query runs in it.
 5. Fewer reads. The kernel loads no row when Master updates by `id` a model
-   without update hooks: the check `{ where: and(where, readable), count: 1 }`
-   stands for it, and an empty read after the update is `NOT_FOUND` (D-104,
-   amended 2026-10-25). A relation written from the other side, on a model
+   without update hooks: the check `{ where: and(where, readable), count: 1,
+lock: true }` stands for it, and an empty read after the update is
+   `NOT_FOUND` (D-104, amended 2026-10-25). The check locks the row as the
+   read would (amended 2026-10-25). A relation written from the other side, on a model
    without update hooks and without rules for the caller, is one update
    `where: and(where, filter)` instead of a read and an update.
 6. A connected id that is not a UUID is `NOT_FOUND` before any query: the
@@ -3597,6 +3600,14 @@ Choice:
    row linked meanwhile restricts. PostgreSQL's message alone tells the two
    apart: a server whose messages are not in English reports each one as
    `NOT_FOUND`.
+9. A write that loads no row (amended 2026-10-25) decides from what
+   PostgreSQL checks again after a row lock it waited on, never from the
+   statement's snapshot alone: under READ COMMITTED, a statement that waits
+   on a row lock reads the row's new version for that row only, and the
+   other parts of the statement still see the snapshot. So a check that
+   stands for a loaded row locks it (point 5), and a cascade level deletes
+   among the rows the level above removed (D-102). A shortcut that saves a
+   round trip is weighed by this rule first.
 
 Why:
 
@@ -3607,6 +3618,11 @@ Why:
   allowed a write and the write.
 - Most writes in an application are a `create` or a Master `update` with no
   hook: they become one round trip.
+- A Master update by id checked its row on the snapshot, then updated by
+  `id` alone: a row another transaction hid from `beforeFind` while the
+  update waited on its lock was updated and returned. A locked check sees
+  the hidden row, counts 0, and nothing of the write runs, its nested
+  writes included.
 
 Rejected:
 
@@ -3619,6 +3635,10 @@ Rejected:
   on every connect for a race a refusal already reports.
 - Skipping the read of an update by a unique field other than `id`: the
   read after it follows the row by `id`, which the kernel has not loaded.
+- Putting `and(where, readable)` in the update's own `where` instead of a
+  locked check: the update would skip the hidden row, but the write's
+  nested changes, such as a link to it, would still run, and the read
+  after it, by `id`, would return the row as it was.
 
 Limits:
 
@@ -3626,6 +3646,17 @@ Limits:
   the kernel finds before writing: a Master update of a missing row with
   invalid data fails with `VALIDATION_FAILED`, a connect to a missing row
   after a move refused as `FORBIDDEN`.
+  Example of a locked check, Master's update by id of a `Doc` hidden by
+  `beforeFind` when archived:
+
+```sql
+-- Before: the snapshot's count
+(select count(*) from "doc" as "t1"
+  where "t1"."id" = $1 and "t1"."archived" = false) = 1 as "c0"
+-- After: the count of the rows it locked, checked again after a wait
+(select count(*) from (select from "doc" as "t1"
+  where "t1"."id" = $1 and "t1"."archived" = false for update) as t) = 1 as "c0"
+```
 
 Example:
 

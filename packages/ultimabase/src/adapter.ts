@@ -142,6 +142,8 @@ export type Check = {
 	readonly model: string
 	readonly where: Filter
 	readonly count: number
+	/** Locks the rows it counts until the transaction ends, as `Read.lock` (D-99). */
+	readonly lock?: boolean
 }
 
 /**

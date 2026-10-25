@@ -172,7 +172,7 @@ export async function update(
 		// Nothing needs the stored row: a check stands for its read (D-99).
 		await prepared(model, draft, caller, false)
 		const steps = await updatePlan(models, model, id, draft, sent, store)
-		const check = { model: model.name, where, count: 1 }
+		const check = { model: model.name, where, count: 1, lock: true }
 		const message = missing(model.name)
 		const at = { id, read, shape }
 		const checks = [{ check, message }]
@@ -233,7 +233,7 @@ export async function remove(
 	if (reach !== undefined && scope.access === undefined) {
 		// Nothing needs the stored row: a check stands for its read, and the
 		// write returns it as its delete removed it (D-102, D-104).
-		const check = { model: model.name, where, count: 1 }
+		const check = { model: model.name, where, count: 1, lock: true }
 		const checks: Checked[] = [{ check, message: missing(model.name) }]
 		checks.push(...reach.checks)
 		const read = { model: model.name, where, take: 1 }

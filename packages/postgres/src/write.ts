@@ -226,7 +226,10 @@ function checking(catalog: Catalog, checks: readonly Check[]): Sql {
 		const table = sql.id(catalog.table(check.model).name)
 		const alias = filters.alias()
 		const where = filters.where(check.model, alias, check.where)
-		return sql`(select count(*) from ${table} as ${sql.id(alias)} where ${where}) = ${check.count} as ${sql.id(`c${at}`)}`
+		// A locked row is counted as it is after any wait for its lock.
+		const rows = sql`${table} as ${sql.id(alias)} where ${where}`
+		const from = check.lock ? sql`(select from ${rows} for update) as t` : rows
+		return sql`(select count(*) from ${from}) = ${check.count} as ${sql.id(`c${at}`)}`
 	})
 	return sql`select ${sql.join(columns)}`
 }
