@@ -169,6 +169,12 @@ const unconvertible: Named<readonly string[]> = {
 const reads = (from: string, to: string): boolean =>
 	(from === 'jsonb' || from.startsWith('text')) && !to.startsWith('text')
 
+/** A date as text is `toISOString()`'s, whatever the session's time zone. */
+const converted = (named: string, from: string, to: string): string =>
+	from === 'timestamptz' && to.startsWith('text')
+		? `to_char(${named} at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')`
+		: `${named}::${to}`
+
 /**
  * Changes a column's type. One PostgreSQL cannot convert loses its values,
  * as an added column has none: null, or its fixed default when required.
@@ -185,7 +191,7 @@ function retype(
 	const alter = `${table} alter column ${id(key)} type ${now.type}`
 	const does = `changed ${now.field} to ${shown(now.type)}`
 	if (!unconvertible[was]?.includes(now.type)) {
-		return emit(`${alter} using ${id(key)}::${now.type}`, does, {
+		return emit(`${alter} using ${converted(id(key), was, now.type)}`, does, {
 			loses: `${change} rewrites its data`,
 			...(reads(was, now.type)
 				? {

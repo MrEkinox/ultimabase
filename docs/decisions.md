@@ -4079,6 +4079,18 @@ Choice: amends D-26, D-73 and D-98 point 1.
    a developer who means a conversion writes it in the `using` clause
    (point 5).
 
+   A date changed to text is written as `toISOString()` writes it, in UTC
+   with milliseconds, whatever the session's time zone (amended
+   2026-10-25). Before, `2026-10-25T10:00:00.123Z` became
+   `2026-10-25 11:00:00.123+01` on a machine in Paris and
+   `2026-10-25 19:00:00.123+09` in Tokyo; now it is
+   `2026-10-25T10:00:00.123Z` on both:
+
+   ```sql
+   alter table "note" alter column "done" type text collate "C"
+     using to_char("done" at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"');
+   ```
+
    A database that holds tables but no snapshot is refused.
 
 4. In production, `start` applies nothing. It reads the database's snapshot

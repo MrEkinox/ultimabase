@@ -397,6 +397,41 @@ describe('a sync on postgres()', () => {
 		})
 	})
 
+	it("writes a date as toISOString()'s text, whatever the session's time zone", async () => {
+		const tokyo = `${inSchema(schema)}${encodeURIComponent(' -c TimeZone=Asia/Tokyo')}`
+		const local = postgres({ url: tokyo })
+		await local.start({ models: [] })
+		const given = local.migrations
+		if (given === undefined) throw new Error('postgres() migrates.')
+		const synced = async (from: Schema | undefined, to: Schema) => {
+			const was = from === undefined ? undefined : given.snapshot(from)
+			const statements = given.plan(was, to)
+			await given.apply({
+				kind: 'sync',
+				from: was,
+				statements,
+				to: given.snapshot(to),
+			})
+		}
+		try {
+			await synced(undefined, sized('date', false))
+			await query(
+				tokyo,
+				`insert into shelf values (gen_random_uuid(), now(), now(), '2026-10-25T10:00:00.123456Z')`,
+			)
+			await synced(sized('date', false), sized('string', false))
+			expect(await query(tokyo, 'select size from shelf')).toStrictEqual([
+				{ size: '2026-10-25T10:00:00.123Z' },
+			])
+			await synced(sized('string', false), sized('date', false))
+			expect(await query(tokyo, 'select size from shelf')).toStrictEqual([
+				{ size: new Date('2026-10-25T10:00:00.123Z') },
+			])
+		} finally {
+			await local.stop()
+		}
+	})
+
 	it('tries a type change that reads text or json, and makes a field optional first', () => {
 		const statements = migrations.plan(
 			migrations.snapshot(sized('string', false)),
