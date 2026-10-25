@@ -170,6 +170,7 @@ async function detach(step: Detach, writing: Writing): Promise<Change[]> {
 					await writing.store.find({
 						model: target,
 						where: and(byIds(targets), filter),
+						lock: true,
 					})
 				).map((row) => row.id)
 	if (kept.length === 0) return []

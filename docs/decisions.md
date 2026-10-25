@@ -3607,7 +3607,10 @@ lock: true }` stands for it, and an empty read after the update is
    other parts of the statement still see the snapshot. So a check that
    stands for a loaded row locks it (point 5), and a cascade level deletes
    among the rows the level above removed (D-102). A shortcut that saves a
-   round trip is weighed by this rule first.
+   round trip is weighed by this rule first. A row a write reads to choose
+   what it changes is read locked, as `move()`, the cascades and a
+   many-to-many `disconnect` read theirs: a row hidden or changed before the
+   write could go on is then left as it now is (amended 2026-10-25).
 
 Why:
 
