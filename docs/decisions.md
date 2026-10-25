@@ -3910,6 +3910,10 @@ for a row the change already returns. On PostgreSQL 18, a 10 000-row table,
 3 000 runs, the median round trip of a create went from 0.57 to 0.50 ms and
 of an update by id from 0.69 to 0.58 ms; planning a create went from 0.19 to
 0.05 ms. A view left in place without being read still cost 0.02 ms.
+Measured again with `bench/writes`, 1,000 runs, twice with and twice
+without: a create took 0.97 ms against 1.07, an update by id 1.07 against
+1.19, for about 25 lines of the write compiler; the choice stays (amended
+2026-10-25).
 
 Rejected: building the row with `jsonb_build_object` straight from the CTE,
 without the list and its `row_number`: 0.05 ms faster on a create, but a
