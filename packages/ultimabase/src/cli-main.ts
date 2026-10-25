@@ -7,7 +7,7 @@ import { parseArgs } from 'node:util'
 import { configPath, load } from './cli-config.ts'
 import { migrateDeploy, migrateStatus, reset } from './cli-deploy.ts'
 import { migrateCreate, sync } from './cli-migrate.ts'
-import { Refused } from './migrate.ts'
+import { Refused } from './errors.ts'
 
 const usage = `Usage: ultimabase <command> [--config <path>]
 

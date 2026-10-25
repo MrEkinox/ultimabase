@@ -7,7 +7,8 @@ import { join } from 'node:path'
 import type { Migration, Statement } from './adapter.ts'
 import type { Internals } from './app-internals.ts'
 import { kernelLogger, schemaOf } from './lifecycle.ts'
-import { hashOf, migrationsOf, Refused, synced } from './migrate.ts'
+import { Refused } from './errors.ts'
+import { hashOf, migrationsOf, synced } from './migrate.ts'
 
 export const header = '-- ultimabase schema '
 

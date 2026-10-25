@@ -4,7 +4,7 @@ import { basename, join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import type { Internals } from './app-internals.ts'
 import { internalsOf } from './app-internals.ts'
-import { Refused } from './migrate.ts'
+import { Refused } from './errors.ts'
 
 const names = [
 	'ultimabase.config.ts',

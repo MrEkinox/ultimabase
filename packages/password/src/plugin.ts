@@ -14,7 +14,13 @@ import type {
 	UseOf,
 	UserOf,
 } from 'ultimabase'
-import { definePlugin, isMaster, master, PublicError } from 'ultimabase'
+import {
+	definePlugin,
+	isMaster,
+	master,
+	PublicError,
+	Refused,
+} from 'ultimabase'
 import manifest from '../package.json' with { type: 'json' }
 import type { SignedIn, State } from './core.ts'
 import {
@@ -110,12 +116,12 @@ function usersOf(models: readonly ExposedModel[]): ExposedModel {
 	const users = models.filter(({ queries }) => using.has(queries.create))
 	const [first, second] = users
 	if (first === undefined) {
-		throw new Error(
+		throw new Refused(
 			'passwordPlugin() needs the user model to list it: add `use: [password()]` to defineUser.',
 		)
 	}
 	if (second !== undefined) {
-		throw new Error(
+		throw new Refused(
 			`${first.schema.name} and ${second.schema.name} both use password(): only the user model does.`,
 		)
 	}
@@ -142,7 +148,7 @@ function signUpFields(
 	for (const field of listed) {
 		const found = fields.find((each) => each.name === field)
 		if (found === undefined || reserved.has(field)) {
-			throw new Error(
+			throw new Refused(
 				`${where}: ${name}.${field} is not a field sign-up may take.`,
 			)
 		}
@@ -153,7 +159,7 @@ function signUpFields(
 	}
 	const missing = users.required.filter((field) => !properties.has(field))
 	if (missing.length > 0) {
-		throw new Error(
+		throw new Refused(
 			`${where}: ${name} needs ${missing.join(', ')} to be created; list them.`,
 		)
 	}

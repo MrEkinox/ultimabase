@@ -2,7 +2,7 @@
 // the master key, then the first plugin that knows it, anonymous otherwise.
 import { createHash, timingSafeEqual } from 'node:crypto'
 import type { Logger, MasterKey } from './app-options.ts'
-import { PublicError } from './errors.ts'
+import { PublicError, Refused } from './errors.ts'
 import type { Caller } from './rules.ts'
 import { createMaster } from './rules.ts'
 
@@ -48,7 +48,7 @@ export function identifier(
 	// A header drops the spaces around a value and mangles what is not ASCII:
 	// such a key could never match.
 	if (key !== undefined && key !== '' && !/^[\x21-\x7e]+$/.test(key)) {
-		throw new Error(
+		throw new Refused(
 			'The master key holds a space or a character outside ASCII, which a header cannot carry: use letters, digits and symbols only.',
 		)
 	}
@@ -64,7 +64,7 @@ export function identifier(
 		key !== undefined &&
 		key.length < 32
 	) {
-		throw new Error(
+		throw new Refused(
 			`The master key is ${key.length} characters long; production needs 32 at least: \`openssl rand -base64 32\` gives one.`,
 		)
 	}

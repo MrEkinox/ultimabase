@@ -4,6 +4,7 @@
 import type { SchemaField } from 'ultimabase'
 import type { Catalog, Table } from './names.ts'
 import { constraint } from './names.ts'
+import { Refused } from 'ultimabase'
 
 /** `field` is the model's name for it, which messages use. */
 export type Column = {
@@ -66,7 +67,7 @@ function claimer(): Claim {
 	return (name, what) => {
 		const prior = owners.get(name)
 		if (prior !== undefined) {
-			throw new Error(`${prior} and ${what} are both stored as "${name}".`)
+			throw new Refused(`${prior} and ${what} are both stored as "${name}".`)
 		}
 		owners.set(name, what)
 		return name

@@ -9,6 +9,7 @@ import type {
 	PluginUse,
 } from './definition.ts'
 import { modelDefinitions } from './definition.ts'
+import { Refused } from './errors.ts'
 
 /** A field as the kernel reads it: its schema and its builder's options. */
 export type FieldInfo = SchemaField & { readonly options: FieldOptions }
@@ -41,7 +42,7 @@ type Linked = {
 }
 
 function fail(message: string): never {
-	throw new Error(message)
+	throw new Refused(message)
 }
 
 function inverseOf(link: Linked, links: readonly Linked[]): Linked {
@@ -115,7 +116,7 @@ function relationField(link: Linked, inverse: Linked): FieldInfo {
 		)
 	}
 	if (asked === 'setNull' && !optional) {
-		throw new Error(`${where}: setNull needs an optional relation.`)
+		throw new Refused(`${where}: setNull needs an optional relation.`)
 	}
 	const onDelete =
 		asked === 'cascade' || asked === 'restrict' || asked === 'setNull'
@@ -168,7 +169,7 @@ export function checkInstalled(
 	if (plugins.includes(code)) return
 	const { name } = code
 	const other = plugins.some((each) => each.name === name)
-	throw new Error(
+	throw new Refused(
 		other
 			? `${owner} uses a ${name} from another definePlugin than the one in plugins.`
 			: `${owner} uses ${name}, which is not in plugins.`,
@@ -220,14 +221,14 @@ function definitionsOf(
 				typeof value !== 'object' ||
 				value === null
 			) {
-				throw new Error(
+				throw new Refused(
 					`${whose(owner)} a value that defineModel did not return.`,
 				)
 			}
 			const { name } = definition
 			if (owners.has(name)) {
 				const other = owners.get(name)
-				throw new Error(
+				throw new Refused(
 					owner === other
 						? `${whose(owner)} two models named ${name}.`
 						: `${whose(owner)} a model named ${name}, as ${whose(other)}; name a plugin's models after it.`,
@@ -257,11 +258,11 @@ export function resolve(
 					? names.get(value)
 					: undefined
 			if (target === undefined) {
-				throw new Error(`${model}.${name}: its target is not in models.`)
+				throw new Refused(`${model}.${name}: its target is not in models.`)
 			}
 			const owner = owners.get(model)
 			if (owner !== owners.get(target)) {
-				throw new Error(
+				throw new Refused(
 					`${model}.${name}: a plugin's model relates only to models of the same plugin; keep the id as a scalar.`,
 				)
 			}
@@ -301,7 +302,7 @@ export function resolve(
 					field.kind === 'many' ||
 					(field.kind === 'one' && !field.stored)
 				) {
-					throw new Error(
+					throw new Refused(
 						`${model}: index field '${name}' is not a scalar or a stored one relation.`,
 					)
 				}

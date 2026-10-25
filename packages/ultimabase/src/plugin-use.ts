@@ -5,6 +5,7 @@ import { fieldBuilders, fieldDefinitions, pluginEntries } from './definition.ts'
 import type { Command } from './plugin-code.ts'
 import { inCommand } from './plugin-code.ts'
 import { isObject } from './query-where.ts'
+import { Refused } from './errors.ts'
 
 /** The kernel's names, which a model's field cannot take (D-22, D-20). */
 const reserved = new Set(['id', 'createdAt', 'updatedAt', 'AND', 'OR', 'NOT'])
@@ -22,7 +23,7 @@ export function addFields(
 ): void {
 	if (!isObject(built)) {
 		const part = plugin === undefined ? 'fields' : `${plugin}.addedFields`
-		throw new Error(`${model}: ${part} must return an object of fields.`)
+		throw new Refused(`${model}: ${part} must return an object of fields.`)
 	}
 	for (const [field, value] of Object.entries(built)) {
 		const recorded =
@@ -30,14 +31,14 @@ export function addFields(
 				? fieldDefinitions.get(value)
 				: undefined
 		if (recorded === undefined) {
-			throw new Error(`${model}.${field} is not a field a builder returned.`)
+			throw new Refused(`${model}.${field} is not a field a builder returned.`)
 		}
 		if (reserved.has(field)) {
-			throw new Error(`${model}.${field}: the kernel owns this name.`)
+			throw new Refused(`${model}.${field}: the kernel owns this name.`)
 		}
 		if (plugin !== undefined && fields.has(field)) {
 			const owner = owners.get(field) ?? model
-			throw new Error(
+			throw new Refused(
 				`${model}.${field}: ${plugin} adds a field ${owner} already has.`,
 			)
 		}
@@ -84,13 +85,13 @@ function commandsOf(
 		for (const [command, value] of Object.entries(built)) {
 			const path = `${model}.${command}`
 			if (methods.has(command)) {
-				throw new Error(
+				throw new Refused(
 					`${path}: ${code.name} adds a command named after a model method.`,
 				)
 			}
 			const other = owners.get(command)
 			if (other !== undefined) {
-				throw new Error(
+				throw new Refused(
 					`${path}: ${other} and ${code.name} both add this command.`,
 				)
 			}
@@ -120,11 +121,13 @@ export function usedBy(
 	for (const value of use) {
 		const entry = isObject(value) ? pluginEntries.get(value) : undefined
 		if (entry === undefined) {
-			throw new Error(`${model}.use lists a value no plugin's entry returned.`)
+			throw new Refused(
+				`${model}.use lists a value no plugin's entry returned.`,
+			)
 		}
 		const { code, options } = entry
 		if (uses.some((other) => other.code.name === code.name)) {
-			throw new Error(`${model}.use lists ${code.name} twice.`)
+			throw new Refused(`${model}.use lists ${code.name} twice.`)
 		}
 		if (code.addedFields !== undefined) {
 			const built: unknown = Reflect.apply(code.addedFields, undefined, [
@@ -139,7 +142,7 @@ export function usedBy(
 	const redirecting = uses.filter((each) => each.code.redirect !== undefined)
 	if (redirecting.length > 1) {
 		const names = redirecting.map((each) => each.code.name).join(' and ')
-		throw new Error(`${model}: ${names} both redirect delete.`)
+		throw new Refused(`${model}: ${names} both redirect delete.`)
 	}
 	const methods = new Set(['name', 'with', 'nullable', ...Object.keys(queries)])
 	return { uses, commands: commandsOf(model, uses, methods) }

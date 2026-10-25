@@ -3,6 +3,7 @@
 import { IncomingMessage } from 'node:http'
 import { BlockList, isIP } from 'node:net'
 import type { Logger } from 'ultimabase'
+import { Refused } from 'ultimabase'
 
 // Where a proxy in front of the server connects from.
 const nearby = new BlockList()
@@ -30,7 +31,7 @@ const isNearby = (address: string): boolean =>
 export function proxiesOf(option: number | undefined): number {
 	const proxies = option ?? 0
 	if (Number.isInteger(proxies) && proxies >= 0) return proxies
-	throw new Error(
+	throw new Refused(
 		`proxies is ${proxies}, not a whole number of proxies in front of the server.`,
 	)
 }

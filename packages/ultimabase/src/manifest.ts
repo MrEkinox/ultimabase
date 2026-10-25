@@ -6,6 +6,7 @@ import type { Logger } from './app-options.ts'
 import type { PluginRecord } from './definition.ts'
 import type { Manifest } from './plugin.ts'
 import { isObject } from './query-where.ts'
+import { Refused } from './errors.ts'
 
 /** Checks a plugin's `manifest`: a name, a version and valid ranges. */
 export function manifestOf(value: unknown, plugin: string): Manifest {
@@ -62,7 +63,7 @@ export function checkVersions(
 		for (const [peer, range] of Object.entries(peerDependencies)) {
 			const found = installed.get(peer)
 			if (found === undefined || accepts(found, range)) continue
-			throw new Error(
+			throw new Refused(
 				`${name} ${version} needs ${peer} ${range}; this is ${peer} ${found}.`,
 			)
 		}

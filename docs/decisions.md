@@ -3938,9 +3938,9 @@ Choice: amends D-26, D-73 and D-98 point 1.
    - both start the application and leave `SIGTERM` to it (D-59).
 
    A command that fails exits 1 and says why. An expected failure prints
-   its message alone: a refusal, or an error with a `code`, which Node,
-   PostgreSQL, the command line and the kernel's own errors carry. Any other
-   error is a bug, and prints its stack. An unknown option adds
+   its message alone: a refusal (D-119), or an error with a `code`, which
+   Node, PostgreSQL, the command line and the kernel's own errors carry.
+   Any other error is a bug, and prints its stack. An unknown option adds
    ``Run `npx ultimabase --help`.``, and an unknown command the usage. The
    storage adapter names a server it cannot reach, since it alone knows the
    address, and never prints a password (amended 2026-10-25):
@@ -5663,4 +5663,58 @@ currently unsupported for files under node_modules, for
 
 # After: the application starts and logs "Listening on http://localhost:3000."
 $ node app.ts
+```
+
+## D-119: `Refused`, the error a command prints without its stack
+
+Choice: completes D-105 point 1.
+
+1. The kernel exports `Refused`, an `Error` named `Refused` that takes what
+   `Error` takes. It says the message alone tells what is wrong and how to
+   fix it, so a command prints it without a stack (D-105).
+2. The kernel, its plugins and its adapters throw it for a configuration
+   they refuse while the application is defined or starts, when the message
+   names what it refuses: two models named alike, a plugin that requires one
+   not listed, an unset url, a server too old, a short master key. A
+   community plugin throws it for its own options.
+3. An `Error` stays for the rest, whose stack is what locates it: an
+   invariant that broke (`Unknown model Book.`), a call at the wrong time
+   (`postgres() is not started.`), stored data that is not what the code
+   wrote, and a refusal whose message names nothing
+   (`definePlugin takes a name.`), which the stack points to in the
+   developer's file.
+
+Why: the first errors an application meets are its configuration's, and a
+stack into the kernel reads as a crash of the kernel. A `code` cannot mark
+them: a refusal never reaches a client, and the codes of D-72 are the
+client's. A plugin needs the same way to refuse its options, so the class
+is public.
+Rejected: one class per package, which the command would have to know
+each of; a `code` such as `INVALID_CONFIG`; printing every message without
+a stack, which hides a bug's.
+Example:
+
+```ts
+// Before: a plugin's check
+if (options.proxies < 0)
+	throw new Error(
+		'proxies is -1, not a whole number of proxies in front of the server.',
+	)
+// After
+import { Refused } from 'ultimabase'
+if (options.proxies < 0)
+	throw new Refused(
+		'proxies is -1, not a whole number of proxies in front of the server.',
+	)
+```
+
+```sh
+# Before
+$ npx ultimabase sync
+Error: postgres() was given no url: is the variable it reads set?
+    at Object.start (.../postgres/src/adapter.ts:135:11)
+    ...
+# After
+$ npx ultimabase sync
+postgres() was given no url: is the variable it reads set?
 ```

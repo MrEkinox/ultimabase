@@ -4,14 +4,7 @@ import { createHash } from 'node:crypto'
 import type { Adapter, Migrations, Schema, Statement } from './adapter.ts'
 import { MigrationFailed } from './adapter.ts'
 import type { Logger } from './app-options.ts'
-
-/** A refusal whose message says it all: the commands print no stack. */
-export class Refused extends Error {
-	constructor(message: string) {
-		super(message)
-		this.name = 'Refused'
-	}
-}
+import { Refused } from './errors.ts'
 
 /** The value with its keys sorted, so equal snapshots serialize alike. */
 function canonical(value: unknown): unknown {

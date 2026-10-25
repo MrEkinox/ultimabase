@@ -1,7 +1,7 @@
 // What `defineModel`, the field builders and schema resolution refuse at
 // startup, and the stored names they keep (D-37, D-63).
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { defineModel } from './index.ts'
+import { defineModel, Refused } from './index.ts'
 import { resolve } from './schema.ts'
 import { uuidv7 } from './uuid.ts'
 
@@ -50,6 +50,10 @@ const index = (field: string) => () => {
 	resolve([Shelf])
 }
 
+const nameless = (): void => {
+	untyped({ name: '', fields: () => ({}) })
+}
+
 describe('defineModel', () => {
 	it('needs a name, a string dbName and an object of fields', () => {
 		expect(() => untyped({ name: '', fields: () => ({}) })).toThrow(
@@ -64,6 +68,19 @@ describe('defineModel', () => {
 		expect(() =>
 			untyped({ name: 'Note', fields: () => ({ text: 'string' }) }),
 		).toThrow('Note.text is not a field a builder returned.')
+	})
+
+	it('refuses a definition that names its fault, and errs otherwise (D-119)', () => {
+		expect(() =>
+			untyped({ name: 'Note', dbName: 3, fields: () => ({}) }),
+		).toThrow(Refused)
+		const Loop = defineModel({
+			name: 'Loop',
+			fields: (f) => ({ parent: f.one(() => Loop, { inverse: 'parent' }) }),
+		})
+		expect(() => resolve([Loop])).toThrow(Refused)
+		expect(nameless).toThrow(Error)
+		expect(nameless).not.toThrow(Refused)
 	})
 
 	it('takes an object as rules', () => {

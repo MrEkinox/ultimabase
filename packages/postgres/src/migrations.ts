@@ -5,7 +5,7 @@ import type { Kysely, Transaction } from 'kysely'
 import { sql } from 'kysely'
 import { parse } from 'pg-connection-string'
 import type { Migration, Run, Stored } from 'ultimabase'
-import { isLocalHost, MigrationFailed } from 'ultimabase'
+import { isLocalHost, MigrationFailed, Refused } from 'ultimabase'
 import { id } from './plan.ts'
 import { parseSnapshot } from './snapshot.ts'
 
@@ -98,7 +98,7 @@ async function refuseTables(
 		order by table_name`.execute(trx)
 	if (rows.length === 0) return
 	const list = rows.map((row) => row.table_name).join(', ')
-	throw new Error(
+	throw new Refused(
 		`The database already holds ${list}, and no UltimaBase snapshot says what they are: sync only builds an empty database.`,
 	)
 }
@@ -150,7 +150,7 @@ async function sync(
 		// Another process synced the same models first.
 		if (row?.done === true) return
 		if (row === undefined ? run.from !== undefined : row.same !== true) {
-			throw new Error(
+			throw new Refused(
 				'The database changed while UltimaBase synced it: start again.',
 			)
 		}

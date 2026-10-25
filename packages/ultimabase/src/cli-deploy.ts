@@ -5,7 +5,8 @@ import { MigrationFailed } from './adapter.ts'
 import type { Internals } from './app-internals.ts'
 import { create, read } from './cli-migrate.ts'
 import { schemaOf } from './lifecycle.ts'
-import { ahead, hashOf, migrationsOf, Refused } from './migrate.ts'
+import { Refused } from './errors.ts'
+import { ahead, hashOf, migrationsOf } from './migrate.ts'
 
 const upToDate = 'The database is up to date.'
 

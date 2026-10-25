@@ -15,6 +15,7 @@ import {
 	defineApp,
 	defineModel,
 	master,
+	Refused,
 	RelationViolation,
 	transaction,
 	UniqueViolation,
@@ -133,11 +134,13 @@ describe('postgres()', () => {
 		).rejects.toThrow('postgres() is not started.')
 	})
 
-	it('takes an unset url, and refuses to start with it', async () => {
+	it('takes an unset url, and refuses to start with it (D-119)', async () => {
 		for (const given of [process.env['ULTIMABASE_UNSET_URL'], '']) {
 			const adapter = postgres({ url: given })
 			expect(adapter.migrations?.remote).toBeUndefined()
-			await expect(adapter.start({ models: [] })).rejects.toThrow(
+			const starting = adapter.start({ models: [] })
+			await expect(starting).rejects.toThrow(Refused)
+			await expect(starting).rejects.toThrow(
 				'postgres() was given no url: is the variable it reads set?',
 			)
 		}
@@ -757,7 +760,8 @@ describe('the catalog', () => {
 		}
 	})
 
-	it('refuses a server below PostgreSQL 15', () => {
+	it('refuses a server below PostgreSQL 15 (D-119)', () => {
+		expect(() => requireVersion('140010')).toThrow(Refused)
 		expect(() => requireVersion('140010')).toThrow('PostgreSQL 15 or later')
 		expect(() => requireVersion('150000')).not.toThrow()
 	})

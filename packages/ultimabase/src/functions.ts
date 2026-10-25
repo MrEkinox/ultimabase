@@ -14,6 +14,7 @@ import type { ExposedFunction } from './plugin.ts'
 import { isObject } from './query-where.ts'
 import type { Resolved } from './schema.ts'
 import { checkInstalled } from './schema.ts'
+import { Refused } from './errors.ts'
 
 /** Checks the models and types an output reaches, each type once. */
 function checkOutput(
@@ -26,19 +27,23 @@ function checkOutput(
 	if (output.kind === 'model') {
 		const info = resolved.byValue.get(output.value)
 		if (info === undefined) {
-			throw new Error(`${name} returns ${output.name}, which is not in models.`)
+			throw new Refused(
+				`${name} returns ${output.name}, which is not in models.`,
+			)
 		}
 		if (info.owner === undefined) return
-		throw new Error(`${name} returns ${output.name}, a model of ${info.owner}.`)
+		throw new Refused(
+			`${name} returns ${output.name}, a model of ${info.owner}.`,
+		)
 	}
 	const { type } = output
 	const known = types.get(type.name)
 	if (known === type) return
 	if (known !== undefined) {
-		throw new Error(`Two types are named ${type.name}; name each once.`)
+		throw new Refused(`Two types are named ${type.name}; name each once.`)
 	}
 	if (resolved.models.has(type.name)) {
-		throw new Error(`The type ${type.name} is named like a model.`)
+		throw new Refused(`The type ${type.name} is named like a model.`)
 	}
 	types.set(type.name, type)
 	for (const field of type.fields.values()) {
@@ -80,7 +85,7 @@ export function resolveFunctions(
 				? functionDefinitions.get(value)
 				: undefined
 			if (definition === undefined || !isObject(value)) {
-				throw new Error(
+				throw new Refused(
 					`${where} lists a value that defineFunction did not return.`,
 				)
 			}
@@ -88,7 +93,7 @@ export function resolveFunctions(
 			const owner = ownerOf(plugin, name)
 			const other = names.get(name)
 			if (other !== undefined) {
-				throw new Error(
+				throw new Refused(
 					other === owner
 						? `${where} lists two functions named ${name}.`
 						: `${owner} and ${other} are both named ${name}.`,

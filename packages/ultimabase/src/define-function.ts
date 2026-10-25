@@ -17,7 +17,7 @@ import {
 	typeDefinitions,
 } from './definition.ts'
 import { callerOf } from './engine.ts'
-import { PublicError } from './errors.ts'
+import { PublicError, Refused } from './errors.ts'
 import type { StandardSchema } from './fields.ts'
 import type {
 	Client,
@@ -58,7 +58,7 @@ function outputOf(value: unknown, where: string): Output {
 	const list: readonly unknown[] = Array.isArray(value) ? value : []
 	const listed = list.length === 1 ? namedOf(list[0]) : undefined
 	if (listed !== undefined) return { ...listed, form: 'list' }
-	throw new Error(
+	throw new Refused(
 		`${where} is a model, a type, a list of one, X.nullable() or a Standard Schema.`,
 	)
 }
@@ -72,7 +72,7 @@ export function defineType<
 		throw new Error('defineType takes a name.')
 	}
 	if (!isObject(fields) || Object.keys(fields).length === 0) {
-		throw new Error(`${name}: fields is an object of one output or more.`)
+		throw new Refused(`${name}: fields is an object of one output or more.`)
 	}
 	const outputs = new Map<string, Output>()
 	for (const [field, value] of Object.entries(fields)) {
@@ -89,15 +89,15 @@ export function defineType<
 }
 
 function usesOf(name: string, use: unknown): readonly PluginRecord[] {
-	if (!Array.isArray(use)) throw new Error(`${name}.use is a list.`)
+	if (!Array.isArray(use)) throw new Refused(`${name}.use is a list.`)
 	const uses: PluginRecord[] = []
 	for (const value of use) {
 		const entry = isObject(value) ? pluginEntries.get(value) : undefined
 		if (entry === undefined) {
-			throw new Error(`${name}.use lists a value no plugin's entry returned.`)
+			throw new Refused(`${name}.use lists a value no plugin's entry returned.`)
 		}
 		if (uses.some((other) => other.code.name === entry.code.name)) {
-			throw new Error(`${name}.use lists ${entry.code.name} twice.`)
+			throw new Refused(`${name}.use lists ${entry.code.name} twice.`)
 		}
 		uses.push(entry)
 	}
@@ -186,11 +186,12 @@ export function defineFunction<
 		throw new Error('defineFunction takes a name.')
 	}
 	if (typeof query !== 'boolean')
-		throw new Error(`${name}: query is a boolean.`)
+		throw new Refused(`${name}: query is a boolean.`)
 	if (input !== undefined && standardOf(input) === undefined) {
-		throw new Error(`${name}: input is a Standard Schema.`)
+		throw new Refused(`${name}: input is a Standard Schema.`)
 	}
-	if (typeof run !== 'function') throw new Error(`${name}: run is a function.`)
+	if (typeof run !== 'function')
+		throw new Refused(`${name}: run is a function.`)
 	const record: FunctionDefinition = {
 		name,
 		query,
@@ -208,9 +209,9 @@ export function defineFunction<
 		// The rules are read on each call, so `.with` keeps the same value.
 		with: (rules: unknown): object => {
 			if (record.rules !== undefined) {
-				throw new Error(`${name} takes its rules in one \`.with\`.`)
+				throw new Refused(`${name} takes its rules in one \`.with\`.`)
 			}
-			if (!isObject(rules)) throw new Error(`${name}.with takes an object.`)
+			if (!isObject(rules)) throw new Refused(`${name}.with takes an object.`)
 			record.rules = rules
 			return fn
 		},

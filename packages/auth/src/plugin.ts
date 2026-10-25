@@ -19,6 +19,7 @@ import {
 	isMaster,
 	master,
 	PublicError,
+	Refused,
 } from 'ultimabase'
 import manifest from '../package.json' with { type: 'json' }
 import {
@@ -104,18 +105,17 @@ function stateOf(context: object): State {
 function usersOf(
 	models: readonly { readonly queries: Users['queries'] }[],
 ): Users {
-	const users = models.flatMap(({ queries }) => {
+	const [first, second] = models.flatMap(({ queries }) => {
 		const output = userModels.get(queries)
 		return output === undefined ? [] : [{ queries, output }]
 	})
-	const [first, second] = users
 	if (first === undefined) {
-		throw new Error(
+		throw new Refused(
 			'authPlugin() needs a user model: declare it with defineUser.',
 		)
 	}
 	if (second !== undefined) {
-		throw new Error(
+		throw new Refused(
 			'models lists two models defineUser returned: an application has one user model.',
 		)
 	}

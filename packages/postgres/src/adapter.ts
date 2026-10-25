@@ -8,7 +8,7 @@ import type {
 import { Kysely, PostgresDialect, sql } from 'kysely'
 import { Pool } from 'pg'
 import { parse } from 'pg-connection-string'
-import { CheckFailed } from 'ultimabase'
+import { CheckFailed, Refused } from 'ultimabase'
 import type {
 	Adapter,
 	CountRead,
@@ -117,7 +117,7 @@ async function write(
 /** Refuses a server below PostgreSQL 15 (D-50). */
 export function requireVersion(version: string | undefined): void {
 	if (!(Number(version) >= 150000)) {
-		throw new Error(`UltimaBase needs PostgreSQL 15 or later.`)
+		throw new Refused(`UltimaBase needs PostgreSQL 15 or later.`)
 	}
 }
 
@@ -132,7 +132,7 @@ export function createAdapter(options: Options): Adapter {
 	return {
 		start: async (schema: Schema) => {
 			if (!url) {
-				throw new Error(
+				throw new Refused(
 					'postgres() was given no url: is the variable it reads set?',
 				)
 			}

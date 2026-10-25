@@ -121,6 +121,16 @@ describe('the command line', () => {
 		expect(err).toStrictEqual(['Cannot reach it.'])
 	})
 
+	it('prints the message alone of a refusal (D-119)', async () => {
+		const errors = pathToFileURL(join(import.meta.dirname, 'errors.ts'))
+		await writeFile(
+			join(dir, 'refused.mjs'),
+			`import { Refused } from '${errors.href}'\nthrow new Refused('Set it.')\n`,
+		)
+		expect(await run('sync', '--config', 'refused.mjs')).toBe(1)
+		expect(err).toStrictEqual(['Set it.'])
+	})
+
 	it('writes to the process by default', async () => {
 		const write = vi.spyOn(process.stdout, 'write').mockReturnValue(true)
 		const writeErr = vi.spyOn(process.stderr, 'write').mockReturnValue(true)

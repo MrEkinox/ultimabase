@@ -13,6 +13,7 @@ import type { ModelInfo, Resolved } from './schema.ts'
 import { pluginValues } from './definition.ts'
 import { exposedFunctions, resolveFunctions } from './functions.ts'
 import { isObject } from './query-where.ts'
+import { Refused } from './errors.ts'
 
 /** Each plugin after the plugins it needs; a cycle stops startup. */
 function needsFirst(plugins: readonly PluginRecord[]): readonly PluginRecord[] {
@@ -23,7 +24,7 @@ function needsFirst(plugins: readonly PluginRecord[]): readonly PluginRecord[] {
 		const { name, requires, optional } = plugin.code
 		if (path.includes(name)) {
 			const cycle = [...path.slice(path.indexOf(name)), name].join(' → ')
-			throw new Error(`plugins need each other: ${cycle}.`)
+			throw new Refused(`plugins need each other: ${cycle}.`)
 		}
 		for (const needed of [...requires, ...optional]) {
 			const other = byName.get(needed)
@@ -47,18 +48,18 @@ export function installed(values: readonly unknown[]): {
 	for (const value of values) {
 		const plugin = isObject(value) ? pluginValues.get(value) : undefined
 		if (plugin === undefined) {
-			throw new Error('plugins lists a value that no plugin returned.')
+			throw new Refused('plugins lists a value that no plugin returned.')
 		}
 		const { name } = plugin.code
 		if (plugins.some((other) => other.code.name === name)) {
-			throw new Error(`plugins lists two plugins named ${name}.`)
+			throw new Refused(`plugins lists two plugins named ${name}.`)
 		}
 		plugins.push(plugin)
 	}
 	for (const { code } of plugins) {
 		for (const needed of code.requires) {
 			if (plugins.some((other) => other.code.name === needed)) continue
-			throw new Error(
+			throw new Refused(
 				`${code.name} requires ${needed}, which is not in plugins.`,
 			)
 		}
