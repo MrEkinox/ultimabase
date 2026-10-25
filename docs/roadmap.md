@@ -182,6 +182,7 @@ Exit: an example with sign-up, sign-in and rules on `caller.user`.
 - [ ] Nested creation, `create` in a relation write (D-20, D-68).
 - [ ] REST (D-25, D-68).
 - [ ] Documentation website (D-31).
+- [ ] A full audit of every package, its fixes merged, before publication.
 - [ ] Publication, after confirmation.
 
 Exit: `npm create ultimabase` produces an application that starts.
