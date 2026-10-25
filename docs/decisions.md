@@ -4302,10 +4302,14 @@ Choice: completes D-27, D-49, D-59 and D-66.
    CORS never stops it. A request that is not `GET`, `HEAD` or `OPTIONS`,
    whose content type a form sends (form-urlencoded, multipart or
    `text/plain`; none counts as `text/plain`) and which carries a `Cookie`
-   header, is refused with `ACCESS_DENIED` (403) unless its
-   `Sec-Fetch-Site` is `same-origin` or its `Origin` is the server's own or
-   one `cors` allows. A request without cookies passes: it holds no session
-   to abuse, and a webhook sends none (amended 2026-10-24).
+   header, or an `Origin` or `Sec-Fetch-Site` header as every browser does,
+   is refused with `ACCESS_DENIED` (403), "A form from another origin is
+   refused.", unless its `Sec-Fetch-Site` is `same-origin` or its `Origin`
+   is the server's own or one `cors` allows; `Origin: null` is none of
+   them. Without cookies, another site's form would sign its visitor in to
+   the sender's account through a route that reads JSON from `text/plain`.
+   A webhook sends neither header, nor cookies, and passes (amended
+   2026-10-24, 2026-10-25).
 
 Why: Hono is a small router built on the web's `Request` and `Response`,
 whose context already carries typed variables, so a route reads the caller

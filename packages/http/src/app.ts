@@ -169,21 +169,26 @@ export function appOf(
 		c.header('vary', 'Origin', { append: true })
 	})
 	// A browser sends a form to any site, with that site's cookies, and no
-	// CORS check stops it: one that carries cookies comes from an allowed
-	// origin (D-106). A webhook sends no cookie.
+	// CORS check stops it: a form from a browser, which names its origin or
+	// its site, or with cookies, comes from an allowed origin (D-106). Without
+	// cookies, another site's form would sign its visitor in to its own
+	// account. A webhook sends neither header, nor cookies.
 	app.use(async (c, next) => {
-		const origin = c.req.header('origin') ?? ''
+		const origin = c.req.header('origin')
+		const site = c.req.header('sec-fetch-site')
 		if (
 			!safe.has(c.req.method) &&
 			form.test(c.req.header('content-type') ?? 'text/plain') &&
-			c.req.header('cookie') !== undefined &&
-			c.req.header('sec-fetch-site') !== 'same-origin' &&
+			(c.req.header('cookie') !== undefined ||
+				origin !== undefined ||
+				site !== undefined) &&
+			site !== 'same-origin' &&
 			origin !== new URL(c.req.url).origin &&
-			allowed(origin) === null
+			allowed(origin ?? '') === null
 		) {
 			throw new PublicError(
 				'ACCESS_DENIED',
-				'A form from another origin cannot send cookies.',
+				'A form from another origin is refused.',
 			)
 		}
 		await next()

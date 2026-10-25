@@ -420,7 +420,7 @@ const posted = async (url: string, headers: Record<string, string>) =>
 	})
 
 describe('a form from another origin', () => {
-	it('is refused when it carries cookies', async () => {
+	it('is refused when it carries cookies or comes from a browser', async () => {
 		const { url } = await server({ port: 0, routes: [forms] })
 		const cookie = 'session=token'
 		const foreign = await posted(url, {
@@ -430,8 +430,22 @@ describe('a form from another origin', () => {
 		expect(foreign.status).toBe(403)
 		expect(await foreign.json()).toEqual({
 			code: 'ACCESS_DENIED',
-			message: 'A form from another origin cannot send cookies.',
+			message: 'A form from another origin is refused.',
 		})
+		// Without cookies, the form would sign its visitor in to the
+		// sender's account; `null` is a sandboxed page's origin.
+		for (const headers of [
+			{ origin: 'https://evil.example.com' },
+			{ 'sec-fetch-site': 'cross-site' },
+			{ origin: 'null' },
+		]) {
+			const signIn = await fetch(`${url}/form`, {
+				method: 'POST',
+				headers: { 'content-type': 'text/plain', ...headers },
+				body: '{"email":"mallory@example.com","password":"secret"}',
+			})
+			expect(signIn.status).toBe(403)
+		}
 		// A sibling subdomain is the same site, not the same origin.
 		const sibling = await posted(url, { cookie, 'sec-fetch-site': 'same-site' })
 		expect(sibling.status).toBe(403)
@@ -442,7 +456,7 @@ describe('a form from another origin', () => {
 		expect(plain.status).toBe(403)
 	})
 
-	it('passes from its own origin, an allowed one, or without cookies', async () => {
+	it('passes from its own origin, an allowed one, or from a server', async () => {
 		const { url } = await server({
 			port: 0,
 			routes: [forms],
@@ -454,9 +468,10 @@ describe('a form from another origin', () => {
 			{ cookie, 'sec-fetch-site': 'same-origin' },
 			{ cookie, origin: 'https://app.example.com' },
 			{ cookie, origin: 'http://localhost:5173' },
+			{ origin: url },
+			{ 'sec-fetch-site': 'same-origin' },
 			// A webhook.
 			{},
-			{ origin: 'https://evil.example.com' },
 		]
 		for (const headers of passed) {
 			expect(await (await posted(url, headers)).text()).toBe('sent')
