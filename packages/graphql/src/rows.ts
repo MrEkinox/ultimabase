@@ -1,6 +1,7 @@
 // The row budget (D-107): a document that may return more than `maxRows`
-// rows is refused before it runs. Each list counts the rows it asks for,
-// times the rows of the lists above it.
+// rows, or reads and writes more than `maxRoots` times at its root, is
+// refused before it runs. Each list counts the rows it asks for, times the
+// rows of the lists above it.
 import type {
 	FieldNode,
 	GraphQLObjectType,
@@ -26,6 +27,8 @@ export type Read =
 	| { readonly kind: 'list'; readonly size: number }
 
 const one: Read = { kind: 'one' }
+/** Each a query or a write of its own, a count one more. */
+const maxRoots = 20
 const responseKey = (node: FieldNode) => node.alias?.value ?? node.name.value
 
 // `take` for none or a negative number; above `maxTake`, the list refuses.
@@ -74,6 +77,7 @@ export function rowBudget(
 			variableValues: args.variableValues,
 		}
 		let rows = 0
+		let rootFields = 0
 		const walk = (
 			type: GraphQLObjectType,
 			nodes: readonly Selecting[],
@@ -96,8 +100,10 @@ export function rowBudget(
 					// A count reads the rows it counts, however few the page returns.
 					const counted = grouped(info, fields).has('totalCount')
 					each *= counted ? Math.max(size, read.entry.take) : size
+					if (counted && root !== '') rootFields += 1
 				} else if (read?.kind === 'list') each *= read.size
 				if (read !== undefined) rows += each
+				if (root !== '') rootFields += 1
 				const named = getNamedType(field.type)
 				if (isObjectType(named) && each > 0) walk(named, fields, each, '')
 			}
@@ -106,6 +112,11 @@ export function rowBudget(
 		const type = args.schema.getRootType(operation.operation)
 		// `validateExecutionArgs` refused an operation the schema has no root for.
 		if (type) walk(type, [operation], 1, operation.operation)
+		if (rootFields > maxRoots) {
+			return new GraphQLError(
+				`The document asks for more than ${maxRoots} root fields, a totalCount counted as one more. Send several documents.`,
+			)
+		}
 		if (rows <= maxRows) return undefined
 		const fewer = list ? 'take' : 'first or last'
 		return new GraphQLError(

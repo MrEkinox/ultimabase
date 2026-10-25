@@ -21,6 +21,7 @@ import { formatter } from './errors.ts'
 import type { GraphqlFunctionWith } from './functions.ts'
 import { functionFields } from './functions.ts'
 import { graphiqlPage } from './graphiql.ts'
+import { overlapRefusal } from './overlap.ts'
 import { rootNames } from './names.ts'
 import type { Context, Entry, GraphqlWith } from './registry.ts'
 import { Registry } from './registry.ts'
@@ -130,8 +131,11 @@ const plugin = definePlugin<Graphql>({
 				...closed,
 				...(heldOf(request.raw).caller.kind === 'master' ? [] : [depth]),
 			],
-			validate: (on, document, rules) =>
-				validate(on, document, rules, { hideSuggestions }),
+			validate: (on, document, rules) => {
+				const refused = overlapRefusal(document)
+				if (refused !== undefined) return [refused]
+				return validate(on, document, rules, { hideSuggestions })
+			},
 			execute: async (args) => {
 				const validated = validateExecutionArgs({ ...args, hideSuggestions })
 				if (!('schema' in validated)) return { errors: validated }

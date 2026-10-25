@@ -4,7 +4,7 @@
 	"soft-delete": 150,
 	"postgres": 2365,
 	"http": 670,
-	"graphql": 2650,
+	"graphql": 2800,
 	"auth": 640,
 	"password": 1510
 }

@@ -1,4 +1,5 @@
-// What the plugin closes and opens (D-107): the token, depth and row limits,
+// What the plugin closes and opens (D-107): the token, pair, depth, row and
+// root limits,
 // introspection and suggestions in production, GraphiQL, and the
 // application's middlewares before it.
 import { routes } from '@ultimabase/http'
@@ -87,6 +88,81 @@ describe('the token limit', () => {
 	})
 })
 
+const pairsRefused = [
+	'The document repeats fields under one name too often. Ask for each field once.',
+]
+const copies = (count: number, field = 'totalCount') =>
+	`${field} `.repeat(count)
+
+describe('the pair bound', () => {
+	it('refuses fields of one name making more than 1,000 pairs, Master too', async () => {
+		await serving({}, async (url) => {
+			// 45 copies make 990 pairs, 46 make 1,035.
+			const most = await post(url, `{ posts { ${copies(45)}} }`)
+			expect(most.errors).toBeUndefined()
+			const begin = performance.now()
+			const many = `{ posts { ${copies(1990)}} }`
+			expect(messages(await post(url, many))).toStrictEqual(pairsRefused)
+			expect(
+				messages(await post(url, many, undefined, asMaster)),
+			).toStrictEqual(pairsRefused)
+			// One key and other arguments: 460 ms of validation for 180 copies.
+			const keyed = Array.from(
+				{ length: 180 },
+				(_, i) => `p: posts(first: ${i}) { totalCount }`,
+			)
+			expect(messages(await post(url, `{ ${keyed.join(' ')} }`))).toStrictEqual(
+				pairsRefused,
+			)
+			expect(performance.now() - begin).toBeLessThan(1000)
+		})
+	})
+
+	it('counts the fields merged from every copy of their parent', async () => {
+		await serving({}, async (url) => {
+			const twice = (count: number) =>
+				`{ posts { ${copies(count)}} posts { ${copies(count)}} }`
+			expect((await post(url, twice(22))).errors).toBeUndefined()
+			expect(messages(await post(url, twice(23)))).toStrictEqual(pairsRefused)
+			const inline = `{ posts { ... on PostConnection { ${copies(23)}} ${copies(23)}} }`
+			expect(messages(await post(url, inline))).toStrictEqual(pairsRefused)
+		})
+	})
+
+	it('counts a fragment spread twice in one place once, and an unused one', async () => {
+		await serving({}, async (url) => {
+			const fragment = `fragment F on PostConnection { ${copies(30)}}`
+			const spread = await post(url, `{ posts { ...F ...F } } ${fragment}`)
+			expect(spread.errors).toBeUndefined()
+			const unused = `{ posts { totalCount } } fragment U on PostConnection { ${copies(46)}}`
+			expect(messages(await post(url, unused))).toStrictEqual(pairsRefused)
+			// A cycle or a missing fragment, which validation then refuses.
+			const cycle = await post(
+				url,
+				`{ posts { ...A ...M } } fragment A on PostConnection { ...A }`,
+			)
+			expect(cycle.errors).toBeDefined()
+		})
+	})
+
+	it('refuses fragments doubling at each level without walking each path', async () => {
+		await serving({ introspection: true }, async (url) => {
+			expect((await post(url, doubling(8, true))).errors).toBeUndefined()
+			const begin = performance.now()
+			const result = await post(url, doubling(24, true))
+			expect(messages(result)).toStrictEqual(pairsRefused)
+			expect(performance.now() - begin).toBeLessThan(1000)
+		})
+	})
+
+	it('lets the introspection query through', async () => {
+		await serving({ introspection: true }, async (url) => {
+			const result = await post(url, getIntrospectionQuery())
+			expect(result.errors).toBeUndefined()
+		})
+	})
+})
+
 describe('a count', () => {
 	it('is read once for a connection, however many aliases ask', async () => {
 		const base = memory()
@@ -169,12 +245,16 @@ const create = (alias: string) =>
 		}`
 
 // Each fragment spreads the previous one twice: 2^n visits for a validator
-// that walks a fragment once per path.
-function doubling(n: number): string {
+// that walks a fragment once per path. `merging` spreads it where its fields
+// merge with the fragment's own, which the pair bound refuses past a dozen.
+function doubling(n: number, merging = false): string {
 	const fragments = ['fragment F0 on __Type { name }']
 	for (let index = 1; index <= n; index++) {
+		const previous = `F${index - 1}`
 		fragments.push(
-			`fragment F${index} on __Type { ...F${index - 1} ofType { ...F${index - 1} } }`,
+			merging
+				? `fragment F${index} on __Type { ...${previous} ofType { ...${previous} } }`
+				: `fragment F${index} on __Type { a: ofType { ...${previous} } b: ofType { ...${previous} } }`,
 		)
 	}
 	return `{ __type(name: "Query") { ...F${n} } } ${fragments.join(' ')}`
@@ -293,6 +373,42 @@ describe('the row budget', () => {
 			expect(messages(result)).toStrictEqual([
 				'The document asks for more than 150 rows. Ask for fewer with take.',
 			])
+		})
+	})
+})
+
+const rootsRefused = [
+	'The document asks for more than 20 root fields, a totalCount counted as one more. Send several documents.',
+]
+const roots = (count: number, select: string) =>
+	`{ ${Array.from({ length: count }, (_, i) => `a${i}: posts(first: 1) { ${select} }`).join(' ')} }`
+
+describe('the root cap', () => {
+	it('refuses more than 20 root fields, unless Master asks', async () => {
+		await serving({}, async (url) => {
+			const most = await post(url, roots(20, 'edges { cursor }'))
+			expect(most.errors).toBeUndefined()
+			const more = roots(21, 'edges { cursor }')
+			expect(messages(await post(url, more))).toStrictEqual(rootsRefused)
+			const master = await post(url, more, undefined, asMaster)
+			expect(master.errors).toBeUndefined()
+			const writes = Array.from(
+				{ length: 21 },
+				(_, i) => `d${i}: deletePost(where: { id: "${i}" }) { id }`,
+			)
+			const deletes = await post(url, `mutation { ${writes.join(' ')} }`)
+			expect(messages(deletes)).toStrictEqual(rootsRefused)
+		})
+	})
+
+	it('counts a totalCount as one more, and a field asked twice once', async () => {
+		await serving({}, async (url) => {
+			const counted = await post(url, roots(10, 'totalCount'))
+			expect(counted.errors).toBeUndefined()
+			const more = await post(url, roots(11, 'totalCount'))
+			expect(messages(more)).toStrictEqual(rootsRefused)
+			const same = `{ ${'posts(first: 1) { totalCount } '.repeat(21)}}`
+			expect((await post(url, same)).errors).toBeUndefined()
 		})
 	})
 })

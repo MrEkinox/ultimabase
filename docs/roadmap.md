@@ -168,13 +168,14 @@ Exit: an example with sign-up, sign-in and rules on `caller.user`.
 - [x] Packages publish compiled JavaScript, installed from their packs and
       run by `yarn test:packed` in CI (D-118).
 - [ ] `examples/` run by CI (D-31), Changesets (D-60).
-- [ ] Decide how `graphqlPlugin()` bounds the cost of validating a document
+- [x] Decide how `graphqlPlugin()` bounds the cost of validating a document
       under its 2,000 tokens: 1,993 copies of one field take 100 ms of CPU
       in graphql-js's overlapping-fields rule, which compares every two
       fields of one name; ten such requests a second fill a core (D-55,
       D-107). The bound also counts each root list field and its
       `totalCount`: a document under 2,000 tokens holds about 150 aliased
       roots, each a scan of its table when its filter matches little.
+      1,000 pairs of one key, 20 root fields (D-107).
 - [x] Decide whether D-103 stays: reading the changed row from its
       RETURNING saves no round trip, 0.06 to 0.09 ms in `bench/writes`, for
       about 25 lines of the PostgreSQL write compiler.

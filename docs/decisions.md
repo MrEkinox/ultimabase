@@ -4662,7 +4662,20 @@ startsWith, endsWith }`, `is`/`isNot`, `some`/`every`/`none`,
    about ten times the standard introspection query, is refused before it is
    validated, Master's included: graphql-js validates a field repeated under
    one key in quadratic time, and 12,000 copies took 6 seconds (amended
-   2026-10-23).
+   2026-10-23). Under it, a document is still refused before it is
+   validated, Master's included, when its fields of one response key,
+   merged as GraphQL merges them, fragments included, make more than 1,000
+   pairs: graphql-js's overlapping-fields rule compares every two of them,
+   and 180 copies of `p: posts(first: i) { totalCount }` took 460 ms. The
+   pairs within a fragment count once, where it is defined; a chain of
+   fragments that spread each other and merge their fields counts more than
+   the rule compares, and is refused past about a dozen. A document of a
+   caller other than Master with more than 20 root fields, a `totalCount`
+   counting one more, is refused before it runs: each is a query or a write
+   of its own, which a rate limit counting requests does not see. Both
+   bounds are constants. GraphQL Armor was measured and rejected: its peer
+   range stops at graphql 16, and its alias and cost limits let 1,990 copies
+   of one unaliased field through (amended 2026-10-25).
 7. A model whose `use` lists `graphql()` takes `.with({ graphql: { plural } })`
    or `.with({ graphql: false })`. A hidden model is absent from the schema,
    its types included, unless an exposed model's relation reaches it. In
