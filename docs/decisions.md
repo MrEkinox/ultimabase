@@ -4052,11 +4052,13 @@ Choice: amends D-26, D-73 and D-98 point 1.
    one transaction; two read
    `... cannot run inside a transaction block: a file without a transaction holds one statement: put each in its own file`,
    and the same statement in an ordinary file reads
-   `...: put it in its own file, whose second line is \`-- ultimabase no transaction\``.
-It runs under the advisory lock taken for its session and with no
-`lock_timeout`: `create index concurrently`waits for running
-transactions without blocking any, and one that fails leaves an invalid
-index. A failure then reads`It ran without a transaction, so nothing was rolled back: undo what it left, such as an invalid index, then deploy again.`
+   ``...: put it in its own file, whose second line is `-- ultimabase no transaction` ``.
+
+   It runs under the advisory lock taken for its session and with no
+   `lock_timeout`: `create index concurrently` waits for running
+   transactions without blocking any, and one that fails leaves an invalid
+   index. A failure then reads
+   `It ran without a transaction, so nothing was rolled back: undo what it left, such as an invalid index, then deploy again.`
 
    A file the database refuses is rolled back, the files before it stay
    applied, and deploy names it with the database's reason:
@@ -4183,6 +4185,11 @@ Limits:
   from nothing to `schema.json`, whose header lists the files it replaces,
   and deploy marks it applied on a database that applied them all. It waits
   for an application whose history needs it.
+- A tried change can still fail in production, on rows a development
+  database does not have; `migrate deploy` then stops at that file, its
+  transaction rolled back. `migrate deploy` on a restored dump tests it
+  first.
+- `reset` drops tables, not the types or functions a file created.
 
 Rejected:
 
@@ -4210,17 +4217,6 @@ Rejected:
 - Marking a development database, as Rails stores its environment: a dump
   of production restored for a test carries production's mark.
 - A command that runs arbitrary SQL: `psql` does it.
-
-Limits:
-
-- A change made by hand in SQL is invisible to both snapshots.
-- A tried change can still fail in production, on rows a development
-  database does not have; `migrate deploy` then stops at that file, its
-  transaction rolled back. `migrate deploy` on a restored dump tests it
-  first.
-- Each file runs in a transaction, so `create index concurrently` cannot be
-  written in one.
-- `reset` drops tables, not the types or functions a file created.
 
 Example:
 
