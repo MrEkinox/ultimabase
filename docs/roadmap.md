@@ -164,10 +164,8 @@ Exit: an example with sign-up, sign-in and rules on `caller.user`.
 
 ## Phase 6: Release 0.1
 
-- [ ] `@ultimabase/testing` (D-40, D-80), `create-ultimabase` (D-61).
 - [x] Packages publish compiled JavaScript, installed from their packs and
       run by `yarn test:packed` in CI (D-118).
-- [ ] `examples/` run by CI (D-31), Changesets (D-60).
 - [x] Decide how `graphqlPlugin()` bounds the cost of validating a document
       under its 2,000 tokens: 1,993 copies of one field take 100 ms of CPU
       in graphql-js's overlapping-fields rule, which compares every two
@@ -179,9 +177,14 @@ Exit: an example with sign-up, sign-in and rules on `caller.user`.
 - [x] Decide whether D-103 stays: reading the changed row from its
       RETURNING saves no round trip, 0.06 to 0.09 ms in `bench/writes`, for
       about 25 lines of the PostgreSQL write compiler.
+- [ ] Decide roles and ACL (D-13, D-68).
 - [ ] Roles (`defineRole`, D-13) and ACL (D-68).
+- [ ] Decide nested creation (D-20, D-68).
 - [ ] Nested creation, `create` in a relation write (D-20, D-68).
+- [ ] Decide REST (D-25, D-68).
 - [ ] REST (D-25, D-68).
+- [ ] `@ultimabase/testing` (D-40, D-80), `create-ultimabase` (D-61).
+- [ ] `examples/` run by CI (D-31), Changesets (D-60).
 - [ ] Documentation website (D-31).
 - [ ] A full audit of every package, its fixes merged, before publication.
 - [ ] Publication, after confirmation.
