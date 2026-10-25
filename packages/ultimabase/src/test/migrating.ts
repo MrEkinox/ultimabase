@@ -1,6 +1,13 @@
 // `memory()` with fake `migrations` (D-105): the snapshot lists each model's
 // fields, and the plan adds or removes models and fields.
-import type { Adapter, Logger, Run, Statement, Stored } from '../index.ts'
+import type {
+	Adapter,
+	Logger,
+	Run,
+	Schema,
+	Statement,
+	Stored,
+} from '../index.ts'
 import { memory, MigrationFailed } from '../index.ts'
 
 export type FakeState = {
@@ -29,6 +36,15 @@ function modelsOf(value: unknown): Models {
 	}
 	return read
 }
+
+const snapshot = (schema: Schema): unknown => ({
+	models: Object.fromEntries(
+		schema.models.map((model) => [
+			model.name,
+			model.fields.map((field) => field.name),
+		]),
+	),
+})
 
 function plan(from: unknown, to: unknown): Statement[] {
 	const before = from === undefined ? {} : modelsOf(from)
@@ -95,15 +111,8 @@ export function migrating(state: FakeState = fakeState()): Adapter {
 	return {
 		...memory(),
 		migrations: {
-			snapshot: (schema) => ({
-				models: Object.fromEntries(
-					schema.models.map((model) => [
-						model.name,
-						model.fields.map((field) => field.name),
-					]),
-				),
-			}),
-			plan,
+			snapshot,
+			plan: (from, schema) => plan(from, snapshot(schema)),
 			stored: async () => state.stored,
 			apply: async (run) => {
 				state.runs.push(run)
@@ -136,9 +145,9 @@ export function migrating(state: FakeState = fakeState()): Adapter {
 				state.stored = { snapshot: run.to, by: 'deploy', applied }
 			},
 			reset: async () => {
-				const snapshot = state.stored?.snapshot
+				const was = state.stored?.snapshot
 				state.stored = undefined
-				return snapshot === undefined ? [] : Object.keys(modelsOf(snapshot))
+				return was === undefined ? [] : Object.keys(modelsOf(was))
 			},
 			...(state.remote === undefined ? {} : { remote: state.remote }),
 		},

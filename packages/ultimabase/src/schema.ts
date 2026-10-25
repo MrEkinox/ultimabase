@@ -142,6 +142,7 @@ function relationField(link: Linked, inverse: Linked): FieldInfo {
 function scalarField(name: string, field: FieldDefinition): FieldInfo {
 	if (field.kind !== 'scalar') throw new Error('Expected a scalar field.')
 	const dbName = field.options['dbName']
+	const fixed: unknown = field.options['default']
 	return {
 		kind: 'scalar',
 		name,
@@ -150,6 +151,10 @@ function scalarField(name: string, field: FieldDefinition): FieldInfo {
 		optional: field.options['optional'] === true,
 		unique: field.options['unique'] === true,
 		...(typeof dbName === 'string' ? { dbName } : {}),
+		// `null` is no value: a create without one stores none either.
+		...(fixed === undefined || fixed === null || typeof fixed === 'function'
+			? {}
+			: { default: fixed }),
 		options: field.options,
 	}
 }

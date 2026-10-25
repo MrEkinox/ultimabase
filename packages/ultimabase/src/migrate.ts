@@ -84,7 +84,7 @@ export async function synced(
 	const from = stored?.snapshot
 	const to = migrations.snapshot(schema)
 	if (from !== undefined && hashOf(from) === hashOf(to)) return undefined
-	const statements = migrations.plan(from, to)
+	const statements = migrations.plan(from, schema)
 	const losing = statements.filter((statement) => statement.loses !== undefined)
 	if (losing.length > 0 && !force) throw new Refused(refusal(losing))
 	try {

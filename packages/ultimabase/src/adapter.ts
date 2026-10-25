@@ -14,6 +14,8 @@ export type SchemaField =
 			readonly optional: boolean
 			readonly unique: boolean
 			readonly dbName?: string
+			/** Its default when it is a value, not a function (D-105). */
+			readonly default?: unknown
 	  }
 	| {
 			readonly kind: 'one'
@@ -232,8 +234,11 @@ export type Run =
 export interface Migrations {
 	/** What this database makes of the models. */
 	snapshot(schema: Schema): unknown
-	/** The statements from one snapshot to another; none is an empty database. */
-	plan(from: unknown, to: unknown): readonly Statement[]
+	/**
+	 * The statements from a snapshot, or an empty database, to the models'
+	 * snapshot; a required field added takes its `default` in the rows.
+	 */
+	plan(from: unknown, schema: Schema): readonly Statement[]
 	/** The database's snapshot, if it has one; the adapter is started. */
 	stored(): Promise<Stored | undefined>
 	/**

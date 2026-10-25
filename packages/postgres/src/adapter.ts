@@ -21,7 +21,7 @@ import type {
 import { decodeRows } from './decode.ts'
 import { apply, remoteOf, reset, stored } from './migrations.ts'
 import { Catalog } from './names.ts'
-import { plan } from './plan.ts'
+import { fillsOf, plan } from './plan.ts'
 import { compileCount, compileFind } from './read.ts'
 import { parseSnapshot, snapshotOf } from './snapshot.ts'
 import type { Statement } from './write.ts'
@@ -185,11 +185,14 @@ export function createAdapter(options: Options): Adapter {
 		},
 		migrations: {
 			snapshot: (schema) => snapshotOf(new Catalog(schema)),
-			plan: (from, to) =>
-				plan(
+			plan: (from, schema) => {
+				const catalog = new Catalog(schema)
+				return plan(
 					from === undefined ? undefined : parseSnapshot(from),
-					parseSnapshot(to),
-				),
+					snapshotOf(catalog),
+					fillsOf(catalog),
+				)
+			},
 			stored: async () => stored(started().db),
 			apply: async (given) => apply(started().db, given),
 			reset: async () => reset(started().db),

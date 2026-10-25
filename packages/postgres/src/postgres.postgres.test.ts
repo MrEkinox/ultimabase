@@ -106,7 +106,7 @@ async function started(adapter: Adapter, schema: Schema): Promise<void> {
 	const { migrations } = adapter
 	if (migrations === undefined) throw new Error('postgres() migrates.')
 	const to = migrations.snapshot(schema)
-	const statements = migrations.plan(undefined, to)
+	const statements = migrations.plan(undefined, schema)
 	await migrations.apply({ kind: 'sync', from: undefined, statements, to })
 }
 

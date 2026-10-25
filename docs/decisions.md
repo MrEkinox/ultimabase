@@ -3973,14 +3973,34 @@ Choice: amends D-26, D-73 and D-98 point 1.
    applied, all in one transaction under an advisory lock, and logged
    (`Synced Locker: added owner.`). Losing no data means a new table,
    column, index or enum value; a dropped index or constraint; a field made
-   optional. A new required field, unique index or `one`, a field made
-   required and a removed enum value are tried: the database refuses them
-   when a row breaks them, and nothing is applied. Sync changes the tables'
-   shape only and never moves data; a refused change names the statement,
-   what it tried and the database's reason (amended 2026-10-22):
+   optional; a required scalar field whose `default` is a value, not a
+   function, nor `null`. A new required field without such a default,
+   unique index or `one`, a field made required and a removed enum value
+   are tried: the database refuses them when a row breaks them, and nothing
+   is applied. Sync changes the tables' shape and moves no data but one: a
+   required field added takes its fixed default in the rows the table held,
+   with the column's default dropped in the same transaction, so a create
+   still writes the value the kernel validated (D-67). The plan writes the
+   same two statements in a `migrate create` file. A function default, such
+   as `() => new Date()`, runs at each create and has no value to give old
+   rows: the field is tried (amended 2026-10-25). Before, adding
+   `done: f.boolean({ default: false })` to a Note holding rows stopped
+   `start`; now it logs:
 
    ```
-   UltimaBase did not sync Locker: adding the required "Locker.kind" fails when Locker holds rows.
+   Synced Note: added done, false in the rows it held.
+   ```
+
+   ```sql
+   alter table "note" add column "done" boolean not null default false;
+   alter table "note" alter column "done" drop default;
+   ```
+
+   A refused change names the statement, what it tried and the database's
+   reason (amended 2026-10-22):
+
+   ```
+   UltimaBase did not sync Locker: adding the required "Locker.kind" fails when Locker holds rows: make it optional, or give it a value as its default, not a function.
      alter table "locker" add column "kind" text collate "C" not null;
      -- column "kind" of relation "locker" contains null values
    Fix those rows in this development database, or rebuild it from the migrations with `npx ultimabase reset`.
@@ -4110,8 +4130,10 @@ Choice: amends D-26, D-73 and D-98 point 1.
    interface Migrations {
    	/** What this database makes of the models, JSON it validates on read. */
    	snapshot(schema: Schema): unknown
-   	/** The statements from one snapshot to another; none is an empty database. */
-   	plan(from: unknown, to: unknown): readonly Statement[]
+   	/** The statements from a snapshot, none for an empty database, to the
+   	 * models' one; a required field added takes its fixed `default` in the
+   	 * rows (point 3, amended 2026-10-25). */
+   	plan(from: unknown, schema: Schema): readonly Statement[]
    	/** The database's snapshot, and who wrote it. */
    	stored(): Promise<Stored | undefined>
    	/** Runs statements or files, each file in its transaction, then stores

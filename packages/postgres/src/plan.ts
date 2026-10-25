@@ -3,6 +3,7 @@
 // columns change, then keys, indexes and foreign keys are added, so each
 // statement finds what it needs.
 import type { Statement } from 'ultimabase'
+import type { Catalog } from './names.ts'
 import type { Check, ForeignKey, Snapshot, TableSnapshot } from './snapshot.ts'
 
 export const id = (name: string): string => `"${name.replaceAll('"', '""')}"`
@@ -15,6 +16,12 @@ const same = (a: unknown, b: unknown): boolean =>
 	JSON.stringify(a) === JSON.stringify(b)
 
 type Named<T> = { readonly [name: string]: T }
+
+/** A fixed default as SQL, and as the log shows it: `'draft'`. */
+type Fill = { readonly sql: string; readonly shown: string }
+
+/** Each table's columns with a fixed default (D-105). */
+export type Fills = Named<Named<Fill>>
 
 type Emit = (
 	sql: string,
@@ -96,11 +103,66 @@ function dropKeys(
 	}
 }
 
+function fillOf(type: string, value: unknown): Fill {
+	if (type === 'json') {
+		const text = literal(JSON.stringify(value))
+		return { sql: `${text}::jsonb`, shown: text }
+	}
+	if (value instanceof Date) {
+		const text = literal(value.toISOString())
+		return { sql: `${text}::timestamptz`, shown: text }
+	}
+	const text = typeof value === 'string' ? literal(value) : String(value)
+	return { sql: text, shown: text }
+}
+
+/** The columns whose field has a fixed default, which rows take when added. */
+export function fillsOf(catalog: Catalog): Fills {
+	const fills: Record<string, Named<Fill>> = {}
+	for (const table of catalog.tables.values()) {
+		const columns: Record<string, Fill> = {}
+		for (const field of table.model.fields) {
+			if (field.kind !== 'scalar' || field.default === undefined) continue
+			columns[catalog.column(table, field.name)] = fillOf(
+				field.type,
+				field.default,
+			)
+		}
+		fills[table.name] = columns
+	}
+	return fills
+}
+
+/** Adds a column; a required one takes its fixed default in the rows. */
+function addColumn(
+	table: string,
+	key: string,
+	now: TableSnapshot['columns'][string],
+	model: string,
+	fill: Fill | undefined,
+	emit: Emit,
+): void {
+	const add = `${table} add column ${column(key, now.type, now.nullable)}`
+	if (now.nullable) return emit(add, `added ${now.field}`)
+	if (fill === undefined) {
+		return emit(add, `added ${now.field}`, {
+			tries: `adding the required "${model}.${now.field}" fails when ${model} holds rows: make it optional, or give it a value as its default, not a function`,
+		})
+	}
+	// The rows take the default; the column keeps none, as the models say.
+	emit(`${add} default ${fill.sql}`, `added ${now.field}`)
+	emit(
+		`${table} alter column ${id(key)} drop default`,
+		`${fill.shown} in the rows it held`,
+	)
+}
+
 /** Changes the columns of a table both snapshots hold. */
 function alterColumns(
 	name: string,
 	from: TableSnapshot,
 	to: TableSnapshot,
+	fills: Named<Fill>,
 	emit: Emit,
 ): void {
 	const table = `alter table ${id(name)}`
@@ -126,15 +188,7 @@ function alterColumns(
 	for (const [key, now] of Object.entries(to.columns)) {
 		const was = from.columns[key]
 		if (was === undefined) {
-			emit(
-				`${table} add column ${column(key, now.type, now.nullable)}`,
-				`added ${now.field}`,
-				now.nullable
-					? {}
-					: {
-							tries: `adding the required "${to.model}.${now.field}" fails when ${to.model} holds rows`,
-						},
-			)
+			addColumn(table, key, now, to.model, fills[key], emit)
 			continue
 		}
 		if (was.type !== now.type) {
@@ -204,7 +258,11 @@ const foreignKey = (
 	`alter table ${id(table)} add constraint ${id(key)} foreign key (${id(name)}) references ${id(target)} ("id")${cascade ? ' on delete cascade' : ''} deferrable initially deferred`
 
 /** Every statement from `from`, or an empty database, to `to`. */
-export function plan(from: Snapshot | undefined, to: Snapshot): Statement[] {
+export function plan(
+	from: Snapshot | undefined,
+	to: Snapshot,
+	fills: Fills,
+): Statement[] {
 	const before: Named<TableSnapshot> = from?.tables ?? {}
 	const after = to.tables
 	const phases: Statement[][] = [[], [], [], [], [], [], []]
@@ -227,7 +285,7 @@ export function plan(from: Snapshot | undefined, to: Snapshot): Statement[] {
 		}
 		if (now !== undefined) {
 			dropKeys(name, table, now, emit(1, now.model))
-			alterColumns(name, table, now, emit(3, now.model))
+			alterColumns(name, table, now, fills[name] ?? {}, emit(3, now.model))
 			addKeys(name, table, now, emit(5, now.model))
 			continue
 		}

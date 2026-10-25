@@ -221,6 +221,28 @@ describe('schema resolution (D-37)', () => {
 		})
 	})
 
+	it('keeps a default that is a value, which rows take when the field is added (D-105)', () => {
+		const Note = defineModel({
+			name: 'Note',
+			fields: (f) => ({
+				done: f.boolean({ default: false }),
+				due: f.date({ default: () => new Date() }),
+				meta: f.json({ default: null }),
+				text: f.string(),
+			}),
+		})
+		const fields = fieldsOf([Note], 'Note')?.fields ?? []
+		expect(
+			fields.map((field) => [field.name, Object.hasOwn(field, 'default')]),
+		).toStrictEqual([
+			['done', true],
+			['due', false],
+			['meta', false],
+			['text', false],
+		])
+		expect(fields[0]).toMatchObject({ default: false })
+	})
+
 	it('indexes only scalars and stored one relations', () => {
 		expect(index('children')).toThrow(
 			"Shelf: index field 'children' is not a scalar or a stored one relation.",
