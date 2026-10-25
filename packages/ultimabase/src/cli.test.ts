@@ -541,6 +541,23 @@ describe('reset', () => {
 		})
 	})
 
+	it('drops nothing when another session holds a table', async () => {
+		const state = fakeState('reset-held')
+		const file = await config('reset-held', { Locker: ['label'] })
+		await run('sync', '--config', file)
+		state.locked = true
+		expect(await run('reset', '--config', file)).toBe(1)
+		expect(err[0]).toBe(
+			[
+				'UltimaBase did not reset the database: another session held a table.',
+				'  drop Locker;',
+				'  -- held past lock_timeout',
+				"End that session's open transaction, in a database tool perhaps, then try again.",
+			].join('\n'),
+		)
+		expect(out).toStrictEqual([])
+	})
+
 	it('stops at a file the database refuses, and refuses production', async () => {
 		const state = fakeState('reset-refused')
 		const file = await config('reset-refused', { Locker: ['label'] })
@@ -626,6 +643,24 @@ describe('sync', () => {
 				'  drop Locker.label;',
 				'  -- a row breaks it',
 				...fix,
+			].join('\n'),
+		)
+	})
+
+	it('names a table another session held, and how to free it', async () => {
+		const state = fakeState('held')
+		const first = await config('held', { Locker: ['label'] })
+		await run('sync', '--config', first)
+		state.refuses = 'add Locker.size'
+		state.locked = true
+		const second = await config('held', { Locker: ['label', 'size'] })
+		expect(await run('sync', '--config', second)).toBe(1)
+		expect(err[0]).toBe(
+			[
+				'UltimaBase did not sync Locker: another session held its table.',
+				'  add Locker.size;',
+				'  -- held past lock_timeout',
+				"End that session's open transaction, in a database tool perhaps, then try again.",
 			].join('\n'),
 		)
 	})

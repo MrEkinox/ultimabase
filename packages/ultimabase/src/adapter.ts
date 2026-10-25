@@ -246,7 +246,10 @@ export interface Migrations {
 	 * statement or file the database refuses throws `MigrationFailed`.
 	 */
 	apply(run: Run): Promise<void>
-	/** Drops every table, for `ultimabase reset`; returns the models' tables. */
+	/**
+	 * Drops every table, for `ultimabase reset`; returns the models' tables.
+	 * A table another session holds throws a locked `MigrationFailed`.
+	 */
 	reset(): Promise<readonly string[]>
 	/** The database's host when it is not on this machine: `reset` then needs `--force`. */
 	readonly remote?: string
@@ -332,11 +335,14 @@ export class MigrationFailed extends Error {
 	readonly at: string
 	/** What the database said. */
 	readonly reason: string
+	/** Whether it waited past its limit for a table another session held. */
+	readonly locked: boolean
 
-	constructor(at: string, reason: string) {
+	constructor(at: string, reason: string, locked = false) {
 		super(`The database refused ${at}: ${reason}`)
 		this.name = 'MigrationFailed'
 		this.at = at
 		this.reason = reason
+		this.locked = locked
 	}
 }

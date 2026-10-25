@@ -6,7 +6,7 @@ import type { Internals } from './app-internals.ts'
 import { create, read } from './cli-migrate.ts'
 import { schemaOf } from './lifecycle.ts'
 import { Refused } from './errors.ts'
-import { ahead, hashOf, migrationsOf } from './migrate.ts'
+import { ahead, hashOf, held, migrationsOf } from './migrate.ts'
 
 const upToDate = 'The database is up to date.'
 
@@ -167,6 +167,23 @@ export async function migrateStatus(
 	}
 }
 
+/** Drops every table; one another session holds stops the reset. */
+async function dropAll(migrations: Migrations): Promise<readonly string[]> {
+	try {
+		return await migrations.reset()
+	} catch (error) {
+		if (!(error instanceof MigrationFailed && error.locked)) throw error
+		throw new Refused(
+			[
+				'UltimaBase did not reset the database: another session held a table.',
+				`  ${error.at};`,
+				`  -- ${error.reason}`,
+				held,
+			].join('\n'),
+		)
+	}
+}
+
 /**
  * Drops a development database's tables, then applies every migration; one
  * on another machine only with `force`.
@@ -192,7 +209,7 @@ export async function reset(
 	const { files, snapshot } = await read(dir)
 	await database.start(schema)
 	try {
-		const dropped = await migrations.reset()
+		const dropped = await dropAll(migrations)
 		const lines = [
 			dropped.length === 0
 				? 'The database held no table.'

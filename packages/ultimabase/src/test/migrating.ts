@@ -15,6 +15,8 @@ export type FakeState = {
 	runs: Run[]
 	/** A statement's SQL, or a text in a file, the database refuses. */
 	refuses?: string
+	/** It refuses as a table another session holds, and so does a reset. */
+	locked?: boolean
 	/** The host of a database on another machine. */
 	remote?: string
 }
@@ -122,7 +124,13 @@ export function migrating(state: FakeState = fakeState()): Adapter {
 						(statement) => statement.sql === state.refuses,
 					)
 					if (refused !== undefined) {
-						throw new MigrationFailed(refused.sql, 'a row breaks it')
+						throw new MigrationFailed(
+							refused.sql,
+							state.locked === true
+								? 'held past lock_timeout'
+								: 'a row breaks it',
+							state.locked,
+						)
 					}
 					state.stored = { snapshot: run.to, by: 'sync', applied }
 					return
@@ -145,6 +153,13 @@ export function migrating(state: FakeState = fakeState()): Adapter {
 				state.stored = { snapshot: run.to, by: 'deploy', applied }
 			},
 			reset: async () => {
+				if (state.locked === true) {
+					throw new MigrationFailed(
+						'drop Locker',
+						'held past lock_timeout',
+						true,
+					)
+				}
 				const was = state.stored?.snapshot
 				state.stored = undefined
 				return was === undefined ? [] : Object.keys(modelsOf(was))

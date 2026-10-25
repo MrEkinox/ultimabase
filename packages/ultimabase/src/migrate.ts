@@ -51,19 +51,30 @@ function refusal(losing: readonly Statement[]): string {
 	].join('\n')
 }
 
+/** What to do about a table another session held too long. */
+export const held =
+	"End that session's open transaction, in a database tool perhaps, then try again."
+
 /** Why a tried statement failed, and how to fix the rows. */
 function failure(
 	statements: readonly Statement[],
-	{ at, reason }: MigrationFailed,
+	{ at, reason, locked }: MigrationFailed,
 ): string {
 	const statement = statements.find((given) => given.sql === at)
 	const model = statement?.model ?? 'the models'
+	const why = locked
+		? 'another session held its table'
+		: (statement?.tries ?? 'the database refused it')
 	return [
-		`UltimaBase did not sync ${model}: ${statement?.tries ?? 'the database refused it'}.`,
+		`UltimaBase did not sync ${model}: ${why}.`,
 		`  ${at};`,
 		`  -- ${reason}`,
-		'Fix those rows in this development database, or rebuild it from the migrations with `npx ultimabase reset`.',
-		'In production, a migration fixes them: write it with `npx ultimabase migrate create <name>`.',
+		...(locked
+			? [held]
+			: [
+					'Fix those rows in this development database, or rebuild it from the migrations with `npx ultimabase reset`.',
+					'In production, a migration fixes them: write it with `npx ultimabase migrate create <name>`.',
+				]),
 	].join('\n')
 }
 

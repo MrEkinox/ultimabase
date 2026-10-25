@@ -4023,6 +4023,22 @@ Choice: amends D-26, D-73 and D-98 point 1.
    In production, a migration fixes them: write it with `npx ultimabase migrate create <name>`.
    ```
 
+   Sync's statements run with `set local lock_timeout = '5s'`, as a deploy's
+   files do (point 6): a sync waiting behind another session's open
+   transaction fails after 5 seconds instead of queueing every query on that
+   table behind it, and names what to end (amended 2026-10-25). Before, a
+   transaction left open in a database tool made `start` wait without end,
+   and every read of the table with it:
+
+   ```
+   UltimaBase did not sync Locker: another session held its table.
+     alter table "locker" add column "size" integer;
+     -- canceling statement due to lock timeout: another query held a table it changes past lock_timeout
+   End that session's open transaction, in a database tool perhaps, then try again.
+   ```
+
+   The wait for another sync or deploy, the advisory lock, has no limit.
+
    Any other change, a drop,
    a type change and anything that could be a rename, stops `start` with
    its SQL and the commands that apply it:
@@ -4137,6 +4153,11 @@ Choice: amends D-26, D-73 and D-98 point 1.
      as its driver does (amended 2026-10-24). `postgres()` takes an unset `url`,
      as `process.env.DATABASE_URL` may be, and refuses it when the app
      starts, never while the config is imported (amended 2026-10-25).
+     Its drop waits 5 seconds at most for a table another session holds,
+     then drops nothing and prints
+     `UltimaBase did not reset the database: another session held a table.`,
+     the statement, the reason and the same advice as sync's (point 3;
+     amended 2026-10-25).
 
 8. The adapter contract (D-73) gains an optional `migrations` member, which
    the kernel's commands and `start` call; `memory()` has none, since it
@@ -4155,7 +4176,9 @@ Choice: amends D-26, D-73 and D-98 point 1.
    	/** Runs statements or files, each file in its transaction, then stores
    	 * `to`; throws `MigrationFailed` naming what the database refused. */
    	apply(run: Run): Promise<void>
-   	/** Drops every table; returns the models' ones it dropped. */
+   	/** Drops every table; returns the models' ones it dropped. A table
+   	 * another session holds throws a locked `MigrationFailed` (amended
+   	 * 2026-10-25). */
    	reset(): Promise<readonly string[]>
    	/** The database's host when it is not on this machine: `reset` then
    	 * needs `--force` (amended 2026-10-24). */
@@ -4165,6 +4188,9 @@ Choice: amends D-26, D-73 and D-98 point 1.
    	/** The statement's SQL, or the file's name. */
    	readonly at: string
    	readonly reason: string
+   	/** It waited past its limit for a table another session held, so the
+   	 * kernel says what to end, not what rows to fix (amended 2026-10-25). */
+   	readonly locked: boolean
    }
    interface Statement {
    	readonly sql: string

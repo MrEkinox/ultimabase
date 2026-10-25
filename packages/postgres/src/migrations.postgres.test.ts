@@ -8,6 +8,7 @@ import { join as joinPath } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { Client } from 'pg'
 import type { Adapter, Migrations, Schema, SchemaField } from 'ultimabase'
+import { MigrationFailed } from 'ultimabase'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { postgres } from './index.ts'
 
@@ -562,6 +563,86 @@ describe('a deploy on postgres()', () => {
 			'relation "b" does not exist',
 		)
 	})
+})
+
+/** A session that read Shelf, in a transaction it keeps open. */
+async function holding(): Promise<Client> {
+	const holder = new Client({ connectionString: inSchema(schema) })
+	await holder.connect()
+	await holder.query('begin')
+	await holder.query('select count(*) from shelf')
+	return holder
+}
+
+/** A raw statement of Shelf, for a sync to apply. */
+const statement = (sql: string) => ({ sql, model: 'Shelf', does: sql })
+
+describe('a sync or a reset waiting for a lock', () => {
+	it('waits 5s at most for a table another session holds, and says so', async () => {
+		await sync(undefined, before)
+		const [was, now] = [migrations.snapshot(before), migrations.snapshot(after)]
+		await migrations.apply({
+			kind: 'sync',
+			from: was,
+			statements: [
+				statement(
+					"create table waits as select current_setting('lock_timeout') as waits",
+				),
+			],
+			to: now,
+		})
+		expect(
+			await query(inSchema(schema), 'select waits from waits'),
+		).toStrictEqual([{ waits: '5s' }])
+		const holder = await holding()
+		try {
+			const alter = 'alter table shelf add column late integer'
+			await expect(
+				migrations.apply({
+					kind: 'sync',
+					from: now,
+					statements: [
+						statement("set local lock_timeout = '50ms'"),
+						statement(alter),
+					],
+					to: was,
+				}),
+			).rejects.toMatchObject({
+				name: 'MigrationFailed',
+				at: alter,
+				reason:
+					'canceling statement due to lock timeout: another query held a table it changes past lock_timeout',
+				locked: true,
+			})
+			expect(
+				await query(inSchema(schema), 'select count(*) from shelf'),
+			).toStrictEqual([{ count: '0' }])
+		} finally {
+			await holder.end()
+		}
+	})
+
+	it('resets nothing when another session holds a table past 5s', async () => {
+		await sync(undefined, before)
+		const holder = await holding()
+		try {
+			const started = Date.now()
+			const failed: unknown = await migrations
+				.reset()
+				.catch((error: unknown) => error)
+			expect(Date.now() - started).toBeGreaterThanOrEqual(5000)
+			expect(failed).toBeInstanceOf(MigrationFailed)
+			expect(failed).toMatchObject({ locked: true })
+			expect(String(failed)).toMatch(
+				/refused drop table .*"shelf".* cascade: canceling statement due to lock timeout/,
+			)
+		} finally {
+			await holder.end()
+		}
+		expect(
+			await query(inSchema(schema), 'select count(*) from shelf'),
+		).toStrictEqual([{ count: '0' }])
+	}, 15_000)
 })
 
 describe('a deploy waiting for a lock', () => {
