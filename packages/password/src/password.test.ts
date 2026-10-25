@@ -231,6 +231,15 @@ describe('signing in', () => {
 		expect(viewer.status).toBe(200)
 	})
 
+	it('keeps the password out of the error an unknown field gives', async () => {
+		const { url } = await server()
+		const refused = await signIn(url, { remember: true })
+		expect(JSON.stringify(refused.body)).toContain(
+			'unknown field \\"remember\\"',
+		)
+		expect(JSON.stringify(refused.body)).not.toContain(ada.password)
+	})
+
 	it('refuses a wrong password and an unknown email alike, with 401', async () => {
 		const { url } = await server()
 		await signUp(url)

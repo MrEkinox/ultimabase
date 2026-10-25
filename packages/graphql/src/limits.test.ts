@@ -356,6 +356,31 @@ describe('in production', () => {
 	})
 })
 
+describe('a value the schema refuses', () => {
+	it('is named by its error, never printed', async () => {
+		await serving({}, async (url) => {
+			const query = `query ($w: PostWhereInput) { posts(where: $w) { totalCount } }`
+			const typo = { title: { equals: 'secret-1' }, titl: 1 }
+			expect(messages(await post(url, query, { w: typo }))).toStrictEqual([
+				'Variable "$w" has invalid value: Expected value of type "PostWhereInput" not to include unknown field "titl". Did you mean "title"?',
+			])
+			expect(messages(await post(url, query, { w: 'secret-2' }))).toStrictEqual(
+				[
+					'Variable "$w" has invalid value: Expected value of type "PostWhereInput" to be an object.',
+				],
+			)
+			const list = { title: { equals: ['secret-3'] } }
+			expect(messages(await post(url, query, { w: list }))).toStrictEqual([
+				'Variable "$w" has invalid value at .title.equals: String cannot represent a non string value.',
+			])
+			const literal = `{ posts(where: { titl: "secret-4" }) { totalCount } }`
+			expect(messages(await post(url, literal))).toStrictEqual([
+				'Expected value of type "PostWhereInput" not to include unknown field "titl". Did you mean "title"?',
+			])
+		})
+	})
+})
+
 describe('outside production', () => {
 	it('logs where GraphiQL is, but not in production', async () => {
 		const running = await started({ path: '/api' })

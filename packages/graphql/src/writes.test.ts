@@ -60,9 +60,9 @@ describe('a create', () => {
 			`mutation { createPost(data: { title: "six" }) { id } }`,
 		)
 		expect(missing.errors?.map((error) => error.message)).toStrictEqual([
-			'Expected value of type "PostCreateInput" to include required field "slug", found: { title: "six" }.',
-			'Expected value of type "PostCreateInput" to include required field "status", found: { title: "six" }.',
-			'Expected value of type "PostCreateInput" to include required field "author", found: { title: "six" }.',
+			'Expected value of type "PostCreateInput" to include required field "slug".',
+			'Expected value of type "PostCreateInput" to include required field "status".',
+			'Expected value of type "PostCreateInput" to include required field "author".',
 		])
 		// `views` has a default, `meta` and `publishedAt` are optional.
 		const defaulted = await write(

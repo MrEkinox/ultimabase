@@ -4427,7 +4427,9 @@ startsWith, endsWith }`, `is`/`isNot`, `some`/`every`/`none`,
 8. Errors follow D-106: a `PublicError` gives `extensions: { code, details }`;
    any other error gives `Internal error.` with `extensions: { code:
 'INTERNAL', correlationId }`, logged with the same `correlationId`. HTTP
-   statuses are `graphql-http`'s.
+   statuses are `graphql-http`'s. An error graphql-js gives for a value it
+   refuses names the reason, never the value, which may be a password: its
+   `found: …` part is dropped (amended 2026-10-25).
 9. Outside production, `GET /graphql` from a browser serves GraphiQL 5,
    loaded from esm.sh at pinned versions. `extend: (schema) => schema`
    replaces the generated `GraphQLSchema` with one built from it (D-45).
