@@ -3910,6 +3910,10 @@ for a row the change already returns. On PostgreSQL 18, a 10 000-row table,
 3 000 runs, the median round trip of a create went from 0.57 to 0.50 ms and
 of an update by id from 0.69 to 0.58 ms; planning a create went from 0.19 to
 0.05 ms. A view left in place without being read still cost 0.02 ms.
+Measured again with `bench/writes`, 1,000 runs, twice with and twice
+without: a create took 0.97 ms against 1.07, an update by id 1.07 against
+1.19, for about 25 lines of the write compiler; the choice stays (amended
+2026-10-25).
 
 Rejected: building the row with `jsonb_build_object` straight from the CTE,
 without the list and its `row_number`: 0.05 ms faster on a create, but a
@@ -4658,7 +4662,20 @@ startsWith, endsWith }`, `is`/`isNot`, `some`/`every`/`none`,
    about ten times the standard introspection query, is refused before it is
    validated, Master's included: graphql-js validates a field repeated under
    one key in quadratic time, and 12,000 copies took 6 seconds (amended
-   2026-10-23).
+   2026-10-23). Under it, a document is still refused before it is
+   validated, Master's included, when its fields of one response key,
+   merged as GraphQL merges them, fragments included, make more than 1,000
+   pairs: graphql-js's overlapping-fields rule compares every two of them,
+   and 180 copies of `p: posts(first: i) { totalCount }` took 460 ms. The
+   pairs within a fragment count once, where it is defined; a chain of
+   fragments that spread each other and merge their fields counts more than
+   the rule compares, and is refused past about a dozen. A document of a
+   caller other than Master with more than 20 root fields, a `totalCount`
+   counting one more, is refused before it runs: each is a query or a write
+   of its own, which a rate limit counting requests does not see. Both
+   bounds are constants. GraphQL Armor was measured and rejected: its peer
+   range stops at graphql 16, and its alias and cost limits let 1,990 copies
+   of one unaliased field through (amended 2026-10-25).
 7. A model whose `use` lists `graphql()` takes `.with({ graphql: { plural } })`
    or `.with({ graphql: false })`. A hidden model is absent from the schema,
    its types included, unless an exposed model's relation reaches it. In
