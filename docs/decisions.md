@@ -4325,6 +4325,9 @@ Choice: completes D-27, D-49, D-59 and D-66.
    the sender's account through a route that reads JSON from `text/plain`.
    A webhook sends neither header, nor cookies, and passes (amended
    2026-10-24, 2026-10-25).
+7. Every response that sets no `Cache-Control`, errors included, is sent
+   with `Cache-Control: no-store`; a route's own is kept (amended
+   2026-10-25).
 
 Why: Hono is a small router built on the web's `Request` and `Response`,
 whose context already carries typed variables, so a route reads the caller
@@ -4335,6 +4338,12 @@ hands it the request.
 subdomain's, which is the same site: point 6 covers it, and GraphQL refuses
 forms anyway (D-39). Hono's `csrf` middleware refuses a form without cookies
 too, so it breaks form webhooks (Twilio, Slack), and answers in plain text.
+A `GET` carries the session cookie, so its response may hold the caller's
+data, and a shared cache or the browser's would keep it for the next one
+(OWASP's advice). `no-store` rather than `private`: a browser's back button
+or disk would still hold a `private` response, and a route that knows its
+response is public says so, as
+`c.header('cache-control', 'public, max-age=60')`.
 Rejected: a `defineRoute` wrapper (D-27); the caller as a function argument
 (`(c, caller) => …`), which is not Hono's shape; test helpers, since Hono's
 `routes().request(…)` and a server on port 0 already test a route; the API

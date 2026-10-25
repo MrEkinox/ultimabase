@@ -1,6 +1,6 @@
-// The Hono application `httpPlugin` serves (D-66, D-106): CORS, forms from
-// other origins, the body limit, each request's caller, the routes, and
-// errors as D-72 sends them.
+// The Hono application `httpPlugin` serves (D-66, D-106): no caching, CORS,
+// forms from other origins, the body limit, each request's caller, the
+// routes, and errors as D-72 sends them.
 import { randomUUID } from 'node:crypto'
 import { STATUS_CODES } from 'node:http'
 import type { Context } from 'hono'
@@ -131,6 +131,13 @@ export function appOf(
 	const maxSize = options.bodyLimit ?? 1024 * 1024
 	const addressOf = addresses(proxiesOf(options.proxies), logger)
 	const app = new Hono<HttpEnv>({ getPath: pathOf })
+	// A response may hold the caller's data: no cache keeps one, errors
+	// included, unless its route says otherwise (D-106).
+	app.use(async (c, next) => {
+		await next()
+		if (!c.res.headers.has('cache-control'))
+			c.header('cache-control', 'no-store')
+	})
 	// Each request once answered, outside production (D-108).
 	if (local) {
 		app.use(async (c, next) => {

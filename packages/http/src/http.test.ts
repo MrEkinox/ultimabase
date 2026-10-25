@@ -1,6 +1,7 @@
-// `httpPlugin()` (D-66, D-106): routes that read the caller, errors as D-72
-// sends them, CORS, forms from other origins, the body limit, the port, the
-// client's address behind proxies (D-116) and a stop that waits, 10 s at most.
+// `httpPlugin()` (D-66, D-106): routes that read the caller, no caching,
+// errors as D-72 sends them, CORS, forms from other origins, the body limit,
+// the port, the client's address behind proxies (D-116) and a stop that
+// waits, 10 s at most.
 import { createServer, IncomingMessage } from 'node:http'
 import { Socket } from 'node:net'
 import { streamSSE } from 'hono/streaming'
@@ -52,6 +53,12 @@ afterEach(() => {
 
 const notes = routes()
 notes.get('/caller', (c) => c.json(c.var.caller))
+notes.get('/public', (c) => {
+	c.header('cache-control', 'public, max-age=60')
+	return c.text('public')
+})
+// Its headers are immutable.
+notes.get('/moved', () => Response.redirect('http://localhost/public', 301))
 notes.post('/notes', async (c) => {
 	const { text } = await c.req.json<{ text: string }>()
 	const note = await Note.create({ data: { text } }, { as: c.var.caller })
@@ -161,6 +168,22 @@ describe('a route', () => {
 		const { url } = await server({ port: 0, routes: [first, second] })
 		expect(await (await fetch(`${url}/a`)).text()).toBe('first')
 		expect(await (await fetch(`${url}/b`)).text()).toBe('b')
+	})
+})
+
+describe('a response', () => {
+	it('is kept by no cache, unless its route says otherwise', async () => {
+		const { url } = await server()
+		const cached = async (path: string) =>
+			(await fetch(`${url}${path}`, { redirect: 'manual' })).headers.get(
+				'cache-control',
+			)
+		expect([
+			await cached('/caller'),
+			await cached('/nowhere'),
+			await cached('/moved'),
+			await cached('/public'),
+		]).toStrictEqual(['no-store', 'no-store', 'no-store', 'public, max-age=60'])
 	})
 })
 
