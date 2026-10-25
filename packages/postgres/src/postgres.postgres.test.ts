@@ -1,6 +1,8 @@
 // The contract on PostgreSQL (D-98): each test in its own schema, on every
 // server `TEST_DATABASE_URL` lists.
 import { randomUUID } from 'node:crypto'
+import type { Socket } from 'node:net'
+import { createServer } from 'node:net'
 import { asUser, testAdapter } from '@ultimabase/testing'
 import { Client } from 'pg'
 import type {
@@ -179,6 +181,59 @@ describe('postgres()', () => {
 			await expect(insert(null)).rejects.toMatchObject({ code: '23502' })
 		} finally {
 			await adapter.stop()
+		}
+	})
+
+	it('names a server that never answers once its wait is over (D-47)', async () => {
+		const sockets: Socket[] = []
+		const server = createServer((socket) => sockets.push(socket))
+		await new Promise<void>((resolve) => server.listen(0, resolve))
+		const address = server.address()
+		const port = typeof address === 'object' && address ? address.port : 0
+		try {
+			const adapter = createAdapter({
+				url: `postgres://postgres:secret@localhost:${port}/x`,
+				wait: 200,
+			})
+			const starting = adapter.start({ models: [] })
+			await expect(starting).rejects.toThrow(
+				`Cannot reach PostgreSQL at localhost:${port} (no answer in 0.2s): is it running, and is its url right?`,
+			)
+			await expect(starting).rejects.not.toHaveProperty('code')
+		} finally {
+			for (const socket of sockets) socket.destroy()
+			server.close()
+		}
+	})
+
+	it('fails a query no connection frees for in time, and serves the next (D-47)', async () => {
+		const adapter = createAdapter({
+			url: inSchema(url, schema),
+			connections: 2,
+			wait: 200,
+		})
+		await started(adapter, thing)
+		try {
+			const open = [await adapter.begin(), await adapter.begin()]
+			await expect(adapter.find({ model: 'Thing' })).rejects.toThrow(
+				'Every one of the 2 PostgreSQL connections stayed busy for 0.2s: a transaction may wait on something slow or never end.',
+			)
+			for (const each of open) await each.rollback()
+			expect(await adapter.find({ model: 'Thing' })).toEqual([])
+		} finally {
+			await adapter.stop()
+		}
+	})
+
+	it('takes connections as a whole number, 1 or more (D-47)', async () => {
+		for (const connections of [0, 1.5, Number.NaN]) {
+			await expect(
+				postgres({ url, connections }).start({ models: [] }),
+			).rejects.toThrow(
+				new Refused(
+					`postgres() takes connections as a whole number, 1 or more, not ${connections}.`,
+				),
+			)
 		}
 	})
 

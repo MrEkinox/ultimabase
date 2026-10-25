@@ -1162,6 +1162,22 @@ Choice: the PostgreSQL adapter, and later MySQL, build SQL with Kysely, a
 schema-less query builder; one internal relation compiler, shared by the SQL
 adapters, produces the single query of D-46. Kysely never appears in public
 code. PostgreSQL starts on the `pg` driver.
+
+The adapter's pool opens 10 connections at most; `postgres({ url,
+connections: 20 })` sets another number, a whole one from 1, refused when
+the app starts otherwise. A query waits up to 10 seconds for a connection,
+and as long to open one; the wait is not an option. Before, an eleventh
+query while ten transactions waited on something slow waited forever,
+unheard; now it fails:
+
+```
+Every one of the 10 PostgreSQL connections stayed busy for 10s: a transaction may wait on something slow or never end.
+```
+
+A server that never answers fails `start` after the same 10 seconds, with
+`Cannot reach PostgreSQL at host:5432 (no answer in 10s): …` (D-105). The
+pool's other `pg` options stay its defaults (amended 2026-10-25).
+
 Why: the previous base generated Drizzle tables and relations from its models
 at startup, kept three representations in sync, injected access filters
 through raw SQL and depended on a release candidate; its PostgreSQL plugin

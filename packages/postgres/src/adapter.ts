@@ -2,6 +2,7 @@
 // them. `log` lets the tests count the statements (D-98).
 import type {
 	LogEvent,
+	PostgresPool,
 	QueryExecutorProvider,
 	Transaction as Open,
 } from 'kysely'
@@ -29,6 +30,10 @@ import { compileWrite, translate } from './write.ts'
 
 export type Options = {
 	readonly url: string | undefined
+	/** How many connections the pool opens at most (D-47). */
+	readonly connections?: number
+	/** The milliseconds a query waits for a connection, or to open one. */
+	readonly wait?: number
 	readonly log?: (event: LogEvent) => void
 }
 
@@ -36,17 +41,59 @@ export type Options = {
 const unreachable =
 	/^(ECONNREFUSED|ENOTFOUND|EAI_AGAIN|ETIMEDOUT|EHOSTUNREACH|ENETUNREACH)$/
 
+/** What pg-pool throws when no connection frees, or opens, in time. */
+const busy = 'timeout exceeded when trying to connect'
+const silent = 'Connection terminated due to connection timeout'
+
 /**
  * `error`, or one naming the server `url` cannot reach, not its password
- * (D-105).
+ * (D-105), or the connections that stayed busy.
  */
-function reach(url: string, error: unknown): unknown {
+function failed(
+	url: string,
+	error: unknown,
+	connections: number,
+	wait: number,
+): unknown {
+	const message = error instanceof Error ? error.message : ''
+	const seconds = `${wait / 1000}s`
+	if (message === busy) {
+		return new Error(
+			`Every one of the ${connections} PostgreSQL connections stayed busy for ${seconds}: a transaction may wait on something slow or never end.`,
+			{ cause: error },
+		)
+	}
 	const code: unknown = Reflect.get(Object(error), 'code')
-	if (typeof code !== 'string' || !unreachable.test(code)) return error
+	const reachable = typeof code !== 'string' || !unreachable.test(code)
+	if (reachable && message !== silent) return error
 	const { host, port } = parse(url)
 	const address = `${host || process.env['PGHOST'] || 'localhost'}:${port || 5432}`
-	const message = `Cannot reach PostgreSQL at ${address} (${code}): is it running, and is its url right?`
-	return Object.assign(new Error(message, { cause: error }), { code })
+	const why = reachable ? `no answer in ${seconds}` : code
+	const reached = new Error(
+		`Cannot reach PostgreSQL at ${address} (${why}): is it running, and is its url right?`,
+		{ cause: error },
+	)
+	return reachable ? reached : Object.assign(reached, { code })
+}
+
+/** `pool`, whose failures to give a connection say why. */
+function pooled(
+	url: string,
+	pool: Pool,
+	connections: number,
+	wait: number,
+): PostgresPool {
+	return {
+		options: pool.options,
+		connect: async () => {
+			try {
+				return await pool.connect()
+			} catch (error) {
+				throw failed(url, error, connections, wait)
+			}
+		},
+		end: async () => pool.end(),
+	}
 }
 
 /** What the callback a rollback ends throws, which `rollback()` swallows. */
@@ -122,7 +169,7 @@ export function requireVersion(version: string | undefined): void {
 }
 
 export function createAdapter(options: Options): Adapter {
-	const { url } = options
+	const { url, connections = 10, wait = 10_000 } = options
 	const remote = url ? remoteOf(url) : undefined
 	let state: { db: Kysely<object>; catalog: Catalog } | undefined
 	const started = () => {
@@ -136,17 +183,28 @@ export function createAdapter(options: Options): Adapter {
 					'postgres() was given no url: is the variable it reads set?',
 				)
 			}
+			if (!Number.isInteger(connections) || connections < 1) {
+				throw new Refused(
+					`postgres() takes connections as a whole number, 1 or more, not ${connections}.`,
+				)
+			}
 			const catalog = new Catalog(schema)
 			// Refuses two things stored under one name before it connects.
 			snapshotOf(catalog)
-			const pool = new Pool({ connectionString: url })
+			const pool = new Pool({
+				connectionString: url,
+				max: connections,
+				connectionTimeoutMillis: wait,
+			})
 			// A connection the server ends would crash the process unheard. An
 			// idle one the pool drops, and the next query opens another; one a
 			// transaction holds fails its next statement, and the pool drops it
 			// once given back.
 			pool.on('error', () => undefined)
 			pool.on('connect', (client) => client.on('error', () => undefined))
-			const dialect = new PostgresDialect({ pool })
+			const dialect = new PostgresDialect({
+				pool: pooled(url, pool, connections, wait),
+			})
 			const db = new Kysely<object>({
 				dialect,
 				...(options.log === undefined ? {} : { log: options.log }),
@@ -158,7 +216,7 @@ export function createAdapter(options: Options): Adapter {
 				requireVersion(rows[0]?.server_version_num)
 			} catch (error) {
 				await db.destroy()
-				throw reach(url, error)
+				throw error
 			}
 			state = { db, catalog }
 		},
