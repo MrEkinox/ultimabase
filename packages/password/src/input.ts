@@ -1,7 +1,7 @@
 // The functions' inputs (D-109, D-113): Standard Schemas written here, each
 // with the JSON Schema a transport types its arguments from (D-45).
 import type { SchemaField } from 'ultimabase'
-import { PublicError } from 'ultimabase'
+import { PublicError, Refused } from 'ultimabase'
 
 type Node = { readonly [key: string]: unknown }
 type Read = { readonly value: unknown } | { readonly message: string }
@@ -135,8 +135,8 @@ export function fieldProperty(
 	where: string,
 ): Property {
 	if (field.kind !== 'scalar' || field.type === 'json') {
-		throw new Error(
-			`${where}: ${field.name} is a relation or a JSON field, which sign-up does not take (D-113).`,
+		throw new Refused(
+			`${where}: ${field.name} is a relation or a JSON field, which sign-up does not take.`,
 		)
 	}
 	return property(readOf(field), jsonOf(field), required)

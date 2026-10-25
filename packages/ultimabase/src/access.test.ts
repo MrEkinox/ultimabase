@@ -656,7 +656,7 @@ describe('a rule that breaks the contract', () => {
 			'A write rule or a field rule returns a boolean.',
 		)
 		expect(await broken({ write: true }, 'create')).toBe(
-			'An access rule is a function (D-10).',
+			'An access rule is a function.',
 		)
 	})
 })

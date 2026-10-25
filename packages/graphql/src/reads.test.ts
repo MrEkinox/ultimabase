@@ -254,6 +254,8 @@ describe('the transport', () => {
 		expect(await response.json()).toStrictEqual({
 			data: { __typename: 'Query', user: { __typename: 'User', name: 'bob' } },
 		})
+		// It may hold the caller's data (D-106).
+		expect(response.headers.get('cache-control')).toBe('no-store')
 	})
 
 	it('explains a request it cannot read', async () => {

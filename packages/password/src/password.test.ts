@@ -211,7 +211,7 @@ describe('signing up', () => {
 			User.signUp({ ...ada, data: { name: 'Ada' } }),
 		).rejects.toMatchObject({
 			code: 'ACCESS_DENIED',
-			message: 'Sign-up is closed (D-113).',
+			message: 'Sign-up is closed.',
 		})
 		await User.signUp({ ...ada, data: { name: 'Ada' } }, M)
 		expect((await signIn(url)).status).toBe(200)
@@ -229,6 +229,15 @@ describe('signing in', () => {
 		expect(signed.setCookie).toHaveLength(1)
 		const viewer = await viewerOf(url, tokenOf(signed.body, 'signIn'))
 		expect(viewer.status).toBe(200)
+	})
+
+	it('keeps the password out of the error an unknown field gives', async () => {
+		const { url } = await server()
+		const refused = await signIn(url, { remember: true })
+		expect(JSON.stringify(refused.body)).toContain(
+			'unknown field \\"remember\\"',
+		)
+		expect(JSON.stringify(refused.body)).not.toContain(ada.password)
 	})
 
 	it('refuses a wrong password and an unknown email alike, with 401', async () => {
@@ -567,7 +576,7 @@ describe('starting', () => {
 			fields: (f) => ({ name: f.string() }),
 		})
 		await expect(start([Plain], ['name'])).rejects.toThrow(
-			'passwordPlugin() needs the user model to list it: add `use: [password()]` to defineUser (D-113).',
+			'passwordPlugin() needs the user model to list it: add `use: [password()]` to defineUser.',
 		)
 		const Other = defineModel({
 			name: 'Other',
@@ -575,13 +584,13 @@ describe('starting', () => {
 			fields: (f) => ({ name: f.string() }),
 		})
 		await expect(start([User, Other], ['name'])).rejects.toThrow(
-			'User and Other both use password(): only the user model does (D-113).',
+			'User and Other both use password(): only the user model does.',
 		)
 	})
 
 	it('refuses an unknown, a reserved, a JSON or a missing field', async () => {
 		await expect(start([User], ['nope'])).rejects.toThrow(
-			'passwordPlugin({ signUp }): User.nope is not a field sign-up may take (D-113).',
+			'passwordPlugin({ signUp }): User.nope is not a field sign-up may take.',
 		)
 		await expect(start([User], ['id'])).rejects.toThrow(
 			'User.id is not a field',
@@ -590,7 +599,7 @@ describe('starting', () => {
 			'User.emailVerified is not a field',
 		)
 		await expect(start([User], [])).rejects.toThrow(
-			'passwordPlugin({ signUp }): User needs name to be created; list them (D-113).',
+			'passwordPlugin({ signUp }): User needs name to be created; list them.',
 		)
 		await expect(start([User])).rejects.toThrow('User needs name')
 		const Json = defineUser({
@@ -599,7 +608,7 @@ describe('starting', () => {
 			fields: (f) => ({ data: f.json() }),
 		})
 		await expect(start([Json], ['data'])).rejects.toThrow(
-			'passwordPlugin({ signUp }): data is a relation or a JSON field, which sign-up does not take (D-113).',
+			'passwordPlugin({ signUp }): data is a relation or a JSON field, which sign-up does not take.',
 		)
 		await expect(start([User], false)).resolves.toBeUndefined()
 	})

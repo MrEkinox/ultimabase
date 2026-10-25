@@ -1,5 +1,7 @@
 // A schema's standard JSON Schema export, which `data.ts` types (D-45).
 
+import { Refused } from 'ultimabase'
+
 /** A JSON Schema, or one of its nodes. */
 export type Node = { readonly [key: string]: unknown }
 export type Side = 'input' | 'output'
@@ -13,7 +15,7 @@ export function jsonSchemaOf(schema: object, side: Side, where: string): Node {
 	const exporter = isNode(standard) ? standard['jsonSchema'] : undefined
 	const exported = isNode(exporter) ? exporter[side] : undefined
 	if (typeof exported !== 'function') {
-		throw new Error(`${where} has no standard JSON Schema export (D-45).`)
+		throw new Refused(`${where} has no standard JSON Schema export.`)
 	}
 	try {
 		const node: unknown = Reflect.apply(exported, exporter, [
@@ -22,9 +24,9 @@ export function jsonSchemaOf(schema: object, side: Side, where: string): Node {
 		if (isNode(node)) return node
 	} catch (error) {
 		const reason = error instanceof Error ? error.message : String(error)
-		throw new Error(`${where}: ${reason} (D-45).`, { cause: error })
+		throw new Refused(`${where}: ${reason}.`, { cause: error })
 	}
-	throw new Error(`${where}'s JSON Schema is not an object.`)
+	throw new Refused(`${where}'s JSON Schema is not an object.`)
 }
 
 /** The JSON Schema's shared nodes, by id. */

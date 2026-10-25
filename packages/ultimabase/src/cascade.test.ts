@@ -476,7 +476,7 @@ describe('setNull', () => {
 describe('restrict', () => {
 	const restricted = {
 		code: 'RELATION_RESTRICTED',
-		message: 'Invoice.user references a User the delete removes (D-54).',
+		message: 'Invoice.user references a User the delete removes.',
 		details: { model: 'Invoice', field: 'user' },
 	}
 

@@ -90,8 +90,45 @@ describe('the command line', () => {
 		expect(await run('migrate', 'create')).toBe(1)
 		expect(await run('migrate', 'deploy', 'now')).toBe(1)
 		expect(await run('sync', 'now')).toBe(1)
+		expect(err.filter((line) => !line.startsWith('Usage:'))).toStrictEqual([
+			"Unknown command 'deploy'.",
+			"Unknown command 'migrate create'.",
+			"Unknown command 'migrate deploy now'.",
+			"Unknown command 'sync now'.",
+		])
+		err = []
 		expect(await run()).toBe(1)
-		expect(err).toHaveLength(5)
+		expect(err).toStrictEqual([out[0]])
+	})
+
+	it('refuses an option it does not know in one sentence (D-105)', async () => {
+		expect(await run('sync', '--forse')).toBe(1)
+		expect(await run('sync', '--config')).toBe(1)
+		expect(await run('sync', '--force=yes')).toBe(1)
+		expect(err).toStrictEqual([
+			"Unknown option '--forse'. Run `npx ultimabase --help`.",
+			"Option '--config <value>' argument missing. Run `npx ultimabase --help`.",
+			"Option '--force' does not take an argument. Run `npx ultimabase --help`.",
+		])
+	})
+
+	it('prints the message alone of an error with a code (D-105)', async () => {
+		await writeFile(
+			join(dir, 'down.mjs'),
+			"throw Object.assign(new Error('Cannot reach it.'), { code: 'ECONNREFUSED' })\n",
+		)
+		expect(await run('sync', '--config', 'down.mjs')).toBe(1)
+		expect(err).toStrictEqual(['Cannot reach it.'])
+	})
+
+	it('prints the message alone of a refusal (D-119)', async () => {
+		const errors = pathToFileURL(join(import.meta.dirname, 'errors.ts'))
+		await writeFile(
+			join(dir, 'refused.mjs'),
+			`import { Refused } from '${errors.href}'\nthrow new Refused('Set it.')\n`,
+		)
+		expect(await run('sync', '--config', 'refused.mjs')).toBe(1)
+		expect(err).toStrictEqual(['Set it.'])
 	})
 
 	it('writes to the process by default', async () => {
@@ -349,7 +386,7 @@ describe('migrate deploy', () => {
 		expect(await run('sync', '--config', file)).toBe(0)
 		await run('migrate', 'create', 'init', '--config', file)
 		const refused =
-			'Development sync changed this database since its last deploy: deploy applies migrations only to a database they built (D-105).'
+			'Development sync changed this database since its last deploy: deploy applies migrations only to a database they built.'
 		expect(await run('migrate', 'deploy', '--config', file)).toBe(1)
 		expect(err[0]).toBe(
 			`${refused}\nRestore the dump you test on, or rebuild this database from the migrations with \`npx ultimabase reset\`.`,
@@ -504,6 +541,23 @@ describe('reset', () => {
 		})
 	})
 
+	it('drops nothing when another session holds a table', async () => {
+		const state = fakeState('reset-held')
+		const file = await config('reset-held', { Locker: ['label'] })
+		await run('sync', '--config', file)
+		state.locked = true
+		expect(await run('reset', '--config', file)).toBe(1)
+		expect(err[0]).toBe(
+			[
+				'UltimaBase did not reset the database: another session held a table.',
+				'  drop Locker;',
+				'  -- held past lock_timeout',
+				"End that session's open transaction, in a database tool perhaps, then try again.",
+			].join('\n'),
+		)
+		expect(out).toStrictEqual([])
+	})
+
 	it('stops at a file the database refuses, and refuses production', async () => {
 		const state = fakeState('reset-refused')
 		const file = await config('reset-refused', { Locker: ['label'] })
@@ -589,6 +643,24 @@ describe('sync', () => {
 				'  drop Locker.label;',
 				'  -- a row breaks it',
 				...fix,
+			].join('\n'),
+		)
+	})
+
+	it('names a table another session held, and how to free it', async () => {
+		const state = fakeState('held')
+		const first = await config('held', { Locker: ['label'] })
+		await run('sync', '--config', first)
+		state.refuses = 'add Locker.size'
+		state.locked = true
+		const second = await config('held', { Locker: ['label', 'size'] })
+		expect(await run('sync', '--config', second)).toBe(1)
+		expect(err[0]).toBe(
+			[
+				'UltimaBase did not sync Locker: another session held its table.',
+				'  add Locker.size;',
+				'  -- held past lock_timeout',
+				"End that session's open transaction, in a database tool perhaps, then try again.",
 			].join('\n'),
 		)
 	})

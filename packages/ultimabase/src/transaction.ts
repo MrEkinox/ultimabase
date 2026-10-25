@@ -16,11 +16,6 @@ export type Store = Pick<Transaction, 'find' | 'count' | 'write'> & {
 	 * transaction (D-99).
 	 */
 	readonly last: Transaction['write']
-	/**
-	 * Reads alone, outside any transaction, while the write owns one it has
-	 * not begun; `undefined` otherwise (D-104).
-	 */
-	readonly ahead: Transaction['find'] | undefined
 }
 
 /** A `*Commit` hook, run once the transaction commits (D-15). */
@@ -52,10 +47,6 @@ function storeOf(open: Open, owner: boolean): Store {
 			owner && open.tx === undefined
 				? open.app.adapter.write(write)
 				: (await begun(open)).write(write),
-		get ahead(): Transaction['find'] | undefined {
-			if (!owner || open.tx !== undefined) return undefined
-			return async (read) => open.app.adapter.find(read)
-		},
 	}
 }
 
@@ -134,7 +125,6 @@ export async function reading<R>(
 			count: async (read) => adapter.count(read),
 			write: async (write) => adapter.write(write),
 			last: async (write) => adapter.write(write),
-			ahead: undefined,
 		})
 	}
 	return joined(open, async () => run(storeOf(open, false)))

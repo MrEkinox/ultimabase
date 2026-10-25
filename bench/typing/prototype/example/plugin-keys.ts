@@ -1,7 +1,8 @@
 // What a model's `use` gives (D-24): soft delete adds `trash` and `restore`
 // (D-15, D-17), and only the plugins in `use` give `.with` keys. `defineApp`
-// refuses a used plugin missing from `plugins` and a relation target missing
-// from `models`. `tsc` fails if a case does not hold.
+// refuses a used plugin missing from `plugins`, a relation target missing
+// from `models` and two models under one name. `tsc` fails if a case does not
+// hold.
 import {
 	acl,
 	aclPlugin,
@@ -60,5 +61,16 @@ export const MissingModel = defineApp({
 		authPlugin(),
 	],
 	models: [Post, User],
+})
+// @ts-expect-error: two models are named 'SetOff'
+export const Twice = defineApp({
+	database: memory(),
+	models: [SetOff, defineModel({ name: 'SetOff', fields: () => ({}) })],
+})
+// A model a function builds has a name typed `string`: it is not compared.
+const built = (name: string) => defineModel({ name, fields: () => ({}) })
+export const Built = defineApp({
+	database: memory(),
+	models: [built('A'), built('B')],
 })
 export const Plain = defineApp({ database: memory(), models: [SetOff] })

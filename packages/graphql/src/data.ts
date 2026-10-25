@@ -25,6 +25,7 @@ import { defsOf, isNode, jsonSchemaOf } from './json-schema.ts'
 import { upper } from './names.ts'
 import type { Context } from './registry.ts'
 import { DateTime, JSONScalar } from './scalars.ts'
+import { Refused } from 'ultimabase'
 
 const reserved = new Set(['true', 'false', 'null'])
 const named = (value: string): boolean =>
@@ -46,7 +47,7 @@ export type Path = {
 /** Stops startup on a name GraphQL refuses. */
 export function checkName(name: string, where: string): string {
 	if (named(name)) return name
-	throw new Error(`${where}: ${name} is not a GraphQL name.`)
+	throw new Refused(`${where}: ${name} is not a GraphQL name.`)
 }
 
 type Shaped<T> = {
@@ -107,7 +108,7 @@ export class DataTypes {
 		build: () => T,
 	): T {
 		if (this.#models.has(name)) {
-			throw new Error(`${owner}: the type ${name} is named like a model.`)
+			throw new Refused(`${owner}: the type ${name} is named like a model.`)
 		}
 		const known = cache.get(name)
 		if (known === undefined) {
@@ -117,8 +118,8 @@ export class DataTypes {
 			return type
 		}
 		if (known.key === key) return known.type
-		throw new Error(
-			`${known.owner} and ${owner} give the type ${name} two shapes; name each once (D-45).`,
+		throw new Refused(
+			`${known.owner} and ${owner} give the type ${name} two shapes; name each once.`,
 		)
 	}
 }
@@ -137,8 +138,8 @@ interface Scope<T extends GraphQLNullableType> {
 }
 
 const union = (path: Path): Error =>
-	new Error(
-		`${path.owner}: ${path.at} is a union, which GraphQL cannot type; keep one type, or one and null (D-109).`,
+	new Refused(
+		`${path.owner}: ${path.at} is a union, which GraphQL cannot type; keep one type, or one and null.`,
 	)
 
 function refType<T extends GraphQLNullableType>(
@@ -147,17 +148,19 @@ function refType<T extends GraphQLNullableType>(
 	scope: Scope<T>,
 ): Typed<T> {
 	if (ref === '#') {
-		throw new Error(
+		throw new Refused(
 			`${path.owner}: ${path.at} refers to its own schema; name it with .meta({ id }).`,
 		)
 	}
 	const id = ref.startsWith('#/$defs/') ? ref.slice(8) : ''
 	const node = scope.defs[id]
 	if (!isNode(node)) {
-		throw new Error(`${path.owner}: ${path.at} refers to ${ref}, not a $defs.`)
+		throw new Refused(
+			`${path.owner}: ${path.at} refers to ${ref}, not a $defs.`,
+		)
 	}
 	if (!named(id)) {
-		throw new Error(
+		throw new Refused(
 			`${path.owner}: ${path.at} refers to ${id}, which is not a GraphQL name; name it with .meta({ id }).`,
 		)
 	}

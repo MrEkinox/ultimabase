@@ -1,6 +1,6 @@
-// The Hono application `httpPlugin` serves (D-66, D-106): CORS, forms from
-// other origins, the body limit, each request's caller, the routes, and
-// errors as D-72 sends them.
+// The Hono application `httpPlugin` serves (D-66, D-106): no caching, CORS,
+// forms from other origins, the body limit, each request's caller, the
+// routes, and errors as D-72 sends them.
 import { randomUUID } from 'node:crypto'
 import { STATUS_CODES } from 'node:http'
 import type { Context } from 'hono'
@@ -131,6 +131,13 @@ export function appOf(
 	const maxSize = options.bodyLimit ?? 1024 * 1024
 	const addressOf = addresses(proxiesOf(options.proxies), logger)
 	const app = new Hono<HttpEnv>({ getPath: pathOf })
+	// A response may hold the caller's data: no cache keeps one, errors
+	// included, unless its route says otherwise (D-106).
+	app.use(async (c, next) => {
+		await next()
+		if (!c.res.headers.has('cache-control'))
+			c.header('cache-control', 'no-store')
+	})
 	// Each request once answered, outside production (D-108).
 	if (local) {
 		app.use(async (c, next) => {
@@ -169,21 +176,26 @@ export function appOf(
 		c.header('vary', 'Origin', { append: true })
 	})
 	// A browser sends a form to any site, with that site's cookies, and no
-	// CORS check stops it: one that carries cookies comes from an allowed
-	// origin (D-106). A webhook sends no cookie.
+	// CORS check stops it: a form from a browser, which names its origin or
+	// its site, or with cookies, comes from an allowed origin (D-106). Without
+	// cookies, another site's form would sign its visitor in to its own
+	// account. A webhook sends neither header, nor cookies.
 	app.use(async (c, next) => {
-		const origin = c.req.header('origin') ?? ''
+		const origin = c.req.header('origin')
+		const site = c.req.header('sec-fetch-site')
 		if (
 			!safe.has(c.req.method) &&
 			form.test(c.req.header('content-type') ?? 'text/plain') &&
-			c.req.header('cookie') !== undefined &&
-			c.req.header('sec-fetch-site') !== 'same-origin' &&
+			(c.req.header('cookie') !== undefined ||
+				origin !== undefined ||
+				site !== undefined) &&
+			site !== 'same-origin' &&
 			origin !== new URL(c.req.url).origin &&
-			allowed(origin) === null
+			allowed(origin ?? '') === null
 		) {
 			throw new PublicError(
 				'ACCESS_DENIED',
-				'A form from another origin cannot send cookies.',
+				'A form from another origin is refused.',
 			)
 		}
 		await next()

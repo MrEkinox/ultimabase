@@ -1,5 +1,5 @@
 // auth's ready-made rules and default (D-10, D-62, D-79, D-83): each reads
-// the caller only, and the record's stored keys (D-77).
+// the caller, the record's stored keys (D-77) and the value written.
 import type { Caller, CallerRule, Register, UserOf } from 'ultimabase'
 
 /** The rule "the caller is signed in" (D-10). */
@@ -24,24 +24,44 @@ export function signedIn<
 }
 
 type Ref = { readonly id: string } | null
-/** The record's `one` relations, or any name outside a model's rules. */
+type Connected = { readonly connect: { readonly id: string } }
+type Keys<V, Shape> = {
+	[P in keyof V]-?: NonNullable<V[P]> extends Shape ? P : never
+}[keyof V]
+/**
+ * The record's `one` relations, those a create connects, or any name outside
+ * a model's rules.
+ */
 type OwnerKey<Facts> = [Facts] extends [never]
 	? string
 	: Facts extends { readonly record: infer R }
-		? { [P in keyof R]: R[P] extends Ref ? P : never }[keyof R]
+		? Keys<R, Ref>
 		: Facts extends { readonly where: unknown }
 			? 'a read rule has no record to own'
-			: string
+			: Facts extends { readonly value: infer V }
+				? Keys<V, Connected>
+				: string
 
 /** The facts it needs; a read rule's are refused on the name alone. */
 type Owned<Facts, K extends string> = Facts extends { readonly where: unknown }
 	? Facts
-	: Facts & { readonly record: { readonly [P in K]: Ref } }
+	: Facts extends { readonly record: unknown }
+		? Facts & { readonly record: { readonly [P in K]: Ref } }
+		: Facts extends { readonly value: unknown }
+			? Facts
+			: Facts & { readonly record: { readonly [P in K]: Ref } }
+
+const get = (value: unknown, key: string): unknown =>
+	typeof value === 'object' && value !== null
+		? Reflect.get(value, key)
+		: undefined
 
 /**
- * The rule "the caller is the user this `one` relation points to" (D-79),
- * read from the stored key (D-77). Its facts come from where it is used, so
- * a wrong name fails on the name.
+ * The rule "the caller is the user this `one` relation points to, before and
+ * after the write" (D-79): the stored key (D-77) when there is one, and the
+ * value written, which may only connect the caller. A create that does not
+ * write the relation leaves it to its default. Its facts come from where it
+ * is used, so a wrong name fails on the name.
  */
 export function isOwner<
 	Facts extends { readonly caller: Caller },
@@ -50,15 +70,16 @@ export function isOwner<
 	return (facts) => {
 		const { caller } = facts
 		if (caller.kind !== 'user') return false
-		const record: unknown = Reflect.get(facts, 'record')
-		const owner: unknown =
-			typeof record === 'object' && record !== null
-				? Reflect.get(record, field)
-				: undefined
+		const record = get(facts, 'record')
+		if (
+			record !== undefined &&
+			get(get(record, field), 'id') !== caller.user.id
+		)
+			return false
+		const written = get(get(facts, 'value'), field)
 		return (
-			typeof owner === 'object' &&
-			owner !== null &&
-			Reflect.get(owner, 'id') === caller.user.id
+			written === undefined ||
+			get(get(written, 'connect'), 'id') === caller.user.id
 		)
 	}
 }

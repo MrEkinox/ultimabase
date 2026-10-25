@@ -225,7 +225,7 @@ describe('run (D-75)', () => {
 		notBoolean.with({ access: () => 'yes' })
 		await alone([notRule, notBoolean], async () => {
 			await expect(notRule.run()).rejects.toThrow(
-				'notRule: access is a function (D-27).',
+				'notRule: access is a function.',
 			)
 			await expect(notBoolean.run()).rejects.toThrow(
 				'notBoolean: access returns a boolean.',
@@ -257,7 +257,7 @@ describe('outputs (D-109)', () => {
 
 	it('reads each output once, at its definition', () => {
 		const message =
-			'bad.output is a model, a type, a list of one, X.nullable() or a Standard Schema (D-109).'
+			'bad.output is a model, a type, a list of one, X.nullable() or a Standard Schema.'
 		expect(bad({})).toThrow(message)
 		expect(bad([Post, Post])).toThrow(message)
 		expect(bad([])).toThrow(message)
@@ -278,7 +278,7 @@ describe('outputs (D-109)', () => {
 		)
 		// @ts-expect-error: a field is an output.
 		expect(() => defineType({ name: 'Odd', fields: { a: 1 } })).toThrow(
-			'Odd.a is a model, a type, a list of one, X.nullable() or a Standard Schema (D-109).',
+			'Odd.a is a model, a type, a list of one, X.nullable() or a Standard Schema.',
 		)
 	})
 })
@@ -335,7 +335,7 @@ describe('defineFunction', () => {
 			'f: query is a boolean.',
 		)
 		expect(refused({ name: 'f', input: {}, run: one })).toThrow(
-			'f: input is a Standard Schema (D-27).',
+			'f: input is a Standard Schema.',
 		)
 		expect(refused({ name: 'f' })).toThrow('f: run is a function.')
 		expect(refused({ name: 'f', use: rpc.use(), run: one })).toThrow(
@@ -403,7 +403,7 @@ describe('start (D-109)', () => {
 			run: () => ({ a: 1 }),
 		})
 		await expect(alone([search, twin])).rejects.toThrow(
-			'Two types are named Hit; name each once (D-109).',
+			'Two types are named Hit; name each once.',
 		)
 		const named = defineFunction({
 			name: 'named',
@@ -414,7 +414,7 @@ describe('start (D-109)', () => {
 			run: () => null,
 		})
 		await expect(alone([named])).rejects.toThrow(
-			'The type Post is named like a model (D-109).',
+			'The type Post is named like a model.',
 		)
 	})
 })
@@ -437,7 +437,7 @@ describe('nullable', () => {
 				fields: (f) => ({ a: f.string() }),
 			})
 		expect(box).toThrow(
-			'Box.nullable: odd adds a command named after a model method (D-89).',
+			'Box.nullable: odd adds a command named after a model method.',
 		)
 	})
 })

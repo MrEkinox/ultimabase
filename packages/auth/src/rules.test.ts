@@ -14,6 +14,8 @@ import {
 const ada = asUser({ id: 'ada' })
 const anonymous: Caller = { kind: 'anonymous' }
 const record = (author: { id: string } | null) => ({ record: { author } })
+const connect = (id: string) => ({ connect: { id } })
+const value = (author: unknown) => ({ value: { author } })
 
 describe('auth’s rules', () => {
 	it('isAuthenticated is true for a user only', () => {
@@ -36,6 +38,38 @@ describe('auth’s rules', () => {
 		expect(owner({ caller: ada, ...record({ id: 'grace' }) })).toBe(false)
 		expect(owner({ caller: ada, ...record(null) })).toBe(false)
 		expect(owner({ caller: anonymous, ...record({ id: 'ada' }) })).toBe(false)
+	})
+
+	it('isOwner lets the value written connect the caller only', () => {
+		type Written = {
+			readonly caller: Caller
+			readonly value: { readonly author?: { readonly connect: { id: string } } }
+		}
+		const owner = isOwner<Written, 'author'>('author')
+		const stored = record({ id: 'ada' })
+		expect(owner({ caller: ada, value: {} })).toBe(true)
+		expect(owner({ caller: ada, value: { author: connect('ada') } })).toBe(true)
+		expect(owner({ caller: ada, value: { author: connect('grace') } })).toBe(
+			false,
+		)
+		expect(owner({ caller: anonymous, value: {} })).toBe(false)
+		const updated = isOwner('author')
+		expect(updated({ caller: ada, ...stored, ...value(connect('ada')) })).toBe(
+			true,
+		)
+		expect(
+			updated({ caller: ada, ...stored, ...value(connect('grace')) }),
+		).toBe(false)
+		expect(
+			updated({ caller: ada, ...stored, ...value({ disconnect: true }) }),
+		).toBe(false)
+		expect(
+			updated({
+				caller: ada,
+				...record({ id: 'grace' }),
+				...value(connect('ada')),
+			}),
+		).toBe(false)
 	})
 
 	it('isSelf is true for the caller’s own record', () => {

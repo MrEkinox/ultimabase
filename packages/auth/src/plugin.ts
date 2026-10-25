@@ -19,6 +19,7 @@ import {
 	isMaster,
 	master,
 	PublicError,
+	Refused,
 } from 'ultimabase'
 import manifest from '../package.json' with { type: 'json' }
 import {
@@ -104,19 +105,18 @@ function stateOf(context: object): State {
 function usersOf(
 	models: readonly { readonly queries: Users['queries'] }[],
 ): Users {
-	const users = models.flatMap(({ queries }) => {
+	const [first, second] = models.flatMap(({ queries }) => {
 		const output = userModels.get(queries)
 		return output === undefined ? [] : [{ queries, output }]
 	})
-	const [first, second] = users
 	if (first === undefined) {
-		throw new Error(
-			'authPlugin() needs a user model: declare it with defineUser (D-62).',
+		throw new Refused(
+			'authPlugin() needs a user model: declare it with defineUser.',
 		)
 	}
 	if (second !== undefined) {
-		throw new Error(
-			'models lists two models defineUser returned: an application has one user model (D-62).',
+		throw new Refused(
+			'models lists two models defineUser returned: an application has one user model.',
 		)
 	}
 	return first
@@ -160,7 +160,7 @@ const auth = definePlugin<Auth>({
 			if (!self && (caller === undefined || !isMaster(caller))) {
 				throw new PublicError(
 					'ACCESS_DENIED',
-					'User.revokeSessions runs as Master or as the user (D-113).',
+					'User.revokeSessions runs as Master or as the user.',
 				)
 			}
 			await revokeSessions(id)
@@ -200,7 +200,7 @@ const auth = definePlugin<Auth>({
 		) {
 			warned.add(context)
 			context.logger.warn(
-				`auth serves ${hostname} a session cookie without Secure: set NODE_ENV=production (D-115).`,
+				`auth serves ${hostname} a session cookie without Secure: set NODE_ENV=production.`,
 			)
 		}
 		const bearer = bearerOf(request)

@@ -15,13 +15,13 @@ function functionAt(
 ): Function | undefined {
 	const value = holder[key]
 	if (value === undefined || typeof value === 'function') return value
-	throw new TypeError(`${path} is a function (D-57).`)
+	throw new TypeError(`${path} is a function.`)
 }
 
 function objectAt(holder: Holder, key: string, path: string): Holder {
 	const value = holder[key]
 	if (value === undefined) return {}
-	if (!isObject(value)) throw new TypeError(`${path} is an object (D-57).`)
+	if (!isObject(value)) throw new TypeError(`${path} is an object.`)
 	return value
 }
 
@@ -48,7 +48,7 @@ function apisOf(plugin: string, names: readonly string[]): object {
 				const app = current()
 				if (app === undefined) {
 					throw new Error(
-						`${plugin}: plugins.${name} is read once the application starts (D-89).`,
+						`${plugin}: plugins.${name} is read once the application starts.`,
 					)
 				}
 				return app.apis.get(name)
@@ -84,7 +84,7 @@ export function pluginCode(definition: unknown): PluginCode {
 	const part = (key: string) => functionAt(definition, key, `${name}.${key}`)
 	const models: unknown = definition['models'] ?? []
 	if (!isList(models)) {
-		throw new TypeError(`${name}.models is an array (D-110).`)
+		throw new TypeError(`${name}.models is an array.`)
 	}
 	return Object.freeze({
 		name,

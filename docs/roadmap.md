@@ -104,7 +104,7 @@ at 200 models with field rules and schemas, a query edit under 800 ms
       (D-46, D-47).
 - [x] Writes in the fewest round trips: one statement with its checks,
       nested writes through CTEs, a transaction only when one serves
-      (D-48, D-99), a user's row read without a lock and checked unchanged
+      (D-48, D-99), a write's answer taken from the rows it changed
       (D-104).
 - [x] A write benchmark: round trips and time per write case, on `memory()`
       and PostgreSQL (D-48), in [`bench/writes`](../bench/writes/README.md).
@@ -165,8 +165,9 @@ Exit: an example with sign-up, sign-in and rules on `caller.user`.
 ## Phase 6: Release 0.1
 
 - [ ] `@ultimabase/testing` (D-40, D-80), `create-ultimabase` (D-61).
+- [x] Packages publish compiled JavaScript, installed from their packs and
+      run by `yarn test:packed` in CI (D-118).
 - [ ] `examples/` run by CI (D-31), Changesets (D-60).
-- [ ] Documentation website (D-31).
 - [ ] Decide how `graphqlPlugin()` bounds the cost of validating a document
       under its 2,000 tokens: 1,993 copies of one field take 100 ms of CPU
       in graphql-js's overlapping-fields rule, which compares every two
@@ -174,16 +175,17 @@ Exit: an example with sign-up, sign-in and rules on `caller.user`.
       D-107). The bound also counts each root list field and its
       `totalCount`: a document under 2,000 tokens holds about 150 aliased
       roots, each a scan of its table when its filter matches little.
+- [ ] Roles (`defineRole`, D-13) and ACL (D-68).
+- [ ] Nested creation, `create` in a relation write (D-20, D-68).
+- [ ] REST (D-25, D-68).
+- [ ] Documentation website (D-31).
 - [ ] Publication, after confirmation.
 
 Exit: `npm create ultimabase` produces an application that starts.
 
 ## Phase 7: Parity with the previous base
 
-- [ ] REST (D-25).
-- [ ] Roles (`defineRole`, D-13) and ACL.
 - [ ] `vector()` field type for pgvector (D-32).
-- [ ] Nested creation, `create` in a relation write, before 1.0 (D-20).
 
 Exit: every feature of the previous base has an example, in far fewer lines.
 

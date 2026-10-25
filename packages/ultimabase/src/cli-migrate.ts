@@ -7,7 +7,8 @@ import { join } from 'node:path'
 import type { Migration, Statement } from './adapter.ts'
 import type { Internals } from './app-internals.ts'
 import { kernelLogger, schemaOf } from './lifecycle.ts'
-import { hashOf, migrationsOf, Refused, synced } from './migrate.ts'
+import { Refused } from './errors.ts'
+import { hashOf, migrationsOf, synced } from './migrate.ts'
 
 export const header = '-- ultimabase schema '
 
@@ -95,7 +96,8 @@ export async function migrateCreate(
 		)
 	}
 	const migrations = migrationsOf(options.database)
-	const to = migrations.snapshot(schemaOf(options))
+	const schema = schemaOf(options)
+	const to = migrations.snapshot(schema)
 	const { snapshot: from } = await read(dir)
 	const hash = hashOf(to)
 	const file = `${stamp(now)}_${name}.sql`
@@ -105,7 +107,7 @@ export async function migrateCreate(
 		await writeFile(join(dir, file), sql, { flag: 'wx' })
 		return `Wrote migrations/${file}: no model changed, write your SQL in it.`
 	}
-	const statements = migrations.plan(from, to)
+	const statements = migrations.plan(from, schema)
 	const sql = body(hash, statements, '-- No statement: only names changed.')
 	await writeFile(join(dir, file), sql, { flag: 'wx' })
 	await writeFile(

@@ -379,7 +379,7 @@ describe('url', () => {
 		await app.stop()
 		stop = undefined
 		expect(() => http?.url()).toThrow(
-			"The HTTP server is not running: read its url from your plugin's start (D-108).",
+			"The HTTP server is not running: read its url from your plugin's start.",
 		)
 	})
 })

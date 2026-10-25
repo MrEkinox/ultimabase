@@ -13,8 +13,11 @@ export const Draft = defineModel({
 	}),
 }).with({
 	access: {
-		// `user` is the registered user model's record.
-		create: signedIn(({ user }) => user.role !== 'reader'),
+		// The value written may connect the caller only (D-79).
+		create: allOf(
+			isOwner('owner'),
+			signedIn(({ user }) => user.role !== 'reader'),
+		),
 		// Everyone reads published drafts; a user also reads their own (D-81).
 		read: anyOf(
 			({ where }) => where({ status: 'published' }),
@@ -43,6 +46,19 @@ export const Mistakes = defineModel({
 		read: isOwner('owner'),
 		// @ts-expect-error: `titel` is not a field of the record.
 		create: signedIn(({ value }) => value.titel === ''),
+	},
+})
+
+export const CreateMistakes = defineModel({
+	name: 'CreateMistakes',
+	fields: (f) => ({
+		owner: f.one(() => User),
+		readers: f.many(() => User),
+	}),
+}).with({
+	access: {
+		// @ts-expect-error: `readers` is a `many` relation, in a create.
+		create: isOwner('readers'),
 	},
 })
 

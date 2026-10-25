@@ -185,6 +185,20 @@ export function cascades(create: () => Adapter): void {
 			expect(await counts()).toEqual([0, 0, 0, 0])
 		})
 
+		it('deletes many rows chosen by the rows their delete reaches', async () => {
+			await stocked('reds')
+			await stocked('blues')
+			await stocked('greens')
+			// Through a cascade, then through a `setNull`.
+			const aisle = { aisles: { some: { label: 'reds aisle' } } }
+			expect(await Shop.deleteMany({ where: aisle }, M)).toEqual({ count: 1 })
+			const clerk = { clerks: { some: { name: 'blues clerk' } } }
+			expect(await Shop.deleteMany({ where: clerk }, M)).toEqual({ count: 1 })
+			const left = await Shop.findMany({}, M)
+			expect(left.map((shop) => shop.name)).toEqual(['greens'])
+			expect(await counts()).toEqual([1, 1, 1, 0])
+		})
+
 		it('deletes no row of many when a restricting row stops one', async () => {
 			const reds = await stocked('reds')
 			const blues = await stocked('blues')

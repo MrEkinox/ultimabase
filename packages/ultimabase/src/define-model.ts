@@ -16,6 +16,7 @@ import type {
 	UniqueIndexFields,
 } from './model.ts'
 import type { ForModel, ModelUse, PluginTypes } from './plugin.ts'
+import { Refused } from './errors.ts'
 
 // The intersection of the used plugins' commands; `unknown` without any.
 type CommandFn<U, F> =
@@ -149,7 +150,7 @@ function createModel(definition: {
 		throw new Error('defineModel takes a name.')
 	}
 	if (dbName !== undefined && typeof dbName !== 'string') {
-		throw new Error(`${name}: dbName must be a string.`)
+		throw new Refused(`${name}: dbName must be a string.`)
 	}
 	const built: unknown = Reflect.apply(definition.fields, undefined, [
 		fieldBuilders,
@@ -182,10 +183,10 @@ function createModel(definition: {
 	// The rules are read when they apply, so `.with` keeps the same value.
 	model['with'] = (rules: unknown): object => {
 		if (record.rules !== undefined) {
-			throw new Error(`${name} takes its rules in one \`.with\`.`)
+			throw new Refused(`${name} takes its rules in one \`.with\`.`)
 		}
 		if (typeof rules !== 'object' || rules === null) {
-			throw new Error(`${name}.with takes an object.`)
+			throw new Refused(`${name}.with takes an object.`)
 		}
 		record.rules = rules
 		return frozen

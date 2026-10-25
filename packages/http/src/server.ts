@@ -3,6 +3,7 @@ import type { Server } from 'node:http'
 import { createServer } from 'node:http'
 import { getRequestListener } from '@hono/node-server'
 import type { Logger } from 'ultimabase'
+import { Refused } from 'ultimabase'
 
 /** The `port` option, then `PORT`, then 3000. */
 export function portOf(option: number | undefined): number {
@@ -15,7 +16,7 @@ export function portOf(option: number | undefined): number {
 			: Number.NaN
 	if (Number.isInteger(port) && port >= 0 && port <= 65_535) return port
 	const name = option === undefined ? 'PORT' : 'port'
-	throw new Error(`${name} is ${given}, not a port between 0 and 65535.`)
+	throw new Refused(`${name} is ${given}, not a port between 0 and 65535.`)
 }
 
 export async function listening(server: Server, port: number): Promise<number> {

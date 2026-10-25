@@ -46,7 +46,7 @@ const http = definePlugin<Http>({
 			mount: (routes) => {
 				if (!mounts.has(context)) {
 					throw new Error(
-						"The HTTP server is running: mount routes from your plugin's api (D-107).",
+						"The HTTP server is running: mount routes from your plugin's api.",
 					)
 				}
 				mounted.push(routes)
@@ -55,7 +55,7 @@ const http = definePlugin<Http>({
 				const url = urls.get(context)
 				if (url === undefined) {
 					throw new Error(
-						"The HTTP server is not running: read its url from your plugin's start (D-108).",
+						"The HTTP server is not running: read its url from your plugin's start.",
 					)
 				}
 				return url

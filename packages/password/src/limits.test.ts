@@ -1,9 +1,10 @@
 // password's limits against many addresses (D-114): IPv6 networks, the
-// account and address ceilings, the hashing queue and the sign-up limit.
+// account and address ceilings, the hashing queue and the hourly limits.
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { PublicError } from 'ultimabase'
 import { hashPassword, lanes, waiting } from './hash.ts'
 import {
+	hourly,
 	limited,
 	networkOf,
 	PasswordAttempt,
@@ -163,5 +164,18 @@ describe('the sign-up limit', () => {
 		vi.spyOn(Date, 'now').mockReturnValue(now + 60 * 60 * 1000)
 		expect((await signUp(11)).body).not.toHaveProperty('errors')
 		expect(await PasswordRequest.count({}, M)).toBe(10)
+	})
+})
+
+describe('the hourly limits', () => {
+	it('lets no more than three emails through when ten ask at once', async () => {
+		await server()
+		const asked = Array.from({ length: 10 }, async () =>
+			hourly('email', 'ada', 3),
+		)
+		const allowed = (await Promise.all(asked)).filter((refused) => !refused)
+		expect(allowed.length).toBeLessThanOrEqual(3)
+		const where = { kind: 'email', subject: 'ada' }
+		expect(await PasswordRequest.count({ where }, M)).toBe(allowed.length)
 	})
 })

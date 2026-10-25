@@ -4,14 +4,7 @@ import { createHash } from 'node:crypto'
 import type { Adapter, Migrations, Schema, Statement } from './adapter.ts'
 import { MigrationFailed } from './adapter.ts'
 import type { Logger } from './app-options.ts'
-
-/** A refusal whose message says it all: the commands print no stack. */
-export class Refused extends Error {
-	constructor(message: string) {
-		super(message)
-		this.name = 'Refused'
-	}
-}
+import { Refused } from './errors.ts'
 
 /** The value with its keys sorted, so equal snapshots serialize alike. */
 function canonical(value: unknown): unknown {
@@ -58,19 +51,30 @@ function refusal(losing: readonly Statement[]): string {
 	].join('\n')
 }
 
+/** What to do about a table another session held too long. */
+export const held =
+	"End that session's open transaction, in a database tool perhaps, then try again."
+
 /** Why a tried statement failed, and how to fix the rows. */
 function failure(
 	statements: readonly Statement[],
-	{ at, reason }: MigrationFailed,
+	{ at, reason, locked }: MigrationFailed,
 ): string {
 	const statement = statements.find((given) => given.sql === at)
 	const model = statement?.model ?? 'the models'
+	const why = locked
+		? 'another session held its table'
+		: (statement?.tries ?? 'the database refused it')
 	return [
-		`UltimaBase did not sync ${model}: ${statement?.tries ?? 'the database refused it'}.`,
+		`UltimaBase did not sync ${model}: ${why}.`,
 		`  ${at};`,
 		`  -- ${reason}`,
-		'Fix those rows in this development database, or rebuild it from the migrations with `npx ultimabase reset`.',
-		'In production, a migration fixes them: write it with `npx ultimabase migrate create <name>`.',
+		...(locked
+			? [held]
+			: [
+					'Fix those rows in this development database, or rebuild it from the migrations with `npx ultimabase reset`.',
+					'In production, a migration fixes them: write it with `npx ultimabase migrate create <name>`.',
+				]),
 	].join('\n')
 }
 
@@ -91,7 +95,7 @@ export async function synced(
 	const from = stored?.snapshot
 	const to = migrations.snapshot(schema)
 	if (from !== undefined && hashOf(from) === hashOf(to)) return undefined
-	const statements = migrations.plan(from, to)
+	const statements = migrations.plan(from, schema)
 	const losing = statements.filter((statement) => statement.loses !== undefined)
 	if (losing.length > 0 && !force) throw new Refused(refusal(losing))
 	try {
@@ -138,9 +142,7 @@ export async function checked(
 	const at = stored.applied.findIndex((file) => file.schema === hash)
 	const later = stored.applied.slice(at + 1).map((file) => file.name)
 	if (at === -1 || later.length === 0) {
-		throw new Refused(
-			`The database's tables are not the models' (D-105): ${deploy}`,
-		)
+		throw new Refused(`The database's tables are not the models': ${deploy}`)
 	}
 	logger.warn(ahead(later))
 }

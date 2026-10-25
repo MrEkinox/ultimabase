@@ -152,7 +152,7 @@ describe('a production start', () => {
 		process.env['NODE_ENV'] = 'production'
 		const { app: grown } = app(state, Locker, Shelf)
 		await expect(grown.start()).rejects.toThrow(
-			"The database's tables are not the models' (D-105): run `npx ultimabase migrate deploy`, then start again.",
+			"The database's tables are not the models': run `npx ultimabase migrate deploy`, then start again.",
 		)
 		expect(state.runs).toHaveLength(1)
 	})

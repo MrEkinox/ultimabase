@@ -1,7 +1,7 @@
 // What `defineModel`, the field builders and schema resolution refuse at
 // startup, and the stored names they keep (D-37, D-63).
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { defineModel } from './index.ts'
+import { defineModel, Refused } from './index.ts'
 import { resolve } from './schema.ts'
 import { uuidv7 } from './uuid.ts'
 
@@ -50,6 +50,10 @@ const index = (field: string) => () => {
 	resolve([Shelf])
 }
 
+const nameless = (): void => {
+	untyped({ name: '', fields: () => ({}) })
+}
+
 describe('defineModel', () => {
 	it('needs a name, a string dbName and an object of fields', () => {
 		expect(() => untyped({ name: '', fields: () => ({}) })).toThrow(
@@ -64,6 +68,19 @@ describe('defineModel', () => {
 		expect(() =>
 			untyped({ name: 'Note', fields: () => ({ text: 'string' }) }),
 		).toThrow('Note.text is not a field a builder returned.')
+	})
+
+	it('refuses a definition that names its fault, and errs otherwise (D-119)', () => {
+		expect(() =>
+			untyped({ name: 'Note', dbName: 3, fields: () => ({}) }),
+		).toThrow(Refused)
+		const Loop = defineModel({
+			name: 'Loop',
+			fields: (f) => ({ parent: f.one(() => Loop, { inverse: 'parent' }) }),
+		})
+		expect(() => resolve([Loop])).toThrow(Refused)
+		expect(nameless).toThrow(Error)
+		expect(nameless).not.toThrow(Refused)
 	})
 
 	it('takes an object as rules', () => {
@@ -178,7 +195,7 @@ describe('schema resolution (D-37)', () => {
 			fields: (f) => ({ essays: f.many(() => Strict) }),
 		})
 		expect(() => resolve([Owner, Strict])).toThrow(
-			'Strict.writer: setNull needs an optional relation (D-54).',
+			'Strict.writer: setNull needs an optional relation.',
 		)
 	})
 
@@ -202,6 +219,28 @@ describe('schema resolution (D-37)', () => {
 				{ name: 'writer', dbName: 'by', onDelete: 'cascade' },
 			],
 		})
+	})
+
+	it('keeps a default that is a value, which rows take when the field is added (D-105)', () => {
+		const Note = defineModel({
+			name: 'Note',
+			fields: (f) => ({
+				done: f.boolean({ default: false }),
+				due: f.date({ default: () => new Date() }),
+				meta: f.json({ default: null }),
+				text: f.string(),
+			}),
+		})
+		const fields = fieldsOf([Note], 'Note')?.fields ?? []
+		expect(
+			fields.map((field) => [field.name, Object.hasOwn(field, 'default')]),
+		).toStrictEqual([
+			['done', true],
+			['due', false],
+			['meta', false],
+			['text', false],
+		])
+		expect(fields[0]).toMatchObject({ default: false })
 	})
 
 	it('indexes only scalars and stored one relations', () => {

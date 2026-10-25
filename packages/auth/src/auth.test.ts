@@ -38,18 +38,24 @@ function signingOutOnRenewal(): Adapter {
 	return {
 		start: async (schema) => database.start(schema),
 		stop: async () => database.stop(),
-		begin: async () => database.begin(),
+		begin: async () => {
+			const tx = await database.begin()
+			return {
+				...tx,
+				// Signed out just before the renewal locks its row (D-104).
+				find: async (read) => {
+					if (read.lock === true && read.model === 'AuthSession') {
+						await tx.write({
+							changes: [{ kind: 'delete', model: 'AuthSession', where: {} }],
+						})
+					}
+					return tx.find(read)
+				},
+			}
+		},
 		find: async (read) => database.find(read),
 		count: async (read) => database.count(read),
-		write: async (write) => {
-			const [change] = write.changes
-			if (change?.kind === 'update' && change.model === 'AuthSession') {
-				await database.write({
-					changes: [{ kind: 'delete', model: 'AuthSession', where: {} }],
-				})
-			}
-			return database.write(write)
-		},
+		write: async (write) => database.write(write),
 	}
 }
 
@@ -329,7 +335,7 @@ describe('revoking', () => {
 				User.revokeSessions({ id: ada.id }, options),
 			).rejects.toMatchObject({
 				code: 'ACCESS_DENIED',
-				message: 'User.revokeSessions runs as Master or as the user (D-113).',
+				message: 'User.revokeSessions runs as Master or as the user.',
 			})
 		}
 		expect((await callerOf(url, bearer(token))).status).toBe(200)
@@ -403,7 +409,7 @@ describe('the user model', () => {
 			logger: listening([]),
 		})
 		await expect(app.start()).rejects.toThrow(
-			'authPlugin() needs a user model: declare it with defineUser (D-62).',
+			'authPlugin() needs a user model: declare it with defineUser.',
 		)
 	})
 
@@ -415,7 +421,7 @@ describe('the user model', () => {
 			logger: listening([]),
 		})
 		await expect(app.start()).rejects.toThrow(
-			'models lists two models defineUser returned: an application has one user model (D-62).',
+			'models lists two models defineUser returned: an application has one user model.',
 		)
 	})
 })
@@ -443,7 +449,7 @@ describe('the cookie', () => {
 		await sentTo(url, 'example.com')
 		await sentTo(url, 'example.com')
 		expect(warnings).toStrictEqual([
-			'auth serves example.com a session cookie without Secure: set NODE_ENV=production (D-115).',
+			'auth serves example.com a session cookie without Secure: set NODE_ENV=production.',
 		])
 	})
 

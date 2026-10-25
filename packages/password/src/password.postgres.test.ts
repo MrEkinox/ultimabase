@@ -1,9 +1,14 @@
 // password on PostgreSQL (D-110, D-113, D-117): sign-up's transaction, the
 // sign-in limit's dates compared by the database, the hash a deleted user
-// leaves, and a reset's token and hourly counts.
+// leaves, a reset's token and hourly counts, and requests that race.
 import { expect, it, vi } from 'vitest'
 import type { Email } from './index.ts'
-import { PasswordAttempt, PasswordHash, PasswordRequest } from './models.ts'
+import {
+	hourly,
+	PasswordAttempt,
+	PasswordHash,
+	PasswordRequest,
+} from './models.ts'
 import {
 	graphqlOf,
 	M,
@@ -112,6 +117,21 @@ for (const url of urls) {
 			)
 		} finally {
 			vi.restoreAllMocks()
+			await running.app.stop()
+		}
+	})
+
+	it(`lets no more than three emails through at once on ${new URL(url).host}`, async () => {
+		const running = await started(undefined, database(url))
+		try {
+			const asked = Array.from({ length: 10 }, async () =>
+				hourly('email', 'ada', 3),
+			)
+			const allowed = (await Promise.all(asked)).filter((refused) => !refused)
+			expect(allowed.length).toBeLessThanOrEqual(3)
+			const where = { kind: 'email', subject: 'ada' }
+			expect(await PasswordRequest.count({ where }, M)).toBe(allowed.length)
+		} finally {
 			await running.app.stop()
 		}
 	})

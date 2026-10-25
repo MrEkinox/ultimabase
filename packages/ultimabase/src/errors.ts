@@ -1,5 +1,5 @@
 // The errors a client may see (D-28, D-72). Any other error is masked as
-// `INTERNAL` with a correlation id.
+// `INTERNAL` with a correlation id. `Refused` is for the developer (D-119).
 import type { JsonValue } from './fields.ts'
 
 /** The kernel's codes; a transport gives each its own status (D-72). */
@@ -81,5 +81,17 @@ export class InvalidQuery extends Error {
 		super(message)
 		this.name = 'InvalidQuery'
 		this.path = path
+	}
+}
+
+/**
+ * A configuration refused while the application is defined or starts, whose
+ * message says what is wrong and how to fix it: a command prints it without
+ * its stack (D-119).
+ */
+export class Refused extends Error {
+	constructor(message: string, options?: ErrorOptions) {
+		super(message, options)
+		this.name = 'Refused'
 	}
 }

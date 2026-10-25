@@ -5,7 +5,7 @@ import type { Kysely, Transaction } from 'kysely'
 import { sql } from 'kysely'
 import { parse } from 'pg-connection-string'
 import type { Migration, Run, Stored } from 'ultimabase'
-import { isLocalHost, MigrationFailed } from 'ultimabase'
+import { isLocalHost, MigrationFailed, Refused } from 'ultimabase'
 import { id } from './plan.ts'
 import { parseSnapshot } from './snapshot.ts'
 
@@ -16,7 +16,16 @@ const bookkeeping = [
 	sql`create table if not exists ultimabase_migrations (name text primary key, checksum text not null, schema_hash text, applied_at timestamptz not null)`,
 ]
 
-/** Runs `run` in a transaction that holds the schema's lock. */
+/**
+ * How long a statement waits for a table another session holds: past it,
+ * the statement fails rather than queue every query on that table behind it.
+ */
+const lockTimeout = '5s'
+
+/**
+ * Runs `run` in a transaction that holds the schema's lock, which it waits
+ * for as long as another sync or deploy holds it.
+ */
 async function locked(
 	db: Kysely<object>,
 	run: (trx: Transaction<object>) => Promise<void>,
@@ -25,6 +34,8 @@ async function locked(
 		await sql`select pg_advisory_xact_lock(hashtext(current_schema()))`.execute(
 			trx,
 		)
+		// A file may set its own, with `set local lock_timeout`.
+		await sql.raw(`set local lock_timeout = '${lockTimeout}'`).execute(trx)
 		for (const statement of bookkeeping) await statement.execute(trx)
 		await run(trx)
 	})
@@ -98,16 +109,10 @@ async function refuseTables(
 		order by table_name`.execute(trx)
 	if (rows.length === 0) return
 	const list = rows.map((row) => row.table_name).join(', ')
-	throw new Error(
-		`The database already holds ${list}, and no UltimaBase snapshot says what they are: sync only builds an empty database (D-105).`,
+	throw new Refused(
+		`The database already holds ${list}, and no UltimaBase snapshot says what they are: sync only builds an empty database.`,
 	)
 }
-
-/**
- * How long a file waits for a table another query holds: past it, the file
- * fails rather than queue every query on that table behind it.
- */
-const lockTimeout = '5s'
 
 /** What to do when the database refuses with `code`, after its reason. */
 function hint(code: unknown, transaction: boolean): string {
@@ -133,7 +138,11 @@ async function executed(
 		const reason = error instanceof Error ? error.message : String(error)
 		const code: unknown =
 			error instanceof Error ? Reflect.get(error, 'code') : undefined
-		throw new MigrationFailed(at, `${reason}${hint(code, transaction)}`)
+		throw new MigrationFailed(
+			at,
+			`${reason}${hint(code, transaction)}`,
+			code === '55P03',
+		)
 	}
 }
 
@@ -150,7 +159,7 @@ async function sync(
 		// Another process synced the same models first.
 		if (row?.done === true) return
 		if (row === undefined ? run.from !== undefined : row.same !== true) {
-			throw new Error(
+			throw new Refused(
 				'The database changed while UltimaBase synced it: start again.',
 			)
 		}
@@ -210,8 +219,6 @@ async function deploy(
 		}
 		await locked(db, async (trx) => {
 			if (await isDone(trx, file)) return
-			// A file may set its own, with `set local lock_timeout`.
-			await sql.raw(`set local lock_timeout = '${lockTimeout}'`).execute(trx)
 			await executed(trx, file.sql, file.name)
 			await done(trx, file)
 		})
@@ -238,7 +245,8 @@ export async function reset(db: Kysely<object>): Promise<readonly string[]> {
 				and objid = pg_class.oid and deptype = 'e')
 			order by relname`.execute(trx)
 		const names = rows.map((row) => row.table_name)
-		await sql.raw(`drop table ${names.map(id).join(', ')} cascade`).execute(trx)
+		const drop = `drop table ${names.map(id).join(', ')} cascade`
+		await executed(trx, drop, drop)
 		dropped.push(...names.filter((name) => !tables.includes(name)))
 	})
 	return dropped

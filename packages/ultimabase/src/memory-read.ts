@@ -1,6 +1,5 @@
 // How `memory()` reads: filters with SQL's three-valued logic, so that a
 // `null` compares as PostgreSQL would, then order, cursor and page.
-import { isDeepStrictEqual } from 'node:util'
 import type {
 	Condition,
 	Filter,
@@ -9,6 +8,7 @@ import type {
 	Row,
 	SchemaField,
 } from './adapter.ts'
+import { isObject } from './query-where.ts'
 
 /** A stored row; a stored `one` key is the target's id or `null`. */
 export type StoredRow = {
@@ -212,9 +212,21 @@ function not(truth: Truth): Truth {
 	return truth === null ? null : !truth
 }
 
+/** Equality as PostgreSQL's: `-0` is `0`, json keys come in any order. */
 export function same(a: unknown, b: unknown): boolean {
 	if (a instanceof Date && b instanceof Date) return a.getTime() === b.getTime()
-	return isDeepStrictEqual(a, b)
+	if (Array.isArray(a) && Array.isArray(b))
+		return (
+			a.length === b.length && a.every((item, index) => same(item, b[index]))
+		)
+	if (isObject(a) && isObject(b)) {
+		const keys = Object.keys(a)
+		return (
+			keys.length === Object.keys(b).length &&
+			keys.every((key) => Object.hasOwn(b, key) && same(a[key], b[key]))
+		)
+	}
+	return a === b
 }
 
 function isFilters(

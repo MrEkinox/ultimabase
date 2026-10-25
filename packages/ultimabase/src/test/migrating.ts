@@ -1,6 +1,13 @@
 // `memory()` with fake `migrations` (D-105): the snapshot lists each model's
 // fields, and the plan adds or removes models and fields.
-import type { Adapter, Logger, Run, Statement, Stored } from '../index.ts'
+import type {
+	Adapter,
+	Logger,
+	Run,
+	Schema,
+	Statement,
+	Stored,
+} from '../index.ts'
 import { memory, MigrationFailed } from '../index.ts'
 
 export type FakeState = {
@@ -8,6 +15,8 @@ export type FakeState = {
 	runs: Run[]
 	/** A statement's SQL, or a text in a file, the database refuses. */
 	refuses?: string
+	/** It refuses as a table another session holds, and so does a reset. */
+	locked?: boolean
 	/** The host of a database on another machine. */
 	remote?: string
 }
@@ -29,6 +38,15 @@ function modelsOf(value: unknown): Models {
 	}
 	return read
 }
+
+const snapshot = (schema: Schema): unknown => ({
+	models: Object.fromEntries(
+		schema.models.map((model) => [
+			model.name,
+			model.fields.map((field) => field.name),
+		]),
+	),
+})
 
 function plan(from: unknown, to: unknown): Statement[] {
 	const before = from === undefined ? {} : modelsOf(from)
@@ -95,15 +113,8 @@ export function migrating(state: FakeState = fakeState()): Adapter {
 	return {
 		...memory(),
 		migrations: {
-			snapshot: (schema) => ({
-				models: Object.fromEntries(
-					schema.models.map((model) => [
-						model.name,
-						model.fields.map((field) => field.name),
-					]),
-				),
-			}),
-			plan,
+			snapshot,
+			plan: (from, schema) => plan(from, snapshot(schema)),
 			stored: async () => state.stored,
 			apply: async (run) => {
 				state.runs.push(run)
@@ -113,7 +124,13 @@ export function migrating(state: FakeState = fakeState()): Adapter {
 						(statement) => statement.sql === state.refuses,
 					)
 					if (refused !== undefined) {
-						throw new MigrationFailed(refused.sql, 'a row breaks it')
+						throw new MigrationFailed(
+							refused.sql,
+							state.locked === true
+								? 'held past lock_timeout'
+								: 'a row breaks it',
+							state.locked,
+						)
 					}
 					state.stored = { snapshot: run.to, by: 'sync', applied }
 					return
@@ -136,9 +153,16 @@ export function migrating(state: FakeState = fakeState()): Adapter {
 				state.stored = { snapshot: run.to, by: 'deploy', applied }
 			},
 			reset: async () => {
-				const snapshot = state.stored?.snapshot
+				if (state.locked === true) {
+					throw new MigrationFailed(
+						'drop Locker',
+						'held past lock_timeout',
+						true,
+					)
+				}
+				const was = state.stored?.snapshot
 				state.stored = undefined
-				return snapshot === undefined ? [] : Object.keys(modelsOf(snapshot))
+				return was === undefined ? [] : Object.keys(modelsOf(was))
 			},
 			...(state.remote === undefined ? {} : { remote: state.remote }),
 		},

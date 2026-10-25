@@ -14,6 +14,8 @@ export type SchemaField =
 			readonly optional: boolean
 			readonly unique: boolean
 			readonly dbName?: string
+			/** Its default when it is a value, not a function (D-105). */
+			readonly default?: unknown
 	  }
 	| {
 			readonly kind: 'one'
@@ -140,8 +142,8 @@ export type Check = {
 /**
  * One whole write: its checks first, which write nothing when one fails,
  * then its changes, then `read`, in the same write. With `before`, the read
- * sees the database as it was before the changes, as a delete returns the
- * row it removes (D-102).
+ * selects among the rows of its model that the write's delete removed, as
+ * they were (D-102, D-104).
  */
 export type Write = {
 	readonly checks?: readonly Check[]
@@ -232,8 +234,11 @@ export type Run =
 export interface Migrations {
 	/** What this database makes of the models. */
 	snapshot(schema: Schema): unknown
-	/** The statements from one snapshot to another; none is an empty database. */
-	plan(from: unknown, to: unknown): readonly Statement[]
+	/**
+	 * The statements from a snapshot, or an empty database, to the models'
+	 * snapshot; a required field added takes its `default` in the rows.
+	 */
+	plan(from: unknown, schema: Schema): readonly Statement[]
 	/** The database's snapshot, if it has one; the adapter is started. */
 	stored(): Promise<Stored | undefined>
 	/**
@@ -241,7 +246,10 @@ export interface Migrations {
 	 * statement or file the database refuses throws `MigrationFailed`.
 	 */
 	apply(run: Run): Promise<void>
-	/** Drops every table, for `ultimabase reset`; returns the models' tables. */
+	/**
+	 * Drops every table, for `ultimabase reset`; returns the models' tables.
+	 * A table another session holds throws a locked `MigrationFailed`.
+	 */
 	reset(): Promise<readonly string[]>
 	/** The database's host when it is not on this machine: `reset` then needs `--force`. */
 	readonly remote?: string
@@ -327,11 +335,14 @@ export class MigrationFailed extends Error {
 	readonly at: string
 	/** What the database said. */
 	readonly reason: string
+	/** Whether it waited past its limit for a table another session held. */
+	readonly locked: boolean
 
-	constructor(at: string, reason: string) {
+	constructor(at: string, reason: string, locked = false) {
 		super(`The database refused ${at}: ${reason}`)
 		this.name = 'MigrationFailed'
 		this.at = at
 		this.reason = reason
+		this.locked = locked
 	}
 }

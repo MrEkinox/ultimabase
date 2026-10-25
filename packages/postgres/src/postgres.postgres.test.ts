@@ -1,6 +1,8 @@
 // The contract on PostgreSQL (D-98): each test in its own schema, on every
 // server `TEST_DATABASE_URL` lists.
 import { randomUUID } from 'node:crypto'
+import type { Socket } from 'node:net'
+import { createServer } from 'node:net'
 import { asUser, testAdapter } from '@ultimabase/testing'
 import { Client } from 'pg'
 import type {
@@ -15,6 +17,7 @@ import {
 	defineApp,
 	defineModel,
 	master,
+	Refused,
 	RelationViolation,
 	transaction,
 	UniqueViolation,
@@ -105,7 +108,7 @@ async function started(adapter: Adapter, schema: Schema): Promise<void> {
 	const { migrations } = adapter
 	if (migrations === undefined) throw new Error('postgres() migrates.')
 	const to = migrations.snapshot(schema)
-	const statements = migrations.plan(undefined, to)
+	const statements = migrations.plan(undefined, schema)
 	await migrations.apply({ kind: 'sync', from: undefined, statements, to })
 }
 
@@ -115,6 +118,8 @@ const row = (label: unknown) => ({
 	updatedAt: new Date(),
 	label,
 })
+
+const startAt = async (url: string) => postgres({ url }).start({ models: [] })
 
 describe('postgres()', () => {
 	const url = urls[0] ?? ''
@@ -131,6 +136,37 @@ describe('postgres()', () => {
 		).rejects.toThrow('postgres() is not started.')
 	})
 
+	it('takes an unset url, and refuses to start with it (D-119)', async () => {
+		for (const given of [process.env['ULTIMABASE_UNSET_URL'], '']) {
+			const adapter = postgres({ url: given })
+			expect(adapter.migrations?.remote).toBeUndefined()
+			const starting = adapter.start({ models: [] })
+			await expect(starting).rejects.toThrow(Refused)
+			await expect(starting).rejects.toThrow(
+				'postgres() was given no url: is the variable it reads set?',
+			)
+		}
+	})
+
+	it('names a server it cannot reach without its password, and passes a refusal through (D-105)', async () => {
+		// The whole message, so no password in it.
+		await expect(
+			startAt('postgres://postgres:secret@localhost:1/postgres'),
+		).rejects.toMatchObject({
+			code: 'ECONNREFUSED',
+			message:
+				'Cannot reach PostgreSQL at localhost:1 (ECONNREFUSED): is it running, and is its url right?',
+		})
+		await expect(
+			startAt('postgres://postgres:secret@nosuchhost.invalid/x'),
+		).rejects.toThrow(
+			/^Cannot reach PostgreSQL at nosuchhost\.invalid:5432 \((ENOTFOUND|EAI_AGAIN)\): is it running, and is its url right\?$/,
+		)
+		const wrong = new URL(url)
+		wrong.password = 'wrong'
+		await expect(startAt(wrong.href)).rejects.toMatchObject({ code: '28P01' })
+	})
+
 	it('names a long constraint by its hash, and reports what it refuses', async () => {
 		const adapter = postgres({ url: inSchema(url, schema) })
 		await started(adapter, thing)
@@ -145,6 +181,59 @@ describe('postgres()', () => {
 			await expect(insert(null)).rejects.toMatchObject({ code: '23502' })
 		} finally {
 			await adapter.stop()
+		}
+	})
+
+	it('names a server that never answers once its wait is over (D-47)', async () => {
+		const sockets: Socket[] = []
+		const server = createServer((socket) => sockets.push(socket))
+		await new Promise<void>((resolve) => server.listen(0, resolve))
+		const address = server.address()
+		const port = typeof address === 'object' && address ? address.port : 0
+		try {
+			const adapter = createAdapter({
+				url: `postgres://postgres:secret@localhost:${port}/x`,
+				wait: 200,
+			})
+			const starting = adapter.start({ models: [] })
+			await expect(starting).rejects.toThrow(
+				`Cannot reach PostgreSQL at localhost:${port} (no answer in 0.2s): is it running, and is its url right?`,
+			)
+			await expect(starting).rejects.not.toHaveProperty('code')
+		} finally {
+			for (const socket of sockets) socket.destroy()
+			server.close()
+		}
+	})
+
+	it('fails a query no connection frees for in time, and serves the next (D-47)', async () => {
+		const adapter = createAdapter({
+			url: inSchema(url, schema),
+			connections: 2,
+			wait: 200,
+		})
+		await started(adapter, thing)
+		try {
+			const open = [await adapter.begin(), await adapter.begin()]
+			await expect(adapter.find({ model: 'Thing' })).rejects.toThrow(
+				'Every one of the 2 PostgreSQL connections stayed busy for 0.2s: a transaction may wait on something slow or never end.',
+			)
+			for (const each of open) await each.rollback()
+			expect(await adapter.find({ model: 'Thing' })).toEqual([])
+		} finally {
+			await adapter.stop()
+		}
+	})
+
+	it('takes connections as a whole number, 1 or more (D-47)', async () => {
+		for (const connections of [0, 1.5, Number.NaN]) {
+			await expect(
+				postgres({ url, connections }).start({ models: [] }),
+			).rejects.toThrow(
+				new Refused(
+					`postgres() takes connections as a whole number, 1 or more, not ${connections}.`,
+				),
+			)
 		}
 	})
 
@@ -479,51 +568,130 @@ const quiet: Logger = {
 	child: () => quiet,
 }
 
-const Note = defineModel({
-	name: 'Note',
-	fields: (f) => ({ text: f.string() }),
-}).with({ access: { read: () => true, update: () => true } })
+const M = { as: master }
 
-describe('a user write on postgres()', () => {
-	const url = urls[0] ?? ''
-	let schema = ''
-	let sent: string[] = []
-	let app: ReturnType<typeof defineApp>
-	beforeEach(async () => {
-		schema = `t_${randomUUID().replaceAll('-', '')}`
-		await run(url, `create schema "${schema}"`)
-		const database = createAdapter({
-			url: inSchema(url, schema),
-			log: (event) => sent.push(event.query.sql),
-		})
-		app = defineApp({ database, models: [Note], logger: quiet })
-		await app.start()
-	})
-	afterEach(async () => {
-		await app.stop()
-		await run(url, `drop schema "${schema}" cascade`)
-	})
-
-	it('starts over locked on a date SQL wrote in microseconds (D-104)', async () => {
-		const note = await Note.create({ data: { text: 'a' } }, { as: master })
-		await run(
-			inSchema(url, schema),
-			`update "note" set "updated_at" = now() + interval '1 microsecond'`,
-		)
-		sent = []
-		const user = { as: asUser({ id: randomUUID() }) }
-		const updated = await Note.update(
-			{ where: { id: note.id }, data: { text: 'b' } },
-			user,
-		)
-		expect(updated.text).toBe('b')
-		// The row, the failed check, then BEGIN, the locked row, the write, COMMIT.
-		expect(sent).toHaveLength(6)
-		expect(sent[3]).toContain('for update')
-	})
+const Locker = defineModel({
+	name: 'Locker',
+	fields: (f) => ({
+		code: f.string({ unique: true }),
+		label: f.string(),
+		owner: f.string(),
+	}),
+}).with({
+	access: {
+		read: () => true,
+		update: ({ caller, record }) =>
+			caller.kind === 'user' && caller.user.id === record.owner,
+		delete: ({ caller, record }) =>
+			caller.kind === 'user' && caller.user.id === record.owner,
+	},
 })
 
-const M = { as: master }
+/** Waits until a query on `locker` waits on a row lock. */
+async function waitingOnLock(watcher: Client): Promise<void> {
+	for (let tries = 0; tries < 200; tries += 1) {
+		const { rows } = await watcher.query<{ n: number }>(
+			`select count(*)::int as n from pg_stat_activity
+			 where wait_event_type = 'Lock' and query ilike '%"locker"%'`,
+		)
+		if ((rows[0]?.n ?? 0) > 0) return
+		await new Promise((resolve) => setTimeout(resolve, 10))
+	}
+	throw new Error('The write never waited on the row lock.')
+}
+
+const stored = async (id: string) => Locker.findUnique({ where: { id } }, M)
+
+for (const url of urls) {
+	describe(`a write that races another transaction on ${url}`, () => {
+		let schema = ''
+		let app: ReturnType<typeof defineApp>
+		let other: Client
+		let watcher: Client
+		beforeEach(async () => {
+			schema = `t_${randomUUID().replaceAll('-', '')}`
+			await run(url, `create schema "${schema}"`)
+			const database = createAdapter({ url: inSchema(url, schema) })
+			app = defineApp({ database, models: [Locker], logger: quiet })
+			await app.start()
+			other = new Client({ connectionString: inSchema(url, schema) })
+			await other.connect()
+			watcher = new Client({ connectionString: url })
+			await watcher.connect()
+		})
+		afterEach(async () => {
+			await other.end()
+			await watcher.end()
+			await app.stop()
+			await run(url, `drop schema "${schema}" cascade`)
+		})
+
+		/** Runs `statement` in another transaction, committed once `write` waits on it. */
+		async function raced(
+			statement: string,
+			values: readonly string[],
+			write: () => Promise<unknown>,
+		): Promise<unknown> {
+			await other.query('begin')
+			await other.query(statement, [...values])
+			const pending = write().catch((error: unknown) => error)
+			await waitingOnLock(watcher)
+			await other.query('commit')
+			return pending
+		}
+		const handed = `update "locker" set "owner" = $1 where "id" = $2`
+		const removed = `delete from "locker" where "id" = $1`
+		const alice = randomUUID()
+		const bob = randomUUID()
+		const created = async () =>
+			Locker.create({ data: { code: 'c', label: 'a', owner: alice } }, M)
+
+		it('refuses a user who lost the row while their update waited (D-104)', async () => {
+			const locker = await created()
+			const outcome = await raced(handed, [bob, locker.id], async () =>
+				Locker.update(
+					{ where: { id: locker.id }, data: { label: 'b' } },
+					{ as: asUser({ id: alice }) },
+				),
+			)
+			expect(outcome).toMatchObject({ code: 'ACCESS_DENIED' })
+			expect(await stored(locker.id)).toMatchObject({ owner: bob, label: 'a' })
+		})
+
+		it('refuses a user who lost the row while their delete waited (D-104)', async () => {
+			const locker = await created()
+			const outcome = await raced(handed, [bob, locker.id], async () =>
+				Locker.delete(
+					{ where: { id: locker.id } },
+					{ as: asUser({ id: alice }) },
+				),
+			)
+			expect(outcome).toMatchObject({ code: 'ACCESS_DENIED' })
+			expect(await stored(locker.id)).toMatchObject({ owner: bob })
+		})
+
+		it('counts none for a row another transaction deleted (D-104)', async () => {
+			const locker = await created()
+			const outcome = await raced(removed, [locker.id], async () =>
+				Locker.deleteMany({ where: { code: 'c' } }, M),
+			)
+			expect(outcome).toEqual({ count: 0 })
+		})
+
+		it('does not find a row another transaction deleted (D-104)', async () => {
+			const locker = await created()
+			const deleted = await raced(removed, [locker.id], async () =>
+				Locker.delete({ where: { code: 'c' } }, M),
+			)
+			expect(deleted).toMatchObject({ code: 'NOT_FOUND' })
+			const again = await created()
+			const updated = await raced(removed, [again.id], async () =>
+				Locker.update({ where: { id: again.id }, data: { label: 'b' } }, M),
+			)
+			expect(updated).toMatchObject({ code: 'NOT_FOUND' })
+		})
+	})
+}
 
 const Genre = defineModel({
 	name: 'Genre',
@@ -532,6 +700,34 @@ const Genre = defineModel({
 const Song = defineModel({
 	name: 'Song',
 	fields: (f) => ({ genre: f.one(() => Genre, { inverse: 'songs' }) }),
+})
+
+describe('a transaction whose connection the server ends', () => {
+	it('fails its commit, and leaves the process and stop() unharmed', async () => {
+		const url = urls[0] ?? ''
+		const name = `t_${randomUUID().replaceAll('-', '')}`
+		const adapter = createAdapter({ url: `${url}?application_name=${name}` })
+		await adapter.start({ models: [] })
+		const escaped: unknown[] = []
+		const listen = (error: unknown) => escaped.push(error)
+		process.on('uncaughtException', listen)
+		try {
+			const open = await adapter.begin()
+			// As a restart of the server: it waits for the backend to exit,
+			// then for its last message to reach the client.
+			await run(
+				url,
+				`select pg_terminate_backend(pid, 5000) from pg_stat_activity where application_name = '${name}'`,
+			)
+			await new Promise((resolve) => setTimeout(resolve, 100))
+			await expect(open.commit()).rejects.toThrow('connection error')
+			// Its connection went back to the pool, which no longer waits on it.
+			await adapter.stop()
+		} finally {
+			process.off('uncaughtException', listen)
+		}
+		expect(escaped).toEqual([])
+	})
 })
 
 describe('a write that races a delete on postgres()', () => {
@@ -619,7 +815,8 @@ describe('the catalog', () => {
 		}
 	})
 
-	it('refuses a server below PostgreSQL 15', () => {
+	it('refuses a server below PostgreSQL 15 (D-119)', () => {
+		expect(() => requireVersion('140010')).toThrow(Refused)
 		expect(() => requireVersion('140010')).toThrow('PostgreSQL 15 or later')
 		expect(() => requireVersion('150000')).not.toThrow()
 	})

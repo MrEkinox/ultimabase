@@ -1,5 +1,7 @@
 // The names the schema gives each model's types and root fields (D-107).
 
+import { Refused } from 'ultimabase'
+
 export const upper = (name: string): string =>
 	name.charAt(0).toUpperCase() + name.slice(1)
 
@@ -21,7 +23,7 @@ export function rootNames(
 	const single = lower(model)
 	const list = given ?? plural(single)
 	if (list === single) {
-		throw new Error(
+		throw new Refused(
 			`${model}: its list field would be named ${single} too; set .with({ graphql: { plural } }).`,
 		)
 	}

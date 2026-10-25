@@ -136,7 +136,7 @@ class Builder {
 				if (output === undefined) return true
 				if (value === undefined && type instanceof GraphQLNonNull) {
 					throw new TypeError(
-						`${fn.name} returned undefined; make its output .nullable() and return null (D-109).`,
+						`${fn.name} returned undefined; make its output .nullable() and return null.`,
 					)
 				}
 				const call = { name: fn.name, take }

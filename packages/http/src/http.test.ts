@@ -1,6 +1,7 @@
-// `httpPlugin()` (D-66, D-106): routes that read the caller, errors as D-72
-// sends them, CORS, forms from other origins, the body limit, the port, the
-// client's address behind proxies (D-116) and a stop that waits, 10 s at most.
+// `httpPlugin()` (D-66, D-106): routes that read the caller, no caching,
+// errors as D-72 sends them, CORS, forms from other origins, the body limit,
+// the port, the client's address behind proxies (D-116) and a stop that
+// waits, 10 s at most.
 import { createServer, IncomingMessage } from 'node:http'
 import { Socket } from 'node:net'
 import { streamSSE } from 'hono/streaming'
@@ -52,6 +53,12 @@ afterEach(() => {
 
 const notes = routes()
 notes.get('/caller', (c) => c.json(c.var.caller))
+notes.get('/public', (c) => {
+	c.header('cache-control', 'public, max-age=60')
+	return c.text('public')
+})
+// Its headers are immutable.
+notes.get('/moved', () => Response.redirect('http://localhost/public', 301))
 notes.post('/notes', async (c) => {
 	const { text } = await c.req.json<{ text: string }>()
 	const note = await Note.create({ data: { text } }, { as: c.var.caller })
@@ -164,6 +171,22 @@ describe('a route', () => {
 	})
 })
 
+describe('a response', () => {
+	it('is kept by no cache, unless its route says otherwise', async () => {
+		const { url } = await server()
+		const cached = async (path: string) =>
+			(await fetch(`${url}${path}`, { redirect: 'manual' })).headers.get(
+				'cache-control',
+			)
+		expect([
+			await cached('/caller'),
+			await cached('/nowhere'),
+			await cached('/moved'),
+			await cached('/public'),
+		]).toStrictEqual(['no-store', 'no-store', 'no-store', 'public, max-age=60'])
+	})
+})
+
 describe('mount', () => {
 	it('adds a plugin’s routes after the application’s', async () => {
 		const own = routes().get('/a', (c) => c.text('own'))
@@ -178,7 +201,7 @@ describe('mount', () => {
 	it('throws once the server runs', async () => {
 		await server({}, mounting.plugin())
 		expect(() => late?.mount(routes())).toThrow(
-			"The HTTP server is running: mount routes from your plugin's api (D-107).",
+			"The HTTP server is running: mount routes from your plugin's api.",
 		)
 	})
 })
@@ -420,7 +443,7 @@ const posted = async (url: string, headers: Record<string, string>) =>
 	})
 
 describe('a form from another origin', () => {
-	it('is refused when it carries cookies', async () => {
+	it('is refused when it carries cookies or comes from a browser', async () => {
 		const { url } = await server({ port: 0, routes: [forms] })
 		const cookie = 'session=token'
 		const foreign = await posted(url, {
@@ -430,8 +453,22 @@ describe('a form from another origin', () => {
 		expect(foreign.status).toBe(403)
 		expect(await foreign.json()).toEqual({
 			code: 'ACCESS_DENIED',
-			message: 'A form from another origin cannot send cookies.',
+			message: 'A form from another origin is refused.',
 		})
+		// Without cookies, the form would sign its visitor in to the
+		// sender's account; `null` is a sandboxed page's origin.
+		for (const headers of [
+			{ origin: 'https://evil.example.com' },
+			{ 'sec-fetch-site': 'cross-site' },
+			{ origin: 'null' },
+		]) {
+			const signIn = await fetch(`${url}/form`, {
+				method: 'POST',
+				headers: { 'content-type': 'text/plain', ...headers },
+				body: '{"email":"mallory@example.com","password":"secret"}',
+			})
+			expect(signIn.status).toBe(403)
+		}
 		// A sibling subdomain is the same site, not the same origin.
 		const sibling = await posted(url, { cookie, 'sec-fetch-site': 'same-site' })
 		expect(sibling.status).toBe(403)
@@ -442,7 +479,7 @@ describe('a form from another origin', () => {
 		expect(plain.status).toBe(403)
 	})
 
-	it('passes from its own origin, an allowed one, or without cookies', async () => {
+	it('passes from its own origin, an allowed one, or from a server', async () => {
 		const { url } = await server({
 			port: 0,
 			routes: [forms],
@@ -454,9 +491,10 @@ describe('a form from another origin', () => {
 			{ cookie, 'sec-fetch-site': 'same-origin' },
 			{ cookie, origin: 'https://app.example.com' },
 			{ cookie, origin: 'http://localhost:5173' },
+			{ origin: url },
+			{ 'sec-fetch-site': 'same-origin' },
 			// A webhook.
 			{},
-			{ origin: 'https://evil.example.com' },
 		]
 		for (const headers of passed) {
 			expect(await (await posted(url, headers)).text()).toBe('sent')
@@ -686,7 +724,7 @@ describe('a client’s address behind proxies (D-116)', () => {
 		expect(warnings()).toStrictEqual([
 			{
 				level: 'warn',
-				first: `A request came through a proxy (X-Forwarded-For) but httpPlugin({ proxies }) is not set: every client counts as ${address}. Set it to the number of proxies in front of the server (D-116).`,
+				first: `A request came through a proxy (X-Forwarded-For) but httpPlugin({ proxies }) is not set: every client counts as ${address}. Set it to the number of proxies in front of the server.`,
 			},
 		])
 	})
@@ -726,7 +764,7 @@ describe('a client’s address behind proxies (D-116)', () => {
 	it('stops startup when proxies is not a whole number', async () => {
 		for (const proxies of [-1, 1.5, Number.NaN]) {
 			await expect(started({ port: 0, proxies })).rejects.toThrow(
-				`proxies is ${proxies}, not a whole number of proxies in front of the server (D-116).`,
+				`proxies is ${proxies}, not a whole number of proxies in front of the server.`,
 			)
 		}
 	})

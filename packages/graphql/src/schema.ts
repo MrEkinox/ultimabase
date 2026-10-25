@@ -16,6 +16,7 @@ import { grouped, selectOf } from './select.ts'
 import { mutationFields } from './mutations.ts'
 import { run } from './errors.ts'
 import type { RootField } from './functions.ts'
+import { Refused } from 'ultimabase'
 
 type Fields = { [field: string]: GraphQLFieldConfig<unknown, Context, Args> }
 
@@ -118,7 +119,7 @@ export function schemaOf(
 		for (const [name, field] of Object.entries(added)) {
 			const other = owners.get(name)
 			if (other !== undefined) {
-				throw new Error(
+				throw new Refused(
 					`${owner}: the root field ${name} is ${other}'s; set .with({ graphql: { ${hint} } }).`,
 				)
 			}
@@ -148,7 +149,9 @@ export function schemaOf(
 	}).getTypeMap()
 	for (const [name, owner] of typeOwners) {
 		if (name in generated) {
-			throw new Error(`${owner}: the type ${name} is a generated type's name.`)
+			throw new Refused(
+				`${owner}: the type ${name} is a generated type's name.`,
+			)
 		}
 	}
 	for (const { query, name, owner, field } of functions) {
@@ -158,7 +161,7 @@ export function schemaOf(
 		add(into, owners, owner, 'name', { [name]: field })
 	}
 	if (Object.keys(fields).length === 0) {
-		throw new Error(
+		throw new Refused(
 			'graphqlPlugin: no query to expose; each model has .with({ graphql: false }) and no function is a query.',
 		)
 	}

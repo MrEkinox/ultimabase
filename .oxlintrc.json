@@ -10,6 +10,7 @@
 		"promise",
 		"vitest"
 	],
+	"jsPlugins": ["./scripts/lint-plugin.ts"],
 	"categories": {
 		"correctness": "error",
 		"suspicious": "error"
@@ -50,8 +51,15 @@
 	},
 	"overrides": [
 		{
+			"files": ["packages/*/src/**"],
+			"rules": { "ultimabase/no-decision-in-string": "error" }
+		},
+		{
 			"files": ["**/*.test.ts", "**/test/**"],
-			"rules": { "eslint/max-lines": "off" }
+			"rules": {
+				"eslint/max-lines": "off",
+				"ultimabase/no-decision-in-string": "off"
+			}
 		}
 	]
 }

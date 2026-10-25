@@ -156,7 +156,8 @@ export type RequestKind = 'signUp' | 'reset' | 'verify' | 'email'
 
 /**
  * Counts a request of `kind` from `subject`; past `most` within one hour,
- * the refusal instead, and the request is not counted.
+ * the refusal instead, and the request is not counted. It is counted before
+ * the others are, so concurrent requests cannot pass the limit (D-114).
  */
 export async function hourly(
 	kind: RequestKind,
@@ -168,17 +169,19 @@ export async function hourly(
 		{ where: { at: { lte: new Date(now - hour) } } },
 		M,
 	)
-	const recent = await PasswordRequest.findMany(
-		{ where: { kind, subject }, orderBy: { at: 'desc' }, take: most },
-		M,
-	)
-	const oldest = recent[most - 1]
-	if (oldest !== undefined) return tooMany(oldest.at, hour, now)
-	await PasswordRequest.create(
+	const { id } = await PasswordRequest.create(
 		{ data: { kind, subject, at: new Date(now) } },
 		M,
 	)
-	return undefined
+	const where = { kind, subject, id: { not: id } }
+	const recent = await PasswordRequest.findMany(
+		{ where, orderBy: { at: 'desc' }, take: most },
+		M,
+	)
+	const oldest = recent[most - 1]
+	if (oldest === undefined) return undefined
+	await PasswordRequest.deleteMany({ where: { id } }, M)
+	return tooMany(oldest.at, hour, now)
 }
 
 /** Refuses the eleventh request of `kind` from `address` within one hour (D-114, D-117). */

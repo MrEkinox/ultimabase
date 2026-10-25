@@ -1,9 +1,15 @@
 // The PostgreSQL adapter (D-47): Kysely builds the statements, `pg` runs
 // them. `log` lets the tests count the statements (D-98).
-import type { LogEvent, QueryExecutorProvider } from 'kysely'
+import type {
+	LogEvent,
+	PostgresPool,
+	QueryExecutorProvider,
+	Transaction as Open,
+} from 'kysely'
 import { Kysely, PostgresDialect, sql } from 'kysely'
 import { Pool } from 'pg'
-import { CheckFailed } from 'ultimabase'
+import { parse } from 'pg-connection-string'
+import { CheckFailed, Refused } from 'ultimabase'
 import type {
 	Adapter,
 	CountRead,
@@ -16,16 +22,82 @@ import type {
 import { decodeRows } from './decode.ts'
 import { apply, remoteOf, reset, stored } from './migrations.ts'
 import { Catalog } from './names.ts'
-import { plan } from './plan.ts'
+import { fillsOf, plan } from './plan.ts'
 import { compileCount, compileFind } from './read.ts'
 import { parseSnapshot, snapshotOf } from './snapshot.ts'
 import type { Statement } from './write.ts'
 import { compileWrite, translate } from './write.ts'
 
 export type Options = {
-	readonly url: string
+	readonly url: string | undefined
+	/** How many connections the pool opens at most (D-47). */
+	readonly connections?: number
+	/** The milliseconds a query waits for a connection, or to open one. */
+	readonly wait?: number
 	readonly log?: (event: LogEvent) => void
 }
+
+/** The codes of a server the network does not reach, or does not know. */
+const unreachable =
+	/^(ECONNREFUSED|ENOTFOUND|EAI_AGAIN|ETIMEDOUT|EHOSTUNREACH|ENETUNREACH)$/
+
+/** What pg-pool throws when no connection frees, or opens, in time. */
+const busy = 'timeout exceeded when trying to connect'
+const silent = 'Connection terminated due to connection timeout'
+
+/**
+ * `error`, or one naming the server `url` cannot reach, not its password
+ * (D-105), or the connections that stayed busy.
+ */
+function failed(
+	url: string,
+	error: unknown,
+	connections: number,
+	wait: number,
+): unknown {
+	const message = error instanceof Error ? error.message : ''
+	const seconds = `${wait / 1000}s`
+	if (message === busy) {
+		return new Error(
+			`Every one of the ${connections} PostgreSQL connections stayed busy for ${seconds}: a transaction may wait on something slow or never end.`,
+			{ cause: error },
+		)
+	}
+	const code: unknown = Reflect.get(Object(error), 'code')
+	const reachable = typeof code !== 'string' || !unreachable.test(code)
+	if (reachable && message !== silent) return error
+	const { host, port } = parse(url)
+	const address = `${host || process.env['PGHOST'] || 'localhost'}:${port || 5432}`
+	const why = reachable ? `no answer in ${seconds}` : code
+	const reached = new Error(
+		`Cannot reach PostgreSQL at ${address} (${why}): is it running, and is its url right?`,
+		{ cause: error },
+	)
+	return reachable ? reached : Object.assign(reached, { code })
+}
+
+/** `pool`, whose failures to give a connection say why. */
+function pooled(
+	url: string,
+	pool: Pool,
+	connections: number,
+	wait: number,
+): PostgresPool {
+	return {
+		options: pool.options,
+		connect: async () => {
+			try {
+				return await pool.connect()
+			} catch (error) {
+				throw failed(url, error, connections, wait)
+			}
+		},
+		end: async () => pool.end(),
+	}
+}
+
+/** What the callback a rollback ends throws, which `rollback()` swallows. */
+const rolledBack = new Error('The transaction was rolled back.')
 
 async function find(
 	catalog: Catalog,
@@ -76,7 +148,9 @@ async function run(
 		throw translate(catalog, error)
 	}
 	const read = given.read
-	return read === undefined ? [] : decodeRows(catalog, read.model, rows, read)
+	// A `before` read of a model the write deletes nothing of reads none.
+	if (read === undefined || rows === undefined) return []
+	return decodeRows(catalog, read.model, rows, read)
 }
 
 async function write(
@@ -90,12 +164,13 @@ async function write(
 /** Refuses a server below PostgreSQL 15 (D-50). */
 export function requireVersion(version: string | undefined): void {
 	if (!(Number(version) >= 150000)) {
-		throw new Error(`UltimaBase needs PostgreSQL 15 or later (D-50).`)
+		throw new Refused(`UltimaBase needs PostgreSQL 15 or later.`)
 	}
 }
 
 export function createAdapter(options: Options): Adapter {
-	const remote = remoteOf(options.url)
+	const { url, connections = 10, wait = 10_000 } = options
+	const remote = url ? remoteOf(url) : undefined
 	let state: { db: Kysely<object>; catalog: Catalog } | undefined
 	const started = () => {
 		if (state === undefined) throw new Error('postgres() is not started.')
@@ -103,14 +178,33 @@ export function createAdapter(options: Options): Adapter {
 	}
 	return {
 		start: async (schema: Schema) => {
+			if (!url) {
+				throw new Refused(
+					'postgres() was given no url: is the variable it reads set?',
+				)
+			}
+			if (!Number.isInteger(connections) || connections < 1) {
+				throw new Refused(
+					`postgres() takes connections as a whole number, 1 or more, not ${connections}.`,
+				)
+			}
 			const catalog = new Catalog(schema)
 			// Refuses two things stored under one name before it connects.
 			snapshotOf(catalog)
-			const pool = new Pool({ connectionString: options.url })
-			// An idle connection the server ends would crash the process unheard:
-			// the pool drops it and the next query opens another.
+			const pool = new Pool({
+				connectionString: url,
+				max: connections,
+				connectionTimeoutMillis: wait,
+			})
+			// A connection the server ends would crash the process unheard. An
+			// idle one the pool drops, and the next query opens another; one a
+			// transaction holds fails its next statement, and the pool drops it
+			// once given back.
 			pool.on('error', () => undefined)
-			const dialect = new PostgresDialect({ pool })
+			pool.on('connect', (client) => client.on('error', () => undefined))
+			const dialect = new PostgresDialect({
+				pool: pooled(url, pool, connections, wait),
+			})
 			const db = new Kysely<object>({
 				dialect,
 				...(options.log === undefined ? {} : { log: options.log }),
@@ -149,11 +243,14 @@ export function createAdapter(options: Options): Adapter {
 		},
 		migrations: {
 			snapshot: (schema) => snapshotOf(new Catalog(schema)),
-			plan: (from, to) =>
-				plan(
+			plan: (from, schema) => {
+				const catalog = new Catalog(schema)
+				return plan(
 					from === undefined ? undefined : parseSnapshot(from),
-					parseSnapshot(to),
-				),
+					snapshotOf(catalog),
+					fillsOf(catalog),
+				)
+			},
 			stored: async () => stored(started().db),
 			apply: async (given) => apply(started().db, given),
 			reset: async () => reset(started().db),
@@ -161,21 +258,39 @@ export function createAdapter(options: Options): Adapter {
 		},
 		begin: async (): Promise<Transaction> => {
 			const { catalog, db } = started()
-			const trx = await db.startTransaction().execute()
+			const opened = Promise.withResolvers<Open<object>>()
+			const ending = Promise.withResolvers<boolean>()
+			// Kysely gives the connection back however its transaction ends, a
+			// failed ROLLBACK included; a COMMIT that fails rolls back.
+			const ended = db.transaction().execute(async (trx) => {
+				opened.resolve(trx)
+				if (!(await ending.promise)) throw rolledBack
+			})
+			// A BEGIN that fails rejects `opened` too.
+			void ended.catch(opened.reject)
+			const trx = await opened.promise
+			const end = async (commit: boolean) => {
+				ending.resolve(commit)
+				await ended
+			}
 			return {
 				find: async (read) => find(catalog, trx, read),
 				count: async (read) => count(catalog, trx, read),
 				write: async (given) => write(catalog, trx, given),
 				commit: async () => {
 					try {
-						await trx.commit().execute()
+						await end(true)
 					} catch (error) {
-						// A failed COMMIT keeps its connection until a ROLLBACK frees it.
-						await trx.rollback().execute()
 						throw translate(catalog, error)
 					}
 				},
-				rollback: async () => trx.rollback().execute(),
+				rollback: async () => {
+					try {
+						await end(false)
+					} catch (error) {
+						if (error !== rolledBack) throw error
+					}
+				},
 			}
 		},
 	}

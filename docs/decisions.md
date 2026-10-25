@@ -490,10 +490,11 @@ Later: Prisma's fluent relation API (`Post.findUnique(...).author()`), once it
 can run without an extra query per parent (no N+1). After the first release:
 `upsert` and the batch operations `createMany` and `updateMany`, once it is
 decided which rules and hooks they run (create's or update's for `upsert`,
-per row or per batch); `omit`, which `select` covers meanwhile; nested
-creation (`create` in a relation write), which ships before 1.0; `set`, `distinct` and aggregates;
+per row or per batch); `omit`, which `select` covers meanwhile; `set`,
+`distinct` and aggregates;
 case-insensitive filters (`mode: 'insensitive'`), left to a search plugin
-first.
+first. Nested creation (`create` in a relation write) ships in 0.1, designed
+in its own decision (D-68, amended 2026-10-25).
 Rejected: a query syntax of our own; a function builder for `where` beside
 the object form; ignoring unknown keys, which turns a typo into a wider read.
 Example:
@@ -597,10 +598,12 @@ forgetting an entry never removes a protection (D-04). A model's `.with` keys
 (D-42) and commands (D-15) are exactly those of the plugins in its `use`: a
 key of a plugin outside it fails on its own line. The `defineApp` line fails
 typing when a model uses a plugin missing from `plugins`, when a relation's
-target is missing from `models`, or when an `inverse` names no field of its
-target (D-37); startup stops with a message for each, for JavaScript and
-casts. `defineModel` and `defineFunction` register nothing; `migrate` (D-26)
-and tests (D-40) import the application without starting it.
+target is missing from `models`, when two models share a name (amended
+2026-10-25; a name typed `string`, from a model a function builds, is not
+compared), or when an `inverse` names no field of its target (D-37); startup
+stops with a message for each, for JavaScript and casts. `defineModel` and
+`defineFunction` register nothing; `migrate` (D-26) and tests (D-40) import
+the application without starting it.
 Why: nothing implicit. One file configures the whole application, and each
 model says which plugins act on it: a reader sees a model's behaviour in its
 file, and no key appears because a plugin is installed elsewhere. A model is a
@@ -609,7 +612,8 @@ declare before it. Relation cycles are avoided by thunks read lazily and
 callbacks in the final non-generic `.with`. Measured on 2026-10-20
 (`bench/typing/README.md`): typing cost within 0 % to 10 % of the previous
 `App.defineModel` form, at most 50 ms more on the `defineApp` line of 200
-models, which also checks the plugins and the relation targets.
+models, which also checks the plugins and the relation targets. The name
+check adds 6 % of instantiations on 200 models (2026-10-25).
 Rejected: `App.defineModel` from `UltimaBase.create({ database, plugins })`
 and `App.build({ models })` (the configuration split over two calls, every
 installed plugin's keys on every model, each model importing an application
@@ -662,7 +666,7 @@ await app.start()
 Choice: these come after the first release, as plugins, and the design leaves
 room for them now:
 
-- REST, right after GraphQL (D-34).
+- REST, which ships in 0.1 after all (D-68, amended 2026-10-25).
 - Files, early, in the shape of D-32.
 - OAuth and magic link, early, as methods of the auth plugin.
 - Realtime subscriptions, with access rules applied to each event.
@@ -1159,6 +1163,22 @@ Choice: the PostgreSQL adapter, and later MySQL, build SQL with Kysely, a
 schema-less query builder; one internal relation compiler, shared by the SQL
 adapters, produces the single query of D-46. Kysely never appears in public
 code. PostgreSQL starts on the `pg` driver.
+
+The adapter's pool opens 10 connections at most; `postgres({ url,
+connections: 20 })` sets another number, a whole one from 1, refused when
+the app starts otherwise. A query waits up to 10 seconds for a connection,
+and as long to open one; the wait is not an option. Before, an eleventh
+query while ten transactions waited on something slow waited forever,
+unheard; now it fails:
+
+```
+Every one of the 10 PostgreSQL connections stayed busy for 10s: a transaction may wait on something slow or never end.
+```
+
+A server that never answers fails `start` after the same 10 seconds, with
+`Cannot reach PostgreSQL at host:5432 (no answer in 10s): …` (D-105). The
+pool's other `pg` options stay its defaults (amended 2026-10-25).
+
 Why: the previous base generated Drizzle tables and relations from its models
 at startup, kept three representations in sync, injected access filters
 through raw SQL and depended on a release candidate; its PostgreSQL plugin
@@ -1231,11 +1251,16 @@ declares an optional master key. A transport receiving it (the
 every refusal is logged, and every use in production, while outside it the
 HTTP plugin's line per request is enough (D-108, amended 2026-10-23).
 Without a configured key, a request carrying one is refused. When `NODE_ENV === 'production'`, the key is refused even if set,
-unless the developer writes `masterKey: { key, production: true }`. An unset
-key (`undefined`, in either form) leaves the master key off.
+unless the developer writes `masterKey: { key, production: true }`; that key
+then holds 32 characters at least, or `start` stops and names
+`openssl rand -base64 32` (amended 2026-10-25). An unset key (`undefined`, in
+either form) leaves the master key off.
 Why: front-end end-to-end tests seed their data through the API with the key,
 then test the interface; a key copied into production by mistake must not
-open the database.
+open the database. Nothing limits the keys a client tries, and Master obeys
+no rule: a short key in production is guessed. Outside production, a test's
+`'secret'` is enough. The length is counted, not the entropy, which no check
+measures reliably.
 Rejected: the key as an option of the HTTP plugin (the previous base), since
 Master belongs to the kernel and every transport reads it; a key enabled
 without configuration.
@@ -1742,15 +1767,19 @@ need (D-20, D-31):
   D-56, D-62).
 - `@ultimabase/soft-delete` (D-17), which also proves the hooks of D-15.
 - `@ultimabase/testing` (D-40) and `create-ultimabase` (D-61).
+- REST (D-25), roles and ACL (D-13), and nested creation, `create` in a
+  relation write (D-20), each designed in its own decisions before its code
+  (amended 2026-10-25).
 
 The after-commit email plugin that D-15 asks for is an example in
-`examples/`, not a package. Everything else waits: D-25 (REST, files, OAuth,
-realtime…), roles and ACL, the later field types (D-09, D-65), other
+`examples/`, not a package. Everything else waits: the rest of D-25 (files,
+OAuth, realtime…), the later field types (D-09, D-65), other
 databases (D-51) and the `Later:` lines of D-20, D-44, D-55, D-56 and D-58.
 Why: the smallest set that builds a real application end to end, from a
-starter to production, and proves the plugin design.
-Rejected: roles and ACL in 0.1 (functions cover simple permissions, D-10);
-migrations after 0.1 (nothing could go to production).
+starter to production, and proves the plugin design. Most developers who
+would adopt UltimaBase call a REST API and manage permissions by role, as
+in Parse.
+Rejected: migrations after 0.1 (nothing could go to production).
 
 ## D-69: Vitest, and line budgets per package
 
@@ -1895,10 +1924,16 @@ for `VALIDATION_FAILED` lists the issues in Standard Schema's shape. An update
 or delete of a record the caller cannot read fails with `NOT_FOUND`, not
 `ACCESS_DENIED`, so it does not reveal that the record exists. A caught
 error's `code` is typed, not `any`.
+No message names a decision, a client's nor a developer's: an error, a log
+line or a refusal says what happened and what to do, and only comments and
+test titles cite `D-NN`; the lint rule `ultimabase/no-decision-in-string`
+refuses one in a production string (amended 2026-10-25).
 Why: a code that names the problem reads better than Parse's `141`, and a
 client tests the code, not the message. The kernel knows no transport (D-16),
 so an application error carries no HTTP status; one status for every
 application error is what Parse does.
+The decisions are the maintainers' record, which no package ships (D-118):
+`Sign-up is closed (D-113).` tells a visitor nothing, and a developer neither.
 Rejected: numeric codes; a `status` option on `PublicError`; a registry of the
 application's codes, which would be global augmentation (D-24) and only
 checks comparisons on the server.
@@ -2217,16 +2252,23 @@ and `isSelf`. `signedIn(rule)` runs `rule` for a signed-in caller only, with
 `user` (the registered user model's record, D-62) among its facts, and is
 `false` for anyone else; a read rule inside it may still return
 `where(...)`. `isOwner('author')` is "the caller is the user this `one`
-relation points to", read from the stored key (D-77), so it fits `update` and
-`delete` but not `read` or `create`, which have no stored record; a name that
-is not a `one` relation of the model is refused. Both take their facts from
-where they are used, and combine with `anyOf`. `signedIn` fits the user
-model's own rules but not its field rules, where `user` would type the model
-from itself (TS2502): there, `({ caller }): boolean => ...` stays (D-62).
+relation points to, before and after the write": the stored key (D-77) must
+be the caller's, and a value written for the relation may only connect the
+caller, so an author cannot hand a post to someone else or to no one. It
+fits `create`, where a value that does not write the relation leaves it to
+its default (`currentUser`, D-62), `update` and `delete`, but not `read`,
+which has no record; a name that is not a `one` relation of the model is
+refused. Moving a record to another owner takes Master or a hand-written
+rule. Both take their facts from where they are used, and combine with
+`anyOf`. `signedIn` fits the user model's own rules but not its field rules,
+where `user` would type the model from itself (TS2502): there,
+`({ caller }): boolean => ...` stays (D-62).
 Why: `caller.kind === 'user' &&` opened most rules of a real application, and
 "the author only" was written by hand in every model.
 Rejected: a `signedIn` in the kernel, which knows no user model; an
-`isOwner` that loads the user, a query in a rule (D-76).
+`isOwner` that loads the user, a query in a rule (D-76); an `isOwner` on the
+stored key alone, which let any signed-in user write a post in another's
+name and an author give theirs away (amended 2026-10-25).
 Example:
 
 ```ts
@@ -2244,7 +2286,10 @@ Parse.Cloud.beforeSave('Post', ({ object, original, user }) => {
 // After
 export const Post = defineModel({ name: 'Post', fields }).with({
 	access: {
-		create: signedIn(({ user }) => user.role !== 'reader'),
+		create: allOf(
+			isOwner('author'),
+			signedIn(({ user }) => user.role !== 'reader'),
+		),
 		update: anyOf(
 			isOwner('author'),
 			signedIn(({ user }) => user.role === 'editor'),
@@ -2252,6 +2297,11 @@ export const Post = defineModel({ name: 'Post', fields }).with({
 		delete: isOwner('author'),
 	},
 })
+
+// Refused with ACCESS_DENIED: a post in another user's name, and an author
+// giving theirs away.
+await Post.create({ data: { title, author: { connect: { id: other } } } }, as)
+await Post.update({ where, data: { author: { connect: { id: other } } } }, as)
 ```
 
 ## D-80: Tests act as a user with `asUser`
@@ -3144,8 +3194,12 @@ The details every adapter follows, checked by the suite (amended
   id, a text operand or a json string or key with a NUL or a lone surrogate,
   and a date outside years 1 to 9999 in UTC. A write fails with
   `VALIDATION_FAILED`, a filter or a `connect` with `INVALID_QUERY`.
-- A json field cannot be sorted: `orderBy: { meta: 'asc' }` fails with
-  `INVALID_QUERY`, and GraphQL's `OrderByInput` has no json field. Each
+- `-0` equals `0` in a filter, in a number or in json, and in a unique field,
+  and is read back as `0` in both (amended 2026-10-25): `pg` sends a number
+  as text, and JSON text has no `-0`.
+- A json field cannot be sorted: `orderBy: { meta: 'asc' }` fails typing
+  (amended 2026-10-25) and, for JavaScript and casts, with `INVALID_QUERY`;
+  GraphQL's `OrderByInput` has no json field. Each
   database orders json its own way.
 - A date goes to the database and comes back in UTC, whatever the time zone
   of the server process and of the database session: an offset in seconds,
@@ -3159,6 +3213,8 @@ row comes back different from what was written.
 
 Limit (amended 2026-10-24): a json object comes back with its keys in the
 order its database keeps, sorted in PostgreSQL; its content is unchanged.
+`toEqual` ignores that order; only a test of the JSON text sees it, which
+no adapter can fix (amended 2026-10-25).
 
 Limit: how an adapter makes other writes wait during a transaction is its
 own (memory takes a lock, PostgreSQL row locks); the suite checks only that
@@ -3343,6 +3399,10 @@ way an application does and keeps stand-ins only for what later phases build.
 3. The prototype is its own TypeScript project (`bench/typing/tsconfig.json`).
    Its `Register` (D-62) declares a user model; in the root project it also
    reached the packages' tests, which act as a user without one.
+   `bench/typing/tsconfig.loose.json` checks it again with
+   `exactOptionalPropertyTypes` and `noUncheckedIndexedAccess` off, as most
+   applications have them, so the types hold there too; `strict` stays
+   required (amended 2026-10-25).
 4. `asUser(user)` (D-80) takes the record `caller.user` has: the registered
    user model's, or `{ id }` without one. It returns a frozen user caller.
    The kernel and soft delete take `@ultimabase/testing` as a devDependency;
@@ -3518,7 +3578,8 @@ Choice:
    no read again). Inside `transaction()`, every query runs in it.
 5. Fewer reads. The kernel loads no row when Master updates by `id` a model
    without update hooks: the check `{ where: and(where, readable), count: 1 }`
-   stands for it. A relation written from the other side, on a model
+   stands for it, and an empty read after the update is `NOT_FOUND` (D-104,
+   amended 2026-10-25). A relation written from the other side, on a model
    without update hooks and without rules for the caller, is one update
    `where: and(where, filter)` instead of a read and an update.
 6. A connected id that is not a UUID is `NOT_FOUND` before any query: the
@@ -3693,6 +3754,8 @@ await Novel.update(
 
 ## D-102: A delete whose reach runs no hook is one write, its rows unloaded
 
+Amended by D-104.
+
 Choice:
 
 1. When no model a `delete` reaches has delete hooks or a `redirect`, no
@@ -3708,9 +3771,11 @@ Choice:
    the row exists, the `restrict` checks, the changes, and the row read as
    it was. A user's `delete` loads its row for the access rule, then writes
    the same way.
-3. `Write.before` asks the adapter for the read as the database was before
-   the changes. PostgreSQL runs it in the first statement, without the
-   views of D-99; `memory()` reads after the checks.
+3. `Write.before` asks the adapter for the rows of the read's model that
+   the write's delete of that model removed, as they were (amended
+   2026-10-25, D-104). PostgreSQL reads them from that delete's RETURNING,
+   in its statement, without the views of D-99; `memory()` reads before
+   the changes and keeps the rows gone after them.
 4. Any other delete loads its reach level by level, as D-90 says.
 
 Why: a delete with a cascade took one `SELECT ... FOR UPDATE` per level on
@@ -3796,90 +3861,80 @@ await Genre.create({ data: { label: 'myth' } }, { as: master })
 //   select (select ... from "#w0" as "t1" where "t1"."id" = $5) as "rows"
 ```
 
-## D-104: A user's write reads its row without a lock, then checks it unchanged
+## D-104: A write answers from the rows it changed; a user's write locks its row
 
-Choice: amends D-99 point 2 for the row an `update` or a `delete` targets.
+Choice: amends D-99 point 5 and D-102 point 3 (amended 2026-10-25: the
+first D-104 read a user's row without a lock and checked it unchanged in the
+write; it is withdrawn, see Why and Rejected).
 
-1. When a single-row write owns its transaction and has not begun it (no
-   `transaction()` around it), the kernel reads the row it targets alone,
-   without a lock, runs the access rules, `prepared` and `before*` hooks
-   from it, then writes with one more check: the row the rules saw is still
-   there, unchanged.
-2. Unchanged means the record a rule sees (D-72): `id`, `createdAt`,
-   `updatedAt`, every scalar and every stored `one` key equal to what was
-   read, as `{ equals: value }`, `{ equals: null }`, `{ is: { id: { equals } } }`
-   or `{ is: null }`.
-3. When that check fails, the write starts over once on the locked path of
-   D-99, its data read anew, its rules run again on the row as it now is.
-   No hook has run on another model by then; `beforeUpdate` and
-   `beforeDelete` of the root have not, since the path applies only to a
-   model without them.
-4. It applies to an `update` of a model without update hooks, unless its
-   relation writes reach a model with update hooks, and to a `delete` whose
-   reach runs no hook (D-102). Any other write, and every write inside
-   `transaction()`, locks as before.
-5. `Checked.stale` marks the check; `CheckFailed` on it is no error the
-   caller sees.
+1. A user's `update` or `delete` locks the row it targets, as D-99 point 2
+   says, inside `transaction()` or not: BEGIN, the `select ... for update`,
+   the rules, `prepared` and the `before*` hooks, the write, COMMIT.
+2. A write that loads no row answers from the rows its changes wrote, not
+   from its checks:
+   - Master's `update` by `id` (D-99 point 5) is `NOT_FOUND` when its read
+     comes back empty: the row went between the check and the update.
+   - `Write.before` (D-102 point 3) returns the rows of the read's model
+     that the write's delete of that model removed, as they were.
+     PostgreSQL reads them from that delete's RETURNING, in its statement;
+     `memory()` reads before the changes and keeps the rows gone after
+     them.
+   - Master's `delete` by a unique `where` is then `NOT_FOUND` when its
+     delete removed nothing, and `deleteMany` counts the rows it removed.
 
 Why:
 
-- The locked path is four round trips: BEGIN, the `select ... for update`,
-  the write, COMMIT. Read alone, then written with its check, it is two.
-  On PostgreSQL 18, 200 runs, a user's update under rules went from 4 round
-  trips and 1.91 ms to 2 and 1.39 ms, a user's delete from 4 and 1.70 ms to
-  2 and 1.19 ms (`bench/writes`).
-- Comparing the whole record, not `updatedAt` alone: two writes in the same
-  millisecond leave `updatedAt` equal, so a rule could allow a write from an
-  owner that changed in between.
-- A conflict is rare and costs the locked path plus two round trips; it
-  never fails a write that the locked path would have let through.
+- A check runs on its statement's snapshot. Under READ COMMITTED, an update
+  or a delete that waits on a row another transaction holds checks its own
+  `where` again once that one commits, but not the check, which PostgreSQL
+  computes once for the statement. The first D-104 therefore wrote a row its
+  rules never saw: another request gave Alice's locker to Bob, and Alice's
+  update, allowed from the row as it was, changed Bob's locker (PostgreSQL
+  15 and 18).
+- For the same reason, a check or a read before the changes counts rows
+  another transaction deleted meanwhile: `deleteMany` reported 2 rows it
+  never removed, a `delete` returned a row someone else removed, so a token
+  could be redeemed twice, and a Master `update` returned `null`. The rows a
+  change returns are the ones it wrote. Prisma answers the same way: its
+  `deleteMany` count is the database's count of affected rows, and its
+  `update` and `delete` fail with `P2025` when no row was written.
+- The lock is the simplest guarantee to reason about: the rules decide from
+  a row nobody else changes until the write commits.
+
+Cost: a user's update or delete under rules is 4 round trips again, 1.91 ms
+for an update and 1.70 ms for a delete on PostgreSQL 18, where the first
+D-104 took 2 round trips, 1.39 and 1.19 ms (`bench/writes`).
 
 Rejected:
 
-- Retrying the optimistic path up to three times, then failing with
-  `CONFLICT`: an error the locked path never raises.
-- Last writer wins, without the check: a rule decides from a row that may
-  no longer be there.
-- Pipelining the read and the write: `pg` sends one query at a time.
-- A per-process monotonic `updatedAt`: it does not hold across instances.
-- `updated_at = greatest(now, updated_at + 1 ms)` in SQL, and PostgreSQL's
-  `xmin` as a row version: both change the adapter contract; `xmin` stays
-  an option.
-
-Limits:
-
-- A date column SQL wrote with microseconds, as `now()` does, never equals
-  the millisecond `Date` the kernel read: that row always takes the locked
-  path, six round trips, until the kernel writes it again. A `createdAt`
-  written that way stays on the locked path for good.
-- Each stored `one` key adds an `exists` lookup by primary key to the check.
+- The first D-104, reading the row without a lock and checking it unchanged
+  in the write: unsafe under concurrency, as above.
+- Locking inside the check (`select ... for update` in `#checks`): it held
+  in the probe and keeps 2 round trips, but it rests on how PostgreSQL
+  re-checks a statement that waited on a lock, and keeps a second way of
+  deciding a write for every model under rules.
+- PostgreSQL's `xmin` as a row version: it would be checked on the same
+  snapshot.
+- Serializable isolation, as D-99 rejects it.
 
 Example:
 
 ```ts
-const Locker = defineModel({
-	name: 'Locker',
-	fields: (f) => ({ label: f.string(), owner: f.string() }),
-}).with({
-	access: {
-		update: ({ caller, record }) =>
-			caller.kind === 'user' && caller.user.id === record.owner,
-	},
-})
+// Alice owns the locker; meanwhile, another request gives it to Bob.
+await Locker.update({ where: { id }, data: { label: 'b' } }, { as: alice })
+// Before: allowed from Alice's row, written on Bob's.
+// After: waits for the other request, then ACCESS_DENIED; Bob's row stays.
 
-await Locker.update({ where: { id }, data: { label: 'b' } }, { as: user })
-// Before: 4 round trips
-//   begin
-//   select ... from "locker" where "id" = $1 limit 1 for update
-//   with "#w0" as (update "locker" set ... where "id" = $1 returning *) ...
-//   commit
-// After: 2 round trips
-//   select ... from "locker" where "id" = $1 limit 1
-//   with "#checks" as (select (select count(*) from "locker" where "id" = $1
-//       and "created_at" = $2 and "updated_at" = $3 and "label" = $4
-//       and "owner" = $5) = 1 as "c0"),
-//     "#w0" as (update "locker" set ... where "id" = $1
-//       and (select "c0" from "#checks") returning *) ...
+// Meanwhile, another request deletes both tickets.
+await Ticket.deleteMany({}, { as: master })
+// Before: { count: 2 }
+// After: { count: 0 }
+await Ticket.delete({ where: { code: 'A' } }, { as: master })
+// Before: the ticket, as if this call removed it
+// After: NOT_FOUND
+await Ticket.update({ where: { id }, data: { label: 'x' } }, { as: master })
+// Before: null
+// After: NOT_FOUND
 ```
 
 ## D-105: `ultimabase.config.ts`, the `ultimabase` commands and a schema snapshot
@@ -3902,6 +3957,22 @@ Choice: amends D-26, D-73 and D-98 point 1.
    - `ultimabase start` sets `NODE_ENV` to `production` when it is unset, so
      a deployed server is never in development by omission (D-49);
    - both start the application and leave `SIGTERM` to it (D-59).
+
+   A command that fails exits 1 and says why. An expected failure prints
+   its message alone: a refusal (D-119), or an error with a `code`, which
+   Node, PostgreSQL, the command line and the kernel's own errors carry.
+   Any other error is a bug, and prints its stack. An unknown option adds
+   ``Run `npx ultimabase --help`.``, and an unknown command the usage. The
+   storage adapter names a server it cannot reach, since it alone knows the
+   address, and never prints a password (amended 2026-10-25):
+
+   ```
+   $ npx ultimabase sync --forse
+   Unknown option '--forse'. Run `npx ultimabase --help`.
+   $ npx ultimabase sync
+   Cannot reach PostgreSQL at localhost:5432 (ECONNREFUSED): is it running, and is its url right?
+   ```
+
 2. A snapshot describes what the storage adapter makes of the models: for
    PostgreSQL, every table with its columns, types, constraints and indexes.
    It is JSON, and its hash is the SHA-256 of its canonical form. Two places
@@ -3923,19 +3994,55 @@ Choice: amends D-26, D-73 and D-98 point 1.
    applied, all in one transaction under an advisory lock, and logged
    (`Synced Locker: added owner.`). Losing no data means a new table,
    column, index or enum value; a dropped index or constraint; a field made
-   optional. A new required field, unique index or `one`, a field made
-   required and a removed enum value are tried: the database refuses them
-   when a row breaks them, and nothing is applied. Sync changes the tables'
-   shape only and never moves data; a refused change names the statement,
-   what it tried and the database's reason (amended 2026-10-22):
+   optional; a required scalar field whose `default` is a value, not a
+   function, nor `null`. A new required field without such a default,
+   unique index or `one`, a field made required and a removed enum value
+   are tried: the database refuses them when a row breaks them, and nothing
+   is applied. Sync changes the tables' shape and moves no data but one: a
+   required field added takes its fixed default in the rows the table held,
+   with the column's default dropped in the same transaction, so a create
+   still writes the value the kernel validated (D-67). The plan writes the
+   same two statements in a `migrate create` file. A function default, such
+   as `() => new Date()`, runs at each create and has no value to give old
+   rows: the field is tried (amended 2026-10-25). Before, adding
+   `done: f.boolean({ default: false })` to a Note holding rows stopped
+   `start`; now it logs:
 
    ```
-   UltimaBase did not sync Locker: adding the required "Locker.kind" fails when Locker holds rows.
+   Synced Note: added done, false in the rows it held.
+   ```
+
+   ```sql
+   alter table "note" add column "done" boolean not null default false;
+   alter table "note" alter column "done" drop default;
+   ```
+
+   A refused change names the statement, what it tried and the database's
+   reason (amended 2026-10-22):
+
+   ```
+   UltimaBase did not sync Locker: adding the required "Locker.kind" fails when Locker holds rows: make it optional, or give it a value as its default, not a function.
      alter table "locker" add column "kind" text collate "C" not null;
      -- column "kind" of relation "locker" contains null values
    Fix those rows in this development database, or rebuild it from the migrations with `npx ultimabase reset`.
    In production, a migration fixes them: write it with `npx ultimabase migrate create <name>`.
    ```
+
+   Sync's statements run with `set local lock_timeout = '5s'`, as a deploy's
+   files do (point 6): a sync waiting behind another session's open
+   transaction fails after 5 seconds instead of queueing every query on that
+   table behind it, and names what to end (amended 2026-10-25). Before, a
+   transaction left open in a database tool made `start` wait without end,
+   and every read of the table with it:
+
+   ```
+   UltimaBase did not sync Locker: another session held its table.
+     alter table "locker" add column "size" integer;
+     -- canceling statement due to lock timeout: another query held a table it changes past lock_timeout
+   End that session's open transaction, in a database tool perhaps, then try again.
+   ```
+
+   The wait for another sync or deploy, the advisory lock, has no limit.
 
    Any other change, a drop,
    a type change and anything that could be a rename, stops `start` with
@@ -3951,6 +4058,43 @@ Choice: amends D-26, D-73 and D-98 point 1.
    A removal that may be a rename says how to keep the data in development,
    `-- a rename? keep its data: give Locker.title dbName: 'label'.`, and a
    migration file gets the SQL instead (point 5; amended 2026-10-22).
+
+   A type change casts the column's values. PostgreSQL converts no value
+   between number, boolean and date, from them to json, nor from json to
+   date: such a change keeps the column, its indexes and keys, and loses
+   its values as an added column has none, null when optional, its fixed
+   default when required, and is tried when required without one. A field
+   made optional drops `not null` before its type changes. A change from
+   text or json to another type reads each value, and is tried (amended
+   2026-10-25). Before, changing `done: f.boolean()` to
+   `done: f.number({ default: 0 })` failed on any table, an empty one
+   included, with `cannot cast type boolean to double precision` and the
+   advice to fix rows; now `sync --force` logs:
+
+   ```
+   Synced Note: changed done to double precision, 0 in the rows it held.
+   ```
+
+   ```sql
+   alter table "note" alter column "done" type double precision using 0;
+   ```
+
+   A migration file gets the same statement, under
+   `-- changing "Note.done" from boolean to double precision deletes its data: PostgreSQL converts no boolean to double precision.`;
+   a developer who means a conversion writes it in the `using` clause
+   (point 5).
+
+   A date changed to text is written as `toISOString()` writes it, in UTC
+   with milliseconds, whatever the session's time zone (amended
+   2026-10-25). Before, `2026-10-25T10:00:00.123Z` became
+   `2026-10-25 11:00:00.123+01` on a machine in Paris and
+   `2026-10-25 19:00:00.123+09` in Tokyo; now it is
+   `2026-10-25T10:00:00.123Z` on both:
+
+   ```sql
+   alter table "note" alter column "done" type text collate "C"
+     using to_char("done" at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"');
+   ```
 
    A database that holds tables but no snapshot is refused.
 
@@ -4018,11 +4162,13 @@ Choice: amends D-26, D-73 and D-98 point 1.
    one transaction; two read
    `... cannot run inside a transaction block: a file without a transaction holds one statement: put each in its own file`,
    and the same statement in an ordinary file reads
-   `...: put it in its own file, whose second line is \`-- ultimabase no transaction\``.
-It runs under the advisory lock taken for its session and with no
-`lock_timeout`: `create index concurrently`waits for running
-transactions without blocking any, and one that fails leaves an invalid
-index. A failure then reads`It ran without a transaction, so nothing was rolled back: undo what it left, such as an invalid index, then deploy again.`
+   ``...: put it in its own file, whose second line is `-- ultimabase no transaction` ``.
+
+   It runs under the advisory lock taken for its session and with no
+   `lock_timeout`: `create index concurrently` waits for running
+   transactions without blocking any, and one that fails leaves an invalid
+   index. A failure then reads
+   `It ran without a transaction, so nothing was rolled back: undo what it left, such as an invalid index, then deploy again.`
 
    A file the database refuses is rolled back, the files before it stay
    applied, and deploy names it with the database's reason:
@@ -4046,7 +4192,14 @@ index. A failure then reads`It ran without a transaction, so nothing was rolled 
      not call local, needs `reset --force`: `NODE_ENV` unset on a laptop
      holding a production `DATABASE_URL` would otherwise wipe it. A unix
      socket and an empty host are this machine; the adapter reads the host
-     as its driver does (amended 2026-10-24).
+     as its driver does (amended 2026-10-24). `postgres()` takes an unset `url`,
+     as `process.env.DATABASE_URL` may be, and refuses it when the app
+     starts, never while the config is imported (amended 2026-10-25).
+     Its drop waits 5 seconds at most for a table another session holds,
+     then drops nothing and prints
+     `UltimaBase did not reset the database: another session held a table.`,
+     the statement, the reason and the same advice as sync's (point 3;
+     amended 2026-10-25).
 
 8. The adapter contract (D-73) gains an optional `migrations` member, which
    the kernel's commands and `start` call; `memory()` has none, since it
@@ -4056,14 +4209,18 @@ index. A failure then reads`It ran without a transaction, so nothing was rolled 
    interface Migrations {
    	/** What this database makes of the models, JSON it validates on read. */
    	snapshot(schema: Schema): unknown
-   	/** The statements from one snapshot to another; none is an empty database. */
-   	plan(from: unknown, to: unknown): readonly Statement[]
+   	/** The statements from a snapshot, none for an empty database, to the
+   	 * models' one; a required field added takes its fixed `default` in the
+   	 * rows (point 3, amended 2026-10-25). */
+   	plan(from: unknown, schema: Schema): readonly Statement[]
    	/** The database's snapshot, and who wrote it. */
    	stored(): Promise<Stored | undefined>
    	/** Runs statements or files, each file in its transaction, then stores
    	 * `to`; throws `MigrationFailed` naming what the database refused. */
    	apply(run: Run): Promise<void>
-   	/** Drops every table; returns the models' ones it dropped. */
+   	/** Drops every table; returns the models' ones it dropped. A table
+   	 * another session holds throws a locked `MigrationFailed` (amended
+   	 * 2026-10-25). */
    	reset(): Promise<readonly string[]>
    	/** The database's host when it is not on this machine: `reset` then
    	 * needs `--force` (amended 2026-10-24). */
@@ -4073,6 +4230,9 @@ index. A failure then reads`It ran without a transaction, so nothing was rolled 
    	/** The statement's SQL, or the file's name. */
    	readonly at: string
    	readonly reason: string
+   	/** It waited past its limit for a table another session held, so the
+   	 * kernel says what to end, not what rows to fix (amended 2026-10-25). */
+   	readonly locked: boolean
    }
    interface Statement {
    	readonly sql: string
@@ -4147,6 +4307,11 @@ Limits:
   from nothing to `schema.json`, whose header lists the files it replaces,
   and deploy marks it applied on a database that applied them all. It waits
   for an application whose history needs it.
+- A tried change can still fail in production, on rows a development
+  database does not have; `migrate deploy` then stops at that file, its
+  transaction rolled back. `migrate deploy` on a restored dump tests it
+  first.
+- `reset` drops tables, not the types or functions a file created.
 
 Rejected:
 
@@ -4174,17 +4339,6 @@ Rejected:
 - Marking a development database, as Rails stores its environment: a dump
   of production restored for a test carries production's mark.
 - A command that runs arbitrary SQL: `psql` does it.
-
-Limits:
-
-- A change made by hand in SQL is invisible to both snapshots.
-- A tried change can still fail in production, on rows a development
-  database does not have; `migrate deploy` then stops at that file, its
-  transaction rolled back. `migrate deploy` on a restored dump tests it
-  first.
-- Each file runs in a transaction, so `create index concurrently` cannot be
-  written in one.
-- `reset` drops tables, not the types or functions a file created.
 
 Example:
 
@@ -4295,10 +4449,17 @@ Choice: completes D-27, D-49, D-59 and D-66.
    CORS never stops it. A request that is not `GET`, `HEAD` or `OPTIONS`,
    whose content type a form sends (form-urlencoded, multipart or
    `text/plain`; none counts as `text/plain`) and which carries a `Cookie`
-   header, is refused with `ACCESS_DENIED` (403) unless its
-   `Sec-Fetch-Site` is `same-origin` or its `Origin` is the server's own or
-   one `cors` allows. A request without cookies passes: it holds no session
-   to abuse, and a webhook sends none (amended 2026-10-24).
+   header, or an `Origin` or `Sec-Fetch-Site` header as every browser does,
+   is refused with `ACCESS_DENIED` (403), "A form from another origin is
+   refused.", unless its `Sec-Fetch-Site` is `same-origin` or its `Origin`
+   is the server's own or one `cors` allows; `Origin: null` is none of
+   them. Without cookies, another site's form would sign its visitor in to
+   the sender's account through a route that reads JSON from `text/plain`.
+   A webhook sends neither header, nor cookies, and passes (amended
+   2026-10-24, 2026-10-25).
+7. Every response that sets no `Cache-Control`, errors included, is sent
+   with `Cache-Control: no-store`; a route's own is kept (amended
+   2026-10-25).
 
 Why: Hono is a small router built on the web's `Request` and `Response`,
 whose context already carries typed variables, so a route reads the caller
@@ -4309,6 +4470,12 @@ hands it the request.
 subdomain's, which is the same site: point 6 covers it, and GraphQL refuses
 forms anyway (D-39). Hono's `csrf` middleware refuses a form without cookies
 too, so it breaks form webhooks (Twilio, Slack), and answers in plain text.
+A `GET` carries the session cookie, so its response may hold the caller's
+data, and a shared cache or the browser's would keep it for the next one
+(OWASP's advice). `no-store` rather than `private`: a browser's back button
+or disk would still hold a `private` response, and a route that knows its
+response is public says so, as
+`c.header('cache-control', 'public, max-age=60')`.
 Rejected: a `defineRoute` wrapper (D-27); the caller as a function argument
 (`(c, caller) => …`), which is not Hono's shape; test helpers, since Hono's
 `routes().request(…)` and a server on port 0 already test a route; the API
@@ -4432,7 +4599,9 @@ startsWith, endsWith }`, `is`/`isNot`, `some`/`every`/`none`,
 8. Errors follow D-106: a `PublicError` gives `extensions: { code, details }`;
    any other error gives `Internal error.` with `extensions: { code:
 'INTERNAL', correlationId }`, logged with the same `correlationId`. HTTP
-   statuses are `graphql-http`'s.
+   statuses are `graphql-http`'s. An error graphql-js gives for a value it
+   refuses names the reason, never the value, which may be a password: its
+   `found: …` part is dropped (amended 2026-10-25).
 9. Outside production, `GET /graphql` from a browser serves GraphiQL 5,
    loaded from esm.sh at pinned versions. `extend: (schema) => schema`
    replaces the generated `GraphQLSchema` with one built from it (D-45).
@@ -4943,7 +5112,7 @@ selects that the caller reads, and returns `{ count }`, as in Prisma. Without
    no row matching is `{ count: 0 }`, not `NOT_FOUND`.
 3. When no rule applies and nothing in the reach runs code, it is one write
    (D-102): its `where` is the root filter, and the count comes from the rows
-   the write reads as they were. Otherwise the rows are loaded locked in the
+   its delete removed (D-104, amended 2026-10-25). Otherwise the rows are loaded locked in the
    write's transaction, as a delete's reach is (D-90): BEGIN, one read, one
    write, COMMIT when nothing else runs.
 4. It is server code: neither `graphqlPlugin()` nor `httpPlugin()` exposes
@@ -4955,10 +5124,7 @@ of a deleted user (D-110), and a loop of `findMany` and `delete` costs one
 query per row and loses the one-write case. The kernel already deletes many
 rows per call through cascades, with the hooks and the trash per row, so
 `deleteMany` adds an entry point, not a pipeline.
-Limit: a user's `deleteMany` locks its rows, where a user's `delete` reads
-its row without a lock and checks it unchanged (D-104): the check of every
-row would grow with the count. The one-write case reads the deleted rows to
-count them.
+Limit: the one-write case counts the rows its delete removed (D-104).
 Rejected: a batch hook that receives every row at once, which a plugin
 written for `delete` would miss; skipping rules and hooks in bulk, against
 D-48; deleting the rows the rule allows and leaving the others, which hides a
@@ -5557,4 +5723,104 @@ mutation {
 mutation {
 	sendVerificationEmail
 }
+```
+
+## D-118: Packages publish compiled JavaScript
+
+Choice: completes D-60.
+
+1. A package's `exports` and `bin` name `./src/*.ts` in the repository, which
+   Node runs and Vitest and TypeScript read. Its `publishConfig` names
+   `./dist/*.js` instead: `yarn pack` and `yarn npm publish` write it into
+   the published manifest.
+2. Its `prepack` script deletes `dist` and compiles `src` with `tsc`, from
+   its `tsconfig.build.json`, which extends the root's: `.js` files and
+   their declarations, without the tests. `rewriteRelativeImportExtensions`
+   turns `./x.ts` into `./x.js` in the JavaScript; the declarations keep
+   `./x.ts`, which a consumer resolves without any option. `dist` is never
+   committed.
+3. A package publishes `dist` and `src` without its tests: the declaration
+   maps lead an editor's "go to definition" to the source. No JavaScript
+   source maps.
+4. `yarn test:packed` packs every package, installs the packs with npm in an
+   empty directory, imports each one, typechecks the example's code against
+   the published declarations, runs the installed `ultimabase --help`, and
+   starts the example to sign a user up. CI runs it on every change, outside
+   `yarn validate`: it needs the registry for the other dependencies.
+
+Why: Node strips no types under `node_modules`, so a package that exports
+`.ts` fails once installed with `ERR_UNSUPPORTED_NODE_MODULES_TYPE_STRIPPING`.
+The workspace's links resolve outside `node_modules`, which hides it: only
+an install from a pack shows it. Compiling at pack time keeps the repository
+free of a build step, and `tsc` is already the type checker; it builds a
+package in under a second.
+Rejected: a build step for development, or `dist` in the repository; a
+bundler, which the packages do not need; asking applications to run their
+dependencies through a loader; `.d.ts` files rewritten to `.js`, since
+TypeScript reads `./x.ts` in a declaration.
+Example:
+
+```sh
+# Before: in an application, after `npm install ultimabase`
+$ node app.ts
+Error [ERR_UNSUPPORTED_NODE_MODULES_TYPE_STRIPPING]: Stripping types is
+currently unsupported for files under node_modules, for
+".../node_modules/ultimabase/src/index.ts"
+
+# After: the application starts and logs "Listening on http://localhost:3000."
+$ node app.ts
+```
+
+## D-119: `Refused`, the error a command prints without its stack
+
+Choice: completes D-105 point 1.
+
+1. The kernel exports `Refused`, an `Error` named `Refused` that takes what
+   `Error` takes. It says the message alone tells what is wrong and how to
+   fix it, so a command prints it without a stack (D-105).
+2. The kernel, its plugins and its adapters throw it for a configuration
+   they refuse while the application is defined or starts, when the message
+   names what it refuses: two models named alike, a plugin that requires one
+   not listed, an unset url, a server too old, a short master key. A
+   community plugin throws it for its own options.
+3. An `Error` stays for the rest, whose stack is what locates it: an
+   invariant that broke (`Unknown model Book.`), a call at the wrong time
+   (`postgres() is not started.`), stored data that is not what the code
+   wrote, and a refusal whose message names nothing
+   (`definePlugin takes a name.`), which the stack points to in the
+   developer's file.
+
+Why: the first errors an application meets are its configuration's, and a
+stack into the kernel reads as a crash of the kernel. A `code` cannot mark
+them: a refusal never reaches a client, and the codes of D-72 are the
+client's. A plugin needs the same way to refuse its options, so the class
+is public.
+Rejected: one class per package, which the command would have to know
+each of; a `code` such as `INVALID_CONFIG`; printing every message without
+a stack, which hides a bug's.
+Example:
+
+```ts
+// Before: a plugin's check
+if (options.proxies < 0)
+	throw new Error(
+		'proxies is -1, not a whole number of proxies in front of the server.',
+	)
+// After
+import { Refused } from 'ultimabase'
+if (options.proxies < 0)
+	throw new Refused(
+		'proxies is -1, not a whole number of proxies in front of the server.',
+	)
+```
+
+```sh
+# Before
+$ npx ultimabase sync
+Error: postgres() was given no url: is the variable it reads set?
+    at Object.start (.../postgres/src/adapter.ts:135:11)
+    ...
+# After
+$ npx ultimabase sync
+postgres() was given no url: is the variable it reads set?
 ```

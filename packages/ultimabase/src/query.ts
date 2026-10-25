@@ -94,8 +94,16 @@ export type UniqueWhere<F, X = never> =
 	| IndexTarget<F, X>
 
 type Direction = 'asc' | 'desc'
+/** A json field is not sorted: each database orders json its own way (D-94). */
+type SortedKeys<F> = {
+	[K in ScalarKeys<F>]: F[K] extends {
+		readonly [fieldType]: { readonly json: true }
+	}
+		? never
+		: K
+}[ScalarKeys<F>]
 export type OrderBy<F> = {
-	readonly [K in ScalarKeys<F> | keyof SystemFields]?: Direction | undefined
+	readonly [K in SortedKeys<F> | keyof SystemFields]?: Direction | undefined
 }
 
 type RelationArgs<X> = {

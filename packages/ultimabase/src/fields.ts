@@ -243,14 +243,23 @@ type Written<V, O> = O extends { readonly optional: true } ? V | null : V
  * schema transforms (D-23). `P` names the plugin that provides the field
  * type (D-32); `T` is the types of the plugins the model uses, whose field
  * rules `.with` takes. Rules judge what the caller sent (D-67): they see `I`.
+ * `J` marks a `json` field, which cannot be sorted (D-94).
  */
-export interface Field<V, O, P extends string = never, T = never, I = V> {
+export interface Field<
+	V,
+	O,
+	P extends string = never,
+	T = never,
+	I = V,
+	J extends boolean = false,
+> {
 	readonly [fieldType]: {
 		readonly kind: 'scalar'
 		readonly value: V
 		readonly input: I
 		readonly options: O
 		readonly plugin?: P
+		readonly json: J
 	}
 	/**
 	 * `.with({ ... })` types `value` and `record.id`;
@@ -263,8 +272,8 @@ export interface Field<V, O, P extends string = never, T = never, I = V> {
 		rules: [keyof R] extends [never]
 			? never
 			: FieldWith<NoInfer<R>, Written<I, O>, T>,
-	): Field<V, O, P, never, I> & Declared<R>
-	with(rules: FieldWith<never, Written<I, O>, T>): Field<V, O, P, never, I>
+	): Field<V, O, P, never, I, J> & Declared<R>
+	with(rules: FieldWith<never, Written<I, O>, T>): Field<V, O, P, never, I, J>
 }
 
 export type RelationValue = { readonly id: string }
@@ -329,7 +338,7 @@ export interface FieldBuilders<T> {
 	 */
 	readonly json: <const O extends JsonOptions = JsonOptions>(
 		options?: O & NoInfer<JsonCheck<O>>,
-	) => Field<JsonOutput<O>, O, never, T, JsonInput<O>>
+	) => Field<JsonOutput<O>, O, never, T, JsonInput<O>, true>
 	readonly enumOf: <
 		const E extends string,
 		const O extends ScalarOptions<E> = ScalarOptions<E>,

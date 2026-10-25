@@ -159,7 +159,7 @@ export async function setPassword(
 	if (stored === null) {
 		throw new PublicError(
 			'NOT_FOUND',
-			`User ${userId} has no password: sign it up with signUp (D-113).`,
+			`User ${userId} has no password: sign it up with signUp.`,
 		)
 	}
 	const hash = await hashPassword(password)

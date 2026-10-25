@@ -2,12 +2,13 @@
 // data sent, defaults, validation, `before*` hooks, the required check, the
 // write, which a plugin's `redirect` may replace (D-89), `after*` hooks; the
 // `*Commit` hooks once it commits (D-71, D-88). The row a write decides from
-// is read without a lock and checked unchanged when nothing runs before the
-// check, else locked (D-99, D-104).
+// is locked; a write that loads none answers from the rows it changed (D-99,
+// D-104).
 import { and, recordOf } from './access.ts'
 import type { Change, Filter, Nested, Row } from './adapter.ts'
 import type { Cascade } from './cascade.ts'
 import { cascadeOf, cascadeWhere } from './cascade.ts'
+import { PublicError } from './errors.ts'
 import type { Event } from './hooks.ts'
 import { redirectOf, rereads, runHook, settle, settles } from './hooks.ts'
 import type { Context } from './query-context.ts'
@@ -19,15 +20,9 @@ import { planned } from './scope.ts'
 import type { Commit, Store } from './transaction.ts'
 import type { Draft } from './write-data.ts'
 import { prepared, readData } from './write-data.ts'
-import type { Checked, Plan, Step, Writing } from './write-plan.ts'
+import type { Checked, Plan, Writing } from './write-plan.ts'
 import { moved, updated } from './write-plan.ts'
-import {
-	guarded,
-	Stale,
-	target,
-	transacted,
-	unchanged,
-} from './write-target.ts'
+import { guarded, target } from './write-target.ts'
 
 /** The shape a single-row write returns. */
 async function returned(
@@ -120,6 +115,8 @@ async function targets(
 	)
 }
 
+const missing = (model: string): string => `No ${model} matches.`
+
 /** The `id` a unique `where` gives, if any. */
 function idOf(where: unknown): string | undefined {
 	if (typeof where !== 'object' || where === null || !('id' in where)) {
@@ -128,21 +125,13 @@ function idOf(where: unknown): string | undefined {
 	return typeof where.id === 'string' ? where.id : undefined
 }
 
-/** What `updating` returns when its row changed: the update starts over. */
-const stale = Symbol('stale')
-
-/**
- * Updates `row` as the rules allow, from its data read anew. With `where`,
- * the row was read without a lock: the write checks it unchanged, and a
- * relation write reaching update hooks starts over locked (D-104).
- */
+/** Updates the locked `row` as the rules allow. */
 async function updating(
 	context: Context,
 	store: Store,
 	commits: Commit[],
 	found: ReadonlyMap<string, unknown>,
 	at: { readonly row: Row; readonly read: Nested; readonly shape: Shape },
-	where?: Filter,
 ): Promise<unknown> {
 	const { models, model, caller, scope } = context
 	const { row, read, shape } = at
@@ -153,25 +142,11 @@ async function updating(
 	const record = recordOf(model, row)
 	await runHook(model, 'beforeUpdate', { caller, record, data: draft })
 	const steps = await updatePlan(models, model, row.id, draft, sent, store)
-	if (where !== undefined && steps.steps.some((step) => hooked(context, step)))
-		return stale
 	const events: Event[] = [
 		{ model, operation: 'update', id: row.id, before: row },
 	]
-	const checks = where === undefined ? [] : [unchanged(model, where, row)]
 	const to = { id: row.id, read, shape }
-	try {
-		return await written(context, store, commits, steps, events, to, checks)
-	} catch (error) {
-		if (error instanceof Stale) return stale
-		throw error
-	}
-}
-
-/** Whether a step writes a relation from a side with update hooks. */
-function hooked(context: Context, step: Step): boolean {
-	const side = step.kind === 'move' ? context.models.get(step.model) : undefined
-	return side !== undefined && updated(side)
+	return written(context, store, commits, steps, events, to)
 }
 
 export async function update(
@@ -198,24 +173,15 @@ export async function update(
 		await prepared(model, draft, caller, false)
 		const steps = await updatePlan(models, model, id, draft, sent, store)
 		const check = { model: model.name, where, count: 1 }
-		const message = `No ${model.name} matches.`
+		const message = missing(model.name)
 		const at = { id, read, shape }
-		return written(context, store, commits, steps, [], at, [{ check, message }])
+		const checks = [{ check, message }]
+		const result = await written(context, store, commits, steps, [], at, checks)
+		// The row went between the write's check and its change (D-104).
+		if (result === null) throw new PublicError('NOT_FOUND', message)
+		return result
 	}
-	const { ahead } = store
-	if (ahead !== undefined && !updated(model)) {
-		const row = await target(context, ahead, where, false)
-		const result = await updating(
-			context,
-			store,
-			commits,
-			found,
-			{ row, read, shape },
-			where,
-		)
-		if (result !== stale) return result
-	}
-	const row = await target(context, transacted(store), where, true)
+	const row = await target(context, store, where)
 	return updating(context, store, commits, found, { row, read, shape })
 }
 
@@ -266,9 +232,9 @@ export async function remove(
 	const reach = cascadeWhere(models, model, where)
 	if (reach !== undefined && scope.access === undefined) {
 		// Nothing needs the stored row: a check stands for its read, and the
-		// write returns it as it was (D-102).
+		// write returns it as its delete removed it (D-102, D-104).
 		const check = { model: model.name, where, count: 1 }
-		const checks: Checked[] = [{ check, message: `No ${model.name} matches.` }]
+		const checks: Checked[] = [{ check, message: missing(model.name) }]
 		checks.push(...reach.checks)
 		const read = { model: model.name, where, take: 1 }
 		const rows = await guarded(
@@ -280,26 +246,12 @@ export async function remove(
 			}),
 			checks,
 		)
+		// Another transaction removed it meanwhile (D-104).
+		if (rows.length === 0)
+			throw new PublicError('NOT_FOUND', missing(model.name))
 		return first(rows, shape, undefined)
 	}
-	const { ahead } = store
-	if (reach !== undefined && ahead !== undefined) {
-		// The rules decide from a row read without a lock (D-104).
-		const row = await target(context, ahead, where, false)
-		scope.access?.allow(model, 'delete', { record: row })
-		const checks = [unchanged(model, where, row), ...reach.checks]
-		const write = {
-			checks: checks.map(({ check }) => check),
-			changes: reach.changes,
-		}
-		try {
-			await guarded(store.last(write), checks)
-			return project(row, shape, hiddenBy(scope.access))
-		} catch (error) {
-			if (!(error instanceof Stale)) throw error
-		}
-	}
-	const row = await target(context, transacted(store), where, true)
+	const row = await target(context, store, where)
 	scope.access?.allow(model, 'delete', { record: row })
 	const locked = cascadeWhere(models, model, byId(row.id))
 	if (locked !== undefined) {

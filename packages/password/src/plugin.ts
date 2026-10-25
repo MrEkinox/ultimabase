@@ -14,7 +14,13 @@ import type {
 	UseOf,
 	UserOf,
 } from 'ultimabase'
-import { definePlugin, isMaster, master, PublicError } from 'ultimabase'
+import {
+	definePlugin,
+	isMaster,
+	master,
+	PublicError,
+	Refused,
+} from 'ultimabase'
 import manifest from '../package.json' with { type: 'json' }
 import type { SignedIn, State } from './core.ts'
 import {
@@ -110,13 +116,13 @@ function usersOf(models: readonly ExposedModel[]): ExposedModel {
 	const users = models.filter(({ queries }) => using.has(queries.create))
 	const [first, second] = users
 	if (first === undefined) {
-		throw new Error(
-			'passwordPlugin() needs the user model to list it: add `use: [password()]` to defineUser (D-113).',
+		throw new Refused(
+			'passwordPlugin() needs the user model to list it: add `use: [password()]` to defineUser.',
 		)
 	}
 	if (second !== undefined) {
-		throw new Error(
-			`${first.schema.name} and ${second.schema.name} both use password(): only the user model does (D-113).`,
+		throw new Refused(
+			`${first.schema.name} and ${second.schema.name} both use password(): only the user model does.`,
 		)
 	}
 	return first
@@ -142,8 +148,8 @@ function signUpFields(
 	for (const field of listed) {
 		const found = fields.find((each) => each.name === field)
 		if (found === undefined || reserved.has(field)) {
-			throw new Error(
-				`${where}: ${name}.${field} is not a field sign-up may take (D-113).`,
+			throw new Refused(
+				`${where}: ${name}.${field} is not a field sign-up may take.`,
 			)
 		}
 		properties.set(
@@ -153,8 +159,8 @@ function signUpFields(
 	}
 	const missing = users.required.filter((field) => !properties.has(field))
 	if (missing.length > 0) {
-		throw new Error(
-			`${where}: ${name} needs ${missing.join(', ')} to be created; list them (D-113).`,
+		throw new Refused(
+			`${where}: ${name} needs ${missing.join(', ')} to be created; list them.`,
 		)
 	}
 	return properties
@@ -164,7 +170,7 @@ function signUpFields(
 function signUpData(state: State, data: object, caller: Caller): object {
 	if (isMaster(caller)) return data
 	if (state.signUp === false) {
-		throw new PublicError('ACCESS_DENIED', 'Sign-up is closed (D-113).')
+		throw new PublicError('ACCESS_DENIED', 'Sign-up is closed.')
 	}
 	const { signUp } = state
 	const issues = Object.keys(data)
@@ -251,7 +257,7 @@ const definition = definePlugin<Password>({
 				if (!self && !isMaster(caller)) {
 					throw new PublicError(
 						'ACCESS_DENIED',
-						'User.setPassword runs as Master or as the user (D-113).',
+						'User.setPassword runs as Master or as the user.',
 					)
 				}
 				const state = stateOf(plugins.auth)

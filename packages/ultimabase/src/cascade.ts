@@ -1,7 +1,7 @@
 // What a `delete` does to the rows that reference the row it deletes
 // (D-54, D-90): `cascade` deletes them, `setNull` empties their key,
 // `restrict` refuses the delete.
-import type { Change, Filter, Row } from './adapter.ts'
+import type { Change, Condition, Filter, Row } from './adapter.ts'
 import { PublicError } from './errors.ts'
 import { hasHook, redirectOf } from './hooks.ts'
 import type { Models } from './query-where.ts'
@@ -117,7 +117,7 @@ export async function cascadeOf(
 		if (!stays(from, id)) continue
 		throw new PublicError(
 			'RELATION_RESTRICTED',
-			`${from.name}.${field} references a ${to} the delete removes (D-54).`,
+			`${from.name}.${field} references a ${to} the delete removes.`,
 			{ details: { model: from.name, field } },
 		)
 	}
@@ -146,11 +146,72 @@ const anyOf = (filters: readonly Filter[]): Filter =>
 		? filters[0]
 		: { OR: filters }
 
+type Filtered = Extract<Change, { readonly where: Filter }>
+
+function named(models: Models, name: string): ModelInfo {
+	const model = models.get(name)
+	if (model === undefined) throw new Error(`Unknown model ${name}.`)
+	return model
+}
+
+const isCondition = (value: Filter[string]): value is Condition =>
+	value !== undefined && !Array.isArray(value)
+
+/**
+ * What a filter on `model` reads: `Model` for its rows, `Model.field` for a
+ * value or a key.
+ */
+function readsOf(
+	models: Models,
+	model: ModelInfo,
+	where: Filter,
+	reads: Set<string>,
+): Set<string> {
+	reads.add(model.name)
+	for (const each of [...(where.AND ?? []), ...(where.OR ?? [])]) {
+		readsOf(models, model, each, reads)
+	}
+	for (const each of where.NOT ?? []) readsOf(models, model, each, reads)
+	for (const [name, condition] of Object.entries(where)) {
+		if (!isCondition(condition)) continue
+		reads.add(`${model.name}.${name}`)
+		const field = model.fields.get(name)
+		if (field?.kind !== 'one' && field?.kind !== 'many') continue
+		const target = named(models, field.target)
+		reads.add(target.name).add(`${target.name}.${field.inverse}`)
+		const { is, isNot, some, every, none } = condition
+		for (const inner of [is, isNot, some, every, none]) {
+			if (inner !== undefined && inner !== null) {
+				readsOf(models, target, inner, reads)
+			}
+		}
+	}
+	return reads
+}
+
+/** Whether a change filters on what a change before it wrote. */
+function overlaps(models: Models, changes: readonly Filtered[]): boolean {
+	const written = new Set<string>()
+	for (const change of changes) {
+		const model = named(models, change.model)
+		const reads = readsOf(models, model, change.where, new Set())
+		if ([...reads].some((read) => written.has(read))) return true
+		if (change.kind === 'delete') written.add(change.model)
+		else {
+			for (const field of Object.keys(change.set)) {
+				written.add(`${change.model}.${field}`)
+			}
+		}
+	}
+	return false
+}
+
 /**
  * The changes and checks of a delete whose reach runs no code: each level is
  * a filter from the rows `where` selects, so no row is loaded (D-102).
  * `undefined` when a reached model has delete hooks or a redirect, a
- * `setNull` one update hooks, or a cascade comes back to a model it left.
+ * `setNull` one update hooks, a cascade comes back to a model it left, or a
+ * change filters on rows a change before it deleted or emptied.
  */
 export function cascadeWhere(
 	models: Models,
@@ -219,11 +280,11 @@ export function cascadeWhere(
 				where: left(group.model, group.filters),
 				count: 0,
 			},
-			message: `${group.model.name}.${group.field} references a ${group.to} the delete removes (D-54).`,
+			message: `${group.model.name}.${group.field} references a ${group.to} the delete removes.`,
 			restricted: { model: group.model.name, field: group.field },
 		}))
 	// Each change filters on the rows the changes after it remove.
-	const changes: Change[] = [
+	const changes: Filtered[] = [
 		...groups
 			.filter((group) => !group.restricts)
 			.map((group) => ({
@@ -240,5 +301,6 @@ export function cascadeWhere(
 				where: anyOf(filters),
 			})),
 	]
-	return { changes, checks }
+	// Deleting a shop whose aisle matches deletes the aisle first (D-102).
+	return overlaps(models, changes) ? undefined : { changes, checks }
 }

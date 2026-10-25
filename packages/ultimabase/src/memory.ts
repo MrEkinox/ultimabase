@@ -7,6 +7,7 @@ import type {
 	CountRead,
 	Read,
 	Row,
+	ScalarType,
 	Schema,
 	SchemaField,
 	Transaction,
@@ -30,12 +31,17 @@ function clone(store: Store): Store {
 	}
 }
 
-function stored(value: { readonly [field: string]: unknown }): {
-	[field: string]: unknown
-} {
-	return Object.fromEntries(
-		Object.entries(value).map(([key, item]) => [key, copy(item)]),
-	)
+/**
+ * A value as PostgreSQL gives it back: `-0` is `0`, which `pg` sends for a
+ * number, and JSON text for json (D-94).
+ */
+function storedAs(type: ScalarType | undefined, value: unknown): unknown {
+	if (type === 'json') {
+		const parsed: unknown = JSON.parse(JSON.stringify(value))
+		return parsed
+	}
+	if (type === 'number' && value === 0) return 0
+	return copy(value)
 }
 
 function keyOf(values: readonly unknown[]): string {
@@ -77,7 +83,9 @@ class Draft {
 		if (read !== undefined && write.before === true) {
 			const rows = this.find(read)
 			this.change(write.changes)
-			return rows
+			// The rows the write's delete removed, as they were (D-104).
+			const table = this.reader.table(read.model)
+			return rows.filter((row) => !table.has(row.id))
 		}
 		this.change(write.changes)
 		return read === undefined ? [] : this.find(read)
@@ -99,6 +107,19 @@ class Draft {
 		)
 	}
 
+	private stored(
+		model: string,
+		value: { readonly [field: string]: unknown },
+	): { [field: string]: unknown } {
+		return Object.fromEntries(
+			Object.entries(value).map(([key, item]) => {
+				const field = this.reader.field(model, key)
+				const type = field?.kind === 'scalar' ? field.type : undefined
+				return [key, storedAs(type, item)]
+			}),
+		)
+	}
+
 	private apply(change: Change): void {
 		const table = this.reader.table(change.model)
 		switch (change.kind) {
@@ -106,12 +127,19 @@ class Draft {
 				if (table.has(change.row.id)) {
 					throw new UniqueViolation(change.model, ['id'])
 				}
-				table.set(change.row.id, { ...stored(change.row), id: change.row.id })
+				table.set(change.row.id, {
+					...this.stored(change.model, change.row),
+					id: change.row.id,
+				})
 				return
 			}
 			case 'update': {
 				for (const row of this.matching(change.model, change)) {
-					table.set(row.id, { ...row, ...stored(change.set), id: row.id })
+					table.set(row.id, {
+						...row,
+						...this.stored(change.model, change.set),
+						id: row.id,
+					})
 				}
 				return
 			}
