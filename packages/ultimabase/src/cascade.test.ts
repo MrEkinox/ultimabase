@@ -510,7 +510,9 @@ describe('restrict', () => {
 })
 
 describe('a redirected row', () => {
-	it('is redirected in a cascade, and cascades nothing', async () => {
+	it('is deleted in a cascade, trashed or not, with its children', async () => {
+		const old = await Note.create({ data: { text: 'old', author: by(ada) } }, M)
+		await Note.delete({ where: { id: old.id } }, M)
 		const note = await Note.create(
 			{ data: { text: 'draft', author: by(ada) } },
 			M,
@@ -518,16 +520,18 @@ describe('a redirected row', () => {
 		await Reply.create({ data: { text: 'ok', note: by(note.id) } }, M)
 		log.length = 0
 		await User.delete({ where: { id: ada } }, M)
+		// No row keeps a key to the deleted user, so no redirect runs (D-90).
 		expect(log).toStrictEqual([
 			'Note beforeDelete draft',
+			'Note beforeDelete old',
 			'User beforeDelete ada',
-			'redirect',
 			'Note afterDelete draft',
+			'Note afterDelete old',
 			'User afterDelete ada',
 			'User afterDeleteCommit ada',
 		])
-		expect(await Note.trash.findMany({}, M)).toMatchObject([{ text: 'draft' }])
-		expect(await Reply.findMany({}, M)).toMatchObject([{ text: 'ok' }])
+		expect(await Note.trash.findMany({}, M)).toStrictEqual([])
+		expect(await Reply.findMany({}, M)).toStrictEqual([])
 	})
 
 	it('cascades nothing when deleted directly', async () => {

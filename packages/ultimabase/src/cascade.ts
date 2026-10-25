@@ -99,11 +99,11 @@ export async function cascadeOf(
 						group.rows.push(found)
 						nulled.set(key, group)
 					} else if (!deleted.has(keyOf(from, found.id))) {
-						const redirected = redirectOf(from) !== undefined
-						const doomed = { model: from, row: found, redirected }
+						// Not redirected: a row that stayed would keep a key to a
+						// deleted one (D-90).
+						const doomed = { model: from, row: found, redirected: false }
 						deleted.set(keyOf(from, found.id), doomed)
-						// A redirected row stays: its children keep their key.
-						if (!redirected) next.push(doomed)
+						next.push(doomed)
 					}
 				}
 			}
@@ -112,7 +112,7 @@ export async function cascadeOf(
 	}
 	// A row the cascade removes no longer references anything.
 	const stays = (from: ModelInfo, id: string): boolean =>
-		deleted.get(keyOf(from, id))?.redirected !== false
+		!deleted.has(keyOf(from, id))
 	for (const { model: from, field, id, to } of restricted) {
 		if (!stays(from, id)) continue
 		throw new PublicError(

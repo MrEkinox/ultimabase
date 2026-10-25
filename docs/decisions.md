@@ -2919,9 +2919,10 @@ Choice: seven details of D-54 at run time.
    moves (D-88): `beforeUpdate` with `data` holding the relation as
    `{ disconnect: true }`, to which the hook may add fields; its `updatedAt`
    moves. A row also deleted by the cascade is only deleted.
-4. A cascaded row whose model has a `redirect` (D-89) is redirected as a
-   direct delete: its row stays, so the cascade does not go past it. A
-   redirected row deleted directly cascades nothing.
+4. A cascaded row is deleted, even when its model has a `redirect` (D-89),
+   and the cascade goes past it; the rows `beforeFind` hides, a soft-deleted
+   row included, are deleted too. A redirected row deleted directly is
+   redirected and cascades nothing (amended 2026-10-25).
 5. Hook order: the `beforeUpdate` of the `setNull` rows, the `beforeDelete`
    of the deleted rows, the deepest first and the row the caller deletes
    last, then the redirects, then one write holding every `setNull` and
@@ -2943,7 +2944,10 @@ Why:
 3. A search index, an audit log or `updatedAt` must see the change, or an
    index keeps showing a deleted author. D-88 already writes a moved row
    this way.
-4. The redirected row still exists, so its own children keep a valid key.
+4. A cascaded row that stayed would keep a key to the deleted row: a
+   foreign key refuses it, and a store without one keeps a key to nothing.
+   `cascade` asks for the rows to go with their target; keeping them means
+   redirecting the target's delete too (amended 2026-10-25).
 5. A child's `afterDelete` still finds its parent's record in the facts it
    receives, and one write keeps the delete atomic and D-48's statement
    count.
@@ -2954,6 +2958,9 @@ Rejected:
 
 - a `setNull` written without hooks;
 - `restrict` checked after the hooks;
+- a cascaded row redirected, which keeps a key to the deleted row, or a
+  redirected model refusing the delete as `restrict` does (amended
+  2026-10-25);
 - cascades that skip rows `beforeFind` hides;
 - one write per level.
 
