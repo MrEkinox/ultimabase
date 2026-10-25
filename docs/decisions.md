@@ -3167,8 +3167,9 @@ The details every adapter follows, checked by the suite (amended
   id, a text operand or a json string or key with a NUL or a lone surrogate,
   and a date outside years 1 to 9999 in UTC. A write fails with
   `VALIDATION_FAILED`, a filter or a `connect` with `INVALID_QUERY`.
-- `-0` equals `0` in a filter, in a number or in json, and in a unique field
-  (amended 2026-10-25).
+- `-0` equals `0` in a filter, in a number or in json, and in a unique field,
+  and is read back as `0` in both (amended 2026-10-25): `pg` sends a number
+  as text, and JSON text has no `-0`.
 - A json field cannot be sorted: `orderBy: { meta: 'asc' }` fails typing
   (amended 2026-10-25) and, for JavaScript and casts, with `INVALID_QUERY`;
   GraphQL's `OrderByInput` has no json field. Each
@@ -3185,6 +3186,8 @@ row comes back different from what was written.
 
 Limit (amended 2026-10-24): a json object comes back with its keys in the
 order its database keeps, sorted in PostgreSQL; its content is unchanged.
+`toEqual` ignores that order; only a test of the JSON text sees it, which
+no adapter can fix (amended 2026-10-25).
 
 Limit: how an adapter makes other writes wait during a transaction is its
 own (memory takes a lock, PostgreSQL row locks); the suite checks only that

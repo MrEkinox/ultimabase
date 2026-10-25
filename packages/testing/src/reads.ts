@@ -187,8 +187,8 @@ export function reads(create: () => Adapter): void {
 			).toEqual(['Engines'])
 		})
 
-		it('takes -0 for 0, in a number and in json, as PostgreSQL does', async () => {
-			await Book.create(
+		it('takes -0 for 0 and gives it back as 0, in a number and in json, as PostgreSQL does', async () => {
+			const { id } = await Book.create(
 				{
 					data: {
 						title: 'Zero',
@@ -218,6 +218,17 @@ export function reads(create: () => Adapter): void {
 			expect(
 				await titles({ meta: { equals: { kind: 'book', rank: -0 } } }),
 			).toEqual(['Analysis'])
+			// It comes back as 0, in json as in a number.
+			const read = { where: { id }, select: { pages: true, meta: true } }
+			expect(await Book.findUnique(read, M)).toStrictEqual({
+				pages: 0,
+				meta: { rank: 0, list: [0, 1] },
+			})
+			await Book.update({ where: { id }, data: { meta: -0 } }, M)
+			expect(await Book.findUnique(read, M)).toStrictEqual({
+				pages: 0,
+				meta: 0,
+			})
 		})
 
 		it('treats null as a value, and as unknown in a comparison', async () => {
