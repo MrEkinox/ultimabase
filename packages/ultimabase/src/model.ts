@@ -152,12 +152,17 @@ export type RecordCheck<F> = {
 		: unknown
 }
 
-/** The plugins that provide the model's field types (D-32). */
+/**
+ * The plugins that provide the model's field types (D-32). Without
+ * `exactOptionalPropertyTypes`, a field no plugin provides reads `undefined`.
+ */
 export type FieldTypePlugins<F> = {
 	[K in keyof F]: F[K] extends {
-		readonly [fieldType]: { readonly plugin?: infer P extends string }
+		readonly [fieldType]: { readonly plugin?: infer P }
 	}
-		? P
+		? P extends string
+			? P
+			: never
 		: never
 }[keyof F]
 

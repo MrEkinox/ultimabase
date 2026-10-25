@@ -1,0 +1,9 @@
+{
+	// The prototype again, with the options most applications have: `strict`
+	// without the stricter checks UltimaBase's own code turns on.
+	"extends": "./tsconfig.json",
+	"compilerOptions": {
+		"exactOptionalPropertyTypes": false,
+		"noUncheckedIndexedAccess": false
+	}
+}

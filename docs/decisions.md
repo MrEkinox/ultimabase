@@ -3343,6 +3343,10 @@ way an application does and keeps stand-ins only for what later phases build.
 3. The prototype is its own TypeScript project (`bench/typing/tsconfig.json`).
    Its `Register` (D-62) declares a user model; in the root project it also
    reached the packages' tests, which act as a user without one.
+   `bench/typing/tsconfig.loose.json` checks it again with
+   `exactOptionalPropertyTypes` and `noUncheckedIndexedAccess` off, as most
+   applications have them, so the types hold there too; `strict` stays
+   required (amended 2026-10-25).
 4. `asUser(user)` (D-80) takes the record `caller.user` has: the registered
    user model's, or `{ id }` without one. It returns a frozen user caller.
    The kernel and soft delete take `@ultimabase/testing` as a devDependency;
