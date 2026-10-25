@@ -3,8 +3,10 @@
 // leaves, a reset's token and hourly counts, and requests that race.
 import { expect, it, vi } from 'vitest'
 import type { Email } from './index.ts'
+import { PublicError } from 'ultimabase'
 import {
 	hourly,
+	limited,
 	PasswordAttempt,
 	PasswordHash,
 	PasswordRequest,
@@ -23,6 +25,11 @@ import { PasswordToken } from './tokens.ts'
 const ada = { email: 'ada@example.com', password: 'correct horse' }
 const failed = (body: unknown): unknown =>
 	JSON.stringify(body).includes('INVALID_CREDENTIALS')
+// Each check runs while the others are counted, as a hash would.
+const mistyped = async () => {
+	await new Promise((resolve) => setTimeout(resolve, 50))
+	throw new PublicError('INVALID_CREDENTIALS', 'Wrong password.')
+}
 
 for (const url of urls) {
 	it(`signs up, limits and signs in on ${new URL(url).host}`, async () => {
@@ -44,8 +51,8 @@ for (const url of urls) {
 				const refused = await graphqlOf(running.url, signInQuery, wrong)
 				expect(failed(refused.body)).toBe(true)
 			}
-			const limited = await graphqlOf(running.url, signInQuery, { input: ada })
-			expect(JSON.stringify(limited.body)).toContain('"retryAfter":900')
+			const blocked = await graphqlOf(running.url, signInQuery, { input: ada })
+			expect(JSON.stringify(blocked.body)).toContain('"retryAfter":900')
 			vi.spyOn(Date, 'now').mockReturnValue(now + 15 * 60 * 1000)
 			const signed = await graphqlOf(running.url, signInQuery, { input: ada })
 			expect(JSON.stringify(signed.body)).toContain('"name":"Ada"')
@@ -117,6 +124,25 @@ for (const url of urls) {
 			)
 		} finally {
 			vi.restoreAllMocks()
+			await running.app.stop()
+		}
+	})
+
+	it(`lets no more than ten failed sign-ins through at once on ${new URL(url).host}`, async () => {
+		const running = await started(undefined, database(url))
+		try {
+			const attempt = { subject: 'ada', address: '192.0.2.1' }
+			const outcomes = await Promise.all(
+				Array.from({ length: 30 }, async () =>
+					limited(attempt, mistyped).catch((error: unknown) =>
+						error instanceof PublicError ? error.code : error,
+					),
+				),
+			)
+			const checked = outcomes.filter((code) => code === 'INVALID_CREDENTIALS')
+			expect(checked.length).toBeLessThanOrEqual(10)
+			expect(await PasswordAttempt.count({}, M)).toBe(checked.length)
+		} finally {
 			await running.app.stop()
 		}
 	})
