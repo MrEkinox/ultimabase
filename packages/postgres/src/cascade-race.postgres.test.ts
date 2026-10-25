@@ -146,6 +146,21 @@ for (const url of urls) {
 			expect(await Novel.count({}, M)).toBe(1)
 		})
 
+		it("a user's deleteMany: keeps the novels of a writer it did not delete", async () => {
+			const as = { as: asUser({ id: randomUUID() }) }
+			const writer = await Writer.create({ data: { code: 'c' } }, M)
+			await Novel.create(
+				{ data: { title: 't', writer: { connect: { id: writer.id } } } },
+				M,
+			)
+			const outcome = await raced(writer.id, async () =>
+				Writer.deleteMany({ where: { code: 'c' } }, as),
+			)
+			expect(outcome).toEqual({ count: 0 })
+			expect(await Writer.count({}, M)).toBe(1)
+			expect(await Novel.count({}, M)).toBe(1)
+		})
+
 		/** Moves the writer's novel to another, committed once `write` waits. */
 		async function moved(
 			write: (writer: string) => Promise<unknown>,
@@ -187,6 +202,16 @@ for (const url of urls) {
 				Writer.delete({ where: { id } }, as),
 			)
 			expect(outcome).toMatchObject({ code: 'c' })
+			expect(await Novel.count({}, M)).toBe(1)
+			expect(await Chapter.count({}, M)).toBe(1)
+		})
+
+		it("a user's deleteMany: keeps the chapters of a novel moved to another writer", async () => {
+			const as = { as: asUser({ id: randomUUID() }) }
+			const outcome = await moved(async (id) =>
+				Writer.deleteMany({ where: { id } }, as),
+			)
+			expect(outcome).toEqual({ count: 1 })
 			expect(await Novel.count({}, M)).toBe(1)
 			expect(await Chapter.count({}, M)).toBe(1)
 		})
