@@ -623,6 +623,34 @@ const Song = defineModel({
 	fields: (f) => ({ genre: f.one(() => Genre, { inverse: 'songs' }) }),
 })
 
+describe('a transaction whose connection the server ends', () => {
+	it('fails its commit, and leaves the process and stop() unharmed', async () => {
+		const url = urls[0] ?? ''
+		const name = `t_${randomUUID().replaceAll('-', '')}`
+		const adapter = createAdapter({ url: `${url}?application_name=${name}` })
+		await adapter.start({ models: [] })
+		const escaped: unknown[] = []
+		const listen = (error: unknown) => escaped.push(error)
+		process.on('uncaughtException', listen)
+		try {
+			const open = await adapter.begin()
+			// As a restart of the server: it waits for the backend to exit,
+			// then for its last message to reach the client.
+			await run(
+				url,
+				`select pg_terminate_backend(pid, 5000) from pg_stat_activity where application_name = '${name}'`,
+			)
+			await new Promise((resolve) => setTimeout(resolve, 100))
+			await expect(open.commit()).rejects.toThrow('connection error')
+			// Its connection went back to the pool, which no longer waits on it.
+			await adapter.stop()
+		} finally {
+			process.off('uncaughtException', listen)
+		}
+		expect(escaped).toEqual([])
+	})
+})
+
 describe('a write that races a delete on postgres()', () => {
 	const url = urls[0] ?? ''
 	let schema = ''

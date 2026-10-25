@@ -1,6 +1,10 @@
 // The PostgreSQL adapter (D-47): Kysely builds the statements, `pg` runs
 // them. `log` lets the tests count the statements (D-98).
-import type { LogEvent, QueryExecutorProvider } from 'kysely'
+import type {
+	LogEvent,
+	QueryExecutorProvider,
+	Transaction as Open,
+} from 'kysely'
 import { Kysely, PostgresDialect, sql } from 'kysely'
 import { Pool } from 'pg'
 import { CheckFailed } from 'ultimabase'
@@ -26,6 +30,9 @@ export type Options = {
 	readonly url: string | undefined
 	readonly log?: (event: LogEvent) => void
 }
+
+/** What the callback a rollback ends throws, which `rollback()` swallows. */
+const rolledBack = new Error('The transaction was rolled back.')
 
 async function find(
 	catalog: Catalog,
@@ -115,9 +122,12 @@ export function createAdapter(options: Options): Adapter {
 			// Refuses two things stored under one name before it connects.
 			snapshotOf(catalog)
 			const pool = new Pool({ connectionString: url })
-			// An idle connection the server ends would crash the process unheard:
-			// the pool drops it and the next query opens another.
+			// A connection the server ends would crash the process unheard. An
+			// idle one the pool drops, and the next query opens another; one a
+			// transaction holds fails its next statement, and the pool drops it
+			// once given back.
 			pool.on('error', () => undefined)
+			pool.on('connect', (client) => client.on('error', () => undefined))
 			const dialect = new PostgresDialect({ pool })
 			const db = new Kysely<object>({
 				dialect,
@@ -169,21 +179,39 @@ export function createAdapter(options: Options): Adapter {
 		},
 		begin: async (): Promise<Transaction> => {
 			const { catalog, db } = started()
-			const trx = await db.startTransaction().execute()
+			const opened = Promise.withResolvers<Open<object>>()
+			const ending = Promise.withResolvers<boolean>()
+			// Kysely gives the connection back however its transaction ends, a
+			// failed ROLLBACK included; a COMMIT that fails rolls back.
+			const ended = db.transaction().execute(async (trx) => {
+				opened.resolve(trx)
+				if (!(await ending.promise)) throw rolledBack
+			})
+			// A BEGIN that fails rejects `opened` too.
+			void ended.catch(opened.reject)
+			const trx = await opened.promise
+			const end = async (commit: boolean) => {
+				ending.resolve(commit)
+				await ended
+			}
 			return {
 				find: async (read) => find(catalog, trx, read),
 				count: async (read) => count(catalog, trx, read),
 				write: async (given) => write(catalog, trx, given),
 				commit: async () => {
 					try {
-						await trx.commit().execute()
+						await end(true)
 					} catch (error) {
-						// A failed COMMIT keeps its connection until a ROLLBACK frees it.
-						await trx.rollback().execute()
 						throw translate(catalog, error)
 					}
 				},
-				rollback: async () => trx.rollback().execute(),
+				rollback: async () => {
+					try {
+						await end(false)
+					} catch (error) {
+						if (error !== rolledBack) throw error
+					}
+				},
 			}
 		},
 	}
