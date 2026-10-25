@@ -23,7 +23,7 @@ import type { Statement } from './write.ts'
 import { compileWrite, translate } from './write.ts'
 
 export type Options = {
-	readonly url: string
+	readonly url: string | undefined
 	readonly log?: (event: LogEvent) => void
 }
 
@@ -97,7 +97,8 @@ export function requireVersion(version: string | undefined): void {
 }
 
 export function createAdapter(options: Options): Adapter {
-	const remote = remoteOf(options.url)
+	const { url } = options
+	const remote = url ? remoteOf(url) : undefined
 	let state: { db: Kysely<object>; catalog: Catalog } | undefined
 	const started = () => {
 		if (state === undefined) throw new Error('postgres() is not started.')
@@ -105,10 +106,15 @@ export function createAdapter(options: Options): Adapter {
 	}
 	return {
 		start: async (schema: Schema) => {
+			if (!url) {
+				throw new Error(
+					'postgres() was given no url: is the variable it reads set?',
+				)
+			}
 			const catalog = new Catalog(schema)
 			// Refuses two things stored under one name before it connects.
 			snapshotOf(catalog)
-			const pool = new Pool({ connectionString: options.url })
+			const pool = new Pool({ connectionString: url })
 			// An idle connection the server ends would crash the process unheard:
 			// the pool drops it and the next query opens another.
 			pool.on('error', () => undefined)

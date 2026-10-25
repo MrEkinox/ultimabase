@@ -4041,7 +4041,9 @@ index. A failure then reads`It ran without a transaction, so nothing was rolled 
      not call local, needs `reset --force`: `NODE_ENV` unset on a laptop
      holding a production `DATABASE_URL` would otherwise wipe it. A unix
      socket and an empty host are this machine; the adapter reads the host
-     as its driver does (amended 2026-10-24).
+     as its driver does (amended 2026-10-24). `postgres()` takes an unset `url`,
+     as `process.env.DATABASE_URL` may be, and refuses it when the app
+     starts, never while the config is imported (amended 2026-10-25).
 
 8. The adapter contract (D-73) gains an optional `migrations` member, which
    the kernel's commands and `start` call; `memory()` has none, since it

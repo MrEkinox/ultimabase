@@ -131,6 +131,16 @@ describe('postgres()', () => {
 		).rejects.toThrow('postgres() is not started.')
 	})
 
+	it('takes an unset url, and refuses to start with it', async () => {
+		for (const given of [process.env['ULTIMABASE_UNSET_URL'], '']) {
+			const adapter = postgres({ url: given })
+			expect(adapter.migrations?.remote).toBeUndefined()
+			await expect(adapter.start({ models: [] })).rejects.toThrow(
+				'postgres() was given no url: is the variable it reads set?',
+			)
+		}
+	})
+
 	it('names a long constraint by its hash, and reports what it refuses', async () => {
 		const adapter = postgres({ url: inSchema(url, schema) })
 		await started(adapter, thing)
