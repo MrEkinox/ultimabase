@@ -55,10 +55,16 @@ export class Filters {
 	readonly catalog: Catalog
 	/** The tables the compiled conditions reach, besides their own. */
 	readonly tables: Set<string> = new Set()
+	/** A write's change index → the CTE of its delete, for `removedBy`. */
+	readonly removed: ReadonlyMap<number, string>
 	private next = 0
 
-	constructor(catalog: Catalog) {
+	constructor(
+		catalog: Catalog,
+		removed: ReadonlyMap<number, string> = new Map(),
+	) {
 		this.catalog = catalog
+		this.removed = removed
 	}
 
 	/** A table alias no other part of the statement uses. */
@@ -170,6 +176,13 @@ export class Filters {
 		}
 		if (condition.none !== undefined) {
 			parts.push(sql`(not ${exists(condition.none)})`)
+		}
+		if (condition.removedBy !== undefined) {
+			// The key names a row an earlier delete of the write removed.
+			const removed = this.removed.get(condition.removedBy)
+			if (removed === undefined) throw new Error('No such delete.')
+			const key = this.column(table, alias, field.name)
+			parts.push(sql`${key} in (select "id" from ${sql.id(removed)})`)
 		}
 		return all(parts)
 	}

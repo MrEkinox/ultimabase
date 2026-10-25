@@ -71,6 +71,11 @@ export type Condition = {
 	readonly some?: Filter
 	readonly every?: Filter
 	readonly none?: Filter
+	/**
+	 * A stored `one` key names a row that the delete at this index of the
+	 * write's changes removed, a change before this one (D-102).
+	 */
+	readonly removedBy?: number
 }
 
 /** A normalized `where`: `AND`, `OR` and `NOT` are lists (D-73). */
@@ -137,6 +142,8 @@ export type Check = {
 	readonly model: string
 	readonly where: Filter
 	readonly count: number
+	/** Locks the rows it counts until the transaction ends, as `Read.lock` (D-99). */
+	readonly lock?: boolean
 }
 
 /**

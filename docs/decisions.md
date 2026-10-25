@@ -2919,9 +2919,10 @@ Choice: seven details of D-54 at run time.
    moves (D-88): `beforeUpdate` with `data` holding the relation as
    `{ disconnect: true }`, to which the hook may add fields; its `updatedAt`
    moves. A row also deleted by the cascade is only deleted.
-4. A cascaded row whose model has a `redirect` (D-89) is redirected as a
-   direct delete: its row stays, so the cascade does not go past it. A
-   redirected row deleted directly cascades nothing.
+4. A cascaded row is deleted, even when its model has a `redirect` (D-89),
+   and the cascade goes past it; the rows `beforeFind` hides, a soft-deleted
+   row included, are deleted too. A redirected row deleted directly is
+   redirected and cascades nothing (amended 2026-10-25).
 5. Hook order: the `beforeUpdate` of the `setNull` rows, the `beforeDelete`
    of the deleted rows, the deepest first and the row the caller deletes
    last, then the redirects, then one write holding every `setNull` and
@@ -2943,7 +2944,10 @@ Why:
 3. A search index, an audit log or `updatedAt` must see the change, or an
    index keeps showing a deleted author. D-88 already writes a moved row
    this way.
-4. The redirected row still exists, so its own children keep a valid key.
+4. A cascaded row that stayed would keep a key to the deleted row: a
+   foreign key refuses it, and a store without one keeps a key to nothing.
+   `cascade` asks for the rows to go with their target; keeping them means
+   redirecting the target's delete too (amended 2026-10-25).
 5. A child's `afterDelete` still finds its parent's record in the facts it
    receives, and one write keeps the delete atomic and D-48's statement
    count.
@@ -2954,6 +2958,9 @@ Rejected:
 
 - a `setNull` written without hooks;
 - `restrict` checked after the hooks;
+- a cascaded row redirected, which keeps a key to the deleted row, or a
+  redirected model refusing the delete as `restrict` does (amended
+  2026-10-25);
 - cascades that skip rows `beforeFind` hides;
 - one write per level.
 
@@ -3555,6 +3562,8 @@ Choice:
    the adapter throws `CheckFailed` with that check's index, which the kernel
    reports as `NOT_FOUND`. The kernel checks the ids each `connect` names
    (D-86), and the row an update targets when it does not load it (point 5).
+   A check with `lock` locks the rows it counts, as `Read.lock` (point 2;
+   amended 2026-10-25).
 2. Locks. `Read.lock` locks the root rows until the transaction ends:
    `for update` on PostgreSQL; `memory()` ignores it, since its transaction
    holds the write lock. The kernel locks the rows it decides a write from:
@@ -3577,9 +3586,10 @@ Choice:
    atomic alone, when nothing follows them (no `after*` or `*Commit` hook,
    no read again). Inside `transaction()`, every query runs in it.
 5. Fewer reads. The kernel loads no row when Master updates by `id` a model
-   without update hooks: the check `{ where: and(where, readable), count: 1 }`
-   stands for it, and an empty read after the update is `NOT_FOUND` (D-104,
-   amended 2026-10-25). A relation written from the other side, on a model
+   without update hooks: the check `{ where: and(where, readable), count: 1,
+lock: true }` stands for it, and an empty read after the update is
+   `NOT_FOUND` (D-104, amended 2026-10-25). The check locks the row as the
+   read would (amended 2026-10-25). A relation written from the other side, on a model
    without update hooks and without rules for the caller, is one update
    `where: and(where, filter)` instead of a read and an update.
 6. A connected id that is not a UUID is `NOT_FOUND` before any query: the
@@ -3597,6 +3607,17 @@ Choice:
    row linked meanwhile restricts. PostgreSQL's message alone tells the two
    apart: a server whose messages are not in English reports each one as
    `NOT_FOUND`.
+9. A write that loads no row (amended 2026-10-25) decides from what
+   PostgreSQL checks again after a row lock it waited on, never from the
+   statement's snapshot alone: under READ COMMITTED, a statement that waits
+   on a row lock reads the row's new version for that row only, and the
+   other parts of the statement still see the snapshot. So a check that
+   stands for a loaded row locks it (point 5), and a cascade level deletes
+   among the rows the level above removed (D-102). A shortcut that saves a
+   round trip is weighed by this rule first. A row a write reads to choose
+   what it changes is read locked, as `move()`, the cascades and a
+   many-to-many `disconnect` read theirs: a row hidden or changed before the
+   write could go on is then left as it now is (amended 2026-10-25).
 
 Why:
 
@@ -3607,6 +3628,11 @@ Why:
   allowed a write and the write.
 - Most writes in an application are a `create` or a Master `update` with no
   hook: they become one round trip.
+- A Master update by id checked its row on the snapshot, then updated by
+  `id` alone: a row another transaction hid from `beforeFind` while the
+  update waited on its lock was updated and returned. A locked check sees
+  the hidden row, counts 0, and nothing of the write runs, its nested
+  writes included.
 
 Rejected:
 
@@ -3619,6 +3645,10 @@ Rejected:
   on every connect for a race a refusal already reports.
 - Skipping the read of an update by a unique field other than `id`: the
   read after it follows the row by `id`, which the kernel has not loaded.
+- Putting `and(where, readable)` in the update's own `where` instead of a
+  locked check: the update would skip the hidden row, but the write's
+  nested changes, such as a link to it, would still run, and the read
+  after it, by `id`, would return the row as it was.
 
 Limits:
 
@@ -3626,6 +3656,17 @@ Limits:
   the kernel finds before writing: a Master update of a missing row with
   invalid data fails with `VALIDATION_FAILED`, a connect to a missing row
   after a move refused as `FORBIDDEN`.
+  Example of a locked check, Master's update by id of a `Doc` hidden by
+  `beforeFind` when archived:
+
+```sql
+-- Before: the snapshot's count
+(select count(*) from "doc" as "t1"
+  where "t1"."id" = $1 and "t1"."archived" = false) = 1 as "c0"
+-- After: the count of the rows it locked, checked again after a wait
+(select count(*) from (select from "doc" as "t1"
+  where "t1"."id" = $1 and "t1"."archived" = false for update) as t) = 1 as "c0"
+```
 
 Example:
 
@@ -3760,13 +3801,23 @@ Choice:
 
 1. When no model a `delete` reaches has delete hooks or a `redirect`, no
    `setNull` model has update hooks, and no cascade comes back to a model
-   it left, the kernel loads no row of the reach. Each level is a filter on
-   the one above, from the root's `where`, `{ author: { is: … } }`:
-   - a `cascade` model is deleted by its filters, the deepest model first;
-   - a `setNull` relation empties its key and moves `updatedAt` on the rows
-     its filter reaches that the delete leaves;
-   - a `restrict` relation is a check with a count of 0 on those rows, which
+   it left, the kernel loads no row of the reach. The root is deleted by
+   its `where`, then each level by the rows the level above removed
+   (amended 2026-10-25):
+   - a `cascade` model is deleted where its key names a row the delete of
+     its parent removed, `{ writer: { removedBy: 0 } }`: the index of that
+     change in the write. Its levels follow, the root first;
+   - a `setNull` relation then empties its key and moves `updatedAt` on the
+     rows whose key names a removed row;
+   - a `restrict` relation is a check with a count of 0, from the root's
+     `where` (`{ author: { is: … } }`), on the rows the delete leaves, which
      fails as `RELATION_RESTRICTED`, naming the model and the field (D-90).
+
+   `removedBy` is in the adapter contract (D-73) for a stored `one` key; a
+   `where` from a query never holds it. A model the reach both deletes and
+   empties, or empties through two relations, loads its rows: two changes
+   of the same rows in one statement have no defined order in PostgreSQL.
+
 2. Master's `delete` by any unique `where` is then one write: a check that
    the row exists, the `restrict` checks, the changes, and the row read as
    it was. A user's `delete` loads its row for the access rule, then writes
@@ -3784,10 +3835,22 @@ the rows: the database finds them inside the statement, and deferred keys
 (D-98) let the parents and the children go in any order. The hooked path
 keeps its loads, since its hooks receive the records.
 
+Each level follows the rows the level above removed, as the database's own
+`on delete cascade` does, rather than a filter on the rows as they were
+(amended 2026-10-25). A delete that waits on a row another transaction
+changes skips it when it no longer matches, while a filter decided before
+the wait still took its children: a writer renamed out of a delete's
+`where` kept its row and lost its novels, and a novel moved to another
+writer lost its chapters (audit 3).
+
 Rejected:
 
 - the database's `on delete` actions, which would run the cascades a second
   time when a hook needs them (D-54);
+- locking the root before the write (A of audit 3): 4 round trips for
+  Master, and a level below the root still lost its children;
+- loading and locking every level, as the hooked path: one round trip per
+  level again;
 - a recursive read (`WITH RECURSIVE`) for the hooked path: it saves round
   trips only on deep reaches, and needs a new adapter call; it stays a
   "Later" of D-90.
@@ -3817,11 +3880,16 @@ await Writer.delete({ where: { id: writerId } }, { as: master })
 // After: 1 round trip
 //   with "#checks" as (select (select count(*) from "writer"
 //     where "id" = $1) = 1 as "c0"),
-//     "#w0" as (delete from "novel" where "writer" in (select "id" from
-//     "writer" where "id" = $1) and (select "c0" from "#checks")),
-//     "#w1" as (delete from "writer" where "id" = $1 and (...))
-//   select "c0", (select ... from "writer" where "id" = $1) as "rows"
-//   from "#checks"
+//     "#w0" as (delete from "writer" where "id" = $1
+//       and (select "c0" from "#checks") returning *),
+//     "#w1" as (delete from "novel" where "writer_id" in
+//       (select "id" from "#w0") and (...) returning *)
+//   select "c0", (select ... from "#w0") as "rows" from "#checks"
+
+// Meanwhile, another request renames the writer: the delete waits for it.
+await Writer.delete({ where: { code: 'c' } }, { as: master })
+// Before: NOT_FOUND, the writer stays, its novels are gone.
+// After: NOT_FOUND, the writer and its novels stay.
 ```
 
 ## D-103: A write reads the one row it changes from its RETURNING

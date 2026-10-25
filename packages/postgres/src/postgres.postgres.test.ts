@@ -432,6 +432,14 @@ describe('a write on postgres()', () => {
 		expect(sent.slice(-2)).toEqual(['commit', 'rollback'])
 	})
 
+	it('refuses the rows of a change that is no delete before it', async () => {
+		const where = { tags: { removedBy: 0 } }
+		const failed = adapter.write({
+			changes: [{ kind: 'delete', model: 'Book', where }],
+		})
+		await expect(failed).rejects.toThrow('No such delete.')
+	})
+
 	it('writes nothing when a check fails, and names it', async () => {
 		const failed = adapter.write({
 			checks: [
