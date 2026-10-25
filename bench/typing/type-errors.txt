@@ -314,6 +314,9 @@ TS2345: Argument of type '"owner"' is not assignable to parameter of type '"a re
 prototype/example/owner-rules.ts: `titel` is not a field of the record.
 TS2339: Property 'titel' does not exist on type 'CreateData<{ readonly text: Field<string, ScalarOptions<string>, never, never, string, false>; readonly owner: One<() => ModelOf<"User", { readonly email: Field<string, { readonly unique: true; }, never, never, string, false>; ... 4 more ...; readonly invitedBy: One<...>; }, readonly [...], readonly [...]>, OneOptio...'.
 
+prototype/example/owner-rules.ts: `readers` is a `many` relation, in a create.
+TS2345: Argument of type '"readers"' is not assignable to parameter of type '"owner"'.
+
 prototype/example/owner-rules.ts: `txt` is not a field of the model.
 TS2561: Object literal may only specify known properties, but 'txt' does not exist in type 'Where<{ readonly text: Field<string, ScalarOptions<string>, never, never, string, false>; readonly owner: One<() => ModelOf<"User", { readonly email: Field<string, { readonly unique: true; }, never, never, string, false>; ... 4 more ...; readonly invitedBy: One<...>; }, readonly [...], readonly [...]>, OneOptions, n...'. Did you mean to write 'text'?
 

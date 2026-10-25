@@ -2220,16 +2220,23 @@ and `isSelf`. `signedIn(rule)` runs `rule` for a signed-in caller only, with
 `user` (the registered user model's record, D-62) among its facts, and is
 `false` for anyone else; a read rule inside it may still return
 `where(...)`. `isOwner('author')` is "the caller is the user this `one`
-relation points to", read from the stored key (D-77), so it fits `update` and
-`delete` but not `read` or `create`, which have no stored record; a name that
-is not a `one` relation of the model is refused. Both take their facts from
-where they are used, and combine with `anyOf`. `signedIn` fits the user
-model's own rules but not its field rules, where `user` would type the model
-from itself (TS2502): there, `({ caller }): boolean => ...` stays (D-62).
+relation points to, before and after the write": the stored key (D-77) must
+be the caller's, and a value written for the relation may only connect the
+caller, so an author cannot hand a post to someone else or to no one. It
+fits `create`, where a value that does not write the relation leaves it to
+its default (`currentUser`, D-62), `update` and `delete`, but not `read`,
+which has no record; a name that is not a `one` relation of the model is
+refused. Moving a record to another owner takes Master or a hand-written
+rule. Both take their facts from where they are used, and combine with
+`anyOf`. `signedIn` fits the user model's own rules but not its field rules,
+where `user` would type the model from itself (TS2502): there,
+`({ caller }): boolean => ...` stays (D-62).
 Why: `caller.kind === 'user' &&` opened most rules of a real application, and
 "the author only" was written by hand in every model.
 Rejected: a `signedIn` in the kernel, which knows no user model; an
-`isOwner` that loads the user, a query in a rule (D-76).
+`isOwner` that loads the user, a query in a rule (D-76); an `isOwner` on the
+stored key alone, which let any signed-in user write a post in another's
+name and an author give theirs away (amended 2026-10-25).
 Example:
 
 ```ts
@@ -2247,7 +2254,10 @@ Parse.Cloud.beforeSave('Post', ({ object, original, user }) => {
 // After
 export const Post = defineModel({ name: 'Post', fields }).with({
 	access: {
-		create: signedIn(({ user }) => user.role !== 'reader'),
+		create: allOf(
+			isOwner('author'),
+			signedIn(({ user }) => user.role !== 'reader'),
+		),
 		update: anyOf(
 			isOwner('author'),
 			signedIn(({ user }) => user.role === 'editor'),
@@ -2255,6 +2265,11 @@ export const Post = defineModel({ name: 'Post', fields }).with({
 		delete: isOwner('author'),
 	},
 })
+
+// Refused with ACCESS_DENIED: a post in another user's name, and an author
+// giving theirs away.
+await Post.create({ data: { title, author: { connect: { id: other } } } }, as)
+await Post.update({ where, data: { author: { connect: { id: other } } } }, as)
 ```
 
 ## D-80: Tests act as a user with `asUser`

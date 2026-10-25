@@ -2,7 +2,6 @@
 import {
 	currentUser,
 	defineUser,
-	isAuthenticated,
 	isOwner,
 	isSelf,
 	signedIn,
@@ -57,7 +56,8 @@ export const Post = defineModel({
 						],
 					})
 				: where({ published: { equals: true } }),
-		create: isAuthenticated,
+		// A post is written in its author's name only: the caller's own.
+		create: isOwner('author'),
 		update: isOwner('author'),
 		// An author deletes their posts, an editor anyone's.
 		delete: anyOf(
