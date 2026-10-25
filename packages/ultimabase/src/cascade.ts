@@ -1,7 +1,7 @@
 // What a `delete` does to the rows that reference the row it deletes
 // (D-54, D-90): `cascade` deletes them, `setNull` empties their key,
 // `restrict` refuses the delete.
-import type { Change, Condition, Filter, Row } from './adapter.ts'
+import type { Change, Filter, Row } from './adapter.ts'
 import { PublicError } from './errors.ts'
 import { hasHook, redirectOf } from './hooks.ts'
 import type { Models } from './query-where.ts'
@@ -146,80 +146,29 @@ const anyOf = (filters: readonly Filter[]): Filter =>
 		? filters[0]
 		: { OR: filters }
 
-type Filtered = Extract<Change, { readonly where: Filter }>
-
-function named(models: Models, name: string): ModelInfo {
-	const model = models.get(name)
-	if (model === undefined) throw new Error(`Unknown model ${name}.`)
-	return model
-}
-
-const isCondition = (value: Filter[string]): value is Condition =>
-	value !== undefined && !Array.isArray(value)
-
 /**
- * What a filter on `model` reads: `Model` for its rows, `Model.field` for a
- * value or a key.
- */
-function readsOf(
-	models: Models,
-	model: ModelInfo,
-	where: Filter,
-	reads: Set<string>,
-): Set<string> {
-	reads.add(model.name)
-	for (const each of [...(where.AND ?? []), ...(where.OR ?? [])]) {
-		readsOf(models, model, each, reads)
-	}
-	for (const each of where.NOT ?? []) readsOf(models, model, each, reads)
-	for (const [name, condition] of Object.entries(where)) {
-		if (!isCondition(condition)) continue
-		reads.add(`${model.name}.${name}`)
-		const field = model.fields.get(name)
-		if (field?.kind !== 'one' && field?.kind !== 'many') continue
-		const target = named(models, field.target)
-		reads.add(target.name).add(`${target.name}.${field.inverse}`)
-		const { is, isNot, some, every, none } = condition
-		for (const inner of [is, isNot, some, every, none]) {
-			if (inner !== undefined && inner !== null) {
-				readsOf(models, target, inner, reads)
-			}
-		}
-	}
-	return reads
-}
-
-/** Whether a change filters on what a change before it wrote. */
-function overlaps(models: Models, changes: readonly Filtered[]): boolean {
-	const written = new Set<string>()
-	for (const change of changes) {
-		const model = named(models, change.model)
-		const reads = readsOf(models, model, change.where, new Set())
-		if ([...reads].some((read) => written.has(read))) return true
-		if (change.kind === 'delete') written.add(change.model)
-		else {
-			for (const field of Object.keys(change.set)) {
-				written.add(`${change.model}.${field}`)
-			}
-		}
-	}
-	return false
-}
-
-/**
- * The changes and checks of a delete whose reach runs no code: each level is
- * a filter from the rows `where` selects, so no row is loaded (D-102).
- * `undefined` when a reached model has delete hooks or a redirect, a
- * `setNull` one update hooks, a cascade comes back to a model it left, or a
- * change filters on rows a change before it deleted or emptied.
+ * The changes and checks of a delete whose reach runs no code, so no row is
+ * loaded (D-102): the root goes by `where`, each level by the rows the level
+ * above removed, and `setNull` empties the keys naming them. `undefined` when
+ * a reached model has delete hooks or a redirect, a `setNull` one update
+ * hooks, a cascade comes back to a model it left, or a model is both deleted
+ * and emptied, or emptied twice.
  */
 export function cascadeWhere(
 	models: Models,
 	model: ModelInfo,
 	where: Filter,
 ): { readonly changes: Change[]; readonly checks: Checked[] } | undefined {
-	/** Each deleted model's filters, and its longest path from the root. */
-	const deleted = new Map<string, { filters: Filter[]; depth: number }>()
+	/**
+	 * Each deleted model's filters from the root, its longest path from the
+	 * root, and the relations to the deleted models that reach it.
+	 */
+	type Level = {
+		readonly filters: Filter[]
+		depth: number
+		readonly parents: Map<string, Reference>
+	}
+	const deleted = new Map<string, Level>()
 	/** The rows each `setNull` or `restrict` relation reaches, by relation. */
 	const reached = new Map<
 		string,
@@ -238,11 +187,23 @@ export function cascadeWhere(
 		group.filters.push(filter)
 		reached.set(key, group)
 	}
-	const visit = (at: ModelInfo, filter: Filter, path: string[]): boolean => {
+	const visit = (
+		at: ModelInfo,
+		filter: Filter,
+		path: string[],
+		parent?: Reference,
+	): boolean => {
 		if (deleteRuns(at)) return false
-		const entry = deleted.get(at.name) ?? { filters: [], depth: 0 }
+		const entry: Level = deleted.get(at.name) ?? {
+			filters: [],
+			depth: 0,
+			parents: new Map(),
+		}
 		entry.filters.push(filter)
 		entry.depth = Math.max(entry.depth, path.length)
+		if (parent !== undefined) {
+			entry.parents.set(`${parent.model.name}.${parent.field}`, parent)
+		}
 		deleted.set(at.name, entry)
 		const below = [...path, at.name]
 		for (const { model: from, field, onDelete } of referencesTo(
@@ -251,7 +212,8 @@ export function cascadeWhere(
 		)) {
 			const child = { [field]: { is: filter } }
 			if (onDelete === 'cascade') {
-				if (below.includes(from.name) || !visit(from, child, below)) {
+				const edge = { model: at, field }
+				if (below.includes(from.name) || !visit(from, child, below, edge)) {
 					return false
 				}
 			} else if (onDelete === 'setNull' && updated(from)) {
@@ -264,14 +226,21 @@ export function cascadeWhere(
 		return true
 	}
 	if (!visit(model, where, [])) return undefined
-	// A row the cascade removes is neither emptied nor refusing.
+	const groups = [...reached.values()]
+	const nulls = groups.filter((group) => !group.restricts)
+	const emptied = new Set(nulls.map((group) => group.model.name))
+	// PostgreSQL gives two changes of the same rows in one statement no order.
+	const twice =
+		emptied.size < nulls.length ||
+		[...emptied].some((name) => deleted.has(name))
+	if (twice) return undefined
+	// A row the cascade removes is not refusing.
 	const left = (from: ModelInfo, filters: readonly Filter[]): Filter => {
 		const gone = deleted.get(from.name)
 		return gone === undefined
 			? anyOf(filters)
 			: { AND: [anyOf(filters), { NOT: [anyOf(gone.filters)] }] }
 	}
-	const groups = [...reached.values()]
 	const checks = groups
 		.filter((group) => group.restricts)
 		.map((group) => ({
@@ -283,24 +252,30 @@ export function cascadeWhere(
 			message: `${group.model.name}.${group.field} references a ${group.to} the delete removes.`,
 			restricted: { model: group.model.name, field: group.field },
 		}))
-	// Each change filters on the rows the changes after it remove.
-	const changes: Filtered[] = [
-		...groups
-			.filter((group) => !group.restricts)
-			.map((group) => ({
-				kind: 'update' as const,
-				model: group.model.name,
-				where: left(group.model, group.filters),
-				set: { [group.field]: null, updatedAt: new Date(Date.now()) },
-			})),
-		...[...deleted]
-			.toSorted(([, a], [, b]) => b.depth - a.depth)
-			.map(([name, { filters }]) => ({
-				kind: 'delete' as const,
-				model: name,
-				where: anyOf(filters),
-			})),
+	// A level after the levels above it: its parents have a lower depth.
+	const levels = [...deleted].toSorted(([, a], [, b]) => a.depth - b.depth)
+	const removedBy = (field: string, name: string): Filter => ({
+		[field]: { removedBy: levels.findIndex(([each]) => each === name) },
+	})
+	const changes: Change[] = [
+		...levels.map(([name, { parents }]) => ({
+			kind: 'delete' as const,
+			model: name,
+			where:
+				parents.size === 0
+					? where
+					: anyOf(
+							[...parents.values()].map((edge) =>
+								removedBy(edge.field, edge.model.name),
+							),
+						),
+		})),
+		...nulls.map((group) => ({
+			kind: 'update' as const,
+			model: group.model.name,
+			where: removedBy(group.field, group.to),
+			set: { [group.field]: null, updatedAt: new Date(Date.now()) },
+		})),
 	]
-	// Deleting a shop whose aisle matches deletes the aisle first (D-102).
-	return overlaps(models, changes) ? undefined : { changes, checks }
+	return { changes, checks }
 }

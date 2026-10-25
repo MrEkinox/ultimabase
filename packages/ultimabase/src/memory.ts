@@ -93,9 +93,12 @@ class Draft {
 
 	private change(changes: readonly Change[]): void {
 		const touched = new Set<string>()
-		for (const change of changes) {
+		this.reader.removed.clear()
+		for (const [index, change] of changes.entries()) {
 			touched.add(change.model)
-			this.apply(change)
+			if (change.kind === 'delete') {
+				this.reader.removed.set(index, this.remove(change))
+			} else this.apply(change)
 		}
 		for (const model of touched) this.checkUnique(model)
 	}
@@ -120,7 +123,23 @@ class Draft {
 		)
 	}
 
-	private apply(change: Change): void {
+	/** Applies `delete`; returns the ids it removed. */
+	private remove(change: Extract<Change, { kind: 'delete' }>): Set<string> {
+		const table = this.reader.table(change.model)
+		const removed = new Set<string>()
+		for (const row of this.matching(change.model, change)) {
+			removed.add(row.id)
+			table.delete(row.id)
+			for (const field of this.joinFields(change.model)) {
+				this.unlink(change.model, field, row.id, [
+					...(this.side(change.model, field.name).get(row.id) ?? []),
+				])
+			}
+		}
+		return removed
+	}
+
+	private apply(change: Exclude<Change, { kind: 'delete' }>): void {
 		const table = this.reader.table(change.model)
 		switch (change.kind) {
 			case 'insert': {
@@ -140,17 +159,6 @@ class Draft {
 						...this.stored(change.model, change.set),
 						id: row.id,
 					})
-				}
-				return
-			}
-			case 'delete': {
-				for (const row of this.matching(change.model, change)) {
-					table.delete(row.id)
-					for (const field of this.joinFields(change.model)) {
-						this.unlink(change.model, field, row.id, [
-							...(this.side(change.model, field.name).get(row.id) ?? []),
-						])
-					}
 				}
 				return
 			}

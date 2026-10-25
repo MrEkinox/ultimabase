@@ -71,6 +71,11 @@ export type Condition = {
 	readonly some?: Filter
 	readonly every?: Filter
 	readonly none?: Filter
+	/**
+	 * A stored `one` key names a row that the delete at this index of the
+	 * write's changes removed, a change before this one (D-102).
+	 */
+	readonly removedBy?: number
 }
 
 /** A normalized `where`: `AND`, `OR` and `NOT` are lists (D-73). */

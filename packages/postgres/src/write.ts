@@ -63,7 +63,11 @@ function idOf(where: Filter | undefined): string | undefined {
 }
 
 /** The CTE of a change, `undefined` when it changes nothing. */
-function part(catalog: Catalog, change: Change): Part | undefined {
+function part(
+	catalog: Catalog,
+	change: Change,
+	removed: ReadonlyMap<number, string>,
+): Part | undefined {
 	if (change.kind === 'insert') {
 		const table = catalog.table(change.model)
 		const name = sql.id(table.name)
@@ -90,7 +94,7 @@ function part(catalog: Catalog, change: Change): Part | undefined {
 	const table = catalog.table(change.model)
 	const name = sql.id(table.name)
 	const base = { table: table.name, key: ['id'] }
-	const filters = new Filters(catalog)
+	const filters = new Filters(catalog, removed)
 	const named = filters.alias()
 	const alias = sql.id(named)
 	const where = filters.where(change.model, named, change.where)
@@ -227,7 +231,8 @@ function checking(catalog: Catalog, checks: readonly Check[]): Sql {
 	return sql`select ${sql.join(columns)}`
 }
 
-const cte = (at: number): Sql => sql.id(`#w${at}`)
+const cteName = (at: number): string => `#w${at}`
+const cte = (at: number): Sql => sql.id(cteName(at))
 
 /** Each written table as the read sees it: the changed rows in place. */
 function views(parts: ReadonlyMap<number, Part>): Sql[] {
@@ -276,9 +281,14 @@ function sourceOf(
 /** The statements of a write, in the order they run. */
 export function compileWrite(catalog: Catalog, write: Write): Statement[] {
 	const checks = write.checks ?? []
-	const parts = write.changes
-		.map((change) => part(catalog, change))
-		.filter((each) => each !== undefined)
+	const parts: Part[] = []
+	const removed = new Map<number, string>()
+	for (const [index, change] of write.changes.entries()) {
+		const each = part(catalog, change, removed)
+		if (each === undefined) continue
+		if (change.kind === 'delete') removed.set(index, cteName(parts.length))
+		parts.push(each)
+	}
 	if (parts.length === 0 && checks.length === 0 && write.read === undefined) {
 		return []
 	}

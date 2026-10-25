@@ -3760,13 +3760,23 @@ Choice:
 
 1. When no model a `delete` reaches has delete hooks or a `redirect`, no
    `setNull` model has update hooks, and no cascade comes back to a model
-   it left, the kernel loads no row of the reach. Each level is a filter on
-   the one above, from the root's `where`, `{ author: { is: … } }`:
-   - a `cascade` model is deleted by its filters, the deepest model first;
-   - a `setNull` relation empties its key and moves `updatedAt` on the rows
-     its filter reaches that the delete leaves;
-   - a `restrict` relation is a check with a count of 0 on those rows, which
+   it left, the kernel loads no row of the reach. The root is deleted by
+   its `where`, then each level by the rows the level above removed
+   (amended 2026-10-25):
+   - a `cascade` model is deleted where its key names a row the delete of
+     its parent removed, `{ writer: { removedBy: 0 } }`: the index of that
+     change in the write. Its levels follow, the root first;
+   - a `setNull` relation then empties its key and moves `updatedAt` on the
+     rows whose key names a removed row;
+   - a `restrict` relation is a check with a count of 0, from the root's
+     `where` (`{ author: { is: … } }`), on the rows the delete leaves, which
      fails as `RELATION_RESTRICTED`, naming the model and the field (D-90).
+
+   `removedBy` is in the adapter contract (D-73) for a stored `one` key; a
+   `where` from a query never holds it. A model the reach both deletes and
+   empties, or empties through two relations, loads its rows: two changes
+   of the same rows in one statement have no defined order in PostgreSQL.
+
 2. Master's `delete` by any unique `where` is then one write: a check that
    the row exists, the `restrict` checks, the changes, and the row read as
    it was. A user's `delete` loads its row for the access rule, then writes
@@ -3784,10 +3794,22 @@ the rows: the database finds them inside the statement, and deferred keys
 (D-98) let the parents and the children go in any order. The hooked path
 keeps its loads, since its hooks receive the records.
 
+Each level follows the rows the level above removed, as the database's own
+`on delete cascade` does, rather than a filter on the rows as they were
+(amended 2026-10-25). A delete that waits on a row another transaction
+changes skips it when it no longer matches, while a filter decided before
+the wait still took its children: a writer renamed out of a delete's
+`where` kept its row and lost its novels, and a novel moved to another
+writer lost its chapters (audit 3).
+
 Rejected:
 
 - the database's `on delete` actions, which would run the cascades a second
   time when a hook needs them (D-54);
+- locking the root before the write (A of audit 3): 4 round trips for
+  Master, and a level below the root still lost its children;
+- loading and locking every level, as the hooked path: one round trip per
+  level again;
 - a recursive read (`WITH RECURSIVE`) for the hooked path: it saves round
   trips only on deep reaches, and needs a new adapter call; it stays a
   "Later" of D-90.
@@ -3817,11 +3839,16 @@ await Writer.delete({ where: { id: writerId } }, { as: master })
 // After: 1 round trip
 //   with "#checks" as (select (select count(*) from "writer"
 //     where "id" = $1) = 1 as "c0"),
-//     "#w0" as (delete from "novel" where "writer" in (select "id" from
-//     "writer" where "id" = $1) and (select "c0" from "#checks")),
-//     "#w1" as (delete from "writer" where "id" = $1 and (...))
-//   select "c0", (select ... from "writer" where "id" = $1) as "rows"
-//   from "#checks"
+//     "#w0" as (delete from "writer" where "id" = $1
+//       and (select "c0" from "#checks") returning *),
+//     "#w1" as (delete from "novel" where "writer_id" in
+//       (select "id" from "#w0") and (...) returning *)
+//   select "c0", (select ... from "#w0") as "rows" from "#checks"
+
+// Meanwhile, another request renames the writer: the delete waits for it.
+await Writer.delete({ where: { code: 'c' } }, { as: master })
+// Before: NOT_FOUND, the writer stays, its novels are gone.
+// After: NOT_FOUND, the writer and its novels stay.
 ```
 
 ## D-103: A write reads the one row it changes from its RETURNING

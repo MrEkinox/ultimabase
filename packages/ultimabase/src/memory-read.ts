@@ -30,6 +30,8 @@ type Truth = boolean | null
 export class Reader {
 	readonly store: Store
 	readonly fields: Fields
+	/** A write's change index → the ids its delete removed, for `removedBy`. */
+	readonly removed: Map<number, ReadonlySet<string>> = new Map()
 
 	constructor(store: Store, fields: Fields) {
 		this.store = store
@@ -121,6 +123,13 @@ export class Reader {
 		}
 		if (condition.none !== undefined) {
 			truths.push(!test(condition.none).includes(true))
+		}
+		if (condition.removedBy !== undefined) {
+			// The key names a row an earlier delete of the write removed.
+			const removed = this.removed.get(condition.removedBy)
+			if (removed === undefined) throw new Error('No such delete.')
+			const key = row[field.name]
+			truths.push(typeof key === 'string' && removed.has(key))
 		}
 		return and(truths)
 	}

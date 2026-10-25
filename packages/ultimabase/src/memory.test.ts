@@ -177,6 +177,24 @@ describe('writes', () => {
 		await expect(linked).rejects.toThrow('Author.books has no join.')
 	})
 
+	it('deletes by the rows a delete before removed, and by no other change', async () => {
+		const byAuthor = { author: { removedBy: 0 } }
+		await adapter.write({
+			changes: [
+				{ kind: 'delete', model: 'Author', where: { id: { equals: 'a1' } } },
+				{ kind: 'delete', model: 'Book', where: byAuthor },
+			],
+		})
+		expect(await ids('Book')).toEqual(['b2'])
+		const failed = adapter.write({
+			changes: [
+				insert('Tag', { id: 't2' }),
+				{ kind: 'delete', model: 'Book', where: byAuthor },
+			],
+		})
+		await expect(failed).rejects.toThrow('No such delete.')
+	})
+
 	it('removes the links of a deleted row', async () => {
 		await adapter.write({
 			changes: [

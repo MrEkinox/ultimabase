@@ -73,6 +73,36 @@ const Folder = defineModel({
 	}),
 })
 
+/** A model a delete both deletes and empties: its rows are loaded (D-102). */
+const Room = defineModel({
+	name: 'Room',
+	fields: (f) => ({ seats: f.many(() => Seat), spares: f.many(() => Seat) }),
+})
+const Seat = defineModel({
+	name: 'Seat',
+	fields: (f) => ({
+		name: f.string(),
+		room: f.one(() => Room, { onDelete: 'cascade', inverse: 'seats' }),
+		spare: f.one(() => Room, { optional: true, inverse: 'spares' }),
+	}),
+})
+
+/** A model a delete empties twice: its rows are loaded (D-102). */
+const Wall = defineModel({
+	name: 'Wall',
+	fields: (f) => ({
+		fronts: f.many(() => Poster),
+		backs: f.many(() => Poster),
+	}),
+})
+const Poster = defineModel({
+	name: 'Poster',
+	fields: (f) => ({
+		front: f.one(() => Wall, { optional: true, inverse: 'fronts' }),
+		back: f.one(() => Wall, { optional: true, inverse: 'backs' }),
+	}),
+})
+
 const by = (id: string) => ({ connect: { id } })
 const user = { as: asUser({ id: '00000000-0000-4000-8000-000000000000' }) }
 
@@ -108,7 +138,18 @@ export function cascades(create: () => Adapter): void {
 	const started = () =>
 		defineApp({
 			database: create(),
-			models: [Shop, Aisle, Item, Clerk, Order, Folder],
+			models: [
+				Shop,
+				Aisle,
+				Item,
+				Clerk,
+				Order,
+				Folder,
+				Room,
+				Seat,
+				Wall,
+				Poster,
+			],
 			logger: silent,
 		})
 	describe('cascades', () => {
@@ -238,6 +279,33 @@ export function cascades(create: () => Adapter): void {
 			await Folder.delete({ where: { id: root.id } }, M)
 			const left = await Folder.findMany({}, M)
 			expect(left.map((folder) => folder.name)).toEqual(['other'])
+		})
+
+		it('empties the key of a row it leaves, of a model it deletes', async () => {
+			const hall = await Room.create({ data: {} }, M)
+			const lobby = await Room.create({ data: {} }, M)
+			await Seat.create({ data: { name: 'in', room: by(hall.id) } }, M)
+			await Seat.create(
+				{ data: { name: 'out', room: by(lobby.id), spare: by(hall.id) } },
+				M,
+			)
+			await Room.delete({ where: { id: hall.id } }, M)
+			const left = await Seat.findMany({ include: { spare: true } }, M)
+			expect(left).toMatchObject([{ name: 'out', spare: null }])
+		})
+
+		it('empties two keys of a row that names the deleted row twice', async () => {
+			const wall = await Wall.create({ data: {} }, M)
+			const poster = await Poster.create(
+				{ data: { front: by(wall.id), back: by(wall.id) } },
+				M,
+			)
+			await Wall.delete({ where: { id: wall.id } }, M)
+			const left = await Poster.findUnique(
+				{ where: { id: poster.id }, include: { front: true, back: true } },
+				M,
+			)
+			expect(left).toMatchObject({ front: null, back: null })
 		})
 	})
 }
