@@ -237,6 +237,61 @@ describe('postgres()', () => {
 		}
 	})
 
+	it('reads a nested relation without compiling it (D-47)', async () => {
+		const Folder = defineModel({
+			name: 'Folder',
+			fields: (f) => ({
+				parent: f.one(() => Folder, { optional: true, inverse: 'children' }),
+				children: f.many(() => Folder),
+			}),
+		})
+		// With JIT on, these settings would compile every statement.
+		const jit = encodeURIComponent(
+			'-c jit_above_cost=0 -c jit_inline_above_cost=0 -c jit_optimize_above_cost=0',
+		)
+		const durations: number[] = []
+		const database = createAdapter({
+			url: `${inSchema(url, schema)}${encodeURIComponent(' ')}${jit}`,
+			log: (event) => durations.push(event.queryDurationMillis),
+		})
+		const app = defineApp({ database, models: [Folder] })
+		await app.start()
+		try {
+			let parent = await Folder.create({ data: {} }, { as: master })
+			for (let level = 1; level < 6; level += 1) {
+				parent = await Folder.create(
+					{ data: { parent: { connect: { id: parent.id } } } },
+					{ as: master },
+				)
+			}
+			durations.length = 0
+			const read = await Folder.findUnique(
+				{
+					where: { id: parent.id },
+					include: {
+						parent: {
+							include: {
+								parent: {
+									include: {
+										parent: {
+											include: { parent: { include: { parent: true } } },
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+				{ as: master },
+			)
+			expect(read).not.toBeNull()
+			// About 2 ms; compiled, over 150.
+			expect(Math.max(...durations)).toBeLessThan(50)
+		} finally {
+			await app.stop()
+		}
+	})
+
 	it('outlives a server that ends its idle connection', async () => {
 		const name = `application_name=${schema}`
 		const adapter = postgres({ url: `${inSchema(url, schema)}&${name}` })

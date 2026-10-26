@@ -1181,6 +1181,14 @@ A server that never answers fails `start` after the same 10 seconds, with
 `Cannot reach PostgreSQL at host:5432 (no answer in 10s): …` (D-105). The
 pool's other `pg` options stay its defaults (amended 2026-10-25).
 
+Each connection the pool opens runs `set jit = off` before its first query.
+The single query of D-46 nests a subquery per relation level, which the
+planner prices high enough to compile: a role and five inherited levels
+(D-123) took 535 ms compiled and 0.175 ms without, on a nearly empty table.
+JIT pays off on long analytical scans, which an application's reads are not.
+It is set by a statement rather than the `options` startup parameter, which
+PgBouncer refuses by default (amended 2026-10-26).
+
 Why: the previous base generated Drizzle tables and relations from its models
 at startup, kept three representations in sync, injected access filters
 through raw SQL and depended on a release candidate; its PostgreSQL plugin
