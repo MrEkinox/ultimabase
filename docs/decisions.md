@@ -1107,7 +1107,7 @@ fields: (f) => ({
 
 ## D-45: Function types become GraphQL types, with an escape hatch
 
-Amended by D-109.
+Amended by D-109 and D-125.
 
 Choice: a function's `input` is any Standard Schema; its `output` is a model
 (`Todo`), a list (`[Todo]`), a named object mixing models and schemas
@@ -1318,6 +1318,8 @@ Prisma's compound key, `where: { author_slug: { author, slug } }`, a name
 built from the fields that the developer must know.
 
 ## D-53: Defaults are values or functions; `json` takes a schema
+
+Amended by D-125.
 
 Choice: `default` takes a value (`default: false`) or a function receiving
 `{ caller }` (D-19): `default: () => new Date()`, or a value that depends on
@@ -4599,6 +4601,8 @@ curl -X POST localhost:3000/webhooks/stripe -d '{"id":"…"}' \
 
 ## D-107: `graphqlPlugin()`, the schema it generates and how it mounts
 
+Amended by D-125.
+
 Choice: completes D-16, D-34, D-41, D-45 and D-55.
 
 1. `@ultimabase/graphql` exports `graphqlPlugin(options)` and the model entry
@@ -4889,7 +4893,7 @@ curl -X POST localhost:3000/webhooks/stripe -H 'content-type: application/json' 
 
 ## D-109: `defineFunction` and `defineType`, at run time and over GraphQL
 
-Amended by D-113.
+Amended by D-113 and D-125.
 
 Choice: completes D-27, D-45, D-75 and D-107, and amends D-45's outputs.
 
@@ -5334,7 +5338,7 @@ curl localhost:3000/graphql -H 'authorization: Bearer expired…' -d '…'
 
 ## D-113: `passwordPlugin()`, linked accounts, plugin functions and `viewer`
 
-Amended by D-115.
+Amended by D-115 and D-125.
 
 Choice: completes D-33, D-56, D-109 and D-112, and amends D-56, D-109 and
 D-112.
@@ -5413,11 +5417,9 @@ D-112.
     not counted.
 11. Details (amended 2026-10-24). `INVALID_CREDENTIALS` is a kernel code,
     sent with status 401. `signUp` takes neither `id`, `createdAt`,
-    `updatedAt`, `email` nor `password` as a listed field, nor a relation or
-    JSON field (a string list is taken, amended 2026-10-26). A JSON field
-    has any shape its `validate` accepts, often a Zod schema, which the
-    plugin cannot turn into the JSON Schema a client types its input from;
-    a required user field missing from the list stops startup,
+    `updatedAt`, `email` nor `password` as a listed field, nor a relation
+    (a string list and a JSON field are taken, amended 2026-10-26 by D-120
+    and D-125); a required user field missing from the list stops startup,
     `signUp` omitted listing none. Over GraphQL an unlisted field fails the
     input type, before `VALIDATION_FAILED`. `signUp` is not limited. Commands
     have no client, so `User.signIn` is never counted, whoever the caller;
@@ -6242,4 +6244,107 @@ export const shareNote = defineFunction({
 		)
 	},
 }).with({ access: isAuthenticated })
+```
+
+## D-125: JSON fields typed from their schema
+
+Choice: amends D-45, D-53, D-107, D-109 and D-113.
+
+1. A `json` field whose `validate` is a Standard Schema with a JSON Schema
+   export (D-45) gets exact GraphQL types, from that export as D-109 types a
+   function's schema: the model's type, `PostCreateInput`, `PostUpdateInput`,
+   the field's filter and `SignUpInput` (D-113). Without `validate`, or with a
+   function or a schema without that export, the field stays the `JSON`
+   scalar; startup never stops for it.
+2. Sides. The output side of the JSON Schema types what a client reads, the
+   input side what it writes: `z.string().transform(Number)` reads `Float`
+   and is written `String`, and a key with a schema default is optional when
+   written (D-53).
+3. Names. A field's output type is `{Model}{Field}` (`UserPrefs`), its input
+   type `{Model}{Field}Input` (`UserPrefsInput`); nested types take their
+   path, as a shared type's do (`UserPrefsAddress`, `UserPrefsAddressInput`),
+   and an enum is named from its path (`UserPrefsTheme`). A schema with an
+   id, `.meta({ id: 'Address' })`, is the one `Address` and `AddressInput`
+   that functions share; one name given two shapes stops startup, naming
+   both owners, as D-109 says.
+4. What GraphQL cannot type is `JSON` for that piece only: a union other
+   than one type with `null`, a key that is not a GraphQL name, a recursive
+   schema without an id. A function still refuses those (D-109): its schema
+   is written for the API, a field's often for storage first.
+5. Filter. A typed field has its own filter, `UserPrefsFilter { equals, not,
+in, notIn }`, which takes the input type. The kernel compares the stored
+   value, the schema's output: a field whose schema transforms its value
+   is filtered by its written shape, which a transformed value may not fit.
+6. Sign-up. `signUp` takes a `json` field (D-113). Its input carries the
+   schema's input JSON Schema, or none (`JSON`), and the kernel's create
+   validates the value. GraphQL types it as any function input (D-109):
+   named from its path (`SignUpInputPrefs`) unless the schema has an id, and
+   a shape it cannot type stops startup, naming `signUp`.
+7. Rows stored before a schema changed may not fit its new output type:
+   GraphQL then fails that field when read, with its usual error. Migrating
+   such rows is the application's work.
+8. REST will type its OpenAPI document from the same JSON Schema.
+
+Why: `validate` already says the exact shape of a field, and functions turn
+the same schemas into GraphQL types; a `JSON` scalar left a client's
+generated types at `unknown` for no reason. A field's schema is often written
+for storage (unions, free keys), so a shape GraphQL cannot type falls back to
+`JSON` there instead of stopping startup.
+Rejected: `JSON` for every field (the shape is known); stopping startup on a
+union in a field; a filter typed from the output side, which needs a third
+set of type names for a rare transform; refusing JSON fields at sign-up,
+whose input the schema already describes.
+Example:
+
+```ts
+export const User = defineModel({
+	name: 'User',
+	fields: (f) => ({
+		prefs: f.json({
+			validate: z.object({
+				theme: z.enum(['dark', 'light']),
+				size: z.number().default(12),
+			}),
+		}),
+		raw: f.json(),
+	}),
+})
+```
+
+```graphql
+# Before
+type User {
+	prefs: JSON!
+	raw: JSON!
+}
+input UserCreateInput {
+	prefs: JSON!
+	raw: JSON!
+}
+
+# After
+type User {
+	prefs: UserPrefs!
+	raw: JSON!
+}
+type UserPrefs {
+	theme: UserPrefsTheme!
+	size: Float!
+}
+enum UserPrefsTheme {
+	dark
+	light
+}
+input UserCreateInput {
+	prefs: UserPrefsInput!
+	raw: JSON!
+}
+input UserPrefsInput {
+	theme: UserPrefsTheme!
+	size: Float
+}
+input UserWhereInput {
+	prefs: UserPrefsFilter
+	raw: JSONFilter
+}
 ```
