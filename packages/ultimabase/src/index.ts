@@ -43,9 +43,11 @@ export { InvalidQuery, PublicError, Refused } from './errors.ts'
 export type {
 	Field,
 	FieldBuilders,
+	ListOptions,
 	Many,
 	One,
 	ScalarOptions,
+	StringOptions,
 } from './fields.ts'
 export { defineFunction, defineType } from './define-function.ts'
 export type {

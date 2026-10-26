@@ -47,6 +47,7 @@ const types = {
 	date: 'timestamptz',
 	json: 'jsonb',
 	enum: 'text collate "C"',
+	stringList: 'text[]',
 }
 
 type Building = {

@@ -109,6 +109,12 @@ function readOf(field: Scalar): Property['read'] {
 				? { message: 'Expected a date.' }
 				: { value: date }
 		}
+		if (type === 'stringList') {
+			return Array.isArray(value) &&
+				value.every((item) => typeof item === 'string' && item !== '')
+				? { value }
+				: { message: 'Expected a list of non-empty strings.' }
+		}
 		if (type === 'enum') {
 			return typeof value === 'string' && values.includes(value)
 				? { value }
@@ -120,6 +126,9 @@ function readOf(field: Scalar): Property['read'] {
 
 function jsonOf(field: Scalar): Node {
 	const { type, values = [], optional } = field
+	if (type === 'stringList') {
+		return { type: 'array', items: { type: 'string', minLength: 1 } }
+	}
 	const base = type === 'date' || type === 'enum' ? 'string' : type
 	return {
 		type: optional ? [base, 'null'] : base,
@@ -128,7 +137,10 @@ function jsonOf(field: Scalar): Node {
 	}
 }
 
-/** A user field a client may send at sign-up; a relation or JSON stops startup. */
+/**
+ * A user field a client may send at sign-up; a relation or a JSON field stops
+ * startup (D-113).
+ */
 export function fieldProperty(
 	field: SchemaField,
 	required: boolean,

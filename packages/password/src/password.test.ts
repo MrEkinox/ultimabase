@@ -115,10 +115,17 @@ const wrong = { code: 'INVALID_CREDENTIALS' }
 describe('signing up', () => {
 	it('creates the user and its hash, and opens a session with its cookie', async () => {
 		const { url } = await server()
-		const signed = await signUp(url, { born: '1815-12-10T00:00:00.000Z' })
+		const signed = await signUp(url, {
+			born: '1815-12-10T00:00:00.000Z',
+			tags: ['math'],
+		})
 		expect(signed.status).toBe(200)
 		const [user] = await User.findMany({}, M)
-		expect(user).toMatchObject({ name: 'Ada', born: new Date('1815-12-10') })
+		expect(user).toMatchObject({
+			name: 'Ada',
+			born: new Date('1815-12-10'),
+			tags: ['math'],
+		})
 		expect(signed.body).toMatchObject({
 			data: { signUp: { user: { id: user?.id, name: 'Ada' } } },
 		})

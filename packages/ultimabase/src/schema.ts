@@ -4,6 +4,7 @@ import type { Schema, SchemaField, SchemaModel } from './adapter.ts'
 import type {
 	FieldDefinition,
 	FieldOptions,
+	IndexDefinition,
 	ModelDefinition,
 	PluginCode,
 	PluginUse,
@@ -247,6 +248,18 @@ function definitionsOf(
 	return { definitions, names, owners }
 }
 
+/** An index on a list is a GIN index of that list alone (D-120). */
+function listIndex(model: string, name: string, index: IndexDefinition): void {
+	if (index.fields.length > 1) {
+		throw new Refused(
+			`${model}: the list '${name}' is indexed alone, in an index of its own.`,
+		)
+	}
+	if (index.unique === true) {
+		throw new Refused(`${model}: the list '${name}' cannot be unique.`)
+	}
+}
+
 /** Resolves the application's models, or stops startup with a message. */
 export function resolve(
 	values: readonly unknown[],
@@ -310,6 +323,9 @@ export function resolve(
 					throw new Refused(
 						`${model}: index field '${name}' is not a scalar or a stored one relation.`,
 					)
+				}
+				if (field.kind === 'scalar' && field.type === 'stringList') {
+					listIndex(model, name, index)
 				}
 			}
 		}

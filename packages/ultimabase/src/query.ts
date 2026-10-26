@@ -49,19 +49,33 @@ type ScalarFilter<V> = {
 			}
 		: unknown)
 
+type IsList<X> = X extends {
+	readonly [fieldType]: { readonly options: { readonly list: true } }
+}
+	? true
+	: false
+
+/** A list has no shorthand; `NOT` gives the opposite (D-120). */
+type ListFilter = {
+	readonly has?: string | undefined
+	readonly hasSome?: readonly string[] | undefined
+}
+
 type FilterOf<X> =
-	KindOf<X> extends 'scalar'
-		? StoredValue<X> | ScalarFilter<NonNullable<StoredValue<X>>>
-		: KindOf<X> extends 'one'
-			? {
-					readonly is?: Where<TargetFields<TargetOf<X>>> | null | undefined
-					readonly isNot?: Where<TargetFields<TargetOf<X>>> | null | undefined
-				}
-			: {
-					readonly some?: Where<TargetFields<TargetOf<X>>> | undefined
-					readonly every?: Where<TargetFields<TargetOf<X>>> | undefined
-					readonly none?: Where<TargetFields<TargetOf<X>>> | undefined
-				}
+	IsList<X> extends true
+		? ListFilter
+		: KindOf<X> extends 'scalar'
+			? StoredValue<X> | ScalarFilter<NonNullable<StoredValue<X>>>
+			: KindOf<X> extends 'one'
+				? {
+						readonly is?: Where<TargetFields<TargetOf<X>>> | null | undefined
+						readonly isNot?: Where<TargetFields<TargetOf<X>>> | null | undefined
+					}
+				: {
+						readonly some?: Where<TargetFields<TargetOf<X>>> | undefined
+						readonly every?: Where<TargetFields<TargetOf<X>>> | undefined
+						readonly none?: Where<TargetFields<TargetOf<X>>> | undefined
+					}
 
 export type Where<F> = {
 	readonly [K in keyof F]?: FilterOf<F[K]> | undefined
@@ -94,13 +108,18 @@ export type UniqueWhere<F, X = never> =
 	| IndexTarget<F, X>
 
 type Direction = 'asc' | 'desc'
-/** A json field is not sorted: each database orders json its own way (D-94). */
+/**
+ * A json field is not sorted: each database orders json its own way (D-94);
+ * nor is a list (D-120).
+ */
 type SortedKeys<F> = {
 	[K in ScalarKeys<F>]: F[K] extends {
 		readonly [fieldType]: { readonly json: true }
 	}
 		? never
-		: K
+		: IsList<F[K]> extends true
+			? never
+			: K
 }[ScalarKeys<F>]
 export type OrderBy<F> = {
 	readonly [K in SortedKeys<F> | keyof SystemFields]?: Direction | undefined

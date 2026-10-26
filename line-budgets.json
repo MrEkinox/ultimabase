@@ -1,10 +1,10 @@
 {
 	"ultimabase": 10000,
-	"testing": 1500,
+	"testing": 1580,
 	"soft-delete": 150,
-	"postgres": 2365,
+	"postgres": 2410,
 	"http": 670,
 	"graphql": 2800,
 	"auth": 640,
-	"password": 1510
+	"password": 1530
 }

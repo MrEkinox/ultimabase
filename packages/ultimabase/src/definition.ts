@@ -167,9 +167,23 @@ function enumOf(values: readonly unknown[], options?: FieldOptions): object {
 	})
 }
 
+/** `string`, and with `list: true` a list of strings (D-120). */
+function string(options?: FieldOptions): object {
+	if (options?.['list'] !== true) return scalar('string')(options)
+	if (options['optional'] !== undefined) {
+		throw new Error(
+			'A string list is never null: left out, it is []. Remove optional.',
+		)
+	}
+	if (options['unique'] !== undefined) {
+		throw new Error('A string list cannot be unique.')
+	}
+	return scalar('stringList')(options)
+}
+
 /** The builders `defineModel`'s `fields` callback receives (D-09, D-12). */
 export const fieldBuilders: object = Object.freeze({
-	string: scalar('string'),
+	string,
 	number: scalar('number'),
 	boolean: scalar('boolean'),
 	date: scalar('date'),

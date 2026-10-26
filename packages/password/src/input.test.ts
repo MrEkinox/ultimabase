@@ -32,7 +32,15 @@ const fields = new Map<string, Property>(
 		scalar('admin', 'boolean', { optional: true }),
 		scalar('born', 'date', { optional: true }),
 		scalar('role', 'enum', { optional: true, values: ['reader', 'writer'] }),
-	].map((field) => [field.name, fieldProperty(field, !field.optional, 'test')]),
+		scalar('tags', 'stringList'),
+	].map((field) => [
+		field.name,
+		fieldProperty(
+			field,
+			!field.optional && field.type !== 'stringList',
+			'test',
+		),
+	]),
 )
 const signUp = signUpInput(fields)['~standard']
 const base = {
@@ -51,11 +59,19 @@ describe('a sign-up input', () => {
 				admin: false,
 				born: born.toISOString(),
 				role: 'writer',
+				tags: ['ts'],
 			},
 		})
 		expect(read).toStrictEqual({
 			value: {
-				input: { ...base, age: 36, admin: false, born, role: 'writer' },
+				input: {
+					...base,
+					age: 36,
+					admin: false,
+					born,
+					role: 'writer',
+					tags: ['ts'],
+				},
 			},
 		})
 		expect(signUp.validate({ input: { ...base, born } })).toStrictEqual({
@@ -82,6 +98,7 @@ describe('a sign-up input', () => {
 				admin: 'yes',
 				born: 'never',
 				role: 'owner',
+				tags: ['ts', ''],
 				extra: true,
 			},
 		})
@@ -98,7 +115,14 @@ describe('a sign-up input', () => {
 				{ path: ['input', 'admin'], message: 'Expected a boolean.' },
 				{ path: ['input', 'born'], message: 'Expected a date.' },
 				{ path: ['input', 'role'], message: 'Expected one of reader, writer.' },
+				{
+					path: ['input', 'tags'],
+					message: 'Expected a list of non-empty strings.',
+				},
 			],
+		})
+		expect(signUp.validate({ input: { ...base, tags: 'ts' } })).toMatchObject({
+			issues: [{ message: 'Expected a list of non-empty strings.' }],
 		})
 		expect(signUp.validate({ input: { ...base, born: 0 } })).toMatchObject({
 			issues: [{ message: 'Expected a date.' }],
@@ -139,6 +163,7 @@ describe('a sign-up input', () => {
 							type: ['string', 'null'],
 							enum: ['reader', 'writer', null],
 						},
+						tags: { type: 'array', items: { type: 'string', minLength: 1 } },
 					},
 				},
 			},

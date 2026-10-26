@@ -20,7 +20,7 @@ import { objectOf, uniqueInput, uniqueWhere } from './inputs.ts'
 import { upper } from './names.ts'
 import { deletedType, isMaster, objectType } from './outputs.ts'
 import type { Args, Context, Entry, Registry } from './registry.ts'
-import { as, scalarType } from './registry.ts'
+import { as, valueType } from './registry.ts'
 import { selectOf } from './select.ts'
 
 type Fields = { [field: string]: GraphQLFieldConfig<unknown, Context, Args> }
@@ -73,7 +73,7 @@ function fieldInput(
 	field: SchemaField,
 	creating: boolean,
 ): GraphQLNullableInputType {
-	if (field.kind === 'scalar') return scalarType(registry, model, field)
+	if (field.kind === 'scalar') return valueType(registry, model, field)
 	return relationInput(registry, field.kind, creating)
 }
 

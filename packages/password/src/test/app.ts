@@ -1,5 +1,5 @@
 // password's application for tests (D-113): a user model that signs up with
-// a name, and the GraphQL requests a client sends.
+// a name, a birth date and tags, and the GraphQL requests a client sends.
 import { authPlugin, defineUser, signedIn } from '@ultimabase/auth'
 import { graphql, graphqlPlugin } from '@ultimabase/graphql'
 import { httpPlugin } from '@ultimabase/http'
@@ -17,6 +17,7 @@ export const User = defineUser({
 	fields: (f) => ({
 		name: f.string(),
 		born: f.date({ optional: true }),
+		tags: f.string({ list: true }),
 		note: f.string({ optional: true }).with({
 			access: { read: allow.private },
 		}),
@@ -46,7 +47,7 @@ function listening(lines: string[], errors: string[]): Logger {
 
 /** A started application on a free port. */
 export async function started(
-	options: PasswordOptions = { signUp: ['name', 'born'] },
+	options: PasswordOptions = { signUp: ['name', 'born', 'tags'] },
 	database: Adapter = memory(),
 ) {
 	const lines: string[] = []

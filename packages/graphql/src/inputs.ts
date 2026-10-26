@@ -7,6 +7,7 @@ import {
 	GraphQLInputObjectType,
 	GraphQLList,
 	GraphQLNonNull,
+	GraphQLString,
 } from 'graphql'
 import type { SchemaField } from 'ultimabase'
 import { upper } from './names.ts'
@@ -52,7 +53,9 @@ function filter(
 }
 
 /** Each scalar type's operators: no order on strings, as the kernel. */
-const operators: { readonly [T in Scalar['type']]: readonly string[] } = {
+const operators: {
+	readonly [T in Exclude<Scalar['type'], 'stringList'>]: readonly string[]
+} = {
 	string: text,
 	number: ordered,
 	date: ordered,
@@ -61,12 +64,32 @@ const operators: { readonly [T in Scalar['type']]: readonly string[] } = {
 	enum: base,
 }
 
+/** `StringListFilter`: no shorthand, `NOT` gives the opposite (D-120). */
+const listFilter = (registry: Registry): GraphQLInputObjectType =>
+	registry.input(
+		'StringListFilter',
+		() =>
+			new GraphQLInputObjectType({
+				name: 'StringListFilter',
+				fields: {
+					has: { type: GraphQLString },
+					hasSome: { type: list(GraphQLString) },
+				},
+			}),
+	)
+
 const scalarFilter = (
 	registry: Registry,
 	model: string,
 	field: Scalar,
 ): GraphQLInputObjectType =>
-	filter(registry, scalarType(registry, model, field), operators[field.type])
+	field.type === 'stringList'
+		? listFilter(registry)
+		: filter(
+				registry,
+				scalarType(registry, model, field),
+				operators[field.type],
+			)
 
 const relationFilter = (
 	registry: Registry,
@@ -137,7 +160,10 @@ const sortOrder = (registry: Registry): GraphQLEnumType =>
 			}),
 	)
 
-/** `PostOrderByInput`: scalar fields but json, as the kernel sorts (D-94). */
+/**
+ * `PostOrderByInput`: scalar fields but json and lists, as the kernel sorts
+ * (D-94, D-120).
+ */
 export function orderByInput(
 	registry: Registry,
 	model: string,
@@ -147,7 +173,11 @@ export function orderByInput(
 		const type = sortOrder(registry)
 		const names = ['id', 'createdAt', 'updatedAt']
 		for (const field of readable(registry.entry(model))) {
-			if (field.kind === 'scalar' && field.type !== 'json') {
+			if (
+				field.kind === 'scalar' &&
+				field.type !== 'json' &&
+				field.type !== 'stringList'
+			) {
 				names.push(field.name)
 			}
 		}

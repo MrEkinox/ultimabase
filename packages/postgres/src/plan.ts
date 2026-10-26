@@ -3,12 +3,11 @@
 // columns change, then keys, indexes and foreign keys are added, so each
 // statement finds what it needs.
 import type { Statement } from 'ultimabase'
-import type { Catalog } from './names.ts'
+import type { Fill, Fills } from './fills.ts'
+import { literal } from './fills.ts'
 import type { Check, ForeignKey, Snapshot, TableSnapshot } from './snapshot.ts'
 
 export const id = (name: string): string => `"${name.replaceAll('"', '""')}"`
-
-const literal = (value: string): string => `'${value.replaceAll("'", "''")}'`
 
 const list = (names: readonly string[]): string => names.map(id).join(', ')
 
@@ -16,12 +15,6 @@ const same = (a: unknown, b: unknown): boolean =>
 	JSON.stringify(a) === JSON.stringify(b)
 
 type Named<T> = { readonly [name: string]: T }
-
-/** A fixed default as SQL, and as the log shows it: `'draft'`. */
-type Fill = { readonly sql: string; readonly shown: string }
-
-/** Each table's columns with a fixed default (D-105). */
-export type Fills = Named<Named<Fill>>
 
 type Emit = (
 	sql: string,
@@ -77,6 +70,20 @@ function create(name: string, table: TableSnapshot): string {
 	return `create table ${id(name)} (\n\t${parts.join(',\n\t')}\n)`
 }
 
+/** An index, by GIN on a list (D-120): its column's type decides. */
+type Index = { readonly columns: string[]; readonly gin: boolean }
+
+const indexesOf = (table: TableSnapshot | undefined): Named<Index> =>
+	Object.fromEntries(
+		Object.entries(table?.indexes ?? {}).map(([key, columns]) => [
+			key,
+			{
+				columns,
+				gin: columns.some((name) => table?.columns[name]?.type === 'text[]'),
+			},
+		]),
+	)
+
 /** Drops the keys, checks and indexes of `from` that `to` changes. */
 function dropKeys(
 	name: string,
@@ -95,42 +102,12 @@ function dropKeys(
 	for (const [key, { column: on }] of changed(from.checks, to.checks)) {
 		emit(drop(key), `dropped the values of ${fields(from, [on])}`)
 	}
-	for (const [key, columns] of changed(from.indexes, to.indexes)) {
+	for (const [key, { columns }] of changed(indexesOf(from), indexesOf(to))) {
 		emit(
 			`drop index ${id(key)}`,
 			`dropped the index on ${fields(from, columns)}`,
 		)
 	}
-}
-
-function fillOf(type: string, value: unknown): Fill {
-	if (type === 'json') {
-		const text = literal(JSON.stringify(value))
-		return { sql: `${text}::jsonb`, shown: text }
-	}
-	if (value instanceof Date) {
-		const text = literal(value.toISOString())
-		return { sql: `${text}::timestamptz`, shown: text }
-	}
-	const text = typeof value === 'string' ? literal(value) : String(value)
-	return { sql: text, shown: text }
-}
-
-/** The columns whose field has a fixed default, which rows take when added. */
-export function fillsOf(catalog: Catalog): Fills {
-	const fills: Record<string, Named<Fill>> = {}
-	for (const table of catalog.tables.values()) {
-		const columns: Record<string, Fill> = {}
-		for (const field of table.model.fields) {
-			if (field.kind !== 'scalar' || field.default === undefined) continue
-			columns[catalog.column(table, field.name)] = fillOf(
-				field.type,
-				field.default,
-			)
-		}
-		fills[table.name] = columns
-	}
-	return fills
 }
 
 /** Adds a column; a required one takes its fixed default in the rows. */
@@ -159,15 +136,17 @@ function addColumn(
 
 /** The types PostgreSQL converts no value of a type to, on PG 15 to 18. */
 const unconvertible: Named<readonly string[]> = {
-	'double precision': ['boolean', 'timestamptz', 'jsonb'],
-	boolean: ['double precision', 'timestamptz', 'jsonb'],
-	timestamptz: ['double precision', 'boolean', 'jsonb'],
-	jsonb: ['timestamptz'],
+	'double precision': ['boolean', 'timestamptz', 'jsonb', 'text[]'],
+	boolean: ['double precision', 'timestamptz', 'jsonb', 'text[]'],
+	timestamptz: ['double precision', 'boolean', 'jsonb', 'text[]'],
+	jsonb: ['timestamptz', 'text[]'],
+	'text[]': ['double precision', 'boolean', 'timestamptz', 'jsonb'],
 }
 
 /** Whether converting text or json to another type reads each value. */
 const reads = (from: string, to: string): boolean =>
-	(from === 'jsonb' || from.startsWith('text')) && !to.startsWith('text')
+	(from === 'jsonb' || from.startsWith('text')) &&
+	!to.startsWith('text collate')
 
 /** A date as text is `toISOString()`'s, whatever the session's time zone. */
 const converted = (named: string, from: string, to: string): string =>
@@ -368,9 +347,12 @@ export function plan(
 	}
 	for (const [name, table] of Object.entries(after)) {
 		const was = before[name]
-		for (const [key, columns] of added(was?.indexes ?? {}, table.indexes)) {
+		for (const [key, { columns, gin }] of added(
+			indexesOf(was),
+			indexesOf(table),
+		)) {
 			emit(5, table.model)(
-				`create index ${id(key)} on ${id(name)} (${list(columns)})`,
+				`create index ${id(key)} on ${id(name)}${gin ? ' using gin' : ''} (${list(columns)})`,
 				`indexed ${fields(table, columns)}`,
 			)
 		}

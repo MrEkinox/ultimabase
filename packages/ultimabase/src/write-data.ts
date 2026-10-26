@@ -10,6 +10,7 @@ import {
 	entries,
 	isJson,
 	isObject,
+	listItem,
 	storedDate,
 	unknownKey,
 } from './query-where.ts'
@@ -49,6 +50,10 @@ export const fits: {
 		typeof value === 'string' && (field.values ?? []).includes(value)
 			? undefined
 			: `Expected one of ${(field.values ?? []).join(', ')}.`,
+	stringList: (value) =>
+		Array.isArray(value) && value.every(listItem)
+			? undefined
+			: 'Expected a list of non-empty strings without a NUL or a lone surrogate.',
 }
 
 /** `{ id }`, exactly. */

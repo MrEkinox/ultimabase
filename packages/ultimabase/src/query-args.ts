@@ -65,10 +65,14 @@ function orderBy(
 			) {
 				throw unknownKey(`${at}.${field}`, model.name)
 			}
-			if (known?.kind === 'scalar' && known.type === 'json') {
+			if (
+				known?.kind === 'scalar' &&
+				(known.type === 'json' || known.type === 'stringList')
+			) {
+				const kind = known.type === 'json' ? 'a json field' : 'a list'
 				throw new InvalidQuery(
 					`${at}.${field}`,
-					`${at}.${field} is a json field, which cannot be sorted.`,
+					`${at}.${field} is ${kind}, which cannot be sorted.`,
 				)
 			}
 			scope?.check(model, field, `${at}.${field}`, 'sorts')

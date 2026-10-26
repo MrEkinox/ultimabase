@@ -19,7 +19,7 @@ import { orderByInput, whereInput } from './inputs.ts'
 import { upper } from './names.ts'
 import { connection, listRead, rowsOf } from './pages.ts'
 import type { Args, Context, Registry } from './registry.ts'
-import { readable, scalarType } from './registry.ts'
+import { readable, valueType } from './registry.ts'
 import { DateTime } from './scalars.ts'
 
 const required = <T extends GraphQLObjectType>(type: T) =>
@@ -179,7 +179,7 @@ function scalarFields(
 	for (const field of readable(entry)) {
 		if (field.kind !== 'scalar') continue
 		const ruled = entry.exposed.readRules[field.name] === 'rule'
-		const type = scalarType(registry, model, field)
+		const type = valueType(registry, model, field)
 		fields[field.name] = {
 			type: field.optional || ruled ? type : new GraphQLNonNull(type),
 		}

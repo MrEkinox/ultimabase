@@ -5414,7 +5414,10 @@ D-112.
 11. Details (amended 2026-10-24). `INVALID_CREDENTIALS` is a kernel code,
     sent with status 401. `signUp` takes neither `id`, `createdAt`,
     `updatedAt`, `email` nor `password` as a listed field, nor a relation or
-    JSON field; a required user field missing from the list stops startup,
+    JSON field (a string list is taken, amended 2026-10-26). A JSON field
+    has any shape its `validate` accepts, often a Zod schema, which the
+    plugin cannot turn into the JSON Schema a client types its input from;
+    a required user field missing from the list stops startup,
     `signUp` omitted listing none. Over GraphQL an unlisted field fails the
     input type, before `VALIDATION_FAILED`. `signUp` is not limited. Commands
     have no client, so `User.signIn` is never counted, whoever the caller;
@@ -5926,7 +5929,9 @@ Choice: completes D-09 and D-52.
    these strings), Prisma's names; `NOT` gives their opposite. A list cannot
    be sorted, compared with `equals`, nor be `unique`. `hasEvery`, `isEmpty`
    and Prisma's `push` wait for a use.
-3. PostgreSQL stores it as `text[] not null default '{}'`; `has` is
+3. PostgreSQL stores it as `text[] not null`, with no column default
+   (D-105; amended 2026-10-26): the kernel writes `[]`, and the rows of a
+   list added to a table take `'{}'` or the list's default. `has` is
    `@> array[...]`, `hasSome` is `&&`. `memory()` keeps an array. The
    contract suite runs both. GraphQL shows `[String!]!`, written
    `[String!]`, with a filter input of `has` and `hasSome`.
@@ -5940,9 +5945,10 @@ Why: tags, labels and an ACL's entries (D-124) are lists of strings, and a
 list in the row reads in the row's query, where a join table needs one more.
 A GIN index turns `&&` from a scan of the table into an index lookup; an ACL
 filters every read through it, so it must exist from the first release.
-Rejected: lists of every type now (only strings have a use); a `string[]`
-stored as `json` (no index, no filter); a join table for an ACL;
-`btree_gin`, an extension, to mix a list and a scalar in one index.
+Rejected: lists of other types in this decision (decided before 0.1, on
+the roadmap); a `string[]` stored as `json` (no index, no filter); a join
+table for an ACL; `btree_gin`, an extension, to mix a list and a scalar in
+one index.
 Example:
 
 ```ts

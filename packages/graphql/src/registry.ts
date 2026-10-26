@@ -10,6 +10,8 @@ import {
 	GraphQLBoolean,
 	GraphQLEnumType,
 	GraphQLFloat,
+	GraphQLList,
+	GraphQLNonNull,
 	GraphQLString,
 } from 'graphql'
 import type {
@@ -111,6 +113,8 @@ export const scalarTypes: {
 	boolean: GraphQLBoolean,
 	date: DateTime,
 	json: JSONScalar,
+	// A list's items: `valueType` makes it `[String!]` (D-120).
+	stringList: GraphQLString,
 }
 
 /** The fields a caller other than Master may read: no `private` one (D-44). */
@@ -138,3 +142,16 @@ export function scalarType(
 			}),
 	)
 }
+
+/** A scalar field's value, read or written: a list's is `[String!]`. */
+export const valueType = (
+	registry: Registry,
+	model: string,
+	field: Scalar,
+):
+	| GraphQLScalarType
+	| GraphQLEnumType
+	| GraphQLList<GraphQLNonNull<GraphQLScalarType>> =>
+	field.type === 'stringList'
+		? new GraphQLList(new GraphQLNonNull(GraphQLString))
+		: scalarType(registry, model, field)

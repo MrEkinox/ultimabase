@@ -107,14 +107,15 @@ function exposed(name: string, resolved: Resolved): readonly ExposedModel[] {
 	})
 }
 
-/** The fields `create` needs, as its type says (D-53). */
+/** The fields `create` needs, as its type says (D-53): a list is `[]`. */
 function required(info: ModelInfo): readonly string[] {
 	return [...info.fields.values()]
 		.filter(
 			(field) =>
 				field.kind !== 'many' &&
 				!field.optional &&
-				field.options['default'] === undefined,
+				field.options['default'] === undefined &&
+				field.options['list'] !== true,
 		)
 		.map((field) => field.name)
 }

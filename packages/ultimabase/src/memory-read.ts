@@ -277,6 +277,12 @@ function scalar(value: unknown, condition: Condition): Truth {
 			truths.push(operator === 'in' ? found : not(found))
 		} else if (!known) {
 			truths.push(null)
+		} else if (operator === 'has' || operator === 'hasSome') {
+			const items: readonly unknown[] = Array.isArray(value) ? value : []
+			const wanted: readonly unknown[] = Array.isArray(operand)
+				? operand
+				: [operand]
+			truths.push(wanted.some((item) => items.includes(item)))
 		} else if (operator === 'contains') {
 			truths.push(text(value, operand, (a, b) => a.includes(b)))
 		} else if (operator === 'startsWith') {
