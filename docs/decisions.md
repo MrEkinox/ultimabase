@@ -5970,6 +5970,8 @@ await Post.findMany({ where: { tags: { hasSome: ['ts', 'node'] } } })
 
 ## D-121: Plugins complete a user caller
 
+Amended by D-126.
+
 Choice: completes D-15 and D-19, which promise plugin keys on the caller.
 
 1. A plugin may give `definePlugin` a `caller` part: given a user caller and
@@ -6074,6 +6076,8 @@ await Note.update(
 
 ## D-123: `rolesPlugin()`, `defineRole` and roles inside roles
 
+Amended by D-126.
+
 Choice: amends D-13; Parse's roles.
 
 1. `@ultimabase/roles` exports `rolesPlugin()` and `defineRole`. An
@@ -6137,6 +6141,8 @@ export const Post = defineModel({ name: 'Post', fields }).with({
 ```
 
 ## D-124: `acl()`, per-row rights, and the `ACL` class
+
+Amended by D-126.
 
 Choice: amends D-71; Parse's ACL, stored in one string list.
 
@@ -6347,4 +6353,74 @@ input UserWhereInput {
 	prefs: UserPrefsFilter
 	raw: JSONFilter
 }
+```
+
+## D-126: A role is asked, never read
+
+Choice: amends D-121's example, D-123 and D-124.
+
+1. Code asks whether a caller has a role; it never reads a list of roles.
+   `hasRole('Admin', 'Editor')` stays the ready-made rule (D-10), combined
+   with others by `anyOf` and `allOf`. Code outside a rule, a function or a
+   hook, asks the same function with the caller first:
+   `hasRole(caller, 'Admin', 'Editor')` answers at once. Both are true for a
+   user with one of the roles, inherited ones included, and false for an
+   anonymous or Master caller.
+2. The roles plugin still completes a user caller once (D-121) with every
+   role the user has, as D-123 reads them, under a symbol key that
+   `@ultimabase/roles` does not export: `caller.` lists no roles. The kernel
+   takes a plugin's symbol keys as it takes its string keys.
+3. `rolesOf(caller)` gives those roles, each `{ id, name }`, for the code
+   that needs the list: the ACL (D-124) reads it, so `@ultimabase/acl`
+   imports `@ultimabase/roles`. It gives `[]` for a caller the roles plugin
+   did not complete, so the ACL works without `rolesPlugin()`.
+4. `hasRole` given a user caller the roles plugin did not complete stops
+   with a message saying to add `rolesPlugin()` to `plugins`.
+5. The user's side of `members` (D-123) is data: code reads it to show or
+   change a user's roles, and adds a member from the role, as Parse does.
+
+Why: D-123 gave two lists named `roles`, the user's relation and the
+caller's key, which differ only by the inherited roles; a developer had to
+know which one a rule reads. A developer who wrote `Admin.inherits` already
+knows that admins are moderators, as in Parse: the question says it.
+One
+name asks it everywhere.
+Rejected: `caller.roles`; the user's relation read by a rule (not loaded
+with the caller, direct roles only, D-76); roles kept by the plugin beside
+the caller, which leaves its `caller` part returning nothing; a second
+name for the question asked outside a rule (two words for one question);
+`hasRole` silently false without the plugin, which hides a missing plugin.
+Example:
+
+```ts
+// Before: Parse
+const admins = await new Parse.Query(Parse.Role)
+	.equalTo('name', 'Admin')
+	.equalTo('users', request.user)
+	.first({ useMasterKey: true })
+if (admins === undefined) throw new Parse.Error(403, 'Admins only.')
+
+// Before: D-123
+access: {
+	update: ({ caller, record }) =>
+		caller.kind === 'user' &&
+		(record.author.id === caller.user.id ||
+			caller.roles.some((role) => role.name === 'Admin')),
+}
+
+// After
+await Role.update(
+	{ where: { id: admin.id }, data: { members: { connect: { id: ada.id } } } },
+	{ as: master },
+)
+access: { update: anyOf(isAuthor, hasRole('Admin')), delete: hasRole('Moderator') }
+
+export const publish = defineFunction({
+	name: 'publish',
+	input: z.object({ post: z.string() }),
+	run: async ({ input, caller }) => {
+		const featured = hasRole(caller, 'Editor')
+		// ...
+	},
+}).with({ access: isAuthenticated })
 ```
