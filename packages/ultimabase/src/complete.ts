@@ -36,8 +36,10 @@ async function completed(
 			keys[key] = value
 		}
 	}
-	// Each plugin types its keys (D-121); the kernel checks none is given twice.
-	return Object.freeze({ ...identity, ...keys })
+	// Unnecessary only while no plugin declares a key: once one does, the
+	// kernel's types cannot see it given (D-121). caller-keys-typing proves it.
+	// oxlint-disable-next-line typescript/no-unnecessary-type-assertion -- see above.
+	return Object.freeze({ ...identity, ...keys }) as Caller
 }
 
 /**
