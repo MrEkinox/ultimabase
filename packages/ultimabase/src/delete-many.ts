@@ -64,7 +64,7 @@ export async function removeMany(
 		events,
 		checks: [],
 		replan: async (moving, id, draft) =>
-			updatePlan(models, moving, id, draft, {}, store),
+			updatePlan(scope, moving, id, draft, {}, store),
 	}
 	const changes = await cascaded(context, writing, cascade)
 	if (changes.length > 0) {

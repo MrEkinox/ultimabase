@@ -95,10 +95,11 @@ async function waitingOnLock(watcher: Client, table: string): Promise<void> {
 async function shelved(model: typeof Book | typeof Tagged) {
 	const shelf = await Shelf.create({ data: {} }, M)
 	const kept = await Shelf.create({ data: {} }, M)
-	const book = await model.create(
-		{ data: { shelf: { connect: { id: shelf.id } } } },
-		M,
-	)
+	const data = { shelf: { connect: { id: shelf.id } } }
+	const book =
+		model === Book
+			? await Book.create({ data }, M)
+			: await Tagged.create({ data }, M)
 	return { shelf: shelf.id, kept: kept.id, book: book.id }
 }
 

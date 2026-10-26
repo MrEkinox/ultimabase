@@ -109,6 +109,7 @@ async function hooked(
 		})
 		if (Object.keys(data).length === 0) continue
 		const plan = await writing.replan(target, row.id, data)
+		writing.events.push(...plan.events)
 		await plan.check(writing)
 		changes.push(...(await plan.changes(writing)))
 	}
@@ -184,6 +185,10 @@ async function detach(step: Detach, writing: Writing): Promise<Change[]> {
 export class Plan {
 	readonly steps: Step[] = []
 	readonly issues: Issue[] = []
+	/** The rows its nested `create`s make, their hooks run (D-128). */
+	readonly events: Event[] = []
+	/** The ids of the rows it creates, which a `connect` needs not find. */
+	readonly made: Set<string> = new Set()
 	private readonly connected = new Map<
 		string,
 		{
@@ -218,7 +223,9 @@ export class Plan {
 	 */
 	async check(writing: Writing): Promise<void> {
 		if (this.issues.length > 0) throw invalid(this.issues)
-		for (const { model, trusted, operation, ids } of this.connected.values()) {
+		for (const group of this.connected.values()) {
+			const { model, trusted, operation } = group
+			const ids = new Set([...group.ids].filter((id) => !this.made.has(id)))
 			if (ids.size === 0) continue
 			const message = `A connected ${model} does not exist.`
 			// No row has an id the kernel cannot have made.

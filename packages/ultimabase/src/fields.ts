@@ -316,6 +316,8 @@ export type RelationValue = { readonly id: string }
 export type ManyValue = {
 	readonly connect: readonly RelationValue[]
 	readonly disconnect: readonly RelationValue[]
+	/** The rows it creates, by the ids the kernel gives them (D-128). */
+	readonly create: readonly RelationValue[]
 }
 
 // `T` is the target's thunk, constrained to `object` only: its return type

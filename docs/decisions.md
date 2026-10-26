@@ -459,6 +459,8 @@ read: ({ caller, where }) =>
 
 ## D-20: The query API follows Prisma Client
 
+Amended by D-128.
+
 Choice: operations, their names and their arguments follow Prisma Client, so
 a developer coming from Prisma reads UltimaBase queries as Prisma: `findUnique`,
 `findFirst`, `findMany`, `count`, `create`, `createMany`, `update`,
@@ -2528,6 +2530,8 @@ for a small one; a 95 % floor, which pushes tests for invariants that cannot
 fail.
 
 ## D-86: Access rules on relations, filters and written rows
+
+Amended by D-128.
 
 Choice: five details of D-10, D-44 and D-78 at run time.
 
@@ -4609,7 +4613,7 @@ curl -X POST localhost:3000/webhooks/stripe -d '{"id":"…"}' \
 
 ## D-107: `graphqlPlugin()`, the schema it generates and how it mounts
 
-Amended by D-125.
+Amended by D-125 and D-128.
 
 Choice: completes D-16, D-34, D-41, D-45 and D-55.
 
@@ -6530,4 +6534,114 @@ export const Shop = defineModel({
 })
 await Shop.findMany({ where: { days: { hasSome: ['sat', 'sun'] } } })
 await Shop.findMany({ where: { sizes: { has: 42 } } })
+```
+
+## D-128: Nested creation, `create` in a relation write
+
+Choice: a relation write takes `create` beside `connect`, in `create` and
+`update`, with Prisma's spelling (D-20).
+
+1. On a `one` relation, `create` takes the target's data and stands alone,
+   as `connect` does. On a `many` relation it takes a list of them and
+   combines with `connect` (and `disconnect` in `update`); like `connect`
+   there, it takes no single object.
+2. A created row is created as `Target.create` creates it for the same
+   caller: its `create` rule, its field rules, its defaults, its validation
+   and its `beforeCreate` hooks. It is then connected as `connect` connects
+   it: the key goes on the side that stores it (D-37), a many-to-many writes
+   its join row, and a one-to-one already held is refused as with `connect`.
+   When the created row stores the key, its data holds the relation as
+   `{ connect: { id } }`, which its rules and hooks see (D-77).
+3. The created row's data never holds the relation back to the row written:
+   the types leave it out, and the kernel refuses it with `INVALID_QUERY`
+   (`data.comments.create.0.post`). GraphQL names that input as Prisma
+   does: `CommentCreateWithoutPostInput`. Each relation then has its own
+   write inputs, named after its target and the relation back, instead of
+   the shared ones of D-107: `CommentCreateNestedManyWithoutPostInput
+{ connect, create }`, `CommentUpdateManyWithoutPostNestedInput
+{ connect, disconnect, create }`, `PostCreateNestedOneWithoutCommentsInput
+@oneOf { connect, create }`, and `PostUpdateOneWithoutCommentsNestedInput
+@oneOf` with `disconnect: Boolean` on an optional `one`, or
+   `PostUpdateOneRequiredWithoutCommentsNestedInput` without it on a
+   required one. A model hidden from the root fields (`graphql: false`) is
+   still created through a relation, as it is read and connected through
+   one; its rules apply.
+4. A created row may create rows in turn, at any depth.
+5. Rules and hooks run depth first, in written order: the written row's
+   first, so its `beforeCreate` or `beforeUpdate` may change or add the rows
+   it creates, then each created row's. The rows are then written at once,
+   in one adapter write. The `after*` hooks follow in the same order, the
+   `*Commit` hooks after the commit. A created row's `beforeCreate` knows
+   the key of the row it hangs from, which is not stored yet.
+6. A refused or invalid created row fails the whole write. A
+   `VALIDATION_FAILED` issue gives the path from `data`:
+   `['comments', 'create', 0, 'body']`.
+7. The field rule of the relation written sees the created rows by id, as
+   D-86 shows connected ones: `{ id }` on a `one`, and on a `many` a third
+   list, `{ connect, disconnect, create }`. The kernel makes those ids before
+   the rules run (D-22).
+8. A `create` that a default or a hook writes skips access rules, as its
+   `connect` would (D-67); its defaults, validation and hooks still run.
+
+The adapter contract (D-73) is unchanged: a write already holds several
+inserts, the row pointed to inserted first.
+Why: creating a post and its comments takes one call and one write instead
+of one per row and a `transaction()`. Every rule a created row meets is one
+`Target.create` already applies, so nested creation opens no way around a
+rule. A field rule that did not see created rows would let a caller add rows
+to a relation it may not change. Prisma limits neither the depth nor the
+order; the GraphQL depth limit and the request size bound a client.
+Later (D-20): `connectOrCreate`, a nested `createMany`, and nested
+`update`, `delete` and `upsert`.
+Rejected: one level of nesting only (code for an arbitrary rule); a single
+object on a `many` (`connect` takes a list there); the created rows' rules
+skipped because the caller writes the parent; a field rule blind to
+created rows; a GraphQL input per model with every relation (it would let a
+client write the relation back).
+Example:
+
+```ts
+// Before: three calls, atomic only inside transaction()
+const post = await Post.create({ data: { title: 'Hello' } }, { as: caller })
+for (const body of ['a', 'b']) {
+	await Comment.create(
+		{ data: { body, post: { connect: { id: post.id } } } },
+		{ as: caller },
+	)
+}
+
+// After: one write, Comment's rules and hooks run on each comment
+await Post.create(
+	{
+		data: {
+			title: 'Hello',
+			comments: { create: [{ body: 'a' }, { body: 'b' }] },
+		},
+		include: { comments: true },
+	},
+	{ as: caller },
+)
+await Comment.create({
+	data: { body: 'x', post: { create: { title: 'New' } } },
+})
+await User.update({
+	where: { id },
+	data: { profile: { create: { bio: 'Hi' } } },
+})
+
+// Refused: the post is the one being created
+await Post.create({
+	data: {
+		title: 'Hello',
+		comments: { create: [{ body: 'a', post: { connect: { id } } }] },
+	},
+}) // INVALID_QUERY data.comments.create.0.post
+```
+
+```graphql
+mutation {
+	createPost(data: { title: "Hello", comments: { create: [{ body: "a" }] } }) {
+		id
+	}
+}
 ```

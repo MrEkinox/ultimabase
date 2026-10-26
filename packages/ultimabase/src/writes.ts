@@ -49,15 +49,17 @@ async function written(
 	at: { readonly id: string; readonly read: Nested; readonly shape: Shape },
 	checks: Checked[] = [],
 ): Promise<unknown> {
-	const { models, model, scope } = context
+	const { model, scope } = context
 	const writing: Writing = {
 		store,
 		scope,
 		events,
 		checks,
 		replan: async (moving, id, draft) =>
-			updatePlan(models, moving, id, draft, {}, store),
+			updatePlan(scope, moving, id, draft, {}, store),
 	}
+	// The rows it creates, after the row written, before the rows it moves.
+	events.push(...steps.events)
 	await steps.check(writing)
 	const changes = await steps.changes(writing)
 	const read = { model: model.name, ...at.read, where: byId(at.id) }
@@ -85,18 +87,12 @@ export async function create(
 	const { models, model, caller, scope } = context
 	const found = given(args, model.name, ['data', 'select', 'include'], ['data'])
 	const { read, shape } = await returned(context, found)
-	const draft = readData(model, found.get('data'), true)
+	const draft = readData(models, model, found.get('data'), true)
 	const sent: Readonly<Draft> = { ...draft }
 	scope.access?.allow(model, 'create', { data: sent })
 	await prepared(model, draft, caller, true)
 	await runHook(model, 'beforeCreate', { caller, data: draft })
-	const { id, plan: steps } = await createPlan(
-		models,
-		model,
-		draft,
-		sent,
-		store,
-	)
+	const { id, plan: steps } = await createPlan(scope, model, draft, sent, store)
 	const events: Event[] = [{ model, operation: 'create', id }]
 	return written(context, store, commits, steps, events, { id, read, shape })
 }
@@ -139,13 +135,13 @@ async function updating(
 ): Promise<unknown> {
 	const { models, model, caller, scope } = context
 	const { row, read, shape } = at
-	const draft = readData(model, found.get('data'), false)
+	const draft = readData(models, model, found.get('data'), false)
 	const sent: Readonly<Draft> = { ...draft }
 	scope.access?.allow(model, 'update', { record: row, data: sent })
 	await prepared(model, draft, caller, false)
 	const record = recordOf(model, row)
 	await runHook(model, 'beforeUpdate', { caller, record, data: draft })
-	const steps = await updatePlan(models, model, row.id, draft, sent, store)
+	const steps = await updatePlan(scope, model, row.id, draft, sent, store)
 	const events: Event[] = [
 		{ model, operation: 'update', id: row.id, before: row },
 	]
@@ -168,14 +164,14 @@ export async function update(
 	)
 	const { read, shape } = await returned(context, found)
 	// The data's shape is checked whether or not the row is found.
-	const draft = readData(model, found.get('data'), false)
+	const draft = readData(models, model, found.get('data'), false)
 	const sent: Readonly<Draft> = { ...draft }
 	const id = idOf(found.get('where'))
 	const where = await targets(context, found, 'update')
 	if (scope.access === undefined && id !== undefined && !updated(model)) {
 		// Nothing needs the stored row: a check stands for its read (D-99).
 		await prepared(model, draft, caller, false)
-		const steps = await updatePlan(models, model, id, draft, sent, store)
+		const steps = await updatePlan(scope, model, id, draft, sent, store)
 		const check = { model: model.name, where, count: 1, lock: true }
 		const message = missing(model.name)
 		const at = { id, read, shape }
@@ -278,7 +274,7 @@ export async function remove(
 		events,
 		checks: [],
 		replan: async (moving, id, draft) =>
-			updatePlan(models, moving, id, draft, {}, store),
+			updatePlan(scope, moving, id, draft, {}, store),
 	}
 	const changes = await cascaded(context, writing, cascade)
 	if (changes.length > 0) {

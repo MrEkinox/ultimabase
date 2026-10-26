@@ -76,6 +76,38 @@ describe('a create', () => {
 		})
 	})
 
+	it('creates the rows of a relation with its row', async () => {
+		const result = await write(
+			`mutation { createUser(data: { name: "eve", email: "e@example.com",
+				posts: { create: [{ title: "seven", slug: "seven", status: draft }] }
+			}) { posts { edges { node { title author { name } } } } } }`,
+		)
+		expect(at(result.data, 'createUser', 'posts', 'edges')).toStrictEqual([
+			{ node: { title: 'seven', author: { name: 'eve' } } },
+		])
+		const created = await write(
+			`mutation { createPost(data: { title: "eight", slug: "eight", status: draft,
+				author: { create: { name: "fay", email: "f@example.com" } }
+			}) { author { name } } }`,
+		)
+		expect(created).toStrictEqual({
+			data: { createPost: { author: { name: 'fay' } } },
+		})
+	})
+
+	it('takes no relation back in a row it creates', async () => {
+		const result = await write(
+			`mutation ($ada: ID!) { createUser(data: { name: "gus", email: "g@example.com",
+				posts: { create: [{ title: "x", slug: "x", status: draft,
+					author: { connect: { id: $ada } } }] }
+			}) { id } }`,
+			{ ada },
+		)
+		expect(result.errors?.map((error) => error.message)).toStrictEqual([
+			'Expected value of type "PostCreateWithoutAuthorInput" not to include unknown field "author".',
+		])
+	})
+
 	it('sends the kernel’s refusals as client errors', async () => {
 		const denied = await post(
 			`${running.url}/graphql`,
@@ -126,14 +158,32 @@ describe('an update', () => {
 		expect(at(result.data, 'updateUser', 'posts', 'edges')).toHaveLength(4)
 	})
 
-	it('takes connect or disconnect on a one relation, not both', async () => {
+	it('creates rows beside the rows it connects', async () => {
 		const result = await write(
+			`mutation { updateUser(where: { name: "ada" }, data: { posts: {
+				create: [{ title: "ten", slug: "ten", status: draft }]
+			} }) { posts(where: { slug: { equals: "ten" } }) {
+				edges { node { title author { name } } } } } }`,
+		)
+		expect(at(result.data, 'updateUser', 'posts', 'edges')).toStrictEqual([
+			{ node: { title: 'ten', author: { name: 'ada' } } },
+		])
+	})
+
+	it('takes one write on a one relation, and no disconnect when required', async () => {
+		const both = await write(
 			`mutation { updatePost(
 				where: { id: "x" },
-				data: { author: { connect: { id: "y" }, disconnect: true } }
+				data: { author: { connect: { id: "y" }, create: { name: "z", email: "z" } } }
 			) { id } }`,
 		)
-		expect(result.errors?.[0]?.message).toContain('exactly one')
+		expect(both.errors?.[0]?.message).toContain('exactly one')
+		const unset = await write(
+			`mutation { updatePost(where: { id: "x" }, data: { author: { disconnect: true } }) { id } }`,
+		)
+		expect(unset.errors?.[0]?.message).toBe(
+			'Expected value of type "UserUpdateOneRequiredWithoutPostsNestedInput" not to include unknown field "disconnect". Did you mean "connect"?',
+		)
 	})
 
 	it('finds no row to update', async () => {

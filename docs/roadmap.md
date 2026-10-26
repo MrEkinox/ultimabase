@@ -184,8 +184,8 @@ Exit: an example with sign-up, sign-in and rules on `caller.user`.
 - [x] Decide lists of other field types: enum, number, date, boolean (D-120,
       D-127).
 - [x] Lists of enums and numbers (D-127).
-- [ ] Decide nested creation (D-20, D-68).
-- [ ] Nested creation, `create` in a relation write (D-20, D-68).
+- [x] Decide nested creation (D-20, D-68): D-128.
+- [x] Nested creation, `create` in a relation write (D-20, D-68).
 - [ ] Decide REST (D-25, D-68).
 - [ ] REST (D-25, D-68).
 - [ ] `@ultimabase/testing` (D-40, D-80), `create-ultimabase` (D-61).

@@ -160,6 +160,35 @@ export function roundTrips(create: () => Adapter, counted: () => number): void {
 			})
 		})
 
+		// A nested create is planned with its parent (D-128).
+		it('creates nested rows in one, at any depth', async () => {
+			const created = await once(async () =>
+				Writer.create(
+					{
+						data: {
+							name: 'Bo',
+							novels: {
+								create: [
+									{
+										title: 'Waves',
+										genres: {
+											connect: [{ id: genre }],
+											create: [{ label: 'sea' }],
+										},
+									},
+								],
+							},
+						},
+						include: { novels: { include: { genres: true } } },
+					},
+					M,
+				),
+			)
+			expect(created).toMatchObject({
+				novels: [{ title: 'Waves', genres: [{ id: genre }, { label: 'sea' }] }],
+			})
+		})
+
 		it('writes nothing when a connection is missing', async () => {
 			const missing = '00000000-0000-4000-8000-000000000001'
 			const created = once(async () =>

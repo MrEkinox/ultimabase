@@ -37,3 +37,15 @@ export function uuidv7(): string {
 		.map((part) => part.join(''))
 		.join('-')
 }
+
+const made = new WeakMap<object, string>()
+
+/**
+ * The id of the row a nested `create` makes from `data`: made once, so its
+ * relation's field rule sees it before the row is planned (D-128).
+ */
+export function madeId(data: object): string {
+	const id = made.get(data) ?? uuidv7()
+	made.set(data, id)
+	return id
+}
