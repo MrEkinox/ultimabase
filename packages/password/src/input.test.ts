@@ -16,11 +16,12 @@ type Scalar = Extract<SchemaField, { kind: 'scalar' }>
 const scalar = (
 	name: string,
 	type: Scalar['type'],
-	extra: { optional?: boolean; values?: readonly string[] } = {},
+	extra: { optional?: boolean; values?: readonly string[]; list?: true } = {},
 ): Scalar => ({
 	kind: 'scalar',
 	name,
 	type,
+	list: extra.list ?? false,
 	optional: extra.optional ?? false,
 	unique: false,
 	...(extra.values === undefined ? {} : { values: extra.values }),
@@ -33,14 +34,10 @@ const fields = new Map<string, Property>(
 		scalar('admin', 'boolean', { optional: true }),
 		scalar('born', 'date', { optional: true }),
 		scalar('role', 'enum', { optional: true, values: ['reader', 'writer'] }),
-		scalar('tags', 'stringList'),
+		scalar('tags', 'string', { list: true }),
 	].map((field) => [
 		field.name,
-		fieldProperty(
-			field,
-			!field.optional && field.type !== 'stringList',
-			'test',
-		),
+		fieldProperty(field, !field.optional && !field.list, 'test'),
 	]),
 )
 const signUp = signUpInput(fields)['~standard']

@@ -1,9 +1,8 @@
 // The adapter contract (D-73): what the kernel sends a storage adapter, fully
 // prepared. Names are the models' own; `dbName` says what to store them as.
 
-/** `stringList` is `f.string({ list: true })`, never `null` (D-120). */
 export type ScalarType =
-	'string' | 'number' | 'boolean' | 'date' | 'json' | 'enum' | 'stringList'
+	'string' | 'number' | 'boolean' | 'date' | 'json' | 'enum'
 
 export type SchemaField =
 	| {
@@ -12,6 +11,11 @@ export type SchemaField =
 			readonly type: ScalarType
 			/** An `enum`'s values. */
 			readonly values?: readonly string[]
+			/**
+			 * A list of `type`, a string, a number or an enum value: never
+			 * `null`, `[]` when empty (D-120, D-127).
+			 */
+			readonly list: boolean
 			readonly optional: boolean
 			readonly unique: boolean
 			readonly dbName?: string
@@ -67,10 +71,10 @@ export type Condition = {
 	readonly contains?: string
 	readonly startsWith?: string
 	readonly endsWith?: string
-	/** A list holds this string (D-120). */
-	readonly has?: string
-	/** A list holds one of these strings (D-120). */
-	readonly hasSome?: readonly string[]
+	/** A list holds this element (D-120, D-127). */
+	readonly has?: unknown
+	/** A list holds one of these elements (D-120, D-127). */
+	readonly hasSome?: readonly unknown[]
 	readonly is?: Filter | null
 	readonly isNot?: Filter | null
 	readonly some?: Filter

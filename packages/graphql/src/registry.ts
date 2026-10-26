@@ -117,8 +117,6 @@ export const scalarTypes: {
 	boolean: GraphQLBoolean,
 	date: DateTime,
 	json: JSONScalar,
-	// A list's items: `valueType` makes it `[String!]` (D-120).
-	stringList: GraphQLString,
 }
 
 /** The fields a caller other than Master may read: no `private` one (D-44). */
@@ -147,7 +145,7 @@ export function scalarType(
 	)
 }
 
-/** A scalar field's value, read or written: a list's is `[String!]`. */
+/** A scalar field's value, read or written: a list's is `[Float!]` (D-127). */
 export const valueType = (
 	registry: Registry,
 	model: string,
@@ -155,7 +153,7 @@ export const valueType = (
 ):
 	| GraphQLScalarType
 	| GraphQLEnumType
-	| GraphQLList<GraphQLNonNull<GraphQLScalarType>> =>
-	field.type === 'stringList'
-		? new GraphQLList(new GraphQLNonNull(GraphQLString))
-		: scalarType(registry, model, field)
+	| GraphQLList<GraphQLNonNull<GraphQLScalarType | GraphQLEnumType>> => {
+	const item = scalarType(registry, model, field)
+	return field.list ? new GraphQLList(new GraphQLNonNull(item)) : item
+}

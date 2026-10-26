@@ -49,10 +49,6 @@ export function entries(value: unknown, path: string): [string, unknown][] {
 export const clean = (value: string): boolean =>
 	value.isWellFormed() && !value.includes('\0')
 
-/** An element of a list: a clean, non-empty string (D-120). */
-export const listItem = (value: unknown): value is string =>
-	typeof value === 'string' && value !== '' && clean(value)
-
 /** A date of years 1 to 9999 in UTC, which PostgreSQL reads back (D-94). */
 export const storedDate = (value: unknown): value is Date => {
 	const year = value instanceof Date ? value.getUTCFullYear() : Number.NaN
@@ -77,7 +73,7 @@ export function unknownKey(path: string, model: string): InvalidQuery {
 	return new InvalidQuery(path, `Unknown key '${path}' on ${model}.`)
 }
 
-type Single = Exclude<ScalarType, 'stringList'> | 'id'
+type Single = ScalarType | 'id'
 
 function typeOf(model: ModelInfo, name: string): ScalarType | 'id' | undefined {
 	const field = model.fields.get(name)
@@ -159,21 +155,26 @@ function scalarCondition(
 	return Object.keys(condition).length === 0 ? undefined : condition
 }
 
-/** An element a list filter names (D-120). */
-function element(value: unknown, at: string): string {
-	if (!listItem(value)) {
-		throw new InvalidQuery(at, `${at} must be a non-empty clean string.`)
-	}
-	return value
-}
-
-/** A list's `has` and `hasSome`; it has no shorthand (D-120). */
+/** A list's `has` and `hasSome`, which name its elements (D-120, D-127). */
 function listCondition(
 	model: ModelInfo,
+	field: FieldInfo & { readonly kind: 'scalar' },
 	value: unknown,
 	path: string,
 ): Condition | undefined {
-	const condition: { has?: string; hasSome?: readonly string[] } = {}
+	const kind =
+		field.type === 'enum'
+			? `one of ${(field.values ?? []).join(', ')}`
+			: field.type === 'number'
+				? 'a finite number'
+				: 'a non-empty clean string'
+	const element = (item: unknown, at: string): unknown => {
+		if (item === '' || !fits[field.type](item, field)) {
+			throw new InvalidQuery(at, `${at} must be ${kind}.`)
+		}
+		return item
+	}
+	const condition: { has?: unknown; hasSome?: readonly unknown[] } = {}
 	for (const [operator, operand] of entries(value, path)) {
 		const at = `${path}.${operator}`
 		if (operator === 'has') condition.has = element(operand, at)
@@ -298,8 +299,8 @@ export function normalizeWhere(
 		const condition =
 			type === undefined
 				? undefined
-				: type === 'stringList'
-					? listCondition(model, value, at)
+				: field?.kind === 'scalar' && field.list
+					? listCondition(model, field, value, at)
 					: scalarCondition(model, key, type, value, at)
 		if (condition !== undefined) filter[key] = condition
 	}

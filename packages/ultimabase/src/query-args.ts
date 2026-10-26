@@ -67,9 +67,7 @@ function orderBy(
 			}
 			if (
 				known?.kind === 'scalar' &&
-				(known.type === 'json' ||
-					known.type === 'stringList' ||
-					known.codec !== undefined)
+				(known.type === 'json' || known.list || known.codec !== undefined)
 			) {
 				const kind =
 					known.codec !== undefined

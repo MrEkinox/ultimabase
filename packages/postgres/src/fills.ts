@@ -1,6 +1,6 @@
 // The fixed defaults a column added to a table with rows fills them with
-// (D-105); a list's is `[]` when it has none (D-120).
-import type { Catalog } from './names.ts'
+// (D-105); a list's is `[]` when it has none (D-120, D-127).
+import type { Catalog, Kind } from './names.ts'
 
 export const literal = (value: string): string =>
 	`'${value.replaceAll("'", "''")}'`
@@ -13,15 +13,15 @@ export type Fills = {
 	readonly [table: string]: { readonly [column: string]: Fill }
 }
 
-function fillOf(type: string, value: unknown): Fill {
-	if (type === 'stringList' && Array.isArray(value)) {
+function fillOf(kind: Kind, value: unknown): Fill {
+	if (kind.endsWith('[]') && Array.isArray(value)) {
 		const items = value.map(
 			(item) => `"${String(item).replaceAll(/[\\"]/g, '\\$&')}"`,
 		)
 		const text = literal(`{${items.join(',')}}`)
-		return { sql: `${text}::text[]`, shown: text }
+		return { sql: `${text}::${kind}`, shown: text }
 	}
-	if (type === 'json') {
+	if (kind === 'json') {
 		const text = literal(JSON.stringify(value))
 		return { sql: `${text}::jsonb`, shown: text }
 	}
@@ -41,10 +41,10 @@ export function fillsOf(catalog: Catalog): Fills {
 		for (const field of table.model.fields) {
 			if (field.kind !== 'scalar') continue
 			// A list's rows hold `[]` when nothing else is given (D-120).
-			const given =
-				field.type === 'stringList' ? (field.default ?? []) : field.default
+			const given = field.list ? (field.default ?? []) : field.default
 			if (given === undefined) continue
-			columns[catalog.column(table, field.name)] = fillOf(field.type, given)
+			const kind = catalog.kind(table, field.name)
+			columns[catalog.column(table, field.name)] = fillOf(kind, given)
 		}
 		fills[table.name] = columns
 	}

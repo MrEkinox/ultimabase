@@ -9,7 +9,7 @@ import { uuidv7 } from './uuid.ts'
 import type { Models } from './query-where.ts'
 import { entries, unknownKey } from './query-where.ts'
 import type { Draft } from './write-data.ts'
-import { fits, manyWrite, oneWrite } from './write-data.ts'
+import { issueOf, manyWrite, oneWrite } from './write-data.ts'
 import type { Reads, Step } from './write-plan.ts'
 import { Plan } from './write-plan.ts'
 
@@ -50,7 +50,7 @@ function scalar(context: Context, field: FieldInfo, value: unknown): void {
 	const { codec } = field
 	// A plugin field is stored in the form its `encode` gives (D-122).
 	const stored = codec === undefined ? value : codec.encode(value)
-	const issue = fits[field.type](stored, field)
+	const issue = issueOf(stored, field)
 	const where = `${context.model.name}.${field.name}`
 	if (issue !== undefined) {
 		throw new TypeError(
@@ -250,7 +250,7 @@ export async function createPlan(
 		if (field.kind === 'one' && !field.stored) continue
 		// A required field may be left to a hook: checked after it (D-88).
 		// A list left unwritten is empty (D-120).
-		if (field.kind === 'scalar' && field.type === 'stringList') {
+		if (field.kind === 'scalar' && field.list) {
 			context.set[field.name] = []
 		} else if (field.optional) context.set[field.name] = null
 		else plan.issues.push({ path: [field.name], message: 'Required.' })

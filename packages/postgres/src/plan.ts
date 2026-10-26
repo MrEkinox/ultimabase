@@ -38,8 +38,12 @@ const fields = (table: TableSnapshot, columns: readonly string[]): string =>
 const keyOf = (table: TableSnapshot, columns: readonly string[]): string =>
 	`${table.model} (${fields(table, columns)})`
 
-const checked = (name: string, { column, values }: Check): string =>
-	`constraint ${id(name)} check (${id(column)} in (${values.map(literal).join(', ')}))`
+/** An enum's values; a list's elements are among them, with `<@` (D-127). */
+function checked(name: string, { column, values, list: all }: Check): string {
+	const items = values.map(literal).join(', ')
+	const test = all ? `<@ array[${items}]::text[]` : `in (${items})`
+	return `constraint ${id(name)} check (${id(column)} ${test})`
+}
 
 /** A type as messages show it, without its collation. */
 const shown = (type: string): string => type.replace(' collate "C"', '')
@@ -70,7 +74,7 @@ function create(name: string, table: TableSnapshot): string {
 	return `create table ${id(name)} (\n\t${parts.join(',\n\t')}\n)`
 }
 
-/** An index, by GIN on a list (D-120): its column's type decides. */
+/** An index, by GIN on a list (D-120, D-127): its column's type decides. */
 type Index = { readonly columns: string[]; readonly gin: boolean }
 
 const indexesOf = (table: TableSnapshot | undefined): Named<Index> =>
@@ -79,7 +83,9 @@ const indexesOf = (table: TableSnapshot | undefined): Named<Index> =>
 			key,
 			{
 				columns,
-				gin: columns.some((name) => table?.columns[name]?.type === 'text[]'),
+				gin: columns.some(
+					(name) => table?.columns[name]?.type.endsWith('[]') === true,
+				),
 			},
 		]),
 	)
@@ -135,12 +141,14 @@ function addColumn(
 }
 
 /** The types PostgreSQL converts no value of a type to, on PG 15 to 18. */
+const arrays = ['text[]', 'double precision[]']
 const unconvertible: Named<readonly string[]> = {
-	'double precision': ['boolean', 'timestamptz', 'jsonb', 'text[]'],
-	boolean: ['double precision', 'timestamptz', 'jsonb', 'text[]'],
-	timestamptz: ['double precision', 'boolean', 'jsonb', 'text[]'],
-	jsonb: ['timestamptz', 'text[]'],
+	'double precision': ['boolean', 'timestamptz', 'jsonb', ...arrays],
+	boolean: ['double precision', 'timestamptz', 'jsonb', ...arrays],
+	timestamptz: ['double precision', 'boolean', 'jsonb', ...arrays],
+	jsonb: ['timestamptz', ...arrays],
 	'text[]': ['double precision', 'boolean', 'timestamptz', 'jsonb'],
+	'double precision[]': ['double precision', 'boolean', 'timestamptz', 'jsonb'],
 }
 
 /** Whether converting text or json to another type reads each value. */

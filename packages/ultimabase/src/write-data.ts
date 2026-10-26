@@ -10,7 +10,6 @@ import {
 	entries,
 	isJson,
 	isObject,
-	listItem,
 	storedDate,
 	unknownKey,
 } from './query-where.ts'
@@ -22,7 +21,7 @@ export type Draft = { [field: string]: unknown }
 type Scalar = Extract<FieldInfo, { readonly kind: 'scalar' }>
 
 /** Each scalar type's check, and its message when a value does not fit. */
-export const fits: {
+const fits: {
 	readonly [T in ScalarType]: (
 		value: unknown,
 		field: Scalar,
@@ -50,10 +49,21 @@ export const fits: {
 		typeof value === 'string' && (field.values ?? []).includes(value)
 			? undefined
 			: `Expected one of ${(field.values ?? []).join(', ')}.`,
-	stringList: (value) =>
-		Array.isArray(value) && value.every(listItem)
-			? undefined
-			: 'Expected a list of non-empty strings without a NUL or a lone surrogate.',
+}
+
+/** A value's issue; each element of a list fits its type (D-127). */
+export function issueOf(value: unknown, field: Scalar): string | undefined {
+	if (!field.list) return fits[field.type](value, field)
+	const fit = (item: unknown) =>
+		item !== '' && fits[field.type](item, field) === undefined
+	if (Array.isArray(value) && value.every(fit)) return undefined
+	const of =
+		field.type === 'enum'
+			? `values among ${(field.values ?? []).join(', ')}`
+			: field.type === 'number'
+				? 'finite numbers'
+				: 'non-empty strings without a NUL or a lone surrogate'
+	return `Expected a list of ${of}.`
 }
 
 /** `{ id }`, exactly. */
@@ -195,8 +205,7 @@ export async function prepared(
 		if (field?.kind !== 'scalar' || value === null) continue
 		const { codec } = field
 		// A plugin field's schema takes the value or its JSON (D-122).
-		const issue =
-			codec === undefined ? fits[field.type](value, field) : undefined
+		const issue = codec === undefined ? issueOf(value, field) : undefined
 		if (issue !== undefined) {
 			issues.push({ path: [name], message: issue })
 			continue

@@ -55,15 +55,17 @@ type IsList<X> = X extends {
 	? true
 	: false
 
-/** A list has no shorthand; `NOT` gives the opposite (D-120). */
-type ListFilter = {
-	readonly has?: string | undefined
-	readonly hasSome?: readonly string[] | undefined
+/** A list has no shorthand; `NOT` gives the opposite (D-120, D-127). */
+type ListFilter<E> = {
+	readonly has?: E | undefined
+	readonly hasSome?: readonly E[] | undefined
 }
 
 type FilterOf<X> =
 	IsList<X> extends true
-		? ListFilter
+		? StoredValue<X> extends readonly (infer E)[]
+			? ListFilter<E>
+			: never
 		: KindOf<X> extends 'scalar'
 			? StoredValue<X> | ScalarFilter<NonNullable<StoredValue<X>>>
 			: KindOf<X> extends 'one'

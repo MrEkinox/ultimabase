@@ -36,7 +36,9 @@ export function value(kind: Kind, item: unknown): Sql {
 	if (kind === 'json' && item !== null) {
 		return sql`cast(${JSON.stringify(item)} as jsonb)`
 	}
-	if (kind === 'stringList') return sql`cast(${item} as text[])`
+	if (kind === 'text[]' || kind === 'double precision[]') {
+		return sql`cast(${item} as ${sql.raw(kind)})`
+	}
 	return item instanceof Date ? sql`${item.toISOString()}` : sql`${item}`
 }
 

@@ -1,18 +1,31 @@
-// String lists (D-120): never optional nor unique, indexed alone and never
-// sorted, filtered with `has` and `hasSome`, `[]` when left out.
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+// Lists of strings, numbers and enum values (D-120, D-127): never optional
+// nor unique, indexed alone and never sorted, filtered with `has` and
+// `hasSome`, `[]` when left out.
+import {
+	afterEach,
+	beforeEach,
+	describe,
+	expect,
+	expectTypeOf,
+	it,
+} from 'vitest'
+import type { FieldBuilders, RecordOf, WhereOf } from './index.ts'
 import { defineApp, defineModel, master, memory } from './index.ts'
 import { resolve } from './schema.ts'
 
 const M = { as: master }
+
+type Builders = FieldBuilders<unknown>
 
 const Article = defineModel({
 	name: 'Article',
 	fields: (f) => ({
 		title: f.string(),
 		tags: f.string({ list: true }),
+		scores: f.number({ list: true }),
+		sizes: f.enumOf(['S', 'M', 'L'], { list: true }),
 	}),
-	indexes: [{ fields: ['tags'] }],
+	indexes: [{ fields: ['tags'] }, { fields: ['scores'] }],
 }).with({
 	hooks: {
 		beforeCreate: ({ data }) => {
@@ -41,16 +54,59 @@ describe('a list definition', () => {
 				// @ts-expect-error: a list is [] when empty.
 				fields: (f) => ({ tags: f.string({ list: true, optional: true }) }),
 			}),
-		).toThrow(
-			'A string list is never null: left out, it is []. Remove optional.',
-		)
+		).toThrow('A list is never null: left out, it is []. Remove optional.')
+		expect(() =>
+			defineModel({
+				name: 'Optional',
+				// @ts-expect-error: a list is [] when empty.
+				fields: (f) => ({ n: f.number({ list: true, optional: true }) }),
+			}),
+		).toThrow('A list is never null: left out, it is []. Remove optional.')
 		expect(() =>
 			defineModel({
 				name: 'Unique',
-				// @ts-expect-error: a list cannot be unique.
-				fields: (f) => ({ tags: f.string({ list: true, unique: true }) }),
+				fields: (f) => ({
+					// @ts-expect-error: a list cannot be unique.
+					sizes: f.enumOf(['S'], { list: true, unique: true }),
+				}),
 			}),
-		).toThrow('A string list cannot be unique.')
+		).toThrow('A list cannot be unique.')
+	})
+
+	it('holds strings, numbers or enum values only', () => {
+		const lists = [
+			// @ts-expect-error: a date makes no list.
+			(f: Builders) => f.date({ list: true }),
+			// @ts-expect-error: a boolean makes no list.
+			(f: Builders) => f.boolean({ list: true }),
+			// @ts-expect-error: a json value makes no list.
+			(f: Builders) => f.json({ list: true }),
+		]
+		for (const [at, type] of ['date', 'boolean', 'json'].entries()) {
+			expect(() =>
+				defineModel({
+					name: 'Listed',
+					fields: (f) => ({ field: lists[at]?.(f) ?? f.string() }),
+				}),
+			).toThrow(
+				`f.${type}() makes no list: a list holds strings, numbers or enum values.`,
+			)
+		}
+	})
+
+	it('reads and filters by its elements', () => {
+		type Read = RecordOf<typeof Article>
+		expectTypeOf<Read['scores']>().toEqualTypeOf<readonly number[]>()
+		expectTypeOf<Read['sizes']>().toEqualTypeOf<readonly ('S' | 'M' | 'L')[]>()
+		expectTypeOf<{ has: 'S'; hasSome: ['M'] }>().toExtend<
+			NonNullable<WhereOf<typeof Article>['sizes']>
+		>()
+		expectTypeOf<{ has: 'XL' }>().not.toExtend<
+			NonNullable<WhereOf<typeof Article>['sizes']>
+		>()
+		expectTypeOf<{ has: '1' }>().not.toExtend<
+			NonNullable<WhereOf<typeof Article>['scores']>
+		>()
 	})
 
 	it('is indexed alone, and never by a unique index', () => {
@@ -86,6 +142,22 @@ describe('a list', () => {
 			// @ts-expect-error: an element is a string.
 			Article.create({ data: { title: 'c', tags: [1] } }, M),
 		).rejects.toMatchObject({ code: 'VALIDATION_FAILED' })
+		const bad: [string, unknown, string][] = [
+			['scores', [1, Number.NaN], 'Expected a list of finite numbers.'],
+			['scores', ['1'], 'Expected a list of finite numbers.'],
+			['sizes', ['S', 'XL'], 'Expected a list of values among S, M, L.'],
+			['sizes', 'S', 'Expected a list of values among S, M, L.'],
+		]
+		for (const [path, value, message] of bad) {
+			const data = { title: 'd', [path]: value }
+			await expect(
+				// @ts-expect-error: the test sends what the types refuse.
+				Article.create({ data }, M),
+			).rejects.toMatchObject({
+				code: 'VALIDATION_FAILED',
+				details: { issues: [{ path: [path], message }] },
+			})
+		}
 	})
 
 	it('refuses a bad list a hook writes', async () => {
@@ -112,6 +184,18 @@ describe('a list', () => {
 			[{ hasSome: 'ts' }, 'where.tags.hasSome must be a list.'],
 			[{ hasSome: ['ts', ''] }, 'where.tags.hasSome.1 must be'],
 		]
+		const elements: [string, unknown, string][] = [
+			['scores', '1', 'where.scores.has must be a finite number.'],
+			['scores', Infinity, 'where.scores.has must be a finite number.'],
+			['sizes', 'XL', 'where.sizes.has must be one of S, M, L.'],
+		]
+		for (const [field, has, message] of elements) {
+			// oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the test sends what the types refuse.
+			const where = { [field]: { has } } as { tags: { has: string } }
+			await expect(Article.findMany({ where }, M)).rejects.toMatchObject(
+				invalid(message),
+			)
+		}
 		for (const [tags, message] of refusals) {
 			// oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the test sends what the types refuse.
 			const where = { tags } as { tags: { has: string } }

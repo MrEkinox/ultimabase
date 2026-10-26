@@ -176,7 +176,7 @@ describe('a field type definition', () => {
 		}
 		const note = schemaOf(options).models.find(({ name }) => name === 'Note')
 		const labels = note?.fields.find(({ name }) => name === 'labels')
-		expect(labels).toMatchObject({ type: 'stringList' })
+		expect(labels).toMatchObject({ type: 'string', list: true })
 		expect(labels).not.toHaveProperty('default')
 	})
 })
