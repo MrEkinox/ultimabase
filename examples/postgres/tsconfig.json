@@ -1,0 +1,15 @@
+{
+	// Its own program, as an application is.
+	"extends": "../../tsconfig.base.json",
+	"compilerOptions": {
+		"allowImportingTsExtensions": true,
+		"composite": false,
+		"declaration": false,
+		"declarationMap": false,
+		"isolatedDeclarations": false,
+		"noEmit": true,
+		// Hono's WebSocket types name DOM types that Node lacks.
+		"skipLibCheck": true
+	},
+	"include": ["src/**/*.ts", "ultimabase.config.ts"]
+}

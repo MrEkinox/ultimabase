@@ -1,0 +1,26 @@
+{
+	"name": "example-rest",
+	"version": "0.0.0",
+	"private": true,
+	"description": "One model served over REST and GraphQL, with the same names and answers.",
+	"type": "module",
+	"license": "Apache-2.0",
+	"engines": {
+		"node": ">=24.7.0"
+	},
+	"scripts": {
+		"start": "node src/server.ts"
+	},
+	"dependencies": {
+		"@ultimabase/graphql": "workspace:*",
+		"@ultimabase/http": "workspace:*",
+		"@ultimabase/rest": "workspace:*",
+		"graphql": "17.0.2",
+		"ultimabase": "workspace:*"
+	},
+	"devDependencies": {
+		"@ultimabase/testing": "workspace:*",
+		"vite": "8.3.4",
+		"vitest": "5.0.5"
+	}
+}

@@ -190,7 +190,9 @@ Exit: an example with sign-up, sign-in and rules on `caller.user`.
 - [x] REST (D-25, D-68).
 - [x] Decide `testApplication` and the starter (D-40, D-61): D-130.
 - [x] `@ultimabase/testing` (D-40, D-80), `create-ultimabase` (D-61).
-- [ ] `examples/` run by CI (D-31), Changesets (D-60).
+- [x] Decide the examples and Changesets (D-31, D-60): D-131.
+- [x] One example per feature, tested as an application, and Changesets
+      (D-131).
 - [ ] Documentation website (D-31).
 - [ ] A full audit of every package, its fixes merged, before publication.
 - [ ] Publication, after confirmation.

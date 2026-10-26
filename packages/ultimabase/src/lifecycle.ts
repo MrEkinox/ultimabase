@@ -57,6 +57,14 @@ export type LifecycleOptions = {
 	readonly masterKey?: MasterKey
 }
 
+/** Once stdout and stderr have written what they were given. */
+const written = () =>
+	Promise.all(
+		[process.stdout, process.stderr].map(
+			(stream) => new Promise((done) => stream.write('', done)),
+		),
+	)
+
 /** The application's schema, or a message on what is wrong with it. */
 export function schemaOf(options: LifecycleOptions): Schema {
 	const { plugins } = installed(options.plugins ?? [])
@@ -189,6 +197,8 @@ export function lifecycle(options: LifecycleOptions): Lifecycle {
 				.catch((error: unknown) => {
 					logger.error({ err: error }, 'The application stopped with an error.')
 				})
+				// The last lines first: a pipe may write them later.
+				.then(written)
 				.finally(() => {
 					// Its listener is gone: the signal now ends the process.
 					process.kill(process.pid, 'SIGTERM')

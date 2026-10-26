@@ -1,0 +1,30 @@
+{
+	"name": "example-roles-and-acl",
+	"version": "0.0.0",
+	"private": true,
+	"description": "Roles a user holds, and per-row rights that name users and roles.",
+	"type": "module",
+	"license": "Apache-2.0",
+	"engines": {
+		"node": ">=24.7.0"
+	},
+	"scripts": {
+		"start": "node src/server.ts"
+	},
+	"dependencies": {
+		"@ultimabase/acl": "workspace:*",
+		"@ultimabase/auth": "workspace:*",
+		"@ultimabase/graphql": "workspace:*",
+		"@ultimabase/http": "workspace:*",
+		"@ultimabase/password": "workspace:*",
+		"@ultimabase/roles": "workspace:*",
+		"graphql": "17.0.2",
+		"ultimabase": "workspace:*",
+		"zod": "4.6.5"
+	},
+	"devDependencies": {
+		"@ultimabase/testing": "workspace:*",
+		"vite": "8.3.4",
+		"vitest": "5.0.5"
+	}
+}

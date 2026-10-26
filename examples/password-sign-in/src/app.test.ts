@@ -1,46 +1,12 @@
-// Starts the example as `yarn start` does, then uses it as a client would:
-// sign-up, sign-in, and the rules that read the signed-in user.
-import type { ChildProcessByStdio } from 'node:child_process'
-import { spawn } from 'node:child_process'
-import { once } from 'node:events'
-import type { Readable } from 'node:stream'
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+// Uses the application as a client would, each test on a new in-memory
+// database: sign-up, sign-in, and the rules that read the signed-in user.
+import { testApplication } from '@ultimabase/testing'
+import { master } from 'ultimabase'
+import { describe, expect, it } from 'vitest'
+import { app } from './app.ts'
+import { Post, User } from './models.ts'
 
-const masterKey = 'example-master-key'
-let server: ChildProcessByStdio<null, Readable, Readable>
-let output = ''
-let url = ''
-
-beforeAll(async () => {
-	server = spawn(process.execPath, ['src/server.ts'], {
-		cwd: new URL('..', import.meta.url),
-		env: { ...process.env, PORT: '0', MASTER_KEY: masterKey },
-		stdio: ['ignore', 'pipe', 'pipe'],
-	})
-	server.stderr.on('data', (chunk) => {
-		output += String(chunk)
-	})
-	url = await new Promise((resolve, reject) => {
-		server.stdout.on('data', (chunk) => {
-			output += String(chunk)
-			const found = /Listening on (\S+)\./.exec(output)?.[1]
-			if (found !== undefined) resolve(found)
-		})
-		server.once('exit', (code) => {
-			reject(new Error(`The example exited with ${code}:\n${output}`))
-		})
-	})
-})
-
-/** Stops the example as a host does, with `SIGTERM`. */
-async function stopped(): Promise<void> {
-	if (server.exitCode !== null || server.signalCode !== null) return
-	const exited = once(server, 'exit')
-	server.kill('SIGTERM')
-	await exited
-}
-
-afterAll(stopped)
+const running = testApplication(app)
 
 /** A GraphQL request's response body. */
 async function request(
@@ -48,7 +14,7 @@ async function request(
 	variables: object = {},
 	headers: Record<string, string> = {},
 ): Promise<unknown> {
-	const response = await fetch(`${url}/graphql`, {
+	const response = await fetch(`${running.url}/graphql`, {
 		method: 'POST',
 		headers: { 'content-type': 'application/json', ...headers },
 		body: JSON.stringify({ query, variables }),
@@ -61,7 +27,6 @@ const at = (value: unknown, ...path: string[]): unknown =>
 	path.reduce<unknown>((inner, key) => Reflect.get(Object(inner), key), value)
 
 const as = (token: string) => ({ authorization: `Bearer ${token}` })
-const asMaster = { 'x-ultimabase-master-key': masterKey }
 const refused = (code: string) => ({ errors: [{ extensions: { code } }] })
 
 async function signUp(name: string) {
@@ -75,6 +40,17 @@ async function signUp(name: string) {
 	return { id, token: String(at(body, 'data', 'signUp', 'token')) }
 }
 
+const create =
+	'mutation { createPost(data: { title: "Hello" }) { id author { name } } }'
+
+/** Ada's post, with Ada and Grace signed up. */
+async function written() {
+	const ada = await signUp('ada')
+	const grace = await signUp('grace')
+	const body = await request(create, {}, as(ada.token))
+	return { ada, grace, post: String(at(body, 'data', 'createPost', 'id')) }
+}
+
 const titles = async (headers: Record<string, string> = {}) => {
 	const body = await request(
 		'{ posts { edges { node { title } } } }',
@@ -84,19 +60,16 @@ const titles = async (headers: Record<string, string> = {}) => {
 	return at(body, 'data', 'posts', 'edges')
 }
 
-let ada = { id: '', token: '' }
-let grace = { id: '', token: '' }
-let post = ''
+const signIn = (password: string) =>
+	request(
+		`mutation ($input: SignInInput!) { signIn(input: $input) { user { id name editor } } }`,
+		{ input: { email: 'ada@example.com', password } },
+	)
 
 describe('signing up and in', () => {
 	it('signs up, then signs in with the same password', async () => {
-		ada = await signUp('ada')
-		grace = await signUp('grace')
-		const body = await request(
-			`mutation ($input: SignInInput!) { signIn(input: $input) { user { id name editor } } }`,
-			{ input: { email: 'ada@example.com', password: 'correct horse' } },
-		)
-		expect(body).toEqual({
+		const ada = await signUp('ada')
+		expect(await signIn('correct horse')).toEqual({
 			data: { signIn: { user: { id: ada.id, name: 'ada', editor: false } } },
 		})
 		const viewer = await request('{ viewer { name } }', {}, as(ada.token))
@@ -104,26 +77,23 @@ describe('signing up and in', () => {
 	})
 
 	it('refuses a wrong password', async () => {
-		const body = await request(
-			`mutation ($input: SignInInput!) { signIn(input: $input) { token } }`,
-			{ input: { email: 'ada@example.com', password: 'wrong horse' } },
+		await signUp('ada')
+		expect(await signIn('wrong horse')).toMatchObject(
+			refused('INVALID_CREDENTIALS'),
 		)
-		expect(body).toMatchObject(refused('INVALID_CREDENTIALS'))
 	})
 })
 
 describe('the rules on posts', () => {
-	const create =
-		'mutation { createPost(data: { title: "Hello" }) { id author { name } } }'
-
 	it('lets a signed-in user write a post, which is theirs', async () => {
+		const ada = await signUp('ada')
 		expect(await request(create)).toMatchObject(refused('ACCESS_DENIED'))
 		const body = await request(create, {}, as(ada.token))
 		expect(at(body, 'data', 'createPost', 'author')).toEqual({ name: 'ada' })
-		post = String(at(body, 'data', 'createPost', 'id'))
 	})
 
 	it('shows a draft to its author only, and a published post to all', async () => {
+		const { ada, grace, post } = await written()
 		const hello = [{ node: { title: 'Hello' } }]
 		expect(await titles()).toEqual([])
 		expect(await titles(as(grace.token))).toEqual([])
@@ -145,14 +115,8 @@ describe('the rules on posts', () => {
 		)
 	})
 
-	it('lets an editor delete anyone’s post, and only Master make one', async () => {
-		const remove = `mutation ($id: ID!) { deletePost(where: { id: $id }) { title } }`
-		expect(await request(remove, { id: post }, as(grace.token))).toMatchObject(
-			refused('ACCESS_DENIED'),
-		)
-		const promote = `mutation ($id: ID!) {
-			updateUser(where: { id: $id }, data: { editor: true }) { editor }
-		}`
+	it('lets each user rename only themself, and no client make an editor', async () => {
+		const { ada, grace } = await written()
 		const { id } = grace
 		const rename = `mutation ($id: ID!) {
 			updateUser(where: { id: $id }, data: { name: "Grace" }) { name }
@@ -163,21 +127,31 @@ describe('the rules on posts', () => {
 		expect(await request(rename, { id }, as(grace.token))).toEqual({
 			data: { updateUser: { name: 'Grace' } },
 		})
+		const promote = `mutation ($id: ID!) {
+			updateUser(where: { id: $id }, data: { editor: true }) { editor }
+		}`
 		expect(await request(promote, { id }, as(grace.token))).toMatchObject(
 			refused('ACCESS_DENIED'),
 		)
-		expect(await request(promote, { id }, asMaster)).toEqual({
-			data: { updateUser: { editor: true } },
-		})
+	})
+
+	it('lets an editor delete anyone’s post', async () => {
+		const { grace, post } = await written()
+		await Post.update(
+			{ where: { id: post }, data: { published: true } },
+			{ as: master },
+		)
+		const remove = `mutation ($id: ID!) { deletePost(where: { id: $id }) { title } }`
+		expect(await request(remove, { id: post }, as(grace.token))).toMatchObject(
+			refused('ACCESS_DENIED'),
+		)
+		// The server makes an editor, here as Master.
+		await User.update(
+			{ where: { id: grace.id }, data: { editor: true } },
+			{ as: master },
+		)
 		expect(await request(remove, { id: post }, as(grace.token))).toEqual({
 			data: { deletePost: { title: 'Hello' } },
 		})
-	})
-})
-
-describe('stopping', () => {
-	it('stops on SIGTERM', async () => {
-		await stopped()
-		expect(output).toContain('Application stopped.')
 	})
 })
