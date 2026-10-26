@@ -6564,8 +6564,11 @@ Choice: a relation write takes `create` beside `connect`, in `create` and
 @oneOf` with `disconnect: Boolean` on an optional `one`, or
    `PostUpdateOneRequiredWithoutCommentsNestedInput` without it on a
    required one. A model hidden from the root fields (`graphql: false`) is
-   still created through a relation, as it is read and connected through
-   one; its rules apply.
+   read and connected through a relation, never created through one: its
+   relation inputs take no `create`, as Parse offers no `createAndLink` to a
+   class whose create mutation is off. Hiding a model closes every GraphQL
+   path that creates it; server code still creates it nested (amended
+   2026-10-26).
 4. A created row may create rows in turn, at any depth.
 5. Rules and hooks run depth first, in written order: the written row's
    first, so its `beforeCreate` or `beforeUpdate` may change or add the rows

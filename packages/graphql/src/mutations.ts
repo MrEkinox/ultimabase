@@ -45,7 +45,8 @@ type Relation = Exclude<SchemaField, { readonly kind: 'scalar' }>
  * connects or creates, an update also disconnects, unless the relation is a
  * required `one`. `create` takes the target's data without the relation
  * back: `PostCreateInput.comments` is `CommentCreateNestedManyWithoutPostInput
- * { connect, create: [CommentCreateWithoutPostInput!] }`.
+ * { connect, create: [CommentCreateWithoutPostInput!] }`. A hidden model
+ * is not created over GraphQL, through a relation either, as in Parse.
  */
 function relationInput(
 	registry: Registry,
@@ -59,13 +60,13 @@ function relationInput(
 		? `${field.target}CreateNested${many ? 'Many' : 'One'}${without}Input`
 		: `${field.target}Update${shape}${without}NestedInput`
 	return registry.input(name, () => {
-		const created = dataInput(registry, field.target, true, field.inverse)
 		const listed = <T extends GraphQLInputObjectType>(type: T) =>
 			many ? new GraphQLList(new GraphQLNonNull(type)) : type
 		const row = listed(connectInput(registry))
-		const fields: GraphQLInputFieldConfigMap = {
-			connect: { type: row },
-			create: { type: listed(created) },
+		const fields: GraphQLInputFieldConfigMap = { connect: { type: row } }
+		if (registry.entry(field.target).visible) {
+			const created = dataInput(registry, field.target, true, field.inverse)
+			fields['create'] = { type: listed(created) }
 		}
 		if (!creating && shape !== 'OneRequired') {
 			fields['disconnect'] = { type: many ? row : GraphQLBoolean }

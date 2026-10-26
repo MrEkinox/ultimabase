@@ -113,6 +113,35 @@ it('names a list after its plural and reaches a hidden model by relations', asyn
 	}
 })
 
+it('creates no row of a hidden model through a relation', async () => {
+	const { app, url } = await listening([Person, Tag])
+	try {
+		const types = await post(
+			`${url}/graphql`,
+			`{
+				nested: __type(name: "TagCreateNestedManyWithoutOwnerInput") { inputFields { name } }
+				row: __type(name: "TagCreateWithoutOwnerInput") { name }
+			}`,
+		)
+		expect(types.data).toStrictEqual({
+			nested: { inputFields: [{ name: 'connect' }] },
+			row: null,
+		})
+		const created = await post(
+			`${url}/graphql`,
+			`mutation { createPerson(data: {
+				name: "bo", tags: { create: [{ label: "x" }] }
+			}) { name } }`,
+			undefined,
+			asMaster,
+		)
+		expect(created.errors?.[0]?.message).toContain('"create"')
+		expect(await Tag.count({}, { as: master })).toBe(0)
+	} finally {
+		await app.stop()
+	}
+})
+
 it('leaves a unique field only Master reads out of the unique input', async () => {
 	const { app, url } = await listening([Team])
 	try {
