@@ -5,6 +5,7 @@ import { randomUUID } from 'node:crypto'
 import type { Transaction } from './adapter.ts'
 import { RelationViolation } from './adapter.ts'
 import type { Logger } from './app-options.ts'
+import { decoded } from './field-codec.ts'
 import type { Running } from './running.ts'
 import { current } from './running.ts'
 import { refused } from './write-target.ts'
@@ -37,9 +38,21 @@ async function begun(open: Open): Promise<Transaction> {
 	return open.tx
 }
 
+/** The store's rows with their plugin fields decoded (D-122). */
+function decoding(app: Running, store: Store): Store {
+	const { models } = app.resolved
+	return {
+		find: async (read) => decoded(models, read, await store.find(read)),
+		count: async (read) => store.count(read),
+		write: async (write) =>
+			decoded(models, write.read, await store.write(write)),
+		last: async (write) => decoded(models, write.read, await store.last(write)),
+	}
+}
+
 /** Queries in the transaction; `owner`'s last write may run alone. */
 function storeOf(open: Open, owner: boolean): Store {
-	return {
+	return decoding(open.app, {
 		find: async (read) => (await begun(open)).find(read),
 		count: async (read) => (await begun(open)).count(read),
 		write: async (write) => (await begun(open)).write(write),
@@ -47,7 +60,7 @@ function storeOf(open: Open, owner: boolean): Store {
 			owner && open.tx === undefined
 				? open.app.adapter.write(write)
 				: (await begun(open)).write(write),
-	}
+	})
 }
 
 /** Runs in the open transaction; a failure rolls all of it back (D-36). */
@@ -120,12 +133,14 @@ export async function reading<R>(
 	const open = opened.getStore()
 	if (open === undefined) {
 		const { adapter } = app
-		return run({
-			find: async (read) => adapter.find(read),
-			count: async (read) => adapter.count(read),
-			write: async (write) => adapter.write(write),
-			last: async (write) => adapter.write(write),
-		})
+		return run(
+			decoding(app, {
+				find: async (read) => adapter.find(read),
+				count: async (read) => adapter.count(read),
+				write: async (write) => adapter.write(write),
+				last: async (write) => adapter.write(write),
+			}),
+		)
 	}
 	return joined(open, async () => run(storeOf(open, false)))
 }

@@ -163,15 +163,24 @@ function createModel(definition: {
 			query(name, operation, args, options)
 	}
 	Object.freeze(queries)
-	const { uses, commands } = usedBy(name, definition.use, fields, queries)
+	const { uses, commands, indexes } = usedBy(
+		name,
+		definition.use,
+		fields,
+		queries,
+	)
 	const record: ModelDefinition = {
 		name,
 		dbName,
 		fields,
-		indexes: definition.indexes.map((index) => ({
-			fields: [...index.fields],
-			...(index.unique === undefined ? {} : { unique: index.unique }),
-		})),
+		indexes: [
+			...definition.indexes.map((index) => ({
+				fields: [...index.fields],
+				...(index.unique === undefined ? {} : { unique: index.unique }),
+			})),
+			// A plugin's, checked with the model's at startup (D-122).
+			...indexes,
+		],
 		uses,
 		rules: undefined,
 	}

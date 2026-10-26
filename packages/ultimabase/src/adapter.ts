@@ -1,8 +1,9 @@
 // The adapter contract (D-73): what the kernel sends a storage adapter, fully
 // prepared. Names are the models' own; `dbName` says what to store them as.
 
+/** `stringList` is `f.string({ list: true })`, never `null` (D-120). */
 export type ScalarType =
-	'string' | 'number' | 'boolean' | 'date' | 'json' | 'enum'
+	'string' | 'number' | 'boolean' | 'date' | 'json' | 'enum' | 'stringList'
 
 export type SchemaField =
 	| {
@@ -66,6 +67,10 @@ export type Condition = {
 	readonly contains?: string
 	readonly startsWith?: string
 	readonly endsWith?: string
+	/** A list holds this string (D-120). */
+	readonly has?: string
+	/** A list holds one of these strings (D-120). */
+	readonly hasSome?: readonly string[]
 	readonly is?: Filter | null
 	readonly isNot?: Filter | null
 	readonly some?: Filter

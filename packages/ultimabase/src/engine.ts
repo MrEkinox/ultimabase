@@ -3,7 +3,7 @@
 // returned in the shape it asked for.
 import { accessFor, and } from './access.ts'
 import { InvalidQuery } from './errors.ts'
-import type { Caller } from './rules.ts'
+import type { Identity } from './rules.ts'
 import { isMaster } from './rules.ts'
 import { current } from './running.ts'
 import type { Context } from './query-context.ts'
@@ -26,10 +26,13 @@ export type Operation =
 	| 'delete'
 	| 'deleteMany'
 
-const anonymous: Caller = Object.freeze({ kind: 'anonymous' })
+const anonymous: Identity = Object.freeze({ kind: 'anonymous' })
 
-/** `{ as }` only; without it, the caller is anonymous (D-19). */
-export function callerOf(options: unknown, model: string): Caller {
+/**
+ * `{ as }` only; without it, the caller is anonymous (D-19). The kernel
+ * completes a user one (D-121).
+ */
+export function callerOf(options: unknown, model: string): Identity {
 	if (options === undefined) return anonymous
 	const keys = new Map(entries(options, 'options'))
 	for (const key of keys.keys()) {
@@ -51,7 +54,7 @@ export function callerOf(options: unknown, model: string): Caller {
 				throw new InvalidQuery('options.as', 'options.as.user must be { id }.')
 			}
 			// oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the kernel reads only the id; the record's other fields are the server code's.
-			return caller as Caller
+			return caller as Identity
 		case 'master':
 			// Only the kernel creates Master (D-19): a copy is a forgery.
 			if (!isMaster(caller)) {
@@ -131,7 +134,11 @@ async function count(
 	args: unknown,
 ): Promise<number> {
 	const { model } = context
-	const where = await filtered(context, given(args, model.name, ['where'], []))
+	const where = await filtered(
+		context,
+		given(args, model.name, ['where'], []),
+		'read',
+	)
 	return store.count({ model: model.name, ...(where && { where }) })
 }
 
@@ -175,21 +182,20 @@ export async function query(
 	if (app === undefined || model === undefined) {
 		throw new Error(`${name} is not a model of a started application.`)
 	}
-	const caller = callerOf(options, name)
-	const { models } = app.resolved
-	const access = accessFor(models, caller, app.logger)
-	const scope = new QueryScope(models, caller, access)
-	const context: Context = { app, models, model, caller, scope }
-	if (isRead(operation)) {
-		const read = reads[operation]
-		return app.work.run(async () =>
-			reading(app, async (store) => read(context, store, args)),
-		)
-	}
-	const write = writes[operation]
-	return app.work.run(async () =>
-		writing(app, async (store, commits) =>
+	const identity = callerOf(options, name)
+	return app.work.run(async () => {
+		const caller = await app.complete(identity)
+		const { models } = app.resolved
+		const access = accessFor(models, caller, app.logger)
+		const scope = new QueryScope(models, caller, access)
+		const context: Context = { app, models, model, caller, scope }
+		if (isRead(operation)) {
+			const read = reads[operation]
+			return reading(app, async (store) => read(context, store, args))
+		}
+		const write = writes[operation]
+		return writing(app, async (store, commits) =>
 			write(context, store, commits, args),
-		),
-	)
+		)
+	})
 }

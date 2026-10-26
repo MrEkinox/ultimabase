@@ -3,6 +3,7 @@
 import type { Adapter } from 'ultimabase'
 import { describe } from 'vitest'
 import { cascades } from './cascades.ts'
+import { lists } from './lists.ts'
 import { reads } from './reads.ts'
 import { roundTrips } from './round-trips.ts'
 import { transactions } from './transactions.ts'
@@ -26,6 +27,7 @@ export function testAdapter(
 		reads(create)
 		writes(create)
 		cascades(create)
+		lists(create)
 		transactions(create)
 		roundTrips(create, options.roundTrips)
 	})

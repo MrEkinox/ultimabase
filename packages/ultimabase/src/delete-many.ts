@@ -20,7 +20,7 @@ export async function removeMany(
 ): Promise<{ readonly count: number }> {
 	const { models, model, caller, scope } = context
 	const found = given(args, model.name, ['where'], [])
-	const where: Filter = (await filtered(context, found)) ?? {}
+	const where: Filter = (await filtered(context, found, 'delete')) ?? {}
 	const reach = cascadeWhere(models, model, where)
 	if (reach !== undefined && scope.access === undefined) {
 		// The write reads its rows as they were, to count them (D-102).

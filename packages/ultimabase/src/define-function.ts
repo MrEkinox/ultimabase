@@ -142,8 +142,9 @@ export async function called(
 	const { input: schema, name } = record
 	const [input, options] =
 		schema === undefined ? [undefined, args[0]] : [args[0], args[1]]
-	const caller = callerOf(options, name)
+	const identity = callerOf(options, name)
 	return app.work.run(async () => {
+		const caller = await app.complete(identity)
 		allowed(record, caller, app)
 		const facts: { [key: string]: unknown } = { caller, client }
 		const standard = standardOf(schema)

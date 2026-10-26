@@ -101,16 +101,20 @@ export async function create(
 	return written(context, store, commits, steps, events, { id, read, shape })
 }
 
-/** The rows a single-row write may target: the caller reads them (D-72). */
+/**
+ * The rows a single-row write may target: the caller reads them (D-72), and
+ * the `beforeFind` hooks let it `operation` them (D-124).
+ */
 async function targets(
 	context: Context,
 	found: ReadonlyMap<string, unknown>,
+	operation: 'update' | 'delete',
 ): Promise<Filter> {
 	const { models, model, scope } = context
 	return planned(scope, () =>
 		and(
 			uniqueWhere(models, model, found.get('where'), 'where', scope),
-			scope.readable(model.name),
+			scope.readable(model.name, operation),
 		),
 	)
 }
@@ -167,7 +171,7 @@ export async function update(
 	const draft = readData(model, found.get('data'), false)
 	const sent: Readonly<Draft> = { ...draft }
 	const id = idOf(found.get('where'))
-	const where = await targets(context, found)
+	const where = await targets(context, found, 'update')
 	if (scope.access === undefined && id !== undefined && !updated(model)) {
 		// Nothing needs the stored row: a check stands for its read (D-99).
 		await prepared(model, draft, caller, false)
@@ -228,7 +232,7 @@ export async function remove(
 	const { models, model, caller, scope } = context
 	const found = given(args, model.name, ['where'], ['where'])
 	const { shape } = plan(models, model, undefined, '', 'one', new Set())
-	const where = await targets(context, found)
+	const where = await targets(context, found, 'delete')
 	const reach = cascadeWhere(models, model, where)
 	if (reach !== undefined && scope.access === undefined) {
 		// Nothing needs the stored row: a check stands for its read, and the

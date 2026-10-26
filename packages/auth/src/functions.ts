@@ -5,7 +5,7 @@ import { allow, defineFunction } from 'ultimabase'
 import { closeSession } from './sessions.ts'
 import type { Cookie } from './token.ts'
 
-/** The token of the session each caller `identify` returned came from. */
+/** Each session's token, by the user row `identify` read for it (D-121). */
 export const callerTokens: WeakMap<object, string> = new WeakMap()
 
 /** The user model's queries, and its output `User`, or `null`. */
@@ -22,7 +22,8 @@ export function authFunctions(
 	const signOut = defineFunction({
 		name: 'signOut',
 		run: async ({ caller, client }) => {
-			const token = callerTokens.get(caller)
+			const token =
+				caller.kind === 'user' ? callerTokens.get(caller.user) : undefined
 			if (token !== undefined) await closeSession(token)
 			client?.cookies.clear(cookie.name, cookie.options)
 		},

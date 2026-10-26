@@ -3,8 +3,8 @@
 import { randomUUID } from 'node:crypto'
 import type { AuthApi } from '@ultimabase/auth'
 import type {
-	Caller,
 	Client,
+	Identity,
 	ExposedModel,
 	Logger,
 	Register,
@@ -182,7 +182,7 @@ async function asItself(state: State, userId: string): Promise<Row | null> {
 	const user: unknown = await queries.findUnique({ where: { id: userId } }, M)
 	if (user === null) return null
 	// oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the user model is the one the application registers (D-62, D-80).
-	const caller: Caller = { kind: 'user', user: user as UserOf<Register> }
+	const caller: Identity = { kind: 'user', user: user as UserOf<Register> }
 	return queries.findUnique({ where: { id: userId } }, { as: caller })
 }
 

@@ -1,6 +1,10 @@
 // A model's plugins at `defineModel` (D-89): the entries of its `use`, the
 // fields they add and the commands they build, which run in their command.
-import type { FieldDefinition, PluginUse } from './definition.ts'
+import type {
+	FieldDefinition,
+	IndexDefinition,
+	PluginUse,
+} from './definition.ts'
 import { fieldBuilders, fieldDefinitions, pluginEntries } from './definition.ts'
 import type { Command } from './plugin-code.ts'
 import { inCommand } from './plugin-code.ts'
@@ -115,6 +119,7 @@ export function usedBy(
 ): {
 	readonly uses: readonly PluginUse[]
 	readonly commands: ReadonlyMap<string, unknown>
+	readonly indexes: readonly IndexDefinition[]
 } {
 	const uses: PluginUse[] = []
 	const owners = new Map<string, string>()
@@ -145,5 +150,9 @@ export function usedBy(
 		throw new Refused(`${model}: ${names} both redirect delete.`)
 	}
 	const methods = new Set(['name', 'with', 'nullable', ...Object.keys(queries)])
-	return { uses, commands: commandsOf(model, uses, methods) }
+	return {
+		uses,
+		commands: commandsOf(model, uses, methods),
+		indexes: uses.flatMap(({ code }) => code.addedIndexes),
+	}
 }

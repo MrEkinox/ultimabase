@@ -22,7 +22,8 @@ import type {
 import { decodeRows } from './decode.ts'
 import { apply, remoteOf, reset, stored } from './migrations.ts'
 import { Catalog } from './names.ts'
-import { fillsOf, plan } from './plan.ts'
+import { fillsOf } from './fills.ts'
+import { plan } from './plan.ts'
 import { compileCount, compileFind } from './read.ts'
 import { parseSnapshot, snapshotOf } from './snapshot.ts'
 import type { Statement } from './write.ts'
@@ -201,7 +202,12 @@ export function createAdapter(options: Options): Adapter {
 			// transaction holds fails its next statement, and the pool drops it
 			// once given back.
 			pool.on('error', () => undefined)
-			pool.on('connect', (client) => client.on('error', () => undefined))
+			pool.on('connect', (client) => {
+				client.on('error', () => undefined)
+				// Compiling a nested read costs a hundred times more than running
+				// it; queued, this runs before the client's first query (D-47).
+				client.query('set jit = off').catch(() => undefined)
+			})
 			const dialect = new PostgresDialect({
 				pool: pooled(url, pool, connections, wait),
 			})

@@ -184,10 +184,15 @@ describe('a plugin on its models', () => {
 	it('gives its hooks the model, its options, its APIs and the command', async () => {
 		await Bin.trash.findMany({}, M)
 		const seen = facts.get('trash.beforeFind')
-		expect(seen).toMatchObject({ command: 'trash', options: {} })
+		expect(seen).toMatchObject({
+			command: 'trash',
+			operation: 'read',
+			options: {},
+		})
 		expect(Object.keys(isObject(seen) ? seen : {}).toSorted()).toEqual([
 			'caller',
 			'command',
+			'operation',
 			'options',
 			'plugins',
 			'queries',
@@ -687,7 +692,7 @@ const Tag = defineModel({
 const Secret = defineModel({
 	name: 'Secret',
 	use: [lens.use()],
-	fields: (f) => ({ text: f.string() }),
+	fields: (f) => ({ text: f.string(), tags: f.string({ list: true }) }),
 }).with({ lens: false })
 defineModel({
 	name: 'Typed',
@@ -722,7 +727,8 @@ describe('a plugin’s models', () => {
 			expect(seen[0]?.uniques).toEqual([['id'], ['label']])
 			expect(seen[0]?.readRules).toEqual({ secret: 'private', note: 'rule' })
 			expect(seen[1]?.readRules).toEqual({})
-			// Neither optional nor with a default, as `create`'s type (D-53).
+			// Neither optional nor with a default, as `create`'s type (D-53);
+			// a list is [] when left out (D-120).
 			expect(seen[0]?.required).toEqual(['label'])
 			expect(seen[1]?.required).toEqual(['text'])
 			const queries = seen[0]?.queries

@@ -28,6 +28,8 @@ export interface Property {
 	readonly read: (value: unknown) => Read
 	readonly json: Node
 	readonly required: boolean
+	/** The shared nodes its JSON Schema refers to, lifted to the root's. */
+	readonly defs?: Node
 }
 
 const isObject = (value: unknown): value is Node =>
@@ -109,6 +111,12 @@ function readOf(field: Scalar): Property['read'] {
 				? { message: 'Expected a date.' }
 				: { value: date }
 		}
+		if (type === 'stringList') {
+			return Array.isArray(value) &&
+				value.every((item) => typeof item === 'string' && item !== '')
+				? { value }
+				: { message: 'Expected a list of non-empty strings.' }
+		}
 		if (type === 'enum') {
 			return typeof value === 'string' && values.includes(value)
 				? { value }
@@ -120,6 +128,9 @@ function readOf(field: Scalar): Property['read'] {
 
 function jsonOf(field: Scalar): Node {
 	const { type, values = [], optional } = field
+	if (type === 'stringList') {
+		return { type: 'array', items: { type: 'string', minLength: 1 } }
+	}
 	const base = type === 'date' || type === 'enum' ? 'string' : type
 	return {
 		type: optional ? [base, 'null'] : base,
@@ -128,17 +139,55 @@ function jsonOf(field: Scalar): Node {
 	}
 }
 
-/** A user field a client may send at sign-up; a relation or JSON stops startup. */
+/** A json field's input JSON Schema, `{}` without an export (D-125). */
+function exported(schema: object | undefined): Node {
+	const standard: unknown = schema && Reflect.get(schema, '~standard')
+	const exporter = isObject(standard) ? standard['jsonSchema'] : undefined
+	const input = isObject(exporter) ? exporter['input'] : undefined
+	if (typeof input !== 'function') return {}
+	try {
+		const node: unknown = Reflect.apply(input, exporter, [
+			{ target: 'draft-2020-12' },
+		])
+		return isObject(node) ? node : {}
+	} catch {
+		// A schema it cannot export takes any JSON value, as a field without one.
+		return {}
+	}
+}
+
+/** A json field: any value read here, its schema run by the kernel (D-125). */
+function jsonProperty(
+	field: Scalar,
+	required: boolean,
+	schema: object | undefined,
+): Property {
+	const { $schema: _, $defs: defs, ...json } = exported(schema)
+	const typed = Object.keys(json).length > 0
+	return {
+		read: (value) => ({ value }),
+		json: typed && field.optional ? { anyOf: [json, { type: 'null' }] } : json,
+		required,
+		...(isObject(defs) ? { defs } : {}),
+	}
+}
+
+/**
+ * A user field a client may send at sign-up, a json one with its `validate`;
+ * a relation stops startup (D-113, D-125).
+ */
 export function fieldProperty(
 	field: SchemaField,
 	required: boolean,
 	where: string,
+	schema?: object,
 ): Property {
-	if (field.kind !== 'scalar' || field.type === 'json') {
+	if (field.kind !== 'scalar') {
 		throw new Refused(
-			`${where}: ${field.name} is a relation or a JSON field, which sign-up does not take.`,
+			`${where}: ${field.name} is a relation, which sign-up does not take.`,
 		)
 	}
+	if (field.type === 'json') return jsonProperty(field, required, schema)
 	return property(readOf(field), jsonOf(field), required)
 }
 
@@ -202,7 +251,11 @@ export function namedInput<O extends object>(
 		properties: { input: { $ref: `#/$defs/${id}` } },
 		required: ['input'],
 		additionalProperties: false,
-		$defs: { [id]: objectJson(properties) },
+		$defs: Object.assign(
+			{},
+			...[...properties.values()].map((each) => each.defs),
+			{ [id]: objectJson(properties) },
+		),
 	})
 	const validate = (value: unknown) => {
 		const issues: Issue[] = []

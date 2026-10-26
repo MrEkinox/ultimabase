@@ -9,8 +9,17 @@ import { pluginCode } from './plugin-code.ts'
 import type { FieldShape, ModelHooks, ModelShape } from './model.ts'
 import type { Row, SchemaModel } from './adapter.ts'
 import type { Queries, QueryOptions, UniqueWhere } from './query.ts'
-import type { Caller } from './rules.ts'
+import type {
+	Caller,
+	Identity,
+	Register,
+	UserCallerKeys,
+	UserOf,
+} from './rules.ts'
 import type { pluginTypes } from './symbols.ts'
+
+/** The keys of a user caller a plugin gives (D-121). */
+type CallerKeys = Partial<UserCallerKeys> & object
 
 /**
  * What a plugin adds to the models that use it (D-57). `this['fields']` is
@@ -92,6 +101,15 @@ export interface ExposedModel<W = unknown> {
 	readonly readRules: { readonly [field: string]: 'private' | 'rule' }
 	/** The fields `create` needs: neither optional nor with a default (D-53). */
 	readonly required: readonly string[]
+	/** Each `json` field's `validate`, when it is a Standard Schema (D-125). */
+	readonly validators: { readonly [field: string]: StandardSchema }
+	/** Each plugin field type's field, which a client reads as `toJSON` gives (D-122). */
+	readonly fieldTypes: {
+		readonly [field: string]: {
+			readonly plugin: string
+			readonly toJSON: (value: unknown) => unknown
+		}
+	}
 	/** The plugin's key of the model's `.with`, if it was given. */
 	readonly with: W | undefined
 	readonly queries: ModelQueries
@@ -249,9 +267,22 @@ export type PluginDefinition<T extends PluginTypes> = {
 	readonly identify?: (
 		request: Request,
 		context: PluginContext<T>,
-	) => Promise<Caller | undefined>
+	) => Promise<Identity | undefined>
+	/**
+	 * The plugin's keys of a user caller, given once per caller the kernel
+	 * receives, each plugin's in the order of `plugins` (D-121).
+	 */
+	readonly caller?: (
+		identity: { readonly kind: 'user'; readonly user: UserOf<Register> },
+		context: PluginContext<T>,
+	) => CallerKeys | Promise<CallerKeys>
 	/** Its own models, which no plugin is given (D-110). */
 	readonly models?: readonly ModelShape[]
+	/** The indexes it adds to each model that uses it (D-52, D-122). */
+	readonly addedIndexes?: readonly {
+		readonly fields: readonly (keyof Own<T> & string)[]
+		readonly unique?: boolean
+	}[]
 	/**
 	 * Its `defineFunction` values, built once when the application starts and
 	 * exposed as the application's are (D-113).

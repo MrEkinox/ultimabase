@@ -159,11 +159,12 @@ type UpdateInput<X> = X extends Scalar
 				readonly connect?: readonly Ref[]
 				readonly disconnect?: readonly Ref[]
 			}
+// A list left unwritten is empty (D-120).
 type Needed<X> =
 	X extends Scalar<unknown, infer O>
 		? IsOptional<O> extends true
 			? false
-			: O extends { readonly default: unknown }
+			: O extends { readonly default: unknown } | { readonly list: true }
 				? false
 				: true
 		: X extends Relation<'one', unknown, infer O>

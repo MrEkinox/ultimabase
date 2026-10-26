@@ -10,6 +10,8 @@ import {
 	GraphQLBoolean,
 	GraphQLEnumType,
 	GraphQLFloat,
+	GraphQLList,
+	GraphQLNonNull,
 	GraphQLString,
 } from 'graphql'
 import type {
@@ -19,6 +21,7 @@ import type {
 	SchemaField,
 	SchemaModel,
 } from 'ultimabase'
+import { DataTypes } from './data-types.ts'
 import { upper } from './names.ts'
 import { DateTime, JSONScalar } from './scalars.ts'
 
@@ -75,10 +78,13 @@ export class Registry {
 	readonly #enums = new Map<string, GraphQLEnumType>()
 	readonly entries: ReadonlyMap<string, Entry>
 	readonly settings: Settings
+	/** The types functions and json fields give, shared by both (D-125). */
+	readonly data: DataTypes
 
 	constructor(entries: ReadonlyMap<string, Entry>, settings: Settings) {
 		this.entries = entries
 		this.settings = settings
+		this.data = new DataTypes(entries.keys())
 	}
 
 	entry(model: string): Entry {
@@ -111,6 +117,8 @@ export const scalarTypes: {
 	boolean: GraphQLBoolean,
 	date: DateTime,
 	json: JSONScalar,
+	// A list's items: `valueType` makes it `[String!]` (D-120).
+	stringList: GraphQLString,
 }
 
 /** The fields a caller other than Master may read: no `private` one (D-44). */
@@ -138,3 +146,16 @@ export function scalarType(
 			}),
 	)
 }
+
+/** A scalar field's value, read or written: a list's is `[String!]`. */
+export const valueType = (
+	registry: Registry,
+	model: string,
+	field: Scalar,
+):
+	| GraphQLScalarType
+	| GraphQLEnumType
+	| GraphQLList<GraphQLNonNull<GraphQLScalarType>> =>
+	field.type === 'stringList'
+		? new GraphQLList(new GraphQLNonNull(GraphQLString))
+		: scalarType(registry, model, field)

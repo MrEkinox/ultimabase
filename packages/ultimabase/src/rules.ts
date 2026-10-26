@@ -17,16 +17,34 @@ export type UserOf<R> = R extends {
 	? RecordOf<F>
 	: { readonly id: string }
 
-/** Who sends an operation (D-19). */
-export type Caller =
+/**
+ * The keys plugins add to a user caller, each plugin declaring its own
+ * (D-121): `declare module 'ultimabase' { interface UserCallerKeys { ... } }`.
+ */
+export interface UserCallerKeys {}
+
+type Master = {
+	readonly kind: 'master'
+	readonly master: { readonly source: 'code' | 'key' }
+}
+
+/**
+ * Who code says sends an operation, as `as` and a plugin's `identify` give
+ * it: a user caller without the keys plugins add (D-121).
+ */
+export type Identity =
 	| { readonly kind: 'anonymous' }
 	| { readonly kind: 'user'; readonly user: UserOf<Register> }
-	| {
-			readonly kind: 'master'
-			readonly master: { readonly source: 'code' | 'key' }
-	  }
+	| Master
 
-type Master = Extract<Caller, { readonly kind: 'master' }>
+/** Who sends an operation, as rules, hooks and functions see it (D-19). */
+export type Caller =
+	| { readonly kind: 'anonymous' }
+	| ({
+			readonly kind: 'user'
+			readonly user: UserOf<Register>
+	  } & UserCallerKeys)
+	| Master
 
 const masters = new WeakSet<object>()
 

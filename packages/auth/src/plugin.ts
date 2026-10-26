@@ -4,8 +4,8 @@
 import type { Http } from '@ultimabase/http'
 import { httpPlugin } from '@ultimabase/http'
 import type {
-	Caller,
 	Client,
+	Identity,
 	OutputSpec,
 	PluginOf,
 	PluginTypes,
@@ -69,7 +69,7 @@ export interface AuthCommands {
 	/** Ends every session of the user, as Master or as the user. */
 	revokeSessions(
 		where: { readonly id: string },
-		options?: { readonly as?: Caller },
+		options?: { readonly as?: Identity },
 	): Promise<void>
 }
 
@@ -126,7 +126,7 @@ function usersOf(
 async function callerOf(
 	token: string,
 	users: Users,
-): Promise<Caller | undefined> {
+): Promise<Identity | undefined> {
 	const userId = await sessionUser(token)
 	if (userId === undefined) return undefined
 	// A transport's queries are untyped; this is the user model's row.
@@ -136,8 +136,9 @@ async function callerOf(
 	)
 	if (user === null) return undefined
 	// oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the user model is the one the application registers (D-62, D-80).
-	const caller: Caller = { kind: 'user', user: user as UserOf<Register> }
-	callerTokens.set(caller, token)
+	const caller: Identity = { kind: 'user', user: user as UserOf<Register> }
+	// The completed caller keeps this row (D-121).
+	callerTokens.set(caller.user, token)
 	return caller
 }
 

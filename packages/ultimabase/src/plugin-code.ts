@@ -1,7 +1,7 @@
 // A plugin's code at run time (D-57, D-89): what `definePlugin` checks, the
 // APIs it reads once the application starts, and the command it runs in.
 import { AsyncLocalStorage } from 'node:async_hooks'
-import type { PluginCode } from './definition.ts'
+import type { IndexDefinition, PluginCode } from './definition.ts'
 import { manifestOf } from './manifest.ts'
 import { isObject } from './query-where.ts'
 import { current } from './running.ts'
@@ -61,6 +61,25 @@ function apisOf(plugin: string, names: readonly string[]): object {
 const isList = (value: unknown): value is readonly unknown[] =>
 	Array.isArray(value)
 
+/** `addedIndexes`, each `{ fields, unique? }`; startup checks the fields. */
+function indexesOf(value: unknown, path: string): readonly IndexDefinition[] {
+	const indexes = value ?? []
+	const valid = (index: unknown): index is IndexDefinition =>
+		isObject(index) &&
+		isList(index['fields']) &&
+		index['fields'].every((field) => typeof field === 'string') &&
+		(index['unique'] === undefined || typeof index['unique'] === 'boolean')
+	if (!isList(indexes) || !indexes.every(valid)) {
+		throw new TypeError(`${path} is a list of { fields, unique? }.`)
+	}
+	return Object.freeze(
+		indexes.map(({ fields, unique }) => ({
+			fields: [...fields],
+			...(unique === undefined ? {} : { unique }),
+		})),
+	)
+}
+
 /** Checks what a plugin's author wrote; the types refuse the rest. */
 export function pluginCode(definition: unknown): PluginCode {
 	if (!isObject(definition))
@@ -96,9 +115,11 @@ export function pluginCode(definition: unknown): PluginCode {
 		commands: part('commands'),
 		api: part('api'),
 		addedFields: part('addedFields'),
+		addedIndexes: indexesOf(definition['addedIndexes'], `${name}.addedIndexes`),
 		start: part('start'),
 		stop: part('stop'),
 		identify: part('identify'),
+		caller: part('caller'),
 		functions: part('functions'),
 		models: Object.freeze([...models]),
 		plugins: apisOf(name, [...requires, ...optional]),

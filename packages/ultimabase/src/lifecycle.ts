@@ -2,6 +2,8 @@
 // `start` and `stop`, the operations still running, and `SIGTERM`.
 import type { Adapter, Schema } from './adapter.ts'
 import type { Logger, MasterKey } from './app-options.ts'
+import type { PluginCaller } from './complete.ts'
+import { completer } from './complete.ts'
 import { consoleLogger } from './console-logger.ts'
 import type { PluginIdentify } from './identify.ts'
 import { identifier } from './identify.ts'
@@ -11,6 +13,7 @@ import type { Installed } from './plugin-app.ts'
 import {
 	buildApis,
 	installed,
+	pluginCallers,
 	pluginIdentifiers,
 	withContexts,
 } from './plugin-app.ts'
@@ -134,7 +137,14 @@ export function lifecycle(options: LifecycleOptions): Lifecycle {
 		checkVersions(records, logger)
 		// Plugins identify with their contexts, which hold identify.
 		const identifiers: PluginIdentify[] = []
-		const identify = identifier(options.masterKey, logger, identifiers)
+		const callers: PluginCaller[] = []
+		const complete = completer(callers)
+		const identify = identifier(
+			options.masterKey,
+			logger,
+			identifiers,
+			complete,
+		)
 		const { plugins, functions } = withContexts(
 			apiOrder,
 			base,
@@ -143,6 +153,7 @@ export function lifecycle(options: LifecycleOptions): Lifecycle {
 			options.functions ?? [],
 		)
 		identifiers.push(...pluginIdentifiers(records, plugins))
+		callers.push(...pluginCallers(records, plugins))
 		await database.start(resolved.schema)
 		const apis = new Map<string, unknown>()
 		const app: Running = {
@@ -152,6 +163,7 @@ export function lifecycle(options: LifecycleOptions): Lifecycle {
 			apis,
 			functions: functions.definitions,
 			work: new Work(),
+			complete,
 		}
 		const ran: Installed[] = []
 		try {

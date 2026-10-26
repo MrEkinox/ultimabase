@@ -255,6 +255,8 @@ export const Todo = defineModel({
 
 ## D-13: Plugins with a model of their own add a `define<Kind>` entry
 
+Amended by D-123.
+
 Choice: a plugin that needs a specific kind of model exports its own entry,
 named `define<Kind>` (roles: `defineRole`), which builds an ordinary model
 through the kernel's `defineModel`, with the plugin in its `use` (D-24).
@@ -1105,7 +1107,7 @@ fields: (f) => ({
 
 ## D-45: Function types become GraphQL types, with an escape hatch
 
-Amended by D-109.
+Amended by D-109 and D-125.
 
 Choice: a function's `input` is any Standard Schema; its `output` is a model
 (`Todo`), a list (`[Todo]`), a named object mixing models and schemas
@@ -1178,6 +1180,14 @@ Every one of the 10 PostgreSQL connections stayed busy for 10s: a transaction ma
 A server that never answers fails `start` after the same 10 seconds, with
 `Cannot reach PostgreSQL at host:5432 (no answer in 10s): …` (D-105). The
 pool's other `pg` options stay its defaults (amended 2026-10-25).
+
+Each connection the pool opens runs `set jit = off` before its first query.
+The single query of D-46 nests a subquery per relation level, which the
+planner prices high enough to compile: a role and five inherited levels
+(D-123) took 535 ms compiled and 0.175 ms without, on a nearly empty table.
+JIT pays off on long analytical scans, which an application's reads are not.
+It is set by a statement rather than the `options` startup parameter, which
+PgBouncer refuses by default (amended 2026-10-26).
 
 Why: the previous base generated Drizzle tables and relations from its models
 at startup, kept three representations in sync, injected access filters
@@ -1316,6 +1326,8 @@ Prisma's compound key, `where: { author_slug: { author, slug } }`, a name
 built from the fields that the developer must know.
 
 ## D-53: Defaults are values or functions; `json` takes a schema
+
+Amended by D-125.
 
 Choice: `default` takes a value (`default: false`) or a function receiving
 `{ caller }` (D-19): `default: () => new Date()`, or a value that depends on
@@ -1827,6 +1839,8 @@ export const softDeletePlugin: PluginOf<SoftDelete> =
 ```
 
 ## D-71: What hooks receive and return
+
+Amended by D-124.
 
 Choice: the D-15 hooks take one object of facts, `caller` included, and
 return nothing, except `beforeFind`.
@@ -4595,6 +4609,8 @@ curl -X POST localhost:3000/webhooks/stripe -d '{"id":"…"}' \
 
 ## D-107: `graphqlPlugin()`, the schema it generates and how it mounts
 
+Amended by D-125.
+
 Choice: completes D-16, D-34, D-41, D-45 and D-55.
 
 1. `@ultimabase/graphql` exports `graphqlPlugin(options)` and the model entry
@@ -4885,7 +4901,7 @@ curl -X POST localhost:3000/webhooks/stripe -H 'content-type: application/json' 
 
 ## D-109: `defineFunction` and `defineType`, at run time and over GraphQL
 
-Amended by D-113.
+Amended by D-113 and D-125.
 
 Choice: completes D-27, D-45, D-75 and D-107, and amends D-45's outputs.
 
@@ -5330,7 +5346,7 @@ curl localhost:3000/graphql -H 'authorization: Bearer expired…' -d '…'
 
 ## D-113: `passwordPlugin()`, linked accounts, plugin functions and `viewer`
 
-Amended by D-115.
+Amended by D-115 and D-125.
 
 Choice: completes D-33, D-56, D-109 and D-112, and amends D-56, D-109 and
 D-112.
@@ -5409,8 +5425,9 @@ D-112.
     not counted.
 11. Details (amended 2026-10-24). `INVALID_CREDENTIALS` is a kernel code,
     sent with status 401. `signUp` takes neither `id`, `createdAt`,
-    `updatedAt`, `email` nor `password` as a listed field, nor a relation or
-    JSON field; a required user field missing from the list stops startup,
+    `updatedAt`, `email` nor `password` as a listed field, nor a relation
+    (a string list and a JSON field are taken, amended 2026-10-26 by D-120
+    and D-125); a required user field missing from the list stops startup,
     `signUp` omitted listing none. Over GraphQL an unlisted field fails the
     input type, before `VALIDATION_FAILED`. `signUp` is not limited. Commands
     have no client, so `User.signIn` is never counted, whoever the caller;
@@ -5908,4 +5925,554 @@ Error: postgres() was given no url: is the variable it reads set?
 # After
 $ npx ultimabase sync
 postgres() was given no url: is the variable it reads set?
+```
+
+## D-120: String lists, their filters and their index
+
+Choice: completes D-09 and D-52.
+
+1. `f.string({ list: true })` is a list of strings, typed
+   `readonly string[]`. A list is never `null`: it is `[]` when nothing is
+   written, so `optional` is refused on it. A write replaces the whole list;
+   an element is a non-empty string, never `null`.
+2. A list filters with `has` (holds this string) and `hasSome` (holds one of
+   these strings), Prisma's names; `NOT` gives their opposite. A list cannot
+   be sorted, compared with `equals`, nor be `unique`. `hasEvery`, `isEmpty`
+   and Prisma's `push` wait for a use.
+3. PostgreSQL stores it as `text[] not null`, with no column default
+   (D-105; amended 2026-10-26): the kernel writes `[]`, and the rows of a
+   list added to a table take `'{}'` or the list's default. `has` is
+   `@> array[...]`, `hasSome` is `&&`. `memory()` keeps an array. The
+   contract suite runs both. GraphQL shows `[String!]!`, written
+   `[String!]`, with a filter input of `has` and `hasSome`.
+4. `indexes: [{ fields: ['tags'] }]` gives a list a GIN index, the kind
+   PostgreSQL uses for `@>` and `&&`: `create index "post_tags_idx" on
+"post" using gin ("tags");`. An index on a list holds that list alone, and
+   `unique` is refused on it. A list gets no index by itself: GIN slows every
+   write of the row.
+
+Why: tags, labels and an ACL's entries (D-124) are lists of strings, and a
+list in the row reads in the row's query, where a join table needs one more.
+A GIN index turns `&&` from a scan of the table into an index lookup; an ACL
+filters every read through it, so it must exist from the first release.
+Rejected: lists of other types in this decision (decided before 0.1, on
+the roadmap); a `string[]` stored as `json` (no index, no filter); a join
+table for an ACL; `btree_gin`, an extension, to mix a list and a scalar in
+one index.
+Example:
+
+```ts
+// Before: tags as a many-to-many relation, a join table and a join per read
+fields: (f) => ({ tags: f.many(() => Tag) })
+await Post.findMany({ where: { tags: { some: { name: 'ts' } } } })
+
+// After
+export const Post = defineModel({
+	name: 'Post',
+	fields: (f) => ({ tags: f.string({ list: true }) }),
+	indexes: [{ fields: ['tags'] }],
+})
+await Post.findMany({ where: { tags: { has: 'ts' } } })
+await Post.findMany({ where: { tags: { hasSome: ['ts', 'node'] } } })
+```
+
+## D-121: Plugins complete a user caller
+
+Amended by D-126.
+
+Choice: completes D-15 and D-19, which promise plugin keys on the caller.
+
+1. A plugin may give `definePlugin` a `caller` part: given a user caller and
+   its context, it returns the plugin's keys, such as `{ roles }` (D-123). It
+   runs for a user caller only; anonymous and Master callers get no plugin
+   key in 0.1.
+2. A plugin types its keys by declaration merging, as the user model is
+   (D-62): `declare module 'ultimabase' { interface UserCallerKeys { ... } }`.
+   `Extract<Caller, { kind: 'user' }>` then holds them, required.
+3. The kernel completes a user caller the first time it receives one: from
+   Identify, in an operation's `as`, or in a function call. It runs every
+   plugin's `caller`, in the order of `plugins`, and keeps the completed
+   caller for that object, so a request pays once, and every hook, rule and
+   function sees the completed one. A key two plugins return stops the
+   request with a message naming both.
+4. Code that builds a user caller (auth's Identify, `asUser` in tests) builds
+   `{ kind: 'user', user }`, typed `Identity`: `as` takes one and a
+   plugin's `identify` returns one; rules, hooks and functions read the
+   completed `Caller`. A caller already completed is not completed again: a
+   role given during a request counts from the next request.
+
+Why: Identify belongs to the one plugin that knows the request (D-112); the
+roles of a user are another plugin's, and an access rule is synchronous
+(D-76), so its keys must be read before the rules run. Completing in the
+kernel, on the object, covers the callers no request built (a script, a
+test) without each builder knowing every plugin.
+Rejected: a second Identify chain (the first plugin to answer wins, D-112);
+asynchronous rules that query the roles; keys on anonymous callers now
+(no 0.1 plugin has one; a tenant plugin decides it with its own decision).
+Example:
+
+```ts
+// The roles plugin (D-123)
+declare module 'ultimabase' {
+	interface UserCallerKeys {
+		readonly roles: readonly { readonly id: string; readonly name: string }[]
+	}
+}
+definePlugin<Roles>({
+	name: 'roles',
+	manifest,
+	caller: async ({ user }, context) => ({ roles: await rolesOf(user, context) }),
+})
+
+// An application's rule: the keys are there, synchronously
+access: {
+	delete: ({ caller }) =>
+		caller.kind === 'user' && caller.roles.some((role) => role.name === 'Admin'),
+}
+```
+
+## D-122: Plugin field types at run time
+
+Choice: completes D-32, typed until now and not run.
+
+1. The kernel exports `defineFieldType`, which a plugin calls once:
+   `plugin`, the plugin's name; `stored`, a kernel field (`f.string({ list:
+true })`) that says how the value is stored, filtered and indexed;
+   `decode` and `encode`, between the stored value and the value code sees
+   (an `ACL`, D-124); `schema`, a Standard Schema (D-23) that takes the
+   value or its JSON and gives the value; `toJSON`, what a client reads.
+2. It returns a field builder (`aclField()`), which a plugin uses in its
+   `addedFields` (D-89) or an application imports, as D-32 says. It takes
+   `default` only, a value or a function of `{ caller }` (D-53); the stored
+   field says whether the field may be `null`, and `null` is stored as is,
+   never decoded nor encoded. A default is never the column's (D-105): the
+   rows stored before the field get what the stored field gets without
+   one, `[]` for a list (amended 2026-10-26). `.with` takes `access` only (D-57).
+3. A write runs, in order: the `access` rules, on what the caller sent
+   (D-67); the defaults; `schema`, on every written value, a default's
+   included and a hook's not (D-67); the hooks, which see the value;
+   `encode`; the stored field's check. An encoded value the stored field
+   refuses is the plugin's bug: the write throws an error naming the plugin,
+   not `VALIDATION_FAILED`.
+4. Filters and indexes read the stored form. Only the `where` of a
+   `beforeFind` (D-71), a plugin's or the application's, filters a plugin
+   field, in its stored form: the ACL's `beforeFind` filters `acl` with
+   `hasSome`. No query's `where` or `orderBy` names it in 0.1, from a
+   client, from code or as Master, and nothing sorts it.
+5. Code, rules and hooks read the value; a transport sends `toJSON`'s.
+   GraphQL shows such a field as its `JSON` scalar, written through
+   `schema`, and leaves it out of the filter inputs. A typed GraphQL shape
+   waits for a field type that needs one.
+6. A plugin may add indexes to the models that use it, in the shape of D-52:
+   `addedIndexes: [{ fields: ['acl'] }]`.
+7. `defineApp` refuses a model whose field type's plugin is not in
+   `plugins` (D-32).
+
+Why: D-68 puts plugin field types in 0.1, and the ACL is the first: code
+works with an `ACL`, the database with `text[]`, a client with
+`{ read, write }`. Storing through a kernel field keeps migrations, filters
+and indexes in the kernel and its adapters, which a plugin cannot extend.
+One `schema` for every write checks a function's data as a client's, and
+`beforeFind` alone is one boundary the types can draw.
+Rejected: a raw column type a plugin names (each adapter would have to know
+it); an `ACL` code reads as `string[]` and wraps itself; a typed GraphQL
+shape now; `schema` for a client's writes only; the field type's own
+`optional`, `unique` or `validate`.
+Example:
+
+```ts
+// Before: an ACL is a list code reads and writes as strings
+note.acl.includes('read:user:u_1')
+await Note.update({ where, data: { acl: [...note.acl, 'read:user:u_2'] } }, as)
+
+// After
+export const aclField = defineFieldType({
+	plugin: 'acl',
+	stored: (f) => f.string({ list: true }),
+	decode: (entries) => ACL.fromEntries(entries),
+	encode: (acl) => acl.entries(),
+	schema: aclSchema,
+	toJSON: (acl) => acl.toJSON(),
+})
+note.acl.userCan(paul, 'read')
+await Note.update(
+	{ where, data: { acl: note.acl.allowUser(paul, 'read') } },
+	as,
+)
+```
+
+## D-123: `rolesPlugin()`, `defineRole` and roles inside roles
+
+Amended by D-126.
+
+Choice: amends D-13; Parse's roles.
+
+1. `@ultimabase/roles` exports `rolesPlugin()` and `defineRole`. An
+   application has one role model in 0.1: a second `defineRole` stops
+   startup. D-13's several role models wait for a use.
+2. `defineRole({ name, members: () => User, fields })` builds a model with a
+   unique `name` string, `members` (a `many` relation to the users) and
+   `inherits` with its inverse `inheritedBy` (`many` relations to roles).
+   The user model declares its side, `roles: f.many(() => Role)`, as every
+   relation does (D-37), under the name the developer chooses. The
+   documentation shows that side next to `defineRole`: without it, startup
+   stops (amended 2026-10-26).
+3. `Admin.inherits` holding `Moderator` means every member of Admin is a
+   moderator, through as many levels as are written. A cycle stops the
+   expansion, it does not loop.
+4. The plugin completes a user caller (D-121) with `caller.roles`, every role
+   the user has, inherited ones included, each `{ id, name }`. It reads them
+   as Master in one query: the user's roles and five levels of inheritance,
+   which PostgreSQL reads in one statement (D-46). A deeper hierarchy pays
+   one more query per five levels (amended 2026-10-26).
+5. `hasRole('Admin', 'Editor')` is a ready-made rule (D-10): true for a user
+   with one of the roles. Code names a role by its name; an ACL holds its id
+   (D-124), so renaming a role keeps its ACLs and breaks the rules that name
+   it, which are code.
+
+Why: the maintainer's applications manage rights by role, as Parse does
+(D-68), and need roles inside roles from 0.1. Parse's `roles` relation reads
+backwards (`Moderator.roles` holds Admin, so Admins are moderators);
+`inherits` says it in the direction rights flow. One role model keeps
+`caller.roles` one list.
+Rejected: Parse's `roles` relation name; several role models now; roles
+read on each rule (rules are synchronous, D-76); roles on the user as a
+string list, without members or inheritance; one query per level of
+inheritance (four for Admin, Moderator, Editor); `WITH RECURSIVE`, one
+query at any depth but a new adapter call for one plugin (D-90's "Later");
+each role storing every role it inherits, recomputed for every descendant
+on each change and wrong when two changes cross; roles cached between
+requests, as Parse does, which keeps a removed role until the cache
+expires.
+Example:
+
+```ts
+// Before: Parse
+const moderators = await new Parse.Query(Parse.Role)
+	.equalTo('name', 'Moderator')
+	.first({ useMasterKey: true })
+moderators.getRoles().add(admins)
+await moderators.save(null, { useMasterKey: true })
+
+// After
+export const Role = defineRole({
+	name: 'Role',
+	members: () => User,
+	fields: (f) => ({ color: f.string({ optional: true }) }),
+})
+export const User = defineUser({
+	name: 'User',
+	fields: (f) => ({ roles: f.many(() => Role) }),
+})
+await Role.update(
+	{
+		where: { id: admin.id },
+		data: { inherits: { connect: { id: moderator.id } } },
+	},
+	{ as: master },
+)
+export const Post = defineModel({ name: 'Post', fields }).with({
+	access: { read: allow.public, delete: hasRole('Moderator') },
+})
+```
+
+## D-124: `acl()`, per-row rights, and the `ACL` class
+
+Amended by D-126.
+
+Choice: amends D-71; Parse's ACL, stored in one string list.
+
+1. `@ultimabase/acl` exports `aclPlugin()`, `acl()` for a model's `use`, and
+   the `ACL` class. `acl({ default })` adds an `acl` field (D-122) and its
+   GIN index (D-120). `default` is required: it gives the ACL of a row
+   created without one, from the caller. The plugin works without
+   `rolesPlugin()` (public and users only); with it, ACLs name roles.
+2. An entry is a permission and a subject: `read` or `write` (update and
+   delete), and the public (`*`), a user (`user:<id>`) or a role
+   (`role:<id>`). Stored: `['read:*', 'read:user:u_1', 'write:role:r_9']`.
+   Read by a client: `{ read: ['*', 'user:u_1'], write: ['role:r_9'] }`.
+3. Every row has an ACL: a public row lists `read:*` and `write:*`. An
+   empty `ACL` lets only Master through, as the rows a model held before it
+   used `acl()` get.
+4. An operation passes `access` and the ACL both; Master skips both. The
+   plugin's `beforeFind` filters `acl` with `hasSome` of the caller's keys:
+   `*`, its user and every role of `caller.roles`. A row a caller cannot read
+   is absent, at every level.
+5. `beforeFind` gets `operation`: `'update'` or `'delete'` for the rows the
+   write targets, `'read'` everywhere else. For a write the plugin filters
+   on `write` and `read` both: a caller writes the rows it sees. A row
+   written without the right is absent, so `update` says it was not found
+   and `deleteMany` skips it, in one statement (D-102). A relation written
+   from the other side that changes the target's row, its key (D-78), is
+   `'update'` of that row, so its `connect` to a row the caller cannot
+   write is `NOT_FOUND`, as one it cannot read (D-71); a join's link, which
+   leaves the row as it is, and any other connected row are `'read'`. A
+   cascade runs no
+   `beforeFind` (D-90). `operation` is `'read' | 'update' | 'delete'`, for
+   the application's hooks and the plugins' (amended 2026-10-26).
+6. Only Master writes `acl`, on create and on update; a client that sends
+   it is refused, and a row it creates gets `default`. Server code (a
+   function, a hook) changes an ACL as Master, after its own checks: a
+   function that shares a note is how a user gives rights. No query filters
+   by ACL in 0.1 (D-122).
+7. `ACL` is immutable: each method returns a new one. `new ACL()` is empty.
+   `allowPublic`, `allowUser` and `allowRole` add, `denyPublic`, `denyUser`
+   and `denyRole` remove, given permissions or all of them.
+   `publicCan`, `userCan` and `roleCan` read one entry; `users` and `roles`
+   list the ids having a permission; `allows(caller, permission)` answers
+   for a caller, its roles included, and is true for Master. A user or a
+   role is given as `{ id }`; no permission given means both.
+   `entries`, `fromEntries`, `toJSON` and `fromJSON` convert it.
+8. `acl()` without `default` is refused, by its types and when its model
+   is defined. The field's schema takes an `ACL` or `{ read, write }`, each
+   subject `*`, `user:<id>` or `role:<id>`. `@ultimabase/roles` is a peer
+   dependency: one copy of it keeps the key `rolesOf` reads (D-126)
+   (amended 2026-10-26).
+
+Why: `access` says what a kind of caller may do on a model; an ACL says who
+may see or change one row, which only data can hold (a shared note, a
+document of a team). One `text[]` with a GIN index keeps the filter one
+index lookup in the row's query. A filter on the write's target keeps the
+single statement of D-102, where a hook per row would not, and refuses as
+`access.read` does. Ids keep an ACL valid when a role is renamed. A right
+to edit a row is not a right to give it away: with Parse's rule, any editor
+can remove the owner, share the row or make it public. A function says what
+sharing allows, in one place.
+Rejected: Parse's rule, where a caller that may write a row may change its
+ACL; a rule of `acl({ access })` that opens the field to clients (one
+general rule for every way of sharing); Parse's `_rperm` and `_wperm`, two
+columns for one filter; an
+`authenticated` subject (a role, if an application needs it); ACLs as
+relations; a check per row in `beforeUpdate`; write rights without read
+(Parse allows them; a write that cannot see its row cannot return it);
+a default ACL left implicit; `acl: null` as no restriction (a list is
+never `null`, D-120, and a row left without one would be public).
+Example:
+
+```ts
+// Before: Parse
+const note = new Parse.Object('Note')
+const acl = new Parse.ACL(user)
+acl.setReadAccess(paul.id, true)
+acl.setRoleWriteAccess('Compta', true)
+note.setACL(acl)
+await note.save(null, { sessionToken })
+
+// After
+import { ACL, acl } from '@ultimabase/acl'
+export const Note = defineModel({
+	name: 'Note',
+	use: [
+		acl({
+			default: ({ caller }) =>
+				caller.kind === 'user'
+					? new ACL().allowUser(caller.user, 'read', 'write')
+					: new ACL(),
+		}),
+	],
+	fields: (f) => ({ title: f.string() }),
+}).with({ access: { read: allow.public, write: isAuthenticated } })
+
+const note = await Note.create({ data: { title: 'Q3' } }, { as: caller })
+note.acl.allows(caller, 'write') // true
+await Note.update(
+	{ where: { id: note.id }, data: { acl: note.acl.allowUser(paul, 'read') } },
+	{ as: caller },
+) // refused: only Master writes Note.acl
+
+// Sharing, as Google Docs does: a function checks, then writes as Master
+export const shareNote = defineFunction({
+	name: 'shareNote',
+	input: z.object({ note: z.string(), user: z.string() }),
+	output: Note,
+	run: async ({ input, caller }) => {
+		// Read as the caller: the ACL hides a note it cannot see.
+		const note = await Note.findUnique(
+			{ where: { id: input.note } },
+			{ as: caller },
+		)
+		if (note === null || !note.acl.allows(caller, 'write'))
+			throw new PublicError('NOTE_NOT_SHARED', 'You cannot share this note.')
+		return Note.update(
+			{
+				where: { id: note.id },
+				data: { acl: note.acl.allowUser({ id: input.user }, 'read') },
+			},
+			{ as: master },
+		)
+	},
+}).with({ access: isAuthenticated })
+```
+
+## D-125: JSON fields typed from their schema
+
+Choice: amends D-45, D-53, D-107, D-109 and D-113.
+
+1. A `json` field whose `validate` is a Standard Schema with a JSON Schema
+   export (D-45) gets exact GraphQL types, from that export as D-109 types a
+   function's schema: the model's type, `PostCreateInput`, `PostUpdateInput`,
+   the field's filter and `SignUpInput` (D-113). Without `validate`, or with a
+   function or a schema without that export, the field stays the `JSON`
+   scalar; startup never stops for it.
+2. Sides. The output side of the JSON Schema types what a client reads, the
+   input side what it writes: `z.string().transform(Number)` reads `Float`
+   and is written `String`, and a key with a schema default is optional when
+   written (D-53).
+3. Names. A field's output type is `{Model}{Field}` (`UserPrefs`), its input
+   type `{Model}{Field}Input` (`UserPrefsInput`); nested types take their
+   path, as a shared type's do (`UserPrefsAddress`, `UserPrefsAddressInput`),
+   and an enum is named from its path (`UserPrefsTheme`). A schema with an
+   id, `.meta({ id: 'Address' })`, is the one `Address` and `AddressInput`
+   that functions share; one name given two shapes stops startup, naming
+   both owners, as D-109 says.
+4. What GraphQL cannot type is `JSON` for that piece only: a union other
+   than one type with `null`, a key that is not a GraphQL name, a recursive
+   schema without an id. A function still refuses those (D-109): its schema
+   is written for the API, a field's often for storage first.
+5. Filter. A typed field has its own filter, `UserPrefsFilter { equals, not,
+in, notIn }`, which takes the input type. The kernel compares the stored
+   value, the schema's output: a field whose schema transforms its value
+   is filtered by its written shape, which a transformed value may not fit.
+6. Sign-up. `signUp` takes a `json` field (D-113). Its input carries the
+   schema's input JSON Schema, or none (`JSON`), and the kernel's create
+   validates the value. GraphQL types it as any function input (D-109):
+   named from its path (`SignUpPrefsInput`) unless the schema has an id, and
+   a shape it cannot type stops startup, naming `signUp`.
+7. Rows stored before a schema changed may not fit its new output type:
+   GraphQL then fails that field when read, with its usual error. Migrating
+   such rows is the application's work.
+8. REST will type its OpenAPI document from the same JSON Schema.
+
+Why: `validate` already says the exact shape of a field, and functions turn
+the same schemas into GraphQL types; a `JSON` scalar left a client's
+generated types at `unknown` for no reason. A field's schema is often written
+for storage (unions, free keys), so a shape GraphQL cannot type falls back to
+`JSON` there instead of stopping startup.
+Rejected: `JSON` for every field (the shape is known); stopping startup on a
+union in a field; a filter typed from the output side, which needs a third
+set of type names for a rare transform; refusing JSON fields at sign-up,
+whose input the schema already describes.
+Example:
+
+```ts
+export const User = defineModel({
+	name: 'User',
+	fields: (f) => ({
+		prefs: f.json({
+			validate: z.object({
+				theme: z.enum(['dark', 'light']),
+				size: z.number().default(12),
+			}),
+		}),
+		raw: f.json(),
+	}),
+})
+```
+
+```graphql
+# Before
+type User {
+	prefs: JSON!
+	raw: JSON!
+}
+input UserCreateInput {
+	prefs: JSON!
+	raw: JSON!
+}
+
+# After
+type User {
+	prefs: UserPrefs!
+	raw: JSON!
+}
+type UserPrefs {
+	theme: UserPrefsTheme!
+	size: Float!
+}
+enum UserPrefsTheme {
+	dark
+	light
+}
+input UserCreateInput {
+	prefs: UserPrefsInput!
+	raw: JSON!
+}
+input UserPrefsInput {
+	theme: UserPrefsTheme!
+	size: Float
+}
+input UserWhereInput {
+	prefs: UserPrefsFilter
+	raw: JSONFilter
+}
+```
+
+## D-126: A role is asked, never read
+
+Choice: amends D-121's example, D-123 and D-124.
+
+1. Code asks whether a caller has a role; it never reads a list of roles.
+   `hasRole('Admin', 'Editor')` stays the ready-made rule (D-10), combined
+   with others by `anyOf` and `allOf`. Code outside a rule, a function or a
+   hook, asks the same function with the caller first:
+   `hasRole(caller, 'Admin', 'Editor')` answers at once. Both are true for a
+   user with one of the roles, inherited ones included, and false for an
+   anonymous or Master caller.
+2. The roles plugin still completes a user caller once (D-121) with every
+   role the user has, as D-123 reads them, under a symbol key that
+   `@ultimabase/roles` does not export: `caller.` lists no roles. The kernel
+   takes a plugin's symbol keys as it takes its string keys.
+3. `rolesOf(caller)` gives those roles, each `{ id, name }`, for the code
+   that needs the list: the ACL (D-124) reads it, so `@ultimabase/acl`
+   imports `@ultimabase/roles`. It gives `[]` for a caller the roles plugin
+   did not complete, so the ACL works without `rolesPlugin()`.
+4. `hasRole` given a user caller the roles plugin did not complete stops
+   with a message saying to add `rolesPlugin()` to `plugins`.
+5. The user's side of `members` (D-123) is data: code reads it to show or
+   change a user's roles, and adds a member from the role, as Parse does.
+
+Why: D-123 gave two lists named `roles`, the user's relation and the
+caller's key, which differ only by the inherited roles; a developer had to
+know which one a rule reads. A developer who wrote `Admin.inherits` already
+knows that admins are moderators, as in Parse: the question says it.
+One
+name asks it everywhere.
+Rejected: `caller.roles`; the user's relation read by a rule (not loaded
+with the caller, direct roles only, D-76); roles kept by the plugin beside
+the caller, which leaves its `caller` part returning nothing; a second
+name for the question asked outside a rule (two words for one question);
+`hasRole` silently false without the plugin, which hides a missing plugin.
+Example:
+
+```ts
+// Before: Parse
+const admins = await new Parse.Query(Parse.Role)
+	.equalTo('name', 'Admin')
+	.equalTo('users', request.user)
+	.first({ useMasterKey: true })
+if (admins === undefined) throw new Parse.Error(403, 'Admins only.')
+
+// Before: D-123
+access: {
+	update: ({ caller, record }) =>
+		caller.kind === 'user' &&
+		(record.author.id === caller.user.id ||
+			caller.roles.some((role) => role.name === 'Admin')),
+}
+
+// After
+await Role.update(
+	{ where: { id: admin.id }, data: { members: { connect: { id: ada.id } } } },
+	{ as: master },
+)
+access: { update: anyOf(isAuthor, hasRole('Admin')), delete: hasRole('Moderator') }
+
+export const publish = defineFunction({
+	name: 'publish',
+	input: z.object({ post: z.string() }),
+	run: async ({ input, caller }) => {
+		const featured = hasRole(caller, 'Editor')
+		// ...
+	},
+}).with({ access: isAuthenticated })
 ```

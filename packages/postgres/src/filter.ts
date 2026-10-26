@@ -36,6 +36,7 @@ export function value(kind: Kind, item: unknown): Sql {
 	if (kind === 'json' && item !== null) {
 		return sql`cast(${JSON.stringify(item)} as jsonb)`
 	}
+	if (kind === 'stringList') return sql`cast(${item} as text[])`
 	return item instanceof Date ? sql`${item.toISOString()}` : sql`${item}`
 }
 
@@ -216,6 +217,12 @@ export class Filters {
 					parts.push(operator === 'in' ? found : sql`(not ${found})`)
 					break
 				}
+				case 'has':
+					parts.push(sql`${column} @> ${value(kind, [operand])}`)
+					break
+				case 'hasSome':
+					parts.push(sql`${column} && ${value(kind, operand)}`)
+					break
 				case 'contains':
 					parts.push(sql`${text} like ${pattern(operand, '%', '%')}`)
 					break

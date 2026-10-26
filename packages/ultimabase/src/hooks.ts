@@ -4,6 +4,7 @@
 import { and, recordOf } from './access.ts'
 import type { Filter, Row } from './adapter.ts'
 import { commandOf, outsideCommands } from './plugin-code.ts'
+import type { FindOperation } from './model.ts'
 import type { Caller } from './rules.ts'
 import { filterOf, isReadFilter, readFilter } from './rules.ts'
 import type { ModelInfo } from './schema.ts'
@@ -97,16 +98,25 @@ export async function beforeFind(
 	models: Models,
 	model: ModelInfo,
 	caller: Caller,
+	operation: FindOperation,
 ): Promise<Filter | undefined> {
 	let filter: Filter | undefined
 	for (const hook of hooksOf(model, 'beforeFind')) {
-		const result = await hook.run({ caller, where: readFilter })
+		const result = await hook.run({ caller, operation, where: readFilter })
 		if (result === undefined) continue
 		if (!isReadFilter(result)) {
 			throw new TypeError(`${hook.path} returns where({ ... }) or nothing.`)
 		}
-		// Trusted server code, as a read rule's filter (D-86, D-88).
-		const where = normalizeWhere(models, model, filterOf(result), hook.path)
+		// Trusted server code, as a read rule's filter (D-86, D-88); the one
+		// filter of a plugin field (D-122).
+		const where = normalizeWhere(
+			models,
+			model,
+			filterOf(result),
+			hook.path,
+			undefined,
+			true,
+		)
 		filter = and(where, filter)
 	}
 	return filter

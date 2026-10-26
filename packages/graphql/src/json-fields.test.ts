@@ -1,0 +1,309 @@
+// Json fields over GraphQL (D-125): typed from their schema's JSON Schema
+// export, `JSON` without one or for a piece GraphQL cannot type, filtered
+// on their input type, their dates sent back as text.
+import { httpPlugin } from '@ultimabase/http'
+import type { GraphQLSchema } from 'graphql'
+import { printType } from 'graphql'
+import type { Logger } from 'ultimabase'
+import {
+	allow,
+	master,
+	defineApp,
+	defineFunction,
+	defineModel,
+	memory,
+} from 'ultimabase'
+import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { z } from 'zod'
+import { graphql, graphqlPlugin } from './index.ts'
+import { asMaster, post } from './test/app.ts'
+
+const Address = z
+	.object({ city: z.string(), zip: z.string().optional() })
+	.meta({ id: 'Address' })
+
+const Prefs = z.object({
+	theme: z.enum(['light', 'dark']),
+	size: z.int().default(12),
+	since: z.iso.datetime().optional(),
+	home: z.object({ street: z.string() }).optional(),
+	shipTo: Address.optional(),
+	either: z.union([z.string(), z.int()]).optional(),
+	labels: z.object({ 'odd-key': z.string() }).optional(),
+})
+
+const Profile = defineModel({
+	name: 'Profile',
+	use: [graphql()],
+	fields: (f) => ({
+		name: f.string(),
+		prefs: f.json({ validate: Prefs }),
+		bio: f.json({ optional: true, validate: z.object({ text: z.string() }) }),
+		maybe: f.json({ validate: z.object({ a: z.int() }).nullable() }),
+		notes: f.json({ optional: true }),
+		checked: f.json({ optional: true, validate: (value) => value }),
+		team: f.one(() => Team, { optional: true }),
+	}),
+}).with({ access: allow.readOnly })
+
+const Team = defineModel({
+	name: 'Team',
+	use: [graphql()],
+	fields: (f) => ({ name: f.string(), members: f.many(() => Profile) }),
+}).with({ access: allow.readOnly })
+
+const ship = defineFunction({
+	name: 'ship',
+	input: z.object({ to: Address }),
+	output: Address,
+	run: ({ input }) => input.to,
+}).with({ access: allow.public })
+
+let schema: GraphQLSchema | undefined
+const listening = (lines: unknown[]) => {
+	const line = lines.find(
+		(first) => typeof first === 'string' && first.startsWith('Listening on'),
+	)
+	return `${String(line).replace(/^Listening on (.*)\.$/, '$1')}/graphql`
+}
+const loggerOf = (lines: unknown[]): Logger => {
+	const logger: Logger = {
+		info: (first) => {
+			lines.push(first)
+		},
+		warn: () => {},
+		error: () => {},
+		child: () => logger,
+	}
+	return logger
+}
+
+const lines: unknown[] = []
+const app = defineApp({
+	database: memory(),
+	plugins: [
+		httpPlugin({ port: 0 }),
+		graphqlPlugin({
+			extend: (generated) => {
+				schema = generated
+				return generated
+			},
+		}),
+	],
+	models: [Profile, Team],
+	functions: [ship],
+	masterKey: 'secret',
+	logger: loggerOf(lines),
+})
+let url = ''
+
+const typeOf = (name: string): string => {
+	const type = schema?.getType(name)
+	return type === undefined ? 'none' : printType(type)
+}
+
+describe('a typed json field', () => {
+	beforeAll(async () => {
+		await app.start()
+		url = listening(lines)
+	})
+	afterAll(async () => app.stop())
+
+	it('reads its output type and writes its input type', () => {
+		expect(typeOf('Profile')).toContain(
+			'  prefs: ProfilePrefs!\n  bio: ProfileBio\n  maybe: ProfileMaybe\n  notes: JSON\n  checked: JSON\n',
+		)
+		expect(typeOf('ProfilePrefs')).toBe(
+			[
+				'type ProfilePrefs {',
+				'  theme: ProfilePrefsTheme!',
+				'  size: Int!',
+				'  since: DateTime',
+				'  home: ProfilePrefsHome',
+				'  shipTo: Address',
+				'  either: JSON',
+				'  labels: JSON',
+				'}',
+			].join('\n'),
+		)
+	})
+
+	it('writes its input type, defaults made optional', () => {
+		expect(typeOf('ProfilePrefsInput')).toBe(
+			[
+				'input ProfilePrefsInput {',
+				'  theme: ProfilePrefsTheme!',
+				'  size: Int',
+				'  since: DateTime',
+				'  home: ProfilePrefsHomeInput',
+				'  shipTo: AddressInput',
+				'  either: JSON',
+				'  labels: JSON',
+				'}',
+			].join('\n'),
+		)
+		expect(typeOf('ProfileCreateInput')).toContain(
+			'  prefs: ProfilePrefsInput!\n  bio: ProfileBioInput\n  maybe: ProfileMaybeInput!\n  notes: JSON\n  checked: JSON\n',
+		)
+		expect(typeOf('ProfileUpdateInput')).toContain(
+			'  prefs: ProfilePrefsInput\n',
+		)
+	})
+
+	it('shares a type given an id with functions', () => {
+		expect(typeOf('AddressInput')).toBe(
+			'input AddressInput {\n  city: String!\n  zip: String\n}',
+		)
+		expect(typeOf('Mutation')).toContain(
+			'  ship(to: AddressInput!): Address!\n',
+		)
+	})
+
+	it('is filtered on its input type', () => {
+		expect(typeOf('ProfilePrefsFilter')).toBe(
+			[
+				'input ProfilePrefsFilter {',
+				'  equals: ProfilePrefsInput',
+				'  not: ProfilePrefsInput',
+				'  in: [ProfilePrefsInput!]',
+				'  notIn: [ProfilePrefsInput!]',
+				'}',
+			].join('\n'),
+		)
+		expect(typeOf('ProfileWhereInput')).toContain(
+			'  prefs: ProfilePrefsFilter\n  bio: ProfileBioFilter\n  maybe: ProfileMaybeFilter\n  notes: JSONFilter\n  checked: JSONFilter\n',
+		)
+	})
+
+	it('writes and reads a value, its dates as text', async () => {
+		const prefs = `{ theme: dark, since: "2026-01-31T12:00:00Z", shipTo: { city: "Lyon" } }`
+		const created = await post(
+			url,
+			`mutation { createProfile(data: { name: "a", prefs: ${prefs}, maybe: { a: 1 }, notes: { any: [1] } }) {
+				prefs { theme size since shipTo { city zip } } maybe { a } notes } }`,
+			undefined,
+			asMaster,
+		)
+		expect(created).toStrictEqual({
+			data: {
+				createProfile: {
+					prefs: {
+						theme: 'dark',
+						size: 12,
+						since: '2026-01-31T12:00:00.000Z',
+						shipTo: { city: 'Lyon', zip: null },
+					},
+					maybe: { a: 1 },
+					notes: { any: [1] },
+				},
+			},
+		})
+		const stored = await Profile.findMany(
+			{ where: { name: 'a' } },
+			{ as: master },
+		)
+		expect(stored[0]?.prefs.since).toBe('2026-01-31T12:00:00Z')
+		const updated = await post(
+			url,
+			`mutation($id: ID!) { updateProfile(where: { id: $id }, data: { bio: { text: "hi" } }) { bio { text } } }`,
+			{ id: stored[0]?.id },
+			asMaster,
+		)
+		expect(updated).toStrictEqual({
+			data: { updateProfile: { bio: { text: 'hi' } } },
+		})
+	})
+
+	it('refuses a value its schema refuses', async () => {
+		const refused = await post(
+			url,
+			`mutation { createProfile(data: { name: "b", prefs: { theme: dark, size: 0.5 }, maybe: { a: 1 } }) { id } }`,
+			undefined,
+			asMaster,
+		)
+		expect(refused.errors?.[0]?.message).toContain('Int cannot represent')
+	})
+
+	it('filters with a date inside, through AND, a relation and a count', async () => {
+		const [a] = await Profile.findMany({ where: { name: 'a' } }, { as: master })
+		await Team.create(
+			{ data: { name: 'core', members: { connect: [{ id: a?.id ?? '' }] } } },
+			{ as: master },
+		)
+		const found = await post(
+			url,
+			`{ profiles(first: 5, where: { AND: [{ prefs: { equals: { theme: dark, size: 12, since: "2026-01-31T12:00:00Z", shipTo: { city: "Lyon" } } } }] }) {
+				totalCount edges { node { name } } }
+				teams(first: 5, where: { members: { some: { prefs: { in: [{ theme: dark, size: 12, since: "2026-01-31T12:00:00Z", shipTo: { city: "Lyon" } }] } } } }) {
+				edges { node { name } } } }`,
+		)
+		expect(found).toStrictEqual({
+			data: {
+				profiles: { totalCount: 1, edges: [{ node: { name: 'a' } }] },
+				teams: { edges: [{ node: { name: 'core' } }] },
+			},
+		})
+	})
+})
+
+/** Starts and stops an application of `models`, rejecting a refusal. */
+async function serving(
+	models: Parameters<typeof defineApp>[0]['models'],
+	functions: Parameters<typeof defineApp>[0]['functions'] = [],
+) {
+	const started = defineApp({
+		database: memory(),
+		plugins: [httpPlugin({ port: 0 }), graphqlPlugin()],
+		models,
+		functions,
+		logger: loggerOf([]),
+	})
+	await started.start()
+	await started.stop()
+}
+
+describe('startup', () => {
+	it('refuses a field type named like a generated one', async () => {
+		await expect(
+			serving([
+				defineModel({
+					name: 'User',
+					fields: (f) => ({
+						prefsTheme: f.enumOf(['a']),
+						prefs: f.json({ validate: z.object({ theme: z.enum(['b']) }) }),
+					}),
+				}),
+			]),
+		).rejects.toThrow(
+			"User.prefs: the type UserPrefsTheme is a generated type's name.",
+		)
+		const connection = z
+			.object({ a: z.string() })
+			.meta({ id: 'UserConnection' })
+		await expect(
+			serving([
+				defineModel({
+					name: 'User',
+					fields: (f) => ({ prefs: f.json({ validate: connection }) }),
+				}),
+			]),
+		).rejects.toThrow(
+			"User.prefs: the type UserConnection is a generated type's name.",
+		)
+	})
+
+	it('refuses an id given two shapes, naming both owners', async () => {
+		const other = z.object({ street: z.string() }).meta({ id: 'Address' })
+		await expect(
+			serving(
+				[
+					defineModel({
+						name: 'User',
+						fields: (f) => ({ home: f.json({ validate: other }) }),
+					}),
+				],
+				[ship],
+			),
+		).rejects.toThrow('give the type Address two shapes; name each once.')
+	})
+})

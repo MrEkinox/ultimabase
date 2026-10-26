@@ -47,13 +47,19 @@ function scalar(context: Context, field: FieldInfo, value: unknown): void {
 		else context.plan.issues.push({ path: [field.name], message: 'Required.' })
 		return
 	}
-	const issue = fits[field.type](value, field)
+	const { codec } = field
+	// A plugin field is stored in the form its `encode` gives (D-122).
+	const stored = codec === undefined ? value : codec.encode(value)
+	const issue = fits[field.type](stored, field)
+	const where = `${context.model.name}.${field.name}`
 	if (issue !== undefined) {
 		throw new TypeError(
-			`${context.model.name}.${field.name}: ${issue} A before hook or validate wrote it.`,
+			codec === undefined
+				? `${where}: ${issue} A before hook or validate wrote it.`
+				: `${where}: the ${codec.plugin} field type encoded a value its stored field refuses: ${issue}`,
 		)
 	}
-	context.set[field.name] = value
+	context.set[field.name] = stored
 }
 
 /** Whether a row of the other side, but `kept`, holds this one's key. */
@@ -81,7 +87,11 @@ async function one(
 	const name = context.model.name
 	const target = oneWrite(value, `data.${field.name}`, name, creating)
 	const skips = trusted(context, field, value)
-	if (target !== undefined) context.plan.connect(field.target, [target], skips)
+	// A key the other side holds changes its row: it is updated (D-124).
+	const operation = field.stored ? 'read' : 'update'
+	if (target !== undefined) {
+		context.plan.connect(field.target, [target], skips, operation)
+	}
 	if (field.stored) {
 		if (target === undefined && !field.optional) {
 			context.plan.issues.push({ path: [field.name], message: 'Required.' })
@@ -125,7 +135,8 @@ function many(
 		creating,
 	)
 	const skips = trusted(context, field, value)
-	context.plan.connect(field.target, connect, skips)
+	const operation = field.join ? 'read' : 'update'
+	context.plan.connect(field.target, connect, skips, operation)
 	if (field.join) {
 		const link = {
 			model: context.model.name,
@@ -238,7 +249,10 @@ export async function createPlan(
 		if (given.has(field.name) || field.kind === 'many') continue
 		if (field.kind === 'one' && !field.stored) continue
 		// A required field may be left to a hook: checked after it (D-88).
-		if (field.optional) context.set[field.name] = null
+		// A list left unwritten is empty (D-120).
+		if (field.kind === 'scalar' && field.type === 'stringList') {
+			context.set[field.name] = []
+		} else if (field.optional) context.set[field.name] = null
 		else plan.issues.push({ path: [field.name], message: 'Required.' })
 	}
 	const now = Date.now()

@@ -2,8 +2,10 @@
 // gets its inverse and the side that stores its key (D-37, D-54, D-64).
 import type { Schema, SchemaField, SchemaModel } from './adapter.ts'
 import type {
+	Codec,
 	FieldDefinition,
 	FieldOptions,
+	IndexDefinition,
 	ModelDefinition,
 	PluginCode,
 	PluginUse,
@@ -11,8 +13,14 @@ import type {
 import { modelDefinitions } from './definition.ts'
 import { Refused } from './errors.ts'
 
-/** A field as the kernel reads it: its schema and its builder's options. */
-export type FieldInfo = SchemaField & { readonly options: FieldOptions }
+/**
+ * A field as the kernel reads it: its schema, its builder's options, and a
+ * plugin field type's codec (D-122).
+ */
+export type FieldInfo = SchemaField & {
+	readonly options: FieldOptions
+	readonly codec?: Codec
+}
 
 export type ModelInfo = {
 	readonly name: string
@@ -151,17 +159,22 @@ function scalarField(name: string, field: FieldDefinition): FieldInfo {
 		optional: field.options['optional'] === true,
 		unique: field.options['unique'] === true,
 		...(typeof dbName === 'string' ? { dbName } : {}),
-		// `null` is no value: a create without one stores none either.
-		...(fixed === undefined || fixed === null || typeof fixed === 'function'
+		// `null` is no value: a create without one stores none either. A
+		// field type's default is a value code sees, never a column's (D-122).
+		...(fixed === undefined ||
+		fixed === null ||
+		typeof fixed === 'function' ||
+		field.codec !== undefined
 			? {}
 			: { default: fixed }),
 		options: field.options,
+		...(field.codec === undefined ? {} : { codec: field.codec }),
 	}
 }
 
 /** A field as the adapter reads it, without the builder's options. */
 function schemaField(field: FieldInfo): SchemaField {
-	const { options: _options, ...schema } = field
+	const { options: _options, codec: _codec, ...schema } = field
 	return schema
 }
 
@@ -247,6 +260,18 @@ function definitionsOf(
 	return { definitions, names, owners }
 }
 
+/** An index on a list is a GIN index of that list alone (D-120). */
+function listIndex(model: string, name: string, index: IndexDefinition): void {
+	if (index.fields.length > 1) {
+		throw new Refused(
+			`${model}: the list '${name}' is indexed alone, in an index of its own.`,
+		)
+	}
+	if (index.unique === true) {
+		throw new Refused(`${model}: the list '${name}' cannot be unique.`)
+	}
+}
+
 /** Resolves the application's models, or stops startup with a message. */
 export function resolve(
 	values: readonly unknown[],
@@ -288,6 +313,12 @@ export function resolve(
 	for (const [model, definition] of definitions) {
 		const fields = new Map<string, FieldInfo>()
 		for (const [name, field] of definition.fields) {
+			const plugin = field.kind === 'scalar' ? field.codec?.plugin : undefined
+			if (plugin !== undefined && !plugins.some((p) => p.name === plugin)) {
+				fail(
+					`${model}.${name} is a ${plugin} field, and ${plugin} is not in plugins.`,
+				)
+			}
 			const link = links.find(
 				(each) => each.model === model && each.name === name,
 			)
@@ -310,6 +341,9 @@ export function resolve(
 					throw new Refused(
 						`${model}: index field '${name}' is not a scalar or a stored one relation.`,
 					)
+				}
+				if (field.kind === 'scalar' && field.type === 'stringList') {
+					listIndex(model, name, index)
 				}
 			}
 		}

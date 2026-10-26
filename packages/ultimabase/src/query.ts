@@ -11,7 +11,7 @@ import type {
 	UpdateData,
 } from './record.ts'
 import type { Exact } from './exact.ts'
-import type { Caller } from './rules.ts'
+import type { Identity } from './rules.ts'
 import type { fieldType } from './symbols.ts'
 
 type KindOf<X> = X extends { readonly [fieldType]: { readonly kind: infer K } }
@@ -49,30 +49,65 @@ type ScalarFilter<V> = {
 			}
 		: unknown)
 
-type FilterOf<X> =
-	KindOf<X> extends 'scalar'
-		? StoredValue<X> | ScalarFilter<NonNullable<StoredValue<X>>>
-		: KindOf<X> extends 'one'
-			? {
-					readonly is?: Where<TargetFields<TargetOf<X>>> | null | undefined
-					readonly isNot?: Where<TargetFields<TargetOf<X>>> | null | undefined
-				}
-			: {
-					readonly some?: Where<TargetFields<TargetOf<X>>> | undefined
-					readonly every?: Where<TargetFields<TargetOf<X>>> | undefined
-					readonly none?: Where<TargetFields<TargetOf<X>>> | undefined
-				}
+type IsList<X> = X extends {
+	readonly [fieldType]: { readonly options: { readonly list: true } }
+}
+	? true
+	: false
 
-export type Where<F> = {
-	readonly [K in keyof F]?: FilterOf<F[K]> | undefined
-} & {
+/** A list has no shorthand; `NOT` gives the opposite (D-120). */
+type ListFilter = {
+	readonly has?: string | undefined
+	readonly hasSome?: readonly string[] | undefined
+}
+
+type FilterOf<X> =
+	IsList<X> extends true
+		? ListFilter
+		: KindOf<X> extends 'scalar'
+			? StoredValue<X> | ScalarFilter<NonNullable<StoredValue<X>>>
+			: KindOf<X> extends 'one'
+				? {
+						readonly is?: Where<TargetFields<TargetOf<X>>> | null | undefined
+						readonly isNot?: Where<TargetFields<TargetOf<X>>> | null | undefined
+					}
+				: {
+						readonly some?: Where<TargetFields<TargetOf<X>>> | undefined
+						readonly every?: Where<TargetFields<TargetOf<X>>> | undefined
+						readonly none?: Where<TargetFields<TargetOf<X>>> | undefined
+					}
+
+/** A plugin field type's stored field (D-122), `never` for a kernel one. */
+type StoredOf<X> = X extends {
+	readonly [fieldType]: { readonly stored: infer S }
+}
+	? S
+	: never
+/** The fields of a plugin field type, which only a `beforeFind` filters. */
+type PluginKeys<F> = {
+	[K in keyof F]: [StoredOf<F[K]>] extends [never] ? never : K
+}[keyof F]
+
+/** The system fields' filters and the combinators of a `where` `W`. */
+interface Filters<W> {
 	readonly id?: string | ScalarFilter<string> | undefined
 	readonly createdAt?: Date | ScalarFilter<Date> | undefined
 	readonly updatedAt?: Date | ScalarFilter<Date> | undefined
-	readonly AND?: Where<F> | readonly Where<F>[] | undefined
-	readonly OR?: readonly Where<F>[] | undefined
-	readonly NOT?: Where<F> | readonly Where<F>[] | undefined
+	readonly AND?: W | readonly W[] | undefined
+	readonly OR?: readonly W[] | undefined
+	readonly NOT?: W | readonly W[] | undefined
 }
+
+export type Where<F> = {
+	readonly [K in Exclude<keyof F, PluginKeys<F>>]?: FilterOf<F[K]> | undefined
+} & Filters<Where<F>>
+
+/** A `beforeFind`'s filter: a plugin field's in its stored form (D-122). */
+export type FindWhere<F> = {
+	readonly [K in keyof F]?:
+		| (K extends PluginKeys<F> ? FilterOf<StoredOf<F[K]>> : FilterOf<F[K]>)
+		| undefined
+} & Filters<FindWhere<F>>
 
 /** A unique index's value: a scalar's, or a `one` relation's target id. */
 type IndexValue<X> =
@@ -94,14 +129,19 @@ export type UniqueWhere<F, X = never> =
 	| IndexTarget<F, X>
 
 type Direction = 'asc' | 'desc'
-/** A json field is not sorted: each database orders json its own way (D-94). */
+/**
+ * A json field is not sorted: each database orders json its own way (D-94);
+ * nor is a list (D-120), nor a plugin field (D-122).
+ */
 type SortedKeys<F> = {
-	[K in ScalarKeys<F>]: F[K] extends {
+	[K in Exclude<ScalarKeys<F>, PluginKeys<F>>]: F[K] extends {
 		readonly [fieldType]: { readonly json: true }
 	}
 		? never
-		: K
-}[ScalarKeys<F>]
+		: IsList<F[K]> extends true
+			? never
+			: K
+}[Exclude<ScalarKeys<F>, PluginKeys<F>>]
 export type OrderBy<F> = {
 	readonly [K in SortedKeys<F> | keyof SystemFields]?: Direction | undefined
 }
@@ -162,7 +202,7 @@ export type Payload<F, A> = A extends { readonly select: infer S }
 		? RecordOf<F> & Included<F, I>
 		: RecordOf<F>
 
-export type QueryOptions = { readonly as?: Caller }
+export type QueryOptions = { readonly as?: Identity }
 
 /** `findMany` and `findFirst`; `cursor` starts at a unique target. */
 export type FindManyArgs<F, X = never> = {

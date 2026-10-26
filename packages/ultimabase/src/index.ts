@@ -43,11 +43,22 @@ export { InvalidQuery, PublicError, Refused } from './errors.ts'
 export type {
 	Field,
 	FieldBuilders,
+	JsonOptions,
+	JsonValue,
+	ListOptions,
 	Many,
+	ManyOptions,
 	One,
 	ScalarOptions,
+	StringOptions,
 } from './fields.ts'
 export { defineFunction, defineType } from './define-function.ts'
+export type {
+	FieldType,
+	FieldTypeDefinition,
+	FieldTypeOptions,
+} from './field-type.ts'
+export { defineFieldType } from './field-type.ts'
 export type {
 	Client,
 	CookieOptions,
@@ -59,7 +70,7 @@ export type {
 	ServerFunction,
 } from './function.ts'
 export { memory } from './memory.ts'
-export type { App, IndexShape, Model } from './model.ts'
+export type { App, FindOperation, IndexShape, Model } from './model.ts'
 export type {
 	ExposedFunction,
 	ExposedModel,
@@ -74,7 +85,14 @@ export type {
 } from './plugin.ts'
 export type { Queries } from './query.ts'
 export { definePlugin } from './plugin.ts'
-export type { Caller, CallerRule, Register, UserOf } from './rules.ts'
+export type {
+	Caller,
+	CallerRule,
+	Identity,
+	Register,
+	UserCallerKeys,
+	UserOf,
+} from './rules.ts'
 export { allOf, allow, anyOf, isMaster, master } from './rules.ts'
 export { transaction } from './transaction.ts'
 export type {

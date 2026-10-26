@@ -1,0 +1,42 @@
+{
+	"name": "@ultimabase/acl",
+	"version": "0.0.0",
+	"private": true,
+	"description": "Per-row rights for UltimaBase: who may read and write each row, as Parse's ACL.",
+	"type": "module",
+	"license": "Apache-2.0",
+	"engines": {
+		"node": ">=24.7.0"
+	},
+	"exports": {
+		".": "./src/index.ts"
+	},
+	"files": [
+		"dist",
+		"src",
+		"!src/**/*.test.ts",
+		"!src/test"
+	],
+	"scripts": {
+		"prepack": "rm -rf dist && yarn run -T tsc --project tsconfig.build.json"
+	},
+	"publishConfig": {
+		"exports": {
+			".": "./dist/index.js"
+		}
+	},
+	"peerDependencies": {
+		"@ultimabase/roles": "^0.0.0",
+		"ultimabase": "^0.0.0"
+	},
+	"devDependencies": {
+		"@types/pg": "8.23.1",
+		"@ultimabase/postgres": "workspace:*",
+		"@ultimabase/roles": "workspace:*",
+		"@ultimabase/testing": "workspace:*",
+		"pg": "8.23.1",
+		"ultimabase": "workspace:*",
+		"vite": "8.3.4",
+		"vitest": "5.0.5"
+	}
+}

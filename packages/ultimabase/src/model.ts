@@ -1,7 +1,7 @@
 // The model `defineModel(...).with(...)` returns (D-07, D-24) and the
 // application `defineApp` assembles.
 import type { Nullable } from './function.ts'
-import type { Queries, Where } from './query.ts'
+import type { FindWhere, Queries, Where } from './query.ts'
 import type {
 	CreateData,
 	RecordOf,
@@ -74,12 +74,22 @@ type UpdatedHook<F, N extends string> = Hook<{
 /** The data a `before*` hook changes in place (D-71). */
 type Draft<D> = { -readonly [K in keyof D]: D[K] }
 
+/**
+ * What the rows a `beforeFind` narrows are for: an update or a delete of the
+ * rows a write targets, a read everywhere else (D-124).
+ */
+export type FindOperation = 'read' | 'update' | 'delete'
+
 /** The fixed hooks of D-15, written by the application (D-43, D-71). */
 export type ModelHooks<F, N extends string = string> = {
-	/** Narrows every read of the model, at every level, Master included. */
+	/**
+	 * Narrows every read of the model, at every level, Master included;
+	 * `operation` says whether the rows are read or written (D-124).
+	 */
 	readonly beforeFind?: (facts: {
 		readonly caller: Caller
-		readonly where: (filter: Where<F>) => ReadFilter
+		readonly operation: FindOperation
+		readonly where: (filter: FindWhere<F>) => ReadFilter
 	}) => ReadFilter | void | Promise<ReadFilter | void>
 	readonly beforeCreate?: Hook<{ readonly data: Draft<CreateData<F>> }>
 	readonly beforeUpdate?: Hook<{

@@ -50,6 +50,35 @@ export type ScalarOptions<V> = {
 	readonly dbName?: string
 }
 
+/** A `string` field's options: `list: true` makes it a list (D-120). */
+export type StringOptions = ScalarOptions<string> & { readonly list?: false }
+
+/** What shapes a list of strings (D-120). */
+export type ListOptions = {
+	readonly list: true
+	readonly default?: readonly string[] | DefaultFunction<readonly string[]>
+	readonly validate?: Validate<readonly string[]>
+	readonly dbName?: string
+}
+// A list is `[]` when empty and may hold a string twice. The messages are
+// objects, as OneCheck's.
+type ListCheck<O> = (O extends { readonly optional: unknown }
+	? {
+			readonly optional: {
+				readonly error: 'a string list is [] when empty: it is never optional'
+			}
+		}
+	: unknown) &
+	(O extends { readonly unique: unknown }
+		? { readonly unique: { readonly error: 'a string list cannot be unique' } }
+		: unknown)
+type StringCheck<O> = O extends { readonly list: true }
+	? ListCheck<O> & ValidateCheck<O, readonly string[]>
+	: ValidateCheck<O, string>
+type StringField<O, T> = O extends { readonly list: true }
+	? Field<readonly string[], O, never, T>
+	: Field<string, O, never, T>
+
 /** The types a Standard Schema declares, `never` without them. */
 export type SchemaTypes<S> = S extends {
 	readonly '~standard': { readonly types?: infer T }
@@ -243,7 +272,8 @@ type Written<V, O> = O extends { readonly optional: true } ? V | null : V
  * schema transforms (D-23). `P` names the plugin that provides the field
  * type (D-32); `T` is the types of the plugins the model uses, whose field
  * rules `.with` takes. Rules judge what the caller sent (D-67): they see `I`.
- * `J` marks a `json` field, which cannot be sorted (D-94).
+ * `J` marks a `json` field, which cannot be sorted (D-94); `S` is a plugin
+ * field type's stored field, which a `beforeFind` filters (D-122).
  */
 export interface Field<
 	V,
@@ -252,6 +282,7 @@ export interface Field<
 	T = never,
 	I = V,
 	J extends boolean = false,
+	S = never,
 > {
 	readonly [fieldType]: {
 		readonly kind: 'scalar'
@@ -260,6 +291,7 @@ export interface Field<
 		readonly options: O
 		readonly plugin?: P
 		readonly json: J
+		readonly stored: S
 	}
 	/**
 	 * `.with({ ... })` types `value` and `record.id`;
@@ -272,8 +304,10 @@ export interface Field<
 		rules: [keyof R] extends [never]
 			? never
 			: FieldWith<NoInfer<R>, Written<I, O>, T>,
-	): Field<V, O, P, never, I, J> & Declared<R>
-	with(rules: FieldWith<never, Written<I, O>, T>): Field<V, O, P, never, I, J>
+	): Field<V, O, P, never, I, J, S> & Declared<R>
+	with(
+		rules: FieldWith<never, Written<I, O>, T>,
+	): Field<V, O, P, never, I, J, S>
 }
 
 export type RelationValue = { readonly id: string }
@@ -314,11 +348,12 @@ export interface Many<T, O, U = never> {
  * (D-12, D-57).
  */
 export interface FieldBuilders<T> {
+	/** With `list: true`, a list of strings, `[]` when empty (D-120). */
 	readonly string: <
-		const O extends ScalarOptions<string> = ScalarOptions<string>,
+		const O extends StringOptions | ListOptions = StringOptions,
 	>(
-		options?: O & NoInfer<ValidateCheck<O, string>>,
-	) => Field<string, O, never, T>
+		options?: O & NoInfer<StringCheck<O>>,
+	) => StringField<O, T>
 	readonly number: <
 		const O extends ScalarOptions<number> = ScalarOptions<number>,
 	>(

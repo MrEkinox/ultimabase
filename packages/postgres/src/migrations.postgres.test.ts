@@ -452,6 +452,81 @@ describe('a sync on postgres()', () => {
 		).toBeUndefined()
 	})
 
+	it('adds a list as [] or its default, indexes it by GIN, and converts it', async () => {
+		const labels = scalar('labels', 'stringList', {
+			default: ['a "b"', 'c\\d,{}'],
+		})
+		const post = (type: Scalar['type'] | undefined): Schema => ({
+			models: [
+				{
+					name: 'Post',
+					fields: [
+						scalar('title', 'string'),
+						...(type === undefined ? [] : [scalar('tags', type)]),
+						...(type === 'stringList' ? [labels] : []),
+					],
+					indexes:
+						type === undefined ? [] : [{ fields: ['tags'], unique: false }],
+				},
+			],
+		})
+		const rows = async () =>
+			query(inSchema(schema), 'select tags, labels from post')
+		const fill = `'{"a \\"b\\"","c\\\\d,{}"}'`
+		const gin = 'create index "post_tags_idx" on "post" using gin ("tags")'
+		await sync(undefined, post(undefined))
+		await query(
+			inSchema(schema),
+			`insert into post values (gen_random_uuid(), now(), now(), 'Hi')`,
+		)
+		expect(
+			(await sync(post(undefined), post('stringList'))).map(({ sql }) => sql),
+		).toStrictEqual([
+			`alter table "post" add column "tags" text[] not null default '{}'::text[]`,
+			'alter table "post" alter column "tags" drop default',
+			`alter table "post" add column "labels" text[] not null default ${fill}::text[]`,
+			'alter table "post" alter column "labels" drop default',
+			gin,
+		])
+		expect(await rows()).toStrictEqual([
+			{ tags: [], labels: ['a "b"', 'c\\d,{}'] },
+		])
+		expect(
+			await query(
+				inSchema(schema),
+				`select count(*) from pg_indexes where indexname = 'post_tags_idx' and indexdef like '%USING gin (tags)'`,
+			),
+		).toStrictEqual([{ count: '1' }])
+
+		// A string's index is a B-tree: a change of type rebuilds it.
+		const text = await sync(post('stringList'), post('string'))
+		expect(text.map(({ sql }) => sql)).toStrictEqual([
+			'drop index "post_tags_idx"',
+			'alter table "post" drop column "labels"',
+			'alter table "post" alter column "tags" type text collate "C" using "tags"::text collate "C"',
+			'create index "post_tags_idx" on "post" ("tags")',
+		])
+		const back = await sync(post('string'), post('stringList'))
+		expect(back[1]?.tries).toBe(
+			'changing "Post.tags" from text to text[] fails when a row holds a value it cannot convert',
+		)
+		expect(back.at(-1)?.sql).toBe(gin)
+		expect(await rows()).toStrictEqual([
+			{ tags: [], labels: ['a "b"', 'c\\d,{}'] },
+		])
+
+		// PostgreSQL converts no number to a list: the rows take [].
+		const number = migrations.plan(
+			migrations.snapshot(post('number')),
+			post('stringList'),
+		)
+		expect(number[1]).toMatchObject({
+			sql: `alter table "post" alter column "tags" type text[] using '{}'::text[]`,
+			loses:
+				'changing "Post.tags" from double precision to text[] deletes its data: PostgreSQL converts no double precision to text[]',
+		})
+	})
+
 	it('tries a foreign key that moves on a column rows hold', () => {
 		const statements = migrations.plan(
 			migrations.snapshot(onto('Shelf')),
@@ -501,6 +576,8 @@ describe('a sync on postgres()', () => {
 			scalar('done', 'boolean', { default: false }),
 			scalar('due', 'date', { default: due }),
 			scalar('meta', 'json', { default: { tags: ['a'] } }),
+			// A json list is json, not a string list (D-120).
+			scalar('items', 'json', { default: ['a'] }),
 			scalar('level', 'enum', { values: ['low', 'high'], default: 'low' }),
 			scalar('later', 'number', { optional: true, default: 3 }),
 		])
@@ -516,6 +593,8 @@ describe('a sync on postgres()', () => {
 			'alter table "note" alter column "due" drop default',
 			`alter table "note" add column "meta" jsonb not null default '{"tags":["a"]}'::jsonb`,
 			'alter table "note" alter column "meta" drop default',
+			`alter table "note" add column "items" jsonb not null default '["a"]'::jsonb`,
+			'alter table "note" alter column "items" drop default',
 			`alter table "note" add column "level" text collate "C" not null default 'low'`,
 			'alter table "note" alter column "level" drop default',
 			'alter table "note" add column "later" double precision',

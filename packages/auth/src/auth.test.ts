@@ -5,8 +5,8 @@ import { graphqlPlugin } from '@ultimabase/graphql'
 import { get } from 'node:http'
 import { httpPlugin } from '@ultimabase/http'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import type { Adapter, Caller } from 'ultimabase'
-import { defineApp, memory } from 'ultimabase'
+import type { Adapter, Caller, PluginTypes } from 'ultimabase'
+import { defineApp, definePlugin, memory } from 'ultimabase'
 import { AuthAccount } from './accounts.ts'
 import { authPlugin, defineUser } from './index.ts'
 import { AuthSession } from './sessions.ts'
@@ -236,6 +236,25 @@ describe('signing out', () => {
 			expect((await callerOf(url, bearer(token))).status).toBe(401)
 		}
 		expect(await AuthSession.count({}, M)).toBe(0)
+	})
+
+	it('ends the session of a caller its plugins completed', async () => {
+		interface Badge extends PluginTypes {
+			readonly name: 'badge'
+		}
+		const badge = definePlugin<Badge>({
+			name: 'badge',
+			manifest: { name: 'badge', version: '1.0.0' },
+			caller: () => ({ badge: 'gold' }),
+		})
+		const running = await started(memory(), [badge.plugin()])
+		stop = async () => running.app.stop()
+		const { url, ada } = running
+		const { token } = await signIn(url, ada.id)
+		const completed = await callerOf(url, bearer(token))
+		expect(completed.body).toMatchObject({ badge: 'gold' })
+		await signOut(url, bearer(token))
+		expect((await callerOf(url, bearer(token))).status).toBe(401)
 	})
 
 	it('ends only the request’s session', async () => {

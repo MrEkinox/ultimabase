@@ -47,10 +47,14 @@ export function picked(found: ReadonlyMap<string, unknown>): object {
 	return args
 }
 
-/** The rows a many-row operation's `where` selects that the caller reads. */
+/**
+ * The rows a many-row operation's `where` selects that the caller reads, or
+ * deletes (D-124).
+ */
 export async function filtered(
 	context: Context,
 	found: ReadonlyMap<string, unknown>,
+	operation: 'read' | 'delete',
 ): Promise<Filter | undefined> {
 	const { models, model, scope } = context
 	const keys = new Set(['where'])
@@ -58,7 +62,7 @@ export async function filtered(
 	return planned(scope, () =>
 		and(
 			plan(models, model, args, '', 'one', keys, scope).read.where,
-			scope.readable(model.name),
+			scope.readable(model.name, operation),
 		),
 	)
 }

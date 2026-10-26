@@ -10,10 +10,11 @@ import {
 	entries,
 	isJson,
 	isObject,
+	listItem,
 	storedDate,
 	unknownKey,
 } from './query-where.ts'
-import { validated } from './validation.ts'
+import { checked, validated } from './validation.ts'
 
 /** The data a `before*` hook changes in place (D-71). */
 export type Draft = { [field: string]: unknown }
@@ -49,6 +50,10 @@ export const fits: {
 		typeof value === 'string' && (field.values ?? []).includes(value)
 			? undefined
 			: `Expected one of ${(field.values ?? []).join(', ')}.`,
+	stringList: (value) =>
+		Array.isArray(value) && value.every(listItem)
+			? undefined
+			: 'Expected a list of non-empty strings without a NUL or a lone surrogate.',
 }
 
 /** `{ id }`, exactly. */
@@ -188,12 +193,18 @@ export async function prepared(
 	for (const [name, value] of Object.entries(draft)) {
 		const field = model.fields.get(name)
 		if (field?.kind !== 'scalar' || value === null) continue
-		const issue = fits[field.type](value, field)
+		const { codec } = field
+		// A plugin field's schema takes the value or its JSON (D-122).
+		const issue =
+			codec === undefined ? fits[field.type](value, field) : undefined
 		if (issue !== undefined) {
 			issues.push({ path: [name], message: issue })
 			continue
 		}
-		const result = await validated(model, field, value)
+		const result =
+			codec === undefined
+				? await validated(model, field, value)
+				: await checked(codec.schema, value, [name], `${model.name}.${name}`)
 		if ('issues' in result) issues.push(...result.issues)
 		else draft[name] = result.value
 	}
