@@ -48,30 +48,59 @@ function rolesModelOf(models: readonly ExposedModel[]): ModelQueries {
 	return first.queries
 }
 
+/** The levels of inheritance one read follows (D-123). */
+const depth = 5
+
+/** A role's id and name, and its inherited roles `left` levels deep. */
+const level = (left: number): object => ({
+	id: true,
+	name: true,
+	inherits: { select: left === 0 ? { id: true } : level(left - 1) },
+})
+
 /**
- * Every role of a user: the roles it is a member of, then those each level
- * inherits, until a level adds none; a cycle ends there too (D-123).
+ * Adds a read role and the roles it inherits to `held`; a role read past
+ * the last level, its id alone, goes to `missing`. A role already held was
+ * followed, which ends a cycle.
+ */
+function follow(
+	row: unknown,
+	held: Map<string, Held>,
+	missing: Set<string>,
+): void {
+	const id: unknown = Reflect.get(Object(row), 'id')
+	const name: unknown = Reflect.get(Object(row), 'name')
+	if (typeof id !== 'string' || held.has(id)) return
+	if (typeof name !== 'string') {
+		missing.add(id)
+		return
+	}
+	held.set(id, Object.freeze({ id, name }))
+	const parents: unknown = Reflect.get(Object(row), 'inherits')
+	for (const parent of Array.isArray(parents) ? parents : []) {
+		follow(parent, held, missing)
+	}
+}
+
+/**
+ * Every role of a user: the roles it is a member of and those they inherit,
+ * five levels per query (D-123).
  */
 async function rolesOfUser(
 	id: string,
 	queries: ModelQueries,
 ): Promise<readonly Held[]> {
 	const held = new Map<string, Held>()
-	const select = { id: true, name: true }
-	let found = await queries.findMany(
-		{ where: { members: { some: { id } } }, select },
-		M,
-	)
-	while (found.length > 0) {
-		for (const row of found) {
-			held.set(row.id, Object.freeze({ id: row.id, name: String(row['name']) }))
+	const select = level(depth)
+	let where: object = { members: { some: { id } } }
+	for (;;) {
+		const missing = new Set<string>()
+		for (const row of await queries.findMany({ where, select }, M)) {
+			follow(row, held, missing)
 		}
-		const level = found.map((row) => row.id)
-		const next = await queries.findMany(
-			{ where: { inheritedBy: { some: { id: { in: level } } } }, select },
-			M,
-		)
-		found = next.filter((row) => !held.has(row.id))
+		const next = [...missing].filter((role) => !held.has(role))
+		if (next.length === 0) break
+		where = { id: { in: next } }
 	}
 	const roles = Object.freeze([...held.values()])
 	given.add(roles)

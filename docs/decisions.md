@@ -6104,14 +6104,17 @@ Choice: amends D-13; Parse's roles.
    unique `name` string, `members` (a `many` relation to the users) and
    `inherits` with its inverse `inheritedBy` (`many` relations to roles).
    The user model declares its side, `roles: f.many(() => Role)`, as every
-   relation does (D-37).
+   relation does (D-37), under the name the developer chooses. The
+   documentation shows that side next to `defineRole`: without it, startup
+   stops (amended 2026-10-26).
 3. `Admin.inherits` holding `Moderator` means every member of Admin is a
    moderator, through as many levels as are written. A cycle stops the
    expansion, it does not loop.
 4. The plugin completes a user caller (D-121) with `caller.roles`, every role
    the user has, inherited ones included, each `{ id, name }`. It reads them
-   as Master, one query for the user's roles and one per level of
-   inheritance: an authenticated request pays at least one query.
+   as Master in one query: the user's roles and five levels of inheritance,
+   which PostgreSQL reads in one statement (D-46). A deeper hierarchy pays
+   one more query per five levels (amended 2026-10-26).
 5. `hasRole('Admin', 'Editor')` is a ready-made rule (D-10): true for a user
    with one of the roles. Code names a role by its name; an ACL holds its id
    (D-124), so renaming a role keeps its ACLs and breaks the rules that name
@@ -6124,7 +6127,13 @@ backwards (`Moderator.roles` holds Admin, so Admins are moderators);
 `caller.roles` one list.
 Rejected: Parse's `roles` relation name; several role models now; roles
 read on each rule (rules are synchronous, D-76); roles on the user as a
-string list, without members or inheritance.
+string list, without members or inheritance; one query per level of
+inheritance (four for Admin, Moderator, Editor); `WITH RECURSIVE`, one
+query at any depth but a new adapter call for one plugin (D-90's "Later");
+each role storing every role it inherits, recomputed for every descendant
+on each change and wrong when two changes cross; roles cached between
+requests, as Parse does, which keeps a removed role until the cache
+expires.
 Example:
 
 ```ts

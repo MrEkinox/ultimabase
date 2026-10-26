@@ -22,11 +22,17 @@ async function run(url: string, statement: string): Promise<void> {
 	}
 }
 
-/** `postgres()` in a schema of its own, dropped when it stops. */
-export function database(url: string): Adapter {
+/**
+ * `postgres()` in a schema of its own, dropped when it stops; `log` hears
+ * each statement.
+ */
+export function database(url: string, log?: () => void): Adapter {
 	const schema = `t_${randomUUID().replaceAll('-', '')}`
 	const options = encodeURIComponent(`-c search_path=${schema}`)
-	const adapter = postgres({ url: `${url}?options=${options}` })
+	const adapter = postgres({
+		url: `${url}?options=${options}`,
+		...(log === undefined ? {} : { log }),
+	})
 	return {
 		...adapter,
 		start: async (given) => {

@@ -138,6 +138,15 @@ describe('a role model', () => {
 		expect(rolesOf(await callerOf(bob))).toEqual([])
 	})
 
+	it('follows a hierarchy deeper than one read', async () => {
+		let parent = await role('Level 7')
+		for (const depth of [6, 5, 4, 3, 2, 1]) {
+			parent = await role(`Level ${depth}`, [parent])
+		}
+		const ada = await member('ada@example.com', [parent])
+		expect(names(await callerOf(ada))).toHaveLength(7)
+	})
+
 	it('stops at a cycle', async () => {
 		const first = await role('First')
 		const second = await role('Second', [first])
