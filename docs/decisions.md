@@ -6031,27 +6031,43 @@ Choice: completes D-32, typed until now and not run.
    `plugin`, the plugin's name; `stored`, a kernel field (`f.string({ list:
 true })`) that says how the value is stored, filtered and indexed;
    `decode` and `encode`, between the stored value and the value code sees
-   (an `ACL`, D-124); `schema`, a Standard Schema (D-23) that validates what
-   a client writes and gives the value; `toJSON`, what a client reads.
+   (an `ACL`, D-124); `schema`, a Standard Schema (D-23) that takes the
+   value or its JSON and gives the value; `toJSON`, what a client reads.
 2. It returns a field builder (`aclField()`), which a plugin uses in its
-   `addedFields` (D-89) or an application imports, as D-32 says. `.with`
-   takes `access` only (D-57).
-3. Filters and indexes read the stored form: a plugin's trusted `where`
-   (`beforeFind`, D-71) filters `acl` with `hasSome`. A client cannot filter
-   or sort on a plugin field type in 0.1.
-4. GraphQL shows such a field as its `JSON` scalar, written and read through
-   `schema` and `toJSON`. A typed GraphQL shape waits for a field type that
-   needs one.
-5. A plugin may add indexes to the models that use it, in the shape of D-52:
+   `addedFields` (D-89) or an application imports, as D-32 says. It takes
+   `default` only, a value or a function of `{ caller }` (D-53); the stored
+   field says whether the field may be `null`, and `null` is stored as is,
+   never decoded nor encoded. `.with` takes `access` only (D-57).
+3. A write runs, in order: the `access` rules, on what the caller sent
+   (D-67); the defaults; `schema`, on every written value, a default's
+   included and a hook's not (D-67); the hooks, which see the value;
+   `encode`; the stored field's check. An encoded value the stored field
+   refuses is the plugin's bug: the write throws an error naming the plugin,
+   not `VALIDATION_FAILED`.
+4. Filters and indexes read the stored form. Only the `where` of a
+   `beforeFind` (D-71), a plugin's or the application's, filters a plugin
+   field, in its stored form: the ACL's `beforeFind` filters `acl` with
+   `hasSome`. No query's `where` or `orderBy` names it in 0.1, from a
+   client, from code or as Master, and nothing sorts it.
+5. Code, rules and hooks read the value; a transport sends `toJSON`'s.
+   GraphQL shows such a field as its `JSON` scalar, written through
+   `schema`, and leaves it out of the filter inputs. A typed GraphQL shape
+   waits for a field type that needs one.
+6. A plugin may add indexes to the models that use it, in the shape of D-52:
    `addedIndexes: [{ fields: ['acl'] }]`.
+7. `defineApp` refuses a model whose field type's plugin is not in
+   `plugins` (D-32).
 
 Why: D-68 puts plugin field types in 0.1, and the ACL is the first: code
 works with an `ACL`, the database with `text[]`, a client with
 `{ read, write }`. Storing through a kernel field keeps migrations, filters
 and indexes in the kernel and its adapters, which a plugin cannot extend.
+One `schema` for every write checks a function's data as a client's, and
+`beforeFind` alone is one boundary the types can draw.
 Rejected: a raw column type a plugin names (each adapter would have to know
 it); an `ACL` code reads as `string[]` and wraps itself; a typed GraphQL
-shape now.
+shape now; `schema` for a client's writes only; the field type's own
+`optional`, `unique` or `validate`.
 Example:
 
 ```ts
@@ -6156,9 +6172,11 @@ Choice: amends D-71; Parse's ACL, stored in one string list.
    delete), and the public (`*`), a user (`user:<id>`) or a role
    (`role:<id>`). Stored: `['read:*', 'read:user:u_1', 'write:role:r_9']`.
    Read by a client: `{ read: ['*', 'user:u_1'], write: ['role:r_9'] }`.
-3. `acl: null` adds no restriction. An empty `ACL` lets only Master through.
+3. Every row has an ACL: a public row lists `read:*` and `write:*`. An
+   empty `ACL` lets only Master through, as the rows a model held before it
+   used `acl()` get.
 4. An operation passes `access` and the ACL both; Master skips both. The
-   plugin's `beforeFind` filters `acl` null or `hasSome` of the caller's keys:
+   plugin's `beforeFind` filters `acl` with `hasSome` of the caller's keys:
    `*`, its user and every role of `caller.roles`. A row a caller cannot read
    is absent, at every level.
 5. `beforeFind` gets `operation`: `'update'` or `'delete'` for the rows the
@@ -6195,7 +6213,8 @@ columns for one filter; an
 `authenticated` subject (a role, if an application needs it); ACLs as
 relations; a check per row in `beforeUpdate`; write rights without read
 (Parse allows them; a write that cannot see its row cannot return it);
-a default ACL left implicit.
+a default ACL left implicit; `acl: null` as no restriction (a list is
+never `null`, D-120, and a row left without one would be public).
 Example:
 
 ```ts
