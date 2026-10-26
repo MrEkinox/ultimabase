@@ -154,7 +154,12 @@ function signUpFields(
 		}
 		properties.set(
 			field,
-			fieldProperty(found, users.required.includes(field), where),
+			fieldProperty(
+				found,
+				users.required.includes(field),
+				where,
+				users.validators[field],
+			),
 		)
 	}
 	const missing = users.required.filter((field) => !properties.has(field))

@@ -17,6 +17,7 @@ import {
 import type { SchemaField } from 'ultimabase'
 import { run } from './errors.ts'
 import { objectOf, uniqueInput, uniqueWhere } from './inputs.ts'
+import { jsonInput, plainData } from './json-fields.ts'
 import { upper } from './names.ts'
 import { deletedType, isMaster, objectType } from './outputs.ts'
 import type { Args, Context, Entry, Registry } from './registry.ts'
@@ -73,6 +74,9 @@ function fieldInput(
 	field: SchemaField,
 	creating: boolean,
 ): GraphQLNullableInputType {
+	if (field.kind === 'scalar' && field.type === 'json') {
+		return jsonInput(registry, model, field).type
+	}
 	if (field.kind === 'scalar') return valueType(registry, model, field)
 	return relationInput(registry, field.kind, creating)
 }
@@ -134,12 +138,14 @@ export function mutationFields(registry: Registry, entry: Entry): Fields {
 		}
 	const unique = (args: Args): Args =>
 		uniqueWhere(registry, name, objectOf(args['where']))
+	const dataOf = (args: Args): Args =>
+		plainData(registry, name, objectOf(args['data']))
 	return {
 		[`create${name}`]: {
 			type: new GraphQLNonNull(type),
 			args: { data: data(true) },
 			resolve: written(async (args, select, context) =>
-				queries.create({ data: objectOf(args['data']), select }, as(context)),
+				queries.create({ data: dataOf(args), select }, as(context)),
 			),
 		},
 		[`update${name}`]: {
@@ -147,7 +153,7 @@ export function mutationFields(registry: Registry, entry: Entry): Fields {
 			args: { where, data: data(false) },
 			resolve: written(async (args, select, context) =>
 				queries.update(
-					{ where: unique(args), data: objectOf(args['data']), select },
+					{ where: unique(args), data: dataOf(args), select },
 					as(context),
 				),
 			),

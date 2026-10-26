@@ -18,6 +18,7 @@ import type { SchemaField } from 'ultimabase'
 import { orderByInput, whereInput } from './inputs.ts'
 import { upper } from './names.ts'
 import { connection, listRead, rowsOf } from './pages.ts'
+import { jsonOutput } from './json-fields.ts'
 import type { Args, Context, Registry } from './registry.ts'
 import { readable, valueType } from './registry.ts'
 import { DateTime } from './scalars.ts'
@@ -155,7 +156,7 @@ function manyField(
 			if (value === null) return null
 			const rows = rowsOf(value)
 			const { page } = listRead(
-				registry.settings.pagination,
+				registry,
 				registry.entry(field.target),
 				args,
 				isMaster(context),
@@ -179,9 +180,13 @@ function scalarFields(
 	for (const field of readable(entry)) {
 		if (field.kind !== 'scalar') continue
 		const ruled = entry.exposed.readRules[field.name] === 'rule'
-		const type = valueType(registry, model, field)
+		const { type, nullable } =
+			field.type === 'json'
+				? jsonOutput(registry, model, field)
+				: { type: valueType(registry, model, field), nullable: false }
 		fields[field.name] = {
-			type: field.optional || ruled ? type : new GraphQLNonNull(type),
+			type:
+				field.optional || ruled || nullable ? type : new GraphQLNonNull(type),
 		}
 	}
 	return fields

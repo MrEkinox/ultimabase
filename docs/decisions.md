@@ -6278,7 +6278,7 @@ in, notIn }`, which takes the input type. The kernel compares the stored
 6. Sign-up. `signUp` takes a `json` field (D-113). Its input carries the
    schema's input JSON Schema, or none (`JSON`), and the kernel's create
    validates the value. GraphQL types it as any function input (D-109):
-   named from its path (`SignUpInputPrefs`) unless the schema has an id, and
+   named from its path (`SignUpPrefsInput`) unless the schema has an id, and
    a shape it cannot type stops startup, naming `signUp`.
 7. Rows stored before a schema changed may not fit its new output type:
    GraphQL then fails that field when read, with its usual error. Migrating

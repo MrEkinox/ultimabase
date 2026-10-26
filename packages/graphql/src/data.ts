@@ -1,7 +1,9 @@
 // A schema's GraphQL types, from its standard JSON Schema export (D-45,
-// D-109): what a function takes and returns as data. A schema given an id
-// is one shared type; any other object or enum is named from its path.
+// D-109): what a function takes and returns as data, and a json field
+// (D-125). A schema given an id is one shared type; any other object or enum
+// is named from its path.
 import type {
+	GraphQLEnumType,
 	GraphQLFieldConfigArgumentMap,
 	GraphQLInputType,
 	GraphQLNullableInputType,
@@ -11,7 +13,6 @@ import type {
 } from 'graphql'
 import {
 	GraphQLBoolean,
-	GraphQLEnumType,
 	GraphQLFloat,
 	GraphQLInputObjectType,
 	GraphQLInt,
@@ -21,10 +22,11 @@ import {
 	GraphQLString,
 } from 'graphql'
 import type { Node, Side } from './json-schema.ts'
-import { defsOf, isNode, jsonSchemaOf } from './json-schema.ts'
+import { defsOf, exportOf, isNode, jsonSchemaOf } from './json-schema.ts'
 import { upper } from './names.ts'
 import type { Context } from './registry.ts'
 import { DateTime, JSONScalar } from './scalars.ts'
+import type { DataTypes } from './data-types.ts'
 import { Refused } from 'ultimabase'
 
 const reserved = new Set(['true', 'false', 'null'])
@@ -50,86 +52,14 @@ export function checkName(name: string, where: string): string {
 	throw new Refused(`${where}: ${name} is not a GraphQL name.`)
 }
 
-type Shaped<T> = {
-	readonly key: string
-	readonly owner: string
-	readonly type: T
-}
-
-/** The functions' named types, each name given one shape (D-45). */
-export class DataTypes {
-	readonly #objects = new Map<string, Shaped<GraphQLObjectType>>()
-	readonly #inputs = new Map<string, Shaped<GraphQLInputObjectType>>()
-	readonly #enums = new Map<string, Shaped<GraphQLEnumType>>()
-	readonly #models: ReadonlySet<string>
-	/** Each named type the functions give, and the first to give it. */
-	readonly owners: Map<string, string> = new Map()
-
-	constructor(models: Iterable<string>) {
-		this.#models = new Set(models)
-	}
-
-	object(
-		name: string,
-		key: string,
-		owner: string,
-		build: () => GraphQLObjectType,
-	): GraphQLObjectType {
-		return this.#shaped(this.#objects, name, key, owner, build)
-	}
-
-	input(
-		name: string,
-		key: string,
-		owner: string,
-		build: () => GraphQLInputObjectType,
-	): GraphQLInputObjectType {
-		return this.#shaped(this.#inputs, name, key, owner, build)
-	}
-
-	enum(
-		name: string,
-		values: readonly string[],
-		owner: string,
-	): GraphQLEnumType {
-		const build = () =>
-			new GraphQLEnumType({
-				name,
-				values: Object.fromEntries(values.map((value) => [value, { value }])),
-			})
-		return this.#shaped(this.#enums, name, values.join(), owner, build)
-	}
-
-	#shaped<T>(
-		cache: Map<string, Shaped<T>>,
-		name: string,
-		key: string,
-		owner: string,
-		build: () => T,
-	): T {
-		if (this.#models.has(name)) {
-			throw new Refused(`${owner}: the type ${name} is named like a model.`)
-		}
-		const known = cache.get(name)
-		if (known === undefined) {
-			const type = build()
-			cache.set(name, { key, owner, type })
-			this.owners.set(name, owner)
-			return type
-		}
-		if (known.key === key) return known.type
-		throw new Refused(
-			`${known.owner} and ${owner} give the type ${name} two shapes; name each once.`,
-		)
-	}
-}
-
 type Leaf = GraphQLScalarType | GraphQLEnumType
-type Typed<T> = { readonly type: T; readonly nullable: boolean }
+export type Typed<T> = { readonly type: T; readonly nullable: boolean }
 
 /** How one side builds its types, and the JSON Schema's shared ones. */
 interface Scope<T extends GraphQLNullableType> {
 	readonly side: Side
+	/** A json field's: `JSON` where a function's would stop startup (D-125). */
+	readonly lenient: boolean
 	readonly defs: Node
 	readonly types: DataTypes
 	readonly leaf: (type: Leaf) => T
@@ -142,26 +72,49 @@ const union = (path: Path): Error =>
 		`${path.owner}: ${path.at} is a union, which GraphQL cannot type; keep one type, or one and null.`,
 	)
 
+/** `JSON` in a json field's types, or startup stops for a function's. */
+function untyped<T extends GraphQLNullableType>(
+	scope: Scope<T>,
+	nullable: boolean,
+	refused: () => Error,
+): Typed<T> {
+	if (!scope.lenient) throw refused()
+	return { type: scope.leaf(JSONScalar), nullable }
+}
+
 function refType<T extends GraphQLNullableType>(
 	ref: string,
 	path: Path,
 	scope: Scope<T>,
 ): Typed<T> {
 	if (ref === '#') {
-		throw new Refused(
-			`${path.owner}: ${path.at} refers to its own schema; name it with .meta({ id }).`,
+		return untyped(
+			scope,
+			false,
+			() =>
+				new Refused(
+					`${path.owner}: ${path.at} refers to its own schema; name it with .meta({ id }).`,
+				),
 		)
 	}
 	const id = ref.startsWith('#/$defs/') ? ref.slice(8) : ''
 	const node = scope.defs[id]
 	if (!isNode(node)) {
-		throw new Refused(
-			`${path.owner}: ${path.at} refers to ${ref}, not a $defs.`,
+		return untyped(
+			scope,
+			false,
+			() =>
+				new Refused(`${path.owner}: ${path.at} refers to ${ref}, not a $defs.`),
 		)
 	}
 	if (!named(id)) {
-		throw new Refused(
-			`${path.owner}: ${path.at} refers to ${id}, which is not a GraphQL name; name it with .meta({ id }).`,
+		return untyped(
+			scope,
+			false,
+			() =>
+				new Refused(
+					`${path.owner}: ${path.at} refers to ${id}, which is not a GraphQL name; name it with .meta({ id }).`,
+				),
 		)
 	}
 	const suffix = scope.side === 'input' ? 'Input' : ''
@@ -200,9 +153,10 @@ function typeOf<T extends GraphQLNullableType>(
 	}
 	const { properties } = node
 	if (type === 'object' && isNode(properties)) {
-		if (Object.keys(properties).length > 0) {
-			return scope.object(node, properties, path)
-		}
+		const keys = Object.keys(properties)
+		// A json field's key GraphQL cannot name makes its object `JSON`.
+		const typed = !scope.lenient || keys.every(named)
+		if (keys.length > 0 && typed) return scope.object(node, properties, path)
 	}
 	return scope.leaf(JSONScalar)
 }
@@ -222,7 +176,7 @@ function dataType<T extends GraphQLNullableType>(
 		)
 		const [only] = others
 		if (others.length !== 1 || variants.length !== 2 || !isNode(only)) {
-			throw union(path)
+			return untyped(scope, others.length < variants.length, () => union(path))
 		}
 		return { type: dataType(only, path, scope).type, nullable: true }
 	}
@@ -230,11 +184,9 @@ function dataType<T extends GraphQLNullableType>(
 		? node['type']
 		: [node['type']]
 	const types = listed.filter((type) => type !== undefined && type !== 'null')
-	if (types.length > 1) throw union(path)
-	return {
-		type: typeOf(types[0], node, path, scope),
-		nullable: types.length < listed.length,
-	}
+	const nullable = types.length < listed.length
+	if (types.length > 1) return untyped(scope, nullable, () => union(path))
+	return { type: typeOf(types[0], node, path, scope), nullable }
 }
 
 /** Each property's type, and whether it always holds a value. */
@@ -283,9 +235,11 @@ const listOf = <T extends GraphQLNullableType>({ type, nullable }: Typed<T>) =>
 function outputScope(
 	root: Node,
 	types: DataTypes,
+	lenient: boolean,
 ): Scope<GraphQLNullableOutputType> {
 	const scope: Scope<GraphQLNullableOutputType> = {
 		side: 'output',
+		lenient,
 		defs: defsOf(root),
 		types,
 		leaf: (type) => type,
@@ -308,9 +262,11 @@ function outputScope(
 function inputScope(
 	root: Node,
 	types: DataTypes,
+	lenient: boolean,
 ): Scope<GraphQLNullableInputType> {
 	const scope: Scope<GraphQLNullableInputType> = {
 		side: 'input',
+		lenient,
 		defs: defsOf(root),
 		types,
 		leaf: (type) => type,
@@ -339,7 +295,7 @@ export function outputData(
 	types: DataTypes,
 ): Typed<GraphQLNullableOutputType> {
 	const root = jsonSchemaOf(schema, 'output', `${path.owner}: ${path.at}`)
-	return dataType(root, path, outputScope(root, types))
+	return dataType(root, path, outputScope(root, types, false))
 }
 
 /**
@@ -352,7 +308,7 @@ export function inputArgs(
 	types: DataTypes,
 ): { readonly args: GraphQLFieldConfigArgumentMap; readonly flat: boolean } {
 	const root = jsonSchemaOf(schema, 'input', `${path.owner}: ${path.at}`)
-	const scope = inputScope(root, types)
+	const scope = inputScope(root, types, false)
 	const ref = root['$ref']
 	const object = typeof ref === 'string' ? scope.defs[ref.slice(8)] : root
 	const properties = isNode(object) ? object['properties'] : undefined
@@ -367,4 +323,27 @@ export function inputArgs(
 		args: { input: { type: nullable ? type : new GraphQLNonNull(type) } },
 		flat: false,
 	}
+}
+
+/**
+ * A json field's type when read, from its schema's output side (D-125);
+ * `undefined` when the schema has no JSON Schema export.
+ */
+export function fieldOutput(
+	schema: object,
+	path: Path,
+	types: DataTypes,
+): Typed<GraphQLNullableOutputType> | undefined {
+	const root = exportOf(schema, 'output')
+	return root && dataType(root, path, outputScope(root, types, true))
+}
+
+/** A json field's type when written, from its schema's input side. */
+export function fieldInput(
+	schema: object,
+	path: Path,
+	types: DataTypes,
+): Typed<GraphQLNullableInputType> | undefined {
+	const root = exportOf(schema, 'input')
+	return root && dataType(root, path, inputScope(root, types, true))
 }

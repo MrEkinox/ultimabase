@@ -2,7 +2,8 @@
 // within the limits, and the rows read as a connection.
 import type { Row } from 'ultimabase'
 import { badInput } from './errors.ts'
-import type { Args, Entry } from './registry.ts'
+import { plainWhere } from './json-fields.ts'
+import type { Args, Entry, Registry } from './registry.ts'
 
 export const encode = (id: string): string =>
 	Buffer.from(id).toString('base64url')
@@ -131,14 +132,19 @@ export function rowsOf(value: unknown): readonly Row[] {
 
 /** A list's kernel read, and its Relay page unless `pagination: 'list'`. */
 export function listRead(
-	pagination: 'connection' | 'list',
+	registry: Registry,
 	entry: Entry,
 	args: Args,
 	master: boolean,
 ): { readonly read: Args; readonly page: Relay | undefined } {
+	const { pagination } = registry.settings
 	const { where, orderBy } = args
+	const filter =
+		typeof where === 'object' && where !== null
+			? { where: plainWhere(registry, entry.model.name, { ...where }) }
+			: {}
 	const shared = {
-		...(where === undefined || where === null ? {} : { where }),
+		...filter,
 		...(orderBy === undefined || orderBy === null ? {} : { orderBy }),
 	}
 	if (pagination === 'list') {

@@ -152,12 +152,7 @@ export function selectOf(
 			continue
 		}
 		const args = argsOf(type, name, fieldNodes, info)
-		const { read } = listRead(
-			registry.settings.pagination,
-			target,
-			args,
-			master,
-		)
+		const { read } = listRead(registry, target, args, master)
 		const below =
 			registry.settings.pagination === 'list'
 				? fieldNodes

@@ -1,11 +1,12 @@
 // password's application for tests (D-113): a user model that signs up with
-// a name, a birth date and tags, and the GraphQL requests a client sends.
+// a name, a birth date, tags and typed preferences, and the GraphQL requests a client sends.
 import { authPlugin, defineUser, signedIn } from '@ultimabase/auth'
 import { graphql, graphqlPlugin } from '@ultimabase/graphql'
 import { httpPlugin } from '@ultimabase/http'
 import type { Adapter, Logger } from 'ultimabase'
 import { allow, defineApp, master, memory } from 'ultimabase'
 import type { PasswordOptions } from '../index.ts'
+import { z } from 'zod'
 import { password, passwordPlugin } from '../index.ts'
 
 export const M = { as: master }
@@ -18,6 +19,13 @@ export const User = defineUser({
 		name: f.string(),
 		born: f.date({ optional: true }),
 		tags: f.string({ list: true }),
+		prefs: f.json({
+			optional: true,
+			validate: z.object({
+				theme: z.enum(['light', 'dark']),
+				nick: z.string().min(2).optional(),
+			}),
+		}),
 		note: f.string({ optional: true }).with({
 			access: { read: allow.private },
 		}),

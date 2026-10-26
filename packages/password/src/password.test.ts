@@ -113,6 +113,33 @@ function errorOf(body: unknown): unknown {
 const wrong = { code: 'INVALID_CREDENTIALS' }
 
 describe('signing up', () => {
+	it('takes a json field typed from its schema, which the kernel checks', async () => {
+		const { url } = await server({ signUp: ['name', 'prefs'] })
+		const typed = await graphqlOf(
+			url,
+			'{ __type(name: "SignUpPrefsInput") { inputFields { name type { name kind } } } }',
+		)
+		expect(typed.body).toStrictEqual({
+			data: {
+				__type: {
+					inputFields: [
+						{ name: 'theme', type: { name: null, kind: 'NON_NULL' } },
+						{ name: 'nick', type: { name: 'String', kind: 'SCALAR' } },
+					],
+				},
+			},
+		})
+		const signed = await signUp(url, { prefs: { theme: 'dark' } })
+		expect(signed.status).toBe(200)
+		const [user] = await User.findMany({}, M)
+		expect(user?.prefs).toStrictEqual({ theme: 'dark' })
+		const refused = await signUp(url, {
+			email: 'bob@example.com',
+			prefs: { theme: 'light', nick: 'b' },
+		})
+		expect(errorOf(refused.body)).toMatchObject({ code: 'VALIDATION_FAILED' })
+	})
+
 	it('creates the user and its hash, and opens a session with its cookie', async () => {
 		const { url } = await server()
 		const signed = await signUp(url, {
@@ -595,7 +622,7 @@ describe('starting', () => {
 		)
 	})
 
-	it('refuses an unknown, a reserved, a JSON or a missing field', async () => {
+	it('refuses an unknown, a reserved, a relation or a missing field', async () => {
 		await expect(start([User], ['nope'])).rejects.toThrow(
 			'passwordPlugin({ signUp }): User.nope is not a field sign-up may take.',
 		)
@@ -609,13 +636,17 @@ describe('starting', () => {
 			'passwordPlugin({ signUp }): User needs name to be created; list them.',
 		)
 		await expect(start([User])).rejects.toThrow('User needs name')
-		const Json = defineUser({
+		const Team = defineModel({
+			name: 'Team',
+			fields: (f) => ({ members: f.many(() => Member) }),
+		})
+		const Member = defineUser({
 			name: 'User',
 			use: [password()],
-			fields: (f) => ({ data: f.json() }),
+			fields: (f) => ({ team: f.one(() => Team) }),
 		})
-		await expect(start([Json], ['data'])).rejects.toThrow(
-			'passwordPlugin({ signUp }): data is a relation or a JSON field, which sign-up does not take.',
+		await expect(start([Member, Team], ['team'])).rejects.toThrow(
+			'passwordPlugin({ signUp }): team is a relation, which sign-up does not take.',
 		)
 		await expect(start([User], false)).resolves.toBeUndefined()
 	})

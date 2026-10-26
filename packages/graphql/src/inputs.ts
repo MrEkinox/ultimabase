@@ -13,6 +13,7 @@ import type { SchemaField } from 'ultimabase'
 import { upper } from './names.ts'
 import type { Args, Registry, Scalar } from './registry.ts'
 import { readable, scalarType } from './registry.ts'
+import { jsonFilter } from './json-fields.ts'
 import { DateTime } from './scalars.ts'
 
 /** An input object's value, as the kernel's arguments. */
@@ -82,14 +83,15 @@ const scalarFilter = (
 	registry: Registry,
 	model: string,
 	field: Scalar,
-): GraphQLInputObjectType =>
-	field.type === 'stringList'
-		? listFilter(registry)
-		: filter(
-				registry,
-				scalarType(registry, model, field),
-				operators[field.type],
-			)
+): GraphQLInputObjectType => {
+	const { type } = field
+	if (type === 'stringList') return listFilter(registry)
+	const untyped = () =>
+		filter(registry, scalarType(registry, model, field), operators[type])
+	return field.type === 'json'
+		? jsonFilter(registry, model, field, untyped)
+		: untyped()
+}
 
 const relationFilter = (
 	registry: Registry,

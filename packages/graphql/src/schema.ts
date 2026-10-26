@@ -10,6 +10,7 @@ import {
 import { objectOf, uniqueInput, uniqueWhere } from './inputs.ts'
 import { connectionType, isMaster, listArgs, objectType } from './outputs.ts'
 import { connection, listRead, rowsOf } from './pages.ts'
+import { plainWhere } from './json-fields.ts'
 import type { Args, Context, Entry, Registry } from './registry.ts'
 import { as } from './registry.ts'
 import { grouped, selectOf } from './select.ts'
@@ -20,9 +21,11 @@ import { Refused } from 'ultimabase'
 
 type Fields = { [field: string]: GraphQLFieldConfig<unknown, Context, Args> }
 
-const whereOf = (args: Args): Args => {
+const whereOf = (registry: Registry, model: string, args: Args): Args => {
 	const { where } = args
-	return typeof where === 'object' && where !== null ? { where } : {}
+	return typeof where === 'object' && where !== null
+		? { where: plainWhere(registry, model, { ...where }) }
+		: {}
 }
 
 /** What a root list selects of its rows: under `edges { node }`. */
@@ -65,12 +68,7 @@ function rootFields(registry: Registry, entry: Entry): Fields {
 			args: listArgs(registry, name),
 			resolve: async (_, args, context, info) => {
 				const master = isMaster(context)
-				const { read, page } = listRead(
-					registry.settings.pagination,
-					entry,
-					args,
-					master,
-				)
+				const { read, page } = listRead(registry, entry, args, master)
 				const select = selectOf(
 					registry,
 					info,
@@ -88,12 +86,40 @@ function rootFields(registry: Registry, entry: Entry): Fields {
 					// Called by the default resolver, so counted only when selected,
 					// and once however many aliases ask.
 					totalCount: async () => {
-						counted ??= run(() => queries.count(whereOf(args), as(context)))
+						counted ??= run(() =>
+							queries.count(whereOf(registry, name, args), as(context)),
+						)
 						return counted
 					},
 				}
 			},
 		},
+	}
+}
+
+const taken = (name: string, owner: string): Error =>
+	new Refused(`${owner}: the type ${name} is a generated type's name.`)
+
+/** The models' types, a json field's among them, built once to name them. */
+function generatedTypes(
+	fields: Fields,
+	mutations: Fields,
+	typeOwners: ReadonlyMap<string, string>,
+): ReturnType<GraphQLSchema['getTypeMap']> {
+	try {
+		return new GraphQLSchema({
+			query: new GraphQLObjectType({ name: 'Query', fields: { ...fields } }),
+			mutation: new GraphQLObjectType({
+				name: 'Mutation',
+				fields: { ...mutations },
+			}),
+		}).getTypeMap()
+	} catch (error) {
+		// A json field's type named like a model's, as `PostStatus`.
+		const name = /multiple types named "(\w+)"/.exec(String(error))?.[1]
+		const owner = name === undefined ? undefined : typeOwners.get(name)
+		if (name === undefined || owner === undefined) throw error
+		throw taken(name, owner)
 	}
 }
 
@@ -139,19 +165,11 @@ export function schemaOf(
 		)
 		add(fields, roots.query, owner, 'plural', rootFields(registry, entry))
 	}
-	// The models' types, which no function's type may be named like.
-	const generated = new GraphQLSchema({
-		query: new GraphQLObjectType({ name: 'Query', fields: { ...fields } }),
-		mutation: new GraphQLObjectType({
-			name: 'Mutation',
-			fields: { ...mutations },
-		}),
-	}).getTypeMap()
+	// The models' types, which no function's or field's type may be named like.
+	const generated = generatedTypes(fields, mutations, typeOwners)
 	for (const [name, owner] of typeOwners) {
-		if (name in generated) {
-			throw new Refused(
-				`${owner}: the type ${name} is a generated type's name.`,
-			)
+		if (name in generated && generated[name] !== registry.data.named(name)) {
+			throw taken(name, owner)
 		}
 	}
 	for (const { query, name, owner, field } of functions) {

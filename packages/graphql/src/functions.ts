@@ -10,13 +10,14 @@ import {
 } from 'graphql'
 import type { ExposedFunction, ExposedOutput, ExposedType } from 'ultimabase'
 import type { Path } from './data.ts'
-import { checkName, DataTypes, inputArgs, outputData } from './data.ts'
+import type { DataTypes } from './data-types.ts'
+import { checkName, inputArgs, outputData } from './data.ts'
 import { upper } from './names.ts'
 import { objectType } from './outputs.ts'
 import type { Args, Context, Registry } from './registry.ts'
 import { as } from './registry.ts'
 import { reread } from './reread.ts'
-import { SentDate } from './scalars.ts'
+import { plain } from './scalars.ts'
 import type { Read } from './rows.ts'
 
 /** A function's key of `.with` (D-109): its field's name, or hidden. */
@@ -30,16 +31,6 @@ export type RootField = {
 	readonly name: string
 	readonly owner: string
 	readonly field: Field
-}
-
-/** Dates back to their text: the validator reads what the client sent. */
-function plain(value: unknown): unknown {
-	if (value instanceof SentDate) return value.sent
-	if (Array.isArray(value)) return value.map(plain)
-	if (typeof value !== 'object' || value === null) return value
-	return Object.fromEntries(
-		Object.entries(value).map(([key, item]) => [key, plain(item)]),
-	)
 }
 
 const at = (owner: string, name: string, place: string): Path => ({
@@ -61,7 +52,7 @@ class Builder {
 
 	constructor(registry: Registry, take: number) {
 		this.#registry = registry
-		this.#data = new DataTypes(registry.entries.keys())
+		this.#data = registry.data
 		this.owners = this.#data.owners
 		this.#take = take
 	}

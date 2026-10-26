@@ -1,6 +1,7 @@
 // The inputs' checks and JSON Schemas (D-113), each user field type a
 // sign-up may take.
 import { describe, expect, it } from 'vitest'
+import { z } from 'zod'
 import type { SchemaField } from 'ultimabase'
 import type { Property } from './input.ts'
 import {
@@ -174,6 +175,69 @@ describe('a sign-up input', () => {
 			'test',
 		)
 		expect(required.json).toStrictEqual({ type: 'string', enum: ['a'] })
+	})
+})
+
+describe('a json field', () => {
+	const Address = z.object({ city: z.string() }).meta({ id: 'Address' })
+	const prefs = z.object({ theme: z.enum(['light']), shipTo: Address })
+
+	it('carries its schema, null too when optional, its $defs lifted', () => {
+		const typed = signUpInput(
+			new Map([
+				['prefs', fieldProperty(scalar('prefs', 'json'), true, 'test', prefs)],
+				[
+					'bio',
+					fieldProperty(
+						scalar('bio', 'json', { optional: true }),
+						false,
+						'test',
+						z.string(),
+					),
+				],
+			]),
+		)['~standard']
+		expect(typed.jsonSchema.input()).toMatchObject({
+			$defs: {
+				Address: { type: 'object', required: ['city'] },
+				SignUp: {
+					properties: {
+						prefs: {
+							type: 'object',
+							properties: { shipTo: { $ref: '#/$defs/Address' } },
+						},
+						bio: { anyOf: [{ type: 'string' }, { type: 'null' }] },
+					},
+				},
+			},
+		})
+		const value = { theme: 'unchecked here' }
+		expect(
+			typed.validate({
+				input: {
+					email: 'ada@example.com',
+					password: 'correct horse',
+					prefs: value,
+				},
+			}),
+		).toMatchObject({ value: { input: { prefs: value } } })
+	})
+
+	it('takes any value without a schema it can export', () => {
+		const field = scalar('data', 'json', { optional: true })
+		expect(fieldProperty(field, false, 'test').json).toStrictEqual({})
+		const throwing = {
+			'~standard': {
+				jsonSchema: {
+					input: () => {
+						throw new Error('no')
+					},
+				},
+			},
+		}
+		expect(fieldProperty(field, false, 'test', throwing).json).toStrictEqual({})
+		const odd = { '~standard': { jsonSchema: { input: () => 'odd' } } }
+		expect(fieldProperty(field, false, 'test', odd).json).toStrictEqual({})
 	})
 })
 

@@ -92,6 +92,8 @@ export interface ExposedModel<W = unknown> {
 	readonly readRules: { readonly [field: string]: 'private' | 'rule' }
 	/** The fields `create` needs: neither optional nor with a default (D-53). */
 	readonly required: readonly string[]
+	/** Each `json` field's `validate`, when it is a Standard Schema (D-125). */
+	readonly validators: { readonly [field: string]: StandardSchema }
 	/** The plugin's key of the model's `.with`, if it was given. */
 	readonly with: W | undefined
 	readonly queries: ModelQueries

@@ -14,6 +14,8 @@ import { pluginValues } from './definition.ts'
 import { exposedFunctions, resolveFunctions } from './functions.ts'
 import { isObject } from './query-where.ts'
 import { Refused } from './errors.ts'
+import type { StandardSchema } from './fields.ts'
+import { standardOf } from './validation.ts'
 
 /** Each plugin after the plugins it needs; a cycle stops startup. */
 function needsFirst(plugins: readonly PluginRecord[]): readonly PluginRecord[] {
@@ -99,6 +101,7 @@ function exposed(name: string, resolved: Resolved): readonly ExposedModel[] {
 			uniques: info.uniques,
 			readRules: readRules(info),
 			required: required(info),
+			validators: validators(info),
 			with: key,
 			queries,
 			// oxlint-disable-next-line typescript/no-unsafe-type-assertion -- a `defineModel` value, keyed by it.
@@ -118,6 +121,21 @@ function required(info: ModelInfo): readonly string[] {
 				field.options['list'] !== true,
 		)
 		.map((field) => field.name)
+}
+
+/** Each `json` field's schema (D-125); a function validate has no shape. */
+function validators(info: ModelInfo): {
+	readonly [field: string]: StandardSchema
+} {
+	const found: { [field: string]: StandardSchema } = {}
+	for (const field of info.fields.values()) {
+		const standard =
+			field.kind === 'scalar' && field.type === 'json'
+				? standardOf(field.options['validate'])
+				: undefined
+		if (standard !== undefined) found[field.name] = standard.schema
+	}
+	return found
 }
 
 function schemaOf(resolved: Resolved, name: string): SchemaModel {

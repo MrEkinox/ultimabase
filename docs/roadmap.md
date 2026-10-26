@@ -179,7 +179,7 @@ Exit: an example with sign-up, sign-in and rules on `caller.user`.
       about 25 lines of the PostgreSQL write compiler.
 - [x] Decide roles and ACL (D-13, D-68, D-120 to D-124).
 - [x] Decide JSON fields typed from their schema (D-125).
-- [ ] JSON fields typed from their schema (D-125).
+- [x] JSON fields typed from their schema (D-125).
 - [ ] Roles (`defineRole`, D-13) and ACL (D-68).
 - [ ] Decide lists of other field types: enum, number, date, boolean (D-120).
 - [ ] Lists of other field types.
