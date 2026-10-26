@@ -1,6 +1,6 @@
 {
 	"ultimabase": 10250,
-	"testing": 1850,
+	"testing": 1950,
 	"soft-delete": 150,
 	"postgres": 2460,
 	"http": 670,
@@ -9,5 +9,6 @@
 	"password": 1600,
 	"roles": 330,
 	"acl": 350,
-	"rest": 1200
+	"rest": 1200,
+	"create-ultimabase": 250
 }

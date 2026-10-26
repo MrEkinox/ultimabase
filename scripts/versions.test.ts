@@ -8,6 +8,7 @@ import { expect, it } from 'vitest'
 type Package = {
 	readonly name: string
 	readonly version: string
+	readonly exports?: unknown
 	readonly dependencies?: { readonly ultimabase?: string }
 	readonly peerDependencies?: { readonly ultimabase?: string }
 }
@@ -42,10 +43,12 @@ it('gives each package a kernel range that accepts the kernel', () => {
 	expect(refused).toEqual([])
 })
 
+// A bin only, such as create-ultimabase, imports no kernel.
 it('makes the kernel a peer of every other package, never a dependency', () => {
 	const bound = packages.filter(
-		({ name, dependencies, peerDependencies }) =>
+		({ name, exports, dependencies, peerDependencies }) =>
 			name !== 'ultimabase' &&
+			exports !== undefined &&
 			(dependencies?.ultimabase !== undefined ||
 				peerDependencies?.ultimabase === undefined),
 	)

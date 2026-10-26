@@ -188,7 +188,8 @@ Exit: an example with sign-up, sign-in and rules on `caller.user`.
 - [x] Nested creation, `create` in a relation write (D-20, D-68).
 - [x] Decide REST (D-25, D-68): D-129.
 - [x] REST (D-25, D-68).
-- [ ] `@ultimabase/testing` (D-40, D-80), `create-ultimabase` (D-61).
+- [x] Decide `testApplication` and the starter (D-40, D-61): D-130.
+- [x] `@ultimabase/testing` (D-40, D-80), `create-ultimabase` (D-61).
 - [ ] `examples/` run by CI (D-31), Changesets (D-60).
 - [ ] Documentation website (D-31).
 - [ ] A full audit of every package, its fixes merged, before publication.

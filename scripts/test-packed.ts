@@ -48,10 +48,15 @@ const run = (command: string, args: string[], cwd: string): Promise<string> =>
 
 const packages = readdirSync(join(root, 'packages'), { withFileTypes: true })
 	.filter((entry) => entry.isDirectory())
-	.map((entry) => ({
-		directory: entry.name,
-		name: String(manifest(join(root, 'packages', entry.name))['name']),
-	}))
+	.map((entry) => {
+		const own = manifest(join(root, 'packages', entry.name))
+		return {
+			directory: entry.name,
+			name: String(own['name']),
+			// create-ultimabase is a bin only.
+			imported: 'exports' in own,
+		}
+	})
 
 console.log(`Packing ${packages.length} packages in ${work}`)
 mkdirSync(join(work, 'packs'))
@@ -117,7 +122,10 @@ await run(
 	[
 		'--input-type=module',
 		'--eval',
-		packages.map(({ name }) => `await import('${name}')`).join('\n'),
+		packages
+			.filter(({ imported }) => imported)
+			.map(({ name }) => `await import('${name}')`)
+			.join('\n'),
 	],
 	app,
 )
@@ -135,6 +143,19 @@ const usage = await run(
 )
 if (!usage.startsWith('Usage: ultimabase')) {
 	throw new Error(`The CLI printed:\n${usage}`)
+}
+
+console.log('Writing a starter with the installed create-ultimabase')
+const created = await run(
+	join(app, 'node_modules/.bin/create-ultimabase'),
+	['starter'],
+	work,
+)
+if (!created.includes('Created starter.')) {
+	throw new Error(`create-ultimabase printed:\n${created}`)
+}
+if (!readdirSync(join(work, 'starter/src')).includes('app.test.ts')) {
+	throw new Error('The starter has no src/app.test.ts.')
 }
 
 console.log('Starting the example and signing up')

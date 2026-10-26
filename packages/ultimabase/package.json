@@ -10,7 +10,8 @@
 	},
 	"bin": "./src/cli.ts",
 	"exports": {
-		".": "./src/index.ts"
+		".": "./src/index.ts",
+		"./internal": "./src/internal.ts"
 	},
 	"files": [
 		"dist",
@@ -24,7 +25,8 @@
 	"publishConfig": {
 		"bin": "./dist/cli.js",
 		"exports": {
-			".": "./dist/index.js"
+			".": "./dist/index.js",
+			"./internal": "./dist/internal.js"
 		}
 	},
 	"dependencies": {

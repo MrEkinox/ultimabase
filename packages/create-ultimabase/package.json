@@ -1,0 +1,35 @@
+{
+	"name": "create-ultimabase",
+	"version": "0.0.0",
+	"private": true,
+	"description": "Writes a new UltimaBase application: npm create ultimabase.",
+	"type": "module",
+	"license": "Apache-2.0",
+	"engines": {
+		"node": ">=24.7.0"
+	},
+	"bin": "./src/cli.ts",
+	"files": [
+		"dist",
+		"src",
+		"template",
+		"!src/**/*.test.ts",
+		"!src/test"
+	],
+	"scripts": {
+		"prepack": "rm -rf dist && yarn run -T tsc --project tsconfig.build.json"
+	},
+	"publishConfig": {
+		"bin": "./dist/cli.js"
+	},
+	"devDependencies": {
+		"@types/node": "24.19.2",
+		"@ultimabase/graphql": "workspace:*",
+		"@ultimabase/http": "workspace:*",
+		"@ultimabase/testing": "workspace:*",
+		"graphql": "17.0.2",
+		"ultimabase": "workspace:*",
+		"vite": "8.3.4",
+		"vitest": "5.0.5"
+	}
+}
