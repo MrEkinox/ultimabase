@@ -692,6 +692,23 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@ultimabase/rest@workspace:packages/rest":
+  version: 0.0.0-use.local
+  resolution: "@ultimabase/rest@workspace:packages/rest"
+  dependencies:
+    "@types/pg": "npm:8.23.1"
+    "@ultimabase/http": "workspace:*"
+    "@ultimabase/postgres": "workspace:*"
+    pg: "npm:8.23.1"
+    ultimabase: "workspace:*"
+    vite: "npm:8.3.4"
+    vitest: "npm:5.0.5"
+  peerDependencies:
+    "@ultimabase/http": ^0.0.0
+    ultimabase: ^0.0.0
+  languageName: unknown
+  linkType: soft
+
 "@ultimabase/roles@workspace:*, @ultimabase/roles@workspace:packages/roles":
   version: 0.0.0-use.local
   resolution: "@ultimabase/roles@workspace:packages/roles"
