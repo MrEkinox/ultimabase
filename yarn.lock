@@ -856,6 +856,22 @@ __metadata:
   languageName: node
   linkType: hard
 
+"create-ultimabase@workspace:packages/create-ultimabase":
+  version: 0.0.0-use.local
+  resolution: "create-ultimabase@workspace:packages/create-ultimabase"
+  dependencies:
+    "@ultimabase/graphql": "workspace:*"
+    "@ultimabase/http": "workspace:*"
+    "@ultimabase/testing": "workspace:*"
+    graphql: "npm:17.0.2"
+    ultimabase: "workspace:*"
+    vite: "npm:8.3.4"
+    vitest: "npm:5.0.5"
+  bin:
+    create-ultimabase: ./src/cli.ts
+  languageName: unknown
+  linkType: soft
+
 "detect-libc@npm:^2.0.3":
   version: 2.1.2
   resolution: "detect-libc@npm:2.1.2"

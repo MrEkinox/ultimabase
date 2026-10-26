@@ -9,5 +9,6 @@
 	"password": 1600,
 	"roles": 330,
 	"acl": 350,
-	"rest": 1200
+	"rest": 1200,
+	"create-ultimabase": 250
 }
