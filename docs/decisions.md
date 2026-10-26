@@ -5988,9 +5988,10 @@ Choice: completes D-15 and D-19, which promise plugin keys on the caller.
    function sees the completed one. A key two plugins return stops the
    request with a message naming both.
 4. Code that builds a user caller (auth's Identify, `asUser` in tests) builds
-   `{ kind: 'user', user }`; `as` accepts it. A caller already completed is
-   not completed again: a role given during a request counts from the next
-   request.
+   `{ kind: 'user', user }`, typed `Identity`: `as` takes one and a
+   plugin's `identify` returns one; rules, hooks and functions read the
+   completed `Caller`. A caller already completed is not completed again: a
+   role given during a request counts from the next request.
 
 Why: Identify belongs to the one plugin that knows the request (D-112); the
 roles of a user are another plugin's, and an access rule is synchronous
