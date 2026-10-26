@@ -43,18 +43,25 @@ it.each(examples)('%s is a complete application', (example) => {
 	})
 })
 
-/** The output of `node src/server.ts`, started then stopped as a host does. */
-async function started(example: string): Promise<string> {
+/** How `node src/server.ts` ended, started then stopped as a host does. */
+async function started(example: string): Promise<{
+	readonly output: string
+	readonly code: number | null
+	readonly signal: NodeJS.Signals | null
+}> {
 	const server = spawn(process.execPath, ['src/server.ts'], {
 		cwd: join('examples', example),
 		env: { ...process.env, PORT: '0' },
 		stdio: ['ignore', 'pipe', 'pipe'],
 	})
 	let output = ''
-	const exited = new Promise<void>((resolve) => {
+	const exited = new Promise<{
+		readonly code: number | null
+		readonly signal: NodeJS.Signals | null
+	}>((resolve) => {
 		// After the output is read to its end.
-		server.once('close', () => {
-			resolve()
+		server.once('close', (code, signal) => {
+			resolve({ code, signal })
 		})
 	})
 	const listening = new Promise<void>((resolve) => {
@@ -67,17 +74,19 @@ async function started(example: string): Promise<string> {
 	})
 	await Promise.race([listening, exited])
 	server.kill('SIGTERM')
-	await exited
-	return output
+	const ended = await exited
+	return { output, ...ended }
 }
 
 describe.concurrent('starting', () => {
 	it.each(examples.filter((example) => !onPostgres(example)))(
 		'%s starts, then stops on SIGTERM',
 		async (example) => {
-			const output = await started(example)
+			const { output, code, signal } = await started(example)
 			expect(output).toContain('Listening on')
 			expect(output).toContain('Application stopped.')
+			// It stops on the signal, then ends on it, as Node does by default.
+			expect({ code, signal }).toEqual({ code: null, signal: 'SIGTERM' })
 		},
 	)
 })

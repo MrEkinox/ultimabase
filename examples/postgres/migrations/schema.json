@@ -1,0 +1,91 @@
+{
+	"postgres": 1,
+	"tables": {
+		"project": {
+			"model": "Project",
+			"columns": {
+				"id": {
+					"field": "id",
+					"type": "uuid",
+					"nullable": false
+				},
+				"created_at": {
+					"field": "createdAt",
+					"type": "timestamptz",
+					"nullable": false
+				},
+				"updated_at": {
+					"field": "updatedAt",
+					"type": "timestamptz",
+					"nullable": false
+				},
+				"name": {
+					"field": "name",
+					"type": "text collate \"C\"",
+					"nullable": false
+				}
+			},
+			"primaryKey": {
+				"name": "project_pkey",
+				"columns": ["id"]
+			},
+			"uniques": {
+				"project_name_key": ["name"]
+			},
+			"checks": {},
+			"indexes": {},
+			"foreignKeys": {}
+		},
+		"task": {
+			"model": "Task",
+			"columns": {
+				"id": {
+					"field": "id",
+					"type": "uuid",
+					"nullable": false
+				},
+				"created_at": {
+					"field": "createdAt",
+					"type": "timestamptz",
+					"nullable": false
+				},
+				"updated_at": {
+					"field": "updatedAt",
+					"type": "timestamptz",
+					"nullable": false
+				},
+				"title": {
+					"field": "title",
+					"type": "text collate \"C\"",
+					"nullable": false
+				},
+				"done": {
+					"field": "done",
+					"type": "boolean",
+					"nullable": false
+				},
+				"project_id": {
+					"field": "project",
+					"type": "uuid",
+					"nullable": false
+				}
+			},
+			"primaryKey": {
+				"name": "task_pkey",
+				"columns": ["id"]
+			},
+			"uniques": {},
+			"checks": {},
+			"indexes": {
+				"task_project_id_idx": ["project_id"]
+			},
+			"foreignKeys": {
+				"task_project_id_fkey": {
+					"column": "project_id",
+					"table": "project",
+					"cascade": false
+				}
+			}
+		}
+	}
+}

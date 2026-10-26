@@ -6903,9 +6903,10 @@ Choice: amends D-31's example tests; completes D-60.
 3. One repository test keeps D-31's promise that each example starts as
    `yarn start` does: it runs every example's `node src/server.ts` on
    `PORT=0`, waits for its `Listening on` line, stops it with `SIGTERM` and
-   expects exit code 0. `postgres` starts in `yarn test:postgres` only: its
-   `app.postgres.test.ts` deploys its migrations into a schema of its own on
-   `TEST_DATABASE_URL`, then starts it.
+   expects its `Application stopped.` line, then its end on the signal it
+   sends itself again (D-91). `postgres` starts in `yarn test:postgres`
+   only: its `app.postgres.test.ts` deploys its migrations into a schema of
+   its own on `TEST_DATABASE_URL`, then starts it.
 4. The same repository test refuses an example without a `start` script of
    `node src/server.ts`, without a test, or whose `tsconfig.json` is missing
    from `yarn typecheck`.
