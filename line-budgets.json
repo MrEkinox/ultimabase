@@ -7,5 +7,6 @@
 	"graphql": 3070,
 	"auth": 650,
 	"password": 1580,
-	"roles": 330
+	"roles": 330,
+	"acl": 350
 }

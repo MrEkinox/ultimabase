@@ -6215,11 +6215,11 @@ Choice: amends D-71; Parse's ACL, stored in one string list.
    for a caller, its roles included, and is true for Master. A user or a
    role is given as `{ id }`; no permission given means both.
    `entries`, `fromEntries`, `toJSON` and `fromJSON` convert it.
-8. `acl()` without `default` is refused, by its types and at start. The
-   field's schema takes an `ACL` or `{ read, write }`, each subject `*`,
-   `user:<id>` or `role:<id>`. `@ultimabase/roles` is a peer dependency:
-   one copy of it keeps the key `rolesOf` reads (D-126) (amended
-   2026-10-26).
+8. `acl()` without `default` is refused, by its types and when its model
+   is defined. The field's schema takes an `ACL` or `{ read, write }`, each
+   subject `*`, `user:<id>` or `role:<id>`. `@ultimabase/roles` is a peer
+   dependency: one copy of it keeps the key `rolesOf` reads (D-126)
+   (amended 2026-10-26).
 
 Why: `access` says what a kind of caller may do on a model; an ACL says who
 may see or change one row, which only data can hold (a shared note, a

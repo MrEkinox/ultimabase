@@ -583,6 +583,24 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@ultimabase/acl@workspace:packages/acl":
+  version: 0.0.0-use.local
+  resolution: "@ultimabase/acl@workspace:packages/acl"
+  dependencies:
+    "@types/pg": "npm:8.23.1"
+    "@ultimabase/postgres": "workspace:*"
+    "@ultimabase/roles": "workspace:*"
+    "@ultimabase/testing": "workspace:*"
+    pg: "npm:8.23.1"
+    ultimabase: "workspace:*"
+    vite: "npm:8.3.4"
+    vitest: "npm:5.0.5"
+  peerDependencies:
+    "@ultimabase/roles": ^0.0.0
+    ultimabase: ^0.0.0
+  languageName: unknown
+  linkType: soft
+
 "@ultimabase/auth@workspace:*, @ultimabase/auth@workspace:packages/auth":
   version: 0.0.0-use.local
   resolution: "@ultimabase/auth@workspace:packages/auth"
@@ -674,7 +692,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@ultimabase/roles@workspace:packages/roles":
+"@ultimabase/roles@workspace:*, @ultimabase/roles@workspace:packages/roles":
   version: 0.0.0-use.local
   resolution: "@ultimabase/roles@workspace:packages/roles"
   dependencies:
