@@ -99,6 +99,7 @@ export function pluginCode(definition: unknown): PluginCode {
 		start: part('start'),
 		stop: part('stop'),
 		identify: part('identify'),
+		caller: part('caller'),
 		functions: part('functions'),
 		models: Object.freeze([...models]),
 		plugins: apisOf(name, [...requires, ...optional]),

@@ -82,7 +82,10 @@ export function listening(lines: string[], warnings: string[] = []): Logger {
 }
 
 /** A started application on a free port, with a signed-up user. */
-export async function started(database: Adapter = memory()) {
+export async function started(
+	database: Adapter = memory(),
+	plugins: Parameters<typeof defineApp>[0]['plugins'] = [],
+) {
 	const lines: string[] = []
 	const warnings: string[] = []
 	const app = defineApp({
@@ -92,6 +95,7 @@ export async function started(database: Adapter = memory()) {
 			graphqlPlugin(),
 			authPlugin(),
 			signing.plugin(),
+			...(plugins ?? []),
 		],
 		models: [User],
 		logger: listening(lines, warnings),

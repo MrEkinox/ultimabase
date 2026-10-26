@@ -76,7 +76,14 @@ export type {
 } from './plugin.ts'
 export type { Queries } from './query.ts'
 export { definePlugin } from './plugin.ts'
-export type { Caller, CallerRule, Register, UserOf } from './rules.ts'
+export type {
+	Caller,
+	CallerRule,
+	Identity,
+	Register,
+	UserCallerKeys,
+	UserOf,
+} from './rules.ts'
 export { allOf, allow, anyOf, isMaster, master } from './rules.ts'
 export { transaction } from './transaction.ts'
 export type {

@@ -53,6 +53,8 @@ export type PluginCode = {
 	readonly stop: Function | undefined
 	/** Who sends a request, if the plugin knows it (D-112). */
 	readonly identify: Function | undefined
+	/** The keys it gives a user caller (D-121). */
+	readonly caller: Function | undefined
 	/** Its own models, which no plugin is given (D-110). */
 	readonly models: readonly unknown[]
 	/** Builds its functions when the application starts (D-113). */

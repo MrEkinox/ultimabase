@@ -9,8 +9,17 @@ import { pluginCode } from './plugin-code.ts'
 import type { FieldShape, ModelHooks, ModelShape } from './model.ts'
 import type { Row, SchemaModel } from './adapter.ts'
 import type { Queries, QueryOptions, UniqueWhere } from './query.ts'
-import type { Caller } from './rules.ts'
+import type {
+	Caller,
+	Identity,
+	Register,
+	UserCallerKeys,
+	UserOf,
+} from './rules.ts'
 import type { pluginTypes } from './symbols.ts'
+
+/** The keys of a user caller a plugin gives (D-121). */
+type CallerKeys = Partial<UserCallerKeys> & object
 
 /**
  * What a plugin adds to the models that use it (D-57). `this['fields']` is
@@ -251,7 +260,15 @@ export type PluginDefinition<T extends PluginTypes> = {
 	readonly identify?: (
 		request: Request,
 		context: PluginContext<T>,
-	) => Promise<Caller | undefined>
+	) => Promise<Identity | undefined>
+	/**
+	 * The plugin's keys of a user caller, given once per caller the kernel
+	 * receives, each plugin's in the order of `plugins` (D-121).
+	 */
+	readonly caller?: (
+		identity: { readonly kind: 'user'; readonly user: UserOf<Register> },
+		context: PluginContext<T>,
+	) => CallerKeys | Promise<CallerKeys>
 	/** Its own models, which no plugin is given (D-110). */
 	readonly models?: readonly ModelShape[]
 	/**

@@ -3,6 +3,7 @@
 // waits for (D-91), one per realm.
 import type { Adapter } from './adapter.ts'
 import type { Logger } from './app-options.ts'
+import type { Complete } from './complete.ts'
 import type { FunctionDefinition } from './definition.ts'
 import type { Resolved } from './schema.ts'
 
@@ -15,6 +16,8 @@ export type Running = {
 	/** Each plugin's API, by its name (D-16). */
 	readonly apis: ReadonlyMap<string, unknown>
 	readonly work: Work
+	/** Completes a user caller with its plugins' keys (D-121). */
+	readonly complete: Complete
 }
 
 /** The operations running, `*Commit` hooks included, that `stop` waits for. */

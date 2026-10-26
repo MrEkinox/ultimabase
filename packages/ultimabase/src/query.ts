@@ -11,7 +11,7 @@ import type {
 	UpdateData,
 } from './record.ts'
 import type { Exact } from './exact.ts'
-import type { Caller } from './rules.ts'
+import type { Identity } from './rules.ts'
 import type { fieldType } from './symbols.ts'
 
 type KindOf<X> = X extends { readonly [fieldType]: { readonly kind: infer K } }
@@ -181,7 +181,7 @@ export type Payload<F, A> = A extends { readonly select: infer S }
 		? RecordOf<F> & Included<F, I>
 		: RecordOf<F>
 
-export type QueryOptions = { readonly as?: Caller }
+export type QueryOptions = { readonly as?: Identity }
 
 /** `findMany` and `findFirst`; `cursor` starts at a unique target. */
 export type FindManyArgs<F, X = never> = {

@@ -6,7 +6,8 @@ import type { Logger } from './app-options.ts'
 import type { PluginRecord } from './definition.ts'
 import type { FunctionSource, Functions } from './functions.ts'
 import type { Identify, PluginIdentify } from './identify.ts'
-import type { Caller } from './rules.ts'
+import type { PluginCaller } from './complete.ts'
+import type { Identity } from './rules.ts'
 import type { ExposedFunction, ExposedModel, ModelQueries } from './plugin.ts'
 import type { ModelShape } from './model.ts'
 import type { ModelInfo, Resolved } from './schema.ts'
@@ -200,29 +201,51 @@ export function buildApis(
 	}
 }
 
+const inOrder = (
+	records: readonly PluginRecord[],
+	plugins: readonly Installed[],
+): readonly Installed[] =>
+	plugins.toSorted(
+		(a, b) =>
+			records.findIndex((record) => record.code === a.code) -
+			records.findIndex((record) => record.code === b.code),
+	)
+
 /** Each plugin's `identify` with its context, in the order of `plugins`. */
 export function pluginIdentifiers(
 	records: readonly PluginRecord[],
 	plugins: readonly Installed[],
 ): readonly PluginIdentify[] {
-	return plugins
-		.toSorted(
-			(a, b) =>
-				records.findIndex((record) => record.code === a.code) -
-				records.findIndex((record) => record.code === b.code),
-		)
-		.flatMap(({ code, context }) => {
-			const identify = code.identify
-			if (identify === undefined) return []
-			return [
-				async (request: Request) => {
-					const caller: unknown = await Reflect.apply(identify, undefined, [
-						request,
-						context,
-					])
-					// oxlint-disable-next-line typescript/no-unsafe-type-assertion -- its type is PluginDefinition's; each query checks its caller (D-19).
-					return caller as Caller | undefined
-				},
-			]
-		})
+	return inOrder(records, plugins).flatMap(({ code, context }) => {
+		const identify = code.identify
+		if (identify === undefined) return []
+		return [
+			async (request: Request) => {
+				const caller: unknown = await Reflect.apply(identify, undefined, [
+					request,
+					context,
+				])
+				// oxlint-disable-next-line typescript/no-unsafe-type-assertion -- its type is PluginDefinition's; each query checks its caller (D-19).
+				return caller as Identity | undefined
+			},
+		]
+	})
+}
+
+/** Each plugin's `caller` with its context, in the order of `plugins`. */
+export function pluginCallers(
+	records: readonly PluginRecord[],
+	plugins: readonly Installed[],
+): readonly PluginCaller[] {
+	return inOrder(records, plugins).flatMap(({ code, context }) => {
+		const caller = code.caller
+		if (caller === undefined) return []
+		return [
+			{
+				plugin: code.name,
+				caller: async (identity: Identity): Promise<unknown> =>
+					Reflect.apply(caller, undefined, [identity, context]),
+			},
+		]
+	})
 }

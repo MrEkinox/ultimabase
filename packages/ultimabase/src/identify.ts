@@ -3,7 +3,8 @@
 import { createHash, timingSafeEqual } from 'node:crypto'
 import type { Logger, MasterKey } from './app-options.ts'
 import { PublicError, Refused } from './errors.ts'
-import type { Caller } from './rules.ts'
+import type { Complete } from './complete.ts'
+import type { Caller, Identity } from './rules.ts'
 import { createMaster } from './rules.ts'
 
 /** The header a transport reads the master key from. */
@@ -11,7 +12,7 @@ export const masterKeyHeader = 'x-ultimabase-master-key'
 
 export type Identify = (request: Request) => Promise<Caller>
 /** A plugin's `identify`, bound to its context. */
-export type PluginIdentify = (request: Request) => Promise<Caller | undefined>
+export type PluginIdentify = (request: Request) => Promise<Identity | undefined>
 
 const anonymous: Caller = Object.freeze({ kind: 'anonymous' })
 const keyMaster = createMaster('key')
@@ -37,11 +38,13 @@ function refusalOf(masterKey: MasterKey): string | undefined {
 /**
  * Reads the master key and `NODE_ENV` once, when the application starts.
  * `plugins` is read on each request: it is filled once their contexts exist.
+ * The caller a plugin knows is completed (D-121).
  */
 export function identifier(
 	masterKey: MasterKey,
 	logger: Logger,
 	plugins: readonly PluginIdentify[],
+	complete: Complete,
 ): Identify {
 	const refusal = refusalOf(masterKey)
 	const key = typeof masterKey === 'object' ? masterKey.key : masterKey
@@ -73,7 +76,7 @@ export function identifier(
 		if (sent === null) {
 			for (const identify of plugins) {
 				const caller = await identify(request)
-				if (caller !== undefined) return caller
+				if (caller !== undefined) return complete(caller)
 			}
 			return anonymous
 		}

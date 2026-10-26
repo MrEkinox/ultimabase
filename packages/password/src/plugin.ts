@@ -3,10 +3,10 @@
 import type { Auth, AuthApi } from '@ultimabase/auth'
 import { authPlugin } from '@ultimabase/auth'
 import type {
-	Caller,
 	Client,
 	ExposedModel,
 	Field,
+	Identity,
 	PluginOf,
 	PluginTypes,
 	Queries,
@@ -56,7 +56,7 @@ export interface PasswordOptions {
 	readonly sendEmail?: SendEmail
 }
 
-type Options = { readonly as?: Caller }
+type Options = { readonly as?: Identity }
 /** A transport's client, which counts the attempt and gets the cookie (D-115). */
 type SignInOptions = Options & { readonly client?: Client }
 type CreateData<F> = Parameters<Queries<F>['create']>[0]['data']
@@ -172,7 +172,7 @@ function signUpFields(
 }
 
 /** A sign-up's data, checked against the list unless the caller is Master. */
-function signUpData(state: State, data: object, caller: Caller): object {
+function signUpData(state: State, data: object, caller: Identity): object {
 	if (isMaster(caller)) return data
 	if (state.signUp === false) {
 		throw new PublicError('ACCESS_DENIED', 'Sign-up is closed.')
@@ -207,7 +207,7 @@ function configOf(
 	return { users, fields }
 }
 
-const callerOf = (options: Options | undefined): Caller =>
+const callerOf = (options: Options | undefined): Identity =>
 	options?.as ?? { kind: 'anonymous' }
 
 const definition = definePlugin<Password>({
