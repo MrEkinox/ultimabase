@@ -16,6 +16,7 @@ const template = fileURLToPath(new URL('../template', import.meta.url))
 
 /** The packages the starter runs beside UltimaBase's, as the repository tests them. */
 export const others = {
+	'@types/node': '^24.19.2',
 	graphql: '^17.0.2',
 	vite: '^8.3.4',
 	vitest: '^5.0.5',
@@ -44,6 +45,7 @@ const manifestOf = (name: string): object => {
 			ultimabase: ours,
 		},
 		devDependencies: {
+			'@types/node': others['@types/node'],
 			'@ultimabase/testing': ours,
 			vite: others.vite,
 			vitest: others.vitest,

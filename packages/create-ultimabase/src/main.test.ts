@@ -60,7 +60,10 @@ it('writes the starter in the directory it is given', async () => {
 		name: 'blog',
 		scripts: { start: 'node src/server.ts', test: 'vitest' },
 		dependencies: { ultimabase: '^0.0.0', '@ultimabase/http': '^0.0.0' },
-		devDependencies: { '@ultimabase/testing': '^0.0.0' },
+		devDependencies: {
+			'@types/node': '^24.19.2',
+			'@ultimabase/testing': '^0.0.0',
+		},
 	})
 	expect(readFileSync(join(cwd, 'blog/README.md'), 'utf8')).toMatch(
 		/^# blog\n[\s\S]*`npm start`/u,

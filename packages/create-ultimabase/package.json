@@ -23,6 +23,7 @@
 		"bin": "./dist/cli.js"
 	},
 	"devDependencies": {
+		"@types/node": "24.19.2",
 		"@ultimabase/graphql": "workspace:*",
 		"@ultimabase/http": "workspace:*",
 		"@ultimabase/testing": "workspace:*",

@@ -416,7 +416,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/node@npm:^24.0.0":
+"@types/node@npm:24.19.2, @types/node@npm:^24.0.0":
   version: 24.19.2
   resolution: "@types/node@npm:24.19.2"
   dependencies:
@@ -860,6 +860,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "create-ultimabase@workspace:packages/create-ultimabase"
   dependencies:
+    "@types/node": "npm:24.19.2"
     "@ultimabase/graphql": "workspace:*"
     "@ultimabase/http": "workspace:*"
     "@ultimabase/testing": "workspace:*"

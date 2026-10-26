@@ -6821,7 +6821,9 @@ Choice: completes D-40, D-61 and D-80.
    `src/app.test.ts` written with `testApplication`, `package.json`,
    `tsconfig.json`, `.gitignore` and a short README. Node runs its
    TypeScript, with no build. Comments in `src/app.ts` say where PostgreSQL
-   and REST go; the starter depends on nothing it does not run. Its
+   and REST go; the starter depends on nothing it does not run, except
+   `@types/node`, which its editor needs for `process` and `node:` imports
+   since TypeScript 6 includes no types by default. Its
    UltimaBase packages take `create-ultimabase`'s own version (D-60).
 7. The starter's files live in the package as a real application: the
    repository typechecks them and runs their test, and the package's test
