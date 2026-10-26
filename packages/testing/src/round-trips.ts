@@ -5,7 +5,7 @@
 import type { Adapter } from 'ultimabase'
 import { defineApp, defineModel, master, transaction } from 'ultimabase'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { asUser } from './as-user.ts'
+import { suiteUser } from './as-user.ts'
 import { silent } from './silent.ts'
 
 const M = { as: master }
@@ -71,7 +71,7 @@ const Memo = defineModel({
 	fields: (f) => ({ text: f.string() }),
 }).with({ hooks: { afterCreateCommit: async () => {} } })
 
-const user = asUser({ id: me })
+const user = suiteUser(me)
 
 export function roundTrips(create: () => Adapter, counted: () => number): void {
 	const started = () =>

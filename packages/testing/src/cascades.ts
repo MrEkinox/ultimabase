@@ -3,7 +3,7 @@
 import type { Adapter } from 'ultimabase'
 import { defineApp, defineModel, master } from 'ultimabase'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { asUser } from './as-user.ts'
+import { suiteUser } from './as-user.ts'
 import { silent } from './silent.ts'
 
 const M = { as: master }
@@ -104,7 +104,7 @@ const Poster = defineModel({
 })
 
 const by = (id: string) => ({ connect: { id } })
-const user = { as: asUser({ id: '00000000-0000-4000-8000-000000000000' }) }
+const user = { as: suiteUser('00000000-0000-4000-8000-000000000000') }
 
 /** A shop with an aisle, an item in it and a clerk. */
 const stocked = async (name: string) => {
