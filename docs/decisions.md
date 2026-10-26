@@ -255,6 +255,8 @@ export const Todo = defineModel({
 
 ## D-13: Plugins with a model of their own add a `define<Kind>` entry
 
+Amended by D-123.
+
 Choice: a plugin that needs a specific kind of model exports its own entry,
 named `define<Kind>` (roles: `defineRole`), which builds an ordinary model
 through the kernel's `defineModel`, with the plugin in its `use` (D-24).
@@ -1827,6 +1829,8 @@ export const softDeletePlugin: PluginOf<SoftDelete> =
 ```
 
 ## D-71: What hooks receive and return
+
+Amended by D-124.
 
 Choice: the D-15 hooks take one object of facts, `caller` included, and
 return nothing, except `beforeFind`.
@@ -5908,4 +5912,328 @@ Error: postgres() was given no url: is the variable it reads set?
 # After
 $ npx ultimabase sync
 postgres() was given no url: is the variable it reads set?
+```
+
+## D-120: String lists, their filters and their index
+
+Choice: completes D-09 and D-52.
+
+1. `f.string({ list: true })` is a list of strings, typed
+   `readonly string[]`. A list is never `null`: it is `[]` when nothing is
+   written, so `optional` is refused on it. A write replaces the whole list;
+   an element is a non-empty string, never `null`.
+2. A list filters with `has` (holds this string) and `hasSome` (holds one of
+   these strings), Prisma's names; `NOT` gives their opposite. A list cannot
+   be sorted, compared with `equals`, nor be `unique`. `hasEvery`, `isEmpty`
+   and Prisma's `push` wait for a use.
+3. PostgreSQL stores it as `text[] not null default '{}'`; `has` is
+   `@> array[...]`, `hasSome` is `&&`. `memory()` keeps an array. The
+   contract suite runs both. GraphQL shows `[String!]!`, written
+   `[String!]`, with a filter input of `has` and `hasSome`.
+4. `indexes: [{ fields: ['tags'] }]` gives a list a GIN index, the kind
+   PostgreSQL uses for `@>` and `&&`: `create index "post_tags_idx" on
+"post" using gin ("tags");`. An index on a list holds that list alone, and
+   `unique` is refused on it. A list gets no index by itself: GIN slows every
+   write of the row.
+
+Why: tags, labels and an ACL's entries (D-124) are lists of strings, and a
+list in the row reads in the row's query, where a join table needs one more.
+A GIN index turns `&&` from a scan of the table into an index lookup; an ACL
+filters every read through it, so it must exist from the first release.
+Rejected: lists of every type now (only strings have a use); a `string[]`
+stored as `json` (no index, no filter); a join table for an ACL;
+`btree_gin`, an extension, to mix a list and a scalar in one index.
+Example:
+
+```ts
+// Before: tags as a many-to-many relation, a join table and a join per read
+fields: (f) => ({ tags: f.many(() => Tag) })
+await Post.findMany({ where: { tags: { some: { name: 'ts' } } } })
+
+// After
+export const Post = defineModel({
+	name: 'Post',
+	fields: (f) => ({ tags: f.string({ list: true }) }),
+	indexes: [{ fields: ['tags'] }],
+})
+await Post.findMany({ where: { tags: { has: 'ts' } } })
+await Post.findMany({ where: { tags: { hasSome: ['ts', 'node'] } } })
+```
+
+## D-121: Plugins complete a user caller
+
+Choice: completes D-15 and D-19, which promise plugin keys on the caller.
+
+1. A plugin may give `definePlugin` a `caller` part: given a user caller and
+   its context, it returns the plugin's keys, such as `{ roles }` (D-123). It
+   runs for a user caller only; anonymous and Master callers get no plugin
+   key in 0.1.
+2. A plugin types its keys by declaration merging, as the user model is
+   (D-62): `declare module 'ultimabase' { interface UserCallerKeys { ... } }`.
+   `Extract<Caller, { kind: 'user' }>` then holds them, required.
+3. The kernel completes a user caller the first time it receives one: from
+   Identify, in an operation's `as`, or in a function call. It runs every
+   plugin's `caller`, in the order of `plugins`, and keeps the completed
+   caller for that object, so a request pays once, and every hook, rule and
+   function sees the completed one. A key two plugins return stops the
+   request with a message naming both.
+4. Code that builds a user caller (auth's Identify, `asUser` in tests) builds
+   `{ kind: 'user', user }`; `as` accepts it. A caller already completed is
+   not completed again: a role given during a request counts from the next
+   request.
+
+Why: Identify belongs to the one plugin that knows the request (D-112); the
+roles of a user are another plugin's, and an access rule is synchronous
+(D-76), so its keys must be read before the rules run. Completing in the
+kernel, on the object, covers the callers no request built (a script, a
+test) without each builder knowing every plugin.
+Rejected: a second Identify chain (the first plugin to answer wins, D-112);
+asynchronous rules that query the roles; keys on anonymous callers now
+(no 0.1 plugin has one; a tenant plugin decides it with its own decision).
+Example:
+
+```ts
+// The roles plugin (D-123)
+declare module 'ultimabase' {
+	interface UserCallerKeys {
+		readonly roles: readonly { readonly id: string; readonly name: string }[]
+	}
+}
+definePlugin<Roles>({
+	name: 'roles',
+	manifest,
+	caller: async ({ user }, context) => ({ roles: await rolesOf(user, context) }),
+})
+
+// An application's rule: the keys are there, synchronously
+access: {
+	delete: ({ caller }) =>
+		caller.kind === 'user' && caller.roles.some((role) => role.name === 'Admin'),
+}
+```
+
+## D-122: Plugin field types at run time
+
+Choice: completes D-32, typed until now and not run.
+
+1. The kernel exports `defineFieldType`, which a plugin calls once:
+   `plugin`, the plugin's name; `stored`, a kernel field (`f.string({ list:
+true })`) that says how the value is stored, filtered and indexed;
+   `decode` and `encode`, between the stored value and the value code sees
+   (an `ACL`, D-124); `schema`, a Standard Schema (D-23) that validates what
+   a client writes and gives the value; `toJSON`, what a client reads.
+2. It returns a field builder (`aclField()`), which a plugin uses in its
+   `addedFields` (D-89) or an application imports, as D-32 says. `.with`
+   takes `access` only (D-57).
+3. Filters and indexes read the stored form: a plugin's trusted `where`
+   (`beforeFind`, D-71) filters `acl` with `hasSome`. A client cannot filter
+   or sort on a plugin field type in 0.1.
+4. GraphQL shows such a field as its `JSON` scalar, written and read through
+   `schema` and `toJSON`. A typed GraphQL shape waits for a field type that
+   needs one.
+5. A plugin may add indexes to the models that use it, in the shape of D-52:
+   `addedIndexes: [{ fields: ['acl'] }]`.
+
+Why: D-68 puts plugin field types in 0.1, and the ACL is the first: code
+works with an `ACL`, the database with `text[]`, a client with
+`{ read, write }`. Storing through a kernel field keeps migrations, filters
+and indexes in the kernel and its adapters, which a plugin cannot extend.
+Rejected: a raw column type a plugin names (each adapter would have to know
+it); an `ACL` code reads as `string[]` and wraps itself; a typed GraphQL
+shape now.
+Example:
+
+```ts
+// Before: an ACL is a list code reads and writes as strings
+note.acl.includes('read:user:u_1')
+await Note.update({ where, data: { acl: [...note.acl, 'read:user:u_2'] } }, as)
+
+// After
+export const aclField = defineFieldType({
+	plugin: 'acl',
+	stored: (f) => f.string({ list: true }),
+	decode: (entries) => ACL.fromEntries(entries),
+	encode: (acl) => acl.entries(),
+	schema: aclSchema,
+	toJSON: (acl) => acl.toJSON(),
+})
+note.acl.userCan(paul, 'read')
+await Note.update(
+	{ where, data: { acl: note.acl.allowUser(paul, 'read') } },
+	as,
+)
+```
+
+## D-123: `rolesPlugin()`, `defineRole` and roles inside roles
+
+Choice: amends D-13; Parse's roles.
+
+1. `@ultimabase/roles` exports `rolesPlugin()` and `defineRole`. An
+   application has one role model in 0.1: a second `defineRole` stops
+   startup. D-13's several role models wait for a use.
+2. `defineRole({ name, members: () => User, fields })` builds a model with a
+   unique `name` string, `members` (a `many` relation to the users) and
+   `inherits` with its inverse `inheritedBy` (`many` relations to roles).
+   The user model declares its side, `roles: f.many(() => Role)`, as every
+   relation does (D-37).
+3. `Admin.inherits` holding `Moderator` means every member of Admin is a
+   moderator, through as many levels as are written. A cycle stops the
+   expansion, it does not loop.
+4. The plugin completes a user caller (D-121) with `caller.roles`, every role
+   the user has, inherited ones included, each `{ id, name }`. It reads them
+   as Master, one query for the user's roles and one per level of
+   inheritance: an authenticated request pays at least one query.
+5. `hasRole('Admin', 'Editor')` is a ready-made rule (D-10): true for a user
+   with one of the roles. Code names a role by its name; an ACL holds its id
+   (D-124), so renaming a role keeps its ACLs and breaks the rules that name
+   it, which are code.
+
+Why: the maintainer's applications manage rights by role, as Parse does
+(D-68), and need roles inside roles from 0.1. Parse's `roles` relation reads
+backwards (`Moderator.roles` holds Admin, so Admins are moderators);
+`inherits` says it in the direction rights flow. One role model keeps
+`caller.roles` one list.
+Rejected: Parse's `roles` relation name; several role models now; roles
+read on each rule (rules are synchronous, D-76); roles on the user as a
+string list, without members or inheritance.
+Example:
+
+```ts
+// Before: Parse
+const moderators = await new Parse.Query(Parse.Role)
+	.equalTo('name', 'Moderator')
+	.first({ useMasterKey: true })
+moderators.getRoles().add(admins)
+await moderators.save(null, { useMasterKey: true })
+
+// After
+export const Role = defineRole({
+	name: 'Role',
+	members: () => User,
+	fields: (f) => ({ color: f.string({ optional: true }) }),
+})
+export const User = defineUser({
+	name: 'User',
+	fields: (f) => ({ roles: f.many(() => Role) }),
+})
+await Role.update(
+	{
+		where: { id: admin.id },
+		data: { inherits: { connect: { id: moderator.id } } },
+	},
+	{ as: master },
+)
+export const Post = defineModel({ name: 'Post', fields }).with({
+	access: { read: allow.public, delete: hasRole('Moderator') },
+})
+```
+
+## D-124: `acl()`, per-row rights, and the `ACL` class
+
+Choice: amends D-71; Parse's ACL, stored in one string list.
+
+1. `@ultimabase/acl` exports `aclPlugin()`, `acl()` for a model's `use`, and
+   the `ACL` class. `acl({ default })` adds an `acl` field (D-122) and its
+   GIN index (D-120). `default` is required: it gives the ACL of a row
+   created without one, from the caller. The plugin works without
+   `rolesPlugin()` (public and users only); with it, ACLs name roles.
+2. An entry is a permission and a subject: `read` or `write` (update and
+   delete), and the public (`*`), a user (`user:<id>`) or a role
+   (`role:<id>`). Stored: `['read:*', 'read:user:u_1', 'write:role:r_9']`.
+   Read by a client: `{ read: ['*', 'user:u_1'], write: ['role:r_9'] }`.
+3. `acl: null` adds no restriction. An empty `ACL` lets only Master through.
+4. An operation passes `access` and the ACL both; Master skips both. The
+   plugin's `beforeFind` filters `acl` null or `hasSome` of the caller's keys:
+   `*`, its user and every role of `caller.roles`. A row a caller cannot read
+   is absent, at every level.
+5. `beforeFind` gets `operation`: `'update'` or `'delete'` for the rows the
+   write targets, `'read'` everywhere else. For a write the plugin filters
+   on `write` and `read` both: a caller writes the rows it sees. A row
+   written without the right is absent, so `update` says it was not found
+   and `updateMany` skips it, in one statement (D-102).
+6. Only Master writes `acl`, on create and on update; a client that sends
+   it is refused, and a row it creates gets `default`. Server code (a
+   function, a hook) changes an ACL as Master, after its own checks: a
+   function that shares a note is how a user gives rights. No query filters
+   by ACL in 0.1 (D-122).
+7. `ACL` is immutable: each method returns a new one. `new ACL()` is empty.
+   `allowPublic`, `allowUser` and `allowRole` add, `denyPublic`, `denyUser`
+   and `denyRole` remove, given permissions or all of them.
+   `publicCan`, `userCan` and `roleCan` read one entry; `users` and `roles`
+   list the ids having a permission; `allows(caller, permission)` answers
+   for a caller, its roles included. `entries`, `fromEntries`, `toJSON` and
+   `fromJSON` convert it.
+
+Why: `access` says what a kind of caller may do on a model; an ACL says who
+may see or change one row, which only data can hold (a shared note, a
+document of a team). One `text[]` with a GIN index keeps the filter one
+index lookup in the row's query. A filter on the write's target keeps the
+single statement of D-102, where a hook per row would not, and refuses as
+`access.read` does. Ids keep an ACL valid when a role is renamed. A right
+to edit a row is not a right to give it away: with Parse's rule, any editor
+can remove the owner, share the row or make it public. A function says what
+sharing allows, in one place.
+Rejected: Parse's rule, where a caller that may write a row may change its
+ACL; a rule of `acl({ access })` that opens the field to clients (one
+general rule for every way of sharing); Parse's `_rperm` and `_wperm`, two
+columns for one filter; an
+`authenticated` subject (a role, if an application needs it); ACLs as
+relations; a check per row in `beforeUpdate`; write rights without read
+(Parse allows them; a write that cannot see its row cannot return it);
+a default ACL left implicit.
+Example:
+
+```ts
+// Before: Parse
+const note = new Parse.Object('Note')
+const acl = new Parse.ACL(user)
+acl.setReadAccess(paul.id, true)
+acl.setRoleWriteAccess('Compta', true)
+note.setACL(acl)
+await note.save(null, { sessionToken })
+
+// After
+import { ACL, acl } from '@ultimabase/acl'
+export const Note = defineModel({
+	name: 'Note',
+	use: [
+		acl({
+			default: ({ caller }) =>
+				caller.kind === 'user'
+					? new ACL().allowUser(caller.user, 'read', 'write')
+					: new ACL(),
+		}),
+	],
+	fields: (f) => ({ title: f.string() }),
+}).with({ access: { read: allow.public, write: isAuthenticated } })
+
+const note = await Note.create({ data: { title: 'Q3' } }, { as: caller })
+note.acl.allows(caller, 'write') // true
+await Note.update(
+	{ where: { id: note.id }, data: { acl: note.acl.allowUser(paul, 'read') } },
+	{ as: caller },
+) // refused: only Master writes Note.acl
+
+// Sharing, as Google Docs does: a function checks, then writes as Master
+export const shareNote = defineFunction({
+	name: 'shareNote',
+	input: z.object({ note: z.string(), user: z.string() }),
+	output: Note,
+	run: async ({ input, caller }) => {
+		// Read as the caller: the ACL hides a note it cannot see.
+		const note = await Note.findUnique(
+			{ where: { id: input.note } },
+			{ as: caller },
+		)
+		if (note === null || !note.acl.allows(caller, 'write'))
+			throw new PublicError('NOTE_NOT_SHARED', 'You cannot share this note.')
+		return Note.update(
+			{
+				where: { id: note.id },
+				data: { acl: note.acl.allowUser({ id: input.user }, 'read') },
+			},
+			{ as: master },
+		)
+	},
+}).with({ access: isAuthenticated })
 ```

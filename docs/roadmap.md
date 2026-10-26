@@ -177,7 +177,7 @@ Exit: an example with sign-up, sign-in and rules on `caller.user`.
 - [x] Decide whether D-103 stays: reading the changed row from its
       RETURNING saves no round trip, 0.06 to 0.09 ms in `bench/writes`, for
       about 25 lines of the PostgreSQL write compiler.
-- [ ] Decide roles and ACL (D-13, D-68).
+- [x] Decide roles and ACL (D-13, D-68, D-120 to D-124).
 - [ ] Roles (`defineRole`, D-13) and ACL (D-68).
 - [ ] Decide nested creation (D-20, D-68).
 - [ ] Nested creation, `create` in a relation write (D-20, D-68).
