@@ -87,7 +87,11 @@ async function one(
 	const name = context.model.name
 	const target = oneWrite(value, `data.${field.name}`, name, creating)
 	const skips = trusted(context, field, value)
-	if (target !== undefined) context.plan.connect(field.target, [target], skips)
+	// A key the other side holds changes its row: it is updated (D-124).
+	const operation = field.stored ? 'read' : 'update'
+	if (target !== undefined) {
+		context.plan.connect(field.target, [target], skips, operation)
+	}
 	if (field.stored) {
 		if (target === undefined && !field.optional) {
 			context.plan.issues.push({ path: [field.name], message: 'Required.' })
@@ -131,7 +135,8 @@ function many(
 		creating,
 	)
 	const skips = trusted(context, field, value)
-	context.plan.connect(field.target, connect, skips)
+	const operation = field.join ? 'read' : 'update'
+	context.plan.connect(field.target, connect, skips, operation)
 	if (field.join) {
 		const link = {
 			model: context.model.name,

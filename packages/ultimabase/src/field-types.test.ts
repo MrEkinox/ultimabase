@@ -167,6 +167,18 @@ describe('a field type definition', () => {
 		const post = schemaOf(options).models.find(({ name }) => name === 'Post')
 		expect(post?.indexes).toMatchObject([{ fields: ['tags'] }])
 	})
+
+	it('gives the adapter no default, a value only code reads (D-122)', () => {
+		const options = {
+			database: memory(),
+			models: [Note],
+			plugins: [tags.plugin()],
+		}
+		const note = schemaOf(options).models.find(({ name }) => name === 'Note')
+		const labels = note?.fields.find(({ name }) => name === 'labels')
+		expect(labels).toMatchObject({ type: 'stringList' })
+		expect(labels).not.toHaveProperty('default')
+	})
 })
 
 describe('a field type value', () => {

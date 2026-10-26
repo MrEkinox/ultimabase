@@ -6037,7 +6037,9 @@ true })`) that says how the value is stored, filtered and indexed;
    `addedFields` (D-89) or an application imports, as D-32 says. It takes
    `default` only, a value or a function of `{ caller }` (D-53); the stored
    field says whether the field may be `null`, and `null` is stored as is,
-   never decoded nor encoded. `.with` takes `access` only (D-57).
+   never decoded nor encoded. A default is never the column's (D-105): the
+   rows stored before the field get what the stored field gets without
+   one, `[]` for a list (amended 2026-10-26). `.with` takes `access` only (D-57).
 3. A write runs, in order: the `access` rules, on what the caller sent
    (D-67); the defaults; `schema`, on every written value, a default's
    included and a hook's not (D-67); the hooks, which see the value;
@@ -6192,7 +6194,14 @@ Choice: amends D-71; Parse's ACL, stored in one string list.
    write targets, `'read'` everywhere else. For a write the plugin filters
    on `write` and `read` both: a caller writes the rows it sees. A row
    written without the right is absent, so `update` says it was not found
-   and `updateMany` skips it, in one statement (D-102).
+   and `deleteMany` skips it, in one statement (D-102). A relation written
+   from the other side that changes the target's row, its key (D-78), is
+   `'update'` of that row, so its `connect` to a row the caller cannot
+   write is `NOT_FOUND`, as one it cannot read (D-71); a join's link, which
+   leaves the row as it is, and any other connected row are `'read'`. A
+   cascade runs no
+   `beforeFind` (D-90). `operation` is `'read' | 'update' | 'delete'`, for
+   the application's hooks and the plugins' (amended 2026-10-26).
 6. Only Master writes `acl`, on create and on update; a client that sends
    it is refused, and a row it creates gets `default`. Server code (a
    function, a hook) changes an ACL as Master, after its own checks: a
@@ -6203,8 +6212,14 @@ Choice: amends D-71; Parse's ACL, stored in one string list.
    and `denyRole` remove, given permissions or all of them.
    `publicCan`, `userCan` and `roleCan` read one entry; `users` and `roles`
    list the ids having a permission; `allows(caller, permission)` answers
-   for a caller, its roles included. `entries`, `fromEntries`, `toJSON` and
-   `fromJSON` convert it.
+   for a caller, its roles included, and is true for Master. A user or a
+   role is given as `{ id }`; no permission given means both.
+   `entries`, `fromEntries`, `toJSON` and `fromJSON` convert it.
+8. `acl()` without `default` is refused, by its types and at start. The
+   field's schema takes an `ACL` or `{ read, write }`, each subject `*`,
+   `user:<id>` or `role:<id>`. `@ultimabase/roles` is a peer dependency:
+   one copy of it keeps the key `rolesOf` reads (D-126) (amended
+   2026-10-26).
 
 Why: `access` says what a kind of caller may do on a model; an ACL says who
 may see or change one row, which only data can hold (a shared note, a

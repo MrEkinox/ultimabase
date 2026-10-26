@@ -159,8 +159,12 @@ function scalarField(name: string, field: FieldDefinition): FieldInfo {
 		optional: field.options['optional'] === true,
 		unique: field.options['unique'] === true,
 		...(typeof dbName === 'string' ? { dbName } : {}),
-		// `null` is no value: a create without one stores none either.
-		...(fixed === undefined || fixed === null || typeof fixed === 'function'
+		// `null` is no value: a create without one stores none either. A
+		// field type's default is a value code sees, never a column's (D-122).
+		...(fixed === undefined ||
+		fixed === null ||
+		typeof fixed === 'function' ||
+		field.codec !== undefined
 			? {}
 			: { default: fixed }),
 		options: field.options,

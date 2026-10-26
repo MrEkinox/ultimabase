@@ -184,10 +184,15 @@ describe('a plugin on its models', () => {
 	it('gives its hooks the model, its options, its APIs and the command', async () => {
 		await Bin.trash.findMany({}, M)
 		const seen = facts.get('trash.beforeFind')
-		expect(seen).toMatchObject({ command: 'trash', options: {} })
+		expect(seen).toMatchObject({
+			command: 'trash',
+			operation: 'read',
+			options: {},
+		})
 		expect(Object.keys(isObject(seen) ? seen : {}).toSorted()).toEqual([
 			'caller',
 			'command',
+			'operation',
 			'options',
 			'plugins',
 			'queries',

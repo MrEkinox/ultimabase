@@ -115,13 +115,16 @@ async function hooked(
 	return changes
 }
 
-/** The target rows a move changes, each allowed by the target's rules. */
+/**
+ * The target rows a move changes, each allowed by the target's rules: it
+ * updates them (D-124).
+ */
 async function move(step: Move, writing: Writing): Promise<Change[]> {
 	const { model, field, via, where, to, trusted } = step
 	const { scope, store } = writing
 	const target = scope.models.get(model)
 	if (target === undefined) throw new Error(`Unknown model ${model}.`)
-	const filter = await scope.filter(model, trusted)
+	const filter = await scope.filter(model, trusted, 'update')
 	const access = trusted ? undefined : scope.access
 	const set = { [field]: to, updatedAt: new Date(Date.now()) }
 	if (access === undefined && !updated(target)) {
@@ -183,12 +186,28 @@ export class Plan {
 	readonly issues: Issue[] = []
 	private readonly connected = new Map<
 		string,
-		{ readonly model: string; readonly trusted: boolean; ids: Set<string> }
+		{
+			readonly model: string
+			readonly trusted: boolean
+			readonly operation: 'read' | 'update'
+			ids: Set<string>
+		}
 	>()
 
-	connect(model: string, ids: readonly string[], trusted: boolean): void {
-		const key = `${model}:${String(trusted)}`
-		const group = this.connected.get(key) ?? { model, trusted, ids: new Set() }
+	/** Connected ids, which a move updates and any other connect reads (D-124). */
+	connect(
+		model: string,
+		ids: readonly string[],
+		trusted: boolean,
+		operation: 'read' | 'update',
+	): void {
+		const key = `${model}:${String(trusted)}:${operation}`
+		const group = this.connected.get(key) ?? {
+			model,
+			trusted,
+			operation,
+			ids: new Set(),
+		}
 		for (const id of ids) group.ids.add(id)
 		this.connected.set(key, group)
 	}
@@ -199,14 +218,14 @@ export class Plan {
 	 */
 	async check(writing: Writing): Promise<void> {
 		if (this.issues.length > 0) throw invalid(this.issues)
-		for (const { model, trusted, ids } of this.connected.values()) {
+		for (const { model, trusted, operation, ids } of this.connected.values()) {
 			if (ids.size === 0) continue
 			const message = `A connected ${model} does not exist.`
 			// No row has an id the kernel cannot have made.
 			if (![...ids].every((id) => uuid.test(id))) {
 				throw new PublicError('NOT_FOUND', message)
 			}
-			const filter = await writing.scope.filter(model, trusted)
+			const filter = await writing.scope.filter(model, trusted, operation)
 			const where = and(byIds([...ids]), filter)
 			writing.checks.push({ check: { model, where, count: ids.size }, message })
 		}

@@ -134,7 +134,11 @@ async function count(
 	args: unknown,
 ): Promise<number> {
 	const { model } = context
-	const where = await filtered(context, given(args, model.name, ['where'], []))
+	const where = await filtered(
+		context,
+		given(args, model.name, ['where'], []),
+		'read',
+	)
 	return store.count({ model: model.name, ...(where && { where }) })
 }
 

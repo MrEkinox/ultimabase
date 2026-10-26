@@ -68,7 +68,7 @@ export type {
 	ServerFunction,
 } from './function.ts'
 export { memory } from './memory.ts'
-export type { App, IndexShape, Model } from './model.ts'
+export type { App, FindOperation, IndexShape, Model } from './model.ts'
 export type {
 	ExposedFunction,
 	ExposedModel,

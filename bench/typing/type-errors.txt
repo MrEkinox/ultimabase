@@ -255,7 +255,7 @@ prototype/example/define-plugin.ts: the interface declares no commands.
 TS2322: Type '() => {}' is not assignable to type 'never'.
 
 prototype/example/hooks.ts: a filter only comes from `where`.
-TS2322: Type '() => { status: string; }' is not assignable to type '(facts: { readonly caller: Caller; readonly where: (filter: FindWhere<{ readonly title: Field<string, StringOptions, never, never, string, false, never>; readonly status: Field<"archived" | "draft" | "published", ... 5 more ..., never>; readonly locked: Field<...>; }>) => ReadFilter; }) => void | ... 1 more ... | Re...'.
+TS2322: Type '() => { status: string; }' is not assignable to type '(facts: { readonly caller: Caller; readonly operation: FindOperation; readonly where: (filter: FindWhere<{ readonly title: Field<string, StringOptions, never, never, string, false, never>; readonly status: Field<...>; readonly locked: Field<...>; }>) => ReadFilter; }) => void | ... 1 more ... | ReadFilter'.
   Type '{ status: string; }' is not assignable to type 'void | Promise<void | ReadFilter> | ReadFilter'.
 
 prototype/example/hooks.ts: `statuss` is not a field of Doc.
@@ -360,7 +360,7 @@ prototype/example/plugin-own.ts: `trahs` is not a command of the plugin.
 TS2367: This comparison appears to be unintentional because the types '"trash" | undefined' and '"trahs"' have no overlap.
 
 prototype/example/plugin-own.ts: a filter only comes from `where`.
-TS2322: Type '() => { trashedAt: null; }' is not assignable to type '(facts: { readonly caller: Caller; readonly where: (filter: FindWhere<{ readonly trashedAt: Field<Date, { readonly optional: true; }, never, never, Date, false, never>; }>) => ReadFilter; } & PluginModel<...> & { ...; }) => void | ... 1 more ... | ReadFilter'.
+TS2322: Type '() => { trashedAt: null; }' is not assignable to type '(facts: { readonly caller: Caller; readonly operation: FindOperation; readonly where: (filter: FindWhere<{ readonly trashedAt: Field<Date, { readonly optional: true; }, never, never, Date, false, never>; }>) => ReadFilter; } & PluginModel<...> & { ...; }) => void | ... 1 more ... | ReadFilter'.
   Type '{ trashedAt: null; }' is not assignable to type 'void | Promise<void | ReadFilter> | ReadFilter'.
 
 prototype/example/plugin-parts.ts: the value is a string.
