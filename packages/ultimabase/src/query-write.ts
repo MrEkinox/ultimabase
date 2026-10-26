@@ -47,13 +47,19 @@ function scalar(context: Context, field: FieldInfo, value: unknown): void {
 		else context.plan.issues.push({ path: [field.name], message: 'Required.' })
 		return
 	}
-	const issue = fits[field.type](value, field)
+	const { codec } = field
+	// A plugin field is stored in the form its `encode` gives (D-122).
+	const stored = codec === undefined ? value : codec.encode(value)
+	const issue = fits[field.type](stored, field)
+	const where = `${context.model.name}.${field.name}`
 	if (issue !== undefined) {
 		throw new TypeError(
-			`${context.model.name}.${field.name}: ${issue} A before hook or validate wrote it.`,
+			codec === undefined
+				? `${where}: ${issue} A before hook or validate wrote it.`
+				: `${where}: the ${codec.plugin} field type encoded a value its stored field refuses: ${issue}`,
 		)
 	}
-	context.set[field.name] = value
+	context.set[field.name] = stored
 }
 
 /** Whether a row of the other side, but `kept`, holds this one's key. */

@@ -245,19 +245,22 @@ function list(
 	path: string,
 	single: boolean,
 	scope: Scope | undefined,
+	stored: boolean,
 ): Filter[] {
 	if (Array.isArray(value)) {
 		return value.map((item: unknown, index) =>
-			normalizeWhere(models, model, item, `${path}.${index}`, scope),
+			normalizeWhere(models, model, item, `${path}.${index}`, scope, stored),
 		)
 	}
-	if (single) return [normalizeWhere(models, model, value, path, scope)]
+	if (single) return [normalizeWhere(models, model, value, path, scope, stored)]
 	throw new InvalidQuery(path, `${path} must be a list.`)
 }
 
 /**
  * A `where` of `model`, normalized; `path` names it in errors. With a
- * `scope`, relation filters see readable rows only (D-86).
+ * `scope`, relation filters see readable rows only (D-86). Only a
+ * `beforeFind`'s, `stored`, filters a plugin field, in its stored form
+ * (D-122).
  */
 export function normalizeWhere(
 	models: Models,
@@ -265,19 +268,27 @@ export function normalizeWhere(
 	where: unknown,
 	path: string,
 	scope?: Scope,
+	stored = false,
 ): Filter {
 	const filter: { [key: string]: Condition | Filter[] } = {}
 	const relations: Filter[] = []
 	for (const [key, value] of entries(where, path)) {
 		const at = `${path}.${key}`
 		if (key === 'AND' || key === 'NOT' || key === 'OR') {
-			filter[key] = list(models, model, value, at, key !== 'OR', scope)
+			filter[key] = list(models, model, value, at, key !== 'OR', scope, stored)
 			continue
 		}
 		const field = model.fields.get(key)
 		const type = typeOf(model, key)
 		if (field === undefined && type === undefined) {
 			throw unknownKey(at, model.name)
+		}
+		const codec = field?.kind === 'scalar' ? field.codec : undefined
+		if (codec !== undefined && !stored) {
+			throw new InvalidQuery(
+				at,
+				`${at}: ${model.name}.${key} is a ${codec.plugin} field, which only a beforeFind filters.`,
+			)
 		}
 		scope?.check(model, key, at, 'filters')
 		if (field !== undefined && field.kind !== 'scalar') {

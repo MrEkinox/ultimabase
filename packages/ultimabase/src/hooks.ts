@@ -105,8 +105,16 @@ export async function beforeFind(
 		if (!isReadFilter(result)) {
 			throw new TypeError(`${hook.path} returns where({ ... }) or nothing.`)
 		}
-		// Trusted server code, as a read rule's filter (D-86, D-88).
-		const where = normalizeWhere(models, model, filterOf(result), hook.path)
+		// Trusted server code, as a read rule's filter (D-86, D-88); the one
+		// filter of a plugin field (D-122).
+		const where = normalizeWhere(
+			models,
+			model,
+			filterOf(result),
+			hook.path,
+			undefined,
+			true,
+		)
 		filter = and(where, filter)
 	}
 	return filter

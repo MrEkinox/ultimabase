@@ -103,6 +103,7 @@ function exposed(name: string, resolved: Resolved): readonly ExposedModel[] {
 			readRules: readRules(info),
 			required: required(info),
 			validators: validators(info),
+			fieldTypes: fieldTypes(info),
 			with: key,
 			queries,
 			// oxlint-disable-next-line typescript/no-unsafe-type-assertion -- a `defineModel` value, keyed by it.
@@ -135,6 +136,17 @@ function validators(info: ModelInfo): {
 				? standardOf(field.options['validate'])
 				: undefined
 		if (standard !== undefined) found[field.name] = standard.schema
+	}
+	return found
+}
+
+/** Each plugin field type's field, with its plugin and `toJSON` (D-122). */
+function fieldTypes(info: ModelInfo): ExposedModel['fieldTypes'] {
+	const found: { [field: string]: ExposedModel['fieldTypes'][string] } = {}
+	for (const field of info.fields.values()) {
+		if (field.kind !== 'scalar' || field.codec === undefined) continue
+		const { plugin, toJSON } = field.codec
+		found[field.name] = { plugin, toJSON }
 	}
 	return found
 }

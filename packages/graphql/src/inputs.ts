@@ -138,7 +138,10 @@ export function whereInput(
 						createdAt: { type: filter(registry, DateTime, ordered) },
 						updatedAt: { type: filter(registry, DateTime, ordered) },
 					}
-					for (const field of readable(registry.entry(model))) {
+					const entry = registry.entry(model)
+					for (const field of readable(entry)) {
+						// Only a beforeFind filters a plugin field (D-122).
+						if (entry.exposed.fieldTypes[field.name] !== undefined) continue
 						fields[field.name] = {
 							type:
 								field.kind === 'scalar'
@@ -163,8 +166,8 @@ const sortOrder = (registry: Registry): GraphQLEnumType =>
 	)
 
 /**
- * `PostOrderByInput`: scalar fields but json and lists, as the kernel sorts
- * (D-94, D-120).
+ * `PostOrderByInput`: scalar fields but json, lists and plugin fields, as
+ * the kernel sorts (D-94, D-120, D-122).
  */
 export function orderByInput(
 	registry: Registry,
@@ -174,11 +177,13 @@ export function orderByInput(
 	return registry.input(name, () => {
 		const type = sortOrder(registry)
 		const names = ['id', 'createdAt', 'updatedAt']
-		for (const field of readable(registry.entry(model))) {
+		const entry = registry.entry(model)
+		for (const field of readable(entry)) {
 			if (
 				field.kind === 'scalar' &&
 				field.type !== 'json' &&
-				field.type !== 'stringList'
+				field.type !== 'stringList' &&
+				entry.exposed.fieldTypes[field.name] === undefined
 			) {
 				names.push(field.name)
 			}

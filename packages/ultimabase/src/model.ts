@@ -1,7 +1,7 @@
 // The model `defineModel(...).with(...)` returns (D-07, D-24) and the
 // application `defineApp` assembles.
 import type { Nullable } from './function.ts'
-import type { Queries, Where } from './query.ts'
+import type { FindWhere, Queries, Where } from './query.ts'
 import type {
 	CreateData,
 	RecordOf,
@@ -79,7 +79,7 @@ export type ModelHooks<F, N extends string = string> = {
 	/** Narrows every read of the model, at every level, Master included. */
 	readonly beforeFind?: (facts: {
 		readonly caller: Caller
-		readonly where: (filter: Where<F>) => ReadFilter
+		readonly where: (filter: FindWhere<F>) => ReadFilter
 	}) => ReadFilter | void | Promise<ReadFilter | void>
 	readonly beforeCreate?: Hook<{ readonly data: Draft<CreateData<F>> }>
 	readonly beforeUpdate?: Hook<{

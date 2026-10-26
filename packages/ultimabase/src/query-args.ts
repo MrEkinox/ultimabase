@@ -67,9 +67,16 @@ function orderBy(
 			}
 			if (
 				known?.kind === 'scalar' &&
-				(known.type === 'json' || known.type === 'stringList')
+				(known.type === 'json' ||
+					known.type === 'stringList' ||
+					known.codec !== undefined)
 			) {
-				const kind = known.type === 'json' ? 'a json field' : 'a list'
+				const kind =
+					known.codec !== undefined
+						? `a ${known.codec.plugin} field`
+						: known.type === 'json'
+							? 'a json field'
+							: 'a list'
 				throw new InvalidQuery(
 					`${at}.${field}`,
 					`${at}.${field} is ${kind}, which cannot be sorted.`,

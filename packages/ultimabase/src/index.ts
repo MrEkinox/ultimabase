@@ -51,6 +51,12 @@ export type {
 } from './fields.ts'
 export { defineFunction, defineType } from './define-function.ts'
 export type {
+	FieldType,
+	FieldTypeDefinition,
+	FieldTypeOptions,
+} from './field-type.ts'
+export { defineFieldType } from './field-type.ts'
+export type {
 	Client,
 	CookieOptions,
 	FunctionPlugin,

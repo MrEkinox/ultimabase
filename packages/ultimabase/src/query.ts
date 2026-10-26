@@ -77,16 +77,37 @@ type FilterOf<X> =
 						readonly none?: Where<TargetFields<TargetOf<X>>> | undefined
 					}
 
-export type Where<F> = {
-	readonly [K in keyof F]?: FilterOf<F[K]> | undefined
-} & {
+/** A plugin field type's stored field (D-122), `never` for a kernel one. */
+type StoredOf<X> = X extends {
+	readonly [fieldType]: { readonly stored: infer S }
+}
+	? S
+	: never
+/** The fields of a plugin field type, which only a `beforeFind` filters. */
+type PluginKeys<F> = {
+	[K in keyof F]: [StoredOf<F[K]>] extends [never] ? never : K
+}[keyof F]
+
+/** The system fields' filters and the combinators of a `where` `W`. */
+interface Filters<W> {
 	readonly id?: string | ScalarFilter<string> | undefined
 	readonly createdAt?: Date | ScalarFilter<Date> | undefined
 	readonly updatedAt?: Date | ScalarFilter<Date> | undefined
-	readonly AND?: Where<F> | readonly Where<F>[] | undefined
-	readonly OR?: readonly Where<F>[] | undefined
-	readonly NOT?: Where<F> | readonly Where<F>[] | undefined
+	readonly AND?: W | readonly W[] | undefined
+	readonly OR?: readonly W[] | undefined
+	readonly NOT?: W | readonly W[] | undefined
 }
+
+export type Where<F> = {
+	readonly [K in Exclude<keyof F, PluginKeys<F>>]?: FilterOf<F[K]> | undefined
+} & Filters<Where<F>>
+
+/** A `beforeFind`'s filter: a plugin field's in its stored form (D-122). */
+export type FindWhere<F> = {
+	readonly [K in keyof F]?:
+		| (K extends PluginKeys<F> ? FilterOf<StoredOf<F[K]>> : FilterOf<F[K]>)
+		| undefined
+} & Filters<FindWhere<F>>
 
 /** A unique index's value: a scalar's, or a `one` relation's target id. */
 type IndexValue<X> =
@@ -110,17 +131,17 @@ export type UniqueWhere<F, X = never> =
 type Direction = 'asc' | 'desc'
 /**
  * A json field is not sorted: each database orders json its own way (D-94);
- * nor is a list (D-120).
+ * nor is a list (D-120), nor a plugin field (D-122).
  */
 type SortedKeys<F> = {
-	[K in ScalarKeys<F>]: F[K] extends {
+	[K in Exclude<ScalarKeys<F>, PluginKeys<F>>]: F[K] extends {
 		readonly [fieldType]: { readonly json: true }
 	}
 		? never
 		: IsList<F[K]> extends true
 			? never
 			: K
-}[ScalarKeys<F>]
+}[Exclude<ScalarKeys<F>, PluginKeys<F>>]
 export type OrderBy<F> = {
 	readonly [K in SortedKeys<F> | keyof SystemFields]?: Direction | undefined
 }

@@ -3,8 +3,18 @@
 import type { ScalarType } from './adapter.ts'
 import type { StandardSchema } from './fields.ts'
 import type { Manifest, OutputForm } from './plugin.ts'
+import type { Standard } from './validation.ts'
 
 export type FieldOptions = { readonly [option: string]: unknown }
+
+/** What a plugin field type adds to its stored field (D-122). */
+export type Codec = {
+	readonly plugin: string
+	readonly decode: (stored: unknown) => unknown
+	readonly encode: (value: unknown) => unknown
+	readonly schema: Standard
+	readonly toJSON: (value: unknown) => unknown
+}
 
 /** A field as its builder recorded it. */
 export type FieldDefinition =
@@ -14,6 +24,8 @@ export type FieldDefinition =
 			readonly values?: readonly string[]
 			readonly options: FieldOptions
 			readonly rules?: object
+			/** A plugin field type's, whose `type` is the stored one (D-122). */
+			readonly codec?: Codec
 	  }
 	| {
 			readonly kind: 'one' | 'many'
@@ -49,6 +61,8 @@ export type PluginCode = {
 	readonly commands: Function | undefined
 	readonly api: Function | undefined
 	readonly addedFields: Function | undefined
+	/** The indexes it adds to the models that use it (D-122). */
+	readonly addedIndexes: readonly IndexDefinition[]
 	readonly start: Function | undefined
 	readonly stop: Function | undefined
 	/** Who sends a request, if the plugin knows it (D-112). */
@@ -130,7 +144,8 @@ export function nullable(named: NamedOutput): object {
 	return marker
 }
 
-function build(definition: FieldDefinition): object {
+/** A field value, keyed by its definition; `.with` takes its rules once. */
+export function build(definition: FieldDefinition): object {
 	const field = {
 		with: (rules: object): object => {
 			if (definition.rules !== undefined) {

@@ -22,6 +22,7 @@ import { upper } from './names.ts'
 import { deletedType, isMaster, objectType } from './outputs.ts'
 import type { Args, Context, Entry, Registry } from './registry.ts'
 import { as, valueType } from './registry.ts'
+import { JSONScalar } from './scalars.ts'
 import { selectOf } from './select.ts'
 
 type Fields = { [field: string]: GraphQLFieldConfig<unknown, Context, Args> }
@@ -76,6 +77,10 @@ function fieldInput(
 ): GraphQLNullableInputType {
 	if (field.kind === 'scalar' && field.type === 'json') {
 		return jsonInput(registry, model, field).type
+	}
+	// A plugin field's schema takes its JSON (D-122).
+	if (registry.entry(model).exposed.fieldTypes[field.name] !== undefined) {
+		return JSONScalar
 	}
 	if (field.kind === 'scalar') return valueType(registry, model, field)
 	return relationInput(registry, field.kind, creating)

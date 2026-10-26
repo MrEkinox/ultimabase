@@ -103,6 +103,13 @@ export interface ExposedModel<W = unknown> {
 	readonly required: readonly string[]
 	/** Each `json` field's `validate`, when it is a Standard Schema (D-125). */
 	readonly validators: { readonly [field: string]: StandardSchema }
+	/** Each plugin field type's field, which a client reads as `toJSON` gives (D-122). */
+	readonly fieldTypes: {
+		readonly [field: string]: {
+			readonly plugin: string
+			readonly toJSON: (value: unknown) => unknown
+		}
+	}
 	/** The plugin's key of the model's `.with`, if it was given. */
 	readonly with: W | undefined
 	readonly queries: ModelQueries
@@ -271,6 +278,11 @@ export type PluginDefinition<T extends PluginTypes> = {
 	) => CallerKeys | Promise<CallerKeys>
 	/** Its own models, which no plugin is given (D-110). */
 	readonly models?: readonly ModelShape[]
+	/** The indexes it adds to each model that uses it (D-52, D-122). */
+	readonly addedIndexes?: readonly {
+		readonly fields: readonly (keyof Own<T> & string)[]
+		readonly unique?: boolean
+	}[]
 	/**
 	 * Its `defineFunction` values, built once when the application starts and
 	 * exposed as the application's are (D-113).
