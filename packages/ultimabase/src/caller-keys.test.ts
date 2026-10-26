@@ -59,6 +59,21 @@ const thief = definePlugin<Thief>({
 	caller: () => ({ kind: 'master' }),
 })
 
+/** A key no other code can name (D-126). */
+const hidden = Symbol('hidden')
+interface Secret extends PluginTypes {
+	readonly name: 'secret'
+}
+const secret = definePlugin<Secret>({
+	name: 'secret',
+	manifest: { name: 'secret', version: '1.0.0' },
+	caller: () => {
+		// Built apart: a key no interface declares is not an excess one.
+		const keys = { [hidden]: 'kept' }
+		return keys
+	},
+})
+
 let failures = 0
 interface Flaky extends PluginTypes {
 	readonly name: 'flaky'
@@ -217,6 +232,20 @@ describe('a user caller', () => {
 				'thief.caller gives the caller kind, which the kernel gives; a key has one plugin.',
 			)
 		})
+	})
+
+	it('holds a plugin’s symbol keys, given by one plugin only', async () => {
+		await using([secret.plugin()], async () => {
+			await Note.findMany({}, { as: userOf('ada') })
+		})
+		expect(Reflect.get(seen[0] ?? {}, hidden)).toBe('kept')
+		const twice = completer([
+			{ plugin: 'secret', caller: async () => ({ [hidden]: 1 }) },
+			{ plugin: 'copy', caller: async () => ({ [hidden]: 2 }) },
+		])
+		await expect(twice(userOf('ada'))).rejects.toThrow(
+			'copy.caller gives the caller Symbol(hidden), which secret gives; a key has one plugin.',
+		)
 	})
 
 	it('is tried again after a plugin fails', async () => {

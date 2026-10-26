@@ -1,5 +1,6 @@
 // A user caller completed with its plugins' keys (D-121): once per object,
-// each plugin's `caller` in the order of `plugins`, a key given by one only.
+// each plugin's `caller` in the order of `plugins`, a key given by one only,
+// a symbol key as a string one (D-126).
 import { isObject } from './query-where.ts'
 import type { Caller, Identity } from './rules.ts'
 
@@ -12,27 +13,29 @@ export type PluginCaller = {
 export type Complete = (identity: Identity) => Promise<Caller>
 
 // The keys every caller holds, which no plugin gives.
-const own = new Set(['kind', 'user'])
+const own = new Set<PropertyKey>(['kind', 'user'])
 
 async function completed(
 	identity: Identity,
 	plugins: readonly PluginCaller[],
 ): Promise<Caller> {
-	const keys: { [key: string]: unknown } = {}
-	const givers = new Map<string, string>()
+	const keys: { [key: PropertyKey]: unknown } = {}
+	const givers = new Map<PropertyKey, string>()
 	for (const { plugin, caller } of plugins) {
 		const given = await caller(identity)
 		if (!isObject(given)) {
 			throw new TypeError(`${plugin}.caller returns an object of keys.`)
 		}
-		for (const [key, value] of Object.entries(given)) {
+		for (const key of Reflect.ownKeys(given)) {
+			if (!Object.prototype.propertyIsEnumerable.call(given, key)) continue
 			const other = own.has(key) ? 'the kernel' : givers.get(key)
 			if (other !== undefined) {
 				throw new Error(
-					`${plugin}.caller gives the caller ${key}, which ${other} gives; a key has one plugin.`,
+					`${plugin}.caller gives the caller ${String(key)}, which ${other} gives; a key has one plugin.`,
 				)
 			}
 			givers.set(key, plugin)
+			const value: unknown = Reflect.get(given, key)
 			keys[key] = value
 		}
 	}
