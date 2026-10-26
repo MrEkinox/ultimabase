@@ -43,6 +43,8 @@ export { InvalidQuery, PublicError, Refused } from './errors.ts'
 export type {
 	Field,
 	FieldBuilders,
+	JsonOptions,
+	JsonValue,
 	ListOptions,
 	Many,
 	ManyOptions,
