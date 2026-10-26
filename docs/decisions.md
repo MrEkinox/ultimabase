@@ -6648,3 +6648,140 @@ mutation {
 	}
 }
 ```
+
+## D-129: `restPlugin()`, the REST API as GraphQL's twin
+
+Choice: completes D-25, D-27, D-55, D-68 and D-106. One rule shapes the
+REST API: each parameter is named after the GraphQL argument it stands
+for, and each response is the JSON the matching GraphQL field returns.
+Error codes, limits and plugin options are GraphQL's too (D-107). Only
+HTTP's own grammar differs: verbs, paths and statuses.
+
+1. `@ultimabase/rest` exports `restPlugin(options)` and the model entry
+   `rest()`. It requires `httpPlugin` (D-106) and mounts its routes with
+   `mount(routes)` as D-107 does, under `/api` (`path` option).
+2. Routes of a model, under its plural, computed as GraphQL computes it:
+
+   | Route                   | GraphQL field             | Success                |
+   | ----------------------- | ------------------------- | ---------------------- |
+   | `GET /api/posts`        | `posts(...)`              | 200, the list          |
+   | `GET /api/posts/:id`    | `post(where: { id })`     | 200, the row           |
+   | `POST /api/posts`       | `createPost(data)`        | 201, the row           |
+   | `PATCH /api/posts/:id`  | `updatePost(where, data)` | 200, the row           |
+   | `DELETE /api/posts/:id` | `deletePost(where)`       | 200, the row as it was |
+
+   A row the caller cannot find or read is `404 NOT_FOUND` (D-72), where
+   GraphQL's `post` gives `null`; `updatePost` and `deletePost` already fail
+   with `NOT_FOUND`. A row is named by its `id` in the path only; another
+   unique field is read with a list and `where`. No `updateMany` or
+   `deleteMany`, as in GraphQL.
+
+3. Parameters. Each query parameter holds the JSON of the GraphQL argument
+   of the same name: `where`, `orderBy` (one object or a list), `first`,
+   `after`, `last`, `before`, or `take` and `skip` with
+   `restPlugin({ pagination: 'list' })`. A string argument (`after`,
+   `before`) is written as is. The filters are GraphQL's, which are the
+   query API's (D-20): `equals`, `gt`, `contains`, `some`, `AND`… A body
+   is JSON; D-106 refuses a form.
+4. Fields. GraphQL's selection becomes `select` or `include`, the query
+   API's (D-20), never both. Without either, a row holds its readable
+   scalar fields and no relation. A `many` relation included takes the
+   GraphQL relation field's arguments and returns what it returns: a
+   connection, or a list with `pagination: 'list'`.
+5. Lists are Relay connections by default, as in GraphQL (D-41):
+   `{ edges: [{ cursor, node }], pageInfo: { hasNextPage, hasPreviousPage,
+startCursor, endCursor } }`, with `totalCount` when the request has
+   `totalCount=true`, since GraphQL counts only when `totalCount` is
+   selected. `pagination: 'list'` returns a plain array, as
+   `posts(take, skip): [Post!]!` does.
+6. Writes. The body of `POST` and `PATCH` is the mutation's `data`,
+   relation writes included (`connect`, `disconnect`, `create`, D-128);
+   `select` and `include` stay in the query. A create or update returns the
+   written row even when a read rule would hide it (D-86); a delete returns
+   `DeletedPost`, without relations (D-102).
+7. Values are GraphQL's JSON: `DateTime` as ISO 8601 text, read back to a
+   `Date` from the field's type; `JSON` fields as JSON; enums as their
+   text.
+8. Functions (D-27, D-109, D-113) are at `/api/functions/:name`, named as
+   in GraphQL and set apart by `.with({ rest: { name } | false })`. A
+   `query: true` function is a `GET` whose input keys are query parameters,
+   as GraphQL's arguments, each the JSON of its value, a string as is;
+   another is a `POST` whose body is its input. The response is the
+   function's output, the value of GraphQL's `data.signUp`. Plugin
+   functions such as `signUp`, `signIn` and `viewer` are exposed as the
+   application's are.
+9. A model whose `use` lists `rest()` takes `.with({ rest: { plural, maxTake } })`
+   or `.with({ rest: false })`. A hidden model has no routes; an exposed
+   model's `include` reads it and its relation writes connect it, never
+   create it, as D-128 says for GraphQL. Two models with one plural, or a
+   plural `functions`, are refused at start.
+10. Limits (D-55) are `graphqlPlugin`'s, by name and value, for callers
+    other than Master: `take` 100 rows when a list asks for none,
+    `maxTake` 100, `maxDepth` 10 levels of `select` and `include`, and
+    `maxRows` 20 000 rows per request, counted as D-107 counts them, set as
+    `restPlugin({ take, maxTake, maxDepth, maxRows })` and per model.
+11. Errors, CORS, the body limit and `Cache-Control: no-store` are D-106's:
+    `{ code, message, details }` with D-72's statuses, the same codes a
+    GraphQL error carries in `extensions.code`.
+
+Why: an application exposes both transports to the same developers, and
+most of them call REST (D-68). One vocabulary, the query API's, serves
+server code, GraphQL and REST, so a client moves between them without a
+second one to learn. Resource paths keep REST's grammar, which a Parse
+developer knows, without Parse's words.
+Later: an OpenAPI document, batched requests, a `POST` read for a `where`
+too long for a URL, `upsert` and aggregates.
+Rejected: Parse's API (`/classes/Post`, `$gt`, `order=-createdAt`,
+`limit`), a second vocabulary; ZenStack's RPC paths
+(`/post/findMany?q=`), a function call dressed as a URL; PostgREST's
+operators (`likes=gt.10`), a third vocabulary; `take` and `results` by
+default, unlike GraphQL's lists; a unique lookup on any unique field in the
+path (`/posts/unique?where=`), a route REST clients do not expect.
+Example:
+
+```ts
+// Before: Parse, its own words
+await fetch(
+	'/parse/classes/Post?where={"likes":{"$gt":10}}&order=-createdAt&limit=10&include=author',
+)
+// → { results: [{ objectId, title, author: { … } }] }
+
+// After: GraphQL's arguments and response
+await fetch(
+	'/api/posts?where={"likes":{"gt":10}}&orderBy={"createdAt":"desc"}&first=10&include={"author":true}',
+)
+// → { edges: [{ cursor, node: { id, title, author: { … } } }], pageInfo: { … } }
+
+await fetch('/api/posts?include={"author":true}', {
+	method: 'POST',
+	headers: { 'content-type': 'application/json' },
+	body: JSON.stringify({ title: 'Hi', author: { connect: { id: 'u1' } } }),
+}) // 201 { id, title: 'Hi', author: { … }, … }
+
+await fetch('/api/functions/signUp', {
+	method: 'POST',
+	headers: { 'content-type': 'application/json' },
+	body: JSON.stringify({ email: 'ada@example.com', password: '…' }),
+})
+```
+
+```graphql
+# The same list over GraphQL
+{
+	posts(where: { likes: { gt: 10 } }, orderBy: { createdAt: desc }, first: 10) {
+		edges {
+			cursor
+			node {
+				id
+				title
+				author {
+					name
+				}
+			}
+		}
+		pageInfo {
+			hasNextPage
+		}
+	}
+}
+```

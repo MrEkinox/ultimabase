@@ -8,5 +8,6 @@
 	"auth": 650,
 	"password": 1600,
 	"roles": 330,
-	"acl": 350
+	"acl": 350,
+	"rest": 1200
 }

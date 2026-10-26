@@ -186,8 +186,8 @@ Exit: an example with sign-up, sign-in and rules on `caller.user`.
 - [x] Lists of enums and numbers (D-127).
 - [x] Decide nested creation (D-20, D-68): D-128.
 - [x] Nested creation, `create` in a relation write (D-20, D-68).
-- [ ] Decide REST (D-25, D-68).
-- [ ] REST (D-25, D-68).
+- [x] Decide REST (D-25, D-68): D-129.
+- [x] REST (D-25, D-68).
 - [ ] `@ultimabase/testing` (D-40, D-80), `create-ultimabase` (D-61).
 - [ ] `examples/` run by CI (D-31), Changesets (D-60).
 - [ ] Documentation website (D-31).
