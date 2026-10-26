@@ -91,6 +91,7 @@ const thing: Schema = {
 					kind: 'scalar',
 					name: 'label',
 					type: 'string',
+					list: false,
 					optional: false,
 					unique: true,
 					// The `_key` constraint's name runs past 63 bytes.
@@ -889,6 +890,7 @@ const scalar = (name: string, more: object = {}): SchemaField => ({
 	kind: 'scalar',
 	name,
 	type: 'string',
+	list: false,
 	optional: false,
 	unique: false,
 	...more,

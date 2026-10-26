@@ -5929,6 +5929,8 @@ postgres() was given no url: is the variable it reads set?
 
 ## D-120: String lists, their filters and their index
 
+Amended by D-127.
+
 Choice: completes D-09 and D-52.
 
 1. `f.string({ list: true })` is a list of strings, typed
@@ -6475,4 +6477,57 @@ export const publish = defineFunction({
 		// ...
 	},
 }).with({ access: isAuthenticated })
+```
+
+## D-127: Lists of enums and numbers
+
+Choice: amends D-120, whose rules every list follows.
+
+1. `f.enumOf(values, { list: true })` is typed `readonly E[]` and
+   `f.number({ list: true })` `readonly number[]`. Each element is what the
+   single field accepts: one of the values, a finite number. A list may hold
+   an element twice, as a string list does.
+2. `has` and `hasSome` take the element's type. `optional`, `unique` and
+   sorting are refused, as on a string list.
+3. `f.date`, `f.boolean` and `f.json` refuse `list: true`, by their types
+   and when their model is defined: "f.date() makes no list: a list holds
+   strings, numbers or enum values."
+4. The adapter contract (D-73) gives a list as its element's type and
+   `list: true`: `{ type: 'enum', list: true, values }` replaces
+   `type: 'stringList'`. An adapter handles "a list of" once.
+5. PostgreSQL stores a number list as `double precision[] not null`, an enum
+   list as `text[] not null` with a check that its elements are values:
+   `check ("days" <@ array['mon', 'tue']::text[])`. GraphQL shows
+   `[Float!]!` and `[ShopDays!]!`, with `has` and `hasSome` typed by the
+   element.
+
+Why: weekdays, categories and permissions are lists of enum values, sizes
+and scores lists of numbers; stored as `json` they have no filter, no index
+and no check. A list of booleans means something by position, which named
+fields say better. A list of dates has real uses but costs the most: two
+equal `Date`s are not `===` in `memory()`, PostgreSQL keeps microseconds
+where JavaScript keeps milliseconds, and old dates carry odd offsets (D-47).
+Rejected: `numberList` and `enumList` contract types beside `stringList`
+(each adapter would handle every pair); lists of dates and booleans in 0.1;
+a PostgreSQL enum type for an enum list (D-98 stores enums as text with a
+check).
+Example:
+
+```ts
+// Before: weekdays as json, without a filter, an index or a check
+fields: (f) => ({ days: f.json() })
+
+// After
+export const Shop = defineModel({
+	name: 'Shop',
+	fields: (f) => ({
+		days: f.enumOf(['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'], {
+			list: true,
+		}),
+		sizes: f.number({ list: true }),
+	}),
+	indexes: [{ fields: ['days'] }],
+})
+await Shop.findMany({ where: { days: { hasSome: ['sat', 'sun'] } } })
+await Shop.findMany({ where: { sizes: { has: 42 } } })
 ```

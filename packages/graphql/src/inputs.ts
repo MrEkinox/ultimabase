@@ -1,13 +1,16 @@
 // The read inputs (D-107), as the query API spells them (D-20): filters,
 // `where`, `orderBy` and the `@oneOf` unique target.
-import type { GraphQLInputFieldConfigMap, GraphQLNamedInputType } from 'graphql'
+import type {
+	GraphQLInputFieldConfigMap,
+	GraphQLNamedInputType,
+	GraphQLScalarType,
+} from 'graphql'
 import {
 	GraphQLEnumType,
 	GraphQLID,
 	GraphQLInputObjectType,
 	GraphQLList,
 	GraphQLNonNull,
-	GraphQLString,
 } from 'graphql'
 import type { SchemaField } from 'ultimabase'
 import { upper } from './names.ts'
@@ -54,9 +57,7 @@ function filter(
 }
 
 /** Each scalar type's operators: no order on strings, as the kernel. */
-const operators: {
-	readonly [T in Exclude<Scalar['type'], 'stringList'>]: readonly string[]
-} = {
+const operators: { readonly [T in Scalar['type']]: readonly string[] } = {
 	string: text,
 	number: ordered,
 	date: ordered,
@@ -65,29 +66,33 @@ const operators: {
 	enum: base,
 }
 
-/** `StringListFilter`: no shorthand, `NOT` gives the opposite (D-120). */
-const listFilter = (registry: Registry): GraphQLInputObjectType =>
-	registry.input(
-		'StringListFilter',
+/**
+ * `StringListFilter`, `FloatListFilter`, `ProductSizesListFilter`: no
+ * shorthand, `NOT` gives the opposite (D-120, D-127).
+ */
+const listFilter = (
+	registry: Registry,
+	item: GraphQLScalarType | GraphQLEnumType,
+): GraphQLInputObjectType => {
+	const name = `${item.name}ListFilter`
+	return registry.input(
+		name,
 		() =>
 			new GraphQLInputObjectType({
-				name: 'StringListFilter',
-				fields: {
-					has: { type: GraphQLString },
-					hasSome: { type: list(GraphQLString) },
-				},
+				name,
+				fields: { has: { type: item }, hasSome: { type: list(item) } },
 			}),
 	)
+}
 
 const scalarFilter = (
 	registry: Registry,
 	model: string,
 	field: Scalar,
 ): GraphQLInputObjectType => {
-	const { type } = field
-	if (type === 'stringList') return listFilter(registry)
-	const untyped = () =>
-		filter(registry, scalarType(registry, model, field), operators[type])
+	const item = scalarType(registry, model, field)
+	if (field.list) return listFilter(registry, item)
+	const untyped = () => filter(registry, item, operators[field.type])
 	return field.type === 'json'
 		? jsonFilter(registry, model, field, untyped)
 		: untyped()
@@ -182,7 +187,7 @@ export function orderByInput(
 			if (
 				field.kind === 'scalar' &&
 				field.type !== 'json' &&
-				field.type !== 'stringList' &&
+				!field.list &&
 				entry.exposed.fieldTypes[field.name] === undefined
 			) {
 				names.push(field.name)

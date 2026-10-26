@@ -156,6 +156,7 @@ function scalarField(name: string, field: FieldDefinition): FieldInfo {
 		name,
 		type: field.type,
 		...(field.values === undefined ? {} : { values: field.values }),
+		list: field.options['list'] === true,
 		optional: field.options['optional'] === true,
 		unique: field.options['unique'] === true,
 		...(typeof dbName === 'string' ? { dbName } : {}),
@@ -342,7 +343,7 @@ export function resolve(
 						`${model}: index field '${name}' is not a scalar or a stored one relation.`,
 					)
 				}
-				if (field.kind === 'scalar' && field.type === 'stringList') {
+				if (field.kind === 'scalar' && field.list) {
 					listIndex(model, name, index)
 				}
 			}

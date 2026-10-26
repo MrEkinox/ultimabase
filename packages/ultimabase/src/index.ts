@@ -50,7 +50,7 @@ export type {
 	ManyOptions,
 	One,
 	ScalarOptions,
-	StringOptions,
+	SingleOptions,
 } from './fields.ts'
 export { defineFunction, defineType } from './define-function.ts'
 export type {

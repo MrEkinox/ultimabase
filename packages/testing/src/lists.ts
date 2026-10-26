@@ -1,5 +1,6 @@
-// The string lists of the contract (D-120): `[]` when unwritten, replaced
-// whole, filtered with `has` and `hasSome`, indexed by GIN in PostgreSQL.
+// The lists of the contract (D-120, D-127): of strings, numbers or enum
+// values, `[]` when unwritten, replaced whole, filtered with `has` and
+// `hasSome`, indexed by GIN in PostgreSQL.
 import type { Adapter, WhereOf } from 'ultimabase'
 import { defineApp, defineModel, master } from 'ultimabase'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
@@ -13,8 +14,14 @@ const Article = defineModel({
 		title: f.string({ unique: true }),
 		tags: f.string({ list: true }),
 		labels: f.string({ list: true, default: ['new'] }),
+		scores: f.number({ list: true }),
+		sizes: f.enumOf(['S', 'M', 'L'], { list: true, default: ['M'] }),
 	}),
-	indexes: [{ fields: ['tags'] }],
+	indexes: [
+		{ fields: ['tags'] },
+		{ fields: ['scores'] },
+		{ fields: ['sizes'] },
+	],
 })
 
 const titles = async (where: WhereOf<typeof Article>): Promise<string[]> =>
@@ -68,6 +75,37 @@ export function lists(create: () => Adapter): void {
 			expect(
 				await titles({ tags: { has: 'node', hasSome: ['go', 'ts'] } }),
 			).toEqual(['a'])
+		})
+
+		it('stores and filters numbers and enum values', async () => {
+			const a = await Article.create(
+				{ data: { title: 'a', scores: [1.5, -2, 0, 1.5], sizes: ['S', 'L'] } },
+				M,
+			)
+			expect(a).toMatchObject({ scores: [1.5, -2, 0, 1.5], sizes: ['S', 'L'] })
+			expect(
+				await Article.create({ data: { title: 'b', scores: [1e300] } }, M),
+			).toMatchObject({ scores: [1e300], sizes: ['M'] })
+			await Article.create({ data: { title: 'c', sizes: [] } }, M)
+			expect(await titles({ scores: { has: -2 } })).toEqual(['a'])
+			expect(await titles({ scores: { has: 2 } })).toEqual([])
+			expect(await titles({ scores: { hasSome: [0, 1e300] } })).toEqual([
+				'a',
+				'b',
+			])
+			expect(await titles({ sizes: { has: 'M' } })).toEqual(['b'])
+			expect(await titles({ sizes: { hasSome: ['S', 'M'] } })).toEqual([
+				'a',
+				'b',
+			])
+			expect(await titles({ NOT: { sizes: { has: 'S' } } })).toEqual(['b', 'c'])
+			await Article.update(
+				{ where: { id: a.id }, data: { scores: [], sizes: ['L', 'L'] } },
+				M,
+			)
+			expect(
+				await Article.findUnique({ where: { title: 'a' } }, M),
+			).toMatchObject({ scores: [], sizes: ['L', 'L'] })
 		})
 
 		it('stores any well-formed text as an element', async () => {

@@ -50,34 +50,34 @@ export type ScalarOptions<V> = {
 	readonly dbName?: string
 }
 
-/** A `string` field's options: `list: true` makes it a list (D-120). */
-export type StringOptions = ScalarOptions<string> & { readonly list?: false }
+/** A field's options without `list` (D-120, D-127). */
+export type SingleOptions<V> = ScalarOptions<V> & { readonly list?: false }
 
-/** What shapes a list of strings (D-120). */
-export type ListOptions = {
+/** What shapes a list of strings, numbers or enum values (D-120, D-127). */
+export type ListOptions<V> = {
 	readonly list: true
-	readonly default?: readonly string[] | DefaultFunction<readonly string[]>
-	readonly validate?: Validate<readonly string[]>
+	readonly default?: readonly V[] | DefaultFunction<readonly V[]>
+	readonly validate?: Validate<readonly V[]>
 	readonly dbName?: string
 }
-// A list is `[]` when empty and may hold a string twice. The messages are
+// A list is `[]` when empty and may hold a value twice. The messages are
 // objects, as OneCheck's.
 type ListCheck<O> = (O extends { readonly optional: unknown }
 	? {
 			readonly optional: {
-				readonly error: 'a string list is [] when empty: it is never optional'
+				readonly error: 'a list is [] when empty: it is never optional'
 			}
 		}
 	: unknown) &
 	(O extends { readonly unique: unknown }
-		? { readonly unique: { readonly error: 'a string list cannot be unique' } }
+		? { readonly unique: { readonly error: 'a list cannot be unique' } }
 		: unknown)
-type StringCheck<O> = O extends { readonly list: true }
-	? ListCheck<O> & ValidateCheck<O, readonly string[]>
-	: ValidateCheck<O, string>
-type StringField<O, T> = O extends { readonly list: true }
-	? Field<readonly string[], O, never, T>
-	: Field<string, O, never, T>
+type ListableCheck<O, V> = O extends { readonly list: true }
+	? ListCheck<O> & ValidateCheck<O, readonly V[]>
+	: ValidateCheck<O, V>
+type Listable<V, O, T> = O extends { readonly list: true }
+	? Field<readonly V[], O, never, T>
+	: Field<V, O, never, T>
 
 /** The types a Standard Schema declares, `never` without them. */
 export type SchemaTypes<S> = S extends {
@@ -350,15 +350,18 @@ export interface Many<T, O, U = never> {
 export interface FieldBuilders<T> {
 	/** With `list: true`, a list of strings, `[]` when empty (D-120). */
 	readonly string: <
-		const O extends StringOptions | ListOptions = StringOptions,
+		const O extends SingleOptions<string> | ListOptions<string> =
+			SingleOptions<string>,
 	>(
-		options?: O & NoInfer<StringCheck<O>>,
-	) => StringField<O, T>
+		options?: O & NoInfer<ListableCheck<O, string>>,
+	) => Listable<string, O, T>
+	/** With `list: true`, a list of numbers, `[]` when empty (D-127). */
 	readonly number: <
-		const O extends ScalarOptions<number> = ScalarOptions<number>,
+		const O extends SingleOptions<number> | ListOptions<number> =
+			SingleOptions<number>,
 	>(
-		options?: O & NoInfer<ValidateCheck<O, number>>,
-	) => Field<number, O, never, T>
+		options?: O & NoInfer<ListableCheck<O, number>>,
+	) => Listable<number, O, T>
 	readonly boolean: <
 		const O extends ScalarOptions<boolean> = ScalarOptions<boolean>,
 	>(
@@ -374,13 +377,14 @@ export interface FieldBuilders<T> {
 	readonly json: <const O extends JsonOptions = JsonOptions>(
 		options?: O & NoInfer<JsonCheck<O>>,
 	) => Field<JsonOutput<O>, O, never, T, JsonInput<O>, true>
+	/** With `list: true`, a list of its values, `[]` when empty (D-127). */
 	readonly enumOf: <
 		const E extends string,
-		const O extends ScalarOptions<E> = ScalarOptions<E>,
+		const O extends SingleOptions<E> | ListOptions<E> = SingleOptions<E>,
 	>(
 		values: readonly E[],
-		options?: O & NoInfer<ValidateCheck<O, E>>,
-	) => Field<E, O, never, T>
+		options?: O & NoInfer<ListableCheck<O, E>>,
+	) => Listable<E, O, T>
 	readonly one: <M extends object, const O extends OneOptions = OneOptions>(
 		target: M,
 		options?: O & NoInfer<OneCheck<O>>,

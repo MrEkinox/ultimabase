@@ -181,8 +181,9 @@ Exit: an example with sign-up, sign-in and rules on `caller.user`.
 - [x] Decide JSON fields typed from their schema (D-125).
 - [x] JSON fields typed from their schema (D-125).
 - [x] Roles (`defineRole`, D-13) and ACL (D-68).
-- [ ] Decide lists of other field types: enum, number, date, boolean (D-120).
-- [ ] Lists of other field types.
+- [x] Decide lists of other field types: enum, number, date, boolean (D-120,
+      D-127).
+- [x] Lists of enums and numbers (D-127).
 - [ ] Decide nested creation (D-20, D-68).
 - [ ] Nested creation, `create` in a relation write (D-20, D-68).
 - [ ] Decide REST (D-25, D-68).

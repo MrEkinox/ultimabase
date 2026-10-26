@@ -44,6 +44,7 @@ const scalar = (
 	kind: 'scalar',
 	name,
 	type,
+	list: false,
 	optional: false,
 	unique: false,
 	...more,
@@ -204,6 +205,24 @@ async function sync(from: Schema | undefined, to: Schema) {
 	await migrations.apply({ kind: 'sync', from: was, statements, to: now })
 	return statements
 }
+
+/** A post whose sizes are a list among `values` (D-127). */
+const sizes = (values: readonly string[]): Schema => ({
+	models: [
+		{
+			name: 'Post',
+			fields: [scalar('sizes', 'enum', { list: true, values })],
+			indexes: [],
+		},
+	],
+})
+const sizesCheck = (values: string) =>
+	`alter table "post" add constraint "post_sizes_check" check ("sizes" <@ array[${values}]::text[])`
+const insertSizes = (row: string) =>
+	query(
+		inSchema(schema),
+		`insert into post values (gen_random_uuid(), now(), now(), '${row}')`,
+	)
 
 const changes = (statements: readonly { model: string; does: string }[]) =>
 	statements.map(({ model, does }) => `${model}: ${does}`)
@@ -453,17 +472,26 @@ describe('a sync on postgres()', () => {
 	})
 
 	it('adds a list as [] or its default, indexes it by GIN, and converts it', async () => {
-		const labels = scalar('labels', 'stringList', {
+		const labels = scalar('labels', 'string', {
+			list: true,
 			default: ['a "b"', 'c\\d,{}'],
 		})
-		const post = (type: Scalar['type'] | undefined): Schema => ({
+		/** `tags` as a string, a number, a list of either, or left out. */
+		type Tags = 'string' | 'number' | 'strings' | 'numbers' | undefined
+		const tags = (type: Exclude<Tags, undefined>) =>
+			type === 'strings' || type === 'numbers'
+				? scalar('tags', type === 'strings' ? 'string' : 'number', {
+						list: true,
+					})
+				: scalar('tags', type)
+		const post = (type: Tags): Schema => ({
 			models: [
 				{
 					name: 'Post',
 					fields: [
 						scalar('title', 'string'),
-						...(type === undefined ? [] : [scalar('tags', type)]),
-						...(type === 'stringList' ? [labels] : []),
+						...(type === undefined ? [] : [tags(type)]),
+						...(type === 'strings' ? [labels] : []),
 					],
 					indexes:
 						type === undefined ? [] : [{ fields: ['tags'], unique: false }],
@@ -480,7 +508,7 @@ describe('a sync on postgres()', () => {
 			`insert into post values (gen_random_uuid(), now(), now(), 'Hi')`,
 		)
 		expect(
-			(await sync(post(undefined), post('stringList'))).map(({ sql }) => sql),
+			(await sync(post(undefined), post('strings'))).map(({ sql }) => sql),
 		).toStrictEqual([
 			`alter table "post" add column "tags" text[] not null default '{}'::text[]`,
 			'alter table "post" alter column "tags" drop default',
@@ -499,14 +527,14 @@ describe('a sync on postgres()', () => {
 		).toStrictEqual([{ count: '1' }])
 
 		// A string's index is a B-tree: a change of type rebuilds it.
-		const text = await sync(post('stringList'), post('string'))
+		const text = await sync(post('strings'), post('string'))
 		expect(text.map(({ sql }) => sql)).toStrictEqual([
 			'drop index "post_tags_idx"',
 			'alter table "post" drop column "labels"',
 			'alter table "post" alter column "tags" type text collate "C" using "tags"::text collate "C"',
 			'create index "post_tags_idx" on "post" ("tags")',
 		])
-		const back = await sync(post('string'), post('stringList'))
+		const back = await sync(post('string'), post('strings'))
 		expect(back[1]?.tries).toBe(
 			'changing "Post.tags" from text to text[] fails when a row holds a value it cannot convert',
 		)
@@ -515,16 +543,52 @@ describe('a sync on postgres()', () => {
 			{ tags: [], labels: ['a "b"', 'c\\d,{}'] },
 		])
 
+		// A list of numbers is a double precision[]; its GIN index stays (D-127).
+		await query(inSchema(schema), `update post set tags = '{1,2.5}'`)
+		const numbers = await sync(post('strings'), post('numbers'))
+		expect(numbers.map(({ sql }) => sql)).toStrictEqual([
+			'alter table "post" drop column "labels"',
+			'alter table "post" alter column "tags" type double precision[] using "tags"::double precision[]',
+		])
+		expect(numbers[1]?.tries).toBe(
+			'changing "Post.tags" from text[] to double precision[] fails when a row holds a value it cannot convert',
+		)
+		expect(
+			await query(inSchema(schema), 'select tags from post'),
+		).toStrictEqual([{ tags: [1, 2.5] }])
+
 		// PostgreSQL converts no number to a list: the rows take [].
 		const number = migrations.plan(
 			migrations.snapshot(post('number')),
-			post('stringList'),
+			post('strings'),
 		)
 		expect(number[1]).toMatchObject({
 			sql: `alter table "post" alter column "tags" type text[] using '{}'::text[]`,
 			loses:
 				'changing "Post.tags" from double precision to text[] deletes its data: PostgreSQL converts no double precision to text[]',
 		})
+		expect(
+			migrations.plan(migrations.snapshot(post('number')), post('numbers'))[1],
+		).toMatchObject({
+			sql: `alter table "post" alter column "tags" type double precision[] using '{}'::double precision[]`,
+		})
+	})
+
+	it('limits each element of an enum list to its values (D-127)', async () => {
+		const created = await sync(undefined, sizes(['S', 'M']))
+		expect(created[0]?.sql).toContain(
+			`"sizes" text[] not null,\n\tconstraint "post_pkey" primary key ("id"),\n\tconstraint "post_sizes_check" check ("sizes" <@ array['S', 'M']::text[])`,
+		)
+		await insertSizes('{S,M,S}')
+		await expect(insertSizes('{S,XL}')).rejects.toThrow('post_sizes_check')
+		const widened = await sync(sizes(['S', 'M']), sizes(['S', 'M', 'L']))
+		expect(widened.map(({ sql }) => sql)).toStrictEqual([
+			'alter table "post" drop constraint "post_sizes_check"',
+			sizesCheck(`'S', 'M', 'L'`),
+		])
+		expect(widened[1]?.tries).toBe(
+			'limiting "Post.sizes" to S, M, L fails when a row holds another value',
+		)
 	})
 
 	it('tries a foreign key that moves on a column rows hold', () => {

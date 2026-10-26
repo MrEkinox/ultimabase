@@ -158,10 +158,41 @@ export function build(definition: FieldDefinition): object {
 	return field
 }
 
+/** A field that `list: true` makes a list (D-120, D-127). */
+function listable(
+	type: ScalarType,
+	options: FieldOptions = {},
+	values?: readonly string[],
+): object {
+	if (options['list'] === true) {
+		if (options['optional'] !== undefined) {
+			throw new Error(
+				'A list is never null: left out, it is []. Remove optional.',
+			)
+		}
+		if (options['unique'] !== undefined) {
+			throw new Error('A list cannot be unique.')
+		}
+	}
+	return build({
+		kind: 'scalar',
+		type,
+		...(values === undefined ? {} : { values }),
+		options,
+	})
+}
+
+/** A field no list holds yet (D-127). */
 const scalar =
 	(type: ScalarType) =>
-	(options?: FieldOptions): object =>
-		build({ kind: 'scalar', type, options: options ?? {} })
+	(options?: FieldOptions): object => {
+		if (options?.['list'] !== undefined) {
+			throw new Error(
+				`f.${type}() makes no list: a list holds strings, numbers or enum values.`,
+			)
+		}
+		return build({ kind: 'scalar', type, options: options ?? {} })
+	}
 
 const relation =
 	(kind: 'one' | 'many') =>
@@ -176,32 +207,13 @@ function enumOf(values: readonly unknown[], options?: FieldOptions): object {
 	if (new Set(strings).size !== strings.length) {
 		throw new Error(`enumOf lists a value twice: ${strings.join(', ')}.`)
 	}
-	return build({
-		kind: 'scalar',
-		type: 'enum',
-		values: strings,
-		options: options ?? {},
-	})
-}
-
-/** `string`, and with `list: true` a list of strings (D-120). */
-function string(options?: FieldOptions): object {
-	if (options?.['list'] !== true) return scalar('string')(options)
-	if (options['optional'] !== undefined) {
-		throw new Error(
-			'A string list is never null: left out, it is []. Remove optional.',
-		)
-	}
-	if (options['unique'] !== undefined) {
-		throw new Error('A string list cannot be unique.')
-	}
-	return scalar('stringList')(options)
+	return listable('enum', options, strings)
 }
 
 /** The builders `defineModel`'s `fields` callback receives (D-09, D-12). */
 export const fieldBuilders: object = Object.freeze({
-	string,
-	number: scalar('number'),
+	string: (options?: FieldOptions) => listable('string', options),
+	number: (options?: FieldOptions) => listable('number', options),
 	boolean: scalar('boolean'),
 	date: scalar('date'),
 	json: scalar('json'),

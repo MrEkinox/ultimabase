@@ -4,8 +4,11 @@
 import { createHash } from 'node:crypto'
 import type { ScalarType, Schema, SchemaField, SchemaModel } from 'ultimabase'
 
-/** What a column holds: `id` and a `one` key hold uuids. */
-export type Kind = ScalarType | 'id'
+/**
+ * What a column holds: `id` and a `one` key hold uuids, a list the array of
+ * its elements' type (D-127).
+ */
+export type Kind = ScalarType | 'id' | 'text[]' | 'double precision[]'
 
 export type Unique = {
 	readonly name: string
@@ -130,7 +133,9 @@ export class Catalog {
 		const known = system.get(name)
 		if (known !== undefined) return known[1]
 		const field = table.fields.get(name)
-		return field?.kind === 'scalar' ? field.type : 'id'
+		if (field?.kind !== 'scalar') return 'id'
+		if (!field.list) return field.type
+		return field.type === 'number' ? 'double precision[]' : 'text[]'
 	}
 
 	join(model: string, field: string): Join {

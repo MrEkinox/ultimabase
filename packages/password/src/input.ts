@@ -87,11 +87,10 @@ export const property = (
 	required = true,
 ): Property => ({ read, json, required })
 
-/** Each scalar type's check and JSON Schema, with `null` when optional. */
-function readOf(field: Scalar): Property['read'] {
+/** One value of a scalar type, an element of a list (D-127). */
+function itemRead(field: Scalar): Property['read'] {
 	const { type, values = [] } = field
 	return (value) => {
-		if (value === null && field.optional) return { value }
 		if (type === 'number') {
 			return typeof value === 'number' && Number.isFinite(value)
 				? { value }
@@ -111,12 +110,6 @@ function readOf(field: Scalar): Property['read'] {
 				? { message: 'Expected a date.' }
 				: { value: date }
 		}
-		if (type === 'stringList') {
-			return Array.isArray(value) &&
-				value.every((item) => typeof item === 'string' && item !== '')
-				? { value }
-				: { message: 'Expected a list of non-empty strings.' }
-		}
 		if (type === 'enum') {
 			return typeof value === 'string' && values.includes(value)
 				? { value }
@@ -126,10 +119,34 @@ function readOf(field: Scalar): Property['read'] {
 	}
 }
 
+/** A scalar's check, with `null` when optional; a list's checks each element. */
+function readOf(field: Scalar): Property['read'] {
+	const item = itemRead(field)
+	if (!field.list) {
+		return (value) =>
+			value === null && field.optional ? { value } : item(value)
+	}
+	const fit = (element: unknown) => element !== '' && 'value' in item(element)
+	const of =
+		field.type === 'enum'
+			? `values among ${(field.values ?? []).join(', ')}`
+			: field.type === 'number'
+				? 'numbers'
+				: 'non-empty strings'
+	return (value) =>
+		Array.isArray(value) && value.every(fit)
+			? { value }
+			: { message: `Expected a list of ${of}.` }
+}
+
 function jsonOf(field: Scalar): Node {
 	const { type, values = [], optional } = field
-	if (type === 'stringList') {
-		return { type: 'array', items: { type: 'string', minLength: 1 } }
+	if (field.list) {
+		const items = jsonOf({ ...field, list: false, optional: false })
+		return {
+			type: 'array',
+			items: type === 'string' ? { ...items, minLength: 1 } : items,
+		}
 	}
 	const base = type === 'date' || type === 'enum' ? 'string' : type
 	return {

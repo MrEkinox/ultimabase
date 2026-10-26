@@ -1,7 +1,7 @@
 // What PostgreSQL makes of the models (D-98, D-105): every table with its
 // columns, keys, checks, indexes and foreign keys, as JSON that `plan`
 // compares and that a database or `migrations/schema.json` keeps.
-import type { SchemaField } from 'ultimabase'
+import type { ScalarType, SchemaField } from 'ultimabase'
 import type { Catalog, Table } from './names.ts'
 import { constraint } from './names.ts'
 import { Refused } from 'ultimabase'
@@ -19,7 +19,12 @@ export type ForeignKey = {
 	readonly cascade: boolean
 }
 
-export type Check = { readonly column: string; readonly values: string[] }
+/** A column among `values`; each element of a list's (D-127). */
+export type Check = {
+	readonly column: string
+	readonly values: string[]
+	readonly list?: true
+}
 
 /**
  * `model` is the model's name, or `Book.tags` for a join table. Constraints
@@ -47,7 +52,13 @@ const types = {
 	date: 'timestamptz',
 	json: 'jsonb',
 	enum: 'text collate "C"',
-	stringList: 'text[]',
+}
+
+/** A list's column: an enum's is text, as its single values (D-98, D-127). */
+const lists: { readonly [type in ScalarType]?: string } = {
+	string: 'text[]',
+	number: 'double precision[]',
+	enum: 'text[]',
 }
 
 type Building = {
@@ -117,7 +128,10 @@ function field(
 	if (given.kind === 'many' || (given.kind === 'one' && !given.stored)) return
 	const what = `${table.model.name}.${given.name}`
 	const column = claims.columns(catalog.column(table, given.name), what)
-	const type = given.kind === 'one' ? 'uuid' : types[given.type]
+	const type =
+		given.kind === 'one'
+			? 'uuid'
+			: ((given.list ? lists[given.type] : undefined) ?? types[given.type])
 	building.columns[column] = {
 		field: given.name,
 		type,
@@ -128,6 +142,7 @@ function field(
 		building.checks[claims.schema(name, `the check on ${what}`)] = {
 			column,
 			values: [...(given.values ?? [])],
+			...(given.list ? { list: true as const } : {}),
 		}
 	}
 	if (given.kind !== 'one') return
