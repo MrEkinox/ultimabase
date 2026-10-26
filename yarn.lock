@@ -742,6 +742,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@ultimabase/testing@workspace:packages/testing"
   dependencies:
+    "@ultimabase/http": "workspace:*"
     ultimabase: "workspace:*"
     vite: "npm:8.3.4"
     vitest: "npm:5.0.5"
