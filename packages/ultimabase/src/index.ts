@@ -45,6 +45,7 @@ export type {
 	FieldBuilders,
 	ListOptions,
 	Many,
+	ManyOptions,
 	One,
 	ScalarOptions,
 	StringOptions,

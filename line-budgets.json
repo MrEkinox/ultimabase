@@ -6,5 +6,6 @@
 	"http": 670,
 	"graphql": 3070,
 	"auth": 650,
-	"password": 1580
+	"password": 1580,
+	"roles": 300
 }
