@@ -795,6 +795,8 @@ is indexed.
 
 ## D-31: Examples are the documentation until release
 
+Amended by D-131.
+
 Choice: `examples/` holds one folder per feature (`relation-many-to-many`,
 `custom-function`…), each a small working project run by the test suite. The
 documentation website and the landing page come back just before the first
@@ -6877,4 +6879,98 @@ Created blog. Next:
   cd blog
   npm install
   npm start
+```
+
+## D-131: One example per feature, tested as an application, and Changesets
+
+Choice: amends D-31's example tests; completes D-60.
+
+1. `examples/` holds one small application per feature of 0.1, beside
+   `password-sign-in`:
+   - `relations`: one, many and many-to-many relations, nested creation and
+     `onDelete`;
+   - `functions-and-hooks`: `defineFunction`, a hook and `transaction`;
+   - `roles-and-acl`: `rolesPlugin()`, `defineRole` and `aclPlugin()`;
+   - `soft-delete`: `softDeletePlugin()`;
+   - `rest`: `restPlugin()` beside `graphqlPlugin()`, one model through both;
+   - `postgres`: `postgres()`, its migrations, `ultimabase dev` and
+     `migrate deploy`.
+     Each runs on `memory()` unless the database is its feature, and has a
+     README of a few lines saying what it shows.
+2. An example's test is written as an application's: `testApplication(app)`,
+   requests over HTTP to `running.url`, and data set up in the test as
+   Master. `password-sign-in`'s test moves to it.
+3. One repository test keeps D-31's promise that each example starts as
+   `yarn start` does: it runs every example's `node src/server.ts` on
+   `PORT=0`, waits for its `Listening on` line, stops it with `SIGTERM` and
+   expects exit code 0. `postgres` starts in `yarn test:postgres` only: its
+   `app.postgres.test.ts` deploys its migrations into a schema of its own on
+   `TEST_DATABASE_URL`, then starts it.
+4. The same repository test refuses an example without a `start` script of
+   `node src/server.ts`, without a test, or whose `tsconfig.json` is missing
+   from `yarn typecheck`.
+5. Changesets (`@changesets/cli`) versions the packages: one `fixed` group
+   holds every package under `packages/` (D-60); the examples are left out;
+   the default changelog. The repository holds one changeset, the first
+   release, `0.1.0`. Until it is published every change is part of it, so no
+   other changeset is written and none is required; CI requires one per pull
+   request from the first publication. Running `changeset version` and
+   `changeset publish`, and making the packages public, belong to the
+   publication step.
+
+Why: D-31 promises one folder per feature, and one example covers a fraction
+of 0.1. An example's test is the code a developer copies; with
+`testApplication` it is the starter's, without forty lines that spawn and
+watch a process. One test that starts every example keeps the check those
+lines made. Changesets moves twelve version numbers and their changelog
+together, which a script would otherwise do by hand.
+
+Rejected: each example spawning its own server; one example per package
+rather than per feature; a changeset on every change before the first
+release, whose entries would all read "part of 0.1"; independent versions
+(D-60).
+
+Example:
+
+```ts
+// Before: examples/password-sign-in/src/app.test.ts spawns the server
+beforeAll(async () => {
+	server = spawn(process.execPath, ['src/server.ts'], {
+		env: { ...process.env, PORT: '0', MASTER_KEY: masterKey },
+		stdio: ['ignore', 'pipe', 'pipe'],
+	})
+	url = await new Promise((resolve, reject) => {
+		server.stdout.on('data', (chunk) => {
+			output += String(chunk)
+			const found = /Listening on (\S+)\./.exec(output)?.[1]
+			if (found !== undefined) resolve(found)
+		})
+		server.once('exit', (code) => reject(new Error(`Exited with ${code}`)))
+	})
+})
+// …and makes an editor over GraphQL with the master key.
+
+// After: the application itself, as the starter's test is written
+import { app } from './app.ts'
+const running = testApplication(app)
+
+it('lets an editor delete anyone’s post', async () => {
+	await User.update({ where: { id }, data: { editor: true } }, { as: master })
+	const response = await fetch(`${running.url}/graphql`, {
+		method: 'POST',
+		headers: { 'content-type': 'application/json', ...signedIn(editor) },
+		body: JSON.stringify({ query: deletePost, variables: { id: post.id } }),
+	})
+	expect(await response.json()).toEqual({
+		data: { deletePost: { id: post.id } },
+	})
+})
+```
+
+```text
+examples/
+  password-sign-in/  relations/  functions-and-hooks/  roles-and-acl/
+  soft-delete/       rest/       postgres/
+.changeset/
+  config.json        first-release.md   ("ultimabase": minor, …)
 ```
