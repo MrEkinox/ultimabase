@@ -968,6 +968,8 @@ Rejected: JWT sessions (cannot be revoked before they expire).
 
 ## D-40: Applications are tested with `@ultimabase/testing`
 
+Amended by D-130.
+
 Choice: `@ultimabase/testing` provides `testApplication(app)`, which starts
 the application on a fresh `memory()` database for each test, conformance
 suites for plugin and adapter authors (D-02), and PostgreSQL tests through
@@ -1591,6 +1593,8 @@ Why: one number tells which official packages work together.
 Rejected: independent versions per official package before 1.0.
 
 ## D-61: `npm create ultimabase` from the first release
+
+Amended by D-130.
 
 Choice: the first release ships a minimal starter: one model, `memory()`,
 GraphQL and the application the models are declared from (D-24) already
@@ -6784,4 +6788,91 @@ await fetch('/api/functions/signUp', {
 		}
 	}
 }
+```
+
+## D-130: `testApplication(app)` and `npm create ultimabase`
+
+Choice: completes D-40, D-61 and D-80.
+
+1. `@ultimabase/testing` exports `testApplication(app)`, called once at the
+   top of a test file with the value `defineApp` returned. It declares
+   Vitest hooks: before each test, the application starts with its own
+   models, plugins, functions and master key on a new `memory()`, whatever
+   database it declares; after each test, it stops.
+2. While a test runs, the application's info lines are dropped; its warnings
+   and errors still reach its logger. `PORT` is `0` while it starts, so
+   `httpPlugin()` listens on a free port and test files run in parallel; an
+   explicit `port` option still wins. `testApplication` returns `{ url }`,
+   the server's address during a test, which throws without `httpPlugin`.
+3. The kernel gives what this needs on `ultimabase/internal`, a subpath
+   only official packages import and the documentation does not show.
+4. D-40 loses two promises. The conformance suites for plugin authors wait
+   for a plugin contract beyond the types; only adapters have one (D-94).
+   Nothing starts Docker: PostgreSQL tests take `TEST_DATABASE_URL`, and
+   application tests run on `memory()`.
+5. `create-ultimabase` writes D-61's starter: `npm create ultimabase
+<directory>` (or `yarn create`, `pnpm create`). Without a directory it
+   asks for its name in a terminal and takes `my-app` elsewhere; the
+   directory's name is the package's. It refuses a directory that is not
+   empty, installs nothing, and prints the next commands for the package
+   manager that ran it. It asks nothing else.
+6. The starter holds `src/models.ts` (a public `Post`), `src/app.ts`
+   (`memory()`, `httpPlugin()`, `graphqlPlugin()`), `src/server.ts`,
+   `src/app.test.ts` written with `testApplication`, `package.json`,
+   `tsconfig.json`, `.gitignore` and a short README. Node runs its
+   TypeScript, with no build. Comments in `src/app.ts` say where PostgreSQL
+   and REST go; the starter depends on nothing it does not run. Its
+   UltimaBase packages take `create-ultimabase`'s own version (D-60).
+7. The starter's files live in the package as a real application: the
+   repository typechecks them and runs their test, and the package's test
+   writes a starter and starts it.
+
+Why: a test of the application as declared checks its real rules, and one
+line keeps tests from building their own setup. Each question in a starter
+multiplies the projects to keep working, and changing one line of
+`app.ts` replaces any answer.
+
+Rejected: a test application built by the developer from a database
+argument; an in-memory `fetch` without a port, as in the previous base;
+questions for the database, the transports or sign-in; optional packages in
+the starter's dependencies.
+
+Example:
+
+```ts
+// Before: each test file builds and runs its own application
+const test = defineApp({
+	database: memory(),
+	plugins: [httpPlugin({ port: 0 }), graphqlPlugin()],
+	models: [Post],
+})
+beforeEach(() => test.start())
+afterEach(() => test.stop())
+
+// After: the application itself, on a fresh memory() per test
+import { app } from './app.ts'
+const running = testApplication(app)
+
+it('creates a post', async () => {
+	await Post.create({ data: { title: 'Hello' } }, { as: master })
+	const response = await fetch(`${running.url}/graphql`, {
+		method: 'POST',
+		headers: { 'content-type': 'application/json' },
+		body: JSON.stringify({ query: '{ posts { edges { node { title } } } }' }),
+	})
+	expect(await response.json()).toEqual({
+		data: { posts: { edges: [{ node: { title: 'Hello' } }] } },
+	})
+})
+```
+
+```text
+$ npm create ultimabase
+? Project name: (my-app) blog
+
+Created blog. Next:
+
+  cd blog
+  npm install
+  npm start
 ```
