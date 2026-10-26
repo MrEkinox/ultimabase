@@ -150,6 +150,45 @@ describe('a typed json field', () => {
 		)
 	})
 
+	it('names relation writes after their target and the relation back', () => {
+		expect(typeOf('ProfileCreateInput')).toContain(
+			'  team: TeamCreateNestedOneWithoutMembersInput\n',
+		)
+		expect(typeOf('TeamCreateNestedOneWithoutMembersInput')).toBe(
+			[
+				'input TeamCreateNestedOneWithoutMembersInput @oneOf {',
+				'  connect: ConnectInput',
+				'  create: TeamCreateWithoutMembersInput',
+				'}',
+			].join('\n'),
+		)
+		expect(typeOf('TeamCreateWithoutMembersInput')).toBe(
+			'input TeamCreateWithoutMembersInput {\n  name: String!\n}',
+		)
+		expect(typeOf('TeamUpdateOneWithoutMembersNestedInput')).toBe(
+			[
+				'input TeamUpdateOneWithoutMembersNestedInput @oneOf {',
+				'  connect: ConnectInput',
+				'  create: TeamCreateWithoutMembersInput',
+				'  disconnect: Boolean',
+				'}',
+			].join('\n'),
+		)
+		expect(typeOf('ProfileUpdateManyWithoutTeamNestedInput')).toBe(
+			[
+				'input ProfileUpdateManyWithoutTeamNestedInput {',
+				'  connect: [ConnectInput!]',
+				'  create: [ProfileCreateWithoutTeamInput!]',
+				'  disconnect: [ConnectInput!]',
+				'}',
+			].join('\n'),
+		)
+		expect(typeOf('ProfileCreateWithoutTeamInput')).toContain(
+			'  prefs: ProfilePrefsInput!\n',
+		)
+		expect(typeOf('ProfileCreateWithoutTeamInput')).not.toContain('team')
+	})
+
 	it('shares a type given an id with functions', () => {
 		expect(typeOf('AddressInput')).toBe(
 			'input AddressInput {\n  city: String!\n  zip: String\n}',
@@ -212,6 +251,31 @@ describe('a typed json field', () => {
 		expect(updated).toStrictEqual({
 			data: { updateProfile: { bio: { text: 'hi' } } },
 		})
+	})
+
+	it('stores the dates of a row it creates through a relation as text', async () => {
+		const created = await post(
+			url,
+			`mutation { createTeam(data: { name: "far", members: { create: [
+				{ name: "c", prefs: { theme: light, since: "2026-02-01T08:00:00Z" }, maybe: { a: 1 } }
+			] } }) { members { edges { node { prefs { since } } } } } }`,
+			undefined,
+			asMaster,
+		)
+		expect(created).toStrictEqual({
+			data: {
+				createTeam: {
+					members: {
+						edges: [{ node: { prefs: { since: '2026-02-01T08:00:00.000Z' } } }],
+					},
+				},
+			},
+		})
+		const [stored] = await Profile.findMany(
+			{ where: { name: 'c' } },
+			{ as: master },
+		)
+		expect(stored?.prefs.since).toBe('2026-02-01T08:00:00Z')
 	})
 
 	it('refuses a value its schema refuses', async () => {

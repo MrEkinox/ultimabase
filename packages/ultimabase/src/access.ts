@@ -9,6 +9,7 @@ import { allow, filterOf, isMaster, isReadFilter, readFilter } from './rules.ts'
 import type { ModelInfo } from './schema.ts'
 import type { Models } from './query-where.ts'
 import { entries, isObject, normalizeWhere } from './query-where.ts'
+import { madeId } from './uuid.ts'
 
 type Operation = 'read' | 'create' | 'update' | 'delete'
 type Values = { readonly [field: string]: unknown }
@@ -93,13 +94,19 @@ function ids(value: unknown, key: string): { readonly id: unknown }[] {
 /** The value a field rule sees (D-44, D-86): a relation's ids, not its data. */
 function fieldValue(model: ModelInfo, name: string, given: unknown): unknown {
 	const kind = model.fields.get(name)?.kind
+	const create = isObject(given) ? given['create'] : undefined
 	if (kind === 'many') {
 		return {
 			connect: ids(given, 'connect'),
 			disconnect: ids(given, 'disconnect'),
+			// The rows it creates, by the ids the kernel gives them (D-128).
+			create: Array.isArray(create)
+				? create.filter(isObject).map((item) => ({ id: madeId(item) }))
+				: [],
 		}
 	}
 	if (kind !== 'one') return given
+	if (isObject(create)) return { id: madeId(create) }
 	const connect = isObject(given) ? given['connect'] : undefined
 	return isObject(connect) ? { id: connect['id'] } : null
 }

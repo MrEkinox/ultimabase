@@ -96,3 +96,30 @@ Against the previous run: a user's update goes from 4 round trips and
 1.91 ms to 2 and 1.39 ms on PostgreSQL, a user's delete from 4 and 1.70 ms
 to 2 and 1.19 ms. On `memory()` both grow, by 0.14 and 0.35 ms: the check compares the whole
 record by scanning the table, which grows across runs. The rest is unchanged within noise.
+
+### 2026-10-26: nested creation, 200 runs
+
+On `phase-6-nested-create` above commit `6db5f8a3` (D-128). Same machine, Node 24.20, PostgreSQL 18.6, load average 3.4.
+
+| Case                                       | memory trips | memory median | PostgreSQL trips | PostgreSQL median | PostgreSQL p95 |
+| ------------------------------------------ | -----------: | ------------: | ---------------: | ----------------: | -------------: |
+| create                                     |            1 |          0.14 |                1 |              1.04 |           1.16 |
+| create, a one and a many connected         |            1 |          0.27 |                1 |              1.41 |           1.69 |
+| update by id, Master                       |            1 |          0.10 |                1 |              1.10 |           1.26 |
+| update by id, a user under access rules    |            4 |          0.41 |                4 |              3.04 |           3.34 |
+| delete by id, a user under access rules    |            4 |          0.44 |                4 |              2.81 |           3.10 |
+| delete by id, Master, one row cascaded     |            1 |          0.18 |                1 |              1.23 |           1.40 |
+| update, a many disconnected and connected  |            1 |          0.46 |                1 |              1.42 |           1.59 |
+| update, connected from the other side      |            1 |          0.45 |                1 |              1.25 |           1.50 |
+| create, an afterCreate hook                |            5 |          0.32 |                5 |              3.51 |           3.82 |
+| create, an afterCreateCommit hook          |            4 |          0.35 |                4 |              2.92 |           3.19 |
+| create, two rows created in a many, deeper |            1 |          0.50 |                1 |              1.77 |           2.01 |
+| transaction(), the same rows one by one    |            6 |          3.34 |                6 |              5.61 |           6.01 |
+| transaction(), two creates                 |            4 |          1.85 |                4 |              3.03 |           3.33 |
+
+Within this run: a writer, two novels, a genre created and one connected take
+1 round trip and 1.77 ms on PostgreSQL in one nested create, against 6 and
+5.61 ms one by one in `transaction()`. Every PostgreSQL time is 0.2 to 1.1 ms
+above the previous run, the unchanged cases included, which the load explains;
+compare the cases of one run rather than across runs. A user's update and
+delete take 4 round trips again since they lock their row (D-104, amended).

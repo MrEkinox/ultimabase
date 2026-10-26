@@ -28,6 +28,12 @@ type Connected = { readonly connect: { readonly id: string } }
 type Keys<V, Shape> = {
 	[P in keyof V]-?: NonNullable<V[P]> extends Shape ? P : never
 }[keyof V]
+/** The relations a write may connect, which may also create (D-128). */
+type Connects<V> = {
+	[P in keyof V]-?: [Extract<NonNullable<V[P]>, Connected>] extends [never]
+		? never
+		: P
+}[keyof V]
 /**
  * The record's `one` relations, those a create connects, or any name outside
  * a model's rules.
@@ -39,7 +45,7 @@ type OwnerKey<Facts> = [Facts] extends [never]
 		: Facts extends { readonly where: unknown }
 			? 'a read rule has no record to own'
 			: Facts extends { readonly value: infer V }
-				? Keys<V, Connected>
+				? Connects<V>
 				: string
 
 /** The facts it needs; a read rule's are refused on the name alone. */

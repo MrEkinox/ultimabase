@@ -60,12 +60,12 @@ type TargetName<T> = T extends () => infer M
 	: never
 
 /**
- * Whether field `J` of target `T` is a `one` that may face field `K` of
- * model `N`, as startup resolves it (D-37).
+ * Whether field `J` of target `T` may face field `K` of model `N`, as startup
+ * resolves it (D-37).
  */
-type FacingOne<N, K, T, J> =
+type Facing<N, K, T, J> =
 	TargetFields<T>[J & keyof TargetFields<T>] extends Relation<
-		'one',
+		'one' | 'many',
 		infer B,
 		infer O
 	>
@@ -81,18 +81,30 @@ type FacingOne<N, K, T, J> =
 		: false
 
 /**
+ * The field of relation `X`'s target that faces it, named `K` on model `N`:
+ * the rows it creates leave it out (D-128).
+ */
+type InverseOf<N, K, X> =
+	X extends Relation<'one' | 'many', infer T, infer O>
+		? O extends { readonly inverse: infer I extends string }
+			? I
+			: {
+					[J in keyof TargetFields<T>]: Facing<N, K, T, J> extends true
+						? J
+						: never
+				}[keyof TargetFields<T>]
+		: never
+
+/**
  * Whether relation `X`, named `K` on model `N`, faces a `one`: the two
  * sides of a one-to-one, of which the required one stores the key (D-37).
  */
 type FacesOne<N, K, X> =
-	X extends Relation<'one', infer T, infer O>
-		? O extends { readonly inverse: infer I extends string }
-			? TargetFields<T>[I & keyof TargetFields<T>] extends Relation<'one'>
-				? true
-				: false
-			: true extends {
-						[J in keyof TargetFields<T>]: FacingOne<N, K, T, J>
-				  }[keyof TargetFields<T>]
+	X extends Relation<'one', infer T>
+		? [InverseOf<N, K, X>] extends [never]
+			? false
+			: TargetFields<T>[InverseOf<N, K, X> &
+						keyof TargetFields<T>] extends Relation<'one'>
 				? true
 				: false
 		: false
@@ -141,23 +153,33 @@ type WrittenValue<X> = X extends {
 	: StoredValue<X>
 
 type Ref = { readonly id: string }
-type Connect = { readonly connect: Ref }
-/** A created relation is connected; nested creation comes later (D-20). */
-type CreateInput<X> = X extends Scalar
+/** The data of a row relation `K` of model `N` creates (D-128). */
+type Created<N, K, X> =
+	X extends Relation<'one' | 'many', infer T>
+		? CreateData<TargetFields<T>, TargetName<T>, InverseOf<N, K, X>>
+		: never
+type Connect<N, K, X> =
+	{ readonly connect: Ref } | { readonly create: Created<N, K, X> }
+/** A relation is connected or created (D-20, D-128). */
+type CreateInput<X, N, K> = X extends Scalar
 	? WrittenValue<X>
 	: X extends Relation<'one'>
-		? Connect
-		: { readonly connect?: readonly Ref[] }
+		? Connect<N, K, X>
+		: {
+				readonly connect?: readonly Ref[]
+				readonly create?: readonly Created<N, K, X>[]
+			}
 /** An optional `one` relation is unset with `disconnect: true` (D-20). */
-type UpdateInput<X> = X extends Scalar
+type UpdateInput<X, N, K> = X extends Scalar
 	? WrittenValue<X>
 	: X extends Relation<'one', unknown, infer O>
 		? IsOptional<O> extends true
-			? Connect | { readonly disconnect: true }
-			: Connect
+			? Connect<N, K, X> | { readonly disconnect: true }
+			: Connect<N, K, X>
 		: {
 				readonly connect?: readonly Ref[]
 				readonly disconnect?: readonly Ref[]
+				readonly create?: readonly Created<N, K, X>[]
 			}
 // A list left unwritten is empty (D-120).
 type Needed<X> =
@@ -175,18 +197,24 @@ type Needed<X> =
 					: true
 			: false
 
-export type CreateData<F> = {
-	readonly [K in keyof F as Needed<F[K]> extends true ? K : never]: CreateInput<
-		F[K]
-	>
+/**
+ * The data that creates a row of model `N`, without field `E`: the relation
+ * back to the row that creates it (D-128). Code that does not know `N`
+ * leaves that relation to the kernel.
+ */
+export type CreateData<F, N = never, E = never> = {
+	readonly [
+		K in keyof F as K extends E ? never : Needed<F[K]> extends true ? K : never
+	]: CreateInput<F[K], N, K>
 } & {
-	readonly [K in keyof F as Needed<F[K]> extends true ? never : K]?:
-		CreateInput<F[K]> | undefined
+	readonly [
+		K in keyof F as K extends E ? never : Needed<F[K]> extends true ? never : K
+	]?: CreateInput<F[K], N, K> | undefined
 }
 
 /** `undefined` leaves a field unchanged, as in Prisma (D-84). */
-export type UpdateData<F> = {
-	readonly [K in keyof F]?: UpdateInput<F[K]> | undefined
+export type UpdateData<F, N = never> = {
+	readonly [K in keyof F]?: UpdateInput<F[K], N, K> | undefined
 }
 
 export type ScalarKeys<F> = {

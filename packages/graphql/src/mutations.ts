@@ -38,34 +38,41 @@ const connectInput = (registry: Registry): GraphQLInputObjectType =>
 			}),
 	)
 
+type Relation = Exclude<SchemaField, { readonly kind: 'scalar' }>
+
 /**
- * A relation's write, the same for every target: a create connects, an
- * update connects or disconnects (D-20).
+ * A relation's write, named as Prisma names it (D-20, D-128): a create
+ * connects or creates, an update also disconnects, unless the relation is a
+ * required `one`. `create` takes the target's data without the relation
+ * back: `PostCreateInput.comments` is `CommentCreateNestedManyWithoutPostInput
+ * { connect, create: [CommentCreateWithoutPostInput!] }`. A hidden model
+ * is not created over GraphQL, through a relation either, as in Parse.
  */
 function relationInput(
 	registry: Registry,
-	kind: 'one' | 'many',
+	field: Relation,
 	creating: boolean,
 ): GraphQLInputObjectType {
-	const name = `${creating ? 'Create' : 'Update'}${upper(kind)}RelationInput`
+	const without = `Without${upper(field.inverse)}`
+	const many = field.kind === 'many'
+	const shape = many ? 'Many' : field.optional ? 'One' : 'OneRequired'
+	const name = creating
+		? `${field.target}CreateNested${many ? 'Many' : 'One'}${without}Input`
+		: `${field.target}Update${shape}${without}NestedInput`
 	return registry.input(name, () => {
-		const row = connectInput(registry)
-		const type = kind === 'one' ? row : new GraphQLList(new GraphQLNonNull(row))
-		if (creating) {
-			return new GraphQLInputObjectType({
-				name,
-				fields: { connect: { type: new GraphQLNonNull(type) } },
-			})
+		const listed = <T extends GraphQLInputObjectType>(type: T) =>
+			many ? new GraphQLList(new GraphQLNonNull(type)) : type
+		const row = listed(connectInput(registry))
+		const fields: GraphQLInputFieldConfigMap = { connect: { type: row } }
+		if (registry.entry(field.target).visible) {
+			const created = dataInput(registry, field.target, true, field.inverse)
+			fields['create'] = { type: listed(created) }
 		}
-		return new GraphQLInputObjectType({
-			name,
-			fields: {
-				connect: { type },
-				disconnect: { type: kind === 'one' ? GraphQLBoolean : type },
-			},
-			// A `one` relation takes one of them.
-			isOneOf: kind === 'one',
-		})
+		if (!creating && shape !== 'OneRequired') {
+			fields['disconnect'] = { type: many ? row : GraphQLBoolean }
+		}
+		// A `one` relation takes one of them.
+		return new GraphQLInputObjectType({ name, fields, isOneOf: !many })
 	})
 }
 
@@ -83,20 +90,26 @@ function fieldInput(
 		return JSONScalar
 	}
 	if (field.kind === 'scalar') return valueType(registry, model, field)
-	return relationInput(registry, field.kind, creating)
+	return relationInput(registry, field, creating)
 }
 
 /**
  * `PostCreateInput` and `PostUpdateInput`: every field, those only Master
  * reads included. A create needs the fields its type needs, neither optional
- * nor with a default (D-53); the others are optional.
+ * nor with a default (D-53); the others are optional. A row created through
+ * a relation takes `CommentCreateWithoutPostInput`, without that relation
+ * (D-128).
  */
 function dataInput(
 	registry: Registry,
 	model: string,
 	creating: boolean,
+	without?: string,
 ): GraphQLInputObjectType {
-	const name = `${model}${creating ? 'Create' : 'Update'}Input`
+	const name =
+		without === undefined
+			? `${model}${creating ? 'Create' : 'Update'}Input`
+			: `${model}CreateWithout${upper(without)}Input`
 	return registry.input(
 		name,
 		() =>
@@ -107,6 +120,7 @@ function dataInput(
 					const required = new Set(creating ? exposed.required : [])
 					const fields: GraphQLInputFieldConfigMap = {}
 					for (const field of exposed.schema.fields) {
+						if (field.name === without) continue
 						const type = fieldInput(registry, model, field, creating)
 						fields[field.name] = {
 							type: required.has(field.name) ? new GraphQLNonNull(type) : type,

@@ -72,16 +72,28 @@ export function jsonFilter(
 	)
 }
 
-/** A written row's json and plugin values, their dates back to text. */
+/**
+ * A written row's json and plugin values, their dates back to text, in the
+ * rows it creates too (D-128).
+ */
 export function plainData(registry: Registry, model: string, data: Args): Args {
 	const plained: { [field: string]: unknown } = { ...data }
 	const { exposed, model: schema } = registry.entry(model)
 	for (const field of schema.fields) {
-		const json =
-			(field.kind === 'scalar' && field.type === 'json') ||
+		const value = plained[field.name]
+		if (value === undefined) continue
+		if (field.kind !== 'scalar') {
+			if (typeof value === 'object' && value !== null && 'create' in value) {
+				const create = each(value.create, (row) =>
+					plainData(registry, field.target, row),
+				)
+				plained[field.name] = { ...value, create }
+			}
+		} else if (
+			field.type === 'json' ||
 			exposed.fieldTypes[field.name] !== undefined
-		if (json && field.name in plained) {
-			plained[field.name] = plain(plained[field.name])
+		) {
+			plained[field.name] = plain(value)
 		}
 	}
 	return plained

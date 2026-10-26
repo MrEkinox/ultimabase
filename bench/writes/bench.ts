@@ -163,6 +163,45 @@ function cases(seed: Seed): Case[] {
 			run: async () => Memo.create({ data: { text: 'hi' } }, M),
 		},
 		{
+			name: 'create, two rows created in a many, deeper',
+			run: async () =>
+				Writer.create(
+					{
+						data: {
+							name: 'Cy',
+							novels: {
+								create: [
+									{
+										title: 'Waves',
+										genres: {
+											connect: [{ id: seed.genres[0] }],
+											create: [{ label: 'sea' }],
+										},
+									},
+									{ title: 'Tides' },
+								],
+							},
+						},
+					},
+					M,
+				),
+		},
+		{
+			name: 'transaction(), the same rows one by one',
+			run: async () =>
+				transaction(async () => {
+					const writer = await Writer.create({ data: { name: 'Cy' } }, M)
+					const sea = await Genre.create({ data: { label: 'sea' } }, M)
+					const by = { connect: { id: writer.id } }
+					const genres = { connect: [{ id: seed.genres[0] }, { id: sea.id }] }
+					await Novel.create(
+						{ data: { title: 'Waves', writer: by, genres } },
+						M,
+					)
+					await Novel.create({ data: { title: 'Tides', writer: by } }, M)
+				}),
+		},
+		{
 			name: 'transaction(), two creates',
 			run: async () =>
 				transaction(async () => {

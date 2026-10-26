@@ -499,7 +499,11 @@ describe('write rules', () => {
 			},
 			ada,
 		)
-		expect(seen).toEqual({ connect: [{ id: ids.loose }], disconnect: [] })
+		expect(seen).toEqual({
+			connect: [{ id: ids.loose }],
+			disconnect: [],
+			create: [],
+		})
 		expect(
 			await failure(async () =>
 				Post.update(

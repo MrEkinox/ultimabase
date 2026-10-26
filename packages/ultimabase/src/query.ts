@@ -223,22 +223,23 @@ export type FindUniqueArgs<F, X = never> = {
 	readonly include?: Include<F>
 }
 
-export type CreateArgs<F> = {
-	readonly data: CreateData<F>
+export type CreateArgs<F, N = never> = {
+	readonly data: CreateData<F, N>
 	readonly select?: Select<F>
 	readonly include?: Include<F>
 }
 
-export type UpdateArgs<F, X = never> = {
+export type UpdateArgs<F, X = never, N = never> = {
 	readonly where: UniqueWhere<F, X>
-	readonly data: UpdateData<F>
+	readonly data: UpdateData<F, N>
 	readonly select?: Select<F>
 	readonly include?: Include<F>
 }
 
 /** Model methods (D-18), the subset the prototype measures. */
 // Each query is a closure on its model: it can be passed around unbound.
-export interface Queries<F, X = never> {
+/** `N` is the model's name, which nested creation needs (D-128). */
+export interface Queries<F, X = never, N = never> {
 	findMany<const A extends FindManyArgs<F, X>>(
 		this: void,
 		args?: A & NoInfer<Exact<A, FindManyArgs<F, X>>>,
@@ -259,14 +260,14 @@ export interface Queries<F, X = never> {
 		args?: { readonly where?: Where<F> },
 		options?: QueryOptions,
 	): Promise<number>
-	create<const A extends CreateArgs<F>>(
+	create<const A extends CreateArgs<F, N>>(
 		this: void,
-		args: A & NoInfer<Exact<A, CreateArgs<F>>>,
+		args: A & NoInfer<Exact<A, CreateArgs<F, N>>>,
 		options?: QueryOptions,
 	): Promise<Payload<F, A>>
-	update<const A extends UpdateArgs<F, X>>(
+	update<const A extends UpdateArgs<F, X, N>>(
 		this: void,
-		args: A & NoInfer<Exact<A, UpdateArgs<F, X>>>,
+		args: A & NoInfer<Exact<A, UpdateArgs<F, X, N>>>,
 		options?: QueryOptions,
 	): Promise<Payload<F, A>>
 	delete(

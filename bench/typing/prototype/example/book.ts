@@ -19,6 +19,8 @@ export const Book = defineModel({
 	},
 	hooks: {
 		beforeCreate: async ({ data }) => {
+			// The author is connected or created with the book (D-128).
+			if (!('connect' in data.author)) return
 			const author = await Author.findUnique({
 				where: { id: data.author.connect.id },
 				include: { books: { select: { title: true, pages: true } } },

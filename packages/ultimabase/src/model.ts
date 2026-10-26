@@ -18,16 +18,16 @@ import type {
 } from './symbols.ts'
 
 type ReadFacts = { readonly caller: Caller; readonly operation: 'read' }
-type CreateFacts<F> = {
+type CreateFacts<F, N extends string> = {
 	readonly caller: Caller
 	readonly operation: 'create'
-	readonly value: CreateData<F>
+	readonly value: CreateData<F, N>
 }
 type UpdateFacts<F, N extends string> = {
 	readonly caller: Caller
 	readonly operation: 'update'
 	readonly record: StoredRecord<F, N>
-	readonly value: UpdateData<F>
+	readonly value: UpdateData<F, N>
 }
 type DeleteFacts<F, N extends string> = {
 	readonly caller: Caller
@@ -49,15 +49,16 @@ type ReadRule<F> = (
 /** One rule, or one rule per operation; `write` covers the three writes. */
 export type ModelAccess<F, N extends string> =
 	| ((
-			facts: ReadFacts | CreateFacts<F> | UpdateFacts<F, N> | DeleteFacts<F, N>,
+			facts:
+				ReadFacts | CreateFacts<F, N> | UpdateFacts<F, N> | DeleteFacts<F, N>,
 	  ) => boolean)
 	| {
 			readonly read?: ReadRule<F>
-			readonly create?: (facts: CreateFacts<F>) => boolean
+			readonly create?: (facts: CreateFacts<F, N>) => boolean
 			readonly update?: (facts: UpdateFacts<F, N>) => boolean
 			readonly delete?: (facts: DeleteFacts<F, N>) => boolean
 			readonly write?: (
-				facts: CreateFacts<F> | UpdateFacts<F, N> | DeleteFacts<F, N>,
+				facts: CreateFacts<F, N> | UpdateFacts<F, N> | DeleteFacts<F, N>,
 			) => boolean
 	  }
 
@@ -91,10 +92,10 @@ export type ModelHooks<F, N extends string = string> = {
 		readonly operation: FindOperation
 		readonly where: (filter: FindWhere<F>) => ReadFilter
 	}) => ReadFilter | void | Promise<ReadFilter | void>
-	readonly beforeCreate?: Hook<{ readonly data: Draft<CreateData<F>> }>
+	readonly beforeCreate?: Hook<{ readonly data: Draft<CreateData<F, N>> }>
 	readonly beforeUpdate?: Hook<{
 		readonly record: StoredRecord<F, N>
-		readonly data: Draft<UpdateData<F>>
+		readonly data: Draft<UpdateData<F, N>>
 	}>
 	readonly beforeDelete?: RecordHook<F, N>
 	readonly afterCreate?: RecordHook<F, N>
@@ -114,7 +115,8 @@ export type ModelWith<F, W, N extends string> = {
 /** `X` lists the fields of each unique index (D-52). */
 export interface Model<N extends string, F, P, W, X = never> extends Queries<
 	F,
-	X
+	X,
+	N
 > {
 	readonly name: N
 	readonly [modelFields]: F
