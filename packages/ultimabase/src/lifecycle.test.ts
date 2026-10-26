@@ -284,6 +284,33 @@ describe('SIGTERM', () => {
 		expect(listeners()).toBe(before)
 	})
 
+	it('ends the process once its output is written', async () => {
+		await app.start()
+		// Writes to a pipe complete later on macOS: the last lines would be lost.
+		const pending: (() => void)[] = []
+		const streams = [process.stdout, process.stderr].map((stream) =>
+			vi.spyOn(stream, 'write').mockImplementation((...args: unknown[]) => {
+				const done = args.at(-1)
+				if (typeof done === 'function') {
+					pending.push(() => {
+						Reflect.apply(done, undefined, [])
+					})
+				}
+				return true
+			}),
+		)
+		const kill = killed()
+		await vi.waitFor(() => {
+			expect(pending).toHaveLength(2)
+		})
+		expect(kill).not.toHaveBeenCalled()
+		for (const stream of streams) stream.mockRestore()
+		for (const write of pending) write()
+		await vi.waitFor(() => {
+			expect(kill).toHaveBeenCalledWith(process.pid, 'SIGTERM')
+		})
+	})
+
 	it('ends the process when the stop fails, and logs why', async () => {
 		await app.start()
 		failing.add('cache.stop')
