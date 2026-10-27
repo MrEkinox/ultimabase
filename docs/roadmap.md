@@ -202,6 +202,8 @@ Exit: an example with sign-up, sign-in and rules on `caller.user`.
 - [x] Decide `OrThrow` reads, `omit`, a delete's `select` and `createMany`
       (D-20): D-135.
 - [x] `OrThrow` reads, `omit`, a delete's `select` and `createMany` (D-135).
+- [x] Decide reads that fetch the fields they return (D-73): D-136.
+- [x] Reads fetch the fields they return (D-136).
 - [ ] Documentation website (D-31).
 - [ ] A full audit of every package, its fixes merged, before publication.
 - [ ] Publication, after confirmation.

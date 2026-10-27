@@ -1980,7 +1980,7 @@ throw new PublicError('VALIDATION_FAILED', 'Too short.', {
 
 ## D-73: The adapter contract
 
-Amended by D-105.
+Amended by D-105 and D-136.
 
 Choice: an adapter implements six methods. `start(schema)` receives every
 model with its fields, relations, indexes and `dbName` overrides; `stop()`
@@ -7279,6 +7279,8 @@ GET /api/users?first=20&orderBy={"posts":{"_count":"desc"}}&include={"posts":{"w
 
 ## D-135: `OrThrow` reads, `omit`, a delete's `select` and `createMany`
 
+Amended by D-136.
+
 Choice: completes D-20; amends D-102 point 2.
 
 1. `findUniqueOrThrow` and `findFirstOrThrow` take what `findUnique` and
@@ -7368,4 +7370,50 @@ const { count } = await Tag.createMany({
 
 // The row as it was, with its author
 const removed = await Post.delete({ where: { id }, include: { author: true } })
+```
+
+## D-136: Reads fetch the fields they return
+
+Choice: amends D-73 and D-135 point 2.
+
+1. A read's `Nested` takes `fields`, the system and scalar fields its rows
+   return; the adapter reads `id` and those fields only, in a relation too.
+   Without `fields`, it reads the whole row and each `one` key, as before.
+   PostgreSQL builds its rows from those columns only; `memory()` copies
+   those keys only.
+2. The kernel sets `fields` from `select` and `omit` for every read it
+   shapes: `findMany`, `findFirst`, `findUnique`, their `OrThrow` forms, a
+   relation in `include` or `select`, and the row a write returns. An
+   included relation and a `_count` are read as before, apart from the
+   row's fields.
+3. A field read rule (D-44) receives the whole record: its declared fields,
+   `.with<{ status }>`, are types only, so the kernel cannot know which
+   ones it reads. A read whose returned fields, relations or counts carry a
+   read rule the caller runs therefore reads the whole row of that model.
+   Master runs none (D-48), so its reads are always narrowed.
+4. A write's target rows, its rules' and hooks' records, and the rows the
+   kernel reads for itself keep the whole row.
+
+Why:
+
+- `omit: { body: true }` on posts whose body is 20 KB read 100 rows in
+  ~26 ms against ~1.7 ms for the same SQL without `body`: the PostgreSQL
+  server builds and sends every column, and the kernel drops one. Parse
+  Server turns `keys` into a column list, the same way.
+
+Rejected:
+
+- Narrowing a field read rule's record to its declared fields: they exist
+  in the types only, and a rule that reads an undeclared field would then
+  see `undefined` and decide on it silently.
+- Projection inside the adapters only, from the shape: the adapter does
+  not see `select` and `omit`, and the field rules are the kernel's.
+
+Example:
+
+```ts
+// Before and after: the same call and the same rows.
+await Post.findMany({ omit: { body: true } }, { as: master })
+// Before: SELECT … 'title', "t1"."title", …, 'body', "t1"."body" …
+// After:  SELECT … 'title', "t1"."title", … (no body)
 ```

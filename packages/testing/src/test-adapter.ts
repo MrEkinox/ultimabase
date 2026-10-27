@@ -7,6 +7,7 @@ import { counts } from './counts.ts'
 import { lists } from './lists.ts'
 import { nested } from './nested.ts'
 import { numbers } from './numbers.ts'
+import { projection } from './projection.ts'
 import { reads } from './reads.ts'
 import { roundTrips } from './round-trips.ts'
 import { transactions } from './transactions.ts'
@@ -34,6 +35,7 @@ export function testAdapter(
 		nested(create)
 		numbers(create)
 		counts(create)
+		projection(create)
 		transactions(create)
 		roundTrips(create, options.roundTrips)
 	})

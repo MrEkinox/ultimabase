@@ -120,6 +120,11 @@ export type Nested = {
 	readonly skip?: number
 	/** Negative: the rows before the cursor, or the last ones. */
 	readonly take?: number
+	/**
+	 * The system and scalar fields the rows return, `id` always; absent, every
+	 * field and each `one` key (D-136).
+	 */
+	readonly fields?: readonly string[]
 	readonly include?: { readonly [field: string]: Nested }
 	/** `many` relations to count in the row's `_count`, by filter (D-134). */
 	readonly count?: { readonly [field: string]: Filter }

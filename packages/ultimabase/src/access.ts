@@ -193,6 +193,11 @@ export class Access {
 		return normalizeWhere(this.models, model, filterOf(result), path)
 	}
 
+	/** Whether a field read rule may hide the field, from the whole row (D-44). */
+	ruled(model: ModelInfo, field: string): boolean {
+		return fieldRule(model, field, 'read') !== undefined
+	}
+
 	/** Refuses a filter or a sort on a field with a read rule (D-44, D-86). */
 	check(
 		model: ModelInfo,

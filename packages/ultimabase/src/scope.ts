@@ -42,6 +42,10 @@ export class QueryScope implements Scope {
 		this.access?.check(model, field, path, verb)
 	}
 
+	ruled(model: ModelInfo, field: string): boolean {
+		return this.access?.ruled(model, field) ?? false
+	}
+
 	/**
 	 * The rows of `name` the query reads, or the write `operation` targets:
 	 * its read rule and `beforeFind`.

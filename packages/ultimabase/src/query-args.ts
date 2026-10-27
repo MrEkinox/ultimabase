@@ -260,14 +260,15 @@ export function plan(
 		}
 	}
 	const hidden = omitted(model, given.get('omit'), at('omit'))
+	const shown = fields.filter((name) => !hidden.has(name))
+	// A field read rule may read any field of the row (D-136).
+	const names = [...shown, ...relations.keys(), ...count.keys()]
+	if (!names.some((name) => scope?.ruled(model, name) === true)) {
+		read.fields = [...new Set(['id', ...shown])]
+	}
 	return {
 		read,
-		shape: {
-			model,
-			fields: fields.filter((name) => !hidden.has(name)),
-			relations,
-			counts: [...count.keys()],
-		},
+		shape: { model, fields: shown, relations, counts: [...count.keys()] },
 	}
 }
 

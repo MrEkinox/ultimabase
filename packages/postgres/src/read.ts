@@ -152,10 +152,13 @@ class Compiler {
 	row(model: string, alias: string, nested: Nested): Sql {
 		const table = this.catalog.table(model)
 		const pairs = new Map<string, Sql>()
-		for (const name of ['id', 'createdAt', 'updatedAt']) {
+		const fields = nested.fields && new Set(['id', ...nested.fields])
+		const reads = (name: string) => fields?.has(name) ?? true
+		for (const name of ['id', 'createdAt', 'updatedAt'].filter(reads)) {
 			pairs.set(name, this.scalar(table, alias, name))
 		}
 		for (const field of table.model.fields) {
+			if (!reads(field.name)) continue
 			if (field.kind === 'scalar') {
 				pairs.set(field.name, this.scalar(table, alias, field.name))
 			} else if (field.kind === 'one' && field.stored) {
