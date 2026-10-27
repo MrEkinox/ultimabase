@@ -7,6 +7,12 @@ import type { FieldInfo, ModelInfo } from './schema.ts'
 
 export type Models = ReadonlyMap<string, ModelInfo>
 
+/** An integer field's values (D-132). */
+export const isInteger = (value: unknown): boolean =>
+	Number.isInteger(value) &&
+	Number(value) >= -2_147_483_648 &&
+	Number(value) <= 2_147_483_647
+
 /** What a caller other than Master may filter on and see (D-86). */
 export type Scope = {
 	/** Fails on a field with a read rule (D-44). */
@@ -92,7 +98,11 @@ const fits: {
 		typeof value === 'string' &&
 		field?.kind === 'scalar' &&
 		(field.values ?? []).includes(value),
-	number: (value) => typeof value === 'number' && Number.isFinite(value),
+	// An integer field's filter takes whole numbers, as GraphQL's `Int`.
+	number: (value, field) =>
+		field?.kind === 'scalar' && field.integer === true
+			? isInteger(value)
+			: typeof value === 'number' && Number.isFinite(value),
 	boolean: (value) => typeof value === 'boolean',
 	date: storedDate,
 	json: isJson,
@@ -166,7 +176,9 @@ function listCondition(
 		field.type === 'enum'
 			? `one of ${(field.values ?? []).join(', ')}`
 			: field.type === 'number'
-				? 'a finite number'
+				? field.integer === true
+					? 'a whole number from -2,147,483,648 to 2,147,483,647'
+					: 'a finite number'
 				: 'a non-empty clean string'
 	const element = (item: unknown, at: string): unknown => {
 		if (item === '' || !fits[field.type](item, field)) {

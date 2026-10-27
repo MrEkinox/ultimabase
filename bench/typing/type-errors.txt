@@ -556,7 +556,7 @@ TS2322: Type '"x"' is not assignable to type '"x" & { readonly error: "'titel' i
   Type 'string' is not assignable to type '{ readonly error: "'titel' is not a key here"; }'.
 
 prototype/example/undefined-values.ts: `undefined` does not make a wrong value right.
-TS2322: Type 'string' is not assignable to type 'number'.
+TS2322: Type 'string' is not assignable to type 'number | NumberUpdate<number | null> | null | undefined'.
 
 prototype/example/undefined-values.ts: a required field cannot be left `undefined`.
 TS2322: Type 'undefined' is not assignable to type 'string'.

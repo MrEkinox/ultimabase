@@ -22,6 +22,7 @@ import type {
 import { decodeRows } from './decode.ts'
 import { apply, remoteOf, reset, stored } from './migrations.ts'
 import { Catalog } from './names.ts'
+import { overflowed } from './numbers.ts'
 import { fillsOf } from './fills.ts'
 import { plan } from './plan.ts'
 import { compileCount, compileFind } from './read.ts'
@@ -146,7 +147,7 @@ async function run(
 			if (first !== undefined && 'rows' in first) rows = first['rows']
 		}
 	} catch (error) {
-		throw translate(catalog, error)
+		throw translate(catalog, overflowed(given, error))
 	}
 	const read = given.read
 	// A `before` read of a model the write deletes nothing of reads none.

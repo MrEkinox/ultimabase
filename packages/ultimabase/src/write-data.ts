@@ -9,6 +9,7 @@ import type { Models } from './query-where.ts'
 import {
 	clean,
 	entries,
+	isInteger,
 	isJson,
 	isObject,
 	storedDate,
@@ -20,6 +21,8 @@ import { checked, validated } from './validation.ts'
 export type Draft = { [field: string]: unknown }
 
 type Scalar = Extract<FieldInfo, { readonly kind: 'scalar' }>
+
+const range = 'from -2,147,483,648 to 2,147,483,647'
 
 /** Each scalar type's check, and its message when a value does not fit. */
 const fits: {
@@ -34,10 +37,14 @@ const fits: {
 			? undefined
 			: 'Expected a string without a NUL or a lone surrogate.'
 	},
-	number: (value) =>
-		typeof value === 'number' && Number.isFinite(value)
-			? undefined
-			: 'Expected a finite number.',
+	number: (value, field) => {
+		if (field.integer !== true) {
+			return typeof value === 'number' && Number.isFinite(value)
+				? undefined
+				: 'Expected a finite number.'
+		}
+		return isInteger(value) ? undefined : `Expected a whole number ${range}.`
+	},
 	boolean: (value) =>
 		typeof value === 'boolean' ? undefined : 'Expected a boolean.',
 	date: (value) =>
@@ -61,9 +68,11 @@ export function issueOf(value: unknown, field: Scalar): string | undefined {
 	const of =
 		field.type === 'enum'
 			? `values among ${(field.values ?? []).join(', ')}`
-			: field.type === 'number'
-				? 'finite numbers'
-				: 'non-empty strings without a NUL or a lone surrogate'
+			: field.integer === true
+				? `whole numbers ${range}`
+				: field.type === 'number'
+					? 'finite numbers'
+					: 'non-empty strings without a NUL or a lone surrogate'
 	return `Expected a list of ${of}.`
 }
 

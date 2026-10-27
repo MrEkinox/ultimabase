@@ -16,6 +16,8 @@ export type SchemaField =
 			 * `null`, `[]` when empty (D-120, D-127).
 			 */
 			readonly list: boolean
+			/** A `number` of whole numbers from -2^31 to 2^31 - 1 (D-132). */
+			readonly integer?: true
 			readonly optional: boolean
 			readonly unique: boolean
 			readonly dbName?: string
@@ -127,6 +129,15 @@ export type CountRead = { readonly model: string; readonly where?: Filter }
  */
 export type Row = { readonly id: string; readonly [field: string]: unknown }
 
+/**
+ * A number update computed on each row the write changes, `null` counting
+ * as 0; an integer's division truncates toward zero (D-132).
+ */
+export type Arithmetic = {
+	readonly operation: 'increment' | 'decrement' | 'multiply' | 'divide'
+	readonly by: number
+}
+
 /** In a change, a stored `one` key is the target's id or `null`. */
 export type Change =
 	| { readonly kind: 'insert'; readonly model: string; readonly row: Row }
@@ -135,6 +146,7 @@ export type Change =
 			readonly model: string
 			readonly where: Filter
 			readonly set: { readonly [field: string]: unknown }
+			readonly compute?: { readonly [field: string]: Arithmetic }
 	  }
 	| { readonly kind: 'delete'; readonly model: string; readonly where: Filter }
 	| {
@@ -331,6 +343,22 @@ export class RelationViolation extends Error {
 		this.field = field
 		this.target = target
 		this.restricted = restricted
+	}
+}
+
+/**
+ * A computed number fell outside its field's range, or was not finite on a
+ * float: nothing was written (D-132).
+ */
+export class OutOfRange extends Error {
+	readonly model: string
+	readonly field: string
+
+	constructor(model: string, field: string) {
+		super(`The result for ${model}.${field} is out of range.`)
+		this.name = 'OutOfRange'
+		this.model = model
+		this.field = field
 	}
 }
 

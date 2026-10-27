@@ -15,6 +15,13 @@ import type { Context } from './query-context.ts'
 import { byId, first, given, hiddenBy, picked } from './query-context.ts'
 import type { Shape } from './query-args.ts'
 import { plan, project, uniqueWhere } from './query-args.ts'
+import type { Numbers } from './number-update.ts'
+import {
+	computeOn,
+	numberUpdates,
+	outOfRange,
+	validates,
+} from './number-update.ts'
 import { createPlan, updatePlan } from './query-write.ts'
 import { planned } from './scope.ts'
 import type { Commit, Store } from './transaction.ts'
@@ -125,17 +132,21 @@ function idOf(where: unknown): string | undefined {
 	return typeof where.id === 'string' ? where.id : undefined
 }
 
-/** Updates the locked `row` as the rules allow. */
+/**
+ * Updates the locked `row` as the rules allow; its number updates are
+ * computed on it first, so the rules and hooks see the results (D-132).
+ */
 async function updating(
 	context: Context,
 	store: Store,
 	commits: Commit[],
-	found: ReadonlyMap<string, unknown>,
+	data: { readonly draft: Draft; readonly numbers: Numbers },
 	at: { readonly row: Row; readonly read: Nested; readonly shape: Shape },
 ): Promise<unknown> {
-	const { models, model, caller, scope } = context
+	const { model, caller, scope } = context
 	const { row, read, shape } = at
-	const draft = readData(models, model, found.get('data'), false)
+	const { draft, numbers } = data
+	computeOn(model, row, draft, numbers)
 	const sent: Readonly<Draft> = { ...draft }
 	scope.access?.allow(model, 'update', { record: row, data: sent })
 	await prepared(model, draft, caller, false)
@@ -165,24 +176,50 @@ export async function update(
 	const { read, shape } = await returned(context, found)
 	// The data's shape is checked whether or not the row is found.
 	const draft = readData(models, model, found.get('data'), false)
-	const sent: Readonly<Draft> = { ...draft }
+	const numbers = numberUpdates(model, draft)
 	const id = idOf(found.get('where'))
 	const where = await targets(context, found, 'update')
-	if (scope.access === undefined && id !== undefined && !updated(model)) {
-		// Nothing needs the stored row: a check stands for its read (D-99).
+	if (
+		scope.access === undefined &&
+		id !== undefined &&
+		!updated(model) &&
+		!validates(model, numbers)
+	) {
+		// Nothing needs the stored row: a check stands for its read (D-99),
+		// and the write computes its numbers (D-132).
+		const sent: Readonly<Draft> = { ...draft }
 		await prepared(model, draft, caller, false)
-		const steps = await updatePlan(scope, model, id, draft, sent, store)
+		const steps = await updatePlan(
+			scope,
+			model,
+			id,
+			draft,
+			sent,
+			store,
+			numbers,
+		)
 		const check = { model: model.name, where, count: 1, lock: true }
 		const message = missing(model.name)
 		const at = { id, read, shape }
 		const checks = [{ check, message }]
-		const result = await written(context, store, commits, steps, [], at, checks)
+		const result = await written(
+			context,
+			store,
+			commits,
+			steps,
+			[],
+			at,
+			checks,
+		).catch((error: unknown) => {
+			throw outOfRange(model, error)
+		})
 		// The row went between the write's check and its change (D-104).
 		if (result === null) throw new PublicError('NOT_FOUND', message)
 		return result
 	}
 	const row = await target(context, store, where)
-	return updating(context, store, commits, found, { row, read, shape })
+	const data = { draft, numbers }
+	return updating(context, store, commits, data, { row, read, shape })
 }
 
 /** The changes and events of a delete's cascade, its hooks run (D-90). */

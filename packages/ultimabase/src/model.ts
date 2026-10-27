@@ -27,7 +27,7 @@ type UpdateFacts<F, N extends string> = {
 	readonly caller: Caller
 	readonly operation: 'update'
 	readonly record: StoredRecord<F, N>
-	readonly value: UpdateData<F, N>
+	readonly value: UpdateData<F, N, false>
 }
 type DeleteFacts<F, N extends string> = {
 	readonly caller: Caller
@@ -95,7 +95,7 @@ export type ModelHooks<F, N extends string = string> = {
 	readonly beforeCreate?: Hook<{ readonly data: Draft<CreateData<F, N>> }>
 	readonly beforeUpdate?: Hook<{
 		readonly record: StoredRecord<F, N>
-		readonly data: Draft<UpdateData<F, N>>
+		readonly data: Draft<UpdateData<F, N, false>>
 	}>
 	readonly beforeDelete?: RecordHook<F, N>
 	readonly afterCreate?: RecordHook<F, N>

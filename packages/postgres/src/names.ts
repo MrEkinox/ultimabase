@@ -6,9 +6,10 @@ import type { ScalarType, Schema, SchemaField, SchemaModel } from 'ultimabase'
 
 /**
  * What a column holds: `id` and a `one` key hold uuids, a list the array of
- * its elements' type (D-127).
+ * its elements' type (D-127), an integer field `integer` (D-132).
  */
-export type Kind = ScalarType | 'id' | 'text[]' | 'double precision[]'
+export type Kind =
+	ScalarType | 'id' | 'integer' | 'text[]' | 'double precision[]' | 'integer[]'
 
 export type Unique = {
 	readonly name: string
@@ -134,6 +135,7 @@ export class Catalog {
 		if (known !== undefined) return known[1]
 		const field = table.fields.get(name)
 		if (field?.kind !== 'scalar') return 'id'
+		if (field.integer === true) return field.list ? 'integer[]' : 'integer'
 		if (!field.list) return field.type
 		return field.type === 'number' ? 'double precision[]' : 'text[]'
 	}

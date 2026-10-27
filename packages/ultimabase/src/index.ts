@@ -1,6 +1,7 @@
 // The kernel's public surface (D-01).
 export type {
 	Adapter,
+	Arithmetic,
 	Change,
 	Check,
 	Condition,
@@ -26,6 +27,7 @@ export {
 	CheckFailed,
 	isLocalHost,
 	MigrationFailed,
+	OutOfRange,
 	RelationViolation,
 	UniqueViolation,
 } from './adapter.ts'

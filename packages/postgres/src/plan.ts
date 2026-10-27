@@ -141,26 +141,37 @@ function addColumn(
 }
 
 /** The types PostgreSQL converts no value of a type to, on PG 15 to 18. */
-const arrays = ['text[]', 'double precision[]']
+const arrays = ['text[]', 'double precision[]', 'integer[]']
+const scalars = ['boolean', 'timestamptz', 'jsonb']
 const unconvertible: Named<readonly string[]> = {
 	'double precision': ['boolean', 'timestamptz', 'jsonb', ...arrays],
+	integer: ['timestamptz', 'jsonb', ...arrays],
 	boolean: ['double precision', 'timestamptz', 'jsonb', ...arrays],
-	timestamptz: ['double precision', 'boolean', 'jsonb', ...arrays],
+	timestamptz: ['double precision', 'integer', 'boolean', 'jsonb', ...arrays],
 	jsonb: ['timestamptz', ...arrays],
-	'text[]': ['double precision', 'boolean', 'timestamptz', 'jsonb'],
-	'double precision[]': ['double precision', 'boolean', 'timestamptz', 'jsonb'],
+	'text[]': ['double precision', 'integer', ...scalars],
+	'double precision[]': ['double precision', 'integer', ...scalars],
+	'integer[]': ['double precision', 'integer', ...scalars],
 }
 
-/** Whether converting text or json to another type reads each value. */
+/**
+ * Whether converting reads each value: text or json to another type, or
+ * anything but a boolean to whole numbers, which refuse a fraction (D-132).
+ */
 const reads = (from: string, to: string): boolean =>
-	(from === 'jsonb' || from.startsWith('text')) &&
-	!to.startsWith('text collate')
+	to.startsWith('integer')
+		? from !== 'boolean'
+		: (from === 'jsonb' || from.startsWith('text')) &&
+			!to.startsWith('text collate')
 
-/** A date as text is `toISOString()`'s, whatever the session's time zone. */
+/**
+ * A date as text is `toISOString()`'s, whatever the session's time zone.
+ * Whole numbers come from text, which refuses `1.5` that a cast rounds.
+ */
 const converted = (named: string, from: string, to: string): string =>
 	from === 'timestamptz' && to.startsWith('text')
 		? `to_char(${named} at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')`
-		: `${named}::${to}`
+		: `${named}::${to.startsWith('integer') && reads(from, to) ? 'text::' : ''}${to}`
 
 /**
  * Changes a column's type. One PostgreSQL cannot convert loses its values,

@@ -157,6 +157,9 @@ function scalarField(name: string, field: FieldDefinition): FieldInfo {
 		type: field.type,
 		...(field.values === undefined ? {} : { values: field.values }),
 		list: field.options['list'] === true,
+		...(field.type === 'number' && field.options['integer'] === true
+			? { integer: true }
+			: {}),
 		optional: field.options['optional'] === true,
 		unique: field.options['unique'] === true,
 		...(typeof dbName === 'string' ? { dbName } : {}),

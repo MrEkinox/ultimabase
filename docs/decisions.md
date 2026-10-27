@@ -6985,7 +6985,8 @@ Choice: completes D-09; amends D-20, D-98 point 2 and D-107's scalars.
    on `memory()`. `integer: true` also applies with `list: true` (D-127),
    as `integer[]` and `[Int!]`. A value with a fraction or out of bounds
    fails with `VALIDATION_FAILED` and the field's path, whichever API sent
-   it.
+   it. A filter on the field takes the same whole numbers, as GraphQL's
+   `Int` does, and fails with `INVALID_QUERY` otherwise (D-20).
 2. On a `number` field, `update` and `updateMany` take one operation instead
    of a value: `{ set }`, `{ increment }`, `{ decrement }`, `{ multiply }`
    or `{ divide }`, as in Prisma. `{ set: 3 }` is `3`, and `{ set: null }`

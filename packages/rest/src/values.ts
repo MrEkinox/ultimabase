@@ -102,6 +102,10 @@ export function dataOf(
 			if (field.type === 'date' && value !== undefined) {
 				read[field.name] = date(value, at)
 			}
+			// Number updates are the server API's only (D-132).
+			if (field.type === 'number' && isArgs(value)) {
+				throw new InvalidQuery(at, `${at} must be a number.`)
+			}
 			continue
 		}
 		if (!isArgs(value) || !Object.hasOwn(value, 'create')) continue

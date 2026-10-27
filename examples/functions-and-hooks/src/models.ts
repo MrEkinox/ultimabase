@@ -7,18 +7,28 @@ export const Product = defineModel({
 	use: [graphql()],
 	fields: (f) => ({
 		name: f.string(),
-		stock: f.number(),
+		stock: f.number({ integer: true, default: 0 }),
 		orders: f.many(() => Order),
 	}),
+}).with({
 	// Clients read the products; only the server changes them.
-}).with({ access: allow.readOnly })
+	access: allow.readOnly,
+	hooks: {
+		// Sees the stock as the update leaves it, on the locked row.
+		beforeUpdate: ({ record, data }) => {
+			if (data.stock !== undefined && data.stock < 0) {
+				throw new PublicError('OUT_OF_STOCK', `${record.name} is out of stock.`)
+			}
+		},
+	},
+})
 
 export const Order = defineModel({
 	name: 'Order',
 	use: [graphql()],
 	fields: (f) => ({
 		product: f.one(() => Product),
-		quantity: f.number(),
+		quantity: f.number({ integer: true }),
 	}),
 }).with({
 	// Clients read the orders, and place them through `placeOrder`.
@@ -26,16 +36,13 @@ export const Order = defineModel({
 	hooks: {
 		// Runs inside the order's transaction: throwing undoes the order.
 		afterCreate: async ({ record }) => {
-			const where = { id: record.product.id }
-			const product = await Product.findUnique({ where }, { as: master })
-			const stock = (product?.stock ?? 0) - record.quantity
-			if (stock < 0) {
-				throw new PublicError(
-					'OUT_OF_STOCK',
-					`${product?.name} is out of stock.`,
-				)
-			}
-			await Product.update({ where, data: { stock } }, { as: master })
+			await Product.update(
+				{
+					where: { id: record.product.id },
+					data: { stock: { decrement: record.quantity } },
+				},
+				{ as: master },
+			)
 		},
 	},
 })

@@ -12,6 +12,7 @@ import { RelationViolation, UniqueViolation } from 'ultimabase'
 import type { Sql } from './filter.ts'
 import { Filters, uuid, value } from './filter.ts'
 import type { Catalog, Table } from './names.ts'
+import { computed } from './numbers.ts'
 import { compileRows } from './read.ts'
 
 /** A statement of a write: how many checks its result carries, `c0`… */
@@ -100,11 +101,12 @@ function part(
 	const where = filters.where(change.model, named, change.where)
 	const reads = new Set([table.name, ...filters.tables])
 	if (change.kind === 'update') {
-		const set = sql.join(
-			assignments(catalog, table, change.set).map(
+		const set = sql.join([
+			...assignments(catalog, table, change.set).map(
 				([column, item]) => sql`${sql.id(column)} = ${item}`,
 			),
-		)
+			...computed(catalog, table, change.compute),
+		])
 		const row = idOf(change.where)
 		return {
 			...base,
