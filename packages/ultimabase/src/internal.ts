@@ -1,6 +1,7 @@
 // What official packages read from an application (D-130), kept off the
-// documented surface: new runs of it on another database, quieter, and the
-// running plugins' APIs.
+// documented surface: new runs of it on another database, quieter, the
+// running plugins' APIs, and what raw SQL and tests on the declared
+// database need (D-137).
 import type { Adapter } from './adapter.ts'
 import { internalsOf } from './app-internals.ts'
 import type { Logger } from './app-options.ts'
@@ -10,6 +11,9 @@ import { lifecycle } from './lifecycle.ts'
 import { current } from './running.ts'
 
 export type { Lifecycle }
+export type { Scratch } from './scratch.ts'
+export { scratchable, scratchOf } from './scratch.ts'
+export { joining } from './transaction.ts'
 
 /** `logger` without its info lines. */
 function quieted(logger: Logger): Logger {
@@ -21,17 +25,25 @@ function quieted(logger: Logger): Logger {
 	}
 }
 
+/** The application's database, and new runs of it on another (D-130). */
+export type QuietRuns = {
+	readonly declared: Adapter
+	/** A run on `database`, without info lines. */
+	readonly on: (database: Adapter) => Lifecycle
+}
+
 /**
- * Runs of the application `defineApp` returned as `app`, each on its own
- * database and without info lines, or `undefined` for another value.
+ * Runs of the application `defineApp` returned as `app`, or `undefined` for
+ * another value.
  */
-export function quietRuns(
-	app: unknown,
-): ((database: Adapter) => Lifecycle) | undefined {
+export function quietRuns(app: unknown): QuietRuns | undefined {
 	const options = internalsOf(app)?.options
 	if (options === undefined) return undefined
 	const logger = quieted(options.logger ?? consoleLogger())
-	return (database) => lifecycle({ ...options, database, logger })
+	return {
+		declared: options.database,
+		on: (database) => lifecycle({ ...options, database, logger }),
+	}
 }
 
 /** The running application's plugin API named `name`, if any. */

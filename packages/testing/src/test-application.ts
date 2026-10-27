@@ -1,9 +1,11 @@
 // An application's tests (D-130): before each test it starts as declared, on
-// a new memory() and a free port, without info lines; after each it stops.
+// a new memory() or its declared database's test tables (D-137) and a free
+// port, without info lines; after each it stops.
+import type { Adapter } from 'ultimabase'
 import { memory } from 'ultimabase'
 import type { Lifecycle } from 'ultimabase/internal'
-import { quietRuns, runningApi } from 'ultimabase/internal'
-import { afterEach, beforeEach } from 'vitest'
+import { quietRuns, runningApi, scratchOf } from 'ultimabase/internal'
+import { afterEach, beforeAll, beforeEach } from 'vitest'
 
 export type TestApplication = {
 	/** The HTTP server's address during a test, such as `http://localhost:54321`. */
@@ -32,18 +34,45 @@ function urlOf(api: unknown): string | undefined {
 	return typeof value === 'string' ? value : undefined
 }
 
+export type TestOptions = {
+	/**
+	 * `'declared'` runs the tests on the application's own database, in
+	 * tables of the file's own, instead of a new `memory()`.
+	 */
+	readonly database?: 'declared'
+}
+
+/** The declared database, which gives each test file empty tables. */
+function declared(database: Adapter): () => Adapter {
+	// A database that starts empty every time, as memory(), needs nothing.
+	if (database.migrations === undefined) return () => database
+	const scratch = scratchOf(database)
+	if (scratch === undefined) {
+		throw new TypeError(
+			"testApplication runs on the declared database when it gives a test file tables of its own, as postgres() does; this one does not: remove { database: 'declared' }.",
+		)
+	}
+	beforeAll(() => scratch().drop)
+	return () => database
+}
+
 /**
  * Runs `app`, the value `defineApp` returned, around each test of the file
  * that calls it.
  */
-export function testApplication(app: object): TestApplication {
+export function testApplication(
+	app: object,
+	options: TestOptions = {},
+): TestApplication {
 	const runs = quietRuns(app)
 	if (runs === undefined) {
 		throw new TypeError('testApplication takes the value defineApp returned.')
 	}
+	const database =
+		options.database === 'declared' ? declared(runs.declared) : memory
 	let run: Lifecycle | undefined
 	beforeEach(async () => {
-		run = runs(memory())
+		run = runs.on(database())
 		await onFreePort(run)
 	})
 	afterEach(async () => {

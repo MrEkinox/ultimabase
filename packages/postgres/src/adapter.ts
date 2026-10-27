@@ -1,5 +1,6 @@
 // The PostgreSQL adapter (D-47): Kysely builds the statements, `pg` runs
-// them. `log` lets the tests count the statements (D-98).
+// them. `log` lets the tests count the statements (D-98); `sql` runs the
+// application's own, and a test file may run in a schema of its own (D-137).
 import type {
 	LogEvent,
 	PostgresPool,
@@ -10,6 +11,7 @@ import { Kysely, PostgresDialect, sql } from 'kysely'
 import { Pool } from 'pg'
 import { parse } from 'pg-connection-string'
 import { CheckFailed, Refused } from 'ultimabase'
+import { joining, scratchable } from 'ultimabase/internal'
 import type {
 	Adapter,
 	CountRead,
@@ -26,6 +28,7 @@ import { overflowed } from './numbers.ts'
 import { fillsOf } from './fills.ts'
 import { plan } from './plan.ts'
 import { compileCount, compileFind } from './read.ts'
+import { connecting, dropped, emptied, scratchName } from './scratch.ts'
 import { parseSnapshot, snapshotOf } from './snapshot.ts'
 import type { Statement } from './write.ts'
 import { compileWrite, translate } from './write.ts'
@@ -37,6 +40,18 @@ export type Options = {
 	/** The milliseconds a query waits for a connection, or to open one. */
 	readonly wait?: number
 	readonly log?: (event: LogEvent) => void
+}
+
+/** What `postgres()` returns: an adapter that also runs raw SQL (D-137). */
+export type Postgres = Adapter & {
+	/**
+	 * Runs one statement, in the open transaction if any, and returns its
+	 * rows; each `${value}` is a parameter. No rule or hook runs.
+	 */
+	readonly sql: <R extends object = Record<string, unknown>>(
+		strings: TemplateStringsArray,
+		...values: readonly unknown[]
+	) => Promise<R[]>
 }
 
 /** The codes of a server the network does not reach, or does not know. */
@@ -170,15 +185,19 @@ export function requireVersion(version: string | undefined): void {
 	}
 }
 
-export function createAdapter(options: Options): Adapter {
+export function createAdapter(options: Options): Postgres {
 	const { url, connections = 10, wait = 10_000 } = options
 	const remote = url ? remoteOf(url) : undefined
 	let state: { db: Kysely<object>; catalog: Catalog } | undefined
+	/** A test file's schema, and whether a start created it. */
+	let scratch: { readonly name: string; made: boolean } | undefined
+	/** Each open transaction's own, for `sql` to join. */
+	const opens = new WeakMap<Transaction, Open<object>>()
 	const started = () => {
 		if (state === undefined) throw new Error('postgres() is not started.')
 		return state
 	}
-	return {
+	const adapter: Postgres = {
 		start: async (schema: Schema) => {
 			if (!url) {
 				throw new Refused(
@@ -194,7 +213,7 @@ export function createAdapter(options: Options): Adapter {
 			// Refuses two things stored under one name before it connects.
 			snapshotOf(catalog)
 			const pool = new Pool({
-				connectionString: url,
+				...connecting(url, scratch?.name),
 				max: connections,
 				connectionTimeoutMillis: wait,
 			})
@@ -221,6 +240,10 @@ export function createAdapter(options: Options): Adapter {
 					server_version_num: string
 				}>`show server_version_num`.execute(db)
 				requireVersion(rows[0]?.server_version_num)
+				if (scratch !== undefined) {
+					scratch.made = true
+					await emptied(db, scratch.name)
+				}
 			} catch (error) {
 				await db.destroy()
 				throw error
@@ -280,7 +303,7 @@ export function createAdapter(options: Options): Adapter {
 				ending.resolve(commit)
 				await ended
 			}
-			return {
+			const tx: Transaction = {
 				find: async (read) => find(catalog, trx, read),
 				count: async (read) => count(catalog, trx, read),
 				write: async (given) => write(catalog, trx, given),
@@ -299,6 +322,26 @@ export function createAdapter(options: Options): Adapter {
 					}
 				},
 			}
+			opens.set(tx, trx)
+			return tx
 		},
+		sql: async <R extends object>(
+			strings: TemplateStringsArray,
+			...values: readonly unknown[]
+		) =>
+			joining(adapter, async (tx) => {
+				const db = (tx && opens.get(tx)) ?? started().db
+				return (await sql<R>(strings, ...values).execute(db)).rows
+			}),
 	}
+	return scratchable(adapter, () => {
+		scratch = { name: scratchName(), made: false }
+		const own = scratch
+		return {
+			drop: async () => {
+				scratch = undefined
+				if (own.made && url) await dropped(url, own.name)
+			},
+		}
+	})
 }
