@@ -456,6 +456,25 @@ describe('a write on postgres()', () => {
 		])
 	})
 
+	it('inserts rows by the 65,535 parameters a statement binds, behind its checks', async () => {
+		const rows = Array.from({ length: 22_000 }, stamp)
+		await adapter.write({
+			checks: [{ model: 'Book', where: byId(book.id), count: 1 }],
+			changes: rows.map((each) => ({
+				kind: 'insert',
+				model: 'Tag',
+				row: each,
+			})),
+		})
+		expect(sent.map((statement) => statement.split(' ')[0])).toEqual([
+			'begin',
+			'with',
+			'with',
+			'commit',
+		])
+		expect(await adapter.count({ model: 'Tag' })).toBe(22_002)
+	})
+
 	it('reports a link its own COMMIT refuses', async () => {
 		const failed = adapter.write({
 			changes: [
