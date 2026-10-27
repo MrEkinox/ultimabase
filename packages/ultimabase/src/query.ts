@@ -9,6 +9,7 @@ import type {
 	TargetFields,
 	UniqueKeys,
 	UpdateData,
+	UpdateManyData,
 } from './record.ts'
 import type { Exact } from './exact.ts'
 import type { Identity } from './rules.ts'
@@ -236,6 +237,12 @@ export type UpdateArgs<F, X = never, N = never> = {
 	readonly include?: Include<F>
 }
 
+/** `updateMany`: no relation writes, no returned rows (D-133). */
+export type UpdateManyArgs<F> = {
+	readonly where?: Where<F> | undefined
+	readonly data: UpdateManyData<F>
+}
+
 /** Model methods (D-18), the subset the prototype measures. */
 // Each query is a closure on its model: it can be passed around unbound.
 /** `N` is the model's name, which nested creation needs (D-128). */
@@ -275,6 +282,12 @@ export interface Queries<F, X = never, N = never> {
 		args: { readonly where: UniqueWhere<F, X> },
 		options?: QueryOptions,
 	): Promise<RecordOf<F>>
+	/** An update of each row `where` selects, all or nothing (D-133). */
+	updateMany(
+		this: void,
+		args: UpdateManyArgs<F>,
+		options?: QueryOptions,
+	): Promise<{ readonly count: number }>
 	/** A delete of each row `where` selects, all or nothing (D-111). */
 	deleteMany(
 		this: void,

@@ -84,6 +84,20 @@ class Draft {
 		}
 		const read = write.read
 		if (read !== undefined && write.before === true) {
+			const { model } = read
+			const deletes = write.changes.some(
+				(change) => change.kind === 'delete' && change.model === model,
+			)
+			const update = write.changes.find(
+				(change) => change.kind === 'update' && change.model === model,
+			)
+			if (!deletes) {
+				// The rows its update changed, as it left them (D-133).
+				const changed = update && this.matching(model, update)
+				const ids = new Set(changed?.map((row) => row.id))
+				this.change(write.changes)
+				return this.find(read).filter((row) => ids.has(row.id))
+			}
 			const rows = this.find(read)
 			this.change(write.changes)
 			// The rows the write's delete removed, as they were (D-104).

@@ -259,6 +259,9 @@ export type UpdateData<F, N = never, Operations extends boolean = true> = {
 	readonly [K in keyof F]?: UpdateInput<F[K], N, K, Operations> | undefined
 }
 
+/** The data `updateMany` writes on each row: scalars only (D-133). */
+export type UpdateManyData<F> = Pick<UpdateData<F>, ScalarKeys<F>>
+
 export type ScalarKeys<F> = {
 	[K in keyof F]: F[K] extends Scalar ? K : never
 }[keyof F]

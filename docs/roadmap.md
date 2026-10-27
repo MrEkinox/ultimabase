@@ -196,7 +196,7 @@ Exit: an example with sign-up, sign-in and rules on `caller.user`.
 - [x] Decide integer fields and number updates (D-20): D-132.
 - [x] Integer fields and number updates (D-132).
 - [x] Decide `updateMany` (D-20, D-48): D-133.
-- [ ] `updateMany` (D-133).
+- [x] `updateMany` (D-133).
 - [ ] Documentation website (D-31).
 - [ ] A full audit of every package, its fixes merged, before publication.
 - [ ] Publication, after confirmation.

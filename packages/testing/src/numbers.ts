@@ -16,6 +16,12 @@ const Tally = defineModel({
 	}),
 })
 
+/** An update hook: `updateMany` locks the rows and groups their writes. */
+const Stock = defineModel({
+	name: 'Stock',
+	fields: (f) => ({ level: f.number({ integer: true }) }),
+}).with({ hooks: { beforeUpdate: () => {} } })
+
 const whole = 'Expected a whole number from -2,147,483,648 to 2,147,483,647.'
 
 const update = async (
@@ -28,7 +34,7 @@ const update = async (
 
 export function numbers(create: () => Adapter): void {
 	const started = () =>
-		defineApp({ database: create(), models: [Tally], logger: silent })
+		defineApp({ database: create(), models: [Tally, Stock], logger: silent })
 	describe('numbers', () => {
 		let app: ReturnType<typeof started>
 		beforeEach(async () => {
@@ -67,6 +73,30 @@ export function numbers(create: () => Adapter): void {
 			expect(
 				await update({ ratio: { divide: 4 } }, { ratio: 3 }),
 			).toMatchObject({ ratio: 0.75 })
+		})
+
+		it('computes updateMany on each row, with or without its hooks', async () => {
+			for (const count of [1, null, 5]) {
+				await Tally.create({ data: { count } }, M)
+			}
+			const data = { count: { increment: 2 } }
+			expect(await Tally.updateMany({ data }, M)).toEqual({ count: 3 })
+			const counts = async () =>
+				(await Tally.findMany({}, M)).map((row) => row.count)
+			expect(await counts()).toEqual([3, 2, 7])
+			await Tally.create({ data: { count: 2_147_483_647 } }, M)
+			await expect(Tally.updateMany({ data }, M)).rejects.toMatchObject({
+				code: 'VALIDATION_FAILED',
+				details: { issues: [{ path: ['count'], message: whole }] },
+			})
+			expect(await counts()).toEqual([3, 2, 7, 2_147_483_647])
+			for (const level of [1, 2]) await Stock.create({ data: { level } }, M)
+			const doubled = { level: { multiply: 2 } }
+			expect(await Stock.updateMany({ data: doubled }, M)).toEqual({
+				count: 2,
+			})
+			const levels = await Stock.findMany({}, M)
+			expect(levels.map((row) => row.level)).toEqual([2, 4])
 		})
 
 		it('refuses a result out of bounds, and keeps the row', async () => {

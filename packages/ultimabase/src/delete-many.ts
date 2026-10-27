@@ -37,7 +37,14 @@ export async function removeMany(
 		)
 		return { count: rows.length }
 	}
-	const rows = await store.find({ model: model.name, where, lock: true })
+	// In id order, so two calls on the same rows wait instead of deadlocking.
+	const orderBy = [{ field: 'id', direction: 'asc' }] as const
+	const rows = await store.find({
+		model: model.name,
+		where,
+		orderBy,
+		lock: true,
+	})
 	// One row refused, none deleted (D-111).
 	for (const row of rows) scope.access?.allow(model, 'delete', { record: row })
 	if (rows.length === 0) return { count: 0 }
