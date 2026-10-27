@@ -192,18 +192,16 @@ type CountOf<F, A> = A extends { readonly _count: infer C }
 		: { readonly _count: Counted<F, C> }
 	: unknown
 
-type RelationArgs<X> = {
-	readonly select?: Select<TargetFields<TargetOf<X>>>
-	readonly include?: Include<TargetFields<TargetOf<X>>>
-} & (KindOf<X> extends 'many'
-	? {
-			readonly where?: Where<TargetFields<TargetOf<X>>> | undefined
-			readonly orderBy?: OrderBy<TargetFields<TargetOf<X>>> | undefined
-			readonly take?: number | undefined
-			readonly skip?: number | undefined
-			readonly cursor?: UniqueWhere<TargetFields<TargetOf<X>>> | undefined
-		}
-	: unknown)
+type RelationArgs<X> = Shaping<TargetFields<TargetOf<X>>> &
+	(KindOf<X> extends 'many'
+		? {
+				readonly where?: Where<TargetFields<TargetOf<X>>> | undefined
+				readonly orderBy?: OrderBy<TargetFields<TargetOf<X>>> | undefined
+				readonly take?: number | undefined
+				readonly skip?: number | undefined
+				readonly cursor?: UniqueWhere<TargetFields<TargetOf<X>>> | undefined
+			}
+		: unknown)
 
 export type Select<F> = {
 	readonly [K in keyof SystemFields]?: boolean
@@ -247,43 +245,52 @@ type Included<F, I> = {
 	]: K extends keyof F ? Output<F[K], I[K]> : never
 }
 
+/** `omit`: scalar and system fields left out of the rows (D-135). */
+export type OmitArgs<F> = { readonly [K in keyof RecordOf<F>]?: boolean }
+
+/** `select` and `omit` exclude each other (D-135). */
+type Shaping<F> = { readonly include?: Include<F> } & (
+	| { readonly select?: Select<F>; readonly omit?: undefined }
+	| { readonly select?: undefined; readonly omit?: OmitArgs<F> }
+)
+
+/** The scalar and system fields, less those `omit` sets to `true`. */
+type Kept<F, A> = A extends { readonly omit: infer O }
+	? Omit<
+			RecordOf<F>,
+			{ [K in keyof O]: O[K] extends true ? K : never }[keyof O]
+		>
+	: RecordOf<F>
+
 /** Without `select`, scalar fields return and relations do not (D-20). */
 export type Payload<F, A> = A extends { readonly select: infer S }
 	? Selected<F, S> & CountOf<F, S>
 	: A extends { readonly include: infer I }
-		? RecordOf<F> & Included<F, I> & CountOf<F, I>
-		: RecordOf<F>
+		? Kept<F, A> & Included<F, I> & CountOf<F, I>
+		: Kept<F, A>
 
 export type QueryOptions = { readonly as?: Identity }
 
 /** `findMany` and `findFirst`; `cursor` starts at a unique target. */
-export type FindManyArgs<F, X = never> = {
+export type FindManyArgs<F, X = never> = Shaping<F> & {
 	readonly where?: Where<F> | undefined
-	readonly select?: Select<F>
-	readonly include?: Include<F>
 	readonly orderBy?: OrderBy<F> | readonly OrderBy<F>[] | undefined
 	readonly take?: number | undefined
 	readonly skip?: number | undefined
 	readonly cursor?: UniqueWhere<F, X> | undefined
 }
 
-export type FindUniqueArgs<F, X = never> = {
+export type FindUniqueArgs<F, X = never> = Shaping<F> & {
 	readonly where: UniqueWhere<F, X>
-	readonly select?: Select<F>
-	readonly include?: Include<F>
 }
 
-export type CreateArgs<F, N = never> = {
+export type CreateArgs<F, N = never> = Shaping<F> & {
 	readonly data: CreateData<F, N>
-	readonly select?: Select<F>
-	readonly include?: Include<F>
 }
 
-export type UpdateArgs<F, X = never, N = never> = {
+export type UpdateArgs<F, X = never, N = never> = Shaping<F> & {
 	readonly where: UniqueWhere<F, X>
 	readonly data: UpdateData<F, N>
-	readonly select?: Select<F>
-	readonly include?: Include<F>
 }
 
 /** `updateMany`: no relation writes, no returned rows (D-133). */

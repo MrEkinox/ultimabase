@@ -175,6 +175,12 @@ export function plan(
 			`${at('select')} and include cannot be used together.`,
 		)
 	}
+	if (select !== undefined && given.has('omit')) {
+		throw new InvalidQuery(
+			path,
+			`${at('select')} and omit cannot be used together.`,
+		)
+	}
 	const read: {
 		-readonly [K in keyof Nested]: Nested[K]
 	} = {}
@@ -253,13 +259,44 @@ export function plan(
 			)
 		}
 	}
+	const hidden = omitted(model, given.get('omit'), at('omit'))
 	return {
 		read,
-		shape: { model, fields, relations, counts: [...count.keys()] },
+		shape: {
+			model,
+			fields: fields.filter((name) => !hidden.has(name)),
+			relations,
+			counts: [...count.keys()],
+		},
 	}
 }
 
-const oneKeys = new Set(['select', 'include'])
+/** The scalar and system fields `omit` leaves out of the rows (D-135). */
+function omitted(model: ModelInfo, omit: unknown, path: string): Set<string> {
+	const names = new Set<string>()
+	if (omit === undefined) return names
+	for (const [name, value] of entries(omit, path)) {
+		const where = `${path}.${name}`
+		const field = model.fields.get(name)
+		const scalar =
+			field === undefined
+				? systemFields.includes(name)
+				: field.kind === 'scalar'
+		if (!scalar) throw unknownKey(where, model.name)
+		if (typeof value !== 'boolean') {
+			throw new InvalidQuery(where, `${where} must be a boolean.`)
+		}
+		if (value) names.add(name)
+	}
+	return names
+}
+
+/** The keys that shape a read's rows. */
+export const oneKeys: ReadonlySet<string> = new Set([
+	'select',
+	'include',
+	'omit',
+])
 const manyKeys = new Set([
 	...oneKeys,
 	'where',

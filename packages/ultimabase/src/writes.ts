@@ -14,7 +14,7 @@ import { redirectOf, rereads, runHook, settle, settles } from './hooks.ts'
 import type { Context } from './query-context.ts'
 import { byId, first, given, hiddenBy, picked } from './query-context.ts'
 import type { Shape } from './query-args.ts'
-import { plan, project, uniqueWhere } from './query-args.ts'
+import { oneKeys, plan, project, uniqueWhere } from './query-args.ts'
 import type { Numbers } from './number-update.ts'
 import {
 	computeOn,
@@ -37,9 +37,8 @@ async function returned(
 	found: ReadonlyMap<string, unknown>,
 ): Promise<{ readonly read: Nested; readonly shape: Shape }> {
 	const { models, model, scope } = context
-	const keys = new Set(['select', 'include'])
 	return planned(scope, () =>
-		plan(models, model, picked(found), '', 'one', keys, scope),
+		plan(models, model, picked(found), '', 'one', oneKeys, scope),
 	)
 }
 
@@ -92,7 +91,7 @@ export async function create(
 	args: unknown,
 ): Promise<unknown> {
 	const { models, model, caller, scope } = context
-	const found = given(args, model.name, ['data', 'select', 'include'], ['data'])
+	const found = given(args, model.name, ['data', ...oneKeys], ['data'])
 	const { read, shape } = await returned(context, found)
 	const draft = readData(models, model, found.get('data'), true)
 	const sent: Readonly<Draft> = { ...draft }
@@ -170,7 +169,7 @@ export async function update(
 	const found = given(
 		args,
 		model.name,
-		['where', 'data', 'select', 'include'],
+		['where', 'data', ...oneKeys],
 		['where', 'data'],
 	)
 	const { read, shape } = await returned(context, found)

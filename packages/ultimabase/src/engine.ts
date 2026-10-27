@@ -8,7 +8,7 @@ import { isMaster } from './rules.ts'
 import { current } from './running.ts'
 import type { Context } from './query-context.ts'
 import { filtered, first, given, hiddenBy, picked } from './query-context.ts'
-import { plan, project, restrict, uniqueWhere } from './query-args.ts'
+import { oneKeys, plan, project, restrict, uniqueWhere } from './query-args.ts'
 import { entries, isObject, unknownKey } from './query-where.ts'
 import { QueryScope, planned } from './scope.ts'
 import type { Commit, Store } from './transaction.ts'
@@ -72,8 +72,7 @@ export function callerOf(options: unknown, model: string): Identity {
 
 const manyKeys = new Set([
 	'where',
-	'select',
-	'include',
+	...oneKeys,
 	'orderBy',
 	'take',
 	'skip',
@@ -107,22 +106,9 @@ async function findUnique(
 	args: unknown,
 ): Promise<unknown> {
 	const { models, model, scope } = context
-	const found = given(
-		args,
-		model.name,
-		['where', 'select', 'include'],
-		['where'],
-	)
+	const found = given(args, model.name, ['where', ...oneKeys], ['where'])
 	const { read, shape, where } = await planned(scope, () => ({
-		...plan(
-			models,
-			model,
-			picked(found),
-			'',
-			'one',
-			new Set(['select', 'include']),
-			scope,
-		),
+		...plan(models, model, picked(found), '', 'one', oneKeys, scope),
 		where: and(
 			uniqueWhere(models, model, found.get('where'), 'where', scope),
 			scope.readable(model.name),
