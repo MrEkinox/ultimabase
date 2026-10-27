@@ -459,7 +459,7 @@ read: ({ caller, where }) =>
 
 ## D-20: The query API follows Prisma Client
 
-Amended by D-128 and D-132.
+Amended by D-128, D-132 and D-133.
 
 Choice: operations, their names and their arguments follow Prisma Client, so
 a developer coming from Prisma reads UltimaBase queries as Prisma: `findUnique`,
@@ -473,7 +473,7 @@ option (D-19), the model as entry point (D-18), plugin commands on the model.
 The first release ships the subset needed by its examples and its GraphQL
 (D-41); the rest follows Prisma's spelling when added. That subset is
 `findUnique`, `findFirst`, `findMany`, `count`, `create`, `update`,
-`delete` and `deleteMany` (D-111), with `where` (scalar filters,
+`delete`, `updateMany` (D-133) and `deleteMany` (D-111), with `where` (scalar filters,
 `is`/`isNot`, `some`/`every`/`none`, `AND`/`OR`/`NOT`), `select`, `include`,
 `orderBy`, `take`, `skip` and `cursor`, and relation writes by id:
 `connect` on a `one` and a `many` relation, `disconnect: true` to unset an
@@ -492,8 +492,7 @@ casts or values built at run time, and an ignored filter key widens a query:
 on a read filter it leaks rows (D-04).
 Later: Prisma's fluent relation API (`Post.findUnique(...).author()`), once it
 can run without an extra query per parent (no N+1). After the first release:
-`upsert` and the batch operations `createMany` and `updateMany`, once it is
-decided which rules and hooks they run (create's or update's for `upsert`,
+`upsert` and `createMany`, once it is decided which rules and hooks they run (create's or update's for `upsert`,
 per row or per batch); `omit`, which `select` covers meanwhile; `set`,
 `distinct` and aggregates;
 case-insensitive filters (`mode: 'insensitive'`), left to a search plugin
@@ -5209,6 +5208,8 @@ export const app = defineApp({
 
 ## D-111: `deleteMany` runs a delete's rules and hooks on each row
 
+Amended by D-133.
+
 Choice: `Model.deleteMany({ where }, { as })` deletes every row `where`
 selects that the caller reads, and returns `{ count }`, as in Prisma. Without
 `where` it selects every such row, as Prisma's `deleteMany()`. It takes no
@@ -5240,7 +5241,7 @@ Rejected: a batch hook that receives every row at once, which a plugin
 written for `delete` would miss; skipping rules and hooks in bulk, against
 D-48; deleting the rows the rule allows and leaving the others, which hides a
 refusal; returning the rows, which Prisma does not.
-Later: `updateMany`, `createMany` and `upsert` stay as D-20 defers them.
+Later: `createMany` and `upsert` stay as D-20 defers them.
 Example:
 
 ```ts
@@ -7071,4 +7072,102 @@ await Post.update({
 	where: { id },
 	data: { likes: { increment: 1, decrement: 1 } }, // type error: one operation
 })
+```
+
+## D-133: `updateMany` runs an update's rules and hooks on each row
+
+Choice: completes D-20 and D-48; amends D-111.
+
+1. `Model.updateMany({ where, data }, { as })` updates every row `where`
+   selects that the caller reads, and returns `{ count }`, as in Prisma.
+   Without `where` it selects every such row. It takes no `take`, `orderBy`
+   or `select`.
+2. `data` is what `update` takes for the fields of the row: values, `null`,
+   and the number operations of D-132, computed on each row. Relation
+   writes (`connect`, `disconnect`, `create`) are refused: the types leave
+   them out, and at run time they fail with `INVALID_QUERY` (D-20), as
+   Prisma's `updateMany` refuses them.
+3. Each row goes through what an `update` runs (D-48, D-67): the `update`
+   rule on its record and its data, the field rules (D-44), the defaults
+   and validation, `beforeUpdate`, `afterUpdate` and `afterUpdateCommit`.
+   Each row's hooks get their own copy of `data`, so a hook that changes it
+   for one row leaves the others as sent.
+4. It is all or nothing, as `deleteMany` (D-111): the rules run on every
+   row before any hook, and one row refused fails the whole call with
+   `ACCESS_DENIED`; a failed validation, a hook's error or a
+   `UNIQUE_VIOLATION` (D-72) fails it too, and nothing is written. A row the caller
+   cannot read is left out (D-72), and no row matching is `{ count: 0 }`.
+5. When nothing needs the stored rows, as for `update` (D-99): Master's
+   call on a model without update hooks, whose number operations touch no
+   field with `validate`, it is one write: one `UPDATE ... WHERE`, the
+   number operations computed in it, and the count from the rows it
+   changed (D-104). Otherwise the rows are loaded locked in the write's
+   transaction: BEGIN, one read, the writes, COMMIT. Rows whose data come
+   out the same share one statement, and a number operation no hook
+   changed stays computed in SQL, so `{ increment: 1 }` on a thousand rows
+   is one `UPDATE`.
+6. A locked read of many rows, `updateMany`'s and `deleteMany`'s, locks
+   them in `id` order and runs their hooks in that order: two calls that
+   lock the same rows wait on each other instead of deadlocking.
+7. It is server code: neither GraphQL nor REST exposes it, as `deleteMany`
+   (D-111 point 4, D-129). A plugin's `queries` (D-89) have it, as they
+   have `deleteMany`.
+
+Why:
+
+- Marking a user's notifications read, closing the open tickets of a
+  project or crediting every member is today one `findMany` and one
+  `update` per row: N round trips and N transactions, where a rule refused
+  halfway leaves half the rows written.
+- The kernel already locks many rows and runs a hook per row for
+  `deleteMany` and cascades, and `update` already computes numbers on a
+  locked row or in SQL: `updateMany` adds an entry point, not a pipeline.
+- PostgreSQL locks the rows of a `SELECT ... FOR UPDATE` in the order it
+  reads them: two calls that read them in different orders can deadlock,
+  and an `ORDER BY id` costs nothing on the primary key.
+
+Limit: the one-write case counts the rows its update changed (D-104), and
+two such writes on the same rows may still deadlock, as two `UPDATE`
+statements may in PostgreSQL; the database aborts one and the call fails.
+
+Rejected:
+
+- Prisma's `updateManyAndReturn`, until an application needs the rows; a
+  `findMany` with the same `where` reads them.
+- A batch hook that receives every row at once, which a plugin written for
+  `update` would miss (D-111); skipping rules or hooks in bulk (D-48).
+- Updating the rows the rule allows and leaving the others, which hides a
+  refusal (D-111).
+- Relation writes on many rows, until a need: moving many posts to one
+  author is a `connect` per post today.
+
+Example:
+
+```ts
+// Before: one query to list the notifications, then one update per row,
+// each in its own transaction
+const unread = await Notification.findMany(
+	{ where: { read: false } },
+	{ as: caller },
+)
+for (const { id } of unread) {
+	await Notification.update(
+		{ where: { id }, data: { read: true } },
+		{ as: caller },
+	)
+}
+
+// After: the update rule and hooks run on each row, all or nothing
+const { count } = await Notification.updateMany(
+	{ where: { read: false }, data: { read: true } },
+	{ as: caller },
+)
+
+// One UPDATE: Master, no update hook, the increment computed in SQL
+await Member.updateMany(
+	{ where: { team: { id: teamId } }, data: { credits: { increment: 10 } } },
+	{ as: master },
+)
+
+await Post.updateMany({ data: { author: { connect: { id } } } }) // type error
 ```
