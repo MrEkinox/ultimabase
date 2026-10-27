@@ -351,11 +351,12 @@ export interface Queries<F, X = never, N = never> {
 		args: A & NoInfer<Exact<A, UpdateArgs<F, X, N>>>,
 		options?: QueryOptions,
 	): Promise<Payload<F, A>>
-	delete(
+	/** Its relations and counts are read as they were before it (D-135). */
+	delete<const A extends FindUniqueArgs<F, X>>(
 		this: void,
-		args: { readonly where: UniqueWhere<F, X> },
+		args: A & NoInfer<Exact<A, FindUniqueArgs<F, X>>>,
 		options?: QueryOptions,
-	): Promise<RecordOf<F>>
+	): Promise<Payload<F, A>>
 	/** A create of each row of `data`, all or nothing (D-135). */
 	createMany(
 		this: void,

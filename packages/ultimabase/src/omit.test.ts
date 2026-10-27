@@ -40,6 +40,8 @@ async function refused() {
 	await Book.findMany({ select: { title: true }, omit: { pages: true } }, as)
 	// @ts-expect-error -- a relation is not a field omit leaves out
 	await Book.findMany({ omit: { author: true } }, as)
+	// @ts-expect-error -- a delete takes no data
+	await Book.delete({ where: { id: '' }, data: {} }, as)
 }
 
 describe('omit (D-135)', () => {
@@ -85,6 +87,18 @@ describe('omit (D-135)', () => {
 		)
 		expect(updated).not.toHaveProperty('title')
 		expect(updated.pages).toBe(310)
+		const removed = await Book.delete(
+			{
+				where: { id: book.id },
+				omit: { pages: true },
+				include: { author: true },
+			},
+			as,
+		)
+		expect(removed).not.toHaveProperty('pages')
+		expect(removed.author.name).toBe('Ada')
+		expectTypeOf(removed).not.toHaveProperty('pages')
+		expectTypeOf(removed.author.name).toEqualTypeOf<string>()
 	})
 
 	it('refuses select beside it, a relation and a value not a boolean', async () => {

@@ -45,8 +45,11 @@ const titleOnly = { select: { title: true } } satisfies ArgsOf<
 	typeof Book,
 	'findMany'
 >
+// A delete without `select` or `include` returns the plain record.
+const removeBook = async () =>
+	Book.delete({ where: { id: '' } }, { as: master })
 export type ModelTypeChecks = [
-	Expect<Equal<RecordOf<typeof Book>, Awaited<ReturnType<typeof Book.delete>>>>,
+	Expect<Equal<RecordOf<typeof Book>, Awaited<ReturnType<typeof removeBook>>>>,
 	Expect<
 		Equal<RecordOf<typeof Book, typeof titleOnly>, { readonly title: string }>
 	>,

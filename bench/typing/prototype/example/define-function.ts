@@ -1,7 +1,7 @@
 // Functions (D-27, D-45): each output form, an optional input, the access
 // rule and the transports' keys. `tsc` fails if one does not hold.
 import { z } from 'zod'
-import type { InputOf, OutputOf } from '../index.ts'
+import type { InputOf, OutputOf, RecordOf } from '../index.ts'
 import {
 	master,
 	allow,
@@ -29,8 +29,7 @@ const Todo = defineModel({
 		archived: f.boolean({ default: false }),
 	}),
 })
-// `delete` returns the plain record.
-type TodoRecord = Awaited<ReturnType<typeof Todo.delete>>
+type TodoRecord = RecordOf<typeof Todo>
 
 // A model: `run` returns its record, as a query does.
 export const archiveTodo = defineFunction({

@@ -11,7 +11,6 @@ import type {
 	OrderBy,
 	Payload,
 	Select,
-	UniqueWhere,
 	UpdateArgs,
 	UpdateManyArgs,
 	Where,
@@ -35,7 +34,7 @@ type Operations<F, X, N> = {
 	readonly count: { readonly where?: Where<F> }
 	readonly create: CreateArgs<F, N>
 	readonly update: UpdateArgs<F, X, N>
-	readonly delete: { readonly where: UniqueWhere<F, X> }
+	readonly delete: FindUniqueArgs<F, X>
 	readonly updateMany: UpdateManyArgs<F>
 	readonly createMany: CreateManyArgs<F>
 	readonly deleteMany: { readonly where?: Where<F> | undefined }

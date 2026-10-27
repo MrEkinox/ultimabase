@@ -1,6 +1,14 @@
 // Soft delete (D-17, D-89, D-96) on `memory()`: a deleted row leaves every
 // read, the trash reads it, `restore` brings it back, each under its rule.
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import {
+	afterEach,
+	beforeEach,
+	describe,
+	expect,
+	expectTypeOf,
+	it,
+	vi,
+} from 'vitest'
 import { asUser } from '@ultimabase/testing'
 import type { Caller } from 'ultimabase'
 import { defineApp, defineModel, master, memory } from 'ultimabase'
@@ -95,7 +103,13 @@ describe('a deleted row', () => {
 	it('keeps its comments, since it stays', async () => {
 		const post = { connect: { id } }
 		await Comment.create({ data: { text: 'Nice', post } }, M)
-		await Post.delete({ where: { id } }, M)
+		// The row as the redirect left it, its relations included (D-135).
+		const removed = await Post.delete(
+			{ where: { id }, include: { comments: true } },
+			M,
+		)
+		expect(removed.deletedAt).not.toBeNull()
+		expect(removed.comments).toMatchObject([{ text: 'Nice' }])
 		expect(await Comment.count({}, M)).toBe(1)
 	})
 
@@ -115,6 +129,7 @@ describe('restore', () => {
 		).rejects.toMatchObject({ code: 'ACCESS_DENIED' })
 		const post = await Post.restore({ where: { id } }, user('ada'))
 		expect(post).toMatchObject({ title: 'Draft', deletedAt: null })
+		expectTypeOf(post.deletedAt).toEqualTypeOf<Date | null>()
 		expect(await titles()).toEqual(['Draft', 'Kept'])
 		expect(await trashed()).toEqual([])
 	})

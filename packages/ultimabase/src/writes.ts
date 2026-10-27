@@ -262,22 +262,36 @@ export async function remove(
 	args: unknown,
 ): Promise<unknown> {
 	const { models, model, caller, scope } = context
-	const found = given(args, model.name, ['where'], ['where'])
-	const { shape } = plan(models, model, undefined, '', 'one', new Set())
+	const found = given(args, model.name, ['where', ...oneKeys], ['where'])
+	const { read, shape } = await returned(context, found)
 	const where = await targets(context, found, 'delete')
+	// Its relations and counts, as the caller reads them, before the delete
+	// removes any: one read in its transaction (D-135).
+	const reaches = shape.relations.size > 0 || shape.counts.length > 0
+	const shaped = async (by: Filter, lock: boolean) => {
+		if (!reaches) return undefined
+		const rows = await store.find({
+			model: model.name,
+			...read,
+			where: by,
+			take: 1,
+			lock,
+		})
+		return rows[0]
+	}
 	const reach = cascadeWhere(models, model, where)
 	if (reach !== undefined && scope.access === undefined) {
+		const kept = await shaped(where, true)
 		// Nothing needs the stored row: a check stands for its read, and the
 		// write returns it as its delete removed it (D-102, D-104).
 		const check = { model: model.name, where, count: 1, lock: true }
 		const checks: Checked[] = [{ check, message: missing(model.name) }]
 		checks.push(...reach.checks)
-		const read = { model: model.name, where, take: 1 }
 		const rows = await guarded(
 			store.last({
 				checks: checks.map((each) => each.check),
 				changes: reach.changes,
-				read,
+				read: { model: model.name, where, take: 1 },
 				before: true,
 			}),
 			checks,
@@ -285,10 +299,13 @@ export async function remove(
 		// Another transaction removed it meanwhile (D-104).
 		if (rows.length === 0)
 			throw new PublicError('NOT_FOUND', missing(model.name))
-		return first(rows, shape, undefined)
+		return first(kept === undefined ? rows : [kept], shape, undefined)
 	}
 	const row = await target(context, store, where)
 	scope.access?.allow(model, 'delete', { record: row })
+	const redirected = redirectOf(model) !== undefined
+	// A redirected row stays: it is read as the redirect left it (D-89).
+	const kept = redirected ? undefined : await shaped(byId(row.id), false)
 	const locked = cascadeWhere(models, model, byId(row.id))
 	if (locked !== undefined) {
 		const checks = locked.checks.map(({ check }) => check)
@@ -296,9 +313,8 @@ export async function remove(
 			store.write({ checks, changes: locked.changes }),
 			locked.checks,
 		)
-		return project(row, shape, hiddenBy(scope.access))
+		return project(kept ?? row, shape, hiddenBy(scope.access))
 	}
-	const redirected = redirectOf(model) !== undefined
 	// A redirected row stays: it cascades nothing (D-90).
 	const cascade = redirected
 		? { deleted: [{ model, row, redirected }], nulled: [] }
@@ -320,7 +336,12 @@ export async function remove(
 	await settle(store, caller, events, commits)
 	// The row as the redirect left it, or as it was once gone (D-89).
 	const [left] = redirected
-		? await store.find({ model: model.name, where: byId(row.id), take: 1 })
-		: []
+		? await store.find({
+				model: model.name,
+				...read,
+				where: byId(row.id),
+				take: 1,
+			})
+		: [kept]
 	return project(left ?? row, shape, hiddenBy(scope.access))
 }

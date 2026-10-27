@@ -45,7 +45,7 @@ let hooks = 0
 const Cabinet = defineModel({
 	name: 'Cabinet',
 	fields: (f) => ({ label: f.string(), drawers: f.many(() => Drawer) }),
-}).with({ access: { read: open, update: open } })
+}).with({ access: { read: open, update: open, delete: open } })
 
 /** A model with an update hook, which a relation write reaches. */
 const Drawer = defineModel({
@@ -214,14 +214,13 @@ export function roundTrips(create: () => Adapter, counted: () => number): void {
 		})
 
 		it('writes nothing when a connection is missing', async () => {
-			const missing = '00000000-0000-4000-8000-000000000001'
 			const created = once(async () =>
 				Novel.create(
 					{
 						data: {
 							title: 'Lost',
 							writer: { connect: { id: writer } },
-							genres: { connect: [{ id: genre }, { id: missing }] },
+							genres: { connect: [{ id: genre }, { id: me }] },
 						},
 					},
 					M,
@@ -237,13 +236,7 @@ export function roundTrips(create: () => Adapter, counted: () => number): void {
 			)
 			expect(updated.name).toBe('Lovelace')
 			const missing = once(async () =>
-				Writer.update(
-					{
-						where: { id: '00000000-0000-4000-8000-000000000001' },
-						data: { name: 'Nobody' },
-					},
-					M,
-				),
+				Writer.update({ where: { id: me }, data: { name: 'Nobody' } }, M),
 			)
 			await expect(missing).rejects.toMatchObject({ code: 'NOT_FOUND' })
 		})
@@ -290,6 +283,19 @@ export function roundTrips(create: () => Adapter, counted: () => number): void {
 			await expect(missing).rejects.toMatchObject({ code: 'NOT_FOUND' })
 		})
 
+		// D-135: the relations a delete returns cost one read before it.
+		it('reads the relations a delete returns once, before it', async () => {
+			const where = { id: writer }
+			const removed = await trips(4, async () =>
+				Writer.delete({ where, include: { novels: true } }, M),
+			)
+			expect(removed.novels).toMatchObject([{ title: 'Engines' }])
+			const { id } = await Cabinet.create({ data: { label: 'a' } }, M)
+			const drawers = { where: { id }, include: { drawers: true } } as const
+			// BEGIN, the row locked, read, its drawers loaded, the write, COMMIT.
+			await trips(6, async () => Cabinet.delete(drawers, { as: user }))
+		})
+
 		it('deletes many in one as Master; a user locks the rows first', async () => {
 			const removed = once(async () => Writer.deleteMany({}, M))
 			await expect(removed).resolves.toEqual({ count: 1 })
@@ -302,11 +308,8 @@ export function roundTrips(create: () => Adapter, counted: () => number): void {
 		// D-135
 		it('creates many in one, its connections checked', async () => {
 			const two = { data: [byWriter(writer), byWriter(writer)] }
-			await expect(once(async () => Novel.createMany(two, M))).resolves.toEqual(
-				{
-					count: 2,
-				},
-			)
+			const many = once(async () => Novel.createMany(two, M))
+			await expect(many).resolves.toEqual({ count: 2 })
 			const labels = { data: [{ label: 'a' }, { label: 'b' }] }
 			const shelves = once(async () => Shelf.createMany(labels, { as: user }))
 			await expect(shelves).resolves.toEqual({ count: 2 })

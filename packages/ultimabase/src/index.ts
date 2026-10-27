@@ -85,7 +85,7 @@ export type {
 	PluginTypes,
 	UseOf,
 } from './plugin.ts'
-export type { Queries } from './query.ts'
+export type { Payload, Queries } from './query.ts'
 export { definePlugin } from './plugin.ts'
 export type {
 	Caller,
