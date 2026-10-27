@@ -275,6 +275,20 @@ export function roundTrips(create: () => Adapter, counted: () => number): void {
 			await expect(locked).resolves.toEqual({ count: 1 })
 		})
 
+		it('updates many in one as Master; a user locks the rows first', async () => {
+			const renamed = once(async () =>
+				Writer.updateMany({ data: { name: 'Bo' } }, M),
+			)
+			await expect(renamed).resolves.toEqual({ count: 1 })
+			await Cabinet.create({ data: { label: 'a' } }, M)
+			await Cabinet.create({ data: { label: 'b' } }, M)
+			// BEGIN, the locked rows, one write for both, COMMIT (D-133).
+			const locked = trips(4, async () =>
+				Cabinet.updateMany({ data: { label: 'c' } }, { as: user }),
+			)
+			await expect(locked).resolves.toEqual({ count: 2 })
+		})
+
 		it('locks the row a user updates or deletes', async () => {
 			const shelf = await once(async () =>
 				Shelf.create({ data: { label: 'top' } }, { as: user }),

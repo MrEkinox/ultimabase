@@ -117,7 +117,7 @@ export type Nested = {
 
 export type Read = Nested & {
 	readonly model: string
-	/** Locks the root rows until the transaction ends (D-99). */
+	/** Locks the root rows, in `id` order, until the transaction ends (D-99, D-133). */
 	readonly lock?: boolean
 }
 
@@ -171,7 +171,8 @@ export type Check = {
  * One whole write: its checks first, which write nothing when one fails,
  * then its changes, then `read`, in the same write. With `before`, the read
  * selects among the rows of its model that the write's delete removed, as
- * they were (D-102, D-104).
+ * they were (D-102, D-104); when the write deletes none of them, among the
+ * rows its first update of that model changed, as it left them (D-133).
  */
 export type Write = {
 	readonly checks?: readonly Check[]

@@ -157,7 +157,7 @@ class Compiler {
 /**
  * `read`'s rows as one jsonb array, its root rows taken from `source`, by
  * default its table, and the tables it reaches besides; a locked read locks
- * the root rows its `where` selects (D-99).
+ * the root rows its `where` selects, in `id` order (D-99, D-133).
  */
 export function compileRows(
 	catalog: Catalog,
@@ -168,8 +168,11 @@ export function compileRows(
 	const alias = compiler.filters.alias()
 	const name = source ?? sql.id(catalog.table(read.model).name)
 	const as = sql.id(alias)
+	const table = catalog.table(read.model)
+	const id = compiler.filters.column(table, alias, 'id')
+	// In `id` order, so two reads of the same rows wait instead of deadlocking (D-133).
 	const from = read.lock
-		? sql`(select * from ${name} as ${as} where ${compiler.filters.where(read.model, alias, read.where)} for update) as ${as}`
+		? sql`(select * from ${name} as ${as} where ${compiler.filters.where(read.model, alias, read.where)} order by ${id} for update) as ${as}`
 		: sql`${name} as ${as}`
 	const rows = compiler.list(read.model, read, { from, on: sql`true` }, alias)
 	return { rows, tables: compiler.filters.tables }

@@ -4,6 +4,7 @@ import type { Access } from './access.ts'
 import { and } from './access.ts'
 import type { Filter, Row } from './adapter.ts'
 import { InvalidQuery } from './errors.ts'
+import type { FindOperation } from './model.ts'
 import type { Caller } from './rules.ts'
 import type { Running } from './running.ts'
 import type { ModelInfo } from './schema.ts'
@@ -54,11 +55,11 @@ export function picked(found: ReadonlyMap<string, unknown>): object {
 export async function filtered(
 	context: Context,
 	found: ReadonlyMap<string, unknown>,
-	operation: 'read' | 'delete',
+	operation: FindOperation,
 ): Promise<Filter | undefined> {
 	const { models, model, scope } = context
 	const keys = new Set(['where'])
-	const args = Object.fromEntries(found)
+	const args = { where: found.get('where') }
 	return planned(scope, () =>
 		and(
 			plan(models, model, args, '', 'one', keys, scope).read.where,

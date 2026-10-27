@@ -147,6 +147,25 @@ export function writes(create: () => Adapter): void {
 			expect(await Player.count({}, M)).toBe(1)
 		})
 
+		it('reads, with before and no delete, the rows its update changed', async () => {
+			const ada = await Player.create({ data: { name: 'Ada' } }, M)
+			await Player.create({ data: { name: 'Bob' } }, M)
+			const changed = await adapter.write({
+				changes: [
+					{
+						kind: 'update',
+						model: 'Player',
+						where: { name: { equals: 'Ada' } },
+						set: { name: 'Eve' },
+					},
+				],
+				read: { model: 'Player', where: {} },
+				before: true,
+			})
+			// As the update left them (D-133).
+			expect(changed).toMatchObject([{ id: ada.id, name: 'Eve' }])
+		})
+
 		it('connects and disconnects a one-to-many', async () => {
 			const team = await Team.create({ data: { name: 'Reds' } }, M)
 			const ada = await Player.create(

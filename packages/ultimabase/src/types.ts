@@ -12,6 +12,7 @@ import type {
 	Select,
 	UniqueWhere,
 	UpdateArgs,
+	UpdateManyArgs,
 	Where,
 } from './query.ts'
 import type { CreateData, UpdateData } from './record.ts'
@@ -32,6 +33,7 @@ type Operations<F, X, N> = {
 	readonly create: CreateArgs<F, N>
 	readonly update: UpdateArgs<F, X, N>
 	readonly delete: { readonly where: UniqueWhere<F, X> }
+	readonly updateMany: UpdateManyArgs<F>
 	readonly deleteMany: { readonly where?: Where<F> | undefined }
 }
 

@@ -2,7 +2,7 @@
 // data-modifying CTE that runs only when they pass, then the read, which sees
 // the changes through CTEs named as the written tables, or, with `before`,
 // takes the rows its model's delete removed from that delete's RETURNING
-// (D-102, D-104). A read of the one row a change writes takes it from that
+// (D-102, D-104), or, with no such delete, those its update changed (D-133). A read of the one row a change writes takes it from that
 // change's RETURNING (D-103). The unique
 // constraint a refused change names is the kernel's `UniqueViolation` (D-98).
 import type { RawBuilder } from 'kysely'
@@ -305,11 +305,15 @@ export function compileWrite(catalog: Catalog, write: Write): Statement[] {
 	const groups = grouped(parts)
 	const before = write.before === true
 	const table = write.read && catalog.table(write.read.model).name
-	// With `before`, the read runs beside its model's delete, and none when
-	// the write deletes nothing of it (D-104).
-	const removal = parts.findIndex(
-		(each) => before && each.table === table && each.removes && !each.adds,
-	)
+	// With `before`, the read runs beside its model's delete (D-104), or,
+	// when the write deletes nothing of it, its update (D-133).
+	const of = (adds: boolean): number =>
+		parts.findIndex(
+			(each) =>
+				before && each.table === table && each.removes && each.adds === adds,
+		)
+	const deleted = of(false)
+	const removal = deleted === -1 ? of(true) : deleted
 	let next = 0
 	return groups.map((group, index): Statement => {
 		const first = index === 0 && checks.length > 0

@@ -14,6 +14,7 @@ import { QueryScope, planned } from './scope.ts'
 import type { Commit, Store } from './transaction.ts'
 import { reading, writing } from './transaction.ts'
 import { removeMany } from './delete-many.ts'
+import { updateMany } from './update-many.ts'
 import { create, remove, update } from './writes.ts'
 
 export type Operation =
@@ -24,6 +25,7 @@ export type Operation =
 	| 'create'
 	| 'update'
 	| 'delete'
+	| 'updateMany'
 	| 'deleteMany'
 
 const anonymous: Identity = Object.freeze({ kind: 'anonymous' })
@@ -163,6 +165,7 @@ const writes: { readonly [O in Exclude<Operation, ReadOperation>]: Write } = {
 	create,
 	update,
 	delete: remove,
+	updateMany,
 	deleteMany: removeMany,
 }
 
