@@ -239,6 +239,33 @@ describe('single rows and counts', () => {
 		expect(await Book.count({ where: { published: false } }, as)).toBe(3)
 	})
 
+	it('throws NOT_FOUND from an OrThrow read that finds nothing (D-135)', async () => {
+		const found = await Book.findUniqueOrThrow(
+			{
+				where: {
+					title: 'Engines',
+					author: (
+						await Author.findFirstOrThrow({ where: { name: 'Ada' } }, as)
+					).id,
+				},
+			},
+			as,
+		)
+		expect(found.pages).toBe(120)
+		const first = await Book.findFirstOrThrow(
+			{ where: { pages: { gt: 200 } }, select: { title: true } },
+			as,
+		)
+		expect(first).toEqual({ title: 'Analysis' })
+		const missing = { code: 'NOT_FOUND', message: 'No Book matches.' }
+		await expect(
+			Book.findUniqueOrThrow({ where: { id: 'missing' } }, as),
+		).rejects.toMatchObject(missing)
+		await expect(
+			Book.findFirstOrThrow({ where: { pages: 1 } }, as),
+		).rejects.toMatchObject(missing)
+	})
+
 	it('returns stored dates and json as copies', async () => {
 		const first = await Book.findFirst({ where: { title: 'Analysis' } }, as)
 		first?.releasedAt?.setFullYear(1990)

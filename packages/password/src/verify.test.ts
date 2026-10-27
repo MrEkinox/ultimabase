@@ -2,7 +2,7 @@
 // sign-up sends, `verifyEmail` and `sendVerificationEmail`.
 import type { Adapter } from 'ultimabase'
 import { memory } from 'ultimabase'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, expectTypeOf, it, vi } from 'vitest'
 import type { Email, PasswordOptions } from './index.ts'
 import {
 	bearer,
@@ -80,6 +80,7 @@ describe('emailVerified', () => {
 		await server({})
 		const user = await User.signUp({ ...ada, data: { name: 'Ada' } })
 		expect(user.emailVerified).toBe(false)
+		expectTypeOf(user.emailVerified).toEqualTypeOf<boolean>()
 		const asAda = { as: { kind: 'user', user } } as const
 		const where = { id: user.id }
 		await expect(

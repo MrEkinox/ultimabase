@@ -7,34 +7,20 @@
 // constraint a refused change names is the kernel's `UniqueViolation` (D-98).
 import type { RawBuilder } from 'kysely'
 import { sql } from 'kysely'
-import type { Change, Check, Filter, Read, Write } from 'ultimabase'
+import type { Change, Check, Filter, Read, Row, Write } from 'ultimabase'
 import { RelationViolation, UniqueViolation } from 'ultimabase'
 import type { Sql } from './filter.ts'
 import { Filters, uuid, value } from './filter.ts'
 import type { Catalog, Table } from './names.ts'
 import { computed } from './numbers.ts'
+import type { Part } from './parts.ts'
+import { fieldsOf, grouped, inserted, sizeOf } from './parts.ts'
 import { compileRows } from './read.ts'
 
 /** A statement of a write: how many checks its result carries, `c0`… */
 export type Statement = {
 	readonly sql: RawBuilder<{ readonly [column: string]: unknown }>
 	readonly checks: number
-}
-
-/** A change as a CTE, and what deciding where it runs needs of it. */
-type Part = {
-	readonly build: (gate: Sql | undefined) => Sql
-	readonly table: string
-	/** The columns that identify a row: `id`, or a join table's two keys. */
-	readonly key: readonly string[]
-	readonly inserts: boolean
-	readonly removes: boolean
-	readonly adds: boolean
-	readonly reads: ReadonlySet<string>
-	/** A join table's change: the pairs it links or unlinks, `self:other`. */
-	readonly pairs?: ReadonlySet<string>
-	/** The one row it writes, by id, when its RETURNING holds only that row. */
-	readonly row?: string
 }
 
 function assignments(
@@ -66,29 +52,9 @@ function idOf(where: Filter | undefined): string | undefined {
 /** The CTE of a change, `undefined` when it changes nothing. */
 function part(
 	catalog: Catalog,
-	change: Change,
+	change: Exclude<Change, { readonly kind: 'insert' }>,
 	removed: ReadonlyMap<number, string>,
 ): Part | undefined {
-	if (change.kind === 'insert') {
-		const table = catalog.table(change.model)
-		const name = sql.id(table.name)
-		const pairs = assignments(catalog, table, change.row)
-		const columns = sql.join(pairs.map(([column]) => sql.id(column)))
-		const values = sql.join(pairs.map(([, item]) => item))
-		return {
-			table: table.name,
-			key: ['id'],
-			row: change.row.id,
-			build: (gate) =>
-				gate === undefined
-					? sql`insert into ${name} (${columns}) values (${values}) returning *`
-					: sql`insert into ${name} (${columns}) select ${values} where ${gate} returning *`,
-			inserts: true,
-			removes: false,
-			adds: true,
-			reads: new Set(),
-		}
-	}
 	if (change.kind !== 'update' && change.kind !== 'delete') {
 		return links(catalog, change)
 	}
@@ -182,46 +148,6 @@ function links(
 	}
 }
 
-/** What the current statement writes to a table. */
-type Written = { readonly inserts: boolean; readonly pairs: Set<string> }
-
-/** Whether `each` may join a statement that already wrote `prior`. */
-function fits(prior: Written | undefined, each: Part): boolean {
-	if (prior === undefined) return true
-	// A join table's changes of distinct pairs never meet.
-	if (each.pairs !== undefined) {
-		return [...each.pairs].every((pair) => !prior.pairs.has(pair))
-	}
-	return prior.inserts && each.inserts
-}
-
-/**
- * The parts of one statement each: a part starts a new one when it writes a
- * table the statement writes (inserts, and a join table's distinct pairs,
- * aside) or reads one, since the parts of a statement see the database as it
- * was.
- */
-function grouped(parts: readonly Part[]): Part[][] {
-	const groups: Part[][] = [[]]
-	const written = new Map<string, Written>()
-	for (const each of parts) {
-		const clash =
-			!fits(written.get(each.table), each) ||
-			[...each.reads].some((table) => written.has(table))
-		if (clash) {
-			groups.push([])
-			written.clear()
-		}
-		groups.at(-1)?.push(each)
-		const prior = written.get(each.table)
-		written.set(each.table, {
-			inserts: (prior?.inserts ?? true) && each.inserts,
-			pairs: new Set([...(prior?.pairs ?? []), ...(each.pairs ?? [])]),
-		})
-	}
-	return groups
-}
-
 function checking(catalog: Catalog, checks: readonly Check[]): Sql {
 	const filters = new Filters(catalog)
 	const columns = checks.map((check, at) => {
@@ -286,14 +212,47 @@ function sourceOf(
 /** The statements of a write, in the order they run. */
 export function compileWrite(catalog: Catalog, write: Write): Statement[] {
 	const checks = write.checks ?? []
+	// Each statement stays within PostgreSQL's 65,535 parameters, its checks
+	// and its read's aside.
+	const room =
+		65_535 -
+		sizeOf(checking(catalog, checks)) -
+		(write.read === undefined
+			? 0
+			: sizeOf(compileRows(catalog, write.read, undefined).rows))
 	const parts: Part[] = []
 	const removed = new Map<number, string>()
+	// Consecutive rows of a table, setting the same fields, go in one insert.
+	let batch: { readonly model: string; readonly rows: Row[] } | undefined
+	const flush = (): void => {
+		if (batch !== undefined) {
+			parts.push(inserted(catalog, batch.model, batch.rows))
+		}
+		batch = undefined
+	}
 	for (const [index, change] of write.changes.entries()) {
+		if (change.kind === 'insert') {
+			const fields = fieldsOf(change.row)
+			const joins =
+				batch?.model === change.model &&
+				fieldsOf(batch.rows[0] ?? {})
+					.toSorted()
+					.join() === fields.toSorted().join() &&
+				(batch.rows.length + 1) * fields.length <= room
+			if (!joins) {
+				flush()
+				batch = { model: change.model, rows: [] }
+			}
+			batch?.rows.push(change.row)
+			continue
+		}
+		flush()
 		const each = part(catalog, change, removed)
 		if (each === undefined) continue
 		if (change.kind === 'delete') removed.set(index, cteName(parts.length))
 		parts.push(each)
 	}
+	flush()
 	if (parts.length === 0 && checks.length === 0 && write.read === undefined) {
 		return []
 	}
@@ -302,7 +261,7 @@ export function compileWrite(catalog: Catalog, write: Write): Statement[] {
 		checks.length === 0
 			? undefined
 			: sql`(select ${sql.join(columns, sql` and `)} from "#checks")`
-	const groups = grouped(parts)
+	const groups = grouped(parts, room)
 	const before = write.before === true
 	const table = write.read && catalog.table(write.read.model).name
 	// With `before`, the read runs beside its model's delete (D-104), or,

@@ -4,13 +4,13 @@ import type { ResultOf, RunArgs } from './function.ts'
 import type { Model } from './model.ts'
 import type {
 	CreateArgs,
+	CreateManyArgs,
 	FindManyArgs,
 	FindUniqueArgs,
 	Include,
 	OrderBy,
 	Payload,
 	Select,
-	UniqueWhere,
 	UpdateArgs,
 	UpdateManyArgs,
 	Where,
@@ -29,11 +29,14 @@ type Operations<F, X, N> = {
 	readonly findMany: FindManyArgs<F, X>
 	readonly findFirst: FindManyArgs<F, X>
 	readonly findUnique: FindUniqueArgs<F, X>
+	readonly findFirstOrThrow: FindManyArgs<F, X>
+	readonly findUniqueOrThrow: FindUniqueArgs<F, X>
 	readonly count: { readonly where?: Where<F> }
 	readonly create: CreateArgs<F, N>
 	readonly update: UpdateArgs<F, X, N>
-	readonly delete: { readonly where: UniqueWhere<F, X> }
+	readonly delete: FindUniqueArgs<F, X>
 	readonly updateMany: UpdateManyArgs<F>
+	readonly createMany: CreateManyArgs<F>
 	readonly deleteMany: { readonly where?: Where<F> | undefined }
 }
 

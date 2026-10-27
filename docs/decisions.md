@@ -459,7 +459,7 @@ read: ({ caller, where }) =>
 
 ## D-20: The query API follows Prisma Client
 
-Amended by D-128, D-132 and D-133.
+Amended by D-128, D-132, D-133 and D-135.
 
 Choice: operations, their names and their arguments follow Prisma Client, so
 a developer coming from Prisma reads UltimaBase queries as Prisma: `findUnique`,
@@ -473,9 +473,10 @@ option (D-19), the model as entry point (D-18), plugin commands on the model.
 The first release ships the subset needed by its examples and its GraphQL
 (D-41); the rest follows Prisma's spelling when added. That subset is
 `findUnique`, `findFirst`, `findMany`, `count`, `create`, `update`,
-`delete`, `updateMany` (D-133) and `deleteMany` (D-111), with `where` (scalar filters,
+`delete`, `updateMany` (D-133) and `deleteMany` (D-111), `findUniqueOrThrow`,
+`findFirstOrThrow` and `createMany` (D-135), with `where` (scalar filters,
 `is`/`isNot`, `some`/`every`/`none`, `AND`/`OR`/`NOT`), `select`, `include`,
-`orderBy`, `take`, `skip` and `cursor`, and relation writes by id:
+`omit` (D-135), `orderBy`, `take`, `skip` and `cursor`, and relation writes by id:
 `connect` on a `one` and a `many` relation, `disconnect: true` to unset an
 optional `one` relation (`null` is refused, as in Prisma),
 `disconnect: [{ id }]` on a `many` relation in `update`. A `cursor` is a unique target (D-52) and also pages a nested list,
@@ -492,9 +493,8 @@ casts or values built at run time, and an ignored filter key widens a query:
 on a read filter it leaks rows (D-04).
 Later: Prisma's fluent relation API (`Post.findUnique(...).author()`), once it
 can run without an extra query per parent (no N+1). After the first release:
-`upsert` and `createMany`, once it is decided which rules and hooks they run (create's or update's for `upsert`,
-per row or per batch); `omit`, which `select` covers meanwhile; `set`,
-`distinct` and aggregates;
+`upsert`, once it is decided which rules and hooks it runs (create's or
+update's); `set`, `distinct` (D-135) and aggregates;
 case-insensitive filters (`mode: 'insensitive'`), left to a search plugin
 first. Nested creation (`create` in a relation write) ships in 0.1, designed
 in its own decision (D-68, amended 2026-10-25).
@@ -1980,7 +1980,7 @@ throw new PublicError('VALIDATION_FAILED', 'Too short.', {
 
 ## D-73: The adapter contract
 
-Amended by D-105.
+Amended by D-105 and D-136.
 
 Choice: an adapter implements six methods. `start(schema)` receives every
 model with its fields, relations, indexes and `dbName` overrides; `stop()`
@@ -3818,7 +3818,7 @@ await Novel.update(
 
 ## D-102: A delete whose reach runs no hook is one write, its rows unloaded
 
-Amended by D-104.
+Amended by D-104 and D-135.
 
 Choice:
 
@@ -5241,7 +5241,7 @@ Rejected: a batch hook that receives every row at once, which a plugin
 written for `delete` would miss; skipping rules and hooks in bulk, against
 D-48; deleting the rows the rule allows and leaving the others, which hides a
 refusal; returning the rows, which Prisma does not.
-Later: `createMany` and `upsert` stay as D-20 defers them.
+Later: `upsert` stays as D-20 defers it; `createMany` is D-135.
 Example:
 
 ```ts
@@ -7275,4 +7275,145 @@ users(first: 20, orderBy: { posts: { _count: desc } }) {
 
 ```
 GET /api/users?first=20&orderBy={"posts":{"_count":"desc"}}&include={"posts":{"where":{"published":true},"totalCount":true}}
+```
+
+## D-135: `OrThrow` reads, `omit`, a delete's `select` and `createMany`
+
+Amended by D-136.
+
+Choice: completes D-20; amends D-102 point 2.
+
+1. `findUniqueOrThrow` and `findFirstOrThrow` take what `findUnique` and
+   `findFirst` take and return the row, never `null`: no row fails with
+   the public `NOT_FOUND`, `No Post matches.`, as a write's missing row
+   does (D-99). A row the caller cannot read is not found (D-72). GraphQL
+   and REST keep their own answers: `null`, and 404.
+2. `omit` takes scalar and system fields set to `true`, as in Prisma:
+   `{ omit: { body: true } }` returns the row's scalars but `body`. Every
+   query that takes `select` takes it, and so do a relation's arguments
+   in `include`. With `select` it fails with `INVALID_QUERY` (D-20), and
+   the types refuse it; a relation in it is an unknown key. It shapes the
+   result only: the adapter reads the row as for `select`. Neither
+   transport exposes it: GraphQL selects its fields, REST has `select`
+   (D-129).
+3. `delete` takes `select` and `include`, `_count` included, as in Prisma.
+   The relations are read as they were before the delete, in its
+   transaction, under the caller's read rules (D-86). A `select` of
+   scalars keeps D-102's one write; a relation or a `_count` costs one
+   read before the delete, for Master and for a user alike. GraphQL's
+   `DeletedPost` and REST's `DELETE` keep the row without its relations
+   (D-107 point 4).
+4. `createMany({ data }, { as })` creates each row of `data`, one object or
+   a list of them, and returns `{ count }`, as in Prisma. A row's data is
+   what `create` takes, but its relation writes: `connect` on a `one`
+   relation is kept, since a post needs its author and the model has no
+   key field; a nested `create` and a write of a `many` relation are
+   refused, as in Prisma's `createMany`.
+5. Each row goes through what a `create` runs (D-67): the `create` rule on
+   its data, the field rules (D-44), the defaults and validation,
+   `beforeCreate`, `afterCreate` and `afterCreateCommit`. It is all or
+   nothing, as `updateMany` (D-133): the rules run on every row before
+   any hook, one row refused fails the call with `ACCESS_DENIED`, and a
+   failed validation, a hook's error or a `UNIQUE_VIOLATION` (D-72) fails
+   it too. An empty list is `{ count: 0 }` and writes nothing.
+6. The rows go in one write (D-48): on PostgreSQL, one statement holds
+   their `connect` checks and one multi-row `INSERT` per table. Past the
+   65,535 parameters a statement binds, the write splits into several
+   statements in one transaction. An `afterCreate` or `afterCreateCommit`
+   hook reads each row back, one read per row, as after a `create`.
+7. It is server code: neither GraphQL nor REST exposes it, as `updateMany`
+   (D-133 point 7). A plugin's `queries` (D-89) have it, and the
+   `OrThrow` reads.
+
+Why:
+
+- `findUnique` then `if (row === null) throw` is written in every
+  function that reads one row; a missing row is then a different error in
+  each one.
+- Leaving out one field of twenty is today a `select` of nineteen, which
+  must change with every new field.
+- A delete that answers "what did I just remove, with its author" needs a
+  `findUnique` before it, in its own transaction, which another write may
+  slip between.
+- Importing a hundred tags is today a hundred `create` calls: a hundred
+  round trips, and a refused row leaves half of them written.
+
+Rejected:
+
+- `distinct`, after the first release: it is "the latest post of each
+  author", which raw SQL writes meanwhile, at the cost of a subquery in
+  the PostgreSQL compiler, in `memory()` and in the contract suite, and of
+  its meaning under `cursor` and a connection's `totalCount`.
+- `skipDuplicates`: a `beforeCreate` would run for a row the database then
+  skips, and `memory()` would mimic `ON CONFLICT DO NOTHING`.
+- `createManyAndReturn`, and `omit` set on the client as Prisma's global
+  `omit`, which field access (D-44) already covers, until a need.
+- A delete's relations in GraphQL and REST: no client case asks for them.
+
+Example:
+
+```ts
+// Before
+const post = await Post.findUnique({ where: { slug } }, { as: caller })
+if (post === null) throw new PublicError('NOT_FOUND', 'No Post matches.')
+await Post.findMany({
+	select: { id: true, title: true, slug: true, createdAt: true /* … */ },
+})
+for (const name of names) await Tag.create({ data: { name } })
+
+// After
+const found = await Post.findUniqueOrThrow({ where: { slug } }, { as: caller })
+await Post.findMany({ omit: { body: true }, include: { author: true } })
+const { count } = await Tag.createMany({
+	data: names.map((name) => ({ name })),
+})
+
+// The row as it was, with its author
+const removed = await Post.delete({ where: { id }, include: { author: true } })
+```
+
+## D-136: Reads fetch the fields they return
+
+Choice: amends D-73 and D-135 point 2.
+
+1. A read's `Nested` takes `fields`, the system and scalar fields its rows
+   return; the adapter reads `id` and those fields only, in a relation too.
+   Without `fields`, it reads the whole row and each `one` key, as before.
+   PostgreSQL builds its rows from those columns only; `memory()` copies
+   those keys only.
+2. The kernel sets `fields` from `select` and `omit` for every read it
+   shapes: `findMany`, `findFirst`, `findUnique`, their `OrThrow` forms, a
+   relation in `include` or `select`, and the row a write returns. An
+   included relation and a `_count` are read as before, apart from the
+   row's fields.
+3. A field read rule (D-44) receives the whole record: its declared fields,
+   `.with<{ status }>`, are types only, so the kernel cannot know which
+   ones it reads. A read whose returned fields, relations or counts carry a
+   read rule the caller runs therefore reads the whole row of that model.
+   Master runs none (D-48), so its reads are always narrowed.
+4. A write's target rows, its rules' and hooks' records, and the rows the
+   kernel reads for itself keep the whole row.
+
+Why:
+
+- `omit: { body: true }` on posts whose body is 20 KB read 100 rows in
+  ~26 ms against ~1.7 ms for the same SQL without `body`: the PostgreSQL
+  server builds and sends every column, and the kernel drops one. Parse
+  Server turns `keys` into a column list, the same way.
+
+Rejected:
+
+- Narrowing a field read rule's record to its declared fields: they exist
+  in the types only, and a rule that reads an undeclared field would then
+  see `undefined` and decide on it silently.
+- Projection inside the adapters only, from the shape: the adapter does
+  not see `select` and `omit`, and the field rules are the kernel's.
+
+Example:
+
+```ts
+// Before and after: the same call and the same rows.
+await Post.findMany({ omit: { body: true } }, { as: master })
+// Before: SELECT … 'title', "t1"."title", …, 'body', "t1"."body" …
+// After:  SELECT … 'title', "t1"."title", … (no body)
 ```

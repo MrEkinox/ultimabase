@@ -2,30 +2,34 @@
 // checked, run on the adapter, in the open transaction if any (D-36), and
 // returned in the shape it asked for.
 import { accessFor, and } from './access.ts'
-import { InvalidQuery } from './errors.ts'
+import { InvalidQuery, PublicError } from './errors.ts'
 import type { Identity } from './rules.ts'
 import { isMaster } from './rules.ts'
 import { current } from './running.ts'
 import type { Context } from './query-context.ts'
 import { filtered, first, given, hiddenBy, picked } from './query-context.ts'
-import { plan, project, restrict, uniqueWhere } from './query-args.ts'
+import { oneKeys, plan, project, restrict, uniqueWhere } from './query-args.ts'
 import { entries, isObject, unknownKey } from './query-where.ts'
 import { QueryScope, planned } from './scope.ts'
 import type { Commit, Store } from './transaction.ts'
 import { reading, writing } from './transaction.ts'
 import { removeMany } from './delete-many.ts'
 import { updateMany } from './update-many.ts'
+import { createMany } from './create-many.ts'
 import { create, remove, update } from './writes.ts'
 
 export type Operation =
 	| 'findMany'
 	| 'findFirst'
 	| 'findUnique'
+	| 'findFirstOrThrow'
+	| 'findUniqueOrThrow'
 	| 'count'
 	| 'create'
 	| 'update'
 	| 'delete'
 	| 'updateMany'
+	| 'createMany'
 	| 'deleteMany'
 
 const anonymous: Identity = Object.freeze({ kind: 'anonymous' })
@@ -70,8 +74,7 @@ export function callerOf(options: unknown, model: string): Identity {
 
 const manyKeys = new Set([
 	'where',
-	'select',
-	'include',
+	...oneKeys,
 	'orderBy',
 	'take',
 	'skip',
@@ -105,22 +108,9 @@ async function findUnique(
 	args: unknown,
 ): Promise<unknown> {
 	const { models, model, scope } = context
-	const found = given(
-		args,
-		model.name,
-		['where', 'select', 'include'],
-		['where'],
-	)
+	const found = given(args, model.name, ['where', ...oneKeys], ['where'])
 	const { read, shape, where } = await planned(scope, () => ({
-		...plan(
-			models,
-			model,
-			picked(found),
-			'',
-			'one',
-			new Set(['select', 'include']),
-			scope,
-		),
+		...plan(models, model, picked(found), '', 'one', oneKeys, scope),
 		where: and(
 			uniqueWhere(models, model, found.get('where'), 'where', scope),
 			scope.readable(model.name),
@@ -152,12 +142,31 @@ type Write = (
 	args: unknown,
 ) => Promise<unknown>
 
-type ReadOperation = 'findMany' | 'findFirst' | 'findUnique' | 'count'
+type ReadOperation =
+	| 'findMany'
+	| 'findFirst'
+	| 'findUnique'
+	| 'findFirstOrThrow'
+	| 'findUniqueOrThrow'
+	| 'count'
+
+/** The read, which fails with `NOT_FOUND` rather than return `null` (D-135). */
+const orThrow =
+	(read: Run): Run =>
+	async (context, store, args) => {
+		const row = await read(context, store, args)
+		if (row !== null) return row
+		throw new PublicError('NOT_FOUND', `No ${context.model.name} matches.`)
+	}
 
 const reads: { readonly [O in ReadOperation]: Run } = {
 	findMany: async (context, store, args) => find(context, store, args, false),
 	findFirst: async (context, store, args) => find(context, store, args, true),
 	findUnique,
+	findFirstOrThrow: orThrow(async (context, store, args) =>
+		find(context, store, args, true),
+	),
+	findUniqueOrThrow: orThrow(findUnique),
 	count,
 }
 
@@ -166,6 +175,7 @@ const writes: { readonly [O in Exclude<Operation, ReadOperation>]: Write } = {
 	update,
 	delete: remove,
 	updateMany,
+	createMany,
 	deleteMany: removeMany,
 }
 

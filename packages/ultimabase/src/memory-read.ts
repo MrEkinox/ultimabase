@@ -221,8 +221,11 @@ export class Reader {
 	/** A row as the adapter returns it, with the relations `read` includes. */
 	output(model: string, row: StoredRow, read: Nested): Row {
 		const result: { id: string; [field: string]: unknown } = { id: row.id }
+		const fields = read.fields === undefined ? undefined : new Set(read.fields)
+		const reads = (name: string) => fields?.has(name) ?? true
 		for (const [key, value] of Object.entries(row)) {
 			const field = this.field(model, key)
+			if (!reads(key)) continue
 			if (field?.kind === 'one') {
 				result[key] = typeof value === 'string' ? { id: value } : null
 			} else {
@@ -230,7 +233,7 @@ export class Reader {
 			}
 		}
 		for (const field of this.fields.get(model)?.values() ?? []) {
-			if (field.kind === 'one' && !field.stored) {
+			if (field.kind === 'one' && !field.stored && reads(field.name)) {
 				const [other] = this.related(model, field, row)
 				result[field.name] = other === undefined ? null : { id: other.id }
 			}

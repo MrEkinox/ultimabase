@@ -291,7 +291,7 @@ TS2322: Type 'Uppercase<string>' is not assignable to type 'number'.
   Type 'string' is not assignable to type 'number'.
 
 prototype/example/model-types.ts: a misspelt relation in kept arguments.
-TS2561: Object literal may only specify known properties, but 'autor' does not exist in type '{ readonly author?: boolean | { readonly select?: Select<{ readonly name: Field<string, { readonly unique: true; }, never, never, string, false, never>; readonly level: Field<"junior" | "senior", SingleOptions<"junior" | "senior">, ... 4 more ..., never>; readonly books: Many<...>; readonly favorite: One<...>; }>; r...'. Did you mean to write 'author'?
+TS2561: Object literal may only specify known properties, but 'autor' does not exist in type '{ readonly author?: boolean | Shaping<{ readonly name: Field<string, { readonly unique: true; }, never, never, string, false, never>; readonly level: Field<"junior" | "senior", SingleOptions<"junior" | "senior">, ... 4 more ..., never>; readonly books: Many<...>; readonly favorite: One<...>; }>; readonly reviewer?: ...'. Did you mean to write 'author'?
 
 prototype/example/model-types.ts: a misspelt field in a filter helper.
 TS2561: Object literal may only specify known properties, but 'titel' does not exist in type 'WhereOf<Model<"Book", { readonly title: Field<string, SingleOptions<string>, never, never, string, false, never>; readonly pages: Field<number, { readonly optional: true; }, ... 4 more ..., never>; readonly author: One<...>; readonly reviewer: One<...>; readonly sequels: Many<...>; }, never, WithKeys<...>, never>>'. Did you mean to write 'title'?
@@ -463,7 +463,7 @@ prototype/example/relations.ts: `level` is a scalar: it takes no `include`.
 TS2353: Object literal may only specify known properties, and 'level' does not exist in type '{ readonly books?: boolean | RelationArgs<Many<() => Model<"Book", { readonly title: Field<string, SingleOptions<string>, never, never, string, false, never>; readonly pages: Field<number, { ...; }, ... 4 more ..., never>; readonly author: One<...>; readonly reviewer: One<...>; readonly sequels: Many<...>; }, never,...'.
 
 prototype/example/relations.ts: a to-one relation takes no `take`.
-TS2353: Object literal may only specify known properties, and 'take' does not exist in type '{ readonly select?: Select<{ readonly name: Field<string, { readonly unique: true; }, never, never, string, false, never>; readonly level: Field<"junior" | "senior", SingleOptions<"junior" | "senior">, ... 4 more ..., never>; readonly books: Many<...>; readonly favorite: One<...>; }>; readonly include?: { ...; } & {...'.
+TS2353: Object literal may only specify known properties, and 'take' does not exist in type 'Shaping<{ readonly name: Field<string, { readonly unique: true; }, never, never, string, false, never>; readonly level: Field<"junior" | "senior", SingleOptions<"junior" | "senior">, ... 4 more ..., never>; readonly books: Many<...>; readonly favorite: One<...>; }>'.
 
 prototype/example/relations.ts: `title` was not selected.
 TS2339: Property 'title' does not exist on type 'Selected<{ readonly title: Field<string, SingleOptions<string>, never, never, string, false, never>; readonly pages: Field<number, { readonly optional: true; }, never, never, number, false, never>; readonly author: One<...>; readonly reviewer: One<...>; readonly sequels: Many<...>; }, { ...; }>'.

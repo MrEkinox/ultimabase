@@ -7,22 +7,6 @@ import { started } from './test/app.ts'
 import { database, urls } from './test/postgres.ts'
 import { issueToken, redeemToken } from './tokens.ts'
 
-/** The schema whose token table holds `userId`'s token. */
-async function schemaOf(client: Client, userId: string): Promise<string> {
-	const { rows } = await client.query<{ schema: string }>(
-		`select table_schema as schema from information_schema.tables
-		 where table_name = 'password_token'`,
-	)
-	for (const { schema } of rows) {
-		const found = await client.query(
-			`select 1 from "${schema}"."password_token" where "user_id" = $1`,
-			[userId],
-		)
-		if (found.rowCount === 1) return schema
-	}
-	throw new Error('No token table holds the token.')
-}
-
 async function waitingOnLock(watcher: Client): Promise<void> {
 	for (let tries = 0; tries < 300; tries += 1) {
 		const { rows } = await watcher.query<{ n: number }>(
@@ -37,7 +21,9 @@ async function waitingOnLock(watcher: Client): Promise<void> {
 
 for (const url of urls) {
 	it(`refuses a token another transaction used meanwhile on ${new URL(url).host}`, async () => {
-		const running = await started(undefined, database(url))
+		// Its own schema: another file's may be dropped while it runs.
+		const schema = `t_${randomUUID().replaceAll('-', '')}`
+		const running = await started(undefined, database(url, schema))
 		const other = new Client({ connectionString: url })
 		const watcher = new Client({ connectionString: url })
 		await other.connect()
@@ -45,7 +31,6 @@ for (const url of urls) {
 		try {
 			const userId = randomUUID()
 			const token = await issueToken(userId, 'reset')
-			const schema = await schemaOf(other, userId)
 			await other.query('begin')
 			await other.query(
 				`delete from "${schema}"."password_token" where "user_id" = $1`,

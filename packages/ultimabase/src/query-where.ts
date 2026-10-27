@@ -22,6 +22,8 @@ export type Scope = {
 		path: string,
 		verb: 'filters' | 'sorts',
 	) => void
+	/** Whether the caller runs a field read rule on it (D-44). */
+	readonly ruled: (model: ModelInfo, field: string) => boolean
 	/** A model's read filter; `undefined` when every row passes. */
 	readonly readable: (model: string) => Filter | undefined
 }

@@ -131,11 +131,14 @@ const operations: readonly Operation[] = [
 	'findMany',
 	'findFirst',
 	'findUnique',
+	'findFirstOrThrow',
+	'findUniqueOrThrow',
 	'count',
 	'create',
 	'update',
 	'delete',
 	'updateMany',
+	'createMany',
 	'deleteMany',
 ]
 

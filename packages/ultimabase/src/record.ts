@@ -251,6 +251,23 @@ export type CreateData<F, N = never, E = never> = {
 	]?: CreateInput<F[K], N, K> | undefined
 }
 
+/** A row `createMany` creates: a `one` is connected, a `many` not written (D-135). */
+export type CreateManyData<F> = {
+	readonly [
+		K in keyof F as Needed<F[K]> extends true ? K : never
+	]: F[K] extends Scalar ? WrittenValue<F[K]> : { readonly connect: Ref }
+} & {
+	readonly [
+		K in keyof F as Needed<F[K]> extends true
+			? never
+			: F[K] extends Relation<'many'>
+				? never
+				: K
+	]?:
+		| (F[K] extends Scalar ? WrittenValue<F[K]> : { readonly connect: Ref })
+		| undefined
+}
+
 /**
  * `undefined` leaves a field unchanged, as in Prisma (D-84). Rules and hooks
  * see the data without `Operations`: each number as computed (D-132).

@@ -178,6 +178,44 @@ export function cascades(create: () => Adapter): void {
 			expect(kept).toEqual(blues.clerk)
 		})
 
+		// D-135
+		it('returns the relations and counts of a delete as the caller read them before', async () => {
+			const reds = await stocked('reds')
+			const removed = await Shop.delete(
+				{
+					where: { id: reds.shop.id },
+					include: {
+						aisles: true,
+						clerks: { include: { shop: true } },
+						_count: true,
+					},
+				},
+				M,
+			)
+			expect(removed).toMatchObject({
+				name: 'reds',
+				aisles: [{ label: 'reds aisle' }],
+				clerks: [{ name: 'reds clerk', shop: { name: 'reds' } }],
+				_count: { aisles: 1, items: 1, clerks: 1, orders: 0 },
+			})
+			expect(await counts()).toEqual([0, 0, 0, 0])
+			const blues = await stocked('blues')
+			// A user reads no item: the model gives them no read rule.
+			const theirs = await Shop.delete(
+				{
+					where: { id: blues.shop.id },
+					select: { name: true, items: true, _count: true },
+				},
+				user,
+			)
+			expect(theirs).toEqual({
+				name: 'blues',
+				items: [],
+				_count: { aisles: 0, items: 0, clerks: 0, orders: 0 },
+			})
+			expect(await counts()).toEqual([0, 0, 0, 0])
+		})
+
 		it('refuses a delete a restricting row stops, and writes nothing', async () => {
 			const reds = await stocked('reds')
 			const blues = await stocked('blues')

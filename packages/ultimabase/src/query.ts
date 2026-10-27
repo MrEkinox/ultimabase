@@ -1,6 +1,7 @@
 // Query arguments and results, in Prisma Client's form (D-20).
 import type {
 	CreateData,
+	CreateManyData,
 	RecordOf,
 	RelationKeys,
 	ScalarKeys,
@@ -192,18 +193,16 @@ type CountOf<F, A> = A extends { readonly _count: infer C }
 		: { readonly _count: Counted<F, C> }
 	: unknown
 
-type RelationArgs<X> = {
-	readonly select?: Select<TargetFields<TargetOf<X>>>
-	readonly include?: Include<TargetFields<TargetOf<X>>>
-} & (KindOf<X> extends 'many'
-	? {
-			readonly where?: Where<TargetFields<TargetOf<X>>> | undefined
-			readonly orderBy?: OrderBy<TargetFields<TargetOf<X>>> | undefined
-			readonly take?: number | undefined
-			readonly skip?: number | undefined
-			readonly cursor?: UniqueWhere<TargetFields<TargetOf<X>>> | undefined
-		}
-	: unknown)
+type RelationArgs<X> = Shaping<TargetFields<TargetOf<X>>> &
+	(KindOf<X> extends 'many'
+		? {
+				readonly where?: Where<TargetFields<TargetOf<X>>> | undefined
+				readonly orderBy?: OrderBy<TargetFields<TargetOf<X>>> | undefined
+				readonly take?: number | undefined
+				readonly skip?: number | undefined
+				readonly cursor?: UniqueWhere<TargetFields<TargetOf<X>>> | undefined
+			}
+		: unknown)
 
 export type Select<F> = {
 	readonly [K in keyof SystemFields]?: boolean
@@ -247,43 +246,57 @@ type Included<F, I> = {
 	]: K extends keyof F ? Output<F[K], I[K]> : never
 }
 
+/** `omit`: scalar and system fields left out of the rows (D-135). */
+export type OmitArgs<F> = { readonly [K in keyof RecordOf<F>]?: boolean }
+
+/** `select` and `omit` exclude each other (D-135). */
+type Shaping<F> = { readonly include?: Include<F> } & (
+	| { readonly select?: Select<F>; readonly omit?: undefined }
+	| { readonly select?: undefined; readonly omit?: OmitArgs<F> }
+)
+
+/** The scalar and system fields, less those `omit` sets to `true`. */
+type Kept<F, A> = A extends { readonly omit: infer O }
+	? Omit<
+			RecordOf<F>,
+			{ [K in keyof O]: O[K] extends true ? K : never }[keyof O]
+		>
+	: RecordOf<F>
+
 /** Without `select`, scalar fields return and relations do not (D-20). */
 export type Payload<F, A> = A extends { readonly select: infer S }
 	? Selected<F, S> & CountOf<F, S>
 	: A extends { readonly include: infer I }
-		? RecordOf<F> & Included<F, I> & CountOf<F, I>
-		: RecordOf<F>
+		? Kept<F, A> & Included<F, I> & CountOf<F, I>
+		: Kept<F, A>
 
 export type QueryOptions = { readonly as?: Identity }
 
 /** `findMany` and `findFirst`; `cursor` starts at a unique target. */
-export type FindManyArgs<F, X = never> = {
+export type FindManyArgs<F, X = never> = Shaping<F> & {
 	readonly where?: Where<F> | undefined
-	readonly select?: Select<F>
-	readonly include?: Include<F>
 	readonly orderBy?: OrderBy<F> | readonly OrderBy<F>[] | undefined
 	readonly take?: number | undefined
 	readonly skip?: number | undefined
 	readonly cursor?: UniqueWhere<F, X> | undefined
 }
 
-export type FindUniqueArgs<F, X = never> = {
+export type FindUniqueArgs<F, X = never> = Shaping<F> & {
 	readonly where: UniqueWhere<F, X>
-	readonly select?: Select<F>
-	readonly include?: Include<F>
 }
 
-export type CreateArgs<F, N = never> = {
+export type CreateArgs<F, N = never> = Shaping<F> & {
 	readonly data: CreateData<F, N>
-	readonly select?: Select<F>
-	readonly include?: Include<F>
 }
 
-export type UpdateArgs<F, X = never, N = never> = {
+export type UpdateArgs<F, X = never, N = never> = Shaping<F> & {
 	readonly where: UniqueWhere<F, X>
 	readonly data: UpdateData<F, N>
-	readonly select?: Select<F>
-	readonly include?: Include<F>
+}
+
+/** `createMany`: a row or a list, no nested writes, no rows back (D-135). */
+export type CreateManyArgs<F> = {
+	readonly data: CreateManyData<F> | readonly CreateManyData<F>[]
 }
 
 /** `updateMany`: no relation writes, no returned rows (D-133). */
@@ -311,6 +324,18 @@ export interface Queries<F, X = never, N = never> {
 		args: A & NoInfer<Exact<A, FindUniqueArgs<F, X>>>,
 		options?: QueryOptions,
 	): Promise<Payload<F, A> | null>
+	/** `findFirst`, which fails with `NOT_FOUND` rather than `null` (D-135). */
+	findFirstOrThrow<const A extends FindManyArgs<F, X>>(
+		this: void,
+		args?: A & NoInfer<Exact<A, FindManyArgs<F, X>>>,
+		options?: QueryOptions,
+	): Promise<Payload<F, A>>
+	/** `findUnique`, which fails with `NOT_FOUND` rather than `null` (D-135). */
+	findUniqueOrThrow<const A extends FindUniqueArgs<F, X>>(
+		this: void,
+		args: A & NoInfer<Exact<A, FindUniqueArgs<F, X>>>,
+		options?: QueryOptions,
+	): Promise<Payload<F, A>>
 	count(
 		this: void,
 		args?: { readonly where?: Where<F> },
@@ -326,11 +351,18 @@ export interface Queries<F, X = never, N = never> {
 		args: A & NoInfer<Exact<A, UpdateArgs<F, X, N>>>,
 		options?: QueryOptions,
 	): Promise<Payload<F, A>>
-	delete(
+	/** Its relations and counts are read as they were before it (D-135). */
+	delete<const A extends FindUniqueArgs<F, X>>(
 		this: void,
-		args: { readonly where: UniqueWhere<F, X> },
+		args: A & NoInfer<Exact<A, FindUniqueArgs<F, X>>>,
 		options?: QueryOptions,
-	): Promise<RecordOf<F>>
+	): Promise<Payload<F, A>>
+	/** A create of each row of `data`, all or nothing (D-135). */
+	createMany(
+		this: void,
+		args: CreateManyArgs<F>,
+		options?: QueryOptions,
+	): Promise<{ readonly count: number }>
 	/** An update of each row `where` selects, all or nothing (D-133). */
 	updateMany(
 		this: void,

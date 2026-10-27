@@ -11,7 +11,7 @@ import type { ModelInfo } from './schema.ts'
 import type { QueryScope } from './scope.ts'
 import { planned } from './scope.ts'
 import type { Hidden, Shape } from './query-args.ts'
-import { plan, project } from './query-args.ts'
+import { oneKeys, plan, project } from './query-args.ts'
 import type { Models } from './query-where.ts'
 import { entries, unknownKey } from './query-where.ts'
 
@@ -42,7 +42,7 @@ export function given(
 /** `select` and `include` of a single-row operation. */
 export function picked(found: ReadonlyMap<string, unknown>): object {
 	const args: { [key: string]: unknown } = {}
-	for (const key of ['select', 'include']) {
+	for (const key of oneKeys) {
 		if (found.has(key)) args[key] = found.get(key)
 	}
 	return args

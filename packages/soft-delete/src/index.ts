@@ -1,6 +1,13 @@
 // Soft delete (D-17, D-89, D-96): a deleted row gets a `deletedAt` date and
 // leaves every ordinary read; `trash` reads it, `restore` brings it back.
-import type { Field, PluginOf, PluginTypes, Queries, UseOf } from 'ultimabase'
+import type {
+	Field,
+	Payload,
+	PluginOf,
+	PluginTypes,
+	Queries,
+	UseOf,
+} from 'ultimabase'
 import { definePlugin, master } from 'ultimabase'
 import manifest from '../package.json' with { type: 'json' }
 
@@ -11,8 +18,14 @@ export interface SoftDeleteCommands<F> {
 		'findMany' | 'findFirst' | 'findUnique' | 'count'
 	>
 	/** Brings a deleted row back, under the model's update rule. */
-	readonly restore: Queries<F>['delete']
+	readonly restore: (
+		this: void,
+		args: { readonly where: Unique<F> },
+		options?: Parameters<Queries<F>['count']>[1],
+	) => Promise<Payload<F, {}>>
 }
+
+type Unique<F> = Parameters<Queries<F>['findUnique']>[0]['where']
 
 /** The soft delete plugin's types (D-57). */
 export interface SoftDelete extends PluginTypes {
