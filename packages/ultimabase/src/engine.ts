@@ -15,6 +15,7 @@ import type { Commit, Store } from './transaction.ts'
 import { reading, writing } from './transaction.ts'
 import { removeMany } from './delete-many.ts'
 import { updateMany } from './update-many.ts'
+import { createMany } from './create-many.ts'
 import { create, remove, update } from './writes.ts'
 
 export type Operation =
@@ -28,6 +29,7 @@ export type Operation =
 	| 'update'
 	| 'delete'
 	| 'updateMany'
+	| 'createMany'
 	| 'deleteMany'
 
 const anonymous: Identity = Object.freeze({ kind: 'anonymous' })
@@ -173,6 +175,7 @@ const writes: { readonly [O in Exclude<Operation, ReadOperation>]: Write } = {
 	update,
 	delete: remove,
 	updateMany,
+	createMany,
 	deleteMany: removeMany,
 }
 

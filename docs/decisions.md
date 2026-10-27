@@ -7314,8 +7314,11 @@ Choice: completes D-20; amends D-102 point 2.
    any hook, one row refused fails the call with `ACCESS_DENIED`, and a
    failed validation, a hook's error or a `UNIQUE_VIOLATION` (D-72) fails
    it too. An empty list is `{ count: 0 }` and writes nothing.
-6. The rows go in one write (D-48): their inserts, and their `connect`
-   checks, in one statement on PostgreSQL.
+6. The rows go in one write (D-48): on PostgreSQL, one statement holds
+   their `connect` checks and one multi-row `INSERT` per table. Past the
+   65,535 parameters a statement binds, the write splits into several
+   statements in one transaction. An `afterCreate` or `afterCreateCommit`
+   hook reads each row back, one read per row, as after a `create`.
 7. It is server code: neither GraphQL nor REST exposes it, as `updateMany`
    (D-133 point 7). A plugin's `queries` (D-89) have it, and the
    `OrThrow` reads.

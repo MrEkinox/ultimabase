@@ -24,6 +24,9 @@ const Novel = defineModel({
 	}),
 })
 
+/** A novel's data for `createMany`, by its writer. */
+const byWriter = (id: string) => ({ title: 'A', writer: { connect: { id } } })
+
 const Genre = defineModel({
 	name: 'Genre',
 	fields: (f) => ({ label: f.string(), novels: f.many(() => Novel) }),
@@ -294,6 +297,27 @@ export function roundTrips(create: () => Adapter, counted: () => number): void {
 			// BEGIN, the locked rows, the write, COMMIT (D-111).
 			const locked = trips(4, async () => Shelf.deleteMany({}, { as: user }))
 			await expect(locked).resolves.toEqual({ count: 1 })
+		})
+
+		// D-135
+		it('creates many in one, its connections checked', async () => {
+			const two = { data: [byWriter(writer), byWriter(writer)] }
+			await expect(once(async () => Novel.createMany(two, M))).resolves.toEqual(
+				{
+					count: 2,
+				},
+			)
+			const labels = { data: [{ label: 'a' }, { label: 'b' }] }
+			const shelves = once(async () => Shelf.createMany(labels, { as: user }))
+			await expect(shelves).resolves.toEqual({ count: 2 })
+			// BEGIN, the write, a read for each row's hook, COMMIT.
+			const texts = { data: [{ text: 'a' }, { text: 'b' }] }
+			const notes = trips(5, async () => Note.createMany(texts, M))
+			await expect(notes).resolves.toEqual({ count: 2 })
+			const missing = { data: [byWriter(writer), byWriter(me)] }
+			const refused = once(async () => Novel.createMany(missing, M))
+			await expect(refused).rejects.toMatchObject({ code: 'NOT_FOUND' })
+			expect(await Novel.count({}, M)).toBe(3)
 		})
 
 		it('updates many in one as Master; a user locks the rows first', async () => {

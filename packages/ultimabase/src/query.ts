@@ -1,6 +1,7 @@
 // Query arguments and results, in Prisma Client's form (D-20).
 import type {
 	CreateData,
+	CreateManyData,
 	RecordOf,
 	RelationKeys,
 	ScalarKeys,
@@ -293,6 +294,11 @@ export type UpdateArgs<F, X = never, N = never> = Shaping<F> & {
 	readonly data: UpdateData<F, N>
 }
 
+/** `createMany`: a row or a list, no nested writes, no rows back (D-135). */
+export type CreateManyArgs<F> = {
+	readonly data: CreateManyData<F> | readonly CreateManyData<F>[]
+}
+
 /** `updateMany`: no relation writes, no returned rows (D-133). */
 export type UpdateManyArgs<F> = {
 	readonly where?: Where<F> | undefined
@@ -350,6 +356,12 @@ export interface Queries<F, X = never, N = never> {
 		args: { readonly where: UniqueWhere<F, X> },
 		options?: QueryOptions,
 	): Promise<RecordOf<F>>
+	/** A create of each row of `data`, all or nothing (D-135). */
+	createMany(
+		this: void,
+		args: CreateManyArgs<F>,
+		options?: QueryOptions,
+	): Promise<{ readonly count: number }>
 	/** An update of each row `where` selects, all or nothing (D-133). */
 	updateMany(
 		this: void,
