@@ -7,12 +7,12 @@ import { runHook, settle, settles } from './hooks.ts'
 import type { Context } from './query-context.ts'
 import { given } from './query-context.ts'
 import { entries, isObject } from './query-where.ts'
-import { createPlan, updatePlan } from './query-write.ts'
+import { createPlan } from './query-write.ts'
 import type { Commit, Store } from './transaction.ts'
 import type { Draft } from './write-data.ts'
 import { prepared, readData } from './write-data.ts'
-import type { Writing } from './write-plan.ts'
 import { guarded } from './write-target.ts'
+import { writingOf } from './writing.ts'
 
 /** A row's data, as `create` reads it, with no write but `connect` on a `one`. */
 function rowData(context: Context, data: unknown, at: string): Draft {
@@ -58,14 +58,7 @@ export async function createMany(
 		await runHook(model, 'beforeCreate', { caller, data: draft })
 	}
 	const events: Event[] = []
-	const writing: Writing = {
-		store,
-		scope,
-		events,
-		checks: [],
-		replan: async (moving, id, moved) =>
-			updatePlan(scope, moving, id, moved, {}, store),
-	}
+	const writing = writingOf(scope, store, events)
 	const changes: Change[] = []
 	for (const [index, draft] of drafts.entries()) {
 		const { id, plan } = await createPlan(

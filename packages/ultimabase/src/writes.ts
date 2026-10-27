@@ -5,8 +5,7 @@
 // is locked; a write that loads none answers from the rows it changed (D-99,
 // D-104).
 import { and, recordOf } from './access.ts'
-import type { Change, Filter, Nested, Row } from './adapter.ts'
-import type { Cascade } from './cascade.ts'
+import type { Filter, Nested, Row } from './adapter.ts'
 import { cascadeOf, cascadeWhere } from './cascade.ts'
 import { PublicError } from './errors.ts'
 import type { Event } from './hooks.ts'
@@ -22,14 +21,17 @@ import {
 	outOfRange,
 	validates,
 } from './number-update.ts'
+import { nests, resolveData } from './nested-write.ts'
 import { createPlan, updatePlan } from './query-write.ts'
 import { planned } from './scope.ts'
 import type { Commit, Store } from './transaction.ts'
 import type { Draft } from './write-data.ts'
 import { prepared, readData } from './write-data.ts'
-import type { Checked, Plan, Writing } from './write-plan.ts'
-import { moved, updated } from './write-plan.ts'
+import type { Checked, Plan } from './write-plan.ts'
+import { updated } from './write-plan.ts'
+import { uuidv7 } from './uuid.ts'
 import { guarded, target } from './write-target.ts'
+import { cascaded, writingOf } from './writing.ts'
 
 /** The shape a single-row write returns. */
 async function returned(
@@ -56,14 +58,7 @@ async function written(
 	checks: Checked[] = [],
 ): Promise<unknown> {
 	const { model, scope } = context
-	const writing: Writing = {
-		store,
-		scope,
-		events,
-		checks,
-		replan: async (moving, id, draft) =>
-			updatePlan(scope, moving, id, draft, {}, store),
-	}
+	const writing = writingOf(scope, store, events, checks)
 	// The rows it creates, after the row written, before the rows it moves.
 	events.push(...steps.events)
 	await steps.check(writing)
@@ -94,11 +89,21 @@ export async function create(
 	const found = given(args, model.name, ['data', ...oneKeys], ['data'])
 	const { read, shape } = await returned(context, found)
 	const draft = readData(models, model, found.get('data'), true)
+	const made = uuidv7()
+	const reach = { scope, reads: store, model, id: made, at: [] }
+	await resolveData({ ...reach, creating: true, trusted: false }, draft)
 	const sent: Readonly<Draft> = { ...draft }
 	scope.access?.allow(model, 'create', { data: sent })
 	await prepared(model, draft, caller, true)
 	await runHook(model, 'beforeCreate', { caller, data: draft })
-	const { id, plan: steps } = await createPlan(scope, model, draft, sent, store)
+	const { id, plan: steps } = await createPlan(
+		scope,
+		model,
+		draft,
+		sent,
+		store,
+		made,
+	)
 	const events: Event[] = [{ model, operation: 'create', id }]
 	return written(context, store, commits, steps, events, { id, read, shape })
 }
@@ -146,6 +151,8 @@ async function updating(
 	const { row, read, shape } = at
 	const { draft, numbers } = data
 	computeOn(model, row, draft, numbers)
+	const reach = { scope, reads: store, model, id: row.id, at: [] }
+	await resolveData({ ...reach, creating: false, trusted: false }, draft)
 	const sent: Readonly<Draft> = { ...draft }
 	scope.access?.allow(model, 'update', { record: row, data: sent })
 	await prepared(model, draft, caller, false)
@@ -182,6 +189,7 @@ export async function update(
 		scope.access === undefined &&
 		id !== undefined &&
 		!updated(model) &&
+		!nests(model, draft) &&
 		!validates(model, numbers)
 	) {
 		// Nothing needs the stored row: a check stands for its read (D-99),
@@ -219,40 +227,6 @@ export async function update(
 	const row = await target(context, store, where)
 	const data = { draft, numbers }
 	return updating(context, store, commits, data, { row, read, shape })
-}
-
-/** The changes and events of a delete's cascade, its hooks run (D-90). */
-export async function cascaded(
-	context: Context,
-	writing: Writing,
-	cascade: Cascade,
-): Promise<Change[]> {
-	const { caller } = context
-	const changes: Change[] = []
-	for (const { model, field, rows } of cascade.nulled) {
-		const step = { model: model.name, field, to: null }
-		changes.push(...(await moved(step, model, rows, writing)))
-	}
-	for (const { model, row } of cascade.deleted) {
-		await runHook(model, 'beforeDelete', {
-			caller,
-			record: recordOf(model, row),
-		})
-	}
-	const ids = new Map<string, string[]>()
-	for (const { model, row, redirected } of cascade.deleted) {
-		const redirect = redirected ? redirectOf(model) : undefined
-		// Its queries run their own pipeline, in this transaction (D-89).
-		if (redirect !== undefined) await redirect(caller, row.id)
-		else ids.set(model.name, [...(ids.get(model.name) ?? []), row.id])
-	}
-	for (const [model, deleted] of ids) {
-		changes.push({ kind: 'delete', model, where: { id: { in: deleted } } })
-	}
-	for (const { model, row } of cascade.deleted) {
-		writing.events.push({ model, operation: 'delete', id: row.id, before: row })
-	}
-	return changes
 }
 
 export async function remove(
@@ -320,15 +294,8 @@ export async function remove(
 		? { deleted: [{ model, row, redirected }], nulled: [] }
 		: await cascadeOf(models, model, [row], store)
 	const events: Event[] = []
-	const writing: Writing = {
-		store,
-		scope,
-		events,
-		checks: [],
-		replan: async (moving, id, draft) =>
-			updatePlan(scope, moving, id, draft, {}, store),
-	}
-	const changes = await cascaded(context, writing, cascade)
+	const writing = writingOf(scope, store, events)
+	const changes = await cascaded(writing, cascade)
 	if (changes.length > 0) {
 		const checks = writing.checks.map(({ check }) => check)
 		await guarded(store.write({ checks, changes }), writing.checks)

@@ -311,6 +311,93 @@ describe('PATCH /api/posts/:id', () => {
 		})
 	})
 
+	it('reads the dates of the rows its relation writes reach (D-138)', async () => {
+		const { url } = await serving()
+		const { ada } = await seeded()
+		const one = await Post.findFirst({ where: { title: 'one' } }, M)
+		const two = await Post.findFirst({ where: { title: 'two' } }, M)
+		const select = { posts: { select: { slug: true, publishedAt: true } } }
+		const sent = await call(
+			url,
+			'PATCH',
+			`/api/users/${ada}${qs({ select })}`,
+			{
+				headers: asMaster,
+				body: {
+					posts: {
+						delete: [{ id: two?.id }],
+						connectOrCreate: [
+							{
+								where: { id: 'none' },
+								create: {
+									title: 'n',
+									slug: 'n',
+									status: 'draft',
+									publishedAt: iso(21),
+								},
+							},
+						],
+						update: [
+							{ where: { id: one?.id }, data: { publishedAt: iso(20) } },
+						],
+					},
+				},
+			},
+		)
+		expect(sent.status).toBe(200)
+		const stored = await Post.findMany(
+			{ where: { author: { is: { id: ada } } }, orderBy: { slug: 'asc' } },
+			M,
+		)
+		expect(stored.map((row) => [row.slug, row.publishedAt])).toEqual([
+			['n', new Date(iso(21))],
+			['one', new Date(iso(20))],
+			['three', new Date(iso(3))],
+		])
+		const author = await call(
+			url,
+			'PATCH',
+			`/api/posts/${one?.id}${qs({ select: { author: { select: { name: true } } } })}`,
+			{ headers: asMaster, body: { author: { update: { name: 'ada2' } } } },
+		)
+		expect(at(author.body, 'author')).toEqual({ name: 'ada2' })
+	})
+
+	it('sets a hidden model, never updates or deletes it (D-138)', async () => {
+		const { url } = await serving()
+		await seeded()
+		const one = await Post.findFirst({ where: { title: 'one' } }, M)
+		const tag = await Tag.create(
+			{ data: { label: 'news', post: { connect: { id: one?.id ?? '' } } } },
+			M,
+		)
+		const set = await call(url, 'PATCH', `/api/posts/${one?.id}`, {
+			headers: asMaster,
+			body: { tags: { set: [] } },
+		})
+		expect(set.status).toBe(200)
+		expect(
+			await Tag.findUnique(
+				{ where: { id: tag.id }, include: { post: true } },
+				M,
+			),
+		).toMatchObject({ post: null })
+		for (const key of ['update', 'delete', 'connectOrCreate']) {
+			const sent = await call(url, 'PATCH', `/api/posts/${one?.id}`, {
+				headers: asMaster,
+				body: { tags: { [key]: [] } },
+			})
+			expect(sent).toEqual({
+				status: 400,
+				body: {
+					code: 'BAD_USER_INPUT',
+					message: `Unknown key 'data.tags.${key}' on Post.`,
+					details: { path: `data.tags.${key}` },
+				},
+			})
+		}
+	})
+
 	it('is 404 NOT_FOUND for a row it cannot find', async () => {
 		const { url } = await serving()
 		const sent = await call(url, 'PATCH', '/api/posts/nothing', {

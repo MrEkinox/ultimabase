@@ -16,6 +16,8 @@ import {
 	unknownKey,
 } from './query-where.ts'
 import { checked, validated } from './validation.ts'
+import type { OrCreate } from './relation-write.ts'
+import { manyWrite, oneWrite } from './relation-write.ts'
 
 /** The data a `before*` hook changes in place (D-71). */
 export type Draft = { [field: string]: unknown }
@@ -76,116 +78,10 @@ export function issueOf(value: unknown, field: Scalar): string | undefined {
 	return `Expected a list of ${of}.`
 }
 
-/** `{ id }`, exactly. */
-function ref(value: unknown, path: string): string {
-	const given = entries(value, path)
-	const [first] = given
-	if (
-		given.length !== 1 ||
-		first?.[0] !== 'id' ||
-		typeof first[1] !== 'string' ||
-		!clean(first[1])
-	) {
-		throw new InvalidQuery(path, `${path} must be { id }.`)
-	}
-	return first[1]
-}
-
-function refs(value: unknown, path: string): string[] {
-	if (!Array.isArray(value))
-		throw new InvalidQuery(path, `${path} must be a list.`)
-	return value.map((item: unknown, index) => ref(item, `${path}.${index}`))
-}
-
-const allowed = (creating: boolean): readonly string[] =>
-	creating ? ['connect', 'create'] : ['connect', 'create', 'disconnect']
-
-function operations(
-	value: unknown,
-	path: string,
-	model: string,
-	creating: boolean,
-): Map<string, unknown> {
-	if (value === null) {
-		throw new InvalidQuery(path, `${path} cannot be null; use disconnect.`)
-	}
-	const given = new Map(entries(value, path))
-	for (const key of given.keys()) {
-		if (!allowed(creating).includes(key))
-			throw unknownKey(`${path}.${key}`, model)
-	}
-	return given
-}
-
-/** Data a nested `create` makes a row from (D-128). */
-function made(value: unknown, path: string): Draft {
-	if (!isObject(value)) {
-		throw new InvalidQuery(path, `${path} must be an object.`)
-	}
-	return value
-}
-
-/**
- * A `one` relation write: the target's id, the data of the row it creates,
- * or `undefined` to disconnect.
- */
-export function oneWrite(
-	value: unknown,
-	path: string,
-	model: string,
-	creating: boolean,
-): string | Draft | undefined {
-	const given = operations(value, path, model, creating)
-	if (given.size !== 1) {
-		throw new InvalidQuery(
-			path,
-			`${path} takes one of ${allowed(creating).join(', ')}.`,
-		)
-	}
-	const connect = given.get('connect')
-	if (connect !== undefined) return ref(connect, `${path}.connect`)
-	const create = given.get('create')
-	if (create !== undefined) return made(create, `${path}.create`)
-	if (given.get('disconnect') !== true) {
-		throw new InvalidQuery(
-			`${path}.disconnect`,
-			`${path}.disconnect must be true.`,
-		)
-	}
-	return undefined
-}
-
-/** A `many` relation write: the ids it connects and disconnects, the rows it creates. */
-export function manyWrite(
-	value: unknown,
-	path: string,
-	model: string,
-	creating: boolean,
-): {
-	readonly connect: string[]
-	readonly disconnect: string[]
-	readonly create: Draft[]
-} {
-	const given = operations(value, path, model, creating)
-	const list = (key: string): string[] =>
-		given.has(key) ? refs(given.get(key), `${path}.${key}`) : []
-	const create = given.get('create') ?? []
-	if (!Array.isArray(create)) {
-		throw new InvalidQuery(`${path}.create`, `${path}.create must be a list.`)
-	}
-	return {
-		connect: list('connect'),
-		disconnect: list('disconnect'),
-		create: create.map((item: unknown, index) =>
-			made(item, `${path}.create.${index}`),
-		),
-	}
-}
-
 /**
  * The caller's data, its shape checked, as a draft the hooks may change: a
- * copy, down to the rows it creates, which never write the relation they are
- * created through (D-128).
+ * copy, down to the rows it creates and updates, which never write the
+ * relation they are written through (D-128, D-138).
  */
 export function readData(
 	models: Models,
@@ -209,26 +105,45 @@ export function readData(
 		draft[name] = value
 		if (field.kind === 'scalar') continue
 		const target = models.get(field.target)
-		const nested = (item: Draft, index?: number): Draft =>
+		const nested = (item: Draft, where: string, creates = true): Draft =>
 			target === undefined
 				? item
-				: readData(
-						models,
-						target,
-						item,
-						true,
-						`${path}.create${index === undefined ? '' : `.${index}`}`,
-						field.inverse,
-					)
+				: readData(models, target, item, creates, where, field.inverse)
+		const orCreated = (item: OrCreate, where: string): OrCreate => ({
+			where: item.where,
+			create: nested(item.create, `${where}.create`),
+		})
 		if (field.kind === 'one') {
 			const write = oneWrite(value, path, model.name, creating)
-			if (isObject(write)) draft[name] = { create: nested(write) }
+			const to = `${path}.${write.kind}`
+			if (write.kind === 'create' || write.kind === 'update') {
+				const copy = nested(write.data, to, write.kind === 'create')
+				draft[name] = { [write.kind]: copy }
+			} else if (write.kind === 'connectOrCreate') {
+				draft[name] = { connectOrCreate: orCreated(write, to) }
+			}
 			continue
 		}
 		const write = manyWrite(value, path, model.name, creating)
-		if (isObject(value) && Object.hasOwn(value, 'create')) {
-			draft[name] = { ...value, create: write.create.map(nested) }
+		const copy: Draft = { ...(isObject(value) ? value : {}) }
+		const to = (key: string, index: number) => `${path}.${key}.${index}`
+		if (Object.hasOwn(copy, 'create')) {
+			copy['create'] = write.create.map((item, index) =>
+				nested(item, to('create', index)),
+			)
 		}
+		if (Object.hasOwn(copy, 'connectOrCreate')) {
+			copy['connectOrCreate'] = write.connectOrCreate.map((item, index) =>
+				orCreated(item, to('connectOrCreate', index)),
+			)
+		}
+		if (Object.hasOwn(copy, 'update')) {
+			copy['update'] = write.update.map((item, index) => ({
+				where: item.where,
+				data: nested(item.data, `${to('update', index)}.data`, false),
+			}))
+		}
+		draft[name] = copy
 	}
 	return draft
 }

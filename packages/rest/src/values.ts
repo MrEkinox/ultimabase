@@ -84,10 +84,59 @@ export function whereOf(
 	return read
 }
 
+type Read = (item: Args, path: string) => Args
+
+/** `item` with its `key` read, when it is an object. */
+function within(item: Args, key: string, path: string, read: Read): Args {
+	const value = item[key]
+	return isArgs(value)
+		? { ...item, [key]: read(value, `${path}.${key}`) }
+		: item
+}
+
+// The operations that create, update or delete a target's row (D-138).
+const reaching = new Set(['connectOrCreate', 'create', 'delete', 'update'])
+
 /**
- * Data with its dates read, in the rows it creates too (D-128). A hidden
- * model is connected, never created, as over GraphQL.
+ * A relation write with the dates of its rows and unique targets read
+ * (D-128, D-138). A hidden model is connected, disconnected or set, never
+ * created, updated or deleted, as over GraphQL.
  */
+function relationOf(
+	api: Api,
+	model: string,
+	field: Exclude<SchemaField, { readonly kind: 'scalar' }>,
+	value: Args,
+	path: string,
+): Args {
+	const { target } = field
+	const hidden = !entryOf(api, target).visible
+	const row: Read = (item, at) => dataOf(api, target, item, at)
+	const unique: Read = (item, at) => whereOf(api, target, item, at)
+	const read: { [key: string]: unknown } = { ...value }
+	for (const [key, operand] of Object.entries(value)) {
+		const at = `${path}.${key}`
+		if (hidden && reaching.has(key)) {
+			throw new InvalidQuery(at, `Unknown key '${at}' on ${model}.`)
+		}
+		if (key === 'create') read[key] = each(operand, at, row)
+		else if (key === 'connectOrCreate') {
+			read[key] = each(operand, at, (item, to) =>
+				within(within(item, 'where', to, unique), 'create', to, row),
+			)
+		} else if (key === 'update' && field.kind === 'many') {
+			read[key] = each(operand, at, (item, to) =>
+				within(within(item, 'where', to, unique), 'data', to, row),
+			)
+		} else if (key === 'update') read[key] = each(operand, at, row)
+		else if (key === 'delete' && field.kind === 'many') {
+			read[key] = each(operand, at, unique)
+		}
+	}
+	return read
+}
+
+/** Data with its dates read, in the rows its relation writes reach too. */
 export function dataOf(
 	api: Api,
 	model: string,
@@ -106,20 +155,9 @@ export function dataOf(
 			if (field.type === 'number' && isArgs(value)) {
 				throw new InvalidQuery(at, `${at} must be a number.`)
 			}
-			continue
+		} else if (isArgs(value)) {
+			read[field.name] = relationOf(api, model, field, value, at)
 		}
-		if (!isArgs(value) || !Object.hasOwn(value, 'create')) continue
-		const target = entryOf(api, field.target)
-		if (!target.visible) {
-			throw new InvalidQuery(
-				`${at}.create`,
-				`Unknown key '${at}.create' on ${model}.`,
-			)
-		}
-		const create = each(value['create'], `${at}.create`, (row, to) =>
-			dataOf(api, field.target, row, to),
-		)
-		read[field.name] = { ...value, create }
 	}
 	return read
 }

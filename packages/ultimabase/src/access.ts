@@ -99,6 +99,7 @@ function fieldValue(model: ModelInfo, name: string, given: unknown): unknown {
 		return {
 			connect: ids(given, 'connect'),
 			disconnect: ids(given, 'disconnect'),
+			delete: ids(given, 'delete'),
 			// The rows it creates, by the ids the kernel gives them (D-128).
 			create: Array.isArray(create)
 				? create.filter(isObject).map((item) => ({ id: madeId(item) }))
@@ -109,6 +110,19 @@ function fieldValue(model: ModelInfo, name: string, given: unknown): unknown {
 	if (isObject(create)) return { id: madeId(create) }
 	const connect = isObject(given) ? given['connect'] : undefined
 	return isObject(connect) ? { id: connect['id'] } : null
+}
+
+/**
+ * Whether a relation value only updates linked rows: it changes no link, so
+ * the field rule does not judge it (D-138).
+ */
+function updatesOnly(model: ModelInfo, name: string, given: unknown): boolean {
+	const kind = model.fields.get(name)?.kind
+	if (!isObject(given) || given['update'] === undefined) return false
+	if (kind === 'one') return true
+	if (kind !== 'many') return false
+	const links = ['connect', 'disconnect', 'create', 'delete']
+	return links.every((key) => ids(given, key).length === 0)
 }
 
 const closed: Filter = { OR: [] }
@@ -261,7 +275,7 @@ export class Access {
 			throw denied(refusal, this.caller, this.logger)
 		for (const [field, given] of Object.entries(value ?? {})) {
 			const check = fieldRule(model, field, operation)
-			if (check === undefined) continue
+			if (check === undefined || updatesOnly(model, field, given)) continue
 			const allowed = decide(check, {
 				...facts,
 				value: fieldValue(model, field, given),

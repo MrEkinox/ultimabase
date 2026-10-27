@@ -7541,12 +7541,13 @@ D-20, D-86 and D-128.
    reads as `null`, as `disconnect` does. A relation write that only updates
    linked rows changes no link: the parent's field rule is not called for it.
 7. A nested `delete` whose cascade reaches a row the write updates is
-   refused: `INVALID_QUERY data.post.delete: deletes a row the write
-updates.` A stored key the parent itself empties does not count: on an
-   optional stored `one`, `delete: true` empties the parent's key, then
-   deletes the row.
+   refused with `INVALID_QUERY`:
+   `data.post.delete deletes a row the write updates.` A stored key the
+   parent itself empties does not count: on an optional stored `one`,
+   `delete: true` empties the parent's key, then deletes the row.
 8. A row named by two operations of one relation is refused with
-   `INVALID_QUERY`, two updates of it included.
+   `INVALID_QUERY`, two updates of it included. A `disconnect` and a
+   `connect` of the same id stay allowed, as D-101 decided.
 9. A nested update's data leaves out the relation back to the parent, as a
    nested create's does (D-128): `CommentUpdateWithoutPostInput` has no
    `post`, and the kernel refuses it.

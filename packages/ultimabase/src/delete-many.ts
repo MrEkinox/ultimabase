@@ -6,11 +6,9 @@ import type { Event } from './hooks.ts'
 import { redirectOf, settle } from './hooks.ts'
 import type { Context } from './query-context.ts'
 import { filtered, given } from './query-context.ts'
-import { updatePlan } from './query-write.ts'
 import type { Commit, Store } from './transaction.ts'
-import type { Writing } from './write-plan.ts'
 import { guarded } from './write-target.ts'
-import { cascaded } from './writes.ts'
+import { cascaded, writingOf } from './writing.ts'
 
 export async function removeMany(
 	context: Context,
@@ -65,15 +63,8 @@ export async function removeMany(
 		? { deleted: rows.map((row) => ({ model, row, redirected })), nulled: [] }
 		: await cascadeOf(models, model, rows, store)
 	const events: Event[] = []
-	const writing: Writing = {
-		store,
-		scope,
-		events,
-		checks: [],
-		replan: async (moving, id, draft) =>
-			updatePlan(scope, moving, id, draft, {}, store),
-	}
-	const changes = await cascaded(context, writing, cascade)
+	const writing = writingOf(scope, store, events)
+	const changes = await cascaded(writing, cascade)
 	if (changes.length > 0) {
 		const checks = writing.checks.map(({ check }) => check)
 		await guarded(store.write({ checks, changes }), writing.checks)

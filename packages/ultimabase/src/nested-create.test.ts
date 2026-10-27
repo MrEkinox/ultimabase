@@ -176,6 +176,7 @@ describe('a nested create', () => {
 		expect(seen).toEqual({
 			connect: [],
 			disconnect: [],
+			delete: [],
 			create: [{ id: shop.items[0]?.id }],
 		})
 	})
@@ -279,7 +280,7 @@ describe('a nested create', () => {
 			[{ sign: { create: 'a' } }, 'data.sign.create must be an object.'],
 			[
 				{ sign: { create: { text: 'a' }, connect: { id: 'a' } } },
-				'data.sign takes one of connect, create.',
+				'data.sign takes one of connect, connectOrCreate, create.',
 			],
 		]
 		for (const [data, message] of refusals) {

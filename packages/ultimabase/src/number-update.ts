@@ -38,7 +38,11 @@ const operable = (field: FieldInfo | undefined): field is Scalar =>
  * an operation by `undefined` leaves its field as it is (D-84), and each
  * other one comes back to be computed on the row.
  */
-export function numberUpdates(model: ModelInfo, draft: Draft): Numbers {
+export function numberUpdates(
+	model: ModelInfo,
+	draft: Draft,
+	at: readonly (string | number)[] = [],
+): Numbers {
 	const numbers = new Map<string, Arithmetic>()
 	for (const [name, value] of Object.entries(draft)) {
 		const field = model.fields.get(name)
@@ -47,7 +51,7 @@ export function numberUpdates(model: ModelInfo, draft: Draft): Numbers {
 		const keys = Object.keys(value)
 		const used = operations.filter((key) => value[key] !== undefined)
 		if (keys.length === 0 || used.length > 1 || !keys.every(isOperation)) {
-			const path = `data.${name}`
+			const path = ['data', ...at, name].join('.')
 			throw new InvalidQuery(
 				path,
 				`${path} takes a number or one of ${operations.join(', ')}.`,
@@ -64,7 +68,8 @@ export function numberUpdates(model: ModelInfo, draft: Draft): Numbers {
 		const issue =
 			issueOf(by, field) ??
 			(operation === 'divide' && by === 0 ? 'Cannot divide by 0.' : undefined)
-		if (issue !== undefined) throw invalid([{ path: [name], message: issue }])
+		if (issue !== undefined)
+			throw invalid([{ path: [...at, name], message: issue }])
 		numbers.set(name, { operation, by: Number(by) })
 	}
 	return numbers

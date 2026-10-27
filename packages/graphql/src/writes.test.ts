@@ -186,6 +186,52 @@ describe('an update', () => {
 		)
 	})
 
+	it('updates and deletes the rows a relation links, by any unique target (D-138)', async () => {
+		const created = await write(
+			`mutation { createUser(data: { name: "hal", email: "h@example.com", posts: { create: [
+				{ title: "h1", slug: "h1", status: draft }, { title: "h2", slug: "h2", status: draft }
+			] } }) { id } }`,
+		)
+		const hal = at(created.data, 'createUser', 'id')
+		const result = await write(
+			`mutation ($hal: ID!) { updateUser(where: { name: "hal" }, data: { posts: {
+				update: [{ where: { author_slug: { author: $hal, slug: "h1" } }, data: { views: 3, meta: { n: 1 } } }],
+				delete: [{ author_slug: { author: $hal, slug: "h2" } }]
+			} }) { posts { edges { node { slug views meta } } } } }`,
+			{ hal },
+		)
+		expect(at(result.data, 'updateUser', 'posts', 'edges')).toStrictEqual([
+			{ node: { slug: 'h1', views: 3, meta: { n: 1 } } },
+		])
+		const author = await write(
+			`mutation ($hal: ID!) { updatePost(
+				where: { author_slug: { author: $hal, slug: "h1" } },
+				data: { author: { update: { name: "hal2" } } }
+			) { author { name } } }`,
+			{ hal },
+		)
+		expect(author).toStrictEqual({
+			data: { updatePost: { author: { name: 'hal2' } } },
+		})
+	})
+
+	it('refuses a set that leaves a row without its required relation (D-138)', async () => {
+		const result = await write(
+			`mutation { updateUser(where: { name: "bob" }, data: { posts: { set: [] } }) { id } }`,
+		)
+		expect(result.errors?.[0]?.extensions).toStrictEqual({
+			code: 'VALIDATION_FAILED',
+			details: {
+				issues: [
+					{
+						path: ['posts', 'set'],
+						message: 'A Post cannot be left without its author.',
+					},
+				],
+			},
+		})
+	})
+
 	it('finds no row to update', async () => {
 		const result = await write(
 			`mutation { updateUser(where: { name: "nobody" }, data: { name: "x" }) { id } }`,
