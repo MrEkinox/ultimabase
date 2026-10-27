@@ -3,6 +3,7 @@
 // changes nothing; a transaction holds the write lock until it ends.
 import type {
 	Adapter,
+	Arithmetic,
 	Change,
 	CountRead,
 	Read,
@@ -13,9 +14,11 @@ import type {
 	Transaction,
 	Write,
 } from './adapter.ts'
-import { CheckFailed, UniqueViolation } from './adapter.ts'
+import { CheckFailed, OutOfRange, UniqueViolation } from './adapter.ts'
 import type { Fields, Store, StoredRow } from './memory-read.ts'
 import { copy, Reader } from './memory-read.ts'
+import { computed } from './number-update.ts'
+import { isInteger } from './query-where.ts'
 
 function clone(store: Store): Store {
 	return {
@@ -123,6 +126,25 @@ class Draft {
 		)
 	}
 
+	/** The numbers a change computes on `row` (D-132). */
+	private computed(
+		model: string,
+		row: StoredRow,
+		compute: { readonly [field: string]: Arithmetic } = {},
+	): { [field: string]: number } {
+		return Object.fromEntries(
+			Object.entries(compute).map(([key, arithmetic]) => {
+				const field = this.reader.field(model, key)
+				const integer = field?.kind === 'scalar' && field.integer === true
+				const result = computed(row[key], arithmetic, integer)
+				if (integer ? !isInteger(result) : !Number.isFinite(result)) {
+					throw new OutOfRange(model, key)
+				}
+				return [key, result]
+			}),
+		)
+	}
+
 	/** Applies `delete`; returns the ids it removed. */
 	private remove(change: Extract<Change, { kind: 'delete' }>): Set<string> {
 		const table = this.reader.table(change.model)
@@ -154,9 +176,13 @@ class Draft {
 			}
 			case 'update': {
 				for (const row of this.matching(change.model, change)) {
+					const set = {
+						...change.set,
+						...this.computed(change.model, row, change.compute),
+					}
 					table.set(row.id, {
 						...row,
-						...this.stored(change.model, change.set),
+						...this.stored(change.model, set),
 						id: row.id,
 					})
 				}

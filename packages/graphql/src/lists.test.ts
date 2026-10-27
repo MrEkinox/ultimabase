@@ -1,6 +1,7 @@
 // Lists over GraphQL (D-120, D-127): `[String!]!` read, `[String!]` written
 // and left out of create, filtered with `StringListFilter`, never sorted; a
-// number list's elements are `Float!`, an enum list's its enum.
+// number list's elements are `Float!`, or `Int!` for an integer field (D-132),
+// an enum list's its enum.
 import { httpPlugin } from '@ultimabase/http'
 import type { GraphQLSchema } from 'graphql'
 import { printType } from 'graphql'
@@ -18,6 +19,8 @@ const Article = defineModel({
 		tags: f.string({ list: true }),
 		scores: f.number({ list: true }),
 		sizes: f.enumOf(['S', 'M'], { list: true }),
+		count: f.number({ integer: true, optional: true }),
+		ranks: f.number({ integer: true, list: true }),
 	}),
 }).with({ access: allow.readOnly })
 
@@ -89,6 +92,20 @@ it('types a number list by Float, an enum list by its enum', () => {
 		'  scores: FloatListFilter\n  sizes: ArticleSizesListFilter\n',
 	)
 	expect(typeOf('ArticleOrderByInput')).not.toMatch(/scores|sizes/)
+})
+
+it('types an integer field by Int, with its plain number updates (D-132)', () => {
+	expect(typeOf('Article')).toContain('  count: Int\n  ranks: [Int!]!\n')
+	expect(typeOf('ArticleUpdateInput')).toContain(
+		'  count: Int\n  ranks: [Int!]\n',
+	)
+	expect(typeOf('ArticleWhereInput')).toContain(
+		'  count: IntFilter\n  ranks: IntListFilter\n',
+	)
+	expect(typeOf('IntListFilter')).toBe(
+		'input IntListFilter {\n  has: Int\n  hasSome: [Int!]\n}',
+	)
+	expect(typeOf('IntFilter')).toContain('  gt: Int\n')
 })
 
 it('writes a list, [] when left out, and filters it', async () => {

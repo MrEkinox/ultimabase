@@ -142,6 +142,17 @@ const sized = (type: Scalar['type'], optional: boolean): Schema => ({
 	],
 })
 
+/** A shelf whose size is `type`, of whole numbers with `integer` (D-132). */
+const whole = (type: Scalar['type'], integer = false): Schema => ({
+	models: [
+		{
+			name: 'Shelf',
+			fields: [scalar('size', type, integer ? { integer } : {})],
+			indexes: [],
+		},
+	],
+})
+
 /** Boxes on a shelf or on a rack: the same column, another foreign key. */
 const onto = (target: string): Schema => ({
 	models: ['Shelf', 'Rack']
@@ -469,6 +480,45 @@ describe('a sync on postgres()', () => {
 				sized('string', false),
 			)[0]?.tries,
 		).toBeUndefined()
+	})
+
+	it('converts to integer through text, which refuses what a cast rounds (D-132)', async () => {
+		await sync(undefined, whole('number'))
+		await query(
+			inSchema(schema),
+			`insert into shelf values (gen_random_uuid(), now(), now(), 1.5)`,
+		)
+		const statements = migrations.plan(
+			migrations.snapshot(whole('number')),
+			whole('number', true),
+		)
+		expect(statements.map(({ sql, tries }) => [sql, tries])).toStrictEqual([
+			[
+				'alter table "shelf" alter column "size" type integer using "size"::text::integer',
+				'changing "Shelf.size" from double precision to integer fails when a row holds a value it cannot convert',
+			],
+		])
+		await expect(
+			sync(whole('number'), whole('number', true)),
+		).rejects.toMatchObject({
+			name: 'MigrationFailed',
+			reason: 'invalid input syntax for type integer: "1.5"',
+		})
+		await query(inSchema(schema), 'update shelf set size = 3')
+		await sync(whole('number'), whole('number', true))
+		await sync(whole('number', true), whole('boolean'))
+		await sync(whole('boolean'), whole('number', true))
+		expect(
+			await query(inSchema(schema), 'select size from shelf'),
+		).toStrictEqual([{ size: 1 }])
+		const [back] = migrations.plan(
+			migrations.snapshot(whole('number', true)),
+			whole('number'),
+		)
+		expect([back?.sql, back?.tries]).toStrictEqual([
+			'alter table "shelf" alter column "size" type double precision using "size"::double precision',
+			undefined,
+		])
 	})
 
 	it('adds a list as [] or its default, indexes it by GIN, and converts it', async () => {

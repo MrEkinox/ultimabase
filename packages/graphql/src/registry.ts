@@ -10,6 +10,7 @@ import {
 	GraphQLBoolean,
 	GraphQLEnumType,
 	GraphQLFloat,
+	GraphQLInt,
 	GraphQLList,
 	GraphQLNonNull,
 	GraphQLString,
@@ -131,6 +132,7 @@ export function scalarType(
 	model: string,
 	field: Scalar,
 ): GraphQLScalarType | GraphQLEnumType {
+	if (field.integer === true) return GraphQLInt
 	if (field.type !== 'enum') return scalarTypes[field.type]
 	const name = `${model}${upper(field.name)}`
 	return registry.enum(

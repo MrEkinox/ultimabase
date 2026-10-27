@@ -5,6 +5,7 @@ import { describe } from 'vitest'
 import { cascades } from './cascades.ts'
 import { lists } from './lists.ts'
 import { nested } from './nested.ts'
+import { numbers } from './numbers.ts'
 import { reads } from './reads.ts'
 import { roundTrips } from './round-trips.ts'
 import { transactions } from './transactions.ts'
@@ -30,6 +31,7 @@ export function testAdapter(
 		cascades(create)
 		lists(create)
 		nested(create)
+		numbers(create)
 		transactions(create)
 		roundTrips(create, options.roundTrips)
 	})

@@ -131,7 +131,9 @@ function field(
 	const type =
 		given.kind === 'one'
 			? 'uuid'
-			: ((given.list ? lists[given.type] : undefined) ?? types[given.type])
+			: given.integer === true
+				? `integer${given.list ? '[]' : ''}`
+				: ((given.list ? lists[given.type] : undefined) ?? types[given.type])
 	building.columns[column] = {
 		field: given.name,
 		type,

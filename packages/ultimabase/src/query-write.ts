@@ -5,6 +5,7 @@
 import type { Filter, Row } from './adapter.ts'
 import { InvalidQuery } from './errors.ts'
 import { runHook } from './hooks.ts'
+import type { Numbers } from './number-update.ts'
 import type { FieldInfo, ModelInfo } from './schema.ts'
 import type { QueryScope } from './scope.ts'
 import { madeId, uuidv7 } from './uuid.ts'
@@ -355,6 +356,7 @@ export async function updatePlan(
 	draft: Draft,
 	sent: Readonly<Draft>,
 	reads: Reads,
+	numbers: Numbers = new Map(),
 ): Promise<Plan> {
 	const context = contextOf(scope, model, id, sent, reads)
 	await fields(context, draft, false)
@@ -365,6 +367,7 @@ export async function updatePlan(
 			model: model.name,
 			where: byId(id),
 			set: { ...context.set, updatedAt: new Date(Date.now()) },
+			...(numbers.size === 0 ? {} : { compute: Object.fromEntries(numbers) }),
 		},
 		...context.after,
 	)

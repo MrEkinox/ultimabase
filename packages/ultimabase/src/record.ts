@@ -169,9 +169,48 @@ type CreateInput<X, N, K> = X extends Scalar
 				readonly connect?: readonly Ref[]
 				readonly create?: readonly Created<N, K, X>[]
 			}
-/** An optional `one` relation is unset with `disconnect: true` (D-20). */
-type UpdateInput<X, N, K> = X extends Scalar
-	? WrittenValue<X>
+/** A plain number field: no list, no JSON, no plugin field type. */
+type IsNumber<X> = X extends {
+	readonly [fieldType]: {
+		readonly value: infer V
+		readonly input: infer I
+		readonly json: false
+		readonly stored: infer S
+	}
+}
+	? [V, I, S] extends [number, number, never]
+		? [number] extends [V]
+			? true
+			: false
+		: false
+	: false
+
+/** Exactly one of `T`'s keys; `undefined` leaves the field as it is. */
+type OneOf<T> = {
+	[K in keyof T]: { readonly [P in K]: T[K] | undefined } & {
+		readonly [P in Exclude<keyof T, K>]?: never
+	}
+}[keyof T]
+
+/** One operation on a number, computed on the row (D-132). */
+type NumberUpdate<V> = OneOf<{
+	readonly set: V
+	readonly increment: number
+	readonly decrement: number
+	readonly multiply: number
+	readonly divide: number
+}>
+
+/**
+ * An optional `one` relation is unset with `disconnect: true` (D-20); with
+ * `Operations`, a number field also takes an operation (D-132).
+ */
+type UpdateInput<X, N, K, Operations extends boolean> = X extends Scalar
+	? Operations extends true
+		? IsNumber<X> extends true
+			? WrittenValue<X> | NumberUpdate<WrittenValue<X>>
+			: WrittenValue<X>
+		: WrittenValue<X>
 	: X extends Relation<'one', unknown, infer O>
 		? IsOptional<O> extends true
 			? Connect<N, K, X> | { readonly disconnect: true }
@@ -212,9 +251,12 @@ export type CreateData<F, N = never, E = never> = {
 	]?: CreateInput<F[K], N, K> | undefined
 }
 
-/** `undefined` leaves a field unchanged, as in Prisma (D-84). */
-export type UpdateData<F, N = never> = {
-	readonly [K in keyof F]?: UpdateInput<F[K], N, K> | undefined
+/**
+ * `undefined` leaves a field unchanged, as in Prisma (D-84). Rules and hooks
+ * see the data without `Operations`: each number as computed (D-132).
+ */
+export type UpdateData<F, N = never, Operations extends boolean = true> = {
+	readonly [K in keyof F]?: UpdateInput<F[K], N, K, Operations> | undefined
 }
 
 export type ScalarKeys<F> = {

@@ -293,6 +293,24 @@ describe('PATCH /api/posts/:id', () => {
 		expect(sent.body).toMatchObject({ views: 7, publishedAt: null })
 	})
 
+	it('refuses a number update, which is the server API only (D-132)', async () => {
+		const { url } = await serving()
+		await seeded()
+		const one = await Post.findFirst({ where: { title: 'one' } }, M)
+		const sent = await call(url, 'PATCH', `/api/posts/${one?.id}`, {
+			headers: asMaster,
+			body: { views: { increment: 1 } },
+		})
+		expect(sent).toEqual({
+			status: 400,
+			body: {
+				code: 'BAD_USER_INPUT',
+				message: 'data.views must be a number.',
+				details: { path: 'data.views' },
+			},
+		})
+	})
+
 	it('is 404 NOT_FOUND for a row it cannot find', async () => {
 		const { url } = await serving()
 		const sent = await call(url, 'PATCH', '/api/posts/nothing', {
