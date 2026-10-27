@@ -145,9 +145,52 @@ type SortedKeys<F> = {
 			? never
 			: K
 }[Exclude<ScalarKeys<F>, PluginKeys<F>>]
+type KeysOf<F, Kind> = {
+	[K in keyof F]: KindOf<F[K]> extends Kind ? K : never
+}[keyof F]
+
+/** A `one` relation sorts by its target's fields, a `many` by its count (D-134). */
 export type OrderBy<F> = {
 	readonly [K in SortedKeys<F> | keyof SystemFields]?: Direction | undefined
+} & {
+	readonly [K in KeysOf<F, 'one'>]?:
+		OrderBy<TargetFields<TargetOf<F[K]>>> | undefined
+} & {
+	readonly [K in KeysOf<F, 'many'>]?: { readonly _count: Direction } | undefined
 }
+
+/** `_count`: every `many` relation, or the ones `select` names (D-134). */
+type Count<F> =
+	| true
+	| {
+			readonly select: {
+				readonly [K in KeysOf<F, 'many'>]?:
+					| boolean
+					| { readonly where?: Where<TargetFields<TargetOf<F[K]>>> | undefined }
+			}
+	  }
+
+/** A model with a `many` relation takes `_count`. */
+type Counts<F> = [KeysOf<F, 'many'>] extends [never]
+	? unknown
+	: { readonly _count?: Count<F> | false }
+
+type Counted<F, C> = C extends { readonly select: infer S }
+	? {
+			readonly [
+				K in keyof S as S[K] extends false | undefined ? never : K
+			]: number
+		}
+	: C extends true
+		? { readonly [K in KeysOf<F, 'many'>]: number }
+		: unknown
+
+/** The `_count` of a `select` or an `include` `A`. */
+type CountOf<F, A> = A extends { readonly _count: infer C }
+	? C extends false | undefined
+		? unknown
+		: { readonly _count: Counted<F, C> }
+	: unknown
 
 type RelationArgs<X> = {
 	readonly select?: Select<TargetFields<TargetOf<X>>>
@@ -168,12 +211,14 @@ export type Select<F> = {
 	readonly [K in keyof F]?: KindOf<F[K]> extends 'scalar'
 		? boolean
 		: boolean | RelationArgs<F[K]>
-}
+} & Counts<F>
 
 /** A model without relations takes no `include`. */
 export type Include<F> = [RelationKeys<F>] extends [never]
 	? never
-	: { readonly [K in RelationKeys<F>]?: boolean | RelationArgs<F[K]> }
+	: {
+			readonly [K in RelationKeys<F>]?: boolean | RelationArgs<F[K]>
+		} & Counts<F>
 
 type Output<X, A> =
 	KindOf<X> extends 'scalar'
@@ -184,7 +229,9 @@ type Output<X, A> =
 
 type Selected<F, S> = {
 	readonly [
-		K in keyof S as S[K] extends false | undefined ? never : K
+		K in Exclude<keyof S, '_count'> as S[K] extends false | undefined
+			? never
+			: K
 	]: K extends keyof F
 		? Output<F[K], S[K]>
 		: K extends keyof SystemFields
@@ -194,15 +241,17 @@ type Selected<F, S> = {
 
 type Included<F, I> = {
 	readonly [
-		K in keyof I as I[K] extends false | undefined ? never : K
+		K in Exclude<keyof I, '_count'> as I[K] extends false | undefined
+			? never
+			: K
 	]: K extends keyof F ? Output<F[K], I[K]> : never
 }
 
 /** Without `select`, scalar fields return and relations do not (D-20). */
 export type Payload<F, A> = A extends { readonly select: infer S }
-	? Selected<F, S>
+	? Selected<F, S> & CountOf<F, S>
 	: A extends { readonly include: infer I }
-		? RecordOf<F> & Included<F, I>
+		? RecordOf<F> & Included<F, I> & CountOf<F, I>
 		: RecordOf<F>
 
 export type QueryOptions = { readonly as?: Identity }

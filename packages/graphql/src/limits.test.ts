@@ -214,6 +214,22 @@ describe('the depth limit', () => {
 		})
 	})
 
+	it('counts each relation an orderBy goes through as a level (D-134)', async () => {
+		await serving({ maxDepth: 2 }, async (url) => {
+			const through = `query ($orderBy: [PostOrderByInput!]) { posts(orderBy: $orderBy) { totalCount } }`
+			const one = { orderBy: [{ author: { name: 'asc' } }] }
+			expect((await post(url, through, one)).errors).toBeUndefined()
+			const two = {
+				orderBy: [{ title: 'asc' }, { author: { posts: { _count: 'asc' } } }],
+			}
+			expect(messages(await post(url, through, two))).toStrictEqual([
+				'The document is nested 3 levels deep, its orderBy included; the most is 2.',
+			])
+			const master = await post(url, through, two, asMaster)
+			expect(master.errors).toBeUndefined()
+		})
+	})
+
 	it('does not count introspection', async () => {
 		await serving({ maxDepth: 3 }, async (url) => {
 			const result = await post(url, getIntrospectionQuery())
@@ -351,6 +367,17 @@ describe('the row budget', () => {
 				`{ a: posts(first: 0) { edges { node { author { posts { pageInfo { hasNextPage } } } } } } b: posts { totalCount } }`,
 			)
 			expect(empty.errors).toBeUndefined()
+		})
+	})
+
+	it('counts a nested totalCount as the root one, take rows at least', async () => {
+		await serving({ maxRows: 150 }, async (url) => {
+			const counted = `{ users(first: 3) { edges { node { posts(first: 1) { totalCount } } } } }`
+			expect(messages(await post(url, counted))).toStrictEqual([
+				'The document asks for more than 150 rows. Ask for fewer with first or last.',
+			])
+			const paged = `{ users(first: 3) { edges { node { posts(first: 1) { edges { cursor } } } } } }`
+			expect((await post(url, paged)).errors).toBeUndefined()
 		})
 	})
 

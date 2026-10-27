@@ -192,6 +192,37 @@ describe('a list', () => {
 		)
 	})
 
+	it('counts a relation and sorts through relations (D-134)', async () => {
+		const result = await ask(
+			`{ users(orderBy: [{ posts: { _count: asc } }]) { edges { node {
+				name
+				posts(first: 1, where: { status: { equals: published } }) {
+					totalCount edges { node { title } }
+				}
+			} } } }`,
+		)
+		const users = at(result.data, 'users', 'edges')
+		expect(users).toStrictEqual([
+			{ node: { name: 'bob', posts: { totalCount: 0, edges: [] } } },
+			{
+				node: {
+					name: 'ada',
+					posts: { totalCount: 2, edges: [{ node: { title: 'one' } }] },
+				},
+			},
+		])
+		const through = await ask(
+			`{ posts(orderBy: [{ author: { name: desc } }, { views: asc }]) {
+				edges { node { title } }
+			} }`,
+		)
+		expect(titles(through)).toStrictEqual(['four', 'one', 'two', 'three'])
+		const many = await ask(
+			`{ users(orderBy: [{ posts: asc }]) { totalCount } }`,
+		)
+		expect(many.errors?.[0]?.message).toContain('CountOrderByInput')
+	})
+
 	it('honors @skip, @include and named fragments', async () => {
 		const result = await ask(
 			`query ($skip: Boolean!) { user(where: { name: "bob" }) { ...Fields } }

@@ -81,14 +81,13 @@ const edge = (registry: Registry, model: string): GraphQLObjectType =>
 	)
 
 /**
- * `PostConnection`, with `totalCount`, at the root; `UserPostsConnection`,
- * without it, on a relation (D-107).
+ * `PostConnection` at the root, `UserPostsConnection` on a relation, each
+ * with `totalCount` (D-107, D-134).
  */
 export function connectionType(
 	registry: Registry,
 	name: string,
 	model: string,
-	counted: boolean,
 ): GraphQLObjectType {
 	return registry.object(
 		name,
@@ -103,9 +102,7 @@ export function connectionType(
 					},
 					pageInfo: { type: required(pageInfo(registry)) },
 					// A function the default resolver calls: counted when selected.
-					...(counted
-						? { totalCount: { type: new GraphQLNonNull(GraphQLInt) } }
-						: {}),
+					totalCount: { type: new GraphQLNonNull(GraphQLInt) },
 				}),
 			}),
 	)
@@ -145,7 +142,6 @@ function manyField(
 					registry,
 					`${model}${upper(field.name)}Connection`,
 					field.target,
-					false,
 				)
 	return {
 		// Absent when the field's read rule hides it (D-44).
@@ -161,7 +157,19 @@ function manyField(
 				args,
 				isMaster(context),
 			)
-			return page === undefined ? rows : connection(rows, page)
+			if (page === undefined) return rows
+			return {
+				...connection(rows, page),
+				// The row's `_count`, read when the connection selects it (D-134).
+				totalCount: () => {
+					const counts: unknown = Reflect.get(Object(source), '_count')
+					const count: unknown = Reflect.get(Object(counts), field.name)
+					if (typeof count === 'number') return count
+					throw new Error(
+						`${model}.${field.name} was not counted; select it with context.select(info).`,
+					)
+				},
+			}
 		},
 	}
 }

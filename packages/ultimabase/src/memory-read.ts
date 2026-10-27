@@ -8,7 +8,7 @@ import type {
 	Row,
 	SchemaField,
 } from './adapter.ts'
-import { isObject } from './query-where.ts'
+import { compareKeys, compareValues, copy, same } from './memory-values.ts'
 
 /** A stored row; a stored `one` key is the target's id or `null`. */
 export type StoredRow = {
@@ -134,39 +134,88 @@ export class Reader {
 		return and(truths)
 	}
 
+	/** A row's sort key: a field, through `one` relations, or a count (D-134). */
+	private key(model: string, row: StoredRow, order: Order): unknown {
+		let at: StoredRow | undefined = row
+		let on = model
+		for (const step of order.through ?? []) {
+			const field = this.field(on, step.relation)
+			if (field === undefined || field.kind === 'scalar') return null
+			const [next] = this.related(on, field, at)
+			at =
+				next !== undefined &&
+				this.matches(field.target, next, step.where) === true
+					? next
+					: undefined
+			if (at === undefined) return null
+			on = field.target
+		}
+		if (order.count === undefined) return at[order.field] ?? null
+		return this.count(on, at, order.field, order.count)
+	}
+
+	/** The rows of a `many` relation of `row` that `where` selects. */
+	private count(
+		model: string,
+		row: StoredRow,
+		name: string,
+		where: Filter,
+	): number {
+		const field = this.field(model, name)
+		if (field === undefined || field.kind === 'scalar') return 0
+		return this.related(model, field, row).filter(
+			(other) => this.matches(field.target, other, where) === true,
+		).length
+	}
+
+	/** Each row with its sort keys. */
+	private keyed(
+		model: string,
+		rows: readonly StoredRow[],
+		order: readonly Order[],
+	) {
+		return rows.map((row) => ({
+			row,
+			keys: order.map((each) => this.key(model, row, each)),
+		}))
+	}
+
 	/** Filters, orders and pages rows of `model`, as `read` asks. */
 	select(model: string, rows: StoredRow[], read: Nested): StoredRow[] {
-		const found = rows.filter(
-			(row) => this.matches(model, row, read.where) === true,
-		)
 		const order = read.orderBy ?? [{ field: 'id', direction: 'asc' }]
-		found.sort((a, b) => compareRows(a, b, order))
+		const compare = (a: Keyed, b: Keyed) => compareKeys(a.keys, b.keys, order)
+		const found = this.keyed(
+			model,
+			rows.filter((row) => this.matches(model, row, read.where) === true),
+			order,
+		).toSorted(compare)
 		const skip = read.skip ?? 0
 		const take = read.take
 		if (take === 0) return []
 		let start = 0
 		let end = found.length
 		if (read.cursor !== undefined) {
-			const cursor = [...this.table(model).values()].find(
-				(row) => this.matches(model, row, read.cursor) === true,
+			const row = [...this.table(model).values()].find(
+				(each) => this.matches(model, each, read.cursor) === true,
 			)
+			if (row === undefined) return []
+			const [cursor] = this.keyed(model, [row], order)
 			if (cursor === undefined) return []
 			if (take === undefined || take > 0) {
-				const index = found.findIndex(
-					(row) => compareRows(row, cursor, order) >= 0,
-				)
+				const index = found.findIndex((each) => compare(each, cursor) >= 0)
 				start = index === -1 ? found.length : index
 			} else {
-				end = found.findLastIndex((row) => compareRows(row, cursor, order) <= 0)
+				end = found.findLastIndex((each) => compare(each, cursor) <= 0)
 				end += 1
 			}
 		}
+		const sorted = found.map((each) => each.row)
 		if (take === undefined || take > 0) {
 			start += skip
-			return found.slice(start, take === undefined ? end : start + take)
+			return sorted.slice(start, take === undefined ? end : start + take)
 		}
 		end -= skip
-		return end <= 0 ? [] : found.slice(Math.max(start, end + take), end)
+		return end <= 0 ? [] : sorted.slice(Math.max(start, end + take), end)
 	}
 
 	/** A row as the adapter returns it, with the relations `read` includes. */
@@ -203,6 +252,15 @@ export class Reader {
 				)
 			}
 		}
+		const counts = Object.entries(read.count ?? {})
+		if (counts.length > 0) {
+			result['_count'] = Object.fromEntries(
+				counts.map(([name, where]) => [
+					name,
+					this.count(model, row, name, where),
+				]),
+			)
+		}
 		return result
 	}
 }
@@ -219,23 +277,6 @@ function or(truths: readonly Truth[]): Truth {
 
 function not(truth: Truth): Truth {
 	return truth === null ? null : !truth
-}
-
-/** Equality as PostgreSQL's: `-0` is `0`, json keys come in any order. */
-export function same(a: unknown, b: unknown): boolean {
-	if (a instanceof Date && b instanceof Date) return a.getTime() === b.getTime()
-	if (Array.isArray(a) && Array.isArray(b))
-		return (
-			a.length === b.length && a.every((item, index) => same(item, b[index]))
-		)
-	if (isObject(a) && isObject(b)) {
-		const keys = Object.keys(a)
-		return (
-			keys.length === Object.keys(b).length &&
-			keys.every((key) => Object.hasOwn(b, key) && same(a[key], b[key]))
-		)
-	}
-	return a === b
 }
 
 function isFilters(
@@ -300,51 +341,4 @@ function scalar(value: unknown, condition: Condition): Truth {
 	return and(truths)
 }
 
-/** A surrogate sorts above U+FFFF, as the code point it is part of. */
-const weight = (unit: number): number => {
-	if (unit >= 0xd8_00 && unit <= 0xdf_ff) return unit + 0x20_00
-	return unit >= 0xe0_00 ? unit - 0x8_00 : unit
-}
-
-/**
- * Strings compare by code point, as PostgreSQL's `C` collation (D-94);
- * dates, numbers and booleans by their number. Json values are not sorted.
- */
-function compareValues(a: unknown, b: unknown): number {
-	if (typeof a === 'string' && typeof b === 'string') {
-		for (let index = 0; index < Math.min(a.length, b.length); index++) {
-			const order = weight(a.charCodeAt(index)) - weight(b.charCodeAt(index))
-			if (order !== 0) return order
-		}
-		return a.length - b.length
-	}
-	return Number(a) - Number(b)
-}
-
-/** `null` sorts last ascending and first descending, as in PostgreSQL. */
-export function compareRows(
-	a: StoredRow,
-	b: StoredRow,
-	order: readonly Order[],
-): number {
-	for (const { field, direction } of order) {
-		const left = a[field] ?? null
-		const right = b[field] ?? null
-		let result = 0
-		if (left === null || right === null) {
-			result = left === right ? 0 : left === null ? 1 : -1
-		} else {
-			result = compareValues(left, right)
-		}
-		if (result !== 0) return direction === 'asc' ? result : -result
-	}
-	return 0
-}
-
-/** A stored value the caller may change without changing the store. */
-export function copy(value: unknown): unknown {
-	if (value instanceof Date) return new Date(value.getTime())
-	return typeof value === 'object' && value !== null
-		? structuredClone(value)
-		: value
-}
+type Keyed = { readonly row: StoredRow; readonly keys: readonly unknown[] }

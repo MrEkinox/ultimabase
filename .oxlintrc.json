@@ -28,6 +28,7 @@
 	],
 	"rules": {
 		"eslint/max-lines": ["error", { "max": 400 }],
+		"eslint/no-underscore-dangle": ["error", { "allow": ["_count"] }],
 		"eslint/no-warning-comments": [
 			"error",
 			{

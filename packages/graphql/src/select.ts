@@ -1,5 +1,5 @@
 // A query's selection as one kernel read (D-107): the fields asked for, and
-// each `many` relation's own page, read with its parent's rows.
+// each `many` relation's own page and count, read with its parent's rows.
 import type {
 	FieldNode,
 	GraphQLObjectType,
@@ -124,6 +124,8 @@ export function selectOf(
 ): Args {
 	const entry = registry.entry(type.name)
 	const select: { [field: string]: unknown } = { id: true }
+	// The connections' `totalCount`, each the count of its `where` (D-134).
+	const counts: { [field: string]: unknown } = {}
 	for (const [name, fieldNodes] of grouped(info, nodes)) {
 		if (name === '__typename') continue
 		if (system.has(name)) {
@@ -153,15 +155,18 @@ export function selectOf(
 		}
 		const args = argsOf(type, name, fieldNodes, info)
 		const { read } = listRead(registry, target, args, master)
-		const below =
-			registry.settings.pagination === 'list'
-				? fieldNodes
-				: nodesOf(info, fieldNodes)
+		const list = registry.settings.pagination === 'list'
+		const below = list ? fieldNodes : nodesOf(info, fieldNodes)
 		select[name] = {
 			...read,
 			select: selectOf(registry, info, targetObject, below, master),
 		}
+		if (!list && grouped(info, fieldNodes).has('totalCount')) {
+			counts[name] =
+				read['where'] === undefined ? true : { where: read['where'] }
+		}
 	}
+	if (Object.keys(counts).length > 0) select['_count'] = { select: counts }
 	return select
 }
 

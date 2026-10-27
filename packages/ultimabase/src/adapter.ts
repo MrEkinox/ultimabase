@@ -97,9 +97,17 @@ export interface Filter {
 	readonly [field: string]: Condition | readonly Filter[] | undefined
 }
 
+/** A `one` relation a sort key goes through, to the rows `where` selects. */
+export type Step = { readonly relation: string; readonly where?: Filter }
+
 export type Order = {
+	/** A field of the row, or of the row `through` reaches. */
 	readonly field: string
 	readonly direction: 'asc' | 'desc'
+	/** The `one` relations followed first; an absent row sorts as `null` (D-134). */
+	readonly through?: readonly Step[]
+	/** `field` is a `many` relation: its rows this filter selects are counted (D-134). */
+	readonly count?: Filter
 }
 
 /** A relation to read with its rows; a `one` relation reads `where` only. */
@@ -113,6 +121,8 @@ export type Nested = {
 	/** Negative: the rows before the cursor, or the last ones. */
 	readonly take?: number
 	readonly include?: { readonly [field: string]: Nested }
+	/** `many` relations to count in the row's `_count`, by filter (D-134). */
+	readonly count?: { readonly [field: string]: Filter }
 }
 
 export type Read = Nested & {
@@ -282,16 +292,6 @@ export interface Migrations {
 	reset(): Promise<readonly string[]>
 	/** The database's host when it is not on this machine: `reset` then needs `--force`. */
 	readonly remote?: string
-}
-
-/** A host only this machine reaches (D-66, D-105, D-115). */
-export function isLocalHost(hostname: string): boolean {
-	return (
-		hostname === 'localhost' ||
-		hostname.endsWith('.localhost') ||
-		hostname === '127.0.0.1' ||
-		hostname === '[::1]'
-	)
 }
 
 /** A storage adapter: its own slot, not a plugin (D-02, D-73). */

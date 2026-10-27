@@ -315,6 +315,12 @@ describe('read rules', () => {
 		expect(
 			await path(async () => User.findMany({ orderBy: { email: 'asc' } }, ada)),
 		).toBe('orderBy.email')
+		// Through a relation too (D-134).
+		expect(
+			await path(async () =>
+				Post.findMany({ orderBy: { author: { email: 'asc' } } }, ada),
+			),
+		).toBe('orderBy.author.email')
 		expect(
 			await path(async () =>
 				User.findMany({ cursor: { email: 'a@x.io' } }, ada),

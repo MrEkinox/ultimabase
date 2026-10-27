@@ -34,7 +34,7 @@ function bounded(api: Api, caller: Caller, shape: Shape, rows: number): void {
 	const depth = depthOf(shape)
 	if (depth > api.maxDepth) {
 		throw badInput(
-			`The request is nested ${depth} levels deep; the most is ${api.maxDepth}.`,
+			`The request is nested ${depth} levels deep, its orderBy included; the most is ${api.maxDepth}.`,
 		)
 	}
 	if (rows + rowsBelow(shape, rows) <= api.maxRows) return

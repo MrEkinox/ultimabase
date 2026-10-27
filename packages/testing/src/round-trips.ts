@@ -1,7 +1,7 @@
 // The round trips of the contract, BEGIN and COMMIT included (D-46, D-48,
-// D-99): a read, its relations at any depth included, is one, and so are a
-// count and a write that needs no stored row. A write that decides from its
-// row locks it (D-104).
+// D-99): a read, its relations at any depth, counts and sorts through
+// relations included (D-134), is one, and so are a count and a write that
+// needs no stored row. A write that decides from its row locks it (D-104).
 import type { Adapter } from 'ultimabase'
 import { defineApp, defineModel, master, transaction } from 'ultimabase'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
@@ -132,6 +132,27 @@ export function roundTrips(create: () => Adapter, counted: () => number): void {
 						{ genres: [{ label: 'tale', novels: [{ title: 'Engines' }] }] },
 					],
 				},
+			])
+		})
+
+		it('reads counts and sorts through relations in one', async () => {
+			const novels = await once(async () =>
+				Novel.findMany(
+					{
+						orderBy: [
+							{ writer: { name: 'asc' } },
+							{ genres: { _count: 'desc' } },
+						],
+						include: {
+							_count: true,
+							writer: { include: { _count: { select: { novels: true } } } },
+						},
+					},
+					M,
+				),
+			)
+			expect(novels).toMatchObject([
+				{ _count: { genres: 1 }, writer: { _count: { novels: 1 } } },
 			])
 		})
 

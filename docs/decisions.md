@@ -7171,3 +7171,108 @@ await Member.updateMany(
 
 await Post.updateMany({ data: { author: { connect: { id } } } }) // type error
 ```
+
+## D-134: `_count`, nested `totalCount` and sorting through relations
+
+Choice: completes D-20, D-46 and D-55; amends D-107 point 5 and D-129
+point 5.
+
+1. `include` and `select` take `_count`, at any level, as in Prisma:
+   `_count: true` counts every `many` relation of the row, and
+   `_count: { select: { posts: true } }` the ones it names, each with an
+   optional `where`: `posts: { where: { published: true } }`. The row gets
+   `_count: { posts: number }`, typed. A `one` relation has no `_count`.
+   Create and update return it as they return an `include` (D-86).
+2. `orderBy` goes through relations, as in Prisma: a `one` relation takes
+   the target's `orderBy`, `{ author: { name: 'asc' } }`, chained as deep
+   as `one` relations go, and a `many` relation takes `{ _count: 'asc' }`,
+   with no `where`. A row whose `one` target is absent, or one the caller
+   cannot read, sorts as `null`: last ascending (D-94).
+3. A count holds the rows the caller reads: the target's read rule and
+   ACL (D-10, D-124) apply, as in a relation filter (D-46). A caller other
+   than Master cannot sort through a relation on a field with a read rule,
+   as on the row's own fields (D-44).
+4. The adapter runs it in the read's one round trip (D-46): a count per
+   relation and per sort key, never a query per row. A cursor stays the
+   row's `id`: the adapter computes the cursor row's sort keys, relations
+   and counts included, so the page stays exact. The contract suite (D-94)
+   covers counts and both sorts.
+5. GraphQL: `totalCount` exists on every connection, nested ones
+   included, and counts the rows of the connection's `where`, without its
+   `first`, `last`, `after` or `before`; a nested one is the row's
+   `_count`, in the same query. `PostOrderByInput` takes a `one` relation
+   as its target's `OrderByInput` and a `many` relation as
+   `CountOrderByInput { _count: SortOrder }`. A list with
+   `pagination: 'list'` has no `totalCount`, at any level.
+6. REST: a `many` relation included takes `totalCount: true` with the
+   GraphQL field's other arguments; `orderBy` takes GraphQL's shape, as
+   JSON. The root keeps `totalCount=true` (D-129).
+7. Limits (D-55, D-107 point 6): a nested `totalCount` counts as the
+   root's, `take` rows at least, times the rows of the lists above it, and
+   each relation an `orderBy` goes through counts one level of `maxDepth`.
+
+Why:
+
+- A list of users with their post counts is today one `count` per row: N
+  round trips, or a counter field kept by hooks that drifts.
+- Sorting posts by their author's name, or users by their number of
+  posts, is today impossible: the developer sorts in memory, which breaks
+  pagination.
+- A Relay client renders "12 comments" under each post; GraphQL had a
+  count only at the root.
+- A count that included unreadable rows would reveal them one count at a
+  time, as a relation filter would (D-46).
+
+Limit: a sort by `_count` or through a relation reads every row `where`
+selects to order them, as a sort on a field without an index; `maxRows`
+counts the rows returned, not those read.
+
+Rejected:
+
+- `_count` on a `one` relation, and a `where` in a sort by `_count`: Prisma
+  has neither, and no need asks for them.
+- A count in `pagination: 'list'`, whose list has nowhere to put it.
+- Counting every row, readable or not, for speed.
+- Aggregates (`_sum`, `_avg`, `groupBy`), until a need.
+
+Example:
+
+```ts
+// Before: one count per user, N round trips
+const users = await User.findMany({ take: 20 }, { as: caller })
+const counts = await Promise.all(
+	users.map(({ id }) =>
+		Post.count({ where: { author: { id }, published: true } }, { as: caller }),
+	),
+)
+
+// After: one query; users[0]._count.posts is a number
+const counted = await User.findMany(
+	{
+		take: 20,
+		orderBy: { posts: { _count: 'desc' } },
+		include: {
+			_count: { select: { posts: { where: { published: true } } } },
+		},
+	},
+	{ as: caller },
+)
+
+// Sorted through a `one` relation
+await Post.findMany({ orderBy: { author: { name: 'asc' } } }, { as: caller })
+```
+
+```graphql
+users(first: 20, orderBy: { posts: { _count: desc } }) {
+	edges {
+		node {
+			name
+			posts(where: { published: true }) { totalCount }
+		}
+	}
+}
+```
+
+```
+GET /api/users?first=20&orderBy={"posts":{"_count":"desc"}}&include={"posts":{"where":{"published":true},"totalCount":true}}
+```
