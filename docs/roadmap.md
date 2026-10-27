@@ -199,6 +199,9 @@ Exit: an example with sign-up, sign-in and rules on `caller.user`.
 - [x] `updateMany` (D-133).
 - [x] Decide `_count` and sorting through relations (D-20, D-46): D-134.
 - [x] `_count`, nested `totalCount` and sorting through relations (D-134).
+- [x] Decide `OrThrow` reads, `omit`, a delete's `select` and `createMany`
+      (D-20): D-135.
+- [ ] `OrThrow` reads, `omit`, a delete's `select` and `createMany` (D-135).
 - [ ] Documentation website (D-31).
 - [ ] A full audit of every package, its fixes merged, before publication.
 - [ ] Publication, after confirmation.
