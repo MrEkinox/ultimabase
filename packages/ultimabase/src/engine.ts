@@ -2,7 +2,7 @@
 // checked, run on the adapter, in the open transaction if any (D-36), and
 // returned in the shape it asked for.
 import { accessFor, and } from './access.ts'
-import { InvalidQuery } from './errors.ts'
+import { InvalidQuery, PublicError } from './errors.ts'
 import type { Identity } from './rules.ts'
 import { isMaster } from './rules.ts'
 import { current } from './running.ts'
@@ -21,6 +21,8 @@ export type Operation =
 	| 'findMany'
 	| 'findFirst'
 	| 'findUnique'
+	| 'findFirstOrThrow'
+	| 'findUniqueOrThrow'
 	| 'count'
 	| 'create'
 	| 'update'
@@ -152,12 +154,31 @@ type Write = (
 	args: unknown,
 ) => Promise<unknown>
 
-type ReadOperation = 'findMany' | 'findFirst' | 'findUnique' | 'count'
+type ReadOperation =
+	| 'findMany'
+	| 'findFirst'
+	| 'findUnique'
+	| 'findFirstOrThrow'
+	| 'findUniqueOrThrow'
+	| 'count'
+
+/** The read, which fails with `NOT_FOUND` rather than return `null` (D-135). */
+const orThrow =
+	(read: Run): Run =>
+	async (context, store, args) => {
+		const row = await read(context, store, args)
+		if (row !== null) return row
+		throw new PublicError('NOT_FOUND', `No ${context.model.name} matches.`)
+	}
 
 const reads: { readonly [O in ReadOperation]: Run } = {
 	findMany: async (context, store, args) => find(context, store, args, false),
 	findFirst: async (context, store, args) => find(context, store, args, true),
 	findUnique,
+	findFirstOrThrow: orThrow(async (context, store, args) =>
+		find(context, store, args, true),
+	),
+	findUniqueOrThrow: orThrow(findUnique),
 	count,
 }
 

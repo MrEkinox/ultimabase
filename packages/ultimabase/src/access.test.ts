@@ -278,6 +278,9 @@ describe('read rules', () => {
 			await Post.findUnique({ where: { id: ids.bobDraft } }, ada),
 		).toBeNull()
 		expect(await Post.findFirst({ where: { title: 'Soon' } }, ada)).toBeNull()
+		await expect(
+			Post.findUniqueOrThrow({ where: { id: ids.bobDraft } }, ada),
+		).rejects.toMatchObject({ code: 'NOT_FOUND', message: 'No Post matches.' })
 		expect(await Tag.count({})).toBe(0)
 		expect(await Tag.count({}, ada)).toBe(0)
 		expect(await Tag.count({}, M)).toBe(1)

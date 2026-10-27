@@ -29,6 +29,8 @@ type Operations<F, X, N> = {
 	readonly findMany: FindManyArgs<F, X>
 	readonly findFirst: FindManyArgs<F, X>
 	readonly findUnique: FindUniqueArgs<F, X>
+	readonly findFirstOrThrow: FindManyArgs<F, X>
+	readonly findUniqueOrThrow: FindUniqueArgs<F, X>
 	readonly count: { readonly where?: Where<F> }
 	readonly create: CreateArgs<F, N>
 	readonly update: UpdateArgs<F, X, N>

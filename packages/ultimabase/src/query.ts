@@ -311,6 +311,18 @@ export interface Queries<F, X = never, N = never> {
 		args: A & NoInfer<Exact<A, FindUniqueArgs<F, X>>>,
 		options?: QueryOptions,
 	): Promise<Payload<F, A> | null>
+	/** `findFirst`, which fails with `NOT_FOUND` rather than `null` (D-135). */
+	findFirstOrThrow<const A extends FindManyArgs<F, X>>(
+		this: void,
+		args?: A & NoInfer<Exact<A, FindManyArgs<F, X>>>,
+		options?: QueryOptions,
+	): Promise<Payload<F, A>>
+	/** `findUnique`, which fails with `NOT_FOUND` rather than `null` (D-135). */
+	findUniqueOrThrow<const A extends FindUniqueArgs<F, X>>(
+		this: void,
+		args: A & NoInfer<Exact<A, FindUniqueArgs<F, X>>>,
+		options?: QueryOptions,
+	): Promise<Payload<F, A>>
 	count(
 		this: void,
 		args?: { readonly where?: Where<F> },
