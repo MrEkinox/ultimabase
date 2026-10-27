@@ -1,7 +1,7 @@
 // testApplication (D-130): the application as declared, on a new memory() and
 // a free port per test, quiet, stopped after each test.
 import { httpPlugin } from '@ultimabase/http'
-import type { Adapter, Logger, PluginTypes } from 'ultimabase'
+import type { Adapter, Logger, Migrations, PluginTypes } from 'ultimabase'
 import {
 	defineApp,
 	defineModel,
@@ -9,6 +9,7 @@ import {
 	master,
 	memory,
 } from 'ultimabase'
+import { scratchable } from 'ultimabase/internal'
 import { beforeAll, describe, expect, it } from 'vitest'
 import { testApplication } from './index.ts'
 
@@ -134,4 +135,67 @@ it('takes only the value defineApp returned', () => {
 	expect(() => testApplication({ start: () => undefined })).toThrow(
 		'testApplication takes the value defineApp returned.',
 	)
+})
+
+describe("{ database: 'declared' } on memory()", () => {
+	const database = memory()
+	testApplication(defineApp({ database, models: [Note] }), {
+		database: 'declared',
+	})
+
+	it('starts it empty before each test', async () => {
+		expect(await Note.count({}, M)).toBe(0)
+		await Note.create({ data: { text: 'one' } }, M)
+	})
+
+	it('and empty again next', async () => {
+		expect(await Note.count({}, M)).toBe(0)
+		expect(await database.count({ model: 'Note' })).toBe(0)
+	})
+})
+
+const migrations: Migrations = {
+	snapshot: () => ({}),
+	plan: () => [],
+	stored: async () => undefined,
+	apply: async () => undefined,
+	reset: async () => [],
+}
+const events: string[] = []
+
+describe("{ database: 'declared' } on a database with tables", () => {
+	const database = scratchable({ ...memory(), migrations }, () => {
+		events.push('scratch')
+		return {
+			drop: async () => {
+				events.push('drop')
+			},
+		}
+	})
+	testApplication(defineApp({ database, models: [Note] }), {
+		database: 'declared',
+	})
+
+	it('runs on tables of the file', () => {
+		expect(events).toEqual(['scratch'])
+	})
+
+	it('of the whole file', () => {
+		expect(events).toEqual(['scratch'])
+	})
+})
+
+describe('after the file', () => {
+	it('drops its tables', () => {
+		expect(events).toEqual(['scratch', 'drop'])
+	})
+})
+
+it('takes a declared database with tables only when it gives a file its own', () => {
+	const database: Adapter = { ...memory(), migrations }
+	expect(() =>
+		testApplication(defineApp({ database, models: [Note] }), {
+			database: 'declared',
+		}),
+	).toThrow("remove { database: 'declared' }")
 })

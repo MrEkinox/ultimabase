@@ -1,7 +1,7 @@
 // How a PostgreSQL database follows the models (D-105): the snapshot its
 // tables match in `ultimabase_schema`, the files `migrate deploy` applied in
 // `ultimabase_migrations`, and every change under one advisory lock.
-import type { Kysely, Transaction } from 'kysely'
+import type { Kysely, QueryExecutorProvider, Transaction } from 'kysely'
 import { sql } from 'kysely'
 import { parse } from 'pg-connection-string'
 import type { Migration, Run, Stored } from 'ultimabase'
@@ -9,7 +9,11 @@ import { isLocalHost, MigrationFailed, Refused } from 'ultimabase'
 import { id } from './plan.ts'
 import { parseSnapshot } from './snapshot.ts'
 
-const tables = ['ultimabase_schema', 'ultimabase_migrations']
+/** The tables UltimaBase keeps its own records in. */
+export const tables: readonly string[] = [
+	'ultimabase_schema',
+	'ultimabase_migrations',
+]
 
 const bookkeeping = [
 	sql`create table if not exists ultimabase_schema (id integer primary key check (id = 1), snapshot jsonb not null, written_by text not null, written_at timestamptz not null)`,
@@ -230,6 +234,18 @@ export async function apply(db: Kysely<object>, run: Run): Promise<void> {
 	await (run.kind === 'sync' ? sync(db, run) : deploy(db, run))
 }
 
+/** The current schema's tables but an extension's, in name order. */
+export async function tablesOf(db: QueryExecutorProvider): Promise<string[]> {
+	const { rows } = await sql<{ table_name: string }>`
+		select relname as table_name from pg_class
+		where relnamespace = current_schema()::regnamespace
+		and relkind in ('r', 'p') and not relispartition
+		and not exists (select from pg_depend where classid = 'pg_class'::regclass
+			and objid = pg_class.oid and deptype = 'e')
+		order by relname`.execute(db)
+	return rows.map((row) => row.table_name)
+}
+
 /**
  * Drops every table of the current schema but an extension's, such as
  * PostGIS's `spatial_ref_sys`; returns the models' tables.
@@ -237,14 +253,7 @@ export async function apply(db: Kysely<object>, run: Run): Promise<void> {
 export async function reset(db: Kysely<object>): Promise<readonly string[]> {
 	const dropped: string[] = []
 	await locked(db, async (trx) => {
-		const { rows } = await sql<{ table_name: string }>`
-			select relname as table_name from pg_class
-			where relnamespace = current_schema()::regnamespace
-			and relkind in ('r', 'p') and not relispartition
-			and not exists (select from pg_depend where classid = 'pg_class'::regclass
-				and objid = pg_class.oid and deptype = 'e')
-			order by relname`.execute(trx)
-		const names = rows.map((row) => row.table_name)
+		const names = await tablesOf(trx)
 		const drop = `drop table ${names.map(id).join(', ')} cascade`
 		await executed(trx, drop, drop)
 		dropped.push(...names.filter((name) => !tables.includes(name)))

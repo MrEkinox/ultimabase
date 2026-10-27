@@ -2,7 +2,7 @@
 // hook's queries join it without a `tx` argument.
 import { AsyncLocalStorage } from 'node:async_hooks'
 import { randomUUID } from 'node:crypto'
-import type { Transaction } from './adapter.ts'
+import type { Adapter, Transaction } from './adapter.ts'
 import { RelationViolation } from './adapter.ts'
 import type { Logger } from './app-options.ts'
 import { decoded } from './field-codec.ts'
@@ -170,4 +170,21 @@ export async function transaction<R>(run: () => Promise<R>): Promise<R> {
 		throw new Error('transaction runs on a started application.')
 	}
 	return app.work.run(async () => atomic(app, run))
+}
+
+/**
+ * Runs an adapter's own statement, `database.sql`, in the running
+ * application's open transaction, else alone (D-137).
+ */
+export async function joining<R>(
+	adapter: Adapter,
+	run: (tx: Transaction | undefined) => Promise<R>,
+): Promise<R> {
+	const open = opened.getStore()
+	if (open?.app.adapter === adapter) {
+		return joined(open, async () => run(await begun(open)))
+	}
+	const app = current()
+	if (app?.adapter !== adapter) return run(undefined)
+	return app.work.run(async () => run(undefined))
 }

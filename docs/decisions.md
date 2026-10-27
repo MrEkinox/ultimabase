@@ -6795,6 +6795,8 @@ await fetch('/api/functions/signUp', {
 
 ## D-130: `testApplication(app)` and `npm create ultimabase`
 
+Amended by D-137.
+
 Choice: completes D-40, D-61 and D-80.
 
 1. `@ultimabase/testing` exports `testApplication(app)`, called once at the
@@ -7416,4 +7418,83 @@ Example:
 await Post.findMany({ omit: { body: true } }, { as: master })
 // Before: SELECT … 'title', "t1"."title", …, 'body', "t1"."body" …
 // After:  SELECT … 'title', "t1"."title", … (no body)
+```
+
+## D-137: Raw SQL on `postgres()`, and tests on the declared database
+
+Choice: amends D-130 points 1 and 4.
+
+1. `postgres()` returns a `Postgres`: an `Adapter` with `sql`, a tagged
+   template that runs one statement and returns its rows, typed by the
+   caller as `database.sql<Row>`. Each interpolated value is a parameter
+   (`$1`, `$2`, ...), never SQL text; table and column names are written
+   in the statement, as D-98 names them. A write returns its rows through
+   `returning`, else none.
+2. Inside an open transaction of the running application, `sql` runs in it,
+   a hook's included: a statement that fails rolls all of it back (D-36).
+   Elsewhere it runs alone. It runs no rule, hook or validation, and no
+   transport exposes it. Its rows are PostgreSQL's as `pg` reads them,
+   undecoded: snake_case columns, `bigint` and `numeric` as strings. Its
+   errors are PostgreSQL's own. `memory()` has no `sql`.
+3. `testApplication(app, { database: 'declared' })` runs the tests on the
+   database the application declares instead of a new `memory()`. On
+   `postgres()`, the test file gets its own schema,
+   `ultimabase_test_<random>`, set as the connections' `search_path`: the
+   first test creates the tables in it, each later test starts with them
+   emptied by `TRUNCATE`, and the schema is dropped after the file's last
+   test. No table outside that schema is read or written, whichever
+   database the url names. A declared `memory()` starts empty each time; an
+   adapter that can give neither is refused.
+4. The kernel gives the adapter the open transaction, and `testApplication`
+   the adapter's per-file schema, on `ultimabase/internal` (D-130); the
+   `Adapter` contract does not change. A process killed during a test file
+   leaves its schema; nothing drops another run's schemas.
+
+Why:
+
+- A query the API cannot express, a report or a bulk fix, needs SQL that
+  still joins the transaction its hook runs in; outside it, a rollback
+  would keep its changes.
+- A test on `memory()` cannot check raw SQL, a PostgreSQL constraint or the
+  real column types. Per test, measured on a local PostgreSQL with the
+  application started and stopped each time:
+
+  | Models | New schema per test | One schema per file, `TRUNCATE` |
+  | -----: | ------------------: | ------------------------------: |
+  |      1 |               26 ms |                           12 ms |
+  |     10 |               67 ms |                           18 ms |
+  |     50 |              247 ms |                           46 ms |
+
+Rejected:
+
+- An adapter given to `testApplication`: the application's `database.sql`
+  would query another object.
+- A new schema per test, by the measure above; a new database per file,
+  which needs the `CREATEDB` right and is slower still.
+- Identifier helpers, nested fragments and a separate method that returns
+  a row count, until an application needs them.
+- Decoding the rows: a statement's columns need not belong to one model.
+
+Example:
+
+```ts
+// Before: no way to run SQL the API cannot express.
+// After
+export const database = postgres({ url: process.env.DATABASE_URL })
+export const app = defineApp({ database, models: [Post] })
+
+const top = await database.sql<{ title: string; views: number }>`
+	select title, views from post where views > ${min} order by views desc`
+
+await transaction(async () => {
+	await Post.create({ data: { title: 'Hello' } }, { as: master })
+	await database.sql`update post set views = views + 1 where id = ${id}`
+}) // a failure rolls both back
+```
+
+```ts
+// Before: tests always run on a new memory().
+const running = testApplication(app)
+// After: on the application's PostgreSQL, in a schema of the file's own.
+const running = testApplication(app, { database: 'declared' })
 ```

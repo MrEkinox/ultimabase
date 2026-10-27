@@ -1,6 +1,8 @@
 // `@ultimabase/postgres` (D-47, D-98): the PostgreSQL adapter.
-import type { Adapter } from 'ultimabase'
+import type { Postgres } from './adapter.ts'
 import { createAdapter } from './adapter.ts'
+
+export type { Postgres }
 
 /**
  * Stores the app's models in the PostgreSQL database at `url`. An unset one,
@@ -10,6 +12,6 @@ import { createAdapter } from './adapter.ts'
 export function postgres(options: {
 	readonly url: string | undefined
 	readonly connections?: number
-}): Adapter {
+}): Postgres {
 	return createAdapter(options)
 }

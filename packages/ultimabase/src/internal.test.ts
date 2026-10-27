@@ -1,5 +1,6 @@
 // `ultimabase/internal` (D-130): new runs of an application on another
-// database, without info lines, and the running plugins' APIs.
+// database, without info lines, the running plugins' APIs, and an adapter's
+// own statements joining the open transaction (D-137).
 import { afterEach, expect, it, vi } from 'vitest'
 import type { Logger, PluginTypes } from './index.ts'
 import {
@@ -8,8 +9,9 @@ import {
 	definePlugin,
 	master,
 	memory,
+	transaction,
 } from './index.ts'
-import { quietRuns, runningApi } from './internal.ts'
+import { joining, quietRuns, runningApi } from './internal.ts'
 
 const M = { as: master }
 const Note = defineModel({
@@ -63,12 +65,12 @@ it('runs the application on the database it is given', async () => {
 	const declared = memory()
 	const app = defineApp({ database: declared, models: [Note] })
 	const runs = quietRuns(app)
-	expect(runs).toBeDefined()
-	const first = runs?.(memory())
+	expect(runs?.declared).toBe(declared)
+	const first = runs?.on(memory())
 	await first?.start()
 	await Note.create({ data: { text: 'one' } }, M)
 	await first?.stop()
-	const second = runs?.(memory())
+	const second = runs?.on(memory())
 	await second?.start()
 	stop = second?.stop
 	expect(await Note.count({}, M)).toBe(0)
@@ -81,7 +83,7 @@ it('drops info lines and keeps warnings and errors', async () => {
 		models: [Note],
 		logger: recorder(),
 	})
-	const run = quietRuns(app)?.(memory())
+	const run = quietRuns(app)?.on(memory())
 	await run?.start()
 	stop = run?.stop
 	expect(lines).toEqual(['warn echo Careful.', 'error echo Broken.'])
@@ -98,7 +100,7 @@ it('quiets the console logger when the application has none', async () => {
 		plugins: [echo.plugin()],
 		models: [Note],
 	})
-	const run = quietRuns(app)?.(memory())
+	const run = quietRuns(app)?.on(memory())
 	await run?.start()
 	stop = run?.stop
 	expect(info).not.toHaveBeenCalled()
@@ -109,4 +111,27 @@ it('knows only what defineApp returned, and APIs only while running', () => {
 	expect(quietRuns({ start: () => undefined })).toBeUndefined()
 	expect(quietRuns(undefined)).toBeUndefined()
 	expect(runningApi('echo')).toBeUndefined()
+})
+
+it('joins the open transaction on its adapter only (D-137)', async () => {
+	const database = memory()
+	const app = defineApp({ database, models: [Note] })
+	await app.start()
+	stop = async () => app.stop()
+	expect(await joining(database, async (tx) => tx)).toBeUndefined()
+	await transaction(async () => {
+		expect(await joining(database, async (tx) => typeof tx)).toBe('object')
+		expect(await joining(memory(), async (tx) => tx)).toBeUndefined()
+	})
+	const failed = transaction(async () => {
+		await Note.create({ data: { text: 'one' } }, M)
+		await joining(database, async () => {
+			throw new Error('Refused.')
+		}).catch(() => undefined)
+	})
+	await expect(failed).rejects.toThrow('Refused.')
+	expect(await Note.count({}, M)).toBe(0)
+	await app.stop()
+	stop = undefined
+	expect(await joining(database, async (tx) => tx)).toBeUndefined()
 })
