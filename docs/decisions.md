@@ -459,7 +459,7 @@ read: ({ caller, where }) =>
 
 ## D-20: The query API follows Prisma Client
 
-Amended by D-128, D-132, D-133 and D-135.
+Amended by D-128, D-132, D-133, D-135 and D-138.
 
 Choice: operations, their names and their arguments follow Prisma Client, so
 a developer coming from Prisma reads UltimaBase queries as Prisma: `findUnique`,
@@ -494,7 +494,7 @@ on a read filter it leaks rows (D-04).
 Later: Prisma's fluent relation API (`Post.findUnique(...).author()`), once it
 can run without an extra query per parent (no N+1). After the first release:
 `upsert`, once it is decided which rules and hooks it runs (create's or
-update's); `set`, `distinct` (D-135) and aggregates;
+update's); `distinct` (D-135) and aggregates;
 case-insensitive filters (`mode: 'insensitive'`), left to a search plugin
 first. Nested creation (`create` in a relation write) ships in 0.1, designed
 in its own decision (D-68, amended 2026-10-25).
@@ -2536,7 +2536,7 @@ fail.
 
 ## D-86: Access rules on relations, filters and written rows
 
-Amended by D-128.
+Amended by D-128 and D-138.
 
 Choice: five details of D-10, D-44 and D-78 at run time.
 
@@ -6601,8 +6601,8 @@ of one per row and a `transaction()`. Every rule a created row meets is one
 rule. A field rule that did not see created rows would let a caller add rows
 to a relation it may not change. Prisma limits neither the depth nor the
 order; the GraphQL depth limit and the request size bound a client.
-Later (D-20): `connectOrCreate`, a nested `createMany`, and nested
-`update`, `delete` and `upsert`.
+Later (D-20): a nested `createMany` and a nested `upsert`; `connectOrCreate`,
+`set`, `update` and `delete` came with D-138.
 Rejected: one level of nesting only (code for an arbitrary rule); a single
 object on a `many` (`connect` takes a list there); the created rows' rules
 skipped because the caller writes the parent; a field rule blind to
@@ -7497,4 +7497,138 @@ await transaction(async () => {
 const running = testApplication(app)
 // After: on the application's PostgreSQL, in a schema of the file's own.
 const running = testApplication(app, { database: 'declared' })
+```
+
+## D-138: Nested `set`, `update`, `delete` and `connectOrCreate`
+
+Choice: a relation write takes Prisma's `set`, `update` and `delete` in
+`update`, and `connectOrCreate` in `create` and `update` (D-20). It amends
+D-20, D-86 and D-128.
+
+1. Each nested operation is the root call it stands for, for the same
+   caller. A nested `update` runs as `Target.update`: its `update` rule, its
+   field rules, its validation, its update hooks and its own relation
+   writes, at any depth. A nested `delete` runs as `Target.delete`: its
+   `delete` rule, `beforeDelete`, the cascade (D-102) and a plugin's
+   redirect (D-89). The refusal names the relation (D-82). The whole write
+   stays one adapter write, depth first (D-128).
+2. Only linked rows are reached. On a `many`, `update` and `delete` name
+   each row by a unique target (D-52: `id`, a unique field or a unique
+   index), searched among the rows linked to the parent; on a `one`, they
+   reach the linked row. A row that is not linked, that the caller cannot
+   read, or that a `beforeFind` hides from the operation is `NOT_FOUND`, as
+   `No Comment matches data.comments.update.0.where.`
+3. The spelling is Prisma's. On a `one`: `update: { ...data }`,
+   `delete: true` (an optional relation only; the types and GraphQL leave it
+   out of a required one, and the kernel refuses it as it refuses
+   `disconnect`), `connectOrCreate: { where, create }`. On a `many`:
+   `update: [{ where, data }]`, `delete: [where]`,
+   `connectOrCreate: [{ where, create }]` and `set: [{ id }]`. Number
+   operations (D-132) work in a nested update's data.
+4. `set` is resolved before the rules: the kernel reads the linked rows the
+   caller reads, and `set` becomes `connect` for the new ones and
+   `disconnect` for the others. Rules and hooks see the `connect` and the
+   `disconnect`, never `set`. `set` does not combine with `connect` or
+   `disconnect` in the same relation, and is refused when the other side's
+   key is required: `A Comment cannot be left without its post.`
+5. `connectOrCreate` is resolved the same way: its `where` is a unique
+   target, looked up as stored, without rules. A row found becomes a
+   `connect`, which the `connect` check then holds to the caller's rules
+   (D-86); none becomes a nested `create` (D-128). Two concurrent writes that
+   create the same row: the second gets `UNIQUE_VIOLATION`, without a retry.
+6. A relation's field rule (D-86) judges the links only. A `many` value is
+   `{ connect, disconnect, create, delete }`; on a `one`, `delete: true`
+   reads as `null`, as `disconnect` does. A relation write that only updates
+   linked rows changes no link: the parent's field rule is not called for it.
+7. A nested `delete` whose cascade reaches a row the write updates is
+   refused: `INVALID_QUERY data.post.delete: deletes a row the write
+updates.` A stored key the parent itself empties does not count: on an
+   optional stored `one`, `delete: true` empties the parent's key, then
+   deletes the row.
+8. A row named by two operations of one relation is refused with
+   `INVALID_QUERY`, two updates of it included.
+9. A nested update's data leaves out the relation back to the parent, as a
+   nested create's does (D-128): `CommentUpdateWithoutPostInput` has no
+   `post`, and the kernel refuses it.
+10. Within a relation, the deletes run first, then the creates, the
+    disconnects and the connects, then the updates; relations in the order
+    the data gives them.
+11. GraphQL names the inputs as Prisma does:
+    `CommentUpdateManyWithoutPostNestedInput` takes `connect`,
+    `connectOrCreate`, `create`, `delete`, `disconnect`, `set` and
+    `update`; `CommentUpdateWithWhereUniqueWithoutPostInput` is
+    `{ where: CommentWhereUniqueInput!, data }`;
+    `CommentCreateOrConnectWithoutPostInput` is `{ where, create }`;
+    `ProfileUpdateOneWithoutUserNestedInput` is `@oneOf` and adds `update`
+    and `delete: Boolean`. A hidden model (`graphql: false`) gets no
+    `update`, `delete` or `connectOrCreate` through a relation, as it gets
+    no `create`; `connect`, `disconnect` and `set` stay. REST takes the same
+    JSON, its dates read in each nested data.
+
+Why:
+
+- Four calls, atomic only inside `transaction()`, become one write. Each
+  operation runs the rules and hooks of the call it stands for, so nesting
+  opens no way around a rule (D-128).
+- Resolving `set` and `connectOrCreate` first lets the rules and the hooks
+  see plain links, which they already judge; a field rule written for
+  `connect` and `disconnect` keeps holding.
+- Reaching only linked rows makes `Post.update` act on that post's
+  comments, as Prisma does; another post's comment is `NOT_FOUND`, never
+  changed through the wrong parent.
+- A link judged by its field rule, and an update judged by the target's
+  `update` rule: an update of a comment through its post is still checked,
+  by the comment's rule.
+
+Rejected:
+
+- `set` and `connectOrCreate` given to rules and hooks as written: every
+  field rule would have to understand them.
+- `connectOrCreate` looked up through the caller's read rule: an unreadable
+  row would be created again, and its unique value would fail anyway.
+- `update` and `delete` on any row of the target, linked or not.
+- A field rule called for a nested `update`: it judges links, and no link
+  changes.
+
+Later (D-20): nested `upsert`, `createMany`, `updateMany` and `deleteMany`;
+`connect` by a unique target other than `id`.
+
+Example:
+
+```ts
+// Before: four calls, atomic only inside transaction()
+await Comment.update({ where: { id: c1 }, data: { body: 'edited' } }, M)
+await Comment.delete({ where: { id: c2 } }, M)
+const tag =
+	(await Tag.findUnique({ where: { name: 'news' } }, M)) ??
+	(await Tag.create({ data: { name: 'news' } }, M))
+await Post.update(
+	{ where: { id }, data: { tags: { connect: [{ id: tag.id }] } } },
+	M,
+)
+
+// After: one write
+await Post.update(
+	{
+		where: { id },
+		data: {
+			comments: {
+				update: [{ where: { id: c1 }, data: { body: 'edited' } }],
+				delete: [{ id: c2 }],
+			},
+			tags: {
+				connectOrCreate: [
+					{ where: { name: 'news' }, create: { name: 'news' } },
+				],
+			},
+		},
+	},
+	M,
+)
+await Post.update({ where: { id }, data: { tags: { set: [{ id: t1 }] } } }, M)
+await User.update(
+	{ where: { id }, data: { profile: { update: { bio: 'Hi' } } } },
+	M,
+)
+await User.update({ where: { id }, data: { profile: { delete: true } } }, M)
 ```
