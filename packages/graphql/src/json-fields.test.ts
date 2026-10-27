@@ -150,7 +150,7 @@ describe('a typed json field', () => {
 		)
 	})
 
-	it('names relation writes after their target and the relation back', () => {
+	it('names relation writes after their target and the relation back (D-138)', () => {
 		expect(typeOf('ProfileCreateInput')).toContain(
 			'  team: TeamCreateNestedOneWithoutMembersInput\n',
 		)
@@ -158,6 +158,7 @@ describe('a typed json field', () => {
 			[
 				'input TeamCreateNestedOneWithoutMembersInput @oneOf {',
 				'  connect: ConnectInput',
+				'  connectOrCreate: TeamCreateOrConnectWithoutMembersInput',
 				'  create: TeamCreateWithoutMembersInput',
 				'}',
 			].join('\n'),
@@ -169,8 +170,11 @@ describe('a typed json field', () => {
 			[
 				'input TeamUpdateOneWithoutMembersNestedInput @oneOf {',
 				'  connect: ConnectInput',
+				'  connectOrCreate: TeamCreateOrConnectWithoutMembersInput',
 				'  create: TeamCreateWithoutMembersInput',
+				'  delete: Boolean',
 				'  disconnect: Boolean',
+				'  update: TeamUpdateWithoutMembersInput',
 				'}',
 			].join('\n'),
 		)
@@ -178,10 +182,33 @@ describe('a typed json field', () => {
 			[
 				'input ProfileUpdateManyWithoutTeamNestedInput {',
 				'  connect: [ConnectInput!]',
+				'  connectOrCreate: [ProfileCreateOrConnectWithoutTeamInput!]',
 				'  create: [ProfileCreateWithoutTeamInput!]',
+				'  delete: [ProfileWhereUniqueInput!]',
 				'  disconnect: [ConnectInput!]',
+				'  set: [ConnectInput!]',
+				'  update: [ProfileUpdateWithWhereUniqueWithoutTeamInput!]',
 				'}',
 			].join('\n'),
+		)
+		expect(typeOf('ProfileCreateOrConnectWithoutTeamInput')).toBe(
+			[
+				'input ProfileCreateOrConnectWithoutTeamInput {',
+				'  where: ProfileWhereUniqueInput!',
+				'  create: ProfileCreateWithoutTeamInput!',
+				'}',
+			].join('\n'),
+		)
+		expect(typeOf('ProfileUpdateWithWhereUniqueWithoutTeamInput')).toBe(
+			[
+				'input ProfileUpdateWithWhereUniqueWithoutTeamInput {',
+				'  where: ProfileWhereUniqueInput!',
+				'  data: ProfileUpdateWithoutTeamInput!',
+				'}',
+			].join('\n'),
+		)
+		expect(typeOf('TeamUpdateWithoutMembersInput')).toBe(
+			'input TeamUpdateWithoutMembersInput {\n  name: String\n}',
 		)
 		expect(typeOf('ProfileCreateWithoutTeamInput')).toContain(
 			'  prefs: ProfilePrefsInput!\n',
@@ -276,6 +303,62 @@ describe('a typed json field', () => {
 			{ as: master },
 		)
 		expect(stored?.prefs.since).toBe('2026-02-01T08:00:00Z')
+	})
+
+	it('stores the dates of the rows it updates or connects or creates through a relation as text (D-138)', async () => {
+		const team = await Team.create({ data: { name: 'near' } }, { as: master })
+		const [c] = await Profile.findMany({ where: { name: 'c' } }, { as: master })
+		const ids = { team: team.id, c: c?.id }
+		const moved = await post(
+			url,
+			`mutation($team: ID!, $c: ID!) { updateTeam(where: { id: $team }, data: {
+				members: { set: [{ id: $c }] } }) { members { edges { node { name } } } } }`,
+			ids,
+			asMaster,
+		)
+		expect(moved).toStrictEqual({
+			data: { updateTeam: { members: { edges: [{ node: { name: 'c' } }] } } },
+		})
+		const written = await post(
+			url,
+			`mutation($team: ID!, $c: ID!) { updateTeam(where: { id: $team }, data: { members: {
+				connectOrCreate: [{ where: { id: "none" }, create: {
+					name: "d", prefs: { theme: dark, since: "2026-03-01T00:00:00Z" }, maybe: { a: 1 } } }],
+				update: [{ where: { id: $c }, data: { prefs: { theme: light, since: "2026-04-01T00:00:00Z" } } }]
+			} }) { members(orderBy: [{ name: asc }]) { edges { node { name prefs { since } } } } } }`,
+			ids,
+			asMaster,
+		)
+		expect(written).toStrictEqual({
+			data: {
+				updateTeam: {
+					members: {
+						edges: [
+							{
+								node: {
+									name: 'c',
+									prefs: { since: '2026-04-01T00:00:00.000Z' },
+								},
+							},
+							{
+								node: {
+									name: 'd',
+									prefs: { since: '2026-03-01T00:00:00.000Z' },
+								},
+							},
+						],
+					},
+				},
+			},
+		})
+		const stored = await Profile.findMany(
+			{ where: { team: { is: { id: team.id } } }, orderBy: { name: 'asc' } },
+			{ as: master },
+		)
+		expect(stored.map((row) => row.prefs.since)).toStrictEqual([
+			'2026-04-01T00:00:00Z',
+			'2026-03-01T00:00:00Z',
+		])
 	})
 
 	it('refuses a value its schema refuses', async () => {

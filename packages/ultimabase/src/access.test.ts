@@ -511,6 +511,7 @@ describe('write rules', () => {
 		expect(seen).toEqual({
 			connect: [{ id: ids.loose }],
 			disconnect: [],
+			delete: [],
 			create: [],
 		})
 		expect(

@@ -2,6 +2,7 @@
 // into the adapter's changes (D-71, D-78, D-86).
 import { and, recordOf } from './access.ts'
 import type { Change, Check, Filter, Row } from './adapter.ts'
+import type { Except } from './cascade.ts'
 import { PublicError } from './errors.ts'
 import type { Issue } from './errors.ts'
 import type { Event } from './hooks.ts'
@@ -40,7 +41,20 @@ export type Detach = Omit<Link, 'kind'> & {
 	readonly trusted: boolean
 }
 
-export type Step = Change | Move | Detach
+/** A nested delete (D-138): its rows and their cascade, as `Target.delete`. */
+export type Drop = {
+	readonly kind: 'drop'
+	readonly model: string
+	readonly rows: readonly Row[]
+	/** Where it sits in the write's data. */
+	readonly path: string
+	/** The key the parent empties itself, which the cascade leaves. */
+	readonly except?: Except
+	/** The rows the write updates, as `Model:id`: none may be deleted. */
+	readonly written: ReadonlySet<string>
+}
+
+export type Step = Change | Move | Detach | Drop
 
 /**
  * A check of the write, and what `NOT_FOUND` says when it fails (D-99), or
@@ -63,6 +77,8 @@ export type Writing = {
 	readonly checks: Checked[]
 	/** The changes a moved row's `beforeUpdate` added to its data. */
 	readonly replan: (model: ModelInfo, id: string, draft: Draft) => Promise<Plan>
+	/** A nested delete's changes, its cascade and hooks run (D-138). */
+	readonly drop: (step: Drop) => Promise<Change[]>
 }
 
 const byId = (id: string): Filter => ({ id: { equals: id } })
@@ -189,6 +205,8 @@ export class Plan {
 	readonly events: Event[] = []
 	/** The ids of the rows it creates, which a `connect` needs not find. */
 	readonly made: Set<string> = new Set()
+	/** The rows it updates, as `Model:id` (D-138). */
+	readonly written: Set<string> = new Set()
 	private readonly connected = new Map<
 		string,
 		{
@@ -249,6 +267,8 @@ export class Plan {
 			if (step.kind === 'move') changes.push(...(await move(step, writing)))
 			else if (step.kind === 'detach') {
 				changes.push(...(await detach(step, writing)))
+			} else if (step.kind === 'drop') {
+				changes.push(...(await writing.drop(step)))
 			} else changes.push(step)
 		}
 		return changes

@@ -40,40 +40,148 @@ const connectInput = (registry: Registry): GraphQLInputObjectType =>
 
 type Relation = Exclude<SchemaField, { readonly kind: 'scalar' }>
 
+const facing = (field: Relation): string => `Without${upper(field.inverse)}`
+
+/** `CommentCreateOrConnectWithoutPostInput { where, create }` (D-138). */
+const orCreateInput = (
+	registry: Registry,
+	field: Relation,
+): GraphQLInputObjectType => {
+	const name = `${field.target}CreateOrConnect${facing(field)}Input`
+	return registry.input(
+		name,
+		() =>
+			new GraphQLInputObjectType({
+				name,
+				fields: () => ({
+					where: {
+						type: new GraphQLNonNull(uniqueInput(registry, field.target)),
+					},
+					create: {
+						type: new GraphQLNonNull(
+							dataInput(registry, field.target, true, field.inverse),
+						),
+					},
+				}),
+			}),
+	)
+}
+
+/** `CommentUpdateWithWhereUniqueWithoutPostInput { where, data }` (D-138). */
+const updateWhereInput = (
+	registry: Registry,
+	field: Relation,
+): GraphQLInputObjectType => {
+	const name = `${field.target}UpdateWithWhereUnique${facing(field)}Input`
+	return registry.input(
+		name,
+		() =>
+			new GraphQLInputObjectType({
+				name,
+				fields: () => ({
+					where: {
+						type: new GraphQLNonNull(uniqueInput(registry, field.target)),
+					},
+					data: {
+						type: new GraphQLNonNull(
+							dataInput(registry, field.target, false, field.inverse),
+						),
+					},
+				}),
+			}),
+	)
+}
+
 /**
- * A relation's write, named as Prisma names it (D-20, D-128): a create
- * connects or creates, an update also disconnects, unless the relation is a
- * required `one`. `create` takes the target's data without the relation
- * back: `PostCreateInput.comments` is `CommentCreateNestedManyWithoutPostInput
- * { connect, create: [CommentCreateWithoutPostInput!] }`. A hidden model
- * is not created over GraphQL, through a relation either, as in Parse.
+ * A relation's write, named as Prisma names it (D-20, D-128, D-138): a
+ * create connects or creates, an update also disconnects, unless the
+ * relation is a required `one`, and updates or deletes a linked row; a
+ * `many` is also `set`. `create` takes the target's data without the
+ * relation back: `PostCreateInput.comments` is
+ * `CommentCreateNestedManyWithoutPostInput { connect, connectOrCreate,
+ * create: [CommentCreateWithoutPostInput!] }`. A hidden model is not
+ * created, updated or deleted over GraphQL, through a relation either, as
+ * in Parse.
  */
 function relationInput(
 	registry: Registry,
 	field: Relation,
 	creating: boolean,
 ): GraphQLInputObjectType {
-	const without = `Without${upper(field.inverse)}`
 	const many = field.kind === 'many'
 	const shape = many ? 'Many' : field.optional ? 'One' : 'OneRequired'
 	const name = creating
-		? `${field.target}CreateNested${many ? 'Many' : 'One'}${without}Input`
-		: `${field.target}Update${shape}${without}NestedInput`
+		? `${field.target}CreateNested${many ? 'Many' : 'One'}${facing(field)}Input`
+		: `${field.target}Update${shape}${facing(field)}NestedInput`
 	return registry.input(name, () => {
 		const listed = <T extends GraphQLInputObjectType>(type: T) =>
 			many ? new GraphQLList(new GraphQLNonNull(type)) : type
 		const row = listed(connectInput(registry))
+		const visible = registry.entry(field.target).visible
+		const updating = !creating && visible
 		const fields: GraphQLInputFieldConfigMap = { connect: { type: row } }
-		if (registry.entry(field.target).visible) {
+		if (visible) {
+			fields['connectOrCreate'] = {
+				type: listed(orCreateInput(registry, field)),
+			}
 			const created = dataInput(registry, field.target, true, field.inverse)
 			fields['create'] = { type: listed(created) }
+		}
+		if (updating && shape !== 'OneRequired') {
+			const unique = uniqueInput(registry, field.target)
+			fields['delete'] = { type: many ? listed(unique) : GraphQLBoolean }
 		}
 		if (!creating && shape !== 'OneRequired') {
 			fields['disconnect'] = { type: many ? row : GraphQLBoolean }
 		}
+		if (!creating && many) fields['set'] = { type: row }
+		if (updating) {
+			fields['update'] = {
+				type: many
+					? listed(updateWhereInput(registry, field))
+					: dataInput(registry, field.target, false, field.inverse),
+			}
+		}
 		// A `one` relation takes one of them.
 		return new GraphQLInputObjectType({ name, fields, isOneOf: !many })
 	})
+}
+
+/**
+ * The kernel's data from a mutation's: its json values plain, and each
+ * nested row's data and unique target too (D-128, D-138).
+ */
+function kernelData(registry: Registry, model: string, data: Args): Args {
+	const plained: { [field: string]: unknown } = plainData(registry, model, data)
+	for (const field of registry.entry(model).model.fields) {
+		const value = plained[field.name]
+		if (field.kind === 'scalar' || typeof value !== 'object' || value === null)
+			continue
+		const { target } = field
+		const row = (item: unknown) => kernelData(registry, target, objectOf(item))
+		const unique = (item: unknown) =>
+			uniqueWhere(registry, target, objectOf(item))
+		const write: { [key: string]: unknown } = { ...value }
+		const map = (key: string, read: (item: unknown) => unknown) => {
+			const operand = write[key]
+			if (operand === undefined || operand === null) return
+			write[key] = Array.isArray(operand) ? operand.map(read) : read(operand)
+		}
+		map('create', row)
+		map('connectOrCreate', (item) => {
+			const { where, create } = objectOf(item)
+			return { where: unique(where), create: row(create) }
+		})
+		if (field.kind === 'many') {
+			map('update', (item) => {
+				const { where, data: changes } = objectOf(item)
+				return { where: unique(where), data: row(changes) }
+			})
+			map('delete', unique)
+		} else map('update', row)
+		plained[field.name] = write
+	}
+	return plained
 }
 
 function fieldInput(
@@ -96,9 +204,9 @@ function fieldInput(
 /**
  * `PostCreateInput` and `PostUpdateInput`: every field, those only Master
  * reads included. A create needs the fields its type needs, neither optional
- * nor with a default (D-53); the others are optional. A row created through
- * a relation takes `CommentCreateWithoutPostInput`, without that relation
- * (D-128).
+ * nor with a default (D-53); the others are optional. A row created or
+ * updated through a relation takes `CommentCreateWithoutPostInput` or
+ * `CommentUpdateWithoutPostInput`, without that relation (D-128, D-138).
  */
 function dataInput(
 	registry: Registry,
@@ -106,10 +214,9 @@ function dataInput(
 	creating: boolean,
 	without?: string,
 ): GraphQLInputObjectType {
-	const name =
-		without === undefined
-			? `${model}${creating ? 'Create' : 'Update'}Input`
-			: `${model}CreateWithout${upper(without)}Input`
+	const name = `${model}${creating ? 'Create' : 'Update'}${
+		without === undefined ? '' : `Without${upper(without)}`
+	}Input`
 	return registry.input(
 		name,
 		() =>
@@ -158,7 +265,7 @@ export function mutationFields(registry: Registry, entry: Entry): Fields {
 	const unique = (args: Args): Args =>
 		uniqueWhere(registry, name, objectOf(args['where']))
 	const dataOf = (args: Args): Args =>
-		plainData(registry, name, objectOf(args['data']))
+		kernelData(registry, name, objectOf(args['data']))
 	return {
 		[`create${name}`]: {
 			type: new GraphQLNonNull(type),

@@ -113,19 +113,29 @@ it('names a list after its plural and reaches a hidden model by relations', asyn
 	}
 })
 
-it('creates no row of a hidden model through a relation', async () => {
+it('creates, updates or deletes no row of a hidden model through a relation (D-138)', async () => {
 	const { app, url } = await listening([Person, Tag])
 	try {
 		const types = await post(
 			`${url}/graphql`,
 			`{
 				nested: __type(name: "TagCreateNestedManyWithoutOwnerInput") { inputFields { name } }
+				updated: __type(name: "TagUpdateManyWithoutOwnerNestedInput") { inputFields { name } }
 				row: __type(name: "TagCreateWithoutOwnerInput") { name }
+				orCreate: __type(name: "TagCreateOrConnectWithoutOwnerInput") { name }
 			}`,
 		)
 		expect(types.data).toStrictEqual({
 			nested: { inputFields: [{ name: 'connect' }] },
+			updated: {
+				inputFields: [
+					{ name: 'connect' },
+					{ name: 'disconnect' },
+					{ name: 'set' },
+				],
+			},
 			row: null,
+			orCreate: null,
 		})
 		const created = await post(
 			`${url}/graphql`,

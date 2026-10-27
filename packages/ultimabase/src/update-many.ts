@@ -20,9 +20,10 @@ import type { ModelInfo } from './schema.ts'
 import type { Commit, Store } from './transaction.ts'
 import type { Draft } from './write-data.ts'
 import { prepared, readData } from './write-data.ts'
-import type { Plan, Writing } from './write-plan.ts'
+import type { Plan } from './write-plan.ts'
 import { updated } from './write-plan.ts'
 import { guarded } from './write-target.ts'
+import { writingOf } from './writing.ts'
 
 /** The scalar data of the rows, as `update` reads it (D-133 point 2). */
 function scalarData(context: Context, data: unknown): Draft {
@@ -142,14 +143,7 @@ async function lockedRows(
 		id: row.id,
 		before: row,
 	}))
-	const writing: Writing = {
-		store,
-		scope,
-		events,
-		checks: [],
-		replan: async (moving, id, moved) =>
-			updatePlan(scope, moving, id, moved, {}, store),
-	}
+	const writing = writingOf(scope, store, events)
 	const changes: Change[] = []
 	for (const group of grouped(model, items, numbers)) {
 		const [{ row, sent }] = group.items

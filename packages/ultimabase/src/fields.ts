@@ -222,6 +222,8 @@ export type RelationValue = { readonly id: string }
 export type ManyValue = {
 	readonly connect: readonly RelationValue[]
 	readonly disconnect: readonly RelationValue[]
+	/** The linked rows it deletes (D-138). */
+	readonly delete: readonly RelationValue[]
 	/** The rows it creates, by the ids the kernel gives them (D-128). */
 	readonly create: readonly RelationValue[]
 }

@@ -1,4 +1,5 @@
 // The record a model stores, and the data written to it.
+import type { UniqueWhere } from './query.ts'
 import type { fieldType, modelFields } from './symbols.ts'
 
 type Scalar<V = unknown, O = unknown> = {
@@ -158,9 +159,34 @@ type Created<N, K, X> =
 	X extends Relation<'one' | 'many', infer T>
 		? CreateData<TargetFields<T>, TargetName<T>, InverseOf<N, K, X>>
 		: never
-type Connect<N, K, X> =
-	{ readonly connect: Ref } | { readonly create: Created<N, K, X> }
-/** A relation is connected or created (D-20, D-128). */
+/** A unique target of the relation's model, as stored (D-52, D-138). */
+type Target<X> =
+	X extends Relation<'one' | 'many', infer T>
+		? UniqueWhere<TargetFields<T>>
+		: never
+type OrCreate<N, K, X> = {
+	readonly where: Target<X>
+	readonly create: Created<N, K, X>
+}
+/**
+ * The data of a linked row relation `K` of model `N` updates, without the
+ * relation back to the row (D-138).
+ */
+type Updated<N, K, X> =
+	X extends Relation<'one' | 'many', infer T>
+		? Omit<UpdateData<TargetFields<T>, TargetName<T>>, InverseOf<N, K, X>>
+		: never
+/**
+ * A `one` is connected or created; `connectOrCreate` only where the caller
+ * writes it, as rules and hooks see it resolved (D-138).
+ */
+type Connect<N, K, X, Resolved extends boolean = false> =
+	| { readonly connect: Ref }
+	| { readonly create: Created<N, K, X> }
+	| (Resolved extends true
+			? never
+			: { readonly connectOrCreate: OrCreate<N, K, X> })
+/** A relation is connected or created (D-20, D-128, D-138). */
 type CreateInput<X, N, K> = X extends Scalar
 	? WrittenValue<X>
 	: X extends Relation<'one'>
@@ -168,6 +194,7 @@ type CreateInput<X, N, K> = X extends Scalar
 		: {
 				readonly connect?: readonly Ref[]
 				readonly create?: readonly Created<N, K, X>[]
+				readonly connectOrCreate?: readonly OrCreate<N, K, X>[]
 			}
 /** A plain number field: no list, no JSON, no plugin field type. */
 type IsNumber<X> = X extends {
@@ -201,9 +228,35 @@ type NumberUpdate<V> = OneOf<{
 	readonly divide: number
 }>
 
+/** A `one` the caller writes; rules and hooks see it resolved (D-138). */
+type OneUpdate<N, K, X, O, Operations extends boolean> =
+	| Connect<N, K, X, Not<Operations>>
+	| { readonly update: Updated<N, K, X> }
+	| (IsOptional<O> extends true
+			? { readonly disconnect: true } | { readonly delete: true }
+			: never)
+/** A `many` the caller writes; `set` reaches rules and hooks resolved. */
+type ManyUpdate<N, K, X, Operations extends boolean> = {
+	readonly connect?: readonly Ref[]
+	readonly disconnect?: readonly Ref[]
+	readonly create?: readonly Created<N, K, X>[]
+	readonly update?: readonly {
+		readonly where: Target<X>
+		readonly data: Updated<N, K, X>
+	}[]
+	readonly delete?: readonly Target<X>[]
+} & (Operations extends true
+	? {
+			readonly set?: readonly Ref[]
+			readonly connectOrCreate?: readonly OrCreate<N, K, X>[]
+		}
+	: unknown)
+type Not<B extends boolean> = B extends true ? false : true
+
 /**
  * An optional `one` relation is unset with `disconnect: true` (D-20); with
- * `Operations`, a number field also takes an operation (D-132).
+ * `Operations`, a number field also takes an operation (D-132), and a
+ * relation `set` and `connectOrCreate` (D-138).
  */
 type UpdateInput<X, N, K, Operations extends boolean> = X extends Scalar
 	? Operations extends true
@@ -212,14 +265,8 @@ type UpdateInput<X, N, K, Operations extends boolean> = X extends Scalar
 			: WrittenValue<X>
 		: WrittenValue<X>
 	: X extends Relation<'one', unknown, infer O>
-		? IsOptional<O> extends true
-			? Connect<N, K, X> | { readonly disconnect: true }
-			: Connect<N, K, X>
-		: {
-				readonly connect?: readonly Ref[]
-				readonly disconnect?: readonly Ref[]
-				readonly create?: readonly Created<N, K, X>[]
-			}
+		? OneUpdate<N, K, X, O, Operations>
+		: ManyUpdate<N, K, X, Operations>
 // A list left unwritten is empty (D-120).
 type Needed<X> =
 	X extends Scalar<unknown, infer O>
@@ -270,7 +317,8 @@ export type CreateManyData<F> = {
 
 /**
  * `undefined` leaves a field unchanged, as in Prisma (D-84). Rules and hooks
- * see the data without `Operations`: each number as computed (D-132).
+ * see the data without `Operations`: each number as computed (D-132), each
+ * relation resolved (D-138).
  */
 export type UpdateData<F, N = never, Operations extends boolean = true> = {
 	readonly [K in keyof F]?: UpdateInput<F[K], N, K, Operations> | undefined

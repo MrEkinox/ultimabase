@@ -31,6 +31,13 @@ export type Cascade = {
 
 type Reference = { readonly model: ModelInfo; readonly field: string }
 
+/** A row's key the cascade leaves: the write empties it itself (D-138). */
+export type Except = {
+	readonly model: string
+	readonly field: string
+	readonly id: string
+}
+
 /** The stored `one` relations to `target`, each with its `onDelete`. */
 function referencesTo(
 	models: Models,
@@ -60,6 +67,7 @@ export async function cascadeOf(
 	model: ModelInfo,
 	deleting: readonly Row[],
 	store: Reads,
+	except?: Except,
 ): Promise<Cascade> {
 	const roots = deleting.map((row) => ({ model, row, redirected: false }))
 	const deleted = new Map<string, Doomed>()
@@ -85,6 +93,11 @@ export async function cascadeOf(
 					lock: true,
 				})
 				for (const found of rows) {
+					const left =
+						except?.model === from.name &&
+						except.field === field &&
+						except.id === found.id
+					if (left) continue
 					if (onDelete === 'restrict') {
 						restricted.push({
 							model: from,

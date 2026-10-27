@@ -1,103 +1,35 @@
 // A write's data after its `before*` hooks, turned into the adapter's
-// changes: values and relation writes by id, from either side (D-20, D-78).
+// changes: values and relation writes by id, from either side (D-20, D-78),
+// and the rows its relation writes create, update and delete (D-128, D-138).
 // The caller's data was checked before the hooks (write-data.ts): what fails
 // here is a hook's or a default's value (D-88).
-import type { Filter, Row } from './adapter.ts'
+import { recordOf } from './access.ts'
+import type { Row } from './adapter.ts'
 import { InvalidQuery } from './errors.ts'
 import { runHook } from './hooks.ts'
+import { resolveData, resolveMany, resolveOne } from './nested-write.ts'
 import type { Numbers } from './number-update.ts'
 import type { FieldInfo, ModelInfo } from './schema.ts'
 import type { QueryScope } from './scope.ts'
 import { madeId, uuidv7 } from './uuid.ts'
 import { entries, unknownKey } from './query-where.ts'
-import type { Draft } from './write-data.ts'
+import type { Context, Relation } from './write-context.ts'
 import {
-	issueOf,
-	manyWrite,
-	oneWrite,
-	prepared,
-	readData,
-} from './write-data.ts'
+	byId,
+	fail,
+	holds,
+	linking,
+	pathOf,
+	resolving,
+	scalar,
+	targetOf,
+	trusted,
+	viaOf,
+} from './write-context.ts'
+import type { Draft } from './write-data.ts'
+import { prepared, readData } from './write-data.ts'
 import type { Reads, Step } from './write-plan.ts'
 import { Plan } from './write-plan.ts'
-
-const byId = (id: string): Filter => ({ id: { equals: id } })
-const byIds = (ids: readonly string[]): Filter => ({ id: { in: ids } })
-
-type Relation = Extract<FieldInfo, { readonly kind: 'one' | 'many' }>
-
-type Context = {
-	readonly scope: QueryScope
-	readonly model: ModelInfo
-	readonly id: string
-	readonly plan: Plan
-	readonly reads: Reads
-	/** The data the caller sent, before defaults and hooks. */
-	readonly sent: Readonly<Draft>
-	readonly set: { [field: string]: unknown }
-	/** The steps that run before the row's own: the rows it points to. */
-	readonly before: Step[]
-	/** The steps that run after the row's own. */
-	readonly after: Step[]
-	/** Where the row's data sits in the write's `data` (D-128). */
-	readonly at: readonly (string | number)[]
-}
-
-function fail(context: Context, path: readonly string[], message: string) {
-	context.plan.issues.push({ path: [...context.at, ...path], message })
-}
-
-const pathOf = (context: Context, name: string): string =>
-	['data', ...context.at, name].join('.')
-
-/**
- * A relation value the caller did not send, a default's or a hook's, skips
- * access rules (D-67); `beforeFind` still applies (D-71).
- */
-function trusted(context: Context, field: FieldInfo, value: unknown): boolean {
-	return (
-		!Object.hasOwn(context.sent, field.name) ||
-		context.sent[field.name] !== value
-	)
-}
-
-function scalar(context: Context, field: FieldInfo, value: unknown): void {
-	if (field.kind !== 'scalar') return
-	if (value === null) {
-		if (field.optional) context.set[field.name] = null
-		else fail(context, [field.name], 'Required.')
-		return
-	}
-	const { codec } = field
-	// A plugin field is stored in the form its `encode` gives (D-122).
-	const stored = codec === undefined ? value : codec.encode(value)
-	const issue = issueOf(stored, field)
-	const where = `${context.model.name}.${field.name}`
-	if (issue !== undefined) {
-		throw new TypeError(
-			codec === undefined
-				? `${where}: ${issue} A before hook or validate wrote it.`
-				: `${where}: the ${codec.plugin} field type encoded a value its stored field refuses: ${issue}`,
-		)
-	}
-	context.set[field.name] = stored
-}
-
-/** Whether a row of the other side, but `kept`, holds this one's key. */
-async function holds(
-	context: Context,
-	field: Extract<FieldInfo, { readonly kind: 'one' }>,
-	kept: string | undefined,
-): Promise<boolean> {
-	const count = await context.reads.count({
-		model: field.target,
-		where: {
-			[field.inverse]: { is: byId(context.id) },
-			...(kept === undefined ? {} : { id: { not: kept } }),
-		},
-	})
-	return count > 0
-}
 
 /**
  * A row a relation write creates, as `Target.create` creates it (D-128):
@@ -112,8 +44,7 @@ async function created(
 	skips: boolean,
 ): Promise<{ readonly id: string; readonly steps: Step[] }> {
 	const { scope, plan } = context
-	const model = scope.models.get(field.target)
-	if (model === undefined) throw new Error(`Unknown model ${field.target}.`)
+	const model = targetOf(context, field)
 	const made = madeId(data)
 	// A hook's data may come back in another write: it gets a fresh id.
 	const id = skips || plan.made.has(made) ? uuidv7() : made
@@ -123,14 +54,69 @@ async function created(
 	if (inverse?.kind === 'one' && inverse.stored) {
 		draft[field.inverse] = { connect: { id: context.id } }
 	}
+	const child = { ...context, model, id, set: {}, at }
+	await resolveData(resolving(child, skips, true), draft)
 	const sent: Readonly<Draft> = skips ? {} : { ...draft }
 	if (!skips) scope.access?.allow(model, 'create', { data: sent })
 	await prepared(model, draft, scope.caller, true, at)
 	await runHook(model, 'beforeCreate', { caller: scope.caller, data: draft })
 	plan.events.push({ model, operation: 'create', id })
-	const child = { ...context, model, id, sent, set: {}, at }
-	const steps = await inserted({ ...child, before: [], after: [] }, draft)
+	const steps = await inserted({ ...child, sent, before: [], after: [] }, draft)
 	return { id, steps }
+}
+
+/**
+ * A linked row a relation write updates, as `Target.update` updates it
+ * (D-138): its rules unless a hook or a default wrote it, its validation,
+ * `beforeUpdate`, then its own relation writes.
+ */
+async function changed(
+	context: Context,
+	field: Relation,
+	update: { readonly data: Draft; readonly row: Row },
+	at: readonly (string | number)[],
+	skips: boolean,
+): Promise<Step[]> {
+	const { scope, plan } = context
+	const { data, row } = update
+	const model = targetOf(context, field)
+	const child = { ...context, model, id: row.id, set: {}, at }
+	await resolveData(resolving(child, skips, false), data)
+	const sent: Readonly<Draft> = skips ? {} : { ...data }
+	const via = viaOf(context, field)
+	if (!skips)
+		scope.access?.allow(model, 'update', { record: row, data: sent, via })
+	await prepared(model, data, scope.caller, false, at)
+	const record = recordOf(model, row)
+	await runHook(model, 'beforeUpdate', { caller: scope.caller, record, data })
+	plan.events.push({ model, operation: 'update', id: row.id, before: row })
+	return updateSteps({ ...child, sent, before: [], after: [] }, data)
+}
+
+/** A linked row a relation write deletes, as `Target.delete` (D-138). */
+function dropped(
+	context: Context,
+	field: Relation,
+	row: Row,
+	path: string,
+	skips: boolean,
+): Step {
+	const model = targetOf(context, field)
+	const via = viaOf(context, field)
+	if (!skips) context.scope.access?.allow(model, 'delete', { record: row, via })
+	// The parent empties its own key to the row: the cascade leaves it.
+	const except =
+		field.kind === 'one' && field.stored
+			? { model: context.model.name, field: field.name, id: context.id }
+			: undefined
+	return {
+		kind: 'drop',
+		model: model.name,
+		rows: [row],
+		path,
+		...(except === undefined ? {} : { except }),
+		written: context.plan.written,
+	}
 }
 
 async function one(
@@ -139,18 +125,36 @@ async function one(
 	value: unknown,
 	creating: boolean,
 ): Promise<void> {
-	const name = context.model.name
-	const write = oneWrite(value, pathOf(context, field.name), name, creating)
 	const skips = trusted(context, field, value)
+	const write = await resolveOne(
+		resolving(context, skips, creating),
+		field,
+		value,
+	)
+	const at = [...context.at, field.name, write.kind]
+	if (write.kind === 'update') {
+		context.after.push(...(await changed(context, field, write, at, skips)))
+		return
+	}
+	if (write.kind === 'delete') {
+		context.after.push(
+			dropped(
+				context,
+				field,
+				write.row,
+				`${pathOf(context, field.name)}.delete`,
+				skips,
+			),
+		)
+	}
 	// A key the other side holds changes its row: it is updated (D-124).
 	const operation = field.stored ? 'read' : 'update'
-	let target = typeof write === 'string' ? write : undefined
+	let target = write.kind === 'connect' ? write.id : undefined
 	if (target !== undefined) {
 		context.plan.connect(field.target, [target], skips, operation)
 	}
-	if (typeof write === 'object') {
-		const at = [...context.at, field.name, 'create']
-		const made = await created(context, field, write, at, skips)
+	if (write.kind === 'create') {
+		const made = await created(context, field, write.data, write.at, skips)
 		target = made.id
 		// The row that stores the key is written after the row it points to.
 		;(field.stored ? context.before : context.after).push(...made.steps)
@@ -163,7 +167,8 @@ async function one(
 		context.set[field.name] = target ?? null
 		return
 	}
-	// The other side holds a required key (D-37): it cannot be left empty.
+	// A deleted row holds no key; another one may not be left empty (D-37).
+	if (write.kind === 'delete') return
 	if (!creating && (await holds(context, field, target))) {
 		fail(
 			context,
@@ -172,90 +177,57 @@ async function one(
 		)
 		return
 	}
-	if (typeof write === 'string') {
+	if (write.kind === 'connect') {
 		context.after.push({
 			kind: 'move',
 			model: field.target,
 			field: field.inverse,
-			via: `${name}.${field.name}`,
-			where: byId(write),
+			via: viaOf(context, field),
+			where: byId(write.id),
 			to: context.id,
 			trusted: skips,
 		})
 	}
 }
 
+/** Deletes, then creates, disconnects and connects, then updates (D-138). */
 async function many(
 	context: Context,
 	field: Extract<FieldInfo, { readonly kind: 'many' }>,
 	value: unknown,
 	creating: boolean,
 ): Promise<void> {
-	const path = pathOf(context, field.name)
-	const name = context.model.name
-	const { connect, disconnect, create } = manyWrite(value, path, name, creating)
 	const skips = trusted(context, field, value)
+	const write = await resolveMany(
+		resolving(context, skips, creating),
+		field,
+		value,
+	)
 	const operation = field.join ? 'read' : 'update'
-	context.plan.connect(field.target, connect, skips, operation)
+	context.plan.connect(field.target, write.connect, skips, operation)
+	for (const { row, path } of write.delete) {
+		context.after.push(dropped(context, field, row, path, skips))
+	}
 	const made: string[] = []
-	for (const [index, data] of create.entries()) {
-		const at = [...context.at, field.name, 'create', index]
+	for (const { data, at } of write.create) {
 		const child = await created(context, field, data, at, skips)
 		made.push(child.id)
 		context.after.push(...child.steps)
 	}
-	if (field.join) {
-		const link = {
-			model: context.model.name,
-			field: field.name,
-			id: context.id,
-		}
-		if (disconnect.length > 0) {
-			context.after.push({
-				kind: 'detach',
-				...link,
-				targets: disconnect,
-				target: field.target,
-				trusted: skips,
-			})
-		}
-		const targets = [...connect, ...made]
-		if (targets.length > 0) {
-			context.after.push({ kind: 'link', ...link, targets })
-		}
-		return
+	linking(context, field, write, made, skips)
+	for (const [index, update] of write.update.entries()) {
+		const at = [...context.at, field.name, 'update', index, 'data']
+		context.after.push(...(await changed(context, field, update, at, skips)))
 	}
-	const inverse = context.scope.models
-		.get(field.target)
-		?.fields.get(field.inverse)
-	const move = {
-		kind: 'move',
-		model: field.target,
-		field: field.inverse,
-		via: `${context.model.name}.${field.name}`,
-		trusted: skips,
-	} as const
-	if (disconnect.length > 0) {
-		if (inverse?.kind === 'one' && !inverse.optional) {
-			fail(
-				context,
-				[field.name, 'disconnect'],
-				`A ${field.target} cannot be left without its ${field.inverse}.`,
-			)
-		} else {
-			context.after.push({
-				...move,
-				where: {
-					...byIds(disconnect),
-					[field.inverse]: { is: byId(context.id) },
-				},
-				to: null,
-			})
-		}
-	}
-	if (connect.length > 0) {
-		context.after.push({ ...move, where: byIds(connect), to: context.id })
-	}
+}
+
+/** A hook's value the plan refuses is the hook's error, not the caller's. */
+function hookError(context: Context, error: unknown): unknown {
+	if (!(error instanceof InvalidQuery)) return error
+	return new TypeError(
+		`${context.model.name}: a before hook wrote invalid data. ${error.message}`,
+		{ cause: error },
+	)
 }
 
 async function fields(
@@ -264,24 +236,25 @@ async function fields(
 	creating: boolean,
 ): Promise<Set<string>> {
 	const given = new Set<string>()
-	try {
-		const at = ['data', ...context.at].join('.')
-		for (const [name, value] of entries(data, at)) {
-			const field = context.model.fields.get(name)
-			if (field === undefined) {
-				throw unknownKey(pathOf(context, name), context.model.name)
-			}
-			given.add(name)
+	const at = ['data', ...context.at].join('.')
+	for (const [name, value] of entries(data, at)) {
+		const field = context.model.fields.get(name)
+		// The caller's data was read before the hooks: a hook wrote the key.
+		if (field === undefined) {
+			throw hookError(
+				context,
+				unknownKey(pathOf(context, name), context.model.name),
+			)
+		}
+		given.add(name)
+		try {
 			if (field.kind === 'scalar') scalar(context, field, value)
 			else if (field.kind === 'one') await one(context, field, value, creating)
 			else await many(context, field, value, creating)
+		} catch (error) {
+			// The caller's relation value reaches rows only now (D-138).
+			throw trusted(context, field, value) ? hookError(context, error) : error
 		}
-	} catch (error) {
-		if (!(error instanceof InvalidQuery)) throw error
-		throw new TypeError(
-			`${context.model.name}: a before hook wrote invalid data. ${error.message}`,
-			{ cause: error },
-		)
 	}
 	return given
 }
@@ -335,6 +308,28 @@ async function inserted(context: Context, draft: Draft): Promise<Step[]> {
 	return [...context.before, insert, ...context.after]
 }
 
+/** An updated row's steps; `updatedAt` always moves. */
+async function updateSteps(
+	context: Context,
+	draft: Draft,
+	numbers: Numbers = new Map(),
+): Promise<Step[]> {
+	const { model, id, plan } = context
+	plan.written.add(`${model.name}:${id}`)
+	await fields(context, draft, false)
+	return [
+		...context.before,
+		{
+			kind: 'update',
+			model: model.name,
+			where: byId(id),
+			set: { ...context.set, updatedAt: new Date(Date.now()) },
+			...(numbers.size === 0 ? {} : { compute: Object.fromEntries(numbers) }),
+		},
+		...context.after,
+	]
+}
+
 /** `create`'s changes: the row with its id and timestamps (D-22). */
 export async function createPlan(
 	scope: QueryScope,
@@ -342,13 +337,14 @@ export async function createPlan(
 	draft: Draft,
 	sent: Readonly<Draft>,
 	reads: Reads,
+	id: string = uuidv7(),
 ): Promise<{ readonly id: string; readonly plan: Plan }> {
-	const context = contextOf(scope, model, uuidv7(), sent, reads)
+	const context = contextOf(scope, model, id, sent, reads)
 	context.plan.steps.push(...(await inserted(context, draft)))
 	return { id: context.id, plan: context.plan }
 }
 
-/** `update`'s changes on the stored row; `updatedAt` always moves. */
+/** `update`'s changes on the stored row. */
 export async function updatePlan(
 	scope: QueryScope,
 	model: ModelInfo,
@@ -359,17 +355,6 @@ export async function updatePlan(
 	numbers: Numbers = new Map(),
 ): Promise<Plan> {
 	const context = contextOf(scope, model, id, sent, reads)
-	await fields(context, draft, false)
-	context.plan.steps.push(
-		...context.before,
-		{
-			kind: 'update',
-			model: model.name,
-			where: byId(id),
-			set: { ...context.set, updatedAt: new Date(Date.now()) },
-			...(numbers.size === 0 ? {} : { compute: Object.fromEntries(numbers) }),
-		},
-		...context.after,
-	)
+	context.plan.steps.push(...(await updateSteps(context, draft, numbers)))
 	return context.plan
 }
