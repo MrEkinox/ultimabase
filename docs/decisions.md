@@ -459,7 +459,7 @@ read: ({ caller, where }) =>
 
 ## D-20: The query API follows Prisma Client
 
-Amended by D-128.
+Amended by D-128 and D-132.
 
 Choice: operations, their names and their arguments follow Prisma Client, so
 a developer coming from Prisma reads UltimaBase queries as Prisma: `findUnique`,
@@ -3470,7 +3470,7 @@ await Note.create({ data }, { as: asUser({ id: 'ada' }) })
 
 ## D-98: The PostgreSQL adapter's tables, names and test setup
 
-Amended by D-105.
+Amended by D-105 and D-132.
 
 Choice:
 
@@ -4619,7 +4619,7 @@ curl -X POST localhost:3000/webhooks/stripe -d '{"id":"…"}' \
 
 ## D-107: `graphqlPlugin()`, the schema it generates and how it mounts
 
-Amended by D-125 and D-128.
+Amended by D-125, D-128 and D-132.
 
 Choice: completes D-16, D-34, D-41, D-45 and D-55.
 
@@ -6974,4 +6974,100 @@ examples/
   soft-delete/       rest/       postgres/
 .changeset/
   config.json        first-release.md   ("ultimabase": minor, …)
+```
+
+## D-132: Integer fields, and number updates computed on the locked row
+
+Choice: completes D-09; amends D-20, D-98 point 2 and D-107's scalars.
+
+1. `f.number({ integer: true })` is a whole number from -2,147,483,648 to
+   2,147,483,647: `integer` on PostgreSQL, `Int` in GraphQL, the same bounds
+   on `memory()`. `integer: true` also applies with `list: true` (D-127),
+   as `integer[]` and `[Int!]`. A value with a fraction or out of bounds
+   fails with `VALIDATION_FAILED` and the field's path, whichever API sent
+   it.
+2. On a `number` field, `update` and `updateMany` take one operation instead
+   of a value: `{ set }`, `{ increment }`, `{ decrement }`, `{ multiply }`
+   or `{ divide }`, as in Prisma. `{ set: 3 }` is `3`, and `{ set: null }`
+   clears an optional field. On an integer field the operand is an integer.
+   The types refuse an object with two operations or none; at run time it
+   fails with `INVALID_QUERY` (D-20). `{ increment: undefined }` leaves the
+   field unchanged (D-84).
+3. The kernel computes the new value on the row the update locks (D-99
+   point 2, D-104), before the rules: a field rule's `value` (D-44), the
+   validation (D-23), `beforeUpdate`'s `data` and `afterUpdate`'s `record`
+   all see the number the row will hold, never the operation. A hook that
+   assigns `data.stock` assigns a number.
+4. When the kernel loads no row (D-99 point 5: Master, by `id`, a model
+   without update hooks), the adapter computes it in the write
+   (`stock = stock - 3`), atomic in its statement. A field with `validate`
+   needs the new value, so an operation on it loads the locked row: only
+   then does the operation add a transaction.
+5. An operation on `null` starts from 0. Dividing by 0 fails with
+   `VALIDATION_FAILED` before any query. On an integer field, `divide`
+   truncates toward zero, as PostgreSQL does (`7 / 2` is 3). A result out of
+   bounds, or not finite on a float field, fails with `VALIDATION_FAILED`.
+6. Operations are part of the server API only. GraphQL and REST keep plain
+   values: REST refuses an object for a number field as bad input, and
+   `PostUpdateInput` keeps `Float` or `Int`. A client's counter belongs in
+   a function (D-27), which applies its own logic.
+7. Changing a `number` field to `integer: true` is tried (D-105 point 3): a
+   stored value with a fraction or out of bounds refuses it, and nothing is
+   applied. The other way loses nothing.
+
+Why:
+
+- Reading a number, computing in JavaScript and writing it back loses
+  updates under concurrency: in `examples/functions-and-hooks`, two orders
+  of 1 placed at once against a stock of 10 left 9, not 8 (PostgreSQL 18).
+- The row is already locked before the rules and hooks run, so computing on
+  it costs nothing more, and every rule, schema and hook keeps seeing the
+  value it sees today. A rule that limits a step compares `value` with
+  `record`.
+- GraphQL cannot type a field that is either a `Float` or an object, so
+  exposing operations there would turn every number input into an object.
+  Parse Server's GraphQL never exposed `Increment`, only its REST did.
+- `Int` is 32 bits in the GraphQL specification; bigint waits for a need
+  (D-09).
+
+Rejected:
+
+- Hooks and validation seeing the operation (`{ increment: 1 }`): every
+  hook, rule and schema would handle two shapes.
+- Prisma's `null` left unchanged by an operation: a counter that never
+  counts, without an error.
+- Operations in GraphQL as `NumberUpdate @oneOf`, or as Hasura's separate
+  `_inc` argument, which REST and the server API do not have (D-129).
+- `f.int()`: a second builder for one option of `number`.
+
+Example:
+
+```ts
+// Before: examples/functions-and-hooks, Order's afterCreate
+const product = await Product.findUnique({ where }, { as: master })
+const stock = (product?.stock ?? 0) - record.quantity
+if (stock < 0) throw new PublicError('OUT_OF_STOCK', 'Out of stock.')
+await Product.update({ where, data: { stock } }, { as: master })
+
+// After: the decrement in Order's afterCreate…
+await Product.update(
+	{ where, data: { stock: { decrement: record.quantity } } },
+	{ as: master },
+)
+// …and the check in Product, which sees the new stock
+stock: f.number({ integer: true, default: 0 }),
+beforeUpdate: ({ data }) => {
+	if (data.stock !== undefined && data.stock < 0) {
+		throw new PublicError('OUT_OF_STOCK', 'Out of stock.')
+	}
+},
+```
+
+```ts
+await Post.update({ where: { id }, data: { likes: { increment: 1 } } })
+await Post.update({ where: { id }, data: { likes: { set: 0 } } }) // = likes: 0
+await Post.update({
+	where: { id },
+	data: { likes: { increment: 1, decrement: 1 } }, // type error: one operation
+})
 ```

@@ -193,6 +193,8 @@ Exit: an example with sign-up, sign-in and rules on `caller.user`.
 - [x] Decide the examples and Changesets (D-31, D-60): D-131.
 - [x] One example per feature, tested as an application, and Changesets
       (D-131).
+- [x] Decide integer fields and number updates (D-20): D-132.
+- [ ] Integer fields and number updates (D-132).
 - [ ] Documentation website (D-31).
 - [ ] A full audit of every package, its fixes merged, before publication.
 - [ ] Publication, after confirmation.
