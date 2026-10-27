@@ -11,8 +11,16 @@ import { inCommand } from './plugin-code.ts'
 import { isObject } from './query-where.ts'
 import { Refused } from './errors.ts'
 
-/** The kernel's names, which a model's field cannot take (D-22, D-20). */
-const reserved = new Set(['id', 'createdAt', 'updatedAt', 'AND', 'OR', 'NOT'])
+/** The kernel's names, which a model's field cannot take (D-22, D-20, D-134). */
+const reserved = new Set([
+	'id',
+	'createdAt',
+	'updatedAt',
+	'AND',
+	'OR',
+	'NOT',
+	'_count',
+])
 
 /**
  * Adds the fields a `fields` callback, or a plugin's `addedFields`, built.

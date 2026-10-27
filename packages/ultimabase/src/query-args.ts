@@ -1,9 +1,10 @@
 // A read's arguments: `select`, `include`, `orderBy`, `take`, `skip` and
 // `cursor` checked (D-20), as the adapter's read and the shape of the result.
-import type { Filter, Nested, Order } from './adapter.ts'
+import type { Filter, Nested } from './adapter.ts'
 import { and } from './access.ts'
 import { InvalidQuery } from './errors.ts'
 import type { ModelInfo } from './schema.ts'
+import { orderBy } from './query-order.ts'
 import type { Models, Scope } from './query-where.ts'
 import { entries, isObject, normalizeWhere, unknownKey } from './query-where.ts'
 
@@ -12,6 +13,8 @@ export type Shape = {
 	readonly model: ModelInfo
 	readonly fields: readonly string[]
 	readonly relations: ReadonlyMap<string, Shape>
+	/** The `many` relations `_count` returns (D-134). */
+	readonly counts: readonly string[]
 }
 
 export type Plan = { readonly read: Nested; readonly shape: Shape }
@@ -46,55 +49,57 @@ function integer(value: unknown, path: string, least?: number): number {
 	return value
 }
 
-function orderBy(
+/** `_count`: the `many` relations it names, each with its filter (D-134). */
+function counted(
+	models: Models,
 	model: ModelInfo,
 	value: unknown,
 	path: string,
 	scope: Scope | undefined,
-): Order[] {
-	const parts = Array.isArray(value) ? value : [value]
-	const order: Order[] = []
-	parts.forEach((part: unknown, index) => {
-		const at = Array.isArray(value) ? `${path}.${index}` : path
-		for (const [field, direction] of entries(part, at)) {
-			const known = model.fields.get(field)
-			if (
-				known === undefined
-					? !systemFields.includes(field)
-					: known.kind !== 'scalar'
-			) {
-				throw unknownKey(`${at}.${field}`, model.name)
-			}
-			if (
-				known?.kind === 'scalar' &&
-				(known.type === 'json' || known.list || known.codec !== undefined)
-			) {
-				const kind =
-					known.codec !== undefined
-						? `a ${known.codec.plugin} field`
-						: known.type === 'json'
-							? 'a json field'
-							: 'a list'
-				throw new InvalidQuery(
-					`${at}.${field}`,
-					`${at}.${field} is ${kind}, which cannot be sorted.`,
-				)
-			}
-			scope?.check(model, field, `${at}.${field}`, 'sorts')
-			if (direction !== 'asc' && direction !== 'desc') {
-				throw new InvalidQuery(
-					`${at}.${field}`,
-					`${at}.${field} must be 'asc' or 'desc'.`,
-				)
-			}
-			order.push({ field, direction })
+): Map<string, Filter> {
+	const relations = [...model.fields.values()].filter(
+		(field) => field.kind === 'many',
+	)
+	const filter = (counting: string, where?: Filter): Filter =>
+		and(where, scope?.readable(counting)) ?? {}
+	const counts = new Map<string, Filter>()
+	if (value === true) {
+		for (const field of relations) {
+			if (field.kind === 'many') counts.set(field.name, filter(field.target))
 		}
-	})
-	// The order is total, so a cursor and a page are exact.
-	if (!order.some((each) => each.field === 'id')) {
-		order.push({ field: 'id', direction: 'asc' })
+		return counts
 	}
-	return order
+	const given = new Map(entries(value, path))
+	for (const key of given.keys()) {
+		if (key !== 'select') throw unknownKey(`${path}.${key}`, model.name)
+	}
+	const select = `${path}.select`
+	for (const [name, chosen] of entries(given.get('select'), select)) {
+		const at = `${select}.${name}`
+		const field = model.fields.get(name)
+		if (field?.kind !== 'many') throw unknownKey(at, model.name)
+		if (chosen === false) continue
+		if (chosen === true) {
+			counts.set(name, filter(field.target))
+			continue
+		}
+		const args = new Map(entries(chosen, at))
+		for (const key of args.keys()) {
+			if (key !== 'where') throw unknownKey(`${at}.${key}`, model.name)
+		}
+		const counting = target(models, field.target)
+		const where = args.has('where')
+			? normalizeWhere(
+					models,
+					counting,
+					args.get('where'),
+					`${at}.where`,
+					scope,
+				)
+			: undefined
+		counts.set(name, filter(field.target, where))
+	}
+	return counts
 }
 
 /** A unique target (D-52): exactly `id`, a unique field or a unique index. */
@@ -176,11 +181,17 @@ export function plan(
 	const fields: string[] = select === undefined ? scalars(model) : []
 	const relations = new Map<string, Shape>()
 	const nested: { [field: string]: Nested } = {}
+	let count = new Map<string, Filter>()
 	const chosen = select ?? include
 	if (chosen !== undefined) {
 		const base = select === undefined ? 'include' : 'select'
 		for (const [name, value] of entries(chosen, at(base))) {
 			const where = `${at(base)}.${name}`
+			if (name === '_count') {
+				if (value === false) continue
+				count = counted(models, model, value, where, scope)
+				continue
+			}
 			const field = model.fields.get(name)
 			const scalar =
 				field === undefined
@@ -212,6 +223,7 @@ export function plan(
 		}
 	}
 	if (Object.keys(nested).length > 0) read.include = nested
+	if (count.size > 0) read.count = Object.fromEntries(count)
 	if (given.has('where')) {
 		read.where = normalizeWhere(
 			models,
@@ -223,6 +235,7 @@ export function plan(
 	}
 	if (kind === 'many') {
 		read.orderBy = orderBy(
+			models,
 			model,
 			given.get('orderBy') ?? [],
 			at('orderBy'),
@@ -240,7 +253,10 @@ export function plan(
 			)
 		}
 	}
-	return { read, shape: { model, fields, relations } }
+	return {
+		read,
+		shape: { model, fields, relations, counts: [...count.keys()] },
+	}
 }
 
 const oneKeys = new Set(['select', 'include'])
@@ -266,7 +282,7 @@ export function project(row: unknown, shape: Shape, hidden?: Hidden): unknown {
 		return row.map((item: unknown) => project(item, shape, hidden))
 	}
 	if (!isObject(row)) return null
-	const names = [...shape.fields, ...shape.relations.keys()]
+	const names = [...shape.fields, ...shape.relations.keys(), ...shape.counts]
 	const unseen = hidden?.(shape.model, row, names)
 	const result: { [field: string]: unknown } = {}
 	for (const field of shape.fields) {
@@ -274,6 +290,16 @@ export function project(row: unknown, shape: Shape, hidden?: Hidden): unknown {
 	}
 	for (const [name, nested] of shape.relations) {
 		if (!unseen?.has(name)) result[name] = project(row[name], nested, hidden)
+	}
+	if (shape.counts.length > 0) {
+		const counts: { readonly [name: string]: unknown } = isObject(row['_count'])
+			? row['_count']
+			: {}
+		result['_count'] = Object.fromEntries(
+			shape.counts
+				.filter((name) => !unseen?.has(name))
+				.map((name) => [name, counts[name] ?? 0]),
+		)
 	}
 	return result
 }

@@ -2,7 +2,7 @@
 // `many`, is a jsonb array the database builds, so relations at any depth
 // cost no extra round trip.
 import { sql } from 'kysely'
-import type { CountRead, Nested, Order, Read } from 'ultimabase'
+import type { CountRead, Filter, Nested, Order, Read } from 'ultimabase'
 import type { Reach, Sql } from './filter.ts'
 import { all, Filters } from './filter.ts'
 import type { Catalog, Table } from './names.ts'
@@ -22,7 +22,7 @@ function object(pairs: readonly (readonly [string, Sql])[]): Sql {
 }
 
 const flip = (order: Order): Order => ({
-	field: order.field,
+	...order,
 	direction: order.direction === 'asc' ? 'desc' : 'asc',
 })
 
@@ -45,8 +45,8 @@ class Compiler {
 		const order = backward ? given.map(flip) : given
 		const by = sql.join(
 			order.map(
-				({ field, direction }) =>
-					sql`${this.filters.column(table, alias, field)} ${sql.raw(direction)}`,
+				(each) =>
+					sql`${this.key(table, alias, each)} ${sql.raw(each.direction)}`,
 			),
 		)
 		const conditions = [
@@ -59,8 +59,8 @@ class Compiler {
 			const cursor = this.filters.alias()
 			const found = this.filters.alias()
 			const keys = order.map(
-				({ field }, at) =>
-					sql`${this.filters.column(table, found, field)} as ${sql.id(`k${at}`)}`,
+				(each, at) =>
+					sql`${this.key(table, found, each)} as ${sql.id(`k${at}`)}`,
 			)
 			const where = this.filters.where(model, found, nested.cursor)
 			from = sql`${from} cross join (select ${sql.join(keys)} from ${sql.id(table.name)} as ${sql.id(found)} where ${where} limit 1) as ${sql.id(cursor)}`
@@ -87,10 +87,9 @@ class Compiler {
 		order: readonly Order[],
 	): Sql {
 		let result: Sql = sql`true`
-		for (const [at, { field, direction }] of [
-			...order.entries(),
-		].toReversed()) {
-			const a = this.filters.column(table, alias, field)
+		for (const [at, each] of [...order.entries()].toReversed()) {
+			const { direction } = each
+			const a = this.key(table, alias, each)
 			const c = sql.id(cursor, `k${at}`)
 			const after =
 				direction === 'asc'
@@ -99,6 +98,46 @@ class Compiler {
 			result = sql`(${after} or (${a} is not distinct from ${c} and ${result}))`
 		}
 		return result
+	}
+
+	/**
+	 * A sort key: a column, through `one` relations, or a count; a row the
+	 * relations do not reach gives `null` (D-134).
+	 */
+	private key(
+		table: Table,
+		alias: string,
+		order: Order,
+		steps = order.through ?? [],
+	): Sql {
+		const [step, ...rest] = steps
+		if (step === undefined) {
+			if (order.count === undefined) {
+				return this.filters.column(table, alias, order.field)
+			}
+			return this.count(table, alias, order.field, order.count)
+		}
+		const field = table.fields.get(step.relation)
+		if (field === undefined || field.kind === 'scalar') {
+			throw new Error(`${table.model.name}.${step.relation} is not a relation.`)
+		}
+		const to = this.filters.alias()
+		const reach = this.filters.reach(table, alias, field, to)
+		const where = this.filters.where(field.target, to, step.where)
+		const key = this.key(this.catalog.table(field.target), to, order, rest)
+		return sql`(select ${key} from ${reach.from} where ${reach.on} and ${where} limit 1)`
+	}
+
+	/** The rows of a `many` relation of the row that `where` selects. */
+	private count(table: Table, alias: string, name: string, where: Filter): Sql {
+		const field = table.fields.get(name)
+		if (field === undefined || field.kind === 'scalar') {
+			throw new Error(`${table.model.name}.${name} is not a relation.`)
+		}
+		const to = this.filters.alias()
+		const reach = this.filters.reach(table, alias, field, to)
+		const rows = this.filters.where(field.target, to, where)
+		return sql`(select cast(count(*) as integer) from ${reach.from} where ${reach.on} and ${rows})`
 	}
 
 	/** A scalar column, a date in UTC whatever the session's time zone. */
@@ -150,6 +189,10 @@ class Compiler {
 				sql`(select ${row} from ${reach.from} where ${reach.on} and ${where} limit 1)`,
 			)
 		}
+		const counts = Object.entries(nested.count ?? {}).map(
+			([name, where]) => [name, this.count(table, alias, name, where)] as const,
+		)
+		if (counts.length > 0) pairs.set('_count', object(counts))
 		return object([...pairs])
 	}
 }

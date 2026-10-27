@@ -27,6 +27,12 @@ const titles = (body: unknown): unknown => {
 			: body
 }
 
+/** A user's name and the count of their posts. */
+const counted = (edge: unknown) => [
+	at(edge, 'node', 'name'),
+	at(edge, 'node', 'posts', 'totalCount'),
+]
+
 const refused = (message: string, path?: string): Sent => ({
 	status: 400,
 	body: {
@@ -287,7 +293,9 @@ describe('the limits', () => {
 		const { url } = await serving({ maxDepth: 2 })
 		const params = { include: { author: { include: { posts: true } } } }
 		expect(await get(url, '/api/posts', params)).toEqual(
-			refused('The request is nested 3 levels deep; the most is 2.'),
+			refused(
+				'The request is nested 3 levels deep, its orderBy included; the most is 2.',
+			),
 		)
 		const master = await call(url, 'GET', `/api/posts${qs(params)}`, {
 			headers: asMaster,
@@ -322,6 +330,78 @@ describe('the limits', () => {
 	})
 })
 
+describe('counts and sorts through relations (D-134)', () => {
+	it('count an included relation and sort through relations', async () => {
+		const { url } = await serving()
+		const sent = await get(url, '/api/users', {
+			orderBy: { posts: { _count: 'asc' } },
+			select: {
+				name: true,
+				posts: {
+					first: 1,
+					where: { status: 'published' },
+					totalCount: true,
+					select: { title: true },
+				},
+			},
+		})
+		const users = at(sent.body, 'edges')
+		expect(Array.isArray(users) && users.map(counted)).toEqual([
+			['bob', 0],
+			['ada', 2],
+		])
+		expect(titles(at(users, 1, 'node', 'posts'))).toEqual(['one'])
+		const uncounted = await get(url, '/api/users', {
+			include: { posts: { totalCount: false } },
+		})
+		expect(
+			at(uncounted.body, 'edges', 0, 'node', 'posts', 'totalCount'),
+		).toBeUndefined()
+		const through = await get(url, '/api/posts', {
+			orderBy: [{ author: { name: 'desc' } }, { views: 'asc' }],
+		})
+		expect(titles(through.body)).toEqual(['four', 'one', 'two', 'three'])
+		expect(
+			await get(url, '/api/users', {
+				include: { posts: { totalCount: 1 } },
+			}),
+		).toEqual(
+			refused(
+				'include.posts.totalCount must be true or false.',
+				'include.posts.totalCount',
+			),
+		)
+	})
+
+	it('count each relation an orderBy goes through as a level', async () => {
+		const { url } = await serving({ maxDepth: 2 })
+		const one = { orderBy: { author: { name: 'asc' } } }
+		expect((await get(url, '/api/posts', one)).status).toBe(200)
+		const two = { orderBy: [{ author: { posts: { _count: 'asc' } } }] }
+		expect(await get(url, '/api/posts', two)).toEqual(
+			refused(
+				'The request is nested 3 levels deep, its orderBy included; the most is 2.',
+			),
+		)
+		const master = await call(url, 'GET', `/api/posts${qs(two)}`, {
+			headers: asMaster,
+		})
+		expect(master.status).toBe(200)
+		const nested = { include: { posts: one } }
+		expect((await get(url, '/api/users', nested)).status).toBe(400)
+	})
+
+	it('count a nested totalCount as the root one, take rows at least', async () => {
+		const { url } = await serving({ maxRows: 10 })
+		const posts = { first: 1, totalCount: true }
+		expect(
+			(await get(url, '/api/users', { first: 2, include: { posts } })).status,
+		).toBe(400)
+		const paged = { first: 2, include: { posts: { first: 1 } } }
+		expect((await get(url, '/api/users', paged)).status).toBe(200)
+	})
+})
+
 describe('pagination: list', () => {
 	it('takes take and skip, and no count', async () => {
 		const { url } = await serving({ pagination: 'list', maxRows: 10 })
@@ -335,6 +415,13 @@ describe('pagination: list', () => {
 		expect(await get(url, '/api/posts', {})).toEqual(
 			refused(
 				'The request asks for more than 10 rows. Ask for fewer with take.',
+			),
+		)
+		const nested = { include: { posts: { totalCount: true } } }
+		expect(await get(url, '/api/users', nested)).toEqual(
+			refused(
+				"Unknown key 'include.posts.totalCount' on Post.",
+				'include.posts.totalCount',
 			),
 		)
 	})

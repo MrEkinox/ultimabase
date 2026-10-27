@@ -1,7 +1,8 @@
 // The row budget (D-107): a document that may return more than `maxRows`
 // rows, or reads and writes more than `maxRoots` times at its root, is
 // refused before it runs. Each list counts the rows it asks for, times the
-// rows of the lists above it.
+// rows of the lists above it. Each relation a list's `orderBy` goes through
+// counts one level of `maxDepth` under the list (D-134).
 import type {
 	FieldNode,
 	GraphQLObjectType,
@@ -48,10 +49,24 @@ function rootReads(registry: Registry): ReadonlyMap<string, Read> {
 	return reads
 }
 
+/** The relations an `orderBy` goes through, the deepest path's. */
+function sortDepth(orderBy: unknown): number {
+	if (Array.isArray(orderBy)) return Math.max(0, ...orderBy.map(sortDepth))
+	if (typeof orderBy !== 'object' || orderBy === null) return 0
+	return Math.max(
+		0,
+		...Object.values(orderBy).map((value: unknown) =>
+			typeof value === 'object' && value !== null ? 1 + sortDepth(value) : 0,
+		),
+	)
+}
+
+export type Limits = { readonly maxRows: number; readonly maxDepth: number }
+
 /** The refusal of a document that may return more than `maxRows` rows. */
 export function rowBudget(
 	registry: Registry,
-	maxRows: number,
+	{ maxRows, maxDepth }: Limits,
 	functions: ReadonlyMap<string, ReadonlyMap<string, Read>>,
 ): (args: ValidatedExecutionArgs) => GraphQLError | undefined {
 	const roots = rootReads(registry)
@@ -78,11 +93,13 @@ export function rowBudget(
 		}
 		let rows = 0
 		let rootFields = 0
+		let deepest = 0
 		const walk = (
 			type: GraphQLObjectType,
 			nodes: readonly Selecting[],
 			times: number,
 			root: string,
+			level: number,
 		): void => {
 			for (const fields of grouped(info, nodes, responseKey).values()) {
 				if (rows > maxRows) return
@@ -98,6 +115,7 @@ export function rowBudget(
 						list ? asked['take'] : (asked['last'] ?? asked['first']),
 					)
 					// A count reads the rows it counts, however few the page returns.
+					deepest = Math.max(deepest, level + sortDepth(asked['orderBy']))
 					const counted = grouped(info, fields).has('totalCount')
 					each *= counted ? Math.max(size, read.entry.take) : size
 					if (counted && root !== '') rootFields += 1
@@ -105,13 +123,20 @@ export function rowBudget(
 				if (read !== undefined) rows += each
 				if (root !== '') rootFields += 1
 				const named = getNamedType(field.type)
-				if (isObjectType(named) && each > 0) walk(named, fields, each, '')
+				if (isObjectType(named) && each > 0) {
+					walk(named, fields, each, '', level + 1)
+				}
 			}
 		}
 		const { operation } = args
 		const type = args.schema.getRootType(operation.operation)
 		// `validateExecutionArgs` refused an operation the schema has no root for.
-		if (type) walk(type, [operation], 1, operation.operation)
+		if (type) walk(type, [operation], 1, operation.operation, 1)
+		if (deepest > maxDepth) {
+			return new GraphQLError(
+				`The document is nested ${deepest} levels deep, its orderBy included; the most is ${maxDepth}.`,
+			)
+		}
 		if (rootFields > maxRoots) {
 			return new GraphQLError(
 				`The document asks for more than ${maxRoots} root fields, a totalCount counted as one more. Send several documents.`,

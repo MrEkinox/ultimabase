@@ -98,8 +98,10 @@ const plugin = definePlugin<Graphql>({
 		const production = process.env['NODE_ENV'] === 'production'
 		const hideSuggestions = !(options.introspection ?? !production)
 		const closed = hideSuggestions ? [NoSchemaIntrospectionCustomRule] : []
-		const depth = depthRule(options.maxDepth ?? 10)
-		const budget = rowBudget(registry, options.maxRows ?? 20_000, called.reads)
+		const maxDepth = options.maxDepth ?? 10
+		const depth = depthRule(maxDepth)
+		const maxRows = options.maxRows ?? 20_000
+		const budget = rowBudget(registry, { maxRows, maxDepth }, called.reads)
 		// The contexts of Master's requests, which no budget limits.
 		const exempt = new WeakSet<object>()
 		// The caller the HTTP plugin read and the client, by its request.

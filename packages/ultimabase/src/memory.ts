@@ -16,7 +16,8 @@ import type {
 } from './adapter.ts'
 import { CheckFailed, OutOfRange, UniqueViolation } from './adapter.ts'
 import type { Fields, Store, StoredRow } from './memory-read.ts'
-import { copy, Reader } from './memory-read.ts'
+import { Reader } from './memory-read.ts'
+import { copy } from './memory-values.ts'
 import { computed } from './number-update.ts'
 import { isInteger } from './query-where.ts'
 

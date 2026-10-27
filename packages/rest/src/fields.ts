@@ -24,15 +24,35 @@ type Out =
 			readonly relay: Relay | undefined
 			/** The rows it asks for, which the row budget counts. */
 			readonly size: number
+			/** Whether it answers its `totalCount` (D-134). */
+			readonly counted: boolean
 	  }
 
-/** What a row of the response holds. */
-export type Shape = { readonly fields: readonly Out[] }
+/**
+ * What a row of the response holds. `sorted` is the relations its list's
+ * `orderBy` goes through, each a level of `maxDepth` (D-134).
+ */
+export type Shape = {
+	readonly fields: readonly Out[]
+	readonly sorted?: number
+}
 
 /** A row's fields and its relations' reads, as the kernel takes them. */
 export type Read = {
 	readonly read: Args
 	readonly shape: Shape
+}
+
+/** The relations an `orderBy` goes through, the deepest path's. */
+function sortDepth(orderBy: unknown): number {
+	if (Array.isArray(orderBy)) return Math.max(0, ...orderBy.map(sortDepth))
+	if (typeof orderBy !== 'object' || orderBy === null) return 0
+	return Math.max(
+		0,
+		...Object.values(orderBy).map((value: unknown) =>
+			typeof value === 'object' && value !== null ? 1 + sortDepth(value) : 0,
+		),
+	)
 }
 
 const unknownKey = (path: string, model: string): InvalidQuery =>
@@ -106,6 +126,8 @@ class Reader {
 			base === 'select' ? { id: true } : {}
 		const fields: Out[] =
 			base === 'select' ? [] : [...defaultShape(entry).fields]
+		// The relations' `totalCount`, each the count of its `where` (D-134).
+		const counts: { [field: string]: unknown } = {}
 		const model = entry.model.name
 		for (const [name, value] of Object.entries(chosen)) {
 			const where = `${at(base)}.${name}`
@@ -139,16 +161,35 @@ class Reader {
 				fields.push({ kind: 'one', name, shape: nested.shape })
 				continue
 			}
-			const many = this.list(target, given, where)
+			// A list has no count (D-134): `totalCount` is unknown there.
+			const pages = this.#api.pagination === 'connection'
+			const { totalCount, ...listed } = given
+			const many = this.list(target, pages ? listed : given, where)
+			const counted = pages && totalCount === true
+			if (
+				pages &&
+				totalCount !== undefined &&
+				typeof totalCount !== 'boolean'
+			) {
+				const key = `${where}.totalCount`
+				throw new InvalidQuery(key, `${key} must be true or false.`)
+			}
+			if (counted) {
+				const filter = many.read['where']
+				counts[name] = filter === undefined ? true : { where: filter }
+			}
 			kernel[name] = many.read
 			fields.push({
 				kind: 'many',
 				name,
 				shape: many.shape,
 				relay: many.relay,
-				size: many.size,
+				// A count reads the rows it counts, however few the page returns.
+				size: counted ? Math.max(many.size, target.take) : many.size,
+				counted,
 			})
 		}
+		if (Object.keys(counts).length > 0) kernel['_count'] = { select: counts }
 		return { read: { [base]: kernel }, shape: { fields } }
 	}
 
@@ -176,7 +217,7 @@ class Reader {
 				...filterOf(this.#api, entry, where, at('where')),
 				...(orderBy === undefined || orderBy === null ? {} : { orderBy }),
 			},
-			shape: nested.shape,
+			shape: { ...nested.shape, sorted: sortDepth(orderBy) },
 			relay: page.relay,
 			size: sizeOf(entry, asked),
 		}
@@ -197,7 +238,7 @@ export const readerOf = (api: Api, master: boolean): Reader =>
 
 /** The levels of relations a row nests, the row counting one. */
 export function depthOf(shape: Shape): number {
-	let deepest = 0
+	let deepest = shape.sorted ?? 0
 	for (const field of shape.fields) {
 		if (field.kind !== 'scalar')
 			deepest = Math.max(deepest, depthOf(field.shape))
@@ -215,6 +256,12 @@ export function rowsBelow(shape: Shape, times: number): number {
 		if (each > 0) rows += rowsBelow(field.shape, each)
 	}
 	return rows
+}
+
+/** The count the kernel read of a row's relation (D-134). */
+function countOf(row: Row, name: string): unknown {
+	const counts = row['_count']
+	return isArgs(counts) ? counts[name] : undefined
 }
 
 /** A row as GraphQL returns it: its fields, its relations' pages. */
@@ -239,10 +286,14 @@ export function shaped(row: Row, shape: Shape): { [field: string]: unknown } {
 		} else {
 			const rows = rowsOf(value)
 			const node = (each: Row) => shaped(each, field.shape)
-			out[field.name] =
-				field.relay === undefined
-					? rows.map(node)
-					: connection(rows, field.relay, node)
+			if (field.relay === undefined) {
+				out[field.name] = rows.map(node)
+				continue
+			}
+			const page = connection(rows, field.relay, node)
+			out[field.name] = field.counted
+				? { ...page, totalCount: countOf(row, field.name) }
+				: page
 		}
 	}
 	return out

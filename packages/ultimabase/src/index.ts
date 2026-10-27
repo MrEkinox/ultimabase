@@ -25,7 +25,6 @@ export type {
 } from './adapter.ts'
 export {
 	CheckFailed,
-	isLocalHost,
 	MigrationFailed,
 	OutOfRange,
 	RelationViolation,
@@ -61,6 +60,7 @@ export type {
 	FieldTypeOptions,
 } from './field-type.ts'
 export { defineFieldType } from './field-type.ts'
+export { isLocalHost } from './hosts.ts'
 export type {
 	Client,
 	CookieOptions,

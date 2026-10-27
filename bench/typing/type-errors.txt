@@ -460,10 +460,10 @@ prototype/example/relations.ts: `email` is not a field of Author, three levels d
 TS2353: Object literal may only specify known properties, and 'email' does not exist in type 'Select<{ readonly name: Field<string, { readonly unique: true; }, never, never, string, false, never>; readonly level: Field<"junior" | "senior", SingleOptions<"junior" | "senior">, ... 4 more ..., never>; readonly books: Many<...>; readonly favorite: One<...>; }>'.
 
 prototype/example/relations.ts: `level` is a scalar: it takes no `include`.
-TS2353: Object literal may only specify known properties, and 'level' does not exist in type '{ readonly books?: boolean | RelationArgs<Many<() => Model<"Book", { readonly title: Field<string, SingleOptions<string>, never, never, string, false, never>; readonly pages: Field<number, { readonly optional: true; }, ... 4 more ..., never>; readonly author: One<...>; readonly reviewer: One<...>; readonly sequels: ...'.
+TS2353: Object literal may only specify known properties, and 'level' does not exist in type '{ readonly books?: boolean | RelationArgs<Many<() => Model<"Book", { readonly title: Field<string, SingleOptions<string>, never, never, string, false, never>; readonly pages: Field<number, { ...; }, ... 4 more ..., never>; readonly author: One<...>; readonly reviewer: One<...>; readonly sequels: Many<...>; }, never,...'.
 
 prototype/example/relations.ts: a to-one relation takes no `take`.
-TS2353: Object literal may only specify known properties, and 'take' does not exist in type '{ readonly select?: Select<{ readonly name: Field<string, { readonly unique: true; }, never, never, string, false, never>; readonly level: Field<"junior" | "senior", SingleOptions<"junior" | "senior">, ... 4 more ..., never>; readonly books: Many<...>; readonly favorite: One<...>; }>; readonly include?: { ...; }; }'.
+TS2353: Object literal may only specify known properties, and 'take' does not exist in type '{ readonly select?: Select<{ readonly name: Field<string, { readonly unique: true; }, never, never, string, false, never>; readonly level: Field<"junior" | "senior", SingleOptions<"junior" | "senior">, ... 4 more ..., never>; readonly books: Many<...>; readonly favorite: One<...>; }>; readonly include?: { ...; } & {...'.
 
 prototype/example/relations.ts: `title` was not selected.
 TS2339: Property 'title' does not exist on type 'Selected<{ readonly title: Field<string, SingleOptions<string>, never, never, string, false, never>; readonly pages: Field<number, { readonly optional: true; }, never, never, number, false, never>; readonly author: One<...>; readonly reviewer: One<...>; readonly sequels: Many<...>; }, { ...; }>'.
@@ -562,10 +562,12 @@ prototype/example/undefined-values.ts: a required field cannot be left `undefine
 TS2322: Type 'undefined' is not assignable to type 'string'.
 
 prototype/example/validation.ts: a json field cannot be sorted.
-TS2353: Object literal may only specify known properties, and 'settings' does not exist in type 'OrderBy<{ readonly name: Field<string, { readonly validate: ZodString; }, never, never, string, false, never>; readonly slug: Field<string, { readonly validate: (value: string) => string; }, ... 4 more ..., never>; readonly age: Field<...>; readonly settings: Field<...>; readonly tags: Field<...>; readonly extra: Fi...'.
+TS2322: Type '"asc"' is not assignable to type '"asc" & { readonly error: "'settings' is not a key here"; }'.
+  Type 'string' is not assignable to type '{ readonly error: "'settings' is not a key here"; }'.
 
 prototype/example/validation.ts: nor one without a schema.
-TS2353: Object literal may only specify known properties, and 'extra' does not exist in type 'OrderBy<{ readonly name: Field<string, { readonly validate: ZodString; }, never, never, string, false, never>; readonly slug: Field<string, { readonly validate: (value: string) => string; }, ... 4 more ..., never>; readonly age: Field<...>; readonly settings: Field<...>; readonly tags: Field<...>; readonly extra: Fi...'.
+TS2322: Type '"desc"' is not assignable to type '"desc" & { readonly error: "'extra' is not a key here"; }'.
+  Type 'string' is not assignable to type '{ readonly error: "'extra' is not a key here"; }'.
 
 prototype/example/validation.ts: `theme` is 'light' or 'dark'.
 TS2322: Type '"blue"' is not assignable to type '"dark" | "light"'.

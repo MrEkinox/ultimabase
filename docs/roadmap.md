@@ -198,7 +198,7 @@ Exit: an example with sign-up, sign-in and rules on `caller.user`.
 - [x] Decide `updateMany` (D-20, D-48): D-133.
 - [x] `updateMany` (D-133).
 - [x] Decide `_count` and sorting through relations (D-20, D-46): D-134.
-- [ ] `_count`, nested `totalCount` and sorting through relations (D-134).
+- [x] `_count`, nested `totalCount` and sorting through relations (D-134).
 - [ ] Documentation website (D-31).
 - [ ] A full audit of every package, its fixes merged, before publication.
 - [ ] Publication, after confirmation.

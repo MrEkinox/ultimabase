@@ -130,6 +130,12 @@ describe('models', () => {
 				fields: (f) => ({ id: f.string() }),
 			}),
 		).toThrow('Note.id: the kernel owns this name.')
+		expect(() =>
+			defineModel({
+				name: 'Note',
+				fields: (f) => ({ _count: f.number() }),
+			}),
+		).toThrow('Note._count: the kernel owns this name.')
 	})
 })
 

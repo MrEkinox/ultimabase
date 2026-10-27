@@ -170,34 +170,59 @@ const sortOrder = (registry: Registry): GraphQLEnumType =>
 			}),
 	)
 
+/** `CountOrderByInput`: a `many` relation sorted by its rows (D-134). */
+const countOrderBy = (registry: Registry): GraphQLInputObjectType =>
+	registry.input(
+		'CountOrderByInput',
+		() =>
+			new GraphQLInputObjectType({
+				name: 'CountOrderByInput',
+				fields: { _count: { type: sortOrder(registry) } },
+			}),
+	)
+
 /**
  * `PostOrderByInput`: scalar fields but json, lists and plugin fields, as
- * the kernel sorts (D-94, D-120, D-122).
+ * the kernel sorts (D-94, D-120, D-122); a `one` relation as its target's,
+ * a `many` one by its count (D-134).
  */
 export function orderByInput(
 	registry: Registry,
 	model: string,
 ): GraphQLInputObjectType {
 	const name = `${model}OrderByInput`
-	return registry.input(name, () => {
-		const type = sortOrder(registry)
-		const names = ['id', 'createdAt', 'updatedAt']
-		const entry = registry.entry(model)
-		for (const field of readable(entry)) {
-			if (
-				field.kind === 'scalar' &&
-				field.type !== 'json' &&
-				!field.list &&
-				entry.exposed.fieldTypes[field.name] === undefined
-			) {
-				names.push(field.name)
-			}
-		}
-		return new GraphQLInputObjectType({
-			name,
-			fields: Object.fromEntries(names.map((field) => [field, { type }])),
-		})
-	})
+	return registry.input(
+		name,
+		() =>
+			new GraphQLInputObjectType({
+				name,
+				fields: () => {
+					const type = sortOrder(registry)
+					const fields: GraphQLInputFieldConfigMap = {
+						id: { type },
+						createdAt: { type },
+						updatedAt: { type },
+					}
+					const entry = registry.entry(model)
+					for (const field of readable(entry)) {
+						if (field.kind === 'one') {
+							fields[field.name] = {
+								type: orderByInput(registry, field.target),
+							}
+						} else if (field.kind === 'many') {
+							fields[field.name] = { type: countOrderBy(registry) }
+						} else if (
+							field.type !== 'json' &&
+							!field.list &&
+							entry.exposed.fieldTypes[field.name] === undefined
+						) {
+							fields[field.name] = { type }
+						}
+					}
+					return fields
+				},
+			}),
+	)
 }
 
 /** A unique field's type: a `one` relation's is its target's `ID`. */

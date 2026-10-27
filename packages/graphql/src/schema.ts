@@ -42,9 +42,7 @@ function rootFields(registry: Registry, entry: Entry): Fields {
 	const list =
 		registry.settings.pagination === 'list'
 			? new GraphQLNonNull(new GraphQLList(new GraphQLNonNull(type)))
-			: new GraphQLNonNull(
-					connectionType(registry, `${name}Connection`, name, true),
-				)
+			: new GraphQLNonNull(connectionType(registry, `${name}Connection`, name))
 	return {
 		[entry.single]: {
 			type,
