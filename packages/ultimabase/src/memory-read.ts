@@ -7,6 +7,7 @@ import type {
 	Order,
 	Row,
 	SchemaField,
+	Step,
 } from './adapter.ts'
 import {
 	compareKeys,
@@ -156,22 +157,34 @@ export class Reader {
 		return and(truths)
 	}
 
-	/** A row's sort key: a field, through `one` relations, or a count (D-134). */
-	private key(model: string, row: StoredRow, order: Order): unknown {
+	/** The row `through` reaches from `row`, and its model, if one (D-134). */
+	reach(
+		model: string,
+		row: StoredRow,
+		through: readonly Step[] = [],
+	): { readonly model: string; readonly row: StoredRow } | undefined {
 		let at: StoredRow | undefined = row
 		let on = model
-		for (const step of order.through ?? []) {
+		for (const step of through) {
 			const field = this.field(on, step.relation)
-			if (field === undefined || field.kind === 'scalar') return null
+			if (field === undefined || field.kind === 'scalar') return undefined
 			const [next] = this.related(on, field, at)
 			at =
 				next !== undefined &&
 				this.matches(field.target, next, step.where) === true
 					? next
 					: undefined
-			if (at === undefined) return null
+			if (at === undefined) return undefined
 			on = field.target
 		}
+		return { model: on, row: at }
+	}
+
+	/** A row's sort key: a field, through `one` relations, or a count (D-134). */
+	private key(model: string, row: StoredRow, order: Order): unknown {
+		const reached = this.reach(model, row, order.through)
+		if (reached === undefined) return null
+		const { model: on, row: at } = reached
 		if (order.count === undefined) {
 			return sortable(at[order.field] ?? null, this.field(on, order.field))
 		}

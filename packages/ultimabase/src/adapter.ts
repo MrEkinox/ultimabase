@@ -164,12 +164,27 @@ export type Aggregate = {
 	readonly field?: string
 }
 
+/** A group's key: a field, or the `id` of the row `through` reaches (D-146). */
+export type GroupKey = {
+	readonly field: string
+	readonly through?: readonly Step[]
+}
+
 /**
  * Aggregates of the rows `where` selects, one value each, in order: a count
- * is a number, the others `null` without a value (D-143).
+ * is a number, the others `null` without a value (D-143). With `by`, of each
+ * group of rows with the same keys; an absent row gives `null` (D-146).
  */
 export type AggregateRead = CountRead & {
 	readonly aggregates: readonly Aggregate[]
+	readonly by?: readonly GroupKey[]
+	/** `at` counts the group's keys, then its aggregates. */
+	readonly orderBy?: readonly {
+		readonly at: number
+		readonly direction: 'asc' | 'desc'
+	}[]
+	readonly skip?: number
+	readonly take?: number
 }
 
 /**
@@ -233,7 +248,11 @@ export type Write = {
 export interface Transaction {
 	find(read: Read): Promise<Row[]>
 	count(read: CountRead): Promise<number>
-	aggregate(read: AggregateRead): Promise<unknown[]>
+	/**
+	 * One list per group: its keys' values, then its aggregates'; without
+	 * `by`, one list, even without rows (D-146).
+	 */
+	aggregate(read: AggregateRead): Promise<unknown[][]>
 	write(write: Write): Promise<Row[]>
 	commit(): Promise<void>
 	rollback(): Promise<void>

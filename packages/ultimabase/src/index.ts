@@ -9,6 +9,7 @@ export type {
 	Condition,
 	CountRead,
 	Filter,
+	GroupKey,
 	Migration,
 	Migrations,
 	Nested,

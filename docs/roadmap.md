@@ -223,7 +223,7 @@ Exit: an example with sign-up, sign-in and rules on `caller.user`.
 - [x] Decide a decimal field type (D-12, D-132): D-145.
 - [x] A decimal field type (D-145).
 - [x] Decide `groupBy` (D-20, D-143): D-146.
-- [ ] `groupBy` (D-146).
+- [x] `groupBy` (D-146).
 - [ ] Documentation website (D-31).
 - [ ] A full audit of every package, its fixes merged, before publication.
 - [ ] Publication, after confirmation.

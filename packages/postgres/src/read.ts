@@ -26,7 +26,7 @@ const flip = (order: Order): Order => ({
 	direction: order.direction === 'asc' ? 'desc' : 'asc',
 })
 
-class Compiler {
+export class Compiler {
 	readonly filters: Filters
 	readonly catalog: Catalog
 
@@ -104,11 +104,11 @@ class Compiler {
 	 * A sort key: a column, through `one` relations, or a count; a row the
 	 * relations do not reach gives `null` (D-134).
 	 */
-	private key(
+	key(
 		table: Table,
 		alias: string,
-		order: Order,
-		steps = order.through ?? [],
+		order: Pick<Order, 'field' | 'through' | 'count'>,
+		steps: NonNullable<Order['through']> = order.through ?? [],
 	): Sql {
 		const [step, ...rest] = steps
 		if (step === undefined) {

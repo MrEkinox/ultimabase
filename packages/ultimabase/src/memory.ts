@@ -18,7 +18,7 @@ import type {
 import { CheckFailed, OutOfRange, UniqueViolation } from './adapter.ts'
 import type { Fields, Store, StoredRow } from './memory-read.ts'
 import { clone, Reader } from './memory-read.ts'
-import { aggregated } from './memory-aggregate.ts'
+import { grouped } from './memory-aggregate.ts'
 import { copy } from './memory-values.ts'
 import { computed } from './number-update.ts'
 import { isInteger } from './query-where.ts'
@@ -64,10 +64,8 @@ class Draft {
 		return this.selected(read).length
 	}
 
-	aggregate(read: AggregateRead): unknown[] {
-		return aggregated(this.selected(read), read.aggregates, (name) =>
-			this.reader.field(read.model, name),
-		)
+	aggregate(read: AggregateRead): unknown[][] {
+		return grouped(this.reader, read, this.selected(read))
 	}
 
 	private selected(read: CountRead): StoredRow[] {

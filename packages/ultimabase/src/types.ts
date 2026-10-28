@@ -3,6 +3,7 @@
 import type { ResultOf, RunArgs } from './function.ts'
 import type { Model } from './model.ts'
 import type { AggregateArgs } from './query-aggregate.ts'
+import type { GroupByArgs } from './query-group.ts'
 import type {
 	CreateArgs,
 	CreateManyArgs,
@@ -35,6 +36,7 @@ type Operations<F, X, N> = {
 	readonly findUniqueOrThrow: FindUniqueArgs<F, X>
 	readonly count: { readonly where?: Where<F> }
 	readonly aggregate: AggregateArgs<F>
+	readonly groupBy: GroupByArgs<F, N>
 	readonly create: CreateArgs<F, N>
 	readonly update: UpdateArgs<F, X, N>
 	readonly upsert: UpsertArgs<F, X, N>

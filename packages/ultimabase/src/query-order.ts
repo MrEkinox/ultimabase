@@ -12,7 +12,7 @@ import {
 	unknownKey,
 } from './query-where.ts'
 
-function direction(value: unknown, path: string): 'asc' | 'desc' {
+export function direction(value: unknown, path: string): 'asc' | 'desc' {
 	if (value !== 'asc' && value !== 'desc') {
 		throw new InvalidQuery(path, `${path} must be 'asc' or 'desc'.`)
 	}

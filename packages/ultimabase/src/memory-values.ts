@@ -60,7 +60,7 @@ export function compareValues(a: unknown, b: unknown): number {
 export function compareKeys(
 	a: readonly unknown[],
 	b: readonly unknown[],
-	order: readonly Order[],
+	order: readonly Pick<Order, 'direction'>[],
 ): number {
 	for (const [at, { direction }] of order.entries()) {
 		const left = a[at] ?? null

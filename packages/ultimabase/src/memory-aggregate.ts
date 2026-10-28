@@ -1,11 +1,11 @@
 // How `memory()` aggregates (D-143), as PostgreSQL: a `null` is skipped, and
 // a sum, an average, a minimum or a maximum of no value is `null`.
 // A decimal's sum is exact, at its field's scale, its average that sum's
-// number divided (D-145).
-import type { Aggregate, SchemaField } from './adapter.ts'
+// number divided (D-145). Groups are sorted as a read's rows (D-146).
+import type { Aggregate, AggregateRead, SchemaField } from './adapter.ts'
 import { sumDecimals } from './decimal.ts'
-import type { StoredRow } from './memory-read.ts'
-import { compareValues, copy, sortable } from './memory-values.ts'
+import type { Reader, StoredRow } from './memory-read.ts'
+import { compareKeys, compareValues, copy, sortable } from './memory-values.ts'
 
 function of(
 	values: readonly unknown[],
@@ -33,7 +33,7 @@ function of(
 }
 
 /** One value per aggregate of `rows`, in order. */
-export function aggregated(
+function aggregated(
 	rows: readonly StoredRow[],
 	aggregates: readonly Aggregate[],
 	fieldOf: (name: string) => SchemaField | undefined,
@@ -47,4 +47,46 @@ export function aggregated(
 			fieldOf(field),
 		)
 	})
+}
+
+/** Each group of `rows`: its keys' values, then its aggregates', in order. */
+export function grouped(
+	reader: Reader,
+	read: AggregateRead,
+	rows: readonly StoredRow[],
+): unknown[][] {
+	const by = read.by ?? []
+	const fieldOf = (name: string) => reader.field(read.model, name)
+	const groups = new Map<string, { keys: unknown[]; rows: StoredRow[] }>()
+	if (by.length === 0) groups.set('[]', { keys: [], rows: [] })
+	for (const row of rows) {
+		const keys = by.map(({ field, through }) => {
+			const reached = reader.reach(read.model, row, through)
+			return copy(reached?.row[field] ?? null)
+		})
+		const id = JSON.stringify(keys)
+		const group = groups.get(id) ?? { keys, rows: [] }
+		group.rows.push(row)
+		groups.set(id, group)
+	}
+	const lists = [...groups.values()].map((group) => [
+		...group.keys,
+		...aggregated(group.rows, read.aggregates, fieldOf),
+	])
+	// A key through a relation is an id; a decimal sorts by value (D-145).
+	const fields = [
+		...by.map(({ field, through }) => (through ? undefined : field)),
+		...read.aggregates.map(({ operation, field }) =>
+			operation === 'count' ? undefined : field,
+		),
+	].map((name) => (name === undefined ? undefined : fieldOf(name)))
+	const order = read.orderBy ?? []
+	const sorted = (list: readonly unknown[]) =>
+		order.map(({ at }) => sortable(list[at], fields[at]))
+	lists.sort((a, b) => compareKeys(sorted(a), sorted(b), order))
+	const skip = read.skip ?? 0
+	return lists.slice(
+		skip,
+		read.take === undefined ? undefined : skip + read.take,
+	)
 }

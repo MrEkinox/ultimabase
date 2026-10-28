@@ -14,6 +14,8 @@ import type {
 } from './record.ts'
 import type { Exact } from './exact.ts'
 import type { AggregateArgs, Aggregates, IsDecimal } from './query-aggregate.ts'
+import type { ScalarFilter } from './query-filter.ts'
+import type { GroupByArgs, Groups } from './query-group.ts'
 import type { Identity } from './rules.ts'
 import type { fieldType } from './symbols.ts'
 
@@ -30,29 +32,6 @@ type OptionalOne<X> = X extends {
 }
 	? null
 	: never
-
-/** A decimal (D-145) is a string compared by value, without `contains`. */
-type ScalarFilter<V, Decimal = false> = {
-	readonly equals?: V | null | undefined
-	readonly not?: V | null | undefined
-	readonly in?: readonly V[] | undefined
-	readonly notIn?: readonly V[] | undefined
-} & ([V, Decimal] extends [number | Date, unknown] | [unknown, true]
-	? {
-			readonly lt?: V | undefined
-			readonly lte?: V | undefined
-			readonly gt?: V | undefined
-			readonly gte?: V | undefined
-		}
-	: [V] extends [string]
-		? {
-				readonly contains?: string | undefined
-				readonly startsWith?: string | undefined
-				readonly endsWith?: string | undefined
-			} & (string extends V
-				? { readonly mode?: 'insensitive' | undefined }
-				: unknown)
-		: unknown)
 
 type IsList<X> = X extends {
 	readonly [fieldType]: { readonly options: { readonly list: true } }
@@ -357,6 +336,12 @@ export interface Queries<F, X = never, N = never> {
 		args: A & NoInfer<Exact<A, AggregateArgs<F>>>,
 		options?: QueryOptions,
 	): Promise<Aggregates<F, A>>
+	/** Of the rows the caller reads, by `by`; server code only (D-146). */
+	groupBy<const A extends GroupByArgs<F, N>>(
+		this: void,
+		args: A & NoInfer<Exact<A, GroupByArgs<F, N, A['by'][number]>>>,
+		options?: QueryOptions,
+	): Promise<Groups<F, N, A>>
 	create<const A extends CreateArgs<F, N>>(
 		this: void,
 		args: A & NoInfer<Exact<A, CreateArgs<F, N>>>,

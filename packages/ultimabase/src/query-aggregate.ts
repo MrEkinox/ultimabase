@@ -5,14 +5,14 @@ import type { StoredValue, SystemFields } from './record.ts'
 import type { fieldType } from './symbols.ts'
 
 /** A model's scalars that an aggregate takes: no list, json or plugin field. */
-type Aggregated<F> = SortedKeys<F> | keyof SystemFields
+export type Aggregated<F> = SortedKeys<F> | keyof SystemFields
 type ValueOf<F, K> = K extends keyof SystemFields
 	? SystemFields[K]
 	: K extends keyof F
 		? NonNullable<StoredValue<F[K]>>
 		: never
 /** The fields whose values are `V`. */
-type KeysWith<F, V> = {
+export type KeysWith<F, V> = {
 	[K in Aggregated<F>]: ValueOf<F, K> extends V ? K : never
 }[Aggregated<F>]
 /** Whether `X` is a decimal field (D-145), filtered and summed as a string. */
@@ -28,7 +28,7 @@ type DecimalKeys<F> = {
 			: never
 		: never
 }[Aggregated<F>]
-type Summed<F> = KeysWith<F, number> | DecimalKeys<F>
+export type Summed<F> = KeysWith<F, number> | DecimalKeys<F>
 type Fields<K extends PropertyKey> = { readonly [P in K]?: true | undefined }
 
 export type AggregateArgs<F> = {

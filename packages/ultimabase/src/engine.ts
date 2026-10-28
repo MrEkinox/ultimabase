@@ -14,6 +14,7 @@ import { QueryScope, planned } from './scope.ts'
 import type { Commit, Store } from './transaction.ts'
 import { reading, writing } from './transaction.ts'
 import { aggregate } from './aggregate.ts'
+import { groupBy } from './group-by.ts'
 import { removeMany } from './delete-many.ts'
 import { updateMany } from './update-many.ts'
 import { createMany } from './create-many.ts'
@@ -27,6 +28,7 @@ export type Operation =
 	| 'findUniqueOrThrow'
 	| 'count'
 	| 'aggregate'
+	| 'groupBy'
 	| 'create'
 	| 'update'
 	| 'upsert'
@@ -155,6 +157,7 @@ type ReadOperation =
 	| 'findUniqueOrThrow'
 	| 'count'
 	| 'aggregate'
+	| 'groupBy'
 
 /** The read, which fails with `NOT_FOUND` rather than return `null` (D-135). */
 const orThrow =
@@ -175,6 +178,7 @@ const reads: { readonly [O in ReadOperation]: Run } = {
 	findUniqueOrThrow: orThrow(findUnique),
 	count,
 	aggregate,
+	groupBy,
 }
 
 const writes: { readonly [O in Exclude<Operation, ReadOperation>]: Write } = {

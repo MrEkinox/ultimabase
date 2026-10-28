@@ -36,7 +36,7 @@ function scalars(model: ModelInfo): string[] {
 	]
 }
 
-function integer(value: unknown, path: string, least?: number): number {
+export function integer(value: unknown, path: string, least?: number): number {
 	if (
 		typeof value !== 'number' ||
 		!Number.isSafeInteger(value) ||
