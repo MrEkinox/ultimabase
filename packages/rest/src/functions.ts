@@ -20,11 +20,19 @@ export type RestFunctionWith = { readonly name?: string } | false
 
 const none: Accepted = { json: [], text: [] }
 
+/** A function REST routes, named, and its input's JSON Schema. */
+export type Routed = {
+	readonly fn: ExposedFunction<RestFunctionWith>
+	readonly owner: string
+	readonly name: string
+	readonly input: Node | undefined
+}
+
 /**
  * A GET's parameters: an object input's keys, as GraphQL's arguments, or
  * one `input`; a string as is, any other value as JSON.
  */
-function getParams(root: Node | undefined): {
+export function getParams(root: Node | undefined): {
 	readonly accepted: Accepted
 	readonly flat: boolean
 } {
@@ -89,7 +97,8 @@ export function functionRoutes(
 	api: Api,
 	functions: readonly ExposedFunction<RestFunctionWith>[],
 	base: string,
-): void {
+): readonly Routed[] {
+	const routed: Routed[] = []
 	const owners = new Map<string, string>()
 	for (const fn of functions) {
 		if (fn.with === false) continue
@@ -109,6 +118,7 @@ export function functionRoutes(
 			input === undefined
 				? undefined
 				: jsonSchemaOf(input, 'input', `${owner}: input`)
+		routed.push({ fn, owner, name, input: root })
 		const nullable =
 			output?.kind === 'schema'
 				? acceptsNull(jsonSchemaOf(output.schema, 'output', `${owner}: output`))
@@ -147,4 +157,5 @@ export function functionRoutes(
 			})
 		}
 	}
+	return routed
 }

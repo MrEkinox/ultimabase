@@ -8040,8 +8040,13 @@ Choice: completes D-129 and D-125's point 8.
    and `PostInclude`.
 4. `where` is typed per model, its filters and relation filters included;
    `where`, `orderBy`, `select` and `include` are JSON parameters
-   (`content: application/json`), as REST reads them. A `@oneOf` input
-   takes exactly one key; inputs refuse unknown keys.
+   (`content: application/json`), as REST reads them; a page's numbers and
+   cursors are plain parameters. A `@oneOf` input takes exactly one key;
+   inputs refuse unknown keys. `PostWhereUniqueInput` is REST's flat form,
+   one variant per unique set (`{ id }`, `{ author, slug }`).
+   Each route has an `operationId`, `posts`, `post`, `createPost`,
+   `upsertPost`, `updatePost`, `deletePost` and a function's name, and its
+   model's tag or `functions`; two routes of one id stop the startup.
 5. A row lists the fields of the default shape as required, and its
    relations as optional, since `include` adds them. `select` returns only
    the fields it names, which its parameter says.
@@ -8093,7 +8098,19 @@ const posts: Post[] = await res.json()
 // npx openapi-typescript http://localhost:3000/api/openapi.json -o api.d.ts
 import createClient from 'openapi-fetch'
 import type { paths } from './api.d.ts'
-const api = createClient<paths>({ baseUrl: '/api' })
+const api = createClient<paths>({
+	baseUrl: '/api',
+	// REST reads a JSON parameter, not openapi-fetch's `where[status]=…`
+	querySerializer: (query) =>
+		new URLSearchParams(
+			Object.entries(query)
+				.filter(([, value]) => value !== undefined)
+				.map(([key, value]) => [
+					key,
+					typeof value === 'string' ? value : JSON.stringify(value),
+				]),
+		).toString(),
+})
 const { data } = await api.GET('/posts', {
 	params: { query: { where: { status: { equals: 'published' } } } },
 })
