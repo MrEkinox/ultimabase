@@ -107,43 +107,41 @@ export function modelRoutes(
 	app.get(path, async (c) =>
 		c.json(await run(() => list(api, entry, c.var.caller, c.req.url))),
 	)
-	app.get(`${path}/:id`, async (c) => {
-		const { caller } = c.var
+	/** The row `query` returns, shaped as `url` asks. */
+	const one = async (
+		caller: Caller,
+		url: string,
+		query: (read: Args, as: { as: Caller }) => Promise<Row | null>,
+	): Promise<unknown> => {
 		const { row, shape } = await run(async () => {
-			const fields = oneRead(api, entry, caller, c.req.url)
-			const where = { id: c.req.param('id') }
-			const found = await queries.findUnique(
-				{ ...fields.read, where },
-				{ as: caller },
-			)
-			return { row: found, shape: fields.shape }
+			const fields = oneRead(api, entry, caller, url)
+			return { row: await query(fields.read, { as: caller }), ...fields }
 		})
 		if (row === null) throw notFound(entry)
-		return c.json(shaped(row, shape))
-	})
+		return shaped(row, shape)
+	}
+	app.get(`${path}/:id`, async (c) =>
+		c.json(
+			await one(c.var.caller, c.req.url, async (read, as) =>
+				queries.findUnique({ ...read, where: { id: c.req.param('id') } }, as),
+			),
+		),
+	)
 	app.post(path, validate('json', anyBody), async (c) => {
-		const { caller } = c.var
 		const body: unknown = c.req.valid('json')
-		const { read, shape } = await run(async () => {
-			const fields = oneRead(api, entry, caller, c.req.url)
-			const data = written(api, entry, body)
-			const row = await queries.create({ ...fields.read, data }, { as: caller })
-			return { read: row, shape: fields.shape }
-		})
-		return c.json(shaped(read, shape), 201)
+		const row = await one(c.var.caller, c.req.url, async (read, as) =>
+			queries.create({ ...read, data: written(api, entry, body) }, as),
+		)
+		return c.json(row, 201)
 	})
 	app.patch(`${path}/:id`, validate('json', anyBody), async (c) => {
-		const { caller } = c.var
 		const body: unknown = c.req.valid('json')
-		const { read, shape } = await run(async () => {
-			const fields = oneRead(api, entry, caller, c.req.url)
-			const data = written(api, entry, body)
-			const where = { id: c.req.param('id') }
-			const args: Args = { ...fields.read, where, data }
-			const row = await queries.update(args, { as: caller })
-			return { read: row, shape: fields.shape }
-		})
-		return c.json(shaped(read, shape))
+		const where = { id: c.req.param('id') }
+		return c.json(
+			await one(c.var.caller, c.req.url, async (read, as) =>
+				queries.update({ ...read, where, data: written(api, entry, body) }, as),
+			),
+		)
 	})
 	app.delete(`${path}/:id`, async (c) => {
 		const { caller } = c.var
