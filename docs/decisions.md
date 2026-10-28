@@ -459,7 +459,7 @@ read: ({ caller, where }) =>
 
 ## D-20: The query API follows Prisma Client
 
-Amended by D-128, D-132, D-133, D-135, D-138, D-140 and D-142.
+Amended by D-128, D-132, D-133, D-135, D-138, D-140, D-142 and D-143.
 
 Choice: operations, their names and their arguments follow Prisma Client, so
 a developer coming from Prisma reads UltimaBase queries as Prisma: `findUnique`,
@@ -7178,6 +7178,8 @@ await Post.updateMany({ data: { author: { connect: { id } } } }) // type error
 
 ## D-134: `_count`, nested `totalCount` and sorting through relations
 
+Amended by D-143.
+
 Choice: completes D-20, D-46 and D-55; amends D-107 point 5 and D-129
 point 5.
 
@@ -7943,4 +7945,78 @@ mutation {
 PUT /api/tags?select={"id":true,"uses":true}
 { "where": { "slug": "news" }, "create": { "slug": "news", "uses": 1 }, "update": { "uses": 2 } }
 → 201 { "id": "…", "uses": 1 }
+```
+
+## D-143: `aggregate`
+
+Choice: completes D-20 and D-44; amends D-134's rejection of aggregates.
+
+1. `Model.aggregate({ where, _count, _sum, _avg, _min, _max }, as)`
+   aggregates the rows `where` selects, as Prisma's `aggregate` does, and
+   returns an object holding the keys it asked for:
+   - `_count: true` counts the rows; `_count: { _all: true, title: true }`
+     counts them and each field's non-null values;
+   - `_sum` and `_avg` take number fields;
+   - `_min` and `_max` take number, string and date fields, `createdAt` and
+     `updatedAt` included; strings compare by code point, as a sort does
+     (D-94).
+     A field is a scalar of the model, neither a list, a `json` nor a plugin
+     field type's (D-122). Without rows, `_count` is 0 and the others are
+     `null`. The result's type follows the arguments, as a `select` does.
+2. It aggregates the rows the caller reads: the read rule and `beforeFind`
+   apply, as for `count` (D-124).
+3. A field with a read rule is refused to a caller other than Master, in
+   any aggregate, `_count` included: `INVALID_QUERY`, as a filter or a sort
+   on it (D-44).
+4. No `orderBy`, `take`, `skip` or `cursor`: an aggregate of a page has no
+   need yet.
+5. Server code only: neither REST nor GraphQL expose it. An application
+   exposes an aggregate through a function (D-14), which says what its
+   callers may learn.
+6. The adapter contract gains `aggregate({ model, where, aggregates })`,
+   each aggregate `{ operation, field? }`, which returns one value per
+   aggregate, in order. PostgreSQL returns a sum and an average as
+   `float8`: a sum of non-whole numbers may differ from memory's in its
+   last digits, as their order of addition does.
+
+Why: a dashboard total, an average rating or the date of the last order is
+one round trip on the database, not every row read into the server.
+Exposing it on the transports would let any caller compute a sum of rows
+it reads one by one but should not total, and the transports' parity
+(D-129) would make that two surfaces to secure; a function is one.
+
+Rejected:
+
+- Aggregates on the transports: see Why.
+- `_count` on relations, lists and `json`: no need asks for them.
+- Aggregating every row, readable or not: it reveals the rows a read rule
+  hides, as a count would (D-134).
+- Summing in the server from `findMany`: every row crosses the wire.
+
+Example:
+
+```ts
+// Before: every row read to compute three numbers
+const orders = await Order.findMany(
+	{ where: { paid: true }, select: { total: true, createdAt: true } },
+	as,
+)
+const sum = orders.reduce((s, order) => s + order.total, 0)
+const average = orders.length === 0 ? null : sum / orders.length
+const last = orders.reduce<Date | null>(
+	(max, { createdAt }) => (max === null || createdAt > max ? createdAt : max),
+	null,
+)
+// After: one query
+const stats = await Order.aggregate(
+	{
+		where: { paid: true },
+		_count: true,
+		_sum: { total: true },
+		_avg: { total: true },
+		_max: { createdAt: true },
+	},
+	as,
+)
+// { _count: 3, _sum: { total: 120 }, _avg: { total: 40 }, _max: { createdAt: Date } }
 ```
