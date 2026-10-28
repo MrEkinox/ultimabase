@@ -8115,3 +8115,78 @@ const { data } = await api.GET('/posts', {
 	params: { query: { where: { status: { equals: 'published' } } } },
 })
 ```
+
+## D-145: A decimal field type
+
+Choice: completes D-12 and D-132; amends D-143's aggregate types.
+
+1. `f.decimal({ precision, scale })` holds exact decimal numbers of at
+   most `precision` digits, `scale` of them after the point, as SQL's
+   `numeric(precision, scale)`. Both are required: `precision` is a whole
+   number from 1 to 1000, `scale` from 0 to `precision`. A decimal takes
+   `optional`, `unique`, `default`, `validate` and the rules as `date`
+   does, and no `list`.
+2. A value is a string, read and written: `'12.50'`. A write takes digits
+   with an optional `-` and an optional fraction, `/^-?\d+(\.\d+)?$/`; a
+   JavaScript number is refused, since `0.1 + 0.2` is not `0.3`. The
+   kernel stores it normalized to the scale: `'012.5'` is `'12.50'`, `'-0'`
+   is `'0.00'`, `'7.500'` is `'7.50'`. A value with more significant
+   decimals than the scale, or more digits before the point than
+   `precision - scale`, does not fit and is refused, never rounded.
+3. A filter takes `equals`, `not`, `in`, `notIn`, `lt`, `lte`, `gt` and
+   `gte`, its operands checked and normalized as values; `orderBy` sorts by
+   value. `memory()` compares exactly, through `BigInt`, as PostgreSQL.
+   A decimal has no `increment`, as no need asks for it yet (D-132).
+4. In `aggregate` (D-143), `_sum`, `_min` and `_max` take decimal fields
+   and return decimal strings: `_sum` is exact, at the field's scale, and
+   may hold more digits than `precision`. `_avg` returns a JavaScript
+   number, as for a number field: an exact average has no finite form.
+5. PostgreSQL stores it as `numeric(precision, scale)` and returns its
+   text. A migration converts a changed precision or scale with a cast: a
+   lower scale rounds the stored values, as PostgreSQL does, and a value
+   too large for the new precision fails the migration.
+6. GraphQL types it `Decimal`, a scalar that takes and returns a string,
+   with a `DecimalFilter`; REST and the OpenAPI document type it as a
+   string of that pattern (D-129, D-144). A plugin field type may store
+   its values in a decimal, `precision` and `scale` given (D-122).
+
+Why: money and quantities need exact arithmetic, which a float
+(`f.number()`) does not give. A string keeps every digit across JSON, the
+`pg` driver, GraphQL and REST, with no dependency: an application that
+computes on decimals picks its own library, as Prisma's users do with
+`Decimal.js`. Refusing a value the scale cannot hold says so to the caller
+rather than storing a different amount.
+
+Rejected:
+
+- A `Decimal` class in the kernel, or a dependency's: every caller and
+  plugin would take it, and JSON cannot carry it (D-92).
+- Accepting numbers: `12.1` as a double is `12.0999…`, and a caller would
+  believe it exact.
+- Rounding to the scale, as PostgreSQL does: the stored amount would
+  differ from the one written, silently.
+- A default precision and scale: the right ones depend on the amounts,
+  and PostgreSQL's unconstrained `numeric` has no scale to normalize to.
+- Lists of decimals: no need asks for them (D-127).
+
+Example:
+
+```ts
+// Before: cents in an integer, converted at every edge
+const Order = defineModel({
+	name: 'Order',
+	fields: (f) => ({ totalCents: f.number({ integer: true }) }),
+})
+await Order.create({ data: { totalCents: Math.round(12.5 * 100) } }, as)
+const order = await Order.findUniqueOrThrow({ where: { id } }, as)
+const shown = (order.totalCents / 100).toFixed(2)
+// After: the amount as written
+const Order = defineModel({
+	name: 'Order',
+	fields: (f) => ({ total: f.decimal({ precision: 10, scale: 2 }) }),
+})
+await Order.create({ data: { total: '12.5' } }, as)
+const order = await Order.findUniqueOrThrow({ where: { id } }, as)
+order.total // '12.50'
+await Order.aggregate({ _sum: { total: true } }, as) // { _sum: { total: '1250.40' } }
+```
