@@ -73,6 +73,13 @@ export function hiddenBy(access: Access | undefined): Hidden | undefined {
 	return access && ((model, row, fields) => access.hidden(model, row, fields))
 }
 
+/** Each row, as `shape` shapes it (D-149). */
+export const shapedRows = (
+	rows: readonly Row[],
+	shape: Shape,
+	access: Access | undefined,
+): unknown[] => rows.map((row) => project(row, shape, hiddenBy(access)))
+
 export function first(
 	rows: readonly Row[],
 	shape: Shape,

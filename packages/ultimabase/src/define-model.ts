@@ -148,6 +148,8 @@ const operations: readonly Operation[] = [
 	'delete',
 	'updateMany',
 	'createMany',
+	'updateManyAndReturn',
+	'createManyAndReturn',
 	'deleteMany',
 ]
 

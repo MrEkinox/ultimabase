@@ -1,15 +1,19 @@
 // `updateMany` (D-133): what an `update` runs, on each row its `where`
 // selects, all or nothing; one write when nothing needs the rows (D-99).
+// `updateManyAndReturn` returns them in `id` order, each as `update` does
+// (D-149).
 import { recordOf } from './access.ts'
-import type { Change, Filter, Row } from './adapter.ts'
+import type { Change, Filter, Order, Row } from './adapter.ts'
 import { InvalidQuery } from './errors.ts'
 import type { Event } from './hooks.ts'
-import { runHook, settle } from './hooks.ts'
+import { rereads, runHook, settle } from './hooks.ts'
 import type { Operations } from './number-update.ts'
 import { computeOn, operationsOf, inRange, validates } from './number-update.ts'
+import type { Plan as Shaped } from './query-args.ts'
+import { oneKeys } from './query-args.ts'
 import type { Context } from './query-context.ts'
-import { filtered, given } from './query-context.ts'
-import { entries } from './query-where.ts'
+import { filtered, given, shapedRows } from './query-context.ts'
+import { byIds, entries } from './query-where.ts'
 import { updatePlan } from './query-write.ts'
 import type { ModelInfo } from './schema.ts'
 import type { Commit, Store } from './transaction.ts'
@@ -19,6 +23,10 @@ import type { Plan } from './write-plan.ts'
 import { updated } from './write-plan.ts'
 import { checkedWrite, guarded } from './write-target.ts'
 import { writingOf } from './writing.ts'
+import { returned } from './writes.ts'
+
+// In id order, so two calls on the same rows wait instead of deadlocking.
+const orderBy: readonly Order[] = [{ field: 'id', direction: 'asc' }]
 
 /** The scalar data of the rows, as `update` reads it (D-133 point 2). */
 function scalarData(context: Context, data: unknown): Draft {
@@ -104,18 +112,20 @@ function grouped(
 	return groups
 }
 
-/** Each row through the update rule and hooks, then their writes (D-133). */
+/**
+ * Each row through the update rule and hooks, then their writes (D-133):
+ * the rows changed, or with `at` as it shapes them.
+ */
 async function lockedRows(
 	context: Context,
 	store: Store,
 	commits: Commit[],
 	data: { readonly draft: Draft; readonly operations: Operations },
 	where: Filter,
-): Promise<{ readonly count: number }> {
+	at: Shaped | undefined,
+): Promise<readonly unknown[]> {
 	const { model, caller, scope } = context
 	const { operations } = data
-	// In id order, so two calls on the same rows wait instead of deadlocking.
-	const orderBy = [{ field: 'id', direction: 'asc' }] as const
 	const rows = await store.find({
 		model: model.name,
 		where,
@@ -131,7 +141,7 @@ async function lockedRows(
 	for (const { row, sent } of items) {
 		scope.access?.allow(model, 'update', { record: row, data: sent })
 	}
-	if (items.length === 0) return { count: 0 }
+	if (items.length === 0) return []
 	for (const { row, draft } of items) {
 		await prepared(model, draft, caller, false)
 		const record = recordOf(model, row)
@@ -166,31 +176,54 @@ async function lockedRows(
 				: spread(plan, { id: { in: ids } })),
 		)
 	}
-	await inRange(model, checkedWrite(store, writing.checks, changes))
+	const ids = items.map((item) => item.row.id)
+	const read = at && {
+		model: model.name,
+		...at.read,
+		where: byIds(ids),
+		orderBy,
+	}
+	// An `after*` hook may change the rows: they are read once it ran (D-88).
+	const again = rereads(events)
+	const written = await inRange(
+		model,
+		checkedWrite(store, writing.checks, changes, again ? undefined : read),
+	)
 	await settle(store, caller, events, commits)
-	return { count: items.length }
+	if (at === undefined || read === undefined) return ids
+	const result = again ? await store.find(read) : written
+	return shapedRows(result, at.shape, scope.access)
 }
 
-export async function updateMany(
+/**
+ * Updates the rows `where` selects: their ids, or with `at` the rows as it
+ * shapes them, in `id` order. The rows come back even when a read rule
+ * would hide them, as `update`'s does (D-86).
+ */
+async function updating(
 	context: Context,
 	store: Store,
 	commits: Commit[],
-	args: unknown,
-): Promise<{ readonly count: number }> {
+	found: ReadonlyMap<string, unknown>,
+	at?: Shaped,
+): Promise<readonly unknown[]> {
 	const { model, caller, scope } = context
-	const found = given(args, model.name, ['where', 'data'], ['data'])
 	const draft = scalarData(context, found.get('data'))
 	const operations = operationsOf(model, draft)
 	const where: Filter = (await filtered(context, found, 'update')) ?? {}
+	// A relation read beside the UPDATE would see its rows as they were.
+	const nests = at?.read.include !== undefined || at?.read.count !== undefined
 	if (
 		scope.access !== undefined ||
 		updated(model) ||
-		validates(model, operations)
+		validates(model, operations) ||
+		nests
 	) {
-		return lockedRows(context, store, commits, { draft, operations }, where)
+		const data = { draft, operations }
+		return lockedRows(context, store, commits, data, where, at)
 	}
 	// Nothing needs the stored rows: one UPDATE, which computes the numbers
-	// and lists and counts the rows it changed (D-104).
+	// and lists and returns the rows it changed (D-104).
 	await prepared(model, draft, caller, false)
 	const plan = await updatePlan(
 		scope,
@@ -203,9 +236,33 @@ export async function updateMany(
 	)
 	const write = {
 		changes: spread(plan, where),
-		read: { model: model.name },
+		read: { model: model.name, ...at?.read, orderBy },
 		before: true,
 	}
 	const rows = await inRange(model, guarded(store.last(write), []))
-	return { count: rows.length }
+	if (at === undefined) return rows.map((row) => row.id)
+	return shapedRows(rows, at.shape, scope.access)
+}
+
+export async function updateMany(
+	context: Context,
+	store: Store,
+	commits: Commit[],
+	args: unknown,
+): Promise<{ readonly count: number }> {
+	const found = given(args, context.model.name, ['where', 'data'], ['data'])
+	const ids = await updating(context, store, commits, found)
+	return { count: ids.length }
+}
+
+export async function updateManyAndReturn(
+	context: Context,
+	store: Store,
+	commits: Commit[],
+	args: unknown,
+): Promise<readonly unknown[]> {
+	const keys = ['where', 'data', ...oneKeys]
+	const found = given(args, context.model.name, keys, ['data'])
+	const at = await returned(context, found)
+	return updating(context, store, commits, found, at)
 }

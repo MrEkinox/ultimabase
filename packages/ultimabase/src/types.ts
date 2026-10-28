@@ -3,10 +3,15 @@
 import type { ResultOf, RunArgs } from './function.ts'
 import type { Model } from './model.ts'
 import type { AggregateArgs } from './query-aggregate.ts'
+import type {
+	CreateManyAndReturnArgs,
+	CreateManyArgs,
+	UpdateManyAndReturnArgs,
+	UpdateManyArgs,
+} from './query-bulk.ts'
 import type { GroupByArgs } from './query-group.ts'
 import type {
 	CreateArgs,
-	CreateManyArgs,
 	FindFirstArgs,
 	FindManyArgs,
 	FindUniqueArgs,
@@ -15,7 +20,6 @@ import type {
 	Payload,
 	Select,
 	UpdateArgs,
-	UpdateManyArgs,
 	UpsertArgs,
 	Where,
 } from './query.ts'
@@ -44,6 +48,8 @@ type Operations<F, X, N> = {
 	readonly delete: FindUniqueArgs<F, X>
 	readonly updateMany: UpdateManyArgs<F>
 	readonly createMany: CreateManyArgs<F>
+	readonly updateManyAndReturn: UpdateManyAndReturnArgs<F>
+	readonly createManyAndReturn: CreateManyAndReturnArgs<F>
 	readonly deleteMany: { readonly where?: Where<F> | undefined }
 }
 

@@ -3,6 +3,7 @@
 import type { Adapter } from 'ultimabase'
 import { describe } from 'vitest'
 import { aggregates } from './aggregates.ts'
+import { bulkReturns } from './bulk-returns.ts'
 import { cases } from './cases.ts'
 import { cascades } from './cascades.ts'
 import { counts } from './counts.ts'
@@ -42,6 +43,7 @@ export function testAdapter(
 		lists(create)
 		nested(create)
 		numbers(create)
+		bulkReturns(create)
 		decimals(create)
 		counts(create)
 		aggregates(create)

@@ -16,8 +16,8 @@ import { reading, writing } from './transaction.ts'
 import { aggregate } from './aggregate.ts'
 import { distinctOf, groupBy } from './group-by.ts'
 import { removeMany } from './delete-many.ts'
-import { updateMany } from './update-many.ts'
-import { createMany } from './create-many.ts'
+import { updateMany, updateManyAndReturn } from './update-many.ts'
+import { createMany, createManyAndReturn } from './create-many.ts'
 import { create, remove, update, upsert } from './writes.ts'
 
 export type Operation =
@@ -35,6 +35,8 @@ export type Operation =
 	| 'delete'
 	| 'updateMany'
 	| 'createMany'
+	| 'updateManyAndReturn'
+	| 'createManyAndReturn'
 	| 'deleteMany'
 	// The transports' upsert, which also says whether it created (D-142).
 	| 'upserted'
@@ -194,6 +196,8 @@ const writes: { readonly [O in Exclude<Operation, ReadOperation>]: Write } = {
 	delete: remove,
 	updateMany,
 	createMany,
+	updateManyAndReturn,
+	createManyAndReturn,
 	deleteMany: removeMany,
 }
 

@@ -1,7 +1,6 @@
 // Query arguments and results, in Prisma Client's form (D-20).
 import type {
 	CreateData,
-	CreateManyData,
 	RecordOf,
 	RelationKeys,
 	ScalarKeys,
@@ -10,10 +9,10 @@ import type {
 	TargetFields,
 	UniqueKeys,
 	UpdateData,
-	UpdateManyData,
 } from './record.ts'
 import type { Exact } from './exact.ts'
 import type { AggregateArgs, Aggregates, IsDecimal } from './query-aggregate.ts'
+import type { BulkQueries } from './query-bulk.ts'
 import type { ListFilter, ScalarFilter } from './query-filter.ts'
 import type { Relevance, SearchWhere } from './query-search.ts'
 import type {
@@ -241,7 +240,7 @@ type Included<F, I> = {
 export type OmitArgs<F> = { readonly [K in keyof RecordOf<F>]?: boolean }
 
 /** `select` and `omit` exclude each other (D-135). */
-type Shaping<F> = { readonly include?: Include<F> } & (
+export type Shaping<F> = { readonly include?: Include<F> } & (
 	| { readonly select?: Select<F>; readonly omit?: undefined }
 	| { readonly select?: undefined; readonly omit?: OmitArgs<F> }
 )
@@ -298,21 +297,10 @@ export type UpsertArgs<F, X = never, N = never> = Shaping<F> & {
 	readonly update: UpdateData<F, N>
 }
 
-/** `createMany`: a row or a list, no nested writes, no rows back (D-135). */
-export type CreateManyArgs<F> = {
-	readonly data: CreateManyData<F> | readonly CreateManyData<F>[]
-}
-
-/** `updateMany`: no relation writes, no returned rows (D-133). */
-export type UpdateManyArgs<F> = {
-	readonly where?: Where<F> | undefined
-	readonly data: UpdateManyData<F>
-}
-
 /** Model methods (D-18), the subset the prototype measures. */
 // Each query is a closure on its model: it can be passed around unbound.
 /** `N` is the model's name, which nested creation needs (D-128). */
-export interface Queries<F, X = never, N = never> {
+export interface Queries<F, X = never, N = never> extends BulkQueries<F> {
 	findMany<const A extends FindManyArgs<F, X, N>>(
 		this: void,
 		args?: A & NoInfer<Exact<A, FindManyArgs<F, X, N>>>,
@@ -379,22 +367,4 @@ export interface Queries<F, X = never, N = never> {
 		args: A & NoInfer<Exact<A, FindUniqueArgs<F, X>>>,
 		options?: QueryOptions,
 	): Promise<Payload<F, A>>
-	/** A create of each row of `data`, all or nothing (D-135). */
-	createMany(
-		this: void,
-		args: CreateManyArgs<F>,
-		options?: QueryOptions,
-	): Promise<{ readonly count: number }>
-	/** An update of each row `where` selects, all or nothing (D-133). */
-	updateMany(
-		this: void,
-		args: UpdateManyArgs<F>,
-		options?: QueryOptions,
-	): Promise<{ readonly count: number }>
-	/** A delete of each row `where` selects, all or nothing (D-111). */
-	deleteMany(
-		this: void,
-		args?: { readonly where?: Where<F> | undefined },
-		options?: QueryOptions,
-	): Promise<{ readonly count: number }>
 }

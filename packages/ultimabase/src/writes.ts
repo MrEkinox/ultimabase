@@ -30,8 +30,8 @@ import { guarded, target } from './write-target.ts'
 import { writingOf } from './writing.ts'
 import { byId } from './query-where.ts'
 
-/** The shape a single-row write returns. */
-async function returned(
+/** The shape a single-row write returns, and each row of a bulk one's (D-149). */
+export async function returned(
 	context: Context,
 	found: ReadonlyMap<string, unknown>,
 ): Promise<{ readonly read: Nested; readonly shape: Shape }> {
