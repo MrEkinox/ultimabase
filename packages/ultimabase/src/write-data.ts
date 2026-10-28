@@ -5,7 +5,7 @@ import { InvalidQuery, PublicError } from './errors.ts'
 import type { Caller } from './rules.ts'
 import type { FieldInfo, ModelInfo } from './schema.ts'
 import type { Models } from './query-where.ts'
-import type { Scalar } from './query-where.ts'
+import type { ScalarCheck } from './query-where.ts'
 import {
 	entries,
 	integerRange,
@@ -21,7 +21,10 @@ import { manyWrite, oneWrite } from './relation-write.ts'
 export type Draft = { [field: string]: unknown }
 
 /** A value's issue; each element of a list fits its type (D-127). */
-export function issueOf(value: unknown, field: Scalar): string | undefined {
+export function issueOf(
+	value: unknown,
+	field: ScalarCheck,
+): string | undefined {
 	if (!field.list) return misfit(value, field)
 	const fit = (item: unknown) =>
 		item !== '' && misfit(item, field) === undefined

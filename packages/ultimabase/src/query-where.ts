@@ -19,6 +19,9 @@ export const byIds = (ids: readonly string[]): Filter => ({ id: { in: ids } })
 
 export type Scalar = Extract<FieldInfo, { readonly kind: 'scalar' }>
 
+/** What a scalar value is checked against (D-139). */
+export type ScalarCheck = Pick<Scalar, 'type' | 'list' | 'integer' | 'values'>
+
 /** An integer field's values (D-132). */
 export const isInteger = (value: unknown): boolean =>
 	Number.isInteger(value) &&
@@ -107,7 +110,7 @@ export const integerRange = 'from -2,147,483,648 to 2,147,483,647'
 const misfits: {
 	readonly [T in ScalarType]: (
 		value: unknown,
-		field: Scalar,
+		field: ScalarCheck,
 	) => string | undefined
 } = {
 	string: (value) => {
@@ -141,8 +144,10 @@ const misfits: {
 }
 
 /** The message of a value that does not fit `field`, if it does not. */
-export const misfit = (value: unknown, field: Scalar): string | undefined =>
-	misfits[field.type](value, field)
+export const misfit = (
+	value: unknown,
+	field: ScalarCheck,
+): string | undefined => misfits[field.type](value, field)
 
 /** Whether `value` fits a field, or a system field, which has no info (D-22). */
 const fits = (type: Single, value: unknown, field: FieldInfo | undefined) =>
