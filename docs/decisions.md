@@ -459,7 +459,7 @@ read: ({ caller, where }) =>
 
 ## D-20: The query API follows Prisma Client
 
-Amended by D-128, D-132, D-133, D-135 and D-138.
+Amended by D-128, D-132, D-133, D-135, D-138 and D-140.
 
 Choice: operations, their names and their arguments follow Prisma Client, so
 a developer coming from Prisma reads UltimaBase queries as Prisma: `findUnique`,
@@ -7699,4 +7699,75 @@ import { isRow, issueOf } from 'ultimabase/internal'
 	{ path: ['input', 'age'], message: 'Expected a finite number.' },
 	{ path: ['input', 'born'], message: 'Expected a Date of years 1 to 9999.' },
 ]
+```
+
+## D-140: Case-insensitive string filters
+
+Choice: amends D-20, which left them to a search plugin.
+
+1. A filter on a `string` field takes `mode: 'insensitive'`, as in Prisma:
+   its `equals`, `not`, `in`, `notIn`, `contains`, `startsWith` and
+   `endsWith` then ignore case. The shorthand (`email: 'Ana'`) keeps case.
+   `mode` takes `'insensitive'` only: Prisma's `'default'` is a filter
+   without `mode`, which `undefined` already gives (D-84). An id, an enum and
+   a list of strings take no `mode`.
+2. The normalized condition carries `mode: 'insensitive'` (D-73).
+   PostgreSQL compiles each of its operators to `ilike`, an equality to an
+   `ilike` without wildcards, so that one trigram index serves them all
+   (D-141). `memory()` compares both sides' `toLowerCase()`.
+3. PostgreSQL folds case as its collation does: under the `C` locale it
+   folds ASCII only, and `É` would match `é` in `memory()` but not there.
+   `postgres()` checks `lower('É') = 'é'` when it starts and, when it does
+   not hold, warns once through the kernel's logger, which an adapter's
+   `start` now receives.
+4. REST reads `mode` in its `where` as the kernel does (D-129). GraphQL's
+   `StringFilter` takes `mode: QueryMode`, an enum whose one value is
+   `insensitive`.
+
+Why: a sign-in by email, a tag or a name typed by a user is matched without
+case in most applications, and Prisma's developers expect `mode`. Without
+it, the application stores a lowered copy of each such field. `ilike` lowers
+both sides as `lower()` does, so equality keeps its meaning.
+
+Rejected:
+
+- `lower(column) = lower(value)` for an equality: no trigram index serves
+  it, and a `lower()` index would be a second index kind.
+- An ICU collation written into the SQL (`collate "und-x-icu"`): not every
+  host builds PostgreSQL with ICU.
+- Refusing to start under `C`: the database works, only letters beyond
+  ASCII differ.
+- A `citext` column, or `f.string({ caseInsensitive: true })`: every query
+  on the field would ignore case, and uniqueness with it; that is a property
+  of the stored value, which a `beforeCreate` normalizing it already gives.
+
+Example:
+
+```ts
+// Before: a lowered copy of the email, kept by a hook
+const user = await User.findFirst({
+	where: { emailLower: input.email.toLowerCase() },
+})
+// After
+const user = await User.findFirst({
+	where: { email: { equals: input.email, mode: 'insensitive' } },
+})
+```
+
+```graphql
+{
+	users(where: { name: { contains: "ada", mode: insensitive } }) {
+		edges {
+			node {
+				name
+			}
+		}
+	}
+}
+```
+
+```text
+WARN  PostgreSQL folds case under its C locale for ASCII only: a case-insensitive
+      filter matches É and é in memory() but not here. Create the database with
+      a UTF-8 locale, such as en_US.UTF-8.
 ```
