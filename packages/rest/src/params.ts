@@ -1,7 +1,7 @@
 // Query parameters (D-129): each the JSON of the GraphQL argument of its
 // name, a string argument as is.
+import { badInput } from '@ultimabase/http/internal'
 import type { Args } from './entries.ts'
-import { badInput } from './errors.ts'
 
 /** What a route reads from its query string. */
 export type Accepted = {

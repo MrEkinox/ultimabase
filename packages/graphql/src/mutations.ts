@@ -2,6 +2,7 @@
 // `deletePost(where)`, each one kernel write run as its caller. A create
 // and an update return the row as the query asks for it, a delete the row
 // as it was, without its relations.
+import { run } from '@ultimabase/http/internal'
 import type {
 	GraphQLFieldConfig,
 	GraphQLInputFieldConfigMap,
@@ -15,7 +16,6 @@ import {
 	GraphQLNonNull,
 } from 'graphql'
 import type { SchemaField } from 'ultimabase'
-import { run } from './errors.ts'
 import { objectOf, uniqueInput, uniqueWhere } from './inputs.ts'
 import { jsonInput, plainData } from './json-fields.ts'
 import { upper } from './names.ts'

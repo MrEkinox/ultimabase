@@ -1,5 +1,6 @@
 // The schema (D-107): for each visible model, `post(where)` and `posts(...)`,
 // each read in one kernel query as its caller, and its mutations.
+import { connection, rowsOf, run } from '@ultimabase/http/internal'
 import type { GraphQLFieldConfig, GraphQLResolveInfo } from 'graphql'
 import {
 	GraphQLList,
@@ -9,12 +10,11 @@ import {
 } from 'graphql'
 import { objectOf, uniqueInput, uniqueWhere } from './inputs.ts'
 import { connectionType, isMaster, listArgs, objectType } from './outputs.ts'
-import { connection, listRead, rowsOf, whereOf } from './pages.ts'
+import { listRead, whereOf } from './pages.ts'
 import type { Args, Context, Entry, Registry } from './registry.ts'
 import { as } from './registry.ts'
 import { nodesOf, selectOf } from './select.ts'
 import { mutationFields } from './mutations.ts'
-import { run } from './errors.ts'
 import type { RootField } from './functions.ts'
 import { Refused } from 'ultimabase'
 
@@ -72,7 +72,7 @@ function rootFields(registry: Registry, entry: Entry): Fields {
 				if (page === undefined) return rows
 				let counted: Promise<unknown> | undefined
 				return {
-					...connection(rowsOf(rows), page),
+					...connection(rowsOf(rows), page, (row) => row),
 					// Called by the default resolver, so counted only when selected,
 					// and once however many aliases ask.
 					totalCount: async () => {

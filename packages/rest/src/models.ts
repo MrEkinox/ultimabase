@@ -3,10 +3,10 @@
 // matching GraphQL field returns.
 import type { Routes, StandardSchema } from '@ultimabase/http'
 import { validate } from '@ultimabase/http'
+import { badInput, connection, pageArgs, run } from '@ultimabase/http/internal'
 import type { Caller, Row } from 'ultimabase'
 import { PublicError } from 'ultimabase'
 import type { Api, Args, Entry } from './entries.ts'
-import { badInput, run } from './errors.ts'
 import type { Read, Shape } from './fields.ts'
 import {
 	defaultShape,
@@ -16,7 +16,6 @@ import {
 	rowsBelow,
 	shaped,
 } from './fields.ts'
-import { connection, pageArgs } from './pages.ts'
 import type { Accepted } from './params.ts'
 import { paramsOf } from './params.ts'
 import { dataOf, isArgs } from './values.ts'
@@ -66,7 +65,9 @@ async function list(
 			'orderBy',
 			'select',
 			'include',
-			...pageArgs(api).filter((arg) => arg !== 'after' && arg !== 'before'),
+			...pageArgs(api.pagination).filter(
+				(arg) => arg !== 'after' && arg !== 'before',
+			),
 			...(counts ? ['totalCount'] : []),
 		],
 		text: counts ? ['after', 'before'] : [],

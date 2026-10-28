@@ -1,5 +1,6 @@
 // The read inputs (D-107), as the query API spells them (D-20): filters,
 // `where`, `orderBy` and the `@oneOf` unique target.
+import { readable } from '@ultimabase/http/internal'
 import type {
 	GraphQLInputFieldConfigMap,
 	GraphQLNamedInputType,
@@ -15,7 +16,7 @@ import {
 import type { SchemaField } from 'ultimabase'
 import { upper } from './names.ts'
 import type { Args, Registry, Scalar } from './registry.ts'
-import { readable, scalarType } from './registry.ts'
+import { scalarType } from './registry.ts'
 import { jsonFilter } from './json-fields.ts'
 import { DateTime } from './scalars.ts'
 

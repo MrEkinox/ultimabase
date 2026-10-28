@@ -120,12 +120,6 @@ export const scalarTypes: {
 	json: JSONScalar,
 }
 
-/** The fields a caller other than Master may read: no `private` one (D-44). */
-export const readable = (entry: Entry): readonly SchemaField[] =>
-	entry.model.fields.filter(
-		(field) => entry.exposed.readRules[field.name] !== 'private',
-	)
-
 /** A scalar field's type; an enum's is `PostStatus`, built once. */
 export function scalarType(
 	registry: Registry,

@@ -1,5 +1,6 @@
 // A query's selection as one kernel read (D-107): the fields asked for, and
 // each `many` relation's own page and count, read with its parent's rows.
+import { badInput, readable } from '@ultimabase/http/internal'
 import type {
 	FieldNode,
 	GraphQLObjectType,
@@ -15,11 +16,9 @@ import {
 	isObjectType,
 	Kind,
 } from 'graphql'
-import { badInput } from './errors.ts'
 import { objectType } from './outputs.ts'
 import { listRead } from './pages.ts'
 import type { Args, Registry } from './registry.ts'
-import { readable } from './registry.ts'
 
 export type Info = Pick<GraphQLResolveInfo, 'fragments' | 'variableValues'>
 /** A field's name, or its alias: the key of its value in the response. */

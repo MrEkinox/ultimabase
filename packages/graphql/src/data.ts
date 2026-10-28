@@ -2,6 +2,8 @@
 // D-109): what a function takes and returns as data, and a json field
 // (D-125). A schema given an id is one shared type; any other object or enum
 // is named from its path.
+import type { Node } from '@ultimabase/http/internal'
+import { isNode, jsonSchemaOf } from '@ultimabase/http/internal'
 import type {
 	GraphQLEnumType,
 	GraphQLFieldConfigArgumentMap,
@@ -21,8 +23,8 @@ import {
 	GraphQLObjectType,
 	GraphQLString,
 } from 'graphql'
-import type { Node, Side } from './json-schema.ts'
-import { defsOf, exportOf, isNode, jsonSchemaOf } from './json-schema.ts'
+import type { Side } from './json-schema.ts'
+import { defsOf, exportOf } from './json-schema.ts'
 import { upper } from './names.ts'
 import type { Context } from './registry.ts'
 import { DateTime, JSONScalar } from './scalars.ts'

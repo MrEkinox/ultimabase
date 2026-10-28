@@ -1,6 +1,7 @@
 // The models REST serves (D-129): each model's plural and limits, named and
 // bounded as GraphQL names and bounds them (D-107).
-import type { ExposedModel, SchemaField, SchemaModel } from 'ultimabase'
+import { plural } from '@ultimabase/http/internal'
+import type { ExposedModel, SchemaModel } from 'ultimabase'
 import { Refused } from 'ultimabase'
 
 /** A model's key of `.with` (D-129). */
@@ -35,13 +36,6 @@ export function entryOf(api: Api, model: string): Entry {
 	return entry
 }
 
-/** `post` → `posts`, `category` → `categories`, `box` → `boxes`, as GraphQL. */
-export function plural(name: string): string {
-	if (/[^aeiou]y$/i.test(name)) return `${name.slice(0, -1)}ies`
-	if (/(?:s|x|z|ch|sh)$/i.test(name)) return `${name}es`
-	return `${name}s`
-}
-
 /** Stops startup on a route name GraphQL would refuse as a field name. */
 export function checkName(name: string, where: string): string {
 	if (/^[_A-Za-z][_0-9A-Za-z]*$/.test(name) && !name.startsWith('__')) {
@@ -52,12 +46,6 @@ export function checkName(name: string, where: string): string {
 
 /** `id`, `createdAt` and `updatedAt`, which every model has (D-22). */
 export const system: readonly string[] = ['id', 'createdAt', 'updatedAt']
-
-/** The fields a client reads: no `private` one, for Master too (D-44). */
-export const readable = (entry: Entry): readonly SchemaField[] =>
-	entry.model.fields.filter(
-		(field) => entry.exposed.readRules[field.name] !== 'private',
-	)
 
 /** Each model's entry; two routed models of one plural stop startup. */
 export function entriesOf(

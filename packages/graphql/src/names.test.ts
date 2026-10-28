@@ -1,21 +1,6 @@
 // The names of the generated root fields (D-107).
 import { describe, expect, it } from 'vitest'
-import { plural, rootNames } from './names.ts'
-
-describe('plural', () => {
-	it('spells English plurals', () => {
-		expect(
-			['post', 'category', 'day', 'box', 'bus', 'match'].map(plural),
-		).toStrictEqual([
-			'posts',
-			'categories',
-			'days',
-			'boxes',
-			'buses',
-			'matches',
-		])
-	})
-})
+import { rootNames } from './names.ts'
 
 describe('rootNames', () => {
 	it('names the one-row field after the model and the list after its plural', () => {
