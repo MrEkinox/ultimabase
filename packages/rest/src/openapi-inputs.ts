@@ -10,6 +10,7 @@ import { entryOf } from './entries.ts'
 import type { Components, Schema } from './openapi.ts'
 import {
 	arrayOf,
+	describe,
 	described,
 	hoisted,
 	objectOf,
@@ -61,6 +62,13 @@ function item(
 			return { name: 'Date', schema: { type: 'string', format: 'date' } }
 		case 'enum': {
 			const values = field.values ?? []
+			const shared = entryOf(doc.api, model).exposed.enums[field.name]
+			if (shared !== undefined) {
+				const { name, description } = shared
+				const schema = describe({ type: 'string', enum: values }, description)
+				const owner = `${model}.${field.name}`
+				return { name, schema: doc.components.shared(name, schema, owner) }
+			}
 			const schema = doc.components.ref(named, () => ({
 				type: 'string',
 				enum: values,

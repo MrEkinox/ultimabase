@@ -1,7 +1,7 @@
 // What `defineModel`, the field builders and `definePlugin` record at run
 // time: the values behind the types.
 import type { ScalarType } from './adapter.ts'
-import type { StandardSchema } from './fields.ts'
+import type { Enum, StandardSchema } from './fields.ts'
 import type { Manifest, OutputForm } from './plugin.ts'
 import type { Standard } from './validation.ts'
 import { Refused } from './errors.ts'
@@ -24,6 +24,8 @@ export type FieldDefinition =
 			readonly kind: 'scalar'
 			readonly type: ScalarType
 			readonly values?: readonly string[]
+			/** The `defineEnum` its values are, if one (D-150). */
+			readonly enum?: Enum
 			readonly options: FieldOptions
 			readonly rules?: object
 			/** A plugin field type's, whose `type` is the stored one (D-122). */
@@ -206,6 +208,7 @@ function listable(
 	type: ScalarType,
 	options: FieldOptions = {},
 	values?: readonly string[],
+	shared?: Enum,
 ): object {
 	const list = options['list'] === true
 	if (list) {
@@ -225,6 +228,7 @@ function listable(
 		kind: 'scalar',
 		type,
 		...(values === undefined ? {} : { values }),
+		...(shared === undefined ? {} : { enum: shared }),
 		options,
 	})
 }
@@ -263,15 +267,28 @@ const relation =
 	(target: () => unknown, options?: FieldOptions): object =>
 		build({ kind, target, options: options ?? {} })
 
-function enumOf(values: readonly unknown[], options?: FieldOptions): object {
-	const strings = values.filter((value) => typeof value === 'string')
-	if (strings.length === 0 || strings.length !== values.length) {
-		throw new Error('enumOf takes a list of strings.')
+/** The `defineEnum` values, which `enumOf` takes in place of a list. */
+export const sharedEnums: WeakMap<object, Enum> = new WeakMap()
+
+/** An enum's values: strings, each once. */
+export function enumValues(values: unknown, of: string): readonly string[] {
+	const listed: readonly unknown[] = Array.isArray(values) ? values : []
+	const strings = listed.filter((value) => typeof value === 'string')
+	if (strings.length === 0 || strings.length !== listed.length) {
+		throw new Error(`${of} takes a list of strings.`)
 	}
 	if (new Set(strings).size !== strings.length) {
-		throw new Error(`enumOf lists a value twice: ${strings.join(', ')}.`)
+		throw new Error(`${of} lists a value twice: ${strings.join(', ')}.`)
 	}
-	return listable('enum', options, strings)
+	return strings
+}
+
+function enumOf(values: unknown, options?: FieldOptions): object {
+	const shared = isObject(values) ? sharedEnums.get(values) : undefined
+	if (shared !== undefined) {
+		return listable('enum', options, shared.values, shared)
+	}
+	return listable('enum', options, enumValues(values, 'enumOf'))
 }
 
 /** The builders `defineModel`'s `fields` callback receives (D-09, D-12). */

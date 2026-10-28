@@ -80,6 +80,12 @@ export class DataTypes {
 			throw new Refused(`${owner}: the type ${name} is named like a model.`)
 		}
 		const known = cache.get(name)
+		const other = this.owners.get(name)
+		if (known === undefined && other !== undefined) {
+			throw new Refused(
+				`${other} and ${owner} give the type ${name} two shapes; name each once.`,
+			)
+		}
 		if (known === undefined) {
 			const type = build()
 			cache.set(name, { key, owner, type })

@@ -526,7 +526,7 @@ describe('start', () => {
 			run: () => ({ a: 'a' }),
 		})
 		await expect(refusing([first, shelf])).rejects.toThrow(
-			'first: REST names a schema Shelf; give yours another id.',
+			'first: REST names a schema Shelf; give yours another name.',
 		)
 		const clash = defineFunction({
 			name: 'clash',
@@ -534,7 +534,7 @@ describe('start', () => {
 			run: () => ({ a: 'a' }),
 		})
 		await expect(refusing([clash])).rejects.toThrow(
-			'clash: REST names a schema Book; give yours another id.',
+			'clash: REST names a schema Book; give yours another name.',
 		)
 		const late = defineFunction({
 			name: 'late',
@@ -548,7 +548,7 @@ describe('start', () => {
 			fields: (f) => ({ a: f.string() }),
 		})
 		await expect(refusing([late], [Late])).rejects.toThrow(
-			'late: REST names a schema Late; give yours another id.',
+			'late: REST names a schema Late; give yours another name.',
 		)
 	})
 

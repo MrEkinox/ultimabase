@@ -10,17 +10,19 @@ import type {
 	PluginUse,
 } from './definition.ts'
 import type { Digits } from './decimal.ts'
+import type { Enum } from './fields.ts'
 import { modelDefinitions } from './definition.ts'
 import { Refused } from './errors.ts'
 import { checkIndexes, checkSearch } from './schema-indexes.ts'
 
 /**
- * A field as the kernel reads it: its schema, its builder's options, and a
- * plugin field type's codec (D-122).
+ * A field as the kernel reads it: its schema, its builder's options, a
+ * plugin field type's codec (D-122) and its shared enum (D-150).
  */
 export type FieldInfo = SchemaField & {
 	readonly options: FieldOptions
 	readonly codec?: Codec
+	readonly enum?: Enum
 }
 
 export type ModelInfo = {
@@ -182,12 +184,13 @@ function scalarField(name: string, field: FieldDefinition): FieldInfo {
 			: { default: fixed }),
 		options: field.options,
 		...(field.codec === undefined ? {} : { codec: field.codec }),
+		...(field.enum === undefined ? {} : { enum: field.enum }),
 	}
 }
 
 /** A field as the adapter reads it, without the builder's options. */
 function schemaField(field: FieldInfo): SchemaField {
-	const { options: _options, codec: _codec, ...schema } = field
+	const { options: _options, codec: _codec, enum: _enum, ...schema } = field
 	return schema
 }
 

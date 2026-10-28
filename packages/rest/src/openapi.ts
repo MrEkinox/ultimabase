@@ -81,7 +81,7 @@ type Known = { readonly owner: string; readonly key: string | undefined }
 const rest = 'REST'
 
 const clash = (owner: string, name: string): Refused =>
-	new Refused(`${owner}: REST names a schema ${name}; give yours another id.`)
+	new Refused(`${owner}: REST names a schema ${name}; give yours another name.`)
 
 /** The document's named schemas, each name of one shape. */
 export class Components {
@@ -110,7 +110,9 @@ export class Components {
 				`${owner}: ${name} is not a schema name, which takes letters, digits, '.', '-' and '_'.`,
 			)
 		}
-		const key = JSON.stringify(schema)
+		// One shape whatever it says of itself: its first description stays.
+		const { description: _, ...shape } = schema
+		const key = JSON.stringify(shape)
 		const known = this.#known.get(name)
 		if (known?.owner === rest) throw clash(owner, name)
 		if (known === undefined) {

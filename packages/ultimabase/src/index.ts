@@ -37,6 +37,7 @@ export {
 } from './adapter.ts'
 export type { Logger, MasterKey } from './app-options.ts'
 export { defineApp } from './define-app.ts'
+export { defineEnum } from './define-enum.ts'
 export type {
 	FieldShapes,
 	ModelFields,
@@ -48,6 +49,7 @@ export type { ErrorCode, Issue } from './errors.ts'
 export { InvalidQuery, PublicError, Refused } from './errors.ts'
 export type {
 	DecimalOptions,
+	Enum,
 	Field,
 	FieldBuilders,
 	JsonOptions,

@@ -9,6 +9,7 @@ import {
 	GraphQLObjectType,
 } from 'graphql'
 import type { ExposedFunction, ExposedOutput, ExposedType } from 'ultimabase'
+import { Refused } from 'ultimabase'
 import type { Path } from './data.ts'
 import type { DataTypes } from './data-types.ts'
 import { checkName, inputArgs, outputData } from './data.ts'
@@ -90,6 +91,12 @@ class Builder {
 		if (known !== undefined) return known
 		const { name } = type
 		checkName(name, `defineType ${name}`)
+		const other = this.owners.get(name)
+		if (other !== undefined) {
+			throw new Refused(
+				`${other} and ${owner} give the type ${name} two shapes; name each once.`,
+			)
+		}
 		this.owners.set(name, owner)
 		const fields = [...type.fields].map(([field, output]): [string, Field] => {
 			checkName(field, `${name}.${field}`)

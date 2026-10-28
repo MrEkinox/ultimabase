@@ -63,6 +63,14 @@ export type DecimalOptions = ScalarOptions<string> & {
 	readonly scale: number
 }
 
+/** A shared enum, which `defineEnum` returns frozen (D-150). */
+export type Enum<E extends string = string> = {
+	/** Its GraphQL enum's and its OpenAPI schema's name. */
+	readonly name: string
+	readonly values: readonly E[]
+	readonly description: string | undefined
+}
+
 /** A field's options without `list` (D-120, D-127). */
 export type SingleOptions<V> = ScalarOptions<V> & { readonly list?: false }
 
@@ -329,12 +337,15 @@ export interface FieldBuilders<T> {
 	readonly json: <const O extends JsonOptions = JsonOptions>(
 		options?: O & NoInfer<JsonCheck<O>>,
 	) => Field<JsonOutput<O>, O, never, T, JsonInput<O>, true>
-	/** With `list: true`, a list of its values, `[]` when empty (D-127). */
+	/**
+	 * With `list: true`, a list of its values, `[]` when empty (D-127); a
+	 * `defineEnum` in place of its values is one type for each field (D-150).
+	 */
 	readonly enumOf: <
 		const E extends string,
 		const O extends SingleOptions<E> | ListOptions<E> = SingleOptions<E>,
 	>(
-		values: readonly E[],
+		values: readonly E[] | Enum<E>,
 		options?: O & NoInfer<ListableCheck<O, E>>,
 	) => Listable<E, O, T>
 	readonly one: <M extends object, const O extends OneOptions = OneOptions>(

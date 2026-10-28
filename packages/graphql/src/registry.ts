@@ -86,6 +86,13 @@ export class Registry {
 		this.entries = entries
 		this.settings = settings
 		this.data = new DataTypes(entries.keys())
+		// Before any function's: a `defineEnum` keeps its own description.
+		for (const [model, { exposed }] of entries) {
+			for (const [field, shared] of Object.entries(exposed.enums)) {
+				const { name, values, description } = shared
+				this.data.enum(name, values, `${model}.${field}`, description)
+			}
+		}
 	}
 
 	entry(model: string): Entry {
@@ -135,7 +142,10 @@ export const scalarTypes: {
 	json: JSONScalar,
 }
 
-/** A scalar field's type; an enum's is `PostStatus`, built once. */
+/**
+ * A scalar field's type; an enum's is `PostStatus`, built once, and a
+ * `defineEnum`'s its own name, one type for every field (D-150).
+ */
 export function scalarType(
 	registry: Registry,
 	model: string,
@@ -143,6 +153,11 @@ export function scalarType(
 ): GraphQLScalarType | GraphQLEnumType {
 	if (field.integer === true) return GraphQLInt
 	if (field.type !== 'enum') return scalarTypes[field.type]
+	const shared = registry.entry(model).exposed.enums[field.name]
+	if (shared !== undefined) {
+		const { name, values } = shared
+		return registry.data.enum(name, values, `${model}.${field.name}`)
+	}
 	const name = `${model}${upper(field.name)}`
 	return registry.enum(
 		name,

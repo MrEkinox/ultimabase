@@ -16,7 +16,7 @@ import { query } from './engine.ts'
 import { exposedFunctions, resolveFunctions } from './functions.ts'
 import { isObject } from './query-where.ts'
 import { Refused } from './errors.ts'
-import type { StandardSchema } from './fields.ts'
+import type { Enum, StandardSchema } from './fields.ts'
 import { standardOf } from './validation.ts'
 
 /** Each plugin after the plugins it needs; a cycle stops startup. */
@@ -102,6 +102,7 @@ function exposed(name: string, resolved: Resolved): readonly ExposedModel[] {
 			schema: schemaOf(resolved, info.name),
 			description: info.definition.description,
 			descriptions: descriptions(info),
+			enums: enums(info),
 			uniques: info.uniques,
 			readRules: readRules(info),
 			required: required(info),
@@ -140,6 +141,17 @@ function descriptions(info: ModelInfo): ExposedModel['descriptions'] {
 	for (const field of info.fields.values()) {
 		const description = field.options['description']
 		if (typeof description === 'string') found[field.name] = description
+	}
+	return found
+}
+
+/** Each field's `defineEnum` (D-150). */
+function enums(info: ModelInfo): ExposedModel['enums'] {
+	const found: { [field: string]: Enum } = {}
+	for (const field of info.fields.values()) {
+		if (field.kind === 'scalar' && field.enum !== undefined) {
+			found[field.name] = field.enum
+		}
 	}
 	return found
 }

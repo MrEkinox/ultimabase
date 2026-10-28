@@ -1,7 +1,7 @@
 // A plugin is an interface of types and one `definePlugin` (D-57). Its types
 // travel with its values; nothing is declared globally (D-24).
 import type { Logger } from './app-options.ts'
-import type { FieldBuilders, StandardSchema } from './fields.ts'
+import type { Enum, FieldBuilders, StandardSchema } from './fields.ts'
 import type { Client, FunctionShape } from './function.ts'
 import type { Identify } from './identify.ts'
 import { pluginEntries, pluginValues } from './definition.ts'
@@ -98,6 +98,8 @@ export interface ExposedModel<W = unknown> {
 	/** The model's `description` and its fields' (D-150). */
 	readonly description: string | undefined
 	readonly descriptions: { readonly [field: string]: string }
+	/** Each field whose values are a `defineEnum` (D-150). */
+	readonly enums: { readonly [field: string]: Enum }
 	/** `id`, unique fields and unique indexes (D-52). */
 	readonly uniques: readonly (readonly string[])[]
 	/** Each field with a read rule, `private` when only Master reads it (D-44). */
