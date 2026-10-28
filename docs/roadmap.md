@@ -209,7 +209,7 @@ Exit: an example with sign-up, sign-in and rules on `caller.user`.
 - [x] Decide nested writes in `update` (D-20, D-128): D-138.
 - [x] Nested `set`, `update`, `delete` and `connectOrCreate` (D-138).
 - [x] Decide one transport core and shared value checks (D-130): D-139.
-- [ ] One transport core and shared value checks (D-139).
+- [x] One transport core and shared value checks (D-139).
 - [ ] Documentation website (D-31).
 - [ ] A full audit of every package, its fixes merged, before publication.
 - [ ] Publication, after confirmation.
