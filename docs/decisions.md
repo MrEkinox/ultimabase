@@ -8333,3 +8333,133 @@ const latest = await Post.findMany(
 	as,
 )
 ```
+
+## D-148: Full-text search
+
+Choice: completes D-20, D-94 and D-141.
+
+1. A `string` field that is not a list takes `search: true`:
+   `f.string({ search: true })`; no other builder takes it, and a list
+   refuses it as it refuses `unique`. A model's searched fields form one
+   document, in declaration order. A searched field with a read rule
+   (D-44) is refused when the app starts: a match would reveal a value
+   the caller cannot read. `_search` and `_relevance` join the names the
+   kernel owns, which no field takes.
+2. `where: { _search: 'text' }` keeps the rows whose document matches
+   `text`, written as a search box takes it, PostgreSQL's
+   `websearch_to_tsquery`: words all present, `"a phrase"`, `-word`
+   absent, `or` between alternatives. It is a filter as any other: in
+   `AND`, `OR`, `NOT`, in a relation's filter, in `count`, `aggregate`,
+   `groupBy`, `updateMany` and `deleteMany`, not in a unique `where`. A
+   text with no word matches no row, as PostgreSQL does; an application
+   leaves `_search` out, `undefined`, for an empty box (D-84). On a model
+   without searched fields, `_search` is an unknown key: `INVALID_QUERY`.
+3. `orderBy: { _relevance: 'desc' }` sorts by how well each row matches
+   the `_search` of the same read's `where`, its top level: PostgreSQL's
+   `ts_rank`. Without that `_search` it is refused: `INVALID_QUERY`. It
+   takes a place in the order as a field does, and the rest of the order,
+   then `id`, breaks its ties (D-94). It is a read's sort: on `findMany`,
+   `findFirst` and an included `many`, with `cursor` and `distinct`; not
+   through a relation, and not in `groupBy`'s `orderBy`. The score is not
+   returned.
+4. `postgres({ searchLanguage })` names the text search configuration of
+   every model, `'simple'` by default, which lowercases and stems nothing;
+   `'french'` or `'english'` stem and drop stop words. `postgres()` checks
+   at start that the database has it. A multilingual application with one
+   language per row, and weights per field (`search: { weight }`), wait
+   for a need.
+5. `postgres()` stores the document in a generated column, `_search`, with
+   a GIN index, `<table>__search_idx`:
+
+   ```sql
+   alter table "post" add column "_search" tsvector generated always as (to_tsvector('simple'::regconfig, coalesce("title", '') || ' ' || coalesce("body", ''))) stored;
+   create index "post__search_idx" on "post" using gin ("_search");
+   ```
+
+   The snapshot keeps it apart from columns and indexes, as `search`, with
+   its language and columns (D-105). A changed language or set of fields
+   drops and adds the column, which loses nothing: the database computes
+   it again. Adding it rewrites the table, as any stored column does.
+6. `memory()` approximates PostgreSQL's `'simple'` configuration whatever
+   the language: the words of the document and of the text are their runs
+   of letters and digits, lowercased; a phrase matches consecutive words;
+   the relevance follows `ts_rank`'s formula. The contract suite searches
+   under `'simple'` with plain words, where both agree.
+7. The adapter contract gains:
+   - `search: true` on a searched scalar field of the schema;
+   - a `Condition` `{ search: text }` under the `Filter` key `_search`;
+   - on an `Order`, `relevance: text` with `field: '_relevance'`.
+8. REST and GraphQL take `_search` and `_relevance` where the kernel does,
+   with the same names (D-129): GraphQL's `PostWhereInput` gains
+   `_search: String`, `PostOrderByInput` `_relevance: SortOrder` on a
+   model with searched fields; OpenAPI documents both. A relation's
+   `orderBy` shares its target's input type, so GraphQL shows
+   `_relevance` there too, which the kernel refuses.
+
+Why: a search box over titles and bodies is in most applications, and
+`contains` neither ranks, nor matches words in any order, nor serves an
+index across fields. One document per model is one column and one index,
+and one `_search` reads like the box the user typed in. PostgreSQL's
+websearch syntax never fails on what a user types.
+
+Rejected:
+
+- The fields listed on the model, `search: { fields: ['title', 'body'] }`:
+  a field's options belong on the field, and the list would repeat names.
+- Prisma's `search` operator on a field, `title: { search: 'cat & dog' }`:
+  it takes `to_tsquery`'s syntax, which fails on ordinary input, and needs
+  a document per field.
+- The language on each model: one setting per database serves most
+  applications; changing it is one migration.
+- Returning the score, or a highlighted excerpt (`ts_headline`): no need
+  asks for them yet.
+- Stemming in `memory()`: one dictionary per language to embed, for a
+  development adapter.
+
+Example:
+
+```ts
+// Before: every word a `contains`, no order by relevance, no index
+const words = input.split(/\s+/).filter(Boolean)
+const posts = await Post.findMany(
+	{
+		where: {
+			AND: words.map((word) => ({
+				OR: [
+					{ title: { contains: word, mode: 'insensitive' } },
+					{ body: { contains: word, mode: 'insensitive' } },
+				],
+			})),
+		},
+	},
+	as,
+)
+// After
+const Post = defineModel({
+	name: 'Post',
+	fields: (f) => ({
+		title: f.string({ search: true }),
+		body: f.string({ search: true }),
+	}),
+})
+const posts = await Post.findMany(
+	{
+		where: { _search: input || undefined },
+		orderBy: { _relevance: 'desc' },
+		take: 20,
+	},
+	as,
+)
+```
+
+```graphql
+{
+	posts(where: { _search: "chat -noir" }, orderBy: { _relevance: desc }) {
+		edges {
+			node {
+				title
+			}
+		}
+	}
+}
+```
