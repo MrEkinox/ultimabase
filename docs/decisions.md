@@ -120,6 +120,8 @@ Rejected: Parse's optional-by-default.
 
 ## D-09: The first field types include relations
 
+Amended by D-150.
+
 Choice: the first release ships `string`, `number`, `boolean`, `date`, `json`,
 `enumOf` (`enum` is a reserved word in JavaScript) and the relations `one`
 and `many` (D-37). Bigint, decimal, time, binary and
@@ -459,7 +461,7 @@ read: ({ caller, where }) =>
 
 ## D-20: The query API follows Prisma Client
 
-Amended by D-128, D-132, D-133, D-135, D-138, D-140, D-142 and D-143.
+Amended by D-128, D-132, D-133, D-135, D-138, D-140, D-142, D-143 and D-149.
 
 Choice: operations, their names and their arguments follow Prisma Client, so
 a developer coming from Prisma reads UltimaBase queries as Prisma: `findUnique`,
@@ -1722,6 +1724,8 @@ queries like any other.
 Rejected: fields declared on an implicit join table.
 
 ## D-65: `f.date()` is a UTC instant
+
+Amended by D-150.
 
 Choice: `f.date()` stores an instant (`timestamptz` on PostgreSQL) and returns a
 JavaScript `Date`. A calendar date without time (a birthday) comes later with
@@ -4910,7 +4914,7 @@ curl -X POST localhost:3000/webhooks/stripe -H 'content-type: application/json' 
 
 ## D-109: `defineFunction` and `defineType`, at run time and over GraphQL
 
-Amended by D-113 and D-125.
+Amended by D-113, D-125 and D-150.
 
 Choice: completes D-27, D-45, D-75 and D-107, and amends D-45's outputs.
 
@@ -5940,7 +5944,7 @@ postgres() was given no url: is the variable it reads set?
 
 ## D-120: String lists, their filters and their index
 
-Amended by D-127.
+Amended by D-127 and D-149.
 
 Choice: completes D-09 and D-52.
 
@@ -6319,6 +6323,8 @@ export const shareNote = defineFunction({
 
 ## D-125: JSON fields typed from their schema
 
+Amended by D-149.
+
 Choice: amends D-45, D-53, D-107, D-109 and D-113.
 
 1. A `json` field whose `validate` is a Standard Schema with a JSON Schema
@@ -6491,6 +6497,8 @@ export const publish = defineFunction({
 ```
 
 ## D-127: Lists of enums and numbers
+
+Amended by D-150.
 
 Choice: amends D-120, whose rules every list follows.
 
@@ -7080,6 +7088,8 @@ await Post.update({
 
 ## D-133: `updateMany` runs an update's rules and hooks on each row
 
+Amended by D-149.
+
 Choice: completes D-20 and D-48; amends D-111.
 
 1. `Model.updateMany({ where, data }, { as })` updates every row `where`
@@ -7285,7 +7295,7 @@ GET /api/users?first=20&orderBy={"posts":{"_count":"desc"}}&include={"posts":{"w
 
 ## D-135: `OrThrow` reads, `omit`, a delete's `select` and `createMany`
 
-Amended by D-136.
+Amended by D-136 and D-149.
 
 Choice: completes D-20; amends D-102 point 2.
 
@@ -8193,6 +8203,8 @@ await Order.aggregate({ _sum: { total: true } }, as) // { _sum: { total: '1250.4
 
 ## D-146: `groupBy`
 
+Amended by D-149.
+
 Choice: completes D-20 and D-143.
 
 1. `Model.groupBy({ by, where, _count, _sum, _avg, _min, _max, orderBy,
@@ -8462,5 +8474,402 @@ const posts = await Post.findMany(
 			}
 		}
 	}
+}
+```
+
+## D-149: `having`, rows from bulk writes, `nulls`, list updates and JSON paths
+
+Choice: completes D-20; amends D-120 point 2, D-125, D-133, D-135 and
+D-146 point 3.
+
+1. `groupBy` takes `having`, in Prisma's shape: a filter of the groups,
+   with `AND`, `OR` and `NOT`, keyed by field.
+   - Under a field of `by`, that field's filter (D-20) tests the group's
+     value. A field outside `by` with its own filter fails with
+     `INVALID_QUERY`, as in Prisma.
+   - Under a field an aggregate takes (D-143), `_count`, `_sum`, `_avg`,
+     `_min` or `_max` holds the filter of the value that aggregate
+     returns: a whole number's for `_count`, a number's or a decimal's for
+     `_sum` and `_avg`, the field's own for `_min` and `_max`. `_count`
+     counts the values that are not `null`; `id: { _count }` counts the
+     rows.
+   - The aggregates it tests need not be in the result. A field with a
+     read rule is refused to a caller other than Master, as in `by`
+     (D-146 point 4).
+2. `createManyAndReturn({ data, select, omit, include }, as)` creates as
+   `createMany` does (D-135) and returns the created rows in the order of
+   `data`, each as `create` returns it.
+   `updateManyAndReturn({ where, data, select, omit, include }, as)`
+   updates as `updateMany` does (D-133) and returns the updated rows in
+   `id` order, the order it locks them in, each as `update` returns it. Both are all or nothing, as the call they
+   extend.
+3. An `orderBy` entry on an optional scalar field takes Prisma's
+   `{ sort: 'asc' | 'desc', nulls: 'first' | 'last' }`:
+   `orderBy: { publishedAt: { sort: 'desc', nulls: 'last' } }`. Without
+   `nulls`, `null` sorts last ascending and first descending, as today
+   (D-94). It applies wherever the field sorts: a read, through a `one`
+   relation, with `cursor` and `distinct`, and on a field of `by` in
+   `groupBy`'s `orderBy`. A required field, an aggregate and `_relevance`
+   take no `nulls`: the types refuse it, and at run time it fails with
+   `INVALID_QUERY`.
+4. A list (D-120, D-127) also filters with `hasEvery` (holds every one of
+   these elements) and `isEmpty: true | false`, Prisma's names, typed by
+   the element as `has` is. `hasEvery: []` matches every row, as
+   PostgreSQL's `@>` does. PostgreSQL runs `"tags" @> $1` and
+   `cardinality("tags") = 0`; a list's GIN index serves `hasEvery`, not
+   `isEmpty`.
+5. On a list field, every update (`update`, `updateMany`,
+   `updateManyAndReturn`, `upsert`'s `update` and a nested `update`,
+   D-138) takes one operation instead of a list, with an element or a
+   list of elements:
+   - `{ set }` replaces the list, as a plain list does;
+   - `{ push }` appends the elements in their order, duplicates included,
+     as Prisma's `push`;
+   - `{ pushUnique }` appends each element the list does not hold, once:
+     `['a']` with `{ pushUnique: ['a', 'b', 'b'] }` becomes `['a', 'b']`.
+     It removes no duplicate the list already holds: `['a', 'a']` with
+     `{ pushUnique: 'b' }` becomes `['a', 'a', 'b']`;
+   - `{ remove }` removes every occurrence of each element and keeps the
+     others in their order. An element the list does not hold is no
+     error.
+
+   Each element is checked as in a write of the list. An object with two
+   operations or none fails as D-132 point 2 says, and `undefined` leaves
+   the field unchanged (D-84). The kernel computes the new list as D-132
+   points 3 and 4 compute a number: on the locked row, before the rules,
+   so rules, validation and hooks see the list the row will hold. When it
+   loads no row, the adapter computes it in the write:
+
+   ```sql
+   -- push
+   "tags" = "tags" || $1::text[]
+   -- pushUnique
+   "tags" = "tags" || array(select e from unnest($1::text[]) with ordinality as o(e, i) where e <> all("tags") group by e order by min(i))
+   -- remove
+   "tags" = array(select e from unnest("tags") with ordinality as o(e, i) where e <> all($1::text[]) order by i)
+   ```
+
+6. A `json` field's filter, typed (D-125) or not, also takes a path
+   filter, the operators of Prisma's PostgreSQL JSON filter in camelCase:
+   `{ meta: { path: ['author', 'name'], equals: 'Ada' } }`.
+   - `path` is required in this shape: a list of keys into the value, a
+     key of digits indexing an array (`['tags', '0']`), `[]` for the
+     whole value.
+   - `equals` and `not` take a JSON value; `equals: null` matches a JSON
+     `null` at the path.
+   - `gt`, `gte`, `lt` and `lte` take a number or a string and match a
+     value of the same JSON type: numbers by value, strings by code point
+     (D-94).
+   - `stringContains`, `stringStartsWith` and `stringEndsWith` take a
+     string and match a string value. `%` and `_` are characters (D-94),
+     and `mode: 'insensitive'` applies to them (D-140).
+   - `arrayContains` takes a JSON value or a list of them and matches an
+     array holding each, as PostgreSQL's `@>`: an object matches an
+     element that holds at least its keys. `arrayStartsWith` and
+     `arrayEndsWith` take a JSON value and match an array whose first or
+     last element equals it.
+   - A path the value lacks is `null` there, unknown in a comparison
+     (D-94): no operator matches it, `not` included. It is not an error:
+     one row may lack a key another has.
+   - The operands are typed `JsonValue`, whatever the field's schema, and
+     the path is not checked against it.
+7. Transports (D-129):
+   - `hasEvery` and `isEmpty` join the list filters of GraphQL, REST and
+     the OpenAPI document.
+   - The path filter joins `JSONFilter` in GraphQL, with
+     `path: [String!]`, `String` operands for the string operators and
+     `JSON` for the others, and the json filter of REST and the OpenAPI
+     document.
+   - A typed field (D-125) filters with that generic filter in GraphQL and
+     the OpenAPI document, in place of `UserPrefsFilter`: an input cannot
+     type `equals` as the field's value without `path` and as any JSON
+     value with it. Its output and its write inputs keep their types, and
+     the server's types keep the field's type for `equals` without
+     `path`.
+   - `having`, `createManyAndReturn` and `updateManyAndReturn` are server
+     code, as `groupBy` (D-146), `createMany` and `updateMany`.
+   - `nulls` and the list operations are server code, as the number
+     operations (D-132 point 6): GraphQL cannot type a sort or a list
+     input that is either a plain value or an object, and REST keeps the
+     shapes GraphQL has.
+8. The adapter contract gains `nulls` on an `Order`, `having` on
+   `aggregate` (a filter whose leaves name a key or an aggregate by
+   position, as its `orderBy` does), the conditions `hasEvery`, `isEmpty`
+   and a json condition with `path`, and the list operations of a write.
+   `memory()` runs each, and the contract suite checks them.
+9. The fluent API of D-20's "Later" is rejected:
+   `Post.findUnique(...).author()` is
+   `include: { author: true }`, one query, typed the same.
+
+Why:
+
+- The top groups by an aggregate threshold ("authors with more than ten
+  posts") are one `HAVING`, not every group read and filtered in code.
+- Importing rows or closing tickets often goes on with the rows: a
+  `findMany` after the write reads them again, and may see another
+  write's.
+- "Newest first, unpublished last" needs `nulls`; without it, an
+  optional date sorted descending puts its `null`s first.
+- Tags and followers change one element at a time. Read, change and write
+  back loses one of two concurrent changes, as D-132 measured for
+  numbers. `remove` has no Prisma counterpart, so Prisma code reads then
+  `set`s; `pushUnique` is Parse's `AddUnique`, which a set of tags needs.
+- A json field holds settings and metadata whose keys a query needs; a
+  generic path opens it now, and a path typed from the schema can follow.
+
+Rejected:
+
+- A path checked at run time, failing when the value lacks it: a row may
+  lack a key another row has, and a Standard Schema validates without
+  describing its shape. A path typed from the field's TypeScript type
+  waits for a measure of its cost on the type checker (D-06).
+- Prisma's snake_case operators (`string_contains`): every other operator
+  of the API is camelCase.
+- Removing one occurrence per element, or naming it `pull` (Mongo's):
+  `remove: 'draft'` means "no `'draft'` left", and `remove` reads plainly
+  where `pull` reads as a fetch.
+- Prisma's field references (`where: { stock: { lt: Product.fields.min } }`):
+  two fields of one row compare in raw SQL (D-137) or through a field a
+  hook keeps.
+- Prisma's compound unique key (D-52), `skipDuplicates` and a global
+  `omit` (D-135), and an auto-increment field (D-22): their reasons stand.
+- `nulls` and the list operations in GraphQL: see point 7.
+- A typed json field keeping `UserPrefsFilter` in GraphQL, with no path
+  filter: a path into the value is the common query, an equality on the
+  whole value the rare one.
+
+Example:
+
+```ts
+// Before: every group read, then filtered in code
+const groups = await Post.groupBy({ by: ['author'], _count: true }, as)
+const prolific = groups.filter((group) => group._count > 10)
+// After
+const prolific = await Post.groupBy(
+	{ by: ['author'], _count: true, having: { id: { _count: { gt: 10 } } } },
+	as,
+)
+
+// Before: a write, then a read of the same rows
+await Ticket.updateMany(
+	{ where: { project: { id } }, data: { open: false } },
+	as,
+)
+const closed = await Ticket.findMany({ where: { project: { id } } }, as)
+// After
+const closed = await Ticket.updateManyAndReturn(
+	{ where: { project: { id } }, data: { open: false } },
+	as,
+)
+const tags = await Tag.createManyAndReturn(
+	{ data: names.map((name) => ({ name })) },
+	as,
+)
+
+// Before: the drafts, with no publishedAt, first
+await Post.findMany({ orderBy: { publishedAt: 'desc' } }, as)
+// After: the drafts last
+await Post.findMany(
+	{ orderBy: { publishedAt: { sort: 'desc', nulls: 'last' } } },
+	as,
+)
+
+// Before: read, change, write back; a concurrent change is lost
+const post = await Post.findUniqueOrThrow({ where: { id } }, as)
+await Post.update(
+	{ where: { id }, data: { tags: post.tags.filter((tag) => tag !== 'draft') } },
+	as,
+)
+// After: computed on the locked row
+await Post.update({ where: { id }, data: { tags: { remove: 'draft' } } }, as)
+await Post.update(
+	{ where: { id }, data: { tags: { pushUnique: ['ts', 'node'] } } },
+	as,
+)
+await Post.findMany({ where: { tags: { hasEvery: ['ts', 'node'] } } }, as)
+await Post.findMany({ where: { tags: { isEmpty: true } } }, as)
+
+// Before: every row read to look inside its json
+const rows = await Post.findMany({}, as)
+const byAda = rows.filter((row) => row.meta?.author?.name === 'Ada')
+// After
+await Post.findMany(
+	{ where: { meta: { path: ['author', 'name'], equals: 'Ada' } } },
+	as,
+)
+await Post.findMany(
+	{ where: { meta: { path: ['stats', 'views'], gt: 100 } } },
+	as,
+)
+await Post.findMany(
+	{ where: { meta: { path: ['keywords'], arrayContains: ['ts'] } } },
+	as,
+)
+```
+
+```graphql
+{
+	posts(where: { meta: { path: ["author", "name"], equals: "Ada" } }) {
+		edges {
+			node {
+				title
+			}
+		}
+	}
+}
+```
+
+## D-150: Calendar dates, field descriptions and shared enums
+
+Choice: completes D-09 and D-109; amends D-65 and D-127 point 3.
+
+1. The instant of D-65 is `f.dateTime()`: `timestamptz` on PostgreSQL, a
+   JavaScript `Date`, `DateTime` in GraphQL, as `f.date()` is today.
+   `createdAt` and `updatedAt` stay instants.
+2. `f.date()` is a calendar day: the string `'2026-07-31'`, a real day of
+   the years 0001 to 9999. Another string fails with `VALIDATION_FAILED` in
+   a write and `INVALID_QUERY` in a filter (D-20). It takes `optional`,
+   `unique`, `default`, `validate` and `dbName`, as `f.dateTime()` does,
+   and no `list` (D-127 point 3). It filters with `equals`, `not`, `in`,
+   `notIn`, `lt`, `lte`, `gt` and `gte`, sorts, and takes `_min` and
+   `_max`, `groupBy`'s `by` and `distinct`.
+   - PostgreSQL stores it as `date` and reads it as text: `pg` turns a
+     `date` into a `Date` at local midnight, which shifts the day in any
+     time zone west of UTC. `memory()` keeps the string.
+   - GraphQL shows a `Date` scalar, an ISO 8601 day; OpenAPI shows
+     `format: date`.
+   - No default gives "today": the day depends on a time zone the server
+     cannot guess. A `default` function says which one.
+3. Every field builder takes `description`, a non-empty string: the
+   kernel's, `one`, `many` and a plugin field type's (D-122).
+   `defineModel`, `defineFunction` and `defineType` (D-109) take one too,
+   and `defineEnum` in its options. It changes no behaviour. GraphQL shows
+   it on the model's type, on its fields there and in its inputs, on a
+   function's query or mutation field, on a type and on an enum; OpenAPI
+   on the schema, the property and the function's operation.
+   - A Standard Schema describes itself: Zod's `.describe()`, Valibot's
+     `v.description()` or ArkType's `.describe()` writes a `description`
+     into its JSON Schema (D-45). OpenAPI copies it already; GraphQL
+     shows it on the type, the field, the argument or the enum made from
+     that node, in a function's input and output and in a typed json
+     field (D-125).
+4. `defineEnum(name, values, { description })` returns a frozen shared enum, which
+   `f.enumOf` takes in place of its values, single or with `list: true`
+   (D-127). `name` is a GraphQL name. GraphQL shows one enum type of that
+   name for every field that uses it, and OpenAPI one schema that each
+   property references, where a local enum keeps one type per field
+   (`PostStatus`). Storage does not change: text with a check (D-98).
+   - Two enums of one name with different values stop the start, naming
+     both fields; so does a name another GraphQL type has (D-109).
+   - A function's schema enum with the id `Status` and the same values is
+     the same type (D-109).
+5. The adapter contract's `ScalarType` has `'dateTime'`, the type `'date'`
+   had, and `'date'` for the day.
+
+Why:
+
+- A birthday stored as an instant is midnight UTC: read in New York it is
+  the day before. A day is the value `'2026-07-31'`, and a string carries
+  no zone to get wrong.
+- `date` and `date-time` are the names of SQL, OpenAPI, GraphQL scalars and
+  JSON Schema; `f.date()` for an instant misleads anyone who knows them.
+  Nothing is published, so the rename costs one search and replace.
+- A description is the documentation a client's tools show: GraphiQL,
+  Swagger UI and the types generated from them.
+- One status shared by three models is three GraphQL enums today, which a
+  client cannot pass for one another.
+
+Rejected:
+
+- `f.day()` beside `f.date()`: `f.date()` would still read as a day.
+- A day as a `Date` at midnight UTC, as Prisma's `@db.Date`: it shows the
+  day before west of UTC.
+- From the previous base:
+  - `bigint`, as D-132 says;
+  - `binary`, which files cover (D-32);
+  - `time`, which no application of ours needs;
+  - `uuid`, a string with a default of `crypto.randomUUID()`;
+  - `float`, which `f.number()` already is;
+  - `object`, which a json field with a schema types (D-125);
+  - `immutable`, which an `update` field rule says (D-44);
+  - `autoNow`, which a default function says;
+  - `autoIncrement` (D-22);
+  - `indexed`, which `indexes` say (D-52).
+- Virtual fields and relations filtered by a `where`: they need their own
+  decision (D-151).
+
+Example:
+
+```ts
+// Before
+const Person = defineModel({
+	name: 'Person',
+	fields: (f) => ({
+		birthday: f.date(), // an instant: midnight UTC, the day before in New York
+		lastSeenAt: f.date(),
+		status: f.enumOf(['active', 'banned']),
+	}),
+})
+const Team = defineModel({
+	name: 'Team',
+	fields: (f) => ({ status: f.enumOf(['active', 'banned']) }),
+})
+// GraphQL: enum PersonStatus, enum TeamStatus
+
+// After
+const Status = defineEnum('Status', ['active', 'banned'], {
+	description: 'Whether the account can sign in.',
+})
+const Person = defineModel({
+	name: 'Person',
+	description: 'Someone with an account.',
+	fields: (f) => ({
+		birthday: f.date({ description: 'Day of birth, no time zone.' }),
+		lastSeenAt: f.dateTime({ optional: true }),
+		status: f.enumOf(Status),
+	}),
+})
+const Team = defineModel({
+	name: 'Team',
+	fields: (f) => ({ status: f.enumOf(Status) }),
+})
+await Person.create({ data: { birthday: '1990-07-31', status: 'active' } }, as)
+await Person.findMany({ where: { birthday: { gte: '1990-01-01' } } }, as)
+// GraphQL: one enum Status
+export const ban = defineFunction({
+	name: 'ban',
+	description: 'Bans a person; they can no longer sign in.',
+	input: z.object({
+		person: z.string().describe('The id of the person to ban.'),
+	}),
+	run: async ({ input }) => {
+		// ...
+	},
+})
+```
+
+```graphql
+"""
+Someone with an account.
+"""
+type Person {
+	"""
+	Day of birth, no time zone.
+	"""
+	birthday: Date!
+	lastSeenAt: DateTime
+	status: Status!
+}
+
+type Mutation {
+	"""
+	Bans a person; they can no longer sign in.
+	"""
+	ban(
+		"""
+		The id of the person to ban.
+		"""
+		person: String!
+	): Boolean!
 }
 ```
