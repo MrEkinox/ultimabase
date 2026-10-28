@@ -64,6 +64,8 @@ export type SchemaModel = {
 	readonly indexes: readonly {
 		readonly fields: readonly string[]
 		readonly unique: boolean
+		/** Serves `contains` and `mode: 'insensitive'` (D-141). */
+		readonly contains: boolean
 	}[]
 }
 

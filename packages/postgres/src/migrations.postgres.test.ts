@@ -17,6 +17,7 @@ import type {
 import { MigrationFailed } from 'ultimabase'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { postgres } from './index.ts'
+import { parseSnapshot } from './snapshot.ts'
 
 const logger: Logger = {
 	info: () => undefined,
@@ -94,7 +95,7 @@ const before: Schema = {
 				scalar('note', 'string', { optional: true }),
 				many('boxes', 'Box', 'shelf'),
 			],
-			indexes: [{ fields: ['size'], unique: false }],
+			indexes: [{ fields: ['size'], unique: false, contains: false }],
 		},
 		{
 			name: 'Box',
@@ -122,8 +123,8 @@ const after: Schema = {
 				many('boxes', 'Box', 'shelf'),
 			],
 			indexes: [
-				{ fields: ['name'], unique: false },
-				{ fields: ['name', 'kind'], unique: true },
+				{ fields: ['name'], unique: false, contains: false },
+				{ fields: ['name', 'kind'], unique: true, contains: false },
 			],
 		},
 		{
@@ -229,6 +230,19 @@ async function sync(from: Schema | undefined, to: Schema) {
 	await migrations.apply({ kind: 'sync', from: was, statements, to: now })
 	return statements
 }
+
+/** A book whose title has a contains index or none (D-141). */
+const book = (contains: boolean): Schema => ({
+	models: [
+		{
+			name: 'Book',
+			fields: [scalar('title', 'string', { dbName: 'heading' })],
+			indexes: contains
+				? [{ fields: ['title'], unique: false, contains: true }]
+				: [],
+		},
+	],
+})
 
 /** A post whose sizes are a list among `values` (D-127). */
 const sizes = (values: readonly string[]): Schema => ({
@@ -557,7 +571,9 @@ describe('a sync on postgres()', () => {
 						...(type === 'strings' ? [labels] : []),
 					],
 					indexes:
-						type === undefined ? [] : [{ fields: ['tags'], unique: false }],
+						type === undefined
+							? []
+							: [{ fields: ['tags'], unique: false, contains: false }],
 				},
 			],
 		})
@@ -635,6 +651,45 @@ describe('a sync on postgres()', () => {
 		).toMatchObject({
 			sql: `alter table "post" alter column "tags" type double precision[] using '{}'::double precision[]`,
 		})
+	})
+
+	it('installs pg_trgm and indexes a contains field by trigram (D-141)', async () => {
+		// The extension's schema is on the search_path, as public is by default.
+		await query(url, 'create extension if not exists pg_trgm')
+		await adapter.stop()
+		adapter = postgres({ url: inSchema(`${schema},public`) })
+		await adapter.start({ models: [] }, logger)
+		const given = adapter.migrations
+		if (given === undefined) throw new Error('postgres() migrates.')
+		migrations = given
+		await sync(undefined, book(false))
+		const added = await sync(book(false), book(true))
+		expect(added.map(({ sql }) => sql)).toStrictEqual([
+			'create extension if not exists pg_trgm',
+			'create index "book_heading_trgm" on "book" using gin (("heading" collate "default") gin_trgm_ops)',
+		])
+		expect(changes(added)).toStrictEqual([
+			'Book: installed pg_trgm',
+			'Book: indexed title for contains',
+		])
+		const { tables } = parseSnapshot(migrations.snapshot(book(true)))
+		expect(tables['book']?.trigrams).toStrictEqual({
+			book_heading_trgm: 'heading',
+		})
+		expect(
+			await query(
+				inSchema(schema),
+				`select count(*) from pg_indexes where indexname = 'book_heading_trgm' and schemaname = '${schema}'`,
+			),
+		).toStrictEqual([{ count: '1' }])
+		expect(await sync(book(true), book(true))).toStrictEqual([])
+		const dropped = await sync(book(true), book(false))
+		expect(changes(dropped)).toStrictEqual([
+			'Book: dropped the contains index on title',
+		])
+		expect(dropped.map(({ sql }) => sql)).toStrictEqual([
+			'drop index "book_heading_trgm"',
+		])
 	})
 
 	it('limits each element of an enum list to its values (D-127)', async () => {

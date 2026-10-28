@@ -1,4 +1,4 @@
--- ultimabase schema 33b22a5cf585a8f9731c9e977c02af802b276386b3a5fcdf5b06984a6d47cb9a
+-- ultimabase schema 990610f358e95c3ac4ddd347cf1b1cf920180443bd3cba10342742cbd61bc2f5
 
 create table "project" (
 	"id" uuid not null,

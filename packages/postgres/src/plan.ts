@@ -5,34 +5,10 @@
 import type { Statement } from 'ultimabase'
 import type { Fill, Fills } from './fills.ts'
 import { literal } from './fills.ts'
+import { addIndexes, addsTrigrams, dropIndexes } from './plan-indexes.ts'
+import type { Emit, Named } from './plan-parts.ts'
+import { added, changed, fields, id, list, same } from './plan-parts.ts'
 import type { Check, ForeignKey, Snapshot, TableSnapshot } from './snapshot.ts'
-
-export const id = (name: string): string => `"${name.replaceAll('"', '""')}"`
-
-const list = (names: readonly string[]): string => names.map(id).join(', ')
-
-const same = (a: unknown, b: unknown): boolean =>
-	JSON.stringify(a) === JSON.stringify(b)
-
-type Named<T> = { readonly [name: string]: T }
-
-type Emit = (
-	sql: string,
-	does: string,
-	more?: Pick<Statement, 'loses' | 'tries' | 'rename'>,
-) => void
-
-/** The entries of `from` that `to` lacks or defines otherwise. */
-const changed = <T>(from: Named<T>, to: Named<T>): [string, T][] =>
-	Object.entries(from).filter(([name, value]) => !same(value, to[name]))
-
-/** The entries of `to` that `from` lacks or defines otherwise. */
-const added = <T>(from: Named<T>, to: Named<T>): [string, T][] =>
-	changed(to, from)
-
-/** The model's names for columns, which messages use. */
-const fields = (table: TableSnapshot, columns: readonly string[]): string =>
-	columns.map((column) => table.columns[column]?.field ?? column).join(', ')
 
 /** A key's columns as a tried change names them: `Locker (label, size)`. */
 const keyOf = (table: TableSnapshot, columns: readonly string[]): string =>
@@ -74,22 +50,6 @@ function create(name: string, table: TableSnapshot): string {
 	return `create table ${id(name)} (\n\t${parts.join(',\n\t')}\n)`
 }
 
-/** An index, by GIN on a list (D-120, D-127): its column's type decides. */
-type Index = { readonly columns: string[]; readonly gin: boolean }
-
-const indexesOf = (table: TableSnapshot | undefined): Named<Index> =>
-	Object.fromEntries(
-		Object.entries(table?.indexes ?? {}).map(([key, columns]) => [
-			key,
-			{
-				columns,
-				gin: columns.some(
-					(name) => table?.columns[name]?.type.endsWith('[]') === true,
-				),
-			},
-		]),
-	)
-
 /** Drops the keys, checks and indexes of `from` that `to` changes. */
 function dropKeys(
 	name: string,
@@ -108,12 +68,7 @@ function dropKeys(
 	for (const [key, { column: on }] of changed(from.checks, to.checks)) {
 		emit(drop(key), `dropped the values of ${fields(from, [on])}`)
 	}
-	for (const [key, { columns }] of changed(indexesOf(from), indexesOf(to))) {
-		emit(
-			`drop index ${id(key)}`,
-			`dropped the index on ${fields(from, columns)}`,
-		)
-	}
+	dropIndexes(from, to, emit)
 }
 
 /** Adds a column; a required one takes its fixed default in the rows. */
@@ -364,17 +319,19 @@ export function plan(
 	for (const [name, table] of fresh) {
 		emit(4, table.model)(create(name, table), 'created')
 	}
+	// The extension is database-wide; no plan drops it (D-141).
+	const trigram = Object.entries(after).find(([name, table]) =>
+		addsTrigrams(before[name], table),
+	)
+	if (trigram !== undefined) {
+		emit(5, trigram[1].model)(
+			'create extension if not exists pg_trgm',
+			'installed pg_trgm',
+		)
+	}
 	for (const [name, table] of Object.entries(after)) {
 		const was = before[name]
-		for (const [key, { columns, gin }] of added(
-			indexesOf(was),
-			indexesOf(table),
-		)) {
-			emit(5, table.model)(
-				`create index ${id(key)} on ${id(name)}${gin ? ' using gin' : ''} (${list(columns)})`,
-				`indexed ${fields(table, columns)}`,
-			)
-		}
+		addIndexes(name, was, table, emit(5, table.model))
 		const keys = added(was?.foreignKeys ?? {}, table.foreignKeys)
 		for (const [key, given] of keys) {
 			const field = fields(table, [given.column])

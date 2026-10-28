@@ -39,6 +39,8 @@ export type FieldDefinition =
 export type IndexDefinition = {
 	readonly fields: readonly string[]
 	readonly unique?: boolean
+	/** A trigram index, for `contains` and `mode: 'insensitive'` (D-141). */
+	readonly contains?: true
 }
 
 export type ModelDefinition = {

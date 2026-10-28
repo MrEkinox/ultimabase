@@ -29,7 +29,13 @@ import { overflowed } from './numbers.ts'
 import { fillsOf } from './fills.ts'
 import { plan } from './plan.ts'
 import { compileCount, compileFind } from './read.ts'
-import { connecting, dropped, emptied, scratchName } from './scratch.ts'
+import {
+	connecting,
+	dropped,
+	emptied,
+	scratchName,
+	trigrams,
+} from './scratch.ts'
 import { parseSnapshot, snapshotOf } from './snapshot.ts'
 import type { Statement } from './write.ts'
 import { compileWrite, translate } from './write.ts'
@@ -216,9 +222,14 @@ export function createAdapter(options: Options): Postgres {
 			}
 			const catalog = new Catalog(schema)
 			// Refuses two things stored under one name before it connects.
-			snapshotOf(catalog)
+			const { tables } = snapshotOf(catalog)
+			const trigram = Object.values(tables).some(
+				(table) => Object.keys(table.trigrams).length > 0,
+			)
+			const extensions =
+				scratch !== undefined && trigram ? [await trigrams(url)] : []
 			const pool = new Pool({
-				...connecting(url, scratch?.name),
+				...connecting(url, scratch?.name, extensions),
 				max: connections,
 				connectionTimeoutMillis: wait,
 			})

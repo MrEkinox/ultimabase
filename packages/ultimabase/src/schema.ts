@@ -5,13 +5,13 @@ import type {
 	Codec,
 	FieldDefinition,
 	FieldOptions,
-	IndexDefinition,
 	ModelDefinition,
 	PluginCode,
 	PluginUse,
 } from './definition.ts'
 import { modelDefinitions } from './definition.ts'
 import { Refused } from './errors.ts'
+import { checkIndexes } from './schema-indexes.ts'
 
 /**
  * A field as the kernel reads it: its schema, its builder's options, and a
@@ -264,18 +264,6 @@ function definitionsOf(
 	return { definitions, names, owners }
 }
 
-/** An index on a list is a GIN index of that list alone (D-120). */
-function listIndex(model: string, name: string, index: IndexDefinition): void {
-	if (index.fields.length > 1) {
-		throw new Refused(
-			`${model}: the list '${name}' is indexed alone, in an index of its own.`,
-		)
-	}
-	if (index.unique === true) {
-		throw new Refused(`${model}: the list '${name}' cannot be unique.`)
-	}
-}
-
 /** Resolves the application's models, or stops startup with a message. */
 export function resolve(
 	values: readonly unknown[],
@@ -334,23 +322,7 @@ export function resolve(
 					: scalarField(name, field),
 			)
 		}
-		for (const index of definition.indexes) {
-			for (const name of index.fields) {
-				const field = fields.get(name)
-				if (
-					field === undefined ||
-					field.kind === 'many' ||
-					(field.kind === 'one' && !field.stored)
-				) {
-					throw new Refused(
-						`${model}: index field '${name}' is not a scalar or a stored one relation.`,
-					)
-				}
-				if (field.kind === 'scalar' && field.list) {
-					listIndex(model, name, index)
-				}
-			}
-		}
+		checkIndexes(model, fields, definition.indexes)
 		const uniques: (readonly string[])[] = [['id']]
 		for (const field of fields.values()) {
 			if (field.kind === 'scalar' && field.unique) uniques.push([field.name])
@@ -374,6 +346,7 @@ export function resolve(
 			indexes: definition.indexes.map((index) => ({
 				fields: index.fields,
 				unique: index.unique === true,
+				contains: index.contains === true,
 			})),
 		})
 	}

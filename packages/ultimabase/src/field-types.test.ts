@@ -140,7 +140,9 @@ describe('a field type definition', () => {
 				// @ts-expect-error: an index lists its fields.
 				addedIndexes: [{ fields: 'tags' }],
 			}),
-		).toThrow('tags.addedIndexes is a list of { fields, unique? }.')
+		).toThrow(
+			'tags.addedIndexes is a list of { fields, unique?, contains?: true }.',
+		)
 	})
 
 	it('gives a builder taking default only', () => {
@@ -166,6 +168,35 @@ describe('a field type definition', () => {
 		}
 		const post = schemaOf(options).models.find(({ name }) => name === 'Post')
 		expect(post?.indexes).toMatchObject([{ fields: ['tags'] }])
+	})
+
+	it("keeps a plugin's contains index on the string field it adds (D-141)", () => {
+		interface Labels extends PluginTypes {
+			readonly name: 'labels'
+			readonly addedFields: {
+				readonly label: ReturnType<FieldBuilders<never>['string']>
+			}
+		}
+		const labels = definePlugin<Labels>({
+			name: 'labels',
+			manifest,
+			addedFields: (f) => ({ label: f.string() }),
+			addedIndexes: [{ fields: ['label'], contains: true }],
+		})
+		const Card = defineModel({
+			name: 'Card',
+			use: [labels.use()],
+			fields: () => ({}),
+		})
+		const options = {
+			database: memory(),
+			models: [Card],
+			plugins: [labels.plugin()],
+		}
+		const card = schemaOf(options).models.find(({ name }) => name === 'Card')
+		expect(card?.indexes).toStrictEqual([
+			{ fields: ['label'], unique: false, contains: true },
+		])
 	})
 
 	it('gives the adapter no default, a value only code reads (D-122)', () => {

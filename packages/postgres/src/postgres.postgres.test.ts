@@ -996,7 +996,7 @@ describe('two things stored under one name', () => {
 				'Thing',
 				[scalar('aB', { unique: true }), scalar('a'), scalar('b')],
 				{
-					indexes: [{ fields: ['a', 'b'], unique: true }],
+					indexes: [{ fields: ['a', 'b'], unique: true, contains: false }],
 				},
 			),
 		]

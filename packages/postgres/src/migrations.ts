@@ -6,7 +6,7 @@ import { sql } from 'kysely'
 import { parse } from 'pg-connection-string'
 import type { Migration, Run, Stored } from 'ultimabase'
 import { isLocalHost, MigrationFailed, Refused } from 'ultimabase'
-import { id } from './plan.ts'
+import { id } from './plan-parts.ts'
 import { parseSnapshot } from './snapshot.ts'
 
 /** The tables UltimaBase keeps its own records in. */

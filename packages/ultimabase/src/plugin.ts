@@ -282,6 +282,8 @@ export type PluginDefinition<T extends PluginTypes> = {
 	readonly addedIndexes?: readonly {
 		readonly fields: readonly (keyof Own<T> & string)[]
 		readonly unique?: boolean
+		/** A trigram index, for `contains` and `mode: 'insensitive'` (D-141). */
+		readonly contains?: true
 	}[]
 	/**
 	 * Its `defineFunction` values, built once when the application starts and

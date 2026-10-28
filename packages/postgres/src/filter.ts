@@ -200,11 +200,13 @@ export class Filters {
 		const kind = this.catalog.kind(table, name)
 		// An id matches and compares as its string, as in `memory()`.
 		const cast = kind === 'id' ? sql`cast(${column} as text)` : column
-		// A string field's operators ignore case with `ilike`, which a trigram
-		// index serves, equality included (D-140, D-141). Its `collate "C"`
-		// folds ASCII only: the database's locale folds the rest.
+		// A string field's operators ignore case with `ilike` (D-140). Its
+		// `collate "C"` folds ASCII only: the database's locale folds the rest.
+		// `contains` and `endsWith` read the column so in both modes, as a
+		// trigram index does; a B-tree serves the rest (D-141).
 		const insensitive = condition.mode === 'insensitive'
-		const text = insensitive ? sql`(${cast} collate "default")` : cast
+		const collated = sql`(${cast} collate "default")`
+		const text = insensitive ? collated : cast
 		const like = sql.raw(insensitive ? 'ilike' : 'like')
 		const parts: Sql[] = []
 		for (const [operator, operand] of Object.entries(condition)) {
@@ -236,13 +238,13 @@ export class Filters {
 					parts.push(sql`${column} && ${value(kind, operand)}`)
 					break
 				case 'contains':
-					parts.push(sql`${text} ${like} ${pattern(operand, '%', '%')}`)
+					parts.push(sql`${collated} ${like} ${pattern(operand, '%', '%')}`)
 					break
 				case 'startsWith':
 					parts.push(sql`${text} ${like} ${pattern(operand, '', '%')}`)
 					break
 				case 'endsWith':
-					parts.push(sql`${text} ${like} ${pattern(operand, '%', '')}`)
+					parts.push(sql`${collated} ${like} ${pattern(operand, '%', '')}`)
 					break
 				default: {
 					const right = value(kind, operand)

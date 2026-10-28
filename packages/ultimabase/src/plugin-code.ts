@@ -63,21 +63,25 @@ function apisOf(plugin: string, names: readonly string[]): object {
 const isList = (value: unknown): value is readonly unknown[] =>
 	Array.isArray(value)
 
-/** `addedIndexes`, each `{ fields, unique? }`; startup checks the fields. */
+/** `addedIndexes`, each `{ fields, unique?, contains? }`; startup checks the fields. */
 function indexesOf(value: unknown, path: string): readonly IndexDefinition[] {
 	const indexes = value ?? []
 	const valid = (index: unknown): index is IndexDefinition =>
 		isObject(index) &&
 		isList(index['fields']) &&
 		index['fields'].every((field) => typeof field === 'string') &&
-		(index['unique'] === undefined || typeof index['unique'] === 'boolean')
+		(index['unique'] === undefined || typeof index['unique'] === 'boolean') &&
+		(index['contains'] === undefined || index['contains'] === true)
 	if (!isList(indexes) || !indexes.every(valid)) {
-		throw new TypeError(`${path} is a list of { fields, unique? }.`)
+		throw new TypeError(
+			`${path} is a list of { fields, unique?, contains?: true }.`,
+		)
 	}
 	return Object.freeze(
-		indexes.map(({ fields, unique }) => ({
+		indexes.map(({ fields, unique, contains }) => ({
 			fields: [...fields],
 			...(unique === undefined ? {} : { unique }),
+			...(contains === undefined ? {} : { contains }),
 		})),
 	)
 }

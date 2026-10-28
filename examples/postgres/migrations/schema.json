@@ -34,6 +34,7 @@
 			},
 			"checks": {},
 			"indexes": {},
+			"trigrams": {},
 			"foreignKeys": {}
 		},
 		"task": {
@@ -79,6 +80,7 @@
 			"indexes": {
 				"task_project_id_idx": ["project_id"]
 			},
+			"trigrams": {},
 			"foreignKeys": {
 				"task_project_id_fkey": {
 					"column": "project_id",

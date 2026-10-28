@@ -185,6 +185,7 @@ function createModel(definition: {
 			...definition.indexes.map((index) => ({
 				fields: [...index.fields],
 				...(index.unique === undefined ? {} : { unique: index.unique }),
+				...(index.contains === undefined ? {} : { contains: index.contains }),
 			})),
 			// A plugin's, checked with the model's at startup (D-122).
 			...indexes,

@@ -37,6 +37,8 @@ export type TableSnapshot = {
 	readonly uniques: { readonly [name: string]: string[] }
 	readonly checks: { readonly [name: string]: Check }
 	readonly indexes: { readonly [name: string]: string[] }
+	/** A `contains` index's name → its column (D-141). */
+	readonly trigrams: { readonly [name: string]: string }
 	readonly foreignKeys: { readonly [name: string]: ForeignKey }
 }
 
@@ -68,6 +70,7 @@ type Building = {
 	uniques: Record<string, string[]>
 	checks: Record<string, Check>
 	indexes: Record<string, string[]>
+	trigrams: Record<string, string>
 	foreignKeys: Record<string, ForeignKey>
 }
 
@@ -103,6 +106,7 @@ function empty(
 		uniques: {},
 		checks: {},
 		indexes: {},
+		trigrams: {},
 		foreignKeys: {},
 	}
 }
@@ -188,8 +192,15 @@ export function snapshotOf(catalog: Catalog): Snapshot {
 				catalog.column(table, given),
 			)
 		}
-		for (const { fields, unique } of table.model.indexes) {
+		for (const { fields, unique, contains } of table.model.indexes) {
 			if (unique) continue
+			if (contains) {
+				const [column = ''] = fields.map((name) => catalog.column(table, name))
+				const name = constraint(`${table.name}_${column}_trgm`)
+				const what = `the contains index on ${on(model, fields)}`
+				building.trigrams[schema(name, what)] = column
+				continue
+			}
 			const columns = fields.map((name) => catalog.column(table, name))
 			index(claims, building, table.name, columns, on(model, fields))
 		}
@@ -287,6 +298,9 @@ function tableOf(value: unknown): TableSnapshot | undefined {
 	const uniques = entries(value['uniques'], stringsOf)
 	const checks = entries(value['checks'], checkOf)
 	const indexes = entries(value['indexes'], stringsOf)
+	const trigrams = entries(value['trigrams'], (item) =>
+		typeof item === 'string' ? item : undefined,
+	)
 	const foreignKeys = entries(value['foreignKeys'], foreignKeyOf)
 	const model = value['model']
 	if (
@@ -298,12 +312,22 @@ function tableOf(value: unknown): TableSnapshot | undefined {
 		uniques === undefined ||
 		checks === undefined ||
 		indexes === undefined ||
+		trigrams === undefined ||
 		foreignKeys === undefined
 	) {
 		return undefined
 	}
 	const primaryKey = { name: key['name'], columns: key['columns'] }
-	return { model, columns, primaryKey, uniques, checks, indexes, foreignKeys }
+	return {
+		model,
+		columns,
+		primaryKey,
+		uniques,
+		checks,
+		indexes,
+		trigrams,
+		foreignKeys,
+	}
 }
 
 /** A snapshot read back from a database or a file, checked. */
