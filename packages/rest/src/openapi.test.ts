@@ -48,6 +48,7 @@ const Book = defineModel({
 		status: f.enumOf(['draft', 'out']),
 		pages: f.number({ integer: true, optional: true }),
 		price: f.decimal({ precision: 6, scale: 2, optional: true }),
+		out: f.date({ optional: true }),
 		isbn: f.json({ optional: true, validate: Isbn }),
 		notes: f.string({ list: true }),
 		writer: f.one(() => Writer, { optional: true }),
@@ -234,6 +235,7 @@ describe('the document', () => {
 				'StringListFilter',
 				'JSONFilter',
 				'DecimalFilter',
+				'DateFilter',
 				'Isbn',
 				'IsbnInput',
 				'Shelf',
@@ -253,6 +255,13 @@ describe('the document', () => {
 					{},
 			),
 		).toEqual(['equals', 'not', 'in', 'notIn', 'lt', 'lte', 'gt', 'gte'])
+		// A calendar day is a string of format date (D-150).
+		expect(
+			at(document, 'components', 'schemas', 'Book', 'properties', 'out'),
+		).toEqual({ anyOf: [{ type: 'string', format: 'date' }, { type: 'null' }] })
+		expect(
+			at(document, 'components', 'schemas', 'DateFilter', 'properties', 'lt'),
+		).toEqual({ type: 'string', format: 'date' })
 		// A typed json field filters with JSONFilter, at a path or not (D-149).
 		expect(names).not.toContain('BookIsbnFilter')
 		expect(

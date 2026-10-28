@@ -89,7 +89,12 @@ const ordered = new Set(['lt', 'lte', 'gt', 'gte'])
 const text = new Set(['contains', 'startsWith', 'endsWith'])
 
 function operators(type: Single): ReadonlySet<string> {
-	if (type === 'number' || type === 'decimal' || type === 'dateTime')
+	if (
+		type === 'number' ||
+		type === 'decimal' ||
+		type === 'dateTime' ||
+		type === 'date'
+	)
 		return new Set([...base, ...ordered])
 	if (type === 'string') return new Set([...base, ...text, 'mode'])
 	if (type === 'id' || type === 'enum') return new Set([...base, ...text])

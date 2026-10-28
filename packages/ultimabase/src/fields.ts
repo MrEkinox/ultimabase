@@ -2,7 +2,7 @@
 // field-rules.ts (D-44).
 import type { Declared, FieldWith } from './field-rules.ts'
 import type { Caller } from './rules.ts'
-import type { fieldType } from './symbols.ts'
+import type { calendarDay, fieldType } from './symbols.ts'
 
 export type JsonValue =
 	| string
@@ -52,6 +52,9 @@ export type ScalarOptions<V> = {
 }
 
 /** A decimal's options: its digits are required (D-145). */
+/** What a calendar day's options carry in its type, filtered in order (D-150). */
+export type Day = { readonly [calendarDay]: true }
+
 export type DecimalOptions = ScalarOptions<string> & {
 	readonly precision: number
 	readonly scale: number
@@ -310,6 +313,12 @@ export interface FieldBuilders<T> {
 	>(
 		options?: O & NoInfer<ValidateCheck<O, Date>>,
 	) => Field<Date, O, never, T>
+	/** A calendar day, the string `'2026-07-31'`, without a time zone (D-150). */
+	readonly date: <
+		const O extends ScalarOptions<string> = ScalarOptions<string>,
+	>(
+		options?: O & NoInfer<ValidateCheck<O, string>>,
+	) => Field<string, O & Day, never, T>
 	/**
 	 * Without a schema, a `json` value is `unknown` and written as JSON; with
 	 * one, it reads the schema's output and is written its input (D-53).

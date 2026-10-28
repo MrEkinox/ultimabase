@@ -12,7 +12,7 @@ import type {
 } from './record.ts'
 import type { Exact } from './exact.ts'
 import type { JsonValue } from './fields.ts'
-import type { AggregateArgs, Aggregates, IsDecimal } from './query-aggregate.ts'
+import type { AggregateArgs, Aggregates, IsOrdered } from './query-aggregate.ts'
 import type { BulkQueries } from './query-bulk.ts'
 import type {
 	JsonPathFilter,
@@ -64,7 +64,7 @@ type FilterOf<X> =
 						unknown extends StoredValue<X> ? JsonValue : StoredValue<X>
 					>
 				: | StoredValue<X>
-					| ScalarFilter<NonNullable<StoredValue<X>>, IsDecimal<X>>
+					| ScalarFilter<NonNullable<StoredValue<X>>, IsOrdered<X>>
 			: KindOf<X> extends 'one'
 				? {
 						readonly is?: Where<TargetFields<TargetOf<X>>> | null | undefined

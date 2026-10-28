@@ -117,7 +117,10 @@ function jsonOf(field: Scalar): Node {
 	}
 	const integer = field.integer === true
 	const base =
-		type === 'dateTime' || type === 'enum' || type === 'decimal'
+		type === 'dateTime' ||
+		type === 'date' ||
+		type === 'enum' ||
+		type === 'decimal'
 			? 'string'
 			: integer
 				? 'integer'
@@ -127,6 +130,7 @@ function jsonOf(field: Scalar): Node {
 		...(integer ? { minimum: smallest, maximum: largest } : {}),
 		...(type === 'decimal' ? { pattern: decimalPattern } : {}),
 		...(type === 'dateTime' ? { format: 'date-time' } : {}),
+		...(type === 'date' ? { format: 'date' } : {}),
 		...(type === 'enum' ? { enum: optional ? [...values, null] : values } : {}),
 	}
 }

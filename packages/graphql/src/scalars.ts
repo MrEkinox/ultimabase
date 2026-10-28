@@ -1,6 +1,6 @@
 // `DateTime` and `JSON` (D-107): a date as an ISO 8601 string, and any JSON
-// value as the kernel stores it; `Decimal` (D-145), an exact number as a
-// string, which the kernel checks against its field.
+// value as the kernel stores it; `Decimal` (D-145), an exact number, and
+// `Date` (D-150), a day, as strings, which the kernel checks.
 import type { ConstValueNode } from 'graphql'
 import { GraphQLError, GraphQLScalarType, Kind } from 'graphql'
 
@@ -57,6 +57,21 @@ export const DecimalScalar: GraphQLScalarType<string, string> =
 		coerceInputValue: decimal,
 		coerceInputLiteral: (node) =>
 			decimal(node.kind === Kind.STRING ? node.value : undefined),
+	})
+
+function day(value: unknown): string {
+	if (typeof value === 'string') return value
+	throw new GraphQLError("A Date is a day as a string, such as '2026-07-31'.")
+}
+
+export const DateScalar: GraphQLScalarType<string, string> =
+	new GraphQLScalarType<string, string>({
+		name: 'Date',
+		description: "A day, as an ISO 8601 string such as '2026-07-31'.",
+		coerceOutputValue: day,
+		coerceInputValue: day,
+		coerceInputLiteral: (node) =>
+			day(node.kind === Kind.STRING ? node.value : undefined),
 	})
 
 /** Dates back to their text: a validator reads what the client sent. */

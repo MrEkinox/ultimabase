@@ -6,7 +6,7 @@ import type {
 	AggregateArgs,
 	Aggregates,
 	DecimalKeys,
-	IsDecimal,
+	IsOrdered,
 	KeysWith,
 	Summed,
 	ValueOf,
@@ -48,11 +48,11 @@ type GroupOrderBy<F, N, B extends PropertyKey> = {
 	readonly _max?: Sorted<KeysWith<F, number | string | Date>> | undefined
 }
 
-/** A value's filter: an id's has no `mode`, a decimal's compares (D-145). */
+/** A value's filter: an id's has no `mode`, a decimal's or a day's compares. */
 type ValueFilter<F, K> = K extends 'id'
 	? Omit<ScalarFilter<string>, 'mode'>
-	: ScalarFilter<ValueOf<F, K>, K extends keyof F ? IsDecimal<F[K]> : false>
-type Filtered<V, Decimal = false> = V | ScalarFilter<V, Decimal> | undefined
+	: ScalarFilter<ValueOf<F, K>, K extends keyof F ? IsOrdered<F[K]> : false>
+type Filtered<V, Ordered = false> = V | ScalarFilter<V, Ordered> | undefined
 
 /** Field `K`'s aggregates, each filtered as the value it gives (D-149). */
 type AggregateFilters<F, K> = {

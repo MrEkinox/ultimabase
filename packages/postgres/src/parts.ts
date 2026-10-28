@@ -39,6 +39,7 @@ const types: { readonly [kind in Kind]: string } = {
 	integer: 'integer',
 	boolean: 'boolean',
 	dateTime: 'timestamptz',
+	date: 'date',
 	json: 'jsonb',
 	'text[]': 'text[]',
 	'double precision[]': 'double precision[]',

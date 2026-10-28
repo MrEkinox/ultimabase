@@ -50,6 +50,8 @@ function item(
 			return { name: 'Boolean', schema: { type: 'boolean' } }
 		case 'dateTime':
 			return { name: 'DateTime', schema: dateTime }
+		case 'date':
+			return { name: 'Date', schema: { type: 'string', format: 'date' } }
 		case 'enum': {
 			const values = field.values ?? []
 			const schema = doc.components.ref(named, () => ({
@@ -106,6 +108,7 @@ const operators: { readonly [T in Scalar['type']]: readonly string[] } = {
 	number: ordered,
 	decimal: ordered,
 	dateTime: ordered,
+	date: ordered,
 	boolean: base,
 	// Any JSON, a path into it or not, typed field or not (D-149).
 	json: [

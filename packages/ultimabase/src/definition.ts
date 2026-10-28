@@ -265,6 +265,7 @@ export const fieldBuilders: object = Object.freeze({
 	decimal,
 	boolean: scalar('boolean'),
 	dateTime: scalar('dateTime'),
+	date: scalar('date'),
 	json: scalar('json'),
 	enumOf,
 	one: relation('one'),

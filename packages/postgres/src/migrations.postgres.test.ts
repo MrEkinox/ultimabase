@@ -406,7 +406,7 @@ describe('a sync on postgres()', () => {
 	})
 
 	it('changes a type PostgreSQL cannot convert, without its values', async () => {
-		type Type = 'number' | 'boolean' | 'dateTime' | 'json'
+		type Type = 'number' | 'boolean' | 'dateTime' | 'date' | 'json'
 		const pairs: [Type, Type][] = [
 			['number', 'boolean'],
 			['number', 'dateTime'],
@@ -418,19 +418,30 @@ describe('a sync on postgres()', () => {
 			['dateTime', 'boolean'],
 			['dateTime', 'json'],
 			['json', 'dateTime'],
+			['number', 'date'],
+			['boolean', 'date'],
+			['date', 'number'],
+			['date', 'boolean'],
+			['date', 'json'],
+			['json', 'date'],
 		]
 		const values = {
 			number: '3',
 			boolean: 'true',
 			dateTime: 'now()',
+			date: `'2026-07-31'`,
 			json: `'1'`,
 		}
 		const defaults = {
 			number: 0,
 			boolean: false,
 			dateTime: new Date('2026-01-01T00:00:00.000Z'),
+			date: '2026-01-01',
 			json: { a: 2 },
 		}
+		// `pg` reads a day as a `Date` at local midnight.
+		const held = (type: Type) =>
+			type === 'date' ? new Date(2026, 0, 1) : defaults[type]
 		const cellOf = (at: 0 | 1, more: Partial<Scalar> = {}): Schema => ({
 			models: [
 				{
@@ -466,12 +477,12 @@ describe('a sync on postgres()', () => {
 		expect(statements[0]?.sql).toBe(
 			'alter table "cell" alter column "o0" type boolean using null',
 		)
-		const [held] = await query(inSchema(schema), 'select * from cell')
-		expect(held).toMatchObject(
+		const [cells] = await query(inSchema(schema), 'select * from cell')
+		expect(cells).toMatchObject(
 			Object.fromEntries(
 				pairs.flatMap(([, type], index) => [
 					[`o${index}`, null],
-					[`r${index}`, defaults[type]],
+					[`r${index}`, held(type)],
 				]),
 			),
 		)
@@ -492,8 +503,10 @@ describe('a sync on postgres()', () => {
 		})
 	})
 
-	it("writes a date as toISOString()'s text, whatever the session's time zone", async () => {
-		const tokyo = `${inSchema(schema)}${encodeURIComponent(' -c TimeZone=Asia/Tokyo')}`
+	it("writes a date as toISOString()'s text and a day as ISO's, whatever the session's time zone and date style", async () => {
+		const tokyo = `${inSchema(schema)}${encodeURIComponent(' -c TimeZone=Asia/Tokyo -c DateStyle=SQL,DMY')}`
+		// The pg client reads what DateStyle=SQL prints wrong: it checks through another.
+		const plain = inSchema(schema)
 		const local = postgres({ url: tokyo })
 		await local.start({ models: [] }, logger)
 		const given = local.migrations
@@ -515,12 +528,24 @@ describe('a sync on postgres()', () => {
 				`insert into shelf values (gen_random_uuid(), now(), now(), '2026-10-25T10:00:00.123456Z')`,
 			)
 			await synced(sized('dateTime', false), sized('string', false))
-			expect(await query(tokyo, 'select size from shelf')).toStrictEqual([
+			expect(await query(plain, 'select size from shelf')).toStrictEqual([
 				{ size: '2026-10-25T10:00:00.123Z' },
 			])
 			await synced(sized('string', false), sized('dateTime', false))
-			expect(await query(tokyo, 'select size from shelf')).toStrictEqual([
+			expect(await query(plain, 'select size from shelf')).toStrictEqual([
 				{ size: new Date('2026-10-25T10:00:00.123Z') },
+			])
+			// A day is UTC's, 26 October from 9:00 in Tokyo, and its text ISO's.
+			await query(tokyo, `update shelf set size = '2026-10-25T20:00:00Z'`)
+			await synced(sized('dateTime', false), sized('date', false))
+			await synced(sized('date', false), sized('string', false))
+			expect(await query(plain, 'select size from shelf')).toStrictEqual([
+				{ size: '2026-10-25' },
+			])
+			await synced(sized('string', false), sized('date', false))
+			await synced(sized('date', false), sized('dateTime', false))
+			expect(await query(plain, 'select size from shelf')).toStrictEqual([
+				{ size: new Date('2026-10-25T00:00:00.000Z') },
 			])
 		} finally {
 			await local.stop()

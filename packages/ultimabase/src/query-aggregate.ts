@@ -2,7 +2,7 @@
 // arguments ask for, each field typed.
 import type { SortedKeys, Where } from './query.ts'
 import type { StoredValue, SystemFields } from './record.ts'
-import type { fieldType } from './symbols.ts'
+import type { calendarDay, fieldType } from './symbols.ts'
 
 /** A model's scalars that an aggregate takes: no list, json or plugin field. */
 export type Aggregated<F> = SortedKeys<F> | keyof SystemFields
@@ -21,6 +21,17 @@ export type IsDecimal<X> = X extends {
 }
 	? true
 	: false
+/** Whether `X` is a string compared in order: a decimal or a day (D-150). */
+export type IsOrdered<X> =
+	IsDecimal<X> extends true
+		? true
+		: X extends {
+					readonly [fieldType]: {
+						readonly options: { readonly [calendarDay]: true }
+					}
+			  }
+			? true
+			: false
 export type DecimalKeys<F> = {
 	[K in Aggregated<F>]: K extends keyof F
 		? IsDecimal<F[K]> extends true

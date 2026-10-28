@@ -1,13 +1,13 @@
 // A scalar's and a list's filter operators (D-20, D-140, D-149): a decimal
-// (D-145) is a string compared by value, without `contains`.
+// (D-145) or a day (D-150) is a string compared in order, without `contains`.
 import type { JsonValue } from './fields.ts'
 
-export type ScalarFilter<V, Decimal = false> = {
+export type ScalarFilter<V, Ordered = false> = {
 	readonly equals?: V | null | undefined
 	readonly not?: V | null | undefined
 	readonly in?: readonly V[] | undefined
 	readonly notIn?: readonly V[] | undefined
-} & ([V, Decimal] extends [number | Date, unknown] | [unknown, true]
+} & ([V, Ordered] extends [number | Date, unknown] | [unknown, true]
 	? {
 			readonly lt?: V | undefined
 			readonly lte?: V | undefined

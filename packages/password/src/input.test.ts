@@ -199,6 +199,11 @@ describe('a sign-up input', () => {
 			'test',
 		)
 		expect(required.json).toStrictEqual({ type: 'string', enum: ['a'] })
+		const day = fieldProperty(scalar('on', 'date'), true, 'test')
+		expect(day.json).toStrictEqual({ type: 'string', format: 'date' })
+		expect(day.read('2026-02-29')).toStrictEqual({
+			message: "Expected a day written '2026-07-31'.",
+		})
 	})
 })
 

@@ -27,7 +27,7 @@ import type { Side } from './json-schema.ts'
 import { defsOf, exportOf } from './json-schema.ts'
 import { upper } from './names.ts'
 import type { Context } from './registry.ts'
-import { DateTime, JSONScalar } from './scalars.ts'
+import { DateScalar, DateTime, JSONScalar } from './scalars.ts'
 import type { DataTypes } from './data-types.ts'
 import { Refused } from 'ultimabase'
 
@@ -147,7 +147,14 @@ function typeOf<T extends GraphQLNullableType>(
 	if (only !== undefined) return scope.leaf(GraphQLString)
 	if (values.length > 0) return scope.leaf(enumType(values, path, scope.types))
 	if (type === 'string') {
-		return scope.leaf(node['format'] === 'date-time' ? DateTime : GraphQLString)
+		const format = node['format']
+		return scope.leaf(
+			format === 'date-time'
+				? DateTime
+				: format === 'date'
+					? DateScalar
+					: GraphQLString,
+		)
 	}
 	if (type === 'array') {
 		const items = isNode(node['items']) ? node['items'] : {}

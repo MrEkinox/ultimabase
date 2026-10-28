@@ -22,8 +22,8 @@ export const keys: readonly Key[] = ['_count', '_sum', '_avg', '_min', '_max']
 const takes: { readonly [K in Key]?: readonly string[] } = {
 	_sum: ['number', 'decimal'],
 	_avg: ['number', 'decimal'],
-	_min: ['number', 'decimal', 'string', 'enum', 'dateTime'],
-	_max: ['number', 'decimal', 'string', 'enum', 'dateTime'],
+	_min: ['number', 'decimal', 'string', 'enum', 'dateTime', 'date'],
+	_max: ['number', 'decimal', 'string', 'enum', 'dateTime', 'date'],
 }
 
 /** The field's type, which fails on a field an aggregate cannot take. */

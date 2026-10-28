@@ -97,12 +97,21 @@ function addColumn(
 
 /** The types PostgreSQL converts no value of a type to, on PG 15 to 18. */
 const arrays = ['text[]', 'double precision[]', 'integer[]']
-const scalars = ['boolean', 'timestamptz', 'jsonb']
+const scalars = ['boolean', 'timestamptz', 'date', 'jsonb']
+const numbers = ['double precision', 'numeric', 'integer']
 const unconvertible: Named<readonly string[]> = {
-	'double precision': ['boolean', 'timestamptz', 'jsonb', ...arrays],
-	numeric: ['boolean', 'timestamptz', 'jsonb', ...arrays],
-	integer: ['timestamptz', 'jsonb', ...arrays],
-	boolean: ['double precision', 'numeric', 'timestamptz', 'jsonb', ...arrays],
+	'double precision': ['boolean', 'timestamptz', 'date', 'jsonb', ...arrays],
+	numeric: ['boolean', 'timestamptz', 'date', 'jsonb', ...arrays],
+	integer: ['timestamptz', 'date', 'jsonb', ...arrays],
+	boolean: [
+		'double precision',
+		'numeric',
+		'timestamptz',
+		'date',
+		'jsonb',
+		...arrays,
+	],
+	date: [...numbers, 'boolean', 'jsonb', ...arrays],
 	timestamptz: [
 		'double precision',
 		'numeric',
@@ -111,10 +120,10 @@ const unconvertible: Named<readonly string[]> = {
 		'jsonb',
 		...arrays,
 	],
-	jsonb: ['timestamptz', ...arrays],
-	'text[]': ['double precision', 'numeric', 'integer', ...scalars],
-	'double precision[]': ['double precision', 'numeric', 'integer', ...scalars],
-	'integer[]': ['double precision', 'numeric', 'integer', ...scalars],
+	jsonb: ['timestamptz', 'date', ...arrays],
+	'text[]': [...numbers, ...scalars],
+	'double precision[]': [...numbers, ...scalars],
+	'integer[]': [...numbers, ...scalars],
 }
 
 /** A type without its precision and scale: `numeric(10,2)` is `numeric`. */
@@ -134,13 +143,23 @@ const reads = (from: string, to: string): boolean =>
 				!to.startsWith('text collate'))
 
 /**
- * A date as text is `toISOString()`'s, whatever the session's time zone.
+ * A date as text is `toISOString()`'s, whatever the session's time zone; a
+ * day is `YYYY-MM-DD` whatever its `DateStyle`, and an instant's day is UTC's.
  * Whole numbers come from text, which refuses `1.5` that a cast rounds; a
  * decimal's text through float8, as `12.00` is `12`.
  */
 function converted(named: string, from: string, to: string): string {
 	if (from === 'timestamptz' && to.startsWith('text')) {
 		return `to_char(${named} at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')`
+	}
+	if (from === 'date' && to.startsWith('text')) {
+		return `to_char(${named}, 'YYYY-MM-DD')`
+	}
+	if (from === 'timestamptz' && to === 'date') {
+		return `(${named} at time zone 'UTC')::date`
+	}
+	if (from === 'date' && to === 'timestamptz') {
+		return `(${named}::timestamp at time zone 'UTC')`
 	}
 	const whole = to.startsWith('integer') && reads(from, to)
 	const via = from.startsWith('numeric') ? 'float8::' : ''

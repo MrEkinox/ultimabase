@@ -4,6 +4,7 @@ import type { Adapter } from 'ultimabase'
 import { describe } from 'vitest'
 import { aggregates } from './aggregates.ts'
 import { bulkReturns } from './bulk-returns.ts'
+import { calendarDays } from './days.ts'
 import { cases } from './cases.ts'
 import { cascades } from './cascades.ts'
 import { counts } from './counts.ts'
@@ -47,6 +48,7 @@ export function testAdapter(
 		numbers(create)
 		bulkReturns(create)
 		decimals(create)
+		calendarDays(create)
 		counts(create)
 		aggregates(create)
 		groups(create)

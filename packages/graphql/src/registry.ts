@@ -24,7 +24,7 @@ import type {
 } from 'ultimabase'
 import { DataTypes } from './data-types.ts'
 import { upper } from './names.ts'
-import { DateTime, DecimalScalar, JSONScalar } from './scalars.ts'
+import { DateScalar, DateTime, DecimalScalar, JSONScalar } from './scalars.ts'
 
 /** A model's key of `.with` (D-107). */
 export type GraphqlWith =
@@ -118,6 +118,7 @@ export const scalarTypes: {
 	decimal: DecimalScalar,
 	boolean: GraphQLBoolean,
 	dateTime: DateTime,
+	date: DateScalar,
 	json: JSONScalar,
 }
 

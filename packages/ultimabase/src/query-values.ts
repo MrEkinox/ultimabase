@@ -52,6 +52,18 @@ export const storedDate = (value: unknown): value is Date => {
 	return year >= 1 && year <= 9999
 }
 
+/** A real day of years 1 to 9999, written `'2026-07-31'` (D-150). */
+export function isDay(value: unknown): boolean {
+	const match =
+		typeof value === 'string' && /^(\d{4})-(\d{2})-(\d{2})$/.exec(value)
+	if (!match) return false
+	const [year = 0, month = 0, day = 0] = match.slice(1).map(Number)
+	const leap = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0)
+	const days =
+		month === 2 ? (leap ? 29 : 28) : [4, 6, 9, 11].includes(month) ? 30 : 31
+	return year >= 1 && month >= 1 && month <= 12 && day >= 1 && day <= days
+}
+
 /** JSON data whose strings and keys are clean (D-94). */
 export function isJson(value: unknown): boolean {
 	if (value === null || typeof value === 'boolean') return true
@@ -100,6 +112,8 @@ const misfits: {
 		typeof value === 'boolean' ? undefined : 'Expected a boolean.',
 	dateTime: (value) =>
 		storedDate(value) ? undefined : 'Expected a Date of years 1 to 9999.',
+	date: (value) =>
+		isDay(value) ? undefined : "Expected a day written '2026-07-31'.",
 	json: (value) =>
 		isJson(value)
 			? undefined
