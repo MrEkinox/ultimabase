@@ -83,13 +83,15 @@ describe('defineModel', () => {
 		expect(nameless).not.toThrow(Refused)
 	})
 
-	it('takes an object as rules', () => {
+	it('takes an object as rules, not a list', () => {
 		const Note = defineModel({ name: 'Note', fields: () => ({}) })
 		const withRules: unknown = Reflect.get(Note, 'with')
-		expect(() => {
-			if (typeof withRules === 'function')
-				Reflect.apply(withRules, Note, [null])
-		}).toThrow('Note.with takes an object.')
+		for (const rules of [null, []]) {
+			expect(() => {
+				if (typeof withRules === 'function')
+					Reflect.apply(withRules, Note, [rules])
+			}).toThrow('Note.with takes an object.')
+		}
 	})
 })
 

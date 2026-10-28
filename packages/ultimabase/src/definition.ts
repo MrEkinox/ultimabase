@@ -4,6 +4,8 @@ import type { ScalarType } from './adapter.ts'
 import type { StandardSchema } from './fields.ts'
 import type { Manifest, OutputForm } from './plugin.ts'
 import type { Standard } from './validation.ts'
+import { Refused } from './errors.ts'
+import { isObject } from './query-where.ts'
 
 export type FieldOptions = { readonly [option: string]: unknown }
 
@@ -143,6 +145,29 @@ export function nullable(named: NamedOutput): object {
 	nullables.set(marker, named)
 	return marker
 }
+
+/** The name a `define*` call takes: a non-empty string. */
+export function nameOf(name: unknown, by: string): string {
+	if (typeof name !== 'string' || name === '') {
+		throw new Error(`${by} takes a name.`)
+	}
+	return name
+}
+
+/**
+ * The `.with` of a model or a function: its rules, in one call, read when
+ * they apply, so it returns the same value.
+ */
+export const withOnce =
+	(name: string, record: { rules: object | undefined }, value: () => object) =>
+	(rules: unknown): object => {
+		if (record.rules !== undefined) {
+			throw new Refused(`${name} takes its rules in one \`.with\`.`)
+		}
+		if (!isObject(rules)) throw new Refused(`${name}.with takes an object.`)
+		record.rules = rules
+		return value()
+	}
 
 /** A field value, keyed by its definition; `.with` takes its rules once. */
 export function build(definition: FieldDefinition): object {

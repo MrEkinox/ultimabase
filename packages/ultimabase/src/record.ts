@@ -283,37 +283,38 @@ type Needed<X> =
 					: true
 			: false
 
+/** `V`'s fields but `E`, each required when `F` needs it to create a row. */
+type Creating<F, E, V extends { readonly [K in keyof F]: unknown }> = {
+	readonly [
+		K in keyof F as K extends E ? never : Needed<F[K]> extends true ? K : never
+	]: V[K]
+} & {
+	readonly [
+		K in keyof F as K extends E ? never : Needed<F[K]> extends true ? never : K
+	]?: V[K] | undefined
+}
+
 /**
  * The data that creates a row of model `N`, without field `E`: the relation
  * back to the row that creates it (D-128). Code that does not know `N`
  * leaves that relation to the kernel.
  */
-export type CreateData<F, N = never, E = never> = {
-	readonly [
-		K in keyof F as K extends E ? never : Needed<F[K]> extends true ? K : never
-	]: CreateInput<F[K], N, K>
-} & {
-	readonly [
-		K in keyof F as K extends E ? never : Needed<F[K]> extends true ? never : K
-	]?: CreateInput<F[K], N, K> | undefined
-}
+export type CreateData<F, N = never, E = never> = Creating<
+	F,
+	E,
+	{ readonly [K in keyof F]: CreateInput<F[K], N, K> }
+>
 
 /** A row `createMany` creates: a `one` is connected, a `many` not written (D-135). */
-export type CreateManyData<F> = {
-	readonly [
-		K in keyof F as Needed<F[K]> extends true ? K : never
-	]: F[K] extends Scalar ? WrittenValue<F[K]> : { readonly connect: Ref }
-} & {
-	readonly [
-		K in keyof F as Needed<F[K]> extends true
-			? never
-			: F[K] extends Relation<'many'>
-				? never
-				: K
-	]?:
-		| (F[K] extends Scalar ? WrittenValue<F[K]> : { readonly connect: Ref })
-		| undefined
-}
+export type CreateManyData<F> = Creating<
+	F,
+	{ [K in keyof F]: F[K] extends Relation<'many'> ? K : never }[keyof F],
+	{
+		readonly [K in keyof F]: F[K] extends Scalar
+			? WrittenValue<F[K]>
+			: { readonly connect: Ref }
+	}
+>
 
 /**
  * `undefined` leaves a field unchanged, as in Prisma (D-84). Rules and hooks

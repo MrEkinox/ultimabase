@@ -2,6 +2,7 @@
 // APIs it reads once the application starts, and the command it runs in.
 import { AsyncLocalStorage } from 'node:async_hooks'
 import type { IndexDefinition, PluginCode } from './definition.ts'
+import { nameOf } from './definition.ts'
 import { manifestOf } from './manifest.ts'
 import { isObject } from './query-where.ts'
 import { current } from './running.ts'
@@ -85,10 +86,7 @@ function indexesOf(value: unknown, path: string): readonly IndexDefinition[] {
 export function pluginCode(definition: unknown): PluginCode {
 	if (!isObject(definition))
 		throw new TypeError('definePlugin takes an object.')
-	const name = definition['name']
-	if (typeof name !== 'string' || name === '') {
-		throw new Error('definePlugin takes a name.')
-	}
+	const name = nameOf(definition['name'], 'definePlugin')
 	const requires = Object.keys(
 		objectAt(definition, 'requires', `${name}.requires`),
 	)

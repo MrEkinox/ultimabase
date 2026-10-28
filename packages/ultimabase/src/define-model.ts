@@ -1,7 +1,13 @@
 // `defineModel` (D-07, D-12): the fields its callback and its plugins build,
 // recorded for `start`, and the model value whose methods run the queries
 // (D-18) and its plugins' commands (D-89).
-import { fieldBuilders, modelDefinitions, nullable } from './definition.ts'
+import {
+	fieldBuilders,
+	modelDefinitions,
+	nameOf,
+	nullable,
+	withOnce,
+} from './definition.ts'
 import type { FieldDefinition, ModelDefinition } from './definition.ts'
 import { query } from './engine.ts'
 import type { Operation } from './engine.ts'
@@ -149,10 +155,8 @@ function createModel(definition: {
 	readonly fields: Function
 	readonly indexes: readonly IndexShape[]
 }): object {
-	const { name, dbName } = definition
-	if (typeof name !== 'string' || name === '') {
-		throw new Error('defineModel takes a name.')
-	}
+	const { dbName } = definition
+	const name = nameOf(definition.name, 'defineModel')
 	if (dbName !== undefined && typeof dbName !== 'string') {
 		throw new Refused(`${name}: dbName must be a string.`)
 	}
@@ -193,17 +197,7 @@ function createModel(definition: {
 		...queries,
 		...Object.fromEntries(commands),
 	}
-	// The rules are read when they apply, so `.with` keeps the same value.
-	model['with'] = (rules: unknown): object => {
-		if (record.rules !== undefined) {
-			throw new Refused(`${name} takes its rules in one \`.with\`.`)
-		}
-		if (typeof rules !== 'object' || rules === null) {
-			throw new Refused(`${name}.with takes an object.`)
-		}
-		record.rules = rules
-		return frozen
-	}
+	model['with'] = withOnce(name, record, () => frozen)
 	model['nullable'] = (): object =>
 		nullable({ kind: 'model', value: frozen, name })
 	const frozen = Object.freeze(model)
