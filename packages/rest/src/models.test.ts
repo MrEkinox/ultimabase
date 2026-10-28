@@ -409,6 +409,81 @@ describe('PATCH /api/posts/:id', () => {
 	})
 })
 
+describe('PUT /api/posts (D-142)', () => {
+	it('creates the row with 201, then updates it with 200', async () => {
+		const { url } = await serving()
+		const { ada } = await seeded()
+		const body = {
+			where: { author: ada, slug: 'five' },
+			create: {
+				title: 'five',
+				slug: 'five',
+				status: 'draft',
+				publishedAt: iso(5),
+				author: { connect: { id: ada } },
+			},
+			update: { views: 9, publishedAt: iso(6) },
+		}
+		const select = { title: true, views: true, publishedAt: true }
+		const put = async () =>
+			call(url, 'PUT', `/api/posts${qs({ select })}`, {
+				headers: asMaster,
+				body,
+			})
+		expect(await put()).toEqual({
+			status: 201,
+			body: { title: 'five', views: 0, publishedAt: iso(5) },
+		})
+		expect(await put()).toEqual({
+			status: 200,
+			body: { title: 'five', views: 9, publishedAt: iso(6) },
+		})
+		expect(await Post.count({}, M)).toBe(5)
+	})
+
+	it('takes { where, create, update } and nothing else', async () => {
+		const { url } = await serving()
+		const refused = async (body: unknown) =>
+			call(url, 'PUT', '/api/posts', { headers: asMaster, body })
+		expect(await refused([])).toEqual({
+			status: 400,
+			body: {
+				code: 'BAD_USER_INPUT',
+				message: 'The body must be an object.',
+				details: { path: 'body' },
+			},
+		})
+		expect(
+			await refused({ where: { id: 'x' }, create: {}, update: {}, select: {} }),
+		).toEqual({
+			status: 400,
+			body: {
+				code: 'BAD_USER_INPUT',
+				message: "Unknown key 'select' on Post.",
+				details: { path: 'select' },
+			},
+		})
+		expect(await refused({ where: { id: 'x' }, create: {} })).toEqual({
+			status: 400,
+			body: {
+				code: 'BAD_USER_INPUT',
+				message: 'update is required.',
+				details: { path: 'update' },
+			},
+		})
+		expect(
+			await refused({
+				where: { id: 'x' },
+				create: {},
+				update: { views: { increment: 1 } },
+			}),
+		).toMatchObject({
+			status: 400,
+			body: { message: 'update.views must be a number.' },
+		})
+	})
+})
+
 describe('DELETE /api/posts/:id', () => {
 	it('returns the row as it was, without relations (D-102)', async () => {
 		const { url } = await serving()

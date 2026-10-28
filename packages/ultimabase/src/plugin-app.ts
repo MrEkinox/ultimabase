@@ -1,6 +1,6 @@
 // The application's plugins at `start` (D-16, D-89): their values checked,
 // their requirements met, then their APIs built, each after those it needs.
-import type { SchemaModel } from './adapter.ts'
+import type { Row, SchemaModel } from './adapter.ts'
 import { readRules } from './access.ts'
 import type { Logger } from './app-options.ts'
 import type { PluginRecord } from './definition.ts'
@@ -12,6 +12,7 @@ import type { ExposedFunction, ExposedModel, ModelQueries } from './plugin.ts'
 import type { ModelShape } from './model.ts'
 import type { ModelInfo, Resolved } from './schema.ts'
 import { pluginValues } from './definition.ts'
+import { query } from './engine.ts'
 import { exposedFunctions, resolveFunctions } from './functions.ts'
 import { isObject } from './query-where.ts'
 import { Refused } from './errors.ts'
@@ -106,6 +107,12 @@ function exposed(name: string, resolved: Resolved): readonly ExposedModel[] {
 			fieldTypes: fieldTypes(info),
 			with: key,
 			queries,
+			upsert: async (args, options) =>
+				// oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the kernel's upsert answers its row and its branch (D-142).
+				(await query(info.name, 'upserted', args, options)) as {
+					readonly row: Row
+					readonly created: boolean
+				},
 			// oxlint-disable-next-line typescript/no-unsafe-type-assertion -- a `defineModel` value, keyed by it.
 			model: value as ModelShape,
 		})

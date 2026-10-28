@@ -1,6 +1,6 @@
 // A write racing another transaction that inserts the same unique value: it
 // waits on that row, then fails as the kernel's UNIQUE_VIOLATION once the
-// other commits, never as PostgreSQL's raw error.
+// other commits, never as PostgreSQL's raw error; an upsert's create too.
 import { randomUUID } from 'node:crypto'
 import { Client } from 'pg'
 import type { Logger } from 'ultimabase'
@@ -113,6 +113,21 @@ for (const url of urls) {
 			)
 			expect(outcome).toMatchObject(taken)
 			expect(await Member.count({ where: { code: 'd' } }, M)).toBe(1)
+		})
+
+		it('upsert: its create fails as a unique violation (D-142)', async () => {
+			const outcome = await raced(async () =>
+				Member.upsert(
+					{
+						where: { code: 'c' },
+						create: { code: 'c' },
+						update: { code: 'e' },
+					},
+					M,
+				),
+			)
+			expect(outcome).toMatchObject(taken)
+			expect(await Member.count({ where: { code: 'e' } }, M)).toBe(0)
 		})
 
 		it('a create in a transaction: fails as a unique violation', async () => {

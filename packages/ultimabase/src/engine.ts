@@ -16,7 +16,7 @@ import { reading, writing } from './transaction.ts'
 import { removeMany } from './delete-many.ts'
 import { updateMany } from './update-many.ts'
 import { createMany } from './create-many.ts'
-import { create, remove, update } from './writes.ts'
+import { create, remove, update, upsert } from './writes.ts'
 
 export type Operation =
 	| 'findMany'
@@ -27,10 +27,13 @@ export type Operation =
 	| 'count'
 	| 'create'
 	| 'update'
+	| 'upsert'
 	| 'delete'
 	| 'updateMany'
 	| 'createMany'
 	| 'deleteMany'
+	// The transports' upsert, which also says whether it created (D-142).
+	| 'upserted'
 
 const anonymous: Identity = Object.freeze({ kind: 'anonymous' })
 
@@ -173,6 +176,9 @@ const reads: { readonly [O in ReadOperation]: Run } = {
 const writes: { readonly [O in Exclude<Operation, ReadOperation>]: Write } = {
 	create,
 	update,
+	upsert: async (context, store, commits, args) =>
+		(await upsert(context, store, commits, args)).row,
+	upserted: upsert,
 	delete: remove,
 	updateMany,
 	createMany,

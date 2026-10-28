@@ -1,7 +1,8 @@
-// The writes (D-107): `createPost(data)`, `updatePost(where, data)` and
-// `deletePost(where)`, each one kernel write run as its caller. A create
-// and an update return the row as the query asks for it, a delete the row
-// as it was, without its relations.
+// The writes (D-107): `createPost(data)`, `updatePost(where, data)`,
+// `upsertPost(where, create, update)` (D-142) and `deletePost(where)`, each
+// one kernel write run as its caller. A create, an update and an upsert
+// return the row as the query asks for it, a delete the row as it was,
+// without its relations.
 import { run } from '@ultimabase/http/internal'
 import type {
 	GraphQLFieldConfig,
@@ -239,7 +240,7 @@ function dataInput(
 	)
 }
 
-/** A visible model's three mutations. */
+/** A visible model's four mutations. */
 export function mutationFields(registry: Registry, entry: Entry): Fields {
 	const name = entry.model.name
 	const type = objectType(registry, name)
@@ -283,6 +284,23 @@ export function mutationFields(registry: Registry, entry: Entry): Fields {
 					as(context),
 				),
 			),
+		},
+		// The row it created or updated, as either branch returns it (D-142).
+		[`upsert${name}`]: {
+			type: new GraphQLNonNull(type),
+			args: { where, create: data(true), update: data(false) },
+			resolve: written(async (args, select, context) => {
+				const { row } = await entry.exposed.upsert(
+					{
+						where: unique(args),
+						create: kernelData(registry, name, objectOf(args['create'])),
+						update: kernelData(registry, name, objectOf(args['update'])),
+						select,
+					},
+					as(context),
+				)
+				return row
+			}),
 		},
 		[`delete${name}`]: {
 			type: new GraphQLNonNull(deletedType(registry, name)),

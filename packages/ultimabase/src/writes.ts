@@ -81,16 +81,16 @@ async function written(
 	return first(result, at.shape, scope.access)
 }
 
-export async function create(
+/** Creates the row of `draft` as the rules allow. */
+async function creating(
 	context: Context,
 	store: Store,
 	commits: Commit[],
-	args: unknown,
+	draft: Draft,
+	at: { readonly read: Nested; readonly shape: Shape },
 ): Promise<unknown> {
-	const { models, model, caller, scope } = context
-	const found = given(args, model.name, ['data', ...oneKeys], ['data'])
-	const { read, shape } = await returned(context, found)
-	const draft = readData(models, model, found.get('data'), true)
+	const { model, caller, scope } = context
+	const { read, shape } = at
 	const made = uuidv7()
 	const reach = { scope, reads: store, model, id: made, at: [] }
 	await resolveData({ ...reach, creating: true, trusted: false }, draft)
@@ -108,6 +108,19 @@ export async function create(
 	)
 	const events: Event[] = [{ model, operation: 'create', id }]
 	return written(context, store, commits, steps, events, { id, read, shape })
+}
+
+export async function create(
+	context: Context,
+	store: Store,
+	commits: Commit[],
+	args: unknown,
+): Promise<unknown> {
+	const { models, model } = context
+	const found = given(args, model.name, ['data', ...oneKeys], ['data'])
+	const at = await returned(context, found)
+	const draft = readData(models, model, found.get('data'), true)
+	return creating(context, store, commits, draft, at)
 }
 
 /**
@@ -286,4 +299,48 @@ export async function remove(
 			})
 		: [kept]
 	return project(left ?? row, shape, hiddenBy(scope.access))
+}
+
+/** The row an upsert returns, and whether it created it (D-142). */
+export type Upserted = { readonly row: unknown; readonly created: boolean }
+
+/**
+ * Updates the row `where` targets, or creates it when the caller finds
+ * none: the branch that runs is a plain update or create (D-142).
+ */
+export async function upsert(
+	context: Context,
+	store: Store,
+	commits: Commit[],
+	args: unknown,
+): Promise<Upserted> {
+	const { models, model } = context
+	const found = given(
+		args,
+		model.name,
+		['where', 'create', 'update', ...oneKeys],
+		['where', 'create', 'update'],
+	)
+	const at = await returned(context, found)
+	// Both data are checked, whichever runs.
+	const creation = readData(models, model, found.get('create'), true)
+	const draft = readData(models, model, found.get('update'), false)
+	const numbers = numberUpdates(model, draft)
+	const where = await targets(context, found, 'update')
+	const [row] = await store.find({
+		model: model.name,
+		where,
+		take: 1,
+		lock: true,
+	})
+	// Another create of the row meanwhile fails on its unique index.
+	if (row === undefined) {
+		return {
+			row: await creating(context, store, commits, creation, at),
+			created: true,
+		}
+	}
+	const data = { draft, numbers }
+	const changed = await updating(context, store, commits, data, { row, ...at })
+	return { row: changed, created: false }
 }

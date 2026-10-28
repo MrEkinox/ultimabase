@@ -113,6 +113,11 @@ export interface ExposedModel<W = unknown> {
 	/** The plugin's key of the model's `.with`, if it was given. */
 	readonly with: W | undefined
 	readonly queries: ModelQueries
+	/** `upsert`, which also says whether it created the row (D-142). */
+	readonly upsert: (
+		args: Args,
+		options: QueryOptions,
+	) => Promise<{ readonly row: Row; readonly created: boolean }>
 	/** The `defineModel` value, which a plugin's function may return (D-113). */
 	readonly model: ModelShape
 }

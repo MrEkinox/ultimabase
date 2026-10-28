@@ -296,6 +296,13 @@ export type UpdateArgs<F, X = never, N = never> = Shaping<F> & {
 	readonly data: UpdateData<F, N>
 }
 
+/** `update` the row `where` targets, or `create` it when absent (D-142). */
+export type UpsertArgs<F, X = never, N = never> = Shaping<F> & {
+	readonly where: UniqueWhere<F, X>
+	readonly create: CreateData<F, N>
+	readonly update: UpdateData<F, N>
+}
+
 /** `createMany`: a row or a list, no nested writes, no rows back (D-135). */
 export type CreateManyArgs<F> = {
 	readonly data: CreateManyData<F> | readonly CreateManyData<F>[]
@@ -351,6 +358,12 @@ export interface Queries<F, X = never, N = never> {
 	update<const A extends UpdateArgs<F, X, N>>(
 		this: void,
 		args: A & NoInfer<Exact<A, UpdateArgs<F, X, N>>>,
+		options?: QueryOptions,
+	): Promise<Payload<F, A>>
+	/** The branch that runs applies its own rules and hooks (D-142). */
+	upsert<const A extends UpsertArgs<F, X, N>>(
+		this: void,
+		args: A & NoInfer<Exact<A, UpsertArgs<F, X, N>>>,
 		options?: QueryOptions,
 	): Promise<Payload<F, A>>
 	/** Its relations and counts are read as they were before it (D-135). */

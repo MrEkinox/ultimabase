@@ -142,6 +142,7 @@ const operations: readonly Operation[] = [
 	'count',
 	'create',
 	'update',
+	'upsert',
 	'delete',
 	'updateMany',
 	'createMany',
