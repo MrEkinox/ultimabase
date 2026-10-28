@@ -175,6 +175,36 @@ describe('a sign-up input', () => {
 	})
 })
 
+describe('an integer field', () => {
+	const field = { ...scalar('count', 'number'), integer: true } as const
+	const list = { ...field, list: true }
+
+	it('takes whole numbers of 32 bits only, as the kernel does (D-132)', () => {
+		const { read } = fieldProperty(field, true, 'test')
+		expect(read(-2_147_483_648)).toStrictEqual({ value: -2_147_483_648 })
+		const message =
+			'Expected a whole number from -2,147,483,648 to 2,147,483,647.'
+		expect(read(1.5)).toStrictEqual({ message })
+		expect(read(2 ** 31)).toStrictEqual({ message })
+		expect(fieldProperty(list, true, 'test').read([1, 2.5])).toStrictEqual({
+			message:
+				'Expected a list of whole numbers from -2,147,483,648 to 2,147,483,647.',
+		})
+	})
+
+	it('is an integer in its JSON Schema, an Int over GraphQL', () => {
+		const range = { minimum: -2_147_483_648, maximum: 2_147_483_647 }
+		expect(fieldProperty(field, true, 'test').json).toStrictEqual({
+			type: 'integer',
+			...range,
+		})
+		expect(fieldProperty(list, true, 'test').json).toStrictEqual({
+			type: 'array',
+			items: { type: 'integer', ...range },
+		})
+	})
+})
+
 describe('a json field', () => {
 	const Address = z.object({ city: z.string() }).meta({ id: 'Address' })
 	const prefs = z.object({ theme: z.enum(['light']), shipTo: Address })

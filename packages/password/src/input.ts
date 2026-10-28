@@ -87,10 +87,24 @@ export const property = (
 	required = true,
 ): Property => ({ read, json, required })
 
+const [smallest, largest] = [-2_147_483_648, 2_147_483_647]
+const range = 'from -2,147,483,648 to 2,147,483,647'
+
+/** An integer field's values, as the kernel takes them (D-132). */
+const whole = (value: unknown): boolean =>
+	Number.isInteger(value) &&
+	Number(value) >= smallest &&
+	Number(value) <= largest
+
 /** One value of a scalar type, an element of a list (D-127). */
 function itemRead(field: Scalar): Property['read'] {
 	const { type, values = [] } = field
 	return (value) => {
+		if (field.integer === true) {
+			return whole(value)
+				? { value }
+				: { message: `Expected a whole number ${range}.` }
+		}
 		if (type === 'number') {
 			return typeof value === 'number' && Number.isFinite(value)
 				? { value }
@@ -130,9 +144,11 @@ function readOf(field: Scalar): Property['read'] {
 	const of =
 		field.type === 'enum'
 			? `values among ${(field.values ?? []).join(', ')}`
-			: field.type === 'number'
-				? 'numbers'
-				: 'non-empty strings'
+			: field.integer === true
+				? `whole numbers ${range}`
+				: field.type === 'number'
+					? 'numbers'
+					: 'non-empty strings'
 	return (value) =>
 		Array.isArray(value) && value.every(fit)
 			? { value }
@@ -148,9 +164,12 @@ function jsonOf(field: Scalar): Node {
 			items: type === 'string' ? { ...items, minLength: 1 } : items,
 		}
 	}
-	const base = type === 'date' || type === 'enum' ? 'string' : type
+	const integer = field.integer === true
+	const base =
+		type === 'date' || type === 'enum' ? 'string' : integer ? 'integer' : type
 	return {
 		type: optional ? [base, 'null'] : base,
+		...(integer ? { minimum: smallest, maximum: largest } : {}),
 		...(type === 'date' ? { format: 'date-time' } : {}),
 		...(type === 'enum' ? { enum: optional ? [...values, null] : values } : {}),
 	}

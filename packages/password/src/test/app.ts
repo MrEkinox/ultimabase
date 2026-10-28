@@ -18,6 +18,7 @@ export const User = defineUser({
 	fields: (f) => ({
 		name: f.string(),
 		born: f.date({ optional: true }),
+		age: f.number({ integer: true, optional: true }),
 		tags: f.string({ list: true }),
 		prefs: f.json({
 			optional: true,
