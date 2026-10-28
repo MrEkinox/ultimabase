@@ -1,28 +1,29 @@
 // Number updates (D-132): `{ set }`, `{ increment }`, `{ decrement }`,
 // `{ multiply }` or `{ divide }` on a number field, computed on the row as
-// the write finds it.
-import type { Arithmetic } from './adapter.ts'
+// the write finds it, as a list update is (D-149).
+import type { Arithmetic, ListUpdate } from './adapter.ts'
 import { OutOfRange } from './adapter.ts'
 import { InvalidQuery } from './errors.ts'
+import { listed, listUpdates } from './list-update.ts'
 import { isObject } from './query-where.ts'
 import type { FieldInfo, ModelInfo } from './schema.ts'
 import type { Draft } from './write-data.ts'
 import { invalid, issueOf } from './write-data.ts'
 
-const operations = [
+const arithmetic = [
 	'set',
 	'increment',
 	'decrement',
 	'multiply',
 	'divide',
 ] as const
-type Operation = (typeof operations)[number]
+type Operation = (typeof arithmetic)[number]
 
 const isOperation = (key: unknown): key is Operation =>
-	operations.some((operation) => operation === key)
+	arithmetic.some((operation) => operation === key)
 
-/** The number updates an update computes on its row, by field. */
-export type Numbers = ReadonlyMap<string, Arithmetic>
+/** The number and list updates an update computes on its row, by field. */
+export type Operations = ReadonlyMap<string, Arithmetic | ListUpdate>
 
 type Scalar = Extract<FieldInfo, { readonly kind: 'scalar' }>
 
@@ -38,23 +39,23 @@ const operable = (field: FieldInfo | undefined): field is Scalar =>
  * an operation by `undefined` leaves its field as it is (D-84), and each
  * other one comes back to be computed on the row.
  */
-export function numberUpdates(
+function numberUpdates(
 	model: ModelInfo,
 	draft: Draft,
 	at: readonly (string | number)[] = [],
-): Numbers {
+): Map<string, Arithmetic> {
 	const numbers = new Map<string, Arithmetic>()
 	for (const [name, value] of Object.entries(draft)) {
 		const field = model.fields.get(name)
 		if (!operable(field) || !isObject(value)) continue
 		// `undefined` is no operation (D-84); one by `undefined` changes nothing.
 		const keys = Object.keys(value)
-		const used = operations.filter((key) => value[key] !== undefined)
+		const used = arithmetic.filter((key) => value[key] !== undefined)
 		if (keys.length === 0 || used.length > 1 || !keys.every(isOperation)) {
 			const path = ['data', ...at, name].join('.')
 			throw new InvalidQuery(
 				path,
-				`${path} takes a number or one of ${operations.join(', ')}.`,
+				`${path} takes a number or one of ${arithmetic.join(', ')}.`,
 			)
 		}
 		delete draft[name]
@@ -75,6 +76,17 @@ export function numberUpdates(
 	return numbers
 }
 
+/** Takes an update's number and list operations out of its draft. */
+export const operationsOf = (
+	model: ModelInfo,
+	draft: Draft,
+	at: readonly (string | number)[] = [],
+): Operations =>
+	new Map<string, Arithmetic | ListUpdate>([
+		...numberUpdates(model, draft, at),
+		...listUpdates(model, draft, at),
+	])
+
 /** An update's result on `current`, `null` counting as 0. */
 export function computed(
 	current: unknown,
@@ -89,23 +101,26 @@ export function computed(
 }
 
 /** Whether the row must be read first: a field's `validate` sees the result. */
-export function validates(model: ModelInfo, numbers: Numbers): boolean {
-	return [...numbers.keys()].some(
+export function validates(model: ModelInfo, operations: Operations): boolean {
+	return [...operations.keys()].some(
 		(name) => model.fields.get(name)?.options['validate'] !== undefined,
 	)
 }
 
-/** Writes each computed number into the draft, from the locked `row`. */
+/** Writes each computed number and list into the draft, from the locked `row`. */
 export function computeOn(
 	model: ModelInfo,
 	row: { readonly [field: string]: unknown },
 	draft: Draft,
-	numbers: Numbers,
+	operations: Operations,
 ): void {
-	for (const [name, arithmetic] of numbers) {
+	for (const [name, operation] of operations) {
 		const field = model.fields.get(name)
 		const integer = field?.kind === 'scalar' && field.integer === true
-		draft[name] = computed(row[name], arithmetic, integer)
+		draft[name] =
+			'elements' in operation
+				? listed(row[name], operation)
+				: computed(row[name], operation, integer)
 	}
 }
 

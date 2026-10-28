@@ -210,6 +210,33 @@ Exit: an example with sign-up, sign-in and rules on `caller.user`.
 - [x] Nested `set`, `update`, `delete` and `connectOrCreate` (D-138).
 - [x] Decide one transport core and shared value checks (D-130): D-139.
 - [x] One transport core and shared value checks (D-139).
+- [x] Decide case-insensitive filters (D-20): D-140.
+- [x] Case-insensitive filters (D-140).
+- [x] Decide trigram indexes (D-52, D-140): D-141.
+- [x] Trigram indexes (D-141).
+- [x] Decide `upsert` (D-20, D-129): D-142.
+- [x] `upsert` (D-142).
+- [x] Decide `aggregate` (D-20, D-44): D-143.
+- [x] `aggregate` (D-143).
+- [x] Decide an OpenAPI document (D-125, D-129): D-144.
+- [x] An OpenAPI document (D-144).
+- [x] Decide a decimal field type (D-12, D-132): D-145.
+- [x] A decimal field type (D-145).
+- [x] Decide `groupBy` (D-20, D-143): D-146.
+- [x] `groupBy` (D-146).
+- [x] Decide `distinct` (D-20, D-146): D-147.
+- [x] `distinct` (D-147).
+- [x] Decide full-text search (D-20, D-141): D-148.
+- [x] Full-text search (D-148).
+- [x] Decide `having`, rows from bulk writes, `nulls`, list updates and JSON
+      paths (D-20, D-146): D-149.
+- [x] `having`, bulk writes' rows, `nulls`, list updates and JSON paths
+      (D-149).
+- [x] Decide calendar dates, field descriptions and shared enums (D-09,
+      D-65): D-150.
+- [x] Calendar dates, field descriptions and shared enums (D-150).
+- [x] Decide virtual fields and relations filtered by a `where`: D-151.
+- [x] Filtered relations and virtual fields (D-151).
 - [ ] Documentation website (D-31).
 - [ ] A full audit of every package, its fixes merged, before publication.
 - [ ] Publication, after confirmation.

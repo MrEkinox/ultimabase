@@ -3,9 +3,11 @@
 // changes nothing; a transaction holds the write lock until it ends.
 import type {
 	Adapter,
+	AggregateRead,
 	Arithmetic,
 	Change,
 	CountRead,
+	ListUpdate,
 	Read,
 	Row,
 	ScalarType,
@@ -16,24 +18,12 @@ import type {
 } from './adapter.ts'
 import { CheckFailed, OutOfRange, UniqueViolation } from './adapter.ts'
 import type { Fields, Store, StoredRow } from './memory-read.ts'
-import { Reader } from './memory-read.ts'
+import { clone, Reader } from './memory-read.ts'
+import { distinct, grouped } from './memory-aggregate.ts'
 import { copy } from './memory-values.ts'
+import { listed } from './list-update.ts'
 import { computed } from './number-update.ts'
 import { isInteger } from './query-where.ts'
-
-function clone(store: Store): Store {
-	return {
-		tables: new Map(
-			[...store.tables].map(([name, table]) => [name, new Map(table)]),
-		),
-		joins: new Map(
-			[...store.joins].map(([key, side]) => [
-				key,
-				new Map([...side].map(([id, ids]) => [id, new Set(ids)])),
-			]),
-		),
-	}
-}
 
 /**
  * A value as PostgreSQL gives it back: `-0` is `0`, which `pg` sends for a
@@ -66,17 +56,26 @@ class Draft {
 	}
 
 	find(read: Read): Row[] {
-		const rows = [...this.reader.table(read.model).values()]
+		const stored = [...this.reader.table(read.model).values()]
+		const rows = read.distinct ? distinct(this.reader, read, stored) : stored
 		return this.reader
 			.select(read.model, rows, read)
 			.map((row) => this.reader.output(read.model, row, read))
 	}
 
 	count(read: CountRead): number {
+		return this.selected(read).length
+	}
+
+	aggregate(read: AggregateRead): unknown[][] {
+		return grouped(this.reader, read, this.selected(read))
+	}
+
+	private selected(read: CountRead): StoredRow[] {
 		const rows = [...this.reader.table(read.model).values()]
 		return rows.filter(
 			(row) => this.reader.matches(read.model, row, read.where) === true,
-		).length
+		)
 	}
 
 	write(write: Write): Row[] {
@@ -141,17 +140,18 @@ class Draft {
 		)
 	}
 
-	/** The numbers a change computes on `row` (D-132). */
+	/** The numbers and lists a change computes on `row` (D-132, D-149). */
 	private computed(
 		model: string,
 		row: StoredRow,
-		compute: { readonly [field: string]: Arithmetic } = {},
-	): { [field: string]: number } {
+		compute: { readonly [field: string]: Arithmetic | ListUpdate } = {},
+	): { [field: string]: unknown } {
 		return Object.fromEntries(
-			Object.entries(compute).map(([key, arithmetic]) => {
+			Object.entries(compute).map(([key, operation]): [string, unknown] => {
+				if ('elements' in operation) return [key, listed(row[key], operation)]
 				const field = this.reader.field(model, key)
 				const integer = field?.kind === 'scalar' && field.integer === true
-				const result = computed(row[key], arithmetic, integer)
+				const result = computed(row[key], operation, integer)
 				if (integer ? !isInteger(result) : !Number.isFinite(result)) {
 					throw new OutOfRange(model, key)
 				}
@@ -224,7 +224,8 @@ class Draft {
 
 	private joinFields(model: string): SchemaField[] {
 		return [...(this.reader.fields.get(model)?.values() ?? [])].filter(
-			(field) => field.kind === 'many' && field.join,
+			(field) =>
+				field.kind === 'many' && field.join && field.from === undefined,
 		)
 	}
 
@@ -285,6 +286,21 @@ class Draft {
 	}
 }
 
+/** The reads of the draft `get` gives, each a tick later, as a database's. */
+function readsOf(
+	get: () => Draft,
+): Pick<Transaction, 'find' | 'count' | 'aggregate'> {
+	const later = async <R>(read: (draft: Draft) => R): Promise<R> => {
+		await Promise.resolve()
+		return read(get())
+	}
+	return {
+		find: async (read) => later((draft) => draft.find(read)),
+		count: async (read) => later((draft) => draft.count(read)),
+		aggregate: async (read) => later((draft) => draft.aggregate(read)),
+	}
+}
+
 /** The in-memory adapter (D-02); its state lives as long as the value. */
 export function memory(): Adapter {
 	let schema: Schema | undefined
@@ -328,14 +344,7 @@ export function memory(): Adapter {
 		stop: async () => {
 			await lock
 		},
-		find: async (read) => {
-			await Promise.resolve()
-			return draft(store).find(read)
-		},
-		count: async (read) => {
-			await Promise.resolve()
-			return draft(store).count(read)
-		},
+		...readsOf(() => draft(store)),
 		write: async (write) => {
 			const release = await acquire()
 			try {
@@ -360,14 +369,7 @@ export function memory(): Adapter {
 				release()
 			}
 			return {
-				find: async (read) => {
-					await Promise.resolve()
-					return active().find(read)
-				},
-				count: async (read) => {
-					await Promise.resolve()
-					return active().count(read)
-				},
+				...readsOf(active),
 				write: async (write) => {
 					await Promise.resolve()
 					active()

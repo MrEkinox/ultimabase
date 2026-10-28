@@ -110,6 +110,17 @@ describe('a list', () => {
 			} }`,
 		)
 		expect(titles(text)).toStrictEqual(['two'])
+		const folded = await ask(
+			`{ posts(where: { title: { in: ["ONE", "Two"], mode: insensitive } }) {
+				edges { node { title } }
+			} }`,
+		)
+		expect(titles(folded)).toStrictEqual(['one', 'two'])
+		// An enum filter takes no mode (D-140).
+		const status = await ask(
+			`{ posts(where: { status: { equals: published, mode: insensitive } }) { totalCount } }`,
+		)
+		expect(status.errors?.[0]?.message).toContain('"mode"')
 		// A json field has no order (D-94).
 		const json = await ask(`{ posts(orderBy: [{ meta: asc }]) { totalCount } }`)
 		expect(json.errors?.[0]?.message).toContain('unknown field "meta"')
@@ -221,6 +232,25 @@ describe('a list', () => {
 			`{ users(orderBy: [{ posts: asc }]) { totalCount } }`,
 		)
 		expect(many.errors?.[0]?.message).toContain('CountOrderByInput')
+	})
+
+	it('searches and ranks a model with searched fields alone (D-148)', async () => {
+		const found = await ask(
+			`{ posts(where: { _search: "two or four" }, orderBy: [{ _relevance: desc }, { title: asc }]) {
+				edges { node { title } }
+			} }`,
+		)
+		expect(titles(found)).toStrictEqual(['four', 'two'])
+		const unranked = await ask(
+			`{ posts(orderBy: [{ _relevance: desc }]) { totalCount } }`,
+		)
+		expect(unranked.errors?.[0]?.message).toContain(
+			"sorts by the _search at the top of the read's where",
+		)
+		const none = await ask(
+			`{ users(where: { _search: "ada" }) { totalCount } }`,
+		)
+		expect(none.errors?.[0]?.message).toContain('UserWhereInput')
 	})
 
 	it('honors @skip, @include and named fragments', async () => {

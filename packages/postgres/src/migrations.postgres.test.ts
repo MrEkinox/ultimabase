@@ -7,10 +7,24 @@ import { tmpdir } from 'node:os'
 import { join as joinPath } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { Client } from 'pg'
-import type { Adapter, Migrations, Schema, SchemaField } from 'ultimabase'
+import type {
+	Adapter,
+	Logger,
+	Migrations,
+	Schema,
+	SchemaField,
+} from 'ultimabase'
 import { MigrationFailed } from 'ultimabase'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { postgres } from './index.ts'
+import { parseSnapshot } from './snapshot.ts'
+
+const logger: Logger = {
+	info: () => undefined,
+	warn: () => undefined,
+	error: () => undefined,
+	child: () => logger,
+}
 
 const url =
 	(
@@ -81,7 +95,7 @@ const before: Schema = {
 				scalar('note', 'string', { optional: true }),
 				many('boxes', 'Box', 'shelf'),
 			],
-			indexes: [{ fields: ['size'], unique: false }],
+			indexes: [{ fields: ['size'], unique: false, contains: false }],
 		},
 		{
 			name: 'Box',
@@ -109,8 +123,8 @@ const after: Schema = {
 				many('boxes', 'Box', 'shelf'),
 			],
 			indexes: [
-				{ fields: ['name'], unique: false },
-				{ fields: ['name', 'kind'], unique: true },
+				{ fields: ['name'], unique: false, contains: false },
+				{ fields: ['name', 'kind'], unique: true, contains: false },
 			],
 		},
 		{
@@ -148,6 +162,17 @@ const whole = (type: Scalar['type'], integer = false): Schema => ({
 		{
 			name: 'Shelf',
 			fields: [scalar('size', type, integer ? { integer } : {})],
+			indexes: [],
+		},
+	],
+})
+
+/** A shelf whose size is a decimal (D-145). */
+const money = (precision: number, scale: number): Schema => ({
+	models: [
+		{
+			name: 'Shelf',
+			fields: [scalar('size', 'decimal', { precision, scale })],
 			indexes: [],
 		},
 	],
@@ -197,7 +222,7 @@ beforeEach(async () => {
 	schema = `t_${randomUUID().replaceAll('-', '')}`
 	await query(url, `create schema "${schema}"`)
 	adapter = postgres({ url: inSchema(schema) })
-	await adapter.start({ models: [] })
+	await adapter.start({ models: [] }, logger)
 	const given = adapter.migrations
 	if (given === undefined) throw new Error('postgres() migrates.')
 	migrations = given
@@ -217,6 +242,19 @@ async function sync(from: Schema | undefined, to: Schema) {
 	return statements
 }
 
+/** A book whose title has a contains index or none (D-141). */
+const book = (contains: boolean): Schema => ({
+	models: [
+		{
+			name: 'Book',
+			fields: [scalar('title', 'string', { dbName: 'heading' })],
+			indexes: contains
+				? [{ fields: ['title'], unique: false, contains: true }]
+				: [],
+		},
+	],
+})
+
 /** A post whose sizes are a list among `values` (D-127). */
 const sizes = (values: readonly string[]): Schema => ({
 	models: [
@@ -234,6 +272,28 @@ const insertSizes = (row: string) =>
 		inSchema(schema),
 		`insert into post values (gen_random_uuid(), now(), now(), '${row}')`,
 	)
+
+/** An article whose `searched` fields are in its search (D-148). */
+const article = (searched: readonly string[]): Schema => ({
+	models: [
+		{
+			name: 'Article',
+			fields: ['title', 'body'].map((name) =>
+				scalar(name, 'string', {
+					optional: name === 'body',
+					...(searched.includes(name) ? { search: true } : {}),
+				}),
+			),
+			indexes: [],
+		},
+	],
+})
+
+/** The statements that add the article's search from `columns`. */
+const addSearch = (columns: string) => [
+	`alter table "article" add column "_search" tsvector generated always as (to_tsvector('simple'::regconfig, ${columns})) stored`,
+	'create index "article__search_idx" on "article" using gin ("_search")',
+]
 
 const changes = (statements: readonly { model: string; does: string }[]) =>
 	statements.map(({ model, does }) => `${model}: ${does}`)
@@ -346,26 +406,42 @@ describe('a sync on postgres()', () => {
 	})
 
 	it('changes a type PostgreSQL cannot convert, without its values', async () => {
-		type Type = 'number' | 'boolean' | 'date' | 'json'
+		type Type = 'number' | 'boolean' | 'dateTime' | 'date' | 'json'
 		const pairs: [Type, Type][] = [
 			['number', 'boolean'],
-			['number', 'date'],
+			['number', 'dateTime'],
 			['number', 'json'],
 			['boolean', 'number'],
-			['boolean', 'date'],
+			['boolean', 'dateTime'],
 			['boolean', 'json'],
+			['dateTime', 'number'],
+			['dateTime', 'boolean'],
+			['dateTime', 'json'],
+			['json', 'dateTime'],
+			['number', 'date'],
+			['boolean', 'date'],
 			['date', 'number'],
 			['date', 'boolean'],
 			['date', 'json'],
 			['json', 'date'],
 		]
-		const values = { number: '3', boolean: 'true', date: 'now()', json: `'1'` }
+		const values = {
+			number: '3',
+			boolean: 'true',
+			dateTime: 'now()',
+			date: `'2026-07-31'`,
+			json: `'1'`,
+		}
 		const defaults = {
 			number: 0,
 			boolean: false,
-			date: new Date('2026-01-01T00:00:00.000Z'),
+			dateTime: new Date('2026-01-01T00:00:00.000Z'),
+			date: '2026-01-01',
 			json: { a: 2 },
 		}
+		// `pg` reads a day as a `Date` at local midnight.
+		const held = (type: Type) =>
+			type === 'date' ? new Date(2026, 0, 1) : defaults[type]
 		const cellOf = (at: 0 | 1, more: Partial<Scalar> = {}): Schema => ({
 			models: [
 				{
@@ -401,12 +477,12 @@ describe('a sync on postgres()', () => {
 		expect(statements[0]?.sql).toBe(
 			'alter table "cell" alter column "o0" type boolean using null',
 		)
-		const [held] = await query(inSchema(schema), 'select * from cell')
-		expect(held).toMatchObject(
+		const [cells] = await query(inSchema(schema), 'select * from cell')
+		expect(cells).toMatchObject(
 			Object.fromEntries(
 				pairs.flatMap(([, type], index) => [
 					[`o${index}`, null],
-					[`r${index}`, defaults[type]],
+					[`r${index}`, held(type)],
 				]),
 			),
 		)
@@ -427,10 +503,12 @@ describe('a sync on postgres()', () => {
 		})
 	})
 
-	it("writes a date as toISOString()'s text, whatever the session's time zone", async () => {
-		const tokyo = `${inSchema(schema)}${encodeURIComponent(' -c TimeZone=Asia/Tokyo')}`
+	it("writes a date as toISOString()'s text and a day as ISO's, whatever the session's time zone and date style", async () => {
+		const tokyo = `${inSchema(schema)}${encodeURIComponent(' -c TimeZone=Asia/Tokyo -c DateStyle=SQL,DMY')}`
+		// The pg client reads what DateStyle=SQL prints wrong: it checks through another.
+		const plain = inSchema(schema)
 		const local = postgres({ url: tokyo })
-		await local.start({ models: [] })
+		await local.start({ models: [] }, logger)
 		const given = local.migrations
 		if (given === undefined) throw new Error('postgres() migrates.')
 		const synced = async (from: Schema | undefined, to: Schema) => {
@@ -444,18 +522,30 @@ describe('a sync on postgres()', () => {
 			})
 		}
 		try {
-			await synced(undefined, sized('date', false))
+			await synced(undefined, sized('dateTime', false))
 			await query(
 				tokyo,
 				`insert into shelf values (gen_random_uuid(), now(), now(), '2026-10-25T10:00:00.123456Z')`,
 			)
-			await synced(sized('date', false), sized('string', false))
-			expect(await query(tokyo, 'select size from shelf')).toStrictEqual([
+			await synced(sized('dateTime', false), sized('string', false))
+			expect(await query(plain, 'select size from shelf')).toStrictEqual([
 				{ size: '2026-10-25T10:00:00.123Z' },
 			])
-			await synced(sized('string', false), sized('date', false))
-			expect(await query(tokyo, 'select size from shelf')).toStrictEqual([
+			await synced(sized('string', false), sized('dateTime', false))
+			expect(await query(plain, 'select size from shelf')).toStrictEqual([
 				{ size: new Date('2026-10-25T10:00:00.123Z') },
+			])
+			// A day is UTC's, 26 October from 9:00 in Tokyo, and its text ISO's.
+			await query(tokyo, `update shelf set size = '2026-10-25T20:00:00Z'`)
+			await synced(sized('dateTime', false), sized('date', false))
+			await synced(sized('date', false), sized('string', false))
+			expect(await query(plain, 'select size from shelf')).toStrictEqual([
+				{ size: '2026-10-25' },
+			])
+			await synced(sized('string', false), sized('date', false))
+			await synced(sized('date', false), sized('dateTime', false))
+			expect(await query(plain, 'select size from shelf')).toStrictEqual([
+				{ size: new Date('2026-10-25T00:00:00.000Z') },
 			])
 		} finally {
 			await local.stop()
@@ -521,6 +611,59 @@ describe('a sync on postgres()', () => {
 		])
 	})
 
+	it('converts decimals: a lower scale rounds, a value too large fails (D-145)', async () => {
+		await sync(undefined, money(6, 2))
+		await query(
+			inSchema(schema),
+			`insert into shelf values (gen_random_uuid(), now(), now(), 1234.56), (gen_random_uuid(), now(), now(), 1.5)`,
+		)
+		const [rounded] = migrations.plan(
+			migrations.snapshot(money(6, 2)),
+			money(6, 1),
+		)
+		expect([rounded?.sql, rounded?.tries]).toStrictEqual([
+			'alter table "shelf" alter column "size" type numeric(6,1) using "size"::numeric(6,1)',
+			'changing "Shelf.size" from numeric(6,2) to numeric(6,1) fails when a row holds a value it cannot convert',
+		])
+		await sync(money(6, 2), money(6, 1))
+		const stored = () =>
+			query(
+				inSchema(schema),
+				'select cast(size as text) from shelf order by shelf.size',
+			)
+		expect(await stored()).toStrictEqual([{ size: '1.5' }, { size: '1234.6' }])
+		await expect(sync(money(6, 1), money(4, 1))).rejects.toMatchObject({
+			name: 'MigrationFailed',
+			reason: 'numeric field overflow',
+		})
+		const [integer] = migrations.plan(
+			migrations.snapshot(money(6, 1)),
+			whole('number', true),
+		)
+		expect(integer?.sql).toBe(
+			'alter table "shelf" alter column "size" type integer using "size"::float8::text::integer',
+		)
+		// One row a cast would round, so the failure names it.
+		await query(inSchema(schema), 'update shelf set size = 2 where size > 2')
+		await expect(
+			sync(money(6, 1), whole('number', true)),
+		).rejects.toMatchObject({
+			name: 'MigrationFailed',
+			reason: 'invalid input syntax for type integer: "1.5"',
+		})
+		await query(inSchema(schema), 'update shelf set size = 3')
+		await sync(money(6, 1), whole('number', true))
+		await sync(whole('number', true), money(6, 2))
+		expect(await stored()).toStrictEqual([{ size: '3.00' }, { size: '3.00' }])
+		const [lost] = migrations.plan(
+			migrations.snapshot(whole('boolean')),
+			money(6, 2),
+		)
+		expect(lost?.sql).toBe(
+			'alter table "shelf" alter column "size" type numeric(6,2) using null',
+		)
+	})
+
 	it('adds a list as [] or its default, indexes it by GIN, and converts it', async () => {
 		const labels = scalar('labels', 'string', {
 			list: true,
@@ -544,7 +687,9 @@ describe('a sync on postgres()', () => {
 						...(type === 'strings' ? [labels] : []),
 					],
 					indexes:
-						type === undefined ? [] : [{ fields: ['tags'], unique: false }],
+						type === undefined
+							? []
+							: [{ fields: ['tags'], unique: false, contains: false }],
 				},
 			],
 		})
@@ -624,6 +769,107 @@ describe('a sync on postgres()', () => {
 		})
 	})
 
+	it('installs pg_trgm and indexes a contains field by trigram (D-141)', async () => {
+		// The extension's schema is on the search_path, as public is by default.
+		await query(url, 'create extension if not exists pg_trgm')
+		await adapter.stop()
+		adapter = postgres({ url: inSchema(`${schema},public`) })
+		await adapter.start({ models: [] }, logger)
+		const given = adapter.migrations
+		if (given === undefined) throw new Error('postgres() migrates.')
+		migrations = given
+		await sync(undefined, book(false))
+		const added = await sync(book(false), book(true))
+		expect(added.map(({ sql }) => sql)).toStrictEqual([
+			'create extension if not exists pg_trgm',
+			'create index "book_heading_trgm" on "book" using gin (("heading" collate "default") gin_trgm_ops)',
+		])
+		expect(changes(added)).toStrictEqual([
+			'Book: installed pg_trgm',
+			'Book: indexed title for contains',
+		])
+		const { tables } = parseSnapshot(migrations.snapshot(book(true)))
+		expect(tables['book']?.trigrams).toStrictEqual({
+			book_heading_trgm: 'heading',
+		})
+		expect(
+			await query(
+				inSchema(schema),
+				`select count(*) from pg_indexes where indexname = 'book_heading_trgm' and schemaname = '${schema}'`,
+			),
+		).toStrictEqual([{ count: '1' }])
+		expect(await sync(book(true), book(true))).toStrictEqual([])
+		const dropped = await sync(book(true), book(false))
+		expect(changes(dropped)).toStrictEqual([
+			'Book: dropped the contains index on title',
+		])
+		expect(dropped.map(({ sql }) => sql)).toStrictEqual([
+			'drop index "book_heading_trgm"',
+		])
+	})
+
+	it('adds, remakes and drops the search column with its GIN index (D-148)', async () => {
+		const created = await sync(undefined, article(['title']))
+		expect(created.slice(1).map(({ sql }) => sql)).toStrictEqual(
+			addSearch(`coalesce("title", '')`),
+		)
+		await query(
+			inSchema(schema),
+			`insert into article values (gen_random_uuid(), now(), now(), 'Red Apples', 'pie')`,
+		)
+		const read = `select "_search"::text as words from article`
+		expect(await query(inSchema(schema), read)).toStrictEqual([
+			{ words: `'apples':2 'red':1` },
+		])
+		const remade = await sync(article(['title']), article(['title', 'body']))
+		expect(changes(remade)).toStrictEqual([
+			'Article: dropped the search on title',
+			'Article: added the search on title, body',
+			'Article: indexed the search on title, body',
+		])
+		expect(remade.slice(1).map(({ sql }) => sql)).toStrictEqual(
+			addSearch(`coalesce("title", '') || ' ' || coalesce("body", '')`),
+		)
+		expect(await query(inSchema(schema), read)).toStrictEqual([
+			{ words: `'apples':2 'pie':3 'red':1` },
+		])
+		const { tables } = parseSnapshot(
+			migrations.snapshot(article(['title', 'body'])),
+		)
+		expect(tables['article']?.search).toStrictEqual({
+			index: 'article__search_idx',
+			language: 'simple',
+			columns: ['title', 'body'],
+		})
+		const { snapshot } = (await migrations.stored()) ?? {}
+		expect(migrations.plan(snapshot, article(['title', 'body']))).toStrictEqual(
+			[],
+		)
+		const dropped = await sync(article(['title', 'body']), article([]))
+		expect(dropped.map(({ sql }) => sql)).toStrictEqual([
+			'alter table "article" drop column "_search"',
+		])
+	})
+
+	it('searches in the language it is given, which the server must have (D-148)', async () => {
+		await sync(undefined, article(['title']))
+		const { snapshot } = (await migrations.stored()) ?? {}
+		await adapter.stop()
+		adapter = postgres({ url: inSchema(schema), searchLanguage: 'english' })
+		await adapter.start({ models: [] }, logger)
+		const english = adapter.migrations?.plan(snapshot, article(['title']))
+		expect(english?.map(({ sql }) => sql)).toStrictEqual([
+			'alter table "article" drop column "_search"',
+			`alter table "article" add column "_search" tsvector generated always as (to_tsvector('english'::regconfig, coalesce("title", ''))) stored`,
+			'create index "article__search_idx" on "article" using gin ("_search")',
+		])
+		const unknown = postgres({ url: inSchema(schema), searchLanguage: 'nope' })
+		await expect(unknown.start({ models: [] }, logger)).rejects.toThrow(
+			"postgres() searches in 'nope', a text search configuration this server does not have.",
+		)
+		await unknown.stop()
+	})
+
 	it('limits each element of an enum list to its values (D-127)', async () => {
 		const created = await sync(undefined, sizes(['S', 'M']))
 		expect(created[0]?.sql).toContain(
@@ -639,6 +885,8 @@ describe('a sync on postgres()', () => {
 		expect(widened[1]?.tries).toBe(
 			'limiting "Post.sizes" to S, M, L fails when a row holds another value',
 		)
+		const { snapshot } = (await migrations.stored()) ?? {}
+		expect(migrations.plan(snapshot, sizes(['S', 'M', 'L']))).toStrictEqual([])
 	})
 
 	it('tries a foreign key that moves on a column rows hold', () => {
@@ -673,7 +921,7 @@ describe('a sync on postgres()', () => {
 				scalar('title', 'string', { default: "it's" }),
 				scalar('rank', 'number', { default: -1.5 }),
 				scalar('done', 'boolean', { default: false }),
-				scalar('due', 'date', { default: due }),
+				scalar('due', 'dateTime', { default: due }),
 				scalar('meta', 'json', { default: { tags: ['a'] } }),
 				scalar('level', 'enum', { values: ['low', 'high'], default: 'low' }),
 				scalar('later', 'number', { optional: true, default: 3 }),
@@ -688,7 +936,7 @@ describe('a sync on postgres()', () => {
 			scalar('title', 'string', { default: "it's" }),
 			scalar('rank', 'number', { default: -1.5 }),
 			scalar('done', 'boolean', { default: false }),
-			scalar('due', 'date', { default: due }),
+			scalar('due', 'dateTime', { default: due }),
 			scalar('meta', 'json', { default: { tags: ['a'] } }),
 			// A json list is json, not a string list (D-120).
 			scalar('items', 'json', { default: ['a'] }),
@@ -801,6 +1049,27 @@ describe('a sync on postgres()', () => {
 				'select count(*)::int as n from posts_tags',
 			),
 		).toStrictEqual([{ n: 1 }])
+	})
+
+	it('gives a view no column, key or join of its own (D-151)', async () => {
+		// Shelf.seen views Shelf.boxes, Box.seen the join of Box.tags.
+		const seen = {
+			Shelf: { target: 'Box', inverse: 'shelf', join: false, from: 'boxes' },
+			Box: { target: 'Tag', inverse: 'boxes', join: true, from: 'tags' },
+		}
+		const viewed: Schema = {
+			models: after.models.map((model) => {
+				const view = Object.entries(seen).find(([name]) => name === model.name)
+				if (view === undefined) return model
+				const field: SchemaField = { kind: 'many', name: 'seen', ...view[1] }
+				return { ...model, fields: [...model.fields, field] }
+			}),
+		}
+		expect(migrations.snapshot(viewed)).toStrictEqual(
+			migrations.snapshot(after),
+		)
+		await sync(undefined, after)
+		expect(await sync(after, viewed)).toStrictEqual([])
 	})
 
 	it('refuses tables that no snapshot describes', async () => {

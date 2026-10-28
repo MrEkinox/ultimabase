@@ -2,13 +2,13 @@
 // access rule checked and its input validated on each `run` (D-75), and the
 // named objects its output may hold.
 import { refused } from './access.ts'
-import type { FunctionDefinition, NamedOutput, Output } from './definition.ts'
+import type { FunctionDefinition, Output } from './definition.ts'
 import {
+	describedBy,
 	functionDefinitions,
-	modelDefinitions,
 	nameOf,
 	nullable,
-	nullables,
+	outputOf,
 	typeDefinitions,
 	withOnce,
 } from './definition.ts'
@@ -36,36 +36,18 @@ import type { Running } from './running.ts'
 import { current } from './running.ts'
 import { checked, standardOf } from './validation.ts'
 
-function namedOf(value: unknown): NamedOutput | undefined {
-	if (!isObject(value)) return undefined
-	const model = modelDefinitions.get(value)
-	if (model !== undefined) return { kind: 'model', value, name: model.name }
-	const type = typeDefinitions.get(value)
-	return type === undefined ? undefined : { kind: 'type', type }
-}
-
-/** An output's value, read once at its definition (D-109). */
-function outputOf(value: unknown, where: string): Output {
-	const standard = standardOf(value)
-	if (standard !== undefined) return { kind: 'schema', schema: standard.schema }
-	const named = namedOf(value)
-	if (named !== undefined) return { ...named, form: 'one' }
-	const marked = isObject(value) ? nullables.get(value) : undefined
-	if (marked !== undefined) return { ...marked, form: 'nullable' }
-	const list: readonly unknown[] = Array.isArray(value) ? value : []
-	const listed = list.length === 1 ? namedOf(list[0]) : undefined
-	if (listed !== undefined) return { ...listed, form: 'list' }
-	throw new Refused(
-		`${where} is a model, a type, a list of one, X.nullable() or a Standard Schema.`,
-	)
-}
-
 export function defineType<
 	const N extends string,
 	const F extends TypeFields,
->(definition: { readonly name: N; readonly fields: F }): ObjectType<N, F> {
+>(definition: {
+	readonly name: N
+	/** What the type means, which the transports show (D-150). */
+	readonly description?: string
+	readonly fields: F
+}): ObjectType<N, F> {
 	const { fields } = definition
 	const name = nameOf(definition.name, 'defineType')
+	const description = describedBy(definition.description, name)
 	if (!isObject(fields) || Object.keys(fields).length === 0) {
 		throw new Refused(`${name}: fields is an object of one output or more.`)
 	}
@@ -73,7 +55,7 @@ export function defineType<
 	for (const [field, value] of Object.entries(fields)) {
 		outputs.set(field, outputOf(value, `${name}.${field}`))
 	}
-	const recorded = { name, fields: outputs }
+	const recorded = { name, description, fields: outputs }
 	const type: object = Object.freeze({
 		name,
 		nullable: (): object => nullable({ kind: 'type', type: recorded }),
@@ -151,6 +133,8 @@ export function defineFunction<
 >(
 	definition: {
 		readonly name: N
+		/** What the function does, which the transports show (D-150). */
+		readonly description?: string
 		/** A query, served over GET too; a mutation by default (D-109). */
 		readonly query?: boolean
 		readonly use?: U
@@ -163,6 +147,7 @@ export function defineFunction<
 ): ServerFunction<N, I, O, U[number]['plugin'], FunctionWithKeys<U[number]>> {
 	const { query = false, input, output, run } = definition
 	const name = nameOf(definition.name, 'defineFunction')
+	const description = describedBy(definition.description, name)
 	if (typeof query !== 'boolean')
 		throw new Refused(`${name}: query is a boolean.`)
 	if (input !== undefined && standardOf(input) === undefined) {
@@ -172,6 +157,7 @@ export function defineFunction<
 		throw new Refused(`${name}: run is a function.`)
 	const record: FunctionDefinition = {
 		name,
+		description,
 		query,
 		input,
 		output:

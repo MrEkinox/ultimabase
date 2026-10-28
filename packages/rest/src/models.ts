@@ -1,11 +1,11 @@
-// A model's routes (D-129): its list, its row, and its three writes, each
-// one kernel query run as the request's caller, answered with the JSON the
-// matching GraphQL field returns.
+// A model's routes (D-129): its list, its row, and its four writes, an
+// upsert included (D-142), each one kernel query run as the request's
+// caller, answered with the JSON the matching GraphQL field returns.
 import type { Routes, StandardSchema } from '@ultimabase/http'
 import { validate } from '@ultimabase/http'
 import { badInput, connection, pageArgs, run } from '@ultimabase/http/internal'
 import type { Caller, Row } from 'ultimabase'
-import { PublicError } from 'ultimabase'
+import { InvalidQuery, PublicError } from 'ultimabase'
 import type { Api, Args, Entry } from './entries.ts'
 import type { Read, Shape } from './fields.ts'
 import {
@@ -18,7 +18,7 @@ import {
 } from './fields.ts'
 import type { Accepted } from './params.ts'
 import { paramsOf } from './params.ts'
-import { dataOf, isArgs } from './values.ts'
+import { dataOf, isArgs, whereOf } from './values.ts'
 
 /** Any JSON body: the kernel checks the data (D-129). */
 export const anyBody: StandardSchema = {
@@ -96,6 +96,25 @@ const notFound = (entry: Entry): Error =>
 const written = (api: Api, entry: Entry, body: unknown): unknown =>
 	isArgs(body) ? dataOf(api, entry.model.name, body, 'data') : body
 
+const upsertKeys = new Set(['where', 'create', 'update'])
+
+/** An upsert's body, its dates read; the kernel checks the rest (D-142). */
+function upserting(api: Api, entry: Entry, body: unknown): Args {
+	const { name } = entry.model
+	if (!isArgs(body))
+		throw new InvalidQuery('body', 'The body must be an object.')
+	const read: { [key: string]: unknown } = {}
+	for (const [key, value] of Object.entries(body)) {
+		if (!upsertKeys.has(key)) {
+			throw new InvalidQuery(key, `Unknown key '${key}' on ${name}.`)
+		}
+		if (!isArgs(value)) read[key] = value
+		else if (key === 'where') read[key] = whereOf(api, name, value, key)
+		else read[key] = dataOf(api, name, value, key)
+	}
+	return read
+}
+
 /** Each route of a visible model, under `base`. */
 export function modelRoutes(
 	app: Routes,
@@ -134,6 +153,18 @@ export function modelRoutes(
 			queries.create({ ...read, data: written(api, entry, body) }, as),
 		)
 		return c.json(row, 201)
+	})
+	// 201 when it created the row, 200 when it updated it (D-142).
+	app.put(path, validate('json', anyBody), async (c) => {
+		const body: unknown = c.req.valid('json')
+		const { caller } = c.var
+		const { row, created, shape } = await run(async () => {
+			const fields = oneRead(api, entry, caller, c.req.url)
+			const args = { ...fields.read, ...upserting(api, entry, body) }
+			const upserted = await entry.exposed.upsert(args, { as: caller })
+			return { ...upserted, shape: fields.shape }
+		})
+		return c.json(shaped(row, shape), created ? 201 : 200)
 	})
 	app.patch(`${path}/:id`, validate('json', anyBody), async (c) => {
 		const body: unknown = c.req.valid('json')

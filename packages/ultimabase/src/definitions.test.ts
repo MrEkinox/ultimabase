@@ -50,6 +50,21 @@ const index = (field: string) => () => {
 	resolve([Shelf])
 }
 
+/** Resolves a model with `indexes`, which its types refuse (D-141). */
+const containsIndexes = (indexes: readonly object[]) => () => {
+	const Bad = defineModel({
+		name: 'Bad',
+		fields: (f) => ({
+			title: f.string(),
+			pages: f.number(),
+			tags: f.string({ list: true }),
+		}),
+		// @ts-expect-error: refused by its types too.
+		indexes,
+	})
+	resolve([Bad])
+}
+
 const nameless = (): void => {
 	untyped({ name: '', fields: () => ({}) })
 }
@@ -228,7 +243,7 @@ describe('schema resolution (D-37)', () => {
 			name: 'Note',
 			fields: (f) => ({
 				done: f.boolean({ default: false }),
-				due: f.date({ default: () => new Date() }),
+				due: f.dateTime({ default: () => new Date() }),
 				meta: f.json({ default: null }),
 				text: f.string(),
 			}),
@@ -251,6 +266,54 @@ describe('schema resolution (D-37)', () => {
 		)
 		expect(index('ghost')).toThrow("index field 'ghost'")
 		expect(index('parent')).not.toThrow()
+	})
+
+	it('keeps a contains index to one string field, not a list (D-141)', () => {
+		const Book = defineModel({
+			name: 'Book',
+			fields: (f) => ({
+				title: f.string(),
+				pages: f.number(),
+				tags: f.string({ list: true }),
+			}),
+			indexes: [{ fields: ['title'], contains: true }],
+		})
+		expect(fieldsOf([Book], 'Book')?.indexes).toEqual([
+			{ fields: ['title'], unique: false, contains: true },
+		])
+		const message =
+			'Bad: a contains index covers one string field that is not a list, and is not unique.'
+		for (const fields of [['title', 'pages'], ['pages'], ['tags']]) {
+			expect(containsIndexes([{ fields, contains: true }])).toThrow(message)
+		}
+		expect(
+			containsIndexes([{ fields: ['title'], unique: true, contains: true }]),
+		).toThrow(message)
+		// Its types refuse the same indexes.
+		defineModel({
+			name: 'Pages',
+			fields: (f) => ({ pages: f.number() }),
+			// @ts-expect-error: a contains index covers a string field.
+			indexes: [{ fields: ['pages'], contains: true }],
+		})
+		defineModel({
+			name: 'Tags',
+			fields: (f) => ({ tags: f.string({ list: true }) }),
+			// @ts-expect-error: not a list.
+			indexes: [{ fields: ['tags'], contains: true }],
+		})
+		defineModel({
+			name: 'Pair',
+			fields: (f) => ({ a: f.string(), b: f.string() }),
+			// @ts-expect-error: one field.
+			indexes: [{ fields: ['a', 'b'], contains: true }],
+		})
+		defineModel({
+			name: 'Unique',
+			fields: (f) => ({ a: f.string() }),
+			// @ts-expect-error: not unique.
+			indexes: [{ fields: ['a'], unique: true, contains: true }],
+		})
 	})
 })
 

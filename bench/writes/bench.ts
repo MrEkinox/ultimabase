@@ -287,12 +287,14 @@ function countedMemory(): { adapter: Adapter; counted: () => number } {
 		...adapter,
 		find: trip(async (read) => adapter.find(read)),
 		count: trip(async (read) => adapter.count(read)),
+		aggregate: trip(async (read) => adapter.aggregate(read)),
 		write: trip(async (write) => adapter.write(write)),
 		begin: trip(async (): Promise<Transaction> => {
 			const tx = await adapter.begin()
 			return {
 				find: trip(async (read) => tx.find(read)),
 				count: trip(async (read) => tx.count(read)),
+				aggregate: trip(async (read) => tx.aggregate(read)),
 				write: trip(async (write) => tx.write(write)),
 				commit: trip(async () => tx.commit()),
 				rollback: trip(async () => tx.rollback()),

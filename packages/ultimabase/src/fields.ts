@@ -2,7 +2,8 @@
 // field-rules.ts (D-44).
 import type { Declared, FieldWith } from './field-rules.ts'
 import type { Caller } from './rules.ts'
-import type { fieldType } from './symbols.ts'
+import type { calendarDay, fieldType } from './symbols.ts'
+import type { NoOptions, Virtual, VirtualOptions } from './virtual.ts'
 
 export type JsonValue =
 	| string
@@ -41,8 +42,11 @@ export type DefaultFunction<V> = (facts: {
 	readonly caller: Caller
 }) => V | undefined
 
+/** What a field means, which the transports show and nothing reads (D-150). */
+export type Described = { readonly description?: string }
+
 /** What shapes a scalar field (D-08, D-23, D-52, D-53). */
-export type ScalarOptions<V> = {
+export type ScalarOptions<V> = Described & {
 	readonly optional?: boolean
 	readonly unique?: boolean
 	readonly default?: V | DefaultFunction<V>
@@ -51,11 +55,33 @@ export type ScalarOptions<V> = {
 	readonly dbName?: string
 }
 
+/** What a calendar day's options carry in its type, filtered in order (D-150). */
+export type Day = { readonly [calendarDay]: true }
+
+/** A decimal's options: its digits are required (D-145). */
+export type DecimalOptions = ScalarOptions<string> & {
+	readonly precision: number
+	readonly scale: number
+}
+
+/** A shared enum, which `defineEnum` returns frozen (D-150). */
+export type Enum<E extends string = string> = {
+	/** Its GraphQL enum's and its OpenAPI schema's name. */
+	readonly name: string
+	readonly values: readonly E[]
+	readonly description: string | undefined
+}
+
 /** A field's options without `list` (D-120, D-127). */
 export type SingleOptions<V> = ScalarOptions<V> & { readonly list?: false }
 
+/** A string's options: `search` adds it to its model's document (D-148). */
+export type StringOptions = SingleOptions<string> & {
+	readonly search?: boolean
+}
+
 /** What shapes a list of strings, numbers or enum values (D-120, D-127). */
-export type ListOptions<V> = {
+export type ListOptions<V> = Described & {
 	readonly list: true
 	readonly default?: readonly V[] | DefaultFunction<readonly V[]>
 	readonly validate?: Validate<readonly V[]>
@@ -72,6 +98,9 @@ type ListCheck<O> = (O extends { readonly optional: unknown }
 	: unknown) &
 	(O extends { readonly unique: unknown }
 		? { readonly unique: { readonly error: 'a list cannot be unique' } }
+		: unknown) &
+	(O extends { readonly search: unknown }
+		? { readonly search: { readonly error: 'a list is not searched' } }
 		: unknown)
 type ListableCheck<O, V> = O extends { readonly list: true }
 	? ListCheck<O> & ValidateCheck<O, readonly V[]>
@@ -113,7 +142,7 @@ type ValidateCheck<O, V> = O extends {
 	: unknown
 
 /** What shapes a `json` field (D-53): its schema gives its types. */
-export type JsonOptions = {
+export type JsonOptions = Described & {
 	readonly optional?: boolean
 	// Any value; the function member types `caller`. JsonCheck checks it.
 	readonly default?: DefaultFunction<unknown> | {} | null
@@ -147,7 +176,7 @@ type JsonCheck<O> = (O extends {
 		: unknown)
 
 /** What shapes a `one` relation (D-37, D-54). */
-export type OneOptions = {
+export type OneOptions = Described & {
 	readonly optional?: boolean
 	/** The target's id (D-53). */
 	readonly default?:
@@ -168,7 +197,18 @@ type OneCheck<O> = O extends { readonly optional: true }
 			}
 		: unknown
 
-export type ManyOptions = { readonly inverse?: string }
+export type ManyOptions = Described &
+	(
+		| { readonly inverse?: string; readonly from?: undefined }
+		| {
+				/**
+				 * A view: read-only, on the link of this other `many` of the
+				 * model, its rows those its filter keeps (D-151).
+				 */
+				readonly from: string
+				readonly inverse?: undefined
+		  }
+	)
 
 /** An optional field may be written `null`. */
 type Written<V, O> = O extends { readonly optional: true } ? V | null : V
@@ -258,10 +298,12 @@ export interface Many<T, O, U = never> {
  * (D-12, D-57).
  */
 export interface FieldBuilders<T> {
-	/** With `list: true`, a list of strings, `[]` when empty (D-120). */
+	/**
+	 * With `list: true`, a list of strings, `[]` when empty (D-120); with
+	 * `search: true`, matched by its model's `_search` (D-148).
+	 */
 	readonly string: <
-		const O extends SingleOptions<string> | ListOptions<string> =
-			SingleOptions<string>,
+		const O extends StringOptions | ListOptions<string> = StringOptions,
 	>(
 		options?: O & NoInfer<ListableCheck<O, string>>,
 	) => Listable<string, O, T>
@@ -277,14 +319,29 @@ export interface FieldBuilders<T> {
 	>(
 		options?: O & NoInfer<ListableCheck<O, number>>,
 	) => Listable<number, O, T>
+	/**
+	 * Exact numbers of `precision` digits, `scale` of them after the point,
+	 * read and written as strings at that scale: `'12.50'` (D-145).
+	 */
+	readonly decimal: <const O extends DecimalOptions>(
+		options: O & NoInfer<ValidateCheck<O, string>>,
+	) => Field<string, O, never, T>
 	readonly boolean: <
 		const O extends ScalarOptions<boolean> = ScalarOptions<boolean>,
 	>(
 		options?: O & NoInfer<ValidateCheck<O, boolean>>,
 	) => Field<boolean, O, never, T>
-	readonly date: <const O extends ScalarOptions<Date> = ScalarOptions<Date>>(
+	readonly dateTime: <
+		const O extends ScalarOptions<Date> = ScalarOptions<Date>,
+	>(
 		options?: O & NoInfer<ValidateCheck<O, Date>>,
 	) => Field<Date, O, never, T>
+	/** A calendar day, the string `'2026-07-31'`, without a time zone (D-150). */
+	readonly date: <
+		const O extends ScalarOptions<string> = ScalarOptions<string>,
+	>(
+		options?: O & NoInfer<ValidateCheck<O, string>>,
+	) => Field<string, O & Day, never, T>
 	/**
 	 * Without a schema, a `json` value is `unknown` and written as JSON; with
 	 * one, it reads the schema's output and is written its input (D-53).
@@ -292,12 +349,16 @@ export interface FieldBuilders<T> {
 	readonly json: <const O extends JsonOptions = JsonOptions>(
 		options?: O & NoInfer<JsonCheck<O>>,
 	) => Field<JsonOutput<O>, O, never, T, JsonInput<O>, true>
-	/** With `list: true`, a list of its values, `[]` when empty (D-127). */
+	/**
+	 * With `list: true`, a list of its values, `[]` when empty (D-127); a
+	 * `defineEnum` in place of its values is one type for each field (D-150),
+	 * and `Object.values(Status)` of a TypeScript string enum types it `Status`.
+	 */
 	readonly enumOf: <
 		const E extends string,
 		const O extends SingleOptions<E> | ListOptions<E> = SingleOptions<E>,
 	>(
-		values: readonly E[],
+		values: readonly E[] | Enum<E>,
 		options?: O & NoInfer<ListableCheck<O, E>>,
 	) => Listable<E, O, T>
 	readonly one: <M extends object, const O extends OneOptions = OneOptions>(
@@ -308,4 +369,15 @@ export interface FieldBuilders<T> {
 		target: M,
 		options?: O,
 	) => Many<M, O, T>
+	/**
+	 * Computed on read by the model's `.with({ virtuals })` (D-151): a
+	 * Standard Schema, or a model or a type behind an arrow, `() => [Image]`.
+	 */
+	readonly virtual: <
+		const O extends object,
+		const X extends VirtualOptions = NoOptions,
+	>(
+		output: O,
+		options?: X,
+	) => Virtual<O, X>
 }

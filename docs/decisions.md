@@ -120,6 +120,8 @@ Rejected: Parse's optional-by-default.
 
 ## D-09: The first field types include relations
 
+Amended by D-150.
+
 Choice: the first release ships `string`, `number`, `boolean`, `date`, `json`,
 `enumOf` (`enum` is a reserved word in JavaScript) and the relations `one`
 and `many` (D-37). Bigint, decimal, time, binary and
@@ -459,7 +461,7 @@ read: ({ caller, where }) =>
 
 ## D-20: The query API follows Prisma Client
 
-Amended by D-128, D-132, D-133, D-135 and D-138.
+Amended by D-128, D-132, D-133, D-135, D-138, D-140, D-142, D-143 and D-149.
 
 Choice: operations, their names and their arguments follow Prisma Client, so
 a developer coming from Prisma reads UltimaBase queries as Prisma: `findUnique`,
@@ -1722,6 +1724,8 @@ queries like any other.
 Rejected: fields declared on an implicit join table.
 
 ## D-65: `f.date()` is a UTC instant
+
+Amended by D-150.
 
 Choice: `f.date()` stores an instant (`timestamptz` on PostgreSQL) and returns a
 JavaScript `Date`. A calendar date without time (a birthday) comes later with
@@ -4910,7 +4914,7 @@ curl -X POST localhost:3000/webhooks/stripe -H 'content-type: application/json' 
 
 ## D-109: `defineFunction` and `defineType`, at run time and over GraphQL
 
-Amended by D-113 and D-125.
+Amended by D-113, D-125 and D-150.
 
 Choice: completes D-27, D-45, D-75 and D-107, and amends D-45's outputs.
 
@@ -5940,7 +5944,7 @@ postgres() was given no url: is the variable it reads set?
 
 ## D-120: String lists, their filters and their index
 
-Amended by D-127.
+Amended by D-127 and D-149.
 
 Choice: completes D-09 and D-52.
 
@@ -6319,6 +6323,8 @@ export const shareNote = defineFunction({
 
 ## D-125: JSON fields typed from their schema
 
+Amended by D-149.
+
 Choice: amends D-45, D-53, D-107, D-109 and D-113.
 
 1. A `json` field whose `validate` is a Standard Schema with a JSON Schema
@@ -6492,6 +6498,8 @@ export const publish = defineFunction({
 
 ## D-127: Lists of enums and numbers
 
+Amended by D-150.
+
 Choice: amends D-120, whose rules every list follows.
 
 1. `f.enumOf(values, { list: true })` is typed `readonly E[]` and
@@ -6657,6 +6665,8 @@ mutation {
 ```
 
 ## D-129: `restPlugin()`, the REST API as GraphQL's twin
+
+Amended by D-142.
 
 Choice: completes D-25, D-27, D-55, D-68 and D-106. One rule shapes the
 REST API: each parameter is named after the GraphQL argument it stands
@@ -7078,6 +7088,8 @@ await Post.update({
 
 ## D-133: `updateMany` runs an update's rules and hooks on each row
 
+Amended by D-149.
+
 Choice: completes D-20 and D-48; amends D-111.
 
 1. `Model.updateMany({ where, data }, { as })` updates every row `where`
@@ -7175,6 +7187,8 @@ await Post.updateMany({ data: { author: { connect: { id } } } }) // type error
 ```
 
 ## D-134: `_count`, nested `totalCount` and sorting through relations
+
+Amended by D-143.
 
 Choice: completes D-20, D-46 and D-55; amends D-107 point 5 and D-129
 point 5.
@@ -7281,7 +7295,7 @@ GET /api/users?first=20&orderBy={"posts":{"_count":"desc"}}&include={"posts":{"w
 
 ## D-135: `OrThrow` reads, `omit`, a delete's `select` and `createMany`
 
-Amended by D-136.
+Amended by D-136 and D-149.
 
 Choice: completes D-20; amends D-102 point 2.
 
@@ -7699,4 +7713,1372 @@ import { isRow, issueOf } from 'ultimabase/internal'
 	{ path: ['input', 'age'], message: 'Expected a finite number.' },
 	{ path: ['input', 'born'], message: 'Expected a Date of years 1 to 9999.' },
 ]
+```
+
+## D-140: Case-insensitive string filters
+
+Choice: amends D-20, which left them to a search plugin.
+
+1. A filter on a `string` field takes `mode: 'insensitive'`, as in Prisma:
+   its `equals`, `not`, `in`, `notIn`, `contains`, `startsWith` and
+   `endsWith` then ignore case. The shorthand (`email: 'Ana'`) keeps case.
+   `mode` takes `'insensitive'` only: Prisma's `'default'` is a filter
+   without `mode`, which `undefined` already gives (D-84). An id, an enum and
+   a list of strings take no `mode`.
+2. The normalized condition carries `mode: 'insensitive'` (D-73).
+   PostgreSQL compiles each of its operators to `ilike`, an equality to an
+   `ilike` without wildcards, so that one trigram index serves them all
+   (D-141). `memory()` compares both sides' `toLowerCase()`.
+3. A string column sorts under `collate "C"`, which folds ASCII only, so
+   the `ilike` reads it under the database's collation
+   (`collate "default"`). Under the `C` locale that one also folds ASCII
+   only, and `É` would match `é` in `memory()` but not there.
+   `postgres()` checks `lower('É') = 'é'` when it starts and, when it does
+   not hold, warns once through the kernel's logger, which an adapter's
+   `start` now receives.
+4. REST reads `mode` in its `where` as the kernel does (D-129). GraphQL's
+   `StringFilter` takes `mode: QueryMode`, an enum whose one value is
+   `insensitive`.
+
+Why: a sign-in by email, a tag or a name typed by a user is matched without
+case in most applications, and Prisma's developers expect `mode`. Without
+it, the application stores a lowered copy of each such field. `ilike` lowers
+both sides as `lower()` does, so equality keeps its meaning.
+
+Rejected:
+
+- `lower(column) = lower(value)` for an equality: no trigram index serves
+  it, and a `lower()` index would be a second index kind.
+- An ICU collation written into the SQL (`collate "und-x-icu"`): not every
+  host builds PostgreSQL with ICU.
+- Refusing to start under `C`: the database works, only letters beyond
+  ASCII differ.
+- A `citext` column, or `f.string({ caseInsensitive: true })`: every query
+  on the field would ignore case, and uniqueness with it; that is a property
+  of the stored value, which a `beforeCreate` normalizing it already gives.
+
+Example:
+
+```ts
+// Before: a lowered copy of the email, kept by a hook
+const user = await User.findFirst({
+	where: { emailLower: input.email.toLowerCase() },
+})
+// After
+const user = await User.findFirst({
+	where: { email: { equals: input.email, mode: 'insensitive' } },
+})
+```
+
+```graphql
+{
+	users(where: { name: { contains: "ada", mode: insensitive } }) {
+		edges {
+			node {
+				name
+			}
+		}
+	}
+}
+```
+
+```text
+WARN  PostgreSQL folds case under its C locale for ASCII only: a case-insensitive
+      filter matches É and é in memory() but not here. Create the database with
+      a UTF-8 locale, such as en_US.UTF-8.
+```
+
+## D-141: Trigram indexes for substring and case-insensitive filters
+
+Choice: amends D-52.
+
+1. An index of `defineModel` takes `contains: true` over one `string` field
+   that is not a list, and not with `unique`:
+   `indexes: [{ fields: ['title'], contains: true }]`. A plugin's index
+   takes it too (D-122). Anything else is refused on the index's line. It
+   speeds up `contains` and `endsWith` in both modes, and every operator
+   of D-140's `mode: 'insensitive'`. It changes no result; `memory()`
+   ignores it.
+2. `postgres()` makes it a GIN index of `pg_trgm` over the column read
+   under the database's collation, named `<table>_<column>_trgm`, so a
+   field can also have a plain index:
+   `create index "book_title_trgm" on "book" using gin (("title" collate "default") gin_trgm_ops)`.
+   The snapshot keeps it apart from plain indexes, as `trigrams` (D-105).
+3. `contains` and `endsWith` read the column under `collate "default"`
+   whatever the mode, as D-140's operators already do, so one index
+   serves both modes. The default collation is deterministic, so `like`
+   matches the same characters as under `"C"`. An equality, `in`, a
+   comparison and a case-sensitive `startsWith` keep the bare column,
+   which a plain index serves: under `"C"` it serves a prefix.
+4. A plan that adds a trigram index runs
+   `create extension if not exists pg_trgm` first, which installs it in
+   the first schema of the `search_path`: `public` by default. No plan
+   drops the extension, which other objects may use. The operator class resolves through the
+   `search_path`, so a schema that holds the extension must be on it, as
+   Supabase's `extensions` is.
+5. A D-137 test schema whose models declare a trigram index: before it
+   connects, `postgres()` installs the extension with the url's own
+   `search_path`, as a migration would, then puts the extension's schema
+   after the test schema in the connections' `search_path`. Dropping the
+   test schema leaves the extension.
+
+Why: `contains` reads every row without an index, and so does each
+case-insensitive filter, `email` equality included. A trigram index is the
+one PostgreSQL index that serves `like` and `ilike` anywhere in the string.
+Naming the index by what it serves keeps the model free of PostgreSQL's
+vocabulary. `pg_trgm` ships with PostgreSQL and is trusted since version 13,
+so a database owner installs it without being a superuser.
+
+Rejected:
+
+- `type: 'gin'` with an operator class, as Prisma writes it: PostgreSQL's
+  words in the model, and a choice no other index kind needs yet.
+- Reading every text operator under `collate "default"`: a plain index on
+  the `"C"` column then no longer serves a case-sensitive `startsWith`.
+- An index on `lower(title)`: it serves `ilike` only, and needs a second
+  index for the case-sensitive `contains`.
+- An index on the bare column: it does not serve the `collate "default"`
+  `ilike` that D-140 needs beyond ASCII (measured on PostgreSQL 15 and 18).
+- Installing the extension in the test schema: it is database-wide, other
+  test files would not see it, and dropping the schema would drop their
+  indexes with it.
+
+Example:
+
+```ts
+// Before: every contains reads the whole table
+export const Book = defineModel('Book', {
+	fields: { title: f.string() },
+})
+// After
+export const Book = defineModel('Book', {
+	fields: { title: f.string() },
+	indexes: [{ fields: ['title'], contains: true }],
+})
+await Book.findMany(
+	{ where: { title: { contains: 'engine', mode: 'insensitive' } } },
+	as,
+)
+```
+
+```sql
+-- The migration `ultimabase migrate create` writes
+create extension if not exists pg_trgm;
+create index "book_title_trgm" on "book" using gin (("title" collate "default") gin_trgm_ops);
+```
+
+## D-142: `upsert`
+
+Choice: amends D-20 and D-129.
+
+1. `Model.upsert({ where, create, update, select | include | omit }, as)`
+   takes a unique target (D-52), the data of a create and the data of an
+   update, as Prisma does, and returns the row as a create or an update
+   returns it (D-86). `create` is written as given: `where` is not merged
+   into it. Both data are checked, whichever runs.
+2. It reads the target locked, as an update does (D-99). A row the caller
+   cannot read, or that `beforeFind` hides from an update (D-124), is
+   absent.
+3. The branch that runs is a plain `create` or `update`, with its own
+   rules and hooks: when the row is absent, the create rule on the data,
+   defaults, validation, `beforeCreate`, `afterCreate` and
+   `afterCreateCommit`; when it is there, the update rule on the record,
+   `beforeUpdate`, `afterUpdate` and `afterUpdateCommit`. Nothing runs for
+   the branch that does not.
+4. Two upserts that both find no row both create: the second fails with
+   `UNIQUE_VIOLATION`, as two creates do. No adapter change, no
+   `on conflict`. An absent row that a rule hides fails the same way.
+5. GraphQL: `upsertTag(where: TagWhereUniqueInput!, create: TagCreateInput!, update: TagUpdateInput!): Tag!`.
+6. REST: `PUT /api/tags` with the body `{ where, create, update }`, and
+   `select` or `include` in the query. It answers `201 Created` when it
+   created the row, `200 OK` when it updated it. The kernel tells the
+   transports which branch ran; the model's `upsert` returns the row only.
+
+Why: "create it unless it exists" is a find then a write in every
+application, written in a transaction or racing. Running the branch's own
+rules and hooks keeps each write's guarantees: a hook that fills
+`createdBy` runs on every row created, and an update rule guards every row
+changed, however the write was asked for.
+
+Rejected:
+
+- Merging `where` into `create`: Prisma does not, and a composite target
+  then has two places to say one value.
+- `insert … on conflict do update`: it runs an update without reading the
+  row, so neither the update rule on the record nor `beforeUpdate` can run.
+- Retrying the update after a `UNIQUE_VIOLATION`: it hides a conflict the
+  caller may not have the right to see, and runs the create's hooks for a
+  row never kept.
+- An upsert's own rule or hook: a third write to guard, which every rule
+  already written would miss.
+- `POST /api/tags?upsert=true`: a create that sometimes updates; `PUT` on
+  the collection says "this row, as I describe it".
+
+Example:
+
+```ts
+// Before: a read, then a write, in a transaction
+const tag = await transaction(async () => {
+	const found = await Tag.findUnique({ where: { slug: 'news' } }, as)
+	return found === null
+		? Tag.create({ data: { slug: 'news', uses: 1 } }, as)
+		: Tag.update(
+				{ where: { slug: 'news' }, data: { uses: found.uses + 1 } },
+				as,
+			)
+})
+// After
+const tag = await Tag.upsert(
+	{
+		where: { slug: 'news' },
+		create: { slug: 'news', uses: 1 },
+		update: { uses: { increment: 1 } },
+	},
+	as,
+)
+```
+
+```graphql
+mutation {
+	upsertTag(
+		where: { slug: "news" }
+		create: { slug: "news", uses: 1 }
+		update: { uses: 2 }
+	) {
+		id
+		uses
+	}
+}
+```
+
+```http
+PUT /api/tags?select={"id":true,"uses":true}
+{ "where": { "slug": "news" }, "create": { "slug": "news", "uses": 1 }, "update": { "uses": 2 } }
+→ 201 { "id": "…", "uses": 1 }
+```
+
+## D-143: `aggregate`
+
+Choice: completes D-20 and D-44; amends D-134's rejection of aggregates.
+
+1. `Model.aggregate({ where, _count, _sum, _avg, _min, _max }, as)`
+   aggregates the rows `where` selects, as Prisma's `aggregate` does, and
+   returns an object holding the keys it asked for:
+   - `_count: true` counts the rows; `_count: { _all: true, title: true }`
+     counts them and each field's non-null values;
+   - `_sum` and `_avg` take number fields;
+   - `_min` and `_max` take number, string and date fields, `createdAt` and
+     `updatedAt` included; strings compare by code point, as a sort does
+     (D-94).
+     A field is a scalar of the model, neither a list, a `json` nor a plugin
+     field type's (D-122). Without rows, `_count` is 0 and the others are
+     `null`. The result's type follows the arguments, as a `select` does.
+2. It aggregates the rows the caller reads: the read rule and `beforeFind`
+   apply, as for `count` (D-124).
+3. A field with a read rule is refused to a caller other than Master, in
+   any aggregate, `_count` included: `INVALID_QUERY`, as a filter or a sort
+   on it (D-44).
+4. No `orderBy`, `take`, `skip` or `cursor`: an aggregate of a page has no
+   need yet.
+5. Server code only: neither REST nor GraphQL expose it. An application
+   exposes an aggregate through a function (D-14), which says what its
+   callers may learn.
+6. The adapter contract gains `aggregate({ model, where, aggregates })`,
+   each aggregate `{ operation, field? }`, which returns one value per
+   aggregate, in order. PostgreSQL returns a sum and an average as
+   `float8`: a sum of non-whole numbers may differ from memory's in its
+   last digits, as their order of addition does.
+
+Why: a dashboard total, an average rating or the date of the last order is
+one round trip on the database, not every row read into the server.
+Exposing it on the transports would let any caller compute a sum of rows
+it reads one by one but should not total, and the transports' parity
+(D-129) would make that two surfaces to secure; a function is one.
+
+Rejected:
+
+- Aggregates on the transports: see Why.
+- `_count` on relations, lists and `json`: no need asks for them.
+- Aggregating every row, readable or not: it reveals the rows a read rule
+  hides, as a count would (D-134).
+- Summing in the server from `findMany`: every row crosses the wire.
+
+Example:
+
+```ts
+// Before: every row read to compute three numbers
+const orders = await Order.findMany(
+	{ where: { paid: true }, select: { total: true, createdAt: true } },
+	as,
+)
+const sum = orders.reduce((s, order) => s + order.total, 0)
+const average = orders.length === 0 ? null : sum / orders.length
+const last = orders.reduce<Date | null>(
+	(max, { createdAt }) => (max === null || createdAt > max ? createdAt : max),
+	null,
+)
+// After: one query
+const stats = await Order.aggregate(
+	{
+		where: { paid: true },
+		_count: true,
+		_sum: { total: true },
+		_avg: { total: true },
+		_max: { createdAt: true },
+	},
+	as,
+)
+// { _count: 3, _sum: { total: 120 }, _avg: { total: 40 }, _max: { createdAt: Date } }
+```
+
+## D-144: An OpenAPI document
+
+Choice: completes D-129 and D-125's point 8.
+
+1. `rest` serves an OpenAPI 3.1 document at `GET {path}/openapi.json`,
+   `/api/openapi.json` by default, always, as GraphQL answers its
+   introspection. It is built once at startup and needs no caller.
+2. One document, as a caller other than Master sees the API, as the GraphQL
+   schema is: the models REST exposes, the readable fields, the page limits
+   (`maxTake`) and the functions. `info` gives `UltimaBase REST API` and the
+   version of `@ultimabase/rest`; `servers` gives the base path, so the paths
+   read `/posts`, `/posts/{id}`, `/functions/{name}`.
+3. Its schemas carry GraphQL's type names (D-129): `Post`, `PostWhereInput`,
+   `StringFilter`, `PostOrderByInput`, `PostWhereUniqueInput`,
+   `PostCreateInput`, `PostUpdateInput`, `PostConnection`, `PageInfo`, a
+   function's `…Input` and `…Output`. REST's own parameters add `PostSelect`
+   and `PostInclude`.
+4. `where` is typed per model, its filters and relation filters included;
+   `where`, `orderBy`, `select` and `include` are JSON parameters
+   (`content: application/json`), as REST reads them; a page's numbers and
+   cursors are plain parameters. A `@oneOf` input takes exactly one key;
+   inputs refuse unknown keys. `PostWhereUniqueInput` is REST's flat form,
+   one variant per unique set (`{ id }`, `{ author, slug }`).
+   Each route has an `operationId`, `posts`, `post`, `createPost`,
+   `upsertPost`, `updatePost`, `deletePost` and a function's name, and its
+   model's tag or `functions`; two routes of one id stop the startup.
+5. A row lists the fields of the default shape as required, and its
+   relations as optional, since `include` adds them. `select` returns only
+   the fields it names, which its parameter says.
+6. A JSON field's schema is its validator's JSON Schema (D-125), on the
+   input side for a write and the output side for a row. The `$defs` it
+   exports become schemas named by their ids, `Input`-suffixed on the input
+   side, as GraphQL names them; two shapes under one name stop the startup.
+7. Every error answer is the `Error` schema: `code`, `message`, `details`,
+   `correlationId`.
+8. No security scheme: `rest` does not know who authenticates (D-129).
+9. No dependency in production. The tests check the document with
+   `@seriousme/openapi-schema-validator` and REST's real answers against it
+   with `ajv`, both development dependencies.
+10. Later: an interactive `/docs` page, in a plugin of its own.
+
+Why: a client generator, an API tester or a gateway reads an OpenAPI
+document, as GraphQL tools read the introspection; without one, every REST
+client types the API by hand. Built from the same JSON Schema as GraphQL,
+it cannot drift from the routes. Seen as a caller other than Master, it
+shows what any caller may learn, and nothing a rule hides.
+
+Rejected:
+
+- A document per caller: it would differ from GraphQL's single schema, and
+  a cache could not share it.
+- An option to turn it off: the GraphQL introspection has none; hiding a
+  model is the model's choice (D-129).
+- YAML: JSON needs no dependency, and every tool reads it.
+- Untyped `where` (`{ type: 'object' }`): a generated client would lose the
+  filters, which are most of the API.
+- A production dependency to build the document: it is the JSON Schema the
+  validators give, put together.
+- A security scheme from `auth`: a plugin writing into another's document
+  needs a hook no other need asks for yet.
+
+Dependencies (D-92): `@seriousme/openapi-schema-validator` checks a document
+against the OpenAPI 3.1 meta-schema, which is hundreds of lines of JSON
+Schema we would otherwise copy; `ajv` validates the answers against the
+documented schemas, which no Node API does. Both run in tests only.
+
+Example:
+
+```ts
+// Before: a REST client types its calls by hand
+type Post = { id: string; title: string; status: 'draft' | 'published' }
+const res = await fetch('/api/posts?where={"status":"published"}')
+const posts: Post[] = await res.json()
+// After: the types come from the document
+// npx openapi-typescript http://localhost:3000/api/openapi.json -o api.d.ts
+import createClient from 'openapi-fetch'
+import type { paths } from './api.d.ts'
+const api = createClient<paths>({
+	baseUrl: '/api',
+	// REST reads a JSON parameter, not openapi-fetch's `where[status]=…`
+	querySerializer: (query) =>
+		new URLSearchParams(
+			Object.entries(query)
+				.filter(([, value]) => value !== undefined)
+				.map(([key, value]) => [
+					key,
+					typeof value === 'string' ? value : JSON.stringify(value),
+				]),
+		).toString(),
+})
+const { data } = await api.GET('/posts', {
+	params: { query: { where: { status: { equals: 'published' } } } },
+})
+```
+
+## D-145: A decimal field type
+
+Choice: completes D-12 and D-132; amends D-143's aggregate types.
+
+1. `f.decimal({ precision, scale })` holds exact decimal numbers of at
+   most `precision` digits, `scale` of them after the point, as SQL's
+   `numeric(precision, scale)`. Both are required: `precision` is a whole
+   number from 1 to 1000, `scale` from 0 to `precision`. A decimal takes
+   `optional`, `unique`, `default`, `validate` and the rules as `date`
+   does, and no `list`.
+2. A value is a string, read and written: `'12.50'`. A write takes digits
+   with an optional `-` and an optional fraction, `/^-?\d+(\.\d+)?$/`; a
+   JavaScript number is refused, since `0.1 + 0.2` is not `0.3`. The
+   kernel stores it normalized to the scale: `'012.5'` is `'12.50'`, `'-0'`
+   is `'0.00'`, `'7.500'` is `'7.50'`. A value with more significant
+   decimals than the scale, or more digits before the point than
+   `precision - scale`, does not fit and is refused, never rounded.
+3. A filter takes `equals`, `not`, `in`, `notIn`, `lt`, `lte`, `gt` and
+   `gte`, its operands checked and normalized as values; `orderBy` sorts by
+   value. `memory()` compares exactly, through `BigInt`, as PostgreSQL.
+   A decimal has no `increment`, as no need asks for it yet (D-132).
+4. In `aggregate` (D-143), `_sum`, `_min` and `_max` take decimal fields
+   and return decimal strings: `_sum` is exact, at the field's scale, and
+   may hold more digits than `precision`. `_avg` returns a JavaScript
+   number, as for a number field: an exact average has no finite form.
+5. PostgreSQL stores it as `numeric(precision, scale)` and returns its
+   text. A migration converts a changed precision or scale with a cast: a
+   lower scale rounds the stored values, as PostgreSQL does, and a value
+   too large for the new precision fails the migration.
+6. GraphQL types it `Decimal`, a scalar that takes and returns a string,
+   with a `DecimalFilter`; REST and the OpenAPI document type it as a
+   string of that pattern (D-129, D-144). A plugin field type may store
+   its values in a decimal, `precision` and `scale` given (D-122).
+
+Why: money and quantities need exact arithmetic, which a float
+(`f.number()`) does not give. A string keeps every digit across JSON, the
+`pg` driver, GraphQL and REST, with no dependency: an application that
+computes on decimals picks its own library, as Prisma's users do with
+`Decimal.js`. Refusing a value the scale cannot hold says so to the caller
+rather than storing a different amount.
+
+Rejected:
+
+- A `Decimal` class in the kernel, or a dependency's: every caller and
+  plugin would take it, and JSON cannot carry it (D-92).
+- Accepting numbers: `12.1` as a double is `12.0999…`, and a caller would
+  believe it exact.
+- Rounding to the scale, as PostgreSQL does: the stored amount would
+  differ from the one written, silently.
+- A default precision and scale: the right ones depend on the amounts,
+  and PostgreSQL's unconstrained `numeric` has no scale to normalize to.
+- Lists of decimals: no need asks for them (D-127).
+
+Example:
+
+```ts
+// Before: cents in an integer, converted at every edge
+const Order = defineModel({
+	name: 'Order',
+	fields: (f) => ({ totalCents: f.number({ integer: true }) }),
+})
+await Order.create({ data: { totalCents: Math.round(12.5 * 100) } }, as)
+const order = await Order.findUniqueOrThrow({ where: { id } }, as)
+const shown = (order.totalCents / 100).toFixed(2)
+// After: the amount as written
+const Order = defineModel({
+	name: 'Order',
+	fields: (f) => ({ total: f.decimal({ precision: 10, scale: 2 }) }),
+})
+await Order.create({ data: { total: '12.5' } }, as)
+const order = await Order.findUniqueOrThrow({ where: { id } }, as)
+order.total // '12.50'
+await Order.aggregate({ _sum: { total: true } }, as) // { _sum: { total: '1250.40' } }
+```
+
+## D-146: `groupBy`
+
+Amended by D-149.
+
+Choice: completes D-20 and D-143.
+
+1. `Model.groupBy({ by, where, _count, _sum, _avg, _min, _max, orderBy,
+skip, take }, as)` groups the rows `where` selects, as Prisma's
+   `groupBy` does, and returns one object per group: its `by` values, then
+   the aggregates it asked for, which take what `aggregate` takes (D-143).
+   - `by` is a non-empty list of distinct fields: a scalar an aggregate
+     takes (neither a list, a `json` nor a plugin field type's, D-122),
+     `id`, `createdAt`, `updatedAt`, or a `one` relation the row stores
+     (D-37), grouped by its target's id.
+   - A relation's value is `{ id }`, or `null` when unset or when its target
+     is a row the caller cannot read, which is absent everywhere (D-86).
+   - The rows with no value in a field form one group, as SQL's
+     `GROUP BY` makes them.
+2. `orderBy` is an object or a list of objects. Each key is a field of
+   `by`, `_count: 'asc' | 'desc'` for the group's rows, or
+   `_count | _sum | _avg | _min | _max: { field: 'asc' | 'desc' }`, an
+   aggregate the result need not ask for. The groups are then sorted by the
+   other fields of `by`, ascending, so the order is total and a page exact.
+   `null` sorts last ascending and first descending, as a read's sort
+   (D-94).
+3. `skip` and `take` are integers of at least 0. No cursor: a group has no
+   id. No `having`: `where` filters the rows before they are grouped, and
+   code filters the groups.
+4. It groups the rows the caller reads: the read rule and `beforeFind`
+   apply, as for `aggregate`. A field with a read rule is refused to a
+   caller other than Master in `by`, in an aggregate and in `orderBy`:
+   `INVALID_QUERY` (D-44).
+5. Server code only, as `aggregate` (D-143).
+6. The result's type follows the arguments: each `by` field with its
+   stored value, a relation as `{ id } | null`, the aggregates as
+   `aggregate` types them.
+7. The adapter contract's `aggregate` gains:
+   - `by`, the group keys: a field, or the `id` of the row `through`
+     reaches, as a sort key does (D-134);
+   - `orderBy`, each `{ at, direction }`, where `at` counts the keys, then
+     the aggregates;
+   - `skip` and `take`.
+
+   It returns one list per group: the values of its keys, then of its
+   aggregates. Without `by`, one list, even without rows; with `by`, no row
+   gives no group. The kernel adds the aggregates an `orderBy` needs and
+   leaves them out of the result; `Model.aggregate` calls it without `by`.
+
+Why: posts per author, sales per region or the ten busiest days are one
+statement on the database, not every row read into the server and counted
+there. Sorting by position keeps the adapter small: it groups, sorts and
+pages lists of values, and the kernel names them.
+
+Rejected:
+
+- `having`: no need asks for it yet; a sort by an aggregate and `take`
+  give the top groups.
+- Prisma's rule that `skip` and `take` need an `orderBy`: the order is
+  always total here, so a page is exact without one.
+- Grouping by a related row's field (`author.country`): no need asks for
+  it.
+- A separate adapter method: a group of every row is the aggregate
+  already there.
+- `groupBy` on the transports: see D-143.
+
+Example:
+
+```ts
+// Before: every post read to count them by author
+const posts = await Post.findMany(
+	{ select: { author: { select: { id: true } } } },
+	as,
+)
+const counts = new Map<string | null, number>()
+for (const { author } of posts) {
+	const id = author?.id ?? null
+	counts.set(id, (counts.get(id) ?? 0) + 1)
+}
+const top = [...counts].sort((a, b) => b[1] - a[1]).slice(0, 10)
+// After: one query
+const top = await Post.groupBy(
+	{ by: ['author'], _count: true, orderBy: { _count: 'desc' }, take: 10 },
+	as,
+)
+// [{ author: { id: 'u1' }, _count: 12 }, { author: null, _count: 3 }, …]
+```
+
+## D-147: `distinct`
+
+Choice: completes D-20 and D-146.
+
+1. `Model.findMany({ distinct, ... }, as)` keeps, of the rows with the same
+   values in the `distinct` fields, the first in `orderBy` order, as
+   Prisma's `distinct` does. `skip` and `take` then page the rows kept; a
+   negative `take` gives the last ones.
+   - `distinct` is a non-empty list of distinct fields, the ones `groupBy`
+     takes in `by` (D-146): a scalar an aggregate takes, a system field or
+     a `one` relation the row stores.
+   - The order always ends with `id` (D-94), so the row kept is exact.
+   - A relation compares by its target as the caller sees it: a target the
+     caller cannot read counts as none (D-86), as in `groupBy`.
+2. Refused with a `cursor`: `INVALID_QUERY`. The cursor's row may be one
+   `distinct` drops, and a page of the rows kept has no row to start at.
+3. On the root of `findMany` only: not on `findFirst`, whose first row is
+   already distinct, nor on an included `many`, `count` or `aggregate`.
+4. The read rule and `beforeFind` select the rows before `distinct` keeps
+   one of each. A field with a read rule is refused in `distinct` to a
+   caller other than Master: `INVALID_QUERY` (D-44).
+5. Server code only, as `aggregate` (D-143): REST and GraphQL do not take
+   it.
+6. The result's type is `findMany`'s: `distinct` changes which rows come
+   back, not their shape.
+7. The adapter contract's root read gains `distinct`, the keys of
+   `groupBy` (D-146). The adapter keeps the first row of each key in the
+   read's order, before `skip` and `take`; PostgreSQL numbers the rows of
+   each key with `row_number()` over that order.
+
+Why: the latest post of each author or one row per city is one statement
+on the database, not every row read into the server and filtered there.
+
+Rejected:
+
+- PostgreSQL's `DISTINCT ON` as the contract: it needs the order to start
+  with the keys, so the caller's `orderBy` would change the row kept.
+- A field name alone, `distinct: 'author'`: one form, as `by`.
+- `distinct` with a cursor, for the reason above.
+- `distinct` on the transports: see D-143.
+
+Example:
+
+```ts
+// Before: every post read, the latest of each author kept in code
+const posts = await Post.findMany({ orderBy: { createdAt: 'desc' } }, as)
+const latest = new Map<string | null, (typeof posts)[number]>()
+for (const post of posts) {
+	const id = post.author?.id ?? null
+	if (!latest.has(id)) latest.set(id, post)
+}
+// After: one query
+const latest = await Post.findMany(
+	{ distinct: ['author'], orderBy: { createdAt: 'desc' }, take: 20 },
+	as,
+)
+```
+
+## D-148: Full-text search
+
+Choice: completes D-20, D-94 and D-141.
+
+1. A `string` field that is not a list takes `search: true`:
+   `f.string({ search: true })`; no other builder takes it, and a list
+   refuses it as it refuses `unique`. A model's searched fields form one
+   document, in declaration order. A searched field with a read rule
+   (D-44) is refused when the app starts: a match would reveal a value
+   the caller cannot read. `_search` and `_relevance` join the names the
+   kernel owns, which no field takes.
+2. `where: { _search: 'text' }` keeps the rows whose document matches
+   `text`, written as a search box takes it, PostgreSQL's
+   `websearch_to_tsquery`: words all present, `"a phrase"`, `-word`
+   absent, `or` between alternatives. It is a filter as any other: in
+   `AND`, `OR`, `NOT`, in a relation's filter, in `count`, `aggregate`,
+   `groupBy`, `updateMany` and `deleteMany`, not in a unique `where`. A
+   text with no word matches no row, as PostgreSQL does; an application
+   leaves `_search` out, `undefined`, for an empty box (D-84). On a model
+   without searched fields, `_search` is an unknown key: `INVALID_QUERY`.
+3. `orderBy: { _relevance: 'desc' }` sorts by how well each row matches
+   the `_search` of the same read's `where`, its top level: PostgreSQL's
+   `ts_rank`. Without that `_search` it is refused: `INVALID_QUERY`. It
+   takes a place in the order as a field does, and the rest of the order,
+   then `id`, breaks its ties (D-94). It is a read's sort: on `findMany`,
+   `findFirst` and an included `many`, with `cursor` and `distinct`; not
+   through a relation, and not in `groupBy`'s `orderBy`. The score is not
+   returned.
+4. `postgres({ searchLanguage })` names the text search configuration of
+   every model, `'simple'` by default, which lowercases and stems nothing;
+   `'french'` or `'english'` stem and drop stop words. `postgres()` checks
+   at start that the database has it. A multilingual application with one
+   language per row, and weights per field (`search: { weight }`), wait
+   for a need.
+5. `postgres()` stores the document in a generated column, `_search`, with
+   a GIN index, `<table>__search_idx`:
+
+   ```sql
+   alter table "post" add column "_search" tsvector generated always as (to_tsvector('simple'::regconfig, coalesce("title", '') || ' ' || coalesce("body", ''))) stored;
+   create index "post__search_idx" on "post" using gin ("_search");
+   ```
+
+   The snapshot keeps it apart from columns and indexes, as `search`, with
+   its language and columns (D-105). A changed language or set of fields
+   drops and adds the column, which loses nothing: the database computes
+   it again. Adding it rewrites the table, as any stored column does.
+
+6. `memory()` approximates PostgreSQL's `'simple'` configuration whatever
+   the language: the words of the document and of the text are their runs
+   of letters and digits, lowercased; a phrase matches consecutive words;
+   the relevance follows `ts_rank`'s formula. The contract suite searches
+   under `'simple'` with plain words, where both agree.
+7. The adapter contract gains:
+   - `search: true` on a searched scalar field of the schema;
+   - a `Condition` `{ search: text }` under the `Filter` key `_search`;
+   - on an `Order`, `relevance: text` with `field: '_relevance'`.
+8. REST and GraphQL take `_search` and `_relevance` where the kernel does,
+   with the same names (D-129): GraphQL's `PostWhereInput` gains
+   `_search: String`, `PostOrderByInput` `_relevance: SortOrder` on a
+   model with searched fields; OpenAPI documents both. A relation's
+   `orderBy` shares its target's input type, so GraphQL shows
+   `_relevance` there too, which the kernel refuses.
+
+Why: a search box over titles and bodies is in most applications, and
+`contains` neither ranks, nor matches words in any order, nor serves an
+index across fields. One document per model is one column and one index,
+and one `_search` reads like the box the user typed in. PostgreSQL's
+websearch syntax never fails on what a user types.
+
+Rejected:
+
+- The fields listed on the model, `search: { fields: ['title', 'body'] }`:
+  a field's options belong on the field, and the list would repeat names.
+- Prisma's `search` operator on a field, `title: { search: 'cat & dog' }`:
+  it takes `to_tsquery`'s syntax, which fails on ordinary input, and needs
+  a document per field.
+- The language on each model: one setting per database serves most
+  applications; changing it is one migration.
+- Returning the score, or a highlighted excerpt (`ts_headline`): no need
+  asks for them yet.
+- Stemming in `memory()`: one dictionary per language to embed, for a
+  development adapter.
+
+Example:
+
+```ts
+// Before: every word a `contains`, no order by relevance, no index
+const words = input.split(/\s+/).filter(Boolean)
+const posts = await Post.findMany(
+	{
+		where: {
+			AND: words.map((word) => ({
+				OR: [
+					{ title: { contains: word, mode: 'insensitive' } },
+					{ body: { contains: word, mode: 'insensitive' } },
+				],
+			})),
+		},
+	},
+	as,
+)
+// After
+const Post = defineModel({
+	name: 'Post',
+	fields: (f) => ({
+		title: f.string({ search: true }),
+		body: f.string({ search: true }),
+	}),
+})
+const posts = await Post.findMany(
+	{
+		where: { _search: input || undefined },
+		orderBy: { _relevance: 'desc' },
+		take: 20,
+	},
+	as,
+)
+```
+
+```graphql
+{
+	posts(where: { _search: "chat -noir" }, orderBy: { _relevance: desc }) {
+		edges {
+			node {
+				title
+			}
+		}
+	}
+}
+```
+
+## D-149: `having`, rows from bulk writes, `nulls`, list updates and JSON paths
+
+Choice: completes D-20; amends D-120 point 2, D-125, D-133, D-135 and
+D-146 point 3.
+
+1. `groupBy` takes `having`, in Prisma's shape: a filter of the groups,
+   with `AND`, `OR` and `NOT`, keyed by field.
+   - Under a field of `by`, that field's filter (D-20) tests the group's
+     value. A field outside `by` with its own filter fails with
+     `INVALID_QUERY`, as in Prisma.
+   - Under a field an aggregate takes (D-143), `_count`, `_sum`, `_avg`,
+     `_min` or `_max` holds the filter of the value that aggregate
+     returns: a whole number's for `_count`, a number's or a decimal's for
+     `_sum` and `_avg`, the field's own for `_min` and `_max`. `_count`
+     counts the values that are not `null`; `id: { _count }` counts the
+     rows.
+   - The aggregates it tests need not be in the result. A field with a
+     read rule is refused to a caller other than Master, as in `by`
+     (D-146 point 4).
+2. `createManyAndReturn({ data, select, omit, include }, as)` creates as
+   `createMany` does (D-135) and returns the created rows in the order of
+   `data`, each as `create` returns it.
+   `updateManyAndReturn({ where, data, select, omit, include }, as)`
+   updates as `updateMany` does (D-133) and returns the updated rows in
+   `id` order, the order it locks them in, each as `update` returns it. Both are all or nothing, as the call they
+   extend.
+3. An `orderBy` entry on an optional scalar field takes Prisma's
+   `{ sort: 'asc' | 'desc', nulls: 'first' | 'last' }`:
+   `orderBy: { publishedAt: { sort: 'desc', nulls: 'last' } }`. Without
+   `nulls`, `null` sorts last ascending and first descending, as today
+   (D-94). It applies wherever the field sorts: a read, through a `one`
+   relation, with `cursor` and `distinct`, and on a field of `by` in
+   `groupBy`'s `orderBy`. A required field, an aggregate and `_relevance`
+   take no `nulls`: the types refuse it, and at run time it fails with
+   `INVALID_QUERY`.
+4. A list (D-120, D-127) also filters with `hasEvery` (holds every one of
+   these elements) and `isEmpty: true | false`, Prisma's names, typed by
+   the element as `has` is. `hasEvery: []` matches every row, as
+   PostgreSQL's `@>` does. PostgreSQL runs `"tags" @> $1` and
+   `cardinality("tags") = 0`; a list's GIN index serves `hasEvery`, not
+   `isEmpty`.
+5. On a list field, every update (`update`, `updateMany`,
+   `updateManyAndReturn`, `upsert`'s `update` and a nested `update`,
+   D-138) takes one operation instead of a list, with an element or a
+   list of elements:
+   - `{ set }` replaces the list, as a plain list does;
+   - `{ push }` appends the elements in their order, duplicates included,
+     as Prisma's `push`;
+   - `{ pushUnique }` appends each element the list does not hold, once:
+     `['a']` with `{ pushUnique: ['a', 'b', 'b'] }` becomes `['a', 'b']`.
+     It removes no duplicate the list already holds: `['a', 'a']` with
+     `{ pushUnique: 'b' }` becomes `['a', 'a', 'b']`;
+   - `{ remove }` removes every occurrence of each element and keeps the
+     others in their order. An element the list does not hold is no
+     error.
+
+   Each element is checked as in a write of the list. An object with two
+   operations or none fails as D-132 point 2 says, and `undefined` leaves
+   the field unchanged (D-84). The kernel computes the new list as D-132
+   points 3 and 4 compute a number: on the locked row, before the rules,
+   so rules, validation and hooks see the list the row will hold. When it
+   loads no row, the adapter computes it in the write:
+
+   ```sql
+   -- push
+   "tags" = "tags" || $1::text[]
+   -- pushUnique
+   "tags" = "tags" || array(select e from unnest($1::text[]) with ordinality as o(e, i) where e <> all("tags") group by e order by min(i))
+   -- remove
+   "tags" = array(select e from unnest("tags") with ordinality as o(e, i) where e <> all($1::text[]) order by i)
+   ```
+
+6. A `json` field's filter, typed (D-125) or not, also takes a path
+   filter, the operators of Prisma's PostgreSQL JSON filter in camelCase:
+   `{ meta: { path: ['author', 'name'], equals: 'Ada' } }`.
+   - `path` is required in this shape: a list of keys into the value, a
+     key of digits indexing an array (`['tags', '0']`), `[]` for the
+     whole value.
+   - `equals` and `not` take a JSON value; `equals: null` matches a JSON
+     `null` at the path.
+   - `gt`, `gte`, `lt` and `lte` take a number or a string and match a
+     value of the same JSON type: numbers by value, strings by code point
+     (D-94).
+   - `stringContains`, `stringStartsWith` and `stringEndsWith` take a
+     string and match a string value. `%` and `_` are characters (D-94),
+     and `mode: 'insensitive'` applies to them (D-140).
+   - `arrayContains` takes a JSON value or a list of them and matches an
+     array holding each, as PostgreSQL's `@>`: an object matches an
+     element that holds at least its keys. `arrayStartsWith` and
+     `arrayEndsWith` take a JSON value and match an array whose first or
+     last element equals it.
+   - A path the value lacks is `null` there, unknown in a comparison
+     (D-94): no operator matches it, `not` included. It is not an error:
+     one row may lack a key another has.
+   - The operands are typed `JsonValue`, whatever the field's schema, and
+     the path is not checked against it.
+7. Transports (D-129):
+   - `hasEvery` and `isEmpty` join the list filters of GraphQL, REST and
+     the OpenAPI document.
+   - The path filter joins `JSONFilter` in GraphQL, with
+     `path: [String!]`, `String` operands for the string operators and
+     `JSON` for the others, and the json filter of REST and the OpenAPI
+     document.
+   - A typed field (D-125) filters with that generic filter in GraphQL and
+     the OpenAPI document, in place of `UserPrefsFilter`: an input cannot
+     type `equals` as the field's value without `path` and as any JSON
+     value with it. Its output and its write inputs keep their types, and
+     the server's types keep the field's type for `equals` without
+     `path`.
+   - `having`, `createManyAndReturn` and `updateManyAndReturn` are server
+     code, as `groupBy` (D-146), `createMany` and `updateMany`.
+   - `nulls` and the list operations are server code, as the number
+     operations (D-132 point 6): GraphQL cannot type a sort or a list
+     input that is either a plain value or an object, and REST keeps the
+     shapes GraphQL has.
+8. The adapter contract gains `nulls` on an `Order`, `having` on
+   `aggregate` (a filter whose leaves name a key or an aggregate by
+   position, as its `orderBy` does), the conditions `hasEvery`, `isEmpty`
+   and a json condition with `path`, and the list operations of a write.
+   `memory()` runs each, and the contract suite checks them.
+9. The fluent API of D-20's "Later" is rejected:
+   `Post.findUnique(...).author()` is
+   `include: { author: true }`, one query, typed the same.
+
+Why:
+
+- The top groups by an aggregate threshold ("authors with more than ten
+  posts") are one `HAVING`, not every group read and filtered in code.
+- Importing rows or closing tickets often goes on with the rows: a
+  `findMany` after the write reads them again, and may see another
+  write's.
+- "Newest first, unpublished last" needs `nulls`; without it, an
+  optional date sorted descending puts its `null`s first.
+- Tags and followers change one element at a time. Read, change and write
+  back loses one of two concurrent changes, as D-132 measured for
+  numbers. `remove` has no Prisma counterpart, so Prisma code reads then
+  `set`s; `pushUnique` is Parse's `AddUnique`, which a set of tags needs.
+- A json field holds settings and metadata whose keys a query needs; a
+  generic path opens it now, and a path typed from the schema can follow.
+
+Rejected:
+
+- A path checked at run time, failing when the value lacks it: a row may
+  lack a key another row has, and a Standard Schema validates without
+  describing its shape. A path typed from the field's TypeScript type
+  waits for a measure of its cost on the type checker (D-06).
+- Prisma's snake_case operators (`string_contains`): every other operator
+  of the API is camelCase.
+- Removing one occurrence per element, or naming it `pull` (Mongo's):
+  `remove: 'draft'` means "no `'draft'` left", and `remove` reads plainly
+  where `pull` reads as a fetch.
+- Prisma's field references (`where: { stock: { lt: Product.fields.min } }`):
+  two fields of one row compare in raw SQL (D-137) or through a field a
+  hook keeps.
+- Prisma's compound unique key (D-52), `skipDuplicates` and a global
+  `omit` (D-135), and an auto-increment field (D-22): their reasons stand.
+- `nulls` and the list operations in GraphQL: see point 7.
+- A typed json field keeping `UserPrefsFilter` in GraphQL, with no path
+  filter: a path into the value is the common query, an equality on the
+  whole value the rare one.
+
+Example:
+
+```ts
+// Before: every group read, then filtered in code
+const groups = await Post.groupBy({ by: ['author'], _count: true }, as)
+const prolific = groups.filter((group) => group._count > 10)
+// After
+const prolific = await Post.groupBy(
+	{ by: ['author'], _count: true, having: { id: { _count: { gt: 10 } } } },
+	as,
+)
+
+// Before: a write, then a read of the same rows
+await Ticket.updateMany(
+	{ where: { project: { id } }, data: { open: false } },
+	as,
+)
+const closed = await Ticket.findMany({ where: { project: { id } } }, as)
+// After
+const closed = await Ticket.updateManyAndReturn(
+	{ where: { project: { id } }, data: { open: false } },
+	as,
+)
+const tags = await Tag.createManyAndReturn(
+	{ data: names.map((name) => ({ name })) },
+	as,
+)
+
+// Before: the drafts, with no publishedAt, first
+await Post.findMany({ orderBy: { publishedAt: 'desc' } }, as)
+// After: the drafts last
+await Post.findMany(
+	{ orderBy: { publishedAt: { sort: 'desc', nulls: 'last' } } },
+	as,
+)
+
+// Before: read, change, write back; a concurrent change is lost
+const post = await Post.findUniqueOrThrow({ where: { id } }, as)
+await Post.update(
+	{ where: { id }, data: { tags: post.tags.filter((tag) => tag !== 'draft') } },
+	as,
+)
+// After: computed on the locked row
+await Post.update({ where: { id }, data: { tags: { remove: 'draft' } } }, as)
+await Post.update(
+	{ where: { id }, data: { tags: { pushUnique: ['ts', 'node'] } } },
+	as,
+)
+await Post.findMany({ where: { tags: { hasEvery: ['ts', 'node'] } } }, as)
+await Post.findMany({ where: { tags: { isEmpty: true } } }, as)
+
+// Before: every row read to look inside its json
+const rows = await Post.findMany({}, as)
+const byAda = rows.filter((row) => row.meta?.author?.name === 'Ada')
+// After
+await Post.findMany(
+	{ where: { meta: { path: ['author', 'name'], equals: 'Ada' } } },
+	as,
+)
+await Post.findMany(
+	{ where: { meta: { path: ['stats', 'views'], gt: 100 } } },
+	as,
+)
+await Post.findMany(
+	{ where: { meta: { path: ['keywords'], arrayContains: ['ts'] } } },
+	as,
+)
+```
+
+```graphql
+{
+	posts(where: { meta: { path: ["author", "name"], equals: "Ada" } }) {
+		edges {
+			node {
+				title
+			}
+		}
+	}
+}
+```
+
+## D-150: Calendar dates, field descriptions and shared enums
+
+Choice: completes D-09 and D-109; amends D-65 and D-127 point 3.
+
+1. The instant of D-65 is `f.dateTime()`: `timestamptz` on PostgreSQL, a
+   JavaScript `Date`, `DateTime` in GraphQL, as `f.date()` is today.
+   `createdAt` and `updatedAt` stay instants.
+2. `f.date()` is a calendar day: the string `'2026-07-31'`, a real day of
+   the years 0001 to 9999. Another string fails with `VALIDATION_FAILED` in
+   a write and `INVALID_QUERY` in a filter (D-20). It takes `optional`,
+   `unique`, `default`, `validate` and `dbName`, as `f.dateTime()` does,
+   and no `list` (D-127 point 3). It filters with `equals`, `not`, `in`,
+   `notIn`, `lt`, `lte`, `gt` and `gte`, sorts, and takes `_min` and
+   `_max`, `groupBy`'s `by` and `distinct`.
+   - PostgreSQL stores it as `date` and reads it as text: `pg` turns a
+     `date` into a `Date` at local midnight, which shifts the day in any
+     time zone west of UTC. `memory()` keeps the string.
+   - GraphQL shows a `Date` scalar, an ISO 8601 day; OpenAPI shows
+     `format: date`.
+   - No default gives "today": the day depends on a time zone the server
+     cannot guess. A `default` function says which one.
+3. Every field builder takes `description`, a non-empty string: the
+   kernel's, `one`, `many` and a plugin field type's (D-122).
+   `defineModel`, `defineFunction` and `defineType` (D-109) take one too,
+   and `defineEnum` in its options. It changes no behaviour. GraphQL shows
+   it on the model's type, on its fields there and in its inputs, on a
+   function's query or mutation field, on a type and on an enum; OpenAPI
+   on the schema, the property and the function's operation.
+   - A Standard Schema describes itself: Zod's `.describe()`, Valibot's
+     `v.description()` or ArkType's `.describe()` writes a `description`
+     into its JSON Schema (D-45). OpenAPI copies it already; GraphQL
+     shows it on the type, the field, the argument or the enum made from
+     that node, in a function's input and output and in a typed json
+     field (D-125).
+4. `defineEnum(name, values, { description })` returns a frozen shared enum, which
+   `f.enumOf` takes in place of its values, single or with `list: true`
+   (D-127). `name` is a GraphQL name. GraphQL shows one enum type of that
+   name for every field that uses it, and OpenAPI one schema that each
+   property references, where a local enum keeps one type per field
+   (`PostStatus`). Storage does not change: text with a check (D-98).
+   - Two enums of one name with different values stop the start, naming
+     both fields; so does a name another GraphQL type has (D-109).
+   - A function's schema enum with the id `Status` and the same values is
+     the same type (D-109).
+5. The adapter contract's `ScalarType` has `'dateTime'`, the type `'date'`
+   had, and `'date'` for the day.
+
+Why:
+
+- A birthday stored as an instant is midnight UTC: read in New York it is
+  the day before. A day is the value `'2026-07-31'`, and a string carries
+  no zone to get wrong.
+- `date` and `date-time` are the names of SQL, OpenAPI, GraphQL scalars and
+  JSON Schema; `f.date()` for an instant misleads anyone who knows them.
+  Nothing is published, so the rename costs one search and replace.
+- A description is the documentation a client's tools show: GraphiQL,
+  Swagger UI and the types generated from them.
+- One status shared by three models is three GraphQL enums today, which a
+  client cannot pass for one another.
+
+Rejected:
+
+- `f.day()` beside `f.date()`: `f.date()` would still read as a day.
+- A day as a `Date` at midnight UTC, as Prisma's `@db.Date`: it shows the
+  day before west of UTC.
+- From the previous base:
+  - `bigint`, as D-132 says;
+  - `binary`, which files cover (D-32);
+  - `time`, which no application of ours needs;
+  - `uuid`, a string with a default of `crypto.randomUUID()`;
+  - `float`, which `f.number()` already is;
+  - `object`, which a json field with a schema types (D-125);
+  - `immutable`, which an `update` field rule says (D-44);
+  - `autoNow`, which a default function says;
+  - `autoIncrement` (D-22);
+  - `indexed`, which `indexes` say (D-52).
+- Virtual fields and relations filtered by a `where`: they need their own
+  decision (D-151).
+
+Example:
+
+```ts
+// Before
+const Person = defineModel({
+	name: 'Person',
+	fields: (f) => ({
+		birthday: f.date(), // an instant: midnight UTC, the day before in New York
+		lastSeenAt: f.date(),
+		status: f.enumOf(['active', 'banned']),
+	}),
+})
+const Team = defineModel({
+	name: 'Team',
+	fields: (f) => ({ status: f.enumOf(['active', 'banned']) }),
+})
+// GraphQL: enum PersonStatus, enum TeamStatus
+
+// After
+const Status = defineEnum('Status', ['active', 'banned'], {
+	description: 'Whether the account can sign in.',
+})
+const Person = defineModel({
+	name: 'Person',
+	description: 'Someone with an account.',
+	fields: (f) => ({
+		birthday: f.date({ description: 'Day of birth, no time zone.' }),
+		lastSeenAt: f.dateTime({ optional: true }),
+		status: f.enumOf(Status),
+	}),
+})
+const Team = defineModel({
+	name: 'Team',
+	fields: (f) => ({ status: f.enumOf(Status) }),
+})
+await Person.create({ data: { birthday: '1990-07-31', status: 'active' } }, as)
+await Person.findMany({ where: { birthday: { gte: '1990-01-01' } } }, as)
+// GraphQL: one enum Status
+export const ban = defineFunction({
+	name: 'ban',
+	description: 'Bans a person; they can no longer sign in.',
+	input: z.object({
+		person: z.string().describe('The id of the person to ban.'),
+	}),
+	run: async ({ input }) => {
+		// ...
+	},
+})
+```
+
+```graphql
+"""
+Someone with an account.
+"""
+type Person {
+	"""
+	Day of birth, no time zone.
+	"""
+	birthday: Date!
+	lastSeenAt: DateTime
+	status: Status!
+}
+
+type Mutation {
+	"""
+	Bans a person; they can no longer sign in.
+	"""
+	ban(
+		"""
+		The id of the person to ban.
+		"""
+		person: String!
+	): Boolean!
+}
+```
+
+## D-151: Filtered relations and virtual fields
+
+Choice: completes D-37, D-44 and D-109; amends D-42.
+
+1. A model's `.with` takes two more kernel keys, `relations` and
+   `virtuals`, beside `access` and `hooks` (D-42).
+2. A filtered relation is a `many` whose reads see only the rows its
+   `where` keeps. Its filter is a function shaped like a read rule (D-10):
+   `({ caller, where }) => where({ … })`, or `true` for no filter. It is
+   declared in the model's `.with({ relations })`, keyed by the field, since
+   a filter typed from the target in the field's own options is a cycle
+   (TS7022) when two models filter each other.
+   - It filters every read of the relation: `include` and `select`, its
+     page, `_count` and `orderBy` by `_count` (D-134), and `some`, `every`
+     and `none` in a `where` (D-20). It is ANDed with the caller's `where`
+     and the target's read rule (D-86), in the same query (D-46).
+   - Master's reads are filtered too: a filter shapes what the relation
+     means, it is not a permission.
+   - Writes stay physical: `connect`, `disconnect`, `create` and `onDelete`
+     (D-54) act on the rows the database holds, hidden ones included. A
+     filter fills in no value on `create`.
+   - A filtered relation has no `set`, which would detach rows its writer
+     never saw. A transport's generated inputs leave it out; server code
+     that passes it fails with `INVALID_QUERY`: "User.posts is filtered;
+     use connect and disconnect, not set."
+   - A `one` takes no filter: a key either points to a row or does not.
+3. A view is a read-only `many` that reuses the link of another `many` of
+   the same model: `f.many(() => Post, { from: 'posts' })`. It is needed
+   because pairing allows one `many` facing a given `one` (D-37); `from`
+   works for one-to-many, many-to-many and a model's relations to itself.
+   - Startup stops when `from` names no `many` of that model, or one with
+     another target, or a view, and when a view has no filter in
+     `.with({ relations })`.
+   - A view has no inverse, no `onDelete`, and no place in writes: it is
+     absent from `data` in the types and in a transport's inputs.
+4. A virtual field is part of a model and computed on read, as a function
+   (D-27) that reads the row's neighbouring fields. The field declares its
+   output and, in its options, its `input` and `needs`:
+   `f.virtual(output, { input, needs, description })`. The model's
+   `.with({ virtuals })` gives it `run` or `runMany`.
+   - The output is one of D-109's table, behind an arrow when it is a model
+     or a type, as relations are (D-37): a Standard Schema,
+     `() => Image`, `() => [Image]`, `() => Image.nullable()`, a
+     `defineType`. A list of models takes its page in its `input`, as a
+     function does (D-109).
+   - `input` is one Standard Schema of an object, validated once per
+     request. Its properties are the field's arguments, flat: GraphQL
+     `thumbnail(size: 200)`, the query API and REST
+     `select: { thumbnail: { size: 200 } }`. A bad input fails with
+     `VALIDATION_FAILED`, the issue's path starting at the field
+     (`select.thumbnail.size`). A virtual returning a model also takes
+     `select`, `include` and `omit` for the rows it returns; an input
+     property of one of these names stops startup.
+   - `needs` lists the fields `run` reads: `needs: ['cover']`. `record` is
+     typed from it, the `id` always included, and the kernel reads them even
+     when the client did not select them. A name that is not a scalar field
+     of the model fails to compile in `.with({ virtuals })`. It lives in the
+     field's options because the model's `.with` cannot be generic: a
+     generic `.with`, even as an overload, turns mutual relations into the
+     TS7022 cycle that D-44 describes.
+5. `run` or `runMany`, exactly one per virtual, which the types check:
+   - `run({ caller, input, record })` returns the field's value for one row;
+   - `runMany({ caller, input, records })` returns one value per record, in
+     order, for one page, so a per-row query becomes one query per page. A
+     list of another length fails the call, naming the field.
+   - Each may be async, and its return value is checked against the output
+     at compile time.
+   - Outside production, a `run` that queries the database once per row
+     logs a warning, seen through D-36's async context:
+     "Stage.images: run queried the database once per row; use runMany."
+6. A virtual runs as the caller, Master included. It is server code: the
+   scalars of a returned model are those it returned, and their relations
+   are read again by `id`, as the caller (D-109 point 5). It counts toward
+   the row budget as a function's output does (D-109 point 8). An error
+   thrown in it fails the call, as a function's does (D-28).
+7. Reads:
+   - A scalar virtual without an input is in the default row, as a scalar
+     field is; one with an input, or returning a model or a type, is read
+     only when selected or included. `true` selects one whose input
+     properties are all optional.
+   - A virtual is never in `where`, `orderBy`, `cursor`, `distinct`,
+     `groupBy`, an aggregate, `data`, an index or storage, nor in the
+     `record` that hooks and rules receive.
+8. Access. A virtual is readable by whoever reads its row. It is left out
+   of a row when the caller cannot read one of its `needs` (D-44), so it
+   cannot leak a hidden field. The field's own `.with({ access: { read } })`
+   hides it further, as for any field (D-44).
+9. Transports. GraphQL shows a virtual as an output field of the model's
+   type, with an argument per input property; OpenAPI as a `readOnly`
+   property, its input in the `select` of the model's query parameters
+   (D-129). A field added through `graphqlPlugin({ extend })` (D-107 point 9) stays the way out for what a virtual does not cover: interfaces,
+   unions, renaming a generated field.
+
+Why:
+
+- A list "the published posts of a user" is declared once and holds
+  everywhere it is read, in the same query.
+- Filtering only reads keeps one rule: what is written is what the
+  database holds. A filter may depend on the caller or use any operator, so
+  no value can be derived from it for a `create`.
+- A virtual replaces the per-field resolvers written by hand with Nexus over
+  Parse: it is typed from its model, works over REST and GraphQL alike
+  (D-129), respects the read rules, and batches per page.
+- Typing: checked in a spike on 2026-10-28. With `needs` in the field's
+  options and a non-generic `.with`, the repository typechecks with no new
+  error; `record` is typed from `needs`; mutual virtuals returning each
+  other's models compile; and `run` with `runMany`, a wrong return type, a
+  list of another model, a missing rule and an unknown `needs` all fail to
+  compile. A generic `.with` broke the existing tests of mutual relations
+  (`auth`, `soft-delete`, `access.test.ts`).
+
+Rejected:
+
+- Rails' writes through a scoped association, which fill the scope's
+  values on `create` and replace only the visible rows: the write would
+  depend on the filter and the caller.
+- `set` on a filtered relation, physical or limited to visible rows.
+- A filter in the field's options, typed from the target: a cycle when two
+  models filter each other.
+- A filter on a `one`.
+- A virtual computed by a `where` per row: one query per parent (D-46).
+- Field builders as a virtual's output (`f.virtual(f.string())`): D-109
+  describes data with Standard Schemas.
+- `needs` in `.with({ virtuals })`: it needs a generic `.with`.
+- A virtual stored or indexed (a generated column): not needed yet.
+
+Example:
+
+```ts
+// Before: Parse and Nexus, a resolver per field, GraphQL only
+t.field('images', {
+	type: 'CampaignStageImage',
+	list: [true],
+	resolve: async (root, _args, context) =>
+		(await getMediaLoaders(context).images.load(root.objectId)).map((image) =>
+			image.toJSON(),
+		),
+})
+
+// After
+const Stage = defineModel({
+	name: 'Stage',
+	fields: (f) => ({
+		cover: f.string(),
+		owner: f.one(() => User),
+		images: f.many(() => Image),
+		shown: f.many(() => Image, { from: 'images' }),
+		thumbnail: f.virtual(z.string(), {
+			input: z.object({ size: z.number().int().positive() }),
+			needs: ['cover'],
+		}),
+		maps: f.virtual(() => [Image], {
+			input: z.object({ first: z.number().int().max(50).default(10) }),
+		}),
+	}),
+}).with({
+	access: allow.public,
+	relations: {
+		images: { where: ({ where }) => where({ deleted: false }) },
+		shown: {
+			where: ({ caller, where }) =>
+				where({ OR: [{ public: true }, { owner: { id: caller.id } }] }),
+		},
+	},
+	virtuals: {
+		thumbnail: {
+			run: ({ record, input }) => `${record.cover}?w=${input.size}`,
+		},
+		maps: {
+			runMany: async ({ caller, input, records }) => {
+				const all = await Image.findMany(
+					{
+						where: {
+							kind: 'map',
+							stage: { is: { id: { in: records.map((r) => r.id) } } },
+						},
+						include: { stage: { select: { id: true } } },
+					},
+					{ as: caller },
+				)
+				return records.map((r) =>
+					all.filter((i) => i.stage.id === r.id).slice(0, input.first),
+				)
+			},
+		},
+	},
+})
+
+await Stage.findMany(
+	{
+		select: {
+			thumbnail: { size: 200 },
+			maps: { first: 5, select: { url: true } },
+			_count: { select: { shown: true } },
+		},
+	},
+	{ as: caller },
+)
+```
+
+```graphql
+type Stage {
+	cover: String!
+	# images and shown: connections as any many (D-107), their rows filtered
+	thumbnail(size: Int!): String!
+	maps(first: Int): [Image!]!
+}
 ```

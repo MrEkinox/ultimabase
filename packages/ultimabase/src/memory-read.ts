@@ -7,8 +7,12 @@ import type {
 	Order,
 	Row,
 	SchemaField,
+	Step,
 } from './adapter.ts'
-import { compareKeys, compareValues, copy, same } from './memory-values.ts'
+import type { Truth } from './memory-conditions.ts'
+import { and, isFilters, not, or, scalar } from './memory-conditions.ts'
+import { compareKeys, copy, sortable } from './memory-values.ts'
+import { relevance, searches } from './memory-search.ts'
 import { modelOf } from './query-where.ts'
 
 /** A stored row; a stored `one` key is the target's id or `null`. */
@@ -23,10 +27,23 @@ export type Store = {
 	readonly joins: Map<string, Map<string, Set<string>>>
 }
 
+/** A copy of the store, which a write changes and keeps once whole. */
+export function clone(store: Store): Store {
+	return {
+		tables: new Map(
+			[...store.tables].map(([name, table]) => [name, new Map(table)]),
+		),
+		joins: new Map(
+			[...store.joins].map(([key, side]) => [
+				key,
+				new Map([...side].map(([id, ids]) => [id, new Set(ids)])),
+			]),
+		),
+	}
+}
+
 /** Each model's fields by name. */
 export type Fields = ReadonlyMap<string, ReadonlyMap<string, SchemaField>>
-
-type Truth = boolean | null
 
 export class Reader {
 	readonly store: Store
@@ -57,7 +74,9 @@ export class Reader {
 			return found === undefined ? [] : [found]
 		}
 		if (field.kind === 'many' && field.join) {
-			const ids = this.store.joins.get(`${model}.${field.name}`)?.get(row.id)
+			// A view reads the join of its relation (D-151).
+			const name = `${model}.${field.from ?? field.name}`
+			const ids = this.store.joins.get(name)?.get(row.id)
 			return [...(ids ?? [])].flatMap((id) => target.get(id) ?? [])
 		}
 		return [...target.values()].filter(
@@ -92,9 +111,14 @@ export class Reader {
 		name: string,
 		condition: Condition,
 	): Truth {
+		if (condition.search !== undefined) {
+			return searches(this.fields.get(model), row, condition.search)
+		}
 		const field = this.field(model, name)
 		if (field === undefined || field.kind === 'scalar') {
-			return scalar(row[name] ?? null, condition)
+			return scalar(row[name] ?? null, condition, (value) =>
+				sortable(value, field),
+			)
 		}
 		const rows = this.related(model, field, row)
 		const test = (filter: Filter): Truth[] =>
@@ -133,23 +157,40 @@ export class Reader {
 		return and(truths)
 	}
 
-	/** A row's sort key: a field, through `one` relations, or a count (D-134). */
-	private key(model: string, row: StoredRow, order: Order): unknown {
+	/** The row `through` reaches from `row`, and its model, if one (D-134). */
+	reach(
+		model: string,
+		row: StoredRow,
+		through: readonly Step[] = [],
+	): { readonly model: string; readonly row: StoredRow } | undefined {
 		let at: StoredRow | undefined = row
 		let on = model
-		for (const step of order.through ?? []) {
+		for (const step of through) {
 			const field = this.field(on, step.relation)
-			if (field === undefined || field.kind === 'scalar') return null
+			if (field === undefined || field.kind === 'scalar') return undefined
 			const [next] = this.related(on, field, at)
 			at =
 				next !== undefined &&
 				this.matches(field.target, next, step.where) === true
 					? next
 					: undefined
-			if (at === undefined) return null
+			if (at === undefined) return undefined
 			on = field.target
 		}
-		if (order.count === undefined) return at[order.field] ?? null
+		return { model: on, row: at }
+	}
+
+	/** A row's sort key: a field, through `one` relations, a count (D-134), a relevance (D-148). */
+	private key(model: string, row: StoredRow, order: Order): unknown {
+		if (order.relevance !== undefined) {
+			return relevance(this.fields.get(model), row, order.relevance)
+		}
+		const reached = this.reach(model, row, order.through)
+		if (reached === undefined) return null
+		const { model: on, row: at } = reached
+		if (order.count === undefined) {
+			return sortable(at[order.field] ?? null, this.field(on, order.field))
+		}
 		return this.count(on, at, order.field, order.count)
 	}
 
@@ -265,82 +306,6 @@ export class Reader {
 		}
 		return result
 	}
-}
-
-function and(truths: readonly Truth[]): Truth {
-	if (truths.includes(false)) return false
-	return truths.includes(null) ? null : true
-}
-
-function or(truths: readonly Truth[]): Truth {
-	if (truths.includes(true)) return true
-	return truths.includes(null) ? null : false
-}
-
-function not(truth: Truth): Truth {
-	return truth === null ? null : !truth
-}
-
-function isFilters(
-	value: Condition | readonly Filter[],
-): value is readonly Filter[] {
-	return Array.isArray(value)
-}
-
-/** A text operator; the `where` check lets only strings reach it. */
-function text(
-	value: unknown,
-	operand: unknown,
-	test: (value: string, operand: string) => boolean,
-): boolean {
-	return (
-		typeof value === 'string' &&
-		typeof operand === 'string' &&
-		test(value, operand)
-	)
-}
-
-function scalar(value: unknown, condition: Condition): Truth {
-	const truths: Truth[] = []
-	const known = value !== null
-	for (const [operator, operand] of Object.entries(condition)) {
-		if (operand === undefined) continue
-		if (operator === 'equals' || operator === 'not') {
-			const equal =
-				operand === null ? !known : known ? same(value, operand) : null
-			truths.push(operator === 'equals' ? equal : not(equal))
-		} else if (operator === 'in' || operator === 'notIn') {
-			const list: readonly unknown[] = Array.isArray(operand) ? operand : []
-			const found =
-				list.length === 0
-					? false
-					: known
-						? list.some((item) => same(value, item))
-						: null
-			truths.push(operator === 'in' ? found : not(found))
-		} else if (!known) {
-			truths.push(null)
-		} else if (operator === 'has' || operator === 'hasSome') {
-			const items: readonly unknown[] = Array.isArray(value) ? value : []
-			const wanted: readonly unknown[] = Array.isArray(operand)
-				? operand
-				: [operand]
-			truths.push(wanted.some((item) => items.includes(item)))
-		} else if (operator === 'contains') {
-			truths.push(text(value, operand, (a, b) => a.includes(b)))
-		} else if (operator === 'startsWith') {
-			truths.push(text(value, operand, (a, b) => a.startsWith(b)))
-		} else if (operator === 'endsWith') {
-			truths.push(text(value, operand, (a, b) => a.endsWith(b)))
-		} else {
-			const order = compareValues(value, operand)
-			if (operator === 'lt') truths.push(order < 0)
-			else if (operator === 'lte') truths.push(order <= 0)
-			else if (operator === 'gt') truths.push(order > 0)
-			else truths.push(order >= 0)
-		}
-	}
-	return and(truths)
 }
 
 type Keyed = { readonly row: StoredRow; readonly keys: readonly unknown[] }

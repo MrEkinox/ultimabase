@@ -1,6 +1,7 @@
 // The record a model stores, and the data written to it.
 import type { UniqueWhere } from './query.ts'
 import type { fieldType, modelFields } from './symbols.ts'
+import type { VirtualKeys } from './virtual.ts'
 
 type Scalar<V = unknown, O = unknown> = {
 	readonly [fieldType]: {
@@ -228,6 +229,22 @@ type NumberUpdate<V> = OneOf<{
 	readonly divide: number
 }>
 
+/** One operation on a list, with an element or a list of them (D-149). */
+type ListUpdate<E> = OneOf<{
+	readonly set: E | readonly E[]
+	readonly push: E | readonly E[]
+	readonly pushUnique: E | readonly E[]
+	readonly remove: E | readonly E[]
+}>
+
+/** A list's element type, `never` for any other field. */
+type ElementOf<X> =
+	X extends Scalar<unknown, { readonly list: true }>
+		? WrittenValue<X> extends readonly (infer E)[]
+			? E
+			: never
+		: never
+
 /** A `one` the caller writes; rules and hooks see it resolved (D-138). */
 type OneUpdate<N, K, X, O, Operations extends boolean> =
 	| Connect<N, K, X, Not<Operations>>
@@ -255,14 +272,16 @@ type Not<B extends boolean> = B extends true ? false : true
 
 /**
  * An optional `one` relation is unset with `disconnect: true` (D-20); with
- * `Operations`, a number field also takes an operation (D-132), and a
- * relation `set` and `connectOrCreate` (D-138).
+ * `Operations`, a number field also takes an operation (D-132), a list one
+ * (D-149), and a relation `set` and `connectOrCreate` (D-138).
  */
 type UpdateInput<X, N, K, Operations extends boolean> = X extends Scalar
 	? Operations extends true
 		? IsNumber<X> extends true
 			? WrittenValue<X> | NumberUpdate<WrittenValue<X>>
-			: WrittenValue<X>
+			: [ElementOf<X>] extends [never]
+				? WrittenValue<X>
+				: WrittenValue<X> | ListUpdate<ElementOf<X>>
 		: WrittenValue<X>
 	: X extends Relation<'one', unknown, infer O>
 		? OneUpdate<N, K, X, O, Operations>
@@ -295,20 +314,21 @@ type Creating<F, E, V extends { readonly [K in keyof F]: unknown }> = {
 }
 
 /**
- * The data that creates a row of model `N`, without field `E`: the relation
- * back to the row that creates it (D-128). Code that does not know `N`
+ * The data that creates a row of model `N`, without its views (D-151) nor
+ * field `E`: the relation back to the row that creates it (D-128). Code that does not know `N`
  * leaves that relation to the kernel.
  */
 export type CreateData<F, N = never, E = never> = Creating<
 	F,
-	E,
+	E | Unwritten<F>,
 	{ readonly [K in keyof F]: CreateInput<F[K], N, K> }
 >
 
 /** A row `createMany` creates: a `one` is connected, a `many` not written (D-135). */
 export type CreateManyData<F> = Creating<
 	F,
-	{ [K in keyof F]: F[K] extends Relation<'many'> ? K : never }[keyof F],
+	| { [K in keyof F]: F[K] extends Relation<'many'> ? K : never }[keyof F]
+	| VirtualKeys<F>,
 	{
 		readonly [K in keyof F]: F[K] extends Scalar
 			? WrittenValue<F[K]>
@@ -318,15 +338,31 @@ export type CreateManyData<F> = Creating<
 
 /**
  * `undefined` leaves a field unchanged, as in Prisma (D-84). Rules and hooks
- * see the data without `Operations`: each number as computed (D-132), each
- * relation resolved (D-138).
+ * see the data without `Operations`: each number and list as computed
+ * (D-132, D-149), each relation resolved (D-138).
  */
 export type UpdateData<F, N = never, Operations extends boolean = true> = {
-	readonly [K in keyof F]?: UpdateInput<F[K], N, K, Operations> | undefined
+	readonly [K in keyof F as K extends Unwritten<F> ? never : K]?:
+		UpdateInput<F[K], N, K, Operations> | undefined
 }
 
+/** The views and virtuals of `F`, which no data writes (D-151). */
+type Unwritten<F> = Views<F> | VirtualKeys<F>
+type Views<F> = {
+	[K in keyof F]: F[K] extends Relation<
+		'many',
+		unknown,
+		{ readonly from: string }
+	>
+		? K
+		: never
+}[keyof F]
+
 /** The data `updateMany` writes on each row: scalars only (D-133). */
-export type UpdateManyData<F> = Pick<UpdateData<F>, ScalarKeys<F>>
+export type UpdateManyData<F> = Pick<
+	UpdateData<F>,
+	ScalarKeys<F> & keyof UpdateData<F>
+>
 
 export type ScalarKeys<F> = {
 	[K in keyof F]: F[K] extends Scalar ? K : never

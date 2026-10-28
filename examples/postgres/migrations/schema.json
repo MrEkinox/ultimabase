@@ -34,7 +34,9 @@
 			},
 			"checks": {},
 			"indexes": {},
-			"foreignKeys": {}
+			"trigrams": {},
+			"foreignKeys": {},
+			"search": null
 		},
 		"task": {
 			"model": "Task",
@@ -79,13 +81,15 @@
 			"indexes": {
 				"task_project_id_idx": ["project_id"]
 			},
+			"trigrams": {},
 			"foreignKeys": {
 				"task_project_id_fkey": {
 					"column": "project_id",
 					"table": "project",
 					"cascade": false
 				}
-			}
+			},
+			"search": null
 		}
 	}
 }

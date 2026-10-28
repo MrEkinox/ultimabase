@@ -247,18 +247,20 @@ function counting(reads: string[]): Adapter {
 			return on.find(read)
 		},
 		count: async (read) => on.count(read),
+		aggregate: async (read) => on.aggregate(read),
 		write: async (write) => on.write(write),
 		commit: async () => on.commit(),
 		rollback: async () => on.rollback(),
 	})
 	return {
-		start: async (schema) => base.start(schema),
+		start: async (schema, logger) => base.start(schema, logger),
 		stop: async () => base.stop(),
 		find: async (read) => {
 			reads.push(read.model)
 			return base.find(read)
 		},
 		count: async (read) => base.count(read),
+		aggregate: async (read) => base.aggregate(read),
 		write: async (write) => base.write(write),
 		begin: async () => tracked(await base.begin()),
 	}

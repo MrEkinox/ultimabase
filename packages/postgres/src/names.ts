@@ -40,8 +40,8 @@ export type Join = {
 
 const system: ReadonlyMap<string, readonly [string, Kind]> = new Map([
 	['id', ['id', 'id']],
-	['createdAt', ['created_at', 'date']],
-	['updatedAt', ['updated_at', 'date']],
+	['createdAt', ['created_at', 'dateTime']],
+	['updatedAt', ['updated_at', 'dateTime']],
 ])
 
 export function snake(name: string): string {
@@ -74,8 +74,11 @@ export class Catalog {
 	readonly uniques: ReadonlyMap<string, { model: string; fields: string[] }>
 	/** Foreign key name → the relation a refusal reports (D-99). */
 	readonly foreignKeys: ReadonlyMap<string, Relation>
+	/** The text search configuration of `_search` (D-148). */
+	readonly language: string
 
-	constructor(schema: Schema) {
+	constructor(schema: Schema, language = 'simple') {
+		this.language = language
 		const tables = new Map<string, Table>()
 		for (const model of schema.models) {
 			const name = model.dbName ?? snake(model.name)
@@ -155,7 +158,11 @@ export class Catalog {
 				let key: string
 				if (field.kind === 'one' && field.stored) {
 					key = `${table.name}_${this.column(table, field.name)}_fkey`
-				} else if (field.kind === 'many' && field.join) {
+				} else if (
+					field.kind === 'many' &&
+					field.join &&
+					field.from === undefined
+				) {
 					const join = this.join(model, field.name)
 					key = `${join.table}_${join.other}_fkey`
 				} else continue
@@ -174,7 +181,9 @@ export class Catalog {
 		const joins = new Map<string, Join>()
 		for (const table of this.tables.values()) {
 			for (const field of table.model.fields) {
-				if (field.kind !== 'many' || !field.join) continue
+				// A view has no join of its own (D-151).
+				if (field.kind !== 'many' || !field.join || field.from !== undefined)
+					continue
 				const target = this.table(field.target)
 				const self = table === target
 				const first = self

@@ -7,16 +7,19 @@ import type { Identity } from './rules.ts'
 import { isMaster } from './rules.ts'
 import { current } from './running.ts'
 import type { Context } from './query-context.ts'
-import { filtered, first, given, hiddenBy, picked } from './query-context.ts'
-import { oneKeys, plan, project, restrict, uniqueWhere } from './query-args.ts'
+import { filtered, first, given, picked, shapedRows } from './query-context.ts'
+import { oneKeys, plan, restrict, uniqueWhere } from './query-args.ts'
+import { counted } from './virtual-read.ts'
 import { entries, isObject, unknownKey } from './query-where.ts'
 import { QueryScope, planned } from './scope.ts'
 import type { Commit, Store } from './transaction.ts'
 import { reading, writing } from './transaction.ts'
+import { aggregate } from './aggregate.ts'
+import { distinctOf, groupBy } from './group-by.ts'
 import { removeMany } from './delete-many.ts'
-import { updateMany } from './update-many.ts'
-import { createMany } from './create-many.ts'
-import { create, remove, update } from './writes.ts'
+import { updateMany, updateManyAndReturn } from './update-many.ts'
+import { createMany, createManyAndReturn } from './create-many.ts'
+import { create, remove, update, upsert } from './writes.ts'
 
 export type Operation =
 	| 'findMany'
@@ -25,12 +28,19 @@ export type Operation =
 	| 'findFirstOrThrow'
 	| 'findUniqueOrThrow'
 	| 'count'
+	| 'aggregate'
+	| 'groupBy'
 	| 'create'
 	| 'update'
+	| 'upsert'
 	| 'delete'
 	| 'updateMany'
 	| 'createMany'
+	| 'updateManyAndReturn'
+	| 'createManyAndReturn'
 	| 'deleteMany'
+	// The transports' upsert, which also says whether it created (D-142).
+	| 'upserted'
 
 const anonymous: Identity = Object.freeze({ kind: 'anonymous' })
 
@@ -80,6 +90,7 @@ const manyKeys = new Set([
 	'skip',
 	'cursor',
 ])
+const distinctKeys = new Set([...manyKeys, 'distinct'])
 
 async function find(
 	context: Context,
@@ -88,18 +99,21 @@ async function find(
 	single: boolean,
 ): Promise<unknown> {
 	const { models, model, scope } = context
+	const keys = single ? manyKeys : distinctKeys
 	const { read, shape, readable } = await planned(scope, () => ({
-		...plan(models, model, args, '', 'many', manyKeys, scope),
+		...plan(models, model, args, '', 'many', keys, scope),
 		readable: scope.readable(model.name),
 	}))
 	const take = read.take ?? 1
 	const limited = single ? { ...read, take: Math.sign(take) } : read
+	const distinct = single ? undefined : await distinctOf(context, args)
 	const rows = await store.find({
 		model: model.name,
 		...restrict(limited, readable),
+		...(distinct && { distinct }),
 	})
-	if (single) return first(rows, shape, scope.access)
-	return rows.map((row) => project(row, shape, hiddenBy(scope.access)))
+	if (single) return first(context, store, rows, shape, scope.access)
+	return shapedRows(context, store, rows, shape, scope.access)
 }
 
 async function findUnique(
@@ -117,7 +131,7 @@ async function findUnique(
 		),
 	}))
 	const rows = await store.find({ model: model.name, ...read, where })
-	return first(rows, shape, scope.access)
+	return first(context, store, rows, shape, scope.access)
 }
 
 async function count(
@@ -149,6 +163,8 @@ type ReadOperation =
 	| 'findFirstOrThrow'
 	| 'findUniqueOrThrow'
 	| 'count'
+	| 'aggregate'
+	| 'groupBy'
 
 /** The read, which fails with `NOT_FOUND` rather than return `null` (D-135). */
 const orThrow =
@@ -168,14 +184,21 @@ const reads: { readonly [O in ReadOperation]: Run } = {
 	),
 	findUniqueOrThrow: orThrow(findUnique),
 	count,
+	aggregate,
+	groupBy,
 }
 
 const writes: { readonly [O in Exclude<Operation, ReadOperation>]: Write } = {
 	create,
 	update,
+	upsert: async (context, store, commits, args) =>
+		(await upsert(context, store, commits, args)).row,
+	upserted: upsert,
 	delete: remove,
 	updateMany,
 	createMany,
+	updateManyAndReturn,
+	createManyAndReturn,
 	deleteMany: removeMany,
 }
 
@@ -196,6 +219,7 @@ export async function query(
 		throw new Error(`${name} is not a model of a started application.`)
 	}
 	const identity = callerOf(options, name)
+	counted()
 	return app.work.run(async () => {
 		const caller = await app.complete(identity)
 		const { models } = app.resolved

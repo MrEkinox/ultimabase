@@ -29,6 +29,17 @@ import { Catalog, constraint } from './names.ts'
 import { snapshotOf } from './snapshot.ts'
 import { translate } from './write.ts'
 
+/** The adapter's warnings: none on a database that folds every letter. */
+const warnings: unknown[] = []
+const logger: Logger = {
+	info: () => undefined,
+	warn: (message: unknown) => {
+		warnings.push(message)
+	},
+	error: () => undefined,
+	child: () => logger,
+}
+
 const servers =
 	'postgres://postgres:postgres@localhost:54315/postgres postgres://postgres:postgres@localhost:54318/postgres'
 const urls = (process.env['TEST_DATABASE_URL'] ?? servers)
@@ -69,7 +80,7 @@ for (const url of urls) {
 			...adapter,
 			start: async (given) => {
 				await run(url, `create schema "${schema}"`)
-				await adapter.start(given)
+				await adapter.start(given, logger)
 			},
 			stop: async () => {
 				await adapter.stop()
@@ -105,7 +116,7 @@ const thing: Schema = {
 
 /** Starts `adapter` and builds its tables, as a development start does. */
 async function started(adapter: Adapter, schema: Schema): Promise<void> {
-	await adapter.start(schema)
+	await adapter.start(schema, logger)
 	const { migrations } = adapter
 	if (migrations === undefined) throw new Error('postgres() migrates.')
 	const to = migrations.snapshot(schema)
@@ -120,7 +131,8 @@ const row = (label: unknown) => ({
 	label,
 })
 
-const startAt = async (url: string) => postgres({ url }).start({ models: [] })
+const startAt = async (url: string) =>
+	postgres({ url }).start({ models: [] }, logger)
 
 describe('postgres()', () => {
 	const url = urls[0] ?? ''
@@ -141,7 +153,7 @@ describe('postgres()', () => {
 		for (const given of [process.env['ULTIMABASE_UNSET_URL'], '']) {
 			const adapter = postgres({ url: given })
 			expect(adapter.migrations?.remote).toBeUndefined()
-			const starting = adapter.start({ models: [] })
+			const starting = adapter.start({ models: [] }, logger)
 			await expect(starting).rejects.toThrow(Refused)
 			await expect(starting).rejects.toThrow(
 				'postgres() was given no url: is the variable it reads set?',
@@ -196,7 +208,7 @@ describe('postgres()', () => {
 				url: `postgres://postgres:secret@localhost:${port}/x`,
 				wait: 200,
 			})
-			const starting = adapter.start({ models: [] })
+			const starting = adapter.start({ models: [] }, logger)
 			await expect(starting).rejects.toThrow(
 				`Cannot reach PostgreSQL at localhost:${port} (no answer in 0.2s): is it running, and is its url right?`,
 			)
@@ -226,10 +238,33 @@ describe('postgres()', () => {
 		}
 	})
 
+	it('warns once when the database folds ASCII only (D-140)', async () => {
+		warnings.length = 0
+		const adapter = postgres({ url: inSchema(url, schema) })
+		await adapter.start({ models: [] }, logger)
+		await adapter.stop()
+		expect(warnings).toEqual([])
+		const name = `c_${randomUUID().replaceAll('-', '')}`
+		await run(
+			url,
+			`create database "${name}" template template0 lc_collate 'C' lc_ctype 'C'`,
+		)
+		try {
+			const ascii = postgres({ url: url.replace(/\/postgres$/, `/${name}`) })
+			await ascii.start({ models: [] }, logger)
+			await ascii.stop()
+		} finally {
+			await run(url, `drop database "${name}"`)
+		}
+		expect(warnings).toEqual([
+			'PostgreSQL folds case under its C locale for ASCII only: a case-insensitive filter matches É and é in memory() but not here. Create the database with a UTF-8 locale, such as en_US.UTF-8.',
+		])
+	})
+
 	it('takes connections as a whole number, 1 or more (D-47)', async () => {
 		for (const connections of [0, 1.5, Number.NaN]) {
 			await expect(
-				postgres({ url, connections }).start({ models: [] }),
+				postgres({ url, connections }).start({ models: [] }, logger),
 			).rejects.toThrow(
 				new Refused(
 					`postgres() takes connections as a whole number, 1 or more, not ${connections}.`,
@@ -644,13 +679,6 @@ describe('a write on postgres()', () => {
 	}, 2000)
 })
 
-const quiet: Logger = {
-	info: () => undefined,
-	warn: () => undefined,
-	error: () => undefined,
-	child: () => quiet,
-}
-
 const M = { as: master }
 
 const Locker = defineModel({
@@ -695,7 +723,7 @@ for (const url of urls) {
 			schema = `t_${randomUUID().replaceAll('-', '')}`
 			await run(url, `create schema "${schema}"`)
 			const database = createAdapter({ url: inSchema(url, schema) })
-			app = defineApp({ database, models: [Locker], logger: quiet })
+			app = defineApp({ database, models: [Locker], logger })
 			await app.start()
 			other = new Client({ connectionString: inSchema(url, schema) })
 			await other.connect()
@@ -790,7 +818,7 @@ describe('a transaction whose connection the server ends', () => {
 		const url = urls[0] ?? ''
 		const name = `t_${randomUUID().replaceAll('-', '')}`
 		const adapter = createAdapter({ url: `${url}?application_name=${name}` })
-		await adapter.start({ models: [] })
+		await adapter.start({ models: [] }, logger)
 		const escaped: unknown[] = []
 		const listen = (error: unknown) => escaped.push(error)
 		process.on('uncaughtException', listen)
@@ -822,7 +850,7 @@ describe('a write that races a delete on postgres()', () => {
 		schema = `t_${randomUUID().replaceAll('-', '')}`
 		await run(url, `create schema "${schema}"`)
 		database = createAdapter({ url: inSchema(url, schema) })
-		app = defineApp({ database, models: [Genre, Song], logger: quiet })
+		app = defineApp({ database, models: [Genre, Song], logger })
 		await app.start()
 	})
 	afterEach(async () => {
@@ -948,7 +976,7 @@ describe('two things stored under one name', () => {
 		)
 		// It refuses before it connects.
 		const adapter = postgres({ url: 'postgres://nowhere.invalid/none' })
-		return expect(adapter.start({ models })).rejects.toThrow('"post"')
+		return expect(adapter.start({ models }, logger)).rejects.toThrow('"post"')
 	})
 
 	it('refuses a model named as a join table', () => {
@@ -968,7 +996,7 @@ describe('two things stored under one name', () => {
 				'Thing',
 				[scalar('aB', { unique: true }), scalar('a'), scalar('b')],
 				{
-					indexes: [{ fields: ['a', 'b'], unique: true }],
+					indexes: [{ fields: ['a', 'b'], unique: true, contains: false }],
 				},
 			),
 		]

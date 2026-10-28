@@ -1,6 +1,6 @@
 // Lists of strings, numbers and enum values (D-120, D-127): never optional
-// nor unique, indexed alone and never sorted, filtered with `has` and
-// `hasSome`, `[]` when left out.
+// nor unique, indexed alone and never sorted, filtered with `has`,
+// `hasSome`, `hasEvery` and `isEmpty` (D-149), `[]` when left out.
 import {
 	afterEach,
 	beforeEach,
@@ -76,13 +76,13 @@ describe('a list definition', () => {
 	it('holds strings, numbers or enum values only', () => {
 		const lists = [
 			// @ts-expect-error: a date makes no list.
-			(f: Builders) => f.date({ list: true }),
+			(f: Builders) => f.dateTime({ list: true }),
 			// @ts-expect-error: a boolean makes no list.
 			(f: Builders) => f.boolean({ list: true }),
 			// @ts-expect-error: a json value makes no list.
 			(f: Builders) => f.json({ list: true }),
 		]
-		for (const [at, type] of ['date', 'boolean', 'json'].entries()) {
+		for (const [at, type] of ['dateTime', 'boolean', 'json'].entries()) {
 			expect(() =>
 				defineModel({
 					name: 'Listed',
@@ -98,9 +98,12 @@ describe('a list definition', () => {
 		type Read = RecordOf<typeof Article>
 		expectTypeOf<Read['scores']>().toEqualTypeOf<readonly number[]>()
 		expectTypeOf<Read['sizes']>().toEqualTypeOf<readonly ('S' | 'M' | 'L')[]>()
-		expectTypeOf<{ has: 'S'; hasSome: ['M'] }>().toExtend<
-			NonNullable<WhereOf<typeof Article>['sizes']>
-		>()
+		expectTypeOf<{
+			has: 'S'
+			hasSome: ['M']
+			hasEvery: ['L']
+			isEmpty: false
+		}>().toExtend<NonNullable<WhereOf<typeof Article>['sizes']>>()
 		expectTypeOf<{ has: 'XL' }>().not.toExtend<
 			NonNullable<WhereOf<typeof Article>['sizes']>
 		>()
@@ -177,12 +180,15 @@ describe('a list', () => {
 		)
 	})
 
-	it('takes has and hasSome only, with clean strings', async () => {
+	it('takes has, hasSome, hasEvery and isEmpty only, with clean strings', async () => {
 		const refusals: [unknown, string][] = [
 			[{ has: 5 }, 'where.tags.has must be a non-empty clean string.'],
 			[{ has: '' }, 'where.tags.has must be a non-empty clean string.'],
 			[{ hasSome: 'ts' }, 'where.tags.hasSome must be a list.'],
 			[{ hasSome: ['ts', ''] }, 'where.tags.hasSome.1 must be'],
+			[{ hasEvery: 'ts' }, 'where.tags.hasEvery must be a list.'],
+			[{ hasEvery: ['\0'] }, 'where.tags.hasEvery.0 must be'],
+			[{ isEmpty: 'yes' }, 'where.tags.isEmpty must be a boolean.'],
 		]
 		const elements: [string, unknown, string][] = [
 			['scores', '1', 'where.scores.has must be a finite number.'],

@@ -8,7 +8,7 @@ import type { Row } from './adapter.ts'
 import { InvalidQuery } from './errors.ts'
 import { runHook } from './hooks.ts'
 import { resolveData, resolveMany, resolveOne } from './nested-write.ts'
-import type { Numbers } from './number-update.ts'
+import type { Operations } from './number-update.ts'
 import type { FieldInfo, ModelInfo } from './schema.ts'
 import type { QueryScope } from './scope.ts'
 import { madeId, uuidv7 } from './uuid.ts'
@@ -310,7 +310,7 @@ async function inserted(context: Context, draft: Draft): Promise<Step[]> {
 async function updateSteps(
 	context: Context,
 	draft: Draft,
-	numbers: Numbers = new Map(),
+	operations: Operations = new Map(),
 ): Promise<Step[]> {
 	const { model, id, plan } = context
 	plan.written.add(`${model.name}:${id}`)
@@ -322,7 +322,9 @@ async function updateSteps(
 			model: model.name,
 			where: byId(id),
 			set: { ...context.set, updatedAt: new Date(Date.now()) },
-			...(numbers.size === 0 ? {} : { compute: Object.fromEntries(numbers) }),
+			...(operations.size === 0
+				? {}
+				: { compute: Object.fromEntries(operations) }),
 		},
 		...context.after,
 	]
@@ -350,9 +352,9 @@ export async function updatePlan(
 	draft: Draft,
 	sent: Readonly<Draft>,
 	reads: Reads,
-	numbers: Numbers = new Map(),
+	operations: Operations = new Map(),
 ): Promise<Plan> {
 	const context = contextOf(scope, model, id, sent, reads)
-	context.plan.steps.push(...(await updateSteps(context, draft, numbers)))
+	context.plan.steps.push(...(await updateSteps(context, draft, operations)))
 	return context.plan
 }

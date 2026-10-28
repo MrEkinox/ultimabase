@@ -1,6 +1,6 @@
 // What REST and GraphQL share besides pages (D-129, D-139): their errors as
 // D-106 sends them, a model's names and fields, and a schema's JSON Schema.
-import type { SchemaField, SchemaModel } from 'ultimabase'
+import type { ExposedVirtual, SchemaField, SchemaModel } from 'ultimabase'
 import { InvalidQuery, PublicError, Refused } from 'ultimabase'
 
 /** An argument, a parameter or a body of the client's that the API refuses. */
@@ -37,6 +37,7 @@ export type Served = {
 	readonly model: SchemaModel
 	readonly exposed: {
 		readonly readRules: { readonly [field: string]: 'private' | 'rule' }
+		readonly virtuals: readonly ExposedVirtual[]
 	}
 }
 
@@ -44,6 +45,12 @@ export type Served = {
 export const readable = (served: Served): readonly SchemaField[] =>
 	served.model.fields.filter(
 		(field) => served.exposed.readRules[field.name] !== 'private',
+	)
+
+/** The virtual fields a client reads, as `readable` (D-151). */
+export const readableVirtuals = (served: Served): readonly ExposedVirtual[] =>
+	served.exposed.virtuals.filter(
+		(virtual) => served.exposed.readRules[virtual.name] !== 'private',
 	)
 
 /** A JSON Schema, or one of its nodes. */

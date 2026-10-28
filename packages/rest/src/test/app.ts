@@ -29,7 +29,7 @@ export const Post = defineModel({
 		status: f.enumOf(['draft', 'published']),
 		views: f.number({ default: 0 }),
 		meta: f.json({ optional: true }),
-		publishedAt: f.date({ optional: true }),
+		publishedAt: f.dateTime({ optional: true }),
 		author: f.one(() => User),
 		tags: f.many(() => Tag),
 	}),

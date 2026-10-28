@@ -4,10 +4,11 @@
 import { InvalidQuery, PublicError } from './errors.ts'
 import type { Filter } from './adapter.ts'
 import type { Logger } from './app-options.ts'
+import { Relations, trusted } from './relations.ts'
 import type { Caller } from './rules.ts'
 import { allow, filterOf, isMaster, isReadFilter, readFilter } from './rules.ts'
 import type { ModelInfo } from './schema.ts'
-import type { Models } from './query-where.ts'
+import type { Models, Verb } from './query-where.ts'
 import { entries, isObject, modelOf, normalizeWhere } from './query-where.ts'
 import { madeId } from './uuid.ts'
 
@@ -63,6 +64,20 @@ export function readRules(model: ModelInfo): {
 		if (rule !== undefined) {
 			rules[field] = rule === allow.private ? 'private' : 'rule'
 		}
+	}
+	// A virtual is hidden by its own rule and by its needs' (D-151).
+	for (const { name, needs } of model.virtuals.values()) {
+		const own = fieldRule(model, name, 'read')
+		const found = [
+			...needs.map((need) => rules[need]),
+			own === undefined
+				? undefined
+				: own === allow.private
+					? 'private'
+					: 'rule',
+		]
+		if (found.includes('private')) rules[name] = 'private'
+		else if (found.includes('rule')) rules[name] = 'rule'
 	}
 	return rules
 }
@@ -171,11 +186,14 @@ export class Access {
 	readonly models: Models
 	readonly caller: Caller
 	private readonly logger: Logger
+	/** The query's relation filters (D-151). */
+	readonly relations: Relations
 
 	constructor(models: Models, caller: Caller, logger: Logger) {
 		this.models = models
 		this.caller = caller
 		this.logger = logger
+		this.relations = new Relations(models, caller)
 	}
 
 	/** The model's read filter (D-10); `undefined` when every row passes. */
@@ -202,7 +220,13 @@ export class Access {
 		}
 		// The rule's own filter is trusted: no guard, no other rule (D-86).
 		const path = `${model.name}.access.read`
-		return normalizeWhere(this.models, model, filterOf(result), path)
+		return normalizeWhere(
+			this.models,
+			model,
+			filterOf(result),
+			path,
+			trusted(this.relations),
+		)
 	}
 
 	/** Whether a field read rule may hide the field, from the whole row (D-44). */
@@ -211,12 +235,7 @@ export class Access {
 	}
 
 	/** Refuses a filter or a sort on a field with a read rule (D-44, D-86). */
-	check(
-		model: ModelInfo,
-		field: string,
-		path: string,
-		verb: 'filters' | 'sorts',
-	): void {
+	check(model: ModelInfo, field: string, path: string, verb: Verb): void {
 		if (fieldRule(model, field, 'read') === undefined) return
 		throw new InvalidQuery(
 			path,

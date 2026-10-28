@@ -10,7 +10,7 @@ export const Profile = defineModel({
 		tags: f.string({ list: true }),
 		age: f.number({ optional: true }),
 		active: f.boolean({ default: true }),
-		born: f.date(),
+		born: f.dateTime(),
 		settings: f.json(),
 		level: f.enumOf(['junior', 'senior']),
 		manager: f.one(() => Profile, { optional: true, inverse: 'reports' }),

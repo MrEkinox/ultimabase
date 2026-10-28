@@ -10,6 +10,7 @@ import { entriesOf } from './entries.ts'
 import type { RestFunctionWith } from './functions.ts'
 import { functionRoutes } from './functions.ts'
 import { modelRoutes } from './models.ts'
+import { openapiOf } from './openapi.ts'
 
 export type { RestWith } from './entries.ts'
 export type { RestFunctionWith } from './functions.ts'
@@ -59,10 +60,13 @@ const plugin = definePlugin<Rest>({
 		}
 		const base = baseOf(options)
 		const app = routes()
-		functionRoutes(app, api, functions, base)
+		const routed = functionRoutes(app, api, functions, base)
 		for (const entry of api.entries.values()) {
 			if (entry.visible) modelRoutes(app, api, entry, base)
 		}
+		// Built at startup, so a name clash refuses to start (D-144).
+		const document = openapiOf(api, routed, base, manifest.version)
+		app.get(`${base}/openapi.json`, (c) => c.json(document))
 		plugins.http.mount(app)
 	},
 	start: ({ plugins, options, logger }) => {

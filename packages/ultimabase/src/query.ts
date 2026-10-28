@@ -1,7 +1,6 @@
 // Query arguments and results, in Prisma Client's form (D-20).
 import type {
 	CreateData,
-	CreateManyData,
 	RecordOf,
 	RelationKeys,
 	ScalarKeys,
@@ -10,11 +9,34 @@ import type {
 	TargetFields,
 	UniqueKeys,
 	UpdateData,
-	UpdateManyData,
 } from './record.ts'
 import type { Exact } from './exact.ts'
+import type { JsonValue } from './fields.ts'
+import type { AggregateArgs, Aggregates, IsOrdered } from './query-aggregate.ts'
+import type { BulkQueries } from './query-bulk.ts'
+import type {
+	JsonPathFilter,
+	ListFilter,
+	ScalarFilter,
+} from './query-filter.ts'
+import type { Relevance, SearchWhere } from './query-search.ts'
+import type {
+	GroupByArgs,
+	GroupChecked,
+	GroupField,
+	Groups,
+	SortOrder,
+} from './query-group.ts'
 import type { Identity } from './rules.ts'
 import type { fieldType } from './symbols.ts'
+import type {
+	DefaultRow,
+	DefaultVirtualKeys,
+	VirtualArgs,
+	VirtualIncludes,
+	VirtualKeys,
+	VirtualOutput,
+} from './virtual.ts'
 
 type KindOf<X> = X extends { readonly [fieldType]: { readonly kind: infer K } }
 	? K
@@ -30,38 +52,14 @@ type OptionalOne<X> = X extends {
 	? null
 	: never
 
-type ScalarFilter<V> = {
-	readonly equals?: V | null | undefined
-	readonly not?: V | null | undefined
-	readonly in?: readonly V[] | undefined
-	readonly notIn?: readonly V[] | undefined
-} & ([V] extends [number | Date]
-	? {
-			readonly lt?: V | undefined
-			readonly lte?: V | undefined
-			readonly gt?: V | undefined
-			readonly gte?: V | undefined
-		}
-	: unknown) &
-	([V] extends [string]
-		? {
-				readonly contains?: string | undefined
-				readonly startsWith?: string | undefined
-				readonly endsWith?: string | undefined
-			}
-		: unknown)
-
 type IsList<X> = X extends {
 	readonly [fieldType]: { readonly options: { readonly list: true } }
 }
 	? true
 	: false
 
-/** A list has no shorthand; `NOT` gives the opposite (D-120, D-127). */
-type ListFilter<E> = {
-	readonly has?: E | undefined
-	readonly hasSome?: readonly E[] | undefined
-}
+/** A json field's value, any JSON without a schema, or a path filter (D-149). */
+type JsonFilter<V> = V | ScalarFilter<NonNullable<V>> | JsonPathFilter
 
 type FilterOf<X> =
 	IsList<X> extends true
@@ -69,7 +67,12 @@ type FilterOf<X> =
 			? ListFilter<E>
 			: never
 		: KindOf<X> extends 'scalar'
-			? StoredValue<X> | ScalarFilter<NonNullable<StoredValue<X>>>
+			? X extends { readonly [fieldType]: { readonly json: true } }
+				? JsonFilter<
+						unknown extends StoredValue<X> ? JsonValue : StoredValue<X>
+					>
+				: | StoredValue<X>
+					| ScalarFilter<NonNullable<StoredValue<X>>, IsOrdered<X>>
 			: KindOf<X> extends 'one'
 				? {
 						readonly is?: Where<TargetFields<TargetOf<X>>> | null | undefined
@@ -94,7 +97,7 @@ type PluginKeys<F> = {
 
 /** The system fields' filters and the combinators of a `where` `W`. */
 interface Filters<W> {
-	readonly id?: string | ScalarFilter<string> | undefined
+	readonly id?: string | Omit<ScalarFilter<string>, 'mode'> | undefined
 	readonly createdAt?: Date | ScalarFilter<Date> | undefined
 	readonly updatedAt?: Date | ScalarFilter<Date> | undefined
 	readonly AND?: W | readonly W[] | undefined
@@ -102,16 +105,20 @@ interface Filters<W> {
 	readonly NOT?: W | readonly W[] | undefined
 }
 
+/** No `where` filters a virtual (D-151). */
 export type Where<F> = {
-	readonly [K in Exclude<keyof F, PluginKeys<F>>]?: FilterOf<F[K]> | undefined
-} & Filters<Where<F>>
+	readonly [K in Exclude<keyof F, PluginKeys<F> | VirtualKeys<F>>]?:
+		FilterOf<F[K]> | undefined
+} & Filters<Where<F>> &
+	SearchWhere<F>
 
 /** A `beforeFind`'s filter: a plugin field's in its stored form (D-122). */
 export type FindWhere<F> = {
-	readonly [K in keyof F]?:
+	readonly [K in Exclude<keyof F, VirtualKeys<F>>]?:
 		| (K extends PluginKeys<F> ? FilterOf<StoredOf<F[K]>> : FilterOf<F[K]>)
 		| undefined
-} & Filters<FindWhere<F>>
+} & Filters<FindWhere<F>> &
+	SearchWhere<F>
 
 /** A unique index's value: a scalar's, or a `one` relation's target id. */
 type IndexValue<X> =
@@ -137,7 +144,7 @@ type Direction = 'asc' | 'desc'
  * A json field is not sorted: each database orders json its own way (D-94);
  * nor is a list (D-120), nor a plugin field (D-122).
  */
-type SortedKeys<F> = {
+export type SortedKeys<F> = {
 	[K in Exclude<ScalarKeys<F>, PluginKeys<F>>]: F[K] extends {
 		readonly [fieldType]: { readonly json: true }
 	}
@@ -150,15 +157,21 @@ type KeysOf<F, Kind> = {
 	[K in keyof F]: KindOf<F[K]> extends Kind ? K : never
 }[keyof F]
 
-/** A `one` relation sorts by its target's fields, a `many` by its count (D-134). */
-export type OrderBy<F> = {
-	readonly [K in SortedKeys<F> | keyof SystemFields]?: Direction | undefined
+/**
+ * An optional field sorts with its `null`s first or last (D-149), a `one`
+ * relation by its target's fields, a `many` by its count (D-134).
+ */
+type Sorts<F> = {
+	readonly [K in SortedKeys<F> | keyof SystemFields]?:
+		SortOrder<K extends keyof RecordOf<F> ? RecordOf<F>[K] : never> | undefined
 } & {
 	readonly [K in KeysOf<F, 'one'>]?:
-		OrderBy<TargetFields<TargetOf<F[K]>>> | undefined
+		Sorts<TargetFields<TargetOf<F[K]>>> | undefined
 } & {
 	readonly [K in KeysOf<F, 'many'>]?: { readonly _count: Direction } | undefined
 }
+/** A read's sort, by its `_search`'s relevance too (D-148). */
+export type OrderBy<F> = Sorts<F> & Relevance<F>
 
 /** `_count`: every `many` relation, or the ones `select` names (D-134). */
 type Count<F> =
@@ -209,22 +222,27 @@ export type Select<F> = {
 } & {
 	readonly [K in keyof F]?: KindOf<F[K]> extends 'scalar'
 		? boolean
-		: boolean | RelationArgs<F[K]>
+		: KindOf<F[K]> extends 'virtual'
+			? VirtualArgs<F[K]>
+			: boolean | RelationArgs<F[K]>
 } & Counts<F>
 
-/** A model without relations takes no `include`. */
-export type Include<F> = [RelationKeys<F>] extends [never]
+/** A model without relations or virtuals takes no `include`. */
+export type Include<F> = [RelationKeys<F> | VirtualKeys<F>] extends [never]
 	? never
 	: {
 			readonly [K in RelationKeys<F>]?: boolean | RelationArgs<F[K]>
-		} & Counts<F>
+		} & VirtualIncludes<F> &
+			Counts<F>
 
 type Output<X, A> =
 	KindOf<X> extends 'scalar'
 		? StoredValue<X>
-		: KindOf<X> extends 'one'
-			? Payload<TargetFields<TargetOf<X>>, A> | OptionalOne<X>
-			: Payload<TargetFields<TargetOf<X>>, A>[]
+		: KindOf<X> extends 'virtual'
+			? VirtualOutput<X, A>
+			: KindOf<X> extends 'one'
+				? Payload<TargetFields<TargetOf<X>>, A> | OptionalOne<X>
+				: Payload<TargetFields<TargetOf<X>>, A>[]
 
 type Selected<F, S> = {
 	readonly [
@@ -246,11 +264,13 @@ type Included<F, I> = {
 	]: K extends keyof F ? Output<F[K], I[K]> : never
 }
 
-/** `omit`: scalar and system fields left out of the rows (D-135). */
-export type OmitArgs<F> = { readonly [K in keyof RecordOf<F>]?: boolean }
+/** `omit`: scalars, system fields, default virtuals left out (D-135). */
+export type OmitArgs<F> = {
+	readonly [K in keyof RecordOf<F> | DefaultVirtualKeys<F>]?: boolean
+}
 
 /** `select` and `omit` exclude each other (D-135). */
-type Shaping<F> = { readonly include?: Include<F> } & (
+export type Shaping<F> = { readonly include?: Include<F> } & (
 	| { readonly select?: Select<F>; readonly omit?: undefined }
 	| { readonly select?: undefined; readonly omit?: OmitArgs<F> }
 )
@@ -258,10 +278,10 @@ type Shaping<F> = { readonly include?: Include<F> } & (
 /** The scalar and system fields, less those `omit` sets to `true`. */
 type Kept<F, A> = A extends { readonly omit: infer O }
 	? Omit<
-			RecordOf<F>,
+			DefaultRow<F>,
 			{ [K in keyof O]: O[K] extends true ? K : never }[keyof O]
 		>
-	: RecordOf<F>
+	: DefaultRow<F>
 
 /** Without `select`, scalar fields return and relations do not (D-20). */
 export type Payload<F, A> = A extends { readonly select: infer S }
@@ -272,13 +292,19 @@ export type Payload<F, A> = A extends { readonly select: infer S }
 
 export type QueryOptions = { readonly as?: Identity }
 
-/** `findMany` and `findFirst`; `cursor` starts at a unique target. */
-export type FindManyArgs<F, X = never> = Shaping<F> & {
+/** `findFirst`; `cursor` starts at a unique target. */
+export type FindFirstArgs<F, X = never> = Shaping<F> & {
 	readonly where?: Where<F> | undefined
 	readonly orderBy?: OrderBy<F> | readonly OrderBy<F>[] | undefined
 	readonly take?: number | undefined
 	readonly skip?: number | undefined
 	readonly cursor?: UniqueWhere<F, X> | undefined
+}
+
+/** `findMany`: `distinct` keeps one row per key, without `cursor` (D-147). */
+export type FindManyArgs<F, X = never, N = never> = FindFirstArgs<F, X> & {
+	readonly distinct?:
+		readonly [GroupField<F, N>, ...GroupField<F, N>[]] | undefined
 }
 
 export type FindUniqueArgs<F, X = never> = Shaping<F> & {
@@ -294,29 +320,25 @@ export type UpdateArgs<F, X = never, N = never> = Shaping<F> & {
 	readonly data: UpdateData<F, N>
 }
 
-/** `createMany`: a row or a list, no nested writes, no rows back (D-135). */
-export type CreateManyArgs<F> = {
-	readonly data: CreateManyData<F> | readonly CreateManyData<F>[]
-}
-
-/** `updateMany`: no relation writes, no returned rows (D-133). */
-export type UpdateManyArgs<F> = {
-	readonly where?: Where<F> | undefined
-	readonly data: UpdateManyData<F>
+/** `update` the row `where` targets, or `create` it when absent (D-142). */
+export type UpsertArgs<F, X = never, N = never> = Shaping<F> & {
+	readonly where: UniqueWhere<F, X>
+	readonly create: CreateData<F, N>
+	readonly update: UpdateData<F, N>
 }
 
 /** Model methods (D-18), the subset the prototype measures. */
 // Each query is a closure on its model: it can be passed around unbound.
 /** `N` is the model's name, which nested creation needs (D-128). */
-export interface Queries<F, X = never, N = never> {
-	findMany<const A extends FindManyArgs<F, X>>(
+export interface Queries<F, X = never, N = never> extends BulkQueries<F> {
+	findMany<const A extends FindManyArgs<F, X, N>>(
 		this: void,
-		args?: A & NoInfer<Exact<A, FindManyArgs<F, X>>>,
+		args?: A & NoInfer<Exact<A, FindManyArgs<F, X, N>>>,
 		options?: QueryOptions,
 	): Promise<Payload<F, A>[]>
-	findFirst<const A extends FindManyArgs<F, X>>(
+	findFirst<const A extends FindFirstArgs<F, X>>(
 		this: void,
-		args?: A & NoInfer<Exact<A, FindManyArgs<F, X>>>,
+		args?: A & NoInfer<Exact<A, FindFirstArgs<F, X>>>,
 		options?: QueryOptions,
 	): Promise<Payload<F, A> | null>
 	findUnique<const A extends FindUniqueArgs<F, X>>(
@@ -325,9 +347,9 @@ export interface Queries<F, X = never, N = never> {
 		options?: QueryOptions,
 	): Promise<Payload<F, A> | null>
 	/** `findFirst`, which fails with `NOT_FOUND` rather than `null` (D-135). */
-	findFirstOrThrow<const A extends FindManyArgs<F, X>>(
+	findFirstOrThrow<const A extends FindFirstArgs<F, X>>(
 		this: void,
-		args?: A & NoInfer<Exact<A, FindManyArgs<F, X>>>,
+		args?: A & NoInfer<Exact<A, FindFirstArgs<F, X>>>,
 		options?: QueryOptions,
 	): Promise<Payload<F, A>>
 	/** `findUnique`, which fails with `NOT_FOUND` rather than `null` (D-135). */
@@ -341,6 +363,18 @@ export interface Queries<F, X = never, N = never> {
 		args?: { readonly where?: Where<F> },
 		options?: QueryOptions,
 	): Promise<number>
+	/** Of the rows the caller reads; server code only (D-143). */
+	aggregate<const A extends AggregateArgs<F>>(
+		this: void,
+		args: A & NoInfer<Exact<A, AggregateArgs<F>>>,
+		options?: QueryOptions,
+	): Promise<Aggregates<F, A>>
+	/** Of the rows the caller reads, by `by`; server code only (D-146). */
+	groupBy<const A extends GroupByArgs<F, N>>(
+		this: void,
+		args: A & NoInfer<GroupChecked<F, N, A>>,
+		options?: QueryOptions,
+	): Promise<Groups<F, N, A>>
 	create<const A extends CreateArgs<F, N>>(
 		this: void,
 		args: A & NoInfer<Exact<A, CreateArgs<F, N>>>,
@@ -351,28 +385,16 @@ export interface Queries<F, X = never, N = never> {
 		args: A & NoInfer<Exact<A, UpdateArgs<F, X, N>>>,
 		options?: QueryOptions,
 	): Promise<Payload<F, A>>
+	/** The branch that runs applies its own rules and hooks (D-142). */
+	upsert<const A extends UpsertArgs<F, X, N>>(
+		this: void,
+		args: A & NoInfer<Exact<A, UpsertArgs<F, X, N>>>,
+		options?: QueryOptions,
+	): Promise<Payload<F, A>>
 	/** Its relations and counts are read as they were before it (D-135). */
 	delete<const A extends FindUniqueArgs<F, X>>(
 		this: void,
 		args: A & NoInfer<Exact<A, FindUniqueArgs<F, X>>>,
 		options?: QueryOptions,
 	): Promise<Payload<F, A>>
-	/** A create of each row of `data`, all or nothing (D-135). */
-	createMany(
-		this: void,
-		args: CreateManyArgs<F>,
-		options?: QueryOptions,
-	): Promise<{ readonly count: number }>
-	/** An update of each row `where` selects, all or nothing (D-133). */
-	updateMany(
-		this: void,
-		args: UpdateManyArgs<F>,
-		options?: QueryOptions,
-	): Promise<{ readonly count: number }>
-	/** A delete of each row `where` selects, all or nothing (D-111). */
-	deleteMany(
-		this: void,
-		args?: { readonly where?: Where<F> | undefined },
-		options?: QueryOptions,
-	): Promise<{ readonly count: number }>
 }

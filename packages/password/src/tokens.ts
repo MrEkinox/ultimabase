@@ -42,7 +42,7 @@ export const PasswordToken: ModelOf<'PasswordToken', TokenFields, []> =
 			userId: f.string(),
 			kind: f.string(),
 			hash: f.string({ unique: true }),
-			expiresAt: f.date(),
+			expiresAt: f.dateTime(),
 		}),
 		indexes: [{ fields: ['userId', 'kind'] }, { fields: ['expiresAt'] }],
 	})

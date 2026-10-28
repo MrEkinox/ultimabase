@@ -13,15 +13,12 @@ import type { Event } from './hooks.ts'
 import { redirectOf, rereads, runHook, settle, settles } from './hooks.ts'
 import type { Context } from './query-context.ts'
 import { first, given, hiddenBy, picked } from './query-context.ts'
+import { project } from './query-project.ts'
+import { computeVirtuals } from './virtual-read.ts'
 import type { Shape } from './query-args.ts'
-import { oneKeys, plan, project, uniqueWhere } from './query-args.ts'
-import type { Numbers } from './number-update.ts'
-import {
-	computeOn,
-	numberUpdates,
-	inRange,
-	validates,
-} from './number-update.ts'
+import { oneKeys, plan, uniqueWhere } from './query-args.ts'
+import type { Operations } from './number-update.ts'
+import { computeOn, operationsOf, inRange, validates } from './number-update.ts'
 import { nests, resolveData } from './nested-write.ts'
 import { createPlan, updatePlan } from './query-write.ts'
 import { planned } from './scope.ts'
@@ -35,8 +32,8 @@ import { guarded, target } from './write-target.ts'
 import { writingOf } from './writing.ts'
 import { byId } from './query-where.ts'
 
-/** The shape a single-row write returns. */
-async function returned(
+/** The shape a single-row write returns, and each row of a bulk one's (D-149). */
+export async function returned(
 	context: Context,
 	found: ReadonlyMap<string, unknown>,
 ): Promise<{ readonly read: Nested; readonly shape: Shape }> {
@@ -78,19 +75,19 @@ async function written(
 	await settle(store, scope.caller, events, commits)
 	// An `after*` hook may have changed the rows: read them again (D-88).
 	const result = again ? await store.find(read) : rows
-	return first(result, at.shape, scope.access)
+	return first(context, store, result, at.shape, scope.access)
 }
 
-export async function create(
+/** Creates the row of `draft` as the rules allow. */
+async function creating(
 	context: Context,
 	store: Store,
 	commits: Commit[],
-	args: unknown,
+	draft: Draft,
+	at: { readonly read: Nested; readonly shape: Shape },
 ): Promise<unknown> {
-	const { models, model, caller, scope } = context
-	const found = given(args, model.name, ['data', ...oneKeys], ['data'])
-	const { read, shape } = await returned(context, found)
-	const draft = readData(models, model, found.get('data'), true)
+	const { model, caller, scope } = context
+	const { read, shape } = at
 	const made = uuidv7()
 	const reach = { scope, reads: store, model, id: made, at: [] }
 	await resolveData({ ...reach, creating: true, trusted: false }, draft)
@@ -108,6 +105,19 @@ export async function create(
 	)
 	const events: Event[] = [{ model, operation: 'create', id }]
 	return written(context, store, commits, steps, events, { id, read, shape })
+}
+
+export async function create(
+	context: Context,
+	store: Store,
+	commits: Commit[],
+	args: unknown,
+): Promise<unknown> {
+	const { models, model } = context
+	const found = given(args, model.name, ['data', ...oneKeys], ['data'])
+	const at = await returned(context, found)
+	const draft = readData(models, model, found.get('data'), true)
+	return creating(context, store, commits, draft, at)
 }
 
 /**
@@ -139,20 +149,21 @@ function idOf(where: unknown): string | undefined {
 }
 
 /**
- * Updates the locked `row` as the rules allow; its number updates are
- * computed on it first, so the rules and hooks see the results (D-132).
+ * Updates the locked `row` as the rules allow; its number and list updates
+ * are computed on it first, so the rules and hooks see the results (D-132,
+ * D-149).
  */
 async function updating(
 	context: Context,
 	store: Store,
 	commits: Commit[],
-	data: { readonly draft: Draft; readonly numbers: Numbers },
+	data: { readonly draft: Draft; readonly operations: Operations },
 	at: { readonly row: Row; readonly read: Nested; readonly shape: Shape },
 ): Promise<unknown> {
 	const { model, caller, scope } = context
 	const { row, read, shape } = at
-	const { draft, numbers } = data
-	computeOn(model, row, draft, numbers)
+	const { draft, operations } = data
+	computeOn(model, row, draft, operations)
 	const reach = { scope, reads: store, model, id: row.id, at: [] }
 	await resolveData({ ...reach, creating: false, trusted: false }, draft)
 	const sent: Readonly<Draft> = { ...draft }
@@ -184,7 +195,7 @@ export async function update(
 	const { read, shape } = await returned(context, found)
 	// The data's shape is checked whether or not the row is found.
 	const draft = readData(models, model, found.get('data'), false)
-	const numbers = numberUpdates(model, draft)
+	const operations = operationsOf(model, draft)
 	const id = idOf(found.get('where'))
 	const where = await targets(context, found, 'update')
 	if (
@@ -192,10 +203,10 @@ export async function update(
 		id !== undefined &&
 		!updated(model) &&
 		!nests(model, draft) &&
-		!validates(model, numbers)
+		!validates(model, operations)
 	) {
 		// Nothing needs the stored row: a check stands for its read (D-99),
-		// and the write computes its numbers (D-132).
+		// and the write computes its numbers and lists (D-132, D-149).
 		const sent: Readonly<Draft> = { ...draft }
 		await prepared(model, draft, caller, false)
 		const steps = await updatePlan(
@@ -205,7 +216,7 @@ export async function update(
 			draft,
 			sent,
 			store,
-			numbers,
+			operations,
 		)
 		const check = { model: model.name, where, count: 1, lock: true }
 		const message = missing(model.name)
@@ -220,7 +231,7 @@ export async function update(
 		return result
 	}
 	const row = await target(context, store, where)
-	const data = { draft, numbers }
+	const data = { draft, operations }
 	return updating(context, store, commits, data, { row, read, shape })
 }
 
@@ -234,9 +245,12 @@ export async function remove(
 	const found = given(args, model.name, ['where', ...oneKeys], ['where'])
 	const { read, shape } = await returned(context, found)
 	const where = await targets(context, found, 'delete')
-	// Its relations and counts, as the caller reads them, before the delete
-	// removes any: one read in its transaction (D-135).
-	const reaches = shape.relations.size > 0 || shape.counts.length > 0
+	// Its relations, counts and virtuals, as the caller reads them, before
+	// the delete removes any: one read in its transaction (D-135, D-151).
+	const reaches =
+		shape.relations.size > 0 ||
+		shape.counts.length > 0 ||
+		shape.virtuals.size > 0
 	const shaped = async (by: Filter, lock: boolean) => {
 		if (!reaches) return undefined
 		const rows = await store.find({
@@ -251,6 +265,13 @@ export async function remove(
 	const reach = cascadeWhere(models, model, where)
 	if (reach !== undefined && scope.access === undefined) {
 		const kept = await shaped(where, true)
+		const computed = await computeVirtuals(
+			context,
+			store,
+			kept === undefined ? [] : [kept],
+			shape,
+			undefined,
+		)
 		// Nothing needs the stored row: a check stands for its read, and the
 		// write returns it as its delete removed it (D-102, D-104).
 		const check = { model: model.name, where, count: 1, lock: true }
@@ -268,13 +289,17 @@ export async function remove(
 		// Another transaction removed it meanwhile (D-104).
 		if (rows.length === 0)
 			throw new PublicError('NOT_FOUND', missing(model.name))
-		return first(kept === undefined ? rows : [kept], shape, undefined)
+		return project(kept ?? rows[0], shape, undefined, computed)
 	}
 	const row = await target(context, store, where)
 	scope.access?.allow(model, 'delete', { record: row })
 	const redirected = redirectOf(model) !== undefined
 	// A redirected row stays: it is read as the redirect left it (D-89).
 	const kept = redirected ? undefined : await shaped(byId(row.id), false)
+	const hidden = hiddenBy(scope.access)
+	const before = redirected
+		? undefined
+		: await computeVirtuals(context, store, [kept ?? row], shape, hidden)
 	await deleted(context, store, commits, [row])
 	// The row as the redirect left it, or as it was once gone (D-89).
 	const [left] = redirected
@@ -285,5 +310,52 @@ export async function remove(
 				take: 1,
 			})
 		: [kept]
-	return project(left ?? row, shape, hiddenBy(scope.access))
+	const result = left ?? row
+	const computed =
+		before ?? (await computeVirtuals(context, store, [result], shape, hidden))
+	return project(result, shape, hidden, computed)
+}
+
+/** The row an upsert returns, and whether it created it (D-142). */
+export type Upserted = { readonly row: unknown; readonly created: boolean }
+
+/**
+ * Updates the row `where` targets, or creates it when the caller finds
+ * none: the branch that runs is a plain update or create (D-142).
+ */
+export async function upsert(
+	context: Context,
+	store: Store,
+	commits: Commit[],
+	args: unknown,
+): Promise<Upserted> {
+	const { models, model } = context
+	const found = given(
+		args,
+		model.name,
+		['where', 'create', 'update', ...oneKeys],
+		['where', 'create', 'update'],
+	)
+	const at = await returned(context, found)
+	// Both data are checked, whichever runs.
+	const creation = readData(models, model, found.get('create'), true)
+	const draft = readData(models, model, found.get('update'), false)
+	const operations = operationsOf(model, draft)
+	const where = await targets(context, found, 'update')
+	const [row] = await store.find({
+		model: model.name,
+		where,
+		take: 1,
+		lock: true,
+	})
+	// Another create of the row meanwhile fails on its unique index.
+	if (row === undefined) {
+		return {
+			row: await creating(context, store, commits, creation, at),
+			created: true,
+		}
+	}
+	const data = { draft, operations }
+	const changed = await updating(context, store, commits, data, { row, ...at })
+	return { row: changed, created: false }
 }

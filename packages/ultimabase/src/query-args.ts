@@ -3,7 +3,8 @@
 import type { Filter, Nested } from './adapter.ts'
 import { and } from './access.ts'
 import { InvalidQuery } from './errors.ts'
-import type { ModelInfo } from './schema.ts'
+import type { FieldInfo, ModelInfo } from './schema.ts'
+import type { VirtualInfo } from './schema-virtuals.ts'
 import { orderBy } from './query-order.ts'
 import type { Models, Scope } from './query-where.ts'
 import {
@@ -22,7 +23,18 @@ export type Shape = {
 	readonly relations: ReadonlyMap<string, Shape>
 	/** The `many` relations `_count` returns (D-134). */
 	readonly counts: readonly string[]
+	readonly virtuals: ReadonlyMap<string, VirtualRead>
 }
+
+/** A virtual a read computes (D-151): its input, and a model's rows. */
+export type VirtualRead = {
+	readonly info: VirtualInfo
+	readonly input: { readonly [key: string]: unknown }
+	readonly path: string
+	readonly plan: Plan | undefined
+}
+
+type Many = Extract<FieldInfo, { readonly kind: 'many' }>
 
 export type Plan = { readonly read: Nested; readonly shape: Shape }
 
@@ -36,7 +48,7 @@ function scalars(model: ModelInfo): string[] {
 	]
 }
 
-function integer(value: unknown, path: string, least?: number): number {
+export function integer(value: unknown, path: string, least?: number): number {
 	if (
 		typeof value !== 'number' ||
 		!Number.isSafeInteger(value) ||
@@ -56,15 +68,12 @@ function counted(
 	path: string,
 	scope: Scope | undefined,
 ): Map<string, Filter> {
-	const relations = [...model.fields.values()].filter(
-		(field) => field.kind === 'many',
-	)
-	const filter = (counting: string, where?: Filter): Filter =>
-		and(where, scope?.readable(counting)) ?? {}
+	const filter = (field: Many, where?: Filter): Filter =>
+		and(where, scope?.related(model, field)) ?? {}
 	const counts = new Map<string, Filter>()
 	if (value === true) {
-		for (const field of relations) {
-			if (field.kind === 'many') counts.set(field.name, filter(field.target))
+		for (const field of model.fields.values()) {
+			if (field.kind === 'many') counts.set(field.name, filter(field))
 		}
 		return counts
 	}
@@ -79,7 +88,7 @@ function counted(
 		if (field?.kind !== 'many') throw unknownKey(at, model.name)
 		if (chosen === false) continue
 		if (chosen === true) {
-			counts.set(name, filter(field.target))
+			counts.set(name, filter(field))
 			continue
 		}
 		const args = new Map(entries(chosen, at))
@@ -96,7 +105,7 @@ function counted(
 					scope,
 				)
 			: undefined
-		counts.set(name, filter(field.target, where))
+		counts.set(name, filter(field, where))
 	}
 	return counts
 }
@@ -148,6 +157,39 @@ export function restrict(read: Nested, readable: Filter | undefined): Nested {
 
 type Kind = 'many' | 'one'
 
+/** A virtual's `true` or its input, with a model's `select`, `include`, `omit`. */
+function virtualRead(
+	models: Models,
+	info: VirtualInfo,
+	value: unknown,
+	path: string,
+	scope: Scope | undefined,
+): VirtualRead {
+	const { output } = info
+	const target = output.kind === 'model' ? output.name : undefined
+	const shaping: { [key: string]: unknown } = {}
+	const input: { [key: string]: unknown } = {}
+	for (const [key, given] of value === true ? [] : entries(value, path)) {
+		if (target !== undefined && oneKeys.has(key)) shaping[key] = given
+		else if (info.input === undefined) {
+			throw unknownKey(`${path}.${key}`, info.model)
+		} else input[key] = given
+	}
+	const nested =
+		target === undefined
+			? undefined
+			: plan(
+					models,
+					modelOf(models, target),
+					shaping,
+					path,
+					'one',
+					oneKeys,
+					scope,
+				)
+	return { info, input, path, plan: nested }
+}
+
 /**
  * The arguments of a relation read, or of a top-level read when `path` is
  * empty. A `scope` checks them and narrows each included relation (D-86).
@@ -185,6 +227,11 @@ export function plan(
 	} = {}
 	const fields: string[] = select === undefined ? scalars(model) : []
 	const relations = new Map<string, Shape>()
+	const virtuals = new Map<string, VirtualRead>()
+	for (const info of select === undefined ? model.virtuals.values() : []) {
+		if (info.default)
+			virtuals.set(info.name, virtualRead(models, info, true, '', scope))
+	}
 	const nested: { [field: string]: Nested } = {}
 	let count = new Map<string, Filter>()
 	const chosen = select ?? include
@@ -195,6 +242,13 @@ export function plan(
 			if (name === '_count') {
 				if (value === false) continue
 				count = counted(models, model, value, where, scope)
+				continue
+			}
+			const virtual = model.virtuals.get(name)
+			if (virtual !== undefined) {
+				if (value === false) virtuals.delete(name)
+				else
+					virtuals.set(name, virtualRead(models, virtual, value, where, scope))
 				continue
 			}
 			const field = model.fields.get(name)
@@ -223,7 +277,11 @@ export function plan(
 				field.kind === 'many' ? manyKeys : oneKeys,
 				scope,
 			)
-			nested[name] = restrict(relation.read, scope?.readable(field.target))
+			const readable =
+				field.kind === 'one'
+					? scope?.readable(field.target)
+					: scope?.related(model, field)
+			nested[name] = restrict(relation.read, readable)
 			relations.set(name, relation.shape)
 		}
 	}
@@ -239,12 +297,17 @@ export function plan(
 		)
 	}
 	if (kind === 'many') {
+		// `_relevance` ranks by the `_search` at the top of `where` (D-148).
+		const search: unknown = read.where?.['_search']
 		read.orderBy = orderBy(
 			models,
 			model,
 			given.get('orderBy') ?? [],
 			at('orderBy'),
 			scope,
+			isObject(search) && typeof search['search'] === 'string'
+				? search['search']
+				: undefined,
 		)
 		if (given.has('take')) read.take = integer(given.get('take'), at('take'))
 		if (given.has('skip')) read.skip = integer(given.get('skip'), at('skip'), 0)
@@ -260,15 +323,20 @@ export function plan(
 	}
 	const hidden = omitted(model, given.get('omit'), at('omit'))
 	const shown = fields.filter((name) => !hidden.has(name))
+	for (const name of hidden) virtuals.delete(name)
+	const needs = [...virtuals.values()].flatMap(({ info }) => info.needs)
 	// A field read rule may read any field of the row (D-136).
-	const names = [...shown, ...relations.keys(), ...count.keys()]
+	const names = [
+		...shown,
+		...relations.keys(),
+		...count.keys(),
+		...virtuals.keys(),
+	]
 	if (!names.some((name) => scope?.ruled(model, name) === true)) {
-		read.fields = [...new Set(['id', ...shown])]
+		read.fields = [...new Set(['id', ...shown, ...needs])]
 	}
-	return {
-		read,
-		shape: { model, fields: shown, relations, counts: [...count.keys()] },
-	}
+	const counts = [...count.keys()]
+	return { read, shape: { model, fields: shown, relations, counts, virtuals } }
 }
 
 /** The scalar and system fields `omit` leaves out of the rows (D-135). */
@@ -280,9 +348,9 @@ function omitted(model: ModelInfo, omit: unknown, path: string): Set<string> {
 		const field = model.fields.get(name)
 		const scalar =
 			field === undefined
-				? systemFields.includes(name)
+				? systemFields.includes(name) || model.virtuals.get(name)?.default
 				: field.kind === 'scalar'
-		if (!scalar) throw unknownKey(where, model.name)
+		if (scalar !== true) throw unknownKey(where, model.name)
 		if (typeof value !== 'boolean') {
 			throw new InvalidQuery(where, `${where} must be a boolean.`)
 		}
@@ -305,38 +373,3 @@ const manyKeys = new Set([
 	'skip',
 	'cursor',
 ])
-
-/** The fields of a row its field read rules hide (D-44). */
-export type Hidden = (
-	model: ModelInfo,
-	row: { readonly [field: string]: unknown },
-	fields: Iterable<string>,
-) => ReadonlySet<string>
-
-/** A row as the query returns it, through the shape, without hidden fields. */
-export function project(row: unknown, shape: Shape, hidden?: Hidden): unknown {
-	if (Array.isArray(row)) {
-		return row.map((item: unknown) => project(item, shape, hidden))
-	}
-	if (!isObject(row)) return null
-	const names = [...shape.fields, ...shape.relations.keys(), ...shape.counts]
-	const unseen = hidden?.(shape.model, row, names)
-	const result: { [field: string]: unknown } = {}
-	for (const field of shape.fields) {
-		if (!unseen?.has(field)) result[field] = row[field] ?? null
-	}
-	for (const [name, nested] of shape.relations) {
-		if (!unseen?.has(name)) result[name] = project(row[name], nested, hidden)
-	}
-	if (shape.counts.length > 0) {
-		const counts: { readonly [name: string]: unknown } = isObject(row['_count'])
-			? row['_count']
-			: {}
-		result['_count'] = Object.fromEntries(
-			shape.counts
-				.filter((name) => !unseen?.has(name))
-				.map((name) => [name, counts[name] ?? 0]),
-		)
-	}
-	return result
-}

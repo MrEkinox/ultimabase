@@ -1,12 +1,16 @@
 // The kernel's public surface (D-01).
 export type {
 	Adapter,
+	Aggregate,
+	AggregateRead,
 	Arithmetic,
 	Change,
 	Check,
 	Condition,
 	CountRead,
 	Filter,
+	GroupKey,
+	ListUpdate,
 	Migration,
 	Migrations,
 	Nested,
@@ -18,6 +22,7 @@ export type {
 	Schema,
 	SchemaField,
 	SchemaModel,
+	Sort,
 	Statement,
 	Stored,
 	Transaction,
@@ -32,6 +37,7 @@ export {
 } from './adapter.ts'
 export type { Logger, MasterKey } from './app-options.ts'
 export { defineApp } from './define-app.ts'
+export { defineEnum } from './define-enum.ts'
 export type {
 	FieldShapes,
 	ModelFields,
@@ -42,6 +48,8 @@ export { defineModel } from './define-model.ts'
 export type { ErrorCode, Issue } from './errors.ts'
 export { InvalidQuery, PublicError, Refused } from './errors.ts'
 export type {
+	DecimalOptions,
+	Enum,
 	Field,
 	FieldBuilders,
 	JsonOptions,
@@ -52,6 +60,7 @@ export type {
 	One,
 	ScalarOptions,
 	SingleOptions,
+	StringOptions,
 } from './fields.ts'
 export { defineFunction, defineType } from './define-function.ts'
 export type {
@@ -77,6 +86,7 @@ export type {
 	ExposedFunction,
 	ExposedModel,
 	ExposedOutput,
+	ExposedVirtual,
 	ExposedType,
 	ModelQueries,
 	ModelUse,

@@ -24,7 +24,7 @@ const Player = defineModel({
 		active: f.boolean({ default: true }),
 		bio: f.string({ optional: true }),
 		stats: f.json({ optional: true }),
-		bornAt: f.date({ optional: true }),
+		bornAt: f.dateTime({ optional: true }),
 		team: f.one(() => Team, { optional: true }),
 		badge: f.one(() => Badge, { optional: true }),
 		skills: f.many(() => Skill),

@@ -7,6 +7,8 @@ import type { hookNames } from './plugin-code.ts'
 import { commandOf, outsideCommands } from './plugin-code.ts'
 import type { FindOperation } from './model.ts'
 import type { Caller } from './rules.ts'
+import type { Relations } from './relations.ts'
+import { trusted } from './relations.ts'
 import { filterOf, isReadFilter, readFilter } from './rules.ts'
 import type { ModelInfo } from './schema.ts'
 import type { Models } from './query-where.ts'
@@ -90,6 +92,7 @@ export async function beforeFind(
 	model: ModelInfo,
 	caller: Caller,
 	operation: FindOperation,
+	relations: Relations,
 ): Promise<Filter | undefined> {
 	let filter: Filter | undefined
 	for (const hook of hooksOf(model, 'beforeFind')) {
@@ -105,7 +108,7 @@ export async function beforeFind(
 			model,
 			filterOf(result),
 			hook.path,
-			undefined,
+			trusted(relations),
 			true,
 		)
 		filter = and(where, filter)

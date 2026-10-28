@@ -82,6 +82,9 @@ async function ran(
 }
 
 const deploy = ['yarn', 'ultimabase', 'migrate', 'deploy']
+// Three processes start in turn: alone about 2 s, over 5 s while the whole
+// suite measures coverage beside them.
+const processes = 30_000
 const start = [process.execPath, 'src/server.ts']
 
 it('refuses a production start before the migrations are deployed', async () => {
@@ -90,34 +93,38 @@ it('refuses a production start before the migrations are deployed', async () => 
 	expect(output).toContain('migrate deploy')
 })
 
-it('deploys the migrations, then serves the application on them', async () => {
-	const deployed = await ran(deploy)
-	expect(deployed.output).toContain('_init.sql')
-	expect(deployed.code).toBe(0)
-	let body: unknown
-	const started = await ran(start, async (url) => {
-		const response = await fetch(`${url}/graphql`, {
-			method: 'POST',
-			headers: { 'content-type': 'application/json' },
-			body: JSON.stringify({
-				query: `mutation { createProject(data: { name: "Launch",
+it(
+	'deploys the migrations, then serves the application on them',
+	async () => {
+		const deployed = await ran(deploy)
+		expect(deployed.output).toContain('_init.sql')
+		expect(deployed.code).toBe(0)
+		let body: unknown
+		const started = await ran(start, async (url) => {
+			const response = await fetch(`${url}/graphql`, {
+				method: 'POST',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({
+					query: `mutation { createProject(data: { name: "Launch",
 					tasks: { create: [{ title: "Write the README" }] } }) {
 					name tasks { edges { node { title done } } } } }`,
-			}),
+				}),
+			})
+			body = await response.json()
 		})
-		body = await response.json()
-	})
-	expect(body).toEqual({
-		data: {
-			createProject: {
-				name: 'Launch',
-				tasks: {
-					edges: [{ node: { title: 'Write the README', done: false } }],
+		expect(body).toEqual({
+			data: {
+				createProject: {
+					name: 'Launch',
+					tasks: {
+						edges: [{ node: { title: 'Write the README', done: false } }],
+					},
 				},
 			},
-		},
-	})
-	// It stops on the signal, then ends on it.
-	expect(started).toMatchObject({ code: null, signal: 'SIGTERM' })
-	expect(started.output).toContain('Application stopped.')
-})
+		})
+		// It stops on the signal, then ends on it.
+		expect(started).toMatchObject({ code: null, signal: 'SIGTERM' })
+		expect(started.output).toContain('Application stopped.')
+	},
+	processes,
+)

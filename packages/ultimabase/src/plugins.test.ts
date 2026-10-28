@@ -41,7 +41,7 @@ interface Trash extends PluginTypes {
 const trash = definePlugin<Trash>({
 	name: 'trash',
 	manifest,
-	addedFields: (f) => ({ trashedAt: f.date({ optional: true }) }),
+	addedFields: (f) => ({ trashedAt: f.dateTime({ optional: true }) }),
 	redirect: {
 		delete: async ({ where, queries }) => {
 			log.push('redirect')
@@ -294,10 +294,11 @@ describe('a redirected delete', () => {
 function purging(): Adapter {
 	const base = memory()
 	return {
-		start: async (schema) => base.start(schema),
+		start: async (schema, logger) => base.start(schema, logger),
 		stop: async () => base.stop(),
 		find: async (read) => base.find(read),
 		count: async (read) => base.count(read),
+		aggregate: async (read) => base.aggregate(read),
 		write: async (write) => base.write(write),
 		begin: async () => {
 			const tx = await base.begin()
@@ -508,7 +509,7 @@ const startLoose = async (
 const defined = (definition: unknown) => (): void => {
 	Reflect.apply(definePlugin, undefined, [definition])
 }
-type Builders = { readonly date: () => object }
+type Builders = { readonly dateTime: () => object }
 /** The `addedFields` part that returns `built`, or what it builds. */
 const fieldsPart =
 	(built: unknown) =>
@@ -528,9 +529,9 @@ const redirecting = (name: string) =>
 	called(loose({ name, redirect: { delete: async () => null } }).use)
 const needs = (name: string, other: string) =>
 	called(loose({ name, requires: { [other]: () => null } }).plugin)
-const titleField = (f: Builders) => ({ title: f.date() })
-const atField = (f: Builders) => ({ at: f.date() })
-const idField = (f: Builders) => ({ id: f.date() })
+const titleField = (f: Builders) => ({ title: f.dateTime() })
+const atField = (f: Builders) => ({ at: f.dateTime() })
+const idField = (f: Builders) => ({ id: f.dateTime() })
 
 describe('definePlugin', () => {
 	it('refuses what is not a plugin', () => {
@@ -562,7 +563,7 @@ describe('a model’s use', () => {
 			name: 'stamp',
 			addedFields: (f: Builders, options: object) =>
 				'at' in options && typeof options.at === 'string'
-					? { [options.at]: f.date() }
+					? { [options.at]: f.dateTime() }
 					: {},
 		})
 		expect(fieldsOf(using(called(stamp.use, { at: 'seenAt' })))).toEqual([
@@ -596,7 +597,7 @@ describe('a model’s use', () => {
 		expect(() => using(adding('a', null))).toThrow(
 			'Page: a.addedFields must return an object of fields.',
 		)
-		expect(() => using(adding('a', { at: 'date' }))).toThrow(
+		expect(() => using(adding('a', { at: 'dateTime' }))).toThrow(
 			'Page.at is not a field a builder returned.',
 		)
 	})

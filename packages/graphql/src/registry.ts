@@ -1,6 +1,7 @@
 // What the schema is built from (D-107): each model with its names and
 // limits, the plugin's settings, and each type built once, when first used.
 import type {
+	GraphQLFieldConfigMap,
 	GraphQLInputObjectType,
 	GraphQLObjectType,
 	GraphQLResolveInfo,
@@ -24,7 +25,7 @@ import type {
 } from 'ultimabase'
 import { DataTypes } from './data-types.ts'
 import { upper } from './names.ts'
-import { DateTime, JSONScalar } from './scalars.ts'
+import { DateScalar, DateTime, DecimalScalar, JSONScalar } from './scalars.ts'
 
 /** A model's key of `.with` (D-107). */
 export type GraphqlWith =
@@ -81,11 +82,21 @@ export class Registry {
 	readonly settings: Settings
 	/** The types functions and json fields give, shared by both (D-125). */
 	readonly data: DataTypes
+	/** A model's virtual fields, which the functions' outputs build (D-151). */
+	virtualFields: (model: string) => GraphQLFieldConfigMap<unknown, Context> =
+		() => ({})
 
 	constructor(entries: ReadonlyMap<string, Entry>, settings: Settings) {
 		this.entries = entries
 		this.settings = settings
 		this.data = new DataTypes(entries.keys())
+		// Before any function's: a `defineEnum` keeps its own description.
+		for (const [model, { exposed }] of entries) {
+			for (const [field, shared] of Object.entries(exposed.enums)) {
+				const { name, values, description } = shared
+				this.data.enum(name, values, `${model}.${field}`, description)
+			}
+		}
 	}
 
 	entry(model: string): Entry {
@@ -110,17 +121,35 @@ export class Registry {
 	}
 }
 
+/** Each field's `description` (D-150), on the fields of a type or an input. */
+export function described<
+	C extends { readonly description?: string | null | undefined },
+>(entry: Entry, fields: { [field: string]: C }): { [field: string]: C } {
+	for (const [field, description] of Object.entries(
+		entry.exposed.descriptions,
+	)) {
+		const config = fields[field]
+		if (config !== undefined) fields[field] = { ...config, description }
+	}
+	return fields
+}
+
 export const scalarTypes: {
 	readonly [T in Exclude<Scalar['type'], 'enum'>]: GraphQLScalarType
 } = {
 	string: GraphQLString,
 	number: GraphQLFloat,
+	decimal: DecimalScalar,
 	boolean: GraphQLBoolean,
-	date: DateTime,
+	dateTime: DateTime,
+	date: DateScalar,
 	json: JSONScalar,
 }
 
-/** A scalar field's type; an enum's is `PostStatus`, built once. */
+/**
+ * A scalar field's type; an enum's is `PostStatus`, built once, and a
+ * `defineEnum`'s its own name, one type for every field (D-150).
+ */
 export function scalarType(
 	registry: Registry,
 	model: string,
@@ -128,6 +157,11 @@ export function scalarType(
 ): GraphQLScalarType | GraphQLEnumType {
 	if (field.integer === true) return GraphQLInt
 	if (field.type !== 'enum') return scalarTypes[field.type]
+	const shared = registry.entry(model).exposed.enums[field.name]
+	if (shared !== undefined) {
+		const { name, values } = shared
+		return registry.data.enum(name, values, `${model}.${field.name}`)
+	}
 	const name = `${model}${upper(field.name)}`
 	return registry.enum(
 		name,

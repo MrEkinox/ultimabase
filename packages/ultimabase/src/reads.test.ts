@@ -1,4 +1,11 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import {
+	afterEach,
+	beforeEach,
+	describe,
+	expect,
+	expectTypeOf,
+	it,
+} from 'vitest'
 import { master } from './index.ts'
 import { query } from './engine.ts'
 import { Author, Book, Tag, library } from './test/library.ts'
@@ -44,6 +51,24 @@ const titles = async (args: object): Promise<unknown[]> => {
 	return Array.isArray(rows)
 		? rows.map((row: { readonly title?: unknown }) => row.title)
 		: []
+}
+
+// Never called: checks that only a string field takes mode (D-140).
+async function modes() {
+	await Book.findMany(
+		{ where: { title: { contains: 'a', mode: 'insensitive' } } },
+		as,
+	)
+	await Author.findMany(
+		// @ts-expect-error -- an enum takes no mode
+		{ where: { level: { equals: 'senior', mode: 'insensitive' } } },
+		as,
+	)
+	await Book.findMany(
+		// @ts-expect-error -- an id takes no mode
+		{ where: { id: { equals: '', mode: 'insensitive' } } },
+		as,
+	)
 }
 
 describe('where', () => {
@@ -127,6 +152,31 @@ describe('where', () => {
 		await expect(titles({ where: { pages: 'many' } })).rejects.toMatchObject({
 			path: 'where.pages',
 		})
+	})
+
+	it('ignores case on string fields only (D-140)', async () => {
+		expect(
+			await titles({
+				where: { title: { equals: 'engines', mode: 'insensitive' } },
+			}),
+		).toEqual(['Engines'])
+		await expect(
+			titles({ where: { title: { contains: 'a', mode: 'Insensitive' } } }),
+		).rejects.toMatchObject({
+			path: 'where.title.mode',
+			message: "where.title.mode must be 'insensitive'.",
+		})
+		const levels = query(
+			'Author',
+			'findMany',
+			{ where: { level: { equals: 'senior', mode: 'insensitive' } } },
+			as,
+		)
+		await expect(levels).rejects.toMatchObject({ path: 'where.level.mode' })
+		await expect(
+			titles({ where: { id: { startsWith: 'a', mode: 'insensitive' } } }),
+		).rejects.toMatchObject({ path: 'where.id.mode' })
+		expectTypeOf(modes).toBeFunction()
 	})
 
 	it('ignores undefined values (D-84)', async () => {

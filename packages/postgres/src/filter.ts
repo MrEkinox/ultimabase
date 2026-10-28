@@ -1,11 +1,14 @@
 // A normalized `where` as SQL (D-73): PostgreSQL's three-valued logic is the
 // one `memory()` mimics, and a relation condition is an `exists` subquery.
-import type { RawBuilder } from 'kysely'
 import { sql } from 'kysely'
 import type { Condition, Filter, SchemaField } from 'ultimabase'
+import { compares, jsonPath } from './json-filter.ts'
+import type { Sql } from './logic.ts'
+import { all, any, pattern } from './logic.ts'
 import type { Catalog, Kind, Table } from './names.ts'
 
-export type Sql = RawBuilder<unknown>
+export type { Sql } from './logic.ts'
+export { all, any } from './logic.ts'
 
 type Relation = Extract<SchemaField, { readonly kind: 'one' | 'many' }>
 
@@ -14,18 +17,6 @@ export type Reach = { readonly from: Sql; readonly on: Sql }
 
 export const uuid: RegExp =
 	/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
-
-export function all(parts: readonly Sql[]): Sql {
-	if (parts.length === 0) return sql`true`
-	return parts.length === 1
-		? (parts[0] ?? sql`true`)
-		: sql`(${sql.join(parts, sql` and `)})`
-}
-
-function any(parts: readonly Sql[]): Sql {
-	if (parts.length === 0) return sql`false`
-	return sql`(${sql.join(parts, sql` or `)})`
-}
 
 /**
  * A value as a parameter of its column's type. A date goes in UTC: `pg`
@@ -42,16 +33,10 @@ export function value(kind: Kind, item: unknown): Sql {
 	return item instanceof Date ? sql`${item.toISOString()}` : sql`${item}`
 }
 
-function isFilters(
+export function isFilters(
 	item: Condition | readonly Filter[],
 ): item is readonly Filter[] {
 	return Array.isArray(item)
-}
-
-/** `%`, `_` and `\` are characters, not patterns (D-94). */
-function pattern(operand: unknown, before: string, after: string): string {
-	const text = typeof operand === 'string' ? operand : ''
-	return `${before}${text.replaceAll(/[\\%_]/g, '\\$&')}${after}`
 }
 
 export class Filters {
@@ -95,6 +80,10 @@ export class Filters {
 				else parts.push(all(list.map((part) => sql`(not ${part})`)))
 			} else if (isFilters(condition)) {
 				throw new Error(`${model}.${key} takes a condition, not a list.`)
+			} else if (condition.search !== undefined) {
+				parts.push(
+					sql`${sql.id(alias, '_search')} @@ ${this.query(condition.search)}`,
+				)
 			} else {
 				const field = table.fields.get(key)
 				parts.push(
@@ -105,6 +94,11 @@ export class Filters {
 			}
 		}
 		return all(parts)
+	}
+
+	/** `text` as `websearch_to_tsquery` reads it, in the catalog's language (D-148). */
+	query(text: string): Sql {
+		return sql`websearch_to_tsquery(cast(${this.catalog.language} as regconfig), ${text})`
 	}
 
 	/** The rows of `field`'s target, aliased `to`, that `alias`'s row reaches. */
@@ -119,7 +113,9 @@ export class Filters {
 			}
 		}
 		if (field.kind === 'many' && field.join) {
-			const join = this.catalog.join(table.model.name, field.name)
+			// A view reads the join of its relation (D-151).
+			const name = field.from ?? field.name
+			const join = this.catalog.join(table.model.name, name)
 			this.tables.add(join.table)
 			const link = this.alias()
 			return {
@@ -197,25 +193,42 @@ export class Filters {
 		condition: Condition,
 	): Sql {
 		const column = this.column(table, alias, name)
-		const kind = this.catalog.kind(table, name)
+		return this.compare(column, this.catalog.kind(table, name), condition)
+	}
+
+	/** A value of `kind`, a column or an aggregate (D-149), meets `condition`. */
+	compare(column: Sql, kind: Kind, condition: Condition): Sql {
+		if (condition.path !== undefined) return jsonPath(column, condition)
 		// An id matches and compares as its string, as in `memory()`.
-		const text = kind === 'id' ? sql`cast(${column} as text)` : column
+		const cast = kind === 'id' ? sql`cast(${column} as text)` : column
+		// A string field's operators ignore case with `ilike` (D-140). Its
+		// `collate "C"` folds ASCII only: the database's locale folds the rest.
+		// `contains` and `endsWith` read the column so in both modes, as a
+		// trigram index does; a B-tree serves the rest (D-141).
+		const insensitive = condition.mode === 'insensitive'
+		const collated = sql`(${cast} collate "default")`
+		const text = insensitive ? collated : cast
+		const like = sql.raw(insensitive ? 'ilike' : 'like')
 		const parts: Sql[] = []
 		for (const [operator, operand] of Object.entries(condition)) {
-			if (operand === undefined) continue
+			if (operand === undefined || operator === 'mode') continue
 			switch (operator) {
 				case 'equals':
 				case 'not': {
 					const equal =
 						operand === null
 							? sql`${column} is null`
-							: this.equal(column, kind, operand)
+							: insensitive
+								? sql`${text} ilike ${pattern(operand, '', '')}`
+								: this.equal(column, kind, operand)
 					parts.push(operator === 'equals' ? equal : sql`(not ${equal})`)
 					break
 				}
 				case 'in':
 				case 'notIn': {
-					const found = this.member(column, kind, operand)
+					const found = insensitive
+						? this.like(text, operand)
+						: this.member(column, kind, operand)
 					parts.push(operator === 'in' ? found : sql`(not ${found})`)
 					break
 				}
@@ -225,18 +238,28 @@ export class Filters {
 				case 'hasSome':
 					parts.push(sql`${column} && ${value(kind, operand)}`)
 					break
+				case 'hasEvery':
+					parts.push(sql`${column} @> ${value(kind, operand)}`)
+					break
+				case 'isEmpty':
+					parts.push(
+						operand === true
+							? sql`cardinality(${column}) = 0`
+							: sql`cardinality(${column}) > 0`,
+					)
+					break
 				case 'contains':
-					parts.push(sql`${text} like ${pattern(operand, '%', '%')}`)
+					parts.push(sql`${collated} ${like} ${pattern(operand, '%', '%')}`)
 					break
 				case 'startsWith':
-					parts.push(sql`${text} like ${pattern(operand, '', '%')}`)
+					parts.push(sql`${text} ${like} ${pattern(operand, '', '%')}`)
 					break
 				case 'endsWith':
-					parts.push(sql`${text} like ${pattern(operand, '%', '')}`)
+					parts.push(sql`${collated} ${like} ${pattern(operand, '%', '')}`)
 					break
 				default: {
 					const right = value(kind, operand)
-					const compare = { lt: '<', lte: '<=', gt: '>', gte: '>=' }[operator]
+					const compare = compares[operator]
 					if (compare === undefined) {
 						throw new Error(`Unknown operator ${operator}.`)
 					}
@@ -269,5 +292,15 @@ export class Filters {
 		}
 		const values = items.map((item) => value(kind, item))
 		return sql`${column} in (${sql.join(values)})`
+	}
+
+	/** `in` ignoring case: one `ilike` per item (D-140). */
+	private like(text: Sql, operand: unknown): Sql {
+		const list: readonly unknown[] = Array.isArray(operand) ? operand : []
+		if (list.length === 0) return sql`false`
+		const likes = list.map(
+			(item) => sql`${text} ilike ${pattern(item, '', '')}`,
+		)
+		return sql`(${sql.join(likes, sql` or `)})`
 	}
 }

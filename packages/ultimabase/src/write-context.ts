@@ -1,6 +1,7 @@
 // The row a write plans (query-write.ts): where its data sits, the steps
 // around its own, and the checks of its scalar and `one` values.
 import type { Many, Resolving } from './nested-write.ts'
+import { storedValue } from './decimal.ts'
 import type { FieldInfo, ModelInfo } from './schema.ts'
 import type { QueryScope } from './scope.ts'
 import type { Draft } from './write-data.ts'
@@ -83,7 +84,7 @@ export function scalar(
 				: `${where}: the ${codec.plugin} field type encoded a value its stored field refuses: ${issue}`,
 		)
 	}
-	context.set[field.name] = stored
+	context.set[field.name] = storedValue(stored, field)
 }
 
 /** Whether a row of the other side, but `kept`, holds this one's key. */

@@ -2,9 +2,17 @@
 // (D-74): what application code passes to queries and gets back.
 import type { ResultOf, RunArgs } from './function.ts'
 import type { Model } from './model.ts'
+import type { AggregateArgs } from './query-aggregate.ts'
+import type {
+	CreateManyAndReturnArgs,
+	CreateManyArgs,
+	UpdateManyAndReturnArgs,
+	UpdateManyArgs,
+} from './query-bulk.ts'
+import type { GroupByArgs } from './query-group.ts'
 import type {
 	CreateArgs,
-	CreateManyArgs,
+	FindFirstArgs,
 	FindManyArgs,
 	FindUniqueArgs,
 	Include,
@@ -12,7 +20,7 @@ import type {
 	Payload,
 	Select,
 	UpdateArgs,
-	UpdateManyArgs,
+	UpsertArgs,
 	Where,
 } from './query.ts'
 import type { CreateData, UpdateData } from './record.ts'
@@ -26,17 +34,22 @@ type UniqueOf<M> = Parts<M>['unique']
 type NameOf<M> = Parts<M>['name']
 
 type Operations<F, X, N> = {
-	readonly findMany: FindManyArgs<F, X>
-	readonly findFirst: FindManyArgs<F, X>
+	readonly findMany: FindManyArgs<F, X, N>
+	readonly findFirst: FindFirstArgs<F, X>
 	readonly findUnique: FindUniqueArgs<F, X>
-	readonly findFirstOrThrow: FindManyArgs<F, X>
+	readonly findFirstOrThrow: FindFirstArgs<F, X>
 	readonly findUniqueOrThrow: FindUniqueArgs<F, X>
 	readonly count: { readonly where?: Where<F> }
+	readonly aggregate: AggregateArgs<F>
+	readonly groupBy: GroupByArgs<F, N>
 	readonly create: CreateArgs<F, N>
 	readonly update: UpdateArgs<F, X, N>
+	readonly upsert: UpsertArgs<F, X, N>
 	readonly delete: FindUniqueArgs<F, X>
 	readonly updateMany: UpdateManyArgs<F>
 	readonly createMany: CreateManyArgs<F>
+	readonly updateManyAndReturn: UpdateManyAndReturnArgs<F>
+	readonly createManyAndReturn: CreateManyAndReturnArgs<F>
 	readonly deleteMany: { readonly where?: Where<F> | undefined }
 }
 

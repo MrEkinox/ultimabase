@@ -29,9 +29,9 @@ export function database(url: string): Adapter {
 	const adapter = postgres({ url: `${url}?options=${options}` })
 	return {
 		...adapter,
-		start: async (given) => {
+		start: async (given, logger) => {
 			await run(url, `create schema "${schema}"`)
-			await adapter.start(given)
+			await adapter.start(given, logger)
 		},
 		stop: async () => {
 			await adapter.stop()

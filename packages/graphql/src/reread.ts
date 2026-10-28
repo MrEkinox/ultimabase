@@ -43,8 +43,13 @@ export async function reread(
 		if (known !== undefined) return known
 		const type = objectType(registry, model)
 		const select = selectOf(registry, info, type, nodes, master)
+		// A virtual is computed when its row is read (D-151).
+		const { virtuals } = registry.entry(model).exposed
 		const found = Object.fromEntries(
-			Object.entries(select).filter(([, read]) => read !== true),
+			Object.entries(select).filter(
+				([name, read]) =>
+					read !== true || virtuals.some((virtual) => virtual.name === name),
+			),
 		)
 		relations.set(nodes, found)
 		return found

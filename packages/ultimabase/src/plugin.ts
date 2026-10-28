@@ -1,7 +1,7 @@
 // A plugin is an interface of types and one `definePlugin` (D-57). Its types
 // travel with its values; nothing is declared globally (D-24).
 import type { Logger } from './app-options.ts'
-import type { FieldBuilders, StandardSchema } from './fields.ts'
+import type { Enum, FieldBuilders, StandardSchema } from './fields.ts'
 import type { Client, FunctionShape } from './function.ts'
 import type { Identify } from './identify.ts'
 import { pluginEntries, pluginValues } from './definition.ts'
@@ -95,6 +95,11 @@ export interface ModelQueries {
 export interface ExposedModel<W = unknown> {
 	/** As the adapter receives it (D-73). */
 	readonly schema: SchemaModel
+	/** The model's `description` and its fields' (D-150). */
+	readonly description: string | undefined
+	readonly descriptions: { readonly [field: string]: string }
+	/** Each field whose values are a `defineEnum` (D-150). */
+	readonly enums: { readonly [field: string]: Enum }
 	/** `id`, unique fields and unique indexes (D-52). */
 	readonly uniques: readonly (readonly string[])[]
 	/** Each field with a read rule, `private` when only Master reads it (D-44). */
@@ -110,11 +115,29 @@ export interface ExposedModel<W = unknown> {
 			readonly toJSON: (value: unknown) => unknown
 		}
 	}
+	/** Its virtual fields, in their order (D-151). */
+	readonly virtuals: readonly ExposedVirtual[]
 	/** The plugin's key of the model's `.with`, if it was given. */
 	readonly with: W | undefined
 	readonly queries: ModelQueries
+	/** `upsert`, which also says whether it created the row (D-142). */
+	readonly upsert: (
+		args: Args,
+		options: QueryOptions,
+	) => Promise<{ readonly row: Row; readonly created: boolean }>
 	/** The `defineModel` value, which a plugin's function may return (D-113). */
 	readonly model: ModelShape
+}
+
+/** A virtual field as transports read it (D-151). */
+export interface ExposedVirtual {
+	readonly name: string
+	readonly description: string | undefined
+	/** A Standard Schema of an object: the field's arguments. */
+	readonly input: StandardSchema | undefined
+	readonly output: ExposedOutput
+	/** In the row without `select`: a value without input. */
+	readonly default: boolean
 }
 
 /** How an output holds a model or a type (D-109). */
@@ -133,12 +156,14 @@ export type ExposedOutput =
 /** A `defineType`, its fields in their order (D-109). */
 export interface ExposedType {
 	readonly name: string
+	readonly description: string | undefined
 	readonly fields: ReadonlyMap<string, ExposedOutput>
 }
 
 /** A function as transports read it (D-109). */
 export interface ExposedFunction<W = unknown> {
 	readonly name: string
+	readonly description: string | undefined
 	/** The plugin that gives it, `undefined` for the application's (D-113). */
 	readonly plugin: string | undefined
 	/** A query, which a transport may serve over GET; a mutation otherwise. */
@@ -282,6 +307,8 @@ export type PluginDefinition<T extends PluginTypes> = {
 	readonly addedIndexes?: readonly {
 		readonly fields: readonly (keyof Own<T> & string)[]
 		readonly unique?: boolean
+		/** A trigram index, for `contains` and `mode: 'insensitive'` (D-141). */
+		readonly contains?: true
 	}[]
 	/**
 	 * Its `defineFunction` values, built once when the application starts and

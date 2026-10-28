@@ -2,7 +2,15 @@
 // `many`, is a jsonb array the database builds, so relations at any depth
 // cost no extra round trip.
 import { sql } from 'kysely'
-import type { CountRead, Filter, Nested, Order, Read } from 'ultimabase'
+import type {
+	CountRead,
+	Filter,
+	GroupKey,
+	Nested,
+	Order,
+	Read,
+	Sort,
+} from 'ultimabase'
 import type { Reach, Sql } from './filter.ts'
 import { all, Filters } from './filter.ts'
 import type { Catalog, Table } from './names.ts'
@@ -24,9 +32,18 @@ function object(pairs: readonly (readonly [string, Sql])[]): Sql {
 const flip = (order: Order): Order => ({
 	...order,
 	direction: order.direction === 'asc' ? 'desc' : 'asc',
+	...(order.nulls && { nulls: order.nulls === 'first' ? 'last' : 'first' }),
 })
 
-class Compiler {
+/** Whether `null` sorts after every value (D-149). */
+const nullsLast = ({ direction, nulls }: Sort) =>
+	(nulls ?? (direction === 'asc' ? 'last' : 'first')) === 'last'
+
+/** A sort key in `ORDER BY`; PostgreSQL's default `null`s are D-94's. */
+export const sorted = (key: Sql, { direction, nulls }: Sort): Sql =>
+	sql`${key} ${sql.raw(direction)}${nulls ? sql.raw(` nulls ${nulls}`) : sql``}`
+
+export class Compiler {
 	readonly filters: Filters
 	readonly catalog: Catalog
 
@@ -44,10 +61,7 @@ class Compiler {
 		const given = nested.orderBy ?? [{ field: 'id', direction: 'asc' }]
 		const order = backward ? given.map(flip) : given
 		const by = sql.join(
-			order.map(
-				(each) =>
-					sql`${this.key(table, alias, each)} ${sql.raw(each.direction)}`,
-			),
+			order.map((each) => sorted(this.key(table, alias, each), each)),
 		)
 		const conditions = [
 			reach.on,
@@ -76,9 +90,9 @@ class Compiler {
 	}
 
 	/**
-	 * The rows at or after the cursor in `order`, which `memory()` compares
-	 * with `null` last ascending: `a ≥ c` is `a > c`, or `a = c` and the next
-	 * key decides.
+	 * The rows at or after the cursor in `order`, `null` where it sorts, as
+	 * `memory()` compares: `a ≥ c` is `a > c`, or `a = c` and the next key
+	 * decides.
 	 */
 	private keyset(
 		table: Table,
@@ -88,13 +102,14 @@ class Compiler {
 	): Sql {
 		let result: Sql = sql`true`
 		for (const [at, each] of [...order.entries()].toReversed()) {
-			const { direction } = each
 			const a = this.key(table, alias, each)
 			const c = sql.id(cursor, `k${at}`)
-			const after =
-				direction === 'asc'
-					? sql`(${a} > ${c} or (${a} is null and ${c} is not null))`
-					: sql`(${a} < ${c} or (${a} is not null and ${c} is null))`
+			const beyond =
+				each.direction === 'asc' ? sql`${a} > ${c}` : sql`${a} < ${c}`
+			const nulls = nullsLast(each)
+				? sql`(${a} is null and ${c} is not null)`
+				: sql`(${a} is not null and ${c} is null)`
+			const after = sql`(${beyond} or ${nulls})`
 			result = sql`(${after} or (${a} is not distinct from ${c} and ${result}))`
 		}
 		return result
@@ -102,15 +117,19 @@ class Compiler {
 
 	/**
 	 * A sort key: a column, through `one` relations, or a count; a row the
-	 * relations do not reach gives `null` (D-134).
+	 * relations do not reach gives `null` (D-134). A relevance is `ts_rank`'s
+	 * (D-148).
 	 */
-	private key(
+	key(
 		table: Table,
 		alias: string,
-		order: Order,
-		steps = order.through ?? [],
+		order: Pick<Order, 'field' | 'through' | 'count' | 'relevance'>,
+		steps: NonNullable<Order['through']> = order.through ?? [],
 	): Sql {
 		const [step, ...rest] = steps
+		if (order.relevance !== undefined) {
+			return sql`ts_rank(${sql.id(alias, '_search')}, ${this.filters.query(order.relevance)})`
+		}
 		if (step === undefined) {
 			if (order.count === undefined) {
 				return this.filters.column(table, alias, order.field)
@@ -140,12 +159,15 @@ class Compiler {
 		return sql`(select cast(count(*) as integer) from ${reach.from} where ${reach.on} and ${rows})`
 	}
 
-	/** A scalar column, a date in UTC whatever the session's time zone. */
+	/**
+	 * A scalar column, a date in UTC whatever the session's time zone, a
+	 * decimal as text, which jsonb would make a number (D-145).
+	 */
 	private scalar(table: Table, alias: string, name: string): Sql {
 		const column = this.filters.column(table, alias, name)
-		return this.catalog.kind(table, name) === 'date'
-			? sql`(${column} at time zone 'UTC')`
-			: column
+		const kind = this.catalog.kind(table, name)
+		if (kind === 'decimal') return sql`cast(${column} as text)`
+		return kind === 'dateTime' ? sql`(${column} at time zone 'UTC')` : column
 	}
 
 	/** A row as jsonb: its fields, each `one` as `{ id }`, then its includes. */
@@ -201,6 +223,30 @@ class Compiler {
 }
 
 /**
+ * The `id` of the first row of each `distinct` key in `read`'s order
+ * (D-147), which the read then sorts and pages.
+ */
+function kept(
+	compiler: Compiler,
+	read: Read,
+	distinct: readonly GroupKey[],
+): Sql {
+	const { filters } = compiler
+	const table = compiler.catalog.table(read.model)
+	const alias = filters.alias()
+	const numbered = filters.alias()
+	filters.tables.add(table.name)
+	const keys = distinct.map((key) => compiler.key(table, alias, key))
+	const order = (read.orderBy ?? [{ field: 'id', direction: 'asc' }]).map(
+		(each) => sorted(compiler.key(table, alias, each), each),
+	)
+	const where = filters.where(read.model, alias, read.where)
+	const id = filters.column(table, alias, 'id')
+	const rows = sql`select row_number() over (partition by ${sql.join(keys)} order by ${sql.join(order)}) as "n", ${id} as "i" from ${sql.id(table.name)} as ${sql.id(alias)} where ${where}`
+	return sql`select ${sql.id(numbered, 'i')} from (${rows}) as ${sql.id(numbered)} where ${sql.id(numbered, 'n')} = 1`
+}
+
+/**
  * `read`'s rows as one jsonb array, its root rows taken from `source`, by
  * default its table, and the tables it reaches besides; a locked read locks
  * the root rows its `where` selects, in `id` order (D-99, D-133).
@@ -217,9 +263,12 @@ export function compileRows(
 	const table = catalog.table(read.model)
 	const id = compiler.filters.column(table, alias, 'id')
 	// In `id` order, so two reads of the same rows wait instead of deadlocking (D-133).
-	const from = read.lock
+	let from = read.lock
 		? sql`(select * from ${name} as ${as} where ${compiler.filters.where(read.model, alias, read.where)} order by ${id} for update) as ${as}`
 		: sql`${name} as ${as}`
+	if (read.distinct !== undefined) {
+		from = sql`(select * from ${name} as ${as} where ${id} in (${kept(compiler, read, read.distinct)})) as ${as}`
+	}
 	const rows = compiler.list(read.model, read, { from, on: sql`true` }, alias)
 	return { rows, tables: compiler.filters.tables }
 }

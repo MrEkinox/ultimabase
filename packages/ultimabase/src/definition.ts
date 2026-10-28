@@ -1,11 +1,12 @@
 // What `defineModel`, the field builders and `definePlugin` record at run
 // time: the values behind the types.
 import type { ScalarType } from './adapter.ts'
-import type { StandardSchema } from './fields.ts'
+import type { Enum, StandardSchema } from './fields.ts'
 import type { Manifest, OutputForm } from './plugin.ts'
 import type { Standard } from './validation.ts'
 import { Refused } from './errors.ts'
 import { isObject } from './query-where.ts'
+import { standardOf } from './validation.ts'
 
 export type FieldOptions = { readonly [option: string]: unknown }
 
@@ -24,6 +25,8 @@ export type FieldDefinition =
 			readonly kind: 'scalar'
 			readonly type: ScalarType
 			readonly values?: readonly string[]
+			/** The `defineEnum` its values are, if one (D-150). */
+			readonly enum?: Enum
 			readonly options: FieldOptions
 			readonly rules?: object
 			/** A plugin field type's, whose `type` is the stored one (D-122). */
@@ -35,14 +38,24 @@ export type FieldDefinition =
 			readonly options: FieldOptions
 			readonly rules?: object
 	  }
+	| {
+			/** Computed on read (D-151): its schema, or a thunk of its output. */
+			readonly kind: 'virtual'
+			readonly output: unknown
+			readonly options: FieldOptions
+			readonly rules?: object
+	  }
 
 export type IndexDefinition = {
 	readonly fields: readonly string[]
 	readonly unique?: boolean
+	/** A trigram index, for `contains` and `mode: 'insensitive'` (D-141). */
+	readonly contains?: true
 }
 
 export type ModelDefinition = {
 	readonly name: string
+	readonly description: string | undefined
 	readonly dbName: string | undefined
 	readonly fields: ReadonlyMap<string, FieldDefinition>
 	readonly indexes: readonly IndexDefinition[]
@@ -112,11 +125,13 @@ export type Output =
 
 export type TypeDefinition = {
 	readonly name: string
+	readonly description: string | undefined
 	readonly fields: ReadonlyMap<string, Output>
 }
 
 export type FunctionDefinition = {
 	readonly name: string
+	readonly description: string | undefined
 	readonly query: boolean
 	readonly input: StandardSchema | undefined
 	readonly output: Output | undefined
@@ -154,6 +169,18 @@ export function nameOf(name: unknown, by: string): string {
 	return name
 }
 
+/** A `description` (D-150): a non-empty string, when given. */
+export function describedBy(
+	description: unknown,
+	of: string,
+): string | undefined {
+	if (description === undefined) return undefined
+	if (typeof description !== 'string' || description === '') {
+		throw new Error(`${of}: description is a non-empty string.`)
+	}
+	return description
+}
+
 /**
  * The `.with` of a model or a function: its rules, in one call, read when
  * they apply, so it returns the same value.
@@ -171,6 +198,7 @@ export const withOnce =
 
 /** A field value, keyed by its definition; `.with` takes its rules once. */
 export function build(definition: FieldDefinition): object {
+	describedBy(definition.options['description'], 'A field')
 	const field = {
 		with: (rules: object): object => {
 			if (definition.rules !== undefined) {
@@ -188,8 +216,10 @@ function listable(
 	type: ScalarType,
 	options: FieldOptions = {},
 	values?: readonly string[],
+	shared?: Enum,
 ): object {
-	if (options['list'] === true) {
+	const list = options['list'] === true
+	if (list) {
 		if (options['optional'] !== undefined) {
 			throw new Error(
 				'A list is never null: left out, it is []. Remove optional.',
@@ -199,10 +229,14 @@ function listable(
 			throw new Error('A list cannot be unique.')
 		}
 	}
+	if (options['search'] !== undefined && (list || type !== 'string')) {
+		throw new Error('search takes a string field that is not a list.')
+	}
 	return build({
 		kind: 'scalar',
 		type,
 		...(values === undefined ? {} : { values }),
+		...(shared === undefined ? {} : { enum: shared }),
 		options,
 	})
 }
@@ -219,30 +253,88 @@ const scalar =
 		return build({ kind: 'scalar', type, options: options ?? {} })
 	}
 
+const whole = (value: unknown, most: number): value is number =>
+	Number.isInteger(value) && Number(value) >= 0 && Number(value) <= most
+
+/** Exact numbers of `precision` digits, `scale` after the point (D-145). */
+function decimal(options?: FieldOptions): object {
+	const { precision, scale } = options ?? {}
+	if (!whole(precision, 1000) || precision === 0) {
+		throw new Error('f.decimal() takes a precision from 1 to 1000.')
+	}
+	if (!whole(scale, precision)) {
+		throw new Error(
+			`f.decimal() takes a scale from 0 to its precision, ${precision}.`,
+		)
+	}
+	return scalar('decimal')(options)
+}
+
 const relation =
 	(kind: 'one' | 'many') =>
 	(target: () => unknown, options?: FieldOptions): object =>
 		build({ kind, target, options: options ?? {} })
 
-function enumOf(values: readonly unknown[], options?: FieldOptions): object {
-	const strings = values.filter((value) => typeof value === 'string')
-	if (strings.length === 0 || strings.length !== values.length) {
-		throw new Error('enumOf takes a list of strings.')
+/** The `defineEnum` values, which `enumOf` takes in place of a list. */
+export const sharedEnums: WeakMap<object, Enum> = new WeakMap()
+
+/** An enum's values: strings, each once. */
+export function enumValues(values: unknown, of: string): readonly string[] {
+	const listed: readonly unknown[] = Array.isArray(values) ? values : []
+	const strings = listed.filter((value) => typeof value === 'string')
+	if (strings.length === 0 || strings.length !== listed.length) {
+		throw new Error(`${of} takes a list of strings.`)
 	}
 	if (new Set(strings).size !== strings.length) {
-		throw new Error(`enumOf lists a value twice: ${strings.join(', ')}.`)
+		throw new Error(`${of} lists a value twice: ${strings.join(', ')}.`)
 	}
-	return listable('enum', options, strings)
+	return strings
+}
+
+function enumOf(values: unknown, options?: FieldOptions): object {
+	const shared = isObject(values) ? sharedEnums.get(values) : undefined
+	if (shared !== undefined) {
+		return listable('enum', options, shared.values, shared)
+	}
+	return listable('enum', options, enumValues(values, 'enumOf'))
 }
 
 /** The builders `defineModel`'s `fields` callback receives (D-09, D-12). */
 export const fieldBuilders: object = Object.freeze({
 	string: (options?: FieldOptions) => listable('string', options),
 	number: (options?: FieldOptions) => listable('number', options),
+	decimal,
 	boolean: scalar('boolean'),
+	dateTime: scalar('dateTime'),
 	date: scalar('date'),
 	json: scalar('json'),
 	enumOf,
 	one: relation('one'),
 	many: relation('many'),
+	virtual: (output: unknown, options?: FieldOptions): object =>
+		build({ kind: 'virtual', output, options: options ?? {} }),
 })
+
+function namedOf(value: unknown): NamedOutput | undefined {
+	if (!isObject(value)) return undefined
+	const model = modelDefinitions.get(value)
+	if (model !== undefined) return { kind: 'model', value, name: model.name }
+	const type = typeDefinitions.get(value)
+	return type === undefined ? undefined : { kind: 'type', type }
+}
+
+/** An output's value, read once at its definition (D-109). */
+export function outputOf(value: unknown, where: string): Output {
+	const standard = standardOf(value)
+	if (standard !== undefined) return { kind: 'schema', schema: standard.schema }
+	const named = namedOf(value)
+	if (named !== undefined) return { ...named, form: 'one' }
+	const marked = isObject(value) ? nullables.get(value) : undefined
+	if (marked !== undefined) return { ...marked, form: 'nullable' }
+	const list: readonly unknown[] = Array.isArray(value) ? value : []
+	const listed = list.length === 1 ? namedOf(list[0]) : undefined
+	if (listed !== undefined) return { ...listed, form: 'list' }
+	throw new Refused(
+		`${where} is a model, a type, a list of one, X.nullable() or a Standard Schema.`,
+	)
+}

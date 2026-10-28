@@ -1,7 +1,11 @@
 // The schema (D-107): for each visible model, `post(where)` and `posts(...)`,
 // each read in one kernel query as its caller, and its mutations.
 import { connection, rowsOf, run } from '@ultimabase/http/internal'
-import type { GraphQLFieldConfig, GraphQLResolveInfo } from 'graphql'
+import type {
+	GraphQLFieldConfig,
+	GraphQLNamedType,
+	GraphQLResolveInfo,
+} from 'graphql'
 import {
 	GraphQLList,
 	GraphQLNonNull,
@@ -116,9 +120,13 @@ function generatedTypes(
 /** Refuses two root fields of one name, naming both owners. */
 export function schemaOf(
 	registry: Registry,
-	functions: readonly RootField[],
-	typeOwners: ReadonlyMap<string, string>,
+	called: {
+		readonly fields: readonly RootField[]
+		readonly owners: ReadonlyMap<string, string>
+		readonly named: (name: string) => GraphQLNamedType | undefined
+	},
 ): GraphQLSchema {
+	const { fields: functions, owners: typeOwners, named } = called
 	const roots = {
 		query: new Map<string, string>(),
 		mutation: new Map<string, string>(),
@@ -158,7 +166,7 @@ export function schemaOf(
 	// The models' types, which no function's or field's type may be named like.
 	const generated = generatedTypes(fields, mutations, typeOwners)
 	for (const [name, owner] of typeOwners) {
-		if (name in generated && generated[name] !== registry.data.named(name)) {
+		if (name in generated && generated[name] !== named(name)) {
 			throw taken(name, owner)
 		}
 	}

@@ -1,7 +1,8 @@
-// The writes (D-107): `createPost(data)`, `updatePost(where, data)` and
-// `deletePost(where)`, each one kernel write run as its caller. A create
-// and an update return the row as the query asks for it, a delete the row
-// as it was, without its relations.
+// The writes (D-107): `createPost(data)`, `updatePost(where, data)`,
+// `upsertPost(where, create, update)` (D-142) and `deletePost(where)`, each
+// one kernel write run as its caller. A create, an update and an upsert
+// return the row as the query asks for it, a delete the row as it was,
+// without its relations.
 import { run } from '@ultimabase/http/internal'
 import type {
 	GraphQLFieldConfig,
@@ -21,7 +22,7 @@ import { jsonInput, plainData } from './json-fields.ts'
 import { upper } from './names.ts'
 import { deletedType, isMaster, objectType } from './outputs.ts'
 import type { Args, Context, Entry, Registry } from './registry.ts'
-import { as, valueType } from './registry.ts'
+import { as, described, valueType } from './registry.ts'
 import { JSONScalar } from './scalars.ts'
 import { selectOf } from './select.ts'
 
@@ -134,7 +135,10 @@ function relationInput(
 		if (!creating && shape !== 'OneRequired') {
 			fields['disconnect'] = { type: many ? row : GraphQLBoolean }
 		}
-		if (!creating && many) fields['set'] = { type: row }
+		// A filtered relation takes no `set` (D-151).
+		if (!creating && many && field.filtered !== true) {
+			fields['set'] = { type: row }
+		}
 		if (updating) {
 			fields['update'] = {
 				type: many
@@ -227,19 +231,21 @@ function dataInput(
 					const required = new Set(creating ? exposed.required : [])
 					const fields: GraphQLInputFieldConfigMap = {}
 					for (const field of exposed.schema.fields) {
-						if (field.name === without) continue
+						// A view is read-only (D-151).
+						const view = field.kind === 'many' && field.from !== undefined
+						if (field.name === without || view) continue
 						const type = fieldInput(registry, model, field, creating)
 						fields[field.name] = {
 							type: required.has(field.name) ? new GraphQLNonNull(type) : type,
 						}
 					}
-					return fields
+					return described(registry.entry(model), fields)
 				},
 			}),
 	)
 }
 
-/** A visible model's three mutations. */
+/** A visible model's four mutations. */
 export function mutationFields(registry: Registry, entry: Entry): Fields {
 	const name = entry.model.name
 	const type = objectType(registry, name)
@@ -283,6 +289,23 @@ export function mutationFields(registry: Registry, entry: Entry): Fields {
 					as(context),
 				),
 			),
+		},
+		// The row it created or updated, as either branch returns it (D-142).
+		[`upsert${name}`]: {
+			type: new GraphQLNonNull(type),
+			args: { where, create: data(true), update: data(false) },
+			resolve: written(async (args, select, context) => {
+				const { row } = await entry.exposed.upsert(
+					{
+						where: unique(args),
+						create: kernelData(registry, name, objectOf(args['create'])),
+						update: kernelData(registry, name, objectOf(args['update'])),
+						select,
+					},
+					as(context),
+				)
+				return row
+			}),
 		},
 		[`delete${name}`]: {
 			type: new GraphQLNonNull(deletedType(registry, name)),

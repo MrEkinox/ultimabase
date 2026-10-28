@@ -9,5 +9,6 @@ export {
 	jsonSchemaOf,
 	plural,
 	readable,
+	readableVirtuals,
 	run,
 } from './transport.ts'

@@ -1,6 +1,6 @@
 // The row a single-row write targets, read locked in the write's
 // transaction, and the checks of its write (D-99, D-104).
-import type { Change, Filter, Row } from './adapter.ts'
+import type { Change, Filter, Read, Row } from './adapter.ts'
 import { CheckFailed, RelationViolation, UniqueViolation } from './adapter.ts'
 import { PublicError } from './errors.ts'
 import type { Context } from './query-context.ts'
@@ -23,14 +23,22 @@ export function refused(error: RelationViolation): PublicError {
 			)
 }
 
-/** Writes `changes` after `checks`, each failed check its own error. */
+/**
+ * Writes `changes` after `checks`, each failed check its own error, then
+ * reads `read`.
+ */
 export const checkedWrite = async (
 	store: Store,
 	checks: readonly Checked[],
 	changes: readonly Change[],
+	read?: Read,
 ): Promise<Row[]> =>
 	guarded(
-		store.write({ checks: checks.map(({ check }) => check), changes }),
+		store.write({
+			checks: checks.map(({ check }) => check),
+			changes,
+			...(read && { read }),
+		}),
 		checks,
 	)
 

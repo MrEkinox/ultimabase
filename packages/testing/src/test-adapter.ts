@@ -2,15 +2,27 @@
 // alike, checked through the kernel's public API.
 import type { Adapter } from 'ultimabase'
 import { describe } from 'vitest'
+import { aggregates } from './aggregates.ts'
+import { bulkReturns } from './bulk-returns.ts'
+import { calendarDays } from './days.ts'
+import { cases } from './cases.ts'
 import { cascades } from './cascades.ts'
 import { counts } from './counts.ts'
+import { decimals } from './decimals.ts'
+import { distincts } from './distincts.ts'
+import { groups } from './groups.ts'
+import { jsonPaths } from './json-paths.ts'
 import { lists } from './lists.ts'
 import { nested } from './nested.ts'
 import { numbers } from './numbers.ts'
 import { projection } from './projection.ts'
 import { reads } from './reads.ts'
+import { relationFilters } from './relation-filters.ts'
 import { roundTrips } from './round-trips.ts'
+import { searches } from './searches.ts'
+import { sorts } from './sorts.ts'
 import { transactions } from './transactions.ts'
+import { virtuals } from './virtuals.ts'
 import { writes } from './writes.ts'
 
 export type Options = {
@@ -29,12 +41,24 @@ export function testAdapter(
 ): void {
 	describe(`the ${name} adapter`, () => {
 		reads(create)
+		cases(create)
 		writes(create)
 		cascades(create)
 		lists(create)
+		jsonPaths(create)
 		nested(create)
 		numbers(create)
+		bulkReturns(create)
+		decimals(create)
+		calendarDays(create)
 		counts(create)
+		relationFilters(create)
+		virtuals(create)
+		aggregates(create)
+		groups(create)
+		distincts(create)
+		sorts(create)
+		searches(create)
 		projection(create)
 		transactions(create)
 		roundTrips(create, options.roundTrips)

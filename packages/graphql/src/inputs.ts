@@ -3,26 +3,32 @@
 import { readable } from '@ultimabase/http/internal'
 import type {
 	GraphQLInputFieldConfigMap,
+	GraphQLInputType,
 	GraphQLNamedInputType,
 	GraphQLScalarType,
 } from 'graphql'
 import {
+	GraphQLBoolean,
 	GraphQLEnumType,
 	GraphQLID,
 	GraphQLInputObjectType,
 	GraphQLList,
 	GraphQLNonNull,
+	GraphQLString,
 } from 'graphql'
 import type { SchemaField } from 'ultimabase'
 import { upper } from './names.ts'
 import type { Args, Registry, Scalar } from './registry.ts'
 import { scalarType } from './registry.ts'
-import { jsonFilter } from './json-fields.ts'
 import { DateTime } from './scalars.ts'
 
 /** An input object's value, as the kernel's arguments. */
 export const objectOf = (value: unknown): Args =>
 	typeof value === 'object' && value !== null ? { ...value } : {}
+
+/** Whether a model has fields its `_search` matches (D-148). */
+const searched = (fields: readonly SchemaField[]): boolean =>
+	fields.some((field) => field.kind === 'scalar' && field.search === true)
 
 const list = <T extends GraphQLNamedInputType>(
 	type: T,
@@ -31,6 +37,29 @@ const list = <T extends GraphQLNamedInputType>(
 const base = ['equals', 'not', 'in', 'notIn']
 const ordered = [...base, 'lt', 'lte', 'gt', 'gte']
 const text = [...base, 'contains', 'startsWith', 'endsWith']
+
+/** `QueryMode`: a string filter's operators ignore case (D-140). */
+const queryMode = (registry: Registry): GraphQLEnumType =>
+	registry.enum(
+		'QueryMode',
+		() =>
+			new GraphQLEnumType({
+				name: 'QueryMode',
+				values: { insensitive: { value: 'insensitive' } },
+			}),
+	)
+
+/** The input type of a filter's operator. */
+function operand(
+	registry: Registry,
+	type: GraphQLNamedInputType,
+	operator: string,
+): GraphQLInputType {
+	if (operator === 'mode') return queryMode(registry)
+	if (operator === 'path') return list(GraphQLString)
+	if (operator.startsWith('string')) return GraphQLString
+	return operator === 'in' || operator === 'notIn' ? list(type) : type
+}
 
 /** `StringFilter`, `FloatFilter`, `PostStatusFilter`: the kernel's operators. */
 function filter(
@@ -47,10 +76,7 @@ function filter(
 				fields: Object.fromEntries(
 					operators.map((operator) => [
 						operator,
-						{
-							type:
-								operator === 'in' || operator === 'notIn' ? list(type) : type,
-						},
+						{ type: operand(registry, type, operator) },
 					]),
 				),
 			}),
@@ -59,17 +85,30 @@ function filter(
 
 /** Each scalar type's operators: no order on strings, as the kernel. */
 const operators: { readonly [T in Scalar['type']]: readonly string[] } = {
-	string: text,
+	string: [...text, 'mode'],
 	number: ordered,
+	decimal: ordered,
+	dateTime: ordered,
 	date: ordered,
 	boolean: base,
-	json: base,
+	// Any JSON, a path into it or not, typed field or not (D-149).
+	json: [
+		'path',
+		...ordered,
+		'stringContains',
+		'stringStartsWith',
+		'stringEndsWith',
+		'mode',
+		'arrayContains',
+		'arrayStartsWith',
+		'arrayEndsWith',
+	],
 	enum: base,
 }
 
 /**
  * `StringListFilter`, `FloatListFilter`, `ProductSizesListFilter`: no
- * shorthand, `NOT` gives the opposite (D-120, D-127).
+ * shorthand, `NOT` gives the opposite (D-120, D-127, D-149).
  */
 const listFilter = (
 	registry: Registry,
@@ -81,7 +120,12 @@ const listFilter = (
 		() =>
 			new GraphQLInputObjectType({
 				name,
-				fields: { has: { type: item }, hasSome: { type: list(item) } },
+				fields: {
+					has: { type: item },
+					hasSome: { type: list(item) },
+					hasEvery: { type: list(item) },
+					isEmpty: { type: GraphQLBoolean },
+				},
 			}),
 	)
 }
@@ -93,10 +137,7 @@ const scalarFilter = (
 ): GraphQLInputObjectType => {
 	const item = scalarType(registry, model, field)
 	if (field.list) return listFilter(registry, item)
-	const untyped = () => filter(registry, item, operators[field.type])
-	return field.type === 'json'
-		? jsonFilter(registry, model, field, untyped)
-		: untyped()
+	return filter(registry, item, operators[field.type])
 }
 
 const relationFilter = (
@@ -145,6 +186,9 @@ export function whereInput(
 						updatedAt: { type: filter(registry, DateTime, ordered) },
 					}
 					const entry = registry.entry(model)
+					if (searched(readable(entry))) {
+						fields['_search'] = { type: GraphQLString }
+					}
 					for (const field of readable(entry)) {
 						// Only a beforeFind filters a plugin field (D-122).
 						if (entry.exposed.fieldTypes[field.name] !== undefined) continue
@@ -205,6 +249,8 @@ export function orderByInput(
 						updatedAt: { type },
 					}
 					const entry = registry.entry(model)
+					// The kernel refuses it in a relation's: a read ranks by its own search.
+					if (searched(readable(entry))) fields['_relevance'] = { type }
 					for (const field of readable(entry)) {
 						if (field.kind === 'one') {
 							fields[field.name] = {

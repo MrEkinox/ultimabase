@@ -146,6 +146,22 @@ for (const url of urls) {
 			expect(rows).toEqual([{ stock: 8 }])
 		})
 
+		it('counts both through an upsert, which locks the row it finds (D-142)', async () => {
+			const item = await Item.create({ data: { stock: 10 } }, M)
+			const decrement = async () =>
+				Item.upsert(
+					{
+						where: { id: item.id },
+						create: { stock: 0 },
+						update: { stock: { decrement: 1 } },
+					},
+					M,
+				)
+			await raced('item', [decrement, decrement])
+			const { rows } = await other.query(`select "stock" from "item"`)
+			expect(rows).toEqual([{ stock: 8 }])
+		})
+
 		it('lets the hook refuse the decrement that would go below 0', async () => {
 			const product = await Product.create({ data: { stock: 1 } }, M)
 			const decrement = async () =>

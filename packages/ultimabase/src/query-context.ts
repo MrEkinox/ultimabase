@@ -10,8 +10,12 @@ import type { Running } from './running.ts'
 import type { ModelInfo } from './schema.ts'
 import type { QueryScope } from './scope.ts'
 import { planned } from './scope.ts'
-import type { Hidden, Shape } from './query-args.ts'
-import { oneKeys, plan, project } from './query-args.ts'
+import type { Shape } from './query-args.ts'
+import { oneKeys, plan } from './query-args.ts'
+import type { Hidden } from './query-project.ts'
+import { project } from './query-project.ts'
+import type { Store } from './transaction.ts'
+import { computeVirtuals } from './virtual-read.ts'
 import type { Models } from './query-where.ts'
 import { entries, unknownKey } from './query-where.ts'
 
@@ -73,11 +77,28 @@ export function hiddenBy(access: Access | undefined): Hidden | undefined {
 	return access && ((model, row, fields) => access.hidden(model, row, fields))
 }
 
-export function first(
+/** Each row, as `shape` shapes it (D-149), its virtuals computed (D-151). */
+export async function shapedRows(
+	context: Context,
+	store: Store,
 	rows: readonly Row[],
 	shape: Shape,
 	access: Access | undefined,
-): unknown {
+): Promise<unknown[]> {
+	const hidden = hiddenBy(access)
+	const computed = await computeVirtuals(context, store, rows, shape, hidden)
+	return rows.map((row) => project(row, shape, hidden, computed))
+}
+
+export async function first(
+	context: Context,
+	store: Store,
+	rows: readonly Row[],
+	shape: Shape,
+	access: Access | undefined,
+): Promise<unknown> {
 	const [row] = rows
-	return row === undefined ? null : project(row, shape, hiddenBy(access))
+	if (row === undefined) return null
+	const [shaped] = await shapedRows(context, store, [row], shape, access)
+	return shaped
 }

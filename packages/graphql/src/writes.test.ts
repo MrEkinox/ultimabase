@@ -1,4 +1,4 @@
-// Writes over GraphQL (D-107): create, update and delete, relation writes,
+// Writes over GraphQL (D-107): create, update, upsert and delete, relation writes,
 // and the kernel's refusals as client errors.
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { master } from 'ultimabase'
@@ -116,6 +116,45 @@ describe('a create', () => {
 		expect(denied.errors?.[0]?.extensions).toMatchObject({
 			code: 'ACCESS_DENIED',
 		})
+	})
+})
+
+describe('an upsert (D-142)', () => {
+	it('creates the row it does not find, then updates it', async () => {
+		const mutation = `mutation ($ada: ID!) { upsertPost(
+			where: { author_slug: { author: $ada, slug: "nine" } },
+			create: { title: "nine", slug: "nine", status: draft,
+				publishedAt: "2026-03-01T00:00:00Z", author: { connect: { id: $ada } } },
+			update: { views: 9, meta: { tags: ["b"] } }
+		) { title views meta publishedAt author { name } } }`
+		const upsert = async () => write(mutation, { ada })
+		expect(await upsert()).toStrictEqual({
+			data: {
+				upsertPost: {
+					title: 'nine',
+					views: 0,
+					meta: null,
+					publishedAt: '2026-03-01T00:00:00.000Z',
+					author: { name: 'ada' },
+				},
+			},
+		})
+		expect(at((await upsert()).data, 'upsertPost')).toStrictEqual({
+			title: 'nine',
+			views: 9,
+			meta: { tags: ['b'] },
+			publishedAt: '2026-03-01T00:00:00.000Z',
+			author: { name: 'ada' },
+		})
+	})
+
+	it('requires the target and both data', async () => {
+		const result = await write(
+			`mutation { upsertUser(where: { name: "hal" }, update: {}) { id } }`,
+		)
+		expect(result.errors?.map((error) => error.message)).toStrictEqual([
+			'Argument "Mutation.upsertUser(create:)" of type "UserCreateInput!" is required, but it was not provided.',
+		])
 	})
 })
 

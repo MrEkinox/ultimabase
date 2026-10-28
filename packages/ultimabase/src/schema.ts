@@ -5,21 +5,27 @@ import type {
 	Codec,
 	FieldDefinition,
 	FieldOptions,
-	IndexDefinition,
 	ModelDefinition,
 	PluginCode,
 	PluginUse,
 } from './definition.ts'
+import type { Digits } from './decimal.ts'
+import type { Enum } from './fields.ts'
 import { modelDefinitions } from './definition.ts'
 import { Refused } from './errors.ts'
+import { checkRelations, isFiltered, viewField } from './relations.ts'
+import { checkIndexes, checkSearch } from './schema-indexes.ts'
+import type { VirtualInfo } from './schema-virtuals.ts'
+import { virtualsOf } from './schema-virtuals.ts'
 
 /**
- * A field as the kernel reads it: its schema, its builder's options, and a
- * plugin field type's codec (D-122).
+ * A field as the kernel reads it: its schema, its builder's options, a
+ * plugin field type's codec (D-122) and its shared enum (D-150).
  */
 export type FieldInfo = SchemaField & {
 	readonly options: FieldOptions
 	readonly codec?: Codec
+	readonly enum?: Enum
 }
 
 export type ModelInfo = {
@@ -32,6 +38,8 @@ export type ModelInfo = {
 	readonly plugins: readonly PluginUse[]
 	/** The plugin whose own model it is, if one (D-110). */
 	readonly owner: string | undefined
+	/** Its fields computed on read, which the adapter never sees (D-151). */
+	readonly virtuals: ReadonlyMap<string, VirtualInfo>
 }
 
 export type Resolved = {
@@ -147,6 +155,12 @@ function relationField(link: Linked, inverse: Linked): FieldInfo {
 	}
 }
 
+/** A decimal's precision and scale, which its builder checked (D-145). */
+const digitsOf = (options: FieldOptions): Digits => ({
+	precision: Number(options['precision']),
+	scale: Number(options['scale']),
+})
+
 function scalarField(name: string, field: FieldDefinition): FieldInfo {
 	if (field.kind !== 'scalar') throw new Error('Expected a scalar field.')
 	const dbName = field.options['dbName']
@@ -160,8 +174,10 @@ function scalarField(name: string, field: FieldDefinition): FieldInfo {
 		...(field.type === 'number' && field.options['integer'] === true
 			? { integer: true }
 			: {}),
+		...(field.type === 'decimal' ? digitsOf(field.options) : {}),
 		optional: field.options['optional'] === true,
 		unique: field.options['unique'] === true,
+		...(field.options['search'] === true ? { search: true } : {}),
 		...(typeof dbName === 'string' ? { dbName } : {}),
 		// `null` is no value: a create without one stores none either. A
 		// field type's default is a value code sees, never a column's (D-122).
@@ -173,13 +189,15 @@ function scalarField(name: string, field: FieldDefinition): FieldInfo {
 			: { default: fixed }),
 		options: field.options,
 		...(field.codec === undefined ? {} : { codec: field.codec }),
+		...(field.enum === undefined ? {} : { enum: field.enum }),
 	}
 }
 
 /** A field as the adapter reads it, without the builder's options. */
-function schemaField(field: FieldInfo): SchemaField {
-	const { options: _options, codec: _codec, ...schema } = field
-	return schema
+function schemaField(model: ModelInfo, field: FieldInfo): SchemaField {
+	const { options: _options, codec: _codec, enum: _enum, ...schema } = field
+	if (schema.kind !== 'many' || !isFiltered(model, field.name)) return schema
+	return { ...schema, filtered: true }
 }
 
 /** Stops startup when `owner` uses a plugin that `plugins` does not hold. */
@@ -264,18 +282,6 @@ function definitionsOf(
 	return { definitions, names, owners }
 }
 
-/** An index on a list is a GIN index of that list alone (D-120). */
-function listIndex(model: string, name: string, index: IndexDefinition): void {
-	if (index.fields.length > 1) {
-		throw new Refused(
-			`${model}: the list '${name}' is indexed alone, in an index of its own.`,
-		)
-	}
-	if (index.unique === true) {
-		throw new Refused(`${model}: the list '${name}' cannot be unique.`)
-	}
-}
-
 /** Resolves the application's models, or stops startup with a message. */
 export function resolve(
 	values: readonly unknown[],
@@ -283,9 +289,10 @@ export function resolve(
 ): Resolved {
 	const { definitions, names, owners } = definitionsOf(values, plugins)
 	const links: Linked[] = []
+	const views: Linked[] = []
 	for (const [model, definition] of definitions) {
 		for (const [name, field] of definition.fields) {
-			if (field.kind === 'scalar') continue
+			if (field.kind === 'scalar' || field.kind === 'virtual') continue
 			const value = field.target()
 			const target =
 				typeof value === 'object' && value !== null
@@ -300,7 +307,10 @@ export function resolve(
 					`${model}.${name}: a plugin's model relates only to models of the same plugin; keep the id as a scalar.`,
 				)
 			}
-			links.push({ model, name, field, target })
+			// A view reads the link of another relation (D-151).
+			const from = field.kind === 'many' ? field.options['from'] : undefined
+			const link = { model, name, field, target }
+			;(typeof from === 'string' ? views : links).push(link)
 		}
 	}
 	const inverses = new Map(links.map((link) => [link, inverseOf(link, links)]))
@@ -311,46 +321,42 @@ export function resolve(
 			)
 		}
 	}
+	const linkOf = (list: readonly Linked[], model: string, name: string) =>
+		list.find((each) => each.model === model && each.name === name)
+	const relationOf = (model: string, name: string): FieldInfo | undefined => {
+		const link = linkOf(links, model, name)
+		const inverse = link && inverses.get(link)
+		return link && inverse ? relationField(link, inverse) : undefined
+	}
+	const fieldOf = (model: string, name: string, field: FieldDefinition) => {
+		const view = linkOf(views, model, name)
+		if (view === undefined) {
+			return relationOf(model, name) ?? scalarField(name, field)
+		}
+		const from = String(field.options['from'])
+		return viewField(
+			{ model, name, target: view.target, options: field.options },
+			from,
+			linkOf(views, model, from) ? 'view' : relationOf(model, from),
+		)
+	}
 	const models = new Map<string, ModelInfo>()
 	const byValue = new Map<object, ModelInfo>()
 	const schemaModels: SchemaModel[] = []
 	for (const [model, definition] of definitions) {
 		const fields = new Map<string, FieldInfo>()
 		for (const [name, field] of definition.fields) {
+			// A virtual is no field of the adapter's (D-151).
+			if (field.kind === 'virtual') continue
 			const plugin = field.kind === 'scalar' ? field.codec?.plugin : undefined
 			if (plugin !== undefined && !plugins.some((p) => p.name === plugin)) {
 				fail(
 					`${model}.${name} is a ${plugin} field, and ${plugin} is not in plugins.`,
 				)
 			}
-			const link = links.find(
-				(each) => each.model === model && each.name === name,
-			)
-			const inverse = link && inverses.get(link)
-			fields.set(
-				name,
-				link && inverse
-					? relationField(link, inverse)
-					: scalarField(name, field),
-			)
+			fields.set(name, fieldOf(model, name, field))
 		}
-		for (const index of definition.indexes) {
-			for (const name of index.fields) {
-				const field = fields.get(name)
-				if (
-					field === undefined ||
-					field.kind === 'many' ||
-					(field.kind === 'one' && !field.stored)
-				) {
-					throw new Refused(
-						`${model}: index field '${name}' is not a scalar or a stored one relation.`,
-					)
-				}
-				if (field.kind === 'scalar' && field.list) {
-					listIndex(model, name, index)
-				}
-			}
-		}
+		checkIndexes(model, fields, definition.indexes)
 		const uniques: (readonly string[])[] = [['id']]
 		for (const field of fields.values()) {
 			if (field.kind === 'scalar' && field.unique) uniques.push([field.name])
@@ -365,15 +371,19 @@ export function resolve(
 			uniques,
 			plugins: installedUses(definition, plugins),
 			owner: owners.get(model),
+			virtuals: virtualsOf(model, definition, names),
 		}
+		checkSearch(info)
+		checkRelations(info)
 		models.set(model, info)
 		schemaModels.push({
 			name: model,
 			...(definition.dbName === undefined ? {} : { dbName: definition.dbName }),
-			fields: [...fields.values()].map(schemaField),
+			fields: [...fields.values()].map((field) => schemaField(info, field)),
 			indexes: definition.indexes.map((index) => ({
 				fields: index.fields,
 				unique: index.unique === true,
+				contains: index.contains === true,
 			})),
 		})
 	}

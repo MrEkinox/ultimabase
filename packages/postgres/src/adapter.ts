@@ -15,12 +15,14 @@ import { joining, scratchable } from 'ultimabase/internal'
 import type {
 	Adapter,
 	CountRead,
+	Logger,
 	Read,
 	Row,
 	Schema,
 	Transaction,
 	Write,
 } from 'ultimabase'
+import { aggregate } from './aggregate.ts'
 import { decodeRows } from './decode.ts'
 import { apply, remoteOf, reset, stored } from './migrations.ts'
 import { Catalog } from './names.ts'
@@ -28,7 +30,13 @@ import { overflowed } from './numbers.ts'
 import { fillsOf } from './fills.ts'
 import { plan } from './plan.ts'
 import { compileCount, compileFind } from './read.ts'
-import { connecting, dropped, emptied, scratchName } from './scratch.ts'
+import {
+	connecting,
+	dropped,
+	emptied,
+	scratchName,
+	trigrams,
+} from './scratch.ts'
 import { parseSnapshot, snapshotOf } from './snapshot.ts'
 import type { Statement } from './write.ts'
 import { compileWrite, translate } from './write.ts'
@@ -40,6 +48,8 @@ export type Options = {
 	/** The milliseconds a query waits for a connection, or to open one. */
 	readonly wait?: number
 	readonly log?: (event: LogEvent) => void
+	/** The text search configuration of every `_search`, `'simple'` by default (D-148). */
+	readonly searchLanguage?: string
 }
 
 /** What `postgres()` returns: an adapter that also runs raw SQL (D-137). */
@@ -184,8 +194,13 @@ export function requireVersion(version: string | undefined): void {
 	}
 }
 
+/** What a case-insensitive filter misses when `lower('É') <> 'é'` (D-140). */
+export function foldWarning(ctype: string): string {
+	return `PostgreSQL folds case under its ${ctype} locale for ASCII only: a case-insensitive filter matches É and é in memory() but not here. Create the database with a UTF-8 locale, such as en_US.UTF-8.`
+}
+
 export function createAdapter(options: Options): Postgres {
-	const { url, connections = 10, wait = 10_000 } = options
+	const { url, connections = 10, wait = 10_000, searchLanguage } = options
 	const remote = url ? remoteOf(url) : undefined
 	let state: { db: Kysely<object>; catalog: Catalog } | undefined
 	/** A test file's schema, and whether a start created it. */
@@ -197,7 +212,7 @@ export function createAdapter(options: Options): Postgres {
 		return state
 	}
 	const adapter: Postgres = {
-		start: async (schema: Schema) => {
+		start: async (schema: Schema, logger: Logger) => {
 			if (!url) {
 				throw new Refused(
 					'postgres() was given no url: is the variable it reads set?',
@@ -208,11 +223,16 @@ export function createAdapter(options: Options): Postgres {
 					`postgres() takes connections as a whole number, 1 or more, not ${connections}.`,
 				)
 			}
-			const catalog = new Catalog(schema)
+			const catalog = new Catalog(schema, searchLanguage)
 			// Refuses two things stored under one name before it connects.
-			snapshotOf(catalog)
+			const { tables } = snapshotOf(catalog)
+			const trigram = Object.values(tables).some(
+				(table) => Object.keys(table.trigrams).length > 0,
+			)
+			const extensions =
+				scratch !== undefined && trigram ? [await trigrams(url)] : []
 			const pool = new Pool({
-				...connecting(url, scratch?.name),
+				...connecting(url, scratch?.name, extensions),
 				max: connections,
 				connectionTimeoutMillis: wait,
 			})
@@ -236,9 +256,26 @@ export function createAdapter(options: Options): Postgres {
 			})
 			try {
 				const { rows } = await sql<{
-					server_version_num: string
-				}>`show server_version_num`.execute(db)
-				requireVersion(rows[0]?.server_version_num)
+					version: string
+					folds: boolean
+					ctype: string
+					language: boolean
+				}>`select current_setting('server_version_num') as version,
+					lower('É') = 'é' as folds,
+					(select datctype from pg_database where datname = current_database()) as ctype,
+					exists (select from pg_ts_config as c join pg_namespace as n on n.oid = c.cfgnamespace where (c.cfgname = ${catalog.language} and pg_ts_config_is_visible(c.oid)) or n.nspname || '.' || c.cfgname = ${catalog.language}) as language`.execute(
+					db,
+				)
+				const [server] = rows
+				requireVersion(server?.version)
+				if (server?.language === false) {
+					throw new Refused(
+						`postgres() searches in '${catalog.language}', a text search configuration this server does not have.`,
+					)
+				}
+				if (server !== undefined && !server.folds) {
+					logger.warn(foldWarning(server.ctype))
+				}
 				if (scratch !== undefined) {
 					scratch.made = true
 					await emptied(db, scratch.name)
@@ -256,6 +293,7 @@ export function createAdapter(options: Options): Postgres {
 		},
 		find: async (read) => find(started().catalog, started().db, read),
 		count: async (read) => count(started().catalog, started().db, read),
+		aggregate: async (read) => aggregate(started().catalog, started().db, read),
 		write: async (given) => {
 			const { catalog, db } = started()
 			const statements = compileWrite(catalog, given)
@@ -271,9 +309,9 @@ export function createAdapter(options: Options): Postgres {
 			}
 		},
 		migrations: {
-			snapshot: (schema) => snapshotOf(new Catalog(schema)),
+			snapshot: (schema) => snapshotOf(new Catalog(schema, searchLanguage)),
 			plan: (from, schema) => {
-				const catalog = new Catalog(schema)
+				const catalog = new Catalog(schema, searchLanguage)
 				return plan(
 					from === undefined ? undefined : parseSnapshot(from),
 					snapshotOf(catalog),
@@ -305,6 +343,7 @@ export function createAdapter(options: Options): Postgres {
 			const tx: Transaction = {
 				find: async (read) => find(catalog, trx, read),
 				count: async (read) => count(catalog, trx, read),
+				aggregate: async (read) => aggregate(catalog, trx, read),
 				write: async (given) => write(catalog, trx, given),
 				commit: async () => {
 					try {

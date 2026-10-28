@@ -49,10 +49,12 @@ export class DataTypes {
 		name: string,
 		values: readonly string[],
 		owner: string,
+		description?: string,
 	): GraphQLEnumType {
 		const build = () =>
 			new GraphQLEnumType({
 				name,
+				description,
 				values: Object.fromEntries(values.map((value) => [value, { value }])),
 			})
 		return this.#shaped(this.#enums, name, values.join(), owner, build)
@@ -78,6 +80,12 @@ export class DataTypes {
 			throw new Refused(`${owner}: the type ${name} is named like a model.`)
 		}
 		const known = cache.get(name)
+		const other = this.owners.get(name)
+		if (known === undefined && other !== undefined) {
+			throw new Refused(
+				`${other} and ${owner} give the type ${name} two shapes; name each once.`,
+			)
+		}
 		if (known === undefined) {
 			const type = build()
 			cache.set(name, { key, owner, type })

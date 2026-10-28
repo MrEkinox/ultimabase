@@ -26,7 +26,7 @@ export const AuthSession: ModelOf<'AuthSession', SessionFields, []> =
 		fields: (f) => ({
 			tokenHash: f.string({ unique: true }),
 			userId: f.string(),
-			expiresAt: f.date(),
+			expiresAt: f.dateTime(),
 		}),
 		indexes: [{ fields: ['userId'] }, { fields: ['expiresAt'] }],
 	})

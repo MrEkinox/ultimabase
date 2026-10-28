@@ -10,6 +10,7 @@ import type {
 	UpdateData,
 } from './record.ts'
 import type { Caller } from './rules.ts'
+import type { VirtualRules } from './virtual.ts'
 import type {
 	declaredRecord,
 	fieldType,
@@ -106,10 +107,36 @@ export type ModelHooks<F, N extends string = string> = {
 	readonly afterDeleteCommit?: RecordHook<F, N>
 }
 
-/** The kernel's keys; `W` holds one key per plugin (D-42). */
+/**
+ * What a `many` relation's reads see, Master's too (D-151): a function
+ * shaped like a read rule, typed from the target.
+ */
+type RelationFilter<T> = {
+	readonly where: (facts: {
+		readonly caller: Caller
+		readonly where: (filter: Where<T>) => ReadFilter
+	}) => boolean | ReadFilter
+}
+
+/** A filter for each `many` relation that has one (D-151). */
+export type RelationFilters<F> = {
+	readonly [
+		K in keyof F as F[K] extends {
+			readonly [fieldType]: { readonly kind: 'many' }
+		}
+			? K
+			: never
+	]?: F[K] extends { readonly [fieldType]: { readonly target: infer T } }
+		? RelationFilter<TargetFields<T>>
+		: never
+}
+
+/** The kernel's keys; `W` holds one key per plugin (D-42, D-151). */
 export type ModelWith<F, W, N extends string> = {
 	readonly access?: ModelAccess<F, N>
 	readonly hooks?: ModelHooks<F, N>
+	readonly relations?: RelationFilters<F>
+	readonly virtuals?: VirtualRules<F>
 } & W
 
 /** `X` lists the fields of each unique index (D-52). */
@@ -129,7 +156,7 @@ export interface Model<N extends string, F, P, W, X = never> extends Queries<
 
 export type FieldShape = {
 	readonly [fieldType]: {
-		readonly kind: 'scalar' | 'one' | 'many'
+		readonly kind: 'scalar' | 'one' | 'many' | 'virtual'
 		readonly options: object
 	}
 }
@@ -182,6 +209,8 @@ export type FieldTypePlugins<F> = {
 export type IndexShape = {
 	readonly fields: readonly string[]
 	readonly unique?: boolean
+	/** A trigram index, for `contains` and `mode: 'insensitive'` (D-141). */
+	readonly contains?: true
 }
 
 /** The fields of each unique index. */
@@ -199,6 +228,28 @@ type IndexableKeys<F> = {
 		? K
 		: never
 }[keyof F]
+// A `contains` index covers one string field that is not a list (D-141).
+type TextKeys<F> = {
+	[K in keyof F]: F[K] extends {
+		readonly [fieldType]: { readonly kind: 'scalar'; readonly value: infer V }
+	}
+		? [V] extends [string]
+			? string extends V
+				? K
+				: never
+			: never
+		: never
+}[keyof F]
+type ContainsCheck<I, F> = I extends { readonly contains: true }
+	? I extends {
+			readonly fields: readonly [TextKeys<F>]
+			readonly unique?: false | undefined
+		}
+		? unknown
+		: {
+				readonly contains: 'a contains index covers one string field that is not a list, and is not unique'
+			}
+	: unknown
 type NotIndexable<I, F> = I extends { readonly fields: readonly (infer K)[] }
 	? Exclude<K, IndexableKeys<F>>
 	: never
@@ -211,11 +262,12 @@ type NotIndexable<I, F> = I extends { readonly fields: readonly (infer K)[] }
 export type IndexCheck<X, F> = string extends keyof F
 	? unknown
 	: {
-			readonly [I in keyof X]: [NotIndexable<X[I], F>] extends [never]
+			readonly [I in keyof X]: ([NotIndexable<X[I], F>] extends [never]
 				? unknown
 				: {
 						readonly fields: `'${NotIndexable<X[I], F> & string}' is not a scalar field or a one relation of the model`
-					}
+					}) &
+				ContainsCheck<X[I], F>
 		}
 
 export type ModelShape = {

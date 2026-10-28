@@ -32,7 +32,7 @@ const fields = new Map<string, Property>(
 		scalar('name', 'string'),
 		scalar('age', 'number', { optional: true }),
 		scalar('admin', 'boolean', { optional: true }),
-		scalar('born', 'date', { optional: true }),
+		scalar('born', 'dateTime', { optional: true }),
 		scalar('role', 'enum', { optional: true, values: ['reader', 'writer'] }),
 		scalar('tags', 'string', { list: true }),
 	].map((field) => [
@@ -199,6 +199,11 @@ describe('a sign-up input', () => {
 			'test',
 		)
 		expect(required.json).toStrictEqual({ type: 'string', enum: ['a'] })
+		const day = fieldProperty(scalar('on', 'date'), true, 'test')
+		expect(day.json).toStrictEqual({ type: 'string', format: 'date' })
+		expect(day.read('2026-02-29')).toStrictEqual({
+			message: "Expected a day written '2026-07-31'.",
+		})
 	})
 })
 
@@ -228,6 +233,27 @@ describe('an integer field', () => {
 		expect(fieldProperty(list, true, 'test').json).toStrictEqual({
 			type: 'array',
 			items: { type: 'integer', ...range },
+		})
+	})
+})
+
+describe('a decimal field', () => {
+	const field = { ...scalar('price', 'decimal'), precision: 5, scale: 2 }
+
+	it('takes a decimal string its digits hold, as the kernel does (D-145)', () => {
+		const { read } = fieldProperty(field, true, 'test')
+		expect(read('012.5')).toStrictEqual({ value: '012.5' })
+		const message =
+			"Expected a decimal string of at most 5 digits, 2 after the point, such as '12.50'."
+		for (const value of [12.5, '1e2', '1.234', '1000']) {
+			expect(read(value)).toStrictEqual({ message })
+		}
+	})
+
+	it('is a patterned string in its JSON Schema', () => {
+		expect(fieldProperty(field, true, 'test').json).toStrictEqual({
+			type: 'string',
+			pattern: '^-?\\d+(\\.\\d+)?$',
 		})
 	})
 })
