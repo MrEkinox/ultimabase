@@ -232,17 +232,17 @@ const fieldsOf =
 const listOf = <T extends GraphQLNullableType>({ type, nullable }: Typed<T>) =>
 	new GraphQLList(nullable ? type : new GraphQLNonNull(type))
 
-function outputScope(
-	root: Node,
-	types: DataTypes,
-	lenient: boolean,
-): Scope<GraphQLNullableOutputType> {
-	const scope: Scope<GraphQLNullableOutputType> = {
-		side: 'output',
+/** Each side's scope for `root`'s types. */
+function scopesOf(root: Node, types: DataTypes, lenient: boolean) {
+	const shared = {
 		lenient,
 		defs: defsOf(root),
 		types,
-		leaf: (type) => type,
+		leaf: (type: Leaf) => type,
+	}
+	const output: Scope<GraphQLNullableOutputType> = {
+		...shared,
+		side: 'output',
 		list: listOf,
 		object: (node, properties, path) =>
 			types.object(
@@ -252,24 +252,13 @@ function outputScope(
 				() =>
 					new GraphQLObjectType<unknown, Context>({
 						name: path.name,
-						fields: fieldsOf(node, properties, path, scope),
+						fields: fieldsOf(node, properties, path, output),
 					}),
 			),
 	}
-	return scope
-}
-
-function inputScope(
-	root: Node,
-	types: DataTypes,
-	lenient: boolean,
-): Scope<GraphQLNullableInputType> {
-	const scope: Scope<GraphQLNullableInputType> = {
+	const input: Scope<GraphQLNullableInputType> = {
+		...shared,
 		side: 'input',
-		lenient,
-		defs: defsOf(root),
-		types,
-		leaf: (type) => type,
 		list: listOf,
 		object: (node, properties, path) => {
 			const name = `${path.name}${path.suffix}`
@@ -280,12 +269,12 @@ function inputScope(
 				() =>
 					new GraphQLInputObjectType({
 						name,
-						fields: fieldsOf(node, properties, path, scope),
+						fields: fieldsOf(node, properties, path, input),
 					}),
 			)
 		},
 	}
-	return scope
+	return { output, input }
 }
 
 /** An output schema's type, nullable when its JSON Schema accepts `null`. */
@@ -295,7 +284,7 @@ export function outputData(
 	types: DataTypes,
 ): Typed<GraphQLNullableOutputType> {
 	const root = jsonSchemaOf(schema, 'output', `${path.owner}: ${path.at}`)
-	return dataType(root, path, outputScope(root, types, false))
+	return dataType(root, path, scopesOf(root, types, false).output)
 }
 
 /**
@@ -308,7 +297,7 @@ export function inputArgs(
 	types: DataTypes,
 ): { readonly args: GraphQLFieldConfigArgumentMap; readonly flat: boolean } {
 	const root = jsonSchemaOf(schema, 'input', `${path.owner}: ${path.at}`)
-	const scope = inputScope(root, types, false)
+	const scope = scopesOf(root, types, false).input
 	const ref = root['$ref']
 	const object = typeof ref === 'string' ? scope.defs[ref.slice(8)] : root
 	const properties = isNode(object) ? object['properties'] : undefined
@@ -335,7 +324,7 @@ export function fieldOutput(
 	types: DataTypes,
 ): Typed<GraphQLNullableOutputType> | undefined {
 	const root = exportOf(schema, 'output')
-	return root && dataType(root, path, outputScope(root, types, true))
+	return root && dataType(root, path, scopesOf(root, types, true).output)
 }
 
 /** A json field's type when written, from its schema's input side. */
@@ -345,5 +334,5 @@ export function fieldInput(
 	types: DataTypes,
 ): Typed<GraphQLNullableInputType> | undefined {
 	const root = exportOf(schema, 'input')
-	return root && dataType(root, path, inputScope(root, types, true))
+	return root && dataType(root, path, scopesOf(root, types, true).input)
 }

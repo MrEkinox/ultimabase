@@ -130,6 +130,14 @@ export function rowsOf(value: unknown): readonly Row[] {
 	return Array.isArray(value) ? value.filter(isRow) : []
 }
 
+/** The kernel's `where` of a list or count's arguments. */
+export function whereOf(registry: Registry, model: string, args: Args): Args {
+	const { where } = args
+	return typeof where === 'object' && where !== null
+		? { where: plainWhere(registry, model, { ...where }) }
+		: {}
+}
+
 /** A list's kernel read, and its Relay page unless `pagination: 'list'`. */
 export function listRead(
 	registry: Registry,
@@ -138,13 +146,9 @@ export function listRead(
 	master: boolean,
 ): { readonly read: Args; readonly page: Relay | undefined } {
 	const { pagination } = registry.settings
-	const { where, orderBy } = args
-	const filter =
-		typeof where === 'object' && where !== null
-			? { where: plainWhere(registry, entry.model.name, { ...where }) }
-			: {}
+	const { orderBy } = args
 	const shared = {
-		...filter,
+		...whereOf(registry, entry.model.name, args),
 		...(orderBy === undefined || orderBy === null ? {} : { orderBy }),
 	}
 	if (pagination === 'list') {

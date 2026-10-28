@@ -107,7 +107,7 @@ function argsOf(
 }
 
 /** Under a connection, the nodes its edges select. */
-function nodesOf(info: Info, nodes: readonly FieldNode[]): FieldNode[] {
+export function nodesOf(info: Info, nodes: readonly FieldNode[]): FieldNode[] {
 	const edges = grouped(info, nodes).get('edges') ?? []
 	return [...(grouped(info, edges).get('node') ?? [])]
 }

@@ -9,11 +9,10 @@ import {
 } from 'graphql'
 import { objectOf, uniqueInput, uniqueWhere } from './inputs.ts'
 import { connectionType, isMaster, listArgs, objectType } from './outputs.ts'
-import { connection, listRead, rowsOf } from './pages.ts'
-import { plainWhere } from './json-fields.ts'
+import { connection, listRead, rowsOf, whereOf } from './pages.ts'
 import type { Args, Context, Entry, Registry } from './registry.ts'
 import { as } from './registry.ts'
-import { grouped, selectOf } from './select.ts'
+import { nodesOf, selectOf } from './select.ts'
 import { mutationFields } from './mutations.ts'
 import { run } from './errors.ts'
 import type { RootField } from './functions.ts'
@@ -21,18 +20,11 @@ import { Refused } from 'ultimabase'
 
 type Fields = { [field: string]: GraphQLFieldConfig<unknown, Context, Args> }
 
-const whereOf = (registry: Registry, model: string, args: Args): Args => {
-	const { where } = args
-	return typeof where === 'object' && where !== null
-		? { where: plainWhere(registry, model, { ...where }) }
-		: {}
-}
-
 /** What a root list selects of its rows: under `edges { node }`. */
 function rowNodes(registry: Registry, info: GraphQLResolveInfo) {
-	if (registry.settings.pagination === 'list') return info.fieldNodes
-	const edges = grouped(info, info.fieldNodes).get('edges') ?? []
-	return grouped(info, edges).get('node') ?? []
+	return registry.settings.pagination === 'list'
+		? info.fieldNodes
+		: nodesOf(info, info.fieldNodes)
 }
 
 function rootFields(registry: Registry, entry: Entry): Fields {
