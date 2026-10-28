@@ -13,6 +13,7 @@ import type { Digits } from './decimal.ts'
 import type { Enum } from './fields.ts'
 import { modelDefinitions } from './definition.ts'
 import { Refused } from './errors.ts'
+import { checkRelations, isFiltered } from './relations.ts'
 import { checkIndexes, checkSearch } from './schema-indexes.ts'
 
 /**
@@ -189,9 +190,10 @@ function scalarField(name: string, field: FieldDefinition): FieldInfo {
 }
 
 /** A field as the adapter reads it, without the builder's options. */
-function schemaField(field: FieldInfo): SchemaField {
+function schemaField(model: ModelInfo, field: FieldInfo): SchemaField {
 	const { options: _options, codec: _codec, enum: _enum, ...schema } = field
-	return schema
+	if (schema.kind !== 'many' || !isFiltered(model, field.name)) return schema
+	return { ...schema, filtered: true }
 }
 
 /** Stops startup when `owner` uses a plugin that `plugins` does not hold. */
@@ -351,11 +353,12 @@ export function resolve(
 			owner: owners.get(model),
 		}
 		checkSearch(info)
+		checkRelations(info)
 		models.set(model, info)
 		schemaModels.push({
 			name: model,
 			...(definition.dbName === undefined ? {} : { dbName: definition.dbName }),
-			fields: [...fields.values()].map(schemaField),
+			fields: [...fields.values()].map((field) => schemaField(info, field)),
 			indexes: definition.indexes.map((index) => ({
 				fields: index.fields,
 				unique: index.unique === true,

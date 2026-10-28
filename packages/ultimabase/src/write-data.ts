@@ -16,6 +16,7 @@ import {
 import { checked, validated } from './validation.ts'
 import type { OrCreate } from './relation-write.ts'
 import { manyWrite, oneWrite } from './relation-write.ts'
+import { refuseSet } from './relations.ts'
 
 /** The data a `before*` hook changes in place (D-71). */
 export type Draft = { [field: string]: unknown }
@@ -87,6 +88,7 @@ export function readData(
 			continue
 		}
 		const write = manyWrite(value, path, model.name, creating)
+		if (write.set !== undefined) refuseSet(model, name, `${path}.set`)
 		const copy: Draft = { ...(isObject(value) ? value : {}) }
 		const to = (key: string, index: number) => `${path}.${key}.${index}`
 		if (Object.hasOwn(copy, 'create')) {

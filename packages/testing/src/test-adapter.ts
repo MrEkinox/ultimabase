@@ -17,6 +17,7 @@ import { nested } from './nested.ts'
 import { numbers } from './numbers.ts'
 import { projection } from './projection.ts'
 import { reads } from './reads.ts'
+import { relationFilters } from './relation-filters.ts'
 import { roundTrips } from './round-trips.ts'
 import { searches } from './searches.ts'
 import { sorts } from './sorts.ts'
@@ -50,6 +51,7 @@ export function testAdapter(
 		decimals(create)
 		calendarDays(create)
 		counts(create)
+		relationFilters(create)
 		aggregates(create)
 		groups(create)
 		distincts(create)

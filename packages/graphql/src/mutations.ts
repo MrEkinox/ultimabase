@@ -135,7 +135,10 @@ function relationInput(
 		if (!creating && shape !== 'OneRequired') {
 			fields['disconnect'] = { type: many ? row : GraphQLBoolean }
 		}
-		if (!creating && many) fields['set'] = { type: row }
+		// A filtered relation takes no `set` (D-151).
+		if (!creating && many && field.filtered !== true) {
+			fields['set'] = { type: row }
+		}
 		if (updating) {
 			fields['update'] = {
 				type: many

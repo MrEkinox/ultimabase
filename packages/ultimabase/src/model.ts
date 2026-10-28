@@ -106,10 +106,35 @@ export type ModelHooks<F, N extends string = string> = {
 	readonly afterDeleteCommit?: RecordHook<F, N>
 }
 
-/** The kernel's keys; `W` holds one key per plugin (D-42). */
+/**
+ * What a `many` relation's reads see, Master's too (D-151): a function
+ * shaped like a read rule, typed from the target.
+ */
+type RelationFilter<T> = {
+	readonly where: (facts: {
+		readonly caller: Caller
+		readonly where: (filter: Where<T>) => ReadFilter
+	}) => boolean | ReadFilter
+}
+
+/** A filter for each `many` relation that has one (D-151). */
+export type RelationFilters<F> = {
+	readonly [
+		K in keyof F as F[K] extends {
+			readonly [fieldType]: { readonly kind: 'many' }
+		}
+			? K
+			: never
+	]?: F[K] extends { readonly [fieldType]: { readonly target: infer T } }
+		? RelationFilter<TargetFields<T>>
+		: never
+}
+
+/** The kernel's keys; `W` holds one key per plugin (D-42, D-151). */
 export type ModelWith<F, W, N extends string> = {
 	readonly access?: ModelAccess<F, N>
 	readonly hooks?: ModelHooks<F, N>
+	readonly relations?: RelationFilters<F>
 } & W
 
 /** `X` lists the fields of each unique index (D-52). */

@@ -78,6 +78,8 @@ export type SchemaField =
 			readonly inverse: string
 			/** Facing a `many`: a join holding the two keys only (D-64). */
 			readonly join: boolean
+			/** Its reads see the rows a filter keeps; it takes no `set` (D-151). */
+			readonly filtered?: true
 	  }
 
 export type SchemaModel = {

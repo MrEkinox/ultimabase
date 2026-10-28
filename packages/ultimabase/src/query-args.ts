@@ -3,7 +3,7 @@
 import type { Filter, Nested } from './adapter.ts'
 import { and } from './access.ts'
 import { InvalidQuery } from './errors.ts'
-import type { ModelInfo } from './schema.ts'
+import type { FieldInfo, ModelInfo } from './schema.ts'
 import { orderBy } from './query-order.ts'
 import type { Models, Scope } from './query-where.ts'
 import {
@@ -23,6 +23,8 @@ export type Shape = {
 	/** The `many` relations `_count` returns (D-134). */
 	readonly counts: readonly string[]
 }
+
+type Many = Extract<FieldInfo, { readonly kind: 'many' }>
 
 export type Plan = { readonly read: Nested; readonly shape: Shape }
 
@@ -56,15 +58,12 @@ function counted(
 	path: string,
 	scope: Scope | undefined,
 ): Map<string, Filter> {
-	const relations = [...model.fields.values()].filter(
-		(field) => field.kind === 'many',
-	)
-	const filter = (counting: string, where?: Filter): Filter =>
-		and(where, scope?.readable(counting)) ?? {}
+	const filter = (field: Many, where?: Filter): Filter =>
+		and(where, scope?.related(model, field)) ?? {}
 	const counts = new Map<string, Filter>()
 	if (value === true) {
-		for (const field of relations) {
-			if (field.kind === 'many') counts.set(field.name, filter(field.target))
+		for (const field of model.fields.values()) {
+			if (field.kind === 'many') counts.set(field.name, filter(field))
 		}
 		return counts
 	}
@@ -79,7 +78,7 @@ function counted(
 		if (field?.kind !== 'many') throw unknownKey(at, model.name)
 		if (chosen === false) continue
 		if (chosen === true) {
-			counts.set(name, filter(field.target))
+			counts.set(name, filter(field))
 			continue
 		}
 		const args = new Map(entries(chosen, at))
@@ -96,7 +95,7 @@ function counted(
 					scope,
 				)
 			: undefined
-		counts.set(name, filter(field.target, where))
+		counts.set(name, filter(field, where))
 	}
 	return counts
 }
@@ -223,7 +222,11 @@ export function plan(
 				field.kind === 'many' ? manyKeys : oneKeys,
 				scope,
 			)
-			nested[name] = restrict(relation.read, scope?.readable(field.target))
+			const readable =
+				field.kind === 'one'
+					? scope?.readable(field.target)
+					: scope?.related(model, field)
+			nested[name] = restrict(relation.read, readable)
 			relations.set(name, relation.shape)
 		}
 	}

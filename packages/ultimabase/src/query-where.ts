@@ -59,6 +59,14 @@ export type Scope = {
 	readonly ruled: (model: ModelInfo, field: string) => boolean
 	/** A model's read filter; `undefined` when every row passes. */
 	readonly readable: (model: string) => Filter | undefined
+	/**
+	 * The rows a `many` relation reads: its filter (D-151) and its target's
+	 * read filter; `undefined` when every row passes.
+	 */
+	readonly related: (
+		model: ModelInfo,
+		field: Extract<FieldInfo, { readonly kind: 'many' }>,
+	) => Filter | undefined
 }
 
 /** `id`, `createdAt` and `updatedAt`, which every model has (D-22). */
@@ -201,7 +209,10 @@ function relationFilters(
 	scope: Scope | undefined,
 ): Filter[] {
 	const target = modelOf(models, field.target)
-	const readable = scope?.readable(field.target)
+	const readable =
+		field.kind === 'one'
+			? scope?.readable(field.target)
+			: scope?.related(model, field)
 	const allowed =
 		field.kind === 'one' ? ['is', 'isNot'] : ['some', 'every', 'none']
 	const filters: Filter[] = []

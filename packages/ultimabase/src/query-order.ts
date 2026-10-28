@@ -108,8 +108,8 @@ function keys(
 			continue
 		}
 		const target = modelOf(models, known.target)
-		const readable = scope?.readable(target.name)
 		if (known.kind === 'one') {
+			const readable = scope?.readable(target.name)
 			const step = { relation: field, ...(readable && { where: readable }) }
 			const next = [...through, step]
 			order.push(...keys(models, target, value, where, scope, next, search))
@@ -123,7 +123,8 @@ function keys(
 			)
 		}
 		const sorted = direction(only[1], `${where}._count`)
-		order.push({ field, direction: sorted, ...path, count: readable ?? {} })
+		const count = scope?.related(model, known) ?? {}
+		order.push({ field, direction: sorted, ...path, count })
 	}
 	return order
 }

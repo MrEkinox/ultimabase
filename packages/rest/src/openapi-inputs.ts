@@ -335,7 +335,10 @@ function relationInput(doc: Doc, field: Relation, creating: boolean): Schema {
 		if (!creating && shape !== 'OneRequired') {
 			fields['disconnect'] = many ? listed(unique) : { type: 'boolean' }
 		}
-		if (!creating && many) fields['set'] = listed(unique)
+		// A filtered relation takes no `set` (D-151).
+		if (!creating && many && field.filtered !== true) {
+			fields['set'] = listed(unique)
+		}
 		if (updating) {
 			const data = dataOf(doc, field.target, false, field.inverse)
 			fields['update'] = many

@@ -7,7 +7,8 @@ import type { Filter } from './adapter.ts'
 import { beforeFind } from './hooks.ts'
 import type { FindOperation } from './model.ts'
 import type { Caller } from './rules.ts'
-import type { ModelInfo } from './schema.ts'
+import { Relations } from './relations.ts'
+import type { FieldInfo, ModelInfo } from './schema.ts'
 import type { Models, Scope, Verb } from './query-where.ts'
 import { modelOf } from './query-where.ts'
 
@@ -27,11 +28,13 @@ export class QueryScope implements Scope {
 	readonly caller: Caller
 	/** `undefined` for Master, which skips access rules (D-48). */
 	readonly access: Access | undefined
+	private readonly relations: Relations
 
 	constructor(models: Models, caller: Caller, access: Access | undefined) {
 		this.models = models
 		this.caller = caller
 		this.access = access
+		this.relations = access?.relations ?? new Relations(models, caller)
 	}
 
 	check(model: ModelInfo, field: string, path: string, verb: Verb): void {
@@ -53,6 +56,13 @@ export class QueryScope implements Scope {
 		return and(this.narrowing(name, operation), this.access?.readable(name))
 	}
 
+	related(
+		model: ModelInfo,
+		field: Extract<FieldInfo, { readonly kind: 'many' }>,
+	): Filter | undefined {
+		return and(this.relations.filter(model, field), this.readable(field.target))
+	}
+
 	/**
 	 * Runs the `beforeFind` hooks of the models read since the last call;
 	 * whether one of them narrows, so the query must be planned again.
@@ -67,6 +77,7 @@ export class QueryScope implements Scope {
 				model,
 				this.caller,
 				operation,
+				this.relations,
 			)
 			this.narrowed.set(key, filter)
 			if (filter !== undefined) narrowed = true
