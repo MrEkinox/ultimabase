@@ -23,6 +23,16 @@ type UpdateFacts<R extends object, V> = {
 	readonly value: V
 }
 type Rule<F> = (facts: F) => boolean
+// Named, so a type error shows the rule the developer wrote.
+type FieldReadRule<R extends object> = Rule<ReadFacts<R>>
+type FieldCreateRule<V> = Rule<CreateFacts<V>>
+type FieldUpdateRule<R extends object, V> = Rule<UpdateFacts<R, V>>
+type FieldWriteRule<R extends object, V> = Rule<
+	CreateFacts<V> | UpdateFacts<R, V>
+>
+type FieldRule<R extends object, V> = Rule<
+	ReadFacts<R> | CreateFacts<V> | UpdateFacts<R, V>
+>
 
 /** A field keeps its declared record type, which `defineModel` checks. */
 // Each declared field is kept as `(value: T) => T`, which only the same `T`
@@ -37,12 +47,12 @@ export type Declared<R> = [R] extends [never]
 
 /** One rule, or one rule per operation (D-44). */
 export type FieldAccess<R extends object, V> =
-	| Rule<ReadFacts<R> | CreateFacts<V> | UpdateFacts<R, V>>
+	| FieldRule<R, V>
 	| {
-			readonly read?: Rule<ReadFacts<R>>
-			readonly create?: Rule<CreateFacts<V>>
-			readonly update?: Rule<UpdateFacts<R, V>>
-			readonly write?: Rule<CreateFacts<V> | UpdateFacts<R, V>>
+			readonly read?: FieldReadRule<R>
+			readonly create?: FieldCreateRule<V>
+			readonly update?: FieldUpdateRule<R, V>
+			readonly write?: FieldWriteRule<R, V>
 	  }
 
 /**
