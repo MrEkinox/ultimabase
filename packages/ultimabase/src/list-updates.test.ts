@@ -32,7 +32,10 @@ const Post = defineModel({
 		}),
 		sizes: f.enumOf(['S', 'M', 'L'], {
 			list: true,
-			validate: z.array(z.string()).max(2),
+			validate: z
+				.array(z.enum(['S', 'M', 'L']))
+				.max(2)
+				.readonly(),
 		}),
 		writer: f.one(() => Writer, { optional: true }),
 	}),
