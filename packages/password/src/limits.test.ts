@@ -44,6 +44,8 @@ describe('networkOf', () => {
 
 	it('counts an IPv4 address, mapped or not, as itself', () => {
 		expect(networkOf('::ffff:192.0.2.1')).toBe('192.0.2.1')
+		expect(networkOf('::FFFF:c000:0201')).toBe('192.0.2.1')
+		expect(networkOf('0:0:0:0:0:ffff:192.0.2.1')).toBe('192.0.2.1')
 		expect(networkOf('192.0.2.1')).toBe('192.0.2.1')
 		expect(networkOf('')).toBe('')
 	})
