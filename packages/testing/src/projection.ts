@@ -1,9 +1,9 @@
 // A read's `fields` (D-136): the rows hold `id` and those fields only, in a
 // relation too; without them, the whole row and each `one` key.
 import type { Adapter } from 'ultimabase'
-import { defineApp, defineModel, master } from 'ultimabase'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { silent } from './silent.ts'
+import { defineModel, master } from 'ultimabase'
+import { beforeEach, describe, expect, it } from 'vitest'
+import { started } from './suite.ts'
 
 const M = { as: master }
 
@@ -23,13 +23,10 @@ const Note = defineModel({
 
 export function projection(create: () => Adapter): void {
 	describe('projection', () => {
-		let database: Adapter
-		let app: ReturnType<typeof defineApp>
+		const database = started(create, [Writer, Note])
+
 		let ada: string
 		beforeEach(async () => {
-			database = create()
-			app = defineApp({ database, models: [Writer, Note], logger: silent })
-			await app.start()
 			ada = (await Writer.create({ data: { name: 'Ada' } }, M)).id
 			await Note.create(
 				{
@@ -42,10 +39,9 @@ export function projection(create: () => Adapter): void {
 				M,
 			)
 		})
-		afterEach(async () => app.stop())
 
 		it('reads the fields a read names, in a relation too', async () => {
-			const [note] = await database.find({
+			const [note] = await database().find({
 				model: 'Note',
 				fields: ['title'],
 				include: { writer: { fields: ['name'] } },
@@ -55,7 +51,7 @@ export function projection(create: () => Adapter): void {
 				title: 'one',
 				writer: { id: ada, name: 'Ada' },
 			})
-			const [whole] = await database.find({ model: 'Note' })
+			const [whole] = await database().find({ model: 'Note' })
 			expect(Object.keys(whole ?? {}).toSorted()).toEqual([
 				'body',
 				'createdAt',

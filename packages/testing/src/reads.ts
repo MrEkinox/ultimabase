@@ -1,9 +1,9 @@
 // The reads of the contract (D-20, D-73): every operator, AND, OR and NOT,
 // filters through relations, order, pages and nested relations.
 import type { Adapter, ArgsOf, WhereOf } from 'ultimabase'
-import { defineApp, defineModel, master } from 'ultimabase'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { silent } from './silent.ts'
+import { defineModel, master } from 'ultimabase'
+import { beforeEach, describe, expect, it } from 'vitest'
+import { started } from './suite.ts'
 
 const M = { as: master }
 
@@ -106,21 +106,13 @@ const page = async (args: ArgsOf<typeof Book, 'findMany'>): Promise<string[]> =>
 	)
 
 export function reads(create: () => Adapter): void {
-	const started = () =>
-		defineApp({
-			database: create(),
-			models: [Author, Profile, Book, Tag],
-			logger: silent,
-		})
 	describe('reads', () => {
-		let app: ReturnType<typeof started>
+		started(create, [Author, Profile, Book, Tag])
+
 		let authors: Authors
 		beforeEach(async () => {
-			app = started()
-			await app.start()
 			authors = await seed()
 		})
-		afterEach(async () => app.stop())
 
 		it('compares strings with every operator, case included', async () => {
 			expect(await titles({ title: 'Engines' })).toEqual(['Engines'])

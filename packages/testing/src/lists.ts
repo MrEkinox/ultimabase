@@ -2,9 +2,9 @@
 // values, `[]` when unwritten, replaced whole, filtered with `has` and
 // `hasSome`, indexed by GIN in PostgreSQL.
 import type { Adapter, WhereOf } from 'ultimabase'
-import { defineApp, defineModel, master } from 'ultimabase'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { silent } from './silent.ts'
+import { defineModel, master } from 'ultimabase'
+import { describe, expect, it } from 'vitest'
+import { started } from './suite.ts'
 
 const M = { as: master }
 
@@ -28,15 +28,8 @@ const titles = async (where: WhereOf<typeof Article>): Promise<string[]> =>
 	(await Article.findMany({ where }, M)).map((article) => article.title)
 
 export function lists(create: () => Adapter): void {
-	const started = () =>
-		defineApp({ database: create(), models: [Article], logger: silent })
 	describe('lists', () => {
-		let app: ReturnType<typeof started>
-		beforeEach(async () => {
-			app = started()
-			await app.start()
-		})
-		afterEach(async () => app.stop())
+		started(create, [Article])
 
 		it('stores a list, [] when unwritten, and replaces it whole', async () => {
 			const ts = await Article.create(
