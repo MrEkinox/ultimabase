@@ -199,23 +199,33 @@ export class Filters {
 		const column = this.column(table, alias, name)
 		const kind = this.catalog.kind(table, name)
 		// An id matches and compares as its string, as in `memory()`.
-		const text = kind === 'id' ? sql`cast(${column} as text)` : column
+		const cast = kind === 'id' ? sql`cast(${column} as text)` : column
+		// A string field's operators ignore case with `ilike`, which a trigram
+		// index serves, equality included (D-140, D-141). Its `collate "C"`
+		// folds ASCII only: the database's locale folds the rest.
+		const insensitive = condition.mode === 'insensitive'
+		const text = insensitive ? sql`(${cast} collate "default")` : cast
+		const like = sql.raw(insensitive ? 'ilike' : 'like')
 		const parts: Sql[] = []
 		for (const [operator, operand] of Object.entries(condition)) {
-			if (operand === undefined) continue
+			if (operand === undefined || operator === 'mode') continue
 			switch (operator) {
 				case 'equals':
 				case 'not': {
 					const equal =
 						operand === null
 							? sql`${column} is null`
-							: this.equal(column, kind, operand)
+							: insensitive
+								? sql`${text} ilike ${pattern(operand, '', '')}`
+								: this.equal(column, kind, operand)
 					parts.push(operator === 'equals' ? equal : sql`(not ${equal})`)
 					break
 				}
 				case 'in':
 				case 'notIn': {
-					const found = this.member(column, kind, operand)
+					const found = insensitive
+						? this.like(text, operand)
+						: this.member(column, kind, operand)
 					parts.push(operator === 'in' ? found : sql`(not ${found})`)
 					break
 				}
@@ -226,13 +236,13 @@ export class Filters {
 					parts.push(sql`${column} && ${value(kind, operand)}`)
 					break
 				case 'contains':
-					parts.push(sql`${text} like ${pattern(operand, '%', '%')}`)
+					parts.push(sql`${text} ${like} ${pattern(operand, '%', '%')}`)
 					break
 				case 'startsWith':
-					parts.push(sql`${text} like ${pattern(operand, '', '%')}`)
+					parts.push(sql`${text} ${like} ${pattern(operand, '', '%')}`)
 					break
 				case 'endsWith':
-					parts.push(sql`${text} like ${pattern(operand, '%', '')}`)
+					parts.push(sql`${text} ${like} ${pattern(operand, '%', '')}`)
 					break
 				default: {
 					const right = value(kind, operand)
@@ -269,5 +279,15 @@ export class Filters {
 		}
 		const values = items.map((item) => value(kind, item))
 		return sql`${column} in (${sql.join(values)})`
+	}
+
+	/** `in` ignoring case: one `ilike` per item (D-140). */
+	private like(text: Sql, operand: unknown): Sql {
+		const list: readonly unknown[] = Array.isArray(operand) ? operand : []
+		if (list.length === 0) return sql`false`
+		const likes = list.map(
+			(item) => sql`${text} ilike ${pattern(item, '', '')}`,
+		)
+		return sql`(${sql.join(likes, sql` or `)})`
 	}
 }

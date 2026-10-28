@@ -211,7 +211,7 @@ Exit: an example with sign-up, sign-in and rules on `caller.user`.
 - [x] Decide one transport core and shared value checks (D-130): D-139.
 - [x] One transport core and shared value checks (D-139).
 - [x] Decide case-insensitive filters (D-20): D-140.
-- [ ] Case-insensitive filters (D-140).
+- [x] Case-insensitive filters (D-140).
 - [ ] Documentation website (D-31).
 - [ ] A full audit of every package, its fixes merged, before publication.
 - [ ] Publication, after confirmation.

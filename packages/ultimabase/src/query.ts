@@ -48,7 +48,9 @@ type ScalarFilter<V> = {
 				readonly contains?: string | undefined
 				readonly startsWith?: string | undefined
 				readonly endsWith?: string | undefined
-			}
+			} & (string extends V
+				? { readonly mode?: 'insensitive' | undefined }
+				: unknown)
 		: unknown)
 
 type IsList<X> = X extends {
@@ -94,7 +96,7 @@ type PluginKeys<F> = {
 
 /** The system fields' filters and the combinators of a `where` `W`. */
 interface Filters<W> {
-	readonly id?: string | ScalarFilter<string> | undefined
+	readonly id?: string | Omit<ScalarFilter<string>, 'mode'> | undefined
 	readonly createdAt?: Date | ScalarFilter<Date> | undefined
 	readonly updatedAt?: Date | ScalarFilter<Date> | undefined
 	readonly AND?: W | readonly W[] | undefined

@@ -300,11 +300,21 @@ function text(
 	)
 }
 
-function scalar(value: unknown, condition: Condition): Truth {
+/** A string lowered for `mode: 'insensitive'` (D-140), any other value as is. */
+const lower = (value: unknown): unknown =>
+	typeof value === 'string' ? value.toLowerCase() : value
+
+function scalar(stored: unknown, condition: Condition): Truth {
 	const truths: Truth[] = []
-	const known = value !== null
-	for (const [operator, operand] of Object.entries(condition)) {
-		if (operand === undefined) continue
+	const known = stored !== null
+	const fold =
+		condition.mode === 'insensitive' ? lower : (item: unknown) => item
+	const value = fold(stored)
+	for (const [operator, raw] of Object.entries(condition)) {
+		if (raw === undefined || operator === 'mode') continue
+		const operand: unknown = Array.isArray(raw)
+			? raw.map((item: unknown) => fold(item))
+			: fold(raw)
 		if (operator === 'equals' || operator === 'not') {
 			const equal =
 				operand === null ? !known : known ? same(value, operand) : null

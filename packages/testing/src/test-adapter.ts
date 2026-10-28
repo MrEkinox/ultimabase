@@ -2,6 +2,7 @@
 // alike, checked through the kernel's public API.
 import type { Adapter } from 'ultimabase'
 import { describe } from 'vitest'
+import { cases } from './cases.ts'
 import { cascades } from './cascades.ts'
 import { counts } from './counts.ts'
 import { lists } from './lists.ts'
@@ -29,6 +30,7 @@ export function testAdapter(
 ): void {
 	describe(`the ${name} adapter`, () => {
 		reads(create)
+		cases(create)
 		writes(create)
 		cascades(create)
 		lists(create)

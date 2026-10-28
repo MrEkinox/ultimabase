@@ -110,6 +110,17 @@ describe('a list', () => {
 			} }`,
 		)
 		expect(titles(text)).toStrictEqual(['two'])
+		const folded = await ask(
+			`{ posts(where: { title: { in: ["ONE", "Two"], mode: insensitive } }) {
+				edges { node { title } }
+			} }`,
+		)
+		expect(titles(folded)).toStrictEqual(['one', 'two'])
+		// An enum filter takes no mode (D-140).
+		const status = await ask(
+			`{ posts(where: { status: { equals: published, mode: insensitive } }) { totalCount } }`,
+		)
+		expect(status.errors?.[0]?.message).toContain('"mode"')
 		// A json field has no order (D-94).
 		const json = await ask(`{ posts(orderBy: [{ meta: asc }]) { totalCount } }`)
 		expect(json.errors?.[0]?.message).toContain('unknown field "meta"')

@@ -3,6 +3,7 @@
 import { readable } from '@ultimabase/http/internal'
 import type {
 	GraphQLInputFieldConfigMap,
+	GraphQLInputType,
 	GraphQLNamedInputType,
 	GraphQLScalarType,
 } from 'graphql'
@@ -32,6 +33,27 @@ const base = ['equals', 'not', 'in', 'notIn']
 const ordered = [...base, 'lt', 'lte', 'gt', 'gte']
 const text = [...base, 'contains', 'startsWith', 'endsWith']
 
+/** `QueryMode`: a string filter's operators ignore case (D-140). */
+const queryMode = (registry: Registry): GraphQLEnumType =>
+	registry.enum(
+		'QueryMode',
+		() =>
+			new GraphQLEnumType({
+				name: 'QueryMode',
+				values: { insensitive: { value: 'insensitive' } },
+			}),
+	)
+
+/** The input type of a filter's operator. */
+function operand(
+	registry: Registry,
+	type: GraphQLNamedInputType,
+	operator: string,
+): GraphQLInputType {
+	if (operator === 'mode') return queryMode(registry)
+	return operator === 'in' || operator === 'notIn' ? list(type) : type
+}
+
 /** `StringFilter`, `FloatFilter`, `PostStatusFilter`: the kernel's operators. */
 function filter(
 	registry: Registry,
@@ -47,10 +69,7 @@ function filter(
 				fields: Object.fromEntries(
 					operators.map((operator) => [
 						operator,
-						{
-							type:
-								operator === 'in' || operator === 'notIn' ? list(type) : type,
-						},
+						{ type: operand(registry, type, operator) },
 					]),
 				),
 			}),
@@ -59,7 +78,7 @@ function filter(
 
 /** Each scalar type's operators: no order on strings, as the kernel. */
 const operators: { readonly [T in Scalar['type']]: readonly string[] } = {
-	string: text,
+	string: [...text, 'mode'],
 	number: ordered,
 	date: ordered,
 	boolean: base,

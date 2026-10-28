@@ -36,7 +36,7 @@ afterEach(async () => {
 function signingOutOnRenewal(): Adapter {
 	const database = memory()
 	return {
-		start: async (schema) => database.start(schema),
+		start: async (schema, logger) => database.start(schema, logger),
 		stop: async () => database.stop(),
 		begin: async () => {
 			const tx = await database.begin()

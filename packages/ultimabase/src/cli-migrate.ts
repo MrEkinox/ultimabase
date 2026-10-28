@@ -130,9 +130,10 @@ export async function sync(
 	const { database } = options
 	migrationsOf(database)
 	const schema = schemaOf(options)
-	await database.start(schema)
+	const logger = kernelLogger(options)
+	await database.start(schema, logger)
 	try {
-		const ran = await synced(database, schema, kernelLogger(options), force)
+		const ran = await synced(database, schema, logger, force)
 		return ran === undefined
 			? 'The database already matches the models.'
 			: undefined

@@ -7,10 +7,23 @@ import { tmpdir } from 'node:os'
 import { join as joinPath } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { Client } from 'pg'
-import type { Adapter, Migrations, Schema, SchemaField } from 'ultimabase'
+import type {
+	Adapter,
+	Logger,
+	Migrations,
+	Schema,
+	SchemaField,
+} from 'ultimabase'
 import { MigrationFailed } from 'ultimabase'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { postgres } from './index.ts'
+
+const logger: Logger = {
+	info: () => undefined,
+	warn: () => undefined,
+	error: () => undefined,
+	child: () => logger,
+}
 
 const url =
 	(
@@ -197,7 +210,7 @@ beforeEach(async () => {
 	schema = `t_${randomUUID().replaceAll('-', '')}`
 	await query(url, `create schema "${schema}"`)
 	adapter = postgres({ url: inSchema(schema) })
-	await adapter.start({ models: [] })
+	await adapter.start({ models: [] }, logger)
 	const given = adapter.migrations
 	if (given === undefined) throw new Error('postgres() migrates.')
 	migrations = given
@@ -430,7 +443,7 @@ describe('a sync on postgres()', () => {
 	it("writes a date as toISOString()'s text, whatever the session's time zone", async () => {
 		const tokyo = `${inSchema(schema)}${encodeURIComponent(' -c TimeZone=Asia/Tokyo')}`
 		const local = postgres({ url: tokyo })
-		await local.start({ models: [] })
+		await local.start({ models: [] }, logger)
 		const given = local.migrations
 		if (given === undefined) throw new Error('postgres() migrates.')
 		const synced = async (from: Schema | undefined, to: Schema) => {

@@ -162,7 +162,7 @@ export function lifecycle(options: LifecycleOptions): Lifecycle {
 		)
 		identifiers.push(...pluginIdentifiers(records, plugins))
 		callers.push(...pluginCallers(records, plugins))
-		await database.start(resolved.schema)
+		await database.start(resolved.schema, logger)
 		const apis = new Map<string, unknown>()
 		const app: Running = {
 			resolved,

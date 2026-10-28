@@ -252,7 +252,7 @@ function counting(reads: string[]): Adapter {
 		rollback: async () => on.rollback(),
 	})
 	return {
-		start: async (schema) => base.start(schema),
+		start: async (schema, logger) => base.start(schema, logger),
 		stop: async () => base.stop(),
 		find: async (read) => {
 			reads.push(read.model)

@@ -294,7 +294,7 @@ describe('a redirected delete', () => {
 function purging(): Adapter {
 	const base = memory()
 	return {
-		start: async (schema) => base.start(schema),
+		start: async (schema, logger) => base.start(schema, logger),
 		stop: async () => base.stop(),
 		find: async (read) => base.find(read),
 		count: async (read) => base.count(read),

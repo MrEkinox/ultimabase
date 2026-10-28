@@ -2,10 +2,18 @@
 // writes and transactions on prepared input.
 import { beforeEach, describe, expect, it } from 'vitest'
 import type { Adapter, Change, Filter, Nested, Row } from './adapter.ts'
+import type { Logger } from './app-options.ts'
 import { UniqueViolation } from './adapter.ts'
 import { memory } from './memory.ts'
 import { resolve } from './schema.ts'
 import { Author, Book, Profile, Tag } from './test/library.ts'
+
+const logger: Logger = {
+	info: () => undefined,
+	warn: () => undefined,
+	error: () => undefined,
+	child: () => logger,
+}
 
 const { schema } = resolve([Author, Profile, Book, Tag])
 let adapter: Adapter
@@ -18,7 +26,7 @@ const insert = (model: string, row: Row): Change => ({
 
 beforeEach(async () => {
 	adapter = memory()
-	await adapter.start(schema)
+	await adapter.start(schema, logger)
 	await adapter.write({
 		changes: [
 			insert('Author', { id: 'a1', name: 'Ada', level: 'junior' }),

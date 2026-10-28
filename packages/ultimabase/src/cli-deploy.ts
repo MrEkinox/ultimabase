@@ -4,7 +4,7 @@ import type { Migration, Migrations, Stored } from './adapter.ts'
 import { MigrationFailed } from './adapter.ts'
 import type { Internals } from './app-internals.ts'
 import { create, read } from './cli-migrate.ts'
-import { schemaOf } from './lifecycle.ts'
+import { kernelLogger, schemaOf } from './lifecycle.ts'
 import { Refused } from './errors.ts'
 import { ahead, hashOf, held, migrationsOf } from './migrate.ts'
 
@@ -114,7 +114,7 @@ export async function migrateDeploy(
 	const { files } = await read(dir)
 	const late = behind(files, hash)
 	if (late !== undefined) throw new Refused(late)
-	await database.start(schema)
+	await database.start(schema, kernelLogger(options))
 	try {
 		const stored = await migrations.stored()
 		if (stored?.by === 'sync') throw syncedSince()
@@ -141,7 +141,7 @@ export async function migrateStatus(
 	const schema = schemaOf(options)
 	const hash = hashOf(migrations.snapshot(schema))
 	const { files } = await read(dir)
-	await database.start(schema)
+	await database.start(schema, kernelLogger(options))
 	try {
 		const stored = await migrations.stored()
 		const late = behind(files, hash)
@@ -207,7 +207,7 @@ export async function reset(
 	}
 	const schema = schemaOf(options)
 	const { files, snapshot } = await read(dir)
-	await database.start(schema)
+	await database.start(schema, kernelLogger(options))
 	try {
 		const dropped = await dropAll(migrations)
 		const lines = [

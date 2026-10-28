@@ -164,9 +164,8 @@ const text = new Set(['contains', 'startsWith', 'endsWith'])
 function operators(type: Single): ReadonlySet<string> {
 	if (type === 'number' || type === 'date')
 		return new Set([...base, ...ordered])
-	if (type === 'string' || type === 'id' || type === 'enum') {
-		return new Set([...base, ...text])
-	}
+	if (type === 'string') return new Set([...base, ...text, 'mode'])
+	if (type === 'id' || type === 'enum') return new Set([...base, ...text])
 	return base
 }
 
@@ -192,6 +191,7 @@ function scalarCondition(
 	}
 	const allowed = operators(type)
 	const condition: { [operator: string]: unknown } = {}
+	let insensitive = false
 	for (const [operator, operand] of entries(value, path)) {
 		const at = `${path}.${operator}`
 		if (!allowed.has(operator)) throw unknownKey(at, model.name)
@@ -202,6 +202,11 @@ function scalarCondition(
 			condition[operator] = operand.map((item: unknown, index) =>
 				check(item, `${at}.${index}`, false),
 			)
+		} else if (operator === 'mode') {
+			if (operand !== 'insensitive') {
+				throw new InvalidQuery(at, `${at} must be 'insensitive'.`)
+			}
+			insensitive = true
 		} else if (text.has(operator)) {
 			if (typeof operand !== 'string' || !clean(operand)) {
 				throw new InvalidQuery(at, `${at} must be a clean string.`)
@@ -211,7 +216,9 @@ function scalarCondition(
 			condition[operator] = check(operand, at, base.has(operator))
 		}
 	}
-	return Object.keys(condition).length === 0 ? undefined : condition
+	// `mode` alone filters nothing, as in Prisma (D-140).
+	if (Object.keys(condition).length === 0) return undefined
+	return insensitive ? { ...condition, mode: 'insensitive' } : condition
 }
 
 /** A list's `has` and `hasSome`, which name its elements (D-120, D-127). */

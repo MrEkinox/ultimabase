@@ -68,6 +68,14 @@ describe('where and orderBy', () => {
 		expect(titles(sent.body)).toEqual(['one', 'two', 'three', 'four'])
 	})
 
+	it('ignore case with mode: insensitive (D-140)', async () => {
+		const { url } = await serving()
+		const sent = await get(url, '/api/posts', {
+			where: { title: { startsWith: 'T', mode: 'insensitive' } },
+		})
+		expect(titles(sent.body)).toEqual(['two', 'three'])
+	})
+
 	it('filter on a relation’s rows', async () => {
 		const { url } = await serving()
 		const sent = await get(url, '/api/users', {

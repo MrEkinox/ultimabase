@@ -15,6 +15,7 @@ import { joining, scratchable } from 'ultimabase/internal'
 import type {
 	Adapter,
 	CountRead,
+	Logger,
 	Read,
 	Row,
 	Schema,
@@ -184,6 +185,11 @@ export function requireVersion(version: string | undefined): void {
 	}
 }
 
+/** What a case-insensitive filter misses when `lower('É') <> 'é'` (D-140). */
+export function foldWarning(ctype: string): string {
+	return `PostgreSQL folds case under its ${ctype} locale for ASCII only: a case-insensitive filter matches É and é in memory() but not here. Create the database with a UTF-8 locale, such as en_US.UTF-8.`
+}
+
 export function createAdapter(options: Options): Postgres {
 	const { url, connections = 10, wait = 10_000 } = options
 	const remote = url ? remoteOf(url) : undefined
@@ -197,7 +203,7 @@ export function createAdapter(options: Options): Postgres {
 		return state
 	}
 	const adapter: Postgres = {
-		start: async (schema: Schema) => {
+		start: async (schema: Schema, logger: Logger) => {
 			if (!url) {
 				throw new Refused(
 					'postgres() was given no url: is the variable it reads set?',
@@ -236,9 +242,19 @@ export function createAdapter(options: Options): Postgres {
 			})
 			try {
 				const { rows } = await sql<{
-					server_version_num: string
-				}>`show server_version_num`.execute(db)
-				requireVersion(rows[0]?.server_version_num)
+					version: string
+					folds: boolean
+					ctype: string
+				}>`select current_setting('server_version_num') as version,
+					lower('É') = 'é' as folds,
+					(select datctype from pg_database where datname = current_database()) as ctype`.execute(
+					db,
+				)
+				const [server] = rows
+				requireVersion(server?.version)
+				if (server !== undefined && !server.folds) {
+					logger.warn(foldWarning(server.ctype))
+				}
 				if (scratch !== undefined) {
 					scratch.made = true
 					await emptied(db, scratch.name)

@@ -66,7 +66,7 @@ function settingOnRead(): Adapter & {
 		get reads() {
 			return reads
 		},
-		start: async (schema) => database.start(schema),
+		start: async (schema, logger) => database.start(schema, logger),
 		stop: async () => database.stop(),
 		begin: async () => database.begin(),
 		find: async (read) => {

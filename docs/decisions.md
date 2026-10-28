@@ -7715,8 +7715,10 @@ Choice: amends D-20, which left them to a search plugin.
    PostgreSQL compiles each of its operators to `ilike`, an equality to an
    `ilike` without wildcards, so that one trigram index serves them all
    (D-141). `memory()` compares both sides' `toLowerCase()`.
-3. PostgreSQL folds case as its collation does: under the `C` locale it
-   folds ASCII only, and `É` would match `é` in `memory()` but not there.
+3. A string column sorts under `collate "C"`, which folds ASCII only, so
+   the `ilike` reads it under the database's collation
+   (`collate "default"`). Under the `C` locale that one also folds ASCII
+   only, and `É` would match `é` in `memory()` but not there.
    `postgres()` checks `lower('É') = 'é'` when it starts and, when it does
    not hold, warns once through the kernel's logger, which an adapter's
    `start` now receives.
