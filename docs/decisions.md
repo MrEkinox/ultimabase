@@ -8873,3 +8873,212 @@ type Mutation {
 	): Boolean!
 }
 ```
+
+## D-151: Filtered relations and virtual fields
+
+Choice: completes D-37, D-44 and D-109; amends D-42.
+
+1. A model's `.with` takes two more kernel keys, `relations` and
+   `virtuals`, beside `access` and `hooks` (D-42).
+2. A filtered relation is a `many` whose reads see only the rows its
+   `where` keeps. Its filter is a function shaped like a read rule (D-10):
+   `({ caller, where }) => where({ … })`, or `true` for no filter. It is
+   declared in the model's `.with({ relations })`, keyed by the field, since
+   a filter typed from the target in the field's own options is a cycle
+   (TS7022) when two models filter each other.
+   - It filters every read of the relation: `include` and `select`, its
+     page, `_count` and `orderBy` by `_count` (D-134), and `some`, `every`
+     and `none` in a `where` (D-20). It is ANDed with the caller's `where`
+     and the target's read rule (D-86), in the same query (D-46).
+   - Master's reads are filtered too: a filter shapes what the relation
+     means, it is not a permission.
+   - Writes stay physical: `connect`, `disconnect`, `create` and `onDelete`
+     (D-54) act on the rows the database holds, hidden ones included. A
+     filter fills in no value on `create`.
+   - A filtered relation has no `set`, which would detach rows its writer
+     never saw. A transport's generated inputs leave it out; server code
+     that passes it fails with `INVALID_QUERY`: "User.posts is filtered;
+     use connect and disconnect, not set."
+   - A `one` takes no filter: a key either points to a row or does not.
+3. A view is a read-only `many` that reuses the link of another `many` of
+   the same model: `f.many(() => Post, { from: 'posts' })`. It is needed
+   because pairing allows one `many` facing a given `one` (D-37); `from`
+   works for one-to-many, many-to-many and a model's relations to itself.
+   - Startup stops when `from` names no `many` of that model, or one with
+     another target, or a view, and when a view has no filter in
+     `.with({ relations })`.
+   - A view has no inverse, no `onDelete`, and no place in writes: it is
+     absent from `data` in the types and in a transport's inputs.
+4. A virtual field is part of a model and computed on read, as a function
+   (D-27) that reads the row's neighbouring fields. The field declares its
+   output and, in its options, its `input` and `needs`:
+   `f.virtual(output, { input, needs, description })`. The model's
+   `.with({ virtuals })` gives it `run` or `runMany`.
+   - The output is one of D-109's table, behind an arrow when it is a model
+     or a type, as relations are (D-37): a Standard Schema,
+     `() => Image`, `() => [Image]`, `() => Image.nullable()`, a
+     `defineType`. A list of models takes its page in its `input`, as a
+     function does (D-109).
+   - `input` is one Standard Schema of an object, validated once per
+     request. Its properties are the field's arguments, flat: GraphQL
+     `thumbnail(size: 200)`, the query API and REST
+     `select: { thumbnail: { size: 200 } }`. A bad input fails with
+     `VALIDATION_FAILED`, the issue's path starting at the field
+     (`select.thumbnail.size`). A virtual returning a model also takes
+     `select`, `include` and `omit` for the rows it returns; an input
+     property of one of these names stops startup.
+   - `needs` lists the fields `run` reads: `needs: ['cover']`. `record` is
+     typed from it, the `id` always included, and the kernel reads them even
+     when the client did not select them. A name that is not a scalar field
+     of the model fails to compile in `.with({ virtuals })`. It lives in the
+     field's options because the model's `.with` cannot be generic: a
+     generic `.with`, even as an overload, turns mutual relations into the
+     TS7022 cycle that D-44 describes.
+5. `run` or `runMany`, exactly one per virtual, which the types check:
+   - `run({ caller, input, record })` returns the field's value for one row;
+   - `runMany({ caller, input, records })` returns one value per record, in
+     order, for one page, so a per-row query becomes one query per page. A
+     list of another length fails the call, naming the field.
+   - Each may be async, and its return value is checked against the output
+     at compile time.
+   - Outside production, a `run` that queries the database once per row
+     logs a warning, seen through D-36's async context:
+     "Stage.images: run queried the database once per row; use runMany."
+6. A virtual runs as the caller, Master included. It is server code: the
+   scalars of a returned model are those it returned, and their relations
+   are read again by `id`, as the caller (D-109 point 5). It counts toward
+   the row budget as a function's output does (D-109 point 8). An error
+   thrown in it fails the call, as a function's does (D-28).
+7. Reads:
+   - A scalar virtual without an input is in the default row, as a scalar
+     field is; one with an input, or returning a model or a type, is read
+     only when selected or included. `true` selects one whose input
+     properties are all optional.
+   - A virtual is never in `where`, `orderBy`, `cursor`, `distinct`,
+     `groupBy`, an aggregate, `data`, an index or storage, nor in the
+     `record` that hooks and rules receive.
+8. Access. A virtual is readable by whoever reads its row. It is left out
+   of a row when the caller cannot read one of its `needs` (D-44), so it
+   cannot leak a hidden field. The field's own `.with({ access: { read } })`
+   hides it further, as for any field (D-44).
+9. Transports. GraphQL shows a virtual as an output field of the model's
+   type, with an argument per input property; OpenAPI as a `readOnly`
+   property, its input in the `select` of the model's query parameters
+   (D-129). A field added through `graphqlPlugin({ extend })` (D-107 point 9) stays the way out for what a virtual does not cover: interfaces,
+   unions, renaming a generated field.
+
+Why:
+
+- A list "the published posts of a user" is declared once and holds
+  everywhere it is read, in the same query.
+- Filtering only reads keeps one rule: what is written is what the
+  database holds. A filter may depend on the caller or use any operator, so
+  no value can be derived from it for a `create`.
+- A virtual replaces the per-field resolvers written by hand with Nexus over
+  Parse: it is typed from its model, works over REST and GraphQL alike
+  (D-129), respects the read rules, and batches per page.
+- Typing: checked in a spike on 2026-10-28. With `needs` in the field's
+  options and a non-generic `.with`, the repository typechecks with no new
+  error; `record` is typed from `needs`; mutual virtuals returning each
+  other's models compile; and `run` with `runMany`, a wrong return type, a
+  list of another model, a missing rule and an unknown `needs` all fail to
+  compile. A generic `.with` broke the existing tests of mutual relations
+  (`auth`, `soft-delete`, `access.test.ts`).
+
+Rejected:
+
+- Rails' writes through a scoped association, which fill the scope's
+  values on `create` and replace only the visible rows: the write would
+  depend on the filter and the caller.
+- `set` on a filtered relation, physical or limited to visible rows.
+- A filter in the field's options, typed from the target: a cycle when two
+  models filter each other.
+- A filter on a `one`.
+- A virtual computed by a `where` per row: one query per parent (D-46).
+- Field builders as a virtual's output (`f.virtual(f.string())`): D-109
+  describes data with Standard Schemas.
+- `needs` in `.with({ virtuals })`: it needs a generic `.with`.
+- A virtual stored or indexed (a generated column): not needed yet.
+
+Example:
+
+```ts
+// Before: Parse and Nexus, a resolver per field, GraphQL only
+t.field('images', {
+	type: 'CampaignStageImage',
+	list: [true],
+	resolve: async (root, _args, context) =>
+		(await getMediaLoaders(context).images.load(root.objectId)).map((image) =>
+			image.toJSON(),
+		),
+})
+
+// After
+const Stage = defineModel({
+	name: 'Stage',
+	fields: (f) => ({
+		cover: f.string(),
+		owner: f.one(() => User),
+		images: f.many(() => Image),
+		shown: f.many(() => Image, { from: 'images' }),
+		thumbnail: f.virtual(z.string(), {
+			input: z.object({ size: z.number().int().positive() }),
+			needs: ['cover'],
+		}),
+		maps: f.virtual(() => [Image], {
+			input: z.object({ first: z.number().int().max(50).default(10) }),
+		}),
+	}),
+}).with({
+	access: allow.public,
+	relations: {
+		images: { where: ({ where }) => where({ deleted: false }) },
+		shown: {
+			where: ({ caller, where }) =>
+				where({ OR: [{ public: true }, { owner: { id: caller.id } }] }),
+		},
+	},
+	virtuals: {
+		thumbnail: {
+			run: ({ record, input }) => `${record.cover}?w=${input.size}`,
+		},
+		maps: {
+			runMany: async ({ caller, input, records }) => {
+				const all = await Image.findMany(
+					{
+						where: {
+							kind: 'map',
+							stage: { id: { in: records.map((r) => r.id) } },
+						},
+						include: { stage: { select: { id: true } } },
+					},
+					{ as: caller },
+				)
+				return records.map((r) =>
+					all.filter((i) => i.stage.id === r.id).slice(0, input.first),
+				)
+			},
+		},
+	},
+})
+
+await Stage.findMany(
+	{
+		select: {
+			thumbnail: { size: 200 },
+			maps: { first: 5, select: { url: true } },
+			_count: { select: { shown: true } },
+		},
+	},
+	{ as: caller },
+)
+```
+
+```graphql
+type Stage {
+	cover: String!
+	# images and shown: connections as any many (D-107), their rows filtered
+	thumbnail(size: Int!): String!
+	maps(first: Int): [Image!]!
+}
+```

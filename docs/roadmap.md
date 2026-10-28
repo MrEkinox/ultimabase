@@ -235,7 +235,8 @@ Exit: an example with sign-up, sign-in and rules on `caller.user`.
 - [x] Decide calendar dates, field descriptions and shared enums (D-09,
       D-65): D-150.
 - [x] Calendar dates, field descriptions and shared enums (D-150).
-- [ ] Decide virtual fields and relations filtered by a `where`: D-151.
+- [x] Decide virtual fields and relations filtered by a `where`: D-151.
+- [ ] Filtered relations and virtual fields (D-151).
 - [ ] Documentation website (D-31).
 - [ ] A full audit of every package, its fixes merged, before publication.
 - [ ] Publication, after confirmation.
