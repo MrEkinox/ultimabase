@@ -1,11 +1,10 @@
 // A json field's types (D-125): exact from its schema's JSON Schema export,
 // `JSON` without one. Read as `UserPrefs`, written as `UserPrefsInput`,
-// filtered by `UserPrefsFilter`.
+// filtered by `JSONFilter` as an untyped field (D-149).
 import type {
 	GraphQLNullableInputType,
 	GraphQLNullableOutputType,
 } from 'graphql'
-import { GraphQLInputObjectType, GraphQLList, GraphQLNonNull } from 'graphql'
 import type { Path, Typed } from './data.ts'
 import { fieldInput, fieldOutput } from './data.ts'
 import { upper } from './names.ts'
@@ -41,35 +40,6 @@ export function jsonInput(
 	const schema = registry.entry(model).exposed.validators[field.name]
 	const path = pathOf(model, field, 'Input')
 	return (schema && fieldInput(schema, path, registry.data)) ?? untyped
-}
-
-/**
- * `UserPrefsFilter { equals, not, in, notIn }` on the input type; `JSONFilter`
- * when untyped, as `JSON` is given.
- */
-export function jsonFilter(
-	registry: Registry,
-	model: string,
-	field: Scalar,
-	untypedFilter: () => GraphQLInputObjectType,
-): GraphQLInputObjectType {
-	const { type } = jsonInput(registry, model, field)
-	if (type === JSONScalar) return untypedFilter()
-	const name = `${model}${upper(field.name)}Filter`
-	const list = new GraphQLList(new GraphQLNonNull(type))
-	return registry.input(
-		name,
-		() =>
-			new GraphQLInputObjectType({
-				name,
-				fields: {
-					equals: { type },
-					not: { type },
-					in: { type: list },
-					notIn: { type: list },
-				},
-			}),
-	)
 }
 
 /** A written row's json and plugin values, their dates back to text. */

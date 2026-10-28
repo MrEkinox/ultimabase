@@ -230,7 +230,7 @@ Exit: an example with sign-up, sign-in and rules on `caller.user`.
 - [x] Full-text search (D-148).
 - [x] Decide `having`, rows from bulk writes, `nulls`, list updates and JSON
       paths (D-20, D-146): D-149.
-- [ ] `having`, bulk writes' rows, `nulls`, list updates and JSON paths
+- [x] `having`, bulk writes' rows, `nulls`, list updates and JSON paths
       (D-149).
 - [x] Decide calendar dates, field descriptions and shared enums (D-09,
       D-65): D-150.

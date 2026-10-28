@@ -1,6 +1,6 @@
 // Json fields over GraphQL (D-125): typed from their schema's JSON Schema
 // export, `JSON` without one or for a piece GraphQL cannot type, filtered
-// on their input type, their dates sent back as text.
+// by `JSONFilter` (D-149), their dates sent back as text.
 import { httpPlugin } from '@ultimabase/http'
 import type { GraphQLSchema } from 'graphql'
 import { printType } from 'graphql'
@@ -225,19 +225,31 @@ describe('a typed json field', () => {
 		)
 	})
 
-	it('is filtered on its input type', () => {
-		expect(typeOf('ProfilePrefsFilter')).toBe(
+	it('is filtered by JSONFilter, at a path or whole', () => {
+		expect(typeOf('JSONFilter')).toBe(
 			[
-				'input ProfilePrefsFilter {',
-				'  equals: ProfilePrefsInput',
-				'  not: ProfilePrefsInput',
-				'  in: [ProfilePrefsInput!]',
-				'  notIn: [ProfilePrefsInput!]',
+				'input JSONFilter {',
+				'  path: [String!]',
+				'  equals: JSON',
+				'  not: JSON',
+				'  in: [JSON!]',
+				'  notIn: [JSON!]',
+				'  lt: JSON',
+				'  lte: JSON',
+				'  gt: JSON',
+				'  gte: JSON',
+				'  stringContains: String',
+				'  stringStartsWith: String',
+				'  stringEndsWith: String',
+				'  mode: QueryMode',
+				'  arrayContains: JSON',
+				'  arrayStartsWith: JSON',
+				'  arrayEndsWith: JSON',
 				'}',
 			].join('\n'),
 		)
 		expect(typeOf('ProfileWhereInput')).toContain(
-			'  prefs: ProfilePrefsFilter\n  bio: ProfileBioFilter\n  maybe: ProfileMaybeFilter\n  notes: JSONFilter\n  checked: JSONFilter\n',
+			'  prefs: JSONFilter\n  bio: JSONFilter\n  maybe: JSONFilter\n  notes: JSONFilter\n  checked: JSONFilter\n',
 		)
 	})
 
@@ -390,6 +402,30 @@ describe('a typed json field', () => {
 				teams: { edges: [{ node: { name: 'core' } }] },
 			},
 		})
+	})
+
+	it('filters at a path into a typed or an untyped value', async () => {
+		const found = await post(
+			url,
+			`{ city: profiles(first: 5, where: { prefs: { path: ["shipTo", "city"], stringStartsWith: "ly", mode: insensitive } }) {
+				edges { node { name } } }
+				notes: profiles(first: 5, where: { notes: { path: ["any"], arrayContains: 1 } }) {
+				edges { node { name } } }
+				none: profiles(first: 5, where: { NOT: { prefs: { path: ["size"], gte: 12 } } }) {
+				edges { node { name } } } }`,
+		)
+		expect(found).toStrictEqual({
+			data: {
+				city: { edges: [{ node: { name: 'a' } }] },
+				notes: { edges: [{ node: { name: 'a' } }] },
+				none: { edges: [] },
+			},
+		})
+		const refused = await post(
+			url,
+			`{ profiles(first: 5, where: { prefs: { path: ["size"], in: [12] } }) { totalCount } }`,
+		)
+		expect(refused.errors?.[0]?.message).toContain('where.prefs.in')
 	})
 })
 

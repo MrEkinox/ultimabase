@@ -11,9 +11,14 @@ import type {
 	UpdateData,
 } from './record.ts'
 import type { Exact } from './exact.ts'
+import type { JsonValue } from './fields.ts'
 import type { AggregateArgs, Aggregates, IsDecimal } from './query-aggregate.ts'
 import type { BulkQueries } from './query-bulk.ts'
-import type { ListFilter, ScalarFilter } from './query-filter.ts'
+import type {
+	JsonPathFilter,
+	ListFilter,
+	ScalarFilter,
+} from './query-filter.ts'
 import type { Relevance, SearchWhere } from './query-search.ts'
 import type {
 	GroupByArgs,
@@ -45,13 +50,21 @@ type IsList<X> = X extends {
 	? true
 	: false
 
+/** A json field's value, any JSON without a schema, or a path filter (D-149). */
+type JsonFilter<V> = V | ScalarFilter<NonNullable<V>> | JsonPathFilter
+
 type FilterOf<X> =
 	IsList<X> extends true
 		? StoredValue<X> extends readonly (infer E)[]
 			? ListFilter<E>
 			: never
 		: KindOf<X> extends 'scalar'
-			? StoredValue<X> | ScalarFilter<NonNullable<StoredValue<X>>, IsDecimal<X>>
+			? X extends { readonly [fieldType]: { readonly json: true } }
+				? JsonFilter<
+						unknown extends StoredValue<X> ? JsonValue : StoredValue<X>
+					>
+				: | StoredValue<X>
+					| ScalarFilter<NonNullable<StoredValue<X>>, IsDecimal<X>>
 			: KindOf<X> extends 'one'
 				? {
 						readonly is?: Where<TargetFields<TargetOf<X>>> | null | undefined

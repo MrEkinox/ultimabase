@@ -1,11 +1,14 @@
 // A normalized `where` as SQL (D-73): PostgreSQL's three-valued logic is the
 // one `memory()` mimics, and a relation condition is an `exists` subquery.
-import type { RawBuilder } from 'kysely'
 import { sql } from 'kysely'
 import type { Condition, Filter, SchemaField } from 'ultimabase'
+import { compares, jsonPath } from './json-filter.ts'
+import type { Sql } from './logic.ts'
+import { all, any, pattern } from './logic.ts'
 import type { Catalog, Kind, Table } from './names.ts'
 
-export type Sql = RawBuilder<unknown>
+export type { Sql } from './logic.ts'
+export { all, any } from './logic.ts'
 
 type Relation = Extract<SchemaField, { readonly kind: 'one' | 'many' }>
 
@@ -14,18 +17,6 @@ export type Reach = { readonly from: Sql; readonly on: Sql }
 
 export const uuid: RegExp =
 	/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
-
-export function all(parts: readonly Sql[]): Sql {
-	if (parts.length === 0) return sql`true`
-	return parts.length === 1
-		? (parts[0] ?? sql`true`)
-		: sql`(${sql.join(parts, sql` and `)})`
-}
-
-export function any(parts: readonly Sql[]): Sql {
-	if (parts.length === 0) return sql`false`
-	return sql`(${sql.join(parts, sql` or `)})`
-}
 
 /**
  * A value as a parameter of its column's type. A date goes in UTC: `pg`
@@ -46,12 +37,6 @@ export function isFilters(
 	item: Condition | readonly Filter[],
 ): item is readonly Filter[] {
 	return Array.isArray(item)
-}
-
-/** `%`, `_` and `\` are characters, not patterns (D-94). */
-function pattern(operand: unknown, before: string, after: string): string {
-	const text = typeof operand === 'string' ? operand : ''
-	return `${before}${text.replaceAll(/[\\%_]/g, '\\$&')}${after}`
 }
 
 export class Filters {
@@ -211,6 +196,7 @@ export class Filters {
 
 	/** A value of `kind`, a column or an aggregate (D-149), meets `condition`. */
 	compare(column: Sql, kind: Kind, condition: Condition): Sql {
+		if (condition.path !== undefined) return jsonPath(column, condition)
 		// An id matches and compares as its string, as in `memory()`.
 		const cast = kind === 'id' ? sql`cast(${column} as text)` : column
 		// A string field's operators ignore case with `ilike` (D-140). Its
@@ -271,7 +257,7 @@ export class Filters {
 					break
 				default: {
 					const right = value(kind, operand)
-					const compare = { lt: '<', lte: '<=', gt: '>', gte: '>=' }[operator]
+					const compare = compares[operator]
 					if (compare === undefined) {
 						throw new Error(`Unknown operator ${operator}.`)
 					}

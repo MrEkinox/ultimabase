@@ -1,5 +1,6 @@
 // The adapter contract (D-73): what the kernel sends a storage adapter, fully
 // prepared. Names are the models' own; `dbName` says what to store them as.
+import type { JsonCondition } from './adapter-json.ts'
 import type { Logger } from './app-options.ts'
 
 export {
@@ -80,7 +81,7 @@ export type SchemaModel = {
 export type Schema = { readonly models: readonly SchemaModel[] }
 
 /** A normalized condition on one field: no shorthand, no `undefined`. */
-export type Condition = {
+export type Condition = JsonCondition & {
 	readonly equals?: unknown
 	readonly not?: unknown
 	readonly in?: readonly unknown[]

@@ -10,6 +10,7 @@ import { counts } from './counts.ts'
 import { decimals } from './decimals.ts'
 import { distincts } from './distincts.ts'
 import { groups } from './groups.ts'
+import { jsonPaths } from './json-paths.ts'
 import { lists } from './lists.ts'
 import { nested } from './nested.ts'
 import { numbers } from './numbers.ts'
@@ -41,6 +42,7 @@ export function testAdapter(
 		writes(create)
 		cascades(create)
 		lists(create)
+		jsonPaths(create)
 		nested(create)
 		numbers(create)
 		bulkReturns(create)

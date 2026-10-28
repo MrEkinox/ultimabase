@@ -107,7 +107,18 @@ const operators: { readonly [T in Scalar['type']]: readonly string[] } = {
 	decimal: ordered,
 	date: ordered,
 	boolean: base,
-	json: base,
+	// Any JSON, a path into it or not, typed field or not (D-149).
+	json: [
+		'path',
+		...ordered,
+		'stringContains',
+		'stringStartsWith',
+		'stringEndsWith',
+		'mode',
+		'arrayContains',
+		'arrayStartsWith',
+		'arrayEndsWith',
+	],
 	enum: base,
 }
 
@@ -132,6 +143,11 @@ function filter(
 					if (operator === 'in' || operator === 'notIn') {
 						return [operator, arrayOf(value)]
 					}
+					if (operator === 'path')
+						return [operator, arrayOf({ type: 'string' })]
+					if (operator.startsWith('string')) {
+						return [operator, { type: 'string' }]
+					}
 					const nullable = operator === 'equals' || operator === 'not'
 					return [operator, nullable ? orNull(value) : value]
 				}),
@@ -141,6 +157,10 @@ function filter(
 }
 
 function scalarFilter(doc: Doc, model: string, field: Scalar): Schema {
+	// A typed json field's operands are any JSON at a path (D-149).
+	if (field.type === 'json' && !field.list) {
+		return filter(doc, 'JSON', {}, operators.json)
+	}
 	const { name, schema } = item(doc, model, field, 'input')
 	if (field.list) {
 		return doc.components.ref(`${name}ListFilter`, () =>
@@ -152,10 +172,7 @@ function scalarFilter(doc: Doc, model: string, field: Scalar): Schema {
 			}),
 		)
 	}
-	// A typed json field has a filter of its own, as in GraphQL (D-125).
-	const typed = field.type === 'json' && Object.keys(schema).length > 0
-	const named = typed ? `${model}${upper(field.name)}` : name
-	return filter(doc, named, schema, operators[field.type])
+	return filter(doc, name, schema, operators[field.type])
 }
 
 /** One value or a list: GraphQL takes either for a list argument. */

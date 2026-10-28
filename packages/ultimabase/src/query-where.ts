@@ -6,6 +6,7 @@ import { storedValue } from './decimal.ts'
 import { InvalidQuery } from './errors.ts'
 import type { FieldInfo, ModelInfo } from './schema.ts'
 import { listCondition } from './query-conditions.ts'
+import { isPathFilter, jsonCondition } from './query-json.ts'
 import { searchedFields } from './query-search.ts'
 import {
 	clean,
@@ -282,7 +283,9 @@ export function normalizeWhere(
 				? undefined
 				: field?.kind === 'scalar' && field.list
 					? listCondition(model, field, value, at)
-					: scalarCondition(model, key, type, value, at)
+					: type === 'json' && isPathFilter(value)
+						? jsonCondition(model.name, value, at)
+						: scalarCondition(model, key, type, value, at)
 		if (condition !== undefined) filter[key] = condition
 	}
 	const [only, ...others] = relations

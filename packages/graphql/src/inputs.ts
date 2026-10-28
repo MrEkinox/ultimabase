@@ -20,7 +20,6 @@ import type { SchemaField } from 'ultimabase'
 import { upper } from './names.ts'
 import type { Args, Registry, Scalar } from './registry.ts'
 import { scalarType } from './registry.ts'
-import { jsonFilter } from './json-fields.ts'
 import { DateTime } from './scalars.ts'
 
 /** An input object's value, as the kernel's arguments. */
@@ -57,6 +56,8 @@ function operand(
 	operator: string,
 ): GraphQLInputType {
 	if (operator === 'mode') return queryMode(registry)
+	if (operator === 'path') return list(GraphQLString)
+	if (operator.startsWith('string')) return GraphQLString
 	return operator === 'in' || operator === 'notIn' ? list(type) : type
 }
 
@@ -89,7 +90,18 @@ const operators: { readonly [T in Scalar['type']]: readonly string[] } = {
 	decimal: ordered,
 	date: ordered,
 	boolean: base,
-	json: base,
+	// Any JSON, a path into it or not, typed field or not (D-149).
+	json: [
+		'path',
+		...ordered,
+		'stringContains',
+		'stringStartsWith',
+		'stringEndsWith',
+		'mode',
+		'arrayContains',
+		'arrayStartsWith',
+		'arrayEndsWith',
+	],
 	enum: base,
 }
 
@@ -124,10 +136,7 @@ const scalarFilter = (
 ): GraphQLInputObjectType => {
 	const item = scalarType(registry, model, field)
 	if (field.list) return listFilter(registry, item)
-	const untyped = () => filter(registry, item, operators[field.type])
-	return field.type === 'json'
-		? jsonFilter(registry, model, field, untyped)
-		: untyped()
+	return filter(registry, item, operators[field.type])
 }
 
 const relationFilter = (

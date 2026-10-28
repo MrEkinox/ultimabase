@@ -232,7 +232,7 @@ describe('the document', () => {
 				'BookUpdateManyWithoutWriterNestedInput',
 				'StringFilter',
 				'StringListFilter',
-				'BookIsbnFilter',
+				'JSONFilter',
 				'DecimalFilter',
 				'Isbn',
 				'IsbnInput',
@@ -253,6 +253,18 @@ describe('the document', () => {
 					{},
 			),
 		).toEqual(['equals', 'not', 'in', 'notIn', 'lt', 'lte', 'gt', 'gte'])
+		// A typed json field filters with JSONFilter, at a path or not (D-149).
+		expect(names).not.toContain('BookIsbnFilter')
+		expect(
+			at(
+				document,
+				'components',
+				'schemas',
+				'BookWhereInput',
+				'properties',
+				'isbn',
+			),
+		).toEqual({ $ref: '#/components/schemas/JSONFilter' })
 		expect(at(document, 'components', 'schemas', 'Isbn')).toEqual({
 			type: 'object',
 			properties: {
@@ -333,6 +345,11 @@ describe('its schemas', () => {
 		const listFilter = ['components', 'schemas', 'StringListFilter']
 		expect(check({ hasEvery: ['n'], isEmpty: false }, ...listFilter)).toBe(true)
 		expect(check({ isEmpty: 'no' }, ...listFilter)).not.toBe(true)
+		const jsonFilter = ['components', 'schemas', 'JSONFilter']
+		const path = { path: ['code'], stringContains: 'x', mode: 'insensitive' }
+		expect(check(path, ...jsonFilter)).toBe(true)
+		expect(check({ path: 'code', equals: 'x' }, ...jsonFilter)).not.toBe(true)
+		expect(check({ path: [], stringEndsWith: 1 }, ...jsonFilter)).not.toBe(true)
 		expect(check({ ...sent, price: 12.5 }, ...body('/books', 'post'))).not.toBe(
 			true,
 		)
@@ -385,6 +402,13 @@ describe('its schemas', () => {
 		)
 		expect(at(searched.body, 'edges', 0, 'node')).toEqual({ title: 'c' })
 		expect(at(searched.body, 'edges', 1)).toBeUndefined()
+		const coded = await call(
+			url,
+			'GET',
+			`/api/books${qs({ where: { isbn: { path: ['code'], equals: 'x' } }, select: { title: true } })}`,
+		)
+		expect(at(coded.body, 'edges', 0, 'node')).toEqual({ title: 'c' })
+		expect(at(coded.body, 'edges', 1)).toBeUndefined()
 		const one = await call(
 			url,
 			'GET',

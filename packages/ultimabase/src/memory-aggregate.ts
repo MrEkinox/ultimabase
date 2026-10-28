@@ -12,8 +12,9 @@ import type {
 	SchemaField,
 } from './adapter.ts'
 import { sumDecimals } from './decimal.ts'
-import type { Reader, StoredRow, Truth } from './memory-read.ts'
-import { and, isFilters, not, or, scalar } from './memory-read.ts'
+import type { Truth } from './memory-conditions.ts'
+import { and, isFilters, not, or, scalar } from './memory-conditions.ts'
+import type { Reader, StoredRow } from './memory-read.ts'
 import { compareKeys, compareValues, copy, sortable } from './memory-values.ts'
 
 function of(
