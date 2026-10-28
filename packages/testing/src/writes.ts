@@ -2,9 +2,9 @@
 // every relation, and the refusals of a unique key, of a missing row and of
 // a value PostgreSQL cannot store as written (D-94).
 import type { Adapter } from 'ultimabase'
-import { defineApp, defineModel, master } from 'ultimabase'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { silent } from './silent.ts'
+import { defineModel, master } from 'ultimabase'
+import { describe, expect, it } from 'vitest'
+import { started } from './suite.ts'
 
 const M = { as: master }
 
@@ -55,22 +55,8 @@ const skillsOf = async (id: string): Promise<string[]> =>
 const skill = async (label: string) => Skill.create({ data: { label } }, M)
 
 export function writes(create: () => Adapter): void {
-	let adapter = create()
-	const started = () => {
-		adapter = create()
-		return defineApp({
-			database: adapter,
-			models: [Team, Player, Badge, Skill],
-			logger: silent,
-		})
-	}
 	describe('writes', () => {
-		let app: ReturnType<typeof started>
-		beforeEach(async () => {
-			app = started()
-			await app.start()
-		})
-		afterEach(async () => app.stop())
+		const database = started(create, [Team, Player, Badge, Skill])
 
 		it('creates a row and returns it as stored', async () => {
 			const bornAt = new Date(Date.UTC(1990, 4, 17, 8, 30, 15, 250))
@@ -128,29 +114,29 @@ export function writes(create: () => Adapter): void {
 			await Player.create({ data: { name: 'Bob' } }, M)
 			const read = { model: 'Player', where: {} }
 			const where = { name: { equals: 'Ada' } }
-			const removed = await adapter.write({
+			const removed = await database().write({
 				changes: [{ kind: 'delete', model: 'Player', where }],
 				read,
 				before: true,
 			})
 			expect(removed).toMatchObject([{ id: ada.id, name: 'Ada' }])
 			// Nothing left to remove, or no delete at all: no row (D-104).
-			const again = await adapter.write({
+			const again = await database().write({
 				changes: [{ kind: 'delete', model: 'Player', where }],
 				read,
 				before: true,
 			})
 			expect(again).toEqual([])
-			expect(await adapter.write({ changes: [], read, before: true })).toEqual(
-				[],
-			)
+			expect(
+				await database().write({ changes: [], read, before: true }),
+			).toEqual([])
 			expect(await Player.count({}, M)).toBe(1)
 		})
 
 		it('reads, with before and no delete, the rows its update changed', async () => {
 			const ada = await Player.create({ data: { name: 'Ada' } }, M)
 			await Player.create({ data: { name: 'Bob' } }, M)
-			const changed = await adapter.write({
+			const changed = await database().write({
 				changes: [
 					{
 						kind: 'update',

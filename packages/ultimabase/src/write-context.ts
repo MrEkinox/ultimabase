@@ -1,15 +1,12 @@
 // The row a write plans (query-write.ts): where its data sits, the steps
 // around its own, and the checks of its scalar and `one` values.
-import type { Filter } from './adapter.ts'
 import type { Many, Resolving } from './nested-write.ts'
 import type { FieldInfo, ModelInfo } from './schema.ts'
 import type { QueryScope } from './scope.ts'
 import type { Draft } from './write-data.ts'
 import { issueOf } from './write-data.ts'
 import type { Plan, Reads, Step } from './write-plan.ts'
-
-export const byId = (id: string): Filter => ({ id: { equals: id } })
-export const byIds = (ids: readonly string[]): Filter => ({ id: { in: ids } })
+import { byId, byIds, modelOf } from './query-where.ts'
 
 export type Relation = Extract<FieldInfo, { readonly kind: 'one' | 'many' }>
 
@@ -105,12 +102,6 @@ export async function holds(
 	return count > 0
 }
 
-export function targetOf(context: Context, field: Relation): ModelInfo {
-	const model = context.scope.models.get(field.target)
-	if (model === undefined) throw new Error(`Unknown model ${field.target}.`)
-	return model
-}
-
 export const viaOf = (context: Context, field: Relation): string =>
 	`${context.model.name}.${field.name}`
 
@@ -144,7 +135,9 @@ export function linking(
 		}
 		return
 	}
-	const inverse = targetOf(context, field).fields.get(field.inverse)
+	const inverse = modelOf(context.scope.models, field.target).fields.get(
+		field.inverse,
+	)
 	const move = {
 		kind: 'move',
 		model: field.target,

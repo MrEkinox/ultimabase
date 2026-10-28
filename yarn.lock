@@ -905,6 +905,7 @@ __metadata:
     "@ultimabase/http": "workspace:*"
     "@ultimabase/postgres": "workspace:*"
     graphql: "npm:17.0.2"
+    ipaddr.js: "npm:2.5.0"
     pg: "npm:8.23.1"
     ultimabase: "workspace:*"
     vite: "npm:8.3.4"
@@ -1373,6 +1374,13 @@ __metadata:
   version: 4.2.0
   resolution: "import-meta-resolve@npm:4.2.0"
   checksum: 10c0/3ee8aeecb61d19b49d2703987f977e9d1c7d4ba47db615a570eaa02fe414f40dfa63f7b953e842cbe8470d26df6371332bfcf21b2fd92b0112f9fea80dde2c4c
+  languageName: node
+  linkType: hard
+
+"ipaddr.js@npm:2.5.0":
+  version: 2.5.0
+  resolution: "ipaddr.js@npm:2.5.0"
+  checksum: 10c0/5cef50d91a14f6388c3b5df3568ee7f8b18e07fa18896debc84d3393b78c1096e1b8e3a4f9fa9020c5ca5b556efc28550432f92a34d23c0cd643bd3194eb439d
   languageName: node
   linkType: hard
 

@@ -109,24 +109,51 @@ describe('a sign-up input', () => {
 					message: 'A password has 8 to 256 characters.',
 				},
 				{ path: ['input', 'name'], message: 'Required.' },
-				{ path: ['input', 'age'], message: 'Expected a number.' },
+				{ path: ['input', 'age'], message: 'Expected a finite number.' },
 				{ path: ['input', 'admin'], message: 'Expected a boolean.' },
-				{ path: ['input', 'born'], message: 'Expected a date.' },
+				{
+					path: ['input', 'born'],
+					message: 'Expected a Date of years 1 to 9999.',
+				},
 				{ path: ['input', 'role'], message: 'Expected one of reader, writer.' },
 				{
 					path: ['input', 'tags'],
-					message: 'Expected a list of non-empty strings.',
+					message:
+						'Expected a list of non-empty strings without a NUL or a lone surrogate.',
 				},
 			],
 		})
 		expect(signUp.validate({ input: { ...base, tags: 'ts' } })).toMatchObject({
-			issues: [{ message: 'Expected a list of non-empty strings.' }],
+			issues: [
+				{
+					message:
+						'Expected a list of non-empty strings without a NUL or a lone surrogate.',
+				},
+			],
 		})
 		expect(signUp.validate({ input: { ...base, born: 0 } })).toMatchObject({
-			issues: [{ message: 'Expected a date.' }],
+			issues: [{ message: 'Expected a Date of years 1 to 9999.' }],
 		})
 		expect(signUp.validate({ input: { ...base, password: 3 } })).toMatchObject({
 			issues: [{ message: 'Expected a string.' }],
+		})
+	})
+
+	it('refuses what the kernel would refuse on the write (D-139)', () => {
+		const read = signUp.validate({
+			input: { ...base, name: 'A\u0000da', born: '+010000-01-01T00:00:00Z' },
+		})
+		expect(read).toStrictEqual({
+			issues: [
+				{
+					path: ['input', 'name'],
+					message: 'Expected a string without a NUL or a lone surrogate.',
+				},
+				{
+					path: ['input', 'born'],
+					message: 'Expected a Date of years 1 to 9999.',
+				},
+			],
 		})
 	})
 
@@ -172,6 +199,36 @@ describe('a sign-up input', () => {
 			'test',
 		)
 		expect(required.json).toStrictEqual({ type: 'string', enum: ['a'] })
+	})
+})
+
+describe('an integer field', () => {
+	const field = { ...scalar('count', 'number'), integer: true } as const
+	const list = { ...field, list: true }
+
+	it('takes whole numbers of 32 bits only, as the kernel does (D-132)', () => {
+		const { read } = fieldProperty(field, true, 'test')
+		expect(read(-2_147_483_648)).toStrictEqual({ value: -2_147_483_648 })
+		const message =
+			'Expected a whole number from -2,147,483,648 to 2,147,483,647.'
+		expect(read(1.5)).toStrictEqual({ message })
+		expect(read(2 ** 31)).toStrictEqual({ message })
+		expect(fieldProperty(list, true, 'test').read([1, 2.5])).toStrictEqual({
+			message:
+				'Expected a list of whole numbers from -2,147,483,648 to 2,147,483,647.',
+		})
+	})
+
+	it('is an integer in its JSON Schema, an Int over GraphQL', () => {
+		const range = { minimum: -2_147_483_648, maximum: 2_147_483_647 }
+		expect(fieldProperty(field, true, 'test').json).toStrictEqual({
+			type: 'integer',
+			...range,
+		})
+		expect(fieldProperty(list, true, 'test').json).toStrictEqual({
+			type: 'array',
+			items: { type: 'integer', ...range },
+		})
 	})
 })
 

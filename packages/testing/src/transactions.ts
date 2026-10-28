@@ -1,9 +1,9 @@
 // The transactions of the contract (D-73): one commit for every write, one
 // rollback for all of them, and nothing seen outside before the commit.
 import type { Adapter } from 'ultimabase'
-import { defineApp, defineModel, master, transaction } from 'ultimabase'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { silent } from './silent.ts'
+import { defineModel, master, transaction } from 'ultimabase'
+import { describe, expect, it } from 'vitest'
+import { started } from './suite.ts'
 
 const M = { as: master }
 
@@ -19,15 +19,8 @@ const names = async (): Promise<string[]> =>
 	)
 
 export function transactions(create: () => Adapter): void {
-	const started = () =>
-		defineApp({ database: create(), models: [Account], logger: silent })
 	describe('transactions', () => {
-		let app: ReturnType<typeof started>
-		beforeEach(async () => {
-			app = started()
-			await app.start()
-		})
-		afterEach(async () => app.stop())
+		started(create, [Account])
 
 		it('commits every write together', async () => {
 			await transaction(async () => {

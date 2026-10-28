@@ -56,7 +56,8 @@ function decodedRow(
 	return Object.keys(changed).length === 0 ? row : { ...row, ...changed }
 }
 
-const isRow = (value: unknown): value is Row =>
+/** A value the kernel reads as a row: an object with a string `id`. */
+export const isRow = (value: unknown): value is Row =>
 	isObject(value) && typeof value['id'] === 'string'
 
 /** The rows `read` returned, decoded. */

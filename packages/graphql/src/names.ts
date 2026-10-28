@@ -1,5 +1,6 @@
 // The names the schema gives each model's types and root fields (D-107).
 
+import { plural } from '@ultimabase/http/internal'
 import { Refused } from 'ultimabase'
 
 export const upper = (name: string): string =>
@@ -7,13 +8,6 @@ export const upper = (name: string): string =>
 
 export const lower = (name: string): string =>
 	name.charAt(0).toLowerCase() + name.slice(1)
-
-/** `post` → `posts`, `category` → `categories`, `box` → `boxes`. */
-export function plural(name: string): string {
-	if (/[^aeiou]y$/i.test(name)) return `${name.slice(0, -1)}ies`
-	if (/(?:s|x|z|ch|sh)$/i.test(name)) return `${name}es`
-	return `${name}s`
-}
 
 /** A model's root fields: its one-row name and its list name. */
 export function rootNames(

@@ -1,10 +1,10 @@
 // The cascades of the contract (D-54, D-102): what a delete does to the rows
 // that reference it, when no hook runs, as Master and as a user.
 import type { Adapter } from 'ultimabase'
-import { defineApp, defineModel, master } from 'ultimabase'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { defineModel, master } from 'ultimabase'
+import { describe, expect, it } from 'vitest'
 import { suiteUser } from './as-user.ts'
-import { silent } from './silent.ts'
+import { started } from './suite.ts'
 
 const M = { as: master }
 const open = () => true
@@ -135,30 +135,19 @@ const counts = async () => [
 ]
 
 export function cascades(create: () => Adapter): void {
-	const started = () =>
-		defineApp({
-			database: create(),
-			models: [
-				Shop,
-				Aisle,
-				Item,
-				Clerk,
-				Order,
-				Folder,
-				Room,
-				Seat,
-				Wall,
-				Poster,
-			],
-			logger: silent,
-		})
 	describe('cascades', () => {
-		let app: ReturnType<typeof started>
-		beforeEach(async () => {
-			app = started()
-			await app.start()
-		})
-		afterEach(async () => app.stop())
+		started(create, [
+			Shop,
+			Aisle,
+			Item,
+			Clerk,
+			Order,
+			Folder,
+			Room,
+			Seat,
+			Wall,
+			Poster,
+		])
 
 		it('deletes what a delete reaches, by every path, and returns the row as it was', async () => {
 			const reds = await stocked('reds')

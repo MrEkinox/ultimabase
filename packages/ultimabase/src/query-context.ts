@@ -68,8 +68,6 @@ export async function filtered(
 	)
 }
 
-export const byId = (id: string): Filter => ({ id: { equals: id } })
-
 /** The fields the caller's field read rules hide (D-44). */
 export function hiddenBy(access: Access | undefined): Hidden | undefined {
 	return access && ((model, row, fields) => access.hidden(model, row, fields))

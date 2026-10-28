@@ -1,11 +1,10 @@
 // A function's output as the client reads it (D-109): its scalars as `run`
 // returned them, its rows' relations re-read by id as the caller, in one
 // query per model and only when a relation is selected.
+import { badInput, rowsOf, run } from '@ultimabase/http/internal'
 import type { FieldNode, GraphQLResolveInfo } from 'graphql'
 import type { ExposedOutput } from 'ultimabase'
-import { badInput, run } from './errors.ts'
 import { isMaster, objectType } from './outputs.ts'
-import { rowsOf } from './pages.ts'
 import type { Args, Context, Registry } from './registry.ts'
 import { as } from './registry.ts'
 import type { Fields } from './select.ts'

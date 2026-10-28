@@ -9,6 +9,7 @@ import type {
 	SchemaField,
 } from './adapter.ts'
 import { compareKeys, compareValues, copy, same } from './memory-values.ts'
+import { modelOf } from './query-where.ts'
 
 /** A stored row; a stored `one` key is the target's id or `null`. */
 export type StoredRow = {
@@ -39,9 +40,7 @@ export class Reader {
 	}
 
 	table(model: string): Map<string, StoredRow> {
-		const table = this.store.tables.get(model)
-		if (table === undefined) throw new Error(`Unknown model ${model}.`)
-		return table
+		return modelOf(this.store.tables, model)
 	}
 
 	field(model: string, name: string): SchemaField | undefined {

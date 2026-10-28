@@ -1,5 +1,6 @@
 // The output types (D-107): each model's object type, its edges and
 // connections, and the arguments of its lists.
+import { connection, readable, rowsOf } from '@ultimabase/http/internal'
 import type {
 	GraphQLFieldConfig,
 	GraphQLFieldConfigArgumentMap,
@@ -17,10 +18,10 @@ import {
 import type { SchemaField } from 'ultimabase'
 import { orderByInput, whereInput } from './inputs.ts'
 import { upper } from './names.ts'
-import { connection, listRead, rowsOf } from './pages.ts'
+import { listRead } from './pages.ts'
 import { jsonOutput } from './json-fields.ts'
 import type { Args, Context, Registry } from './registry.ts'
-import { readable, valueType } from './registry.ts'
+import { valueType } from './registry.ts'
 import { DateTime, JSONScalar } from './scalars.ts'
 
 const required = <T extends GraphQLObjectType>(type: T) =>
@@ -159,7 +160,7 @@ function manyField(
 			)
 			if (page === undefined) return rows
 			return {
-				...connection(rows, page),
+				...connection(rows, page, (row) => row),
 				// The row's `_count`, read when the connection selects it (D-134).
 				totalCount: () => {
 					const counts: unknown = Reflect.get(Object(source), '_count')

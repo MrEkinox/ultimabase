@@ -7633,3 +7633,70 @@ await User.update(
 )
 await User.update({ where: { id }, data: { profile: { delete: true } } }, M)
 ```
+
+## D-139: One transport core, and the kernel's value checks shared
+
+Choice: extends D-130's `ultimabase/internal`, and gives `@ultimabase/http`
+one of its own.
+
+1. `@ultimabase/http/internal`, a subpath only official transports import,
+   holds what REST and GraphQL share (D-129): a kernel query run with its
+   refusal sent as `BAD_USER_INPUT` (D-106), the pages of D-55 (Relay and
+   `take`/`skip` arguments, cursors, limits and connections), the rows of
+   a relation, a model's plural and readable fields (D-44), and a schema's
+   standard JSON Schema export (D-45). Like `ultimabase/internal`, it is
+   not documented and may change with any version.
+2. Page arguments are read as REST reads them: an argument of another type
+   is refused, naming where it was written. GraphQL's types refuse such a
+   value before, so its responses do not change.
+3. `ultimabase/internal` gives `isRow` and `issueOf`, the kernel's check of
+   a scalar value and its message, lists included (D-127, D-132). postgres,
+   the transports and password use them instead of their own copies.
+4. password's input checks are the kernel's: a date may still come as an
+   ISO string, and an optional field still takes `null`, but the messages
+   are the kernel's, and a date of year 10000 or a string holding a NUL is
+   refused by the input instead of by the write that follows.
+
+Why:
+
+- REST and GraphQL held about 250 identical lines: pages, errors, names and
+  JSON Schema reading. A fix had to be made twice, and D-129's parity
+  depended on it.
+- password checked values with rules of its own, looser than the kernel's,
+  so a sign-up could pass its input and fail on its write with another
+  message and path.
+
+Rejected:
+
+- A new `@ultimabase/transport` package: one more package to version and
+  publish for code that only the two transports read, which both already
+  require `@ultimabase/http`.
+- The transport core on `ultimabase/internal`: the kernel would hold
+  cursors and Relay connections, which only HTTP transports use.
+- GraphQL's lenient page readers: they relied on GraphQL's types, which
+  REST does not have.
+
+Example:
+
+```ts
+// Before: packages/rest/src/pages.ts and packages/graphql/src/pages.ts, the
+// same pagination twice, and two copies of run, badInput, plural, readable,
+// isRow and the JSON Schema reader.
+// After: one copy, in @ultimabase/http.
+import { connection, pageOf, run } from '@ultimabase/http/internal'
+import { isRow, issueOf } from 'ultimabase/internal'
+```
+
+```ts
+// A sign-up with an age of NaN and a date of year 10000.
+// Before
+;[
+	{ path: ['input', 'age'], message: 'Expected a number.' },
+	// born passed the input, its write refused it
+]
+// After
+;[
+	{ path: ['input', 'age'], message: 'Expected a finite number.' },
+	{ path: ['input', 'born'], message: 'Expected a Date of years 1 to 9999.' },
+]
+```

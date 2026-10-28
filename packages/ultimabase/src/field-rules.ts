@@ -6,55 +6,33 @@ import type { declaredRecord } from './symbols.ts'
 // `R` is the record type the developer declares for the rules (D-44). It
 // never derives from the model, which is still being typed here: that would
 // be a cycle (TS7022).
-type FieldReadRule<R extends object> = (facts: {
+type ReadFacts<R extends object> = {
 	readonly caller: Caller
 	readonly operation: 'read'
 	readonly record: RecordFor<R>
-}) => boolean
-type FieldCreateRule<V> = (facts: {
+}
+type CreateFacts<V> = {
 	readonly caller: Caller
 	readonly operation: 'create'
 	readonly value: V
-}) => boolean
-type FieldUpdateRule<R extends object, V> = (facts: {
+}
+type UpdateFacts<R extends object, V> = {
 	readonly caller: Caller
 	readonly operation: 'update'
 	readonly record: RecordFor<R>
 	readonly value: V
-}) => boolean
-type FieldWriteRule<R extends object, V> = (
-	facts:
-		| {
-				readonly caller: Caller
-				readonly operation: 'create'
-				readonly value: V
-		  }
-		| {
-				readonly caller: Caller
-				readonly operation: 'update'
-				readonly record: RecordFor<R>
-				readonly value: V
-		  },
-) => boolean
-type FieldRule<R extends object, V> = (
-	facts:
-		| {
-				readonly caller: Caller
-				readonly operation: 'read'
-				readonly record: RecordFor<R>
-		  }
-		| {
-				readonly caller: Caller
-				readonly operation: 'create'
-				readonly value: V
-		  }
-		| {
-				readonly caller: Caller
-				readonly operation: 'update'
-				readonly record: RecordFor<R>
-				readonly value: V
-		  },
-) => boolean
+}
+type Rule<F> = (facts: F) => boolean
+// Named, so a type error shows the rule the developer wrote.
+type FieldReadRule<R extends object> = Rule<ReadFacts<R>>
+type FieldCreateRule<V> = Rule<CreateFacts<V>>
+type FieldUpdateRule<R extends object, V> = Rule<UpdateFacts<R, V>>
+type FieldWriteRule<R extends object, V> = Rule<
+	CreateFacts<V> | UpdateFacts<R, V>
+>
+type FieldRule<R extends object, V> = Rule<
+	ReadFacts<R> | CreateFacts<V> | UpdateFacts<R, V>
+>
 
 /** A field keeps its declared record type, which `defineModel` checks. */
 // Each declared field is kept as `(value: T) => T`, which only the same `T`

@@ -116,18 +116,21 @@ function pooled(
 /** What the callback a rollback ends throws, which `rollback()` swallows. */
 const rolledBack = new Error('The transaction was rolled back.')
 
+/** `key` of a statement's first row, if it returned one. */
+function firstOf(rows: readonly unknown[], key: string): unknown {
+	const [first] = rows
+	if (typeof first !== 'object' || first === null) return undefined
+	const value: unknown = Reflect.get(first, key)
+	return value
+}
+
 async function find(
 	catalog: Catalog,
 	db: QueryExecutorProvider,
 	read: Read,
 ): Promise<Row[]> {
 	const { rows } = await compileFind(catalog, read).execute(db)
-	const [first] = rows
-	const value =
-		typeof first === 'object' && first !== null && 'rows' in first
-			? first.rows
-			: undefined
-	return decodeRows(catalog, read.model, value, read)
+	return decodeRows(catalog, read.model, firstOf(rows, 'rows'), read)
 }
 
 async function count(
@@ -136,11 +139,7 @@ async function count(
 	read: CountRead,
 ): Promise<number> {
 	const { rows } = await compileCount(catalog, read).execute(db)
-	const [first] = rows
-	const value =
-		typeof first === 'object' && first !== null && 'count' in first
-			? first.count
-			: undefined
+	const value = firstOf(rows, 'count')
 	if (typeof value !== 'number') throw new Error('The count is not a number.')
 	return value
 }

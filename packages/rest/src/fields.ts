@@ -1,12 +1,19 @@
 // `select` and `include` (D-129): what a request asks of a model's rows, as
 // one kernel read, and the rows shaped as GraphQL returns them. Without
 // either, a row holds its readable scalar fields and no relation.
+import type { Relay } from '@ultimabase/http/internal'
+import {
+	connection,
+	pageArgs,
+	pageOf,
+	readable,
+	rowOf,
+	rowsOf,
+} from '@ultimabase/http/internal'
 import type { Row } from 'ultimabase'
 import { InvalidQuery } from 'ultimabase'
 import type { Api, Args, Entry } from './entries.ts'
-import { entryOf, readable, system } from './entries.ts'
-import type { Relay } from './pages.ts'
-import { connection, pageArgs, pageOf, rowOf, rowsOf } from './pages.ts'
+import { entryOf, system } from './entries.ts'
 import { isArgs, whereOf } from './values.ts'
 
 /** A field of the response, in the order the request wrote it. */
@@ -200,10 +207,10 @@ class Reader {
 		path: string,
 	): Read & { readonly relay: Relay | undefined; readonly size: number } {
 		const at = (key: string): string => (path === '' ? key : `${path}.${key}`)
-		const paging = pageArgs(this.#api)
+		const paging = pageArgs(this.#api.pagination)
 		const keys = ['select', 'include', 'where', 'orderBy', ...paging]
 		this.#keys(args, keys, path, entry.model.name)
-		const page = pageOf(this.#api, entry, args, this.#master, at)
+		const page = pageOf(this.#api.pagination, entry, args, this.#master, at)
 		const { where, orderBy } = args
 		const nested = this.fields(entry, args, path)
 		const asked =

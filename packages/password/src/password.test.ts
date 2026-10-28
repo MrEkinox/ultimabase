@@ -228,6 +228,19 @@ describe('signing up', () => {
 		expect(await User.count({}, M)).toBe(1)
 	})
 
+	it('takes a whole number for an integer field, an Int', async () => {
+		const { url } = await server({ signUp: ['name', 'age'] })
+		const half = await signUp(url, { age: 1.5 })
+		expect(JSON.stringify(half.body)).toContain(
+			'.age: Int cannot represent non-integer value.',
+		)
+		expect(await User.count({}, M)).toBe(0)
+		expect((await signUp(url, { age: 36 })).status).toBe(200)
+		expect(await User.findMany({ select: { age: true } }, M)).toMatchObject([
+			{ age: 36 },
+		])
+	})
+
 	it('takes the listed fields only', async () => {
 		const { url } = await server()
 		const note = await signUp(url, { note: 'admin' })

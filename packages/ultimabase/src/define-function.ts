@@ -2,20 +2,17 @@
 // access rule checked and its input validated on each `run` (D-75), and the
 // named objects its output may hold.
 import { refused } from './access.ts'
-import type {
-	FunctionDefinition,
-	NamedOutput,
-	Output,
-	PluginRecord,
-} from './definition.ts'
+import type { FunctionDefinition, NamedOutput, Output } from './definition.ts'
 import {
 	functionDefinitions,
 	modelDefinitions,
+	nameOf,
 	nullable,
 	nullables,
-	pluginEntries,
 	typeDefinitions,
+	withOnce,
 } from './definition.ts'
+import { entriesOf } from './plugin-use.ts'
 import { callerOf } from './engine.ts'
 import { PublicError, Refused } from './errors.ts'
 import type { StandardSchema } from './fields.ts'
@@ -67,10 +64,8 @@ export function defineType<
 	const N extends string,
 	const F extends TypeFields,
 >(definition: { readonly name: N; readonly fields: F }): ObjectType<N, F> {
-	const { name, fields } = definition
-	if (typeof name !== 'string' || name === '') {
-		throw new Error('defineType takes a name.')
-	}
+	const { fields } = definition
+	const name = nameOf(definition.name, 'defineType')
 	if (!isObject(fields) || Object.keys(fields).length === 0) {
 		throw new Refused(`${name}: fields is an object of one output or more.`)
 	}
@@ -86,22 +81,6 @@ export function defineType<
 	typeDefinitions.set(type, recorded)
 	// oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the value holds the name and `nullable`; its fields are a type only.
 	return type as ObjectType<N, F>
-}
-
-function usesOf(name: string, use: unknown): readonly PluginRecord[] {
-	if (!Array.isArray(use)) throw new Refused(`${name}.use is a list.`)
-	const uses: PluginRecord[] = []
-	for (const value of use) {
-		const entry = isObject(value) ? pluginEntries.get(value) : undefined
-		if (entry === undefined) {
-			throw new Refused(`${name}.use lists a value no plugin's entry returned.`)
-		}
-		if (uses.some((other) => other.code.name === entry.code.name)) {
-			throw new Refused(`${name}.use lists ${entry.code.name} twice.`)
-		}
-		uses.push(entry)
-	}
-	return uses
 }
 
 /** Closed to all but Master by default (D-04); the rule reads the caller. */
@@ -182,10 +161,8 @@ export function defineFunction<
 		) => NoInfer<ResultOf<O>> | Promise<NoInfer<ResultOf<O>>>
 	} & NoInfer<InputCheck<I>>,
 ): ServerFunction<N, I, O, U[number]['plugin'], FunctionWithKeys<U[number]>> {
-	const { name, query = false, input, output, run } = definition
-	if (typeof name !== 'string' || name === '') {
-		throw new Error('defineFunction takes a name.')
-	}
+	const { query = false, input, output, run } = definition
+	const name = nameOf(definition.name, 'defineFunction')
 	if (typeof query !== 'boolean')
 		throw new Refused(`${name}: query is a boolean.`)
 	if (input !== undefined && standardOf(input) === undefined) {
@@ -199,7 +176,7 @@ export function defineFunction<
 		input,
 		output:
 			output === undefined ? undefined : outputOf(output, `${name}.output`),
-		uses: usesOf(name, definition.use ?? []),
+		uses: entriesOf(name, definition.use ?? []),
 		run,
 		rules: undefined,
 	}
@@ -207,15 +184,7 @@ export function defineFunction<
 		name,
 		input,
 		output,
-		// The rules are read on each call, so `.with` keeps the same value.
-		with: (rules: unknown): object => {
-			if (record.rules !== undefined) {
-				throw new Refused(`${name} takes its rules in one \`.with\`.`)
-			}
-			if (!isObject(rules)) throw new Refused(`${name}.with takes an object.`)
-			record.rules = rules
-			return fn
-		},
+		with: withOnce(name, record, () => fn),
 		run: async (...args: unknown[]): Promise<unknown> =>
 			called(fn, record, args),
 	})

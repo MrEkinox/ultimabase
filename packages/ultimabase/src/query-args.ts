@@ -6,7 +6,14 @@ import { InvalidQuery } from './errors.ts'
 import type { ModelInfo } from './schema.ts'
 import { orderBy } from './query-order.ts'
 import type { Models, Scope } from './query-where.ts'
-import { entries, isObject, normalizeWhere, unknownKey } from './query-where.ts'
+import {
+	entries,
+	isObject,
+	modelOf,
+	normalizeWhere,
+	systemFields,
+	unknownKey,
+} from './query-where.ts'
 
 /** What a query returns of each row, and of each relation it reads. */
 export type Shape = {
@@ -18,14 +25,6 @@ export type Shape = {
 }
 
 export type Plan = { readonly read: Nested; readonly shape: Shape }
-
-const systemFields = ['id', 'createdAt', 'updatedAt']
-
-function target(models: Models, name: string): ModelInfo {
-	const model = models.get(name)
-	if (model === undefined) throw new Error(`Unknown model ${name}.`)
-	return model
-}
 
 /** Without `select`, scalar fields return and relations do not (D-20). */
 function scalars(model: ModelInfo): string[] {
@@ -87,7 +86,7 @@ function counted(
 		for (const key of args.keys()) {
 			if (key !== 'where') throw unknownKey(`${at}.${key}`, model.name)
 		}
-		const counting = target(models, field.target)
+		const counting = modelOf(models, field.target)
 		const where = args.has('where')
 			? normalizeWhere(
 					models,
@@ -217,7 +216,7 @@ export function plan(
 			if (field === undefined || field.kind === 'scalar') continue
 			const relation = plan(
 				models,
-				target(models, field.target),
+				modelOf(models, field.target),
 				value === true ? undefined : value,
 				where,
 				field.kind,

@@ -1,9 +1,9 @@
 // The numbers of the contract (D-132): integer fields in 32 bits, and number
 // updates computed by the write on the row as it finds it, `null` as 0.
 import type { Adapter, UpdateDataOf } from 'ultimabase'
-import { defineApp, defineModel, master } from 'ultimabase'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { silent } from './silent.ts'
+import { defineModel, master } from 'ultimabase'
+import { describe, expect, it } from 'vitest'
+import { started } from './suite.ts'
 
 const M = { as: master }
 
@@ -33,15 +33,8 @@ const update = async (
 }
 
 export function numbers(create: () => Adapter): void {
-	const started = () =>
-		defineApp({ database: create(), models: [Tally, Stock], logger: silent })
 	describe('numbers', () => {
-		let app: ReturnType<typeof started>
-		beforeEach(async () => {
-			app = started()
-			await app.start()
-		})
-		afterEach(async () => app.stop())
+		started(create, [Tally, Stock])
 
 		it('stores and filters whole numbers in 32 bits', async () => {
 			const points = [-2_147_483_648, 0, 2_147_483_647]

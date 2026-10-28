@@ -6,7 +6,7 @@ import type { Filter, Row } from './adapter.ts'
 import { InvalidQuery, PublicError } from './errors.ts'
 import { computeOn, numberUpdates } from './number-update.ts'
 import { uniqueWhere } from './query-args.ts'
-import { isObject } from './query-where.ts'
+import { isObject, modelOf } from './query-where.ts'
 import type { FieldInfo, ModelInfo } from './schema.ts'
 import type { QueryScope } from './scope.ts'
 import { planned } from './scope.ts'
@@ -68,12 +68,6 @@ export const nests = (model: ModelInfo, draft: Draft): boolean =>
 		)
 	})
 
-function targetOf(r: Resolving, field: Relation): ModelInfo {
-	const target = r.scope.models.get(field.target)
-	if (target === undefined) throw new Error(`Unknown model ${field.target}.`)
-	return target
-}
-
 /** The rows of the other side linked to the row written. */
 function linked(r: Resolving, field: Relation, target: ModelInfo): Filter {
 	const inverse = target.fields.get(field.inverse)
@@ -92,7 +86,7 @@ async function reached(
 	path: string,
 	operation: 'update' | 'delete',
 ): Promise<Row> {
-	const target = targetOf(r, field)
+	const target = modelOf(r.scope.models, field.target)
 	const filter = await r.scope.filter(target.name, r.trusted, operation)
 	const [row] = await r.reads.find({
 		model: target.name,
@@ -170,7 +164,7 @@ export async function resolveOne(
 	const name = field.name
 	const path = ['data', ...r.at, name].join('.')
 	const write = oneWrite(value, path, r.model.name, r.creating)
-	const target = targetOf(r, field)
+	const target = modelOf(r.scope.models, field.target)
 	if (write.kind === 'connect' || write.kind === 'disconnect') return write
 	if (write.kind === 'create') {
 		const at = origins.get(write.data) ?? [...r.at, name, 'create']
@@ -310,7 +304,7 @@ export async function resolveMany(
 ): Promise<Many> {
 	const path = ['data', ...r.at, field.name].join('.')
 	const write = manyWrite(value, path, r.model.name, r.creating)
-	const target = targetOf(r, field)
+	const target = modelOf(r.scope.models, field.target)
 	const { update, delete: deleted } = await changing(
 		r,
 		field,

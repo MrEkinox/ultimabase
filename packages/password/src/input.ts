@@ -2,6 +2,7 @@
 // with the JSON Schema a transport types its arguments from (D-45).
 import type { SchemaField } from 'ultimabase'
 import { PublicError, Refused } from 'ultimabase'
+import { issueOf } from 'ultimabase/internal'
 
 type Node = { readonly [key: string]: unknown }
 type Read = { readonly value: unknown } | { readonly message: string }
@@ -87,56 +88,22 @@ export const property = (
 	required = true,
 ): Property => ({ read, json, required })
 
-/** One value of a scalar type, an element of a list (D-127). */
-function itemRead(field: Scalar): Property['read'] {
-	const { type, values = [] } = field
-	return (value) => {
-		if (type === 'number') {
-			return typeof value === 'number' && Number.isFinite(value)
-				? { value }
-				: { message: 'Expected a number.' }
-		}
-		if (type === 'boolean') {
-			return typeof value === 'boolean'
-				? { value }
-				: { message: 'Expected a boolean.' }
-		}
-		if (type === 'date') {
-			const date =
-				value instanceof Date || typeof value === 'string'
-					? new Date(value)
-					: undefined
-			return date === undefined || Number.isNaN(date.getTime())
-				? { message: 'Expected a date.' }
-				: { value: date }
-		}
-		if (type === 'enum') {
-			return typeof value === 'string' && values.includes(value)
-				? { value }
-				: { message: `Expected one of ${values.join(', ')}.` }
-		}
-		return text(value)
-	}
-}
+const [smallest, largest] = [-2_147_483_648, 2_147_483_647]
 
-/** A scalar's check, with `null` when optional; a list's checks each element. */
+/**
+ * A field's check, the kernel's (D-127, D-132, D-139): a date may come as an
+ * ISO string, and an optional field takes `null`.
+ */
 function readOf(field: Scalar): Property['read'] {
-	const item = itemRead(field)
-	if (!field.list) {
-		return (value) =>
-			value === null && field.optional ? { value } : item(value)
+	return (given) => {
+		if (given === null && field.optional && !field.list) return { value: given }
+		const value =
+			field.type === 'date' && typeof given === 'string'
+				? new Date(given)
+				: given
+		const message = issueOf(value, field)
+		return message === undefined ? { value } : { message }
 	}
-	const fit = (element: unknown) => element !== '' && 'value' in item(element)
-	const of =
-		field.type === 'enum'
-			? `values among ${(field.values ?? []).join(', ')}`
-			: field.type === 'number'
-				? 'numbers'
-				: 'non-empty strings'
-	return (value) =>
-		Array.isArray(value) && value.every(fit)
-			? { value }
-			: { message: `Expected a list of ${of}.` }
 }
 
 function jsonOf(field: Scalar): Node {
@@ -148,9 +115,12 @@ function jsonOf(field: Scalar): Node {
 			items: type === 'string' ? { ...items, minLength: 1 } : items,
 		}
 	}
-	const base = type === 'date' || type === 'enum' ? 'string' : type
+	const integer = field.integer === true
+	const base =
+		type === 'date' || type === 'enum' ? 'string' : integer ? 'integer' : type
 	return {
 		type: optional ? [base, 'null'] : base,
+		...(integer ? { minimum: smallest, maximum: largest } : {}),
 		...(type === 'date' ? { format: 'date-time' } : {}),
 		...(type === 'enum' ? { enum: optional ? [...values, null] : values } : {}),
 	}

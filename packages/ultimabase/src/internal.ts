@@ -13,7 +13,9 @@ import { current } from './running.ts'
 export type { Lifecycle }
 export type { Scratch } from './scratch.ts'
 export { scratchable, scratchOf } from './scratch.ts'
+export { isRow } from './field-codec.ts'
 export { joining } from './transaction.ts'
+export { issueOf } from './write-data.ts'
 
 /** `logger` without its info lines. */
 function quieted(logger: Logger): Logger {

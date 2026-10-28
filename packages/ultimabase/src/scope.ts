@@ -9,6 +9,7 @@ import type { FindOperation } from './model.ts'
 import type { Caller } from './rules.ts'
 import type { ModelInfo } from './schema.ts'
 import type { Models, Scope } from './query-where.ts'
+import { modelOf } from './query-where.ts'
 
 /**
  * `readable` is synchronous, as the planning that calls it, but `beforeFind`
@@ -65,8 +66,7 @@ export class QueryScope implements Scope {
 		let narrowed = false
 		for (const [key, { name, operation }] of this.wanted) {
 			this.wanted.delete(key)
-			const model = this.models.get(name)
-			if (model === undefined) throw new Error(`Unknown model ${name}.`)
+			const model = modelOf(this.models, name)
 			const filter = await beforeFind(
 				this.models,
 				model,

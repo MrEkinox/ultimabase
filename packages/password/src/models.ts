@@ -1,6 +1,6 @@
 // password's own models (D-110, D-113, D-114, D-117): each user's hash, and
 // what the sign-in limit and the hourly limits count.
-import { isIPv6 } from 'node:net'
+import ipaddr from 'ipaddr.js'
 import type { Field, ModelOf, ScalarOptions } from 'ultimabase'
 import { defineModel, master, PublicError } from 'ultimabase'
 
@@ -55,29 +55,17 @@ export const PasswordRequest: ModelOf<'PasswordRequest', RequestFields, []> =
 		indexes: [{ fields: ['kind', 'subject'] }, { fields: ['at'] }],
 	})
 
-const groups = (part: string): string[] => (part === '' ? [] : part.split(':'))
-
 /**
  * What the limits count for `address`: an IPv6 address's /64 network, the
- * IPv4 address an IPv4-mapped one holds, any other as it is (D-114).
+ * IPv4 address an IPv4-mapped one holds, in any notation, any other as it is
+ * (D-114).
  */
 export function networkOf(address: string): string {
-	const mapped = /^::ffff:(\d+\.\d+\.\d+\.\d+)$/i.exec(address)
-	if (mapped?.[1] !== undefined) return mapped[1]
-	const bare = address.split('%')[0] ?? ''
-	if (!isIPv6(bare)) return address
-	const [head = '', tail = ''] = bare.split('::')
-	const left = groups(head)
-	const right = groups(tail)
-	const embedded = bare.includes('.') ? 1 : 0
-	const missing = 8 - left.length - right.length - embedded
-	const all = [
-		...left,
-		...Array<string>(Math.max(missing, 0)).fill('0'),
-		...right,
-	]
-	const prefix = all.slice(0, 4).map((group) => Number.parseInt(group, 16))
-	return `${prefix.map((group) => group.toString(16)).join(':')}::/64`
+	if (!ipaddr.IPv6.isValid(address)) return address
+	const ip = ipaddr.IPv6.parse(address)
+	if (ip.isIPv4MappedAddress()) return ip.toIPv4Address().toString()
+	const prefix = ip.parts.slice(0, 4).map((group) => group.toString(16))
+	return `${prefix.join(':')}::/64`
 }
 
 const tooMany = (oldest: Date, span: number, now: number): PublicError =>

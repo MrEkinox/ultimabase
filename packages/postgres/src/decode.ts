@@ -1,18 +1,10 @@
 // What a read's jsonb holds, back as the rows the kernel expects (D-73): a
 // date arrives as text in UTC without its zone, everything else as written.
 import type { Nested, Row } from 'ultimabase'
+import { isRow } from 'ultimabase/internal'
 import type { Catalog } from './names.ts'
 
 const dates = new Set(['createdAt', 'updatedAt'])
-
-function isRow(value: unknown): value is Row {
-	return (
-		typeof value === 'object' &&
-		value !== null &&
-		'id' in value &&
-		typeof value.id === 'string'
-	)
-}
 
 function decodeRow(
 	catalog: Catalog,

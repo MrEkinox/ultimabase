@@ -8,7 +8,7 @@ import type { Caller } from './rules.ts'
 import { allow, filterOf, isMaster, isReadFilter, readFilter } from './rules.ts'
 import type { ModelInfo } from './schema.ts'
 import type { Models } from './query-where.ts'
-import { entries, isObject, normalizeWhere } from './query-where.ts'
+import { entries, isObject, modelOf, normalizeWhere } from './query-where.ts'
 import { madeId } from './uuid.ts'
 
 type Operation = 'read' | 'create' | 'update' | 'delete'
@@ -181,9 +181,7 @@ export class Access {
 	/** The model's read filter (D-10); `undefined` when every row passes. */
 	readable(name: string): Filter | undefined {
 		if (this.filters.has(name)) return this.filters.get(name)
-		const model = this.models.get(name)
-		if (model === undefined) throw new Error(`Unknown model ${name}.`)
-		const filter = this.filterOf(model)
+		const filter = this.filterOf(modelOf(this.models, name))
 		this.filters.set(name, filter)
 		return filter
 	}

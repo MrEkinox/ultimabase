@@ -4,29 +4,7 @@
 import { randomUUID } from 'node:crypto'
 import { GraphQLError } from 'graphql'
 import type { Logger } from 'ultimabase'
-import { InvalidQuery, PublicError } from 'ultimabase'
-
-/** An argument of the client's that the API refuses. */
-export const badInput = (message: string): Error =>
-	new PublicError('BAD_USER_INPUT', message)
-
-/**
- * Runs a kernel query. The arguments come from the client's document, so
- * one the kernel refuses is the client's error, not the server's.
- */
-export async function run<T>(query: () => Promise<T>): Promise<T> {
-	try {
-		return await query()
-	} catch (error) {
-		if (error instanceof InvalidQuery) {
-			throw new PublicError('BAD_USER_INPUT', error.message, {
-				details: { path: error.path },
-				cause: error,
-			})
-		}
-		throw error
-	}
-}
+import { PublicError } from 'ultimabase'
 
 type Format = (error: Readonly<GraphQLError | Error>) => GraphQLError | Error
 

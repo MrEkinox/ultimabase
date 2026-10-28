@@ -2,10 +2,10 @@
 // any depth and filtered, a sort through `one` relations or by a count, on
 // the rows the caller reads, a cursor kept exact.
 import type { Adapter, Identity } from 'ultimabase'
-import { defineApp, defineModel, master } from 'ultimabase'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { defineModel, master } from 'ultimabase'
+import { beforeEach, describe, expect, it } from 'vitest'
 import { suiteUser } from './as-user.ts'
-import { silent } from './silent.ts'
+import { started } from './suite.ts'
 
 const M: { readonly as: Identity } = { as: master }
 const user = { as: suiteUser('00000000-0000-4000-8000-000000000000') }
@@ -69,18 +69,11 @@ const byFirm = async (direction: 'asc' | 'desc', as = M) =>
 	)
 
 export function counts(create: () => Adapter): void {
-	const started = () =>
-		defineApp({
-			database: create(),
-			models: [Firm, Author, Article, Remark, Label],
-			logger: silent,
-		})
 	describe('counts and sorts through relations', () => {
-		let app: ReturnType<typeof started>
+		started(create, [Firm, Author, Article, Remark, Label])
+
 		let ada = ''
 		beforeEach(async () => {
-			app = started()
-			await app.start()
 			const zeta = await Firm.create({ data: { name: 'Zeta' } }, M)
 			const acme = await Firm.create({ data: { name: 'Acme' } }, M)
 			ada = (
@@ -124,7 +117,6 @@ export function counts(create: () => Adapter): void {
 			await article('Three', ada, [{ body: 'r3' }, { body: 'r4' }], [])
 			await article('Four', undefined, [], [])
 		})
-		afterEach(async () => app.stop())
 
 		it('counts every many relation, or the ones it names, filtered', async () => {
 			const authors = await Author.findMany(

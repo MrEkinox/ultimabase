@@ -3,24 +3,17 @@
 import type {
 	FieldDefinition,
 	IndexDefinition,
+	PluginRecord,
 	PluginUse,
 } from './definition.ts'
 import { fieldBuilders, fieldDefinitions, pluginEntries } from './definition.ts'
 import type { Command } from './plugin-code.ts'
 import { inCommand } from './plugin-code.ts'
-import { isObject } from './query-where.ts'
+import { isObject, systemFields } from './query-where.ts'
 import { Refused } from './errors.ts'
 
 /** The kernel's names, which a model's field cannot take (D-22, D-20, D-134). */
-const reserved = new Set([
-	'id',
-	'createdAt',
-	'updatedAt',
-	'AND',
-	'OR',
-	'NOT',
-	'_count',
-])
+const reserved = new Set([...systemFields, 'AND', 'OR', 'NOT', '_count'])
 
 /**
  * Adds the fields a `fields` callback, or a plugin's `addedFields`, built.
@@ -119,6 +112,23 @@ function commandsOf(
  * Reads a model's `use`: each entry once, the fields its plugins add into
  * `fields`, and their commands, built with `queries`.
  */
+/** The plugin entries `use` lists, each once (D-27). */
+export function entriesOf(name: string, use: unknown): readonly PluginRecord[] {
+	if (!Array.isArray(use)) throw new Refused(`${name}.use is a list.`)
+	const entries: PluginRecord[] = []
+	for (const value of use) {
+		const entry = isObject(value) ? pluginEntries.get(value) : undefined
+		if (entry === undefined) {
+			throw new Refused(`${name}.use lists a value no plugin's entry returned.`)
+		}
+		if (entries.some((other) => other.code.name === entry.code.name)) {
+			throw new Refused(`${name}.use lists ${entry.code.name} twice.`)
+		}
+		entries.push(entry)
+	}
+	return entries
+}
+
 export function usedBy(
 	model: string,
 	use: readonly unknown[],
@@ -131,17 +141,7 @@ export function usedBy(
 } {
 	const uses: PluginUse[] = []
 	const owners = new Map<string, string>()
-	for (const value of use) {
-		const entry = isObject(value) ? pluginEntries.get(value) : undefined
-		if (entry === undefined) {
-			throw new Refused(
-				`${model}.use lists a value no plugin's entry returned.`,
-			)
-		}
-		const { code, options } = entry
-		if (uses.some((other) => other.code.name === code.name)) {
-			throw new Refused(`${model}.use lists ${code.name} twice.`)
-		}
+	for (const { code, options } of entriesOf(model, use)) {
 		if (code.addedFields !== undefined) {
 			const built: unknown = Reflect.apply(code.addedFields, undefined, [
 				fieldBuilders,

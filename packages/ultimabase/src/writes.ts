@@ -6,19 +6,20 @@
 // D-104).
 import { and, recordOf } from './access.ts'
 import type { Filter, Nested, Row } from './adapter.ts'
-import { cascadeOf, cascadeWhere } from './cascade.ts'
+import { cascadeWhere } from './cascade.ts'
+import { deleted } from './delete-many.ts'
 import { PublicError } from './errors.ts'
 import type { Event } from './hooks.ts'
 import { redirectOf, rereads, runHook, settle, settles } from './hooks.ts'
 import type { Context } from './query-context.ts'
-import { byId, first, given, hiddenBy, picked } from './query-context.ts'
+import { first, given, hiddenBy, picked } from './query-context.ts'
 import type { Shape } from './query-args.ts'
 import { oneKeys, plan, project, uniqueWhere } from './query-args.ts'
 import type { Numbers } from './number-update.ts'
 import {
 	computeOn,
 	numberUpdates,
-	outOfRange,
+	inRange,
 	validates,
 } from './number-update.ts'
 import { nests, resolveData } from './nested-write.ts'
@@ -31,7 +32,8 @@ import type { Checked, Plan } from './write-plan.ts'
 import { updated } from './write-plan.ts'
 import { uuidv7 } from './uuid.ts'
 import { guarded, target } from './write-target.ts'
-import { cascaded, writingOf } from './writing.ts'
+import { writingOf } from './writing.ts'
+import { byId } from './query-where.ts'
 
 /** The shape a single-row write returns. */
 async function returned(
@@ -209,17 +211,10 @@ export async function update(
 		const message = missing(model.name)
 		const at = { id, read, shape }
 		const checks = [{ check, message }]
-		const result = await written(
-			context,
-			store,
-			commits,
-			steps,
-			[],
-			at,
-			checks,
-		).catch((error: unknown) => {
-			throw outOfRange(model, error)
-		})
+		const result = await inRange(
+			model,
+			written(context, store, commits, steps, [], at, checks),
+		)
 		// The row went between the write's check and its change (D-104).
 		if (result === null) throw new PublicError('NOT_FOUND', message)
 		return result
@@ -235,7 +230,7 @@ export async function remove(
 	commits: Commit[],
 	args: unknown,
 ): Promise<unknown> {
-	const { models, model, caller, scope } = context
+	const { models, model, scope } = context
 	const found = given(args, model.name, ['where', ...oneKeys], ['where'])
 	const { read, shape } = await returned(context, found)
 	const where = await targets(context, found, 'delete')
@@ -280,27 +275,7 @@ export async function remove(
 	const redirected = redirectOf(model) !== undefined
 	// A redirected row stays: it is read as the redirect left it (D-89).
 	const kept = redirected ? undefined : await shaped(byId(row.id), false)
-	const locked = cascadeWhere(models, model, byId(row.id))
-	if (locked !== undefined) {
-		const checks = locked.checks.map(({ check }) => check)
-		await guarded(
-			store.write({ checks, changes: locked.changes }),
-			locked.checks,
-		)
-		return project(kept ?? row, shape, hiddenBy(scope.access))
-	}
-	// A redirected row stays: it cascades nothing (D-90).
-	const cascade = redirected
-		? { deleted: [{ model, row, redirected }], nulled: [] }
-		: await cascadeOf(models, model, [row], store)
-	const events: Event[] = []
-	const writing = writingOf(scope, store, events)
-	const changes = await cascaded(writing, cascade)
-	if (changes.length > 0) {
-		const checks = writing.checks.map(({ check }) => check)
-		await guarded(store.write({ checks, changes }), writing.checks)
-	}
-	await settle(store, caller, events, commits)
+	await deleted(context, store, commits, [row])
 	// The row as the redirect left it, or as it was once gone (D-89).
 	const [left] = redirected
 		? await store.find({

@@ -3,23 +3,17 @@
 // input, each answered with the output GraphQL's field returns.
 import type { Routes } from '@ultimabase/http'
 import { clientOf, validate } from '@ultimabase/http'
+import type { Node } from '@ultimabase/http/internal'
+import { isNode, jsonSchemaOf, rowOf } from '@ultimabase/http/internal'
 import type { Caller, Client, ExposedFunction, ExposedOutput } from 'ultimabase'
 import { Refused } from 'ultimabase'
 import type { Api } from './entries.ts'
 import { checkName, entryOf } from './entries.ts'
 import { defaultShape, shaped } from './fields.ts'
-import type { Node } from './json-schema.ts'
-import {
-	acceptsNull,
-	isNode,
-	isText,
-	resolved,
-	schemaOf,
-} from './json-schema.ts'
+import { acceptsNull, isText, resolved } from './json-schema.ts'
 import { anyBody } from './models.ts'
 import type { Accepted } from './params.ts'
 import { paramsOf } from './params.ts'
-import { rowOf } from './pages.ts'
 
 /** A function's key of `.with` (D-129): its route's name, or hidden. */
 export type RestFunctionWith = { readonly name?: string } | false
@@ -114,10 +108,10 @@ export function functionRoutes(
 		const root =
 			input === undefined
 				? undefined
-				: schemaOf(input, 'input', `${owner}: input`)
+				: jsonSchemaOf(input, 'input', `${owner}: input`)
 		const nullable =
 			output?.kind === 'schema'
-				? acceptsNull(schemaOf(output.schema, 'output', `${owner}: output`))
+				? acceptsNull(jsonSchemaOf(output.schema, 'output', `${owner}: output`))
 				: output?.form === 'nullable'
 		const answer = async (as: Caller, client: Client, sent: unknown) => {
 			const value = await fn.run(sent, { as }, client)

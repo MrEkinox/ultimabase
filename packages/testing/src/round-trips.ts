@@ -3,10 +3,10 @@
 // relations included (D-134), is one, and so are a count and a write that
 // needs no stored row. A write that decides from its row locks it (D-104).
 import type { Adapter } from 'ultimabase'
-import { defineApp, defineModel, master, transaction } from 'ultimabase'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { defineModel, master, transaction } from 'ultimabase'
+import { beforeEach, describe, expect, it } from 'vitest'
 import { suiteUser } from './as-user.ts'
-import { silent } from './silent.ts'
+import { started } from './suite.ts'
 
 const M = { as: master }
 
@@ -77,12 +77,6 @@ const Memo = defineModel({
 const user = suiteUser(me)
 
 export function roundTrips(create: () => Adapter, counted: () => number): void {
-	const started = () =>
-		defineApp({
-			database: create(),
-			models: [Writer, Novel, Genre, Shelf, Cabinet, Drawer, Note, Memo],
-			logger: silent,
-		})
 	const trips = async <T>(
 		expected: number,
 		run: () => Promise<T>,
@@ -95,13 +89,12 @@ export function roundTrips(create: () => Adapter, counted: () => number): void {
 	const once = async <T>(run: () => Promise<T>): Promise<T> => trips(1, run)
 
 	describe('round trips', () => {
-		let app: ReturnType<typeof started>
+		started(create, [Writer, Novel, Genre, Shelf, Cabinet, Drawer, Note, Memo])
+
 		let writer = ''
 		let genre = ''
 		let engines = ''
 		beforeEach(async () => {
-			app = started()
-			await app.start()
 			genre = (await Genre.create({ data: { label: 'tale' } }, M)).id
 			writer = (await Writer.create({ data: { name: 'Ada' } }, M)).id
 			const created = await Novel.create(
@@ -116,7 +109,6 @@ export function roundTrips(create: () => Adapter, counted: () => number): void {
 			)
 			engines = created.id
 		})
-		afterEach(async () => app.stop())
 
 		it('reads three levels of relations in one', async () => {
 			const writers = await once(async () =>
@@ -248,7 +240,10 @@ export function roundTrips(create: () => Adapter, counted: () => number): void {
 					{
 						where: { id: engines },
 						data: {
-							genres: { disconnect: [{ id: genre }], connect: [{ id: other }] },
+							genres: {
+								disconnect: [{ id: genre }],
+								connect: [{ id: other }],
+							},
 						},
 						include: { genres: true },
 					},

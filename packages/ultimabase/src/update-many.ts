@@ -9,7 +9,7 @@ import type { Numbers } from './number-update.ts'
 import {
 	computeOn,
 	numberUpdates,
-	outOfRange,
+	inRange,
 	validates,
 } from './number-update.ts'
 import type { Context } from './query-context.ts'
@@ -22,7 +22,7 @@ import type { Draft } from './write-data.ts'
 import { prepared, readData } from './write-data.ts'
 import type { Plan } from './write-plan.ts'
 import { updated } from './write-plan.ts'
-import { guarded } from './write-target.ts'
+import { checkedWrite, guarded } from './write-target.ts'
 import { writingOf } from './writing.ts'
 
 /** The scalar data of the rows, as `update` reads it (D-133 point 2). */
@@ -166,12 +166,7 @@ async function lockedRows(
 				: spread(plan, { id: { in: ids } })),
 		)
 	}
-	const checks = writing.checks.map(({ check }) => check)
-	await guarded(store.write({ checks, changes }), writing.checks).catch(
-		(error: unknown) => {
-			throw outOfRange(model, error)
-		},
-	)
+	await inRange(model, checkedWrite(store, writing.checks, changes))
 	await settle(store, caller, events, commits)
 	return { count: items.length }
 }
@@ -203,8 +198,6 @@ export async function updateMany(
 		read: { model: model.name },
 		before: true,
 	}
-	const rows = await guarded(store.last(write), []).catch((error: unknown) => {
-		throw outOfRange(model, error)
-	})
+	const rows = await inRange(model, guarded(store.last(write), []))
 	return { count: rows.length }
 }

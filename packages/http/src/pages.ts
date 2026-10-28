@@ -1,14 +1,26 @@
-// Pages (D-55, D-129): GraphQL's Relay arguments and `take`/`skip` as a
-// kernel read, within the limits, and the rows read as a connection.
+// Pages (D-55, D-129): Relay arguments and `take`/`skip` as a kernel read,
+// within the limits, and the rows read as a connection.
 import type { Row } from 'ultimabase'
-import type { Api, Args, Entry } from './entries.ts'
-import { badInput } from './errors.ts'
+import { isRow } from 'ultimabase/internal'
+import { badInput } from './transport.ts'
+
+/** A list's arguments, as the client wrote them. */
+export type Args = { readonly [key: string]: unknown }
 
 /** Where an argument was written: `first`, or `include.posts.first`. */
 export type At = (name: string) => string
 
-export const encode = (id: string): string =>
-	Buffer.from(id).toString('base64url')
+/** A transport's `pagination` setting (D-55). */
+export type Pagination = 'connection' | 'list'
+
+/** A model's limits: the rows a list returns by default, and at most. */
+export type Limits = {
+	readonly take: number
+	readonly maxTake: number
+	readonly model: { readonly name: string }
+}
+
+const encode = (id: string): string => Buffer.from(id).toString('base64url')
 
 function decode(cursor: string, arg: string): string {
 	const id = Buffer.from(cursor, 'base64url').toString()
@@ -38,19 +50,19 @@ function text(args: Args, name: string, at: At): string | undefined {
 function size(
 	asked: number | undefined,
 	name: string,
-	entry: Entry,
+	limits: Limits,
 	master: boolean,
 ): number | undefined {
 	if (asked !== undefined && asked < 0) {
 		throw badInput(`${name} cannot be negative.`)
 	}
 	if (master) return asked
-	if (asked !== undefined && asked > entry.maxTake) {
+	if (asked !== undefined && asked > limits.maxTake) {
 		throw badInput(
-			`${name} is at most ${entry.maxTake} on ${entry.model.name}.`,
+			`${name} is at most ${limits.maxTake} on ${limits.model.name}.`,
 		)
 	}
-	return asked ?? entry.take
+	return asked ?? limits.take
 }
 
 /** A Relay page: the rows asked for and its direction. */
@@ -66,7 +78,7 @@ export type Page = { readonly read: Args; readonly relay: Relay | undefined }
  * One row more than asked tells whether another page follows. The cursor's
  * row is included by the kernel, so `skip: 1` starts after it.
  */
-function relay(args: Args, entry: Entry, master: boolean, at: At): Page {
+function relay(args: Args, limits: Limits, master: boolean, at: At): Page {
 	const after = text(args, 'after', at)
 	const before = text(args, 'before', at)
 	const first = integer(args, 'first', at)
@@ -78,8 +90,8 @@ function relay(args: Args, entry: Entry, master: boolean, at: At): Page {
 		)
 	}
 	const rows = backward
-		? size(last, at('last'), entry, master)
-		: size(first, at('first'), entry, master)
+		? size(last, at('last'), limits, master)
+		: size(first, at('first'), limits, master)
 	const cursor = backward ? before : after
 	const read: { [key: string]: unknown } = {}
 	if (rows !== undefined) read['take'] = backward ? -(rows + 1) : rows + 1
@@ -93,8 +105,8 @@ function relay(args: Args, entry: Entry, master: boolean, at: At): Page {
 }
 
 /** `take` and `skip` for `pagination: 'list'`. */
-function list(args: Args, entry: Entry, master: boolean, at: At): Page {
-	const take = size(integer(args, 'take', at), at('take'), entry, master)
+function list(args: Args, limits: Limits, master: boolean, at: At): Page {
+	const take = size(integer(args, 'take', at), at('take'), limits, master)
 	const skip = integer(args, 'skip', at)
 	const read = {
 		...(take === undefined ? {} : { take }),
@@ -105,28 +117,38 @@ function list(args: Args, entry: Entry, master: boolean, at: At): Page {
 
 /** The page a list's arguments ask for. */
 export const pageOf = (
-	api: Api,
-	entry: Entry,
+	pagination: Pagination,
+	limits: Limits,
 	args: Args,
 	master: boolean,
-	at: At,
+	at: At = (name) => name,
 ): Page =>
-	api.pagination === 'list'
-		? list(args, entry, master, at)
-		: relay(args, entry, master, at)
+	pagination === 'list'
+		? list(args, limits, master, at)
+		: relay(args, limits, master, at)
 
 /** The page arguments of each pagination. */
-export const pageArgs = (api: Api): readonly string[] =>
-	api.pagination === 'list'
+export const pageArgs = (pagination: Pagination): readonly string[] =>
+	pagination === 'list'
 		? ['take', 'skip']
 		: ['first', 'after', 'last', 'before']
 
+export type Connection<N> = {
+	readonly edges: readonly { readonly cursor: string; readonly node: N }[]
+	readonly pageInfo: {
+		readonly hasNextPage: boolean
+		readonly hasPreviousPage: boolean
+		readonly startCursor: string | null
+		readonly endCursor: string | null
+	}
+}
+
 /** The rows of a Relay read, without the one read to look ahead. */
-export function connection(
+export function connection<N>(
 	rows: readonly Row[],
 	page: Relay,
-	node: (row: Row) => unknown,
-): { readonly [key: string]: unknown } {
+	node: (row: Row) => N,
+): Connection<N> {
 	const more = page.size !== undefined && rows.length > page.size
 	const kept = more ? (page.backward ? rows.slice(1) : rows.slice(0, -1)) : rows
 	const edges = kept.map((row) => ({ cursor: encode(row.id), node: node(row) }))
@@ -140,12 +162,6 @@ export function connection(
 		},
 	}
 }
-
-const isRow = (value: unknown): value is Row =>
-	typeof value === 'object' &&
-	value !== null &&
-	'id' in value &&
-	typeof value.id === 'string'
 
 /** A row's relation as the kernel returned it. */
 export function rowsOf(value: unknown): readonly Row[] {

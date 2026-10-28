@@ -1,9 +1,9 @@
 // Nested creation in the contract (D-128): `create` in a relation write makes
 // the rows with the one it writes, at any depth, or none of them.
 import type { Adapter } from 'ultimabase'
-import { defineApp, defineModel, master } from 'ultimabase'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { silent } from './silent.ts'
+import { defineModel, master } from 'ultimabase'
+import { describe, expect, it } from 'vitest'
+import { started } from './suite.ts'
 
 const M = { as: master }
 
@@ -49,19 +49,8 @@ const Topic = defineModel({
 })
 
 export function nested(create: () => Adapter): void {
-	const started = () =>
-		defineApp({
-			database: create(),
-			models: [Blogger, Card, Post, Comment, Topic],
-			logger: silent,
-		})
 	describe('nested creation', () => {
-		let app: ReturnType<typeof started>
-		beforeEach(async () => {
-			app = started()
-			await app.start()
-		})
-		afterEach(async () => app.stop())
+		started(create, [Blogger, Card, Post, Comment, Topic])
 
 		it('creates rows three levels deep with the one it writes', async () => {
 			const topic = await Topic.create({ data: { label: 'ts' } }, M)
@@ -170,7 +159,9 @@ export function nested(create: () => Adapter): void {
 		it('writes nothing when a row deep down fails', async () => {
 			const blogger = await Blogger.create({ data: { name: 'Ada' } }, M)
 			await Post.create(
-				{ data: { title: 'Taken', blogger: { connect: { id: blogger.id } } } },
+				{
+					data: { title: 'Taken', blogger: { connect: { id: blogger.id } } },
+				},
 				M,
 			)
 			const failed = Blogger.create(
