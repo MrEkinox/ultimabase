@@ -7773,3 +7773,82 @@ WARN  PostgreSQL folds case under its C locale for ASCII only: a case-insensitiv
       filter matches É and é in memory() but not here. Create the database with
       a UTF-8 locale, such as en_US.UTF-8.
 ```
+
+## D-141: Trigram indexes for substring and case-insensitive filters
+
+Choice: amends D-52.
+
+1. An index of `defineModel` takes `contains: true` over one `string` field
+   that is not a list, and not with `unique`:
+   `indexes: [{ fields: ['title'], contains: true }]`. A plugin's index
+   takes it too (D-122). Anything else is refused on the index's line. It
+   speeds up `contains` and `endsWith` in both modes, and every operator
+   of D-140's `mode: 'insensitive'`. It changes no result; `memory()`
+   ignores it.
+2. `postgres()` makes it a GIN index of `pg_trgm` over the column read
+   under the database's collation, named `<table>_<column>_trgm`, so a
+   field can also have a plain index:
+   `create index "book_title_trgm" on "book" using gin (("title" collate "default") gin_trgm_ops)`.
+   The snapshot keeps it apart from plain indexes, as `trigrams` (D-105).
+3. `contains` and `endsWith` read the column under `collate "default"`
+   whatever the mode, as D-140's operators already do, so one index
+   serves both modes. The default collation is deterministic, so `like`
+   matches the same characters as under `"C"`. An equality, `in`, a
+   comparison and a case-sensitive `startsWith` keep the bare column,
+   which a plain index serves: under `"C"` it serves a prefix.
+4. A plan that adds a trigram index runs
+   `create extension if not exists pg_trgm` first, which installs it in
+   the first schema of the `search_path`: `public` by default. No plan
+   drops the extension, which other objects may use. The operator class resolves through the
+   `search_path`, so a schema that holds the extension must be on it, as
+   Supabase's `extensions` is.
+5. A D-137 test schema whose models declare a trigram index: before it
+   connects, `postgres()` installs the extension with the url's own
+   `search_path`, as a migration would, then puts the extension's schema
+   after the test schema in the connections' `search_path`. Dropping the
+   test schema leaves the extension.
+
+Why: `contains` reads every row without an index, and so does each
+case-insensitive filter, `email` equality included. A trigram index is the
+one PostgreSQL index that serves `like` and `ilike` anywhere in the string.
+Naming the index by what it serves keeps the model free of PostgreSQL's
+vocabulary. `pg_trgm` ships with PostgreSQL and is trusted since version 13,
+so a database owner installs it without being a superuser.
+
+Rejected:
+
+- `type: 'gin'` with an operator class, as Prisma writes it: PostgreSQL's
+  words in the model, and a choice no other index kind needs yet.
+- Reading every text operator under `collate "default"`: a plain index on
+  the `"C"` column then no longer serves a case-sensitive `startsWith`.
+- An index on `lower(title)`: it serves `ilike` only, and needs a second
+  index for the case-sensitive `contains`.
+- An index on the bare column: it does not serve the `collate "default"`
+  `ilike` that D-140 needs beyond ASCII (measured on PostgreSQL 15 and 18).
+- Installing the extension in the test schema: it is database-wide, other
+  test files would not see it, and dropping the schema would drop their
+  indexes with it.
+
+Example:
+
+```ts
+// Before: every contains reads the whole table
+export const Book = defineModel('Book', {
+	fields: { title: f.string() },
+})
+// After
+export const Book = defineModel('Book', {
+	fields: { title: f.string() },
+	indexes: [{ fields: ['title'], contains: true }],
+})
+await Book.findMany(
+	{ where: { title: { contains: 'engine', mode: 'insensitive' } } },
+	as,
+)
+```
+
+```sql
+-- The migration `ultimabase migrate create` writes
+create extension if not exists pg_trgm;
+create index "book_title_trgm" on "book" using gin (("title" collate "default") gin_trgm_ops);
+```

@@ -212,6 +212,8 @@ Exit: an example with sign-up, sign-in and rules on `caller.user`.
 - [x] One transport core and shared value checks (D-139).
 - [x] Decide case-insensitive filters (D-20): D-140.
 - [x] Case-insensitive filters (D-140).
+- [x] Decide trigram indexes (D-52, D-140): D-141.
+- [ ] Trigram indexes (D-141).
 - [ ] Documentation website (D-31).
 - [ ] A full audit of every package, its fixes merged, before publication.
 - [ ] Publication, after confirmation.
