@@ -15,13 +15,8 @@ import type { Context } from './query-context.ts'
 import { first, given, hiddenBy, picked } from './query-context.ts'
 import type { Shape } from './query-args.ts'
 import { oneKeys, plan, project, uniqueWhere } from './query-args.ts'
-import type { Numbers } from './number-update.ts'
-import {
-	computeOn,
-	numberUpdates,
-	inRange,
-	validates,
-} from './number-update.ts'
+import type { Operations } from './number-update.ts'
+import { computeOn, operationsOf, inRange, validates } from './number-update.ts'
 import { nests, resolveData } from './nested-write.ts'
 import { createPlan, updatePlan } from './query-write.ts'
 import { planned } from './scope.ts'
@@ -152,20 +147,21 @@ function idOf(where: unknown): string | undefined {
 }
 
 /**
- * Updates the locked `row` as the rules allow; its number updates are
- * computed on it first, so the rules and hooks see the results (D-132).
+ * Updates the locked `row` as the rules allow; its number and list updates
+ * are computed on it first, so the rules and hooks see the results (D-132,
+ * D-149).
  */
 async function updating(
 	context: Context,
 	store: Store,
 	commits: Commit[],
-	data: { readonly draft: Draft; readonly numbers: Numbers },
+	data: { readonly draft: Draft; readonly operations: Operations },
 	at: { readonly row: Row; readonly read: Nested; readonly shape: Shape },
 ): Promise<unknown> {
 	const { model, caller, scope } = context
 	const { row, read, shape } = at
-	const { draft, numbers } = data
-	computeOn(model, row, draft, numbers)
+	const { draft, operations } = data
+	computeOn(model, row, draft, operations)
 	const reach = { scope, reads: store, model, id: row.id, at: [] }
 	await resolveData({ ...reach, creating: false, trusted: false }, draft)
 	const sent: Readonly<Draft> = { ...draft }
@@ -197,7 +193,7 @@ export async function update(
 	const { read, shape } = await returned(context, found)
 	// The data's shape is checked whether or not the row is found.
 	const draft = readData(models, model, found.get('data'), false)
-	const numbers = numberUpdates(model, draft)
+	const operations = operationsOf(model, draft)
 	const id = idOf(found.get('where'))
 	const where = await targets(context, found, 'update')
 	if (
@@ -205,10 +201,10 @@ export async function update(
 		id !== undefined &&
 		!updated(model) &&
 		!nests(model, draft) &&
-		!validates(model, numbers)
+		!validates(model, operations)
 	) {
 		// Nothing needs the stored row: a check stands for its read (D-99),
-		// and the write computes its numbers (D-132).
+		// and the write computes its numbers and lists (D-132, D-149).
 		const sent: Readonly<Draft> = { ...draft }
 		await prepared(model, draft, caller, false)
 		const steps = await updatePlan(
@@ -218,7 +214,7 @@ export async function update(
 			draft,
 			sent,
 			store,
-			numbers,
+			operations,
 		)
 		const check = { model: model.name, where, count: 1, lock: true }
 		const message = missing(model.name)
@@ -233,7 +229,7 @@ export async function update(
 		return result
 	}
 	const row = await target(context, store, where)
-	const data = { draft, numbers }
+	const data = { draft, operations }
 	return updating(context, store, commits, data, { row, read, shape })
 }
 
@@ -325,7 +321,7 @@ export async function upsert(
 	// Both data are checked, whichever runs.
 	const creation = readData(models, model, found.get('create'), true)
 	const draft = readData(models, model, found.get('update'), false)
-	const numbers = numberUpdates(model, draft)
+	const operations = operationsOf(model, draft)
 	const where = await targets(context, found, 'update')
 	const [row] = await store.find({
 		model: model.name,
@@ -340,7 +336,7 @@ export async function upsert(
 			created: true,
 		}
 	}
-	const data = { draft, numbers }
+	const data = { draft, operations }
 	const changed = await updating(context, store, commits, data, { row, ...at })
 	return { row: changed, created: false }
 }

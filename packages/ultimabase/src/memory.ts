@@ -7,6 +7,7 @@ import type {
 	Arithmetic,
 	Change,
 	CountRead,
+	ListUpdate,
 	Read,
 	Row,
 	ScalarType,
@@ -20,6 +21,7 @@ import type { Fields, Store, StoredRow } from './memory-read.ts'
 import { clone, Reader } from './memory-read.ts'
 import { distinct, grouped } from './memory-aggregate.ts'
 import { copy } from './memory-values.ts'
+import { listed } from './list-update.ts'
 import { computed } from './number-update.ts'
 import { isInteger } from './query-where.ts'
 
@@ -138,17 +140,18 @@ class Draft {
 		)
 	}
 
-	/** The numbers a change computes on `row` (D-132). */
+	/** The numbers and lists a change computes on `row` (D-132, D-149). */
 	private computed(
 		model: string,
 		row: StoredRow,
-		compute: { readonly [field: string]: Arithmetic } = {},
-	): { [field: string]: number } {
+		compute: { readonly [field: string]: Arithmetic | ListUpdate } = {},
+	): { [field: string]: unknown } {
 		return Object.fromEntries(
-			Object.entries(compute).map(([key, arithmetic]) => {
+			Object.entries(compute).map(([key, operation]): [string, unknown] => {
+				if ('elements' in operation) return [key, listed(row[key], operation)]
 				const field = this.reader.field(model, key)
 				const integer = field?.kind === 'scalar' && field.integer === true
-				const result = computed(row[key], arithmetic, integer)
+				const result = computed(row[key], operation, integer)
 				if (integer ? !isInteger(result) : !Number.isFinite(result)) {
 					throw new OutOfRange(model, key)
 				}

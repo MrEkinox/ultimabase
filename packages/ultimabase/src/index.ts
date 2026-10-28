@@ -10,6 +10,7 @@ export type {
 	CountRead,
 	Filter,
 	GroupKey,
+	ListUpdate,
 	Migration,
 	Migrations,
 	Nested,

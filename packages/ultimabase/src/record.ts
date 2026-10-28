@@ -228,6 +228,22 @@ type NumberUpdate<V> = OneOf<{
 	readonly divide: number
 }>
 
+/** One operation on a list, with an element or a list of them (D-149). */
+type ListUpdate<E> = OneOf<{
+	readonly set: E | readonly E[]
+	readonly push: E | readonly E[]
+	readonly pushUnique: E | readonly E[]
+	readonly remove: E | readonly E[]
+}>
+
+/** A list's element type, `never` for any other field. */
+type ElementOf<X> =
+	X extends Scalar<unknown, { readonly list: true }>
+		? WrittenValue<X> extends readonly (infer E)[]
+			? E
+			: never
+		: never
+
 /** A `one` the caller writes; rules and hooks see it resolved (D-138). */
 type OneUpdate<N, K, X, O, Operations extends boolean> =
 	| Connect<N, K, X, Not<Operations>>
@@ -255,14 +271,16 @@ type Not<B extends boolean> = B extends true ? false : true
 
 /**
  * An optional `one` relation is unset with `disconnect: true` (D-20); with
- * `Operations`, a number field also takes an operation (D-132), and a
- * relation `set` and `connectOrCreate` (D-138).
+ * `Operations`, a number field also takes an operation (D-132), a list one
+ * (D-149), and a relation `set` and `connectOrCreate` (D-138).
  */
 type UpdateInput<X, N, K, Operations extends boolean> = X extends Scalar
 	? Operations extends true
 		? IsNumber<X> extends true
 			? WrittenValue<X> | NumberUpdate<WrittenValue<X>>
-			: WrittenValue<X>
+			: [ElementOf<X>] extends [never]
+				? WrittenValue<X>
+				: WrittenValue<X> | ListUpdate<ElementOf<X>>
 		: WrittenValue<X>
 	: X extends Relation<'one', unknown, infer O>
 		? OneUpdate<N, K, X, O, Operations>
@@ -318,8 +336,8 @@ export type CreateManyData<F> = Creating<
 
 /**
  * `undefined` leaves a field unchanged, as in Prisma (D-84). Rules and hooks
- * see the data without `Operations`: each number as computed (D-132), each
- * relation resolved (D-138).
+ * see the data without `Operations`: each number and list as computed
+ * (D-132, D-149), each relation resolved (D-138).
  */
 export type UpdateData<F, N = never, Operations extends boolean = true> = {
 	readonly [K in keyof F]?: UpdateInput<F[K], N, K, Operations> | undefined

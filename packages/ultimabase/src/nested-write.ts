@@ -4,7 +4,7 @@
 import { and } from './access.ts'
 import type { Filter, Row } from './adapter.ts'
 import { InvalidQuery, PublicError } from './errors.ts'
-import { computeOn, numberUpdates } from './number-update.ts'
+import { computeOn, operationsOf } from './number-update.ts'
 import { uniqueWhere } from './query-args.ts'
 import { isObject, modelOf } from './query-where.ts'
 import type { FieldInfo, ModelInfo } from './schema.ts'
@@ -134,7 +134,7 @@ function updated(
 		path,
 		field.inverse,
 	)
-	computeOn(target, row, draft, numberUpdates(target, draft, at))
+	computeOn(target, row, draft, operationsOf(target, draft, at))
 	rows.set(draft, row)
 	return draft
 }

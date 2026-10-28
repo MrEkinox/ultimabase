@@ -220,6 +220,16 @@ export type Arithmetic = {
 	readonly by: number
 }
 
+/**
+ * A list update computed on each row the write changes (D-149): `push`
+ * appends, `pushUnique` appends each element the list lacks, once, and
+ * `remove` drops every occurrence.
+ */
+export type ListUpdate = {
+	readonly operation: 'push' | 'pushUnique' | 'remove'
+	readonly elements: readonly unknown[]
+}
+
 /** In a change, a stored `one` key is the target's id or `null`. */
 export type Change =
 	| { readonly kind: 'insert'; readonly model: string; readonly row: Row }
@@ -228,7 +238,9 @@ export type Change =
 			readonly model: string
 			readonly where: Filter
 			readonly set: { readonly [field: string]: unknown }
-			readonly compute?: { readonly [field: string]: Arithmetic }
+			readonly compute?: {
+				readonly [field: string]: Arithmetic | ListUpdate
+			}
 	  }
 	| { readonly kind: 'delete'; readonly model: string; readonly where: Filter }
 	| {
