@@ -459,7 +459,7 @@ read: ({ caller, where }) =>
 
 ## D-20: The query API follows Prisma Client
 
-Amended by D-128, D-132, D-133, D-135, D-138 and D-140.
+Amended by D-128, D-132, D-133, D-135, D-138, D-140 and D-142.
 
 Choice: operations, their names and their arguments follow Prisma Client, so
 a developer coming from Prisma reads UltimaBase queries as Prisma: `findUnique`,
@@ -6658,6 +6658,8 @@ mutation {
 
 ## D-129: `restPlugin()`, the REST API as GraphQL's twin
 
+Amended by D-142.
+
 Choice: completes D-25, D-27, D-55, D-68 and D-106. One rule shapes the
 REST API: each parameter is named after the GraphQL argument it stands
 for, and each response is the JSON the matching GraphQL field returns.
@@ -7851,4 +7853,94 @@ await Book.findMany(
 -- The migration `ultimabase migrate create` writes
 create extension if not exists pg_trgm;
 create index "book_title_trgm" on "book" using gin (("title" collate "default") gin_trgm_ops);
+```
+
+## D-142: `upsert`
+
+Choice: amends D-20 and D-129.
+
+1. `Model.upsert({ where, create, update, select | include | omit }, as)`
+   takes a unique target (D-52), the data of a create and the data of an
+   update, as Prisma does, and returns the row as a create or an update
+   returns it (D-86). `create` is written as given: `where` is not merged
+   into it. Both data are checked, whichever runs.
+2. It reads the target locked, as an update does (D-99). A row the caller
+   cannot read, or that `beforeFind` hides from an update (D-124), is
+   absent.
+3. The branch that runs is a plain `create` or `update`, with its own
+   rules and hooks: when the row is absent, the create rule on the data,
+   defaults, validation, `beforeCreate`, `afterCreate` and
+   `afterCreateCommit`; when it is there, the update rule on the record,
+   `beforeUpdate`, `afterUpdate` and `afterUpdateCommit`. Nothing runs for
+   the branch that does not.
+4. Two upserts that both find no row both create: the second fails with
+   `UNIQUE_VIOLATION`, as two creates do. No adapter change, no
+   `on conflict`. An absent row that a rule hides fails the same way.
+5. GraphQL: `upsertTag(where: TagWhereUniqueInput!, create: TagCreateInput!, update: TagUpdateInput!): Tag!`.
+6. REST: `PUT /api/tags` with the body `{ where, create, update }`, and
+   `select` or `include` in the query. It answers `201 Created` when it
+   created the row, `200 OK` when it updated it. The kernel tells the
+   transports which branch ran; the model's `upsert` returns the row only.
+
+Why: "create it unless it exists" is a find then a write in every
+application, written in a transaction or racing. Running the branch's own
+rules and hooks keeps each write's guarantees: a hook that fills
+`createdBy` runs on every row created, and an update rule guards every row
+changed, however the write was asked for.
+
+Rejected:
+
+- Merging `where` into `create`: Prisma does not, and a composite target
+  then has two places to say one value.
+- `insert … on conflict do update`: it runs an update without reading the
+  row, so neither the update rule on the record nor `beforeUpdate` can run.
+- Retrying the update after a `UNIQUE_VIOLATION`: it hides a conflict the
+  caller may not have the right to see, and runs the create's hooks for a
+  row never kept.
+- An upsert's own rule or hook: a third write to guard, which every rule
+  already written would miss.
+- `POST /api/tags?upsert=true`: a create that sometimes updates; `PUT` on
+  the collection says "this row, as I describe it".
+
+Example:
+
+```ts
+// Before: a read, then a write, in a transaction
+const tag = await transaction(async () => {
+	const found = await Tag.findUnique({ where: { slug: 'news' } }, as)
+	return found === null
+		? Tag.create({ data: { slug: 'news', uses: 1 } }, as)
+		: Tag.update(
+				{ where: { slug: 'news' }, data: { uses: found.uses + 1 } },
+				as,
+			)
+})
+// After
+const tag = await Tag.upsert(
+	{
+		where: { slug: 'news' },
+		create: { slug: 'news', uses: 1 },
+		update: { uses: { increment: 1 } },
+	},
+	as,
+)
+```
+
+```graphql
+mutation {
+	upsertTag(
+		where: { slug: "news" }
+		create: { slug: "news", uses: 1 }
+		update: { uses: 2 }
+	) {
+		id
+		uses
+	}
+}
+```
+
+```http
+PUT /api/tags?select={"id":true,"uses":true}
+{ "where": { "slug": "news" }, "create": { "slug": "news", "uses": 1 }, "update": { "uses": 2 } }
+→ 201 { "id": "…", "uses": 1 }
 ```
