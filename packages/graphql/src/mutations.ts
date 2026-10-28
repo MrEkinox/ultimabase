@@ -231,7 +231,9 @@ function dataInput(
 					const required = new Set(creating ? exposed.required : [])
 					const fields: GraphQLInputFieldConfigMap = {}
 					for (const field of exposed.schema.fields) {
-						if (field.name === without) continue
+						// A view is read-only (D-151).
+						const view = field.kind === 'many' && field.from !== undefined
+						if (field.name === without || view) continue
 						const type = fieldInput(registry, model, field, creating)
 						fields[field.name] = {
 							type: required.has(field.name) ? new GraphQLNonNull(type) : type,

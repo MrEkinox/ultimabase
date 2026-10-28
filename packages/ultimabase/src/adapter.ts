@@ -80,6 +80,11 @@ export type SchemaField =
 			readonly join: boolean
 			/** Its reads see the rows a filter keeps; it takes no `set` (D-151). */
 			readonly filtered?: true
+			/**
+			 * A view: read-only, on the link of the `many` it names, with that
+			 * relation's `inverse` and `join` (D-151).
+			 */
+			readonly from?: string
 	  }
 
 export type SchemaModel = {

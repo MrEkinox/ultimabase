@@ -2,6 +2,7 @@
 // (D-151): every read of the relation sees only the rows it keeps, Master's
 // too, and a filtered relation takes no `set`.
 import type { Filter } from './adapter.ts'
+import type { FieldOptions } from './definition.ts'
 import { InvalidQuery, Refused } from './errors.ts'
 import type { Models, Scope } from './query-where.ts'
 import { isObject, modelOf, normalizeWhere } from './query-where.ts'
@@ -17,7 +18,10 @@ function relationsOf(model: ModelInfo): { readonly [field: string]: unknown } {
 	return isObject(relations) ? relations : {}
 }
 
-/** Stops startup on a filter that names no `many` of the model (D-151). */
+/**
+ * Stops startup on a filter that names no `many` of the model, or on a view
+ * without one (D-151).
+ */
 export function checkRelations(model: ModelInfo): void {
 	for (const [name, rule] of Object.entries(relationsOf(model))) {
 		const where = `${model.name}.with.relations.${name}`
@@ -28,6 +32,49 @@ export function checkRelations(model: ModelInfo): void {
 			throw new Refused(`${where} takes a where function.`)
 		}
 	}
+	for (const field of model.fields.values()) {
+		if (field.kind === 'many' && field.from !== undefined) {
+			if (!isFiltered(model, field.name)) {
+				throw new Refused(
+					`${model.name}.${field.name} is a view; filter it in .with({ relations }).`,
+				)
+			}
+		}
+	}
+}
+
+/**
+ * A view (D-151): `source`, the `many` its `from` names, under its own name
+ * and options. Stops startup unless `from` names a `many` of the model to the
+ * same target that is no view.
+ */
+export function viewField(
+	view: {
+		readonly model: string
+		readonly name: string
+		readonly target: string
+		readonly options: FieldOptions
+	},
+	from: string,
+	source: FieldInfo | 'view' | undefined,
+): FieldInfo {
+	const { model, name, target, options } = view
+	const at = `${model}.${name}`
+	if (options['inverse'] !== undefined) {
+		throw new Refused(`${at} is a view and takes no inverse.`)
+	}
+	if (source === 'view') {
+		throw new Refused(`${at}: from '${from}' is a view; name its relation.`)
+	}
+	if (source?.kind !== 'many') {
+		throw new Refused(`${at}: from '${from}' is not a many relation.`)
+	}
+	if (source.target !== target) {
+		throw new Refused(
+			`${at}: from '${from}' relates to ${source.target}, not ${target}.`,
+		)
+	}
+	return { ...source, name, from, options }
 }
 
 /** Whether `.with({ relations })` filters `field` of `model`. */

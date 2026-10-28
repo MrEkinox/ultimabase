@@ -1,6 +1,7 @@
 // Filtered relations in the contract (D-151): a filter, one-to-many or
 // many-to-many, narrows include, `_count`, a sort by it and some, every and
-// none, in the adapter's one query.
+// none, in the adapter's one query; a view reads the link of its relation
+// with its own filter, and has no column, key or join of its own.
 import type { Adapter, Identity } from 'ultimabase'
 import { allow, defineModel, master } from 'ultimabase'
 import { beforeEach, describe, expect, it } from 'vitest'
@@ -14,12 +15,16 @@ const Writer = defineModel({
 		name: f.string({ unique: true }),
 		notes: f.many(() => Note),
 		labels: f.many(() => Label),
+		drafts: f.many(() => Note, { from: 'notes' }),
+		secrets: f.many(() => Label, { from: 'labels' }),
 	}),
 }).with({
 	access: allow.public,
 	relations: {
 		notes: { where: ({ where }) => where({ published: true }) },
 		labels: { where: ({ where }) => where({ hidden: false }) },
+		drafts: { where: ({ where }) => where({ published: false }) },
+		secrets: { where: ({ where }) => where({ hidden: true }) },
 	},
 })
 
@@ -85,7 +90,7 @@ export function relationFilters(create: () => Adapter): void {
 						name: true,
 						notes: { orderBy: { title: 'asc' }, select: { title: true } },
 						labels: { select: { name: true } },
-						_count: true,
+						_count: { select: { notes: true, labels: true } },
 					},
 				},
 				M,
@@ -108,6 +113,39 @@ export function relationFilters(create: () => Adapter): void {
 				named('Ada', 'Bob'),
 			)
 			expect(await names({ notes: { none: {} } })).toEqual(named('Bob'))
+		})
+
+		it('reads a view through the link of its relation', async () => {
+			const rows = await Writer.findMany(
+				{
+					orderBy: [{ secrets: { _count: 'desc' } }, { name: 'asc' }],
+					select: {
+						name: true,
+						drafts: { select: { title: true } },
+						secrets: { select: { name: true } },
+						_count: { select: { drafts: true, secrets: true } },
+					},
+				},
+				M,
+			)
+			expect(rows).toEqual([
+				{
+					name: 'Ada',
+					drafts: [{ title: 'Draft' }],
+					secrets: [{ name: 'secret' }],
+					_count: { drafts: 1, secrets: 1 },
+				},
+				{
+					name: 'Bob',
+					drafts: [{ title: 'Bob draft' }],
+					secrets: [],
+					_count: { drafts: 1, secrets: 0 },
+				},
+			])
+			expect(await names({ secrets: { some: {} } })).toEqual(named('Ada'))
+			expect(await names({ drafts: { every: { title: 'Draft' } } })).toEqual(
+				named('Ada'),
+			)
 		})
 	})
 }

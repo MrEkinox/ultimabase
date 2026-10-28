@@ -58,7 +58,13 @@ export function readData(
 	for (const [name, value] of entries(data, at)) {
 		const field = model.fields.get(name)
 		const path = `${at}.${name}`
-		if (field === undefined) throw unknownKey(path, model.name)
+		// A view is read-only (D-151).
+		if (
+			field === undefined ||
+			(field.kind === 'many' && field.from !== undefined)
+		) {
+			throw unknownKey(path, model.name)
+		}
 		if (name === inverse) {
 			throw new InvalidQuery(
 				path,

@@ -1,5 +1,6 @@
 // Filtered relations in the OpenAPI document (D-151): a filtered `many`
-// takes no `set` in its update input; the others keep it.
+// takes no `set` in its update input, the others keep it; a view is in no
+// data input.
 import { allow, defineModel, memory } from 'ultimabase'
 import { afterAll, describe, expect, it } from 'vitest'
 import { rest } from './index.ts'
@@ -11,11 +12,15 @@ const Writer = defineModel({
 	fields: (f) => ({
 		name: f.string(),
 		notes: f.many(() => Note),
+		drafts: f.many(() => Note, { from: 'notes' }),
 		labels: f.many(() => Label),
 	}),
 }).with({
 	access: allow.public,
-	relations: { notes: { where: ({ where }) => where({ published: true }) } },
+	relations: {
+		notes: { where: ({ where }) => where({ published: true }) },
+		drafts: { where: ({ where }) => where({ published: false }) },
+	},
 })
 
 const Note = defineModel({
@@ -48,5 +53,10 @@ describe('a filtered relation in the OpenAPI document', () => {
 			'disconnect',
 		)
 		expect(keys('LabelUpdateManyWithoutWriterNestedInput')).toContain('set')
+		for (const name of ['WriterCreateInput', 'WriterUpdateInput']) {
+			expect(keys(name)).toContain('notes')
+			expect(keys(name)).not.toContain('drafts')
+		}
+		expect(keys('WriterOrderByInput')).toContain('drafts')
 	})
 })

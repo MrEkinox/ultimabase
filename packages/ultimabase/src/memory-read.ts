@@ -74,7 +74,9 @@ export class Reader {
 			return found === undefined ? [] : [found]
 		}
 		if (field.kind === 'many' && field.join) {
-			const ids = this.store.joins.get(`${model}.${field.name}`)?.get(row.id)
+			// A view reads the join of its relation (D-151).
+			const name = `${model}.${field.from ?? field.name}`
+			const ids = this.store.joins.get(name)?.get(row.id)
 			return [...(ids ?? [])].flatMap((id) => target.get(id) ?? [])
 		}
 		return [...target.values()].filter(

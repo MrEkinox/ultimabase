@@ -113,7 +113,9 @@ export class Filters {
 			}
 		}
 		if (field.kind === 'many' && field.join) {
-			const join = this.catalog.join(table.model.name, field.name)
+			// A view reads the join of its relation (D-151).
+			const name = field.from ?? field.name
+			const join = this.catalog.join(table.model.name, name)
 			this.tables.add(join.table)
 			const link = this.alias()
 			return {

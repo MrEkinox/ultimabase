@@ -1051,6 +1051,27 @@ describe('a sync on postgres()', () => {
 		).toStrictEqual([{ n: 1 }])
 	})
 
+	it('gives a view no column, key or join of its own (D-151)', async () => {
+		// Shelf.seen views Shelf.boxes, Box.seen the join of Box.tags.
+		const seen = {
+			Shelf: { target: 'Box', inverse: 'shelf', join: false, from: 'boxes' },
+			Box: { target: 'Tag', inverse: 'boxes', join: true, from: 'tags' },
+		}
+		const viewed: Schema = {
+			models: after.models.map((model) => {
+				const view = Object.entries(seen).find(([name]) => name === model.name)
+				if (view === undefined) return model
+				const field: SchemaField = { kind: 'many', name: 'seen', ...view[1] }
+				return { ...model, fields: [...model.fields, field] }
+			}),
+		}
+		expect(migrations.snapshot(viewed)).toStrictEqual(
+			migrations.snapshot(after),
+		)
+		await sync(undefined, after)
+		expect(await sync(after, viewed)).toStrictEqual([])
+	})
+
 	it('refuses tables that no snapshot describes', async () => {
 		await query(inSchema(schema), 'create table shelf (id uuid)')
 		await expect(sync(undefined, before)).rejects.toThrow(

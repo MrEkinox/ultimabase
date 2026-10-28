@@ -371,7 +371,12 @@ export function dataOf(
 		const entry = entryOf(doc.api, model)
 		const fields: { [name: string]: Schema } = {}
 		for (const field of entry.model.fields) {
-			if (field.name === without) continue
+			// A view is read-only (D-151).
+			if (
+				field.name === without ||
+				(field.kind === 'many' && field.from !== undefined)
+			)
+				continue
 			if (field.kind !== 'scalar') {
 				fields[field.name] = relationInput(doc, field, creating)
 				continue

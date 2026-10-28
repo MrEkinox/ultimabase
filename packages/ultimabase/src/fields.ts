@@ -196,7 +196,18 @@ type OneCheck<O> = O extends { readonly optional: true }
 			}
 		: unknown
 
-export type ManyOptions = Described & { readonly inverse?: string }
+export type ManyOptions = Described &
+	(
+		| { readonly inverse?: string; readonly from?: undefined }
+		| {
+				/**
+				 * A view: read-only, on the link of this other `many` of the
+				 * model, its rows those its filter keeps (D-151).
+				 */
+				readonly from: string
+				readonly inverse?: undefined
+		  }
+	)
 
 /** An optional field may be written `null`. */
 type Written<V, O> = O extends { readonly optional: true } ? V | null : V

@@ -313,13 +313,13 @@ type Creating<F, E, V extends { readonly [K in keyof F]: unknown }> = {
 }
 
 /**
- * The data that creates a row of model `N`, without field `E`: the relation
- * back to the row that creates it (D-128). Code that does not know `N`
+ * The data that creates a row of model `N`, without its views (D-151) nor
+ * field `E`: the relation back to the row that creates it (D-128). Code that does not know `N`
  * leaves that relation to the kernel.
  */
 export type CreateData<F, N = never, E = never> = Creating<
 	F,
-	E,
+	E | Views<F>,
 	{ readonly [K in keyof F]: CreateInput<F[K], N, K> }
 >
 
@@ -340,11 +340,26 @@ export type CreateManyData<F> = Creating<
  * (D-132, D-149), each relation resolved (D-138).
  */
 export type UpdateData<F, N = never, Operations extends boolean = true> = {
-	readonly [K in keyof F]?: UpdateInput<F[K], N, K, Operations> | undefined
+	readonly [K in keyof F as K extends Views<F> ? never : K]?:
+		UpdateInput<F[K], N, K, Operations> | undefined
 }
 
+/** The views of `F`, which no data writes (D-151). */
+type Views<F> = {
+	[K in keyof F]: F[K] extends Relation<
+		'many',
+		unknown,
+		{ readonly from: string }
+	>
+		? K
+		: never
+}[keyof F]
+
 /** The data `updateMany` writes on each row: scalars only (D-133). */
-export type UpdateManyData<F> = Pick<UpdateData<F>, ScalarKeys<F>>
+export type UpdateManyData<F> = Pick<
+	UpdateData<F>,
+	ScalarKeys<F> & keyof UpdateData<F>
+>
 
 export type ScalarKeys<F> = {
 	[K in keyof F]: F[K] extends Scalar ? K : never

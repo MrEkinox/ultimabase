@@ -13,7 +13,7 @@ import type { Digits } from './decimal.ts'
 import type { Enum } from './fields.ts'
 import { modelDefinitions } from './definition.ts'
 import { Refused } from './errors.ts'
-import { checkRelations, isFiltered } from './relations.ts'
+import { checkRelations, isFiltered, viewField } from './relations.ts'
 import { checkIndexes, checkSearch } from './schema-indexes.ts'
 
 /**
@@ -285,6 +285,7 @@ export function resolve(
 ): Resolved {
 	const { definitions, names, owners } = definitionsOf(values, plugins)
 	const links: Linked[] = []
+	const views: Linked[] = []
 	for (const [model, definition] of definitions) {
 		for (const [name, field] of definition.fields) {
 			if (field.kind === 'scalar') continue
@@ -302,7 +303,10 @@ export function resolve(
 					`${model}.${name}: a plugin's model relates only to models of the same plugin; keep the id as a scalar.`,
 				)
 			}
-			links.push({ model, name, field, target })
+			// A view reads the link of another relation (D-151).
+			const from = field.kind === 'many' ? field.options['from'] : undefined
+			const link = { model, name, field, target }
+			;(typeof from === 'string' ? views : links).push(link)
 		}
 	}
 	const inverses = new Map(links.map((link) => [link, inverseOf(link, links)]))
@@ -312,6 +316,25 @@ export function resolve(
 				`${link.model}.${link.name} and ${inverse.model}.${inverse.name} do not name each other.`,
 			)
 		}
+	}
+	const linkOf = (list: readonly Linked[], model: string, name: string) =>
+		list.find((each) => each.model === model && each.name === name)
+	const relationOf = (model: string, name: string): FieldInfo | undefined => {
+		const link = linkOf(links, model, name)
+		const inverse = link && inverses.get(link)
+		return link && inverse ? relationField(link, inverse) : undefined
+	}
+	const fieldOf = (model: string, name: string, field: FieldDefinition) => {
+		const view = linkOf(views, model, name)
+		if (view === undefined) {
+			return relationOf(model, name) ?? scalarField(name, field)
+		}
+		const from = String(field.options['from'])
+		return viewField(
+			{ model, name, target: view.target, options: field.options },
+			from,
+			linkOf(views, model, from) ? 'view' : relationOf(model, from),
+		)
 	}
 	const models = new Map<string, ModelInfo>()
 	const byValue = new Map<object, ModelInfo>()
@@ -325,16 +348,7 @@ export function resolve(
 					`${model}.${name} is a ${plugin} field, and ${plugin} is not in plugins.`,
 				)
 			}
-			const link = links.find(
-				(each) => each.model === model && each.name === name,
-			)
-			const inverse = link && inverses.get(link)
-			fields.set(
-				name,
-				link && inverse
-					? relationField(link, inverse)
-					: scalarField(name, field),
-			)
+			fields.set(name, fieldOf(model, name, field))
 		}
 		checkIndexes(model, fields, definition.indexes)
 		const uniques: (readonly string[])[] = [['id']]

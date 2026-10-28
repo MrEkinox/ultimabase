@@ -224,7 +224,8 @@ class Draft {
 
 	private joinFields(model: string): SchemaField[] {
 		return [...(this.reader.fields.get(model)?.values() ?? [])].filter(
-			(field) => field.kind === 'many' && field.join,
+			(field) =>
+				field.kind === 'many' && field.join && field.from === undefined,
 		)
 	}
 

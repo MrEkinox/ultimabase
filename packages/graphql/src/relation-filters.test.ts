@@ -1,8 +1,8 @@
 // Filtered relations over GraphQL (D-151): a filtered `many` takes no `set`
-// in the generated inputs; the others keep it.
+// in the generated inputs, the others keep it; a view is read, not written.
 import { httpPlugin } from '@ultimabase/http'
 import type { GraphQLSchema } from 'graphql'
-import { isInputObjectType } from 'graphql'
+import { isInputObjectType, isObjectType } from 'graphql'
 import type { Logger } from 'ultimabase'
 import { allow, defineApp, defineModel, memory } from 'ultimabase'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
@@ -14,11 +14,15 @@ const Writer = defineModel({
 	fields: (f) => ({
 		name: f.string(),
 		notes: f.many(() => Note),
+		drafts: f.many(() => Note, { from: 'notes' }),
 		labels: f.many(() => Label),
 	}),
 }).with({
 	access: allow.public,
-	relations: { notes: { where: ({ where }) => where({ published: true }) } },
+	relations: {
+		notes: { where: ({ where }) => where({ published: true }) },
+		drafts: { where: ({ where }) => where({ published: false }) },
+	},
 })
 
 const Note = defineModel({
@@ -78,5 +82,14 @@ describe('a filtered relation over GraphQL', () => {
 			'update',
 		])
 		expect(keysOf('LabelUpdateManyWithoutWriterNestedInput')).toContain('set')
+	})
+
+	it('reads a view and writes none', () => {
+		const writer = schema?.getType('Writer')
+		expect(isObjectType(writer) && writer.getFields()['drafts']).toBeTruthy()
+		for (const name of ['WriterCreateInput', 'WriterUpdateInput']) {
+			expect(keysOf(name)).toContain('notes')
+			expect(keysOf(name)).not.toContain('drafts')
+		}
 	})
 })
