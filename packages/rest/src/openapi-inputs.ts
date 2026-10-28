@@ -144,7 +144,12 @@ function scalarFilter(doc: Doc, model: string, field: Scalar): Schema {
 	const { name, schema } = item(doc, model, field, 'input')
 	if (field.list) {
 		return doc.components.ref(`${name}ListFilter`, () =>
-			objectOf({ has: schema, hasSome: arrayOf(schema) }),
+			objectOf({
+				has: schema,
+				hasSome: arrayOf(schema),
+				hasEvery: arrayOf(schema),
+				isEmpty: { type: 'boolean' },
+			}),
 		)
 	}
 	// A typed json field has a filter of its own, as in GraphQL (D-125).

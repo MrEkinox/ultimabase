@@ -8,6 +8,7 @@ import type {
 	GraphQLScalarType,
 } from 'graphql'
 import {
+	GraphQLBoolean,
 	GraphQLEnumType,
 	GraphQLID,
 	GraphQLInputObjectType,
@@ -94,7 +95,7 @@ const operators: { readonly [T in Scalar['type']]: readonly string[] } = {
 
 /**
  * `StringListFilter`, `FloatListFilter`, `ProductSizesListFilter`: no
- * shorthand, `NOT` gives the opposite (D-120, D-127).
+ * shorthand, `NOT` gives the opposite (D-120, D-127, D-149).
  */
 const listFilter = (
 	registry: Registry,
@@ -106,7 +107,12 @@ const listFilter = (
 		() =>
 			new GraphQLInputObjectType({
 				name,
-				fields: { has: { type: item }, hasSome: { type: list(item) } },
+				fields: {
+					has: { type: item },
+					hasSome: { type: list(item) },
+					hasEvery: { type: list(item) },
+					isEmpty: { type: GraphQLBoolean },
+				},
 			}),
 	)
 }

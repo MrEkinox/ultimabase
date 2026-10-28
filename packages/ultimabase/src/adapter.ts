@@ -98,6 +98,10 @@ export type Condition = {
 	readonly has?: unknown
 	/** A list holds one of these elements (D-120, D-127). */
 	readonly hasSome?: readonly unknown[]
+	/** A list holds each of these elements (D-149). */
+	readonly hasEvery?: readonly unknown[]
+	/** A list is empty, or not (D-149). */
+	readonly isEmpty?: boolean
 	readonly is?: Filter | null
 	readonly isNot?: Filter | null
 	readonly some?: Filter

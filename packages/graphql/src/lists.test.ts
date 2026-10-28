@@ -1,5 +1,5 @@
 // Lists over GraphQL (D-120, D-127): `[String!]!` read, `[String!]` written
-// and left out of create, filtered with `StringListFilter`, never sorted; a
+// and left out of create, filtered with `StringListFilter` (D-149), never sorted; a
 // number list's elements are `Float!`, or `Int!` for an integer field (D-132),
 // an enum list's its enum.
 import { httpPlugin } from '@ultimabase/http'
@@ -69,7 +69,7 @@ it('reads [String!]!, writes [String!] and leaves it out of create', () => {
 	expect(typeOf('ArticleCreateInput')).toContain('  tags: [String!]\n')
 	expect(typeOf('ArticleUpdateInput')).toContain('  tags: [String!]\n')
 	expect(typeOf('StringListFilter')).toBe(
-		'input StringListFilter {\n  has: String\n  hasSome: [String!]\n}',
+		'input StringListFilter {\n  has: String\n  hasSome: [String!]\n  hasEvery: [String!]\n  isEmpty: Boolean\n}',
 	)
 	expect(typeOf('ArticleWhereInput')).toContain('  tags: StringListFilter\n')
 	expect(typeOf('ArticleOrderByInput')).not.toContain('tags')
@@ -83,10 +83,10 @@ it('types a number list by Float, an enum list by its enum', () => {
 		'  scores: [Float!]\n  sizes: [ArticleSizes!]\n',
 	)
 	expect(typeOf('FloatListFilter')).toBe(
-		'input FloatListFilter {\n  has: Float\n  hasSome: [Float!]\n}',
+		'input FloatListFilter {\n  has: Float\n  hasSome: [Float!]\n  hasEvery: [Float!]\n  isEmpty: Boolean\n}',
 	)
 	expect(typeOf('ArticleSizesListFilter')).toBe(
-		'input ArticleSizesListFilter {\n  has: ArticleSizes\n  hasSome: [ArticleSizes!]\n}',
+		'input ArticleSizesListFilter {\n  has: ArticleSizes\n  hasSome: [ArticleSizes!]\n  hasEvery: [ArticleSizes!]\n  isEmpty: Boolean\n}',
 	)
 	expect(typeOf('ArticleWhereInput')).toContain(
 		'  scores: FloatListFilter\n  sizes: ArticleSizesListFilter\n',
@@ -103,7 +103,7 @@ it('types an integer field by Int, with its plain number updates (D-132)', () =>
 		'  count: IntFilter\n  ranks: IntListFilter\n',
 	)
 	expect(typeOf('IntListFilter')).toBe(
-		'input IntListFilter {\n  has: Int\n  hasSome: [Int!]\n}',
+		'input IntListFilter {\n  has: Int\n  hasSome: [Int!]\n  hasEvery: [Int!]\n  isEmpty: Boolean\n}',
 	)
 	expect(typeOf('IntFilter')).toContain('  gt: Int\n')
 })
@@ -131,6 +131,10 @@ it('writes a list, [] when left out, and filters it', async () => {
 			score: articles(first: 5, where: { scores: { has: 2 } }) {
 				edges { node { title } } }
 			size: articles(first: 5, where: { sizes: { hasSome: [M] } }) {
+				edges { node { title } } }
+			every: articles(first: 5, where: { tags: { hasEvery: ["go", "ts"] } }) {
+				edges { node { title } } }
+			empty: articles(first: 5, where: { scores: { isEmpty: true } }) {
 				edges { node { title } } } }`,
 	)
 	expect(found).toStrictEqual({
@@ -139,6 +143,8 @@ it('writes a list, [] when left out, and filters it', async () => {
 			some: { edges: [{ node: { title: 'b' } }] },
 			score: { edges: [{ node: { title: 'a' } }] },
 			size: { edges: [{ node: { title: 'a' } }] },
+			every: { edges: [{ node: { title: 'a' } }] },
+			empty: { edges: [{ node: { title: 'b' } }] },
 		},
 	})
 })

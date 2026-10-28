@@ -40,10 +40,12 @@ type IsList<X> = X extends {
 	? true
 	: false
 
-/** A list has no shorthand; `NOT` gives the opposite (D-120, D-127). */
+/** A list has no shorthand; `NOT` gives the opposite (D-120, D-127, D-149). */
 type ListFilter<E> = {
 	readonly has?: E | undefined
 	readonly hasSome?: readonly E[] | undefined
+	readonly hasEvery?: readonly E[] | undefined
+	readonly isEmpty?: boolean | undefined
 }
 
 type FilterOf<X> =

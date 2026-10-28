@@ -330,6 +330,9 @@ describe('its schemas', () => {
 			writer: { create: { name: 'w' } },
 		}
 		expect(check(sent, ...body('/books', 'post'))).toBe(true)
+		const listFilter = ['components', 'schemas', 'StringListFilter']
+		expect(check({ hasEvery: ['n'], isEmpty: false }, ...listFilter)).toBe(true)
+		expect(check({ isEmpty: 'no' }, ...listFilter)).not.toBe(true)
 		expect(check({ ...sent, price: 12.5 }, ...body('/books', 'post'))).not.toBe(
 			true,
 		)

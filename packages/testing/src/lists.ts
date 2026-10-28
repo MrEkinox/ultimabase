@@ -1,6 +1,6 @@
-// The lists of the contract (D-120, D-127): of strings, numbers or enum
-// values, `[]` when unwritten, replaced whole, filtered with `has` and
-// `hasSome`, indexed by GIN in PostgreSQL.
+// The lists of the contract (D-120, D-127, D-149): of strings, numbers or
+// enum values, `[]` when unwritten, replaced whole, filtered with `has`,
+// `hasSome`, `hasEvery` and `isEmpty`, indexed by GIN in PostgreSQL.
 import type { Adapter, WhereOf } from 'ultimabase'
 import { defineModel, master } from 'ultimabase'
 import { describe, expect, it } from 'vitest'
@@ -70,6 +70,37 @@ export function lists(create: () => Adapter): void {
 			).toEqual(['a'])
 		})
 
+		it('filters a list with hasEvery and isEmpty', async () => {
+			for (const [title, tags, scores, sizes] of [
+				['a', ['ts', 'node', 'ts'], [1, 2], ['S', 'L']],
+				['b', ['ts'], [2], []],
+				['c', [], [], ['L']],
+			] as const) {
+				await Article.create({ data: { title, tags, scores, sizes } }, M)
+			}
+			expect(await titles({ tags: { hasEvery: ['node', 'ts'] } })).toEqual([
+				'a',
+			])
+			expect(await titles({ tags: { hasEvery: ['ts', 'ts'] } })).toEqual([
+				'a',
+				'b',
+			])
+			expect(await titles({ tags: { hasEvery: [] } })).toEqual(['a', 'b', 'c'])
+			expect(await titles({ scores: { hasEvery: [2] } })).toEqual(['a', 'b'])
+			expect(await titles({ sizes: { hasEvery: ['L', 'S'] } })).toEqual(['a'])
+			expect(await titles({ tags: { isEmpty: true } })).toEqual(['c'])
+			expect(await titles({ sizes: { isEmpty: false } })).toEqual(['a', 'c'])
+			expect(await titles({ NOT: { scores: { isEmpty: true } } })).toEqual([
+				'a',
+				'b',
+			])
+			expect(
+				await titles({
+					tags: { hasEvery: ['ts'], isEmpty: false, has: 'node' },
+				}),
+			).toEqual(['a'])
+		})
+
 		it('stores and filters numbers and enum values', async () => {
 			const a = await Article.create(
 				{ data: { title: 'a', scores: [1.5, -2, 0, 1.5], sizes: ['S', 'L'] } },
@@ -122,6 +153,7 @@ export function lists(create: () => Adapter): void {
 			for (const where of [
 				{ tags: { has: '' } },
 				{ tags: { hasSome: ['\0'] } },
+				{ tags: { hasEvery: [''] } },
 			]) {
 				await expect(Article.findMany({ where }, M)).rejects.toMatchObject({
 					code: 'INVALID_QUERY',

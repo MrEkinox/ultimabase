@@ -246,6 +246,16 @@ export class Filters {
 				case 'hasSome':
 					parts.push(sql`${column} && ${value(kind, operand)}`)
 					break
+				case 'hasEvery':
+					parts.push(sql`${column} @> ${value(kind, operand)}`)
+					break
+				case 'isEmpty':
+					parts.push(
+						operand === true
+							? sql`cardinality(${column}) = 0`
+							: sql`cardinality(${column}) > 0`,
+					)
+					break
 				case 'contains':
 					parts.push(sql`${collated} ${like} ${pattern(operand, '%', '%')}`)
 					break

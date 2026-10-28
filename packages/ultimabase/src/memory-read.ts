@@ -364,12 +364,19 @@ function scalar(
 			truths.push(operator === 'in' ? found : not(found))
 		} else if (!known) {
 			truths.push(null)
-		} else if (operator === 'has' || operator === 'hasSome') {
+		} else if (operator.startsWith('has') || operator === 'isEmpty') {
 			const items: readonly unknown[] = Array.isArray(value) ? value : []
 			const wanted: readonly unknown[] = Array.isArray(operand)
 				? operand
 				: [operand]
-			truths.push(wanted.some((item) => items.includes(item)))
+			const holds = (item: unknown): boolean => items.includes(item)
+			truths.push(
+				operator === 'isEmpty'
+					? (items.length === 0) === operand
+					: operator === 'hasEvery'
+						? wanted.every(holds)
+						: wanted.some(holds),
+			)
 		} else if (operator === 'contains') {
 			truths.push(text(value, operand, (a, b) => a.includes(b)))
 		} else if (operator === 'startsWith') {

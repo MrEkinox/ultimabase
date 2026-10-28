@@ -1,8 +1,8 @@
 {
-	"ultimabase": 13420,
-	"testing": 3090,
+	"ultimabase": 13480,
+	"testing": 3120,
 	"soft-delete": 150,
-	"postgres": 3230,
+	"postgres": 3240,
 	"http": 940,
 	"graphql": 3130,
 	"auth": 650,

@@ -2,10 +2,33 @@
 // shorthands become `{ equals }`, `undefined` goes (D-84), and an unknown
 // key fails with its path.
 import type { Condition, Filter, ScalarType } from './adapter.ts'
-import { decimalIssue, storedValue } from './decimal.ts'
+import { storedValue } from './decimal.ts'
 import { InvalidQuery } from './errors.ts'
 import type { FieldInfo, ModelInfo } from './schema.ts'
+import { listCondition } from './query-conditions.ts'
 import { searchedFields } from './query-search.ts'
+import {
+	clean,
+	cleanText,
+	entries,
+	isObject,
+	misfit,
+	storedDate,
+	unknownKey,
+} from './query-values.ts'
+
+export type { Scalar, ScalarCheck } from './query-values.ts'
+export {
+	clean,
+	entries,
+	integerRange,
+	isInteger,
+	isJson,
+	isObject,
+	misfit,
+	storedDate,
+	unknownKey,
+} from './query-values.ts'
 
 export type Models = ReadonlyMap<string, ModelInfo>
 
@@ -18,20 +41,6 @@ export function modelOf<T>(models: ReadonlyMap<string, T>, name: string): T {
 
 export const byId = (id: string): Filter => ({ id: { equals: id } })
 export const byIds = (ids: readonly string[]): Filter => ({ id: { in: ids } })
-
-export type Scalar = Extract<FieldInfo, { readonly kind: 'scalar' }>
-
-/** What a scalar value is checked against (D-139). */
-export type ScalarCheck = Pick<
-	Scalar,
-	'type' | 'list' | 'integer' | 'values' | 'precision' | 'scale'
->
-
-/** An integer field's values (D-132). */
-export const isInteger = (value: unknown): boolean =>
-	Number.isInteger(value) &&
-	Number(value) >= -2_147_483_648 &&
-	Number(value) <= 2_147_483_647
 
 /** What a query does with a field: a read rule refuses each (D-44, D-143, D-147). */
 export type Verb = 'filters' | 'sorts' | 'aggregates' | 'compares'
@@ -59,109 +68,12 @@ const system: ReadonlyMap<string, ScalarType | 'id'> = new Map([
 ])
 export const systemFields: readonly string[] = [...system.keys()]
 
-export function isObject(
-	value: unknown,
-): value is { readonly [key: string]: unknown } {
-	return (
-		typeof value === 'object' &&
-		value !== null &&
-		!Array.isArray(value) &&
-		!(value instanceof Date)
-	)
-}
-
-/** The entries of an argument object, without `undefined` (D-84). */
-export function entries(value: unknown, path: string): [string, unknown][] {
-	if (!isObject(value))
-		throw new InvalidQuery(path, `${path} must be an object.`)
-	return Object.entries(value).filter(([, item]) => item !== undefined)
-}
-
-/** A string PostgreSQL stores as written: no NUL, no lone surrogate (D-94). */
-export const clean = (value: string): boolean =>
-	value.isWellFormed() && !value.includes('\0')
-
-const cleanText = (value: unknown, at: string): string => {
-	if (typeof value === 'string' && clean(value)) return value
-	throw new InvalidQuery(at, `${at} must be a clean string.`)
-}
-
-/** A date of years 1 to 9999 in UTC, which PostgreSQL reads back (D-94). */
-export const storedDate = (value: unknown): value is Date => {
-	const year = value instanceof Date ? value.getUTCFullYear() : Number.NaN
-	return year >= 1 && year <= 9999
-}
-
-/** JSON data whose strings and keys are clean (D-94). */
-export function isJson(value: unknown): boolean {
-	if (value === null || typeof value === 'boolean') return true
-	if (typeof value === 'string') return clean(value)
-	if (typeof value === 'number') return Number.isFinite(value)
-	if (Array.isArray(value)) return value.every(isJson)
-	if (!isObject(value) || Object.getPrototypeOf(value) !== Object.prototype) {
-		return false
-	}
-	return Object.entries(value).every(
-		([key, item]) => clean(key) && isJson(item),
-	)
-}
-
-export function unknownKey(path: string, model: string): InvalidQuery {
-	return new InvalidQuery(path, `Unknown key '${path}' on ${model}.`)
-}
-
 type Single = ScalarType | 'id'
 
 function typeOf(model: ModelInfo, name: string): ScalarType | 'id' | undefined {
 	const field = model.fields.get(name)
 	return field?.kind === 'scalar' ? field.type : system.get(name)
 }
-
-export const integerRange = 'from -2,147,483,648 to 2,147,483,647'
-
-/** Each scalar type's check, and its message when a value does not fit. */
-const misfits: {
-	readonly [T in ScalarType]: (
-		value: unknown,
-		field: ScalarCheck,
-	) => string | undefined
-} = {
-	string: (value) => {
-		if (typeof value !== 'string') return 'Expected a string.'
-		return clean(value)
-			? undefined
-			: 'Expected a string without a NUL or a lone surrogate.'
-	},
-	number: (value, field) => {
-		if (field.integer !== true) {
-			return typeof value === 'number' && Number.isFinite(value)
-				? undefined
-				: 'Expected a finite number.'
-		}
-		return isInteger(value)
-			? undefined
-			: `Expected a whole number ${integerRange}.`
-	},
-	decimal: decimalIssue,
-	boolean: (value) =>
-		typeof value === 'boolean' ? undefined : 'Expected a boolean.',
-	date: (value) =>
-		storedDate(value) ? undefined : 'Expected a Date of years 1 to 9999.',
-	json: (value) =>
-		isJson(value)
-			? undefined
-			: 'Expected JSON data, its strings without a NUL or a lone surrogate.',
-	enum: (value, field) =>
-		typeof value === 'string' && (field.values ?? []).includes(value)
-			? undefined
-			: `Expected one of ${(field.values ?? []).join(', ')}.`,
-}
-
-/** The message of a value that does not fit `field`, if it does not. */
-export const misfit = (
-	value: unknown,
-	field: ScalarCheck,
-): string | undefined => misfits[field.type](value, field)
 
 /** Whether `value` fits a field, or a system field, which has no info (D-22). */
 const fits = (type: Single, value: unknown, field: FieldInfo | undefined) =>
@@ -230,43 +142,6 @@ function scalarCondition(
 	// `mode` alone filters nothing, as in Prisma (D-140).
 	if (Object.keys(condition).length === 0) return undefined
 	return insensitive ? { ...condition, mode: 'insensitive' } : condition
-}
-
-/** A list's `has` and `hasSome`, which name its elements (D-120, D-127). */
-function listCondition(
-	model: ModelInfo,
-	field: Scalar,
-	value: unknown,
-	path: string,
-): Condition | undefined {
-	const kind =
-		field.type === 'enum'
-			? `one of ${(field.values ?? []).join(', ')}`
-			: field.type === 'number'
-				? field.integer === true
-					? `a whole number ${integerRange}`
-					: 'a finite number'
-				: 'a non-empty clean string'
-	const element = (item: unknown, at: string): unknown => {
-		if (item === '' || misfit(item, field) !== undefined) {
-			throw new InvalidQuery(at, `${at} must be ${kind}.`)
-		}
-		return item
-	}
-	const condition: { has?: unknown; hasSome?: readonly unknown[] } = {}
-	for (const [operator, operand] of entries(value, path)) {
-		const at = `${path}.${operator}`
-		if (operator === 'has') condition.has = element(operand, at)
-		else if (operator !== 'hasSome') throw unknownKey(at, model.name)
-		else if (!Array.isArray(operand)) {
-			throw new InvalidQuery(at, `${at} must be a list.`)
-		} else {
-			condition.hasSome = operand.map((each: unknown, index) =>
-				element(each, `${at}.${index}`),
-			)
-		}
-	}
-	return Object.keys(condition).length === 0 ? undefined : condition
 }
 
 /**
