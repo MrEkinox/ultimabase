@@ -8190,3 +8190,88 @@ const order = await Order.findUniqueOrThrow({ where: { id } }, as)
 order.total // '12.50'
 await Order.aggregate({ _sum: { total: true } }, as) // { _sum: { total: '1250.40' } }
 ```
+
+## D-146: `groupBy`
+
+Choice: completes D-20 and D-143.
+
+1. `Model.groupBy({ by, where, _count, _sum, _avg, _min, _max, orderBy,
+skip, take }, as)` groups the rows `where` selects, as Prisma's
+   `groupBy` does, and returns one object per group: its `by` values, then
+   the aggregates it asked for, which take what `aggregate` takes (D-143).
+   - `by` is a non-empty list of distinct fields: a scalar an aggregate
+     takes (neither a list, a `json` nor a plugin field type's, D-122),
+     `id`, `createdAt`, `updatedAt`, or a `one` relation the row stores
+     (D-37), grouped by its target's id.
+   - A relation's value is `{ id }`, or `null` when unset or when its target
+     is a row the caller cannot read, which is absent everywhere (D-86).
+   - The rows with no value in a field form one group, as SQL's
+     `GROUP BY` makes them.
+2. `orderBy` is an object or a list of objects. Each key is a field of
+   `by`, `_count: 'asc' | 'desc'` for the group's rows, or
+   `_count | _sum | _avg | _min | _max: { field: 'asc' | 'desc' }`, an
+   aggregate the result need not ask for. The groups are then sorted by the
+   other fields of `by`, ascending, so the order is total and a page exact.
+   `null` sorts last ascending and first descending, as a read's sort
+   (D-94).
+3. `skip` and `take` are integers of at least 0. No cursor: a group has no
+   id. No `having`: `where` filters the rows before they are grouped, and
+   code filters the groups.
+4. It groups the rows the caller reads: the read rule and `beforeFind`
+   apply, as for `aggregate`. A field with a read rule is refused to a
+   caller other than Master in `by`, in an aggregate and in `orderBy`:
+   `INVALID_QUERY` (D-44).
+5. Server code only, as `aggregate` (D-143).
+6. The result's type follows the arguments: each `by` field with its
+   stored value, a relation as `{ id } | null`, the aggregates as
+   `aggregate` types them.
+7. The adapter contract's `aggregate` gains:
+   - `by`, the group keys: a field, or the `id` of the row `through`
+     reaches, as a sort key does (D-134);
+   - `orderBy`, each `{ at, direction }`, where `at` counts the keys, then
+     the aggregates;
+   - `skip` and `take`.
+
+   It returns one list per group: the values of its keys, then of its
+   aggregates. Without `by`, one list, even without rows; with `by`, no row
+   gives no group. The kernel adds the aggregates an `orderBy` needs and
+   leaves them out of the result; `Model.aggregate` calls it without `by`.
+
+Why: posts per author, sales per region or the ten busiest days are one
+statement on the database, not every row read into the server and counted
+there. Sorting by position keeps the adapter small: it groups, sorts and
+pages lists of values, and the kernel names them.
+
+Rejected:
+
+- `having`: no need asks for it yet; a sort by an aggregate and `take`
+  give the top groups.
+- Prisma's rule that `skip` and `take` need an `orderBy`: the order is
+  always total here, so a page is exact without one.
+- Grouping by a related row's field (`author.country`): no need asks for
+  it.
+- A separate adapter method: a group of every row is the aggregate
+  already there.
+- `groupBy` on the transports: see D-143.
+
+Example:
+
+```ts
+// Before: every post read to count them by author
+const posts = await Post.findMany(
+	{ select: { author: { select: { id: true } } } },
+	as,
+)
+const counts = new Map<string | null, number>()
+for (const { author } of posts) {
+	const id = author?.id ?? null
+	counts.set(id, (counts.get(id) ?? 0) + 1)
+}
+const top = [...counts].sort((a, b) => b[1] - a[1]).slice(0, 10)
+// After: one query
+const top = await Post.groupBy(
+	{ by: ['author'], _count: true, orderBy: { _count: 'desc' }, take: 10 },
+	as,
+)
+// [{ author: { id: 'u1' }, _count: 12 }, { author: null, _count: 3 }, …]
+```
