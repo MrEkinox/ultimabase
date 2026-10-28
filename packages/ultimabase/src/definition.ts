@@ -221,6 +221,23 @@ const scalar =
 		return build({ kind: 'scalar', type, options: options ?? {} })
 	}
 
+const whole = (value: unknown, most: number): value is number =>
+	Number.isInteger(value) && Number(value) >= 0 && Number(value) <= most
+
+/** Exact numbers of `precision` digits, `scale` after the point (D-145). */
+function decimal(options?: FieldOptions): object {
+	const { precision, scale } = options ?? {}
+	if (!whole(precision, 1000) || precision === 0) {
+		throw new Error('f.decimal() takes a precision from 1 to 1000.')
+	}
+	if (!whole(scale, precision)) {
+		throw new Error(
+			`f.decimal() takes a scale from 0 to its precision, ${precision}.`,
+		)
+	}
+	return scalar('decimal')(options)
+}
+
 const relation =
 	(kind: 'one' | 'many') =>
 	(target: () => unknown, options?: FieldOptions): object =>
@@ -241,6 +258,7 @@ function enumOf(values: readonly unknown[], options?: FieldOptions): object {
 export const fieldBuilders: object = Object.freeze({
 	string: (options?: FieldOptions) => listable('string', options),
 	number: (options?: FieldOptions) => listable('number', options),
+	decimal,
 	boolean: scalar('boolean'),
 	date: scalar('date'),
 	json: scalar('json'),

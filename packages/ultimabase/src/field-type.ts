@@ -58,7 +58,7 @@ export type FieldType<P extends string, S, V, I> = <
 	options?: O,
 ) => Field<V, StoredOptions<S> & O, P, never, I, true, S>
 
-const storedOptions = new Set(['list', 'optional'])
+const storedOptions = new Set(['list', 'optional', 'precision', 'scale'])
 
 /** The stored field `stored` returns, a scalar with no rules. */
 function storedOf(
@@ -81,7 +81,7 @@ function storedOf(
 	for (const option of Object.keys(definition.options)) {
 		if (!storedOptions.has(option)) {
 			throw new Error(
-				`defineFieldType(${plugin}): the stored field takes list or optional only, not ${option}.`,
+				`defineFieldType(${plugin}): the stored field takes list, optional, precision or scale only, not ${option}.`,
 			)
 		}
 	}

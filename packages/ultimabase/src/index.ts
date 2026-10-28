@@ -44,6 +44,7 @@ export { defineModel } from './define-model.ts'
 export type { ErrorCode, Issue } from './errors.ts'
 export { InvalidQuery, PublicError, Refused } from './errors.ts'
 export type {
+	DecimalOptions,
 	Field,
 	FieldBuilders,
 	JsonOptions,

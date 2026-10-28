@@ -1,5 +1,6 @@
 // An aggregate as one statement (D-143): its values in a jsonb array, a sum
-// and an average as float8, a date in UTC as a read returns it.
+// and an average as float8, a date in UTC as a read returns it; a decimal's
+// sum, minimum and maximum as text, exact (D-145).
 import type { QueryExecutorProvider } from 'kysely'
 import { sql } from 'kysely'
 import type { Aggregate, AggregateRead } from 'ultimabase'
@@ -16,13 +17,15 @@ function value(
 	if (field === undefined) return sql`count(*)`
 	const column = filters.column(at.table, at.alias, field)
 	if (operation === 'count') return sql`count(${column})`
-	if (operation === 'sum' || operation === 'avg') {
-		return sql`cast(${sql.raw(operation)}(${column}) as float8)`
+	const kind = catalog.kind(at.table, field)
+	const computed = sql`${sql.raw(operation)}(${column})`
+	if (kind === 'decimal' && operation !== 'avg') {
+		return sql`cast(${computed} as text)`
 	}
-	const extreme = sql`${sql.raw(operation)}(${column})`
-	return catalog.kind(at.table, field) === 'date'
-		? sql`(${extreme} at time zone 'UTC')`
-		: extreme
+	if (operation === 'sum' || operation === 'avg') {
+		return sql`cast(${computed} as float8)`
+	}
+	return kind === 'date' ? sql`(${computed} at time zone 'UTC')` : computed
 }
 
 export function compileAggregate(catalog: Catalog, read: AggregateRead): Sql {

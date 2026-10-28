@@ -232,6 +232,27 @@ describe('an integer field', () => {
 	})
 })
 
+describe('a decimal field', () => {
+	const field = { ...scalar('price', 'decimal'), precision: 5, scale: 2 }
+
+	it('takes a decimal string its digits hold, as the kernel does (D-145)', () => {
+		const { read } = fieldProperty(field, true, 'test')
+		expect(read('012.5')).toStrictEqual({ value: '012.5' })
+		const message =
+			"Expected a decimal string of at most 5 digits, 2 after the point, such as '12.50'."
+		for (const value of [12.5, '1e2', '1.234', '1000']) {
+			expect(read(value)).toStrictEqual({ message })
+		}
+	})
+
+	it('is a patterned string in its JSON Schema', () => {
+		expect(fieldProperty(field, true, 'test').json).toStrictEqual({
+			type: 'string',
+			pattern: '^-?\\d+(\\.\\d+)?$',
+		})
+	})
+})
+
 describe('a json field', () => {
 	const Address = z.object({ city: z.string() }).meta({ id: 'Address' })
 	const prefs = z.object({ theme: z.enum(['light']), shipTo: Address })

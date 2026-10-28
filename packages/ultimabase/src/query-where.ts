@@ -2,6 +2,7 @@
 // shorthands become `{ equals }`, `undefined` goes (D-84), and an unknown
 // key fails with its path.
 import type { Condition, Filter, ScalarType } from './adapter.ts'
+import { decimalIssue, storedValue } from './decimal.ts'
 import { InvalidQuery } from './errors.ts'
 import type { FieldInfo, ModelInfo } from './schema.ts'
 
@@ -20,7 +21,10 @@ export const byIds = (ids: readonly string[]): Filter => ({ id: { in: ids } })
 export type Scalar = Extract<FieldInfo, { readonly kind: 'scalar' }>
 
 /** What a scalar value is checked against (D-139). */
-export type ScalarCheck = Pick<Scalar, 'type' | 'list' | 'integer' | 'values'>
+export type ScalarCheck = Pick<
+	Scalar,
+	'type' | 'list' | 'integer' | 'values' | 'precision' | 'scale'
+>
 
 /** An integer field's values (D-132). */
 export const isInteger = (value: unknown): boolean =>
@@ -132,6 +136,7 @@ const misfits: {
 			? undefined
 			: `Expected a whole number ${integerRange}.`
 	},
+	decimal: decimalIssue,
 	boolean: (value) =>
 		typeof value === 'boolean' ? undefined : 'Expected a boolean.',
 	date: (value) =>
@@ -165,7 +170,7 @@ const ordered = new Set(['lt', 'lte', 'gt', 'gte'])
 const text = new Set(['contains', 'startsWith', 'endsWith'])
 
 function operators(type: Single): ReadonlySet<string> {
-	if (type === 'number' || type === 'date')
+	if (type === 'number' || type === 'decimal' || type === 'date')
 		return new Set([...base, ...ordered])
 	if (type === 'string') return new Set([...base, ...text, 'mode'])
 	if (type === 'id' || type === 'enum') return new Set([...base, ...text])
@@ -185,7 +190,7 @@ function scalarCondition(
 		if (!fits(type, item, field)) {
 			throw new InvalidQuery(at, `${at} does not fit ${model.name}.${name}.`)
 		}
-		return item
+		return field?.kind === 'scalar' ? storedValue(item, field) : item
 	}
 	// A primitive, a `Date` or a list is `equals`; an object is a filter, on
 	// `json` too, which compares whole values with `equals` as in Prisma.

@@ -11,7 +11,7 @@ export {
 } from './adapter-errors.ts'
 
 export type ScalarType =
-	'string' | 'number' | 'boolean' | 'date' | 'json' | 'enum'
+	'string' | 'number' | 'decimal' | 'boolean' | 'date' | 'json' | 'enum'
 
 export type SchemaField =
 	| {
@@ -27,6 +27,12 @@ export type SchemaField =
 			readonly list: boolean
 			/** A `number` of whole numbers from -2^31 to 2^31 - 1 (D-132). */
 			readonly integer?: true
+			/**
+			 * A `decimal`'s digits, `scale` of them after the point; its values
+			 * are strings at that scale (D-145).
+			 */
+			readonly precision?: number
+			readonly scale?: number
 			readonly optional: boolean
 			readonly unique: boolean
 			readonly dbName?: string

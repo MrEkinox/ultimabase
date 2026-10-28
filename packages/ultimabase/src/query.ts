@@ -13,7 +13,7 @@ import type {
 	UpdateManyData,
 } from './record.ts'
 import type { Exact } from './exact.ts'
-import type { AggregateArgs, Aggregates } from './query-aggregate.ts'
+import type { AggregateArgs, Aggregates, IsDecimal } from './query-aggregate.ts'
 import type { Identity } from './rules.ts'
 import type { fieldType } from './symbols.ts'
 
@@ -31,20 +31,20 @@ type OptionalOne<X> = X extends {
 	? null
 	: never
 
-type ScalarFilter<V> = {
+/** A decimal (D-145) is a string compared by value, without `contains`. */
+type ScalarFilter<V, Decimal = false> = {
 	readonly equals?: V | null | undefined
 	readonly not?: V | null | undefined
 	readonly in?: readonly V[] | undefined
 	readonly notIn?: readonly V[] | undefined
-} & ([V] extends [number | Date]
+} & ([V, Decimal] extends [number | Date, unknown] | [unknown, true]
 	? {
 			readonly lt?: V | undefined
 			readonly lte?: V | undefined
 			readonly gt?: V | undefined
 			readonly gte?: V | undefined
 		}
-	: unknown) &
-	([V] extends [string]
+	: [V] extends [string]
 		? {
 				readonly contains?: string | undefined
 				readonly startsWith?: string | undefined
@@ -72,7 +72,7 @@ type FilterOf<X> =
 			? ListFilter<E>
 			: never
 		: KindOf<X> extends 'scalar'
-			? StoredValue<X> | ScalarFilter<NonNullable<StoredValue<X>>>
+			? StoredValue<X> | ScalarFilter<NonNullable<StoredValue<X>>, IsDecimal<X>>
 			: KindOf<X> extends 'one'
 				? {
 						readonly is?: Where<TargetFields<TargetOf<X>>> | null | undefined

@@ -451,7 +451,7 @@ prototype/example/relations.ts: `nam` is not a field of Author, two levels down.
 TS2561: Object literal may only specify known properties, but 'nam' does not exist in type 'Where<{ readonly name: Field<string, { readonly unique: true; }, never, never, string, false, never>; readonly level: Field<"junior" | "senior", SingleOptions<"junior" | "senior">, ... 4 more ..., never>; readonly books: Many<...>; readonly favorite: One<...>; }>'. Did you mean to write 'name'?
 
 prototype/example/relations.ts: `pages` is a number on Book, one level down.
-TS2322: Type 'string' is not assignable to type 'number | ScalarFilter<number> | null | undefined'.
+TS2322: Type 'string' is not assignable to type 'number | ScalarFilter<number, false> | null | undefined'.
 
 prototype/example/relations.ts: a to-one relation takes `is`, not `some`.
 TS2353: Object literal may only specify known properties, and 'some' does not exist in type '{ readonly is?: Where<{ readonly title: Field<string, SingleOptions<string>, never, never, string, false, never>; readonly pages: Field<number, { readonly optional: true; }, never, never, number, false, never>; readonly author: One<...>; readonly reviewer: One<...>; readonly sequels: Many<...>; }> | null | undefined...'.

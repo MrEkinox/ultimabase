@@ -140,12 +140,15 @@ class Compiler {
 		return sql`(select cast(count(*) as integer) from ${reach.from} where ${reach.on} and ${rows})`
 	}
 
-	/** A scalar column, a date in UTC whatever the session's time zone. */
+	/**
+	 * A scalar column, a date in UTC whatever the session's time zone, a
+	 * decimal as text, which jsonb would make a number (D-145).
+	 */
 	private scalar(table: Table, alias: string, name: string): Sql {
 		const column = this.filters.column(table, alias, name)
-		return this.catalog.kind(table, name) === 'date'
-			? sql`(${column} at time zone 'UTC')`
-			: column
+		const kind = this.catalog.kind(table, name)
+		if (kind === 'decimal') return sql`cast(${column} as text)`
+		return kind === 'date' ? sql`(${column} at time zone 'UTC')` : column
 	}
 
 	/** A row as jsonb: its fields, each `one` as `{ id }`, then its includes. */

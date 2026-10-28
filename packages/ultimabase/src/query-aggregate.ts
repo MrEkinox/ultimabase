@@ -2,6 +2,7 @@
 // arguments ask for, each field typed.
 import type { SortedKeys, Where } from './query.ts'
 import type { StoredValue, SystemFields } from './record.ts'
+import type { fieldType } from './symbols.ts'
 
 /** A model's scalars that an aggregate takes: no list, json or plugin field. */
 type Aggregated<F> = SortedKeys<F> | keyof SystemFields
@@ -14,6 +15,20 @@ type ValueOf<F, K> = K extends keyof SystemFields
 type KeysWith<F, V> = {
 	[K in Aggregated<F>]: ValueOf<F, K> extends V ? K : never
 }[Aggregated<F>]
+/** Whether `X` is a decimal field (D-145), filtered and summed as a string. */
+export type IsDecimal<X> = X extends {
+	readonly [fieldType]: { readonly options: { readonly precision: number } }
+}
+	? true
+	: false
+type DecimalKeys<F> = {
+	[K in Aggregated<F>]: K extends keyof F
+		? IsDecimal<F[K]> extends true
+			? K
+			: never
+		: never
+}[Aggregated<F>]
+type Summed<F> = KeysWith<F, number> | DecimalKeys<F>
 type Fields<K extends PropertyKey> = { readonly [P in K]?: true | undefined }
 
 export type AggregateArgs<F> = {
@@ -22,8 +37,8 @@ export type AggregateArgs<F> = {
 		| true
 		| ({ readonly _all?: true | undefined } & Fields<Aggregated<F>>)
 		| undefined
-	readonly _sum?: Fields<KeysWith<F, number>> | undefined
-	readonly _avg?: Fields<KeysWith<F, number>> | undefined
+	readonly _sum?: Fields<Summed<F>> | undefined
+	readonly _avg?: Fields<Summed<F>> | undefined
 	readonly _min?: Fields<KeysWith<F, number | string | Date>> | undefined
 	readonly _max?: Fields<KeysWith<F, number | string | Date>> | undefined
 }
@@ -31,10 +46,21 @@ export type AggregateArgs<F> = {
 type Asked<S> = {
 	[K in keyof S]: S[K] extends true ? K : never
 }[keyof S]
-/** One value per field `S` names: `null` when no row has one. */
-type Values<F, S, Number extends boolean> = {
+/**
+ * One value per field `S` names: `null` when no row has one. An average is
+ * a number, a sum a number or a decimal's string, a minimum or a maximum
+ * the field's value.
+ */
+type Values<F, S, As extends 'sum' | 'avg' | 'value'> = {
 	readonly [K in Asked<S>]:
-		(Number extends true ? number : ValueOf<F, K>) | null
+		| (As extends 'avg'
+				? number
+				: As extends 'sum'
+					? K extends DecimalKeys<F>
+						? string
+						: number
+					: ValueOf<F, K>)
+		| null
 }
 
 /** What `aggregate` returns for the arguments `A`. */
@@ -46,14 +72,14 @@ export type Aggregates<F, A> = (A extends { readonly _count: infer C }
 			: unknown
 	: unknown) &
 	(A extends { readonly _sum: infer S extends object }
-		? { readonly _sum: Values<F, S, true> }
+		? { readonly _sum: Values<F, S, 'sum'> }
 		: unknown) &
 	(A extends { readonly _avg: infer S extends object }
-		? { readonly _avg: Values<F, S, true> }
+		? { readonly _avg: Values<F, S, 'avg'> }
 		: unknown) &
 	(A extends { readonly _min: infer S extends object }
-		? { readonly _min: Values<F, S, false> }
+		? { readonly _min: Values<F, S, 'value'> }
 		: unknown) &
 	(A extends { readonly _max: infer S extends object }
-		? { readonly _max: Values<F, S, false> }
+		? { readonly _max: Values<F, S, 'value'> }
 		: unknown)

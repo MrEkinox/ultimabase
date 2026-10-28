@@ -4,6 +4,7 @@
 import { jsonSchemaOf, readable } from '@ultimabase/http/internal'
 import type { SchemaField } from 'ultimabase'
 import { Refused } from 'ultimabase'
+import { decimalPattern } from 'ultimabase/internal'
 import type { Api, Entry } from './entries.ts'
 import { entryOf } from './entries.ts'
 import type { Components, Schema } from './openapi.ts'
@@ -36,6 +37,11 @@ function item(
 			return field.integer === true
 				? { name: 'Int', schema: { type: 'integer', format: 'int32' } }
 				: { name: 'Float', schema: { type: 'number' } }
+		case 'decimal':
+			return {
+				name: 'Decimal',
+				schema: { type: 'string', pattern: decimalPattern },
+			}
 		case 'boolean':
 			return { name: 'Boolean', schema: { type: 'boolean' } }
 		case 'date':
@@ -94,6 +100,7 @@ const text = [...base, 'contains', 'startsWith', 'endsWith', 'mode']
 const operators: { readonly [T in Scalar['type']]: readonly string[] } = {
 	string: text,
 	number: ordered,
+	decimal: ordered,
 	date: ordered,
 	boolean: base,
 	json: base,

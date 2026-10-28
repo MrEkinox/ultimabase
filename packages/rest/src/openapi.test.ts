@@ -47,6 +47,7 @@ const Book = defineModel({
 		title: f.string(),
 		status: f.enumOf(['draft', 'out']),
 		pages: f.number({ integer: true, optional: true }),
+		price: f.decimal({ precision: 6, scale: 2, optional: true }),
 		isbn: f.json({ optional: true, validate: Isbn }),
 		notes: f.string({ list: true }),
 		writer: f.one(() => Writer, { optional: true }),
@@ -232,11 +233,26 @@ describe('the document', () => {
 				'StringFilter',
 				'StringListFilter',
 				'BookIsbnFilter',
+				'DecimalFilter',
 				'Isbn',
 				'IsbnInput',
 				'Shelf',
 			]),
 		)
+		expect(
+			at(document, 'components', 'schemas', 'Book', 'properties', 'price'),
+		).toEqual({
+			anyOf: [
+				{ type: 'string', pattern: '^-?\\d+(\\.\\d+)?$' },
+				{ type: 'null' },
+			],
+		})
+		expect(
+			Object.keys(
+				at(document, 'components', 'schemas', 'DecimalFilter', 'properties') ??
+					{},
+			),
+		).toEqual(['equals', 'not', 'in', 'notIn', 'lt', 'lte', 'gt', 'gte'])
 		expect(at(document, 'components', 'schemas', 'Isbn')).toEqual({
 			type: 'object',
 			properties: {
@@ -300,13 +316,18 @@ describe('its schemas', () => {
 			title: 'a',
 			status: 'draft',
 			pages: 10,
+			price: '012.5',
 			isbn: { code: 'x' },
 			notes: ['n'],
 			writer: { create: { name: 'w' } },
 		}
 		expect(check(sent, ...body('/books', 'post'))).toBe(true)
+		expect(check({ ...sent, price: 12.5 }, ...body('/books', 'post'))).not.toBe(
+			true,
+		)
 		const created = await call(url, 'POST', '/api/books', { body: sent })
 		expect(created.status).toBe(201)
+		expect(at(created.body, 'price')).toBe('12.50')
 		expect(check(created.body, ...answer('/books', 'post', 201))).toBe(true)
 		const id = String(at(created.body, 'id'))
 		const writer = await call(

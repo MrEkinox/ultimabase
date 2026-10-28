@@ -20,10 +20,10 @@ const keys: readonly Key[] = ['_count', '_sum', '_avg', '_min', '_max']
 
 /** The types each aggregate takes; `_count` takes every scalar. */
 const takes: { readonly [K in Key]?: readonly string[] } = {
-	_sum: ['number'],
-	_avg: ['number'],
-	_min: ['number', 'string', 'enum', 'date'],
-	_max: ['number', 'string', 'enum', 'date'],
+	_sum: ['number', 'decimal'],
+	_avg: ['number', 'decimal'],
+	_min: ['number', 'decimal', 'string', 'enum', 'date'],
+	_max: ['number', 'decimal', 'string', 'enum', 'date'],
 }
 
 function refuse(path: string, kind: string): never {

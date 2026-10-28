@@ -35,6 +35,7 @@ const types: { readonly [kind in Kind]: string } = {
 	string: 'text',
 	enum: 'text',
 	number: 'double precision',
+	decimal: 'numeric',
 	integer: 'integer',
 	boolean: 'boolean',
 	date: 'timestamptz',

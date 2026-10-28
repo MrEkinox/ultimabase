@@ -167,6 +167,17 @@ const whole = (type: Scalar['type'], integer = false): Schema => ({
 	],
 })
 
+/** A shelf whose size is a decimal (D-145). */
+const money = (precision: number, scale: number): Schema => ({
+	models: [
+		{
+			name: 'Shelf',
+			fields: [scalar('size', 'decimal', { precision, scale })],
+			indexes: [],
+		},
+	],
+})
+
 /** Boxes on a shelf or on a rack: the same column, another foreign key. */
 const onto = (target: string): Schema => ({
 	models: ['Shelf', 'Rack']
@@ -546,6 +557,59 @@ describe('a sync on postgres()', () => {
 			'alter table "shelf" alter column "size" type double precision using "size"::double precision',
 			undefined,
 		])
+	})
+
+	it('converts decimals: a lower scale rounds, a value too large fails (D-145)', async () => {
+		await sync(undefined, money(6, 2))
+		await query(
+			inSchema(schema),
+			`insert into shelf values (gen_random_uuid(), now(), now(), 1234.56), (gen_random_uuid(), now(), now(), 1.5)`,
+		)
+		const [rounded] = migrations.plan(
+			migrations.snapshot(money(6, 2)),
+			money(6, 1),
+		)
+		expect([rounded?.sql, rounded?.tries]).toStrictEqual([
+			'alter table "shelf" alter column "size" type numeric(6,1) using "size"::numeric(6,1)',
+			'changing "Shelf.size" from numeric(6,2) to numeric(6,1) fails when a row holds a value it cannot convert',
+		])
+		await sync(money(6, 2), money(6, 1))
+		const stored = () =>
+			query(
+				inSchema(schema),
+				'select cast(size as text) from shelf order by shelf.size',
+			)
+		expect(await stored()).toStrictEqual([{ size: '1.5' }, { size: '1234.6' }])
+		await expect(sync(money(6, 1), money(4, 1))).rejects.toMatchObject({
+			name: 'MigrationFailed',
+			reason: 'numeric field overflow',
+		})
+		const [integer] = migrations.plan(
+			migrations.snapshot(money(6, 1)),
+			whole('number', true),
+		)
+		expect(integer?.sql).toBe(
+			'alter table "shelf" alter column "size" type integer using "size"::float8::text::integer',
+		)
+		// One row a cast would round, so the failure names it.
+		await query(inSchema(schema), 'update shelf set size = 2 where size > 2')
+		await expect(
+			sync(money(6, 1), whole('number', true)),
+		).rejects.toMatchObject({
+			name: 'MigrationFailed',
+			reason: 'invalid input syntax for type integer: "1.5"',
+		})
+		await query(inSchema(schema), 'update shelf set size = 3')
+		await sync(money(6, 1), whole('number', true))
+		await sync(whole('number', true), money(6, 2))
+		expect(await stored()).toStrictEqual([{ size: '3.00' }, { size: '3.00' }])
+		const [lost] = migrations.plan(
+			migrations.snapshot(whole('boolean')),
+			money(6, 2),
+		)
+		expect(lost?.sql).toBe(
+			'alter table "shelf" alter column "size" type numeric(6,2) using null',
+		)
 	})
 
 	it('adds a list as [] or its default, indexes it by GIN, and converts it', async () => {

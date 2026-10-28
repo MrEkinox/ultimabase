@@ -8,7 +8,13 @@ import type {
 	Row,
 	SchemaField,
 } from './adapter.ts'
-import { compareKeys, compareValues, copy, same } from './memory-values.ts'
+import {
+	compareKeys,
+	compareValues,
+	copy,
+	same,
+	sortable,
+} from './memory-values.ts'
 import { modelOf } from './query-where.ts'
 
 /** A stored row; a stored `one` key is the target's id or `null`. */
@@ -109,7 +115,9 @@ export class Reader {
 	): Truth {
 		const field = this.field(model, name)
 		if (field === undefined || field.kind === 'scalar') {
-			return scalar(row[name] ?? null, condition)
+			return scalar(row[name] ?? null, condition, (value) =>
+				sortable(value, field),
+			)
 		}
 		const rows = this.related(model, field, row)
 		const test = (filter: Filter): Truth[] =>
@@ -164,7 +172,9 @@ export class Reader {
 			if (at === undefined) return null
 			on = field.target
 		}
-		if (order.count === undefined) return at[order.field] ?? null
+		if (order.count === undefined) {
+			return sortable(at[order.field] ?? null, this.field(on, order.field))
+		}
 		return this.count(on, at, order.field, order.count)
 	}
 
@@ -319,7 +329,11 @@ function text(
 const lower = (value: unknown): unknown =>
 	typeof value === 'string' ? value.toLowerCase() : value
 
-function scalar(stored: unknown, condition: Condition): Truth {
+function scalar(
+	stored: unknown,
+	condition: Condition,
+	sorted: (value: unknown) => unknown,
+): Truth {
 	const truths: Truth[] = []
 	const known = stored !== null
 	const fold =
@@ -358,7 +372,7 @@ function scalar(stored: unknown, condition: Condition): Truth {
 		} else if (operator === 'endsWith') {
 			truths.push(text(value, operand, (a, b) => a.endsWith(b)))
 		} else {
-			const order = compareValues(value, operand)
+			const order = compareValues(sorted(value), sorted(operand))
 			if (operator === 'lt') truths.push(order < 0)
 			else if (operator === 'lte') truths.push(order <= 0)
 			else if (operator === 'gt') truths.push(order > 0)

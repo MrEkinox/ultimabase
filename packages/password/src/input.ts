@@ -2,7 +2,7 @@
 // with the JSON Schema a transport types its arguments from (D-45).
 import type { SchemaField } from 'ultimabase'
 import { PublicError, Refused } from 'ultimabase'
-import { issueOf } from 'ultimabase/internal'
+import { decimalPattern, issueOf } from 'ultimabase/internal'
 
 type Node = { readonly [key: string]: unknown }
 type Read = { readonly value: unknown } | { readonly message: string }
@@ -117,10 +117,15 @@ function jsonOf(field: Scalar): Node {
 	}
 	const integer = field.integer === true
 	const base =
-		type === 'date' || type === 'enum' ? 'string' : integer ? 'integer' : type
+		type === 'date' || type === 'enum' || type === 'decimal'
+			? 'string'
+			: integer
+				? 'integer'
+				: type
 	return {
 		type: optional ? [base, 'null'] : base,
 		...(integer ? { minimum: smallest, maximum: largest } : {}),
+		...(type === 'decimal' ? { pattern: decimalPattern } : {}),
 		...(type === 'date' ? { format: 'date-time' } : {}),
 		...(type === 'enum' ? { enum: optional ? [...values, null] : values } : {}),
 	}

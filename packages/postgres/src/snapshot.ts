@@ -47,9 +47,10 @@ export type Snapshot = {
 	readonly tables: { readonly [name: string]: TableSnapshot }
 }
 
-const types = {
+const types: { readonly [type in ScalarType]: string } = {
 	string: 'text collate "C"',
 	number: 'double precision',
+	decimal: 'numeric',
 	boolean: 'boolean',
 	date: 'timestamptz',
 	json: 'jsonb',
@@ -137,7 +138,9 @@ function field(
 			? 'uuid'
 			: given.integer === true
 				? `integer${given.list ? '[]' : ''}`
-				: ((given.list ? lists[given.type] : undefined) ?? types[given.type])
+				: given.type === 'decimal'
+					? `numeric(${given.precision},${given.scale})`
+					: ((given.list ? lists[given.type] : undefined) ?? types[given.type])
 	building.columns[column] = {
 		field: given.name,
 		type,

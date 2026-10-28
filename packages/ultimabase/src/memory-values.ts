@@ -1,5 +1,6 @@
 // How `memory()` compares and copies values, as PostgreSQL would (D-94).
-import type { Order } from './adapter.ts'
+import type { Order, SchemaField } from './adapter.ts'
+import { unitsOf } from './decimal.ts'
 import { isObject } from './query-where.ts'
 
 /** Equality as PostgreSQL's: `-0` is `0`, json keys come in any order. */
@@ -25,11 +26,26 @@ const weight = (unit: number): number => {
 	return unit >= 0xe0_00 ? unit - 0x8_00 : unit
 }
 
+/** A value as it sorts: a decimal as its units, by value (D-145). */
+export const sortable = (
+	value: unknown,
+	field: SchemaField | undefined,
+): unknown =>
+	field?.kind === 'scalar' &&
+	field.type === 'decimal' &&
+	typeof value === 'string'
+		? unitsOf(value, field.scale ?? 0)
+		: value
+
 /**
  * Strings compare by code point, as PostgreSQL's `C` collation (D-94);
- * dates, numbers and booleans by their number. Json values are not sorted.
+ * dates, numbers and booleans by their number, a decimal's units exactly.
+ * Json values are not sorted.
  */
 export function compareValues(a: unknown, b: unknown): number {
+	if (typeof a === 'bigint' && typeof b === 'bigint') {
+		return a < b ? -1 : a > b ? 1 : 0
+	}
 	if (typeof a === 'string' && typeof b === 'string') {
 		for (let index = 0; index < Math.min(a.length, b.length); index++) {
 			const order = weight(a.charCodeAt(index)) - weight(b.charCodeAt(index))

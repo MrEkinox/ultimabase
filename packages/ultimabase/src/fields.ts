@@ -51,6 +51,12 @@ export type ScalarOptions<V> = {
 	readonly dbName?: string
 }
 
+/** A decimal's options: its digits are required (D-145). */
+export type DecimalOptions = ScalarOptions<string> & {
+	readonly precision: number
+	readonly scale: number
+}
+
 /** A field's options without `list` (D-120, D-127). */
 export type SingleOptions<V> = ScalarOptions<V> & { readonly list?: false }
 
@@ -277,6 +283,13 @@ export interface FieldBuilders<T> {
 	>(
 		options?: O & NoInfer<ListableCheck<O, number>>,
 	) => Listable<number, O, T>
+	/**
+	 * Exact numbers of `precision` digits, `scale` of them after the point,
+	 * read and written as strings at that scale: `'12.50'` (D-145).
+	 */
+	readonly decimal: <const O extends DecimalOptions>(
+		options: O & NoInfer<ValidateCheck<O, string>>,
+	) => Field<string, O, never, T>
 	readonly boolean: <
 		const O extends ScalarOptions<boolean> = ScalarOptions<boolean>,
 	>(

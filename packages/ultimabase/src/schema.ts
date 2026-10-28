@@ -9,6 +9,7 @@ import type {
 	PluginCode,
 	PluginUse,
 } from './definition.ts'
+import type { Digits } from './decimal.ts'
 import { modelDefinitions } from './definition.ts'
 import { Refused } from './errors.ts'
 import { checkIndexes } from './schema-indexes.ts'
@@ -147,6 +148,12 @@ function relationField(link: Linked, inverse: Linked): FieldInfo {
 	}
 }
 
+/** A decimal's precision and scale, which its builder checked (D-145). */
+const digitsOf = (options: FieldOptions): Digits => ({
+	precision: Number(options['precision']),
+	scale: Number(options['scale']),
+})
+
 function scalarField(name: string, field: FieldDefinition): FieldInfo {
 	if (field.kind !== 'scalar') throw new Error('Expected a scalar field.')
 	const dbName = field.options['dbName']
@@ -160,6 +167,7 @@ function scalarField(name: string, field: FieldDefinition): FieldInfo {
 		...(field.type === 'number' && field.options['integer'] === true
 			? { integer: true }
 			: {}),
+		...(field.type === 'decimal' ? digitsOf(field.options) : {}),
 		optional: field.options['optional'] === true,
 		unique: field.options['unique'] === true,
 		...(typeof dbName === 'string' ? { dbName } : {}),

@@ -16,6 +16,7 @@ export { scratchable, scratchOf } from './scratch.ts'
 export { isRow } from './field-codec.ts'
 export { joining } from './transaction.ts'
 export { issueOf } from './write-data.ts'
+export { decimalPattern } from './decimal.ts'
 
 /** `logger` without its info lines. */
 function quieted(logger: Logger): Logger {

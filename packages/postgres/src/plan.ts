@@ -100,33 +100,52 @@ const arrays = ['text[]', 'double precision[]', 'integer[]']
 const scalars = ['boolean', 'timestamptz', 'jsonb']
 const unconvertible: Named<readonly string[]> = {
 	'double precision': ['boolean', 'timestamptz', 'jsonb', ...arrays],
+	numeric: ['boolean', 'timestamptz', 'jsonb', ...arrays],
 	integer: ['timestamptz', 'jsonb', ...arrays],
-	boolean: ['double precision', 'timestamptz', 'jsonb', ...arrays],
-	timestamptz: ['double precision', 'integer', 'boolean', 'jsonb', ...arrays],
+	boolean: ['double precision', 'numeric', 'timestamptz', 'jsonb', ...arrays],
+	timestamptz: [
+		'double precision',
+		'numeric',
+		'integer',
+		'boolean',
+		'jsonb',
+		...arrays,
+	],
 	jsonb: ['timestamptz', ...arrays],
-	'text[]': ['double precision', 'integer', ...scalars],
-	'double precision[]': ['double precision', 'integer', ...scalars],
-	'integer[]': ['double precision', 'integer', ...scalars],
+	'text[]': ['double precision', 'numeric', 'integer', ...scalars],
+	'double precision[]': ['double precision', 'numeric', 'integer', ...scalars],
+	'integer[]': ['double precision', 'numeric', 'integer', ...scalars],
 }
 
+/** A type without its precision and scale: `numeric(10,2)` is `numeric`. */
+const family = (type: string): string =>
+	type.startsWith('numeric(') ? 'numeric' : type
+
 /**
- * Whether converting reads each value: text or json to another type, or
- * anything but a boolean to whole numbers, which refuse a fraction (D-132).
+ * Whether converting reads each value: text or json to another type,
+ * anything but a boolean to whole numbers, which refuse a fraction (D-132),
+ * anything to a decimal, which refuses more integer digits (D-145).
  */
 const reads = (from: string, to: string): boolean =>
 	to.startsWith('integer')
 		? from !== 'boolean'
-		: (from === 'jsonb' || from.startsWith('text')) &&
-			!to.startsWith('text collate')
+		: to.startsWith('numeric') ||
+			((from === 'jsonb' || from.startsWith('text')) &&
+				!to.startsWith('text collate'))
 
 /**
  * A date as text is `toISOString()`'s, whatever the session's time zone.
- * Whole numbers come from text, which refuses `1.5` that a cast rounds.
+ * Whole numbers come from text, which refuses `1.5` that a cast rounds; a
+ * decimal's text through float8, as `12.00` is `12`.
  */
-const converted = (named: string, from: string, to: string): string =>
-	from === 'timestamptz' && to.startsWith('text')
-		? `to_char(${named} at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')`
-		: `${named}::${to.startsWith('integer') && reads(from, to) ? 'text::' : ''}${to}`
+function converted(named: string, from: string, to: string): string {
+	if (from === 'timestamptz' && to.startsWith('text')) {
+		return `to_char(${named} at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')`
+	}
+	const whole = to.startsWith('integer') && reads(from, to)
+	const via = from.startsWith('numeric') ? 'float8::' : ''
+	return `${named}::${whole ? `${via}text::` : ''}${to}`
+}
 
 /**
  * Changes a column's type. One PostgreSQL cannot convert loses its values,
@@ -143,7 +162,7 @@ function retype(
 	const change = `changing "${model}.${now.field}" from ${shown(was)} to ${shown(now.type)}`
 	const alter = `${table} alter column ${id(key)} type ${now.type}`
 	const does = `changed ${now.field} to ${shown(now.type)}`
-	if (!unconvertible[was]?.includes(now.type)) {
+	if (!unconvertible[family(was)]?.includes(family(now.type))) {
 		return emit(`${alter} using ${converted(id(key), was, now.type)}`, does, {
 			loses: `${change} rewrites its data`,
 			...(reads(was, now.type)

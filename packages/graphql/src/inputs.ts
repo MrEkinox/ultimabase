@@ -80,6 +80,7 @@ function filter(
 const operators: { readonly [T in Scalar['type']]: readonly string[] } = {
 	string: [...text, 'mode'],
 	number: ordered,
+	decimal: ordered,
 	date: ordered,
 	boolean: base,
 	json: base,

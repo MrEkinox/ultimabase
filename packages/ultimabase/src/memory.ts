@@ -65,7 +65,9 @@ class Draft {
 	}
 
 	aggregate(read: AggregateRead): unknown[] {
-		return aggregated(this.selected(read), read.aggregates)
+		return aggregated(this.selected(read), read.aggregates, (name) =>
+			this.reader.field(read.model, name),
+		)
 	}
 
 	private selected(read: CountRead): StoredRow[] {

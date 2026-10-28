@@ -6,6 +6,7 @@ import { aggregates } from './aggregates.ts'
 import { cases } from './cases.ts'
 import { cascades } from './cascades.ts'
 import { counts } from './counts.ts'
+import { decimals } from './decimals.ts'
 import { lists } from './lists.ts'
 import { nested } from './nested.ts'
 import { numbers } from './numbers.ts'
@@ -37,6 +38,7 @@ export function testAdapter(
 		lists(create)
 		nested(create)
 		numbers(create)
+		decimals(create)
 		counts(create)
 		aggregates(create)
 		projection(create)
