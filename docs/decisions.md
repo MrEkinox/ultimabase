@@ -8380,6 +8380,7 @@ Choice: completes D-20, D-94 and D-141.
    its language and columns (D-105). A changed language or set of fields
    drops and adds the column, which loses nothing: the database computes
    it again. Adding it rewrites the table, as any stored column does.
+
 6. `memory()` approximates PostgreSQL's `'simple'` configuration whatever
    the language: the words of the document and of the text are their runs
    of letters and digits, lowercased; a phrase matches consecutive words;
