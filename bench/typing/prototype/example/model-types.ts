@@ -80,7 +80,7 @@ export const typo = { include: { autor: true } } satisfies ArgsOf<
 >
 // @ts-expect-error: a misspelt field in a filter helper.
 export const badFilter: WhereOf<typeof Book> = { titel: 'Dune' }
-// @ts-expect-error: aggregates are not in 0.1 (D-20).
-export type NoOperation = ArgsOf<typeof Book, 'aggregate'>
+// @ts-expect-error: Prisma's MongoDB-only `aggregateRaw` is no operation.
+export type NoOperation = ArgsOf<typeof Book, 'aggregateRaw'>
 // @ts-expect-error: relations are absent without `include`.
 void found[0]?.author

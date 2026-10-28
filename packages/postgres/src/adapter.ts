@@ -22,6 +22,7 @@ import type {
 	Transaction,
 	Write,
 } from 'ultimabase'
+import { aggregate } from './aggregate.ts'
 import { decodeRows } from './decode.ts'
 import { apply, remoteOf, reset, stored } from './migrations.ts'
 import { Catalog } from './names.ts'
@@ -283,6 +284,7 @@ export function createAdapter(options: Options): Postgres {
 		},
 		find: async (read) => find(started().catalog, started().db, read),
 		count: async (read) => count(started().catalog, started().db, read),
+		aggregate: async (read) => aggregate(started().catalog, started().db, read),
 		write: async (given) => {
 			const { catalog, db } = started()
 			const statements = compileWrite(catalog, given)
@@ -332,6 +334,7 @@ export function createAdapter(options: Options): Postgres {
 			const tx: Transaction = {
 				find: async (read) => find(catalog, trx, read),
 				count: async (read) => count(catalog, trx, read),
+				aggregate: async (read) => aggregate(catalog, trx, read),
 				write: async (given) => write(catalog, trx, given),
 				commit: async () => {
 					try {

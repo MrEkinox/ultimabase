@@ -22,12 +22,14 @@ function counted(): Adapter {
 		...adapter,
 		find: trip(adapter.find),
 		count: trip(adapter.count),
+		aggregate: trip(adapter.aggregate),
 		write: trip(adapter.write),
 		begin: trip(async (): Promise<Transaction> => {
 			const tx = await adapter.begin()
 			return {
 				find: trip(async (read) => tx.find(read)),
 				count: trip(async (read) => tx.count(read)),
+				aggregate: trip(async (read) => tx.aggregate(read)),
 				write: trip(async (write) => tx.write(write)),
 				commit: trip(async () => tx.commit()),
 				rollback: trip(async () => tx.rollback()),

@@ -140,6 +140,7 @@ const operations: readonly Operation[] = [
 	'findFirstOrThrow',
 	'findUniqueOrThrow',
 	'count',
+	'aggregate',
 	'create',
 	'update',
 	'upsert',

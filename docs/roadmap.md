@@ -217,7 +217,7 @@ Exit: an example with sign-up, sign-in and rules on `caller.user`.
 - [x] Decide `upsert` (D-20, D-129): D-142.
 - [x] `upsert` (D-142).
 - [x] Decide `aggregate` (D-20, D-44): D-143.
-- [ ] `aggregate` (D-143).
+- [x] `aggregate` (D-143).
 - [ ] Documentation website (D-31).
 - [ ] A full audit of every package, its fixes merged, before publication.
 - [ ] Publication, after confirmation.

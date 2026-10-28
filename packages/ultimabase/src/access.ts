@@ -7,7 +7,7 @@ import type { Logger } from './app-options.ts'
 import type { Caller } from './rules.ts'
 import { allow, filterOf, isMaster, isReadFilter, readFilter } from './rules.ts'
 import type { ModelInfo } from './schema.ts'
-import type { Models } from './query-where.ts'
+import type { Models, Verb } from './query-where.ts'
 import { entries, isObject, modelOf, normalizeWhere } from './query-where.ts'
 import { madeId } from './uuid.ts'
 
@@ -211,12 +211,7 @@ export class Access {
 	}
 
 	/** Refuses a filter or a sort on a field with a read rule (D-44, D-86). */
-	check(
-		model: ModelInfo,
-		field: string,
-		path: string,
-		verb: 'filters' | 'sorts',
-	): void {
+	check(model: ModelInfo, field: string, path: string, verb: Verb): void {
 		if (fieldRule(model, field, 'read') === undefined) return
 		throw new InvalidQuery(
 			path,

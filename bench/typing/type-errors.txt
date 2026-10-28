@@ -296,8 +296,8 @@ TS2561: Object literal may only specify known properties, but 'autor' does not e
 prototype/example/model-types.ts: a misspelt field in a filter helper.
 TS2561: Object literal may only specify known properties, but 'titel' does not exist in type 'WhereOf<Model<"Book", { readonly title: Field<string, SingleOptions<string>, never, never, string, false, never>; readonly pages: Field<number, { readonly optional: true; }, ... 4 more ..., never>; readonly author: One<...>; readonly reviewer: One<...>; readonly sequels: Many<...>; }, never, WithKeys<...>, never>>'. Did you mean to write 'title'?
 
-prototype/example/model-types.ts: aggregates are not in 0.1 (D-20).
-TS2344: Type '"aggregate"' does not satisfy the constraint 'keyof Operations<FieldsOf<M>, UniqueOf<M>, NameOf<M>>'.
+prototype/example/model-types.ts: Prisma's MongoDB-only `aggregateRaw` is no operation.
+TS2344: Type '"aggregateRaw"' does not satisfy the constraint 'keyof Operations<FieldsOf<M>, UniqueOf<M>, NameOf<M>>'.
 
 prototype/example/model-types.ts: relations are absent without `include`.
 TS2339: Property 'author' does not exist on type 'RecordOf<{ readonly title: Field<string, SingleOptions<string>, never, never, string, false, never>; readonly pages: Field<number, { readonly optional: true; }, never, never, number, false, never>; readonly author: One<...>; readonly reviewer: One<...>; readonly sequels: Many<...>; }>'.

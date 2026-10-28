@@ -1,6 +1,8 @@
 // The kernel's public surface (D-01).
 export type {
 	Adapter,
+	Aggregate,
+	AggregateRead,
 	Arithmetic,
 	Change,
 	Check,

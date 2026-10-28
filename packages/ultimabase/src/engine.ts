@@ -13,6 +13,7 @@ import { entries, isObject, unknownKey } from './query-where.ts'
 import { QueryScope, planned } from './scope.ts'
 import type { Commit, Store } from './transaction.ts'
 import { reading, writing } from './transaction.ts'
+import { aggregate } from './aggregate.ts'
 import { removeMany } from './delete-many.ts'
 import { updateMany } from './update-many.ts'
 import { createMany } from './create-many.ts'
@@ -25,6 +26,7 @@ export type Operation =
 	| 'findFirstOrThrow'
 	| 'findUniqueOrThrow'
 	| 'count'
+	| 'aggregate'
 	| 'create'
 	| 'update'
 	| 'upsert'
@@ -152,6 +154,7 @@ type ReadOperation =
 	| 'findFirstOrThrow'
 	| 'findUniqueOrThrow'
 	| 'count'
+	| 'aggregate'
 
 /** The read, which fails with `NOT_FOUND` rather than return `null` (D-135). */
 const orThrow =
@@ -171,6 +174,7 @@ const reads: { readonly [O in ReadOperation]: Run } = {
 	),
 	findUniqueOrThrow: orThrow(findUnique),
 	count,
+	aggregate,
 }
 
 const writes: { readonly [O in Exclude<Operation, ReadOperation>]: Write } = {

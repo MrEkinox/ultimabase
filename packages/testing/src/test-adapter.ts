@@ -2,6 +2,7 @@
 // alike, checked through the kernel's public API.
 import type { Adapter } from 'ultimabase'
 import { describe } from 'vitest'
+import { aggregates } from './aggregates.ts'
 import { cases } from './cases.ts'
 import { cascades } from './cascades.ts'
 import { counts } from './counts.ts'
@@ -37,6 +38,7 @@ export function testAdapter(
 		nested(create)
 		numbers(create)
 		counts(create)
+		aggregates(create)
 		projection(create)
 		transactions(create)
 		roundTrips(create, options.roundTrips)

@@ -151,6 +151,21 @@ export type Read = Nested & {
 
 export type CountRead = { readonly model: string; readonly where?: Filter }
 
+/** One aggregate: `count` without a field counts the rows (D-143). */
+export type Aggregate = {
+	readonly operation: 'count' | 'sum' | 'avg' | 'min' | 'max'
+	/** A scalar field, neither a list nor `json`. */
+	readonly field?: string
+}
+
+/**
+ * Aggregates of the rows `where` selects, one value each, in order: a count
+ * is a number, the others `null` without a value (D-143).
+ */
+export type AggregateRead = CountRead & {
+	readonly aggregates: readonly Aggregate[]
+}
+
 /**
  * A stored row: system and scalar fields, and each `one` relation as its key
  * `{ id } | null`, or the included row. An included `many` is a list of rows.
@@ -212,6 +227,7 @@ export type Write = {
 export interface Transaction {
 	find(read: Read): Promise<Row[]>
 	count(read: CountRead): Promise<number>
+	aggregate(read: AggregateRead): Promise<unknown[]>
 	write(write: Write): Promise<Row[]>
 	commit(): Promise<void>
 	rollback(): Promise<void>

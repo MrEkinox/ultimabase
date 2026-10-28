@@ -298,6 +298,7 @@ function purging(): Adapter {
 		stop: async () => base.stop(),
 		find: async (read) => base.find(read),
 		count: async (read) => base.count(read),
+		aggregate: async (read) => base.aggregate(read),
 		write: async (write) => base.write(write),
 		begin: async () => {
 			const tx = await base.begin()

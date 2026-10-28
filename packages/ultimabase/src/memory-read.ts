@@ -23,6 +23,21 @@ export type Store = {
 	readonly joins: Map<string, Map<string, Set<string>>>
 }
 
+/** A copy of the store, which a write changes and keeps once whole. */
+export function clone(store: Store): Store {
+	return {
+		tables: new Map(
+			[...store.tables].map(([name, table]) => [name, new Map(table)]),
+		),
+		joins: new Map(
+			[...store.joins].map(([key, side]) => [
+				key,
+				new Map([...side].map(([id, ids]) => [id, new Set(ids)])),
+			]),
+		),
+	}
+}
+
 /** Each model's fields by name. */
 export type Fields = ReadonlyMap<string, ReadonlyMap<string, SchemaField>>
 

@@ -28,6 +28,9 @@ export const isInteger = (value: unknown): boolean =>
 	Number(value) >= -2_147_483_648 &&
 	Number(value) <= 2_147_483_647
 
+/** What a query does with a field: a read rule refuses each (D-44, D-143). */
+export type Verb = 'filters' | 'sorts' | 'aggregates'
+
 /** What a caller other than Master may filter on and see (D-86). */
 export type Scope = {
 	/** Fails on a field with a read rule (D-44). */
@@ -35,7 +38,7 @@ export type Scope = {
 		model: ModelInfo,
 		field: string,
 		path: string,
-		verb: 'filters' | 'sorts',
+		verb: Verb,
 	) => void
 	/** Whether the caller runs a field read rule on it (D-44). */
 	readonly ruled: (model: ModelInfo, field: string) => boolean

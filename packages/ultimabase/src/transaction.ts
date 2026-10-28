@@ -11,7 +11,10 @@ import { current } from './running.ts'
 import { refused } from './write-target.ts'
 
 /** What a query reads and writes through. */
-export type Store = Pick<Transaction, 'find' | 'count' | 'write'> & {
+export type Store = Pick<
+	Transaction,
+	'find' | 'count' | 'aggregate' | 'write'
+> & {
 	/**
 	 * The write's changes when nothing follows them: alone, they need no
 	 * transaction (D-99).
@@ -44,6 +47,8 @@ function decoding(app: Running, store: Store): Store {
 	return {
 		find: async (read) => decoded(models, read, await store.find(read)),
 		count: async (read) => store.count(read),
+		// It reads no plugin field (D-143).
+		aggregate: async (read) => store.aggregate(read),
 		write: async (write) =>
 			decoded(models, write.read, await store.write(write)),
 		last: async (write) => decoded(models, write.read, await store.last(write)),
@@ -55,6 +60,7 @@ function storeOf(open: Open, owner: boolean): Store {
 	return decoding(open.app, {
 		find: async (read) => (await begun(open)).find(read),
 		count: async (read) => (await begun(open)).count(read),
+		aggregate: async (read) => (await begun(open)).aggregate(read),
 		write: async (write) => (await begun(open)).write(write),
 		last: async (write) =>
 			owner && open.tx === undefined
@@ -137,6 +143,7 @@ export async function reading<R>(
 			decoding(app, {
 				find: async (read) => adapter.find(read),
 				count: async (read) => adapter.count(read),
+				aggregate: async (read) => adapter.aggregate(read),
 				write: async (write) => adapter.write(write),
 				last: async (write) => adapter.write(write),
 			}),

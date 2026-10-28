@@ -247,6 +247,7 @@ function counting(reads: string[]): Adapter {
 			return on.find(read)
 		},
 		count: async (read) => on.count(read),
+		aggregate: async (read) => on.aggregate(read),
 		write: async (write) => on.write(write),
 		commit: async () => on.commit(),
 		rollback: async () => on.rollback(),
@@ -259,6 +260,7 @@ function counting(reads: string[]): Adapter {
 			return base.find(read)
 		},
 		count: async (read) => base.count(read),
+		aggregate: async (read) => base.aggregate(read),
 		write: async (write) => base.write(write),
 		begin: async () => tracked(await base.begin()),
 	}

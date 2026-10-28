@@ -13,6 +13,7 @@ import type {
 	UpdateManyData,
 } from './record.ts'
 import type { Exact } from './exact.ts'
+import type { AggregateArgs, Aggregates } from './query-aggregate.ts'
 import type { Identity } from './rules.ts'
 import type { fieldType } from './symbols.ts'
 
@@ -139,7 +140,7 @@ type Direction = 'asc' | 'desc'
  * A json field is not sorted: each database orders json its own way (D-94);
  * nor is a list (D-120), nor a plugin field (D-122).
  */
-type SortedKeys<F> = {
+export type SortedKeys<F> = {
 	[K in Exclude<ScalarKeys<F>, PluginKeys<F>>]: F[K] extends {
 		readonly [fieldType]: { readonly json: true }
 	}
@@ -350,6 +351,12 @@ export interface Queries<F, X = never, N = never> {
 		args?: { readonly where?: Where<F> },
 		options?: QueryOptions,
 	): Promise<number>
+	/** Of the rows the caller reads; server code only (D-143). */
+	aggregate<const A extends AggregateArgs<F>>(
+		this: void,
+		args: A & NoInfer<Exact<A, AggregateArgs<F>>>,
+		options?: QueryOptions,
+	): Promise<Aggregates<F, A>>
 	create<const A extends CreateArgs<F, N>>(
 		this: void,
 		args: A & NoInfer<Exact<A, CreateArgs<F, N>>>,

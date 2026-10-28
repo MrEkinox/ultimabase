@@ -8,7 +8,7 @@ import { beforeFind } from './hooks.ts'
 import type { FindOperation } from './model.ts'
 import type { Caller } from './rules.ts'
 import type { ModelInfo } from './schema.ts'
-import type { Models, Scope } from './query-where.ts'
+import type { Models, Scope, Verb } from './query-where.ts'
 import { modelOf } from './query-where.ts'
 
 /**
@@ -34,12 +34,7 @@ export class QueryScope implements Scope {
 		this.access = access
 	}
 
-	check(
-		model: ModelInfo,
-		field: string,
-		path: string,
-		verb: 'filters' | 'sorts',
-	): void {
+	check(model: ModelInfo, field: string, path: string, verb: Verb): void {
 		this.access?.check(model, field, path, verb)
 	}
 

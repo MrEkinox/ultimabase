@@ -3,6 +3,7 @@
 // changes nothing; a transaction holds the write lock until it ends.
 import type {
 	Adapter,
+	AggregateRead,
 	Arithmetic,
 	Change,
 	CountRead,
@@ -16,24 +17,11 @@ import type {
 } from './adapter.ts'
 import { CheckFailed, OutOfRange, UniqueViolation } from './adapter.ts'
 import type { Fields, Store, StoredRow } from './memory-read.ts'
-import { Reader } from './memory-read.ts'
+import { clone, Reader } from './memory-read.ts'
+import { aggregated } from './memory-aggregate.ts'
 import { copy } from './memory-values.ts'
 import { computed } from './number-update.ts'
 import { isInteger } from './query-where.ts'
-
-function clone(store: Store): Store {
-	return {
-		tables: new Map(
-			[...store.tables].map(([name, table]) => [name, new Map(table)]),
-		),
-		joins: new Map(
-			[...store.joins].map(([key, side]) => [
-				key,
-				new Map([...side].map(([id, ids]) => [id, new Set(ids)])),
-			]),
-		),
-	}
-}
 
 /**
  * A value as PostgreSQL gives it back: `-0` is `0`, which `pg` sends for a
@@ -73,10 +61,18 @@ class Draft {
 	}
 
 	count(read: CountRead): number {
+		return this.selected(read).length
+	}
+
+	aggregate(read: AggregateRead): unknown[] {
+		return aggregated(this.selected(read), read.aggregates)
+	}
+
+	private selected(read: CountRead): StoredRow[] {
 		const rows = [...this.reader.table(read.model).values()]
 		return rows.filter(
 			(row) => this.reader.matches(read.model, row, read.where) === true,
-		).length
+		)
 	}
 
 	write(write: Write): Row[] {
@@ -285,6 +281,21 @@ class Draft {
 	}
 }
 
+/** The reads of the draft `get` gives, each a tick later, as a database's. */
+function readsOf(
+	get: () => Draft,
+): Pick<Transaction, 'find' | 'count' | 'aggregate'> {
+	const later = async <R>(read: (draft: Draft) => R): Promise<R> => {
+		await Promise.resolve()
+		return read(get())
+	}
+	return {
+		find: async (read) => later((draft) => draft.find(read)),
+		count: async (read) => later((draft) => draft.count(read)),
+		aggregate: async (read) => later((draft) => draft.aggregate(read)),
+	}
+}
+
 /** The in-memory adapter (D-02); its state lives as long as the value. */
 export function memory(): Adapter {
 	let schema: Schema | undefined
@@ -328,14 +339,7 @@ export function memory(): Adapter {
 		stop: async () => {
 			await lock
 		},
-		find: async (read) => {
-			await Promise.resolve()
-			return draft(store).find(read)
-		},
-		count: async (read) => {
-			await Promise.resolve()
-			return draft(store).count(read)
-		},
+		...readsOf(() => draft(store)),
 		write: async (write) => {
 			const release = await acquire()
 			try {
@@ -360,14 +364,7 @@ export function memory(): Adapter {
 				release()
 			}
 			return {
-				find: async (read) => {
-					await Promise.resolve()
-					return active().find(read)
-				},
-				count: async (read) => {
-					await Promise.resolve()
-					return active().count(read)
-				},
+				...readsOf(active),
 				write: async (write) => {
 					await Promise.resolve()
 					active()
