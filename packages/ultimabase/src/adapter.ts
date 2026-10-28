@@ -134,6 +134,8 @@ export type Order = {
 	/** A field of the row, or of the row `through` reaches. */
 	readonly field: string
 	readonly direction: 'asc' | 'desc'
+	/** Where `null` sorts: by default last ascending, first descending (D-149). */
+	readonly nulls?: 'first' | 'last'
 	/** The `one` relations followed first; an absent row sorts as `null` (D-134). */
 	readonly through?: readonly Step[]
 	/** `field` is a `many` relation: its rows this filter selects are counted (D-134). */
@@ -200,6 +202,7 @@ export type AggregateRead = CountRead & {
 	readonly orderBy?: readonly {
 		readonly at: number
 		readonly direction: 'asc' | 'desc'
+		readonly nulls?: 'first' | 'last'
 	}[]
 	readonly skip?: number
 	readonly take?: number

@@ -56,21 +56,25 @@ export function compareValues(a: unknown, b: unknown): number {
 	return Number(a) - Number(b)
 }
 
-/** `null` sorts last ascending and first descending, as in PostgreSQL. */
+/**
+ * `null` sorts as `nulls` says, by default last ascending and first
+ * descending, as in PostgreSQL (D-149).
+ */
 export function compareKeys(
 	a: readonly unknown[],
 	b: readonly unknown[],
-	order: readonly Pick<Order, 'direction'>[],
+	order: readonly Pick<Order, 'direction' | 'nulls'>[],
 ): number {
-	for (const [at, { direction }] of order.entries()) {
+	for (const [at, { direction, nulls }] of order.entries()) {
 		const left = a[at] ?? null
 		const right = b[at] ?? null
-		let result = 0
 		if (left === null || right === null) {
-			result = left === right ? 0 : left === null ? 1 : -1
-		} else {
-			result = compareValues(left, right)
+			if (left === right) continue
+			const last =
+				(nulls ?? (direction === 'asc' ? 'last' : 'first')) === 'last'
+			return (left === null) === last ? 1 : -1
 		}
+		const result = compareValues(left, right)
 		if (result !== 0) return direction === 'asc' ? result : -result
 	}
 	return 0

@@ -150,6 +150,25 @@ describe('groupBy', () => {
 				'orderBy._sum.label is a string field',
 			],
 			[{ by: ['status'], orderBy: { status: 'up' } }, 'orderBy.status'],
+			[
+				{ by: ['status'], orderBy: { status: { sort: 'asc' } } },
+				"orderBy.status is required: it sorts by 'asc' or 'desc'.",
+			],
+			[
+				{ by: ['label'], orderBy: { label: { sort: 'asc', nulls: 0 } } },
+				"orderBy.label.nulls must be 'first' or 'last'.",
+			],
+			[
+				{
+					by: ['label'],
+					orderBy: { _count: { label: { sort: 'asc', nulls: 'first' } } },
+				},
+				"orderBy._count.label must be 'asc' or 'desc'.",
+			],
+			[
+				{ by: ['label'], orderBy: { _max: { total: { sort: 'asc' } } } },
+				"orderBy._max.total must be 'asc' or 'desc'.",
+			],
 			[{ by: ['status'], take: -1 }, 'take'],
 			[{ by: ['status'], skip: 1.5 }, 'skip'],
 			[{ by: ['status'], cursor: {} }, 'cursor'],
@@ -174,6 +193,14 @@ describe('groupBy', () => {
 			| 'createdAt'
 			| 'updatedAt'
 		>()
+		type Sorts = NonNullable<Args['orderBy']>
+		expectTypeOf<{
+			label: { sort: 'asc'; nulls: 'first' }
+		}>().toExtend<Sorts>()
+		expectTypeOf<{ status: { sort: 'asc' } }>().not.toExtend<Sorts>()
+		expectTypeOf<{
+			_max: { total: { sort: 'asc' } }
+		}>().not.toExtend<Sorts>()
 		void Order.groupBy(
 			// @ts-expect-error: `total` is not grouped.
 			{ by: ['status'], orderBy: { total: 'asc' } },

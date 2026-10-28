@@ -1,8 +1,17 @@
 // Queries the kernel refuses, each with the path of the faulty input, and the
 // optional relations and defaults the library models do not have.
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import {
+	afterEach,
+	beforeEach,
+	describe,
+	expect,
+	expectTypeOf,
+	it,
+} from 'vitest'
+import type { ArgsOf } from './index.ts'
 import { defineApp, defineModel, master, memory } from './index.ts'
 import { query, type Operation } from './engine.ts'
+import type { Book } from './test/library.ts'
 import { library } from './test/library.ts'
 
 const as = { as: master }
@@ -82,11 +91,56 @@ describe('on the library', () => {
 		// A json value has no order alike on every adapter (D-94).
 		expect(await books({ orderBy: { meta: 'asc' } })).toBe('orderBy.meta')
 		expect(await books({ orderBy: [{ title: 'up' }] })).toBe('orderBy.0.title')
+		// Only an optional field takes where its nulls sort (D-149).
+		expect(await books({ orderBy: { title: { sort: 'asc' } } })).toBe(
+			'orderBy.title',
+		)
+		expect(
+			await books({ orderBy: { author: { name: { sort: 'asc' } } } }),
+		).toBe('orderBy.author.name')
+		expect(await books({ orderBy: { pages: { sort: 'up' } } })).toBe(
+			'orderBy.pages.sort',
+		)
+		expect(
+			await books({ orderBy: { pages: { sort: 'asc', nulls: 'middle' } } }),
+		).toBe('orderBy.pages.nulls')
+		expect(
+			await books({ orderBy: { pages: { sort: 'asc', way: 'up' } } }),
+		).toBe('orderBy.pages.way')
+		expect(
+			await books({ orderBy: { tags: { _count: { sort: 'asc' } } } }),
+		).toBe('orderBy.tags._count')
+		expect(
+			await books({
+				orderBy: [
+					{ pages: { sort: 'desc', nulls: 'last' } },
+					{ releasedAt: { sort: 'asc' } },
+				],
+			}),
+		).toBeUndefined()
 		expect(await books({ cursor: { id: {} } })).toBe('cursor.id')
 		expect(await books({ cursor: { id: null } })).toBe('cursor.id')
 		expect(
 			await books({ orderBy: [{ createdAt: 'asc' }, { id: 'desc' }] }),
 		).toBeUndefined()
+	})
+
+	it('types where the nulls of an optional field sort', () => {
+		type Sorts = NonNullable<ArgsOf<typeof Book, 'findMany'>['orderBy']>
+		expectTypeOf<{
+			pages: { sort: 'desc'; nulls: 'first' }
+		}>().toExtend<Sorts>()
+		expectTypeOf<{ pages: 'asc' }>().toExtend<Sorts>()
+		expectTypeOf<{ title: { sort: 'asc' } }>().not.toExtend<Sorts>()
+		expectTypeOf<{
+			pages: { sort: 'asc'; nulls: 'middle' }
+		}>().not.toExtend<Sorts>()
+		expectTypeOf<{
+			author: { profile: { bio: { sort: 'asc'; nulls: 'last' } } }
+		}>().toExtend<Sorts>()
+		expectTypeOf<{
+			author: { name: { sort: 'asc' } }
+		}>().not.toExtend<Sorts>()
 	})
 
 	it('checks select and include', async () => {

@@ -8,7 +8,7 @@ import { sql } from 'kysely'
 import type { Aggregate, AggregateRead, GroupKey } from 'ultimabase'
 import type { Sql } from './filter.ts'
 import type { Catalog, Kind, Table } from './names.ts'
-import { Compiler } from './read.ts'
+import { Compiler, sorted } from './read.ts'
 
 /** A value as jsonb keeps it: a decimal as text, a date in UTC. */
 function shown(kind: Kind | undefined, item: Sql): Sql {
@@ -96,13 +96,13 @@ export function compileAggregate(catalog: Catalog, read: AggregateRead): Sql {
 	const where = filters.where(read.model, alias, read.where)
 	const rows = sql`(select ${sql.join([sql`1`, ...inner])} from ${sql.id(table.name)} as ${sql.id(alias)} where ${where}) as ${sql.id(grouped)}`
 	const group = by.length === 0 ? sql`` : sql` group by ${sql.join(keys)}`
-	const sorts = (read.orderBy ?? []).map(({ at, direction }) => {
-		const found = aggregates[at - by.length]
-		const sorted =
+	const sorts = (read.orderBy ?? []).map((each) => {
+		const found = aggregates[each.at - by.length]
+		const key =
 			found === undefined
-				? sql.id(grouped, `k${at}`)
+				? sql.id(grouped, `k${each.at}`)
 				: computed(found.each, found.column)
-		return sql`${sorted} ${sql.raw(direction)}`
+		return sorted(key, each)
 	})
 	const order = sorts.length === 0 ? sql`` : sql` order by ${sql.join(sorts)}`
 	const limit = read.take === undefined ? sql`` : sql` limit ${read.take}`

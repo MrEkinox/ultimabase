@@ -31,7 +31,19 @@ function object(pairs: readonly (readonly [string, Sql])[]): Sql {
 const flip = (order: Order): Order => ({
 	...order,
 	direction: order.direction === 'asc' ? 'desc' : 'asc',
+	...(order.nulls && { nulls: order.nulls === 'first' ? 'last' : 'first' }),
 })
+
+/** Whether `null` sorts after every value (D-149). */
+const nullsLast = ({ direction, nulls }: Pick<Order, 'direction' | 'nulls'>) =>
+	(nulls ?? (direction === 'asc' ? 'last' : 'first')) === 'last'
+
+/** A sort key in `ORDER BY`; PostgreSQL's default `null`s are D-94's. */
+export const sorted = (
+	key: Sql,
+	{ direction, nulls }: Pick<Order, 'direction' | 'nulls'>,
+): Sql =>
+	sql`${key} ${sql.raw(direction)}${nulls ? sql.raw(` nulls ${nulls}`) : sql``}`
 
 export class Compiler {
 	readonly filters: Filters
@@ -51,10 +63,7 @@ export class Compiler {
 		const given = nested.orderBy ?? [{ field: 'id', direction: 'asc' }]
 		const order = backward ? given.map(flip) : given
 		const by = sql.join(
-			order.map(
-				(each) =>
-					sql`${this.key(table, alias, each)} ${sql.raw(each.direction)}`,
-			),
+			order.map((each) => sorted(this.key(table, alias, each), each)),
 		)
 		const conditions = [
 			reach.on,
@@ -83,9 +92,9 @@ export class Compiler {
 	}
 
 	/**
-	 * The rows at or after the cursor in `order`, which `memory()` compares
-	 * with `null` last ascending: `a ≥ c` is `a > c`, or `a = c` and the next
-	 * key decides.
+	 * The rows at or after the cursor in `order`, `null` where it sorts, as
+	 * `memory()` compares: `a ≥ c` is `a > c`, or `a = c` and the next key
+	 * decides.
 	 */
 	private keyset(
 		table: Table,
@@ -95,13 +104,14 @@ export class Compiler {
 	): Sql {
 		let result: Sql = sql`true`
 		for (const [at, each] of [...order.entries()].toReversed()) {
-			const { direction } = each
 			const a = this.key(table, alias, each)
 			const c = sql.id(cursor, `k${at}`)
-			const after =
-				direction === 'asc'
-					? sql`(${a} > ${c} or (${a} is null and ${c} is not null))`
-					: sql`(${a} < ${c} or (${a} is not null and ${c} is null))`
+			const beyond =
+				each.direction === 'asc' ? sql`${a} > ${c}` : sql`${a} < ${c}`
+			const nulls = nullsLast(each)
+				? sql`(${a} is null and ${c} is not null)`
+				: sql`(${a} is not null and ${c} is null)`
+			const after = sql`(${beyond} or ${nulls})`
 			result = sql`(${after} or (${a} is not distinct from ${c} and ${result}))`
 		}
 		return result
@@ -230,8 +240,7 @@ function kept(
 	filters.tables.add(table.name)
 	const keys = distinct.map((key) => compiler.key(table, alias, key))
 	const order = (read.orderBy ?? [{ field: 'id', direction: 'asc' }]).map(
-		(each) =>
-			sql`${compiler.key(table, alias, each)} ${sql.raw(each.direction)}`,
+		(each) => sorted(compiler.key(table, alias, each), each),
 	)
 	const where = filters.where(read.model, alias, read.where)
 	const id = filters.column(table, alias, 'id')

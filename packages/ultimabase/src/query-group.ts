@@ -13,6 +13,14 @@ type Direction = 'asc' | 'desc'
 type Sorted<K extends PropertyKey> = {
 	readonly [P in K]?: Direction | undefined
 }
+/** A value's sort: an optional one puts its `null`s first or last (D-149). */
+export type SortOrder<V> = null extends V
+	? | Direction
+		| {
+				readonly sort: Direction
+				readonly nulls?: 'first' | 'last' | undefined
+		  }
+	: Direction
 /** The `one` relations the row stores (D-37). */
 type StoredOnes<F, N> = Exclude<
 	keyof StoredRecord<F, N & string>,
@@ -21,7 +29,9 @@ type StoredOnes<F, N> = Exclude<
 /** What a group takes: a scalar an aggregate takes, or a stored relation. */
 export type GroupField<F, N> = Aggregated<F> | StoredOnes<F, N>
 
-type GroupOrderBy<F, B extends PropertyKey> = Sorted<B> & {
+type GroupOrderBy<F, N, B extends PropertyKey> = {
+	readonly [K in B]?: SortOrder<GroupValue<F, N, K>> | undefined
+} & {
 	readonly _count?:
 		| Direction
 		| ({ readonly _all?: Direction | undefined } & Sorted<Aggregated<F>>)
@@ -39,7 +49,7 @@ export type GroupByArgs<
 > = AggregateArgs<F> & {
 	readonly by: readonly [B, ...B[]]
 	readonly orderBy?:
-		GroupOrderBy<F, B> | readonly GroupOrderBy<F, B>[] | undefined
+		GroupOrderBy<F, N, B> | readonly GroupOrderBy<F, N, B>[] | undefined
 	readonly skip?: number | undefined
 	readonly take?: number | undefined
 }

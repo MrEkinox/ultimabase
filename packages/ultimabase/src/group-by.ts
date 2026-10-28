@@ -15,7 +15,7 @@ import { InvalidQuery } from './errors.ts'
 import type { Context } from './query-context.ts'
 import { filtered, given } from './query-context.ts'
 import { integer } from './query-args.ts'
-import { direction } from './query-order.ts'
+import { direction, sortOf } from './query-order.ts'
 import { entries, isObject } from './query-where.ts'
 import type { Store } from './transaction.ts'
 
@@ -104,7 +104,9 @@ function sorts(
 		for (const [name, order] of entries(part, base)) {
 			const path = `${base}.${name}`
 			if (by.includes(name)) {
-				sorted.push({ at: by.indexOf(name), direction: direction(order, path) })
+				const known = context.model.fields.get(name)
+				const optional = known?.kind !== 'many' && known?.optional === true
+				sorted.push({ at: by.indexOf(name), ...sortOf(order, path, optional) })
 				continue
 			}
 			const key = keys.find((each): each is Key => each === name)

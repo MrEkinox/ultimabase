@@ -21,6 +21,39 @@ export function direction(value: unknown, path: string): 'asc' | 'desc' {
 	return value
 }
 
+/**
+ * A sort key's value: a direction, or on an optional field `{ sort, nulls }`
+ * (D-149).
+ */
+export function sortOf(
+	value: unknown,
+	path: string,
+	optional: boolean,
+): Pick<Order, 'direction' | 'nulls'> {
+	if (!isObject(value)) return { direction: direction(value, path) }
+	if (!optional) {
+		throw new InvalidQuery(
+			path,
+			`${path} is required: it sorts by 'asc' or 'desc'.`,
+		)
+	}
+	const { sort, nulls, ...rest } = value
+	const [extra] = Object.keys(rest)
+	if (extra !== undefined) {
+		throw new InvalidQuery(
+			`${path}.${extra}`,
+			`${path} takes sort and nulls only.`,
+		)
+	}
+	const sorted = direction(sort, `${path}.sort`)
+	if (nulls === undefined) return { direction: sorted }
+	if (nulls !== 'first' && nulls !== 'last') {
+		const at = `${path}.nulls`
+		throw new InvalidQuery(at, `${at} must be 'first' or 'last'.`)
+	}
+	return { direction: sorted, nulls }
+}
+
 /** A scalar field that sorts: no json, no list, no plugin field (D-94). */
 function sortable(model: ModelInfo, field: string, path: string): void {
 	const known = model.fields.get(field)
@@ -74,7 +107,8 @@ function keys(
 		scope?.check(model, field, where, 'sorts')
 		const known = model.fields.get(field)
 		if (known === undefined || known.kind === 'scalar') {
-			order.push({ field, direction: direction(value, where), ...path })
+			const optional = known?.optional === true
+			order.push({ field, ...sortOf(value, where, optional), ...path })
 			continue
 		}
 		const target = modelOf(models, known.target)

@@ -14,9 +14,14 @@ import type {
 } from './record.ts'
 import type { Exact } from './exact.ts'
 import type { AggregateArgs, Aggregates, IsDecimal } from './query-aggregate.ts'
-import type { ScalarFilter } from './query-filter.ts'
+import type { ListFilter, ScalarFilter } from './query-filter.ts'
 import type { Relevance, SearchWhere } from './query-search.ts'
-import type { GroupByArgs, GroupField, Groups } from './query-group.ts'
+import type {
+	GroupByArgs,
+	GroupField,
+	Groups,
+	SortOrder,
+} from './query-group.ts'
 import type { Identity } from './rules.ts'
 import type { fieldType } from './symbols.ts'
 
@@ -39,14 +44,6 @@ type IsList<X> = X extends {
 }
 	? true
 	: false
-
-/** A list has no shorthand; `NOT` gives the opposite (D-120, D-127, D-149). */
-type ListFilter<E> = {
-	readonly has?: E | undefined
-	readonly hasSome?: readonly E[] | undefined
-	readonly hasEvery?: readonly E[] | undefined
-	readonly isEmpty?: boolean | undefined
-}
 
 type FilterOf<X> =
 	IsList<X> extends true
@@ -137,9 +134,13 @@ type KeysOf<F, Kind> = {
 	[K in keyof F]: KindOf<F[K]> extends Kind ? K : never
 }[keyof F]
 
-/** A `one` relation sorts by its target's fields, a `many` by its count (D-134). */
+/**
+ * An optional field sorts with its `null`s first or last (D-149), a `one`
+ * relation by its target's fields, a `many` by its count (D-134).
+ */
 type Sorts<F> = {
-	readonly [K in SortedKeys<F> | keyof SystemFields]?: Direction | undefined
+	readonly [K in SortedKeys<F> | keyof SystemFields]?:
+		SortOrder<K extends keyof RecordOf<F> ? RecordOf<F>[K] : never> | undefined
 } & {
 	readonly [K in KeysOf<F, 'one'>]?:
 		Sorts<TargetFields<TargetOf<F[K]>>> | undefined

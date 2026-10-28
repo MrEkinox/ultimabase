@@ -189,6 +189,16 @@ describe('full-text search', () => {
 				'orderBy._relevance',
 			],
 			[
+				loose.findMany(
+					{
+						where: { _search: 'apple' },
+						orderBy: { _relevance: { sort: 'desc', nulls: 'last' } },
+					},
+					M,
+				),
+				"orderBy._relevance must be 'asc' or 'desc'.",
+			],
+			[
 				authors.findMany({ orderBy: { posts: { _relevance: 'desc' } } }, M),
 				'orderBy.posts',
 			],
