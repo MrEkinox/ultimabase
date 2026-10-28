@@ -9,7 +9,7 @@ import type { Numbers } from './number-update.ts'
 import {
 	computeOn,
 	numberUpdates,
-	outOfRange,
+	inRange,
 	validates,
 } from './number-update.ts'
 import type { Context } from './query-context.ts'
@@ -166,9 +166,7 @@ async function lockedRows(
 				: spread(plan, { id: { in: ids } })),
 		)
 	}
-	await checkedWrite(store, writing.checks, changes).catch((error: unknown) => {
-		throw outOfRange(model, error)
-	})
+	await inRange(model, checkedWrite(store, writing.checks, changes))
 	await settle(store, caller, events, commits)
 	return { count: items.length }
 }
@@ -200,8 +198,6 @@ export async function updateMany(
 		read: { model: model.name },
 		before: true,
 	}
-	const rows = await guarded(store.last(write), []).catch((error: unknown) => {
-		throw outOfRange(model, error)
-	})
+	const rows = await inRange(model, guarded(store.last(write), []))
 	return { count: rows.length }
 }

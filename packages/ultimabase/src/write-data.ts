@@ -1,18 +1,16 @@
 // A write's `data` before its hooks (D-67): checked for shape, then given
 // its defaults, its types checked and its values validated (D-23, D-53).
-import type { ScalarType } from './adapter.ts'
 import type { Issue } from './errors.ts'
 import { InvalidQuery, PublicError } from './errors.ts'
 import type { Caller } from './rules.ts'
 import type { FieldInfo, ModelInfo } from './schema.ts'
 import type { Models } from './query-where.ts'
+import type { Scalar } from './query-where.ts'
 import {
-	clean,
 	entries,
-	isInteger,
-	isJson,
+	integerRange,
 	isObject,
-	storedDate,
+	misfit,
 	unknownKey,
 } from './query-where.ts'
 import { checked, validated } from './validation.ts'
@@ -22,56 +20,17 @@ import { manyWrite, oneWrite } from './relation-write.ts'
 /** The data a `before*` hook changes in place (D-71). */
 export type Draft = { [field: string]: unknown }
 
-type Scalar = Extract<FieldInfo, { readonly kind: 'scalar' }>
-
-const range = 'from -2,147,483,648 to 2,147,483,647'
-
-/** Each scalar type's check, and its message when a value does not fit. */
-const fits: {
-	readonly [T in ScalarType]: (
-		value: unknown,
-		field: Scalar,
-	) => string | undefined
-} = {
-	string: (value) => {
-		if (typeof value !== 'string') return 'Expected a string.'
-		return clean(value)
-			? undefined
-			: 'Expected a string without a NUL or a lone surrogate.'
-	},
-	number: (value, field) => {
-		if (field.integer !== true) {
-			return typeof value === 'number' && Number.isFinite(value)
-				? undefined
-				: 'Expected a finite number.'
-		}
-		return isInteger(value) ? undefined : `Expected a whole number ${range}.`
-	},
-	boolean: (value) =>
-		typeof value === 'boolean' ? undefined : 'Expected a boolean.',
-	date: (value) =>
-		storedDate(value) ? undefined : 'Expected a Date of years 1 to 9999.',
-	json: (value) =>
-		isJson(value)
-			? undefined
-			: 'Expected JSON data, its strings without a NUL or a lone surrogate.',
-	enum: (value, field) =>
-		typeof value === 'string' && (field.values ?? []).includes(value)
-			? undefined
-			: `Expected one of ${(field.values ?? []).join(', ')}.`,
-}
-
 /** A value's issue; each element of a list fits its type (D-127). */
 export function issueOf(value: unknown, field: Scalar): string | undefined {
-	if (!field.list) return fits[field.type](value, field)
+	if (!field.list) return misfit(value, field)
 	const fit = (item: unknown) =>
-		item !== '' && fits[field.type](item, field) === undefined
+		item !== '' && misfit(item, field) === undefined
 	if (Array.isArray(value) && value.every(fit)) return undefined
 	const of =
 		field.type === 'enum'
 			? `values among ${(field.values ?? []).join(', ')}`
 			: field.integer === true
-				? `whole numbers ${range}`
+				? `whole numbers ${integerRange}`
 				: field.type === 'number'
 					? 'finite numbers'
 					: 'non-empty strings without a NUL or a lone surrogate'

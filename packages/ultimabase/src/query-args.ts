@@ -11,6 +11,7 @@ import {
 	isObject,
 	modelOf,
 	normalizeWhere,
+	systemFields,
 	unknownKey,
 } from './query-where.ts'
 
@@ -24,8 +25,6 @@ export type Shape = {
 }
 
 export type Plan = { readonly read: Nested; readonly shape: Shape }
-
-const systemFields = ['id', 'createdAt', 'updatedAt']
 
 /** Without `select`, scalar fields return and relations do not (D-20). */
 function scalars(model: ModelInfo): string[] {

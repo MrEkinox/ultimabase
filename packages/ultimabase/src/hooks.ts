@@ -3,6 +3,7 @@
 // transaction, the `*Commit` hooks once it commits.
 import { and, recordOf } from './access.ts'
 import type { Filter, Row } from './adapter.ts'
+import type { hookNames } from './plugin-code.ts'
 import { commandOf, outsideCommands } from './plugin-code.ts'
 import type { FindOperation } from './model.ts'
 import type { Caller } from './rules.ts'
@@ -12,17 +13,7 @@ import type { Models } from './query-where.ts'
 import { isObject, normalizeWhere } from './query-where.ts'
 import type { Commit, Store } from './transaction.ts'
 
-type HookName =
-	| 'beforeFind'
-	| 'beforeCreate'
-	| 'beforeUpdate'
-	| 'beforeDelete'
-	| 'afterCreate'
-	| 'afterUpdate'
-	| 'afterDelete'
-	| 'afterCreateCommit'
-	| 'afterUpdateCommit'
-	| 'afterDeleteCommit'
+type HookName = (typeof hookNames)[number]
 
 type Hook = {
 	/** Where it is written, for its errors. */

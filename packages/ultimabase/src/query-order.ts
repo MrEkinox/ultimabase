@@ -4,9 +4,13 @@ import type { Order, Step } from './adapter.ts'
 import { InvalidQuery } from './errors.ts'
 import type { ModelInfo } from './schema.ts'
 import type { Models, Scope } from './query-where.ts'
-import { entries, isObject, modelOf, unknownKey } from './query-where.ts'
-
-const systemFields = ['id', 'createdAt', 'updatedAt']
+import {
+	entries,
+	isObject,
+	modelOf,
+	systemFields,
+	unknownKey,
+} from './query-where.ts'
 
 function direction(value: unknown, path: string): 'asc' | 'desc' {
 	if (value !== 'asc' && value !== 'desc') {

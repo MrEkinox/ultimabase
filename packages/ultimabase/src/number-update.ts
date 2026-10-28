@@ -110,9 +110,18 @@ export function computeOn(
 }
 
 /** A result the write refused, worded as the kernel's own check (D-132). */
-export function outOfRange(model: ModelInfo, error: unknown): unknown {
+function outOfRange(model: ModelInfo, error: unknown): unknown {
 	if (!(error instanceof OutOfRange)) return error
 	const field = model.fields.get(error.field)
 	const issue = field?.kind === 'scalar' ? issueOf(Infinity, field) : undefined
 	return invalid([{ path: [error.field], message: issue ?? error.message }])
 }
+
+/** `run`, a result it computed out of range refused as `outOfRange` words it. */
+export const inRange = async <T>(
+	model: ModelInfo,
+	run: Promise<T>,
+): Promise<T> =>
+	run.catch((error: unknown) => {
+		throw outOfRange(model, error)
+	})

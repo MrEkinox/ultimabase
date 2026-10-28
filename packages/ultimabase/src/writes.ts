@@ -19,7 +19,7 @@ import type { Numbers } from './number-update.ts'
 import {
 	computeOn,
 	numberUpdates,
-	outOfRange,
+	inRange,
 	validates,
 } from './number-update.ts'
 import { nests, resolveData } from './nested-write.ts'
@@ -211,17 +211,10 @@ export async function update(
 		const message = missing(model.name)
 		const at = { id, read, shape }
 		const checks = [{ check, message }]
-		const result = await written(
-			context,
-			store,
-			commits,
-			steps,
-			[],
-			at,
-			checks,
-		).catch((error: unknown) => {
-			throw outOfRange(model, error)
-		})
+		const result = await inRange(
+			model,
+			written(context, store, commits, steps, [], at, checks),
+		)
 		// The row went between the write's check and its change (D-104).
 		if (result === null) throw new PublicError('NOT_FOUND', message)
 		return result

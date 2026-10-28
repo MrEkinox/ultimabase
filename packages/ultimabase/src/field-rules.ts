@@ -6,55 +6,23 @@ import type { declaredRecord } from './symbols.ts'
 // `R` is the record type the developer declares for the rules (D-44). It
 // never derives from the model, which is still being typed here: that would
 // be a cycle (TS7022).
-type FieldReadRule<R extends object> = (facts: {
+type ReadFacts<R extends object> = {
 	readonly caller: Caller
 	readonly operation: 'read'
 	readonly record: RecordFor<R>
-}) => boolean
-type FieldCreateRule<V> = (facts: {
+}
+type CreateFacts<V> = {
 	readonly caller: Caller
 	readonly operation: 'create'
 	readonly value: V
-}) => boolean
-type FieldUpdateRule<R extends object, V> = (facts: {
+}
+type UpdateFacts<R extends object, V> = {
 	readonly caller: Caller
 	readonly operation: 'update'
 	readonly record: RecordFor<R>
 	readonly value: V
-}) => boolean
-type FieldWriteRule<R extends object, V> = (
-	facts:
-		| {
-				readonly caller: Caller
-				readonly operation: 'create'
-				readonly value: V
-		  }
-		| {
-				readonly caller: Caller
-				readonly operation: 'update'
-				readonly record: RecordFor<R>
-				readonly value: V
-		  },
-) => boolean
-type FieldRule<R extends object, V> = (
-	facts:
-		| {
-				readonly caller: Caller
-				readonly operation: 'read'
-				readonly record: RecordFor<R>
-		  }
-		| {
-				readonly caller: Caller
-				readonly operation: 'create'
-				readonly value: V
-		  }
-		| {
-				readonly caller: Caller
-				readonly operation: 'update'
-				readonly record: RecordFor<R>
-				readonly value: V
-		  },
-) => boolean
+}
+type Rule<F> = (facts: F) => boolean
 
 /** A field keeps its declared record type, which `defineModel` checks. */
 // Each declared field is kept as `(value: T) => T`, which only the same `T`
@@ -69,12 +37,12 @@ export type Declared<R> = [R] extends [never]
 
 /** One rule, or one rule per operation (D-44). */
 export type FieldAccess<R extends object, V> =
-	| FieldRule<R, V>
+	| Rule<ReadFacts<R> | CreateFacts<V> | UpdateFacts<R, V>>
 	| {
-			readonly read?: FieldReadRule<R>
-			readonly create?: FieldCreateRule<V>
-			readonly update?: FieldUpdateRule<R, V>
-			readonly write?: FieldWriteRule<R, V>
+			readonly read?: Rule<ReadFacts<R>>
+			readonly create?: Rule<CreateFacts<V>>
+			readonly update?: Rule<UpdateFacts<R, V>>
+			readonly write?: Rule<CreateFacts<V> | UpdateFacts<R, V>>
 	  }
 
 /**

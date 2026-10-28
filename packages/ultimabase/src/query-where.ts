@@ -17,6 +17,8 @@ export function modelOf<T>(models: ReadonlyMap<string, T>, name: string): T {
 export const byId = (id: string): Filter => ({ id: { equals: id } })
 export const byIds = (ids: readonly string[]): Filter => ({ id: { in: ids } })
 
+export type Scalar = Extract<FieldInfo, { readonly kind: 'scalar' }>
+
 /** An integer field's values (D-132). */
 export const isInteger = (value: unknown): boolean =>
 	Number.isInteger(value) &&
@@ -44,6 +46,7 @@ const system: ReadonlyMap<string, ScalarType | 'id'> = new Map([
 	['createdAt', 'date'],
 	['updatedAt', 'date'],
 ])
+export const systemFields: readonly string[] = [...system.keys()]
 
 export function isObject(
 	value: unknown,
@@ -98,27 +101,56 @@ function typeOf(model: ModelInfo, name: string): ScalarType | 'id' | undefined {
 	return field?.kind === 'scalar' ? field.type : system.get(name)
 }
 
-const fits: {
-	readonly [T in Single]: (
+export const integerRange = 'from -2,147,483,648 to 2,147,483,647'
+
+/** Each scalar type's check, and its message when a value does not fit. */
+const misfits: {
+	readonly [T in ScalarType]: (
 		value: unknown,
-		field: FieldInfo | undefined,
-	) => boolean
+		field: Scalar,
+	) => string | undefined
 } = {
-	id: (value) => typeof value === 'string' && clean(value),
-	string: (value) => typeof value === 'string' && clean(value),
+	string: (value) => {
+		if (typeof value !== 'string') return 'Expected a string.'
+		return clean(value)
+			? undefined
+			: 'Expected a string without a NUL or a lone surrogate.'
+	},
+	number: (value, field) => {
+		if (field.integer !== true) {
+			return typeof value === 'number' && Number.isFinite(value)
+				? undefined
+				: 'Expected a finite number.'
+		}
+		return isInteger(value)
+			? undefined
+			: `Expected a whole number ${integerRange}.`
+	},
+	boolean: (value) =>
+		typeof value === 'boolean' ? undefined : 'Expected a boolean.',
+	date: (value) =>
+		storedDate(value) ? undefined : 'Expected a Date of years 1 to 9999.',
+	json: (value) =>
+		isJson(value)
+			? undefined
+			: 'Expected JSON data, its strings without a NUL or a lone surrogate.',
 	enum: (value, field) =>
-		typeof value === 'string' &&
-		field?.kind === 'scalar' &&
-		(field.values ?? []).includes(value),
-	// An integer field's filter takes whole numbers, as GraphQL's `Int`.
-	number: (value, field) =>
-		field?.kind === 'scalar' && field.integer === true
-			? isInteger(value)
-			: typeof value === 'number' && Number.isFinite(value),
-	boolean: (value) => typeof value === 'boolean',
-	date: storedDate,
-	json: isJson,
+		typeof value === 'string' && (field.values ?? []).includes(value)
+			? undefined
+			: `Expected one of ${(field.values ?? []).join(', ')}.`,
 }
+
+/** The message of a value that does not fit `field`, if it does not. */
+export const misfit = (value: unknown, field: Scalar): string | undefined =>
+	misfits[field.type](value, field)
+
+/** Whether `value` fits a field, or a system field, which has no info (D-22). */
+const fits = (type: Single, value: unknown, field: FieldInfo | undefined) =>
+	field?.kind === 'scalar'
+		? misfit(value, field) === undefined
+		: type === 'date'
+			? storedDate(value)
+			: typeof value === 'string' && clean(value)
 
 const base = new Set(['equals', 'not', 'in', 'notIn'])
 const ordered = new Set(['lt', 'lte', 'gt', 'gte'])
@@ -143,7 +175,7 @@ function scalarCondition(
 	const field = model.fields.get(name)
 	const check = (item: unknown, at: string, nullable: boolean): unknown => {
 		if (item === null && nullable) return null
-		if (!fits[type](item, field)) {
+		if (!fits(type, item, field)) {
 			throw new InvalidQuery(at, `${at} does not fit ${model.name}.${name}.`)
 		}
 		return item
@@ -180,7 +212,7 @@ function scalarCondition(
 /** A list's `has` and `hasSome`, which name its elements (D-120, D-127). */
 function listCondition(
 	model: ModelInfo,
-	field: FieldInfo & { readonly kind: 'scalar' },
+	field: Scalar,
 	value: unknown,
 	path: string,
 ): Condition | undefined {
@@ -189,11 +221,11 @@ function listCondition(
 			? `one of ${(field.values ?? []).join(', ')}`
 			: field.type === 'number'
 				? field.integer === true
-					? 'a whole number from -2,147,483,648 to 2,147,483,647'
+					? `a whole number ${integerRange}`
 					: 'a finite number'
 				: 'a non-empty clean string'
 	const element = (item: unknown, at: string): unknown => {
-		if (item === '' || !fits[field.type](item, field)) {
+		if (item === '' || misfit(item, field) !== undefined) {
 			throw new InvalidQuery(at, `${at} must be ${kind}.`)
 		}
 		return item

@@ -25,7 +25,8 @@ function objectAt(holder: Holder, key: string, path: string): Holder {
 	return value
 }
 
-const hookNames = [
+/** The fixed hooks of D-15. */
+export const hookNames = [
 	'beforeFind',
 	'beforeCreate',
 	'beforeUpdate',
