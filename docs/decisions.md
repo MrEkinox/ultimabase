@@ -9048,7 +9048,7 @@ const Stage = defineModel({
 					{
 						where: {
 							kind: 'map',
-							stage: { id: { in: records.map((r) => r.id) } },
+							stage: { is: { id: { in: records.map((r) => r.id) } } },
 						},
 						include: { stage: { select: { id: true } } },
 					},

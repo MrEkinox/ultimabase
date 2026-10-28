@@ -2,14 +2,13 @@
 // access rule checked and its input validated on each `run` (D-75), and the
 // named objects its output may hold.
 import { refused } from './access.ts'
-import type { FunctionDefinition, NamedOutput, Output } from './definition.ts'
+import type { FunctionDefinition, Output } from './definition.ts'
 import {
 	describedBy,
 	functionDefinitions,
-	modelDefinitions,
 	nameOf,
 	nullable,
-	nullables,
+	outputOf,
 	typeDefinitions,
 	withOnce,
 } from './definition.ts'
@@ -36,30 +35,6 @@ import { isMaster } from './rules.ts'
 import type { Running } from './running.ts'
 import { current } from './running.ts'
 import { checked, standardOf } from './validation.ts'
-
-function namedOf(value: unknown): NamedOutput | undefined {
-	if (!isObject(value)) return undefined
-	const model = modelDefinitions.get(value)
-	if (model !== undefined) return { kind: 'model', value, name: model.name }
-	const type = typeDefinitions.get(value)
-	return type === undefined ? undefined : { kind: 'type', type }
-}
-
-/** An output's value, read once at its definition (D-109). */
-function outputOf(value: unknown, where: string): Output {
-	const standard = standardOf(value)
-	if (standard !== undefined) return { kind: 'schema', schema: standard.schema }
-	const named = namedOf(value)
-	if (named !== undefined) return { ...named, form: 'one' }
-	const marked = isObject(value) ? nullables.get(value) : undefined
-	if (marked !== undefined) return { ...marked, form: 'nullable' }
-	const list: readonly unknown[] = Array.isArray(value) ? value : []
-	const listed = list.length === 1 ? namedOf(list[0]) : undefined
-	if (listed !== undefined) return { ...listed, form: 'list' }
-	throw new Refused(
-		`${where} is a model, a type, a list of one, X.nullable() or a Standard Schema.`,
-	)
-}
 
 export function defineType<
 	const N extends string,

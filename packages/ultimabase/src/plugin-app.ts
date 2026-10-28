@@ -108,6 +108,15 @@ function exposed(name: string, resolved: Resolved): readonly ExposedModel[] {
 			required: required(info),
 			validators: validators(info),
 			fieldTypes: fieldTypes(info),
+			virtuals: [...info.virtuals.values()].map((virtual) =>
+				Object.freeze({
+					name: virtual.name,
+					description: virtual.description,
+					input: virtual.input?.schema,
+					output: virtual.output,
+					default: virtual.default,
+				}),
+			),
 			with: key,
 			queries,
 			upsert: async (args, options) =>

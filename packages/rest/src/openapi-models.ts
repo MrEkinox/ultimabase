@@ -1,6 +1,12 @@
 // A model's part of the document (D-144): its row, as GraphQL's type, its
 // pages, its `select` and `include`, and its six routes.
-import { readable } from '@ultimabase/http/internal'
+import {
+	isNode,
+	jsonSchemaOf,
+	readable,
+	readableVirtuals,
+} from '@ultimabase/http/internal'
+import type { ExposedVirtual } from 'ultimabase'
 import type { Entry } from './entries.ts'
 import { entryOf, system } from './entries.ts'
 import type { Doc } from './openapi-inputs.ts'
@@ -11,12 +17,14 @@ import {
 	valueOf,
 	whereOf,
 } from './openapi-inputs.ts'
+import { outputOf } from './openapi-functions.ts'
 import type { Schema } from './openapi.ts'
 import {
 	arrayOf,
 	describe,
 	described,
 	failed,
+	hoisted,
 	json,
 	objectOf,
 	orNull,
@@ -93,6 +101,21 @@ export function rowOf(doc: Doc, model: string): Schema {
 				fields[field.name] = ruled ? orNull(many) : many
 			}
 		}
+		// A virtual, computed: in the default row without an input (D-151).
+		for (const virtual of readableVirtuals(entry)) {
+			const { name } = virtual
+			const owner = `${model}.${name}`
+			const value = {
+				...outputOf(doc, virtual.output, owner, `${model}${upper(name)}Output`),
+				readOnly: true,
+			}
+			const ruled = entry.exposed.readRules[name] === 'rule'
+			fields[name] = describe(
+				ruled ? orNull(value) : value,
+				virtual.description,
+			)
+			if (virtual.default) required.push(name)
+		}
 		const { description, descriptions } = entry.exposed
 		return describe(
 			objectOf(described(fields, descriptions), required),
@@ -127,11 +150,59 @@ function fieldsOf(doc: Doc, model: string, select: boolean): Schema {
 					: listArgsOf(doc, field.target)
 			fields[field.name] = { anyOf: [flag, args] }
 		}
+		for (const virtual of readableVirtuals(entry)) {
+			fields[virtual.name] = virtualArgsOf(doc, model, virtual)
+		}
 		return objectOf(fields)
 	})
 }
 
 const either: Schema = { not: { required: ['select', 'include'] } }
+
+/**
+ * A virtual in `select` and `include` (D-151): `true` unless its input
+ * needs a property, its input, and a model's `select` or `include`.
+ */
+function virtualArgsOf(
+	doc: Doc,
+	model: string,
+	virtual: ExposedVirtual,
+): Schema {
+	const { name, input, output } = virtual
+	const owner = `${model}.${name}`
+	const base = `${model}${upper(name)}`
+	const node =
+		input === undefined
+			? undefined
+			: hoisted(
+					doc.components,
+					jsonSchemaOf(input, 'input', `${owner}: input`),
+					'input',
+					owner,
+					`${base}Input`,
+				)
+	const listed: unknown = node?.['required']
+	const required = Array.isArray(listed)
+		? listed.filter((key): key is string => typeof key === 'string')
+		: []
+	const needed = required.length > 0
+	const or = (schema: Schema) => (needed ? schema : { anyOf: [flag, schema] })
+	if (output.kind !== 'model') return node === undefined ? flag : or(node)
+	const properties = node?.['properties']
+	return or(
+		doc.components.ref(`${base}Args`, () => ({
+			...objectOf(
+				{
+					...(isNode(properties) ? properties : {}),
+					select: fieldsOf(doc, output.name, true),
+					include: fieldsOf(doc, output.name, false),
+				},
+				required,
+			),
+			...either,
+		})),
+	)
+}
 
 /** `PostArgs`: a `one` relation's `select` or `include`. */
 function argsOf(doc: Doc, model: string): Schema {

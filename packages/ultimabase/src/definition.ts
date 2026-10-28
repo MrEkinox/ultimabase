@@ -6,6 +6,7 @@ import type { Manifest, OutputForm } from './plugin.ts'
 import type { Standard } from './validation.ts'
 import { Refused } from './errors.ts'
 import { isObject } from './query-where.ts'
+import { standardOf } from './validation.ts'
 
 export type FieldOptions = { readonly [option: string]: unknown }
 
@@ -34,6 +35,13 @@ export type FieldDefinition =
 	| {
 			readonly kind: 'one' | 'many'
 			readonly target: () => unknown
+			readonly options: FieldOptions
+			readonly rules?: object
+	  }
+	| {
+			/** Computed on read (D-151): its schema, or a thunk of its output. */
+			readonly kind: 'virtual'
+			readonly output: unknown
 			readonly options: FieldOptions
 			readonly rules?: object
 	  }
@@ -303,4 +311,30 @@ export const fieldBuilders: object = Object.freeze({
 	enumOf,
 	one: relation('one'),
 	many: relation('many'),
+	virtual: (output: unknown, options?: FieldOptions): object =>
+		build({ kind: 'virtual', output, options: options ?? {} }),
 })
+
+function namedOf(value: unknown): NamedOutput | undefined {
+	if (!isObject(value)) return undefined
+	const model = modelDefinitions.get(value)
+	if (model !== undefined) return { kind: 'model', value, name: model.name }
+	const type = typeDefinitions.get(value)
+	return type === undefined ? undefined : { kind: 'type', type }
+}
+
+/** An output's value, read once at its definition (D-109). */
+export function outputOf(value: unknown, where: string): Output {
+	const standard = standardOf(value)
+	if (standard !== undefined) return { kind: 'schema', schema: standard.schema }
+	const named = namedOf(value)
+	if (named !== undefined) return { ...named, form: 'one' }
+	const marked = isObject(value) ? nullables.get(value) : undefined
+	if (marked !== undefined) return { ...marked, form: 'nullable' }
+	const list: readonly unknown[] = Array.isArray(value) ? value : []
+	const listed = list.length === 1 ? namedOf(list[0]) : undefined
+	if (listed !== undefined) return { ...listed, form: 'list' }
+	throw new Refused(
+		`${where} is a model, a type, a list of one, X.nullable() or a Standard Schema.`,
+	)
+}

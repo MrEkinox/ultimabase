@@ -192,7 +192,7 @@ async function lockedRows(
 	await settle(store, caller, events, commits)
 	if (at === undefined || read === undefined) return ids
 	const result = again ? await store.find(read) : written
-	return shapedRows(result, at.shape, scope.access)
+	return shapedRows(context, store, result, at.shape, scope.access)
 }
 
 /**
@@ -241,7 +241,7 @@ async function updating(
 	}
 	const rows = await inRange(model, guarded(store.last(write), []))
 	if (at === undefined) return rows.map((row) => row.id)
-	return shapedRows(rows, at.shape, scope.access)
+	return shapedRows(context, store, rows, at.shape, scope.access)
 }
 
 export async function updateMany(

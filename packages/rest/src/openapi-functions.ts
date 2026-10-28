@@ -49,7 +49,7 @@ function typeOf(doc: Doc, type: ExposedType, owner: string): Schema {
 }
 
 /** A model, a `defineType` or a schema, held as `form` says (D-109). */
-function outputOf(
+export function outputOf(
 	doc: Doc,
 	output: ExposedOutput,
 	owner: string,

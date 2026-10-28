@@ -110,6 +110,13 @@ export function resolveFunctions(
 			if (plugin !== undefined) owners.set(value, plugin)
 		}
 	}
+	// A virtual's type is named once with the functions' (D-151).
+	for (const info of resolved.byValue.values()) {
+		for (const { name, output } of info.virtuals.values()) {
+			if (output.kind !== 'type') continue
+			checkOutput(`${info.name}.${name}`, output, resolved, types)
+		}
+	}
 	return { definitions, plugins: owners }
 }
 

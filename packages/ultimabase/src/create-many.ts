@@ -99,7 +99,7 @@ async function created(
 		(again ? await store.find(read) : rows).map((row) => [row.id, row]),
 	)
 	const ordered = ids.flatMap((id) => found.get(id) ?? [])
-	return shapedRows(ordered, at.shape, scope.access)
+	return shapedRows(context, store, ordered, at.shape, scope.access)
 }
 
 export async function createMany(

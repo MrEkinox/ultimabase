@@ -7,9 +7,9 @@ import type { Node } from '@ultimabase/http/internal'
 import { isNode, jsonSchemaOf, rowOf } from '@ultimabase/http/internal'
 import type { Caller, Client, ExposedFunction, ExposedOutput } from 'ultimabase'
 import { Refused } from 'ultimabase'
-import type { Api } from './entries.ts'
+import type { Api, Entry } from './entries.ts'
 import { checkName, entryOf } from './entries.ts'
-import { defaultShape, shaped } from './fields.ts'
+import { defaultShape, defaultVirtuals, shaped } from './fields.ts'
 import { acceptsNull, isText, resolved } from './json-schema.ts'
 import { anyBody } from './models.ts'
 import type { Accepted } from './params.ts'
@@ -54,6 +54,9 @@ export function getParams(root: Node | undefined): {
 	return { accepted: { ...none, [as]: ['input'] }, flat: false }
 }
 
+/** The rows of each model whose default virtuals are read again. */
+type Pending = Map<Entry, { id: string; copy: { [field: string]: unknown } }[]>
+
 const nonNull = (where: string): TypeError =>
 	new TypeError(`Cannot return null for non-nullable field ${where}.`)
 
@@ -63,6 +66,7 @@ function outputOf(
 	output: ExposedOutput,
 	value: unknown,
 	where: string,
+	pending: Pending,
 ): unknown {
 	if (output.kind === 'schema') return value ?? null
 	if (value === null || value === undefined) {
@@ -72,23 +76,52 @@ function outputOf(
 	if (output.form === 'list') {
 		const items: readonly unknown[] = Array.isArray(value) ? value : []
 		const item = { ...output, form: 'one' } as const
-		return items.map((each) => outputOf(api, item, each, where))
+		return items.map((each) => outputOf(api, item, each, where, pending))
 	}
 	if (output.kind === 'model') {
 		const row = rowOf(value)
 		if (row === undefined) {
 			throw new TypeError(`A ${output.name} was returned without its id.`)
 		}
-		return shaped(row, defaultShape(entryOf(api, output.name)))
+		const entry = entryOf(api, output.name)
+		const copy = shaped(row, defaultShape(entry))
+		if (defaultVirtuals(entry).length > 0) {
+			pending.set(entry, [...(pending.get(entry) ?? []), { id: row.id, copy }])
+		}
+		return copy
 	}
 	const given: Node = isNode(value) ? value : {}
 	const { type } = output
 	return Object.fromEntries(
 		[...type.fields].map(([name, field]) => [
 			name,
-			outputOf(api, field, given[name], `${type.name}.${name}`),
+			outputOf(api, field, given[name], `${type.name}.${name}`, pending),
 		]),
 	)
+}
+
+/** The default virtuals of a function's rows, read by id as the caller (D-151). */
+async function withVirtuals(pending: Pending, as: Caller): Promise<void> {
+	for (const [entry, rows] of pending) {
+		const names = defaultVirtuals(entry)
+		const ids = [...new Set(rows.map(({ id }) => id))]
+		const found = await entry.exposed.queries.findMany(
+			{
+				where: { id: { in: ids } },
+				take: ids.length,
+				select: Object.fromEntries([
+					['id', true],
+					...names.map((name) => [name, true]),
+				]),
+			},
+			{ as },
+		)
+		const byId = new Map(found.map((row) => [row.id, row]))
+		for (const { id, copy } of rows) {
+			// A row the caller cannot read has none (D-109).
+			for (const name of names) copy[name] = byId.get(id)?.[name] ?? null
+		}
+	}
 }
 
 /** Each routed function under `${base}/functions` (D-109, D-113). */
@@ -131,7 +164,10 @@ export function functionRoutes(
 					`${fn.name} returned undefined; make its output .nullable() and return null.`,
 				)
 			}
-			return outputOf(api, output, value, fn.name)
+			const pending: Pending = new Map()
+			const answered = outputOf(api, output, value, fn.name, pending)
+			await withVirtuals(pending, as)
+			return answered
 		}
 		const path = `${base}/functions/${name}`
 		if (fn.query) {

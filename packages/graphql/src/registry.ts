@@ -1,6 +1,7 @@
 // What the schema is built from (D-107): each model with its names and
 // limits, the plugin's settings, and each type built once, when first used.
 import type {
+	GraphQLFieldConfigMap,
 	GraphQLInputObjectType,
 	GraphQLObjectType,
 	GraphQLResolveInfo,
@@ -81,6 +82,9 @@ export class Registry {
 	readonly settings: Settings
 	/** The types functions and json fields give, shared by both (D-125). */
 	readonly data: DataTypes
+	/** A model's virtual fields, which the functions' outputs build (D-151). */
+	virtualFields: (model: string) => GraphQLFieldConfigMap<unknown, Context> =
+		() => ({})
 
 	constructor(entries: ReadonlyMap<string, Entry>, settings: Settings) {
 		this.entries = entries

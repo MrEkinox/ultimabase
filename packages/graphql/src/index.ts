@@ -93,7 +93,7 @@ const plugin = definePlugin<Graphql>({
 			pagination: options.pagination ?? 'connection',
 		})
 		const called = functionFields(registry, functions, take)
-		const generated = schemaOf(registry, called.fields, called.owners)
+		const generated = schemaOf(registry, called)
 		const schema = options.extend?.(generated) ?? generated
 		const production = process.env['NODE_ENV'] === 'production'
 		const hideSuggestions = !(options.introspection ?? !production)

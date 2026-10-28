@@ -10,6 +10,7 @@ import type {
 	UpdateData,
 } from './record.ts'
 import type { Caller } from './rules.ts'
+import type { VirtualRules } from './virtual.ts'
 import type {
 	declaredRecord,
 	fieldType,
@@ -135,6 +136,7 @@ export type ModelWith<F, W, N extends string> = {
 	readonly access?: ModelAccess<F, N>
 	readonly hooks?: ModelHooks<F, N>
 	readonly relations?: RelationFilters<F>
+	readonly virtuals?: VirtualRules<F>
 } & W
 
 /** `X` lists the fields of each unique index (D-52). */
@@ -154,7 +156,7 @@ export interface Model<N extends string, F, P, W, X = never> extends Queries<
 
 export type FieldShape = {
 	readonly [fieldType]: {
-		readonly kind: 'scalar' | 'one' | 'many'
+		readonly kind: 'scalar' | 'one' | 'many' | 'virtual'
 		readonly options: object
 	}
 }

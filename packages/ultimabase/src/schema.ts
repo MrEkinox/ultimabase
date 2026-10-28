@@ -15,6 +15,8 @@ import { modelDefinitions } from './definition.ts'
 import { Refused } from './errors.ts'
 import { checkRelations, isFiltered, viewField } from './relations.ts'
 import { checkIndexes, checkSearch } from './schema-indexes.ts'
+import type { VirtualInfo } from './schema-virtuals.ts'
+import { virtualsOf } from './schema-virtuals.ts'
 
 /**
  * A field as the kernel reads it: its schema, its builder's options, a
@@ -36,6 +38,8 @@ export type ModelInfo = {
 	readonly plugins: readonly PluginUse[]
 	/** The plugin whose own model it is, if one (D-110). */
 	readonly owner: string | undefined
+	/** Its fields computed on read, which the adapter never sees (D-151). */
+	readonly virtuals: ReadonlyMap<string, VirtualInfo>
 }
 
 export type Resolved = {
@@ -288,7 +292,7 @@ export function resolve(
 	const views: Linked[] = []
 	for (const [model, definition] of definitions) {
 		for (const [name, field] of definition.fields) {
-			if (field.kind === 'scalar') continue
+			if (field.kind === 'scalar' || field.kind === 'virtual') continue
 			const value = field.target()
 			const target =
 				typeof value === 'object' && value !== null
@@ -342,6 +346,8 @@ export function resolve(
 	for (const [model, definition] of definitions) {
 		const fields = new Map<string, FieldInfo>()
 		for (const [name, field] of definition.fields) {
+			// A virtual is no field of the adapter's (D-151).
+			if (field.kind === 'virtual') continue
 			const plugin = field.kind === 'scalar' ? field.codec?.plugin : undefined
 			if (plugin !== undefined && !plugins.some((p) => p.name === plugin)) {
 				fail(
@@ -365,6 +371,7 @@ export function resolve(
 			uniques,
 			plugins: installedUses(definition, plugins),
 			owner: owners.get(model),
+			virtuals: virtualsOf(model, definition, names),
 		}
 		checkSearch(info)
 		checkRelations(info)

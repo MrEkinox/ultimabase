@@ -1,20 +1,32 @@
 // The application's functions (D-109): a query under Query, a mutation
 // under Mutation, each run as the request's caller with the arguments the
 // client sent.
-import type { GraphQLFieldConfig, GraphQLOutputType } from 'graphql'
+import type {
+	GraphQLFieldConfig,
+	GraphQLNamedType,
+	GraphQLOutputType,
+	GraphQLResolveInfo,
+} from 'graphql'
 import {
 	GraphQLBoolean,
 	GraphQLList,
 	GraphQLNonNull,
 	GraphQLObjectType,
 } from 'graphql'
-import type { ExposedFunction, ExposedOutput, ExposedType } from 'ultimabase'
+import { readableVirtuals } from '@ultimabase/http/internal'
+import type {
+	ExposedFunction,
+	ExposedOutput,
+	ExposedType,
+	ExposedVirtual,
+} from 'ultimabase'
 import { Refused } from 'ultimabase'
 import type { Path } from './data.ts'
 import type { DataTypes } from './data-types.ts'
 import { checkName, inputArgs, outputData } from './data.ts'
 import { upper } from './names.ts'
-import { objectType } from './outputs.ts'
+import { isMaster, objectType } from './outputs.ts'
+import { selectOf } from './select.ts'
 import type { Args, Context, Registry } from './registry.ts'
 import { as } from './registry.ts'
 import { reread } from './reread.ts'
@@ -40,6 +52,18 @@ const at = (owner: string, name: string, place: string): Path => ({
 	suffix: '',
 	at: place,
 })
+
+/** Whether a model's rows, as `info` selects them, read a relation. */
+function relates(
+	registry: Registry,
+	model: string,
+	info: GraphQLResolveInfo,
+	master: boolean,
+): boolean {
+	const type = objectType(registry, model)
+	const select = selectOf(registry, info, type, info.fieldNodes, master)
+	return Object.values(select).some((read) => read !== true)
+}
 
 class Builder {
 	readonly #types = new Map<string, GraphQLObjectType>()
@@ -85,6 +109,11 @@ class Builder {
 		return list ? new GraphQLNonNull(new GraphQLList(item)) : item
 	}
 
+	/** The type named `name`, if a function, a virtual or a field gave it. */
+	named(name: string): GraphQLNamedType | undefined {
+		return this.#types.get(name) ?? this.#data.named(name)
+	}
+
 	/** A `defineType`, built once; its fields cannot refer back to it. */
 	#type(type: ExposedType, owner: string): GraphQLObjectType {
 		const known = this.#types.get(type.name)
@@ -110,6 +139,51 @@ class Builder {
 		})
 		this.#types.set(name, built)
 		return built
+	}
+
+	/** A virtual's field: an argument per input property, its output (D-151). */
+	virtual(model: string, virtual: ExposedVirtual, ruled: boolean): Field {
+		const { name, input, output } = virtual
+		const owner = `${model}.${name}`
+		const base = `${model}${upper(name)}`
+		const given =
+			input === undefined
+				? undefined
+				: inputArgs(input, at(owner, `${base}Input`, 'input'), this.#data)
+		if (given?.flat === false) {
+			throw new Refused(
+				`${owner}: its input is an object schema, whose properties are its arguments.`,
+			)
+		}
+		const type = this.output(
+			output,
+			at(owner, `${base}Output`, name),
+			model,
+			name,
+		)
+		const take = this.#take
+		const registry = this.#registry
+		return {
+			// Absent when a read rule hides it (D-44).
+			type: ruled && type instanceof GraphQLNonNull ? type.ofType : type,
+			description: virtual.description,
+			args: given?.args ?? {},
+			resolve: (source, _, context, info) => {
+				const value: unknown = Reflect.get(Object(source), name)
+				// The budget counts `take` rows in a list (D-109).
+				if (
+					output.kind === 'model' &&
+					Array.isArray(value) &&
+					value.length > take &&
+					relates(registry, output.name, info, isMaster(context))
+				) {
+					throw new RangeError(
+						`${owner} returned ${value.length} rows; a list counts take (${take}) rows, so it holds no more under a selected relation.`,
+					)
+				}
+				return value
+			},
+		}
 	}
 
 	field(fn: ExposedFunction, name: string, owner: string): Field {
@@ -155,8 +229,19 @@ export function functionFields(
 	readonly fields: readonly RootField[]
 	readonly reads: ReadonlyMap<string, ReadonlyMap<string, Read>>
 	readonly owners: ReadonlyMap<string, string>
+	readonly named: (name: string) => GraphQLNamedType | undefined
 } {
 	const builder = new Builder(registry, take)
+	registry.virtualFields = (model) => {
+		const entry = registry.entry(model)
+		const { readRules } = entry.exposed
+		return Object.fromEntries(
+			readableVirtuals(entry).map((virtual) => [
+				virtual.name,
+				builder.virtual(model, virtual, readRules[virtual.name] === 'rule'),
+			]),
+		)
+	}
 	const fields: RootField[] = []
 	for (const fn of functions) {
 		if (fn.with === false) continue
@@ -166,5 +251,10 @@ export function functionFields(
 		const field = builder.field(fn, name, owner)
 		fields.push({ query: fn.query, name, owner, field })
 	}
-	return { fields, reads: builder.reads, owners: builder.owners }
+	return {
+		fields,
+		reads: builder.reads,
+		owners: builder.owners,
+		named: (name) => builder.named(name),
+	}
 }

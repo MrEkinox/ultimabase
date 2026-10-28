@@ -65,6 +65,20 @@ export function readRules(model: ModelInfo): {
 			rules[field] = rule === allow.private ? 'private' : 'rule'
 		}
 	}
+	// A virtual is hidden by its own rule and by its needs' (D-151).
+	for (const { name, needs } of model.virtuals.values()) {
+		const own = fieldRule(model, name, 'read')
+		const found = [
+			...needs.map((need) => rules[need]),
+			own === undefined
+				? undefined
+				: own === allow.private
+					? 'private'
+					: 'rule',
+		]
+		if (found.includes('private')) rules[name] = 'private'
+		else if (found.includes('rule')) rules[name] = 'rule'
+	}
 	return rules
 }
 

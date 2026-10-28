@@ -115,6 +115,8 @@ export interface ExposedModel<W = unknown> {
 			readonly toJSON: (value: unknown) => unknown
 		}
 	}
+	/** Its virtual fields, in their order (D-151). */
+	readonly virtuals: readonly ExposedVirtual[]
 	/** The plugin's key of the model's `.with`, if it was given. */
 	readonly with: W | undefined
 	readonly queries: ModelQueries
@@ -125,6 +127,17 @@ export interface ExposedModel<W = unknown> {
 	) => Promise<{ readonly row: Row; readonly created: boolean }>
 	/** The `defineModel` value, which a plugin's function may return (D-113). */
 	readonly model: ModelShape
+}
+
+/** A virtual field as transports read it (D-151). */
+export interface ExposedVirtual {
+	readonly name: string
+	readonly description: string | undefined
+	/** A Standard Schema of an object: the field's arguments. */
+	readonly input: StandardSchema | undefined
+	readonly output: ExposedOutput
+	/** In the row without `select`: a value without input. */
+	readonly default: boolean
 }
 
 /** How an output holds a model or a type (D-109). */

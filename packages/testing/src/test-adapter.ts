@@ -22,6 +22,7 @@ import { roundTrips } from './round-trips.ts'
 import { searches } from './searches.ts'
 import { sorts } from './sorts.ts'
 import { transactions } from './transactions.ts'
+import { virtuals } from './virtuals.ts'
 import { writes } from './writes.ts'
 
 export type Options = {
@@ -52,6 +53,7 @@ export function testAdapter(
 		calendarDays(create)
 		counts(create)
 		relationFilters(create)
+		virtuals(create)
 		aggregates(create)
 		groups(create)
 		distincts(create)

@@ -7,10 +7,11 @@ import {
 	pageArgs,
 	pageOf,
 	readable,
+	readableVirtuals,
 	rowOf,
 	rowsOf,
 } from '@ultimabase/http/internal'
-import type { Row } from 'ultimabase'
+import type { ExposedVirtual, Row } from 'ultimabase'
 import { InvalidQuery } from 'ultimabase'
 import type { Api, Args, Entry } from './entries.ts'
 import { entryOf, system } from './entries.ts'
@@ -33,6 +34,16 @@ type Out =
 			readonly size: number
 			/** Whether it answers its `totalCount` (D-134). */
 			readonly counted: boolean
+	  }
+	| {
+			/** A virtual's rows of a model, re-read by the kernel (D-151). */
+			readonly kind: 'returned'
+			readonly name: string
+			readonly owner: string
+			readonly shape: Shape
+			readonly list: boolean
+			/** The rows it counts: `take` for a list, as a function's (D-109). */
+			readonly size: number
 	  }
 
 /**
@@ -72,15 +83,25 @@ const scalar = (entry: Entry, name: string): Out => ({
 	toJSON: entry.exposed.fieldTypes[name]?.toJSON,
 })
 
-/** `id`, the dates and each scalar field a caller other than Master reads. */
+/**
+ * `id`, the dates, each scalar field a caller other than Master reads, and
+ * each virtual of a scalar without an input (D-151).
+ */
 export const defaultShape = (entry: Entry): Shape => ({
 	fields: [
 		...system.map((name) => scalar(entry, name)),
 		...readable(entry)
 			.filter((field) => field.kind === 'scalar')
 			.map((field) => scalar(entry, field.name)),
+		...defaultVirtuals(entry).map((name) => scalar(entry, name)),
 	],
 })
+
+/** The virtuals a row holds without `select` (D-151). */
+export const defaultVirtuals = (entry: Entry): readonly string[] =>
+	readableVirtuals(entry)
+		.filter((virtual) => virtual.default)
+		.map((virtual) => virtual.name)
 
 // `take` for none or a negative number; above `maxTake`, the list refuses.
 const sizeOf = (entry: Entry, asked: unknown): number =>
@@ -138,6 +159,17 @@ class Reader {
 		const model = entry.model.name
 		for (const [name, value] of Object.entries(chosen)) {
 			const where = `${at(base)}.${name}`
+			const virtual = readableVirtuals(entry).find((each) => each.name === name)
+			if (virtual !== undefined) {
+				if (value === false) continue
+				const read = this.#virtual(entry, virtual, value, where)
+				kernel[name] = read.read
+				// `include` reads a default virtual again, where it is.
+				const known = fields.findIndex((each) => each.name === name)
+				if (known === -1) fields.push(read.field)
+				else fields[known] = read.field
+				continue
+			}
 			const field = readable(entry).find((each) => each.name === name)
 			const isScalar =
 				field === undefined ? system.includes(name) : field.kind === 'scalar'
@@ -198,6 +230,37 @@ class Reader {
 		}
 		if (Object.keys(counts).length > 0) kernel['_count'] = { select: counts }
 		return { read: { [base]: kernel }, shape: { fields } }
+	}
+
+	/** A virtual's read: `true` or its input, a model's fields too (D-151). */
+	#virtual(
+		entry: Entry,
+		virtual: ExposedVirtual,
+		value: unknown,
+		where: string,
+	): { readonly read: unknown; readonly field: Out } {
+		const { name, output } = virtual
+		if (output.kind !== 'model') {
+			return { read: value, field: scalar(entry, name) }
+		}
+		if (value !== true && !isArgs(value)) {
+			throw new InvalidQuery(where, `${where} must be true or an object.`)
+		}
+		const { select, include, ...input } = value === true ? {} : value
+		const target = entryOf(this.#api, output.name)
+		const nested = this.fields(target, { select, include }, where)
+		const list = output.form === 'list'
+		return {
+			read: value === true ? true : { ...input, ...nested.read },
+			field: {
+				kind: 'returned',
+				name,
+				owner: `${entry.model.name}.${name}`,
+				shape: nested.shape,
+				list,
+				size: list ? this.#api.take : 1,
+			},
+		}
 	}
 
 	/** A list's arguments: its page, filter, order and fields. */
@@ -271,6 +334,25 @@ function countOf(row: Row, name: string): unknown {
 	return isArgs(counts) ? counts[name] : undefined
 }
 
+/** A virtual's rows of a model, at most `take` under a relation (D-109). */
+function returned(
+	field: Extract<Out, { readonly kind: 'returned' }>,
+	value: unknown,
+): unknown {
+	if (!field.list) {
+		const row = rowOf(value)
+		return row === undefined ? null : shaped(row, field.shape)
+	}
+	const rows = rowsOf(value)
+	const relates = field.shape.fields.some((each) => each.kind !== 'scalar')
+	if (rows.length > field.size && relates) {
+		throw new RangeError(
+			`${field.owner} returned ${rows.length} rows; a list counts take (${field.size}) rows, so it holds no more under a selected relation.`,
+		)
+	}
+	return rows.map((row) => shaped(row, field.shape))
+}
+
 /** A row as GraphQL returns it: its fields, its relations' pages. */
 export function shaped(row: Row, shape: Shape): { [field: string]: unknown } {
 	const out: { [field: string]: unknown } = {}
@@ -287,6 +369,8 @@ export function shaped(row: Row, shape: Shape): { [field: string]: unknown } {
 			const target = rowOf(value)
 			out[field.name] =
 				target === undefined ? null : shaped(target, field.shape)
+		} else if (field.kind === 'returned') {
+			out[field.name] = returned(field, value)
 		} else if (value === undefined || value === null) {
 			// Absent when the field's read rule hides it (D-44).
 			out[field.name] = null

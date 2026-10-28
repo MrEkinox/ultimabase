@@ -29,6 +29,14 @@ import type {
 } from './query-group.ts'
 import type { Identity } from './rules.ts'
 import type { fieldType } from './symbols.ts'
+import type {
+	DefaultRow,
+	DefaultVirtualKeys,
+	VirtualArgs,
+	VirtualIncludes,
+	VirtualKeys,
+	VirtualOutput,
+} from './virtual.ts'
 
 type KindOf<X> = X extends { readonly [fieldType]: { readonly kind: infer K } }
 	? K
@@ -97,14 +105,16 @@ interface Filters<W> {
 	readonly NOT?: W | readonly W[] | undefined
 }
 
+/** No `where` filters a virtual (D-151). */
 export type Where<F> = {
-	readonly [K in Exclude<keyof F, PluginKeys<F>>]?: FilterOf<F[K]> | undefined
+	readonly [K in Exclude<keyof F, PluginKeys<F> | VirtualKeys<F>>]?:
+		FilterOf<F[K]> | undefined
 } & Filters<Where<F>> &
 	SearchWhere<F>
 
 /** A `beforeFind`'s filter: a plugin field's in its stored form (D-122). */
 export type FindWhere<F> = {
-	readonly [K in keyof F]?:
+	readonly [K in Exclude<keyof F, VirtualKeys<F>>]?:
 		| (K extends PluginKeys<F> ? FilterOf<StoredOf<F[K]>> : FilterOf<F[K]>)
 		| undefined
 } & Filters<FindWhere<F>> &
@@ -212,22 +222,27 @@ export type Select<F> = {
 } & {
 	readonly [K in keyof F]?: KindOf<F[K]> extends 'scalar'
 		? boolean
-		: boolean | RelationArgs<F[K]>
+		: KindOf<F[K]> extends 'virtual'
+			? VirtualArgs<F[K]>
+			: boolean | RelationArgs<F[K]>
 } & Counts<F>
 
-/** A model without relations takes no `include`. */
-export type Include<F> = [RelationKeys<F>] extends [never]
+/** A model without relations or virtuals takes no `include`. */
+export type Include<F> = [RelationKeys<F> | VirtualKeys<F>] extends [never]
 	? never
 	: {
 			readonly [K in RelationKeys<F>]?: boolean | RelationArgs<F[K]>
-		} & Counts<F>
+		} & VirtualIncludes<F> &
+			Counts<F>
 
 type Output<X, A> =
 	KindOf<X> extends 'scalar'
 		? StoredValue<X>
-		: KindOf<X> extends 'one'
-			? Payload<TargetFields<TargetOf<X>>, A> | OptionalOne<X>
-			: Payload<TargetFields<TargetOf<X>>, A>[]
+		: KindOf<X> extends 'virtual'
+			? VirtualOutput<X, A>
+			: KindOf<X> extends 'one'
+				? Payload<TargetFields<TargetOf<X>>, A> | OptionalOne<X>
+				: Payload<TargetFields<TargetOf<X>>, A>[]
 
 type Selected<F, S> = {
 	readonly [
@@ -249,8 +264,10 @@ type Included<F, I> = {
 	]: K extends keyof F ? Output<F[K], I[K]> : never
 }
 
-/** `omit`: scalar and system fields left out of the rows (D-135). */
-export type OmitArgs<F> = { readonly [K in keyof RecordOf<F>]?: boolean }
+/** `omit`: scalars, system fields, default virtuals left out (D-135). */
+export type OmitArgs<F> = {
+	readonly [K in keyof RecordOf<F> | DefaultVirtualKeys<F>]?: boolean
+}
 
 /** `select` and `omit` exclude each other (D-135). */
 export type Shaping<F> = { readonly include?: Include<F> } & (
@@ -261,10 +278,10 @@ export type Shaping<F> = { readonly include?: Include<F> } & (
 /** The scalar and system fields, less those `omit` sets to `true`. */
 type Kept<F, A> = A extends { readonly omit: infer O }
 	? Omit<
-			RecordOf<F>,
+			DefaultRow<F>,
 			{ [K in keyof O]: O[K] extends true ? K : never }[keyof O]
 		>
-	: RecordOf<F>
+	: DefaultRow<F>
 
 /** Without `select`, scalar fields return and relations do not (D-20). */
 export type Payload<F, A> = A extends { readonly select: infer S }

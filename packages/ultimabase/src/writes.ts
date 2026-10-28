@@ -13,8 +13,10 @@ import type { Event } from './hooks.ts'
 import { redirectOf, rereads, runHook, settle, settles } from './hooks.ts'
 import type { Context } from './query-context.ts'
 import { first, given, hiddenBy, picked } from './query-context.ts'
+import { project } from './query-project.ts'
+import { computeVirtuals } from './virtual-read.ts'
 import type { Shape } from './query-args.ts'
-import { oneKeys, plan, project, uniqueWhere } from './query-args.ts'
+import { oneKeys, plan, uniqueWhere } from './query-args.ts'
 import type { Operations } from './number-update.ts'
 import { computeOn, operationsOf, inRange, validates } from './number-update.ts'
 import { nests, resolveData } from './nested-write.ts'
@@ -73,7 +75,7 @@ async function written(
 	await settle(store, scope.caller, events, commits)
 	// An `after*` hook may have changed the rows: read them again (D-88).
 	const result = again ? await store.find(read) : rows
-	return first(result, at.shape, scope.access)
+	return first(context, store, result, at.shape, scope.access)
 }
 
 /** Creates the row of `draft` as the rules allow. */
@@ -243,9 +245,12 @@ export async function remove(
 	const found = given(args, model.name, ['where', ...oneKeys], ['where'])
 	const { read, shape } = await returned(context, found)
 	const where = await targets(context, found, 'delete')
-	// Its relations and counts, as the caller reads them, before the delete
-	// removes any: one read in its transaction (D-135).
-	const reaches = shape.relations.size > 0 || shape.counts.length > 0
+	// Its relations, counts and virtuals, as the caller reads them, before
+	// the delete removes any: one read in its transaction (D-135, D-151).
+	const reaches =
+		shape.relations.size > 0 ||
+		shape.counts.length > 0 ||
+		shape.virtuals.size > 0
 	const shaped = async (by: Filter, lock: boolean) => {
 		if (!reaches) return undefined
 		const rows = await store.find({
@@ -260,6 +265,13 @@ export async function remove(
 	const reach = cascadeWhere(models, model, where)
 	if (reach !== undefined && scope.access === undefined) {
 		const kept = await shaped(where, true)
+		const computed = await computeVirtuals(
+			context,
+			store,
+			kept === undefined ? [] : [kept],
+			shape,
+			undefined,
+		)
 		// Nothing needs the stored row: a check stands for its read, and the
 		// write returns it as its delete removed it (D-102, D-104).
 		const check = { model: model.name, where, count: 1, lock: true }
@@ -277,13 +289,17 @@ export async function remove(
 		// Another transaction removed it meanwhile (D-104).
 		if (rows.length === 0)
 			throw new PublicError('NOT_FOUND', missing(model.name))
-		return first(kept === undefined ? rows : [kept], shape, undefined)
+		return project(kept ?? rows[0], shape, undefined, computed)
 	}
 	const row = await target(context, store, where)
 	scope.access?.allow(model, 'delete', { record: row })
 	const redirected = redirectOf(model) !== undefined
 	// A redirected row stays: it is read as the redirect left it (D-89).
 	const kept = redirected ? undefined : await shaped(byId(row.id), false)
+	const hidden = hiddenBy(scope.access)
+	const before = redirected
+		? undefined
+		: await computeVirtuals(context, store, [kept ?? row], shape, hidden)
 	await deleted(context, store, commits, [row])
 	// The row as the redirect left it, or as it was once gone (D-89).
 	const [left] = redirected
@@ -294,7 +310,10 @@ export async function remove(
 				take: 1,
 			})
 		: [kept]
-	return project(left ?? row, shape, hiddenBy(scope.access))
+	const result = left ?? row
+	const computed =
+		before ?? (await computeVirtuals(context, store, [result], shape, hidden))
+	return project(result, shape, hidden, computed)
 }
 
 /** The row an upsert returns, and whether it created it (D-142). */

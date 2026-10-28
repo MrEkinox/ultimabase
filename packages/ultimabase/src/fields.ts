@@ -3,6 +3,7 @@
 import type { Declared, FieldWith } from './field-rules.ts'
 import type { Caller } from './rules.ts'
 import type { calendarDay, fieldType } from './symbols.ts'
+import type { NoOptions, Virtual, VirtualOptions } from './virtual.ts'
 
 export type JsonValue =
 	| string
@@ -368,4 +369,15 @@ export interface FieldBuilders<T> {
 		target: M,
 		options?: O,
 	) => Many<M, O, T>
+	/**
+	 * Computed on read by the model's `.with({ virtuals })` (D-151): a
+	 * Standard Schema, or a model or a type behind an arrow, `() => [Image]`.
+	 */
+	readonly virtual: <
+		const O extends object,
+		const X extends VirtualOptions = NoOptions,
+	>(
+		output: O,
+		options?: X,
+	) => Virtual<O, X>
 }

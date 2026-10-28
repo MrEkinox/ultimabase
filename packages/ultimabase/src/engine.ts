@@ -7,8 +7,9 @@ import type { Identity } from './rules.ts'
 import { isMaster } from './rules.ts'
 import { current } from './running.ts'
 import type { Context } from './query-context.ts'
-import { filtered, first, given, hiddenBy, picked } from './query-context.ts'
-import { oneKeys, plan, project, restrict, uniqueWhere } from './query-args.ts'
+import { filtered, first, given, picked, shapedRows } from './query-context.ts'
+import { oneKeys, plan, restrict, uniqueWhere } from './query-args.ts'
+import { counted } from './virtual-read.ts'
 import { entries, isObject, unknownKey } from './query-where.ts'
 import { QueryScope, planned } from './scope.ts'
 import type { Commit, Store } from './transaction.ts'
@@ -111,8 +112,8 @@ async function find(
 		...restrict(limited, readable),
 		...(distinct && { distinct }),
 	})
-	if (single) return first(rows, shape, scope.access)
-	return rows.map((row) => project(row, shape, hiddenBy(scope.access)))
+	if (single) return first(context, store, rows, shape, scope.access)
+	return shapedRows(context, store, rows, shape, scope.access)
 }
 
 async function findUnique(
@@ -130,7 +131,7 @@ async function findUnique(
 		),
 	}))
 	const rows = await store.find({ model: model.name, ...read, where })
-	return first(rows, shape, scope.access)
+	return first(context, store, rows, shape, scope.access)
 }
 
 async function count(
@@ -218,6 +219,7 @@ export async function query(
 		throw new Error(`${name} is not a model of a started application.`)
 	}
 	const identity = callerOf(options, name)
+	counted()
 	return app.work.run(async () => {
 		const caller = await app.complete(identity)
 		const { models } = app.resolved

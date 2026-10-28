@@ -240,6 +240,7 @@ export function objectType(
 							fields[field.name] = manyField(registry, model, field, ruled)
 						}
 					}
+					Object.assign(fields, registry.virtualFields(model))
 					return described(entry, fields)
 				},
 			}),

@@ -86,6 +86,7 @@ export type {
 	ExposedFunction,
 	ExposedModel,
 	ExposedOutput,
+	ExposedVirtual,
 	ExposedType,
 	ModelQueries,
 	ModelUse,

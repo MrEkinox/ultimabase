@@ -1,6 +1,7 @@
 // The record a model stores, and the data written to it.
 import type { UniqueWhere } from './query.ts'
 import type { fieldType, modelFields } from './symbols.ts'
+import type { VirtualKeys } from './virtual.ts'
 
 type Scalar<V = unknown, O = unknown> = {
 	readonly [fieldType]: {
@@ -319,14 +320,15 @@ type Creating<F, E, V extends { readonly [K in keyof F]: unknown }> = {
  */
 export type CreateData<F, N = never, E = never> = Creating<
 	F,
-	E | Views<F>,
+	E | Unwritten<F>,
 	{ readonly [K in keyof F]: CreateInput<F[K], N, K> }
 >
 
 /** A row `createMany` creates: a `one` is connected, a `many` not written (D-135). */
 export type CreateManyData<F> = Creating<
 	F,
-	{ [K in keyof F]: F[K] extends Relation<'many'> ? K : never }[keyof F],
+	| { [K in keyof F]: F[K] extends Relation<'many'> ? K : never }[keyof F]
+	| VirtualKeys<F>,
 	{
 		readonly [K in keyof F]: F[K] extends Scalar
 			? WrittenValue<F[K]>
@@ -340,11 +342,12 @@ export type CreateManyData<F> = Creating<
  * (D-132, D-149), each relation resolved (D-138).
  */
 export type UpdateData<F, N = never, Operations extends boolean = true> = {
-	readonly [K in keyof F as K extends Views<F> ? never : K]?:
+	readonly [K in keyof F as K extends Unwritten<F> ? never : K]?:
 		UpdateInput<F[K], N, K, Operations> | undefined
 }
 
-/** The views of `F`, which no data writes (D-151). */
+/** The views and virtuals of `F`, which no data writes (D-151). */
+type Unwritten<F> = Views<F> | VirtualKeys<F>
 type Views<F> = {
 	[K in keyof F]: F[K] extends Relation<
 		'many',

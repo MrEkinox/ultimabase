@@ -7,6 +7,7 @@ import type {
 	GraphQLResolveInfo,
 	SelectionSetNode,
 } from 'graphql'
+import type { ExposedVirtual } from 'ultimabase'
 import {
 	getArgumentValues,
 	getDirectiveValues,
@@ -17,6 +18,7 @@ import {
 	Kind,
 } from 'graphql'
 import { objectType } from './outputs.ts'
+import { plain } from './scalars.ts'
 import { listRead } from './pages.ts'
 import type { Args, Registry } from './registry.ts'
 
@@ -113,6 +115,23 @@ export function nodesOf(info: Info, nodes: readonly FieldNode[]): FieldNode[] {
 
 const system = new Set(['id', 'createdAt', 'updatedAt'])
 
+/** A virtual's read: `true`, its arguments, and a model's `select` (D-151). */
+function virtualRead(
+	registry: Registry,
+	info: Info,
+	type: GraphQLObjectType,
+	virtual: ExposedVirtual,
+	nodes: readonly FieldNode[],
+	master: boolean,
+): unknown {
+	const { output } = virtual
+	const args = plain(argsOf(type, virtual.name, nodes, info))
+	const input = typeof args === 'object' && args !== null ? args : {}
+	if (output.kind !== 'model') return virtual.input === undefined || input
+	const target = objectType(registry, output.name)
+	return { ...input, select: selectOf(registry, info, target, nodes, master) }
+}
+
 /** The kernel's `select` for what a query asks of a model's rows. */
 export function selectOf(
 	registry: Registry,
@@ -129,6 +148,18 @@ export function selectOf(
 		if (name === '__typename') continue
 		if (system.has(name)) {
 			select[name] = true
+			continue
+		}
+		const virtual = entry.exposed.virtuals.find((v) => v.name === name)
+		if (virtual !== undefined) {
+			select[name] = virtualRead(
+				registry,
+				info,
+				type,
+				virtual,
+				fieldNodes,
+				master,
+			)
 			continue
 		}
 		const field = entry.model.fields.find((f) => f.name === name)
