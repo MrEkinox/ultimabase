@@ -4,7 +4,7 @@ import type { Order, Step } from './adapter.ts'
 import { InvalidQuery } from './errors.ts'
 import type { ModelInfo } from './schema.ts'
 import type { Models, Scope } from './query-where.ts'
-import { entries, isObject, unknownKey } from './query-where.ts'
+import { entries, isObject, modelOf, unknownKey } from './query-where.ts'
 
 const systemFields = ['id', 'createdAt', 'updatedAt']
 
@@ -55,8 +55,7 @@ function keys(
 			order.push({ field, direction: direction(value, where), ...path })
 			continue
 		}
-		const target = models.get(known.target)
-		if (target === undefined) throw new Error(`Unknown model ${known.target}.`)
+		const target = modelOf(models, known.target)
 		const readable = scope?.readable(target.name)
 		if (known.kind === 'one') {
 			const step = { relation: field, ...(readable && { where: readable }) }

@@ -22,7 +22,7 @@ import type { Draft } from './write-data.ts'
 import { prepared, readData } from './write-data.ts'
 import type { Plan } from './write-plan.ts'
 import { updated } from './write-plan.ts'
-import { guarded } from './write-target.ts'
+import { checkedWrite, guarded } from './write-target.ts'
 import { writingOf } from './writing.ts'
 
 /** The scalar data of the rows, as `update` reads it (D-133 point 2). */
@@ -166,12 +166,9 @@ async function lockedRows(
 				: spread(plan, { id: { in: ids } })),
 		)
 	}
-	const checks = writing.checks.map(({ check }) => check)
-	await guarded(store.write({ checks, changes }), writing.checks).catch(
-		(error: unknown) => {
-			throw outOfRange(model, error)
-		},
-	)
+	await checkedWrite(store, writing.checks, changes).catch((error: unknown) => {
+		throw outOfRange(model, error)
+	})
 	await settle(store, caller, events, commits)
 	return { count: items.length }
 }

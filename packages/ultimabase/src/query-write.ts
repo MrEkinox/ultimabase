@@ -12,17 +12,15 @@ import type { Numbers } from './number-update.ts'
 import type { FieldInfo, ModelInfo } from './schema.ts'
 import type { QueryScope } from './scope.ts'
 import { madeId, uuidv7 } from './uuid.ts'
-import { entries, unknownKey } from './query-where.ts'
+import { byId, entries, modelOf, unknownKey } from './query-where.ts'
 import type { Context, Relation } from './write-context.ts'
 import {
-	byId,
 	fail,
 	holds,
 	linking,
 	pathOf,
 	resolving,
 	scalar,
-	targetOf,
 	trusted,
 	viaOf,
 } from './write-context.ts'
@@ -44,7 +42,7 @@ async function created(
 	skips: boolean,
 ): Promise<{ readonly id: string; readonly steps: Step[] }> {
 	const { scope, plan } = context
-	const model = targetOf(context, field)
+	const model = modelOf(context.scope.models, field.target)
 	const made = madeId(data)
 	// A hook's data may come back in another write: it gets a fresh id.
 	const id = skips || plan.made.has(made) ? uuidv7() : made
@@ -79,7 +77,7 @@ async function changed(
 ): Promise<Step[]> {
 	const { scope, plan } = context
 	const { data, row } = update
-	const model = targetOf(context, field)
+	const model = modelOf(context.scope.models, field.target)
 	const child = { ...context, model, id: row.id, set: {}, at }
 	await resolveData(resolving(child, skips, false), data)
 	const sent: Readonly<Draft> = skips ? {} : { ...data }
@@ -101,7 +99,7 @@ function dropped(
 	path: string,
 	skips: boolean,
 ): Step {
-	const model = targetOf(context, field)
+	const model = modelOf(context.scope.models, field.target)
 	const via = viaOf(context, field)
 	if (!skips) context.scope.access?.allow(model, 'delete', { record: row, via })
 	// The parent empties its own key to the row: the cascade leaves it.

@@ -12,6 +12,7 @@ import type { QueryScope } from './scope.ts'
 import type { Store } from './transaction.ts'
 import type { Draft } from './write-data.ts'
 import { invalid } from './write-data.ts'
+import { byId, byIds, modelOf } from './query-where.ts'
 
 /** The reads a write needs before it runs. */
 export type Reads = Pick<Store, 'find' | 'count'>
@@ -81,9 +82,6 @@ export type Writing = {
 	readonly drop: (step: Drop) => Promise<Change[]>
 }
 
-const byId = (id: string): Filter => ({ id: { equals: id } })
-const byIds = (ids: readonly string[]): Filter => ({ id: { in: ids } })
-
 /** The shape of every id the kernel makes (D-22). */
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 
@@ -139,8 +137,7 @@ async function hooked(
 async function move(step: Move, writing: Writing): Promise<Change[]> {
 	const { model, field, via, where, to, trusted } = step
 	const { scope, store } = writing
-	const target = scope.models.get(model)
-	if (target === undefined) throw new Error(`Unknown model ${model}.`)
+	const target = modelOf(scope.models, model)
 	const filter = await scope.filter(model, trusted, 'update')
 	const access = trusted ? undefined : scope.access
 	const set = { [field]: to, updatedAt: new Date(Date.now()) }

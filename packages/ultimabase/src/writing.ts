@@ -13,6 +13,7 @@ import type { QueryScope } from './scope.ts'
 import type { Store } from './transaction.ts'
 import type { Checked, Drop, Writing } from './write-plan.ts'
 import { moved } from './write-plan.ts'
+import { modelOf } from './query-where.ts'
 
 /** The changes and events of a delete's cascade, its hooks run (D-90). */
 export async function cascaded(
@@ -53,15 +54,14 @@ export async function cascaded(
  */
 async function dropped(writing: Writing, step: Drop): Promise<Change[]> {
 	const { scope, store } = writing
-	const model = scope.models.get(step.model)
-	if (model === undefined) throw new Error(`Unknown model ${step.model}.`)
-	const redirected = redirectOf(model) !== undefined
-	const cascade = redirected
-		? {
-				deleted: step.rows.map((row) => ({ model, row, redirected })),
-				nulled: [],
-			}
-		: await cascadeOf(scope.models, model, step.rows, store, step.except)
+	const model = modelOf(scope.models, step.model)
+	const cascade = await cascadeOf(
+		scope.models,
+		model,
+		step.rows,
+		store,
+		step.except,
+	)
 	const reached = cascade.deleted.some(({ model: from, row }) =>
 		step.written.has(`${from.name}:${row.id}`),
 	)

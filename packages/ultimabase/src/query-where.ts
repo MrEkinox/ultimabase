@@ -7,6 +7,16 @@ import type { FieldInfo, ModelInfo } from './schema.ts'
 
 export type Models = ReadonlyMap<string, ModelInfo>
 
+/** The model, or the table, of `name`; another name is a kernel bug. */
+export function modelOf<T>(models: ReadonlyMap<string, T>, name: string): T {
+	const model = models.get(name)
+	if (model === undefined) throw new Error(`Unknown model ${name}.`)
+	return model
+}
+
+export const byId = (id: string): Filter => ({ id: { equals: id } })
+export const byIds = (ids: readonly string[]): Filter => ({ id: { in: ids } })
+
 /** An integer field's values (D-132). */
 export const isInteger = (value: unknown): boolean =>
 	Number.isInteger(value) &&
@@ -230,8 +240,7 @@ function relationFilters(
 	path: string,
 	scope: Scope | undefined,
 ): Filter[] {
-	const target = models.get(field.target)
-	if (target === undefined) throw new Error(`Unknown model ${field.target}.`)
+	const target = modelOf(models, field.target)
 	const readable = scope?.readable(field.target)
 	const allowed =
 		field.kind === 'one' ? ['is', 'isNot'] : ['some', 'every', 'none']

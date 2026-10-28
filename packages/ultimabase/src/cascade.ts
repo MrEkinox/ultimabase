@@ -61,6 +61,7 @@ const keyOf = (model: ModelInfo, id: string): string => `${model.name}:${id}`
  * Loads every row deleting `deleting` reaches, level by level, as stored: no
  * `beforeFind`, no access rules (D-54, D-90). Fails with
  * `RELATION_RESTRICTED` when a row the delete leaves references a deleted one.
+ * A redirected row stays: it cascades nothing (D-89, D-90).
  */
 export async function cascadeOf(
 	models: Models,
@@ -69,7 +70,9 @@ export async function cascadeOf(
 	store: Reads,
 	except?: Except,
 ): Promise<Cascade> {
-	const roots = deleting.map((row) => ({ model, row, redirected: false }))
+	const redirected = redirectOf(model) !== undefined
+	const roots = deleting.map((row) => ({ model, row, redirected }))
+	if (redirected) return { deleted: roots, nulled: [] }
 	const deleted = new Map<string, Doomed>()
 	for (const root of roots) deleted.set(keyOf(model, root.row.id), root)
 	const restricted: (Reference & {

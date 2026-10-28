@@ -1,13 +1,14 @@
 // `deleteMany` (D-111): what a `delete` runs, on each row its `where`
 // selects, all or nothing; one write when nothing runs (D-102).
-import type { Filter } from './adapter.ts'
+import type { Filter, Row } from './adapter.ts'
 import { cascadeOf, cascadeWhere } from './cascade.ts'
 import type { Event } from './hooks.ts'
-import { redirectOf, settle } from './hooks.ts'
+import { settle } from './hooks.ts'
 import type { Context } from './query-context.ts'
 import { filtered, given } from './query-context.ts'
+import { byIds } from './query-where.ts'
 import type { Commit, Store } from './transaction.ts'
-import { guarded } from './write-target.ts'
+import { checkedWrite, guarded } from './write-target.ts'
 import { cascaded, writingOf } from './writing.ts'
 
 export async function removeMany(
@@ -16,7 +17,7 @@ export async function removeMany(
 	commits: Commit[],
 	args: unknown,
 ): Promise<{ readonly count: number }> {
-	const { models, model, caller, scope } = context
+	const { models, model, scope } = context
 	const found = given(args, model.name, ['where'], [])
 	const where: Filter = (await filtered(context, found, 'delete')) ?? {}
 	const reach = cascadeWhere(models, model, where)
@@ -45,30 +46,31 @@ export async function removeMany(
 	})
 	// One row refused, none deleted (D-111).
 	for (const row of rows) scope.access?.allow(model, 'delete', { record: row })
-	if (rows.length === 0) return { count: 0 }
-	const count = rows.length
-	const ids = { id: { in: rows.map((row) => row.id) } }
-	const locked = cascadeWhere(models, model, ids)
+	if (rows.length > 0) await deleted(context, store, commits, rows)
+	return { count: rows.length }
+}
+
+/**
+ * Deletes `rows`, which the caller may delete, as `delete` does: in one write
+ * when nothing runs (D-102), else with their cascade or redirect, then the
+ * hooks.
+ */
+export async function deleted(
+	context: Context,
+	store: Store,
+	commits: Commit[],
+	rows: readonly Row[],
+): Promise<void> {
+	const { models, model, caller, scope } = context
+	const locked = cascadeWhere(models, model, byIds(rows.map(({ id }) => id)))
 	if (locked !== undefined) {
-		const checks = locked.checks.map(({ check }) => check)
-		await guarded(
-			store.write({ checks, changes: locked.changes }),
-			locked.checks,
-		)
-		return { count }
+		await checkedWrite(store, locked.checks, locked.changes)
+		return
 	}
-	const redirected = redirectOf(model) !== undefined
-	// A redirected row stays: it cascades nothing (D-90).
-	const cascade = redirected
-		? { deleted: rows.map((row) => ({ model, row, redirected })), nulled: [] }
-		: await cascadeOf(models, model, rows, store)
 	const events: Event[] = []
 	const writing = writingOf(scope, store, events)
+	const cascade = await cascadeOf(models, model, rows, store)
 	const changes = await cascaded(writing, cascade)
-	if (changes.length > 0) {
-		const checks = writing.checks.map(({ check }) => check)
-		await guarded(store.write({ checks, changes }), writing.checks)
-	}
+	if (changes.length > 0) await checkedWrite(store, writing.checks, changes)
 	await settle(store, caller, events, commits)
-	return { count }
 }
