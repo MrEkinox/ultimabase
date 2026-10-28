@@ -22,7 +22,7 @@ const Order = defineModel({
 		label: f.string({ optional: true }),
 		status: f.enumOf(['open', 'paid']),
 		paid: f.boolean({ default: false }),
-		at: f.date({ optional: true }),
+		at: f.dateTime({ optional: true }),
 		tags: f.string({ list: true }),
 		meta: f.json({ optional: true }),
 		secret: f.number({ optional: true }).with({

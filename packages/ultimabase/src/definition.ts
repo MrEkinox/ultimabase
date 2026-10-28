@@ -264,7 +264,7 @@ export const fieldBuilders: object = Object.freeze({
 	number: (options?: FieldOptions) => listable('number', options),
 	decimal,
 	boolean: scalar('boolean'),
-	date: scalar('date'),
+	dateTime: scalar('dateTime'),
 	json: scalar('json'),
 	enumOf,
 	one: relation('one'),

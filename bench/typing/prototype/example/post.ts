@@ -41,7 +41,7 @@ export const Post = defineModel({
 		}),
 		views: f.number({ default: 0 }),
 		pinned: f.boolean({ optional: true }),
-		publishedAt: f.date({ optional: true }).with<{ views: number }>({
+		publishedAt: f.dateTime({ optional: true }).with<{ views: number }>({
 			access: {
 				write: anyOf(
 					({ caller }) => caller.kind === 'master',

@@ -243,7 +243,7 @@ describe('schema resolution (D-37)', () => {
 			name: 'Note',
 			fields: (f) => ({
 				done: f.boolean({ default: false }),
-				due: f.date({ default: () => new Date() }),
+				due: f.dateTime({ default: () => new Date() }),
 				meta: f.json({ default: null }),
 				text: f.string(),
 			}),

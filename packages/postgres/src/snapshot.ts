@@ -60,7 +60,7 @@ const types: { readonly [type in ScalarType]: string } = {
 	number: 'double precision',
 	decimal: 'numeric',
 	boolean: 'boolean',
-	date: 'timestamptz',
+	dateTime: 'timestamptz',
 	json: 'jsonb',
 	enum: 'text collate "C"',
 }

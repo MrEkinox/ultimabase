@@ -16,7 +16,7 @@ interface Trash extends PluginTypes {
 const trashDefinition = definePlugin<Trash>({
 	name: 'trash',
 	manifest: { name: 'trash', version: '1.0.0' },
-	addedFields: (f) => ({ trashedAt: f.date({ optional: true }) }),
+	addedFields: (f) => ({ trashedAt: f.dateTime({ optional: true }) }),
 	redirect: {
 		delete: ({ where, queries }) =>
 			queries.update({ where, data: { trashedAt: new Date() } }),
@@ -47,7 +47,7 @@ const trashDefinition = definePlugin<Trash>({
 definePlugin<Trash>({
 	name: 'trash',
 	manifest: { name: 'trash', version: '1.0.0' },
-	addedFields: (f) => ({ trashedAt: f.date({ optional: true }) }),
+	addedFields: (f) => ({ trashedAt: f.dateTime({ optional: true }) }),
 	hooks: {
 		beforeFind: ({ where, command }) =>
 			// @ts-expect-error: `trahs` is not a command of the plugin.
@@ -58,7 +58,7 @@ definePlugin<Trash>({
 definePlugin<Trash>({
 	name: 'trash',
 	manifest: { name: 'trash', version: '1.0.0' },
-	addedFields: (f) => ({ trashedAt: f.date({ optional: true }) }),
+	addedFields: (f) => ({ trashedAt: f.dateTime({ optional: true }) }),
 	hooks: {
 		// @ts-expect-error: a filter only comes from `where`.
 		beforeFind: () => ({ trashedAt: null }),

@@ -25,7 +25,7 @@ function date(value: unknown, path: string): unknown {
 const isDate = (field: SchemaField | undefined, key: string): boolean =>
 	key === 'createdAt' ||
 	key === 'updatedAt' ||
-	(field?.kind === 'scalar' && field.type === 'date')
+	(field?.kind === 'scalar' && field.type === 'dateTime')
 
 /** A date field's filter: a value, or operators whose values are dates. */
 function dateFilter(value: unknown, path: string): unknown {
@@ -148,7 +148,7 @@ export function dataOf(
 		const value = data[field.name]
 		const at = `${path}.${field.name}`
 		if (field.kind === 'scalar') {
-			if (field.type === 'date' && value !== undefined) {
+			if (field.type === 'dateTime' && value !== undefined) {
 				read[field.name] = date(value, at)
 			}
 			// Number updates are the server API's only (D-132).

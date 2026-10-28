@@ -38,7 +38,7 @@ const types: { readonly [kind in Kind]: string } = {
 	decimal: 'numeric',
 	integer: 'integer',
 	boolean: 'boolean',
-	date: 'timestamptz',
+	dateTime: 'timestamptz',
 	json: 'jsonb',
 	'text[]': 'text[]',
 	'double precision[]': 'double precision[]',

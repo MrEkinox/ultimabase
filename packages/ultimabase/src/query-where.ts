@@ -64,8 +64,8 @@ export type Scope = {
 /** `id`, `createdAt` and `updatedAt`, which every model has (D-22). */
 const system: ReadonlyMap<string, ScalarType | 'id'> = new Map([
 	['id', 'id'],
-	['createdAt', 'date'],
-	['updatedAt', 'date'],
+	['createdAt', 'dateTime'],
+	['updatedAt', 'dateTime'],
 ])
 export const systemFields: readonly string[] = [...system.keys()]
 
@@ -80,7 +80,7 @@ function typeOf(model: ModelInfo, name: string): ScalarType | 'id' | undefined {
 const fits = (type: Single, value: unknown, field: FieldInfo | undefined) =>
 	field?.kind === 'scalar'
 		? misfit(value, field) === undefined
-		: type === 'date'
+		: type === 'dateTime'
 			? storedDate(value)
 			: typeof value === 'string' && clean(value)
 
@@ -89,7 +89,7 @@ const ordered = new Set(['lt', 'lte', 'gt', 'gte'])
 const text = new Set(['contains', 'startsWith', 'endsWith'])
 
 function operators(type: Single): ReadonlySet<string> {
-	if (type === 'number' || type === 'decimal' || type === 'date')
+	if (type === 'number' || type === 'decimal' || type === 'dateTime')
 		return new Set([...base, ...ordered])
 	if (type === 'string') return new Set([...base, ...text, 'mode'])
 	if (type === 'id' || type === 'enum') return new Set([...base, ...text])

@@ -32,7 +32,7 @@ const fields = new Map<string, Property>(
 		scalar('name', 'string'),
 		scalar('age', 'number', { optional: true }),
 		scalar('admin', 'boolean', { optional: true }),
-		scalar('born', 'date', { optional: true }),
+		scalar('born', 'dateTime', { optional: true }),
 		scalar('role', 'enum', { optional: true, values: ['reader', 'writer'] }),
 		scalar('tags', 'string', { list: true }),
 	].map((field) => [

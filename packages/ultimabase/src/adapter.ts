@@ -12,7 +12,7 @@ export {
 } from './adapter-errors.ts'
 
 export type ScalarType =
-	'string' | 'number' | 'decimal' | 'boolean' | 'date' | 'json' | 'enum'
+	'string' | 'number' | 'decimal' | 'boolean' | 'dateTime' | 'json' | 'enum'
 
 export type SchemaField =
 	| {

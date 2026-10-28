@@ -82,7 +82,7 @@ const trash = definePlugin<Trash>({
 		version: '1.0.0',
 		peerDependencies: { ultimabase: '*' },
 	},
-	addedFields: (f) => ({ trashedAt: f.date({ optional: true }) }),
+	addedFields: (f) => ({ trashedAt: f.dateTime({ optional: true }) }),
 	redirect: {
 		delete: async ({ where, queries }) =>
 			queries.update({ where, data: { trashedAt: new Date() } }, M),

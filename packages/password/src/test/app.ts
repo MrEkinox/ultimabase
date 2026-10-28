@@ -17,7 +17,7 @@ export const User = defineUser({
 	use: [graphql(), password()],
 	fields: (f) => ({
 		name: f.string(),
-		born: f.date({ optional: true }),
+		born: f.dateTime({ optional: true }),
 		age: f.number({ integer: true, optional: true }),
 		tags: f.string({ list: true }),
 		prefs: f.json({

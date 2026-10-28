@@ -29,7 +29,7 @@ const Book = defineModel({
 		pages: f.number({ optional: true }),
 		published: f.boolean({ default: false }),
 		meta: f.json({ optional: true }),
-		releasedAt: f.date({ optional: true }),
+		releasedAt: f.dateTime({ optional: true }),
 		author: f.one(() => Author),
 		tags: f.many(() => Tag),
 	}),

@@ -76,13 +76,13 @@ describe('a list definition', () => {
 	it('holds strings, numbers or enum values only', () => {
 		const lists = [
 			// @ts-expect-error: a date makes no list.
-			(f: Builders) => f.date({ list: true }),
+			(f: Builders) => f.dateTime({ list: true }),
 			// @ts-expect-error: a boolean makes no list.
 			(f: Builders) => f.boolean({ list: true }),
 			// @ts-expect-error: a json value makes no list.
 			(f: Builders) => f.json({ list: true }),
 		]
-		for (const [at, type] of ['date', 'boolean', 'json'].entries()) {
+		for (const [at, type] of ['dateTime', 'boolean', 'json'].entries()) {
 			expect(() =>
 				defineModel({
 					name: 'Listed',

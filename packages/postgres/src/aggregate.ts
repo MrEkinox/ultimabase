@@ -14,7 +14,7 @@ import { Compiler, sorted } from './read.ts'
 /** A value as jsonb keeps it: a decimal as text, a date in UTC. */
 function shown(kind: Kind | undefined, item: Sql): Sql {
 	if (kind === 'decimal') return sql`cast(${item} as text)`
-	return kind === 'date' ? sql`(${item} at time zone 'UTC')` : item
+	return kind === 'dateTime' ? sql`(${item} at time zone 'UTC')` : item
 }
 
 /** The aggregate of `column`, as PostgreSQL computes it. */
@@ -160,7 +160,7 @@ export async function aggregate(
 		if (!Array.isArray(values)) throw new Error('The values are not a list.')
 		return types.map((kind, index): unknown => {
 			const item: unknown = values[index]
-			return typeof item === 'string' && kind === 'date'
+			return typeof item === 'string' && kind === 'dateTime'
 				? new Date(`${item}Z`)
 				: item
 		})

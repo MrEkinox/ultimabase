@@ -88,7 +88,7 @@ const operators: { readonly [T in Scalar['type']]: readonly string[] } = {
 	string: [...text, 'mode'],
 	number: ordered,
 	decimal: ordered,
-	date: ordered,
+	dateTime: ordered,
 	boolean: base,
 	// Any JSON, a path into it or not, typed field or not (D-149).
 	json: [

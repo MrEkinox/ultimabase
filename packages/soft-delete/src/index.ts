@@ -41,7 +41,7 @@ const softDeleteDefinition = definePlugin<SoftDelete>({
 	manifest,
 	addedFields: (f) => ({
 		// Only Master dates a row: a caller deletes through the delete rule.
-		deletedAt: f.date({ optional: true }).with({
+		deletedAt: f.dateTime({ optional: true }).with({
 			access: { create: () => false, update: ({ value }) => value === null },
 		}),
 	}),

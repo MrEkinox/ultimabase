@@ -406,24 +406,29 @@ describe('a sync on postgres()', () => {
 	})
 
 	it('changes a type PostgreSQL cannot convert, without its values', async () => {
-		type Type = 'number' | 'boolean' | 'date' | 'json'
+		type Type = 'number' | 'boolean' | 'dateTime' | 'json'
 		const pairs: [Type, Type][] = [
 			['number', 'boolean'],
-			['number', 'date'],
+			['number', 'dateTime'],
 			['number', 'json'],
 			['boolean', 'number'],
-			['boolean', 'date'],
+			['boolean', 'dateTime'],
 			['boolean', 'json'],
-			['date', 'number'],
-			['date', 'boolean'],
-			['date', 'json'],
-			['json', 'date'],
+			['dateTime', 'number'],
+			['dateTime', 'boolean'],
+			['dateTime', 'json'],
+			['json', 'dateTime'],
 		]
-		const values = { number: '3', boolean: 'true', date: 'now()', json: `'1'` }
+		const values = {
+			number: '3',
+			boolean: 'true',
+			dateTime: 'now()',
+			json: `'1'`,
+		}
 		const defaults = {
 			number: 0,
 			boolean: false,
-			date: new Date('2026-01-01T00:00:00.000Z'),
+			dateTime: new Date('2026-01-01T00:00:00.000Z'),
 			json: { a: 2 },
 		}
 		const cellOf = (at: 0 | 1, more: Partial<Scalar> = {}): Schema => ({
@@ -504,16 +509,16 @@ describe('a sync on postgres()', () => {
 			})
 		}
 		try {
-			await synced(undefined, sized('date', false))
+			await synced(undefined, sized('dateTime', false))
 			await query(
 				tokyo,
 				`insert into shelf values (gen_random_uuid(), now(), now(), '2026-10-25T10:00:00.123456Z')`,
 			)
-			await synced(sized('date', false), sized('string', false))
+			await synced(sized('dateTime', false), sized('string', false))
 			expect(await query(tokyo, 'select size from shelf')).toStrictEqual([
 				{ size: '2026-10-25T10:00:00.123Z' },
 			])
-			await synced(sized('string', false), sized('date', false))
+			await synced(sized('string', false), sized('dateTime', false))
 			expect(await query(tokyo, 'select size from shelf')).toStrictEqual([
 				{ size: new Date('2026-10-25T10:00:00.123Z') },
 			])
@@ -891,7 +896,7 @@ describe('a sync on postgres()', () => {
 				scalar('title', 'string', { default: "it's" }),
 				scalar('rank', 'number', { default: -1.5 }),
 				scalar('done', 'boolean', { default: false }),
-				scalar('due', 'date', { default: due }),
+				scalar('due', 'dateTime', { default: due }),
 				scalar('meta', 'json', { default: { tags: ['a'] } }),
 				scalar('level', 'enum', { values: ['low', 'high'], default: 'low' }),
 				scalar('later', 'number', { optional: true, default: 3 }),
@@ -906,7 +911,7 @@ describe('a sync on postgres()', () => {
 			scalar('title', 'string', { default: "it's" }),
 			scalar('rank', 'number', { default: -1.5 }),
 			scalar('done', 'boolean', { default: false }),
-			scalar('due', 'date', { default: due }),
+			scalar('due', 'dateTime', { default: due }),
 			scalar('meta', 'json', { default: { tags: ['a'] } }),
 			// A json list is json, not a string list (D-120).
 			scalar('items', 'json', { default: ['a'] }),

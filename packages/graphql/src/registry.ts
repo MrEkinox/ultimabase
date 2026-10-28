@@ -117,7 +117,7 @@ export const scalarTypes: {
 	number: GraphQLFloat,
 	decimal: DecimalScalar,
 	boolean: GraphQLBoolean,
-	date: DateTime,
+	dateTime: DateTime,
 	json: JSONScalar,
 }
 

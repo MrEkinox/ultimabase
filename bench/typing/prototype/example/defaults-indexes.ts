@@ -14,7 +14,7 @@ export const Article = defineModel({
 		slug: f.string(),
 		title: f.string(),
 		lang: f.string({ default: 'en' }),
-		publishedAt: f.date({ default: () => new Date() }),
+		publishedAt: f.dateTime({ default: () => new Date() }),
 		draftedBy: f.string({
 			default: ({ caller }) => (caller.kind === 'user' ? caller.user.id : ''),
 		}),

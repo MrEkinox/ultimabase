@@ -77,7 +77,7 @@ const scalars = fieldRules
 		}),
 		f1: f.number({ optional: true }),
 		f2: f.boolean({ default: false }),
-		f3: f.date({ optional: true }),
+		f3: f.dateTime({ optional: true }),
 		f4: f.enumOf(['a', 'b', 'c'], { optional: true }),
 		f5: f.string({ optional: true }).with<{ f2: boolean; f4: 'a' | 'b' | 'c' | null }>({
 			access: {
@@ -88,7 +88,7 @@ const scalars = fieldRules
 	: `		f0: ${f0},
 		f1: f.number({ optional: true }),
 		f2: f.boolean({ default: false }),
-		f3: f.date({ optional: true }),
+		f3: f.dateTime({ optional: true }),
 		f4: f.enumOf(['a', 'b', 'c'], { optional: true }),
 		f5: f.string({ optional: true }),${settings}`
 
@@ -101,7 +101,7 @@ const wideField = (k: number): string => {
 	}
 	if (kind === 1) return `\t\tw${k}: f.number({ optional: true }),`
 	if (kind === 2) return `\t\tw${k}: f.boolean(),`
-	if (kind === 3) return `\t\tw${k}: f.date({ optional: true }),`
+	if (kind === 3) return `\t\tw${k}: f.dateTime({ optional: true }),`
 	if (kind === 4)
 		return `\t\tw${k}: f.enumOf(['a', 'b', 'c'], { optional: true }),`
 	return fieldRules

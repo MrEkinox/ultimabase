@@ -22,8 +22,8 @@ export const keys: readonly Key[] = ['_count', '_sum', '_avg', '_min', '_max']
 const takes: { readonly [K in Key]?: readonly string[] } = {
 	_sum: ['number', 'decimal'],
 	_avg: ['number', 'decimal'],
-	_min: ['number', 'decimal', 'string', 'enum', 'date'],
-	_max: ['number', 'decimal', 'string', 'enum', 'date'],
+	_min: ['number', 'decimal', 'string', 'enum', 'dateTime'],
+	_max: ['number', 'decimal', 'string', 'enum', 'dateTime'],
 }
 
 /** The field's type, which fails on a field an aggregate cannot take. */
@@ -39,7 +39,7 @@ export function typeOf(
 	const known = model.fields.get(field)
 	if (known === undefined) {
 		if (!systemFields.includes(field)) throw unknownKey(path, model.name)
-		return field === 'id' ? 'string' : 'date'
+		return field === 'id' ? 'string' : 'dateTime'
 	}
 	if (known.kind !== 'scalar') return refuse('a relation')
 	if (known.list) return refuse('a list')

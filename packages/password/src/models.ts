@@ -37,7 +37,11 @@ type AttemptFields = {
 export const PasswordAttempt: ModelOf<'PasswordAttempt', AttemptFields, []> =
 	defineModel({
 		name: 'PasswordAttempt',
-		fields: (f) => ({ subject: f.string(), address: f.string(), at: f.date() }),
+		fields: (f) => ({
+			subject: f.string(),
+			address: f.string(),
+			at: f.dateTime(),
+		}),
 		indexes: [{ fields: ['subject', 'address'] }, { fields: ['at'] }],
 	})
 
@@ -51,7 +55,11 @@ type RequestFields = {
 export const PasswordRequest: ModelOf<'PasswordRequest', RequestFields, []> =
 	defineModel({
 		name: 'PasswordRequest',
-		fields: (f) => ({ kind: f.string(), subject: f.string(), at: f.date() }),
+		fields: (f) => ({
+			kind: f.string(),
+			subject: f.string(),
+			at: f.dateTime(),
+		}),
 		indexes: [{ fields: ['kind', 'subject'] }, { fields: ['at'] }],
 	})
 

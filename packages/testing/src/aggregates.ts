@@ -15,7 +15,7 @@ const Sale = defineModel({
 		units: f.number({ integer: true, optional: true }),
 		code: f.string({ optional: true }),
 		stage: f.enumOf(['b', 'a', 'c']),
-		on: f.date({ optional: true }),
+		on: f.dateTime({ optional: true }),
 		region: f.string(),
 	}),
 })

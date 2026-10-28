@@ -98,7 +98,7 @@ const misfits: {
 	decimal: decimalIssue,
 	boolean: (value) =>
 		typeof value === 'boolean' ? undefined : 'Expected a boolean.',
-	date: (value) =>
+	dateTime: (value) =>
 		storedDate(value) ? undefined : 'Expected a Date of years 1 to 9999.',
 	json: (value) =>
 		isJson(value)

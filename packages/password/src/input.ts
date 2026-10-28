@@ -98,7 +98,7 @@ function readOf(field: Scalar): Property['read'] {
 	return (given) => {
 		if (given === null && field.optional && !field.list) return { value: given }
 		const value =
-			field.type === 'date' && typeof given === 'string'
+			field.type === 'dateTime' && typeof given === 'string'
 				? new Date(given)
 				: given
 		const message = issueOf(value, field)
@@ -117,7 +117,7 @@ function jsonOf(field: Scalar): Node {
 	}
 	const integer = field.integer === true
 	const base =
-		type === 'date' || type === 'enum' || type === 'decimal'
+		type === 'dateTime' || type === 'enum' || type === 'decimal'
 			? 'string'
 			: integer
 				? 'integer'
@@ -126,7 +126,7 @@ function jsonOf(field: Scalar): Node {
 		type: optional ? [base, 'null'] : base,
 		...(integer ? { minimum: smallest, maximum: largest } : {}),
 		...(type === 'decimal' ? { pattern: decimalPattern } : {}),
-		...(type === 'date' ? { format: 'date-time' } : {}),
+		...(type === 'dateTime' ? { format: 'date-time' } : {}),
 		...(type === 'enum' ? { enum: optional ? [...values, null] : values } : {}),
 	}
 }

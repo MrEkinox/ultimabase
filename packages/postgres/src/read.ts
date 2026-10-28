@@ -167,7 +167,7 @@ export class Compiler {
 		const column = this.filters.column(table, alias, name)
 		const kind = this.catalog.kind(table, name)
 		if (kind === 'decimal') return sql`cast(${column} as text)`
-		return kind === 'date' ? sql`(${column} at time zone 'UTC')` : column
+		return kind === 'dateTime' ? sql`(${column} at time zone 'UTC')` : column
 	}
 
 	/** A row as jsonb: its fields, each `one` as `{ id }`, then its includes. */

@@ -305,7 +305,9 @@ export interface FieldBuilders<T> {
 	>(
 		options?: O & NoInfer<ValidateCheck<O, boolean>>,
 	) => Field<boolean, O, never, T>
-	readonly date: <const O extends ScalarOptions<Date> = ScalarOptions<Date>>(
+	readonly dateTime: <
+		const O extends ScalarOptions<Date> = ScalarOptions<Date>,
+	>(
 		options?: O & NoInfer<ValidateCheck<O, Date>>,
 	) => Field<Date, O, never, T>
 	/**

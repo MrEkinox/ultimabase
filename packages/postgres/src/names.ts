@@ -40,8 +40,8 @@ export type Join = {
 
 const system: ReadonlyMap<string, readonly [string, Kind]> = new Map([
 	['id', ['id', 'id']],
-	['createdAt', ['created_at', 'date']],
-	['updatedAt', ['updated_at', 'date']],
+	['createdAt', ['created_at', 'dateTime']],
+	['updatedAt', ['updated_at', 'dateTime']],
 ])
 
 export function snake(name: string): string {

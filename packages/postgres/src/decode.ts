@@ -20,7 +20,8 @@ function decodeRow(
 		const inner = nested.include?.[name]
 		if (
 			typeof item === 'string' &&
-			(dates.has(name) || (field?.kind === 'scalar' && field.type === 'date'))
+			(dates.has(name) ||
+				(field?.kind === 'scalar' && field.type === 'dateTime'))
 		) {
 			row[name] = new Date(`${item}Z`)
 		} else if (inner !== undefined && field?.kind === 'many') {

@@ -26,7 +26,7 @@ const Deal = defineModel({
 		stage: f.enumOf(['b', 'a', 'c']),
 		amount: f.decimal({ precision: 8, scale: 2 }),
 		units: f.number({ integer: true, optional: true }),
-		on: f.date({ optional: true }),
+		on: f.dateTime({ optional: true }),
 		region: f.string({ optional: true }),
 		team: f.one(() => Team, { optional: true }),
 	}),
