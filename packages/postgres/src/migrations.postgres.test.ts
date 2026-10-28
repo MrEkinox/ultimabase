@@ -771,6 +771,8 @@ describe('a sync on postgres()', () => {
 		expect(widened[1]?.tries).toBe(
 			'limiting "Post.sizes" to S, M, L fails when a row holds another value',
 		)
+		const { snapshot } = (await migrations.stored()) ?? {}
+		expect(migrations.plan(snapshot, sizes(['S', 'M', 'L']))).toStrictEqual([])
 	})
 
 	it('tries a foreign key that moves on a column rows hold', () => {

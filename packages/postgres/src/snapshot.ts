@@ -276,7 +276,11 @@ const checkOf = (value: unknown): Check | undefined =>
 	isRecord(value) &&
 	typeof value['column'] === 'string' &&
 	isStrings(value['values'])
-		? { column: value['column'], values: value['values'] }
+		? {
+				column: value['column'],
+				values: value['values'],
+				...(value['list'] === true ? { list: true as const } : {}),
+			}
 		: undefined
 
 const foreignKeyOf = (value: unknown): ForeignKey | undefined =>
