@@ -218,6 +218,8 @@ Exit: an example with sign-up, sign-in and rules on `caller.user`.
 - [x] `upsert` (D-142).
 - [x] Decide `aggregate` (D-20, D-44): D-143.
 - [x] `aggregate` (D-143).
+- [x] Decide an OpenAPI document (D-125, D-129): D-144.
+- [ ] An OpenAPI document (D-144).
 - [ ] Documentation website (D-31).
 - [ ] A full audit of every package, its fixes merged, before publication.
 - [ ] Publication, after confirmation.

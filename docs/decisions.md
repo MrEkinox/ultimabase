@@ -8020,3 +8020,81 @@ const stats = await Order.aggregate(
 )
 // { _count: 3, _sum: { total: 120 }, _avg: { total: 40 }, _max: { createdAt: Date } }
 ```
+
+## D-144: An OpenAPI document
+
+Choice: completes D-129 and D-125's point 8.
+
+1. `rest` serves an OpenAPI 3.1 document at `GET {path}/openapi.json`,
+   `/api/openapi.json` by default, always, as GraphQL answers its
+   introspection. It is built once at startup and needs no caller.
+2. One document, as a caller other than Master sees the API, as the GraphQL
+   schema is: the models REST exposes, the readable fields, the page limits
+   (`maxTake`) and the functions. `info` gives `UltimaBase REST API` and the
+   version of `@ultimabase/rest`; `servers` gives the base path, so the paths
+   read `/posts`, `/posts/{id}`, `/functions/{name}`.
+3. Its schemas carry GraphQL's type names (D-129): `Post`, `PostWhereInput`,
+   `StringFilter`, `PostOrderByInput`, `PostWhereUniqueInput`,
+   `PostCreateInput`, `PostUpdateInput`, `PostConnection`, `PageInfo`, a
+   function's `…Input` and `…Output`. REST's own parameters add `PostSelect`
+   and `PostInclude`.
+4. `where` is typed per model, its filters and relation filters included;
+   `where`, `orderBy`, `select` and `include` are JSON parameters
+   (`content: application/json`), as REST reads them. A `@oneOf` input
+   takes exactly one key; inputs refuse unknown keys.
+5. A row lists the fields of the default shape as required, and its
+   relations as optional, since `include` adds them. `select` returns only
+   the fields it names, which its parameter says.
+6. A JSON field's schema is its validator's JSON Schema (D-125), on the
+   input side for a write and the output side for a row. The `$defs` it
+   exports become schemas named by their ids, `Input`-suffixed on the input
+   side, as GraphQL names them; two shapes under one name stop the startup.
+7. Every error answer is the `Error` schema: `code`, `message`, `details`,
+   `correlationId`.
+8. No security scheme: `rest` does not know who authenticates (D-129).
+9. No dependency in production. The tests check the document with
+   `@seriousme/openapi-schema-validator` and REST's real answers against it
+   with `ajv`, both development dependencies.
+10. Later: an interactive `/docs` page, in a plugin of its own.
+
+Why: a client generator, an API tester or a gateway reads an OpenAPI
+document, as GraphQL tools read the introspection; without one, every REST
+client types the API by hand. Built from the same JSON Schema as GraphQL,
+it cannot drift from the routes. Seen as a caller other than Master, it
+shows what any caller may learn, and nothing a rule hides.
+
+Rejected:
+
+- A document per caller: it would differ from GraphQL's single schema, and
+  a cache could not share it.
+- An option to turn it off: the GraphQL introspection has none; hiding a
+  model is the model's choice (D-129).
+- YAML: JSON needs no dependency, and every tool reads it.
+- Untyped `where` (`{ type: 'object' }`): a generated client would lose the
+  filters, which are most of the API.
+- A production dependency to build the document: it is the JSON Schema the
+  validators give, put together.
+- A security scheme from `auth`: a plugin writing into another's document
+  needs a hook no other need asks for yet.
+
+Dependencies (D-92): `@seriousme/openapi-schema-validator` checks a document
+against the OpenAPI 3.1 meta-schema, which is hundreds of lines of JSON
+Schema we would otherwise copy; `ajv` validates the answers against the
+documented schemas, which no Node API does. Both run in tests only.
+
+Example:
+
+```ts
+// Before: a REST client types its calls by hand
+type Post = { id: string; title: string; status: 'draft' | 'published' }
+const res = await fetch('/api/posts?where={"status":"published"}')
+const posts: Post[] = await res.json()
+// After: the types come from the document
+// npx openapi-typescript http://localhost:3000/api/openapi.json -o api.d.ts
+import createClient from 'openapi-fetch'
+import type { paths } from './api.d.ts'
+const api = createClient<paths>({ baseUrl: '/api' })
+const { data } = await api.GET('/posts', {
+	params: { query: { where: { status: { equals: 'published' } } } },
+})
+```
