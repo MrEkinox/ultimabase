@@ -45,6 +45,7 @@ export type IndexDefinition = {
 
 export type ModelDefinition = {
 	readonly name: string
+	readonly description: string | undefined
 	readonly dbName: string | undefined
 	readonly fields: ReadonlyMap<string, FieldDefinition>
 	readonly indexes: readonly IndexDefinition[]
@@ -114,11 +115,13 @@ export type Output =
 
 export type TypeDefinition = {
 	readonly name: string
+	readonly description: string | undefined
 	readonly fields: ReadonlyMap<string, Output>
 }
 
 export type FunctionDefinition = {
 	readonly name: string
+	readonly description: string | undefined
 	readonly query: boolean
 	readonly input: StandardSchema | undefined
 	readonly output: Output | undefined
@@ -156,6 +159,18 @@ export function nameOf(name: unknown, by: string): string {
 	return name
 }
 
+/** A `description` (D-150): a non-empty string, when given. */
+export function describedBy(
+	description: unknown,
+	of: string,
+): string | undefined {
+	if (description === undefined) return undefined
+	if (typeof description !== 'string' || description === '') {
+		throw new Error(`${of}: description is a non-empty string.`)
+	}
+	return description
+}
+
 /**
  * The `.with` of a model or a function: its rules, in one call, read when
  * they apply, so it returns the same value.
@@ -173,6 +188,7 @@ export const withOnce =
 
 /** A field value, keyed by its definition; `.with` takes its rules once. */
 export function build(definition: FieldDefinition): object {
+	describedBy(definition.options['description'], 'A field')
 	const field = {
 		with: (rules: object): object => {
 			if (definition.rules !== undefined) {

@@ -98,6 +98,7 @@ class Builder {
 		})
 		const built = new GraphQLObjectType<unknown, Context>({
 			name,
+			description: type.description,
 			fields: Object.fromEntries(fields),
 		})
 		this.#types.set(name, built)
@@ -120,6 +121,7 @@ class Builder {
 		const take = this.#take
 		return {
 			type,
+			description: fn.description,
 			args: given?.args ?? {},
 			resolve: async (_, args, context, info) => {
 				const sent = given?.flat === true ? args : args['input']

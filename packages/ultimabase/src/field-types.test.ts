@@ -145,10 +145,10 @@ describe('a field type definition', () => {
 		)
 	})
 
-	it('gives a builder taking default only', () => {
+	it('gives a builder taking default and description only', () => {
 		// @ts-expect-error: the stored field says whether it is optional.
 		expect(() => tagSet({ optional: true })).toThrow(
-			'A tags field takes default only, not optional: its stored field says the rest.',
+			'A tags field takes default and description only, not optional: its stored field says the rest.',
 		)
 	})
 

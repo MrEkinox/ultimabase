@@ -41,8 +41,11 @@ export type DefaultFunction<V> = (facts: {
 	readonly caller: Caller
 }) => V | undefined
 
+/** What a field means, which the transports show and nothing reads (D-150). */
+export type Described = { readonly description?: string }
+
 /** What shapes a scalar field (D-08, D-23, D-52, D-53). */
-export type ScalarOptions<V> = {
+export type ScalarOptions<V> = Described & {
 	readonly optional?: boolean
 	readonly unique?: boolean
 	readonly default?: V | DefaultFunction<V>
@@ -51,10 +54,10 @@ export type ScalarOptions<V> = {
 	readonly dbName?: string
 }
 
-/** A decimal's options: its digits are required (D-145). */
 /** What a calendar day's options carry in its type, filtered in order (D-150). */
 export type Day = { readonly [calendarDay]: true }
 
+/** A decimal's options: its digits are required (D-145). */
 export type DecimalOptions = ScalarOptions<string> & {
 	readonly precision: number
 	readonly scale: number
@@ -69,7 +72,7 @@ export type StringOptions = SingleOptions<string> & {
 }
 
 /** What shapes a list of strings, numbers or enum values (D-120, D-127). */
-export type ListOptions<V> = {
+export type ListOptions<V> = Described & {
 	readonly list: true
 	readonly default?: readonly V[] | DefaultFunction<readonly V[]>
 	readonly validate?: Validate<readonly V[]>
@@ -130,7 +133,7 @@ type ValidateCheck<O, V> = O extends {
 	: unknown
 
 /** What shapes a `json` field (D-53): its schema gives its types. */
-export type JsonOptions = {
+export type JsonOptions = Described & {
 	readonly optional?: boolean
 	// Any value; the function member types `caller`. JsonCheck checks it.
 	readonly default?: DefaultFunction<unknown> | {} | null
@@ -164,7 +167,7 @@ type JsonCheck<O> = (O extends {
 		: unknown)
 
 /** What shapes a `one` relation (D-37, D-54). */
-export type OneOptions = {
+export type OneOptions = Described & {
 	readonly optional?: boolean
 	/** The target's id (D-53). */
 	readonly default?:
@@ -185,7 +188,7 @@ type OneCheck<O> = O extends { readonly optional: true }
 			}
 		: unknown
 
-export type ManyOptions = { readonly inverse?: string }
+export type ManyOptions = Described & { readonly inverse?: string }
 
 /** An optional field may be written `null`. */
 type Written<V, O> = O extends { readonly optional: true } ? V | null : V

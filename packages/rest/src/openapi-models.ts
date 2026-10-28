@@ -12,7 +12,15 @@ import {
 	whereOf,
 } from './openapi-inputs.ts'
 import type { Schema } from './openapi.ts'
-import { arrayOf, failed, json, objectOf, orNull } from './openapi.ts'
+import {
+	arrayOf,
+	describe,
+	described,
+	failed,
+	json,
+	objectOf,
+	orNull,
+} from './openapi.ts'
 
 const upper = (name: string): string =>
 	name.charAt(0).toUpperCase() + name.slice(1)
@@ -85,7 +93,11 @@ export function rowOf(doc: Doc, model: string): Schema {
 				fields[field.name] = ruled ? orNull(many) : many
 			}
 		}
-		return objectOf(fields, required)
+		const { description, descriptions } = entry.exposed
+		return describe(
+			objectOf(described(fields, descriptions), required),
+			description,
+		)
 	})
 }
 

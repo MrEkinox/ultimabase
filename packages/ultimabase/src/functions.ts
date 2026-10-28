@@ -124,6 +124,7 @@ export function exposedFunctions(
 			rules === undefined ? undefined : Reflect.get(rules, name)
 		return Object.freeze({
 			name: record.name,
+			description: record.description,
 			plugin: functions.plugins.get(value),
 			query: record.query,
 			input,

@@ -49,10 +49,12 @@ export class DataTypes {
 		name: string,
 		values: readonly string[],
 		owner: string,
+		description?: string,
 	): GraphQLEnumType {
 		const build = () =>
 			new GraphQLEnumType({
 				name,
+				description,
 				values: Object.fromEntries(values.map((value) => [value, { value }])),
 			})
 		return this.#shaped(this.#enums, name, values.join(), owner, build)

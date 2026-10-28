@@ -100,6 +100,8 @@ function exposed(name: string, resolved: Resolved): readonly ExposedModel[] {
 			rules === undefined ? undefined : Reflect.get(rules, name)
 		return Object.freeze({
 			schema: schemaOf(resolved, info.name),
+			description: info.definition.description,
+			descriptions: descriptions(info),
 			uniques: info.uniques,
 			readRules: readRules(info),
 			required: required(info),
@@ -130,6 +132,16 @@ function required(info: ModelInfo): readonly string[] {
 				field.options['list'] !== true,
 		)
 		.map((field) => field.name)
+}
+
+/** Each field's `description` (D-150). */
+function descriptions(info: ModelInfo): ExposedModel['descriptions'] {
+	const found: { [field: string]: string } = {}
+	for (const field of info.fields.values()) {
+		const description = field.options['description']
+		if (typeof description === 'string') found[field.name] = description
+	}
+	return found
 }
 
 /** Each `json` field's schema (D-125); a function validate has no shape. */

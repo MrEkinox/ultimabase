@@ -8,7 +8,14 @@ import { decimalPattern } from 'ultimabase/internal'
 import type { Api, Entry } from './entries.ts'
 import { entryOf } from './entries.ts'
 import type { Components, Schema } from './openapi.ts'
-import { arrayOf, hoisted, objectOf, orNull, refTo } from './openapi.ts'
+import {
+	arrayOf,
+	described,
+	hoisted,
+	objectOf,
+	orNull,
+	refTo,
+} from './openapi.ts'
 
 type Scalar = Extract<SchemaField, { readonly kind: 'scalar' }>
 type Relation = Exclude<SchemaField, Scalar>
@@ -364,6 +371,6 @@ export function dataOf(
 		const required = creating
 			? entry.exposed.required.filter((each) => each !== without)
 			: []
-		return objectOf(fields, required)
+		return objectOf(described(fields, entry.exposed.descriptions), required)
 	})
 }

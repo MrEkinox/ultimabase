@@ -21,7 +21,7 @@ import { upper } from './names.ts'
 import { listRead } from './pages.ts'
 import { jsonOutput } from './json-fields.ts'
 import type { Args, Context, Registry } from './registry.ts'
-import { valueType } from './registry.ts'
+import { described, valueType } from './registry.ts'
 import { DateTime, JSONScalar } from './scalars.ts'
 
 const required = <T extends GraphQLObjectType>(type: T) =>
@@ -224,6 +224,7 @@ export function objectType(
 		() =>
 			new GraphQLObjectType<unknown, Context>({
 				name: model,
+				description: registry.entry(model).exposed.description,
 				fields: () => {
 					const entry = registry.entry(model)
 					const fields = scalarFields(registry, model)
@@ -239,7 +240,7 @@ export function objectType(
 							fields[field.name] = manyField(registry, model, field, ruled)
 						}
 					}
-					return fields
+					return described(entry, fields)
 				},
 			}),
 	)
@@ -256,7 +257,8 @@ export function deletedType(
 		() =>
 			new GraphQLObjectType<unknown, Context>({
 				name,
-				fields: () => scalarFields(registry, model),
+				fields: () =>
+					described(registry.entry(model), scalarFields(registry, model)),
 			}),
 	)
 }

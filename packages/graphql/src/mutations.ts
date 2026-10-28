@@ -22,7 +22,7 @@ import { jsonInput, plainData } from './json-fields.ts'
 import { upper } from './names.ts'
 import { deletedType, isMaster, objectType } from './outputs.ts'
 import type { Args, Context, Entry, Registry } from './registry.ts'
-import { as, valueType } from './registry.ts'
+import { as, described, valueType } from './registry.ts'
 import { JSONScalar } from './scalars.ts'
 import { selectOf } from './select.ts'
 
@@ -234,7 +234,7 @@ function dataInput(
 							type: required.has(field.name) ? new GraphQLNonNull(type) : type,
 						}
 					}
-					return fields
+					return described(registry.entry(model), fields)
 				},
 			}),
 	)

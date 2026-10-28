@@ -7,7 +7,6 @@ import { isNode, jsonSchemaOf } from '@ultimabase/http/internal'
 import type {
 	GraphQLEnumType,
 	GraphQLFieldConfigArgumentMap,
-	GraphQLInputType,
 	GraphQLNullableInputType,
 	GraphQLNullableOutputType,
 	GraphQLNullableType,
@@ -38,6 +37,11 @@ const isName = (value: unknown): value is string =>
 	typeof value === 'string' && named(value)
 const isValue = (value: unknown): value is string =>
 	isName(value) && !reserved.has(value)
+/** A node's description, as `.describe()` writes it (D-150). */
+const describedBy = (node: Node): string | undefined => {
+	const { description } = node
+	return typeof description === 'string' ? description : undefined
+}
 
 /** Where a node is: who a message names, a type's name, and the path. */
 export type Path = {
@@ -123,10 +127,15 @@ function refType<T extends GraphQLNullableType>(
 	return dataType(node, { ...path, name: id, suffix }, scope)
 }
 
-function enumType(values: readonly unknown[], path: Path, types: DataTypes) {
+function enumType(
+	node: Node,
+	values: readonly unknown[],
+	path: Path,
+	types: DataTypes,
+) {
 	const names = values.filter((value) => value !== null)
 	if (!names.every(isValue)) return GraphQLString
-	return types.enum(path.name, names, path.owner)
+	return types.enum(path.name, names, path.owner, describedBy(node))
 }
 
 function typeOf<T extends GraphQLNullableType>(
@@ -145,7 +154,8 @@ function typeOf<T extends GraphQLNullableType>(
 		return scope.leaf(type === 'integer' || whole ? GraphQLInt : GraphQLFloat)
 	}
 	if (only !== undefined) return scope.leaf(GraphQLString)
-	if (values.length > 0) return scope.leaf(enumType(values, path, scope.types))
+	if (values.length > 0)
+		return scope.leaf(enumType(node, values, path, scope.types))
 	if (type === 'string') {
 		const format = node['format']
 		return scope.leaf(
@@ -198,13 +208,18 @@ function dataType<T extends GraphQLNullableType>(
 	return { type: typeOf(types[0], node, path, scope), nullable }
 }
 
-/** Each property's type, and whether it always holds a value. */
+/** Each property's type, required when it always holds a value. */
+type Property<T extends GraphQLNullableType> = {
+	readonly type: T | GraphQLNonNull<T>
+	readonly description: string | undefined
+}
+
 function propertiesOf<T extends GraphQLNullableType>(
 	node: Node,
 	properties: Node,
 	path: Path,
 	scope: Scope<T>,
-): (readonly [string, T | GraphQLNonNull<T>])[] {
+): (readonly [string, Property<T>])[] {
 	const listed: readonly unknown[] = Array.isArray(node['required'])
 		? node['required']
 		: []
@@ -218,7 +233,13 @@ function propertiesOf<T extends GraphQLNullableType>(
 		const defaulted =
 			scope.side === 'input' && property['default'] !== undefined
 		const required = listed.includes(key) && !nullable && !defaulted
-		return [key, required ? new GraphQLNonNull(type) : type]
+		return [
+			key,
+			{
+				type: required ? new GraphQLNonNull(type) : type,
+				description: describedBy(property),
+			},
+		]
 	})
 }
 
@@ -230,13 +251,8 @@ const fieldsOf =
 		path: Path,
 		scope: Scope<T>,
 	) =>
-	(): { [key: string]: { type: T | GraphQLNonNull<T> } } =>
-		Object.fromEntries(
-			propertiesOf(node, properties, path, scope).map(([key, type]) => [
-				key,
-				{ type },
-			]),
-		)
+	(): { [key: string]: Property<T> } =>
+		Object.fromEntries(propertiesOf(node, properties, path, scope))
 
 const listOf = <T extends GraphQLNullableType>({ type, nullable }: Typed<T>) =>
 	new GraphQLList(nullable ? type : new GraphQLNonNull(type))
@@ -261,6 +277,7 @@ function scopesOf(root: Node, types: DataTypes, lenient: boolean) {
 				() =>
 					new GraphQLObjectType<unknown, Context>({
 						name: path.name,
+						description: describedBy(node),
 						fields: fieldsOf(node, properties, path, output),
 					}),
 			),
@@ -278,6 +295,7 @@ function scopesOf(root: Node, types: DataTypes, lenient: boolean) {
 				() =>
 					new GraphQLInputObjectType({
 						name,
+						description: describedBy(node),
 						fields: fieldsOf(node, properties, path, input),
 					}),
 			)
@@ -311,14 +329,15 @@ export function inputArgs(
 	const object = typeof ref === 'string' ? scope.defs[ref.slice(8)] : root
 	const properties = isNode(object) ? object['properties'] : undefined
 	if (isNode(object) && object['type'] === 'object' && isNode(properties)) {
-		const args = propertiesOf(object, properties, path, scope).map(
-			([key, type]): [string, { type: GraphQLInputType }] => [key, { type }],
-		)
+		const args = propertiesOf(object, properties, path, scope)
 		return { args: Object.fromEntries(args), flat: true }
 	}
 	const { type, nullable } = dataType(root, path, scope)
+	const description = describedBy(root)
 	return {
-		args: { input: { type: nullable ? type : new GraphQLNonNull(type) } },
+		args: {
+			input: { type: nullable ? type : new GraphQLNonNull(type), description },
+		},
 		flat: false,
 	}
 }

@@ -95,6 +95,9 @@ export interface ModelQueries {
 export interface ExposedModel<W = unknown> {
 	/** As the adapter receives it (D-73). */
 	readonly schema: SchemaModel
+	/** The model's `description` and its fields' (D-150). */
+	readonly description: string | undefined
+	readonly descriptions: { readonly [field: string]: string }
 	/** `id`, unique fields and unique indexes (D-52). */
 	readonly uniques: readonly (readonly string[])[]
 	/** Each field with a read rule, `private` when only Master reads it (D-44). */
@@ -138,12 +141,14 @@ export type ExposedOutput =
 /** A `defineType`, its fields in their order (D-109). */
 export interface ExposedType {
 	readonly name: string
+	readonly description: string | undefined
 	readonly fields: ReadonlyMap<string, ExposedOutput>
 }
 
 /** A function as transports read it (D-109). */
 export interface ExposedFunction<W = unknown> {
 	readonly name: string
+	readonly description: string | undefined
 	/** The plugin that gives it, `undefined` for the application's (D-113). */
 	readonly plugin: string | undefined
 	/** A query, which a transport may serve over GET; a mutation otherwise. */

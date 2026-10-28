@@ -4,6 +4,7 @@ import type { Codec, FieldDefinition, FieldOptions } from './definition.ts'
 import { build, fieldBuilders, fieldDefinitions } from './definition.ts'
 import type {
 	DefaultFunction,
+	Described,
 	Field,
 	FieldBuilders,
 	JsonValue,
@@ -47,7 +48,7 @@ export type FieldTypeDefinition<P extends string, S, V, X> = {
 }
 
 /** A field type's options: the stored field says whether it may be `null`. */
-export type FieldTypeOptions<I> = {
+export type FieldTypeOptions<I> = Described & {
 	readonly default?: I | DefaultFunction<I>
 }
 
@@ -104,7 +105,8 @@ function functionOf(
 }
 
 /**
- * A plugin's field type (D-122): its builder takes `default` only, and its
+ * A plugin's field type (D-122): its builder takes `default` and
+ * `description` only (D-150), and its
  * value is stored through `stored`, encoded after the hooks and decoded on
  * each read.
  */
@@ -139,9 +141,9 @@ export function defineFieldType(definition: {
 	})
 	return (options) => {
 		for (const option of Object.keys(options ?? {})) {
-			if (option !== 'default') {
+			if (option !== 'default' && option !== 'description') {
 				throw new Error(
-					`A ${plugin} field takes default only, not ${option}: its stored field says the rest.`,
+					`A ${plugin} field takes default and description only, not ${option}: its stored field says the rest.`,
 				)
 			}
 		}

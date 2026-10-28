@@ -110,6 +110,19 @@ export class Registry {
 	}
 }
 
+/** Each field's `description` (D-150), on the fields of a type or an input. */
+export function described<
+	C extends { readonly description?: string | null | undefined },
+>(entry: Entry, fields: { [field: string]: C }): { [field: string]: C } {
+	for (const [field, description] of Object.entries(
+		entry.exposed.descriptions,
+	)) {
+		const config = fields[field]
+		if (config !== undefined) fields[field] = { ...config, description }
+	}
+	return fields
+}
+
 export const scalarTypes: {
 	readonly [T in Exclude<Scalar['type'], 'enum'>]: GraphQLScalarType
 } = {

@@ -23,6 +23,24 @@ export const orNull = (schema: Schema): Schema =>
 
 export const arrayOf = (items: Schema): Schema => ({ type: 'array', items })
 
+/** `schema` with its `description`, when it has one (D-150). */
+export const describe = (
+	schema: Schema,
+	description: string | undefined,
+): Schema => (description === undefined ? schema : { ...schema, description })
+
+/** Each property with its field's `description` (D-150). */
+export const described = (
+	properties: { readonly [key: string]: Schema },
+	descriptions: { readonly [field: string]: string },
+): { readonly [key: string]: Schema } =>
+	Object.fromEntries(
+		Object.entries(properties).map(([key, schema]) => [
+			key,
+			describe(schema, descriptions[key]),
+		]),
+	)
+
 /** An object of these properties, and no other. */
 export const objectOf = (
 	properties: { readonly [key: string]: Schema },

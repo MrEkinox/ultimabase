@@ -8,7 +8,15 @@ import { getParams } from './functions.ts'
 import type { Doc } from './openapi-inputs.ts'
 import { rowOf } from './openapi-models.ts'
 import type { Schema } from './openapi.ts'
-import { arrayOf, failed, hoisted, json, objectOf, orNull } from './openapi.ts'
+import {
+	arrayOf,
+	describe,
+	failed,
+	hoisted,
+	json,
+	objectOf,
+	orNull,
+} from './openapi.ts'
 
 const upper = (name: string): string =>
 	name.charAt(0).toUpperCase() + name.slice(1)
@@ -25,14 +33,17 @@ function resolve(doc: Doc, schema: Schema): Schema {
 /** A `defineType`, each of its fields always given (D-109). */
 function typeOf(doc: Doc, type: ExposedType, owner: string): Schema {
 	return doc.components.ref(type.name, () =>
-		objectOf(
-			Object.fromEntries(
-				[...type.fields].map(([name, field]) => [
-					name,
-					outputOf(doc, field, owner, `${type.name}${upper(name)}`),
-				]),
+		describe(
+			objectOf(
+				Object.fromEntries(
+					[...type.fields].map(([name, field]) => [
+						name,
+						outputOf(doc, field, owner, `${type.name}${upper(name)}`),
+					]),
+				),
+				[...type.fields.keys()],
 			),
-			[...type.fields.keys()],
+			type.description,
 		),
 	)
 }
@@ -95,6 +106,7 @@ export function functionPaths(
 		const operation = {
 			operationId: doc.components.operation(name, owner, 'name'),
 			tags: ['functions'],
+			...(fn.description !== undefined && { description: fn.description }),
 			...(fn.query && given !== undefined && input !== undefined
 				? { parameters: paramsOf(doc, input, given) }
 				: {}),

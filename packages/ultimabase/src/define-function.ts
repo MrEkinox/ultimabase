@@ -4,6 +4,7 @@
 import { refused } from './access.ts'
 import type { FunctionDefinition, NamedOutput, Output } from './definition.ts'
 import {
+	describedBy,
 	functionDefinitions,
 	modelDefinitions,
 	nameOf,
@@ -63,9 +64,15 @@ function outputOf(value: unknown, where: string): Output {
 export function defineType<
 	const N extends string,
 	const F extends TypeFields,
->(definition: { readonly name: N; readonly fields: F }): ObjectType<N, F> {
+>(definition: {
+	readonly name: N
+	/** What the type means, which the transports show (D-150). */
+	readonly description?: string
+	readonly fields: F
+}): ObjectType<N, F> {
 	const { fields } = definition
 	const name = nameOf(definition.name, 'defineType')
+	const description = describedBy(definition.description, name)
 	if (!isObject(fields) || Object.keys(fields).length === 0) {
 		throw new Refused(`${name}: fields is an object of one output or more.`)
 	}
@@ -73,7 +80,7 @@ export function defineType<
 	for (const [field, value] of Object.entries(fields)) {
 		outputs.set(field, outputOf(value, `${name}.${field}`))
 	}
-	const recorded = { name, fields: outputs }
+	const recorded = { name, description, fields: outputs }
 	const type: object = Object.freeze({
 		name,
 		nullable: (): object => nullable({ kind: 'type', type: recorded }),
@@ -151,6 +158,8 @@ export function defineFunction<
 >(
 	definition: {
 		readonly name: N
+		/** What the function does, which the transports show (D-150). */
+		readonly description?: string
 		/** A query, served over GET too; a mutation by default (D-109). */
 		readonly query?: boolean
 		readonly use?: U
@@ -163,6 +172,7 @@ export function defineFunction<
 ): ServerFunction<N, I, O, U[number]['plugin'], FunctionWithKeys<U[number]>> {
 	const { query = false, input, output, run } = definition
 	const name = nameOf(definition.name, 'defineFunction')
+	const description = describedBy(definition.description, name)
 	if (typeof query !== 'boolean')
 		throw new Refused(`${name}: query is a boolean.`)
 	if (input !== undefined && standardOf(input) === undefined) {
@@ -172,6 +182,7 @@ export function defineFunction<
 		throw new Refused(`${name}: run is a function.`)
 	const record: FunctionDefinition = {
 		name,
+		description,
 		query,
 		input,
 		output:

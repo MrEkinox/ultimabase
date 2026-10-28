@@ -2,6 +2,7 @@
 // recorded for `start`, and the model value whose methods run the queries
 // (D-18) and its plugins' commands (D-89).
 import {
+	describedBy,
 	fieldBuilders,
 	modelDefinitions,
 	nameOf,
@@ -115,6 +116,8 @@ export function defineModel<
 	const X extends readonly IndexShape[] = [],
 >(definition: {
 	readonly name: N
+	/** What the model means, which the transports show (D-150). */
+	readonly description?: string
 	/** The stored table's or collection's name (D-63). */
 	readonly dbName?: string
 	readonly use?: U
@@ -124,6 +127,7 @@ export function defineModel<
 }): ModelOf<N, F, U, X> {
 	const model = createModel({
 		name: definition.name,
+		description: definition.description,
 		dbName: definition.dbName,
 		use: definition.use ?? [],
 		fields: definition.fields,
@@ -155,6 +159,7 @@ const operations: readonly Operation[] = [
 
 function createModel(definition: {
 	readonly name: unknown
+	readonly description: unknown
 	readonly dbName: unknown
 	readonly use: readonly unknown[]
 	readonly fields: Function
@@ -165,6 +170,7 @@ function createModel(definition: {
 	if (dbName !== undefined && typeof dbName !== 'string') {
 		throw new Refused(`${name}: dbName must be a string.`)
 	}
+	const description = describedBy(definition.description, name)
 	const built: unknown = Reflect.apply(definition.fields, undefined, [
 		fieldBuilders,
 	])
@@ -184,6 +190,7 @@ function createModel(definition: {
 	)
 	const record: ModelDefinition = {
 		name,
+		description,
 		dbName,
 		fields,
 		indexes: [
