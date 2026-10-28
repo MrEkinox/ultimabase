@@ -109,24 +109,51 @@ describe('a sign-up input', () => {
 					message: 'A password has 8 to 256 characters.',
 				},
 				{ path: ['input', 'name'], message: 'Required.' },
-				{ path: ['input', 'age'], message: 'Expected a number.' },
+				{ path: ['input', 'age'], message: 'Expected a finite number.' },
 				{ path: ['input', 'admin'], message: 'Expected a boolean.' },
-				{ path: ['input', 'born'], message: 'Expected a date.' },
+				{
+					path: ['input', 'born'],
+					message: 'Expected a Date of years 1 to 9999.',
+				},
 				{ path: ['input', 'role'], message: 'Expected one of reader, writer.' },
 				{
 					path: ['input', 'tags'],
-					message: 'Expected a list of non-empty strings.',
+					message:
+						'Expected a list of non-empty strings without a NUL or a lone surrogate.',
 				},
 			],
 		})
 		expect(signUp.validate({ input: { ...base, tags: 'ts' } })).toMatchObject({
-			issues: [{ message: 'Expected a list of non-empty strings.' }],
+			issues: [
+				{
+					message:
+						'Expected a list of non-empty strings without a NUL or a lone surrogate.',
+				},
+			],
 		})
 		expect(signUp.validate({ input: { ...base, born: 0 } })).toMatchObject({
-			issues: [{ message: 'Expected a date.' }],
+			issues: [{ message: 'Expected a Date of years 1 to 9999.' }],
 		})
 		expect(signUp.validate({ input: { ...base, password: 3 } })).toMatchObject({
 			issues: [{ message: 'Expected a string.' }],
+		})
+	})
+
+	it('refuses what the kernel would refuse on the write (D-139)', () => {
+		const read = signUp.validate({
+			input: { ...base, name: 'A\u0000da', born: '+010000-01-01T00:00:00Z' },
+		})
+		expect(read).toStrictEqual({
+			issues: [
+				{
+					path: ['input', 'name'],
+					message: 'Expected a string without a NUL or a lone surrogate.',
+				},
+				{
+					path: ['input', 'born'],
+					message: 'Expected a Date of years 1 to 9999.',
+				},
+			],
 		})
 	})
 
