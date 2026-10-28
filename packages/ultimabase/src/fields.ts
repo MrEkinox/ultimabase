@@ -339,7 +339,8 @@ export interface FieldBuilders<T> {
 	) => Field<JsonOutput<O>, O, never, T, JsonInput<O>, true>
 	/**
 	 * With `list: true`, a list of its values, `[]` when empty (D-127); a
-	 * `defineEnum` in place of its values is one type for each field (D-150).
+	 * `defineEnum` in place of its values is one type for each field (D-150),
+	 * and `Object.values(Status)` of a TypeScript string enum types it `Status`.
 	 */
 	readonly enumOf: <
 		const E extends string,
