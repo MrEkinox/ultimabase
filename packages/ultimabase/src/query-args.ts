@@ -239,12 +239,17 @@ export function plan(
 		)
 	}
 	if (kind === 'many') {
+		// `_relevance` ranks by the `_search` at the top of `where` (D-148).
+		const search: unknown = read.where?.['_search']
 		read.orderBy = orderBy(
 			models,
 			model,
 			given.get('orderBy') ?? [],
 			at('orderBy'),
 			scope,
+			isObject(search) && typeof search['search'] === 'string'
+				? search['search']
+				: undefined,
 		)
 		if (given.has('take')) read.take = integer(given.get('take'), at('take'))
 		if (given.has('skip')) read.skip = integer(given.get('skip'), at('skip'), 0)

@@ -60,6 +60,11 @@ export type DecimalOptions = ScalarOptions<string> & {
 /** A field's options without `list` (D-120, D-127). */
 export type SingleOptions<V> = ScalarOptions<V> & { readonly list?: false }
 
+/** A string's options: `search` adds it to its model's document (D-148). */
+export type StringOptions = SingleOptions<string> & {
+	readonly search?: boolean
+}
+
 /** What shapes a list of strings, numbers or enum values (D-120, D-127). */
 export type ListOptions<V> = {
 	readonly list: true
@@ -78,6 +83,9 @@ type ListCheck<O> = (O extends { readonly optional: unknown }
 	: unknown) &
 	(O extends { readonly unique: unknown }
 		? { readonly unique: { readonly error: 'a list cannot be unique' } }
+		: unknown) &
+	(O extends { readonly search: unknown }
+		? { readonly search: { readonly error: 'a list is not searched' } }
 		: unknown)
 type ListableCheck<O, V> = O extends { readonly list: true }
 	? ListCheck<O> & ValidateCheck<O, readonly V[]>
@@ -264,10 +272,12 @@ export interface Many<T, O, U = never> {
  * (D-12, D-57).
  */
 export interface FieldBuilders<T> {
-	/** With `list: true`, a list of strings, `[]` when empty (D-120). */
+	/**
+	 * With `list: true`, a list of strings, `[]` when empty (D-120); with
+	 * `search: true`, matched by its model's `_search` (D-148).
+	 */
 	readonly string: <
-		const O extends SingleOptions<string> | ListOptions<string> =
-			SingleOptions<string>,
+		const O extends StringOptions | ListOptions<string> = StringOptions,
 	>(
 		options?: O & NoInfer<ListableCheck<O, string>>,
 	) => Listable<string, O, T>

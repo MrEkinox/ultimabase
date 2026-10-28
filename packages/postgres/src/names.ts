@@ -74,8 +74,11 @@ export class Catalog {
 	readonly uniques: ReadonlyMap<string, { model: string; fields: string[] }>
 	/** Foreign key name → the relation a refusal reports (D-99). */
 	readonly foreignKeys: ReadonlyMap<string, Relation>
+	/** The text search configuration of `_search` (D-148). */
+	readonly language: string
 
-	constructor(schema: Schema) {
+	constructor(schema: Schema, language = 'simple') {
+		this.language = language
 		const tables = new Map<string, Table>()
 		for (const model of schema.models) {
 			const name = model.dbName ?? snake(model.name)

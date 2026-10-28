@@ -273,6 +273,28 @@ const insertSizes = (row: string) =>
 		`insert into post values (gen_random_uuid(), now(), now(), '${row}')`,
 	)
 
+/** An article whose `searched` fields are in its search (D-148). */
+const article = (searched: readonly string[]): Schema => ({
+	models: [
+		{
+			name: 'Article',
+			fields: ['title', 'body'].map((name) =>
+				scalar(name, 'string', {
+					optional: name === 'body',
+					...(searched.includes(name) ? { search: true } : {}),
+				}),
+			),
+			indexes: [],
+		},
+	],
+})
+
+/** The statements that add the article's search from `columns`. */
+const addSearch = (columns: string) => [
+	`alter table "article" add column "_search" tsvector generated always as (to_tsvector('simple'::regconfig, ${columns})) stored`,
+	'create index "article__search_idx" on "article" using gin ("_search")',
+]
+
 const changes = (statements: readonly { model: string; does: string }[]) =>
 	statements.map(({ model, does }) => `${model}: ${does}`)
 
@@ -754,6 +776,68 @@ describe('a sync on postgres()', () => {
 		expect(dropped.map(({ sql }) => sql)).toStrictEqual([
 			'drop index "book_heading_trgm"',
 		])
+	})
+
+	it('adds, remakes and drops the search column with its GIN index (D-148)', async () => {
+		const created = await sync(undefined, article(['title']))
+		expect(created.slice(1).map(({ sql }) => sql)).toStrictEqual(
+			addSearch(`coalesce("title", '')`),
+		)
+		await query(
+			inSchema(schema),
+			`insert into article values (gen_random_uuid(), now(), now(), 'Red Apples', 'pie')`,
+		)
+		const read = `select "_search"::text as words from article`
+		expect(await query(inSchema(schema), read)).toStrictEqual([
+			{ words: `'apples':2 'red':1` },
+		])
+		const remade = await sync(article(['title']), article(['title', 'body']))
+		expect(changes(remade)).toStrictEqual([
+			'Article: dropped the search on title',
+			'Article: added the search on title, body',
+			'Article: indexed the search on title, body',
+		])
+		expect(remade.slice(1).map(({ sql }) => sql)).toStrictEqual(
+			addSearch(`coalesce("title", '') || ' ' || coalesce("body", '')`),
+		)
+		expect(await query(inSchema(schema), read)).toStrictEqual([
+			{ words: `'apples':2 'pie':3 'red':1` },
+		])
+		const { tables } = parseSnapshot(
+			migrations.snapshot(article(['title', 'body'])),
+		)
+		expect(tables['article']?.search).toStrictEqual({
+			index: 'article__search_idx',
+			language: 'simple',
+			columns: ['title', 'body'],
+		})
+		const { snapshot } = (await migrations.stored()) ?? {}
+		expect(migrations.plan(snapshot, article(['title', 'body']))).toStrictEqual(
+			[],
+		)
+		const dropped = await sync(article(['title', 'body']), article([]))
+		expect(dropped.map(({ sql }) => sql)).toStrictEqual([
+			'alter table "article" drop column "_search"',
+		])
+	})
+
+	it('searches in the language it is given, which the server must have (D-148)', async () => {
+		await sync(undefined, article(['title']))
+		const { snapshot } = (await migrations.stored()) ?? {}
+		await adapter.stop()
+		adapter = postgres({ url: inSchema(schema), searchLanguage: 'english' })
+		await adapter.start({ models: [] }, logger)
+		const english = adapter.migrations?.plan(snapshot, article(['title']))
+		expect(english?.map(({ sql }) => sql)).toStrictEqual([
+			'alter table "article" drop column "_search"',
+			`alter table "article" add column "_search" tsvector generated always as (to_tsvector('english'::regconfig, coalesce("title", ''))) stored`,
+			'create index "article__search_idx" on "article" using gin ("_search")',
+		])
+		const unknown = postgres({ url: inSchema(schema), searchLanguage: 'nope' })
+		await expect(unknown.start({ models: [] }, logger)).rejects.toThrow(
+			"postgres() searches in 'nope', a text search configuration this server does not have.",
+		)
+		await unknown.stop()
 	})
 
 	it('limits each element of an enum list to its values (D-127)', async () => {

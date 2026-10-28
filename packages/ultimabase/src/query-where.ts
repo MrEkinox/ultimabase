@@ -5,6 +5,7 @@ import type { Condition, Filter, ScalarType } from './adapter.ts'
 import { decimalIssue, storedValue } from './decimal.ts'
 import { InvalidQuery } from './errors.ts'
 import type { FieldInfo, ModelInfo } from './schema.ts'
+import { searchedFields } from './query-search.ts'
 
 export type Models = ReadonlyMap<string, ModelInfo>
 
@@ -79,6 +80,11 @@ export function entries(value: unknown, path: string): [string, unknown][] {
 /** A string PostgreSQL stores as written: no NUL, no lone surrogate (D-94). */
 export const clean = (value: string): boolean =>
 	value.isWellFormed() && !value.includes('\0')
+
+const cleanText = (value: unknown, at: string): string => {
+	if (typeof value === 'string' && clean(value)) return value
+	throw new InvalidQuery(at, `${at} must be a clean string.`)
+}
 
 /** A date of years 1 to 9999 in UTC, which PostgreSQL reads back (D-94). */
 export const storedDate = (value: unknown): value is Date => {
@@ -216,10 +222,7 @@ function scalarCondition(
 			}
 			insensitive = true
 		} else if (text.has(operator)) {
-			if (typeof operand !== 'string' || !clean(operand)) {
-				throw new InvalidQuery(at, `${at} must be a clean string.`)
-			}
-			condition[operator] = operand
+			condition[operator] = cleanText(operand, at)
 		} else {
 			condition[operator] = check(operand, at, base.has(operator))
 		}
@@ -352,6 +355,10 @@ export function normalizeWhere(
 		const at = `${path}.${key}`
 		if (key === 'AND' || key === 'NOT' || key === 'OR') {
 			filter[key] = list(models, model, value, at, key !== 'OR', scope, stored)
+			continue
+		}
+		if (key === '_search' && searchedFields(model.fields.values()).length > 0) {
+			if (value !== undefined) filter[key] = { search: cleanText(value, at) }
 			continue
 		}
 		const field = model.fields.get(key)

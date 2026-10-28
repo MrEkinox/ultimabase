@@ -15,6 +15,7 @@ import type {
 import type { Exact } from './exact.ts'
 import type { AggregateArgs, Aggregates, IsDecimal } from './query-aggregate.ts'
 import type { ScalarFilter } from './query-filter.ts'
+import type { Relevance, SearchWhere } from './query-search.ts'
 import type { GroupByArgs, GroupField, Groups } from './query-group.ts'
 import type { Identity } from './rules.ts'
 import type { fieldType } from './symbols.ts'
@@ -86,14 +87,16 @@ interface Filters<W> {
 
 export type Where<F> = {
 	readonly [K in Exclude<keyof F, PluginKeys<F>>]?: FilterOf<F[K]> | undefined
-} & Filters<Where<F>>
+} & Filters<Where<F>> &
+	SearchWhere<F>
 
 /** A `beforeFind`'s filter: a plugin field's in its stored form (D-122). */
 export type FindWhere<F> = {
 	readonly [K in keyof F]?:
 		| (K extends PluginKeys<F> ? FilterOf<StoredOf<F[K]>> : FilterOf<F[K]>)
 		| undefined
-} & Filters<FindWhere<F>>
+} & Filters<FindWhere<F>> &
+	SearchWhere<F>
 
 /** A unique index's value: a scalar's, or a `one` relation's target id. */
 type IndexValue<X> =
@@ -133,14 +136,16 @@ type KeysOf<F, Kind> = {
 }[keyof F]
 
 /** A `one` relation sorts by its target's fields, a `many` by its count (D-134). */
-export type OrderBy<F> = {
+type Sorts<F> = {
 	readonly [K in SortedKeys<F> | keyof SystemFields]?: Direction | undefined
 } & {
 	readonly [K in KeysOf<F, 'one'>]?:
-		OrderBy<TargetFields<TargetOf<F[K]>>> | undefined
+		Sorts<TargetFields<TargetOf<F[K]>>> | undefined
 } & {
 	readonly [K in KeysOf<F, 'many'>]?: { readonly _count: Direction } | undefined
 }
+/** A read's sort, by its `_search`'s relevance too (D-148). */
+export type OrderBy<F> = Sorts<F> & Relevance<F>
 
 /** `_count`: every `many` relation, or the ones `select` names (D-134). */
 type Count<F> =

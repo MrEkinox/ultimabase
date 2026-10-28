@@ -35,7 +35,8 @@
 			"checks": {},
 			"indexes": {},
 			"trigrams": {},
-			"foreignKeys": {}
+			"foreignKeys": {},
+			"search": null
 		},
 		"task": {
 			"model": "Task",
@@ -87,7 +88,8 @@
 					"table": "project",
 					"cascade": false
 				}
-			}
+			},
+			"search": null
 		}
 	}
 }

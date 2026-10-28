@@ -234,6 +234,25 @@ describe('a list', () => {
 		expect(many.errors?.[0]?.message).toContain('CountOrderByInput')
 	})
 
+	it('searches and ranks a model with searched fields alone (D-148)', async () => {
+		const found = await ask(
+			`{ posts(where: { _search: "two or four" }, orderBy: [{ _relevance: desc }, { title: asc }]) {
+				edges { node { title } }
+			} }`,
+		)
+		expect(titles(found)).toStrictEqual(['four', 'two'])
+		const unranked = await ask(
+			`{ posts(orderBy: [{ _relevance: desc }]) { totalCount } }`,
+		)
+		expect(unranked.errors?.[0]?.message).toContain(
+			"sorts by the _search at the top of the read's where",
+		)
+		const none = await ask(
+			`{ users(where: { _search: "ada" }) { totalCount } }`,
+		)
+		expect(none.errors?.[0]?.message).toContain('UserWhereInput')
+	})
+
 	it('honors @skip, @include and named fragments', async () => {
 		const result = await ask(
 			`query ($skip: Boolean!) { user(where: { name: "bob" }) { ...Fields } }

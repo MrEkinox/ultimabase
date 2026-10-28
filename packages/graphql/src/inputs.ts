@@ -13,6 +13,7 @@ import {
 	GraphQLInputObjectType,
 	GraphQLList,
 	GraphQLNonNull,
+	GraphQLString,
 } from 'graphql'
 import type { SchemaField } from 'ultimabase'
 import { upper } from './names.ts'
@@ -24,6 +25,10 @@ import { DateTime } from './scalars.ts'
 /** An input object's value, as the kernel's arguments. */
 export const objectOf = (value: unknown): Args =>
 	typeof value === 'object' && value !== null ? { ...value } : {}
+
+/** Whether a model has fields its `_search` matches (D-148). */
+const searched = (fields: readonly SchemaField[]): boolean =>
+	fields.some((field) => field.kind === 'scalar' && field.search === true)
 
 const list = <T extends GraphQLNamedInputType>(
 	type: T,
@@ -165,6 +170,9 @@ export function whereInput(
 						updatedAt: { type: filter(registry, DateTime, ordered) },
 					}
 					const entry = registry.entry(model)
+					if (searched(readable(entry))) {
+						fields['_search'] = { type: GraphQLString }
+					}
 					for (const field of readable(entry)) {
 						// Only a beforeFind filters a plugin field (D-122).
 						if (entry.exposed.fieldTypes[field.name] !== undefined) continue
@@ -225,6 +233,8 @@ export function orderByInput(
 						updatedAt: { type },
 					}
 					const entry = registry.entry(model)
+					// The kernel refuses it in a relation's: a read ranks by its own search.
+					if (searched(readable(entry))) fields['_relevance'] = { type }
 					for (const field of readable(entry)) {
 						if (field.kind === 'one') {
 							fields[field.name] = {

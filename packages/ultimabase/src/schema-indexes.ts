@@ -1,6 +1,9 @@
-// The indexes of a model, checked against its fields (D-52, D-120, D-141).
+// The indexes of a model, checked against its fields (D-52, D-120, D-141),
+// and its searched fields (D-148).
 import type { SchemaField } from './adapter.ts'
 import type { IndexDefinition } from './definition.ts'
+import type { ModelInfo } from './schema.ts'
+import { readRules } from './access.ts'
 import { Refused } from './errors.ts'
 
 /** An index on a list is a GIN index of that list alone (D-120). */
@@ -59,5 +62,27 @@ export function checkIndexes(
 			}
 		}
 		if (index.contains === true) containsIndex(model, fields, index)
+	}
+}
+
+/**
+ * A searched field is the kernel's string, which every caller may read: a
+ * match would reveal a value its read rule hides (D-148).
+ */
+export function checkSearch(model: ModelInfo): void {
+	const rules = readRules(model)
+	for (const field of model.fields.values()) {
+		if (field.kind !== 'scalar' || field.search !== true) continue
+		const name = `${model.name}.${field.name}`
+		if (field.codec !== undefined) {
+			throw new Refused(
+				`${name}: a ${field.codec.plugin} field is not searched.`,
+			)
+		}
+		if (rules[field.name] !== undefined) {
+			throw new Refused(
+				`${name} has a read rule, and a search would reveal its value: remove search or the rule.`,
+			)
+		}
 	}
 }

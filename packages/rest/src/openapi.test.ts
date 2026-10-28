@@ -44,7 +44,7 @@ const Book = defineModel({
 	name: 'Book',
 	use: [rest()],
 	fields: (f) => ({
-		title: f.string(),
+		title: f.string({ search: true }),
 		status: f.enumOf(['draft', 'out']),
 		pages: f.number({ integer: true, optional: true }),
 		price: f.decimal({ precision: 6, scale: 2, optional: true }),
@@ -266,6 +266,14 @@ describe('the document', () => {
 			required: ['code'],
 			additionalProperties: false,
 		})
+		const properties = (name: string) =>
+			Object.keys(
+				at(document, 'components', 'schemas', name, 'properties') ?? {},
+			)
+		expect(properties('BookWhereInput')).toContain('_search')
+		expect(properties('BookOrderByInput')).toContain('_relevance')
+		expect(properties('WriterWhereInput')).not.toContain('_search')
+		expect(properties('WriterOrderByInput')).not.toContain('_relevance')
 		expect(at(document, 'paths', '/books', 'get', 'operationId')).toBe('books')
 		expect(at(document, 'paths', '/books/{id}', 'get', 'operationId')).toBe(
 			'book',
@@ -367,6 +375,13 @@ describe('its schemas', () => {
 			`/api/books${qs({ include: { writer: true }, totalCount: true, first: 1 })}`,
 		)
 		expect(check(list.body, ...answer('/books', 'get', 200))).toBe(true)
+		const searched = await call(
+			url,
+			'GET',
+			`/api/books${qs({ where: { _search: 'c' }, orderBy: { _relevance: 'desc' }, select: { title: true } })}`,
+		)
+		expect(at(searched.body, 'edges', 0, 'node')).toEqual({ title: 'c' })
+		expect(at(searched.body, 'edges', 1)).toBeUndefined()
 		const one = await call(
 			url,
 			'GET',

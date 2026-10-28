@@ -48,6 +48,8 @@ export type Options = {
 	/** The milliseconds a query waits for a connection, or to open one. */
 	readonly wait?: number
 	readonly log?: (event: LogEvent) => void
+	/** The text search configuration of every `_search`, `'simple'` by default (D-148). */
+	readonly searchLanguage?: string
 }
 
 /** What `postgres()` returns: an adapter that also runs raw SQL (D-137). */
@@ -198,7 +200,7 @@ export function foldWarning(ctype: string): string {
 }
 
 export function createAdapter(options: Options): Postgres {
-	const { url, connections = 10, wait = 10_000 } = options
+	const { url, connections = 10, wait = 10_000, searchLanguage } = options
 	const remote = url ? remoteOf(url) : undefined
 	let state: { db: Kysely<object>; catalog: Catalog } | undefined
 	/** A test file's schema, and whether a start created it. */
@@ -221,7 +223,7 @@ export function createAdapter(options: Options): Postgres {
 					`postgres() takes connections as a whole number, 1 or more, not ${connections}.`,
 				)
 			}
-			const catalog = new Catalog(schema)
+			const catalog = new Catalog(schema, searchLanguage)
 			// Refuses two things stored under one name before it connects.
 			const { tables } = snapshotOf(catalog)
 			const trigram = Object.values(tables).some(
@@ -257,13 +259,20 @@ export function createAdapter(options: Options): Postgres {
 					version: string
 					folds: boolean
 					ctype: string
+					language: boolean
 				}>`select current_setting('server_version_num') as version,
 					lower('É') = 'é' as folds,
-					(select datctype from pg_database where datname = current_database()) as ctype`.execute(
+					(select datctype from pg_database where datname = current_database()) as ctype,
+					exists (select from pg_ts_config as c join pg_namespace as n on n.oid = c.cfgnamespace where (c.cfgname = ${catalog.language} and pg_ts_config_is_visible(c.oid)) or n.nspname || '.' || c.cfgname = ${catalog.language}) as language`.execute(
 					db,
 				)
 				const [server] = rows
 				requireVersion(server?.version)
+				if (server?.language === false) {
+					throw new Refused(
+						`postgres() searches in '${catalog.language}', a text search configuration this server does not have.`,
+					)
+				}
 				if (server !== undefined && !server.folds) {
 					logger.warn(foldWarning(server.ctype))
 				}
@@ -300,9 +309,9 @@ export function createAdapter(options: Options): Postgres {
 			}
 		},
 		migrations: {
-			snapshot: (schema) => snapshotOf(new Catalog(schema)),
+			snapshot: (schema) => snapshotOf(new Catalog(schema, searchLanguage)),
 			plan: (from, schema) => {
-				const catalog = new Catalog(schema)
+				const catalog = new Catalog(schema, searchLanguage)
 				return plan(
 					from === undefined ? undefined : parseSnapshot(from),
 					snapshotOf(catalog),

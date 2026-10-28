@@ -1,14 +1,14 @@
 {
-	"ultimabase": 13140,
-	"testing": 3000,
+	"ultimabase": 13420,
+	"testing": 3090,
 	"soft-delete": 150,
-	"postgres": 3140,
+	"postgres": 3230,
 	"http": 940,
 	"graphql": 3130,
 	"auth": 650,
 	"password": 1560,
 	"roles": 330,
 	"acl": 350,
-	"rest": 2000,
+	"rest": 2010,
 	"create-ultimabase": 250
 }

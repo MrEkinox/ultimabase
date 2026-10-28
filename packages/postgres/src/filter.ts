@@ -95,6 +95,10 @@ export class Filters {
 				else parts.push(all(list.map((part) => sql`(not ${part})`)))
 			} else if (isFilters(condition)) {
 				throw new Error(`${model}.${key} takes a condition, not a list.`)
+			} else if (condition.search !== undefined) {
+				parts.push(
+					sql`${sql.id(alias, '_search')} @@ ${this.query(condition.search)}`,
+				)
 			} else {
 				const field = table.fields.get(key)
 				parts.push(
@@ -105,6 +109,11 @@ export class Filters {
 			}
 		}
 		return all(parts)
+	}
+
+	/** `text` as `websearch_to_tsquery` reads it, in the catalog's language (D-148). */
+	query(text: string): Sql {
+		return sql`websearch_to_tsquery(cast(${this.catalog.language} as regconfig), ${text})`
 	}
 
 	/** The rows of `field`'s target, aliased `to`, that `alias`'s row reaches. */

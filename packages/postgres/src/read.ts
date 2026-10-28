@@ -109,15 +109,19 @@ export class Compiler {
 
 	/**
 	 * A sort key: a column, through `one` relations, or a count; a row the
-	 * relations do not reach gives `null` (D-134).
+	 * relations do not reach gives `null` (D-134). A relevance is `ts_rank`'s
+	 * (D-148).
 	 */
 	key(
 		table: Table,
 		alias: string,
-		order: Pick<Order, 'field' | 'through' | 'count'>,
+		order: Pick<Order, 'field' | 'through' | 'count' | 'relevance'>,
 		steps: NonNullable<Order['through']> = order.through ?? [],
 	): Sql {
 		const [step, ...rest] = steps
+		if (order.relevance !== undefined) {
+			return sql`ts_rank(${sql.id(alias, '_search')}, ${this.filters.query(order.relevance)})`
+		}
 		if (step === undefined) {
 			if (order.count === undefined) {
 				return this.filters.column(table, alias, order.field)

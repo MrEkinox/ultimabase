@@ -35,6 +35,8 @@ export type SchemaField =
 			readonly scale?: number
 			readonly optional: boolean
 			readonly unique: boolean
+			/** A `string` in its model's document, which `_search` matches (D-148). */
+			readonly search?: true
 			readonly dbName?: string
 			/** Its default when it is a value, not a function (D-105). */
 			readonly default?: unknown
@@ -106,6 +108,11 @@ export type Condition = {
 	 * write's changes removed, a change before this one (D-102).
 	 */
 	readonly removedBy?: number
+	/**
+	 * Under the key `_search`: the row's searched fields match this text, in
+	 * PostgreSQL's `websearch_to_tsquery` syntax (D-148).
+	 */
+	readonly search?: string
 }
 
 /** A normalized `where`: `AND`, `OR` and `NOT` are lists (D-73). */
@@ -127,6 +134,8 @@ export type Order = {
 	readonly through?: readonly Step[]
 	/** `field` is a `many` relation: its rows this filter selects are counted (D-134). */
 	readonly count?: Filter
+	/** `field` is `_relevance`: how well the row matches this text (D-148). */
+	readonly relevance?: string
 }
 
 /** A relation to read with its rows; a `one` relation reads `where` only. */

@@ -13,9 +13,12 @@ import {
 	compareKeys,
 	compareValues,
 	copy,
+	lower,
 	same,
 	sortable,
+	text,
 } from './memory-values.ts'
+import { relevance, searches } from './memory-search.ts'
 import { modelOf } from './query-where.ts'
 
 /** A stored row; a stored `one` key is the target's id or `null`. */
@@ -114,6 +117,9 @@ export class Reader {
 		name: string,
 		condition: Condition,
 	): Truth {
+		if (condition.search !== undefined) {
+			return searches(this.fields.get(model), row, condition.search)
+		}
 		const field = this.field(model, name)
 		if (field === undefined || field.kind === 'scalar') {
 			return scalar(row[name] ?? null, condition, (value) =>
@@ -180,8 +186,11 @@ export class Reader {
 		return { model: on, row: at }
 	}
 
-	/** A row's sort key: a field, through `one` relations, or a count (D-134). */
+	/** A row's sort key: a field, through `one` relations, a count (D-134), a relevance (D-148). */
 	private key(model: string, row: StoredRow, order: Order): unknown {
+		if (order.relevance !== undefined) {
+			return relevance(this.fields.get(model), row, order.relevance)
+		}
 		const reached = this.reach(model, row, order.through)
 		if (reached === undefined) return null
 		const { model: on, row: at } = reached
@@ -324,23 +333,6 @@ function isFilters(
 ): value is readonly Filter[] {
 	return Array.isArray(value)
 }
-
-/** A text operator; the `where` check lets only strings reach it. */
-function text(
-	value: unknown,
-	operand: unknown,
-	test: (value: string, operand: string) => boolean,
-): boolean {
-	return (
-		typeof value === 'string' &&
-		typeof operand === 'string' &&
-		test(value, operand)
-	)
-}
-
-/** A string lowered for `mode: 'insensitive'` (D-140), any other value as is. */
-const lower = (value: unknown): unknown =>
-	typeof value === 'string' ? value.toLowerCase() : value
 
 function scalar(
 	stored: unknown,

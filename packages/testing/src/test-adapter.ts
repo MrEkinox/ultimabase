@@ -15,6 +15,7 @@ import { numbers } from './numbers.ts'
 import { projection } from './projection.ts'
 import { reads } from './reads.ts'
 import { roundTrips } from './round-trips.ts'
+import { searches } from './searches.ts'
 import { transactions } from './transactions.ts'
 import { writes } from './writes.ts'
 
@@ -45,6 +46,7 @@ export function testAdapter(
 		aggregates(create)
 		groups(create)
 		distincts(create)
+		searches(create)
 		projection(create)
 		transactions(create)
 		roundTrips(create, options.roundTrips)

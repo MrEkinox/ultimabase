@@ -83,3 +83,20 @@ export function copy(value: unknown): unknown {
 		? structuredClone(value)
 		: value
 }
+
+/** A text operator; the `where` check lets only strings reach it. */
+export function text(
+	value: unknown,
+	operand: unknown,
+	test: (value: string, operand: string) => boolean,
+): boolean {
+	return (
+		typeof value === 'string' &&
+		typeof operand === 'string' &&
+		test(value, operand)
+	)
+}
+
+/** A string lowered for `mode: 'insensitive'` (D-140), any other value as is. */
+export const lower = (value: unknown): unknown =>
+	typeof value === 'string' ? value.toLowerCase() : value

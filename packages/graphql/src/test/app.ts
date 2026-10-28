@@ -24,7 +24,7 @@ export const Post = defineModel({
 	name: 'Post',
 	use: [graphql()],
 	fields: (f) => ({
-		title: f.string(),
+		title: f.string({ search: true }),
 		slug: f.string(),
 		status: f.enumOf(['draft', 'published']),
 		views: f.number({ default: 0 }),

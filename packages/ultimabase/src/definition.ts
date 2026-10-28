@@ -191,7 +191,8 @@ function listable(
 	options: FieldOptions = {},
 	values?: readonly string[],
 ): object {
-	if (options['list'] === true) {
+	const list = options['list'] === true
+	if (list) {
 		if (options['optional'] !== undefined) {
 			throw new Error(
 				'A list is never null: left out, it is []. Remove optional.',
@@ -200,6 +201,9 @@ function listable(
 		if (options['unique'] !== undefined) {
 			throw new Error('A list cannot be unique.')
 		}
+	}
+	if (options['search'] !== undefined && (list || type !== 'string')) {
+		throw new Error('search takes a string field that is not a list.')
 	}
 	return build({
 		kind: 'scalar',

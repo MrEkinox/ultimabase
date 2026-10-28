@@ -12,7 +12,7 @@ import type {
 import type { Digits } from './decimal.ts'
 import { modelDefinitions } from './definition.ts'
 import { Refused } from './errors.ts'
-import { checkIndexes } from './schema-indexes.ts'
+import { checkIndexes, checkSearch } from './schema-indexes.ts'
 
 /**
  * A field as the kernel reads it: its schema, its builder's options, and a
@@ -170,6 +170,7 @@ function scalarField(name: string, field: FieldDefinition): FieldInfo {
 		...(field.type === 'decimal' ? digitsOf(field.options) : {}),
 		optional: field.options['optional'] === true,
 		unique: field.options['unique'] === true,
+		...(field.options['search'] === true ? { search: true } : {}),
 		...(typeof dbName === 'string' ? { dbName } : {}),
 		// `null` is no value: a create without one stores none either. A
 		// field type's default is a value code sees, never a column's (D-122).
@@ -346,6 +347,7 @@ export function resolve(
 			plugins: installedUses(definition, plugins),
 			owner: owners.get(model),
 		}
+		checkSearch(info)
 		models.set(model, info)
 		schemaModels.push({
 			name: model,

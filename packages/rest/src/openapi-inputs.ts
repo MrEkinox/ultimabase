@@ -19,6 +19,10 @@ export type Doc = { readonly components: Components; readonly api: Api }
 const upper = (name: string): string =>
 	name.charAt(0).toUpperCase() + name.slice(1)
 
+/** Whether a model has fields its `_search` matches (D-148). */
+const searched = (fields: readonly SchemaField[]): boolean =>
+	fields.some((field) => field.kind === 'scalar' && field.search === true)
+
 const id: Schema = { type: 'string' }
 const dateTime: Schema = { type: 'string', format: 'date-time' }
 
@@ -168,6 +172,7 @@ export function whereOf(doc: Doc, model: string): Schema {
 			createdAt: dates,
 			updatedAt: dates,
 		}
+		if (searched(readable(entry))) fields['_search'] = { type: 'string' }
 		for (const field of readable(entry)) {
 			// Only a beforeFind filters a plugin field (D-122).
 			if (entry.exposed.fieldTypes[field.name] !== undefined) continue
@@ -203,6 +208,8 @@ export function orderByOf(doc: Doc, model: string): Schema {
 			createdAt: order,
 			updatedAt: order,
 		}
+		// The kernel refuses it in a relation's: a read ranks by its own search.
+		if (searched(readable(entry))) fields['_relevance'] = order
 		for (const field of readable(entry)) {
 			if (field.kind === 'one')
 				fields[field.name] = orderByOf(doc, field.target)

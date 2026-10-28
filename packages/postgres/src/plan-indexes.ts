@@ -1,7 +1,9 @@
-// The indexes a plan drops and creates: B-tree, GIN on a list (D-120), and
-// trigram for `contains` (D-141).
+// The indexes a plan drops and creates: B-tree, GIN on a list (D-120),
+// trigram for `contains` (D-141), and the `_search` column with its GIN
+// index (D-148).
+import { literal } from './fills.ts'
 import type { Emit, Named } from './plan-parts.ts'
-import { added, changed, fields, id, list } from './plan-parts.ts'
+import { added, changed, fields, id, list, same } from './plan-parts.ts'
 import type { TableSnapshot } from './snapshot.ts'
 
 /** An index, by GIN on a list (D-120, D-127): its column's type decides. */
@@ -22,6 +24,7 @@ const indexesOf = (table: TableSnapshot | undefined): Named<Index> =>
 
 /** Drops the indexes of `from` that `to` changes. */
 export function dropIndexes(
+	name: string,
 	from: TableSnapshot,
 	to: TableSnapshot,
 	emit: Emit,
@@ -36,6 +39,13 @@ export function dropIndexes(
 		emit(
 			`drop index ${id(key)}`,
 			`dropped the contains index on ${fields(from, [column])}`,
+		)
+	}
+	// A generated column holds nothing of its own: a change makes it again.
+	if (from.search !== null && !same(from.search, to.search)) {
+		emit(
+			`alter table ${id(name)} drop column "_search"`,
+			`dropped the search on ${fields(from, from.search.columns)}`,
 		)
 	}
 }
@@ -71,4 +81,20 @@ export function addIndexes(
 			`indexed ${fields(table, [column])} for contains`,
 		)
 	}
+	const { search } = table
+	if (search === null || (was !== undefined && same(was.search, search))) {
+		return
+	}
+	const text = search.columns
+		.map((column) => `coalesce(${id(column)}, '')`)
+		.join(` || ' ' || `)
+	const searched = fields(table, search.columns)
+	emit(
+		`alter table ${id(name)} add column "_search" tsvector generated always as (to_tsvector(${literal(search.language)}::regconfig, ${text})) stored`,
+		`added the search on ${searched}`,
+	)
+	emit(
+		`create index ${id(search.index)} on ${id(name)} using gin ("_search")`,
+		`indexed the search on ${searched}`,
+	)
 }

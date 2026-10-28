@@ -40,6 +40,14 @@ export type TableSnapshot = {
 	/** A `contains` index's name → its column (D-141). */
 	readonly trigrams: { readonly [name: string]: string }
 	readonly foreignKeys: { readonly [name: string]: ForeignKey }
+	/** The `_search` column, from these columns, and its GIN index (D-148). */
+	readonly search: Search | null
+}
+
+export type Search = {
+	readonly index: string
+	readonly language: string
+	readonly columns: string[]
 }
 
 export type Snapshot = {
@@ -73,6 +81,7 @@ type Building = {
 	indexes: Record<string, string[]>
 	trigrams: Record<string, string>
 	foreignKeys: Record<string, ForeignKey>
+	search: Search | null
 }
 
 type Claim = (name: string, what: string) => string
@@ -109,6 +118,7 @@ function empty(
 		indexes: {},
 		trigrams: {},
 		foreignKeys: {},
+		search: null,
 	}
 }
 
@@ -207,6 +217,20 @@ export function snapshotOf(catalog: Catalog): Snapshot {
 			const columns = fields.map((name) => catalog.column(table, name))
 			index(claims, building, table.name, columns, on(model, fields))
 		}
+		const searched = table.model.fields.flatMap((given) =>
+			given.kind === 'scalar' && given.search === true
+				? [catalog.column(table, given.name)]
+				: [],
+		)
+		if (searched.length > 0) {
+			claims.columns('_search', `the search of ${model}`)
+			const name = constraint(`${table.name}__search_idx`)
+			building.search = {
+				index: schema(name, `the search index of ${model}`),
+				language: catalog.language,
+				columns: searched,
+			}
+		}
 		tables[table.name] = building
 	}
 	for (const [side, join] of catalog.joins) {
@@ -298,6 +322,21 @@ const foreignKeyOf = (value: unknown): ForeignKey | undefined =>
 const stringsOf = (value: unknown): string[] | undefined =>
 	isStrings(value) ? value : undefined
 
+/** A search, `null` for none, or `undefined` when it is neither. */
+const searchOf = (value: unknown): Search | null | undefined =>
+	value === null
+		? null
+		: isRecord(value) &&
+			  typeof value['index'] === 'string' &&
+			  typeof value['language'] === 'string' &&
+			  isStrings(value['columns'])
+			? {
+					index: value['index'],
+					language: value['language'],
+					columns: value['columns'],
+				}
+			: undefined
+
 function tableOf(value: unknown): TableSnapshot | undefined {
 	if (!isRecord(value)) return undefined
 	const key = value['primaryKey']
@@ -309,6 +348,7 @@ function tableOf(value: unknown): TableSnapshot | undefined {
 		typeof item === 'string' ? item : undefined,
 	)
 	const foreignKeys = entries(value['foreignKeys'], foreignKeyOf)
+	const search = searchOf(value['search'])
 	const model = value['model']
 	if (
 		typeof model !== 'string' ||
@@ -320,7 +360,8 @@ function tableOf(value: unknown): TableSnapshot | undefined {
 		checks === undefined ||
 		indexes === undefined ||
 		trigrams === undefined ||
-		foreignKeys === undefined
+		foreignKeys === undefined ||
+		search === undefined
 	) {
 		return undefined
 	}
@@ -334,6 +375,7 @@ function tableOf(value: unknown): TableSnapshot | undefined {
 		indexes,
 		trigrams,
 		foreignKeys,
+		search,
 	}
 }
 

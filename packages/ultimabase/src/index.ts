@@ -56,6 +56,7 @@ export type {
 	One,
 	ScalarOptions,
 	SingleOptions,
+	StringOptions,
 } from './fields.ts'
 export { defineFunction, defineType } from './define-function.ts'
 export type {

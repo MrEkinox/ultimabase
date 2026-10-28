@@ -68,7 +68,7 @@ function dropKeys(
 	for (const [key, { column: on }] of changed(from.checks, to.checks)) {
 		emit(drop(key), `dropped the values of ${fields(from, [on])}`)
 	}
-	dropIndexes(from, to, emit)
+	dropIndexes(name, from, to, emit)
 }
 
 /** Adds a column; a required one takes its fixed default in the rows. */
