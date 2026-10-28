@@ -21,23 +21,34 @@ import type { Store } from './transaction.ts'
 
 type Sort = NonNullable<AggregateRead['orderBy']>[number]
 
-/** The fields of `by`, each checked; a `one` relation the row stores. */
-function grouping({ model, scope }: Context, value: unknown): string[] {
-	const message = 'by must be a non-empty list of fields.'
+/**
+ * The fields of `by`, or of `distinct` (D-147), each checked; a `one`
+ * relation the row stores.
+ */
+function grouping(
+	{ model, scope }: Context,
+	value: unknown,
+	name: 'by' | 'distinct',
+): string[] {
+	const message = `${name} must be a non-empty list of fields.`
 	const list: readonly unknown[] = Array.isArray(value) ? value : []
-	if (list.length === 0) throw new InvalidQuery('by', message)
+	if (list.length === 0) throw new InvalidQuery(name, message)
+	const [verb, done] =
+		name === 'by'
+			? (['aggregates', 'grouped'] as const)
+			: (['compares', 'compared'] as const)
 	const fields: string[] = []
 	for (const [index, field] of list.entries()) {
-		const path = `by.${index}`
+		const path = `${name}.${index}`
 		if (typeof field !== 'string') throw new InvalidQuery(path, message)
 		if (fields.includes(field)) {
 			throw new InvalidQuery(path, `${path} repeats ${field}.`)
 		}
 		const known = model.fields.get(field)
 		if (known?.kind !== 'one' || !known.stored) {
-			typeOf(model, field, path, 'grouped')
+			typeOf(model, field, path, done)
 		}
-		scope.check(model, field, path, 'aggregates')
+		scope.check(model, field, path, verb)
 		fields.push(field)
 	}
 	return fields
@@ -50,6 +61,22 @@ async function keyOf(context: Context, field: string): Promise<GroupKey> {
 	const where = await context.scope.filter(known.target, false)
 	if (where === undefined) return { field }
 	return { field: 'id', through: [{ relation: field, where }] }
+}
+
+/**
+ * The keys of a `findMany`'s `distinct`, which a cursor cannot page (D-147):
+ * `undefined` without one.
+ */
+export async function distinctOf(
+	context: Context,
+	args: unknown,
+): Promise<GroupKey[] | undefined> {
+	if (!isObject(args) || args['distinct'] === undefined) return undefined
+	if (args['cursor'] !== undefined) {
+		throw new InvalidQuery('distinct', 'distinct cannot be used with cursor.')
+	}
+	const fields = grouping(context, args['distinct'], 'distinct')
+	return Promise.all(fields.map(async (field) => keyOf(context, field)))
 }
 
 /**
@@ -115,7 +142,7 @@ export async function groupBy(
 	const { model } = context
 	const allowed = ['by', 'where', 'orderBy', 'skip', 'take', ...keys]
 	const found = given(args, model.name, allowed, ['by'])
-	const by = grouping(context, found.get('by'))
+	const by = grouping(context, found.get('by'), 'by')
 	const asked = wanted(context, found)
 	const aggregates = [...asked]
 	const orderBy = sorts(context, found.get('orderBy') ?? {}, by, aggregates)

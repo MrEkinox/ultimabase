@@ -15,7 +15,7 @@ import type {
 import type { Exact } from './exact.ts'
 import type { AggregateArgs, Aggregates, IsDecimal } from './query-aggregate.ts'
 import type { ScalarFilter } from './query-filter.ts'
-import type { GroupByArgs, Groups } from './query-group.ts'
+import type { GroupByArgs, GroupField, Groups } from './query-group.ts'
 import type { Identity } from './rules.ts'
 import type { fieldType } from './symbols.ts'
 
@@ -254,13 +254,19 @@ export type Payload<F, A> = A extends { readonly select: infer S }
 
 export type QueryOptions = { readonly as?: Identity }
 
-/** `findMany` and `findFirst`; `cursor` starts at a unique target. */
-export type FindManyArgs<F, X = never> = Shaping<F> & {
+/** `findFirst`; `cursor` starts at a unique target. */
+export type FindFirstArgs<F, X = never> = Shaping<F> & {
 	readonly where?: Where<F> | undefined
 	readonly orderBy?: OrderBy<F> | readonly OrderBy<F>[] | undefined
 	readonly take?: number | undefined
 	readonly skip?: number | undefined
 	readonly cursor?: UniqueWhere<F, X> | undefined
+}
+
+/** `findMany`: `distinct` keeps one row per key, without `cursor` (D-147). */
+export type FindManyArgs<F, X = never, N = never> = FindFirstArgs<F, X> & {
+	readonly distinct?:
+		readonly [GroupField<F, N>, ...GroupField<F, N>[]] | undefined
 }
 
 export type FindUniqueArgs<F, X = never> = Shaping<F> & {
@@ -298,14 +304,14 @@ export type UpdateManyArgs<F> = {
 // Each query is a closure on its model: it can be passed around unbound.
 /** `N` is the model's name, which nested creation needs (D-128). */
 export interface Queries<F, X = never, N = never> {
-	findMany<const A extends FindManyArgs<F, X>>(
+	findMany<const A extends FindManyArgs<F, X, N>>(
 		this: void,
-		args?: A & NoInfer<Exact<A, FindManyArgs<F, X>>>,
+		args?: A & NoInfer<Exact<A, FindManyArgs<F, X, N>>>,
 		options?: QueryOptions,
 	): Promise<Payload<F, A>[]>
-	findFirst<const A extends FindManyArgs<F, X>>(
+	findFirst<const A extends FindFirstArgs<F, X>>(
 		this: void,
-		args?: A & NoInfer<Exact<A, FindManyArgs<F, X>>>,
+		args?: A & NoInfer<Exact<A, FindFirstArgs<F, X>>>,
 		options?: QueryOptions,
 	): Promise<Payload<F, A> | null>
 	findUnique<const A extends FindUniqueArgs<F, X>>(
@@ -314,9 +320,9 @@ export interface Queries<F, X = never, N = never> {
 		options?: QueryOptions,
 	): Promise<Payload<F, A> | null>
 	/** `findFirst`, which fails with `NOT_FOUND` rather than `null` (D-135). */
-	findFirstOrThrow<const A extends FindManyArgs<F, X>>(
+	findFirstOrThrow<const A extends FindFirstArgs<F, X>>(
 		this: void,
-		args?: A & NoInfer<Exact<A, FindManyArgs<F, X>>>,
+		args?: A & NoInfer<Exact<A, FindFirstArgs<F, X>>>,
 		options?: QueryOptions,
 	): Promise<Payload<F, A>>
 	/** `findUnique`, which fails with `NOT_FOUND` rather than `null` (D-135). */

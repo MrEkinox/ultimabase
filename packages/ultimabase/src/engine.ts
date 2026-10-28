@@ -14,7 +14,7 @@ import { QueryScope, planned } from './scope.ts'
 import type { Commit, Store } from './transaction.ts'
 import { reading, writing } from './transaction.ts'
 import { aggregate } from './aggregate.ts'
-import { groupBy } from './group-by.ts'
+import { distinctOf, groupBy } from './group-by.ts'
 import { removeMany } from './delete-many.ts'
 import { updateMany } from './update-many.ts'
 import { createMany } from './create-many.ts'
@@ -87,6 +87,7 @@ const manyKeys = new Set([
 	'skip',
 	'cursor',
 ])
+const distinctKeys = new Set([...manyKeys, 'distinct'])
 
 async function find(
 	context: Context,
@@ -95,15 +96,18 @@ async function find(
 	single: boolean,
 ): Promise<unknown> {
 	const { models, model, scope } = context
+	const keys = single ? manyKeys : distinctKeys
 	const { read, shape, readable } = await planned(scope, () => ({
-		...plan(models, model, args, '', 'many', manyKeys, scope),
+		...plan(models, model, args, '', 'many', keys, scope),
 		readable: scope.readable(model.name),
 	}))
 	const take = read.take ?? 1
 	const limited = single ? { ...read, take: Math.sign(take) } : read
+	const distinct = single ? undefined : await distinctOf(context, args)
 	const rows = await store.find({
 		model: model.name,
 		...restrict(limited, readable),
+		...(distinct && { distinct }),
 	})
 	if (single) return first(rows, shape, scope.access)
 	return rows.map((row) => project(row, shape, hiddenBy(scope.access)))

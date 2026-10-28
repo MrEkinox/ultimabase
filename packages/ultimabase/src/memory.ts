@@ -18,7 +18,7 @@ import type {
 import { CheckFailed, OutOfRange, UniqueViolation } from './adapter.ts'
 import type { Fields, Store, StoredRow } from './memory-read.ts'
 import { clone, Reader } from './memory-read.ts'
-import { grouped } from './memory-aggregate.ts'
+import { distinct, grouped } from './memory-aggregate.ts'
 import { copy } from './memory-values.ts'
 import { computed } from './number-update.ts'
 import { isInteger } from './query-where.ts'
@@ -54,7 +54,8 @@ class Draft {
 	}
 
 	find(read: Read): Row[] {
-		const rows = [...this.reader.table(read.model).values()]
+		const stored = [...this.reader.table(read.model).values()]
+		const rows = read.distinct ? distinct(this.reader, read, stored) : stored
 		return this.reader
 			.select(read.model, rows, read)
 			.map((row) => this.reader.output(read.model, row, read))

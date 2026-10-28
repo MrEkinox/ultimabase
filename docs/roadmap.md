@@ -225,7 +225,7 @@ Exit: an example with sign-up, sign-in and rules on `caller.user`.
 - [x] Decide `groupBy` (D-20, D-143): D-146.
 - [x] `groupBy` (D-146).
 - [x] Decide `distinct` (D-20, D-146): D-147.
-- [ ] `distinct` (D-147).
+- [x] `distinct` (D-147).
 - [ ] Documentation website (D-31).
 - [ ] A full audit of every package, its fixes merged, before publication.
 - [ ] Publication, after confirmation.

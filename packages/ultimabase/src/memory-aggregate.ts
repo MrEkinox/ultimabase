@@ -2,7 +2,13 @@
 // a sum, an average, a minimum or a maximum of no value is `null`.
 // A decimal's sum is exact, at its field's scale, its average that sum's
 // number divided (D-145). Groups are sorted as a read's rows (D-146).
-import type { Aggregate, AggregateRead, SchemaField } from './adapter.ts'
+import type {
+	Aggregate,
+	AggregateRead,
+	GroupKey,
+	Read,
+	SchemaField,
+} from './adapter.ts'
 import { sumDecimals } from './decimal.ts'
 import type { Reader, StoredRow } from './memory-read.ts'
 import { compareKeys, compareValues, copy, sortable } from './memory-values.ts'
@@ -49,6 +55,41 @@ function aggregated(
 	})
 }
 
+/** The values of a row's keys, a key through a relation its target's. */
+function keysOf(
+	reader: Reader,
+	model: string,
+	row: StoredRow,
+	by: readonly GroupKey[],
+): unknown[] {
+	return by.map(({ field, through }) => {
+		const reached = reader.reach(model, row, through)
+		return copy(reached?.row[field] ?? null)
+	})
+}
+
+/** Of the rows with the same keys, the first in `read`'s order (D-147). */
+export function distinct(
+	reader: Reader,
+	read: Read,
+	rows: StoredRow[],
+): StoredRow[] {
+	const { where, orderBy } = read
+	const sorted = reader.select(read.model, rows, {
+		...(where && { where }),
+		...(orderBy && { orderBy }),
+	})
+	const seen = new Set<string>()
+	return sorted.filter((row) => {
+		const id = JSON.stringify(
+			keysOf(reader, read.model, row, read.distinct ?? []),
+		)
+		if (seen.has(id)) return false
+		seen.add(id)
+		return true
+	})
+}
+
 /** Each group of `rows`: its keys' values, then its aggregates', in order. */
 export function grouped(
 	reader: Reader,
@@ -60,10 +101,7 @@ export function grouped(
 	const groups = new Map<string, { keys: unknown[]; rows: StoredRow[] }>()
 	if (by.length === 0) groups.set('[]', { keys: [], rows: [] })
 	for (const row of rows) {
-		const keys = by.map(({ field, through }) => {
-			const reached = reader.reach(read.model, row, through)
-			return copy(reached?.row[field] ?? null)
-		})
+		const keys = keysOf(reader, read.model, row, by)
 		const id = JSON.stringify(keys)
 		const group = groups.get(id) ?? { keys, rows: [] }
 		group.rows.push(row)

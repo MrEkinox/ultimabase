@@ -32,8 +32,8 @@ export const isInteger = (value: unknown): boolean =>
 	Number(value) >= -2_147_483_648 &&
 	Number(value) <= 2_147_483_647
 
-/** What a query does with a field: a read rule refuses each (D-44, D-143). */
-export type Verb = 'filters' | 'sorts' | 'aggregates'
+/** What a query does with a field: a read rule refuses each (D-44, D-143, D-147). */
+export type Verb = 'filters' | 'sorts' | 'aggregates' | 'compares'
 
 /** What a caller other than Master may filter on and see (D-86). */
 export type Scope = {

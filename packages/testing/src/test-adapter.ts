@@ -7,6 +7,7 @@ import { cases } from './cases.ts'
 import { cascades } from './cascades.ts'
 import { counts } from './counts.ts'
 import { decimals } from './decimals.ts'
+import { distincts } from './distincts.ts'
 import { groups } from './groups.ts'
 import { lists } from './lists.ts'
 import { nested } from './nested.ts'
@@ -43,6 +44,7 @@ export function testAdapter(
 		counts(create)
 		aggregates(create)
 		groups(create)
+		distincts(create)
 		projection(create)
 		transactions(create)
 		roundTrips(create, options.roundTrips)

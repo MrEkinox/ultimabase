@@ -153,6 +153,11 @@ export type Read = Nested & {
 	readonly model: string
 	/** Locks the root rows, in `id` order, until the transaction ends (D-99, D-133). */
 	readonly lock?: boolean
+	/**
+	 * Keeps, of the rows with the same keys, the first in `orderBy`'s order,
+	 * before `skip` and `take` (D-147).
+	 */
+	readonly distinct?: readonly GroupKey[]
 }
 
 export type CountRead = { readonly model: string; readonly where?: Filter }

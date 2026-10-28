@@ -7,6 +7,7 @@ import type { GroupByArgs } from './query-group.ts'
 import type {
 	CreateArgs,
 	CreateManyArgs,
+	FindFirstArgs,
 	FindManyArgs,
 	FindUniqueArgs,
 	Include,
@@ -29,10 +30,10 @@ type UniqueOf<M> = Parts<M>['unique']
 type NameOf<M> = Parts<M>['name']
 
 type Operations<F, X, N> = {
-	readonly findMany: FindManyArgs<F, X>
-	readonly findFirst: FindManyArgs<F, X>
+	readonly findMany: FindManyArgs<F, X, N>
+	readonly findFirst: FindFirstArgs<F, X>
 	readonly findUnique: FindUniqueArgs<F, X>
-	readonly findFirstOrThrow: FindManyArgs<F, X>
+	readonly findFirstOrThrow: FindFirstArgs<F, X>
 	readonly findUniqueOrThrow: FindUniqueArgs<F, X>
 	readonly count: { readonly where?: Where<F> }
 	readonly aggregate: AggregateArgs<F>

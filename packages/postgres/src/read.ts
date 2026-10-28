@@ -2,7 +2,14 @@
 // `many`, is a jsonb array the database builds, so relations at any depth
 // cost no extra round trip.
 import { sql } from 'kysely'
-import type { CountRead, Filter, Nested, Order, Read } from 'ultimabase'
+import type {
+	CountRead,
+	Filter,
+	GroupKey,
+	Nested,
+	Order,
+	Read,
+} from 'ultimabase'
 import type { Reach, Sql } from './filter.ts'
 import { all, Filters } from './filter.ts'
 import type { Catalog, Table } from './names.ts'
@@ -204,6 +211,31 @@ export class Compiler {
 }
 
 /**
+ * The `id` of the first row of each `distinct` key in `read`'s order
+ * (D-147), which the read then sorts and pages.
+ */
+function kept(
+	compiler: Compiler,
+	read: Read,
+	distinct: readonly GroupKey[],
+): Sql {
+	const { filters } = compiler
+	const table = compiler.catalog.table(read.model)
+	const alias = filters.alias()
+	const numbered = filters.alias()
+	filters.tables.add(table.name)
+	const keys = distinct.map((key) => compiler.key(table, alias, key))
+	const order = (read.orderBy ?? [{ field: 'id', direction: 'asc' }]).map(
+		(each) =>
+			sql`${compiler.key(table, alias, each)} ${sql.raw(each.direction)}`,
+	)
+	const where = filters.where(read.model, alias, read.where)
+	const id = filters.column(table, alias, 'id')
+	const rows = sql`select row_number() over (partition by ${sql.join(keys)} order by ${sql.join(order)}) as "n", ${id} as "i" from ${sql.id(table.name)} as ${sql.id(alias)} where ${where}`
+	return sql`select ${sql.id(numbered, 'i')} from (${rows}) as ${sql.id(numbered)} where ${sql.id(numbered, 'n')} = 1`
+}
+
+/**
  * `read`'s rows as one jsonb array, its root rows taken from `source`, by
  * default its table, and the tables it reaches besides; a locked read locks
  * the root rows its `where` selects, in `id` order (D-99, D-133).
@@ -220,9 +252,12 @@ export function compileRows(
 	const table = catalog.table(read.model)
 	const id = compiler.filters.column(table, alias, 'id')
 	// In `id` order, so two reads of the same rows wait instead of deadlocking (D-133).
-	const from = read.lock
+	let from = read.lock
 		? sql`(select * from ${name} as ${as} where ${compiler.filters.where(read.model, alias, read.where)} order by ${id} for update) as ${as}`
 		: sql`${name} as ${as}`
+	if (read.distinct !== undefined) {
+		from = sql`(select * from ${name} as ${as} where ${id} in (${kept(compiler, read, read.distinct)})) as ${as}`
+	}
 	const rows = compiler.list(read.model, read, { from, on: sql`true` }, alias)
 	return { rows, tables: compiler.filters.tables }
 }
