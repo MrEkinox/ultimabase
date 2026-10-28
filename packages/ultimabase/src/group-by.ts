@@ -1,6 +1,6 @@
 // `groupBy` (D-146): the rows the caller reads in groups of the same `by`
-// values, each with the aggregates of `aggregate` (D-143), sorted by its
-// keys or its aggregates, then paged.
+// values, each with the aggregates of `aggregate` (D-143), kept by its
+// `having` (D-149), sorted by its keys or its aggregates, then paged.
 import type { AggregateRead, GroupKey } from './adapter.ts'
 import type { Asked, Key } from './aggregate.ts'
 import {
@@ -12,6 +12,8 @@ import {
 	wanted,
 } from './aggregate.ts'
 import { InvalidQuery } from './errors.ts'
+import type { Position } from './group-having.ts'
+import { having } from './group-having.ts'
 import type { Context } from './query-context.ts'
 import { filtered, given } from './query-context.ts'
 import { integer } from './query-args.ts'
@@ -80,16 +82,12 @@ export async function distinctOf(
 }
 
 /**
- * The groups' sort: each key of `orderBy`, then the other fields of `by`.
- * An aggregate the result does not ask for is added to `aggregates`.
+ * An aggregate's position in a group's values, after its keys; one the
+ * result does not ask for is added to `aggregates`.
  */
-function sorts(
-	context: Context,
-	value: unknown,
-	by: readonly string[],
-	aggregates: Asked[],
-): Sort[] {
-	const at = (asked: Asked): number => {
+const positions =
+	(by: readonly string[], aggregates: Asked[]): Position =>
+	(asked) => {
 		const index = aggregates.findIndex(
 			(each) => each.key === asked.key && each.field === asked.field,
 		)
@@ -97,6 +95,14 @@ function sorts(
 		aggregates.push(asked)
 		return by.length + aggregates.length - 1
 	}
+
+/** The groups' sort: each key of `orderBy`, then the other fields of `by`. */
+function sorts(
+	context: Context,
+	value: unknown,
+	by: readonly string[],
+	at: Position,
+): Sort[] {
 	const parts: readonly unknown[] = Array.isArray(value) ? value : [value]
 	const sorted: Sort[] = []
 	for (const [index, part] of parts.entries()) {
@@ -142,12 +148,16 @@ export async function groupBy(
 	args: unknown,
 ): Promise<unknown> {
 	const { model } = context
-	const allowed = ['by', 'where', 'orderBy', 'skip', 'take', ...keys]
+	const allowed = ['by', 'where', 'having', 'orderBy', 'skip', 'take', ...keys]
 	const found = given(args, model.name, allowed, ['by'])
 	const by = grouping(context, found.get('by'), 'by')
 	const asked = wanted(context, found)
 	const aggregates = [...asked]
-	const orderBy = sorts(context, found.get('orderBy') ?? {}, by, aggregates)
+	const position = positions(by, aggregates)
+	const orderBy = sorts(context, found.get('orderBy') ?? {}, by, position)
+	const filter = found.has('having')
+		? having(context, found.get('having'), by, position)
+		: undefined
 	const page: { skip?: number; take?: number } = {}
 	if (found.has('skip')) page.skip = integer(found.get('skip'), 'skip', 0)
 	if (found.has('take')) page.take = integer(found.get('take'), 'take', 0)
@@ -160,6 +170,7 @@ export async function groupBy(
 		...(where && { where }),
 		aggregates: aggregates.map(toAggregate),
 		by: groupKeys,
+		...(filter && { having: filter }),
 		orderBy,
 		...page,
 	})

@@ -51,7 +51,7 @@ export function clone(store: Store): Store {
 /** Each model's fields by name. */
 export type Fields = ReadonlyMap<string, ReadonlyMap<string, SchemaField>>
 
-type Truth = boolean | null
+export type Truth = boolean | null
 
 export class Reader {
 	readonly store: Store
@@ -314,27 +314,27 @@ export class Reader {
 	}
 }
 
-function and(truths: readonly Truth[]): Truth {
+export function and(truths: readonly Truth[]): Truth {
 	if (truths.includes(false)) return false
 	return truths.includes(null) ? null : true
 }
 
-function or(truths: readonly Truth[]): Truth {
+export function or(truths: readonly Truth[]): Truth {
 	if (truths.includes(true)) return true
 	return truths.includes(null) ? null : false
 }
 
-function not(truth: Truth): Truth {
+export function not(truth: Truth): Truth {
 	return truth === null ? null : !truth
 }
 
-function isFilters(
+export function isFilters(
 	value: Condition | readonly Filter[],
 ): value is readonly Filter[] {
 	return Array.isArray(value)
 }
 
-function scalar(
+export function scalar(
 	stored: unknown,
 	condition: Condition,
 	sorted: (value: unknown) => unknown,

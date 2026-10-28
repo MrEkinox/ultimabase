@@ -1,12 +1,13 @@
 // An aggregate as one statement (D-143), in groups (D-146): an inner select
-// gives each row's keys and aggregated columns, the outer one groups, sorts
-// and pages them. Each group's values are a jsonb array: a sum and an
-// average as float8, a date in UTC as a read returns it, a decimal as text,
-// exact (D-145).
+// gives each row's keys and aggregated columns, the outer one groups, keeps
+// those `having` passes (D-149), sorts and pages them. Each group's values
+// are a jsonb array: a sum and an average as float8, a date in UTC as a read
+// returns it, a decimal as text, exact (D-145).
 import type { QueryExecutorProvider } from 'kysely'
 import { sql } from 'kysely'
-import type { Aggregate, AggregateRead, GroupKey } from 'ultimabase'
+import type { Aggregate, AggregateRead, Filter, GroupKey } from 'ultimabase'
 import type { Sql } from './filter.ts'
+import { all, any, isFilters } from './filter.ts'
 import type { Catalog, Kind, Table } from './names.ts'
 import { Compiler, sorted } from './read.ts'
 
@@ -96,18 +97,46 @@ export function compileAggregate(catalog: Catalog, read: AggregateRead): Sql {
 	const where = filters.where(read.model, alias, read.where)
 	const rows = sql`(select ${sql.join([sql`1`, ...inner])} from ${sql.id(table.name)} as ${sql.id(alias)} where ${where}) as ${sql.id(grouped)}`
 	const group = by.length === 0 ? sql`` : sql` group by ${sql.join(keys)}`
-	const sorts = (read.orderBy ?? []).map((each) => {
-		const found = aggregates[each.at - by.length]
-		const key =
-			found === undefined
-				? sql.id(grouped, `k${each.at}`)
-				: computed(found.each, found.column)
-		return sorted(key, each)
-	})
+	// A key or an aggregate, by its position.
+	const at = (index: number): { readonly item: Sql; readonly kind: Kind } => {
+		const found = aggregates[index - by.length]
+		const key = by[index]
+		if (found === undefined) {
+			if (key === undefined) throw new Error(`No value at ${index}.`)
+			const kind = kindOf(catalog, table, key)
+			return { item: sql.id(grouped, `k${index}`), kind }
+		}
+		const { operation } = found.each
+		const kind =
+			operation === 'min' || operation === 'max'
+				? (found.kind ?? 'number')
+				: operation === 'sum' && found.kind === 'decimal'
+					? 'decimal'
+					: 'number'
+		return { item: computed(found.each, found.column), kind }
+	}
+	const kept = (filter: Filter): Sql =>
+		all(Object.entries(filter).map(([key, part]) => condition(key, part)))
+	function condition(key: string, part: Filter[string]): Sql {
+		if (part === undefined) return sql`true`
+		if (!isFilters(part)) {
+			const { item, kind } = at(Number(key))
+			return filters.compare(item, kind, part)
+		}
+		const list = part.map((each) => kept(each))
+		if (key === 'AND') return all(list)
+		if (key === 'OR') return any(list)
+		return all(list.map((each) => sql`(not ${each})`))
+	}
+	const having =
+		read.having === undefined ? sql`` : sql` having ${kept(read.having)}`
+	const sorts = (read.orderBy ?? []).map((each) =>
+		sorted(at(each.at).item, each),
+	)
 	const order = sorts.length === 0 ? sql`` : sql` order by ${sql.join(sorts)}`
 	const limit = read.take === undefined ? sql`` : sql` limit ${read.take}`
 	const offset = read.skip === undefined ? sql`` : sql` offset ${read.skip}`
-	return sql`select ${sql.join(arrays, sql` || `)} as "values" from ${rows}${group}${order}${limit}${offset}`
+	return sql`select ${sql.join(arrays, sql` || `)} as "values" from ${rows}${group}${having}${order}${limit}${offset}`
 }
 
 /** Each group's values, a date back as a `Date`. */

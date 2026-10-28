@@ -144,6 +144,8 @@ export type Order = {
 	readonly relevance?: string
 }
 
+export type Sort = Pick<Order, 'direction' | 'nulls'>
+
 /** A relation to read with its rows; a `one` relation reads `where` only. */
 export type Nested = {
 	readonly where?: Filter
@@ -198,12 +200,9 @@ export type GroupKey = {
 export type AggregateRead = CountRead & {
 	readonly aggregates: readonly Aggregate[]
 	readonly by?: readonly GroupKey[]
-	/** `at` counts the group's keys, then its aggregates. */
-	readonly orderBy?: readonly {
-		readonly at: number
-		readonly direction: 'asc' | 'desc'
-		readonly nulls?: 'first' | 'last'
-	}[]
+	/** A position, `orderBy`'s `at` or a `having` key (D-149): keys, then aggregates. */
+	readonly having?: Filter
+	readonly orderBy?: readonly ({ readonly at: number } & Sort)[]
 	readonly skip?: number
 	readonly take?: number
 }

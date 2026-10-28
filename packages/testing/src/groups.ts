@@ -1,6 +1,7 @@
 // Groups in the contract (D-146): rows with no value form one group, a
 // relation is its target's id or `null` when the caller cannot read it, and
-// the order is total, keys ascending after `orderBy`, nulls last.
+// the order is total, keys ascending after `orderBy`, nulls last; `having`
+// keeps the groups by their values and aggregates (D-149).
 import type { Adapter, Identity } from 'ultimabase'
 import { defineModel, master } from 'ultimabase'
 import { beforeEach, describe, expect, it } from 'vitest'
@@ -32,6 +33,9 @@ const Deal = defineModel({
 }).with({ access: { read: () => true } })
 
 const day = (n: number): Date => new Date(Date.UTC(2026, 4, n, 12, 30))
+const stages = async (
+	kept: Promise<readonly { readonly stage: string }[]>,
+): Promise<string[]> => (await kept).map((group) => group.stage)
 
 export function groups(create: () => Adapter): void {
 	describe('groups', () => {
@@ -117,6 +121,57 @@ export function groups(create: () => Adapter): void {
 			expect(await Deal.groupBy(args, user)).toStrictEqual([
 				{ team: { id: red }, _count: 3 },
 				{ team: null, _count: 2 },
+			])
+		})
+
+		it('keeps the groups having passes, by their values and aggregates', async () => {
+			const by = ['stage'] as const
+			const sum = { amount: { _sum: { gt: '5' } } } as const
+			expect(await stages(Deal.groupBy({ by, having: sum }, M))).toEqual([
+				'b',
+				'c',
+			])
+			const counts = {
+				stage: { in: ['a', 'b'] },
+				amount: { _count: 2 },
+			} as const
+			expect(await stages(Deal.groupBy({ by, having: counts }, M))).toEqual([
+				'a',
+				'b',
+			])
+			const average = { units: { _avg: { lt: 3 } } } as const
+			expect(await stages(Deal.groupBy({ by, having: average }, M))).toEqual([
+				'a',
+				'c',
+			])
+			const least = { on: { _min: { gte: day(2) } } } as const
+			expect(await stages(Deal.groupBy({ by, having: least }, M))).toEqual([
+				'b',
+			])
+			const either = {
+				OR: [{ stage: 'c' }, { units: { _max: { gte: 4 } } }],
+			} as const
+			expect(await stages(Deal.groupBy({ by, having: either }, M))).toEqual([
+				'b',
+				'c',
+			])
+			const dated = { NOT: { on: { _min: { equals: null } } } } as const
+			expect(await stages(Deal.groupBy({ by, having: dated }, M))).toEqual([
+				'a',
+				'b',
+			])
+			const counted = await Deal.groupBy(
+				{
+					by: ['stage', 'region'],
+					_count: true,
+					having: { region: { not: null }, amount: { _count: { gt: 1 } } },
+					orderBy: { _sum: { amount: 'desc' } },
+				},
+				M,
+			)
+			expect(counted).toStrictEqual([
+				{ stage: 'b', region: 's', _count: 2 },
+				{ stage: 'a', region: 'n', _count: 2 },
 			])
 		})
 

@@ -6,7 +6,7 @@ import type { fieldType } from './symbols.ts'
 
 /** A model's scalars that an aggregate takes: no list, json or plugin field. */
 export type Aggregated<F> = SortedKeys<F> | keyof SystemFields
-type ValueOf<F, K> = K extends keyof SystemFields
+export type ValueOf<F, K> = K extends keyof SystemFields
 	? SystemFields[K]
 	: K extends keyof F
 		? NonNullable<StoredValue<F[K]>>
@@ -21,7 +21,7 @@ export type IsDecimal<X> = X extends {
 }
 	? true
 	: false
-type DecimalKeys<F> = {
+export type DecimalKeys<F> = {
 	[K in Aggregated<F>]: K extends keyof F
 		? IsDecimal<F[K]> extends true
 			? K

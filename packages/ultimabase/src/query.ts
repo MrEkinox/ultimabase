@@ -18,6 +18,7 @@ import type { ListFilter, ScalarFilter } from './query-filter.ts'
 import type { Relevance, SearchWhere } from './query-search.ts'
 import type {
 	GroupByArgs,
+	GroupChecked,
 	GroupField,
 	Groups,
 	SortOrder,
@@ -353,7 +354,7 @@ export interface Queries<F, X = never, N = never> {
 	/** Of the rows the caller reads, by `by`; server code only (D-146). */
 	groupBy<const A extends GroupByArgs<F, N>>(
 		this: void,
-		args: A & NoInfer<Exact<A, GroupByArgs<F, N, A['by'][number]>>>,
+		args: A & NoInfer<GroupChecked<F, N, A>>,
 		options?: QueryOptions,
 	): Promise<Groups<F, N, A>>
 	create<const A extends CreateArgs<F, N>>(

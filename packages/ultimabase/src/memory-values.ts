@@ -1,5 +1,5 @@
 // How `memory()` compares and copies values, as PostgreSQL would (D-94).
-import type { Order, SchemaField } from './adapter.ts'
+import type { SchemaField, Sort } from './adapter.ts'
 import { unitsOf } from './decimal.ts'
 import { isObject } from './query-where.ts'
 
@@ -63,7 +63,7 @@ export function compareValues(a: unknown, b: unknown): number {
 export function compareKeys(
 	a: readonly unknown[],
 	b: readonly unknown[],
-	order: readonly Pick<Order, 'direction' | 'nulls'>[],
+	order: readonly Sort[],
 ): number {
 	for (const [at, { direction, nulls }] of order.entries()) {
 		const left = a[at] ?? null

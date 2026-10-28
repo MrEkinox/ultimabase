@@ -9,6 +9,7 @@ import type {
 	Nested,
 	Order,
 	Read,
+	Sort,
 } from 'ultimabase'
 import type { Reach, Sql } from './filter.ts'
 import { all, Filters } from './filter.ts'
@@ -35,14 +36,11 @@ const flip = (order: Order): Order => ({
 })
 
 /** Whether `null` sorts after every value (D-149). */
-const nullsLast = ({ direction, nulls }: Pick<Order, 'direction' | 'nulls'>) =>
+const nullsLast = ({ direction, nulls }: Sort) =>
 	(nulls ?? (direction === 'asc' ? 'last' : 'first')) === 'last'
 
 /** A sort key in `ORDER BY`; PostgreSQL's default `null`s are D-94's. */
-export const sorted = (
-	key: Sql,
-	{ direction, nulls }: Pick<Order, 'direction' | 'nulls'>,
-): Sql =>
+export const sorted = (key: Sql, { direction, nulls }: Sort): Sql =>
 	sql`${key} ${sql.raw(direction)}${nulls ? sql.raw(` nulls ${nulls}`) : sql``}`
 
 export class Compiler {

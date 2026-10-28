@@ -1,12 +1,18 @@
-// `groupBy`'s arguments and result (D-146): `orderBy` names the fields of
-// `by` or an aggregate, and each group has the keys the arguments ask for.
+// `groupBy`'s arguments and result (D-146): `having` (D-149) and `orderBy`
+// name the fields of `by` or an aggregate, and each group has the keys the
+// arguments ask for.
 import type {
 	Aggregated,
 	AggregateArgs,
 	Aggregates,
+	DecimalKeys,
+	IsDecimal,
 	KeysWith,
 	Summed,
+	ValueOf,
 } from './query-aggregate.ts'
+import type { Exact } from './exact.ts'
+import type { ScalarFilter } from './query-filter.ts'
 import type { RecordOf, StoredRecord } from './record.ts'
 
 type Direction = 'asc' | 'desc'
@@ -42,17 +48,75 @@ type GroupOrderBy<F, N, B extends PropertyKey> = {
 	readonly _max?: Sorted<KeysWith<F, number | string | Date>> | undefined
 }
 
+/** A value's filter: an id's has no `mode`, a decimal's compares (D-145). */
+type ValueFilter<F, K> = K extends 'id'
+	? Omit<ScalarFilter<string>, 'mode'>
+	: ScalarFilter<ValueOf<F, K>, K extends keyof F ? IsDecimal<F[K]> : false>
+type Filtered<V, Decimal = false> = V | ScalarFilter<V, Decimal> | undefined
+
+/** Field `K`'s aggregates, each filtered as the value it gives (D-149). */
+type AggregateFilters<F, K> = {
+	readonly _count?: Filtered<number>
+} & (K extends Summed<F>
+	? {
+			readonly _sum?: K extends DecimalKeys<F>
+				? Filtered<string, true>
+				: Filtered<number>
+			readonly _avg?: Filtered<number>
+		}
+	: unknown) &
+	(K extends KeysWith<F, number | string | Date>
+		? {
+				readonly _min?: ValueOf<F, K> | ValueFilter<F, K> | undefined
+				readonly _max?: ValueOf<F, K> | ValueFilter<F, K> | undefined
+			}
+		: unknown)
+
+/** The groups kept: a field of `by` by its value, any field by its aggregates. */
+type Having<F, N, B extends PropertyKey> = {
+	readonly [K in Aggregated<F>]?:
+		| (K extends B
+				? GroupValue<F, N, K> | (ValueFilter<F, K> & AggregateFilters<F, K>)
+				: AggregateFilters<F, K>)
+		| undefined
+} & {
+	readonly AND?: Having<F, N, B> | readonly Having<F, N, B>[] | undefined
+	readonly OR?: readonly Having<F, N, B>[] | undefined
+	readonly NOT?: Having<F, N, B> | readonly Having<F, N, B>[] | undefined
+}
+
 export type GroupByArgs<
 	F,
 	N,
 	B extends GroupField<F, N> = GroupField<F, N>,
 > = AggregateArgs<F> & {
 	readonly by: readonly [B, ...B[]]
+	readonly having?: Having<F, N, B> | undefined
 	readonly orderBy?:
 		GroupOrderBy<F, N, B> | readonly GroupOrderBy<F, N, B>[] | undefined
 	readonly skip?: number | undefined
 	readonly take?: number | undefined
 }
+
+/**
+ * Arguments `A`, checked against the fields of their `by`: no unknown key,
+ * and a `having` that fits them, which `Exact` does not check as it skips
+ * values: a value for a field outside `by` would pass.
+ */
+export type GroupChecked<
+	F,
+	N,
+	A extends { readonly by: readonly unknown[] },
+> = Exact<A, GroupByArgs<F, N, A['by'][number] & GroupField<F, N>>> &
+	(A extends { readonly having: infer H }
+		? [H] extends [Having<F, N, A['by'][number] & PropertyKey> | undefined]
+			? unknown
+			: {
+					readonly having: {
+						readonly error: 'a field outside by takes aggregates only'
+					}
+				}
+		: unknown)
 
 /** A relation's target id, `null` when unset or unreadable (D-86). */
 type GroupValue<F, N, K> =

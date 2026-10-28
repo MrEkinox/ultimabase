@@ -1,16 +1,19 @@
 // How `memory()` aggregates (D-143), as PostgreSQL: a `null` is skipped, and
 // a sum, an average, a minimum or a maximum of no value is `null`.
 // A decimal's sum is exact, at its field's scale, its average that sum's
-// number divided (D-145). Groups are sorted as a read's rows (D-146).
+// number divided (D-145). Groups are kept by `having` as rows by a `where`
+// (D-149), and sorted as a read's rows (D-146).
 import type {
 	Aggregate,
 	AggregateRead,
+	Filter,
 	GroupKey,
 	Read,
 	SchemaField,
 } from './adapter.ts'
 import { sumDecimals } from './decimal.ts'
-import type { Reader, StoredRow } from './memory-read.ts'
+import type { Reader, StoredRow, Truth } from './memory-read.ts'
+import { and, isFilters, not, or, scalar } from './memory-read.ts'
 import { compareKeys, compareValues, copy, sortable } from './memory-values.ts'
 
 function of(
@@ -90,6 +93,29 @@ export function distinct(
 	})
 }
 
+/** Whether a group's values pass `having`, whose keys are positions (D-149). */
+function held(
+	filter: Filter,
+	values: readonly unknown[],
+	fields: readonly (SchemaField | undefined)[],
+): Truth {
+	const truths: Truth[] = []
+	for (const [key, part] of Object.entries(filter)) {
+		if (part === undefined) continue
+		if (!isFilters(part)) {
+			const at = Number(key)
+			const sorted = (value: unknown) => sortable(value, fields[at])
+			truths.push(scalar(values[at] ?? null, part, sorted))
+			continue
+		}
+		const inner = part.map((each) => held(each, values, fields))
+		if (key === 'AND') truths.push(and(inner))
+		else if (key === 'OR') truths.push(or(inner))
+		else truths.push(and(inner.map((truth) => not(truth))))
+	}
+	return and(truths)
+}
+
 /** Each group of `rows`: its keys' values, then its aggregates', in order. */
 export function grouped(
 	reader: Reader,
@@ -118,12 +144,17 @@ export function grouped(
 			operation === 'count' ? undefined : field,
 		),
 	].map((name) => (name === undefined ? undefined : fieldOf(name)))
+	const { having } = read
+	const kept =
+		having === undefined
+			? lists
+			: lists.filter((list) => held(having, list, fields) === true)
 	const order = read.orderBy ?? []
 	const sorted = (list: readonly unknown[]) =>
 		order.map(({ at }) => sortable(list[at], fields[at]))
-	lists.sort((a, b) => compareKeys(sorted(a), sorted(b), order))
+	kept.sort((a, b) => compareKeys(sorted(a), sorted(b), order))
 	const skip = read.skip ?? 0
-	return lists.slice(
+	return kept.slice(
 		skip,
 		read.take === undefined ? undefined : skip + read.take,
 	)

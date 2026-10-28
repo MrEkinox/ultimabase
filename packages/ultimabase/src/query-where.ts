@@ -95,21 +95,32 @@ function operators(type: Single): ReadonlySet<string> {
 	return base
 }
 
+/**
+ * The operands of a value other than the field's, as an aggregate's in a
+ * `having` (D-149): their type, and their check, which stores each.
+ */
+export type Operand = {
+	readonly type: ScalarType
+	readonly check: (item: unknown, at: string) => unknown
+}
+
 function scalarCondition(
 	model: ModelInfo,
 	name: string,
 	type: Single,
 	value: unknown,
 	path: string,
+	other?: Operand['check'],
 ): Condition | undefined {
 	const field = model.fields.get(name)
-	const check = (item: unknown, at: string, nullable: boolean): unknown => {
-		if (item === null && nullable) return null
+	const fit = (item: unknown, at: string): unknown => {
 		if (!fits(type, item, field)) {
 			throw new InvalidQuery(at, `${at} does not fit ${model.name}.${name}.`)
 		}
 		return field?.kind === 'scalar' ? storedValue(item, field) : item
 	}
+	const check = (item: unknown, at: string, nullable: boolean): unknown =>
+		item === null && nullable ? null : (other ?? fit)(item, at)
 	// A primitive, a `Date` or a list is `equals`; an object is a filter, on
 	// `json` too, which compares whole values with `equals` as in Prisma.
 	if (value === null || !isObject(value)) {
@@ -142,6 +153,19 @@ function scalarCondition(
 	// `mode` alone filters nothing, as in Prisma (D-140).
 	if (Object.keys(condition).length === 0) return undefined
 	return insensitive ? { ...condition, mode: 'insensitive' } : condition
+}
+
+/** A scalar field's condition, or with `operand` another value's of it. */
+export function fieldCondition(
+	model: ModelInfo,
+	name: string,
+	value: unknown,
+	path: string,
+	operand?: Operand,
+): Condition | undefined {
+	const type = operand?.type ?? typeOf(model, name)
+	if (type === undefined) throw unknownKey(path, model.name)
+	return scalarCondition(model, name, type, value, path, operand?.check)
 }
 
 /**

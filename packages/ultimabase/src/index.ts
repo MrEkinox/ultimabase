@@ -22,6 +22,7 @@ export type {
 	Schema,
 	SchemaField,
 	SchemaModel,
+	Sort,
 	Statement,
 	Stored,
 	Transaction,

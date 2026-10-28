@@ -22,7 +22,7 @@ export function all(parts: readonly Sql[]): Sql {
 		: sql`(${sql.join(parts, sql` and `)})`
 }
 
-function any(parts: readonly Sql[]): Sql {
+export function any(parts: readonly Sql[]): Sql {
 	if (parts.length === 0) return sql`false`
 	return sql`(${sql.join(parts, sql` or `)})`
 }
@@ -42,7 +42,7 @@ export function value(kind: Kind, item: unknown): Sql {
 	return item instanceof Date ? sql`${item.toISOString()}` : sql`${item}`
 }
 
-function isFilters(
+export function isFilters(
 	item: Condition | readonly Filter[],
 ): item is readonly Filter[] {
 	return Array.isArray(item)
@@ -206,7 +206,11 @@ export class Filters {
 		condition: Condition,
 	): Sql {
 		const column = this.column(table, alias, name)
-		const kind = this.catalog.kind(table, name)
+		return this.compare(column, this.catalog.kind(table, name), condition)
+	}
+
+	/** A value of `kind`, a column or an aggregate (D-149), meets `condition`. */
+	compare(column: Sql, kind: Kind, condition: Condition): Sql {
 		// An id matches and compares as its string, as in `memory()`.
 		const cast = kind === 'id' ? sql`cast(${column} as text)` : column
 		// A string field's operators ignore case with `ilike` (D-140). Its

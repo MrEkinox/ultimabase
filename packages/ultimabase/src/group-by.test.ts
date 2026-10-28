@@ -1,5 +1,6 @@
 // `groupBy` (D-146): the rows the caller reads in groups, on the fields it
-// may filter on, sorted, paged and typed from its arguments.
+// may filter on, kept by `having` (D-149), sorted, paged and typed from its
+// arguments.
 import { asUser } from '@ultimabase/testing'
 import {
 	afterEach,
@@ -18,6 +19,7 @@ const Order = defineModel({
 	name: 'Order',
 	fields: (f) => ({
 		total: f.number(),
+		price: f.decimal({ precision: 6, scale: 2, optional: true }),
 		label: f.string({ optional: true }),
 		status: f.enumOf(['open', 'paid']),
 		tags: f.string({ list: true }),
@@ -121,9 +123,38 @@ describe('groupBy', () => {
 				user,
 			),
 		).rejects.toThrow(`orderBy._sum.secret: ${message}`)
+		await expect(
+			Order.groupBy(
+				{ by: ['status'], having: { secret: { _max: { gt: 1 } } } },
+				user,
+			),
+		).rejects.toThrow(`having.secret._max: ${message}`)
 		expect(await Order.groupBy({ by: ['secret'] }, M)).toStrictEqual([
 			{ secret: null },
 		])
+	})
+
+	it('keeps the groups having passes, by values, aggregates and ids', async () => {
+		const kept = await Order.groupBy(
+			{
+				by: ['status', 'label'],
+				having: {
+					AND: { status: 'open' },
+					label: { mode: 'insensitive' },
+					total: { _sum: { gte: 20 } },
+				},
+			},
+			M,
+		)
+		expect(kept).toStrictEqual([
+			{ status: 'open', label: 'a' },
+			{ status: 'open', label: null },
+		])
+		const ids = await Order.groupBy(
+			{ by: ['id'], having: { id: { in: [shown] } } },
+			M,
+		)
+		expect(ids).toStrictEqual([{ id: shown }])
 	})
 
 	it('refuses arguments it cannot group by', async () => {
@@ -172,7 +203,42 @@ describe('groupBy', () => {
 			[{ by: ['status'], take: -1 }, 'take'],
 			[{ by: ['status'], skip: 1.5 }, 'skip'],
 			[{ by: ['status'], cursor: {} }, 'cursor'],
-			[{ by: ['status'], having: {} }, 'having'],
+			[
+				{ by: ['status'], having: { label: 'a' } },
+				'having.label is not a field of by: only its aggregates filter the groups.',
+			],
+			[{ by: ['status'], having: { OR: {} } }, 'having.OR must be a list.'],
+			[
+				{ by: ['status'], having: { NOT: [{ total: { _count: 1.5 } }] } },
+				'having.NOT.0.total._count must be a whole number.',
+			],
+			[
+				{ by: ['status'], having: { total: { _avg: { gt: '1' } } } },
+				'having.total._avg.gt must be a finite number.',
+			],
+			[
+				{ by: ['status'], having: { price: { _sum: 5 } } },
+				"having.price._sum must be a decimal string, such as '12.50'.",
+			],
+			[
+				{ by: ['status'], having: { status: { _min: { equals: 'shut' } } } },
+				'having.status._min.equals does not fit Order.status.',
+			],
+			[
+				{ by: ['status'], having: { label: { _sum: { gt: 1 } } } },
+				'having.label._sum is a string field',
+			],
+			[
+				{ by: ['status'], having: { tags: { _count: 1 } } },
+				'having.tags is a list, which cannot be used in having.',
+			],
+			[
+				{
+					by: ['status'],
+					having: { total: { _count: { mode: 'insensitive' } } },
+				},
+				'having.total._count.mode',
+			],
 		]
 		for (const [args, message] of refused) {
 			const failed = loose.groupBy(args, M)
@@ -185,6 +251,7 @@ describe('groupBy', () => {
 		type Args = Parameters<typeof Order.groupBy>[0]
 		expectTypeOf<Args['by'][number]>().toEqualTypeOf<
 			| 'total'
+			| 'price'
 			| 'label'
 			| 'status'
 			| 'secret'
@@ -201,6 +268,19 @@ describe('groupBy', () => {
 		expectTypeOf<{
 			_max: { total: { sort: 'asc' } }
 		}>().not.toExtend<Sorts>()
+		type Having = NonNullable<Args['having']>
+		expectTypeOf<{
+			price: { _sum: { gt: '1.50' } }
+			total: { _count: 2; _avg: { lt: 1 } }
+			status: { in: ['open']; _max: 'paid' }
+		}>().toExtend<Having>()
+		expectTypeOf<{ price: { _sum: { gt: 1 } } }>().not.toExtend<Having>()
+		expectTypeOf<{ label: { _sum: { gt: 1 } } }>().not.toExtend<Having>()
+		void Order.groupBy(
+			// @ts-expect-error: `label` is not grouped.
+			{ by: ['status'], having: { label: 'a' } },
+			M,
+		).catch(() => undefined)
 		void Order.groupBy(
 			// @ts-expect-error: `total` is not grouped.
 			{ by: ['status'], orderBy: { total: 'asc' } },

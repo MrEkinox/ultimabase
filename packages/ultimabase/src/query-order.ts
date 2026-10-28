@@ -1,7 +1,7 @@
 // A read's `orderBy` (D-20): the row's fields, a field reached through
 // `one` relations, or the number of a `many` relation's rows (D-134), or
 // how well the row matches the read's `_search` (D-148).
-import type { Order, Step } from './adapter.ts'
+import type { Order, Sort, Step } from './adapter.ts'
 import { InvalidQuery } from './errors.ts'
 import type { ModelInfo } from './schema.ts'
 import { searchedFields } from './query-search.ts'
@@ -25,11 +25,7 @@ export function direction(value: unknown, path: string): 'asc' | 'desc' {
  * A sort key's value: a direction, or on an optional field `{ sort, nulls }`
  * (D-149).
  */
-export function sortOf(
-	value: unknown,
-	path: string,
-	optional: boolean,
-): Pick<Order, 'direction' | 'nulls'> {
+export function sortOf(value: unknown, path: string, optional: boolean): Sort {
 	if (!isObject(value)) return { direction: direction(value, path) }
 	if (!optional) {
 		throw new InvalidQuery(
