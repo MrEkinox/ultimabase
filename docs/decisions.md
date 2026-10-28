@@ -8275,3 +8275,61 @@ const top = await Post.groupBy(
 )
 // [{ author: { id: 'u1' }, _count: 12 }, { author: null, _count: 3 }, …]
 ```
+
+## D-147: `distinct`
+
+Choice: completes D-20 and D-146.
+
+1. `Model.findMany({ distinct, ... }, as)` keeps, of the rows with the same
+   values in the `distinct` fields, the first in `orderBy` order, as
+   Prisma's `distinct` does. `skip` and `take` then page the rows kept; a
+   negative `take` gives the last ones.
+   - `distinct` is a non-empty list of distinct fields, the ones `groupBy`
+     takes in `by` (D-146): a scalar an aggregate takes, a system field or
+     a `one` relation the row stores.
+   - The order always ends with `id` (D-94), so the row kept is exact.
+   - A relation compares by its target as the caller sees it: a target the
+     caller cannot read counts as none (D-86), as in `groupBy`.
+2. Refused with a `cursor`: `INVALID_QUERY`. The cursor's row may be one
+   `distinct` drops, and a page of the rows kept has no row to start at.
+3. On the root of `findMany` only: not on `findFirst`, whose first row is
+   already distinct, nor on an included `many`, `count` or `aggregate`.
+4. The read rule and `beforeFind` select the rows before `distinct` keeps
+   one of each. A field with a read rule is refused in `distinct` to a
+   caller other than Master: `INVALID_QUERY` (D-44).
+5. Server code only, as `aggregate` (D-143): REST and GraphQL do not take
+   it.
+6. The result's type is `findMany`'s: `distinct` changes which rows come
+   back, not their shape.
+7. The adapter contract's root read gains `distinct`, the keys of
+   `groupBy` (D-146). The adapter keeps the first row of each key in the
+   read's order, before `skip` and `take`; PostgreSQL numbers the rows of
+   each key with `row_number()` over that order.
+
+Why: the latest post of each author or one row per city is one statement
+on the database, not every row read into the server and filtered there.
+
+Rejected:
+
+- PostgreSQL's `DISTINCT ON` as the contract: it needs the order to start
+  with the keys, so the caller's `orderBy` would change the row kept.
+- A field name alone, `distinct: 'author'`: one form, as `by`.
+- `distinct` with a cursor, for the reason above.
+- `distinct` on the transports: see D-143.
+
+Example:
+
+```ts
+// Before: every post read, the latest of each author kept in code
+const posts = await Post.findMany({ orderBy: { createdAt: 'desc' } }, as)
+const latest = new Map<string | null, (typeof posts)[number]>()
+for (const post of posts) {
+	const id = post.author?.id ?? null
+	if (!latest.has(id)) latest.set(id, post)
+}
+// After: one query
+const latest = await Post.findMany(
+	{ distinct: ['author'], orderBy: { createdAt: 'desc' }, take: 20 },
+	as,
+)
+```
