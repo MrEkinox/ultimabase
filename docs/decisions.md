@@ -4916,7 +4916,7 @@ curl -X POST localhost:3000/webhooks/stripe -H 'content-type: application/json' 
 
 ## D-109: `defineFunction` and `defineType`, at run time and over GraphQL
 
-Amended by D-113, D-125 and D-150.
+Amended by D-113, D-125, D-150 and D-154.
 
 Choice: completes D-27, D-45, D-75 and D-107, and amends D-45's outputs.
 
@@ -9327,10 +9327,10 @@ api: ({ plugins }) => plugins.http.mount(uploads, { bodyLimit: false })
 ## D-154: Realtime: live lists and live rows
 
 Choice: completes D-25; amends D-106 (WebSocket upgrades), D-107 (the
-`Subscription` type) and D-129 (live reads over SSE). Three goals rank every
-choice below, in this order: performance with many writes and many
-subscribers, live lists of thousands of rows, and security, which holds
-whatever the first two cost.
+`Subscription` type), D-109 (live functions) and D-129 (live reads over
+SSE). Three goals rank every choice below, in this order: performance with
+many writes and many subscribers, live lists of thousands of rows, and
+security, which holds whatever the first two cost.
 
 1. `@ultimabase/realtime` exports `realtimePlugin(options)` and the model
    entry `realtime()`. A model is live when its `use` lists `realtime()`;
@@ -9658,14 +9658,29 @@ maxConnectionRows })`; a subscribe past either fails with
       change all resend the whole window.
     - Closing a connection releases its windows at once, except the
       10 seconds a resume may claim.
-12. `defineSubscription({ name, input, output, access, watch, debounce,
-run })` is `defineFunction`'s twin (D-109) for a computed value:
-    - `watch` lists the reads that wake it, made as the subscriber; their
-      `fields` limit the updates that wake it.
-    - `debounce` waits for a quiet period (50 ms by default).
-    - `run` runs as the subscriber; a result equal to the last one is not
-      sent.
-    - Rights changes rerun it, as point 10.
+12. Live functions: a function with `query: true` whose `use` lists
+    `realtime()` is followed too, with no second declaration (amends
+    D-109):
+    - GraphQL adds a `Subscription` field of the function's name, arguments
+      and type; REST answers the function's `GET` route with
+      `Accept: text/event-stream` as point 4.
+    - The kernel records every read `run` makes, and the reads that shape
+      its output, with the fields each returned and the fields that chose
+      and ordered its rows. An update wakes the function only when it sets
+      one of them; an insert or a delete wakes it when it may enter or
+      leave a read. A text search depends on every field.
+    - Each message is the whole value with its revision, as a live row. A
+      result equal to the last one is not sent.
+    - A wake waits 50 ms of quiet, and at most a second after the first
+      one; `.with({ realtime: { debounce } })` sets the wait. A wake during
+      a run reruns it once after.
+    - `run` runs as the subscriber; a rights rebuild reruns it, and a
+      different user closes it, as point 10. An error closes the
+      subscription with that error, masked unless public (D-28).
+    - It counts in `maxSubscriptions`, not in `maxConnectionRows`.
+    - A mutation cannot be live: a plugin's types can say
+      `queryOnly: true`, which makes `query: true` required in a function
+      whose `use` lists it, and `realtimePlugin` refuses one at startup.
 13. Tests and merge gate:
     - Every path of points 9 and 10 has a test: ACL removed, role removed,
       member removed through a relation, session revoked, session expired,

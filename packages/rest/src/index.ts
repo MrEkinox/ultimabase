@@ -59,7 +59,7 @@ const plugin = definePlugin<Rest>({
 	requires: { http: httpPlugin },
 	optional: { realtime: realtimePlugin },
 	api: (context) => {
-		const { plugins, models, functions, options } = context
+		const { plugins, models, functions, options, logger } = context
 		const { realtime } = plugins
 		const ends = new Set<() => void>()
 		streams.set(context, ends)
@@ -68,6 +68,7 @@ const plugin = definePlugin<Rest>({
 			streams: ends,
 			kept: new Map(),
 			open: new Map(),
+			logger,
 		}
 		const api = {
 			entries: entriesOf(models, options),
@@ -78,7 +79,7 @@ const plugin = definePlugin<Rest>({
 		}
 		const base = baseOf(options)
 		const app = routes()
-		const routed = functionRoutes(app, api, functions, base)
+		const routed = functionRoutes(app, api, functions, base, live)
 		for (const entry of api.entries.values()) {
 			if (entry.visible) modelRoutes(app, api, entry, base, live)
 		}

@@ -2,21 +2,23 @@
 // that built the caller and planned each live read are kept; a write that
 // may change one rebuilds the caller, which resyncs the reads whose plan
 // changed and closes them all when it is no longer the same user. A caller
-// that stops holding at a time is built again then.
-import type { Caller, ExposedModel, Logger } from 'ultimabase'
-import { PublicError } from 'ultimabase'
-import type { LivePlan, Recorded } from 'ultimabase/internal'
-import { livePlan, liveSchema, recording } from 'ultimabase/internal'
+// that stops holding at a time is built again then. A live function runs
+// again as the rebuilt caller.
+import type { Caller, ExposedFunction, ExposedModel, Logger } from 'ultimabase'
+import type { Recorded } from 'ultimabase/internal'
+import { livePlan, recording } from 'ultimabase/internal'
 import type { Batch } from './changes.ts'
+import { checked, invalid } from './checked.ts'
+import { Computed } from './computed.ts'
 import type { LiveMessage } from './messages.ts'
 import { Live } from './live.ts'
-import { modelsOf, stepOf } from './reach.ts'
 import type { Loader } from './reads.ts'
 import { liveArgs, shapeOf } from './shape.ts'
 import { anyStale } from './stale.ts'
 
 export type Settings = {
 	readonly models: readonly ExposedModel<{ readonly maxLive?: number }>[]
+	readonly functions: readonly ExposedFunction<{ readonly debounce?: number }>[]
 	readonly maxLive: number
 	readonly maxSubscriptions: number
 	readonly maxConnectionRows: number
@@ -51,10 +53,12 @@ const soonest = 1000
 /** The longest wait `setTimeout` keeps. */
 const latest = 2 ** 31 - 1
 
-const invalid = (path: string, message: string): PublicError =>
-	new PublicError('VALIDATION_FAILED', message, {
-		details: { issues: [{ path: [path], message }] },
-	})
+/** A function's name, with its plugin's for a plugin's (D-113). */
+export const ownerOf = (fn: ExposedFunction): string =>
+	fn.plugin === undefined ? fn.name : `${fn.plugin}.${fn.name}`
+
+/** How long a live function's wake waits for quiet, in milliseconds. */
+const debounce = 50
 
 /** Who `caller` is, which a rebuilt caller must keep. */
 const whoOf = (caller: Caller): string => {
@@ -69,6 +73,7 @@ export class Viewer {
 	readonly #onClose: () => void
 	readonly #onDue: () => void
 	readonly #live = new Map<Live, Subscription>()
+	readonly #computed = new Map<Computed, (message: LiveMessage) => void>()
 	#caller: Caller
 	#reads: readonly Recorded[]
 	#expires: Date | undefined
@@ -119,12 +124,56 @@ export class Viewer {
 		return this.#follow(model, args, true, send)
 	}
 
+	/**
+	 * A live function's result, `compute` as the caller, run again once a
+	 * write may change what it read.
+	 */
+	async value(
+		name: string,
+		compute: (caller: Caller) => Promise<unknown>,
+		send: (message: LiveMessage) => void,
+	): Promise<LiveHandle> {
+		if (this.#closed) throw new Error('The viewer is closed.')
+		const exposed = this.#settings.functions.find((fn) => ownerOf(fn) === name)
+		if (!exposed?.used) throw invalid('function', `${name} is not live.`)
+		this.#holds()
+		const computed = new Computed(
+			{
+				compute,
+				send,
+				debounce: exposed.with?.debounce ?? debounce,
+				onRun: () => this.#reschedule(),
+				onFail: () => this.#computed.delete(computed),
+			},
+			this.#caller,
+		)
+		this.#computed.set(computed, send)
+		try {
+			await computed.start()
+		} catch (error) {
+			this.#computed.delete(computed)
+			throw error
+		}
+		return {
+			grow: async () => {
+				throw invalid('first', `${name} is no live list.`)
+			},
+			resend: async () => computed.resend(),
+			close: () => {
+				computed.close()
+				this.#computed.delete(computed)
+			},
+		}
+	}
+
 	close(): void {
 		if (this.#closed) return
 		this.#closed = true
 		clearTimeout(this.#due)
 		for (const live of this.#live.keys()) live.close()
 		this.#live.clear()
+		for (const computed of this.#computed.keys()) computed.close()
+		this.#computed.clear()
 		this.#onClose()
 	}
 
@@ -138,7 +187,7 @@ export class Viewer {
 		if (missed || (await anyStale(reads, batch, loader))) {
 			await this.rebuild()
 		}
-		const lives = [...this.#live.keys()]
+		const lives = [...this.#live.keys(), ...this.#computed.keys()]
 		await Promise.all(
 			lives.map(async (live) => live.apply(batch, loader, missed)),
 		)
@@ -189,6 +238,11 @@ export class Viewer {
 				}
 			}),
 		)
+		await Promise.all(
+			[...this.#computed.keys()].map(async (computed) =>
+				computed.replan(caller),
+			),
+		)
 		this.#reschedule()
 	}
 
@@ -197,7 +251,7 @@ export class Viewer {
 		clearTimeout(this.#due)
 		this.#due = undefined
 		if (this.#closed) return
-		const subscriptions = [...this.#live.values()]
+		const subscriptions = [...this.#live.values(), ...this.#computed.keys()]
 		const times = [
 			this.#expires,
 			...subscriptions.map(({ expires }) => expires),
@@ -222,7 +276,10 @@ export class Viewer {
 
 	/** Closes every live read, telling each. */
 	end(): void {
-		const sends = [...this.#live.values()].map(({ send }) => send)
+		const sends = [
+			...[...this.#live.values()].map(({ send }) => send),
+			...this.#computed.values(),
+		]
 		this.close()
 		for (const send of sends) send({ kind: 'closed' })
 	}
@@ -238,20 +295,19 @@ export class Viewer {
 			({ schema }) => schema.name === model,
 		)
 		if (!exposed?.used) throw invalid('model', `${model} is not live.`)
-		const { maxSubscriptions } = this.#settings
-		if (this.#live.size >= maxSubscriptions) {
-			throw invalid(
-				'subscriptions',
-				`A connection holds at most ${maxSubscriptions} live reads.`,
-			)
-		}
+		this.#holds()
 		const { first, where, totalCount, shape } = shapeOf(args, row)
 		const caller = this.#caller
 		const planned = await recording(async () =>
 			livePlan(model, liveArgs(args, row), caller, row),
 		)
 		const limit = exposed.with?.maxLive ?? this.#settings.maxLive
-		const nested = this.#checked(model, planned.result, 'include')
+		const nested = checked(
+			this.#settings.models,
+			model,
+			planned.result,
+			'include',
+		)
 		if (first * (1 + nested) > limit) {
 			throw invalid(
 				'first',
@@ -309,6 +365,16 @@ export class Viewer {
 		}
 	}
 
+	/** Refuses one more live read past what the connection holds. */
+	#holds(): void {
+		const { maxSubscriptions } = this.#settings
+		if (this.#live.size + this.#computed.size < maxSubscriptions) return
+		throw invalid(
+			'subscriptions',
+			`A connection holds at most ${maxSubscriptions} live reads.`,
+		)
+	}
+
 	/** Refuses `more` rows past what the connection follows in all. */
 	#fits(more: number): void {
 		const { maxConnectionRows } = this.#settings
@@ -319,52 +385,5 @@ export class Viewer {
 			'first',
 			`A connection follows at most ${maxConnectionRows} rows.`,
 		)
-	}
-
-	/**
-	 * Refuses an order that reads another row and a selection that reaches a
-	 * model which is not live; returns the nested rows each root row follows.
-	 */
-	#checked(
-		model: string,
-		plan: Omit<LivePlan, 'where' | 'rights'>,
-		path: string,
-	): number {
-		for (const order of plan.orderBy) {
-			if (order.through ?? order.count ?? order.relevance) {
-				throw invalid(
-					'orderBy',
-					`A live list sorts by ${model}'s own fields: ${order.field} reads another row.`,
-				)
-			}
-		}
-		const models = modelsOf(liveSchema())
-		const live = (target: string, at: string): void => {
-			const used = this.#settings.models.find(
-				({ schema }) => schema.name === target,
-			)
-			if (!used?.used) throw invalid(at, `${target} is not live.`)
-		}
-		let rows = 0
-		for (const [name, inner] of Object.entries(plan.include ?? {})) {
-			const step = stepOf(models, model, name)
-			if (step === undefined) continue
-			const at = `${path}.${name}`
-			live(step.target, at)
-			const below = this.#checked(step.target, { ...inner, orderBy: [] }, at)
-			if (!step.many) {
-				rows += below
-				continue
-			}
-			if (inner.take === undefined) {
-				throw invalid(at, `A live ${name} list needs a take.`)
-			}
-			rows += Math.abs(inner.take) * (1 + below)
-		}
-		for (const name of Object.keys(plan.count ?? {})) {
-			const step = stepOf(models, model, name)
-			if (step !== undefined) live(step.target, `${path}._count.${name}`)
-		}
-		return rows
 	}
 }

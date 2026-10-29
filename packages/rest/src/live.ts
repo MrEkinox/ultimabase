@@ -1,9 +1,12 @@
 // A live model's list and row over Server-Sent Events (D-154): the read's
 // JSON as `event: data`, then what changed as `event: live`, the JSON GraphQL
 // sends under `extensions.live`; in page mode, `event: data` each time. A
-// list first sends the token that resumes it, as `event: resume`.
+// list first sends the token that resumes it, as `event: resume`. A live
+// function sends its whole result as `event: data` each time it changes.
+import { randomUUID } from 'node:crypto'
 import { applied, badInput, connection, run } from '@ultimabase/http/internal'
-import type { Caller, Row } from 'ultimabase'
+import type { Caller, Logger, Row } from 'ultimabase'
+import { PublicError } from 'ultimabase'
 import type { Api, Args, Entry } from './entries.ts'
 import type { Shape } from './fields.ts'
 import { readerOf, shaped } from './fields.ts'
@@ -177,5 +180,44 @@ export async function liveRow(
 	const args = { ...read.read, where: { id } }
 	return streamed(followed, request, read.shape, async (viewer, send) =>
 		viewer.row(entry.model.name, args, send),
+	)
+}
+
+/** A live function's error as its client gets it: public as is, else masked and logged. */
+function failure(error: unknown, logger: Logger): unknown {
+	if (error instanceof PublicError) {
+		const { code, message, details } = error
+		return details === undefined
+			? { code, message }
+			: { code, message, details }
+	}
+	const correlationId = randomUUID()
+	logger.error({ correlationId, err: error }, 'A live function failed.')
+	return { code: 'INTERNAL', message: 'Internal error.', correlationId }
+}
+
+const noShape: Shape = { fields: [] }
+
+/**
+ * `GET /api/functions/:name` with `Accept: text/event-stream`: the result
+ * `compute` gives as the subscriber, again each time it changes.
+ */
+export async function liveValue(
+	live: Live | undefined,
+	owner: string,
+	request: Request,
+	compute: (caller: Caller) => Promise<unknown>,
+): Promise<Response> {
+	if (live === undefined || !live.realtime.liveFunction(owner)) {
+		throw badInput(`${owner} is not live: list realtime() in its use.`)
+	}
+	const { logger } = live
+	return streamed(live, request, noShape, async (viewer, send) =>
+		viewer.value(owner, compute, (message) => {
+			if (message.kind !== 'closed' || message.error === undefined) {
+				return send(message)
+			}
+			send({ kind: 'closed', error: failure(message.error, logger) })
+		}),
 	)
 }

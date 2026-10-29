@@ -1,17 +1,17 @@
 {
-	"ultimabase": 16180,
+	"ultimabase": 16280,
 	"testing": 4450,
 	"soft-delete": 150,
 	"postgres": 3700,
 	"http": 1160,
-	"graphql": 4200,
+	"graphql": 4280,
 	"auth": 660,
 	"password": 1560,
 	"roles": 330,
 	"acl": 350,
-	"rest": 2900,
+	"rest": 2980,
 	"create-ultimabase": 250,
 	"files": 1900,
-	"realtime": 1800,
+	"realtime": 2100,
 	"live": 700
 }

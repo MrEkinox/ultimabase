@@ -26,6 +26,8 @@ interface Rpc extends PluginTypes {
 	readonly functionWith: { readonly name?: string }
 }
 let exposed: readonly ExposedFunction<Rpc['functionWith']>[] = []
+const nothing = (): undefined => undefined
+
 const rpc = definePlugin<Rpc>({
 	name: 'rpc',
 	manifest,
@@ -285,12 +287,14 @@ describe('outputs (D-109)', () => {
 
 describe('plugins (D-109)', () => {
 	it('read the functions, in their order, with their key', () => {
-		expect(exposed.map(({ name, query }) => [name, query])).toEqual([
-			['closed', false],
-			['greet', false],
-			['latest', true],
-			['search', false],
-		])
+		expect(exposed.map(({ name, query, used }) => [name, query, used])).toEqual(
+			[
+				['closed', false, false],
+				['greet', false, true],
+				['latest', true, false],
+				['search', false, false],
+			],
+		)
 		const [none, hello, nullable, page] = exposed
 		expect(hello?.with).toEqual({ name: 'hello' })
 		expect(none?.with).toBeUndefined()
@@ -327,6 +331,27 @@ describe('plugins (D-109)', () => {
 })
 
 describe('defineFunction', () => {
+	it('requires a query with a plugin that takes queries only (D-154)', () => {
+		interface Live extends PluginTypes {
+			readonly name: 'live'
+			readonly functionWith: object
+			readonly queryOnly: true
+		}
+		const live = definePlugin<Live>({ name: 'live', manifest })
+		const use = [live.use(), rpc.use()] as const
+		const query = defineFunction({ name: 'q', query: true, use, run: nothing })
+		expect(query.name).toBe('q')
+		// @ts-expect-error: a mutation cannot list a plugin of queries only.
+		const mutation = defineFunction({
+			name: 'm',
+			use: [live.use()],
+			run: nothing,
+		})
+		expect(mutation.name).toBe('m')
+		// @ts-expect-error: nor can a function that says `query: false`.
+		defineFunction({ name: 'f', query: false, use: [live.use()], run: nothing })
+	})
+
 	it('refuses what is not a definition', () => {
 		expect(refused({ name: '', run: one })).toThrow(
 			'defineFunction takes a name.',

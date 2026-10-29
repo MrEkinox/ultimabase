@@ -13,10 +13,13 @@ import type {
 	Viewer,
 } from '@ultimabase/realtime'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { z } from 'zod'
 import type { Caller, Identity, Logger, PluginTypes } from 'ultimabase'
 import {
+	PublicError,
 	allow,
 	defineApp,
+	defineFunction,
 	defineModel,
 	definePlugin,
 	master,
@@ -74,6 +77,32 @@ const Note = defineModel({
 	fields: (f) => ({ text: f.string() }),
 }).with({ access: allow.readOnly })
 
+let breaking: Error | undefined
+/** The caller's tasks ranked above `above`, followed live (D-154). */
+const above = defineFunction({
+	name: 'above',
+	query: true,
+	use: [rest(), realtime()],
+	input: z.object({ rank: z.number() }),
+	output: z.array(z.string()),
+	run: async ({ caller, input }) => {
+		if (breaking !== undefined) throw breaking
+		const tasks = await Task.findMany(
+			{ where: { rank: { gt: input.rank } }, orderBy: { rank: 'asc' } },
+			{ as: caller },
+		)
+		return tasks.map((task) => task.title)
+	},
+}).with({ access: allow.public, realtime: { debounce: 10 } })
+/** Not live. */
+const plain = defineFunction({
+	name: 'plain',
+	query: true,
+	use: [rest()],
+	output: z.number(),
+	run: async () => 1,
+}).with({ access: allow.public })
+
 const errors: unknown[] = []
 let listening = ''
 const logger: Logger = {
@@ -117,6 +146,7 @@ afterEach(async () => {
 	errors.length = 0
 	revoked.clear()
 	failing = false
+	breaking = undefined
 	held = undefined
 })
 
@@ -137,6 +167,7 @@ async function started(options: Options = {}): Promise<string> {
 			sessions.plugin(),
 		],
 		models: options.realtime === false ? [Note] : [Task, Project, Note],
+		functions: options.realtime === false ? [plain] : [above, plain],
 		masterKey: 'secret',
 		logger,
 	})
@@ -614,6 +645,87 @@ describe('a live row', () => {
 	})
 })
 
+describe('a live function', () => {
+	it('sends its result each time it changes', async () => {
+		const api = await started()
+		await seeded()
+		const stream = await streaming(`${api}/functions/above${qs({ rank: 1 })}`)
+		expect(await stream.next()).toEqual({
+			event: 'data',
+			id: 1,
+			data: ['b', 'c'],
+		})
+		await Task.updateMany({ where: { title: 'b' }, data: { title: 'B' } }, M)
+		expect(await stream.next()).toEqual({
+			event: 'data',
+			id: 2,
+			data: ['B', 'c'],
+		})
+	})
+
+	it('sends the public error it fails with, then ends', async () => {
+		const api = await started()
+		await seeded()
+		const stream = await streaming(`${api}/functions/above${qs({ rank: 1 })}`)
+		await stream.next()
+		breaking = new PublicError('NOT_FOUND', 'No such board.')
+		await Task.updateMany({ where: { title: 'b' }, data: { title: 'B' } }, M)
+		expect(await stream.next()).toEqual({
+			event: 'error',
+			data: { code: 'NOT_FOUND', message: 'No such board.' },
+		})
+		expect(await stream.next()).toBeUndefined()
+	})
+
+	it('masks any other error, which it logs', async () => {
+		const api = await started()
+		await seeded()
+		const stream = await streaming(`${api}/functions/above${qs({ rank: 1 })}`)
+		await stream.next()
+		breaking = new Error('Secret.')
+		await Task.updateMany({ where: { title: 'b' }, data: { title: 'B' } }, M)
+		expect(await stream.next()).toEqual({
+			event: 'error',
+			data: {
+				code: 'INTERNAL',
+				message: 'Internal error.',
+				correlationId: anId,
+			},
+		})
+		expect(errors).toEqual(['A live function failed.'])
+	})
+
+	it('is refused, with its details, when its first run fails', async () => {
+		const api = await started()
+		breaking = new PublicError('VALIDATION_FAILED', 'Bad.', {
+			details: { issues: [] },
+		})
+		const { status, body } = await answered(
+			`${api}/functions/above${qs({ rank: 1 })}`,
+		)
+		expect({ status, body }).toMatchObject({
+			body: { code: 'VALIDATION_FAILED', details: { issues: [] } },
+		})
+	})
+
+	it('is refused unless it is live', async () => {
+		const api = await started()
+		expect(await answered(`${api}/functions/plain`)).toEqual({
+			status: 400,
+			body: {
+				code: 'BAD_USER_INPUT',
+				message: 'plain is not live: list realtime() in its use.',
+			},
+		})
+	})
+
+	it('is refused without the realtime plugin', async () => {
+		const api = await started({ realtime: false })
+		const { status } = await answered(`${api}/functions/plain`)
+		expect(status).toBe(400)
+	})
+})
+
 describe('the live reads', () => {
 	it('are the live models’ only', async () => {
 		const api = await started()
@@ -677,11 +789,11 @@ describe('the live reads', () => {
 		expect(await zipped.next()).toEqual(
 			expect.objectContaining({ event: 'data' }),
 		)
-		const plain = await streaming(`${api}/tasks`, {
+		const identity = await streaming(`${api}/tasks`, {
 			'accept-encoding': 'identity',
 		})
-		expect(plain.response.headers.get('content-encoding')).toBeNull()
-		expect(await plain.next()).toEqual(
+		expect(identity.response.headers.get('content-encoding')).toBeNull()
+		expect(await identity.next()).toEqual(
 			expect.objectContaining({ event: 'data' }),
 		)
 	})

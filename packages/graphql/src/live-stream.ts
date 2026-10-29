@@ -97,14 +97,14 @@ export async function resumed(
 
 /**
  * Follows the read `open` starts; `event` turns each message the client
- * gets into what it runs, and `closed` into the last one, unless the viewer
- * ended, which closes the socket. A list given `keep` is kept once completed.
+ * gets into what it runs, and `closed`, given a live function's error, into
+ * the last one, unless the viewer ended, which closes the socket. A list given `keep` is kept once completed.
  */
 export async function liveStream(
 	channel: Channel,
 	open: (send: (message: LiveMessage) => void) => Promise<LiveHandle>,
 	event: (message: Exclude<LiveMessage, { kind: 'closed' }>) => LiveEvent,
-	closed: () => LiveEvent,
+	closed: (error?: unknown) => LiveEvent,
 	keep?: Keep,
 ): Promise<AsyncIterableIterator<LiveEvent>> {
 	const queue: LiveEvent[] = []
@@ -137,7 +137,7 @@ export async function liveStream(
 				return channel.forbid()
 			}
 			ending = true
-			return push(closed())
+			return push(closed(message.error))
 		}
 		if (dropping && message.kind === 'changes') return
 		if (!dropping && channel.full()) {

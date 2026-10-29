@@ -29,4 +29,11 @@ export type LiveMessage =
 			readonly revision: number
 			readonly row: Row | null
 	  }
-	| { readonly kind: 'closed' }
+	| {
+			readonly kind: 'value'
+			readonly revision: number
+			/** A live function's whole result. */
+			readonly value: unknown
+	  }
+	/** With the error a live function failed with, which closed it. */
+	| { readonly kind: 'closed'; readonly error?: unknown }

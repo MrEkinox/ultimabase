@@ -1,6 +1,7 @@
 // The application's functions (D-129): a query at `GET /api/functions/:name`,
 // its input keys as query parameters, a mutation at `POST`, its body as its
-// input, each answered with the output GraphQL's field returns.
+// input, each answered with the output GraphQL's field returns; a live query
+// over Server-Sent Events, with `Accept: text/event-stream` (D-154).
 import type { Routes } from '@ultimabase/http'
 import { clientOf, validate } from '@ultimabase/http'
 import type { Node } from '@ultimabase/http/internal'
@@ -13,7 +14,9 @@ import { defaultShape, defaultVirtuals, shaped } from './fields.ts'
 import { acceptsNull, isText, resolved } from './json-schema.ts'
 import { anyBody } from './models.ts'
 import type { Accepted } from './params.ts'
+import { liveValue, wantsEvents } from './live.ts'
 import { paramsOf } from './params.ts'
+import type { Live } from './streams.ts'
 
 /** A function's key of `.with` (D-129): its route's name, or hidden. */
 export type RestFunctionWith = { readonly name?: string } | false
@@ -130,6 +133,7 @@ export function functionRoutes(
 	api: Api,
 	functions: readonly ExposedFunction<RestFunctionWith>[],
 	base: string,
+	live: Live | undefined,
 ): readonly Routed[] {
 	const routed: Routed[] = []
 	const owners = new Map<string, string>()
@@ -176,6 +180,10 @@ export function functionRoutes(
 				const params = paramsOf(c.req.url, accepted)
 				const { client, sent } = clientOf(c)
 				const given = flat ? params : params['input']
+				if (wantsEvents(c.req.raw)) {
+					const compute = async (as: Caller) => answer(as, client, given)
+					return sent(await liveValue(live, owner, c.req.raw, compute))
+				}
 				return sent(c.json(await answer(c.var.caller, client, given)))
 			})
 		} else if (input === undefined) {

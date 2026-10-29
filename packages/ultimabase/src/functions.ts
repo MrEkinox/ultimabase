@@ -134,6 +134,7 @@ export function exposedFunctions(
 			description: record.description,
 			plugin: functions.plugins.get(value),
 			query: record.query,
+			used: record.uses.some((use) => use.code.name === name),
 			input,
 			output: record.output,
 			with: key,

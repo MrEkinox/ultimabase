@@ -11,6 +11,7 @@ import type {
 	RealtimeApi,
 	Viewer,
 } from '@ultimabase/realtime'
+import type { Logger } from 'ultimabase'
 import type { Shape } from './fields.ts'
 import { shaped } from './fields.ts'
 import type { Events } from './sse.ts'
@@ -25,12 +26,16 @@ export type Live = {
 	readonly streams: Set<() => void>
 	readonly kept: Map<string, Kept>
 	readonly open: Map<string, () => void>
+	readonly logger: Logger
 }
 
 /** Where a live read writes: an open stream of events, its response aside. */
 export type Sink = Omit<Events, 'response'>
 
-type Changed = Exclude<LiveMessage, { readonly kind: 'closed' | 'row' }>
+type Changed = Exclude<
+	LiveMessage,
+	{ readonly kind: 'closed' | 'row' | 'value' }
+>
 /** What a live list's messages write. */
 export type Write = (message: Changed) => void
 
@@ -113,7 +118,8 @@ function relayOf(): Relay {
 /**
  * Follows the read `open` starts into `sink`; a list's changes go through
  * `list`. Changes are dropped while the client's buffer is full, until the
- * engine sends the window again.
+ * engine sends the window again. A closing error is sent as it comes: its
+ * read made it public.
  */
 export async function follow(
 	sink: Sink,
@@ -128,8 +134,9 @@ export async function follow(
 	let owed = false
 	const send = (message: LiveMessage) => {
 		if (message.kind === 'closed') {
+			if (message.error !== undefined) sink.send('error', message.error)
 			// A viewer closes when its caller changed: the client reconnects.
-			if (!viewer.closed) {
+			else if (!viewer.closed) {
 				sink.send('error', {
 					code: 'INTERNAL',
 					message: 'The live read closed.',
@@ -147,6 +154,9 @@ export async function follow(
 			return
 		}
 		dropping = false
+		if (message.kind === 'value') {
+			return sink.send('data', message.value, message.revision)
+		}
 		if (message.kind !== 'row') return writes?.(message)
 		const { row, revision } = message
 		sink.send('data', row && shaped(row, shape), revision)

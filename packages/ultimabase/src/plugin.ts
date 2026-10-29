@@ -52,6 +52,8 @@ export interface PluginTypes {
 	readonly fieldWith?: object
 	/** Its key of a function's `.with`; `false` stops exposing it (D-27). */
 	readonly functionWith?: object | false
+	/** Only a query may list it in its `use` (D-154). */
+	readonly queryOnly?: true
 }
 
 /** A plugin's types for one model's fields. */
@@ -174,6 +176,8 @@ export interface ExposedFunction<W = unknown> {
 	readonly plugin: string | undefined
 	/** A query, which a transport may serve over GET; a mutation otherwise. */
 	readonly query: boolean
+	/** Whether the function's `use` lists the plugin (D-154). */
+	readonly used: boolean
 	readonly input: StandardSchema | undefined
 	/** `undefined` when it returns nothing. */
 	readonly output: ExposedOutput | undefined

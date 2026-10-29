@@ -7,6 +7,7 @@ import type {
 	AggregateRead,
 	CountRead,
 	Filter,
+	GroupKey,
 	Nested,
 	Read,
 	Row,
@@ -24,6 +25,13 @@ export type Recorded = {
 	readonly ids?: readonly string[]
 	/** The relation, as `Model.field`, it followed from another read's rows. */
 	readonly relation?: string
+	/** The fields it returned or aggregated; absent, every field. */
+	readonly fields?: readonly string[]
+	/**
+	 * The fields that chose and ordered its rows: its filter's, sort's and
+	 * keys'; absent, it may depend on any field.
+	 */
+	readonly filters?: readonly string[]
 }
 
 type Recording = { readonly reads: Recorded[]; expires: number | undefined }
@@ -64,6 +72,41 @@ const idsOf = (rows: readonly unknown[]): string[] => [
 		}),
 	),
 ]
+
+/** Adds the fields `where` tests on its rows; false when it tests a text search. */
+function filtered(where: Filter | undefined, into: Set<string>): boolean {
+	if (where === undefined) return true
+	for (const key of Object.keys(where)) {
+		if (key === '_search') return false
+		if (key !== 'AND' && key !== 'OR' && key !== 'NOT') into.add(key)
+	}
+	const nested = [
+		...(where.AND ?? []),
+		...(where.OR ?? []),
+		...(where.NOT ?? []),
+	]
+	return nested.every((filter) => filtered(filter, into))
+}
+
+/** A sort's or a key's field on the row: the relation it goes through first. */
+const ownField = (key: GroupKey): string =>
+	key.through?.[0]?.relation ?? key.field
+
+/** The fields a read returned and the ones that chose its rows. */
+function dependsOn(
+	read: Nested & { readonly distinct?: readonly GroupKey[] },
+): Pick<Recorded, 'fields' | 'filters'> {
+	const filters = new Set<string>()
+	// A sort by relevance comes with a text search, which `filtered` refuses.
+	const known = filtered(read.where, filters) && filtered(read.cursor, filters)
+	for (const order of read.orderBy ?? []) filters.add(ownField(order))
+	for (const key of read.distinct ?? []) filters.add(ownField(key))
+	filters.delete('id')
+	return {
+		...(read.fields && { fields: read.fields }),
+		...(known && { filters: [...filters] }),
+	}
+}
 
 /** Keeps the relation `name` of `model` follows, and returns its target. */
 function follow(
@@ -117,10 +160,10 @@ function followed(
 			if (Array.isArray(value)) return value
 			return value === null || value === undefined ? [] : [value]
 		})
-		const reached = { ...(nested.where && { where: nested.where }) }
 		const target = follow(models, reads, model, name, {
-			...reached,
+			...(nested.where && { where: nested.where }),
 			ids: idsOf(found),
+			...dependsOn(nested),
 		})
 		if (target !== undefined) followed(models, reads, target, nested, found)
 	}
@@ -135,7 +178,12 @@ export function recordFind(
 	const reads = recorder.getStore()?.reads
 	if (reads === undefined) return
 	const { model, where } = read
-	reads.push({ model, ...(where && { where }), ids: idsOf(rows) })
+	reads.push({
+		model,
+		...(where && { where }),
+		ids: idsOf(rows),
+		...dependsOn(read),
+	})
 	followed(models, reads, model, read, rows)
 }
 
@@ -147,7 +195,18 @@ export function recordCount(
 	const reads = recorder.getStore()?.reads
 	if (reads === undefined) return
 	const { model, where } = read
-	reads.push({ model, ...(where && { where }) })
+	const filters = new Set<string>()
+	const known = filtered(where, filters)
 	const by = 'by' in read ? (read.by ?? []) : []
+	for (const key of by) filters.add(ownField(key))
+	const aggregates = 'aggregates' in read ? read.aggregates : []
+	const fields = aggregates.flatMap(({ field }) => field ?? [])
+	filters.delete('id')
+	reads.push({
+		model,
+		...(where && { where }),
+		fields: [...new Set(fields)],
+		...(known && { filters: [...filters] }),
+	})
 	for (const key of by) through(models, reads, model, key.through)
 }

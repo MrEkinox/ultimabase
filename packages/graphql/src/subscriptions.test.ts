@@ -14,6 +14,7 @@ import { WebSocket } from 'ws'
 import { z } from 'zod'
 import type { Caller, Identity, Logger, PluginTypes } from 'ultimabase'
 import {
+	PublicError,
 	allow,
 	defineApp,
 	defineFunction,
@@ -73,6 +74,31 @@ const remember = defineFunction({
 	},
 }).with({ access: allow.public })
 
+let breaking: Error | undefined
+/** The caller's tasks ranked above `above`, followed live (D-154). */
+const ranked = defineFunction({
+	name: 'ranked',
+	query: true,
+	use: [realtime()],
+	input: z.object({ above: z.number() }),
+	output: [Task],
+	run: async ({ caller, input }) => {
+		if (breaking !== undefined) throw breaking
+		return Task.findMany(
+			{ where: { rank: { gt: input.above } }, orderBy: { rank: 'asc' } },
+			{ as: caller },
+		)
+	},
+}).with({ access: allow.public, realtime: { debounce: 10 } })
+/** How many tasks the caller has. */
+const counted = defineFunction({
+	name: 'counted',
+	query: true,
+	use: [realtime()],
+	output: z.number(),
+	run: async ({ caller }) => Task.count({}, { as: caller }),
+}).with({ access: allow.public, realtime: { debounce: 10 } })
+
 const errors: unknown[] = []
 const failures: unknown[] = []
 let listening = ''
@@ -122,6 +148,7 @@ afterEach(async () => {
 	failures.length = 0
 	revoked.clear()
 	failing = false
+	breaking = undefined
 	held = undefined
 })
 
@@ -150,7 +177,10 @@ async function started(options: Options = {}): Promise<string> {
 		database: memory(),
 		plugins,
 		models: options.models ?? [Task, Note],
-		functions: [cookie, remember],
+		functions:
+			options.realtime === false
+				? [cookie, remember]
+				: [cookie, remember, ranked, counted],
 		masterKey: 'secret',
 		logger,
 	})
@@ -431,6 +461,78 @@ describe('a live list', () => {
 	})
 })
 
+describe('a live function', () => {
+	const query = 'subscription { ranked(above: 1) { title } }'
+
+	it('sends its result, then again when what it read changes', async () => {
+		const url = await started()
+		await seeded()
+		const results = subscribed(url, query)
+		expect(await next(results)).toEqual({
+			data: { ranked: [{ title: 'b' }, { title: 'c' }] },
+			extensions: { live: { revision: 1 } },
+		})
+		await Task.updateMany({ where: { title: 'b' }, data: { title: 'B' } }, M)
+		expect(await next(results)).toEqual({
+			data: { ranked: [{ title: 'B' }, { title: 'c' }] },
+			extensions: { live: { revision: 2 } },
+		})
+		const count = subscribed(url, 'subscription { counted }')
+		expect(await next(count)).toMatchObject({ data: { counted: 3 } })
+		await Task.create({ data: { title: 'd', rank: 4, owner: 'ada' } }, M)
+		expect(await next(count)).toMatchObject({ data: { counted: 4 } })
+	})
+
+	it('sends the public error it fails with, then completes', async () => {
+		const url = await started()
+		await seeded()
+		const results = subscribed(url, query)
+		await next(results)
+		breaking = new PublicError('NOT_FOUND', 'No such board.')
+		await Task.updateMany({ where: { title: 'b' }, data: { title: 'B' } }, M)
+		expect(await next(results)).toEqual({
+			errors: [
+				containing({
+					message: 'No such board.',
+					extensions: { code: 'NOT_FOUND' },
+				}),
+			],
+		})
+		expect((await results.next()).done).toBe(true)
+	})
+
+	it('masks any other error, which it logs', async () => {
+		const url = await started()
+		await seeded()
+		const results = subscribed(url, query)
+		await next(results)
+		breaking = new Error('Secret.')
+		await Task.updateMany({ where: { title: 'b' }, data: { title: 'B' } }, M)
+		expect(await next(results)).toEqual({
+			errors: [
+				containing({
+					message: 'Internal error.',
+					extensions: { code: 'INTERNAL', correlationId: token },
+				}),
+			],
+		})
+		expect(errors).toEqual(['A GraphQL field failed.'])
+	})
+
+	it('is refused when its first run fails', async () => {
+		const url = await started()
+		breaking = new PublicError('NOT_FOUND', 'No such board.')
+		expect(await next(subscribed(url, query))).toEqual({
+			errors: [
+				containing({
+					message: 'No such board.',
+					extensions: containing({ code: 'NOT_FOUND' }),
+				}),
+			],
+		})
+	})
+})
+
 const growing = `subscription ($first: Int, $order: SortOrder) {
 	tasks(first: $first, orderBy: [{ rank: $order }]) {
 		edges { node { title } } pageInfo { hasNextPage }
@@ -575,10 +677,10 @@ describe('a live row', () => {
 })
 
 describe('the subscriptions', () => {
-	it('are the live models’ only', async () => {
+	it('are the live models’ and functions’ only', async () => {
 		await started()
 		const fields = schema?.getSubscriptionType()?.getFields() ?? {}
-		expect(Object.keys(fields)).toEqual(['task', 'tasks'])
+		expect(Object.keys(fields)).toEqual(['task', 'tasks', 'ranked', 'counted'])
 	})
 
 	it('run over WebSocket only', async () => {

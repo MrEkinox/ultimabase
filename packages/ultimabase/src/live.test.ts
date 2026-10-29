@@ -33,7 +33,7 @@ const Author = defineModel({
 const Post = defineModel({
 	name: 'Post',
 	fields: (f) => ({
-		title: f.string(),
+		title: f.string({ search: true }),
 		rank: f.number({ integer: true, optional: true }),
 		open: f.boolean({ default: true }),
 		draft: f.boolean({ default: false }),
@@ -98,8 +98,24 @@ describe('recording', () => {
 				model: 'Post',
 				where: { title: { equals: 'a' } },
 				ids: [result[0]?.id],
+				fields: [
+					'id',
+					'createdAt',
+					'updatedAt',
+					'title',
+					'rank',
+					'open',
+					'draft',
+				],
+				filters: ['title'],
 			},
-			{ model: 'Author', ids: [author.id], relation: 'Post.author' },
+			{
+				model: 'Author',
+				ids: [author.id],
+				relation: 'Post.author',
+				fields: ['id', 'createdAt', 'updatedAt', 'name'],
+				filters: [],
+			},
 		])
 	})
 
@@ -134,8 +150,51 @@ describe('recording', () => {
 		expect(reads[0]).toEqual({
 			model: 'Post',
 			where: { open: { equals: true } },
+			fields: [],
+			filters: ['open'],
 		})
 		expect(reads[4]?.ids).toHaveLength(2)
+	})
+
+	it('keeps the fields a read returns and the ones that choose its rows', async () => {
+		await seeded()
+		const { reads } = await recording(async () => {
+			await Post.findMany(
+				{
+					where: { OR: [{ rank: { gt: 0 } }, { NOT: { title: 'a' } }] },
+					orderBy: [{ author: { name: 'asc' } }, { rank: 'desc' }],
+					distinct: ['open'],
+					select: { title: true },
+				},
+				M,
+			)
+			await Post.aggregate(
+				{ where: { draft: false }, _sum: { rank: true }, _count: true },
+				M,
+			)
+			await Post.groupBy({ by: ['author', 'open'], _max: { rank: true } }, M)
+		})
+		const own = reads.filter(({ relation }) => relation === undefined)
+		expect(own.map(({ fields, filters }) => ({ fields, filters }))).toEqual([
+			{ fields: ['id', 'title'], filters: ['rank', 'title', 'author', 'open'] },
+			{ fields: ['rank'], filters: ['draft'] },
+			{ fields: ['rank'], filters: ['author', 'open'] },
+		])
+	})
+
+	it('keeps no filter fields for a text search, which reads the searched ones', async () => {
+		await seeded()
+		const { reads } = await recording(async () => {
+			await Post.count({ where: { AND: [{ _search: 'a' }] } }, M)
+			await Post.findMany(
+				{
+					where: { _search: 'a' },
+					orderBy: [{ _relevance: 'desc' }],
+				},
+				M,
+			)
+		})
+		expect(reads.map(({ filters }) => filters)).toEqual([undefined, undefined])
 	})
 
 	it('keeps the read rule of a relation it sorts or groups by', async () => {

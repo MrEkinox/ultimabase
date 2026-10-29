@@ -18,7 +18,7 @@ import type {
 	GraphQLResolveInfo,
 } from 'graphql'
 import { GraphQLError, GraphQLList, GraphQLNonNull } from 'graphql'
-import type { Row } from 'ultimabase'
+import type { Caller, Row } from 'ultimabase'
 import { objectOf, uniqueInput, uniqueWhere } from './inputs.ts'
 import type { Keep, Live } from './live-stream.ts'
 import { LiveEvent, liveStream, lives, resumed } from './live-stream.ts'
@@ -107,9 +107,10 @@ function follower(
 		return result
 	}
 	return (message) => {
-		if (message.kind === 'row') {
-			const { row, revision } = message
-			return new LiveEvent(row, (result) => revised(result, revision))
+		if (message.kind === 'row' || message.kind === 'value') {
+			const { revision } = message
+			const root = message.kind === 'row' ? message.row : message.value
+			return new LiveEvent(root, (result) => revised(result, revision))
 		}
 		const { revision } = message
 		hasMore = message.hasMore ?? hasMore
@@ -165,13 +166,23 @@ function follower(
 	}
 }
 
-/** The last result of a live read the engine closed. */
-const closedEvent = () =>
+/**
+ * The last result of a live read the engine closed, or of a live function
+ * that failed with `error`, which the error formatter shows or masks.
+ */
+const closedEvent = (error?: unknown) =>
 	new LiveEvent(null, () => ({
 		errors: [
-			new GraphQLError('The live read closed.', {
-				extensions: { code: 'INTERNAL' },
-			}),
+			error === undefined
+				? new GraphQLError('The live read closed.', {
+						extensions: { code: 'INTERNAL' },
+					})
+				: new GraphQLError('A live function failed.', {
+						originalError:
+							error instanceof Error
+								? error
+								: new Error('A live function threw.', { cause: error }),
+					}),
 		],
 	}))
 
@@ -273,6 +284,38 @@ function liveFields(registry: Registry, entry: Entry): Fields {
 			},
 			resolve: rootOf,
 		},
+	}
+}
+
+/**
+ * A live function's subscription (D-154), as its query field: `value` runs
+ * it as the subscriber each time it may have changed.
+ */
+export function followed(
+	owner: string,
+	field: Omit<GraphQLFieldConfig<unknown, Context, Args>, 'resolve'>,
+	value: (
+		args: Args,
+		context: Context,
+		info: GraphQLResolveInfo,
+	) => Promise<unknown>,
+): GraphQLFieldConfig<unknown, Context, Args> {
+	return {
+		...field,
+		subscribe: async (_, args, context, info) => {
+			const { channel } = liveOf(context)
+			const compute = async (caller: Caller) =>
+				value(args, { ...context, caller }, info)
+			return run(async () =>
+				liveStream(
+					channel,
+					async (send) => channel.viewer.value(owner, compute, send),
+					follower(info, false, false),
+					closedEvent,
+				),
+			)
+		},
+		resolve: rootOf,
 	}
 }
 

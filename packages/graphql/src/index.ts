@@ -105,11 +105,15 @@ const plugin = definePlugin<Graphql>({
 		const registry = new Registry(entries, {
 			pagination: options.pagination ?? 'connection',
 		})
-		const called = functionFields(registry, functions, take)
+		const liveFunction = realtime?.liveFunction ?? (() => false)
+		const called = functionFields(registry, functions, take, liveFunction)
 		const live = realtime?.live ?? (() => false)
 		const generated = schemaOf(registry, {
 			...called,
-			subscriptions: subscriptionFields(registry, live),
+			subscriptions: {
+				...subscriptionFields(registry, live),
+				...called.subscriptions,
+			},
 		})
 		const schema = options.extend?.(generated) ?? generated
 		const production = process.env['NODE_ENV'] === 'production'

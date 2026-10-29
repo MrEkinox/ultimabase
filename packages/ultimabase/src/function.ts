@@ -128,6 +128,13 @@ export type RunFacts<I> = {
 	? { readonly input: SchemaTypes<I>['output'] }
 	: unknown)
 
+/** Requires `query: true` when a plugin of `use` takes queries only (D-154). */
+export type QueryCheck<U> = [
+	Extract<U, ModelUse<string, { readonly queryOnly: true }>>,
+] extends [never]
+	? unknown
+	: { readonly query: true }
+
 /** Refuses an input typed `any` or without types (D-27). */
 export type InputCheck<I> = [I] extends [StandardSchema]
 	? AnyCheck<I> extends { readonly validate: infer M }
