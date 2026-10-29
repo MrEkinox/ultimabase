@@ -9476,9 +9476,13 @@ maxConnectionRows })`; a subscribe past either fails with
    - The link evicts a `gone` row from Apollo's cache, by its `__typename`
      and `id`. Out of step, the link and `liveFetch` read the list again
      without the token.
+   - Each hook holds its own subscription (`queryDeduplication: false`),
+     which its `fetchMore`, the same function across renders, grows; before
+     the subscription runs, `fetchMore` is refused.
    - Peers: `@apollo/client` 4 and its `rxjs`, React 18 or 19. Tests run
-     against a running server, the hook's under `happy-dom` with React's
-     `act`.
+     against a running server, the hook's under `happy-dom`: they wait for
+     the render that shows the result, since the socket's messages arrive
+     outside React's `act`.
 
      ```ts
      const link = ApolloLink.from([ultimabaseLive(), new GraphQLWsLink(ws)])
