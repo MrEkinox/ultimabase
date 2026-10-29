@@ -1,18 +1,21 @@
 // `graphqlPlugin()` (D-107, D-109): a Relay schema generated from the models
 // and the functions, mounted on the HTTP plugin and run as each request's
-// caller.
+// caller; with the realtime plugin, its live models' subscriptions (D-154).
 import type { GraphQLSchema } from 'graphql'
 import {
 	executeRootSelectionSet,
 	MaxIntrospectionDepthRule,
 	NoSchemaIntrospectionCustomRule,
 	parse,
+	specifiedRules,
 	validate,
 	validateExecutionArgs,
 } from 'graphql'
 import { createHandler } from 'graphql-http/lib/use/fetch'
 import type { Http } from '@ultimabase/http'
 import { clientOf, httpPlugin, routes } from '@ultimabase/http'
+import type { Realtime } from '@ultimabase/realtime'
+import { realtimePlugin } from '@ultimabase/realtime'
 import type { Caller, Client, PluginOf, PluginTypes, UseOf } from 'ultimabase'
 import { definePlugin } from 'ultimabase'
 import manifest from '../package.json' with { type: 'json' }
@@ -28,6 +31,9 @@ import { Registry } from './registry.ts'
 import { rowBudget } from './rows.ts'
 import { schemaOf } from './schema.ts'
 import { selectFor } from './select.ts'
+import type { Operations } from './sockets.ts'
+import { serveSockets } from './sockets.ts'
+import { subscriptionFields } from './subscriptions.ts'
 
 export type { GraphqlFunctionWith } from './functions.ts'
 export type { Context as GraphqlContext, GraphqlWith } from './registry.ts'
@@ -63,6 +69,7 @@ export interface Graphql extends PluginTypes {
 	readonly name: 'graphql'
 	readonly appOptions: GraphqlOptions
 	readonly requires: Http
+	readonly optional: Realtime
 	readonly with: GraphqlWith
 	readonly functionWith: GraphqlFunctionWith
 }
@@ -70,11 +77,17 @@ export interface Graphql extends PluginTypes {
 /** About ten times the standard introspection query. */
 const maxTokens = 2000
 
+// What closes each running application's WebSockets, by its plugin's context.
+const closers = new WeakMap<object, () => Promise<void>>()
+
 const plugin = definePlugin<Graphql>({
 	name: 'graphql',
 	manifest,
 	requires: { http: httpPlugin },
-	api: ({ plugins, models, functions, options, logger }) => {
+	optional: { realtime: realtimePlugin },
+	api: (pluginContext) => {
+		const { plugins, models, functions, options, logger } = pluginContext
+		const { realtime } = plugins
 		const take = options.take ?? 100
 		const entries = new Map<string, Entry>()
 		for (const exposed of models) {
@@ -93,7 +106,11 @@ const plugin = definePlugin<Graphql>({
 			pagination: options.pagination ?? 'connection',
 		})
 		const called = functionFields(registry, functions, take)
-		const generated = schemaOf(registry, called)
+		const live = realtime?.live ?? (() => false)
+		const generated = schemaOf(registry, {
+			...called,
+			subscriptions: subscriptionFields(registry, live),
+		})
 		const schema = options.extend?.(generated) ?? generated
 		const production = process.env['NODE_ENV'] === 'production'
 		const hideSuggestions = !(options.introspection ?? !production)
@@ -114,29 +131,21 @@ const plugin = definePlugin<Graphql>({
 			if (held === undefined) throw new Error('No caller was read.')
 			return held
 		}
-		const handler = createHandler<Context>({
+		const operations: Operations = {
 			schema,
 			// Validation is quadratic in a field repeated under one key, so a
 			// document is bounded before it is validated.
 			parse: (source) => parse(source, { maxTokens }),
-			context: (request) => {
-				const { caller, client } = heldOf(request.raw)
-				const master = caller.kind === 'master'
-				const select = selectFor(registry, master)
-				const context = { caller, client, select }
-				if (master) exempt.add(context)
-				return context
-			},
-			validationRules: (request, _, specified) => [
-				...specified.filter((rule) => rule !== MaxIntrospectionDepthRule),
+			rules: (master) => [
+				...specifiedRules.filter((rule) => rule !== MaxIntrospectionDepthRule),
 				introspectionDepthRule,
 				...closed,
-				...(heldOf(request.raw).caller.kind === 'master' ? [] : [depth]),
+				...(master ? [] : [depth]),
 			],
-			validate: (on, document, rules) => {
+			validate: (document, rules) => {
 				const refused = overlapRefusal(document)
 				if (refused !== undefined) return [refused]
-				return validate(on, document, rules, { hideSuggestions })
+				return validate(schema, document, rules, { hideSuggestions })
 			},
 			execute: async (args) => {
 				const validated = validateExecutionArgs({ ...args, hideSuggestions })
@@ -150,7 +159,29 @@ const plugin = definePlugin<Graphql>({
 				if (refused !== undefined) return { errors: [refused] }
 				return executeRootSelectionSet(validated)
 			},
-			formatError: formatter(logger),
+			context: (caller, client) => {
+				const master = caller.kind === 'master'
+				const select = selectFor(registry, master)
+				const context = { caller, client, select }
+				if (master) exempt.add(context)
+				return context
+			},
+			hideSuggestions,
+			format: formatter(logger),
+			logger,
+		}
+		const handler = createHandler<Context>({
+			schema,
+			parse: operations.parse,
+			context: (request) => {
+				const { caller, client } = heldOf(request.raw)
+				return operations.context(caller, client)
+			},
+			validationRules: (request) =>
+				operations.rules(heldOf(request.raw).caller.kind === 'master'),
+			validate: (_, document, rules) => operations.validate(document, rules),
+			execute: operations.execute,
+			formatError: operations.format,
 		})
 		const path = options.path ?? '/graphql'
 		const page = production ? undefined : graphiqlPage(path)
@@ -174,6 +205,10 @@ const plugin = definePlugin<Graphql>({
 				return sent(await handler(request))
 			}),
 		)
+		if (realtime !== undefined) {
+			const close = serveSockets(plugins.http, path, realtime, operations)
+			closers.set(pluginContext, close)
+		}
 	},
 	start: ({ plugins, options, logger }) => {
 		if (process.env['NODE_ENV'] === 'production') return
@@ -181,6 +216,8 @@ const plugin = definePlugin<Graphql>({
 			`GraphiQL on ${plugins.http.url()}${options.path ?? '/graphql'}.`,
 		)
 	},
+	// Before the HTTP plugin's stop, which waits for the sockets to close.
+	stop: async (context) => closers.get(context)?.(),
 })
 
 /** The application's GraphQL API, served by `httpPlugin` (D-107). */

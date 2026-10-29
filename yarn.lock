@@ -723,6 +723,15 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@types/ws@npm:8.18.2":
+  version: 8.18.2
+  resolution: "@types/ws@npm:8.18.2"
+  dependencies:
+    "@types/node": "npm:*"
+  checksum: 10c0/8cf79499d26df06ffc27109fc86f1400371a5932082a4c1269be3f11e22b9e5a403a4ba2c1a3245d5fae420c270571aa833142a3d7fdce8f6cd24a45c52a98e4
+  languageName: node
+  linkType: hard
+
 "@typescript/typescript-aix-ppc64@npm:7.0.2":
   version: 7.0.2
   resolution: "@typescript/typescript-aix-ppc64@npm:7.0.2"
@@ -924,18 +933,26 @@ __metadata:
   resolution: "@ultimabase/graphql@workspace:packages/graphql"
   dependencies:
     "@types/pg": "npm:8.23.1"
+    "@types/ws": "npm:8.18.2"
     "@ultimabase/http": "workspace:*"
     "@ultimabase/postgres": "workspace:*"
+    "@ultimabase/realtime": "workspace:*"
     graphql: "npm:17.0.2"
     graphql-http: "npm:1.23.1"
+    graphql-ws: "npm:6.4.1"
     pg: "npm:8.23.1"
     ultimabase: "workspace:*"
     vite: "npm:8.3.4"
     vitest: "npm:5.0.5"
+    ws: "npm:8.22.0"
   peerDependencies:
     "@ultimabase/http": ^0.0.0
+    "@ultimabase/realtime": ^0.0.0
     graphql: ^17.0.2
     ultimabase: ^0.0.0
+  peerDependenciesMeta:
+    "@ultimabase/realtime":
+      optional: true
   languageName: unknown
   linkType: soft
 
@@ -991,7 +1008,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@ultimabase/realtime@workspace:packages/realtime":
+"@ultimabase/realtime@workspace:*, @ultimabase/realtime@workspace:packages/realtime":
   version: 0.0.0-use.local
   resolution: "@ultimabase/realtime@workspace:packages/realtime"
   dependencies:
@@ -1493,6 +1510,25 @@ __metadata:
   peerDependencies:
     graphql: ">=0.11 <=17"
   checksum: 10c0/32c058096bc2ef477233fa0d0a419a7a7c6e6479eb86151048b56d4beb7c688a0bec70bf47f017ad1772a23bfa1aca31d32405c9bc9983aa097b2304feb8f0e9
+  languageName: node
+  linkType: hard
+
+"graphql-ws@npm:6.4.1":
+  version: 6.4.1
+  resolution: "graphql-ws@npm:6.4.1"
+  peerDependencies:
+    "@fastify/websocket": ^10 || ^11
+    crossws: ~0.3 || ~0.4
+    graphql: ^15.10.1 || ^16 || ^17
+    ws: ^8
+  peerDependenciesMeta:
+    "@fastify/websocket":
+      optional: true
+    crossws:
+      optional: true
+    ws:
+      optional: true
+  checksum: 10c0/bb424b3ad7b94e90e29740b0a11e2f25a631c83eccb01a78dc83a0506407d242448ae23db087554c337a190cb64c3e9277a4458db4bfdd6d038742e1f03f6048
   languageName: node
   linkType: hard
 
@@ -2578,6 +2614,21 @@ __metadata:
   bin:
     why-is-node-running: cli.js
   checksum: 10c0/e3f82673aac2c0a330fdbcf4b282ecdf7e9c773fa82fb4217db5b8b3d374cbb51e708d928f5b17999bc65bc1a5a90fad0f6bd794641bd15fdd525949ccee5e39
+  languageName: node
+  linkType: hard
+
+"ws@npm:8.22.0":
+  version: 8.22.0
+  resolution: "ws@npm:8.22.0"
+  peerDependencies:
+    bufferutil: ^4.0.1
+    utf-8-validate: ">=5.0.2"
+  peerDependenciesMeta:
+    bufferutil:
+      optional: true
+    utf-8-validate:
+      optional: true
+  checksum: 10c0/7304d14ef38898dd366a528a85e2da389c4eebf30f4ce8a007bd2dce6025f9b619cefe44fe2354f0bad0ec541b1c9a4da06a3f3e046ab56f01fd52d5784ecfb2
   languageName: node
   linkType: hard
 

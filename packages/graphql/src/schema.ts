@@ -1,11 +1,7 @@
 // The schema (D-107): for each visible model, `post(where)` and `posts(...)`,
 // each read in one kernel query as its caller, and its mutations.
 import { connection, rowsOf, run } from '@ultimabase/http/internal'
-import type {
-	GraphQLFieldConfig,
-	GraphQLNamedType,
-	GraphQLResolveInfo,
-} from 'graphql'
+import type { GraphQLFieldConfig, GraphQLNamedType } from 'graphql'
 import {
 	GraphQLList,
 	GraphQLNonNull,
@@ -17,19 +13,12 @@ import { connectionType, isMaster, listArgs, objectType } from './outputs.ts'
 import { listRead, whereOf } from './pages.ts'
 import type { Args, Context, Entry, Registry } from './registry.ts'
 import { as } from './registry.ts'
-import { nodesOf, selectOf } from './select.ts'
+import { rowNodes, selectOf } from './select.ts'
 import { mutationFields } from './mutations.ts'
 import type { RootField } from './functions.ts'
 import { Refused } from 'ultimabase'
 
 type Fields = { [field: string]: GraphQLFieldConfig<unknown, Context, Args> }
-
-/** What a root list selects of its rows: under `edges { node }`. */
-function rowNodes(registry: Registry, info: GraphQLResolveInfo) {
-	return registry.settings.pagination === 'list'
-		? info.fieldNodes
-		: nodesOf(info, info.fieldNodes)
-}
 
 function rootFields(registry: Registry, entry: Entry): Fields {
 	const name = entry.model.name
@@ -124,9 +113,11 @@ export function schemaOf(
 		readonly fields: readonly RootField[]
 		readonly owners: ReadonlyMap<string, string>
 		readonly named: (name: string) => GraphQLNamedType | undefined
+		/** The live models' subscriptions, named as their queries (D-154). */
+		readonly subscriptions: Fields
 	},
 ): GraphQLSchema {
-	const { fields: functions, owners: typeOwners, named } = called
+	const { fields: functions, owners: typeOwners, named, subscriptions } = called
 	const roots = {
 		query: new Map<string, string>(),
 		mutation: new Map<string, string>(),
@@ -187,5 +178,12 @@ export function schemaOf(
 			Object.keys(mutations).length === 0
 				? undefined
 				: new GraphQLObjectType({ name: 'Mutation', fields: mutations }),
+		subscription:
+			Object.keys(subscriptions).length === 0
+				? undefined
+				: new GraphQLObjectType({
+						name: 'Subscription',
+						fields: subscriptions,
+					}),
 	})
 }

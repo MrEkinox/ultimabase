@@ -815,6 +815,57 @@ describe('the plugin', () => {
 		await seeded()
 	})
 
+	it('limits the live reads and the rows one connection follows', async () => {
+		await seeded({ maxSubscriptions: 2, maxConnectionRows: 5 })
+		const viewer = await connect()
+		const first = await list(viewer, 'Post', { ...ranked, first: 2 })
+		await expect(first.handle.grow(4)).rejects.toThrow(
+			'A connection follows at most 5 rows.',
+		)
+		await first.handle.grow(1)
+		await expect(list(viewer, 'Post', { ...ranked, first: 3 })).rejects.toThrow(
+			'A connection follows at most 5 rows.',
+		)
+		await list(viewer, 'Post', { ...ranked, first: 2 })
+		await expect(list(viewer, 'Post', { ...ranked, first: 1 })).rejects.toThrow(
+			'A connection holds at most 2 live reads.',
+		)
+		first.handle.close()
+		await expect(
+			list(viewer, 'Post', { ...ranked, first: 3 }),
+		).resolves.toBeDefined()
+		await running.app.stop()
+		running = appOf({ maxConnectionRows: 0 })
+		await expect(running.app.start()).rejects.toThrow(
+			"realtime's maxConnectionRows must be a positive integer.",
+		)
+		await seeded()
+	})
+
+	it('says which models are live, and who a viewer follows as', async () => {
+		await seeded()
+		expect(api?.live('Post')).toBe(true)
+		expect(api?.live('Session')).toBe(false)
+		const viewer = await connect()
+		expect(viewer.caller).toMatchObject({ kind: 'user' })
+		expect(viewer.closed).toBe(false)
+		viewer.close()
+		expect(viewer.closed).toBe(true)
+	})
+
+	it('sends a whole window again when asked', async () => {
+		await seeded()
+		const { seen, handle } = await list(await connect(), 'Post', {
+			...ranked,
+			first: 1,
+		})
+		await handle.resend()
+		expect(seen).toEqual([
+			expect.objectContaining({ kind: 'reset', revision: 1 }),
+			expect.objectContaining({ kind: 'reset', revision: 2 }),
+		])
+	})
+
 	it('reads a link as an update of both sides', async () => {
 		await seeded()
 		const { seen } = await list(await connect(), 'Post', {

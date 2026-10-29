@@ -124,6 +124,12 @@ export class Live {
 		return run
 	}
 
+	/** Reads the window again and sends it whole. */
+	async resend(): Promise<void> {
+		const [, settled] = this.#enqueue(async () => this.#reset())
+		return settled
+	}
+
 	close(): void {
 		this.#closed = true
 		this.#tracked.clear()

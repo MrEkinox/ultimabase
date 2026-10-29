@@ -8,10 +8,12 @@ import type { Logger } from 'ultimabase'
 
 /**
  * An upgrade a plugin takes: Node's request, its socket and first bytes, as
- * `ws`'s `handleUpgrade` reads them, and the request `identify` reads.
+ * `ws`'s `handleUpgrade` reads them, the request `identify` reads and the
+ * client's address, as `proxies` reads it (D-116).
  */
 export interface Upgrade {
 	readonly request: Request
+	readonly address: string
 	readonly incoming: IncomingMessage
 	readonly socket: Duplex
 	readonly head: Buffer
@@ -64,6 +66,7 @@ export function upgrading(
 	server: Server,
 	accepts: ReadonlyMap<string, Accept>,
 	allows: (origin: string) => boolean,
+	addressOf: (env: { readonly incoming: IncomingMessage }) => string,
 	logger: Logger,
 ): ReadonlySet<Duplex> {
 	const open = new Set<Duplex>()
@@ -91,7 +94,8 @@ export function upgrading(
 		open.add(socket)
 		socket.once('close', () => open.delete(socket))
 		try {
-			accept({ request, incoming, socket, head })
+			const address = addressOf({ incoming })
+			accept({ request, address, incoming, socket, head })
 		} catch (error) {
 			logger.error({ err: error }, 'An upgrade failed.')
 			refuse(socket, 500, 'INTERNAL', 'Internal error.')

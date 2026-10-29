@@ -125,6 +125,7 @@ describe('an upgrade', () => {
 		expect(first?.request.headers.get('cookie')).toBe('session=abc')
 		expect(first?.incoming.url).toBe('/live?x=1')
 		expect(first?.head).toBeInstanceOf(Buffer)
+		expect(['127.0.0.1', '::1', '::ffff:127.0.0.1']).toContain(first?.address)
 	})
 
 	it('comes from the server’s origin, one CORS allows, or no browser', async () => {

@@ -4,7 +4,7 @@
 	"soft-delete": 150,
 	"postgres": 3700,
 	"http": 1120,
-	"graphql": 3350,
+	"graphql": 4100,
 	"auth": 660,
 	"password": 1560,
 	"roles": 330,
@@ -12,5 +12,5 @@
 	"rest": 2300,
 	"create-ultimabase": 250,
 	"files": 1900,
-	"realtime": 1720
+	"realtime": 1800
 }

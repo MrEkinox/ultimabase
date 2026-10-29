@@ -13,6 +13,10 @@ export type { LiveHandle, Viewer } from './viewer.ts'
 export type RealtimeOptions = {
 	/** The most rows a live list follows, nested rows included; 1000. */
 	readonly maxLive?: number
+	/** The most live reads one connection holds; 100. */
+	readonly maxSubscriptions?: number
+	/** The most rows one connection follows in all, nested rows included; 10 000. */
+	readonly maxConnectionRows?: number
 	/** How often, in milliseconds, each caller is built again; 5 minutes. */
 	readonly refresh?: number
 }
@@ -21,6 +25,8 @@ export type RealtimeOptions = {
 export interface RealtimeApi {
 	/** Follows `request`'s caller; its live reads close with it. */
 	connect(this: void, request: Request): Promise<Viewer>
+	/** Whether `model`'s `use` lists `realtime()`. */
+	live(this: void, model: string): boolean
 }
 
 /** The realtime plugin's types (D-57). */
@@ -45,14 +51,29 @@ const realtimeDefinition = definePlugin<Realtime>({
 	api: (context) => {
 		const { options, identify, logger, models } = context
 		positive('maxLive', options.maxLive)
+		positive('maxSubscriptions', options.maxSubscriptions)
+		positive('maxConnectionRows', options.maxConnectionRows)
 		positive('refresh', options.refresh)
 		for (const model of models) positive('maxLive', model.with?.maxLive)
 		const engine = new Engine(
-			{ models, identify, logger, maxLive: options.maxLive ?? 1000 },
+			{
+				models,
+				identify,
+				logger,
+				maxLive: options.maxLive ?? 1000,
+				maxSubscriptions: options.maxSubscriptions ?? 100,
+				maxConnectionRows: options.maxConnectionRows ?? 10_000,
+			},
 			options.refresh ?? 300_000,
 		)
 		engines.set(context, engine)
-		return { connect: async (request) => engine.connect(request) }
+		const live = new Set(
+			models.filter(({ used }) => used).map(({ schema }) => schema.name),
+		)
+		return {
+			connect: async (request) => engine.connect(request),
+			live: (model) => live.has(model),
+		}
 	},
 	changed: (changes, context) => engines.get(context)?.changed(changes),
 	missed: (context) => engines.get(context)?.missed(),

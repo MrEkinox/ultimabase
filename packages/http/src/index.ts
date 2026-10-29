@@ -7,6 +7,7 @@ import type { Caller, PluginOf, PluginTypes } from 'ultimabase'
 import { definePlugin } from 'ultimabase'
 import manifest from '../package.json' with { type: 'json' }
 import type { HttpEnv, HttpOptions, Mounted, Routes } from './app.ts'
+import { addresses, proxiesOf } from './address.ts'
 import { allowing, appOf } from './app.ts'
 import { hold } from './request.ts'
 import { closed, listening, portOf, serverOf } from './server.ts'
@@ -94,7 +95,11 @@ const http = definePlugin<Http>({
 		mounts.delete(context)
 		const server = serverOf(app.fetch)
 		const accepts = upgrades.get(context) ?? new Map<string, Accept>()
-		taken.set(context, upgrading(server, accepts, allowing(options), logger))
+		const addressOf = addresses(proxiesOf(options.proxies), logger)
+		taken.set(
+			context,
+			upgrading(server, accepts, allowing(options), addressOf, logger),
+		)
 		const bound = await listening(server, port)
 		servers.set(context, server)
 		const url = `http://localhost:${bound}`

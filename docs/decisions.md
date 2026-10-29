@@ -9359,7 +9359,10 @@ whatever the first two cost.
    times its parents', as `maxRows` counts them (D-107), so it needs a
    `take`. Beyond `maxLive` the
    subscribe or the growth fails with `VALIDATION_FAILED`: `first is over
-1000, the most a live list follows.`
+1000, the most a live list follows.` Without `first`, a live list follows
+   the model's default `take`, as its query reads. A subscription is not
+   counted by the request row budget (`maxRows`, D-107): `maxLive` and
+   `maxConnectionRows` bound it.
 4. Messages. The first is the read's result, `{ data }`. Each later one
    holds only what changed, under `extensions.live`, a key GraphQL reserves
    for data outside the schema:
@@ -9386,23 +9389,36 @@ whatever the first two cost.
    - `remove` is a row that left the window; `gone: true` when it was
      deleted or the caller can no longer read it.
    - `totalCount` and `pageInfo` come only when they changed and are
-     selected.
-   - `revision` grows by one per message; a missing number makes the client
-     subscribe again from scratch.
+     selected; `pageInfo` comes whole.
+   - `changes` comes only when `edges` is selected. An `upsert` is the edge
+     as the subscription selects it, under the first key that selects
+     `edges`; a client selects the node's `id` to apply `after` and `remove`.
+   - `revision` grows by one per message, and every `{ data }` result, the
+     first one included, carries it as `extensions.live.revision`; a missing
+     number makes the client subscribe again from scratch.
+   - A read the engine closes, not the client, ends with
+     `{ errors: [{ message: 'The live read closed.', extensions: { code:
+'INTERNAL' } }] }`, then completes.
    - A live row sends `{ data }` again on each change, `null` once it is
      deleted or unreadable.
    - A subscribe with `extensions: { live: { mode: 'page' } }` gets `{ data }`
      with the whole window on each change instead: for clients without the
-     client package, its window capped at `maxTake`.
+     client package, its window capped at `maxTake`, Master's too.
    - Changes within 50 ms are sent as one message.
 5. Transport:
    - GraphQL over WebSocket on the GraphQL path, with the `graphql-ws`
      protocol (`graphql-transport-ws`), which Apollo's `GraphQLWsLink`
-     speaks, on `ws`.
+     speaks, on `ws`. The socket is served, and `Subscription` exists, only
+     when `realtimePlugin` is present. Queries and mutations sent over it
+     run as over HTTP, with the same rules and budget; its cookies are read
+     only, so a field that sets one fails. A connection is one viewer: when
+     its caller is no longer the same user, the socket closes with `4403`.
+     A client message is at most 1 MB, and a socket that has not answered
+     the last ping, sent every 12 s, is cut.
    - `httpPlugin`'s API gains `upgrade(path, accept)`, called from a
      plugin's `api`, one plugin a path: `accept` receives Node's request,
-     socket and first bytes, as `ws`'s `handleUpgrade` reads them, and the
-     `Request` that `identify` reads. An upgrade on a path no plugin takes
+     socket and first bytes, as `ws`'s `handleUpgrade` reads them, the
+     `Request` that `identify` reads, and the client's `address`. An upgrade on a path no plugin takes
      is a 404. `stop` closes the sockets still open at its 10 s end (D-106).
    - The caller is the upgrade request's (cookie or `Authorization`, D-112),
      or `connection_init`'s `{ authorization: 'Bearer …' }`. An upgrade
@@ -9416,7 +9432,8 @@ whatever the first two cost.
      Hono's `compress` is not used: it buffers.
    - A connection holds at most 100 subscriptions and follows at most
      10 000 rows in all, set as `realtimePlugin({ maxSubscriptions,
-maxConnectionRows })`.
+maxConnectionRows })`; a subscribe past either fails with
+     `VALIDATION_FAILED`.
 6. `@ultimabase/live` is the client:
    - `.` applies a message to a result (`applyLive(result, message)`) and
      reads SSE;

@@ -6,25 +6,20 @@
 import type { Caller, ExposedModel, Logger } from 'ultimabase'
 import { PublicError } from 'ultimabase'
 import type { LivePlan, Recorded } from 'ultimabase/internal'
-import {
-	inMemory,
-	livePlan,
-	liveSchema,
-	matches,
-	recording,
-} from 'ultimabase/internal'
+import { livePlan, liveSchema, recording } from 'ultimabase/internal'
 import type { Batch } from './changes.ts'
-import { listed, touched, unlisted } from './changes.ts'
 import type { LiveMessage } from './messages.ts'
 import { Live } from './live.ts'
-import { modelsOf, stepOf, walk } from './reach.ts'
-import type { Level } from './reach.ts'
+import { modelsOf, stepOf } from './reach.ts'
 import type { Loader } from './reads.ts'
 import { liveArgs, shapeOf } from './shape.ts'
+import { anyStale } from './stale.ts'
 
 export type Settings = {
 	readonly models: readonly ExposedModel<{ readonly maxLive?: number }>[]
 	readonly maxLive: number
+	readonly maxSubscriptions: number
+	readonly maxConnectionRows: number
 	readonly identify: (request: Request) => Promise<Caller>
 	readonly logger: Logger
 }
@@ -33,6 +28,8 @@ export type Settings = {
 export interface LiveHandle {
 	/** Shows `more` rows after the last; a list over its limit is refused. */
 	grow(this: void, more: number): Promise<void>
+	/** Sends the whole window again, as after messages were dropped. */
+	resend(this: void): Promise<void>
 	close(this: void): void
 }
 
@@ -41,6 +38,8 @@ type Subscription = {
 	readonly args: unknown
 	readonly row: boolean
 	readonly send: (message: LiveMessage) => void
+	/** The rows it follows, nested rows included. */
+	rows: number
 	reads: readonly Recorded[]
 	expires: Date | undefined
 }
@@ -62,49 +61,6 @@ const whoOf = (caller: Caller): string => {
 	if (caller.kind !== 'user') return JSON.stringify(caller)
 	const id: unknown = Reflect.get(caller.user, 'id')
 	return JSON.stringify(['user', id])
-}
-
-/** Whether a write in `batch` may change what `read` found. */
-async function stale(
-	read: Recorded,
-	batch: Batch,
-	loader: Loader,
-): Promise<boolean> {
-	const models = modelsOf(liveSchema())
-	if (read.relation !== undefined) {
-		const [model = '', field = ''] = read.relation.split('.')
-		const step = stepOf(models, model, field)
-		if (touched(batch.get(model), new Set([field]))) return true
-		if (step && touched(batch.get(step.target), new Set([step.inverse]))) {
-			return true
-		}
-	}
-	const { model, where, ids } = read
-	if (where !== undefined && !inMemory(model, where)) {
-		const levels: Level[] = []
-		walk(models, model, where, [], false, levels)
-		return levels.some((level) => batch.has(level.model))
-	}
-	const changes = batch.get(model)
-	if (changes === undefined) return false
-	if (unlisted(changes) || ids === undefined) return true
-	const found = new Set(ids)
-	const written = [...listed(changes.updates), ...listed(changes.deletes)]
-	if (written.some((id) => found.has(id))) return true
-	const inserted = listed(changes.inserts)
-	if (where === undefined) return inserted.length > 0
-	const others = [...inserted, ...listed(changes.updates)]
-	const rows = await loader.load(model, others)
-	return [...rows.values()].some((row) => matches(model, row, where))
-}
-
-const anyStale = async (
-	reads: readonly Recorded[],
-	batch: Batch,
-	loader: Loader,
-): Promise<boolean> => {
-	for (const read of reads) if (await stale(read, batch, loader)) return true
-	return false
 }
 
 export class Viewer {
@@ -134,6 +90,15 @@ export class Viewer {
 		this.#onClose = hooks.onClose
 		this.#onDue = hooks.onDue
 		this.#reschedule()
+	}
+
+	/** The caller the live reads run as, kept current by each rebuild. */
+	get caller(): Caller {
+		return this.#caller
+	}
+
+	get closed(): boolean {
+		return this.#closed
 	}
 
 	/** A live list of `model`'s rows, from the top of its order. */
@@ -263,6 +228,13 @@ export class Viewer {
 			({ schema }) => schema.name === model,
 		)
 		if (!exposed?.used) throw invalid('model', `${model} is not live.`)
+		const { maxSubscriptions } = this.#settings
+		if (this.#live.size >= maxSubscriptions) {
+			throw invalid(
+				'subscriptions',
+				`A connection holds at most ${maxSubscriptions} live reads.`,
+			)
+		}
 		const { first, where, totalCount, shape } = shapeOf(args, row)
 		const caller = this.#caller
 		const planned = await recording(async () =>
@@ -276,6 +248,7 @@ export class Viewer {
 				`first is over ${limit}, the most a live list follows.`,
 			)
 		}
+		this.#fits(first * (1 + nested))
 		const live = new Live(
 			{
 				model,
@@ -292,7 +265,9 @@ export class Viewer {
 			first,
 		)
 		const { reads, expires } = planned
-		this.#live.set(live, { model, args, row, send, reads, expires })
+		const rows = first * (1 + nested)
+		const subscription = { model, args, row, send, rows, reads, expires }
+		this.#live.set(live, subscription)
 		try {
 			await live.start()
 		} catch (error) {
@@ -311,13 +286,29 @@ export class Viewer {
 						`first is over ${limit}, the most a live list follows.`,
 					)
 				}
+				const grown = (live.first + more) * (1 + nested)
+				this.#fits(grown - subscription.rows)
+				subscription.rows = grown
 				return live.grow(more)
 			},
+			resend: async () => live.resend(),
 			close: () => {
 				live.close()
 				this.#live.delete(live)
 			},
 		}
+	}
+
+	/** Refuses `more` rows past what the connection follows in all. */
+	#fits(more: number): void {
+		const { maxConnectionRows } = this.#settings
+		let rows = more
+		for (const subscription of this.#live.values()) rows += subscription.rows
+		if (rows <= maxConnectionRows) return
+		throw invalid(
+			'first',
+			`A connection follows at most ${maxConnectionRows} rows.`,
+		)
 	}
 
 	/**
