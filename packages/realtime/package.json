@@ -1,0 +1,37 @@
+{
+	"name": "@ultimabase/realtime",
+	"version": "0.0.0",
+	"private": true,
+	"description": "Realtime for UltimaBase: live lists and live rows that follow every write, under the read rules.",
+	"type": "module",
+	"license": "Apache-2.0",
+	"engines": {
+		"node": ">=24.7.0"
+	},
+	"exports": {
+		".": "./src/index.ts"
+	},
+	"files": [
+		"dist",
+		"src",
+		"!src/**/*.test.ts",
+		"!src/test"
+	],
+	"scripts": {
+		"prepack": "rm -rf dist && yarn run -T tsc --project tsconfig.build.json"
+	},
+	"publishConfig": {
+		"exports": {
+			".": "./dist/index.js"
+		}
+	},
+	"peerDependencies": {
+		"ultimabase": "^0.0.0"
+	},
+	"devDependencies": {
+		"@ultimabase/testing": "workspace:*",
+		"ultimabase": "workspace:*",
+		"vite": "8.3.4",
+		"vitest": "5.0.5"
+	}
+}
