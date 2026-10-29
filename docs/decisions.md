@@ -9323,3 +9323,262 @@ api: ({ plugins }) => plugins.http.mount(uploads, { bodyLimit: false })
 // 201 { id: '…' }
 // POST /posts, 5 MB of JSON: still 413
 ```
+
+## D-154: Realtime: live lists and live rows
+
+Choice: completes D-25; amends D-106 (WebSocket upgrades), D-107 (the
+`Subscription` type) and D-129 (live reads over SSE). Three goals rank every
+choice below, in this order: performance with many writes and many
+subscribers, live lists of thousands of rows, and security, which holds
+whatever the first two cost.
+
+1. `@ultimabase/realtime` exports `realtimePlugin(options)` and the model
+   entry `realtime()`. A model is live when its `use` lists `realtime()`;
+   `.with({ realtime: { maxLive } })` sets its limit. It requires
+   `httpPlugin` and serves through `graphqlPlugin` and `restPlugin` when they
+   are present.
+2. A live read has the name, arguments, selection and type of the read it
+   follows:
+   - GraphQL: `subscription { campaigns(where, orderBy, first) { … } }`
+     returns `CampaignConnection!`, and `campaign(where: { id })` returns
+     `Campaign`, as their queries do (D-107). Replacing `subscription` by
+     `query` gives the same data once, which server rendering uses.
+   - REST: the list or row URL with `Accept: text/event-stream` (D-129).
+   - A selection that reaches a model which is not live is refused at
+     subscribe, naming the model: no part of a live result is stale.
+3. A live list follows a window from the top of its order: `first` (or
+   `take`), never `after`, `before`, `last` or `skip`. `first` is at most
+   `maxTake` (100) per request, as any read (D-107). The window grows by
+   `fetchMore` (point 7), up to `maxLive` rows, 1 000 by default, set as
+   `realtimePlugin({ maxLive })` and per model. A nested list counts its rows
+   times its parents', as `maxRows` counts them (D-107). Beyond `maxLive` the
+   subscribe or the growth fails with `VALIDATION_FAILED`: `first is over
+1000, the most a live list follows.`
+4. Messages. The first is the read's result, `{ data }`. Each later one
+   holds only what changed, under `extensions.live`, a key GraphQL reserves
+   for data outside the schema:
+   ```json
+   {
+   	"extensions": {
+   		"live": {
+   			"revision": 13,
+   			"changes": [
+   				{ "remove": "c2", "gone": false },
+   				{
+   					"upsert": { "cursor": "…", "node": { "id": "c9" } },
+   					"after": "c4"
+   				}
+   			],
+   			"totalCount": 42,
+   			"pageInfo": { "hasNextPage": true, "endCursor": "…" }
+   		}
+   	}
+   }
+   ```
+   - `upsert` places a row after another, or first with `after: null`; a
+     row that moves is one `upsert`.
+   - `remove` is a row that left the window; `gone: true` when it was
+     deleted or the caller can no longer read it.
+   - `totalCount` and `pageInfo` come only when they changed and are
+     selected.
+   - `revision` grows by one per message; a missing number makes the client
+     subscribe again from scratch.
+   - A live row sends `{ data }` again on each change, `null` once it is
+     deleted or unreadable.
+   - A subscribe with `extensions: { live: { mode: 'page' } }` gets `{ data }`
+     with the whole window on each change instead: for clients without the
+     client package, its window capped at `maxTake`.
+   - Changes within 50 ms are sent as one message.
+5. Transport:
+   - GraphQL over WebSocket on the GraphQL path, with the `graphql-ws`
+     protocol (`graphql-transport-ws`), which Apollo's `GraphQLWsLink`
+     speaks, on `ws`. `httpPlugin` gains the server's `upgrade` event.
+   - The caller is the upgrade request's (cookie or `Authorization`, D-112),
+     or `connection_init`'s `{ authorization: 'Bearer …' }`. An upgrade
+     whose `Origin` the HTTP plugin's CORS does not allow is refused before
+     any caller is read, so another site cannot borrow the cookie.
+   - REST sends `event: data` and `event: live` SSE events holding the same
+     JSON.
+   - Compression: WebSocket `permessage-deflate` above 1 KB; SSE gzip with
+     `node:zlib`, flushed after each event, when the request accepts it.
+     Hono's `compress` is not used: it buffers.
+   - A connection holds at most 100 subscriptions and follows at most
+     10 000 rows in all, set as `realtimePlugin({ maxSubscriptions,
+maxConnectionRows })`.
+6. `@ultimabase/live` is the client:
+   - `.` applies a message to a result (`applyLive(result, message)`) and
+     reads SSE;
+   - `./apollo` is `ultimabaseLive()`, a link placed before the WebSocket
+     link, which applies the changes and hands Apollo the whole result;
+   - `./react` is `useLiveSubscription(document, options)`, which takes
+     `useSubscription`'s options and returns its result plus `fetchMore`.
+     React and Apollo are optional peer dependencies.
+7. `fetchMore({ first })` grows the window without a new result in between.
+   Apollo's `useSubscription` resets `data` to `undefined` when a variable
+   changes, so the hook keeps its variables: the link completes the
+   operation and subscribes again with `extensions.live.resume`, an opaque
+   token bound to the connection and the caller. The server keeps a
+   completed window 10 seconds for it, reads only the new rows, and the link
+   emits the grown result on the same observable. Over SSE, the token is a
+   `resume` parameter of the new request.
+8. Change feed, in the kernel:
+   - Each write statement returns the ids it changed (`RETURNING id`), and
+     the transaction collects `{ model, kind, ids, fields }`. No row is
+     loaded for it, so the unloaded deletes of D-102 stay unloaded.
+   - Before the commit, one `pg_notify('ultimabase_changes', …)` holds the
+     transaction's changes, delivered by PostgreSQL only if it commits.
+     Payloads over 7 KB are split. More than 1 000 ids for one model become
+     `{ model, fields }`, which resyncs the windows that read it.
+   - Each server listens on one connection. When that connection drops,
+     every window resyncs once it is back.
+   - `memory()` delivers changes in the process.
+   - The feed covers every model, plugins' included (D-110): the kernel,
+     not a plugin, reads it.
+   - Writes made outside UltimaBase, as raw SQL, are not seen.
+9. Following a write, never by running the whole read again:
+   - At subscribe, the server plans the read once and keeps its effective
+     filter: the `where`, the read rules and every `beforeFind` (D-71,
+     D-86), as `QueryScope.readable` gives it.
+   - Per window row it keeps the id, the order keys and the ids of the
+     selected `one` relations; it never keeps the serialized row.
+   - Subscriptions with the same effective filter, order and selection, and
+     the same readable fields, share one window.
+   - A changed row is a candidate when it is in the window, or when the
+     filter's equalities, checked in memory, do not exclude it.
+   - The candidate row is read once. Each distinct filter without a
+     relation is evaluated on it in memory; the others are checked in one
+     query, `SELECT (f1) AS s1, (f2) AS s2 … WHERE id = $1`.
+   - A matching row is placed by its order keys with a binary search over
+     the window. A row placed after the last one is outside. A row leaving
+     a full window brings in the next one with one read after the last
+     row's keys.
+   - A write to a model the filter reaches through a relation (a
+     `CampaignMember` added) finds the rows it affects with one indexed
+     query on that relation, then follows them as above.
+   - A write to a selected `one` relation's row, or to a nested list's row,
+     sends the window rows that point to it again.
+   - `totalCount` costs one count per message that adds or removes rows,
+     only when it is selected.
+   - A selected relation is read once per message for all the rows that
+     need it.
+10. Rights, which must never be served from a stale caller:
+    - While the kernel builds a caller (`identify`, the plugins' `caller`)
+      and runs `beforeFind`, it records the models and filters read. A write
+      matching them rebuilds that caller. When its effective filters
+      change, its windows resync; when it is no longer the same user, its
+      subscriptions close. A session deleted or revoked (D-112) therefore
+      closes them, and a role removed (D-123) resyncs them.
+    - A session also closes its subscriptions when it expires.
+    - Every caller is rebuilt every 5 minutes, which catches what a hook
+      reads outside the database. `realtimePlugin({ refresh })` sets the
+      delay.
+    - Resyncs run in a queue of bounded concurrency, so a change of the
+      role tree does not read every window at once.
+    - A row removed for rights is `gone`; the link evicts it from Apollo's
+      cache, so no other component keeps it.
+11. Robustness:
+    - A client whose socket buffer holds more than 1 MB loses its pending
+      messages and gets the whole window once the buffer drains.
+    - A reconnection, a missing revision, a lost listener and a rights
+      change all resend the whole window.
+    - Closing a connection releases its windows at once, except the
+      10 seconds a resume may claim.
+12. `defineSubscription({ name, input, output, access, watch, debounce,
+run })` is `defineFunction`'s twin (D-109) for a computed value:
+    - `watch` lists the reads that wake it, made as the subscriber; their
+      `fields` limit the updates that wake it.
+    - `debounce` waits for a quiet period (50 ms by default).
+    - `run` runs as the subscriber; a result equal to the last one is not
+      sent.
+    - Rights changes rerun it, as point 10.
+13. Tests and merge gate:
+    - Every path of points 9 and 10 has a test: ACL removed, role removed,
+      member removed through a relation, session revoked, session expired,
+      soft delete, a filter field changed, an order field changed, a
+      displayed relation changed.
+    - A property test runs random writes, rights included, and checks after
+      each one that the client's window equals a fresh read as that caller.
+    - A benchmark in `bench/` must show, before the merge into `main`, the
+      SQL queries per write, the latency from commit to message (p50 and
+      p99), the memory per subscription and per connection, and the commit
+      rate with and without the feed. It runs with 1 000 and 10 000
+      subscribers on one list and on distinct lists, with windows of 25 and
+      1 000 rows.
+
+Why:
+
+- A list that resends its whole page on each change costs the page's size
+  per write, per subscriber. Changes cost one row, so a window of thousands
+  of rows stays cheap for the server and the network.
+- The server places each change, with the filter, the order and the rights
+  PostgreSQL applies. The client never repeats a filter or a sort, as a
+  Parse LiveQuery client's `shouldInsert` and `compare` did, and cannot get
+  them wrong.
+- The result has the read's type: the front end swaps `query` for
+  `subscription` and keeps its components, and codegen types both alike.
+- Rights read from the same writes as the data. The kernel already sees
+  which models a caller's construction reads, so a role or a session
+  change needs no signal from the roles or auth plugins, and no plugin
+  must remember to send one.
+- `pg_notify` inside the transaction is delivered exactly when the write
+  commits: a crash after the commit loses nothing.
+- `graphql-ws` and `ws` remove a protocol and a WebSocket server we would
+  own (D-92). `@hono/node-ws` requires `@hono/node-server` 1, and the HTTP
+  plugin runs 2.
+
+Rejected:
+
+- Re-running the read on each write, or polling it for many callers at once
+  (Hasura). Read rules are JavaScript per caller, and polling adds latency.
+- Change events the client places itself (Parse LiveQuery): the client
+  repeats the filters and the order, and the rights leak when it gets them
+  wrong.
+- The whole window on each change as the default: it bounds a live list to
+  about 100 rows.
+- One subscription per page, which shifts its cursor windows and needs merge
+  code in the client.
+- `@live` queries, which bring Apollo's `fetchMore` back but read the next
+  page as a second operation.
+- A "rights changed" signal sent by the roles and auth plugins: every plugin
+  that narrows reads would owe one.
+- Logical replication: it needs `wal_level=logical`, and a replication slot
+  whose reader stops fills the disk. The benchmark measures the commit lock
+  that `NOTIFY` takes; replication comes back only if that lock costs too
+  much.
+- Live windows that start after a cursor.
+
+Example:
+
+```tsx
+// Before: Parse LiveQuery
+const { data, fetchMore, variables } = useQuery(CampaignListDocument, {
+	variables: { search: computeSearchInput(searchTerm), filter: role },
+})
+useListSubscription(CampaignEventsDocument, campaignList, {
+	skip: !data,
+	context: { queryDeduplication: false },
+	listVariables: variables,
+	selectEvent: (data) => data.campaignEvents,
+	// Repeats the server's filters, and must stay in step with them
+	shouldInsert: (campaign) =>
+		campaign.viewerInvitationStatus === 'member' &&
+		!searchTerm.trim() &&
+		(role === 'all' || (role === 'gameMaster') === !!campaign.gameMaster?.isMe),
+})
+// + createConnectionOnData (420 lines), compare, removeConnectionNode…
+
+// After
+export const Campaign = defineModel({ name: 'Campaign', fields, use: [acl(…), realtime()] })
+
+const { data, fetchMore } = useLiveSubscription(CampaignsDocument, {
+	variables: { where: campaignWhere(role, searchTerm), first: 25 },
+})
+<LoadMoreButton
+	hasNextPage={data?.campaigns.pageInfo.hasNextPage}
+	onClick={() => fetchMore({ first: 25 })}
+/>
+
+// A live row
+const { data } = useLiveSubscription(CampaignDocument, { variables: { where: { id } } })
+// data.campaign: the campaign, or null once it is deleted or unreadable
+```
