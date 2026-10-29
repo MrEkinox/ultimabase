@@ -24,6 +24,12 @@ export type HttpEnv = { Variables: { caller: Caller; address: string } }
 /** Routes the application writes, read by `httpPlugin({ routes })`. */
 export type Routes = Hono<HttpEnv>
 
+/** Routes a plugin mounted; `bodyLimit: false` when they read their own body (D-153). */
+export interface Mounted {
+	readonly routes: Routes
+	readonly bodyLimit: boolean
+}
+
 /** What `httpPlugin` takes (D-66, D-106). */
 export interface HttpOptions {
 	/** Mounted at the root, in their order. */
@@ -122,7 +128,7 @@ const pathOf = (request: Request): string =>
  */
 export function appOf(
 	options: HttpOptions,
-	mounted: readonly Routes[],
+	mounted: readonly Mounted[],
 	identify: (request: Request) => Promise<Caller>,
 	logger: Logger,
 ): Hono<HttpEnv> {
@@ -200,24 +206,38 @@ export function appOf(
 		}
 		await next()
 	})
-	app.use(
-		bodyLimit({
-			maxSize,
-			onError: (c) =>
-				c.json(
-					{
-						code: 'PAYLOAD_TOO_LARGE',
-						message: `The body is over ${maxSize} bytes.`,
-					},
-					413,
-				),
-		}),
-	)
+	const limit = bodyLimit({
+		maxSize,
+		onError: (c) =>
+			c.json(
+				{
+					code: 'PAYLOAD_TOO_LARGE',
+					message: `The body is over ${maxSize} bytes.`,
+				},
+				413,
+			),
+	})
+	// The routes of the mounts that read their own body, by method: their
+	// `use` and `all` match any request, so they never lift the limit (D-153).
+	const unlimited = new Hono()
+	for (const mount of mounted.filter((each) => !each.bodyLimit)) {
+		for (const { method, path } of mount.routes.routes) {
+			if (method !== 'ALL') unlimited.on(method, path, (c) => c.body(null))
+		}
+	}
+	app.use(async (c, next) => {
+		const [matched] = unlimited.router.match(c.req.method, c.req.path)
+		if (matched.length > 0) await next()
+		else return limit(c, next)
+	})
 	app.use(async (c, next) => {
 		hold(c, await identify(c.req.raw), addressOf(c.env))
 		await next()
 	})
-	for (const routes of [...(options.routes ?? []), ...mounted]) {
+	for (const routes of [
+		...(options.routes ?? []),
+		...mounted.map((mount) => mount.routes),
+	]) {
 		app.route('/', routes)
 	}
 	app.notFound((c) =>

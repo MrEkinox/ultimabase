@@ -3,7 +3,7 @@
 	"testing": 4240,
 	"soft-delete": 150,
 	"postgres": 3420,
-	"http": 940,
+	"http": 960,
 	"graphql": 3350,
 	"auth": 650,
 	"password": 1560,

@@ -4,6 +4,7 @@
 // waits, 10 s at most.
 import { createServer, IncomingMessage } from 'node:http'
 import { Socket } from 'node:net'
+import type { Context } from 'hono'
 import { streamSSE } from 'hono/streaming'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { Logger, PluginTypes } from 'ultimabase'
@@ -14,7 +15,7 @@ import {
 	memory,
 	PublicError,
 } from 'ultimabase'
-import type { HttpApi, Routes } from './index.ts'
+import type { HttpApi, HttpEnv, Routes } from './index.ts'
 import { clientOf, httpPlugin, routes } from './index.ts'
 import { addresses } from './address.ts'
 import { portOf } from './server.ts'
@@ -93,7 +94,26 @@ const mounting = definePlugin<Mounting>({
 	},
 })
 
-type Mounted = ReturnType<typeof mounting.plugin>
+interface Reading extends PluginTypes {
+	readonly name: 'reading'
+	readonly requires: Http
+}
+const length = async (c: Context<HttpEnv>) =>
+	c.text(String((await c.req.arrayBuffer()).byteLength))
+// Routes that read their own body (D-153).
+const ownBody = definePlugin<Reading>({
+	name: 'reading',
+	manifest: { ...manifest, name: 'reading' },
+	requires: { http: httpPlugin },
+	api: ({ plugins }) => {
+		plugins.http.mount(routes().post('/raw', length).all('/any', length), {
+			bodyLimit: false,
+		})
+	},
+})
+
+type Mounted =
+	ReturnType<typeof mounting.plugin> | ReturnType<typeof ownBody.plugin>
 
 /** A started application on a free port, and what it logged. */
 async function started(
@@ -336,6 +356,18 @@ describe('an error', () => {
 			code: 'PAYLOAD_TOO_LARGE',
 			message: 'The body is over 10 bytes.',
 		})
+	})
+
+	it("lifts the limit for a mount's routes that read their own body", async () => {
+		const { url } = await server({ port: 0, bodyLimit: 10 }, ownBody.plugin())
+		const body = 'more than ten bytes'
+		const raw = await fetch(`${url}/raw`, { method: 'POST', body })
+		expect(await raw.text()).toBe(String(body.length))
+		// `all` is a middleware's, which matches any request.
+		const any = await fetch(`${url}/any`, { method: 'POST', body })
+		expect(any.status).toBe(413)
+		const json = await fetch(`${url}/notes`, { method: 'POST', body })
+		expect(json.status).toBe(413)
 	})
 })
 
