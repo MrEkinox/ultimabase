@@ -1,7 +1,7 @@
 // What official packages read from an application (D-130), kept off the
 // documented surface: new runs of it on another database, quieter, the
-// running plugins' APIs, and what raw SQL and tests on the declared
-// database need (D-137).
+// running plugins' APIs, what raw SQL and tests on the declared database
+// need (D-137), and what live reads need (D-154).
 import type { Adapter } from './adapter.ts'
 import { internalsOf } from './app-internals.ts'
 import type { Logger } from './app-options.ts'
@@ -17,6 +17,11 @@ export { isRow } from './field-codec.ts'
 export { joining } from './transaction.ts'
 export { issueOf } from './write-data.ts'
 export { decimalPattern } from './decimal.ts'
+export type { Recorded } from './recorder.ts'
+export { recording } from './recorder.ts'
+export type { LivePlan } from './live.ts'
+export { inMemory, livePlan, matches, sortKeys, storedRows } from './live.ts'
+export { compareKeys } from './memory-values.ts'
 
 /** `logger` without its info lines. */
 function quieted(logger: Logger): Logger {

@@ -6,6 +6,7 @@ import type { Adapter, Transaction } from './adapter.ts'
 import { RelationViolation } from './adapter.ts'
 import type { Logger } from './app-options.ts'
 import { decoded } from './field-codec.ts'
+import { recordCount, recordFind } from './recorder.ts'
 import type { Running } from './running.ts'
 import { current } from './running.ts'
 import { refused } from './write-target.ts'
@@ -41,14 +42,27 @@ async function begun(open: Open): Promise<Transaction> {
 	return open.tx
 }
 
-/** The store's rows with their plugin fields decoded (D-122). */
+/**
+ * The store's rows with their plugin fields decoded (D-122), each read kept
+ * if a recording runs (D-154).
+ */
 function decoding(app: Running, store: Store): Store {
 	const { models } = app.resolved
 	return {
-		find: async (read) => decoded(models, read, await store.find(read)),
-		count: async (read) => store.count(read),
+		find: async (read) => {
+			const rows = await store.find(read)
+			recordFind(models, read, rows)
+			return decoded(models, read, rows)
+		},
+		count: async (read) => {
+			recordCount(models, read)
+			return store.count(read)
+		},
 		// It reads no plugin field (D-143).
-		aggregate: async (read) => store.aggregate(read),
+		aggregate: async (read) => {
+			recordCount(models, read)
+			return store.aggregate(read)
+		},
 		write: async (write) =>
 			decoded(models, write.read, await store.write(write)),
 		last: async (write) => decoded(models, write.read, await store.last(write)),
