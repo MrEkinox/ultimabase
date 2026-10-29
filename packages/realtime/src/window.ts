@@ -18,7 +18,8 @@ export type Moves = {
 }
 
 export class Window {
-	entries: Entry[] = []
+	readonly #entries: Entry[] = []
+	readonly #ids = new Set<string>()
 	/** Rows may follow the last entry. */
 	rest = false
 	first: number
@@ -30,40 +31,46 @@ export class Window {
 	}
 
 	/** The rows a client shows. */
+	get entries(): readonly Entry[] {
+		return this.#entries
+	}
+
 	shown(): readonly Entry[] {
-		return this.entries.slice(0, this.first)
+		return this.#entries.slice(0, this.first)
 	}
 
 	hasMore(): boolean {
-		return this.entries.length > this.first
+		return this.#entries.length > this.first
 	}
 
+	/** The ids of the entries, kept as they change. */
 	ids(): ReadonlySet<string> {
-		return new Set(this.entries.map(({ id }) => id))
+		return this.#ids
 	}
 
 	/** How many rows a read after the last entry must bring. */
 	missing(): number {
-		return this.rest ? this.first + 1 - this.entries.length : 0
+		return this.rest ? this.first + 1 - this.#entries.length : 0
 	}
 
 	/** Adds the rows read after the last entry. */
 	fill(entries: readonly Entry[], rest: boolean): void {
-		this.entries.push(...entries)
+		this.#entries.push(...entries)
+		for (const { id } of entries) this.#ids.add(id)
 		this.rest = rest
 	}
 
 	remove(id: string): boolean {
-		const at = this.entries.findIndex((entry) => entry.id === id)
-		if (at === -1) return false
-		this.entries.splice(at, 1)
+		if (!this.#ids.delete(id)) return false
+		const at = this.#entries.findIndex((entry) => entry.id === id)
+		this.#entries.splice(at, 1)
 		return true
 	}
 
 	/** Places a row that passes the filter, or leaves it outside. */
 	place(entry: Entry): void {
 		this.remove(entry.id)
-		const { entries } = this
+		const entries = this.#entries
 		let low = 0
 		let high = entries.length
 		while (low < high) {
@@ -74,8 +81,10 @@ export class Window {
 		}
 		if (low === entries.length && this.rest) return
 		entries.splice(low, 0, entry)
-		if (entries.length > this.first + 1) {
-			entries.pop()
+		this.#ids.add(entry.id)
+		const last = entries.length > this.first + 1 ? entries.pop() : undefined
+		if (last !== undefined) {
+			this.#ids.delete(last.id)
 			this.rest = true
 		}
 	}

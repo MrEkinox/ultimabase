@@ -303,7 +303,6 @@ export class Live {
 	async #apply(batch: Batch, loader: Loader): Promise<void> {
 		const { model, totalCount } = this.#spec
 		const window = this.#window
-		const before = window.shown()
 		const effect = await affected(
 			{
 				model,
@@ -316,25 +315,35 @@ export class Live {
 		)
 		if (effect === 'resync') return this.#reset()
 		const gone = new Set(effect.deleted)
-		for (const id of effect.deleted) window.remove(id)
 		const candidates = [...effect.candidates].filter((id) => !gone.has(id))
-		if (candidates.length > 0) {
-			const rows = await loader.load(model, candidates)
-			const kept = await pass(model, rows, this.#plan.where)
-			const inside = window.ids()
-			const left = new Map(
-				[...rows].filter(([id]) => inside.has(id) && !kept.has(id)),
-			)
-			const readable = await pass(model, left, this.#plan.rights)
-			for (const id of candidates) {
-				const row = rows.get(id)
-				if (row !== undefined && kept.has(id)) window.place(this.#entry(row))
-				else if (window.remove(id) && !readable.has(id)) gone.add(id)
-			}
-		}
+		const rows = await loader.load(model, candidates)
+		const kept = await pass(model, rows, this.#plan.where)
+		const inside = window.ids()
+		const leaving = candidates.filter((id) => inside.has(id) && !kept.has(id))
+		const left = new Map(
+			leaving.flatMap((id) => rows.get(id) ?? []).map((row) => [row.id, row]),
+		)
+		const readable = await pass(model, left, this.#plan.rights)
 		const recount =
 			totalCount &&
 			(candidates.length > 0 || effect.deleted.size > 0 || effect.beyond)
+		// A write that leaves the window as it was costs no pass over it.
+		const touched =
+			gone.size > 0 ||
+			effect.resend.size > 0 ||
+			kept.size > 0 ||
+			leaving.length > 0
+		if (!touched && !recount) return
+		const before = window.shown()
+		for (const id of effect.deleted) window.remove(id)
+		for (const id of leaving) {
+			window.remove(id)
+			if (!readable.has(id)) gone.add(id)
+		}
+		for (const id of kept) {
+			const row = rows.get(id)
+			if (row !== undefined) window.place(this.#entry(row))
+		}
 		await this.#send(before, effect.resend, gone, recount)
 	}
 
