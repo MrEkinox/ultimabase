@@ -9421,19 +9421,46 @@ maxConnectionRows })`.
    completed window 10 seconds for it, reads only the new rows, and the link
    emits the grown result on the same observable. Over SSE, the token is a
    `resume` parameter of the new request.
-8. Change feed, in the kernel:
-   - Each write statement returns the ids it changed (`RETURNING id`), and
-     the transaction collects `{ model, kind, ids, fields }`. No row is
-     loaded for it, so the unloaded deletes of D-102 stay unloaded.
-   - Before the commit, one `pg_notify('ultimabase_changes', …)` holds the
-     transaction's changes, delivered by PostgreSQL only if it commits.
-     Payloads over 7 KB are split. More than 1 000 ids for one model become
-     `{ model, fields }`, which resyncs the windows that read it.
-   - Each server listens on one connection. When that connection drops,
-     every window resyncs once it is back.
-   - `memory()` delivers changes in the process.
-   - The feed covers every model, plugins' included (D-110): the kernel,
-     not a plugin, reads it.
+8. Change feed, from the adapter, through the kernel:
+   - A plugin takes the feed with two hooks, called in declaration order;
+     one that throws is logged and the others still run:
+
+     ```ts
+     definePlugin({
+     	name: 'realtime',
+     	manifest,
+     	changed: (changes, context) => {}, // committed changes
+     	missed: (context) => {}, // changes may have been lost
+     })
+     ```
+
+     A change is one of:
+
+     ```ts
+     { kind: 'insert' | 'update' | 'delete', model, ids?, fields? }
+     { kind: 'link' | 'unlink', model, field, pairs? } // [modelId, targetId]
+     ```
+
+     An update's `fields` are those it set. `ids` and `pairs` are absent
+     past `feedIds` (1 000) for one entry, `fields` past `feedFields`
+     (1 500 characters of JSON); absent, they resync the windows that read
+     the model.
+
+   - The adapter gets the feed in `start(schema, logger, feed?)`, only when
+     a plugin has `changed`; otherwise it does no feed work at all.
+   - A write reports only what it changed: no row is loaded for it, so the
+     unloaded deletes of D-102 stay unloaded. A link found already there
+     is not reported, nor a delete's implicit unlinks.
+   - `postgres()`: each write statement notifies its own changes from a
+     CTE, with no round trip of its own and no `BEGIN` added (D-99).
+     Each changed part sends `pg_notify` on `ultimabase:<schema>` by
+     chunks of 150 ids or 75 pairs, under the 8 000 bytes of a payload.
+     PostgreSQL delivers them only once the transaction commits. One
+     listening connection per server batches what a tick brought into one
+     `changed`. When it drops, it reconnects, backing off from 100 ms to
+     5 s, then calls `missed`, and every window resyncs.
+   - `memory()` delivers each commit's changes once it is committed.
+   - The feed covers every model, plugins' included (D-110).
    - Writes made outside UltimaBase, as raw SQL, are not seen.
 9. Following a write, never by running the whole read again:
    - At subscribe, the server plans the read once and keeps its effective
