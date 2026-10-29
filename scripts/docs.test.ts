@@ -140,11 +140,6 @@ async function valueExports(): Promise<string[]> {
  * list only shrinks, and is empty before the documentation reaches `main`.
  */
 const undocumented: readonly string[] = [
-	'@ultimabase/files: file',
-	'@ultimabase/files: files',
-	'@ultimabase/files: filesPlugin',
-	'@ultimabase/files: memoryFiles',
-	'@ultimabase/files: s3',
 	'@ultimabase/http: clientOf',
 	'@ultimabase/http: routes',
 	'@ultimabase/live/apollo: ultimabaseLive',

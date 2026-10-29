@@ -22,6 +22,7 @@
 		"password",
 		"roles",
 		"acl",
-		"soft-delete"
+		"soft-delete",
+		"files"
 	]
 }
