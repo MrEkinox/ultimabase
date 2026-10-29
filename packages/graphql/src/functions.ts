@@ -1,6 +1,6 @@
 // The application's functions (D-109): a query under Query, a mutation
 // under Mutation, each run as the request's caller with the arguments the
-// client sent.
+// client sent; a live query also under Subscription (D-154).
 import type {
 	GraphQLFieldConfig,
 	GraphQLNamedType,
@@ -27,6 +27,7 @@ import { checkName, inputArgs, outputData } from './data.ts'
 import { upper } from './names.ts'
 import { isMaster, objectType } from './outputs.ts'
 import { selectOf } from './select.ts'
+import { followed } from './subscriptions.ts'
 import type { Args, Context, Registry } from './registry.ts'
 import { as } from './registry.ts'
 import { reread } from './reread.ts'
@@ -186,7 +187,16 @@ class Builder {
 		}
 	}
 
-	field(fn: ExposedFunction, name: string, owner: string): Field {
+	/**
+	 * A function's field, and its subscription when it is `live` (D-154),
+	 * whose rows the budget counts as the query's.
+	 */
+	field(
+		fn: ExposedFunction,
+		name: string,
+		owner: string,
+		live: boolean,
+	): { readonly field: Field; readonly live?: Field } {
 		const { input, output } = fn
 		const base = upper(name)
 		const given =
@@ -200,23 +210,38 @@ class Builder {
 				: this.output(output, at(owner, `${base}Output`, 'output'), root, name)
 		const registry = this.#registry
 		const take = this.#take
-		return {
+		const value = async (
+			args: Args,
+			context: Context,
+			info: GraphQLResolveInfo,
+		): Promise<unknown> => {
+			const sent = given?.flat === true ? args : args['input']
+			const result = await fn.run(plain(sent), as(context), context.client)
+			if (output === undefined) return true
+			if (result === undefined && type instanceof GraphQLNonNull) {
+				throw new TypeError(
+					`${fn.name} returned undefined; make its output .nullable() and return null.`,
+				)
+			}
+			const call = { name: fn.name, take }
+			return reread(registry, output, result, context, info, call)
+		}
+		const config = {
 			type,
 			description: fn.description,
 			args: given?.args ?? {},
-			resolve: async (_, args, context, info) => {
-				const sent = given?.flat === true ? args : args['input']
-				const value = await fn.run(plain(sent), as(context), context.client)
-				if (output === undefined) return true
-				if (value === undefined && type instanceof GraphQLNonNull) {
-					throw new TypeError(
-						`${fn.name} returned undefined; make its output .nullable() and return null.`,
-					)
-				}
-				const call = { name: fn.name, take }
-				return reread(registry, output, value, context, info, call)
-			},
 		}
+		const field: Field = {
+			...config,
+			resolve: async (_, args, context, info) => value(args, context, info),
+		}
+		if (!live) return { field }
+		const read = this.reads.get(root)?.get(name)
+		if (read !== undefined) {
+			const reads = this.reads.get('Subscription') ?? new Map<string, Read>()
+			this.reads.set('Subscription', reads.set(name, read))
+		}
+		return { field, live: followed(owner, config, value) }
 	}
 }
 
@@ -225,8 +250,11 @@ export function functionFields(
 	registry: Registry,
 	functions: readonly ExposedFunction<GraphqlFunctionWith>[],
 	take: number,
+	live: (owner: string) => boolean,
 ): {
 	readonly fields: readonly RootField[]
+	/** The live functions' subscriptions, named as their fields (D-154). */
+	readonly subscriptions: { readonly [name: string]: Field }
 	readonly reads: ReadonlyMap<string, ReadonlyMap<string, Read>>
 	readonly owners: ReadonlyMap<string, string>
 	readonly named: (name: string) => GraphQLNamedType | undefined
@@ -243,16 +271,19 @@ export function functionFields(
 		)
 	}
 	const fields: RootField[] = []
+	const subscriptions: { [name: string]: Field } = {}
 	for (const fn of functions) {
 		if (fn.with === false) continue
 		const name = checkName(fn.with?.name ?? fn.name, fn.name)
 		// A plugin's function is named with its plugin (D-113).
 		const owner = fn.plugin === undefined ? fn.name : `${fn.plugin}.${fn.name}`
-		const field = builder.field(fn, name, owner)
-		fields.push({ query: fn.query, name, owner, field })
+		const built = builder.field(fn, name, owner, live(owner))
+		fields.push({ query: fn.query, name, owner, field: built.field })
+		if (built.live !== undefined) subscriptions[name] = built.live
 	}
 	return {
 		fields,
+		subscriptions,
 		reads: builder.reads,
 		owners: builder.owners,
 		named: (name) => builder.named(name),

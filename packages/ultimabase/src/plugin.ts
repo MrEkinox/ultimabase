@@ -7,7 +7,7 @@ import type { Identify } from './identify.ts'
 import { pluginEntries, pluginValues } from './definition.ts'
 import { pluginCode } from './plugin-code.ts'
 import type { FieldShape, ModelHooks, ModelShape } from './model.ts'
-import type { Row, SchemaModel } from './adapter.ts'
+import type { Changed, Row, SchemaModel } from './adapter.ts'
 import type { Queries, QueryOptions, UniqueWhere } from './query.ts'
 import type {
 	Caller,
@@ -52,6 +52,8 @@ export interface PluginTypes {
 	readonly fieldWith?: object
 	/** Its key of a function's `.with`; `false` stops exposing it (D-27). */
 	readonly functionWith?: object | false
+	/** Only a query may list it in its `use` (D-154). */
+	readonly queryOnly?: true
 }
 
 /** A plugin's types for one model's fields. */
@@ -123,6 +125,8 @@ export interface ExposedModel<W = unknown> {
 	readonly virtuals: readonly ExposedVirtual[]
 	/** The plugin's key of the model's `.with`, if it was given. */
 	readonly with: W | undefined
+	/** Whether the model's `use` lists the plugin's entry. */
+	readonly used: boolean
 	readonly queries: ModelQueries
 	/** `upsert`, which also says whether it created the row (D-142). */
 	readonly upsert: (
@@ -172,6 +176,8 @@ export interface ExposedFunction<W = unknown> {
 	readonly plugin: string | undefined
 	/** A query, which a transport may serve over GET; a mutation otherwise. */
 	readonly query: boolean
+	/** Whether the function's `use` lists the plugin (D-154). */
+	readonly used: boolean
 	readonly input: StandardSchema | undefined
 	/** `undefined` when it returns nothing. */
 	readonly output: ExposedOutput | undefined
@@ -195,6 +201,12 @@ export interface PluginContext<T> {
 	readonly logger: Logger
 	/** Who sends a request: what a transport runs it as (D-106). */
 	readonly identify: Identify
+	/**
+	 * The caller being built stops holding at `at`, as a session that
+	 * expires: a live read builds it again then (D-154). Outside a caller's
+	 * construction, it does nothing.
+	 */
+	readonly expires: (at: Date) => void
 	/** The application's models, in their order (D-107). */
 	readonly models: readonly ExposedModel<WithOf<T>>[]
 	/** The application's functions, in their order (D-109). */
@@ -307,6 +319,16 @@ export type PluginDefinition<T extends PluginTypes> = {
 		identity: { readonly kind: 'user'; readonly user: UserOf<Register> },
 		context: PluginContext<T>,
 	) => CallerKeys | Promise<CallerKeys>
+	/**
+	 * What each commit changed, on any server: the adapter sends it only when
+	 * a plugin takes it (D-154).
+	 */
+	readonly changed?: (
+		changes: readonly Changed[],
+		context: PluginContext<T>,
+	) => void
+	/** Changes may have been lost: what `changed` follows is unknown. */
+	readonly missed?: (context: PluginContext<T>) => void
 	/** Its own models, which no plugin is given (D-110). */
 	readonly models?: readonly ModelShape[]
 	/** The indexes it adds to each model that uses it (D-52, D-122). */

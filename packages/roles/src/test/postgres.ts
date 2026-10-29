@@ -35,9 +35,9 @@ export function database(url: string, log?: () => void): Adapter {
 	})
 	return {
 		...adapter,
-		start: async (given, logger) => {
+		start: async (given, logger, feed) => {
 			await run(url, `create schema "${schema}"`)
-			await adapter.start(given, logger)
+			await adapter.start(given, logger, feed)
 		},
 		stop: async () => {
 			await adapter.stop()

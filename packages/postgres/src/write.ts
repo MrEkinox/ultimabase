@@ -15,6 +15,7 @@ import type { Catalog, Table } from './names.ts'
 import { computed } from './numbers.ts'
 import type { Part } from './parts.ts'
 import { fieldsOf, grouped, inserted, sizeOf } from './parts.ts'
+import { notifying, pairs as linked, rows as noted } from './notify.ts'
 import { compileRows } from './read.ts'
 
 /** A statement of a write: how many checks its result carries, `c0`… */
@@ -67,6 +68,10 @@ function part(
 	const where = filters.where(change.model, named, change.where)
 	const reads = new Set([table.name, ...filters.tables])
 	if (change.kind === 'update') {
+		const fields = [
+			...Object.keys(change.set),
+			...Object.keys(change.compute ?? {}),
+		]
 		const set = sql.join([
 			...assignments(catalog, table, change.set).map(
 				([column, item]) => sql`${sql.id(column)} = ${item}`,
@@ -83,6 +88,7 @@ function part(
 			removes: true,
 			adds: true,
 			reads,
+			noted: noted('update', change.model, fields),
 		}
 	}
 	return {
@@ -93,6 +99,7 @@ function part(
 		removes: true,
 		adds: false,
 		reads,
+		noted: noted('delete', change.model),
 	}
 }
 
@@ -115,6 +122,13 @@ function links(
 		key,
 		reads: new Set<string>(),
 		pairs: new Set(targets.map(pairOf)),
+		noted: linked(
+			change.kind,
+			change.model,
+			change.field,
+			join.self,
+			join.other,
+		),
 	})
 	if (change.kind === 'unlink') {
 		const targets = change.targets.filter((target) => uuid.test(target))
@@ -210,7 +224,12 @@ function sourceOf(
 }
 
 /** The statements of a write, in the order they run. */
-export function compileWrite(catalog: Catalog, write: Write): Statement[] {
+export function compileWrite(
+	catalog: Catalog,
+	write: Write,
+	/** Where the feed's notifications go, when it has a taker (D-154). */
+	channel?: string,
+): Statement[] {
 	const checks = write.checks ?? []
 	// Each statement stays within PostgreSQL's 65,535 parameters, its checks
 	// and its read's aside.
@@ -293,9 +312,12 @@ export function compileWrite(catalog: Catalog, write: Write): Statement[] {
 						read,
 						source === undefined ? undefined : cte(source),
 					)
+		const fed = channel !== undefined && numbered.size > 0
 		const selected = [
 			...(first ? columns : []),
 			...(compiled === undefined ? [] : [sql`${compiled.rows} as "rows"`]),
+			// Referenced, the CTE runs.
+			...(fed ? [sql`(select count(*) from "#feed") as "fed"`] : []),
 		]
 		// The root's table needs no view when only its RETURNING is read.
 		const root = read === undefined ? '' : catalog.table(read.model).name
@@ -309,6 +331,14 @@ export function compileWrite(catalog: Catalog, write: Write): Statement[] {
 			...(first ? [sql`"#checks" as (${checking(catalog, checks)})`] : []),
 			...ctes,
 			...(seen ? views(new Map(viewed)) : []),
+			...(fed
+				? [
+						notifying(
+							channel,
+							[...numbered].map(([at, each]) => [cte(at), each.noted] as const),
+						),
+					]
+				: []),
 		]
 		const list = selected.length === 0 ? sql`1 as "one"` : sql.join(selected)
 		const body = sql`select ${list}${first ? sql` from "#checks"` : sql``}`

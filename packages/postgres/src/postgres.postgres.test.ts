@@ -78,9 +78,9 @@ for (const url of urls) {
 		})
 		return {
 			...adapter,
-			start: async (given) => {
+			start: async (given, _logger, feed) => {
 				await run(url, `create schema "${schema}"`)
-				await adapter.start(given, logger)
+				await adapter.start(given, logger, feed)
 			},
 			stop: async () => {
 				await adapter.stop()

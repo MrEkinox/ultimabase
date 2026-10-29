@@ -300,6 +300,41 @@ export type Write = {
 	readonly before?: boolean
 }
 
+/**
+ * What a committed write changed (D-154): `ids` is absent when they were
+ * more than `feedIds`, `fields` when they were every field or longer than
+ * `feedFields`. A delete's links go with its rows, unlisted. How changes
+ * group into entries and calls is the adapter's.
+ */
+export type Changed =
+	| {
+			readonly kind: 'insert' | 'update' | 'delete'
+			readonly model: string
+			readonly ids?: readonly string[]
+			/** The fields an update set, `updatedAt` included. */
+			readonly fields?: readonly string[]
+	  }
+	| {
+			readonly kind: 'link' | 'unlink'
+			readonly model: string
+			/** A `many` relation facing a `many`. */
+			readonly field: string
+			/** The model's id, then the target's. */
+			readonly pairs?: readonly (readonly [string, string])[]
+	  }
+
+/** The most ids or pairs a change lists (D-154). */
+export const feedIds = 1000
+/** The longest list of fields, as JSON, an update lists (D-154). */
+export const feedFields = 1500
+
+/** Where an adapter sends the changes each commit makes, on any server. */
+export type Feed = {
+	readonly changed: (changes: readonly Changed[]) => void
+	/** Changes may have been lost, as when a listener reconnects. */
+	readonly missed: () => void
+}
+
 export interface Transaction {
 	find(read: Read): Promise<Row[]>
 	count(read: CountRead): Promise<number>
@@ -317,9 +352,10 @@ export interface Transaction {
 export interface Adapter extends Omit<Transaction, 'commit' | 'rollback'> {
 	/**
 	 * Connects; the kernel then syncs or checks the tables (D-105). `logger`
-	 * is the kernel's, for what the adapter reports (D-140).
+	 * is the kernel's, for what the adapter reports (D-140). With `feed`, each
+	 * commit's changes reach it, this server's and the others' (D-154).
 	 */
-	start(schema: Schema, logger: Logger): Promise<void>
+	start(schema: Schema, logger: Logger, feed?: Feed): Promise<void>
 	stop(): Promise<void>
 	begin(): Promise<Transaction>
 	/** None for a database that starts empty every time, as `memory()`. */

@@ -1,10 +1,12 @@
 ---
 '@ultimabase/acl': minor
 '@ultimabase/auth': minor
+'@ultimabase/files': minor
 '@ultimabase/graphql': minor
 '@ultimabase/http': minor
 '@ultimabase/password': minor
 '@ultimabase/postgres': minor
+'@ultimabase/realtime': minor
 '@ultimabase/rest': minor
 '@ultimabase/roles': minor
 '@ultimabase/soft-delete': minor

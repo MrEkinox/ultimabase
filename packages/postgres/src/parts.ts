@@ -4,6 +4,8 @@ import type { Row } from 'ultimabase'
 import type { Sql } from './filter.ts'
 import { value } from './filter.ts'
 import type { Catalog, Kind } from './names.ts'
+import type { Noted } from './notify.ts'
+import { rows as noted } from './notify.ts'
 
 const compiler = new PostgresQueryCompiler()
 
@@ -27,6 +29,8 @@ export type Part = {
 	readonly pairs?: ReadonlySet<string>
 	/** The one row it writes, by id, when its RETURNING holds only that row. */
 	readonly row?: string
+	/** What the feed says of its rows (D-154). */
+	readonly noted: Noted
 }
 
 /** A column's type, which a row of VALUES under a SELECT does not infer. */
@@ -89,6 +93,7 @@ export function inserted(
 		removes: false,
 		adds: true,
 		reads: new Set(),
+		noted: noted('insert', model),
 	}
 }
 

@@ -37,7 +37,7 @@ import {
 	closeSession,
 	openSession,
 	revokeSessions,
-	sessionUser,
+	sessionOf,
 } from './sessions.ts'
 import type { Cookie } from './token.ts'
 import { bearerOf, cookieAge, cookieOf, cookieTokenOf } from './token.ts'
@@ -122,19 +122,21 @@ function usersOf(
 	return first
 }
 
-/** The caller of a session's token, or `undefined` for an unknown one. */
+/** A session token's caller, until it ends; `undefined` for an unknown one. */
 async function callerOf(
 	token: string,
 	users: Users,
+	expires: (at: Date) => void,
 ): Promise<Identity | undefined> {
-	const userId = await sessionUser(token)
-	if (userId === undefined) return undefined
+	const session = await sessionOf(token)
+	if (session === undefined) return undefined
 	// A transport's queries are untyped; this is the user model's row.
 	const user: unknown = await users.queries.findUnique(
-		{ where: { id: userId } },
+		{ where: { id: session.userId } },
 		M,
 	)
 	if (user === null) return undefined
+	expires(session.expiresAt)
 	// oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the user model is the one the application registers (D-62, D-80).
 	const caller: Identity = { kind: 'user', user: user as UserOf<Register> }
 	// The completed caller keeps this row (D-121).
@@ -206,7 +208,7 @@ const auth = definePlugin<Auth>({
 		}
 		const bearer = bearerOf(request)
 		if (bearer !== undefined) {
-			const caller = await callerOf(bearer, users)
+			const caller = await callerOf(bearer, users, context.expires)
 			if (caller !== undefined) return caller
 			throw new PublicError(
 				'UNAUTHENTICATED',
@@ -216,7 +218,8 @@ const auth = definePlugin<Auth>({
 		// A stale cookie is anonymous: it must not lock a browser out of
 		// signing in again (D-112).
 		const token = cookieTokenOf(request, cookie)
-		return token === undefined ? undefined : callerOf(token, users)
+		if (token === undefined) return undefined
+		return callerOf(token, users, context.expires)
 	},
 })
 

@@ -113,6 +113,16 @@ export function nodesOf(info: Info, nodes: readonly FieldNode[]): FieldNode[] {
 	return [...(grouped(info, edges).get('node') ?? [])]
 }
 
+/** What a root list selects of its rows: under `edges { node }`. */
+export function rowNodes(
+	registry: Registry,
+	info: GraphQLResolveInfo,
+): readonly FieldNode[] {
+	return registry.settings.pagination === 'list'
+		? info.fieldNodes
+		: nodesOf(info, info.fieldNodes)
+}
+
 const system = new Set(['id', 'createdAt', 'updatedAt'])
 
 /** A virtual's read: `true`, its arguments, and a model's `select` (D-151). */

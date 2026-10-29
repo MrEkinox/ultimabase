@@ -709,7 +709,7 @@ const Plain = defineModel({
 })
 
 describe('a plugin’s models', () => {
-	it('gives each model’s schema, uniques, required fields, its .with key and queries', async () => {
+	it('gives each model’s schema, uniques, required fields, its .with key, whether it uses the plugin, and queries', async () => {
 		const lensed = defineApp({
 			database: memory(),
 			plugins: [lens.plugin()],
@@ -727,6 +727,7 @@ describe('a plugin’s models', () => {
 				false,
 				undefined,
 			])
+			expect(seen.map((model) => model.used)).toEqual([true, true, false])
 			expect(seen[0]?.uniques).toEqual([['id'], ['label']])
 			expect(seen[0]?.readRules).toEqual({ secret: 'private', note: 'rule' })
 			expect(seen[1]?.readRules).toEqual({})

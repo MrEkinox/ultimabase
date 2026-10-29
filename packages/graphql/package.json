@@ -26,17 +26,27 @@
 		}
 	},
 	"dependencies": {
-		"graphql-http": "1.23.1"
+		"graphql-http": "1.23.1",
+		"graphql-ws": "6.4.1",
+		"ws": "8.22.0"
 	},
 	"peerDependencies": {
 		"@ultimabase/http": "^0.0.0",
+		"@ultimabase/realtime": "^0.0.0",
 		"graphql": "^17.0.2",
 		"ultimabase": "^0.0.0"
 	},
+	"peerDependenciesMeta": {
+		"@ultimabase/realtime": {
+			"optional": true
+		}
+	},
 	"devDependencies": {
 		"@types/pg": "8.23.1",
+		"@types/ws": "8.18.2",
 		"@ultimabase/http": "workspace:*",
 		"@ultimabase/postgres": "workspace:*",
+		"@ultimabase/realtime": "workspace:*",
 		"graphql": "17.0.2",
 		"pg": "8.23.1",
 		"ultimabase": "workspace:*",

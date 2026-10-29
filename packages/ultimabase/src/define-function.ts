@@ -23,6 +23,7 @@ import type {
 	InputCheck,
 	ObjectType,
 	OutputSpec,
+	QueryCheck,
 	ResultOf,
 	RunFacts,
 	ServerFunction,
@@ -143,7 +144,8 @@ export function defineFunction<
 		readonly run: (
 			facts: RunFacts<NoInfer<I>>,
 		) => NoInfer<ResultOf<O>> | Promise<NoInfer<ResultOf<O>>>
-	} & NoInfer<InputCheck<I>>,
+	} & NoInfer<InputCheck<I>> &
+		NoInfer<QueryCheck<U[number]>>,
 ): ServerFunction<N, I, O, U[number]['plugin'], FunctionWithKeys<U[number]>> {
 	const { query = false, input, output, run } = definition
 	const name = nameOf(definition.name, 'defineFunction')

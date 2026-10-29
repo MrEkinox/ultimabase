@@ -21,8 +21,8 @@ const packages = readdirSync('packages', { withFileTypes: true })
 export default defineConfig({
 	test: {
 		// Vitest resolves `graphql` with the `development` condition; loading
-		// graphql-http through it too keeps one copy of `graphql`.
-		server: { deps: { inline: ['graphql-http'] } },
+		// graphql-http and graphql-ws through it too keeps one copy of `graphql`.
+		server: { deps: { inline: ['graphql-http', 'graphql-ws'] } },
 		coverage: {
 			provider: 'v8',
 			include: packages.map((name) => `packages/${name}/src/**/*.ts`),

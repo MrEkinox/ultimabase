@@ -57,11 +57,13 @@ export async function openSession(userId: string): Promise<Opened> {
 }
 
 /**
- * The user id of the session `token` opened, renewed when it has less than
- * 15 days left, up to one year after its sign-in; `undefined` for an unknown
- * one, or an expired one, deleted.
+ * The session `token` opened, renewed when it has less than 15 days left, up
+ * to one year after its sign-in; `undefined` for an unknown one, or an
+ * expired one, deleted.
  */
-export async function sessionUser(token: string): Promise<string | undefined> {
+export async function sessionOf(
+	token: string,
+): Promise<{ readonly userId: string; readonly expiresAt: Date } | undefined> {
 	const tokenHash = digest(token)
 	const session = await AuthSession.findUnique({ where: { tokenHash } }, M)
 	if (session === null) return undefined
@@ -85,8 +87,9 @@ export async function sessionUser(token: string): Promise<string | undefined> {
 			}
 			throw error
 		}
+		return { userId: session.userId, expiresAt: new Date(end) }
 	}
-	return session.userId
+	return session
 }
 
 /** Ends the session `token` opened, if any. */

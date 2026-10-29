@@ -1,7 +1,10 @@
 // `restPlugin()` (D-129): GraphQL's arguments and responses over resource
-// routes, mounted on the HTTP plugin and run as each request's caller.
+// routes, mounted on the HTTP plugin and run as each request's caller; with
+// the realtime plugin, its live models' reads as Server-Sent Events (D-154).
 import type { Http } from '@ultimabase/http'
 import { httpPlugin, routes } from '@ultimabase/http'
+import type { Realtime } from '@ultimabase/realtime'
+import { realtimePlugin } from '@ultimabase/realtime'
 import type { PluginOf, PluginTypes, UseOf } from 'ultimabase'
 import { definePlugin } from 'ultimabase'
 import manifest from '../package.json' with { type: 'json' }
@@ -39,6 +42,7 @@ export interface Rest extends PluginTypes {
 	readonly name: 'rest'
 	readonly appOptions: RestOptions
 	readonly requires: Http
+	readonly optional: Realtime
 	readonly with: RestWith
 	readonly functionWith: RestFunctionWith
 }
@@ -46,11 +50,26 @@ export interface Rest extends PluginTypes {
 const baseOf = (options: RestOptions): string =>
 	(options.path ?? '/api').replace(/\/+$/, '')
 
+// What ends each running application's event streams, by its plugin's context.
+const streams = new WeakMap<object, Set<() => void>>()
+
 const plugin = definePlugin<Rest>({
 	name: 'rest',
 	manifest,
 	requires: { http: httpPlugin },
-	api: ({ plugins, models, functions, options }) => {
+	optional: { realtime: realtimePlugin },
+	api: (context) => {
+		const { plugins, models, functions, options, logger } = context
+		const { realtime } = plugins
+		const ends = new Set<() => void>()
+		streams.set(context, ends)
+		const live = realtime && {
+			realtime,
+			streams: ends,
+			kept: new Map(),
+			open: new Map(),
+			logger,
+		}
 		const api = {
 			entries: entriesOf(models, options),
 			pagination: options.pagination ?? 'connection',
@@ -60,9 +79,9 @@ const plugin = definePlugin<Rest>({
 		}
 		const base = baseOf(options)
 		const app = routes()
-		const routed = functionRoutes(app, api, functions, base)
+		const routed = functionRoutes(app, api, functions, base, live)
 		for (const entry of api.entries.values()) {
-			if (entry.visible) modelRoutes(app, api, entry, base)
+			if (entry.visible) modelRoutes(app, api, entry, base, live)
 		}
 		// Built at startup, so a name clash refuses to start (D-144).
 		const document = openapiOf(api, routed, base, manifest.version)
@@ -72,6 +91,10 @@ const plugin = definePlugin<Rest>({
 	start: ({ plugins, options, logger }) => {
 		if (process.env['NODE_ENV'] === 'production') return
 		logger.info(`REST on ${plugins.http.url()}${baseOf(options)}.`)
+	},
+	// Before the HTTP plugin's stop, which waits for the streams to end.
+	stop: (context) => {
+		for (const end of streams.get(context) ?? []) end()
 	},
 })
 

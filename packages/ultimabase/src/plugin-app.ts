@@ -13,6 +13,7 @@ import type { ModelShape } from './model.ts'
 import type { ModelInfo, Resolved } from './schema.ts'
 import { pluginValues } from './definition.ts'
 import { query } from './engine.ts'
+import { recordExpiry } from './recorder.ts'
 import { exposedFunctions, resolveFunctions } from './functions.ts'
 import { isObject } from './query-where.ts'
 import { Refused } from './errors.ts'
@@ -82,6 +83,7 @@ export type Installed = {
 		readonly plugins: object
 		readonly logger: Logger
 		readonly identify: Identify
+		readonly expires: (at: Date) => void
 		readonly models: readonly ExposedModel[]
 		readonly functions: readonly ExposedFunction[]
 	}
@@ -118,6 +120,7 @@ function exposed(name: string, resolved: Resolved): readonly ExposedModel[] {
 				}),
 			),
 			with: key,
+			used: info.plugins.some((use) => use.code.name === name),
 			queries,
 			upsert: async (args, options) =>
 				// oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the kernel's upsert answers its row and its branch (D-142).
@@ -215,6 +218,7 @@ export function withContexts(
 			plugins: code.plugins,
 			logger: logger.child({ name: code.name }),
 			identify,
+			expires: recordExpiry,
 			models: exposed(code.name, resolved),
 		},
 	}))
@@ -253,7 +257,8 @@ export function buildApis(
 	}
 }
 
-const inOrder = (
+/** `plugins` in the order they were declared. */
+export const inOrder = (
 	records: readonly PluginRecord[],
 	plugins: readonly Installed[],
 ): readonly Installed[] =>

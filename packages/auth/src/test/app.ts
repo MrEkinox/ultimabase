@@ -3,7 +3,13 @@
 import { graphql, graphqlPlugin } from '@ultimabase/graphql'
 import type { Http } from '@ultimabase/http'
 import { clientOf, httpPlugin, routes } from '@ultimabase/http'
-import type { Adapter, ExposedFunction, Logger, PluginTypes } from 'ultimabase'
+import type {
+	Adapter,
+	Caller,
+	ExposedFunction,
+	Logger,
+	PluginTypes,
+} from 'ultimabase'
 import { allow, defineApp, definePlugin, master, memory } from 'ultimabase'
 import type { Auth, AuthApi } from '../index.ts'
 import { authPlugin, defineUser, signedIn } from '../index.ts'
@@ -34,9 +40,10 @@ interface Signing extends PluginTypes {
 	readonly name: 'signing'
 	readonly requires: Http | Auth
 }
-/** What the stand-in was given: auth's API and the functions. */
+/** What the stand-in was given: auth's API, the functions and `identify`. */
 export const given: {
 	auth?: AuthApi
+	identify?: (request: Request) => Promise<Caller>
 	functions: readonly ExposedFunction[]
 } = { functions: [] }
 // A sign-in method's stand-in: it trusts the id it is sent.
@@ -47,8 +54,9 @@ const signing = definePlugin<Signing>({
 	start: ({ functions }) => {
 		given.functions = functions
 	},
-	api: ({ plugins }) => {
+	api: ({ plugins, identify }) => {
 		given.auth = plugins.auth
+		given.identify = identify
 		plugins.http.mount(
 			routes()
 				.get('/caller', (c) => c.json(c.var.caller))

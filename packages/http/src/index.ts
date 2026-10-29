@@ -1,16 +1,21 @@
 // `httpPlugin()` and `routes()` (D-106): a Node server for the application's
 // Hono routes, each of which reads the caller as `c.var.caller`.
 import type { Server } from 'node:http'
+import type { Duplex } from 'node:stream'
 import { Hono } from 'hono'
 import type { Caller, PluginOf, PluginTypes } from 'ultimabase'
 import { definePlugin } from 'ultimabase'
 import manifest from '../package.json' with { type: 'json' }
 import type { HttpEnv, HttpOptions, Mounted, Routes } from './app.ts'
-import { appOf } from './app.ts'
+import { addresses, proxiesOf } from './address.ts'
+import { allowing, appOf } from './app.ts'
 import { hold } from './request.ts'
 import { closed, listening, portOf, serverOf } from './server.ts'
+import type { Accept } from './upgrade.ts'
+import { upgrading } from './upgrade.ts'
 
 export type { HttpEnv, HttpOptions, Routes } from './app.ts'
+export type { Accept, Upgrade } from './upgrade.ts'
 export { clientOf } from './client.ts'
 export type { StandardSchema } from './validate.ts'
 export { validate } from './validate.ts'
@@ -22,6 +27,11 @@ export interface HttpApi {
 	 * `bodyLimit: false`, they read their own body (D-153).
 	 */
 	mount(routes: Routes, options?: { readonly bodyLimit?: false }): void
+	/**
+	 * Takes the WebSocket upgrades of `path`, once their origin is one CORS
+	 * allows; call it from your `api` (D-154).
+	 */
+	upgrade(path: string, accept: Accept): void
 	/** Where the server listens, `http://localhost:3000`, once it started. */
 	url(): string
 }
@@ -37,6 +47,8 @@ export interface Http extends PluginTypes {
 // plugin received.
 const servers = new WeakMap<object, Server>()
 const mounts = new WeakMap<object, Mounted[]>()
+const upgrades = new WeakMap<object, Map<string, Accept>>()
+const taken = new WeakMap<object, ReadonlySet<Duplex>>()
 const urls = new WeakMap<object, string>()
 
 const http = definePlugin<Http>({
@@ -44,15 +56,26 @@ const http = definePlugin<Http>({
 	manifest,
 	api: (context) => {
 		const mounted: Mounted[] = []
+		const accepts = new Map<string, Accept>()
 		mounts.set(context, mounted)
+		upgrades.set(context, accepts)
+		const building = (what: string) => {
+			if (mounts.has(context)) return
+			throw new Error(
+				`The HTTP server is running: ${what} from your plugin's api.`,
+			)
+		}
 		return {
 			mount: (routes, mountOptions) => {
-				if (!mounts.has(context)) {
-					throw new Error(
-						"The HTTP server is running: mount routes from your plugin's api.",
-					)
-				}
+				building('mount routes')
 				mounted.push({ routes, bodyLimit: mountOptions?.bodyLimit ?? true })
+			},
+			upgrade: (path, accept) => {
+				building('take upgrades')
+				if (accepts.has(path)) {
+					throw new Error(`Two plugins take the upgrades of ${path}.`)
+				}
+				accepts.set(path, accept)
 			},
 			url: () => {
 				const url = urls.get(context)
@@ -71,6 +94,12 @@ const http = definePlugin<Http>({
 		const app = appOf(options, mounts.get(context) ?? [], identify, logger)
 		mounts.delete(context)
 		const server = serverOf(app.fetch)
+		const accepts = upgrades.get(context) ?? new Map<string, Accept>()
+		const addressOf = addresses(proxiesOf(options.proxies), logger)
+		taken.set(
+			context,
+			upgrading(server, accepts, allowing(options), addressOf, logger),
+		)
 		const bound = await listening(server, port)
 		servers.set(context, server)
 		const url = `http://localhost:${bound}`
@@ -84,7 +113,7 @@ const http = definePlugin<Http>({
 		if (server === undefined) return
 		servers.delete(context)
 		urls.delete(context)
-		await closed(server, logger)
+		await closed(server, logger, taken.get(context) ?? new Set())
 	},
 })
 

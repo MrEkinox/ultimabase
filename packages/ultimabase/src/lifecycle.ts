@@ -5,6 +5,7 @@ import type { Logger, MasterKey } from './app-options.ts'
 import type { PluginCaller } from './complete.ts'
 import { completer } from './complete.ts'
 import { consoleLogger } from './console-logger.ts'
+import { feedOf } from './feed.ts'
 import type { PluginIdentify } from './identify.ts'
 import { identifier } from './identify.ts'
 import { checkVersions } from './manifest.ts'
@@ -162,7 +163,7 @@ export function lifecycle(options: LifecycleOptions): Lifecycle {
 		)
 		identifiers.push(...pluginIdentifiers(records, plugins))
 		callers.push(...pluginCallers(records, plugins))
-		await database.start(resolved.schema, logger)
+		await database.start(resolved.schema, logger, feedOf(records, plugins))
 		const apis = new Map<string, unknown>()
 		const app: Running = {
 			resolved,

@@ -1,6 +1,7 @@
 // The port the server listens on, and its listening (D-106).
 import type { Server } from 'node:http'
 import { createServer } from 'node:http'
+import type { Duplex } from 'node:stream'
 import { getRequestListener } from '@hono/node-server'
 import type { Logger } from 'ultimabase'
 import { Refused } from 'ultimabase'
@@ -62,10 +63,14 @@ export function serverOf(
 const grace = 10_000
 
 /**
- * Stops accepting connections, then waits for running requests (D-59), 10
- * seconds at most (D-106).
+ * Stops accepting connections, then waits for running requests and the
+ * sockets plugins took (D-59), 10 seconds at most (D-106).
  */
-export async function closed(server: Server, logger: Logger): Promise<void> {
+export async function closed(
+	server: Server,
+	logger: Logger,
+	taken: ReadonlySet<Duplex>,
+): Promise<void> {
 	let cutting: NodeJS.Timeout | undefined
 	await new Promise<void>((done, fail) => {
 		server.close((error) => {
@@ -79,6 +84,7 @@ export async function closed(server: Server, logger: Logger): Promise<void> {
 				`Stopped ${grace / 1000} s after stop began: closed the requests still running.`,
 			)
 			server.closeAllConnections()
+			for (const socket of taken) socket.destroy()
 		}, grace)
 	})
 }
