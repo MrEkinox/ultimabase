@@ -2,8 +2,14 @@
 // name, arguments and type, followed by the realtime engine. The first result
 // is `{ data }`; a list then sends only what changed, under `extensions.live`,
 // or its whole window in page mode.
-import { badInput, connection, pageOf, run } from '@ultimabase/http/internal'
-import type { LiveMessage, Upsert } from '@ultimabase/realtime'
+import {
+	applied,
+	badInput,
+	connection,
+	pageOf,
+	run,
+} from '@ultimabase/http/internal'
+import type { LiveMessage } from '@ultimabase/realtime'
 import type {
 	ExecutionResult,
 	GraphQLFieldConfig,
@@ -50,29 +56,6 @@ function connectionOf(
 	return { edges, pageInfo: { ...pageInfo, hasNextPage: hasMore }, totalCount }
 }
 
-/** `window` once `changes` are applied, in their order. */
-function applied<T extends { readonly id: string }>(
-	window: readonly T[],
-	changes: Extract<Message, { kind: 'changes' }>['changes'],
-	rowOf: (upsert: Upsert) => T,
-): T[] {
-	let rows = [...window]
-	for (const change of changes) {
-		if ('remove' in change) {
-			rows = rows.filter(({ id }) => id !== change.remove)
-			continue
-		}
-		const row = rowOf(change)
-		rows = rows.filter(({ id }) => id !== row.id)
-		const at =
-			change.after === null
-				? 0
-				: rows.findIndex(({ id }) => id === change.after) + 1
-		rows.splice(at, 0, row)
-	}
-	return rows
-}
-
 const revised = (result: ExecutionResult, revision: number) => ({
 	...result,
 	extensions: { ...result.extensions, live: { revision } },
@@ -111,13 +94,13 @@ function follower(
 			window =
 				message.kind === 'reset'
 					? message.rows
-					: applied(window, message.changes, ({ upsert }) => upsert)
+					: applied(window, message.changes, (row) => row)
 			return new LiveEvent(rootOf(window), (result) =>
 				revised(sent(result), revision),
 			)
 		}
 		const { changes } = message
-		window = applied(window, changes, ({ upsert }) => ({ id: upsert.id }))
+		window = applied(window, changes, ({ id }) => ({ id }))
 		const upserts = changes.flatMap((change) =>
 			'upsert' in change ? [change.upsert] : [],
 		)

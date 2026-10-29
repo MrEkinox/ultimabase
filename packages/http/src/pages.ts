@@ -170,3 +170,31 @@ export function rowsOf(value: unknown): readonly Row[] {
 
 export const rowOf = (value: unknown): Row | undefined =>
 	isRow(value) ? value : undefined
+
+/** A live read's change (D-154): a row that left, or one placed after another. */
+export type Change<R> =
+	| { readonly remove: string }
+	| { readonly upsert: R; readonly after: string | null }
+
+/** `window` once a live read's `changes` are applied, in their order. */
+export function applied<T extends { readonly id: string }, R>(
+	window: readonly T[],
+	changes: readonly Change<R>[],
+	kept: (upsert: R) => T,
+): T[] {
+	let rows = [...window]
+	for (const change of changes) {
+		if ('remove' in change) {
+			rows = rows.filter(({ id }) => id !== change.remove)
+			continue
+		}
+		const row = kept(change.upsert)
+		rows = rows.filter(({ id }) => id !== row.id)
+		const at =
+			change.after === null
+				? 0
+				: rows.findIndex(({ id }) => id === change.after) + 1
+		rows.splice(at, 0, row)
+	}
+	return rows
+}

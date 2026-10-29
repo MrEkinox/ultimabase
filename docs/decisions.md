@@ -9426,7 +9426,17 @@ whatever the first two cost.
      CORS allows is a 403 before any plugin sees it, so another site cannot
      borrow the cookie; one without `Origin` comes from no browser.
    - REST sends `event: data` and `event: live` SSE events holding the same
-     JSON.
+     JSON. `event: data` is the body the same `GET` returns; a row that does
+     not exist or is gone is `null`, not a 404. `event: live` is
+     `extensions.live`, its upsert an edge (a node under list pagination);
+     in page mode (`mode=page`) each change is an `event: data`. Each event's
+     `id` is its revision. A read the engine closes ends with
+     `event: error` (`INTERNAL`, `The live read closed.`); a caller that
+     changed ends the stream without one, and `EventSource` reconnects.
+     Every SSE request has its own caller, checked as a WebSocket's is; an
+     error before the first event is the usual JSON response, and a model
+     that is not live is a `BAD_USER_INPUT` 400. A quiet stream sends a
+     comment every 12 s; the plugin's `stop` ends the open streams.
    - Compression: WebSocket `permessage-deflate` above 1 KB; SSE gzip with
      `node:zlib`, flushed after each event, when the request accepts it.
      Hono's `compress` is not used: it buffers.

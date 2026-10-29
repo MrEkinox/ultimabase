@@ -7,15 +7,11 @@ import { badInput, connection, pageArgs, run } from '@ultimabase/http/internal'
 import type { Caller, Row } from 'ultimabase'
 import { InvalidQuery, PublicError } from 'ultimabase'
 import type { Api, Args, Entry } from './entries.ts'
-import type { Read, Shape } from './fields.ts'
-import {
-	defaultShape,
-	depthOf,
-	filterOf,
-	readerOf,
-	rowsBelow,
-	shaped,
-} from './fields.ts'
+import type { Read } from './fields.ts'
+import { defaultShape, filterOf, readerOf, shaped } from './fields.ts'
+import { bounded } from './limits.ts'
+import type { Live } from './live.ts'
+import { liveList, liveRow, wantsEvents } from './live.ts'
 import type { Accepted } from './params.ts'
 import { paramsOf } from './params.ts'
 import { dataOf, isArgs, whereOf } from './values.ts'
@@ -26,22 +22,6 @@ export const anyBody: StandardSchema = {
 }
 
 const fieldParams: Accepted = { json: ['select', 'include'], text: [] }
-
-/** The rows a request may return, refused above the limits unless Master's. */
-function bounded(api: Api, caller: Caller, shape: Shape, rows: number): void {
-	if (caller.kind === 'master') return
-	const depth = depthOf(shape)
-	if (depth > api.maxDepth) {
-		throw badInput(
-			`The request is nested ${depth} levels deep, its orderBy included; the most is ${api.maxDepth}.`,
-		)
-	}
-	if (rows + rowsBelow(shape, rows) <= api.maxRows) return
-	const fewer = api.pagination === 'list' ? 'take' : 'first or last'
-	throw badInput(
-		`The request asks for more than ${api.maxRows.toLocaleString('en-US')} rows. Ask for fewer with ${fewer}.`,
-	)
-}
 
 /** The kernel read of one row's `select` or `include`. */
 function oneRead(api: Api, entry: Entry, caller: Caller, url: string): Read {
@@ -115,18 +95,23 @@ function upserting(api: Api, entry: Entry, body: unknown): Args {
 	return read
 }
 
-/** Each route of a visible model, under `base`. */
+/** Each route of a visible model, under `base`; its reads live with `live`. */
 export function modelRoutes(
 	app: Routes,
 	api: Api,
 	entry: Entry,
 	base: string,
+	live: Live | undefined,
 ): void {
 	const path = `${base}/${entry.plural}`
 	const { queries } = entry.exposed
-	app.get(path, async (c) =>
-		c.json(await run(() => list(api, entry, c.var.caller, c.req.url))),
-	)
+	app.get(path, async (c) => {
+		const { caller } = c.var
+		if (wantsEvents(c.req.raw)) {
+			return liveList(api, live, entry, caller, c.req.raw)
+		}
+		return c.json(await run(() => list(api, entry, caller, c.req.url)))
+	})
 	/** The row `query` returns, shaped as `url` asks. */
 	const one = async (
 		caller: Caller,
@@ -140,13 +125,18 @@ export function modelRoutes(
 		if (row === null) throw notFound(entry)
 		return shaped(row, shape)
 	}
-	app.get(`${path}/:id`, async (c) =>
-		c.json(
-			await one(c.var.caller, c.req.url, async (read, as) =>
-				queries.findUnique({ ...read, where: { id: c.req.param('id') } }, as),
+	app.get(`${path}/:id`, async (c) => {
+		const { caller } = c.var
+		const id = c.req.param('id')
+		if (wantsEvents(c.req.raw)) {
+			return liveRow(api, live, entry, caller, c.req.raw, id)
+		}
+		return c.json(
+			await one(caller, c.req.url, async (read, as) =>
+				queries.findUnique({ ...read, where: { id } }, as),
 			),
-		),
-	)
+		)
+	})
 	app.post(path, validate('json', anyBody), async (c) => {
 		const body: unknown = c.req.valid('json')
 		const row = await one(c.var.caller, c.req.url, async (read, as) =>

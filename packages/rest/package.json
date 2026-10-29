@@ -27,13 +27,20 @@
 	},
 	"peerDependencies": {
 		"@ultimabase/http": "^0.0.0",
+		"@ultimabase/realtime": "^0.0.0",
 		"ultimabase": "^0.0.0"
+	},
+	"peerDependenciesMeta": {
+		"@ultimabase/realtime": {
+			"optional": true
+		}
 	},
 	"devDependencies": {
 		"@seriousme/openapi-schema-validator": "2.11.0",
 		"@types/pg": "8.23.1",
 		"@ultimabase/http": "workspace:*",
 		"@ultimabase/postgres": "workspace:*",
+		"@ultimabase/realtime": "workspace:*",
 		"ajv": "8.20.0",
 		"pg": "8.23.1",
 		"ultimabase": "workspace:*",
