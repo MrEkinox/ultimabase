@@ -64,6 +64,7 @@ describe('a filter', () => {
 describe('a selection', () => {
 	const plan = {
 		where: { title: { equals: 'a' } },
+		filter: { title: { equals: 'a' } },
 		rights: undefined,
 		orderBy: [{ field: 'title', direction: 'asc' as const }],
 	}

@@ -5,7 +5,10 @@ import { accessFor, and } from './access.ts'
 import { InvalidQuery, PublicError } from './errors.ts'
 import type { Identity } from './rules.ts'
 import { isMaster } from './rules.ts'
+import type { Read, Row } from './adapter.ts'
+import type { Running } from './running.ts'
 import { current } from './running.ts'
+import type { ModelInfo } from './schema.ts'
 import type { Context } from './query-context.ts'
 import { filtered, first, given, picked, shapedRows } from './query-context.ts'
 import { oneKeys, plan, restrict, uniqueWhere } from './query-args.ts'
@@ -92,11 +95,17 @@ const manyKeys = new Set([
 ])
 const distinctKeys = new Set([...manyKeys, 'distinct'])
 
+/** Finds a read's root rows, decoded; a live read may serve them (D-154). */
+export type RootFind = (store: Store, read: Read) => Promise<Row[]>
+
+const onStore: RootFind = async (store, read) => store.find(read)
+
 async function find(
 	context: Context,
 	store: Store,
 	args: unknown,
 	single: boolean,
+	root = onStore,
 ): Promise<unknown> {
 	const { models, model, scope } = context
 	const keys = single ? manyKeys : distinctKeys
@@ -107,7 +116,7 @@ async function find(
 	const take = read.take ?? 1
 	const limited = single ? { ...read, take: Math.sign(take) } : read
 	const distinct = single ? undefined : await distinctOf(context, args)
-	const rows = await store.find({
+	const rows = await root(store, {
 		model: model.name,
 		...restrict(limited, readable),
 		...(distinct && { distinct }),
@@ -206,6 +215,31 @@ function isRead(operation: Operation): operation is ReadOperation {
 	return Object.hasOwn(reads, operation)
 }
 
+/** The running application and its model `name`. */
+function runningModel(name: string): {
+	readonly app: Running
+	readonly model: ModelInfo
+} {
+	const app = current()
+	const model = app?.resolved.models.get(name)
+	if (app === undefined || model === undefined) {
+		throw new Error(`${name} is not a model of a started application.`)
+	}
+	return { app, model }
+}
+
+async function contextOf(
+	app: Running,
+	model: ModelInfo,
+	identity: Identity,
+): Promise<Context> {
+	const caller = await app.complete(identity)
+	const { models } = app.resolved
+	const access = accessFor(models, caller, app.logger)
+	const scope = new QueryScope(models, caller, access)
+	return { app, models, model, caller, scope }
+}
+
 /** Runs one query of a model of the running application. */
 export async function query(
 	name: string,
@@ -213,19 +247,11 @@ export async function query(
 	args: unknown,
 	options: unknown,
 ): Promise<unknown> {
-	const app = current()
-	const model = app?.resolved.models.get(name)
-	if (app === undefined || model === undefined) {
-		throw new Error(`${name} is not a model of a started application.`)
-	}
+	const { app, model } = runningModel(name)
 	const identity = callerOf(options, name)
 	counted()
 	return app.work.run(async () => {
-		const caller = await app.complete(identity)
-		const { models } = app.resolved
-		const access = accessFor(models, caller, app.logger)
-		const scope = new QueryScope(models, caller, access)
-		const context: Context = { app, models, model, caller, scope }
+		const context = await contextOf(app, model, identity)
 		if (isRead(operation)) {
 			const read = reads[operation]
 			return reading(app, async (store) => read(context, store, args))
@@ -233,6 +259,23 @@ export async function query(
 		const write = writes[operation]
 		return writing(app, async (store, commits) =>
 			write(context, store, commits, args),
+		)
+	})
+}
+
+/** `findMany(args)` as `options` says, its root rows found by `root` (D-154). */
+export async function rootFind(
+	name: string,
+	args: unknown,
+	options: unknown,
+	root: RootFind,
+): Promise<unknown> {
+	const { app, model } = runningModel(name)
+	const identity = callerOf(options, name)
+	return app.work.run(async () => {
+		const context = await contextOf(app, model, identity)
+		return reading(app, async (store) =>
+			find(context, store, args, false, root),
 		)
 	})
 }

@@ -2,9 +2,11 @@
 // filter and order, planned once for its caller, and, on a stored row, that
 // filter and the row's sort keys, tested as `memory()` reads.
 import { accessFor, and } from './access.ts'
-import type { Filter, Nested, Order, Row, Schema } from './adapter.ts'
+import type { Filter, Nested, Order, Read, Row, Schema } from './adapter.ts'
+import { rootFind } from './engine.ts'
+import { decoded, isRow } from './field-codec.ts'
 import { Reader } from './memory-read.ts'
-import { sortable } from './memory-values.ts'
+import { compareKeys, sortable } from './memory-values.ts'
 import { isFilters } from './memory-conditions.ts'
 import { plan, uniqueWhere } from './query-args.ts'
 import { modelOf } from './query-where.ts'
@@ -15,13 +17,15 @@ import { current } from './running.ts'
 import { QueryScope, planned } from './scope.ts'
 
 /**
- * The rows a live read follows, and their order, ending with `id`; `rights`
- * is the part of `where` the caller's read rules and `beforeFind` add, and
+ * The rows a live read follows, and their order, ending with `id`; `filter`
+ * is the read's own part of `where`, `rights` the part the caller's read
+ * rules and `beforeFind` add, and
  * `include`, `count` and `fields` what its selection reads, as the adapter
  * receives them.
  */
 export type LivePlan = Pick<Nested, 'include' | 'count' | 'fields'> & {
 	readonly where: Filter | undefined
+	readonly filter: Filter | undefined
 	readonly rights: Filter | undefined
 	readonly orderBy: readonly Order[]
 }
@@ -67,6 +71,7 @@ export async function livePlan(
 				...(count && { count }),
 				...(fields && { fields }),
 				where: and(where, rights),
+				filter: where,
 				rights,
 				orderBy: read.orderBy ?? [{ field: 'id', direction: 'asc' }],
 			}
@@ -126,6 +131,57 @@ export function matches(
 	filter: Filter | undefined,
 ): boolean {
 	return readerOf(started()).matches(model, row, filter) === true
+}
+
+/** Whether rows alone answer `read`: one level, unpaged, read in memory. */
+const servable = (read: Read): boolean =>
+	read.include === undefined &&
+	read.count === undefined &&
+	read.distinct === undefined &&
+	read.cursor === undefined &&
+	read.skip === undefined &&
+	read.take === undefined &&
+	(read.orderBy ?? []).every(
+		(order) => (order.through ?? order.count ?? order.relevance) === undefined,
+	) &&
+	inMemory(read.model, read.where)
+
+/** The stored `rows` that pass `read`, in its order and with its fields. */
+function served(read: Read, rows: Iterable<Row>): Row[] {
+	const { model, fields, orderBy = [] } = read
+	const kept = [...rows].filter((row) => matches(model, row, read.where))
+	const keys = new Map(kept.map((row) => [row, sortKeys(model, row, orderBy)]))
+	const key = (row: Row): unknown[] => keys.get(row) ?? []
+	kept.sort((a, b) => compareKeys(key(a), key(b), orderBy))
+	if (fields === undefined) return kept
+	return kept.map((row) => ({
+		...Object.fromEntries(fields.map((field) => [field, row[field]])),
+		id: row.id,
+	}))
+}
+
+/**
+ * `findMany(args)` on `model` as `caller`, its rows taken from the stored
+ * `rows` when they alone answer it, else from the database. `rows` holds
+ * every row its `where` finds.
+ */
+export async function servedRows(
+	model: string,
+	args: unknown,
+	caller: Caller,
+	rows: ReadonlyMap<string, Row>,
+): Promise<readonly Row[]> {
+	const { models } = started().resolved
+	const found = await rootFind(
+		model,
+		args,
+		{ as: caller },
+		async (store, read) =>
+			servable(read)
+				? decoded(models, read, served(read, rows.values()))
+				: store.find(read),
+	)
+	return Array.isArray(found) ? found.filter(isRow) : []
 }
 
 /** The sort keys of the stored `row`, for an order on its own fields. */

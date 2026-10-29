@@ -12,6 +12,7 @@ import {
 	liveSchema,
 	matches,
 	recording,
+	servedRows,
 	sortKeys,
 	storedRows,
 } from './internal.ts'
@@ -374,6 +375,60 @@ async function bothOrders(orderBy: Ordered): Promise<unknown[][]> {
 	keyed.sort((a, b) => compareKeys(a.keys, b.keys, live.orderBy))
 	return [ids, keyed.map(({ id }) => id)]
 }
+
+const byId = (rows: readonly unknown[]) =>
+	rows.toSorted((a, b) =>
+		String(Reflect.get(Object(a), 'id')).localeCompare(
+			String(Reflect.get(Object(b), 'id')),
+		),
+	)
+
+describe('rows served to a caller', () => {
+	it('read as findMany does, its rights checked on the stored rows', async () => {
+		await seeded()
+		const [draft, closed] = await Post.findMany({ take: 2 }, M)
+		await Post.update(
+			{ where: { id: draft?.id ?? '' }, data: { draft: true } },
+			M,
+		)
+		await Post.update(
+			{ where: { id: closed?.id ?? '' }, data: { open: false } },
+			M,
+		)
+		const stored = await storedRows('Post', {})
+		const rows = new Map(stored.map((row) => [row.id, row]))
+		const ids = [...rows.keys()]
+		const where = { id: { in: ids } }
+		for (const select of [undefined, { id: true, title: true }]) {
+			const args = select === undefined ? { where } : { select, where }
+			const { result, reads } = await recording(async () =>
+				servedRows('Post', args, ada, rows),
+			)
+			expect(reads).toEqual([])
+			expect(result).toHaveLength(3)
+			const found =
+				select === undefined
+					? await Post.findMany({ where }, { as: ada })
+					: await Post.findMany({ select, where }, { as: ada })
+			expect(byId(result)).toEqual(byId(found))
+		}
+	})
+
+	it('read from the database when the rows alone cannot answer', async () => {
+		await seeded()
+		const stored = await storedRows('Post', {})
+		const rows = new Map(stored.map((row) => [row.id, row]))
+		const args = {
+			where: { id: { in: [...rows.keys()] } },
+			include: { author: true },
+		}
+		const { result, reads } = await recording(async () =>
+			servedRows('Post', args, ada, rows),
+		)
+		expect(reads.map(({ model }) => model)).toEqual(['Post', 'Author'])
+		expect(byId(result)).toEqual(byId(await Post.findMany(args, { as: ada })))
+	})
+})
 
 describe('sort keys', () => {
 	it('order stored rows as findMany does', async () => {

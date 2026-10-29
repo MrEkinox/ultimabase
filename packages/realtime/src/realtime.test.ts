@@ -151,13 +151,23 @@ const watching = definePlugin<Watching>({
 	},
 })
 
-/** memory(), keeping the feed its `start` was given. */
-function kept(): { readonly database: Adapter; readonly feed: () => Feed } {
+/** memory(), keeping the feed its `start` was given and the models it finds. */
+function kept(): {
+	readonly database: Adapter
+	readonly feed: () => Feed
+	readonly finds: string[]
+} {
 	const database = memory()
 	let feed: Feed | undefined
+	const finds: string[] = []
 	return {
+		finds,
 		database: {
 			...database,
+			find: async (read) => {
+				finds.push(read.model)
+				return database.find(read)
+			},
 			start: async (schema, log, given) => {
 				feed = given
 				return database.start(schema, log, given)
@@ -172,9 +182,9 @@ function kept(): { readonly database: Adapter; readonly feed: () => Feed } {
 
 const models = [Session, Team, Member, Author, Post, Comment, Note]
 const appOf = (options?: RealtimeOptions) => {
-	const { database, feed } = kept()
+	const { database, feed, finds } = kept()
 	const plugins = [realtimePlugin(options), watching.plugin()]
-	return { app: defineApp({ database, models, plugins, logger }), feed }
+	return { app: defineApp({ database, models, plugins, logger }), feed, finds }
 }
 
 const request = (token?: string): Request =>
@@ -904,5 +914,58 @@ describe('the plugin', () => {
 			{ kind: 'unlink', model: 'Team', field: 'posts' },
 		])
 		expect(await message(seen, 2)).toMatchObject({ kind: 'reset' })
+	})
+})
+
+describe('the reads of a flush', () => {
+	beforeEach(async () => seeded())
+
+	it('are shared by the lists that show the same rows, whoever follows them', async () => {
+		for (const user of ['bob', 'cy']) {
+			await Session.create({ data: { token: `${user}-token`, user } }, M)
+		}
+		await Member.create({ data: { user: 'bob', team: { connect: one } } }, M)
+		const notes = []
+		for (const text of ['n1', 'n2', 'n3', 'n4']) {
+			notes.push(await Note.create({ data: { text, team: 'One' } }, M))
+		}
+		await Note.create({ data: { text: 'n0', team: 'Two' } }, M)
+		const args = { first: 2, orderBy: { text: 'asc' }, select: { text: true } }
+		const [ada, bob, cy] = await Promise.all(
+			['ada', 'bob', 'cy'].map(async (user) =>
+				list(await connect(`${user}-token`), 'Note', args),
+			),
+		)
+		const both = [ada?.seen ?? [], bob?.seen ?? []]
+		for (const seen of both) {
+			expect(seen[0]).toMatchObject({ rows: [{ text: 'n1' }, { text: 'n2' }] })
+		}
+		expect(cy?.seen[0]).toMatchObject({ rows: [] })
+		// Past the seed's changes.
+		await new Promise((done) => setTimeout(done, 100))
+		const [first, second] = notes
+		const { finds } = running
+		finds.length = 0
+		await Note.update(
+			{ where: { id: second?.id ?? '' }, data: { text: 'n2b' } },
+			M,
+		)
+		for (const seen of both) {
+			expect(await message(seen, 2)).toMatchObject({
+				changes: [{ upsert: { id: second?.id, text: 'n2b' } }],
+			})
+		}
+		// The changed row, read once for both lists.
+		expect(finds.filter((model) => model === 'Note')).toHaveLength(1)
+		finds.length = 0
+		await Note.delete({ where: { id: first?.id ?? '' } }, M)
+		for (const seen of both) {
+			expect(await message(seen, 3)).toMatchObject({
+				changes: [{ remove: first?.id }, { upsert: { text: 'n3' } }],
+			})
+		}
+		// The row each list now shows and the ones after it, once for both.
+		expect(finds.filter((model) => model === 'Note')).toHaveLength(2)
+		expect(cy?.seen).toHaveLength(1)
 	})
 })

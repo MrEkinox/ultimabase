@@ -9,6 +9,7 @@ import { schema } from './test/schema.ts'
 
 const plan = (more: Partial<LivePlan>): LivePlan => ({
 	where: undefined,
+	filter: undefined,
 	rights: undefined,
 	orderBy: [{ field: 'id', direction: 'asc' }],
 	fields: ['id', 'title'],

@@ -4,8 +4,15 @@
 // second failure closes it.
 import type { Caller, Logger, ModelQueries, Row } from 'ultimabase'
 import type { LivePlan } from 'ultimabase/internal'
-import { liveSchema, sortKeys, storedRows } from 'ultimabase/internal'
-import type { Finder, Tracked } from './affected.ts'
+import {
+	inMemory,
+	liveSchema,
+	matches,
+	servedRows,
+	sortKeys,
+	storedRows,
+} from 'ultimabase/internal'
+import type { Finder } from './affected.ts'
 import { affected } from './affected.ts'
 import type { Batch } from './changes.ts'
 import type { Reach } from './reach.ts'
@@ -15,6 +22,7 @@ import { finderOf, pass } from './reads.ts'
 import type { LiveMessage } from './messages.ts'
 import type { Entry } from './window.ts'
 import { Window } from './window.ts'
+import { Tracking } from './tracking.ts'
 
 export type Spec = {
 	readonly model: string
@@ -29,28 +37,6 @@ export type Spec = {
 	readonly logger: Logger
 }
 
-type Shown = { readonly [field: string]: unknown }
-
-/** The rows `include` reached from `node`, as `[path, id]`. */
-function reached(
-	node: Shown,
-	include: LivePlan['include'],
-	path: string,
-	out: (readonly [string, string])[],
-): void {
-	for (const [name, inner] of Object.entries(include ?? {})) {
-		const at = path === '' ? name : `${path}.${name}`
-		const value = node[name]
-		const rows: readonly unknown[] = Array.isArray(value) ? value : [value]
-		for (const row of rows) {
-			if (typeof row !== 'object' || row === null) continue
-			const id: unknown = Reflect.get(row, 'id')
-			if (typeof id === 'string') out.push([at, id])
-			reached(Object.fromEntries(Object.entries(row)), inner.include, at, out)
-		}
-	}
-}
-
 export class Live {
 	caller: Caller
 	#plan: LivePlan
@@ -58,8 +44,7 @@ export class Live {
 	#window: Window
 	readonly #spec: Spec
 	readonly #find: Finder
-	readonly #tracked = new Map<string, Map<string, Set<string>>>()
-	readonly #reaching = new Map<string, readonly (readonly [string, string])[]>()
+	readonly #tracking = new Tracking()
 	#count: number | undefined
 	#hasMore = false
 	#revision = 0
@@ -133,8 +118,7 @@ export class Live {
 
 	close(): void {
 		this.#closed = true
-		this.#tracked.clear()
-		this.#reaching.clear()
+		this.#tracking.clear()
 	}
 
 	#enqueue(task: () => Promise<void>): readonly [Promise<void>, Promise<void>] {
@@ -167,23 +151,39 @@ export class Live {
 		return { id: row.id, keys }
 	}
 
-	/** The stored rows after the window's last, from `where` and in order. */
-	async #after(take: number): Promise<readonly Row[]> {
-		const { where, orderBy } = this.#plan
+	/**
+	 * The stored rows after the window's last, from `where` and in order:
+	 * from the flush's read of the read's own filter when its rights, checked
+	 * in memory, leave enough.
+	 */
+	async #after(take: number, loader?: Loader): Promise<readonly Row[]> {
+		const { model } = this.#spec
+		const { where, filter, rights, orderBy } = this.#plan
 		const last = this.#window.entries.at(-1)
-		return storedRows(this.#spec.model, {
-			...(where && { where }),
+		const page = {
 			orderBy,
 			...(last && { cursor: { id: { equals: last.id } }, skip: 1 }),
 			take,
+		}
+		if (loader !== undefined && inMemory(model, rights)) {
+			const rows = await loader.after(model, {
+				...(filter && { where: filter }),
+				...page,
+			})
+			const kept = rows.filter((row) => matches(model, row, rights))
+			if (kept.length >= take || rows.length < take) return kept.slice(0, take)
+		}
+		return storedRows(model, {
+			...(where && { where }),
+			...page,
 			fields: orderBy.map(({ field }) => field),
 		})
 	}
 
-	async #refill(): Promise<void> {
+	async #refill(loader?: Loader): Promise<void> {
 		const missing = this.#window.missing()
 		if (missing <= 0) return
-		const rows = await this.#after(missing + 1)
+		const rows = await this.#after(missing + 1, loader)
 		const entries = rows.slice(0, missing).map((row) => this.#entry(row))
 		this.#window.fill(entries, rows.length > missing)
 	}
@@ -194,41 +194,30 @@ export class Live {
 		return queries.count(args, { as: this.caller })
 	}
 
-	#untrack(root: string): void {
-		for (const [path, id] of this.#reaching.get(root) ?? []) {
-			const roots = this.#tracked.get(path)?.get(id)
-			roots?.delete(root)
-			if (roots?.size === 0) this.#tracked.get(path)?.delete(id)
-		}
-		this.#reaching.delete(root)
-	}
-
-	#track(node: Row): void {
-		const out: (readonly [string, string])[] = []
-		reached(node, this.#plan.include, '', out)
-		this.#untrack(node.id)
-		this.#reaching.set(node.id, out)
-		for (const [path, id] of out) {
-			const ids = this.#tracked.get(path) ?? new Map<string, Set<string>>()
-			this.#tracked.set(path, ids)
-			const roots = ids.get(id) ?? new Set<string>()
-			ids.set(id, roots)
-			roots.add(node.id)
-		}
-	}
-
-	/** Reads `ids` as the caller into `nodes`; returns those it cannot read. */
+	/**
+	 * Reads `ids` as the caller into `nodes`, from the rows the flush loaded
+	 * if any; returns those it cannot read.
+	 */
 	async #read(
 		ids: readonly string[],
 		nodes: Map<string, Row>,
+		loader?: Loader,
 	): Promise<readonly string[]> {
 		if (ids.length === 0) return []
-		const { queries, shape } = this.#spec
+		const { model, queries, shape } = this.#spec
 		const args = { ...shape, where: { id: { in: ids } } }
-		const found = await queries.findMany(args, { as: this.caller })
+		const found =
+			loader === undefined
+				? await queries.findMany(args, { as: this.caller })
+				: await servedRows(
+						model,
+						args,
+						this.caller,
+						await loader.load(model, ids),
+					)
 		for (const node of found) {
 			nodes.set(node.id, node)
-			this.#track(node)
+			this.#tracking.track(node, this.#plan.include)
 		}
 		return ids.filter((id) => !nodes.has(id))
 	}
@@ -241,18 +230,19 @@ export class Live {
 		before: readonly Entry[],
 		again: ReadonlySet<string>,
 		gone: Set<string>,
+		loader?: Loader,
 	): Promise<{
 		readonly moves: ReturnType<Window['moves']>
 		readonly nodes: ReadonlyMap<string, Row>
 	}> {
 		const nodes = new Map<string, Row>()
 		for (let round = 0; round < 3; round += 1) {
-			await this.#refill()
+			await this.#refill(loader)
 			const moves = this.#window.moves(before, again)
 			const unread = moves.placed.flatMap(({ id }) =>
 				nodes.has(id) ? [] : [id],
 			)
-			const missing = await this.#read(unread, nodes)
+			const missing = await this.#read(unread, nodes, loader)
 			if (missing.length === 0) return { moves, nodes }
 			for (const id of missing) {
 				this.#window.remove(id)
@@ -272,8 +262,7 @@ export class Live {
 		const { where, orderBy } = this.#plan
 		const { first } = this.#window
 		this.#window = new Window(orderBy, first)
-		this.#tracked.clear()
-		this.#reaching.clear()
+		this.#tracking.clear()
 		const rows = await storedRows(model, {
 			...(where && { where }),
 			orderBy,
@@ -308,7 +297,7 @@ export class Live {
 				model,
 				reach: this.#reach,
 				window: window.ids(),
-				tracked: this.#tracked satisfies Tracked,
+				tracked: this.#tracking.tracked,
 				find: this.#find,
 			},
 			batch,
@@ -344,7 +333,7 @@ export class Live {
 			const row = rows.get(id)
 			if (row !== undefined) window.place(this.#entry(row))
 		}
-		await this.#send(before, effect.resend, gone, recount)
+		await this.#send(before, effect.resend, gone, recount, false, loader)
 	}
 
 	/** Sends how the rows shown as `before` changed, if they did or `always`. */
@@ -354,10 +343,11 @@ export class Live {
 		gone: Set<string>,
 		recount: boolean,
 		always = false,
+		loader?: Loader,
 	): Promise<void> {
 		const { row, send } = this.#spec
-		const { moves, nodes } = await this.#settle(before, again, gone)
-		for (const id of moves.removed) this.#untrack(id)
+		const { moves, nodes } = await this.#settle(before, again, gone, loader)
+		for (const id of moves.removed) this.#tracking.untrack(id)
 		let totalCount: number | undefined
 		if (recount) {
 			const count = await this.#counted()

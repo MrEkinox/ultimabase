@@ -1,7 +1,7 @@
 // The reads a flush makes (D-154): the root rows a relation's rows reach,
 // a filter checked on a few rows, in memory when it reads the row alone,
 // and each changed row loaded once for every live read that needs it.
-import type { Filter, Row } from 'ultimabase'
+import type { Filter, Nested, Row } from 'ultimabase'
 import { inMemory, matches, storedRows } from 'ultimabase/internal'
 import type { Finder } from './affected.ts'
 import type { Step } from './reach.ts'
@@ -28,20 +28,43 @@ export const finderOf =
 		return rows.map(({ id }) => id)
 	}
 
-/** Each changed row, read once per flush whatever reads it. */
+/**
+ * Each changed row, read once per flush whatever reads it, and each page
+ * of rows after a window's last, once for the live reads that share it.
+ */
 export class Loader {
 	readonly #rows = new Map<string, Map<string, Promise<Row | undefined>>>()
+	readonly #pages = new Map<string, Promise<readonly Row[]>>()
+
+	#known(model: string): Map<string, Promise<Row | undefined>> {
+		const known =
+			this.#rows.get(model) ?? new Map<string, Promise<Row | undefined>>()
+		this.#rows.set(model, known)
+		return known
+	}
+
+	/** The stored rows `read` finds, whose rows `load` then gives. */
+	async after(model: string, read: Nested): Promise<readonly Row[]> {
+		const key = JSON.stringify([model, read])
+		let page = this.#pages.get(key)
+		if (page === undefined) {
+			page = storedRows(model, read)
+			this.#pages.set(key, page)
+			const rows = await page
+			const known = this.#known(model)
+			for (const row of rows) {
+				if (!known.has(row.id)) known.set(row.id, Promise.resolve(row))
+			}
+		}
+		return page
+	}
 
 	/** The stored rows of `model` in `ids`; a deleted row is missing. */
 	async load(
 		model: string,
 		ids: readonly string[],
 	): Promise<ReadonlyMap<string, Row>> {
-		let known = this.#rows.get(model)
-		if (known === undefined) {
-			known = new Map()
-			this.#rows.set(model, known)
-		}
+		const known = this.#known(model)
 		const missing = ids.filter((id) => !known.has(id))
 		if (missing.length > 0) {
 			const read = storedRows(model, { where: among(missing) }).then(

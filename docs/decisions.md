@@ -9598,6 +9598,18 @@ maxConnectionRows })`; a subscribe past either fails with
      evaluates it; the others are checked in one query per live read,
      `WHERE id IN (…) AND (filter)`. A `_search` condition is one of the
      others: each database ranks a search its own way (D-148).
+   - A flush's reads are shared, as LiveQuery's are in Parse, but never
+     less exact: the benchmark showed one query per subscriber and per
+     write on a list many follow (1000 statements, 343 ms for 1000
+     subscribers). A row a live read places or resends is read as its
+     caller from the row the flush loaded: the read rules, every
+     `beforeFind`, the field rules and the virtuals run as for `findMany`,
+     and its filter is checked in memory when it reads the row alone and
+     the selection includes no relation. A row leaving a full window
+     brings in the next ones from one read per flush of the read's own
+     filter after the same row, its rights checked in memory. Any other
+     read, or a refill whose rights left too few rows, runs as the caller
+     on the database, as before.
    - Shared windows, an in-memory check of the filter's equalities before
      the row is read, and one query for every filter are left for the
      benchmark (point 13) to call for.

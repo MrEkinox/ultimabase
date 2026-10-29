@@ -19,7 +19,7 @@ export const invalid = (path: string, message: string): PublicError =>
 export function checked(
 	exposed: readonly ExposedModel[],
 	model: string,
-	plan: Omit<LivePlan, 'where' | 'rights'>,
+	plan: Omit<LivePlan, 'where' | 'filter' | 'rights'>,
 	path: string,
 ): number {
 	for (const order of plan.orderBy) {

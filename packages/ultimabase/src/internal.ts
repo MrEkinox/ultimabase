@@ -25,6 +25,7 @@ export {
 	liveSchema,
 	livePlan,
 	matches,
+	servedRows,
 	sortKeys,
 	storedRows,
 } from './live.ts'
