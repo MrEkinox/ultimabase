@@ -424,6 +424,15 @@ describe('a live list', () => {
 		)
 	})
 
+	it('answers a grow with no row to add', async () => {
+		const { seen, handle } = await list(await connect(), 'Post', {
+			...ranked,
+			first: 10,
+		})
+		await handle.grow(5)
+		expect(seen.at(-1)).toEqual({ kind: 'changes', revision: 2, changes: [] })
+	})
+
 	it('stops when its handle closes', async () => {
 		const viewer = await connect()
 		const closed = await list(viewer, 'Post', { ...ranked, first: 2 })

@@ -1,7 +1,8 @@
 // An open live read over Server-Sent Events (D-154), ended with its client,
 // its caller or the application. A live list whose client left is kept 10 s,
 // what it sends held, so that the same user's request with its token takes
-// it back, grown. A live list's first event is its token.
+// it back, grown, even before the server saw it leave. A live list's first
+// event is its token.
 import { randomUUID } from 'node:crypto'
 import { run } from '@ultimabase/http/internal'
 import type {
@@ -15,11 +16,15 @@ import { shaped } from './fields.ts'
 import type { Events } from './sse.ts'
 import { eventsTo } from './sse.ts'
 
-/** The realtime engine, what ends each open stream, and the kept lists. */
+/**
+ * The realtime engine, what ends each open stream, the kept lists, and what
+ * keeps each open list as if its client left, by token.
+ */
 export type Live = {
 	readonly realtime: RealtimeApi
 	readonly streams: Set<() => void>
 	readonly kept: Map<string, Kept>
+	readonly open: Map<string, () => void>
 }
 
 /** Where a live read writes: an open stream of events, its response aside. */
@@ -180,23 +185,35 @@ function eventsFor(
 	stream: Stream,
 ): { readonly response: Response; readonly finish: () => void } {
 	let over = false
-	const events = eventsTo(request, () => {
+	let left = false
+	const leave = () => {
+		if (left) return
+		left = true
 		live.streams.delete(finish)
 		const { viewer, handle, keep } = stream
+		if (keep !== undefined) live.open.delete(keep.token)
 		if (over || handle === undefined || keep === undefined || viewer.closed) {
 			stream.ended = true
 			handle?.close()
 			return viewer.close()
 		}
 		park(live, stream, handle, keep)
-	})
+	}
+	const events = eventsTo(request, leave)
 	const finish = () => {
 		over = true
 		events.end()
 	}
 	live.streams.add(finish)
-	// First, before what a kept list held.
-	if (stream.keep !== undefined) events.send('resume', stream.keep.token)
+	if (stream.keep !== undefined) {
+		// A resume may come before the server sees this client leave.
+		live.open.set(stream.keep.token, () => {
+			leave()
+			events.end()
+		})
+		// First, before what a kept list held.
+		events.send('resume', stream.keep.token)
+	}
 	stream.relay.to({ ...events, end: finish })
 	return { response: events.response, finish }
 }
@@ -207,7 +224,9 @@ async function resumed(
 	request: Request,
 	list: Listed,
 ): Promise<Response | undefined> {
-	const kept = live.kept.get(list.resume ?? '')
+	const token = list.resume ?? ''
+	live.open.get(token)?.()
+	const kept = live.kept.get(token)
 	if (kept === undefined) return undefined
 	const { stream, handle, keep } = kept
 	if (stream.signature !== list.signature || list.first < keep.first) {

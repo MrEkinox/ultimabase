@@ -510,6 +510,35 @@ describe('a resumed live list', () => {
 		})
 	})
 
+	it('is taken from a stream the server has not seen its client leave', async () => {
+		const api = await started()
+		const [, b = '', c = ''] = await seeded()
+		const before = await streaming(`${api}/tasks${qs({ ...ranked, first: 2 })}`)
+		await before.next()
+		const token = before.token() ?? ''
+		const stream = await streaming(
+			`${api}/tasks${qs({ ...ranked, first: 3, resume: token })}`,
+		)
+		expect(await before.next()).toBeUndefined()
+		expect(await stream.next()).toEqual({
+			event: 'live',
+			id: revision,
+			data: {
+				revision,
+				changes: [
+					{ upsert: { cursor, node: { id: c, title: 'c' } }, after: b },
+				],
+				pageInfo: {
+					hasNextPage: false,
+					hasPreviousPage: false,
+					startCursor: cursor,
+					endCursor: cursor,
+				},
+			},
+		})
+		expect(stream.token()).toBe(token)
+	})
+
 	it('starts afresh as another read, token or user', async () => {
 		const api = await started()
 		const [a = ''] = await seeded()

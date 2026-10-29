@@ -9478,7 +9478,12 @@ maxConnectionRows })`; a subscribe past either fails with
      still follows its changes, which wait, and still counts against the
      connection's limits.
    - A resume sends the changes that waited, then the new rows only, as a
-     `changes` message; the revision goes on.
+     `changes` message; the revision goes on. A grow always sends that
+     message, empty when no row follows, so that `fetchMore` knows it is
+     done.
+   - Over SSE, a resume may arrive before the server sees its client leave
+     the previous request. The resume then ends that request and takes its
+     list, as if its client had left.
    - The token holds on its own WebSocket connection. Over SSE, where each
      request is a connection, it holds for the same user: the kept read
      takes the new request's caller and plans again under its rights.

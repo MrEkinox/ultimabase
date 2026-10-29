@@ -119,7 +119,8 @@ export class Live {
 		const [run] = this.#enqueue(async () => {
 			const before = this.#window.shown()
 			this.#window.first += more
-			await this.#send(before, new Set(), new Set(), false)
+			// Sent even when no row follows: the client waits for it.
+			await this.#send(before, new Set(), new Set(), false, true)
 		})
 		return run
 	}
@@ -337,12 +338,13 @@ export class Live {
 		await this.#send(before, effect.resend, gone, recount)
 	}
 
-	/** Sends how the rows shown as `before` changed, if they did. */
+	/** Sends how the rows shown as `before` changed, if they did or `always`. */
 	async #send(
 		before: readonly Entry[],
 		again: ReadonlySet<string>,
 		gone: Set<string>,
 		recount: boolean,
+		always = false,
 	): Promise<void> {
 		const { row, send } = this.#spec
 		const { moves, nodes } = await this.#settle(before, again, gone)
@@ -371,7 +373,9 @@ export class Live {
 		const hasMore = this.#window.hasMore()
 		const more = hasMore !== this.#hasMore
 		this.#hasMore = hasMore
-		if (changes.length === 0 && !more && totalCount === undefined) return
+		if (changes.length === 0 && !more && totalCount === undefined && !always) {
+			return
+		}
 		send({
 			kind: 'changes',
 			revision: this.#next(),
