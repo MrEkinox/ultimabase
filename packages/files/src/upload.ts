@@ -37,7 +37,11 @@ function fieldOf(target: string): FileOptions {
 	const [model = '', field = ''] = target.split('.')
 	const options = runningOf().fields.get(model)?.get(field)
 	if (options === undefined) {
-		throw invalid('for', `${target} is not a file field.`)
+		const message =
+			target === ''
+				? 'Expected a file field: Model.field.'
+				: `${target} is not a file field.`
+		throw invalid('for', message)
 	}
 	return options
 }

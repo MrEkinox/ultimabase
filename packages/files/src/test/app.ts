@@ -9,6 +9,7 @@ import type { FilesOptions } from '../index.ts'
 import { file, filesPlugin, memoryFiles } from '../index.ts'
 
 export const M = { as: master }
+export const masterKey = 'test-master-key'
 export const alice: Identity = { kind: 'user', user: { id: 'alice' } }
 export const bob: Identity = { kind: 'user', user: { id: 'bob' } }
 
@@ -73,9 +74,14 @@ export const Failing = defineModel({
 	}),
 })
 
-export function logging(warnings: unknown[]): Logger {
+/** Records the warnings, and the URL the HTTP plugin listens on. */
+export function logging(warnings: unknown[], urls: string[] = []): Logger {
 	const logger: Logger = {
-		info: () => undefined,
+		info: (first) => {
+			const said = typeof first === 'string' ? first : ''
+			const url = /^Listening on (.*)\.$/.exec(said)?.[1]
+			if (url !== undefined) urls.push(url)
+		},
 		warn: (first) => {
 			warnings.push(first)
 		},
@@ -92,12 +98,14 @@ export async function started(
 ) {
 	const storage = memoryFiles()
 	const warnings: unknown[] = []
+	const urls: string[] = []
 	const app = defineApp({
 		database,
 		plugins: [httpPlugin({ port: 0 }), filesPlugin({ storage, ...options })],
 		models: [Post, Failing],
-		logger: logging(warnings),
+		masterKey,
+		logger: logging(warnings, urls),
 	})
 	await app.start()
-	return { app, storage, warnings }
+	return { app, storage, warnings, url: urls[0] ?? '' }
 }

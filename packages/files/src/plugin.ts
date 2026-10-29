@@ -25,6 +25,7 @@ import {
 } from './lifecycle.ts'
 import { FilesBlob } from './model.ts'
 import type { FileBody, FileStorage } from './storage.ts'
+import { uploads } from './routes.ts'
 import { upload } from './upload.ts'
 import { runningOf, useRunning } from './values.ts'
 
@@ -82,6 +83,9 @@ const definition = definePlugin<Files>({
 	manifest,
 	requires: { http: httpPlugin },
 	models: [FilesBlob],
+	api: ({ plugins }) => {
+		plugins.http.mount(uploads(), { bodyLimit: false })
+	},
 	hooks: {
 		beforeCreate: (facts) => resolve(facts),
 		beforeUpdate: (facts) => resolve(facts),

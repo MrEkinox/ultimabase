@@ -238,7 +238,7 @@ Exit: an example with sign-up, sign-in and rules on `caller.user`.
 - [x] Decide virtual fields and relations filtered by a `where`: D-151.
 - [x] Filtered relations and virtual fields (D-151).
 - [x] Decide files: D-152.
-- [ ] Files (D-152).
+- [x] Files (D-152).
 - [ ] Documentation website (D-31).
 - [ ] A full audit of every package, its fixes merged, before publication.
 - [ ] Publication, after confirmation.
