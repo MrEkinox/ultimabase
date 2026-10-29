@@ -183,6 +183,8 @@ type Stream = {
 	readonly raw: () => Promise<string>
 	/** Leaves, as a closed tab does. */
 	readonly leave: () => void
+	/** The token of the `resume` event `next` read past, if any. */
+	readonly token: () => string | undefined
 }
 
 /** An SSE request of `url`, as Ada unless `headers` say otherwise. */
@@ -198,6 +200,7 @@ async function streaming(
 	})
 	const reader = response.body?.pipeThrough(new TextDecoderStream()).getReader()
 	let buffer = ''
+	let token: string | undefined
 	const raw = async () => {
 		const read = await reader?.read()
 		return read === undefined || read.done ? '' : read.value
@@ -220,18 +223,25 @@ async function streaming(
 				const event = fields.get('event')
 				if (event === undefined) continue
 				const id = fields.get('id')
-				return {
-					event,
-					data: JSON.parse(fields.get('data') ?? 'null'),
-					...(id !== undefined && { id: Number(id) }),
+				const data: unknown = JSON.parse(fields.get('data') ?? 'null')
+				if (event === 'resume' && typeof data === 'string') {
+					token = data
+					continue
 				}
+				return { event, data, ...(id !== undefined && { id: Number(id) }) }
 			}
 			const more = await raw()
 			if (more === '') return undefined
 			buffer += more
 		}
 	}
-	return { response, next, raw, leave: () => controller.abort() }
+	return {
+		response,
+		next,
+		raw,
+		leave: () => controller.abort(),
+		token: () => token,
+	}
 }
 
 /** A JSON response's status and body. */
@@ -435,8 +445,6 @@ describe('a live list', () => {
 	})
 })
 
-const resumeHeader = 'x-ultimabase-resume'
-
 const waited = async (ms: number) =>
 	new Promise((done) => {
 		setTimeout(done, ms)
@@ -449,8 +457,8 @@ async function left(api: string): Promise<string> {
 	stream.leave()
 	// The server sees its client leave a few milliseconds later.
 	await waited(100)
-	const token = stream.response.headers.get(resumeHeader)
-	if (token === null) throw new Error('No resume token.')
+	const token = stream.token()
+	if (token === undefined) throw new Error('No resume token.')
 	return token
 }
 
@@ -458,7 +466,7 @@ async function left(api: string): Promise<string> {
 async function begun(url: string, headers: Record<string, string> = {}) {
 	const stream = await streaming(url, headers)
 	const { event } = (await stream.next()) ?? {}
-	return { event, token: stream.response.headers.get(resumeHeader) }
+	return { event, token: stream.token() }
 }
 
 describe('a resumed live list', () => {
@@ -472,7 +480,6 @@ describe('a resumed live list', () => {
 		const stream = await streaming(
 			`${api}/tasks${qs({ ...ranked, first: 3, resume: token })}`,
 		)
-		expect(stream.response.headers.get(resumeHeader)).toBe(token)
 		expect(await stream.next()).toEqual({
 			event: 'live',
 			id: revision,
@@ -483,6 +490,8 @@ describe('a resumed live list', () => {
 				],
 			},
 		})
+		// Its token came first, the same.
+		expect(stream.token()).toBe(token)
 		expect(await stream.next()).toEqual({
 			event: 'live',
 			id: revision,
@@ -518,7 +527,7 @@ describe('a resumed live list', () => {
 		}
 		expect(await begun(`${api}/tasks/${a}${qs({ resume: token })}`)).toEqual({
 			event: 'data',
-			token: null,
+			token: undefined,
 		})
 		const same = `${api}/tasks${qs({ ...ranked, first: 2, resume: token })}`
 		// Another user ends the kept list, which its own user no longer finds.

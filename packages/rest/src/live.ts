@@ -1,7 +1,7 @@
 // A live model's list and row over Server-Sent Events (D-154): the read's
 // JSON as `event: data`, then what changed as `event: live`, the JSON GraphQL
 // sends under `extensions.live`; in page mode, `event: data` each time. A
-// list's response carries the token that resumes it, as `x-ultimabase-resume`.
+// list first sends the token that resumes it, as `event: resume`.
 import { applied, badInput, connection, run } from '@ultimabase/http/internal'
 import type { Caller, Row } from 'ultimabase'
 import type { Api, Args, Entry } from './entries.ts'

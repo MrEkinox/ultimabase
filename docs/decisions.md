@@ -9459,13 +9459,18 @@ maxConnectionRows })`; a subscribe past either fails with
    `extensions.live.resume`, an opaque token. The link emits the grown
    result on the same observable.
    - A live list's first result carries its token as
-     `extensions.live.resume`; over SSE it is the `x-ultimabase-resume`
-     header, and the new request takes it as a `resume` parameter. A read
-     keeps its token across resumes.
+     `extensions.live.resume`; over SSE it is the stream's first event,
+     `resume`, before `data`, since a browser's `EventSource` reads no
+     header and a cross-origin `fetch` reads only those CORS exposes. The
+     new request takes it as a `resume` parameter. A read keeps its token
+     across resumes.
 
      ```
      subscribe { query, variables: { where, first: 50 }, extensions: { live: { resume } } }
      GET /api/tasks?first=50&resume=…
+
+     event: resume
+     data: "6f1c…"
      ```
 
    - The transport keeps every completed live list 10 seconds, with what it

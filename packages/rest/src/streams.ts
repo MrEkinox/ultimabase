@@ -1,7 +1,7 @@
 // An open live read over Server-Sent Events (D-154), ended with its client,
 // its caller or the application. A live list whose client left is kept 10 s,
 // what it sends held, so that the same user's request with its token takes
-// it back, grown.
+// it back, grown. A live list's first event is its token.
 import { randomUUID } from 'node:crypto'
 import { run } from '@ultimabase/http/internal'
 import type {
@@ -74,7 +74,6 @@ export type Kept = {
 
 /** How long a list whose client left waits for a resume. */
 const keptFor = 10_000
-const resumeHeader = 'x-ultimabase-resume'
 const nothing = (): void => undefined
 
 function relayOf(): Relay {
@@ -196,10 +195,9 @@ function eventsFor(
 		events.end()
 	}
 	live.streams.add(finish)
+	// First, before what a kept list held.
+	if (stream.keep !== undefined) events.send('resume', stream.keep.token)
 	stream.relay.to({ ...events, end: finish })
-	if (stream.keep !== undefined) {
-		events.response.headers.set(resumeHeader, stream.keep.token)
-	}
 	return { response: events.response, finish }
 }
 
