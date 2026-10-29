@@ -9398,11 +9398,17 @@ whatever the first two cost.
 5. Transport:
    - GraphQL over WebSocket on the GraphQL path, with the `graphql-ws`
      protocol (`graphql-transport-ws`), which Apollo's `GraphQLWsLink`
-     speaks, on `ws`. `httpPlugin` gains the server's `upgrade` event.
+     speaks, on `ws`.
+   - `httpPlugin`'s API gains `upgrade(path, accept)`, called from a
+     plugin's `api`, one plugin a path: `accept` receives Node's request,
+     socket and first bytes, as `ws`'s `handleUpgrade` reads them, and the
+     `Request` that `identify` reads. An upgrade on a path no plugin takes
+     is a 404. `stop` closes the sockets still open at its 10 s end (D-106).
    - The caller is the upgrade request's (cookie or `Authorization`, D-112),
      or `connection_init`'s `{ authorization: 'Bearer …' }`. An upgrade
-     whose `Origin` the HTTP plugin's CORS does not allow is refused before
-     any caller is read, so another site cannot borrow the cookie.
+     whose `Origin` is neither the server's own nor one the HTTP plugin's
+     CORS allows is a 403 before any plugin sees it, so another site cannot
+     borrow the cookie; one without `Origin` comes from no browser.
    - REST sends `event: data` and `event: live` SSE events holding the same
      JSON.
    - Compression: WebSocket `permessage-deflate` above 1 KB; SSE gzip with

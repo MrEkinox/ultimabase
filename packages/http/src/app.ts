@@ -108,6 +108,16 @@ function isLocal(origin: string): boolean {
 	return protocol === 'http:' && isLocalHost(hostname)
 }
 
+/**
+ * Whether a browser may call from `origin`, with its cookies: a listed one,
+ * or a local one outside production. Reads `NODE_ENV` once.
+ */
+export function allowing(options: HttpOptions): (origin: string) => boolean {
+	const listed = options.cors ?? []
+	const local = process.env['NODE_ENV'] !== 'production'
+	return (origin) => listed.includes(origin) || (local && isLocal(origin))
+}
+
 const safe = new Set(['GET', 'HEAD', 'OPTIONS'])
 /** What an HTML form sends, `text/plain` when it names none. */
 const form =
@@ -132,8 +142,8 @@ export function appOf(
 	identify: (request: Request) => Promise<Caller>,
 	logger: Logger,
 ): Hono<HttpEnv> {
-	const listed = options.cors ?? []
 	const local = process.env['NODE_ENV'] !== 'production'
+	const allows = allowing(options)
 	const maxSize = options.bodyLimit ?? 1024 * 1024
 	const addressOf = addresses(proxiesOf(options.proxies), logger)
 	const app = new Hono<HttpEnv>({ getPath: pathOf })
@@ -162,8 +172,7 @@ export function appOf(
 			c.res = failed(error, c, logger)
 		}
 	})
-	const allowed = (origin: string) =>
-		listed.includes(origin) || (local && isLocal(origin)) ? origin : null
+	const allowed = (origin: string) => (allows(origin) ? origin : null)
 	// An allowed origin sends its cookies, as auth's session (D-112).
 	const preflight = cors({ origin: allowed, credentials: true })
 	app.use(async (c, next) => {
