@@ -3,6 +3,8 @@
 import type {
 	FieldDefinition,
 	IndexDefinition,
+	ModelDefinition,
+	PluginCode,
 	PluginRecord,
 	PluginUse,
 } from './definition.ts'
@@ -157,7 +159,7 @@ export function usedBy(
 			])
 			addFields(model, built, fields, owners, code.name)
 		}
-		const given = { queries, options, plugins: code.plugins }
+		const given = { name: model, queries, options, plugins: code.plugins }
 		uses.push({ code, model: Object.freeze(given) })
 	}
 	const redirecting = uses.filter((each) => each.code.redirect !== undefined)
@@ -171,4 +173,45 @@ export function usedBy(
 		commands: commandsOf(model, uses, methods),
 		indexes: uses.flatMap(({ code }) => code.addedIndexes),
 	}
+}
+
+/** Stops startup when `owner` uses a plugin that `plugins` does not hold. */
+export function checkInstalled(
+	owner: string,
+	code: PluginCode,
+	plugins: readonly PluginCode[],
+): void {
+	if (plugins.includes(code)) return
+	const { name } = code
+	const other = plugins.some((each) => each.name === name)
+	throw new Refused(
+		other
+			? `${owner} uses a ${name} from another definePlugin than the one in plugins.`
+			: `${owner} uses ${name}, which is not in plugins.`,
+	)
+}
+
+/** A model's plugins in the order of `plugins`, each one installed. */
+export function installedUses(
+	definition: ModelDefinition,
+	plugins: readonly PluginCode[],
+): readonly PluginUse[] {
+	const at = (use: PluginUse) => plugins.indexOf(use.code)
+	for (const use of definition.uses) {
+		checkInstalled(definition.name, use.code, plugins)
+	}
+	// A field type's plugin runs its hooks on the model, as if used (D-152).
+	const { name, queries } = definition
+	const implicit = plugins
+		.filter((code) => !definition.uses.some((use) => use.code === code))
+		.filter((code) =>
+			[...definition.fields.values()].some(
+				(field) => field.kind === 'scalar' && field.codec?.plugin === code.name,
+			),
+		)
+		.map((code) => {
+			const model = { name, queries, options: {}, plugins: code.plugins }
+			return { code, model: Object.freeze(model) }
+		})
+	return [...definition.uses, ...implicit].toSorted((a, b) => at(a) - at(b))
 }

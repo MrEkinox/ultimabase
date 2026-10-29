@@ -13,6 +13,7 @@ import type { Digits } from './decimal.ts'
 import type { Enum } from './fields.ts'
 import { modelDefinitions } from './definition.ts'
 import { Refused } from './errors.ts'
+import { installedUses } from './plugin-use.ts'
 import { checkRelations, isFiltered, viewField } from './relations.ts'
 import { checkIndexes, checkSearch } from './schema-indexes.ts'
 import type { VirtualInfo } from './schema-virtuals.ts'
@@ -197,34 +198,6 @@ function schemaField(model: ModelInfo, field: FieldInfo): SchemaField {
 	const { options: _options, codec: _codec, enum: _enum, ...schema } = field
 	if (schema.kind !== 'many' || !isFiltered(model, field.name)) return schema
 	return { ...schema, filtered: true }
-}
-
-/** Stops startup when `owner` uses a plugin that `plugins` does not hold. */
-export function checkInstalled(
-	owner: string,
-	code: PluginCode,
-	plugins: readonly PluginCode[],
-): void {
-	if (plugins.includes(code)) return
-	const { name } = code
-	const other = plugins.some((each) => each.name === name)
-	throw new Refused(
-		other
-			? `${owner} uses a ${name} from another definePlugin than the one in plugins.`
-			: `${owner} uses ${name}, which is not in plugins.`,
-	)
-}
-
-/** A model's plugins in the order of `plugins`, each one installed. */
-function installedUses(
-	definition: ModelDefinition,
-	plugins: readonly PluginCode[],
-): readonly PluginUse[] {
-	const at = (use: PluginUse) => plugins.indexOf(use.code)
-	for (const use of definition.uses) {
-		checkInstalled(definition.name, use.code, plugins)
-	}
-	return definition.uses.toSorted((a, b) => at(a) - at(b))
 }
 
 const whose = (owner: string | undefined): string =>

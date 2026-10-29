@@ -235,6 +235,8 @@ export type PluginRedirects<F, O, A> = {
 
 /** What a model gives a plugin's code. */
 export interface PluginModel<F, O, A> {
+	/** The model's name (D-152). */
+	readonly name: string
 	readonly queries: Queries<F>
 	readonly options: O
 	readonly plugins: A

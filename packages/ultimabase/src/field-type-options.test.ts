@@ -39,10 +39,20 @@ interface Scores extends PluginTypes {
 }
 /** What the plugin reads of the application's models. */
 let models: readonly ExposedModel[] = []
+/** The hooks the plugin ran, with the model each ran on. */
+const ran: string[] = []
 const scores = definePlugin<Scores>({
 	name: 'score',
 	start: (context) => {
 		models = context.models
+	},
+	hooks: {
+		afterCreate: ({ name, options }) => {
+			ran.push(`create ${name} ${JSON.stringify(options)}`)
+		},
+		afterDelete: ({ name }) => {
+			ran.push(`delete ${name}`)
+		},
 	},
 	manifest: {
 		name: 'test-score',
@@ -85,6 +95,17 @@ describe('a field type with options', () => {
 			{ value: 2, max: 3 },
 			{ value: 2, max: null },
 		])
+	})
+
+	it('runs its plugin’s hooks on a model holding one, without use', async () => {
+		const app = defineApp(options)
+		await app.start()
+		stop = async () => app.stop()
+		ran.length = 0
+		const game = await Game.create({ data: { low: 1, high: 1 } }, M)
+		// Its delete runs the hook: no single write without loading rows.
+		await Game.delete({ where: { id: game.id } }, M)
+		expect(ran).toStrictEqual(['create Game {}', 'delete Game'])
 	})
 
 	it('fills the rows stored before it with its stored field’s value default', () => {

@@ -65,6 +65,8 @@ export type ModelDefinition = {
 	readonly indexes: readonly IndexDefinition[]
 	/** The plugins of its `use`, in that order (D-89). */
 	readonly uses: readonly PluginUse[]
+	/** Its operations, which a field type's plugin is given (D-152). */
+	readonly queries: object
 	/** What `.with` received, once (D-07). */
 	rules: object | undefined
 }
@@ -106,6 +108,7 @@ export type PluginRecord = {
 export type PluginUse = {
 	readonly code: PluginCode
 	readonly model: {
+		readonly name: string
 		readonly queries: object
 		readonly options: object
 		readonly plugins: object
