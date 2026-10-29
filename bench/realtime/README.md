@@ -41,6 +41,51 @@ node --expose-gc --max-old-space-size=24576 bench/realtime/bench.ts \
 
 ## Runs
 
+### 2026-10-29: a window notes what it changes, commit `bb9610a7`
+
+Same machine and settings as the run below.
+
+A flush now finds a list's moves from the rows its writes changed, not from
+a pass over every shown row before and after them.
+
+| Subscribers | Lists       | Window | Write  | Statements |   p50 |   p99 | Last message p50 | Connection | Subscription | Subscribe all |
+| ----------: | ----------- | -----: | ------ | ---------: | ----: | ----: | ---------------: | ---------: | -----------: | ------------: |
+|        1000 | one list    |     25 | update |        1–1 |  62.7 |  75.5 |             71.9 |        4.1 |         13.3 |         729.4 |
+|        1000 | one list    |     25 | insert |        1–1 |  64.6 |  81.1 |             75.2 |        4.1 |         13.3 |         729.4 |
+|        1000 | one list    |     25 | delete |        2–2 |  67.1 |  86.6 |             78.9 |        4.1 |         13.3 |         729.4 |
+|        1000 | one list    |   1000 | update |        1–1 |  66.3 |  88.9 |             78.4 |        1.8 |        305.0 |        5227.4 |
+|        1000 | one list    |   1000 | insert |        1–1 |  65.4 |  78.2 |             77.2 |        1.8 |        305.0 |        5227.4 |
+|        1000 | one list    |   1000 | delete |        2–2 |  74.3 | 107.3 |             92.0 |        1.8 |        305.0 |        5227.4 |
+|        1000 | a list each |     25 | update |        1–1 |  56.9 |  58.1 |             57.5 |        1.8 |         11.4 |         662.0 |
+|        1000 | a list each |     25 | insert |        1–1 |  53.3 |  54.3 |             58.8 |        1.8 |         11.4 |         662.0 |
+|        1000 | a list each |     25 | delete |        2–2 |  58.1 |  59.5 |             58.1 |        1.8 |         11.4 |         662.0 |
+|        1000 | a list each |   1000 | update |        1–1 |  57.0 |  58.0 |             57.2 |        1.9 |        305.4 |        4958.4 |
+|        1000 | a list each |   1000 | insert |        1–1 |  53.2 |  54.4 |             59.0 |        1.9 |        305.4 |        4958.4 |
+|        1000 | a list each |   1000 | delete |        2–2 |  58.8 |  60.1 |             58.9 |        1.9 |        305.4 |        4958.4 |
+|       10000 | one list    |     25 | update |        1–1 | 142.1 | 229.1 |            230.2 |        1.9 |         11.3 |        5742.4 |
+|       10000 | one list    |     25 | insert |        1–1 | 155.8 | 257.1 |            257.5 |        1.9 |         11.3 |        5742.4 |
+|       10000 | one list    |     25 | delete |        2–2 | 165.6 | 274.3 |            275.2 |        1.9 |         11.3 |        5742.4 |
+|       10000 | one list    |   1000 | update |        1–1 | 188.7 | 734.8 |            313.3 |        1.9 |        305.4 |       54236.2 |
+|       10000 | one list    |   1000 | insert |        1–1 | 179.7 | 304.7 |            304.0 |        1.9 |        305.4 |       54236.2 |
+|       10000 | one list    |   1000 | delete |        2–2 | 251.4 | 687.1 |            437.8 |        1.9 |        305.4 |       54236.2 |
+|       10000 | a list each |     25 | update |        1–1 |  85.7 |  88.6 |             85.8 |        1.9 |         11.3 |        5468.2 |
+|       10000 | a list each |     25 | insert |        1–1 |  53.3 |  54.1 |            104.9 |        1.9 |         11.3 |        5468.2 |
+|       10000 | a list each |     25 | delete |        2–2 |  87.1 |  88.8 |             87.2 |        1.9 |         11.3 |        5468.2 |
+|       10000 | a list each |   1000 | update |        1–1 |  92.9 |  94.5 |             94.3 |        1.9 |        305.4 |       50323.2 |
+|       10000 | a list each |   1000 | insert |        1–1 |  53.5 |  54.3 |            112.7 |        1.9 |        305.4 |       50323.2 |
+|       10000 | a list each |   1000 | delete |        2–2 |  95.1 |  96.6 |             95.1 |        1.9 |        305.4 |       50323.2 |
+
+Commit rate, 16 writers: 3000 updates/s without the feed, 2621 with it.
+
+- 10 000 subscribers on one list of 1000 rows hear of an update after 189 ms
+  at the median, 313 ms for the last, against 2.1 s and 4.1 s before; the
+  window's size no longer weighs on a write.
+- What still grows with the subscribers on one list is each one's find
+  pipeline, run as its caller: 10 000 of them on a list of 25 rows take
+  230 ms for the last message, 1000 of them 72 ms.
+- A subscription to 1000 rows still holds 305 KiB, and subscribing still
+  reads the window once per subscriber, as a find does.
+
 ### 2026-10-29: shared reads, commit `eeae6e9a`
 
 Intel i7-8700B, 64 GB, macOS 15, PostgreSQL 18.6 in Docker, Node 24.20; 20
