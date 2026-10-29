@@ -27,6 +27,7 @@
 		"realtime",
 		"---Transports---",
 		"http",
-		"graphql"
+		"graphql",
+		"rest"
 	]
 }
