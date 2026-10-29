@@ -241,6 +241,11 @@ Exit: an example with sign-up, sign-in and rules on `caller.user`.
 - [x] Files (D-152).
 - [x] Decide realtime: D-154.
 - [ ] Realtime (D-154), its benchmark passed.
+- [ ] Realtime faster on many subscribers (D-154): the find pipeline run once
+      per subscriber on one list (230 ms for 10 000 on 25 rows), 305 KiB per
+      subscription to 1000 rows, a subscription reading its window alone,
+      and a lost link or role passing over the whole window
+      (`bench/realtime/README.md`).
 - [ ] Documentation website (D-31).
 - [ ] A full audit of every package, its fixes merged, before publication.
 - [ ] Publication, after confirmation.
