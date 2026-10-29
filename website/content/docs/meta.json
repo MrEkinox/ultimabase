@@ -2,5 +2,5 @@
 	"title": "next",
 	"description": "The pages of main",
 	"root": true,
-	"pages": ["index"]
+	"pages": ["index", "relations"]
 }

@@ -2,6 +2,7 @@
 import { graphql } from '@ultimabase/graphql'
 import { allow, defineModel } from 'ultimabase'
 
+//#region models
 export const Author = defineModel({
 	name: 'Author',
 	use: [graphql()],
@@ -41,3 +42,4 @@ export const Book = defineModel({
 		tags: f.many(() => Tag),
 	}),
 }).with({ access: allow.public })
+//#endregion

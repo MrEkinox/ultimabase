@@ -28,14 +28,27 @@ async function written() {
 	const publisher = await request(
 		'mutation { createPublisher(data: { name: "Ace" }) { id } }',
 	)
+	//#region graphql-create
 	const body = await request(
-		`mutation ($publisher: ID!) { createAuthor(data: { name: "Ursula", books: { create: [
-			{ title: "The Dispossessed", publisher: { connect: { id: $publisher } },
-				tags: { create: [{ label: "utopia" }, { label: "classic" }] } },
-			{ title: "The Lathe of Heaven", publisher: { connect: { id: $publisher } } }
-		] } }) { id books(orderBy: [{ title: asc }]) { edges { node { id } } } } }`,
+		`mutation ($publisher: ID!) {
+			createAuthor(data: {
+				name: "Ursula"
+				books: { create: [
+					{
+						title: "The Dispossessed"
+						publisher: { connect: { id: $publisher } }
+						tags: { create: [{ label: "utopia" }, { label: "classic" }] }
+					}
+					{ title: "The Lathe of Heaven", publisher: { connect: { id: $publisher } } }
+				] }
+			}) {
+				id
+				books(orderBy: [{ title: asc }]) { edges { node { id } } }
+			}
+		}`,
 		{ publisher: at(publisher, 'data', 'createPublisher', 'id') },
 	)
+	//#endregion
 	const author = at(body, 'data', 'createAuthor')
 	return {
 		author: String(at(author, 'id')),
@@ -50,12 +63,19 @@ const titles = (edges: unknown) =>
 describe('writing relations', () => {
 	it('creates an author, her books and their tags in one write', async () => {
 		const { author } = await written()
+		//#region graphql-read
 		const body = await request(
-			`query ($id: ID!) { author(where: { id: $id }) {
-				books(orderBy: [{ title: asc }]) { edges { node {
-					title publisher { name } tags(orderBy: [{ label: asc }]) { edges { node { label } } }
-				} } }
-			} }`,
+			`query ($id: ID!) {
+				author(where: { id: $id }) {
+					books(orderBy: [{ title: asc }]) {
+						edges { node {
+							title
+							publisher { name }
+							tags(orderBy: [{ label: asc }]) { edges { node { label } } }
+						} }
+					}
+				}
+			}`,
 			{ id: author },
 		)
 		expect(at(body, 'data', 'author', 'books', 'edges')).toEqual([
@@ -79,6 +99,7 @@ describe('writing relations', () => {
 				},
 			},
 		])
+		//#endregion
 	})
 
 	it('reads a many-to-many from either side, and connects a row to it', async () => {
