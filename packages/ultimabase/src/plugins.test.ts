@@ -185,6 +185,7 @@ describe('a plugin on its models', () => {
 		await Bin.trash.findMany({}, M)
 		const seen = facts.get('trash.beforeFind')
 		expect(seen).toMatchObject({
+			name: 'Bin',
 			command: 'trash',
 			operation: 'read',
 			options: {},
@@ -192,6 +193,7 @@ describe('a plugin on its models', () => {
 		expect(Object.keys(isObject(seen) ? seen : {}).toSorted()).toEqual([
 			'caller',
 			'command',
+			'name',
 			'operation',
 			'options',
 			'plugins',

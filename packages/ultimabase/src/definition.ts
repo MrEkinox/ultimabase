@@ -13,10 +13,16 @@ export type FieldOptions = { readonly [option: string]: unknown }
 /** What a plugin field type adds to its stored field (D-122). */
 export type Codec = {
 	readonly plugin: string
+	/** The field type's own options this field took (D-152). */
+	readonly options: { readonly [key: string]: unknown }
+	/** The stored value of the rows stored before the field (D-152). */
+	readonly filled?: unknown
 	readonly decode: (stored: unknown) => unknown
 	readonly encode: (value: unknown) => unknown
 	readonly schema: Standard
 	readonly toJSON: (value: unknown) => unknown
+	/** What `toJSON` gives, as a Standard Schema (D-152). */
+	readonly shape?: StandardSchema
 }
 
 /** A field as its builder recorded it. */
@@ -61,6 +67,8 @@ export type ModelDefinition = {
 	readonly indexes: readonly IndexDefinition[]
 	/** The plugins of its `use`, in that order (D-89). */
 	readonly uses: readonly PluginUse[]
+	/** Its operations, which a field type's plugin is given (D-152). */
+	readonly queries: object
 	/** What `.with` received, once (D-07). */
 	rules: object | undefined
 }
@@ -102,6 +110,7 @@ export type PluginRecord = {
 export type PluginUse = {
 	readonly code: PluginCode
 	readonly model: {
+		readonly name: string
 		readonly queries: object
 		readonly options: object
 		readonly plugins: object

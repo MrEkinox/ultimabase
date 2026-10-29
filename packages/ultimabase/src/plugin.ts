@@ -112,7 +112,11 @@ export interface ExposedModel<W = unknown> {
 	readonly fieldTypes: {
 		readonly [field: string]: {
 			readonly plugin: string
+			/** The field type's own options the field took (D-152). */
+			readonly options: { readonly [key: string]: unknown }
 			readonly toJSON: (value: unknown) => unknown
+			/** What `toJSON` gives, if the field type says (D-152). */
+			readonly shape: StandardSchema | undefined
 		}
 	}
 	/** Its virtual fields, in their order (D-151). */
@@ -235,6 +239,8 @@ export type PluginRedirects<F, O, A> = {
 
 /** What a model gives a plugin's code. */
 export interface PluginModel<F, O, A> {
+	/** The model's name (D-152). */
+	readonly name: string
 	readonly queries: Queries<F>
 	readonly options: O
 	readonly plugins: A

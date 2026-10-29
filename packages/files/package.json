@@ -1,0 +1,44 @@
+{
+	"name": "@ultimabase/files",
+	"version": "0.0.0",
+	"private": true,
+	"description": "Files for UltimaBase: uploads to S3-compatible storage, file fields, variants, and no orphan ever.",
+	"type": "module",
+	"license": "Apache-2.0",
+	"engines": {
+		"node": ">=24.7.0"
+	},
+	"exports": {
+		".": "./src/index.ts"
+	},
+	"files": [
+		"dist",
+		"src",
+		"!src/**/*.test.ts",
+		"!src/test"
+	],
+	"scripts": {
+		"prepack": "rm -rf dist && yarn run -T tsc --project tsconfig.build.json"
+	},
+	"publishConfig": {
+		"exports": {
+			".": "./dist/index.js"
+		}
+	},
+	"dependencies": {
+		"file-type": "22.2.0"
+	},
+	"peerDependencies": {
+		"@ultimabase/http": "^0.0.0",
+		"ultimabase": "^0.0.0"
+	},
+	"devDependencies": {
+		"@types/pg": "8.23.1",
+		"@ultimabase/http": "workspace:*",
+		"@ultimabase/postgres": "workspace:*",
+		"pg": "8.23.1",
+		"ultimabase": "workspace:*",
+		"vite": "8.3.4",
+		"vitest": "5.0.5"
+	}
+}

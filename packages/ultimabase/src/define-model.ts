@@ -203,6 +203,7 @@ function createModel(definition: {
 			...indexes,
 		],
 		uses,
+		queries,
 		rules: undefined,
 	}
 	const model: { [key: string]: unknown } = {

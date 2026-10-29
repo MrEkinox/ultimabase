@@ -1,6 +1,7 @@
 // A json field's types (D-125): exact from its schema's JSON Schema export,
 // `JSON` without one. Read as `UserPrefs`, written as `UserPrefsInput`,
-// filtered by `JSONFilter` as an untyped field (D-149).
+// filtered by `JSONFilter` as an untyped field (D-149). A plugin field reads
+// as its shape says (D-152).
 import type {
 	GraphQLNullableInputType,
 	GraphQLNullableOutputType,
@@ -20,13 +21,14 @@ const pathOf = (model: string, field: Scalar, suffix: string): Path => ({
 
 const untyped = { type: JSONScalar, nullable: false }
 
-/** `UserPrefs`, and whether the schema reads `null`. */
+/** `UserPrefs` or `PostCover`, and whether the schema reads `null`. */
 export function jsonOutput(
 	registry: Registry,
 	model: string,
 	field: Scalar,
 ): Typed<GraphQLNullableOutputType> {
-	const schema = registry.entry(model).exposed.validators[field.name]
+	const { validators, fieldTypes } = registry.entry(model).exposed
+	const schema = validators[field.name] ?? fieldTypes[field.name]?.shape
 	const path = pathOf(model, field, '')
 	return (schema && fieldOutput(schema, path, registry.data)) ?? untyped
 }

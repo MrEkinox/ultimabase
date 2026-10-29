@@ -180,13 +180,13 @@ function validators(info: ModelInfo): {
 	return found
 }
 
-/** Each plugin field type's field, with its plugin and `toJSON` (D-122). */
+/** Each plugin field type's field: its plugin, options and `toJSON` (D-122). */
 function fieldTypes(info: ModelInfo): ExposedModel['fieldTypes'] {
 	const found: { [field: string]: ExposedModel['fieldTypes'][string] } = {}
 	for (const field of info.fields.values()) {
 		if (field.kind !== 'scalar' || field.codec === undefined) continue
-		const { plugin, toJSON } = field.codec
-		found[field.name] = { plugin, toJSON }
+		const { plugin, options, toJSON, shape } = field.codec
+		found[field.name] = { plugin, options, toJSON, shape }
 	}
 	return found
 }

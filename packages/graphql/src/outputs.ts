@@ -22,7 +22,7 @@ import { listRead } from './pages.ts'
 import { jsonOutput } from './json-fields.ts'
 import type { Args, Context, Registry } from './registry.ts'
 import { described, valueType } from './registry.ts'
-import { DateTime, JSONScalar } from './scalars.ts'
+import { DateTime } from './scalars.ts'
 
 const required = <T extends GraphQLObjectType>(type: T) =>
 	new GraphQLNonNull(type)
@@ -191,10 +191,12 @@ function scalarFields(
 		const ruled = entry.exposed.readRules[field.name] === 'rule'
 		const fieldType = entry.exposed.fieldTypes[field.name]
 		if (fieldType !== undefined) {
-			// A plugin field reads as its toJSON gives (D-122).
+			// A plugin field reads as its toJSON gives (D-122), typed by its
+			// shape (D-152).
+			const { type, nullable } = jsonOutput(registry, model, field)
 			fields[field.name] = {
 				type:
-					field.optional || ruled ? JSONScalar : new GraphQLNonNull(JSONScalar),
+					field.optional || ruled || nullable ? type : new GraphQLNonNull(type),
 				resolve: (source) => {
 					const value = readOf(source, model, field.name, ruled)
 					return value === null ? null : fieldType.toJSON(value)

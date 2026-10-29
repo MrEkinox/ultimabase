@@ -57,3 +57,13 @@ jobs:
       - uses: actions/checkout@v6
       - uses: ./.github/actions/setup
       - run: yarn test:postgres
+
+  s3:
+    name: S3
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+      - uses: ./.github/actions/setup
+      - run: docker compose up --detach --wait seaweedfs
+      - run: yarn test:s3

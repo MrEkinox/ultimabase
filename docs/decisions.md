@@ -4494,6 +4494,8 @@ npx ultimabase reset --force
 
 ## D-106: `httpPlugin()`, its Hono routes and the caller they read
 
+Amended by D-153.
+
 Choice: completes D-27, D-49, D-59 and D-66.
 
 1. `@ultimabase/http` exports `httpPlugin(options)` and `routes()`. It
@@ -4622,7 +4624,7 @@ curl -X POST localhost:3000/webhooks/stripe -d '{"id":"…"}' \
 
 ## D-107: `graphqlPlugin()`, the schema it generates and how it mounts
 
-Amended by D-125, D-128 and D-132.
+Amended by D-125, D-128, D-132 and D-153.
 
 Choice: completes D-16, D-34, D-41, D-45 and D-55.
 
@@ -9081,4 +9083,243 @@ type Stage {
 	thumbnail(size: Int!): String!
 	maps(first: Int): [Image!]!
 }
+```
+
+## D-152: Files
+
+Choice: completes D-32 and D-122; amends D-32 (no `local()`), D-89 (a
+plugin model knows its name) and D-122 points 2 and 5.
+
+1. `@ultimabase/files` provides `filesPlugin({ storage, access })`, the
+   `file(options)` field type and two storage adapters: `s3({...})` and
+   `memoryFiles()`, which tests use. `local()` is dropped: a server's disk
+   is lost when it is replaced, and a local S3 emulator covers development.
+   `access.upload` is a caller rule (D-27); it defaults to a signed-in user
+   or Master, and `allow.public` opens uploads to everyone.
+2. No file is ever orphaned: every object in the storage has a row in the
+   plugin's `FilesBlob` model, and every row's object is deleted with it.
+   This is the plugin's first rule, and each step below keeps it.
+3. `s3({ bucket, region, endpoint, accessKeyId, secretAccessKey, publicAcl,
+publicUrl })` speaks to any S3-compatible storage (AWS, DigitalOcean
+   Spaces, MinIO, SeaweedFS).
+   - The first five keys are required; one that is `undefined` or empty
+     stops startup, naming it, so a missing environment variable is seen
+     at once.
+   - `publicAcl: true` sends `x-amz-acl: public-read` with a public file,
+     which Spaces needs; `publicUrl` is the base of a public file's URL (a
+     CDN), the storage's own URL otherwise.
+   - URLs are path-style (`${endpoint}/${bucket}/${key}`), which every
+     S3-compatible storage accepts.
+   - Requests are signed with SigV4 query presigning on `node:crypto`,
+     which is synchronous, so a read signs its URLs while it decodes. It
+     covers `PUT`, `GET`, `DELETE` and `ListObjectsV2`; no AWS SDK.
+4. `file(options)`:
+   - `optional`, `list`, `maxSize` (bytes, 50 MB by default), `accept` (MIME
+     types or patterns: `['image/*', 'application/pdf']`), `public` (false
+     by default), `inline` and `variants`.
+   - `inline` names values computed once at upload, each JSON of 2 KB at
+     most: a function of `{ body, type, name }`, or `{ run, schema }` to
+     type it in the transports (a blurred placeholder, a page count).
+   - `variants` names other files made from the upload, each a function
+     of `{ body, type, name }` returning `{ body, type }` (a thumbnail).
+     They are made in parallel at upload; one that fails fails the upload.
+   - The body is held in memory only when the field has `inline` or
+     `variants`; otherwise it is streamed to the storage.
+   - A key added to `inline` or `variants` later reads `null` for the
+     files stored before it.
+5. Upload: `POST /files?for=Post.cover&name=photo.jpg`, the file as the
+   raw body, through the HTTP plugin (D-16); `files.upload(body, { for,
+name, as })` does the same from server code.
+   - `Content-Length` is required (411), a body over `maxSize` gets 413,
+     a caller `access.upload` refuses 403. The answer is 201 `{ id }`.
+   - The type is read from the first bytes with `file-type`. A detected
+     type must match `accept`; an undetected one is accepted only when
+     the declared `Content-Type` is listed in `accept` as is (`text/csv`,
+     `image/svg+xml`); otherwise the upload gets 415.
+   - SVG and undetected types are served with `Content-Disposition:
+attachment`, so a browser never runs them. Files are served from the
+     storage's origin, never the application's, so a file cannot read the
+     application's cookies. S3 cannot send `X-Content-Type-Options`.
+   - The `FilesBlob` row, `pending` for one hour, is inserted before the
+     body is streamed; when the upload fails, its object and its row are
+     deleted.
+6. Writes take ids: a single field an id or `null`; a list a list of ids
+   (the new list), `{ set }`, `{ push }`, `{ pushUnique }` or `{ remove }`,
+   as kernel lists (D-149). A list holds each file once: `push` of an id
+   it holds fails, `pushUnique` skips it.
+   - An id is accepted when it is pending, for this `Model.field`, not
+     expired, and uploaded by the caller (Master attaches any), or when it
+     is already this row's in this field. A public upload has no uploader,
+     so any caller may attach it.
+   - The list is computed in the plugin's `beforeUpdate`, on the row the
+     write has locked, so two concurrent pushes keep both files.
+   - Any other id fails the write with `VALIDATION_FAILED`, naming the
+     field.
+7. Reads: `{ id, name, type, size, url, inline, variants }`, each variant
+   `{ type, size, url }` or `null`. A private file's URL is presigned for
+   one hour; a public file's is stable. Keys are `public/<id>` and
+   `private/<id>`; a variant is a blob of its own.
+8. `FilesBlob` is the plugin's model, hidden from other plugins and from
+   the transports (D-110): `key`, `name`, `type`, `size`, `field`,
+   `uploadedBy`, `state` (`pending`, `attached`, `released`), `attachedTo`
+   (`Post.cover:<id>`), `variantOf`, `inline`, `deleteAfter`. Its row is
+   the truth; the field stores a copy of its metadata for reads.
+9. Lifecycle, in the write's transaction (D-36):
+   - after a create or an update, the files the row gained become
+     `attached`, with their variants; a file that expired or was attached
+     elsewhere in between fails the write, which rolls back;
+   - the files it lost, and all of a deleted row's, become `released`;
+   - after the commit, the released objects are deleted, then their rows;
+   - a soft delete keeps its files (D-96): it is an update.
+   - A sweep, at startup and every 10 minutes, first marks the expired
+     pending rows `released`, so no write can attach them, then deletes
+     their objects, then their rows. The two delays are fixed.
+   - `files.check({ delete })` compares the storage's keys with
+     `FilesBlob` and reports the objects without a row and the rows
+     without an object; `delete: true` deletes the first.
+10. Kernel, amending D-122:
+    - A field type takes options of its own (`options: ['maxSize', …]`),
+      and `stored`, `decode`, `encode`, `schema` and `toJSON` receive the
+      field's options. Its stored field may take a value as its default,
+      which is the column's: a list of files is a `json` field whose
+      default is `[]`.
+    - A field type's plugin runs its hooks on every model holding one of
+      its fields, as if the model used it (D-89); such models lose the
+      fast delete path of D-102. A plugin model's facts carry its `name`,
+      and a plugin reads each of its fields' own options in the model's
+      `fieldTypes`, as an upload reads `Post.cover`'s `maxSize`.
+    - A field type may give a `shape`, a Standard Schema of what a client
+      reads, or a function of the options. GraphQL types the field from it
+      (`PostCover`, `PostCoverInline`), as a `json` field with a schema;
+      OpenAPI describes it. Without one, it stays the `JSON` scalar.
+
+Why:
+
+- Files are the first field type that reaches outside the database, so
+  orphans are their failure: a row pointing at a missing object, or an
+  object nothing points at, billed forever. One plugin model, written in the
+  same transaction as the row, and deletions after the commit, make both
+  impossible; the sweep and `check` cover crashes.
+- A raw body, not multipart: one upload per file, streamed, its size known
+  before it is read; a form sends the ids with the rest of its fields.
+- Ids, not uploads, in writes: a write stays JSON over REST and GraphQL
+  (D-129), and a file is checked once, at upload.
+- `inline` at upload and `variants` as files: a placeholder must come with
+  the row, without a second request, and a thumbnail is a file of its own,
+  not resized on every read.
+- SigV4 on `node:crypto` is about 100 lines; the AWS SDK is megabytes,
+  and an async signer could not sign while a row decodes.
+- Tests never write to a real storage: `memoryFiles()` in `yarn validate`,
+  SeaweedFS from `compose.yaml` in `yarn test:s3`.
+
+Rejected:
+
+- Multipart uploads; uploads inside a GraphQL or REST write.
+- `local()` storage.
+- Variants made on read, or by a resizing service: they cost on every read
+  or need another service.
+- Parse's `_File` without a lifecycle, which leaves every replaced file
+  in the storage.
+- The AWS SDK, `aws4fetch` (async).
+- Virtual-host URLs (`bucket.endpoint`), which some emulators refuse.
+
+Example:
+
+```ts
+// Before (D-32)
+export const Post = defineModel({
+	name: 'Post',
+	fields: () => ({ cover: file({ optional: true }) }),
+})
+plugins: [filesPlugin({ storage: s3({ bucket }) })]
+
+// After
+export const Post = defineModel({
+	name: 'Post',
+	fields: () => ({
+		cover: file({
+			optional: true,
+			accept: ['image/*'],
+			maxSize: 10_000_000,
+			public: true,
+			inline: { blur: { run: blurOf, schema: z.string() } },
+			variants: { thumb: thumbOf },
+		}),
+		attachments: file({ list: true, accept: ['application/pdf'] }),
+	}),
+})
+plugins: [
+	filesPlugin({
+		storage: s3({
+			bucket: env.SPACES_BUCKET,
+			region: 'fra1',
+			endpoint: 'https://fra1.digitaloceanspaces.com',
+			accessKeyId: env.SPACES_KEY,
+			secretAccessKey: env.SPACES_SECRET,
+			publicAcl: true,
+		}),
+	}),
+]
+
+// A client uploads, then writes the id
+const { id } = await fetch('/files?for=Post.cover&name=cover.jpg', {
+	method: 'POST',
+	body: blob,
+}).then((r) => r.json())
+await Post.update(
+	{ where, data: { cover: id, attachments: { push: pdfId } } },
+	as,
+)
+
+post.cover
+// { id, name: 'cover.jpg', type: 'image/jpeg', size: 81234,
+//   url: 'https://…/public/…', inline: { blur: 'data:…' },
+//   variants: { thumb: { type: 'image/webp', size: 4120, url: '…' } } }
+```
+
+## D-153: Mounted routes that read their own body
+
+Choice: amends D-106 point 5 and D-107 point 2.
+
+1. `mount(routes, { bodyLimit: false })` mounts routes that read their own
+   body: the HTTP plugin's limit (1 MB by default) does not apply to them.
+   Without the option, a mount keeps it.
+2. A request skips the limit when it matches a route such a mount declares
+   with a method (`get`, `post`, `on`). Its `use` and `all` routes are
+   middlewares that match any request, so they never lift the limit.
+3. Such a route enforces its own limit, as `POST /files` does with the
+   field's `maxSize`: a body without `Content-Length` gets 411
+   (`LENGTH_REQUIRED`), one over the limit 413 (`PAYLOAD_TOO_LARGE`), a
+   type `accept` refuses 415 (`UNSUPPORTED_MEDIA_TYPE`). Node's server
+   reads no more bytes than `Content-Length` says.
+
+Why:
+
+- A file is up to 50 MB by default and JSON stays under 1 MB: one global
+  limit is either too small for files or too large for every JSON route.
+- The route that knows the limit, the field's `maxSize`, is the one that
+  enforces it; every other route keeps the HTTP plugin's.
+
+Rejected:
+
+- A larger global limit: every JSON route, REST and GraphQL included,
+  would buffer 50 MB.
+- Mounting the files route before the limit: the application's routes come
+  first (D-107), and the caller is read after the limit.
+- A list of exempt paths in `httpPlugin({ … })`: the application would have
+  to know each plugin's paths.
+
+Example:
+
+```ts
+// Before (D-107): a mounted route gets the 1 MB limit
+api: ({ plugins }) => plugins.http.mount(uploads)
+// POST /files?for=Post.cover&name=a.jpg, 5 MB
+// 413 { code: 'PAYLOAD_TOO_LARGE', message: 'The body is over 1048576 bytes.' }
+
+// After
+api: ({ plugins }) => plugins.http.mount(uploads, { bodyLimit: false })
+// POST /files?for=Post.cover&name=a.jpg, 5 MB, cover's maxSize 10 MB
+// 201 { id: '…' }
+// POST /posts, 5 MB of JSON: still 413
 ```

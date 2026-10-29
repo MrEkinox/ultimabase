@@ -99,7 +99,7 @@ describe('a field type definition', () => {
 				toJSON: (value) => value,
 			}),
 		).toThrow(
-			'defineFieldType(bad): the stored field takes list, optional, precision or scale only, not unique.',
+			'defineFieldType(bad): the stored field takes list, optional, precision, scale or a value as its default only, not unique.',
 		)
 	})
 

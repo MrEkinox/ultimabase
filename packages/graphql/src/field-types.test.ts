@@ -1,5 +1,6 @@
 // Plugin field types over GraphQL (D-122): read as `toJSON` gives and
-// written through `schema`, as `JSON`; never filtered nor sorted.
+// written through `schema`, as `JSON` or typed by their shape (D-152); never
+// filtered nor sorted.
 import { httpPlugin } from '@ultimabase/http'
 import type { GraphQLSchema } from 'graphql'
 import { printType } from 'graphql'
@@ -42,10 +43,29 @@ const tagSet = defineFieldType({
 	toJSON: (value) => [...value].toSorted(),
 })
 
+/** A place code reads as a tuple and clients as its shape says. */
+const place = defineFieldType({
+	plugin: 'tags',
+	stored: (f) => f.json({ optional: true }),
+	decode: (stored) => z.tuple([z.number(), z.number()]).parse(stored),
+	encode: (value) => value,
+	schema: z.tuple([z.number(), z.number()]),
+	toJSON: ([lat, lng]) => ({ lat, lng, at: { label: `${lat},${lng}` } }),
+	shape: z.object({
+		lat: z.number(),
+		lng: z.number(),
+		at: z.object({ label: z.string() }),
+	}),
+})
+
 const Note = defineModel({
 	name: 'Note',
 	use: [graphql()],
-	fields: (f) => ({ body: f.string(), labels: tagSet({ default: ['draft'] }) }),
+	fields: (f) => ({
+		body: f.string(),
+		labels: tagSet({ default: ['draft'] }),
+		where: place(),
+	}),
 }).with({ access: allow.readOnly })
 
 let schema: GraphQLSchema | undefined
@@ -94,6 +114,23 @@ it('reads and writes JSON, and leaves it out of filters and sorts', () => {
 	expect(typeOf('NoteCreateInput')).toContain('  labels: JSON\n')
 	expect(typeOf('NoteWhereInput')).not.toContain('labels')
 	expect(typeOf('NoteOrderByInput')).not.toContain('labels')
+})
+
+it('types a read by its shape, and takes JSON', async () => {
+	expect(typeOf('Note')).toContain('  where: NoteWhere\n')
+	expect(typeOf('NoteWhere')).toBe(
+		'type NoteWhere {\n  lat: Float!\n  lng: Float!\n  at: NoteWhereAt!\n}',
+	)
+	expect(typeOf('NoteCreateInput')).toContain('  where: JSON\n')
+	const created = await post(
+		url,
+		`mutation { createNote(data: { body: "p", where: [1, 2] }) { where { lat at { label } } } }`,
+		undefined,
+		asMaster,
+	)
+	expect(created).toStrictEqual({
+		data: { createNote: { where: { lat: 1, at: { label: '1,2' } } } },
+	})
 })
 
 it('writes through its schema and reads its toJSON', async () => {

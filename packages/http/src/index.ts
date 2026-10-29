@@ -5,7 +5,7 @@ import { Hono } from 'hono'
 import type { Caller, PluginOf, PluginTypes } from 'ultimabase'
 import { definePlugin } from 'ultimabase'
 import manifest from '../package.json' with { type: 'json' }
-import type { HttpEnv, HttpOptions, Routes } from './app.ts'
+import type { HttpEnv, HttpOptions, Mounted, Routes } from './app.ts'
 import { appOf } from './app.ts'
 import { hold } from './request.ts'
 import { closed, listening, portOf, serverOf } from './server.ts'
@@ -17,8 +17,11 @@ export { validate } from './validate.ts'
 
 /** What the HTTP plugin offers other plugins (D-107). */
 export interface HttpApi {
-	/** Adds routes after the application's; call it from your `api`. */
-	mount(routes: Routes): void
+	/**
+	 * Adds routes after the application's; call it from your `api`. With
+	 * `bodyLimit: false`, they read their own body (D-153).
+	 */
+	mount(routes: Routes, options?: { readonly bodyLimit?: false }): void
 	/** Where the server listens, `http://localhost:3000`, once it started. */
 	url(): string
 }
@@ -33,23 +36,23 @@ export interface Http extends PluginTypes {
 // Each running application's server and mounted routes, by the context its
 // plugin received.
 const servers = new WeakMap<object, Server>()
-const mounts = new WeakMap<object, Routes[]>()
+const mounts = new WeakMap<object, Mounted[]>()
 const urls = new WeakMap<object, string>()
 
 const http = definePlugin<Http>({
 	name: 'http',
 	manifest,
 	api: (context) => {
-		const mounted: Routes[] = []
+		const mounted: Mounted[] = []
 		mounts.set(context, mounted)
 		return {
-			mount: (routes) => {
+			mount: (routes, mountOptions) => {
 				if (!mounts.has(context)) {
 					throw new Error(
 						"The HTTP server is running: mount routes from your plugin's api.",
 					)
 				}
-				mounted.push(routes)
+				mounted.push({ routes, bodyLimit: mountOptions?.bodyLimit ?? true })
 			},
 			url: () => {
 				const url = urls.get(context)

@@ -81,14 +81,18 @@ function item(
 	return { name: 'JSON', schema: jsonOf(doc, model, field, side) }
 }
 
-/** A json field's value: its validator's JSON Schema, any JSON without (D-125). */
+/**
+ * A json field's value: its validator's JSON Schema, any JSON without
+ * (D-125); a plugin field's read value, its shape's (D-152).
+ */
 function jsonOf(
 	doc: Doc,
 	model: string,
 	field: Scalar,
 	side: 'input' | 'output',
 ): Schema {
-	const validator = entryOf(doc.api, model).exposed.validators[field.name]
+	const { validators, fieldTypes } = entryOf(doc.api, model).exposed
+	const validator = validators[field.name] ?? fieldTypes[field.name]?.shape
 	if (validator === undefined) return {}
 	const owner = `${model}.${field.name}`
 	let node
@@ -103,14 +107,17 @@ function jsonOf(
 	return hoisted(doc.components, node, side, owner, root)
 }
 
-/** A field's value, a plugin field's any JSON (D-122). */
+/** A field's value, a plugin field's as its shape says (D-122, D-152). */
 export function valueOf(
 	doc: Doc,
 	entry: Entry,
 	field: Scalar,
 	side: 'input' | 'output',
 ): Schema {
-	if (entry.exposed.fieldTypes[field.name] !== undefined) return {}
+	if (entry.exposed.fieldTypes[field.name] !== undefined) {
+		// What it takes is the field type's own.
+		return side === 'input' ? {} : jsonOf(doc, entry.model.name, field, side)
+	}
 	const { schema } = item(doc, entry.model.name, field, side)
 	return field.list ? arrayOf(schema) : schema
 }

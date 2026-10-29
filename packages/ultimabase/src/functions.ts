@@ -13,7 +13,7 @@ import { functionDefinitions } from './definition.ts'
 import type { ExposedFunction } from './plugin.ts'
 import { isObject } from './query-where.ts'
 import type { Resolved } from './schema.ts'
-import { checkInstalled } from './schema.ts'
+import { checkInstalled } from './plugin-use.ts'
 import { Refused } from './errors.ts'
 
 /** Checks the models and types an output reaches, each type once. */

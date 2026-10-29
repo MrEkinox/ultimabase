@@ -1,5 +1,7 @@
 # PostgreSQL for `yarn test:postgres` (D-40, D-50, D-98): the oldest and the
 # newest supported servers, in memory and without durability, for speed.
+# SeaweedFS for `yarn test:s3` (D-152): an S3 that checks signatures, whose
+# anonymous reads reach public files only.
 services:
   postgres-15:
     image: postgres:15
@@ -15,3 +17,29 @@ services:
     ports: ['54318:5432']
     tmpfs: [/var/lib/postgresql]
     command: postgres -c fsync=off -c synchronous_commit=off -c full_page_writes=off
+  seaweedfs:
+    image: chrislusf/seaweedfs:4.48
+    ports: ['58333:8333']
+    tmpfs: [/data]
+    configs:
+      - source: s3
+        target: /etc/seaweedfs/s3.json
+    command: server -dir=/data -s3 -s3.config=/etc/seaweedfs/s3.json
+    healthcheck:
+      test: wget -q -O /dev/null http://127.0.0.1:8333/healthz
+      interval: 2s
+      retries: 30
+
+configs:
+  s3:
+    content: |
+      {
+        "identities": [
+          {
+            "name": "test",
+            "credentials": [{ "accessKey": "test", "secretKey": "test-secret" }],
+            "actions": ["Admin", "Read", "Write", "List", "Tagging"]
+          },
+          { "name": "anonymous", "actions": ["Read:media/public/*"] }
+        ]
+      }
