@@ -24,6 +24,8 @@
 		"acl",
 		"soft-delete",
 		"files",
-		"realtime"
+		"realtime",
+		"---Transports---",
+		"http"
 	]
 }

@@ -3680,6 +3680,20 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"example-http@workspace:examples/http":
+  version: 0.0.0-use.local
+  resolution: "example-http@workspace:examples/http"
+  dependencies:
+    "@ultimabase/http": "workspace:*"
+    "@ultimabase/testing": "workspace:*"
+    hono: "npm:4.13.13"
+    ultimabase: "workspace:*"
+    vite: "npm:8.3.4"
+    vitest: "npm:5.0.5"
+    zod: "npm:4.6.5"
+  languageName: unknown
+  linkType: soft
+
 "example-models-and-queries@workspace:examples/models-and-queries":
   version: 0.0.0-use.local
   resolution: "example-models-and-queries@workspace:examples/models-and-queries"
