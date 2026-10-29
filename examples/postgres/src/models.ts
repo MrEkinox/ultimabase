@@ -2,6 +2,7 @@
 import { graphql } from '@ultimabase/graphql'
 import { allow, defineModel } from 'ultimabase'
 
+//#region models
 export const Project = defineModel({
 	name: 'Project',
 	use: [graphql()],
@@ -18,7 +19,10 @@ export const Task = defineModel({
 	fields: (f) => ({
 		title: f.string(),
 		done: f.boolean({ default: false }),
+		// Added after the first migration: the second one adds its column.
+		priority: f.number({ integer: true, default: 0 }),
 		// A project's tasks are deleted with it.
 		project: f.one(() => Project, { onDelete: 'cascade' }),
 	}),
 }).with({ access: allow.public })
+//#endregion

@@ -66,6 +66,11 @@
 					"type": "boolean",
 					"nullable": false
 				},
+				"priority": {
+					"field": "priority",
+					"type": "integer",
+					"nullable": false
+				},
 				"project_id": {
 					"field": "project",
 					"type": "uuid",

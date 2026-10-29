@@ -141,7 +141,6 @@ async function valueExports(): Promise<string[]> {
  */
 const undocumented: readonly string[] = [
 	'@ultimabase/http: clientOf',
-	'@ultimabase/postgres: postgres',
 	'@ultimabase/testing: testAdapter',
 	'ultimabase: CheckFailed',
 	'ultimabase: MigrationFailed',

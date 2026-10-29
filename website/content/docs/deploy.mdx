@@ -1,0 +1,172 @@
+---
+title: Deploy
+description: Apply the migrations, start the application in production, and stop it without cutting requests.
+---
+
+A deploy runs two commands on the host: the first applies the migrations
+the database lacks, the second starts the application. Run them in this
+order, each time the code changes:
+
+```bash
+npx ultimabase migrate deploy
+```
+
+```bash
+npx ultimabase start
+```
+
+`start` sets `NODE_ENV` to `production` unless it is set, then starts the
+application that `ultimabase.config.ts` exports. In production, a start
+never changes the tables: it checks that the migrations deployed match the
+models, and refuses to start otherwise (see [PostgreSQL](/docs/next/postgres)
+for writing migrations).
+
+## The environment
+
+| Variable       | Read by                   | Value                                                     |
+| -------------- | ------------------------- | --------------------------------------------------------- |
+| `NODE_ENV`     | every package             | `production`; `ultimabase start` sets it when it is unset |
+| `DATABASE_URL` | `postgres({ url })`, here | The connection string of the database.                    |
+| `PORT`         | `httpPlugin()`            | The port to listen on; `3000` when it is unset.           |
+| `MASTER_KEY`   | `masterKey`, here         | 32 characters at least, from `openssl rand -base64 32`.   |
+
+`DATABASE_URL` and `MASTER_KEY` are the names the application reads, as the
+example does:
+
+<include cwd meta='title="src/app.ts"'>
+	../examples/postgres/src/app.ts#app
+</include>
+
+A master key works in production only when written
+`{ key, production: true }`. Written as a plain string, a request that sends
+it is refused with `The master key is refused in production.` A key shorter
+than 32 characters refuses the start:
+
+<include cwd meta='title="src/app.postgres.test.ts"'>
+	../examples/postgres/src/app.postgres.test.ts#short-key
+</include>
+
+## Start
+
+Once the migrations are deployed, the application starts, and serves until
+it gets `SIGTERM`:
+
+<include cwd meta='title="src/app.postgres.test.ts"'>
+	../examples/postgres/src/app.postgres.test.ts#deploy
+</include>
+
+<include cwd meta='title="src/app.postgres.test.ts"'>
+	../examples/postgres/src/app.postgres.test.ts#start
+</include>
+
+It logs `Listening on http://localhost:3000.`, then one JSON line per event
+when its output is not a terminal. Without a deploy, or with a database
+that does not answer, it prints why and exits 1:
+
+<include cwd meta='title="src/app.postgres.test.ts"'>
+	../examples/postgres/src/app.postgres.test.ts#refused
+</include>
+
+<include cwd meta='title="src/app.postgres.test.ts"'>
+	../examples/postgres/src/app.postgres.test.ts#unreachable
+</include>
+
+`npx ultimabase start` prints a refusal as one line. A script that calls
+`app.start()` itself, such as `node src/server.ts`, gets the same refusal as
+a thrown error, with its stack.
+
+## Check before a deploy
+
+`migrate status` lists the migrations a deploy would apply, and exits 1
+when there is one: a release step can run it to know whether a deploy has
+work to do.
+
+<include cwd meta='title="src/app.postgres.test.ts"'>
+	../examples/postgres/src/app.postgres.test.ts#status
+</include>
+
+Each migration runs in a transaction, and waits 5 s at most for a table
+another session holds. A failed migration is rolled back, and the deploy
+stops on it: `<file> was not applied: <reason>`, then
+`The database rolled it back: fix it, then deploy again.` The migrations
+before it stay applied.
+
+## Roll back the code
+
+A migration is never undone. To go back to an earlier release, start its
+code on the database as it is. The start logs a warning, such as
+`The database is ahead of the models: 20261029230454_add_priority.sql was
+applied after them.`, and serves.
+
+The earlier code must work on the newer tables: a migration that removes or
+renames a column breaks it. Write such a change in two releases: the first
+stops using the column, the second removes it.
+
+## Stop
+
+On `SIGTERM`, the server stops accepting connections, and waits for the
+requests under way, 10 s at most. Then it closes those still running, warns
+`Stopped 10 s after stop began: closed the requests still running.`, and
+stops the plugins and the database. It logs `Application stopped.` last.
+
+Let the host wait more than 10 s between `SIGTERM` and `SIGKILL`: Docker
+waits 10 s by default, Kubernetes 30 s.
+
+## Behind a proxy
+
+The application serves HTTP. A proxy or the host's load balancer serves
+HTTPS in front of it. Set `proxies` to the number of proxies in front of
+the server, so that rules and limits read the client's address in
+`X-Forwarded-For` (see [HTTP](/docs/next/http#the-caller)):
+
+<include cwd meta='title="src/app.ts"'>
+	../examples/http/src/app.ts#plugins
+</include>
+
+## What production changes
+
+| In production                                                                                         | Outside production                         |
+| ----------------------------------------------------------------------------------------------------- | ------------------------------------------ |
+| A start checks the migrations, and never changes a table.                                             | A start syncs the tables to the models.    |
+| `sync` and `reset` are refused.                                                                       | They change the development database.      |
+| The master key works only as `{ key, production: true }`, 32 characters at least; each use is logged. | It works as a plain string, of any length. |
+| auth's session cookie is `Secure`, named `__Host-…`: it needs HTTPS.                                  | It works on `http://localhost`.            |
+| Only the origins in `cors` may call from a browser.                                                   | Local origins are allowed too.             |
+| GraphQL introspection, its "Did you mean" suggestions and GraphiQL are off.                           | They are on.                               |
+| No request log, no GraphiQL or REST address at start.                                                 | Each request is logged once answered.      |
+
+## Reference
+
+### Commands
+
+| Command                     | Effect                                                                                           |
+| --------------------------- | ------------------------------------------------------------------------------------------------ |
+| `ultimabase migrate deploy` | Applies the pending migrations, in order; exits 1 on the first that fails.                       |
+| `ultimabase migrate status` | Lists the pending migrations; exits 1 if there is one.                                           |
+| `ultimabase start`          | Starts the application, with `NODE_ENV` set to `production` when unset; exits 1 when it refuses. |
+
+Each takes `--config <path>` for a config other than `ultimabase.config.ts`.
+
+### Messages
+
+| Message                                                                                               | When                                                    |
+| ----------------------------------------------------------------------------------------------------- | ------------------------------------------------------- |
+| ``The database has no UltimaBase schema: run `npx ultimabase migrate deploy`, then start again.``     | A start before the first deploy.                        |
+| ``The database's tables are not the models': run `npx ultimabase migrate deploy`, then start again.`` | A start with migrations not deployed.                   |
+| `The database is ahead of the models: <file> was applied after them.`                                 | A warning: code older than the migrations deployed.     |
+| `The master key is 6 characters long; production needs 32 at least: …`                                | A start with a short master key.                        |
+| `The master key is refused in production.`                                                            | A request sends a master key written as a plain string. |
+| `PORT is abc, not a port between 0 and 65535.`                                                        | A start with a wrong `PORT`.                            |
+| `Port 3000 is in use: stop the process that holds it, or set PORT.`                                   | Another process listens on the port.                    |
+| `Stopped 10 s after stop began: closed the requests still running.`                                   | A warning: requests ran 10 s after `SIGTERM`.           |
+| `Application stopped.`                                                                                | The stop ended.                                         |
+
+The messages of `migrate deploy` and of the database are on
+[PostgreSQL](/docs/next/postgres#messages).
+
+### Limits
+
+- A stop waits 10 s at most for the requests under way.
+- A migration waits 5 s at most for a table another session holds.
+- A migration is never undone: a rollback runs earlier code on the newer
+  tables.

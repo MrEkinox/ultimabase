@@ -3709,6 +3709,20 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"example-memory@workspace:examples/memory":
+  version: 0.0.0-use.local
+  resolution: "example-memory@workspace:examples/memory"
+  dependencies:
+    "@ultimabase/graphql": "workspace:*"
+    "@ultimabase/http": "workspace:*"
+    "@ultimabase/testing": "workspace:*"
+    graphql: "npm:17.0.2"
+    ultimabase: "workspace:*"
+    vite: "npm:8.3.4"
+    vitest: "npm:5.0.5"
+  languageName: unknown
+  linkType: soft
+
 "example-models-and-queries@workspace:examples/models-and-queries":
   version: 0.0.0-use.local
   resolution: "example-models-and-queries@workspace:examples/models-and-queries"

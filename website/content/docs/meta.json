@@ -28,6 +28,11 @@
 		"---Transports---",
 		"http",
 		"graphql",
-		"rest"
+		"rest",
+		"---Databases---",
+		"memory",
+		"postgres",
+		"---Deploy---",
+		"deploy"
 	]
 }
