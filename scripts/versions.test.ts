@@ -48,7 +48,12 @@ it('gives each package a kernel range that accepts the kernel', () => {
 const importsKernel = (directory: string): boolean =>
 	readdirSync(join('packages', directory, 'src'), { recursive: true })
 		.map(String)
-		.filter((file) => file.endsWith('.ts') && !file.endsWith('.test.ts'))
+		.filter(
+			(file) =>
+				file.endsWith('.ts') &&
+				!file.endsWith('.test.ts') &&
+				!file.startsWith('test/'),
+		)
 		.some((file) =>
 			/from 'ultimabase['/]/.test(
 				readFileSync(join('packages', directory, 'src', file), 'utf8'),

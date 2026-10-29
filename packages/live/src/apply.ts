@@ -1,5 +1,6 @@
 // What a live list's message changes (D-154): rows placed by their id after
 // another's, under a connection's edges or in a plain array of rows.
+import { LiveError } from './error.ts'
 
 /** One change of a live list: a row gone from it, or placed after another. */
 export type LiveChange =
@@ -30,7 +31,10 @@ function idOf(row: unknown, connected: boolean): string {
 	const node = connected && isRecord(row) ? row['node'] : row
 	const id = isRecord(node) ? node['id'] : undefined
 	if (typeof id !== 'string') {
-		throw new Error("Select the node's id to follow a live list.")
+		throw new LiveError(
+			'BAD_USER_INPUT',
+			"Select the node's id to follow a live list.",
+		)
 	}
 	return id
 }
