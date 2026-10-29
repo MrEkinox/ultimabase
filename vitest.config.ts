@@ -3,6 +3,8 @@ import { defineConfig } from 'vitest/config'
 
 // PostgreSQL tests run in their own command so `yarn validate` stays fast (D-06).
 const postgresTests = '**/*.postgres.test.ts'
+// S3 tests need SeaweedFS from `compose.yaml` (D-152).
+const s3Tests = '**/*.s3.test.ts'
 
 // Each package covers at least 90 % of its production code on every
 // measure, on its own (D-85).
@@ -35,7 +37,7 @@ export default defineConfig({
 				test: {
 					name: 'unit',
 					include: ['**/*.test.ts'],
-					exclude: ['**/node_modules/**', postgresTests],
+					exclude: ['**/node_modules/**', postgresTests, s3Tests],
 				},
 			},
 			{
@@ -45,6 +47,13 @@ export default defineConfig({
 					// A zone whose old dates have an offset in seconds, which a
 					// date written in local time loses.
 					env: { TZ: 'Europe/Paris' },
+					exclude: ['**/node_modules/**'],
+				},
+			},
+			{
+				test: {
+					name: 's3',
+					include: [s3Tests],
 					exclude: ['**/node_modules/**'],
 				},
 			},
