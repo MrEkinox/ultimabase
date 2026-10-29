@@ -1,0 +1,316 @@
+---
+title: GraphQL
+description: The GraphQL API generated from the models and the functions, its names, its pages and its limits.
+---
+
+`@ultimabase/graphql` serves a GraphQL API generated from the models and the
+functions, on the [HTTP](/docs/next/http) server. Each request runs as its
+caller, under the models' [access rules](/docs/next/access). A model is
+served once its `use` lists `graphql()`:
+
+```npm
+npm install @ultimabase/graphql graphql
+```
+
+<include cwd meta='title="src/models.ts"'>
+	../examples/graphql/src/models.ts#post
+</include>
+
+`graphqlPlugin()` goes in the application's plugins, after `httpPlugin()`,
+which it requires:
+
+<include cwd meta='title="src/app.ts"'>
+	../examples/graphql/src/app.ts#plugins
+</include>
+
+The API is on `/graphql`. Outside production, a browser opening that URL
+gets [GraphiQL](https://github.com/graphql/graphiql), and the server logs
+`GraphiQL on http://localhost:3000/graphql.`. A client sends a document as
+JSON, with `POST`:
+
+<include cwd meta='title="src/app.test.ts"'>
+	../examples/graphql/src/app.test.ts#request
+</include>
+
+## What a model gets
+
+`Post` gives six root fields:
+
+| Field                               | Kind     | Returns                    |
+| ----------------------------------- | -------- | -------------------------- |
+| `post(where)`                       | query    | `Post`, `null` when absent |
+| `posts(where, orderBy, first…)`     | query    | `PostConnection!`, a page  |
+| `createPost(data)`                  | mutation | `Post!`                    |
+| `updatePost(where, data)`           | mutation | `Post!`                    |
+| `upsertPost(where, create, update)` | mutation | `Post!`                    |
+| `deletePost(where)`                 | mutation | `DeletedPost!`, as it was  |
+
+Each takes the arguments of its [query](/docs/next/queries), in GraphQL's
+grammar. A row reads its `id`, `createdAt` and `updatedAt` besides its
+fields; a relation to one row reads `null` when the caller may not read
+it. A write nests its [relations](/docs/next/relations)' writes: `connect`,
+`create` and `connectOrCreate`, and in an update `update`, `disconnect`,
+`set` and `delete`. Here a person is created with three posts:
+
+<include cwd meta='title="src/app.test.ts"'>
+	../examples/graphql/src/app.test.ts#create
+</include>
+
+<include cwd meta='title="src/app.test.ts"'>
+	../examples/graphql/src/app.test.ts#created
+</include>
+
+## Pages
+
+A list is a [Relay](https://relay.dev/graphql/connections.htm) connection:
+`first` rows `after` a cursor, or `last` rows `before` one. `totalCount`
+counts every row the filter matches; `pageInfo.endCursor` is where the next
+page starts:
+
+<include cwd meta='title="src/app.test.ts"'>
+	../examples/graphql/src/app.test.ts#page
+</include>
+
+Without `first`, a list returns `take` rows, 100 by default; a client asks
+for `maxTake` at most, 100 by default, or the model's own:
+`.with({ graphql: { maxTake: 20 } })` above. A relation's list is a
+connection too, with its own `first`, `orderBy` and `where`; only the root
+list has `totalCount`.
+
+`pagination: 'list'` serves lists instead, with `take` and `skip`, at every
+depth:
+
+<include cwd meta='title="src/list.ts"'>
+	../examples/graphql/src/list.ts#list
+</include>
+
+<include cwd meta='title="src/list.test.ts"'>
+	../examples/graphql/src/list.test.ts#read
+</include>
+
+## Filters
+
+`where` takes an input per field: `equals`, `not`, `in` and `notIn`; on
+numbers and dates `lt`, `lte`, `gt` and `gte`; on text `contains`,
+`startsWith` and `endsWith`, with `mode: insensitive` to ignore case.
+A relation to one row filters with `is` and `isNot`, a relation to many
+with `some`, `every` and `none`; `AND`, `OR` and `NOT` combine filters:
+
+<include cwd meta='title="src/app.test.ts"'>
+	../examples/graphql/src/app.test.ts#filter
+</include>
+
+## One row
+
+`post(where)` takes the `id`, a unique field, or a unique index, as
+`{ name_releasedOn: { name, releasedOn } }`, and returns `null` when no row
+matches, or when the caller may not read it:
+
+<include cwd meta='title="src/app.test.ts"'>
+	../examples/graphql/src/app.test.ts#unique
+</include>
+
+A query may also come over `GET`, as `?query=…&variables=…`; a mutation
+comes only over `POST`:
+
+<include cwd meta='title="src/app.test.ts"'>
+	../examples/graphql/src/app.test.ts#get
+</include>
+
+## Writes
+
+`updatePost` and `deletePost` find their row as `post` does; a row they do
+not find is `NOT_FOUND`:
+
+<include cwd meta='title="src/app.test.ts"'>
+	../examples/graphql/src/app.test.ts#update
+</include>
+
+`upsertPost` updates the row its `where` finds, or creates it:
+
+<include cwd meta='title="src/app.test.ts"'>
+	../examples/graphql/src/app.test.ts#upsert
+</include>
+
+`deletePost` answers the row as it was, without its relations:
+
+<include cwd meta='title="src/app.test.ts"'>
+	../examples/graphql/src/app.test.ts#delete
+</include>
+
+Each root field of a mutation is its own write: a document with two
+mutations runs them in order, and the first stays when the second fails.
+Use a [function](/docs/next/functions) with a
+[transaction](/docs/next/transactions) to write both or neither.
+
+## Errors
+
+A refused request answers its error in `errors`, with its code and details
+under `extensions`, as [Errors](/docs/next/errors) lists them; the field is
+`null`:
+
+<include cwd meta='title="src/app.test.ts"'>
+	../examples/graphql/src/app.test.ts#errors
+</include>
+
+A document the schema refuses, as an unknown field, has no `extensions`:
+GraphQL's own message says what is wrong. A message never repeats the
+value it refused, so a password never comes back. A server error is
+`Internal error.`, with `INTERNAL` and a `correlationId` the server logs
+beside the error.
+
+## Names
+
+A model's list field is its name in the plural: `Post` gives `posts`,
+`Category` gives `categories`. `.with({ graphql: { plural } })` names it
+otherwise, as `people` for `Person`:
+
+<include cwd meta='title="src/models.ts"'>
+	../examples/graphql/src/models.ts#person
+</include>
+
+`.with({ graphql: false })` serves no root field: the model is read through
+the relations of the models that are served. A write of those connects,
+disconnects or sets its rows, and never creates or updates one:
+
+<include cwd meta='title="src/models.ts"'>
+	../examples/graphql/src/models.ts#revision
+</include>
+
+A function is a mutation, or a query with `query: true`, named after the
+function; `.with({ graphql: { name } })` renames it, and
+`.with({ graphql: false })` keeps it off GraphQL:
+
+<include cwd meta='title="src/functions.ts"'>
+	../examples/graphql/src/functions.ts#functions
+</include>
+
+<include cwd meta='title="src/app.test.ts"'>
+	../examples/graphql/src/app.test.ts#names
+</include>
+
+<include cwd meta='title="src/app.test.ts"'>
+	../examples/graphql/src/app.test.ts#hidden
+</include>
+
+## Add fields with `extend`
+
+`extend` takes the generated schema and returns the one to serve, built with
+[graphql-js](https://www.graphql-js.org). A field it adds gets the request's
+`GraphqlContext`: `context.caller` to act as the caller, and
+`context.select(info)`, the selection the client sent, relations included,
+to read every row the field returns in one query:
+
+<include cwd meta='title="src/schema.ts"'>
+	../examples/graphql/src/schema.ts#extend
+</include>
+
+<include cwd meta='title="src/app.test.ts"'>
+	../examples/graphql/src/app.test.ts#extended
+</include>
+
+Prefer a [function](/docs/next/functions) with `query: true` for a new
+query: it is typed from its schema, served over REST too, and checked by
+its access rule. `extend` is for what a function cannot express, as a
+field on a model's type.
+
+## Limits
+
+A document from a caller other than Master is refused before it runs when
+it nests deeper than `maxDepth`, or may return more than `maxRows` rows,
+each list counting its `first` times the lists above it. A list asking for
+more than its `maxTake` is refused as it runs:
+
+<include cwd meta='title="src/app.test.ts"'>
+	../examples/graphql/src/app.test.ts#limits
+</include>
+
+Each document is also bounded for every caller, Master included: 2 000
+tokens, and 1 000 pairs of fields sharing one name. The first is ten times
+the standard introspection query.
+
+## Reference
+
+### `graphqlPlugin(options)`
+
+| Option          | Type                       | Default           | Effect                                                               |
+| --------------- | -------------------------- | ----------------- | -------------------------------------------------------------------- |
+| `path`          | string                     | `'/graphql'`      | Where the API, GraphiQL and subscriptions are served.                |
+| `pagination`    | `'connection'` or `'list'` | `'connection'`    | Relay connections, or lists with `take` and `skip`.                  |
+| `take`          | number                     | 100               | The rows a list returns without `first` or `take`.                   |
+| `maxTake`       | number                     | 100               | The most rows a list returns, unless the model sets its own.         |
+| `maxDepth`      | number                     | 10                | The deepest a document nests, its fields and its `orderBy` counted.  |
+| `maxRows`       | number                     | 20 000            | The most rows a document may return, each list times those above it. |
+| `introspection` | boolean                    | off in production | Introspection, and the "Did you mean" suggestions of refused fields. |
+| `extend`        | `(schema) => schema`       | none              | The schema to serve, built from the generated one.                   |
+
+It requires `httpPlugin()`. With [`realtimePlugin()`](/docs/next/realtime),
+it serves subscriptions over WebSocket on `path`. Master is limited by
+neither `maxTake`, `maxDepth`, `maxRows`, nor the 20 root fields.
+
+### `.with({ graphql })`
+
+| On         | Value         | Effect                                                               |
+| ---------- | ------------- | -------------------------------------------------------------------- |
+| a model    | `{ plural }`  | The list field's name.                                               |
+| a model    | `{ maxTake }` | The most rows its lists return.                                      |
+| a model    | `false`       | No root field; read through relations, and connected, never created. |
+| a function | `{ name }`    | The field's name.                                                    |
+| a function | `false`       | Not served over GraphQL.                                             |
+
+### Types
+
+| Field                 | GraphQL type                                            |
+| --------------------- | ------------------------------------------------------- |
+| `f.string()`          | `String`                                                |
+| `f.number()`          | `Float`; `Int` with `integer: true`                     |
+| `f.boolean()`         | `Boolean`                                               |
+| `f.dateTime()`        | `DateTime`, an ISO 8601 instant                         |
+| `f.date()`            | `Date`, a day, as `'2026-07-31'`                        |
+| `f.decimal()`         | `Decimal`, a string, as `'12.50'`                       |
+| `f.json()`            | `JSON`; a typed JSON field gets its own types           |
+| `f.enumOf([...])`     | an enum, as `PostStatus`                                |
+| `list: true`          | a list, as `[String!]!`                                 |
+| the id                | `ID!`                                                   |
+| `f.one()`, `f.many()` | the row's type, or its connection                       |
+| `f.virtual(output)`   | its output's type; its input's properties are arguments |
+
+A required field is non-null in its output, unless a field rule may hide
+it, and in `createPost`'s `data`
+unless it has a default. A row's types are `Post`, `PostConnection`,
+`PostEdge`, `PostWhereInput`, `PostWhereUniqueInput`, `PostOrderByInput`,
+`PostCreateInput`, `PostUpdateInput` and `DeletedPost`; a nested write's
+inputs name their relation, as `PostCreateWithoutAuthorInput`. The number
+operations of [queries](/docs/next/queries), as `increment`, are for
+server code: a GraphQL write sets values.
+
+### Errors
+
+| Code             | Message                                                                                                     |
+| ---------------- | ----------------------------------------------------------------------------------------------------------- |
+| none             | `The document is nested 8 levels deep; the most is 6.`                                                      |
+| none             | `The document asks for more than 2,000 rows. Ask for fewer with first or last.`                             |
+| none             | `The document asks for more than 20 root fields, a totalCount counted as one more. Send several documents.` |
+| none             | `The document repeats fields under one name too often. Ask for each field once.`                            |
+| none             | `Syntax Error: Document contains more than 2000 tokens. Parsing aborted.`                                   |
+| none             | `GraphQL introspection has been disabled, …`, in production.                                                |
+| none             | `Cannot perform mutations over GET`, a `405`.                                                               |
+| `BAD_USER_INPUT` | `first is at most 20 on Post.`, `first cannot be negative.`                                                 |
+| `BAD_USER_INPUT` | `after is not a cursor this API returned.`                                                                  |
+| `BAD_USER_INPUT` | `Page forward with first and after, or backward with last and before, not both.`                            |
+| any kernel code  | as [Errors](/docs/next/errors) lists them, with `details`.                                                  |
+| `INTERNAL`       | `Internal error.`, with `correlationId`.                                                                    |
+
+At start:
+
+- `Person: its list field would be named person too; set .with({ graphql: { plural } }).`
+- `Posts: the root field posts is Post's; set .with({ graphql: { plural } }).`
+- `posts: the root field posts is Post's; set .with({ graphql: { name } }).`, for a function.
+
+### Limits
+
+- No `node(id)` query, no batched requests and no persisted queries.
+- `totalCount` on the root list only.
+- Each root field of a mutation is its own write, with no transaction
+  around the document.
+- Subscriptions need [`realtimePlugin()`](/docs/next/realtime).
