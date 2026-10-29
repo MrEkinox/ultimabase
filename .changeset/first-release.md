@@ -1,6 +1,7 @@
 ---
 '@ultimabase/acl': minor
 '@ultimabase/auth': minor
+'@ultimabase/files': minor
 '@ultimabase/graphql': minor
 '@ultimabase/http': minor
 '@ultimabase/password': minor
