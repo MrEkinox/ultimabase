@@ -9472,9 +9472,14 @@ maxConnectionRows })`.
      the same readable fields, share one window.
    - A changed row is a candidate when it is in the window, or when the
      filter's equalities, checked in memory, do not exclude it.
-   - The candidate row is read once. Each distinct filter without a
-     relation is evaluated on it in memory; the others are checked in one
-     query, `SELECT (f1) AS s1, (f2) AS s2 … WHERE id = $1`.
+   - The candidate row is read once. Each distinct filter that reads the
+     row alone is evaluated on it in memory, as `memory()` evaluates it;
+     the others are checked in one query,
+     `SELECT (f1) AS s1, (f2) AS s2 … WHERE id = $1`. A `_search` condition
+     is one of the others: each database ranks a search its own way (D-148).
+   - A live list's `orderBy` takes the model's own fields. A sort through a
+     `one` relation, by `_count` or by `_relevance` is refused at
+     subscribe: a write to another row would move this one.
    - A matching row is placed by its order keys with a binary search over
      the window. A row placed after the last one is outside. A row leaving
      a full window brings in the next one with one read after the last
@@ -9490,8 +9495,14 @@ maxConnectionRows })`.
      need it.
 10. Rights, which must never be served from a stale caller:
     - While the kernel builds a caller (`identify`, the plugins' `caller`)
-      and runs `beforeFind`, it records the models and filters read. A write
-      matching them rebuilds that caller. When its effective filters
+      and runs `beforeFind`, it records each read: its model, its `where`
+      and the ids it found, and each relation it followed (an include, a
+      sort, a count or a group through it) with that relation's filter and
+      the ids it reached. A write rebuilds the caller when it changes a
+      recorded id, when its row passes a recorded `where`, or when it links
+      or unlinks a relation a recorded read follows or filters through. A
+      `where` that reads another row, a read without ids (a count) facing an
+      insert or a delete, and a change past `feedIds` all rebuild it. When its effective filters
       change, its windows resync; when it is no longer the same user, its
       subscriptions close. A session deleted or revoked (D-112) therefore
       closes them, and a role removed (D-123) resyncs them.
