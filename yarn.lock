@@ -3603,12 +3603,44 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"example-errors@workspace:examples/errors":
+  version: 0.0.0-use.local
+  resolution: "example-errors@workspace:examples/errors"
+  dependencies:
+    "@ultimabase/graphql": "workspace:*"
+    "@ultimabase/http": "workspace:*"
+    "@ultimabase/rest": "workspace:*"
+    "@ultimabase/testing": "workspace:*"
+    graphql: "npm:17.0.2"
+    ultimabase: "workspace:*"
+    vite: "npm:8.3.4"
+    vitest: "npm:5.0.5"
+    zod: "npm:4.6.5"
+  languageName: unknown
+  linkType: soft
+
 "example-functions-and-hooks@workspace:examples/functions-and-hooks":
   version: 0.0.0-use.local
   resolution: "example-functions-and-hooks@workspace:examples/functions-and-hooks"
   dependencies:
     "@ultimabase/graphql": "workspace:*"
     "@ultimabase/http": "workspace:*"
+    "@ultimabase/testing": "workspace:*"
+    graphql: "npm:17.0.2"
+    ultimabase: "workspace:*"
+    vite: "npm:8.3.4"
+    vitest: "npm:5.0.5"
+    zod: "npm:4.6.5"
+  languageName: unknown
+  linkType: soft
+
+"example-functions@workspace:examples/functions":
+  version: 0.0.0-use.local
+  resolution: "example-functions@workspace:examples/functions"
+  dependencies:
+    "@ultimabase/graphql": "workspace:*"
+    "@ultimabase/http": "workspace:*"
+    "@ultimabase/rest": "workspace:*"
     "@ultimabase/testing": "workspace:*"
     graphql: "npm:17.0.2"
     ultimabase: "workspace:*"
@@ -3670,6 +3702,7 @@ __metadata:
     "@ultimabase/graphql": "workspace:*"
     "@ultimabase/http": "workspace:*"
     "@ultimabase/postgres": "workspace:*"
+    "@ultimabase/testing": "workspace:*"
     graphql: "npm:17.0.2"
     pg: "npm:8.23.1"
     ultimabase: "workspace:*"
@@ -3733,6 +3766,35 @@ __metadata:
     "@ultimabase/graphql": "workspace:*"
     "@ultimabase/http": "workspace:*"
     "@ultimabase/soft-delete": "workspace:*"
+    "@ultimabase/testing": "workspace:*"
+    graphql: "npm:17.0.2"
+    ultimabase: "workspace:*"
+    vite: "npm:8.3.4"
+    vitest: "npm:5.0.5"
+    zod: "npm:4.6.5"
+  languageName: unknown
+  linkType: soft
+
+"example-testing@workspace:examples/testing":
+  version: 0.0.0-use.local
+  resolution: "example-testing@workspace:examples/testing"
+  dependencies:
+    "@ultimabase/graphql": "workspace:*"
+    "@ultimabase/http": "workspace:*"
+    "@ultimabase/testing": "workspace:*"
+    graphql: "npm:17.0.2"
+    ultimabase: "workspace:*"
+    vite: "npm:8.3.4"
+    vitest: "npm:5.0.5"
+  languageName: unknown
+  linkType: soft
+
+"example-transactions@workspace:examples/transactions":
+  version: 0.0.0-use.local
+  resolution: "example-transactions@workspace:examples/transactions"
+  dependencies:
+    "@ultimabase/graphql": "workspace:*"
+    "@ultimabase/http": "workspace:*"
     "@ultimabase/testing": "workspace:*"
     graphql: "npm:17.0.2"
     ultimabase: "workspace:*"

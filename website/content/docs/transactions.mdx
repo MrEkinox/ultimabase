@@ -1,0 +1,99 @@
+---
+title: Transactions
+description: Make several writes commit together or not at all.
+---
+
+One write is always atomic: its row, its nested writes, its cascades and the
+writes of its `after*` hooks commit together. To make several writes one,
+`transaction` runs them in a callback: they all commit when it resolves, and
+none does when it throws.
+
+<include cwd meta='title="src/functions.ts"'>
+	../examples/transactions/src/functions.ts#transfer
+</include>
+
+Every query inside the callback runs in the transaction, however deep it is
+called: no `tx` argument to pass. A function opens no transaction of its
+own, so the network calls it makes (a payment, an email) never hold rows
+locked.
+
+## Commit or roll back
+
+The transaction commits when the callback resolves, and returns its value:
+
+<include cwd meta='title="src/app.test.ts"'>
+	../examples/transactions/src/app.test.ts#commit
+</include>
+
+When the callback throws, every write made inside it is undone, its hooks'
+writes included, and `transaction` rejects with that error:
+
+<include cwd meta='title="src/app.test.ts"'>
+	../examples/transactions/src/app.test.ts#rollback
+</include>
+
+## Nested transactions
+
+A `transaction` called inside another joins it: no savepoint. Here both
+transfers commit together, and the second's failure undoes the first:
+
+<include cwd meta='title="src/app.test.ts"'>
+	../examples/transactions/src/app.test.ts#nested
+</include>
+
+## A failed query
+
+A query that fails inside a transaction rolls it all back, even when the
+callback catches the error, as PostgreSQL does. The next query in it throws
+`A query failed in this transaction, which rolls back: no other query runs
+in it.`, and `transaction` rejects with the first error:
+
+<include cwd meta='title="src/app.test.ts"'>
+	../examples/transactions/src/app.test.ts#failed
+</include>
+
+To try a write and go on when it fails, run it outside the transaction.
+
+## Locks and concurrency
+
+An `update` or a `delete` locks the row it targets until the transaction
+ends, so a second transfer from the same account waits for the first and
+reads its balance: the check in `transfer` never sees a stale balance.
+`updateMany` and `deleteMany` lock their rows in `id` order, so two calls on
+the same rows wait for each other instead of deadlocking.
+
+PostgreSQL runs transactions at its default isolation, `READ COMMITTED`.
+`memory()` runs one transaction at a time.
+
+## After the commit
+
+The `*Commit` hooks of the writes made inside run once the transaction
+commits, never after a rollback, and `transaction` resolves once they are
+done. See [Hooks](/docs/next/hooks).
+
+## Reference
+
+### `transaction(run)`
+
+| Argument | Type               | Effect                                                  |
+| -------- | ------------------ | ------------------------------------------------------- |
+| `run`    | `() => Promise<R>` | The writes; every query inside runs in the transaction. |
+
+It returns `run`'s value once the transaction commits and its `*Commit`
+hooks ran, or rejects with the error that rolled it back.
+
+### Errors
+
+| Error                                                                              | When                                                |
+| ---------------------------------------------------------------------------------- | --------------------------------------------------- |
+| the callback's error                                                               | The callback threw; nothing was written.            |
+| the failed query's error                                                           | A query failed, caught or not; nothing was written. |
+| `A query failed in this transaction, which rolls back: no other query runs in it.` | A query ran after one failed.                       |
+| `transaction runs on a started application.`                                       | No application is started.                          |
+| `RELATION_RESTRICTED`, `NOT_FOUND`                                                 | PostgreSQL's foreign keys refused at the commit.    |
+
+### Limits
+
+- No savepoint: a nested `transaction` cannot roll back alone.
+- A transaction holds its locks while the callback runs: call external
+  services before it, or from a `*Commit` hook after it.

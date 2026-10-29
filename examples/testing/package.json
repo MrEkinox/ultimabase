@@ -1,0 +1,25 @@
+{
+	"name": "example-testing",
+	"version": "0.0.0",
+	"private": true,
+	"description": "Testing: an application started around each test, on a new in-memory database, with a caller of your choice.",
+	"type": "module",
+	"license": "Apache-2.0",
+	"engines": {
+		"node": ">=24.7.0"
+	},
+	"scripts": {
+		"start": "node src/server.ts"
+	},
+	"dependencies": {
+		"@ultimabase/graphql": "workspace:*",
+		"@ultimabase/http": "workspace:*",
+		"graphql": "17.0.2",
+		"ultimabase": "workspace:*"
+	},
+	"devDependencies": {
+		"@ultimabase/testing": "workspace:*",
+		"vite": "8.3.4",
+		"vitest": "5.0.5"
+	}
+}

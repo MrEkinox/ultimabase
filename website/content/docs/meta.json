@@ -12,6 +12,10 @@
 		"queries",
 		"relations",
 		"access",
-		"hooks"
+		"hooks",
+		"functions",
+		"transactions",
+		"errors",
+		"testing"
 	]
 }

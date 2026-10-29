@@ -20,6 +20,7 @@
 		"ultimabase": "workspace:*"
 	},
 	"devDependencies": {
+		"@ultimabase/testing": "workspace:*",
 		"pg": "8.23.1",
 		"vite": "8.3.4",
 		"vitest": "5.0.5"
