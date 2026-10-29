@@ -355,6 +355,22 @@ describe('a live list', () => {
 		})
 	})
 
+	it('moves a shown row whose order changed, on a field it does not show', async () => {
+		const { seen } = await list(await connect(), 'Post', {
+			...ranked,
+			first: 3,
+		})
+		await Post.update(
+			{ where: { id: posts[2]?.id ?? '' }, data: { rank: 0 } },
+			M,
+		)
+		expect(await message(seen, 2)).toEqual({
+			kind: 'changes',
+			revision: 2,
+			changes: [{ upsert: titled('p3'), after: null }],
+		})
+	})
+
 	it('sends a row again when a field it shows changes, alone', async () => {
 		const { seen } = await list(await connect(), 'Post', {
 			...ranked,

@@ -102,10 +102,10 @@ export class Live {
 	/** Shows `more` rows after the last one. */
 	async grow(more: number): Promise<void> {
 		const [run] = this.#enqueue(async () => {
-			const before = this.#window.shown()
+			this.#window.mark()
 			this.#window.first += more
 			// Sent even when no row follows: the client waits for it.
-			await this.#send(before, new Set(), new Set(), false, true)
+			await this.#send(new Set(), new Set(), false, true)
 		})
 		return run
 	}
@@ -227,7 +227,6 @@ export class Live {
 	 * cannot read leaves it, `gone`.
 	 */
 	async #settle(
-		before: readonly Entry[],
 		again: ReadonlySet<string>,
 		gone: Set<string>,
 		loader?: Loader,
@@ -238,7 +237,7 @@ export class Live {
 		const nodes = new Map<string, Row>()
 		for (let round = 0; round < 3; round += 1) {
 			await this.#refill(loader)
-			const moves = this.#window.moves(before, again)
+			const moves = this.#window.moves(again)
 			const unread = moves.placed.flatMap(({ id }) =>
 				nodes.has(id) ? [] : [id],
 			)
@@ -271,7 +270,7 @@ export class Live {
 		})
 		const entries = rows.slice(0, first + 1).map((each) => this.#entry(each))
 		this.#window.fill(entries, rows.length > first + 1)
-		const { nodes } = await this.#settle([], new Set(), new Set())
+		const { nodes } = await this.#settle(new Set(), new Set())
 		this.#count = totalCount ? await this.#counted() : undefined
 		this.#hasMore = this.#window.hasMore()
 		const shown = this.#window.shown().flatMap(({ id }) => nodes.get(id) ?? [])
@@ -323,7 +322,7 @@ export class Live {
 			kept.size > 0 ||
 			leaving.length > 0
 		if (!touched && !recount) return
-		const before = window.shown()
+		window.mark()
 		for (const id of effect.deleted) window.remove(id)
 		for (const id of leaving) {
 			window.remove(id)
@@ -333,12 +332,11 @@ export class Live {
 			const row = rows.get(id)
 			if (row !== undefined) window.place(this.#entry(row))
 		}
-		await this.#send(before, effect.resend, gone, recount, false, loader)
+		await this.#send(effect.resend, gone, recount, false, loader)
 	}
 
-	/** Sends how the rows shown as `before` changed, if they did or `always`. */
+	/** Sends how the rows shown at the mark changed, if they did or `always`. */
 	async #send(
-		before: readonly Entry[],
 		again: ReadonlySet<string>,
 		gone: Set<string>,
 		recount: boolean,
@@ -346,7 +344,7 @@ export class Live {
 		loader?: Loader,
 	): Promise<void> {
 		const { row, send } = this.#spec
-		const { moves, nodes } = await this.#settle(before, again, gone, loader)
+		const { moves, nodes } = await this.#settle(again, gone, loader)
 		for (const id of moves.removed) this.#tracking.untrack(id)
 		let totalCount: number | undefined
 		if (recount) {
