@@ -12,5 +12,6 @@
 	"rest": 2900,
 	"create-ultimabase": 250,
 	"files": 1900,
-	"realtime": 1800
+	"realtime": 1800,
+	"live": 700
 }

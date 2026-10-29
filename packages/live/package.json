@@ -1,0 +1,66 @@
+{
+	"name": "@ultimabase/live",
+	"version": "0.0.0",
+	"private": true,
+	"description": "The UltimaBase live client: live lists and rows over SSE, an Apollo link and a React hook.",
+	"type": "module",
+	"license": "Apache-2.0",
+	"exports": {
+		".": "./src/index.ts",
+		"./apollo": "./src/apollo.ts",
+		"./react": "./src/react.ts"
+	},
+	"files": [
+		"dist",
+		"src",
+		"!src/**/*.test.ts",
+		"!src/test"
+	],
+	"scripts": {
+		"prepack": "rm -rf dist && yarn run -T tsc --project tsconfig.build.json"
+	},
+	"publishConfig": {
+		"exports": {
+			".": "./dist/index.js",
+			"./apollo": "./dist/apollo.js",
+			"./react": "./dist/react.js"
+		}
+	},
+	"dependencies": {
+		"eventsource-parser": "4.1.2"
+	},
+	"peerDependencies": {
+		"@apollo/client": "^4.0.0",
+		"react": "^18.0.0 || ^19.0.0",
+		"rxjs": "^7.3.0"
+	},
+	"peerDependenciesMeta": {
+		"@apollo/client": {
+			"optional": true
+		},
+		"react": {
+			"optional": true
+		},
+		"rxjs": {
+			"optional": true
+		}
+	},
+	"devDependencies": {
+		"@apollo/client": "4.3.3",
+		"@types/react": "19.3.0",
+		"@types/react-dom": "19.3.0",
+		"@ultimabase/graphql": "workspace:*",
+		"@ultimabase/http": "workspace:*",
+		"@ultimabase/realtime": "workspace:*",
+		"@ultimabase/rest": "workspace:*",
+		"graphql": "17.0.2",
+		"graphql-ws": "6.4.1",
+		"happy-dom": "21.0.1",
+		"react": "19.1.10",
+		"react-dom": "19.1.10",
+		"rxjs": "7.8.2",
+		"ultimabase": "workspace:*",
+		"vite": "8.3.4",
+		"vitest": "5.0.5"
+	}
+}

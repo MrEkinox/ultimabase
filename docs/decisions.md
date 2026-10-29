@@ -9452,6 +9452,37 @@ maxConnectionRows })`; a subscribe past either fails with
    - `./react` is `useLiveSubscription(document, options)`, which takes
      `useSubscription`'s options and returns its result plus `fetchMore`.
      React and Apollo are optional peer dependencies.
+   - `applyLive` takes the list, a connection or an array of rows, and
+     returns a new one; it places rows by their `id` (`node.id` under a
+     connection), and a row without one fails: select the node's `id` to
+     follow a live list. A message naming a row the list does not hold
+     returns `undefined`: the list is out of step and is read again.
+   - `liveFetch(url, { headers })` reads a live list or row over `fetch`,
+     not `EventSource`, which sends no `Authorization` and reconnects
+     without the token. `subscribe(listener)` hands each whole result and
+     returns what stops it; `fetchMore({ first })` grows the list.
+     Disconnected, it reconnects with its token, backing off from 100 ms to
+     5 s, and resumes within the 10 seconds. `eventsource-parser` splits
+     the stream: line endings, multi-line data and chunks a proxy cuts are
+     its job, not ours.
+   - `fetchMore({ first })` adds `first` rows and resolves once the grown
+     result arrived. The link grows the variable that the root field's
+     `first` (or `take`) argument reads, whatever its name; without one,
+     `fetchMore` is refused.
+   - Peers: `@apollo/client` 4 and its `rxjs`, React 18 or 19. Tests run
+     against a running server, the hook's under `happy-dom` with React's
+     `act`.
+
+     ```ts
+     const link = ApolloLink.from([ultimabaseLive(), new GraphQLWsLink(ws)])
+     const { data, fetchMore } = useLiveSubscription(TasksDocument, {
+     	variables: { first: 25 },
+     })
+
+     const tasks = liveFetch('/api/tasks?first=25', { headers })
+     const stop = tasks.subscribe((list) => render(list))
+     await tasks.fetchMore({ first: 25 })
+     ```
 7. `fetchMore({ first })` grows the window without a new result in between.
    Apollo's `useSubscription` resets `data` to `undefined` when a variable
    changes, so the hook keeps its variables: the link completes the

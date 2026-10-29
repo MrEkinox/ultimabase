@@ -6,6 +6,7 @@ import { satisfies } from 'semver'
 import { expect, it } from 'vitest'
 
 type Package = {
+	readonly directory: string
 	readonly name: string
 	readonly version: string
 	readonly exports?: unknown
@@ -22,7 +23,7 @@ const packages = readdirSync('packages', { withFileTypes: true })
 			readFileSync(join('packages', directory, 'package.json'), 'utf8'),
 		)
 		if (!isPackage(read)) throw new TypeError(`${directory} has no version.`)
-		return read
+		return { ...read, directory }
 	})
 const kernel = packages.find(({ name }) => name === 'ultimabase')
 
@@ -43,14 +44,26 @@ it('gives each package a kernel range that accepts the kernel', () => {
 	expect(refused).toEqual([])
 })
 
-// A bin only, such as create-ultimabase, imports no kernel.
-it('makes the kernel a peer of every other package, never a dependency', () => {
+/** Whether the code `directory` publishes imports the kernel. */
+const importsKernel = (directory: string): boolean =>
+	readdirSync(join('packages', directory, 'src'), { recursive: true })
+		.map(String)
+		.filter((file) => file.endsWith('.ts') && !file.endsWith('.test.ts'))
+		.some((file) =>
+			/from 'ultimabase['/]/.test(
+				readFileSync(join('packages', directory, 'src', file), 'utf8'),
+			),
+		)
+
+// A bin, such as create-ultimabase, or a browser client, such as
+// @ultimabase/live, imports no kernel.
+it('makes the kernel a peer of every package that imports it, never a dependency', () => {
 	const bound = packages.filter(
-		({ name, exports, dependencies, peerDependencies }) =>
+		({ directory, name, dependencies, peerDependencies }) =>
 			name !== 'ultimabase' &&
-			exports !== undefined &&
 			(dependencies?.ultimabase !== undefined ||
-				peerDependencies?.ultimabase === undefined),
+				(peerDependencies?.ultimabase === undefined &&
+					importsKernel(directory))),
 	)
 	expect(bound.map(({ name }) => name)).toEqual([])
 })
