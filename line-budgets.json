@@ -1,11 +1,11 @@
 {
-	"ultimabase": 16160,
+	"ultimabase": 16180,
 	"testing": 4450,
 	"soft-delete": 150,
 	"postgres": 3700,
 	"http": 960,
 	"graphql": 3350,
-	"auth": 650,
+	"auth": 660,
 	"password": 1560,
 	"roles": 330,
 	"acl": 350,

@@ -129,6 +129,8 @@ interface Watching extends PluginTypes {
 }
 let api: RealtimeApi | undefined
 let revoked = false
+/** When the session ends, if it does. */
+let ends: number | undefined
 /** Keeps the realtime API; a request's `authorization` names a session. */
 const watching = definePlugin<Watching>({
 	name: 'watching',
@@ -137,9 +139,13 @@ const watching = definePlugin<Watching>({
 	api: ({ plugins }) => {
 		api = plugins.realtime
 	},
-	identify: async (request) => {
+	identify: async (request, context) => {
 		const token = request.headers.get('authorization')
 		if (token === null || revoked) return undefined
+		if (ends !== undefined) {
+			if (Date.now() >= ends) return undefined
+			context.expires(new Date(ends))
+		}
 		const session = await Session.findUnique({ where: { token } }, M)
 		return session === null ? undefined : asUser({ id: session.user })
 	},
@@ -234,6 +240,7 @@ beforeEach(() => {
 	failing = false
 	unplanned = false
 	revoked = false
+	ends = undefined
 })
 afterEach(async () => {
 	await running.app.stop()
@@ -769,6 +776,16 @@ describe('the plugin', () => {
 		})
 		revoked = true
 		expect(await message(seen, 2)).toEqual({ kind: 'closed' })
+	})
+
+	it('builds a caller again when it expires, which ends its session', async () => {
+		await seeded()
+		ends = Date.now() + 1100
+		const viewer = await connect()
+		const { seen } = await list(viewer, 'Post', { ...ranked, first: 1 })
+		await vi.waitFor(() => expect(seen).toHaveLength(2), { timeout: 3000 })
+		expect(seen[1]).toEqual({ kind: 'closed' })
+		expect(Date.now()).toBeGreaterThanOrEqual(ends)
 	})
 
 	it('ignores the changes it hears once the application stopped', async () => {

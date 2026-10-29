@@ -1,6 +1,7 @@
 // The reads a caller's construction makes (D-154): `identify`, the plugins'
 // `caller` and `beforeFind` run inside `recording`, which keeps what each
-// read reached, so a write to one of them rebuilds the caller.
+// read reached, so a write to one of them rebuilds the caller, and the
+// earliest time a plugin said the caller stops holding.
 import { AsyncLocalStorage } from 'node:async_hooks'
 import type {
 	AggregateRead,
@@ -25,15 +26,33 @@ export type Recorded = {
 	readonly relation?: string
 }
 
-const recorder = new AsyncLocalStorage<Recorded[]>()
+type Recording = { readonly reads: Recorded[]; expires: number | undefined }
+
+const recorder = new AsyncLocalStorage<Recording>()
 
 /** Runs `run`, keeping each read the kernel makes until it settles. */
-export async function recording<R>(
-	run: () => Promise<R>,
-): Promise<{ readonly result: R; readonly reads: readonly Recorded[] }> {
-	const reads: Recorded[] = []
-	const result = await recorder.run(reads, run)
-	return { result, reads: [...reads] }
+export async function recording<R>(run: () => Promise<R>): Promise<{
+	readonly result: R
+	readonly reads: readonly Recorded[]
+	readonly expires?: Date
+}> {
+	const kept: Recording = { reads: [], expires: undefined }
+	const result = await recorder.run(kept, run)
+	const { reads, expires } = kept
+	return {
+		result,
+		reads: [...reads],
+		...(expires !== undefined && { expires: new Date(expires) }),
+	}
+}
+
+/** Keeps `at` when it is the earliest expiry, if a recording runs. */
+export function recordExpiry(at: Date): void {
+	const time = at.getTime()
+	if (Number.isNaN(time)) throw new TypeError('expires takes a valid date.')
+	const kept = recorder.getStore()
+	if (kept === undefined) return
+	if (kept.expires === undefined || time < kept.expires) kept.expires = time
 }
 
 /** The ids of `rows`, each once: included rows repeat a shared one. */
@@ -113,7 +132,7 @@ export function recordFind(
 	read: Read,
 	rows: readonly Row[],
 ): void {
-	const reads = recorder.getStore()
+	const reads = recorder.getStore()?.reads
 	if (reads === undefined) return
 	const { model, where } = read
 	reads.push({ model, ...(where && { where }), ids: idsOf(rows) })
@@ -125,7 +144,7 @@ export function recordCount(
 	models: Models,
 	read: CountRead | AggregateRead,
 ): void {
-	const reads = recorder.getStore()
+	const reads = recorder.getStore()?.reads
 	if (reads === undefined) return
 	const { model, where } = read
 	reads.push({ model, ...(where && { where }) })

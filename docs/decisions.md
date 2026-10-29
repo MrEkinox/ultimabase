@@ -9334,12 +9334,14 @@ whatever the first two cost.
 
 1. `@ultimabase/realtime` exports `realtimePlugin(options)` and the model
    entry `realtime()`. A model is live when its `use` lists `realtime()`;
-   `.with({ realtime: { maxLive } })` sets its limit. It serves through
-   `graphqlPlugin` and `restPlugin` when they are present, and requires
-   `httpPlugin` once they do; its engine alone needs no transport. The
-   engine offers transports `connect(request)`, a viewer of the request's
-   caller, whose `list` and `row` follow a read and send messages of their
-   own shape, which each transport writes as point 4 says.
+   `.with({ realtime: { maxLive } })` sets its limit. `realtimePlugin` is
+   an engine that needs no transport and no `httpPlugin`: `graphqlPlugin`
+   and `restPlugin` each declare it optional (D-16) and, when it is
+   present, serve the live reads of the models whose `use` lists
+   `realtime()`. The engine offers transports `connect(request)`, a viewer
+   of the request's caller, whose `list` and `row` follow a read and send
+   messages of their own shape, which each transport writes as point 4
+   says.
 2. A live read has the name, arguments, selection and type of the read it
    follows:
    - GraphQL: `subscription { campaigns(where, orderBy, first) { … } }`
@@ -9529,8 +9531,13 @@ maxConnectionRows })`.
       no longer the same user, or `identify` fails, every live read closes.
       A session deleted or revoked (D-112) therefore closes them, and a role
       removed (D-123) resyncs them.
-    - A session that expires closes its subscriptions at the next rebuild:
-      `refresh` bounds how late.
+    - A plugin context's `expires(at)` says that the caller being built
+      stops holding at `at`, as a session that ends; outside a caller's
+      construction it does nothing. The earliest time recorded while the
+      caller and each live read's plan were built rebuilds the caller then,
+      and at least a second after the last build, so a past time is no
+      loop. `authPlugin` gives each session's end, renewal included, so a
+      session that expires closes its subscriptions at its hour.
     - Every caller is rebuilt every 5 minutes, which catches what a hook
       reads outside the database. `realtimePlugin({ refresh })` sets the
       delay.

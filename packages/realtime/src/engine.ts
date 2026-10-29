@@ -1,6 +1,6 @@
 // The realtime engine (D-154): changes wait 50 ms, then one flush reads each
 // changed row once and hands the batch to every viewer, a few at a time.
-// Every viewer's caller is built again on a timer, which ends sessions.
+// Every viewer's caller is built again on a timer, and when it expires.
 import type { Changed } from 'ultimabase'
 import { liveSchema, recording } from 'ultimabase/internal'
 import { batchOf } from './changes.ts'
@@ -52,9 +52,14 @@ export class Engine {
 	async connect(request: Request): Promise<Viewer> {
 		const { identify } = this.#settings
 		const identified = await recording(async () => identify(request))
-		const viewer = new Viewer(this.#settings, request, identified, () =>
-			this.#viewers.delete(viewer),
-		)
+		const viewer = new Viewer(this.#settings, request, identified, {
+			onClose: () => this.#viewers.delete(viewer),
+			onDue: () => {
+				this.#chain = this.#chain.then(async () =>
+					this.#guarded(viewer, async () => viewer.rebuild()),
+				)
+			},
+		})
 		this.#viewers.add(viewer)
 		return viewer
 	}

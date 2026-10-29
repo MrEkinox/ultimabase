@@ -13,6 +13,7 @@ import type { ModelShape } from './model.ts'
 import type { ModelInfo, Resolved } from './schema.ts'
 import { pluginValues } from './definition.ts'
 import { query } from './engine.ts'
+import { recordExpiry } from './recorder.ts'
 import { exposedFunctions, resolveFunctions } from './functions.ts'
 import { isObject } from './query-where.ts'
 import { Refused } from './errors.ts'
@@ -82,6 +83,7 @@ export type Installed = {
 		readonly plugins: object
 		readonly logger: Logger
 		readonly identify: Identify
+		readonly expires: (at: Date) => void
 		readonly models: readonly ExposedModel[]
 		readonly functions: readonly ExposedFunction[]
 	}
@@ -216,6 +218,7 @@ export function withContexts(
 			plugins: code.plugins,
 			logger: logger.child({ name: code.name }),
 			identify,
+			expires: recordExpiry,
 			models: exposed(code.name, resolved),
 		},
 	}))

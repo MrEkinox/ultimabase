@@ -15,6 +15,7 @@ import {
 	sortKeys,
 	storedRows,
 } from './internal.ts'
+import { recordExpiry } from './recorder.ts'
 
 const M = { as: master }
 const ada = asUser({ id: 'ada' })
@@ -165,6 +166,21 @@ describe('recording', () => {
 		expect(reads).toHaveLength(1)
 		expect(reads[0]?.where).toBeDefined()
 		expect(reads[0]?.ids).toHaveLength(5)
+	})
+
+	it('keeps the earliest expiry, and none outside a recording', async () => {
+		recordExpiry(new Date(1))
+		const at = new Date('2030-01-01')
+		const { expires } = await recording(async () => {
+			recordExpiry(new Date('2031-01-01'))
+			recordExpiry(at)
+			recordExpiry(new Date('2032-01-01'))
+		})
+		expect(expires).toEqual(at)
+		expect(await recording(async () => undefined)).not.toHaveProperty('expires')
+		expect(() => recordExpiry(new Date(Number.NaN))).toThrow(
+			'expires takes a valid date.',
+		)
 	})
 })
 

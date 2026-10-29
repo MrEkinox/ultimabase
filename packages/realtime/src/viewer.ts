@@ -1,7 +1,8 @@
 // A viewer (D-154): one connection's caller and its live reads. The reads
 // that built the caller and planned each live read are kept; a write that
 // may change one rebuilds the caller, which resyncs the reads whose plan
-// changed and closes them all when it is no longer the same user.
+// changed and closes them all when it is no longer the same user. A caller
+// that stops holding at a time is built again then.
 import type { Caller, ExposedModel, Logger } from 'ultimabase'
 import { PublicError } from 'ultimabase'
 import type { LivePlan, Recorded } from 'ultimabase/internal'
@@ -41,7 +42,15 @@ type Subscription = {
 	readonly row: boolean
 	readonly send: (message: LiveMessage) => void
 	reads: readonly Recorded[]
+	expires: Date | undefined
 }
+
+type Built<R> = Awaited<ReturnType<typeof recording<R>>>
+
+/** The least wait before a rebuild, so a past expiry is no hot loop. */
+const soonest = 1000
+/** The longest wait `setTimeout` keeps. */
+const latest = 2 ** 31 - 1
 
 const invalid = (path: string, message: string): PublicError =>
 	new PublicError('VALIDATION_FAILED', message, {
@@ -102,25 +111,29 @@ export class Viewer {
 	readonly #settings: Settings
 	readonly #request: Request
 	readonly #onClose: () => void
+	readonly #onDue: () => void
 	readonly #live = new Map<Live, Subscription>()
 	#caller: Caller
 	#reads: readonly Recorded[]
+	#expires: Date | undefined
+	#due: NodeJS.Timeout | undefined
 	#closed = false
 
+	/** `onDue` runs once the caller stops holding, to rebuild it. */
 	constructor(
 		settings: Settings,
 		request: Request,
-		identified: {
-			readonly result: Caller
-			readonly reads: readonly Recorded[]
-		},
-		onClose: () => void,
+		identified: Built<Caller>,
+		hooks: { readonly onClose: () => void; readonly onDue: () => void },
 	) {
 		this.#settings = settings
 		this.#request = request
 		this.#caller = identified.result
 		this.#reads = identified.reads
-		this.#onClose = onClose
+		this.#expires = identified.expires
+		this.#onClose = hooks.onClose
+		this.#onDue = hooks.onDue
+		this.#reschedule()
 	}
 
 	/** A live list of `model`'s rows, from the top of its order. */
@@ -144,6 +157,7 @@ export class Viewer {
 	close(): void {
 		if (this.#closed) return
 		this.#closed = true
+		clearTimeout(this.#due)
 		for (const live of this.#live.keys()) live.close()
 		this.#live.clear()
 		this.#onClose()
@@ -168,7 +182,7 @@ export class Viewer {
 	/** Builds the caller again, then each live read's plan. */
 	async rebuild(): Promise<void> {
 		if (this.#closed) return
-		let identified: Awaited<ReturnType<typeof recording<Caller>>>
+		let identified: Built<Caller>
 		try {
 			identified = await recording(async () =>
 				this.#settings.identify(this.#request),
@@ -180,6 +194,7 @@ export class Viewer {
 		if (whoOf(caller) !== whoOf(this.#caller)) return this.end()
 		this.#caller = caller
 		this.#reads = identified.reads
+		this.#expires = identified.expires
 		await Promise.all(
 			[...this.#live].map(async ([live, subscription]) => {
 				try {
@@ -188,6 +203,7 @@ export class Viewer {
 						livePlan(model, liveArgs(args, row), caller, row),
 					)
 					subscription.reads = planned.reads
+					subscription.expires = planned.expires
 					await live.replan(caller, planned.result)
 				} catch (error) {
 					this.#settings.logger.error(
@@ -198,6 +214,28 @@ export class Viewer {
 				}
 			}),
 		)
+		this.#reschedule()
+	}
+
+	/** Waits for the earliest time the caller or a live read stops holding. */
+	#reschedule(): void {
+		clearTimeout(this.#due)
+		this.#due = undefined
+		if (this.#closed) return
+		const subscriptions = [...this.#live.values()]
+		const times = [
+			this.#expires,
+			...subscriptions.map(({ expires }) => expires),
+		]
+			.filter((at) => at !== undefined)
+			.map((at) => at.getTime())
+		if (times.length === 0) return
+		const wait = Math.min(
+			Math.max(Math.min(...times) - Date.now(), soonest),
+			latest,
+		)
+		this.#due = setTimeout(this.#onDue, wait)
+		this.#due.unref()
 	}
 
 	#drop(live: Live): void {
@@ -253,13 +291,15 @@ export class Viewer {
 			planned.result,
 			first,
 		)
-		this.#live.set(live, { model, args, row, send, reads: planned.reads })
+		const { reads, expires } = planned
+		this.#live.set(live, { model, args, row, send, reads, expires })
 		try {
 			await live.start()
 		} catch (error) {
 			this.#live.delete(live)
 			throw error
 		}
+		this.#reschedule()
 		return {
 			grow: async (more) => {
 				if (!Number.isInteger(more) || more < 1) {

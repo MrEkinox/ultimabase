@@ -7,6 +7,7 @@ import { httpPlugin } from '@ultimabase/http'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { Adapter, Caller, PluginTypes } from 'ultimabase'
 import { defineApp, definePlugin, memory } from 'ultimabase'
+import { recording } from 'ultimabase/internal'
 import { AuthAccount } from './accounts.ts'
 import { authPlugin, defineUser } from './index.ts'
 import { AuthSession } from './sessions.ts'
@@ -185,6 +186,20 @@ describe('a session’s lifetime', () => {
 		vi.spyOn(Date, 'now').mockReturnValue(Date.now() + 20 * day)
 		const renewed = await callerOf(running.url, bearer(token))
 		expect(renewed.status).toBe(401)
+	})
+
+	it('tells when the caller it builds stops holding', async () => {
+		const { url, ada } = await server()
+		const { token } = await signIn(url, ada.id)
+		const identified = async () =>
+			recording(async () =>
+				given.identify?.(new Request(url, { headers: bearer(token) })),
+			)
+		const [opened] = await AuthSession.findMany({}, M)
+		expect((await identified()).expires).toStrictEqual(opened?.expiresAt)
+		const now = Date.now()
+		vi.spyOn(Date, 'now').mockReturnValue(now + 20 * day)
+		expect((await identified()).expires).toStrictEqual(new Date(now + 50 * day))
 	})
 
 	it('keeps its end when used with more than 15 days left', async () => {
