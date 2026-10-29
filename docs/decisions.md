@@ -4494,6 +4494,8 @@ npx ultimabase reset --force
 
 ## D-106: `httpPlugin()`, its Hono routes and the caller they read
 
+Amended by D-153.
+
 Choice: completes D-27, D-49, D-59 and D-66.
 
 1. `@ultimabase/http` exports `httpPlugin(options)` and `routes()`. It
@@ -4622,7 +4624,7 @@ curl -X POST localhost:3000/webhooks/stripe -d '{"id":"…"}' \
 
 ## D-107: `graphqlPlugin()`, the schema it generates and how it mounts
 
-Amended by D-125, D-128 and D-132.
+Amended by D-125, D-128, D-132 and D-153.
 
 Choice: completes D-16, D-34, D-41, D-45 and D-55.
 
@@ -9273,4 +9275,51 @@ post.cover
 // { id, name: 'cover.jpg', type: 'image/jpeg', size: 81234,
 //   url: 'https://…/public/…', inline: { blur: 'data:…' },
 //   variants: { thumb: { type: 'image/webp', size: 4120, url: '…' } } }
+```
+
+## D-153: Mounted routes that read their own body
+
+Choice: amends D-106 point 5 and D-107 point 2.
+
+1. `mount(routes, { bodyLimit: false })` mounts routes that read their own
+   body: the HTTP plugin's limit (1 MB by default) does not apply to them.
+   Without the option, a mount keeps it.
+2. A request skips the limit when it matches a route such a mount declares
+   with a method (`get`, `post`, `on`). Its `use` and `all` routes are
+   middlewares that match any request, so they never lift the limit.
+3. Such a route enforces its own limit, as `POST /files` does with the
+   field's `maxSize`: a body without `Content-Length` gets 411
+   (`LENGTH_REQUIRED`), one over the limit 413 (`PAYLOAD_TOO_LARGE`), a
+   type `accept` refuses 415 (`UNSUPPORTED_MEDIA_TYPE`). Node's server
+   reads no more bytes than `Content-Length` says.
+
+Why:
+
+- A file is up to 50 MB by default and JSON stays under 1 MB: one global
+  limit is either too small for files or too large for every JSON route.
+- The route that knows the limit, the field's `maxSize`, is the one that
+  enforces it; every other route keeps the HTTP plugin's.
+
+Rejected:
+
+- A larger global limit: every JSON route, REST and GraphQL included,
+  would buffer 50 MB.
+- Mounting the files route before the limit: the application's routes come
+  first (D-107), and the caller is read after the limit.
+- A list of exempt paths in `httpPlugin({ … })`: the application would have
+  to know each plugin's paths.
+
+Example:
+
+```ts
+// Before (D-107): a mounted route gets the 1 MB limit
+api: ({ plugins }) => plugins.http.mount(uploads)
+// POST /files?for=Post.cover&name=a.jpg, 5 MB
+// 413 { code: 'PAYLOAD_TOO_LARGE', message: 'The body is over 1048576 bytes.' }
+
+// After
+api: ({ plugins }) => plugins.http.mount(uploads, { bodyLimit: false })
+// POST /files?for=Post.cover&name=a.jpg, 5 MB, cover's maxSize 10 MB
+// 201 { id: '…' }
+// POST /posts, 5 MB of JSON: still 413
 ```
