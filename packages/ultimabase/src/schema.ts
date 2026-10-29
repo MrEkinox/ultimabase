@@ -164,7 +164,10 @@ const digitsOf = (options: FieldOptions): Digits => ({
 function scalarField(name: string, field: FieldDefinition): FieldInfo {
 	if (field.kind !== 'scalar') throw new Error('Expected a scalar field.')
 	const dbName = field.options['dbName']
-	const fixed: unknown = field.options['default']
+	// A field type's default is a value code sees, never a column's; its
+	// stored field's fills the rows stored before it (D-122, D-152).
+	const fixed: unknown =
+		field.codec === undefined ? field.options['default'] : field.codec.filled
 	return {
 		kind: 'scalar',
 		name,
@@ -179,12 +182,8 @@ function scalarField(name: string, field: FieldDefinition): FieldInfo {
 		unique: field.options['unique'] === true,
 		...(field.options['search'] === true ? { search: true } : {}),
 		...(typeof dbName === 'string' ? { dbName } : {}),
-		// `null` is no value: a create without one stores none either. A
-		// field type's default is a value code sees, never a column's (D-122).
-		...(fixed === undefined ||
-		fixed === null ||
-		typeof fixed === 'function' ||
-		field.codec !== undefined
+		// `null` is no value: a create without one stores none either.
+		...(fixed === undefined || fixed === null || typeof fixed === 'function'
 			? {}
 			: { default: fixed }),
 		options: field.options,

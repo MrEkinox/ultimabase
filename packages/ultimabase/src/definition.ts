@@ -13,6 +13,10 @@ export type FieldOptions = { readonly [option: string]: unknown }
 /** What a plugin field type adds to its stored field (D-122). */
 export type Codec = {
 	readonly plugin: string
+	/** The field type's own options this field took (D-152). */
+	readonly options: { readonly [key: string]: unknown }
+	/** The stored value of the rows stored before the field (D-152). */
+	readonly filled?: unknown
 	readonly decode: (stored: unknown) => unknown
 	readonly encode: (value: unknown) => unknown
 	readonly schema: Standard
