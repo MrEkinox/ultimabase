@@ -118,6 +118,7 @@ function exposed(name: string, resolved: Resolved): readonly ExposedModel[] {
 				}),
 			),
 			with: key,
+			used: info.plugins.some((use) => use.code.name === name),
 			queries,
 			upsert: async (args, options) =>
 				// oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the kernel's upsert answers its row and its branch (D-142).

@@ -2,20 +2,27 @@
 // filter and order, planned once for its caller, and, on a stored row, that
 // filter and the row's sort keys, tested as `memory()` reads.
 import { accessFor, and } from './access.ts'
-import type { Filter, Order, Row } from './adapter.ts'
+import type { Filter, Nested, Order, Row, Schema } from './adapter.ts'
 import { Reader } from './memory-read.ts'
 import { sortable } from './memory-values.ts'
 import { isFilters } from './memory-conditions.ts'
-import { plan } from './query-args.ts'
-import { byIds, modelOf } from './query-where.ts'
+import { plan, uniqueWhere } from './query-args.ts'
+import { modelOf } from './query-where.ts'
+import { isObject } from './query-values.ts'
 import type { Caller } from './rules.ts'
 import type { Running } from './running.ts'
 import { current } from './running.ts'
 import { QueryScope, planned } from './scope.ts'
 
-/** The rows a live read follows, and their order, ending with `id`. */
-export type LivePlan = {
+/**
+ * The rows a live read follows, and their order, ending with `id`; `rights`
+ * is the part of `where` the caller's read rules and `beforeFind` add, and
+ * `include`, `count` and `fields` what its selection reads, as the adapter
+ * receives them.
+ */
+export type LivePlan = Pick<Nested, 'include' | 'count' | 'fields'> & {
 	readonly where: Filter | undefined
+	readonly rights: Filter | undefined
 	readonly orderBy: readonly Order[]
 }
 
@@ -25,42 +32,60 @@ function started(): Running {
 	return app
 }
 
-const liveKeys = new Set(['where', 'orderBy'])
+const shapeKeys = ['select', 'include', 'omit']
+const liveKeys = new Set(['where', 'orderBy', ...shapeKeys])
+const rowKeys = new Set(shapeKeys)
 
 /**
- * The `where` and `orderBy` of `args` as `caller` reads `model`: its read
- * rules and every `beforeFind` included.
+ * `args` as `caller` reads `model`: its read rules and every `beforeFind`
+ * included. A live row's `where` names one row, as `findUnique`'s.
  */
 export async function livePlan(
 	model: string,
 	args: unknown,
 	caller: Caller,
+	row = false,
 ): Promise<LivePlan> {
 	const app = started()
 	const { models } = app.resolved
 	const info = modelOf(models, model)
 	const access = accessFor(models, caller, app.logger)
 	const scope = new QueryScope(models, caller, access)
+	const { where: unique, ...shape } = isObject(args) ? args : {}
 	return app.work.run(async () =>
 		planned(scope, () => {
-			const { read } = plan(models, info, args, '', 'many', liveKeys, scope)
+			const { read } = row
+				? plan(models, info, shape, '', 'many', rowKeys, scope)
+				: plan(models, info, args, '', 'many', liveKeys, scope)
+			const rights = scope.readable(model)
+			const where = row
+				? uniqueWhere(models, info, unique, 'where', scope)
+				: read.where
+			const { include, count, fields } = read
 			return {
-				where: and(read.where, scope.readable(model)),
+				...(include && { include }),
+				...(count && { count }),
+				...(fields && { fields }),
+				where: and(where, rights),
+				rights,
 				orderBy: read.orderBy ?? [{ field: 'id', direction: 'asc' }],
 			}
 		}),
 	)
 }
 
-/** The stored rows of `ids`, as Master, plugin fields undecoded. */
+/** The stored rows `read` finds, as Master, plugin fields undecoded. */
 export async function storedRows(
 	model: string,
-	ids: readonly string[],
+	read: Nested,
 ): Promise<readonly Row[]> {
 	const app = started()
-	return app.work.run(async () =>
-		app.adapter.find({ model, where: byIds(ids) }),
-	)
+	return app.work.run(async () => app.adapter.find({ ...read, model }))
+}
+
+/** The running application's schema, its plugins' models included. */
+export function liveSchema(): Schema {
+	return started().resolved.schema
 }
 
 /** Whether `filter` reads `model`'s row alone, so `matches` can test it. */

@@ -20,7 +20,14 @@ export { decimalPattern } from './decimal.ts'
 export type { Recorded } from './recorder.ts'
 export { recording } from './recorder.ts'
 export type { LivePlan } from './live.ts'
-export { inMemory, livePlan, matches, sortKeys, storedRows } from './live.ts'
+export {
+	inMemory,
+	liveSchema,
+	livePlan,
+	matches,
+	sortKeys,
+	storedRows,
+} from './live.ts'
 export { compareKeys } from './memory-values.ts'
 
 /** `logger` without its info lines. */

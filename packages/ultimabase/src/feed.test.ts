@@ -1,9 +1,15 @@
 // The change feed (D-154): the adapter gets one only when a plugin takes
 // changes; each plugin gets them in declaration order, a failing one logged.
-import { expect, it } from 'vitest'
+import { expect, it, vi } from 'vitest'
 import type { Adapter, Feed } from './adapter.ts'
 import type { Logger } from './index.ts'
-import { defineApp, defineModel, definePlugin, memory } from './index.ts'
+import {
+	defineApp,
+	defineModel,
+	definePlugin,
+	master,
+	memory,
+} from './index.ts'
 
 const Note = defineModel({
 	name: 'Note',
@@ -88,5 +94,28 @@ it("calls each plugin's hooks in order, past a plugin that fails", async () => {
 	expect(errors).toEqual([
 		[{ err: new Error('Broken.') }, "The plugin's changed failed."],
 	])
+	await app.stop()
+})
+
+it("runs a plugin's hooks outside the write that made the changes", async () => {
+	let counted: Promise<number> | undefined
+	const reading = definePlugin({
+		name: 'reading',
+		manifest,
+		changed: () => {
+			counted = Note.count({}, { as: master })
+		},
+	})
+	const app = defineApp({
+		database: memory(),
+		models: [Note],
+		plugins: [reading.plugin()],
+		logger,
+	})
+	await app.start()
+	await Note.create({ data: { text: 'a' } }, { as: master })
+	await vi.waitFor(() => expect(counted).toBeDefined())
+	expect(await counted).toBe(1)
+	// Inside the write's transaction, the count would hold it open.
 	await app.stop()
 })

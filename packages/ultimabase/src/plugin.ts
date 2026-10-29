@@ -123,6 +123,8 @@ export interface ExposedModel<W = unknown> {
 	readonly virtuals: readonly ExposedVirtual[]
 	/** The plugin's key of the model's `.with`, if it was given. */
 	readonly with: W | undefined
+	/** Whether the model's `use` lists the plugin's entry. */
+	readonly used: boolean
 	readonly queries: ModelQueries
 	/** `upsert`, which also says whether it created the row (D-142). */
 	readonly upsert: (

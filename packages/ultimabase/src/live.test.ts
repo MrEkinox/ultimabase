@@ -9,6 +9,7 @@ import {
 	compareKeys,
 	inMemory,
 	livePlan,
+	liveSchema,
 	matches,
 	recording,
 	sortKeys,
@@ -176,26 +177,59 @@ describe('a live plan', () => {
 			ada,
 		)
 		expect(live.orderBy.map(({ field }) => field)).toEqual(['rank', 'id'])
-		const rows = await storedRows(
-			'Post',
-			(await Post.findMany({}, M)).map(({ id }) => id),
-		)
+		const rows = await storedRows('Post', {})
 		const open = rows.filter((row) => matches('Post', row, live.where))
 		expect(open.map(({ title }) => title)).toEqual(['a'])
 		await Post.update(
 			{ where: { id: String(open[0]?.['id']) }, data: { draft: true } },
 			M,
 		)
-		const draft = first(await storedRows('Post', [String(open[0]?.['id'])]))
+		const draft = first(
+			await storedRows('Post', {
+				where: { id: { equals: String(open[0]?.['id']) } },
+			}),
+		)
 		expect(matches('Post', draft, live.where)).toBe(false)
 	})
 
 	it('orders by id alone when no order is given', async () => {
 		const live = await livePlan('Post', {}, master)
-		expect(live).toEqual({
+		expect(live).toMatchObject({
 			where: undefined,
+			rights: undefined,
 			orderBy: [{ field: 'id', direction: 'asc' }],
 		})
+	})
+
+	it('keeps the rights apart and plans the selection with its own rights', async () => {
+		const live = await livePlan(
+			'Post',
+			{ select: { title: true, author: { select: { name: true } } } },
+			ada,
+		)
+		expect(live.rights).toBeDefined()
+		expect(live.where).toEqual(live.rights)
+		expect(live.fields).toEqual(['id', 'title'])
+		expect(live.include?.['author']?.where).toEqual({
+			name: { not: 'Hidden' },
+		})
+	})
+
+	it('plans a live row by a unique where', async () => {
+		const live = await livePlan(
+			'Post',
+			{ where: { id: 'p' }, select: { title: true } },
+			ada,
+			true,
+		)
+		expect(live.where?.AND).toContainEqual({ id: { equals: 'p' } })
+		await expect(
+			livePlan('Post', { where: { title: 'a' } }, ada, true),
+		).rejects.toThrow('where')
+		expect(liveSchema().models.map(({ name }) => name)).toEqual([
+			'Author',
+			'Post',
+		])
 	})
 
 	it('refuses what a live read does not take', async () => {
@@ -236,11 +270,7 @@ describe('a filter tested in memory', () => {
 			{ title: { contains: 'b', mode: 'insensitive' } },
 			{ OR: [{ rank: { in: [0, 4] } }, { title: { startsWith: 'B' } }] },
 		]
-		const all = await Post.findMany({}, M)
-		const rows = await storedRows(
-			'Post',
-			all.map(({ id }) => id),
-		)
+		const rows = await storedRows('Post', {})
 		for (const where of filters) {
 			const found = await Post.findMany({ where }, M)
 			const live = await livePlan('Post', { where }, master)
@@ -259,7 +289,9 @@ async function bothOrders(orderBy: Ordered): Promise<unknown[][]> {
 	const live = await livePlan('Post', { orderBy }, master)
 	const found = await Post.findMany({ orderBy }, M)
 	const ids = found.map(({ id }) => id)
-	const rows = (await storedRows('Post', ids)).toReversed()
+	const rows = (
+		await storedRows('Post', { where: { id: { in: ids } } })
+	).toReversed()
 	const keyed = rows.map((row) => ({
 		id: row.id,
 		keys: sortKeys('Post', row, live.orderBy),
@@ -289,12 +321,7 @@ describe('sort keys', () => {
 			{ orderBy: { author: { name: 'asc' } } },
 			master,
 		)
-		const row = first(
-			await storedRows(
-				'Post',
-				(await Post.findMany({ take: 1 }, M)).map(({ id }) => id),
-			),
-		)
+		const row = first(await storedRows('Post', {}))
 		expect(() => sortKeys('Post', row, live.orderBy)).toThrow(
 			'The order by name reads another row.',
 		)
