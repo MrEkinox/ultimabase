@@ -9798,14 +9798,17 @@ Choice: completes D-31; the examples stay its source of truth.
 2. No code is written in a page. Every code block, the landing page's
    included, is a region of an example (D-131), marked `//#region <name>`
    and `//#endregion` in its file and included with
-   `<include cwd>examples/<example>/src/<file>#<name></include>`. A request
+   `<include cwd>../examples/<example>/src/<file>#<name></include>`, a path
+   from `website/`, where the site is built. A request
    and its response come from the example's test. Pages write only `bash`
    blocks, for the commands a developer types. A repository test, in
    `yarn validate`, refuses any other fenced block and an include whose file
    or region does not exist.
 3. Every value a package exports, from each entry point but `./internal`,
    appears in a region that a page includes, so an example shows each one.
-   The same repository test lists those missing. Examples are added where
+   The same repository test lists those missing; while the pages are
+   written, it holds that list, which only shrinks and is empty before the
+   site reaches `main`. Examples are added where
    the existing ones fall short, first `files` (on `memoryFiles()`) and
    `realtime` with its live client (`@ultimabase/live`, its Apollo link and
    its React hook), each as D-131 says.
@@ -9898,7 +9901,7 @@ export const Post = defineModel({
 
 {/* After: website/content/docs/relations.mdx */}
 
-<include cwd>examples/relations/src/models.ts#many-to-many</include>
+<include cwd>../examples/relations/src/models.ts#many-to-many</include>
 ````
 
 ```ts

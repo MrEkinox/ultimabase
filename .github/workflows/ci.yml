@@ -32,6 +32,15 @@ jobs:
       - uses: ./.github/actions/setup
       - run: yarn test:packed
 
+  website:
+    name: Website
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+      - uses: ./.github/actions/setup
+      - run: yarn website:build
+
   postgres:
     name: PostgreSQL
     runs-on: ubuntu-24.04

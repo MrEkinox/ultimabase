@@ -24,7 +24,10 @@
 		"**/coverage/**",
 		"**/dist/**",
 		"bench/compare/**",
-		"bench/typing/gen/**"
+		"bench/typing/gen/**",
+		"website/.next/**",
+		"website/.source/**",
+		"website/out/**"
 	],
 	"rules": {
 		"eslint/max-lines": ["error", { "max": 400 }],

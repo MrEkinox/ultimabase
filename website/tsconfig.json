@@ -1,0 +1,18 @@
+{
+	// Its own program, as an example is; Next bundles it.
+	"extends": "../tsconfig.base.json",
+	"compilerOptions": {
+		"allowImportingTsExtensions": true,
+		"composite": false,
+		"declaration": false,
+		"declarationMap": false,
+		"isolatedDeclarations": false,
+		"jsx": "react-jsx",
+		"lib": ["DOM", "DOM.Iterable", "ES2024"],
+		"module": "ESNext",
+		"moduleResolution": "Bundler",
+		"noEmit": true,
+		"skipLibCheck": true
+	},
+	"include": ["app", "components", "lib", "scripts", "*.ts", ".source"]
+}
