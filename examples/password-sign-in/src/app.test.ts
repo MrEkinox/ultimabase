@@ -93,6 +93,7 @@ describe('the rules on posts', () => {
 	})
 
 	it('shows a draft to its author only, and a published post to all', async () => {
+		//#region drafts
 		const { ada, grace, post } = await written()
 		const hello = [{ node: { title: 'Hello' } }]
 		expect(await titles()).toEqual([])
@@ -113,6 +114,18 @@ describe('the rules on posts', () => {
 		expect(await request(publish, { id: post }, as(grace.token))).toMatchObject(
 			refused('ACCESS_DENIED'),
 		)
+		//#endregion
+	})
+
+	it('shows names to signed-in users only', async () => {
+		//#region names
+		const ada = await signUp('ada')
+		const names = '{ users { edges { node { name } } } }'
+		expect(await request(names)).toEqual({ data: { users: { edges: [] } } })
+		expect(await request(names, {}, as(ada.token))).toEqual({
+			data: { users: { edges: [{ node: { name: 'ada' } }] } },
+		})
+		//#endregion
 	})
 
 	it('lets each user rename only themself, and no client make an editor', async () => {

@@ -7,6 +7,7 @@ import { password } from '@ultimabase/password'
 import { defineRole, hasRole } from '@ultimabase/roles'
 import { allow, defineModel } from 'ultimabase'
 
+//#region role
 // Each role has a unique name, its members, and the roles it inherits.
 export const Role = defineRole({
 	name: 'Role',
@@ -14,7 +15,9 @@ export const Role = defineRole({
 	use: [graphql()],
 	// Clients read the roles; the server gives them.
 }).with({ access: allow.readOnly })
+//#endregion
 
+//#region user
 export const User = defineUser({
 	name: 'User',
 	use: [graphql(), password()],
@@ -26,7 +29,9 @@ declare module 'ultimabase' {
 		readonly user: typeof User
 	}
 }
+//#endregion
 
+//#region note
 export const Note = defineModel({
 	name: 'Note',
 	use: [
@@ -47,3 +52,4 @@ export const Note = defineModel({
 		delete: allow.public,
 	},
 })
+//#endregion

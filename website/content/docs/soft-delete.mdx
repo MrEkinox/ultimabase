@@ -1,0 +1,100 @@
+---
+title: Soft delete
+description: Keep deleted rows in a trash, dated, and bring them back.
+---
+
+`@ultimabase/soft-delete` keeps the rows a delete removes: a deleted row
+gets a `deletedAt` date and leaves every ordinary read, and the model's
+trash still finds it. `softDelete()` goes in a model's `use`:
+
+```npm
+npm install @ultimabase/soft-delete
+```
+
+<include cwd meta='title="src/models.ts"'>
+	../examples/soft-delete/src/models.ts#post
+</include>
+
+and `softDeletePlugin()` in the application's plugins:
+
+<include cwd meta='title="src/app.ts"'>
+	../examples/soft-delete/src/app.ts#plugins
+</include>
+
+A client deletes a post as usual, with `deletePost`; the post leaves
+`posts`, and the trash has it with its date:
+
+<include cwd meta='title="src/app.test.ts"'>
+	../examples/soft-delete/src/app.test.ts#trash
+</include>
+
+## From server code
+
+The model gets two commands: `Post.trash`, which reads the deleted rows with
+`findMany`, `findFirst`, `findUnique` and `count`, and `Post.restore`, which
+brings one back. A deleted row is gone for every other read, Master's
+included, and `deleteMany` keeps its rows too:
+
+<include cwd meta='title="src/app.test.ts"'>
+	../examples/soft-delete/src/app.test.ts#commands
+</include>
+
+## Over a transport
+
+No transport exposes the commands by themselves: a function gives them to
+clients, with the rules it chooses. Each command runs as the caller, so the
+model's rules apply:
+
+<include cwd meta='title="src/functions.ts"'>
+	../examples/soft-delete/src/functions.ts#functions
+</include>
+
+<include cwd meta='title="src/app.test.ts"'>
+	../examples/soft-delete/src/app.test.ts#restore
+</include>
+
+## Rules
+
+A delete still needs the model's `delete` rule, and its `beforeDelete` and
+`afterDelete` [hooks](/docs/next/hooks) run as for any delete. `trash` reads
+under the `read` rule and `restore` writes under the `update` rule.
+
+Only Master writes `deletedAt`, so a client deletes through the `delete`
+rule and never dates a row itself:
+
+<include cwd meta='title="src/app.test.ts"'>
+	../examples/soft-delete/src/app.test.ts#deleted-at
+</include>
+
+## Reference
+
+### `softDelete()` and `softDeletePlugin()`
+
+Neither takes an option. `softDeletePlugin()` must be in plugins when a
+model uses `softDelete()`. `softDelete()` adds:
+
+| What    | Name                                                      | Effect                                                                     |
+| ------- | --------------------------------------------------------- | -------------------------------------------------------------------------- |
+| field   | `deletedAt`                                               | An optional `dateTime`: the delete's date, `null` for a kept row.          |
+| command | `Post.trash.findMany`, `findFirst`, `findUnique`, `count` | The deleted rows, under the `read` rule.                                   |
+| command | `Post.restore({ where }, { as })`                         | Sets `deletedAt` back to `null`, under the `update` rule; returns the row. |
+
+### What a delete does
+
+| Case                    | Result                                                                  |
+| ----------------------- | ----------------------------------------------------------------------- |
+| `delete`, `deleteMany`  | Dates the rows and returns them, as a delete does; no row is removed.   |
+| the row's relations     | Stay: a soft-deleted row cascades nothing, and keeps its related rows.  |
+| the row's unique values | Stay taken: a new row with the same unique value is `UNIQUE_VIOLATION`. |
+| a read, a count         | Leaves the deleted rows out, for every caller.                          |
+
+### Errors
+
+| Code            | When                                                                                     |
+| --------------- | ---------------------------------------------------------------------------------------- |
+| `NOT_FOUND`     | `restore` of a row that is not deleted.                                                  |
+| `ACCESS_DENIED` | A caller other than Master writes `deletedAt`; a `delete` or `restore` the rules refuse. |
+
+### Limits
+
+- The plugin has no command that removes a deleted row for good.

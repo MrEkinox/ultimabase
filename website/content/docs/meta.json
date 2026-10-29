@@ -16,6 +16,12 @@
 		"functions",
 		"transactions",
 		"errors",
-		"testing"
+		"testing",
+		"---Plugins---",
+		"auth",
+		"password",
+		"roles",
+		"acl",
+		"soft-delete"
 	]
 }

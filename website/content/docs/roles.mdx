@@ -1,0 +1,139 @@
+---
+title: Roles
+description: Give users roles, let roles inherit others, and write rules that ask for a role.
+---
+
+`@ultimabase/roles` gives users roles, such as `writer` or `team`, and adds
+the rule `hasRole`. A role is a row of the role model, which `defineRole`
+declares with its members, the users:
+
+```npm
+npm install @ultimabase/roles
+```
+
+<include cwd meta='title="src/models.ts"'>
+	../examples/roles-and-acl/src/models.ts#role
+</include>
+
+The user model may list its roles, the other side of `members`:
+
+<include cwd meta='title="src/models.ts"'>
+	../examples/roles-and-acl/src/models.ts#user
+</include>
+
+`rolesPlugin()` goes in the application's plugins. Here it comes with
+[Authentication](/docs/next/auth), which gives each request its user, and
+[ACL](/docs/next/acl):
+
+<include cwd meta='title="src/app.ts"'>
+	../examples/roles-and-acl/src/app.ts#plugins
+</include>
+
+## Give roles
+
+A role is an ordinary row: Master creates it and connects its members, as
+any [relation](/docs/next/relations). Here the server gives Ada the `writer`
+role, and Ada and Grace the `team` role:
+
+<include cwd meta='title="src/app.test.ts"'>
+	../examples/roles-and-acl/src/app.test.ts#give
+</include>
+
+The role model above is read-only for clients: only the server gives roles.
+Its own `access` decides otherwise, as any model's.
+
+## Ask for a role
+
+`hasRole('writer')` is a rule: in the `Note` model, only a writer creates a
+note.
+
+<include cwd meta='title="src/models.ts"'>
+	../examples/roles-and-acl/src/models.ts#note
+</include>
+
+<include cwd meta='title="src/app.test.ts"'>
+	../examples/roles-and-acl/src/app.test.ts#writer
+</include>
+
+`hasRole('admin', 'editor')` lets through a user who has either role. It is
+`false` for a visitor, and for Master, who needs no role. In a function or a
+hook, `hasRole(caller, 'writer')` answers the same question as a boolean.
+
+## Inherit roles
+
+A role's `inherits` lists the roles it includes: a member of `editor`, which
+inherits `writer`, is a writer too. `inheritedBy` is the other side.
+
+<include cwd meta='title="src/app.test.ts"'>
+	../examples/roles-and-acl/src/app.test.ts#inherit
+</include>
+
+`rolesOf(caller)` lists the caller's roles, inherited ones included, each
+`{ id, name }`; the `myRoles` function above returns their names:
+
+<include cwd meta='title="src/functions.ts"'>
+	../examples/roles-and-acl/src/functions.ts#my-roles
+</include>
+
+The plugin reads a user's roles once per request, before any rule runs, so
+a rule asking for a role runs no query. A role given during a request
+counts from the next one.
+
+## Reference
+
+### `defineRole(definition)`
+
+| Key       | Type               | Effect                                         |
+| --------- | ------------------ | ---------------------------------------------- |
+| `name`    | string             | The model's name, as `'Role'`.                 |
+| `members` | `() => User`       | The user model, which the members are rows of. |
+| `fields`  | `(f) => ({ ... })` | The role's own fields, as in `defineModel`.    |
+| `use`     | plugin uses        | The model's plugins, as `[graphql()]`.         |
+| `indexes` | index list         | As in `defineModel`.                           |
+| `dbName`  | string             | The stored table's or collection's name.       |
+
+It adds the fields:
+
+| Field         | Type                     | Effect                           |
+| ------------- | ------------------------ | -------------------------------- |
+| `name`        | `string`, unique         | The name rules ask for.          |
+| `members`     | `many` of the user model | The users who have the role.     |
+| `inherits`    | `many` of the role model | The roles a member has too.      |
+| `inheritedBy` | `many` of the role model | The roles that inherit this one. |
+
+`.with` takes the same keys as a model's, as `access`. An application has
+one role model.
+
+### `rolesPlugin()`
+
+It takes no option and must be in plugins when a model is declared with
+`defineRole`. For each signed-in user, it reads the roles once per request,
+following `inherits` five levels per query, as deep as they go; a cycle
+ends where it loops.
+
+### Functions
+
+| Function                    | Returns          | Effect                                                                                     |
+| --------------------------- | ---------------- | ------------------------------------------------------------------------------------------ |
+| `hasRole(...names)`         | a rule           | The caller has one of the roles, inherited ones included; `false` for a visitor or Master. |
+| `hasRole(caller, ...names)` | `boolean`        | The same, for a caller in a function or a hook.                                            |
+| `rolesOf(caller)`           | `{ id, name }[]` | The caller's roles, inherited ones included; `[]` for a visitor or Master.                 |
+
+### Errors
+
+At start:
+
+- An application without a role model: `rolesPlugin() needs a role model:
+declare it with defineRole.`
+- Two role models: `models lists two models defineRole returned: an
+application has one role model.`
+- `members` that is not a function: `defineRole(Role): members is () => the
+user model.`
+- A field of its own named `name`, `members`, `inherits` or `inheritedBy`:
+  `defineRole(Role): inherits is a field defineRole adds.`
+
+When a rule runs:
+
+- `hasRole` for a user, without `rolesPlugin()`: `hasRole reads the roles
+rolesPlugin() gives a caller: add rolesPlugin() to plugins.`
+- `hasRole()` without a name: `hasRole takes a role name.`
