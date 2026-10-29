@@ -9784,3 +9784,143 @@ const { data, fetchMore } = useLiveSubscription(CampaignsDocument, {
 const { data } = useLiveSubscription(CampaignDocument, { variables: { where: { id } } })
 // data.campaign: the campaign, or null once it is deleted or unreadable
 ```
+
+## D-155: The documentation website and the landing page
+
+Choice: completes D-31; the examples stay its source of truth.
+
+1. One site in `website/`, a private workspace: Fumadocs (`fumadocs-core`,
+   `fumadocs-ui`, `fumadocs-mdx`) on Next.js, exported as static files
+   (`output: 'export'`). The landing page is `/`, the documentation
+   `/docs`, searched in the browser by Fumadocs' own index. Any static host
+   serves it; GitHub Pages or Vercel is chosen when it is published, which
+   needs the maintainer's confirmation. English only.
+2. No code is written in a page. Every code block, the landing page's
+   included, is a region of an example (D-131), marked `//#region <name>`
+   and `//#endregion` in its file and included with
+   `<include cwd>examples/<example>/src/<file>#<name></include>`. A request
+   and its response come from the example's test. Pages write only `bash`
+   blocks, for the commands a developer types. A repository test, in
+   `yarn validate`, refuses any other fenced block and an include whose file
+   or region does not exist.
+3. Every value a package exports, from each entry point but `./internal`,
+   appears in a region that a page includes, so an example shows each one.
+   The same repository test lists those missing. Examples are added where
+   the existing ones fall short, first `files` (on `memoryFiles()`) and
+   `realtime` with its live client (`@ultimabase/live`, its Apollo link and
+   its React hook), each as D-131 says.
+4. The pages, after the documentation of Better Auth, Convex and Prisma,
+   take a developer from nothing to a running application with the
+   quickstart, then to every feature from the sidebar or the search:
+   - Get started: introduction, quickstart (`npm create ultimabase`), an
+     application's files;
+   - Concepts: models and fields, relations, queries, access rules, hooks,
+     functions, transactions, errors, testing;
+   - Plugins: one page each for auth, password, roles, ACL, soft delete,
+     files and realtime;
+   - Transports: HTTP, GraphQL, REST;
+   - Databases: `memory()`, PostgreSQL and its migrations;
+   - Deploy: `ultimabase start` and `migrate deploy`;
+   - Clients: the live client, its Apollo link and its React hook;
+   - Write a plugin: `definePlugin`, its hooks, field types and API.
+
+   Each page is clear before it is complete, and complete: it opens with
+   what its subject is for and its smallest example, then each case a
+   developer meets, and ends with a reference of every option, its type,
+   default and effect, every error code it can return, and its limits. A
+   developer should never need the sources to finish a task.
+   When the compiler's API lists the options of an exported function, the
+   repository test also checks that each one appears in a page; otherwise
+   the audit before publication checks them.
+
+5. For agents: `/llms.txt` lists the pages, `/llms-full.txt` holds them all,
+   and each page is also served as Markdown at `/docs/<page>.md`, built by
+   Fumadocs from the same pages.
+6. The landing page is one page whose text lives in one file: the product
+   in a sentence, `npm create ultimabase`, a model and its rule from an
+   example, the official plugins, and links to the documentation and the
+   repository.
+7. Each package gets a README of a few lines: what it does and a link to
+   its page, without code.
+8. The documentation is versioned by minor version. `/docs` shows the
+   latest published one, `/docs/<version>` each one, `/docs/next` the
+   pages of `main`, and a menu switches between them. The pages of `main`
+   live in `website/content/docs/`. Publishing a version runs
+   `yarn website:freeze`, which copies them to
+   `website/content/versions/<version>/` with each include replaced by its
+   region's code, so they no longer move with the examples; a patch
+   version replaces its minor version's copy. A copy holds no include, and
+   the repository test checks it. Until 0.1 is published, the site has
+   `next` alone.
+9. `yarn website:build` runs in its own CI job, outside `yarn validate`
+   (D-06). The site is formatted, linted and type-checked with the
+   repository; like the examples, it is outside coverage and line budgets.
+
+Why:
+
+- The previous website cost a lot to keep in sync (D-31): its code blocks
+  were written in the pages. A block included from an example compiles in
+  `yarn typecheck` and runs in its test, so a page cannot show code that
+  does not work.
+- The maintainer prefers Fumadocs' look. A static export keeps it without a
+  server, so the host is a choice made at publication, not now.
+- UltimaBase is a small kernel and its plugins, as Better Auth is: one page
+  per plugin, and one on writing a plugin, since the community's plugins
+  are the product.
+- A developer on 0.1 reads 0.1's pages after 0.2 ships; a frozen copy
+  keeps them as they were, whatever the examples become.
+
+Rejected:
+
+- Astro Starlight or VitePress: less work, but not the look the maintainer
+  wants.
+- Twoslash in 0.1: an included region lacks its file's imports, and the
+  examples already type-check.
+- Snippets checked by a compile step, or blocks marked unverified, as the
+  previous base allowed: one rule, every block from an example, leaves
+  nothing to classify.
+- A reference generated from the types: the editor already shows them.
+- Old versions built from their Git tags: each build would check out
+  every tag, and a host's shallow clone has none.
+- One copy per patch version: a patch changes no API.
+
+Example:
+
+````mdx
+{/* Before: a page wrote its code, which stopped working when the API moved */}
+
+```ts
+export const Post = defineModel({
+	name: 'Post',
+	fields: (f) => ({ tags: f.many(() => Tag) }),
+})
+```
+
+{/* After: website/content/docs/relations.mdx */}
+
+<include cwd>examples/relations/src/models.ts#many-to-many</include>
+````
+
+```ts
+// examples/relations/src/models.ts
+//#region many-to-many
+export const Post = defineModel({
+	name: 'Post',
+	fields: (f) => ({ tags: f.many(() => Tag) }),
+})
+//#endregion
+```
+
+```text
+website/content/docs/relations.mdx: a `ts` block is written in the page;
+include it from an example.
+website/content/docs/hooks.mdx: examples/functions-and-hooks/src/models.ts
+has no region `before-create`.
+```
+
+```text
+// Versions, once 0.2 is published
+website/content/docs/relations.mdx           /docs/next/relations   (main)
+website/content/versions/0.2/relations.mdx   /docs/relations        (latest)
+website/content/versions/0.1/relations.mdx   /docs/0.1/relations
+```
