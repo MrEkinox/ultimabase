@@ -1,6 +1,7 @@
 // What a live list's message changes (D-154): rows placed by their id after
 // another's, under a connection's edges or in a plain array of rows.
 import { LiveError } from './error.ts'
+import { isRecord } from './guards.ts'
 
 /** One change of a live list: a row gone from it, or placed after another. */
 export type LiveChange =
@@ -17,11 +18,6 @@ export type LiveMessage = {
 
 /** A live list: a connection, or an array of rows. */
 export type LiveList = readonly unknown[] | { readonly [key: string]: unknown }
-
-const isRecord = (
-	value: unknown,
-): value is { readonly [key: string]: unknown } =>
-	typeof value === 'object' && value !== null
 
 const isRows = (list: LiveList): list is readonly unknown[] =>
 	Array.isArray(list)

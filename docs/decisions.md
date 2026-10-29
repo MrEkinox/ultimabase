@@ -9468,7 +9468,14 @@ maxConnectionRows })`; a subscribe past either fails with
    - `fetchMore({ first })` adds `first` rows and resolves once the grown
      result arrived. The link grows the variable that the root field's
      `first` (or `take`) argument reads, whatever its name; without one,
-     `fetchMore` is refused.
+     `fetchMore` is refused. The hook passes the link an object as the
+     subscription's `live` context, on which the link sets `fetchMore`; a
+     subscription made without the hook grows the same way. The link
+     subscribes again with the grown variable in the tick it completes, so
+     graphql-ws keeps the socket the token holds on.
+   - The link evicts a `gone` row from Apollo's cache, by its `__typename`
+     and `id`. Out of step, the link and `liveFetch` read the list again
+     without the token.
    - Peers: `@apollo/client` 4 and its `rxjs`, React 18 or 19. Tests run
      against a running server, the hook's under `happy-dom` with React's
      `act`.

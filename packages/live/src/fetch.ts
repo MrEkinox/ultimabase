@@ -3,9 +3,9 @@
 // reconnects with its token, backing off, and grows by reopening with it.
 import type { EventSourceMessage } from 'eventsource-parser/stream'
 import { EventSourceParserStream } from 'eventsource-parser/stream'
-import type { LiveList, LiveMessage } from './apply.ts'
 import { applyLive } from './apply.ts'
 import { LiveError } from './error.ts'
+import { isList, isMessage, isRecord } from './guards.ts'
 
 /** What a live read sends with each request. */
 export type LiveFetchOptions = {
@@ -30,17 +30,6 @@ type Listener<T> = {
 
 const firstBackoff = 100
 const lastBackoff = 5000
-
-const isRecord = (
-	value: unknown,
-): value is { readonly [key: string]: unknown } =>
-	typeof value === 'object' && value !== null
-const isList = (value: unknown): value is LiveList =>
-	Array.isArray(value) || isRecord(value)
-const isMessage = (value: unknown): value is LiveMessage =>
-	isRecord(value) &&
-	typeof value['revision'] === 'number' &&
-	(value['changes'] === undefined || Array.isArray(value['changes']))
 
 /** The server's `{ code, message }`, as a `LiveError`. */
 function errorOf(body: unknown): LiveError {
