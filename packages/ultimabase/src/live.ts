@@ -146,18 +146,17 @@ const servable = (read: Read): boolean =>
 	) &&
 	inMemory(read.model, read.where)
 
-/** The stored `rows` that pass `read`, in its order and with its fields. */
+/**
+ * The stored `rows` that pass `read`, in its order; the find that asked for
+ * them keeps the fields its shape selects.
+ */
 function served(read: Read, rows: Iterable<Row>): Row[] {
-	const { model, fields, orderBy = [] } = read
+	const { model, orderBy = [] } = read
 	const kept = [...rows].filter((row) => matches(model, row, read.where))
 	const keys = new Map(kept.map((row) => [row, sortKeys(model, row, orderBy)]))
 	const key = (row: Row): unknown[] => keys.get(row) ?? []
 	kept.sort((a, b) => compareKeys(key(a), key(b), orderBy))
-	if (fields === undefined) return kept
-	return kept.map((row) => ({
-		...Object.fromEntries(fields.map((field) => [field, row[field]])),
-		id: row.id,
-	}))
+	return kept
 }
 
 /**

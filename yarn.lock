@@ -1112,6 +1112,9 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@ultimabase/realtime@workspace:packages/realtime"
   dependencies:
+    "@ultimabase/acl": "workspace:*"
+    "@ultimabase/roles": "workspace:*"
+    "@ultimabase/soft-delete": "workspace:*"
     "@ultimabase/testing": "workspace:*"
     ultimabase: "workspace:*"
     vite: "npm:8.3.4"

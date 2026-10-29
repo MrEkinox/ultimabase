@@ -399,18 +399,19 @@ describe('rows served to a caller', () => {
 		const rows = new Map(stored.map((row) => [row.id, row]))
 		const ids = [...rows.keys()]
 		const where = { id: { in: ids } }
-		for (const select of [undefined, { id: true, title: true }]) {
-			const args = select === undefined ? { where } : { select, where }
+		const orderBy = [{ title: 'desc' }] as const
+		const shapes = [
+			{ where, orderBy },
+			{ select: { id: true, title: true }, where, orderBy },
+			{ omit: { title: true }, where, orderBy },
+		] as const
+		for (const args of shapes) {
 			const { result, reads } = await recording(async () =>
 				servedRows('Post', args, ada, rows),
 			)
 			expect(reads).toEqual([])
 			expect(result).toHaveLength(3)
-			const found =
-				select === undefined
-					? await Post.findMany({ where }, { as: ada })
-					: await Post.findMany({ select, where }, { as: ada })
-			expect(byId(result)).toEqual(byId(found))
+			expect(result).toEqual(await Post.findMany(args, { as: ada }))
 		}
 	})
 

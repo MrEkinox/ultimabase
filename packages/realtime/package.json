@@ -29,6 +29,9 @@
 		"ultimabase": "^0.0.0"
 	},
 	"devDependencies": {
+		"@ultimabase/acl": "workspace:*",
+		"@ultimabase/roles": "workspace:*",
+		"@ultimabase/soft-delete": "workspace:*",
 		"@ultimabase/testing": "workspace:*",
 		"ultimabase": "workspace:*",
 		"vite": "8.3.4",
