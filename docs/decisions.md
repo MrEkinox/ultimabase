@@ -9334,9 +9334,12 @@ whatever the first two cost.
 
 1. `@ultimabase/realtime` exports `realtimePlugin(options)` and the model
    entry `realtime()`. A model is live when its `use` lists `realtime()`;
-   `.with({ realtime: { maxLive } })` sets its limit. It requires
-   `httpPlugin` and serves through `graphqlPlugin` and `restPlugin` when they
-   are present.
+   `.with({ realtime: { maxLive } })` sets its limit. It serves through
+   `graphqlPlugin` and `restPlugin` when they are present, and requires
+   `httpPlugin` once they do; its engine alone needs no transport. The
+   engine offers transports `connect(request)`, a viewer of the request's
+   caller, whose `list` and `row` follow a read and send messages of their
+   own shape, which each transport writes as point 4 says.
 2. A live read has the name, arguments, selection and type of the read it
    follows:
    - GraphQL: `subscription { campaigns(where, orderBy, first) { … } }`
@@ -9351,7 +9354,8 @@ whatever the first two cost.
    `maxTake` (100) per request, as any read (D-107). The window grows by
    `fetchMore` (point 7), up to `maxLive` rows, 1 000 by default, set as
    `realtimePlugin({ maxLive })` and per model. A nested list counts its rows
-   times its parents', as `maxRows` counts them (D-107). Beyond `maxLive` the
+   times its parents', as `maxRows` counts them (D-107), so it needs a
+   `take`. Beyond `maxLive` the
    subscribe or the growth fails with `VALIDATION_FAILED`: `first is over
 1000, the most a live list follows.`
 4. Messages. The first is the read's result, `{ data }`. Each later one
@@ -9451,6 +9455,10 @@ maxConnectionRows })`.
    - A write reports only what it changed: no row is loaded for it, so the
      unloaded deletes of D-102 stay unloaded. A link found already there
      is not reported, nor a delete's implicit unlinks.
+   - The kernel calls the hooks outside every async context: a hook's
+     queries never join the write that made the changes, whose transaction
+     `memory()` may still hold. Changes heard once the application stopped
+     are ignored.
    - `postgres()`: each write statement notifies its own changes from a
      CTE, with no round trip of its own and no `BEGIN` added (D-99).
      Each changed part sends `pg_notify` on `ultimabase:<schema>` by
@@ -9466,29 +9474,42 @@ maxConnectionRows })`.
    - At subscribe, the server plans the read once and keeps its effective
      filter: the `where`, the read rules and every `beforeFind` (D-71,
      D-86), as `QueryScope.readable` gives it.
-   - Per window row it keeps the id, the order keys and the ids of the
-     selected `one` relations; it never keeps the serialized row.
-   - Subscriptions with the same effective filter, order and selection, and
-     the same readable fields, share one window.
-   - A changed row is a candidate when it is in the window, or when the
-     filter's equalities, checked in memory, do not exclude it.
-   - The candidate row is read once. Each distinct filter that reads the
-     row alone is evaluated on it in memory, as `memory()` evaluates it;
-     the others are checked in one query,
-     `SELECT (f1) AS s1, (f2) AS s2 … WHERE id = $1`. A `_search` condition
-     is one of the others: each database ranks a search its own way (D-148).
+   - Per window row it keeps the id and the order keys, and per selected
+     relation the rows it reached; it never keeps the serialized row. Every
+     level of the selection reads its `id`, which tracks the rows.
+   - The window holds one row more than it shows: whether rows follow needs
+     no read.
+   - The window comes from the stored rows under the effective filter; its
+     rows are then read as the caller, by `findMany` on their ids. A row the
+     plan places but the caller cannot read leaves the window, `gone`; past
+     three such rounds the live read fails.
+   - A changed row is a candidate when it is inserted, or when its update
+     sets a field the filter or the order reads.
+   - A flush reads each candidate row once for every live read. A filter
+     that reads the row alone is evaluated on it in memory, as `memory()`
+     evaluates it; the others are checked in one query per live read,
+     `WHERE id IN (…) AND (filter)`. A `_search` condition is one of the
+     others: each database ranks a search its own way (D-148).
+   - Shared windows, an in-memory check of the filter's equalities before
+     the row is read, and one query for every filter are left for the
+     benchmark (point 13) to call for.
    - A live list's `orderBy` takes the model's own fields. A sort through a
      `one` relation, by `_count` or by `_relevance` is refused at
      subscribe: a write to another row would move this one.
    - A matching row is placed by its order keys with a binary search over
      the window. A row placed after the last one is outside. A row leaving
      a full window brings in the next one with one read after the last
-     row's keys.
+     row's keys. A deleted row past the window changes the count only.
    - A write to a model the filter reaches through a relation (a
      `CampaignMember` added) finds the rows it affects with one indexed
-     query on that relation, then follows them as above.
+     query on that relation, then follows them as above. A link lost where
+     the target stores it, or a row deleted there, makes every window row
+     a candidate; under `NOT`, `isNot`, `every`, `none` or `is: null`, where
+     a lost link may add a row, the window is read again.
    - A write to a selected `one` relation's row, or to a nested list's row,
-     sends the window rows that point to it again.
+     sends the window rows that point to it again. A nested filter or order
+     that reaches another model sends every window row again on any write
+     to it.
    - `totalCount` costs one count per message that adds or removes rows,
      only when it is selected.
    - A selected relation is read once per message for all the rows that
@@ -9501,17 +9522,20 @@ maxConnectionRows })`.
       the ids it reached. A write rebuilds the caller when it changes a
       recorded id, when its row passes a recorded `where`, or when it links
       or unlinks a relation a recorded read follows or filters through. A
-      `where` that reads another row, a read without ids (a count) facing an
-      insert or a delete, and a change past `feedIds` all rebuild it. When its effective filters
-      change, its windows resync; when it is no longer the same user, its
-      subscriptions close. A session deleted or revoked (D-112) therefore
-      closes them, and a role removed (D-123) resyncs them.
-    - A session also closes its subscriptions when it expires.
+      `where` that reads another row, a read without ids (a count) facing
+      any write to its model, and a change past `feedIds` all rebuild it.
+      A rebuild plans each live read again. A live read whose plan changed
+      resyncs; one that can no longer be planned closes. When the caller is
+      no longer the same user, or `identify` fails, every live read closes.
+      A session deleted or revoked (D-112) therefore closes them, and a role
+      removed (D-123) resyncs them.
+    - A session that expires closes its subscriptions at the next rebuild:
+      `refresh` bounds how late.
     - Every caller is rebuilt every 5 minutes, which catches what a hook
       reads outside the database. `realtimePlugin({ refresh })` sets the
       delay.
-    - Resyncs run in a queue of bounded concurrency, so a change of the
-      role tree does not read every window at once.
+    - A flush and a rebuild reach the viewers 8 at a time, so a change of
+      the role tree does not read every window at once.
     - A row removed for rights is `gone`; the link evicts it from Apollo's
       cache, so no other component keeps it.
 11. Robustness:
