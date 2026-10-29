@@ -63,6 +63,8 @@ function read(file: string): [string, string | undefined] {
 	return [path, existsSync(path) ? readFileSync(path, 'utf8') : undefined]
 }
 
+const starter = 'packages/create-ultimabase/template/'
+
 it('writes no code in a page, and includes only regions that exist', () => {
 	const problems = pages.flatMap(([page, text]) => [
 		...fencesOf(text)
@@ -73,17 +75,22 @@ it('writes no code in a page, and includes only regions that exist', () => {
 			),
 		...includesOf(text).flatMap((include) => {
 			const [file, content] = read(include.file)
+			// The starter's template is included whole: its files are the
+			// developer's, without region markers.
+			const template = file.startsWith(starter)
 			if (
 				!fromWebsite(include) ||
-				!file.startsWith('examples/') ||
-				include.region === undefined
+				(template
+					? include.region !== undefined
+					: !file.startsWith('examples/') || include.region === undefined)
 			) {
 				return [
-					`${page}: ${include.tag} is not <include cwd>../examples/<file>#<region></include>.`,
+					`${page}: ${include.tag} is not <include cwd>../examples/<file>#<region></include>, or a whole file of ${starter}.`,
 				]
 			}
 			if (content === undefined) return [`${page}: ${file} does not exist.`]
-			return region(content, include.region) === undefined
+			return include.region !== undefined &&
+				region(content, include.region) === undefined
 				? [`${page}: ${file} has no region \`${include.region}\`.`]
 				: []
 		}),
@@ -147,11 +154,8 @@ const undocumented: readonly string[] = [
 	'@ultimabase/files: filesPlugin',
 	'@ultimabase/files: memoryFiles',
 	'@ultimabase/files: s3',
-	'@ultimabase/graphql: graphqlPlugin',
 	'@ultimabase/http: clientOf',
-	'@ultimabase/http: httpPlugin',
 	'@ultimabase/http: routes',
-	'@ultimabase/http: validate',
 	'@ultimabase/live/apollo: ultimabaseLive',
 	'@ultimabase/live/react: useLiveSubscription',
 	'@ultimabase/live: LiveError',
@@ -172,28 +176,20 @@ const undocumented: readonly string[] = [
 	'@ultimabase/soft-delete: softDeletePlugin',
 	'@ultimabase/testing: asUser',
 	'@ultimabase/testing: testAdapter',
-	'@ultimabase/testing: testApplication',
 	'ultimabase: CheckFailed',
 	'ultimabase: MigrationFailed',
 	'ultimabase: OutOfRange',
-	'ultimabase: PublicError',
 	'ultimabase: Refused',
 	'ultimabase: RelationViolation',
 	'ultimabase: UniqueViolation',
 	'ultimabase: allOf',
 	'ultimabase: anyOf',
-	'ultimabase: defineApp',
-	'ultimabase: defineEnum',
 	'ultimabase: defineFieldType',
-	'ultimabase: defineFunction',
 	'ultimabase: definePlugin',
-	'ultimabase: defineType',
 	'ultimabase: feedFields',
 	'ultimabase: feedIds',
 	'ultimabase: isLocalHost',
 	'ultimabase: isMaster',
-	'ultimabase: memory',
-	'ultimabase: transaction',
 ]
 
 it('shows every value a package exports in an included region', async () => {
@@ -201,11 +197,14 @@ it('shows every value a package exports in an included region', async () => {
 		.flatMap(([, text]) => includesOf(text))
 		.map((include) => {
 			const [, content] = read(include.file)
-			return content === undefined || include.region === undefined
-				? ''
+			if (content === undefined) return ''
+			return include.region === undefined
+				? content
 				: (region(content, include.region) ?? '')
 		})
 		.join('\n')
+		// A name a comment cites is not shown in code.
+		.replaceAll(/\/\*[\s\S]*?\*\/|(?<=^|\s)\/\/.*$/gmu, '')
 	const missing = (await valueExports()).filter((entry) => {
 		const value = entry.slice(entry.indexOf(': ') + 2)
 		return !new RegExp(`\\b${value}\\b`, 'u').test(shown)

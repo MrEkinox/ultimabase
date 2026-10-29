@@ -2,5 +2,14 @@
 	"title": "next",
 	"description": "The pages of main",
 	"root": true,
-	"pages": ["index", "relations"]
+	"pages": [
+		"---Get started---",
+		"index",
+		"quickstart",
+		"application",
+		"---Concepts---",
+		"models",
+		"queries",
+		"relations"
+	]
 }

@@ -1,0 +1,113 @@
+---
+title: An application's files
+description: Where the models, the functions, the application and its tests live, and what defineApp takes.
+---
+
+An application is a few TypeScript files that Node runs as they are written:
+
+| File                   | Holds                                                              |
+| ---------------------- | ------------------------------------------------------------------ |
+| `src/models.ts`        | The models: their fields, relations, access rules and hooks.       |
+| `src/functions.ts`     | The functions clients call beside the models' operations.          |
+| `src/app.ts`           | `defineApp`: the database, the plugins, the models, the functions. |
+| `src/server.ts`        | `await app.start()`, which `npm start` runs.                       |
+| `src/*.test.ts`        | The tests, each file on a new in-memory database.                  |
+| `ultimabase.config.ts` | For the `ultimabase` command: the application it runs.             |
+
+A larger application splits `models.ts` and `functions.ts` into folders; the
+names are a convention, not a rule. The application below sells products: its
+models, a function that places an order, and the application that puts them
+together.
+
+## The models
+
+Each model is a table: `defineModel` names it and declares its fields, then
+`.with()` adds what reads its typed rows, its access rules and its hooks.
+
+<include cwd meta='title="src/models.ts"'>
+	../examples/functions-and-hooks/src/models.ts#models
+</include>
+
+[Models and fields](/docs/next/models), [Access rules](/docs/next/access)
+and [Hooks](/docs/next/hooks) cover each part.
+
+## The functions
+
+A function is an operation of your own, with a validated input, typed
+output and its own access rule. See [Functions](/docs/next/functions).
+
+<include cwd meta='title="src/functions.ts"'>
+	../examples/functions-and-hooks/src/functions.ts#place-order
+</include>
+
+## The application
+
+`defineApp` lists the database, the plugins, the models and the functions.
+It checks them together where you write it: a model that uses `graphql()`
+without `graphqlPlugin()` in `plugins`, or a relation to a model missing
+from `models`, is a type error on this line.
+
+<include cwd meta='title="src/app.ts"'>
+	../examples/functions-and-hooks/src/app.ts#app
+</include>
+
+## The server
+
+`src/server.ts` starts the application, apart from `src/app.ts`, so a test
+imports the application without starting it:
+
+<include cwd meta='title="src/server.ts"'>
+	../packages/create-ultimabase/template/src/server.ts
+</include>
+
+`app.start()` starts the database, then each plugin; the HTTP plugin listens
+on `PORT`, or 3000. `app.stop()` stops the plugins in reverse order, waits for the operations
+still running, then closes the database; a `SIGTERM` calls it.
+
+## The config file
+
+The `ultimabase` command (`ultimabase dev`, `ultimabase migrate`, see
+[PostgreSQL](/docs/next/postgres)) finds the application in
+`ultimabase.config.ts`, which default-exports it:
+
+<include cwd meta='title="ultimabase.config.ts"'>
+	../examples/postgres/ultimabase.config.ts#config
+</include>
+
+An application on `memory()` does not need one. `--config <path>` names
+another file; `ultimabase.config.mts`, `.js` and `.mjs` are found too.
+
+## Reference
+
+### `defineApp(options)`
+
+| Option      | Type                                                 | Default     | Effect                                                                                                   |
+| ----------- | ---------------------------------------------------- | ----------- | -------------------------------------------------------------------------------------------------------- |
+| `database`  | an adapter                                           | required    | `memory()` or `postgres({ url })`. See [memory()](/docs/next/memory).                                    |
+| `plugins`   | plugins                                              | `[]`        | Each plugin the models and functions use, and those they require.                                        |
+| `models`    | models                                               | required    | Every model, including each one a relation points to.                                                    |
+| `functions` | functions                                            | `[]`        | The functions clients may call.                                                                          |
+| `masterKey` | `string`, `undefined` or `{ key, production: true }` | `undefined` | A request sending it in `x-ultimabase-master-key` acts as Master. See [Access rules](/docs/next/access). |
+| `logger`    | a Pino-like logger                                   | JSON lines  | Where the application writes its logs: `info`, `warn`, `error` and `child`.                              |
+
+It returns the application, with `start()` and `stop()`.
+
+### Type errors on the `defineApp` line
+
+| Message                                                  | Fix                          |
+| -------------------------------------------------------- | ---------------------------- |
+| `a model uses 'graphql', which is not in plugins`        | Add the plugin to `plugins`. |
+| `a function uses '<plugin>', which is not in plugins`    | Add the plugin to `plugins`. |
+| `a plugin requires '<plugin>', which is not in plugins`  | Add the plugin it requires.  |
+| `a relation points to '<Model>', which is not in models` | Add the model to `models`.   |
+| `two models are named '<Model>'`                         | Rename one.                  |
+
+### Errors on `start()`
+
+| Message                       | Cause                           |
+| ----------------------------- | ------------------------------- |
+| `The application is running.` | `start()` called a second time. |
+
+A schema the models cannot form, a database that cannot be reached, or a
+plugin whose `start` fails stops the start with that error, after stopping
+what had started.

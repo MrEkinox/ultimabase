@@ -18,7 +18,9 @@ export const app = defineApp({
 		passwordPlugin({ signUp: ['name'] }),
 	],
 	models: [User, Post],
+	//#region master-key
 	// A request with this key in `x-ultimabase-master-key` acts as Master, so
 	// a script can make an editor; unset, no request can.
 	masterKey: process.env['MASTER_KEY'],
+	//#endregion
 })

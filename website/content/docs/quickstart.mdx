@@ -1,0 +1,80 @@
+---
+title: Quickstart
+description: Create an application, run it, query it over GraphQL and test it.
+---
+
+You need Node 24.7 or later: Node runs the TypeScript as it is written, with no
+build step.
+
+## Create the application
+
+```bash
+npm create ultimabase@latest my-app
+cd my-app
+npm install
+```
+
+`yarn create ultimabase` and `pnpm create ultimabase` work too; the starter
+prints the next commands for the manager that ran it. It refuses a directory
+that is not empty, and a name npm cannot use for a package.
+
+## Run it
+
+```bash
+npm start
+```
+
+The application listens on `http://localhost:3000`, GraphQL on `/graphql`.
+`PORT` sets another port. Create a post and list the posts:
+
+```bash
+curl http://localhost:3000/graphql -H 'content-type: application/json' \
+  -d '{"query":"mutation { createPost(data: { title: \"Hello\" }) { id title } }"}'
+curl http://localhost:3000/graphql -H 'content-type: application/json' \
+  -d '{"query":"{ posts { edges { node { title } } } }"}'
+```
+
+The database is `memory()`: it starts empty at each start.
+
+## What the starter wrote
+
+The model: a table, its fields, and who may read and write it.
+
+<include cwd meta='title="src/models.ts"'>
+	../packages/create-ultimabase/template/src/models.ts
+</include>
+
+The application: its database, its plugins and its models.
+
+<include cwd meta='title="src/app.ts"'>
+	../packages/create-ultimabase/template/src/app.ts
+</include>
+
+The server, which `npm start` runs:
+
+<include cwd meta='title="src/server.ts"'>
+	../packages/create-ultimabase/template/src/server.ts
+</include>
+
+## Test it
+
+```bash
+npm test
+```
+
+Each test file gets the application on a new in-memory database and a free
+port:
+
+<include cwd meta='title="src/app.test.ts"'>
+	../packages/create-ultimabase/template/src/app.test.ts
+</include>
+
+## Next
+
+- [An application's files](/docs/next/application) explains each file and
+  where new code goes.
+- [Models and fields](/docs/next/models) adds fields and models;
+  [Relations](/docs/next/relations) links them.
+- [Access rules](/docs/next/access) replaces `allow.public` with real rules.
+- [PostgreSQL](/docs/next/postgres) replaces `memory()` with a database that
+  keeps its rows.

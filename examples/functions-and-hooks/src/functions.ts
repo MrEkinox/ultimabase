@@ -1,4 +1,5 @@
 // The function a client calls to place an order of several lines.
+//#region place-order
 import { allow, defineFunction, master, transaction } from 'ultimabase'
 import { z } from 'zod'
 import { Order } from './models.ts'
@@ -24,3 +25,4 @@ export const placeOrder = defineFunction({
 			return orders
 		}),
 }).with({ access: allow.public })
+//#endregion

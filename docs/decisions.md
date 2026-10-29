@@ -9787,6 +9787,8 @@ const { data } = useLiveSubscription(CampaignDocument, { variables: { where: { i
 
 ## D-155: The documentation website and the landing page
 
+Amended 2026-10-29: the quickstart includes the starter's template.
+
 Choice: completes D-31; the examples stay its source of truth.
 
 1. One site in `website/`, a private workspace: Fumadocs (`fumadocs-core`,
@@ -9803,7 +9805,10 @@ Choice: completes D-31; the examples stay its source of truth.
    and its response come from the example's test. Pages write only `bash`
    blocks, for the commands a developer types. A repository test, in
    `yarn validate`, refuses any other fenced block and an include whose file
-   or region does not exist.
+   or region does not exist. The quickstart also includes the starter's
+   template, whole files of `../packages/create-ultimabase/template/`, the
+   code `npm create ultimabase` writes, which `yarn validate` type-checks
+   and tests as it does an example (amended 2026-10-29).
 3. Every value a package exports, from each entry point but `./internal`,
    appears in a region that a page includes, so an example shows each one.
    The same repository test lists those missing; while the pages are

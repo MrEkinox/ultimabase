@@ -1,4 +1,5 @@
 // The models: products in stock, and the orders that take from it.
+//#region models
 import { graphql } from '@ultimabase/graphql'
 import { PublicError, allow, defineModel, master } from 'ultimabase'
 
@@ -46,3 +47,4 @@ export const Order = defineModel({
 		},
 	},
 })
+//#endregion
