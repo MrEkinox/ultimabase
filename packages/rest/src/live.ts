@@ -1,30 +1,16 @@
 // A live model's list and row over Server-Sent Events (D-154): the read's
 // JSON as `event: data`, then what changed as `event: live`, the JSON GraphQL
-// sends under `extensions.live`; in page mode, `event: data` each time.
+// sends under `extensions.live`; in page mode, `event: data` each time. A
+// list's response carries the token that resumes it, as `x-ultimabase-resume`.
 import { applied, badInput, connection, run } from '@ultimabase/http/internal'
-import type {
-	LiveHandle,
-	LiveMessage,
-	RealtimeApi,
-	Viewer,
-} from '@ultimabase/realtime'
 import type { Caller, Row } from 'ultimabase'
 import type { Api, Args, Entry } from './entries.ts'
 import type { Shape } from './fields.ts'
 import { readerOf, shaped } from './fields.ts'
 import { bounded } from './limits.ts'
 import { paramsOf } from './params.ts'
-import type { Events } from './sse.ts'
-import { eventsTo } from './sse.ts'
-
-/** The realtime engine, and what ends each open stream. */
-export type Live = {
-	readonly realtime: RealtimeApi
-	readonly streams: Set<() => void>
-}
-
-type Changed = Exclude<LiveMessage, { readonly kind: 'closed' | 'row' }>
-type Write = (message: Changed) => void
+import type { Live, Sink, Write } from './streams.ts'
+import { streamed } from './streams.ts'
 
 /** Whether `request` asks for a stream of events. */
 export const wantsEvents = (request: Request): boolean =>
@@ -102,90 +88,6 @@ function listWriter(
 	}
 }
 
-/** Where a live read writes: an open stream of events, its response aside. */
-export type Sink = Omit<Events, 'response'>
-
-/** A live read to open, given the viewer and what takes its messages. */
-export type Open = (
-	viewer: Viewer,
-	send: (message: LiveMessage) => void,
-) => Promise<LiveHandle>
-
-/**
- * Follows the read `open` starts into `sink`; a list's changes go through
- * `list`. Changes are dropped while the client's buffer is full, until the
- * engine sends the window again.
- */
-export async function follow(
-	sink: Sink,
-	viewer: Viewer,
-	shape: Shape,
-	open: Open,
-	list?: (sink: Sink) => Write,
-): Promise<LiveHandle> {
-	const writes = list?.(sink)
-	let handle: LiveHandle | undefined
-	let dropping = false
-	let owed = false
-	const send = (message: LiveMessage) => {
-		if (message.kind === 'closed') {
-			// A viewer closes when its caller changed: the client reconnects.
-			if (!viewer.closed) {
-				sink.send('error', {
-					code: 'INTERNAL',
-					message: 'The live read closed.',
-				})
-			}
-			return sink.end()
-		}
-		if (dropping && message.kind === 'changes') return
-		if (!dropping && sink.full()) {
-			dropping = true
-			sink.drained(() => {
-				if (handle === undefined) owed = true
-				else void handle.resend()
-			})
-			return
-		}
-		dropping = false
-		if (message.kind !== 'row') return writes?.(message)
-		const { row, revision } = message
-		sink.send('data', row && shaped(row, shape), revision)
-	}
-	handle = await open(viewer, send)
-	if (owed) void handle.resend()
-	return handle
-}
-
-/** `request`'s stream of the read `open` starts, closed with the client. */
-async function streamed(
-	live: Live,
-	request: Request,
-	shape: Shape,
-	open: Open,
-	list?: (sink: Sink) => Write,
-): Promise<Response> {
-	const viewer = await live.realtime.connect(request)
-	let handle: LiveHandle | undefined
-	let ended = false
-	const events = eventsTo(request, () => {
-		ended = true
-		live.streams.delete(events.end)
-		handle?.close()
-		viewer.close()
-	})
-	live.streams.add(events.end)
-	try {
-		handle = await run(async () => follow(events, viewer, shape, open, list))
-	} catch (error) {
-		events.end()
-		viewer.close()
-		throw error
-	}
-	if (ended) handle.close()
-	return events.response
-}
-
 /** `GET /api/posts` with `Accept: text/event-stream`: a live window. */
 export async function liveList(
 	api: Api,
@@ -206,9 +108,9 @@ export async function liveList(
 			arg,
 			...(connected ? ['totalCount'] : []),
 		],
-		text: ['mode'],
+		text: ['mode', 'resume'],
 	})
-	const { totalCount, mode, ...args } = params
+	const { totalCount, mode, resume, ...args } = params
 	if (totalCount !== undefined && typeof totalCount !== 'boolean') {
 		throw badInput('totalCount must be true or false.')
 	}
@@ -242,8 +144,13 @@ export async function liveList(
 		request,
 		read.shape,
 		async (viewer, send) => viewer.list(name, listed, send),
-		(events) =>
-			listWriter(events, connected, page, totalCount === true, read.shape),
+		{
+			write: (events) =>
+				listWriter(events, connected, page, totalCount === true, read.shape),
+			signature: JSON.stringify([name, page, { ...listed, first: undefined }]),
+			first: rows,
+			resume: typeof resume === 'string' ? resume : undefined,
+		},
 	)
 }
 
@@ -259,10 +166,12 @@ export async function liveRow(
 	const followed = liveOf(live, entry)
 	const params = paramsOf(request.url, {
 		json: ['select', 'include'],
-		text: [],
+		// A live row is not resumed: it starts afresh.
+		text: ['resume'],
 	})
+	const { resume: _, ...fields } = params
 	const read = await run(async () =>
-		readerOf(api, caller.kind === 'master').fields(entry, params, ''),
+		readerOf(api, caller.kind === 'master').fields(entry, fields, ''),
 	)
 	bounded(api, caller, read.shape)
 	const args = { ...read.read, where: { id } }

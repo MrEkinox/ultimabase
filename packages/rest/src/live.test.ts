@@ -24,8 +24,9 @@ import {
 } from 'ultimabase'
 import type { RestOptions } from './index.ts'
 import { rest, restPlugin } from './index.ts'
-import type { Sink } from './live.ts'
-import { follow, wantsEvents } from './live.ts'
+import { wantsEvents } from './live.ts'
+import type { Sink } from './streams.ts'
+import { follow } from './streams.ts'
 import { acceptsGzip, eventsTo } from './sse.ts'
 
 const M = { as: master }
@@ -180,6 +181,8 @@ type Stream = {
 	readonly next: () => Promise<Event | undefined>
 	/** The next raw text the server sent. */
 	readonly raw: () => Promise<string>
+	/** Leaves, as a closed tab does. */
+	readonly leave: () => void
 }
 
 /** An SSE request of `url`, as Ada unless `headers` say otherwise. */
@@ -228,7 +231,7 @@ async function streaming(
 			buffer += more
 		}
 	}
-	return { response, next, raw }
+	return { response, next, raw, leave: () => controller.abort() }
 }
 
 /** A JSON response's status and body. */
@@ -428,6 +431,120 @@ describe('a live list', () => {
 		release?.()
 		await new Promise((done) => setTimeout(done, 20))
 		await Task.create({ data: { title: 'z', rank: 0, owner: 'ada' } }, M)
+		expect(errors).toEqual([])
+	})
+})
+
+const resumeHeader = 'x-ultimabase-resume'
+
+const waited = async (ms: number) =>
+	new Promise((done) => {
+		setTimeout(done, ms)
+	})
+
+/** The token of Ada's first two tasks, read live, then left. */
+async function left(api: string): Promise<string> {
+	const stream = await streaming(`${api}/tasks${qs({ ...ranked, first: 2 })}`)
+	await stream.next()
+	stream.leave()
+	// The server sees its client leave a few milliseconds later.
+	await waited(100)
+	const token = stream.response.headers.get(resumeHeader)
+	if (token === null) throw new Error('No resume token.')
+	return token
+}
+
+/** The first event of `url`'s stream, and the token it carries. */
+async function begun(url: string, headers: Record<string, string> = {}) {
+	const stream = await streaming(url, headers)
+	const { event } = (await stream.next()) ?? {}
+	return { event, token: stream.response.headers.get(resumeHeader) }
+}
+
+describe('a resumed live list', () => {
+	it('sends what changed since its client left, then only its new rows', async () => {
+		const api = await started()
+		const [a = '', b = '', c = ''] = await seeded()
+		const token = await left(api)
+		await Task.update({ where: { id: a }, data: { title: 'A' } }, M)
+		// The change reaches the kept list after the engine's 50 ms.
+		await waited(150)
+		const stream = await streaming(
+			`${api}/tasks${qs({ ...ranked, first: 3, resume: token })}`,
+		)
+		expect(stream.response.headers.get(resumeHeader)).toBe(token)
+		expect(await stream.next()).toEqual({
+			event: 'live',
+			id: revision,
+			data: {
+				revision,
+				changes: [
+					{ upsert: { cursor, node: { id: a, title: 'A' } }, after: null },
+				],
+			},
+		})
+		expect(await stream.next()).toEqual({
+			event: 'live',
+			id: revision,
+			data: {
+				revision,
+				changes: [
+					{ upsert: { cursor, node: { id: c, title: 'c' } }, after: b },
+				],
+				pageInfo: {
+					hasNextPage: false,
+					hasPreviousPage: false,
+					startCursor: cursor,
+					endCursor: cursor,
+				},
+			},
+		})
+	})
+
+	it('starts afresh as another read, token or user', async () => {
+		const api = await started()
+		const [a = ''] = await seeded()
+		const token = await left(api)
+		const another: unknown = expect.toSatisfy(
+			(other: unknown) => typeof other === 'string' && other !== token,
+		)
+		const fresh = { event: 'data', token: another }
+		for (const params of [
+			{ ...ranked, orderBy: [{ rank: 'desc' }], first: 2, resume: token },
+			{ ...ranked, first: 1, resume: token },
+			{ ...ranked, first: 2, resume: 'unknown' },
+		]) {
+			expect(await begun(`${api}/tasks${qs(params)}`)).toEqual(fresh)
+		}
+		expect(await begun(`${api}/tasks/${a}${qs({ resume: token })}`)).toEqual({
+			event: 'data',
+			token: null,
+		})
+		const same = `${api}/tasks${qs({ ...ranked, first: 2, resume: token })}`
+		// Another user ends the kept list, which its own user no longer finds.
+		expect(await begun(same, { authorization: 'bob' })).toEqual(fresh)
+		expect(await begun(same)).toEqual(fresh)
+	})
+
+	it('is refused past its limit', async () => {
+		const api = await started({ realtime: { maxLive: 2 } })
+		await seeded()
+		const token = await left(api)
+		const resumed = qs({ ...ranked, first: 3, resume: token })
+		const { status, body } = await answered(`${api}/tasks${resumed}`)
+		expect(status).toBe(400)
+		expect(body).toMatchObject({
+			code: 'VALIDATION_FAILED',
+			message: 'first is over 2, the most a live list follows.',
+		})
+	})
+
+	it('is no longer kept once the application stops', async () => {
+		const api = await started()
+		await seeded()
+		await left(api)
+		await stop?.()
+		stop = undefined
 		expect(errors).toEqual([])
 	})
 })

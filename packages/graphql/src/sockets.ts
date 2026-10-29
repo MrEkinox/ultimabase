@@ -102,13 +102,16 @@ function channelOf(viewer: Viewer, socket: WebSocket): Channel {
 			else waiters.push(then)
 		},
 		forbid: () => socket.close(CloseCode.Forbidden, 'Forbidden'),
+		kept: new Map(),
 	}
 }
 
 const text = (data: RawData): string =>
 	Buffer.concat([data].flat().map((part) => new Uint8Array(part))).toString()
 
-const isLive = (value: unknown): value is { readonly mode?: unknown } =>
+const isLive = (
+	value: unknown,
+): value is { readonly mode?: unknown; readonly resume?: unknown } =>
 	typeof value === 'object' && value !== null
 
 /** The authorization `connection_init` gives, over the upgrade's own. */
@@ -187,7 +190,12 @@ export function serveSockets(
 			const contextValue = operations.context(caller, client)
 			const live: unknown = payload.extensions?.['live']
 			const page = isLive(live) && live.mode === 'page'
-			lives.set(contextValue, { channel, page })
+			const resume = isLive(live) ? live.resume : undefined
+			lives.set(contextValue, {
+				channel,
+				page,
+				...(typeof resume === 'string' && { resume }),
+			})
 			return {
 				schema,
 				document,

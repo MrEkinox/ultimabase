@@ -553,6 +553,23 @@ describe('a viewer', () => {
 		expect(await message(seen, 2)).toMatchObject({ kind: 'changes' })
 	})
 
+	it('follows the request it adopts, unless another user sent it', async () => {
+		await Session.create({ data: { token: 'ada-two', user: 'ada' } }, M)
+		await Session.create({ data: { token: 'bob-token', user: 'bob' } }, M)
+		const viewer = await connect()
+		const { seen } = await list(viewer, 'Post', { ...ranked, first: 1 })
+		expect(await viewer.adopt(request('ada-two'))).toBe(true)
+		// The session it followed may end now.
+		await Session.deleteMany({ where: { token: 'ada-token' } }, M)
+		await Post.update(
+			{ where: { id: posts[0]?.id ?? '' }, data: { title: 'q1' } },
+			M,
+		)
+		expect(await message(seen, 2)).toMatchObject({ kind: 'changes' })
+		expect(await viewer.adopt(request('bob-token'))).toBe(false)
+		expect(await message(seen, 3)).toEqual({ kind: 'closed' })
+	})
+
 	it('stops following once it closes, and when the application stops', async () => {
 		const viewer = await connect()
 		const { seen } = await list(viewer, 'Post', { ...ranked, first: 1 })

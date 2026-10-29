@@ -9455,11 +9455,32 @@ maxConnectionRows })`; a subscribe past either fails with
 7. `fetchMore({ first })` grows the window without a new result in between.
    Apollo's `useSubscription` resets `data` to `undefined` when a variable
    changes, so the hook keeps its variables: the link completes the
-   operation and subscribes again with `extensions.live.resume`, an opaque
-   token bound to the connection and the caller. The server keeps a
-   completed window 10 seconds for it, reads only the new rows, and the link
-   emits the grown result on the same observable. Over SSE, the token is a
-   `resume` parameter of the new request.
+   operation and subscribes again with the grown `first` on the wire and
+   `extensions.live.resume`, an opaque token. The link emits the grown
+   result on the same observable.
+   - A live list's first result carries its token as
+     `extensions.live.resume`; over SSE it is the `x-ultimabase-resume`
+     header, and the new request takes it as a `resume` parameter. A read
+     keeps its token across resumes.
+
+     ```
+     subscribe { query, variables: { where, first: 50 }, extensions: { live: { resume } } }
+     GET /api/tasks?first=50&resume=…
+     ```
+
+   - The transport keeps every completed live list 10 seconds, with what it
+     sent: `complete` carries nothing, so any may be resumed. A kept list
+     still follows its changes, which wait, and still counts against the
+     connection's limits.
+   - A resume sends the changes that waited, then the new rows only, as a
+     `changes` message; the revision goes on.
+   - The token holds on its own WebSocket connection. Over SSE, where each
+     request is a connection, it holds for the same user: the kept read
+     takes the new request's caller and plans again under its rights.
+   - A token that does not apply starts the read afresh, with no error and
+     a new token: unknown, expired, another connection or user, another
+     read (model, `where`, `orderBy`, selection, `totalCount`, mode), a
+     smaller `first`, or a live row.
 8. Change feed, from the adapter, through the kernel:
    - A plugin takes the feed with two hooks, called in declaration order;
      one that throws is logged and the others still run:

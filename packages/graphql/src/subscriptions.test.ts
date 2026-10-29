@@ -195,6 +195,8 @@ function opening(
 		url,
 		webSocketImpl: sending(headers),
 		retryAttempts: 0,
+		// A resume follows its completed list on the same socket.
+		lazyCloseTimeout: 1000,
 		connectionParams: authorization === undefined ? {} : { authorization },
 		on: {
 			closed: (event) => {
@@ -240,6 +242,8 @@ async function failed(results: Results): Promise<unknown> {
 }
 
 const revision: unknown = expect.any(Number)
+const token: unknown = expect.any(String)
+const anything: unknown = expect.anything()
 const containing = (fields: object): unknown => expect.objectContaining(fields)
 const tasks = `subscription { tasks(first: 2, orderBy: [{ rank: asc }]) {
 	totalCount edges { node { id title } } pageInfo { hasNextPage }
@@ -261,7 +265,7 @@ describe('a live list', () => {
 					pageInfo: { hasNextPage: true },
 				},
 			},
-			extensions: { live: { revision } },
+			extensions: { live: { revision, resume: token } },
 		})
 		const zed = await Task.create(
 			{ data: { title: 'z', rank: 0, owner: 'ada' } },
@@ -308,7 +312,7 @@ describe('a live list', () => {
 		)
 		expect(await next(results)).toEqual({
 			data: { all: { count: 3, info: { more: false } } },
-			extensions: { live: { revision } },
+			extensions: { live: { revision, resume: token } },
 		})
 		await Task.create({ data: { title: 'z', rank: 0, owner: 'ada' } }, M)
 		expect(await next(results)).toEqual({
@@ -373,7 +377,7 @@ describe('a live list', () => {
 					edges: ['a', 'b', 'c', 'x'].map((title) => ({ node: { title } })),
 				},
 			},
-			extensions: { live: { revision } },
+			extensions: { live: { revision, resume: token } },
 		})
 		await results.return?.()
 	})
@@ -387,7 +391,7 @@ describe('a live list', () => {
 		)
 		expect(await next(results)).toEqual({
 			data: { tasks: [{ title: 'a' }, { title: 'b' }] },
-			extensions: { live: { revision } },
+			extensions: { live: { revision, resume: token } },
 		})
 		await Task.create({ data: { title: 'z', rank: 0, owner: 'ada' } }, M)
 		expect(await next(results)).toEqual({
@@ -424,6 +428,123 @@ describe('a live list', () => {
 			'A live read of Task failed: it reads again.',
 			'A live read of Task failed: it closes.',
 		])
+	})
+})
+
+const growing = `subscription ($first: Int, $order: SortOrder) {
+	tasks(first: $first, orderBy: [{ rank: $order }]) {
+		edges { node { title } } pageInfo { hasNextPage }
+	}
+}`
+
+/** The token of Ada's first two tasks, read live then completed on `ws`. */
+async function completed(ws: Client): Promise<string> {
+	const results = ws.iterate({ query: growing, variables: { first: 2 } })
+	const result = await next(results)
+	await results.return?.()
+	const extensions: unknown = Reflect.get(Object(result), 'extensions')
+	const live: unknown = Reflect.get(Object(extensions), 'live')
+	const resume: unknown = Reflect.get(Object(live), 'resume')
+	if (typeof resume !== 'string') throw new Error('No resume token.')
+	return resume
+}
+
+const waited = async (ms: number) =>
+	new Promise((done) => {
+		setTimeout(done, ms)
+	})
+
+describe('a resumed live list', () => {
+	it('sends what changed since it completed, then only its new rows', async () => {
+		const url = await started()
+		const [a = '', b = ''] = await seeded()
+		const { ws } = opening(url)
+		const kept = await completed(ws)
+		expect(a).not.toBe('')
+		await Task.update({ where: { id: a }, data: { title: 'A' } }, M)
+		// The change reaches the kept list after the engine's 50 ms.
+		await waited(150)
+		const results = ws.iterate({
+			query: growing,
+			variables: { first: 3 },
+			extensions: { live: { resume: kept } },
+		})
+		expect(await next(results)).toEqual({
+			extensions: {
+				live: {
+					revision: 2,
+					changes: [{ upsert: { node: { title: 'A' } }, after: null }],
+				},
+			},
+		})
+		expect(await next(results)).toEqual({
+			extensions: {
+				live: {
+					revision: 3,
+					changes: [{ upsert: { node: { title: 'c' } }, after: b }],
+					pageInfo: { hasNextPage: false },
+				},
+			},
+		})
+		await results.return?.()
+	})
+
+	it('starts afresh on another connection, read or token', async () => {
+		const url = await started()
+		await seeded()
+		const { ws } = opening(url)
+		const kept = await completed(ws)
+		const fresh = containing({
+			data: anything,
+			extensions: { live: { revision: 1, resume: token } },
+		})
+		const resuming = { live: { resume: kept } }
+		for (const [client, variables] of [
+			[opening(url).ws, { first: 2 }],
+			[ws, { first: 2, order: 'desc' }],
+			[ws, { first: 1 }],
+		] as const) {
+			const results = client.iterate({
+				query: growing,
+				variables,
+				extensions: resuming,
+			})
+			const result = await next(results)
+			expect(result).toEqual(fresh)
+			expect(result).not.toEqual(
+				containing({ extensions: { live: containing(resuming.live) } }),
+			)
+			await results.return?.()
+		}
+		const row = ws.iterate({
+			query: 'subscription { task(where: { id: "none" }) { title } }',
+			extensions: resuming,
+		})
+		expect(await next(row)).toEqual({
+			data: { task: null },
+			extensions: { live: { revision: 1 } },
+		})
+		await row.return?.()
+	})
+
+	it('fails past its limit', async () => {
+		const url = await started({ realtime: { maxLive: 2 } })
+		await seeded()
+		const { ws } = opening(url)
+		const kept = await completed(ws)
+		const results = ws.iterate({
+			query: growing,
+			variables: { first: 3 },
+			extensions: { live: { resume: kept } },
+		})
+		expect(await next(results)).toEqual({
+			errors: [
+				containing({
+					message: 'first is over 2, the most a live list follows.',
+					extensions: containing({ code: 'VALIDATION_FAILED' }),
+				}),
+			],
+		})
 	})
 })
 
@@ -556,7 +677,7 @@ describe('a connection', () => {
 			data: {
 				tasks: containing({ totalCount: 1 }),
 			},
-			extensions: { live: { revision } },
+			extensions: { live: { revision, resume: token } },
 		})
 		await results.return?.()
 	})

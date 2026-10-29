@@ -65,7 +65,7 @@ const whoOf = (caller: Caller): string => {
 
 export class Viewer {
 	readonly #settings: Settings
-	readonly #request: Request
+	#request: Request
 	readonly #onClose: () => void
 	readonly #onDue: () => void
 	readonly #live = new Map<Live, Subscription>()
@@ -142,6 +142,16 @@ export class Viewer {
 		await Promise.all(
 			lives.map(async (live) => live.apply(batch, loader, missed)),
 		)
+	}
+
+	/**
+	 * Follows `request`'s caller from now on, built again at once; whether
+	 * it is the same user, as a closed viewer is not.
+	 */
+	async adopt(request: Request): Promise<boolean> {
+		this.#request = request
+		await this.rebuild()
+		return !this.#closed
 	}
 
 	/** Builds the caller again, then each live read's plan. */

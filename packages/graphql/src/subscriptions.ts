@@ -1,7 +1,9 @@
 // The subscriptions (D-154): each live model's row and list, with its query's
 // name, arguments and type, followed by the realtime engine. The first result
 // is `{ data }`; a list then sends only what changed, under `extensions.live`,
-// or its whole window in page mode.
+// or its whole window in page mode. A list's first result carries the token
+// that resumes it once completed, grown.
+import { randomUUID } from 'node:crypto'
 import {
 	applied,
 	badInput,
@@ -18,8 +20,8 @@ import type {
 import { GraphQLError, GraphQLList, GraphQLNonNull } from 'graphql'
 import type { Row } from 'ultimabase'
 import { objectOf, uniqueInput, uniqueWhere } from './inputs.ts'
-import type { Live } from './live-stream.ts'
-import { LiveEvent, liveStream, lives } from './live-stream.ts'
+import type { Keep, Live } from './live-stream.ts'
+import { LiveEvent, liveStream, lives, resumed } from './live-stream.ts'
 import { connectionType, isMaster, listArgs, objectType } from './outputs.ts'
 import { whereOf } from './pages.ts'
 import type { Args, Context, Entry, Registry } from './registry.ts'
@@ -56,21 +58,43 @@ function connectionOf(
 	return { edges, pageInfo: { ...pageInfo, hasNextPage: hasMore }, totalCount }
 }
 
-const revised = (result: ExecutionResult, revision: number) => ({
+const revised = (
+	result: ExecutionResult,
+	revision: number,
+	resume?: string,
+) => ({
 	...result,
-	extensions: { ...result.extensions, live: { revision } },
+	extensions: {
+		...result.extensions,
+		live: { revision, ...(resume !== undefined && { resume }) },
+	},
 })
 
-/** What a live read's messages run, with what it sent so far. */
+/** Where a list's root, its edges, page info and count are in the result. */
+const keysOf = (info: GraphQLResolveInfo, connected: boolean) =>
+	[
+		String(info.path.key),
+		...(connected
+			? [
+					keyOf(info, 'edges'),
+					keyOf(info, 'pageInfo'),
+					keyOf(info, 'totalCount'),
+				]
+			: [undefined, undefined, undefined]),
+	] as const
+
+/**
+ * What a live read's messages run, with what it sent so far; a list's
+ * first result carries `resume`.
+ */
 function follower(
 	info: GraphQLResolveInfo,
 	connected: boolean,
 	page: boolean,
+	resume?: string,
 ): (message: Message) => LiveEvent {
-	const key = String(info.path.key)
-	const [edgesKey, pageInfoKey, totalCountKey] = connected
-		? [keyOf(info, 'edges'), keyOf(info, 'pageInfo'), keyOf(info, 'totalCount')]
-		: [undefined, undefined, undefined]
+	const [key, edgesKey, pageInfoKey, totalCountKey] = keysOf(info, connected)
+	let token = resume
 	let window: readonly Row[] = []
 	let hasMore = false
 	let count: number | undefined
@@ -95,8 +119,10 @@ function follower(
 				message.kind === 'reset'
 					? message.rows
 					: applied(window, message.changes, (row) => row)
+			const shown = token
+			token = undefined
 			return new LiveEvent(rootOf(window), (result) =>
-				revised(sent(result), revision),
+				revised(sent(result), revision, shown),
 			)
 		}
 		const { changes } = message
@@ -202,8 +228,8 @@ function liveFields(registry: Registry, entry: Entry): Fields {
 			subscribe: async (_, args, context, info) => {
 				const { channel, page } = liveOf(context)
 				const master = isMaster(context)
-				const { read, relay } = pageOf(pagination, entry, args, master)
-				const asked = relay === undefined ? read['take'] : relay.size
+				const { read: paged, relay } = pageOf(pagination, entry, args, master)
+				const asked = relay === undefined ? paged['take'] : relay.size
 				const rows = typeof asked === 'number' ? asked : entry.take
 				const arg = connected ? 'first' : 'take'
 				if (page && rows > entry.maxTake) {
@@ -214,22 +240,36 @@ function liveFields(registry: Registry, entry: Entry): Fields {
 				const nodes = rowNodes(registry, info)
 				const select = selectOf(registry, info, type, nodes, master)
 				const { orderBy: order } = args
-				const listed = {
+				const read = {
 					...whereOf(registry, name, args),
 					...(order === undefined || order === null ? {} : { orderBy: order }),
 					select,
-					first: rows,
 					totalCount:
 						connected && grouped(info, info.fieldNodes).has('totalCount'),
 				}
-				return run(async () =>
-					liveStream(
+				const signature = JSON.stringify([
+					name,
+					page,
+					keysOf(info, connected),
+					read,
+				])
+				const { resume } = liveOf(context)
+				return run(async () => {
+					const taken =
+						resume === undefined
+							? undefined
+							: await resumed(channel, resume, signature, rows)
+					if (taken !== undefined) return taken
+					const keep: Keep = { token: randomUUID(), signature, first: rows }
+					return liveStream(
 						channel,
-						async (send) => channel.viewer.list(name, listed, send),
-						follower(info, connected, page),
+						async (send) =>
+							channel.viewer.list(name, { ...read, first: rows }, send),
+						follower(info, connected, page, keep.token),
 						closedEvent,
-					),
-				)
+						keep,
+					)
+				})
 			},
 			resolve: rootOf,
 		},

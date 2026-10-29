@@ -63,7 +63,7 @@ const plugin = definePlugin<Rest>({
 		const { realtime } = plugins
 		const ends = new Set<() => void>()
 		streams.set(context, ends)
-		const live = realtime && { realtime, streams: ends }
+		const live = realtime && { realtime, streams: ends, kept: new Map() }
 		const api = {
 			entries: entriesOf(models, options),
 			pagination: options.pagination ?? 'connection',
