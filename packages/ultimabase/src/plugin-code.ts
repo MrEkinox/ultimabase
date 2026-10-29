@@ -123,6 +123,8 @@ export function pluginCode(definition: unknown): PluginCode {
 		stop: part('stop'),
 		identify: part('identify'),
 		caller: part('caller'),
+		changed: part('changed'),
+		missed: part('missed'),
 		functions: part('functions'),
 		models: Object.freeze([...models]),
 		plugins: apisOf(name, [...requires, ...optional]),

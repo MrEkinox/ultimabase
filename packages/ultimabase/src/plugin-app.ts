@@ -253,7 +253,8 @@ export function buildApis(
 	}
 }
 
-const inOrder = (
+/** `plugins` in the order they were declared. */
+export const inOrder = (
 	records: readonly PluginRecord[],
 	plugins: readonly Installed[],
 ): readonly Installed[] =>

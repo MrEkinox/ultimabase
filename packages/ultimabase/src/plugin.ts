@@ -7,7 +7,7 @@ import type { Identify } from './identify.ts'
 import { pluginEntries, pluginValues } from './definition.ts'
 import { pluginCode } from './plugin-code.ts'
 import type { FieldShape, ModelHooks, ModelShape } from './model.ts'
-import type { Row, SchemaModel } from './adapter.ts'
+import type { Changed, Row, SchemaModel } from './adapter.ts'
 import type { Queries, QueryOptions, UniqueWhere } from './query.ts'
 import type {
 	Caller,
@@ -307,6 +307,16 @@ export type PluginDefinition<T extends PluginTypes> = {
 		identity: { readonly kind: 'user'; readonly user: UserOf<Register> },
 		context: PluginContext<T>,
 	) => CallerKeys | Promise<CallerKeys>
+	/**
+	 * What each commit changed, on any server: the adapter sends it only when
+	 * a plugin takes it (D-154).
+	 */
+	readonly changed?: (
+		changes: readonly Changed[],
+		context: PluginContext<T>,
+	) => void
+	/** Changes may have been lost: what `changed` follows is unknown. */
+	readonly missed?: (context: PluginContext<T>) => void
 	/** Its own models, which no plugin is given (D-110). */
 	readonly models?: readonly ModelShape[]
 	/** The indexes it adds to each model that uses it (D-52, D-122). */

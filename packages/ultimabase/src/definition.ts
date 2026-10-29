@@ -92,6 +92,9 @@ export type PluginCode = {
 	readonly identify: Function | undefined
 	/** The keys it gives a user caller (D-121). */
 	readonly caller: Function | undefined
+	/** Takes what each commit changed (D-154). */
+	readonly changed: Function | undefined
+	readonly missed: Function | undefined
 	/** Its own models, which no plugin is given (D-110). */
 	readonly models: readonly unknown[]
 	/** Builds its functions when the application starts (D-113). */

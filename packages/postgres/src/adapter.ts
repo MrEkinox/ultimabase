@@ -3,18 +3,17 @@
 // application's own, and a test file may run in a schema of its own (D-137).
 import type {
 	LogEvent,
-	PostgresPool,
 	QueryExecutorProvider,
 	Transaction as Open,
 } from 'kysely'
 import { Kysely, PostgresDialect, sql } from 'kysely'
 import { Pool } from 'pg'
-import { parse } from 'pg-connection-string'
 import { CheckFailed, Refused } from 'ultimabase'
 import { joining, scratchable } from 'ultimabase/internal'
 import type {
 	Adapter,
 	CountRead,
+	Feed,
 	Logger,
 	Read,
 	Row,
@@ -28,7 +27,10 @@ import { apply, remoteOf, reset, stored } from './migrations.ts'
 import { Catalog } from './names.ts'
 import { overflowed } from './numbers.ts'
 import { fillsOf } from './fills.ts'
+import type { Listener } from './listen.ts'
+import { channelOf, listening } from './listen.ts'
 import { plan } from './plan.ts'
+import { pooled } from './pool.ts'
 import { compileCount, compileFind } from './read.ts'
 import {
 	connecting,
@@ -62,65 +64,6 @@ export type Postgres = Adapter & {
 		strings: TemplateStringsArray,
 		...values: readonly unknown[]
 	) => Promise<R[]>
-}
-
-/** The codes of a server the network does not reach, or does not know. */
-const unreachable =
-	/^(ECONNREFUSED|ENOTFOUND|EAI_AGAIN|ETIMEDOUT|EHOSTUNREACH|ENETUNREACH)$/
-
-/** What pg-pool throws when no connection frees, or opens, in time. */
-const busy = 'timeout exceeded when trying to connect'
-const silent = 'Connection terminated due to connection timeout'
-
-/**
- * `error`, or one naming the server `url` cannot reach, not its password
- * (D-105), or the connections that stayed busy.
- */
-function failed(
-	url: string,
-	error: unknown,
-	connections: number,
-	wait: number,
-): unknown {
-	const message = error instanceof Error ? error.message : ''
-	const seconds = `${wait / 1000}s`
-	if (message === busy) {
-		return new Error(
-			`Every one of the ${connections} PostgreSQL connections stayed busy for ${seconds}: a transaction may wait on something slow or never end.`,
-			{ cause: error },
-		)
-	}
-	const code: unknown = Reflect.get(Object(error), 'code')
-	const reachable = typeof code !== 'string' || !unreachable.test(code)
-	if (reachable && message !== silent) return error
-	const { host, port } = parse(url)
-	const address = `${host || process.env['PGHOST'] || 'localhost'}:${port || 5432}`
-	const why = reachable ? `no answer in ${seconds}` : code
-	const reached = new Error(
-		`Cannot reach PostgreSQL at ${address} (${why}): is it running, and is its url right?`,
-		{ cause: error },
-	)
-	return reachable ? reached : Object.assign(reached, { code })
-}
-
-/** `pool`, whose failures to give a connection say why. */
-function pooled(
-	url: string,
-	pool: Pool,
-	connections: number,
-	wait: number,
-): PostgresPool {
-	return {
-		options: pool.options,
-		connect: async () => {
-			try {
-				return await pool.connect()
-			} catch (error) {
-				throw failed(url, error, connections, wait)
-			}
-		},
-		end: async () => pool.end(),
-	}
 }
 
 /** What the callback a rollback ends throws, which `rollback()` swallows. */
@@ -183,8 +126,9 @@ async function write(
 	catalog: Catalog,
 	db: QueryExecutorProvider,
 	given: Write,
+	channel: string | undefined,
 ): Promise<Row[]> {
-	return run(catalog, db, given, compileWrite(catalog, given))
+	return run(catalog, db, given, compileWrite(catalog, given, channel))
 }
 
 /** Refuses a server below PostgreSQL 15 (D-50). */
@@ -202,7 +146,15 @@ export function foldWarning(ctype: string): string {
 export function createAdapter(options: Options): Postgres {
 	const { url, connections = 10, wait = 10_000, searchLanguage } = options
 	const remote = url ? remoteOf(url) : undefined
-	let state: { db: Kysely<object>; catalog: Catalog } | undefined
+	let state:
+		| {
+				db: Kysely<object>
+				catalog: Catalog
+				/** The feed's channel and listener, when it has a taker (D-154). */
+				channel?: string
+				listener?: Listener
+		  }
+		| undefined
 	/** A test file's schema, and whether a start created it. */
 	let scratch: { readonly name: string; made: boolean } | undefined
 	/** Each open transaction's own, for `sql` to join. */
@@ -212,7 +164,7 @@ export function createAdapter(options: Options): Postgres {
 		return state
 	}
 	const adapter: Postgres = {
-		start: async (schema: Schema, logger: Logger) => {
+		start: async (schema: Schema, logger: Logger, feed?: Feed) => {
 			if (!url) {
 				throw new Refused(
 					'postgres() was given no url: is the variable it reads set?',
@@ -231,8 +183,9 @@ export function createAdapter(options: Options): Postgres {
 			)
 			const extensions =
 				scratch !== undefined && trigram ? [await trigrams(url)] : []
+			const config = connecting(url, scratch?.name, extensions)
 			const pool = new Pool({
-				...connecting(url, scratch?.name, extensions),
+				...config,
 				max: connections,
 				connectionTimeoutMillis: wait,
 			})
@@ -260,7 +213,8 @@ export function createAdapter(options: Options): Postgres {
 					folds: boolean
 					ctype: string
 					language: boolean
-				}>`select current_setting('server_version_num') as version,
+					schema: string
+				}>`select current_setting('server_version_num') as version, current_schema() as schema,
 					lower('É') = 'é' as folds,
 					(select datctype from pg_database where datname = current_database()) as ctype,
 					exists (select from pg_ts_config as c join pg_namespace as n on n.oid = c.cfgnamespace where (c.cfgname = ${catalog.language} and pg_ts_config_is_visible(c.oid)) or n.nspname || '.' || c.cfgname = ${catalog.language}) as language`.execute(
@@ -280,23 +234,33 @@ export function createAdapter(options: Options): Postgres {
 					scratch.made = true
 					await emptied(db, scratch.name)
 				}
+				const channel = channelOf(scratch?.name ?? server?.schema ?? '')
+				state =
+					feed === undefined
+						? { db, catalog }
+						: {
+								db,
+								catalog,
+								channel,
+								listener: await listening(config, channel, feed, logger),
+							}
 			} catch (error) {
 				await db.destroy()
 				throw error
 			}
-			state = { db, catalog }
 		},
 		stop: async () => {
-			const db = state?.db
+			const stopping = state
 			state = undefined
-			await db?.destroy()
+			await stopping?.listener?.stop()
+			await stopping?.db.destroy()
 		},
 		find: async (read) => find(started().catalog, started().db, read),
 		count: async (read) => count(started().catalog, started().db, read),
 		aggregate: async (read) => aggregate(started().catalog, started().db, read),
 		write: async (given) => {
-			const { catalog, db } = started()
-			const statements = compileWrite(catalog, given)
+			const { catalog, db, channel } = started()
+			const statements = compileWrite(catalog, given, channel)
 			// One statement is atomic alone: no BEGIN, no COMMIT (D-99).
 			if (statements.length <= 1) return run(catalog, db, given, statements)
 			try {
@@ -324,7 +288,7 @@ export function createAdapter(options: Options): Postgres {
 			...(remote === undefined ? {} : { remote }),
 		},
 		begin: async (): Promise<Transaction> => {
-			const { catalog, db } = started()
+			const { catalog, db, channel } = started()
 			const opened = Promise.withResolvers<Open<object>>()
 			const ending = Promise.withResolvers<boolean>()
 			// Kysely gives the connection back however its transaction ends, a
@@ -344,7 +308,7 @@ export function createAdapter(options: Options): Postgres {
 				find: async (read) => find(catalog, trx, read),
 				count: async (read) => count(catalog, trx, read),
 				aggregate: async (read) => aggregate(catalog, trx, read),
-				write: async (given) => write(catalog, trx, given),
+				write: async (given) => write(catalog, trx, given, channel),
 				commit: async () => {
 					try {
 						await end(true)

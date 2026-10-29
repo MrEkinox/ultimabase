@@ -5,9 +5,11 @@ export type {
 	AggregateRead,
 	Arithmetic,
 	Change,
+	Changed,
 	Check,
 	Condition,
 	CountRead,
+	Feed,
 	Filter,
 	GroupKey,
 	ListUpdate,
@@ -30,6 +32,8 @@ export type {
 } from './adapter.ts'
 export {
 	CheckFailed,
+	feedFields,
+	feedIds,
 	MigrationFailed,
 	OutOfRange,
 	RelationViolation,
