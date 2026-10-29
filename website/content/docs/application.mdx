@@ -10,7 +10,7 @@ An application is a few TypeScript files that Node runs as they are written:
 | `src/models.ts`        | The models: their fields, relations, access rules and hooks.       |
 | `src/functions.ts`     | The functions clients call beside the models' operations.          |
 | `src/app.ts`           | `defineApp`: the database, the plugins, the models, the functions. |
-| `src/server.ts`        | `await app.start()`, which `npm start` runs.                       |
+| `src/server.ts`        | `await app.start()`, which the `start` script runs.                |
 | `src/*.test.ts`        | The tests, each file on a new in-memory database.                  |
 | `ultimabase.config.ts` | For the `ultimabase` command: the application it runs.             |
 

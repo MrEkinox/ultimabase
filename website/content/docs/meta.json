@@ -10,6 +10,8 @@
 		"---Concepts---",
 		"models",
 		"queries",
-		"relations"
+		"relations",
+		"access",
+		"hooks"
 	]
 }

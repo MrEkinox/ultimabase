@@ -67,8 +67,9 @@ const starter = 'packages/create-ultimabase/template/'
 
 it('writes no code in a page, and includes only regions that exist', () => {
 	const problems = pages.flatMap(([page, text]) => [
+		// Shell commands; an `npm` block shows a tab per package manager.
 		...fencesOf(text)
-			.filter((language) => language !== 'bash')
+			.filter((language) => language !== 'bash' && language !== 'npm')
 			.map(
 				(language) =>
 					`${page}: a \`${language}\` block is written in the page; include it from an example.`,
@@ -182,8 +183,6 @@ const undocumented: readonly string[] = [
 	'ultimabase: Refused',
 	'ultimabase: RelationViolation',
 	'ultimabase: UniqueViolation',
-	'ultimabase: allOf',
-	'ultimabase: anyOf',
 	'ultimabase: defineFieldType',
 	'ultimabase: definePlugin',
 	'ultimabase: feedFields',

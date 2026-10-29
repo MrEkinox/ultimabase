@@ -8,19 +8,19 @@ build step.
 
 ## Create the application
 
-```bash
+```npm
 npm create ultimabase@latest my-app
 cd my-app
 npm install
 ```
 
-`yarn create ultimabase` and `pnpm create ultimabase` work too; the starter
-prints the next commands for the manager that ran it. It refuses a directory
-that is not empty, and a name npm cannot use for a package.
+The starter prints the next commands for the manager that ran it: npm, pnpm
+or yarn. It refuses a directory that is not empty, and a name npm cannot
+use for a package.
 
 ## Run it
 
-```bash
+```npm
 npm start
 ```
 
@@ -50,7 +50,7 @@ The application: its database, its plugins and its models.
 	../packages/create-ultimabase/template/src/app.ts
 </include>
 
-The server, which `npm start` runs:
+The server, which the `start` script runs:
 
 <include cwd meta='title="src/server.ts"'>
 	../packages/create-ultimabase/template/src/server.ts
@@ -58,7 +58,7 @@ The server, which `npm start` runs:
 
 ## Test it
 
-```bash
+```npm
 npm test
 ```
 
