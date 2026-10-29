@@ -112,6 +112,8 @@ export interface ExposedModel<W = unknown> {
 	readonly fieldTypes: {
 		readonly [field: string]: {
 			readonly plugin: string
+			/** The field type's own options the field took (D-152). */
+			readonly options: { readonly [key: string]: unknown }
 			readonly toJSON: (value: unknown) => unknown
 			/** What `toJSON` gives, if the field type says (D-152). */
 			readonly shape: StandardSchema | undefined

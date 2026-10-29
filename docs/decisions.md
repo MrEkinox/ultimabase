@@ -9183,7 +9183,9 @@ attachment`, so a browser never runs them. Files are served from the
       default is `[]`.
     - A field type's plugin runs its hooks on every model holding one of
       its fields, as if the model used it (D-89); such models lose the
-      fast delete path of D-102. A plugin model's facts carry its `name`.
+      fast delete path of D-102. A plugin model's facts carry its `name`,
+      and a plugin reads each of its fields' own options in the model's
+      `fieldTypes`, as an upload reads `Post.cover`'s `maxSize`.
     - A field type may give a `shape`, a Standard Schema of what a client
       reads, or a function of the options. GraphQL types the field from it
       (`PostCover`, `PostCoverInline`), as a `json` field with a schema;

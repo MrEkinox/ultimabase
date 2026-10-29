@@ -97,6 +97,7 @@ describe('a field type with options', () => {
 			{ value: 2, max: 3 },
 			{ value: 2, max: null },
 		])
+		expect(models[0]?.fieldTypes['low']?.options).toStrictEqual({ max: 3 })
 		const shape = models[0]?.fieldTypes['low']?.shape
 		const checked = await shape?.['~standard'].validate({ value: 4, max: 3 })
 		expect(checked?.issues).toHaveLength(1)
