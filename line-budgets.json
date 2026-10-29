@@ -10,5 +10,6 @@
 	"roles": 330,
 	"acl": 350,
 	"rest": 2300,
-	"create-ultimabase": 250
+	"create-ultimabase": 250,
+	"files": 1900
 }
