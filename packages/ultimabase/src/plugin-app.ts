@@ -185,8 +185,8 @@ function fieldTypes(info: ModelInfo): ExposedModel['fieldTypes'] {
 	const found: { [field: string]: ExposedModel['fieldTypes'][string] } = {}
 	for (const field of info.fields.values()) {
 		if (field.kind !== 'scalar' || field.codec === undefined) continue
-		const { plugin, toJSON } = field.codec
-		found[field.name] = { plugin, toJSON }
+		const { plugin, toJSON, shape } = field.codec
+		found[field.name] = { plugin, toJSON, shape }
 	}
 	return found
 }

@@ -1,6 +1,6 @@
 // A field type's own options (D-152): its builder takes them, each of its
-// functions receives them, and its stored field's value default fills the
-// rows stored before the field.
+// functions and its shape receive them, and its stored field's value default
+// fills the rows stored before the field.
 import { afterEach, describe, expect, expectTypeOf, it } from 'vitest'
 import { z } from 'zod'
 import type { ExposedModel, PluginTypes } from './index.ts'
@@ -32,6 +32,8 @@ const score = defineFieldType({
 			.max(max ?? 100)
 			.transform((value): Score => ({ value, max })),
 	toJSON: (value, { max }) => ({ value: value.value, max: max ?? null }),
+	shape: ({ max }: ScoreOptions) =>
+		z.object({ value: z.number().max(max ?? 100), max: z.number().nullable() }),
 })
 
 interface Scores extends PluginTypes {
@@ -95,6 +97,9 @@ describe('a field type with options', () => {
 			{ value: 2, max: 3 },
 			{ value: 2, max: null },
 		])
+		const shape = models[0]?.fieldTypes['low']?.shape
+		const checked = await shape?.['~standard'].validate({ value: 4, max: 3 })
+		expect(checked?.issues).toHaveLength(1)
 	})
 
 	it('runs its plugin’s hooks on a model holding one, without use', async () => {
@@ -148,5 +153,13 @@ describe('a field type with options', () => {
 				options: 'max',
 			}),
 		).toThrow('defineFieldType(bad): options is a list of option names.')
+		expect(() =>
+			defineFieldType({
+				...base,
+				stored: (f) => f.number(),
+				// @ts-expect-error: a shape is a Standard Schema.
+				shape: { type: 'number' },
+			}),
+		).toThrow('defineFieldType(bad): shape is a Standard Schema.')
 	})
 })

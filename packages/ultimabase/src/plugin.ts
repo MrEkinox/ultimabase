@@ -113,6 +113,8 @@ export interface ExposedModel<W = unknown> {
 		readonly [field: string]: {
 			readonly plugin: string
 			readonly toJSON: (value: unknown) => unknown
+			/** What `toJSON` gives, if the field type says (D-152). */
+			readonly shape: StandardSchema | undefined
 		}
 	}
 	/** Its virtual fields, in their order (D-151). */

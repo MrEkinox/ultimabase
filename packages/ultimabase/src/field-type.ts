@@ -47,6 +47,8 @@ export type FieldTypeDefinition<P extends string, S, V, X, O extends object> = {
 	readonly schema: X | ((options: O) => X)
 	/** What a client reads. */
 	readonly toJSON: (value: V, options: O) => JsonValue
+	/** What `toJSON` gives, which types it for clients (D-152). */
+	readonly shape?: StandardSchema | ((options: O) => StandardSchema)
 }
 
 /** A field type's options: the stored field says whether it may be `null`. */
@@ -124,24 +126,30 @@ function functionOf(
 
 /** One field's codec, its functions given that field's options. */
 function codecOf(plugin: string, definition: Options, options: Options): Codec {
-	const given = definition['schema']
-	const schema = standardOf(
-		typeof given === 'function'
-			? Reflect.apply(given, undefined, [options])
-			: given,
-	)
-	if (schema === undefined) {
-		throw new TypeError(
-			`defineFieldType(${plugin}): schema is a Standard Schema.`,
+	const schemaOf = (key: string) => {
+		const given = definition[key]
+		const standard = standardOf(
+			typeof given === 'function'
+				? Reflect.apply(given, undefined, [options])
+				: given,
 		)
+		if (standard === undefined) {
+			throw new TypeError(
+				`defineFieldType(${plugin}): ${key} is a Standard Schema.`,
+			)
+		}
+		return standard
 	}
+	const shape =
+		definition['shape'] === undefined ? undefined : schemaOf('shape').schema
 	return Object.freeze({
 		plugin,
 		options,
 		decode: functionOf(plugin, definition, 'decode', options),
 		encode: functionOf(plugin, definition, 'encode', options),
-		schema,
+		schema: schemaOf('schema'),
 		toJSON: functionOf(plugin, definition, 'toJSON', options),
+		...(shape === undefined ? {} : { shape }),
 	})
 }
 

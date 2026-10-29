@@ -21,6 +21,8 @@ export type Codec = {
 	readonly encode: (value: unknown) => unknown
 	readonly schema: Standard
 	readonly toJSON: (value: unknown) => unknown
+	/** What `toJSON` gives, as a Standard Schema (D-152). */
+	readonly shape?: StandardSchema
 }
 
 /** A field as its builder recorded it. */
