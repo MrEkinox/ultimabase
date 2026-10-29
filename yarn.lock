@@ -2675,7 +2675,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@ultimabase/live@workspace:packages/live":
+"@ultimabase/live@workspace:*, @ultimabase/live@workspace:packages/live":
   version: 0.0.0-use.local
   resolution: "@ultimabase/live@workspace:packages/live"
   dependencies:
@@ -2690,8 +2690,8 @@ __metadata:
     graphql: "npm:17.0.2"
     graphql-ws: "npm:6.4.1"
     happy-dom: "npm:21.0.1"
-    react: "npm:19.1.10"
-    react-dom: "npm:19.1.10"
+    react: "npm:19.3.1"
+    react-dom: "npm:19.3.1"
     rxjs: "npm:7.8.2"
     ultimabase: "workspace:*"
     vite: "npm:8.3.4"
@@ -3725,6 +3725,32 @@ __metadata:
     ultimabase: "workspace:*"
     vite: "npm:8.3.4"
     vitest: "npm:5.0.5"
+  languageName: unknown
+  linkType: soft
+
+"example-realtime@workspace:examples/realtime":
+  version: 0.0.0-use.local
+  resolution: "example-realtime@workspace:examples/realtime"
+  dependencies:
+    "@apollo/client": "npm:4.3.3"
+    "@types/react": "npm:19.3.0"
+    "@types/react-dom": "npm:19.3.0"
+    "@ultimabase/graphql": "workspace:*"
+    "@ultimabase/http": "workspace:*"
+    "@ultimabase/live": "workspace:*"
+    "@ultimabase/realtime": "workspace:*"
+    "@ultimabase/rest": "workspace:*"
+    "@ultimabase/testing": "workspace:*"
+    graphql: "npm:17.0.2"
+    graphql-ws: "npm:6.4.1"
+    happy-dom: "npm:21.0.1"
+    react: "npm:19.3.1"
+    react-dom: "npm:19.3.1"
+    rxjs: "npm:7.8.2"
+    ultimabase: "workspace:*"
+    vite: "npm:8.3.4"
+    vitest: "npm:5.0.5"
+    zod: "npm:4.6.5"
   languageName: unknown
   linkType: soft
 
@@ -5984,17 +6010,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-dom@npm:19.1.10":
-  version: 19.1.10
-  resolution: "react-dom@npm:19.1.10"
-  dependencies:
-    scheduler: "npm:^0.26.0"
-  peerDependencies:
-    react: ^19.1.10
-  checksum: 10c0/4f3f8c2c05fc0c40b867a7ebb54ec7a06e40ae023f1daa852d98a06945074f4cd43a4a8179a7c6f89769b860c6c02b85d69d0eec773b8008933b4e8ad593f9e4
-  languageName: node
-  linkType: hard
-
 "react-dom@npm:19.3.1":
   version: 19.3.1
   resolution: "react-dom@npm:19.3.1"
@@ -6054,13 +6069,6 @@ __metadata:
     "@types/react":
       optional: true
   checksum: 10c0/841938ff16d16a6b76895f4cb2e1fea957e5fe3b30febbf03a54892dae1c9153f2383e231dea0b3ba41192ad2f2849448fa859caccd288943bce32639e971bee
-  languageName: node
-  linkType: hard
-
-"react@npm:19.1.10":
-  version: 19.1.10
-  resolution: "react@npm:19.1.10"
-  checksum: 10c0/d38c002372c302202d8f4fd5ef292b095e5e740a02b0c31a33f71548d4bb6d78871e9f230fa8ac3272eeb80b1302ebaccb8fc507fa7d952659fb65bed1867bab
   languageName: node
   linkType: hard
 
@@ -6307,13 +6315,6 @@ __metadata:
   dependencies:
     tslib: "npm:^2.1.0"
   checksum: 10c0/1fcd33d2066ada98ba8f21fcbbcaee9f0b271de1d38dc7f4e256bfbc6ffcdde68c8bfb69093de7eeb46f24b1fb820620bf0223706cff26b4ab99a7ff7b2e2c45
-  languageName: node
-  linkType: hard
-
-"scheduler@npm:^0.26.0":
-  version: 0.26.0
-  resolution: "scheduler@npm:0.26.0"
-  checksum: 10c0/5b8d5bfddaae3513410eda54f2268e98a376a429931921a81b5c3a2873aab7ca4d775a8caac5498f8cbc7d0daeab947cf923dbd8e215d61671f9f4e392d34356
   languageName: node
   linkType: hard
 

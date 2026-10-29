@@ -23,6 +23,7 @@
 		"roles",
 		"acl",
 		"soft-delete",
-		"files"
+		"files",
+		"realtime"
 	]
 }

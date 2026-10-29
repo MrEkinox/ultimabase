@@ -142,14 +142,7 @@ async function valueExports(): Promise<string[]> {
 const undocumented: readonly string[] = [
 	'@ultimabase/http: clientOf',
 	'@ultimabase/http: routes',
-	'@ultimabase/live/apollo: ultimabaseLive',
-	'@ultimabase/live/react: useLiveSubscription',
-	'@ultimabase/live: LiveError',
-	'@ultimabase/live: applyLive',
-	'@ultimabase/live: liveFetch',
 	'@ultimabase/postgres: postgres',
-	'@ultimabase/realtime: realtime',
-	'@ultimabase/realtime: realtimePlugin',
 	'@ultimabase/testing: testAdapter',
 	'ultimabase: CheckFailed',
 	'ultimabase: MigrationFailed',
@@ -165,22 +158,28 @@ const undocumented: readonly string[] = [
 	'ultimabase: isMaster',
 ]
 
-it('shows every value a package exports in an included region', async () => {
-	const shown = pages
-		.flatMap(([, text]) => includesOf(text))
-		.map((include) => {
-			const [, content] = read(include.file)
-			if (content === undefined) return ''
-			return include.region === undefined
-				? content
-				: (region(content, include.region) ?? '')
+// It imports every package, which `yarn validate`'s parallel runs slow
+// past the default five seconds.
+it(
+	'shows every value a package exports in an included region',
+	{ timeout: 30_000 },
+	async () => {
+		const shown = pages
+			.flatMap(([, text]) => includesOf(text))
+			.map((include) => {
+				const [, content] = read(include.file)
+				if (content === undefined) return ''
+				return include.region === undefined
+					? content
+					: (region(content, include.region) ?? '')
+			})
+			.join('\n')
+			// A name a comment cites is not shown in code.
+			.replaceAll(/\/\*[\s\S]*?\*\/|(?<=^|\s)\/\/.*$/gmu, '')
+		const missing = (await valueExports()).filter((entry) => {
+			const value = entry.slice(entry.indexOf(': ') + 2)
+			return !new RegExp(`\\b${value}\\b`, 'u').test(shown)
 		})
-		.join('\n')
-		// A name a comment cites is not shown in code.
-		.replaceAll(/\/\*[\s\S]*?\*\/|(?<=^|\s)\/\/.*$/gmu, '')
-	const missing = (await valueExports()).filter((entry) => {
-		const value = entry.slice(entry.indexOf(': ') + 2)
-		return !new RegExp(`\\b${value}\\b`, 'u').test(shown)
-	})
-	expect(missing).toEqual(undocumented)
-})
+		expect(missing).toEqual(undocumented)
+	},
+)
