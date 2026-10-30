@@ -21,7 +21,7 @@ const fallback = 'my-app'
 
 /** npm's rule for a new package's name. */
 const named = (name: string): boolean =>
-	name.length <= 214 && /^[a-z0-9~-][a-z0-9._~-]*$/u.test(name)
+	name.length <= 214 && /^[a-z0-9][a-z0-9._-]*$/u.test(name)
 
 const managerOf = (userAgent: string | undefined): Manager => {
 	const name = userAgent?.split('/')[0]
@@ -83,7 +83,7 @@ export async function main(args: readonly string[], io: Io): Promise<number> {
 	const name = basename(target)
 	if (!named(name)) {
 		io.fail(
-			`${name} cannot name a package: use lowercase letters, digits, '-', '.' and '_'.`,
+			`${name} cannot name a package: use lowercase letters, digits, '-', '.' and '_', and start with a letter or a digit.`,
 		)
 		return 1
 	}

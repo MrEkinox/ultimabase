@@ -146,13 +146,30 @@ it('refuses a directory that is not empty, or a file', async () => {
 	expect(files('blog')).toEqual(['notes.txt'])
 })
 
-it.each(['Blog', 'my_app!', '.hidden', 'a'.repeat(215)])(
+it.each(['Blog', 'my_app!', '.hidden', '_app', 'blog~1', 'a'.repeat(215)])(
 	'refuses %s as a package name',
 	async (name) => {
 		expect(await main([name], io())).toBe(1)
 		expect(failed[0]).toBe(
-			`${name} cannot name a package: use lowercase letters, digits, '-', '.' and '_'.`,
+			`${name} cannot name a package: use lowercase letters, digits, '-', '.' and '_', and start with a letter or a digit.`,
 		)
+	},
+)
+
+it('refuses a name answered with a leading dash', async () => {
+	expect(await main([], io({ ask: async () => '-blog' }))).toBe(1)
+	expect(failed).toEqual([
+		`-blog cannot name a package: use lowercase letters, digits, '-', '.' and '_', and start with a letter or a digit.`,
+	])
+	expect(readdirSync(cwd)).toEqual([])
+})
+
+// npm takes these for a new package.
+it.each(['blog.v2', 'my_app', '2blog-'])(
+	'takes %s as a package name',
+	async (name) => {
+		expect(await main([name], io())).toBe(0)
+		expect(manifest(name)).toMatchObject({ name })
 	},
 )
 
