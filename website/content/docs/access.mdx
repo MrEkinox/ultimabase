@@ -69,8 +69,9 @@ A field rule sees `record.id` typed and the other fields as `unknown`.
 ## Master
 
 Master skips every rule. Server code passes `{ as: master }`; a transport
-acts as Master only with the master key, outside production (see
-[HTTP](/docs/next/http)).
+acts as Master only with the master key (see [HTTP](/docs/next/http)), and
+in production only with a key written `{ key, production: true }` (see
+[Deploy](/docs/next/deploy)).
 
 <include cwd meta='title="src/app.test.ts"'>
 	../examples/access-rules/src/app.test.ts#master

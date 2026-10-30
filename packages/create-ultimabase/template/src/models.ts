@@ -1,4 +1,4 @@
-// The application's models (D-24): each one a table, its fields and who may
+// The application's models: each one a table, its fields and who may
 // read and write it.
 import { allow, defineModel } from 'ultimabase'
 

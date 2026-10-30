@@ -25,8 +25,9 @@ npm run dev
 ```
 
 The application listens on `http://localhost:3000`, GraphQL on `/graphql`,
-and restarts when a file changes. `PORT` sets another port. Create a post
-and list the posts:
+and restarts when a file changes. `PORT` sets another port. Open
+`http://localhost:3000/graphql` in a browser for GraphiQL, or create a post
+and list the posts from a terminal:
 
 ```bash
 curl http://localhost:3000/graphql -H 'content-type: application/json' \
@@ -41,7 +42,10 @@ starts the application in production, as a host does; see
 
 ## What the starter wrote
 
-The model: a table, its fields, and who may read and write it.
+The model: a table, its fields, and who may read and write it. Its rule,
+`allow.public`, lets anyone write, which suits a first try only: an
+application's rules open what its clients may do, as in
+[Access rules](/docs/next/access).
 
 <include cwd meta='title="src/models.ts"'>
 	../packages/create-ultimabase/template/src/models.ts

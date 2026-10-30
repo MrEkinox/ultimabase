@@ -2,7 +2,7 @@
 	"name": "example-introduction",
 	"version": "0.0.0",
 	"private": true,
-	"description": "A model whose rule lets clients read only the published posts.",
+	"description": "A model whose rule lets clients read only the published posts, over GraphQL, REST and server code.",
 	"type": "module",
 	"license": "Apache-2.0",
 	"engines": {
@@ -14,6 +14,7 @@
 	"dependencies": {
 		"@ultimabase/graphql": "workspace:*",
 		"@ultimabase/http": "workspace:*",
+		"@ultimabase/rest": "workspace:*",
 		"graphql": "17.0.2",
 		"ultimabase": "workspace:*"
 	},

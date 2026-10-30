@@ -1,11 +1,9 @@
 // The model: posts that clients read once published.
 //#region post
-import { graphql } from '@ultimabase/graphql'
 import { defineModel } from 'ultimabase'
 
 export const Post = defineModel({
 	name: 'Post',
-	use: [graphql()],
 	fields: (f) => ({
 		title: f.string(),
 		published: f.boolean({ default: false }),
