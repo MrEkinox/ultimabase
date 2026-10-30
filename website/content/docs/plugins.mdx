@@ -356,15 +356,16 @@ A change is `{ kind, model, ids?, fields? }` for `insert`, `update` and
 What `start`, `stop`, `api`, `identify`, `caller`, `changed` and `missed`
 receive; `functions` receives it without `functions`.
 
-| Key         | Effect                                                                         |
-| ----------- | ------------------------------------------------------------------------------ |
-| `options`   | The application value's options.                                               |
-| `plugins`   | The APIs of `requires` and `optional`, read once the application starts.       |
-| `logger`    | The application's logger.                                                      |
-| `identify`  | Who sends a request, as a transport runs it.                                   |
-| `expires`   | `expires(at)`: the caller `caller` is building stops holding at `at`.          |
-| `models`    | Each model: its schema, rules, `queries`, `used` and the plugin's `with`.      |
-| `functions` | Each function: `name`, `plugin`, `query`, `input`, `output`, `with` and `run`. |
+| Key          | Effect                                                                         |
+| ------------ | ------------------------------------------------------------------------------ |
+| `options`    | The application value's options.                                               |
+| `plugins`    | The APIs of `requires` and `optional`, read once the application starts.       |
+| `logger`     | The application's logger.                                                      |
+| `identify`   | Who sends a request, as a transport runs it.                                   |
+| `expires`    | `expires(at)`: the caller `caller` is building stops holding at `at`.          |
+| `dependents` | The names of the plugins whose `requires` lists this one.                      |
+| `models`     | Each model: its schema, rules, `queries`, `used` and the plugin's `with`.      |
+| `functions`  | Each function: `name`, `plugin`, `query`, `input`, `output`, `with` and `run`. |
 
 `fn.run(input, { as }, client)` checks the function's access, validates its
 input and runs it. `fn.output.kind` is `'schema'`, `'model'` or `'type'`.

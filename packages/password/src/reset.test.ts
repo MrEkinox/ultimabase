@@ -14,6 +14,7 @@ import {
 	started,
 	tokenOf,
 	User,
+	tokenIn,
 } from './test/app.ts'
 import { issueToken, PasswordToken } from './tokens.ts'
 
@@ -55,7 +56,7 @@ const sent = async (count: number) =>
 	vi.waitFor(() => {
 		expect(outbox).toHaveLength(count)
 	})
-const tokenAt = (index: number) => outbox[index]?.token ?? ''
+const tokenAt = (index: number) => tokenIn(outbox[index])
 const invalidLink = {
 	errors: [
 		{
@@ -212,7 +213,7 @@ describe('resetting a password', () => {
 	it('refuses a wrong token, a verification token and an expired one', async () => {
 		const { url, user } = await server()
 		expect((await reset(url, 'wrong')).body).toMatchObject(invalidLink)
-		const verify = await issueToken(user.id, 'verify')
+		const verify = await issueToken(user.id, 'verify', 'ada@example.com')
 		expect((await reset(url, verify)).body).toMatchObject(invalidLink)
 
 		const now = Date.now()
@@ -256,7 +257,7 @@ describe('resetting a password', () => {
 
 	it('keeps a verification token when a password is set', async () => {
 		const { user } = await server()
-		await issueToken(user.id, 'verify')
+		await issueToken(user.id, 'verify', 'ada@example.com')
 		await User.setPassword({ id: user.id, password: 'set by Master' }, M)
 		expect(await PasswordToken.findMany({}, M)).toMatchObject([
 			{ kind: 'verify' },
@@ -267,9 +268,9 @@ describe('resetting a password', () => {
 		const { user } = await server()
 		const now = Date.now()
 		vi.spyOn(Date, 'now').mockReturnValue(now)
-		await issueToken(user.id, 'verify')
+		await issueToken(user.id, 'verify', 'ada@example.com')
 		vi.spyOn(Date, 'now').mockReturnValue(now + 24 * 60 * 60 * 1000)
-		await issueToken(user.id, 'reset')
+		await issueToken(user.id, 'reset', 'ada@example.com')
 		expect(await PasswordToken.findMany({}, M)).toMatchObject([
 			{ kind: 'reset' },
 		])

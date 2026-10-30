@@ -32,6 +32,14 @@ import {
 	signedIn,
 	verified,
 } from './core.ts'
+import {
+	created,
+	committed,
+	creating,
+	readsEmail,
+	updated,
+	updating,
+} from './email-field.ts'
 import type { SendEmail } from './email-functions.ts'
 import { emailFunctions, mailerOf } from './email-functions.ts'
 import { passwordFunctions } from './functions.ts'
@@ -106,6 +114,11 @@ export interface Password extends PluginTypes {
 	readonly appOptions: PasswordOptions
 	readonly addedFields: {
 		readonly emailVerified: Field<boolean, { readonly default: false }>
+		/** The password account's email (D-162). */
+		readonly email: Field<
+			string | null,
+			{ readonly optional: true; readonly unique: true }
+		>
 	}
 	readonly commands: PasswordCommands<this['fields']>
 }
@@ -256,8 +269,28 @@ const definition = definePlugin<Password>({
 		emailVerified: f.boolean({ default: false }).with({
 			access: { create: () => false, update: () => false },
 		}),
+		// Only Master writes it; the hooks keep the account in step (D-162).
+		email: f.string({ optional: true, unique: true }).with({
+			access: { read: readsEmail, create: () => false, update: () => false },
+		}),
 	}),
 	hooks: {
+		// The email and the password account stay one (D-162).
+		beforeCreate: ({ data }) => {
+			creating(data)
+		},
+		afterCreate: async ({ record, plugins }) => {
+			await created(stateOf(plugins.auth), record)
+		},
+		beforeUpdate: async ({ record, data, plugins }) => {
+			await updating(stateOf(plugins.auth), record, data)
+		},
+		afterUpdate: async ({ record, previous, plugins }) => {
+			await updated(stateOf(plugins.auth), record, previous)
+		},
+		afterUpdateCommit: ({ record, previous, plugins }) => {
+			committed(stateOf(plugins.auth), record, previous)
+		},
 		// The user's hash and tokens go with them (D-113, D-117).
 		afterDelete: async ({ record }) => {
 			await forget(record.id)
@@ -311,15 +344,18 @@ const definition = definePlugin<Password>({
 		const { users, fields } = configOf(options, models)
 		const signUp = fields === false ? false : new Set(fields.keys())
 		const { auth } = plugins
-		states.set(auth, { auth, users, signUp, logger, sending: new Set() })
-		// A closed account keeps its row, without a password or a verified
-		// email (D-160).
+		const { sendEmail } = options
+		const sending = new Set<Promise<void>>()
+		states.set(auth, { auth, users, signUp, logger, sending, sendEmail })
+		// A closed account keeps its row, without a password, an email or a
+		// verified one (D-160, D-162).
 		auth.onCloseAccount(async (userId) => {
 			await forget(userId)
 			const where = { id: userId }
 			const user = await users.queries.findUnique({ where }, M)
-			if (user?.emailVerified !== true) return
-			const data = { emailVerified: false }
+			if (user === null) return
+			if (user.email === null && user.emailVerified !== true) return
+			const data = { email: null, emailVerified: false }
 			await users.queries.update({ where, data }, M)
 		})
 	},

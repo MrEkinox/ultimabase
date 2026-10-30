@@ -4,6 +4,7 @@ import { httpPlugin } from '@ultimabase/http'
 import { realtimePlugin } from '@ultimabase/realtime'
 import { restPlugin } from '@ultimabase/rest'
 import { defineApp, memory } from 'ultimabase'
+import { taskFeedPlugin } from './feed.ts'
 import { Task, tasksLeft } from './models.ts'
 
 export const app = defineApp({
@@ -23,6 +24,8 @@ export const app = defineApp({
 			// Each caller is built again every minute; every 5 by default.
 			refresh: 60_000,
 		}),
+		// The tasks over a WebSocket of its own, on ws://…/tasks.
+		taskFeedPlugin(),
 	],
 	//#endregion
 	models: [Task],

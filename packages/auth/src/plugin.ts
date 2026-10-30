@@ -29,6 +29,7 @@ import {
 	AuthAccount,
 	linkAccount,
 	subjectOf,
+	unlinkAccount,
 	unlinkAccounts,
 } from './accounts.ts'
 import type { Users } from './functions.ts'
@@ -65,6 +66,8 @@ export interface AuthApi {
 	): Promise<{ readonly userId: string } | undefined>
 	/** The subject `userId` is known by to `method`, if linked (D-117). */
 	subjectOf(userId: string, method: string): Promise<string | undefined>
+	/** Unlinks `userId`'s account of `method`; none linked is no error (D-162). */
+	unlinkAccount(userId: string, method: string): Promise<void>
 	/**
 	 * Runs `listener` in the transaction of each `User.closeAccount`, after
 	 * the user's accounts are unlinked: a method deletes what it keeps.
@@ -249,12 +252,20 @@ const auth = definePlugin<Auth>({
 			linkAccount,
 			accountOf,
 			subjectOf,
+			unlinkAccount,
 			onCloseAccount: (listener) => {
 				listeners.push(listener)
 			},
 		}
 		closers.set(api, listeners)
 		return api
+	},
+	// A sign-in method requires auth: without one, nobody signs in (D-164).
+	start: ({ dependents, logger }) => {
+		if (dependents.length > 0) return
+		logger.warn(
+			'authPlugin() has no sign-in method: add one, as passwordPlugin().',
+		)
 	},
 	identify: async (request, context) => {
 		const state = stateOf(context)

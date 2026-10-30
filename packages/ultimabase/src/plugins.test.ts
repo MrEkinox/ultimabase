@@ -382,10 +382,12 @@ interface Archive extends PluginTypes {
 }
 let failing = false
 const lines: string[] = []
+const dependents = new Map<string, readonly string[]>()
 const auth = definePlugin<Auth>({
 	name: 'auth',
 	manifest,
-	api: ({ options }) => {
+	api: ({ options, dependents: names }) => {
+		dependents.set('auth', names)
 		log.push('auth.api')
 		if (failing) throw new Error('auth failed.')
 		return { who: options.who }
@@ -394,7 +396,10 @@ const auth = definePlugin<Auth>({
 const audit = definePlugin<Audit>({
 	name: 'audit',
 	manifest,
-	api: () => ({ on: true }),
+	api: ({ dependents: names }) => {
+		dependents.set('audit', names)
+		return { on: true }
+	},
 })
 const archive = definePlugin<Archive>({
 	name: 'archive',
@@ -436,6 +441,25 @@ describe('plugin APIs', () => {
 			expect(log).toEqual(['auth.api', 'archive.api'])
 			expect(lines).toEqual(['ada true'])
 			expect(Doc.who()).toBe('ada')
+		} finally {
+			await withApis.stop()
+		}
+	})
+
+	it('know the plugins that require them, not those that may use them', async () => {
+		const withApis = defineApp({
+			database: memory(),
+			plugins: [archive.plugin(), audit.plugin(), auth.plugin({ who: 'ada' })],
+			models: [Doc],
+		})
+		await withApis.start()
+		try {
+			expect(dependents).toEqual(
+				new Map([
+					['audit', []],
+					['auth', ['archive']],
+				]),
+			)
 		} finally {
 			await withApis.stop()
 		}
