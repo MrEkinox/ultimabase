@@ -7,7 +7,7 @@ import { ServerCodeBlock } from 'fumadocs-ui/components/codeblock.rsc'
 
 import { region } from '../scripts/regions.ts'
 
-const source = 'https://github.com/MrEkinox/ultimadatabase/blob/main/examples/'
+const source = 'https://github.com/MrEkinox/ultimabase/blob/main/examples/'
 
 /** `file` is under `examples/`, `region` one of its `//#region` markers. */
 export function Example({

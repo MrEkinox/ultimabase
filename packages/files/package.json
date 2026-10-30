@@ -1,10 +1,15 @@
 {
 	"name": "@ultimabase/files",
 	"version": "0.0.0",
-	"private": true,
 	"description": "Files for UltimaBase: uploads to S3-compatible storage, file fields, variants, and no orphan ever.",
 	"type": "module",
 	"license": "Apache-2.0",
+	"homepage": "https://ultimabase.dev/docs/files",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/MrEkinox/ultimabase.git",
+		"directory": "packages/files"
+	},
 	"engines": {
 		"node": ">=24.7.0"
 	},

@@ -2,4 +2,4 @@
 
 Live reads for UltimaBase. A client subscribes to a list or a row, gets it once, then only what changed, under its own read rules, over GraphQL subscriptions or Server-Sent Events.
 
-Documentation: [Realtime](https://github.com/MrEkinox/ultimadatabase/blob/main/website/content/docs/realtime.mdx).
+Documentation: [Realtime](https://ultimabase.dev/docs/realtime).

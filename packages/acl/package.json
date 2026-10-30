@@ -1,10 +1,15 @@
 {
 	"name": "@ultimabase/acl",
 	"version": "0.0.0",
-	"private": true,
 	"description": "Per-row rights for UltimaBase: who may read and write each row, as Parse's ACL.",
 	"type": "module",
 	"license": "Apache-2.0",
+	"homepage": "https://ultimabase.dev/docs/acl",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/MrEkinox/ultimabase.git",
+		"directory": "packages/acl"
+	},
 	"engines": {
 		"node": ">=24.7.0"
 	},

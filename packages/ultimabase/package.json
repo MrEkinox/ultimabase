@@ -1,10 +1,15 @@
 {
 	"name": "ultimabase",
 	"version": "0.0.0",
-	"private": true,
 	"description": "The UltimaBase kernel and its in-memory adapter.",
 	"type": "module",
 	"license": "Apache-2.0",
+	"homepage": "https://ultimabase.dev",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/MrEkinox/ultimabase.git",
+		"directory": "packages/ultimabase"
+	},
 	"engines": {
 		"node": ">=24.7.0"
 	},

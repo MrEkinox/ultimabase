@@ -1,10 +1,15 @@
 {
 	"name": "@ultimabase/roles",
 	"version": "0.0.0",
-	"private": true,
 	"description": "Roles for UltimaBase: a role model, roles inside roles, and the rule asking a caller's role.",
 	"type": "module",
 	"license": "Apache-2.0",
+	"homepage": "https://ultimabase.dev/docs/roles",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/MrEkinox/ultimabase.git",
+		"directory": "packages/roles"
+	},
 	"engines": {
 		"node": ">=24.7.0"
 	},

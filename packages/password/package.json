@@ -1,10 +1,15 @@
 {
 	"name": "@ultimabase/password",
 	"version": "0.0.0",
-	"private": true,
 	"description": "Passwords for UltimaBase: sign-up, sign-in and password changes, hashed with Argon2id.",
 	"type": "module",
 	"license": "Apache-2.0",
+	"homepage": "https://ultimabase.dev/docs/password",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/MrEkinox/ultimabase.git",
+		"directory": "packages/password"
+	},
 	"engines": {
 		"node": ">=24.7.0"
 	},

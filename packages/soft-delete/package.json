@@ -1,10 +1,15 @@
 {
 	"name": "@ultimabase/soft-delete",
 	"version": "0.0.0",
-	"private": true,
 	"description": "Soft delete for UltimaBase: deleted rows go to a trash and can be restored.",
 	"type": "module",
 	"license": "Apache-2.0",
+	"homepage": "https://ultimabase.dev/docs/soft-delete",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/MrEkinox/ultimabase.git",
+		"directory": "packages/soft-delete"
+	},
 	"engines": {
 		"node": ">=24.7.0"
 	},

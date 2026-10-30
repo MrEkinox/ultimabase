@@ -106,8 +106,7 @@ it('writes no code in a page, and includes only regions that exist', () => {
 	expect(problems).toEqual([])
 })
 
-const examples =
-	'https://github.com/MrEkinox/ultimadatabase/tree/main/examples/'
+const examples = 'https://github.com/MrEkinox/ultimabase/tree/main/examples/'
 
 it("shows a page's first file with its imports, and links to its example", () => {
 	const problems = pages.flatMap(([page, text]) => {
@@ -332,8 +331,7 @@ it(
 	},
 )
 
-const docs =
-	'https://github.com/MrEkinox/ultimadatabase/blob/main/website/content/docs/'
+const docs = 'https://ultimabase.dev/docs'
 
 it('gives each package a README, without code, linking to its page', () => {
 	const problems = readdirSync('packages', { withFileTypes: true })
@@ -349,8 +347,14 @@ it('gives each package a README, without code, linking to its page', () => {
 				...(fencesOf(text).length > 0 ? [`${path}: holds code`] : []),
 				...(linked.length === 0 ? [`${path}: links to no page`] : []),
 				...linked
+					// `/docs` is the introduction, `/docs/<page>` another page.
 					.map((url) =>
-						join(website, 'content', 'docs', url.slice(docs.length)),
+						join(
+							website,
+							'content',
+							'docs',
+							`${url.slice(docs.length + 1) || 'index'}.mdx`,
+						),
 					)
 					.filter((page) => !existsSync(page))
 					.map((page) => `${path}: ${page} does not exist`),

@@ -241,17 +241,25 @@ Exit: an example with sign-up, sign-in and rules on `caller.user`.
 - [x] Files (D-152).
 - [x] Decide realtime: D-154.
 - [x] Realtime (D-154), its benchmark passed.
+- [x] Decide the website: D-155.
+- [x] Documentation website (D-31, D-155).
+- [ ] Publication, after confirmation.
+
+Exit: `npm create ultimabase` produces an application that starts.
+
+## Phase 6b: After 0.1
+
+0.1 is published before its audit, as a pre-release: the site says it is not
+for production yet, and fixes ship as 0.1.x or 0.2.
+
+- [ ] A full audit of every package, its fixes merged.
 - [ ] Realtime faster on many subscribers (D-154): the find pipeline run once
       per subscriber on one list (230 ms for 10 000 on 25 rows), 305 KiB per
       subscription to 1000 rows, a subscription reading its window alone,
       and a lost link or role passing over the whole window
       (`bench/realtime/README.md`).
-- [x] Decide the website: D-155.
-- [x] Documentation website (D-31, D-155).
-- [ ] A full audit of every package, its fixes merged, before publication.
-- [ ] Publication, after confirmation.
 
-Exit: `npm create ultimabase` produces an application that starts.
+Exit: the audit's fixes are published.
 
 ## Phase 7: Parity with the previous base
 

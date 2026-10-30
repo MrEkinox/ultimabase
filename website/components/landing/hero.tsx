@@ -67,7 +67,7 @@ export function Hero() {
 				<div className="ub-actions">
 					<Command>{command}</Command>
 					<Button href="/docs">Read the docs</Button>
-					<Button href="https://github.com/MrEkinox/ultimadatabase" quiet>
+					<Button href="https://github.com/MrEkinox/ultimabase" quiet>
 						GitHub
 					</Button>
 				</div>
