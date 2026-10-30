@@ -20,6 +20,9 @@ export const app = defineApp({
 			// It returns 2 000 rows at most, each list times the lists above
 			// it; 20 000 by default.
 			maxRows: 2000,
+			// Kept in production too, as the schema is public; off there by
+			// default.
+			introspection: true,
 			extend,
 		}),
 	],

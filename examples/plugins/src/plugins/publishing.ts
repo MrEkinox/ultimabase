@@ -98,6 +98,14 @@ const definition = definePlugin<Publishing>({
 		},
 	},
 	//#endregion
+	//#region redirect
+	// A delete unpublishes the row instead: it goes back to the drafts. It
+	// runs after the `delete` rule and the `beforeDelete` hooks, so as Master.
+	redirect: {
+		delete: ({ where, queries }) =>
+			queries.update({ where, data: { publishedAt: null } }, { as: master }),
+	},
+	//#endregion
 	//#region commands
 	commands: ({ queries }) => ({
 		drafts: { findMany: queries.findMany, count: queries.count },

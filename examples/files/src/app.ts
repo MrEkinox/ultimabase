@@ -16,6 +16,10 @@ const storage =
 				endpoint: process.env.S3_ENDPOINT,
 				accessKeyId: process.env.S3_ACCESS_KEY_ID,
 				secretAccessKey: process.env.S3_SECRET_ACCESS_KEY,
+				// Spaces serves a public file only with a public-read ACL.
+				publicAcl: true,
+				// A CDN in front of the bucket; the storage's own URL without it.
+				publicUrl: 'https://cdn.example.com',
 			})
 		: memoryFiles()
 //#endregion

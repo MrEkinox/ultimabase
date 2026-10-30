@@ -4,6 +4,13 @@
 // package exports. A frozen version holds its code, not includes.
 import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { join, relative } from 'node:path'
+import {
+	API,
+	SignatureKind,
+	SymbolFlags,
+	TypeFlags,
+} from 'typescript/unstable/sync'
+import type { Checker, Type } from 'typescript/unstable/sync'
 import { expect, it } from 'vitest'
 import { fromWebsite, includesOf, region } from '../website/scripts/regions.ts'
 
@@ -109,9 +116,9 @@ it('holds no include in a frozen version', () => {
 	expect(problems).toEqual([])
 })
 
-/** Every value an entry point exports, but `./internal`'s, as `package: name`. */
-async function valueExports(): Promise<string[]> {
-	const names: string[] = []
+/** Each entry point but `./internal`, as `[package and entry, file]`. */
+function entryPoints(): [string, string][] {
+	const entries: [string, string][] = []
 	const directories = readdirSync('packages', { withFileTypes: true })
 		.filter((entry) => entry.isDirectory())
 		.map((entry) => join('packages', entry.name))
@@ -121,33 +128,98 @@ async function valueExports(): Promise<string[]> {
 		)
 		const name: unknown = Reflect.get(Object(manifest), 'name')
 		const exports: unknown = Reflect.get(Object(manifest), 'exports')
-		const entries =
-			typeof exports === 'object' && exports !== null ? exports : {}
-		for (const [entry, file] of Object.entries(entries)) {
+		const files = typeof exports === 'object' && exports !== null ? exports : {}
+		for (const [entry, file] of Object.entries(files)) {
 			if (entry === './internal' || typeof file !== 'string') continue
-			const module: unknown = await import(join(process.cwd(), directory, file))
-			const values =
-				typeof module === 'object' && module !== null ? Object.keys(module) : []
-			const from = join(String(name), entry)
-			names.push(...values.map((value) => `${from}: ${value}`))
+			entries.push([join(String(name), entry), join(directory, file)])
 		}
+	}
+	return entries
+}
+
+/** Every value an entry point exports, as `package: name`. */
+async function valueExports(): Promise<string[]> {
+	const names: string[] = []
+	for (const [from, file] of entryPoints()) {
+		const module: unknown = await import(join(process.cwd(), file))
+		const values =
+			typeof module === 'object' && module !== null ? Object.keys(module) : []
+		names.push(...values.map((value) => `${from}: ${value}`))
 	}
 	return names.toSorted()
 }
 
-/**
- * The exports no page shows yet. The documentation is being written; this
- * list only shrinks, and is empty before the documentation reaches `main`.
- */
-const undocumented: readonly string[] = []
+/** The object types of a type, each member of a union. */
+function objectsOf(checker: Checker, type: Type): Type[] {
+	if (type.flags & TypeFlags.Union) {
+		const members = checker.getNonNullableType(type) ?? type
+		// oxlint-disable-next-line typescript/no-unsafe-type-assertion -- TypeFlags.Union marks a UnionType.
+		const union = members as Type & { getTypes(): readonly Type[] }
+		return members.flags & TypeFlags.Union
+			? union.getTypes().flatMap((member) => objectsOf(checker, member))
+			: objectsOf(checker, members)
+	}
+	const object = type.flags & (TypeFlags.Object | TypeFlags.Intersection)
+	const callable =
+		checker.getSignaturesOfType(type, SignatureKind.Call).length > 0
+	return object && !callable && !checker.isArrayLikeType(type) ? [type] : []
+}
 
-// It imports every package, which `yarn validate`'s parallel runs slow
-// past the default five seconds.
-it(
-	'shows every value a package exports in an included region',
-	{ timeout: 30_000 },
-	async () => {
-		const shown = pages
+/**
+ * The options of each exported function, as `package: function option`: the
+ * properties of its `options` or `definition` parameter, from the compiler.
+ */
+function exportedOptions(): string[] {
+	const root = process.cwd()
+	const api = new API({ cwd: root })
+	try {
+		const [project] = api
+			.updateSnapshot({ openProjects: [join(root, 'tsconfig.json')] })
+			.getProjects()
+		if (project === undefined)
+			throw new Error('tsconfig.json opened no project.')
+		const { checker, program } = project
+		const options = new Set<string>()
+		for (const [from, file] of entryPoints()) {
+			const source = program.getSourceFile(join(root, file))
+			const module = source && checker.getSymbolAtLocation(source)
+			if (module === undefined) throw new Error(`${file} has no module.`)
+			for (const exported of checker.getExportsOfModule(module)) {
+				const symbol =
+					exported.flags & SymbolFlags.Alias
+						? checker.getAliasedSymbol(exported)
+						: exported
+				if (!(symbol.flags & SymbolFlags.Value)) continue
+				const type = checker.getTypeOfSymbol(symbol)
+				if (type === undefined) continue
+				for (const signature of checker.getSignaturesOfType(
+					type,
+					SignatureKind.Call,
+				)) {
+					for (const parameter of signature.getParameters()) {
+						if (parameter.name !== 'options' && parameter.name !== 'definition')
+							continue
+						const given = checker.getTypeOfSymbol(parameter)
+						if (given === undefined) continue
+						for (const object of objectsOf(checker, given)) {
+							for (const option of checker.getPropertiesOfType(object)) {
+								options.add(`${from}: ${exported.name} ${option.name}`)
+							}
+						}
+					}
+				}
+			}
+		}
+		return [...options].toSorted()
+	} finally {
+		api.close()
+	}
+}
+
+/** The code of every included region, its comments left out. */
+function shownCode(): string {
+	return (
+		pages
 			.flatMap(([, text]) => includesOf(text))
 			.map((include) => {
 				const [, content] = read(include.file)
@@ -159,10 +231,33 @@ it(
 			.join('\n')
 			// A name a comment cites is not shown in code.
 			.replaceAll(/\/\*[\s\S]*?\*\/|(?<=^|\s)\/\/.*$/gmu, '')
+	)
+}
+
+// It imports every package, which `yarn validate`'s parallel runs slow
+// past the default five seconds.
+it(
+	'shows every value a package exports in an included region',
+	{ timeout: 30_000 },
+	async () => {
+		const shown = shownCode()
 		const missing = (await valueExports()).filter((entry) => {
 			const value = entry.slice(entry.indexOf(': ') + 2)
 			return !new RegExp(`\\b${value}\\b`, 'u').test(shown)
 		})
-		expect(missing).toEqual(undocumented)
+		expect(missing).toEqual([])
+	},
+)
+
+it(
+	'shows every option of an exported function, as a key or a method',
+	{ timeout: 30_000 },
+	() => {
+		const shown = shownCode()
+		const missing = exportedOptions().filter((entry) => {
+			const option = entry.slice(entry.lastIndexOf(' ') + 1)
+			return !new RegExp(`\\b${option}\\b(?=\\??\\s*[:(,}])`, 'u').test(shown)
+		})
+		expect(missing).toEqual([])
 	},
 )

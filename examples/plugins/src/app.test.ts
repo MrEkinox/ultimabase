@@ -149,6 +149,18 @@ it('lets only an editor date a row', async () => {
 	//#endregion
 })
 
+it('unpublishes a deleted row', async () => {
+	//#region unpublish
+	const news = await News.create({ data: { title: 'Open' } }, M)
+	await News.delete({ where: { id: news.id } }, M)
+	// The row stays, as a draft: nobody else reads it.
+	expect(await News.count({}, { as: asUser({ id: 'bob' }) })).toBe(0)
+	expect(await News.drafts.findMany({}, M)).toMatchObject([
+		{ title: 'Open', publishedAt: null },
+	])
+	//#endregion
+})
+
 it('publishes news on creation', async () => {
 	//#region publish-on-create
 	const news = await News.create({ data: { title: 'Open' } }, M)

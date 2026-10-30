@@ -83,6 +83,18 @@ and `command`, the plugin's command the operation came through:
 	../examples/plugins/src/app.test.ts#drafts
 </include>
 
+`redirect` replaces an operation: here, a delete unpublishes the row. One
+plugin at most redirects a model's delete, and a redirected row cascades
+nothing:
+
+<include cwd meta='title="src/plugins/publishing.ts"'>
+	../examples/plugins/src/plugins/publishing.ts#redirect
+</include>
+
+<include cwd meta='title="src/app.test.ts"'>
+	../examples/plugins/src/app.test.ts#unpublish
+</include>
+
 ## Commands
 
 `commands` adds functions to each model, as `Article.publish`. They are built

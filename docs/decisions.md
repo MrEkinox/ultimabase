@@ -9789,6 +9789,7 @@ const { data } = useLiveSubscription(CampaignDocument, { variables: { where: { i
 
 Amended 2026-10-29: the quickstart includes the starter's template.
 Amended 2026-10-30: a page on writing a database adapter.
+Amended 2026-10-30: the option check reads the examples a page includes.
 
 Choice: completes D-31; the examples stay its source of truth.
 
@@ -9840,9 +9841,11 @@ Choice: completes D-31; the examples stay its source of truth.
    developer meets, and ends with a reference of every option, its type,
    default and effect, every error code it can return, and its limits. A
    developer should never need the sources to finish a task.
-   When the compiler's API lists the options of an exported function, the
-   repository test also checks that each one appears in a page; otherwise
-   the audit before publication checks them.
+   The repository test also checks, through the compiler's API, that each
+   first-level option of an exported function's `options` or `definition`
+   parameter appears as a key in an example a page includes; the audit
+   before publication checks the others, as a plugin's `with` (amended
+   2026-10-30).
 
 5. For agents: `/llms.txt` lists the pages, `/llms-full.txt` holds them all,
    and each page is also served as Markdown at `/docs/<page>.md`, built by
