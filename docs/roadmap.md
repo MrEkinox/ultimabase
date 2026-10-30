@@ -243,7 +243,7 @@ Exit: an example with sign-up, sign-in and rules on `caller.user`.
 - [x] Realtime (D-154), its benchmark passed.
 - [x] Decide the website: D-155.
 - [x] Documentation website (D-31, D-155).
-- [ ] Publication, after confirmation.
+- [x] Publication, after confirmation: 0.1.1, whose starter starts.
 
 Exit: `npm create ultimabase` produces an application that starts.
 
