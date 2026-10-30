@@ -58,6 +58,18 @@ the request with `UNAUTHENTICATED`, so the client knows to sign in again; a
 cookie that has ended is anonymous, so a browser can still reach the sign-in
 page.
 
+An application sets both durations, in milliseconds, as a back office that
+wants shorter sessions:
+
+<include cwd meta='title="src/back-office.test.ts"'>
+	../examples/password-sign-in/src/back-office.test.ts#sessions
+</include>
+
+A session used with less than half its lifetime left gets it again, never
+past the longest after the sign-in, and the cookie lives that longest. New
+durations apply to the sessions opened or renewed after the start: to end
+the others at once, `User.revokeSessions` each user.
+
 In production (`NODE_ENV=production`), the cookie is `Secure` and named
 `__Host-ultimabase_session`. Outside it, it works on `http://localhost`; a
 request from another host logs a warning once: `auth serves example.com a
@@ -120,7 +132,14 @@ user model.
 
 ### `authPlugin()`
 
-It takes no option. It requires `httpPlugin()` and adds:
+It requires `httpPlugin()` and takes:
+
+| Option              | Default                     | Effect                                                     |
+| ------------------- | --------------------------- | ---------------------------------------------------------- |
+| `sessions.lifetime` | `30 * 24 * 60 * 60 * 1000`  | How long, in milliseconds, a session lasts after its use.  |
+| `sessions.longest`  | `365 * 24 * 60 * 60 * 1000` | How long, in milliseconds, it lasts at most after sign-in. |
+
+It adds:
 
 | What     | Name             | Effect                                                                                          |
 | -------- | ---------------- | ----------------------------------------------------------------------------------------------- |
@@ -146,14 +165,14 @@ exposes them.
 
 ### Sessions
 
-| Key            | Value                                                                        |
-| -------------- | ---------------------------------------------------------------------------- |
-| token          | 32 random bytes in base64url                                                 |
-| lifetime       | 30 days after the last use, renewed when less than 15 days are left          |
-| longest        | 365 days after the sign-in                                                   |
-| Bearer         | `Authorization: Bearer <token>`, read before the cookie                      |
-| cookie         | `ultimabase_session`; `__Host-ultimabase_session` and `Secure` in production |
-| cookie options | `HttpOnly`, `SameSite=Lax`, `Path=/`                                         |
+| Key            | Value                                                                         |
+| -------------- | ----------------------------------------------------------------------------- |
+| token          | 32 random bytes in base64url                                                  |
+| lifetime       | 30 days after the last use, renewed when less than half of it is left         |
+| longest        | 365 days after the sign-in                                                    |
+| Bearer         | `Authorization: Bearer <token>`, read before the cookie                       |
+| cookie         | `ultimabase_session`; `__Host-ultimabase_session` and `Secure` in production  |
+| cookie options | `HttpOnly`, `SameSite=Lax`, `Path=/`, `Max-Age` the longest, 400 days at most |
 
 ### Errors
 
@@ -163,7 +182,12 @@ exposes them.
 | `ACCESS_DENIED` (403)   | `revokeSessions` for another user: `User.revokeSessions runs as Master or as the user.` |
 |                         | `closeAccount` for another user: `User.closeAccount runs as Master or as the user.`     |
 
-At start, an application without a user model throws `authPlugin() needs a
+At start, `sessions` with a duration that is not a positive number throws
+`authPlugin() sessions: lifetime and longest are positive numbers of
+milliseconds.`, and a lifetime longer than the longest
+`authPlugin() sessions: lifetime is longer than longest.`
+
+An application without a user model throws `authPlugin() needs a
 user model: declare it with defineUser.`, and one with two
 `models lists two models defineUser returned: an application has one user model.`
 

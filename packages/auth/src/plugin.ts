@@ -33,10 +33,11 @@ import {
 } from './accounts.ts'
 import type { Users } from './functions.ts'
 import { authFunctions, callerTokens } from './functions.ts'
-import type { Opened } from './sessions.ts'
+import type { Durations, Opened } from './sessions.ts'
 import {
 	AuthSession,
 	closeSession,
+	durationsOf,
 	openSession,
 	revokeSessions,
 	sessionOf,
@@ -71,6 +72,12 @@ export interface AuthApi {
 	onCloseAccount(listener: (userId: string) => Promise<void>): void
 }
 
+/** `authPlugin()`'s options (D-165). */
+export interface AuthOptions {
+	/** How long sessions last, in milliseconds: 30 and 365 days by default. */
+	readonly sessions?: Partial<Durations>
+}
+
 /** auth's commands on the user model (D-113). */
 export interface AuthCommands {
 	/** Ends every session of the user, as Master or as the user. */
@@ -92,6 +99,7 @@ export interface AuthCommands {
 export interface Auth extends PluginTypes {
 	readonly name: 'auth'
 	readonly requires: Http
+	readonly appOptions: AuthOptions
 	readonly api: AuthApi
 	readonly commands: AuthCommands
 }
@@ -103,6 +111,7 @@ export const userModels: WeakMap<object, OutputSpec> = new WeakMap()
 interface State {
 	readonly cookie: Cookie
 	readonly users: Users
+	readonly durations: Durations
 }
 const states = new WeakMap<object, State>()
 /** The contexts whose insecure cookie was warned about (D-115). */
@@ -165,10 +174,10 @@ function usersOf(
 /** A session token's caller, until it ends; `undefined` for an unknown one. */
 async function callerOf(
 	token: string,
-	users: Users,
+	{ users, durations }: State,
 	expires: (at: Date) => void,
 ): Promise<Identity | undefined> {
-	const session = await sessionOf(token)
+	const session = await sessionOf(token, durations)
 	if (session === undefined) return undefined
 	// A transport's queries are untyped; this is the user model's row.
 	const user: unknown = await users.queries.findUnique(
@@ -218,17 +227,21 @@ const auth = definePlugin<Auth>({
 	// Built before any plugin starts, so before the server listens.
 	api: (context) => {
 		const cookie = cookieOf()
-		states.set(context, { cookie, users: usersOf(context.models) })
+		const durations = durationsOf(context.options.sessions)
+		const users = usersOf(context.models)
+		states.set(context, { cookie, users, durations })
+		// The cookie goes when its session can live no longer.
+		const maxAge = Math.min(Math.ceil(durations.longest / 1000), cookieAge)
 		const listeners: ((userId: string) => Promise<void>)[] = []
 		const api: AuthApi = {
 			signIn: async (userId, client) => {
 				// The cookie it replaces would leave a session nobody can end (D-115).
 				const replaced = client?.cookies.get(cookie.name)
 				if (replaced !== undefined) await closeSession(replaced)
-				const opened = await openSession(userId)
+				const opened = await openSession(userId, durations)
 				client?.cookies.set(cookie.name, opened.token, {
 					...cookie.options,
-					maxAge: cookieAge,
+					maxAge,
 				})
 				return opened
 			},
@@ -244,7 +257,8 @@ const auth = definePlugin<Auth>({
 		return api
 	},
 	identify: async (request, context) => {
-		const { cookie, users } = stateOf(context)
+		const state = stateOf(context)
+		const { cookie } = state
 		const { hostname } = new URL(request.url)
 		if (
 			!cookie.options.secure &&
@@ -258,7 +272,7 @@ const auth = definePlugin<Auth>({
 		}
 		const bearer = bearerOf(request)
 		if (bearer !== undefined) {
-			const caller = await callerOf(bearer, users, context.expires)
+			const caller = await callerOf(bearer, state, context.expires)
 			if (caller !== undefined) return caller
 			throw new PublicError(
 				'UNAUTHENTICATED',
@@ -269,7 +283,7 @@ const auth = definePlugin<Auth>({
 		// signing in again (D-112).
 		const token = cookieTokenOf(request, cookie)
 		if (token === undefined) return undefined
-		return callerOf(token, users, context.expires)
+		return callerOf(token, state, context.expires)
 	},
 })
 

@@ -2,7 +2,7 @@
 // the cookie, which auth sets and clears through a function's client (D-113).
 import type { CookieOptions } from 'ultimabase'
 
-/** The longest a browser keeps a cookie: 400 days. */
+/** The longest a browser keeps a cookie: 400 days, in seconds. */
 export const cookieAge: number = 400 * 24 * 60 * 60
 
 /** The cookie's name and attributes, read once when the application starts. */

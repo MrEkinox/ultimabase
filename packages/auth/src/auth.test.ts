@@ -72,7 +72,7 @@ describe('a session', () => {
 		const { url, ada } = await server()
 		const signed = await signIn(url, ada.id)
 		expect(signed.setCookie).toBe(
-			`ultimabase_session=${signed.token}; Max-Age=34560000; Path=/; HttpOnly; SameSite=Lax`,
+			`ultimabase_session=${signed.token}; Max-Age=31536000; Path=/; HttpOnly; SameSite=Lax`,
 		)
 		const user = { kind: 'user', user: { id: ada.id, email: ada.email } }
 		const byBearer = await callerOf(url, bearer(signed.token))
@@ -231,6 +231,97 @@ describe('a session’s lifetime', () => {
 		vi.spyOn(Date, 'now').mockReturnValue(Date.now() + 31 * day)
 		await signIn(url, ada.id)
 		expect(await AuthSession.count({}, M)).toBe(1)
+	})
+})
+
+describe('sessions an application sets', () => {
+	const hour = 60 * 60 * 1000
+	const sessions = { lifetime: 8 * hour, longest: day }
+	async function shorter() {
+		const running = await started(memory(), [], { sessions })
+		stop = async () => running.app.stop()
+		return running
+	}
+
+	it('end a lifetime after their last use, renewed with half of it left', async () => {
+		const { url, ada } = await shorter()
+		const { token } = await signIn(url, ada.id)
+		const [opened] = await AuthSession.findMany({}, M)
+		const now = (opened?.expiresAt.getTime() ?? 0) - 8 * hour
+		vi.spyOn(Date, 'now').mockReturnValue(now + 3 * hour)
+		expect((await callerOf(url, bearer(token))).status).toBe(200)
+		const [kept] = await AuthSession.findMany({}, M)
+		expect(kept?.expiresAt.getTime()).toBe(now + 8 * hour)
+		vi.spyOn(Date, 'now').mockReturnValue(now + 5 * hour)
+		expect((await callerOf(url, bearer(token))).status).toBe(200)
+		const [renewed] = await AuthSession.findMany({}, M)
+		expect(renewed?.expiresAt.getTime()).toBe(now + 13 * hour)
+		vi.spyOn(Date, 'now').mockReturnValue(now + 13 * hour + 1)
+		expect((await callerOf(url, bearer(token))).status).toBe(401)
+	})
+
+	it('end at the longest after the sign-in, and so does the cookie', async () => {
+		const { url, ada } = await shorter()
+		const signed = await signIn(url, ada.id)
+		expect(signed.setCookie).toBe(
+			`ultimabase_session=${signed.token}; Max-Age=86400; Path=/; HttpOnly; SameSite=Lax`,
+		)
+		const [opened] = await AuthSession.findMany({}, M)
+		const now = opened?.createdAt.getTime() ?? 0
+		for (let used = 5; used <= 20; used += 5) {
+			vi.spyOn(Date, 'now').mockReturnValue(now + used * hour)
+			expect((await callerOf(url, bearer(signed.token))).status).toBe(200)
+		}
+		const [renewed] = await AuthSession.findMany({}, M)
+		expect(renewed?.expiresAt.getTime()).toBe(now + day)
+		vi.spyOn(Date, 'now').mockReturnValue(now + day + 1)
+		expect((await callerOf(url, bearer(signed.token))).status).toBe(401)
+	})
+
+	it('keep the browser’s longest cookie past it', async () => {
+		const running = await started(memory(), [], {
+			sessions: { longest: 1000 * day },
+		})
+		stop = async () => running.app.stop()
+		const signed = await signIn(running.url, running.ada.id)
+		expect(signed.setCookie).toContain('; Max-Age=34560000;')
+	})
+
+	it.each([
+		[{ lifetime: 0 }],
+		[{ longest: -day }],
+		[{ lifetime: Number.NaN }],
+		[{ longest: Number.POSITIVE_INFINITY }],
+	])('refuse to start with %o', async (refused) => {
+		const app = defineApp({
+			database: memory(),
+			plugins: [
+				httpPlugin({ port: 0 }),
+				graphqlPlugin(),
+				authPlugin({ sessions: refused }),
+			],
+			models: [User],
+			logger: listening([]),
+		})
+		await expect(app.start()).rejects.toThrow(
+			'authPlugin() sessions: lifetime and longest are positive numbers of milliseconds.',
+		)
+	})
+
+	it('refuse to start with a lifetime longer than the longest', async () => {
+		const app = defineApp({
+			database: memory(),
+			plugins: [
+				httpPlugin({ port: 0 }),
+				graphqlPlugin(),
+				authPlugin({ sessions: { lifetime: 400 * day } }),
+			],
+			models: [User],
+			logger: listening([]),
+		})
+		await expect(app.start()).rejects.toThrow(
+			'authPlugin() sessions: lifetime is longer than longest.',
+		)
 	})
 })
 
@@ -601,7 +692,7 @@ describe('the cookie', () => {
 		const { url, ada } = await server()
 		const signed = await signIn(url, ada.id)
 		expect(signed.setCookie).toBe(
-			`__Host-ultimabase_session=${signed.token}; Max-Age=34560000; Path=/; HttpOnly; Secure; SameSite=Lax`,
+			`__Host-ultimabase_session=${signed.token}; Max-Age=31536000; Path=/; HttpOnly; Secure; SameSite=Lax`,
 		)
 		const session = { cookie: `__Host-ultimabase_session=${signed.token}` }
 		const signedOut = await signOut(url, session)

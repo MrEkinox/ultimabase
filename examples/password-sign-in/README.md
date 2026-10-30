@@ -9,6 +9,7 @@ user: a draft is its author's, an editor deletes anyone's post.
 - `src/app.ts`: the application.
 - `src/app.test.ts`: each rule, used over GraphQL.
 - `src/sessions.test.ts`: the session token, the cookie, and server code.
+- `src/back-office.test.ts`: shorter sessions, as a back office sets them.
 - `src/password.test.ts`: reset, verification, change and the sign-in limit.
 
 `yarn start` serves it on http://localhost:3000/graphql; `yarn vitest

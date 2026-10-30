@@ -5277,7 +5277,7 @@ const { count } = await Notification.deleteMany(
 
 ## D-112: auth's sessions, Identify and the API of sign-in methods
 
-Amended by D-113, D-115 and D-160.
+Amended by D-113, D-115, D-160 and D-165.
 
 Choice: completes D-33, D-39, D-62, D-79 and D-106.
 
@@ -5622,7 +5622,7 @@ The application's code does not change.
 
 ## D-115: auth and password after their audit
 
-Amended by D-116.
+Amended by D-116 and D-165.
 
 Choice: amends D-112, D-113 and D-114.
 
@@ -10408,4 +10408,63 @@ const deleteAccount = defineFunction({
 		await User.closeAccount({ id: caller.user.id }, { as: caller })
 	},
 })
+```
+
+## D-165: Session durations
+
+Choice: amends D-112 point 5 and D-115 point 6.
+
+1. `authPlugin({ sessions: { lifetime, longest } })` sets how long a
+   session lasts after its last use and at most after its sign-in, in
+   milliseconds. Both are optional: 30 and 365 days, as before.
+2. A session used with less than half its lifetime left is renewed, never
+   past the longest after its sign-in. There is no `renewal` option.
+3. At start, a duration that is not a finite positive number is refused with
+   `authPlugin() sessions: lifetime and longest are positive numbers of
+milliseconds.`, and a lifetime longer than the longest with
+   `authPlugin() sessions: lifetime is longer than longest.`
+4. The session cookie's `Max-Age` is the longest, in whole seconds rounded
+   up, and 400 days at most, the browsers' limit: 365 days by default
+   instead of 400.
+5. New durations apply to the sessions opened or renewed after the start; a
+   session already open keeps its end. `User.revokeSessions` ends the
+   others at once.
+
+Why:
+
+- An application coming from Parse configured its sessions
+  (`sessionLength`, `expireInactiveSessions`); a back office or a shared
+  computer wants shorter ones without patching the framework.
+- Milliseconds are the unit of `Date` and `setTimeout`, and need no parser.
+- A renewal at half the lifetime keeps D-115's 15 of 30 days, and leaves
+  one rule to check instead of two.
+- A cookie that outlives every session it can hold stays on a shared
+  computer for nothing.
+
+Rejected:
+
+- Durations as `'8h'` or `{ hours: 8 }`: a parser or a type more, for one
+  option.
+- A `renewal` option: no application asks for it, and it adds the rule
+  `renewal < lifetime`.
+- Ending a session past the new longest at each request: it covers
+  `longest` only, since the last use is not stored.
+- A cookie that ends with the browser, for a sign-in without "remember me":
+  nobody asks for it yet.
+
+Example, before:
+
+```ts
+// Sessions last 30 days after their last use, whatever the application.
+authPlugin()
+```
+
+After:
+
+```ts
+const hour = 60 * 60 * 1000
+
+// A back office: a session ends 8 hours after its last use, and 7 days at
+// most after the sign-in.
+authPlugin({ sessions: { lifetime: 8 * hour, longest: 7 * 24 * hour } })
 ```

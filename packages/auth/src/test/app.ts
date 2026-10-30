@@ -11,7 +11,7 @@ import type {
 	PluginTypes,
 } from 'ultimabase'
 import { allow, defineApp, definePlugin, master, memory } from 'ultimabase'
-import type { Auth, AuthApi } from '../index.ts'
+import type { Auth, AuthApi, AuthOptions } from '../index.ts'
 import { authPlugin, defineUser, signedIn } from '../index.ts'
 
 export const M = { as: master }
@@ -93,6 +93,7 @@ export function listening(lines: string[], warnings: string[] = []): Logger {
 export async function started(
 	database: Adapter = memory(),
 	plugins: Parameters<typeof defineApp>[0]['plugins'] = [],
+	options: AuthOptions = {},
 ) {
 	const lines: string[] = []
 	const warnings: string[] = []
@@ -101,7 +102,7 @@ export async function started(
 		plugins: [
 			httpPlugin({ port: 0 }),
 			graphqlPlugin(),
-			authPlugin(),
+			authPlugin(options),
 			signing.plugin(),
 			...(plugins ?? []),
 		],
