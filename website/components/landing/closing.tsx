@@ -17,7 +17,7 @@ export function Questions() {
 				</Question>
 				<Question title="Can I use it in production?">
 					Not yet. UltimaBase is pre-release, and its API may still change
-					before 0.1.
+					before 1.0.
 				</Question>
 				<Question title="Is UltimaBase a hosted service?">
 					No. It is a library and a command line: the application is yours, and
