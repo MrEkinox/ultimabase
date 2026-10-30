@@ -140,6 +140,21 @@ it('changes the password of the signed-in user', async () => {
 	//#endregion
 })
 
+it('checks the password again before a sensitive action', async () => {
+	const ada = await signUp()
+	//#region check
+	// In a function's run, as the caller, with the client it receives.
+	const as = { kind: 'user', user: ada } as const
+	await User.checkPassword({ id: ada.id, password: 'correct horse' }, { as })
+	await expect(
+		User.checkPassword({ id: ada.id, password: 'wrong password' }, { as }),
+	).rejects.toMatchObject({
+		code: 'INVALID_CREDENTIALS',
+		message: 'Wrong password.',
+	})
+	//#endregion
+})
+
 it('refuses the eleventh failed sign-in within 15 minutes', async () => {
 	await signUp()
 	//#region limit

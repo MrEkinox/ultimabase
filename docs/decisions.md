@@ -5367,7 +5367,7 @@ curl localhost:3000/graphql -H 'authorization: Bearer expired…' -d '…'
 
 ## D-113: `passwordPlugin()`, linked accounts, plugin functions and `viewer`
 
-Amended by D-115, D-125 and D-160.
+Amended by D-115, D-125, D-160 and D-161.
 
 Choice: completes D-33, D-56, D-109 and D-112, and amends D-56, D-109 and
 D-112.
@@ -5565,7 +5565,7 @@ mutation {
 
 ## D-114: `passwordPlugin()`'s limits against many addresses
 
-Amended by D-115.
+Amended by D-115 and D-161.
 
 Choice: completes D-113.
 
@@ -10329,4 +10329,83 @@ api: ({ plugins }) => {
 		await MagicLink.deleteMany({ where: { userId } }, { as: master })
 	})
 }
+```
+
+## D-161: Checking the current password
+
+Choice: completes D-113 and amends D-113 and D-114.
+
+1. `User.checkPassword({ id, password }, { as, client })` checks the user's
+   current password before a sensitive action. It opens no session and
+   returns nothing; a stale hash is rehashed, as on a sign-in.
+2. It runs as Master or as the user; anyone else gets `ACCESS_DENIED`,
+   `User.checkPassword runs as Master or as the user.`, as for
+   `User.setPassword`.
+3. A wrong password, a user without one and an unknown id give
+   `INVALID_CREDENTIALS`, `Wrong password.` `changePassword`'s wrong
+   current password gives the same message: both know the user, so neither
+   names an email. A sign-in keeps `Wrong email or password.`
+4. It is always counted, on the user's id, the subject `changePassword`
+   counts on:
+   - with a `client`, as `changePassword`: 10 failures per address, 100
+     per user, 100 per address, in 15 minutes;
+   - without one, the 11th failure on the user within 15 minutes, from
+     anywhere, `changePassword`'s included, is refused with
+     `TOO_MANY_ATTEMPTS`. It is stored under the address `'server'`, which
+     no client has, and fills no address's ceiling.
+5. It is a command only: no GraphQL or REST function.
+6. `User.signIn` without a client stays uncounted (D-113).
+
+Why:
+
+- An application asks the password again before closing an account or
+  changing an email, so a stolen session is not enough. The check existed
+  inside `changePassword` only; the workaround, `User.signIn`, opened a
+  session nothing ended, needed the email, and was never counted without a
+  client.
+- The check guards an action, so forgetting the `client` must not open it
+  to brute force: it is counted per user either way.
+- One subject for both commands: alternating between them gives no more
+  tries.
+- Server attempts under `''` would share the ceiling of every client whose
+  transport has no address: failures on many users would lock them all.
+
+Rejected:
+
+- `verifyPassword`: `verifyEmail` already means confirming with a token.
+- A public `checkPassword` function: a client could skip it and call the
+  action; the action checks the password itself.
+- Returning `false` for a wrong password: a forgotten `if` would let the
+  action through.
+- Keeping `Wrong email or password.` for these checks: no email is typed.
+
+Example, before:
+
+```ts
+const deleteAccount = defineFunction({
+	name: 'deleteAccount',
+	input: z.object({ password: z.string() }),
+	run: async ({ input, caller }) => {
+		// The application keeps its own copy of the email; this opens a
+		// second session, and server code is never counted.
+		await User.signIn({ email: caller.user.email, password: input.password })
+		await User.closeAccount({ id: caller.user.id }, { as: caller })
+	},
+})
+```
+
+After:
+
+```ts
+const deleteAccount = defineFunction({
+	name: 'deleteAccount',
+	input: z.object({ password: z.string() }),
+	run: async ({ input, caller, client }) => {
+		await User.checkPassword(
+			{ id: caller.user.id, password: input.password },
+			{ as: caller, client },
+		)
+		await User.closeAccount({ id: caller.user.id }, { as: caller })
+	},
+})
 ```
