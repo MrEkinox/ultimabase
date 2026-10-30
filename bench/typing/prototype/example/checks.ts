@@ -64,7 +64,7 @@ export type Checks = [
 			(typeof selected)[number],
 			{
 				readonly title: string
-				readonly author: { readonly email: string }
+				readonly author: { readonly email: string } | null
 				readonly tags: ({
 					readonly id: string
 					readonly createdAt: Date

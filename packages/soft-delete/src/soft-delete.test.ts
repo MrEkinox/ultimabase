@@ -113,6 +113,23 @@ describe('a deleted row', () => {
 		expect(await Comment.count({}, M)).toBe(1)
 	})
 
+	it('reads null through a required relation, Master included (D-159)', async () => {
+		const post = { connect: { id } }
+		await Comment.create({ data: { text: 'Nice', post } }, M)
+		await Post.delete({ where: { id } }, M)
+		const comments = await Comment.findMany(
+			{ select: { text: true, post: { select: { title: true } } } },
+			M,
+		)
+		expectTypeOf(comments).toEqualTypeOf<
+			{
+				readonly text: string
+				readonly post: { readonly title: string } | null
+			}[]
+		>()
+		expect(comments).toEqual([{ text: 'Nice', post: null }])
+	})
+
 	it('keeps its unique values', async () => {
 		await Post.delete({ where: { id } }, M)
 		await expect(

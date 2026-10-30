@@ -217,7 +217,7 @@ describe('a filtered relation', () => {
 			{ where: { id: draft.id }, include: { writer: true } },
 			M,
 		)
-		expect(moved.writer.name).toBe('Bob')
+		expect(moved.writer?.name).toBe('Bob')
 		await Writer.update(
 			{
 				where: { id: ada },
