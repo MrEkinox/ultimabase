@@ -9,7 +9,7 @@ import type { Recorded } from 'ultimabase/internal'
 import { livePlan, recording } from 'ultimabase/internal'
 import type { Batch } from './changes.ts'
 import { checked, invalid } from './checked.ts'
-import { Computed } from './computed.ts'
+import { Computed, debounce, ownerOf } from './computed.ts'
 import type { LiveMessage } from './messages.ts'
 import { Live } from './live.ts'
 import type { Loader } from './reads.ts'
@@ -53,13 +53,6 @@ const soonest = 1000
 /** The longest wait `setTimeout` keeps. */
 const latest = 2 ** 31 - 1
 
-/** A function's name, with its plugin's for a plugin's (D-113). */
-export const ownerOf = (fn: ExposedFunction): string =>
-	fn.plugin === undefined ? fn.name : `${fn.plugin}.${fn.name}`
-
-/** How long a live function's wake waits for quiet, in milliseconds. */
-const debounce = 50
-
 /** Who `caller` is, which a rebuilt caller must keep. */
 const whoOf = (caller: Caller): string => {
 	if (caller.kind !== 'user') return JSON.stringify(caller)
@@ -70,7 +63,8 @@ const whoOf = (caller: Caller): string => {
 export class Viewer {
 	readonly #settings: Settings
 	#request: Request
-	readonly #onClose: () => void
+	/** What runs once it closes, the engine's first (D-163). */
+	readonly #listeners: (() => void)[] = []
 	readonly #onDue: () => void
 	readonly #live = new Map<Live, Subscription>()
 	readonly #computed = new Map<Computed, (message: LiveMessage) => void>()
@@ -92,7 +86,7 @@ export class Viewer {
 		this.#caller = identified.result
 		this.#reads = identified.reads
 		this.#expires = identified.expires
-		this.#onClose = hooks.onClose
+		this.#listeners.push(hooks.onClose)
 		this.#onDue = hooks.onDue
 		this.#reschedule()
 	}
@@ -174,7 +168,24 @@ export class Viewer {
 		this.#live.clear()
 		for (const computed of this.#computed.keys()) computed.close()
 		this.#computed.clear()
-		this.#onClose()
+		this.#told()
+	}
+
+	/** Runs `listener` once it closes, at once when it is closed (D-163). */
+	onClose(listener: () => void): void {
+		this.#listeners.push(listener)
+		if (this.#closed) this.#told()
+	}
+
+	/** Runs each listener once; one that throws is logged, not the others. */
+	#told(): void {
+		for (const listener of this.#listeners.splice(0)) {
+			try {
+				listener()
+			} catch (error) {
+				this.#settings.logger.error({ err: error }, 'A close listener failed.')
+			}
+		}
 	}
 
 	/** Follows `batch`: rebuilds the caller first when a write may change it. */

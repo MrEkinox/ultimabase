@@ -9342,6 +9342,8 @@ api: ({ plugins }) => plugins.http.mount(uploads, { bodyLimit: false })
 
 ## D-154: Realtime: live lists and live rows
 
+Amended by D-163.
+
 Choice: completes D-25; amends D-106 (WebSocket upgrades), D-107 (the
 `Subscription` type), D-109 (live functions) and D-129 (live reads over
 SSE). Three goals rank every choice below, in this order: performance with
@@ -10187,3 +10189,52 @@ import { defineModel } from 'ultimabase'
 README.md: the block under examples/introduction/src/models.ts#post
 differs from its region
 ```
+
+## D-163: A viewer tells when it closes
+
+Choice: amends D-154.
+
+1. `Viewer.onClose(listener: () => void): void` adds a listener that runs
+   once, when the viewer closes, whatever closes it: its caller ended (a
+   sign-out, a password change, a closed account, a session expired), the
+   application stops, or `close()` was called.
+2. A listener added to a closed viewer runs at once.
+3. A listener that throws is logged with the application's logger; the
+   other listeners still run, and the viewer is closed all the same.
+4. No reason is given, a listener is not removed, and there is no listener
+   for a caller that changes.
+5. The realtime page shows a plugin's own WebSocket: it connects a viewer,
+   closes the socket in `onClose`, and closes the viewer when the socket
+   closes.
+
+Before, a plugin's socket without a live read learns of nothing, so it
+polls `closed`:
+
+```ts
+const viewer = await plugins.realtime.connect(upgrade.request)
+const timer = setInterval(() => {
+	if (viewer.closed) socket.close()
+}, 5000)
+```
+
+After:
+
+```ts
+const viewer = await plugins.realtime.connect(upgrade.request)
+viewer.onClose(() => socket.close())
+socket.on('close', () => viewer.close())
+```
+
+Why:
+
+- GraphQL and REST learn of a closed viewer through the `closed` message
+  of their live reads. A plugin's socket that holds none, such as one that
+  only sends notifications, keeps serving a caller who signed out.
+- A listener that runs at once on a closed viewer leaves no gap between
+  `connect` and `onClose`.
+
+Rejected:
+
+- `realtime.connect(request, { onClose })`: a listener is added where the
+  socket is known, often after `connect`, and a plugin may add several.
+- A reason, an unsubscribe and `onCallerChange`: no plugin needs them yet.

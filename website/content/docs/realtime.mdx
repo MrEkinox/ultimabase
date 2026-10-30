@@ -130,6 +130,30 @@ A run waits for 50 ms of quiet after a write, and at most a second;
 `.with({ realtime: { debounce } })` sets the wait. The function runs as the
 subscriber.
 
+## A socket of your own
+
+A [plugin](/docs/next/plugins) can serve live reads over its own socket.
+`plugins.http.upgrade(path, accept)` hands it the upgrade, and
+`plugins.realtime.connect(request)` the viewer of its caller, which follows
+lists and rows under the caller's rules:
+
+<include cwd meta='title="src/feed.ts"'>
+	../examples/realtime/src/feed.ts#plugin
+</include>
+
+`viewer.onClose` runs once the viewer closes: its caller signed out,
+changed their password, closed their account or saw their session end, or
+the application stops. Close the socket there, and close the viewer when
+the socket closes:
+
+<include cwd meta='title="src/feed.ts"'>
+	../examples/realtime/src/feed.ts#follow
+</include>
+
+<include cwd meta='title="src/feed.test.ts"'>
+	../examples/realtime/src/feed.test.ts#client
+</include>
+
 ## Rights
 
 A live read is checked as its query is: the read rules, the `beforeFind`
@@ -191,6 +215,18 @@ The caller is the upgrade request's, by cookie or `Authorization`, or
 caller becomes another user closes with `4403`. A client message is at
 most 1 MB; the server pings every 12 seconds. Over SSE, a row that does
 not exist is `null`, not a `404`, and a model that is not live is a `400`.
+
+### The viewer
+
+| Member                               | Effect                                                                    |
+| ------------------------------------ | ------------------------------------------------------------------------- |
+| `plugins.realtime.connect(request)`  | The viewer of the request's caller.                                       |
+| `viewer.list(model, args, send)`     | A live list; `send` gets each message. Returns `{ grow, resend, close }`. |
+| `viewer.row(model, { where }, send)` | A live row, by a unique `where`.                                          |
+| `viewer.onClose(listener)`           | Runs `listener` once the viewer closes; at once if it is closed.          |
+| `viewer.close()` and `viewer.closed` | Closes every live read; whether it is closed.                             |
+
+A listener that throws is logged; the others still run.
 
 ### `@ultimabase/live`
 

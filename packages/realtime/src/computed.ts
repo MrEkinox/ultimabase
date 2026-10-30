@@ -3,13 +3,20 @@
 // result is sent whole; one equal to the last is not. A wake during a run
 // runs it once more after it, and an error closes it.
 import { isDeepStrictEqual } from 'node:util'
-import type { Caller } from 'ultimabase'
+import type { Caller, ExposedFunction } from 'ultimabase'
 import type { Recorded } from 'ultimabase/internal'
 import { recording } from 'ultimabase/internal'
 import type { Batch } from './changes.ts'
 import type { LiveMessage } from './messages.ts'
 import type { Loader } from './reads.ts'
 import { anyStale } from './stale.ts'
+
+/** A function's name, with its plugin's for a plugin's (D-113). */
+export const ownerOf = (fn: ExposedFunction): string =>
+	fn.plugin === undefined ? fn.name : `${fn.plugin}.${fn.name}`
+
+/** How long a live function's wake waits for quiet, in milliseconds. */
+export const debounce = 50
 
 /** The longest a run waits after the first wake, however many follow. */
 const longest = 1000
