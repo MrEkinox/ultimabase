@@ -170,10 +170,27 @@ above do:
 | `port`      | number          | `PORT`, then 3000 | Where the server listens.                                      |
 | `bodyLimit` | number of bytes | 1 MB              | The largest request body; files take their own limit.          |
 | `proxies`   | whole number    | 0                 | The proxies in front of the server, read in `X-Forwarded-For`. |
+| `upgrade`   | function        | none              | Answers each WebSocket upgrade: a `Response` refuses it.       |
 
 Outside production, local origins over `http:` are allowed besides `cors`.
 On `stop`, the server stops taking connections and waits 10 seconds at most
 for the requests still running.
+
+### WebSockets
+
+A plugin takes the WebSocket upgrades of a path, as GraphQL takes those of
+its own. An upgrade on a path no plugin takes is a 404, one from an origin
+`cors` does not allow a 403; `upgrade` then answers the others, as during
+[maintenance](/docs/next/realtime#maintenance). From a plugin that requires
+the HTTP plugin:
+
+| Member                                          | Effect                                                                                    |
+| ----------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| `plugins.http.upgrade(path, accept, { close })` | Takes the upgrades of `path`, from the plugin's `api`; `close(code, reason)` closes them. |
+| `plugins.http.closeUpgrades({ code, reason })`  | Closes the sockets open; with `path`, those of one path. Cuts those without `close`.      |
+
+`closeUpgrades` with a path no plugin takes throws `No plugin takes the
+upgrades of /x.`; before the start and after the stop, it closes nothing.
 
 ### `routes()` and its context
 

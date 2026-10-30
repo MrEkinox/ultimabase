@@ -1,12 +1,13 @@
 // WebSocket upgrades (D-154): a plugin takes a path's, past the origin check
-// CORS makes, and `stop` closes the sockets it took, 10 s at most.
+// CORS makes and the application's gate, `closeUpgrades` closes them (D-166)
+// and `stop` closes the sockets it took, 10 s at most.
 import { request as send } from 'node:http'
 import { connect } from 'node:net'
 import type { Duplex } from 'node:stream'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { Logger, PluginTypes } from 'ultimabase'
 import { defineApp, definePlugin, memory } from 'ultimabase'
-import type { HttpApi, Upgrade } from './index.ts'
+import type { Accept, Gate, HttpApi, Upgrade } from './index.ts'
 import { httpPlugin } from './index.ts'
 
 const errors: unknown[] = []
@@ -28,8 +29,21 @@ interface Sockets extends PluginTypes {
 	readonly requires: Http
 }
 const taken: Upgrade[] = []
+const closes: (readonly [number, string])[] = []
 let late: HttpApi | undefined
-/** Takes `/live`'s upgrades, and fails those of `/broken`. */
+/** Switches protocols, and closes its socket when the client leaves. */
+const switching: Accept = (upgrade) => {
+	taken.push(upgrade)
+	// A client that leaves closes its socket, as ws does.
+	upgrade.socket.once('end', () => upgrade.socket.end())
+	upgrade.socket.write(
+		'HTTP/1.1 101 Switching Protocols\r\nupgrade: websocket\r\nconnection: Upgrade\r\n\r\n',
+	)
+}
+/**
+ * Takes `/live`'s upgrades, those of `/closing`, whose sockets it closes
+ * itself, and fails those of `/broken`.
+ */
 const sockets = definePlugin<Sockets>({
 	name: 'sockets',
 	manifest: {
@@ -40,14 +54,14 @@ const sockets = definePlugin<Sockets>({
 	requires: { http: httpPlugin },
 	api: ({ plugins }) => {
 		late = plugins.http
-		plugins.http.upgrade('/live', (upgrade) => {
-			taken.push(upgrade)
-			// A client that leaves closes its socket, as ws does.
-			upgrade.socket.once('end', () => upgrade.socket.end())
-			upgrade.socket.write(
-				'HTTP/1.1 101 Switching Protocols\r\nupgrade: websocket\r\nconnection: Upgrade\r\n\r\n',
-			)
+		plugins.http.upgrade('/live', switching)
+		plugins.http.upgrade('/closing', switching, {
+			close: (code, reason) => {
+				closes.push([code, reason])
+			},
 		})
+		// Before the server starts, there is nothing to close.
+		plugins.http.closeUpgrades({ code: 1012 })
 		plugins.http.upgrade('/broken', () => {
 			throw new Error('broken')
 		})
@@ -57,16 +71,21 @@ const sockets = definePlugin<Sockets>({
 let stop: (() => Promise<void>) | undefined
 afterEach(async () => {
 	taken.length = 0
+	closes.length = 0
 	errors.length = 0
 	await stop?.()
 	stop = undefined
 })
 
-async function started() {
+async function started(upgrade?: Gate) {
 	const app = defineApp({
 		database: memory(),
 		plugins: [
-			httpPlugin({ port: 0, cors: ['https://app.example.com'] }),
+			httpPlugin({
+				port: 0,
+				cors: ['https://app.example.com'],
+				...(upgrade && { upgrade }),
+			}),
 			sockets.plugin(),
 		],
 		models: [],
@@ -108,6 +127,24 @@ async function upgraded(
 		})
 		asked.on('error', fail)
 		asked.end()
+	})
+}
+
+/** The whole answer to an upgrade of `target`, as the server wrote it. */
+async function raw(url: string, target: string): Promise<string> {
+	const { port } = new URL(url)
+	return new Promise<string>((done) => {
+		const socket = connect(Number(port), 'localhost', () => {
+			socket.write(
+				`GET ${target} HTTP/1.1\r\nhost: localhost\r\nconnection: Upgrade\r\nupgrade: websocket\r\n\r\n`,
+			)
+		})
+		let text = ''
+		socket.setEncoding('utf8')
+		socket.on('data', (chunk: string) => {
+			text += chunk
+		})
+		socket.on('end', () => done(text))
 	})
 }
 
@@ -168,22 +205,88 @@ describe('an upgrade', () => {
 
 	it('is refused without a path', async () => {
 		const { url } = await started()
-		const { port } = new URL(url)
-		const answer = await new Promise<string>((done) => {
-			const socket = connect(Number(port), 'localhost', () => {
-				socket.write(
-					'GET http://localhost/live HTTP/1.1\r\nhost: localhost\r\nconnection: Upgrade\r\nupgrade: websocket\r\n\r\n',
-				)
-			})
-			let text = ''
-			socket.setEncoding('utf8')
-			socket.on('data', (chunk: string) => {
-				text += chunk
-			})
-			socket.on('end', () => done(text))
-		})
+		const answer = await raw(url, 'http://localhost/live')
 		expect(answer).toMatch(/^HTTP\/1\.1 400 Bad Request\r\n/)
 		expect(answer).toContain('"code":"BAD_REQUEST"')
+	})
+})
+
+describe('the gate', () => {
+	it('sends its response as it is, before the plugin sees the upgrade', async () => {
+		const gated: Request[] = []
+		const { url } = await started(async (request) => {
+			gated.push(request)
+			return Response.json(
+				{ code: 'UNAVAILABLE', message: 'Under maintenance.' },
+				{ status: 503, headers: { 'retry-after': '30' } },
+			)
+		})
+		const answer = await raw(url, '/live?x=1')
+		expect(answer).toMatch(/^HTTP\/1\.1 503 Service Unavailable\r\n/)
+		expect(answer).toContain('\r\nretry-after: 30\r\n')
+		expect(answer).toContain('\r\nconnection: close\r\n')
+		expect(answer).toMatch(
+			/\r\n\r\n\{"code":"UNAVAILABLE","message":"Under maintenance\."\}$/,
+		)
+		expect(gated.map((request) => request.url)).toEqual([
+			'http://localhost/live?x=1',
+		])
+		expect(taken).toEqual([])
+	})
+
+	it('lets an upgrade through with nothing', async () => {
+		const { url } = await started(() => undefined)
+		const answer = await upgraded(`${url}/live`)
+		expect(answer.status).toBe(101)
+		answer.socket?.destroy()
+		expect(taken).toHaveLength(1)
+	})
+
+	it('that fails is logged, and the upgrade refused', async () => {
+		const { url } = await started(() => {
+			throw new Error('gate')
+		})
+		expect(await upgraded(`${url}/live`)).toEqual({
+			status: 500,
+			body: { code: 'INTERNAL', message: 'Internal error.' },
+		})
+		expect(errors).toEqual([{ err: new Error('gate') }])
+		expect(taken).toEqual([])
+	})
+})
+
+describe('closeUpgrades', () => {
+	it('closes each path with its plugin’s close, and cuts the others', async () => {
+		const { url } = await started()
+		const live = await upgraded(`${url}/live`)
+		const closing = await upgraded(`${url}/closing`)
+		const cut = new Promise((done) => live.socket?.once('close', done))
+		late?.closeUpgrades({ code: 1012, reason: 'Maintenance' })
+		expect(closes).toEqual([[1012, 'Maintenance']])
+		await cut
+		expect(closing.socket?.destroyed).toBe(false)
+		closing.socket?.destroy()
+	})
+
+	it('closes the sockets of one path alone', async () => {
+		const { url } = await started()
+		const live = await upgraded(`${url}/live`)
+		late?.closeUpgrades({ code: 1012, path: '/closing' })
+		expect(closes).toEqual([[1012, '']])
+		const cut = new Promise((done) => live.socket?.once('close', done))
+		late?.closeUpgrades({ code: 1012, path: '/live' })
+		await cut
+		expect(() => late?.closeUpgrades({ code: 1012, path: '/other' })).toThrow(
+			'No plugin takes the upgrades of /other.',
+		)
+	})
+
+	it('closes nothing once the server stopped', async () => {
+		await started()
+		await stop?.()
+		stop = undefined
+		late?.closeUpgrades({ code: 1012 })
+		expect(closes).toEqual([])
 	})
 })
 

@@ -133,9 +133,11 @@ subscriber.
 ## A socket of your own
 
 A [plugin](/docs/next/plugins) can serve live reads over its own socket.
-`plugins.http.upgrade(path, accept)` hands it the upgrade, and
+`plugins.http.upgrade(path, accept, { close })` hands it the upgrade, and
 `plugins.realtime.connect(request)` the viewer of its caller, which follows
-lists and rows under the caller's rules:
+lists and rows under the caller's rules. `close` closes its sockets with the
+code [`closeUpgrades`](#maintenance) asks for; without it, they are cut,
+and their clients read 1006:
 
 <include cwd meta='title="src/feed.ts"'>
 	../examples/realtime/src/feed.ts#plugin
@@ -153,6 +155,34 @@ the socket closes:
 <include cwd meta='title="src/feed.test.ts"'>
 	../examples/realtime/src/feed.test.ts#client
 </include>
+
+## Maintenance
+
+`httpPlugin({ upgrade })` answers each WebSocket upgrade before the plugin
+that takes it, GraphQL's included: a `Response` refuses it, sent as it is,
+and `undefined` lets it through. It runs after the origin check and reads
+no caller. During maintenance, it refuses every new socket:
+
+<include cwd meta='title="src/maintenance.ts"'>
+	../examples/realtime/src/maintenance.ts#gate
+</include>
+
+`plugins.http.closeUpgrades({ code, reason })` closes the sockets open, on
+every path or on `path` alone. 1012, Service Restart, tells a client to
+come back later. A plugin that requires the HTTP plugin calls it, from a
+maintenance switch of the application:
+
+<include cwd meta='title="src/maintenance.ts"'>
+	../examples/realtime/src/maintenance.ts#plugin
+</include>
+
+<include cwd meta='title="src/maintenance.test.ts"'>
+	../examples/realtime/src/maintenance.test.ts#maintenance
+</include>
+
+A graphql-ws client tries again after a 1012, as many times as its
+`retryAttempts`, 5 by default; each try meets the 503 until maintenance
+ends.
 
 ## Rights
 

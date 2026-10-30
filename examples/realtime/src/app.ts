@@ -5,6 +5,7 @@ import { realtimePlugin } from '@ultimabase/realtime'
 import { restPlugin } from '@ultimabase/rest'
 import { defineApp, memory } from 'ultimabase'
 import { taskFeedPlugin } from './feed.ts'
+import { maintenancePlugin, refusedInMaintenance } from './maintenance.ts'
 import { Task, tasksLeft } from './models.ts'
 
 export const app = defineApp({
@@ -13,7 +14,8 @@ export const app = defineApp({
 	//#region plugins
 	// Listens on PORT, or 3000; GraphQL subscriptions on ws://…/graphql.
 	plugins: [
-		httpPlugin(),
+		// No new WebSocket during maintenance.
+		httpPlugin({ upgrade: refusedInMaintenance }),
 		graphqlPlugin(),
 		restPlugin(),
 		realtimePlugin({
@@ -26,6 +28,8 @@ export const app = defineApp({
 		}),
 		// The tasks over a WebSocket of its own, on ws://…/tasks.
 		taskFeedPlugin(),
+		// Closes every socket as maintenance begins.
+		maintenancePlugin(),
 	],
 	//#endregion
 	models: [Task],

@@ -69,7 +69,7 @@ const grace = 10_000
 export async function closed(
 	server: Server,
 	logger: Logger,
-	taken: ReadonlySet<Duplex>,
+	taken: ReadonlyMap<Duplex, string>,
 ): Promise<void> {
 	let cutting: NodeJS.Timeout | undefined
 	await new Promise<void>((done, fail) => {
@@ -84,7 +84,7 @@ export async function closed(
 				`Stopped ${grace / 1000} s after stop began: closed the requests still running.`,
 			)
 			server.closeAllConnections()
-			for (const socket of taken) socket.destroy()
+			for (const socket of taken.keys()) socket.destroy()
 		}, grace)
 	})
 }

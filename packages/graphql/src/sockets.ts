@@ -273,14 +273,23 @@ export function serveSockets(
 		for (const socket of sockets.clients) beats.get(socket)?.()
 	}, keepAlive)
 	beating.unref()
-	http.upgrade(path, (upgrade) => {
-		sockets.handleUpgrade(
-			upgrade.incoming,
-			upgrade.socket,
-			upgrade.head,
-			(socket) => opened(socket, upgrade),
-		)
-	})
+	http.upgrade(
+		path,
+		(upgrade) => {
+			sockets.handleUpgrade(
+				upgrade.incoming,
+				upgrade.socket,
+				upgrade.head,
+				(socket) => opened(socket, upgrade),
+			)
+		},
+		// As `closeUpgrades` asks, as during maintenance (D-166).
+		{
+			close: (code, reason) => {
+				for (const socket of sockets.clients) socket.close(code, reason)
+			},
+		},
+	)
 	return async () => {
 		clearInterval(beating)
 		for (const socket of sockets.clients) socket.close(1001, 'Going away')

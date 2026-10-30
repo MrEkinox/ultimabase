@@ -46,12 +46,21 @@ export const taskFeedPlugin: PluginOf<TaskFeed> = definePlugin<TaskFeed>({
 	},
 	requires: { http: httpPlugin, realtime: realtimePlugin },
 	api: ({ plugins }) => {
-		plugins.http.upgrade('/tasks', ({ request, incoming, socket, head }) => {
-			sockets.handleUpgrade(incoming, socket, head, (client) => {
-				// A caller identify refuses gets a closed socket.
-				follow(plugins.realtime, request, client).catch(() => client.close())
-			})
-		})
+		plugins.http.upgrade(
+			'/tasks',
+			({ request, incoming, socket, head }) => {
+				sockets.handleUpgrade(incoming, socket, head, (client) => {
+					// A caller identify refuses gets a closed socket.
+					follow(plugins.realtime, request, client).catch(() => client.close())
+				})
+			},
+			{
+				// What closeUpgrades asks, as maintenance begins.
+				close: (code, reason) => {
+					for (const client of sockets.clients) client.close(code, reason)
+				},
+			},
+		)
 	},
 }).plugin
 //#endregion
