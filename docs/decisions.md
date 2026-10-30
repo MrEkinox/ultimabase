@@ -10127,3 +10127,63 @@ git push   # → checks, the release pull request updated; nothing on npm
 #   → npm: 15 packages at 0.1.2-canary.<UTC datetime> (canary)
 npm install ultimabase@canary
 ```
+
+## D-158: The repository's README
+
+Choice: completes D-155.
+
+1. `README.md` is the repository's front page on GitHub, in English, and
+   in this order:
+   - the app icon, `website/app/icon.svg`, which reads on GitHub's light
+     and dark themes alike;
+   - the name, the landing page's product sentence and its lede;
+   - four badges: the npm version, the CI of `main`, the license and the
+     Node.js versions;
+   - links to the documentation, the quickstart, the examples and the
+     releases;
+   - the pre-release status;
+   - `npm create ultimabase@latest`;
+   - the introduction's example, from its model to its reads;
+   - what UltimaBase does, each line linking to its page;
+   - the packages, each linking to its page;
+   - how it compares to Parse Server and Supabase;
+   - contributing, and the license.
+2. Its code blocks are regions of the examples, as a page's are (D-155
+   point 2), copied: GitHub includes no file. An HTML comment above each
+   block names its region, `<!-- examples/introduction/src/models.ts#post -->`.
+   A repository test, in `yarn validate`, refuses a block other than
+   `bash` without that comment, and a block that differs from its region.
+3. A package's README stays a few lines without code (D-155 point 7).
+
+Why:
+
+- A visitor of the repository decides in its first screen. Hono, tRPC,
+  Drizzle and Prisma open on a logo, a sentence, badges and code that runs.
+- A copied block drifts from the API unless something checks it, and the
+  README is the page a visitor reads first.
+
+Rejected:
+
+- No code in the README, only a link to the site: the code is what shows
+  the product.
+- A script that writes the README's blocks from the examples: the test
+  names the block that drifted, and the fix is a copy.
+- A logo with its name, for each theme: an SVG on GitHub renders its text
+  in a fallback font, so the name would need its outlines; the name is the
+  title below the icon.
+
+Example:
+
+````markdown
+<!-- examples/introduction/src/models.ts#post -->
+
+```ts
+import { defineModel } from 'ultimabase'
+…
+```
+````
+
+```text
+README.md: the block under examples/introduction/src/models.ts#post
+differs from its region
+```

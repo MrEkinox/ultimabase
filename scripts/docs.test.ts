@@ -362,3 +362,71 @@ it('gives each package a README, without code, linking to its page', () => {
 		})
 	expect(problems).toEqual([])
 })
+
+/**
+ * Each fenced block of a Markdown file: its language, its code, and the
+ * region the HTML comment above it names, if any.
+ */
+function blocksOf(markdown: string) {
+	const lines = markdown.split('\n')
+	const blocks: { language: string; code: string; source: string }[] = []
+	let above = ''
+	for (let at = 0; at < lines.length; at += 1) {
+		const line = lines[at] ?? ''
+		const fence = /^(?<marks>`{3,})(?<language>\S*)$/u.exec(line)?.groups
+		if (fence === undefined) {
+			if (line.trim() !== '') above = line
+			continue
+		}
+		const close = lines.indexOf(fence['marks'] ?? '', at + 1)
+		const end = close === -1 ? lines.length : close
+		blocks.push({
+			language: fence['language'] ?? '',
+			code: lines.slice(at + 1, end).join('\n'),
+			source:
+				/^<!-- (?<source>\S+#\S+) -->$/u.exec(above)?.groups?.['source'] ?? '',
+		})
+		above = ''
+		at = end
+	}
+	return blocks
+}
+
+it('reads the blocks of a Markdown file and the region above each', () => {
+	const markdown = [
+		'```bash',
+		'yarn',
+		'```',
+		'<!-- examples/a/b.ts#c -->',
+		'',
+		'```ts',
+		'const a = 1',
+		'```',
+		'Text.',
+		'```ts',
+	].join('\n')
+	expect(blocksOf(markdown)).toEqual([
+		{ language: 'bash', code: 'yarn', source: '' },
+		{ language: 'ts', code: 'const a = 1', source: 'examples/a/b.ts#c' },
+		{ language: 'ts', code: '', source: '' },
+	])
+})
+
+it("copies each of the README's code blocks from a region of an example", () => {
+	// GitHub includes no file (D-158): the comment above a block names the
+	// region it copies, and the copy is checked here.
+	const problems = blocksOf(readFileSync('README.md', 'utf8'))
+		.filter(({ language }) => language !== 'bash')
+		.flatMap(({ code, source }) => {
+			const [file = '', name = ''] = source.split('#')
+			if (!file.startsWith('examples/') || !existsSync(file)) {
+				return [
+					`README.md: a block names no region of an example: ${code.split('\n')[0] ?? ''}`,
+				]
+			}
+			return region(readFileSync(file, 'utf8'), name) === code
+				? []
+				: [`README.md: the block under ${source} differs from its region`]
+		})
+	expect(problems).toEqual([])
+})
