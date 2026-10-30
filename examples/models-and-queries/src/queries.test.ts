@@ -1,5 +1,6 @@
 // Reads and writes the catalog from server code, as Master, each test on a
 // new in-memory database holding four products.
+//#region seed
 import { testApplication } from '@ultimabase/testing'
 import { master } from 'ultimabase'
 import { beforeEach, expect, it } from 'vitest'
@@ -13,7 +14,6 @@ const names = (rows: readonly { readonly name: string }[]): string[] =>
 	rows.map((row) => row.name)
 
 beforeEach(async () => {
-	//#region seed
 	// One write of every row, which returns { count: 4 }.
 	await Product.createMany(
 		{
@@ -54,8 +54,8 @@ beforeEach(async () => {
 		},
 		as,
 	)
-	//#endregion
 })
+//#endregion
 
 it('filters with operators', async () => {
 	//#region where

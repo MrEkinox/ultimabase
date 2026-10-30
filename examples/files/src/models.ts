@@ -1,26 +1,11 @@
 // The model: a post with a cover image, public, and private text
 // attachments.
+//#region post
 import { file } from '@ultimabase/files'
 import { graphql } from '@ultimabase/graphql'
 import { allow, defineModel } from 'ultimabase'
 import { z } from 'zod'
 
-//#region png-size
-const signature = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]
-
-/** A PNG's width and height, from its header; `null` for other bytes. */
-function pngSize(body: Uint8Array) {
-	// `accept` lists image/png as is, so a body declared image/png whose
-	// type is not detected comes in too, and is served as a download.
-	const isPng =
-		body.length >= 24 && signature.every((byte, i) => body[i] === byte)
-	if (!isPng) return null
-	const view = new DataView(body.buffer, body.byteOffset, body.byteLength)
-	return { width: view.getUint32(16), height: view.getUint32(20) }
-}
-//#endregion
-
-//#region post
 export const Post = defineModel({
 	name: 'Post',
 	use: [graphql()],
@@ -57,4 +42,19 @@ export const Post = defineModel({
 	}),
 	// Open to every client, to keep the example on files.
 }).with({ access: allow.public })
+//#endregion
+
+//#region png-size
+const signature = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]
+
+/** A PNG's width and height, from its header; `null` for other bytes. */
+function pngSize(body: Uint8Array) {
+	// `accept` lists image/png as is, so a body declared image/png whose
+	// type is not detected comes in too, and is served as a download.
+	const isPng =
+		body.length >= 24 && signature.every((byte, i) => body[i] === byte)
+	if (!isPng) return null
+	const view = new DataView(body.buffer, body.byteOffset, body.byteLength)
+	return { width: view.getUint32(16), height: view.getUint32(20) }
+}
 //#endregion

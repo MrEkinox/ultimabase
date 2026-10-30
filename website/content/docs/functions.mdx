@@ -9,9 +9,17 @@ Standard Schema (Zod, Valibot, ArkType…), types its output, and every
 transport serves it: GraphQL as a mutation, REST as `POST
 /api/functions/borrowBook`.
 
+The examples write their schemas with Zod, a package of its own:
+
+```npm
+npm install zod
+```
+
 <include cwd meta='title="src/functions.ts"'>
 	../examples/functions/src/functions.ts#borrow
 </include>
+
+The full example, with its tests: [`examples/functions`](https://github.com/MrEkinox/ultimadatabase/tree/main/examples/functions).
 
 `defineApp({ functions: [...] })` adds it to the application:
 

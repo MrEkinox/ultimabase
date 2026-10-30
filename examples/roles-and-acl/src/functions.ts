@@ -4,7 +4,8 @@ import { isAuthenticated } from '@ultimabase/auth'
 import { rolesOf } from '@ultimabase/roles'
 import { PublicError, defineFunction, master } from 'ultimabase'
 import { z } from 'zod'
-import { Note, Role } from './models.ts'
+import { Role } from './models.ts'
+import { Note } from './notes.ts'
 
 //#region share
 export const shareNote = defineFunction({

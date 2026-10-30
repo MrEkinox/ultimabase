@@ -7,7 +7,7 @@ import { Post } from './models.ts'
 
 //#region storage
 // S3 or any S3-compatible storage in production; in memory otherwise, so
-// neither `yarn start` nor the tests write to a real storage.
+// neither the example's server nor its tests write to a real storage.
 const storage =
 	process.env.NODE_ENV === 'production'
 		? s3({

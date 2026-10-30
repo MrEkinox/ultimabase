@@ -1,8 +1,8 @@
 // The models: authors write books, a publisher prints them, tags sort them.
+//#region models
 import { graphql } from '@ultimabase/graphql'
 import { allow, defineModel } from 'ultimabase'
 
-//#region models
 export const Author = defineModel({
 	name: 'Author',
 	use: [graphql()],

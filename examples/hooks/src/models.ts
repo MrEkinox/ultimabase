@@ -1,9 +1,9 @@
 // Support tickets, and the activity they record.
+//#region ticket
 import { graphql } from '@ultimabase/graphql'
 import { PublicError, allow, defineModel, master } from 'ultimabase'
 import { outbox } from './outbox.ts'
 
-//#region ticket
 export const Ticket = defineModel({
 	name: 'Ticket',
 	use: [graphql()],

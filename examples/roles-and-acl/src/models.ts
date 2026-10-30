@@ -1,13 +1,11 @@
-// The models: users who hold roles, and notes whose rows say who reads and
-// who writes them.
-import { ACL, acl } from '@ultimabase/acl'
+// The users and the roles they hold.
+//#region role
 import { defineUser } from '@ultimabase/auth'
 import { graphql } from '@ultimabase/graphql'
 import { password } from '@ultimabase/password'
-import { defineRole, hasRole } from '@ultimabase/roles'
-import { allow, defineModel } from 'ultimabase'
+import { defineRole } from '@ultimabase/roles'
+import { allow } from 'ultimabase'
 
-//#region role
 // Each role has a unique name, its members, and the roles it inherits.
 export const Role = defineRole({
 	name: 'Role',
@@ -29,27 +27,4 @@ declare module 'ultimabase' {
 		readonly user: typeof User
 	}
 }
-//#endregion
-
-//#region note
-export const Note = defineModel({
-	name: 'Note',
-	use: [
-		graphql(),
-		// A new note is its author's alone: no one else reads or writes it.
-		acl({
-			default: ({ caller }) =>
-				caller.kind === 'user' ? new ACL().allowUser(caller.user) : new ACL(),
-		}),
-	],
-	fields: (f) => ({ title: f.string() }),
-}).with({
-	// The ACL picks the rows; the rules pick who writes a new note.
-	access: {
-		read: allow.public,
-		create: hasRole('writer'),
-		update: allow.public,
-		delete: allow.public,
-	},
-})
 //#endregion

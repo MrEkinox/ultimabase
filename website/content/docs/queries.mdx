@@ -12,6 +12,8 @@ it names, no more.
 	../examples/models-and-queries/src/queries.test.ts#seed
 </include>
 
+The full example, with its tests: [`examples/models-and-queries`](https://github.com/MrEkinox/ultimadatabase/tree/main/examples/models-and-queries).
+
 The examples run as Master, which every rule allows; a function or a hook
 passes its own `caller`. See [Access rules](/docs/next/access). The
 transports take the same arguments: see [GraphQL](/docs/next/graphql) and
@@ -182,10 +184,10 @@ with `contains: true`: see [Models and fields](/docs/next/models).
 | `INVALID_QUERY` | An unknown field or operator, a value of the wrong type, `select` with `include` or `omit`. Its `path` names the argument: `where.titel`. |
 | `NOT_FOUND`     | `findFirstOrThrow`, `findUniqueOrThrow`, `update` or `delete` finds no row: `No Product matches.`                                         |
 
-### Limits
-
 A client's query refused as `INVALID_QUERY` answers `BAD_USER_INPUT`, a
 `400`, with the same message and the `path` in its details.
+
+### Limits
 
 - `skip` and `take` are whole numbers; `distinct` takes no `cursor`.
 - `aggregate` takes the fields a sort takes; `groupBy` and `distinct` take

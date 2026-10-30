@@ -11,6 +11,14 @@ has one field of each type:
 	../examples/models-and-queries/src/models.ts#model
 </include>
 
+The full example, with its tests: [`examples/models-and-queries`](https://github.com/MrEkinox/ultimadatabase/tree/main/examples/models-and-queries).
+
+The examples write their schemas with Zod, a package of its own:
+
+```npm
+npm install zod
+```
+
 Every row also has an `id` (a UUID v7 string), a `createdAt` and an
 `updatedAt` (both `Date`), which the kernel writes.
 
@@ -57,8 +65,8 @@ unique value returns `UNIQUE_VIOLATION`:
 enum after the model and the field, `ProductSizes`. `defineEnum` names one
 enum that several fields, of several models, share:
 
-<include cwd meta='title="src/models.ts"'>
-	../examples/models-and-queries/src/models.ts#enum
+<include cwd meta='title="src/types.ts"'>
+	../examples/models-and-queries/src/types.ts#enum
 </include>
 
 ## Object types
@@ -66,8 +74,8 @@ enum that several fields, of several models, share:
 `defineType` declares a shape that is not a table, with a Zod object's
 fields: the output of a virtual field or of a [function](/docs/next/functions).
 
-<include cwd meta='title="src/models.ts"'>
-	../examples/models-and-queries/src/models.ts#type
+<include cwd meta='title="src/types.ts"'>
+	../examples/models-and-queries/src/types.ts#type
 </include>
 
 ## Virtual fields

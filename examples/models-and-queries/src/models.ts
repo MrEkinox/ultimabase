@@ -1,26 +1,11 @@
-// The catalog's model: one field of each type, a shared enum, an index and
-// virtual fields.
+// The catalog's model: one field of each type, an index and virtual fields.
+//#region model
 import { randomUUID } from 'node:crypto'
 import { graphql } from '@ultimabase/graphql'
-import { allow, defineEnum, defineModel, defineType } from 'ultimabase'
+import { allow, defineModel } from 'ultimabase'
 import { z } from 'zod'
+import { Price, Status } from './types.ts'
 
-//#region enum
-// One GraphQL enum and one OpenAPI schema, `Status`, for every field using it.
-export const Status = defineEnum('Status', ['draft', 'published', 'archived'], {
-	description: 'Where a product is in its life.',
-})
-//#endregion
-
-//#region type
-// A shape that is not a table: a virtual field's or a function's output.
-export const Price = defineType({
-	name: 'Price',
-	fields: { amount: z.string(), currency: z.string() },
-})
-//#endregion
-
-//#region model
 export const Product = defineModel({
 	name: 'Product',
 	description: 'A product of the catalog.',

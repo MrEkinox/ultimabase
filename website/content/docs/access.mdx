@@ -12,6 +12,8 @@ Master. Each rule is a plain function that returns `true` or `false`:
 	../examples/access-rules/src/models.ts#model
 </include>
 
+The full example, with its tests: [`examples/access-rules`](https://github.com/MrEkinox/ultimadatabase/tree/main/examples/access-rules).
+
 `allow.public`, `allow.readOnly` and `allow.private` cover the common cases:
 `access: allow.readOnly` lets everyone read and only Master write. Rules are
 synchronous and run no query: a check that needs another row goes in a
@@ -147,10 +149,10 @@ User } }` types `caller.user` as the user model's row: see
 | `INVALID_QUERY` | A filter, a sort or an aggregate on a field with a read rule: `where.notes: Article.notes has a read rule; only Master filters on it.` | none                                 |
 
 `via` names the relation a nested write came through, as `'Post.comments'`.
-
-### Limits
 A client's filter refused as `INVALID_QUERY` answers `BAD_USER_INPUT`, a
 `400`.
+
+### Limits
 
 - A rule returns its result directly, never a `Promise`, and cannot query.
 - A model read rule returns `true`, `false` or `where(...)`; any other value

@@ -19,6 +19,8 @@ npm install @ultimabase/rest
 	../examples/rest/src/models.ts#post
 </include>
 
+The full example, with its tests: [`examples/rest`](https://github.com/MrEkinox/ultimadatabase/tree/main/examples/rest).
+
 `restPlugin()` goes in the application's plugins, after `httpPlugin()`,
 which it requires:
 
@@ -264,11 +266,11 @@ it serves live reads over Server-Sent Events. Master is limited by neither
 
 ### `.with({ rest })`
 
-| On         | Value         | Effect                                                          |
-| ---------- | ------------- | --------------------------------------------------------------- |
 It needs `rest()` in the model's or the function's `use`; without it, the
 model or the function is served with the defaults.
 
+| On         | Value         | Effect                                                          |
+| ---------- | ------------- | --------------------------------------------------------------- |
 | a model    | `{ plural }`  | The routes' name.                                               |
 | a model    | `{ maxTake }` | The most rows its lists return.                                 |
 | a model    | `false`       | No route; read through relations, and connected, never created. |

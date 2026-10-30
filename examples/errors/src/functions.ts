@@ -1,10 +1,10 @@
 // The shop's operations: one refuses with an error of its own, the other
 // fails with an error the client never sees.
+//#region public
 import { PublicError, allow, defineFunction, master } from 'ultimabase'
 import { z } from 'zod'
 import { Product } from './models.ts'
 
-//#region public
 export const order = defineFunction({
 	name: 'order',
 	input: z.object({ sku: z.string(), quantity: z.int().min(1) }),

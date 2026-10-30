@@ -1,5 +1,6 @@
 // The library's operations: a client borrows and returns a book only
 // through them.
+//#region borrow
 import { graphql } from '@ultimabase/graphql'
 import {
 	PublicError,
@@ -12,13 +13,6 @@ import type { Caller } from 'ultimabase'
 import { z } from 'zod'
 import { Book } from './models.ts'
 
-/** The caller's user id; a function's access rule let only users in. */
-function userOf(caller: Caller): string {
-	if (caller.kind !== 'user') throw new Error('A user is required.')
-	return caller.user.id
-}
-
-//#region borrow
 // A named object: a model and data together.
 export const Loan = defineType({
 	name: 'Loan',
@@ -47,6 +41,12 @@ export const borrowBook = defineFunction({
 	},
 }).with({ access: ({ caller }) => caller.kind === 'user' })
 //#endregion
+
+/** The caller's user id; a function's access rule let only users in. */
+function userOf(caller: Caller): string {
+	if (caller.kind !== 'user') throw new Error('A user is required.')
+	return caller.user.id
+}
 
 //#region search
 // A query: served over GraphQL's Query and REST's GET.

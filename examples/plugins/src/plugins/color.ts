@@ -1,10 +1,27 @@
-// A field type: a color, stored as its `#rrggbb` text, read by code as
-// `{ red, green, blue }`, and sent to clients as `#rrggbb`.
-//#region field-type
+// A plugin and the field type it provides: a color, stored as its `#rrggbb`
+// text, read by code as `{ red, green, blue }`, and sent to clients as
+// `#rrggbb`.
+//#region plugin
 import type { PluginOf, PluginTypes } from 'ultimabase'
 import { defineFieldType, definePlugin } from 'ultimabase'
 import { z } from 'zod'
 
+// The plugin that provides the field type, which `plugins` lists.
+export interface Color extends PluginTypes {
+	readonly name: 'color'
+}
+
+export const colorPlugin: PluginOf<Color> = definePlugin<Color>({
+	name: 'color',
+	manifest: {
+		name: 'example-color',
+		version: '1.0.0',
+		peerDependencies: { ultimabase: '*' },
+	},
+}).plugin
+//#endregion
+
+//#region field-type
 const Hex = z.string().regex(/^#[0-9a-f]{6}$/, 'A color is #rrggbb.')
 const Rgb = z.object({
 	red: z.int().min(0).max(255),
@@ -41,20 +58,4 @@ export const color = defineFieldType({
 	toJSON: (value) => hexOf(value),
 	shape: Hex,
 })
-//#endregion
-
-//#region plugin
-// The plugin that provides the field type, which `plugins` lists.
-export interface Color extends PluginTypes {
-	readonly name: 'color'
-}
-
-export const colorPlugin: PluginOf<Color> = definePlugin<Color>({
-	name: 'color',
-	manifest: {
-		name: 'example-color',
-		version: '1.0.0',
-		peerDependencies: { ultimabase: '*' },
-	},
-}).plugin
 //#endregion

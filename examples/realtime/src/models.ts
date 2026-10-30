@@ -1,11 +1,11 @@
 // The model: tasks that clients follow live, and a live count of those left.
+//#region task
 import { graphql } from '@ultimabase/graphql'
 import { realtime } from '@ultimabase/realtime'
 import { rest } from '@ultimabase/rest'
 import { allow, defineFunction, defineModel } from 'ultimabase'
 import { z } from 'zod'
 
-//#region task
 export const Task = defineModel({
 	name: 'Task',
 	// Live over GraphQL and REST.

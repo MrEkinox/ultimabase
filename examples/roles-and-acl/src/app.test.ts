@@ -5,7 +5,8 @@ import { testApplication } from '@ultimabase/testing'
 import { master } from 'ultimabase'
 import { describe, expect, it } from 'vitest'
 import { app } from './app.ts'
-import { Note, Role } from './models.ts'
+import { Role } from './models.ts'
+import { Note } from './notes.ts'
 
 const running = testApplication(app)
 

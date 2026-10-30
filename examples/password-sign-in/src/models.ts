@@ -1,4 +1,5 @@
 // The models: users who sign up with a password, and the posts they write.
+//#region user
 import {
 	currentUser,
 	defineUser,
@@ -9,11 +10,7 @@ import {
 } from '@ultimabase/auth'
 import { graphql } from '@ultimabase/graphql'
 import { password } from '@ultimabase/password'
-import { anyOf, defineModel } from 'ultimabase'
-
-const nobody = () => false
-
-//#region user
+import { allow, anyOf, defineModel } from 'ultimabase'
 
 export const User = defineUser({
 	name: 'User',
@@ -21,9 +18,7 @@ export const User = defineUser({
 	fields: (f) => ({
 		name: f.string(),
 		// Only the server makes an editor: no client writes this field.
-		editor: f
-			.boolean({ default: false })
-			.with({ access: { create: nobody, update: nobody } }),
+		editor: f.boolean({ default: false }).with({ access: allow.readOnly }),
 		posts: f.many(() => Post, { inverse: 'author' }),
 	}),
 }).with({

@@ -1,9 +1,9 @@
 // The model: posts that a delete keeps, dated, in a trash.
+//#region post
 import { graphql } from '@ultimabase/graphql'
 import { softDelete } from '@ultimabase/soft-delete'
 import { allow, defineModel } from 'ultimabase'
 
-//#region post
 export const Post = defineModel({
 	name: 'Post',
 	// Adds `deletedAt`, `Post.trash` and `Post.restore`.

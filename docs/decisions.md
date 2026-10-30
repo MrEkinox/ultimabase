@@ -9806,6 +9806,7 @@ Amended 2026-10-30: a page on writing a database adapter.
 Amended 2026-10-30: the option check reads the examples a page includes.
 Amended 2026-10-30: the clients stay in the realtime page; a README links
 to its page's source until the site is published.
+Amended 2026-10-30: a page's first snippet shows its imports.
 
 Choice: completes D-31; the examples stay its source of truth.
 
@@ -9827,6 +9828,9 @@ Choice: completes D-31; the examples stay its source of truth.
    template, whole files of `../packages/create-ultimabase/template/`, the
    code `npm create ultimabase` writes, which `yarn validate` type-checks
    and tests as it does an example (amended 2026-10-29).
+   A page's first include starts above its file's imports, so it shows
+   every import the file holds, and the page links to its example's
+   directory on GitHub; the same test checks both (amended 2026-10-30).
 3. Every value a package exports, from each entry point but `./internal`,
    appears in a region that a page includes, so an example shows each one.
    The same repository test lists those missing; while the pages are

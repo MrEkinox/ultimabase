@@ -7,7 +7,8 @@ import { passwordPlugin } from '@ultimabase/password'
 import { rolesPlugin } from '@ultimabase/roles'
 import { defineApp, memory } from 'ultimabase'
 import { myRoles, shareNote } from './functions.ts'
-import { Note, Role, User } from './models.ts'
+import { Role, User } from './models.ts'
+import { Note } from './notes.ts'
 
 export const app = defineApp({
 	// Kept in memory, so the example needs no database.

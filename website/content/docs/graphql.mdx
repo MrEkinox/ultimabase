@@ -18,6 +18,8 @@ npm install @ultimabase/graphql graphql
 	../examples/graphql/src/models.ts#post
 </include>
 
+The full example, with its tests: [`examples/graphql`](https://github.com/MrEkinox/ultimadatabase/tree/main/examples/graphql).
+
 `graphqlPlugin()` goes in the application's plugins, after `httpPlugin()`,
 which it requires:
 
@@ -252,11 +254,11 @@ neither `maxTake`, `maxDepth`, `maxRows`, nor the 20 root fields.
 
 ### `.with({ graphql })`
 
-| On         | Value         | Effect                                                               |
-| ---------- | ------------- | -------------------------------------------------------------------- |
 It needs `graphql()` in the model's or the function's `use`; without it, the
 model or the function is served with the defaults.
 
+| On         | Value         | Effect                                                               |
+| ---------- | ------------- | -------------------------------------------------------------------- |
 | a model    | `{ plural }`  | The list field's name.                                               |
 | a model    | `{ maxTake }` | The most rows its lists return.                                      |
 | a model    | `false`       | No root field; read through relations, and connected, never created. |

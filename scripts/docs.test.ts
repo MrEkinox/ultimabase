@@ -106,6 +106,33 @@ it('writes no code in a page, and includes only regions that exist', () => {
 	expect(problems).toEqual([])
 })
 
+const examples =
+	'https://github.com/MrEkinox/ultimadatabase/tree/main/examples/'
+
+it("shows a page's first file with its imports, and links to its example", () => {
+	const problems = pages.flatMap(([page, text]) => {
+		const [first] = includesOf(text)
+		// The starter's files are included whole.
+		if (first?.region === undefined) return []
+		const [file, content = ''] = read(first.file)
+		const shown = region(content, first.region) ?? ''
+		const imports = content.match(/^import [\s\S]*?from '[^']+'$/gmu) ?? []
+		const example = `${examples}${file.split('/')[1] ?? ''}`
+		return [
+			...imports
+				.filter((statement) => !shown.includes(statement))
+				.map(
+					(statement) =>
+						`${page}: ${file}#${first.region} leaves out \`${statement.split('\n')[0] ?? ''}\`; start the region above the imports.`,
+				),
+			...(text.includes(`](${example})`)
+				? []
+				: [`${page}: no link to ${example}.`]),
+		]
+	})
+	expect(problems).toEqual([])
+})
+
 it('holds no include in a frozen version', () => {
 	const problems = frozen
 		.filter(([, text]) => includesOf(text).length > 0)

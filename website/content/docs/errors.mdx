@@ -11,6 +11,8 @@ Throw one from a function, a hook or a plugin to refuse:
 	../examples/errors/src/functions.ts#public
 </include>
 
+The full example, with its tests: [`examples/errors`](https://github.com/MrEkinox/ultimadatabase/tree/main/examples/errors).
+
 The code is in capitals: `OUT_OF_STOCK`, or one of the kernel's codes, which
 keep their meaning. The details are any JSON value.
 
@@ -83,9 +85,9 @@ readable line in a terminal and a JSON line everywhere else.
 | `UNAUTHENTICATED`     | A session is needed, or it ended.                        | 401         | none                         |
 | `INVALID_CREDENTIALS` | A wrong email or password.                               | 401         | none                         |
 | `TOO_MANY_ATTEMPTS`   | Too many sign-ins; `Retry-After` says when to try again. | 429         | `{ retryAfter }`, in seconds |
+| `BAD_USER_INPUT`      | A client's query, parameter or body the API refuses.     | 400         | `{ path }`, from the kernel  |
 | `INTERNAL`            | Any error that is not a `PublicError`.                   | 500         | `correlationId`, beside it   |
 | the application's own | A `PublicError` it threw.                                | 400         | its own                      |
-| `BAD_USER_INPUT`      | A client's query, parameter or body the API refuses.     | 400         | `{ path }`, from the kernel  |
 
 An issue is `{ path, message }`: `path` lists the keys to the refused
 value, as `['days']`.
