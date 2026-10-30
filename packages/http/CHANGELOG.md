@@ -1,5 +1,11 @@
 # @ultimabase/http
 
+## 0.1.2
+
+### Patch Changes
+
+- ultimabase@0.1.2
+
 ## 0.1.1
 
 ### Patch Changes

@@ -1,6 +1,6 @@
 {
 	"name": "create-ultimabase",
-	"version": "0.1.1",
+	"version": "0.1.2",
 	"description": "Writes a new UltimaBase application: npm create ultimabase.",
 	"type": "module",
 	"license": "Apache-2.0",

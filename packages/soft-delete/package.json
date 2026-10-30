@@ -1,6 +1,6 @@
 {
 	"name": "@ultimabase/soft-delete",
-	"version": "0.1.1",
+	"version": "0.1.2",
 	"description": "Soft delete for UltimaBase: deleted rows go to a trash and can be restored.",
 	"type": "module",
 	"license": "Apache-2.0",
@@ -31,7 +31,7 @@
 		}
 	},
 	"peerDependencies": {
-		"ultimabase": "^0.1.1"
+		"ultimabase": "^0.1.2"
 	},
 	"devDependencies": {
 		"@ultimabase/testing": "workspace:*",
