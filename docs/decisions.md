@@ -5367,7 +5367,7 @@ curl localhost:3000/graphql -H 'authorization: Bearer expired…' -d '…'
 
 ## D-113: `passwordPlugin()`, linked accounts, plugin functions and `viewer`
 
-Amended by D-115, D-125, D-160 and D-161.
+Amended by D-115, D-125, D-160, D-161 and D-162.
 
 Choice: completes D-33, D-56, D-109 and D-112, and amends D-56, D-109 and
 D-112.
@@ -5746,6 +5746,8 @@ Routes and plugins read `clientOf(c).client.address` and `c.var.address` as
 before.
 
 ## D-117: Password reset and email verification
+
+Amended by D-162.
 
 Choice: completes D-113 point 12 and D-115.
 
@@ -10408,4 +10410,105 @@ const deleteAccount = defineFunction({
 		await User.closeAccount({ id: caller.user.id }, { as: caller })
 	},
 })
+```
+
+## D-162: The stored email and the email change
+
+Choice: completes D-113 and D-117, and amends D-113 point 5, D-117 points 1
+and 5, and D-160.
+
+1. `password()` adds `email: string | null` to the user model, unique, `null`
+   for a user without a password account. The user itself and Master read
+   it; it is left out for any other caller (D-44). Only Master writes it.
+2. `User.email` is the password account's subject, whichever path writes it.
+   password's hooks keep the account in step, in the write's transaction:
+   - a create with an email links the account; `signUp` creates the user
+     with its email, then its hash;
+   - an update to another email unlinks the account and links the new one.
+     It sets `emailVerified` to `false` unless the same write sets it, and
+     deletes the pending reset and verification tokens;
+   - the email is normalized as at sign-up; an invalid one fails with
+     `VALIDATION_FAILED`, a taken one with `UNIQUE_VIOLATION`, and nothing
+     is written;
+   - `null` is refused while the account is linked, with
+     `email: closeAccount removes the email.`; `closeAccount` sets it to
+     `null` once the account is unlinked;
+   - writing an email on a user without a password links an account without
+     a hash: the user sets a password with a reset, which proves the inbox.
+     An update to the same email as the account changes nothing else, so
+     filling the field from the accounts keeps `emailVerified`.
+3. `AuthApi.unlinkAccount(userId, method)` unlinks one account; an account
+   that is not linked is no error. It is for the sign-in methods only.
+4. With `sendEmail`, two functions:
+   - `requestEmailChange(input: { newEmail, currentPassword })` needs a
+     signed-in user (`UNAUTHENTICATED`, `requestEmailChange needs a
+signed-in user.`). It checks the current password as `changePassword`
+     does, counted with it. An email that has an account, the user's own
+     included, fails with `UNIQUE_VIOLATION`, `This email has an account.`
+     It sends an `'emailChange'` link to the new email, valid one hour; a new
+     request replaces the older link. The email counts in the account's
+     three per hour.
+   - `confirmEmailChange(input: { token })` is public: the link is the
+     proof. In one transaction it redeems the token and writes the email
+     and `emailVerified: true`, as point 2 says. An email taken meanwhile
+     fails with `UNIQUE_VIOLATION`, and the link still works until it
+     expires. It opens no session and ends none: the password did not
+     change.
+     Each returns `true`.
+5. When the email changes from one address to another, by either path, the
+   old address receives `{ kind: 'emailChanged', to, newEmail, userId }`
+   once the write commits, with no token, if the application gives
+   `sendEmail`. It is not counted in the account's three emails.
+6. `Email` becomes a union: the kinds `'reset'`, `'verify'` and
+   `'emailChange'` carry a `token`; `'emailChanged'` carries `newEmail`
+   instead. `PasswordToken` stores the address its email went to.
+7. A user model that declares its own `email` field stops startup:
+   `User.email: password adds a field User already has.` Users stored before
+   this decision read `email: null` until a Master update writes their
+   account's email.
+
+Why: an application could not change an email, and kept its own copy of
+the address to show it. Writing the field is the change itself, so an
+application without emails, or with its own proof such as a code by SMS,
+changes it with one `User.update`; the functions are the proof for those
+that send emails. One path keeps the field and the account from drifting
+apart. Telling the old address is OWASP ASVS V2.2.3: a stolen session and
+password must not move the account silently. One hour, as a reset: the
+user typed the password moments before.
+Rejected:
+
+- a public `AuthApi.relinkAccount`: unlink then link, in a transaction, is
+  the same;
+- the email only on `AuthAccount`, read through `subjectOf`: a rule and a
+  client cannot read it;
+- refusing Master's writes of `email`: an administrator's change is a real
+  need, and refusing would need the kernel to tell password's writes apart;
+- a link to undo the change in the notice: nobody asks for it yet;
+- ending the sessions on a change: the password, which they prove, did not
+  change;
+- telling a taken new email apart from a free one in silence: `signUp`
+  already tells it (D-115), and the caller proved the password.
+
+Example, before:
+
+```ts
+// Impossible: the account kept the old address.
+await User.update({ where: { id }, data: { contactEmail: newEmail } }, M)
+```
+
+After:
+
+```ts
+// From server code, with or without emails
+await User.update({ where: { id }, data: { email: 'ada@new.example' } }, M)
+
+// From a client, with sendEmail
+requestEmailChange(input: { newEmail: "ada@new.example", currentPassword: "correct horse" })
+confirmEmailChange(input: { token })
+
+// The application's sendEmail
+sendEmail: async (email) => {
+	if (email.kind === 'emailChanged') return notice(email.to, email.newEmail)
+	return link(email.kind, email.to, email.token)
+}
 ```

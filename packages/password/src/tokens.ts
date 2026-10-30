@@ -10,21 +10,33 @@ const M = { as: master }
 const emails = 3
 
 /** What an email's token lets its holder do. */
-export type EmailKind = 'reset' | 'verify'
+export type EmailKind = 'reset' | 'verify' | 'emailChange'
 
-/** What `sendEmail` receives: the application writes the text and the link. */
-export interface Email {
-	readonly kind: EmailKind
-	/** The account's email, normalized. */
-	readonly to: string
-	/** What the link carries, for `resetPassword` or `verifyEmail`. */
-	readonly token: string
-	readonly userId: string
-}
+/**
+ * What `sendEmail` receives: the application writes the text and the link.
+ * `'emailChanged'` tells the old address its email changed (D-162).
+ */
+export type Email =
+	| {
+			readonly kind: EmailKind
+			/** The address the link goes to, normalized. */
+			readonly to: string
+			/** What the link carries, for the function its kind names. */
+			readonly token: string
+			readonly userId: string
+	  }
+	| {
+			readonly kind: 'emailChanged'
+			/** The old address. */
+			readonly to: string
+			readonly newEmail: string
+			readonly userId: string
+	  }
 
 const lifetimes: Readonly<Record<EmailKind, number>> = {
 	reset: hour,
 	verify: 24 * hour,
+	emailChange: hour,
 }
 
 type TokenFields = {
@@ -33,6 +45,8 @@ type TokenFields = {
 	/** The token's SHA-256: a leaked database gives no working link. */
 	readonly hash: Field<string, { readonly unique: true }>
 	readonly expiresAt: Field<Date, ScalarOptions<Date>>
+	/** The address the email went to (D-162). */
+	readonly email: Field<string | null, { readonly optional: true }>
 }
 
 export const PasswordToken: ModelOf<'PasswordToken', TokenFields, []> =
@@ -43,6 +57,7 @@ export const PasswordToken: ModelOf<'PasswordToken', TokenFields, []> =
 			kind: f.string(),
 			hash: f.string({ unique: true }),
 			expiresAt: f.dateTime(),
+			email: f.string({ optional: true }),
 		}),
 		indexes: [{ fields: ['userId', 'kind'] }, { fields: ['expiresAt'] }],
 	})
@@ -50,10 +65,11 @@ export const PasswordToken: ModelOf<'PasswordToken', TokenFields, []> =
 const hashOf = (token: string): string =>
 	createHash('sha256').update(token).digest('base64url')
 
-/** A new token of `kind` for `userId`, which replaces the older one. */
+/** A new token of `kind` for `userId`, sent to `email`; it replaces the older one. */
 export async function issueToken(
 	userId: string,
 	kind: EmailKind,
+	email: string,
 ): Promise<string> {
 	const now = Date.now()
 	await PasswordToken.deleteMany(
@@ -64,7 +80,7 @@ export async function issueToken(
 	const token = randomBytes(32).toString('base64url')
 	const expiresAt = new Date(now + lifetimes[kind])
 	await PasswordToken.create(
-		{ data: { userId, kind, hash: hashOf(token), expiresAt } },
+		{ data: { userId, kind, hash: hashOf(token), expiresAt, email } },
 		M,
 	)
 	return token
@@ -73,11 +89,14 @@ export async function issueToken(
 const invalidLink = () =>
 	new PublicError('INVALID_CREDENTIALS', 'This link is invalid or has expired.')
 
-/** The user a token of `kind` was issued to; a wrong, used or expired one fails. */
+/**
+ * The user a token of `kind` was issued to, and the address it was sent to;
+ * a wrong, used or expired one fails.
+ */
 export async function redeemToken(
 	token: string,
 	kind: EmailKind,
-): Promise<string> {
+): Promise<{ readonly userId: string; readonly email: string | null }> {
 	const hash = hashOf(token)
 	const stored = await PasswordToken.findUnique({ where: { hash } }, M)
 	if (stored?.kind !== kind) throw invalidLink()
@@ -86,7 +105,7 @@ export async function redeemToken(
 	if (count === 0 || stored.expiresAt.getTime() <= Date.now()) {
 		throw invalidLink()
 	}
-	return stored.userId
+	return { userId: stored.userId, email: stored.email }
 }
 
 /**

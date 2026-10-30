@@ -18,6 +18,7 @@ import {
 	signUpQuery,
 	started,
 	User,
+	tokenIn,
 } from './test/app.ts'
 import { database, urls } from './test/postgres.ts'
 import { PasswordToken } from './tokens.ts'
@@ -103,7 +104,7 @@ for (const url of urls) {
 				)
 			// The token's expiry is compared once read.
 			vi.spyOn(Date, 'now').mockReturnValue(now + 60 * 60 * 1000 - 1)
-			const token = outbox.findLast(({ kind }) => kind === 'reset')?.token ?? ''
+			const token = tokenIn(outbox.findLast(({ kind }) => kind === 'reset'))
 			expect((await reset(token)).body).toEqual({
 				data: { resetPassword: true },
 			})
