@@ -1,0 +1,875 @@
+---
+title: Write a plugin
+description: Add fields, hooks, commands, field types, identities, functions or a transport, in a plugin of your own.
+---
+
+A plugin is one interface of types and one `definePlugin`. Everything
+UltimaBase does beyond models and queries is a plugin: auth, roles, files,
+GraphQL and REST are written as the ones on this page. A plugin can add
+fields, indexes, hooks and commands to the models that use it, a field type,
+its own models and functions, who a request comes from, and routes.
+
+The smallest plugin has a name and a manifest:
+
+```ts
+import type { PluginOf, PluginTypes } from 'ultimabase'
+import { defineFieldType, definePlugin } from 'ultimabase'
+import { z } from 'zod'
+
+// The plugin that provides the field type, which `plugins` lists.
+export interface Color extends PluginTypes {
+	readonly name: 'color'
+}
+
+export const colorPlugin: PluginOf<Color> = definePlugin<Color>({
+	name: 'color',
+	manifest: {
+		name: 'example-color',
+		version: '1.0.0',
+		peerDependencies: { ultimabase: '*' },
+	},
+}).plugin
+```
+
+The full example, with its tests: [`examples/plugins`](https://github.com/MrEkinox/ultimabase/tree/main/examples/plugins).
+
+`definePlugin` returns two functions: `plugin`, the value the application's
+`plugins` lists, and `use`, the entry a model's `use` lists. Export each
+with its type, `PluginOf<T>` and `UseOf<T>`, so their types travel with
+them:
+
+```ts
+import { httpPlugin } from '@ultimabase/http'
+import { defineApp, memory } from 'ultimabase'
+import { titles, whoami } from './functions.ts'
+import { Article, News } from './models.ts'
+import { apiKeysPlugin } from './plugins/api-keys.ts'
+import { colorPlugin } from './plugins/color.ts'
+import { publishingPlugin } from './plugins/publishing.ts'
+import { rpcPlugin } from './plugins/rpc.ts'
+
+export const app = defineApp({
+	database: memory(),
+	masterKey: 'dev-master-key',
+	plugins: [
+		httpPlugin(),
+		rpcPlugin(),
+		apiKeysPlugin(),
+		publishingPlugin(),
+		colorPlugin(),
+	],
+	models: [Article, News],
+	functions: [whoami, titles],
+})
+```
+
+The [example](https://github.com/MrEkinox/ultimabase/tree/main/examples/plugins)
+holds four plugins, one of each kind: a model plugin, a field type, an
+identity and a transport.
+
+## The manifest
+
+`manifest` is the plugin's package: its `name`, its `version`, and in
+`peerDependencies` the ranges of `ultimabase` and of the plugins it needs. A
+published plugin passes its imported `package.json`. At start, a plugin whose
+range excludes the running `ultimabase`, or an installed plugin, stops the
+application with
+`example-rpc 1.0.0 needs @ultimabase/http ^2.0.0; this is @ultimabase/http 1.4.0.`
+A plugin that gives no `ultimabase` range starts with a warning.
+
+## Add fields to models
+
+A model plugin adds to each model that lists its entry in `use`. Its types
+say what it adds; `this['fields']` is the fields of that model:
+
+```ts
+import type {
+	Caller,
+	Field,
+	Payload,
+	PluginOf,
+	PluginTypes,
+	Queries,
+	UseOf,
+} from 'ultimabase'
+import { defineModel, definePlugin, isMaster, master } from 'ultimabase'
+
+type Unique<F> = Parameters<Queries<F>['findUnique']>[0]['where']
+
+/** What `publishing()` adds to a model: `Article.drafts`, `Article.publish`. */
+export interface PublishingCommands<F> {
+	/** The drafts, under the model's read rule. */
+	readonly drafts: Pick<Queries<F>, 'findMany' | 'count'>
+	/** Publishes a draft now. */
+	readonly publish: (
+		this: void,
+		args: { readonly where: Unique<F> },
+		options?: Parameters<Queries<F>['count']>[1],
+	) => Promise<Payload<F, {}>>
+}
+
+export interface Publishing extends PluginTypes {
+	readonly name: 'publishing'
+	/** `publishing({ publishOnCreate: true })`, in a model's `use`. */
+	readonly options: { readonly publishOnCreate?: boolean }
+	readonly addedFields: {
+		readonly publishedAt: Field<Date, { readonly optional: true }>
+	}
+	readonly commands: PublishingCommands<this['fields']>
+}
+```
+
+`addedFields` builds the fields, with the same builders as a model, and
+their rules. `addedIndexes` indexes them on each model:
+
+```ts
+addedFields: (f) => ({
+	// Only an editor dates a row, through `publish` or a write.
+	publishedAt: f.dateTime({ optional: true }).with({
+		access: {
+			create: ({ caller }) => isEditor(caller),
+			update: ({ caller }) => isEditor(caller),
+		},
+	}),
+}),
+addedIndexes: [{ fields: ['publishedAt'] }],
+```
+
+The entry takes the `options` of the types, here `publishOnCreate`; each
+model reads its own:
+
+```ts
+// Published as soon as it is written.
+export const News = defineModel({
+	name: 'News',
+	use: [publishing({ publishOnCreate: true })],
+	fields: (f) => ({ title: f.string() }),
+}).with({
+	access: {
+		read: allow.public,
+		create: ({ caller }) => caller.kind === 'user',
+	},
+})
+```
+
+```ts
+const news = await News.create({ data: { title: 'Open' } }, M)
+expect(news.publishedAt).toBeInstanceOf(Date)
+expect(await News.count({}, { as: asUser({ id: 'bob' }) })).toBe(1)
+```
+
+## Hooks
+
+`hooks` run on every model that uses the plugin, as a model's own
+[hooks](/docs/next/hooks) do, with the same facts. Each also receives the
+model's `name` and `queries`, the entry's `options`, the `plugins` it needs,
+and `command`, the plugin's command the operation came through:
+
+```ts
+hooks: {
+	beforeFind: ({ caller, where, command }) => {
+		if (command === 'drafts') return where({ publishedAt: null })
+		if (isEditor(caller)) return undefined
+		return where({ publishedAt: { lte: new Date(Date.now()) } })
+	},
+	beforeCreate: ({ data, options }) => {
+		if (options.publishOnCreate === true) {
+			data.publishedAt ??= new Date(Date.now())
+		}
+	},
+},
+```
+
+`beforeFind` narrows every read, Master's included: an article without
+`publishedAt` is a draft, which only an editor reads.
+
+```ts
+const ada = asUser({ id: 'ada' })
+await Article.create({ data: { title: 'Draft' } }, { as: ada })
+// An anonymous caller and a user who is not an editor read no draft.
+expect(await call('titles')).toEqual({ status: 200, body: { output: [] } })
+expect(await Article.count({}, { as: ada })).toBe(0)
+```
+
+`redirect` replaces an operation: here, a delete unpublishes the row. One
+plugin at most redirects a model's delete, and a redirected row cascades
+nothing:
+
+```ts
+// A delete unpublishes the row instead: it goes back to the drafts. It
+// runs after the `delete` rule and the `beforeDelete` hooks, so as Master.
+redirect: {
+	delete: ({ where, queries }) =>
+		queries.update({ where, data: { publishedAt: null } }, { as: master }),
+},
+```
+
+```ts
+const news = await News.create({ data: { title: 'Open' } }, M)
+await News.delete({ where: { id: news.id } }, M)
+// The row stays, as a draft: nobody else reads it.
+expect(await News.count({}, { as: asUser({ id: 'bob' }) })).toBe(0)
+expect(await News.drafts.findMany({}, M)).toMatchObject([
+	{ title: 'Open', publishedAt: null },
+])
+```
+
+## Commands
+
+`commands` adds functions to each model, as `Article.publish`. They are built
+from the model's `queries`, so the caller's rules and the plugin's hooks
+apply to them:
+
+```ts
+commands: ({ queries }) => ({
+	drafts: { findMany: queries.findMany, count: queries.count },
+	publish: ({ where }, options) =>
+		queries.update(
+			{ where, data: { publishedAt: new Date(Date.now()) } },
+			options,
+		),
+}),
+```
+
+```ts
+const draft = await Article.create({ data: { title: 'Launch' } }, M)
+expect(await Article.drafts.count({}, M)).toBe(1)
+const published = await Article.publish({ where: { id: draft.id } }, M)
+expect(published.publishedAt).toBeInstanceOf(Date)
+expect(await Article.drafts.count({}, M)).toBe(0)
+expect(await call('titles')).toEqual({
+	status: 200,
+	body: { output: ['Launch'] },
+})
+```
+
+A caller who does not read the draft does not find it, and only an editor
+sets `publishedAt` itself:
+
+```ts
+const bob = asUser({ id: 'bob' })
+const draft = await Article.create({ data: { title: 'Launch' } }, M)
+// Bob does not read the draft, so it is not found for him.
+await expect(
+	Article.publish({ where: { id: draft.id } }, { as: bob }),
+).rejects.toMatchObject({ code: 'NOT_FOUND' })
+await expect(
+	Article.create(
+		{ data: { title: 'Mine', publishedAt: new Date() } },
+		{ as: bob },
+	),
+).rejects.toMatchObject({ code: 'ACCESS_DENIED' })
+```
+
+## Its own models
+
+`models` lists models of the plugin's own, created with the application's.
+They take no entry and no transport lists them. Here, the users who are
+editors:
+
+```ts
+// Every user caller gets `editor`, which rules and hooks read.
+declare module 'ultimabase' {
+	interface UserCallerKeys {
+		readonly editor: boolean
+	}
+}
+
+/** The users who read drafts and publish them: the plugin's own model. */
+export const Editor = defineModel({
+	name: 'Editor',
+	fields: (f) => ({ userId: f.string({ unique: true }) }),
+})
+
+const isEditor = (caller: Caller) =>
+	isMaster(caller) || (caller.kind === 'user' && caller.editor)
+```
+
+## Keys of the caller
+
+`caller` adds keys to every user caller, which rules, hooks and functions
+read. It runs once for each caller the kernel receives, each plugin's in the
+order of `plugins`. Declare the keys in `UserCallerKeys`, as above:
+
+```ts
+caller: async ({ user }) => ({
+	editor:
+		(await Editor.count({ where: { userId: user.id } }, { as: master })) > 0,
+}),
+```
+
+```ts
+await Editor.create({ data: { userId: 'ada' } }, M)
+expect(await Article.count({}, { as: asUser({ id: 'ada' }) })).toBe(1)
+```
+
+`isMaster(caller)` is true only for a Master the kernel created: an object
+written `{ kind: 'master' }` is not one.
+
+## A field type
+
+`defineFieldType` gives a field builder, as `color()`. The value is stored
+through a kernel field, and code reads what `decode` gives:
+
+```ts
+const Hex = z.string().regex(/^#[0-9a-f]{6}$/, 'A color is #rrggbb.')
+const Rgb = z.object({
+	red: z.int().min(0).max(255),
+	green: z.int().min(0).max(255),
+	blue: z.int().min(0).max(255),
+})
+export type Rgb = z.infer<typeof Rgb>
+
+const rgbOf = (hex: string): Rgb => ({
+	red: Number.parseInt(hex.slice(1, 3), 16),
+	green: Number.parseInt(hex.slice(3, 5), 16),
+	blue: Number.parseInt(hex.slice(5, 7), 16),
+})
+const hexOf = ({ red, green, blue }: Rgb): string =>
+	`#${[red, green, blue].map((n) => n.toString(16).padStart(2, '0')).join('')}`
+
+/** `color({ palette })` takes only the colors of its palette. */
+type ColorOptions = { readonly palette?: readonly string[] }
+
+export const color = defineFieldType({
+	plugin: 'color',
+	options: ['palette'],
+	stored: (f) => f.string(),
+	decode: (stored) => rgbOf(stored),
+	encode: (value) => hexOf(value),
+	// What a write takes: `{ red, green, blue }`, or its `#rrggbb`.
+	schema: ({ palette }: ColorOptions) =>
+		z
+			.union([Rgb, Hex.transform(rgbOf)])
+			.refine(
+				(value) => palette === undefined || palette.includes(hexOf(value)),
+				'This color is not in the palette.',
+			),
+	toJSON: (value) => hexOf(value),
+	shape: Hex,
+})
+```
+
+```ts
+import { allow, defineModel } from 'ultimabase'
+import { color } from './plugins/color.ts'
+import { publishing } from './plugins/publishing.ts'
+
+export const palette = ['#1d4ed8', '#b91c1c', '#15803d']
+
+export const Article = defineModel({
+	name: 'Article',
+	// A new article is a draft until an editor publishes it.
+	use: [publishing()],
+	fields: (f) => ({
+		title: f.string(),
+		accent: color({ palette, default: '#1d4ed8' }),
+	}),
+}).with({
+	access: { read: allow.public, write: ({ caller }) => caller.kind === 'user' },
+})
+```
+
+A write takes what `schema` accepts, here `{ red, green, blue }` or its
+`#rrggbb`; filters, indexes and `unique` work on the stored value. Clients
+read what `toJSON` gives.
+
+```ts
+const red = await Article.create(
+	{ data: { title: 'Red', accent: '#b91c1c' } },
+	M,
+)
+expect(red.accent).toEqual({ red: 185, green: 28, blue: 28 })
+// The default, and a write as channels.
+const blue = await Article.create({ data: { title: 'Blue' } }, M)
+expect(blue.accent).toEqual({ red: 29, green: 78, blue: 216 })
+const green = await Article.create(
+	{ data: { title: 'Green', accent: { red: 21, green: 128, blue: 61 } } },
+	M,
+)
+expect(green.accent).toEqual({ red: 21, green: 128, blue: 61 })
+```
+
+```ts
+await expect(
+	Article.create({ data: { title: 'Pink', accent: '#ff00ff' } }, M),
+).rejects.toMatchObject({ code: 'VALIDATION_FAILED' })
+```
+
+The plugin it names must be in `plugins`; otherwise the application stops:
+`Article.accent is a color field, and color is not in plugins.`
+
+## Who sends a request
+
+`identify` reads a request and says who sends it: a user, Master, or
+`undefined` when the request is not the plugin's. The master key comes
+first, then the first plugin that knows the caller; a request no plugin knows
+is anonymous. Throw a `PublicError` to refuse it:
+
+```ts
+identify: async (request, context) => {
+	const key = request.headers.get(context.options.header ?? 'x-api-key')
+	if (key === null) return undefined
+	const hash = hashOf(key)
+	const cache = cacheOf(context)
+	let owner = cache.get(hash)
+	if (owner === undefined) {
+		const found = await ApiKey.findUnique({ where: { hash } }, { as: master })
+		owner = found?.owner ?? null
+		cache.set(hash, owner)
+	}
+	if (owner === null) {
+		throw new PublicError('UNAUTHENTICATED', 'This API key is unknown.')
+	}
+	return { kind: 'user', user: { id: owner } }
+},
+```
+
+```ts
+// Master creates a key; the key itself is shown only here.
+const { key } = await createApiKey.run({ owner: 'ada', name: 'CI' }, M)
+expect(await call('whoami', {}, { 'x-api-key': key })).toEqual({
+	status: 200,
+	body: { output: { user: 'ada', editor: false } },
+})
+expect(await call('whoami')).toEqual({
+	status: 200,
+	body: { output: { user: null, editor: false } },
+})
+```
+
+```ts
+expect(await call('whoami', {}, { 'x-api-key': 'guess' })).toEqual({
+	status: 401,
+	body: { code: 'UNAUTHENTICATED', message: 'This API key is unknown.' },
+})
+```
+
+Every transport identifies its requests this way: GraphQL, REST, realtime
+and the routes of [HTTP](/docs/next/http) all see the key's owner.
+
+## Functions
+
+`functions` returns `defineFunction` values, served as the application's
+are, under the plugin's name: `apiKeys.createApiKey`. A function without an
+access rule is Master's only:
+
+```ts
+/** Master only, as every function without an access rule. */
+export const createApiKey = defineFunction({
+	name: 'createApiKey',
+	input: z.object({ owner: z.string(), name: z.string() }),
+	output: z.object({ key: z.string() }),
+	run: async ({ input }) => {
+		const key = randomBytes(24).toString('base64url')
+		const data = { ...input, hash: hashOf(key) }
+		await ApiKey.create({ data }, { as: master })
+		return { key }
+	},
+})
+```
+
+```ts
+const created = await call(
+	'apiKeys.createApiKey',
+	{ owner: 'ada', name: 'CI' },
+	{ 'x-ultimabase-master-key': 'dev-master-key' },
+)
+expect(created).toEqual({
+	status: 200,
+	body: { output: { key: aKey } },
+})
+// Master only: an anonymous caller is refused.
+expect(
+	await call('apiKeys.createApiKey', { owner: 'ada', name: 'CI' }),
+).toEqual({
+	status: 403,
+	body: {
+		code: 'ACCESS_DENIED',
+		message: 'createApiKey refused.',
+		details: { function: 'createApiKey' },
+	},
+})
+```
+
+## Follow the changes
+
+`changed` receives what each commit changed, on this server or another one
+on the same database. `missed` says changes may have been lost, after a lost
+connection; `stop` runs once the application stops. A cache uses all three:
+
+```ts
+// Each running application's keys, by hash: the owner, or null for none.
+const caches = new WeakMap<object, Map<string, string | null>>()
+const cacheOf = (context: object) => {
+	const cache = caches.get(context) ?? new Map<string, string | null>()
+	caches.set(context, cache)
+	return cache
+}
+```
+
+```ts
+// A key created or deleted, on this server or another: read them again.
+changed: (changes, context) => {
+	if (changes.some((change) => change.model === 'ApiKey')) {
+		cacheOf(context).clear()
+	}
+},
+// Changes may have been lost: what the cache holds is unknown.
+missed: (context) => {
+	cacheOf(context).clear()
+},
+stop: (context) => {
+	caches.delete(context)
+},
+```
+
+```ts
+// The cache forgets a deleted key: `changed` cleared it.
+await ApiKey.deleteMany({ where: { owner: 'ada' } }, M)
+expect((await call('whoami', {}, { 'x-api-key': key })).status).toBe(401)
+```
+
+## Application options and start
+
+`appOptions` types the options of `plugin()`, as `apiKeysPlugin({ header })`.
+`start` and `stop` read them in `options`. Throw a `Refused` from `start`
+for a wrong setup: the application stops and prints the message, without a
+stack.
+
+```ts
+const definition = definePlugin<ApiKeys>({
+	name: 'apiKeys',
+	manifest: {
+		name: 'example-api-keys',
+		version: '1.0.0',
+		peerDependencies: { ultimabase: '*' },
+	},
+	models: [ApiKey],
+	functions: () => [createApiKey],
+	optional: { rpc: rpcPlugin },
+	start: ({ options, plugins, logger }) => {
+		if (options.header === '') {
+			throw new Refused('apiKeysPlugin({ header }) names a header.')
+		}
+		// `undefined` when the application does not install rpc.
+		if (plugins.rpc === undefined) return
+		if (process.env['NODE_ENV'] === 'production') return
+		const url = plugins.rpc.url('apiKeys.createApiKey')
+		logger.info(`Create an API key: POST ${url} with the master key.`)
+	},
+```
+
+```ts
+const app = defineApp({
+	database: memory(),
+	plugins: [apiKeysPlugin({ header: '' })],
+	models: [],
+})
+await expect(app.start()).rejects.toThrow(
+	'apiKeysPlugin({ header }) names a header.',
+)
+```
+
+## Use other plugins
+
+`requires` names the plugins the plugin needs, by their types and their
+`plugin` function; `optional`, the ones it uses when installed. `plugins`
+in each function of the definition holds their APIs, `undefined` for an
+optional one the application does not install. A plugin offers its API from
+`api`, built once before any `start`:
+
+```ts
+import type { Http } from '@ultimabase/http'
+import { clientOf, httpPlugin, routes, validate } from '@ultimabase/http'
+import type { PluginOf, PluginTypes, UseOf } from 'ultimabase'
+import { definePlugin, isLocalHost, Refused } from 'ultimabase'
+import { z } from 'zod'
+
+export interface Rpc extends PluginTypes {
+	readonly name: 'rpc'
+	/** `rpcPlugin({ path })`, `/rpc` by default. */
+	readonly appOptions: { readonly path?: string }
+	readonly requires: Http
+	/** What it offers other plugins: a function's address. */
+	readonly api: { readonly url: (name: string) => string }
+	/** `.with({ rpc: false })`, on a function whose `use` lists `rpc()`. */
+	readonly functionWith: false
+}
+```
+
+```ts
+const logged: unknown[] = []
+const log = (message: unknown) => {
+	logged.push(message)
+}
+const logger = { info: log, warn: log, error: log, child: () => logger }
+const app = defineApp({
+	database: memory(),
+	logger,
+	plugins: [httpPlugin({ port: 0 }), rpcPlugin(), apiKeysPlugin()],
+	models: [],
+})
+await app.start()
+expect(logged).toContainEqual(
+	expect.stringMatching(
+		/^Create an API key: POST http:\/\/localhost:\d+\/rpc\/apiKeys\.createApiKey with the master key\.$/,
+	),
+)
+await app.stop()
+```
+
+A missing required plugin stops the application:
+`rpc requires http, which is not in plugins.`; TypeScript says it first.
+
+## A transport
+
+A transport reads `models` and `functions` in `api`, and serves them. This
+one mounts a route on the HTTP plugin for each function, which runs it as
+the request's caller:
+
+```ts
+api: ({ plugins, functions, options }) => {
+	const base = options.path ?? '/rpc'
+	const app = routes()
+	const names: string[] = []
+	for (const fn of functions) {
+		if (fn.with === false) continue
+		// A plugin's function is named after its plugin.
+		const name = fn.plugin === undefined ? fn.name : `${fn.plugin}.${fn.name}`
+		if (fn.output !== undefined && fn.output.kind !== 'schema') {
+			throw new Refused(
+				`rpc answers JSON, and ${name} returns a model: give it a schema output, or .with({ rpc: false }).`,
+			)
+		}
+		names.push(name)
+		app.post(`${base}/${name}`, validate('json', z.unknown()), async (c) => {
+			// The request's cookies and address, for the function's `client`.
+			const { client, sent } = clientOf(c)
+			const input: unknown = c.req.valid('json')
+			const output = await fn.run(input, { as: c.var.caller }, client)
+			return sent(c.json({ output: output ?? null }))
+		})
+	}
+	// The list of functions, for a developer on this machine only.
+	app.get(base, (c) =>
+		isLocalHost(new URL(c.req.url).hostname) ? c.json(names) : c.notFound(),
+	)
+	plugins.http.mount(app)
+	// The server's address is known once it listens: read it when called.
+	return { url: (name) => `${plugins.http.url()}${base}/${name}` }
+},
+```
+
+```ts
+/** What a client sends: `POST /rpc/<name>`, with its headers. */
+const call = async (
+	name: string,
+	input: unknown = {},
+	headers: Record<string, string> = {},
+) => {
+	const response = await fetch(`${running.url}/rpc/${name}`, {
+		method: 'POST',
+		headers: { 'content-type': 'application/json', ...headers },
+		body: JSON.stringify(input),
+	})
+	return { status: response.status, body: await response.json() }
+}
+```
+
+`clientOf(c)` gives the function its `client`, the request's cookies and
+address, and `sent` writes the cookies it set. `isLocalHost(hostname)` is
+true for this machine only, so the list of functions stays a developer's:
+
+```ts
+const listed = await fetch(`${running.url}/rpc`)
+expect(await listed.json()).toEqual([
+	'whoami',
+	'titles',
+	'apiKeys.createApiKey',
+])
+// The same request under another host name.
+const status = await new Promise<number | undefined>((resolve, reject) => {
+	const sent = request(`${running.url}/rpc`, {
+		headers: { host: 'api.example.com' },
+	})
+	sent.on('response', (response) => {
+		response.resume()
+		resolve(response.statusCode)
+	})
+	sent.on('error', reject)
+	sent.end()
+})
+expect(status).toBe(404)
+```
+
+`functionWith` types the plugin's key of a function's `.with`; `false` keeps
+the function out of it. The function lists the plugin's entry in `use`:
+
+```ts
+// Kept out of the transport, it runs from server code only.
+const served = defineApp({
+	database: memory(),
+	plugins: [httpPlugin({ port: 0 }), rpcPlugin()],
+	models: [Note],
+	functions: [latest.with({ rpc: false })],
+})
+await served.start()
+await served.stop()
+```
+
+A transport refuses at start what it cannot serve:
+
+```ts
+const latest = defineFunction({
+	name: 'latest',
+	use: [rpc()],
+	output: Note,
+	run: () => Note.create({ data: { text: 'Hello' } }, { as: master }),
+})
+const app = defineApp({
+	database: memory(),
+	plugins: [httpPlugin({ port: 0 }), rpcPlugin()],
+	models: [Note],
+	functions: [latest],
+})
+await expect(app.start()).rejects.toThrow(
+	'rpc answers JSON, and latest returns a model: give it a schema output, or .with({ rpc: false }).',
+)
+```
+
+## Reference
+
+### The types
+
+| Key            | Type                     | Effect                                                         |
+| -------------- | ------------------------ | -------------------------------------------------------------- |
+| `name`         | string literal           | The plugin's name, the key of its `.with` and of `plugins`.    |
+| `fields`       | `unknown`                | Set by the kernel: the fields of the model that uses it.       |
+| `value`        | `unknown`                | Set by the kernel: the value of the field holding `fieldWith`. |
+| `options`      | object                   | The options of its entry, `publishing({ … })`.                 |
+| `appOptions`   | object                   | The options of its application value, `apiKeysPlugin({ … })`.  |
+| `requires`     | plugin types, or a union | The plugins it needs.                                          |
+| `optional`     | plugin types, or a union | The plugins it uses when installed.                            |
+| `api`          | object                   | What it offers other plugins.                                  |
+| `addedFields`  | `{ [field]: Field }`     | The fields it adds to each model that uses it.                 |
+| `commands`     | object                   | What it adds to each model, as `Article.publish`.              |
+| `with`         | object or `false`        | Its key of a model's `.with`; `false` turns it off.            |
+| `fieldWith`    | object                   | Its key of a field's `.with`.                                  |
+| `functionWith` | object or `false`        | Its key of a function's `.with`; `false` turns it off.         |
+| `queryOnly`    | `true`                   | Only a query function may list it in its `use`.                |
+
+Each key is optional but `name`; a key in the types makes its part of the
+definition required, as `addedFields` or `api`.
+
+### `definePlugin(definition)`
+
+| Key            | Type                                          | Effect                                                            |
+| -------------- | --------------------------------------------- | ----------------------------------------------------------------- |
+| `name`         | the types' `name`                             | Required.                                                         |
+| `manifest`     | `{ name, version, peerDependencies? }`        | Required: checked when defined, its ranges at start.              |
+| `models`       | `defineModel` values                          | Its own models.                                                   |
+| `addedFields`  | `(f, options) => fields`                      | The fields of `addedFields`, built for each model.                |
+| `addedIndexes` | `{ fields, unique?, contains?: true }[]`      | Indexes on its added fields; `contains` is a trigram index.       |
+| `hooks`        | `{ beforeFind?, beforeCreate?, … }`           | Run on each model that uses it, before the model's own.           |
+| `redirect`     | `{ delete? }`                                 | Replaces a delete, as [soft-delete](/docs/next/soft-delete) does. |
+| `commands`     | `(model) => commands`                         | Built once for each model that uses it.                           |
+| `caller`       | `({ user }, context) => keys`                 | Keys of each user caller.                                         |
+| `identify`     | `(request, context) => Identity \| undefined` | Who sends a request; `undefined` leaves it to the next plugin.    |
+| `functions`    | `(context) => defineFunction[]`               | Built once at start, served under the plugin's name.              |
+| `api`          | `(context) => api`                            | Built once before any `start`, in the order the plugins need.     |
+| `start`        | `(context) => void`                           | Runs once when the application starts, after every `api`.         |
+| `stop`         | `(context) => void`                           | Runs once when it stops: close, flush.                            |
+| `changed`      | `(changes, context) => void`                  | What each commit changed, on any server.                          |
+| `missed`       | `(context) => void`                           | Changes may have been lost.                                       |
+| `requires`     | `{ [name]: plugin function }`                 | The `plugin` functions of the plugins in `requires`.              |
+| `optional`     | `{ [name]: plugin function }`                 | The `plugin` functions of the plugins in `optional`.              |
+
+The hooks are `beforeFind`, `beforeCreate`, `beforeUpdate`, `beforeDelete`,
+`afterCreate`, `afterUpdate`, `afterDelete`, `afterCreateCommit`,
+`afterUpdateCommit` and `afterDeleteCommit`. Each receives the facts of the
+model's hook, and `name`, `queries`, `options`, `plugins` and `command`.
+
+A change is `{ kind, model, ids?, fields? }` for `insert`, `update` and
+`delete`, and `{ kind, model, field, pairs? }` for `link` and `unlink`.
+
+### The context
+
+What `start`, `stop`, `api`, `identify`, `caller`, `changed` and `missed`
+receive; `functions` receives it without `functions`.
+
+| Key         | Effect                                                                         |
+| ----------- | ------------------------------------------------------------------------------ |
+| `options`   | The application value's options.                                               |
+| `plugins`   | The APIs of `requires` and `optional`, read once the application starts.       |
+| `logger`    | The application's logger.                                                      |
+| `identify`  | Who sends a request, as a transport runs it.                                   |
+| `expires`   | `expires(at)`: the caller `caller` is building stops holding at `at`.          |
+| `models`    | Each model: its schema, rules, `queries`, `used` and the plugin's `with`.      |
+| `functions` | Each function: `name`, `plugin`, `query`, `input`, `output`, `with` and `run`. |
+
+`fn.run(input, { as }, client)` checks the function's access, validates its
+input and runs it. `fn.output.kind` is `'schema'`, `'model'` or `'type'`.
+
+### `defineFieldType(definition)`
+
+| Key       | Type                                          | Effect                                                     |
+| --------- | --------------------------------------------- | ---------------------------------------------------------- |
+| `plugin`  | string                                        | Required: the plugin that gives it, which `plugins` lists. |
+| `options` | option names                                  | Its own options, beside `default` and `description`.       |
+| `stored`  | `(f, options) => field`                       | Required: a kernel scalar field, without `.with`.          |
+| `decode`  | `(stored, options) => value`                  | Required: what code reads.                                 |
+| `encode`  | `(value, options) => stored`                  | Required: what is stored.                                  |
+| `schema`  | Standard Schema, or a function of the options | Required: what a write takes.                              |
+| `toJSON`  | `(value, options) => JSON`                    | Required: what a client reads.                             |
+| `shape`   | Standard Schema, or a function of the options | What `toJSON` gives, which types it for clients.           |
+
+Each function receives the field's own options. The stored field takes
+`list`, `optional`, `precision`, `scale`, or a value as its `default`, which
+fills the rows stored before the field.
+
+### `clientOf(c)` and `isLocalHost(hostname)`
+
+`clientOf(c)`, from `@ultimabase/http`, returns `{ client, sent }` for a
+Hono route: `client` holds the request's cookies and address for a
+function's `run`, and `sent(response)` adds the cookies the function set.
+`isLocalHost(hostname)`, from `ultimabase`, is true for `localhost`, a name
+under `.localhost`, `127.0.0.1` and `[::1]`.
+
+### Errors
+
+When defined:
+
+- `definePlugin takes an object.`
+- `rpc.manifest is an object.`, `rpc.manifest.name is a package name.`,
+  `rpc.manifest.version is a version, not 1.0.`,
+  `rpc.manifest.peerDependencies.ultimabase is a version range, not latest.`
+- `publishing.hooks.beforeFind is a function.`, `publishing.models is an array.`
+- `publishing.addedIndexes is a list of { fields, unique?, contains?: true }.`
+- `defineFieldType takes the name of its plugin.`,
+  `defineFieldType(color): stored is a function.`, and the same for `decode`,
+  `encode` and `toJSON`; `defineFieldType(color): schema is a Standard Schema.`
+- `defineFieldType(color): stored returns a kernel scalar field, without .with.`
+- `A color field takes default, description, palette only, not shade.`
+
+At start, as a `Refused`:
+
+- `plugins lists two plugins named rpc.`, `plugins lists a value that no plugin returned.`
+- `rpc requires http, which is not in plugins.`, `plugins need each other: a → b → a.`
+- `Article uses publishing, which is not in plugins.`, and
+  `Article uses a publishing from another definePlugin than the one in plugins.`
+- `Article.publishedAt: publishing adds a field Article already has.`
+- `Article.publish: publishing adds a command named after a model method.`, and
+  `Article.publish: other and publishing both add this command.`
+- `Article.accent is a color field, and color is not in plugins.`
+- `example-rpc 1.0.0 needs ultimabase ^2.0.0; this is ultimabase 1.0.0.`
+
+Reading `plugins.http` before the application starts throws
+`rpc: plugins.http is read once the application starts.`
+
+### Limits
+
+- A plugin adds to a model only through its entry in `use`: it cannot change
+  a model that does not list it.
+- `api` runs before any `start`: an API reads the others only when called,
+  as `url` reads the server's address.

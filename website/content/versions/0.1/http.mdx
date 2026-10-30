@@ -1,0 +1,398 @@
+---
+title: HTTP
+description: Serve the application over HTTP, and add routes of your own beside the API.
+---
+
+`@ultimabase/http` starts the application's HTTP server. GraphQL, REST,
+auth and files mount their routes on it; the application adds its own,
+such as a webhook, with [Hono](https://hono.dev). Each route reads its
+caller, as GraphQL and REST do, and acts as it.
+
+```npm
+npm install @ultimabase/http
+```
+
+```ts
+import { routes, validate } from '@ultimabase/http'
+import { HTTPException } from 'hono/http-exception'
+import { master, PublicError } from 'ultimabase'
+import { z } from 'zod'
+import { Order } from './models.ts'
+
+export const shop = routes()
+
+// A route reads as its caller: the order's read rule applies.
+shop.get('/orders/:id/receipt', async (c) => {
+	const where = { id: c.req.param('id') }
+	const order = await Order.findUnique({ where }, { as: c.var.caller })
+	if (order === null) throw new PublicError('NOT_FOUND', 'No such order.')
+	return c.text(
+		`Order ${order.id}: ${order.total} EUR, ${order.paid ? 'paid' : 'due'}.`,
+	)
+})
+```
+
+The full example, with its tests: [`examples/http`](https://github.com/MrEkinox/ultimabase/tree/main/examples/http).
+
+`httpPlugin({ routes })` serves them, at the root, before the routes other
+plugins mount:
+
+```ts
+plugins: [
+	httpPlugin({
+		routes: [shop],
+		// The site that calls the API from a browser, with its cookies;
+		// local origins are allowed too, outside production.
+		cors: ['https://shop.example.com'],
+		// 64 KB per request body; 1 MB by default.
+		bodyLimit: 64 * 1024,
+		// One proxy in front: the client's address is read from
+		// X-Forwarded-For.
+		proxies: 1,
+	}),
+],
+```
+
+```ts
+const order = await Order.create({ data: { total: 30 } }, M)
+const response = await fetch(`${running.url}/orders/${order.id}/receipt`)
+expect(await response.text()).toBe(`Order ${order.id}: 30 EUR, due.`)
+```
+
+The server listens on the `port` option, then the `PORT` environment
+variable, then 3000, and logs `Listening on http://localhost:3000.`
+
+## The caller
+
+`c.var.caller` is the request's caller: Master with the master key, the
+signed-in user with [auth](/docs/next/auth), anonymous otherwise. Pass it as
+`{ as: c.var.caller }`, so the model's rules apply to the route as to any
+client. `c.var.address` is the client's address, `''` when unknown:
+
+```ts
+// Who sends the request, and from where.
+shop.get('/whoami', (c) =>
+	c.json({ caller: c.var.caller.kind, address: c.var.address }),
+)
+```
+
+Behind a proxy, as a load balancer, every connection comes from the proxy.
+`proxies` is the number of proxies in front of the server: the client's
+address is then read from `X-Forwarded-For`, the entry that many from the
+right, which a client cannot forge.
+
+```ts
+const response = await fetch(`${running.url}/whoami`, {
+	// What the proxy in front of the server adds.
+	headers: { 'x-forwarded-for': '203.0.113.7' },
+})
+expect(await response.json()).toEqual({
+	caller: 'anonymous',
+	address: '203.0.113.7',
+})
+```
+
+Without `proxies`, a request with `X-Forwarded-For` from a local network
+logs a warning once: every client would count as the proxy, and
+[password](/docs/next/password)'s limits would block them all at once.
+
+## Validate a request
+
+`validate(target, schema)` checks a part of the request with any
+[Standard Schema](https://standardschema.dev), as Zod, Valibot or ArkType;
+the route reads the value, typed, with `c.req.valid(target)`. A webhook
+here checks its secret header and its JSON body, then writes as Master,
+since a provider sends no session:
+
+```ts
+// The provider's secret, from the environment in production.
+const secret = process.env['PAYMENT_SECRET'] ?? 'dev-secret'
+
+// The provider sends no session: the route checks its secret, then writes
+// as Master.
+shop.post(
+	'/webhooks/payment',
+	validate('header', z.object({ 'x-secret': z.string() })),
+	validate('json', z.object({ order: z.string(), amount: z.int().positive() })),
+	async (c) => {
+		if (c.req.valid('header')['x-secret'] !== secret) {
+			throw new HTTPException(401, { message: 'Wrong secret.' })
+		}
+		const { order, amount } = c.req.valid('json')
+		const paid = await Order.update(
+			{ where: { id: order }, data: { paid: true } },
+			{ as: master },
+		)
+		return c.json({ order: paid.id, amount, paid: paid.paid })
+	},
+)
+```
+
+The provider calls it as this function does:
+
+```ts
+/** What the payment provider sends. */
+const pay = (secret: string, body: string) =>
+	fetch(`${running.url}/webhooks/payment`, {
+		method: 'POST',
+		headers: { 'content-type': 'application/json', 'x-secret': secret },
+		body,
+	})
+```
+
+```ts
+const order = await Order.create({ data: { total: 30 } }, M)
+const paid = await pay(
+	'dev-secret',
+	JSON.stringify({ order: order.id, amount: 30 }),
+)
+expect(await paid.json()).toEqual({ order: order.id, amount: 30, paid: true })
+const wrong = await pay(
+	'guess',
+	JSON.stringify({ order: order.id, amount: 30 }),
+)
+expect(wrong.status).toBe(401)
+expect(await wrong.json()).toEqual({
+	code: 'UNAUTHORIZED',
+	message: 'Wrong secret.',
+})
+```
+
+A value the schema refuses is `VALIDATION_FAILED`, with the same `issues`
+as the kernel's errors, their `path` inside the value; a body that is not
+JSON at all is `BAD_REQUEST`:
+
+```ts
+const invalid = await pay('dev-secret', JSON.stringify({ order: order.id }))
+expect(invalid.status).toBe(400)
+expect(await invalid.json()).toEqual({
+	code: 'VALIDATION_FAILED',
+	message: 'Invalid data.',
+	details: {
+		issues: [
+			{
+				path: ['amount'],
+				message: 'Invalid input: expected number, received undefined',
+			},
+		],
+	},
+})
+const malformed = await pay('dev-secret', '{')
+expect(await malformed.json()).toEqual({
+	code: 'BAD_REQUEST',
+	message: 'Malformed JSON in request body',
+})
+```
+
+A query parameter, a header or a route parameter is text: a schema that
+coerces it gives the route a number.
+
+```ts
+// `?min=` arrives as text: the schema turns it into a number.
+shop.get(
+	'/orders',
+	validate('query', z.object({ min: z.coerce.number().int().default(0) })),
+	async (c) => {
+		const { min } = c.req.valid('query')
+		const where = { total: { gte: min } }
+		return c.json(await Order.count({ where }, { as: c.var.caller }))
+	},
+)
+```
+
+```ts
+await Order.createMany({ data: [{ total: 10 }, { total: 50 }] }, M)
+const all = await fetch(`${running.url}/orders`)
+expect(await all.json()).toBe(2)
+const large = await fetch(`${running.url}/orders?min=20`)
+expect(await large.json()).toBe(1)
+```
+
+## Errors
+
+A route throws to refuse a request:
+
+- a `PublicError`, as in the receipt above, is sent as
+  `{ code, message, details }` with its code's status, as
+  [Errors](/docs/next/errors) lists them; an application's own code is a
+  `400`;
+- Hono's `HTTPException` keeps its status, its code the status's name, as
+  `UNAUTHORIZED` for the wrong secret above;
+- any other error is `500` `INTERNAL`, `Internal error.`, with a
+  `correlationId` the server logs beside the error.
+
+The server answers some requests itself, before any route:
+
+```ts
+const post = (type: string, body: string) =>
+	fetch(`${running.url}/webhooks/payment`, {
+		method: 'POST',
+		headers: { 'content-type': type, 'x-secret': 'dev-secret' },
+		body,
+	})
+const large = await post('application/json', 'x'.repeat(70_000))
+expect(large.status).toBe(413)
+expect(await large.json()).toEqual({
+	code: 'PAYLOAD_TOO_LARGE',
+	message: 'The body is over 65536 bytes.',
+})
+const text = await post('text/plain', '{}')
+expect(text.status).toBe(415)
+expect(await text.json()).toEqual({
+	code: 'UNSUPPORTED_MEDIA_TYPE',
+	message: 'The body is not JSON: send content-type: application/json.',
+})
+const unknown = await fetch(`${running.url}/nowhere`)
+expect(unknown.status).toBe(404)
+expect(await unknown.json()).toEqual({
+	code: 'NOT_FOUND',
+	message: 'No route matches GET /nowhere.',
+})
+```
+
+## Browsers
+
+A browser calls the API from another origin only when `cors` lists it, and
+then sends its cookies, as auth's session. Outside production
+(`NODE_ENV=production`), local origins are allowed too, as
+`http://localhost:5173`:
+
+```ts
+const preflight = (origin: string) =>
+	fetch(`${running.url}/webhooks/payment`, {
+		method: 'OPTIONS',
+		headers: { origin, 'access-control-request-method': 'POST' },
+	})
+const listed = await preflight('https://shop.example.com')
+expect(listed.headers.get('access-control-allow-origin')).toBe(
+	'https://shop.example.com',
+)
+expect(listed.headers.get('access-control-allow-credentials')).toBe('true')
+const other = await preflight('https://elsewhere.example')
+expect(other.headers.get('access-control-allow-origin')).toBeNull()
+```
+
+An HTML form posts to any site with that site's cookies, and CORS never
+stops it. A form from another origin is refused; a webhook sends no
+`Origin` and no cookies, and passes:
+
+```ts
+// A form another site posts, which CORS never stops.
+const form = await fetch(`${running.url}/webhooks/payment`, {
+	method: 'POST',
+	headers: {
+		origin: 'https://elsewhere.example',
+		'content-type': 'text/plain',
+	},
+	body: '{}',
+})
+expect(form.status).toBe(403)
+expect(await form.json()).toEqual({
+	code: 'ACCESS_DENIED',
+	message: 'A form from another origin is refused.',
+})
+```
+
+## Caching
+
+A response may hold the caller's data, so every response is sent with
+`Cache-Control: no-store`, unless its route sets its own:
+
+```ts
+// Every response is `Cache-Control: no-store`, unless its route sets one.
+shop.get('/prices', (c) => {
+	c.header('cache-control', 'public, max-age=60')
+	return c.json({ shipping: 5 })
+})
+```
+
+```ts
+const prices = await fetch(`${running.url}/prices`)
+expect(prices.headers.get('cache-control')).toBe('public, max-age=60')
+const whoami = await fetch(`${running.url}/whoami`)
+expect(whoami.headers.get('cache-control')).toBe('no-store')
+```
+
+## Testing a route
+
+`routes().request(path)` calls a route without the server, as an anonymous
+request. A test that needs another caller, or the database, starts the
+application with [`testApplication`](/docs/next/testing), as the tests
+above do:
+
+```ts
+// `routes().request` answers as an anonymous request, with no server.
+const response = await shop.request('/whoami')
+expect(await response.json()).toEqual({ caller: 'anonymous', address: '' })
+```
+
+## Reference
+
+### `httpPlugin(options)`
+
+| Option      | Type            | Default           | Effect                                                         |
+| ----------- | --------------- | ----------------- | -------------------------------------------------------------- |
+| `routes`    | `routes()[]`    | none              | Mounted at the root, in their order, before the plugins' own.  |
+| `cors`      | origins         | none              | The origins a browser may call from, with its cookies.         |
+| `port`      | number          | `PORT`, then 3000 | Where the server listens.                                      |
+| `bodyLimit` | number of bytes | 1 MB              | The largest request body; files take their own limit.          |
+| `proxies`   | whole number    | 0                 | The proxies in front of the server, read in `X-Forwarded-For`. |
+
+Outside production, local origins over `http:` are allowed besides `cors`.
+On `stop`, the server stops taking connections and waits 10 seconds at most
+for the requests still running.
+
+### `routes()` and its context
+
+`routes()` is a Hono application; every Hono feature works in it, as
+middlewares and `streamSSE`.
+
+| Value                    | Effect                                                   |
+| ------------------------ | -------------------------------------------------------- |
+| `c.var.caller`           | The request's caller, to pass as `{ as: c.var.caller }`. |
+| `c.var.address`          | The client's address, `''` when unknown.                 |
+| `c.req.valid(target)`    | What `validate(target, schema)` accepted, typed.         |
+| `routes().request(path)` | A response, as an anonymous request, without the server. |
+
+A middleware registered with `use` runs for every route after it, those
+other plugins mount included: give it a path, as `use('/admin/*', …)`, to
+keep it to some routes. A route added after `start` is not served.
+
+### `validate(target, schema)`
+
+| Argument | Values                                                           |
+| -------- | ---------------------------------------------------------------- |
+| `target` | `'json'`, `'query'`, `'param'`, `'header'`, `'form'`, `'cookie'` |
+| `schema` | any Standard Schema                                              |
+
+### Errors
+
+| Status | Code                     | When                                                                        |
+| ------ | ------------------------ | --------------------------------------------------------------------------- |
+| 400    | `VALIDATION_FAILED`      | `Invalid data.`: `validate` refused a value, with `details.issues`.         |
+| 400    | `BAD_REQUEST`            | `Malformed JSON in request body`, or `Malformed form data in request body`. |
+| 403    | `ACCESS_DENIED`          | `A form from another origin is refused.`, or `The master key is wrong.`     |
+| 404    | `NOT_FOUND`              | `No route matches GET /nowhere.`                                            |
+| 413    | `PAYLOAD_TOO_LARGE`      | `The body is over 65536 bytes.`                                             |
+| 415    | `UNSUPPORTED_MEDIA_TYPE` | `The body is not JSON: send content-type: application/json.`                |
+| 500    | `INTERNAL`               | `Internal error.`, with `correlationId`.                                    |
+| any    | the status's name        | An `HTTPException`, as `401` `UNAUTHORIZED`.                                |
+
+A `PublicError` takes its code's status: `ACCESS_DENIED` 403, `NOT_FOUND`
+404, `VALIDATION_FAILED` 400, `UNIQUE_VIOLATION` and `RELATION_RESTRICTED`
+409, `UNAUTHENTICATED` and `INVALID_CREDENTIALS` 401, `TOO_MANY_ATTEMPTS`
+429 with `Retry-After`, any other code 400.
+
+At start: `proxies is 1.5, not a whole number of proxies in front of the
+server.`, and `PORT is 80a, not a port between 0 and 65535.`
+
+### The development log
+
+Outside production, each request is logged once answered, as
+`POST /webhooks/payment 200 3ms`; nothing is logged per request in
+production. A client that leaves before its answer counts as `499`.
+
+### Limits
+
+- One server, HTTP/1.1, without TLS: a proxy or the host serves HTTPS.
+- The `stop` delay of 10 seconds is not an option.

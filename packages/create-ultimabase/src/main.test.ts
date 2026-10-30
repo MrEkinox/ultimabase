@@ -14,6 +14,7 @@ import { PassThrough } from 'node:stream'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import type { Io } from './main.ts'
 import { main, processIo, terminal } from './main.ts'
+import { ownVersion } from './starter.ts'
 
 let cwd: string
 let printed: string[]
@@ -63,10 +64,13 @@ it('writes the starter in the directory it is given', async () => {
 			start: 'ultimabase start',
 			test: 'vitest',
 		},
-		dependencies: { ultimabase: '^0.0.0', '@ultimabase/http': '^0.0.0' },
+		dependencies: {
+			ultimabase: `^${ownVersion()}`,
+			'@ultimabase/http': `^${ownVersion()}`,
+		},
 		devDependencies: {
 			'@types/node': '^24.19.2',
-			'@ultimabase/testing': '^0.0.0',
+			'@ultimabase/testing': `^${ownVersion()}`,
 		},
 	})
 	expect(readFileSync(join(cwd, 'blog/README.md'), 'utf8')).toMatch(

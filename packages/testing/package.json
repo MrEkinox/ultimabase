@@ -1,6 +1,6 @@
 {
 	"name": "@ultimabase/testing",
-	"version": "0.0.0",
+	"version": "0.1.0",
 	"description": "Test helpers for UltimaBase applications, plugins and adapters.",
 	"type": "module",
 	"license": "Apache-2.0",
@@ -31,7 +31,7 @@
 		}
 	},
 	"peerDependencies": {
-		"ultimabase": "^0.0.0",
+		"ultimabase": "^0.1.0",
 		"vitest": "^5.0.5"
 	},
 	"devDependencies": {

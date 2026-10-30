@@ -1,6 +1,6 @@
 {
 	"name": "@ultimabase/postgres",
-	"version": "0.0.0",
+	"version": "0.1.0",
 	"description": "The PostgreSQL adapter for UltimaBase.",
 	"type": "module",
 	"license": "Apache-2.0",
@@ -36,7 +36,7 @@
 		"pg-connection-string": "2.14.1"
 	},
 	"peerDependencies": {
-		"ultimabase": "^0.0.0"
+		"ultimabase": "^0.1.0"
 	},
 	"devDependencies": {
 		"@types/pg": "8.23.1",

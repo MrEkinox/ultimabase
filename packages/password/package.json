@@ -1,6 +1,6 @@
 {
 	"name": "@ultimabase/password",
-	"version": "0.0.0",
+	"version": "0.1.0",
 	"description": "Passwords for UltimaBase: sign-up, sign-in and password changes, hashed with Argon2id.",
 	"type": "module",
 	"license": "Apache-2.0",
@@ -34,8 +34,8 @@
 		"ipaddr.js": "2.5.0"
 	},
 	"peerDependencies": {
-		"@ultimabase/auth": "^0.0.0",
-		"ultimabase": "^0.0.0"
+		"@ultimabase/auth": "^0.1.0",
+		"ultimabase": "^0.1.0"
 	},
 	"devDependencies": {
 		"@types/pg": "8.23.1",
