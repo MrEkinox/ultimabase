@@ -1,8 +1,8 @@
 // What official packages read from an application (D-130), kept off the
 // documented surface: new runs of it on another database, quieter, the
 // running plugins' APIs, what raw SQL and tests on the declared database
-// need (D-137), and what live reads need (D-154).
-import type { Adapter } from './adapter.ts'
+// need (D-137), what live reads need (D-154) and the feed tests call (D-168).
+import type { Adapter, Feed } from './adapter.ts'
 import { internalsOf } from './app-internals.ts'
 import type { Logger } from './app-options.ts'
 import { consoleLogger } from './console-logger.ts'
@@ -60,6 +60,11 @@ export function quietRuns(app: unknown): QuietRuns | undefined {
 		declared: options.database,
 		on: (database) => lifecycle({ ...options, database, logger }),
 	}
+}
+
+/** The running application's change feed, if a plugin takes it (D-168). */
+export function runningFeed(): Feed | undefined {
+	return current()?.feed
 }
 
 /** The running application's plugin API named `name`, if any. */

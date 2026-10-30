@@ -6815,7 +6815,7 @@ await fetch('/api/functions/signUp', {
 
 ## D-130: `testApplication(app)` and `npm create ultimabase`
 
-Amended by D-137.
+Amended by D-137 and D-168.
 Amended 2026-10-30: the starter runs `ultimabase dev` and `ultimabase start`.
 
 Choice: completes D-40, D-61 and D-80.
@@ -10798,4 +10798,59 @@ After:
 import type { PluginContext } from 'ultimabase'
 
 const load = ({ options, logger }: PluginContext<MaintenanceTypes>) => …
+```
+
+## D-168: A test calls the plugins' `missed`
+
+Choice: amends D-130 point 2 (`testApplication` returns `{ url }`) and
+completes D-154's change feed.
+
+1. `testApplication(app, options?)` returns `feed` beside `url`:
+   `running.feed.missed()` calls the `missed` of each plugin that takes the
+   feed, in declaration order, as after a lost connection, on any database.
+   Without such a plugin it does nothing.
+2. It runs during a test; outside one it throws
+   `feed.missed() runs during a test.`
+3. A change the feed does not report is written with `database.sql` on
+   `postgres()`, under `{ database: 'declared' }` (D-137): the feed reports
+   the writes of the API only. `memory()` writes none.
+4. The kernel gives `testApplication` the running application's feed on
+   `ultimabase/internal`; the `Adapter` contract does not change.
+
+Why:
+
+- A plugin that follows the feed, as a cache, a lock or presence, reads
+  again in `missed` what it may have lost; an application tests that read
+  without ending the feed's connection, its name, its channel and the test
+  schema by hand.
+
+Rejected:
+
+- `feed.drop()`, ending the listening connection: the reconnection is
+  postgres's own, tested there; an application tests its `missed`.
+- Writes the feed does not report, on `memory()` or through the API:
+  `postgres()` reports a commit after it, so a window of unreported writes
+  would race the notifications; `database.sql` already writes them.
+
+Example, before:
+
+```ts
+// Find the feed's connection and the test schema, write, then end it.
+const { rows } = await sql.query(
+	`select pid, query from pg_stat_activity where application_name = 'ultimabase-feed'`,
+)
+await sql.query(`update "${schema}".maintenance set enabled = true`)
+await sql.query('select pg_terminate_backend($1)', [rows[0].pid])
+```
+
+After:
+
+```ts
+const running = testApplication(app, { database: 'declared' })
+
+it('reads the lock again after lost changes', async () => {
+	await database.sql`update maintenance set enabled = true`
+	running.feed.missed()
+	// …
+})
 ```

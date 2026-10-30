@@ -4,12 +4,22 @@
 import type { Adapter } from 'ultimabase'
 import { memory } from 'ultimabase'
 import type { Lifecycle } from 'ultimabase/internal'
-import { quietRuns, runningApi, scratchOf } from 'ultimabase/internal'
+import {
+	quietRuns,
+	runningApi,
+	runningFeed,
+	scratchOf,
+} from 'ultimabase/internal'
 import { afterEach, beforeAll, beforeEach } from 'vitest'
 
 export type TestApplication = {
 	/** The HTTP server's address during a test, such as `http://localhost:54321`. */
 	readonly url: string
+	/** The change feed, during a test (D-168). */
+	readonly feed: {
+		/** Calls each plugin's `missed`, as after a lost connection. */
+		readonly missed: () => void
+	}
 }
 
 /** Starts `run` with `PORT` set to `0`, then puts `PORT` back. */
@@ -88,6 +98,13 @@ export function testApplication(
 				)
 			}
 			return url
+		},
+		feed: {
+			missed: () => {
+				if (run === undefined)
+					throw new Error('feed.missed() runs during a test.')
+				runningFeed()?.missed()
+			},
 		},
 	}
 }

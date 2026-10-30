@@ -1,7 +1,7 @@
 // The running application (D-18): its resolved models and functions, its
 // adapter, its logger, its plugins' APIs (D-89) and the operations `stop`
 // waits for (D-91), one per realm.
-import type { Adapter } from './adapter.ts'
+import type { Adapter, Feed } from './adapter.ts'
 import type { Logger } from './app-options.ts'
 import type { Complete } from './complete.ts'
 import type { FunctionDefinition } from './definition.ts'
@@ -12,6 +12,8 @@ export type Running = {
 	/** Its functions, by their `defineFunction` value (D-75). */
 	readonly functions: ReadonlyMap<object, FunctionDefinition>
 	readonly adapter: Adapter
+	/** What it gives the adapter, `undefined` when no plugin takes it (D-154). */
+	readonly feed: Feed | undefined
 	readonly logger: Logger
 	/** Each plugin's API, by its name (D-16). */
 	readonly apis: ReadonlyMap<string, unknown>
