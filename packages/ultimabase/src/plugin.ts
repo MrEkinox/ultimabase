@@ -192,7 +192,7 @@ type FunctionWithOf<T> = T extends { readonly functionWith: infer W }
 	? W
 	: never
 
-/** What the plugin's start and api receive: its application options. */
+/** What a plugin's `start`, `api`, `changed` and others receive (D-167). */
 export interface PluginContext<T> {
 	readonly options: [AppOptions<T>] extends [never]
 		? { readonly [option: string]: never }
