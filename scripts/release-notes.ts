@@ -32,6 +32,16 @@ const entriesOf = (section: string): Array<[string, string]> => {
 	return entries
 }
 
+/**
+ * Whether an entry only bumps dependencies: `Updated dependencies [abc1234]`,
+ * or, for a bump the fixed group makes, the list of versions alone.
+ */
+const bumpsOnly = (entry: string): boolean =>
+	entry.startsWith('Updated dependencies') ||
+	entry
+		.split('\n')
+		.every((line) => /^(?: {2}- )?(?:@[\w.-]+\/)?[\w.-]+@\S+$/u.test(line))
+
 export const releaseNotes = (
 	version: string,
 	changelogs: readonly Changelog[],
@@ -40,7 +50,7 @@ export const releaseNotes = (
 	const headings = new Map<string, Map<string, string[]>>()
 	for (const { name, text } of changelogs) {
 		for (const [heading, entry] of entriesOf(sectionOf(text, version))) {
-			if (entry.startsWith('Updated dependencies')) continue
+			if (bumpsOnly(entry)) continue
 			const entries = headings.get(heading) ?? new Map<string, string[]>()
 			headings.set(heading, entries)
 			entries.set(entry, [...(entries.get(entry) ?? []), name])

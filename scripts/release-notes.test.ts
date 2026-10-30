@@ -60,6 +60,33 @@ it('reads only the section of the version', () => {
 	)
 })
 
+it('leaves out the dependency bumps a fixed group lists without a title', () => {
+	// What Changesets wrote in @ultimabase/acl for 0.1.2.
+	const acl = `# @ultimabase/acl
+
+## 0.2.0
+
+### Patch Changes
+
+- @ultimabase/roles@0.2.0
+  - ultimabase@0.2.0
+`
+	expect(
+		releaseNotes('0.2.0', [
+			{ name: 'ultimabase', text: kernel },
+			{ name: '@ultimabase/acl', text: acl },
+		]),
+	).toBe(`### Minor Changes
+
+- \`ultimabase\`: abc1234: Live lists page by cursor.
+
+### Patch Changes
+
+- \`ultimabase\`: def5678: The dev script restarts once per change,
+  not once per file.
+`)
+})
+
 it('refuses a version no changelog has an entry for', () => {
 	expect(() =>
 		releaseNotes('0.3.0', [
