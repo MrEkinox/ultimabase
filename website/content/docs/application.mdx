@@ -10,9 +10,8 @@ An application is a few TypeScript files that Node runs as they are written:
 | `src/models.ts`        | The models: their fields, relations, access rules and hooks.       |
 | `src/functions.ts`     | The functions clients call beside the models' operations.          |
 | `src/app.ts`           | `defineApp`: the database, the plugins, the models, the functions. |
-| `src/server.ts`        | `await app.start()`, which the `start` script runs.                |
 | `src/*.test.ts`        | The tests, each file on a new in-memory database.                  |
-| `ultimabase.config.ts` | For the `ultimabase` command: the application it runs.             |
+| `ultimabase.config.ts` | For the `ultimabase` command: the application it starts.           |
 
 A larger application splits `models.ts` and `functions.ts` into folders; the
 names are a convention, not a rule. The application below sells products: its
@@ -27,6 +26,8 @@ Each model is a table: `defineModel` names it and declares its fields, then
 <include cwd meta='title="src/models.ts"'>
 	../examples/functions-and-hooks/src/models.ts#models
 </include>
+
+The full example, with its tests: [`examples/functions-and-hooks`](https://github.com/MrEkinox/ultimadatabase/tree/main/examples/functions-and-hooks).
 
 [Models and fields](/docs/next/models), [Access rules](/docs/next/access)
 and [Hooks](/docs/next/hooks) cover each part.
@@ -51,31 +52,29 @@ from `models`, is a type error on this line.
 	../examples/functions-and-hooks/src/app.ts#app
 </include>
 
-## The server
+## Starting it
 
-`src/server.ts` starts the application, apart from `src/app.ts`, so a test
-imports the application without starting it:
-
-<include cwd meta='title="src/server.ts"'>
-	../packages/create-ultimabase/template/src/server.ts
-</include>
-
-`app.start()` starts the database, then each plugin; the HTTP plugin listens
-on `PORT`, or 3000. `app.stop()` stops the plugins in reverse order, waits for the operations
-still running, then closes the database; a `SIGTERM` calls it.
-
-## The config file
-
-The `ultimabase` command (`ultimabase dev`, `ultimabase migrate`, see
-[PostgreSQL](/docs/next/postgres)) finds the application in
-`ultimabase.config.ts`, which default-exports it:
+`ultimabase.config.ts` default-exports the application, for the
+`ultimabase` command:
 
 <include cwd meta='title="ultimabase.config.ts"'>
-	../examples/postgres/ultimabase.config.ts#config
+	../packages/create-ultimabase/template/ultimabase.config.ts
 </include>
 
-An application on `memory()` does not need one. `--config <path>` names
-another file; `ultimabase.config.mts`, `.js` and `.mjs` are found too.
+| Script        | Runs               | Does                                                                                                              |
+| ------------- | ------------------ | ----------------------------------------------------------------------------------------------------------------- |
+| `npm run dev` | `ultimabase dev`   | Starts the application, syncs a development database to the models, and restarts when a file changes.             |
+| `npm start`   | `ultimabase start` | Starts it in production, as a host does: the database is checked, never changed. See [Deploy](/docs/next/deploy). |
+
+Both find `ultimabase.config.ts` in the directory they run in, or
+`ultimabase.config.mts`, `.js` or `.mjs`; `--config <path>` names another
+file. The application lives in `src/app.ts`, apart from the file
+that starts it, so a test imports it without starting it.
+
+`app.start()` starts the database, then each plugin; the HTTP plugin listens
+on `PORT`, or 3000. `app.stop()` stops the plugins in reverse order, waits
+for the operations still running, then closes the database; a `SIGTERM`
+calls it.
 
 ## Reference
 

@@ -1,5 +1,6 @@
 // The starter as `npm create ultimabase` writes it (D-130): the bin writes it,
-// and it starts and answers GraphQL; it runs the versions the repository tests.
+// and `npm start` starts it in production, answering GraphQL; it runs the
+// versions the repository tests.
 import { execFile, spawn } from 'node:child_process'
 import { once } from 'node:events'
 import { mkdtempSync, readFileSync, rmSync, symlinkSync } from 'node:fs'
@@ -28,11 +29,17 @@ const field = (path: string, ...keys: string[]): unknown => {
 	return value
 }
 
-/** Starts `node src/server.ts` in `directory`; its address and its stop. */
+const withoutNodeEnv = Object.fromEntries(
+	Object.entries(process.env).filter(([key]) => key !== 'NODE_ENV'),
+)
+
+/** Runs `ultimabase start` in `directory`, as `npm start`; its address and its stop. */
 async function served(directory: string) {
-	const server = spawn(process.execPath, ['src/server.ts'], {
+	const bin = join(directory, 'node_modules/.bin/ultimabase')
+	const server = spawn(process.execPath, [bin, 'start'], {
 		cwd: directory,
-		env: { ...process.env, PORT: '0' },
+		// Unset, as a host leaves it: `ultimabase start` sets it to production.
+		env: { ...withoutNodeEnv, PORT: '0' },
 		stdio: ['ignore', 'pipe', 'pipe'],
 	})
 	let output = ''
@@ -57,7 +64,7 @@ async function served(directory: string) {
 	return { url, stop }
 }
 
-it('is written by the bin, starts and answers GraphQL', async () => {
+it('is written by the bin, starts in production and answers GraphQL', async () => {
 	work = mkdtempSync(join(tmpdir(), 'create-ultimabase-'))
 	const { stdout } = await promisify(execFile)(
 		process.execPath,
@@ -76,6 +83,21 @@ it('is written by the bin, starts and answers GraphQL', async () => {
 			body: JSON.stringify({ query: '{ posts { edges { node { title } } } }' }),
 		})
 		expect(await response.json()).toEqual({ data: { posts: { edges: [] } } })
+		// Production closes introspection.
+		const introspection = await fetch(`${url}/graphql`, {
+			method: 'POST',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify({ query: '{ __schema { queryType { name } } }' }),
+		})
+		expect(await introspection.json()).toMatchObject({
+			errors: [
+				{
+					message:
+						'GraphQL introspection has been disabled, but the requested query contained the field "__schema".',
+				},
+				expect.anything(),
+			],
+		})
 	} finally {
 		await stop()
 	}

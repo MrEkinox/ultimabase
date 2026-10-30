@@ -10,7 +10,7 @@ export const app = defineApp({
 	plugins: [
 		httpPlugin(),
 		graphqlPlugin(),
-		// For REST too: restPlugin() from @ultimabase/rest, and rest() in a model's use.
+		// For REST too: restPlugin() from @ultimabase/rest.
 	],
 	models: [Post],
 })

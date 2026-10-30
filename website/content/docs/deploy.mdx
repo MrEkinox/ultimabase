@@ -16,7 +16,8 @@ npx ultimabase start
 ```
 
 `start` sets `NODE_ENV` to `production` unless it is set, then starts the
-application that `ultimabase.config.ts` exports. In production, a start
+application that `ultimabase.config.ts` exports; the starter's `npm start`
+runs it. In production, a start
 never changes the tables: it checks that the migrations deployed match the
 models, and refuses to start otherwise (see [PostgreSQL](/docs/next/postgres)
 for writing migrations).
@@ -36,6 +37,8 @@ example does:
 <include cwd meta='title="src/app.ts"'>
 	../examples/postgres/src/app.ts#app
 </include>
+
+The full example, with its tests: [`examples/postgres`](https://github.com/MrEkinox/ultimadatabase/tree/main/examples/postgres).
 
 A master key works in production only when written
 `{ key, production: true }`. Written as a plain string, a request that sends
@@ -72,8 +75,8 @@ that does not answer, it prints why and exits 1:
 </include>
 
 `npx ultimabase start` prints a refusal as one line. A script that calls
-`app.start()` itself, such as `node src/server.ts`, gets the same refusal as
-a thrown error, with its stack.
+`app.start()` itself gets the same refusal as a thrown error, with its
+stack.
 
 ## Check before a deploy
 

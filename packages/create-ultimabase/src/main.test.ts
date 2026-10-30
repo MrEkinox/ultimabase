@@ -53,12 +53,16 @@ it('writes the starter in the directory it is given', async () => {
 		'src/app.test.ts',
 		'src/app.ts',
 		'src/models.ts',
-		'src/server.ts',
 		'tsconfig.json',
+		'ultimabase.config.ts',
 	])
 	expect(manifest('blog')).toMatchObject({
 		name: 'blog',
-		scripts: { start: 'node src/server.ts', test: 'vitest' },
+		scripts: {
+			dev: 'ultimabase dev',
+			start: 'ultimabase start',
+			test: 'vitest',
+		},
 		dependencies: { ultimabase: '^0.0.0', '@ultimabase/http': '^0.0.0' },
 		devDependencies: {
 			'@types/node': '^24.19.2',
@@ -66,19 +70,19 @@ it('writes the starter in the directory it is given', async () => {
 		},
 	})
 	expect(readFileSync(join(cwd, 'blog/README.md'), 'utf8')).toMatch(
-		/^# blog\n[\s\S]*`npm start`/u,
+		/^# blog\n[\s\S]*`npm run dev`[\s\S]*`npm start`/u,
 	)
 	expect(printed).toEqual([
-		'\nCreated blog. Next:\n\n  cd blog\n  npm install\n  npm start\n',
+		'\nCreated blog. Next:\n\n  cd blog\n  npm install\n  npm run dev\n',
 	])
 	expect(failed).toEqual([])
 })
 
 it.each([
-	['yarn/4.9.2 npm/? node/v24.7.0', ['yarn', 'yarn start']],
-	['pnpm/10.0.0 npm/? node/v24.7.0', ['pnpm install', 'pnpm start']],
-	['npm/11.0.0 node/v24.7.0', ['npm install', 'npm start']],
-	['bun/1.2.0', ['npm install', 'npm start']],
+	['yarn/4.9.2 npm/? node/v24.7.0', ['yarn', 'yarn dev']],
+	['pnpm/10.0.0 npm/? node/v24.7.0', ['pnpm install', 'pnpm dev']],
+	['npm/11.0.0 node/v24.7.0', ['npm install', 'npm run dev']],
+	['bun/1.2.0', ['npm install', 'npm run dev']],
 ])('prints the next commands for %s', async (userAgent, next) => {
 	await main(['blog'], io({ userAgent }))
 	expect(printed[0]).toBe(
@@ -116,7 +120,7 @@ it('writes in the current directory, named after it, when it is empty', async ()
 	expect(await main(['.'], io({ cwd: here }))).toBe(0)
 	expect(manifest('here')).toMatchObject({ name: 'here' })
 	expect(printed[0]).toBe(
-		'\nCreated here. Next:\n\n  npm install\n  npm start\n',
+		'\nCreated here. Next:\n\n  npm install\n  npm run dev\n',
 	)
 })
 

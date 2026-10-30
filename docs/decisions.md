@@ -6808,6 +6808,7 @@ await fetch('/api/functions/signUp', {
 ## D-130: `testApplication(app)` and `npm create ultimabase`
 
 Amended by D-137.
+Amended 2026-10-30: the starter runs `ultimabase dev` and `ultimabase start`.
 
 Choice: completes D-40, D-61 and D-80.
 
@@ -6834,9 +6835,14 @@ Choice: completes D-40, D-61 and D-80.
    empty, installs nothing, and prints the next commands for the package
    manager that ran it. It asks nothing else.
 6. The starter holds `src/models.ts` (a public `Post`), `src/app.ts`
-   (`memory()`, `httpPlugin()`, `graphqlPlugin()`), `src/server.ts`,
-   `src/app.test.ts` written with `testApplication`, `package.json`,
-   `tsconfig.json`, `.gitignore` and a short README. Node runs its
+   (`memory()`, `httpPlugin()`, `graphqlPlugin()`), `src/app.test.ts`
+   written with `testApplication`, `ultimabase.config.ts`, which
+   default-exports the application, `package.json`, `tsconfig.json`,
+   `.gitignore` and a short README. Its scripts are `dev`
+   (`ultimabase dev`), `start` (`ultimabase start`) and `test` (`vitest`),
+   so the command a host runs starts in production and checks the database
+   instead of syncing it (D-105); it has no `src/server.ts`, and the CLI
+   prints `npm run dev` as the next command. Node runs its
    TypeScript, with no build. Comments in `src/app.ts` say where PostgreSQL
    and REST go; the starter depends on nothing it does not run, except
    `@types/node`, which its editor needs for `process` and `node:` imports
@@ -6885,6 +6891,14 @@ it('creates a post', async () => {
 })
 ```
 
+```jsonc
+// Before: `npm start` runs src/server.ts, which syncs the database, as in development
+"scripts": { "start": "node src/server.ts", "test": "vitest" }
+
+// After: `npm start` runs in production, and `npm run dev` restarts on each change
+"scripts": { "dev": "ultimabase dev", "start": "ultimabase start", "test": "vitest" }
+```
+
 ```text
 $ npm create ultimabase
 ? Project name: (my-app) blog
@@ -6893,7 +6907,7 @@ Created blog. Next:
 
   cd blog
   npm install
-  npm start
+  npm run dev
 ```
 
 ## D-131: One example per feature, tested as an application, and Changesets
