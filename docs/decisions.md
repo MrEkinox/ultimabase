@@ -9790,6 +9790,8 @@ const { data } = useLiveSubscription(CampaignDocument, { variables: { where: { i
 Amended 2026-10-29: the quickstart includes the starter's template.
 Amended 2026-10-30: a page on writing a database adapter.
 Amended 2026-10-30: the option check reads the examples a page includes.
+Amended 2026-10-30: the clients stay in the realtime page; a README links
+to its page's source until the site is published.
 
 Choice: completes D-31; the examples stay its source of truth.
 
@@ -9831,7 +9833,8 @@ Choice: completes D-31; the examples stay its source of truth.
    - Transports: HTTP, GraphQL, REST;
    - Databases: `memory()`, PostgreSQL and its migrations;
    - Deploy: `ultimabase start` and `migrate deploy`;
-   - Clients: the live client, its Apollo link and its React hook;
+   - Clients: the live client, its Apollo link and its React hook, in the
+     realtime page rather than a section of their own (amended 2026-10-30);
    - Write a plugin: `definePlugin`, its hooks, field types and API.
    - Write a database adapter: the adapter contract (D-73) and
      `testAdapter`, its suite (D-94) (amended 2026-10-30).
@@ -9855,7 +9858,9 @@ Choice: completes D-31; the examples stay its source of truth.
    example, the official plugins, and links to the documentation and the
    repository.
 7. Each package gets a README of a few lines: what it does and a link to
-   its page, without code.
+   its page, without code. Until the site is published, the link is the
+   page's source on GitHub, which the repository test checks exists
+   (amended 2026-10-30).
 8. The documentation is versioned by minor version. `/docs` shows the
    latest published one, `/docs/<version>` each one, `/docs/next` the
    pages of `main`, and a menu switches between them. The pages of `main`

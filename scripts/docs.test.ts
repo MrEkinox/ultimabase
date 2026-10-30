@@ -261,3 +261,30 @@ it(
 		expect(missing).toEqual([])
 	},
 )
+
+const docs =
+	'https://github.com/MrEkinox/ultimadatabase/blob/main/website/content/docs/'
+
+it('gives each package a README, without code, linking to its page', () => {
+	const problems = readdirSync('packages', { withFileTypes: true })
+		.filter((entry) => existsSync(join('packages', entry.name, 'package.json')))
+		.flatMap((entry) => {
+			const path = join('packages', entry.name, 'README.md')
+			if (!existsSync(path)) return [`${path}: missing`]
+			const text = readFileSync(path, 'utf8')
+			const linked = [...text.matchAll(/\]\((?<url>[^)]+)\)/gu)]
+				.map((link) => link.groups?.['url'] ?? '')
+				.filter((url) => url.startsWith(docs))
+			return [
+				...(fencesOf(text).length > 0 ? [`${path}: holds code`] : []),
+				...(linked.length === 0 ? [`${path}: links to no page`] : []),
+				...linked
+					.map((url) =>
+						join(website, 'content', 'docs', url.slice(docs.length)),
+					)
+					.filter((page) => !existsSync(page))
+					.map((page) => `${path}: ${page} does not exist`),
+			]
+		})
+	expect(problems).toEqual([])
+})
