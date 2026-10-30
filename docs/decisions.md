@@ -385,6 +385,8 @@ Rejected: kernel-level capabilities and plugin events.
 
 ## D-17: Soft-deleted rows are absent, the trash is read explicitly
 
+Amended by D-159.
+
 Choice: a soft-deleted row does not exist for ordinary reads, for every
 caller including Master. The trash is read through the plugin's own commands
 (`Post.trash.findMany(...)`), which go through `beforeFind` like any read;
@@ -2544,7 +2546,7 @@ fail.
 
 ## D-86: Access rules on relations, filters and written rows
 
-Amended by D-128 and D-138.
+Amended by D-128, D-138 and D-159.
 
 Choice: five details of D-10, D-44 and D-78 at run time.
 
@@ -5277,7 +5279,7 @@ const { count } = await Notification.deleteMany(
 
 ## D-112: auth's sessions, Identify and the API of sign-in methods
 
-Amended by D-113, D-115 and D-164.
+Amended by D-113, D-115, D-160 and D-164.
 
 Choice: completes D-33, D-39, D-62, D-79 and D-106.
 
@@ -5367,7 +5369,7 @@ curl localhost:3000/graphql -H 'authorization: Bearer expired…' -d '…'
 
 ## D-113: `passwordPlugin()`, linked accounts, plugin functions and `viewer`
 
-Amended by D-115 and D-125.
+Amended by D-115, D-125, D-160 and D-161.
 
 Choice: completes D-33, D-56, D-109 and D-112, and amends D-56, D-109 and
 D-112.
@@ -5565,7 +5567,7 @@ mutation {
 
 ## D-114: `passwordPlugin()`'s limits against many addresses
 
-Amended by D-115.
+Amended by D-115 and D-161.
 
 Choice: completes D-113.
 
@@ -10188,6 +10190,226 @@ import { defineModel } from 'ultimabase'
 ```text
 README.md: the block under examples/introduction/src/models.ts#post
 differs from its region
+```
+
+## D-159: A `one` relation read through `include` or `select` may be `null`
+
+Choice: amends D-86 and D-17 on the result's type.
+
+1. A `one` relation in an `include` or a `select` is typed
+   `Target | null`, required or optional, for every caller. At run time it
+   reads `null` when its target is absent for the caller: a read rule hides
+   it (D-86 point 4), or it is soft-deleted (D-17), which Master does not
+   see either.
+2. `optional` keeps its meaning, which is the stored key: a required
+   relation's key is never empty. `create` needs it, and neither
+   `disconnect` nor `onDelete: 'setNull'` empties it (D-54). A required
+   relation reads `null` only when its target is absent for the caller.
+
+Why:
+
+- The type said a required `one` is always there, and a read returned
+  `null` where it was not: `message.author.name` compiled, then threw once
+  the author was hidden or in the trash.
+- The GraphQL schema already types every `one` relation as nullable, for the
+  same reason (D-107); the TypeScript types now say the same.
+- Changing the type touched six lines of the packages' tests, five of the
+  relations example, the typing benchmark's expected types, and no
+  production code.
+
+Limit: Master writes a null check on a target that no read rule hides and
+that has no soft delete, as the relations example's five lines do. A type that depends on the caller and on the
+target's plugins would remove it, at a cost to every query's type, which no
+use asks for yet.
+
+Rejected:
+
+- Nullable only when the target may hide rows: a model's rules are given to
+  `.with()`, which returns the model's type unchanged, so the type does not
+  know them; and a model without a read rule is closed to every caller but
+  Master.
+- Non-null for Master: Master reads `null` for a soft-deleted target.
+- Leaving out the row whose required target is absent: a message would
+  leave the list with its author, which changes counts and pages and tells
+  the caller that a hidden row exists (D-86).
+
+Example:
+
+```ts
+const messages = await Message.findMany(
+	{ include: { author: true } },
+	{ as: caller },
+)
+// Before: compiled, then threw when the author was hidden or deleted
+messages[0].author.name
+// After
+messages[0].author?.name ?? 'Deleted account'
+```
+
+## D-160: Closing an account
+
+Choice: completes D-112 and D-113, and amends D-113 point 12.
+
+1. auth adds the command `User.closeAccount({ id }, options)`. It closes
+   the account and keeps the user's row: a `User.delete` whose row stays,
+   so a list of members still shows it. It runs as Master or as that user,
+   and refuses any other caller with `ACCESS_DENIED`, "User.closeAccount
+   runs as Master or as the user.", as `User.revokeSessions` does (D-113
+   point 4). It is a command of server code only: no GraphQL or REST
+   function.
+2. In one transaction, it ends every session of the user, so their viewers
+   and live streams close (D-154), unlinks every account, so their subjects
+   are free again, and runs the listeners of the sign-in methods. Once the
+   transaction commits, it ends the user's sessions again: a sign-in that
+   read the account before it was unlinked may have opened its session
+   since, as `setPassword` does (D-113).
+3. `AuthApi.onCloseAccount(listener)` registers a method's listener, called
+   with the user's id after the accounts are unlinked, in the order the
+   methods registered them. A listener that throws rolls the whole close
+   back. password registers one in its `api`: it deletes the user's
+   `PasswordHash`, `PasswordToken` rows and email requests, as when the
+   user is deleted, and sets `emailVerified` to `false` when it was `true`.
+4. An unknown id, or an account closed already, closes nothing and is no
+   error, as `revokeSessions`.
+5. It leaves the row's own fields and the user's roles as they are: the
+   application anonymizes the row, in the same transaction when it wants
+   one (D-36).
+6. Unlinking one account stays out (D-113 point 12): closing unlinks them
+   all.
+
+Why:
+
+- An application migrating from Parse closes accounts and keeps the rows,
+  so that messages and lists of members still show their author. With
+  `revokeSessions` and an update, the email stays linked, so a reset opens
+  the account again and `signUp` with that email is a `UNIQUE_VIOLATION`,
+  and the hash and the tokens stay; only auth unlinks (D-113) and only
+  password writes its tables (D-110).
+- The listener lets each method delete what it keeps without auth knowing
+  its models, as a community method needs.
+- A user deleted with `onDelete: 'setNull'` would also free the email, but
+  removes the row a list of members shows.
+
+Rejected:
+
+- A listener on each unlink: an email change unlinks then links, and would
+  delete the password.
+- A public `unlinkAccount` now: no second method needs it yet.
+- Anonymizing in `closeAccount`: which fields an application blanks is its
+  own choice.
+- A GraphQL and REST function: an application closes an account in its
+  own function, where it anonymizes the row and checks what it needs.
+
+Example:
+
+```ts
+// Before: the email stays linked, so nobody can sign up with it again,
+// and the hash stays in PasswordHash
+run: async ({ caller }) => {
+	await User.revokeSessions({ id: caller.user.id }, { as: caller })
+	await User.update(
+		{ where: { id: caller.user.id }, data: { name: 'Deleted account' } },
+		{ as: master },
+	)
+}
+// After
+run: async ({ caller }) =>
+	transaction(async () => {
+		await User.closeAccount({ id: caller.user.id }, { as: caller })
+		await User.update(
+			{ where: { id: caller.user.id }, data: { name: 'Deleted account' } },
+			{ as: master },
+		)
+	})
+```
+
+A method that keeps rows of its own deletes them:
+
+```ts
+api: ({ plugins }) => {
+	plugins.auth.onCloseAccount(async (userId) => {
+		await MagicLink.deleteMany({ where: { userId } }, { as: master })
+	})
+}
+```
+
+## D-161: Checking the current password
+
+Choice: completes D-113 and amends D-113 and D-114.
+
+1. `User.checkPassword({ id, password }, { as, client })` checks the user's
+   current password before a sensitive action. It opens no session and
+   returns nothing; a stale hash is rehashed, as on a sign-in.
+2. It runs as Master or as the user; anyone else gets `ACCESS_DENIED`,
+   `User.checkPassword runs as Master or as the user.`, as for
+   `User.setPassword`.
+3. A wrong password, a user without one and an unknown id give
+   `INVALID_CREDENTIALS`, `Wrong password.` `changePassword`'s wrong
+   current password gives the same message: both know the user, so neither
+   names an email. A sign-in keeps `Wrong email or password.`
+4. It is always counted, on the user's id, the subject `changePassword`
+   counts on:
+   - with a `client`, as `changePassword`: 10 failures per address, 100
+     per user, 100 per address, in 15 minutes;
+   - without one, the 11th failure on the user within 15 minutes, from
+     anywhere, `changePassword`'s included, is refused with
+     `TOO_MANY_ATTEMPTS`. It is stored under the address `'server'`, which
+     no client has, and fills no address's ceiling.
+5. It is a command only: no GraphQL or REST function.
+6. `User.signIn` without a client stays uncounted (D-113).
+
+Why:
+
+- An application asks the password again before closing an account or
+  changing an email, so a stolen session is not enough. The check existed
+  inside `changePassword` only; the workaround, `User.signIn`, opened a
+  session nothing ended, needed the email, and was never counted without a
+  client.
+- The check guards an action, so forgetting the `client` must not open it
+  to brute force: it is counted per user either way.
+- One subject for both commands: alternating between them gives no more
+  tries.
+- Server attempts under `''` would share the ceiling of every client whose
+  transport has no address: failures on many users would lock them all.
+
+Rejected:
+
+- `verifyPassword`: `verifyEmail` already means confirming with a token.
+- A public `checkPassword` function: a client could skip it and call the
+  action; the action checks the password itself.
+- Returning `false` for a wrong password: a forgotten `if` would let the
+  action through.
+- Keeping `Wrong email or password.` for these checks: no email is typed.
+
+Example, before:
+
+```ts
+const deleteAccount = defineFunction({
+	name: 'deleteAccount',
+	input: z.object({ password: z.string() }),
+	run: async ({ input, caller }) => {
+		// The application keeps its own copy of the email; this opens a
+		// second session, and server code is never counted.
+		await User.signIn({ email: caller.user.email, password: input.password })
+		await User.closeAccount({ id: caller.user.id }, { as: caller })
+	},
+})
+```
+
+After:
+
+```ts
+const deleteAccount = defineFunction({
+	name: 'deleteAccount',
+	input: z.object({ password: z.string() }),
+	run: async ({ input, caller, client }) => {
+		await User.checkPassword(
+			{ id: caller.user.id, password: input.password },
+			{ as: caller, client },
+		)
+		await User.closeAccount({ id: caller.user.id }, { as: caller })
+	},
+})
 ```
 
 ## D-164: auth warns without a sign-in method

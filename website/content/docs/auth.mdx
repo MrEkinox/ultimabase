@@ -74,6 +74,14 @@ its own, as password's `User.signUp` and `User.signIn`:
 </include>
 
 Deleting a user ends its sessions and deletes its linked accounts.
+`User.closeAccount` does the same and keeps the row, so a list of members
+still shows it: the user signs in no more, the sign-in method deletes what it
+keeps, such as the password, and the email signs up again. It leaves the
+row's fields as they are; blank them in the same transaction:
+
+<include cwd meta='title="src/sessions.test.ts"'>
+	../examples/password-sign-in/src/sessions.test.ts#close
+</include>
 
 ## Rules on the signed-in user
 
@@ -119,6 +127,7 @@ It takes no option. It requires `httpPlugin()` and adds:
 | function | `signOut`        | Ends the caller's session and clears the cookie; `true`.                                        |
 | query    | `viewer`         | The signed-in user's row, read with their rules, or `null`.                                     |
 | command  | `revokeSessions` | `User.revokeSessions({ id }, { as })`, as Master or as the user.                                |
+|          | `closeAccount`   | `User.closeAccount({ id }, { as })`, as Master or as the user.                                  |
 | models   | `AuthSession`    | The sessions; each token is stored as its SHA-256, never in clear.                              |
 |          | `AuthAccount`    | The accounts a user signs in with: a method and its subject, such as an email, unique together. |
 
@@ -152,6 +161,7 @@ exposes them.
 | ----------------------- | --------------------------------------------------------------------------------------- |
 | `UNAUTHENTICATED` (401) | A Bearer token that has ended: `The session expired or was revoked: sign in again.`     |
 | `ACCESS_DENIED` (403)   | `revokeSessions` for another user: `User.revokeSessions runs as Master or as the user.` |
+|                         | `closeAccount` for another user: `User.closeAccount runs as Master or as the user.`     |
 
 At start, an application without a user model throws `authPlugin() needs a
 user model: declare it with defineUser.`, and one with two

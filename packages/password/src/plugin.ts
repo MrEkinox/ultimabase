@@ -26,6 +26,7 @@ import manifest from '../package.json' with { type: 'json' }
 import type { SignedIn, State } from './core.ts'
 import {
 	attemptOf,
+	checkCurrent,
 	createUser,
 	setPassword,
 	signedIn,
@@ -87,6 +88,15 @@ export interface PasswordCommands<F> {
 		args: { readonly id: string; readonly password: string },
 		options?: Options,
 	): Promise<void>
+	/**
+	 * Checks the user's current password before a sensitive action, as
+	 * Master or as the user; opens no session. Always counted: with a
+	 * `client` as changePassword, otherwise 10 failures per user (D-161).
+	 */
+	checkPassword(
+		args: { readonly id: string; readonly password: string },
+		options?: SignInOptions,
+	): Promise<void>
 }
 
 /** password's types (D-57). */
@@ -109,6 +119,15 @@ function stateOf(auth: AuthApi): State {
 	const state = states.get(auth)
 	if (state === undefined) throw new Error('password has not started.')
 	return state
+}
+
+/** Deletes the user's hash, links and email requests (D-113, D-160). */
+async function forget(userId: string): Promise<void> {
+	const where = { userId }
+	await PasswordHash.deleteMany({ where }, M)
+	await PasswordToken.deleteMany({ where }, M)
+	const emails = { kind: 'email', subject: userId }
+	await PasswordRequest.deleteMany({ where: emails }, M)
 }
 
 /** The one model whose `use` lists `password()`. */
@@ -211,6 +230,22 @@ function configOf(
 const callerOf = (options: Options | undefined): Identity =>
 	options?.as ?? { kind: 'anonymous' }
 
+/** Refuses `command` on user `id` but as Master or as that user. */
+function selfOrMaster(
+	options: Options | undefined,
+	id: string,
+	command: string,
+): void {
+	const caller = callerOf(options)
+	const self = caller.kind === 'user' && caller.user.id === id
+	if (!self && !isMaster(caller)) {
+		throw new PublicError(
+			'ACCESS_DENIED',
+			`User.${command} runs as Master or as the user.`,
+		)
+	}
+}
+
 const definition = definePlugin<Password>({
 	name: 'password',
 	manifest,
@@ -225,11 +260,7 @@ const definition = definePlugin<Password>({
 	hooks: {
 		// The user's hash and tokens go with them (D-113, D-117).
 		afterDelete: async ({ record }) => {
-			const where = { userId: record.id }
-			await PasswordHash.deleteMany({ where }, M)
-			await PasswordToken.deleteMany({ where }, M)
-			const emails = { kind: 'email', subject: record.id }
-			await PasswordRequest.deleteMany({ where: emails }, M)
+			await forget(record.id)
 		},
 	},
 	commands: ({ queries, plugins }) => {
@@ -258,16 +289,19 @@ const definition = definePlugin<Password>({
 				return opened as SignedIn<UserRow<Password['addedFields']>>
 			},
 			setPassword: async ({ id, password }, options) => {
-				const caller = callerOf(options)
-				const self = caller.kind === 'user' && caller.user.id === id
-				if (!self && !isMaster(caller)) {
-					throw new PublicError(
-						'ACCESS_DENIED',
-						'User.setPassword runs as Master or as the user.',
-					)
-				}
+				selfOrMaster(options, id, 'setPassword')
 				const state = stateOf(plugins.auth)
 				await setPassword(state, id, valid(passwordOf, password, 'password'))
+			},
+			checkPassword: async ({ id, password }, options) => {
+				selfOrMaster(options, id, 'checkPassword')
+				const client = options?.client
+				// Counted without a client too: the check guards an action (D-161).
+				await checkCurrent(
+					id,
+					password,
+					attemptOf(id, client) ?? { subject: id },
+				)
 			},
 		}
 	},
@@ -278,6 +312,16 @@ const definition = definePlugin<Password>({
 		const signUp = fields === false ? false : new Set(fields.keys())
 		const { auth } = plugins
 		states.set(auth, { auth, users, signUp, logger, sending: new Set() })
+		// A closed account keeps its row, without a password or a verified
+		// email (D-160).
+		auth.onCloseAccount(async (userId) => {
+			await forget(userId)
+			const where = { id: userId }
+			const user = await users.queries.findUnique({ where }, M)
+			if (user?.emailVerified !== true) return
+			const data = { emailVerified: false }
+			await users.queries.update({ where, data }, M)
+		})
 	},
 	// The emails under way still query: they end before the database closes.
 	stop: async ({ plugins }) => {

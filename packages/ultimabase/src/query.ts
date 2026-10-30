@@ -46,12 +46,6 @@ type TargetOf<X> = X extends {
 }
 	? T
 	: never
-type OptionalOne<X> = X extends {
-	readonly [fieldType]: { readonly options: { readonly optional: true } }
-}
-	? null
-	: never
-
 type IsList<X> = X extends {
 	readonly [fieldType]: { readonly options: { readonly list: true } }
 }
@@ -235,13 +229,15 @@ export type Include<F> = [RelationKeys<F> | VirtualKeys<F>] extends [never]
 		} & VirtualIncludes<F> &
 			Counts<F>
 
+// A required `one` reads `null` too when its target is absent for the
+// caller, hidden or soft-deleted (D-159).
 type Output<X, A> =
 	KindOf<X> extends 'scalar'
 		? StoredValue<X>
 		: KindOf<X> extends 'virtual'
 			? VirtualOutput<X, A>
 			: KindOf<X> extends 'one'
-				? Payload<TargetFields<TargetOf<X>>, A> | OptionalOne<X>
+				? Payload<TargetFields<TargetOf<X>>, A> | null
 				: Payload<TargetFields<TargetOf<X>>, A>[]
 
 type Selected<F, S> = {

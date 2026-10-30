@@ -1,7 +1,7 @@
 // Sessions: the token a sign-up or a sign-in opens, sent back as a Bearer
-// header or as the cookie, and how a session ends.
+// header or as the cookie, how a session ends, and closing an account.
 import { testApplication } from '@ultimabase/testing'
-import { master } from 'ultimabase'
+import { master, transaction } from 'ultimabase'
 import { expect, it } from 'vitest'
 import { z } from 'zod'
 import { app } from './app.ts'
@@ -118,5 +118,40 @@ it('signs up, signs in and ends sessions from server code', async () => {
 		code: 'UNAUTHENTICATED',
 		message: 'The session expired or was revoked: sign in again.',
 	})
+	//#endregion
+})
+
+it('closes an account and keeps its row', async () => {
+	const ada = await User.signUp(
+		{
+			email: 'ada@example.com',
+			password: 'correct horse',
+			data: { name: 'Ada' },
+		},
+		{ as: master },
+	)
+	//#region close
+	// Ends the sessions and frees the email, then blanks the row, which
+	// a list of members still shows.
+	await transaction(async () => {
+		await User.closeAccount({ id: ada.id }, { as: master })
+		await User.update(
+			{ where: { id: ada.id }, data: { name: 'Deleted account' } },
+			{ as: master },
+		)
+	})
+	await expect(
+		User.signIn({ email: 'ada@example.com', password: 'correct horse' }),
+	).rejects.toMatchObject({ code: 'INVALID_CREDENTIALS' })
+	// The email signs up again, as a new user.
+	const again = await User.signUp(
+		{
+			email: 'ada@example.com',
+			password: 'another horse',
+			data: { name: 'Ada' },
+		},
+		{ as: master },
+	)
+	expect(again.id).not.toBe(ada.id)
 	//#endregion
 })

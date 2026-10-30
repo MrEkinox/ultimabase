@@ -96,9 +96,9 @@ describe('omit (D-135)', () => {
 			as,
 		)
 		expect(removed).not.toHaveProperty('pages')
-		expect(removed.author.name).toBe('Ada')
+		expect(removed.author?.name).toBe('Ada')
 		expectTypeOf(removed).not.toHaveProperty('pages')
-		expectTypeOf(removed.author.name).toEqualTypeOf<string>()
+		expectTypeOf(removed.author?.name).toEqualTypeOf<string | undefined>()
 	})
 
 	it('refuses select beside it, a relation and a value not a boolean', async () => {

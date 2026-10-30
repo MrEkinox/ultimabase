@@ -1,6 +1,13 @@
 // Access rules on `memory()` (D-10, D-44, D-78, D-81, D-86): closed models,
 // read filters, hidden fields, rows absent everywhere, and write rules.
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import {
+	afterEach,
+	beforeEach,
+	describe,
+	expect,
+	expectTypeOf,
+	it,
+} from 'vitest'
 import { asUser } from '@ultimabase/testing'
 import type { Caller } from './index.ts'
 import {
@@ -364,6 +371,20 @@ describe('an unreadable row is absent (D-86)', () => {
 			ada,
 		)
 		expect(bobs?.posts.map((post) => post.id)).toEqual([ids.published])
+	})
+
+	it('so a required one is typed as nullable (D-159)', async () => {
+		const posts = await Post.findMany(
+			{
+				where: { id: { equals: ids.published } },
+				select: { author: { select: { name: true } } },
+			},
+			ada,
+		)
+		expectTypeOf(posts).toEqualTypeOf<
+			{ readonly author: { readonly name: string } | null }[]
+		>()
+		expect(posts).toEqual([{ author: { name: 'Bob' } }])
 	})
 
 	it('from relation filters', async () => {
