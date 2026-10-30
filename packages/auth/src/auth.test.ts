@@ -1,6 +1,6 @@
 // `authPlugin()` and `defineUser` (D-112, D-113): a session's token by Bearer
-// or cookie, its lifetime, sign-out, revocation, `viewer`, linked accounts
-// and the one user model.
+// or cookie, its lifetime, sign-out, revocation, `viewer`, linked accounts,
+// the one user model and the warning without a sign-in method.
 import { graphqlPlugin } from '@ultimabase/graphql'
 import { get } from 'node:http'
 import { httpPlugin } from '@ultimabase/http'
@@ -458,6 +458,23 @@ describe('the user model', () => {
 		await expect(app.start()).rejects.toThrow(
 			'models lists two models defineUser returned: an application has one user model.',
 		)
+	})
+})
+
+describe('without a sign-in method', () => {
+	it('warns at start that nobody signs in', async () => {
+		const warnings: string[] = []
+		const app = defineApp({
+			database: memory(),
+			plugins: [httpPlugin({ port: 0 }), graphqlPlugin(), authPlugin()],
+			models: [User],
+			logger: listening([], warnings),
+		})
+		await app.start()
+		await app.stop()
+		expect(warnings).toStrictEqual([
+			'authPlugin() has no sign-in method: add one, as passwordPlugin().',
+		])
 	})
 })
 

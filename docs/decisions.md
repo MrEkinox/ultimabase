@@ -364,6 +364,8 @@ Rejected: a hook per pipeline stage; a generic interceptor around everything.
 
 ## D-16: Plugins call each other directly
 
+Amended by D-164.
+
 Choice: a plugin that needs another declares it by its plugin value
 (`requires: { auth: authPlugin }`, D-57) and calls its public API,
 `plugins.auth`. `defineApp` fails typing, and startup fails, naming the
@@ -5275,7 +5277,7 @@ const { count } = await Notification.deleteMany(
 
 ## D-112: auth's sessions, Identify and the API of sign-in methods
 
-Amended by D-113 and D-115.
+Amended by D-113, D-115 and D-164.
 
 Choice: completes D-33, D-39, D-62, D-79 and D-106.
 
@@ -10186,4 +10188,59 @@ import { defineModel } from 'ultimabase'
 ```text
 README.md: the block under examples/introduction/src/models.ts#post
 differs from its region
+```
+
+## D-164: auth warns without a sign-in method
+
+Choice: amends D-16 and D-112.
+
+1. A plugin's context gets `dependents`: the names of the plugins whose
+   `requires` lists it. A plugin's `optional` does not count.
+2. auth's `start` logs a warning when its `dependents` is empty:
+   `authPlugin() has no sign-in method: add one, as passwordPlugin().`
+   The application still starts.
+3. A plugin that requires auth without being a sign-in method silences the
+   warning; no plugin declares itself a sign-in method.
+
+Why:
+
+- auth declares no way to sign in (D-112): an application with auth and no
+  sign-in plugin starts and serves `viewer` and `signOut`, and every request
+  is anonymous. Nothing says so, and the cause is one forgotten plugin.
+- The kernel already knows each plugin's requirements. It gives the fact;
+  auth decides what it means, so the kernel names no plugin.
+- A warning, not an error: an application that only reads sessions, or a
+  test, may run without a sign-in method.
+
+Rejected:
+
+- An error at start: it refuses those applications.
+- The list of every installed plugin in the context: wider than the need.
+- A sign-in method that declares itself to auth: a custom one that forgets
+  would raise a false warning, and it is one more call for each method.
+
+Before:
+
+```ts
+defineApp({
+	database: memory(),
+	plugins: [httpPlugin(), graphqlPlugin(), authPlugin()],
+	models: [User],
+})
+// starts silently; signIn does not exist and nobody signs in
+```
+
+After:
+
+```text
+20:11:27 WARN  [auth] authPlugin() has no sign-in method: add one, as passwordPlugin().
+```
+
+A plugin reads its dependents:
+
+```ts
+start: ({ dependents, logger }) => {
+	if (dependents.length > 0) return
+	logger.warn('authPlugin() has no sign-in method: add one, as passwordPlugin().')
+},
 ```

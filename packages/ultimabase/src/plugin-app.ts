@@ -84,6 +84,7 @@ export type Installed = {
 		readonly logger: Logger
 		readonly identify: Identify
 		readonly expires: (at: Date) => void
+		readonly dependents: readonly string[]
 		readonly models: readonly ExposedModel[]
 		readonly functions: readonly ExposedFunction[]
 	}
@@ -219,6 +220,9 @@ export function withContexts(
 			logger: logger.child({ name: code.name }),
 			identify,
 			expires: recordExpiry,
+			dependents: apiOrder
+				.filter((other) => other.code.requires.includes(code.name))
+				.map((other) => other.code.name),
 			models: exposed(code.name, resolved),
 		},
 	}))
