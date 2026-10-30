@@ -98,9 +98,10 @@ jobs:
   # Both publish from this file, after every check of the commit: npm trusts
   # one workflow file and one environment per package (D-156). The commit
   # messages are not waited for: a pushed commit cannot be reworded.
+  # A canary is asked for with "Run workflow" (D-157).
   canary:
     name: Canary
-    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    if: github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch'
     needs: [validate, packed, website, postgres, s3]
     runs-on: ubuntu-24.04
     timeout-minutes: 30
@@ -120,7 +121,7 @@ jobs:
 
   release:
     name: Release
-    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     needs: [validate, packed, website, postgres, s3]
     runs-on: ubuntu-24.04
     timeout-minutes: 30

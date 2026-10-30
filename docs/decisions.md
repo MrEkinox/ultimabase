@@ -10000,6 +10000,8 @@ website/content/versions/0.1/relations.mdx   /docs/0.1/relations
 
 ## D-156: Releases from CI: canaries, a release pull request, one tag
 
+Amended by D-157.
+
 Choice: completes D-60; nothing is published from a laptop.
 
 1. Every push to `main` runs `ci.yml`. Once each of its checks passes, two
@@ -10085,4 +10087,43 @@ git commit -m "fix(graphql): a refused query answers BAD_USER_INPUT"
 ```text
 $ git commit -m "release: 0.1.2"
 ✖   type must be one of [build, chore, ci, docs, feat, fix, perf, refactor, revert, style, test] [type-enum]
+```
+
+## D-157: Canaries on demand
+
+Choice: amends D-156 point 2.
+
+1. A push to `main` publishes no canary. "Run workflow" on `ci.yml`, for
+   `main`, runs every check, then publishes the pending changesets as a
+   canary, as D-156 point 2 describes. The release job runs on pushes
+   only.
+2. Asked for without a pending changeset, the canary fails: a green run
+   publishes something.
+
+Why:
+
+- Each canary is 15 versions npm keeps for good: one per push would fill
+  each package's version list with canaries nobody installs.
+- A canary serves to try a fix in an application before its release; the
+  maintainer knows when one is needed.
+- The environment `npm` stays limited to `main` (D-156 point 1): a canary
+  publishes reviewed code only.
+
+Rejected:
+
+- No canary at all: a fix would wait for a release to be tried.
+- A canary from any branch: it would open the environment `npm`, and
+  npm's trust, to unreviewed code.
+
+Example:
+
+```text
+# Before: every push with a pending changeset
+git push   # → npm: 15 packages at 0.1.2-canary.20261030145550 (canary)
+
+# After
+git push   # → checks, the release pull request updated; nothing on npm
+# GitHub → Actions → CI → Run workflow (main)
+#   → npm: 15 packages at 0.1.2-canary.<UTC datetime> (canary)
+npm install ultimabase@canary
 ```

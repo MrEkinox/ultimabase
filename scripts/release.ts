@@ -120,10 +120,8 @@ const canary = async () => {
 	const pending = readdirSync('.changeset').filter(
 		(file) => file.endsWith('.md') && file !== 'README.md',
 	)
-	if (pending.length === 0) {
-		console.log('No pending changeset: no canary.')
-		return
-	}
+	// Asked for by hand (D-157): a green run publishes something.
+	if (pending.length === 0) throw new Error('No pending changeset: no canary.')
 	await run('yarn', ['changeset', 'version', '--snapshot', 'canary'])
 	await publishAll('canary')
 }

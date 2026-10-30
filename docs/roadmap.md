@@ -253,7 +253,7 @@ Exit: `npm create ultimabase` produces an application that starts.
 for production yet, and fixes ship as 0.1.x or 0.2.
 
 - [x] Decide releases from CI: D-156.
-- [ ] Releases from CI (D-156), proved by a canary and a release.
+- [ ] Releases from CI (D-156, D-157), proved by a canary and a release.
 - [ ] A full audit of every package, its fixes merged.
 - [ ] Realtime faster on many subscribers (D-154): the find pipeline run once
       per subscriber on one list (230 ms for 10 000 on 25 rows), 305 KiB per
