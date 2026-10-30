@@ -201,12 +201,11 @@ export interface PluginContext<T> {
 	readonly logger: Logger
 	/** Who sends a request: what a transport runs it as (D-106). */
 	readonly identify: Identify
-	/**
-	 * The caller being built stops holding at `at`, as a session that
-	 * expires: a live read builds it again then (D-154). Outside a caller's
-	 * construction, it does nothing.
-	 */
+	/** The caller being built stops holding at `at`: a live read builds it
+	 * again then (D-154). Outside a caller's construction, it does nothing. */
 	readonly expires: (at: Date) => void
+	/** The plugins whose `requires` lists this one (D-164). */
+	readonly dependents: readonly string[]
 	/** The application's models, in their order (D-107). */
 	readonly models: readonly ExposedModel<WithOf<T>>[]
 	/** The application's functions, in their order (D-109). */

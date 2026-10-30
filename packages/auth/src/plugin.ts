@@ -247,6 +247,13 @@ const auth = definePlugin<Auth>({
 		closers.set(api, listeners)
 		return api
 	},
+	// A sign-in method requires auth: without one, nobody signs in (D-164).
+	start: ({ dependents, logger }) => {
+		if (dependents.length > 0) return
+		logger.warn(
+			'authPlugin() has no sign-in method: add one, as passwordPlugin().',
+		)
+	},
 	identify: async (request, context) => {
 		const { cookie, users } = stateOf(context)
 		const { hostname } = new URL(request.url)

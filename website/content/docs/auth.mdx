@@ -167,6 +167,10 @@ At start, an application without a user model throws `authPlugin() needs a
 user model: declare it with defineUser.`, and one with two
 `models lists two models defineUser returned: an application has one user model.`
 
+An application without a sign-in method, a plugin that requires auth as
+password does, starts, but nobody signs in: auth logs the warning
+`authPlugin() has no sign-in method: add one, as passwordPlugin().`
+
 ### Limits
 
 - A request carries one session: a Bearer header wins over the cookie.
