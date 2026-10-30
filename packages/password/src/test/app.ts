@@ -5,7 +5,7 @@ import { graphql, graphqlPlugin } from '@ultimabase/graphql'
 import { httpPlugin } from '@ultimabase/http'
 import type { Adapter, Logger } from 'ultimabase'
 import { allow, defineApp, master, memory } from 'ultimabase'
-import type { PasswordOptions } from '../index.ts'
+import type { Email, PasswordOptions } from '../index.ts'
 import { z } from 'zod'
 import { password, passwordPlugin } from '../index.ts'
 
@@ -111,3 +111,7 @@ export function tokenOf(body: unknown, field: string): string {
 	const signed: unknown = Reflect.get(Object(data), field)
 	return String(Reflect.get(Object(signed), 'token'))
 }
+
+/** The token an email's link carries, `''` for one without. */
+export const tokenIn = (email: Email | undefined): string =>
+	email !== undefined && 'token' in email ? email.token : ''

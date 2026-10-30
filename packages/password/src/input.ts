@@ -332,6 +332,32 @@ export const verifyEmailInput: StandardSchema<
 	Named<{ readonly token: string }>
 > = namedInput('VerifyEmail', new Map([['token', property(text, string)]]))
 
+type RequestEmailChange = {
+	readonly newEmail: string
+	readonly currentPassword: string
+}
+
+/** What `requestEmailChange` takes: the new email and the password (D-162). */
+export const requestEmailChangeInput: StandardSchema<
+	Named<RequestEmailChange>,
+	Named<RequestEmailChange>
+> = namedInput(
+	'RequestEmailChange',
+	new Map([
+		['newEmail', email],
+		['currentPassword', property(text, string)],
+	]),
+)
+
+/** What `confirmEmailChange` takes: the email's token (D-162). */
+export const confirmEmailChangeInput: StandardSchema<
+	Named<{ readonly token: string }>,
+	Named<{ readonly token: string }>
+> = namedInput(
+	'ConfirmEmailChange',
+	new Map([['token', property(text, string)]]),
+)
+
 /** The email, the password and the listed user fields, by their names. */
 export const signUpInput = (
 	fields: ReadonlyMap<string, Property>,

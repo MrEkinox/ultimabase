@@ -12,6 +12,7 @@ import {
 	signUpQuery,
 	started,
 	User,
+	tokenIn,
 } from './test/app.ts'
 import { PasswordToken } from './tokens.ts'
 
@@ -102,7 +103,7 @@ describe('a closed account', () => {
 		const { url, user } = await server()
 		await request(url)
 		await sent(1)
-		const token = outbox[0]?.token ?? ''
+		const token = tokenIn(outbox[0])
 		await User.closeAccount({ id: user.id }, M)
 		expect((await signIn(url)).body).toMatchObject(wrong)
 		const reset = { token, password: 'new secret!' }

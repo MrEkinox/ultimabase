@@ -13,6 +13,7 @@ import {
 	started,
 	tokenOf,
 	User,
+	tokenIn,
 } from './test/app.ts'
 import { issueToken, PasswordToken } from './tokens.ts'
 
@@ -55,7 +56,7 @@ const sent = async (count: number) =>
 	vi.waitFor(() => {
 		expect(outbox).toHaveLength(count)
 	})
-const tokenAt = (index: number) => outbox[index]?.token ?? ''
+const tokenAt = (index: number) => tokenIn(outbox[index])
 const invalidLink = {
 	errors: [
 		{
@@ -162,15 +163,15 @@ describe('verifying an email', () => {
 	it('refuses a reset token and an expired one', async () => {
 		const { url } = await server()
 		const { user } = await signedInAda(url)
-		const reset = await issueToken(user.id, 'reset')
+		const reset = await issueToken(user.id, 'reset', 'ada@example.com')
 		expect((await verify(url, reset)).body).toMatchObject(invalidLink)
 		const now = Date.now()
 		vi.spyOn(Date, 'now').mockReturnValue(now)
-		const late = await issueToken(user.id, 'verify')
+		const late = await issueToken(user.id, 'verify', 'ada@example.com')
 		vi.spyOn(Date, 'now').mockReturnValue(now + 24 * 60 * 60 * 1000)
 		expect((await verify(url, late)).body).toMatchObject(invalidLink)
 		vi.spyOn(Date, 'now').mockReturnValue(now)
-		const inTime = await issueToken(user.id, 'verify')
+		const inTime = await issueToken(user.id, 'verify', 'ada@example.com')
 		vi.spyOn(Date, 'now').mockReturnValue(now + 24 * 60 * 60 * 1000 - 1)
 		expect((await verify(url, inTime)).body).toEqual({
 			data: { verifyEmail: true },
@@ -189,7 +190,7 @@ describe('verifying an email', () => {
 	it('is what a reset does too', async () => {
 		const { url } = await server()
 		const { user } = await signedInAda(url)
-		const token = await issueToken(user.id, 'reset')
+		const token = await issueToken(user.id, 'reset', 'ada@example.com')
 		await graphqlOf(
 			url,
 			'mutation ($input: ResetPasswordInput!) { resetPassword(input: $input) }',
@@ -215,7 +216,7 @@ describe('sending the verification email again', () => {
 	it('sends a new link, which replaces the older one', async () => {
 		const { url } = await server()
 		const { user, session } = await signedInAda(url)
-		const older = await issueToken(user.id, 'verify')
+		const older = await issueToken(user.id, 'verify', 'ada@example.com')
 		expect((await send(url, session)).body).toEqual({
 			data: { sendVerificationEmail: true },
 		})

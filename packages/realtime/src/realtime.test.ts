@@ -627,6 +627,50 @@ describe('a viewer', () => {
 		expect(seen).toHaveLength(1)
 	})
 
+	it('tells its listeners once when its session ends, without a live read', async () => {
+		const viewer = await connect()
+		const closed = vi.fn<() => void>()
+		viewer.onClose(closed)
+		await Session.deleteMany({ where: { token: 'ada-token' } }, M)
+		await vi.waitFor(() => expect(closed).toHaveBeenCalledOnce())
+		expect(viewer.closed).toBe(true)
+	})
+
+	it('tells them once when it is closed, and when the application stops', async () => {
+		const viewer = await connect()
+		const other = await connect()
+		const [closed, stopped] = [vi.fn<() => void>(), vi.fn<() => void>()]
+		viewer.onClose(closed)
+		other.onClose(stopped)
+		viewer.close()
+		viewer.close()
+		expect(closed).toHaveBeenCalledOnce()
+		expect(stopped).not.toHaveBeenCalled()
+		await running.app.stop()
+		expect(stopped).toHaveBeenCalledOnce()
+	})
+
+	it('tells a listener added once it is closed at once', async () => {
+		const viewer = await connect()
+		viewer.close()
+		const closed = vi.fn<() => void>()
+		viewer.onClose(closed)
+		expect(closed).toHaveBeenCalledOnce()
+	})
+
+	it('logs a listener that throws, and still tells the others', async () => {
+		const viewer = await connect()
+		const closed = vi.fn<() => void>()
+		viewer.onClose(() => {
+			throw new Error('Broken.')
+		})
+		viewer.onClose(closed)
+		viewer.close()
+		expect(closed).toHaveBeenCalledOnce()
+		expect(viewer.closed).toBe(true)
+		expect(errors).toEqual(['A close listener failed.'])
+	})
+
 	it('refuses what it cannot follow', async () => {
 		const viewer = await connect()
 		const refused = async (model: string, args: unknown) =>

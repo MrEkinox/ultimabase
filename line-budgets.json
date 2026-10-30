@@ -5,13 +5,13 @@
 	"postgres": 3700,
 	"http": 1160,
 	"graphql": 4280,
-	"auth": 720,
-	"password": 1640,
+	"auth": 730,
+	"password": 1890,
 	"roles": 330,
 	"acl": 350,
 	"rest": 2980,
 	"create-ultimabase": 250,
 	"files": 1900,
-	"realtime": 2190,
+	"realtime": 2210,
 	"live": 700
 }
