@@ -30,7 +30,7 @@ for (const url of urls) {
 		await watcher.connect()
 		try {
 			const userId = randomUUID()
-			const token = await issueToken(userId, 'reset')
+			const token = await issueToken(userId, 'reset', 'ada@example.com')
 			await other.query('begin')
 			await other.query(
 				`delete from "${schema}"."password_token" where "user_id" = $1`,

@@ -13,6 +13,7 @@ import type {
 } from 'ultimabase'
 import { master, PublicError, transaction } from 'ultimabase'
 import { dummyHash, hashPassword, verifyPassword } from './hash.ts'
+import type { SendEmail } from './email-functions.ts'
 import { normalized } from './input.ts'
 import type { Attempt } from './models.ts'
 import { limited, PasswordHash } from './models.ts'
@@ -31,6 +32,7 @@ export interface State {
 	readonly logger: Logger
 	/** The sends under way, which stopping waits for (D-117). */
 	readonly sending: Set<Promise<void>>
+	readonly sendEmail: SendEmail | undefined
 }
 
 /** What a sign-in returns: its session, and the user read as itself. */
@@ -61,7 +63,8 @@ export const attemptOf = (
 
 /**
  * Creates the user, its account and its hash in one transaction, as Master:
- * the caller's fields were checked against the list (D-113).
+ * the caller's fields were checked against the list (D-113). The email's
+ * hook links the account (D-162).
  */
 export async function createUser(
 	state: State,
@@ -72,8 +75,10 @@ export async function createUser(
 	const hash = await hashPassword(password)
 	const stamp = randomUUID()
 	return transaction(async () => {
-		const user = await state.users.queries.create({ data }, M)
-		await state.auth.linkAccount(user.id, method, email)
+		const user = await state.users.queries.create(
+			{ data: { ...data, email } },
+			M,
+		)
 		await PasswordHash.create({ data: { userId: user.id, hash, stamp } }, M)
 		return { user, stamp }
 	})
@@ -151,8 +156,9 @@ export async function checkCurrent(
 }
 
 /**
- * Replaces `userId`'s hash, ends every session of the user and deletes its
- * pending reset tokens (D-117); the new stamp.
+ * Replaces `userId`'s hash, or gives one to an email without (D-162), ends
+ * every session of the user and deletes its pending reset tokens (D-117);
+ * the new stamp.
  */
 export async function setPassword(
 	state: State,
@@ -160,7 +166,10 @@ export async function setPassword(
 	password: string,
 ): Promise<string> {
 	const stored = await PasswordHash.findUnique({ where: { userId } }, M)
-	if (stored === null) {
+	const linked =
+		stored !== null ||
+		(await state.auth.subjectOf(userId, method)) !== undefined
+	if (!linked) {
 		throw new PublicError(
 			'NOT_FOUND',
 			`User ${userId} has no password: sign it up with signUp.`,
@@ -169,7 +178,10 @@ export async function setPassword(
 	const hash = await hashPassword(password)
 	const stamp = randomUUID()
 	await transaction(async () => {
-		await PasswordHash.update({ where: { userId }, data: { hash, stamp } }, M)
+		const data = { hash, stamp }
+		await (stored === null
+			? PasswordHash.create({ data: { userId, ...data } }, M)
+			: PasswordHash.update({ where: { userId }, data }, M))
 		await PasswordToken.deleteMany({ where: { userId, kind: 'reset' } }, M)
 		await state.auth.revokeSessions(userId)
 	})
