@@ -5,9 +5,9 @@
 import type { PluginOf, PluginTypes, UseOf } from 'ultimabase'
 import { definePlugin } from 'ultimabase'
 import manifest from '../package.json' with { type: 'json' }
+import { ownerOf } from './computed.ts'
 import { Engine } from './engine.ts'
 import type { Viewer } from './viewer.ts'
-import { ownerOf } from './viewer.ts'
 
 export type { LiveMessage, Removal, Upsert } from './messages.ts'
 export type { LiveHandle, Viewer } from './viewer.ts'

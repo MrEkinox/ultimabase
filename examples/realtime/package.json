@@ -19,12 +19,14 @@
 		"@ultimabase/rest": "workspace:*",
 		"graphql": "17.0.2",
 		"ultimabase": "workspace:*",
+		"ws": "8.22.0",
 		"zod": "4.6.5"
 	},
 	"devDependencies": {
 		"@apollo/client": "4.3.3",
 		"@types/react": "19.3.0",
 		"@types/react-dom": "19.3.0",
+		"@types/ws": "8.18.2",
 		"@ultimabase/testing": "workspace:*",
 		"graphql-ws": "6.4.1",
 		"happy-dom": "21.0.1",
