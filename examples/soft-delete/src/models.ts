@@ -1,4 +1,5 @@
 // The model: posts that a delete keeps, dated, in a trash.
+//#region post
 import { graphql } from '@ultimabase/graphql'
 import { softDelete } from '@ultimabase/soft-delete'
 import { allow, defineModel } from 'ultimabase'
@@ -10,3 +11,4 @@ export const Post = defineModel({
 	fields: (f) => ({ title: f.string() }),
 	// Open to every client, to keep the example on soft delete.
 }).with({ access: allow.public })
+//#endregion

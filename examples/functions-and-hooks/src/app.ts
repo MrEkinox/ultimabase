@@ -1,4 +1,5 @@
 // The application: a GraphQL API over HTTP, with the `placeOrder` function.
+//#region app
 import { graphqlPlugin } from '@ultimabase/graphql'
 import { httpPlugin } from '@ultimabase/http'
 import { defineApp, memory } from 'ultimabase'
@@ -13,3 +14,4 @@ export const app = defineApp({
 	models: [Product, Order],
 	functions: [placeOrder],
 })
+//#endregion

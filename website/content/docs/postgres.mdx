@@ -1,0 +1,280 @@
+---
+title: PostgreSQL
+description: Store the models in PostgreSQL, sync its tables in development, and change them in production with migration files.
+---
+
+`postgres()` stores the models in a PostgreSQL database, version 15 or
+later. In development, each start syncs the tables to the models. For
+production, `migrate create` writes each change as an SQL file that you
+commit; `migrate deploy` applies those files.
+
+```npm
+npm install @ultimabase/postgres
+```
+
+<include cwd meta='title="src/app.ts"'>
+	../examples/postgres/src/app.ts#app
+</include>
+
+The full example, with its tests: [`examples/postgres`](https://github.com/MrEkinox/ultimabase/tree/main/examples/postgres).
+
+`url` is a connection string such as
+`postgres://user:password@localhost:5432/app`. The `ultimabase` commands
+run the application that `ultimabase.config.ts` exports. They look for the
+migration files in `migrations/`, beside it:
+
+<include cwd meta='title="ultimabase.config.ts"'>
+	../examples/postgres/ultimabase.config.ts#config
+</include>
+
+## Development
+
+Outside production, a start syncs the tables to the models:
+
+```bash
+npx ultimabase dev
+```
+
+`dev` sets `NODE_ENV` to `development` and starts the application. When a
+file changes, it restarts it, and syncs the tables again. `sync` does the
+same without starting the application:
+
+<include cwd meta='title="src/app.postgres.test.ts"'>
+	../examples/postgres/src/app.postgres.test.ts#sync
+</include>
+
+Each change logs a line, such as `Synced Task: added priority, 0 in the rows
+it held.` A sync applies a change only when it keeps the rows. It refuses a
+change that deletes data, prints the SQL it would run, and says what to do:
+
+```bash
+npx ultimabase sync --force
+```
+
+`--force` applies the change to this development database. Or write it as
+a migration, whose SQL you can edit (see [Migrations](#migrations)). When a
+removed field looks renamed, the refusal says so: `-- a rename? keep its
+data: give Locker.title dbName: 'label'.` That `dbName` keeps the old
+column, with its data, under the new field.
+
+A sync also refuses a change the rows cannot take, such as a required field
+without a default on a table that holds rows. Make the field optional, give
+it a default, or rebuild the database with `npx ultimabase reset`.
+
+## The tables
+
+Each model is a table, each field a column, named in snake case: `Task` is
+`task`, `createdAt` is `created_at`.
+
+<include cwd meta='title="src/models.ts"'>
+	../examples/postgres/src/models.ts#models
+</include>
+
+| Field                      | Column                                                           |
+| -------------------------- | ---------------------------------------------------------------- |
+| `id`                       | `uuid`, the primary key                                          |
+| `createdAt`, `updatedAt`   | `timestamptz not null`                                           |
+| `f.string()`               | `text collate "C"`                                               |
+| `f.number()`               | `double precision`; `integer` with `integer: true`               |
+| `f.decimal()`              | `numeric(precision, scale)`                                      |
+| `f.boolean()`              | `boolean`                                                        |
+| `f.dateTime()`             | `timestamptz`                                                    |
+| `f.date()`                 | `date`                                                           |
+| `f.json()`                 | `jsonb`                                                          |
+| `f.enumOf()`               | `text`, with a check of its values                               |
+| a list (`list: true`)      | `text[]`, `double precision[]` or `integer[]`                    |
+| `f.one()`, the side stored | `<field>_id uuid`, indexed, with a foreign key checked at commit |
+| `f.many()` both ways       | a table `<table>_<field>`, with a `<table>_id` column per side   |
+| `search: true`             | a generated `_search` column, with a GIN index                   |
+
+A required field is `not null`; an optional one is nullable. A unique field
+or index is a unique constraint. The foreign keys have no `on delete`:
+UltimaBase runs `onDelete` itself, with the hooks and access rules.
+Constraint names end in `_pkey`, `_key`, `_fkey`, `_check` and `_idx`. A
+name longer than PostgreSQL's 63 bytes keeps its first 54 bytes plus an
+8-character hash. `dbName` names a table or a column yourself (see
+[Models and fields](/docs/next/models)).
+
+An index with `contains: true` installs the `pg_trgm` extension, which
+needs the right to create it.
+
+## Migrations
+
+When the models change, write the change as a migration:
+
+```bash
+npx ultimabase migrate create add_priority
+```
+
+Here, `priority` was added to `Task`. The command wrote
+`migrations/20261029230454_add_priority.sql`, named after the time in UTC,
+and updated `migrations/schema.json`, the models the migrations lead to.
+Commit both:
+
+<include cwd meta='title="src/migrations.test.ts"'>
+	../examples/postgres/src/migrations.test.ts#add-priority
+</include>
+
+The first line is the hash of the models after the file. A deploy uses it
+to check that the files match the models. A statement that deletes data or
+may fail on the rows gets a comment above it, such as `-- removing
+"Locker.label" deletes data.`. Read the file, and edit it before you commit
+it.
+
+### Your own SQL
+
+When no model changed, `migrate create` writes a file for your SQL: a data
+change, a view, an index of your own. It prints `Wrote
+migrations/20261029230505_first_tasks_urgent.sql: no model changed, write
+your SQL in it.`
+
+<include cwd meta='title="src/migrations.test.ts"'>
+	../examples/postgres/src/migrations.test.ts#data
+</include>
+
+Each file runs in a transaction: if a statement fails, the file is rolled
+back. Some statements cannot run in a transaction, such as
+`create index concurrently`. Put such a statement alone in its file, with
+`-- ultimabase no transaction` as the second line:
+
+<include cwd meta='title="src/migrations.test.ts"'>
+	../examples/postgres/src/migrations.test.ts#no-transaction
+</include>
+
+### Deploy
+
+`migrate status` says what a deploy would do, and exits 1 while it has
+something to do. `migrate deploy` applies the files the database lacks, in
+order:
+
+```bash
+npx ultimabase migrate deploy
+```
+
+<include cwd meta='title="src/app.postgres.test.ts"'>
+	../examples/postgres/src/app.postgres.test.ts#status
+</include>
+
+<include cwd meta='title="src/app.postgres.test.ts"'>
+	../examples/postgres/src/app.postgres.test.ts#deploy
+</include>
+
+Running it, its stops and its refusals in production are on
+[Deploy](/docs/next/deploy).
+
+### Test a migration
+
+Deploy applies migrations only to a database they built. After a sync, it
+is refused. `reset` drops every table, then applies the migrations. It
+gives you the database production will have:
+
+```bash
+npx ultimabase reset
+```
+
+<include cwd meta='title="src/app.postgres.test.ts"'>
+	../examples/postgres/src/app.postgres.test.ts#synced-deploy
+</include>
+
+<include cwd meta='title="src/app.postgres.test.ts"'>
+	../examples/postgres/src/app.postgres.test.ts#reset
+</include>
+
+To test a data migration on real rows, restore a dump of production in
+development, then run `npx ultimabase migrate deploy`.
+
+## Tests
+
+`testApplication(app, { database: 'declared' })` runs a test file on the
+application's own PostgreSQL, in a schema of the file's own: its tables are
+emptied before each test, and the schema is dropped after the last one.
+
+<include cwd meta='title="src/tasks.postgres.test.ts"'>
+	../examples/postgres/src/tasks.postgres.test.ts#declared
+</include>
+
+Name these files `*.postgres.test.ts`, and keep the other tests on
+`memory()` (see [Testing](/docs/next/testing)).
+
+## Options
+
+<include cwd meta='title="src/search.postgres.test.ts"'>
+	../examples/postgres/src/search.postgres.test.ts#options
+</include>
+
+`searchLanguage` names a text search configuration of the server, such as
+`'english'` or `'french'`. It stems the words that `_search` reads:
+
+<include cwd meta='title="src/search.postgres.test.ts"'>
+	../examples/postgres/src/search.postgres.test.ts#stems
+</include>
+
+## Reference
+
+### `postgres(options)`
+
+| Option           | Type                    | Default    | Effect                                                                   |
+| ---------------- | ----------------------- | ---------- | ------------------------------------------------------------------------ |
+| `url`            | `string \| undefined`   | required   | The connection string. Unset or empty, the start is refused.             |
+| `connections`    | whole number, 1 or more | `10`       | The connections opened at most; a query waits up to 10 s for a free one. |
+| `searchLanguage` | `string`                | `'simple'` | The text search configuration `_search` reads words in.                  |
+
+### Commands
+
+| Command                            | Effect                                                                                                                    |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `ultimabase dev`                   | Starts the application in development, syncs the tables, and restarts it when a file changes.                             |
+| `ultimabase sync [--force]`        | Syncs a development database to the models; `--force` applies a change that deletes data.                                 |
+| `ultimabase reset [--force]`       | Drops every table of a development database, then applies the migrations; `--force` allows a database on another machine. |
+| `ultimabase migrate create <name>` | Writes the models' changes as a migration, or an empty one for your SQL. `name` holds lowercase letters, digits and `_`.  |
+| `ultimabase migrate deploy`        | Applies the pending migrations.                                                                                           |
+| `ultimabase migrate status`        | Says what a deploy would do; exits 1 if anything.                                                                         |
+| `ultimabase start`                 | Starts the application in production (see [Deploy](/docs/next/deploy)).                                                   |
+
+Each takes `--config <path>` for a config other than `ultimabase.config.ts`,
+and exits 1 when it fails.
+
+### Messages
+
+| Message                                                                                                                  | When                                                            |
+| ------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------- |
+| `Created the database's tables.`                                                                                         | A sync on a database without the tables.                        |
+| `Synced Task: added priority, 0 in the rows it held.`                                                                    | A sync changed a table.                                         |
+| `The database already matches the models.`                                                                               | A sync with nothing to do.                                      |
+| `UltimaBase did not sync Locker: removing "Locker.label" deletes data.`                                                  | A change that deletes data, without `--force`.                  |
+| `UltimaBase did not sync Locker: another session held its table.`                                                        | Another connection held the table for 5 s: end its transaction. |
+| ``sync changes only a development database: run `npx ultimabase migrate deploy` in production.``                         | `sync` in production.                                           |
+| `Wrote migrations/<file>.`                                                                                               | `migrate create` wrote the models' changes.                     |
+| `Wrote migrations/<file>: no model changed, write your SQL in it.`                                                       | `migrate create` without a model change.                        |
+| `"<name>" is not a migration name: use lowercase letters, digits and _.`                                                 | A name with other characters.                                   |
+| `migrations/ holds SQL files but no schema.json: restore it from version control.`                                       | `schema.json` is missing.                                       |
+| `<file> is pending.`                                                                                                     | `migrate status`, for each file to apply.                       |
+| `Applied <file>.`                                                                                                        | `migrate deploy` or `reset` applied a file.                     |
+| `The database is up to date.`                                                                                            | Nothing to deploy.                                              |
+| ``migrations/ holds no migration: run `npx ultimabase migrate create <name>` first.``                                    | A deploy without migrations.                                    |
+| ``The models changed after <file> was written: run `npx ultimabase migrate create <name>`, then deploy again.``          | The models differ from the last migration.                      |
+| `<file> was edited after it was applied to the database: restore it, …`                                                  | An applied file changed.                                        |
+| `<file> was applied to the database, and migrations/ no longer holds it: restore it from version control.`               | An applied file is missing.                                     |
+| `Development sync changed this database since its last deploy: deploy applies migrations only to a database they built.` | A deploy after a sync: run `reset`.                             |
+| `<file> was not applied: <reason>`, then `The database rolled it back: fix it, then deploy again.`                       | A statement failed.                                             |
+| `Dropped project, task.`                                                                                                 | `reset` dropped those tables.                                   |
+| `reset rebuilds only a development database: it is refused in production.`                                               | `reset` in production.                                          |
+| `reset drops every table, and db.example.com is not this machine: pass --force if it holds a development database.`      | `reset` on a database on another machine.                       |
+| `postgres() was given no url: is the variable it reads set?`                                                             | `url` is unset or empty.                                        |
+| `Cannot reach PostgreSQL at localhost:5432 (ECONNREFUSED): is it running, and is its url right?`                         | The server does not answer.                                     |
+| `UltimaBase needs PostgreSQL 15 or later.`                                                                               | An older server.                                                |
+| `postgres() searches in 'klingon', a text search configuration this server does not have.`                               | An unknown `searchLanguage`.                                    |
+| `Every one of the 10 PostgreSQL connections stayed busy for 10s: a transaction may wait on something slow or never end.` | No connection came free in 10 s.                                |
+
+A warning at start says when the database's locale folds case for ASCII
+only: `mode: 'insensitive'` then misses `É` and `é`. Create the database
+with a UTF-8 locale, such as `en_US.UTF-8`.
+
+### Limits
+
+- PostgreSQL 15 or later.
+- A migration waits 5 s at most for a table another session holds.
+- A file marked `-- ultimabase no transaction` holds one statement; if it
+  fails, nothing is rolled back.
+- `sync` and `reset` refuse production; `reset` refuses another machine
+  without `--force`.

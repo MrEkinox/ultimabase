@@ -10,7 +10,8 @@
 	},
 	"workspaces": [
 		"packages/*",
-		"examples/*"
+		"examples/*",
+		"website"
 	],
 	"scripts": {
 		"budgets": "node scripts/check-budgets.ts",
@@ -21,8 +22,11 @@
 		"test:packed": "node scripts/test-packed.ts",
 		"test:postgres": "COVERAGE=postgres vitest run --project postgres --coverage --passWithNoTests",
 		"test:s3": "vitest run --project s3",
-		"typecheck": "tsc --project tsconfig.json && tsc --project tsconfig.declarations.json && tsc --project bench/typing && tsc --project bench/typing/tsconfig.loose.json && tsc --project packages && tsc --project examples/password-sign-in && tsc --project examples/relations && tsc --project examples/functions-and-hooks && tsc --project examples/roles-and-acl && tsc --project examples/soft-delete && tsc --project examples/rest && tsc --project examples/postgres && tsc --project packages/create-ultimabase/template",
-		"validate": "yarn format:check && yarn typecheck && yarn lint && yarn budgets && yarn test"
+		"typecheck": "tsc --project tsconfig.json && tsc --project tsconfig.declarations.json && tsc --project bench/typing && tsc --project bench/typing/tsconfig.loose.json && tsc --project packages && tsc --project examples/password-sign-in && tsc --project examples/relations && tsc --project examples/models-and-queries && tsc --project examples/access-rules && tsc --project examples/hooks && tsc --project examples/functions-and-hooks && tsc --project examples/functions && tsc --project examples/transactions && tsc --project examples/errors && tsc --project examples/testing && tsc --project examples/roles-and-acl && tsc --project examples/soft-delete && tsc --project examples/realtime && tsc --project examples/files && tsc --project examples/rest && tsc --project examples/http && tsc --project examples/graphql && tsc --project examples/postgres && tsc --project examples/memory && tsc --project examples/plugins && tsc --project examples/adapter && tsc --project examples/introduction && tsc --project packages/create-ultimabase/template && yarn workspace website generate && tsc --project website",
+		"validate": "yarn format:check && yarn typecheck && yarn lint && yarn budgets && yarn test",
+		"website:build": "yarn workspace website build",
+		"website:dev": "yarn workspace website dev",
+		"website:freeze": "yarn workspace website freeze"
 	},
 	"devDependencies": {
 		"@changesets/cli": "3.0.3",

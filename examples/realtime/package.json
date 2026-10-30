@@ -1,0 +1,37 @@
+{
+	"name": "example-realtime",
+	"version": "0.0.0",
+	"private": true,
+	"description": "A live task list over GraphQL, Server-Sent Events and React.",
+	"type": "module",
+	"license": "Apache-2.0",
+	"engines": {
+		"node": ">=24.7.0"
+	},
+	"scripts": {
+		"start": "node src/server.ts"
+	},
+	"dependencies": {
+		"@ultimabase/graphql": "workspace:*",
+		"@ultimabase/http": "workspace:*",
+		"@ultimabase/live": "workspace:*",
+		"@ultimabase/realtime": "workspace:*",
+		"@ultimabase/rest": "workspace:*",
+		"graphql": "17.0.2",
+		"ultimabase": "workspace:*",
+		"zod": "4.6.5"
+	},
+	"devDependencies": {
+		"@apollo/client": "4.3.3",
+		"@types/react": "19.3.0",
+		"@types/react-dom": "19.3.0",
+		"@ultimabase/testing": "workspace:*",
+		"graphql-ws": "6.4.1",
+		"happy-dom": "21.0.1",
+		"react": "19.3.1",
+		"react-dom": "19.3.1",
+		"rxjs": "7.8.2",
+		"vite": "8.3.4",
+		"vitest": "5.0.5"
+	}
+}

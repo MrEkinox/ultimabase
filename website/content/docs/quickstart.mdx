@@ -1,0 +1,87 @@
+---
+title: Quickstart
+description: Create an application, run it, query it over GraphQL and test it.
+---
+
+You need Node 24.7 or later: Node runs the TypeScript as it is written, with no
+build step.
+
+## Create the application
+
+```npm
+npm create ultimabase@latest my-app
+cd my-app
+npm install
+```
+
+The starter prints the next commands for the manager that ran it: npm, pnpm
+or yarn. It refuses a directory that is not empty, and a name npm cannot
+use for a package.
+
+## Run it
+
+```npm
+npm run dev
+```
+
+The application listens on `http://localhost:3000`, GraphQL on `/graphql`,
+and restarts when a file changes. `PORT` sets another port. Open
+`http://localhost:3000/graphql` in a browser for GraphiQL, or create a post
+and list the posts from a terminal:
+
+```bash
+curl http://localhost:3000/graphql -H 'content-type: application/json' \
+  -d '{"query":"mutation { createPost(data: { title: \"Hello\" }) { id title } }"}'
+curl http://localhost:3000/graphql -H 'content-type: application/json' \
+  -d '{"query":"{ posts { edges { node { title } } } }"}'
+```
+
+The database is `memory()`: it starts empty at each start. `npm start`
+starts the application in production, as a host does; see
+[Deploy](/docs/next/deploy).
+
+## What the starter wrote
+
+The model: a table, its fields, and who may read and write it. Its rule,
+`allow.public`, lets anyone write, which suits a first try only: an
+application's rules open what its clients may do, as in
+[Access rules](/docs/next/access).
+
+<include cwd meta='title="src/models.ts"'>
+	../packages/create-ultimabase/template/src/models.ts
+</include>
+
+The application: its database, its plugins and its models.
+
+<include cwd meta='title="src/app.ts"'>
+	../packages/create-ultimabase/template/src/app.ts
+</include>
+
+The file the `dev` and `start` scripts read, which names the application:
+
+<include cwd meta='title="ultimabase.config.ts"'>
+	../packages/create-ultimabase/template/ultimabase.config.ts
+</include>
+
+## Test it
+
+```npm
+npm test
+```
+
+Each test file gets the application on a new in-memory database and a free
+port:
+
+<include cwd meta='title="src/app.test.ts"'>
+	../packages/create-ultimabase/template/src/app.test.ts
+</include>
+
+## Next
+
+- [An application's files](/docs/next/application) explains each file and
+  where new code goes.
+- [Models and fields](/docs/next/models) adds fields and models;
+  [Relations](/docs/next/relations) links them.
+- [Access rules](/docs/next/access) replaces `allow.public` with real rules.
+- [PostgreSQL](/docs/next/postgres) replaces `memory()` with a database that
+  keeps its rows.

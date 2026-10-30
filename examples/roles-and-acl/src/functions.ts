@@ -1,9 +1,13 @@
-// The function a note's writer calls to let a role read the note.
+// The functions: a note's writer lets a role read the note, and a user
+// lists their roles.
 import { isAuthenticated } from '@ultimabase/auth'
+import { rolesOf } from '@ultimabase/roles'
 import { PublicError, defineFunction, master } from 'ultimabase'
 import { z } from 'zod'
-import { Note, Role } from './models.ts'
+import { Role } from './models.ts'
+import { Note } from './notes.ts'
 
+//#region share
 export const shareNote = defineFunction({
 	name: 'shareNote',
 	input: z.object({ note: z.string(), role: z.string() }),
@@ -29,3 +33,13 @@ export const shareNote = defineFunction({
 		return Note.update({ where: { id: note.id }, data }, { as: master })
 	},
 }).with({ access: isAuthenticated })
+//#endregion
+
+//#region my-roles
+// The caller's roles, inherited ones included, read once per request.
+export const myRoles = defineFunction({
+	name: 'myRoles',
+	output: z.array(z.string()),
+	run: ({ caller }) => rolesOf(caller).map(({ name }) => name),
+}).with({ access: isAuthenticated })
+//#endregion

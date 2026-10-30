@@ -1,0 +1,25 @@
+{
+	"name": "example-memory",
+	"version": "0.0.0",
+	"private": true,
+	"description": "The in-memory database: empty at each start, a write whole or not at all, PostgreSQL's order and words.",
+	"type": "module",
+	"license": "Apache-2.0",
+	"engines": {
+		"node": ">=24.7.0"
+	},
+	"scripts": {
+		"start": "node src/server.ts"
+	},
+	"dependencies": {
+		"@ultimabase/graphql": "workspace:*",
+		"@ultimabase/http": "workspace:*",
+		"graphql": "17.0.2",
+		"ultimabase": "workspace:*"
+	},
+	"devDependencies": {
+		"@ultimabase/testing": "workspace:*",
+		"vite": "8.3.4",
+		"vitest": "5.0.5"
+	}
+}

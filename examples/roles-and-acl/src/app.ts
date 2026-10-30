@@ -6,12 +6,14 @@ import { httpPlugin } from '@ultimabase/http'
 import { passwordPlugin } from '@ultimabase/password'
 import { rolesPlugin } from '@ultimabase/roles'
 import { defineApp, memory } from 'ultimabase'
-import { shareNote } from './functions.ts'
-import { Note, Role, User } from './models.ts'
+import { myRoles, shareNote } from './functions.ts'
+import { Role, User } from './models.ts'
+import { Note } from './notes.ts'
 
 export const app = defineApp({
 	// Kept in memory, so the example needs no database.
 	database: memory(),
+	//#region plugins
 	plugins: [
 		// Listens on PORT, or 3000.
 		httpPlugin(),
@@ -22,6 +24,7 @@ export const app = defineApp({
 		rolesPlugin(),
 		aclPlugin(),
 	],
+	//#endregion
 	models: [Role, User, Note],
-	functions: [shareNote],
+	functions: [shareNote, myRoles],
 })

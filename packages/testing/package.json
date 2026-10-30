@@ -1,10 +1,15 @@
 {
 	"name": "@ultimabase/testing",
-	"version": "0.0.0",
-	"private": true,
+	"version": "0.1.0",
 	"description": "Test helpers for UltimaBase applications, plugins and adapters.",
 	"type": "module",
 	"license": "Apache-2.0",
+	"homepage": "https://ultimabase.dev/docs/testing",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/MrEkinox/ultimabase.git",
+		"directory": "packages/testing"
+	},
 	"engines": {
 		"node": ">=24.7.0"
 	},
@@ -26,7 +31,7 @@
 		}
 	},
 	"peerDependencies": {
-		"ultimabase": "^0.0.0",
+		"ultimabase": "^0.1.0",
 		"vitest": "^5.0.5"
 	},
 	"devDependencies": {

@@ -1,0 +1,448 @@
+---
+title: Relations
+description: Link models with `one` and `many`, write related rows in one call, read and filter through them, and choose what deleting a row does.
+---
+
+A relation links the rows of two models: an author's books, a book's tags. It
+is declared on both sides, `f.one` on the side that points to one row and
+`f.many` on the side that holds a list. UltimaBase stores the keys, keeps them
+valid, and lets every query write, read, filter and sort through them.
+
+The models of this page: an author writes books, a publisher prints them, tags
+sort them.
+
+<include cwd meta='title="src/models.ts"'>
+	../examples/relations/src/models.ts#models
+</include>
+
+The full example, with its tests: [`examples/relations`](https://github.com/MrEkinox/ultimabase/tree/main/examples/relations).
+
+- `Author.books` and `Book.author` are the two sides of one relation: one
+  author, many books. Read from `Book`, the same relation is many-to-one: many
+  books, one author. `Book` stores the key.
+- `Book.tags` and `Tag.books` are both `many`: a many-to-many relation. A join
+  table, created for you, holds the pairs.
+- `onDelete` says what deleting an author does to her books. Without it, a
+  required relation refuses the delete and an optional one empties its key.
+
+The code below runs on the server, as Master. A client sends the same
+arguments over GraphQL or REST, as [Over GraphQL](#over-graphql) shows.
+
+## Declaring a relation
+
+Each relation has two fields, one on each model, that find each other by
+their targets. A field without its other side is refused when the application
+starts.
+
+| Shape                                           | One side                                | Other side            | Key stored           |
+| ----------------------------------------------- | --------------------------------------- | --------------------- | -------------------- |
+| One-to-many, or many-to-one from the other side | `f.many(() => Book)`                    | `f.one(() => Author)` | on the `one` side    |
+| Many-to-many                                    | `f.many(() => Tag)`                     | `f.many(() => Book)`  | in a join table      |
+| One-to-one                                      | `f.one(() => Card, { optional: true })` | `f.one(() => Member)` | on the required side |
+
+The target is a function, `() => Book`, so two models can point to each other
+in any order in the file.
+
+A `one` is required unless it is `optional: true`: a book cannot be created
+without its author. A `many` is a list, `[]` when empty, and never required.
+
+## Writing related rows
+
+A create or an update writes related rows in the same call, under the
+relation's field. Everything in the call is one write: if any part is
+refused, nothing is stored.
+
+### Create rows with their relations
+
+`create` makes the related rows; `connect` links rows that exist, by `id`.
+
+<include cwd meta='title="src/queries.test.ts"'>
+	../examples/relations/src/queries.test.ts#create
+</include>
+
+A `one` takes a single object; a `many` takes a list. A required `one` must be
+written when the row is created, by `connect` or `create`:
+
+<include cwd meta='title="src/queries.test.ts"'>
+	../examples/relations/src/queries.test.ts#connect-one
+</include>
+
+### Link and unlink rows
+
+`connect` adds links and `disconnect` removes them, from either side of the
+relation:
+
+<include cwd meta='title="src/queries.test.ts"'>
+	../examples/relations/src/queries.test.ts#connect
+</include>
+
+Connecting a `one` replaces its row. Here a book moves to another author:
+
+<include cwd meta='title="src/queries.test.ts"'>
+	../examples/relations/src/queries.test.ts#move
+</include>
+
+An optional `one` is emptied with `disconnect: true`:
+
+<include cwd meta='title="src/shapes.test.ts"'>
+	../examples/relations/src/shapes.test.ts#disconnect-one
+</include>
+
+### Replace a list, or link a row and create it if missing
+
+`set` replaces every link of a `many` with the rows it names:
+
+<include cwd meta='title="src/queries.test.ts"'>
+	../examples/relations/src/queries.test.ts#set
+</include>
+
+`connectOrCreate` links the row its `where` finds, by `id` or a unique field,
+and creates it from `create` when there is none:
+
+<include cwd meta='title="src/queries.test.ts"'>
+	../examples/relations/src/queries.test.ts#connect-or-create
+</include>
+
+### Update and delete related rows
+
+`update` changes linked rows and `delete` deletes them. On a `many`, each one
+names its rows with a `where`; only rows linked to this row are reached.
+
+<include cwd meta='title="src/queries.test.ts"'>
+	../examples/relations/src/queries.test.ts#update-delete
+</include>
+
+On a `one`, `update` takes the data directly and `delete: true` deletes the
+linked row, as the [one-to-one](#one-to-one) example shows.
+
+### What runs, and in which order
+
+- Each nested row is written as if written alone: the target model's access
+  rules, field rules and hooks run for it. A nested `create` of a `Book` needs
+  the right to create a book.
+- Linking or unlinking a row from the other side updates that row: `connect`
+  under `Tag.books` runs the update rule of the `Book` it links.
+- Within one relation, the operations run in this order: `delete`, then
+  `create` and `connectOrCreate`, then `disconnect` and `connect`, then
+  `update`.
+- The relation back to the row being written is not written again: a book
+  created under a publisher cannot also `connect` its publisher. The types
+  refuse it, and so does the server, for clients.
+
+### Refused writes
+
+A `connect` to a row that does not exist fails with `NOT_FOUND`. A write the
+types refuse, such as linking a book back to the publisher being created,
+throws an `InvalidQuery` (`INVALID_QUERY`) when the types are bypassed, and
+answers `BAD_USER_INPUT`, a `400`, when a client sends it:
+
+<include cwd meta='title="src/queries.test.ts"'>
+	../examples/relations/src/queries.test.ts#refused
+</include>
+
+The [errors](#errors) list every refusal.
+
+## Reading related rows
+
+### Include and select
+
+`include` adds related rows to the result. A `many` in an `include` takes the
+arguments of a `findMany`: `where`, `orderBy`, `take`, `skip`, `cursor`, and a
+nested `include` or `select`.
+
+<include cwd meta='title="src/queries.test.ts"'>
+	../examples/relations/src/queries.test.ts#include
+</include>
+
+`select` returns only the fields it names, relations included, at any depth.
+The result's type follows it:
+
+<include cwd meta='title="src/queries.test.ts"'>
+	../examples/relations/src/queries.test.ts#select
+</include>
+
+### Filter through a relation
+
+A `where` reaches the related rows: `is` and `isNot` on a `one`, `some`,
+`every` and `none` on a `many`. They nest, so a filter can cross several
+relations.
+
+<include cwd meta='title="src/queries.test.ts"'>
+	../examples/relations/src/queries.test.ts#filter
+</include>
+
+`is: null` finds the rows whose optional `one` is empty, `isNot: null` those
+where it is set. `every` is true for a row with no related rows.
+
+### Count and sort
+
+`_count` counts the related rows of each `many`, with a `where` if needed:
+`_count: { select: { books: { where: { title: 'Kindred' } } } }`. An `orderBy`
+sorts by that count:
+
+<include cwd meta='title="src/queries.test.ts"'>
+	../examples/relations/src/queries.test.ts#count
+</include>
+
+An `orderBy` also sorts through a `one`, by a field of the related row:
+
+<include cwd meta='title="src/queries.test.ts"'>
+	../examples/relations/src/queries.test.ts#order-through
+</include>
+
+### What a caller cannot read
+
+A row the caller's access rules hide is absent everywhere: from an `include`,
+from a `_count`, and from the rows a filter matches. A required `one` whose row
+is hidden reads as `null`.
+
+## Deleting a row that others point to
+
+The `onDelete` of a `one` says what deleting its target does to the rows that
+point to it.
+
+| `onDelete` | Deleting the target                    | Default for       |
+| ---------- | -------------------------------------- | ----------------- |
+| `restrict` | is refused while a row points to it    | a required `one`  |
+| `cascade`  | deletes the rows that point to it, too | never             |
+| `setNull`  | empties their key                      | an optional `one` |
+
+`Book.author` cascades: deleting an author deletes her books, and their links
+to tags. The tags stay.
+
+<include cwd meta='title="src/queries.test.ts"'>
+	../examples/relations/src/queries.test.ts#cascade
+</include>
+
+`Book.publisher` restricts: a publisher with books cannot be deleted.
+
+<include cwd meta='title="src/queries.test.ts"'>
+	../examples/relations/src/queries.test.ts#restrict
+</include>
+
+An optional `one` is emptied: deleting a category leaves its children without
+a parent, as [A model related to itself](#a-model-related-to-itself) shows.
+`setNull` on a required relation is refused by the types and at startup.
+
+A cascade runs the hooks of every row it deletes, but checks the access rules
+only on the row the caller deletes. A many-to-many link is removed with either
+of its rows, whatever `onDelete` says.
+
+## Other shapes
+
+### One-to-one
+
+Both sides are `one`, and exactly one is optional. The required side stores
+the key, and `onDelete` belongs to it.
+
+<include cwd meta='title="src/shapes.ts"'>
+	../examples/relations/src/shapes.ts#one-to-one
+</include>
+
+A member has at most one card; a card always has its member.
+
+A member that already has a card cannot `connect` or `create` another one:
+the old card would be left without its member, and the write fails with
+`The Card it points to cannot be left without one.` Update or delete the card
+instead.
+
+<include cwd meta='title="src/shapes.test.ts"'>
+	../examples/relations/src/shapes.test.ts#one-to-one-write
+</include>
+
+### A model related to itself
+
+A relation may target its own model: a category's parent and children.
+
+<include cwd meta='title="src/shapes.ts"'>
+	../examples/relations/src/shapes.ts#self
+</include>
+
+`parent` is optional, so deleting a category empties its children's parent:
+
+<include cwd meta='title="src/shapes.test.ts"'>
+	../examples/relations/src/shapes.test.ts#self-write
+</include>
+
+### Two relations between the same models
+
+When two models are linked twice, each field names its other side with
+`inverse`:
+
+<include cwd meta='title="src/shapes.ts"'>
+	../examples/relations/src/shapes.ts#inverse
+</include>
+
+<include cwd meta='title="src/shapes.test.ts"'>
+	../examples/relations/src/shapes.test.ts#inverse-read
+</include>
+
+### A many-to-many with fields of its own
+
+The join table of a many-to-many holds only the two keys. To store more, a
+role or a date, make the join a model with two `one` relations:
+
+<include cwd meta='title="src/shapes.ts"'>
+	../examples/relations/src/shapes.ts#join-model
+</include>
+
+<include cwd meta='title="src/shapes.test.ts"'>
+	../examples/relations/src/shapes.test.ts#join-model-write
+</include>
+
+### Views and filtered relations
+
+A view is a read-only `many` that shows some of the rows of another `many` of
+the same model: `from` names that relation, and `.with({ relations })` gives
+the filter.
+
+<include cwd meta='title="src/shapes.ts"'>
+	../examples/relations/src/shapes.ts#view
+</include>
+
+It is read, filtered, counted and sorted like any `many`:
+
+<include cwd meta='title="src/shapes.test.ts"'>
+	../examples/relations/src/shapes.test.ts#view-read
+</include>
+
+- A view is not written: it takes no `inverse` and no `onDelete`, and is
+  absent from a create's or an update's `data`. Write its rows through the
+  relation it reads.
+- The filter's function receives `{ caller, where }` and returns
+  `where({ ... })` or a boolean. It can depend on the caller.
+- `.with({ relations })` also filters a declared `many` itself. Its filter
+  applies to every read, Master's included. Writes still reach the rows it
+  hides, so `connect` and `disconnect` work and `set` is refused.
+
+## Relations in access rules and hooks
+
+- A rule or a hook sees a `one` as `{ id }`, or `null` when it is empty. A
+  `many` is absent from the record.
+- The optional side of a one-to-one is absent from the record too: the key is
+  stored on the other side.
+- A field rule on a `many`, in `f.many(...).with(...)`, receives what the
+  write does to it: `{ connect, disconnect, create, delete }`.
+
+## Over GraphQL
+
+The `graphql()` plugin of each model serves the same writes and reads. A
+client creates an author with her books in one mutation:
+
+<include cwd meta='title="src/app.test.ts"'>
+	../examples/relations/src/app.test.ts#graphql-create
+</include>
+
+A `many` is a connection, with `edges { node }` and `totalCount`, and takes
+the same `where`, `orderBy`, `take`, `skip` and `cursor`:
+
+<include cwd meta='title="src/app.test.ts"'>
+	../examples/relations/src/app.test.ts#graphql-read
+</include>
+
+The nested inputs are named after the relation, as in Prisma:
+`BookCreateWithoutAuthorInput`, `BookUpdateManyWithoutAuthorNestedInput`. The
+inputs of a `one`, such as `{ connect }` or `{ create }`, are `@oneOf`: they
+take one operation. REST takes the same `data`, `where`, `include` and `select`
+as JSON.
+
+## Reference
+
+### `f.one(target, options)`
+
+| Option        | Type                                   | Default                                       | Effect                                                               |
+| ------------- | -------------------------------------- | --------------------------------------------- | -------------------------------------------------------------------- |
+| `optional`    | `boolean`                              | `false`                                       | The row may have no related row; the field reads `null`.             |
+| `onDelete`    | `'cascade' \| 'restrict' \| 'setNull'` | `restrict` if required, `setNull` if optional | What deleting the target does. Only on the side that stores the key. |
+| `default`     | `{ id }`, or a function returning one  | none                                          | The row a create links when it writes none.                          |
+| `inverse`     | `string`                               | found by target                               | The other side's field, when two relations join the same models.     |
+| `dbName`      | `string`                               | the field's name                              | The stored key's column.                                             |
+| `description` | `string`                               | none                                          | Shown in GraphQL and REST schemas.                                   |
+
+### `f.many(target, options)`
+
+| Option        | Type     | Default         | Effect                                                                           |
+| ------------- | -------- | --------------- | -------------------------------------------------------------------------------- |
+| `inverse`     | `string` | found by target | The other side's field, when two relations join the same models.                 |
+| `from`        | `string` | none            | Makes the field a view of this other `many`, filtered in `.with({ relations })`. |
+| `description` | `string` | none            | Shown in GraphQL and REST schemas.                                               |
+
+`.with({ relations: { field: { where } } })` on the model filters a `many` or
+a view; `where` is `({ caller, where }) => where({ ... }) | boolean`.
+
+### Nested writes
+
+| Operation         | On a `one`            | On a `many`           |
+| ----------------- | --------------------- | --------------------- |
+| `create`          | `{ ...data }`         | `[{ ...data }]`       |
+| `connect`         | `{ id }`              | `[{ id }]`            |
+| `connectOrCreate` | `{ where, create }`   | `[{ where, create }]` |
+| `disconnect`      | `true`, optional only | `[{ id }]`            |
+| `set`             | none                  | `[{ id }]`, alone     |
+| `update`          | `{ ...data }`         | `[{ where, data }]`   |
+| `delete`          | `true`, optional only | `[{ ...where }]`      |
+
+`set` cannot be combined with `connect` or `disconnect`, and is refused when
+the rows it would unlink cannot be left without this row (a required `one` on
+the other side) and on a filtered relation.
+
+### Filters
+
+| Filter  | On a `one` or a `many` | Matches the rows                                  |
+| ------- | ---------------------- | ------------------------------------------------- |
+| `is`    | `one`                  | whose related row matches, or is empty for `null` |
+| `isNot` | `one`                  | whose related row does not match                  |
+| `some`  | `many`                 | with at least one related row that matches        |
+| `every` | `many`                 | whose related rows all match, or with none        |
+| `none`  | `many`                 | with no related row that matches                  |
+
+### Errors
+
+| Code                  | When                                                                                                                                    | Example message                                                                                          |
+| --------------------- | --------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `RELATION_RESTRICTED` | A delete removes a row that a `restrict` relation points to.                                                                            | `Book.publisher references a Publisher the delete removes.`                                              |
+| `NOT_FOUND`           | A `connect` names a row that does not exist or that the caller cannot read; an `update` or `delete` names a row not linked to this one. | `A connected Publisher does not exist.`, `No Book matches data.books.update.0.where.`                    |
+| `INVALID_QUERY`       | A write names the same row twice, writes the relation back to its parent, or uses `set` where it is refused.                            | `A Book cannot be left without its author.`, `data.books.set cannot be used with connect or disconnect.` |
+| `VALIDATION_FAILED`   | A nested row's data is invalid, or a one-to-one would leave a row without its required side. The path names it.                         | path `['books', 'create', 0, 'title']`                                                                   |
+| `UNIQUE_VIOLATION`    | Two `connectOrCreate` create the same unique value at once.                                                                             |                                                                                                          |
+
+`RELATION_RESTRICTED` carries `details: { model, field }`, the relation that
+refused. On the server, `INVALID_QUERY` is thrown as an `InvalidQuery`, with
+its `code` and its `path`; a client receives it as `BAD_USER_INPUT`.
+
+### Startup errors
+
+The application refuses to start, with one of these messages, when a relation
+is declared wrongly:
+
+| Message                                                                                             | Fix                                                       |
+| --------------------------------------------------------------------------------------------------- | --------------------------------------------------------- |
+| `Book.author: Author has no relation to Book; add its side.`                                        | Declare the other side.                                   |
+| ``Book.author: Author has several relations to Book; name one with `inverse`.``                     | Name the other side with `inverse` on both fields.        |
+| `Transfer.from: inverse 'outgoing' is not a relation of Branch to Transfer.`                        | Name a field of the target that points back.              |
+| `Transfer.from and Branch.outgoing do not name each other.`                                         | Make the two `inverse` agree.                             |
+| `Member.card and Card.member: make one side of a one-to-one relation optional.`                     | Mark exactly one side `optional: true`.                   |
+| `Member.card: onDelete belongs on Card.member, which stores the key.`                               | Move `onDelete` to the required side.                     |
+| `Book.author: setNull needs an optional relation.`                                                  | Make the relation optional, or choose another `onDelete`. |
+| `Book.author: its target is not in models.`                                                         | Add the target to the application's `models`.             |
+| `Post.author: a plugin's model relates only to models of the same plugin; keep the id as a scalar.` | Store the id in a `string` field.                         |
+| `Series.released is a view and takes no inverse.`                                                   | Remove `inverse` from the view.                           |
+| `Series.released: from 'volumes' is not a many relation.`                                           | Point `from` at a `many` of the same model.               |
+| `Series.released: from 'volumes' relates to Volume, not Book.`                                      | Give the view the target of the relation it reads.        |
+| `Series.released: from 'latest' is a view; name its relation.`                                      | Point `from` at a declared relation, not another view.    |
+| `Series.released is a view; filter it in .with({ relations }).`                                     | Give the view its filter.                                 |
+| `Series.with.relations.title: title is not a many relation.`                                        | Filter only a `many`.                                     |
+
+### Limits
+
+- A `many` can face only one `one` of its target, unless both name each other
+  with `inverse`.
+- Sorting by `_count` or through a relation reads every row the `where`
+  selects before it sorts and pages.
+- `connect` and `connectOrCreate` find a row by `id`; `connectOrCreate` also by
+  a unique field.
+- Not built yet: a nested `upsert`, `createMany`, `updateMany` and
+  `deleteMany`.
+- A client reading through a transport gets at most the transport's `take`
+  limit on each list, nested lists included, and GraphQL refuses a query
+  nested deeper than its `maxDepth`.

@@ -1,0 +1,249 @@
+---
+title: Files
+description: Upload files to S3-compatible storage, attach them to rows, and never leave an orphan.
+---
+
+`@ultimabase/files` stores files in S3 or any S3-compatible storage, and
+adds the field type `file()`. A client uploads a file first, then writes its
+id in a row, as any other value; a replaced or deleted file leaves the
+storage after the commit, so no object is left without a row.
+
+```npm
+npm install @ultimabase/files
+```
+
+A post here has a public cover image, whose width and height are read once
+at upload, and a list of private text attachments, each with a preview:
+
+<include cwd meta='title="src/models.ts"'>
+	../examples/files/src/models.ts#post
+</include>
+
+The full example, with its tests: [`examples/files`](https://github.com/MrEkinox/ultimabase/tree/main/examples/files).
+
+`filesPlugin()` goes in the application's plugins, after `httpPlugin()`,
+which it requires. It takes the storage, and who may upload:
+
+<include cwd meta='title="src/app.ts"'>
+	../examples/files/src/app.ts#plugins
+</include>
+
+## Upload, then write the id
+
+A client sends the file as the raw body of `POST /files`, with the field it
+is for and its name; the answer is its `id`. A browser's `File` gives
+`fetch` its type and its size:
+
+<include cwd meta='title="src/app.test.ts"'>
+	../examples/files/src/app.test.ts#upload-function
+</include>
+
+The client then writes the id in the post, over GraphQL or REST, and reads
+the file back with its URL and its `inline` values:
+
+<include cwd meta='title="src/app.test.ts"'>
+	../examples/files/src/app.test.ts#upload
+</include>
+
+An upload is pending for one hour: written in a row by then, it is
+attached; otherwise it is deleted. Only its uploader may write it, and only
+in the field it was uploaded for; Master writes any. A visitor's upload has
+no uploader, so any caller may write it, as in this example.
+
+## Lists of files
+
+A field with `list: true` holds files in order, each once, and reads `[]`
+when empty. A write gives the new list of ids, or `{ set }`, `{ push }`,
+`{ pushUnique }` or `{ remove }`, as a kernel [list](/docs/next/models):
+
+<include cwd meta='title="src/app.test.ts"'>
+	../examples/files/src/app.test.ts#list
+</include>
+
+Two clients pushing at once keep both files: the list is computed on the
+row the write has locked.
+
+## Types and sizes
+
+The type is read from the file's first bytes, never trusted from the
+client. A type it detects must match `accept`; a type it does not detect,
+such as text, is taken as declared only when `accept` lists it as is, as
+`text/plain`, and the file is then served as a download. An SVG is served as
+a download too, so a browser never runs it.
+
+<include cwd meta='title="src/app.test.ts"'>
+	../examples/files/src/app.test.ts#refused
+</include>
+
+`maxSize` limits each field, 50 MB by default, before the body is read: the
+HTTP plugin's 1 MB limit does not apply to `POST /files`. Check the size in
+the browser too; a client still sending a large body may see the connection
+close before the `413`.
+
+## Inline values and variants
+
+`inline` names values computed once at upload, and read with the row
+without a second request: a blurred placeholder, a page count, an image's
+size. Each is a function of `{ body, type, name }`, or `{ run, schema }`
+to type it in GraphQL and OpenAPI. Here the size of a PNG comes from its
+header:
+
+<include cwd meta='title="src/models.ts"'>
+	../examples/files/src/models.ts#png-size
+</include>
+
+`variants` names other files made from the upload, such as a thumbnail;
+each is a function of `{ body, type, name }` returning `{ body, type }`,
+and reads as `{ type, size, url }`. Variants are made in parallel at
+upload, and one that throws fails the upload. A field with `inline` or
+`variants` holds the file in memory during the upload; any other field
+streams it to the storage.
+
+## Public and private files
+
+A public file has a stable URL, which a CDN may cache; a private one, the
+default, reads with a URL signed for one hour. Either way the URL is the
+storage's, not the application's, so a file cannot read the application's
+cookies. The read and access rules of the row decide who gets the URL.
+
+## From server code
+
+`files.upload(body, { for, name, as })` stores a file as `POST /files` does;
+without `as`, it uploads as a visitor. `files.check()` compares the storage
+with the database:
+
+<include cwd meta='title="src/app.test.ts"'>
+	../examples/files/src/app.test.ts#server
+</include>
+
+The plugin sweeps at start and every ten minutes, deleting the expired
+uploads and any file a crash left released. `files.check({ delete: true })`
+also deletes the objects that have no row.
+
+## Storage
+
+`s3()` takes a bucket on S3 or on any S3-compatible storage: DigitalOcean
+Spaces, Cloudflare R2, MinIO, SeaweedFS. `memoryFiles()` keeps the files in
+memory, for tests and development; its URLs are `memory://files/…`, never
+served.
+
+<include cwd meta='title="src/app.ts"'>
+	../examples/files/src/app.ts#storage
+</include>
+
+Each option of `s3()` takes `undefined`, so the environment fills it
+directly; a missing one throws at start.
+
+## Reference
+
+### `file(options)`
+
+| Option        | Type                                 | Default | Effect                                                                       |
+| ------------- | ------------------------------------ | ------- | ---------------------------------------------------------------------------- |
+| `optional`    | boolean                              | `false` | The field may be `null`.                                                     |
+| `list`        | boolean                              | `false` | A list of files, `[]` when empty.                                            |
+| `maxSize`     | number of bytes                      | 50 MB   | The largest file the field takes.                                            |
+| `accept`      | MIME types or patterns               | any     | `['image/*', 'application/pdf']`; an undetected type must be listed as is.   |
+| `public`      | boolean                              | `false` | A stable URL; a private file's URL is signed for one hour.                   |
+| `inline`      | `{ [name]: run \| { run, schema } }` | none    | Values computed at upload, each JSON of 2 KB at most, read with the row.     |
+| `variants`    | `{ [name]: run }`                    | none    | Other files made at upload, each `({ body, type, name }) => { body, type }`. |
+| `description` | string                               | none    | The field's description in GraphQL and OpenAPI.                              |
+
+A key added to `inline` or `variants` later reads `null` for the files
+stored before it.
+
+### What a file reads as
+
+| Key        | Type                                      | Effect                                                   |
+| ---------- | ----------------------------------------- | -------------------------------------------------------- |
+| `id`       | string                                    | What a write takes.                                      |
+| `name`     | string                                    | The name given at upload.                                |
+| `type`     | string                                    | The detected MIME type, or the declared one.             |
+| `size`     | number                                    | In bytes.                                                |
+| `url`      | string                                    | Stable for a public file, signed for one hour otherwise. |
+| `inline`   | object                                    | The `inline` values.                                     |
+| `variants` | `{ [name]: { type, size, url } \| null }` | The variants.                                            |
+
+In GraphQL the field is typed, as `PostCover`; a write takes the `JSON`
+scalar, an id or a list operation.
+
+### `filesPlugin(options)`
+
+| Option          | Type                      | Default          | Effect                             |
+| --------------- | ------------------------- | ---------------- | ---------------------------------- |
+| `storage`       | `s3()` or `memoryFiles()` | required         | Where the files go.                |
+| `access.upload` | a rule                    | a signed-in user | Who may upload; Master always may. |
+
+It requires `httpPlugin()`, and mounts `POST /files`.
+
+### `s3(options)`
+
+| Option            | Effect                                                                 |
+| ----------------- | ---------------------------------------------------------------------- |
+| `bucket`          | The bucket's name.                                                     |
+| `region`          | Its region, as `fra1` or `auto`.                                       |
+| `endpoint`        | The storage's URL, as `https://fra1.digitaloceanspaces.com`.           |
+| `accessKeyId`     | The key's id.                                                          |
+| `secretAccessKey` | The key's secret.                                                      |
+| `publicAcl`       | Sends `x-amz-acl: public-read` with a public file, which Spaces needs. |
+| `publicUrl`       | The base of a public file's URL, a CDN; the storage's own otherwise.   |
+
+The first five are required, and each takes `undefined`. URLs are
+path-style, `${endpoint}/${bucket}/${key}`; requests are signed with SigV4.
+
+### `POST /files`
+
+| Query  | Effect                                |
+| ------ | ------------------------------------- |
+| `for`  | The field, as `Post.cover`. Required. |
+| `name` | The file's name. Required.            |
+
+The body is the file; `Content-Length` is required and `Content-Type` is
+the declared type. The answer is `201` with `{ id }`.
+
+| Status | Code                     | When                                                                    |
+| ------ | ------------------------ | ----------------------------------------------------------------------- |
+| 400    | `VALIDATION_FAILED`      | `Invalid upload.`: no field or an unknown one, or no name.              |
+| 403    | `ACCESS_DENIED`          | A caller `access.upload` refuses.                                       |
+| 411    | `LENGTH_REQUIRED`        | `Content-Length is required.`                                           |
+| 413    | `PAYLOAD_TOO_LARGE`      | `The file is over 100000 bytes.`                                        |
+| 415    | `UNSUPPORTED_MEDIA_TYPE` | `text/plain is not accepted.`, or `An undetected type is not accepted.` |
+
+### `files`
+
+| Function                                | Returns             | Effect                                                                                       |
+| --------------------------------------- | ------------------- | -------------------------------------------------------------------------------------------- |
+| `files.upload(body, { for, name, as })` | `{ id }`            | Uploads a `Uint8Array` or a `Blob`, as a visitor without `as`.                               |
+| `files.check({ delete })`               | `{ objects, rows }` | The objects without a row, and the rows without an object; `delete: true` deletes the first. |
+
+### Errors in a write
+
+A write's `VALIDATION_FAILED`, `Invalid data.`, names the field in its
+issue's path:
+
+- `<id> is not a file uploaded for Post.cover.`: an unknown id, another
+  field's, another caller's, or one already attached.
+- `The list holds <id> already.`: a `push` of a file the list holds.
+- `A file expired or was attached elsewhere.`: between the check and the
+  commit.
+
+At start:
+
+- `s3() needs bucket, region: undefined or empty.`
+- `A file list is empty, never null: list or optional.`
+- `A file field’s maxSize is a number of bytes.`
+- `A file field’s accept lists MIME types or patterns: image/png, image/*.`
+- `A file field’s inline size is a function.`, `A file field’s variant
+preview is a function.`
+
+At upload, an `inline` value that is not JSON of 2 KB at most, or not of its
+schema, and a variant that throws, fail the upload with a server error.
+
+### Limits
+
+- One file per request: no multipart upload, and no upload inside a
+  GraphQL or REST write.
+- A pending upload expires after one hour; the sweep runs every ten
+  minutes. Neither delay is an option.
+- A [soft-deleted](/docs/next/soft-delete) row keeps its files.
+- No local-disk storage.

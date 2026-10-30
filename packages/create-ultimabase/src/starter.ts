@@ -37,7 +37,11 @@ const manifestOf = (name: string): object => {
 		private: true,
 		type: 'module',
 		engines: { node: '>=24.7.0' },
-		scripts: { start: 'node src/server.ts', test: 'vitest' },
+		scripts: {
+			dev: 'ultimabase dev',
+			start: 'ultimabase start',
+			test: 'vitest',
+		},
 		dependencies: {
 			'@ultimabase/graphql': ours,
 			'@ultimabase/http': ours,
@@ -53,16 +57,23 @@ const manifestOf = (name: string): object => {
 	}
 }
 
+/** How `manager` runs a script other than `start` and `test`. */
+const run = (manager: Manager): string =>
+	manager === 'npm' ? 'npm run' : manager
+
 const readme = (name: string, manager: Manager): string => `# ${name}
 
 An UltimaBase application. Node runs its TypeScript as it is written.
 
-- \`${manager} start\` serves it on http://localhost:3000, GraphQL on
-  \`/graphql\`; \`PORT\` sets another port.
+- \`${run(manager)} dev\` serves it on http://localhost:3000, GraphQL on
+  \`/graphql\`, and restarts it when a file changes; \`PORT\` sets another
+  port.
+- \`${manager} start\` serves it in production.
 - \`${manager} test\` runs its tests, each on a new in-memory database.
 
 \`src/models.ts\` declares the models, \`src/app.ts\` the database and the
-plugins.
+plugins, and \`ultimabase.config.ts\` names the application the
+\`ultimabase\` command runs.
 `
 
 /** Writes the starter named `name` in `target`, an empty or missing directory. */

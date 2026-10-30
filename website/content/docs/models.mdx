@@ -1,0 +1,178 @@
+---
+title: Models and fields
+description: Declare a model, its fields of each type, enums, indexes and virtual fields.
+---
+
+A model is a table: `defineModel` names it and lists its fields; its rows are
+typed from them, in your code and in each transport. This catalog's product
+has one field of each type:
+
+<include cwd meta='title="src/models.ts"'>
+	../examples/models-and-queries/src/models.ts#model
+</include>
+
+The full example, with its tests: [`examples/models-and-queries`](https://github.com/MrEkinox/ultimabase/tree/main/examples/models-and-queries).
+
+The examples write their schemas with Zod, a package of its own:
+
+```npm
+npm install zod
+```
+
+Every row also has an `id` (a UUID v7 string), a `createdAt` and an
+`updatedAt` (both `Date`), which the kernel writes.
+
+## Writing and reading the fields
+
+Written from server code, the values come back typed and normalized: the
+decimal at its scale, the defaults filled, the lists `[]` when empty, an
+optional field left out as `null`.
+
+<include cwd meta='title="src/models.test.ts"'>
+	../examples/models-and-queries/src/models.test.ts#create
+</include>
+
+A number takes `set`, `increment`, `decrement`, `multiply` or `divide`; a list
+takes `set`, `push`, `pushUnique` or `remove`, with one element or a list of
+them. A plain value sets the field:
+
+<include cwd meta='title="src/models.test.ts"'>
+	../examples/models-and-queries/src/models.test.ts#update-list
+</include>
+
+Over GraphQL, the same fields: the enum's values are GraphQL enum values,
+the JSON field with a schema is an object type, the decimal a string.
+
+<include cwd meta='title="src/app.test.ts"'>
+	../examples/models-and-queries/src/app.test.ts#graphql
+</include>
+
+## Validation
+
+Each field checks its type; `validate` adds a rule. It takes a Standard
+Schema (Zod, Valibot, ArkType…) or a function that returns the value to
+store and throws to refuse it. A refused write writes nothing and returns
+`VALIDATION_FAILED`, with one issue per refused field; a second row with a
+unique value returns `UNIQUE_VIOLATION`:
+
+<include cwd meta='title="src/models.test.ts"'>
+	../examples/models-and-queries/src/models.test.ts#refused
+</include>
+
+## Shared enums
+
+`f.enumOf(['S', 'M', 'L'])` declares the values in place: GraphQL names the
+enum after the model and the field, `ProductSizes`. `defineEnum` names one
+enum that several fields, of several models, share:
+
+<include cwd meta='title="src/types.ts"'>
+	../examples/models-and-queries/src/types.ts#enum
+</include>
+
+## Object types
+
+`defineType` declares a shape that is not a table, with a Zod object's
+fields: the output of a virtual field or of a [function](/docs/next/functions).
+
+<include cwd meta='title="src/types.ts"'>
+	../examples/models-and-queries/src/types.ts#type
+</include>
+
+## Virtual fields
+
+`f.virtual(output, options)` is computed on read by `.with({ virtuals })`,
+never stored. `needs` lists the fields `run` reads, which are read even when
+the query does not select them. A virtual with an `input` takes arguments and
+is read only when selected:
+
+<include cwd meta='title="src/models.test.ts"'>
+	../examples/models-and-queries/src/models.test.ts#virtual
+</include>
+
+`run` computes one row's value and receives `{ record, input, caller }`;
+`runMany` receives `{ records, input, caller }` and returns one value per row,
+in order, to read a list of rows in one query. The output is a Standard
+Schema, or behind an arrow a model or a type: `() => Price`, `() => [Image]`
+for a list, `() => Image.nullable()` for a row that may be missing.
+
+## A field only the server reads
+
+A field's `.with({ access })` adds its own rules. `allow.private` leaves it
+to Master: the transports leave it out of their schema.
+
+<include cwd meta='title="src/app.test.ts"'>
+	../examples/models-and-queries/src/app.test.ts#private
+</include>
+
+[Access rules](/docs/next/access) lists the other rules.
+
+## Reference
+
+### `defineModel(definition)`
+
+| Key           | Type                               | Default       | Effect                                                                                                                                                                   |
+| ------------- | ---------------------------------- | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `name`        | `string`                           | required      | The model's name: `Product` gives `products` and `createProduct` in GraphQL.                                                                                             |
+| `fields`      | `(f) => ({ ... })`                 | required      | The fields, built with `f`.                                                                                                                                              |
+| `use`         | plugin uses                        | `[]`          | The plugins the model uses: `graphql()`, `rest()`, `softDelete()`…                                                                                                       |
+| `indexes`     | `{ fields, unique?, contains? }[]` | `[]`          | Indexes over several fields; `unique: true` refuses two rows with the same values; `contains: true` makes `contains` and `mode: 'insensitive'` fast on one string field. |
+| `description` | `string`                           | none          | Shown in the GraphQL schema and the OpenAPI document.                                                                                                                    |
+| `dbName`      | `string`                           | the adapter's | The stored table's name.                                                                                                                                                 |
+
+`.with({ access, hooks, virtuals, relations })` adds the rules that read the
+typed rows: [access](/docs/next/access), [hooks](/docs/next/hooks), the
+virtuals' `run`, and [relation filters](/docs/next/relations). Each plugin of
+`use` adds its own key.
+
+### Field types
+
+| Builder                           | Value in TypeScript             | Notes                                                                              |
+| --------------------------------- | ------------------------------- | ---------------------------------------------------------------------------------- |
+| `f.string()`                      | `string`                        | `search: true` adds it to the model's full-text search; `list: true`.              |
+| `f.number()`                      | `number`                        | `integer: true`: whole numbers from -2,147,483,648 to 2,147,483,647; `list: true`. |
+| `f.decimal({ precision, scale })` | `string`                        | Exact, at most `precision` digits, `scale` after the point: `'12.50'`.             |
+| `f.boolean()`                     | `boolean`                       |                                                                                    |
+| `f.dateTime()`                    | `Date`                          | An instant; ISO 8601 over the transports.                                          |
+| `f.date()`                        | `string`                        | A calendar day, `'2026-07-31'`, without a time zone.                               |
+| `f.json()`                        | `unknown`, or the schema's type | Any JSON; with a schema in `validate`, typed and validated.                        |
+| `f.enumOf(values)`                | the values' union               | An array, or a `defineEnum`; `list: true`.                                         |
+| `f.one(() => Model)`              | a row                           | See [Relations](/docs/next/relations).                                             |
+| `f.many(() => Model)`             | rows                            | See [Relations](/docs/next/relations).                                             |
+| `f.virtual(output, options?)`     | the output's type               | Computed on read; `input`, `needs`, `description`.                                 |
+
+Plugins add their own types: `password()` and `file()`. See
+[Write a plugin](/docs/next/plugins) for `defineFieldType`.
+
+### Field options
+
+| Option        | Type                                   | Default       | Effect                                                                                   |
+| ------------- | -------------------------------------- | ------------- | ---------------------------------------------------------------------------------------- |
+| `optional`    | `boolean`                              | `false`       | The field may be `null`; a write may leave it out.                                       |
+| `unique`      | `boolean`                              | `false`       | Two rows cannot hold the same value; `null` is not compared.                             |
+| `default`     | a value, or `({ caller }) => value`    | none          | Written when a create leaves the field out; a function returning `undefined` gives none. |
+| `validate`    | Standard Schema, or `(value) => value` | none          | Refuses a value, or returns the value to store.                                          |
+| `list`        | `true`                                 | `false`       | Strings, numbers and enums: a list, `[]` when empty; never optional nor unique.          |
+| `description` | `string`                               | none          | Shown in the GraphQL schema and the OpenAPI document.                                    |
+| `dbName`      | `string`                               | the adapter's | The stored column's name.                                                                |
+
+### Errors
+
+| Code                | When                                                               | `details`                         |
+| ------------------- | ------------------------------------------------------------------ | --------------------------------- |
+| `VALIDATION_FAILED` | A value of the wrong type, out of range, or refused by `validate`. | `{ issues: [{ path, message }] }` |
+| `UNIQUE_VIOLATION`  | A second row with a unique field's or index's values.              | `{ model, fields }`               |
+
+The messages of the field types:
+
+| Field           | Message                                                                               |
+| --------------- | ------------------------------------------------------------------------------------- |
+| `integer: true` | `Expected a whole number from -2,147,483,648 to 2,147,483,647.`                       |
+| `f.decimal`     | `Expected a decimal string of at most 10 digits, 2 after the point, such as '12.50'.` |
+| `f.date`        | `Expected a day written '2026-07-31'.`                                                |
+| `f.enumOf`      | `Expected one of draft, published, archived.`                                         |
+
+### Limits
+
+- A list cannot be `optional`, `unique` or searched: each is a type error.
+- A `defineEnum` name is a GraphQL name, letters, digits and `_`, not starting
+  with `__`; another name throws when the module loads.

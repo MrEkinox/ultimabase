@@ -1,0 +1,97 @@
+---
+title: memory()
+description: The database kept in the process, for a first application and the tests.
+---
+
+`memory()` keeps the rows in the Node process: nothing to install or run.
+It ships with `ultimabase`, so a first application and every test start on
+it. The rows last until the application stops.
+
+<include cwd meta='title="src/app.ts"'>
+	../examples/memory/src/app.ts#app
+</include>
+
+The full example, with its tests: [`examples/memory`](https://github.com/MrEkinox/ultimabase/tree/main/examples/memory).
+
+For data that must outlive the process, use [PostgreSQL](/docs/next/postgres):
+the models, the queries and the errors stay the same.
+
+## Empty at each start
+
+Each `start` begins on an empty database. `testApplication` starts the
+application around each test, so each test begins without rows:
+
+<include cwd meta='title="src/app.test.ts"'>
+	../examples/testing/src/app.test.ts#fresh
+</include>
+
+`ultimabase dev` restarts the application when a file changes: the rows
+written before are gone.
+
+## A write is whole or not at all
+
+A write runs on a copy of the rows, which replaces them once it succeeded.
+A write that fails changes nothing, as a PostgreSQL statement does:
+
+<include cwd meta='title="src/app.test.ts"'>
+	../examples/memory/src/app.test.ts#whole
+</include>
+
+Writes run one at a time; an open [transaction](/docs/next/transactions)
+holds the others until it ends. A query that fails inside a transaction
+rolls it back, as on PostgreSQL.
+
+## What it shares with PostgreSQL
+
+A test on `memory()` passes on PostgreSQL: both adapters run the same suite
+of tests. Strings sort by their bytes, as PostgreSQL's `"C"` collation
+does:
+
+<include cwd meta='title="src/app.test.ts"'>
+	../examples/memory/src/app.test.ts#order
+</include>
+
+`_search` reads words as PostgreSQL's `'simple'` configuration does: a word
+is a run of letters and digits, in any case, without stems or stop words.
+Relevance follows PostgreSQL's `ts_rank`.
+
+<include cwd meta='title="src/app.test.ts"'>
+	../examples/memory/src/app.test.ts#words
+</include>
+
+Realtime changes reach the clients after the write, as PostgreSQL's
+notifications do (see [Realtime](/docs/next/realtime)).
+
+## What it does not do
+
+- It has no tables to migrate: `sync`, `reset` and each `migrate` command
+  refuse it.
+- One process holds the rows: two instances of the application share
+  nothing.
+- `postgres({ searchLanguage })` stems words in a language; `memory()` reads
+  them as `'simple'` only.
+- Raw SQL, a database tool, a dump: test those on PostgreSQL, in a
+  `*.postgres.test.ts` file (see [Testing](/docs/next/testing#on-postgresql)).
+
+## Reference
+
+### `memory()`
+
+It takes no options, and returns the database for `defineApp`'s `database`.
+
+### Errors
+
+| Message                                                               | When                                                   |
+| --------------------------------------------------------------------- | ------------------------------------------------------ |
+| `This database starts empty every time: it has no tables to migrate.` | `ultimabase sync`, `reset` or `migrate` on `memory()`. |
+
+The errors of a query are those of every database: see
+[Errors](/docs/next/errors).
+
+### Limits
+
+- The rows live as long as the process: a stop, a crash or a restart loses
+  them.
+- Each write copies the rows: keep it to tests and development, with the
+  rows they need.
+- Writes run one at a time, in the order they came.

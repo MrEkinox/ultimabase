@@ -1,10 +1,15 @@
 {
 	"name": "@ultimabase/http",
-	"version": "0.0.0",
-	"private": true,
+	"version": "0.1.0",
 	"description": "An HTTP server for UltimaBase: Hono routes that read the caller, CORS and a body limit.",
 	"type": "module",
 	"license": "Apache-2.0",
+	"homepage": "https://ultimabase.dev/docs/http",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/MrEkinox/ultimabase.git",
+		"directory": "packages/http"
+	},
 	"engines": {
 		"node": ">=24.7.0"
 	},
@@ -32,7 +37,7 @@
 		"hono": "4.13.13"
 	},
 	"peerDependencies": {
-		"ultimabase": "^0.0.0"
+		"ultimabase": "^0.1.0"
 	},
 	"devDependencies": {
 		"ultimabase": "workspace:*",

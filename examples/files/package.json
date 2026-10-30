@@ -1,0 +1,27 @@
+{
+	"name": "example-files",
+	"version": "0.0.0",
+	"private": true,
+	"description": "Posts with a cover image and attachments, uploaded with POST /files.",
+	"type": "module",
+	"license": "Apache-2.0",
+	"engines": {
+		"node": ">=24.7.0"
+	},
+	"scripts": {
+		"start": "node src/server.ts"
+	},
+	"dependencies": {
+		"@ultimabase/files": "workspace:*",
+		"@ultimabase/graphql": "workspace:*",
+		"@ultimabase/http": "workspace:*",
+		"graphql": "17.0.2",
+		"ultimabase": "workspace:*",
+		"zod": "4.6.5"
+	},
+	"devDependencies": {
+		"@ultimabase/testing": "workspace:*",
+		"vite": "8.3.4",
+		"vitest": "5.0.5"
+	}
+}

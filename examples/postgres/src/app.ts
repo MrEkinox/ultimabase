@@ -1,4 +1,5 @@
 // The application: a GraphQL API over HTTP, on PostgreSQL.
+//#region app
 import { graphqlPlugin } from '@ultimabase/graphql'
 import { httpPlugin } from '@ultimabase/http'
 import { postgres } from '@ultimabase/postgres'
@@ -12,4 +13,7 @@ export const app = defineApp({
 	// Listens on PORT, or 3000.
 	plugins: [httpPlugin(), graphqlPlugin()],
 	models: [Project, Task],
+	// Accepted in production, where it needs 32 characters at least.
+	masterKey: { key: process.env['MASTER_KEY'], production: true },
 })
+//#endregion

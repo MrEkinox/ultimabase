@@ -4,6 +4,7 @@ import { allow, defineFunction } from 'ultimabase'
 import { z } from 'zod'
 import { Post } from './models.ts'
 
+//#region functions
 export const trash = defineFunction({
 	name: 'trash',
 	query: true,
@@ -18,3 +19,4 @@ export const restorePost = defineFunction({
 	run: ({ caller, input }) =>
 		Post.restore({ where: { id: input.id } }, { as: caller }),
 }).with({ access: allow.public })
+//#endregion

@@ -1,0 +1,25 @@
+{
+	"name": "example-http",
+	"version": "0.0.0",
+	"private": true,
+	"description": "Hono routes beside the API: a webhook, a validated body, CORS and the HTTP errors.",
+	"type": "module",
+	"license": "Apache-2.0",
+	"engines": {
+		"node": ">=24.7.0"
+	},
+	"scripts": {
+		"start": "node src/server.ts"
+	},
+	"dependencies": {
+		"@ultimabase/http": "workspace:*",
+		"hono": "4.13.13",
+		"ultimabase": "workspace:*",
+		"zod": "4.6.5"
+	},
+	"devDependencies": {
+		"@ultimabase/testing": "workspace:*",
+		"vite": "8.3.4",
+		"vitest": "5.0.5"
+	}
+}

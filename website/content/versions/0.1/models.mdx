@@ -1,0 +1,382 @@
+---
+title: Models and fields
+description: Declare a model, its fields of each type, enums, indexes and virtual fields.
+---
+
+A model is a table: `defineModel` names it and lists its fields; its rows are
+typed from them, in your code and in each transport. This catalog's product
+has one field of each type:
+
+```ts
+import { randomUUID } from 'node:crypto'
+import { graphql } from '@ultimabase/graphql'
+import { allow, defineModel } from 'ultimabase'
+import { z } from 'zod'
+import { Price, Status } from './types.ts'
+
+export const Product = defineModel({
+	name: 'Product',
+	description: 'A product of the catalog.',
+	use: [graphql()],
+	fields: (f) => ({
+		// Required unless `optional: true`; `search: true` makes it searchable.
+		name: f.string({ search: true }),
+		sku: f.string({
+			unique: true,
+			validate: z.string().regex(/^[A-Z]{3}-\d{3}$/u),
+			description: 'Three capitals, a dash and three digits.',
+		}),
+		summary: f.string({ optional: true }),
+		// Exact: read and written as a string at its scale, '12.50'.
+		price: f.decimal({ precision: 10, scale: 2 }),
+		// Read by the server only.
+		cost: f
+			.decimal({ precision: 10, scale: 2, optional: true })
+			.with({ access: { read: allow.private } }),
+		// A function computes the default when the write leaves it out.
+		reference: f.string({ unique: true, default: () => randomUUID() }),
+		stock: f.number({ integer: true, default: 0 }),
+		weight: f.number({ optional: true }),
+		available: f.boolean({ default: true }),
+		// A calendar day, '2026-07-31'; a dateTime is a Date.
+		releasedOn: f.date({ optional: true }),
+		restockedAt: f.dateTime({ optional: true }),
+		status: f.enumOf(Status, { default: 'draft' }),
+		// Lists are [] when empty.
+		sizes: f.enumOf(['S', 'M', 'L'], { list: true }),
+		keywords: f.string({ list: true }),
+		// A schema types the JSON and validates it.
+		specs: f.json({
+			optional: true,
+			validate: z.object({ color: z.string(), materials: z.array(z.string()) }),
+		}),
+		// The column keeps the name an older table gave it.
+		legacyCode: f.string({ optional: true, dbName: 'old_code' }),
+		// Computed on read, from the fields `needs` lists.
+		label: f.virtual(z.string(), { needs: ['name', 'sku'] }),
+		priceIn: f.virtual(() => Price, {
+			input: z.object({ currency: z.enum(['EUR', 'USD']) }),
+			needs: ['price'],
+		}),
+	}),
+	// Lists the products of a status by release day, fast.
+	indexes: [
+		{ fields: ['status', 'releasedOn'] },
+		// One product of a name per release day.
+		{ fields: ['name', 'releasedOn'], unique: true },
+	],
+}).with({
+	access: allow.public,
+	virtuals: {
+		label: { run: ({ record }) => `${record.name} (${record.sku})` },
+		priceIn: {
+			run: ({ record, input }) => ({
+				amount:
+					input.currency === 'EUR'
+						? record.price
+						: (Number(record.price) * 1.1).toFixed(2),
+				currency: input.currency,
+			}),
+		},
+	},
+})
+```
+
+The full example, with its tests: [`examples/models-and-queries`](https://github.com/MrEkinox/ultimabase/tree/main/examples/models-and-queries).
+
+The examples write their schemas with Zod, a package of its own:
+
+```npm
+npm install zod
+```
+
+Every row also has an `id` (a UUID v7 string), a `createdAt` and an
+`updatedAt` (both `Date`), which the kernel writes.
+
+## Writing and reading the fields
+
+Written from server code, the values come back typed and normalized: the
+decimal at its scale, the defaults filled, the lists `[]` when empty, an
+optional field left out as `null`.
+
+```ts
+const lamp = await Product.create(
+	{
+		data: {
+			name: 'Desk lamp',
+			sku: 'LMP-001',
+			price: '39.9',
+			releasedOn: '2026-03-01',
+			restockedAt: new Date('2026-10-01T08:00:00Z'),
+			sizes: ['S', 'M'],
+			keywords: ['light', 'office'],
+			specs: { color: 'black', materials: ['steel'] },
+		},
+	},
+	{ as: master },
+)
+expect(lamp).toMatchObject({
+	name: 'Desk lamp',
+	summary: null,
+	price: '39.90',
+	stock: 0,
+	available: true,
+	releasedOn: '2026-03-01',
+	restockedAt: new Date('2026-10-01T08:00:00Z'),
+	status: 'draft',
+	sizes: ['S', 'M'],
+	keywords: ['light', 'office'],
+	specs: { color: 'black', materials: ['steel'] },
+	label: 'Desk lamp (LMP-001)',
+})
+// Every row has an id, a createdAt and an updatedAt.
+expect(typeof lamp.id).toBe('string')
+expect(lamp.createdAt).toBeInstanceOf(Date)
+```
+
+A number takes `set`, `increment`, `decrement`, `multiply` or `divide`; a list
+takes `set`, `push`, `pushUnique` or `remove`, with one element or a list of
+them. A plain value sets the field:
+
+```ts
+const updated = await Product.update(
+	{
+		where: { sku: 'LMP-001' },
+		data: { stock: { increment: 5 }, keywords: { push: 'desk' } },
+	},
+	{ as: master },
+)
+expect(updated.stock).toBe(5)
+expect(updated.keywords).toEqual(['light', 'office', 'desk'])
+```
+
+Over GraphQL, the same fields: the enum's values are GraphQL enum values,
+the JSON field with a schema is an object type, the decimal a string.
+
+```ts
+const body = await request(`mutation {
+	createProduct(data: {
+		name: "Desk lamp"
+		sku: "LMP-001"
+		price: "39.90"
+		status: published
+		releasedOn: "2026-03-01"
+		sizes: [S, M]
+		specs: { color: "black", materials: ["steel"] }
+	}) {
+		name price status releasedOn sizes specs { color materials } label
+		priceIn(currency: USD) { amount currency }
+	}
+}`)
+expect(body).toEqual({
+	data: {
+		createProduct: {
+			name: 'Desk lamp',
+			price: '39.90',
+			status: 'published',
+			releasedOn: '2026-03-01',
+			sizes: ['S', 'M'],
+			specs: { color: 'black', materials: ['steel'] },
+			label: 'Desk lamp (LMP-001)',
+			priceIn: { amount: '43.89', currency: 'USD' },
+		},
+	},
+})
+```
+
+## Validation
+
+Each field checks its type; `validate` adds a rule. It takes a Standard
+Schema (Zod, Valibot, ArkType…) or a function that returns the value to
+store and throws to refuse it. A refused write writes nothing and returns
+`VALIDATION_FAILED`, with one issue per refused field; a second row with a
+unique value returns `UNIQUE_VIOLATION`:
+
+```ts
+await expect(
+	Product.create(
+		{ data: { name: 'Lamp', sku: 'lamp', price: '10.00' } },
+		{ as: master },
+	),
+).rejects.toMatchObject({
+	code: 'VALIDATION_FAILED',
+	message: 'Invalid data.',
+	details: {
+		issues: [
+			{
+				path: ['sku'],
+				message: 'Invalid string: must match pattern /^[A-Z]{3}-\\d{3}$/u',
+			},
+		],
+	},
+})
+await expect(
+	Product.create(
+		{ data: { name: 'Lamp', sku: 'LMP-002', price: '1.005' } },
+		{ as: master },
+	),
+).rejects.toMatchObject({
+	details: {
+		issues: [
+			{
+				path: ['price'],
+				message:
+					"Expected a decimal string of at most 10 digits, 2 after the point, such as '12.50'.",
+			},
+		],
+	},
+})
+await Product.create(
+	{ data: { name: 'Lamp', sku: 'LMP-003', price: '10.00' } },
+	{ as: master },
+)
+await expect(
+	Product.create(
+		{ data: { name: 'Lamp', sku: 'LMP-003', price: '12.00' } },
+		{ as: master },
+	),
+).rejects.toMatchObject({
+	code: 'UNIQUE_VIOLATION',
+	message: 'Unique constraint failed on Product (sku).',
+	details: { model: 'Product', fields: ['sku'] },
+})
+```
+
+## Shared enums
+
+`f.enumOf(['S', 'M', 'L'])` declares the values in place: GraphQL names the
+enum after the model and the field, `ProductSizes`. `defineEnum` names one
+enum that several fields, of several models, share:
+
+```ts
+// One GraphQL enum and one OpenAPI schema, `Status`, for every field using it.
+export const Status = defineEnum('Status', ['draft', 'published', 'archived'], {
+	description: 'Where a product is in its life.',
+})
+```
+
+## Object types
+
+`defineType` declares a shape that is not a table, with a Zod object's
+fields: the output of a virtual field or of a [function](/docs/next/functions).
+
+```ts
+// A shape that is not a table: a virtual field's or a function's output.
+export const Price = defineType({
+	name: 'Price',
+	fields: { amount: z.string(), currency: z.string() },
+})
+```
+
+## Virtual fields
+
+`f.virtual(output, options)` is computed on read by `.with({ virtuals })`,
+never stored. `needs` lists the fields `run` reads, which are read even when
+the query does not select them. A virtual with an `input` takes arguments and
+is read only when selected:
+
+```ts
+const mug = await Product.findUniqueOrThrow(
+	{
+		where: { sku: 'MUG-001' },
+		select: { label: true, priceIn: { currency: 'USD' } },
+	},
+	{ as: master },
+)
+expect(mug).toEqual({
+	label: 'Mug (MUG-001)',
+	priceIn: { amount: '13.20', currency: 'USD' },
+})
+```
+
+`run` computes one row's value and receives `{ record, input, caller }`;
+`runMany` receives `{ records, input, caller }` and returns one value per row,
+in order, to read a list of rows in one query. The output is a Standard
+Schema, or behind an arrow a model or a type: `() => Price`, `() => [Image]`
+for a list, `() => Image.nullable()` for a row that may be missing.
+
+## A field only the server reads
+
+A field's `.with({ access })` adds its own rules. `allow.private` leaves it
+to Master: the transports leave it out of their schema.
+
+```ts
+// A field only Master reads is not in the schema.
+const hidden = await request('{ products { edges { node { cost } } } }')
+expect(hidden).toMatchObject({
+	errors: [{ message: 'Cannot query field "cost" on type "Product".' }],
+})
+```
+
+[Access rules](/docs/next/access) lists the other rules.
+
+## Reference
+
+### `defineModel(definition)`
+
+| Key           | Type                               | Default       | Effect                                                                                                                                                                   |
+| ------------- | ---------------------------------- | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `name`        | `string`                           | required      | The model's name: `Product` gives `products` and `createProduct` in GraphQL.                                                                                             |
+| `fields`      | `(f) => ({ ... })`                 | required      | The fields, built with `f`.                                                                                                                                              |
+| `use`         | plugin uses                        | `[]`          | The plugins the model uses: `graphql()`, `rest()`, `softDelete()`…                                                                                                       |
+| `indexes`     | `{ fields, unique?, contains? }[]` | `[]`          | Indexes over several fields; `unique: true` refuses two rows with the same values; `contains: true` makes `contains` and `mode: 'insensitive'` fast on one string field. |
+| `description` | `string`                           | none          | Shown in the GraphQL schema and the OpenAPI document.                                                                                                                    |
+| `dbName`      | `string`                           | the adapter's | The stored table's name.                                                                                                                                                 |
+
+`.with({ access, hooks, virtuals, relations })` adds the rules that read the
+typed rows: [access](/docs/next/access), [hooks](/docs/next/hooks), the
+virtuals' `run`, and [relation filters](/docs/next/relations). Each plugin of
+`use` adds its own key.
+
+### Field types
+
+| Builder                           | Value in TypeScript             | Notes                                                                              |
+| --------------------------------- | ------------------------------- | ---------------------------------------------------------------------------------- |
+| `f.string()`                      | `string`                        | `search: true` adds it to the model's full-text search; `list: true`.              |
+| `f.number()`                      | `number`                        | `integer: true`: whole numbers from -2,147,483,648 to 2,147,483,647; `list: true`. |
+| `f.decimal({ precision, scale })` | `string`                        | Exact, at most `precision` digits, `scale` after the point: `'12.50'`.             |
+| `f.boolean()`                     | `boolean`                       |                                                                                    |
+| `f.dateTime()`                    | `Date`                          | An instant; ISO 8601 over the transports.                                          |
+| `f.date()`                        | `string`                        | A calendar day, `'2026-07-31'`, without a time zone.                               |
+| `f.json()`                        | `unknown`, or the schema's type | Any JSON; with a schema in `validate`, typed and validated.                        |
+| `f.enumOf(values)`                | the values' union               | An array, or a `defineEnum`; `list: true`.                                         |
+| `f.one(() => Model)`              | a row                           | See [Relations](/docs/next/relations).                                             |
+| `f.many(() => Model)`             | rows                            | See [Relations](/docs/next/relations).                                             |
+| `f.virtual(output, options?)`     | the output's type               | Computed on read; `input`, `needs`, `description`.                                 |
+
+Plugins add their own types: `password()` and `file()`. See
+[Write a plugin](/docs/next/plugins) for `defineFieldType`.
+
+### Field options
+
+| Option        | Type                                   | Default       | Effect                                                                                   |
+| ------------- | -------------------------------------- | ------------- | ---------------------------------------------------------------------------------------- |
+| `optional`    | `boolean`                              | `false`       | The field may be `null`; a write may leave it out.                                       |
+| `unique`      | `boolean`                              | `false`       | Two rows cannot hold the same value; `null` is not compared.                             |
+| `default`     | a value, or `({ caller }) => value`    | none          | Written when a create leaves the field out; a function returning `undefined` gives none. |
+| `validate`    | Standard Schema, or `(value) => value` | none          | Refuses a value, or returns the value to store.                                          |
+| `list`        | `true`                                 | `false`       | Strings, numbers and enums: a list, `[]` when empty; never optional nor unique.          |
+| `description` | `string`                               | none          | Shown in the GraphQL schema and the OpenAPI document.                                    |
+| `dbName`      | `string`                               | the adapter's | The stored column's name.                                                                |
+
+### Errors
+
+| Code                | When                                                               | `details`                         |
+| ------------------- | ------------------------------------------------------------------ | --------------------------------- |
+| `VALIDATION_FAILED` | A value of the wrong type, out of range, or refused by `validate`. | `{ issues: [{ path, message }] }` |
+| `UNIQUE_VIOLATION`  | A second row with a unique field's or index's values.              | `{ model, fields }`               |
+
+The messages of the field types:
+
+| Field           | Message                                                                               |
+| --------------- | ------------------------------------------------------------------------------------- |
+| `integer: true` | `Expected a whole number from -2,147,483,648 to 2,147,483,647.`                       |
+| `f.decimal`     | `Expected a decimal string of at most 10 digits, 2 after the point, such as '12.50'.` |
+| `f.date`        | `Expected a day written '2026-07-31'.`                                                |
+| `f.enumOf`      | `Expected one of draft, published, archived.`                                         |
+
+### Limits
+
+- A list cannot be `optional`, `unique` or searched: each is a type error.
+- A `defineEnum` name is a GraphQL name, letters, digits and `_`, not starting
+  with `__`; another name throws when the module loads.

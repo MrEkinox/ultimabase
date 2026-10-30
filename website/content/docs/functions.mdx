@@ -1,0 +1,159 @@
+---
+title: Functions
+description: Declare a server operation with a validated input, a typed output and an access rule, served by every transport.
+---
+
+A function is an operation the server runs: borrow a book, place an order,
+merge two accounts. `defineFunction` names it, validates its input with a
+Standard Schema (Zod, Valibot, ArkType…), types its output, and every
+transport serves it: GraphQL as a mutation, REST as `POST
+/api/functions/borrowBook`.
+
+The examples write their schemas with Zod, a package of its own:
+
+```npm
+npm install zod
+```
+
+<include cwd meta='title="src/functions.ts"'>
+	../examples/functions/src/functions.ts#borrow
+</include>
+
+The full example, with its tests: [`examples/functions`](https://github.com/MrEkinox/ultimabase/tree/main/examples/functions).
+
+`defineApp({ functions: [...] })` adds it to the application:
+
+<include cwd meta='title="src/app.ts"'>
+	../examples/functions/src/app.ts#app
+</include>
+
+`run` receives the validated `input` and the `caller`. A function is trusted
+server code: its queries pass `{ as: caller }` to keep the caller's rules,
+or `{ as: master }` to write what no client writes, as `Book` here.
+
+## Call it from server code
+
+`fn.run(input, { as })` does what a transport does: it checks the access
+rule, validates the input, then runs the function and returns its output,
+typed. A function without an input takes only `{ as }`:
+
+<include cwd meta='title="src/app.test.ts"'>
+	../examples/functions/src/app.test.ts#run
+</include>
+
+A function that calls another uses `run` too, so the other's rule and
+validation apply.
+
+## Access and validation
+
+`.with({ access })` takes one rule, which receives `{ caller }` only. A
+function without one is closed to all but Master. The rule runs before the
+input is validated, so a refused caller learns nothing of what the input
+should be:
+
+<include cwd meta='title="src/app.test.ts"'>
+	../examples/functions/src/app.test.ts#refused
+</include>
+
+A check that needs the input, or another row, throws from `run`: a
+`PublicError` reaches the client with its code, message and details. See
+[Errors](/docs/next/errors).
+
+## Queries and outputs
+
+`query: true` makes a function a query: GraphQL serves it under `Query`,
+over GET and POST, and REST over GET. A function is a mutation otherwise.
+
+<include cwd meta='title="src/functions.ts"'>
+	../examples/functions/src/functions.ts#search
+</include>
+
+The output is a model (`Book`), a list (`[Book]`), a model or `null`
+(`Book.nullable()`), a [`defineType`](/docs/next/models) holding models and
+data (`Loan` above), or a Standard Schema for data alone. Without an output,
+`run` returns nothing and GraphQL answers `true`:
+
+<include cwd meta='title="src/functions.ts"'>
+	../examples/functions/src/functions.ts#return
+</include>
+
+The output is typed, not validated: `run` must return what it declares.
+
+## Over the transports
+
+An object input gives GraphQL one argument per property, and REST one query
+parameter per property on a GET, or a JSON body on a POST. Both answer with
+the same output:
+
+<include cwd meta='title="src/app.test.ts"'>
+	../examples/functions/src/app.test.ts#request
+</include>
+
+<include cwd meta='title="src/app.test.ts"'>
+	../examples/functions/src/app.test.ts#graphql
+</include>
+
+<include cwd meta='title="src/app.test.ts"'>
+	../examples/functions/src/app.test.ts#rest
+</include>
+
+A client selecting a relation under a returned row gets it read again as the
+caller, with its rules. A function opens no transaction: see
+[Transactions](/docs/next/transactions) to write all or nothing.
+
+## Reference
+
+### `defineFunction(definition)`
+
+| Key           | Type                       | Default  | Effect                                                            |
+| ------------- | -------------------------- | -------- | ----------------------------------------------------------------- |
+| `name`        | `string`                   | required | The GraphQL field's name and the REST route's.                    |
+| `run`         | `(facts) => output`        | required | The operation; may be `async`.                                    |
+| `input`       | a Standard Schema          | none     | Validates the input; without it, `run` receives none.             |
+| `output`      | see below                  | none     | The output's type; without it, `run` returns nothing.             |
+| `query`       | `boolean`                  | `false`  | A query, over GET too; a mutation otherwise.                      |
+| `use`         | `[graphql()]`, `[rest()]`… | `[]`     | The transports whose key `.with` sets. Every transport serves it. |
+| `description` | `string`                   | none     | Shown in the GraphQL schema and the OpenAPI document.             |
+
+`.with({ access, graphql, rest })` sets its rule and, for a transport of
+`use`, `{ name }` to rename it there or `false` to hide it.
+
+### What `run` receives
+
+| Fact     | Value                                                                  |
+| -------- | ---------------------------------------------------------------------- |
+| `input`  | the validated input, with the schema's defaults and transforms         |
+| `caller` | who calls: see [Access rules](/docs/next/access)                       |
+| `client` | over a transport, `{ address, cookies }`; `undefined` from server code |
+
+`client.cookies` has `get(name)`, `set(name, value, options?)` and
+`clear(name, options?)`, written on the HTTP response.
+
+### Outputs
+
+| Output            | `run` returns           | GraphQL              |
+| ----------------- | ----------------------- | -------------------- |
+| none              | nothing                 | `Boolean!`           |
+| `Book`            | a row                   | `Book!`              |
+| `[Book]`          | rows                    | `[Book!]!`           |
+| `Book.nullable()` | a row or `null`         | `Book`               |
+| a `defineType`    | an object of its fields | the type             |
+| a Standard Schema | the schema's type       | from its JSON Schema |
+
+A schema given `.meta({ id: 'Line' })` is the shared GraphQL type `Line`,
+and `LineInput` as an input.
+
+### Errors
+
+| Code                | When                                       | `details`                         |
+| ------------------- | ------------------------------------------ | --------------------------------- |
+| `ACCESS_DENIED`     | The rule refused: `borrowBook refused.`    | `{ function }`                    |
+| `VALIDATION_FAILED` | The input does not match: `Invalid input.` | `{ issues: [{ path, message }] }` |
+
+### Limits
+
+- The access rule is synchronous and receives no input.
+- A schema without a JSON Schema export, as `z.date()`, stops startup:
+  `z.iso.datetime()` is a `DateTime` in GraphQL.
+- A name another function or a model's generated query already takes stops
+  startup, naming both.

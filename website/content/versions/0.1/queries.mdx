@@ -1,0 +1,403 @@
+---
+title: Queries
+description: Read, filter, sort, page, count, aggregate, search and write many rows from server code.
+---
+
+Each model has its queries: `Product.findMany`, `Product.create`… They take
+an object of arguments, then `{ as }`, the caller whose access rules apply.
+The rows come back typed from the arguments: a `select` returns the fields
+it names, no more.
+
+```ts
+import { testApplication } from '@ultimabase/testing'
+import { master } from 'ultimabase'
+import { beforeEach, expect, it } from 'vitest'
+import { app } from './app.ts'
+import { Product } from './models.ts'
+
+testApplication(app)
+
+const as = { as: master }
+const names = (rows: readonly { readonly name: string }[]): string[] =>
+	rows.map((row) => row.name)
+
+beforeEach(async () => {
+	// One write of every row, which returns { count: 4 }.
+	await Product.createMany(
+		{
+			data: [
+				{
+					name: 'Desk lamp',
+					sku: 'LMP-001',
+					price: '39.90',
+					stock: 5,
+					status: 'published',
+					keywords: ['light', 'office'],
+					releasedOn: '2026-03-01',
+				},
+				{
+					name: 'Floor lamp',
+					sku: 'LMP-002',
+					price: '89.00',
+					status: 'published',
+					keywords: ['light'],
+					releasedOn: '2026-05-10',
+				},
+				{
+					name: 'Mug',
+					sku: 'MUG-001',
+					price: '12.00',
+					stock: 40,
+					keywords: ['kitchen'],
+				},
+				{
+					name: 'Teapot',
+					sku: 'TEA-001',
+					price: '24.50',
+					stock: 12,
+					status: 'archived',
+					keywords: ['kitchen'],
+				},
+			],
+		},
+		as,
+	)
+})
+```
+
+The full example, with its tests: [`examples/models-and-queries`](https://github.com/MrEkinox/ultimabase/tree/main/examples/models-and-queries).
+
+The examples run as Master, which every rule allows; a function or a hook
+passes its own `caller`. See [Access rules](/docs/next/access). The
+transports take the same arguments: see [GraphQL](/docs/next/graphql) and
+[REST](/docs/next/rest).
+
+## Filter
+
+`where` keeps the rows that match every field it names. A value compares for
+equality; an object holds operators:
+
+```ts
+const published = await Product.findMany(
+	{ where: { status: 'published', price: { lt: '50.00' } } },
+	as,
+)
+expect(names(published)).toEqual(['Desk lamp'])
+
+const filtered = await Product.findMany(
+	{
+		where: {
+			name: { contains: 'LAMP', mode: 'insensitive' },
+			releasedOn: { gte: '2026-04-01' },
+		},
+	},
+	as,
+)
+expect(names(filtered)).toEqual(['Floor lamp'])
+
+// A list: has, hasSome, hasEvery, isEmpty.
+const kitchen = await Product.findMany(
+	{ where: { keywords: { has: 'kitchen' }, stock: { gt: 20 } } },
+	as,
+)
+expect(names(kitchen)).toEqual(['Mug'])
+
+// AND, OR and NOT combine filters; null matches a missing value.
+const either = await Product.findMany(
+	{
+		where: {
+			OR: [{ stock: 0 }, { releasedOn: null }],
+			NOT: { status: 'archived' },
+		},
+	},
+	as,
+)
+expect(names(either)).toEqual(['Floor lamp', 'Mug'])
+```
+
+A field left `undefined` filters nothing, so an optional argument can pass
+straight through. A relation filters by its target's fields: see
+[Relations](/docs/next/relations).
+
+## Sort and page
+
+`orderBy` takes a field and `'asc'` or `'desc'`, or a list of them, the first
+deciding. Without it, rows come in `id` order, which is the order they were
+created in. `skip` leaves rows out, `take` keeps at most that many:
+
+```ts
+const cheapest = await Product.findMany(
+	{ orderBy: { price: 'asc' }, skip: 1, take: 2 },
+	as,
+)
+expect(names(cheapest)).toEqual(['Teapot', 'Desk lamp'])
+
+// An optional field's nulls sort last unless `nulls` says otherwise.
+const byRelease = await Product.findMany(
+	{
+		orderBy: [{ releasedOn: { sort: 'desc', nulls: 'last' } }, { name: 'asc' }],
+	},
+	as,
+)
+expect(names(byRelease)).toEqual(['Floor lamp', 'Desk lamp', 'Mug', 'Teapot'])
+```
+
+A `cursor` names a unique row the page starts at: `skip: 1` starts after it,
+and a negative `take` reads the rows before it.
+
+```ts
+// The next page starts after the last row of this one.
+const first = await Product.findMany({ orderBy: { name: 'asc' }, take: 2 }, as)
+const last = first.at(-1)
+if (last === undefined) throw new Error('The first page is empty.')
+const next = await Product.findMany(
+	{
+		orderBy: { name: 'asc' },
+		cursor: { id: last.id },
+		skip: 1,
+		take: 2,
+	},
+	as,
+)
+expect(names(next)).toEqual(['Mug', 'Teapot'])
+```
+
+## Find one row
+
+`findUnique` takes a unique `where`: the `id`, a unique field, or the fields
+of a unique index together. `findFirst` takes any `where` and returns the
+first row in its order. Both return `null` when nothing matches; their
+`OrThrow` forms fail with `NOT_FOUND`.
+
+```ts
+const mug = await Product.findUnique({ where: { sku: 'MUG-001' } }, as)
+expect(mug?.price).toBe('12.00')
+// A unique index's fields together find a row too.
+const lamp = await Product.findUnique(
+	{ where: { name: 'Desk lamp', releasedOn: '2026-03-01' } },
+	as,
+)
+expect(lamp?.sku).toBe('LMP-001')
+expect(await Product.findFirst({ where: { stock: 99 } }, as)).toBeNull()
+await expect(
+	Product.findUniqueOrThrow({ where: { sku: 'CUP-001' } }, as),
+).rejects.toMatchObject({ code: 'NOT_FOUND', message: 'No Product matches.' })
+```
+
+## Choose the fields
+
+`select` returns the fields it names; `omit` returns all but those. A read
+returns every stored field by default, relations only when `include` or
+`select` names them.
+
+```ts
+const rows = await Product.findMany(
+	{ where: { status: 'published' }, select: { name: true, price: true } },
+	as,
+)
+expect(rows).toEqual([
+	{ name: 'Desk lamp', price: '39.90' },
+	{ name: 'Floor lamp', price: '89.00' },
+])
+const mug = await Product.findUniqueOrThrow(
+	{ where: { sku: 'MUG-001' }, omit: { specs: true, keywords: true } },
+	as,
+)
+expect(mug).not.toHaveProperty('specs')
+```
+
+## Search
+
+`_search` keeps the rows whose `search: true` fields hold the words, and
+`orderBy: { _relevance: 'desc' }` puts the best matches first:
+
+```ts
+// Words, "quoted phrases", `or`, and -word to leave one out.
+const lamps = await Product.findMany(
+	{
+		where: { _search: 'lamp -floor' },
+		orderBy: { _relevance: 'desc' },
+	},
+	as,
+)
+expect(names(lamps)).toEqual(['Desk lamp'])
+```
+
+Words are lowered, without stems: `lamps` does not find `lamp`.
+`postgres({ searchLanguage: 'english' })` stems them with PostgreSQL's
+configuration of that name.
+
+## Count and aggregate
+
+`count` counts the rows of a `where`. `aggregate` computes `_count`, `_sum`,
+`_avg`, `_min` and `_max` of the rows the caller reads:
+
+```ts
+expect(await Product.count({ where: { stock: { gt: 0 } } }, as)).toBe(3)
+
+const totals = await Product.aggregate(
+	{
+		_count: true,
+		_sum: { stock: true, price: true },
+		_min: { price: true },
+		_max: { releasedOn: true },
+	},
+	as,
+)
+expect(totals).toEqual({
+	_count: 4,
+	// A decimal's sum is a decimal string.
+	_sum: { stock: 57, price: '165.40' },
+	_min: { price: '12.00' },
+	_max: { releasedOn: '2026-05-10' },
+})
+```
+
+`groupBy` computes them per group of `by`'s values; `having` keeps the groups
+whose values or aggregates match:
+
+```ts
+const byStatus = await Product.groupBy(
+	{
+		by: ['status'],
+		_count: true,
+		_sum: { stock: true },
+		having: { stock: { _sum: { gt: 0 } } },
+		orderBy: { status: 'asc' },
+	},
+	as,
+)
+expect(byStatus).toEqual([
+	{ status: 'archived', _count: 1, _sum: { stock: 12 } },
+	{ status: 'draft', _count: 1, _sum: { stock: 40 } },
+	{ status: 'published', _count: 2, _sum: { stock: 5 } },
+])
+```
+
+`distinct` keeps, of the rows with the same values, the first in the read's
+order:
+
+```ts
+// The first row of each status, in the read's order.
+const priciest = await Product.findMany(
+	{
+		distinct: ['status'],
+		orderBy: { price: 'desc' },
+		select: { status: true, name: true },
+	},
+	as,
+)
+expect(priciest).toEqual([
+	{ status: 'published', name: 'Floor lamp' },
+	{ status: 'archived', name: 'Teapot' },
+	{ status: 'draft', name: 'Mug' },
+])
+```
+
+`aggregate` and `groupBy` are for server code; the transports do not expose
+them. A field with its own read rule is aggregated by Master only.
+
+## Write many rows
+
+`createMany`, `updateMany` and `deleteMany` return `{ count }`; each writes
+all its rows or none. `createManyAndReturn` and `updateManyAndReturn` return
+the rows instead. `upsert` updates the row its unique `where` finds, or
+creates it:
+
+```ts
+const { count } = await Product.updateMany(
+	{
+		where: { keywords: { has: 'light' } },
+		data: { stock: { increment: 10 } },
+	},
+	as,
+)
+expect(count).toBe(2)
+
+const archived = await Product.deleteMany({ where: { status: 'archived' } }, as)
+expect(archived.count).toBe(1)
+
+// Updates the row the unique `where` finds, or creates it.
+const cup = await Product.upsert(
+	{
+		where: { sku: 'CUP-001' },
+		create: { name: 'Cup', sku: 'CUP-001', price: '8.00' },
+		update: { stock: { increment: 1 } },
+	},
+	as,
+)
+expect(cup.stock).toBe(0)
+```
+
+`updateMany` writes no relation, and `createMany` no nested row. Each row's
+access rules and hooks run as for one write. To write several models
+together, see [Transactions](/docs/next/transactions).
+
+## Reference
+
+### Queries
+
+| Query                             | Arguments                                                          | Returns             |
+| --------------------------------- | ------------------------------------------------------------------ | ------------------- |
+| `findMany`                        | `where`, `orderBy`, `skip`, `take`, `cursor`, `distinct`           | rows                |
+| `findFirst`, `findFirstOrThrow`   | `where`, `orderBy`, `skip`, `take`, `cursor`                       | a row, or `null`    |
+| `findUnique`, `findUniqueOrThrow` | `where` (unique)                                                   | a row, or `null`    |
+| `count`                           | `where`                                                            | `number`            |
+| `aggregate`                       | `where`, `_count`, `_sum`, `_avg`, `_min`, `_max`                  | the aggregates      |
+| `groupBy`                         | `by`, the aggregates, `where`, `having`, `orderBy`, `skip`, `take` | groups              |
+| `create`                          | `data`                                                             | the row             |
+| `update`                          | `where` (unique), `data`                                           | the row             |
+| `upsert`                          | `where` (unique), `create`, `update`                               | the row             |
+| `delete`                          | `where` (unique)                                                   | the row deleted     |
+| `createMany`                      | `data`, a row or a list                                            | `{ count }`         |
+| `updateMany`                      | `where`, `data`                                                    | `{ count }`         |
+| `deleteMany`                      | `where`                                                            | `{ count }`         |
+| `createManyAndReturn`             | `data`                                                             | rows                |
+| `updateManyAndReturn`             | `where`, `data`                                                    | rows, in `id` order |
+
+Every query that returns rows also takes `select`, or `include` and `omit`.
+The second argument is `{ as }`: `master`, a function's or a hook's
+`caller`, or in a test `asUser({ id })`.
+
+### Filters
+
+| Field                           | Operators                                                                                     |
+| ------------------------------- | --------------------------------------------------------------------------------------------- |
+| every field                     | a value, `equals`, `not`, `in`, `notIn`; `null` for a missing value                           |
+| string                          | `contains`, `startsWith`, `endsWith`; `mode: 'insensitive'`                                   |
+| number, dateTime, decimal, date | `lt`, `lte`, `gt`, `gte`                                                                      |
+| list                            | `has`, `hasSome`, `hasEvery`, `isEmpty`                                                       |
+| json                            | `equals` of the whole value, or `path` with `equals`, `lt`… `stringContains`, `arrayContains` |
+| `one` relation                  | `is`, `isNot`                                                                                 |
+| `many` relation                 | `some`, `every`, `none`                                                                       |
+| the row                         | `AND`, `OR`, `NOT`, `_search`                                                                 |
+
+`null` never compares: `{ stock: { lt: 10 } }` and its `NOT` both leave out a
+row without a stock. A `contains` filter on a large table needs an index
+with `contains: true`: see [Models and fields](/docs/next/models).
+
+### Sorts
+
+| Sort                               | Effect                                                                           |
+| ---------------------------------- | -------------------------------------------------------------------------------- |
+| `{ field: 'asc' \| 'desc' }`       | By a stored field that is not a list or json.                                    |
+| `{ field: { sort, nulls } }`       | An optional field, its `null`s `'first'` or `'last'`; last ascending by default. |
+| `{ relation: { field: 'asc' } }`   | A `one` relation by its target's fields.                                         |
+| `{ relation: { _count: 'desc' } }` | A `many` relation by its number of rows.                                         |
+| `{ _relevance: 'desc' }`           | With `_search`, by how well each row matches.                                    |
+
+### Errors
+
+| Code            | When                                                                                                                                      |
+| --------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `INVALID_QUERY` | An unknown field or operator, a value of the wrong type, `select` with `include` or `omit`. Its `path` names the argument: `where.titel`. |
+| `NOT_FOUND`     | `findFirstOrThrow`, `findUniqueOrThrow`, `update` or `delete` finds no row: `No Product matches.`                                         |
+
+A client's query refused as `INVALID_QUERY` answers `BAD_USER_INPUT`, a
+`400`, with the same message and the `path` in its details.
+
+### Limits
+
+- `skip` and `take` are whole numbers; `distinct` takes no `cursor`.
+- `aggregate` takes the fields a sort takes; `groupBy` and `distinct` take
+  them and the `one` relations.

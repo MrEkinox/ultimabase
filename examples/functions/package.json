@@ -1,0 +1,27 @@
+{
+	"name": "example-functions",
+	"version": "0.0.0",
+	"private": true,
+	"description": "Functions: server operations with a validated input, called from code, GraphQL and REST.",
+	"type": "module",
+	"license": "Apache-2.0",
+	"engines": {
+		"node": ">=24.7.0"
+	},
+	"scripts": {
+		"start": "node src/server.ts"
+	},
+	"dependencies": {
+		"@ultimabase/graphql": "workspace:*",
+		"@ultimabase/http": "workspace:*",
+		"@ultimabase/rest": "workspace:*",
+		"graphql": "17.0.2",
+		"ultimabase": "workspace:*",
+		"zod": "4.6.5"
+	},
+	"devDependencies": {
+		"@ultimabase/testing": "workspace:*",
+		"vite": "8.3.4",
+		"vitest": "5.0.5"
+	}
+}

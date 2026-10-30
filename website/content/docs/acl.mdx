@@ -1,0 +1,139 @@
+---
+title: ACL
+description: Store on each row who may read it and who may write it, by user, by role or for the public.
+---
+
+`@ultimabase/acl` stores on each row its rights: who reads it and who writes
+it, by user, by [role](/docs/next/roles), or for the public. A query then
+sees only the rows its caller may read, and writes only those it may write.
+`acl()` goes in a model's `use`, and its `default` gives the rights of a new
+row; here, a new note is its author's alone:
+
+```npm
+npm install @ultimabase/acl
+```
+
+<include cwd meta='title="src/notes.ts"'>
+	../examples/roles-and-acl/src/notes.ts#note
+</include>
+
+The full example, with its tests: [`examples/roles-and-acl`](https://github.com/MrEkinox/ultimabase/tree/main/examples/roles-and-acl).
+
+`aclPlugin()` goes in the application's plugins:
+
+<include cwd meta='title="src/app.ts"'>
+	../examples/roles-and-acl/src/app.ts#plugins
+</include>
+
+The model's [access rules](/docs/next/access) still decide who may create,
+read, update and delete; the ACL then picks which rows. Above, every caller
+may read and write notes, and only a writer creates one, but each caller
+meets only the notes its rights name:
+
+<include cwd meta='title="src/app.test.ts"'>
+	../examples/roles-and-acl/src/app.test.ts#author
+</include>
+
+## Share a row
+
+Only Master writes an ACL: a client that could, could give itself any row.
+Sharing is a [function](/docs/next/functions) that checks the caller, then
+writes the new rights as Master:
+
+<include cwd meta='title="src/functions.ts"'>
+	../examples/roles-and-acl/src/functions.ts#share
+</include>
+
+Once Ada shares the note with `team`, Grace, a member, reads it; Bob does
+not. Grace has no write right, so to her the note cannot be updated:
+
+<include cwd meta='title="src/app.test.ts"'>
+	../examples/roles-and-acl/src/app.test.ts#share
+</include>
+
+A row the caller cannot read does not exist for it: reading, updating,
+deleting or connecting it answers `NOT_FOUND`, as for a row that was never
+created. A write needs both rights, `read` and `write`.
+
+## Write an ACL
+
+Master writes the `acl` field as an `ACL` or as its JSON, `{ read, write }`,
+each a list of subjects: `*` for the public, `user:<id>` or `role:<id>`. A
+client reads the field as that JSON, and cannot write it:
+
+<include cwd meta='title="src/app.test.ts"'>
+	../examples/roles-and-acl/src/app.test.ts#write
+</include>
+
+An empty ACL, `new ACL()`, leaves the row to Master. The ACL plugin works
+without the roles plugin, for the public and users; a role's rights go to
+its members and to the members of the roles that inherit it.
+
+## The `ACL` class
+
+An `ACL` never changes: each method returns a new one. A method given no
+permission gives or takes both:
+
+<include cwd meta='title="src/app.test.ts"'>
+	../examples/roles-and-acl/src/app.test.ts#class
+</include>
+
+`acl.allows(caller, 'write')`, as in `shareNote`, tells whether a caller has
+the right through the public, its user or one of its roles; a write needs
+the read too. It is `true` for Master.
+
+## Reference
+
+### `acl({ default })` and `aclPlugin()`
+
+| Key       | Type                  | Effect                                                  |
+| --------- | --------------------- | ------------------------------------------------------- |
+| `default` | `({ caller }) => ACL` | The rights of a row created without an `acl`. Required. |
+
+`acl()` adds to the model the field `acl`, indexed, which only Master
+writes. `aclPlugin()` takes no option and must be in plugins when a model
+uses `acl()`.
+
+### The `ACL` class
+
+| Method                               | Returns    | Effect                                                    |
+| ------------------------------------ | ---------- | --------------------------------------------------------- |
+| `new ACL()`                          | `ACL`      | No rights: only Master.                                   |
+| `allowPublic(...perms)`              | `ACL`      | Gives everyone, visitors included, the permissions.       |
+| `allowUser(user, ...perms)`          | `ACL`      | Gives a user, `{ id }`, the permissions.                  |
+| `allowRole(role, ...perms)`          | `ACL`      | Gives a role's members, `{ id }`, the permissions.        |
+| `denyPublic`, `denyUser`, `denyRole` | `ACL`      | Takes the permissions back, with the same arguments.      |
+| `publicCan(perm)`                    | `boolean`  | Whether the public has the permission.                    |
+| `userCan(user, perm)`                | `boolean`  | Whether the user has it by name, without its roles.       |
+| `roleCan(role, perm)`                | `boolean`  | Whether the role has it by name.                          |
+| `allows(caller, perm)`               | `boolean`  | Whether the caller has it, by any subject; Master always. |
+| `users(perm)`, `roles(perm)`         | `string[]` | The ids of the users or roles named for the permission.   |
+| `toJSON()`                           | `AclJson`  | `{ read, write }`, what a client reads.                   |
+| `entries()`                          | `string[]` | The stored entries, sorted, as `'read:user:u_1'`.         |
+| `ACL.fromJSON(json)`                 | `ACL`      | The ACL `toJSON` gave.                                    |
+| `ACL.fromEntries(entries)`           | `ACL`      | The ACL `entries` gave.                                   |
+
+A permission is `'read'` or `'write'`; `write` covers update and delete.
+
+### Errors
+
+| Code                | When                                                                                |
+| ------------------- | ----------------------------------------------------------------------------------- |
+| `ACCESS_DENIED`     | A caller other than Master writes `acl`.                                            |
+| `NOT_FOUND`         | A write or a connect targets a row the caller may not read, or read but not write.  |
+| `VALIDATION_FAILED` | An `acl` value that is not an ACL: its issue's message says why, at path `['acl']`. |
+
+The messages of an invalid value: `An ACL is an ACL or { read, write }.`,
+`owner is not a permission.`, `read is a list of subjects.`, `read[0]: a
+subject is *, user:<id> or role:<id>.` `ACL.fromJSON` throws the same
+messages as a `TypeError`, and `ACL.fromEntries` throws `team is not an ACL
+entry.`
+
+At start, `acl()` without `default` throws `acl() takes default: the ACL of
+a row created without one.`
+
+### Limits
+
+- The rights are checked on every query, at every level of a relation; a
+  read adds one filter on the indexed `acl` field.
+- A role's rights reach its members only with `rolesPlugin()`.

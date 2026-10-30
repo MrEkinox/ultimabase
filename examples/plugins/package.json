@@ -1,0 +1,25 @@
+{
+	"name": "example-plugins",
+	"version": "0.0.0",
+	"private": true,
+	"description": "Four plugins written for an application: a model plugin, a field type, an identity and a transport.",
+	"type": "module",
+	"license": "Apache-2.0",
+	"engines": {
+		"node": ">=24.7.0"
+	},
+	"scripts": {
+		"start": "node src/server.ts"
+	},
+	"dependencies": {
+		"@ultimabase/http": "workspace:*",
+		"hono": "4.13.13",
+		"ultimabase": "workspace:*",
+		"zod": "4.6.5"
+	},
+	"devDependencies": {
+		"@ultimabase/testing": "workspace:*",
+		"vite": "8.3.4",
+		"vitest": "5.0.5"
+	}
+}

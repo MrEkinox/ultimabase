@@ -19,7 +19,7 @@ anything below.
 - Pushing, publishing, opening or merging pull requests, changing GitHub
   settings, force-pushing and deleting branches require explicit user
   confirmation every time.
-- `main` of `MrEkinox/ultimadatabase` is never rewritten without explicit
+- `main` of `MrEkinox/ultimabase` is never rewritten without explicit
   confirmation. The `*-archive` tags are never moved.
 
 ## Project hook

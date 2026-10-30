@@ -1,10 +1,15 @@
 {
 	"name": "@ultimabase/realtime",
-	"version": "0.0.0",
-	"private": true,
+	"version": "0.1.0",
 	"description": "Realtime for UltimaBase: live lists and live rows that follow every write, under the read rules.",
 	"type": "module",
 	"license": "Apache-2.0",
+	"homepage": "https://ultimabase.dev/docs/realtime",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/MrEkinox/ultimabase.git",
+		"directory": "packages/realtime"
+	},
 	"engines": {
 		"node": ">=24.7.0"
 	},
@@ -26,7 +31,7 @@
 		}
 	},
 	"peerDependencies": {
-		"ultimabase": "^0.0.0"
+		"ultimabase": "^0.1.0"
 	},
 	"devDependencies": {
 		"@ultimabase/acl": "workspace:*",

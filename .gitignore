@@ -18,3 +18,7 @@ dist
 bench/typing/gen/
 bench/compare/.yarn/
 bench/compare/generated/
+website/.next/
+website/.source/
+website/out/
+website/next-env.d.ts

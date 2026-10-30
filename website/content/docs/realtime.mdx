@@ -1,0 +1,233 @@
+---
+title: Realtime
+description: Follow a list, a row or a function live, over GraphQL subscriptions or Server-Sent Events.
+---
+
+`@ultimabase/realtime` makes a model's reads live: a client subscribes to a
+list or a row, gets it once, then only what changed, under its own read
+rules. The server places each change with the read's filter and order, so
+the client never repeats them. `realtime()` goes in a model's `use`:
+
+```npm
+npm install @ultimabase/realtime @ultimabase/live
+```
+
+<include cwd meta='title="src/models.ts"'>
+	../examples/realtime/src/models.ts#task
+</include>
+
+The full example, with its tests: [`examples/realtime`](https://github.com/MrEkinox/ultimabase/tree/main/examples/realtime).
+
+`realtimePlugin()` goes in the application's plugins. It needs no
+transport of its own: `graphqlPlugin()` and `restPlugin()` serve the live
+reads when it is there.
+
+<include cwd meta='title="src/app.ts"'>
+	../examples/realtime/src/app.ts#plugins
+</include>
+
+## A live list
+
+A subscription has the name, the arguments, the selection and the type of
+the query it follows: replace `query` by `subscription`. GraphQL
+subscriptions go over WebSocket, on the GraphQL path, with
+[graphql-ws](https://the-guild.dev/graphql/ws):
+
+<include cwd meta='title="src/app.test.ts"'>
+	../examples/realtime/src/app.test.ts#client
+</include>
+
+The first result is the list, `{ data }`. Each later one holds only what
+changed, under `extensions.live`; `applyLive` from `@ultimabase/live`
+applies it to the list:
+
+<include cwd meta='title="src/app.test.ts"'>
+	../examples/realtime/src/app.test.ts#list
+</include>
+
+A list follows a window from the top of its order: `first` rows, grown
+later by `fetchMore`. Select the node's `id`: a change places rows by it.
+Here a task ranked 0 enters first, and `b` leaves the window of two.
+
+## A live row
+
+A row subscription takes `where: { id }`, as its query, and sends the whole
+row again on each change, then `null` once it is deleted or the caller can
+no longer read it:
+
+<include cwd meta='title="src/app.test.ts"'>
+	../examples/realtime/src/app.test.ts#row
+</include>
+
+## Page mode
+
+A client without `@ultimabase/live` asks for page mode, and gets the whole
+window, `{ data }`, on each change. Its `first` is at most the model's
+`maxTake`, 100 by default, since each change resends every row:
+
+<include cwd meta='title="src/app.test.ts"'>
+	../examples/realtime/src/app.test.ts#page
+</include>
+
+## React and Apollo
+
+`ultimabaseLive()`, from `@ultimabase/live/apollo`, is an Apollo link placed
+before the WebSocket link: it applies each change and hands Apollo the
+whole result.
+
+```npm
+npm install @apollo/client graphql-ws rxjs
+```
+
+<include cwd meta='title="src/TaskList.tsx"'>
+	../examples/realtime/src/TaskList.tsx#apollo
+</include>
+
+`useLiveSubscription`, from `@ultimabase/live/react`, takes the options of
+Apollo's `useSubscription` and returns its result plus `fetchMore`, which
+adds rows to the list on the same socket:
+
+<include cwd meta='title="src/TaskList.tsx"'>
+	../examples/realtime/src/TaskList.tsx#component
+</include>
+
+`fetchMore` grows the variable that the root field's `first` (or `take`)
+reads, whatever its name, and resolves once the rows arrived; `data` stays
+in between. A row deleted or no longer readable leaves Apollo's cache too,
+so no other component keeps showing it.
+
+## Over Server-Sent Events
+
+A REST list or row URL with `Accept: text/event-stream` is live too.
+`liveFetch(url, { headers })` sets the header, applies the changes, and
+hands each listener the whole result; it reads over `fetch`, so it sends
+an `Authorization` header, which `EventSource` cannot:
+
+<include cwd meta='title="src/app.test.ts"'>
+	../examples/realtime/src/app.test.ts#sse
+</include>
+
+Cut, it reconnects, waiting from 100 ms to 5 s, and resumes where it was
+within 10 seconds. One stream serves every listener of the same
+`liveFetch`.
+
+## Live functions
+
+A function with `query: true` whose `use` lists `realtime()` is live: it
+runs again when a row it read changes, and sends its new value, unless it
+is the same. GraphQL adds a `Subscription` field of its name; REST serves
+its `GET` route as a stream.
+
+<include cwd meta='title="src/models.ts"'>
+	../examples/realtime/src/models.ts#left
+</include>
+
+<include cwd meta='title="src/app.test.ts"'>
+	../examples/realtime/src/app.test.ts#function
+</include>
+
+A run waits for 50 ms of quiet after a write, and at most a second;
+`.with({ realtime: { debounce } })` sets the wait. The function runs as the
+subscriber.
+
+## Rights
+
+A live read is checked as its query is: the read rules, the `beforeFind`
+[hooks](/docs/next/hooks), the field rules. When the caller's rights change,
+because a role, an [ACL](/docs/next/acl) or a session changed, the server
+plans the read again and sends the rows that left as `gone`; a caller that
+is no longer the same user, or a session that ended, closes its live
+reads. Every caller is built again every five minutes too, for what a hook
+reads outside the database.
+
+## Limits and errors
+
+<include cwd meta='title="src/app.test.ts"'>
+	../examples/realtime/src/app.test.ts#limits
+</include>
+
+A failed live read does not reconnect. Over `liveFetch`, `subscribe`'s
+second function gets a `LiveError` with the server's `code`; over GraphQL,
+the subscription gets `errors`, as a query does.
+
+## Reference
+
+### `realtime()` and `realtimePlugin(options)`
+
+`realtime()` takes no option; a model sets its own limit with
+`.with({ realtime: { maxLive } })`, a function its wait with
+`.with({ realtime: { debounce } })`.
+
+| Option              | Default   | Effect                                                   |
+| ------------------- | --------- | -------------------------------------------------------- |
+| `maxLive`           | 1000      | The most rows a live list follows, nested rows included. |
+| `maxSubscriptions`  | 100       | The most live reads one connection holds.                |
+| `maxConnectionRows` | 10 000    | The most rows one connection follows in all.             |
+| `refresh`           | 5 minutes | How often, in milliseconds, each caller is built again.  |
+
+### Messages
+
+| Key                        | Comes                    | Effect                                                                    |
+| -------------------------- | ------------------------ | ------------------------------------------------------------------------- |
+| `data`                     | first, and in page mode  | The read's result, as its query gives it.                                 |
+| `extensions.live.revision` | every message            | One more than the last; a missing number reads the list afresh.           |
+| `extensions.live.resume`   | with the first result    | The token that `fetchMore` and a reconnection resume with.                |
+| `changes`                  | when `edges` is selected | `{ upsert, after }`: a row placed after another, `after: null` first.     |
+|                            |                          | `{ remove, gone }`: a row out of the window; `gone` if deleted or hidden. |
+| `totalCount`, `pageInfo`   | when they changed        | Their new values, when selected.                                          |
+
+Changes within 50 ms are sent as one message.
+
+### Transports
+
+| Transport | How                                                                                                                       |
+| --------- | ------------------------------------------------------------------------------------------------------------------------- |
+| GraphQL   | WebSocket on the GraphQL path, protocol `graphql-transport-ws`; page mode as `extensions: { live: { mode: 'page' } }`.    |
+| REST      | `GET` with `Accept: text/event-stream`; events `resume`, `data`, `live` and `error`, each `id` its revision; `mode=page`. |
+
+The caller is the upgrade request's, by cookie or `Authorization`, or
+`connection_init`'s `{ authorization: 'Bearer …' }`. An upgrade from an
+`Origin` the HTTP plugin's CORS does not allow is a `403`. A socket whose
+caller becomes another user closes with `4403`. A client message is at
+most 1 MB; the server pings every 12 seconds. Over SSE, a row that does
+not exist is `null`, not a `404`, and a model that is not live is a `400`.
+
+### `@ultimabase/live`
+
+| Export                                                   | Effect                                                                                      |
+| -------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| `applyLive(list, message)`                               | The list with the message's changes; `undefined` if it names a row the list lacks.          |
+| `liveFetch(url, { headers })`                            | `{ subscribe(listener, failed), fetchMore({ first }) }`; `subscribe` returns what stops it. |
+| `LiveError`                                              | A failed live read: `code` and `message`.                                                   |
+| `ultimabaseLive()`, from `./apollo`                      | The Apollo link, before the WebSocket link.                                                 |
+| `useLiveSubscription(document, options)`, from `./react` | `useSubscription`'s result, plus `fetchMore({ first })`.                                    |
+
+Apollo 4 with `rxjs`, and React 18 or 19, are optional peer dependencies.
+
+### Errors
+
+| Code                | Message                                                                                         |
+| ------------------- | ----------------------------------------------------------------------------------------------- |
+| `VALIDATION_FAILED` | `first is over 50, the most a live list follows.`                                               |
+| `VALIDATION_FAILED` | `A connection holds at most 100 live reads.`, `A connection follows at most 10000 rows.`        |
+| `VALIDATION_FAILED` | `Author is not live.`: the selection reaches a model whose `use` lacks `realtime()`.            |
+| `VALIDATION_FAILED` | `A live list sorts by Task's own fields: author reads another row.`                             |
+| `VALIDATION_FAILED` | `A live comments list needs a take.`, for a nested list.                                        |
+| `BAD_USER_INPUT`    | `Task is not live: list realtime() in its use.`, a stream of a model that is not live, a `400`. |
+| `BAD_USER_INPUT`    | `first is at most 100 on Task in page mode.`                                                    |
+| `BAD_USER_INPUT`    | `Select the node's id to follow a live list.`, from the client.                                 |
+| `BAD_USER_INPUT`    | `fetchMore grows a live list: its root field needs first or take from a variable.`              |
+| `BAD_USER_INPUT`    | `fetchMore grows a live subscription once it runs.`                                             |
+| `INTERNAL`          | `The live read closed.`: the server closed it.                                                  |
+
+At start: `realtime's maxLive must be a positive integer.`, and
+`addTask is a mutation: it cannot be live.`
+
+### Limits
+
+- A list follows a window from its top: `first`, never `after`, `before`,
+  `last` or `skip`.
+- A live list sorts by the model's own fields.
+- Writes made outside UltimaBase, as raw SQL, are not seen.
+- With [PostgreSQL](/docs/next/postgres), changes arrive through
+  `pg_notify`, once the transaction commits.

@@ -6808,6 +6808,7 @@ await fetch('/api/functions/signUp', {
 ## D-130: `testApplication(app)` and `npm create ultimabase`
 
 Amended by D-137.
+Amended 2026-10-30: the starter runs `ultimabase dev` and `ultimabase start`.
 
 Choice: completes D-40, D-61 and D-80.
 
@@ -6834,9 +6835,14 @@ Choice: completes D-40, D-61 and D-80.
    empty, installs nothing, and prints the next commands for the package
    manager that ran it. It asks nothing else.
 6. The starter holds `src/models.ts` (a public `Post`), `src/app.ts`
-   (`memory()`, `httpPlugin()`, `graphqlPlugin()`), `src/server.ts`,
-   `src/app.test.ts` written with `testApplication`, `package.json`,
-   `tsconfig.json`, `.gitignore` and a short README. Node runs its
+   (`memory()`, `httpPlugin()`, `graphqlPlugin()`), `src/app.test.ts`
+   written with `testApplication`, `ultimabase.config.ts`, which
+   default-exports the application, `package.json`, `tsconfig.json`,
+   `.gitignore` and a short README. Its scripts are `dev`
+   (`ultimabase dev`), `start` (`ultimabase start`) and `test` (`vitest`),
+   so the command a host runs starts in production and checks the database
+   instead of syncing it (D-105); it has no `src/server.ts`, and the CLI
+   prints `npm run dev` as the next command. Node runs its
    TypeScript, with no build. Comments in `src/app.ts` say where PostgreSQL
    and REST go; the starter depends on nothing it does not run, except
    `@types/node`, which its editor needs for `process` and `node:` imports
@@ -6885,6 +6891,14 @@ it('creates a post', async () => {
 })
 ```
 
+```jsonc
+// Before: `npm start` runs src/server.ts, which syncs the database, as in development
+"scripts": { "start": "node src/server.ts", "test": "vitest" }
+
+// After: `npm start` runs in production, and `npm run dev` restarts on each change
+"scripts": { "dev": "ultimabase dev", "start": "ultimabase start", "test": "vitest" }
+```
+
 ```text
 $ npm create ultimabase
 ? Project name: (my-app) blog
@@ -6893,7 +6907,7 @@ Created blog. Next:
 
   cd blog
   npm install
-  npm start
+  npm run dev
 ```
 
 ## D-131: One example per feature, tested as an application, and Changesets
@@ -9783,4 +9797,197 @@ const { data, fetchMore } = useLiveSubscription(CampaignsDocument, {
 // A live row
 const { data } = useLiveSubscription(CampaignDocument, { variables: { where: { id } } })
 // data.campaign: the campaign, or null once it is deleted or unreadable
+```
+
+## D-155: The documentation website and the landing page
+
+Amended 2026-10-29: the quickstart includes the starter's template.
+Amended 2026-10-30: a page on writing a database adapter.
+Amended 2026-10-30: the option check reads the examples a page includes.
+Amended 2026-10-30: the clients stay in the realtime page; a README links
+to its page.
+Amended 2026-10-30: a page's first snippet shows its imports.
+Amended 2026-10-30: the landing page's sections, colors and typeface.
+Amended 2026-10-30: the landing page shows regions of several examples,
+each linking to its file.
+Amended 2026-10-30: Cloudflare serves the site at ultimabase.dev.
+
+Choice: completes D-31; the examples stay its source of truth.
+
+1. One site in `website/`, a private workspace: Fumadocs (`fumadocs-core`,
+   `fumadocs-ui`, `fumadocs-mdx`) on Next.js, exported as static files
+   (`output: 'export'`). The landing page is `/`, the documentation
+   `/docs`, searched in the browser by Fumadocs' own index. Cloudflare
+   serves it at `https://ultimabase.dev`, a domain registered there, and
+   each package's `homepage` is its page. English only.
+2. No code is written in a page. Every code block, the landing page's
+   included, is a region of an example (D-131), marked `//#region <name>`
+   and `//#endregion` in its file and included with
+   `<include cwd>../examples/<example>/src/<file>#<name></include>`, a path
+   from `website/`, where the site is built. A request
+   and its response come from the example's test. Pages write only `bash`
+   blocks, for the commands a developer types. A repository test, in
+   `yarn validate`, refuses any other fenced block and an include whose file
+   or region does not exist. The quickstart also includes the starter's
+   template, whole files of `../packages/create-ultimabase/template/`, the
+   code `npm create ultimabase` writes, which `yarn validate` type-checks
+   and tests as it does an example (amended 2026-10-29).
+   A page's first include starts above its file's imports, so it shows
+   every import the file holds, and the page links to its example's
+   directory on GitHub; the same test checks both (amended 2026-10-30).
+3. Every value a package exports, from each entry point but `./internal`,
+   appears in a region that a page includes, so an example shows each one.
+   The same repository test lists those missing; while the pages are
+   written, it holds that list, which only shrinks and is empty before the
+   site reaches `main`. Examples are added where
+   the existing ones fall short, first `files` (on `memoryFiles()`) and
+   `realtime` with its live client (`@ultimabase/live`, its Apollo link and
+   its React hook), each as D-131 says.
+4. The pages, after the documentation of Better Auth, Convex and Prisma,
+   take a developer from nothing to a running application with the
+   quickstart, then to every feature from the sidebar or the search:
+   - Get started: introduction, quickstart (`npm create ultimabase`), an
+     application's files;
+   - Concepts: models and fields, relations, queries, access rules, hooks,
+     functions, transactions, errors, testing;
+   - Plugins: one page each for auth, password, roles, ACL, soft delete,
+     files and realtime;
+   - Transports: HTTP, GraphQL, REST;
+   - Databases: `memory()`, PostgreSQL and its migrations;
+   - Deploy: `ultimabase start` and `migrate deploy`;
+   - Clients: the live client, its Apollo link and its React hook, in the
+     realtime page rather than a section of their own (amended 2026-10-30);
+   - Write a plugin: `definePlugin`, its hooks, field types and API.
+   - Write a database adapter: the adapter contract (D-73) and
+     `testAdapter`, its suite (D-94) (amended 2026-10-30).
+
+   Each page is clear before it is complete, and complete: it opens with
+   what its subject is for and its smallest example, then each case a
+   developer meets, and ends with a reference of every option, its type,
+   default and effect, every error code it can return, and its limits. A
+   developer should never need the sources to finish a task.
+   The repository test also checks, through the compiler's API, that each
+   first-level option of an exported function's `options` or `definition`
+   parameter appears as a key in an example a page includes; the audit
+   before publication checks the others, as a plugin's `with` (amended
+   2026-10-30).
+
+5. For agents: `/llms.txt` lists the pages, `/llms-full.txt` holds them all,
+   and each page is also served as Markdown at `/docs/<page>.md`, built by
+   Fumadocs from the same pages.
+6. The landing page is written in TSX: `website/app/page.tsx` assembles
+   its sections from `website/components/landing/`; the documentation
+   stays in MDX. Its code blocks are regions of the examples, read when the
+   site builds by its `Example` component, which fails the build on a
+   missing region and titles each block with a link to its file on GitHub;
+   the repository test checks each region as it does a page's include. In
+   order, it shows: the product in a sentence, with `npm create ultimabase`
+   and links to the documentation and the repository, beside an
+   application as its models plus its plugins, above a model, its rule,
+   its reads over GraphQL, REST and server code, and a refused write, from
+   `examples/introduction`; a statement linking to the sections below; the
+   official plugins, each linking to its page, beside the application that
+   lists them, in memory and on PostgreSQL; sign-in and access rules;
+   fields, relations and queries; transactions; soft delete, writing a
+   plugin, realtime, hooks and files; the questions a developer asks first,
+   what is not there yet included; and the quickstart. Each section shows
+   a region and the result its test checks. The site, the documentation
+   included, wears the logo's colors, the accent `#2F5BFF` on the ink
+   `#0E1116` and the paper `#F4F4F1`, and the Geist typeface, from the
+   `geist` package; the favicon is the logo's app icon (amended
+   2026-10-30).
+7. Each package gets a README of a few lines: what it does and a link to
+   its page on `https://ultimabase.dev/docs`, without code; the repository
+   test checks the page exists (amended 2026-10-30).
+8. The documentation is versioned by minor version. `/docs` shows the
+   latest published one, `/docs/<version>` each one, `/docs/next` the
+   pages of `main`, and a menu switches between them. The pages of `main`
+   live in `website/content/docs/`. Publishing a version runs
+   `yarn website:freeze`, which copies them to
+   `website/content/versions/<version>/` with each include replaced by its
+   region's code, so they no longer move with the examples; a patch
+   version replaces its minor version's copy. A copy holds no include, and
+   the repository test checks it. Until 0.1 is published, the site has
+   `next` alone.
+9. `yarn website:build` runs in its own CI job, outside `yarn validate`
+   (D-06). The site is formatted, linted and type-checked with the
+   repository; like the examples, it is outside coverage and line budgets.
+
+Why:
+
+- The previous website cost a lot to keep in sync (D-31): its code blocks
+  were written in the pages. A block included from an example compiles in
+  `yarn typecheck` and runs in its test, so a page cannot show code that
+  does not work.
+- The maintainer prefers Fumadocs' look. A static export keeps it without a
+  server, so the host is a choice made at publication, not now.
+- UltimaBase is a small kernel and its plugins, as Better Auth is: one page
+  per plugin, and one on writing a plugin, since the community's plugins
+  are the product.
+- A developer on 0.1 reads 0.1's pages after 0.2 ships; a frozen copy
+  keeps them as they were, whatever the examples become.
+- The landing page opens on one example from the model to its requests, so
+  a reader sees one rule hold everywhere, then shows each capability with
+  the example that tests it; the previous landing page's code was written
+  in it and no longer matched the API.
+- The `geist` package ships the typeface's files, which Next serves from
+  the site: no font to host by hand, and a build that needs no network.
+
+Rejected:
+
+- Astro Starlight or VitePress: less work, but not the look the maintainer
+  wants.
+- The landing page in MDX: it is a page of layout more than text, and its
+  components would lose their types in it.
+- Twoslash in 0.1: an included region lacks its file's imports, and the
+  examples already type-check.
+- Snippets checked by a compile step, or blocks marked unverified, as the
+  previous base allowed: one rule, every block from an example, leaves
+  nothing to classify.
+- A reference generated from the types: the editor already shows them.
+- Old versions built from their Git tags: each build would check out
+  every tag, and a host's shallow clone has none.
+- One copy per patch version: a patch changes no API.
+- The typeface from Google Fonts at build: each build would need the
+  network.
+
+Example:
+
+````mdx
+{/* Before: a page wrote its code, which stopped working when the API moved */}
+
+```ts
+export const Post = defineModel({
+	name: 'Post',
+	fields: (f) => ({ tags: f.many(() => Tag) }),
+})
+```
+
+{/* After: website/content/docs/relations.mdx */}
+
+<include cwd>../examples/relations/src/models.ts#many-to-many</include>
+````
+
+```ts
+// examples/relations/src/models.ts
+//#region many-to-many
+export const Post = defineModel({
+	name: 'Post',
+	fields: (f) => ({ tags: f.many(() => Tag) }),
+})
+//#endregion
+```
+
+```text
+website/content/docs/relations.mdx: a `ts` block is written in the page;
+include it from an example.
+website/content/docs/hooks.mdx: examples/functions-and-hooks/src/models.ts
+has no region `before-create`.
+```
+
+```text
+// Versions, once 0.2 is published
+website/content/docs/relations.mdx           /docs/next/relations   (main)
+website/content/versions/0.2/relations.mdx   /docs/relations        (latest)
+website/content/versions/0.1/relations.mdx   /docs/0.1/relations
 ```

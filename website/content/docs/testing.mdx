@@ -1,0 +1,98 @@
+---
+title: Testing
+description: Run the application around each test, on a new database, as the caller of your choice.
+---
+
+`testApplication(app)` starts the application before each test of the file
+and stops it after: on a new in-memory database, and an HTTP server on a
+free port. Tests run with [Vitest](https://vitest.dev); install
+`@ultimabase/testing` as a dev dependency:
+
+```npm
+npm install -D @ultimabase/testing vitest
+```
+
+<include cwd meta='title="src/app.test.ts"'>
+	../examples/testing/src/app.test.ts#start
+</include>
+
+The full example, with its tests: [`examples/testing`](https://github.com/MrEkinox/ultimabase/tree/main/examples/testing).
+
+The application starts as it is declared, its plugins and functions
+included, but without its info lines: warnings and errors still print.
+
+## A new database each test
+
+Each test starts on an empty database: a row one test writes is gone in the
+next, so tests run in any order.
+
+<include cwd meta='title="src/app.test.ts"'>
+	../examples/testing/src/app.test.ts#fresh
+</include>
+
+## As a signed-in user
+
+`asUser({ id })` is the caller a session gives, without signing in: its
+access rules apply, as in the application.
+
+<include cwd meta='title="src/app.test.ts"'>
+	../examples/testing/src/app.test.ts#as-user
+</include>
+
+`{ as: master }` skips the rules, to seed rows or read them all. Without
+`as`, the caller is anonymous.
+
+## Over HTTP
+
+`running.url` is the server's address during a test, such as
+`http://localhost:54321`: a test calls the API as a client does.
+
+<include cwd meta='title="src/app.test.ts"'>
+	../examples/testing/src/app.test.ts#http
+</include>
+
+## On PostgreSQL
+
+`{ database: 'declared' }` runs the tests on the application's own
+database: on `postgres()`, in a schema of the test file's own, named
+`ultimabase_test_<random>`. The first test creates the tables in it, each
+later one starts with them emptied, and the schema is dropped after the
+file's last test. No other table is read or written.
+
+<include cwd meta='title="src/tasks.postgres.test.ts"'>
+	../examples/postgres/src/tasks.postgres.test.ts#declared
+</include>
+
+A test on PostgreSQL checks what `memory()` cannot: raw SQL, a
+constraint, the real column types. It is slower: keep most tests on
+`memory()`, and name these `*.postgres.test.ts` to run them apart.
+
+## Reference
+
+### `testApplication(app, options?)`
+
+| Option     | Type         | Default    | Effect                                                    |
+| ---------- | ------------ | ---------- | --------------------------------------------------------- |
+| `database` | `'declared'` | `memory()` | The application's own database, in the file's own schema. |
+
+It returns `{ url }`: the HTTP server's address, read during a test.
+
+### `asUser(user)`
+
+| Argument | Type                                 | Returns                                 |
+| -------- | ------------------------------------ | --------------------------------------- |
+| `user`   | `{ id }`, or the registered user row | a caller of kind `'user'`, for `{ as }` |
+
+### Errors
+
+| Message                                                                                                                                                              | When                                        |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------- |
+| `testApplication takes the value defineApp returned.`                                                                                                                | Another value was given.                    |
+| `url is the address of httpPlugin(), read during a test: add httpPlugin() to the application.`                                                                       | `url` read outside a test, or without HTTP. |
+| `testApplication runs on the declared database when it gives a test file tables of its own, as postgres() does; this one does not: remove { database: 'declared' }.` | The database cannot give a schema per file. |
+
+### Limits
+
+- `testApplication` adds Vitest's `beforeEach` and `afterEach`: call it at
+  the top of a file or a `describe`, never inside a test.
+- A process killed during a test file leaves its schema behind.

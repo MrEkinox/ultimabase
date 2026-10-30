@@ -1,0 +1,164 @@
+---
+title: Authentication
+description: Declare the user model, open and end sessions, and write rules that read the signed-in user.
+---
+
+`@ultimabase/auth` gives each request its caller: it reads the session the
+request carries and makes the caller that user. It declares no way to sign
+in: a sign-in plugin does, as [password](/docs/next/password) with an email
+and a password.
+
+```npm
+npm install @ultimabase/auth @ultimabase/password
+```
+
+The user model is declared with `defineUser`, and the `Register` declaration
+types `caller.user` as its row in every rule, hook and function:
+
+<include cwd meta='title="src/models.ts"'>
+	../examples/password-sign-in/src/models.ts#user
+</include>
+
+The full example, with its tests: [`examples/password-sign-in`](https://github.com/MrEkinox/ultimabase/tree/main/examples/password-sign-in).
+
+`authPlugin()` goes in the application's plugins, after `httpPlugin()`,
+which it requires:
+
+<include cwd meta='title="src/app.ts"'>
+	../examples/password-sign-in/src/app.ts#plugins
+</include>
+
+## Sessions
+
+A sign-up or a sign-in opens a session and returns its token. A client sends
+it back in the `Authorization` header:
+
+<include cwd meta='title="src/sessions.test.ts"'>
+	../examples/password-sign-in/src/sessions.test.ts#bearer
+</include>
+
+The requests above go through this helper:
+
+<include cwd meta='title="src/sessions.test.ts"'>
+	../examples/password-sign-in/src/sessions.test.ts#request
+</include>
+
+A sign-in over HTTP also sets a session cookie, `HttpOnly` and
+`SameSite=Lax`, which a browser sends back by itself: a web application
+needs no code to keep the token. `signOut` ends the session and clears the
+cookie:
+
+<include cwd meta='title="src/sessions.test.ts"'>
+	../examples/password-sign-in/src/sessions.test.ts#cookie
+</include>
+
+A session lasts 30 days after its last use and at most one year after the
+sign-in; the user then signs in again. A Bearer token that has ended refuses
+the request with `UNAUTHENTICATED`, so the client knows to sign in again; a
+cookie that has ended is anonymous, so a browser can still reach the sign-in
+page.
+
+In production (`NODE_ENV=production`), the cookie is `Secure` and named
+`__Host-ultimabase_session`. Outside it, it works on `http://localhost`; a
+request from another host logs a warning once: `auth serves example.com a
+session cookie without Secure: set NODE_ENV=production.`
+
+## From server code
+
+The user model gets commands: `User.revokeSessions` ends every session of a
+user, on every device, as when an account is stolen. The sign-in plugin adds
+its own, as password's `User.signUp` and `User.signIn`:
+
+<include cwd meta='title="src/sessions.test.ts"'>
+	../examples/password-sign-in/src/sessions.test.ts#commands
+</include>
+
+Deleting a user ends its sessions and deletes its linked accounts.
+
+## Rules on the signed-in user
+
+auth adds rules to those of [Access rules](/docs/next/access).
+`isAuthenticated` lets every signed-in user through; `isSelf`, on the user
+model, lets each user write their own row. Above, a visitor sees no names:
+
+<include cwd meta='title="src/app.test.ts"'>
+	../examples/password-sign-in/src/app.test.ts#names
+</include>
+
+`currentUser` is a default: the `author` of a new post is the user who
+creates it. `isOwner('author')` lets through the user the `one` relation
+points to, before and after the write, so no one writes a post in another's
+name. `signedIn` receives the `user` row, here to let an editor delete any
+post:
+
+<include cwd meta='title="src/models.ts"'>
+	../examples/password-sign-in/src/models.ts#post
+</include>
+
+A visitor sees the published posts, an author their drafts too, and only the
+author publishes one:
+
+<include cwd meta='title="src/app.test.ts"'>
+	../examples/password-sign-in/src/app.test.ts#drafts
+</include>
+
+## Reference
+
+### `defineUser(definition)`
+
+The keys of `defineModel`: `name`, `fields`, `use`, `indexes`, `description`
+and `dbName`; its `.with` takes the same keys too. An application has one
+user model.
+
+### `authPlugin()`
+
+It takes no option. It requires `httpPlugin()` and adds:
+
+| What     | Name             | Effect                                                                                          |
+| -------- | ---------------- | ----------------------------------------------------------------------------------------------- |
+| function | `signOut`        | Ends the caller's session and clears the cookie; `true`.                                        |
+| query    | `viewer`         | The signed-in user's row, read with their rules, or `null`.                                     |
+| command  | `revokeSessions` | `User.revokeSessions({ id }, { as })`, as Master or as the user.                                |
+| models   | `AuthSession`    | The sessions; each token is stored as its SHA-256, never in clear.                              |
+|          | `AuthAccount`    | The accounts a user signs in with: a method and its subject, such as an email, unique together. |
+
+Both functions are public. The models are Master's only: no transport
+exposes them.
+
+### Rules and default
+
+| Name              | Where                 | Effect                                                                                        |
+| ----------------- | --------------------- | --------------------------------------------------------------------------------------------- |
+| `isAuthenticated` | any rule              | The caller is signed in.                                                                      |
+| `signedIn(rule)`  | any rule              | `rule` receives the facts and `user`; `false` for a visitor. A read rule may return a filter. |
+| `isOwner(field)`  | a write rule          | The `one` relation `field` points to the caller, in the stored row and in the value.          |
+| `isSelf`          | the user model's rule | The row is the caller's own.                                                                  |
+| `currentUser`     | a `one` default       | `{ id }` of the signed-in user, nothing for a visitor.                                        |
+
+### Sessions
+
+| Key            | Value                                                                        |
+| -------------- | ---------------------------------------------------------------------------- |
+| token          | 32 random bytes in base64url                                                 |
+| lifetime       | 30 days after the last use, renewed when less than 15 days are left          |
+| longest        | 365 days after the sign-in                                                   |
+| Bearer         | `Authorization: Bearer <token>`, read before the cookie                      |
+| cookie         | `ultimabase_session`; `__Host-ultimabase_session` and `Secure` in production |
+| cookie options | `HttpOnly`, `SameSite=Lax`, `Path=/`                                         |
+
+### Errors
+
+| Code                    | When                                                                                    |
+| ----------------------- | --------------------------------------------------------------------------------------- |
+| `UNAUTHENTICATED` (401) | A Bearer token that has ended: `The session expired or was revoked: sign in again.`     |
+| `ACCESS_DENIED` (403)   | `revokeSessions` for another user: `User.revokeSessions runs as Master or as the user.` |
+
+At start, an application without a user model throws `authPlugin() needs a
+user model: declare it with defineUser.`, and one with two
+`models lists two models defineUser returned: an application has one user model.`
+
+### Limits
+
+- A request carries one session: a Bearer header wins over the cookie.
+- A function sets the cookie only over HTTP; from server code, `User.signIn`
+  returns the token alone.

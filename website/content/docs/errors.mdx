@@ -1,0 +1,113 @@
+---
+title: Errors
+description: Refuse with an error the client can read, and keep every other error on the server.
+---
+
+A `PublicError` is an error the client is meant to read: its code, its
+message and its details reach it, from server code and over every transport.
+Throw one from a function, a hook or a plugin to refuse:
+
+<include cwd meta='title="src/functions.ts"'>
+	../examples/errors/src/functions.ts#public
+</include>
+
+The full example, with its tests: [`examples/errors`](https://github.com/MrEkinox/ultimabase/tree/main/examples/errors).
+
+The code is in capitals: `OUT_OF_STOCK`, or one of the kernel's codes, which
+keep their meaning. The details are any JSON value.
+
+## In server code
+
+A caller in server code catches it, and branches on its `code`. The kernel's
+own errors are `PublicError`s too, with the codes listed below:
+
+<include cwd meta='title="src/app.test.ts"'>
+	../examples/errors/src/app.test.ts#catch
+</include>
+
+## Over the transports
+
+REST answers with the error as its body, and a status from its code: an
+application's own code is a `400`.
+
+<include cwd meta='title="src/app.test.ts"'>
+	../examples/errors/src/app.test.ts#rest
+</include>
+
+GraphQL puts the code and the details in the error's `extensions`, with the
+`path` of the field that failed:
+
+<include cwd meta='title="src/app.test.ts"'>
+	../examples/errors/src/app.test.ts#graphql
+</include>
+
+## Every other error
+
+An error that is not a `PublicError`, a bug or a service that failed, never
+reaches the client: its message could hold a secret. Its request answers
+`INTERNAL`, and the server logs the error with a correlation id the answer
+holds too:
+
+<include cwd meta='title="src/functions.ts"'>
+	../examples/errors/src/functions.ts#internal
+</include>
+
+<include cwd meta='title="src/app.test.ts"'>
+	../examples/errors/src/app.test.ts#masked
+</include>
+
+The log line is `A request failed.` over REST and `A GraphQL field failed.`
+over GraphQL, at error level, with `correlationId` and `err`. `defineApp({
+logger })` takes a [pino](https://getpino.io) logger, or any logger with its
+`info`, `warn`, `error` and `child`; without one, the kernel writes a
+readable line in a terminal and a JSON line everywhere else.
+
+## Reference
+
+### `new PublicError(code, message, options?)`
+
+| Argument          | Type         | Effect                                                     |
+| ----------------- | ------------ | ---------------------------------------------------------- |
+| `code`            | `string`     | In capitals: a kernel code, or the application's own.      |
+| `message`         | `string`     | Shown to the client as is: write it for the client.        |
+| `options.details` | a JSON value | Sent with the error; `{ issues }` for `VALIDATION_FAILED`. |
+| `options.cause`   | `unknown`    | The error it comes from, kept on the server.               |
+
+### Codes
+
+| Code                  | When                                                     | REST status | `details`                    |
+| --------------------- | -------------------------------------------------------- | ----------- | ---------------------------- |
+| `VALIDATION_FAILED`   | A value or an input its schema refused.                  | 400         | `{ issues }`                 |
+| `ACCESS_DENIED`       | An access rule refused.                                  | 403         | what refused                 |
+| `NOT_FOUND`           | No row matches, or the caller cannot read it.            | 404         | none                         |
+| `UNIQUE_VIOLATION`    | A second row with a unique value.                        | 409         | `{ model, fields }`          |
+| `RELATION_RESTRICTED` | A delete a `restrict` relation refused.                  | 409         | `{ model, field }`           |
+| `UNAUTHENTICATED`     | A session is needed, or it ended.                        | 401         | none                         |
+| `INVALID_CREDENTIALS` | A wrong email or password.                               | 401         | none                         |
+| `TOO_MANY_ATTEMPTS`   | Too many sign-ins; `Retry-After` says when to try again. | 429         | `{ retryAfter }`, in seconds |
+| `BAD_USER_INPUT`      | A client's query, parameter or body the API refuses.     | 400         | `{ path }`, from the kernel  |
+| `INTERNAL`            | Any error that is not a `PublicError`.                   | 500         | `correlationId`, beside it   |
+| the application's own | A `PublicError` it threw.                                | 400         | its own                      |
+
+An issue is `{ path, message }`: `path` lists the keys to the refused
+value, as `['days']`.
+
+### The answer
+
+| Transport | Shape                                                                |
+| --------- | -------------------------------------------------------------------- |
+| REST      | `{ code, message, details? }`, or `{ code, message, correlationId }` |
+| GraphQL   | `errors: [{ message, path, extensions: { code, details? } }]`        |
+
+HTTP refuses some requests before any code runs, with the status's name as
+the code: a body over `bodyLimit` is `413` `PAYLOAD_TOO_LARGE`. See
+[HTTP](/docs/next/http).
+
+### Limits
+
+- A code not in capitals is a type error.
+- A query the kernel refuses, such as an unknown field, throws an
+  `InvalidQuery` in server code, with the code `INVALID_QUERY` and its
+  `path`. Sent by a client, it answers `BAD_USER_INPUT` with the same
+  message; thrown by server code and left uncaught, it is a bug, masked as
+  `INTERNAL`.

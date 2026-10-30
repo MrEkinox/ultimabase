@@ -9,7 +9,7 @@ and `restorePost` functions give clients the plugin's `Post.trash` and
 - `src/functions.ts`: the `trash` and `restorePost` functions.
 - `src/app.ts`: the application.
 - `src/app.test.ts`: a post deleted, read in the trash and restored over
-  GraphQL.
+  GraphQL and from server code.
 
 `yarn start` serves it on http://localhost:3000/graphql; `yarn vitest
 examples/soft-delete` runs its tests.

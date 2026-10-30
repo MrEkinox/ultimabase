@@ -9,8 +9,10 @@ import { Post } from './models.ts'
 export const app = defineApp({
 	// Kept in memory, so the example needs no database.
 	database: memory(),
+	//#region plugins
 	// Listens on PORT, or 3000.
 	plugins: [httpPlugin(), graphqlPlugin(), softDeletePlugin()],
+	//#endregion
 	models: [Post],
 	functions: [trash, restorePost],
 })

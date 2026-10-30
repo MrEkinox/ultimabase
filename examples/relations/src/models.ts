@@ -1,4 +1,5 @@
 // The models: authors write books, a publisher prints them, tags sort them.
+//#region models
 import { graphql } from '@ultimabase/graphql'
 import { allow, defineModel } from 'ultimabase'
 
@@ -41,3 +42,4 @@ export const Book = defineModel({
 		tags: f.many(() => Tag),
 	}),
 }).with({ access: allow.public })
+//#endregion

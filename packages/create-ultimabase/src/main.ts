@@ -28,9 +28,9 @@ const managerOf = (userAgent: string | undefined): Manager => {
 	return name === 'yarn' || name === 'pnpm' ? name : 'npm'
 }
 const steps: Record<Manager, readonly string[]> = {
-	npm: ['npm install', 'npm start'],
-	yarn: ['yarn', 'yarn start'],
-	pnpm: ['pnpm install', 'pnpm start'],
+	npm: ['npm install', 'npm run dev'],
+	yarn: ['yarn', 'yarn dev'],
+	pnpm: ['pnpm install', 'pnpm dev'],
 }
 
 /** A question asked on `input` and `output`, a terminal. */
