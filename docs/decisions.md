@@ -1589,6 +1589,8 @@ Rejected: starting on import; leaving signals to each application.
 
 ## D-60: Releases are 0.x, versioned together, with Changesets
 
+Amended by D-156.
+
 Choice: until 1.0, any minor version may break. The kernel and the official
 plugins are released together with the same version number, and Changesets
 writes the changelog.
@@ -9994,4 +9996,93 @@ has no region `before-create`.
 website/content/docs/relations.mdx           /docs/next/relations   (main)
 website/content/versions/0.2/relations.mdx   /docs/relations        (latest)
 website/content/versions/0.1/relations.mdx   /docs/0.1/relations
+```
+
+## D-156: Releases from CI: canaries, a release pull request, one tag
+
+Choice: completes D-60; nothing is published from a laptop.
+
+1. Every push to `main` runs `ci.yml`. Once each of its checks passes, two
+   jobs of that same file publish, in the GitHub environment `npm`, which
+   only `main` may use: npm trusts one workflow file and one environment
+   per package, with its OIDC token (trusted publishing), so no npm token
+   exists. npm signs each version's provenance.
+2. Canary: while changesets are pending, the push publishes every package
+   at the next version with the suffix `-canary.<UTC datetime>`, under the
+   npm tag `canary`: `0.1.2-canary.20261030141200`.
+   `npm create ultimabase@canary` writes a starter on them.
+3. Release: while changesets are pending, `changesets/action` opens or
+   updates the pull request `chore(release): version packages`, which
+   bumps the versions, writes the changelogs, updates the lockfile and
+   freezes the documentation (`yarn website:freeze`, D-155). Merging it is
+   the one step a release takes: its push publishes each version npm lacks
+   under `latest`, then creates the tag `v<version>` and its GitHub release,
+   one for all the packages. The release's notes are the changelogs'
+   entries, each once after the packages that list it; a version without
+   any entry fails. Cloudflare deploys the site from the same push.
+4. `scripts/release.ts` packs each package with Yarn, which writes
+   `workspace:*` out and applies `publishConfig`, and publishes the pack
+   with npm, which alone authenticates with OIDC. It is safe to rerun: a
+   version npm has is skipped, a failed publish is tried three times, a
+   release GitHub has is kept. A run of `main` is never cancelled, and the
+   publishing jobs install without the Yarn cache.
+5. Commit messages follow Conventional Commits: a type among `feat`,
+   `fix`, `perf`, `refactor`, `docs`, `test`, `build`, `ci`, `chore`,
+   `revert` and `style`, `!` for a breaking change, and a scope among the
+   package directories, `bench`, `ci`, `docs`, `examples`, `release`,
+   `repo` and `website`. commitlint checks them in a `commit-msg` hook
+   husky installs on `yarn install`, and in CI on the commits a push or a
+   pull request brings, which publishing does not wait for: a pushed
+   commit cannot be reworded. The message tells contributors what changed;
+   the changeset tells users, and decides the version.
+
+Why:
+
+- Publishing 0.1.0 and 0.1.1 took a pack and an `npm publish` per package
+  from a laptop, each with its own two-factor prompt.
+- Prisma and tRPC publish a canary on every push to `main`, Next.js every
+  day; Next.js, Prisma and tRPC create one `v<version>` tag per version.
+  Astro, SvelteKit and Keystone release by merging Changesets' pull request.
+  All eight publish with OIDC.
+- None of them waits for its tests before publishing: they rely on pull
+  requests' checks. `main` here takes direct pushes, so the publishing jobs
+  wait for every check of the commit.
+- A pull request opened with the workflow's token runs no checks; the push
+  of its merge does, before anything is published.
+- Yarn 4 does not publish with OIDC, and `changeset publish` would create a
+  tag and a release per package: 15 for one version.
+
+Rejected:
+
+- pkg.pr.new previews instead of npm canaries: `npm create ultimabase@canary`
+  needs the packages on npm, and the service needs a GitHub app.
+- release-please, versions derived from commit messages: no snapshot
+  versions, one tag per package in a monorepo, and the changelog would be
+  written for contributors rather than users.
+- An approval on the `npm` environment: merging the release pull request is
+  already the decision, made by the only maintainer.
+- A commit check written in the repository: commitlint covers the whole
+  specification and names the rule a message breaks.
+- The release candidates of a large version (`0.2.0-rc.0`) are not built
+  until one is prepared, with Changesets' pre mode.
+
+Example:
+
+```text
+# Before: the maintainer, for each of the 15 packages
+yarn workspace @ultimabase/graphql pack -o packs/%s-%v.tgz
+npm publish packs/@ultimabase/graphql-0.1.1.tgz --access public  # 2FA
+
+# After: a fix and its changeset
+git commit -m "fix(graphql): a refused query answers BAD_USER_INPUT"
+#   → npm: @ultimabase/graphql@0.1.2-canary.20261030141200 (canary)
+#   → GitHub: "chore(release): version packages" updated
+# Merging that pull request
+#   → npm: the 15 packages at 0.1.2 (latest), with provenance
+#   → GitHub: tag v0.1.2, release v0.1.2
+```
+
+```text
+$ git commit -m "release: 0.1.2"
+✖   type must be one of [build, chore, ci, docs, feat, fix, perf, refactor, revert, style, test] [type-enum]
 ```
