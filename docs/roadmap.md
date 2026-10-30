@@ -247,7 +247,7 @@ Exit: an example with sign-up, sign-in and rules on `caller.user`.
       and a lost link or role passing over the whole window
       (`bench/realtime/README.md`).
 - [x] Decide the website: D-155.
-- [ ] Documentation website (D-31, D-155).
+- [x] Documentation website (D-31, D-155).
 - [ ] A full audit of every package, its fixes merged, before publication.
 - [ ] Publication, after confirmation.
 

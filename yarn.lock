@@ -4252,6 +4252,15 @@ __metadata:
   languageName: node
   linkType: hard
 
+"geist@npm:1.8.2":
+  version: 1.8.2
+  resolution: "geist@npm:1.8.2"
+  peerDependencies:
+    next: ">=13.2.0"
+  checksum: 10c0/53859c2e8ff7c8a7f96263e8e83f9a24cb9fe417ac77ea6964bfabe205cc91362164f39671aade3f722eee98220d9b491fc6d0ab1468ed5165cb34dfeaa31e45
+  languageName: node
+  linkType: hard
+
 "get-nonce@npm:^1.0.0":
   version: 1.0.1
   resolution: "get-nonce@npm:1.0.1"
@@ -7200,6 +7209,7 @@ __metadata:
     fumadocs-core: "npm:16.17.3"
     fumadocs-mdx: "npm:15.4.7"
     fumadocs-ui: "npm:16.17.3"
+    geist: "npm:1.8.2"
     next: "npm:16.4.1"
     npm-to-yarn: "npm:3.2.0"
     react: "npm:19.3.1"

@@ -1,3 +1,65 @@
 @import 'tailwindcss';
 @import 'fumadocs-ui/css/neutral.css';
 @import 'fumadocs-ui/css/preset.css';
+@import './landing.css';
+@import './landing-sections.css';
+
+/* The logo's typeface, from the `geist` package (D-155). */
+@theme {
+	--font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+	--font-mono: var(--font-geist-mono), ui-monospace, monospace;
+}
+
+/* The logo's colors (D-155): the accent on paper, and on ink. */
+:root {
+	--ub-accent: #2f5bff;
+	--color-fd-background: #f4f4f1;
+	--color-fd-foreground: #0e1116;
+	--color-fd-muted: #ebebe6;
+	--color-fd-muted-foreground: #4a4f57;
+	--color-fd-popover: #fafaf8;
+	--color-fd-popover-foreground: #0e1116;
+	--color-fd-card: #fafaf8;
+	--color-fd-card-foreground: #0e1116;
+	--color-fd-border: #dcdcd5;
+	--color-fd-primary: #2f5bff;
+	--color-fd-primary-foreground: #fff;
+	--color-fd-secondary: #ecece7;
+	--color-fd-secondary-foreground: #0e1116;
+	--color-fd-accent: #e4e4de;
+	--color-fd-accent-foreground: #0e1116;
+	--color-fd-ring: #2f5bff;
+}
+
+.dark,
+.dark #nd-sidebar {
+	--color-fd-background: #0e1116;
+	--color-fd-foreground: #eceef1;
+	--color-fd-muted: #161a21;
+	--color-fd-muted-foreground: #a3a9b3;
+	--color-fd-popover: #13171d;
+	--color-fd-popover-foreground: #eceef1;
+	--color-fd-card: #12161c;
+	--color-fd-card-foreground: #eceef1;
+	--color-fd-border: #242a33;
+	--color-fd-primary: #7e9bff;
+	--color-fd-primary-foreground: #0e1116;
+	--color-fd-secondary: #171b22;
+	--color-fd-secondary-foreground: #eceef1;
+	--color-fd-accent: #1e232c;
+	--color-fd-accent-foreground: #eceef1;
+	--color-fd-ring: #7e9bff;
+}
+
+/* The wordmark: Geist 600, tight. */
+.ub-logo {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.55rem;
+	font-weight: 600;
+	letter-spacing: -0.03em;
+}
+.ub-logo svg {
+	width: 1.4em;
+	height: 1.4em;
+}

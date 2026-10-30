@@ -1,4 +1,6 @@
 import { RootProvider } from 'fumadocs-ui/provider/next'
+import { GeistMono } from 'geist/font/mono'
+import { GeistSans } from 'geist/font/sans'
 import type { Metadata } from 'next'
 import type { ReactNode } from 'react'
 
@@ -9,12 +11,16 @@ import './global.css'
 export const metadata: Metadata = {
 	title: { default: 'UltimaBase', template: '%s · UltimaBase' },
 	description:
-		'A TypeScript backend built from a small kernel and its plugins.',
+		'Declare your models and who may read and write them; UltimaBase serves them over GraphQL and REST, on PostgreSQL or in memory.',
 }
 
 export default function Layout({ children }: { readonly children: ReactNode }) {
 	return (
-		<html lang="en" suppressHydrationWarning>
+		<html
+			className={`${GeistSans.variable} ${GeistMono.variable}`}
+			lang="en"
+			suppressHydrationWarning
+		>
 			<body className="flex min-h-screen flex-col">
 				<RootProvider search={{ SearchDialog: Search }}>
 					{children}

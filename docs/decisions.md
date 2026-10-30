@@ -9807,6 +9807,9 @@ Amended 2026-10-30: the option check reads the examples a page includes.
 Amended 2026-10-30: the clients stay in the realtime page; a README links
 to its page's source until the site is published.
 Amended 2026-10-30: a page's first snippet shows its imports.
+Amended 2026-10-30: the landing page's sections, colors and typeface.
+Amended 2026-10-30: the landing page shows regions of several examples,
+each linking to its file.
 
 Choice: completes D-31; the examples stay its source of truth.
 
@@ -9871,10 +9874,27 @@ Choice: completes D-31; the examples stay its source of truth.
 5. For agents: `/llms.txt` lists the pages, `/llms-full.txt` holds them all,
    and each page is also served as Markdown at `/docs/<page>.md`, built by
    Fumadocs from the same pages.
-6. The landing page is one page whose text lives in one file: the product
-   in a sentence, `npm create ultimabase`, a model and its rule from an
-   example, the official plugins, and links to the documentation and the
-   repository.
+6. The landing page is written in TSX: `website/app/page.tsx` assembles
+   its sections from `website/components/landing/`; the documentation
+   stays in MDX. Its code blocks are regions of the examples, read when the
+   site builds by its `Example` component, which fails the build on a
+   missing region and titles each block with a link to its file on GitHub;
+   the repository test checks each region as it does a page's include. In
+   order, it shows: the product in a sentence, with `npm create ultimabase`
+   and links to the documentation and the repository, beside an
+   application as its models plus its plugins, above a model, its rule,
+   its reads over GraphQL, REST and server code, and a refused write, from
+   `examples/introduction`; a statement linking to the sections below; the
+   official plugins, each linking to its page, beside the application that
+   lists them, in memory and on PostgreSQL; sign-in and access rules;
+   fields, relations and queries; transactions; soft delete, writing a
+   plugin, realtime, hooks and files; the questions a developer asks first,
+   what is not there yet included; and the quickstart. Each section shows
+   a region and the result its test checks. The site, the documentation
+   included, wears the logo's colors, the accent `#2F5BFF` on the ink
+   `#0E1116` and the paper `#F4F4F1`, and the Geist typeface, from the
+   `geist` package; the favicon is the logo's app icon (amended
+   2026-10-30).
 7. Each package gets a README of a few lines: what it does and a link to
    its page, without code. Until the site is published, the link is the
    page's source on GitHub, which the repository test checks exists
@@ -9906,11 +9926,19 @@ Why:
   are the product.
 - A developer on 0.1 reads 0.1's pages after 0.2 ships; a frozen copy
   keeps them as they were, whatever the examples become.
+- The landing page opens on one example from the model to its requests, so
+  a reader sees one rule hold everywhere, then shows each capability with
+  the example that tests it; the previous landing page's code was written
+  in it and no longer matched the API.
+- The `geist` package ships the typeface's files, which Next serves from
+  the site: no font to host by hand, and a build that needs no network.
 
 Rejected:
 
 - Astro Starlight or VitePress: less work, but not the look the maintainer
   wants.
+- The landing page in MDX: it is a page of layout more than text, and its
+  components would lose their types in it.
 - Twoslash in 0.1: an included region lacks its file's imports, and the
   examples already type-check.
 - Snippets checked by a compile step, or blocks marked unverified, as the
@@ -9920,6 +9948,8 @@ Rejected:
 - Old versions built from their Git tags: each build would check out
   every tag, and a host's shallow clone has none.
 - One copy per patch version: a patch changes no API.
+- The typeface from Google Fonts at build: each build would need the
+  network.
 
 Example:
 

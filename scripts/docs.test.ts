@@ -133,6 +133,49 @@ it("shows a page's first file with its imports, and links to its example", () =>
 	expect(problems).toEqual([])
 })
 
+/** The landing page and the sections it assembles, as `[path, text]`. */
+const landing: [string, string][] = [
+	join(website, 'app', 'page.tsx'),
+	...readdirSync(join(website, 'components', 'landing'))
+		.filter((file) => file.endsWith('.tsx'))
+		.map((file) => join(website, 'components', 'landing', file)),
+].map((path) => [path, readFileSync(path, 'utf8')])
+
+/** The `file` and `region` of each `<Example>` a landing file shows. */
+function examplesOf(page: string): { file: string; region: string }[] {
+	return [...page.matchAll(/<Example\b[^>]*>/gu)].map(([tag]) => ({
+		file: /\bfile="(?<value>[^"]*)"/u.exec(tag)?.groups?.['value'] ?? '',
+		region: /\bregion="(?<value>[^"]*)"/u.exec(tag)?.groups?.['value'] ?? '',
+	}))
+}
+
+it("reads an <Example>'s file and region in any order", () => {
+	const page = '<Example\n\tregion="post"\n\tfile="a/b.ts"\n/>'
+	expect(examplesOf(page)).toEqual([{ file: 'a/b.ts', region: 'post' }])
+})
+
+it('shows on the landing page only regions that exist', () => {
+	const shown = landing.flatMap(([path, text]) =>
+		examplesOf(text).map((example) => ({ path, ...example })),
+	)
+	const problems = [
+		...(shown.length === 0 ? ['The landing page shows no <Example>.'] : []),
+		...shown
+			.filter(({ file, region: name }) => {
+				const path = join('examples', file)
+				return (
+					!existsSync(path) ||
+					region(readFileSync(path, 'utf8'), name) === undefined
+				)
+			})
+			.map(
+				({ path, file, region: name }) =>
+					`${path}: examples/${file} has no region "${name}".`,
+			),
+	]
+	expect(problems).toEqual([])
+})
+
 it('holds no include in a frozen version', () => {
 	const problems = frozen
 		.filter(([, text]) => includesOf(text).length > 0)

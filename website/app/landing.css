@@ -1,0 +1,485 @@
+/* The landing page (D-155): the previous site's layout, in the logo's colors.
+   This file holds the shared pieces, the hero and the code proofs; the
+   sections below the hero are in `landing-sections.css`. */
+.ub-landing {
+	--ub-blue: var(--color-fd-primary);
+	--ub-line: var(--color-fd-border);
+	--ub-muted: var(--color-fd-muted-foreground);
+	--ub-soft: color-mix(
+		in oklab,
+		var(--ub-accent) 5%,
+		var(--color-fd-background)
+	);
+	--ub-card: #fdfdfb;
+	--ub-tint: color-mix(in oklab, var(--ub-blue) 35%, var(--ub-line));
+	--ub-ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+	flex: 1;
+	padding-bottom: 1rem;
+	color: var(--color-fd-foreground);
+}
+.dark .ub-landing {
+	--ub-soft: color-mix(
+		in oklab,
+		var(--ub-accent) 7%,
+		var(--color-fd-background)
+	);
+	--ub-card: #12161c;
+}
+.ub-landing h1,
+.ub-landing h2,
+.ub-landing h3 {
+	text-wrap: balance;
+}
+.ub-landing h2 {
+	font-size: clamp(2.25rem, 4vw, 3.5rem);
+	font-weight: 560;
+	letter-spacing: -0.045em;
+	line-height: 1.06;
+}
+.ub-landing h1 em,
+.ub-landing h2 em {
+	display: block;
+	font-style: normal;
+	color: var(--ub-blue);
+}
+.ub-arrow {
+	width: 0.875rem;
+	height: 0.875rem;
+	flex-shrink: 0;
+	transition: transform 160ms var(--ub-ease);
+}
+a:hover > .ub-arrow,
+a:hover .ub-arrow {
+	transform: translateX(2px);
+}
+.ub-kicker,
+.ub-label,
+.ub-eyebrow,
+.ub-group-name {
+	color: var(--ub-blue);
+	font: 500 0.6875rem/1.5 var(--font-mono);
+	letter-spacing: 0.09em;
+	text-transform: uppercase;
+}
+.ub-label {
+	margin-bottom: 1rem;
+}
+
+/* The commands and links of the hero and the closing invitation. */
+.ub-actions {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 0.75rem;
+	margin-top: 2rem;
+}
+.ub-command {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.75rem;
+	padding: 0.75rem 0.75rem 0.75rem 1rem;
+	border: 1px solid var(--ub-line);
+	border-radius: 0.6rem;
+	background: var(--ub-card);
+	font: 0.875rem/1.4 var(--font-mono);
+	cursor: copy;
+	transition: border-color 160ms;
+}
+.ub-command:hover {
+	border-color: var(--ub-tint);
+}
+.ub-prompt {
+	color: var(--ub-blue);
+}
+.ub-copy {
+	padding-left: 0.75rem;
+	border-left: 1px solid var(--ub-line);
+	color: var(--ub-muted);
+	font-size: 0.75rem;
+}
+.ub-button {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.6rem;
+	padding: 0.75rem 1.1rem;
+	border: 1px solid transparent;
+	border-radius: 0.6rem;
+	background: var(--ub-accent);
+	color: #fff;
+	font-size: 0.9375rem;
+	font-weight: 550;
+	transition: background-color 160ms;
+}
+.ub-button:hover {
+	background: color-mix(in oklab, var(--ub-accent) 86%, #000);
+}
+.ub-button.ub-quiet {
+	background: transparent;
+	color: inherit;
+}
+.ub-button.ub-quiet:hover {
+	border-color: var(--ub-line);
+}
+.ub-note {
+	display: flex;
+	align-items: center;
+	gap: 0.6rem;
+	margin-top: 1.25rem;
+	color: var(--ub-muted);
+	font-size: 0.8125rem;
+}
+.ub-dot {
+	width: 0.375rem;
+	height: 0.375rem;
+	border-radius: 50%;
+	background: var(--ub-blue);
+	box-shadow: 0 0 0 3px color-mix(in oklab, var(--ub-blue) 18%, transparent);
+}
+
+/* The hero and the closing invitation share a surface and its dot grid. */
+.ub-hero,
+.ub-start {
+	position: relative;
+	isolation: isolate;
+	width: min(100% - 2rem, 86rem);
+	margin: 1rem auto 0;
+	border: 1px solid var(--ub-line);
+	border-radius: 1.25rem;
+	background: var(--ub-soft);
+	overflow: hidden;
+}
+.ub-hero::before,
+.ub-start::before {
+	content: '';
+	position: absolute;
+	z-index: -1;
+	inset: 0;
+	background-image: radial-gradient(var(--ub-blue) 0.65px, transparent 0.8px);
+	background-size: 7px 7px;
+	opacity: 0.18;
+	mask-image: linear-gradient(115deg, transparent 35%, #000);
+	pointer-events: none;
+}
+.ub-hero {
+	display: grid;
+	grid-template-columns: minmax(0, 1.5fr) minmax(0, 0.85fr);
+	align-items: center;
+	gap: 3rem 4rem;
+	padding: 5.5rem 3rem 0;
+}
+.ub-hero h1 {
+	margin-top: 1.5rem;
+	font-size: clamp(3rem, 5.6vw, 5.25rem);
+	font-weight: 560;
+	line-height: 1.02;
+	letter-spacing: -0.055em;
+}
+.ub-lede {
+	max-width: 40rem;
+	margin-top: 1.5rem;
+	color: var(--ub-muted);
+	font-size: 1.125rem;
+	line-height: 1.7;
+}
+
+/* Your models plus your plugins: a working backend. */
+.ub-equation {
+	display: grid;
+	justify-items: center;
+}
+.ub-equation > .ub-label {
+	justify-self: start;
+}
+.ub-term {
+	width: 100%;
+	padding: 1rem 1.1rem 1.1rem;
+	border: 1px solid var(--ub-tint);
+	border-radius: 0.75rem;
+	background: var(--ub-card);
+	box-shadow: 0 4px 0 color-mix(in oklab, var(--ub-blue) 9%, transparent);
+}
+.ub-term-name {
+	font-size: 0.875rem;
+	font-weight: 560;
+}
+.ub-term-text {
+	margin-top: 0.15rem;
+	color: var(--ub-muted);
+	font-size: 0.8125rem;
+}
+.ub-chips {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.4rem;
+	margin-top: 0.75rem;
+}
+.ub-chips li {
+	padding: 0.2rem 0.6rem;
+	border: 1px solid var(--ub-line);
+	border-radius: 999px;
+	background: var(--ub-soft);
+	font: 0.75rem/1.6 var(--font-mono);
+}
+.ub-chips .ub-chip-more {
+	border-color: transparent;
+	background: transparent;
+	color: var(--ub-muted);
+}
+.ub-chips .ub-chip-own {
+	border-style: dashed;
+	border-color: var(--ub-tint);
+	background: transparent;
+	color: var(--ub-blue);
+}
+/* The plus on a line, and the line down to the result. */
+.ub-plus,
+.ub-equals {
+	position: relative;
+	display: grid;
+	place-items: center;
+	height: 2.75rem;
+	color: var(--ub-blue);
+	font: 500 1rem/1 var(--font-mono);
+}
+.ub-plus::before,
+.ub-equals::before {
+	content: '';
+	position: absolute;
+	z-index: -1;
+	inset: 0 auto;
+	border-left: 1px dashed var(--ub-tint);
+}
+.ub-plus {
+	width: 1.6rem;
+}
+.ub-plus::after {
+	content: '';
+	position: absolute;
+	z-index: -1;
+	width: 1.6rem;
+	height: 1.6rem;
+	border: 1px solid var(--ub-tint);
+	border-radius: 50%;
+	background: var(--ub-card);
+}
+.ub-equals::after {
+	content: '';
+	position: absolute;
+	bottom: 0;
+	border: 4px solid transparent;
+	border-top: 5px solid var(--ub-blue);
+	transform: translateY(5px);
+}
+.ub-term-result {
+	--color-fd-background: var(--ub-card);
+	display: flex;
+	align-items: center;
+	gap: 0.9rem;
+	border-color: var(--ub-blue);
+}
+.ub-term-result svg {
+	width: 2.5rem;
+	height: 2.5rem;
+	flex-shrink: 0;
+}
+.ub-turning g + g circle {
+	transform-box: view-box;
+	transform-origin: 32px 32px;
+}
+
+/* Code beside what it does: tabs above, the outcome on the right. */
+.ub-proof {
+	min-width: 0;
+	margin: 0;
+	border: 1px solid var(--ub-line);
+	border-radius: 0.75rem;
+	background: var(--ub-card);
+	box-shadow: 0 12px 40px -16px rgb(14 30 80 / 0.22);
+}
+.ub-hero > .ub-proof {
+	grid-column: 1 / -1;
+	margin: 1.5rem 0 -1px;
+	border-radius: 0.75rem 0.75rem 0 0;
+}
+.ub-section > .ub-proof {
+	margin-top: 3rem;
+}
+.ub-landing .ub-tabs {
+	display: grid;
+	grid-template-rows: auto 1fr;
+	min-width: 0;
+	margin: 0;
+	border: 0;
+	border-radius: inherit;
+	background: transparent;
+}
+.ub-tabs [role='tablist'] {
+	gap: 1.5rem;
+	padding-inline: 1.5rem;
+	border-bottom: 1px solid var(--ub-line);
+}
+.ub-tabs [role='tab'] {
+	min-height: 2.9rem;
+	font-size: 0.875rem;
+	font-weight: 500;
+}
+.ub-tabs [role='tab'][data-state='active'] {
+	border-color: var(--ub-blue);
+	color: var(--ub-blue);
+}
+.ub-tabs [role='tabpanel'] {
+	grid-area: 2 / 1;
+	min-width: 0;
+	padding: 0;
+	border-radius: 0;
+	background: transparent;
+}
+/* Every pane stays, so the tallest one sets the height. */
+.ub-tabs [role='tabpanel'][data-state='inactive'] {
+	display: block;
+	visibility: hidden;
+}
+.ub-pane {
+	display: grid;
+	grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr);
+	height: 100%;
+}
+.ub-pane > .ub-pane-code {
+	min-width: 0;
+	border-right: 1px solid var(--ub-line);
+}
+.ub-landing .ub-pane-code figure,
+.ub-landing .ub-panel-code figure {
+	margin: 0;
+	border: 0;
+	border-radius: 0;
+	background: transparent;
+}
+.ub-landing .ub-pane-code figure > div:first-child,
+.ub-landing .ub-panel-code figure > div:first-child {
+	padding-inline: 1.5rem;
+	border-color: var(--ub-line);
+}
+.ub-landing .ub-pane-code pre,
+.ub-landing .ub-panel-code pre {
+	font-size: 0.8125rem;
+	line-height: 1.75;
+}
+.ub-source {
+	font: 0.75rem/1.5 var(--font-mono);
+	transition: color 160ms;
+}
+.ub-source span {
+	opacity: 0.6;
+}
+.ub-source:hover {
+	color: var(--ub-blue);
+}
+.ub-side {
+	align-self: center;
+	min-width: 0;
+	padding: 2rem;
+}
+.ub-result-title {
+	margin-top: 0.5rem;
+	font-size: 1.5rem;
+	font-weight: 560;
+	letter-spacing: -0.03em;
+}
+.ub-side-text {
+	margin-top: 1.5rem;
+	color: var(--ub-muted);
+	font-size: 0.875rem;
+	line-height: 1.65;
+}
+.ub-proof > figcaption {
+	padding: 0.85rem 1.5rem;
+	border-top: 1px solid var(--ub-line);
+	color: var(--ub-muted);
+	font-size: 0.8125rem;
+	line-height: 1.6;
+}
+.ub-proof > figcaption a {
+	color: var(--ub-blue);
+	font-weight: 550;
+}
+.ub-proof > figcaption code {
+	font-family: var(--font-mono);
+}
+
+/* A row and what happens to it. */
+.ub-rows {
+	margin-top: 1.25rem;
+	border-top: 1px solid var(--ub-line);
+}
+.ub-row {
+	display: grid;
+	grid-template-columns: auto minmax(0, 1fr);
+	gap: 0.2rem 1rem;
+	padding: 0.85rem 0;
+	border-bottom: 1px solid var(--ub-line);
+}
+.ub-row-name {
+	font-weight: 550;
+}
+.ub-row code {
+	justify-self: end;
+	overflow-wrap: anywhere;
+	color: var(--ub-muted);
+	font: 0.75rem/1.9 var(--font-mono);
+	text-align: right;
+}
+.ub-row-state {
+	grid-column: 1 / -1;
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	color: var(--ub-blue);
+	font-size: 0.8125rem;
+}
+.ub-row-state::before {
+	content: '';
+	width: 0.375rem;
+	height: 0.375rem;
+	flex-shrink: 0;
+	border-radius: 50%;
+	background: currentColor;
+}
+.ub-row-off .ub-row-name {
+	color: var(--ub-muted);
+	text-decoration: line-through;
+	text-decoration-color: var(--ub-line);
+}
+.ub-row-off .ub-row-state {
+	color: var(--ub-muted);
+}
+.ub-row-off .ub-row-state::before {
+	background: transparent;
+	box-shadow: inset 0 0 0 1px currentColor;
+}
+
+/* The application stays on ink in both themes. */
+.ub-landing .ub-dark {
+	border-color: #262c36;
+	background: #11151b;
+	color: #eceef1;
+	box-shadow: 0 24px 60px -28px rgb(14 17 22 / 0.55);
+}
+.ub-dark .ub-tabs [role='tablist'],
+.ub-landing .ub-dark .ub-pane-code figure > div:first-child,
+.ub-dark > figcaption {
+	border-color: #262c36;
+}
+.ub-dark .ub-tabs [role='tab'],
+.ub-landing .ub-dark figure > div:first-child,
+.ub-landing .ub-dark button,
+.ub-dark > figcaption {
+	color: #a3a9b3;
+}
+.ub-dark .ub-tabs [role='tab'][data-state='active'] {
+	border-color: #7e9bff;
+	color: #7e9bff;
+}
+.ub-landing .ub-dark .shiki code span {
+	color: var(--shiki-dark);
+}
