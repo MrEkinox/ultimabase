@@ -1,11 +1,11 @@
-// A token redeemed while another transaction uses it: the delete that waits
-// on the token's lock finds it gone, and the link fails (D-117).
+// Tokens at once (D-117): one redeemed while another transaction uses it
+// fails, and of those issued at once one stays.
 import { randomUUID } from 'node:crypto'
 import { Client } from 'pg'
 import { expect, it } from 'vitest'
-import { started } from './test/app.ts'
+import { M, started } from './test/app.ts'
 import { database, urls } from './test/postgres.ts'
-import { issueToken, redeemToken } from './tokens.ts'
+import { issueToken, PasswordToken, redeemToken } from './tokens.ts'
 
 async function waitingOnLock(watcher: Client): Promise<void> {
 	for (let tries = 0; tries < 300; tries += 1) {
@@ -45,6 +45,24 @@ for (const url of urls) {
 		} finally {
 			await other.end()
 			await watcher.end()
+			await running.app.stop()
+		}
+	})
+}
+
+for (const url of urls) {
+	it(`keeps one token of those issued at once on ${new URL(url).host}`, async () => {
+		const schema = `t_${randomUUID().replaceAll('-', '')}`
+		const running = await started(undefined, database(url, schema))
+		try {
+			const userId = randomUUID()
+			await Promise.all(
+				Array.from({ length: 5 }, async () =>
+					issueToken(userId, 'reset', 'ada@example.com'),
+				),
+			)
+			expect(await PasswordToken.count({ where: { userId } }, M)).toBe(1)
+		} finally {
 			await running.app.stop()
 		}
 	})

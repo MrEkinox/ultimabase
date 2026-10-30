@@ -59,13 +59,17 @@ export const PasswordToken: ModelOf<'PasswordToken', TokenFields, []> =
 			expiresAt: f.dateTime(),
 			email: f.string({ optional: true }),
 		}),
-		indexes: [{ fields: ['userId', 'kind'] }, { fields: ['expiresAt'] }],
+		// One pending token of each kind per user: requests at once cannot keep two.
+		indexes: [
+			{ fields: ['userId', 'kind'], unique: true },
+			{ fields: ['expiresAt'] },
+		],
 	})
 
 const hashOf = (token: string): string =>
 	createHash('sha256').update(token).digest('base64url')
 
-/** A new token of `kind` for `userId`, sent to `email`; it replaces the older one. */
+/** A new token of `kind` for `userId`, sent to `email`; it replaces the older one, even one issued at once. */
 export async function issueToken(
 	userId: string,
 	kind: EmailKind,
@@ -76,14 +80,25 @@ export async function issueToken(
 		{ where: { expiresAt: { lte: new Date(now) } } },
 		M,
 	)
-	await PasswordToken.deleteMany({ where: { userId, kind } }, M)
-	const token = randomBytes(32).toString('base64url')
 	const expiresAt = new Date(now + lifetimes[kind])
-	await PasswordToken.create(
-		{ data: { userId, kind, hash: hashOf(token), expiresAt, email } },
-		M,
-	)
-	return token
+	for (;;) {
+		await PasswordToken.deleteMany({ where: { userId, kind } }, M)
+		const token = randomBytes(32).toString('base64url')
+		try {
+			await PasswordToken.create(
+				{ data: { userId, kind, hash: hashOf(token), expiresAt, email } },
+				M,
+			)
+			return token
+		} catch (error) {
+			// Another request issued one meanwhile: this newer one replaces it.
+			if (!(
+				error instanceof PublicError && error.code === 'UNIQUE_VIOLATION'
+			)) {
+				throw error
+			}
+		}
+	}
 }
 
 const invalidLink = () =>

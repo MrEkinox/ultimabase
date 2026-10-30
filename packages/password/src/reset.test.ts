@@ -255,6 +255,19 @@ describe('resetting a password', () => {
 		expect((await reset(url, tokenAt(2))).body).toMatchObject(invalidLink)
 	})
 
+	it('keeps one token of those issued at once', async () => {
+		const { user } = await server()
+		const issued = await Promise.all(
+			[1, 2, 3].map(async () => issueToken(user.id, 'reset', ada.email)),
+		)
+		const [kept] = await PasswordToken.findMany({}, M)
+		expect(await PasswordToken.count({}, M)).toBe(1)
+		const hashes = issued.map((token) =>
+			createHash('sha256').update(token).digest('base64url'),
+		)
+		expect(hashes).toContain(kept?.hash)
+	})
+
 	it('keeps a verification token when a password is set', async () => {
 		const { user } = await server()
 		await issueToken(user.id, 'verify', 'ada@example.com')
