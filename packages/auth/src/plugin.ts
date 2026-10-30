@@ -20,7 +20,9 @@ import {
 	master,
 	PublicError,
 	Refused,
+	transaction,
 } from 'ultimabase'
+import { runningApi } from 'ultimabase/internal'
 import manifest from '../package.json' with { type: 'json' }
 import {
 	accountOf,
@@ -62,12 +64,25 @@ export interface AuthApi {
 	): Promise<{ readonly userId: string } | undefined>
 	/** The subject `userId` is known by to `method`, if linked (D-117). */
 	subjectOf(userId: string, method: string): Promise<string | undefined>
+	/**
+	 * Runs `listener` in the transaction of each `User.closeAccount`, after
+	 * the user's accounts are unlinked: a method deletes what it keeps.
+	 */
+	onCloseAccount(listener: (userId: string) => Promise<void>): void
 }
 
 /** auth's commands on the user model (D-113). */
 export interface AuthCommands {
 	/** Ends every session of the user, as Master or as the user. */
 	revokeSessions(
+		where: { readonly id: string },
+		options?: { readonly as?: Identity },
+	): Promise<void>
+	/**
+	 * Ends every session of the user and unlinks every account, keeping the
+	 * row, as Master or as the user (D-160).
+	 */
+	closeAccount(
 		where: { readonly id: string },
 		options?: { readonly as?: Identity },
 	): Promise<void>
@@ -92,6 +107,8 @@ interface State {
 const states = new WeakMap<object, State>()
 /** The contexts whose insecure cookie was warned about (D-115). */
 const warned = new WeakSet<object>()
+/** What `onCloseAccount` was given, by auth's API. */
+const closers = new WeakMap<object, ((userId: string) => Promise<void>)[]>()
 
 const M = { as: master }
 
@@ -99,6 +116,29 @@ function stateOf(context: object): State {
 	const state = states.get(context)
 	if (state === undefined) throw new Error('auth has not started.')
 	return state
+}
+
+/** Refuses a caller that is neither Master nor the user `id`. */
+function selfOrMaster(
+	caller: Identity | undefined,
+	id: string,
+	command: string,
+): void {
+	const self = caller?.kind === 'user' && caller.user.id === id
+	if (!self && (caller === undefined || !isMaster(caller))) {
+		throw new PublicError(
+			'ACCESS_DENIED',
+			`User.${command} runs as Master or as the user.`,
+		)
+	}
+}
+
+/** The listeners the running application's methods gave `onCloseAccount`. */
+function closersOf(): readonly ((userId: string) => Promise<void>)[] {
+	const api = runningApi('auth')
+	const listeners =
+		typeof api === 'object' && api !== null ? closers.get(api) : undefined
+	return listeners ?? []
 }
 
 /** The one user model among the application's models (D-62). */
@@ -158,14 +198,18 @@ const auth = definePlugin<Auth>({
 	},
 	commands: () => ({
 		revokeSessions: async ({ id }, options) => {
-			const caller = options?.as
-			const self = caller?.kind === 'user' && caller.user.id === id
-			if (!self && (caller === undefined || !isMaster(caller))) {
-				throw new PublicError(
-					'ACCESS_DENIED',
-					'User.revokeSessions runs as Master or as the user.',
-				)
-			}
+			selfOrMaster(options?.as, id, 'revokeSessions')
+			await revokeSessions(id)
+		},
+		closeAccount: async ({ id }, options) => {
+			selfOrMaster(options?.as, id, 'closeAccount')
+			await transaction(async () => {
+				await revokeSessions(id)
+				await unlinkAccounts(id)
+				for (const listener of closersOf()) await listener(id)
+			})
+			// Again once the accounts are gone: a sign-in that read one before
+			// opened its session before this ends it.
 			await revokeSessions(id)
 		},
 	}),
@@ -175,7 +219,8 @@ const auth = definePlugin<Auth>({
 	api: (context) => {
 		const cookie = cookieOf()
 		states.set(context, { cookie, users: usersOf(context.models) })
-		return {
+		const listeners: ((userId: string) => Promise<void>)[] = []
+		const api: AuthApi = {
 			signIn: async (userId, client) => {
 				// The cookie it replaces would leave a session nobody can end (D-115).
 				const replaced = client?.cookies.get(cookie.name)
@@ -191,7 +236,12 @@ const auth = definePlugin<Auth>({
 			linkAccount,
 			accountOf,
 			subjectOf,
+			onCloseAccount: (listener) => {
+				listeners.push(listener)
+			},
 		}
+		closers.set(api, listeners)
+		return api
 	},
 	identify: async (request, context) => {
 		const { cookie, users } = stateOf(context)

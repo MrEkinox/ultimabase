@@ -5277,7 +5277,7 @@ const { count } = await Notification.deleteMany(
 
 ## D-112: auth's sessions, Identify and the API of sign-in methods
 
-Amended by D-113 and D-115.
+Amended by D-113, D-115 and D-160.
 
 Choice: completes D-33, D-39, D-62, D-79 and D-106.
 
@@ -5367,7 +5367,7 @@ curl localhost:3000/graphql -H 'authorization: Bearer expired…' -d '…'
 
 ## D-113: `passwordPlugin()`, linked accounts, plugin functions and `viewer`
 
-Amended by D-115 and D-125.
+Amended by D-115, D-125 and D-160.
 
 Choice: completes D-33, D-56, D-109 and D-112, and amends D-56, D-109 and
 D-112.
@@ -10242,4 +10242,91 @@ const messages = await Message.findMany(
 messages[0].author.name
 // After
 messages[0].author?.name ?? 'Deleted account'
+```
+
+## D-160: Closing an account
+
+Choice: completes D-112 and D-113, and amends D-113 point 12.
+
+1. auth adds the command `User.closeAccount({ id }, options)`. It closes
+   the account and keeps the user's row: a `User.delete` whose row stays,
+   so a list of members still shows it. It runs as Master or as that user,
+   and refuses any other caller with `ACCESS_DENIED`, "User.closeAccount
+   runs as Master or as the user.", as `User.revokeSessions` does (D-113
+   point 4). It is a command of server code only: no GraphQL or REST
+   function.
+2. In one transaction, it ends every session of the user, so their viewers
+   and live streams close (D-154), unlinks every account, so their subjects
+   are free again, and runs the listeners of the sign-in methods. Once the
+   transaction commits, it ends the user's sessions again: a sign-in that
+   read the account before it was unlinked may have opened its session
+   since, as `setPassword` does (D-113).
+3. `AuthApi.onCloseAccount(listener)` registers a method's listener, called
+   with the user's id after the accounts are unlinked, in the order the
+   methods registered them. A listener that throws rolls the whole close
+   back. password registers one in its `api`: it deletes the user's
+   `PasswordHash`, `PasswordToken` rows and email requests, as when the
+   user is deleted, and sets `emailVerified` to `false` when it was `true`.
+4. An unknown id, or an account closed already, closes nothing and is no
+   error, as `revokeSessions`.
+5. It leaves the row's own fields and the user's roles as they are: the
+   application anonymizes the row, in the same transaction when it wants
+   one (D-36).
+6. Unlinking one account stays out (D-113 point 12): closing unlinks them
+   all.
+
+Why:
+
+- An application migrating from Parse closes accounts and keeps the rows,
+  so that messages and lists of members still show their author. With
+  `revokeSessions` and an update, the email stays linked, so a reset opens
+  the account again and `signUp` with that email is a `UNIQUE_VIOLATION`,
+  and the hash and the tokens stay; only auth unlinks (D-113) and only
+  password writes its tables (D-110).
+- The listener lets each method delete what it keeps without auth knowing
+  its models, as a community method needs.
+- A user deleted with `onDelete: 'setNull'` would also free the email, but
+  removes the row a list of members shows.
+
+Rejected:
+
+- A listener on each unlink: an email change unlinks then links, and would
+  delete the password.
+- A public `unlinkAccount` now: no second method needs it yet.
+- Anonymizing in `closeAccount`: which fields an application blanks is its
+  own choice.
+- A GraphQL and REST function: an application closes an account in its
+  own function, where it anonymizes the row and checks what it needs.
+
+Example:
+
+```ts
+// Before: the email stays linked, so nobody can sign up with it again,
+// and the hash stays in PasswordHash
+run: async ({ caller }) => {
+	await User.revokeSessions({ id: caller.user.id }, { as: caller })
+	await User.update(
+		{ where: { id: caller.user.id }, data: { name: 'Deleted account' } },
+		{ as: master },
+	)
+}
+// After
+run: async ({ caller }) =>
+	transaction(async () => {
+		await User.closeAccount({ id: caller.user.id }, { as: caller })
+		await User.update(
+			{ where: { id: caller.user.id }, data: { name: 'Deleted account' } },
+			{ as: master },
+		)
+	})
+```
+
+A method that keeps rows of its own deletes them:
+
+```ts
+api: ({ plugins }) => {
+	plugins.auth.onCloseAccount(async (userId) => {
+		await MagicLink.deleteMany({ where: { userId } }, { as: master })
+	})
+}
 ```

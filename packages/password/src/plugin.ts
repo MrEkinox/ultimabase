@@ -111,6 +111,15 @@ function stateOf(auth: AuthApi): State {
 	return state
 }
 
+/** Deletes the user's hash, links and email requests (D-113, D-160). */
+async function forget(userId: string): Promise<void> {
+	const where = { userId }
+	await PasswordHash.deleteMany({ where }, M)
+	await PasswordToken.deleteMany({ where }, M)
+	const emails = { kind: 'email', subject: userId }
+	await PasswordRequest.deleteMany({ where: emails }, M)
+}
+
 /** The one model whose `use` lists `password()`. */
 function usersOf(models: readonly ExposedModel[]): ExposedModel {
 	// oxlint-disable-next-line typescript/unbound-method -- compared by identity, never called.
@@ -225,11 +234,7 @@ const definition = definePlugin<Password>({
 	hooks: {
 		// The user's hash and tokens go with them (D-113, D-117).
 		afterDelete: async ({ record }) => {
-			const where = { userId: record.id }
-			await PasswordHash.deleteMany({ where }, M)
-			await PasswordToken.deleteMany({ where }, M)
-			const emails = { kind: 'email', subject: record.id }
-			await PasswordRequest.deleteMany({ where: emails }, M)
+			await forget(record.id)
 		},
 	},
 	commands: ({ queries, plugins }) => {
@@ -278,6 +283,16 @@ const definition = definePlugin<Password>({
 		const signUp = fields === false ? false : new Set(fields.keys())
 		const { auth } = plugins
 		states.set(auth, { auth, users, signUp, logger, sending: new Set() })
+		// A closed account keeps its row, without a password or a verified
+		// email (D-160).
+		auth.onCloseAccount(async (userId) => {
+			await forget(userId)
+			const where = { id: userId }
+			const user = await users.queries.findUnique({ where }, M)
+			if (user?.emailVerified !== true) return
+			const data = { emailVerified: false }
+			await users.queries.update({ where, data }, M)
+		})
 	},
 	// The emails under way still query: they end before the database closes.
 	stop: async ({ plugins }) => {
