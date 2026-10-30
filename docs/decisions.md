@@ -10761,3 +10761,41 @@ start: ({ plugins }) => {
 	})
 },
 ```
+
+## D-167: The plugin context's type is public
+
+Choice: completes D-57 and D-89 point 6.
+
+1. `ultimabase` exports `PluginContext<T>`, the context a plugin's `start`,
+   `stop`, `api`, `identify`, `caller`, `changed` and `missed` receive, for
+   a helper they share.
+2. `AppOptions` stays private: `PluginContext<T>['options']` names the
+   application options.
+
+Why:
+
+- A plugin's hooks share code, as a cache that `identify`, `changed` and
+  `missed` read; without the type, its author restates part of it.
+
+Rejected:
+
+- Exporting `AppOptions` too: a second name for `PluginContext<T>['options']`,
+  with a `never` case a plugin author need not read.
+
+Example, before:
+
+```ts
+interface LoadContext {
+	readonly options: MaintenanceTypes['appOptions']
+	readonly logger: Logger
+}
+const load = ({ options, logger }: LoadContext) => …
+```
+
+After:
+
+```ts
+import type { PluginContext } from 'ultimabase'
+
+const load = ({ options, logger }: PluginContext<MaintenanceTypes>) => …
+```

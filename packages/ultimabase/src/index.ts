@@ -95,6 +95,7 @@ export type {
 	ModelQueries,
 	ModelUse,
 	OutputForm,
+	PluginContext,
 	PluginOf,
 	PluginTypes,
 	UseOf,

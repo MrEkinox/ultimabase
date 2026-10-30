@@ -2,7 +2,7 @@
 // key's owner. The keys are a model of the plugin's own, read once and kept.
 //#region types
 import { createHash, randomBytes } from 'node:crypto'
-import type { PluginOf, PluginTypes } from 'ultimabase'
+import type { PluginContext, PluginOf, PluginTypes } from 'ultimabase'
 import {
 	defineFunction,
 	defineModel,
@@ -55,7 +55,7 @@ export const createApiKey = defineFunction({
 //#region cache
 // Each running application's keys, by hash: the owner, or null for none.
 const caches = new WeakMap<object, Map<string, string | null>>()
-const cacheOf = (context: object) => {
+const cacheOf = (context: PluginContext<ApiKeys>) => {
 	const cache = caches.get(context) ?? new Map<string, string | null>()
 	caches.set(context, cache)
 	return cache
