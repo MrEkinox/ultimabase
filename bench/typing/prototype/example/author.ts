@@ -22,7 +22,7 @@ export const Author = defineModel({
 				where: { author: { is: { id: record.id } } },
 				select: { title: true, author: { select: { name: true } } },
 			})
-			const names: string[] = books.map((book) => book.author.name)
+			const names: string[] = books.map((book) => book.author?.name ?? '')
 			void names
 			// @ts-expect-error: `pages` was not selected.
 			void books[0]?.pages
