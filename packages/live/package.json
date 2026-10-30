@@ -1,6 +1,6 @@
 {
 	"name": "@ultimabase/live",
-	"version": "0.1.0",
+	"version": "0.1.1",
 	"description": "The UltimaBase live client: live lists and rows over SSE, an Apollo link and a React hook.",
 	"type": "module",
 	"license": "Apache-2.0",

@@ -45,6 +45,7 @@ const manifestOf = (name: string): object => {
 		dependencies: {
 			'@ultimabase/graphql': ours,
 			'@ultimabase/http': ours,
+			'@ultimabase/realtime': ours,
 			graphql: others.graphql,
 			ultimabase: ours,
 		},

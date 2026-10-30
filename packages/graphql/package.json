@@ -1,6 +1,6 @@
 {
 	"name": "@ultimabase/graphql",
-	"version": "0.1.0",
+	"version": "0.1.1",
 	"description": "GraphQL for UltimaBase: a Relay schema generated from the models, served by the HTTP plugin.",
 	"type": "module",
 	"license": "Apache-2.0",
@@ -36,15 +36,10 @@
 		"ws": "8.22.0"
 	},
 	"peerDependencies": {
-		"@ultimabase/http": "^0.1.0",
-		"@ultimabase/realtime": "^0.1.0",
+		"@ultimabase/http": "^0.1.1",
+		"@ultimabase/realtime": "^0.1.1",
 		"graphql": "^17.0.2",
-		"ultimabase": "^0.1.0"
-	},
-	"peerDependenciesMeta": {
-		"@ultimabase/realtime": {
-			"optional": true
-		}
+		"ultimabase": "^0.1.1"
 	},
 	"devDependencies": {
 		"@types/pg": "8.23.1",

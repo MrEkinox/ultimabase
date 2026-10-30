@@ -9352,7 +9352,11 @@ security, which holds whatever the first two cost.
    an engine that needs no transport and no `httpPlugin`: `graphqlPlugin`
    and `restPlugin` each declare it optional (D-16) and, when it is
    present, serve the live reads of the models whose `use` lists
-   `realtime()`. The engine offers transports `connect(request)`, a viewer
+   `realtime()`. The plugin is optional, its package is not: both import
+   `realtimePlugin` to declare it, so `@ultimabase/realtime` is a required
+   peer of `@ultimabase/graphql` and `@ultimabase/rest`, one copy as for
+   `@ultimabase/roles` (D-126), and the starter lists it (amended
+   2026-10-30). The engine offers transports `connect(request)`, a viewer
    of the request's caller, whose `list` and `row` follow a read and send
    messages of their own shape, which each transport writes as point 4
    says.

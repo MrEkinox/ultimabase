@@ -1,5 +1,13 @@
 # @ultimabase/acl
 
+## 0.1.1
+
+### Patch Changes
+
+- Updated dependencies
+  - ultimabase@0.1.1
+  - @ultimabase/roles@0.1.1
+
 ## 0.1.0
 
 ### Minor Changes

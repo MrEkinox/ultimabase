@@ -158,56 +158,145 @@ if (!readdirSync(join(work, 'starter/src')).includes('app.test.ts')) {
 	throw new Error('The starter has no src/app.test.ts.')
 }
 
-console.log('Starting the example and signing up')
-const server = spawn(process.execPath, ['src/server.ts'], {
-	cwd: app,
-	env: { ...process.env, PORT: '0' },
-	stdio: ['ignore', 'pipe', 'pipe'],
-})
-let output = ''
-server.stderr.on('data', (chunk) => {
-	output += String(chunk)
-})
-try {
-	const url = await new Promise<string>((done, fail) => {
-		server.stdout.on('data', (chunk) => {
-			output += String(chunk)
-			const found = /Listening on (\S+)\./.exec(output)?.[1]
-			if (found !== undefined) done(found)
-		})
-		server.once('exit', (code) => {
-			fail(new Error(`The example exited with ${code}:\n${output}`))
-		})
+/**
+ * Runs a server until `use` is done with the URL it prints it listens on;
+ * its output is shown only when it fails.
+ */
+const serving = async (
+	command: string,
+	args: string[],
+	cwd: string,
+	use: (url: string) => Promise<void>,
+): Promise<void> => {
+	const server = spawn(command, args, {
+		cwd,
+		env: { ...process.env, PORT: '0' },
+		stdio: ['ignore', 'pipe', 'pipe'],
 	})
+	let output = ''
+	server.stderr.on('data', (chunk) => {
+		output += String(chunk)
+	})
+	try {
+		const url = await new Promise<string>((done, fail) => {
+			server.stdout.on('data', (chunk) => {
+				output += String(chunk)
+				const found = /Listening on (\S+)\./.exec(output)?.[1]
+				if (found !== undefined) done(found)
+			})
+			server.once('exit', (code) => {
+				fail(new Error(`${command} exited with ${code}:\n${output}`))
+			})
+			// `node --watch` waits for a change when its file fails.
+			setTimeout(() => {
+				fail(new Error(`${command} did not listen in 30 s:\n${output}`))
+			}, 30_000).unref()
+		})
+		await use(url)
+	} finally {
+		if (server.exitCode === null && server.signalCode === null) {
+			const exited = once(server, 'exit')
+			server.kill('SIGTERM')
+			await exited
+		}
+	}
+}
+
+/** The `data` of a GraphQL answer, or a throw that shows the answer. */
+const graphql = async (
+	url: string,
+	query: string,
+	variables: object = {},
+): Promise<unknown> => {
 	const response = await fetch(`${url}/graphql`, {
 		method: 'POST',
 		headers: { 'content-type': 'application/json' },
-		body: JSON.stringify({
-			query: `mutation ($input: SignUpInput!) { signUp(input: $input) { token } }`,
-			variables: {
-				input: {
-					email: 'ada@example.com',
-					password: 'correct horse',
-					name: 'ada',
-				},
-			},
-		}),
+		body: JSON.stringify({ query, variables }),
 	})
 	const body: unknown = await response.json()
+	const data: unknown = Reflect.get(Object(body), 'data')
+	if (data === undefined || data === null || 'errors' in Object(body)) {
+		throw new Error(`${query} answered ${JSON.stringify(body)}`)
+	}
+	return data
+}
+
+console.log('Starting the example and signing up')
+await serving(process.execPath, ['src/server.ts'], app, async (url) => {
+	const data = await graphql(
+		url,
+		`
+			mutation ($input: SignUpInput!) {
+				signUp(input: $input) {
+					token
+				}
+			}
+		`,
+		{
+			input: {
+				email: 'ada@example.com',
+				password: 'correct horse',
+				name: 'ada',
+			},
+		},
+	)
 	const token: unknown = Reflect.get(
-		Object(Reflect.get(Object(Reflect.get(Object(body), 'data')), 'signUp')),
+		Object(Reflect.get(Object(data), 'signUp')),
 		'token',
 	)
 	if (typeof token !== 'string') {
-		throw new Error(`The sign-up answered ${JSON.stringify(body)}`)
+		throw new Error(`The sign-up answered ${JSON.stringify(data)}`)
 	}
-} finally {
-	if (server.exitCode === null && server.signalCode === null) {
-		const exited = once(server, 'exit')
-		server.kill('SIGTERM')
-		await exited
-	}
+})
+
+// The starter as its user installs it, with its own dependencies only: each
+// of ours from its pack, through `overrides` when another package needs it.
+const starter = join(work, 'starter')
+const packs = Object.fromEntries(
+	packages.map(({ directory, name }) => [
+		name,
+		`file:../packs/${directory}.tgz`,
+	]),
+)
+const written = manifest(starter)
+const ours = (field: string) => {
+	const ranges = written[field]
+	return Object.fromEntries(
+		Object.entries(
+			typeof ranges === 'object' && ranges !== null ? ranges : {},
+		).map(([name, range]) => [name, packs[name] ?? range]),
+	)
 }
+writeFileSync(
+	join(starter, 'package.json'),
+	JSON.stringify({
+		...written,
+		dependencies: ours('dependencies'),
+		devDependencies: ours('devDependencies'),
+		overrides: packs,
+	}),
+)
+console.log('Installing the starter with npm')
+await run('npm', ['install', '--no-audit', '--no-fund'], starter)
+console.log("Running the starter's tests")
+await run('npm', ['test'], starter)
+console.log('Starting the starter with its dev script and creating a post')
+await serving(
+	join(starter, 'node_modules/.bin/ultimabase'),
+	['dev'],
+	starter,
+	async (url) => {
+		await graphql(
+			url,
+			'mutation { createPost(data: { title: "Hello" }) { id } }',
+		)
+		const data = await graphql(url, '{ posts { edges { node { title } } } }')
+		const expected = { posts: { edges: [{ node: { title: 'Hello' } }] } }
+		if (JSON.stringify(data) !== JSON.stringify(expected)) {
+			throw new Error(`The posts are ${JSON.stringify(data)}`)
+		}
+	},
+)
 
 rmSync(work, { recursive: true })
 console.log('The packed packages install and run.')

@@ -1,7 +1,7 @@
 // The `ultimabase` command (D-105): `dev`, `start`, `sync`, `reset` and
 // `migrate`.
 import { spawn } from 'node:child_process'
-import { dirname, join } from 'node:path'
+import { dirname, extname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { parseArgs } from 'node:util'
 import { configPath, load } from './cli-config.ts'
@@ -32,11 +32,12 @@ export type Io = {
 	readonly node: (args: readonly string[]) => Promise<number>
 }
 
-/** The file `dev` runs under `node --watch`. */
-export const serveFile: string = join(
-	dirname(fileURLToPath(import.meta.url)),
-	'serve.ts',
-)
+/**
+ * The file `dev` runs under `node --watch`: `serve.ts` beside the sources,
+ * `serve.js` in the published `dist`.
+ */
+const here = fileURLToPath(import.meta.url)
+export const serveFile: string = join(dirname(here), `serve${extname(here)}`)
 
 function runNode(args: readonly string[]): Promise<number> {
 	return new Promise((done, fail) => {
