@@ -1,5 +1,16 @@
 # @ultimabase/rest
 
+## 0.2.0
+
+### Patch Changes
+
+- Updated dependencies [2c3bf4e]
+- Updated dependencies [fd1263e]
+- Updated dependencies [c0c5a21]
+  - ultimabase@0.2.0
+  - @ultimabase/realtime@0.2.0
+  - @ultimabase/http@0.2.0
+
 ## 0.1.2
 
 ### Patch Changes

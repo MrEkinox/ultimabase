@@ -1,0 +1,399 @@
+---
+title: Authentication
+description: Declare the user model, open and end sessions, and write rules that read the signed-in user.
+---
+
+`@ultimabase/auth` gives each request its caller: it reads the session the
+request carries and makes the caller that user. It declares no way to sign
+in: a sign-in plugin does, as [password](/docs/next/password) with an email
+and a password.
+
+```npm
+npm install @ultimabase/auth @ultimabase/password
+```
+
+The user model is declared with `defineUser`, and the `Register` declaration
+types `caller.user` as its row in every rule, hook and function:
+
+```ts
+import {
+	currentUser,
+	defineUser,
+	isAuthenticated,
+	isOwner,
+	isSelf,
+	signedIn,
+} from '@ultimabase/auth'
+import { graphql } from '@ultimabase/graphql'
+import { password } from '@ultimabase/password'
+import { allow, anyOf, defineModel } from 'ultimabase'
+
+export const User = defineUser({
+	name: 'User',
+	use: [graphql(), password()],
+	fields: (f) => ({
+		name: f.string(),
+		// Only the server makes an editor: no client writes this field.
+		editor: f.boolean({ default: false }).with({ access: allow.readOnly }),
+		posts: f.many(() => Post, { inverse: 'author' }),
+	}),
+}).with({
+	// Signed-in users read each other's names; each user changes their own.
+	access: { read: isAuthenticated, update: isSelf },
+})
+
+// Every rule, hook and function now reads `caller.user` as a `User`.
+declare module 'ultimabase' {
+	interface Register {
+		readonly user: typeof User
+	}
+}
+```
+
+The full example, with its tests: [`examples/password-sign-in`](https://github.com/MrEkinox/ultimabase/tree/main/examples/password-sign-in).
+
+`authPlugin()` goes in the application's plugins, after `httpPlugin()`,
+which it requires:
+
+```ts
+plugins: [
+	// Listens on PORT, or 3000.
+	httpPlugin(),
+	graphqlPlugin(),
+	// Sessions, and the caller of each request.
+	authPlugin(),
+	// A user signs up with an email, a password and a name, and receives
+	// the reset and verification emails sendEmail sends.
+	passwordPlugin({ signUp: ['name'], sendEmail }),
+],
+```
+
+## Sessions
+
+A sign-up or a sign-in opens a session and returns its token. A client sends
+it back in the `Authorization` header:
+
+```ts
+const response = await post(
+	`mutation ($input: SignUpInput!) {
+		signUp(input: $input) { token expiresAt user { name } }
+	}`,
+	{
+		input: {
+			email: 'ada@example.com',
+			password: 'correct horse',
+			name: 'Ada',
+		},
+	},
+)
+const { token } = signedUp.parse(await response.json()).data.signUp
+const bearer = { authorization: `Bearer ${token}` }
+expect(await viewer(bearer)).toEqual({ data: { viewer: { name: 'Ada' } } })
+expect(await viewer({})).toEqual({ data: { viewer: null } })
+```
+
+The requests above go through this helper:
+
+```ts
+/** A GraphQL request, and its response. */
+const post = (
+	query: string,
+	variables: object = {},
+	headers: Record<string, string> = {},
+): Promise<Response> =>
+	fetch(`${running.url}/graphql`, {
+		method: 'POST',
+		headers: { 'content-type': 'application/json', ...headers },
+		body: JSON.stringify({ query, variables }),
+	})
+```
+
+A sign-in over HTTP also sets a session cookie, `HttpOnly` and
+`SameSite=Lax`, which a browser sends back by itself: a web application
+needs no code to keep the token. `signOut` ends the session and clears the
+cookie:
+
+```ts
+const response = await post(
+	`mutation ($input: SignInInput!) { signIn(input: $input) { user { name } } }`,
+	{ input: { email: 'ada@example.com', password: 'correct horse' } },
+)
+const set = response.headers.get('set-cookie') ?? ''
+expect(set).toMatch(
+	/^ultimabase_session=.+; Max-Age=\d+; Path=\/; HttpOnly; SameSite=Lax$/,
+)
+// A browser sends it back by itself.
+const cookie = { cookie: set.split(';')[0] ?? '' }
+expect(await viewer(cookie)).toEqual({ data: { viewer: { name: 'Ada' } } })
+
+// signOut ends the session and clears the cookie.
+const out = await post('mutation { signOut }', {}, cookie)
+expect(await out.json()).toEqual({ data: { signOut: true } })
+expect(out.headers.get('set-cookie')).toMatch(/^ultimabase_session=; Max-Age=0/)
+// A stale cookie is anonymous, so the browser can sign in again.
+expect(await viewer(cookie)).toEqual({ data: { viewer: null } })
+```
+
+A session lasts 30 days after its last use and at most one year after the
+sign-in; the user then signs in again. A Bearer token that has ended refuses
+the request with `UNAUTHENTICATED`, so the client knows to sign in again; a
+cookie that has ended is anonymous, so a browser can still reach the sign-in
+page.
+
+An application sets both durations, in milliseconds, as a back office that
+wants shorter sessions:
+
+```ts
+const hour = 60 * 60 * 1000
+
+const backOffice = defineApp({
+	database: memory(),
+	plugins: [
+		httpPlugin(),
+		graphqlPlugin(),
+		authPlugin({ sessions: { lifetime: 8 * hour, longest: 7 * 24 * hour } }),
+		passwordPlugin({ signUp: ['name'] }),
+	],
+	models: [User, Post],
+})
+```
+
+A session used with less than half its lifetime left gets it again, never
+past the longest after the sign-in, and the cookie lives that longest. New
+durations apply to the sessions opened or renewed after the start: to end
+the others at once, `User.revokeSessions` each user.
+
+In production (`NODE_ENV=production`), the cookie is `Secure` and named
+`__Host-ultimabase_session`. Outside it, it works on `http://localhost`; a
+request from another host logs a warning once: `auth serves example.com a
+session cookie without Secure: set NODE_ENV=production.`
+
+## From server code
+
+The user model gets commands: `User.revokeSessions` ends every session of a
+user, on every device, as when an account is stolen. The sign-in plugin adds
+its own, as password's `User.signUp` and `User.signIn`:
+
+```ts
+const ada = await User.signUp(
+	{
+		email: 'ada@example.com',
+		password: 'correct horse',
+		data: { name: 'Ada' },
+	},
+	{ as: master },
+)
+// Opens a session, as the signIn function does, without its cookie.
+const { token, user } = await User.signIn({
+	email: 'ada@example.com',
+	password: 'correct horse',
+})
+expect(user?.name).toBe('Ada')
+
+// Ends every session of the user, on every device.
+await User.revokeSessions({ id: ada.id }, { as: master })
+// The request is refused before it runs, whatever it asks.
+const revoked = await post(
+	'{ viewer { name } }',
+	{},
+	{
+		authorization: `Bearer ${token}`,
+	},
+)
+expect(revoked.status).toBe(401)
+expect(await revoked.json()).toEqual({
+	code: 'UNAUTHENTICATED',
+	message: 'The session expired or was revoked: sign in again.',
+})
+```
+
+Deleting a user ends its sessions and deletes its linked accounts.
+`User.closeAccount` does the same and keeps the row, so a list of members
+still shows it: the user signs in no more, the sign-in method deletes what it
+keeps, such as the password, and the email signs up again. It leaves the
+row's fields as they are; blank them in the same transaction:
+
+```ts
+// Ends the sessions and frees the email, then blanks the row, which
+// a list of members still shows.
+await transaction(async () => {
+	await User.closeAccount({ id: ada.id }, { as: master })
+	await User.update(
+		{ where: { id: ada.id }, data: { name: 'Deleted account' } },
+		{ as: master },
+	)
+})
+await expect(
+	User.signIn({ email: 'ada@example.com', password: 'correct horse' }),
+).rejects.toMatchObject({ code: 'INVALID_CREDENTIALS' })
+// The email signs up again, as a new user.
+const again = await User.signUp(
+	{
+		email: 'ada@example.com',
+		password: 'another horse',
+		data: { name: 'Ada' },
+	},
+	{ as: master },
+)
+expect(again.id).not.toBe(ada.id)
+```
+
+## Rules on the signed-in user
+
+auth adds rules to those of [Access rules](/docs/next/access).
+`isAuthenticated` lets every signed-in user through; `isSelf`, on the user
+model, lets each user write their own row. Above, a visitor sees no names:
+
+```ts
+const ada = await signUp('ada')
+const names = '{ users { edges { node { name } } } }'
+expect(await request(names)).toEqual({ data: { users: { edges: [] } } })
+expect(await request(names, {}, as(ada.token))).toEqual({
+	data: { users: { edges: [{ node: { name: 'ada' } }] } },
+})
+```
+
+`currentUser` is a default: the `author` of a new post is the user who
+creates it. `isOwner('author')` lets through the user the `one` relation
+points to, before and after the write, so no one writes a post in another's
+name. `signedIn` receives the `user` row, here to let an editor delete any
+post:
+
+```ts
+export const Post = defineModel({
+	name: 'Post',
+	use: [graphql()],
+	fields: (f) => ({
+		title: f.string(),
+		published: f.boolean({ default: false }),
+		// Whoever creates the post.
+		author: f.one(() => User, { default: currentUser }),
+	}),
+}).with({
+	access: {
+		// Everyone reads published posts; an author reads their drafts too.
+		read: ({ caller, where }) =>
+			caller.kind === 'user'
+				? where({
+						OR: [
+							{ published: { equals: true } },
+							{ author: { is: { id: { equals: caller.user.id } } } },
+						],
+					})
+				: where({ published: { equals: true } }),
+		// A post is written in its author's name only: the caller's own.
+		create: isOwner('author'),
+		update: isOwner('author'),
+		// An author deletes their posts, an editor anyone's.
+		delete: anyOf(
+			isOwner('author'),
+			signedIn(({ user }) => user.editor),
+		),
+	},
+})
+```
+
+A visitor sees the published posts, an author their drafts too, and only the
+author publishes one:
+
+```ts
+const { ada, grace, post } = await written()
+const hello = [{ node: { title: 'Hello' } }]
+expect(await titles()).toEqual([])
+expect(await titles(as(grace.token))).toEqual([])
+expect(await titles(as(ada.token))).toEqual(hello)
+const publish = `mutation ($id: ID!) {
+	updatePost(where: { id: $id }, data: { published: true }) { published }
+}`
+// Grace cannot see the draft, so it does not exist for her.
+expect(await request(publish, { id: post }, as(grace.token))).toMatchObject(
+	refused('NOT_FOUND'),
+)
+expect(await request(publish, { id: post }, as(ada.token))).toEqual({
+	data: { updatePost: { published: true } },
+})
+expect(await titles()).toEqual(hello)
+// Now she sees it, but it is not hers.
+expect(await request(publish, { id: post }, as(grace.token))).toMatchObject(
+	refused('ACCESS_DENIED'),
+)
+```
+
+## Reference
+
+### `defineUser(definition)`
+
+The keys of `defineModel`: `name`, `fields`, `use`, `indexes`, `description`
+and `dbName`; its `.with` takes the same keys too. An application has one
+user model.
+
+### `authPlugin()`
+
+It requires `httpPlugin()` and takes:
+
+| Option              | Default                     | Effect                                                     |
+| ------------------- | --------------------------- | ---------------------------------------------------------- |
+| `sessions.lifetime` | `30 * 24 * 60 * 60 * 1000`  | How long, in milliseconds, a session lasts after its use.  |
+| `sessions.longest`  | `365 * 24 * 60 * 60 * 1000` | How long, in milliseconds, it lasts at most after sign-in. |
+
+It adds:
+
+| What     | Name             | Effect                                                                                          |
+| -------- | ---------------- | ----------------------------------------------------------------------------------------------- |
+| function | `signOut`        | Ends the caller's session and clears the cookie; `true`.                                        |
+| query    | `viewer`         | The signed-in user's row, read with their rules, or `null`.                                     |
+| command  | `revokeSessions` | `User.revokeSessions({ id }, { as })`, as Master or as the user.                                |
+|          | `closeAccount`   | `User.closeAccount({ id }, { as })`, as Master or as the user.                                  |
+| models   | `AuthSession`    | The sessions; each token is stored as its SHA-256, never in clear.                              |
+|          | `AuthAccount`    | The accounts a user signs in with: a method and its subject, such as an email, unique together. |
+
+Both functions are public. The models are Master's only: no transport
+exposes them.
+
+### Rules and default
+
+| Name              | Where                 | Effect                                                                                        |
+| ----------------- | --------------------- | --------------------------------------------------------------------------------------------- |
+| `isAuthenticated` | any rule              | The caller is signed in.                                                                      |
+| `signedIn(rule)`  | any rule              | `rule` receives the facts and `user`; `false` for a visitor. A read rule may return a filter. |
+| `isOwner(field)`  | a write rule          | The `one` relation `field` points to the caller, in the stored row and in the value.          |
+| `isSelf`          | the user model's rule | The row is the caller's own.                                                                  |
+| `currentUser`     | a `one` default       | `{ id }` of the signed-in user, nothing for a visitor.                                        |
+
+### Sessions
+
+| Key            | Value                                                                         |
+| -------------- | ----------------------------------------------------------------------------- |
+| token          | 32 random bytes in base64url                                                  |
+| lifetime       | 30 days after the last use, renewed when less than half of it is left         |
+| longest        | 365 days after the sign-in                                                    |
+| Bearer         | `Authorization: Bearer <token>`, read before the cookie                       |
+| cookie         | `ultimabase_session`; `__Host-ultimabase_session` and `Secure` in production  |
+| cookie options | `HttpOnly`, `SameSite=Lax`, `Path=/`, `Max-Age` the longest, 400 days at most |
+
+### Errors
+
+| Code                    | When                                                                                    |
+| ----------------------- | --------------------------------------------------------------------------------------- |
+| `UNAUTHENTICATED` (401) | A Bearer token that has ended: `The session expired or was revoked: sign in again.`     |
+| `ACCESS_DENIED` (403)   | `revokeSessions` for another user: `User.revokeSessions runs as Master or as the user.` |
+|                         | `closeAccount` for another user: `User.closeAccount runs as Master or as the user.`     |
+
+At start, `sessions` with a duration that is not a positive number throws
+`authPlugin() sessions: lifetime and longest are positive numbers of
+milliseconds.`, and a lifetime longer than the longest
+`authPlugin() sessions: lifetime is longer than longest.`
+
+An application without a user model throws `authPlugin() needs a
+user model: declare it with defineUser.`, and one with two
+`models lists two models defineUser returned: an application has one user model.`
+
+An application without a sign-in method, a plugin that requires auth as
+password does, starts, but nobody signs in: auth logs the warning
+`authPlugin() has no sign-in method: add one, as passwordPlugin().`
+
+### Limits
+
+- A request carries one session: a Bearer header wins over the cookie.
+- A function sets the cookie only over HTTP; from server code, `User.signIn`
+  returns the token alone.

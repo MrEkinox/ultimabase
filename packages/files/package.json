@@ -1,6 +1,6 @@
 {
 	"name": "@ultimabase/files",
-	"version": "0.1.2",
+	"version": "0.2.0",
 	"description": "Files for UltimaBase: uploads to S3-compatible storage, file fields, variants, and no orphan ever.",
 	"type": "module",
 	"license": "Apache-2.0",
@@ -34,8 +34,8 @@
 		"file-type": "22.2.0"
 	},
 	"peerDependencies": {
-		"@ultimabase/http": "^0.1.2",
-		"ultimabase": "^0.1.2"
+		"@ultimabase/http": "^0.2.0",
+		"ultimabase": "^0.2.0"
 	},
 	"devDependencies": {
 		"@types/pg": "8.23.1",

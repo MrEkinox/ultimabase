@@ -1,6 +1,6 @@
 {
 	"name": "@ultimabase/acl",
-	"version": "0.1.2",
+	"version": "0.2.0",
 	"description": "Per-row rights for UltimaBase: who may read and write each row, as Parse's ACL.",
 	"type": "module",
 	"license": "Apache-2.0",
@@ -31,8 +31,8 @@
 		}
 	},
 	"peerDependencies": {
-		"@ultimabase/roles": "^0.1.2",
-		"ultimabase": "^0.1.2"
+		"@ultimabase/roles": "^0.2.0",
+		"ultimabase": "^0.2.0"
 	},
 	"devDependencies": {
 		"@types/pg": "8.23.1",

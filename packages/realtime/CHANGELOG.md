@@ -1,5 +1,17 @@
 # @ultimabase/realtime
 
+## 0.2.0
+
+### Minor Changes
+
+- c0c5a21: `viewer.onClose(listener)` runs once a viewer closes, whatever closes it: its caller ended, the application stopped or `close()` was called. A plugin's own socket closes there.
+
+### Patch Changes
+
+- Updated dependencies [2c3bf4e]
+- Updated dependencies [fd1263e]
+  - ultimabase@0.2.0
+
 ## 0.1.2
 
 ### Patch Changes

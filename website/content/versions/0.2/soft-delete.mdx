@@ -1,0 +1,163 @@
+---
+title: Soft delete
+description: Keep deleted rows in a trash, dated, and bring them back.
+---
+
+`@ultimabase/soft-delete` keeps the rows a delete removes: a deleted row
+gets a `deletedAt` date and leaves every ordinary read, and the model's
+trash still finds it. `softDelete()` goes in a model's `use`:
+
+```npm
+npm install @ultimabase/soft-delete
+```
+
+```ts
+import { graphql } from '@ultimabase/graphql'
+import { softDelete } from '@ultimabase/soft-delete'
+import { allow, defineModel } from 'ultimabase'
+
+export const Post = defineModel({
+	name: 'Post',
+	// Adds `deletedAt`, `Post.trash` and `Post.restore`.
+	use: [graphql(), softDelete()],
+	fields: (f) => ({ title: f.string() }),
+	// Open to every client, to keep the example on soft delete.
+}).with({ access: allow.public })
+```
+
+The full example, with its tests: [`examples/soft-delete`](https://github.com/MrEkinox/ultimabase/tree/main/examples/soft-delete).
+
+and `softDeletePlugin()` in the application's plugins:
+
+```ts
+// Listens on PORT, or 3000.
+plugins: [httpPlugin(), graphqlPlugin(), softDeletePlugin()],
+```
+
+A client deletes a post as usual, with `deletePost`; the post leaves
+`posts`, and the trash has it with its date:
+
+```ts
+await deleted()
+expect(await request(posts)).toEqual({
+	data: { posts: { edges: [{ node: { title: 'Kept' } }] } },
+})
+const body = await request('{ trash { title deletedAt } }')
+expect(at(body, 'data', 'trash')).toEqual([
+	{ title: 'Draft', deletedAt: aDate },
+])
+```
+
+## From server code
+
+The model gets two commands: `Post.trash`, which reads the deleted rows with
+`findMany`, `findFirst`, `findUnique` and `count`, and `Post.restore`, which
+brings one back. A deleted row is gone for every other read, Master's
+included, and `deleteMany` keeps its rows too:
+
+```ts
+const as = { as: master }
+const post = await Post.create({ data: { title: 'Draft' } }, as)
+const removed = await Post.delete({ where: { id: post.id } }, as)
+expect(removed.deletedAt).toBeInstanceOf(Date)
+// Gone for every read, Master's included; the trash still has it.
+expect(await Post.findUnique({ where: { id: post.id } }, as)).toBeNull()
+expect(await Post.trash.count({}, as)).toBe(1)
+const found = await Post.trash.findUnique({ where: { id: post.id } }, as)
+expect(found?.title).toBe('Draft')
+// deleteMany keeps its rows too.
+await Post.create({ data: { title: 'Old' } }, as)
+expect(await Post.deleteMany({}, as)).toEqual({ count: 1 })
+expect(await Post.trash.count({}, as)).toBe(2)
+const restored = await Post.restore({ where: { id: post.id } }, as)
+expect(restored.deletedAt).toBeNull()
+```
+
+## Over a transport
+
+No transport exposes the commands by themselves: a function gives them to
+clients, with the rules it chooses. Each command runs as the caller, so the
+model's rules apply:
+
+```ts
+export const trash = defineFunction({
+	name: 'trash',
+	query: true,
+	output: [Post],
+	run: ({ caller }) => Post.trash.findMany({}, { as: caller }),
+}).with({ access: allow.public })
+
+export const restorePost = defineFunction({
+	name: 'restorePost',
+	input: z.object({ id: z.string() }),
+	output: Post,
+	run: ({ caller, input }) =>
+		Post.restore({ where: { id: input.id } }, { as: caller }),
+}).with({ access: allow.public })
+```
+
+```ts
+const restore =
+	'mutation ($id: String!) { restorePost(id: $id) { title deletedAt } }'
+expect(await request(restore, { id })).toEqual({
+	data: { restorePost: { title: 'Draft', deletedAt: null } },
+})
+expect(at(await request(posts), 'data', 'posts', 'edges')).toHaveLength(2)
+expect(await request('{ trash { title } }')).toEqual({ data: { trash: [] } })
+// A post that is not deleted has nothing to restore.
+expect(await request(restore, { id })).toMatchObject({
+	errors: [{ extensions: { code: 'NOT_FOUND' } }],
+})
+```
+
+## Rules
+
+A delete still needs the model's `delete` rule, and its `beforeDelete` and
+`afterDelete` [hooks](/docs/next/hooks) run as for any delete. `trash` reads
+under the `read` rule and `restore` writes under the `update` rule.
+
+Only Master writes `deletedAt`, so a client deletes through the `delete`
+rule and never dates a row itself:
+
+```ts
+const body = await request(
+	'mutation { createPost(data: { title: "Old", deletedAt: "2026-01-01T00:00:00Z" }) { id } }',
+)
+expect(body).toMatchObject({
+	errors: [{ extensions: { code: 'ACCESS_DENIED' } }],
+})
+```
+
+## Reference
+
+### `softDelete()` and `softDeletePlugin()`
+
+Neither takes an option. `softDeletePlugin()` must be in plugins when a
+model uses `softDelete()`. `softDelete()` adds:
+
+| What    | Name                                                      | Effect                                                                     |
+| ------- | --------------------------------------------------------- | -------------------------------------------------------------------------- |
+| field   | `deletedAt`                                               | An optional `dateTime`: the delete's date, `null` for a kept row.          |
+| command | `Post.trash.findMany`, `findFirst`, `findUnique`, `count` | The deleted rows, under the `read` rule.                                   |
+| command | `Post.restore({ where }, { as })`                         | Sets `deletedAt` back to `null`, under the `update` rule; returns the row. |
+
+### What a delete does
+
+| Case                    | Result                                                                  |
+| ----------------------- | ----------------------------------------------------------------------- |
+| `delete`, `deleteMany`  | Dates the rows and returns them, as a delete does; no row is removed.   |
+| the row's relations     | Stay: a soft-deleted row cascades nothing, and keeps its related rows.  |
+| the row's unique values | Stay taken: a new row with the same unique value is `UNIQUE_VIOLATION`. |
+| a read, a count         | Leaves the deleted rows out, for every caller.                          |
+| a relation to the row   | A `one` to it reads `null`, for every caller.                           |
+
+### Errors
+
+| Code            | When                                                                                     |
+| --------------- | ---------------------------------------------------------------------------------------- |
+| `NOT_FOUND`     | `restore` of a row that is not deleted.                                                  |
+| `ACCESS_DENIED` | A caller other than Master writes `deletedAt`; a `delete` or `restore` the rules refuse. |
+
+### Limits
+
+- The plugin has no command that removes a deleted row for good.
