@@ -489,7 +489,9 @@ describe('a sync on postgres()', () => {
 		expect(
 			await query(
 				inSchema(schema),
-				`select count(*) from pg_indexes where tablename = 'cell' and indexdef like 'CREATE UNIQUE%'`,
+				`select count(*) from pg_index i join pg_class t on t.oid = i.indrelid
+				where t.relname = 'cell' and t.relnamespace = current_schema()::regnamespace
+				and i.indisunique`,
 			),
 		).toStrictEqual([{ count: String(pairs.length + 1) }])
 
@@ -717,7 +719,12 @@ describe('a sync on postgres()', () => {
 		expect(
 			await query(
 				inSchema(schema),
-				`select count(*) from pg_indexes where indexname = 'post_tags_idx' and indexdef like '%USING gin (tags)'`,
+				`select count(*) from pg_index i
+				join pg_class x on x.oid = i.indexrelid
+				join pg_am a on a.oid = x.relam
+				join pg_attribute c on c.attrelid = i.indrelid and c.attnum = any(i.indkey)
+				where x.relname = 'post_tags_idx' and x.relnamespace = current_schema()::regnamespace
+				and a.amname = 'gin' and c.attname = 'tags'`,
 			),
 		).toStrictEqual([{ count: '1' }])
 

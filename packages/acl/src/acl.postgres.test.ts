@@ -23,7 +23,14 @@ async function indexes(url: string): Promise<number> {
 	await client.connect()
 	try {
 		const { rows } = await client.query<{ count: string }>(
-			`select count(*) from pg_indexes where tablename = 'note' and indexdef like '%USING gin (acl)'`,
+			// The catalog alone: `pg_indexes` rebuilds each definition, and fails
+			// on the index of a table another test file drops meanwhile.
+			`select count(*) from pg_index i
+			join pg_class t on t.oid = i.indrelid
+			join pg_class x on x.oid = i.indexrelid
+			join pg_am a on a.oid = x.relam
+			join pg_attribute c on c.attrelid = t.oid and c.attnum = any(i.indkey)
+			where t.relname = 'note' and a.amname = 'gin' and c.attname = 'acl'`,
 		)
 		return Number(rows[0]?.count)
 	} finally {
