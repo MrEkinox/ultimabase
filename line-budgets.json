@@ -5,7 +5,7 @@
 	"postgres": 3700,
 	"http": 1160,
 	"graphql": 4280,
-	"auth": 660,
+	"auth": 710,
 	"password": 1620,
 	"roles": 330,
 	"acl": 350,

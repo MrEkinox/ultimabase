@@ -283,7 +283,7 @@ describe('relation writes', () => {
 			{ where: { id: book.id }, include: { author: true } },
 			as,
 		)
-		expect(found?.author.name).toBe('Grace')
+		expect(found?.author?.name).toBe('Grace')
 		expect(found?.updatedAt.getTime()).toBe(at)
 	})
 
