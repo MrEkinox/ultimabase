@@ -11,11 +11,11 @@ import { addresses, proxiesOf } from './address.ts'
 import { allowing, appOf } from './app.ts'
 import { hold } from './request.ts'
 import { closed, listening, portOf, serverOf } from './server.ts'
-import type { Accept } from './upgrade.ts'
-import { upgrading } from './upgrade.ts'
+import type { Accept, Close, Closing, Taker } from './upgrade.ts'
+import { closeUpgrades, upgrading } from './upgrade.ts'
 
 export type { HttpEnv, HttpOptions, Routes } from './app.ts'
-export type { Accept, Upgrade } from './upgrade.ts'
+export type { Accept, Close, Closing, Gate, Upgrade } from './upgrade.ts'
 export { clientOf } from './client.ts'
 export type { StandardSchema } from './validate.ts'
 export { validate } from './validate.ts'
@@ -29,9 +29,19 @@ export interface HttpApi {
 	mount(routes: Routes, options?: { readonly bodyLimit?: false }): void
 	/**
 	 * Takes the WebSocket upgrades of `path`, once their origin is one CORS
-	 * allows; call it from your `api` (D-154).
+	 * allows and the `upgrade` gate let them through; call it from your
+	 * `api` (D-154). `close` closes its sockets with a code (D-166).
 	 */
-	upgrade(path: string, accept: Accept): void
+	upgrade(
+		path: string,
+		accept: Accept,
+		options?: { readonly close?: Close },
+	): void
+	/**
+	 * Closes the WebSockets open on every path, or on `path`, with `code`:
+	 * those of a plugin that gave no `close` are cut (D-166).
+	 */
+	closeUpgrades(closing: Closing): void
 	/** Where the server listens, `http://localhost:3000`, once it started. */
 	url(): string
 }
@@ -47,8 +57,8 @@ export interface Http extends PluginTypes {
 // plugin received.
 const servers = new WeakMap<object, Server>()
 const mounts = new WeakMap<object, Mounted[]>()
-const upgrades = new WeakMap<object, Map<string, Accept>>()
-const taken = new WeakMap<object, ReadonlySet<Duplex>>()
+const upgrades = new WeakMap<object, Map<string, Taker>>()
+const taken = new WeakMap<object, ReadonlyMap<Duplex, string>>()
 const urls = new WeakMap<object, string>()
 
 const http = definePlugin<Http>({
@@ -56,9 +66,9 @@ const http = definePlugin<Http>({
 	manifest,
 	api: (context) => {
 		const mounted: Mounted[] = []
-		const accepts = new Map<string, Accept>()
+		const takers = new Map<string, Taker>()
 		mounts.set(context, mounted)
-		upgrades.set(context, accepts)
+		upgrades.set(context, takers)
 		const building = (what: string) => {
 			if (mounts.has(context)) return
 			throw new Error(
@@ -70,12 +80,15 @@ const http = definePlugin<Http>({
 				building('mount routes')
 				mounted.push({ routes, bodyLimit: mountOptions?.bodyLimit ?? true })
 			},
-			upgrade: (path, accept) => {
+			upgrade: (path, accept, upgradeOptions) => {
 				building('take upgrades')
-				if (accepts.has(path)) {
+				if (takers.has(path)) {
 					throw new Error(`Two plugins take the upgrades of ${path}.`)
 				}
-				accepts.set(path, accept)
+				takers.set(path, { accept, close: upgradeOptions?.close })
+			},
+			closeUpgrades: (closing) => {
+				closeUpgrades(takers, taken.get(context), closing)
 			},
 			url: () => {
 				const url = urls.get(context)
@@ -94,11 +107,17 @@ const http = definePlugin<Http>({
 		const app = appOf(options, mounts.get(context) ?? [], identify, logger)
 		mounts.delete(context)
 		const server = serverOf(app.fetch)
-		const accepts = upgrades.get(context) ?? new Map<string, Accept>()
+		const takers = upgrades.get(context) ?? new Map<string, Taker>()
 		const addressOf = addresses(proxiesOf(options.proxies), logger)
 		taken.set(
 			context,
-			upgrading(server, accepts, allowing(options), addressOf, logger),
+			upgrading(server, {
+				takers,
+				gate: options.upgrade,
+				allows: allowing(options),
+				addressOf,
+				logger,
+			}),
 		)
 		const bound = await listening(server, port)
 		servers.set(context, server)
@@ -113,7 +132,9 @@ const http = definePlugin<Http>({
 		if (server === undefined) return
 		servers.delete(context)
 		urls.delete(context)
-		await closed(server, logger, taken.get(context) ?? new Set())
+		const open = taken.get(context) ?? new Map<Duplex, string>()
+		taken.delete(context)
+		await closed(server, logger, open)
 	},
 })
 

@@ -2,6 +2,7 @@
 // the realtime plugin runs, a list's first result `{ data }` and then only
 // what changed under `extensions.live`, page mode, the limits, and the
 // socket closing with its caller and with the application.
+import type { Gate, Http, HttpApi } from '@ultimabase/http'
 import { httpPlugin } from '@ultimabase/http'
 import { realtime, realtimePlugin } from '@ultimabase/realtime'
 import type { RealtimeOptions } from '@ultimabase/realtime'
@@ -138,6 +139,25 @@ const sessions = definePlugin<Sessions>({
 	},
 })
 
+interface Maintenance extends PluginTypes {
+	readonly name: 'maintenance'
+	readonly requires: Http
+}
+let http: HttpApi | undefined
+/** Keeps the HTTP plugin's API, as an application's maintenance would. */
+const maintenance = definePlugin<Maintenance>({
+	name: 'maintenance',
+	manifest: {
+		name: 'maintenance',
+		version: '1.0.0',
+		peerDependencies: { ultimabase: '*' },
+	},
+	requires: { http: httpPlugin },
+	start: ({ plugins }) => {
+		http = plugins.http
+	},
+})
+
 let stop: (() => Promise<void>) | undefined
 const clients: Client[] = []
 afterEach(async () => {
@@ -156,13 +176,18 @@ type Options = {
 	readonly graphql?: GraphqlOptions
 	readonly realtime?: RealtimeOptions | false
 	readonly models?: readonly (typeof Task | typeof Note)[]
+	readonly upgrade?: Gate
 }
 
 let schema: GraphQLSchema | undefined
 /** Starts the application; returns its WebSocket URL. */
 async function started(options: Options = {}): Promise<string> {
 	const plugins = [
-		httpPlugin({ port: 0 }),
+		httpPlugin({
+			port: 0,
+			...(options.upgrade && { upgrade: options.upgrade }),
+		}),
+		maintenance.plugin(),
 		...(options.realtime === false ? [] : [realtimePlugin(options.realtime)]),
 		graphqlPlugin({
 			...options.graphql,
@@ -886,5 +911,34 @@ describe('a connection', () => {
 		stop = undefined
 		await failed(results)
 		expect(closes).toEqual([{ code: 1001, reason: 'Going away' }])
+	})
+
+	it('is closed with the code the application asks, then refused', async () => {
+		let down = false
+		const url = await started({
+			upgrade: () =>
+				down
+					? Response.json(
+							{ code: 'UNAVAILABLE', message: 'Under maintenance.' },
+							{ status: 503 },
+						)
+					: undefined,
+		})
+		const { ws, closes } = opening(url)
+		const results = ws.iterate({ query: tasks })
+		await next(results)
+		down = true
+		http?.closeUpgrades({ code: 1012, reason: 'Maintenance' })
+		await failed(results)
+		expect(closes).toEqual([{ code: 1012, reason: 'Maintenance' }])
+		const refused = new WebSocket(url, 'graphql-transport-ws')
+		const status = await new Promise((done) => {
+			refused.once('unexpected-response', (_request, response) => {
+				// The server closes the socket once it answered.
+				response.resume()
+				done(response.statusCode)
+			})
+		})
+		expect(status).toBe(503)
 	})
 })

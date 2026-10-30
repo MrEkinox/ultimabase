@@ -4500,7 +4500,7 @@ npx ultimabase reset --force
 
 ## D-106: `httpPlugin()`, its Hono routes and the caller they read
 
-Amended by D-153.
+Amended by D-153 and D-166.
 
 Choice: completes D-27, D-49, D-59 and D-66.
 
@@ -9348,7 +9348,7 @@ api: ({ plugins }) => plugins.http.mount(uploads, { bodyLimit: false })
 
 ## D-154: Realtime: live lists and live rows
 
-Amended by D-163.
+Amended by D-163 and D-166.
 
 Choice: completes D-25; amends D-106 (WebSocket upgrades), D-107 (the
 `Subscription` type), D-109 (live functions) and D-129 (live reads over
@@ -10678,4 +10678,86 @@ const hour = 60 * 60 * 1000
 // A back office: a session ends 8 hours after its last use, and 7 days at
 // most after the sign-in.
 authPlugin({ sessions: { lifetime: 8 * hour, longest: 7 * 24 * hour } })
+```
+
+## D-166: Refusing and closing WebSockets
+
+Choice: amends D-106 and D-154 point 5 (`upgrade(path, accept)`).
+
+1. `httpPlugin({ upgrade })` takes a gate,
+   `(request: Request) => Response | undefined | Promise<Response | undefined>`.
+   It runs on each WebSocket upgrade after the URL, path and origin checks
+   and before the plugin that takes the path. A `Response` is sent as it is,
+   status, headers and body, then the socket closes; `undefined` lets the
+   upgrade through. It reads no caller: `identify` has not run.
+2. A gate that throws is logged and answered 500 `INTERNAL`, as a plugin
+   that throws on an upgrade. A socket waiting on the gate is one `stop`
+   waits for.
+3. `http.upgrade(path, accept, { close })` takes, besides `accept`, how the
+   plugin closes its sockets on that path: `close(code, reason)`.
+4. `http.closeUpgrades({ code, reason, path })` closes the sockets open on
+   every path, or on `path` alone. It calls each path's `close`; the sockets
+   of a path without one are destroyed, which a client reads as 1006.
+   `reason` is `''` by default. It returns once each `close` is called, not
+   once the sockets are closed.
+5. `closeUpgrades` with a `path` no plugin takes throws
+   `No plugin takes the upgrades of ${path}.`; before the start, or after
+   the stop, it closes nothing.
+6. graphql's `close` closes each of its sockets with the code and reason.
+   `stop` still closes them with 1001.
+
+Why:
+
+- An application coming from Parse refuses new sockets during maintenance
+  with 503 and closes the open ones with 1012 (Service Restart): a
+  graphql-ws client then retries, meets the 503 and stops. Neither was
+  possible: `use` middlewares do not run on upgrades, and graphql's sockets
+  are its own.
+- The close code is the WebSocket protocol's, which only the plugin that
+  took the socket speaks: http holds the raw stream, and can only cut it.
+- A gate that returns a `Response` is the shape of every other HTTP answer
+  in the application, and lets it send `Retry-After`.
+- The gate is the application's, not each plugin's: maintenance refuses
+  every socket, as `use` refuses every request.
+
+Rejected:
+
+- Running the `use` middlewares on upgrades: they read the caller and a
+  body, and answer with Hono's context, which an upgrade has neither of.
+- Closing from http alone: every client would read 1006, an abnormal
+  close, and retry as after a crash.
+- A `closeSockets` on graphql only: each plugin that takes a path would add
+  its own, and the application would call them all.
+- Closing the sockets of one user, as after a ban: nobody asks for it yet,
+  and it needs the caller of each socket.
+
+Example, before:
+
+```ts
+// Nothing refuses a new GraphQL socket during maintenance, and nothing
+// closes those already open.
+httpPlugin({ routes: [routes] })
+```
+
+After:
+
+```ts
+httpPlugin({
+	routes: [routes],
+	upgrade: () =>
+		maintenance.enabled
+			? Response.json(
+					{ code: 'UNAVAILABLE', message: 'Under maintenance.' },
+					{ status: 503 },
+				)
+			: undefined,
+})
+
+// In a plugin that requires http: when maintenance begins, every socket
+// open is closed with 1012.
+start: ({ plugins }) => {
+	maintenance.subscribe((enabled) => {
+		if (enabled) plugins.http.closeUpgrades({ code: 1012, reason: 'Maintenance' })
+	})
+},
 ```

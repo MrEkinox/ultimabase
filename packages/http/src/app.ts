@@ -14,6 +14,7 @@ import type { Caller, ErrorCode, Logger } from 'ultimabase'
 import { isLocalHost, PublicError } from 'ultimabase'
 import { addresses, proxiesOf } from './address.ts'
 import { hold } from './request.ts'
+import type { Gate } from './upgrade.ts'
 
 /**
  * What a route's context holds: `c.var.caller` (D-106) and `c.var.address`,
@@ -42,6 +43,11 @@ export interface HttpOptions {
 	readonly bodyLimit?: number
 	/** In front of the server, which then reads the client's address from `X-Forwarded-For`; 0 by default (D-116). */
 	readonly proxies?: number
+	/**
+	 * Answers each WebSocket upgrade before the plugin that takes it: a
+	 * response refuses it, as during maintenance (D-166).
+	 */
+	readonly upgrade?: Gate
 }
 
 const statuses: ReadonlyMap<string, ContentfulStatusCode> = new Map<
