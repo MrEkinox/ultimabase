@@ -5,8 +5,10 @@ description: The GraphQL API generated from the models and the functions, its na
 
 `@ultimabase/graphql` serves a GraphQL API generated from the models and the
 functions, on the [HTTP](/docs/next/http) server. Each request runs as its
-caller, under the models' [access rules](/docs/next/access). A model is
-served once its `use` lists `graphql()`:
+caller, under the models' [access rules](/docs/next/access). Every model
+and every function of the application is served; listing `graphql()` in a
+model's `use` lets its `.with({ graphql })` set its name and its limits, or
+hide it:
 
 ```npm
 npm install @ultimabase/graphql graphql
@@ -252,6 +254,9 @@ neither `maxTake`, `maxDepth`, `maxRows`, nor the 20 root fields.
 
 | On         | Value         | Effect                                                               |
 | ---------- | ------------- | -------------------------------------------------------------------- |
+It needs `graphql()` in the model's or the function's `use`; without it, the
+model or the function is served with the defaults.
+
 | a model    | `{ plural }`  | The list field's name.                                               |
 | a model    | `{ maxTake }` | The most rows its lists return.                                      |
 | a model    | `false`       | No root field; read through relations, and connected, never created. |

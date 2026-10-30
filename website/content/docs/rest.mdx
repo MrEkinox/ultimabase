@@ -7,8 +7,9 @@ description: The REST API generated from the models and the functions, its route
 functions, on the [HTTP](/docs/next/http) server. It is the
 [GraphQL](/docs/next/graphql) API in HTTP's grammar: the same names, the same
 operators and the same answers. Each request runs as its caller, under the
-models' [access rules](/docs/next/access). A model is served once its `use`
-lists `rest()`:
+models' [access rules](/docs/next/access). Every model and every function
+of the application is served; listing `rest()` in a model's `use` lets its
+`.with({ rest })` set its routes' name and its limits, or hide it:
 
 ```npm
 npm install @ultimabase/rest
@@ -183,11 +184,11 @@ read through its relations, and connected, never created:
 	../examples/rest/src/models.ts#revision
 </include>
 
-A function is served under `/api/functions/` once its `use` lists
-`rest()`. A query function is a `GET`, each input key a query parameter, a
-string as it is and any other value as JSON; any other function is a
-`POST`, its body its input. `.with({ rest: { name } })` renames its route,
-and `.with({ rest: false })` does not serve it:
+A function is served under `/api/functions/`. A query function is a `GET`,
+each input key a query parameter, a string as it is and any other value as
+JSON; any other function is a `POST`, its body its input. With `rest()` in
+its `use`, `.with({ rest: { name } })` renames its route, and
+`.with({ rest: false })` does not serve it:
 
 <include cwd meta='title="src/functions.ts"'>
 	../examples/rest/src/functions.ts#functions
@@ -265,6 +266,9 @@ it serves live reads over Server-Sent Events. Master is limited by neither
 
 | On         | Value         | Effect                                                          |
 | ---------- | ------------- | --------------------------------------------------------------- |
+It needs `rest()` in the model's or the function's `use`; without it, the
+model or the function is served with the defaults.
+
 | a model    | `{ plural }`  | The routes' name.                                               |
 | a model    | `{ maxTake }` | The most rows its lists return.                                 |
 | a model    | `false`       | No route; read through relations, and connected, never created. |
