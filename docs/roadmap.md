@@ -260,6 +260,8 @@ for production yet, and fixes ship as 0.1.x or 0.2.
       subscription to 1000 rows, a subscription reading its window alone,
       and a lost link or role passing over the whole window
       (`bench/realtime/README.md`).
+- [ ] Decide refusing breached and common passwords (NIST SP 800-63B
+      §5.1.1.2): `passwordPlugin()` checks only a new password's length.
 
 Exit: the audit's fixes are published.
 

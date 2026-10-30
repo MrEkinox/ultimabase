@@ -1,17 +1,36 @@
 // Sessions (D-112): an opaque token, of which the database keeps only the
-// SHA-256 digest, ending 30 days after its last use and one year after its
-// sign-in (D-115).
+// SHA-256 digest, ending a lifetime after its last use and at the longest
+// after its sign-in (D-115), both the application's (D-165).
 import { createHash, randomBytes } from 'node:crypto'
 import type { Field, ModelOf, ScalarOptions } from 'ultimabase'
-import { defineModel, master, PublicError } from 'ultimabase'
+import { defineModel, master, PublicError, Refused } from 'ultimabase'
 
 const M = { as: master }
 const day = 24 * 60 * 60 * 1000
-const lifetime = 30 * day
-/** A session used with less left gets its lifetime again. */
-const renewal = 15 * day
-/** No renewal takes a session past this long after its sign-in (D-115). */
-const longest = 365 * day
+
+/** How long sessions last, in milliseconds (D-165). */
+export interface Durations {
+	/** After the last use; a session used with less than half left is renewed. */
+	readonly lifetime: number
+	/** After the sign-in, which no renewal goes past (D-115). */
+	readonly longest: number
+}
+
+const positive = (value: number): boolean => Number.isFinite(value) && value > 0
+
+/** `authPlugin`'s `sessions`, checked, with 30 and 365 days by default. */
+export function durationsOf(sessions: Partial<Durations> = {}): Durations {
+	const { lifetime = 30 * day, longest = 365 * day } = sessions
+	if (!positive(lifetime) || !positive(longest)) {
+		throw new Refused(
+			'authPlugin() sessions: lifetime and longest are positive numbers of milliseconds.',
+		)
+	}
+	if (lifetime > longest) {
+		throw new Refused('authPlugin() sessions: lifetime is longer than longest.')
+	}
+	return { lifetime, longest }
+}
 
 type SessionFields = {
 	readonly tokenHash: Field<string, { readonly unique: true }>
@@ -41,7 +60,10 @@ export interface Opened {
 }
 
 /** Opens a session for `userId`, ending every expired one (D-115). */
-export async function openSession(userId: string): Promise<Opened> {
+export async function openSession(
+	userId: string,
+	{ lifetime }: Durations,
+): Promise<Opened> {
 	const now = Date.now()
 	await AuthSession.deleteMany(
 		{ where: { expiresAt: { lte: new Date(now) } } },
@@ -57,12 +79,13 @@ export async function openSession(userId: string): Promise<Opened> {
 }
 
 /**
- * The session `token` opened, renewed when it has less than 15 days left, up
- * to one year after its sign-in; `undefined` for an unknown one, or an
- * expired one, deleted.
+ * The session `token` opened, renewed when it has less than half its lifetime
+ * left, up to the longest after its sign-in; `undefined` for an unknown one,
+ * or an expired one, deleted.
  */
 export async function sessionOf(
 	token: string,
+	{ lifetime, longest }: Durations,
 ): Promise<{ readonly userId: string; readonly expiresAt: Date } | undefined> {
 	const tokenHash = digest(token)
 	const session = await AuthSession.findUnique({ where: { tokenHash } }, M)
@@ -74,7 +97,7 @@ export async function sessionOf(
 		return undefined
 	}
 	const end = Math.min(now + lifetime, session.createdAt.getTime() + longest)
-	if (left < renewal && end > session.expiresAt.getTime()) {
+	if (left < lifetime / 2 && end > session.expiresAt.getTime()) {
 		try {
 			await AuthSession.update(
 				{ where: { tokenHash }, data: { expiresAt: new Date(end) } },
