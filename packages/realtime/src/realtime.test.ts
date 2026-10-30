@@ -103,7 +103,11 @@ const Note = defineModel({
 				{ where: { user: idOf(caller) }, include: { team: true } },
 				M,
 			)
-			return where({ team: { in: members.map(({ team }) => team.name) } })
+			return where({
+				team: {
+					in: members.flatMap(({ team }) => (team === null ? [] : [team.name])),
+				},
+			})
 		},
 	},
 })

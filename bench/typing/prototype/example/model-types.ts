@@ -39,7 +39,7 @@ const withAuthor = {
 } satisfies ArgsOf<typeof Book, 'findMany'>
 type BookWithAuthor = RecordOf<typeof Book, typeof withAuthor>
 const rows: BookWithAuthor[] = await Book.findMany(withAuthor, { as: master })
-export const firstAuthor = rows[0]?.author.name
+export const firstAuthor = rows[0]?.author?.name
 
 const titleOnly = { select: { title: true } } satisfies ArgsOf<
 	typeof Book,

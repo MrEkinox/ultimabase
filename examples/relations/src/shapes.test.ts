@@ -27,7 +27,7 @@ it('creates, reads and deletes the card of a member', async () => {
 		{ where: { number: 'C-1' }, include: { member: true } },
 		{ as: master },
 	)
-	expect(card.member.name).toBe('Ada')
+	expect(card.member?.name).toBe('Ada')
 	await Member.update(
 		{ where: { id: ada.id }, data: { card: { update: { number: 'C-2' } } } },
 		{ as: master },
@@ -114,7 +114,7 @@ it('reads the two relations between branches', async () => {
 		},
 		{ as: master },
 	)
-	expect(read.outgoing.map((transfer) => transfer.to.city)).toEqual(['Lyon'])
+	expect(read.outgoing.map((transfer) => transfer.to?.city)).toEqual(['Lyon'])
 	expect(read.incoming).toEqual([])
 	//#endregion
 })
@@ -144,7 +144,7 @@ it('reads the members of a club through their memberships', async () => {
 		{ as: master },
 	)
 	expect(
-		read.memberships.map(({ role, reader }) => [reader.name, role]),
+		read.memberships.map(({ role, reader }) => [reader?.name, role]),
 	).toEqual([['Grace', 'host']])
 	//#endregion
 	expect(await Membership.count({}, { as: master })).toBe(1)

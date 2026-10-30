@@ -87,9 +87,9 @@ export type RelationChecks = [
 					readonly name: string
 					readonly books: {
 						readonly pages: number | null
-						readonly author: { readonly level: 'junior' | 'senior' }
+						readonly author: { readonly level: 'junior' | 'senior' } | null
 					}[]
-				}
+				} | null
 				readonly reviewer: { readonly name: string } | null
 			}
 		>
@@ -99,7 +99,7 @@ export type RelationChecks = [
 			(typeof included)[number],
 			AuthorRow & {
 				readonly books: (BookRow & {
-					readonly author: AuthorRow
+					readonly author: AuthorRow | null
 					readonly sequels: { readonly title: string }[]
 				})[]
 				readonly favorite: BookRow | null
@@ -113,7 +113,7 @@ export type RelationChecks = [
 			{
 				readonly author: {
 					readonly favorite: { readonly title: string } | null
-				}
+				} | null
 			} | null
 		>
 	>,
@@ -157,7 +157,7 @@ await Book.findMany({
 	// @ts-expect-error: a to-one relation takes no `take`.
 	select: { author: { take: 1 } },
 })
-type DeepBook = (typeof deep)[number]['author']['books'][number]
+type DeepBook = NonNullable<(typeof deep)[number]['author']>['books'][number]
 // @ts-expect-error: `title` was not selected.
 export type NotSelected = DeepBook['title']
 // @ts-expect-error: relations are not returned without `select` or `include`.

@@ -154,6 +154,10 @@ nested `include` or `select`.
 	../examples/relations/src/queries.test.ts#include
 </include>
 
+A `one` reads `null` when the caller cannot read its target: a read rule hides
+it, or it is in the [trash](/docs/next/soft-delete). Its type includes `null`,
+even for a required relation, whose key is never empty.
+
 `select` returns only the fields it names, relations included, at any depth.
 The result's type follows it:
 
