@@ -9,11 +9,29 @@ on:
 permissions:
   contents: read
 
+# A newer push cancels a pull request's run, never main's: a run of main may
+# be publishing (D-156).
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  commits:
+    name: Commit messages
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: ./.github/actions/setup
+      # The commits a pull request adds, or those a push brings; a new
+      # branch's first push has no previous commit to start from.
+      - if: github.event_name == 'pull_request'
+        run: yarn commitlint --from ${{ github.event.pull_request.base.sha }} --to ${{ github.event.pull_request.head.sha }}
+      - if: github.event_name == 'push' && !startsWith(github.event.before, '0000000')
+        run: yarn commitlint --from ${{ github.event.before }} --to ${{ github.sha }}
+
   validate:
     name: Validate
     runs-on: ubuntu-24.04
@@ -76,3 +94,58 @@ jobs:
       - uses: ./.github/actions/setup
       - run: docker compose up --detach --wait seaweedfs
       - run: yarn test:s3
+
+  # Both publish from this file, after every check of the commit: npm trusts
+  # one workflow file and one environment per package (D-156). The commit
+  # messages are not waited for: a pushed commit cannot be reworded.
+  canary:
+    name: Canary
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    needs: [validate, packed, website, postgres, s3]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    environment: npm
+    concurrency:
+      group: release
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v6
+      - uses: ./.github/actions/setup
+        with:
+          cache: 'false'
+      - run: node scripts/release.ts canary
+
+  release:
+    name: Release
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    needs: [validate, packed, website, postgres, s3]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    environment: npm
+    concurrency:
+      group: release
+      cancel-in-progress: false
+    permissions:
+      contents: write
+      pull-requests: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v6
+      - uses: ./.github/actions/setup
+        with:
+          cache: 'false'
+      # With pending changesets, opens or updates the release pull request;
+      # without, publishes what npm lacks, once its merge is on main.
+      - uses: changesets/action@v2.1.2
+        with:
+          version-script: yarn release:version
+          publish-script: node scripts/release.ts stable
+          commit-message: 'chore(release): version packages'
+          pr-title: 'chore(release): version packages'
+          create-github-releases: false
+          push-git-tags: false
+        env:
+          GH_TOKEN: ${{ github.token }}

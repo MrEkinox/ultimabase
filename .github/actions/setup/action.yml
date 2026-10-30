@@ -1,5 +1,9 @@
 name: Set up repository
 description: Install the pinned Node and Yarn toolchain with immutable registry archives.
+inputs:
+  cache:
+    description: Restore and save the Yarn cache; a release job installs without it (D-156).
+    default: 'true'
 runs:
   using: composite
   steps:
@@ -9,7 +13,8 @@ runs:
         package-manager-cache: false
     - run: corepack enable
       shell: bash
-    - uses: actions/cache@v5
+    - if: inputs.cache == 'true'
+      uses: actions/cache@v5
       with:
         path: .yarn/cache
         key: yarn-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('yarn.lock', '.yarnrc.yml') }}
