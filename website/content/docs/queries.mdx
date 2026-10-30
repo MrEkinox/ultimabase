@@ -184,6 +184,9 @@ with `contains: true`: see [Models and fields](/docs/next/models).
 
 ### Limits
 
+A client's query refused as `INVALID_QUERY` answers `BAD_USER_INPUT`, a
+`400`, with the same message and the `path` in its details.
+
 - `skip` and `take` are whole numbers; `distinct` takes no `cursor`.
 - `aggregate` takes the fields a sort takes; `groupBy` and `distinct` take
   them and the `one` relations.

@@ -149,6 +149,8 @@ User } }` types `caller.user` as the user model's row: see
 `via` names the relation a nested write came through, as `'Post.comments'`.
 
 ### Limits
+A client's filter refused as `INVALID_QUERY` answers `BAD_USER_INPUT`, a
+`400`.
 
 - A rule returns its result directly, never a `Promise`, and cannot query.
 - A model read rule returns `true`, `false` or `where(...)`; any other value

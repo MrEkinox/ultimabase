@@ -85,6 +85,7 @@ readable line in a terminal and a JSON line everywhere else.
 | `TOO_MANY_ATTEMPTS`   | Too many sign-ins; `Retry-After` says when to try again. | 429         | `{ retryAfter }`, in seconds |
 | `INTERNAL`            | Any error that is not a `PublicError`.                   | 500         | `correlationId`, beside it   |
 | the application's own | A `PublicError` it threw.                                | 400         | its own                      |
+| `BAD_USER_INPUT`      | A client's query, parameter or body the API refuses.     | 400         | `{ path }`, from the kernel  |
 
 An issue is `{ path, message }`: `path` lists the keys to the refused
 value, as `['days']`.
@@ -103,5 +104,8 @@ the code: a body over `bodyLimit` is `413` `PAYLOAD_TOO_LARGE`. See
 ### Limits
 
 - A code not in capitals is a type error.
-- `INVALID_QUERY`, a query argument the kernel does not know, is a bug of
-  the server code: it reaches no client, and is masked as `INTERNAL`.
+- A query the kernel refuses, such as an unknown field, throws an
+  `InvalidQuery` in server code, with the code `INVALID_QUERY` and its
+  `path`. Sent by a client, it answers `BAD_USER_INPUT` with the same
+  message; thrown by server code and left uncaught, it is a bug, masked as
+  `INTERNAL`.

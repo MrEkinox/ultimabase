@@ -131,7 +131,8 @@ linked row, as the [one-to-one](#one-to-one) example shows.
 
 A `connect` to a row that does not exist fails with `NOT_FOUND`. A write the
 types refuse, such as linking a book back to the publisher being created,
-fails with `INVALID_QUERY` when a client sends it:
+throws an `InvalidQuery` (`INVALID_QUERY`) when the types are bypassed, and
+answers `BAD_USER_INPUT`, a `400`, when a client sends it:
 
 <include cwd meta='title="src/queries.test.ts"'>
 	../examples/relations/src/queries.test.ts#refused
@@ -405,7 +406,7 @@ the other side) and on a filtered relation.
 
 `RELATION_RESTRICTED` carries `details: { model, field }`, the relation that
 refused. On the server, `INVALID_QUERY` is thrown as an `InvalidQuery`, with
-its `code` and its `path`.
+its `code` and its `path`; a client receives it as `BAD_USER_INPUT`.
 
 ### Startup errors
 
