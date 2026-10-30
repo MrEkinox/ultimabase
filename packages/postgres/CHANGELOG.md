@@ -1,5 +1,13 @@
 # @ultimabase/postgres
 
+## 0.2.0
+
+### Patch Changes
+
+- Updated dependencies [2c3bf4e]
+- Updated dependencies [fd1263e]
+  - ultimabase@0.2.0
+
 ## 0.1.2
 
 ### Patch Changes

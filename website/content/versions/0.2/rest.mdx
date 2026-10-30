@@ -1,0 +1,757 @@
+---
+title: REST
+description: The REST API generated from the models and the functions, its routes, its parameters, its OpenAPI document and its limits.
+---
+
+`@ultimabase/rest` serves a REST API generated from the models and the
+functions, on the [HTTP](/docs/next/http) server. It is the
+[GraphQL](/docs/next/graphql) API in HTTP's grammar: the same names, the same
+operators and the same answers. Each request runs as its caller, under the
+models' [access rules](/docs/next/access). Every model and every function
+of the application is served; listing `rest()` in a model's `use` lets its
+`.with({ rest })` set its routes' name and its limits, or hide it:
+
+```npm
+npm install @ultimabase/rest
+```
+
+```ts
+import { graphql } from '@ultimabase/graphql'
+import { rest } from '@ultimabase/rest'
+import { allow, defineModel } from 'ultimabase'
+
+export const Post = defineModel({
+	name: 'Post',
+	use: [rest(), graphql()],
+	fields: (f) => ({
+		title: f.string(),
+		slug: f.string({ unique: true }),
+		status: f.enumOf(['draft', 'published'], { default: 'draft' }),
+		likes: f.number({ integer: true, default: 0 }),
+		publishedAt: f.dateTime({ optional: true }),
+		author: f.one(() => Person),
+		revisions: f.many(() => Revision),
+	}),
+	// A client asks for 20 posts at most in one list.
+}).with({ access: allow.public, rest: { maxTake: 20 } })
+```
+
+The full example, with its tests: [`examples/rest`](https://github.com/MrEkinox/ultimabase/tree/main/examples/rest).
+
+`restPlugin()` goes in the application's plugins, after `httpPlugin()`,
+which it requires:
+
+```ts
+plugins: [
+	httpPlugin(),
+	restPlugin({
+		// A request nests 4 levels at most; 10 by default.
+		maxDepth: 4,
+		// It returns 2 000 rows at most, each list times the lists above
+		// it; 20 000 by default.
+		maxRows: 2000,
+	}),
+	graphqlPlugin(),
+],
+```
+
+The API is under `/api`, and the server logs `REST on
+http://localhost:3000/api.` outside production. A query parameter holds
+JSON, unless it is a cursor; a body is JSON, sent with
+`content-type: application/json`. The tests on this page call it with these
+two helpers:
+
+```ts
+/** A REST request's status and JSON body, as a client sends it. */
+async function api(
+	path: string,
+	init: Omit<RequestInit, 'headers'> & {
+		readonly headers?: { readonly [name: string]: string }
+	} = {},
+) {
+	const response = await fetch(`${running.url}/api${path}`, {
+		...init,
+		headers: { 'content-type': 'application/json', ...init.headers },
+	})
+	const body: unknown = await response.json()
+	return { status: response.status, body }
+}
+
+/** A query string: each value as JSON, a string as is. */
+const query = (params: { [name: string]: unknown }): string =>
+	`?${new URLSearchParams(
+		Object.fromEntries(
+			Object.entries(params).map(([name, value]) => [
+				name,
+				typeof value === 'string' ? value : JSON.stringify(value),
+			]),
+		),
+	).toString()}`
+```
+
+## What a model gets
+
+`Post` gets six routes, each the twin of a GraphQL field:
+
+| Route                   | Does                                           | Answers                      |
+| ----------------------- | ---------------------------------------------- | ---------------------------- |
+| `GET /api/posts`        | lists, as `posts`                              | `200`, a page                |
+| `GET /api/posts/:id`    | reads one row, as `post`                       | `200`, or `404` when absent  |
+| `POST /api/posts`       | creates, as `createPost`; the body is its data | `201`                        |
+| `PUT /api/posts`        | upserts, as `upsertPost`                       | `201` created, `200` updated |
+| `PATCH /api/posts/:id`  | updates, as `updatePost`; the body is its data | `200`                        |
+| `DELETE /api/posts/:id` | deletes, as `deletePost`                       | `200`, the row as it was     |
+
+A write's body nests its [relations](/docs/next/relations)' writes, as in
+GraphQL: `connect`, `create` and `connectOrCreate`, and in an update
+`update`, `disconnect`, `set` and `delete`. A write takes `select` or
+`include` as query parameters, to shape its answer. Here a person is
+created with three posts:
+
+```ts
+/** Ada and her three posts, created in one write. */
+const seed = () =>
+	api(`/people${query({ include: { posts: { select: { slug: true } } } })}`, {
+		method: 'POST',
+		body: JSON.stringify({
+			name: 'Ada',
+			posts: {
+				create: [
+					{ title: 'Notes', slug: 'notes', likes: 12, status: 'published' },
+					{ title: 'Sketch', slug: 'sketch', likes: 3 },
+					{ title: 'Plans', slug: 'plans', likes: 7, status: 'published' },
+				],
+			},
+		}),
+	})
+```
+
+```ts
+expect(seeded).toEqual({
+	status: 201,
+	body: {
+		id: anId,
+		createdAt: aDate,
+		updatedAt: aDate,
+		name: 'Ada',
+		posts: {
+			edges: [
+				{ cursor: aCursor, node: { slug: 'notes' } },
+				{ cursor: aCursor, node: { slug: 'sketch' } },
+				{ cursor: aCursor, node: { slug: 'plans' } },
+			],
+			pageInfo: {
+				hasNextPage: false,
+				hasPreviousPage: false,
+				startCursor: aCursor,
+				endCursor: aCursor,
+			},
+		},
+	},
+})
+```
+
+## Pages
+
+A list answers a Relay connection, as GraphQL does: `edges`, each with its
+`cursor` and its `node`, then `pageInfo`. `first` and `after` page forward,
+`last` and `before` backward; `after` and `before` are cursors, sent as
+they are, without JSON. `totalCount=true` adds the count of rows the
+`where` matches:
+
+```ts
+const select = { title: true }
+const orderBy = { likes: 'desc' }
+const first = await api(
+	`/posts${query({ first: 2, orderBy, select, totalCount: true })}`,
+)
+expect(first.body).toMatchObject({
+	edges: [{ node: { title: 'Notes' } }, { node: { title: 'Plans' } }],
+	pageInfo: { hasNextPage: true },
+	totalCount: 3,
+})
+const after = String(at(first.body, 'pageInfo', 'endCursor'))
+const next = await api(`/posts${query({ first: 2, after, orderBy, select })}`)
+expect(next.body).toMatchObject({
+	edges: [{ node: { title: 'Sketch' } }],
+	pageInfo: { hasNextPage: false },
+})
+```
+
+With `pagination: 'list'`, every list is an array, paged with `take` and
+`skip`, and has no `totalCount`:
+
+```ts
+plugins: [httpPlugin(), restPlugin({ pagination: 'list' }), graphqlPlugin()],
+```
+
+```ts
+await request('/people', {
+	name: 'Ada',
+	posts: {
+		create: [
+			{ title: 'Notes', slug: 'notes' },
+			{ title: 'Plans', slug: 'plans' },
+		],
+	},
+})
+const select = JSON.stringify({
+	title: true,
+	author: {
+		select: { name: true, posts: { take: 5, select: { slug: true } } },
+	},
+})
+const orderBy = JSON.stringify({ title: 'asc' })
+const body = await request(
+	`/posts?take=1&skip=1&orderBy=${orderBy}&select=${encodeURIComponent(select)}`,
+)
+expect(body).toEqual([
+	{
+		title: 'Plans',
+		author: { name: 'Ada', posts: [{ slug: 'notes' }, { slug: 'plans' }] },
+	},
+])
+```
+
+## One row
+
+`GET /api/posts/:id` reads a row by its id; a row that does not exist, or
+that the caller may not read, is a `404`:
+
+```ts
+const { body } = await api('/posts')
+const notes = String(at(body, 'edges', '0', 'node', 'id'))
+expect(await api(`/posts/${notes}`)).toEqual({
+	status: 200,
+	body: {
+		id: notes,
+		createdAt: aDate,
+		updatedAt: aDate,
+		title: 'Notes',
+		slug: 'notes',
+		status: 'published',
+		likes: 12,
+		publishedAt: null,
+	},
+})
+expect(await api('/posts/nowhere')).toEqual({
+	status: 404,
+	body: { code: 'NOT_FOUND', message: 'No Post matches.' },
+})
+```
+
+Without `select` or `include`, a row holds its `id`, `createdAt` and
+`updatedAt`, each field the caller may read, and the virtuals read by
+default; no relation. A list's rows hold the same.
+
+## Choose the fields
+
+`select` names the fields a row holds; `include` adds relations to the
+default fields. Both nest: a relation's value is `true`, or what to read
+of it, with a many relation's own `where`, `orderBy`, `first` and
+`totalCount`. A row takes one of the two, never both:
+
+```ts
+const selected = await api(
+	`/people/${ada}${query({
+		select: {
+			name: true,
+			posts: {
+				first: 1,
+				orderBy: { likes: 'asc' },
+				select: { slug: true },
+			},
+		},
+	})}`,
+)
+expect(selected.body).toEqual({
+	name: 'Ada',
+	posts: {
+		edges: [{ cursor: aCursor, node: { slug: 'sketch' } }],
+		pageInfo: {
+			hasNextPage: true,
+			hasPreviousPage: false,
+			startCursor: aCursor,
+			endCursor: aCursor,
+		},
+	},
+})
+const included = await api(
+	`/posts${query({
+		where: { slug: { equals: 'notes' } },
+		include: { author: true },
+	})}`,
+)
+expect(at(included.body, 'edges', '0', 'node')).toMatchObject({
+	title: 'Notes',
+	likes: 12,
+	author: { name: 'Ada' },
+})
+```
+
+## Filters
+
+`where` takes the operators of [queries](/docs/next/queries): `equals`,
+`gt`, `startsWith`, `in` and the others on a field; `is` and `isNot` on a
+relation to one row; `some`, `every` and `none` on a many relation; `AND`,
+`OR` and `NOT` around them. `orderBy` takes a field, or a list of them:
+
+```ts
+const where = {
+	status: { equals: 'published' },
+	likes: { gte: 10 },
+	author: { is: { name: { startsWith: 'A' } } },
+}
+const posts = await api(`/posts${query({ where, select: { title: true } })}`)
+expect(posts.body).toMatchObject({ edges: [{ node: { title: 'Notes' } }] })
+const people = await api(
+	`/people${query({
+		where: { posts: { some: { likes: { lt: 5 } } } },
+		select: { name: true },
+	})}`,
+)
+expect(people.body).toMatchObject({ edges: [{ node: { name: 'Ada' } }] })
+```
+
+## Dates
+
+A `dateTime` is ISO 8601 text, in a response, a body or a filter; a `date`
+is a day, as `'2026-07-31'`; a `decimal` is text, as `'12.50'`:
+
+```ts
+const { body } = await api('/posts', {
+	method: 'POST',
+	body: JSON.stringify({
+		title: 'Launch',
+		slug: 'launch',
+		publishedAt: '2026-07-31T09:00:00.000Z',
+		author: { connect: { id: ada } },
+	}),
+})
+expect(body).toMatchObject({ publishedAt: '2026-07-31T09:00:00.000Z' })
+const where = { publishedAt: { gte: '2026-07-01T00:00:00.000Z' } }
+const later = await api(`/posts${query({ where, select: { slug: true } })}`)
+expect(later.body).toMatchObject({ edges: [{ node: { slug: 'launch' } }] })
+```
+
+## Writes
+
+`PATCH` sets the fields its body holds, and leaves the others:
+
+```ts
+const { body } = await api(
+	`/posts${query({ where: { slug: { equals: 'sketch' } } })}`,
+)
+const sketch = String(at(body, 'edges', '0', 'node', 'id'))
+const updated = await api(
+	`/posts/${sketch}${query({ select: { likes: true, status: true } })}`,
+	{
+		method: 'PATCH',
+		body: JSON.stringify({ likes: 4, status: 'published' }),
+	},
+)
+expect(updated).toEqual({
+	status: 200,
+	body: { likes: 4, status: 'published' },
+})
+```
+
+`PUT` on the list's route finds a row by a unique `where`: it updates it
+with `update`, or creates it from `create` when there is none. The status
+says which it did:
+
+```ts
+const path = `/posts${query({ select: { slug: true, likes: true } })}`
+const ideas = {
+	method: 'PUT',
+	body: JSON.stringify({
+		where: { slug: 'ideas' },
+		create: {
+			title: 'Ideas',
+			slug: 'ideas',
+			author: { connect: { id: ada } },
+		},
+		update: { likes: 1 },
+	}),
+}
+expect(await api(path, ideas)).toEqual({
+	status: 201,
+	body: { slug: 'ideas', likes: 0 },
+})
+expect(await api(path, ideas)).toEqual({
+	status: 200,
+	body: { slug: 'ideas', likes: 1 },
+})
+```
+
+`DELETE` answers the row as it was, its default fields only:
+
+```ts
+const { body } = await api(
+	`/posts${query({ where: { slug: { equals: 'plans' } } })}`,
+)
+const plans = String(at(body, 'edges', '0', 'node', 'id'))
+const deleted = await api(`/posts/${plans}`, { method: 'DELETE' })
+expect(deleted).toMatchObject({
+	status: 200,
+	body: { id: plans, title: 'Plans', slug: 'plans' },
+})
+expect(await api(`/posts/${plans}`)).toMatchObject({ status: 404 })
+```
+
+A write sets values: the number operations of
+[queries](/docs/next/queries), as `{ increment: 1 }`, are for server code,
+as a function's. Over REST, they are refused with `data.likes must be
+a number.`
+
+## Errors
+
+An error is a status and a body `{ code, message, details }`, with the
+status of its code, as [Errors](/docs/next/errors) lists them; a
+`UNIQUE_VIOLATION` is a `409`. A wrong query parameter is a `400`
+`BAD_USER_INPUT`, before the request runs:
+
+```ts
+const duplicate = await api('/posts', {
+	method: 'POST',
+	body: JSON.stringify({
+		title: 'Notes again',
+		slug: 'notes',
+		author: { connect: { id: ada } },
+	}),
+})
+expect(duplicate).toEqual({
+	status: 409,
+	body: {
+		code: 'UNIQUE_VIOLATION',
+		message: 'Unique constraint failed on Post (slug).',
+		details: { model: 'Post', fields: ['slug'] },
+	},
+})
+expect(await api('/posts?first=two')).toEqual({
+	status: 400,
+	body: {
+		code: 'BAD_USER_INPUT',
+		message: 'The query parameter first is not JSON.',
+	},
+})
+expect(await api('/posts?limit=10')).toEqual({
+	status: 400,
+	body: {
+		code: 'BAD_USER_INPUT',
+		message:
+			"Unknown query parameter 'limit'; this route takes where, orderBy, select, include, first, last, totalCount, after, before.",
+	},
+})
+```
+
+## Names
+
+A route's name is the model's plural, in lower case: `posts` for `Post`. A
+plural the default spells wrong takes `.with({ rest: { plural } })`:
+
+```ts
+export const Person = defineModel({
+	name: 'Person',
+	use: [rest(), graphql()],
+	fields: (f) => ({ name: f.string(), posts: f.many(() => Post) }),
+	// `persons` otherwise: the route is /api/people.
+}).with({
+	access: allow.public,
+	rest: { plural: 'people' },
+	graphql: { plural: 'people' },
+})
+```
+
+`.with({ rest: false })` serves a model without routes of its own: it is
+read through its relations, and connected, never created:
+
+```ts
+export const Revision = defineModel({
+	name: 'Revision',
+	use: [rest(), graphql()],
+	fields: (f) => ({ text: f.string(), post: f.one(() => Post) }),
+	// No route: a client reads revisions through their post.
+}).with({ access: allow.readOnly, rest: false, graphql: false })
+```
+
+A function is served under `/api/functions/`. A query function is a `GET`,
+each input key a query parameter, a string as it is and any other value as
+JSON; any other function is a `POST`, its body its input. With `rest()` in
+its `use`, `.with({ rest: { name } })` renames its route, and
+`.with({ rest: false })` does not serve it:
+
+```ts
+export const topPosts = defineFunction({
+	name: 'topPosts',
+	use: [rest()],
+	query: true,
+	input: z.object({ count: z.int().min(1).max(10) }),
+	output: [Post],
+	run: ({ input, caller }) =>
+		Post.findMany(
+			{ orderBy: { likes: 'desc' }, take: input.count },
+			{ as: caller },
+		),
+	// Served at GET /api/functions/trending.
+}).with({ access: allow.public, rest: { name: 'trending' } })
+
+export const like = defineFunction({
+	name: 'like',
+	use: [rest()],
+	input: z.object({ slug: z.string() }),
+	output: Post,
+	// A number operation is for server code: a client's write sets values.
+	run: ({ input, caller }) =>
+		Post.update(
+			{ where: { slug: input.slug }, data: { likes: { increment: 1 } } },
+			{ as: caller },
+		),
+}).with({ access: allow.public })
+
+export const reindex = defineFunction({
+	name: 'reindex',
+	use: [rest()],
+	run: () => {},
+	// Server code calls it; REST does not serve it.
+}).with({ access: allow.public, rest: false })
+```
+
+```ts
+expect(await api(`/people${query({ select: { name: true } })}`)).toMatchObject({
+	status: 200,
+	body: { edges: [{ node: { name: 'Ada' } }] },
+})
+const trending = await api(`/functions/trending${query({ count: 1 })}`)
+expect(trending).toMatchObject({ status: 200, body: [{ title: 'Notes' }] })
+const liked = await api('/functions/like', {
+	method: 'POST',
+	body: JSON.stringify({ slug: 'sketch' }),
+})
+expect(liked).toMatchObject({
+	status: 200,
+	body: { slug: 'sketch', likes: 4 },
+})
+```
+
+```ts
+const notes = await Post.findUniqueOrThrow(
+	{ where: { slug: 'notes' } },
+	{ as: master },
+)
+await Revision.create(
+	{ data: { text: 'First draft', post: { connect: { id: notes.id } } } },
+	{ as: master },
+)
+const read = await api(
+	`/posts/${notes.id}${query({ select: { revisions: { select: { text: true } } } })}`,
+)
+expect(read.body).toMatchObject({
+	revisions: { edges: [{ node: { text: 'First draft' } }] },
+})
+expect(await api('/revisions')).toMatchObject({ status: 404 })
+expect(await api('/functions/reindex', { method: 'POST' })).toMatchObject({
+	status: 404,
+})
+```
+
+## REST and GraphQL
+
+Both APIs read the same arguments and answer the same JSON: a client moves
+from one to the other without changing its data.
+
+```ts
+const where = { likes: { gt: 10 } }
+const select = { title: true, author: { select: { name: true } } }
+const rest = await api(`/posts${query({ where, select })}`)
+const response = await fetch(`${running.url}/graphql`, {
+	method: 'POST',
+	headers: { 'content-type': 'application/json' },
+	body: JSON.stringify({
+		query:
+			'{ posts(where: { likes: { gt: 10 } }) { edges { cursor node { title author { name } } } pageInfo { hasNextPage hasPreviousPage startCursor endCursor } } }',
+	}),
+})
+const answer: unknown = await response.json()
+expect(answer).toEqual({ data: { posts: rest.body } })
+```
+
+## OpenAPI
+
+`GET /api/openapi.json` is the API's [OpenAPI 3.1](https://spec.openapis.org/oas/v3.1.0)
+document: each route, its parameters, its bodies, its answers and its
+errors, as JSON Schema. A client generator or a tool such as Swagger UI
+reads it:
+
+```ts
+const { body } = await api('/openapi.json')
+expect(body).toMatchObject({
+	openapi: '3.1.0',
+	info: { title: 'UltimaBase REST API' },
+	servers: [{ url: '/api' }],
+})
+const paths = at(body, 'paths')
+expect(
+	typeof paths === 'object' && paths !== null ? Object.keys(paths) : [],
+).toEqual([
+	'/people',
+	'/people/{id}',
+	'/posts',
+	'/posts/{id}',
+	'/functions/trending',
+	'/functions/like',
+])
+```
+
+Each operation is named as its GraphQL field, as `posts`, `post`,
+`createPost`, `upsertPost`, `updatePost`, `deletePost`, and a function's
+name. Its schemas are named as GraphQL's types, as `Post` and
+`PostWhereInput`, with `PostSelect`, `PostInclude` and `Error`.
+
+## Limits
+
+A request from a caller other than Master is refused before it runs when
+it nests deeper than `maxDepth`, its `orderBy` counted, or may return more
+than `maxRows` rows, each list counting its `first` times the lists above
+it. A list asking for more than its `maxTake` is refused as it runs:
+
+```ts
+expect(await api(`/posts${query({ first: 21 })}`)).toMatchObject({
+	status: 400,
+	body: { message: 'first is at most 20 on Post.' },
+})
+const author = {
+	include: { posts: { first: 2, include: { author: true } } },
+}
+const deep = query({
+	first: 1,
+	include: { posts: { first: 2, include: { author: author } } },
+})
+expect(await api(`/people${deep}`)).toMatchObject({
+	status: 400,
+	body: {
+		message:
+			'The request is nested 5 levels deep, its orderBy included; the most is 4.',
+	},
+})
+const many = query({ first: 100, include: { posts: { first: 20 } } })
+expect(await api(`/people${many}`)).toMatchObject({
+	status: 400,
+	body: {
+		message:
+			'The request asks for more than 2,000 rows. Ask for fewer with first or last.',
+	},
+})
+const asMaster = {
+	headers: { 'x-ultimabase-master-key': 'dev-master-key' },
+}
+expect(await api(`/people${deep}`, asMaster)).toMatchObject({ status: 200 })
+```
+
+## Live reads
+
+With [`realtimePlugin()`](/docs/next/realtime), a list, a row or a query
+function of a live model answers a stream of Server-Sent Events when the
+request sends `Accept: text/event-stream`. The [Realtime](/docs/next/realtime)
+page shows it.
+
+## Reference
+
+### `restPlugin(options)`
+
+| Option       | Type                       | Default        | Effect                                                              |
+| ------------ | -------------------------- | -------------- | ------------------------------------------------------------------- |
+| `path`       | string                     | `'/api'`       | Where the routes and the OpenAPI document are served.               |
+| `pagination` | `'connection'` or `'list'` | `'connection'` | Relay connections, or arrays with `take` and `skip`.                |
+| `take`       | number                     | 100            | The rows a list returns without `first`, `last` or `take`.          |
+| `maxTake`    | number                     | 100            | The most rows a list returns, unless the model sets its own.        |
+| `maxDepth`   | number                     | 10             | The deepest a request nests, its fields and its `orderBy` counted.  |
+| `maxRows`    | number                     | 20 000         | The most rows a request may return, each list times those above it. |
+
+It requires `httpPlugin()`. With [`realtimePlugin()`](/docs/next/realtime),
+it serves live reads over Server-Sent Events. Master is limited by neither
+`maxTake`, `maxDepth` nor `maxRows`.
+
+### `.with({ rest })`
+
+It needs `rest()` in the model's or the function's `use`; without it, the
+model or the function is served with the defaults.
+
+| On         | Value         | Effect                                                          |
+| ---------- | ------------- | --------------------------------------------------------------- |
+| a model    | `{ plural }`  | The routes' name.                                               |
+| a model    | `{ maxTake }` | The most rows its lists return.                                 |
+| a model    | `false`       | No route; read through relations, and connected, never created. |
+| a function | `{ name }`    | The route's name, under `/api/functions/`.                      |
+| a function | `false`       | Not served over REST.                                           |
+
+### Query parameters
+
+| Parameter    | On                     | Value                                    |
+| ------------ | ---------------------- | ---------------------------------------- |
+| `where`      | a list                 | JSON, a filter                           |
+| `orderBy`    | a list                 | JSON, a field's order, or a list of them |
+| `first`      | a list, connection     | JSON, a number                           |
+| `last`       | a list, connection     | JSON, a number                           |
+| `after`      | a list, connection     | a cursor, as text                        |
+| `before`     | a list, connection     | a cursor, as text                        |
+| `totalCount` | a list, connection     | `true` or `false`                        |
+| `take`       | a list, list mode      | JSON, a number                           |
+| `skip`       | a list, list mode      | JSON, a number                           |
+| `select`     | any route but `DELETE` | JSON, the fields to read                 |
+| `include`    | any route but `DELETE` | JSON, the relations to add               |
+
+`totalCount` is also a key inside `select` and `include`, on a many
+relation, in connection mode. A query function takes its input's keys
+instead.
+
+### Types
+
+A field reads as in GraphQL's JSON: `f.dateTime()` is ISO 8601 text, as
+`'2026-07-31T09:00:00.000Z'`; `f.date()` a day, as `'2026-07-31'`;
+`f.decimal()` text, as `'12.50'`; an enum its value's name, as
+`'published'`; the id text.
+
+### Errors
+
+| Status | Code               | Message                                                                                                                      |
+| ------ | ------------------ | ---------------------------------------------------------------------------------------------------------------------------- |
+| 400    | `BAD_USER_INPUT`   | `The query parameter first is not JSON.`                                                                                     |
+| 400    | `BAD_USER_INPUT`   | `The query parameter first is given twice.`                                                                                  |
+| 400    | `BAD_USER_INPUT`   | `Unknown query parameter 'limit'; this route takes where, orderBy, select, include, first, last, totalCount, after, before.` |
+| 400    | `BAD_USER_INPUT`   | `select and include cannot be used together.`                                                                                |
+| 400    | `BAD_USER_INPUT`   | `select.title must be a boolean.`                                                                                            |
+| 400    | `BAD_USER_INPUT`   | `Unknown key 'data.revisions.create' on Post.`, a nested write to a `rest: false` model.                                     |
+| 400    | `BAD_USER_INPUT`   | `data.publishedAt must be an ISO 8601 DateTime, such as 2026-01-31T12:00:00.000Z.`                                           |
+| 400    | `BAD_USER_INPUT`   | `data.likes must be a number.`, for a number operation.                                                                      |
+| 400    | `BAD_USER_INPUT`   | `first is at most 20 on Post.`                                                                                               |
+| 400    | `BAD_USER_INPUT`   | `The request is nested 5 levels deep, its orderBy included; the most is 4.`                                                  |
+| 400    | `BAD_USER_INPUT`   | `The request asks for more than 2,000 rows. Ask for fewer with first or last.`, `take` in list mode.                         |
+| 404    | `NOT_FOUND`        | `No Post matches.`                                                                                                           |
+| 409    | `UNIQUE_VIOLATION` | `Unique constraint failed on Post (slug).`, with `details: { model, fields }`.                                               |
+| any    | any kernel code    | as [Errors](/docs/next/errors) lists them, with `details`.                                                                   |
+| 500    | `INTERNAL`         | `Internal error.`, with `correlationId`.                                                                                     |
+
+At start:
+
+- `Crate: the route boxes is Box's; set .with({ rest: { plural } }).`, and
+  `Job: the route functions is the functions's; …`, a plural taken.
+- `other: the route functions/twice is double's; set .with({ rest: { name } }).`,
+  for a function.
+- `books: the operation books is Book's; set .with({ rest: { name } }).`, an
+  OpenAPI operation named twice.
+- `Job: my-jobs is not a route name.`
+- `Club.status: REST names a schema Person; give yours another name.`
+- `Person.status and Club.status give the schema Status two shapes; name each once.`
+
+As it runs, a function that returns `undefined` is refused:
+`fn returned undefined; make its output .nullable() and return null.`
+
+### Limits
+
+- No batch route, no update or delete of many rows: a function does it.
+- A row is found by its `id` in the path; any other unique field goes
+  through `where` on the list, or `PUT`.
+- A read is a `GET`: there is no `POST` route for a long query.
+- The OpenAPI document declares no security scheme: the session cookie of
+  [auth](/docs/next/auth) and the master key header are not in it.
