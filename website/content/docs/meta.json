@@ -32,6 +32,8 @@
 		"---Databases---",
 		"memory",
 		"postgres",
+		"---Extend---",
+		"plugins",
 		"---Deploy---",
 		"deploy"
 	]

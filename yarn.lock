@@ -3755,6 +3755,20 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"example-plugins@workspace:examples/plugins":
+  version: 0.0.0-use.local
+  resolution: "example-plugins@workspace:examples/plugins"
+  dependencies:
+    "@ultimabase/http": "workspace:*"
+    "@ultimabase/testing": "workspace:*"
+    hono: "npm:4.13.13"
+    ultimabase: "workspace:*"
+    vite: "npm:8.3.4"
+    vitest: "npm:5.0.5"
+    zod: "npm:4.6.5"
+  languageName: unknown
+  linkType: soft
+
 "example-postgres@workspace:examples/postgres":
   version: 0.0.0-use.local
   resolution: "example-postgres@workspace:examples/postgres"
