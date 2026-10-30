@@ -1,5 +1,5 @@
 // The password functions a client calls: reset and verification emails, a
-// password change, and the limit on failed sign-ins.
+// password or email change, and the limit on failed sign-ins.
 import { testApplication } from '@ultimabase/testing'
 import { master } from 'ultimabase'
 import { expect, it, vi } from 'vitest'
@@ -33,13 +33,16 @@ const signIn = (password: string) =>
 	)
 
 /** The token of the latest email of `kind` to Ada, once it is sent. */
-async function emailed(kind: 'reset' | 'verify'): Promise<string> {
-	const sent = await vi.waitFor(() => {
+async function emailed(
+	kind: 'reset' | 'verify' | 'emailChange',
+): Promise<string> {
+	return vi.waitFor(() => {
 		const found = outbox.findLast((email) => email.kind === kind)
-		if (found === undefined) throw new Error(`No ${kind} email yet.`)
-		return found
+		if (found === undefined || !('token' in found)) {
+			throw new Error(`No ${kind} email yet.`)
+		}
+		return found.token
 	})
-	return sent.token
 }
 
 const signUp = () =>
@@ -152,6 +155,62 @@ it('checks the password again before a sensitive action', async () => {
 		code: 'INVALID_CREDENTIALS',
 		message: 'Wrong password.',
 	})
+	//#endregion
+})
+
+it('changes the email once the new address confirms', async () => {
+	await signUp()
+	const { token: session } = await User.signIn({
+		email: 'ada@example.com',
+		password: 'correct horse',
+	})
+	//#region email-change
+	// The password again, so a stolen session cannot take the account.
+	await request(
+		`mutation ($input: RequestEmailChangeInput!) {
+			requestEmailChange(input: $input)
+		}`,
+		{ newEmail: 'ada@new.example', currentPassword: 'correct horse' },
+		{ authorization: `Bearer ${session}` },
+	)
+	// The link goes to the new address; its page sends the token back.
+	const token = await emailed('emailChange')
+	expect(
+		await request(
+			`mutation ($input: ConfirmEmailChangeInput!) {
+				confirmEmailChange(input: $input)
+			}`,
+			{ token },
+		),
+	).toEqual({ data: { confirmEmailChange: true } })
+	expect(
+		await User.signIn({ email: 'ada@new.example', password: 'correct horse' }),
+	).toMatchObject({ user: { email: 'ada@new.example', emailVerified: true } })
+	// The old address is told.
+	await vi.waitFor(() => {
+		expect(outbox.at(-1)).toMatchObject({
+			kind: 'emailChanged',
+			to: 'ada@example.com',
+		})
+	})
+	//#endregion
+})
+
+it('changes the email from server code', async () => {
+	const ada = await signUp()
+	//#region email-update
+	// As Master, without any email: the account follows the field.
+	const updated = await User.update(
+		{ where: { id: ada.id }, data: { email: 'Ada@New.Example' } },
+		{ as: master },
+	)
+	expect(updated).toMatchObject({
+		email: 'ada@new.example',
+		emailVerified: false,
+	})
+	await expect(
+		User.signIn({ email: 'ada@new.example', password: 'correct horse' }),
+	).resolves.toMatchObject({ user: { name: 'Ada' } })
 	//#endregion
 })
 

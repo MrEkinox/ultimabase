@@ -63,3 +63,11 @@ export async function subjectOf(
 export async function unlinkAccounts(userId: string): Promise<void> {
 	await AuthAccount.deleteMany({ where: { userId } }, M)
 }
+
+/** Unlinks `userId`'s account of `method`; none linked is no error (D-162). */
+export async function unlinkAccount(
+	userId: string,
+	method: string,
+): Promise<void> {
+	await AuthAccount.deleteMany({ where: { userId, method } }, M)
+}

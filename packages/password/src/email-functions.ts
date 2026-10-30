@@ -1,12 +1,21 @@
-// password's email functions (D-117): `requestPasswordReset`,
-// `resetPassword`, `verifyEmail` and `sendVerificationEmail`, there when the
-// application gives `sendEmail`.
+// password's email functions (D-117, D-162): `requestPasswordReset`,
+// `resetPassword`, `verifyEmail`, `sendVerificationEmail`,
+// `requestEmailChange` and `confirmEmailChange`, there when the application
+// gives `sendEmail`.
 import type { FunctionShape } from 'ultimabase'
-import { allow, defineFunction, master, PublicError } from 'ultimabase'
-import type { State } from './core.ts'
-import { method, setPassword } from './core.ts'
 import {
+	allow,
+	defineFunction,
+	master,
+	PublicError,
+	transaction,
+} from 'ultimabase'
+import type { State } from './core.ts'
+import { attemptOf, checkCurrent, method, setPassword } from './core.ts'
+import {
+	confirmEmailChangeInput,
 	outputSchema,
+	requestEmailChangeInput,
 	requestResetInput,
 	resetPasswordInput,
 	verifyEmailInput,
@@ -49,7 +58,7 @@ export const mailerOf =
 	async (kind, userId, to) => {
 		const refused = await emailLimited(userId)
 		if (refused !== undefined) return refused
-		const token = await issueToken(userId, kind)
+		const token = await issueToken(userId, kind, to)
 		await sendEmail({ kind, to, token, userId })
 		return undefined
 	}
@@ -91,7 +100,7 @@ export function emailFunctions(
 		output: done,
 		run: async ({ input: { input } }) => {
 			const state = stateOf()
-			const userId = await redeemToken(input.token, 'reset')
+			const { userId } = await redeemToken(input.token, 'reset')
 			await setPassword(state, userId, input.password)
 			await verify(state, userId)
 			return true
@@ -102,7 +111,8 @@ export function emailFunctions(
 		input: verifyEmailInput,
 		output: done,
 		run: async ({ input: { input } }) => {
-			await verify(stateOf(), await redeemToken(input.token, 'verify'))
+			const { userId } = await redeemToken(input.token, 'verify')
+			await verify(stateOf(), userId)
 			return true
 		},
 	}).with({ access: allow.public })
@@ -133,5 +143,52 @@ export function emailFunctions(
 		resetPassword,
 		verifyEmail,
 		sendVerificationEmail,
+		...emailChangeFunctions(stateOf, mail),
 	]
+}
+
+/** `requestEmailChange` and `confirmEmailChange` (D-162). */
+function emailChangeFunctions(
+	stateOf: () => State,
+	mail: Mailer,
+): readonly FunctionShape[] {
+	const requestEmailChange = defineFunction({
+		name: 'requestEmailChange',
+		input: requestEmailChangeInput,
+		output: done,
+		run: async ({ input: { input }, caller, client }) => {
+			if (caller.kind !== 'user') {
+				throw new PublicError(
+					'UNAUTHENTICATED',
+					'requestEmailChange needs a signed-in user.',
+				)
+			}
+			const { id } = caller.user
+			await checkCurrent(id, input.currentPassword, attemptOf(id, client))
+			const { newEmail } = input
+			// The caller proved the password: telling it is no enumeration.
+			if ((await stateOf().auth.accountOf(method, newEmail)) !== undefined) {
+				throw new PublicError('UNIQUE_VIOLATION', 'This email has an account.')
+			}
+			const refused = await mail('emailChange', id, newEmail)
+			if (refused !== undefined) throw refused
+			return true
+		},
+	}).with({ access: allow.public })
+	const confirmEmailChange = defineFunction({
+		name: 'confirmEmailChange',
+		input: confirmEmailChangeInput,
+		output: done,
+		run: async ({ input: { input } }) => {
+			const { users } = stateOf()
+			// A taken email undoes the redeem too: the link works until it expires.
+			await transaction(async () => {
+				const { userId, email } = await redeemToken(input.token, 'emailChange')
+				const data = { email, emailVerified: true }
+				await users.queries.update({ where: { id: userId }, data }, M)
+			})
+			return true
+		},
+	}).with({ access: allow.public })
+	return [requestEmailChange, confirmEmailChange]
 }

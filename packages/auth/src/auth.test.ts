@@ -408,6 +408,17 @@ describe('linked accounts', () => {
 		await expect(auth?.subjectOf(ada.id, 'github')).resolves.toBeUndefined()
 	})
 
+	it('unlink one method’s account, and none linked is no error', async () => {
+		const { ada } = await server()
+		const auth = given.auth
+		await auth?.linkAccount(ada.id, 'google', '1234')
+		await auth?.linkAccount(ada.id, 'password', 'ada@example.com')
+		await auth?.unlinkAccount(ada.id, 'password')
+		await auth?.unlinkAccount(ada.id, 'github')
+		await expect(auth?.subjectOf(ada.id, 'password')).resolves.toBeUndefined()
+		await expect(auth?.subjectOf(ada.id, 'google')).resolves.toBe('1234')
+	})
+
 	it('take a method’s subject once', async () => {
 		const { ada } = await server()
 		const grace = await User.create({ data: { email: 'grace@example.com' } }, M)
