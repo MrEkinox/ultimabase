@@ -429,6 +429,81 @@ describe('linked accounts', () => {
 	})
 })
 
+describe('closing an account', () => {
+	it('ends the sessions and unlinks the accounts, keeping the row', async () => {
+		const { url, ada } = await server()
+		const grace = await User.create({ data: { email: 'grace@example.com' } }, M)
+		await given.auth?.linkAccount(ada.id, 'password', 'ada@example.com')
+		await given.auth?.linkAccount(grace.id, 'password', 'grace@example.com')
+		const { token } = await signIn(url, ada.id)
+		const kept = await signIn(url, grace.id)
+		await User.closeAccount({ id: ada.id }, { as: { kind: 'user', user: ada } })
+		expect((await callerOf(url, bearer(token))).status).toBe(401)
+		expect((await callerOf(url, bearer(kept.token))).status).toBe(200)
+		const left = await AuthAccount.findMany({}, M)
+		expect(left.map(({ userId }) => userId)).toStrictEqual([grace.id])
+		expect(await User.findUnique({ where: { id: ada.id } }, M)).toMatchObject({
+			email: 'ada@example.com',
+		})
+		// Closed already, or never there: nothing to close.
+		await User.closeAccount({ id: ada.id }, M)
+		await User.closeAccount({ id: 'unknown' }, M)
+	})
+
+	it('runs as Master or as the user', async () => {
+		const { url, ada } = await server()
+		const grace = await User.create({ data: { email: 'grace@example.com' } }, M)
+		const forged = { kind: 'master', master: { source: 'code' } } as const
+		const refusals = [
+			undefined,
+			{ as: { kind: 'anonymous' } as const },
+			{ as: { kind: 'user', user: grace } as const },
+			{ as: forged },
+		]
+		const { token } = await signIn(url, ada.id)
+		for (const options of refusals) {
+			await expect(
+				User.closeAccount({ id: ada.id }, options),
+			).rejects.toMatchObject({
+				code: 'ACCESS_DENIED',
+				message: 'User.closeAccount runs as Master or as the user.',
+			})
+		}
+		expect((await callerOf(url, bearer(token))).status).toBe(200)
+	})
+
+	it('runs each method’s listener in its transaction', async () => {
+		const { url, ada } = await server()
+		await given.auth?.linkAccount(ada.id, 'password', 'ada@example.com')
+		const { token } = await signIn(url, ada.id)
+		const closed: string[] = []
+		given.auth?.onCloseAccount(async (userId) => {
+			closed.push(userId)
+			throw new Error('The method failed.')
+		})
+		await expect(User.closeAccount({ id: ada.id }, M)).rejects.toThrow(
+			'The method failed.',
+		)
+		expect(closed).toStrictEqual([ada.id])
+		// Rolled back: the session and the account are still there.
+		expect((await callerOf(url, bearer(token))).status).toBe(200)
+		expect(await AuthAccount.count({}, M)).toBe(1)
+	})
+
+	it('ends a session opened while it runs', async () => {
+		const { url, ada } = await server()
+		const opened: string[] = []
+		// A sign-in that read the account before it was unlinked.
+		given.auth?.onCloseAccount(async (userId) => {
+			const session = await given.auth?.signIn(userId)
+			opened.push(session?.token ?? '')
+		})
+		await User.closeAccount({ id: ada.id }, M)
+		const [token = ''] = opened
+		expect((await callerOf(url, bearer(token))).status).toBe(401)
+	})
+})
+
 describe('the user model', () => {
 	const Member = defineUser({
 		name: 'Member',
