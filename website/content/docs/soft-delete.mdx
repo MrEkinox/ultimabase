@@ -89,6 +89,7 @@ model uses `softDelete()`. `softDelete()` adds:
 | the row's relations     | Stay: a soft-deleted row cascades nothing, and keeps its related rows.  |
 | the row's unique values | Stay taken: a new row with the same unique value is `UNIQUE_VIOLATION`. |
 | a read, a count         | Leaves the deleted rows out, for every caller.                          |
+| a relation to the row   | A `one` to it reads `null`, for every caller.                           |
 
 ### Errors
 

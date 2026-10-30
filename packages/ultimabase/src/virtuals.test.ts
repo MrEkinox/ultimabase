@@ -79,7 +79,7 @@ const Stage = defineModel({
 				)
 				return records.map((record) =>
 					all
-						.filter((image) => image.stage.id === record.id)
+						.filter((image) => image.stage?.id === record.id)
 						.slice(0, input.first),
 				)
 			},

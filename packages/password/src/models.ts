@@ -86,9 +86,15 @@ const tooMany = (oldest: Date, span: number, now: number): PublicError =>
 		},
 	})
 
-/** Where an attempt comes from; `undefined` for server code, not counted. */
+/**
+ * Where an attempt comes from: a client's address, none for server code
+ * that is still counted (D-161), `undefined` for server code that is not.
+ */
 export type Attempt =
-	{ readonly subject: string; readonly address: string } | undefined
+	{ readonly subject: string; readonly address?: string } | undefined
+
+/** What an attempt without an address is stored with; no address is it. */
+const server = 'server'
 
 /** The `n`th most recent failure but `id` matching `where`, if there is one. */
 async function nth(
@@ -104,10 +110,29 @@ async function nth(
 }
 
 /**
+ * The failures but `id` that refuse the attempt: from one address, the 10th
+ * on the subject or the 100th on it or from the address; without one, the
+ * 10th on the subject from anywhere, and no address is filled (D-161).
+ */
+async function reached(
+	subject: string,
+	address: string | undefined,
+	id: string,
+): Promise<readonly (Date | undefined)[]> {
+	if (address === undefined) return [await nth({ subject }, id, limit)]
+	return [
+		await nth({ subject, address }, id, limit),
+		await nth({ subject }, id, ceiling),
+		await nth({ address }, id, ceiling),
+	]
+}
+
+/**
  * Counts an attempt as failed until `run` succeeds, so concurrent attempts
  * cannot pass the limit (D-113, D-114). Within 15 minutes, the 11th from one
- * address on a subject is refused, as the 101st on it or from the address;
- * a success clears its address's count, a busy refusal is not counted.
+ * address on a subject is refused, as the 101st on it or from the address,
+ * and the 11th without an address on a subject (D-161); a success clears
+ * its address's count, a busy refusal is not counted.
  */
 export async function limited<T>(
 	attempt: Attempt,
@@ -115,7 +140,9 @@ export async function limited<T>(
 ): Promise<T> {
 	if (attempt === undefined) return run()
 	const { subject } = attempt
-	const address = networkOf(attempt.address)
+	const network =
+		attempt.address === undefined ? undefined : networkOf(attempt.address)
+	const address = network ?? server
 	const now = Date.now()
 	const since = new Date(now - window)
 	await PasswordAttempt.deleteMany({ where: { at: { lte: since } } }, M)
@@ -124,11 +151,7 @@ export async function limited<T>(
 		M,
 	)
 	// Several may be reached: the latest says when to retry.
-	const [oldest] = [
-		await nth({ subject, address }, id, limit),
-		await nth({ subject }, id, ceiling),
-		await nth({ address }, id, ceiling),
-	]
+	const [oldest] = (await reached(subject, network, id))
 		.filter((at) => at !== undefined)
 		.toSorted((a, b) => b.getTime() - a.getTime())
 	if (oldest !== undefined) {
