@@ -1,6 +1,6 @@
 {
 	"name": "@ultimabase/rest",
-	"version": "0.1.1",
+	"version": "0.1.2",
 	"description": "REST for UltimaBase: GraphQL's arguments and responses over resource routes, served by the HTTP plugin.",
 	"type": "module",
 	"license": "Apache-2.0",
@@ -31,9 +31,9 @@
 		}
 	},
 	"peerDependencies": {
-		"@ultimabase/http": "^0.1.1",
-		"@ultimabase/realtime": "^0.1.1",
-		"ultimabase": "^0.1.1"
+		"@ultimabase/http": "^0.1.2",
+		"@ultimabase/realtime": "^0.1.2",
+		"ultimabase": "^0.1.2"
 	},
 	"devDependencies": {
 		"@seriousme/openapi-schema-validator": "2.11.0",

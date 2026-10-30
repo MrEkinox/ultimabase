@@ -1,5 +1,12 @@
 # @ultimabase/acl
 
+## 0.1.2
+
+### Patch Changes
+
+- @ultimabase/roles@0.1.2
+  - ultimabase@0.1.2
+
 ## 0.1.1
 
 ### Patch Changes

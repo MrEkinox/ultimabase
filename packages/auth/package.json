@@ -1,6 +1,6 @@
 {
 	"name": "@ultimabase/auth",
-	"version": "0.1.1",
+	"version": "0.1.2",
 	"description": "Authentication for UltimaBase: the user model, sessions and the caller of each request.",
 	"type": "module",
 	"license": "Apache-2.0",
@@ -31,8 +31,8 @@
 		}
 	},
 	"peerDependencies": {
-		"@ultimabase/http": "^0.1.1",
-		"ultimabase": "^0.1.1"
+		"@ultimabase/http": "^0.1.2",
+		"ultimabase": "^0.1.2"
 	},
 	"devDependencies": {
 		"@types/pg": "8.23.1",

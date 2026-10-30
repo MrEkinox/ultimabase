@@ -1,5 +1,11 @@
 # create-ultimabase
 
+## 0.1.2
+
+### Patch Changes
+
+- 57b97c6: `npm create ultimabase` refuses the names npm refuses for a new package: one with a `~`, or starting with `-`; its message says a name starts with a letter or a digit.
+
 ## 0.1.1
 
 ### Patch Changes

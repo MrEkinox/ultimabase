@@ -1,5 +1,13 @@
 # @ultimabase/graphql
 
+## 0.1.2
+
+### Patch Changes
+
+- @ultimabase/http@0.1.2
+  - @ultimabase/realtime@0.1.2
+  - ultimabase@0.1.2
+
 ## 0.1.1
 
 ### Patch Changes
