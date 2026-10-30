@@ -30,6 +30,9 @@ const wrong = async () => {
 }
 const fail = async (subject: string, address: string) =>
 	limited({ subject, address }, wrong).catch((error: unknown) => error)
+/** A failure from server code that is counted: no address (D-161). */
+const serverFail = async (subject: string) =>
+	limited({ subject }, wrong).catch((error: unknown) => error)
 const tooMany = { code: 'TOO_MANY_ATTEMPTS' }
 
 describe('networkOf', () => {
@@ -114,6 +117,26 @@ describe('the sign-in limit', () => {
 		// The address's tenth failure, at 90 s, ends after the account's first.
 		expect(await fail('ada@example.com', '198.51.100.1')).toMatchObject({
 			details: { retryAfter: 890 },
+		})
+	})
+
+	it('without an address, counts the subject from anywhere, and fills no address', async () => {
+		await server()
+		for (let failure = 0; failure < 10; failure += 1) {
+			await fail('ada', `192.0.2.${failure}`)
+		}
+		expect(await serverFail('ada')).toMatchObject(tooMany)
+		for (let user = 0; user < 100; user += 1) {
+			expect(await serverFail(`user${user}`)).toMatchObject({
+				code: 'INVALID_CREDENTIALS',
+			})
+		}
+		// A client whose transport has no address shares no count with them.
+		expect(await fail('bob', '')).toMatchObject({
+			code: 'INVALID_CREDENTIALS',
+		})
+		expect(await serverFail('user0')).toMatchObject({
+			code: 'INVALID_CREDENTIALS',
 		})
 	})
 

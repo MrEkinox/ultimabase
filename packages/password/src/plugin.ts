@@ -26,6 +26,7 @@ import manifest from '../package.json' with { type: 'json' }
 import type { SignedIn, State } from './core.ts'
 import {
 	attemptOf,
+	checkCurrent,
 	createUser,
 	setPassword,
 	signedIn,
@@ -86,6 +87,15 @@ export interface PasswordCommands<F> {
 	setPassword(
 		args: { readonly id: string; readonly password: string },
 		options?: Options,
+	): Promise<void>
+	/**
+	 * Checks the user's current password before a sensitive action, as
+	 * Master or as the user; opens no session. Always counted: with a
+	 * `client` as changePassword, otherwise 10 failures per user (D-161).
+	 */
+	checkPassword(
+		args: { readonly id: string; readonly password: string },
+		options?: SignInOptions,
 	): Promise<void>
 }
 
@@ -211,6 +221,22 @@ function configOf(
 const callerOf = (options: Options | undefined): Identity =>
 	options?.as ?? { kind: 'anonymous' }
 
+/** Refuses `command` on user `id` but as Master or as that user. */
+function selfOrMaster(
+	options: Options | undefined,
+	id: string,
+	command: string,
+): void {
+	const caller = callerOf(options)
+	const self = caller.kind === 'user' && caller.user.id === id
+	if (!self && !isMaster(caller)) {
+		throw new PublicError(
+			'ACCESS_DENIED',
+			`User.${command} runs as Master or as the user.`,
+		)
+	}
+}
+
 const definition = definePlugin<Password>({
 	name: 'password',
 	manifest,
@@ -258,16 +284,19 @@ const definition = definePlugin<Password>({
 				return opened as SignedIn<UserRow<Password['addedFields']>>
 			},
 			setPassword: async ({ id, password }, options) => {
-				const caller = callerOf(options)
-				const self = caller.kind === 'user' && caller.user.id === id
-				if (!self && !isMaster(caller)) {
-					throw new PublicError(
-						'ACCESS_DENIED',
-						'User.setPassword runs as Master or as the user.',
-					)
-				}
+				selfOrMaster(options, id, 'setPassword')
 				const state = stateOf(plugins.auth)
 				await setPassword(state, id, valid(passwordOf, password, 'password'))
+			},
+			checkPassword: async ({ id, password }, options) => {
+				selfOrMaster(options, id, 'checkPassword')
+				const client = options?.client
+				// Counted without a client too: the check guards an action (D-161).
+				await checkCurrent(
+					id,
+					password,
+					attemptOf(id, client) ?? { subject: id },
+				)
 			},
 		}
 	},

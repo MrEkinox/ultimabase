@@ -48,6 +48,10 @@ export interface SignedIn<U = Row> {
 const invalid = () =>
 	new PublicError('INVALID_CREDENTIALS', 'Wrong email or password.')
 
+/** The current password is known to be the user's: no email to name (D-161). */
+const wrongPassword = () =>
+	new PublicError('INVALID_CREDENTIALS', 'Wrong password.')
+
 /** The attempt a client makes for `subject`; server code is not counted. */
 export const attemptOf = (
 	subject: string,
@@ -142,7 +146,7 @@ export async function checkCurrent(
 	attempt: Attempt,
 ): Promise<void> {
 	await limited(attempt, async () => {
-		if ((await matches(userId, password)) === undefined) throw invalid()
+		if ((await matches(userId, password)) === undefined) throw wrongPassword()
 	})
 }
 
