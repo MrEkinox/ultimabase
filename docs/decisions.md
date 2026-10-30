@@ -383,6 +383,8 @@ Rejected: kernel-level capabilities and plugin events.
 
 ## D-17: Soft-deleted rows are absent, the trash is read explicitly
 
+Amended by D-159.
+
 Choice: a soft-deleted row does not exist for ordinary reads, for every
 caller including Master. The trash is read through the plugin's own commands
 (`Post.trash.findMany(...)`), which go through `beforeFind` like any read;
@@ -2542,7 +2544,7 @@ fail.
 
 ## D-86: Access rules on relations, filters and written rows
 
-Amended by D-128 and D-138.
+Amended by D-128, D-138 and D-159.
 
 Choice: five details of D-10, D-44 and D-78 at run time.
 
@@ -10186,6 +10188,60 @@ import { defineModel } from 'ultimabase'
 ```text
 README.md: the block under examples/introduction/src/models.ts#post
 differs from its region
+```
+
+## D-159: A `one` relation read through `include` or `select` may be `null`
+
+Choice: amends D-86 and D-17 on the result's type.
+
+1. A `one` relation in an `include` or a `select` is typed
+   `Target | null`, required or optional, for every caller. At run time it
+   reads `null` when its target is absent for the caller: a read rule hides
+   it (D-86 point 4), or it is soft-deleted (D-17), which Master does not
+   see either.
+2. `optional` keeps its meaning, which is the stored key: a required
+   relation's key is never empty. `create` needs it, and neither
+   `disconnect` nor `onDelete: 'setNull'` empties it (D-54). A required
+   relation reads `null` only when its target is absent for the caller.
+
+Why:
+
+- The type said a required `one` is always there, and a read returned
+  `null` where it was not: `message.author.name` compiled, then threw once
+  the author was hidden or in the trash.
+- The GraphQL schema already types every `one` relation as nullable, for the
+  same reason (D-107); the TypeScript types now say the same.
+- Changing the type touched six lines of the packages' tests, five of the
+  relations example, the typing benchmark's expected types, and no
+  production code.
+
+Limit: Master writes a null check on a target that no read rule hides and
+that has no soft delete, as the relations example's five lines do. A type that depends on the caller and on the
+target's plugins would remove it, at a cost to every query's type, which no
+use asks for yet.
+
+Rejected:
+
+- Nullable only when the target may hide rows: a model's rules are given to
+  `.with()`, which returns the model's type unchanged, so the type does not
+  know them; and a model without a read rule is closed to every caller but
+  Master.
+- Non-null for Master: Master reads `null` for a soft-deleted target.
+- Leaving out the row whose required target is absent: a message would
+  leave the list with its author, which changes counts and pages and tells
+  the caller that a hidden row exists (D-86).
+
+Example:
+
+```ts
+const messages = await Message.findMany(
+	{ include: { author: true } },
+	{ as: caller },
+)
+// Before: compiled, then threw when the author was hidden or deleted
+messages[0].author.name
+// After
+messages[0].author?.name ?? 'Deleted account'
 ```
 
 ## D-160: Closing an account

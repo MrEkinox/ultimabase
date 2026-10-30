@@ -115,7 +115,7 @@ describe('writing relations', () => {
 			{ where: { id: kindred.id }, include: { author: true } },
 			{ as: master },
 		)
-		expect(moved.author.name).toBe('Ursula K. Le Guin')
+		expect(moved.author?.name).toBe('Ursula K. Le Guin')
 	})
 
 	it('replaces a book’s tags, and links a tag or creates it', async () => {
@@ -205,7 +205,7 @@ describe('reading relations', () => {
 			'The Dispossessed',
 			'The Lathe of Heaven',
 		])
-		expect(author.books[0]?.publisher.name).toBe('Ace')
+		expect(author.books[0]?.publisher?.name).toBe('Ace')
 		//#endregion
 		//#region select
 		const books = await Book.findMany(
