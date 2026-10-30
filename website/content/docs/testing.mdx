@@ -67,6 +67,25 @@ A test on PostgreSQL checks what `memory()` cannot: raw SQL, a
 constraint, the real column types. It is slower: keep most tests on
 `memory()`, and name these `*.postgres.test.ts` to run them apart.
 
+## Lost changes
+
+A plugin that follows the [changes](/docs/next/plugins#follow-the-changes)
+reads again, in `missed`, what it may have lost after a lost connection:
+
+<include cwd meta='title="src/missed.postgres.test.ts"'>
+	../examples/postgres/src/missed.postgres.test.ts#plugin
+</include>
+
+`running.feed.missed()` calls each plugin's `missed`, as after a lost
+connection. On `postgres()`, `database.sql` writes a change the feed does not
+report, since the feed reports the writes of the API only:
+
+<include cwd meta='title="src/missed.postgres.test.ts"'>
+	../examples/postgres/src/missed.postgres.test.ts#missed
+</include>
+
+`memory()` writes no such change: test `missed` on the declared database.
+
 ## Reference
 
 ### `testApplication(app, options?)`
@@ -75,7 +94,12 @@ constraint, the real column types. It is slower: keep most tests on
 | ---------- | ------------ | ---------- | --------------------------------------------------------- |
 | `database` | `'declared'` | `memory()` | The application's own database, in the file's own schema. |
 
-It returns `{ url }`: the HTTP server's address, read during a test.
+It returns, read during a test:
+
+| Key             | Effect                                                       |
+| --------------- | ------------------------------------------------------------ |
+| `url`           | The HTTP server's address, such as `http://localhost:54321`. |
+| `feed.missed()` | Calls each plugin's `missed`, as after a lost connection.    |
 
 ### `asUser(user)`
 
@@ -90,6 +114,7 @@ It returns `{ url }`: the HTTP server's address, read during a test.
 | `testApplication takes the value defineApp returned.`                                                                                                                | Another value was given.                    |
 | `url is the address of httpPlugin(), read during a test: add httpPlugin() to the application.`                                                                       | `url` read outside a test, or without HTTP. |
 | `testApplication runs on the declared database when it gives a test file tables of its own, as postgres() does; this one does not: remove { database: 'declared' }.` | The database cannot give a schema per file. |
+| `feed.missed() runs during a test.`                                                                                                                                  | `feed.missed()` called outside a test.      |
 
 ### Limits
 

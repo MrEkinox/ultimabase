@@ -105,6 +105,10 @@ describe('an application without httpPlugin()', () => {
 		expect(() => running.url).toThrow('add httpPlugin() to the application')
 		expect(await Note.count({}, M)).toBe(0)
 	})
+
+	it('calls no missed: no plugin takes the feed', () => {
+		expect(() => running.feed.missed()).not.toThrow()
+	})
 })
 
 interface Http extends PluginTypes {
@@ -128,6 +132,43 @@ describe.each([
 
 	it('has no url', () => {
 		expect(() => running.url).toThrow('add httpPlugin()')
+	})
+})
+
+describe('feed.missed()', () => {
+	interface Follows extends PluginTypes {
+		readonly name: 'follows'
+	}
+	const heard: string[] = []
+	const follows = definePlugin<Follows>({
+		name: 'follows',
+		manifest: { ...manifest, name: 'follows' },
+		changed: () => {
+			heard.push('changed')
+		},
+		missed: () => {
+			heard.push('missed')
+		},
+	})
+	const running = testApplication(
+		defineApp({
+			database: memory(),
+			plugins: [follows.plugin()],
+			models: [Note],
+		}),
+	)
+	let before = ''
+	beforeAll(() => {
+		before = thrown(() => running.feed.missed())
+	})
+
+	it("calls each plugin's missed during a test", () => {
+		running.feed.missed()
+		expect(heard).toStrictEqual(['missed'])
+	})
+
+	it('throws outside a test', () => {
+		expect(before).toBe('feed.missed() runs during a test.')
 	})
 })
 

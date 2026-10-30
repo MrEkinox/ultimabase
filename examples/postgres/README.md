@@ -18,6 +18,8 @@ models.
 - `src/tasks.postgres.test.ts`: the application's queries on PostgreSQL.
 - `src/search.postgres.test.ts`: `postgres()`'s options, and a search in
   English.
+- `src/missed.postgres.test.ts`: a plugin's `missed`, after a change the
+  feed does not report.
 
 With `DATABASE_URL` set, `yarn dev` serves it on
 http://localhost:3000/graphql and syncs the tables on each change. After a

@@ -163,11 +163,13 @@ export function lifecycle(options: LifecycleOptions): Lifecycle {
 		)
 		identifiers.push(...pluginIdentifiers(records, plugins))
 		callers.push(...pluginCallers(records, plugins))
-		await database.start(resolved.schema, logger, feedOf(records, plugins))
+		const feed = feedOf(records, plugins)
+		await database.start(resolved.schema, logger, feed)
 		const apis = new Map<string, unknown>()
 		const app: Running = {
 			resolved,
 			adapter: database,
+			feed,
 			logger,
 			apis,
 			functions: functions.definitions,
