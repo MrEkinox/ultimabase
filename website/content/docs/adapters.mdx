@@ -1,0 +1,351 @@
+---
+title: Write a database adapter
+description: Store the models in a database of your own, and check it with the contract suite.
+---
+
+An adapter is the object an application's `database` holds: `memory()` and
+`postgres()` are two. The kernel sends it every read and write fully
+prepared, its filters normalized, its ids, dates and defaults set and its
+access rules applied, so an adapter only stores and reads rows. It is not a
+plugin: an application has one.
+
+The [example](https://github.com/MrEkinox/ultimadatabase/tree/main/examples/adapter)
+writes `timed`, an adapter that runs another. It counts its calls, each a
+round trip to the database, and logs the slow ones:
+
+<include cwd meta='title="src/timed.ts"'>
+	../examples/adapter/src/timed.ts#types
+</include>
+
+An application uses it as any adapter:
+
+<include cwd meta='title="src/app.ts"'>
+	../examples/adapter/src/app.ts#app
+</include>
+
+`testAdapter`, from `@ultimabase/testing`, runs the contract suite on it:
+131 tests of what every adapter does alike, through the public API. Run it
+in a test file, with a new adapter for each test:
+
+<include cwd meta='title="src/contract.test.ts"'>
+	../examples/adapter/src/contract.test.ts#suite
+</include>
+
+```npm
+npm install --save-dev @ultimabase/testing vitest
+```
+
+An adapter that passes it runs every query, plugin and transport of
+UltimaBase.
+
+## Start and stop
+
+`start` receives the models, the kernel's logger and, when realtime is on,
+the change feed. It connects; `stop` disconnects. `timed` keeps the logger
+for its warnings and passes all three on:
+
+<include cwd meta='title="src/timed.ts"'>
+	../examples/adapter/src/timed.ts#start
+</include>
+
+The models arrive as a `Schema`: each model's fields, its relations from both
+sides and its indexes. `id`, `createdAt` and `updatedAt` are implicit. For
+the example's `Author` and `Post`, `start` receives:
+
+<include cwd meta='title="src/adapter.test.ts"'>
+	../examples/adapter/src/adapter.test.ts#schema
+</include>
+
+A `one` relation with `stored: true` holds the key: `Post` stores its
+author's id under `author`. A `many` facing a `many` has `join: true`, and the
+adapter keeps the pairs, through `link` and `unlink` changes. A field or
+model with `dbName` is stored under that name.
+
+## Reads
+
+`find` returns the rows of a `Read`, `count` counts the rows a filter keeps,
+and `aggregate` returns one list per group. `timed` times each one:
+
+<include cwd meta='title="src/timed.ts"'>
+	../examples/adapter/src/timed.ts#reads
+</include>
+
+A read arrives normalized. `Post.findMany({ where: { slug: 'hello' }, include: { author: true } })`
+reaches `find` as:
+
+<include cwd meta='title="src/adapter.test.ts"'>
+	../examples/adapter/src/adapter.test.ts#read
+</include>
+
+`fields` lists the fields to return, the access rules' hidden ones left out.
+`include` holds each relation's own read, at any depth. `orderBy` always
+ends with `id`, so the order is total and a `cursor` resumes where a page
+ended. A read with `lock` locks the rows it returns, in `id` order, until
+its transaction ends.
+
+## Writes
+
+`write` runs a whole `Write` and returns the rows its `read` selects:
+
+<include cwd meta='title="src/timed.ts"'>
+	../examples/adapter/src/timed.ts#write
+</include>
+
+A write is one unit: its checks first, then its changes, then its read. A
+`Post.create` that connects an author sends:
+
+<include cwd meta='title="src/adapter.test.ts"'>
+	../examples/adapter/src/adapter.test.ts#write
+</include>
+
+Each check counts the rows a filter keeps. When one counts other than its
+`count`, the write writes nothing and throws `CheckFailed`. The changes are
+inserts, updates, deletes, and links and unlinks of `many`-to-`many` pairs.
+An update's `compute` computes a number or a list on each row: `increment`,
+`decrement`, `multiply` and `divide`, `push`, `pushUnique` and `remove`. With
+`before`, the read selects among the rows the write deleted, as they were.
+
+## Transactions
+
+`begin` returns a `Transaction`: the reads and `write`, then `commit` or
+`rollback`. The kernel begins one for `transaction()`, and for a write that
+locks its rows first. `timed` times each call of it:
+
+<include cwd meta='title="src/timed.ts"'>
+	../examples/adapter/src/timed.ts#transaction
+</include>
+
+<include cwd meta='title="src/timed.ts"'>
+	../examples/adapter/src/timed.ts#begin
+</include>
+
+A transaction's writes are seen by its own reads and by no one else's
+before the commit. A failed write in a transaction leaves it to be rolled
+back, even when the callback catches the error.
+
+## One round trip per query
+
+The kernel asks the adapter once per query: a read and its relations at any
+depth, a count, a create and its connections, an update or a delete by id.
+An adapter keeps it so by answering each call in one round trip to its
+database; the suite counts them with `roundTrips`. `timed` counts its calls:
+
+<include cwd meta='title="src/timed.ts"'>
+	../examples/adapter/src/timed.ts#trip
+</include>
+
+An application's tests run on its declared adapter with
+`database: 'declared'`; `memory()` starts empty, so each test does:
+
+<include cwd meta='title="src/app.test.ts"'>
+	../examples/adapter/src/app.test.ts#test-application
+</include>
+
+<include cwd meta='title="src/app.test.ts"'>
+	../examples/adapter/src/app.test.ts#round-trips
+</include>
+
+## Errors
+
+An adapter throws one of five errors, from `ultimabase`, when its database
+refuses a write; the kernel turns each into the error the developer sees.
+Any other error reaches the developer as `INTERNAL`.
+
+A unique index refuses a row: throw `UniqueViolation` with the model and the
+index's fields.
+
+<include cwd meta='title="src/adapter.test.ts"'>
+	../examples/adapter/src/adapter.test.ts#unique-violation
+</include>
+
+The developer sees `UNIQUE_VIOLATION`:
+
+<include cwd meta='title="src/app.test.ts"'>
+	../examples/adapter/src/app.test.ts#unique
+</include>
+
+A check counts other than its `count`: throw `CheckFailed` with its index in
+`checks`, and write nothing.
+
+<include cwd meta='title="src/adapter.test.ts"'>
+	../examples/adapter/src/adapter.test.ts#check-failed
+</include>
+
+The developer sees the error the kernel attached to that check, here a
+connected author that does not exist:
+
+<include cwd meta='title="src/app.test.ts"'>
+	../examples/adapter/src/app.test.ts#check
+</include>
+
+A computed number falls outside its field's range, or is not finite: throw
+`OutOfRange` with the model and the field.
+
+<include cwd meta='title="src/adapter.test.ts"'>
+	../examples/adapter/src/adapter.test.ts#out-of-range
+</include>
+
+The developer sees `VALIDATION_FAILED`, with the field's range:
+
+<include cwd meta='title="src/app.test.ts"'>
+	../examples/adapter/src/app.test.ts#out-of-range
+</include>
+
+A foreign key refuses a write, when a row was deleted between the checks and
+the change: throw `RelationViolation` with the model, the field, the target
+and whether a delete was restricted. The developer sees `NOT_FOUND`, or
+`RELATION_RESTRICTED` when `restricted` is true:
+
+<include cwd meta='title="src/adapter.test.ts"'>
+	../examples/adapter/src/adapter.test.ts#relation-violation
+</include>
+
+A migration statement is refused: throw `MigrationFailed` with the statement
+or the file, and what the database said. In development the start stops
+with:
+
+<include cwd meta='title="src/adapter.test.ts"'>
+	../examples/adapter/src/adapter.test.ts#migration-failed
+</include>
+
+## The change feed
+
+With realtime on, `start` receives a `Feed`. Once a write commits, the
+adapter calls `changed` with what it changed, on every server: PostgreSQL
+sends it through its notifications. It calls `missed` when changes may have
+been lost, as when its listener reconnects. A rollback, a failed write and
+an update that changes nothing send nothing.
+
+<include cwd meta='title="src/adapter.test.ts"'>
+	../examples/adapter/src/adapter.test.ts#feed
+</include>
+
+A change lists at most `feedIds` ids or pairs; past that, it lists none:
+
+<include cwd meta='title="src/adapter.test.ts"'>
+	../examples/adapter/src/adapter.test.ts#feed-limits
+</include>
+
+An update lists the fields it set, `updatedAt` included, unless they are
+every field or, as JSON, longer than `feedFields`:
+
+<include cwd meta='title="src/adapter.test.ts"'>
+	../examples/adapter/src/adapter.test.ts#feed-fields
+</include>
+
+## Migrations
+
+An adapter for a database that keeps its tables has `migrations`: the
+kernel then syncs the tables in development and checks them in production,
+and the CLI writes and deploys migration files (see
+[PostgreSQL](/docs/next/postgres)). An adapter for a database that starts
+empty every time, as `memory()`, has none. `timed` passes its adapter's on:
+
+<include cwd meta='title="src/timed.ts"'>
+	../examples/adapter/src/timed.ts#migrations
+</include>
+
+A snapshot is JSON in the adapter's own format: what its database makes of
+the models. `plan` gives the statements from one snapshot to the models',
+each with what it does and, for the log, what it loses or may break.
+`apply` runs a sync or a deploy under a lock one database holds at a time.
+
+## Log through the kernel
+
+`start` receives the kernel's logger: an adapter logs through it, so its
+messages share the application's format and level. `timed` warns of each
+call that takes `slow` milliseconds or more:
+
+<include cwd meta='title="src/adapter.test.ts"'>
+	../examples/adapter/src/adapter.test.ts#slow
+</include>
+
+## Reference
+
+### `Adapter`
+
+| Member                         | Does                                                                 |
+| ------------------------------ | -------------------------------------------------------------------- |
+| `start(schema, logger, feed?)` | Connects, then the kernel syncs or checks the tables.                |
+| `stop()`                       | Disconnects.                                                         |
+| `find(read)`                   | The rows of a `Read`.                                                |
+| `count(read)`                  | How many rows `where` keeps.                                         |
+| `aggregate(read)`              | One list per group: its keys' values, then its aggregates'.          |
+| `write(write)`                 | Runs a `Write` whole, returns the rows its `read` selects.           |
+| `begin()`                      | A `Transaction`.                                                     |
+| `migrations?`                  | How the database follows the models; none for one that starts empty. |
+
+A `Transaction` has `find`, `count`, `aggregate`, `write`, `commit()` and
+`rollback()`.
+
+### `Schema`
+
+`{ models }`, each model `{ name, dbName?, fields, indexes }`, each index
+`{ fields, unique, contains }` (`contains` serves `contains` and
+`mode: 'insensitive'`).
+
+| Field kind | Properties                                                                                                                                                                                                   |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `scalar`   | `name`, `type` (`string`, `number`, `decimal`, `boolean`, `dateTime`, `date`, `json`, `enum`), `values?`, `list`, `integer?`, `precision?`, `scale?`, `optional`, `unique`, `search?`, `dbName?`, `default?` |
+| `one`      | `name`, `target`, `inverse`, `stored`, `unique`, `optional`, `onDelete` (`cascade`, `restrict`, `setNull`), `dbName?`                                                                                        |
+| `many`     | `name`, `target`, `inverse`, `join`, `filtered?`, `from?`                                                                                                                                                    |
+
+An integer runs from -2³¹ to 2³¹ - 1. A decimal is a string at its `scale`.
+A list is never `null`: `[]` when empty.
+
+### `Read` and `Write`
+
+| Shape       | Properties                                                                                                                                              |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Read`      | `model`, `where?`, `orderBy?` (ending with `id`), `cursor?`, `skip?`, `take?`, `fields?`, `include?`, `count?`, `lock?`, `distinct?`                    |
+| `CountRead` | `model`, `where?`                                                                                                                                       |
+| `Write`     | `checks?`, `changes`, `read?`, `before?`                                                                                                                |
+| `Check`     | `model`, `where`, `count`, `lock?`                                                                                                                      |
+| `Change`    | `insert` `{ model, row }`, `update` `{ model, where, set, compute? }`, `delete` `{ model, where }`, `link` and `unlink` `{ model, field, id, targets }` |
+
+In a change, a stored `one` key is the target's id or `null`.
+
+### Errors
+
+| Throw                                                 | When                                                                                      | The developer sees                                                             |
+| ----------------------------------------------------- | ----------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| `UniqueViolation(model, fields)`                      | A unique index refuses a row.                                                             | `UNIQUE_VIOLATION`, `details: { model, fields }`                               |
+| `CheckFailed(index)`                                  | A check counts other than its `count`.                                                    | The error of that check: `NOT_FOUND` or `RELATION_RESTRICTED`                  |
+| `OutOfRange(model, field)`                            | A computed number leaves its range or is not finite.                                      | `VALIDATION_FAILED`, the field's range in `issues`                             |
+| `RelationViolation(model, field, target, restricted)` | A foreign key refuses a write.                                                            | `NOT_FOUND`, or `RELATION_RESTRICTED` with `details: { model, field }`         |
+| `MigrationFailed(at, reason, locked?)`                | The database refuses a statement or a file; `locked` when it waited too long for a table. | The start, `migrate deploy` or `reset` stops with the statement and the reason |
+
+### The feed
+
+| Name         | Value or shape                                                                                       |
+| ------------ | ---------------------------------------------------------------------------------------------------- |
+| `Feed`       | `changed(changes)`, `missed()`                                                                       |
+| `Changed`    | `insert`, `update`, `delete` `{ model, ids?, fields? }`; `link`, `unlink` `{ model, field, pairs? }` |
+| `feedIds`    | `1000`: the most ids or pairs a change lists.                                                        |
+| `feedFields` | `1500`: the longest list of fields, as JSON, an update lists.                                        |
+
+A delete's links go with its rows, unlisted. How changes group into entries
+and calls is the adapter's.
+
+### `Migrations`
+
+| Member               | Does                                                                         |
+| -------------------- | ---------------------------------------------------------------------------- |
+| `snapshot(schema)`   | What the database makes of the models, as JSON.                              |
+| `plan(from, schema)` | The statements from a snapshot, or `undefined` for an empty database.        |
+| `stored()`           | The database's snapshot and the migrations applied, if any.                  |
+| `apply(run)`         | Runs a `sync` (statements) or a `deploy` (files) under a lock.               |
+| `reset()`            | Drops every table, for `ultimabase reset`; returns the models' tables.       |
+| `remote?`            | The database's host when it is not on this machine: `reset` needs `--force`. |
+
+A `Statement` is `{ sql, model, does, loses?, tries?, rename? }`.
+
+### `testAdapter`
+
+`testAdapter(name, create, { roundTrips })` declares a Vitest `describe`
+named `the ${name} adapter`. `create` returns a new adapter for each test,
+on an empty database. `roundTrips` returns how many round trips the
+adapters have made so far, `BEGIN` and `COMMIT` included; the suite checks
+the differences. It covers reads, filters, sorts, counts, aggregates,
+groups, nested writes, cascades, lists, JSON paths, decimals, dates,
+searches, transactions, the feed and round trips.

@@ -9788,6 +9788,7 @@ const { data } = useLiveSubscription(CampaignDocument, { variables: { where: { i
 ## D-155: The documentation website and the landing page
 
 Amended 2026-10-29: the quickstart includes the starter's template.
+Amended 2026-10-30: a page on writing a database adapter.
 
 Choice: completes D-31; the examples stay its source of truth.
 
@@ -9831,6 +9832,8 @@ Choice: completes D-31; the examples stay its source of truth.
    - Deploy: `ultimabase start` and `migrate deploy`;
    - Clients: the live client, its Apollo link and its React hook;
    - Write a plugin: `definePlugin`, its hooks, field types and API.
+   - Write a database adapter: the adapter contract (D-73) and
+     `testAdapter`, its suite (D-94) (amended 2026-10-30).
 
    Each page is clear before it is complete, and complete: it opens with
    what its subject is for and its smallest example, then each case a

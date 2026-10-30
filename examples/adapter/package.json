@@ -1,0 +1,24 @@
+{
+	"name": "example-adapter",
+	"version": "0.0.0",
+	"private": true,
+	"description": "A database adapter: one that runs another, counts its round trips and logs the slow ones, checked by the contract suite.",
+	"type": "module",
+	"license": "Apache-2.0",
+	"engines": {
+		"node": ">=24.7.0"
+	},
+	"scripts": {
+		"start": "node src/server.ts"
+	},
+	"dependencies": {
+		"@ultimabase/http": "workspace:*",
+		"@ultimabase/rest": "workspace:*",
+		"ultimabase": "workspace:*"
+	},
+	"devDependencies": {
+		"@ultimabase/testing": "workspace:*",
+		"vite": "8.3.4",
+		"vitest": "5.0.5"
+	}
+}

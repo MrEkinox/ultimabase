@@ -139,16 +139,7 @@ async function valueExports(): Promise<string[]> {
  * The exports no page shows yet. The documentation is being written; this
  * list only shrinks, and is empty before the documentation reaches `main`.
  */
-const undocumented: readonly string[] = [
-	'@ultimabase/testing: testAdapter',
-	'ultimabase: CheckFailed',
-	'ultimabase: MigrationFailed',
-	'ultimabase: OutOfRange',
-	'ultimabase: RelationViolation',
-	'ultimabase: UniqueViolation',
-	'ultimabase: feedFields',
-	'ultimabase: feedIds',
-]
+const undocumented: readonly string[] = []
 
 // It imports every package, which `yarn validate`'s parallel runs slow
 // past the default five seconds.
