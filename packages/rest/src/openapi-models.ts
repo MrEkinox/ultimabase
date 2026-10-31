@@ -250,6 +250,27 @@ const param = (name: string, schema: Schema, description?: string): Schema => {
 	}
 }
 
+/** A model's list: its connection, or its rows with `pagination: 'list'`. */
+export const listOf = (doc: Doc, model: string): Schema =>
+	doc.api.pagination === 'connection'
+		? connectionOf(doc, `${model}Connection`, model)
+		: arrayOf(rowOf(doc, model))
+
+/** A page's parameters: flat at the root, or one object at `path` (D-182). */
+export function pageParams(
+	doc: Doc,
+	model: string,
+	path = '',
+): readonly Schema[] {
+	const counts = doc.api.pagination === 'connection'
+	const args = {
+		...pageOf(doc, entryOf(doc.api, model)),
+		...(counts && { totalCount: flag }),
+	}
+	if (path !== '') return [param(path, objectOf(args))]
+	return Object.entries(args).map(([name, schema]) => param(name, schema))
+}
+
 function fieldParams(doc: Doc, model: string): readonly Schema[] {
 	return [
 		param(
@@ -282,13 +303,6 @@ export function modelPaths(doc: Doc, entry: Entry): { [path: string]: Schema } {
 	const own = (id: string) => components.operation(id, model, 'plural')
 	const tags = [model]
 	const row = rowOf(doc, model)
-	const counts = doc.api.pagination === 'connection'
-	const list = counts
-		? connectionOf(doc, `${model}Connection`, model)
-		: arrayOf(row)
-	const pages = Object.entries(pageOf(doc, entry)).map(([name, schema]) =>
-		param(name, schema),
-	)
 	const one = model.charAt(0).toLowerCase() + model.slice(1)
 	const id = {
 		name: 'id',
@@ -305,10 +319,12 @@ export function modelPaths(doc: Doc, entry: Entry): { [path: string]: Schema } {
 					param('where', whereOf(doc, model)),
 					param('orderBy', ordering(doc, model)),
 					...fieldParams(doc, model),
-					...pages,
-					...(counts ? [param('totalCount', flag)] : []),
+					...pageParams(doc, model),
 				],
-				responses: { 200: answer(`The ${model} rows.`, list), ...failed },
+				responses: {
+					200: answer(`The ${model} rows.`, listOf(doc, model)),
+					...failed,
+				},
 			},
 			post: {
 				operationId: own(`create${model}`),

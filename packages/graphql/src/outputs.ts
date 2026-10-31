@@ -30,22 +30,26 @@ const required = <T extends GraphQLObjectType>(type: T) =>
 export const isMaster = (context: Context): boolean =>
 	context.caller.kind === 'master'
 
-/** `first`, `after`, `last`, `before`, or `take` and `skip`; then filters. */
+/** A page's arguments: `first`, `after`, `last`, `before`, or `take` and `skip`. */
+export const pageArgsOf = (
+	registry: Registry,
+): GraphQLFieldConfigArgumentMap =>
+	registry.settings.pagination === 'list'
+		? { take: { type: GraphQLInt }, skip: { type: GraphQLInt } }
+		: {
+				first: { type: GraphQLInt },
+				after: { type: GraphQLString },
+				last: { type: GraphQLInt },
+				before: { type: GraphQLString },
+			}
+
+/** A list's arguments: its page's, then filters. */
 export function listArgs(
 	registry: Registry,
 	model: string,
 ): GraphQLFieldConfigArgumentMap {
-	const pages: GraphQLFieldConfigArgumentMap =
-		registry.settings.pagination === 'list'
-			? { take: { type: GraphQLInt }, skip: { type: GraphQLInt } }
-			: {
-					first: { type: GraphQLInt },
-					after: { type: GraphQLString },
-					last: { type: GraphQLInt },
-					before: { type: GraphQLString },
-				}
 	return {
-		...pages,
+		...pageArgsOf(registry),
 		where: { type: whereInput(registry, model) },
 		orderBy: {
 			type: new GraphQLList(new GraphQLNonNull(orderByInput(registry, model))),

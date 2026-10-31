@@ -6,6 +6,7 @@ import type { FunctionDefinition, Output } from './definition.ts'
 import {
 	describedBy,
 	functionDefinitions,
+	holdsPage,
 	nameOf,
 	nullable,
 	outputOf,
@@ -23,6 +24,7 @@ import type {
 	InputCheck,
 	ObjectType,
 	OutputSpec,
+	PageCheck,
 	QueryCheck,
 	ResultOf,
 	RunFacts,
@@ -145,7 +147,8 @@ export function defineFunction<
 			facts: RunFacts<NoInfer<I>>,
 		) => NoInfer<ResultOf<O>> | Promise<NoInfer<ResultOf<O>>>
 	} & NoInfer<InputCheck<I>> &
-		NoInfer<QueryCheck<U[number]>>,
+		NoInfer<QueryCheck<U[number]>> &
+		NoInfer<PageCheck<O>>,
 ): ServerFunction<N, I, O, U[number]['plugin'], FunctionWithKeys<U[number]>> {
 	const { query = false, input, output, run } = definition
 	const name = nameOf(definition.name, 'defineFunction')
@@ -157,13 +160,17 @@ export function defineFunction<
 	}
 	if (typeof run !== 'function')
 		throw new Refused(`${name}: run is a function.`)
+	const read =
+		output === undefined ? undefined : outputOf(output, `${name}.output`)
+	if (read !== undefined && holdsPage(read) && !query) {
+		throw new Refused(`${name} returns a page: give it query: true.`)
+	}
 	const record: FunctionDefinition = {
 		name,
 		description,
 		query,
 		input,
-		output:
-			output === undefined ? undefined : outputOf(output, `${name}.output`),
+		output: read,
 		uses: entriesOf(name, definition.use ?? []),
 		run,
 		rules: undefined,

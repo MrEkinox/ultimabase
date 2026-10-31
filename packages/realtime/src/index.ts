@@ -2,7 +2,7 @@
 // the models that use it, which follow each commit's changes and send only
 // what changed, under the caller's read rules; and the live functions, the
 // queries whose `use` lists it, run again when what they read changes.
-import type { PluginOf, PluginTypes, UseOf } from 'ultimabase'
+import type { ExposedOutput, PluginOf, PluginTypes, UseOf } from 'ultimabase'
 import { definePlugin } from 'ultimabase'
 import manifest from '../package.json' with { type: 'json' }
 import { ownerOf } from './computed.ts'
@@ -52,6 +52,11 @@ const positive = (name: string, value: number | undefined): void => {
 	throw new Error(`realtime's ${name} must be a positive integer.`)
 }
 
+// A page is read once, by the transport's page arguments (D-182).
+const holdsPage = (output: ExposedOutput | undefined): boolean =>
+	output?.kind === 'page' ||
+	(output?.kind === 'type' && [...output.type.fields.values()].some(holdsPage))
+
 const realtimeDefinition = definePlugin<Realtime>({
 	name: 'realtime',
 	manifest,
@@ -66,6 +71,9 @@ const realtimeDefinition = definePlugin<Realtime>({
 			positive('debounce', fn.with?.debounce)
 			if (fn.used && !fn.query) {
 				throw new Error(`${ownerOf(fn)} is a mutation: it cannot be live.`)
+			}
+			if (fn.used && holdsPage(fn.output)) {
+				throw new Error(`${ownerOf(fn)} returns a page: it cannot be live.`)
 			}
 		}
 		const engine = new Engine(

@@ -259,7 +259,7 @@ describe('outputs (D-109)', () => {
 
 	it('reads each output once, at its definition', () => {
 		const message =
-			'bad.output is a model, a type, a list of one, X.nullable() or a Standard Schema.'
+			'bad.output is a model, a type, a list of one, X.nullable(), Model.paginated() or a Standard Schema.'
 		expect(bad({})).toThrow(message)
 		expect(bad([Post, Post])).toThrow(message)
 		expect(bad([])).toThrow(message)
@@ -280,7 +280,7 @@ describe('outputs (D-109)', () => {
 		)
 		// @ts-expect-error: a field is an output.
 		expect(() => defineType({ name: 'Odd', fields: { a: 1 } })).toThrow(
-			'Odd.a is a model, a type, a list of one, X.nullable() or a Standard Schema.',
+			'Odd.a is a model, a type, a list of one, X.nullable(), Model.paginated() or a Standard Schema.',
 		)
 	})
 })

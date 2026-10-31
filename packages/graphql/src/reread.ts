@@ -11,7 +11,7 @@ import type { Fields } from './select.ts'
 import { grouped, selectOf } from './select.ts'
 
 type Row = { [field: string]: unknown }
-type Named = Exclude<ExposedOutput, { readonly kind: 'schema' }>
+type Named = Exclude<ExposedOutput, { readonly kind: 'schema' | 'page' }>
 /** The rows of one model to re-read, and the relations they select. */
 type Pending = {
 	readonly select: { [relation: string]: unknown }
@@ -29,6 +29,7 @@ export async function reread(
 	context: Context,
 	info: GraphQLResolveInfo,
 	call: { readonly name: string; readonly take: number },
+	from: readonly FieldNode[] = info.fieldNodes,
 ): Promise<unknown> {
 	const master = isMaster(context)
 	// The rows whose relations are read, which the row budget counts.
@@ -112,7 +113,8 @@ export async function reread(
 		item: unknown,
 		nodes: readonly FieldNode[],
 	): unknown => {
-		if (at.kind === 'schema') return item
+		// A page is read by its own field (D-182).
+		if (at.kind === 'schema' || at.kind === 'page') return item
 		if (at.form !== 'list' || !Array.isArray(item)) {
 			return one(at, item, nodes)
 		}
@@ -127,7 +129,7 @@ export async function reread(
 		return items
 	}
 
-	const result = walk(output, value, info.fieldNodes)
+	const result = walk(output, value, from)
 	for (const [model, { select, rows }] of pending) {
 		const entry = registry.entry(model)
 		const ids = [...rows.keys()]
