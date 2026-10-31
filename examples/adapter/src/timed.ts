@@ -2,7 +2,13 @@
 // round trip to the database, and logs a warning, through the kernel's
 // logger, for each call that takes `slow` milliseconds or more.
 //#region types
-import type { Adapter, Logger, Transaction, Write } from 'ultimabase'
+import type {
+	Adapter,
+	BeginOptions,
+	Logger,
+	Transaction,
+	Write,
+} from 'ultimabase'
 
 export type TimedOptions = {
 	/** Milliseconds from which a call is logged; 100 by default. */
@@ -101,9 +107,9 @@ export function timed(adapter: Adapter, options: TimedOptions = {}): Timed {
 		),
 		//#endregion
 		//#region begin
-		begin: trip(
+		begin: trip<[BeginOptions?], Transaction>(
 			() => 'begin',
-			async () => timedTransaction(await adapter.begin()),
+			async (asked) => timedTransaction(await adapter.begin(asked)),
 		),
 		//#endregion
 		//#region migrations

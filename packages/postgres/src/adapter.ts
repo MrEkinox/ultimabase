@@ -98,6 +98,15 @@ async function count(
 	return value
 }
 
+/** A read in a transaction, a conflict reported as `Conflict` (D-179). */
+async function translated<R>(catalog: Catalog, read: Promise<R>): Promise<R> {
+	try {
+		return await read
+	} catch (error) {
+		throw translate(catalog, error)
+	}
+}
+
 /** Runs a write's statements; the one that reads returns the rows. */
 async function run(
 	catalog: Catalog,
@@ -288,13 +297,17 @@ export function createAdapter(options: Options): Postgres {
 			reset: async () => reset(started().db),
 			...(remote === undefined ? {} : { remote }),
 		},
-		begin: async (): Promise<Transaction> => {
+		begin: async (asked): Promise<Transaction> => {
 			const { catalog, db, channel } = started()
 			const opened = Promise.withResolvers<Open<object>>()
 			const ending = Promise.withResolvers<boolean>()
+			const begun =
+				asked?.isolation === 'serializable'
+					? db.transaction().setIsolationLevel('serializable')
+					: db.transaction()
 			// Kysely gives the connection back however its transaction ends, a
 			// failed ROLLBACK included; a COMMIT that fails rolls back.
-			const ended = db.transaction().execute(async (trx) => {
+			const ended = begun.execute(async (trx) => {
 				opened.resolve(trx)
 				if (!(await ending.promise)) throw rolledBack
 			})
@@ -306,9 +319,10 @@ export function createAdapter(options: Options): Postgres {
 				await ended
 			}
 			const tx: Transaction = {
-				find: async (read) => find(catalog, trx, read),
-				count: async (read) => count(catalog, trx, read),
-				aggregate: async (read) => aggregate(catalog, trx, read),
+				find: async (read) => translated(catalog, find(catalog, trx, read)),
+				count: async (read) => translated(catalog, count(catalog, trx, read)),
+				aggregate: async (read) =>
+					translated(catalog, aggregate(catalog, trx, read)),
 				write: async (given) => write(catalog, trx, given, channel),
 				commit: async () => {
 					try {

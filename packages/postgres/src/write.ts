@@ -8,7 +8,7 @@
 import type { RawBuilder } from 'kysely'
 import { sql } from 'kysely'
 import type { Change, Check, Filter, Read, Row, Write } from 'ultimabase'
-import { RelationViolation, UniqueViolation } from 'ultimabase'
+import { Conflict, RelationViolation, UniqueViolation } from 'ultimabase'
 import type { Sql } from './filter.ts'
 import { Filters, uuid, value } from './filter.ts'
 import type { Catalog, Table } from './names.ts'
@@ -365,8 +365,19 @@ function isRefusal(error: unknown): error is Refusal {
 	)
 }
 
-/** A constraint's refusal as the kernel's error; any other as is. */
+/** A serialization failure or a deadlock (D-179). */
+const conflicts = new Set(['40001', '40P01'])
+
+/** A constraint's refusal or a conflict as the kernel's error; any other as is. */
 export function translate(catalog: Catalog, error: unknown): unknown {
+	if (
+		error instanceof Error &&
+		'code' in error &&
+		typeof error.code === 'string' &&
+		conflicts.has(error.code)
+	) {
+		return new Conflict({ cause: error })
+	}
 	if (!isRefusal(error)) return error
 	if (error.code === '23505') {
 		const unique = catalog.uniques.get(error.constraint)

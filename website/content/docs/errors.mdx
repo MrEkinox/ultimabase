@@ -85,6 +85,7 @@ readable line in a terminal and a JSON line everywhere else.
 | `UNAUTHENTICATED`     | A session is needed, or it ended.                        | 401         | none                         |
 | `INVALID_CREDENTIALS` | A wrong email or password.                               | 401         | none                         |
 | `TOO_MANY_ATTEMPTS`   | Too many sign-ins; `Retry-After` says when to try again. | 429         | `{ retryAfter }`, in seconds |
+| `CONFLICT`            | A serializable transaction conflicted 3 times.           | 409         | none                         |
 | `BAD_USER_INPUT`      | A client's query, parameter or body the API refuses.     | 400         | `{ path }`, from the kernel  |
 | `INTERNAL`            | Any error that is not a `PublicError`.                   | 500         | `correlationId`, beside it   |
 | the application's own | A `PublicError` it threw.                                | 400         | its own                      |

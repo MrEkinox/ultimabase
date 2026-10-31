@@ -67,6 +67,45 @@ the same rows wait for each other instead of deadlocking.
 PostgreSQL runs transactions at its default isolation, `READ COMMITTED`.
 `memory()` runs one transaction at a time.
 
+## Serializable transactions
+
+A lock holds a row that exists. When the row a callback decides from is not
+there yet, two calls at once each miss the other's: two users liking each
+other at the same moment both find no like to match. With
+`isolation: 'serializable'`, the transaction runs as if no other ran beside
+it:
+
+<include cwd meta='title="src/functions.ts"'>
+	../examples/transactions/src/functions.ts#like
+</include>
+
+When PostgreSQL aborts it for a conflict with another transaction, the
+callback runs again from the start, in a new transaction, 3 attempts at
+most; the third conflict fails with `CONFLICT`, status 409. Here the second
+like runs again, sees the first and makes the match:
+
+<include cwd meta='title="src/app.test.ts"'>
+	../examples/transactions/src/app.test.ts#match
+</include>
+
+The callback must be safe to run again: an email or a payment belongs in a
+`*Commit` hook, which runs once, for the attempt that commits. A conflict the
+callback catches still fails its attempt.
+
+PostgreSQL tracks what a serializable transaction read by the index pages it
+went through. Without an index, it tracks the whole table, and every
+serializable transaction on it conflicts with the others: index the fields
+the callback reads by.
+
+<include cwd meta='title="src/models.ts"'>
+	../examples/transactions/src/models.ts#like-model
+</include>
+
+Inside a serializable transaction, a `transaction` joins it, with or without
+the option. A transaction that began without it, a hook's included, cannot
+become serializable: open the serializable one first. `memory()` runs one
+transaction at a time, already serializable.
+
 ## After the commit
 
 The `*Commit` hooks of the writes made inside run once the transaction
@@ -75,27 +114,31 @@ done. See [Hooks](/docs/next/hooks).
 
 ## Reference
 
-### `transaction(run)`
+### `transaction(run, options?)`
 
-| Argument | Type               | Effect                                                  |
-| -------- | ------------------ | ------------------------------------------------------- |
-| `run`    | `() => Promise<R>` | The writes; every query inside runs in the transaction. |
+| Argument            | Type               | Effect                                                             |
+| ------------------- | ------------------ | ------------------------------------------------------------------ |
+| `run`               | `() => Promise<R>` | The writes; every query inside runs in the transaction.            |
+| `options.isolation` | `'serializable'`   | Runs serializable, and runs `run` again on a conflict, 3 attempts. |
 
 It returns `run`'s value once the transaction commits and its `*Commit`
 hooks ran, or rejects with the error that rolled it back.
 
 ### Errors
 
-| Error                                                                              | When                                                |
-| ---------------------------------------------------------------------------------- | --------------------------------------------------- |
-| the callback's error                                                               | The callback threw; nothing was written.            |
-| the failed query's error                                                           | A query failed, caught or not; nothing was written. |
-| `A query failed in this transaction, which rolls back: no other query runs in it.` | A query ran after one failed.                       |
-| `transaction runs on a started application.`                                       | No application is started.                          |
-| `RELATION_RESTRICTED`, `NOT_FOUND`                                                 | PostgreSQL's foreign keys refused at the commit.    |
+| Error                                                                                              | When                                                    |
+| -------------------------------------------------------------------------------------------------- | ------------------------------------------------------- |
+| the callback's error                                                                               | The callback threw; nothing was written.                |
+| the failed query's error                                                                           | A query failed, caught or not; nothing was written.     |
+| `A query failed in this transaction, which rolls back: no other query runs in it.`                 | A query ran after one failed.                           |
+| `transaction runs on a started application.`                                                       | No application is started.                              |
+| `RELATION_RESTRICTED`, `NOT_FOUND`                                                                 | PostgreSQL's foreign keys refused at the commit.        |
+| `CONFLICT`                                                                                         | A serializable transaction conflicted 3 times.          |
+| `A transaction cannot become serializable once it began; open the serializable transaction first.` | The option, inside a transaction that began without it. |
 
 ### Limits
 
 - No savepoint: a nested `transaction` cannot roll back alone.
 - A transaction holds its locks while the callback runs: call external
   services before it, or from a `*Commit` hook after it.
+- A serializable transaction runs 3 attempts, a number no option changes.

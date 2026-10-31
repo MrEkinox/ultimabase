@@ -1747,6 +1747,8 @@ Rejected: timestamps without time zone.
 
 ## D-66: `httpPlugin()` is closed by default
 
+Amended by D-179.
+
 Choice: CORS allows no origin until the developer lists them
 (`httpPlugin({ cors: ['https://app.example.com'] })`), and a listed origin may
 send the master key header (D-49). When `NODE_ENV` is not `production`,
@@ -1940,6 +1942,8 @@ beforeFind: ({ where, command }) =>
 
 ## D-72: `PublicError` and the kernel's codes
 
+Amended by D-179.
+
 Choice: `new PublicError(code, message, { details?, cause? })` is the one
 error a client sees, Parse's `Parse.Error` with a named code. The code is a
 kernel code or the application's own, in capitals (`'DOCUMENT_LOCKED'`);
@@ -1996,7 +2000,7 @@ throw new PublicError('VALIDATION_FAILED', 'Too short.', {
 
 ## D-73: The adapter contract
 
-Amended by D-105 and D-136.
+Amended by D-105, D-136 and D-179.
 
 Choice: an adapter implements six methods. `start(schema)` receives every
 model with its fields, relations, indexes and `dbName` overrides; `stop()`
@@ -11500,3 +11504,134 @@ await client.query({ query: DeleteProject, variables: { id } })
 After: the same mutation reads Ada's caller again and is refused by her new
 role, as over HTTP. Had her session ended, the socket would close with
 `4403`.
+
+## D-179: A serializable transaction, retried on conflict
+
+Choice: amends D-66, D-72 and D-73; D-99 still rejects serializable
+isolation by default.
+
+1. `transaction(run, { isolation: 'serializable' })` runs `run` in a
+   serializable transaction. Without the option, a transaction keeps read
+   committed (D-66).
+2. When the database aborts it for a conflict with another transaction, a
+   serialization failure or a deadlock, the kernel rolls it back and runs
+   `run` again from the start, in a new transaction, 3 attempts at most. A
+   conflict caught inside `run` still fails the attempt (D-36). The third
+   conflict fails with `CONFLICT`, status 409, a new kernel code: "This
+   operation conflicted with another; try it again."
+3. `run` must be safe to run again: what it does outside the database, an
+   email or an HTTP call, belongs in a `*Commit` hook or after
+   `transaction`. The `*Commit` hooks run once, for the attempt that
+   commits; a failed attempt leaves no row, no feed change and no commit
+   hook.
+4. Inside a serializable transaction, `transaction(run)` joins it, with or
+   without the option. The option inside a read committed transaction, a
+   hook's own included, throws: "A transaction cannot become serializable
+   once it began; open the serializable transaction first."
+5. Outside a serializable transaction, a conflict is not retried, since
+   nothing says that what ran is safe to run again, and it stays an
+   ordinary error: a deadlock of two read committed writes is logged and
+   reaches the client as `INTERNAL`, a bug to fix rather than a request to
+   retry.
+6. The adapter's `begin(options?: { isolation?: 'serializable' })` opens
+   the transaction, and an adapter reports a conflict by throwing
+   `Conflict`, as it throws `UniqueViolation`. PostgreSQL begins with
+   `isolation level serializable` and reports `40001` and `40P01` as
+   `Conflict`. An adapter that cannot hold serializable isolation throws
+   from `begin` when asked for it, never opens a weaker transaction.
+   `memory()` holds it: it runs its transactions one at a time. `testAdapter` checks that two
+   serializable transactions that each read what the other writes never
+   both commit on what they read: one waits, or one throws `Conflict`.
+7. PostgreSQL follows what a serializable transaction read by the index
+   pages it went through; a table scan follows the whole table, so every
+   serializable transaction on that table conflicts with the others. The
+   transactions guide says to index the fields such a transaction reads by.
+
+Why:
+
+- A function that reads, decides, then writes cannot be made safe when the
+  row it checks does not exist yet: `for update` cannot lock an absent row,
+  and under read committed two calls each miss the other's uncommitted row.
+  Two users liking each other at the same moment lose their match: 8 to 12
+  of 20 pairs matched on PostgreSQL.
+- Measured on PostgreSQL 15, 20 pairs liking each other at once, each call a
+  serializable transaction: with an index on the fields read, the 20 pairs
+  matched and no call needed more than 2 attempts; a random delay between
+  attempts changed nothing. Without the index, 3 attempts matched no pair,
+  and 100 needed up to 30.
+- The retry belongs to the kernel: every such function would otherwise
+  write the same loop, and a conflict is an error a client can only retry.
+
+Rejected:
+
+- A `retries` option: with an index, 2 attempts were enough; without one,
+  no count is, and a larger one would hide the missing index.
+- Serializable by default: D-66 and D-99 still hold; most writes lock the
+  rows they decide from and need no retry.
+- An advisory lock key, `transaction(run, { lock: 'like:ada:bob' })`: it
+  serializes the calls without retries, but the application must name
+  every key a conflict can come from, and a key it misses is the silent
+  race again.
+- `retryOn: ['UNIQUE_VIOLATION']`, or a guide recipe catching
+  `UNIQUE_VIOLATION` and reading back: the lost match of read committed
+  stays the application's, and a model without a unique index to fail on
+  keeps the duplicate.
+- Retrying a read committed transaction's deadlock, or reporting it as
+  `CONFLICT`: its `run` was not declared safe to run again, and a 409 the
+  client retries would hide a lock order to fix.
+
+Example, before: the like is saved, then the match decided, in read
+committed; two calls at once each miss the other's like.
+
+```ts
+const like = defineFunction({
+	name: 'like',
+	input: z.object({ user: z.string() }),
+	run: async ({ caller, input }) => {
+		const me = userOf(caller)
+		return transaction(async () => {
+			const mine = await Like.create(
+				{ data: { user: me, target: input.user } },
+				M,
+			)
+			const theirs = await Like.findFirst(
+				{ where: { user: input.user, target: me } },
+				M,
+			)
+			if (theirs === null) return { matched: false }
+			await befriend(me, input.user)
+			await Like.updateMany(
+				{
+					where: { id: { in: [mine.id, theirs.id] } },
+					data: { matchedAt: new Date() },
+				},
+				M,
+			)
+			return { matched: true }
+		})
+	},
+})
+```
+
+After: the same `run`, serializable, and an index on what it reads by.
+
+```ts
+const Like = defineModel({
+	name: 'Like',
+	fields: (f) => ({
+		user: f.string(),
+		target: f.string(),
+		matchedAt: f.dateTime({ optional: true }),
+	}),
+	indexes: [{ fields: ['user', 'target'] }],
+})
+
+return transaction(
+	async () => {
+		// … unchanged
+	},
+	{ isolation: 'serializable' },
+)
+// Both calls at once: one commits, the other runs again, sees the first
+// like and makes the match. A client sees `CONFLICT` only after 3 attempts.
+```

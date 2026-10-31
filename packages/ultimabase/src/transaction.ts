@@ -2,9 +2,10 @@
 // hook's queries join it without a `tx` argument.
 import { AsyncLocalStorage } from 'node:async_hooks'
 import { randomUUID } from 'node:crypto'
-import type { Adapter, Transaction } from './adapter.ts'
-import { RelationViolation } from './adapter.ts'
+import type { Adapter, BeginOptions, Transaction } from './adapter.ts'
+import { Conflict, RelationViolation } from './adapter.ts'
 import type { Logger } from './app-options.ts'
+import { PublicError } from './errors.ts'
 import { decoded } from './field-codec.ts'
 import { recordCount, recordFind } from './recorder.ts'
 import type { Running } from './running.ts'
@@ -33,12 +34,19 @@ type Open = {
 	readonly commits: Commit[]
 	/** The first query that failed in it (D-36). */
 	failure: { readonly error: unknown } | undefined
+	/** Run again on a conflict (D-179). */
+	readonly serializable: boolean
 }
+
+/** A serializable transaction's attempts before `CONFLICT` (D-179). */
+const attempts = 3
 
 const opened = new AsyncLocalStorage<Open>()
 
 async function begun(open: Open): Promise<Transaction> {
-	open.tx ??= open.app.adapter.begin()
+	open.tx ??= open.serializable
+		? open.app.adapter.begin({ isolation: 'serializable' })
+		: open.app.adapter.begin()
 	return open.tx
 }
 
@@ -121,14 +129,25 @@ async function rollback(open: Open): Promise<void> {
 async function atomic<R>(
 	app: Running,
 	run: (open: Open) => Promise<R>,
+	serializable = false,
 ): Promise<R> {
-	const open: Open = { app, tx: undefined, commits: [], failure: undefined }
+	const open: Open = {
+		app,
+		tx: undefined,
+		commits: [],
+		failure: undefined,
+		serializable,
+	}
 	let result: R
 	try {
 		result = await opened.run(open, run, open)
 	} catch (error) {
 		await rollback(open)
-		throw error
+		// A conflict caught inside `run` still fails the attempt (D-179).
+		const { failure } = open
+		throw serializable && failure?.error instanceof Conflict
+			? failure.error
+			: error
 	}
 	if (open.failure !== undefined) {
 		await rollback(open)
@@ -178,19 +197,51 @@ export async function writing<R>(
 	return atomic(app, async (own) => run(storeOf(own, true), own.commits))
 }
 
+/** Runs `run` again on a conflict, in a new transaction each time (D-179). */
+async function retried<R>(app: Running, run: () => Promise<R>): Promise<R> {
+	for (let attempt = 1; ; attempt += 1) {
+		try {
+			return await atomic(app, run, true)
+		} catch (error) {
+			if (!(error instanceof Conflict)) throw error
+			if (attempt === attempts) {
+				throw new PublicError(
+					'CONFLICT',
+					'This operation conflicted with another; try it again.',
+					{ cause: error },
+				)
+			}
+		}
+	}
+}
+
 /**
  * Runs `run` in one transaction: if it throws, or if a query in it fails,
  * every write rolls back and the `*Commit` hooks never run. Inside another
- * `transaction`, it joins that one (D-36).
+ * `transaction`, it joins that one (D-36). With `isolation: 'serializable'`,
+ * a conflict runs `run` again, 3 attempts at most (D-179).
  */
-export async function transaction<R>(run: () => Promise<R>): Promise<R> {
+export async function transaction<R>(
+	run: () => Promise<R>,
+	options?: BeginOptions,
+): Promise<R> {
+	const serializable = options?.isolation === 'serializable'
 	const open = opened.getStore()
-	if (open !== undefined) return joined(open, run)
+	if (open !== undefined) {
+		if (serializable && !open.serializable) {
+			throw new Error(
+				'A transaction cannot become serializable once it began; open the serializable transaction first.',
+			)
+		}
+		return joined(open, run)
+	}
 	const app = current()
 	if (app === undefined) {
 		throw new Error('transaction runs on a started application.')
 	}
-	return app.work.run(async () => atomic(app, run))
+	return app.work.run(async () =>
+		serializable ? retried(app, run) : atomic(app, run),
+	)
 }
 
 /**
