@@ -71,6 +71,11 @@ enum that several fields, of several models, share:
 	../examples/models-and-queries/src/types.ts#enum
 </include>
 
+`defineEnum` names a GraphQL enum and an OpenAPI schema; it is not a
+TypeScript `enum`, which Node does not run (see the
+[Quickstart](/docs/next/quickstart)). `Status.values` lists the values, and
+`(typeof Status.values)[number]` is their type.
+
 ## Object types
 
 `defineType` declares a shape that is not a table, with a Zod object's

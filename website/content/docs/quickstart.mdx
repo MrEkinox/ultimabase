@@ -63,6 +63,18 @@ The file the `dev` and `start` scripts read, which names the application:
 	../packages/create-ultimabase/template/ultimabase.config.ts
 </include>
 
+Node strips the types and runs what is left, so the code is erasable
+TypeScript, which the starter's `tsconfig.json` checks with
+`erasableSyntaxOnly`. `tsc` and Node both refuse `enum` and `const enum`, a
+`namespace` that holds values, a constructor's parameter properties and
+`import x = require()`. Instead of an enum, a field takes `f.enumOf([...])`,
+or `defineEnum` when several fields share the values; a function's input or
+output takes its schema's enum, as Zod's `z.enum([...])`, whose `.enum`
+gives each value by key; other code takes an object `as const`, as
+`const Status = { Draft: 'draft', Published: 'published' } as const`, whose
+`Status.Draft` is typed `'draft'`. See Node's
+[type stripping](https://nodejs.org/api/typescript.html#type-stripping).
+
 ## Test it
 
 ```npm
