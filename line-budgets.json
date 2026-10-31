@@ -6,7 +6,7 @@
 	"http": 1250,
 	"graphql": 4280,
 	"auth": 770,
-	"password": 1910,
+	"password": 1920,
 	"roles": 330,
 	"acl": 350,
 	"rest": 2980,

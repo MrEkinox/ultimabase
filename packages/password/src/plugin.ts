@@ -119,6 +119,8 @@ export interface Password extends PluginTypes {
 			string | null,
 			{ readonly optional: true; readonly unique: true }
 		>
+		/** When the password was last set (D-169). */
+		readonly passwordSetAt: Field<Date | null, { readonly optional: true }>
 	}
 	readonly commands: PasswordCommands<this['fields']>
 }
@@ -168,6 +170,7 @@ const reserved = new Set([
 	'email',
 	'password',
 	'emailVerified',
+	'passwordSetAt',
 ])
 
 /** The listed fields' properties; an unknown, a reserved or a missing one stops startup. */
@@ -273,6 +276,10 @@ const definition = definePlugin<Password>({
 		email: f.string({ optional: true, unique: true }).with({
 			access: { read: readsEmail, create: () => false, update: () => false },
 		}),
+		// Only Master writes it; password sets it with the password (D-169).
+		passwordSetAt: f.dateTime({ optional: true }).with({
+			access: { read: readsEmail, create: () => false, update: () => false },
+		}),
 	}),
 	hooks: {
 		// The email and the password account stay one (D-162).
@@ -348,14 +355,17 @@ const definition = definePlugin<Password>({
 		const sending = new Set<Promise<void>>()
 		states.set(auth, { auth, users, signUp, logger, sending, sendEmail })
 		// A closed account keeps its row, without a password, an email or a
-		// verified one (D-160, D-162).
+		// verified one (D-160, D-162, D-169).
 		auth.onCloseAccount(async (userId) => {
 			await forget(userId)
 			const where = { id: userId }
 			const user = await users.queries.findUnique({ where }, M)
 			if (user === null) return
-			if (user.email === null && user.emailVerified !== true) return
-			const data = { email: null, emailVerified: false }
+			const { email, emailVerified, passwordSetAt } = user
+			if (email === null && emailVerified !== true && passwordSetAt === null) {
+				return
+			}
+			const data = { email: null, emailVerified: false, passwordSetAt: null }
 			await users.queries.update({ where, data }, M)
 		})
 	},

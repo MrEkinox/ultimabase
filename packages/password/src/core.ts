@@ -64,7 +64,7 @@ export const attemptOf = (
 /**
  * Creates the user, its account and its hash in one transaction, as Master:
  * the caller's fields were checked against the list (D-113). The email's
- * hook links the account (D-162).
+ * hook links the account (D-162); `passwordSetAt` is the sign-up's (D-169).
  */
 export async function createUser(
 	state: State,
@@ -76,7 +76,7 @@ export async function createUser(
 	const stamp = randomUUID()
 	return transaction(async () => {
 		const user = await state.users.queries.create(
-			{ data: { ...data, email } },
+			{ data: { ...data, email, passwordSetAt: new Date() } },
 			M,
 		)
 		await PasswordHash.create({ data: { userId: user.id, hash, stamp } }, M)
@@ -157,8 +157,8 @@ export async function checkCurrent(
 
 /**
  * Replaces `userId`'s hash, or gives one to an email without (D-162), ends
- * every session of the user and deletes its pending reset tokens (D-117);
- * the new stamp.
+ * every session of the user, deletes its pending reset tokens (D-117) and
+ * sets `passwordSetAt` (D-169); the new stamp.
  */
 export async function setPassword(
 	state: State,
@@ -184,6 +184,12 @@ export async function setPassword(
 			: PasswordHash.update({ where: { userId }, data }, M))
 		await PasswordToken.deleteMany({ where: { userId, kind: 'reset' } }, M)
 		await state.auth.revokeSessions(userId)
+		// Through the user's queries, so the application's hooks see it (D-169).
+		const passwordSetAt = new Date()
+		await state.users.queries.update(
+			{ where: { id: userId }, data: { passwordSetAt } },
+			M,
+		)
 	})
 	// Again once the stamp is visible: a sign-in that read the old one opened
 	// its session before, so this ends it (see `signedIn`).
