@@ -242,7 +242,9 @@ Changes within 50 ms are sent as one message.
 The caller is the upgrade request's, by cookie or `Authorization`, or
 `connection_init`'s `{ authorization: 'Bearer …' }`. An upgrade from an
 `Origin` the HTTP plugin's CORS does not allow is a `403`. A socket whose
-caller becomes another user closes with `4403`. A client message is at
+caller becomes another user closes with `4403`. A query or mutation sent
+over the socket reads its caller again first, as over HTTP; a
+subscription keeps the connection's. A client message is at
 most 1 MB; the server pings every 12 seconds. Over SSE, a row that does
 not exist is `null`, not a `404`, and a model that is not live is a `400`.
 

@@ -14,6 +14,7 @@ import type {
 import {
 	createSourceEventStream,
 	executeSubscriptionEvent,
+	getOperationAST,
 	GraphQLError,
 	mapSourceToResponseEvent,
 	validateSubscriptionArgs,
@@ -166,11 +167,14 @@ export function serveSockets(
 				return false
 			}
 		},
-		onSubscribe: (ctx, _, payload) => {
+		onSubscribe: async (ctx, _, payload) => {
 			const { viewer, channel, upgrade, socket } = ctx.extra
-			if (viewer === undefined || channel === undefined || viewer.closed) {
+			const forbidden = () => {
 				socket.close(CloseCode.Forbidden, 'Forbidden')
 				return [new GraphQLError('Forbidden')]
+			}
+			if (viewer === undefined || channel === undefined || viewer.closed) {
+				return forbidden()
 			}
 			let document: DocumentNode
 			try {
@@ -179,7 +183,14 @@ export function serveSockets(
 				if (error instanceof GraphQLError) return [error]
 				throw error
 			}
-			const { caller } = viewer
+			// A query or a mutation reads its caller again, as over HTTP; a
+			// subscription keeps the viewer's (D-178).
+			const operation = getOperationAST(document, payload.operationName)
+			const caller =
+				operation?.operation === 'subscription'
+					? viewer.caller
+					: await viewer.identify()
+			if (caller === undefined || viewer.closed) return forbidden()
 			const master = caller.kind === 'master'
 			const refused = operations.validate(document, operations.rules(master))
 			if (refused.length > 0) return refused
