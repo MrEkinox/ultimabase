@@ -14,6 +14,7 @@ import { createPlan } from './query-write.ts'
 import type { Commit, Store } from './transaction.ts'
 import type { Draft } from './write-data.ts'
 import { prepared, readData } from './write-data.ts'
+import { Plan } from './write-plan.ts'
 import { guarded } from './write-target.ts'
 import { writingOf } from './writing.ts'
 import { returned } from './writes.ts'
@@ -69,6 +70,8 @@ async function created(
 	const writing = writingOf(scope, store, events)
 	const changes: Change[] = []
 	const ids: string[] = []
+	const plans: Plan[] = []
+	const connects = new Plan()
 	for (const [index, draft] of drafts.entries()) {
 		const { id, plan } = await createPlan(
 			scope,
@@ -79,9 +82,12 @@ async function created(
 		)
 		ids.push(id)
 		events.push({ model, operation: 'create', id }, ...plan.events)
-		await plan.check(writing)
-		changes.push(...(await plan.changes(writing)))
+		connects.join(plan)
+		plans.push(plan)
 	}
+	// A check per row would put thousands of counts in one statement.
+	await connects.check(writing)
+	for (const plan of plans) changes.push(...(await plan.changes(writing)))
 	const read = at && { model: model.name, ...at.read, where: byIds(ids) }
 	// An `after*` hook may change the rows: they are read once it ran (D-88).
 	const again = rereads(events)
