@@ -1,5 +1,24 @@
 # @ultimabase/roles
 
+## 0.3.0
+
+### Patch Changes
+
+- Updated dependencies [41cfff6]
+- Updated dependencies [7530d07]
+- Updated dependencies [6e8ebf6]
+- Updated dependencies [760560a]
+- Updated dependencies [21b52bc]
+- Updated dependencies [134d951]
+- Updated dependencies [bc4d6de]
+- Updated dependencies [9cd2dd4]
+- Updated dependencies [f33c16f]
+- Updated dependencies [8ce42f6]
+- Updated dependencies [b1bc387]
+- Updated dependencies [353c2bf]
+- Updated dependencies [aaf123c]
+  - ultimabase@0.3.0
+
 ## 0.2.0
 
 ### Patch Changes

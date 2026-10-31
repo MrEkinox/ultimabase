@@ -1,5 +1,31 @@
 # @ultimabase/password
 
+## 0.3.0
+
+### Minor Changes
+
+- 876b414: `password()` adds `passwordSetAt` to the user model: when the password was last set by `signUp`, `changePassword`, `resetPassword` or `User.setPassword`, read by the user and Master, `null` once the account closes (D-169). With `sendEmail`, each change but the sign-up's sends a `'passwordChanged'` email to the account once it commits. Run a migration after the upgrade.
+- b1bc387: `signedInRun(run)` gives a function's `run` the signed-in `user`, typed, and refuses anyone else with `UNAUTHENTICATED`. password's signed-in functions use it: their message is now `This function needs a signed-in user.`
+
+### Patch Changes
+
+- 0f13ad3: Requests at once keep one pending token of each kind per user, as a new one replaces the older. A unique index on `PasswordToken` (`userId`, `kind`) enforces it: run a migration after the upgrade.
+- Updated dependencies [41cfff6]
+- Updated dependencies [7530d07]
+- Updated dependencies [6e8ebf6]
+- Updated dependencies [760560a]
+- Updated dependencies [21b52bc]
+- Updated dependencies [134d951]
+- Updated dependencies [bc4d6de]
+- Updated dependencies [9cd2dd4]
+- Updated dependencies [f33c16f]
+- Updated dependencies [8ce42f6]
+- Updated dependencies [b1bc387]
+- Updated dependencies [353c2bf]
+- Updated dependencies [aaf123c]
+  - ultimabase@0.3.0
+  - @ultimabase/auth@0.3.0
+
 ## 0.2.0
 
 ### Minor Changes

@@ -1,0 +1,201 @@
+---
+title: An application's files
+description: Where the models, the functions, the application and its tests live, and what defineApp takes.
+---
+
+An application is a few TypeScript files that Node runs as they are written:
+
+| File                   | Holds                                                              |
+| ---------------------- | ------------------------------------------------------------------ |
+| `src/models.ts`        | The models: their fields, relations, access rules and hooks.       |
+| `src/functions.ts`     | The functions clients call beside the models' operations.          |
+| `src/app.ts`           | `defineApp`: the database, the plugins, the models, the functions. |
+| `src/*.test.ts`        | The tests, each file on a new in-memory database.                  |
+| `ultimabase.config.ts` | For the `ultimabase` command: the application it starts.           |
+
+A larger application splits `models.ts` and `functions.ts` into folders; the
+names are a convention, not a rule. The application below sells products: its
+models, a function that places an order, and the application that puts them
+together.
+
+## The models
+
+Each model is a table: `defineModel` names it and declares its fields, then
+`.with()` adds what reads its typed rows, its access rules and its hooks.
+
+```ts
+import { graphql } from '@ultimabase/graphql'
+import { PublicError, allow, defineModel, master } from 'ultimabase'
+
+export const Product = defineModel({
+	name: 'Product',
+	use: [graphql()],
+	fields: (f) => ({
+		name: f.string(),
+		stock: f.number({ integer: true, default: 0 }),
+		orders: f.many(() => Order),
+	}),
+}).with({
+	// Clients read the products; only the server changes them.
+	access: allow.readOnly,
+	hooks: {
+		// Sees the stock as the update leaves it, on the locked row.
+		beforeUpdate: ({ record, data }) => {
+			if (data.stock !== undefined && data.stock < 0) {
+				throw new PublicError('OUT_OF_STOCK', `${record.name} is out of stock.`)
+			}
+		},
+	},
+})
+
+export const Order = defineModel({
+	name: 'Order',
+	use: [graphql()],
+	fields: (f) => ({
+		product: f.one(() => Product),
+		quantity: f.number({ integer: true }),
+	}),
+}).with({
+	// Clients read the orders, and place them through `placeOrder`.
+	access: allow.readOnly,
+	hooks: {
+		// Runs inside the order's transaction: throwing undoes the order.
+		afterCreate: async ({ record }) => {
+			await Product.update(
+				{
+					where: { id: record.product.id },
+					data: { stock: { decrement: record.quantity } },
+				},
+				{ as: master },
+			)
+		},
+	},
+})
+```
+
+The full example, with its tests: [`examples/functions-and-hooks`](https://github.com/MrEkinox/ultimabase/tree/main/examples/functions-and-hooks).
+
+[Models and fields](/docs/next/models), [Access rules](/docs/next/access)
+and [Hooks](/docs/next/hooks) cover each part.
+
+## The functions
+
+A function is an operation of your own, with a validated input, typed
+output and its own access rule. See [Functions](/docs/next/functions).
+
+```ts
+import { allow, defineFunction, master, transaction } from 'ultimabase'
+import { z } from 'zod'
+import { Order } from './models.ts'
+
+// Named, so GraphQL calls its input type `LineInput`.
+const Line = z
+	.object({ product: z.string(), quantity: z.int().min(1) })
+	.meta({ id: 'Line' })
+
+export const placeOrder = defineFunction({
+	name: 'placeOrder',
+	input: z.object({ lines: z.array(Line).min(1) }),
+	output: [Order],
+	// One transaction: every line is ordered, or none is.
+	run: ({ input }) =>
+		transaction(async () => {
+			const orders = []
+			for (const { product, quantity } of input.lines) {
+				const data = { product: { connect: { id: product } }, quantity }
+				// One after the other: each line takes from the stock the last left.
+				orders.push(await Order.create({ data }, { as: master }))
+			}
+			return orders
+		}),
+}).with({ access: allow.public })
+```
+
+## The application
+
+`defineApp` lists the database, the plugins, the models and the functions.
+It checks them together where you write it: a model that uses `graphql()`
+without `graphqlPlugin()` in `plugins`, or a relation to a model missing
+from `models`, is a type error on this line.
+
+```ts
+import { graphqlPlugin } from '@ultimabase/graphql'
+import { httpPlugin } from '@ultimabase/http'
+import { defineApp, memory } from 'ultimabase'
+import { placeOrder } from './functions.ts'
+import { Order, Product } from './models.ts'
+
+export const app = defineApp({
+	// Kept in memory, so the example needs no database.
+	database: memory(),
+	// Listens on PORT, or 3000.
+	plugins: [httpPlugin(), graphqlPlugin()],
+	models: [Product, Order],
+	functions: [placeOrder],
+})
+```
+
+## Starting it
+
+`ultimabase.config.ts` default-exports the application, for the
+`ultimabase` command:
+
+```ts
+// What `ultimabase dev` and `ultimabase start` run: the application.
+export { app as default } from './src/app.ts'
+```
+
+| Script        | Runs               | Does                                                                                                              |
+| ------------- | ------------------ | ----------------------------------------------------------------------------------------------------------------- |
+| `npm run dev` | `ultimabase dev`   | Starts the application, syncs a development database to the models, and restarts when a file changes.             |
+| `npm start`   | `ultimabase start` | Starts it in production, as a host does: the database is checked, never changed. See [Deploy](/docs/next/deploy). |
+
+Both find `ultimabase.config.ts` in the directory they run in, or
+`ultimabase.config.mts`, `.js` or `.mjs`; `--config <path>` names another
+file. The application lives in `src/app.ts`, apart from the file
+that starts it, so a test imports it without starting it.
+
+`ultimabase dev` loads the `.env` file beside the config, as
+`DATABASE_URL=postgres://localhost/app`; a variable already set keeps its
+value, and a change to the file restarts the application. `ultimabase start`
+never reads it: in production, the host sets the environment.
+
+`app.start()` starts the database, then each plugin; the HTTP plugin listens
+on `PORT`, or 3000. `app.stop()` stops the plugins in reverse order, waits
+for the operations still running, then closes the database; a `SIGTERM`
+calls it.
+
+## Reference
+
+### `defineApp(options)`
+
+| Option      | Type                                                 | Default     | Effect                                                                                                   |
+| ----------- | ---------------------------------------------------- | ----------- | -------------------------------------------------------------------------------------------------------- |
+| `database`  | an adapter                                           | required    | `memory()` or `postgres({ url })`. See [memory()](/docs/next/memory).                                    |
+| `plugins`   | plugins                                              | `[]`        | Each plugin the models and functions use, and those they require.                                        |
+| `models`    | models                                               | required    | Every model, including each one a relation points to.                                                    |
+| `functions` | functions                                            | `[]`        | The functions clients may call.                                                                          |
+| `masterKey` | `string`, `undefined` or `{ key, production: true }` | `undefined` | A request sending it in `x-ultimabase-master-key` acts as Master. See [Access rules](/docs/next/access). |
+| `logger`    | a Pino-like logger                                   | JSON lines  | Where the application writes its logs: `info`, `warn`, `error` and `child`.                              |
+
+It returns the application, with `start()` and `stop()`.
+
+### Type errors on the `defineApp` line
+
+| Message                                                  | Fix                          |
+| -------------------------------------------------------- | ---------------------------- |
+| `a model uses 'graphql', which is not in plugins`        | Add the plugin to `plugins`. |
+| `a function uses '<plugin>', which is not in plugins`    | Add the plugin to `plugins`. |
+| `a plugin requires '<plugin>', which is not in plugins`  | Add the plugin it requires.  |
+| `a relation points to '<Model>', which is not in models` | Add the model to `models`.   |
+| `two models are named '<Model>'`                         | Rename one.                  |
+
+### Errors on `start()`
+
+| Message                       | Cause                           |
+| ----------------------------- | ------------------------------- |
+| `The application is running.` | `start()` called a second time. |
+
+A schema the models cannot form, a database that cannot be reached, or a
+plugin whose `start` fails stops the start with that error, after stopping
+what had started.
