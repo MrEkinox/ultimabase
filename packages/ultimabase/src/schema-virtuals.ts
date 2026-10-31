@@ -1,5 +1,6 @@
 // Virtual fields at startup (D-151): each one's output, input and needs
 // resolved, with the `run` or `runMany` its model's `.with` gives it.
+import type { SchemaField } from './adapter.ts'
 import type { ModelDefinition, Output } from './definition.ts'
 import { holdsPage, outputOf } from './definition.ts'
 import { Refused } from './errors.ts'
@@ -12,7 +13,7 @@ export type VirtualInfo = {
 	readonly model: string
 	readonly output: Output
 	readonly input: Standard | undefined
-	/** The scalar fields its rule reads, `id` first. */
+	/** The scalar fields and stored `one` keys its rule reads, `id` first. */
 	readonly needs: readonly string[]
 	/** `runMany` takes the rows at once, `run` one by one. */
 	readonly many: boolean
@@ -76,10 +77,25 @@ function ruleOf(
 	}
 }
 
+/** Whether a virtual may need `name`: a scalar, or a stored key (D-184). */
+function readable(
+	fields: ReadonlyMap<string, SchemaField>,
+	name: unknown,
+): boolean {
+	if (typeof name !== 'string') return false
+	const field = fields.get(name)
+	return (
+		systemFields.includes(name) ||
+		field?.kind === 'scalar' ||
+		(field?.kind === 'one' && field.stored)
+	)
+}
+
 /** The virtual fields of a model, checked against its fields and models. */
 export function virtualsOf(
 	model: string,
 	definition: ModelDefinition,
+	fields: ReadonlyMap<string, SchemaField>,
 	models: ReadonlyMap<object, string>,
 ): ReadonlyMap<string, VirtualInfo> {
 	const rules = isObject(definition.rules)
@@ -113,12 +129,10 @@ export function virtualsOf(
 		}
 		const needs: readonly unknown[] = Array.isArray(listed) ? listed : []
 		for (const need of needs) {
-			const scalar =
-				typeof need === 'string' &&
-				(systemFields.includes(need) ||
-					definition.fields.get(need)?.kind === 'scalar')
-			if (!scalar) {
-				throw new Refused(`${where} needs ${String(need)}, no scalar field.`)
+			if (!readable(fields, need)) {
+				throw new Refused(
+					`${where} needs ${String(need)}, neither a scalar field nor a one relation the row stores.`,
+				)
 			}
 		}
 		virtuals.set(name, {

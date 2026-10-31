@@ -137,7 +137,7 @@ export type ModelWith<F, W, N extends string> = {
 	readonly access?: ModelAccess<F, N>
 	readonly hooks?: ModelHooks<F, N>
 	readonly relations?: RelationFilters<F>
-	readonly virtuals?: VirtualRules<F>
+	readonly virtuals?: VirtualRules<F, N>
 } & W
 
 /** `X` lists the fields of each unique index (D-52). */
@@ -193,8 +193,19 @@ type Expected<D, F> = {
 		: `'${P & string}' is not a scalar field of the model`
 }
 
+// The `one` relations of `F`, told without their target's fields, which a
+// field typed before the model cannot read (D-184).
+type OneKeys<F> = {
+	[K in keyof F]: F[K] extends {
+		readonly [fieldType]: { readonly kind: 'one' }
+	}
+		? K
+		: never
+}[keyof F]
+
 // A field typed before the model cannot check its record against it, nor a
-// virtual its `needs`, which may name a field a plugin adds (`A`).
+// virtual its `needs`, which may name a field a plugin adds (`A`) or a `one`
+// relation, whose key the row may store (D-184).
 export type RecordCheck<F, A = F> = {
 	readonly [K in keyof F]: F[K] extends { readonly [declaredRecord]: infer D }
 		? { readonly [declaredRecord]: Expected<D, F> }
@@ -202,7 +213,7 @@ export type RecordCheck<F, A = F> = {
 			? {
 					readonly [fieldType]: {
 						readonly options: {
-							readonly needs?: readonly (keyof RecordOf<A>)[]
+							readonly needs?: readonly (keyof RecordOf<A> | OneKeys<A>)[]
 						}
 					}
 				}
