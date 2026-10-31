@@ -1315,7 +1315,7 @@ Rejected: one feature set identical on every adapter.
 
 ## D-52: Unique fields on the field, indexes in `defineModel`
 
-Amended by D-170.
+Amended by D-170, D-174.
 
 Choice: a field takes `unique: true` (`f.string({ unique: true })`); indexes
 over one or several fields go in `defineModel`, since they shape the model
@@ -11199,3 +11199,58 @@ seconds it saves. 90 seconds keeps a margin and keeps a slowdown visible.
 Rejected: two minutes (a margin of 48 seconds lets the run drift unseen);
 moving tests out of `yarn validate` (it is the one command that proves a
 change).
+
+## D-174: An index names the kernel's fields
+
+Choice: amends D-52.
+
+1. A non-unique index of `defineModel` may name `id`, `createdAt` and
+   `updatedAt`, the fields the kernel sets (D-22), beside the model's own:
+   `indexes: [{ fields: ['room', 'createdAt', 'id'] }]`.
+2. A unique index refuses them, in its type and at startup:
+   `Message: a unique index cannot name 'createdAt', which the kernel sets.`
+   `id` is unique already, and a timestamp the kernel writes makes no key.
+3. A `contains` index refuses them as any field that is not a string
+   (D-141).
+4. `postgres()` reads their columns, `id`, `created_at` and `updated_at`:
+   `create index "message_room_created_at_id_idx" on "message" ("room", "created_at", "id")`.
+
+Why: an application migrating from Parse pages a room's newest messages,
+`where: { room }` ordered by `createdAt` then `id`. Without an index over
+these columns, every page reads and sorts all the room's rows. Parse
+indexed `createdAt` by hand in the database; an index made outside the
+snapshot is missing from every new database, a test's or another
+environment's.
+
+Rejected:
+
+- Allowing them in a unique index: `id` is a key alone, and two rows
+  created in the same millisecond would clash.
+- Indexing `createdAt` on every model: an index costs each write, and most
+  models never sort by it.
+- An index made by hand in the database: `sync` compares snapshots and
+  never makes it again.
+
+Example, before: refused on the index's line.
+
+```ts
+const Message = defineModel({
+	name: 'Message',
+	fields: (f) => ({ room: f.one(() => Room), text: f.string() }),
+	// 'createdAt' is not a scalar field or a one relation of the model
+	indexes: [{ fields: ['room', 'createdAt', 'id'] }],
+})
+```
+
+After: the same model starts, and this read uses the index.
+
+```ts
+await Message.findMany(
+	{
+		where: { room: { id: room.id } },
+		orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+		take: 30,
+	},
+	{ as },
+)
+```

@@ -54,6 +54,8 @@ export const Product = defineModel({
 	// Lists the products of a status by release day, fast.
 	indexes: [
 		{ fields: ['status', 'releasedOn'] },
+		// The newest products first; `id` breaks ties between equal dates.
+		{ fields: ['createdAt', 'id'] },
 		// One product of a name per release day, whatever its case.
 		{ fields: ['name', 'releasedOn'], unique: true, mode: 'insensitive' },
 	],

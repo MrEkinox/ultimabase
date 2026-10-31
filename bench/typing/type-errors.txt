@@ -186,6 +186,10 @@ prototype/example/defaults-indexes.ts: a many relation has no column
 TS2322: Type '["tags"]' is not assignable to type 'readonly ["tags"] & "'tags' is not a scalar field or a one relation of the model"'.
   Type '["tags"]' is not assignable to type '"'tags' is not a scalar field or a one relation of the model"'.
 
+prototype/example/defaults-indexes.ts: a unique index cannot name them
+TS2322: Type '["slug", "createdAt"]' is not assignable to type 'readonly ["slug", "createdAt"] & "'createdAt' is set by the kernel: a unique index cannot name it"'.
+  Type '["slug", "createdAt"]' is not assignable to type '"'createdAt' is set by the kernel: a unique index cannot name it"'.
+
 prototype/example/define-function.ts: the input is checked by its schema's type.
 TS2322: Type 'number' is not assignable to type 'string'.
 
