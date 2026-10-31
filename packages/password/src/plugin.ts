@@ -68,7 +68,7 @@ export interface PasswordOptions {
 
 type Options = { readonly as?: Identity }
 /** A transport's client, which counts the attempt and gets the cookie (D-115). */
-type SignInOptions = Options & { readonly client?: Client }
+type SignInOptions = Options & { readonly client?: Client | undefined }
 type CreateData<F> = Parameters<Queries<F>['create']>[0]['data']
 type UserRow<F> = Payload<F, {}>
 
