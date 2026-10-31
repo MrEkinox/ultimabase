@@ -315,6 +315,73 @@ describe('schema resolution (D-37)', () => {
 			indexes: [{ fields: ['a'], unique: true, contains: true }],
 		})
 	})
+
+	it('keeps a case-insensitive key to string fields, unique without contains (D-170)', () => {
+		const Member = defineModel({
+			name: 'Member',
+			fields: (f) => ({
+				handle: f.string({ unique: 'insensitive' }),
+				rank: f.number(),
+			}),
+			indexes: [
+				{ fields: ['handle', 'rank'], unique: true, mode: 'insensitive' },
+			],
+		})
+		const member = fieldsOf([Member], 'Member')
+		expect(member?.fields[0]).toMatchObject({ name: 'handle', unique: false })
+		expect(member?.indexes).toEqual([
+			{
+				fields: ['handle', 'rank'],
+				unique: true,
+				contains: false,
+				mode: 'insensitive',
+			},
+			{
+				fields: ['handle'],
+				unique: true,
+				contains: false,
+				mode: 'insensitive',
+			},
+		])
+		const message =
+			'Bad: a case-insensitive index is unique, without contains, over a string field at least.'
+		for (const refused of [
+			{ fields: ['title'], mode: 'insensitive' },
+			{ fields: ['title'], contains: true, mode: 'insensitive' },
+			{ fields: ['pages'], unique: true, mode: 'insensitive' },
+			{ fields: ['title'], unique: true, mode: 'lower' },
+		]) {
+			expect(containsIndexes([refused])).toThrow(message)
+		}
+		expect(() =>
+			defineModel({
+				name: 'Bad',
+				// @ts-expect-error: a number has no case.
+				fields: (f) => ({ pages: f.number({ unique: 'insensitive' }) }),
+			}),
+		).toThrow("unique: 'insensitive' takes a string field.")
+		// Its types refuse the same indexes.
+		defineModel({
+			name: 'Pages',
+			fields: (f) => ({ pages: f.number() }),
+			// @ts-expect-error: a string field at least.
+			indexes: [{ fields: ['pages'], unique: true, mode: 'insensitive' }],
+		})
+		defineModel({
+			name: 'Loose',
+			fields: (f) => ({ a: f.string() }),
+			// @ts-expect-error: unique.
+			indexes: [{ fields: ['a'], mode: 'insensitive' }],
+		})
+		defineModel({
+			name: 'Both',
+			fields: (f) => ({ a: f.string() }),
+			indexes: [
+				// @ts-expect-error: without contains.
+				{ fields: ['a'], unique: true, contains: true, mode: 'insensitive' },
+			],
+		})
+	})
 })
 
 describe('uuidv7 (D-22)', () => {

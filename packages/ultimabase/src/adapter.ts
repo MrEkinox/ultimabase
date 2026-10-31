@@ -50,6 +50,7 @@ export type SchemaField =
 			readonly precision?: number
 			readonly scale?: number
 			readonly optional: boolean
+			/** `unique: 'insensitive'` comes as an index of its own (D-170). */
 			readonly unique: boolean
 			/** A `string` in its model's document, which `_search` matches (D-148). */
 			readonly search?: true
@@ -97,6 +98,8 @@ export type SchemaModel = {
 		readonly unique: boolean
 		/** Serves `contains` and `mode: 'insensitive'` (D-141). */
 		readonly contains: boolean
+		/** A unique index whose string and enum fields ignore case (D-170). */
+		readonly mode?: 'insensitive'
 	}[]
 }
 

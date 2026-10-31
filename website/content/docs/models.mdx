@@ -53,7 +53,9 @@ Each field checks its type; `validate` adds a rule. It takes a Standard
 Schema (Zod, Valibot, ArkType…) or a function that returns the value to
 store and throws to refuse it. A refused write writes nothing and returns
 `VALIDATION_FAILED`, with one issue per refused field; a second row with a
-unique value returns `UNIQUE_VIOLATION`:
+unique value returns `UNIQUE_VIOLATION`. With `unique: 'insensitive'`, a
+string clashes with another case of itself, `Alice` with `alice`, while each
+row keeps the case it was given:
 
 <include cwd meta='title="src/models.test.ts"'>
 	../examples/models-and-queries/src/models.test.ts#refused
@@ -110,14 +112,14 @@ to Master: the transports leave it out of their schema.
 
 ### `defineModel(definition)`
 
-| Key           | Type                               | Default       | Effect                                                                                                                                                                   |
-| ------------- | ---------------------------------- | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `name`        | `string`                           | required      | The model's name: `Product` gives `products` and `createProduct` in GraphQL.                                                                                             |
-| `fields`      | `(f) => ({ ... })`                 | required      | The fields, built with `f`.                                                                                                                                              |
-| `use`         | plugin uses                        | `[]`          | The plugins the model uses: `graphql()`, `rest()`, `softDelete()`…                                                                                                       |
-| `indexes`     | `{ fields, unique?, contains? }[]` | `[]`          | Indexes over several fields; `unique: true` refuses two rows with the same values; `contains: true` makes `contains` and `mode: 'insensitive'` fast on one string field. |
-| `description` | `string`                           | none          | Shown in the GraphQL schema and the OpenAPI document.                                                                                                                    |
-| `dbName`      | `string`                           | the adapter's | The stored table's name.                                                                                                                                                 |
+| Key           | Type                                      | Default       | Effect                                                                                                                                                                                                                                                          |
+| ------------- | ----------------------------------------- | ------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `name`        | `string`                                  | required      | The model's name: `Product` gives `products` and `createProduct` in GraphQL.                                                                                                                                                                                    |
+| `fields`      | `(f) => ({ ... })`                        | required      | The fields, built with `f`.                                                                                                                                                                                                                                     |
+| `use`         | plugin uses                               | `[]`          | The plugins the model uses: `graphql()`, `rest()`, `softDelete()`…                                                                                                                                                                                              |
+| `indexes`     | `{ fields, unique?, contains?, mode? }[]` | `[]`          | Indexes over several fields; `unique: true` refuses two rows with the same values, and `mode: 'insensitive'` with it compares their strings and enums regardless of case; `contains: true` makes `contains` and `mode: 'insensitive'` fast on one string field. |
+| `description` | `string`                                  | none          | Shown in the GraphQL schema and the OpenAPI document.                                                                                                                                                                                                           |
+| `dbName`      | `string`                                  | the adapter's | The stored table's name.                                                                                                                                                                                                                                        |
 
 `.with({ access, hooks, virtuals, relations })` adds the rules that read the
 typed rows: [access](/docs/next/access), [hooks](/docs/next/hooks), the
@@ -145,15 +147,15 @@ Plugins add their own types: `password()` and `file()`. See
 
 ### Field options
 
-| Option        | Type                                   | Default       | Effect                                                                                   |
-| ------------- | -------------------------------------- | ------------- | ---------------------------------------------------------------------------------------- |
-| `optional`    | `boolean`                              | `false`       | The field may be `null`; a write may leave it out.                                       |
-| `unique`      | `boolean`                              | `false`       | Two rows cannot hold the same value; `null` is not compared.                             |
-| `default`     | a value, or `({ caller }) => value`    | none          | Written when a create leaves the field out; a function returning `undefined` gives none. |
-| `validate`    | Standard Schema, or `(value) => value` | none          | Refuses a value, or returns the value to store.                                          |
-| `list`        | `true`                                 | `false`       | Strings, numbers and enums: a list, `[]` when empty; never optional nor unique.          |
-| `description` | `string`                               | none          | Shown in the GraphQL schema and the OpenAPI document.                                    |
-| `dbName`      | `string`                               | the adapter's | The stored column's name.                                                                |
+| Option        | Type                                      | Default       | Effect                                                                                                |
+| ------------- | ----------------------------------------- | ------------- | ----------------------------------------------------------------------------------------------------- |
+| `optional`    | `boolean`                                 | `false`       | The field may be `null`; a write may leave it out.                                                    |
+| `unique`      | `boolean`, or `'insensitive'` on a string | `false`       | Two rows cannot hold the same value, regardless of case with `'insensitive'`; `null` is not compared. |
+| `default`     | a value, or `({ caller }) => value`       | none          | Written when a create leaves the field out; a function returning `undefined` gives none.              |
+| `validate`    | Standard Schema, or `(value) => value`    | none          | Refuses a value, or returns the value to store.                                                       |
+| `list`        | `true`                                    | `false`       | Strings, numbers and enums: a list, `[]` when empty; never optional nor unique.                       |
+| `description` | `string`                                  | none          | Shown in the GraphQL schema and the OpenAPI document.                                                 |
+| `dbName`      | `string`                                  | the adapter's | The stored column's name.                                                                             |
 
 ### Errors
 
@@ -174,5 +176,9 @@ The messages of the field types:
 ### Limits
 
 - A list cannot be `optional`, `unique` or searched: each is a type error.
+- `findUnique` matches a case-insensitive key exactly: `alice` does not find
+  `Alice`. A `findFirst` with `mode: 'insensitive'` does.
+- An index with `mode: 'insensitive'` is unique, has no `contains`, and holds
+  a string field at least: another is a type error.
 - A `defineEnum` name is a GraphQL name, letters, digits and `_`, not starting
   with `__`; another name throws when the module loads.

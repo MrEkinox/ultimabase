@@ -33,3 +33,9 @@ export const fields = (
 	columns: readonly string[],
 ): string =>
 	columns.map((column) => table.columns[column]?.field ?? column).join(', ')
+
+/** A key's model and fields, as `User (username)`. */
+export const keyOf = (
+	table: TableSnapshot,
+	columns: readonly string[],
+): string => `${table.model} (${fields(table, columns)})`

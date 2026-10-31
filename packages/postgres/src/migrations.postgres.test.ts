@@ -17,7 +17,7 @@ import type {
 import { MigrationFailed } from 'ultimabase'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { postgres } from './index.ts'
-import { parseSnapshot } from './snapshot.ts'
+import { parseSnapshot } from './snapshot-parse.ts'
 
 const logger: Logger = {
 	info: () => undefined,
@@ -254,6 +254,35 @@ const book = (contains: boolean): Schema => ({
 		},
 	],
 })
+
+/** An account whose username, kind and rank are unique regardless of case, or not (D-170). */
+const account = (lower: boolean): Schema => ({
+	models: [
+		{
+			name: 'Account',
+			fields: [
+				scalar('username', 'string', { dbName: 'handle' }),
+				scalar('kind', 'enum', { values: ['a', 'b', 'A'] }),
+				scalar('rank', 'number'),
+			],
+			indexes: lower
+				? [
+						{
+							fields: ['username', 'kind', 'rank'],
+							unique: true,
+							contains: false,
+							mode: 'insensitive',
+						},
+					]
+				: [],
+		},
+	],
+})
+const insertAccount = (handle: string, kind = 'a') =>
+	query(
+		inSchema(schema),
+		`insert into account values (gen_random_uuid(), now(), now(), '${handle}', '${kind}', 1)`,
+	)
 
 /** A post whose sizes are a list among `values` (D-127). */
 const sizes = (values: readonly string[]): Schema => ({
@@ -813,6 +842,68 @@ describe('a sync on postgres()', () => {
 		expect(dropped.map(({ sql }) => sql)).toStrictEqual([
 			'drop index "book_heading_trgm"',
 		])
+	})
+
+	it('adds and drops a case-insensitive unique key, refused over rows that share a value (D-170)', async () => {
+		await sync(undefined, account(false))
+		await insertAccount('Ada')
+		await insertAccount('ada')
+		const lower =
+			'create unique index "account_handle_kind_rank_lower_key" on "account" (lower("handle" collate "default"), lower("kind" collate "default"), "rank")'
+		const plan = migrations.plan(
+			migrations.snapshot(account(false)),
+			account(true),
+		)
+		expect(plan).toStrictEqual([
+			{
+				sql: lower,
+				model: 'Account',
+				does: 'added a case-insensitive unique key on username, kind, rank',
+				tries:
+					'a case-insensitive unique key on Account (username, kind, rank) fails when two rows share a value regardless of case',
+			},
+		])
+		await expect(sync(account(false), account(true))).rejects.toMatchObject({
+			name: 'MigrationFailed',
+			at: lower,
+		})
+		await query(inSchema(schema), `update account set kind = 'b'`)
+		await query(
+			inSchema(schema),
+			`update account set kind = 'a' where handle = 'Ada'`,
+		)
+		await sync(account(false), account(true))
+		await expect(insertAccount('ADA', 'A')).rejects.toThrow(
+			'account_handle_kind_rank_lower_key',
+		)
+		const { tables } = parseSnapshot(migrations.snapshot(account(true)))
+		expect(tables['account']?.lowerUniques).toStrictEqual({
+			account_handle_kind_rank_lower_key: ['handle', 'kind', 'rank'],
+		})
+		const { snapshot } = (await migrations.stored()) ?? {}
+		expect(migrations.plan(snapshot, account(true))).toStrictEqual([])
+		const dropped = await sync(account(true), account(false))
+		expect(changes(dropped)).toStrictEqual([
+			'Account: dropped the case-insensitive unique key on username, kind, rank',
+		])
+		expect(dropped.map(({ sql }) => sql)).toStrictEqual([
+			'drop index "account_handle_kind_rank_lower_key"',
+		])
+		await expect(insertAccount('ADA', 'A')).resolves.toBeDefined()
+	})
+
+	it('reads a snapshot without case-insensitive keys, and refuses a broken one (D-170)', () => {
+		const written = migrations.snapshot(account(false))
+		expect(JSON.stringify(written)).not.toContain('lowerUniques')
+		expect(parseSnapshot(written)).toStrictEqual(written)
+		const { tables } = parseSnapshot(migrations.snapshot(account(true)))
+		const broken = {
+			postgres: 1,
+			tables: { account: { ...tables['account'], lowerUniques: { k: 1 } } },
+		}
+		expect(() => migrations.plan(broken, account(true))).toThrow(
+			'The schema snapshot is not one postgres() wrote.',
+		)
 	})
 
 	it('adds, remakes and drops the search column with its GIN index (D-148)', async () => {

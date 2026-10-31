@@ -1313,6 +1313,8 @@ Rejected: one feature set identical on every adapter.
 
 ## D-52: Unique fields on the field, indexes in `defineModel`
 
+Amended by D-170.
+
 Choice: a field takes `unique: true` (`f.string({ unique: true })`); indexes
 over one or several fields go in `defineModel`, since they shape the model
 (D-07): `indexes: [{ fields: ['author', 'slug'], unique: true }]`. Every
@@ -7741,6 +7743,8 @@ import { isRow, issueOf } from 'ultimabase/internal'
 
 ## D-140: Case-insensitive string filters
 
+Amended by D-170.
+
 Choice: amends D-20, which left them to a search plugin.
 
 1. A filter on a `string` field takes `mode: 'insensitive'`, as in Prisma:
@@ -10853,4 +10857,115 @@ it('reads the lock again after lost changes', async () => {
 	running.feed.missed()
 	// …
 })
+```
+
+## D-170: Case-insensitive unique keys
+
+Choice: amends D-52 and D-140.
+
+1. A `string` field takes `unique: 'insensitive'`:
+   `f.string({ unique: 'insensitive' })`. Two rows whose values differ by
+   case alone clash; a row may change the case of its own value, `alice` to
+   `Alice`. Another field type and a list refuse it, in its type and at
+   startup. Its options are the exported `InsensitiveOptions`, the string's
+   options whose `unique` is `'insensitive'`; `unique` stays a `boolean` in
+   the options every other field and a plugin's field types take.
+2. A unique index of `defineModel` takes `mode: 'insensitive'`:
+   `indexes: [{ fields: ['team', 'handle'], unique: true, mode: 'insensitive' }]`.
+   Its string and enum fields ignore case, its other fields compare as in
+   any unique index, and one of its fields at least is a `string`. It is
+   refused without `unique: true` and with `contains`. A plugin's index
+   (D-122) does not take it: no plugin needs it.
+3. Each is a unique target (D-52), matched exactly as any other:
+   `findUnique({ where: { username: 'alice' } })` does not find `Alice`;
+   `findFirst` with D-140's `mode: 'insensitive'` does. A clash is the
+   `UNIQUE_VIOLATION` of D-72, which names the model's fields:
+   `fields: ['username']`.
+4. The field's option reaches the adapter as an index of its own,
+   `{ fields: ['username'], unique: true, mode: 'insensitive' }`; its
+   `SchemaField` is not `unique`. `memory()` compares the `toLowerCase()`
+   of each string value of such a key.
+5. `postgres()` makes a unique index over `lower(column collate "default")`
+   for each text column and over the bare column for the others, named
+   `<table>_<columns>_lower_key`:
+   `create unique index "user_username_lower_key" on "user" (lower("username" collate "default"))`.
+   The snapshot keeps these apart, as `lowerUniques`, which a table without
+   one leaves out, so the snapshots of 0.2 read and compare unchanged
+   (D-105). A migration over rows that already clash fails and names the
+   key: `a case-insensitive unique key on User (username) fails when two rows share a value regardless of case`.
+6. An insensitive `equals` or `not` on a field of such a key compiles to
+   `lower(column collate "default") = lower(value)`, which its index serves.
+   `ilike` lowers both sides as `lower()` does, so no result changes. `in`
+   keeps D-140's `ilike`s, and the other fields their `ilike`.
+7. Under the `C` locale, `lower()` folds ASCII only: `É` and `é` then
+   differ in PostgreSQL and clash in `memory()`, as D-140 point 3 warns.
+
+Why:
+
+- A username, a slug or an email is often unique regardless of case, while
+  its owner chooses the case. D-140 left that to a `beforeCreate` that
+  normalizes the value, which loses that case; an application migrating
+  from Parse keeps instead a lowered copy in a hidden field, filled by two
+  hooks, optional so that sign-up does not ask for it, and whose
+  `UNIQUE_VIOLATION` names a field the client never sent.
+- D-140 rejected `caseInsensitive` because every query on the field would
+  ignore case. Here only uniqueness does: the value keeps its case, and
+  filters keep theirs unless they say `mode`.
+- An index on `lower()` is the PostgreSQL way to make such a key, and it
+  serves the equality a sign-in by name runs.
+
+Rejected:
+
+- A `citext` column: an extension, and every comparison and sort of the
+  field would ignore case.
+- A generated lowered column with a unique constraint: a column the models
+  do not declare, and a second value to keep in the snapshot.
+- `findUnique` ignoring case on such a key: a unique target matches as a
+  `where` without `mode` does; `findFirst` already reads it so.
+- `unique: { mode: 'insensitive' }` on the field: an object for one
+  option, where the index's `mode` already names it.
+
+Example, before:
+
+```ts
+export const User = defineModel({
+	name: 'User',
+	fields: (f) => ({
+		username: f.string(),
+		usernameKey: f
+			.string({ optional: true, unique: true })
+			.with({ access: allow.private }),
+	}),
+}).with({
+	hooks: {
+		beforeCreate: ({ data }) => {
+			data.usernameKey = data.username.toLowerCase()
+		},
+		beforeUpdate: ({ data }) => {
+			if (data.username !== undefined) {
+				data.usernameKey = data.username.toLowerCase()
+			}
+		},
+	},
+})
+// A clash: { code: 'UNIQUE_VIOLATION', details: { model: 'User', fields: ['usernameKey'] } }
+```
+
+After:
+
+```ts
+export const User = defineModel({
+	name: 'User',
+	fields: (f) => ({ username: f.string({ unique: 'insensitive' }) }),
+})
+// A clash: { code: 'UNIQUE_VIOLATION', details: { model: 'User', fields: ['username'] } }
+await User.findFirst(
+	{ where: { username: { equals: 'ALICE', mode: 'insensitive' } } },
+	as,
+)
+```
+
+```sql
+-- The migration `ultimabase migrate create` writes
+create unique index "user_username_lower_key" on "user" (lower("username" collate "default"));
 ```

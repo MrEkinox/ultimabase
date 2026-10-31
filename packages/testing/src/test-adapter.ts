@@ -23,6 +23,7 @@ import { roundTrips } from './round-trips.ts'
 import { searches } from './searches.ts'
 import { sorts } from './sorts.ts'
 import { transactions } from './transactions.ts'
+import { uniqueCases } from './unique-cases.ts'
 import { virtuals } from './virtuals.ts'
 import { writes } from './writes.ts'
 
@@ -44,6 +45,7 @@ export function testAdapter(
 		reads(create)
 		cases(create)
 		writes(create)
+		uniqueCases(create)
 		cascades(create)
 		lists(create)
 		jsonPaths(create)

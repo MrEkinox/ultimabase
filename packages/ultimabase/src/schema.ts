@@ -193,6 +193,10 @@ function scalarField(name: string, field: FieldDefinition): FieldInfo {
 	}
 }
 
+/** A string unique regardless of case (D-170). */
+const insensitive = (field: FieldInfo): boolean =>
+	field.kind === 'scalar' && field.options['unique'] === 'insensitive'
+
 /** A field as the adapter reads it, without the builder's options. */
 function schemaField(model: ModelInfo, field: FieldInfo): SchemaField {
 	const { options: _options, codec: _codec, enum: _enum, ...schema } = field
@@ -331,7 +335,9 @@ export function resolve(
 		checkIndexes(model, fields, definition.indexes)
 		const uniques: (readonly string[])[] = [['id']]
 		for (const field of fields.values()) {
-			if (field.kind === 'scalar' && field.unique) uniques.push([field.name])
+			if (field.kind === 'scalar' && (field.unique || insensitive(field))) {
+				uniques.push([field.name])
+			}
 		}
 		for (const index of definition.indexes) {
 			if (index.unique === true) uniques.push(index.fields)
@@ -352,11 +358,21 @@ export function resolve(
 			name: model,
 			...(definition.dbName === undefined ? {} : { dbName: definition.dbName }),
 			fields: [...fields.values()].map((field) => schemaField(info, field)),
-			indexes: definition.indexes.map((index) => ({
-				fields: index.fields,
-				unique: index.unique === true,
-				contains: index.contains === true,
-			})),
+			indexes: [
+				...definition.indexes.map((index) => ({
+					fields: index.fields,
+					unique: index.unique === true,
+					contains: index.contains === true,
+					...(index.mode === undefined ? {} : { mode: index.mode }),
+				})),
+				// A field's own comes as its index (D-170).
+				...[...fields.values()].filter(insensitive).map((field) => ({
+					fields: [field.name],
+					unique: true,
+					contains: false,
+					mode: 'insensitive' as const,
+				})),
+			],
 		})
 	}
 	for (const [value, name] of names) {

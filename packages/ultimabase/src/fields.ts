@@ -80,6 +80,11 @@ export type StringOptions = SingleOptions<string> & {
 	readonly search?: boolean
 }
 
+/** A string's options with `unique: 'insensitive'`, which ignores case (D-170). */
+export type InsensitiveOptions = Omit<StringOptions, 'unique'> & {
+	readonly unique: 'insensitive'
+}
+
 /** What shapes a list of strings, numbers or enum values (D-120, D-127). */
 export type ListOptions<V> = Described & {
 	readonly list: true
@@ -300,10 +305,12 @@ export interface Many<T, O, U = never> {
 export interface FieldBuilders<T> {
 	/**
 	 * With `list: true`, a list of strings, `[]` when empty (D-120); with
-	 * `search: true`, matched by its model's `_search` (D-148).
+	 * `search: true`, matched by its model's `_search` (D-148); with
+	 * `unique: 'insensitive'`, unique regardless of case (D-170).
 	 */
 	readonly string: <
-		const O extends StringOptions | ListOptions<string> = StringOptions,
+		const O extends StringOptions | InsensitiveOptions | ListOptions<string> =
+			StringOptions,
 	>(
 		options?: O & NoInfer<ListableCheck<O, string>>,
 	) => Listable<string, O, T>

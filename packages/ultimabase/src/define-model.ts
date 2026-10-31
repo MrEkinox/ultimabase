@@ -198,6 +198,7 @@ function createModel(definition: {
 				fields: [...index.fields],
 				...(index.unique === undefined ? {} : { unique: index.unique }),
 				...(index.contains === undefined ? {} : { contains: index.contains }),
+				...(index.mode === undefined ? {} : { mode: index.mode }),
 			})),
 			// A plugin's, checked with the model's at startup (D-122).
 			...indexes,

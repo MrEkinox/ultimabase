@@ -193,11 +193,21 @@ export class Filters {
 		condition: Condition,
 	): Sql {
 		const column = this.column(table, alias, name)
-		return this.compare(column, this.catalog.kind(table, name), condition)
+		const kind = this.catalog.kind(table, name)
+		const lowered =
+			(kind === 'string' || kind === 'enum') &&
+			table.uniques.some(
+				(unique) => unique.lower === true && unique.fields.includes(name),
+			)
+		return this.compare(column, kind, condition, lowered)
 	}
 
-	/** A value of `kind`, a column or an aggregate (D-149), meets `condition`. */
-	compare(column: Sql, kind: Kind, condition: Condition): Sql {
+	/**
+	 * A value of `kind`, a column or an aggregate (D-149), meets `condition`;
+	 * a `lowered` column's insensitive equality reads its case-insensitive
+	 * key's index (D-170).
+	 */
+	compare(column: Sql, kind: Kind, condition: Condition, lowered = false): Sql {
 		if (condition.path !== undefined) return jsonPath(column, condition)
 		// An id matches and compares as its string, as in `memory()`.
 		const cast = kind === 'id' ? sql`cast(${column} as text)` : column
@@ -218,9 +228,11 @@ export class Filters {
 					const equal =
 						operand === null
 							? sql`${column} is null`
-							: insensitive
-								? sql`${text} ilike ${pattern(operand, '', '')}`
-								: this.equal(column, kind, operand)
+							: lowered && insensitive
+								? sql`lower(${collated}) = lower(cast(${operand} as text))`
+								: insensitive
+									? sql`${text} ilike ${pattern(operand, '', '')}`
+									: this.equal(column, kind, operand)
 					parts.push(operator === 'equals' ? equal : sql`(not ${equal})`)
 					break
 				}

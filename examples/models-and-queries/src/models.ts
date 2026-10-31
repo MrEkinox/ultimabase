@@ -54,8 +54,8 @@ export const Product = defineModel({
 	// Lists the products of a status by release day, fast.
 	indexes: [
 		{ fields: ['status', 'releasedOn'] },
-		// One product of a name per release day.
-		{ fields: ['name', 'releasedOn'], unique: true },
+		// One product of a name per release day, whatever its case.
+		{ fields: ['name', 'releasedOn'], unique: true, mode: 'insensitive' },
 	],
 }).with({
 	access: allow.public,

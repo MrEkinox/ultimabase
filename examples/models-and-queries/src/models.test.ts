@@ -125,5 +125,16 @@ it('refuses a value its field does not accept', async () => {
 		message: 'Unique constraint failed on Product (sku).',
 		details: { model: 'Product', fields: ['sku'] },
 	})
+	const desk = { sku: 'DSK-001', price: '90.00', releasedOn: '2026-07-31' }
+	await Product.create({ data: { ...desk, name: 'Desk' } }, { as: master })
+	await expect(
+		Product.create(
+			{ data: { ...desk, name: 'DESK', sku: 'DSK-002' } },
+			{ as: master },
+		),
+	).rejects.toMatchObject({
+		code: 'UNIQUE_VIOLATION',
+		details: { model: 'Product', fields: ['name', 'releasedOn'] },
+	})
 	//#endregion
 })
