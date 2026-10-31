@@ -1,4 +1,5 @@
-// What a live read sends (D-154); a transport writes it in its own shape.
+// What a live read sends (D-154), which a transport writes in its own shape,
+// and its handle.
 import type { Row } from 'ultimabase'
 
 /** A row that left the window, `gone` when deleted or no longer readable. */
@@ -37,3 +38,12 @@ export type LiveMessage =
 	  }
 	/** With the error a live function failed with, which closed it. */
 	| { readonly kind: 'closed'; readonly error?: unknown }
+
+/** A live read's handle. */
+export interface LiveHandle {
+	/** Shows `more` rows after the last; a list over its limit is refused. */
+	grow(this: void, more: number): Promise<void>
+	/** Sends the whole window again, as after messages were dropped. */
+	resend(this: void): Promise<void>
+	close(this: void): void
+}

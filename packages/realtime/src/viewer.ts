@@ -10,7 +10,7 @@ import { livePlan, recording } from 'ultimabase/internal'
 import type { Batch } from './changes.ts'
 import { checked, invalid } from './checked.ts'
 import { Computed, debounce, ownerOf } from './computed.ts'
-import type { LiveMessage } from './messages.ts'
+import type { LiveHandle, LiveMessage } from './messages.ts'
 import { Live } from './live.ts'
 import type { Loader } from './reads.ts'
 import { liveArgs, shapeOf } from './shape.ts'
@@ -24,15 +24,6 @@ export type Settings = {
 	readonly maxConnectionRows: number
 	readonly identify: (request: Request) => Promise<Caller>
 	readonly logger: Logger
-}
-
-/** A live read's handle. */
-export interface LiveHandle {
-	/** Shows `more` rows after the last; a list over its limit is refused. */
-	grow(this: void, more: number): Promise<void>
-	/** Sends the whole window again, as after messages were dropped. */
-	resend(this: void): Promise<void>
-	close(this: void): void
 }
 
 type Subscription = {
@@ -214,19 +205,28 @@ export class Viewer {
 		return !this.#closed
 	}
 
+	/** The caller read again, as HTTP reads one per request (D-178). */
+	async identify(): Promise<Caller | undefined> {
+		return (await this.#identified())?.result
+	}
+
+	/** The caller built again; the viewer ends when it is another user. */
+	async #identified(): Promise<Built<Caller> | undefined> {
+		const identified = await recording(async () =>
+			this.#settings.identify(this.#request),
+		).catch(() => undefined)
+		const who = identified && whoOf(identified.result)
+		if (who === whoOf(this.#caller)) return identified
+		this.end()
+		return undefined
+	}
+
 	/** Builds the caller again, then each live read's plan. */
 	async rebuild(): Promise<void> {
 		if (this.#closed) return
-		let identified: Built<Caller>
-		try {
-			identified = await recording(async () =>
-				this.#settings.identify(this.#request),
-			)
-		} catch {
-			return this.end()
-		}
+		const identified = await this.#identified()
+		if (identified === undefined) return
 		const caller = identified.result
-		if (whoOf(caller) !== whoOf(this.#caller)) return this.end()
 		this.#caller = caller
 		this.#reads = identified.reads
 		this.#expires = identified.expires

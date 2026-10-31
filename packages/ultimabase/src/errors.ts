@@ -12,6 +12,7 @@ export type ErrorCode =
 	| 'UNAUTHENTICATED'
 	| 'INVALID_CREDENTIALS'
 	| 'TOO_MANY_ATTEMPTS'
+	| 'CONFLICT'
 	| 'INTERNAL'
 
 /** One failing value, as Standard Schema reports it (D-23). */

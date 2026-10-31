@@ -239,6 +239,12 @@ describe('an error', () => {
 	failing.get('/wrong', () => {
 		throw new PublicError('INVALID_CREDENTIALS', 'Wrong email or password.')
 	})
+	failing.get('/conflict', () => {
+		throw new PublicError(
+			'CONFLICT',
+			'This operation conflicted with another; try it again.',
+		)
+	})
 	failing.get('/crash', () => {
 		throw new Error('Connection refused.')
 	})
@@ -282,6 +288,8 @@ describe('an error', () => {
 		})
 		const wrong = await fetch(`${url}/wrong`)
 		expect(wrong.status).toBe(401)
+		const conflict = await fetch(`${url}/conflict`)
+		expect(conflict.status).toBe(409)
 	})
 
 	it('masks any other error, and logs it with its correlation id', async () => {

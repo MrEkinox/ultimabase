@@ -235,8 +235,8 @@ keep it to some routes. A route added after `start` is not served.
 | any    | the status's name        | An `HTTPException`, as `401` `UNAUTHORIZED`.                                |
 
 A `PublicError` takes its code's status: `ACCESS_DENIED` 403, `NOT_FOUND`
-404, `VALIDATION_FAILED` 400, `UNIQUE_VIOLATION` and `RELATION_RESTRICTED`
-409, `UNAUTHENTICATED` and `INVALID_CREDENTIALS` 401, `TOO_MANY_ATTEMPTS`
+404, `VALIDATION_FAILED` 400, `UNIQUE_VIOLATION`, `RELATION_RESTRICTED` and
+`CONFLICT` 409, `UNAUTHENTICATED` and `INVALID_CREDENTIALS` 401, `TOO_MANY_ATTEMPTS`
 429 with `Retry-After`, any other code 400.
 
 At start: `proxies is 1.5, not a whole number of proxies in front of the

@@ -12,6 +12,7 @@ import type {
 } from 'ultimabase'
 import {
 	CheckFailed,
+	Conflict,
 	defineApp,
 	feedFields,
 	feedIds,
@@ -20,6 +21,7 @@ import {
 	MigrationFailed,
 	OutOfRange,
 	RelationViolation,
+	transaction,
 	UniqueViolation,
 } from 'ultimabase'
 import { expect, it } from 'vitest'
@@ -269,6 +271,46 @@ it('reports a relation refused by a race', async () => {
 		code: 'NOT_FOUND',
 		message: 'A connected Author does not exist.',
 	})
+	//#endregion
+	await app.stop()
+})
+
+it('runs a serializable transaction again on a conflict', async () => {
+	//#region conflict
+	const inner = memory()
+	// The database aborts the first commit for a conflict with another.
+	let conflicts = 1
+	const conflicting: Adapter = {
+		...inner,
+		begin: async (asked) => {
+			const tx = await inner.begin(asked)
+			return {
+				...tx,
+				commit: async () => {
+					if (conflicts === 0) return tx.commit()
+					conflicts -= 1
+					await tx.rollback()
+					throw new Conflict()
+				},
+			}
+		},
+	}
+	const app = defineApp({
+		database: conflicting,
+		logger,
+		models: [Author, Post],
+	})
+	await app.start()
+	let attempts = 0
+	await transaction(
+		async () => {
+			attempts += 1
+			await Author.create({ data: { name: 'Ada' } }, M)
+		},
+		{ isolation: 'serializable' },
+	)
+	expect(attempts).toBe(2)
+	expect(await Author.count({}, M)).toBe(1)
 	//#endregion
 	await app.stop()
 })

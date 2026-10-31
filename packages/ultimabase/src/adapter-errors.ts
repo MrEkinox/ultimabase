@@ -14,6 +14,18 @@ export class UniqueViolation extends Error {
 }
 
 /**
+ * The database aborted a transaction for a conflict with another, a
+ * serialization failure or a deadlock: a serializable transaction runs again
+ * (D-179).
+ */
+export class Conflict extends Error {
+	constructor(options?: { readonly cause?: unknown }) {
+		super('The transaction conflicted with another.', options)
+		this.name = 'Conflict'
+	}
+}
+
+/**
  * A foreign key refused a write that raced another (D-99): `model.field`
  * links a `target` deleted meanwhile, or, `restricted`, the write deleted a
  * `target` that `model.field` still links.

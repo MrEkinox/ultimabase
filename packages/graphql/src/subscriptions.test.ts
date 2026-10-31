@@ -66,6 +66,14 @@ const cookie = defineFunction({
 	output: z.string().nullable(),
 	run: ({ client }) => client?.cookies.get('session') ?? null,
 }).with({ access: allow.public })
+/** The caller's name, as their caller holds it. */
+const named = defineFunction({
+	name: 'named',
+	query: true,
+	output: z.string().nullable(),
+	run: ({ caller }) =>
+		caller.kind === 'user' ? String(Reflect.get(caller.user, 'name')) : null,
+}).with({ access: allow.public })
 const remember = defineFunction({
 	name: 'remember',
 	output: z.boolean(),
@@ -118,6 +126,8 @@ const logger: Logger = {
 }
 
 const revoked = new Set<string>()
+/** Each user's name, read again with their caller. */
+const names = new Map<string, string>()
 let held: Promise<void> | undefined
 interface Sessions extends PluginTypes {
 	readonly name: 'sessions'
@@ -135,7 +145,8 @@ const sessions = definePlugin<Sessions>({
 		if (id === 'broken') throw new Error('Identify broke.')
 		if (id === 'slow') await held
 		if (id === null || revoked.has(id)) return undefined
-		return { kind: 'user', user: { id } }
+		const user = { id, name: names.get(id) }
+		return { kind: 'user', user }
 	},
 })
 
@@ -167,6 +178,7 @@ afterEach(async () => {
 	errors.length = 0
 	failures.length = 0
 	revoked.clear()
+	names.clear()
 	failing = false
 	breaking = undefined
 	held = undefined
@@ -205,7 +217,7 @@ async function started(options: Options = {}): Promise<string> {
 		functions:
 			options.realtime === false
 				? [cookie, remember]
-				: [cookie, remember, ranked, counted],
+				: [cookie, named, remember, ranked, counted],
 		masterKey: 'secret',
 		logger,
 	})
@@ -793,6 +805,30 @@ describe('a connection', () => {
 				),
 			}),
 		])
+	})
+
+	it('runs each query and mutation as its caller read again', async () => {
+		const url = await started()
+		names.set('ada', 'Ada')
+		const { ws } = opening(url)
+		expect(await next(ws.iterate({ query: '{ named }' }))).toEqual({
+			data: { named: 'Ada' },
+		})
+		names.set('ada', 'Ada Lovelace')
+		expect(await next(ws.iterate({ query: '{ named }' }))).toEqual({
+			data: { named: 'Ada Lovelace' },
+		})
+	})
+
+	it('closes 4403 when a query’s caller is no longer the same user', async () => {
+		const url = await started()
+		const { ws, closes } = opening(url)
+		expect(await next(ws.iterate({ query: '{ cookie }' }))).toEqual({
+			data: { cookie: null },
+		})
+		revoked.add('ada')
+		await failed(ws.iterate({ query: '{ cookie }' }))
+		expect(closes).toEqual([{ code: 4403, reason: 'Forbidden' }])
 	})
 
 	it('reads its caller from connection_init, over the upgrade’s', async () => {
