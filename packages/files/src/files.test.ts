@@ -24,6 +24,15 @@ const cover = (name = 'a.png') =>
 	files.upload(png, { for: 'Post.cover', name, as: alice })
 const attachment = (name: string, as = alice) =>
 	files.upload(text, { for: 'Post.attachments', name, as })
+const csv = (size: number) =>
+	files.upload(
+		new Blob([new Uint8Array(size).fill(97)], { type: 'text/csv' }),
+		{
+			for: 'Post.doc',
+			name: 'a.csv',
+			as: alice,
+		},
+	)
 
 describe('an upload', () => {
 	it('stores the file and its variants, pending, with its inline values', async () => {
@@ -119,6 +128,31 @@ describe('an upload', () => {
 				.filter(({ variantOf }) => variantOf === null)
 				.map(({ uploadedBy }) => uploadedBy),
 		).toStrictEqual(['master', null])
+	})
+
+	it("limits a field that sets no maxSize by the plugin's, a default and not a ceiling", async () => {
+		await start({ maxSize: 100 })
+		expect((await csv(100)).id).toBeTypeOf('string')
+		await expect(csv(101)).rejects.toMatchObject({
+			code: 'PAYLOAD_TOO_LARGE',
+			message: 'The file is over 100 bytes.',
+		})
+		// Post.attachments sets 1024 bytes, over the plugin's 100.
+		const large = new Uint8Array(1024).fill(97)
+		const { id } = await files.upload(large, {
+			for: 'Post.attachments',
+			name: 'b',
+			as: alice,
+		})
+		expect(id).toBeTypeOf('string')
+	})
+
+	it('refuses a plugin maxSize that is not a number of bytes', async () => {
+		for (const maxSize of [0, 1.5]) {
+			await expect(start({ maxSize })).rejects.toThrow(
+				'filesPlugin’s maxSize is a number of bytes.',
+			)
+		}
 	})
 
 	it('refuses an unknown field, an empty name, a large file and a wrong size', async () => {
