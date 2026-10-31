@@ -9,8 +9,8 @@ import { ownerOf } from './computed.ts'
 import { Engine } from './engine.ts'
 import type { Viewer } from './viewer.ts'
 
-export type { LiveMessage, Removal, Upsert } from './messages.ts'
-export type { LiveHandle, Viewer } from './viewer.ts'
+export type { LiveHandle, LiveMessage, Removal, Upsert } from './messages.ts'
+export type { Viewer } from './viewer.ts'
 
 export type RealtimeOptions = {
 	/** The most rows a live list follows, nested rows included; 1000. */

@@ -9364,7 +9364,7 @@ api: ({ plugins }) => plugins.http.mount(uploads, { bodyLimit: false })
 
 ## D-154: Realtime: live lists and live rows
 
-Amended by D-163 and D-166.
+Amended by D-163, D-166 and D-178.
 
 Choice: completes D-25; amends D-106 (WebSocket upgrades), D-107 (the
 `Subscription` type), D-109 (live functions) and D-129 (live reads over
@@ -11460,6 +11460,50 @@ it('invites with one read and one write', async () => {
 	expect(queries).toEqual(['find User', 'write Invite'])
 })
 ```
+
+## D-178: A socket's query reads its caller again
+
+Choice: amends D-154, point 5.
+
+1. A query or a mutation sent over the GraphQL socket reads its caller again
+   before it runs, with the request the viewer holds, as HTTP reads one per
+   request. It runs as that caller, so a change of role, team or claims
+   shows at the next operation.
+2. When the caller read is another user, or `identify` fails, the viewer
+   ends and the socket closes with `4403`, as when a rebuild finds another
+   user. The operation gets `Forbidden`.
+3. A subscription keeps the viewer's caller: its live reads are rebuilt when
+   a write may change it, on the `refresh` timer and at its expiry (D-154).
+4. The new caller is not kept on the viewer: the live reads change caller
+   only through a rebuild, which also plans them again.
+
+Why:
+
+- A rebuild reaches the viewers 8 at a time, after the flush that triggered
+  it, and the timer runs every 5 minutes: under load, or after a change
+  outside the database, a query could run as a caller HTTP no longer has.
+- Reading the caller costs what it costs over HTTP, once per operation, and
+  makes the socket follow the same rules as HTTP without a second model.
+
+Rejected:
+
+- Rebuilding the whole viewer before each query: it plans every live read
+  again, which a query does not need.
+- Keeping the caller and documenting the delay: the same query would answer
+  differently over HTTP and over the socket (D-129).
+
+Example, before: the session's role changes in the database while the
+socket stays open, and outside any write a viewer follows.
+
+```ts
+await setRole(ada, 'viewer') // in another service
+// Over the socket, until the next rebuild, still as an admin:
+await client.query({ query: DeleteProject, variables: { id } })
+```
+
+After: the same mutation reads Ada's caller again and is refused by her new
+role, as over HTTP. Had her session ended, the socket would close with
+`4403`.
 
 ## D-179: A serializable transaction, retried on conflict
 
