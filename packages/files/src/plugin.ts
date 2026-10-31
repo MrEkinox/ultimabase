@@ -1,4 +1,4 @@
-// `filesPlugin({ storage, access })` (D-152): the plugin of the `file` field
+// `filesPlugin({ storage, access, maxSize })` (D-152): the plugin of the `file` field
 // type, which runs its hooks on every model holding a file field, owns
 // `FilesBlob`, sweeps what a crash left and serves `POST /files`.
 import type { Http } from '@ultimabase/http'
@@ -13,6 +13,7 @@ import type {
 import { definePlugin } from 'ultimabase'
 import manifest from '../package.json' with { type: 'json' }
 import type { FileOptions } from './field.ts'
+import { defaultMaxSize, isByteCount } from './field.ts'
 import type { Checked } from './lifecycle.ts'
 import {
 	attach,
@@ -32,6 +33,8 @@ import { runningOf, useRunning } from './values.ts'
 /** What `filesPlugin` takes (D-152). */
 export interface FilesOptions {
 	readonly storage: FileStorage
+	/** The largest file of a field that sets no `maxSize`: 50 MB by default. */
+	readonly maxSize?: number
 	readonly access?: {
 		/** A signed-in user by default; Master always may. */
 		readonly upload?: CallerRule
@@ -96,10 +99,19 @@ const definition = definePlugin<Files>({
 		afterDeleteCommit: (facts) => deleteHeld(facts),
 	},
 	start: async ({ options, models, logger }) => {
-		const { storage, access } = options
+		const { storage, access, maxSize = defaultMaxSize } = options
+		if (!isByteCount(maxSize)) {
+			throw new Error('filesPlugin’s maxSize is a number of bytes.')
+		}
 		storage.start()
 		const fields = fieldsOf(models)
-		useRunning({ storage, upload: access?.upload ?? signedIn, fields, logger })
+		useRunning({
+			storage,
+			upload: access?.upload ?? signedIn,
+			maxSize,
+			fields,
+			logger,
+		})
 		await sweeping()
 		timer = setInterval(() => void sweeping(), sweepEvery)
 		timer.unref()

@@ -69,6 +69,8 @@ export interface Running {
 	readonly storage: FileStorage
 	/** Who may upload; Master always may. */
 	readonly upload: CallerRule
+	/** The largest file of a field that sets no `maxSize`. */
+	readonly maxSize: number
 	/** Each model's file fields, with their options. */
 	readonly fields: ReadonlyMap<string, ReadonlyMap<string, FileOptions>>
 	readonly logger: Logger

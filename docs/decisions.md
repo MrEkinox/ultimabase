@@ -9130,12 +9130,15 @@ type Stage {
 Choice: completes D-32 and D-122; amends D-32 (no `local()`), D-89 (a
 plugin model knows its name) and D-122 points 2 and 5.
 
-1. `@ultimabase/files` provides `filesPlugin({ storage, access })`, the
-   `file(options)` field type and two storage adapters: `s3({...})` and
+1. `@ultimabase/files` provides `filesPlugin({ storage, access, maxSize })`,
+   the `file(options)` field type and two storage adapters: `s3({...})` and
    `memoryFiles()`, which tests use. `local()` is dropped: a server's disk
    is lost when it is replaced, and a local S3 emulator covers development.
    `access.upload` is a caller rule (D-27); it defaults to a signed-in user
-   or Master, and `allow.public` opens uploads to everyone.
+   or Master, and `allow.public` opens uploads to everyone. `maxSize` is the
+   limit of every file field that sets none, 50 MB by default, as
+   `httpPlugin`'s `bodyLimit` is for JSON bodies: a default, not a ceiling,
+   checked at start as the field's.
 2. No file is ever orphaned: every object in the storage has a row in the
    plugin's `FilesBlob` model, and every row's object is deleted with it.
    This is the plugin's first rule, and each step below keeps it.
@@ -9154,9 +9157,9 @@ publicUrl })` speaks to any S3-compatible storage (AWS, DigitalOcean
      which is synchronous, so a read signs its URLs while it decodes. It
      covers `PUT`, `GET`, `DELETE` and `ListObjectsV2`; no AWS SDK.
 4. `file(options)`:
-   - `optional`, `list`, `maxSize` (bytes, 50 MB by default), `accept` (MIME
-     types or patterns: `['image/*', 'application/pdf']`), `public` (false
-     by default), `inline` and `variants`.
+   - `optional`, `list`, `maxSize` (bytes, the plugin's by default), `accept`
+     (MIME types or patterns: `['image/*', 'application/pdf']`), `public`
+     (false by default), `inline` and `variants`.
    - `inline` names values computed once at upload, each JSON of 2 KB at
      most: a function of `{ body, type, name }`, or `{ run, schema }` to
      type it in the transports (a blurred placeholder, a page count).
