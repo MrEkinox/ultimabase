@@ -1,0 +1,234 @@
+---
+title: Testing
+description: Run the application around each test, on a new database, as the caller of your choice.
+---
+
+`testApplication(app)` starts the application before each test of the file
+and stops it after: on a new in-memory database, and an HTTP server on a
+free port. Tests run with [Vitest](https://vitest.dev); install
+`@ultimabase/testing` as a dev dependency:
+
+```npm
+npm install -D @ultimabase/testing vitest
+```
+
+```ts
+// Starts the application before each test, on a new in-memory database and
+// a free port, and stops it after.
+import { asUser, testApplication } from '@ultimabase/testing'
+import { master } from 'ultimabase'
+import { expect, it } from 'vitest'
+import { app } from './app.ts'
+import { Note } from './models.ts'
+
+const running = testApplication(app)
+```
+
+The full example, with its tests: [`examples/testing`](https://github.com/MrEkinox/ultimabase/tree/main/examples/testing).
+
+The application starts as it is declared, its plugins and functions
+included, but without its info lines: warnings and errors still print.
+
+## A new database each test
+
+Each test starts on an empty database: a row one test writes is gone in the
+next, so tests run in any order.
+
+```ts
+it('writes a note', async () => {
+	await Note.create({ data: { text: 'Milk', ownerId: 'ada' } }, { as: master })
+	expect(await Note.count({}, { as: master })).toBe(1)
+})
+
+it('starts on an empty database', async () => {
+	expect(await Note.count({}, { as: master })).toBe(0)
+})
+```
+
+## As a signed-in user
+
+`asUser({ id })` is the caller a session gives, without signing in: its
+access rules apply, as in the application.
+
+```ts
+// A caller as a session gives it, without signing in.
+const ada = { as: asUser({ id: 'ada' }) }
+const note = await Note.create({ data: { text: 'Milk' } }, ada)
+expect(note.ownerId).toBe('ada')
+
+const grace = { as: asUser({ id: 'grace' }) }
+expect(await Note.findMany({}, grace)).toEqual([])
+```
+
+`{ as: master }` skips the rules, to seed rows or read them all. Without
+`as`, the caller is anonymous.
+
+## Over HTTP
+
+`running.url` is the server's address during a test, such as
+`http://localhost:54321`: a test calls the API as a client does.
+
+```ts
+await Note.create({ data: { text: 'Milk', ownerId: 'ada' } }, { as: master })
+// `running.url` is the server's address during the test.
+const response = await fetch(`${running.url}/graphql`, {
+	method: 'POST',
+	headers: { 'content-type': 'application/json' },
+	body: JSON.stringify({ query: '{ notes { edges { node { text } } } }' }),
+})
+// Without a session, the caller is anonymous: no note is its own.
+expect(await response.json()).toEqual({ data: { notes: { edges: [] } } })
+```
+
+## The queries a test makes
+
+`running.queries(callback)` lists the queries the callback sends to the
+database, in their order: a test proves that a refusal reads nothing, or
+that a loop does not query once per row.
+
+```ts
+// The queries the callback sends to the database, in their order.
+const refused = await running.queries(async () => {
+	await expect(Note.create({ data: { text: 'Milk' } })).rejects.toMatchObject({
+		code: 'ACCESS_DENIED',
+	})
+})
+expect(refused).toEqual([])
+
+const ada = { as: asUser({ id: 'ada' }) }
+const written = await running.queries(async () => {
+	await Note.create({ data: { text: 'Milk' } }, ada)
+	await Note.findMany({}, ada)
+})
+expect(written).toEqual(['write Note', 'find Note'])
+```
+
+An entry names the operation and the model: `find`, `count`, `aggregate` or
+`write`, then `Note`. A write that changes several models names them all,
+as `write Invite, User`. The queries of a
+[transaction](/docs/next/transactions) are listed; its begin and its
+commit are not.
+
+## On PostgreSQL
+
+`{ database: 'declared' }` runs the tests on the application's own
+database: on `postgres()`, in a schema of the test file's own, named
+`ultimabase_test_<random>`. The first test creates the tables in it, each
+later one starts with them emptied, and the schema is dropped after the
+file's last test. No other table is read or written.
+
+```ts
+// On the database DATABASE_URL names: the file's own schema, its tables
+// emptied before each test, dropped after the last.
+testApplication(app, { database: 'declared' })
+
+it('deletes the tasks with their project', async () => {
+	const project = await Project.create(
+		{ data: { name: 'Launch', tasks: { create: [{ title: 'Write' }] } } },
+		{ as: master },
+	)
+	await Project.delete({ where: { id: project.id } }, { as: master })
+	expect(await Task.count({}, { as: master })).toBe(0)
+})
+
+it('starts with empty tables', async () => {
+	expect(await Project.count({}, { as: master })).toBe(0)
+})
+```
+
+A test on PostgreSQL checks what `memory()` cannot: raw SQL, a
+constraint, the real column types. It is slower: keep most tests on
+`memory()`, and name these `*.postgres.test.ts` to run them apart.
+
+## Lost changes
+
+A plugin that follows the [changes](/docs/next/plugins#follow-the-changes)
+reads again, in `missed`, what it may have lost after a lost connection:
+
+```ts
+// Keeps the number of open tasks, counted again when it may be wrong.
+interface OpenTasks extends PluginTypes {
+	readonly name: 'openTasks'
+}
+
+let open: number | undefined
+const count = async () => {
+	open = await Task.count({ where: { done: false } }, { as: master })
+}
+
+const openTasks = definePlugin<OpenTasks>({
+	name: 'openTasks',
+	start: count,
+	changed: (changes) => {
+		if (changes.some((change) => change.model === 'Task')) void count()
+	},
+	missed: () => void count(),
+})
+```
+
+`running.feed.missed()` calls each plugin's `missed`, as after a lost
+connection. On `postgres()`, `database.sql` writes a change the feed does not
+report, since the feed reports the writes of the API only:
+
+```ts
+const database = postgres({ url: process.env['DATABASE_URL'] })
+const app = defineApp({
+	database,
+	plugins: [httpPlugin(), graphqlPlugin(), openTasks.plugin()],
+	models: [Project, Task],
+})
+const running = testApplication(app, { database: 'declared' })
+
+it('counts the open tasks again after lost changes', async () => {
+	const tasks = { create: [{ title: 'Write' }] }
+	await Project.create({ data: { name: 'Launch', tasks } }, { as: master })
+	await vi.waitFor(() => expect(open).toBe(1))
+	// Raw SQL: a change the feed does not report.
+	await database.sql`update task set done = true`
+	running.feed.missed()
+	await vi.waitFor(() => expect(open).toBe(0))
+})
+```
+
+`memory()` writes no such change: test `missed` on the declared database.
+
+## Reference
+
+### `testApplication(app, options?)`
+
+| Option     | Type         | Default    | Effect                                                    |
+| ---------- | ------------ | ---------- | --------------------------------------------------------- |
+| `database` | `'declared'` | `memory()` | The application's own database, in the file's own schema. |
+
+It returns, read during a test:
+
+| Key                 | Effect                                                       |
+| ------------------- | ------------------------------------------------------------ |
+| `url`               | The HTTP server's address, such as `http://localhost:54321`. |
+| `feed.missed()`     | Calls each plugin's `missed`, as after a lost connection.    |
+| `queries(callback)` | The queries the callback sends, such as `['find Note']`.     |
+
+### `asUser(user)`
+
+| Argument | Type                                 | Returns                                 |
+| -------- | ------------------------------------ | --------------------------------------- |
+| `user`   | `{ id }`, or the registered user row | a caller of kind `'user'`, for `{ as }` |
+
+### Errors
+
+| Message                                                                                                                                                              | When                                          |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------- |
+| `testApplication takes the value defineApp returned.`                                                                                                                | Another value was given.                      |
+| `url is the address of httpPlugin(), read during a test: add httpPlugin() to the application.`                                                                       | `url` read outside a test, or without HTTP.   |
+| `testApplication runs on the declared database when it gives a test file tables of its own, as postgres() does; this one does not: remove { database: 'declared' }.` | The database cannot give a schema per file.   |
+| `feed.missed() runs during a test.`                                                                                                                                  | `feed.missed()` called outside a test.        |
+| `queries() runs during a test.`                                                                                                                                      | `queries()` called outside a test.            |
+| `queries() already records: do not nest it.`                                                                                                                         | `queries()` called inside another's callback. |
+
+### Limits
+
+- `testApplication` adds Vitest's `beforeEach` and `afterEach`: call it at
+  the top of a file or a `describe`, never inside a test.
+- A process killed during a test file leaves its schema behind.
+- `queries()` lists the queries of the whole application while the callback
+  runs, a plugin's included. `database.sql` is not listed.

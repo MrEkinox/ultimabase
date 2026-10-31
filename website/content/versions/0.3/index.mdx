@@ -1,0 +1,73 @@
+---
+title: Introduction
+description: UltimaBase is a TypeScript backend built from a small kernel and its plugins.
+---
+
+UltimaBase is a backend written in TypeScript. You declare models, their
+fields and who may read and write them; it serves them over GraphQL or REST,
+on PostgreSQL or in memory. A small kernel holds the models, the queries and
+the access rules, and every other feature is a plugin: HTTP, GraphQL, REST,
+sign-in, files, realtime, the databases.
+
+A model, and the rule that decides what a client reads:
+
+```ts
+import { defineModel } from 'ultimabase'
+
+export const Post = defineModel({
+	name: 'Post',
+	fields: (f) => ({
+		title: f.string(),
+		published: f.boolean({ default: false }),
+	}),
+}).with({
+	// Clients read the published posts; the other rules, left out, are
+	// closed: only server code writes.
+	access: { read: ({ where }) => where({ published: true }) },
+})
+```
+
+The full example, with its tests: [`examples/introduction`](https://github.com/MrEkinox/ultimabase/tree/main/examples/introduction).
+
+The GraphQL API serves the posts, the rule applied: a client gets the
+published post, not the draft.
+
+```ts
+// `{ as: master }` is your server code, past every rule: it writes a
+// published post and a draft.
+await Post.createMany(
+	{ data: [{ title: 'Hello', published: true }, { title: 'Draft' }] },
+	{ as: master },
+)
+// `request` sends a GraphQL query as an anonymous client would.
+expect(await request('{ posts { edges { node { title } } } }')).toEqual({
+	data: { posts: { edges: [{ node: { title: 'Hello' } }] } },
+})
+```
+
+Start an application, then follow the [Quickstart](/docs/next/quickstart):
+
+```npm
+npm create ultimabase@latest my-app
+```
+
+## The documentation
+
+- **Get started**: the [Quickstart](/docs/next/quickstart), then
+  [an application's files](/docs/next/application).
+- **Concepts**: [models](/docs/next/models), [queries](/docs/next/queries),
+  [relations](/docs/next/relations), [access rules](/docs/next/access),
+  [hooks](/docs/next/hooks), [functions](/docs/next/functions),
+  [transactions](/docs/next/transactions), [errors](/docs/next/errors) and
+  [testing](/docs/next/testing).
+- **Plugins**: [authentication](/docs/next/auth),
+  [password](/docs/next/password), [roles](/docs/next/roles),
+  [ACL](/docs/next/acl), [soft delete](/docs/next/soft-delete),
+  [files](/docs/next/files) and [realtime](/docs/next/realtime).
+- **Transports**: [HTTP](/docs/next/http), [GraphQL](/docs/next/graphql) and
+  [REST](/docs/next/rest).
+- **Databases**: [`memory()`](/docs/next/memory) and
+  [PostgreSQL](/docs/next/postgres).
+- **Extend**: [write a plugin](/docs/next/plugins) or
+  [a database adapter](/docs/next/adapters).
+- **[Deploy](/docs/next/deploy)**: run the application in production.

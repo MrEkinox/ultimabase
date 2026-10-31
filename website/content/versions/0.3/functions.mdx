@@ -1,0 +1,373 @@
+---
+title: Functions
+description: Declare a server operation with a validated input, a typed output and an access rule, served by every transport.
+---
+
+A function is an operation the server runs: borrow a book, place an order,
+merge two accounts. `defineFunction` names it, validates its input with a
+Standard Schema (Zod, Valibot, ArkType…), types its output, and every
+transport serves it: GraphQL as a mutation, REST as `POST
+/api/functions/borrowBook`.
+
+The examples write their schemas with Zod, a package of its own:
+
+```npm
+npm install zod
+```
+
+```ts
+import { isAuthenticated, signedInRun } from '@ultimabase/auth'
+import { graphql } from '@ultimabase/graphql'
+import {
+	PublicError,
+	allow,
+	defineFunction,
+	defineType,
+	master,
+} from 'ultimabase'
+import { z } from 'zod'
+import { Book } from './models.ts'
+
+// A named object: a model and data together.
+export const Loan = defineType({
+	name: 'Loan',
+	fields: { book: Book, dueOn: z.iso.date() },
+})
+
+export const borrowBook = defineFunction({
+	name: 'borrowBook',
+	input: z.object({ book: z.string(), days: z.int().min(1).max(30) }),
+	output: Loan,
+	// `user` is the signed-in caller's record; the access rule lets in no one
+	// else.
+	run: signedInRun(async ({ input, caller, user }) => {
+		const book = await Book.findUniqueOrThrow(
+			{ where: { id: input.book } },
+			{ as: caller },
+		)
+		if (book.borrowedBy !== null) {
+			throw new PublicError('BOOK_BORROWED', `${book.title} is out.`)
+		}
+		// Book is read-only for clients: the function writes as the server.
+		const lent = await Book.update(
+			{ where: { id: book.id }, data: { borrowedBy: user.id } },
+			{ as: master },
+		)
+		const due = new Date(Date.now() + input.days * 86_400_000)
+		return { book: lent, dueOn: due.toISOString().slice(0, 10) }
+	}),
+}).with({ access: isAuthenticated })
+```
+
+The full example, with its tests: [`examples/functions`](https://github.com/MrEkinox/ultimabase/tree/main/examples/functions).
+
+`defineApp({ functions: [...] })` adds it to the application:
+
+```ts
+import { graphqlPlugin } from '@ultimabase/graphql'
+import { httpPlugin } from '@ultimabase/http'
+import { restPlugin } from '@ultimabase/rest'
+import { defineApp, memory } from 'ultimabase'
+import { borrowBook, returnBooks, searchBooks, shelf } from './functions.ts'
+import { Book } from './models.ts'
+
+export const app = defineApp({
+	// Kept in memory, so the example needs no database.
+	database: memory(),
+	// Listens on PORT, or 3000.
+	plugins: [httpPlugin(), restPlugin(), graphqlPlugin()],
+	models: [Book],
+	functions: [borrowBook, searchBooks, returnBooks, shelf],
+})
+```
+
+`run` receives the validated `input` and the `caller`. A function is trusted
+server code: its queries pass `{ as: caller }` to keep the caller's rules,
+or `{ as: master }` to write what no client writes, as `Book` here.
+
+`signedInRun`, from [`@ultimabase/auth`](/docs/next/auth), wraps a `run`
+for signed-in users: it adds `user`, the caller's record, typed. The rule
+`isAuthenticated` refuses a visitor with `ACCESS_DENIED` before `run`;
+Master passes every rule, so the wrapper refuses Master, and anyone a wider
+rule lets in, with `UNAUTHENTICATED`.
+
+## Call it from server code
+
+`fn.run(input, { as })` does what a transport does: it checks the access
+rule, validates the input, then runs the function and returns its output,
+typed. A function without an input takes only `{ as }`:
+
+```ts
+const loan = await borrowBook.run({ book: dune, days: 14 }, ada)
+expect(loan.book.borrowedBy).toBe('ada')
+expect(loan.dueOn).toMatch(/^\d{4}-\d{2}-\d{2}$/)
+
+// A PublicError thrown by `run` reaches the caller.
+await expect(
+	borrowBook.run({ book: dune, days: 7 }, grace),
+).rejects.toMatchObject({ code: 'BOOK_BORROWED', message: 'Dune is out.' })
+
+await returnBooks.run(ada)
+const available = await searchBooks.run({ text: 'dune', available: true }, ada)
+expect(available.map((book) => book.title)).toEqual(['Dune'])
+```
+
+A function that calls another uses `run` too, so the other's rule and
+validation apply.
+
+## Access and validation
+
+`.with({ access })` takes one rule, which receives `{ caller }` only. A
+function without one is closed to all but Master. The rule runs before the
+input is validated, so a refused caller learns nothing of what the input
+should be:
+
+```ts
+// Without `as`, the caller is anonymous.
+await expect(borrowBook.run({ book: dune, days: 14 })).rejects.toMatchObject({
+	code: 'ACCESS_DENIED',
+	message: 'borrowBook refused.',
+	details: { function: 'borrowBook' },
+})
+await expect(
+	borrowBook.run({ book: dune, days: 90 }, ada),
+).rejects.toMatchObject({
+	code: 'VALIDATION_FAILED',
+	message: 'Invalid input.',
+	details: { issues: [{ path: ['days'] }] },
+})
+```
+
+A check that needs the input, or another row, throws from `run`: a
+`PublicError` reaches the client with its code, message and details. See
+[Errors](/docs/next/errors).
+
+## Queries and outputs
+
+`query: true` makes a function a query: GraphQL serves it under `Query`,
+over GET and POST, and REST over GET. A function is a mutation otherwise.
+
+```ts
+// A query: served over GraphQL's Query and REST's GET.
+export const searchBooks = defineFunction({
+	name: 'searchBooks',
+	query: true,
+	input: z.object({ text: z.string().min(1), available: z.boolean() }),
+	output: [Book],
+	run: ({ input, caller }) =>
+		Book.findMany(
+			{
+				where: {
+					_search: input.text,
+					...(input.available ? { borrowedBy: null } : {}),
+				},
+			},
+			{ as: caller },
+		),
+}).with({ access: allow.public })
+```
+
+The output is a model (`Book`), a list (`[Book]`), a model or `null`
+(`Book.nullable()`), a [`defineType`](/docs/next/models) holding models and
+data (`Loan` above), or a Standard Schema for data alone. Without an output,
+`run` returns nothing and GraphQL answers `true`:
+
+```ts
+// No input and no output: GraphQL answers `true`.
+export const returnBooks = defineFunction({
+	name: 'returnBooks',
+	// The transports whose key `.with` sets.
+	use: [graphql()],
+	run: signedInRun(async ({ user }) => {
+		await Book.updateMany(
+			{ where: { borrowedBy: user.id }, data: { borrowedBy: null } },
+			{ as: master },
+		)
+	}),
+}).with({
+	access: isAuthenticated,
+	// Named `giveBack` in GraphQL; REST keeps `returnBooks`.
+	graphql: { name: 'giveBack' },
+})
+```
+
+The output is typed, not validated: `run` must return what it declares.
+A string returned for an enum takes `as const`, as in
+`{ result: 'passed' as const }`: TypeScript reads the literal as a `string`
+otherwise, since it checks `run` before it knows the output's type.
+
+## Over the transports
+
+An object input gives GraphQL one argument per property, and REST one query
+parameter per property on a GET, or a JSON body on a POST. Both answer with
+the same output:
+
+```ts
+// Sends a GraphQL document, as a client without a session does.
+async function request(query: string): Promise<unknown> {
+	const response = await fetch(`${running.url}/graphql`, {
+		method: 'POST',
+		headers: { 'content-type': 'application/json' },
+		body: JSON.stringify({ query }),
+	})
+	return response.json()
+}
+```
+
+```ts
+// An object input gives one argument per property.
+expect(
+	await request('{ searchBooks(text: "dune", available: true) { title } }'),
+).toEqual({ data: { searchBooks: [{ title: 'Dune' }] } })
+// Renamed by `.with({ graphql: { name } })`.
+expect(await request('mutation { giveBack }')).toMatchObject({
+	errors: [
+		{
+			message: 'returnBooks refused.',
+			extensions: { code: 'ACCESS_DENIED' },
+		},
+	],
+})
+```
+
+```ts
+// A query is a GET, its input in the query string.
+const found = await fetch(
+	`${running.url}/api/functions/searchBooks?text=dune&available=true`,
+)
+expect(await found.json()).toMatchObject([{ title: 'Dune' }])
+
+// A mutation is a POST, its input in the body.
+const borrowed = await fetch(`${running.url}/api/functions/borrowBook`, {
+	method: 'POST',
+	headers: { 'content-type': 'application/json' },
+	body: JSON.stringify({ book: dune, days: 14 }),
+})
+expect(borrowed.status).toBe(403)
+expect(await borrowed.json()).toMatchObject({
+	code: 'ACCESS_DENIED',
+	message: 'borrowBook refused.',
+})
+```
+
+A client selecting a relation under a returned row gets it read again as the
+caller, with its rules. A function opens no transaction: see
+[Transactions](/docs/next/transactions) to write all or nothing.
+
+## Pages
+
+A query whose output is `Book.paginated()` returns `Book.paginate(...)`:
+the rows its `where` and `orderBy` keep, read as the caller. Nothing is read
+until a transport, or server code, asks for the rows or the count:
+
+```ts
+// A page: a client pages it as Book's generated list, and counts it.
+export const shelf = defineFunction({
+	name: 'shelf',
+	query: true,
+	output: Book.paginated(),
+	run: ({ caller }) =>
+		Book.paginate(
+			{ where: { borrowedBy: null }, orderBy: { title: 'asc' } },
+			{ as: caller },
+		),
+}).with({ access: allow.public })
+```
+
+Each transport pages it as the model's generated list: the same arguments
+(`first`, `after`, `last`, `before`, or `take` and `skip` with
+`pagination: 'list'`), the same `maxTake`, the same answer, and
+`totalCount` counted only when a client asks for it:
+
+```ts
+// From server code, `run` returns the page: rows and a count, read when asked.
+const page = await shelf.run(ada)
+expect(await page.count()).toBe(2)
+const [first] = await page.findMany({ take: 1 })
+expect(first?.title).toBe('Dune')
+
+// GraphQL serves Book's connection, with Book's page arguments.
+expect(
+	await request('{ shelf(first: 1) { edges { node { title } } totalCount } }'),
+).toEqual({
+	data: { shelf: { edges: [{ node: { title: 'Dune' } }], totalCount: 2 } },
+})
+
+// REST answers as GET /api/books does, with its parameters.
+const listed = await fetch(
+	`${running.url}/api/functions/shelf?first=1&totalCount=true`,
+)
+expect(await listed.json()).toMatchObject({
+	edges: [{ node: { title: 'Dune' } }],
+	pageInfo: { hasNextPage: true },
+	totalCount: 2,
+})
+```
+
+A `defineType` field can be a page too, at any depth. In GraphQL that field
+takes the page arguments; in REST one JSON parameter named by the field's
+path takes them, as `profile.posts={"first":20,"totalCount":true}`.
+
+## Reference
+
+### `defineFunction(definition)`
+
+| Key           | Type                       | Default  | Effect                                                            |
+| ------------- | -------------------------- | -------- | ----------------------------------------------------------------- |
+| `name`        | `string`                   | required | The GraphQL field's name and the REST route's.                    |
+| `run`         | `(facts) => output`        | required | The operation; may be `async`.                                    |
+| `input`       | a Standard Schema          | none     | Validates the input; without it, `run` receives none.             |
+| `output`      | see below                  | none     | The output's type; without it, `run` returns nothing.             |
+| `query`       | `boolean`                  | `false`  | A query, over GET too; a mutation otherwise.                      |
+| `use`         | `[graphql()]`, `[rest()]`… | `[]`     | The transports whose key `.with` sets. Every transport serves it. |
+| `description` | `string`                   | none     | Shown in the GraphQL schema and the OpenAPI document.             |
+
+`.with({ access, graphql, rest })` sets its rule and, for a transport of
+`use`, `{ name }` to rename it there or `false` to hide it.
+
+### What `run` receives
+
+| Fact     | Value                                                                  |
+| -------- | ---------------------------------------------------------------------- |
+| `input`  | the validated input, with the schema's defaults and transforms         |
+| `caller` | who calls: see [Access rules](/docs/next/access)                       |
+| `client` | over a transport, `{ address, cookies }`; `undefined` from server code |
+
+`client.cookies` has `get(name)`, `set(name, value, options?)` and
+`clear(name, options?)`, written on the HTTP response.
+
+### Outputs
+
+| Output             | `run` returns           | GraphQL              |
+| ------------------ | ----------------------- | -------------------- |
+| none               | nothing                 | `Boolean!`           |
+| `Book`             | a row                   | `Book!`              |
+| `[Book]`           | rows                    | `[Book!]!`           |
+| `Book.nullable()`  | a row or `null`         | `Book`               |
+| `Book.paginated()` | `Book.paginate(...)`    | `BookConnection!`    |
+| a `defineType`     | an object of its fields | the type             |
+| a Standard Schema  | the schema's type       | from its JSON Schema |
+
+A schema given `.meta({ id: 'Line' })` is the shared GraphQL type `Line`,
+and `LineInput` as an input.
+
+`z.uuid()` is an `ID` in GraphQL, as a row's `id`, and a `string` of
+format `uuid` in OpenAPI: a client passes a row's `id` to a function with
+the variable type it reads it with, `$id: ID!`.
+
+### Errors
+
+| Code                | When                                       | `details`                         |
+| ------------------- | ------------------------------------------ | --------------------------------- |
+| `ACCESS_DENIED`     | The rule refused: `borrowBook refused.`    | `{ function }`                    |
+| `VALIDATION_FAILED` | The input does not match: `Invalid input.` | `{ issues: [{ path, message }] }` |
+
+### Limits
+
+- The access rule is synchronous and receives no input.
+- A schema without a JSON Schema export, as `z.date()`, stops startup:
+  `z.iso.datetime()` is a `DateTime` in GraphQL.
+- A name another function or a model's generated query already takes stops
+  startup, naming both.
+- A page is a query's output, never under a list, in a virtual or live. An
+  input property named as a page argument stops startup.
