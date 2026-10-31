@@ -459,6 +459,29 @@ describe('calls', () => {
 		).toEqual({ data: { literal: { one: 1, half: 1.5, yes: true } } })
 	})
 
+	it("types a uuid as ID, as a record's id (D-175)", async () => {
+		const Invitation = z.object({ id: z.uuid() })
+		const accept = defineFunction({
+			name: 'accept',
+			input: Invitation,
+			output: Invitation,
+			run: ({ input }) => input,
+		}).with({ access: allow.public })
+		const { send, typeOf } = await serving({}, [accept])
+		expect(typeOf('Mutation')).toContain('  accept(id: ID!): AcceptOutput!')
+		expect(typeOf('AcceptOutput')).toBe(`type AcceptOutput {
+  id: ID!
+}`)
+		const id = '019a3a6e-7c1b-7d2e-9f00-1234567890ab'
+		expect(
+			await send('mutation ($id: ID!) { accept(id: $id) { id } }', { id }),
+		).toEqual({ data: { accept: { id } } })
+		const refused = await send('mutation { accept(id: 7) { id } }')
+		expect(at(refused, 'errors', 0, 'extensions', 'code')).toBe(
+			'VALIDATION_FAILED',
+		)
+	})
+
 	it('names .nullable() when run returns undefined', async () => {
 		const maybe = defineFunction({
 			name: 'maybe',

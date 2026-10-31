@@ -4926,7 +4926,7 @@ curl -X POST localhost:3000/webhooks/stripe -H 'content-type: application/json' 
 
 ## D-109: `defineFunction` and `defineType`, at run time and over GraphQL
 
-Amended by D-113, D-125, D-150 and D-154.
+Amended by D-113, D-125, D-150, D-154 and D-175.
 
 Choice: completes D-27, D-45, D-75 and D-107, and amends D-45's outputs.
 
@@ -11103,4 +11103,65 @@ After, with `DATABASE_URL` in `packages/backend/.env`, beside
 # From the monorepo's root: the same file is loaded.
 yarn workspace backend dev
 npx ultimabase sync --config packages/backend/ultimabase.config.ts
+```
+
+## D-175: A uuid is an `ID` in GraphQL
+
+Choice: amends D-109.
+
+1. A string of JSON Schema format `uuid`, as `z.uuid()`, `z.uuidv7()` and
+   `z.guid()` export it, is GraphQL's `ID`, in a function's input and
+   output and in a json field's type (D-125): `input: z.object({ id: z.uuid() })`
+   gives `accept(id: ID!)`.
+2. OpenAPI keeps the schema's `{ type: 'string', format: 'uuid' }`, as REST
+   already exports it (D-144): no change there.
+3. The schema still validates the value: an `ID` that is not a uuid, as
+   `7`, is `VALIDATION_FAILED`.
+
+Why: a row's `id` is an `ID` in GraphQL (D-22). A client that reads it and
+passes it to a function declared it `ID!` for a generated mutation and
+`String!` for the function, since `ID!` is refused where `String!` is
+expected. Every id the kernel makes is a uuid, so the schema already says
+"an id".
+
+Rejected:
+
+- A helper, `idOf(Invitation)`, a branded string naming the model: a new
+  export whose only use today is the type name. It could also check that
+  the row exists and that the caller reads it; that is a decision of its
+  own, when a function needs it.
+- Every string named `id`: a name is no type, and an external id, as a
+  payment's, is no uuid.
+
+Upgrade: a client that declares `$id: String!` for a `z.uuid()` argument
+declares `$id: ID!`.
+
+Example, before:
+
+```graphql
+mutation ($id: String!) {
+	restorePost(id: $id) {
+		title
+	}
+}
+mutation ($id: ID!) {
+	deletePost(where: { id: $id }) {
+		title
+	}
+}
+```
+
+After, with `input: z.object({ id: z.uuid() })`:
+
+```graphql
+mutation ($id: ID!) {
+	restorePost(id: $id) {
+		title
+	}
+}
+mutation ($id: ID!) {
+	deletePost(where: { id: $id }) {
+		title
+	}
+}
 ```
