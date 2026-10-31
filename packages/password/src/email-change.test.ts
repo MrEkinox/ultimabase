@@ -315,7 +315,7 @@ describe('requestEmailChange and confirmEmailChange', () => {
 			input: { newEmail: 'ada@new.example', currentPassword: ada.password },
 		})
 		expect(anonymous.body).toMatchObject(
-			failed('UNAUTHENTICATED', 'requestEmailChange needs a signed-in user.'),
+			failed('UNAUTHENTICATED', 'This function needs a signed-in user.'),
 		)
 		const wrong = await request(url, session, 'ada@new.example', 'wrong one')
 		expect(wrong.body).toMatchObject(

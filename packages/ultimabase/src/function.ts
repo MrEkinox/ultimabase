@@ -119,14 +119,17 @@ export interface Client {
 
 /**
  * What `run` receives: the caller, its client when a transport calls it,
- * and the validated input if any (D-113).
+ * and the validated input if any (D-113). A wrapper of `run` reads it before
+ * `I` is inferred, as `never`: no input then (D-181).
  */
 export type RunFacts<I> = {
 	readonly caller: Caller
 	readonly client: Client | undefined
-} & ([I] extends [StandardSchema]
-	? { readonly input: SchemaTypes<I>['output'] }
-	: unknown)
+} & ([I] extends [never]
+	? unknown
+	: [I] extends [StandardSchema]
+		? { readonly input: SchemaTypes<I>['output'] }
+		: unknown)
 
 /** Requires `query: true` when a plugin of `use` takes queries only (D-154). */
 export type QueryCheck<U> = [

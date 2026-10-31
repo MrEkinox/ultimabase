@@ -2,6 +2,7 @@
 // `resetPassword`, `verifyEmail`, `sendVerificationEmail`,
 // `requestEmailChange` and `confirmEmailChange`, there when the application
 // gives `sendEmail`.
+import { signedInRun } from '@ultimabase/auth'
 import type { FunctionShape } from 'ultimabase'
 import {
 	allow,
@@ -119,15 +120,8 @@ export function emailFunctions(
 	const sendVerificationEmail = defineFunction({
 		name: 'sendVerificationEmail',
 		output: done,
-		run: async ({ caller, client }) => {
-			if (caller.kind !== 'user') {
-				throw new PublicError(
-					'UNAUTHENTICATED',
-					'sendVerificationEmail needs a signed-in user.',
-				)
-			}
+		run: signedInRun(async ({ user, client }) => {
 			if (client !== undefined) await requestLimited('verify', client.address)
-			const { user } = caller
 			// The user's row, read as Master, holds the field password adds.
 			if (Reflect.get(user, 'emailVerified') === true) return true
 			const to = await stateOf().auth.subjectOf(user.id, method)
@@ -136,7 +130,7 @@ export function emailFunctions(
 			const refused = await mail('verify', user.id, to)
 			if (refused !== undefined) throw refused
 			return true
-		},
+		}),
 	}).with({ access: allow.public })
 	return [
 		requestPasswordReset,
@@ -156,14 +150,8 @@ function emailChangeFunctions(
 		name: 'requestEmailChange',
 		input: requestEmailChangeInput,
 		output: done,
-		run: async ({ input: { input }, caller, client }) => {
-			if (caller.kind !== 'user') {
-				throw new PublicError(
-					'UNAUTHENTICATED',
-					'requestEmailChange needs a signed-in user.',
-				)
-			}
-			const { id } = caller.user
+		run: signedInRun(async ({ input: { input }, user, client }) => {
+			const { id } = user
 			await checkCurrent(id, input.currentPassword, attemptOf(id, client))
 			const { newEmail } = input
 			// The caller proved the password: telling it is no enumeration.
@@ -173,7 +161,7 @@ function emailChangeFunctions(
 			const refused = await mail('emailChange', id, newEmail)
 			if (refused !== undefined) throw refused
 			return true
-		},
+		}),
 	}).with({ access: allow.public })
 	const confirmEmailChange = defineFunction({
 		name: 'confirmEmailChange',

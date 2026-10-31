@@ -206,7 +206,7 @@ describe('sending the verification email again', () => {
 		expect((await graphqlOf(url, sendQuery)).body).toMatchObject({
 			errors: [
 				{
-					message: 'sendVerificationEmail needs a signed-in user.',
+					message: 'This function needs a signed-in user.',
 					extensions: { code: 'UNAUTHENTICATED' },
 				},
 			],

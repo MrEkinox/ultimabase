@@ -1,7 +1,8 @@
 // password's functions (D-113, D-114): `signUp`, `signIn` and `changePassword`, each
 // taking one named input and returning `SignedIn`.
 import type { ExposedModel, FunctionShape, OutputSpec } from 'ultimabase'
-import { allow, defineFunction, defineType, PublicError } from 'ultimabase'
+import { signedInRun } from '@ultimabase/auth'
+import { allow, defineFunction, defineType } from 'ultimabase'
 import type { State } from './core.ts'
 import {
 	attemptOf,
@@ -82,19 +83,13 @@ export function passwordFunctions(
 		name: 'changePassword',
 		input: changePasswordInput,
 		output: SignedIn,
-		run: async ({ input: { input }, caller, client }) => {
-			if (caller.kind !== 'user') {
-				throw new PublicError(
-					'UNAUTHENTICATED',
-					'changePassword needs a signed-in user.',
-				)
-			}
+		run: signedInRun(async ({ input: { input }, user, client }) => {
 			const state = stateOf()
-			const { id } = caller.user
+			const { id } = user
 			await checkCurrent(id, input.currentPassword, attemptOf(id, client))
 			const stamp = await setPassword(state, id, input.newPassword)
 			return signedIn(state, { userId: id, stamp }, client)
-		},
+		}),
 	}).with({ access: allow.public })
 	return fields === false
 		? [signIn, changePassword]

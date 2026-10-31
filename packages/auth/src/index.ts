@@ -15,4 +15,5 @@ export {
 	isOwner,
 	isSelf,
 	signedIn,
+	signedInRun,
 } from './rules.ts'

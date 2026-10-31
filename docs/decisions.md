@@ -11712,3 +11712,67 @@ export const Post = defineModel({
 	},
 })
 ```
+
+## D-181: auth's `signedInRun`, a function's `run` for signed-in users
+
+Choice: auth exports `signedInRun(run)`, the function counterpart of
+`signedIn` (D-79).
+
+1. It returns a `run` that passes the function's facts through and adds
+   `user`, typed `UserOf<Register>` (D-62). Its facts come from the
+   function, as `signedIn`'s come from the rule, so `input` keeps its type.
+2. Any other caller is refused with
+   `PublicError('UNAUTHENTICATED', 'This function needs a signed-in user.')`.
+   Master is refused too: it has no user, and a function that serves Master
+   reads `caller` instead.
+3. The access rule stays the guard: with `access: isAuthenticated`, a
+   visitor is refused with `ACCESS_DENIED` before `run`, and the wrapper
+   only meets Master or a caller a wider rule lets in.
+4. password's `changePassword`, `sendVerificationEmail` and
+   `requestEmailChange` use it, behind `allow.public` as before, so a
+   visitor still gets `UNAUTHENTICATED`; their message is now the wrapper's.
+5. `RunFacts<I>` has no `input` when `I` is `never`: TypeScript reads a
+   wrapper's facts before it infers `I`, as `never` for a function without
+   an input, which gave `input: never`.
+
+Why:
+
+- The access rule is declared in `.with`, after `run`, and cannot narrow its
+  type, so each signed-in function checked `caller.kind` again. The
+  repository wrote that check three ways, one a plain `Error` that answered a 500.
+- `signedIn` returns `false` to anyone else, which is no function's output.
+- It lives in auth for the reason D-79 gives: the kernel knows no user model.
+
+Rejected:
+
+- `.with({ access })` narrowing `run`'s facts: `run` would have to be typed
+  after the rule, while `defineFunction` takes it first.
+- The function's name in the message: the wrapper does not know it, and the
+  client knows what it called.
+
+Example:
+
+```ts
+// Before: the check in each function, and a 500 from a plain Error
+export const archiveNote = defineFunction({
+	name: 'archiveNote',
+	input: z.object({ id: z.string() }),
+	output: Note,
+	run: async ({ input, caller }) => {
+		if (caller.kind !== 'user') throw new Error('A user is required.')
+		const me = caller.user.id
+		// ...
+	},
+}).with({ access: isAuthenticated })
+
+// After
+export const archiveNote = defineFunction({
+	name: 'archiveNote',
+	input: z.object({ id: z.string() }),
+	output: Note,
+	run: signedInRun(async ({ input, user }) => {
+		const me = user.id
+		// ...
+	}),
+}).with({ access: isAuthenticated })
+```
