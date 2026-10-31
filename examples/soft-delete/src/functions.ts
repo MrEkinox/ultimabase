@@ -14,7 +14,8 @@ export const trash = defineFunction({
 
 export const restorePost = defineFunction({
 	name: 'restorePost',
-	input: z.object({ id: z.string() }),
+	// `z.uuid()` is an `ID` in GraphQL, as the post's own `id`.
+	input: z.object({ id: z.uuid() }),
 	output: Post,
 	run: ({ caller, input }) =>
 		Post.restore({ where: { id: input.id } }, { as: caller }),

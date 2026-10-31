@@ -146,6 +146,10 @@ caller, with its rules. A function opens no transaction: see
 A schema given `.meta({ id: 'Line' })` is the shared GraphQL type `Line`,
 and `LineInput` as an input.
 
+`z.uuid()` is an `ID` in GraphQL, as a row's `id`, and a `string` of
+format `uuid` in OpenAPI: a client passes a row's `id` to a function with
+the variable type it reads it with, `$id: ID!`.
+
 ### Errors
 
 | Code                | When                                       | `details`                         |
