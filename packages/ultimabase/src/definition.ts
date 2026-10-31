@@ -57,6 +57,8 @@ export type IndexDefinition = {
 	readonly unique?: boolean
 	/** A trigram index, for `contains` and `mode: 'insensitive'` (D-141). */
 	readonly contains?: true
+	/** A unique index whose string fields ignore case (D-170). */
+	readonly mode?: 'insensitive'
 }
 
 export type ModelDefinition = {
@@ -240,6 +242,9 @@ function listable(
 		if (options['unique'] !== undefined) {
 			throw new Error('A list cannot be unique.')
 		}
+	}
+	if (options['unique'] === 'insensitive' && type !== 'string') {
+		throw new Error("unique: 'insensitive' takes a string field.")
 	}
 	if (options['search'] !== undefined && (list || type !== 'string')) {
 		throw new Error('search takes a string field that is not a list.')

@@ -369,7 +369,10 @@ export type ScalarKeys<F> = {
 }[keyof F]
 
 export type UniqueKeys<F> = {
-	[K in keyof F]: F[K] extends Scalar<unknown, { readonly unique: true }>
+	[K in keyof F]: F[K] extends Scalar<
+		unknown,
+		{ readonly unique: true | 'insensitive' }
+	>
 		? K
 		: never
 }[keyof F]

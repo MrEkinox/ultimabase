@@ -7,7 +7,7 @@ import { parse } from 'pg-connection-string'
 import type { Migration, Run, Stored } from 'ultimabase'
 import { isLocalHost, MigrationFailed, Refused } from 'ultimabase'
 import { id } from './plan-parts.ts'
-import { parseSnapshot } from './snapshot.ts'
+import { parseSnapshot } from './snapshot-parse.ts'
 
 /** The tables UltimaBase keeps its own records in. */
 export const tables: readonly string[] = [

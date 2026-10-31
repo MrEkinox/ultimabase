@@ -14,13 +14,18 @@ export type Kind =
 export type Unique = {
 	readonly name: string
 	readonly fields: readonly string[]
+	/** A case-insensitive key compares its text columns lowered (D-170). */
+	readonly lower?: true
 }
 
 export type Table = {
 	readonly name: string
 	readonly model: SchemaModel
 	readonly fields: ReadonlyMap<string, SchemaField>
-	/** The primary key, unique fields, unique indexes, one-to-one keys. */
+	/**
+	 * The primary key, unique fields, unique indexes, one-to-one keys, and
+	 * the case-insensitive keys (D-170).
+	 */
 	readonly uniques: readonly Unique[]
 }
 
@@ -88,23 +93,24 @@ export class Catalog {
 		this.tables = tables
 		const uniques = new Map<string, { model: string; fields: string[] }>()
 		for (const table of tables.values()) {
-			const sets: (readonly string[])[] = [['id']]
+			const sets: { fields: readonly string[]; lower: boolean }[] = [
+				{ fields: ['id'], lower: false },
+			]
 			for (const field of table.model.fields) {
 				const stored =
 					field.kind === 'scalar' || (field.kind === 'one' && field.stored)
-				if (stored && field.unique) sets.push([field.name])
+				if (stored && field.unique)
+					sets.push({ fields: [field.name], lower: false })
 			}
-			for (const index of table.model.indexes) {
-				if (index.unique) sets.push(index.fields)
+			for (const { unique, fields, mode } of table.model.indexes) {
+				if (unique) sets.push({ fields, lower: mode === 'insensitive' })
 			}
-			const named = sets.map((fields, at) => ({
-				name: constraint(
-					at === 0
-						? `${table.name}_pkey`
-						: `${table.name}_${fields.map((field) => this.column(table, field)).join('_')}_key`,
-				),
-				fields,
-			}))
+			const named = sets.map(({ fields, lower }, at) => {
+				const columns = fields.map((field) => this.column(table, field))
+				const key = `${table.name}_${columns.join('_')}${lower ? '_lower' : ''}_key`
+				const name = constraint(at === 0 ? `${table.name}_pkey` : key)
+				return lower ? { name, fields, lower } : { name, fields }
+			})
 			tables.set(table.model.name, { ...table, uniques: named })
 			for (const { name, fields } of named) {
 				uniques.set(name, { model: table.model.name, fields: [...fields] })

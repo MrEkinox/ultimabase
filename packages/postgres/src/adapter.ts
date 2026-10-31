@@ -39,7 +39,8 @@ import {
 	scratchName,
 	trigrams,
 } from './scratch.ts'
-import { parseSnapshot, snapshotOf } from './snapshot.ts'
+import { parseSnapshot } from './snapshot-parse.ts'
+import { snapshotOf } from './snapshot.ts'
 import type { Statement } from './write.ts'
 import { compileWrite, translate } from './write.ts'
 

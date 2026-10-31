@@ -42,6 +42,8 @@ export type TableSnapshot = {
 	readonly foreignKeys: { readonly [name: string]: ForeignKey }
 	/** The `_search` column, from these columns, and its GIN index (D-148). */
 	readonly search: Search | null
+	/** The case-insensitive keys' columns, absent when none (D-170). */
+	readonly lowerUniques?: { readonly [name: string]: string[] }
 }
 
 export type Search = {
@@ -83,6 +85,7 @@ type Building = {
 	trigrams: Record<string, string>
 	foreignKeys: Record<string, ForeignKey>
 	search: Search | null
+	lowerUniques?: Record<string, string[]>
 }
 
 type Claim = (name: string, what: string) => string
@@ -200,11 +203,15 @@ export function snapshotOf(catalog: Catalog): Snapshot {
 			field(catalog, claims, table, building, given)
 		}
 		const [, ...uniques] = table.uniques
-		for (const { name, fields } of uniques) {
-			const what = `the unique key on ${on(model, fields)}`
-			building.uniques[schema(name, what)] = fields.map((given) =>
-				catalog.column(table, given),
-			)
+		for (const { name, fields, lower } of uniques) {
+			const key = `unique key on ${on(model, fields)}`
+			const columns = fields.map((given) => catalog.column(table, given))
+			if (lower === undefined) {
+				building.uniques[schema(name, `the ${key}`)] = columns
+			} else {
+				const claimed = schema(name, `the case-insensitive ${key}`)
+				;(building.lowerUniques ??= {})[claimed] = columns
+			}
 		}
 		for (const { fields, unique, contains } of table.model.indexes) {
 			if (unique) continue
@@ -260,131 +267,6 @@ export function snapshotOf(catalog: Catalog): Snapshot {
 		}
 		index(claims, building, join.table, [join.other], side)
 		tables[join.table] = building
-	}
-	return { postgres: 1, tables }
-}
-
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-	typeof value === 'object' && value !== null && !Array.isArray(value)
-
-const isStrings = (value: unknown): value is string[] =>
-	Array.isArray(value) && value.every((item) => typeof item === 'string')
-
-/** Each entry of a record, checked by `read`, or `undefined`. */
-function entries<T>(
-	value: unknown,
-	read: (item: unknown) => T | undefined,
-): Record<string, T> | undefined {
-	if (!isRecord(value)) return undefined
-	const result: Record<string, T> = {}
-	for (const [key, item] of Object.entries(value)) {
-		const checked = read(item)
-		if (checked === undefined) return undefined
-		result[key] = checked
-	}
-	return result
-}
-
-const columnOf = (value: unknown): Column | undefined =>
-	isRecord(value) &&
-	typeof value['field'] === 'string' &&
-	typeof value['type'] === 'string' &&
-	typeof value['nullable'] === 'boolean'
-		? {
-				field: value['field'],
-				type: value['type'],
-				nullable: value['nullable'],
-			}
-		: undefined
-
-const checkOf = (value: unknown): Check | undefined =>
-	isRecord(value) &&
-	typeof value['column'] === 'string' &&
-	isStrings(value['values'])
-		? {
-				column: value['column'],
-				values: value['values'],
-				...(value['list'] === true ? { list: true as const } : {}),
-			}
-		: undefined
-
-const foreignKeyOf = (value: unknown): ForeignKey | undefined =>
-	isRecord(value) &&
-	typeof value['column'] === 'string' &&
-	typeof value['table'] === 'string' &&
-	typeof value['cascade'] === 'boolean'
-		? {
-				column: value['column'],
-				table: value['table'],
-				cascade: value['cascade'],
-			}
-		: undefined
-
-const stringsOf = (value: unknown): string[] | undefined =>
-	isStrings(value) ? value : undefined
-
-/** A search, `null` for none, or `undefined` when it is neither. */
-const searchOf = (value: unknown): Search | null | undefined =>
-	value === null
-		? null
-		: isRecord(value) &&
-			  typeof value['index'] === 'string' &&
-			  typeof value['language'] === 'string' &&
-			  isStrings(value['columns'])
-			? {
-					index: value['index'],
-					language: value['language'],
-					columns: value['columns'],
-				}
-			: undefined
-
-function tableOf(value: unknown): TableSnapshot | undefined {
-	if (!isRecord(value)) return undefined
-	const key = value['primaryKey']
-	const columns = entries(value['columns'], columnOf)
-	const uniques = entries(value['uniques'], stringsOf)
-	const checks = entries(value['checks'], checkOf)
-	const indexes = entries(value['indexes'], stringsOf)
-	const trigrams = entries(value['trigrams'], (item) =>
-		typeof item === 'string' ? item : undefined,
-	)
-	const foreignKeys = entries(value['foreignKeys'], foreignKeyOf)
-	const search = searchOf(value['search'])
-	const model = value['model']
-	if (
-		typeof model !== 'string' ||
-		!isRecord(key) ||
-		typeof key['name'] !== 'string' ||
-		!isStrings(key['columns']) ||
-		columns === undefined ||
-		uniques === undefined ||
-		checks === undefined ||
-		indexes === undefined ||
-		trigrams === undefined ||
-		foreignKeys === undefined ||
-		search === undefined
-	) {
-		return undefined
-	}
-	const primaryKey = { name: key['name'], columns: key['columns'] }
-	return {
-		model,
-		columns,
-		primaryKey,
-		uniques,
-		checks,
-		indexes,
-		trigrams,
-		foreignKeys,
-		search,
-	}
-}
-
-/** A snapshot read back from a database or a file, checked. */
-export function parseSnapshot(value: unknown): Snapshot {
-	const tables = isRecord(value) ? entries(value['tables'], tableOf) : undefined
-	if (!isRecord(value) || value['postgres'] !== 1 || tables === undefined) {
-		throw new Error('The schema snapshot is not one postgres() wrote.')
 	}
 	return { postgres: 1, tables }
 }

@@ -56,6 +56,7 @@ export type {
 	Enum,
 	Field,
 	FieldBuilders,
+	InsensitiveOptions,
 	JsonOptions,
 	JsonValue,
 	ListOptions,

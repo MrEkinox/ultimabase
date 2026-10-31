@@ -7,13 +7,10 @@ import type { Fill, Fills } from './fills.ts'
 import { literal } from './fills.ts'
 import { addIndexes, addsTrigrams, dropIndexes } from './plan-indexes.ts'
 import type { Emit, Named } from './plan-parts.ts'
-import { added, changed, fields, id, list, same } from './plan-parts.ts'
+import { added, changed, fields, id, keyOf, list, same } from './plan-parts.ts'
 import type { Check, ForeignKey, Snapshot, TableSnapshot } from './snapshot.ts'
 
 /** A key's columns as a tried change names them: `Locker (label, size)`. */
-const keyOf = (table: TableSnapshot, columns: readonly string[]): string =>
-	`${table.model} (${fields(table, columns)})`
-
 /** An enum's values; a list's elements are among them, with `<@` (D-127). */
 function checked(name: string, { column, values, list: all }: Check): string {
 	const items = values.map(literal).join(', ')

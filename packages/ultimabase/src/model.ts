@@ -211,6 +211,8 @@ export type IndexShape = {
 	readonly unique?: boolean
 	/** A trigram index, for `contains` and `mode: 'insensitive'` (D-141). */
 	readonly contains?: true
+	/** A unique index whose string fields ignore case (D-170). */
+	readonly mode?: 'insensitive'
 }
 
 /** The fields of each unique index. */
@@ -250,6 +252,21 @@ type ContainsCheck<I, F> = I extends { readonly contains: true }
 				readonly contains: 'a contains index covers one string field that is not a list, and is not unique'
 			}
 	: unknown
+type ModeError = {
+	readonly mode: 'a case-insensitive index is unique, without contains, over a string field at least'
+}
+// A case-insensitive index is unique, over one string field at least (D-170).
+type ModeCheck<I, F> = I extends { readonly mode: 'insensitive' }
+	? I extends {
+			readonly fields: readonly (infer K)[]
+			readonly unique: true
+			readonly contains?: undefined
+		}
+		? [Extract<K, TextKeys<F>>] extends [never]
+			? ModeError
+			: unknown
+		: ModeError
+	: unknown
 type NotIndexable<I, F> = I extends { readonly fields: readonly (infer K)[] }
 	? Exclude<K, IndexableKeys<F>>
 	: never
@@ -267,7 +284,8 @@ export type IndexCheck<X, F> = string extends keyof F
 				: {
 						readonly fields: `'${NotIndexable<X[I], F> & string}' is not a scalar field or a one relation of the model`
 					}) &
-				ContainsCheck<X[I], F>
+				ContainsCheck<X[I], F> &
+				ModeCheck<X[I], F>
 		}
 
 export type ModelShape = {

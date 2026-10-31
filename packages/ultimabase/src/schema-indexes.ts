@@ -1,5 +1,5 @@
-// The indexes of a model, checked against its fields (D-52, D-120, D-141),
-// and its searched fields (D-148).
+// The indexes of a model, checked against its fields (D-52, D-120, D-141,
+// D-170), and its searched fields (D-148).
 import type { SchemaField } from './adapter.ts'
 import type { IndexDefinition } from './definition.ts'
 import type { ModelInfo } from './schema.ts'
@@ -39,6 +39,26 @@ function containsIndex(
 	}
 }
 
+/**
+ * A case-insensitive index is unique, over one string field at least; a
+ * unique index has no contains already (D-170).
+ */
+function insensitiveIndex(
+	model: string,
+	fields: ReadonlyMap<string, SchemaField>,
+	index: IndexDefinition,
+): void {
+	const text = index.fields.some((name) => {
+		const field = fields.get(name)
+		return field?.kind === 'scalar' && field.type === 'string'
+	})
+	if (index.mode !== 'insensitive' || index.unique !== true || !text) {
+		throw new Refused(
+			`${model}: a case-insensitive index is unique, without contains, over a string field at least.`,
+		)
+	}
+}
+
 /** Refuses an index over a field that is not one of the model's columns. */
 export function checkIndexes(
 	model: string,
@@ -62,6 +82,7 @@ export function checkIndexes(
 			}
 		}
 		if (index.contains === true) containsIndex(model, fields, index)
+		if (index.mode !== undefined) insensitiveIndex(model, fields, index)
 	}
 }
 

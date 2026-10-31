@@ -88,9 +88,11 @@ Each model is a table, each field a column, named in snake case: `Task` is
 | `search: true`             | a generated `_search` column, with a GIN index                   |
 
 A required field is `not null`; an optional one is nullable. A unique field
-or index is a unique constraint. The foreign keys have no `on delete`:
+or index is a unique constraint; a case-insensitive one is a unique index
+over `lower()` of its text columns, named `_lower_key`, which also serves an
+insensitive `equals`. The foreign keys have no `on delete`:
 UltimaBase runs `onDelete` itself, with the hooks and access rules.
-Constraint names end in `_pkey`, `_key`, `_fkey`, `_check` and `_idx`. A
+Constraint names end in `_pkey`, `_key`, `_lower_key`, `_fkey`, `_check` and `_idx`. A
 name longer than PostgreSQL's 63 bytes keeps its first 54 bytes plus an
 8-character hash. `dbName` names a table or a column yourself (see
 [Models and fields](/docs/next/models)).
@@ -267,7 +269,8 @@ and exits 1 when it fails.
 | `Every one of the 10 PostgreSQL connections stayed busy for 10s: a transaction may wait on something slow or never end.` | No connection came free in 10 s.                                |
 
 A warning at start says when the database's locale folds case for ASCII
-only: `mode: 'insensitive'` then misses `É` and `é`. Create the database
+only: `mode: 'insensitive'` then misses `É` and `é`, and a case-insensitive
+unique key lets both in. Create the database
 with a UTF-8 locale, such as `en_US.UTF-8`.
 
 ### Limits

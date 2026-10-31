@@ -1,5 +1,6 @@
-// A `contains` index on postgres() (D-141): the filters a trigram index
-// serves, in a test file's own schema, with the results unchanged.
+// The indexes that serve insensitive filters on postgres(), in a test file's
+// own schema, with the results unchanged: a `contains` index's trigrams
+// (D-141), and a case-insensitive unique key's lowered column (D-170).
 import { testApplication } from '@ultimabase/testing'
 import { Client } from 'pg'
 import { defineApp, defineModel, master } from 'ultimabase'
@@ -24,6 +25,11 @@ const Book = defineModel({
 	name: 'Book',
 	fields: (f) => ({ title: f.string() }),
 	indexes: [{ fields: ['title'], contains: true }],
+})
+
+const Account = defineModel({
+	name: 'Account',
+	fields: (f) => ({ username: f.string({ unique: 'insensitive' }) }),
 })
 
 /** The plan of the read `run` sends, sequential scans off. */
@@ -52,8 +58,8 @@ async function plan(run: () => Promise<unknown>): Promise<string> {
 	}
 }
 
-describe('a contains index in a test schema', () => {
-	testApplication(defineApp({ database, models: [Book] }), {
+describe('the indexes in a test schema', () => {
+	testApplication(defineApp({ database, models: [Book, Account] }), {
 		database: 'declared',
 	})
 
@@ -97,5 +103,22 @@ describe('a contains index in a test schema', () => {
 			expect(await found(where)).toStrictEqual(expected)
 			expect(await plan(async () => found(where))).toContain('book_title_trgm')
 		}
+	})
+
+	it('serves an insensitive equality with a case-insensitive key', async () => {
+		await Account.createMany(
+			{ data: [{ username: 'Alice' }, { username: 'Bob' }] },
+			M,
+		)
+		const find = async () =>
+			Account.findMany(
+				{
+					where: { username: { equals: 'ALICE', mode: 'insensitive' } },
+					select: { username: true },
+				},
+				M,
+			)
+		expect(await find()).toStrictEqual([{ username: 'Alice' }])
+		expect(await plan(find)).toContain('account_username_lower_key')
 	})
 })

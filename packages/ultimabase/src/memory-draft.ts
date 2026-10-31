@@ -294,21 +294,31 @@ export class Draft {
 		})
 	}
 
-	/** Unique fields, unique indexes and one-to-one keys; `null` never clashes. */
+	/**
+	 * Unique fields, unique indexes and one-to-one keys; `null` never clashes.
+	 * A case-insensitive index compares its strings lowered (D-170).
+	 */
 	private checkUnique(model: string): void {
 		const definition = this.schema.models.find((each) => each.name === model)
 		if (definition === undefined) return
-		const sets: (readonly string[])[] = definition.indexes
+		const sets = definition.indexes
 			.filter((index) => index.unique)
-			.map((index) => index.fields)
+			.map(({ fields, mode }) => ({ fields, lower: mode === 'insensitive' }))
 		for (const field of definition.fields) {
-			if (field.kind !== 'many' && field.unique) sets.push([field.name])
+			if (field.kind !== 'many' && field.unique) {
+				sets.push({ fields: [field.name], lower: false })
+			}
 		}
 		const rows = [...this.reader.table(model).values()]
-		for (const fields of sets) {
+		for (const { fields, lower } of sets) {
 			const seen = new Set<string>()
 			for (const row of rows) {
-				const values = fields.map((field) => row[field] ?? null)
+				const values = fields.map((field) => {
+					const value = row[field] ?? null
+					return lower && typeof value === 'string'
+						? value.toLowerCase()
+						: value
+				})
 				if (values.includes(null)) continue
 				const found = keyOf(values)
 				if (seen.has(found)) throw new UniqueViolation(model, fields)

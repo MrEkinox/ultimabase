@@ -1,9 +1,9 @@
 // The indexes a plan drops and creates: B-tree, GIN on a list (D-120),
-// trigram for `contains` (D-141), and the `_search` column with its GIN
-// index (D-148).
+// trigram for `contains` (D-141), the `_search` column with its GIN index
+// (D-148), and the unique indexes of case-insensitive keys (D-170).
 import { literal } from './fills.ts'
 import type { Emit, Named } from './plan-parts.ts'
-import { added, changed, fields, id, list, same } from './plan-parts.ts'
+import { added, changed, fields, id, keyOf, list, same } from './plan-parts.ts'
 import type { TableSnapshot } from './snapshot.ts'
 
 /** An index, by GIN on a list (D-120, D-127): its column's type decides. */
@@ -19,6 +19,22 @@ const indexesOf = (table: TableSnapshot | undefined): Named<Index> =>
 					(name) => table?.columns[name]?.type.endsWith('[]') === true,
 				),
 			},
+		]),
+	)
+
+/**
+ * A case-insensitive key's columns, a text one lowered under the database's
+ * collation, as an insensitive equality reads it (D-170).
+ */
+const lowersOf = (table: TableSnapshot | undefined): Named<string[]> =>
+	Object.fromEntries(
+		Object.entries(table?.lowerUniques ?? {}).map(([key, columns]) => [
+			key,
+			columns.map((column) =>
+				table?.columns[column]?.type === 'text collate "C"'
+					? `lower(${id(column)} collate "default")`
+					: id(column),
+			),
 		]),
 	)
 
@@ -39,6 +55,13 @@ export function dropIndexes(
 		emit(
 			`drop index ${id(key)}`,
 			`dropped the contains index on ${fields(from, [column])}`,
+		)
+	}
+	for (const [key] of changed(lowersOf(from), lowersOf(to))) {
+		const columns = from.lowerUniques?.[key] ?? []
+		emit(
+			`drop index ${id(key)}`,
+			`dropped the case-insensitive unique key on ${fields(from, columns)}`,
 		)
 	}
 	// A generated column holds nothing of its own: a change makes it again.
@@ -79,6 +102,18 @@ export function addIndexes(
 		emit(
 			`create index ${id(key)} on ${id(name)} using gin ((${id(column)} collate "default") gin_trgm_ops)`,
 			`indexed ${fields(table, [column])} for contains`,
+		)
+	}
+	for (const [key, lowered] of added(lowersOf(was), lowersOf(table))) {
+		const columns = table.lowerUniques?.[key] ?? []
+		emit(
+			`create unique index ${id(key)} on ${id(name)} (${lowered.join(', ')})`,
+			`added a case-insensitive unique key on ${fields(table, columns)}`,
+			was === undefined
+				? {}
+				: {
+						tries: `a case-insensitive unique key on ${keyOf(table, columns)} fails when two rows share a value regardless of case`,
+					},
 		)
 	}
 	const { search } = table
