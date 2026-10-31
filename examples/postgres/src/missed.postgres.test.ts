@@ -30,11 +30,6 @@ const count = async () => {
 
 const openTasks = definePlugin<OpenTasks>({
 	name: 'openTasks',
-	manifest: {
-		name: 'example-open-tasks',
-		version: '1.0.0',
-		peerDependencies: { ultimabase: '*' },
-	},
 	start: count,
 	changed: (changes) => {
 		if (changes.some((change) => change.model === 'Task')) void count()
