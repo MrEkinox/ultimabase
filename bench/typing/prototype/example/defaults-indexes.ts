@@ -66,5 +66,10 @@ export const Refused = defineModel({
 		{ fields: ['slug', 'sluug'], unique: true },
 		// @ts-expect-error -- a many relation has no column
 		{ fields: ['tags'] },
+		// The kernel's fields, in a non-unique index (D-174).
+		{ fields: ['slug', 'createdAt', 'id'] },
+		{ fields: ['updatedAt'] },
+		// @ts-expect-error -- a unique index cannot name them
+		{ fields: ['slug', 'createdAt'], unique: true },
 	],
 })
