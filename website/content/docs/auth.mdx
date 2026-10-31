@@ -198,5 +198,8 @@ password does, starts, but nobody signs in: auth logs the warning
 ### Limits
 
 - A request carries one session: a Bearer header wins over the cookie.
+- `Authorization: Bearer` belongs to sessions on every route, the
+  application's own [HTTP routes](/docs/next/http#the-caller) included: a
+  route that checks a token of its own reads another header.
 - A function sets the cookie only over HTTP; from server code, `User.signIn`
   returns the token alone.

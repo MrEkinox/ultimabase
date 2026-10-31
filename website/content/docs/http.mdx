@@ -37,7 +37,13 @@ variable, then 3000, and logs `Listening on http://localhost:3000.`
 `c.var.caller` is the request's caller: Master with the master key, the
 signed-in user with [auth](/docs/next/auth), anonymous otherwise. Pass it as
 `{ as: c.var.caller }`, so the model's rules apply to the route as to any
-client. `c.var.address` is the client's address, `''` when unknown:
+client. The caller is known before any route runs, the application's and the
+mounted ones alike: with auth, `Authorization: Bearer` carries a session on
+every route, and an unknown token there is refused with `UNAUTHENTICATED`
+(401) before the route runs. A route that checks a token of its own reads
+another header, as `X-Maintenance-Token`; a request with neither a Bearer
+header nor a session cookie looks up no session.
+`c.var.address` is the client's address, `''` when unknown:
 
 <include cwd meta='title="src/routes.ts"'>
 	../examples/http/src/routes.ts#whoami
