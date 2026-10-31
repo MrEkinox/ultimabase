@@ -1122,7 +1122,7 @@ fields: (f) => ({
 
 ## D-45: Function types become GraphQL types, with an escape hatch
 
-Amended by D-109 and D-125.
+Amended by D-109, D-125 and D-182.
 
 Choice: a function's `input` is any Standard Schema; its `output` is a model
 (`Todo`), a list (`[Todo]`), a named object mixing models and schemas
@@ -11514,6 +11514,8 @@ role, as over HTTP. Had her session ended, the socket would close with
 
 ## D-179: A serializable transaction, retried on conflict
 
+Amended by D-183.
+
 Choice: amends D-66, D-72 and D-73; D-99 still rejects serializable
 isolation by default.
 
@@ -11757,7 +11759,7 @@ Rejected:
 
 Example:
 
-```ts
+````ts
 // Before: the check in each function, and a 500 from a plain Error
 export const archiveNote = defineFunction({
 	name: 'archiveNote',
@@ -11780,4 +11782,206 @@ export const archiveNote = defineFunction({
 		// ...
 	}),
 }).with({ access: isAuthenticated })
+
+## D-182: A function returns a page shaped like the generated lists
+
+Choice: amends D-45 (its `paginated(Todo)` is out of 0.1) and completes
+D-109 and D-134.
+
+1. `Model.paginated()` is a function's output, as `Model.nullable()` is
+   (D-109): at the root of the output, or a field of a `defineType` at any
+   depth of single or nullable types. It is refused at definition under a
+   list (`[Type]`), at any depth, since each item would be one read and one
+   count (D-46), and in a virtual's output. A type has no `.paginated()`,
+   and a page has no `.nullable()`: an empty page is a page.
+2. A function with a page in its output is a query (`query: true`),
+   refused at definition otherwise, and is not live: the realtime plugin
+   refuses it at startup (D-154).
+3. `Model.paginate(args, options)` takes `findMany`'s `where` and
+   `orderBy`, and its options. It reads nothing: it returns a page source,
+   whose `findMany({ take, skip, cursor })` reads the rows and whose
+   `count()` counts them, both with that `where`, that `orderBy` and that
+   `as`. `run` returns it where the output has `Model.paginated()`, typed;
+   `fn.run(input, { as })` returns it as `run` did. A page source is not a
+   Promise: `await` gives the source itself.
+4. Each transport reads the page as it reads the model's generated list:
+   the same arguments (`first`, `after`, `last`, `before` for a connection,
+   `take` and `skip` for a list, D-41), the same bounds (`take`, `maxTake`,
+   Master unbounded, D-55), the same cursors and errors. GraphQL adds them
+   to the field, the function's root field or the type's field, and
+   returns the model's connection type (`FriendshipConnection`) or its
+   list. REST reads them as the model's list endpoint does: flat
+   parameters for a page at the root, and one JSON parameter named by the
+   field's path for a page in a type (`friendships={"first":20}`), as a
+   nested `include` takes them (D-134 point 6); its answer and its OpenAPI
+   schema are the model list's. A function input property or a parameter
+   named like a page argument is refused at startup.
+5. The count is the generated lists': `totalCount`, counted only when the
+   client selects it in GraphQL, once however many aliases ask, or sends
+   `totalCount: true` in REST; none with `pagination: 'list'`; the source's
+   `where` and `as`, so it counts the rows the page pages; and the row
+   budget counts it as a list's (D-134 point 7).
+6. A page's rows leave as a `[Model]` output's (D-109): their scalars as
+   the source read them, their relations and default virtuals read again
+   by `id` as the caller. A client adds no `where` or `orderBy` to a page:
+   its filters are the function's input.
+7. The rows and the count are two reads, as for the generated lists: they
+   share no snapshot (D-66).
+
+Why:
+
+- A function serves the lists a generated query cannot, typically when its
+  filter reads rows the caller may not read and it filters as Master. With
+  `[Model]` and a hand-written `defineType` holding a list and a count, the
+  client kept two pagination shapes and two cache policies, each function
+  copied `take` and `maxTake` into its input, and the count ran on every
+  call, selected or not.
+- The transport, not `run`, applies the page: `run` cannot forget it, the
+  kernel holds no Relay cursor (the reason of D-45), and the code that pages
+  the generated lists pages these, so the shapes cannot drift.
+- `Model.paginated()` follows `Model.nullable()`: an output form is read on
+  the model, with nothing to import.
+- A page under a list would read once per item, the N+1 that D-46 rules
+  out for relations.
+- One snapshot for the rows and the count would set functions apart from
+  the generated lists; it is a decision for both.
+
+Rejected:
+
+- `run` receiving `page` and calling a `findPage` that reads: a forgotten
+  `...page` pages nothing without an error, and the kernel learns Relay's
+  arguments.
+- A thenable page source, which `await` reads: a hidden read, with no page
+  size and no count chosen.
+- `fn.run(input, { as, page })` returning rows: a second way to call a
+  function, where the source's two methods suffice.
+- `paginated(Model)`, imported: unlike `Model.nullable()`.
+- A page at the root only: a function returning a profile and its friends'
+  page needed two functions.
+
+Example, before: a page type, bounds and a count written by hand.
+
+```ts
+const MutualFriendships = defineType({
+	name: 'MutualFriendships',
+	fields: { friendships: [Friendship], totalCount: z.int() },
+})
+
+export const mutualFriendships = defineFunction({
+	name: 'mutualFriendships',
+	query: true,
+	input: z.object({
+		userId: z.uuid(),
+		take: z.int().min(1).max(100).default(20),
+		skip: z.int().min(0).default(0),
+	}),
+	output: MutualFriendships,
+	run: async ({ input }) => {
+		const where = { friend: { is: { id: input.userId } } }
+		const [friendships, totalCount] = await Promise.all([
+			Friendship.findMany(
+				{
+					where,
+					orderBy: { createdAt: 'asc' },
+					take: input.take,
+					skip: input.skip,
+				},
+				{ as: master },
+			),
+			Friendship.count({ where }, { as: master }),
+		])
+		return { friendships, totalCount }
+	},
+})
+````
+
+After: the model's page, read and counted by the transport.
+
+```ts
+export const mutualFriendships = defineFunction({
+	name: 'mutualFriendships',
+	query: true,
+	input: z.object({ userId: z.uuid() }),
+	output: Friendship.paginated(),
+	run: ({ input }) =>
+		Friendship.paginate(
+			{
+				where: { friend: { is: { id: input.userId } } },
+				orderBy: { createdAt: 'asc' },
+			},
+			{ as: master },
+		),
+})
+
+// GraphQL: mutualFriendships(userId: "u2", first: 20) { edges { node { id } } pageInfo { endCursor } totalCount }
+// REST: GET /functions/mutualFriendships?userId=u2&first=20&totalCount=true
+// Server code: const page = await mutualFriendships.run({ userId }, { as: ada })
+//              await page.findMany({ take: 20 }); await page.count()
 ```
+
+## D-183: A serializable retry waits, 10 attempts at most
+
+Choice: amends D-179, points 2 and 7 and its reasons.
+
+1. A serializable transaction that conflicts runs again after a random wait
+   between 0 and 20 × n ms, n being the attempts that conflicted so far: at
+   most 20 ms before the second attempt, 40 before the third. It runs 10
+   attempts at most, about 900 ms of waits at worst; the tenth conflict
+   fails with `CONFLICT`.
+2. Still no `retries` option.
+3. PostgreSQL follows what a serializable transaction read by index page,
+   not by row: transactions that share a page conflict, their rows apart or
+   not. They share one on a small table, whose index fits on a page, on an
+   index led by a time-ordered id, the kernel's UUIDv7 among them, whose
+   recent rows end on its last page, and on a small table the planner reads
+   whole, index or not. The transactions guide says so next to its advice
+   to index the fields read.
+
+Why:
+
+- D-179 measured a populated table with random keys and no relation. An
+  application migrating from Parse saw `CONFLICT` with unrelated users on
+  fresh tables. Measured with the kernel, 10 pairs liking each other at
+  once on fresh tables, `User`, `Heart` with a unique `(from, to)` index
+  and `Match`, 3 runs each: 3 attempts with no wait left 5 to 8 of the 20
+  calls in `CONFLICT`, on PostgreSQL 15 and 18; 3 attempts with the wait,
+  2 to 4. With 100,000 rows and UUIDv7 keys, 8 to 10 of 20.
+- 10 attempts with the wait: no call failed in any of these runs, none
+  needed more than 5 attempts, and a third committed at the first. At 50
+  pairs, none failed, 8 attempts at most; at 100 pairs, none failed, 9 at
+  most, 1.2 to 1.4 s for all of them. 10 attempts with no wait also left
+  none failed at 10 pairs, but needed 7.
+- D-179's "a random delay changed nothing" held where 2 attempts were
+  enough; where calls share a page, the wait is what lets them commit
+  apart.
+- The right count depends on the load at that moment, not on the
+  function, so an option would be a guess written once; waits grow with
+  the square of the count, 20 attempts reaching about 3.8 s. An option can
+  come later without breaking a call; removing one would.
+
+Rejected:
+
+- A `retries` option, for the reasons above.
+- An exponential backoff, base 10 ms up to 1 s: slightly fewer attempts,
+  but 1.7 to 2 s at 100 pairs instead of 1.2 to 1.4.
+- 5 attempts with waits up to 50 × n ms: 3 to 5 % of calls failed at 50
+  pairs, about 13 % at 100.
+- A warning logged after many attempts: on a fresh table in development it
+  would fire for every burst, with nothing to fix.
+
+Example, before: the same code as D-179's, on fresh tables; 10 pairs liking
+each other at once.
+
+```ts
+return transaction(
+	async () => {
+		const mine = await Heart.findFirst({ where: { from: me, to } }, M)
+		// … create it, read the reverse heart, make the match
+	},
+	{ isolation: 'serializable' },
+)
+// 5 to 8 of the 20 calls fail with `CONFLICT` after 3 attempts.
+```
+
+After: unchanged code; the 10 pairs match, each call after 5 attempts at
+most.

@@ -1,6 +1,7 @@
 // A serializable transaction (D-179): a conflict runs `run` again, in a new
-// transaction, 3 attempts at most; the `*Commit` hooks run once.
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+// transaction, after a random wait that grows, 10 attempts at most (D-183);
+// the `*Commit` hooks run once.
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Adapter, BeginOptions, Logger } from './index.ts'
 import {
 	Conflict,
@@ -77,6 +78,7 @@ beforeEach(async () => {
 	await app.start()
 })
 afterEach(async () => {
+	vi.restoreAllMocks()
 	await app.stop()
 })
 
@@ -99,8 +101,19 @@ describe('a serializable transaction', () => {
 		expect(await names()).toStrictEqual(['ada'])
 	})
 
-	it('fails with CONFLICT after the third conflict, leaving nothing', async () => {
-		failing.commits = 3
+	it('waits a random time between attempts, longer after each', async () => {
+		// The longest wait: 20 ms after the first conflict, 40 after the second.
+		vi.spyOn(Math, 'random').mockReturnValue(1)
+		failing.commits = 2
+		const started = performance.now()
+		await transaction(async () => Account.findMany({}, M), serializable)
+		expect(performance.now() - started).toBeGreaterThanOrEqual(59)
+		expect(begun).toHaveLength(3)
+	})
+
+	it('fails with CONFLICT after the tenth conflict, leaving nothing', async () => {
+		vi.spyOn(Math, 'random').mockReturnValue(0)
+		failing.commits = 10
 		let attempts = 0
 		await expect(
 			transaction(async () => {
@@ -112,7 +125,7 @@ describe('a serializable transaction', () => {
 			message: 'This operation conflicted with another; try it again.',
 			cause: conflict,
 		})
-		expect(attempts).toBe(3)
+		expect(attempts).toBe(10)
 		expect(log).toStrictEqual([])
 		expect(await names()).toStrictEqual([])
 	})

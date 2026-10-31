@@ -73,7 +73,7 @@ function sortDepth(orderBy: unknown): number {
 	)
 }
 
-const unknownKey = (path: string, model: string): InvalidQuery =>
+export const unknownKey = (path: string, model: string): InvalidQuery =>
 	new InvalidQuery(path, `Unknown key '${path}' on ${model}.`)
 
 const scalar = (entry: Entry, name: string): Out => ({
@@ -104,7 +104,7 @@ export const defaultVirtuals = (entry: Entry): readonly string[] =>
 		.map((virtual) => virtual.name)
 
 // `take` for none or a negative number; above `maxTake`, the list refuses.
-const sizeOf = (entry: Entry, asked: unknown): number =>
+export const sizeOf = (entry: Entry, asked: unknown): number =>
 	typeof asked === 'number' && asked >= 0
 		? Math.min(asked, entry.maxTake)
 		: entry.take

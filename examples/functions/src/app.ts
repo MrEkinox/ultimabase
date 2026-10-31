@@ -4,7 +4,7 @@ import { graphqlPlugin } from '@ultimabase/graphql'
 import { httpPlugin } from '@ultimabase/http'
 import { restPlugin } from '@ultimabase/rest'
 import { defineApp, memory } from 'ultimabase'
-import { borrowBook, returnBooks, searchBooks } from './functions.ts'
+import { borrowBook, returnBooks, searchBooks, shelf } from './functions.ts'
 import { Book } from './models.ts'
 
 export const app = defineApp({
@@ -13,6 +13,6 @@ export const app = defineApp({
 	// Listens on PORT, or 3000.
 	plugins: [httpPlugin(), restPlugin(), graphqlPlugin()],
 	models: [Book],
-	functions: [borrowBook, searchBooks, returnBooks],
+	functions: [borrowBook, searchBooks, returnBooks, shelf],
 })
 //#endregion

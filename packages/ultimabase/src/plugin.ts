@@ -3,6 +3,7 @@
 import type { Logger } from './app-options.ts'
 import type { Enum, FieldBuilders, StandardSchema } from './fields.ts'
 import type { Client, FunctionShape } from './function.ts'
+import type { ExposedOutput } from './exposed-output.ts'
 import type { Identify } from './identify.ts'
 import { pluginEntries, pluginValues } from './definition.ts'
 import { pluginCode } from './plugin-code.ts'
@@ -146,26 +147,6 @@ export interface ExposedVirtual {
 	readonly output: ExposedOutput
 	/** In the row without `select`: a value without input. */
 	readonly default: boolean
-}
-
-/** How an output holds a model or a type (D-109). */
-export type OutputForm = 'one' | 'nullable' | 'list'
-
-/** A function's or a type's output, as transports read it (D-109). */
-export type ExposedOutput =
-	| { readonly kind: 'schema'; readonly schema: StandardSchema }
-	| { readonly kind: 'model'; readonly name: string; readonly form: OutputForm }
-	| {
-			readonly kind: 'type'
-			readonly type: ExposedType
-			readonly form: OutputForm
-	  }
-
-/** A `defineType`, its fields in their order (D-109). */
-export interface ExposedType {
-	readonly name: string
-	readonly description: string | undefined
-	readonly fields: ReadonlyMap<string, ExposedOutput>
 }
 
 /** A function as transports read it (D-109). */

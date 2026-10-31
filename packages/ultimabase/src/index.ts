@@ -83,6 +83,7 @@ export type {
 	FunctionPlugin,
 	FunctionShape,
 	Nullable,
+	Paginated,
 	ObjectType,
 	OutputSpec,
 	ServerFunction,
@@ -90,14 +91,17 @@ export type {
 export { memory } from './memory.ts'
 export type { App, FindOperation, IndexShape, Model } from './model.ts'
 export type {
+	ExposedOutput,
+	ExposedType,
+	OutputForm,
+} from './exposed-output.ts'
+export type { Page, PageArgs, PageQuery } from './page.ts'
+export type {
 	ExposedFunction,
 	ExposedModel,
-	ExposedOutput,
 	ExposedVirtual,
-	ExposedType,
 	ModelQueries,
 	ModelUse,
-	OutputForm,
 	PluginContext,
 	PluginOf,
 	PluginTypes,

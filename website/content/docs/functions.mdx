@@ -110,6 +110,29 @@ A client selecting a relation under a returned row gets it read again as the
 caller, with its rules. A function opens no transaction: see
 [Transactions](/docs/next/transactions) to write all or nothing.
 
+## Pages
+
+A query whose output is `Book.paginated()` returns `Book.paginate(...)`:
+the rows its `where` and `orderBy` keep, read as the caller. Nothing is read
+until a transport, or server code, asks for the rows or the count:
+
+<include cwd meta='title="src/functions.ts"'>
+	../examples/functions/src/functions.ts#page
+</include>
+
+Each transport pages it as the model's generated list: the same arguments
+(`first`, `after`, `last`, `before`, or `take` and `skip` with
+`pagination: 'list'`), the same `maxTake`, the same answer, and
+`totalCount` counted only when a client asks for it:
+
+<include cwd meta='title="src/app.test.ts"'>
+	../examples/functions/src/app.test.ts#paged
+</include>
+
+A `defineType` field can be a page too, at any depth. In GraphQL that field
+takes the page arguments; in REST one JSON parameter named by the field's
+path takes them, as `profile.posts={"first":20,"totalCount":true}`.
+
 ## Reference
 
 ### `defineFunction(definition)`
@@ -140,14 +163,15 @@ caller, with its rules. A function opens no transaction: see
 
 ### Outputs
 
-| Output            | `run` returns           | GraphQL              |
-| ----------------- | ----------------------- | -------------------- |
-| none              | nothing                 | `Boolean!`           |
-| `Book`            | a row                   | `Book!`              |
-| `[Book]`          | rows                    | `[Book!]!`           |
-| `Book.nullable()` | a row or `null`         | `Book`               |
-| a `defineType`    | an object of its fields | the type             |
-| a Standard Schema | the schema's type       | from its JSON Schema |
+| Output             | `run` returns           | GraphQL              |
+| ------------------ | ----------------------- | -------------------- |
+| none               | nothing                 | `Boolean!`           |
+| `Book`             | a row                   | `Book!`              |
+| `[Book]`           | rows                    | `[Book!]!`           |
+| `Book.nullable()`  | a row or `null`         | `Book`               |
+| `Book.paginated()` | `Book.paginate(...)`    | `BookConnection!`    |
+| a `defineType`     | an object of its fields | the type             |
+| a Standard Schema  | the schema's type       | from its JSON Schema |
 
 A schema given `.meta({ id: 'Line' })` is the shared GraphQL type `Line`,
 and `LineInput` as an input.
@@ -170,3 +194,5 @@ the variable type it reads it with, `$id: ID!`.
   `z.iso.datetime()` is a `DateTime` in GraphQL.
 - A name another function or a model's generated query already takes stops
   startup, naming both.
+- A page is a query's output, never under a list, in a virtual or live. An
+  input property named as a page argument stops startup.

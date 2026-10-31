@@ -1,7 +1,7 @@
 // Virtual fields at startup (D-151): each one's output, input and needs
 // resolved, with the `run` or `runMany` its model's `.with` gives it.
 import type { ModelDefinition, Output } from './definition.ts'
-import { outputOf } from './definition.ts'
+import { holdsPage, outputOf } from './definition.ts'
 import { Refused } from './errors.ts'
 import { isObject, systemFields } from './query-where.ts'
 import type { Standard } from './validation.ts'
@@ -46,7 +46,9 @@ function outputFor(value: unknown, where: string): Output {
 		)
 	}
 	const returned: unknown = Reflect.apply(value, undefined, [])
-	return outputOf(returned, where)
+	const output = outputOf(returned, where)
+	if (!holdsPage(output)) return output
+	throw new Refused(`${where} is a virtual, which returns no page.`)
 }
 
 function ruleOf(
