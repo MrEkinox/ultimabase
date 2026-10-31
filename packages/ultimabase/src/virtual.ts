@@ -99,18 +99,33 @@ type Rule<F, O, P> =
 			readonly run?: never
 	  }
 
-/** A `needs` that names no field of the model fails to compile. */
+// A `needs` that names no field of the model fails on the field (RecordCheck).
 type Checked<F, X> =
 	Facts<X> extends { readonly output: infer O; readonly options: infer P }
-		? [Exclude<NeedsOf<P>, keyof RecordOf<F>>] extends [never]
-			? Rule<F, O, P>
-			: { readonly unknownNeeds: Exclude<NeedsOf<P>, keyof RecordOf<F>> }
+		? Rule<F, O, P>
 		: never
 
-/** `run` or `runMany` for each virtual of the model. */
-export type VirtualRules<F> = {
-	readonly [K in VirtualKeys<F>]: Checked<F, F[K]>
+// The rules of a model whose fields did not compile: any rule, whose facts
+// are `unknown` rather than `any`, so only the fields' error shows.
+type LooseRules = {
+	readonly [field: string]: {
+		readonly run?: (facts: {
+			readonly caller: Caller
+			readonly input: unknown
+			readonly record: { readonly [field: string]: unknown }
+		}) => unknown
+		readonly runMany?: (facts: {
+			readonly caller: Caller
+			readonly input: unknown
+			readonly records: readonly { readonly [field: string]: unknown }[]
+		}) => unknown
+	}
 }
+
+/** `run` or `runMany` for each virtual of the model. */
+export type VirtualRules<F> = string extends keyof F
+	? LooseRules
+	: { readonly [K in VirtualKeys<F>]: Checked<F, F[K]> }
 
 /** The model a virtual returns rows of, `never` for another output. */
 type ModelOf<R> = R extends { readonly [modelFields]: infer F }

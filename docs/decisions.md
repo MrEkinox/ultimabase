@@ -8916,6 +8916,8 @@ type Mutation {
 
 ## D-151: Filtered relations and virtual fields
 
+Amended by D-180.
+
 Choice: completes D-37, D-44 and D-109; amends D-42.
 
 1. A model's `.with` takes two more kernel keys, `relations` and
@@ -11634,4 +11636,79 @@ return transaction(
 )
 // Both calls at once: one commits, the other runs again, sees the first
 // like and makes the match. A client sees `CONFLICT` only after 3 attempts.
+```
+
+## D-180: A virtual's `needs` is checked on its field
+
+Choice: amends D-151.
+
+1. A name in a virtual's `needs` that is not a scalar field of the model, its
+   own or one a plugin of its `use` adds, fails to compile on the virtual's
+   line in `fields`, with TypeScript's suggestion of the closest name:
+   `Type '"covr"' is not assignable to type '"cover" | keyof SystemFields'. Did you mean '"cover"'?`
+   `.with({ virtuals })` reports nothing more.
+2. While a model's fields do not compile, `.with({ virtuals })` takes any
+   rule, and its `record`, `records` and `input` are `unknown`: the fields'
+   error shows alone, with no implicit `any` after it.
+3. `needs` offers no completion.
+
+Why:
+
+- The check ran in `.with({ virtuals })` and replaced the rule's type, so
+  the error named `run`, away from the misspelt name, and every parameter of
+  `run` became an implicit `any` (TS7031).
+- `fields` already checks each field against the model's fields once they
+  are known (`declaredRecord`, D-44): its return type is intersected with a
+  check of itself. A virtual's options are part of its field, so the same
+  check reaches `needs` without a generic `.with`.
+- An error in `fields` makes TypeScript infer the model's fields as the
+  general `FieldShapes`, whose virtuals' rules were `{}`. A rule for those
+  fields with `unknown` facts keeps the error where the mistake is.
+- Completion was tried on the field, with the check above and with an
+  always-on `needs?: readonly (keyof RecordOf<F>)[]`: TypeScript offers none,
+  as it offers none for an index's `fields` (D-52), since both are inferred
+  from the literal they check. It needs the field's type to be known before
+  the model, the cycle D-151 rejects.
+
+Rejected:
+
+- A required property named after the message on the rule in
+  `.with({ virtuals })`, as the issue proposed: the error stays away from the
+  name, and TypeScript prints the whole rule's type.
+- A generic `.with` for completion: the TS7022 cycle of D-151.
+
+Example, before: two errors on `run`, none on the typo.
+
+```ts
+export const Post = defineModel({
+	name: 'Post',
+	fields: (f) => ({
+		cover: f.string({ optional: true }),
+		hasCover: f.virtual(z.boolean(), { needs: ['covr'] }),
+	}),
+}).with({
+	virtuals: {
+		// TS2353: 'run' does not exist in type '{ readonly unknownNeeds: "covr"; }'.
+		// TS7031: Binding element 'record' implicitly has an 'any' type.
+		hasCover: { run: ({ record }) => record.cover !== null },
+	},
+})
+```
+
+After: one error, on the typo.
+
+```ts
+export const Post = defineModel({
+	name: 'Post',
+	fields: (f) => ({
+		cover: f.string({ optional: true }),
+		// TS2322: … Type '"covr"' is not assignable to type
+		// '"cover" | keyof SystemFields'. Did you mean '"cover"'?
+		hasCover: f.virtual(z.boolean(), { needs: ['covr'] }),
+	}),
+}).with({
+	virtuals: {
+		hasCover: { run: ({ record }) => record.cover !== null },
+	},
+})
 ```

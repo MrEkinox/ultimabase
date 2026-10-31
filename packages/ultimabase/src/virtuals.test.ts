@@ -11,11 +11,12 @@ import {
 	vi,
 } from 'vitest'
 import { z } from 'zod'
-import type { Logger } from './index.ts'
+import type { Field, Logger, PluginTypes } from './index.ts'
 import {
 	allow,
 	defineApp,
 	defineModel,
+	definePlugin,
 	defineType,
 	master,
 	memory,
@@ -488,6 +489,54 @@ describe('a virtual', () => {
 	})
 })
 
+interface Stamp extends PluginTypes {
+	readonly name: 'stamp'
+	readonly addedFields: {
+		readonly stampedAt: Field<string, { readonly default: string }>
+	}
+}
+const stamp = definePlugin<Stamp>({
+	name: 'stamp',
+	manifest: {
+		name: 'stamp',
+		version: '1.0.0',
+		peerDependencies: { ultimabase: '*' },
+	},
+	addedFields: (f) => ({ stampedAt: f.string({ default: 'today' }) }),
+})
+
+describe('a virtual', () => {
+	it('needs a field a plugin adds', async () => {
+		const Note = defineModel({
+			name: 'Note',
+			use: [stamp.use()],
+			fields: (f) => ({
+				stamp: f.virtual(z.string(), { needs: ['stampedAt'] }),
+			}),
+		}).with({
+			virtuals: {
+				stamp: {
+					run: ({ record }) => {
+						expectTypeOf(record.stampedAt).toEqualTypeOf<string>()
+						return record.stampedAt.toUpperCase()
+					},
+				},
+			},
+		})
+		await app.stop()
+		app = defineApp({
+			database: memory(),
+			models: [Note],
+			plugins: [stamp.plugin()],
+		})
+		await app.start()
+		const { id } = await Note.create({ data: {} }, M)
+		expect(
+			await Note.findUnique({ where: { id }, select: { stamp: true } }, M),
+		).toStrictEqual({ stamp: 'TODAY' })
+	})
+})
+
 // Compile-time cases, never run.
 const typed = async () => {
 	const found = await Stage.findUniqueOrThrow(
@@ -566,7 +615,21 @@ const typed = async () => {
 	})
 	defineModel({
 		name: 'Bad',
-		fields: (f) => ({ v: f.virtual(z.string(), { needs: ['nope'] }) }),
-		// @ts-expect-error -- needs a field the model lacks
-	}).with({ virtuals: { v: { run: () => 'x' } } })
+		fields: (f) => ({
+			a: f.string(),
+			// @ts-expect-error -- needs a field the model lacks, on this line alone
+			v: f.virtual(z.string(), { needs: ['b'] }),
+		}),
+	}).with({
+		virtuals: {
+			v: {
+				run: ({ record }) => {
+					expectTypeOf(record).toEqualTypeOf<{
+						readonly [field: string]: unknown
+					}>()
+					return 'x'
+				},
+			},
+		},
+	})
 }
