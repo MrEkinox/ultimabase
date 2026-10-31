@@ -169,7 +169,9 @@ export function schemaOf(
 	}
 	if (Object.keys(fields).length === 0) {
 		throw new Refused(
-			'graphqlPlugin: no query to expose; each model has .with({ graphql: false }) and no function is a query.',
+			registry.entries.size === 0
+				? "graphqlPlugin: no query to expose; the application lists no model, a plugin's own models are never exposed, and no function is a query."
+				: 'graphqlPlugin: no query to expose; each model has .with({ graphql: false }) and no function is a query.',
 		)
 	}
 	return new GraphQLSchema({

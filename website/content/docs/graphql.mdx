@@ -313,6 +313,8 @@ At start:
 - `Person: its list field would be named person too; set .with({ graphql: { plural } }).`
 - `Posts: the root field posts is Post's; set .with({ graphql: { plural } }).`
 - `posts: the root field posts is Post's; set .with({ graphql: { name } }).`, for a function.
+- `graphqlPlugin: no query to expose; the application lists no model, a plugin's own models are never exposed, and no function is a query.`
+- `graphqlPlugin: no query to expose; each model has .with({ graphql: false }) and no function is a query.`
 
 ### Limits
 

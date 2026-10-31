@@ -249,3 +249,9 @@ it('refuses a schema without a model', async () => {
 		'graphqlPlugin: no query to expose; each model has .with({ graphql: false }) and no function is a query.',
 	)
 })
+
+it("refuses a schema without the application's models, a plugin's being never exposed", async () => {
+	await expect(listening([])).rejects.toThrow(
+		"graphqlPlugin: no query to expose; the application lists no model, a plugin's own models are never exposed, and no function is a query.",
+	)
+})
