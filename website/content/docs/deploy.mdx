@@ -31,8 +31,9 @@ for writing migrations).
 | `PORT`         | `httpPlugin()`            | The port to listen on; `3000` when it is unset.           |
 | `MASTER_KEY`   | `masterKey`, here         | 32 characters at least, from `openssl rand -base64 32`.   |
 
-`DATABASE_URL` and `MASTER_KEY` are the names the application reads, as the
-example does:
+`ultimabase start` and `migrate deploy` never read a `.env` file: set the
+variables on the host. `DATABASE_URL` and `MASTER_KEY` are the names the
+application reads, as the example does:
 
 <include cwd meta='title="src/app.ts"'>
 	../examples/postgres/src/app.ts#app

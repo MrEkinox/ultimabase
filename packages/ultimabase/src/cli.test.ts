@@ -1,7 +1,14 @@
 // The `ultimabase` command (D-105): the config it finds, `migrate create`,
 // `migrate deploy`, `sync`, `start` and `dev`, on a fake database.
 import { existsSync } from 'node:fs'
-import { mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises'
+import {
+	mkdir,
+	mkdtemp,
+	readdir,
+	readFile,
+	rm,
+	writeFile,
+} from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -43,6 +50,7 @@ beforeEach(async () => {
 
 afterEach(async () => {
 	process.env['NODE_ENV'] = environment
+	delete process.env['ULTIMABASE_CLI_ENV']
 	await rm(dir, { recursive: true })
 })
 
@@ -717,6 +725,65 @@ describe('start and dev', () => {
 		expect(process.env['NODE_ENV']).toBe('development')
 		expect(ran).toStrictEqual([['--watch', serveFile, join(dir, file)]])
 		expect(existsSync(serveFile)).toBe(true)
+	})
+
+	it('runs dev with the .env beside the config, which --watch also watches (D-171)', async () => {
+		const file = await config('dev-env', { Locker: ['label'] })
+		await writeFile(join(dir, '.env'), 'ULTIMABASE_CLI_ENV=file\n')
+		expect(await run('dev', '--config', file)).toBe(7)
+		expect(ran).toStrictEqual([
+			[
+				'--watch',
+				`--env-file=${join(dir, '.env')}`,
+				serveFile,
+				join(dir, file),
+			],
+		])
+		expect(process.env['ULTIMABASE_CLI_ENV']).toBeUndefined()
+	})
+})
+
+describe('the .env file (D-171)', () => {
+	it("loads the .env beside the config for sync, reset and migrate create, not the working directory's", async () => {
+		await mkdir(join(dir, 'backend'))
+		const file = await config(
+			'env',
+			{ Locker: ['label'] },
+			{ file: 'backend/app.config.ts' },
+		)
+		await writeFile(join(dir, '.env'), 'ULTIMABASE_CLI_ENV=root\n')
+		await writeFile(
+			join(dir, 'backend', '.env'),
+			'ULTIMABASE_CLI_ENV=backend\n',
+		)
+		for (const command of [
+			['sync'],
+			['reset'],
+			['migrate', 'create', 'init'],
+		]) {
+			delete process.env['ULTIMABASE_CLI_ENV']
+			await run(...command, '--config', file)
+			expect(process.env['ULTIMABASE_CLI_ENV']).toBe('backend')
+		}
+	})
+
+	it('leaves a variable already set, and the production commands without it', async () => {
+		const file = await config('env-production', { Locker: ['label'] })
+		await writeFile(join(dir, '.env'), 'ULTIMABASE_CLI_ENV=file\n')
+		process.env['ULTIMABASE_CLI_ENV'] = 'set'
+		expect(await run('sync', '--config', file)).toBe(0)
+		expect(process.env['ULTIMABASE_CLI_ENV']).toBe('set')
+		delete process.env['ULTIMABASE_CLI_ENV']
+		delete process.env['NODE_ENV']
+		for (const command of [
+			['start'],
+			['migrate', 'deploy'],
+			['migrate', 'status'],
+		]) {
+			await run(...command, '--config', file)
+			expect(process.env['ULTIMABASE_CLI_ENV']).toBeUndefined()
+		}
+		await (await load(join(dir, file))).app.stop()
 	})
 
 	it('serves the application dev watches, or prints why it cannot', async () => {

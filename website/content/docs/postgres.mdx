@@ -234,7 +234,9 @@ Name these files `*.postgres.test.ts`, and keep the other tests on
 | `ultimabase start`                 | Starts the application in production (see [Deploy](/docs/next/deploy)).                                                   |
 
 Each takes `--config <path>` for a config other than `ultimabase.config.ts`,
-and exits 1 when it fails.
+and exits 1 when it fails. `dev`, `sync`, `reset` and `migrate create` load
+the `.env` file beside the config, without changing a variable already set;
+`start`, `migrate deploy` and `migrate status` never read it.
 
 ### Messages
 

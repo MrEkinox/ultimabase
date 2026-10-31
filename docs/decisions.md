@@ -4046,6 +4046,8 @@ await Ticket.update({ where: { id }, data: { label: 'x' } }, { as: master })
 
 ## D-105: `ultimabase.config.ts`, the `ultimabase` commands and a schema snapshot
 
+Amended by D-171.
+
 Choice: amends D-26, D-73 and D-98 point 1.
 
 1. The application lives in `ultimabase.config.ts`, at the project's root,
@@ -11033,4 +11035,72 @@ await User.findFirst(
 ```sql
 -- The migration `ultimabase migrate create` writes
 create unique index "user_username_lower_key" on "user" (lower("username" collate "default"));
+```
+
+## D-171: The development commands load the `.env` beside the config
+
+Choice: amends D-105.
+
+1. `ultimabase dev`, `sync`, `reset` and `migrate create` load the `.env`
+   file of the directory that holds the config, `ultimabase.config.ts` or the
+   file `--config` names, not the working directory's: a monorepo's root
+   script and a run from the package read the same file.
+2. `start`, `migrate deploy` and `migrate status` never load it: in
+   production the host sets the environment, and a `.env` left in the image
+   would change it silently.
+3. A variable already set wins, as Node's `--env-file` and
+   `process.loadEnvFile` keep it: a shell or a CI sets what a `.env` holds
+   otherwise.
+4. `dev` passes `--env-file=<path>` to the `node --watch` process it starts,
+   only when the file exists, so a change to `.env` restarts the application
+   as a change to a source file does. `dev` sets `NODE_ENV` to `development`
+   before, so a `NODE_ENV` in the `.env` does not apply to it. The other
+   commands call `process.loadEnvFile`.
+5. A missing file is no error and logs nothing. The usage text says which
+   commands load it.
+
+Why:
+
+- An application reads `DATABASE_URL` and `MASTER_KEY` from the
+  environment (D-105). Without a `.env`, each project writes
+  `node --env-file-if-exists=.env $(yarn bin ultimabase) dev`, and a script
+  run from the monorepo's root reads the root's file.
+- The config's directory is the project's: the command already finds the
+  application there.
+- `--env-file-if-exists` logs `.env not found. Continuing without it.` on
+  each start without the file; checking first keeps the development log
+  quiet.
+
+Rejected:
+
+- A `--env-file <path>` option: no application asks for another file;
+  `node --env-file` still names one.
+- `.env.local` and `.env.development`: a second file and an order between
+  them, for a need nobody has shown.
+- A log line naming the file loaded: the variables are the application's
+  to report.
+- Loading the `.env` for `start`: see point 2.
+
+Example, before:
+
+```json
+{
+	"scripts": {
+		"dev": "node --env-file-if-exists=.env $(yarn bin ultimabase) dev",
+		"sync": "node --env-file-if-exists=.env $(yarn bin ultimabase) sync"
+	}
+}
+```
+
+After, with `DATABASE_URL` in `packages/backend/.env`, beside
+`packages/backend/ultimabase.config.ts`:
+
+```json
+{ "scripts": { "dev": "ultimabase dev", "sync": "ultimabase sync" } }
+```
+
+```bash
+# From the monorepo's root: the same file is loaded.
+yarn workspace backend dev
+npx ultimabase sync --config packages/backend/ultimabase.config.ts
 ```
