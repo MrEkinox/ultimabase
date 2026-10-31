@@ -2720,8 +2720,9 @@ Choice: eleven details of D-15, D-23, D-36, D-67 and D-71 at run time.
    after it, so the hook's writes show. Without one, the write returns its
    row itself.
 4. A `validate` function that throws refuses with `VALIDATION_FAILED` and the
-   issue `{ path: [field], message: error.message }`. A schema's issues get
-   the field's name in front of their path.
+   issue `{ path: [field], message: error.message }`; a `PublicError` adds
+   its `code` to the issue. A schema's issues get the field's name in front
+   of their path.
 5. `beforeFind`'s filter is trusted server code, as a read rule's (D-86): it
    may filter on a field with a read rule, and other models' rules do not
    apply to its relation conditions.
@@ -2759,7 +2760,8 @@ Why:
    otherwise return stale data; a second read on every write costs a round
    trip D-48 does not need.
 4. A function has no other way to say why it refuses; its message is what
-   the developer wrote for the client.
+   the developer wrote for the client, and a code is what a client tests
+   without parsing that message, as for the error itself.
 5. Same reason as D-86 for a read rule's filter.
 6. Same reason as D-86 for a written row a read rule hides.
 7. A required field may be left to a hook (D-67), so it can only be checked
