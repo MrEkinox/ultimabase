@@ -35,6 +35,13 @@ export interface State {
 	readonly sendEmail: SendEmail | undefined
 }
 
+/** The `passwordSetAt` each `setPassword` wrote, which its commit tells (D-169). */
+const setting = new Set<string>()
+
+/** Whether `setPassword` wrote `at` for `userId`, told once. */
+export const passwordSet = (userId: string, at: Date): boolean =>
+	setting.delete(`${userId} ${at.getTime()}`)
+
 /** What a sign-in returns: its session, and the user read as itself. */
 export interface SignedIn<U = Row> {
 	/**
@@ -64,7 +71,7 @@ export const attemptOf = (
 /**
  * Creates the user, its account and its hash in one transaction, as Master:
  * the caller's fields were checked against the list (D-113). The email's
- * hook links the account (D-162).
+ * hook links the account (D-162); `passwordSetAt` is the sign-up's (D-169).
  */
 export async function createUser(
 	state: State,
@@ -76,7 +83,7 @@ export async function createUser(
 	const stamp = randomUUID()
 	return transaction(async () => {
 		const user = await state.users.queries.create(
-			{ data: { ...data, email } },
+			{ data: { ...data, email, passwordSetAt: new Date() } },
 			M,
 		)
 		await PasswordHash.create({ data: { userId: user.id, hash, stamp } }, M)
@@ -157,8 +164,8 @@ export async function checkCurrent(
 
 /**
  * Replaces `userId`'s hash, or gives one to an email without (D-162), ends
- * every session of the user and deletes its pending reset tokens (D-117);
- * the new stamp.
+ * every session of the user, deletes its pending reset tokens (D-117) and
+ * sets `passwordSetAt` (D-169); the new stamp.
  */
 export async function setPassword(
 	state: State,
@@ -184,6 +191,16 @@ export async function setPassword(
 			: PasswordHash.update({ where: { userId }, data }, M))
 		await PasswordToken.deleteMany({ where: { userId, kind: 'reset' } }, M)
 		await state.auth.revokeSessions(userId)
+		// Through the user's queries, so the application's hooks see it, and
+		// password's own tells the account once it commits (D-169).
+		const passwordSetAt = new Date()
+		if (state.sendEmail !== undefined) {
+			setting.add(`${userId} ${passwordSetAt.getTime()}`)
+		}
+		await state.users.queries.update(
+			{ where: { id: userId }, data: { passwordSetAt } },
+			M,
+		)
 	})
 	// Again once the stamp is visible: a sign-in that read the old one opened
 	// its session before, so this ends it (see `signedIn`).

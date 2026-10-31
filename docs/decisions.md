@@ -10859,6 +10859,71 @@ it('reads the lock again after lost changes', async () => {
 })
 ```
 
+## D-169: When the password was set
+
+Choice: completes D-113, D-117, D-160 and D-162.
+
+1. `password()` adds `passwordSetAt: Date | null` to the user model, `null`
+   for a user without a password. The user itself and Master read it; it is
+   left out for any other caller (D-44). Only Master writes it, as `email`.
+2. password sets it to the time of the write, in the transaction that sets
+   the password: `signUp`, `changePassword`, `resetPassword` and
+   `User.setPassword`, including a first password for an email without one
+   (D-162). A rehash on sign-in (D-113) keeps it: the password is the same.
+3. `closeAccount` sets it to `null`, with the email (D-160).
+4. The write goes through the user model's queries, so the application's
+   hooks on the user run, as for any field.
+5. With `sendEmail`, once the write commits, password sends
+   `{ kind: 'passwordChanged', to, userId }` to the account's email, without
+   a token, as `'emailChanged'` (D-162): after `changePassword`,
+   `resetPassword` and `User.setPassword`, Master's included. Not after
+   `signUp`, nor `closeAccount`, nor a Master write of `passwordSetAt`
+   itself, as when an application migrates from Parse: password tells only
+   the writes it made. It is not counted among an account's three emails an
+   hour (D-117): the account did not ask for it.
+6. `signUp({ fields })` refuses `passwordSetAt`, as `email`. A user model
+   that declares its own `passwordSetAt` stops startup:
+   `User.passwordSetAt: password adds a field User already has.` Users
+   stored before this decision read `null` until their next password; a
+   Master write fills it, as when an application migrates from Parse.
+
+Why: an application shows "password last changed on …", and tells the user
+their password changed (OWASP ASVS V2.2.3), and could do neither: the hash
+holds no date and is not exposed, and the password is not a user field, so
+no hook on the user ran. The notice is password's, as the email change's: a
+hook that compares `passwordSetAt` would also email every user a Parse
+import dates.
+
+Rejected:
+
+- a listener, `password.onPasswordSet(({ userId, reason }) => …)`: a second
+  way to react to a write; the field lets a rule, a client and a hook read
+  it, and a hook already runs on the user's write;
+- a date on `PasswordHash` only: no rule or client reads it;
+- sending the notice when `setPassword`'s own transaction ends: a reset, or
+  the application, may run it inside a larger one that rolls back;
+- refusing Master's writes: an application migrating from Parse copies its
+  own date, and refusing would need the kernel to tell password's writes
+  apart (D-162).
+
+Example, before:
+
+```ts
+// Impossible: no field and no hook tell when the password changed.
+```
+
+After:
+
+```ts
+const user = await User.findUnique({ where: { id } }, { as: caller })
+user.passwordSetAt // Date | null
+
+// The application's sendEmail
+if (email.kind === 'passwordChanged') {
+	await mail(email.to, 'Your password was changed. Not you? Reset it.')
+}
+```
+
 ## D-170: Case-insensitive unique keys
 
 Choice: amends D-52 and D-140.

@@ -14,7 +14,8 @@ export type EmailKind = 'reset' | 'verify' | 'emailChange'
 
 /**
  * What `sendEmail` receives: the application writes the text and the link.
- * `'emailChanged'` tells the old address its email changed (D-162).
+ * `'emailChanged'` tells the old address its email changed (D-162),
+ * `'passwordChanged'` the account its password changed (D-169).
  */
 export type Email =
 	| {
@@ -30,6 +31,12 @@ export type Email =
 			/** The old address. */
 			readonly to: string
 			readonly newEmail: string
+			readonly userId: string
+	  }
+	| {
+			readonly kind: 'passwordChanged'
+			/** The account's email. */
+			readonly to: string
 			readonly userId: string
 	  }
 

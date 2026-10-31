@@ -342,9 +342,10 @@ describe('signing in', () => {
 		expect((await signIn(url)).status).toBe(200)
 	})
 
-	it('rehashes a hash made with other parameters', async () => {
+	it('rehashes a hash made with other parameters, and keeps passwordSetAt', async () => {
 		const { url } = await server()
 		await signUp(url)
+		const [user] = await User.findMany({}, M)
 		const [stored] = await PasswordHash.findMany({}, M)
 		const hash = staleHash()
 		await PasswordHash.update(
@@ -355,6 +356,8 @@ describe('signing in', () => {
 		const [rehashed] = await PasswordHash.findMany({}, M)
 		expect(rehashed?.hash).toMatch(/^\$argon2id\$v=19\$m=19456,t=2,p=1\$/)
 		expect((await signIn(url)).status).toBe(200)
+		const [after] = await User.findMany({}, M)
+		expect(after?.passwordSetAt).toStrictEqual(user?.passwordSetAt)
 	})
 
 	it('stops on a hash that is not Argon2id', async () => {
@@ -645,6 +648,9 @@ describe('starting', () => {
 		)
 		await expect(start([User], ['name', 'emailVerified'])).rejects.toThrow(
 			'User.emailVerified is not a field',
+		)
+		await expect(start([User], ['name', 'passwordSetAt'])).rejects.toThrow(
+			'User.passwordSetAt is not a field',
 		)
 		await expect(start([User], [])).rejects.toThrow(
 			'passwordPlugin({ signUp }): User needs name to be created; list them.',

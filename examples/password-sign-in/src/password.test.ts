@@ -128,17 +128,27 @@ it('changes the password of the signed-in user', async () => {
 	//#region change
 	const changed = await request(
 		`mutation ($input: ChangePasswordInput!) {
-			changePassword(input: $input) { token }
+			changePassword(input: $input) { token user { passwordSetAt } }
 		}`,
 		{ currentPassword: 'correct horse', newPassword: 'battery staple' },
 		{ authorization: `Bearer ${token}` },
 	)
 	// A new session; every other one, this old token's too, has ended.
+	// passwordSetAt, which the user alone reads, is now.
 	expect(changed).toMatchObject({
-		data: { changePassword: { token: aString } },
+		data: {
+			changePassword: { token: aString, user: { passwordSetAt: aString } },
+		},
 	})
 	expect(await signIn('correct horse')).toMatchObject({
 		errors: [{ message: 'Wrong email or password.' }],
+	})
+	// The account is told.
+	await vi.waitFor(() => {
+		expect(outbox.at(-1)).toMatchObject({
+			kind: 'passwordChanged',
+			to: 'ada@example.com',
+		})
 	})
 	//#endregion
 })
