@@ -58,12 +58,6 @@ const isEditor = (caller: Caller) =>
 //#region definition
 const definition = definePlugin<Publishing>({
 	name: 'publishing',
-	// A published plugin imports its package.json instead.
-	manifest: {
-		name: 'example-publishing',
-		version: '1.0.0',
-		peerDependencies: { ultimabase: '*' },
-	},
 	models: [Editor],
 	//#endregion
 	//#region added-fields
