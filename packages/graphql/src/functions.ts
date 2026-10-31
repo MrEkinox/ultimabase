@@ -25,7 +25,8 @@ import type { Path } from './data.ts'
 import type { DataTypes } from './data-types.ts'
 import { checkName, inputArgs, outputData } from './data.ts'
 import { upper } from './names.ts'
-import { isMaster, objectType } from './outputs.ts'
+import { inputOf, pageType, readPage } from './function-pages.ts'
+import { isMaster, objectType, pageArgsOf } from './outputs.ts'
 import { selectOf } from './select.ts'
 import { followed } from './subscriptions.ts'
 import type { Args, Context, Registry } from './registry.ts'
@@ -96,6 +97,12 @@ class Builder {
 		}
 		const reads = this.reads.get(parent) ?? new Map<string, Read>()
 		this.reads.set(parent, reads)
+		if (output.kind === 'page') {
+			// Counted as the model's generated list (D-182).
+			const entry = this.#registry.entry(output.name)
+			reads.set(field, { kind: 'many', entry })
+			return pageType(this.#registry, output.name)
+		}
 		const list = output.form === 'list'
 		reads.set(
 			field,
@@ -131,7 +138,21 @@ class Builder {
 		const fields = [...type.fields].map(([field, output]): [string, Field] => {
 			checkName(field, `${name}.${field}`)
 			const path = at(name, `${name}${upper(field)}`, field)
-			return [field, { type: this.output(output, path, name, field) }]
+			const read = this.output(output, path, name, field)
+			if (output.kind !== 'page') return [field, { type: read }]
+			const registry = this.#registry
+			const page: Field = {
+				type: read,
+				args: pageArgsOf(registry),
+				resolve: async (source, args, context, info) =>
+					readPage(registry, output.name, Reflect.get(Object(source), field), {
+						name: `${name}.${field}`,
+						args,
+						context,
+						info,
+					}),
+			}
+			return [field, page]
 		})
 		const built = new GraphQLObjectType<unknown, Context>({
 			name,
@@ -210,14 +231,21 @@ class Builder {
 				: this.output(output, at(owner, `${base}Output`, 'output'), root, name)
 		const registry = this.#registry
 		const take = this.#take
+		const paged = output?.kind === 'page'
+		const inputs = paged ? inputOf(registry, owner, given?.args ?? {}) : null
 		const value = async (
 			args: Args,
 			context: Context,
 			info: GraphQLResolveInfo,
 		): Promise<unknown> => {
-			const sent = given?.flat === true ? args : args['input']
+			const sent =
+				given?.flat === true ? (inputs?.(args) ?? args) : args['input']
 			const result = await fn.run(plain(sent), as(context), context.client)
 			if (output === undefined) return true
+			if (output.kind === 'page') {
+				const call = { name: fn.name, args, context, info }
+				return readPage(registry, output.name, result, call)
+			}
 			if (result === undefined && type instanceof GraphQLNonNull) {
 				throw new TypeError(
 					`${fn.name} returned undefined; make its output .nullable() and return null.`,
@@ -229,7 +257,7 @@ class Builder {
 		const config = {
 			type,
 			description: fn.description,
-			args: given?.args ?? {},
+			args: { ...given?.args, ...(paged ? pageArgsOf(registry) : {}) },
 		}
 		const field: Field = {
 			...config,

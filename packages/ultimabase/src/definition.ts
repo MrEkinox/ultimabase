@@ -2,7 +2,8 @@
 // time: the values behind the types.
 import type { ScalarType } from './adapter.ts'
 import type { Enum, StandardSchema } from './fields.ts'
-import type { Manifest, OutputForm } from './plugin.ts'
+import type { OutputForm } from './exposed-output.ts'
+import type { Manifest } from './plugin.ts'
 import type { Standard } from './validation.ts'
 import { Refused } from './errors.ts'
 import { isObject } from './query-where.ts'
@@ -136,6 +137,8 @@ export type NamedOutput =
 export type Output =
 	| { readonly kind: 'schema'; readonly schema: StandardSchema }
 	| (NamedOutput & { readonly form: OutputForm })
+	/** `Model.paginated()` (D-182). */
+	| { readonly kind: 'page'; readonly value: object; readonly name: string }
 
 export type TypeDefinition = {
 	readonly name: string
@@ -168,12 +171,27 @@ export const functionDefinitions: WeakMap<object, FunctionDefinition> =
 /** What each `X.nullable()` returned stands for (D-109). */
 export const nullables: WeakMap<object, NamedOutput> = new WeakMap()
 
+/** What each `Model.paginated()` returned stands for (D-182). */
+const pages: WeakMap<object, Output> = new WeakMap()
+
 /** `X.nullable()`, for a model or a type. */
 export function nullable(named: NamedOutput): object {
 	const marker = Object.freeze({})
 	nullables.set(marker, named)
 	return marker
 }
+
+/** `Model.paginated()`, which has no `.nullable()`: an empty page is a page. */
+export function paginated(value: object, name: string): object {
+	const marker = Object.freeze({})
+	pages.set(marker, { kind: 'page', value, name })
+	return marker
+}
+
+/** Whether `output` is a page or a type holding one, at any depth. */
+export const holdsPage = (output: Output): boolean =>
+	output.kind === 'page' ||
+	(output.kind === 'type' && [...output.type.fields.values()].some(holdsPage))
 
 /** The name a `define*` call takes: a non-empty string. */
 export function nameOf(name: unknown, by: string): string {
@@ -348,10 +366,17 @@ export function outputOf(value: unknown, where: string): Output {
 	if (named !== undefined) return { ...named, form: 'one' }
 	const marked = isObject(value) ? nullables.get(value) : undefined
 	if (marked !== undefined) return { ...marked, form: 'nullable' }
+	const page = isObject(value) ? pages.get(value) : undefined
+	if (page !== undefined) return page
 	const list: readonly unknown[] = Array.isArray(value) ? value : []
 	const listed = list.length === 1 ? namedOf(list[0]) : undefined
-	if (listed !== undefined) return { ...listed, form: 'list' }
+	if (listed !== undefined) {
+		const output: Output = { ...listed, form: 'list' }
+		if (!holdsPage(output)) return output
+		// Each item would read a page and count it (D-46).
+		throw new Refused(`${where} lists a type that holds a page.`)
+	}
 	throw new Refused(
-		`${where} is a model, a type, a list of one, X.nullable() or a Standard Schema.`,
+		`${where} is a model, a type, a list of one, X.nullable(), Model.paginated() or a Standard Schema.`,
 	)
 }

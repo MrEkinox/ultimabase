@@ -5,12 +5,14 @@
 import type { Routes } from '@ultimabase/http'
 import { clientOf, validate } from '@ultimabase/http'
 import type { Node } from '@ultimabase/http/internal'
-import { isNode, jsonSchemaOf, rowOf } from '@ultimabase/http/internal'
+import { isNode, jsonSchemaOf, rowOf, run } from '@ultimabase/http/internal'
 import type { Caller, Client, ExposedFunction, ExposedOutput } from 'ultimabase'
 import { Refused } from 'ultimabase'
 import type { Api, Entry } from './entries.ts'
 import { checkName, entryOf } from './entries.ts'
 import { defaultShape, defaultVirtuals, shaped } from './fields.ts'
+import type { Paging } from './function-pages.ts'
+import { pageParams, pagesOf, pagingOf, readPage } from './function-pages.ts'
 import { acceptsNull, isText, resolved } from './json-schema.ts'
 import { anyBody } from './models.ts'
 import type { Accepted } from './params.ts'
@@ -63,15 +65,47 @@ type Pending = Map<Entry, { id: string; copy: { [field: string]: unknown } }[]>
 const nonNull = (where: string): TypeError =>
 	new TypeError(`Cannot return null for non-nullable field ${where}.`)
 
-/** A value as GraphQL returns a function's output, a model's row its scalars. */
-function outputOf(
-	api: Api,
+/** What a function's answer reads its output with. */
+type Reading = {
+	readonly api: Api
+	readonly pending: Pending
+	readonly paging: ReadonlyMap<string, Paging>
+}
+
+/** A row as a model's output returns it, its default virtuals read after. */
+function rowOut(reading: Reading, model: string, value: unknown): unknown {
+	const row = rowOf(value)
+	if (row === undefined) {
+		throw new TypeError(`A ${model} was returned without its id.`)
+	}
+	const entry = entryOf(reading.api, model)
+	const copy = shaped(row, defaultShape(entry))
+	if (defaultVirtuals(entry).length > 0) {
+		const { pending } = reading
+		pending.set(entry, [...(pending.get(entry) ?? []), { id: row.id, copy }])
+	}
+	return copy
+}
+
+/**
+ * A value as GraphQL returns a function's output, a model's row its scalars,
+ * a page read as `path`'s parameters ask (D-182).
+ */
+async function outputOf(
+	reading: Reading,
 	output: ExposedOutput,
 	value: unknown,
 	where: string,
-	pending: Pending,
-): unknown {
+	path: string,
+): Promise<unknown> {
 	if (output.kind === 'schema') return value ?? null
+	if (output.kind === 'page') {
+		const paging = reading.paging.get(path)
+		if (paging === undefined) throw new TypeError(`${where} was not paged.`)
+		return readPage(output.name, value, paging, (row) =>
+			rowOut(reading, output.name, row),
+		)
+	}
 	if (value === null || value === undefined) {
 		if (output.form === 'nullable') return null
 		throw nonNull(where)
@@ -79,28 +113,24 @@ function outputOf(
 	if (output.form === 'list') {
 		const items: readonly unknown[] = Array.isArray(value) ? value : []
 		const item = { ...output, form: 'one' } as const
-		return items.map((each) => outputOf(api, item, each, where, pending))
+		return Promise.all(
+			items.map(async (each) => outputOf(reading, item, each, where, path)),
+		)
 	}
-	if (output.kind === 'model') {
-		const row = rowOf(value)
-		if (row === undefined) {
-			throw new TypeError(`A ${output.name} was returned without its id.`)
-		}
-		const entry = entryOf(api, output.name)
-		const copy = shaped(row, defaultShape(entry))
-		if (defaultVirtuals(entry).length > 0) {
-			pending.set(entry, [...(pending.get(entry) ?? []), { id: row.id, copy }])
-		}
-		return copy
-	}
+	if (output.kind === 'model') return rowOut(reading, output.name, value)
 	const given: Node = isNode(value) ? value : {}
 	const { type } = output
-	return Object.fromEntries(
-		[...type.fields].map(([name, field]) => [
-			name,
-			outputOf(api, field, given[name], `${type.name}.${name}`, pending),
-		]),
-	)
+	const fields = [...type.fields].map(async ([name, field]) => [
+		name,
+		await outputOf(
+			reading,
+			field,
+			given[name],
+			`${type.name}.${name}`,
+			path === '' ? name : `${path}.${name}`,
+		),
+	])
+	return Object.fromEntries(await Promise.all(fields))
 }
 
 /** The default virtuals of a function's rows, read by id as the caller (D-151). */
@@ -159,8 +189,16 @@ export function functionRoutes(
 		const nullable =
 			output?.kind === 'schema'
 				? acceptsNull(jsonSchemaOf(output.schema, 'output', `${owner}: output`))
-				: output?.form === 'nullable'
-		const answer = async (as: Caller, client: Client, sent: unknown) => {
+				: output !== undefined &&
+					output.kind !== 'page' &&
+					output.form === 'nullable'
+		const pages = pagesOf(output)
+		const answer = async (
+			as: Caller,
+			client: Client,
+			sent: unknown,
+			paging: ReadonlyMap<string, Paging> = new Map(),
+		) => {
 			const value = await fn.run(sent, { as }, client)
 			if (output === undefined) return true
 			if (value === undefined && !nullable) {
@@ -168,23 +206,35 @@ export function functionRoutes(
 					`${fn.name} returned undefined; make its output .nullable() and return null.`,
 				)
 			}
-			const pending: Pending = new Map()
-			const answered = outputOf(api, output, value, fn.name, pending)
-			await withVirtuals(pending, as)
+			const reading = { api, pending: new Map(), paging }
+			const answered = await outputOf(reading, output, value, fn.name, '')
+			await withVirtuals(reading.pending, as)
 			return answered
 		}
 		const path = `${base}/functions/${name}`
 		if (fn.query) {
 			const { accepted, flat } = getParams(root)
+			const paged = pageParams(api, owner, pages, accepted)
+			const names = [...paged.json, ...paged.text]
 			app.get(path, async (c) => {
-				const params = paramsOf(c.req.url, accepted)
+				const params = paramsOf(c.req.url, {
+					json: [...accepted.json, ...paged.json],
+					text: [...accepted.text, ...paged.text],
+				})
 				const { client, sent } = clientOf(c)
-				const given = flat ? params : params['input']
+				const inputs = Object.fromEntries(
+					Object.entries(params).filter(([key]) => !names.includes(key)),
+				)
+				const given = flat ? inputs : params['input']
 				if (wantsEvents(c.req.raw)) {
 					const compute = async (as: Caller) => answer(as, client, given)
 					return sent(await liveValue(live, owner, c.req.raw, compute))
 				}
-				return sent(c.json(await answer(c.var.caller, client, given)))
+				const { caller } = c.var
+				const paging = await run(async () =>
+					pagingOf(api, caller, pages, params),
+				)
+				return sent(c.json(await answer(caller, client, given, paging)))
 			})
 		} else if (input === undefined) {
 			app.post(path, async (c) => {

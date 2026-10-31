@@ -4,7 +4,7 @@ import { asUser, testApplication } from '@ultimabase/testing'
 import { master } from 'ultimabase'
 import { beforeEach, expect, it } from 'vitest'
 import { app } from './app.ts'
-import { borrowBook, returnBooks, searchBooks } from './functions.ts'
+import { borrowBook, returnBooks, searchBooks, shelf } from './functions.ts'
 import { Book } from './models.ts'
 
 const running = testApplication(app)
@@ -104,6 +104,35 @@ it('serves each function over REST', async () => {
 	expect(await borrowed.json()).toMatchObject({
 		code: 'ACCESS_DENIED',
 		message: 'borrowBook refused.',
+	})
+	//#endregion
+})
+
+it('pages a page over each transport, as the model list', async () => {
+	//#region paged
+	// From server code, `run` returns the page: rows and a count, read when asked.
+	const page = await shelf.run(ada)
+	expect(await page.count()).toBe(2)
+	const [first] = await page.findMany({ take: 1 })
+	expect(first?.title).toBe('Dune')
+
+	// GraphQL serves Book's connection, with Book's page arguments.
+	expect(
+		await request(
+			'{ shelf(first: 1) { edges { node { title } } totalCount } }',
+		),
+	).toEqual({
+		data: { shelf: { edges: [{ node: { title: 'Dune' } }], totalCount: 2 } },
+	})
+
+	// REST answers as GET /api/books does, with its parameters.
+	const listed = await fetch(
+		`${running.url}/api/functions/shelf?first=1&totalCount=true`,
+	)
+	expect(await listed.json()).toMatchObject({
+		edges: [{ node: { title: 'Dune' } }],
+		pageInfo: { hasNextPage: true },
+		totalCount: 2,
 	})
 	//#endregion
 })

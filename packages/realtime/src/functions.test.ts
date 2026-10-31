@@ -12,6 +12,7 @@ import {
 	defineFunction,
 	defineModel,
 	definePlugin,
+	defineType,
 	master,
 	memory,
 } from 'ultimabase'
@@ -411,7 +412,7 @@ describe('the live functions', () => {
 		await expect(refused('missing')).rejects.toThrow('missing is not live.')
 	})
 
-	it('refuse a mutation, and a debounce that is not a positive integer', async () => {
+	it('refuse a mutation, a page, and a debounce that is not a positive integer', async () => {
 		// @ts-expect-error: a mutation cannot list realtime().
 		const mutation = defineFunction({
 			name: 'touch',
@@ -424,8 +425,19 @@ describe('the live functions', () => {
 			use: [realtime()],
 			run: () => undefined,
 		}).with({ realtime: { debounce: 0 } })
+		const paged = defineFunction({
+			name: 'paged',
+			query: true,
+			use: [realtime()],
+			output: defineType({
+				name: 'Feed',
+				fields: { posts: Post.paginated() },
+			}),
+			run: () => ({ posts: Post.paginate({}, { as: master }) }),
+		})
 		for (const [fn, refusal] of [
 			[mutation, 'touch is a mutation: it cannot be live.'],
+			[paged, 'paged returns a page: it cannot be live.'],
 			[slow, "realtime's debounce must be a positive integer."],
 		] as const) {
 			app = defineApp({

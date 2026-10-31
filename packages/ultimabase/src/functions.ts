@@ -24,7 +24,7 @@ function checkOutput(
 	types: Map<string, TypeDefinition>,
 ): void {
 	if (output.kind === 'schema') return
-	if (output.kind === 'model') {
+	if (output.kind === 'model' || output.kind === 'page') {
 		const info = resolved.byValue.get(output.value)
 		if (info === undefined) {
 			throw new Refused(

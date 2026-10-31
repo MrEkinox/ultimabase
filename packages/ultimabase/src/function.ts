@@ -3,14 +3,18 @@
 // application, and the named objects its output may hold.
 import type { AnyCheck, SchemaTypes, StandardSchema } from './fields.ts'
 import type { ModelShape } from './model.ts'
+import type { Page } from './page.ts'
 import type { ModelUse, PluginTypes } from './plugin.ts'
 import type { QueryOptions } from './query.ts'
 import type { RecordOf } from './record.ts'
 import type { Caller } from './rules.ts'
-import type { modelFields, nullableOf, typeFields } from './symbols.ts'
+import type { modelFields, nullableOf, pageOf, typeFields } from './symbols.ts'
 
 /** `X.nullable()`: a model or a type, or `null` (D-109). */
 export type Nullable<X> = { readonly [nullableOf]: X }
+
+/** `Model.paginated()`: a page of the model, which a transport reads (D-182). */
+export type Paginated<M> = { readonly [pageOf]: M }
 
 /** A `defineType`: a named object, which may hold a model (D-109). */
 export interface ObjectType<N extends string, F> {
@@ -24,10 +28,14 @@ type Named =
 
 /**
  * What a function returns (D-109): a model or a type, one or `null`, a list
- * of one, or any Standard Schema.
+ * of one, a model's page (D-182), or any Standard Schema.
  */
 export type OutputSpec =
-	Named | Nullable<Named> | readonly [Named] | StandardSchema
+	| Named
+	| Nullable<Named>
+	| readonly [Named]
+	| Paginated<ModelShape>
+	| StandardSchema
 
 /** A `defineType`'s fields: any output but nothing. */
 export type TypeFields = { readonly [field: string]: OutputSpec }
@@ -39,11 +47,13 @@ export type OutputValue<O> = O extends { readonly [modelFields]: infer F }
 		? { readonly [K in keyof F]: OutputValue<F[K]> }
 		: O extends { readonly [nullableOf]: infer X }
 			? OutputValue<X> | null
-			: O extends StandardSchema
-				? SchemaTypes<O>['output']
-				: O extends readonly [infer X]
-					? readonly OutputValue<X>[]
-					: never
+			: O extends { readonly [pageOf]: infer M }
+				? Page<OutputValue<M>>
+				: O extends StandardSchema
+					? SchemaTypes<O>['output']
+					: O extends readonly [infer X]
+						? readonly OutputValue<X>[]
+						: never
 
 /** What `run` returns: nothing without an output. */
 export type ResultOf<O> = [O] extends [undefined] ? void : OutputValue<O>
@@ -134,6 +144,21 @@ export type QueryCheck<U> = [
 ] extends [never]
 	? unknown
 	: { readonly query: true }
+
+// Not distributed: a field typed by the whole `OutputSpec` holds no page.
+type HoldsPage<O> = [O] extends [{ readonly [pageOf]: unknown }]
+	? true
+	: [O] extends [{ readonly [nullableOf]: infer X }]
+		? HoldsPage<X>
+		: [O] extends [{ readonly [typeFields]: infer F }]
+			? true extends { [K in keyof F]: HoldsPage<F[K]> }[keyof F]
+				? true
+				: false
+			: false
+
+/** Requires `query: true` when the output holds a page (D-182). */
+export type PageCheck<O> =
+	true extends HoldsPage<O> ? { readonly query: true } : unknown
 
 /** Refuses an input typed `any` or without types (D-27). */
 export type InputCheck<I> = [I] extends [StandardSchema]

@@ -7,6 +7,7 @@ import {
 	modelDefinitions,
 	nameOf,
 	nullable,
+	paginated,
 	withOnce,
 } from './definition.ts'
 import type { FieldDefinition, ModelDefinition } from './definition.ts'
@@ -24,6 +25,7 @@ import type {
 } from './model.ts'
 import type { ForModel, ModelUse, PluginTypes } from './plugin.ts'
 import { Refused } from './errors.ts'
+import { paginate } from './page.ts'
 
 // The intersection of the used plugins' commands; `unknown` without any.
 type CommandFn<U, F> =
@@ -217,6 +219,9 @@ function createModel(definition: {
 	model['with'] = withOnce(name, record, () => frozen)
 	model['nullable'] = (): object =>
 		nullable({ kind: 'model', value: frozen, name })
+	model['paginated'] = (): object => paginated(frozen, name)
+	model['paginate'] = (args?: unknown, options?: unknown): object =>
+		paginate(name, args, options)
 	const frozen = Object.freeze(model)
 	modelDefinitions.set(frozen, record)
 	return frozen

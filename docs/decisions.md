@@ -1122,7 +1122,7 @@ fields: (f) => ({
 
 ## D-45: Function types become GraphQL types, with an escape hatch
 
-Amended by D-109 and D-125.
+Amended by D-109, D-125 and D-182.
 
 Choice: a function's `input` is any Standard Schema; its `output` is a model
 (`Todo`), a list (`[Todo]`), a named object mixing models and schemas
@@ -11711,4 +11711,140 @@ export const Post = defineModel({
 		hasCover: { run: ({ record }) => record.cover !== null },
 	},
 })
+```
+
+## D-182: A function returns a page shaped like the generated lists
+
+Choice: amends D-45 (its `paginated(Todo)` is out of 0.1) and completes
+D-109 and D-134.
+
+1. `Model.paginated()` is a function's output, as `Model.nullable()` is
+   (D-109): at the root of the output, or a field of a `defineType` at any
+   depth of single or nullable types. It is refused at definition under a
+   list (`[Type]`), at any depth, since each item would be one read and one
+   count (D-46), and in a virtual's output. A type has no `.paginated()`,
+   and a page has no `.nullable()`: an empty page is a page.
+2. A function with a page in its output is a query (`query: true`),
+   refused at definition otherwise, and is not live: the realtime plugin
+   refuses it at startup (D-154).
+3. `Model.paginate(args, options)` takes `findMany`'s `where` and
+   `orderBy`, and its options. It reads nothing: it returns a page source,
+   whose `findMany({ take, skip, cursor })` reads the rows and whose
+   `count()` counts them, both with that `where`, that `orderBy` and that
+   `as`. `run` returns it where the output has `Model.paginated()`, typed;
+   `fn.run(input, { as })` returns it as `run` did. A page source is not a
+   Promise: `await` gives the source itself.
+4. Each transport reads the page as it reads the model's generated list:
+   the same arguments (`first`, `after`, `last`, `before` for a connection,
+   `take` and `skip` for a list, D-41), the same bounds (`take`, `maxTake`,
+   Master unbounded, D-55), the same cursors and errors. GraphQL adds them
+   to the field, the function's root field or the type's field, and
+   returns the model's connection type (`FriendshipConnection`) or its
+   list. REST reads them as the model's list endpoint does: flat
+   parameters for a page at the root, and one JSON parameter named by the
+   field's path for a page in a type (`friendships={"first":20}`), as a
+   nested `include` takes them (D-134 point 6); its answer and its OpenAPI
+   schema are the model list's. A function input property or a parameter
+   named like a page argument is refused at startup.
+5. The count is the generated lists': `totalCount`, counted only when the
+   client selects it in GraphQL, once however many aliases ask, or sends
+   `totalCount: true` in REST; none with `pagination: 'list'`; the source's
+   `where` and `as`, so it counts the rows the page pages; and the row
+   budget counts it as a list's (D-134 point 7).
+6. A page's rows leave as a `[Model]` output's (D-109): their scalars as
+   the source read them, their relations and default virtuals read again
+   by `id` as the caller. A client adds no `where` or `orderBy` to a page:
+   its filters are the function's input.
+7. The rows and the count are two reads, as for the generated lists: they
+   share no snapshot (D-66).
+
+Why:
+
+- A function serves the lists a generated query cannot, typically when its
+  filter reads rows the caller may not read and it filters as Master. With
+  `[Model]` and a hand-written `defineType` holding a list and a count, the
+  client kept two pagination shapes and two cache policies, each function
+  copied `take` and `maxTake` into its input, and the count ran on every
+  call, selected or not.
+- The transport, not `run`, applies the page: `run` cannot forget it, the
+  kernel holds no Relay cursor (the reason of D-45), and the code that pages
+  the generated lists pages these, so the shapes cannot drift.
+- `Model.paginated()` follows `Model.nullable()`: an output form is read on
+  the model, with nothing to import.
+- A page under a list would read once per item, the N+1 that D-46 rules
+  out for relations.
+- One snapshot for the rows and the count would set functions apart from
+  the generated lists; it is a decision for both.
+
+Rejected:
+
+- `run` receiving `page` and calling a `findPage` that reads: a forgotten
+  `...page` pages nothing without an error, and the kernel learns Relay's
+  arguments.
+- A thenable page source, which `await` reads: a hidden read, with no page
+  size and no count chosen.
+- `fn.run(input, { as, page })` returning rows: a second way to call a
+  function, where the source's two methods suffice.
+- `paginated(Model)`, imported: unlike `Model.nullable()`.
+- A page at the root only: a function returning a profile and its friends'
+  page needed two functions.
+
+Example, before: a page type, bounds and a count written by hand.
+
+```ts
+const MutualFriendships = defineType({
+	name: 'MutualFriendships',
+	fields: { friendships: [Friendship], totalCount: z.int() },
+})
+
+export const mutualFriendships = defineFunction({
+	name: 'mutualFriendships',
+	query: true,
+	input: z.object({
+		userId: z.uuid(),
+		take: z.int().min(1).max(100).default(20),
+		skip: z.int().min(0).default(0),
+	}),
+	output: MutualFriendships,
+	run: async ({ input }) => {
+		const where = { friend: { is: { id: input.userId } } }
+		const [friendships, totalCount] = await Promise.all([
+			Friendship.findMany(
+				{
+					where,
+					orderBy: { createdAt: 'asc' },
+					take: input.take,
+					skip: input.skip,
+				},
+				{ as: master },
+			),
+			Friendship.count({ where }, { as: master }),
+		])
+		return { friendships, totalCount }
+	},
+})
+```
+
+After: the model's page, read and counted by the transport.
+
+```ts
+export const mutualFriendships = defineFunction({
+	name: 'mutualFriendships',
+	query: true,
+	input: z.object({ userId: z.uuid() }),
+	output: Friendship.paginated(),
+	run: ({ input }) =>
+		Friendship.paginate(
+			{
+				where: { friend: { is: { id: input.userId } } },
+				orderBy: { createdAt: 'asc' },
+			},
+			{ as: master },
+		),
+})
+
+// GraphQL: mutualFriendships(userId: "u2", first: 20) { edges { node { id } } pageInfo { endCursor } totalCount }
+// REST: GET /functions/mutualFriendships?userId=u2&first=20&totalCount=true
+// Server code: const page = await mutualFriendships.run({ userId }, { as: ada })
+//              await page.findMany({ take: 20 }); await page.count()
 ```

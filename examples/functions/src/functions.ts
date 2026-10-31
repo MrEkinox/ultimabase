@@ -87,3 +87,17 @@ export const returnBooks = defineFunction({
 	graphql: { name: 'giveBack' },
 })
 //#endregion
+
+//#region page
+// A page: a client pages it as Book's generated list, and counts it.
+export const shelf = defineFunction({
+	name: 'shelf',
+	query: true,
+	output: Book.paginated(),
+	run: ({ caller }) =>
+		Book.paginate(
+			{ where: { borrowedBy: null }, orderBy: { title: 'asc' } },
+			{ as: caller },
+		),
+}).with({ access: allow.public })
+//#endregion

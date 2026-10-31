@@ -4,9 +4,10 @@ import type { Node } from '@ultimabase/http/internal'
 import { isNode, jsonSchemaOf } from '@ultimabase/http/internal'
 import type { ExposedOutput, ExposedType } from 'ultimabase'
 import type { Routed } from './functions.ts'
+import { pagesOf } from './function-pages.ts'
 import { getParams } from './functions.ts'
 import type { Doc } from './openapi-inputs.ts'
-import { rowOf } from './openapi-models.ts'
+import { listOf, pageParams, rowOf } from './openapi-models.ts'
 import type { Schema } from './openapi.ts'
 import {
 	arrayOf,
@@ -48,7 +49,10 @@ function typeOf(doc: Doc, type: ExposedType, owner: string): Schema {
 	)
 }
 
-/** A model, a `defineType` or a schema, held as `form` says (D-109). */
+/**
+ * A model, a `defineType` or a schema, held as `form` says (D-109), or a
+ * page, the model's list (D-182).
+ */
 export function outputOf(
 	doc: Doc,
 	output: ExposedOutput,
@@ -59,6 +63,7 @@ export function outputOf(
 		const node = jsonSchemaOf(output.schema, 'output', `${owner}: output`)
 		return hoisted(doc.components, node, 'output', owner, root)
 	}
+	if (output.kind === 'page') return listOf(doc, output.name)
 	const one =
 		output.kind === 'model'
 			? rowOf(doc, output.name)
@@ -103,13 +108,20 @@ export function functionPaths(
 			fn.output === undefined
 				? { const: true }
 				: outputOf(doc, fn.output, owner, `${base}Output`)
+		const pages = pagesOf(fn.output).flatMap(({ path, model }) =>
+			pageParams(doc, model, path),
+		)
+		const parameters = [
+			...(given !== undefined && input !== undefined
+				? paramsOf(doc, input, given)
+				: []),
+			...pages,
+		]
 		const operation = {
 			operationId: doc.components.operation(name, owner, 'name'),
 			tags: ['functions'],
 			...(fn.description !== undefined && { description: fn.description }),
-			...(fn.query && given !== undefined && input !== undefined
-				? { parameters: paramsOf(doc, input, given) }
-				: {}),
+			...(fn.query && parameters.length > 0 && { parameters }),
 			...(!fn.query &&
 				given !== undefined && {
 					requestBody: { required: true, content: json(given) },

@@ -1,7 +1,8 @@
 // What official packages read from an application (D-130), kept off the
 // documented surface: new runs of it on another database, quieter, the
 // running plugins' APIs, what raw SQL and tests on the declared database
-// need (D-137), what live reads need (D-154) and the feed tests call (D-168).
+// need (D-137), what live reads need (D-154), the feed tests call (D-168)
+// and the pages functions return (D-182).
 import type { Adapter, Feed } from './adapter.ts'
 import { internalsOf } from './app-internals.ts'
 import type { Logger } from './app-options.ts'
@@ -14,6 +15,8 @@ export type { Lifecycle }
 export type { Scratch } from './scratch.ts'
 export { scratchable, scratchOf } from './scratch.ts'
 export { isRow } from './field-codec.ts'
+export type { PageSource } from './page.ts'
+export { pageSource } from './page.ts'
 export { joining } from './transaction.ts'
 export { issueOf } from './write-data.ts'
 export { decimalPattern } from './decimal.ts'

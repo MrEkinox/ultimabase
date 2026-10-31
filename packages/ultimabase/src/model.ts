@@ -1,7 +1,8 @@
 // The model `defineModel(...).with(...)` returns (D-07, D-24) and the
 // application `defineApp` assembles.
-import type { Nullable } from './function.ts'
-import type { FindWhere, Queries, Where } from './query.ts'
+import type { Nullable, Paginated } from './function.ts'
+import type { Page, PageQuery } from './page.ts'
+import type { FindWhere, Queries, QueryOptions, Where } from './query.ts'
 import type {
 	CreateData,
 	RecordOf,
@@ -152,6 +153,14 @@ export interface Model<N extends string, F, P, W, X = never> extends Queries<
 	with(rules: ModelWith<F, W, N>): this
 	/** The model, or `null`, as a function's output (D-109). */
 	nullable(): Nullable<this>
+	/** A page of the model, as a function's output (D-182). */
+	paginated(): Paginated<this>
+	/** The rows `where` selects, which a transport pages and counts (D-182). */
+	paginate(
+		this: void,
+		args?: PageQuery<F>,
+		options?: QueryOptions,
+	): Page<RecordOf<F>>
 }
 
 export type FieldShape = {
