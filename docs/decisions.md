@@ -6819,7 +6819,7 @@ await fetch('/api/functions/signUp', {
 
 ## D-130: `testApplication(app)` and `npm create ultimabase`
 
-Amended by D-137 and D-168.
+Amended by D-137, D-168 and D-177.
 Amended 2026-10-30: the starter runs `ultimabase dev` and `ultimabase start`.
 
 Choice: completes D-40, D-61 and D-80.
@@ -11103,4 +11103,82 @@ After, with `DATABASE_URL` in `packages/backend/.env`, beside
 # From the monorepo's root: the same file is loaded.
 yarn workspace backend dev
 npx ultimabase sync --config packages/backend/ultimabase.config.ts
+```
+
+## D-177: A test lists the queries a callback makes
+
+Choice: amends D-130.
+
+1. The value `testApplication` returns gains `queries(callback)`. It runs
+   the callback and resolves to the list of queries the callback sent to the
+   database, in their order. Rows written before the call are not listed.
+2. An entry is a string: the operation, `find`, `count`, `aggregate` or
+   `write`, then the model it reads, as `'find User'`. A write names the
+   models its changes touch, in their order and once each, as
+   `'write Invite, User'`.
+3. The queries of a transaction are listed; its begin, commit and rollback
+   are not. `database.sql` is not listed: it goes to the database without
+   the adapter's contract.
+4. The entries name no caller and no arguments: the operation and the model
+   are what a test of a refusal or of an N+1 checks.
+5. The queries are recorded on the adapter itself and on each transaction it
+   begins, the same objects, not wrappers: postgres()'s `sql` finds the open
+   transaction by them (D-137). It works on `memory()` and on
+   `{ database: 'declared' }`.
+6. While the callback runs, every query of the application is listed, a
+   plugin's included. `queries()` throws outside a test and inside another
+   `queries()` callback. A callback that throws stops the recording and
+   rejects with its error.
+
+Why:
+
+- A function that refuses its input before it reads anything cannot prove it
+  today: the models are frozen, so `vi.spyOn` on them throws, and the kernel
+  logs no query. A test that checks only the error code still passes when the
+  refusal moves after the read.
+- The adapter is where every query of the API passes, so one recording sees
+  them all without touching the kernel.
+- Strings read at a glance in a failed `toEqual`, and an N+1 shows as a list
+  that grows with the rows.
+
+Rejected:
+
+- `app.queries.record()` and `stop()` on the application, as the issue first
+  asked: a recording left running past a failed assertion lists the next
+  test's queries; a callback ends it.
+- The caller of each query: the adapter does not receive it, and a test of a
+  rule checks its result.
+- A debug log line per query in the kernel: a log level the logger does not
+  have (D-58), for a need tests alone have shown.
+- A wrapper around the adapter: raw SQL in a transaction would run outside
+  it.
+
+Example, before: the test proves the error, not that nothing was read.
+
+```ts
+await expect(
+	sendInvite.run({ userId: alice.id }, alice.as),
+).rejects.toMatchObject({ code: 'CANNOT_INVITE_YOURSELF' })
+```
+
+After:
+
+```ts
+const running = testApplication(app)
+
+it('refuses an invite to yourself before any query', async () => {
+	const queries = await running.queries(async () => {
+		await expect(
+			sendInvite.run({ userId: alice.id }, alice.as),
+		).rejects.toMatchObject({ code: 'CANNOT_INVITE_YOURSELF' })
+	})
+	expect(queries).toEqual([])
+})
+
+it('invites with one read and one write', async () => {
+	const queries = await running.queries(() =>
+		sendInvite.run({ userId: bob.id }, alice.as),
+	)
+	expect(queries).toEqual(['find User', 'write Invite'])
+})
 ```

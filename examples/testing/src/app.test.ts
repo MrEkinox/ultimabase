@@ -46,3 +46,22 @@ it('calls the API over HTTP', async () => {
 	expect(await response.json()).toEqual({ data: { notes: { edges: [] } } })
 	//#endregion
 })
+
+it('refuses an anonymous note before any query', async () => {
+	//#region queries
+	// The queries the callback sends to the database, in their order.
+	const refused = await running.queries(async () => {
+		await expect(Note.create({ data: { text: 'Milk' } })).rejects.toMatchObject(
+			{ code: 'ACCESS_DENIED' },
+		)
+	})
+	expect(refused).toEqual([])
+
+	const ada = { as: asUser({ id: 'ada' }) }
+	const written = await running.queries(async () => {
+		await Note.create({ data: { text: 'Milk' } }, ada)
+		await Note.findMany({}, ada)
+	})
+	expect(written).toEqual(['write Note', 'find Note'])
+	//#endregion
+})

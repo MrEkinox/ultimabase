@@ -64,7 +64,7 @@ it('runs only once postgres() is started', async () => {
 })
 
 describe("a test file on { database: 'declared' }", () => {
-	testApplication(defineApp({ database, models: [Entry] }), {
+	const running = testApplication(defineApp({ database, models: [Entry] }), {
 		database: 'declared',
 	})
 
@@ -99,6 +99,27 @@ describe("a test file on { database: 'declared' }", () => {
 		await expect(undone).rejects.toThrow('Undo.')
 		expect(await Entry.count({}, M)).toBe(0)
 		expect(await database.sql`select text from audit`).toEqual([])
+	})
+
+	// The queries are recorded on the adapter itself: a wrapper would hide
+	// the open transaction from `sql` (D-177).
+	it('joins the open transaction while a test records its queries', async () => {
+		const recorded = running.queries(async () =>
+			transaction(async () => {
+				await Entry.create({ data: { text: 'one' } }, M)
+				throw new Error('Undo.')
+			}),
+		)
+		await expect(recorded).rejects.toThrow('Undo.')
+		// The hook's insert into audit was undone with the create.
+		expect(await Entry.count({}, M)).toBe(0)
+		expect(await database.sql`select text from audit`).toEqual([])
+		// With an after hook, a create reads its row again (D-88).
+		expect(
+			await running.queries(async () =>
+				Entry.create({ data: { text: 'two' } }, M),
+			),
+		).toStrictEqual(['write Entry', 'find Entry', 'find Entry'])
 	})
 
 	it('fails the transaction it joins', async () => {

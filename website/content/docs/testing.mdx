@@ -51,6 +51,22 @@ access rules apply, as in the application.
 	../examples/testing/src/app.test.ts#http
 </include>
 
+## The queries a test makes
+
+`running.queries(callback)` lists the queries the callback sends to the
+database, in their order: a test proves that a refusal reads nothing, or
+that a loop does not query once per row.
+
+<include cwd meta='title="src/app.test.ts"'>
+	../examples/testing/src/app.test.ts#queries
+</include>
+
+An entry names the operation and the model: `find`, `count`, `aggregate` or
+`write`, then `Note`. A write that changes several models names them all,
+as `write Invite, User`. The queries of a
+[transaction](/docs/next/transactions) are listed; its begin and its
+commit are not.
+
 ## On PostgreSQL
 
 `{ database: 'declared' }` runs the tests on the application's own
@@ -96,10 +112,11 @@ report, since the feed reports the writes of the API only:
 
 It returns, read during a test:
 
-| Key             | Effect                                                       |
-| --------------- | ------------------------------------------------------------ |
-| `url`           | The HTTP server's address, such as `http://localhost:54321`. |
-| `feed.missed()` | Calls each plugin's `missed`, as after a lost connection.    |
+| Key                 | Effect                                                       |
+| ------------------- | ------------------------------------------------------------ |
+| `url`               | The HTTP server's address, such as `http://localhost:54321`. |
+| `feed.missed()`     | Calls each plugin's `missed`, as after a lost connection.    |
+| `queries(callback)` | The queries the callback sends, such as `['find Note']`.     |
 
 ### `asUser(user)`
 
@@ -109,15 +126,19 @@ It returns, read during a test:
 
 ### Errors
 
-| Message                                                                                                                                                              | When                                        |
-| -------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------- |
-| `testApplication takes the value defineApp returned.`                                                                                                                | Another value was given.                    |
-| `url is the address of httpPlugin(), read during a test: add httpPlugin() to the application.`                                                                       | `url` read outside a test, or without HTTP. |
-| `testApplication runs on the declared database when it gives a test file tables of its own, as postgres() does; this one does not: remove { database: 'declared' }.` | The database cannot give a schema per file. |
-| `feed.missed() runs during a test.`                                                                                                                                  | `feed.missed()` called outside a test.      |
+| Message                                                                                                                                                              | When                                          |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------- |
+| `testApplication takes the value defineApp returned.`                                                                                                                | Another value was given.                      |
+| `url is the address of httpPlugin(), read during a test: add httpPlugin() to the application.`                                                                       | `url` read outside a test, or without HTTP.   |
+| `testApplication runs on the declared database when it gives a test file tables of its own, as postgres() does; this one does not: remove { database: 'declared' }.` | The database cannot give a schema per file.   |
+| `feed.missed() runs during a test.`                                                                                                                                  | `feed.missed()` called outside a test.        |
+| `queries() runs during a test.`                                                                                                                                      | `queries()` called outside a test.            |
+| `queries() already records: do not nest it.`                                                                                                                         | `queries()` called inside another's callback. |
 
 ### Limits
 
 - `testApplication` adds Vitest's `beforeEach` and `afterEach`: call it at
   the top of a file or a `describe`, never inside a test.
 - A process killed during a test file leaves its schema behind.
+- `queries()` lists the queries of the whole application while the callback
+  runs, a plugin's included. `database.sql` is not listed.
