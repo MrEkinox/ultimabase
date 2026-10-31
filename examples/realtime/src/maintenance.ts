@@ -29,11 +29,6 @@ export const refusedInMaintenance: Gate = () =>
 export const maintenancePlugin: PluginOf<Maintenance> =
 	definePlugin<Maintenance>({
 		name: 'maintenance',
-		manifest: {
-			name: 'example-maintenance',
-			version: '1.0.0',
-			peerDependencies: { ultimabase: '*' },
-		},
 		requires: { http: httpPlugin },
 		start: ({ plugins }) => {
 			http = plugins.http

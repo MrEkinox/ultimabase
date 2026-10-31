@@ -29,7 +29,7 @@ definePlugin<Archive>({
 definePlugin<Archive>({ name: 'archive', manifest })
 // @ts-expect-error: a command is missing.
 definePlugin<Archive>({ name: 'archive', manifest, commands: () => ({}) })
-// @ts-expect-error: the manifest is required.
+// A plugin of the application has no manifest (D-172).
 definePlugin<Archive>({
 	name: 'archive',
 	commands: (model) => ({ archived: archivedOnly(model.queries) }),

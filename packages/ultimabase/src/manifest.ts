@@ -1,5 +1,6 @@
 // A plugin's manifest (D-57, D-95): checked by `definePlugin`, its ranges
 // matched at `start` against the running kernel and the installed plugins.
+// A plugin of the application has none and is not checked (D-172).
 import { satisfies, valid, validRange } from 'semver'
 import kernel from '../package.json' with { type: 'json' }
 import type { Logger } from './app-options.ts'
@@ -9,7 +10,11 @@ import { isObject } from './query-where.ts'
 import { Refused } from './errors.ts'
 
 /** Checks a plugin's `manifest`: a name, a version and valid ranges. */
-export function manifestOf(value: unknown, plugin: string): Manifest {
+export function manifestOf(
+	value: unknown,
+	plugin: string,
+): Manifest | undefined {
+	if (value === undefined) return undefined
 	const path = `${plugin}.manifest`
 	if (!isObject(value)) throw new TypeError(`${path} is an object.`)
 	const { name, version, peerDependencies } = value
@@ -52,11 +57,9 @@ export function checkVersions(
 	logger: Logger,
 ): void {
 	const installed = new Map<string, string>([[kernel.name, kernel.version]])
-	for (const { code } of plugins) {
-		installed.set(code.manifest.name, code.manifest.version)
-	}
-	for (const { code } of plugins) {
-		const { name, version, peerDependencies = {} } = code.manifest
+	const manifests = plugins.flatMap(({ code }) => code.manifest ?? [])
+	for (const { name, version } of manifests) installed.set(name, version)
+	for (const { name, version, peerDependencies = {} } of manifests) {
 		if (peerDependencies[kernel.name] === undefined) {
 			logger.warn(`${name} declares no ${kernel.name} range.`)
 		}
