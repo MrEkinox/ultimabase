@@ -592,6 +592,18 @@ describe('a viewer', () => {
 		expect(await message(seen, 2)).toMatchObject({ kind: 'changes' })
 	})
 
+	it('reads its caller again, and ends when it is another user (D-178)', async () => {
+		const viewer = await connect()
+		expect(await viewer.identify()).toMatchObject({ user: { id: 'ada' } })
+		expect(viewer.closed).toBe(false)
+		await Session.updateMany(
+			{ where: { token: 'ada-token' }, data: { user: 'bob' } },
+			M,
+		)
+		expect(await viewer.identify()).toBeUndefined()
+		expect(viewer.closed).toBe(true)
+	})
+
 	it('follows the request it adopts, unless another user sent it', async () => {
 		await Session.create({ data: { token: 'ada-two', user: 'ada' } }, M)
 		await Session.create({ data: { token: 'bob-token', user: 'bob' } }, M)
