@@ -12,6 +12,7 @@
 		"start": "node src/server.ts"
 	},
 	"dependencies": {
+		"@ultimabase/auth": "workspace:*",
 		"@ultimabase/graphql": "workspace:*",
 		"@ultimabase/http": "workspace:*",
 		"@ultimabase/rest": "workspace:*",

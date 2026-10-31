@@ -31,6 +31,12 @@ The full example, with its tests: [`examples/functions`](https://github.com/MrEk
 server code: its queries pass `{ as: caller }` to keep the caller's rules,
 or `{ as: master }` to write what no client writes, as `Book` here.
 
+`signedInRun`, from [`@ultimabase/auth`](/docs/next/auth), wraps a `run`
+for signed-in users: it adds `user`, the caller's record, typed. The rule
+`isAuthenticated` refuses a visitor with `ACCESS_DENIED` before `run`;
+Master passes every rule, so the wrapper refuses Master, and anyone a wider
+rule lets in, with `UNAUTHENTICATED`.
+
 ## Call it from server code
 
 `fn.run(input, { as })` does what a transport does: it checks the access
