@@ -2,7 +2,7 @@
 // the data sent and on defaults; its output is the stored value.
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { z } from 'zod'
-import { defineApp, defineModel, master, memory } from './index.ts'
+import { defineApp, defineModel, master, memory, PublicError } from './index.ts'
 import { query } from './engine.ts'
 import { resolve } from './schema.ts'
 import { validated } from './validation.ts'
@@ -16,6 +16,9 @@ const Form = defineModel({
 			optional: true,
 			validate: (value) => {
 				if (!/^[a-z-]+$/.test(value)) throw new Error('Lowercase letters only.')
+				if (value === 'admin') {
+					throw new PublicError('SLUG_RESERVED', 'This slug is reserved.')
+				}
 				return value
 			},
 		}),
@@ -51,6 +54,9 @@ const refused = (issues: readonly object[]) => ({
 	details: { issues },
 })
 
+const failure = (slug: string) =>
+	Form.create({ data: { code: 'x', slug } }, M).catch((error: unknown) => error)
+
 describe('validate', () => {
 	it('stores its output', async () => {
 		const form = await Form.create(
@@ -65,6 +71,23 @@ describe('validate', () => {
 		await expect(Form.create({ data }, M)).rejects.toMatchObject(
 			refused([{ path: ['slug'], message: 'Lowercase letters only.' }]),
 		)
+	})
+
+	it("gives the issue a PublicError's code, and none to another error", async () => {
+		const reserved = await failure('admin')
+		expect(reserved).toMatchObject({ code: 'VALIDATION_FAILED' })
+		expect(reserved).toHaveProperty('details', {
+			issues: [
+				{
+					path: ['slug'],
+					code: 'SLUG_RESERVED',
+					message: 'This slug is reserved.',
+				},
+			],
+		})
+		expect(await failure('A')).toHaveProperty('details', {
+			issues: [{ path: ['slug'], message: 'Lowercase letters only.' }],
+		})
 	})
 
 	it('validates defaults, and awaits an async function', async () => {

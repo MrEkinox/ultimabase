@@ -97,6 +97,22 @@ it('refuses a value its field does not accept', async () => {
 	})
 	await expect(
 		Product.create(
+			{ data: { name: ' ', sku: 'LMP-001', price: '10.00' } },
+			{ as: master },
+		),
+	).rejects.toMatchObject({
+		details: {
+			issues: [
+				{
+					path: ['name'],
+					code: 'NAME_BLANK',
+					message: 'A product needs a name.',
+				},
+			],
+		},
+	})
+	await expect(
+		Product.create(
 			{ data: { name: 'Lamp', sku: 'LMP-002', price: '1.005' } },
 			{ as: master },
 		),

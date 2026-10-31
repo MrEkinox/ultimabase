@@ -51,11 +51,12 @@ the JSON field with a schema is an object type, the decimal a string.
 
 Each field checks its type; `validate` adds a rule. It takes a Standard
 Schema (Zod, Valibot, ArkType…) or a function that returns the value to
-store and throws to refuse it. A refused write writes nothing and returns
-`VALIDATION_FAILED`, with one issue per refused field; a second row with a
-unique value returns `UNIQUE_VIOLATION`. With `unique: 'insensitive'`, a
-string clashes with another case of itself, `Alice` with `alice`, while each
-row keeps the case it was given:
+store and throws to refuse it; the issue takes the error's message, and a
+`PublicError`'s code for the client to test. A refused write writes nothing
+and returns `VALIDATION_FAILED`, with one issue per refused field; a second
+row with a unique value returns `UNIQUE_VIOLATION`. With
+`unique: 'insensitive'`, a string clashes with another case of itself,
+`Alice` with `alice`, while each row keeps the case it was given:
 
 <include cwd meta='title="src/models.test.ts"'>
 	../examples/models-and-queries/src/models.test.ts#refused
@@ -167,10 +168,10 @@ Plugins add their own types: `password()` and `file()`. See
 
 ### Errors
 
-| Code                | When                                                               | `details`                         |
-| ------------------- | ------------------------------------------------------------------ | --------------------------------- |
-| `VALIDATION_FAILED` | A value of the wrong type, out of range, or refused by `validate`. | `{ issues: [{ path, message }] }` |
-| `UNIQUE_VIOLATION`  | A second row with a unique field's or index's values.              | `{ model, fields }`               |
+| Code                | When                                                               | `details`                                |
+| ------------------- | ------------------------------------------------------------------ | ---------------------------------------- |
+| `VALIDATION_FAILED` | A value of the wrong type, out of range, or refused by `validate`. | `{ issues: [{ path, code?, message }] }` |
+| `UNIQUE_VIOLATION`  | A second row with a unique field's or index's values.              | `{ model, fields }`                      |
 
 The messages of the field types:
 
