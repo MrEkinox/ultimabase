@@ -8,7 +8,7 @@ import {
 	expectTypeOf,
 	it,
 } from 'vitest'
-import { defineApp, defineModel, master, memory } from './index.ts'
+import { allow, defineApp, defineModel, master, memory } from './index.ts'
 
 const M = { as: master }
 
@@ -245,6 +245,16 @@ describe('full-text search', () => {
 		await expect(bad.start()).rejects.toThrow(
 			'Bad.note has a read rule, and a search would reveal its value: remove search or the rule.',
 		)
+		// Everyone reads it: no read rule (D-176).
+		const Open = defineModel({
+			name: 'Open',
+			fields: (f) => ({
+				note: f.string({ search: true }).with({ access: allow.readOnly }),
+			}),
+		})
+		await app.stop()
+		app = defineApp({ database: memory(), models: [Open] })
+		await app.start()
 		for (const name of ['_search', '_relevance']) {
 			expect(() =>
 				defineModel({ name: 'Bad', fields: (f) => ({ [name]: f.string() }) }),

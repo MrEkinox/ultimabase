@@ -714,6 +714,8 @@ const Tag = defineModel({
 		note: f.string({ optional: true }).with({
 			access: { read: ({ caller }) => caller.kind === 'user' },
 		}),
+		// Everyone reads it: no read rule (D-176).
+		shown: f.string({ optional: true }).with({ access: allow.readOnly }),
 	}),
 }).with({ lens: { plural: 'tagz' } })
 const Secret = defineModel({

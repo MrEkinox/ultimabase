@@ -1043,6 +1043,8 @@ export const User = defineUser({ name: 'User', fields }).with({
 
 ## D-44: Field access rules per operation
 
+Amended by D-176.
+
 Choice: a field's `.with({ access })` takes one rule or one rule per operation
 (`read`, `create`, `update`). A rule has the shape of D-10 and returns `true`
 or `false`; every field rule, read included, receives the row's `record`
@@ -11103,4 +11105,65 @@ After, with `DATABASE_URL` in `packages/backend/.env`, beside
 # From the monorepo's root: the same file is loaded.
 yarn workspace backend dev
 npx ultimabase sync --config packages/backend/ultimabase.config.ts
+```
+
+## D-176: `allow.public` and `allow.readOnly` are no field read rule
+
+Choice: amends D-44.
+
+1. A field whose read rule is `allow.public` or `allow.readOnly`, as in
+   `access: allow.readOnly` or `access: { read: allow.public }`, has no read
+   rule: every caller reads it, filters on it, sorts on it and aggregates it,
+   as a field without `access`.
+2. The kernel tells these rules by identity, as D-44 tells `allow.private`:
+   only Master reads such a field. A rule of one's own that returns `true`,
+   such as `{ read: () => true }`, stays a read rule: the kernel does not run a rule
+   to learn what it does.
+3. The field is no longer hidden row by row, so GraphQL and OpenAPI type it
+   as its field declares it, non-null when it is required, and `search: true`
+   is allowed on it (D-148).
+4. Writes are unchanged: `allow.readOnly` still refuses a write to the field
+   to all but Master, and `{ read: allow.public, write: allow.private }` too.
+
+Why:
+
+- `allow.readOnly` reads "everyone reads, only Master writes", yet a field
+  with it was refused in a filter and typed nullable, as one a rule may
+  hide. An application migrating from Parse marks a field the server sets,
+  such as `featured`, with it, and its clients then cannot list the
+  featured rows.
+- `allow.public` always returns `true`: the row-by-row check and the refusal
+  in filters protect nothing.
+
+Rejected:
+
+- Running a read rule once without a record to learn whether it always
+  allows: a rule may read the caller, so its answer for one caller is not
+  the answer for another.
+- A new helper, such as `allow.serverWrites`: `allow.readOnly` already says
+  it.
+
+Example, before: a user's filter on a field only Master writes fails.
+
+```ts
+const Post = defineModel({
+	name: 'Post',
+	fields: (f) => ({
+		title: f.string(),
+		featured: f.boolean({ default: false }).with({ access: allow.readOnly }),
+	}),
+}).with({ access: allow.public })
+
+await Post.findMany({ where: { featured: { equals: true } } }, { as: caller })
+// INVALID_QUERY: where.featured: Post.featured has a read rule; only Master
+// filters on it.
+```
+
+After, with the same model: the filter returns the featured posts, GraphQL
+types `featured` as `Boolean!`, and a user's write to it is still refused.
+
+```ts
+await Post.findMany({ where: { featured: { equals: true } } }, { as: caller })
+await Post.update({ where: { id }, data: { featured: true } }, { as: caller })
+// ACCESS_DENIED: Post update refused.
 ```

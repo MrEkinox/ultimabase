@@ -1,5 +1,6 @@
 // How models' `.with({ graphql })` shape the schema (D-107): a plural, a
-// model reached by relations only, a ruled relation, and the schemas refused.
+// model reached by relations only, a ruled relation, an open field, and the
+// schemas refused.
 import { httpPlugin } from '@ultimabase/http'
 import type { Logger } from 'ultimabase'
 import {
@@ -44,6 +45,16 @@ const Team = defineModel({
 		code: f.string({ unique: true }).with({ access: { read: allow.private } }),
 	}),
 	indexes: [{ fields: ['name', 'code'], unique: true }],
+}).with({ access: allow.readOnly })
+
+const Badge = defineModel({
+	name: 'Badge',
+	use: [graphql()],
+	fields: (f) => ({
+		label: f.string(),
+		// Everyone reads it: no read rule (D-176).
+		featured: f.boolean({ default: false }).with({ access: allow.readOnly }),
+	}),
 }).with({ access: allow.readOnly })
 
 async function listening(
@@ -147,6 +158,33 @@ it('creates, updates or deletes no row of a hidden model through a relation (D-1
 		)
 		expect(created.errors?.[0]?.message).toContain('"create"')
 		expect(await Tag.count({}, { as: master })).toBe(0)
+	} finally {
+		await app.stop()
+	}
+})
+
+it('types a readOnly field non-null and lets a client filter on it', async () => {
+	const { app, url } = await listening([Badge])
+	try {
+		await Badge.create({ data: { label: 'a', featured: true } }, { as: master })
+		await Badge.create({ data: { label: 'b' } }, { as: master })
+		const type = await post(
+			`${url}/graphql`,
+			`{ __type(name: "Badge") { fields { name type { kind } } } }`,
+		)
+		expect(at(type.data, '__type', 'fields')).toContainEqual({
+			name: 'featured',
+			type: { kind: 'NON_NULL' },
+		})
+		const found = await post(
+			`${url}/graphql`,
+			`{ badges(where: { featured: { equals: true } }, orderBy: [{ featured: desc }]) {
+				edges { node { label } }
+			} }`,
+		)
+		expect(found).toStrictEqual({
+			data: { badges: { edges: [{ node: { label: 'a' } }] } },
+		})
 	} finally {
 		await app.stop()
 	}
