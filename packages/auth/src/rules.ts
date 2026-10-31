@@ -1,6 +1,8 @@
-// auth's ready-made rules and default (D-10, D-62, D-79, D-83): each reads
-// the caller, the record's stored keys (D-77) and the value written.
+// auth's ready-made rules and default (D-10, D-62, D-79, D-83), and their
+// function counterpart (D-181): each reads the caller, the record's stored
+// keys (D-77) and the value written.
 import type { Caller, CallerRule, Register, UserOf } from 'ultimabase'
+import { PublicError } from 'ultimabase'
 
 /** The rule "the caller is signed in" (D-10). */
 export const isAuthenticated: CallerRule = ({ caller }) =>
@@ -21,6 +23,26 @@ export function signedIn<
 		facts.caller.kind === 'user'
 			? rule({ ...facts, user: facts.caller.user })
 			: false
+}
+
+/**
+ * A function's `run` for signed-in callers only, which receives `user`
+ * (D-181); anyone else, Master too, is refused with `UNAUTHENTICATED`. The
+ * access rule refuses them first: this is the fallback for a function opened
+ * wider.
+ */
+export function signedInRun<Facts extends { readonly caller: Caller }, R>(
+	run: (facts: Facts & { readonly user: UserOf<Register> }) => R,
+): (facts: Facts) => R {
+	return (facts) => {
+		if (facts.caller.kind !== 'user') {
+			throw new PublicError(
+				'UNAUTHENTICATED',
+				'This function needs a signed-in user.',
+			)
+		}
+		return run({ ...facts, user: facts.caller.user })
+	}
 }
 
 type Ref = { readonly id: string } | null
