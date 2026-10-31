@@ -82,7 +82,9 @@ export type FieldShapes = { readonly [field: string]: FieldShape }
 export type ModelFields<
 	F,
 	U extends readonly ModelUse<string, PluginTypes>[],
-> = (fields: FieldBuilders<UsedTypes<U[number]>>) => F & NoInfer<RecordCheck<F>>
+> = (
+	fields: FieldBuilders<UsedTypes<U[number]>>,
+) => F & NoInfer<RecordCheck<F, AllFields<F, U[number]>>>
 
 /**
  * The model a declaration with these fields and plugins builds; a plugin's

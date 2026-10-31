@@ -184,11 +184,20 @@ type Expected<D, F> = {
 		: `'${P & string}' is not a scalar field of the model`
 }
 
-// A field typed before the model cannot check its record against it.
-export type RecordCheck<F> = {
+// A field typed before the model cannot check its record against it, nor a
+// virtual its `needs`, which may name a field a plugin adds (`A`).
+export type RecordCheck<F, A = F> = {
 	readonly [K in keyof F]: F[K] extends { readonly [declaredRecord]: infer D }
 		? { readonly [declaredRecord]: Expected<D, F> }
-		: unknown
+		: F[K] extends { readonly [fieldType]: { readonly kind: 'virtual' } }
+			? {
+					readonly [fieldType]: {
+						readonly options: {
+							readonly needs?: readonly (keyof RecordOf<A>)[]
+						}
+					}
+				}
+			: unknown
 }
 
 /**
