@@ -85,6 +85,12 @@ it('lets Master skip every rule', async () => {
 		{ as: master },
 	)
 	expect(featured.featured).toBe(true)
+	// allow.readOnly is no read rule: the author filters on the field.
+	const listed = await Article.findMany(
+		{ where: { featured: { equals: true } } },
+		ada,
+	)
+	expect(listed.map(({ id }) => id)).toEqual([draft.id])
 	//#endregion
 })
 

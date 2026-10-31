@@ -32,7 +32,13 @@ function fieldRule(
 	field: string,
 	operation: Operation,
 ): unknown {
-	return ruleOf(accessOf(model.definition.fields.get(field)?.rules), operation)
+	const rule = ruleOf(
+		accessOf(model.definition.fields.get(field)?.rules),
+		operation,
+	)
+	// Everyone reads through them: no read rule (D-176).
+	const open = rule === allow.public || rule === allow.readOnly
+	return operation === 'read' && open ? undefined : rule
 }
 
 function run(rule: unknown, facts: object): unknown {

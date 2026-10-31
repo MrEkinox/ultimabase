@@ -359,6 +359,56 @@ describe('read rules', () => {
 	})
 })
 
+const Flag = defineModel({
+	name: 'Flag',
+	fields: (f) => ({
+		label: f.string().with({ access: allow.public }),
+		on: f.boolean({ default: false }).with({ access: allow.readOnly }),
+		rank: f.number({ default: 0 }).with({
+			access: { read: allow.public, write: allow.private },
+		}),
+		// A rule of its own, even one that lets everyone read.
+		seen: f.boolean({ default: false }).with({
+			access: { read: () => true },
+		}),
+	}),
+}).with({ access: allow.public })
+
+describe('allow.public and allow.readOnly on a field (D-176)', () => {
+	it('are no read rule: anyone filters and sorts on the field', async () => {
+		await app.stop()
+		app = defineApp({ database: memory(), models: [Flag] })
+		await app.start()
+		await Flag.create({ data: { label: 'a', on: true, rank: 1 } }, M)
+		await Flag.create({ data: { label: 'b', on: true, rank: 2 } }, M)
+		await Flag.create({ data: { label: 'c' } }, M)
+		const found = await Flag.findMany(
+			{
+				where: { on: { equals: true }, label: { not: 'c' } },
+				orderBy: [{ rank: 'desc' }],
+			},
+			ada,
+		)
+		expect(found.map(({ label }) => label)).toEqual(['b', 'a'])
+		expect(
+			await path(async () =>
+				Flag.count({ where: { seen: { equals: false } } }, ada),
+			),
+		).toBe('where.seen')
+		// Writing is unchanged.
+		const [first] = found
+		const update = async (data: object) =>
+			failure(async () =>
+				Flag.update({ where: { id: first?.id ?? '' }, data }, ada),
+			)
+		expect(await update({ label: 'd' })).toEqual({})
+		expect(await update({ on: false })).toMatchObject({
+			code: 'ACCESS_DENIED',
+		})
+		expect(await update({ rank: 0 })).toMatchObject({ code: 'ACCESS_DENIED' })
+	})
+})
+
 describe('an unreadable row is absent (D-86)', () => {
 	it('from includes', async () => {
 		const comment = await Comment.findUnique(
