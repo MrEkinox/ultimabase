@@ -321,14 +321,14 @@ In a change, a stored `one` key is the target's id or `null`.
 
 ### Errors
 
-| Throw                                                 | When                                                                                      | The developer sees                                                                  |
-| ----------------------------------------------------- | ----------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
-| `UniqueViolation(model, fields)`                      | A unique index refuses a row.                                                             | `UNIQUE_VIOLATION`, `details: { model, fields }`                                    |
-| `CheckFailed(index)`                                  | A check counts other than its `count`.                                                    | The error of that check: `NOT_FOUND` or `RELATION_RESTRICTED`                       |
-| `OutOfRange(model, field)`                            | A computed number leaves its range or is not finite.                                      | `VALIDATION_FAILED`, the field's range in `issues`                                  |
-| `RelationViolation(model, field, target, restricted)` | A foreign key refuses a write.                                                            | `NOT_FOUND`, or `RELATION_RESTRICTED` with `details: { model, field }`              |
-| `MigrationFailed(at, reason, locked?)`                | The database refuses a statement or a file; `locked` when it waited too long for a table. | The start, `migrate deploy` or `reset` stops with the statement and the reason      |
-| `Conflict()`                                          | The database aborts a transaction for a conflict with another.                            | A serializable transaction runs again; `CONFLICT` after 3 attempts, else `INTERNAL` |
+| Throw                                                 | When                                                                                      | The developer sees                                                                   |
+| ----------------------------------------------------- | ----------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| `UniqueViolation(model, fields)`                      | A unique index refuses a row.                                                             | `UNIQUE_VIOLATION`, `details: { model, fields }`                                     |
+| `CheckFailed(index)`                                  | A check counts other than its `count`.                                                    | The error of that check: `NOT_FOUND` or `RELATION_RESTRICTED`                        |
+| `OutOfRange(model, field)`                            | A computed number leaves its range or is not finite.                                      | `VALIDATION_FAILED`, the field's range in `issues`                                   |
+| `RelationViolation(model, field, target, restricted)` | A foreign key refuses a write.                                                            | `NOT_FOUND`, or `RELATION_RESTRICTED` with `details: { model, field }`               |
+| `MigrationFailed(at, reason, locked?)`                | The database refuses a statement or a file; `locked` when it waited too long for a table. | The start, `migrate deploy` or `reset` stops with the statement and the reason       |
+| `Conflict()`                                          | The database aborts a transaction for a conflict with another.                            | A serializable transaction runs again; `CONFLICT` after 10 attempts, else `INTERNAL` |
 
 ### The feed
 

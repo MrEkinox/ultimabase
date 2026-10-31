@@ -11514,6 +11514,8 @@ role, as over HTTP. Had her session ended, the socket would close with
 
 ## D-179: A serializable transaction, retried on conflict
 
+Amended by D-183.
+
 Choice: amends D-66, D-72 and D-73; D-99 still rejects serializable
 isolation by default.
 
@@ -11916,3 +11918,70 @@ export const mutualFriendships = defineFunction({
 // Server code: const page = await mutualFriendships.run({ userId }, { as: ada })
 //              await page.findMany({ take: 20 }); await page.count()
 ```
+
+## D-183: A serializable retry waits, 10 attempts at most
+
+Choice: amends D-179, points 2 and 7 and its reasons.
+
+1. A serializable transaction that conflicts runs again after a random wait
+   between 0 and 20 × n ms, n being the attempts that conflicted so far: at
+   most 20 ms before the second attempt, 40 before the third. It runs 10
+   attempts at most, about 900 ms of waits at worst; the tenth conflict
+   fails with `CONFLICT`.
+2. Still no `retries` option.
+3. PostgreSQL follows what a serializable transaction read by index page,
+   not by row: transactions that share a page conflict, their rows apart or
+   not. They share one on a small table, whose index fits on a page, on an
+   index led by a time-ordered id, the kernel's UUIDv7 among them, whose
+   recent rows end on its last page, and on a small table the planner reads
+   whole, index or not. The transactions guide says so next to its advice
+   to index the fields read.
+
+Why:
+
+- D-179 measured a populated table with random keys and no relation. An
+  application migrating from Parse saw `CONFLICT` with unrelated users on
+  fresh tables. Measured with the kernel, 10 pairs liking each other at
+  once on fresh tables, `User`, `Heart` with a unique `(from, to)` index
+  and `Match`, 3 runs each: 3 attempts with no wait left 5 to 8 of the 20
+  calls in `CONFLICT`, on PostgreSQL 15 and 18; 3 attempts with the wait,
+  2 to 4. With 100,000 rows and UUIDv7 keys, 8 to 10 of 20.
+- 10 attempts with the wait: no call failed in any of these runs, none
+  needed more than 5 attempts, and a third committed at the first. At 50
+  pairs, none failed, 8 attempts at most; at 100 pairs, none failed, 9 at
+  most, 1.2 to 1.4 s for all of them. 10 attempts with no wait also left
+  none failed at 10 pairs, but needed 7.
+- D-179's "a random delay changed nothing" held where 2 attempts were
+  enough; where calls share a page, the wait is what lets them commit
+  apart.
+- The right count depends on the load at that moment, not on the
+  function, so an option would be a guess written once; waits grow with
+  the square of the count, 20 attempts reaching about 3.8 s. An option can
+  come later without breaking a call; removing one would.
+
+Rejected:
+
+- A `retries` option, for the reasons above.
+- An exponential backoff, base 10 ms up to 1 s: slightly fewer attempts,
+  but 1.7 to 2 s at 100 pairs instead of 1.2 to 1.4.
+- 5 attempts with waits up to 50 × n ms: 3 to 5 % of calls failed at 50
+  pairs, about 13 % at 100.
+- A warning logged after many attempts: on a fresh table in development it
+  would fire for every burst, with nothing to fix.
+
+Example, before: the same code as D-179's, on fresh tables; 10 pairs liking
+each other at once.
+
+```ts
+return transaction(
+	async () => {
+		const mine = await Heart.findFirst({ where: { from: me, to } }, M)
+		// … create it, read the reverse heart, make the match
+	},
+	{ isolation: 'serializable' },
+)
+// 5 to 8 of the 20 calls fail with `CONFLICT` after 3 attempts.
+```
+
+After: unchanged code; the 10 pairs match, each call after 5 attempts at
+most.

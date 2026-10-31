@@ -1,5 +1,6 @@
 // A serializable transaction (D-179) on PostgreSQL: two users liking each
-// other at once each read the other's like, and a conflict runs one again.
+// other at once each read the other's like, and a conflict runs one again,
+// after a random wait that spreads the calls apart (D-183).
 import { randomUUID } from 'node:crypto'
 import { Client } from 'pg'
 import type { Logger } from 'ultimabase'
@@ -48,6 +49,83 @@ const Like = defineModel({
 	indexes: [{ fields: ['user', 'target'] }],
 })
 
+const User = defineModel({
+	name: 'User',
+	fields: (f) => ({
+		name: f.string(),
+		hearts: f.many(() => Heart, { inverse: 'from' }),
+		hearted: f.many(() => Heart, { inverse: 'to' }),
+		matches: f.many(() => Match, { inverse: 'user' }),
+		matched: f.many(() => Match, { inverse: 'other' }),
+	}),
+})
+
+/** On a fresh table, every call reads and writes the same index page. */
+const Heart = defineModel({
+	name: 'Heart',
+	fields: (f) => ({
+		from: f.one(() => User),
+		to: f.one(() => User),
+		matchedAt: f.dateTime({ optional: true }),
+	}),
+	indexes: [{ fields: ['from', 'to'], unique: true }],
+})
+
+const Match = defineModel({
+	name: 'Match',
+	fields: (f) => ({ user: f.one(() => User), other: f.one(() => User) }),
+})
+
+/** The heart `a` sent to `b`. */
+const pair = (a: string, b: string) => ({
+	from: { is: { id: a } },
+	to: { is: { id: b } },
+})
+
+/** Hearts `to`, and matches both, a row each, when `to` hearted back. */
+async function heart(from: string, to: string): Promise<void> {
+	await transaction(
+		async () => {
+			// Read first, as an upsert does: a heart sent twice is kept once.
+			const mine =
+				(await Heart.findFirst({ where: pair(from, to) }, M)) ??
+				(await Heart.create(
+					{
+						data: {
+							from: { connect: { id: from } },
+							to: { connect: { id: to } },
+						},
+					},
+					M,
+				))
+			const back = await Heart.findFirst({ where: pair(to, from) }, M)
+			if (back === null) return
+			for (const [user, other] of [
+				[from, to],
+				[to, from],
+			] as const) {
+				await Match.create(
+					{
+						data: {
+							user: { connect: { id: user } },
+							other: { connect: { id: other } },
+						},
+					},
+					M,
+				)
+			}
+			await Heart.updateMany(
+				{
+					where: { id: { in: [mine.id, back.id] } },
+					data: { matchedAt: new Date() },
+				},
+				M,
+			)
+		},
+		{ isolation: 'serializable' },
+	)
+}
+
 /** Saves the like, and matches both when the other's is there. */
 async function like(user: string, target: string): Promise<void> {
 	await transaction(
@@ -91,7 +169,11 @@ for (const url of urls) {
 			schema = `t_${randomUUID().replaceAll('-', '')}`
 			await run(url, `create schema "${schema}"`)
 			database = createAdapter({ url: inSchema(url, schema) })
-			app = defineApp({ database, models: [Like], logger: quiet })
+			app = defineApp({
+				database,
+				models: [Like, User, Heart, Match],
+				logger: quiet,
+			})
 			await app.start()
 		})
 		afterEach(async () => {
@@ -116,6 +198,27 @@ for (const url of urls) {
 				M,
 			)
 			expect(matched).toBe(40)
+		})
+
+		// 3 attempts with no wait left 5 to 8 of these 20 calls in CONFLICT.
+		it('matches 10 pairs at once on fresh tables, relations checked', async () => {
+			const users = await User.createManyAndReturn(
+				{ data: Array.from({ length: 20 }, (_, at) => ({ name: `u${at}` })) },
+				M,
+			)
+			const ids = users.map(({ id }) => id)
+			await Promise.all(
+				Array.from({ length: 10 }, (_, at) => {
+					const [a = '', b = ''] = ids.slice(2 * at, 2 * at + 2)
+					return [heart(a, b), heart(b, a)]
+				}).flat(),
+			)
+			expect(await Match.count({}, M)).toBe(20)
+			const matched = await Heart.count(
+				{ where: { matchedAt: { not: null } } },
+				M,
+			)
+			expect(matched).toBe(20)
 		})
 	})
 }

@@ -2,6 +2,7 @@
 // hook's queries join it without a `tx` argument.
 import { AsyncLocalStorage } from 'node:async_hooks'
 import { randomUUID } from 'node:crypto'
+import { setTimeout } from 'node:timers/promises'
 import type { Adapter, BeginOptions, Transaction } from './adapter.ts'
 import { Conflict, RelationViolation } from './adapter.ts'
 import type { Logger } from './app-options.ts'
@@ -38,8 +39,11 @@ type Open = {
 	readonly serializable: boolean
 }
 
-/** A serializable transaction's attempts before `CONFLICT` (D-179). */
-const attempts = 3
+/** A serializable transaction's attempts before `CONFLICT` (D-183). */
+const attempts = 10
+
+/** The most a retry waits, per attempt that conflicted (D-183). */
+const spread = 20
 
 const opened = new AsyncLocalStorage<Open>()
 
@@ -197,7 +201,11 @@ export async function writing<R>(
 	return atomic(app, async (own) => run(storeOf(own, true), own.commits))
 }
 
-/** Runs `run` again on a conflict, in a new transaction each time (D-179). */
+/**
+ * Runs `run` again on a conflict, in a new transaction each time (D-179),
+ * after a random wait that grows with each attempt: transactions that share
+ * an index page drift apart (D-183).
+ */
 async function retried<R>(app: Running, run: () => Promise<R>): Promise<R> {
 	for (let attempt = 1; ; attempt += 1) {
 		try {
@@ -211,6 +219,7 @@ async function retried<R>(app: Running, run: () => Promise<R>): Promise<R> {
 					{ cause: error },
 				)
 			}
+			await setTimeout(Math.random() * spread * attempt)
 		}
 	}
 }
@@ -219,7 +228,7 @@ async function retried<R>(app: Running, run: () => Promise<R>): Promise<R> {
  * Runs `run` in one transaction: if it throws, or if a query in it fails,
  * every write rolls back and the `*Commit` hooks never run. Inside another
  * `transaction`, it joins that one (D-36). With `isolation: 'serializable'`,
- * a conflict runs `run` again, 3 attempts at most (D-179).
+ * a conflict runs `run` again, 10 attempts at most (D-179, D-183).
  */
 export async function transaction<R>(
 	run: () => Promise<R>,

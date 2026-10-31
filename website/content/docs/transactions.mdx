@@ -80,9 +80,10 @@ it:
 </include>
 
 When PostgreSQL aborts it for a conflict with another transaction, the
-callback runs again from the start, in a new transaction, 3 attempts at
-most; the third conflict fails with `CONFLICT`, status 409. Here the second
-like runs again, sees the first and makes the match:
+callback runs again from the start, in a new transaction, after a random
+wait that grows with each attempt, 10 attempts at most; the tenth conflict
+fails with `CONFLICT`, status 409. Here the second like runs again, sees the
+first and makes the match:
 
 <include cwd meta='title="src/app.test.ts"'>
 	../examples/transactions/src/app.test.ts#match
@@ -93,9 +94,14 @@ The callback must be safe to run again: an email or a payment belongs in a
 callback catches still fails its attempt.
 
 PostgreSQL tracks what a serializable transaction read by the index pages it
-went through. Without an index, it tracks the whole table, and every
-serializable transaction on it conflicts with the others: index the fields
-the callback reads by.
+went through, not by row. Without an index, it tracks the whole table, and
+every serializable transaction on it conflicts with the others: index the
+fields the callback reads by. Transactions that share a page still conflict
+with each other, rows apart or not: on a small table, whose index fits on
+one page, and on an index led by a time-ordered id, whose recent rows all
+end on its last page. The random wait spreads them apart: in a test of 100
+calls at once on fresh tables, none failed and few needed more than 7
+attempts.
 
 <include cwd meta='title="src/models.ts"'>
 	../examples/transactions/src/models.ts#like-model
@@ -116,10 +122,10 @@ done. See [Hooks](/docs/next/hooks).
 
 ### `transaction(run, options?)`
 
-| Argument            | Type               | Effect                                                             |
-| ------------------- | ------------------ | ------------------------------------------------------------------ |
-| `run`               | `() => Promise<R>` | The writes; every query inside runs in the transaction.            |
-| `options.isolation` | `'serializable'`   | Runs serializable, and runs `run` again on a conflict, 3 attempts. |
+| Argument            | Type               | Effect                                                              |
+| ------------------- | ------------------ | ------------------------------------------------------------------- |
+| `run`               | `() => Promise<R>` | The writes; every query inside runs in the transaction.             |
+| `options.isolation` | `'serializable'`   | Runs serializable, and runs `run` again on a conflict, 10 attempts. |
 
 It returns `run`'s value once the transaction commits and its `*Commit`
 hooks ran, or rejects with the error that rolled it back.
@@ -133,7 +139,7 @@ hooks ran, or rejects with the error that rolled it back.
 | `A query failed in this transaction, which rolls back: no other query runs in it.`                 | A query ran after one failed.                           |
 | `transaction runs on a started application.`                                                       | No application is started.                              |
 | `RELATION_RESTRICTED`, `NOT_FOUND`                                                                 | PostgreSQL's foreign keys refused at the commit.        |
-| `CONFLICT`                                                                                         | A serializable transaction conflicted 3 times.          |
+| `CONFLICT`                                                                                         | A serializable transaction conflicted 10 times.         |
 | `A transaction cannot become serializable once it began; open the serializable transaction first.` | The option, inside a transaction that began without it. |
 
 ### Limits
@@ -141,4 +147,4 @@ hooks ran, or rejects with the error that rolled it back.
 - No savepoint: a nested `transaction` cannot roll back alone.
 - A transaction holds its locks while the callback runs: call external
   services before it, or from a `*Commit` hook after it.
-- A serializable transaction runs 3 attempts, a number no option changes.
+- A serializable transaction runs 10 attempts, a number no option changes.
