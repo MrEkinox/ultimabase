@@ -10,7 +10,7 @@ import {
 	it,
 } from 'vitest'
 import { z } from 'zod'
-import type { ArgsOf } from './index.ts'
+import type { Adapter, ArgsOf } from './index.ts'
 import { defineApp, defineModel, master, memory } from './index.ts'
 import { query } from './engine.ts'
 
@@ -150,6 +150,47 @@ describe('createMany', () => {
 			code: 'UNIQUE_VIOLATION',
 		})
 		expect(await texts()).toEqual([])
+	})
+
+	it('checks the connected rows in one count, however many rows', async () => {
+		const counts: number[][] = []
+		const base = memory()
+		const database: Adapter = {
+			...base,
+			begin: async (options) => {
+				const tx = await base.begin(options)
+				return {
+					...tx,
+					write: async (write) => {
+						counts.push((write.checks ?? []).map((check) => check.count))
+						return tx.write(write)
+					},
+				}
+			},
+		}
+		await app.stop()
+		app = defineApp({ database, models: [Note, Folder, Label] })
+		await app.start()
+		const [inbox, done] = await Folder.createManyAndReturn(
+			{ data: [{ name: 'inbox' }, { name: 'done' }] },
+			M,
+		)
+		const folders = [inbox, done, inbox].map((folder) => folder?.id ?? '')
+		counts.length = 0
+		const data = folders.map((id, at) => ({
+			text: `n${at}`,
+			owner: me,
+			folder: { connect: { id } },
+		}))
+		expect(await Note.createMany({ data }, M)).toEqual({ count: 3 })
+		// Once per row, 3 counts: thousands put a statement past its limit.
+		expect(counts).toEqual([[2]])
+		const gone = { text: 'x', owner: me, folder: { connect: { id: me } } }
+		const missing = [...data.slice(0, 2), gone]
+		await expect(Note.createMany({ data: missing }, M)).rejects.toMatchObject({
+			code: 'NOT_FOUND',
+			message: 'A connected Folder does not exist.',
+		})
 	})
 
 	it('refuses nested writes, with the row they are in', async () => {

@@ -254,6 +254,18 @@ export class Plan {
 	}
 
 	/**
+	 * Fails with `other`'s issues, then takes its connects: the rows of a
+	 * `createMany` are checked in one count per target, however many they are.
+	 */
+	join(other: Plan): void {
+		if (other.issues.length > 0) throw invalid(other.issues)
+		for (const id of other.made) this.made.add(id)
+		for (const { model, ids, trusted, operation } of other.connected.values()) {
+			this.connect(model, [...ids], trusted, operation)
+		}
+	}
+
+	/**
 	 * The adapter's changes. A relation written from the other side runs the
 	 * target's rules and update hooks on each row it changes, and leaves the
 	 * rows the write cannot reach (D-78, D-86, D-88).
