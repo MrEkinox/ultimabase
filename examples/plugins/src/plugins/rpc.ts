@@ -22,6 +22,8 @@ export interface Rpc extends PluginTypes {
 //#region definition
 const definition = definePlugin<Rpc>({
 	name: 'rpc',
+	// Written to be published, it passes a manifest; a package imports its
+	// package.json instead.
 	manifest: {
 		name: 'example-rpc',
 		version: '1.0.0',

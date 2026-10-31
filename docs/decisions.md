@@ -1445,7 +1445,7 @@ rate-limit plugin.
 
 ## D-57: A plugin is an interface of types and one `definePlugin`
 
-Amended by D-89.
+Amended by D-89 and D-172.
 
 Choice: a plugin declares its types in an interface extending `PluginTypes`:
 its `name` and the parts it has, `options` (its entry's, `softDelete({ ... })`),
@@ -3299,6 +3299,8 @@ await Post.findMany({ orderBy: { meta: 'asc' } })
 ```
 
 ## D-95: The manifest's version checks
+
+Amended by D-172.
 
 Choice: the checks of D-57 run in `start`, before the database starts, with
 `semver` (D-92):
@@ -11105,6 +11107,84 @@ After, with `DATABASE_URL` in `packages/backend/.env`, beside
 # From the monorepo's root: the same file is loaded.
 yarn workspace backend dev
 npx ultimabase sync --config packages/backend/ultimabase.config.ts
+```
+
+## D-172: A plugin of the application has no manifest
+
+Choice: amends D-57 and D-95.
+
+1. `manifest` is optional in `definePlugin`. A plugin without one is the
+   application's own, written in its source and never published: `start`
+   checks no range of it and logs no warning. It keeps its `name` for the
+   logs, `requires` and `optional`.
+2. A plugin with a manifest is checked as D-95 says, and one whose manifest
+   gives `ultimabase` no range still warns: that is a published plugin's
+   forgotten field.
+3. A plugin without a manifest is no package: another plugin's
+   `peerDependencies` cannot name it, as for a peer not installed.
+4. A `manifest` that is not an object, `null` included, is refused as
+   before.
+5. The documentation says `manifest` is optional, and recommends it for
+   every published plugin, which passes its imported `package.json`: without
+   it, a version conflict fails later, in a hook. A plugin of the application
+   is shown without one. The examples' plugins of an application drop
+   theirs, except `rpc`, written to be published, which shows a manifest.
+
+Why:
+
+- A plugin in the application is compiled against the kernel the
+  application installs: it cannot be out of step, so its range only
+  restates `package.json`. Written `^0.2.0`, it refused the canary of 0.3
+  and broke every test; written `*`, it checks nothing.
+- Its manifest's `name` and `version` are invented, for a package that
+  does not exist.
+
+Rejected:
+
+- No warning when `peerDependencies` is absent: it would drop D-95's
+  warning for published plugins too, and keep the invented name and
+  version.
+- Documenting `peerDependencies: { ultimabase: '*' }`: it stays
+  boilerplate, and `*` is a range that checks nothing.
+- A `local: true` key: a second way to say what the absent manifest says.
+
+Example, before:
+
+```ts
+export const { plugin: maintenancePlugin, use: maintenance } =
+	definePlugin<Maintenance>({
+		name: 'maintenance',
+		manifest: {
+			name: 'backend-maintenance',
+			version: '1.0.0',
+			peerDependencies: { ultimabase: '^0.2.0' },
+		},
+		// ...
+	})
+// After an upgrade to 0.3:
+// Refused: backend-maintenance 1.0.0 needs ultimabase ^0.2.0; this is ultimabase 0.3.0.
+```
+
+After:
+
+```ts
+export const { plugin: maintenancePlugin, use: maintenance } =
+	definePlugin<Maintenance>({
+		name: 'maintenance',
+		// ...
+	})
+```
+
+A published plugin keeps its manifest:
+
+```ts
+import manifest from '../package.json' with { type: 'json' }
+
+export const { plugin: archivePlugin, use: archive } = definePlugin<Archive>({
+	name: 'archive',
+	manifest,
+	// ...
+})
 ```
 
 ## D-173: `yarn validate` runs in 90 seconds at most
