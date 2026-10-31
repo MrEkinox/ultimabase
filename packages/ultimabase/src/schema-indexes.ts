@@ -1,5 +1,5 @@
 // The indexes of a model, checked against its fields (D-52, D-120, D-141,
-// D-170), and its searched fields (D-148).
+// D-170, D-174), and its searched fields (D-148).
 import type { SchemaField } from './adapter.ts'
 import type { IndexDefinition } from './definition.ts'
 import type { ModelInfo } from './schema.ts'
@@ -59,6 +59,9 @@ function insensitiveIndex(
 	}
 }
 
+// The kernel's fields, in a non-unique index only (D-22, D-174).
+const implicit = new Set(['id', 'createdAt', 'updatedAt'])
+
 /** Refuses an index over a field that is not one of the model's columns. */
 export function checkIndexes(
 	model: string,
@@ -67,6 +70,12 @@ export function checkIndexes(
 ): void {
 	for (const index of indexes) {
 		for (const name of index.fields) {
+			if (implicit.has(name)) {
+				if (index.unique !== true) continue
+				throw new Refused(
+					`${model}: a unique index cannot name '${name}', which the kernel sets.`,
+				)
+			}
 			const field = fields.get(name)
 			if (
 				field === undefined ||

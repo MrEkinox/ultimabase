@@ -65,11 +65,6 @@ const cacheOf = (context: PluginContext<ApiKeys>) => {
 //#region definition
 const definition = definePlugin<ApiKeys>({
 	name: 'apiKeys',
-	manifest: {
-		name: 'example-api-keys',
-		version: '1.0.0',
-		peerDependencies: { ultimabase: '*' },
-	},
 	models: [ApiKey],
 	functions: () => [createApiKey],
 	optional: { rpc: rpcPlugin },

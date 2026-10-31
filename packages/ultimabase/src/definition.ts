@@ -78,7 +78,7 @@ export type ModelDefinition = {
 /** A plugin's code, as `definePlugin` checked it (D-57, D-89). */
 export type PluginCode = {
 	readonly name: string
-	readonly manifest: Manifest
+	readonly manifest: Manifest | undefined
 	readonly requires: readonly string[]
 	readonly optional: readonly string[]
 	readonly hooks: { readonly [hook: string]: Function | undefined }

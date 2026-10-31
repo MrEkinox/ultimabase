@@ -1,6 +1,7 @@
-// The indexes that serve insensitive filters on postgres(), in a test file's
-// own schema, with the results unchanged: a `contains` index's trigrams
-// (D-141), and a case-insensitive unique key's lowered column (D-170).
+// The indexes that serve reads on postgres(), in a test file's own schema,
+// with the results unchanged: a `contains` index's trigrams (D-141), a
+// case-insensitive unique key's lowered column (D-170), and an index over
+// the kernel's `createdAt` (D-174).
 import { testApplication } from '@ultimabase/testing'
 import { Client } from 'pg'
 import { defineApp, defineModel, master } from 'ultimabase'
@@ -32,8 +33,17 @@ const Account = defineModel({
 	fields: (f) => ({ username: f.string({ unique: 'insensitive' }) }),
 })
 
-/** The plan of the read `run` sends, sequential scans off. */
-async function plan(run: () => Promise<unknown>): Promise<string> {
+const Message = defineModel({
+	name: 'Message',
+	fields: (f) => ({ room: f.string(), text: f.string() }),
+	indexes: [{ fields: ['room', 'createdAt', 'id'] }],
+})
+
+/** The plan of the read `run` sends, sequential scans and `off` off. */
+async function plan(
+	run: () => Promise<unknown>,
+	off: readonly string[] = [],
+): Promise<string> {
 	sent.length = 0
 	await run()
 	const read = sent.at(-1)
@@ -47,7 +57,9 @@ async function plan(run: () => Promise<unknown>): Promise<string> {
 	})
 	await client.connect()
 	try {
-		await client.query('set enable_seqscan = off')
+		for (const scan of ['seqscan', ...off]) {
+			await client.query(`set enable_${scan} = off`)
+		}
 		const { rows } = await client.query<{ 'QUERY PLAN': string }>(
 			`explain ${read.sql}`,
 			[...read.parameters],
@@ -59,7 +71,7 @@ async function plan(run: () => Promise<unknown>): Promise<string> {
 }
 
 describe('the indexes in a test schema', () => {
-	testApplication(defineApp({ database, models: [Book, Account] }), {
+	testApplication(defineApp({ database, models: [Book, Account, Message] }), {
 		database: 'declared',
 	})
 
@@ -120,5 +132,34 @@ describe('the indexes in a test schema', () => {
 			)
 		expect(await find()).toStrictEqual([{ username: 'Alice' }])
 		expect(await plan(find)).toContain('account_username_lower_key')
+	})
+
+	it("pages a room's newest messages through the index over createdAt", async () => {
+		await Message.createMany(
+			{
+				data: ['a', 'b', 'c'].map((text, at) => ({
+					room: at === 1 ? 'other' : 'main',
+					text,
+				})),
+			},
+			M,
+		)
+		const page = async () =>
+			Message.findMany(
+				{
+					where: { room: { equals: 'main' } },
+					orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+					take: 30,
+					select: { text: true },
+				},
+				M,
+			)
+		expect(await page()).toStrictEqual([{ text: 'c' }, { text: 'a' }])
+		// A bitmap scan sorts its rows; a few rows make it the cheapest.
+		const read = await plan(page, ['bitmapscan'])
+		expect(read).toContain(
+			'Index Scan Backward using message_room_created_at_id_idx',
+		)
+		expect(read).not.toContain('Sort')
 	})
 })

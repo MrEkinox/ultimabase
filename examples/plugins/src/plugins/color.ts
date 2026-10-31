@@ -13,11 +13,6 @@ export interface Color extends PluginTypes {
 
 export const colorPlugin: PluginOf<Color> = definePlugin<Color>({
 	name: 'color',
-	manifest: {
-		name: 'example-color',
-		version: '1.0.0',
-		peerDependencies: { ultimabase: '*' },
-	},
 }).plugin
 //#endregion
 

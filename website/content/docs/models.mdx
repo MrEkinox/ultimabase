@@ -71,6 +71,11 @@ enum that several fields, of several models, share:
 	../examples/models-and-queries/src/types.ts#enum
 </include>
 
+`defineEnum` names a GraphQL enum and an OpenAPI schema; it is not a
+TypeScript `enum`, which Node does not run (see the
+[Quickstart](/docs/next/quickstart)). `Status.values` lists the values, and
+`(typeof Status.values)[number]` is their type.
+
 ## Object types
 
 `defineType` declares a shape that is not a table, with a Zod object's
@@ -112,14 +117,14 @@ to Master: the transports leave it out of their schema.
 
 ### `defineModel(definition)`
 
-| Key           | Type                                      | Default       | Effect                                                                                                                                                                                                                                                          |
-| ------------- | ----------------------------------------- | ------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `name`        | `string`                                  | required      | The model's name: `Product` gives `products` and `createProduct` in GraphQL.                                                                                                                                                                                    |
-| `fields`      | `(f) => ({ ... })`                        | required      | The fields, built with `f`.                                                                                                                                                                                                                                     |
-| `use`         | plugin uses                               | `[]`          | The plugins the model uses: `graphql()`, `rest()`, `softDelete()`…                                                                                                                                                                                              |
-| `indexes`     | `{ fields, unique?, contains?, mode? }[]` | `[]`          | Indexes over several fields; `unique: true` refuses two rows with the same values, and `mode: 'insensitive'` with it compares their strings and enums regardless of case; `contains: true` makes `contains` and `mode: 'insensitive'` fast on one string field. |
-| `description` | `string`                                  | none          | Shown in the GraphQL schema and the OpenAPI document.                                                                                                                                                                                                           |
-| `dbName`      | `string`                                  | the adapter's | The stored table's name.                                                                                                                                                                                                                                        |
+| Key           | Type                                      | Default       | Effect                                                                                                                                                                                                                                                                                                                       |
+| ------------- | ----------------------------------------- | ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `name`        | `string`                                  | required      | The model's name: `Product` gives `products` and `createProduct` in GraphQL.                                                                                                                                                                                                                                                 |
+| `fields`      | `(f) => ({ ... })`                        | required      | The fields, built with `f`.                                                                                                                                                                                                                                                                                                  |
+| `use`         | plugin uses                               | `[]`          | The plugins the model uses: `graphql()`, `rest()`, `softDelete()`…                                                                                                                                                                                                                                                           |
+| `indexes`     | `{ fields, unique?, contains?, mode? }[]` | `[]`          | Indexes over several fields; `unique: true` refuses two rows with the same values, and `mode: 'insensitive'` with it compares their strings and enums regardless of case; `contains: true` makes `contains` and `mode: 'insensitive'` fast on one string field. `id`, `createdAt` and `updatedAt` fit in a non-unique index. |
+| `description` | `string`                                  | none          | Shown in the GraphQL schema and the OpenAPI document.                                                                                                                                                                                                                                                                        |
+| `dbName`      | `string`                                  | the adapter's | The stored table's name.                                                                                                                                                                                                                                                                                                     |
 
 `.with({ access, hooks, virtuals, relations })` adds the rules that read the
 typed rows: [access](/docs/next/access), [hooks](/docs/next/hooks), the
@@ -180,5 +185,8 @@ The messages of the field types:
   `Alice`. A `findFirst` with `mode: 'insensitive'` does.
 - An index with `mode: 'insensitive'` is unique, has no `contains`, and holds
   a string field at least: another is a type error.
+- A unique index cannot name `id`, `createdAt` or `updatedAt`, which the
+  kernel sets: a type error, and `a unique index cannot name 'createdAt',
+which the kernel sets.` at start.
 - A `defineEnum` name is a GraphQL name, letters, digits and `_`, not starting
   with `__`; another name throws when the module loads.

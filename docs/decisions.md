@@ -88,6 +88,8 @@ Rejected: keeping TypeScript 6 for lint alongside TypeScript 7.
 
 ## D-06: Agent-first, measured by speed
 
+Amended by D-173.
+
 Choice: the repository is built so an agent can make a typical change and
 verify it in minutes. Rules live in tools (types, lint, CI checks, generators)
 rather than in documents; an agent reads `AGENTS.md` and the package it
@@ -1313,7 +1315,7 @@ Rejected: one feature set identical on every adapter.
 
 ## D-52: Unique fields on the field, indexes in `defineModel`
 
-Amended by D-170.
+Amended by D-170, D-174.
 
 Choice: a field takes `unique: true` (`f.string({ unique: true })`); indexes
 over one or several fields go in `defineModel`, since they shape the model
@@ -1443,7 +1445,7 @@ rate-limit plugin.
 
 ## D-57: A plugin is an interface of types and one `definePlugin`
 
-Amended by D-89.
+Amended by D-89 and D-172.
 
 Choice: a plugin declares its types in an interface extending `PluginTypes`:
 its `name` and the parts it has, `options` (its entry's, `softDelete({ ... })`),
@@ -3297,6 +3299,8 @@ await Post.findMany({ orderBy: { meta: 'asc' } })
 ```
 
 ## D-95: The manifest's version checks
+
+Amended by D-172.
 
 Choice: the checks of D-57 run in `start`, before the database starts, with
 `semver` (D-92):
@@ -11103,6 +11107,152 @@ After, with `DATABASE_URL` in `packages/backend/.env`, beside
 # From the monorepo's root: the same file is loaded.
 yarn workspace backend dev
 npx ultimabase sync --config packages/backend/ultimabase.config.ts
+```
+
+## D-172: A plugin of the application has no manifest
+
+Choice: amends D-57 and D-95.
+
+1. `manifest` is optional in `definePlugin`. A plugin without one is the
+   application's own, written in its source and never published: `start`
+   checks no range of it and logs no warning. It keeps its `name` for the
+   logs, `requires` and `optional`.
+2. A plugin with a manifest is checked as D-95 says, and one whose manifest
+   gives `ultimabase` no range still warns: that is a published plugin's
+   forgotten field.
+3. A plugin without a manifest is no package: another plugin's
+   `peerDependencies` cannot name it, as for a peer not installed.
+4. A `manifest` that is not an object, `null` included, is refused as
+   before.
+5. The documentation says `manifest` is optional, and recommends it for
+   every published plugin, which passes its imported `package.json`: without
+   it, a version conflict fails later, in a hook. A plugin of the application
+   is shown without one. The examples' plugins of an application drop
+   theirs, except `rpc`, written to be published, which shows a manifest.
+
+Why:
+
+- A plugin in the application is compiled against the kernel the
+  application installs: it cannot be out of step, so its range only
+  restates `package.json`. Written `^0.2.0`, it refused the canary of 0.3
+  and broke every test; written `*`, it checks nothing.
+- Its manifest's `name` and `version` are invented, for a package that
+  does not exist.
+
+Rejected:
+
+- No warning when `peerDependencies` is absent: it would drop D-95's
+  warning for published plugins too, and keep the invented name and
+  version.
+- Documenting `peerDependencies: { ultimabase: '*' }`: it stays
+  boilerplate, and `*` is a range that checks nothing.
+- A `local: true` key: a second way to say what the absent manifest says.
+
+Example, before:
+
+```ts
+export const { plugin: maintenancePlugin, use: maintenance } =
+	definePlugin<Maintenance>({
+		name: 'maintenance',
+		manifest: {
+			name: 'backend-maintenance',
+			version: '1.0.0',
+			peerDependencies: { ultimabase: '^0.2.0' },
+		},
+		// ...
+	})
+// After an upgrade to 0.3:
+// Refused: backend-maintenance 1.0.0 needs ultimabase ^0.2.0; this is ultimabase 0.3.0.
+```
+
+After:
+
+```ts
+export const { plugin: maintenancePlugin, use: maintenance } =
+	definePlugin<Maintenance>({
+		name: 'maintenance',
+		// ...
+	})
+```
+
+A published plugin keeps its manifest:
+
+```ts
+import manifest from '../package.json' with { type: 'json' }
+
+export const { plugin: archivePlugin, use: archive } = definePlugin<Archive>({
+	name: 'archive',
+	manifest,
+	// ...
+})
+```
+
+## D-173: `yarn validate` runs in 90 seconds at most
+
+Choice: amends D-06. `yarn validate` stays under 90 seconds locally, instead
+of one minute. The other budgets of D-06 are unchanged: PostgreSQL tests in a
+separate command, file and package line limits.
+Why: `yarn validate` takes 72 seconds on the
+maintainer's machine (1916 tests, the type check, lint and the docs checks).
+Holding one minute would mean dropping checks, which costs more than the
+seconds it saves. 90 seconds keeps a margin and keeps a slowdown visible.
+Rejected: two minutes (a margin of 48 seconds lets the run drift unseen);
+moving tests out of `yarn validate` (it is the one command that proves a
+change).
+
+## D-174: An index names the kernel's fields
+
+Choice: amends D-52.
+
+1. A non-unique index of `defineModel` may name `id`, `createdAt` and
+   `updatedAt`, the fields the kernel sets (D-22), beside the model's own:
+   `indexes: [{ fields: ['room', 'createdAt', 'id'] }]`.
+2. A unique index refuses them, in its type and at startup:
+   `Message: a unique index cannot name 'createdAt', which the kernel sets.`
+   `id` is unique already, and a timestamp the kernel writes makes no key.
+3. A `contains` index refuses them as any field that is not a string
+   (D-141).
+4. `postgres()` reads their columns, `id`, `created_at` and `updated_at`:
+   `create index "message_room_created_at_id_idx" on "message" ("room", "created_at", "id")`.
+
+Why: an application migrating from Parse pages a room's newest messages,
+`where: { room }` ordered by `createdAt` then `id`. Without an index over
+these columns, every page reads and sorts all the room's rows. Parse
+indexed `createdAt` by hand in the database; an index made outside the
+snapshot is missing from every new database, a test's or another
+environment's.
+
+Rejected:
+
+- Allowing them in a unique index: `id` is a key alone, and two rows
+  created in the same millisecond would clash.
+- Indexing `createdAt` on every model: an index costs each write, and most
+  models never sort by it.
+- An index made by hand in the database: `sync` compares snapshots and
+  never makes it again.
+
+Example, before: refused on the index's line.
+
+```ts
+const Message = defineModel({
+	name: 'Message',
+	fields: (f) => ({ room: f.one(() => Room), text: f.string() }),
+	// 'createdAt' is not a scalar field or a one relation of the model
+	indexes: [{ fields: ['room', 'createdAt', 'id'] }],
+})
+```
+
+After: the same model starts, and this read uses the index.
+
+```ts
+await Message.findMany(
+	{
+		where: { room: { id: room.id } },
+		orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+		take: 30,
+	},
+	{ as },
+)
 ```
 
 ## D-175: A uuid is an `ID` in GraphQL
