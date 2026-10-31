@@ -2720,8 +2720,9 @@ Choice: eleven details of D-15, D-23, D-36, D-67 and D-71 at run time.
    after it, so the hook's writes show. Without one, the write returns its
    row itself.
 4. A `validate` function that throws refuses with `VALIDATION_FAILED` and the
-   issue `{ path: [field], message: error.message }`. A schema's issues get
-   the field's name in front of their path.
+   issue `{ path: [field], message: error.message }`; a `PublicError` adds
+   its `code` to the issue. A schema's issues get the field's name in front
+   of their path.
 5. `beforeFind`'s filter is trusted server code, as a read rule's (D-86): it
    may filter on a field with a read rule, and other models' rules do not
    apply to its relation conditions.
@@ -2759,7 +2760,8 @@ Why:
    otherwise return stale data; a second read on every write costs a round
    trip D-48 does not need.
 4. A function has no other way to say why it refuses; its message is what
-   the developer wrote for the client.
+   the developer wrote for the client, and a code is what a client tests
+   without parsing that message, as for the error itself.
 5. Same reason as D-86 for a read rule's filter.
 6. Same reason as D-86 for a written row a read rule hides.
 7. A required field may be left to a hook (D-67), so it can only be checked
@@ -9130,12 +9132,15 @@ type Stage {
 Choice: completes D-32 and D-122; amends D-32 (no `local()`), D-89 (a
 plugin model knows its name) and D-122 points 2 and 5.
 
-1. `@ultimabase/files` provides `filesPlugin({ storage, access })`, the
-   `file(options)` field type and two storage adapters: `s3({...})` and
+1. `@ultimabase/files` provides `filesPlugin({ storage, access, maxSize })`,
+   the `file(options)` field type and two storage adapters: `s3({...})` and
    `memoryFiles()`, which tests use. `local()` is dropped: a server's disk
    is lost when it is replaced, and a local S3 emulator covers development.
    `access.upload` is a caller rule (D-27); it defaults to a signed-in user
-   or Master, and `allow.public` opens uploads to everyone.
+   or Master, and `allow.public` opens uploads to everyone. `maxSize` is the
+   limit of every file field that sets none, 50 MB by default, as
+   `httpPlugin`'s `bodyLimit` is for JSON bodies: a default, not a ceiling,
+   checked at start as the field's.
 2. No file is ever orphaned: every object in the storage has a row in the
    plugin's `FilesBlob` model, and every row's object is deleted with it.
    This is the plugin's first rule, and each step below keeps it.
@@ -9154,9 +9159,9 @@ publicUrl })` speaks to any S3-compatible storage (AWS, DigitalOcean
      which is synchronous, so a read signs its URLs while it decodes. It
      covers `PUT`, `GET`, `DELETE` and `ListObjectsV2`; no AWS SDK.
 4. `file(options)`:
-   - `optional`, `list`, `maxSize` (bytes, 50 MB by default), `accept` (MIME
-     types or patterns: `['image/*', 'application/pdf']`), `public` (false
-     by default), `inline` and `variants`.
+   - `optional`, `list`, `maxSize` (bytes, the plugin's by default), `accept`
+     (MIME types or patterns: `['image/*', 'application/pdf']`), `public`
+     (false by default), `inline` and `variants`.
    - `inline` names values computed once at upload, each JSON of 2 KB at
      most: a function of `{ body, type, name }`, or `{ run, schema }` to
      type it in the transports (a blurred placeholder, a page count).
@@ -11713,6 +11718,69 @@ export const Post = defineModel({
 })
 ```
 
+## D-181: auth's `signedInRun`, a function's `run` for signed-in users
+
+Choice: auth exports `signedInRun(run)`, the function counterpart of
+`signedIn` (D-79).
+
+1. It returns a `run` that passes the function's facts through and adds
+   `user`, typed `UserOf<Register>` (D-62). Its facts come from the
+   function, as `signedIn`'s come from the rule, so `input` keeps its type.
+2. Any other caller is refused with
+   `PublicError('UNAUTHENTICATED', 'This function needs a signed-in user.')`.
+   Master is refused too: it has no user, and a function that serves Master
+   reads `caller` instead.
+3. The access rule stays the guard: with `access: isAuthenticated`, a
+   visitor is refused with `ACCESS_DENIED` before `run`, and the wrapper
+   only meets Master or a caller a wider rule lets in.
+4. password's `changePassword`, `sendVerificationEmail` and
+   `requestEmailChange` use it, behind `allow.public` as before, so a
+   visitor still gets `UNAUTHENTICATED`; their message is now the wrapper's.
+5. `RunFacts<I>` has no `input` when `I` is `never`: TypeScript reads a
+   wrapper's facts before it infers `I`, as `never` for a function without
+   an input, which gave `input: never`.
+
+Why:
+
+- The access rule is declared in `.with`, after `run`, and cannot narrow its
+  type, so each signed-in function checked `caller.kind` again. The
+  repository wrote that check three ways, one a plain `Error` that answered a 500.
+- `signedIn` returns `false` to anyone else, which is no function's output.
+- It lives in auth for the reason D-79 gives: the kernel knows no user model.
+
+Rejected:
+
+- `.with({ access })` narrowing `run`'s facts: `run` would have to be typed
+  after the rule, while `defineFunction` takes it first.
+- The function's name in the message: the wrapper does not know it, and the
+  client knows what it called.
+
+Example:
+
+````ts
+// Before: the check in each function, and a 500 from a plain Error
+export const archiveNote = defineFunction({
+	name: 'archiveNote',
+	input: z.object({ id: z.string() }),
+	output: Note,
+	run: async ({ input, caller }) => {
+		if (caller.kind !== 'user') throw new Error('A user is required.')
+		const me = caller.user.id
+		// ...
+	},
+}).with({ access: isAuthenticated })
+
+// After
+export const archiveNote = defineFunction({
+	name: 'archiveNote',
+	input: z.object({ id: z.string() }),
+	output: Note,
+	run: signedInRun(async ({ input, user }) => {
+		const me = user.id
+		// ...
+	}),
+}).with({ access: isAuthenticated })
+
 ## D-182: A function returns a page shaped like the generated lists
 
 Choice: amends D-45 (its `paginated(Todo)` is out of 0.1) and completes
@@ -11823,7 +11891,7 @@ export const mutualFriendships = defineFunction({
 		return { friendships, totalCount }
 	},
 })
-```
+````
 
 After: the model's page, read and counted by the transport.
 

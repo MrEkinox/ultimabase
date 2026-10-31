@@ -1,6 +1,7 @@
 // The library's operations: a client borrows and returns a book only
 // through them.
 //#region borrow
+import { isAuthenticated, signedInRun } from '@ultimabase/auth'
 import { graphql } from '@ultimabase/graphql'
 import {
 	PublicError,
@@ -9,7 +10,6 @@ import {
 	defineType,
 	master,
 } from 'ultimabase'
-import type { Caller } from 'ultimabase'
 import { z } from 'zod'
 import { Book } from './models.ts'
 
@@ -23,7 +23,9 @@ export const borrowBook = defineFunction({
 	name: 'borrowBook',
 	input: z.object({ book: z.string(), days: z.int().min(1).max(30) }),
 	output: Loan,
-	run: async ({ input, caller }) => {
+	// `user` is the signed-in caller's record; the access rule lets in no one
+	// else.
+	run: signedInRun(async ({ input, caller, user }) => {
 		const book = await Book.findUniqueOrThrow(
 			{ where: { id: input.book } },
 			{ as: caller },
@@ -33,20 +35,14 @@ export const borrowBook = defineFunction({
 		}
 		// Book is read-only for clients: the function writes as the server.
 		const lent = await Book.update(
-			{ where: { id: book.id }, data: { borrowedBy: userOf(caller) } },
+			{ where: { id: book.id }, data: { borrowedBy: user.id } },
 			{ as: master },
 		)
 		const due = new Date(Date.now() + input.days * 86_400_000)
 		return { book: lent, dueOn: due.toISOString().slice(0, 10) }
-	},
-}).with({ access: ({ caller }) => caller.kind === 'user' })
+	}),
+}).with({ access: isAuthenticated })
 //#endregion
-
-/** The caller's user id; a function's access rule let only users in. */
-function userOf(caller: Caller): string {
-	if (caller.kind !== 'user') throw new Error('A user is required.')
-	return caller.user.id
-}
 
 //#region search
 // A query: served over GraphQL's Query and REST's GET.
@@ -74,15 +70,14 @@ export const returnBooks = defineFunction({
 	name: 'returnBooks',
 	// The transports whose key `.with` sets.
 	use: [graphql()],
-	run: async ({ caller }) => {
-		const borrowedBy = userOf(caller)
+	run: signedInRun(async ({ user }) => {
 		await Book.updateMany(
-			{ where: { borrowedBy }, data: { borrowedBy: null } },
+			{ where: { borrowedBy: user.id }, data: { borrowedBy: null } },
 			{ as: master },
 		)
-	},
+	}),
 }).with({
-	access: ({ caller }) => caller.kind === 'user',
+	access: isAuthenticated,
 	// Named `giveBack` in GraphQL; REST keeps `returnBooks`.
 	graphql: { name: 'giveBack' },
 })

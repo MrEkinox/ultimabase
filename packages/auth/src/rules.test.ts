@@ -1,14 +1,15 @@
 // auth's rules and default (D-10, D-62, D-79, D-83), on the caller alone.
 import { asUser } from '@ultimabase/testing'
-import { describe, expect, it } from 'vitest'
-import type { Caller } from 'ultimabase'
-import { master } from 'ultimabase'
+import { describe, expect, expectTypeOf, it } from 'vitest'
+import type { Caller, Register, UserOf } from 'ultimabase'
+import { defineFunction, master } from 'ultimabase'
 import {
 	currentUser,
 	isAuthenticated,
 	isOwner,
 	isSelf,
 	signedIn,
+	signedInRun,
 } from './index.ts'
 
 const ada = asUser({ id: 'ada' })
@@ -30,6 +31,28 @@ describe('auth’s rules', () => {
 		}))
 		expect(rule({ caller: ada })).toStrictEqual({ author: { id: 'ada' } })
 		expect(rule({ caller: anonymous })).toBe(false)
+	})
+
+	it('signedInRun passes the user, and refuses anyone else', () => {
+		const run = signedInRun(({ user }: { user: { id: string } }) => user.id)
+		expect(run({ caller: ada })).toBe('ada')
+		for (const caller of [anonymous, master]) {
+			expect(() => run({ caller })).toThrow(
+				expect.objectContaining({
+					code: 'UNAUTHENTICATED',
+					message: 'This function needs a signed-in user.',
+				}),
+			)
+		}
+		// Its facts come from the function, with `user` added.
+		defineFunction({
+			name: 'whoAmI',
+			run: signedInRun(({ caller, client, user }) => {
+				expectTypeOf(user).toEqualTypeOf<UserOf<Register>>()
+				expectTypeOf(caller).toEqualTypeOf<Caller>()
+				expectTypeOf(client).not.toBeAny()
+			}),
+		})
 	})
 
 	it('isOwner compares the relation’s stored key', () => {

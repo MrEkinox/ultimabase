@@ -94,6 +94,10 @@ export type FileField<O> = Field<
 
 /** 50 MB. */
 export const defaultMaxSize: number = 50 * 1024 * 1024
+
+/** Whether a `maxSize` is a number of bytes. */
+export const isByteCount = (size: number): boolean =>
+	Number.isInteger(size) && size > 0
 const operations: readonly Operation[] = ['set', 'push', 'pushUnique', 'remove']
 
 export const keysOf = (options: FileOptions): Keys => ({
@@ -196,7 +200,7 @@ function checked(options: FileOptions): void {
 	if (list === true && optional === true) {
 		throw new Error('A file list is empty, never null: list or optional.')
 	}
-	if (maxSize !== undefined && (!Number.isInteger(maxSize) || maxSize <= 0)) {
+	if (maxSize !== undefined && !isByteCount(maxSize)) {
 		throw new Error('A file field’s maxSize is a number of bytes.')
 	}
 	if (accept?.some((type) => !/^[\w.+-]+\/(\*|[\w.+-]+)$/.test(type))) {

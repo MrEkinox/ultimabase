@@ -155,13 +155,14 @@ exposes them.
 
 ### Rules and default
 
-| Name              | Where                 | Effect                                                                                        |
-| ----------------- | --------------------- | --------------------------------------------------------------------------------------------- |
-| `isAuthenticated` | any rule              | The caller is signed in.                                                                      |
-| `signedIn(rule)`  | any rule              | `rule` receives the facts and `user`; `false` for a visitor. A read rule may return a filter. |
-| `isOwner(field)`  | a write rule          | The `one` relation `field` points to the caller, in the stored row and in the value.          |
-| `isSelf`          | the user model's rule | The row is the caller's own.                                                                  |
-| `currentUser`     | a `one` default       | `{ id }` of the signed-in user, nothing for a visitor.                                        |
+| Name               | Where                 | Effect                                                                                        |
+| ------------------ | --------------------- | --------------------------------------------------------------------------------------------- |
+| `isAuthenticated`  | any rule              | The caller is signed in.                                                                      |
+| `signedIn(rule)`   | any rule              | `rule` receives the facts and `user`; `false` for a visitor. A read rule may return a filter. |
+| `signedInRun(run)` | a function's `run`    | `run` receives the facts and `user`; anyone else, Master too, gets `UNAUTHENTICATED`.         |
+| `isOwner(field)`   | a write rule          | The `one` relation `field` points to the caller, in the stored row and in the value.          |
+| `isSelf`           | the user model's rule | The row is the caller's own.                                                                  |
+| `currentUser`      | a `one` default       | `{ id }` of the signed-in user, nothing for a visitor.                                        |
 
 ### Sessions
 

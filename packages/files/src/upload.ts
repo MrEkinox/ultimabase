@@ -6,7 +6,6 @@ import { fileTypeFromBuffer } from 'file-type'
 import type { Identity, JsonValue } from 'ultimabase'
 import { isMaster, PublicError } from 'ultimabase'
 import type { FileInput, FileOptions, Inline } from './field.ts'
-import { defaultMaxSize } from './field.ts'
 import { bytesOf } from './memory.ts'
 import { FilesBlob, hour, M } from './model.ts'
 import type { FileBody } from './storage.ts'
@@ -196,7 +195,8 @@ export async function upload(
 	const { name, as: caller = { kind: 'anonymous' } } = options
 	const field = fieldOf(options.for)
 	if (name === '') throw invalid('name', 'Expected a file name.')
-	const maxSize = field.maxSize ?? defaultMaxSize
+	const { storage, logger, maxSize: appMaxSize } = runningOf()
+	const maxSize = field.maxSize ?? appMaxSize
 	if (size > maxSize) {
 		throw new PublicError(
 			'PAYLOAD_TOO_LARGE',
@@ -212,7 +212,6 @@ export async function upload(
 		options.type,
 		field.accept,
 	)
-	const { storage, logger } = runningOf()
 	const prefix = field.public === true ? 'public' : 'private'
 	const keyOf = () => `${prefix}/${randomUUID()}`
 	const uploadedBy = uploaderOf(caller)

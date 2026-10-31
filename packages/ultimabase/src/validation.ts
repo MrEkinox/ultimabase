@@ -1,6 +1,7 @@
 // A field's `validate` (D-23): a Standard Schema or a function, whose output
 // is the stored value.
 import type { Issue } from './errors.ts'
+import { PublicError } from './errors.ts'
 import type { StandardSchema } from './fields.ts'
 import type { FieldInfo, ModelInfo } from './schema.ts'
 import { isObject } from './query-where.ts'
@@ -100,8 +101,10 @@ export async function validated(
 		const output: unknown = await Reflect.apply(validate, undefined, [value])
 		return { value: output }
 	} catch (error) {
-		// The function refuses by throwing; its message is for the client (D-88).
+		// The function refuses by throwing; its message, and a PublicError's
+		// code, are for the client (D-88).
 		const message = error instanceof Error ? error.message : String(error)
-		return { issues: [{ path: [field.name], message }] }
+		const code = error instanceof PublicError ? { code: error.code } : {}
+		return { issues: [{ path: [field.name], ...code, message }] }
 	}
 }

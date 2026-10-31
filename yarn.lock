@@ -4029,6 +4029,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "example-functions@workspace:examples/functions"
   dependencies:
+    "@ultimabase/auth": "workspace:*"
     "@ultimabase/graphql": "workspace:*"
     "@ultimabase/http": "workspace:*"
     "@ultimabase/rest": "workspace:*"

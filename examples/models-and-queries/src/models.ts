@@ -2,7 +2,7 @@
 //#region model
 import { randomUUID } from 'node:crypto'
 import { graphql } from '@ultimabase/graphql'
-import { allow, defineModel } from 'ultimabase'
+import { allow, defineModel, PublicError } from 'ultimabase'
 import { z } from 'zod'
 import { Price, Status } from './types.ts'
 
@@ -12,7 +12,17 @@ export const Product = defineModel({
 	use: [graphql()],
 	fields: (f) => ({
 		// Required unless `optional: true`; `search: true` makes it searchable.
-		name: f.string({ search: true }),
+		name: f.string({
+			search: true,
+			// A function returns the value to store or throws to refuse it; a
+			// PublicError's code reaches the client with its message.
+			validate: (name) => {
+				if (name.trim() === '') {
+					throw new PublicError('NAME_BLANK', 'A product needs a name.')
+				}
+				return name
+			},
+		}),
 		sku: f.string({
 			unique: true,
 			validate: z.string().regex(/^[A-Z]{3}-\d{3}$/u),

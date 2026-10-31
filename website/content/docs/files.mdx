@@ -75,10 +75,11 @@ a download too, so a browser never runs it.
 	../examples/files/src/app.test.ts#refused
 </include>
 
-`maxSize` limits each field, 50 MB by default, before the body is read: the
-HTTP plugin's 1 MB limit does not apply to `POST /files`. Check the size in
-the browser too; a client still sending a large body may see the connection
-close before the `413`.
+`maxSize` limits each field before the body is read. A field that sets none
+takes `filesPlugin({ maxSize })`, 50 MB by default: the counterpart of
+`httpPlugin()`'s `bodyLimit` for JSON bodies, whose 1 MB does not apply to
+`POST /files`. Check the size in the browser too; a client still sending a
+large body may see the connection close before the `413`.
 
 ## Inline values and variants
 
@@ -138,16 +139,16 @@ directly; a missing one throws at start.
 
 ### `file(options)`
 
-| Option        | Type                                 | Default | Effect                                                                       |
-| ------------- | ------------------------------------ | ------- | ---------------------------------------------------------------------------- |
-| `optional`    | boolean                              | `false` | The field may be `null`.                                                     |
-| `list`        | boolean                              | `false` | A list of files, `[]` when empty.                                            |
-| `maxSize`     | number of bytes                      | 50 MB   | The largest file the field takes.                                            |
-| `accept`      | MIME types or patterns               | any     | `['image/*', 'application/pdf']`; an undetected type must be listed as is.   |
-| `public`      | boolean                              | `false` | A stable URL; a private file's URL is signed for one hour.                   |
-| `inline`      | `{ [name]: run \| { run, schema } }` | none    | Values computed at upload, each JSON of 2 KB at most, read with the row.     |
-| `variants`    | `{ [name]: run }`                    | none    | Other files made at upload, each `({ body, type, name }) => { body, type }`. |
-| `description` | string                               | none    | The field's description in GraphQL and OpenAPI.                              |
+| Option        | Type                                 | Default      | Effect                                                                       |
+| ------------- | ------------------------------------ | ------------ | ---------------------------------------------------------------------------- |
+| `optional`    | boolean                              | `false`      | The field may be `null`.                                                     |
+| `list`        | boolean                              | `false`      | A list of files, `[]` when empty.                                            |
+| `maxSize`     | number of bytes                      | the plugin's | The largest file the field takes, larger or smaller than the plugin's.       |
+| `accept`      | MIME types or patterns               | any          | `['image/*', 'application/pdf']`; an undetected type must be listed as is.   |
+| `public`      | boolean                              | `false`      | A stable URL; a private file's URL is signed for one hour.                   |
+| `inline`      | `{ [name]: run \| { run, schema } }` | none         | Values computed at upload, each JSON of 2 KB at most, read with the row.     |
+| `variants`    | `{ [name]: run }`                    | none         | Other files made at upload, each `({ body, type, name }) => { body, type }`. |
+| `description` | string                               | none         | The field's description in GraphQL and OpenAPI.                              |
 
 A key added to `inline` or `variants` later reads `null` for the files
 stored before it.
@@ -169,10 +170,11 @@ scalar, an id or a list operation.
 
 ### `filesPlugin(options)`
 
-| Option          | Type                      | Default          | Effect                             |
-| --------------- | ------------------------- | ---------------- | ---------------------------------- |
-| `storage`       | `s3()` or `memoryFiles()` | required         | Where the files go.                |
-| `access.upload` | a rule                    | a signed-in user | Who may upload; Master always may. |
+| Option          | Type                      | Default          | Effect                                              |
+| --------------- | ------------------------- | ---------------- | --------------------------------------------------- |
+| `storage`       | `s3()` or `memoryFiles()` | required         | Where the files go.                                 |
+| `access.upload` | a rule                    | a signed-in user | Who may upload; Master always may.                  |
+| `maxSize`       | number of bytes           | 50 MB            | The largest file of a field that sets no `maxSize`. |
 
 It requires `httpPlugin()`, and mounts `POST /files`.
 
@@ -231,7 +233,8 @@ At start:
 
 - `s3() needs bucket, region: undefined or empty.`
 - `A file list is empty, never null: list or optional.`
-- `A file field’s maxSize is a number of bytes.`
+- `A file field’s maxSize is a number of bytes.`, `filesPlugin’s maxSize is a
+number of bytes.`
 - `A file field’s accept lists MIME types or patterns: image/png, image/*.`
 - `A file field’s inline size is a function.`, `A file field’s variant
 preview is a function.`
