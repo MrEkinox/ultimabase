@@ -349,7 +349,7 @@ export function resolve(
 			uniques,
 			plugins: installedUses(definition, plugins),
 			owner: owners.get(model),
-			virtuals: virtualsOf(model, definition, names),
+			virtuals: virtualsOf(model, definition, fields, names),
 		}
 		checkSearch(info)
 		checkRelations(info)
