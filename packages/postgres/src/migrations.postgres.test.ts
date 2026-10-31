@@ -434,6 +434,8 @@ describe('a sync on postgres()', () => {
 		)
 	})
 
+	// Four syncs of 32 columns and their unique indexes: 0.3 s locally, past
+	// the 5 s default on a slow CI runner.
 	it('changes a type PostgreSQL cannot convert, without its values', async () => {
 		type Type = 'number' | 'boolean' | 'dateTime' | 'date' | 'json'
 		const pairs: [Type, Type][] = [
@@ -532,7 +534,7 @@ describe('a sync on postgres()', () => {
 			name: 'MigrationFailed',
 			at: 'alter table "cell" alter column "r0" type double precision using null',
 		})
-	})
+	}, 20_000)
 
 	it("writes a date as toISOString()'s text and a day as ISO's, whatever the session's time zone and date style", async () => {
 		const tokyo = `${inSchema(schema)}${encodeURIComponent(' -c TimeZone=Asia/Tokyo -c DateStyle=SQL,DMY')}`
