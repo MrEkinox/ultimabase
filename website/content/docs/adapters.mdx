@@ -125,6 +125,18 @@ A transaction's writes are seen by its own reads and by no one else's
 before the commit. A failed write in a transaction leaves it to be rolled
 back, even when the callback catches the error.
 
+`begin({ isolation: 'serializable' })` begins a serializable transaction for
+`transaction(run, { isolation: 'serializable' })`. An adapter that cannot
+hold that isolation throws from `begin`, never begins a weaker one; one
+that runs its transactions one at a time, as `memory()`, already holds it.
+When the database aborts a transaction for a conflict with another, a
+serialization failure or a deadlock, the adapter throws `Conflict`, and the
+kernel runs a serializable callback again.
+
+<include cwd meta='title="src/adapter.test.ts"'>
+	../examples/adapter/src/adapter.test.ts#conflict
+</include>
+
 ## One round trip per query
 
 The kernel asks the adapter once per query: a read and its relations at any
@@ -274,7 +286,7 @@ call that takes `slow` milliseconds or more:
 | `count(read)`                  | How many rows `where` keeps.                                         |
 | `aggregate(read)`              | One list per group: its keys' values, then its aggregates'.          |
 | `write(write)`                 | Runs a `Write` whole, returns the rows its `read` selects.           |
-| `begin()`                      | A `Transaction`.                                                     |
+| `begin(options?)`              | A `Transaction`; `{ isolation: 'serializable' }` or a throw.         |
 | `migrations?`                  | How the database follows the models; none for one that starts empty. |
 
 A `Transaction` has `find`, `count`, `aggregate`, `write`, `commit()` and
@@ -309,13 +321,14 @@ In a change, a stored `one` key is the target's id or `null`.
 
 ### Errors
 
-| Throw                                                 | When                                                                                      | The developer sees                                                             |
-| ----------------------------------------------------- | ----------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
-| `UniqueViolation(model, fields)`                      | A unique index refuses a row.                                                             | `UNIQUE_VIOLATION`, `details: { model, fields }`                               |
-| `CheckFailed(index)`                                  | A check counts other than its `count`.                                                    | The error of that check: `NOT_FOUND` or `RELATION_RESTRICTED`                  |
-| `OutOfRange(model, field)`                            | A computed number leaves its range or is not finite.                                      | `VALIDATION_FAILED`, the field's range in `issues`                             |
-| `RelationViolation(model, field, target, restricted)` | A foreign key refuses a write.                                                            | `NOT_FOUND`, or `RELATION_RESTRICTED` with `details: { model, field }`         |
-| `MigrationFailed(at, reason, locked?)`                | The database refuses a statement or a file; `locked` when it waited too long for a table. | The start, `migrate deploy` or `reset` stops with the statement and the reason |
+| Throw                                                 | When                                                                                      | The developer sees                                                                  |
+| ----------------------------------------------------- | ----------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| `UniqueViolation(model, fields)`                      | A unique index refuses a row.                                                             | `UNIQUE_VIOLATION`, `details: { model, fields }`                                    |
+| `CheckFailed(index)`                                  | A check counts other than its `count`.                                                    | The error of that check: `NOT_FOUND` or `RELATION_RESTRICTED`                       |
+| `OutOfRange(model, field)`                            | A computed number leaves its range or is not finite.                                      | `VALIDATION_FAILED`, the field's range in `issues`                                  |
+| `RelationViolation(model, field, target, restricted)` | A foreign key refuses a write.                                                            | `NOT_FOUND`, or `RELATION_RESTRICTED` with `details: { model, field }`              |
+| `MigrationFailed(at, reason, locked?)`                | The database refuses a statement or a file; `locked` when it waited too long for a table. | The start, `migrate deploy` or `reset` stops with the statement and the reason      |
+| `Conflict()`                                          | The database aborts a transaction for a conflict with another.                            | A serializable transaction runs again; `CONFLICT` after 3 attempts, else `INTERNAL` |
 
 ### The feed
 

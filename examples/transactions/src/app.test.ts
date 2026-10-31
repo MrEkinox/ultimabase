@@ -4,8 +4,8 @@ import { asUser, testApplication } from '@ultimabase/testing'
 import { master, transaction } from 'ultimabase'
 import { beforeEach, expect, it } from 'vitest'
 import { app } from './app.ts'
-import { transfer } from './functions.ts'
-import { Account } from './models.ts'
+import { like, transfer } from './functions.ts'
+import { Account, Like } from './models.ts'
 
 testApplication(app)
 
@@ -67,5 +67,19 @@ it('rolls back after a failed query, even caught', async () => {
 		}),
 	).rejects.toMatchObject({ code: 'UNIQUE_VIOLATION' })
 	expect(await balances()).toEqual([100, 0])
+	//#endregion
+})
+
+it('matches two users liking each other at once', async () => {
+	//#region match
+	const grace = { as: asUser({ id: 'grace' }) }
+	const results = await Promise.all([
+		like.run({ user: 'grace' }, ada),
+		like.run({ user: 'ada' }, grace),
+	])
+	// Whichever runs second sees the first like.
+	expect(results.filter((result) => result.matched)).toHaveLength(1)
+	const matched = await Like.count({ where: { matchedAt: { not: null } } }, as)
+	expect(matched).toBe(2)
 	//#endregion
 })

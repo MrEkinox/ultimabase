@@ -40,8 +40,8 @@ function record(store: Store, recording: Recording): void {
 export function recorded(adapter: Adapter, recording: Recording): Adapter {
 	record(adapter, recording)
 	const begin = adapter.begin.bind(adapter)
-	adapter.begin = async () => {
-		const tx = await begin()
+	adapter.begin = async (options) => {
+		const tx = await begin(options)
 		record(tx, recording)
 		return tx
 	}

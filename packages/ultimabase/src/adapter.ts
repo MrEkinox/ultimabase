@@ -13,6 +13,7 @@ export type {
 } from './adapter-migrations.ts'
 export {
 	CheckFailed,
+	Conflict,
 	MigrationFailed,
 	OutOfRange,
 	RelationViolation,
@@ -351,6 +352,9 @@ export interface Transaction {
 	rollback(): Promise<void>
 }
 
+/** How a transaction begins (D-179). */
+export type BeginOptions = { readonly isolation?: 'serializable' }
+
 /** A storage adapter: its own slot, not a plugin (D-02, D-73). */
 export interface Adapter extends Omit<Transaction, 'commit' | 'rollback'> {
 	/**
@@ -360,7 +364,11 @@ export interface Adapter extends Omit<Transaction, 'commit' | 'rollback'> {
 	 */
 	start(schema: Schema, logger: Logger, feed?: Feed): Promise<void>
 	stop(): Promise<void>
-	begin(): Promise<Transaction>
+	/**
+	 * With `isolation: 'serializable'`, a serializable transaction, or a throw
+	 * when the database cannot hold one (D-179).
+	 */
+	begin(options?: BeginOptions): Promise<Transaction>
 	/** None for a database that starts empty every time, as `memory()`. */
 	readonly migrations?: Migrations
 }

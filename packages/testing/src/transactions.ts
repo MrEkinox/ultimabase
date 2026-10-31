@@ -1,5 +1,6 @@
 // The transactions of the contract (D-73): one commit for every write, one
 // rollback for all of them, and nothing seen outside before the commit.
+import { setTimeout } from 'node:timers/promises'
 import type { Adapter } from 'ultimabase'
 import { defineModel, master, transaction } from 'ultimabase'
 import { describe, expect, it } from 'vitest'
@@ -17,6 +18,29 @@ const names = async (): Promise<string[]> =>
 	(await Account.findMany({ orderBy: { name: 'asc' } }, M)).map(
 		(account) => account.name,
 	)
+
+/**
+ * Opens `name` in a serializable transaction when it reads no account. Its
+ * first attempt waits for the other's read, unless the adapter makes that
+ * one wait for this commit (D-179).
+ */
+async function claim(
+	name: string,
+	read: PromiseWithResolvers<void>,
+	theirs: Promise<void>,
+): Promise<void> {
+	let attempt = 0
+	await transaction(
+		async () => {
+			attempt += 1
+			const taken = await names()
+			read.resolve()
+			if (attempt === 1) await Promise.race([theirs, setTimeout(50)])
+			if (taken.length === 0) await open(name)
+		},
+		{ isolation: 'serializable' },
+	)
+}
 
 export function transactions(create: () => Adapter): void {
 	describe('transactions', () => {
@@ -71,6 +95,16 @@ export function transactions(create: () => Adapter): void {
 			resumed.resolve()
 			await running
 			expect(await names()).toEqual(['bob'])
+		})
+
+		it('never commits two serializable transactions that each read what the other writes', async () => {
+			const ann = Promise.withResolvers<void>()
+			const bob = Promise.withResolvers<void>()
+			await Promise.all([
+				claim('ann', ann, bob.promise),
+				claim('bob', bob, ann.promise),
+			])
+			expect(await names()).toHaveLength(1)
 		})
 	})
 }

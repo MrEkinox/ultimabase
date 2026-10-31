@@ -4,6 +4,7 @@ export type {
 	Aggregate,
 	AggregateRead,
 	Arithmetic,
+	BeginOptions,
 	Change,
 	Changed,
 	Check,
@@ -32,6 +33,7 @@ export type {
 } from './adapter.ts'
 export {
 	CheckFailed,
+	Conflict,
 	feedFields,
 	feedIds,
 	MigrationFailed,
