@@ -6,7 +6,7 @@ import { httpPlugin } from '@ultimabase/http'
 import type { Caller } from 'ultimabase'
 import { allow, defineApp, memory } from 'ultimabase'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import type { Email } from './index.ts'
+import type { Email, PasswordOptions } from './index.ts'
 import { password, passwordPlugin } from './index.ts'
 import {
 	bearer,
@@ -47,7 +47,13 @@ afterEach(async () => {
 
 const ada = { email: 'ada@example.com', password: 'correct horse' }
 
-async function server() {
+async function server(
+	options: Pick<PasswordOptions, 'sendEmail'> = {
+		sendEmail: async (email) => {
+			outbox.push(email)
+		},
+	},
+) {
 	const lines: string[] = []
 	const app = defineApp({
 		database: memory(),
@@ -57,9 +63,7 @@ async function server() {
 			authPlugin(),
 			passwordPlugin({
 				signUp: ['name'],
-				sendEmail: async (email) => {
-					outbox.push(email)
-				},
+				...options,
 			}),
 		],
 		models: [Member],
@@ -79,8 +83,20 @@ async function server() {
 	const line = lines.find((first) => first.startsWith('Listening on')) ?? ''
 	const url = line.replace(/^Listening on (.*)\.$/, '$1')
 	const user = await Member.signUp({ ...ada, data: { name: 'Ada' } })
-	return { url, user }
+	return { url, user, app }
 }
+
+const notice = (userId: string): Email => ({
+	kind: 'passwordChanged',
+	to: ada.email,
+	userId,
+})
+/** Waits for the `count`th password notice. */
+const told = async (count: number) =>
+	vi.waitFor(() => {
+		const notices = outbox.filter(({ kind }) => kind === 'passwordChanged')
+		expect(notices).toHaveLength(count)
+	})
 
 const setAtOf = async (id: string) =>
 	(await Member.findUnique({ where: { id } }, M))?.passwordSetAt
@@ -126,22 +142,45 @@ describe('User.passwordSetAt', () => {
 		expect(changed?.getTime()).toBeGreaterThan(
 			user.passwordSetAt?.getTime() ?? Infinity,
 		)
+		await told(1)
 
 		const requestQuery = `mutation ($input: RequestPasswordResetInput!) { requestPasswordReset(input: $input) }`
 		await graphqlOf(url, requestQuery, { input: { email: ada.email } })
 		await vi.waitFor(() => {
-			expect(outbox).toHaveLength(1)
+			expect(outbox).toHaveLength(2)
 		})
 		const resetQuery = `mutation ($input: ResetPasswordInput!) { resetPassword(input: $input) }`
-		const reset = { token: tokenIn(outbox[0]), password: 'staple!!' }
+		const reset = { token: tokenIn(outbox[1]), password: 'staple!!' }
 		await graphqlOf(url, resetQuery, { input: reset })
 		const wasReset = await setAtOf(user.id)
 		expect(wasReset?.getTime()).toBeGreaterThan(changed?.getTime() ?? Infinity)
+		await told(2)
 
 		await Member.setPassword({ id: user.id, password: 'set by Master' }, M)
 		const set = await setAtOf(user.id)
 		expect(set?.getTime()).toBeGreaterThan(wasReset?.getTime() ?? Infinity)
+		await told(3)
 		expect(changes).toStrictEqual([changed, wasReset, set])
+		expect(outbox.filter(({ kind }) => kind === 'passwordChanged')).toEqual(
+			Array.from({ length: 3 }, () => notice(user.id)),
+		)
+	})
+
+	it('tells no one of the sign-up, a Master write or a closed account', async () => {
+		const { user, app } = await server()
+		await Member.update(
+			{ where: { id: user.id }, data: { passwordSetAt: new Date(0) } },
+			M,
+		)
+		await Member.closeAccount({ id: user.id }, M)
+		await app.stop()
+		expect(outbox).toStrictEqual([])
+	})
+
+	it('tells no one without sendEmail', async () => {
+		const { user } = await server({})
+		await Member.setPassword({ id: user.id, password: 'set by Master' }, M)
+		expect(changes).toHaveLength(1)
 	})
 
 	it('is null once the account closes', async () => {

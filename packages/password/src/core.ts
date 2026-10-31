@@ -35,6 +35,13 @@ export interface State {
 	readonly sendEmail: SendEmail | undefined
 }
 
+/** The `passwordSetAt` each `setPassword` wrote, which its commit tells (D-169). */
+const setting = new Set<string>()
+
+/** Whether `setPassword` wrote `at` for `userId`, told once. */
+export const passwordSet = (userId: string, at: Date): boolean =>
+	setting.delete(`${userId} ${at.getTime()}`)
+
 /** What a sign-in returns: its session, and the user read as itself. */
 export interface SignedIn<U = Row> {
 	/**
@@ -184,8 +191,12 @@ export async function setPassword(
 			: PasswordHash.update({ where: { userId }, data }, M))
 		await PasswordToken.deleteMany({ where: { userId, kind: 'reset' } }, M)
 		await state.auth.revokeSessions(userId)
-		// Through the user's queries, so the application's hooks see it (D-169).
+		// Through the user's queries, so the application's hooks see it, and
+		// password's own tells the account once it commits (D-169).
 		const passwordSetAt = new Date()
+		if (state.sendEmail !== undefined) {
+			setting.add(`${userId} ${passwordSetAt.getTime()}`)
+		}
 		await state.users.queries.update(
 			{ where: { id: userId }, data: { passwordSetAt } },
 			M,

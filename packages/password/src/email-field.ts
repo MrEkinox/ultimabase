@@ -3,7 +3,7 @@
 import type { Caller } from 'ultimabase'
 import { isMaster, master, PublicError } from 'ultimabase'
 import type { State } from './core.ts'
-import { method } from './core.ts'
+import { method, passwordSet } from './core.ts'
 import { later } from './email-functions.ts'
 import { emailOf, valid } from './input.ts'
 import { PasswordToken } from './tokens.ts'
@@ -82,23 +82,29 @@ export async function updated(
 	await PasswordToken.deleteMany({ where }, M)
 }
 
-/** Tells the old address, once the change commits, when `sendEmail` exists. */
+/**
+ * Once the write commits, when `sendEmail` exists, tells the old address its
+ * new email (D-162) and the account a password `setPassword` set (D-169).
+ */
 export function committed(
 	state: State,
-	record: Emailed,
+	record: Emailed & { readonly passwordSetAt: Date | null },
 	previous: Emailed,
 ): void {
-	const { sendEmail } = state
-	const [from, to] = [previous.email, record.email]
-	if (sendEmail === undefined || from === null || to === null || from === to) {
-		return
-	}
-	later(state, async () => {
-		await sendEmail({
-			kind: 'emailChanged',
-			to: from,
-			newEmail: to,
-			userId: record.id,
+	const { sendEmail, auth } = state
+	if (sendEmail === undefined) return
+	const { id: userId, passwordSetAt } = record
+	if (passwordSetAt !== null && passwordSet(userId, passwordSetAt)) {
+		later(state, async () => {
+			// A user stored before D-162 reads no email: its account has it.
+			const to = await auth.subjectOf(userId, method)
+			if (to === undefined) return
+			await sendEmail({ kind: 'passwordChanged', to, userId })
 		})
+	}
+	const [from, to] = [previous.email, record.email]
+	if (from === null || to === null || from === to) return
+	later(state, async () => {
+		await sendEmail({ kind: 'emailChanged', to: from, newEmail: to, userId })
 	})
 }

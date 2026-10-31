@@ -114,11 +114,19 @@ for (const url of urls) {
 			expect(JSON.stringify(signed.body)).toContain('"name":"Ada"')
 			const user = await User.findFirst({}, M)
 			expect(user?.emailVerified).toBe(true)
+			// The account is told once the reset commits, past the three.
+			await vi.waitFor(() => {
+				expect(outbox.at(-1)).toEqual({
+					kind: 'passwordChanged',
+					to: ada.email,
+					userId: user?.id,
+				})
+			})
 			// Past one hour, the counts are purged and another email goes.
 			vi.spyOn(Date, 'now').mockReturnValue(now + 60 * 60 * 1000)
 			await request()
 			await vi.waitFor(() => {
-				expect(outbox).toHaveLength(4)
+				expect(outbox).toHaveLength(5)
 			})
 			expect(await PasswordRequest.count({ where: { kind: 'email' } }, M)).toBe(
 				1,

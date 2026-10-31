@@ -143,6 +143,13 @@ it('changes the password of the signed-in user', async () => {
 	expect(await signIn('correct horse')).toMatchObject({
 		errors: [{ message: 'Wrong email or password.' }],
 	})
+	// The account is told.
+	await vi.waitFor(() => {
+		expect(outbox.at(-1)).toMatchObject({
+			kind: 'passwordChanged',
+			to: 'ada@example.com',
+		})
+	})
 	//#endregion
 })
 
