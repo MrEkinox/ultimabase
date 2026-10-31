@@ -15,6 +15,7 @@ import type {
 import {
 	GraphQLBoolean,
 	GraphQLFloat,
+	GraphQLID,
 	GraphQLInputObjectType,
 	GraphQLInt,
 	GraphQLList,
@@ -158,13 +159,10 @@ function typeOf<T extends GraphQLNullableType>(
 		return scope.leaf(enumType(node, values, path, scope.types))
 	if (type === 'string') {
 		const format = node['format']
-		return scope.leaf(
-			format === 'date-time'
-				? DateTime
-				: format === 'date'
-					? DateScalar
-					: GraphQLString,
-		)
+		if (format === 'date-time') return scope.leaf(DateTime)
+		if (format === 'date') return scope.leaf(DateScalar)
+		// A record's id, as `z.uuid()` writes it (D-175).
+		return scope.leaf(format === 'uuid' ? GraphQLID : GraphQLString)
 	}
 	if (type === 'array') {
 		const items = isNode(node['items']) ? node['items'] : {}

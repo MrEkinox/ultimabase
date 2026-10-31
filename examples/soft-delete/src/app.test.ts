@@ -59,7 +59,7 @@ it('restores a deleted post', async () => {
 	const id = await deleted()
 	//#region restore
 	const restore =
-		'mutation ($id: String!) { restorePost(id: $id) { title deletedAt } }'
+		'mutation ($id: ID!) { restorePost(id: $id) { title deletedAt } }'
 	expect(await request(restore, { id })).toEqual({
 		data: { restorePost: { title: 'Draft', deletedAt: null } },
 	})

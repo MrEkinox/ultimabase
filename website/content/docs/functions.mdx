@@ -78,6 +78,9 @@ data (`Loan` above), or a Standard Schema for data alone. Without an output,
 </include>
 
 The output is typed, not validated: `run` must return what it declares.
+A string returned for an enum takes `as const`, as in
+`{ result: 'passed' as const }`: TypeScript reads the literal as a `string`
+otherwise, since it checks `run` before it knows the output's type.
 
 ## Over the transports
 
@@ -142,6 +145,10 @@ caller, with its rules. A function opens no transaction: see
 
 A schema given `.meta({ id: 'Line' })` is the shared GraphQL type `Line`,
 and `LineInput` as an input.
+
+`z.uuid()` is an `ID` in GraphQL, as a row's `id`, and a `string` of
+format `uuid` in OpenAPI: a client passes a row's `id` to a function with
+the variable type it reads it with, `$id: ID!`.
 
 ### Errors
 

@@ -289,7 +289,8 @@ type Needs<K extends 'requires' | 'optional', N extends string> = [N] extends [
 /** What a plugin's author writes (D-57). */
 export type PluginDefinition<T extends PluginTypes> = {
 	readonly name: T['name']
-	readonly manifest: Manifest
+	/** Its package; a plugin of the application has none (D-172). */
+	readonly manifest?: Manifest
 	/** The hooks it runs on each model that uses it. */
 	readonly hooks?: PluginHooks<
 		Own<T>,

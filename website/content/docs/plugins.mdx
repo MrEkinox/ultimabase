@@ -9,7 +9,7 @@ GraphQL and REST are written as the ones on this page. A plugin can add
 fields, indexes, hooks and commands to the models that use it, a field type,
 its own models and functions, who a request comes from, and routes.
 
-The smallest plugin has a name and a manifest:
+The smallest plugin has a name:
 
 <include cwd meta='title="src/plugins/color.ts"'>
 	../examples/plugins/src/plugins/color.ts#plugin
@@ -32,13 +32,27 @@ identity and a transport.
 
 ## The manifest
 
-`manifest` is the plugin's package: its `name`, its `version`, and in
-`peerDependencies` the ranges of `ultimabase` and of the plugins it needs. A
-published plugin passes its imported `package.json`. At start, a plugin whose
-range excludes the running `ultimabase`, or an installed plugin, stops the
-application with
-`example-rpc 1.0.0 needs @ultimabase/http ^2.0.0; this is @ultimabase/http 1.4.0.`
-A plugin that gives no `ultimabase` range starts with a warning.
+`manifest` is optional. A plugin written in the application, as `color` or
+`publishing` below, leaves it out: it runs on the `ultimabase` the
+application installs, and nothing is checked.
+
+A published plugin should always pass one, its imported `package.json`:
+`import manifest from '../package.json' with { type: 'json' }`. Without it,
+an application that installs the plugin beside another version of
+`ultimabase`, or of a plugin it needs, starts anyway, and fails later in a
+hook. With it, its `name`, its `version`, and in `peerDependencies` the
+ranges of `ultimabase` and of the plugins it needs are checked at start: a
+range that excludes the running `ultimabase`, or an installed plugin, stops
+the application with
+`ultimabase-rpc 1.0.0 needs @ultimabase/http ^2.0.0; this is @ultimabase/http 1.4.0.`
+A manifest that gives no `ultimabase` range starts with a warning.
+
+The `rpc` plugin below is written to be published, and writes its manifest
+by hand:
+
+<include cwd meta='title="src/plugins/rpc.ts"'>
+	../examples/plugins/src/plugins/rpc.ts#definition
+</include>
 
 ## Add fields to models
 
@@ -322,26 +336,26 @@ definition required, as `addedFields` or `api`.
 
 ### `definePlugin(definition)`
 
-| Key            | Type                                          | Effect                                                            |
-| -------------- | --------------------------------------------- | ----------------------------------------------------------------- |
-| `name`         | the types' `name`                             | Required.                                                         |
-| `manifest`     | `{ name, version, peerDependencies? }`        | Required: checked when defined, its ranges at start.              |
-| `models`       | `defineModel` values                          | Its own models.                                                   |
-| `addedFields`  | `(f, options) => fields`                      | The fields of `addedFields`, built for each model.                |
-| `addedIndexes` | `{ fields, unique?, contains?: true }[]`      | Indexes on its added fields; `contains` is a trigram index.       |
-| `hooks`        | `{ beforeFind?, beforeCreate?, … }`           | Run on each model that uses it, before the model's own.           |
-| `redirect`     | `{ delete? }`                                 | Replaces a delete, as [soft-delete](/docs/next/soft-delete) does. |
-| `commands`     | `(model) => commands`                         | Built once for each model that uses it.                           |
-| `caller`       | `({ user }, context) => keys`                 | Keys of each user caller.                                         |
-| `identify`     | `(request, context) => Identity \| undefined` | Who sends a request; `undefined` leaves it to the next plugin.    |
-| `functions`    | `(context) => defineFunction[]`               | Built once at start, served under the plugin's name.              |
-| `api`          | `(context) => api`                            | Built once before any `start`, in the order the plugins need.     |
-| `start`        | `(context) => void`                           | Runs once when the application starts, after every `api`.         |
-| `stop`         | `(context) => void`                           | Runs once when it stops: close, flush.                            |
-| `changed`      | `(changes, context) => void`                  | What each commit changed, on any server.                          |
-| `missed`       | `(context) => void`                           | Changes may have been lost.                                       |
-| `requires`     | `{ [name]: plugin function }`                 | The `plugin` functions of the plugins in `requires`.              |
-| `optional`     | `{ [name]: plugin function }`                 | The `plugin` functions of the plugins in `optional`.              |
+| Key            | Type                                          | Effect                                                                                   |
+| -------------- | --------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| `name`         | the types' `name`                             | Required.                                                                                |
+| `manifest`     | `{ name, version, peerDependencies? }`        | Optional; recommended for a published plugin: checked when defined, its ranges at start. |
+| `models`       | `defineModel` values                          | Its own models.                                                                          |
+| `addedFields`  | `(f, options) => fields`                      | The fields of `addedFields`, built for each model.                                       |
+| `addedIndexes` | `{ fields, unique?, contains?: true }[]`      | Indexes on its added fields; `contains` is a trigram index.                              |
+| `hooks`        | `{ beforeFind?, beforeCreate?, … }`           | Run on each model that uses it, before the model's own.                                  |
+| `redirect`     | `{ delete? }`                                 | Replaces a delete, as [soft-delete](/docs/next/soft-delete) does.                        |
+| `commands`     | `(model) => commands`                         | Built once for each model that uses it.                                                  |
+| `caller`       | `({ user }, context) => keys`                 | Keys of each user caller.                                                                |
+| `identify`     | `(request, context) => Identity \| undefined` | Who sends a request; `undefined` leaves it to the next plugin.                           |
+| `functions`    | `(context) => defineFunction[]`               | Built once at start, served under the plugin's name.                                     |
+| `api`          | `(context) => api`                            | Built once before any `start`, in the order the plugins need.                            |
+| `start`        | `(context) => void`                           | Runs once when the application starts, after every `api`.                                |
+| `stop`         | `(context) => void`                           | Runs once when it stops: close, flush.                                                   |
+| `changed`      | `(changes, context) => void`                  | What each commit changed, on any server.                                                 |
+| `missed`       | `(context) => void`                           | Changes may have been lost.                                                              |
+| `requires`     | `{ [name]: plugin function }`                 | The `plugin` functions of the plugins in `requires`.                                     |
+| `optional`     | `{ [name]: plugin function }`                 | The `plugin` functions of the plugins in `optional`.                                     |
 
 The hooks are `beforeFind`, `beforeCreate`, `beforeUpdate`, `beforeDelete`,
 `afterCreate`, `afterUpdate`, `afterDelete`, `afterCreateCommit`,

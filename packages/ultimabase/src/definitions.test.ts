@@ -268,6 +268,31 @@ describe('schema resolution (D-37)', () => {
 		expect(index('parent')).not.toThrow()
 	})
 
+	it("indexes the kernel's fields, in a non-unique index only (D-174)", () => {
+		const Message = defineModel({
+			name: 'Message',
+			fields: (f) => ({ text: f.string() }),
+			indexes: [
+				{ fields: ['text', 'createdAt', 'id'] },
+				{ fields: ['updatedAt'] },
+			],
+		})
+		expect(fieldsOf([Message], 'Message')?.indexes).toEqual([
+			{ fields: ['text', 'createdAt', 'id'], unique: false, contains: false },
+			{ fields: ['updatedAt'], unique: false, contains: false },
+		])
+		expect(
+			containsIndexes([{ fields: ['title', 'createdAt'], unique: true }]),
+		).toThrow(
+			"Bad: a unique index cannot name 'createdAt', which the kernel sets.",
+		)
+		expect(
+			containsIndexes([{ fields: ['createdAt'], contains: true }]),
+		).toThrow(
+			'Bad: a contains index covers one string field that is not a list, and is not unique.',
+		)
+	})
+
 	it('keeps a contains index to one string field, not a list (D-141)', () => {
 		const Book = defineModel({
 			name: 'Book',

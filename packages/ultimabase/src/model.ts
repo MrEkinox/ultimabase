@@ -267,9 +267,21 @@ type ModeCheck<I, F> = I extends { readonly mode: 'insensitive' }
 			: unknown
 		: ModeError
 	: unknown
+// The kernel's fields, in a non-unique index only (D-22, D-174).
+type Implicit = 'id' | 'createdAt' | 'updatedAt'
 type NotIndexable<I, F> = I extends { readonly fields: readonly (infer K)[] }
-	? Exclude<K, IndexableKeys<F>>
+	? Exclude<K, IndexableKeys<F> | Implicit>
 	: never
+type ImplicitCheck<I> = I extends {
+	readonly fields: readonly (infer K)[]
+	readonly unique: true
+}
+	? [Extract<K, Implicit>] extends [never]
+		? unknown
+		: {
+				readonly fields: `'${Extract<K, Implicit>}' is set by the kernel: a unique index cannot name it`
+			}
+	: unknown
 
 /**
  * Each index names fields of the model. TypeScript first checks the call
@@ -285,7 +297,8 @@ export type IndexCheck<X, F> = string extends keyof F
 						readonly fields: `'${NotIndexable<X[I], F> & string}' is not a scalar field or a one relation of the model`
 					}) &
 				ContainsCheck<X[I], F> &
-				ModeCheck<X[I], F>
+				ModeCheck<X[I], F> &
+				ImplicitCheck<X[I]>
 		}
 
 export type ModelShape = {

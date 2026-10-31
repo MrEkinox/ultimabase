@@ -39,11 +39,6 @@ const sockets = new WebSocketServer({ noServer: true })
 //#region plugin
 export const taskFeedPlugin: PluginOf<TaskFeed> = definePlugin<TaskFeed>({
 	name: 'taskFeed',
-	manifest: {
-		name: 'example-task-feed',
-		version: '1.0.0',
-		peerDependencies: { ultimabase: '*' },
-	},
 	requires: { http: httpPlugin, realtime: realtimePlugin },
 	api: ({ plugins }) => {
 		plugins.http.upgrade(
