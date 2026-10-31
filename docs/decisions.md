@@ -88,6 +88,8 @@ Rejected: keeping TypeScript 6 for lint alongside TypeScript 7.
 
 ## D-06: Agent-first, measured by speed
 
+Amended by D-173.
+
 Choice: the repository is built so an agent can make a typical change and
 verify it in minutes. Rules live in tools (types, lint, CI checks, generators)
 rather than in documents; an agent reads `AGENTS.md` and the package it
@@ -11104,3 +11106,16 @@ After, with `DATABASE_URL` in `packages/backend/.env`, beside
 yarn workspace backend dev
 npx ultimabase sync --config packages/backend/ultimabase.config.ts
 ```
+
+## D-173: `yarn validate` runs in 90 seconds at most
+
+Choice: amends D-06. `yarn validate` stays under 90 seconds locally, instead
+of one minute. The other budgets of D-06 are unchanged: PostgreSQL tests in a
+separate command, file and package line limits.
+Why: `yarn validate` takes 72 seconds on the
+maintainer's machine (1916 tests, the type check, lint and the docs checks).
+Holding one minute would mean dropping checks, which costs more than the
+seconds it saves. 90 seconds keeps a margin and keeps a slowdown visible.
+Rejected: two minutes (a margin of 48 seconds lets the run drift unseen);
+moving tests out of `yarn validate` (it is the one command that proves a
+change).
