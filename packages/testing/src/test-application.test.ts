@@ -8,6 +8,7 @@ import {
 	definePlugin,
 	master,
 	memory,
+	transaction,
 } from 'ultimabase'
 import { scratchable } from 'ultimabase/internal'
 import { beforeAll, describe, expect, it } from 'vitest'
@@ -239,4 +240,93 @@ it('takes a declared database with tables only when it gives a file its own', ()
 			database: 'declared',
 		}),
 	).toThrow("remove { database: 'declared' }")
+})
+
+describe('queries()', () => {
+	const Author = defineModel({
+		name: 'Author',
+		fields: (f) => ({ name: f.string(), posts: f.many(() => Post) }),
+	})
+	const Post = defineModel({
+		name: 'Post',
+		fields: (f) => ({ title: f.string(), author: f.one(() => Author) }),
+	})
+	const running = testApplication(
+		defineApp({ database: memory(), models: [Author, Post] }),
+	)
+	let before = ''
+	beforeAll(async () => {
+		before = await running
+			.queries(async () => undefined)
+			.then(
+				() => 'no error',
+				(error: unknown) => (error instanceof Error ? error.message : ''),
+			)
+	})
+
+	it('lists what the callback sends, not what ran before', async () => {
+		await Author.create({ data: { name: 'Ada' } }, M)
+		const queries = await running.queries(async () => {
+			await Author.findMany({}, M)
+			await Author.count({}, M)
+			await Post.aggregate({ _count: true }, M)
+			await Author.create(
+				{ data: { name: 'Grace', posts: { create: [{ title: 'Hi' }] } } },
+				M,
+			)
+		})
+		expect(queries).toStrictEqual([
+			'find Author',
+			'count Author',
+			'aggregate Post',
+			'write Author, Post',
+		])
+		expect(await running.queries(async () => undefined)).toStrictEqual([])
+	})
+
+	it('lists the queries of a transaction, not its begin and commit', async () => {
+		const queries = await running.queries(async () =>
+			transaction(async () => {
+				await Author.create({ data: { name: 'Ada' } }, M)
+				await Author.count({}, M)
+			}),
+		)
+		expect(queries).toStrictEqual(['write Author', 'count Author'])
+	})
+
+	it('stops recording when the callback throws', async () => {
+		await expect(
+			running.queries(async () => {
+				await Author.count({}, M)
+				throw new Error('Refused.')
+			}),
+		).rejects.toThrow('Refused.')
+		expect(await running.queries(async () => undefined)).toStrictEqual([])
+	})
+
+	it('does not nest, and runs during a test', async () => {
+		await expect(
+			running.queries(async () => running.queries(async () => undefined)),
+		).rejects.toThrow('queries() already records: do not nest it.')
+		expect(before).toBe('queries() runs during a test.')
+	})
+})
+
+describe("queries() on { database: 'declared' }", () => {
+	const running = testApplication(
+		defineApp({ database: memory(), models: [Note] }),
+		{ database: 'declared' },
+	)
+
+	it('records each query once', async () => {
+		expect(await running.queries(async () => Note.count({}, M))).toStrictEqual([
+			'count Note',
+		])
+	})
+
+	it('in each test', async () => {
+		expect(await running.queries(async () => Note.count({}, M))).toStrictEqual([
+			'count Note',
+		])
+	})
 })

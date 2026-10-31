@@ -11,6 +11,8 @@ import {
 	scratchOf,
 } from 'ultimabase/internal'
 import { afterEach, beforeAll, beforeEach } from 'vitest'
+import type { Recording } from './queries.ts'
+import { recorded } from './queries.ts'
 
 export type TestApplication = {
 	/** The HTTP server's address during a test, such as `http://localhost:54321`. */
@@ -20,6 +22,11 @@ export type TestApplication = {
 		/** Calls each plugin's `missed`, as after a lost connection. */
 		readonly missed: () => void
 	}
+	/**
+	 * The queries `run` sends to the database, such as `'find User'` or
+	 * `'write Invite, User'`, in their order (D-177).
+	 */
+	readonly queries: (run: () => Promise<unknown>) => Promise<string[]>
 }
 
 /** Starts `run` with `PORT` set to `0`, then puts `PORT` back. */
@@ -81,8 +88,13 @@ export function testApplication(
 	const database =
 		options.database === 'declared' ? declared(runs.declared) : memory
 	let run: Lifecycle | undefined
+	const recording: Recording = { list: undefined }
+	// The declared database is the same object in every test.
+	const patched = new WeakSet<Adapter>()
 	beforeEach(async () => {
-		run = runs.on(database())
+		const adapter = database()
+		if (!patched.has(adapter)) patched.add(recorded(adapter, recording))
+		run = runs.on(adapter)
 		await onFreePort(run)
 	})
 	afterEach(async () => {
@@ -105,6 +117,20 @@ export function testApplication(
 					throw new Error('feed.missed() runs during a test.')
 				runningFeed()?.missed()
 			},
+		},
+		queries: async (given) => {
+			if (run === undefined) throw new Error('queries() runs during a test.')
+			if (recording.list !== undefined) {
+				throw new Error('queries() already records: do not nest it.')
+			}
+			const list: string[] = []
+			recording.list = list
+			try {
+				await given()
+			} finally {
+				recording.list = undefined
+			}
+			return list
 		},
 	}
 }
