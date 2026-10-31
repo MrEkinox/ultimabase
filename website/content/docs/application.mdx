@@ -71,6 +71,11 @@ Both find `ultimabase.config.ts` in the directory they run in, or
 file. The application lives in `src/app.ts`, apart from the file
 that starts it, so a test imports it without starting it.
 
+`ultimabase dev` loads the `.env` file beside the config, as
+`DATABASE_URL=postgres://localhost/app`; a variable already set keeps its
+value, and a change to the file restarts the application. `ultimabase start`
+never reads it: in production, the host sets the environment.
+
 `app.start()` starts the database, then each plugin; the HTTP plugin listens
 on `PORT`, or 3000. `app.stop()` stops the plugins in reverse order, waits
 for the operations still running, then closes the database; a `SIGTERM`

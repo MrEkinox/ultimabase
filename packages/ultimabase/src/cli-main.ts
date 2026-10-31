@@ -1,6 +1,7 @@
 // The `ultimabase` command (D-105): `dev`, `start`, `sync`, `reset` and
 // `migrate`.
 import { spawn } from 'node:child_process'
+import { existsSync } from 'node:fs'
 import { dirname, extname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { parseArgs } from 'node:util'
@@ -21,7 +22,9 @@ const usage = `Usage: ultimabase <command> [--config <path>]
   migrate create <name>  Write the models' changes as a migration, or an
                          empty one for your SQL.
   migrate deploy         Apply the pending migrations.
-  migrate status         Say what a deploy would do; exit 1 if anything.`
+  migrate status         Say what a deploy would do; exit 1 if anything.
+
+dev, sync, reset and migrate create load the .env beside the config.`
 
 export type Io = {
 	readonly cwd: string
@@ -116,10 +119,19 @@ async function run(args: readonly string[], io: Io): Promise<number> {
 		return 1
 	}
 	const path = configPath(io.cwd, values.config)
+	// The `.env` beside the config, for the development commands (D-171).
+	const env = join(dirname(path), '.env')
+	const local =
+		existsSync(env) &&
+		command !== 'start' &&
+		sub !== 'deploy' &&
+		sub !== 'status'
 	if (command === 'dev') {
 		process.env['NODE_ENV'] ??= 'development'
-		return io.node(['--watch', serveFile, path])
+		const file = local ? [`--env-file=${env}`] : []
+		return io.node(['--watch', ...file, serveFile, path])
 	}
+	if (local) process.loadEnvFile(env)
 	if (command === 'start') process.env['NODE_ENV'] ??= 'production'
 	const app = await load(path)
 	const dir = join(dirname(path), 'migrations')
