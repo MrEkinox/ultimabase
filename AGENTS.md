@@ -42,9 +42,9 @@ Tick a roadmap item in the commit that completes it.
 ## Validation
 
 `yarn validate` (format, types, lint, budgets, tests) must pass before a merge
-into `main` and must stay under one minute (D-06). Tests that need PostgreSQL
-are named `*.postgres.test.ts` and run with `yarn test:postgres`, outside
-`yarn validate`. Report any check that failed or was not run.
+into `main` and must stay under 90 seconds (D-06, D-173). Tests that need
+PostgreSQL are named `*.postgres.test.ts` and run with `yarn test:postgres`,
+outside `yarn validate`. Report any check that failed or was not run.
 
 Rules live in tools (types, lint, CI checks) rather than in documents: to
 understand a change, read this file and the package it touches, nothing else.

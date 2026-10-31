@@ -337,6 +337,26 @@ describe('the document', () => {
 	})
 })
 
+describe('a uuid', () => {
+	it('keeps its format, as GraphQL types it ID (D-175)', async () => {
+		const accept = defineFunction({
+			name: 'accept',
+			input: z.object({ id: z.uuid() }),
+			run: () => undefined,
+		}).with({ access: allow.public })
+		const running = await started({}, memory(), [accept], models)
+		stop = async () => running.app.stop()
+		const { body: document } = await call(
+			running.url,
+			'GET',
+			'/api/openapi.json',
+		)
+		expect(
+			at(document, ...body('/functions/accept', 'post'), 'properties', 'id'),
+		).toMatchObject({ type: 'string', format: 'uuid' })
+	})
+})
+
 describe('its schemas', () => {
 	it('accept what REST takes and answers', async () => {
 		const { url, document } = await serving()

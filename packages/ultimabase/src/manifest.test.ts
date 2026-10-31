@@ -1,5 +1,6 @@
 // The manifest's version checks (D-57, D-95): `definePlugin` refuses an
-// invalid manifest, `start` a range that excludes the kernel or a plugin.
+// invalid manifest, `start` a range that excludes the kernel or a plugin;
+// a plugin of the application has no manifest (D-172).
 import { afterEach, describe, expect, it } from 'vitest'
 import kernel from '../package.json' with { type: 'json' }
 import type { Logger, PluginTypes } from './index.ts'
@@ -53,9 +54,7 @@ const started = async (...manifests: Manifest[]): Promise<void> => {
 
 describe('definePlugin', () => {
 	it('refuses a manifest without a name or a valid version', () => {
-		expect(defined(undefined)).toThrow(
-			new TypeError('p.manifest is an object.'),
-		)
+		expect(defined(null)).toThrow(new TypeError('p.manifest is an object.'))
 		expect(defined({ name: '', version: '1.0.0' })).toThrow(
 			new TypeError('p.manifest.name is a package name.'),
 		)
@@ -121,6 +120,25 @@ describe('start', () => {
 				},
 			},
 		)
+		expect(warnings).toEqual([])
+	})
+
+	it('checks no plugin of the application, which no peer names (D-172)', async () => {
+		const own = definePlugin<Any>({ name: 'maintenance' }).plugin()
+		running = defineApp({
+			database: memory(),
+			models: [Note],
+			plugins: [
+				own,
+				plugin({
+					name: 'ultimabase-archive',
+					version: '1.0.0',
+					peerDependencies: { ...kernelRange, maintenance: '^2.0.0' },
+				}),
+			],
+			logger: recorder,
+		})
+		await running.start()
 		expect(warnings).toEqual([])
 	})
 

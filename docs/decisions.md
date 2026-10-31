@@ -88,6 +88,8 @@ Rejected: keeping TypeScript 6 for lint alongside TypeScript 7.
 
 ## D-06: Agent-first, measured by speed
 
+Amended by D-173.
+
 Choice: the repository is built so an agent can make a typical change and
 verify it in minutes. Rules live in tools (types, lint, CI checks, generators)
 rather than in documents; an agent reads `AGENTS.md` and the package it
@@ -1043,6 +1045,8 @@ export const User = defineUser({ name: 'User', fields }).with({
 
 ## D-44: Field access rules per operation
 
+Amended by D-176.
+
 Choice: a field's `.with({ access })` takes one rule or one rule per operation
 (`read`, `create`, `update`). A rule has the shape of D-10 and returns `true`
 or `false`; every field rule, read included, receives the row's `record`
@@ -1313,7 +1317,7 @@ Rejected: one feature set identical on every adapter.
 
 ## D-52: Unique fields on the field, indexes in `defineModel`
 
-Amended by D-170.
+Amended by D-170, D-174.
 
 Choice: a field takes `unique: true` (`f.string({ unique: true })`); indexes
 over one or several fields go in `defineModel`, since they shape the model
@@ -1443,7 +1447,7 @@ rate-limit plugin.
 
 ## D-57: A plugin is an interface of types and one `definePlugin`
 
-Amended by D-89.
+Amended by D-89 and D-172.
 
 Choice: a plugin declares its types in an interface extending `PluginTypes`:
 its `name` and the parts it has, `options` (its entry's, `softDelete({ ... })`),
@@ -3298,6 +3302,8 @@ await Post.findMany({ orderBy: { meta: 'asc' } })
 
 ## D-95: The manifest's version checks
 
+Amended by D-172.
+
 Choice: the checks of D-57 run in `start`, before the database starts, with
 `semver` (D-92):
 
@@ -4926,7 +4932,7 @@ curl -X POST localhost:3000/webhooks/stripe -H 'content-type: application/json' 
 
 ## D-109: `defineFunction` and `defineType`, at run time and over GraphQL
 
-Amended by D-113, D-125, D-150 and D-154.
+Amended by D-113, D-125, D-150, D-154 and D-175.
 
 Choice: completes D-27, D-45, D-75 and D-107, and amends D-45's outputs.
 
@@ -11103,6 +11109,274 @@ After, with `DATABASE_URL` in `packages/backend/.env`, beside
 # From the monorepo's root: the same file is loaded.
 yarn workspace backend dev
 npx ultimabase sync --config packages/backend/ultimabase.config.ts
+```
+
+## D-172: A plugin of the application has no manifest
+
+Choice: amends D-57 and D-95.
+
+1. `manifest` is optional in `definePlugin`. A plugin without one is the
+   application's own, written in its source and never published: `start`
+   checks no range of it and logs no warning. It keeps its `name` for the
+   logs, `requires` and `optional`.
+2. A plugin with a manifest is checked as D-95 says, and one whose manifest
+   gives `ultimabase` no range still warns: that is a published plugin's
+   forgotten field.
+3. A plugin without a manifest is no package: another plugin's
+   `peerDependencies` cannot name it, as for a peer not installed.
+4. A `manifest` that is not an object, `null` included, is refused as
+   before.
+5. The documentation says `manifest` is optional, and recommends it for
+   every published plugin, which passes its imported `package.json`: without
+   it, a version conflict fails later, in a hook. A plugin of the application
+   is shown without one. The examples' plugins of an application drop
+   theirs, except `rpc`, written to be published, which shows a manifest.
+
+Why:
+
+- A plugin in the application is compiled against the kernel the
+  application installs: it cannot be out of step, so its range only
+  restates `package.json`. Written `^0.2.0`, it refused the canary of 0.3
+  and broke every test; written `*`, it checks nothing.
+- Its manifest's `name` and `version` are invented, for a package that
+  does not exist.
+
+Rejected:
+
+- No warning when `peerDependencies` is absent: it would drop D-95's
+  warning for published plugins too, and keep the invented name and
+  version.
+- Documenting `peerDependencies: { ultimabase: '*' }`: it stays
+  boilerplate, and `*` is a range that checks nothing.
+- A `local: true` key: a second way to say what the absent manifest says.
+
+Example, before:
+
+```ts
+export const { plugin: maintenancePlugin, use: maintenance } =
+	definePlugin<Maintenance>({
+		name: 'maintenance',
+		manifest: {
+			name: 'backend-maintenance',
+			version: '1.0.0',
+			peerDependencies: { ultimabase: '^0.2.0' },
+		},
+		// ...
+	})
+// After an upgrade to 0.3:
+// Refused: backend-maintenance 1.0.0 needs ultimabase ^0.2.0; this is ultimabase 0.3.0.
+```
+
+After:
+
+```ts
+export const { plugin: maintenancePlugin, use: maintenance } =
+	definePlugin<Maintenance>({
+		name: 'maintenance',
+		// ...
+	})
+```
+
+A published plugin keeps its manifest:
+
+```ts
+import manifest from '../package.json' with { type: 'json' }
+
+export const { plugin: archivePlugin, use: archive } = definePlugin<Archive>({
+	name: 'archive',
+	manifest,
+	// ...
+})
+```
+
+## D-173: `yarn validate` runs in 90 seconds at most
+
+Choice: amends D-06. `yarn validate` stays under 90 seconds locally, instead
+of one minute. The other budgets of D-06 are unchanged: PostgreSQL tests in a
+separate command, file and package line limits.
+Why: `yarn validate` takes 72 seconds on the
+maintainer's machine (1916 tests, the type check, lint and the docs checks).
+Holding one minute would mean dropping checks, which costs more than the
+seconds it saves. 90 seconds keeps a margin and keeps a slowdown visible.
+Rejected: two minutes (a margin of 48 seconds lets the run drift unseen);
+moving tests out of `yarn validate` (it is the one command that proves a
+change).
+
+## D-174: An index names the kernel's fields
+
+Choice: amends D-52.
+
+1. A non-unique index of `defineModel` may name `id`, `createdAt` and
+   `updatedAt`, the fields the kernel sets (D-22), beside the model's own:
+   `indexes: [{ fields: ['room', 'createdAt', 'id'] }]`.
+2. A unique index refuses them, in its type and at startup:
+   `Message: a unique index cannot name 'createdAt', which the kernel sets.`
+   `id` is unique already, and a timestamp the kernel writes makes no key.
+3. A `contains` index refuses them as any field that is not a string
+   (D-141).
+4. `postgres()` reads their columns, `id`, `created_at` and `updated_at`:
+   `create index "message_room_created_at_id_idx" on "message" ("room", "created_at", "id")`.
+
+Why: an application migrating from Parse pages a room's newest messages,
+`where: { room }` ordered by `createdAt` then `id`. Without an index over
+these columns, every page reads and sorts all the room's rows. Parse
+indexed `createdAt` by hand in the database; an index made outside the
+snapshot is missing from every new database, a test's or another
+environment's.
+
+Rejected:
+
+- Allowing them in a unique index: `id` is a key alone, and two rows
+  created in the same millisecond would clash.
+- Indexing `createdAt` on every model: an index costs each write, and most
+  models never sort by it.
+- An index made by hand in the database: `sync` compares snapshots and
+  never makes it again.
+
+Example, before: refused on the index's line.
+
+```ts
+const Message = defineModel({
+	name: 'Message',
+	fields: (f) => ({ room: f.one(() => Room), text: f.string() }),
+	// 'createdAt' is not a scalar field or a one relation of the model
+	indexes: [{ fields: ['room', 'createdAt', 'id'] }],
+})
+```
+
+After: the same model starts, and this read uses the index.
+
+```ts
+await Message.findMany(
+	{
+		where: { room: { id: room.id } },
+		orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+		take: 30,
+	},
+	{ as },
+)
+```
+
+## D-175: A uuid is an `ID` in GraphQL
+
+Choice: amends D-109.
+
+1. A string of JSON Schema format `uuid`, as `z.uuid()`, `z.uuidv7()` and
+   `z.guid()` export it, is GraphQL's `ID`, in a function's input and
+   output and in a json field's type (D-125): `input: z.object({ id: z.uuid() })`
+   gives `accept(id: ID!)`.
+2. OpenAPI keeps the schema's `{ type: 'string', format: 'uuid' }`, as REST
+   already exports it (D-144): no change there.
+3. The schema still validates the value: an `ID` that is not a uuid, as
+   `7`, is `VALIDATION_FAILED`.
+
+Why: a row's `id` is an `ID` in GraphQL (D-22). A client that reads it and
+passes it to a function declared it `ID!` for a generated mutation and
+`String!` for the function, since `ID!` is refused where `String!` is
+expected. Every id the kernel makes is a uuid, so the schema already says
+"an id".
+
+Rejected:
+
+- A helper, `idOf(Invitation)`, a branded string naming the model: a new
+  export whose only use today is the type name. It could also check that
+  the row exists and that the caller reads it; that is a decision of its
+  own, when a function needs it.
+- Every string named `id`: a name is no type, and an external id, as a
+  payment's, is no uuid.
+
+Upgrade: a client that declares `$id: String!` for a `z.uuid()` argument
+declares `$id: ID!`.
+
+Example, before:
+
+```graphql
+mutation ($id: String!) {
+	restorePost(id: $id) {
+		title
+	}
+}
+mutation ($id: ID!) {
+	deletePost(where: { id: $id }) {
+		title
+	}
+}
+```
+
+After, with `input: z.object({ id: z.uuid() })`:
+
+```graphql
+mutation ($id: ID!) {
+	restorePost(id: $id) {
+		title
+	}
+}
+mutation ($id: ID!) {
+	deletePost(where: { id: $id }) {
+		title
+	}
+}
+```
+
+## D-176: `allow.public` and `allow.readOnly` are no field read rule
+
+Choice: amends D-44.
+
+1. A field whose read rule is `allow.public` or `allow.readOnly`, as in
+   `access: allow.readOnly` or `access: { read: allow.public }`, has no read
+   rule: every caller reads it, filters on it, sorts on it and aggregates it,
+   as a field without `access`.
+2. The kernel tells these rules by identity, as D-44 tells `allow.private`:
+   only Master reads such a field. A rule of one's own that returns `true`,
+   such as `{ read: () => true }`, stays a read rule: the kernel does not run a rule
+   to learn what it does.
+3. The field is no longer hidden row by row, so GraphQL and OpenAPI type it
+   as its field declares it, non-null when it is required, and `search: true`
+   is allowed on it (D-148).
+4. Writes are unchanged: `allow.readOnly` still refuses a write to the field
+   to all but Master, and `{ read: allow.public, write: allow.private }` too.
+
+Why:
+
+- `allow.readOnly` reads "everyone reads, only Master writes", yet a field
+  with it was refused in a filter and typed nullable, as one a rule may
+  hide. An application migrating from Parse marks a field the server sets,
+  such as `featured`, with it, and its clients then cannot list the
+  featured rows.
+- `allow.public` always returns `true`: the row-by-row check and the refusal
+  in filters protect nothing.
+
+Rejected:
+
+- Running a read rule once without a record to learn whether it always
+  allows: a rule may read the caller, so its answer for one caller is not
+  the answer for another.
+- A new helper, such as `allow.serverWrites`: `allow.readOnly` already says
+  it.
+
+Example, before: a user's filter on a field only Master writes fails.
+
+```ts
+const Post = defineModel({
+	name: 'Post',
+	fields: (f) => ({
+		title: f.string(),
+		featured: f.boolean({ default: false }).with({ access: allow.readOnly }),
+	}),
+}).with({ access: allow.public })
+
+await Post.findMany({ where: { featured: { equals: true } } }, { as: caller })
+// INVALID_QUERY: where.featured: Post.featured has a read rule; only Master
+// filters on it.
+```
+
+After, with the same model: the filter returns the featured posts, GraphQL
+types `featured` as `Boolean!`, and a user's write to it is still refused.
+
+```ts
+await Post.findMany({ where: { featured: { equals: true } } }, { as: caller })
+await Post.update({ where: { id }, data: { featured: true } }, { as: caller })
+// ACCESS_DENIED: Post update refused.
 ```
 
 ## D-177: A test lists the queries a callback makes

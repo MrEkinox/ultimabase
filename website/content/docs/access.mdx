@@ -61,6 +61,9 @@ A read rule on a field hides its value from the rows it refuses. A caller
 other than Master cannot filter, sort or aggregate on such a field, which
 would reveal the value one guess at a time. `allow.private` leaves the field
 to Master: the transports leave it out of their schema.
+`allow.public` and `allow.readOnly` are no read rule: everyone filters and
+sorts on a field that has them, as `featured` above, and only the writes
+are checked.
 
 A field rule sees `record.id` typed and the other fields as `unknown`.
 `.with<{ authorId: string }>({ ... })` types the fields its rules read, as in
