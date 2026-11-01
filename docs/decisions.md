@@ -9371,7 +9371,7 @@ api: ({ plugins }) => plugins.http.mount(uploads, { bodyLimit: false })
 
 ## D-154: Realtime: live lists and live rows
 
-Amended by D-163, D-166 and D-178.
+Amended by D-163, D-166, D-178 and D-186.
 
 Choice: completes D-25; amends D-106 (WebSocket upgrades), D-107 (the
 `Subscription` type), D-109 (live functions) and D-129 (live reads over
@@ -11985,3 +11985,78 @@ return transaction(
 
 After: unchanged code; the 10 pairs match, each call after 5 attempts at
 most.
+
+## D-186: A live list is bounded by `maxLive`, and its refusal says so
+
+Choice: amends D-154, points 3 and 7.
+
+1. `maxTake` bounds a live list in page mode only, where each change
+   resends the whole window. Outside page mode, a live list's `first` (or
+   `take`), at subscribe and at each growth, is bounded by `maxLive` and
+   `maxConnectionRows` only, over GraphQL and REST alike. A nested list in
+   a live selection keeps its model's `maxTake`, as in a query.
+2. The cost stays `first × (1 + the nested rows of each row)`, a nested
+   list counting its `take` rows and theirs. The realtime guide gives it
+   next to `maxLive`, with an example, and the per-model
+   `.with({ realtime: { maxLive } })`.
+3. A refusal past `maxLive`, at subscribe or at a growth, stays
+   `VALIDATION_FAILED` with the same message, and carries
+   `details: { issues: [{ path: ['first'], message }], limit, rows }`:
+   `limit` the model's `maxLive`, `rows` what the list would follow, nested
+   rows included. GraphQL sends it under `extensions.details`, REST in its
+   `400` body, as every public error's details. The `maxConnectionRows`
+   refusal is unchanged.
+4. A growth refused leaves the list as it was. The transport keeps it under
+   the same token, for 10 s, as a completed list: what it sends meanwhile
+   waits. `@ultimabase/live`'s `fetchMore` rejects with the refusal, takes
+   back its variable (Apollo) or its URL's `first` (`liveFetch`), and
+   resumes at the previous size; the subscription's observer and
+   `liveFetch`'s listeners see no error. A refusal at subscribe still fails
+   the read.
+5. `LiveError` gets `details`, the server's, when it sends a record.
+
+Why:
+
+- `maxTake` exists because a page's every row is read and sent each time.
+  A live list sends only what changed, and `maxLive` is the limit made for
+  it: capping it at `maxTake` made `maxLive` above 100 unreachable at
+  subscribe, while growth already passed it.
+- A client cannot know where the limit is before it hits it; with `limit`
+  and `rows` it switches to ordinary cursor reads, as a chat history does,
+  without parsing the message.
+- A growth the server refuses is the client asking too much once, not a
+  broken read: ending the list made the client read everything again.
+
+Rejected:
+
+- Growing up to the limit and no further: `fetchMore` would resolve with
+  fewer rows than asked, and `hasNextPage` would stay true with nothing to
+  fetch.
+- A new error code for the limit: `VALIDATION_FAILED` with its details
+  tells the same, and the codes stay the few clients branch on.
+- Publishing `maxLive` in the schema or a header: the refusal already
+  carries it, where the client needs it.
+
+Example, before: a chat follows its newest messages live, 100 more at a
+time.
+
+```ts
+const live = liveFetch<Page>(`/api/messages?first=125&orderBy=${orderBy}`)
+// 400 BAD_USER_INPUT: first is at most 100 on Message.
+await live.fetchMore({ first: 900 })
+// Past maxLive: the stream ends, and the listeners get the LiveError.
+```
+
+After:
+
+```ts
+const live = liveFetch<Page>(`/api/messages?first=125&orderBy=${orderBy}`)
+try {
+	await live.fetchMore({ first: 900 })
+} catch (error) {
+	if (!(error instanceof LiveError)) throw error
+	error.details // { issues: [...], limit: 1000, rows: 1025 }
+	// The list goes on with its 125 messages; read older ones by cursor.
+	const after = latest?.pageInfo.endCursor
+}
+```
