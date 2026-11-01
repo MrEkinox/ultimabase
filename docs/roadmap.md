@@ -279,3 +279,4 @@ Exit: every feature of the previous base has an example, in far fewer lines.
 
 OAuth and magic link, jobs, admin, multi-tenancy (D-25).
 `migrate squash`, once an application's history needs it (D-105).
+A query cache, as a plugin, dropping what it keeps when a row it read changes.
