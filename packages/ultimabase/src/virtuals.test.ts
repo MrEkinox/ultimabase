@@ -485,7 +485,9 @@ describe('a virtual', () => {
 				},
 				rule,
 			),
-		).rejects.toThrow('Shelf.v needs v, no scalar field.')
+		).rejects.toThrow(
+			'Shelf.v needs v, neither a scalar field nor a one relation the row stores.',
+		)
 	})
 })
 
@@ -536,6 +538,146 @@ describe('a virtual', () => {
 		).toStrictEqual({ stamp: 'TODAY' })
 	})
 })
+
+const Post = defineModel({
+	name: 'Post',
+	fields: (f) => ({
+		body: f.string(),
+		writer: f.one(() => Writer),
+		editor: f.one(() => Writer, { optional: true }),
+		reviewer: f
+			.one(() => Writer, { optional: true })
+			.with({ access: { read: allow.private } }),
+		byline: f.virtual(z.string(), { needs: ['writer', 'editor'] }),
+		checked: f.virtual(z.boolean(), { needs: ['reviewer'] }),
+	}),
+}).with({
+	access: allow.public,
+	virtuals: {
+		byline: {
+			run: ({ record }) => {
+				seen.push(record)
+				expectTypeOf(record.writer).toEqualTypeOf<{ readonly id: string }>()
+				expectTypeOf(record.editor).toEqualTypeOf<{
+					readonly id: string
+				} | null>()
+				// @ts-expect-error -- reads a field it does not need
+				void record.body
+				return `${record.writer.id}/${record.editor?.id ?? '-'}`
+			},
+		},
+		checked: { run: ({ record }) => record.reviewer !== null },
+	},
+})
+
+const Writer = defineModel({
+	name: 'Writer',
+	fields: (f) => ({
+		name: f.string(),
+		posts: f.many(() => Post, { inverse: 'writer' }),
+		edited: f.many(() => Post, { inverse: 'editor' }),
+		reviewed: f.many(() => Post, { inverse: 'reviewer' }),
+		hidden: f.boolean({ default: false }),
+	}),
+}).with({ access: { read: ({ where }) => where({ hidden: false }) } })
+
+describe('a virtual', () => {
+	it("needs a stored one relation's key, read with the row", async () => {
+		await app.stop()
+		app = defineApp({ database: memory(), models: [Writer, Post] })
+		await app.start()
+		const ada = await Writer.create({ data: { name: 'Ada' } }, M)
+		const { id } = await Post.create(
+			{ data: { body: 'b', writer: { connect: { id: ada.id } } } },
+			M,
+		)
+		seen.length = 0
+		const where = { where: { id } }
+		expect(
+			await Post.findUniqueOrThrow({ ...where, select: { byline: true } }, {}),
+		).toStrictEqual({ byline: `${ada.id}/-` })
+		expect(seen).toStrictEqual([{ id, writer: { id: ada.id }, editor: null }])
+		seen.length = 0
+		// An included relation is still its key.
+		const included = await Post.findUniqueOrThrow(
+			{ ...where, include: { writer: true, editor: true } },
+			{},
+		)
+		expect(included).toMatchObject({
+			byline: `${ada.id}/-`,
+			writer: { name: 'Ada' },
+		})
+		expect(seen).toStrictEqual([{ id, writer: { id: ada.id }, editor: null }])
+		// A writer the caller cannot read is no included row, and still a key.
+		const hidden = await Writer.create({ data: { name: 'H', hidden: true } }, M)
+		await Post.update(
+			{ ...where, data: { writer: { connect: { id: hidden.id } } } },
+			M,
+		)
+		seen.length = 0
+		expect(
+			await Post.findUniqueOrThrow(
+				{ ...where, select: { writer: true, byline: true } },
+				{},
+			),
+		).toStrictEqual({ writer: null, byline: `${hidden.id}/-` })
+		expect(seen).toStrictEqual([
+			{ id, writer: { id: hidden.id }, editor: null },
+		])
+		// The reviewer's read rule hides the virtual that needs it.
+		expect(Object.keys(included)).not.toContain('checked')
+		expect(
+			await Post.findUniqueOrThrow({ ...where, select: { checked: true } }, M),
+		).toStrictEqual({ checked: false })
+	})
+
+	it('stops startup on a key the row does not store', async () => {
+		const Shelf = defineModel({
+			name: 'Shelf',
+			fields: (f) => ({
+				books: f.many(() => Book),
+				// @ts-expect-error -- a many is no key of the row
+				size: f.virtual(z.number(), { needs: ['books'] }),
+			}),
+		}).with({ virtuals: { size: { run: () => 0 } } })
+		const Book = defineModel({
+			name: 'Book',
+			fields: (f) => ({ shelf: f.one(() => Shelf) }),
+		})
+		const Seat = defineModel({
+			name: 'Seat',
+			fields: (f) => ({
+				pad: f.one(() => Pad, { optional: true }),
+				padded: f.virtual(z.boolean(), { needs: ['pad'] }),
+			}),
+		}).with({
+			virtuals: {
+				padded: {
+					// @ts-expect-error -- the optional side of a one-to-one has no key
+					run: ({ record }) => record.pad !== null,
+				},
+			},
+		})
+		const Pad = defineModel({
+			name: 'Pad',
+			fields: (f) => ({ seat: f.one(() => Seat) }),
+		})
+		await expect(startWith([Shelf, Book])).rejects.toThrow(
+			'Shelf.size needs books, neither a scalar field nor a one relation the row stores.',
+		)
+		await expect(startWith([Seat, Pad])).rejects.toThrow(
+			'Seat.padded needs pad, neither a scalar field nor a one relation the row stores.',
+		)
+	})
+})
+
+/** Starts an app the type checker refuses, to see startup refuse it too. */
+async function startWith(models: readonly object[]): Promise<unknown> {
+	const started: unknown = Reflect.apply(defineApp, undefined, [
+		{ database: memory(), models },
+	])
+	return call(started, 'start', [])
+}
 
 // Compile-time cases, never run.
 const typed = async () => {

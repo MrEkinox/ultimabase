@@ -11,15 +11,7 @@ shape now instead of reworking it later.
 
 Each entry uses this shape:
 
-```md
-## D-01: Title
-
-Choice: what we do.
-Why: the reason, from experience when there is one.
-Rejected: the alternatives and why.
-Example: the code a developer writes.
-```
-
+````md
 ## D-01: A bare kernel that grows by plugins
 
 Choice: UltimaBase targets developers coming from Parse, Supabase, Prisma,
@@ -61,6 +53,7 @@ export const app = defineApp({
 })
 export const demo = defineApp({ database: memory(), models: [Post, User] })
 ```
+````
 
 ## D-03: Transports are optional plugins
 
@@ -8918,7 +8911,7 @@ type Mutation {
 
 ## D-151: Filtered relations and virtual fields
 
-Amended by D-180.
+Amended by D-180, D-184.
 
 Choice: completes D-37, D-44 and D-109; amends D-42.
 
@@ -9371,7 +9364,7 @@ api: ({ plugins }) => plugins.http.mount(uploads, { bodyLimit: false })
 
 ## D-154: Realtime: live lists and live rows
 
-Amended by D-163, D-166 and D-178.
+Amended by D-163, D-166, D-178 and D-187.
 
 Choice: completes D-25; amends D-106 (WebSocket upgrades), D-107 (the
 `Subscription` type), D-109 (live functions) and D-129 (live reads over
@@ -11986,6 +11979,110 @@ return transaction(
 After: unchanged code; the 10 pairs match, each call after 5 attempts at
 most.
 
+## D-184: A virtual's `needs` takes a stored `one` relation's key
+
+Choice: amends D-151.
+
+1. A virtual's `needs` names, besides scalar fields, a `one` relation the row
+   stores (D-77): a required one, or an optional one facing a `many`. A
+   `many` fails to compile on the virtual's line. The optional side of a
+   one-to-one, which has no column (D-37), compiles there, since the line
+   cannot read the target's fields; its rule's `record` has no such key, and
+   it stops startup. Both stop startup.
+2. `record.author` is the key as rules and hooks see it, `{ id }`, or
+   `{ id } | null` when the relation is optional: no `authorId` string.
+3. The kernel reads the key with the row's columns, in the same query; a
+   `run` gets it with no other query. A query that also includes the
+   relation reads the target's row in its place, which is `null` when the
+   relation is empty or the caller cannot read that row (D-109): the keys of
+   those rows are read again, in one query for the page, and the virtual
+   gets the key either way.
+4. A relation's read rule hides the virtuals that need it, as a scalar's
+   does (D-151).
+5. `needs` takes no target field: `needs: ['author.name']` stays refused; a
+   virtual that reads the target's fields queries them in `runMany`.
+
+Why:
+
+- A virtual that compares a row's owner with the caller is common (`isMine`,
+  `canEdit`); without the key, its `runMany` re-reads the page by id to get
+  it, one query per page for a column the row already holds.
+- The key is a column of the row: reading it costs nothing more, as a
+  scalar's does. A `many` or the optional side of a one-to-one is a query on
+  another table.
+- Rules and hooks already see a stored `one` as `{ id }` (D-77); a virtual's
+  record is the same record, cut to its needs.
+- An included row the caller cannot read gave the virtual `null` for a
+  required relation, typed `{ id }`: its `run` failed on `record.author.id`.
+  A row holds one value per field, so the adapter cannot return the key and
+  the included row side by side.
+
+Rejected:
+
+- An `authorId` string: a second name for the same key, which rules and hooks
+  do not use.
+- Target fields (`author.name`): a join per virtual, with its own read rules,
+  which `runMany` already writes in one query for the page.
+- A `many`'s ids: a list per row, read by another query, which `runMany`
+  writes as well.
+- Refusing the optional side of a one-to-one on the virtual's line: telling
+  it from a stored `one` reads the target's fields while the model is typed,
+  the TS7022 cycle of D-151 when the target relates back.
+
+Example, before: `needs` refuses the relation, and `runMany` reads the page
+again to get its key.
+
+```ts
+export const Comment = defineModel({
+	name: 'Comment',
+	fields: (f) => ({
+		author: f.one(() => User, { default: currentUser }),
+		body: f.string(),
+		// TS2322: Type '"author"' is not assignable to type '"body" | keyof SystemFields'.
+		isMine: f.virtual(z.boolean(), { needs: ['author'] }),
+	}),
+}).with({
+	virtuals: {
+		isMine: {
+			runMany: async ({ caller, records }) => {
+				const rows = await Comment.findMany(
+					{
+						where: { id: { in: records.map(({ id }) => id) } },
+						select: { id: true, author: { select: { id: true } } },
+					},
+					{ as: Master },
+				)
+				const authors = new Map(rows.map((row) => [row.id, row.author.id]))
+				return records.map(
+					({ id }) =>
+						caller.kind === 'user' && authors.get(id) === caller.user.id,
+				)
+			},
+		},
+	},
+})
+```
+
+After: the key comes with the row.
+
+```ts
+export const Comment = defineModel({
+	name: 'Comment',
+	fields: (f) => ({
+		author: f.one(() => User, { default: currentUser }),
+		body: f.string(),
+		isMine: f.virtual(z.boolean(), { needs: ['author'] }),
+	}),
+}).with({
+	virtuals: {
+		isMine: {
+			run: ({ caller, record }) =>
+				caller.kind === 'user' && record.author.id === caller.user.id,
+		},
+	},
+})
+```
+
 ## D-185: GraphQL counts no connection level, and refuses a relation read twice at validation
 
 Choice: amends D-107, point 6 by point 2 and point 10 by point 3.
@@ -12126,3 +12223,87 @@ fragment PostCard on Post {
 }
 # PostFooter receives the first 3 of PostCard's comments.
 ```
+
+## D-187: A live read follows its virtual fields' reads
+
+Choice: amends D-154, points 10 and 12, and completes D-151.
+
+1. A live row or list that selects a virtual field records the reads its
+   `run` or `runMany` makes, as a live function's (D-154, point 12). The
+   rows read together share them. A write that may change one of those
+   reads computes these rows again, as the subscriber; a row whose value
+   changed is sent again, the others are not.
+2. Nothing to declare: no `live` option on the virtual, no list of models
+   it depends on. A live read that selects no virtual costs nothing more.
+3. Whether a write may change a read is decided more finely, for the
+   rights of a caller and for live functions too:
+   - A read without ids, a count or a group, is stale only when an inserted
+     row passes its `where`, a row is deleted, or an updated row may pass
+     it before or after the update. Before, any write to its model made it
+     stale.
+   - A `where` through a stored `one` relation, as `project: { is: … }`, is
+     stale on any write to the related model, as before. A write to the
+     read's own model is tested against the `where` loosened to what its
+     rows hold: the related id, which the stored key holds. A read rule of
+     the related model joins that relation's filter, so without this every
+     write to the model counted made every subscriber stale.
+   - Another `where` that a row alone does not answer, a text search or an
+     `OR` through a relation, stays coarse: any write to its model or a
+     model it reaches makes it stale.
+4. A delete still recomputes every row whose virtuals read its model: a
+   write carries no old values, so which rows read the deleted one is not
+   known.
+
+Why:
+
+- The issue: a live project showing `openTasksCount` did not move when a
+  task was created, and a client had to open a second subscription for the
+  count. Live functions already follow their reads; a virtual is the same
+  kind of `run`.
+- A declared dependency (`live: [() => Task]`) would resend every row on
+  any write to `Task` and is one more thing to keep in sync with `run`.
+- Measured with `bench/realtime/virtuals.ts`, 1000 subscribers listing
+  `Project` with a virtual counting its open `Task` rows through a
+  `groupBy` as the caller, one `Task` created a write, p50 times:
+
+  | Lists       | Window | Followed coarsely                      | This decision                    |
+  | ----------- | -----: | -------------------------------------- | -------------------------------- |
+  | a list each |     25 | 2000 statements, 1000 messages, 463 ms | 3 statements, 1 message, 69 ms   |
+  | a list each |   1000 | 17.2 s, p99 103 s                      | 3 statements, 1 message, 122 ms  |
+  | one list    |     25 | 1001 statements, 301 ms                | 1002 statements, 319 ms          |
+  | one list    |   1000 | 11.1 s                                 | 10.3 s, the last message at 20 s |
+
+  "Followed coarsely" is any write to `Task` computing every shown row
+  again and sending it. A live read that selects no virtual runs no
+  statement on such a write, before as after.
+
+- One list followed by 1000 subscribers stays costly: each one computes the
+  virtual as itself, one `groupBy` each, since a read rule may give each a
+  different count. Sharing the value between subscribers would be wrong as
+  soon as a rule reads the caller. Computing again only the row the write
+  touched is not possible either: `runMany` may compute a row from the
+  others.
+- Grouping writes close in time, as a live function's wait does, helps a
+  burst but not one write, and delays every message; not done.
+
+Rejected:
+
+- A `live` option listing the models a virtual reads, for the reasons
+  above.
+- Sending again every row whose virtuals read a model written: what the
+  first table measures.
+
+Example, before: a live list showing a count of another model.
+
+```ts
+await viewer.list(
+	'Project',
+	{ first: 25, select: { name: true, openTasks: true } },
+	send,
+)
+await Task.create({ data: { project: { connect: { id: a } } } }, M)
+// Nothing is sent; A shows its old count until A itself changes.
+```
+
+After: unchanged code; the row of A alone is sent again, with
+`openTasks: 1`.
