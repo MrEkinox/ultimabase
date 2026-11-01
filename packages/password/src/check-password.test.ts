@@ -2,8 +2,13 @@
 // sensitive action, as Master or as the user, counted with or without a
 // client, and no session opened.
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { authPlugin, isAuthenticated, signedInRun } from '@ultimabase/auth'
+import { graphqlPlugin } from '@ultimabase/graphql'
+import { httpPlugin } from '@ultimabase/http'
 import type { Adapter, Caller, Client } from 'ultimabase'
-import { memory } from 'ultimabase'
+import { defineApp, defineFunction, memory } from 'ultimabase'
+import { z } from 'zod'
+import { passwordPlugin } from './index.ts'
 import { bearer, changeQuery, graphqlOf, M, started, User } from './test/app.ts'
 
 let stop: (() => Promise<void>) | undefined
@@ -60,7 +65,7 @@ async function signedUp(database?: Adapter) {
 	return { ...running, user, asAda }
 }
 
-const client = (address: string): Client => ({
+const clientAt = (address: string): Client => ({
 	address,
 	cookies: {
 		get: () => undefined,
@@ -74,6 +79,25 @@ const wrong = {
 	message: 'Wrong password.',
 }
 const tooMany = { code: 'TOO_MANY_ATTEMPTS' }
+
+// D-161's example: a function hands its `client`, `undefined` from server
+// code, to the commands as it gets it (#67).
+const reauthenticate = defineFunction({
+	name: 'reauthenticate',
+	input: z.object({ password: z.string() }),
+	output: z.boolean(),
+	run: signedInRun(async ({ input, caller, client, user }) => {
+		await User.checkPassword(
+			{ id: user.id, password: input.password },
+			{ as: caller, client },
+		)
+		await User.signIn(
+			{ email: ada.email, password: input.password },
+			{ client },
+		)
+		return true
+	}),
+}).with({ access: isAuthenticated })
 
 describe('User.checkPassword', () => {
 	it('checks the current password and opens no session', async () => {
@@ -175,12 +199,36 @@ describe('User.checkPassword', () => {
 		expect(await failed()).toMatchObject(tooMany)
 	})
 
+	it("takes a function's client as the function gets it", async () => {
+		const app = defineApp({
+			database: memory(),
+			plugins: [
+				httpPlugin({ port: 0 }),
+				graphqlPlugin(),
+				authPlugin(),
+				passwordPlugin({ signUp: false }),
+			],
+			models: [User],
+			functions: [reauthenticate],
+		})
+		await app.start()
+		stop = async () => app.stop()
+		const user = await User.signUp({ ...ada, data: { name: 'Ada' } }, M)
+		const asAda: Caller = { kind: 'user', user }
+		await expect(
+			reauthenticate.run({ password: ada.password }, { as: asAda }),
+		).resolves.toBe(true)
+		await expect(
+			reauthenticate.run({ password: 'wrong password' }, { as: asAda }),
+		).rejects.toMatchObject(wrong)
+	})
+
 	it('counts a client as changePassword does: per address', async () => {
 		const { user, asAda } = await signedUp()
 		const check = async (address: string) =>
 			User.checkPassword(
 				{ id: user.id, password: 'wrong password' },
-				{ as: asAda, client: client(address) },
+				{ as: asAda, client: clientAt(address) },
 			).catch((error: unknown) => error)
 		for (let failure = 0; failure < 10; failure += 1) {
 			expect(await check('203.0.113.7')).toMatchObject(wrong)
@@ -189,7 +237,7 @@ describe('User.checkPassword', () => {
 		expect(await check('198.51.100.1')).toMatchObject(wrong)
 		await User.checkPassword(
 			{ id: user.id, password: ada.password },
-			{ as: asAda, client: client('198.51.100.1') },
+			{ as: asAda, client: clientAt('198.51.100.1') },
 		)
 	})
 })
