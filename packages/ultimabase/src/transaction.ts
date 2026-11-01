@@ -2,6 +2,7 @@
 // hook's queries join it without a `tx` argument.
 import { AsyncLocalStorage } from 'node:async_hooks'
 import { randomUUID } from 'node:crypto'
+import { appendFileSync } from 'node:fs'
 import { setTimeout } from 'node:timers/promises'
 import type { Adapter, BeginOptions, Transaction } from './adapter.ts'
 import { Conflict, RelationViolation } from './adapter.ts'
@@ -209,7 +210,11 @@ export async function writing<R>(
 async function retried<R>(app: Running, run: () => Promise<R>): Promise<R> {
 	for (let attempt = 1; ; attempt += 1) {
 		try {
-			return await atomic(app, run, true)
+			const done = await atomic(app, run, true)
+			const log = process.env['UB_ATTEMPTS']
+			const label = (globalThis as { ubLabel?: string }).ubLabel ?? 'other'
+			if (log !== undefined) appendFileSync(log, `${label} ${attempt}\n`)
+			return done
 		} catch (error) {
 			if (!(error instanceof Conflict)) throw error
 			if (attempt === attempts) {

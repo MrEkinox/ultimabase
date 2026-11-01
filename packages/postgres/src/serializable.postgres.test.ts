@@ -166,6 +166,10 @@ for (const url of urls) {
 		let database: ReturnType<typeof createAdapter>
 		let app: ReturnType<typeof defineApp>
 		beforeEach(async () => {
+			const name = expect.getState().currentTestName ?? ''
+			;(globalThis as { ubLabel?: string }).ubLabel = name.includes('fresh')
+				? 'heart-10'
+				: 'like-20'
 			schema = `t_${randomUUID().replaceAll('-', '')}`
 			await run(url, `create schema "${schema}"`)
 			database = createAdapter({ url: inSchema(url, schema) })

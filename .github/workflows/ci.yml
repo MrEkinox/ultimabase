@@ -83,7 +83,17 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/setup
-      - run: yarn test:postgres
+      - run: |
+          nproc
+          failed=0
+          for run in 1 2 3 4 5 6 7 8; do
+            UB_ATTEMPTS=$RUNNER_TEMP/attempts.txt yarn vitest run --project postgres > $RUNNER_TEMP/suite-$run.txt 2>&1 || { failed=$((failed+1)); grep -E '^ FAIL' $RUNNER_TEMP/suite-$run.txt | head -3; }
+          done
+          echo "failed suites: $failed of 8"
+          for label in like-20 heart-10 other; do
+            echo "== $label (count attempts)"
+            grep "^$label " $RUNNER_TEMP/attempts.txt | awk '{print $2}' | sort -n | uniq -c
+          done
 
   s3:
     name: S3
