@@ -20,7 +20,7 @@
 		"graphql": "17.0.2",
 		"ultimabase": "workspace:*",
 		"ws": "8.22.0",
-		"zod": "4.6.5"
+		"zod": "4.6.7"
 	},
 	"devDependencies": {
 		"@apollo/client": "4.3.3",
@@ -29,7 +29,7 @@
 		"@types/ws": "8.18.2",
 		"@ultimabase/testing": "workspace:*",
 		"graphql-ws": "6.4.1",
-		"happy-dom": "21.0.1",
+		"happy-dom": "21.0.4",
 		"react": "19.3.1",
 		"react-dom": "19.3.1",
 		"rxjs": "7.8.2",
