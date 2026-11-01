@@ -39,6 +39,41 @@ node --expose-gc --max-old-space-size=24576 bench/realtime/bench.ts \
 - Commit rate: 5000 updates by 16 writers on 100 rows, on a model no live
   read follows, then on `Item`, followed.
 
+## Virtual fields
+
+```sh
+node --expose-gc bench/realtime/virtuals.ts \
+  [--subscribers 1000] [--windows 25,1000] [--writes 10] [--url <url>]
+```
+
+Measures what a write costs live lists that select a virtual field reading
+another model (D-187). `Project` has a read rule on its `owner` and a
+virtual `openTasks`, a `runMany` counting its open `Task` rows with a
+`groupBy` as the caller. Subscribers list `Project` as above, one list or a
+list each, with and without `openTasks` selected; each write creates a
+`Task` on a shown project. Statements and times are counted as above;
+Messages is the most subscribers that heard of one write.
+
+### 2026-11-01: virtuals followed (D-187)
+
+Same machine as below; 10 writes a case; times in ms.
+
+| Subscribers | Lists       | Window | Virtual selected | Statements | Messages |     p50 |     p99 | Last message p50 |
+| ----------: | ----------- | -----: | ---------------- | ---------: | -------: | ------: | ------: | ---------------: |
+|        1000 | one list    |     25 | no               |        0–0 |        0 |     0.0 |     0.0 |              0.0 |
+|        1000 | one list    |     25 | yes              |  1002–1002 |     1000 |   319.4 |   582.2 |            584.2 |
+|        1000 | one list    |   1000 | no               |        0–0 |        0 |     0.0 |     0.0 |              0.0 |
+|        1000 | one list    |   1000 | yes              |  1002–1002 |     1000 | 10314.5 | 20216.2 |          20297.0 |
+|        1000 | a list each |     25 | no               |        0–0 |        0 |     0.0 |     0.0 |              0.0 |
+|        1000 | a list each |     25 | yes              |        3–3 |        1 |    69.2 |    71.1 |             69.2 |
+|        1000 | a list each |   1000 | no               |        0–0 |        0 |     0.0 |     0.0 |              0.0 |
+|        1000 | a list each |   1000 | yes              |        3–3 |        1 |   122.1 |   129.5 |            122.1 |
+
+- A list each: the write reaches the one subscriber whose project it is;
+  the others test it against their `groupBy`'s `where` and read nothing.
+- One list: each subscriber counts again as itself, one `groupBy` each, and
+  computes its whole window again, which is what 1000 rows cost.
+
 ## Runs
 
 ### 2026-10-29: a window notes what it changes, commit `bb9610a7`

@@ -280,13 +280,14 @@ describe('a completed live list', () => {
 		expect(channel.channel.kept.get('t')?.stream).toBe(stream)
 	})
 
-	it('ends when a resume grows it past a limit', async () => {
-		const { channel, read, stream } = await kept()
+	it('stays kept as it was when a resume grows it past a limit', async () => {
+		const { channel, read, stream, keep } = await kept()
 		await expect(resumed(channel.channel, 't', 's', 20)).rejects.toThrow(
 			'Too many rows.',
 		)
-		expect(read.closed()).toBe(1)
-		expect(await stream.next()).toEqual({ done: true, value: undefined })
+		expect(read.closed()).toBe(0)
+		expect(channel.channel.kept.get('t')?.stream).toBe(stream)
+		expect(await resumed(channel.channel, 't', 's', keep.first)).toBe(stream)
 	})
 
 	it('ends after 10 seconds, completed twice or not', async () => {

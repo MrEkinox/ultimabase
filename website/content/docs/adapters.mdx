@@ -282,6 +282,7 @@ call that takes `slow` milliseconds or more:
 | ------------------------------ | -------------------------------------------------------------------- |
 | `start(schema, logger, feed?)` | Connects, then the kernel syncs or checks the tables.                |
 | `stop()`                       | Disconnects.                                                         |
+| `empty()`                      | Removes every model's rows, join rows included; keeps the tables.    |
 | `find(read)`                   | The rows of a `Read`.                                                |
 | `count(read)`                  | How many rows `where` keeps.                                         |
 | `aggregate(read)`              | One list per group: its keys' values, then its aggregates'.          |

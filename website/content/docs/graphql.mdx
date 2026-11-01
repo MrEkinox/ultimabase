@@ -78,8 +78,8 @@ page starts:
 Without `first`, a list returns `take` rows, 100 by default; a client asks
 for `maxTake` at most, 100 by default, or the model's own:
 `.with({ graphql: { maxTake: 20 } })` above. A relation's list is a
-connection too, with its own `first`, `orderBy` and `where`; only the root
-list has `totalCount`.
+connection too, with its own `first`, `orderBy`, `where` and
+`totalCount`.
 
 `pagination: 'list'` serves lists instead, with `take` and `skip`, at every
 depth:
@@ -229,24 +229,43 @@ more than its `maxTake` is refused as it runs:
 	../examples/graphql/src/app.test.ts#limits
 </include>
 
+A level of `maxDepth` is a field, root fields included, and each relation an
+`orderBy` goes through. The fields of a connection and of an edge, `edges`,
+`node`, `cursor`, `pageInfo` and `totalCount`, are none: `posts { edges {
+node { author { name } } } }` is 3 levels deep. A model's own field named
+`node` or `edges` counts, and with `pagination: 'list'` every field does.
+
 Each document is also bounded for every caller, Master included: 2 000
 tokens, and 1 000 pairs of fields sharing one name. The first is ten times
 the standard introspection query.
+
+A relation or a virtual is read once per row, so one selected twice with
+different arguments, under two aliases or in two fragments, is refused
+before anything runs, for every caller:
+
+<include cwd meta='title="src/app.test.ts"'>
+	../examples/graphql/src/app.test.ts#twice
+</include>
+
+Select it once with what both fragments need, the larger `first` and the
+fields of both, and slice it on the client. A root field, and a field
+`extend` adds, resolve once per alias: those take other arguments under
+each.
 
 ## Reference
 
 ### `graphqlPlugin(options)`
 
-| Option          | Type                       | Default           | Effect                                                               |
-| --------------- | -------------------------- | ----------------- | -------------------------------------------------------------------- |
-| `path`          | string                     | `'/graphql'`      | Where the API, GraphiQL and subscriptions are served.                |
-| `pagination`    | `'connection'` or `'list'` | `'connection'`    | Relay connections, or lists with `take` and `skip`.                  |
-| `take`          | number                     | 100               | The rows a list returns without `first` or `take`.                   |
-| `maxTake`       | number                     | 100               | The most rows a list returns, unless the model sets its own.         |
-| `maxDepth`      | number                     | 10                | The deepest a document nests, its fields and its `orderBy` counted.  |
-| `maxRows`       | number                     | 20 000            | The most rows a document may return, each list times those above it. |
-| `introspection` | boolean                    | off in production | Introspection, and the "Did you mean" suggestions of refused fields. |
-| `extend`        | `(schema) => schema`       | none              | The schema to serve, built from the generated one.                   |
+| Option          | Type                       | Default           | Effect                                                                          |
+| --------------- | -------------------------- | ----------------- | ------------------------------------------------------------------------------- |
+| `path`          | string                     | `'/graphql'`      | Where the API, GraphiQL and subscriptions are served.                           |
+| `pagination`    | `'connection'` or `'list'` | `'connection'`    | Relay connections, or lists with `take` and `skip`.                             |
+| `take`          | number                     | 100               | The rows a list returns without `first` or `take`.                              |
+| `maxTake`       | number                     | 100               | The most rows a list returns, unless the model sets its own.                    |
+| `maxDepth`      | number                     | 10                | The deepest a document nests; a connection's and an edge's fields are no level. |
+| `maxRows`       | number                     | 20 000            | The most rows a document may return, each list times those above it.            |
+| `introspection` | boolean                    | off in production | Introspection, and the "Did you mean" suggestions of refused fields.            |
+| `extend`        | `(schema) => schema`       | none              | The schema to serve, built from the generated one.                              |
 
 It requires `httpPlugin()`. With [`realtimePlugin()`](/docs/next/realtime),
 it serves subscriptions over WebSocket on `path`. Master is limited by
@@ -297,20 +316,21 @@ name stays when the field or the model is renamed.
 
 ### Errors
 
-| Code             | Message                                                                                                     |
-| ---------------- | ----------------------------------------------------------------------------------------------------------- |
-| none             | `The document is nested 8 levels deep; the most is 6.`                                                      |
-| none             | `The document asks for more than 2,000 rows. Ask for fewer with first or last.`                             |
-| none             | `The document asks for more than 20 root fields, a totalCount counted as one more. Send several documents.` |
-| none             | `The document repeats fields under one name too often. Ask for each field once.`                            |
-| none             | `Syntax Error: Document contains more than 2000 tokens. Parsing aborted.`                                   |
-| none             | `GraphQL introspection has been disabled, …`, in production.                                                |
-| none             | `Cannot perform mutations over GET`, a `405`.                                                               |
-| `BAD_USER_INPUT` | `first is at most 20 on Post.`, `first cannot be negative.`                                                 |
-| `BAD_USER_INPUT` | `after is not a cursor this API returned.`                                                                  |
-| `BAD_USER_INPUT` | `Page forward with first and after, or backward with last and before, not both.`                            |
-| any kernel code  | as [Errors](/docs/next/errors) lists them, with `details`.                                                  |
-| `INTERNAL`       | `Internal error.`, with `correlationId`.                                                                    |
+| Code             | Message                                                                                                                    |
+| ---------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| none             | `The document is nested 5 levels deep; the most is 4.`                                                                     |
+| none             | `posts is selected twice with different arguments, at people.edges.node.latest and people.edges.node.posts; read it once.` |
+| none             | `The document asks for more than 2,000 rows. Ask for fewer with first or last.`                                            |
+| none             | `The document asks for more than 20 root fields, a totalCount counted as one more. Send several documents.`                |
+| none             | `The document repeats fields under one name too often. Ask for each field once.`                                           |
+| none             | `Syntax Error: Document contains more than 2000 tokens. Parsing aborted.`                                                  |
+| none             | `GraphQL introspection has been disabled, …`, in production.                                                               |
+| none             | `Cannot perform mutations over GET`, a `405`.                                                                              |
+| `BAD_USER_INPUT` | `first is at most 20 on Post.`, `first cannot be negative.`                                                                |
+| `BAD_USER_INPUT` | `after is not a cursor this API returned.`                                                                                 |
+| `BAD_USER_INPUT` | `Page forward with first and after, or backward with last and before, not both.`                                           |
+| any kernel code  | as [Errors](/docs/next/errors) lists them, with `details`.                                                                 |
+| `INTERNAL`       | `Internal error.`, with `correlationId`.                                                                                   |
 
 At start:
 
@@ -323,7 +343,8 @@ At start:
 ### Limits
 
 - No `node(id)` query, no batched requests and no persisted queries.
-- `totalCount` on the root list only.
+- A relation or a virtual selected twice with different arguments is
+  refused; select it once.
 - Each root field of a mutation is its own write, with no transaction
   around the document.
 - Subscriptions need [`realtimePlugin()`](/docs/next/realtime).

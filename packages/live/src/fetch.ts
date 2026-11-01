@@ -4,8 +4,8 @@
 import type { EventSourceMessage } from 'eventsource-parser/stream'
 import { EventSourceParserStream } from 'eventsource-parser/stream'
 import { applyLive } from './apply.ts'
-import { LiveError } from './error.ts'
-import { isList, isMessage, isRecord } from './guards.ts'
+import { LiveError, liveErrorOf } from './error.ts'
+import { isList, isMessage } from './guards.ts'
 
 /** What a live read sends with each request. */
 export type LiveFetchOptions = {
@@ -31,17 +31,9 @@ type Listener<T> = {
 const firstBackoff = 100
 const lastBackoff = 5000
 
-/** The server's `{ code, message }`, as a `LiveError`. */
-function errorOf(body: unknown): LiveError {
-	if (
-		isRecord(body) &&
-		typeof body['code'] === 'string' &&
-		typeof body['message'] === 'string'
-	) {
-		return new LiveError(body['code'], body['message'])
-	}
-	return new LiveError('INTERNAL', 'The live read failed.')
-}
+/** The server's `{ code, message, details }`, as a `LiveError`. */
+const errorOf = (body: unknown): LiveError =>
+	liveErrorOf(body, new LiveError('INTERNAL', 'The live read failed.'))
 
 /** Follows `url`, a live model's list or row, once a listener subscribes. */
 export function liveFetch<T = unknown>(
@@ -63,8 +55,11 @@ export function liveFetch<T = unknown>(
 	let request: AbortController | undefined
 	let timer: ReturnType<typeof setTimeout> | undefined
 	let backoff = firstBackoff
+	// What takes back a growth that has not arrived yet.
+	let undo: (() => void) | undefined
 
 	const settle = (error?: LiveError) => {
+		undo = undefined
 		for (const { resolve, reject } of waiting.splice(0)) {
 			if (error === undefined) resolve()
 			else reject(error)
@@ -132,6 +127,12 @@ export function liveFetch<T = unknown>(
 			const response = await fetch(href, { headers, signal })
 			if (!response.ok && response.status < 500) {
 				const body: unknown = await response.json().catch(() => undefined)
+				// A growth refused, past maxLive: the list goes on as it was (D-186).
+				if (undo !== undefined) {
+					undo()
+					settle(errorOf(body))
+					return open()
+				}
 				return fail(errorOf(body))
 			}
 			if (!response.ok) await response.body?.cancel()
@@ -181,6 +182,9 @@ export function liveFetch<T = unknown>(
 					'BAD_USER_INPUT',
 					'first must be a positive integer.',
 				)
+			}
+			undo ??= () => {
+				params.set(arg, String(shown))
 			}
 			params.set(arg, String(shown + more))
 			if (request === undefined) return

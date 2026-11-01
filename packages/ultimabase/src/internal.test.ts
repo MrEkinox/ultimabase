@@ -1,6 +1,7 @@
 // `ultimabase/internal` (D-130): new runs of an application on another
 // database, without info lines, the running plugins' APIs, and an adapter's
-// own statements joining the open transaction (D-137).
+// own statements joining the open transaction (D-137), and the running
+// database emptied (D-188).
 import { afterEach, expect, it, vi } from 'vitest'
 import type { Logger, PluginTypes } from './index.ts'
 import {
@@ -11,7 +12,7 @@ import {
 	memory,
 	transaction,
 } from './index.ts'
-import { joining, quietRuns, runningApi } from './internal.ts'
+import { emptyRunning, joining, quietRuns, runningApi } from './internal.ts'
 
 const M = { as: master }
 const Note = defineModel({
@@ -19,17 +20,18 @@ const Note = defineModel({
 	fields: (f) => ({ text: f.string() }),
 })
 
+const manifest = {
+	name: 'taking',
+	version: '1.0.0',
+	peerDependencies: { ultimabase: '*' },
+}
 interface Echo extends PluginTypes {
 	readonly name: 'echo'
 	readonly api: { readonly say: () => string }
 }
 const echo = definePlugin<Echo>({
 	name: 'echo',
-	manifest: {
-		name: 'echo',
-		version: '1.0.0',
-		peerDependencies: { ultimabase: '*' },
-	},
+	manifest: { ...manifest, name: 'echo' },
 	api: () => ({ say: () => 'hi' }),
 	start: ({ logger }) => {
 		logger.info('Started.')
@@ -134,4 +136,28 @@ it('joins the open transaction on its adapter only (D-137)', async () => {
 	await app.stop()
 	stop = undefined
 	expect(await joining(database, async (tx) => tx)).toBeUndefined()
+})
+
+it('empties the running database, then has live reads read again (D-188)', async () => {
+	await expect(emptyRunning()).rejects.toThrow('No application is running.')
+	const calls: string[] = []
+	const taking = definePlugin({
+		name: 'taking',
+		manifest,
+		changed: () => calls.push('changed'),
+		missed: () => calls.push('missed'),
+	})
+	const app = defineApp({
+		database: memory(),
+		models: [Note],
+		plugins: [taking.plugin()],
+	})
+	await app.start()
+	stop = async () => app.stop()
+	await Note.create({ data: { text: 'one' } }, M)
+	await emptyRunning()
+	expect(await Note.count({}, M)).toBe(0)
+	expect(calls.at(-1)).toBe('missed')
+	await Note.create({ data: { text: 'one' } }, M)
+	expect(await Note.count({}, M)).toBe(1)
 })

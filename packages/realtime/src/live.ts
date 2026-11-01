@@ -8,6 +8,7 @@ import {
 	inMemory,
 	liveSchema,
 	matches,
+	recordingVirtuals,
 	servedRows,
 	sortKeys,
 	storedRows,
@@ -23,6 +24,7 @@ import type { LiveMessage } from './messages.ts'
 import type { Entry } from './window.ts'
 import { Window } from './window.ts'
 import { Tracking } from './tracking.ts'
+import { VirtualReads } from './virtuals.ts'
 
 export type Spec = {
 	readonly model: string
@@ -45,6 +47,7 @@ export class Live {
 	readonly #spec: Spec
 	readonly #find: Finder
 	readonly #tracking = new Tracking()
+	readonly #virtuals = new VirtualReads()
 	#count: number | undefined
 	#hasMore = false
 	#revision = 0
@@ -119,6 +122,7 @@ export class Live {
 	close(): void {
 		this.#closed = true
 		this.#tracking.clear()
+		this.#virtuals.clear()
 	}
 
 	#enqueue(task: () => Promise<void>): readonly [Promise<void>, Promise<void>] {
@@ -206,15 +210,13 @@ export class Live {
 		if (ids.length === 0) return []
 		const { model, queries, shape } = this.#spec
 		const args = { ...shape, where: { id: { in: ids } } }
-		const found =
-			loader === undefined
-				? await queries.findMany(args, { as: this.caller })
-				: await servedRows(
-						model,
-						args,
-						this.caller,
-						await loader.load(model, ids),
-					)
+		const rows = loader && (await loader.load(model, ids))
+		const { result: found, reads } = await recordingVirtuals(async () =>
+			rows === undefined
+				? queries.findMany(args, { as: this.caller })
+				: servedRows(model, args, this.caller, rows),
+		)
+		this.#virtuals.keep(found, reads)
 		for (const node of found) {
 			nodes.set(node.id, node)
 			this.#tracking.track(node, this.#plan.include)
@@ -234,7 +236,7 @@ export class Live {
 		readonly moves: ReturnType<Window['moves']>
 		readonly nodes: ReadonlyMap<string, Row>
 	}> {
-		const nodes = new Map<string, Row>()
+		const nodes = this.#virtuals.taken()
 		for (let round = 0; round < 3; round += 1) {
 			await this.#refill(loader)
 			const moves = this.#window.moves(again)
@@ -262,6 +264,7 @@ export class Live {
 		const { first } = this.#window
 		this.#window = new Window(orderBy, first)
 		this.#tracking.clear()
+		this.#virtuals.clear()
 		const rows = await storedRows(model, {
 			...(where && { where }),
 			orderBy,
@@ -302,6 +305,13 @@ export class Live {
 			batch,
 		)
 		if (effect === 'resync') return this.#reset()
+		// A row whose virtuals now read differently is sent again.
+		const again = await this.#virtuals.changed(batch, loader, async (ids) => {
+			const nodes = new Map<string, Row>()
+			await this.#read(ids, nodes, loader)
+			return nodes
+		})
+		const resend = new Set([...effect.resend, ...again])
 		const gone = new Set(effect.deleted)
 		const candidates = [...effect.candidates].filter((id) => !gone.has(id))
 		const rows = await loader.load(model, candidates)
@@ -317,10 +327,7 @@ export class Live {
 			(candidates.length > 0 || effect.deleted.size > 0 || effect.beyond)
 		// A write that leaves the window as it was costs no pass over it.
 		const touched =
-			gone.size > 0 ||
-			effect.resend.size > 0 ||
-			kept.size > 0 ||
-			leaving.length > 0
+			gone.size > 0 || resend.size > 0 || kept.size > 0 || leaving.length > 0
 		if (!touched && !recount) return
 		window.mark()
 		for (const id of effect.deleted) window.remove(id)
@@ -332,7 +339,7 @@ export class Live {
 			const row = rows.get(id)
 			if (row !== undefined) window.place(this.#entry(row))
 		}
-		await this.#send(effect.resend, gone, recount, false, loader)
+		await this.#send(resend, gone, recount, false, loader)
 	}
 
 	/** Sends how the rows shown at the mark changed, if they did or `always`. */
@@ -345,7 +352,10 @@ export class Live {
 	): Promise<void> {
 		const { row, send } = this.#spec
 		const { moves, nodes } = await this.#settle(again, gone, loader)
-		for (const id of moves.removed) this.#tracking.untrack(id)
+		for (const id of moves.removed) {
+			this.#tracking.untrack(id)
+			this.#virtuals.forget(id)
+		}
 		let totalCount: number | undefined
 		if (recount) {
 			const count = await this.#counted()

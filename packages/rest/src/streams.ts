@@ -249,18 +249,17 @@ async function resumed(
 		kept.discard()
 		return undefined
 	}
-	const { response, finish } = eventsFor(live, request, stream)
+	// Grown while held: refused past a limit, it stays kept as it was (D-186).
 	try {
 		if (list.first > keep.first) {
 			await run(async () => handle.grow(list.first - keep.first))
 		}
 	} catch (error) {
-		finish()
-		stream.viewer.close()
+		park(live, stream, handle, keep)
 		throw error
 	}
 	keep.first = list.first
-	return response
+	return eventsFor(live, request, stream).response
 }
 
 /**

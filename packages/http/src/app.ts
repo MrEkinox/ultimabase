@@ -1,6 +1,7 @@
 // The Hono application `httpPlugin` serves (D-66, D-106): no caching, CORS,
 // forms from other origins, the body limit, each request's caller, the
-// routes, and errors as D-72 sends them.
+// routes, the reset route outside production (D-188), and errors as D-72
+// sends them.
 import { randomUUID } from 'node:crypto'
 import { STATUS_CODES } from 'node:http'
 import type { Context } from 'hono'
@@ -14,6 +15,7 @@ import type { Caller, ErrorCode, Logger } from 'ultimabase'
 import { isLocalHost, PublicError } from 'ultimabase'
 import { addresses, proxiesOf } from './address.ts'
 import { hold } from './request.ts'
+import { resetRoutes } from './reset.ts'
 import type { Gate } from './upgrade.ts'
 
 /**
@@ -253,6 +255,7 @@ export function appOf(
 	for (const routes of [
 		...(options.routes ?? []),
 		...mounted.map((mount) => mount.routes),
+		...(local ? [resetRoutes] : []),
 	]) {
 		app.route('/', routes)
 	}

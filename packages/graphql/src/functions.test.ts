@@ -255,6 +255,7 @@ function counting(reads: string[]): Adapter {
 	return {
 		start: async (schema, logger) => base.start(schema, logger),
 		stop: async () => base.stop(),
+		empty: async () => base.empty(),
 		find: async (read) => {
 			reads.push(read.model)
 			return base.find(read)
