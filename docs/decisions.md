@@ -4646,7 +4646,7 @@ curl -X POST localhost:3000/webhooks/stripe -d '{"id":"…"}' \
 
 ## D-107: `graphqlPlugin()`, the schema it generates and how it mounts
 
-Amended by D-125, D-128, D-132 and D-153.
+Amended by D-125, D-128, D-132, D-153 and D-185.
 
 Choice: completes D-16, D-34, D-41, D-45 and D-55.
 
@@ -11985,3 +11985,144 @@ return transaction(
 
 After: unchanged code; the 10 pairs match, each call after 5 attempts at
 most.
+
+## D-185: GraphQL counts no connection level, and refuses a relation read twice at validation
+
+Choice: amends D-107, point 6 by point 2 and point 10 by point 3.
+
+1. Every connection has `totalCount`, nested ones included, as D-134 point
+   5 says; the GraphQL guide said the root list only, and now says so.
+2. With `pagination: 'connection'`, the fields of a generated connection
+   and edge type, `edges`, `node`, `cursor`, `pageInfo` and `totalCount`,
+   are no level of `maxDepth`, nor of the depth of an `orderBy` under them.
+   The parent type decides, not the field's name: a model's own field named
+   `node` or `edges` counts. `PageInfo`'s fields count, a model's fields,
+   root fields and an object field's fields too. `pagination: 'list'` is
+   unchanged, every field counting. The default stays 10.
+3. A `many` relation or a virtual selected twice with different arguments
+   is refused as the document is validated, for every caller, Master
+   included, before a query, a mutation or a subscription runs, over HTTP
+   and WebSocket alike: `comments is selected twice with different
+arguments, at posts.edges.node.commenterIds and posts.edges.node.comments;
+read it once.`, with no code, as the depth refusal. A model's fields
+   merge by name, through aliases, fragments and connections, as the
+   kernel's one `select` per row merges them; a root field and a field
+   `extend` adds resolve once per alias, so what they select is compared
+   per response path. Arguments compare as written, in any order and an
+   input's fields in any order: two variables differ, even of one value,
+   and `@skip` or `@include` changes nothing. Two arguments under one
+   response path stay graphql-js's own refusal. The run-time check is
+   removed, since nothing reaches it. The guide shows the workaround: select
+   the relation once with what both fragments need, and slice it on the
+   client.
+
+Why:
+
+- Each nested list cost three levels, the relation, `edges` and `node`, so
+  the default 10 allowed about three nested lists, where REST's 10 allows
+  ten levels of `select` and `include`. Counting a model's fields only, the
+  two transports count the same levels (D-129). `maxRows` already bounds
+  how many rows nested lists return; depth bounds how many relations a
+  document goes through, which the wrappers do not add to.
+- Deciding by the parent type keeps a model free to name a field `node`:
+  a name-based rule would let any model nest through it for free.
+- The run-time refusal came after the document validated and type checked,
+  when a screen first loaded; inside a live query, the whole screen stayed
+  empty. Validation refuses it where every other limit is refused, with
+  both paths, which two colocated fragments in different files need.
+- Comparing the written arguments, not their values, decides before
+  variables are read and gives the same answer for every request of a
+  document, which a check in CI can rely on.
+
+Rejected:
+
+- Reading each alias as its own subquery: the kernel reads one `select`
+  per row, so it needs a second read per alias and a merge of the rows; the
+  issue's own first choice, kept out of scope.
+- Counting by field name (`edges`, `node`), for the reason above.
+- Exporting `depthRule` or a `validateDocuments` helper: no decision needs
+  them yet.
+- Comparing argument values: a document would pass or fail with its
+  variables.
+
+Example, before: the issue's document, refused at the default `maxDepth`.
+
+```graphql
+query {
+	posts(first: 10) {
+		edges {
+			node {
+				comments(first: 3) {
+					edges {
+						node {
+							photos(first: 1) {
+								edges {
+									node {
+										file {
+											url
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+}
+# The document is nested 11 levels deep; the most is 10.
+```
+
+After: the same document passes, 5 levels deep; 11 levels of model fields
+are still refused.
+
+Before: two fragments of one post, refused only as the query ran.
+
+```graphql
+fragment PostCard on Post {
+	commenterIds: comments {
+		edges {
+			node {
+				author {
+					id
+				}
+			}
+		}
+	}
+	...PostFooter
+}
+fragment PostFooter on Post {
+	comments(first: 3) {
+		totalCount
+		edges {
+			node {
+				id
+				body
+			}
+		}
+	}
+}
+# BAD_USER_INPUT: comments is selected twice with different arguments; read it once.
+```
+
+After: refused as the document is validated, naming both paths; the
+fragments select the relation once and slice it on the client.
+
+```graphql
+fragment PostCard on Post {
+	comments {
+		totalCount
+		edges {
+			node {
+				id
+				body
+				author {
+					id
+				}
+			}
+		}
+	}
+}
+# PostFooter receives the first 3 of PostCard's comments.
+```

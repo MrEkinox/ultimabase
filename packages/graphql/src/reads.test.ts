@@ -199,7 +199,7 @@ describe('a list', () => {
 			} }`,
 		)
 		expect(twice.errors?.[0]?.message).toBe(
-			'posts is selected twice with different arguments; read it once.',
+			'posts is selected twice with different arguments, at user.a and user.b; read it once.',
 		)
 	})
 

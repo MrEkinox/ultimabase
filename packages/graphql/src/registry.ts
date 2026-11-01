@@ -82,6 +82,8 @@ export class Registry {
 	readonly settings: Settings
 	/** The types functions and json fields give, shared by both (D-125). */
 	readonly data: DataTypes
+	/** The connection and edge types built, whose fields are no level (D-185). */
+	readonly wrappers: Set<string> = new Set()
 	/** A model's virtual fields, which the functions' outputs build (D-151). */
 	virtualFields: (model: string) => GraphQLFieldConfigMap<unknown, Context> =
 		() => ({})
