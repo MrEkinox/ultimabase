@@ -10,6 +10,7 @@ import { cascades } from './cascades.ts'
 import { counts } from './counts.ts'
 import { decimals } from './decimals.ts'
 import { distincts } from './distincts.ts'
+import { empties } from './empties.ts'
 import { feeds } from './feeds.ts'
 import { groups } from './groups.ts'
 import { jsonPaths } from './json-paths.ts'
@@ -65,6 +66,7 @@ export function testAdapter(
 		projection(create)
 		transactions(create)
 		feeds(create)
+		empties(create)
 		roundTrips(create, options.roundTrips)
 	})
 }

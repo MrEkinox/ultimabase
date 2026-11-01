@@ -105,6 +105,10 @@ export function timed(adapter: Adapter, options: TimedOptions = {}): Timed {
 			(write) => `write ${modelsOf(write)}`,
 			async (write) => adapter.write(write),
 		),
+		empty: trip(
+			() => 'empty',
+			async () => adapter.empty(),
+		),
 		//#endregion
 		//#region begin
 		begin: trip<[BeginOptions?], Transaction>(

@@ -68,6 +68,7 @@ function settingOnRead(): Adapter & {
 		},
 		start: async (schema, logger) => database.start(schema, logger),
 		stop: async () => database.stop(),
+		empty: async () => database.empty(),
 		begin: async () => database.begin(),
 		find: async (read) => {
 			const rows = await database.find(read)

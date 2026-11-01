@@ -38,6 +38,7 @@ import {
 	emptied,
 	scratchName,
 	trigrams,
+	truncated,
 } from './scratch.ts'
 import { parseSnapshot } from './snapshot-parse.ts'
 import { snapshotOf } from './snapshot.ts'
@@ -264,6 +265,10 @@ export function createAdapter(options: Options): Postgres {
 			state = undefined
 			await stopping?.listener?.stop()
 			await stopping?.db.destroy()
+		},
+		empty: async () => {
+			const { catalog, db } = started()
+			await truncated(db, Object.keys(snapshotOf(catalog).tables))
 		},
 		find: async (read) => find(started().catalog, started().db, read),
 		count: async (read) => count(started().catalog, started().db, read),

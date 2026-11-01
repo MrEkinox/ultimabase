@@ -65,3 +65,16 @@ it('refuses an anonymous note before any query', async () => {
 	expect(written).toEqual(['write Note', 'find Note'])
 	//#endregion
 })
+
+it('empties the database between end-to-end tests', async () => {
+	await Note.create({ data: { text: 'Milk', ownerId: 'ada' } }, { as: master })
+	//#region reset
+	// What an end-to-end test sends first, to `ultimabase dev`.
+	const reset = await fetch(`${running.url}/_ultimabase/reset`, {
+		method: 'POST',
+		headers: { 'x-ultimabase-master-key': 'dev-master-key' },
+	})
+	expect(reset.status).toBe(204)
+	//#endregion
+	expect(await Note.count({}, { as: master })).toBe(0)
+})

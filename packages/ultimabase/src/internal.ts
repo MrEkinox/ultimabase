@@ -1,8 +1,8 @@
 // What official packages read from an application (D-130), kept off the
 // documented surface: new runs of it on another database, quieter, the
 // running plugins' APIs, what raw SQL and tests on the declared database
-// need (D-137), what live reads need (D-154), the feed tests call (D-168)
-// and the pages functions return (D-182).
+// need (D-137), what live reads need (D-154), the feed tests call (D-168),
+// the pages functions return (D-182) and the reset route (D-188).
 import type { Adapter, Feed } from './adapter.ts'
 import { internalsOf } from './app-internals.ts'
 import type { Logger } from './app-options.ts'
@@ -73,4 +73,15 @@ export function runningFeed(): Feed | undefined {
 /** The running application's plugin API named `name`, if any. */
 export function runningApi(name: string): unknown {
 	return current()?.apis.get(name)
+}
+
+/**
+ * Empties the running application's database, then has its live reads read
+ * again (D-188).
+ */
+export async function emptyRunning(): Promise<void> {
+	const app = current()
+	if (app === undefined) throw new Error('No application is running.')
+	await app.work.run(async () => app.adapter.empty())
+	app.feed?.missed()
 }

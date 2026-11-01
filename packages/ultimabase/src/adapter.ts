@@ -365,6 +365,11 @@ export interface Adapter extends Omit<Transaction, 'commit' | 'rollback'> {
 	start(schema: Schema, logger: Logger, feed?: Feed): Promise<void>
 	stop(): Promise<void>
 	/**
+	 * Removes the rows of every model and keeps the tables, running no hook
+	 * (D-188).
+	 */
+	empty(): Promise<void>
+	/**
 	 * With `isolation: 'serializable'`, a serializable transaction, or a throw
 	 * when the database cannot hold one (D-179).
 	 */

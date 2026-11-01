@@ -102,6 +102,29 @@ report, since the feed reports the writes of the API only:
 
 `memory()` writes no such change: test `missed` on the declared database.
 
+## End-to-end tests
+
+A front end's end-to-end tests run against `ultimabase dev`.
+`POST /_ultimabase/reset` with the master key empties the database and
+answers 204: each test starts from no rows and seeds its own through the
+API.
+
+<include cwd meta='title="src/app.test.ts"'>
+	../examples/testing/src/app.test.ts#reset
+</include>
+
+A [Playwright](https://playwright.dev) fixture sends the same request before
+each test, then seeds the test's rows with the master key.
+
+Every model's rows go, those of plugins included, as auth's users and
+sessions; the tables stay as `ultimabase dev` keeps them. No hook, cascade
+rule or soft delete runs, and stored files stay where their storage keeps
+them. Live reads read again, and find nothing.
+
+The [HTTP plugin](/docs/next/http) serves the route outside production only:
+under `ultimabase start` it answers 404, as any unknown path. Another
+caller than Master gets 403 `ACCESS_DENIED`.
+
 ## Reference
 
 ### `testApplication(app, options?)`
