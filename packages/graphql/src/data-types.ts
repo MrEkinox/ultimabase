@@ -4,9 +4,12 @@ import type {
 	GraphQLInputObjectType,
 	GraphQLNamedType,
 	GraphQLObjectType,
+	GraphQLScalarType,
 } from 'graphql'
 import { GraphQLEnumType } from 'graphql'
 import { Refused } from 'ultimabase'
+import type { Side } from './json-schema.ts'
+import { jsonScalar } from './scalars.ts'
 
 type Shaped<T> = {
 	readonly key: string
@@ -19,6 +22,11 @@ export class DataTypes {
 	readonly #objects = new Map<string, Shaped<GraphQLObjectType>>()
 	readonly #inputs = new Map<string, Shaped<GraphQLInputObjectType>>()
 	readonly #enums = new Map<string, Shaped<GraphQLEnumType>>()
+	/** A scalar's shape on each side, whose JSON Schemas differ (D-190). */
+	readonly #scalars = {
+		input: new Map<string, Shaped<GraphQLScalarType>>(),
+		output: new Map<string, Shaped<GraphQLScalarType>>(),
+	}
 	readonly #models: ReadonlySet<string>
 	/** Each named type, and the first function or field to give it. */
 	readonly owners: Map<string, string> = new Map()
@@ -60,12 +68,28 @@ export class DataTypes {
 		return this.#shaped(this.#enums, name, values.join(), owner, build)
 	}
 
+	/** A schema named as a scalar, one type for both sides (D-190). */
+	scalar(
+		name: string,
+		side: Side,
+		key: string,
+		owner: string,
+		description: string | undefined,
+	): GraphQLScalarType {
+		const other = this.#scalars[side === 'input' ? 'output' : 'input']
+		const build = () => jsonScalar(name, description)
+		const cache = this.#scalars[side]
+		return this.#shaped(cache, name, key, owner, build, other.get(name)?.type)
+	}
+
 	/** The type named `name`, if one was given. */
 	named(name: string): GraphQLNamedType | undefined {
 		return (
 			this.#objects.get(name)?.type ??
 			this.#inputs.get(name)?.type ??
-			this.#enums.get(name)?.type
+			this.#enums.get(name)?.type ??
+			this.#scalars.output.get(name)?.type ??
+			this.#scalars.input.get(name)?.type
 		)
 	}
 
@@ -75,21 +99,23 @@ export class DataTypes {
 		key: string,
 		owner: string,
 		build: () => T,
+		/** The scalar the other side gave, which this side shares. */
+		shared?: T,
 	): T {
 		if (this.#models.has(name)) {
 			throw new Refused(`${owner}: the type ${name} is named like a model.`)
 		}
 		const known = cache.get(name)
 		const other = this.owners.get(name)
-		if (known === undefined && other !== undefined) {
+		if (known === undefined && other !== undefined && shared === undefined) {
 			throw new Refused(
 				`${other} and ${owner} give the type ${name} two shapes; name each once.`,
 			)
 		}
 		if (known === undefined) {
-			const type = build()
+			const type = shared ?? build()
 			cache.set(name, { key, owner, type })
-			this.owners.set(name, owner)
+			if (other === undefined) this.owners.set(name, owner)
 			return type
 		}
 		if (known.key === key) return known.type

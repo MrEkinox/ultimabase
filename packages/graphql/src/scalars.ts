@@ -1,6 +1,7 @@
 // `DateTime` and `JSON` (D-107): a date as an ISO 8601 string, and any JSON
-// value as the kernel stores it; `Decimal` (D-145), an exact number, and
-// `Date` (D-150), a day, as strings, which the kernel checks.
+// value as the kernel stores it, also under a schema's own name (D-190);
+// `Decimal` (D-145), an exact number, and `Date` (D-150), a day, as strings,
+// which the kernel checks.
 import type { ConstValueNode } from 'graphql'
 import { GraphQLError, GraphQLScalarType, Kind } from 'graphql'
 
@@ -100,11 +101,20 @@ function literal(node: ConstValueNode): unknown {
 	return node.value
 }
 
-export const JSONScalar: GraphQLScalarType<unknown, unknown> =
+/** A scalar of whole JSON values: `JSON`, or a schema's own (D-190). */
+export const jsonScalar = (
+	name: string,
+	description: string | undefined,
+): GraphQLScalarType<unknown, unknown> =>
 	new GraphQLScalarType<unknown, unknown>({
-		name: 'JSON',
-		description: 'Any JSON value.',
+		name,
+		description,
 		coerceOutputValue: (value) => value,
 		coerceInputValue: (value) => value,
 		coerceInputLiteral: literal,
 	})
+
+export const JSONScalar: GraphQLScalarType<unknown, unknown> = jsonScalar(
+	'JSON',
+	'Any JSON value.',
+)
