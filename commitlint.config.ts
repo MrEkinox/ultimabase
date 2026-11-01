@@ -8,6 +8,10 @@ const packages = readdirSync('packages', { withFileTypes: true })
 
 export default {
 	extends: ['@commitlint/config-conventional'],
+	// Dependabot's commits quote release notes on lines of any length (D-194).
+	ignores: [
+		(message: string) => message.includes('Signed-off-by: dependabot[bot]'),
+	],
 	rules: {
 		'scope-enum': [
 			2,
