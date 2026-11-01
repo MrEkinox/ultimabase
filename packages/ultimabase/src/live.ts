@@ -181,12 +181,13 @@ export async function liveReader(
 	const { models } = app.resolved
 	const context = await contextOf(app, modelOf(models, model), caller)
 	const { scope } = context
-	const { read, shape: shaped, rights } = await app.work.run(async () =>
+	const prepared = await app.work.run(async () =>
 		planned(scope, () => ({
 			...plan(models, context.model, shape, '', 'many', rowKeys, scope),
 			rights: scope.readable(model),
 		})),
 	)
+	const { read, shape: shaped, rights } = prepared
 	const local =
 		read.include === undefined &&
 		read.count === undefined &&
@@ -195,7 +196,11 @@ export async function liveReader(
 		row !== undefined && (rights === undefined || matches(model, row, rights))
 	return async (ids, rows) => {
 		if (ids.length === 0) return []
-		const root = { ...read, model, where: and({ id: { in: [...ids] } }, rights) }
+		const root = {
+			...read,
+			model,
+			where: and({ id: { in: [...ids] } }, rights),
+		}
 		// No async wrapper: a flush makes this call for each subscriber.
 		return app.work.run(() =>
 			reading(app, async (store) => {

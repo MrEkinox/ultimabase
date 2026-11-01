@@ -410,15 +410,11 @@ describe('rows read for a live read', () => {
 		] as const
 		for (const shape of shapes) {
 			const reader = await liveReader('Post', shape, ada)
-			const { result, reads } = await recording(async () =>
-				reader(ids, rows),
-			)
+			const { result, reads } = await recording(async () => reader(ids, rows))
 			expect(reads).toEqual([])
 			expect(result).toHaveLength(3)
 			const args = { ...shape, where: { id: { in: ids } } }
-			expect(byId(result)).toEqual(
-				byId(await Post.findMany(args, { as: ada })),
-			)
+			expect(byId(result)).toEqual(byId(await Post.findMany(args, { as: ada })))
 		}
 	})
 

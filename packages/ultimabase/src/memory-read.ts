@@ -10,7 +10,14 @@ import type {
 	Step,
 } from './adapter.ts'
 import type { Truth } from './memory-conditions.ts'
-import { and, both, either, isFilters, not, scalar } from './memory-conditions.ts'
+import {
+	and,
+	both,
+	either,
+	isFilters,
+	not,
+	scalar,
+} from './memory-conditions.ts'
 import { compareKeys, copy, sortable } from './memory-values.ts'
 import { relevance, searches } from './memory-search.ts'
 import { isObject } from './query-values.ts'
