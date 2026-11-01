@@ -1,0 +1,35 @@
+---
+title: Roadmap
+description: What UltimaBase builds next, and what comes later.
+---
+
+This page follows `main`: a published version's pages describe what that
+version does, and leave the roadmap out.
+
+## Next
+
+- **An audit of every package**, its fixes published.
+- **Realtime for large audiences**: many subscribers to one list
+  without repeating its work for each, and less memory for each subscription
+  to a long list (see
+  [Realtime](/docs/next/realtime)).
+- **Refusing weak passwords**: whether `passwordPlugin()` refuses breached
+  and common passwords, as NIST recommends, beyond a minimum length. It is
+  still to be decided.
+- **A `vector()` field** for pgvector, to store embeddings and search by
+  similarity on [PostgreSQL](/docs/next/postgres).
+
+## Later
+
+- **OAuth and magic link** sign-in, as methods of the
+  [auth plugin](/docs/next/auth).
+- **Scheduled and background jobs.**
+- **An admin dashboard.**
+- **Multi-tenancy**, the tenant read from the caller.
+- **`ultimabase migrate squash`**, to fold a long migration history into
+  one file.
+
+## Asking for a feature
+
+Open an [issue](https://github.com/MrEkinox/ultimabase/issues) with what
+your application needs and a short example of the code you would write.

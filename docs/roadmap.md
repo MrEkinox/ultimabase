@@ -4,9 +4,12 @@ The path from the restart to the features of the previous base, then beyond.
 Each phase ends on a measurable exit criterion; the next phase starts once it
 is proven. The commit that meets a criterion ticks it here.
 
-Status: **Phase 6**. Phase 5 is closed: `examples/password-sign-in` signs
-up, signs in and applies rules that read `caller.user`, started as
-`yarn start` does (`examples/password-sign-in/src/app.test.ts`).
+Status: **Phase 6b**. Phase 6 is closed: `npm create ultimabase` produces
+an application that starts, published as 0.1.1, then 0.2.
+
+What a user would notice of the phases below is on the website's roadmap
+page, `website/content/docs/roadmap.mdx`; a commit that changes such an item
+updates both (D-192).
 
 ## Phase 0: Tooling
 
@@ -254,6 +257,7 @@ for production yet, and fixes ship as 0.1.x or 0.2.
 
 - [x] Decide releases from CI: D-156.
 - [x] Releases from CI (D-156, D-157), proved by a canary and a release.
+- [x] A roadmap on the website (D-192).
 - [ ] A full audit of every package, its fixes merged.
 - [ ] Realtime faster on many subscribers (D-154): the find pipeline run once
       per subscriber on one list (230 ms for 10 000 on 25 rows), 305 KiB per
