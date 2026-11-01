@@ -34,6 +34,7 @@ import { selectFor } from './select.ts'
 import type { Operations } from './sockets.ts'
 import { serveSockets } from './sockets.ts'
 import { subscriptionFields } from './subscriptions.ts'
+import { twiceRule } from './twice.ts'
 
 export type { GraphqlFunctionWith } from './functions.ts'
 export type { Context as GraphqlContext, GraphqlWith } from './registry.ts'
@@ -48,7 +49,10 @@ export interface GraphqlOptions {
 	readonly take?: number
 	/** The rows a caller other than Master may ask for; 100 by default. */
 	readonly maxTake?: number
-	/** The deepest a document of a caller other than Master nests; 10 by default. */
+	/**
+	 * The deepest a document of a caller other than Master nests, counting
+	 * no connection's or edge's field; 10 by default (D-185).
+	 */
 	readonly maxDepth?: number
 	/**
 	 * The most rows a document of a caller other than Master may return, each
@@ -120,7 +124,8 @@ const plugin = definePlugin<Graphql>({
 		const hideSuggestions = !(options.introspection ?? !production)
 		const closed = hideSuggestions ? [NoSchemaIntrospectionCustomRule] : []
 		const maxDepth = options.maxDepth ?? 10
-		const depth = depthRule(maxDepth)
+		const depth = depthRule(maxDepth, registry.wrappers)
+		const twice = twiceRule(registry)
 		const maxRows = options.maxRows ?? 20_000
 		const budget = rowBudget(registry, { maxRows, maxDepth }, called.reads)
 		// The contexts of Master's requests, which no budget limits.
@@ -143,6 +148,7 @@ const plugin = definePlugin<Graphql>({
 			rules: (master) => [
 				...specifiedRules.filter((rule) => rule !== MaxIntrospectionDepthRule),
 				introspectionDepthRule,
+				twice,
 				...closed,
 				...(master ? [] : [depth]),
 			],
