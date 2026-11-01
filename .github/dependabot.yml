@@ -1,0 +1,23 @@
+# Actions are pinned by commit and updated here; npm dependencies get a pull
+# request only for a security advisory (D-194).
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directories: ['/', '/.github/actions/setup']
+    schedule:
+      interval: monthly
+    cooldown:
+      default-days: 7
+    groups:
+      actions:
+        patterns: ['*']
+    commit-message:
+      prefix: ci
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: monthly
+    # No version updates: security updates still open their pull requests.
+    open-pull-requests-limit: 0
+    commit-message:
+      prefix: fix(repo)

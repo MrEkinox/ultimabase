@@ -12742,3 +12742,43 @@ Rejected:
   pull request gets the checks: a secret to keep and rotate, for versions
   and changelogs that `main` checks again before publishing.
 - Requiring a review: the project has one maintainer.
+
+## D-194: Actions pinned by commit, dependencies updated by Dependabot
+
+Choice: completes D-92 and D-156.
+
+1. Every action a workflow or the setup action uses is pinned by its full
+   commit SHA, its version in a comment:
+   `changesets/action@ae32849d5ba541f9ae29e40e22a623bc13562f51 # v2.1.2`.
+2. Dependabot updates the actions once a month, in one pull request for all
+   of them, and only to a version published at least seven days before.
+3. Dependabot opens a pull request for an npm dependency only when a
+   security advisory names its version. It never proposes a version for
+   another reason: a dependency still moves when a commit chooses to
+   (D-92).
+4. Its commits are `ci: …` for an action and `fix(repo): …` for an npm
+   dependency. Commitlint skips the commits Dependabot signs: their
+   bodies quote release notes on lines of any length.
+
+Why:
+
+- A tag is a pointer its owner, or whoever takes over their account, can
+  move. The release job can write to the repository and publish every
+  package on npm (D-156): a moved tag would run new code with those rights.
+  A commit SHA names the code that was read, and only it.
+- A pin nobody updates goes stale; Dependabot's pull request is the one
+  way a newer action comes in, and it runs every check. Seven days give a
+  compromised release time to be found and withdrawn.
+- Advisories raised alerts that nobody saw: zod and happy-dom stayed on
+  vulnerable versions until a push printed the count.
+
+Rejected:
+
+- Pinning only third-party actions: `actions/setup-node` and
+  `actions/cache` run in the release job too, and pinning them costs
+  nothing more.
+- Dependabot version updates for npm: about fifteen manifests pin exact
+  versions, so each release of a common dependency would open a pull
+  request nobody asked for.
+- A CI check that every `uses:` names a SHA: the workflows are two files,
+  read in each pull request that changes them.
