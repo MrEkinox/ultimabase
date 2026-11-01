@@ -39,6 +39,7 @@ function signingOutOnRenewal(): Adapter {
 	return {
 		start: async (schema, logger) => database.start(schema, logger),
 		stop: async () => database.stop(),
+		empty: async () => database.empty(),
 		begin: async () => {
 			const tx = await database.begin()
 			return {

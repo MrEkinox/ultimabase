@@ -111,6 +111,17 @@ export function memory(): Adapter {
 		stop: async () => {
 			await lock
 		},
+		empty: async () => {
+			const release = await acquire()
+			const names = [...store.tables.keys()]
+			store = {
+				tables: new Map(
+					names.map((name) => [name, new Map<string, StoredRow>()]),
+				),
+				joins: new Map(),
+			}
+			release()
+		},
 		...readsOf(() => draft(store)),
 		write: async (write) => {
 			const release = await acquire()

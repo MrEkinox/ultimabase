@@ -15,8 +15,9 @@ export const app = defineApp({
 	plugins: [
 		httpPlugin(),
 		graphqlPlugin({
-			// A document nests 6 levels at most; 10 by default.
-			maxDepth: 6,
+			// A document nests 4 levels of fields at most, edges and node
+			// counting none; 10 by default.
+			maxDepth: 4,
 			// It returns 2 000 rows at most, each list times the lists above
 			// it; 20 000 by default.
 			maxRows: 2000,
@@ -24,6 +25,9 @@ export const app = defineApp({
 			// default.
 			introspection: true,
 			extend,
+			// Written by `ultimabase dev` when the schema changes, for the
+			// client's codegen.
+			generated: 'src/generated/schema.graphql',
 		}),
 	],
 	//#endregion

@@ -50,6 +50,14 @@ export async function emptied(
 		)
 	}
 	const names = (await tablesOf(db)).filter((name) => !tables.includes(name))
+	await truncated(db, names)
+}
+
+/** Empties `names` in one statement, whatever references them (D-188). */
+export async function truncated(
+	db: Kysely<object>,
+	names: readonly string[],
+): Promise<void> {
 	if (names.length === 0) return
 	await sql.raw(`truncate ${names.map(id).join(', ')} cascade`).execute(db)
 }

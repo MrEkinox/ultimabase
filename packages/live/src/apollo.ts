@@ -9,7 +9,7 @@ import type { Subscription } from 'rxjs'
 import { Observable } from 'rxjs'
 import type { LiveChange, LiveList } from './apply.ts'
 import { applyLive } from './apply.ts'
-import { LiveError } from './error.ts'
+import { LiveError, liveErrorOf } from './error.ts'
 import { isList, isMessage, isRecord } from './guards.ts'
 
 /**
@@ -50,6 +50,15 @@ function rootOf(query: DocumentNode): {
 		key: field.alias?.value ?? field.name.value,
 		...(value?.kind === 'Variable' && { grows: value.name.value }),
 	}
+}
+
+/** The error a result refuses with, unless it holds data or is live. */
+function refusalOf(result: ApolloLink.Result): LiveError | undefined {
+	const [error] = result.errors ?? []
+	if (error === undefined || isRecord(result.data)) return undefined
+	if (result.extensions?.['live'] !== undefined) return undefined
+	const fallback = new LiveError('INTERNAL', error.message)
+	return liveErrorOf({ ...error.extensions, message: error.message }, fallback)
 }
 
 /** The rows of `list`, the nodes under a connection. */
@@ -101,8 +110,11 @@ function followed(
 		let token: string | undefined
 		let inner: Subscription | undefined
 		let closed = false
+		// What takes back a growth that has not arrived yet.
+		let undo: (() => void) | undefined
 		const waiting: Waiter[] = []
 		const settle = (error?: unknown) => {
+			undo = undefined
 			for (const { resolve, reject } of waiting.splice(0)) {
 				if (error === undefined) resolve()
 				else reject(error)
@@ -114,6 +126,13 @@ function followed(
 			observer.error(error)
 		}
 		const received = (result: ApolloLink.Result) => {
+			// A growth refused, past maxLive: the list goes on as it was (D-186).
+			const refused = undo && refusalOf(result)
+			if (undo !== undefined && refused !== undefined) {
+				undo()
+				settle(refused)
+				return open()
+			}
 			const live: unknown = result.extensions?.['live']
 			if (key === undefined || !isMessage(live)) return observer.next(result)
 			const whole: unknown = 'data' in result ? result.data : undefined
@@ -185,6 +204,9 @@ function followed(
 						'BAD_USER_INPUT',
 						'first must be a positive integer.',
 					)
+				}
+				undo ??= () => {
+					operation.variables = { ...operation.variables, [grows]: shown }
 				}
 				operation.variables = { ...operation.variables, [grows]: shown + more }
 				if (closed) return

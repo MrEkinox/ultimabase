@@ -13,6 +13,18 @@ export const invalid = (path: string, message: string): PublicError =>
 	})
 
 /**
+ * Refuses a live list that would follow `rows`, nested rows included, past
+ * `limit` (D-154); its details give both, so a client can stop growing it
+ * (D-186).
+ */
+export function within(rows: number, limit: number): void {
+	if (rows <= limit) return
+	const message = `first is over ${limit}, the most a live list follows.`
+	const details = { issues: [{ path: ['first'], message }], limit, rows }
+	throw new PublicError('VALIDATION_FAILED', message, { details })
+}
+
+/**
  * Refuses an order that reads another row and a selection that reaches a
  * model which is not live; returns the nested rows each root row follows.
  */

@@ -184,8 +184,8 @@ export type Nested = {
 	/** Negative: the rows before the cursor, or the last ones. */
 	readonly take?: number
 	/**
-	 * The system and scalar fields the rows return, `id` always; absent, every
-	 * field and each `one` key (D-136).
+	 * The system and scalar fields and the stored `one` keys the rows return,
+	 * `id` always; absent, every field and each `one` key (D-136, D-184).
 	 */
 	readonly fields?: readonly string[]
 	readonly include?: { readonly [field: string]: Nested }
@@ -364,6 +364,11 @@ export interface Adapter extends Omit<Transaction, 'commit' | 'rollback'> {
 	 */
 	start(schema: Schema, logger: Logger, feed?: Feed): Promise<void>
 	stop(): Promise<void>
+	/**
+	 * Removes the rows of every model and keeps the tables, running no hook
+	 * (D-188).
+	 */
+	empty(): Promise<void>
 	/**
 	 * With `isolation: 'serializable'`, a serializable transaction, or a throw
 	 * when the database cannot hold one (D-179).

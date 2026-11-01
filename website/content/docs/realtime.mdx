@@ -63,7 +63,8 @@ no longer read it:
 
 A client without `@ultimabase/live` asks for page mode, and gets the whole
 window, `{ data }`, on each change. Its `first` is at most the model's
-`maxTake`, 100 by default, since each change resends every row:
+`maxTake`, 100 by default, since each change resends every row; outside page
+mode, only `maxLive` bounds a live list:
 
 <include cwd meta='title="src/app.test.ts"'>
 	../examples/realtime/src/app.test.ts#page
@@ -129,6 +130,20 @@ its `GET` route as a stream.
 A run waits for 50 ms of quiet after a write, and at most a second;
 `.with({ realtime: { debounce } })` sets the wait. The function runs as the
 subscriber.
+
+## Virtual fields
+
+A live row or list that selects a
+[virtual field](/docs/next/models#virtual-fields) follows the rows its `run`
+or `runMany` read, as a live function does: a write that may change a value
+computes the rows again, as the subscriber, and sends those whose value
+changed. A delete in a model it read computes them all again.
+
+Each subscriber computes its own value, since a read rule may give each a
+different one: a write to a model a virtual reads costs one run for each
+subscriber that shows a row it read. A list of 1000 rows that 1000
+subscribers share takes seconds to follow such a write; a list each, a few
+milliseconds.
 
 ## A socket of your own
 
@@ -200,9 +215,35 @@ reads outside the database.
 	../examples/realtime/src/app.test.ts#limits
 </include>
 
+A live list follows at most `maxLive` rows, 1000 by default, or the model's
+own `.with({ realtime: { maxLive } })`, nested rows included: it costs
+`first × (1 + the nested rows of each row)`, a nested list counting its
+`take` rows and theirs. A hundred posts, each with its three latest comments,
+follow 100 × (1 + 3) = 400 rows. `maxTake` bounds page mode only.
+
+A refusal past the limit, at subscribe or at `fetchMore`, gives both numbers
+as `details: { limit, rows }`: under `extensions.details` over GraphQL, in
+the `400` body over REST, as `LiveError.details` in `@ultimabase/live`. A
+refused `fetchMore` rejects, and the list goes on following its window as it
+was.
+
 A failed live read does not reconnect. Over `liveFetch`, `subscribe`'s
 second function gets a `LiveError` with the server's `code`; over GraphQL,
 the subscription gets `errors`, as a query does.
+
+## Long lists
+
+A list can be longer than any live list should be. Follow its first rows
+live, and once `fetchMore` reports the limit, read the next ones with
+ordinary queries, from the cursor where the live window ends:
+
+<include cwd meta='title="src/history.ts"'>
+	../examples/realtime/src/history.ts#history
+</include>
+
+The live list keeps its first `maxLive` rows up to date; the next ones are
+read once. A row added at the top pushes the last live one out of the window:
+a page that must keep it on screen keeps the rows it showed.
 
 ## Reference
 
@@ -231,6 +272,11 @@ the subscription gets `errors`, as a query does.
 | `totalCount`, `pageInfo`   | when they changed        | Their new values, when selected.                                          |
 
 Changes within 50 ms are sent as one message.
+
+A nested relation's count, its connection's `totalCount` or `_count`, is
+sent again with its row when a related row is created or deleted. A related
+row that moves to another row sends the row it joins again, not the one it
+left, whose count stays as it was until that row changes.
 
 ### Transports
 
@@ -266,7 +312,7 @@ A listener that throws is logged; the others still run.
 | -------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
 | `applyLive(list, message)`                               | The list with the message's changes; `undefined` if it names a row the list lacks.          |
 | `liveFetch(url, { headers })`                            | `{ subscribe(listener, failed), fetchMore({ first }) }`; `subscribe` returns what stops it. |
-| `LiveError`                                              | A failed live read: `code` and `message`.                                                   |
+| `LiveError`                                              | A failed live read: `code`, `message`, and the server's `details` if any.                   |
 | `ultimabaseLive()`, from `./apollo`                      | The Apollo link, before the WebSocket link.                                                 |
 | `useLiveSubscription(document, options)`, from `./react` | `useSubscription`'s result, plus `fetchMore({ first })`.                                    |
 
@@ -276,7 +322,7 @@ Apollo 4 with `rxjs`, and React 18 or 19, are optional peer dependencies.
 
 | Code                | Message                                                                                         |
 | ------------------- | ----------------------------------------------------------------------------------------------- |
-| `VALIDATION_FAILED` | `first is over 50, the most a live list follows.`                                               |
+| `VALIDATION_FAILED` | `first is over 50, the most a live list follows.`, with `details: { limit, rows }`.             |
 | `VALIDATION_FAILED` | `A connection holds at most 100 live reads.`, `A connection follows at most 10000 rows.`        |
 | `VALIDATION_FAILED` | `Author is not live.`: the selection reaches a model whose `use` lacks `realtime()`.            |
 | `VALIDATION_FAILED` | `A live list sorts by Task's own fields: author reads another row.`                             |

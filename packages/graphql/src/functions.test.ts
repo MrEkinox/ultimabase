@@ -255,6 +255,7 @@ function counting(reads: string[]): Adapter {
 	return {
 		start: async (schema, logger) => base.start(schema, logger),
 		stop: async () => base.stop(),
+		empty: async () => base.empty(),
 		find: async (read) => {
 			reads.push(read.model)
 			return base.find(read)
@@ -720,7 +721,7 @@ describe('startup', () => {
 			to: z.object({ c: z.string() }).meta({ id: 'a-b' }),
 		})
 		await expect(serving({}, [returning('ref', nested)])).rejects.toThrow(
-			'ref: output.to refers to a-b, which is not a GraphQL name; name it with .meta({ id }).',
+			'ref: output.to is named a-b, which is not a GraphQL name; name it with .meta({ id }).',
 		)
 		await expect(
 			serving({}, [

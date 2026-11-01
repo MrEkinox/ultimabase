@@ -298,6 +298,7 @@ function purging(): Adapter {
 	return {
 		start: async (schema, logger) => base.start(schema, logger),
 		stop: async () => base.stop(),
+		empty: async () => base.empty(),
 		find: async (read) => base.find(read),
 		count: async (read) => base.count(read),
 		aggregate: async (read) => base.aggregate(read),
