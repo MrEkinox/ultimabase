@@ -12453,3 +12453,89 @@ test.beforeEach(async () => {
 	await seed()
 })
 ```
+
+## D-190: A json schema named as a GraphQL scalar
+
+Choice: completes D-109 and D-125.
+
+1. A schema whose metadata gives an id and `scalar: true`,
+   `.meta({ id: 'RichText', scalar: true })`, is the GraphQL scalar
+   `RichText`, read and written whole, in place of the object type D-125
+   point 3 would make. GraphQL declares it once, described by the schema's
+   description, and uses it on both sides: a scalar has no input type.
+2. The id is read where D-125 point 3 reads it, from the export's `$defs`
+   (Zod), and from an `id` keyword on the schema itself, as Valibot's
+   `v.metadata` and ArkType's `.configure` write it. A shared object type's
+   id is read the same way.
+3. It applies at the field's root or deeper, `{ title, body: RichText }`,
+   and in a function's schema (D-109), which shares the field's types.
+4. `scalar: true` without an id is named by its path, as an object type
+   is (D-125 point 3): `Note.settings` is the scalar `NoteSettings`, on
+   both sides. Without `scalar: true`, nothing changes.
+5. One name given two schemas stops startup, naming both owners (D-125
+   point 3).
+6. A field's filter stays `JSONFilter` (D-149 point 6); the kernel still
+   validates the value with the schema.
+7. OpenAPI keeps the whole JSON Schema (D-144), the keyword included.
+8. The GraphQL guide's types table gains the line.
+
+Why:
+
+- A rich text document is recursive: as an object type, no selection
+  reads it whole, so a client wants it as one value. As `JSON` it shares
+  its name with every untyped value, and a client's codegen, which maps a
+  scalar by name, cannot give it its own type.
+- The developer chooses it on the schema, which already names shared types
+  with `id`; the kernel gains no GraphQL option.
+- Zod puts an id in `$defs`; Valibot and ArkType keep it as a keyword
+  (checked on 2026-11-01 with zod 4, valibot 1.5 and arktype 2.2): reading
+  both lets each library name a type.
+
+Rejected:
+
+- `f.json({ graphql: { scalar: 'RichText' } })`: a plugin's option on a
+  kernel field.
+- A scalar for every recursive schema: the developer chooses it, nothing
+  is implicit.
+- Stopping startup on `scalar: true` without an id: an object type
+  without an id is named by its path, and a scalar can be too. The guide
+  advises an id for a scalar a client's codegen maps, whose name then
+  outlives a renamed field.
+- A `RichTextFilter`: the path filters of `JSONFilter` already filter any
+  json value.
+
+Example, before:
+
+```ts
+body: f.json({ optional: true, validate: Node }),
+```
+
+```graphql
+type Note {
+	body: JSON # every untyped json value has this type
+}
+```
+
+After:
+
+```ts
+const RichText = Node.meta({
+	id: 'RichText',
+	scalar: true,
+	description: 'A Tiptap document',
+})
+body: f.json({ optional: true, validate: RichText }),
+```
+
+```graphql
+"""
+A Tiptap document
+"""
+scalar RichText
+
+type Note {
+	body: RichText
+}
+```
+
+A client's codegen then maps `RichText` to its document type.

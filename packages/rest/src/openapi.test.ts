@@ -357,6 +357,33 @@ describe('a uuid', () => {
 	})
 })
 
+describe('a schema GraphQL names as a scalar', () => {
+	it('keeps its whole JSON Schema, the keyword included (D-190)', async () => {
+		const RichText = z
+			.object({ type: z.literal('doc') })
+			.meta({ id: 'RichText', scalar: true })
+		const Note = defineModel({
+			name: 'Note',
+			use: [rest()],
+			fields: (f) => ({ body: f.json({ validate: RichText }) }),
+		}).with({ access: allow.public })
+		const running = await started({}, memory(), [], [Note])
+		stop = async () => running.app.stop()
+		const { body: document } = await call(
+			running.url,
+			'GET',
+			'/api/openapi.json',
+		)
+		expect(at(document, 'components', 'schemas', 'RichText')).toEqual({
+			type: 'object',
+			properties: { type: { type: 'string', const: 'doc' } },
+			required: ['type'],
+			additionalProperties: false,
+			scalar: true,
+		})
+	})
+})
+
 describe('its schemas', () => {
 	it('accept what REST takes and answers', async () => {
 		const { url, document } = await serving()

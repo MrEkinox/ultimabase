@@ -721,7 +721,7 @@ describe('startup', () => {
 			to: z.object({ c: z.string() }).meta({ id: 'a-b' }),
 		})
 		await expect(serving({}, [returning('ref', nested)])).rejects.toThrow(
-			'ref: output.to refers to a-b, which is not a GraphQL name; name it with .meta({ id }).',
+			'ref: output.to is named a-b, which is not a GraphQL name; name it with .meta({ id }).',
 		)
 		await expect(
 			serving({}, [
