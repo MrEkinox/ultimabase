@@ -272,11 +272,20 @@ Exit: the audit's fixes are published.
 ## Phase 7: Parity with the previous base
 
 - [ ] `vector()` field type for pgvector (D-32).
+- [ ] Decide a limit on the whole API, per caller or per address, as a
+      `rateLimit()` plugin (D-56); then build it.
 
 Exit: every feature of the previous base has an example, in far fewer lines.
 
 ## Beyond
 
 OAuth and magic link, jobs, admin, multi-tenancy (D-25).
+A typed browser client (D-25).
+A `geoPoint()` field type (D-57).
+MySQL, SQLite and MongoDB adapters (D-51).
+An import from a Parse database: its rows, relations and users, whose bcrypt
+password hashes are read until the next sign-in rehashes them.
+Outgoing webhooks: a `POST` to a URL when a row changes, from the feed.
+OpenTelemetry traces of requests, queries, hooks and virtual fields.
 `migrate squash`, once an application's history needs it (D-105).
 A query cache, as a plugin, dropping what it keeps when a row it read changes.
