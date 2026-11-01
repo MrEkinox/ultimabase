@@ -106,6 +106,9 @@ in order, to read a list of rows in one query. The output is a Standard
 Schema, or behind an arrow a model or a type: `() => Price`, `() => [Image]`
 for a list, `() => Image.nullable()` for a row that may be missing.
 
+A live read follows the rows a virtual read: a write that changes its value
+sends the row again ([realtime](/docs/next/realtime#virtual-fields)).
+
 ## A field only the server reads
 
 A field's `.with({ access })` adds its own rules. `allow.private` leaves it

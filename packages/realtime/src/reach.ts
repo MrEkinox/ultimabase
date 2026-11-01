@@ -50,7 +50,7 @@ export type Reach = {
 	readonly deep: ReadonlySet<string>
 }
 
-type Models = ReadonlyMap<string, ReadonlyMap<string, SchemaField>>
+export type Models = ReadonlyMap<string, ReadonlyMap<string, SchemaField>>
 
 const indexes = new WeakMap<Schema, Models>()
 

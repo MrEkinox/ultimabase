@@ -13,6 +13,7 @@ import type { Truth } from './memory-conditions.ts'
 import { and, isFilters, not, or, scalar } from './memory-conditions.ts'
 import { compareKeys, copy, sortable } from './memory-values.ts'
 import { relevance, searches } from './memory-search.ts'
+import { isObject } from './query-values.ts'
 import { modelOf } from './query-where.ts'
 
 /** A stored row; a stored `one` key is the target's id or `null`. */
@@ -51,9 +52,13 @@ export class Reader {
 	/** A write's change index → the ids its delete removed, for `removedBy`. */
 	readonly removed: Map<number, ReadonlySet<string>> = new Map()
 
-	constructor(store: Store, fields: Fields) {
+	/** Whether a stored `one` reaches a row known by its key alone. */
+	readonly keys: boolean
+
+	constructor(store: Store, fields: Fields, keys = false) {
 		this.store = store
 		this.fields = fields
+		this.keys = keys
 	}
 
 	table(model: string): Map<string, StoredRow> {
@@ -67,9 +72,14 @@ export class Reader {
 	/** The rows a relation of `row` points to. */
 	related(model: string, field: SchemaField, row: StoredRow): StoredRow[] {
 		if (field.kind === 'scalar') return []
+		const key = row[field.name]
+		if (this.keys && field.kind === 'one' && field.stored) {
+			// A row the adapter read holds the key as `{ id }`.
+			const id = isObject(key) ? key['id'] : key
+			return typeof id === 'string' ? [{ id }] : []
+		}
 		const target = this.table(field.target)
 		if (field.kind === 'one' && field.stored) {
-			const key = row[field.name]
 			const found = typeof key === 'string' ? target.get(key) : undefined
 			return found === undefined ? [] : [found]
 		}

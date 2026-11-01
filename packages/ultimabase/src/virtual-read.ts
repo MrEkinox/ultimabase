@@ -12,6 +12,7 @@ import { isObject, normalizeWhere } from './query-where.ts'
 import { planned } from './scope.ts'
 import type { Store } from './transaction.ts'
 import { checked } from './validation.ts'
+import { virtualRun } from './recorder.ts'
 
 type Row = { readonly [field: string]: unknown }
 
@@ -96,7 +97,9 @@ async function valuesOf(
 	if (info.many) {
 		// Its queries are its own, not those of a `run` around it.
 		const result: unknown = await sent.exit(async () =>
-			info.run(Object.freeze({ caller, input, records })),
+			virtualRun(async () =>
+				info.run(Object.freeze({ caller, input, records })),
+			),
 		)
 		if (!Array.isArray(result) || result.length !== records.length) {
 			throw new TypeError(
@@ -107,9 +110,11 @@ async function valuesOf(
 	} else {
 		const calls = { count: 0 }
 		values = await sent.run(calls, async () =>
-			Promise.all(
-				records.map(async (record) =>
-					info.run(Object.freeze({ caller, input, record })),
+			virtualRun(async () =>
+				Promise.all(
+					records.map(async (record) =>
+						info.run(Object.freeze({ caller, input, record })),
+					),
 				),
 			),
 		)

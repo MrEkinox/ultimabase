@@ -9371,7 +9371,7 @@ api: ({ plugins }) => plugins.http.mount(uploads, { bodyLimit: false })
 
 ## D-154: Realtime: live lists and live rows
 
-Amended by D-163, D-166 and D-178.
+Amended by D-163, D-166, D-178 and D-187.
 
 Choice: completes D-25; amends D-106 (WebSocket upgrades), D-107 (the
 `Subscription` type), D-109 (live functions) and D-129 (live reads over
@@ -11985,3 +11985,87 @@ return transaction(
 
 After: unchanged code; the 10 pairs match, each call after 5 attempts at
 most.
+
+## D-187: A live read follows its virtual fields' reads
+
+Choice: amends D-154, points 10 and 12, and completes D-151.
+
+1. A live row or list that selects a virtual field records the reads its
+   `run` or `runMany` makes, as a live function's (D-154, point 12). The
+   rows read together share them. A write that may change one of those
+   reads computes these rows again, as the subscriber; a row whose value
+   changed is sent again, the others are not.
+2. Nothing to declare: no `live` option on the virtual, no list of models
+   it depends on. A live read that selects no virtual costs nothing more.
+3. Whether a write may change a read is decided more finely, for the
+   rights of a caller and for live functions too:
+   - A read without ids, a count or a group, is stale only when an inserted
+     row passes its `where`, a row is deleted, or an updated row may pass
+     it before or after the update. Before, any write to its model made it
+     stale.
+   - A `where` through a stored `one` relation, as `project: { is: … }`, is
+     stale on any write to the related model, as before. A write to the
+     read's own model is tested against the `where` loosened to what its
+     rows hold: the related id, which the stored key holds. A read rule of
+     the related model joins that relation's filter, so without this every
+     write to the model counted made every subscriber stale.
+   - Another `where` that a row alone does not answer, a text search or an
+     `OR` through a relation, stays coarse: any write to its model or a
+     model it reaches makes it stale.
+4. A delete still recomputes every row whose virtuals read its model: a
+   write carries no old values, so which rows read the deleted one is not
+   known.
+
+Why:
+
+- The issue: a live project showing `openTasksCount` did not move when a
+  task was created, and a client had to open a second subscription for the
+  count. Live functions already follow their reads; a virtual is the same
+  kind of `run`.
+- A declared dependency (`live: [() => Task]`) would resend every row on
+  any write to `Task` and is one more thing to keep in sync with `run`.
+- Measured with `bench/realtime/virtuals.ts`, 1000 subscribers listing
+  `Project` with a virtual counting its open `Task` rows through a
+  `groupBy` as the caller, one `Task` created a write, p50 times:
+
+  | Lists       | Window | Followed coarsely                      | This decision                    |
+  | ----------- | -----: | -------------------------------------- | -------------------------------- |
+  | a list each |     25 | 2000 statements, 1000 messages, 463 ms | 3 statements, 1 message, 69 ms   |
+  | a list each |   1000 | 17.2 s, p99 103 s                      | 3 statements, 1 message, 122 ms  |
+  | one list    |     25 | 1001 statements, 301 ms                | 1002 statements, 319 ms          |
+  | one list    |   1000 | 11.1 s                                 | 10.3 s, the last message at 20 s |
+
+  "Followed coarsely" is any write to `Task` computing every shown row
+  again and sending it. A live read that selects no virtual runs no
+  statement on such a write, before as after.
+
+- One list followed by 1000 subscribers stays costly: each one computes the
+  virtual as itself, one `groupBy` each, since a read rule may give each a
+  different count. Sharing the value between subscribers would be wrong as
+  soon as a rule reads the caller. Computing again only the row the write
+  touched is not possible either: `runMany` may compute a row from the
+  others.
+- Grouping writes close in time, as a live function's wait does, helps a
+  burst but not one write, and delays every message; not done.
+
+Rejected:
+
+- A `live` option listing the models a virtual reads, for the reasons
+  above.
+- Sending again every row whose virtuals read a model written: what the
+  first table measures.
+
+Example, before: a live list showing a count of another model.
+
+```ts
+await viewer.list(
+	'Project',
+	{ first: 25, select: { name: true, openTasks: true } },
+	send,
+)
+await Task.create({ data: { project: { connect: { id: a } } } }, M)
+// Nothing is sent; A shows its old count until A itself changes.
+```
+
+After: unchanged code; the row of A alone is sent again, with
+`openTasks: 1`.
