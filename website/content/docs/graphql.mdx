@@ -218,6 +218,21 @@ query: it is typed from its schema, served over REST too, and checked by
 its access rule. `extend` is for what a function cannot express, as a
 field on a model's type.
 
+## A schema file for clients
+
+With `generated: 'src/generated/schema.graphql'`, as in the application
+above, `ultimabase dev` writes the schema it serves, `extend` applied, to
+that file as it starts, and logs `GraphQL schema written to
+src/generated/schema.graphql.`. It writes it only when its content changed,
+so a codegen watching it runs after a change only. The path is read from the
+directory `ultimabase dev` runs in, and missing folders are created.
+
+The file is committed: a front end points
+[GraphQL Code Generator](https://the-guild.dev/graphql/codegen)'s `schema` at
+it, and types its operations without a running server, in CI too. Nothing
+writes it under `ultimabase start` or in tests, where `NODE_ENV` is
+`production` or `test`.
+
 ## Limits
 
 A document from a caller other than Master is refused before it runs when
@@ -247,6 +262,7 @@ the standard introspection query.
 | `maxRows`       | number                     | 20 000            | The most rows a document may return, each list times those above it. |
 | `introspection` | boolean                    | off in production | Introspection, and the "Did you mean" suggestions of refused fields. |
 | `extend`        | `(schema) => schema`       | none              | The schema to serve, built from the generated one.                   |
+| `generated`     | string                     | none              | The file `ultimabase dev` writes the served schema to, as SDL.       |
 
 It requires `httpPlugin()`. With [`realtimePlugin()`](/docs/next/realtime),
 it serves subscriptions over WebSocket on `path`. Master is limited by

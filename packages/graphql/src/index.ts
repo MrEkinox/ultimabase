@@ -1,6 +1,7 @@
 // `graphqlPlugin()` (D-107, D-109): a Relay schema generated from the models
 // and the functions, mounted on the HTTP plugin and run as each request's
 // caller; with the realtime plugin, its live models' subscriptions (D-154).
+// In development, it writes the schema to a file for clients (D-191).
 import type { GraphQLSchema } from 'graphql'
 import {
 	executeRootSelectionSet,
@@ -21,6 +22,7 @@ import { definePlugin } from 'ultimabase'
 import manifest from '../package.json' with { type: 'json' }
 import { depthRule, introspectionDepthRule } from './depth.ts'
 import { formatter } from './errors.ts'
+import { writeGenerated } from './generated.ts'
 import type { GraphqlFunctionWith } from './functions.ts'
 import { functionFields } from './functions.ts'
 import { graphiqlPage } from './graphiql.ts'
@@ -62,6 +64,11 @@ export interface GraphqlOptions {
 	readonly introspection?: boolean
 	/** Replaces the generated schema with one built from it (D-45). */
 	readonly extend?: (schema: GraphQLSchema) => GraphQLSchema
+	/**
+	 * Where `ultimabase dev` writes the served schema as SDL, from the
+	 * current directory, when it changes (D-191).
+	 */
+	readonly generated?: string
 }
 
 /** The GraphQL plugin's types (D-57). */
@@ -79,6 +86,8 @@ const maxTokens = 2000
 
 // What closes each running application's WebSockets, by its plugin's context.
 const closers = new WeakMap<object, () => Promise<void>>()
+// What writes each running application's schema file, by its plugin's context.
+const writers = new WeakMap<object, () => Promise<void>>()
 
 const plugin = definePlugin<Graphql>({
 	name: 'graphql',
@@ -116,6 +125,14 @@ const plugin = definePlugin<Graphql>({
 			},
 		})
 		const schema = options.extend?.(generated) ?? generated
+		const file = options.generated
+		if (file !== undefined) {
+			writers.set(pluginContext, async () => {
+				if (await writeGenerated(file, schema)) {
+					logger.info(`GraphQL schema written to ${file}.`)
+				}
+			})
+		}
 		const production = process.env['NODE_ENV'] === 'production'
 		const hideSuggestions = !(options.introspection ?? !production)
 		const closed = hideSuggestions ? [NoSchemaIntrospectionCustomRule] : []
@@ -214,11 +231,14 @@ const plugin = definePlugin<Graphql>({
 			closers.set(pluginContext, close)
 		}
 	},
-	start: ({ plugins, options, logger }) => {
-		if (process.env['NODE_ENV'] === 'production') return
+	start: async (context) => {
+		const { plugins, options, logger } = context
+		const environment = process.env['NODE_ENV']
+		if (environment === 'production') return
 		logger.info(
 			`GraphiQL on ${plugins.http.url()}${options.path ?? '/graphql'}.`,
 		)
+		if (environment === 'development') await writers.get(context)?.()
 	},
 	// Before the HTTP plugin's stop, which waits for the sockets to close.
 	stop: async (context) => closers.get(context)?.(),
