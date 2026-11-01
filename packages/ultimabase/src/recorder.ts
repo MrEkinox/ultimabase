@@ -54,6 +54,36 @@ export async function recording<R>(run: () => Promise<R>): Promise<{
 	}
 }
 
+/** The reads of the virtual fields computed inside `recordingVirtuals`. */
+const virtualReads = new AsyncLocalStorage<Recorded[]>()
+
+/**
+ * Runs `run`, keeping apart the reads each virtual field it computes makes,
+ * so a live read sends a row again when a write may change its value.
+ */
+export async function recordingVirtuals<R>(run: () => Promise<R>): Promise<{
+	readonly result: R
+	readonly reads: readonly Recorded[]
+}> {
+	const reads: Recorded[] = []
+	const result = await virtualReads.run(reads, run)
+	return { result, reads }
+}
+
+/** Runs a virtual's `run`; its reads also go to a recording around it. */
+export async function virtualRun<R>(run: () => Promise<R>): Promise<R> {
+	const into = virtualReads.getStore()
+	if (into === undefined) return run()
+	const outer = recorder.getStore()
+	const kept: Recording = { reads: [], expires: undefined }
+	// A virtual it reads is part of its own value, not another one's.
+	const result = await virtualReads.exit(async () => recorder.run(kept, run))
+	into.push(...kept.reads)
+	outer?.reads.push(...kept.reads)
+	if (kept.expires !== undefined) recordExpiry(new Date(kept.expires))
+	return result
+}
+
 /** Keeps `at` when it is the earliest expiry, if a recording runs. */
 export function recordExpiry(at: Date): void {
 	const time = at.getTime()

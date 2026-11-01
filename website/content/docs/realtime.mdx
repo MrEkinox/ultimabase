@@ -130,6 +130,20 @@ A run waits for 50 ms of quiet after a write, and at most a second;
 `.with({ realtime: { debounce } })` sets the wait. The function runs as the
 subscriber.
 
+## Virtual fields
+
+A live row or list that selects a
+[virtual field](/docs/next/models#virtual-fields) follows the rows its `run`
+or `runMany` read, as a live function does: a write that may change a value
+computes the rows again, as the subscriber, and sends those whose value
+changed. A delete in a model it read computes them all again.
+
+Each subscriber computes its own value, since a read rule may give each a
+different one: a write to a model a virtual reads costs one run for each
+subscriber that shows a row it read. A list of 1000 rows that 1000
+subscribers share takes seconds to follow such a write; a list each, a few
+milliseconds.
+
 ## A socket of your own
 
 A [plugin](/docs/next/plugins) can serve live reads over its own socket.

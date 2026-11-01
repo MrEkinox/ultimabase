@@ -2,7 +2,15 @@
 // filter and order, planned once for its caller, and, on a stored row, that
 // filter and the row's sort keys, tested as `memory()` reads.
 import { accessFor, and } from './access.ts'
-import type { Filter, Nested, Order, Read, Row, Schema } from './adapter.ts'
+import type {
+	Condition,
+	Filter,
+	Nested,
+	Order,
+	Read,
+	Row,
+	Schema,
+} from './adapter.ts'
 import { rootFind } from './engine.ts'
 import { decoded, isRow } from './field-codec.ts'
 import { Reader } from './memory-read.ts'
@@ -104,9 +112,22 @@ export function inMemory(model: string, filter: Filter | undefined): boolean {
 			return false
 		}
 		const field = fields.get(key)
-		return field === undefined || field.kind === 'scalar'
+		if (field === undefined || field.kind === 'scalar') return true
+		return field.kind === 'one' && field.stored && byKey(value)
 	})
 }
+
+/** Whether a relation's condition reads only its target's id, as a stored key does. */
+const byKey = (condition: Condition): boolean =>
+	Object.entries(condition).every(
+		([operator, filter]) =>
+			filter === undefined ||
+			((operator === 'is' || operator === 'isNot') &&
+				(filter === null ||
+					Object.entries(filter).every(
+						([key, value]) => key === 'id' || value === undefined,
+					))),
+	)
 
 const readers = new WeakMap<Running, Reader>()
 
@@ -119,7 +140,11 @@ function readerOf(app: Running): Reader {
 			new Map(model.fields.map((field) => [field.name, field])),
 		]),
 	)
-	const reader = new Reader({ tables: new Map(), joins: new Map() }, fields)
+	const reader = new Reader(
+		{ tables: new Map(), joins: new Map() },
+		fields,
+		true,
+	)
 	readers.set(app, reader)
 	return reader
 }
