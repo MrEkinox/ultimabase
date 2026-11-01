@@ -1340,7 +1340,9 @@ describe('a sync or a reset waiting for a lock', () => {
 			const failed: unknown = await migrations
 				.reset()
 				.catch((error: unknown) => error)
-			expect(Date.now() - started).toBeGreaterThanOrEqual(5000)
+			// The 5s wait is timed by the database, whose clock can drift from
+			// Node's when it runs in a VM, so the margin only proves it waited.
+			expect(Date.now() - started).toBeGreaterThanOrEqual(4500)
 			expect(failed).toBeInstanceOf(MigrationFailed)
 			expect(failed).toMatchObject({ locked: true })
 			expect(String(failed)).toMatch(
