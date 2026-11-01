@@ -178,7 +178,9 @@ above do:
 | `proxies`   | whole number    | 0                 | The proxies in front of the server, read in `X-Forwarded-For`. |
 | `upgrade`   | function        | none              | Answers each WebSocket upgrade: a `Response` refuses it.       |
 
-Outside production, local origins over `http:` are allowed besides `cors`.
+Outside production, local origins over `http:` are allowed besides `cors`,
+and `POST /_ultimabase/reset` empties the database for the master key, for
+[end-to-end tests](/docs/next/testing#end-to-end-tests).
 On `stop`, the server stops taking connections and waits 10 seconds at most
 for the requests still running.
 
@@ -223,16 +225,16 @@ keep it to some routes. A route added after `start` is not served.
 
 ### Errors
 
-| Status | Code                     | When                                                                        |
-| ------ | ------------------------ | --------------------------------------------------------------------------- |
-| 400    | `VALIDATION_FAILED`      | `Invalid data.`: `validate` refused a value, with `details.issues`.         |
-| 400    | `BAD_REQUEST`            | `Malformed JSON in request body`, or `Malformed form data in request body`. |
-| 403    | `ACCESS_DENIED`          | `A form from another origin is refused.`, or `The master key is wrong.`     |
-| 404    | `NOT_FOUND`              | `No route matches GET /nowhere.`                                            |
-| 413    | `PAYLOAD_TOO_LARGE`      | `The body is over 65536 bytes.`                                             |
-| 415    | `UNSUPPORTED_MEDIA_TYPE` | `The body is not JSON: send content-type: application/json.`                |
-| 500    | `INTERNAL`               | `Internal error.`, with `correlationId`.                                    |
-| any    | the status's name        | An `HTTPException`, as `401` `UNAUTHORIZED`.                                |
+| Status | Code                     | When                                                                                                                 |
+| ------ | ------------------------ | -------------------------------------------------------------------------------------------------------------------- |
+| 400    | `VALIDATION_FAILED`      | `Invalid data.`: `validate` refused a value, with `details.issues`.                                                  |
+| 400    | `BAD_REQUEST`            | `Malformed JSON in request body`, or `Malformed form data in request body`.                                          |
+| 403    | `ACCESS_DENIED`          | `A form from another origin is refused.`, `The master key is wrong.`, or `Only the master key empties the database.` |
+| 404    | `NOT_FOUND`              | `No route matches GET /nowhere.`                                                                                     |
+| 413    | `PAYLOAD_TOO_LARGE`      | `The body is over 65536 bytes.`                                                                                      |
+| 415    | `UNSUPPORTED_MEDIA_TYPE` | `The body is not JSON: send content-type: application/json.`                                                         |
+| 500    | `INTERNAL`               | `Internal error.`, with `correlationId`.                                                                             |
+| any    | the status's name        | An `HTTPException`, as `401` `UNAUTHORIZED`.                                                                         |
 
 A `PublicError` takes its code's status: `ACCESS_DENIED` 403, `NOT_FOUND`
 404, `VALIDATION_FAILED` 400, `UNIQUE_VIOLATION`, `RELATION_RESTRICTED` and

@@ -31,6 +31,7 @@ function recording(): Adapter & { readonly created: string[] } {
 		created,
 		start: async (schema, logger) => database.start(schema, logger),
 		stop: async () => database.stop(),
+		empty: async () => database.empty(),
 		begin: async () => {
 			const transaction = await database.begin()
 			return {

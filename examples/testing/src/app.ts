@@ -10,4 +10,6 @@ export const app = defineApp({
 	// Listens on PORT, or 3000.
 	plugins: [httpPlugin(), graphqlPlugin()],
 	models: [Note],
+	// Seeds and empties the database in end-to-end tests.
+	masterKey: 'dev-master-key',
 })

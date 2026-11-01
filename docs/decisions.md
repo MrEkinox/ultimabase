@@ -12382,3 +12382,74 @@ await Task.create({ data: { project: { connect: { id: a } } } }, M)
 
 After: unchanged code; the row of A alone is sent again, with
 `openTasks: 1`.
+
+## D-188: A route empties the database outside production
+
+Choice: completes D-49, D-105 and D-106.
+
+1. `httpPlugin()` serves `POST /_ultimabase/reset` when `NODE_ENV` is not
+   `production`. Under `ultimabase start` the route does not exist: it
+   answers 404 as any unknown path.
+2. Only Master through the master key (D-49) calls it; another caller gets
+   `ACCESS_DENIED`. It answers 204.
+3. It empties the rows of every model and keeps the tables: the adapter
+   gains a required `empty()`. `memory()` clears its rows; `postgres()`
+   truncates the models' tables in one statement with `cascade`, as its
+   test setup does (D-137), and keeps `ultimabase_schema` and the migrations.
+   The models of plugins are emptied too, auth's users and sessions among
+   them. No hook, cascade rule or soft delete runs. Stored files stay where
+   their storage keeps them.
+4. The kernel then calls the feed's `missed()` (D-168): live reads read
+   again, and find nothing.
+5. GraphQL and REST do not expose it. It takes no option; the application
+   seeds its own data afterwards.
+6. A remote database is not refused, unlike `ultimabase reset`: the master
+   key and `NODE_ENV` already keep the route out of production.
+7. The testing guide shows it in an "End-to-end tests" section.
+
+Why:
+
+- A front end's end-to-end test starts each test from known data, seeded
+  through the API with the master key (D-49), while the server runs. It had
+  no way to start again from an empty database but to restart the server.
+- `ultimabase reset` rebuilds the database from the migrations, but under
+  `ultimabase dev` the database follows the models through `sync` (D-105):
+  it may hold fields no migration has yet. Replaying the migrations would
+  remove them under the running application. Truncating gives the test the
+  same result, an empty database with the current tables, without touching
+  the tables.
+- One `truncate` costs one statement, whatever the number of tables, which
+  a `beforeEach` runs every test.
+
+Rejected:
+
+- Dropping the tables and replaying the migrations, for the reasons above.
+- `deleteMany` on each model: it runs hooks and soft deletes, and must
+  follow the relations' order.
+- A GraphQL mutation: a schema that differs between development and
+  production breaks the types a client generates from it.
+- A `keep` option listing models to spare: the application seeds them
+  again, as it seeds the rest.
+- A command run from the test: it would empty the tables outside the
+  running server, whose live reads would not know.
+
+Example, before: a Playwright test cannot empty the database without
+restarting the server.
+
+```ts
+test.beforeEach(async () => {
+	// restart `ultimabase dev`, or run `ultimabase reset` and wait for it
+})
+```
+
+After:
+
+```ts
+test.beforeEach(async () => {
+	await fetch('http://localhost:3000/_ultimabase/reset', {
+		method: 'POST',
+		headers: { 'x-ultimabase-master-key': process.env.MASTER_KEY ?? '' },
+	}) // 204
+	await seed()
+})
+```
