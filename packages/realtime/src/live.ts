@@ -3,13 +3,13 @@
 // run one after another; one that fails reads the window again, and a
 // second failure closes it.
 import type { Caller, Logger, ModelQueries, Row } from 'ultimabase'
-import type { LivePlan } from 'ultimabase/internal'
+import type { LivePlan, LiveReader } from 'ultimabase/internal'
 import {
 	inMemory,
+	liveReader,
 	liveSchema,
 	matches,
 	recordingVirtuals,
-	servedRows,
 	sortKeys,
 	storedRows,
 } from 'ultimabase/internal'
@@ -42,6 +42,8 @@ export type Spec = {
 export class Live {
 	caller: Caller
 	#plan: LivePlan
+	/** Its rows' read, planned once for the caller and the plan (D-195). */
+	#reader: LiveReader | undefined
 	#reach: Reach
 	#window: Window
 	readonly #spec: Spec
@@ -94,6 +96,7 @@ export class Live {
 				JSON.stringify(plan) === JSON.stringify(this.#plan) &&
 				JSON.stringify(caller) === JSON.stringify(this.caller)
 			this.caller = caller
+			this.#reader = undefined
 			if (same) return
 			this.#plan = plan
 			this.#reach = reachOf(liveSchema(), this.#spec.model, plan)
@@ -208,13 +211,12 @@ export class Live {
 		loader?: Loader,
 	): Promise<readonly string[]> {
 		if (ids.length === 0) return []
-		const { model, queries, shape } = this.#spec
-		const args = { ...shape, where: { id: { in: ids } } }
+		const { model, shape } = this.#spec
 		const rows = loader && (await loader.load(model, ids))
+		this.#reader ??= await liveReader(model, shape, this.caller)
+		const reader = this.#reader
 		const { result: found, reads } = await recordingVirtuals(async () =>
-			rows === undefined
-				? queries.findMany(args, { as: this.caller })
-				: servedRows(model, args, this.caller, rows),
+			reader(ids, rows),
 		)
 		this.#virtuals.keep(found, reads)
 		for (const node of found) {

@@ -9364,7 +9364,7 @@ api: ({ plugins }) => plugins.http.mount(uploads, { bodyLimit: false })
 
 ## D-154: Realtime: live lists and live rows
 
-Amended by D-163, D-166, D-178, D-186 and D-187.
+Amended by D-163, D-166, D-178, D-186, D-187 and D-195.
 
 Choice: completes D-25; amends D-106 (WebSocket upgrades), D-107 (the
 `Subscription` type), D-109 (live functions) and D-129 (live reads over
@@ -12782,3 +12782,53 @@ Rejected:
   request nobody asked for.
 - A CI check that every `uses:` names a SHA: the workflows are two files,
   read in each pull request that changes them.
+
+## D-195: Live reads planned once per caller
+
+Choice: amends D-154 points 9 and 13.
+
+1. A live read plans its rows' read once, as its caller: the read rules and
+   every `beforeFind` run when it subscribes and each time D-154 point 10
+   rebuilds the caller, never on a flush. A flush reads the rows it places
+   or resends from that plan: their rights checked in memory on the loaded
+   row when the plan reads the row alone, as the shape selects them, the
+   field rules and the virtuals run for each row as for `findMany`.
+2. A subscription reads its window with one query: the stored rows of its
+   filter in order, from which its rows are read as in point 1. The
+   window's rows are not read a second time by id.
+3. A window keeps, for each row, its id and its order keys and nothing
+   more: no record for a row whose selection follows no relation, one id
+   string per row, and its keys without an array when one field orders it.
+4. The benchmark closes the roadmap item when, on PostgreSQL:
+   - the last message of a write followed by 10 000 subscribers on one list
+     of 25 rows arrives within 150 ms (p50);
+   - a subscription to 1000 rows holds at most 200 B per row;
+   - 10 000 subscriptions to 1000 rows each take at most 30 s.
+
+Why:
+
+- A flush ran the whole find pipeline once per subscriber, argument
+  parsing, read rules and `beforeFind` included: 43 % of a write's time on
+  10 000 subscribers. The rights it computed are those the plan already
+  holds, and point 10 already rebuilds the plan whenever a read of the
+  caller or of a `beforeFind` changes, every 5 minutes and when the caller
+  expires; a flush computed nothing a rebuild does not.
+- A row a flush placed was read with the rights of that flush, while the
+  rows already shown kept those of the plan: one window under two filters.
+  A plan read once applies the same rights to every row it shows.
+- A subscription read its rows twice, their ids first and then their
+  fields with `id IN (…)` of every id: half the queries, and compiling a
+  thousand ids cost a tenth of a subscription's time.
+- A row followed by 1000-row windows held 320 B: its id twice, an array of
+  keys and an empty record of the relations it does not follow.
+
+Rejected:
+
+- Windows shared between subscribers of one list: each caller's rights are
+  a filter of its own (`owner in [their id, 'all']`), so sharing needs
+  proving two filters keep the same rows, and a wrong proof leaks rows.
+  Point 1 removes most of a subscriber's cost without it; the benchmark
+  calls for it again if the targets of point 4 are not met.
+- Running the read rules and `beforeFind` on a flush only for a row new to
+  the window: still one plan per subscriber per write, for the same
+  rights.

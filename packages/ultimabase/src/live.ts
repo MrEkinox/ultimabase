@@ -7,22 +7,23 @@ import type {
 	Filter,
 	Nested,
 	Order,
-	Read,
 	Row,
 	Schema,
 } from './adapter.ts'
-import { rootFind } from './engine.ts'
+import { contextOf } from './engine.ts'
 import { decoded, isRow } from './field-codec.ts'
 import { Reader } from './memory-read.ts'
-import { compareKeys, sortable } from './memory-values.ts'
+import { sortable } from './memory-values.ts'
 import { isFilters } from './memory-conditions.ts'
 import { plan, uniqueWhere } from './query-args.ts'
+import { shapedRows } from './query-context.ts'
 import { modelOf } from './query-where.ts'
 import { isObject } from './query-values.ts'
 import type { Caller } from './rules.ts'
 import type { Running } from './running.ts'
 import { current } from './running.ts'
 import { QueryScope, planned } from './scope.ts'
+import { reading } from './transaction.ts'
 
 /**
  * The rows a live read follows, and their order, ending with `id`; `filter`
@@ -158,54 +159,64 @@ export function matches(
 	return readerOf(started()).matches(model, row, filter) === true
 }
 
-/** Whether rows alone answer `read`: one level, unpaged, read in memory. */
-const servable = (read: Read): boolean =>
-	read.include === undefined &&
-	read.count === undefined &&
-	read.distinct === undefined &&
-	read.cursor === undefined &&
-	read.skip === undefined &&
-	read.take === undefined &&
-	(read.orderBy ?? []).every(
-		(order) => (order.through ?? order.count ?? order.relevance) === undefined,
-	) &&
-	inMemory(read.model, read.where)
+/** Reads a live read's rows by id, as its caller (D-195). */
+export type LiveReader = (
+	ids: readonly string[],
+	rows?: ReadonlyMap<string, Row>,
+) => Promise<readonly Row[]>
 
 /**
- * The stored `rows` that pass `read`, in its order; the find that asked for
- * them keeps the fields its shape selects.
+ * `findMany({ ...shape, where: { id: { in: ids } } })` on `model` as
+ * `caller`, planned once (D-195): its read rules and every `beforeFind` run
+ * here, its field rules and virtuals on each call. A call takes the rows
+ * from the stored `rows`, which hold each of `ids` that exists, when they
+ * alone answer it, else from the database.
  */
-function served(read: Read, rows: Iterable<Row>): Row[] {
-	const { model, orderBy = [] } = read
-	const kept = [...rows].filter((row) => matches(model, row, read.where))
-	const keys = new Map(kept.map((row) => [row, sortKeys(model, row, orderBy)]))
-	const key = (row: Row): unknown[] => keys.get(row) ?? []
-	kept.sort((a, b) => compareKeys(key(a), key(b), orderBy))
-	return kept
-}
-
-/**
- * `findMany(args)` on `model` as `caller`, its rows taken from the stored
- * `rows` when they alone answer it, else from the database. `rows` holds
- * every row its `where` finds.
- */
-export async function servedRows(
+export async function liveReader(
 	model: string,
-	args: unknown,
+	shape: unknown,
 	caller: Caller,
-	rows: ReadonlyMap<string, Row>,
-): Promise<readonly Row[]> {
-	const { models } = started().resolved
-	const found = await rootFind(
-		model,
-		args,
-		{ as: caller },
-		async (store, read) =>
-			servable(read)
-				? decoded(models, read, served(read, rows.values()))
-				: store.find(read),
+): Promise<LiveReader> {
+	const app = started()
+	const { models } = app.resolved
+	const context = await contextOf(app, modelOf(models, model), caller)
+	const { scope } = context
+	const { read, shape: shaped, rights } = await app.work.run(async () =>
+		planned(scope, () => ({
+			...plan(models, context.model, shape, '', 'many', rowKeys, scope),
+			rights: scope.readable(model),
+		})),
 	)
-	return Array.isArray(found) ? found.filter(isRow) : []
+	const local =
+		read.include === undefined &&
+		read.count === undefined &&
+		inMemory(model, rights)
+	const readable = (row: Row | undefined): row is Row =>
+		row !== undefined && (rights === undefined || matches(model, row, rights))
+	return async (ids, rows) => {
+		if (ids.length === 0) return []
+		const root = { ...read, model, where: and({ id: { in: [...ids] } }, rights) }
+		return app.work.run(async () =>
+			reading(app, async (store) => {
+				const found =
+					rows !== undefined && local
+						? decoded(
+								models,
+								root,
+								ids.map((id) => rows.get(id)).filter(readable),
+							)
+						: await store.find(root)
+				const shown = await shapedRows(
+					context,
+					store,
+					found,
+					shaped,
+					scope.access,
+				)
+				return shown.filter(isRow)
+			}),
+		)
+	}
 }
 
 /** The sort keys of the stored `row`, for an order on its own fields. */

@@ -9,10 +9,10 @@ import {
 	compareKeys,
 	inMemory,
 	livePlan,
+	liveReader,
 	liveSchema,
 	matches,
 	recording,
-	servedRows,
 	sortKeys,
 	storedRows,
 } from './internal.ts'
@@ -30,6 +30,8 @@ const Author = defineModel({
 			caller.kind === 'master' || where({ name: { not: 'Hidden' } }),
 	},
 })
+/** How many reads `beforeFind` narrowed. */
+let narrowed = 0
 /** A user reads the open posts; `beforeFind` hides the drafts. */
 const Post = defineModel({
 	name: 'Post',
@@ -46,8 +48,11 @@ const Post = defineModel({
 			caller.kind === 'master' || where({ open: { equals: true } }),
 	},
 	hooks: {
-		beforeFind: ({ caller, where }) =>
-			caller.kind === 'master' ? undefined : where({ draft: false }),
+		beforeFind: ({ caller, where }) => {
+			if (caller.kind === 'master') return undefined
+			narrowed += 1
+			return where({ draft: false })
+		},
 	},
 })
 
@@ -383,7 +388,7 @@ const byId = (rows: readonly unknown[]) =>
 		),
 	)
 
-describe('rows served to a caller', () => {
+describe('rows read for a live read', () => {
 	it('read as findMany does, its rights checked on the stored rows', async () => {
 		await seeded()
 		const [draft, closed] = await Post.findMany({ take: 2 }, M)
@@ -398,20 +403,22 @@ describe('rows served to a caller', () => {
 		const stored = await storedRows('Post', {})
 		const rows = new Map(stored.map((row) => [row.id, row]))
 		const ids = [...rows.keys()]
-		const where = { id: { in: ids } }
-		const orderBy = [{ title: 'desc' }] as const
 		const shapes = [
-			{ where, orderBy },
-			{ select: { id: true, title: true }, where, orderBy },
-			{ omit: { title: true }, where, orderBy },
+			{},
+			{ select: { id: true, title: true } },
+			{ omit: { title: true } },
 		] as const
-		for (const args of shapes) {
+		for (const shape of shapes) {
+			const reader = await liveReader('Post', shape, ada)
 			const { result, reads } = await recording(async () =>
-				servedRows('Post', args, ada, rows),
+				reader(ids, rows),
 			)
 			expect(reads).toEqual([])
 			expect(result).toHaveLength(3)
-			expect(result).toEqual(await Post.findMany(args, { as: ada }))
+			const args = { ...shape, where: { id: { in: ids } } }
+			expect(byId(result)).toEqual(
+				byId(await Post.findMany(args, { as: ada })),
+			)
 		}
 	})
 
@@ -419,15 +426,27 @@ describe('rows served to a caller', () => {
 		await seeded()
 		const stored = await storedRows('Post', {})
 		const rows = new Map(stored.map((row) => [row.id, row]))
-		const args = {
-			where: { id: { in: [...rows.keys()] } },
-			include: { author: true },
-		}
-		const { result, reads } = await recording(async () =>
-			servedRows('Post', args, ada, rows),
-		)
+		const ids = [...rows.keys()]
+		const shape = { include: { author: true } }
+		const reader = await liveReader('Post', shape, ada)
+		const { result, reads } = await recording(async () => reader(ids, rows))
 		expect(reads.map(({ model }) => model)).toEqual(['Post', 'Author'])
+		const args = { ...shape, where: { id: { in: ids } } }
 		expect(byId(result)).toEqual(byId(await Post.findMany(args, { as: ada })))
+		expect(await reader(ids)).toEqual(result)
+		expect(await reader([])).toEqual([])
+	})
+
+	it('run beforeFind once, when planned', async () => {
+		await seeded()
+		const stored = await storedRows('Post', {})
+		const rows = new Map(stored.map((row) => [row.id, row]))
+		const before = narrowed
+		const reader = await liveReader('Post', {}, ada)
+		expect(narrowed).toBe(before + 1)
+		await reader([...rows.keys()], rows)
+		await reader([...rows.keys()])
+		expect(narrowed).toBe(before + 1)
 	})
 })
 
