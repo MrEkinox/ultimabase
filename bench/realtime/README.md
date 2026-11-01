@@ -76,37 +76,38 @@ Same machine as below; 10 writes a case; times in ms.
 
 ## Runs
 
-### 2026-11-01: live reads planned once per caller, commit `4e4035f3`
+### 2026-11-01: live reads planned once per caller, commit `7a2b89ce`
 
 Same machine and settings as the run below; 20 writes of each kind a case
 on windows of 25 rows, 5 on windows of 1000.
 
 A flush now reads a list's rows from the plan its subscription made, its
 read rules and `beforeFind` run once; a subscription reads its window with
-one query, and a window keeps each row as its sort keys alone (D-195).
+one query, of the fields that place and show a row, and a window keeps each
+row as its sort keys alone (D-195).
 
 | Subscribers | Lists       | Window | Write  | Statements |   p50 |   p99 | Last message p50 | Connection | Subscription | Subscribe all |
 | ----------: | ----------- | -----: | ------ | ---------: | ----: | ----: | ---------------: | ---------: | -----------: | ------------: |
-|       10000 | one list    |     25 | update |        1–1 | 104.9 | 157.0 |            157.4 |        2.3 |         11.0 |        3835.4 |
-|       10000 | one list    |     25 | insert |        1–1 | 116.2 | 186.0 |            178.1 |        2.3 |         11.0 |        3835.4 |
-|       10000 | one list    |     25 | delete |        2–2 | 119.7 | 185.7 |            186.3 |        2.3 |         11.0 |        3835.4 |
-|       10000 | one list    |   1000 | update |        1–1 | 112.9 | 172.8 |            172.4 |        2.3 |        163.2 |       39995.7 |
-|       10000 | one list    |   1000 | insert |        1–1 | 132.0 | 214.8 |            216.3 |        2.3 |        163.2 |       39995.7 |
-|       10000 | one list    |   1000 | delete |        2–2 | 145.8 | 235.3 |            236.5 |        2.3 |        163.2 |       39995.7 |
-|       10000 | a list each |     25 | update |        1–1 |  87.1 |  88.5 |             87.4 |        2.1 |         10.8 |        3454.6 |
-|       10000 | a list each |     25 | insert |        1–1 |  53.1 |  54.1 |             96.8 |        2.1 |         10.8 |        3454.6 |
-|       10000 | a list each |     25 | delete |        2–2 |  87.9 |  89.8 |             87.9 |        2.1 |         10.8 |        3454.6 |
-|       10000 | a list each |   1000 | update |        1–1 |  93.0 |  94.4 |             93.8 |        2.1 |        163.6 |       38863.6 |
-|       10000 | a list each |   1000 | insert |        1–1 |  52.4 |  53.1 |            102.9 |        2.1 |        163.6 |       38863.6 |
-|       10000 | a list each |   1000 | delete |        2–2 |  93.1 |  94.2 |             93.1 |        2.1 |        163.6 |       38863.6 |
+|       10000 | one list    |     25 | update |        1–1 | 105.0 | 156.5 |            157.1 |        2.3 |         11.0 |        3479.2 |
+|       10000 | one list    |     25 | insert |        1–1 | 114.0 | 177.1 |            175.4 |        2.3 |         11.0 |        3479.2 |
+|       10000 | one list    |     25 | delete |        2–2 | 120.4 | 186.3 |            185.8 |        2.3 |         11.0 |        3479.2 |
+|       10000 | one list    |   1000 | update |        1–1 | 111.4 | 168.6 |            169.6 |        2.3 |        163.2 |       28513.9 |
+|       10000 | one list    |   1000 | insert |        1–1 | 130.8 | 211.1 |            211.8 |        2.3 |        163.2 |       28513.9 |
+|       10000 | one list    |   1000 | delete |        2–2 | 144.1 | 231.1 |            232.1 |        2.3 |        163.2 |       28513.9 |
+|       10000 | a list each |     25 | update |        1–1 |  87.5 |  89.7 |             87.7 |        2.1 |         10.8 |        3130.4 |
+|       10000 | a list each |     25 | insert |        1–1 |  52.7 |  53.7 |             96.4 |        2.1 |         10.8 |        3130.4 |
+|       10000 | a list each |     25 | delete |        2–2 |  87.9 |  89.8 |             87.9 |        2.1 |         10.8 |        3130.4 |
+|       10000 | a list each |   1000 | update |        1–1 |  92.4 |  94.0 |             93.7 |        2.1 |        163.6 |       27927.5 |
+|       10000 | a list each |   1000 | insert |        1–1 |  52.6 |  53.4 |            101.6 |        2.1 |        163.6 |       27927.5 |
+|       10000 | a list each |   1000 | delete |        2–2 |  93.2 |  93.7 |             93.6 |        2.1 |        163.6 |       27927.5 |
 
-Commit rate, 16 writers: 3203 updates/s without the feed, 2552 with it.
+Commit rate, 16 writers: 3117 updates/s without the feed, 2595 with it.
 
 - 10 000 subscribers on one list of 25 rows hear of an update after 157 ms
   for the last, against 230 ms before; D-195 asks for 150.
 - A subscription to 1000 rows holds 163 KiB, 167 B a row, against 305 KiB.
-- 10 000 subscriptions to 1000 rows open in 40 s, against 54 s; D-195 asks
-  for 30. Each row read is still shaped as its caller reads it.
+- 10 000 subscriptions to 1000 rows open in 28.5 s, against 54 s; D-195
+  asks for 30.
 
 ### 2026-10-29: a window notes what it changes, commit `bb9610a7`
 
