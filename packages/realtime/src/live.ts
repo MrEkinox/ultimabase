@@ -18,8 +18,7 @@ import { affected } from './affected.ts'
 import type { Batch } from './changes.ts'
 import type { Reach } from './reach.ts'
 import { reachOf } from './reach.ts'
-import type { Loader } from './reads.ts'
-import { finderOf, page, pass } from './reads.ts'
+import { finderOf, Loader, page, pass } from './reads.ts'
 import type { LiveMessage } from './messages.ts'
 import type { Entry } from './window.ts'
 import { Window } from './window.ts'
@@ -258,15 +257,17 @@ export class Live {
 		this.#window = new Window(orderBy, first)
 		this.#tracking.clear()
 		this.#virtuals.clear()
+		// One query: the rows are read whole, then given to the reader.
 		const rows = await storedRows(model, {
 			...(where && { where }),
 			orderBy,
 			take: first + 2,
-			fields: orderBy.map(({ field }) => field),
 		})
+		const loader = new Loader()
+		loader.keep(model, rows)
 		const entries = rows.slice(0, first + 1).map((each) => this.#entry(each))
 		this.#window.fill(entries, rows.length > first + 1)
-		const { nodes } = await this.#settle(new Set(), new Set())
+		const { nodes } = await this.#settle(new Set(), new Set(), loader)
 		this.#count = totalCount ? await this.#counted() : undefined
 		this.#hasMore = this.#window.hasMore()
 		const shown = this.#window.shown().flatMap(({ id }) => nodes.get(id) ?? [])

@@ -48,12 +48,16 @@ const pages = new WeakMap<LivePlan, string>()
  * of rows after a window's last, once for the live reads that share it.
  */
 export class Loader {
-	readonly #rows = new Map<string, Map<string, Promise<Row | undefined>>>()
+	/** Each row by id: kept whole, or being read. */
+	readonly #rows = new Map<
+		string,
+		Map<string, Row | Promise<Row | undefined>>
+	>()
 	readonly #pages = new Map<string, Promise<readonly Row[]>>()
 
-	#known(model: string): Map<string, Promise<Row | undefined>> {
+	#known(model: string): Map<string, Row | Promise<Row | undefined>> {
 		const known =
-			this.#rows.get(model) ?? new Map<string, Promise<Row | undefined>>()
+			this.#rows.get(model) ?? new Map<string, Row | Promise<Row | undefined>>()
 		this.#rows.set(model, known)
 		return known
 	}
@@ -79,13 +83,17 @@ export class Loader {
 				...page(orderBy, last, take),
 			})
 			this.#pages.set(key, found)
-			const rows = await found
-			const known = this.#known(model)
-			for (const row of rows) {
-				if (!known.has(row.id)) known.set(row.id, Promise.resolve(row))
-			}
+			this.keep(model, await found)
 		}
 		return found
+	}
+
+	/** Keeps `rows`, read whole, for `load` to give. */
+	keep(model: string, rows: readonly Row[]): void {
+		const known = this.#known(model)
+		for (const row of rows) {
+			if (!known.has(row.id)) known.set(row.id, row)
+		}
 	}
 
 	/** The stored rows of `model` in `ids`; a deleted row is missing. */
@@ -108,7 +116,9 @@ export class Loader {
 		}
 		const found = new Map<string, Row>()
 		for (const id of ids) {
-			const row = await known.get(id)
+			// A kept row is no promise: awaiting each would cost a turn.
+			const kept = known.get(id)
+			const row = kept instanceof Promise ? await kept : kept
 			if (row !== undefined) found.set(id, row)
 		}
 		return found
