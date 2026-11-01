@@ -449,9 +449,19 @@ describe('a live list', () => {
 		await expect(handle.grow(0)).rejects.toThrow(
 			'first must be a positive integer.',
 		)
-		await expect(handle.grow(1000)).rejects.toThrow(
-			'first is over 1000, the most a live list follows.',
-		)
+		const over = 'first is over 1000, the most a live list follows.'
+		await expect(handle.grow(1000)).rejects.toMatchObject({
+			code: 'VALIDATION_FAILED',
+			message: over,
+			details: {
+				issues: [{ path: ['first'], message: over }],
+				limit: 1000,
+				rows: 1004,
+			},
+		})
+		// The list goes on as it was.
+		await handle.grow(1)
+		expect(seen.at(-1)).toMatchObject({ kind: 'changes', revision: 3 })
 	})
 
 	it('answers a grow with no row to add', async () => {
@@ -705,9 +715,13 @@ describe('a viewer', () => {
 		await expect(refused('Comment', { first: 5 })).rejects.toThrow(
 			'first is over 4, the most a live list follows.',
 		)
+		// Each post follows its 3 comments: 300 × (1 + 3) rows.
 		await expect(
 			refused('Post', { first: 300, include: { comments: { take: 3 } } }),
-		).rejects.toThrow('first is over 1000, the most a live list follows.')
+		).rejects.toMatchObject({
+			message: 'first is over 1000, the most a live list follows.',
+			details: { limit: 1000, rows: 1200 },
+		})
 		await expect(
 			refused('Post', { first: 1, include: { comments: true } }),
 		).rejects.toThrow('A live comments list needs a take.')
@@ -796,6 +810,46 @@ describe('a live list with nested rows', () => {
 				{ upsert: { title: 'p1' } },
 				{ upsert: { title: 'p2', comments: [] } },
 			],
+		})
+	})
+
+	it('sends a row again when its relation count changes (#74)', async () => {
+		const counted = { title: true, _count: { select: { comments: true } } }
+		const { seen } = await list(await connect(), 'Post', {
+			...ranked,
+			first: 2,
+			select: counted,
+		})
+		const [p1 = '', p2 = ''] = posts.map(({ id }) => id)
+		const followed: LiveMessage[] = []
+		const viewer = await connect()
+		const args = { where: { id: p1 }, select: counted }
+		await viewer.row('Post', args, (sent) => followed.push(sent))
+		const comment = await Comment.create(
+			{ data: { text: 'first', post: { connect: { id: p2 } } } },
+			M,
+		)
+		expect(await message(seen, 2)).toMatchObject({
+			changes: [{ upsert: { title: 'p2', _count: { comments: 1 } } }],
+		})
+		// The post it moves to is sent again; the one it leaves is not.
+		await Comment.update(
+			{ where: { id: comment.id }, data: { post: { connect: { id: p1 } } } },
+			M,
+		)
+		expect(await message(seen, 3)).toMatchObject({
+			changes: [{ upsert: { title: 'p1', _count: { comments: 1 } } }],
+		})
+		expect(await message(followed, 2)).toMatchObject({
+			row: { title: 'p1', _count: { comments: 1 } },
+		})
+		await Comment.delete({ where: { id: comment.id } }, M)
+		const uncounted: unknown = expect.arrayContaining([
+			{ upsert: { id: p1, title: 'p1', _count: { comments: 0 } }, after: null },
+		])
+		expect(await message(seen, 4)).toMatchObject({ changes: uncounted })
+		expect(await message(followed, 3)).toMatchObject({
+			row: { title: 'p1', _count: { comments: 0 } },
 		})
 	})
 

@@ -595,17 +595,44 @@ describe('a resumed live list', () => {
 		expect(await begun(same)).toEqual(fresh)
 	})
 
-	it('is refused past its limit', async () => {
+	it('grows past maxTake', async () => {
+		const api = await started()
+		const [, b = '', c = ''] = await seeded()
+		const token = await left(api)
+		const stream = await streaming(
+			`${api}/tasks${qs({ ...ranked, first: 4, resume: token })}`,
+		)
+		expect(await stream.next()).toMatchObject({
+			event: 'live',
+			data: {
+				changes: [{ upsert: { node: { id: c, title: 'c' } }, after: b }],
+			},
+		})
+		expect(stream.token()).toBe(token)
+	})
+
+	it('is refused past its limit, with it, and kept as it was', async () => {
 		const api = await started({ realtime: { maxLive: 2 } })
-		await seeded()
+		const [a = ''] = await seeded()
 		const token = await left(api)
 		const resumed = qs({ ...ranked, first: 3, resume: token })
 		const { status, body } = await answered(`${api}/tasks${resumed}`)
 		expect(status).toBe(400)
-		expect(body).toMatchObject({
+		const message = 'first is over 2, the most a live list follows.'
+		expect(body).toEqual({
 			code: 'VALIDATION_FAILED',
-			message: 'first is over 2, the most a live list follows.',
+			message,
+			details: { issues: [{ path: ['first'], message }], limit: 2, rows: 3 },
 		})
+		await Task.update({ where: { id: a }, data: { title: 'A' } }, M)
+		const stream = await streaming(
+			`${api}/tasks${qs({ ...ranked, first: 2, resume: token })}`,
+		)
+		expect(await stream.next()).toMatchObject({
+			event: 'live',
+			data: { changes: [{ upsert: { node: { id: a, title: 'A' } } }] },
+		})
+		expect(stream.token()).toBe(token)
 	})
 
 	it('is no longer kept once the application stops', async () => {
@@ -750,13 +777,23 @@ describe('the live reads', () => {
 			[{ after: 'x' }, "Unknown query parameter 'after'"],
 			[{ totalCount: 1 }, 'totalCount must be true or false.'],
 			[{ mode: 'all' }, 'mode must be page.'],
-			[{ first: 4 }, 'first is at most 3 on Task.'],
+			[{ first: 1001 }, 'first is over 1000, the most a live list follows.'],
 		] as const
 		for (const [params, message] of refused) {
 			const { status, body } = await answered(`${api}/tasks${qs(params)}`)
 			expect(status).toBe(400)
 			expect(JSON.stringify(body)).toContain(message)
 		}
+	})
+
+	it('follow more rows than maxTake, which bounds page mode only', async () => {
+		const api = await started()
+		await seeded()
+		const stream = await streaming(`${api}/tasks${qs({ ...ranked, first: 4 })}`)
+		expect(await stream.next()).toMatchObject({
+			event: 'data',
+			data: { edges: ['a', 'b', 'c'].map((title) => ({ node: { title } })) },
+		})
 	})
 
 	it('in page mode, follow at most maxTake rows, even as Master', async () => {
