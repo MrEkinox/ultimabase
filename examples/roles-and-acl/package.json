@@ -20,7 +20,7 @@
 		"@ultimabase/roles": "workspace:*",
 		"graphql": "17.0.2",
 		"ultimabase": "workspace:*",
-		"zod": "4.6.5"
+		"zod": "4.6.7"
 	},
 	"devDependencies": {
 		"@ultimabase/testing": "workspace:*",
