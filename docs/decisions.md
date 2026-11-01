@@ -12539,3 +12539,55 @@ type Note {
 ```
 
 A client's codegen then maps `RichText` to its document type.
+
+## D-191: GraphQL writes its schema to a file in development
+
+Choice: completes D-45.
+
+1. `graphqlPlugin({ generated: 'src/generated/schema.graphql' })` writes
+   the schema it serves, printed as SDL with `extend` applied, to that path
+   when the application starts.
+2. It writes only when `NODE_ENV` is `development`, as `ultimabase dev`
+   sets it: not under `ultimabase start`, nor in tests (`test`).
+3. It writes only when the file's content differs, so a client's codegen
+   watching it runs only after a change.
+4. The path is relative to the current directory, from which
+   `ultimabase dev` runs; missing directories are created.
+5. The schema is the one every caller sees (D-144): it is the same for all.
+6. No command prints or checks it for now.
+
+Why:
+
+- A front end types its operations with GraphQL Code Generator from a
+  committed schema file, so it builds and type checks without a backend,
+  in CI too. Getting it took a running server, its database and an
+  introspection script.
+- `ultimabase dev` runs whenever the models change and restarts on each
+  edit, so the file follows them with no step to remember, as a code-first
+  schema builder writing its file in development did.
+- The CLI need not know plugins: building the schema without starting the
+  application is something only the plugin's start does.
+
+Rejected:
+
+- `ultimabase graphql schema [--output] [--check]`: the CLI would build an
+  application without starting it, and know the GraphQL plugin.
+- Returning the schema from the plugin's API: the application would still
+  start itself to print it.
+- A check in CI: the file is committed, and CI reads it without a backend;
+  a command can come when a stale file is a problem seen.
+
+Example, before:
+
+```sh
+ultimabase dev &
+wait-on http://localhost:3000/ready
+node scripts/introspect.ts > src/generated/schema.graphql
+```
+
+After:
+
+```ts
+graphqlPlugin({ generated: 'src/generated/schema.graphql' })
+// `ultimabase dev` writes src/generated/schema.graphql when it changes
+```

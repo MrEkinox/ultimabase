@@ -25,6 +25,9 @@ export const app = defineApp({
 			// default.
 			introspection: true,
 			extend,
+			// Written by `ultimabase dev` when the schema changes, for the
+			// client's codegen.
+			generated: 'src/generated/schema.graphql',
 		}),
 	],
 	//#endregion
