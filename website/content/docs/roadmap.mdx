@@ -1,0 +1,46 @@
+---
+title: Roadmap
+description: What UltimaBase builds next, and what comes later.
+---
+
+This page follows `main`: a published version's pages describe what that
+version does, and leave the roadmap out.
+
+## Next
+
+- **An audit of every package**, its fixes published.
+- **Realtime for large audiences**: many subscribers to one list without
+  repeating its work for each, and less memory for each subscription to a
+  long list (see [Realtime](/docs/next/realtime)).
+- **Refusing weak passwords**: whether `passwordPlugin()` refuses breached
+  and common passwords, as NIST recommends, beyond a minimum length. It is
+  still to be decided.
+- **A `vector()` field** for pgvector, to store embeddings and search by
+  similarity on [PostgreSQL](/docs/next/postgres).
+- **A limit on the whole API**, per caller or per address, as a
+  `rateLimit()` plugin. Sign-in and password reset are limited already.
+
+## Later
+
+- **An import from Parse**: a Parse database's rows, relations and users
+  copied into UltimaBase, users signing in with their current passwords.
+- **OAuth and magic link** sign-in, as methods of the
+  [auth plugin](/docs/next/auth).
+- **Scheduled and background jobs.**
+- **An admin dashboard.**
+- **Multi-tenancy**, the tenant read from the caller.
+- **A query cache**, as a plugin: repeated reads answered without the
+  database, and dropped when a row they read changes.
+- **Outgoing webhooks**: a `POST` to your URL when a row changes.
+- **OpenTelemetry traces**, to see which request, query, hook or virtual
+  field takes the time.
+- **A `geoPoint()` field**, to store places and find rows near one.
+- **MySQL, SQLite and MongoDB** adapters, beside PostgreSQL.
+- **A typed browser client.**
+- **`ultimabase migrate squash`**, to fold a long migration history into
+  one file.
+
+## Asking for a feature
+
+Open an [issue](https://github.com/MrEkinox/ultimabase/issues) with what
+your application needs and a short example of the code you would write.

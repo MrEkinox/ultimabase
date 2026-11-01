@@ -12676,6 +12676,38 @@ graphqlPlugin({ generated: 'src/generated/schema.graphql' })
 // `ultimabase dev` writes src/generated/schema.graphql when it changes
 ```
 
+## D-192: The website shows a roadmap
+
+Choice: completes D-155.
+
+1. A page of `main`, `website/content/docs/roadmap.mdx`, served at
+   `/docs/next/roadmap`, tells users what comes next: the items of the
+   current and next phases of `docs/roadmap.md` that a user would notice,
+   then those of its "Beyond" section, and how to ask for a feature.
+2. It shows no phases, exit criteria or contributor tasks: those stay in
+   `docs/roadmap.md`, the contract.
+3. A commit that adds, ticks or removes an item of `docs/roadmap.md` a
+   user would notice updates the page too.
+4. `yarn freeze` leaves the page out of a frozen version: a version's pages
+   describe what it does, and the roadmap moves on after it.
+
+Why:
+
+- A developer weighing UltimaBase, coming from Parse, asks whether OAuth
+  or jobs are planned; the answer lived only in the repository, in phases
+  written for contributors.
+- A frozen roadmap is wrong the day after its release.
+
+Rejected:
+
+- Publishing `docs/roadmap.md` as it is: its phases and exit criteria
+  are the restart's process, not what a user waits for.
+- GitHub issues as the roadmap: they hold bugs and requests, not what is
+  planned.
+- A CI check that both files change together: many roadmap commits tick a
+  contributor task no user sees; a check can come when the page is seen
+  stale.
+
 ## D-193: `main` requires the CI checks
 
 Choice: completes D-06 and D-156.
