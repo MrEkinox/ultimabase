@@ -72,8 +72,19 @@ const pageInfo = (registry: Registry): GraphQLObjectType =>
 			}),
 	)
 
+/** A connection or an edge, its name kept as a wrapper's (D-185). */
+function wrapper(
+	registry: Registry,
+	name: string,
+	build: () => GraphQLObjectType,
+): GraphQLObjectType {
+	registry.wrappers.add(name)
+	return registry.object(name, build)
+}
+
 const edge = (registry: Registry, model: string): GraphQLObjectType =>
-	registry.object(
+	wrapper(
+		registry,
 		`${model}Edge`,
 		() =>
 			new GraphQLObjectType({
@@ -94,7 +105,8 @@ export function connectionType(
 	name: string,
 	model: string,
 ): GraphQLObjectType {
-	return registry.object(
+	return wrapper(
+		registry,
 		name,
 		() =>
 			new GraphQLObjectType({

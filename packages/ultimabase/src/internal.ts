@@ -21,7 +21,7 @@ export { joining } from './transaction.ts'
 export { issueOf } from './write-data.ts'
 export { decimalPattern } from './decimal.ts'
 export type { Recorded } from './recorder.ts'
-export { recording } from './recorder.ts'
+export { recording, recordingVirtuals } from './recorder.ts'
 export type { LivePlan } from './live.ts'
 export {
 	inMemory,
