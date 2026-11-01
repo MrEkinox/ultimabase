@@ -256,11 +256,13 @@ export class Live {
 		this.#window = new Window(orderBy, first)
 		this.#tracking.clear()
 		this.#virtuals.clear()
-		// One query: the rows are read whole, then given to the reader.
+		// One query, of the fields that place and show a row, given to the reader.
+		const { placing: place, showing: show } = this.#reach
 		const rows = await storedRows(model, {
 			...(where && { where }),
 			orderBy,
 			take: first + 2,
+			...(place !== 'all' && show !== 'all' && { fields: [...place, ...show] }),
 		})
 		const loader = new Loader()
 		loader.keep(model, rows)
