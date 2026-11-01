@@ -136,6 +136,29 @@ describe('liveFetch', () => {
 		expect(urls.slice(1).every((each) => each.includes('resume='))).toBe(true)
 	})
 
+	it('follows past maxTake, and goes on as it was when a growth passes maxLive', async () => {
+		const url = await tasks()
+		const urls = requested()
+		const live = liveFetch(`${url}?${ranked(125)}`, { headers: ada })
+		const watched = seen(live)
+		expect(titles(await watched.at(1))).toEqual(['a', 'b', 'c'])
+		await live.fetchMore({ first: 25 })
+		await expect(live.fetchMore({ first: 900 })).rejects.toMatchObject({
+			code: 'VALIDATION_FAILED',
+			message: 'first is over 1000, the most a live list follows.',
+			details: { limit: 1000, rows: 1050 },
+		})
+		await Task.create({ data: { title: 'z', rank: 0, owner: 'ada' } }, M)
+		await vi.waitFor(() => {
+			expect(titles(watched.results.at(-1))).toEqual(['z', 'a', 'b', 'c'])
+		})
+		await live.fetchMore({ first: 10 })
+		expect(watched.failures).toEqual([])
+		expect(urls.map((each) => new URL(each).searchParams.get('first'))).toEqual(
+			['125', '150', '1050', '150', '160'],
+		)
+	})
+
 	it('reconnects with its token when the stream is cut', async () => {
 		const url = await tasks()
 		const urls: string[] = []
@@ -190,8 +213,9 @@ describe('liveFetch', () => {
 		const refused = seen(liveFetch(`${url}?first=5000`, { headers: ada }))
 		expect(await failed(refused)).toMatchObject({
 			name: 'LiveError',
-			code: 'BAD_USER_INPUT',
-			message: 'first is at most 100 on Task.',
+			code: 'VALIDATION_FAILED',
+			message: 'first is over 1000, the most a live list follows.',
+			details: { limit: 1000, rows: 5000 },
 		})
 		const select = encodeURIComponent('{"title":true}')
 		const anonymous = seen(

@@ -1,6 +1,6 @@
 // A query's selection as one kernel read (D-107): the fields asked for, and
 // each `many` relation's own page and count, read with its parent's rows.
-import { badInput, readable } from '@ultimabase/http/internal'
+import { readable } from '@ultimabase/http/internal'
 import type {
 	FieldNode,
 	GraphQLObjectType,
@@ -85,26 +85,20 @@ export function grouped(
 	return into
 }
 
-/** One relation's arguments, the same under every alias. */
+/**
+ * A relation's or a virtual's arguments, the same under every alias: the
+ * validation refused any other (D-185).
+ */
 function argsOf(
 	type: GraphQLObjectType,
 	name: string,
-	nodes: readonly FieldNode[],
+	[node]: Fields,
 	info: Info,
 ): Args {
 	const field = type.getFields()[name]
-	const [first, ...others] = nodes.map((node) =>
-		field === undefined
-			? {}
-			: getArgumentValues(field, node, info.variableValues),
-	)
-	const key = JSON.stringify(first)
-	if (others.some((args) => JSON.stringify(args) !== key)) {
-		throw badInput(
-			`${name} is selected twice with different arguments; read it once.`,
-		)
-	}
-	return first ?? {}
+	return field === undefined
+		? {}
+		: getArgumentValues(field, node, info.variableValues)
 }
 
 /** Under a connection, the nodes its edges select. */
@@ -131,7 +125,7 @@ function virtualRead(
 	info: Info,
 	type: GraphQLObjectType,
 	virtual: ExposedVirtual,
-	nodes: readonly FieldNode[],
+	nodes: Fields,
 	master: boolean,
 ): unknown {
 	const { output } = virtual

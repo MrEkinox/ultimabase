@@ -205,6 +205,8 @@ function liveFields(registry: Registry, entry: Entry): Fields {
 	const list = connected
 		? new GraphQLNonNull(connectionType(registry, `${name}Connection`, name))
 		: new GraphQLNonNull(new GraphQLList(new GraphQLNonNull(type)))
+	// maxTake bounds page mode only, maxLive a live window (D-186).
+	const wide = { ...entry, maxTake: Number.POSITIVE_INFINITY }
 	// A window starts at the top of its order (D-154).
 	const windowArgs = Object.fromEntries(
 		Object.entries(listArgs(registry, name)).filter(
@@ -239,7 +241,7 @@ function liveFields(registry: Registry, entry: Entry): Fields {
 			subscribe: async (_, args, context, info) => {
 				const { channel, page } = liveOf(context)
 				const master = isMaster(context)
-				const { read: paged, relay } = pageOf(pagination, entry, args, master)
+				const { read: paged, relay } = pageOf(pagination, wide, args, master)
 				const asked = relay === undefined ? paged['take'] : relay.size
 				const rows = typeof asked === 'number' ? asked : entry.take
 				const arg = connected ? 'first' : 'take'

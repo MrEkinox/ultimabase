@@ -430,6 +430,39 @@ describe('a live list', () => {
 		})
 	})
 
+	it('follows more rows than maxTake, at most maxLive', async () => {
+		const url = await started()
+		await seeded()
+		const results = subscribed(
+			url,
+			'subscription { tasks(first: 4) { edges { node { title } } } }',
+		)
+		expect(await next(results)).toEqual({
+			data: {
+				tasks: {
+					edges: ['a', 'b', 'c'].map((title) => ({ node: { title } })),
+				},
+			},
+			extensions: { live: { revision, resume: token } },
+		})
+		await results.return?.()
+		const over = subscribed(
+			url,
+			'subscription { tasks(first: 1001) { totalCount } }',
+		)
+		expect(await next(over)).toEqual({
+			errors: [
+				containing({
+					message: 'first is over 1000, the most a live list follows.',
+					extensions: containing({
+						code: 'VALIDATION_FAILED',
+						details: containing({ limit: 1000, rows: 1001 }),
+					}),
+				}),
+			],
+		})
+	})
+
 	it('of Master without first follows take rows', async () => {
 		const url = await started()
 		await seeded()
@@ -666,24 +699,69 @@ describe('a resumed live list', () => {
 		await row.return?.()
 	})
 
-	it('fails past its limit', async () => {
-		const url = await started({ realtime: { maxLive: 2 } })
+	it('grows past maxTake, which bounds page mode only', async () => {
+		const url = await started()
 		await seeded()
 		const { ws } = opening(url)
 		const kept = await completed(ws)
 		const results = ws.iterate({
 			query: growing,
-			variables: { first: 3 },
+			variables: { first: 4 },
 			extensions: { live: { resume: kept } },
 		})
 		expect(await next(results)).toEqual({
+			extensions: {
+				live: {
+					revision: 2,
+					changes: [{ upsert: { node: { title: 'c' } }, after: anything }],
+					pageInfo: { hasNextPage: false },
+				},
+			},
+		})
+		await results.return?.()
+	})
+
+	it('is refused past its limit, with it, and kept as it was', async () => {
+		const url = await started({ realtime: { maxLive: 2 } })
+		const [a = ''] = await seeded()
+		const { ws } = opening(url)
+		const kept = await completed(ws)
+		const refused = ws.iterate({
+			query: growing,
+			variables: { first: 3 },
+			extensions: { live: { resume: kept } },
+		})
+		const message = 'first is over 2, the most a live list follows.'
+		expect(await next(refused)).toEqual({
 			errors: [
 				containing({
-					message: 'first is over 2, the most a live list follows.',
-					extensions: containing({ code: 'VALIDATION_FAILED' }),
+					message,
+					extensions: {
+						code: 'VALIDATION_FAILED',
+						details: {
+							issues: [{ path: ['first'], message }],
+							limit: 2,
+							rows: 3,
+						},
+					},
 				}),
 			],
 		})
+		const results = ws.iterate({
+			query: growing,
+			variables: { first: 2 },
+			extensions: { live: { resume: kept } },
+		})
+		await Task.update({ where: { id: a }, data: { title: 'A' } }, M)
+		expect(await next(results)).toEqual({
+			extensions: {
+				live: {
+					revision: 2,
+					changes: [{ upsert: { node: { title: 'A' } }, after: null }],
+				},
+			},
+		})
+		await results.return?.()
 	})
 })
 

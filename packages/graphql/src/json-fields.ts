@@ -1,13 +1,14 @@
 // A json field's types (D-125): exact from its schema's JSON Schema export,
-// `JSON` without one. Read as `UserPrefs`, written as `UserPrefsInput`,
-// filtered by `JSONFilter` as an untyped field (D-149). A plugin field reads
-// as its shape says (D-152).
+// `JSON` without one. Read as `UserPrefs`, written as `UserPrefsInput`, or as
+// the scalar its schema names (D-190), filtered by `JSONFilter` as an untyped
+// field (D-149). A plugin field reads as its shape says (D-152).
 import type {
 	GraphQLNullableInputType,
 	GraphQLNullableOutputType,
 } from 'graphql'
 import type { Path, Typed } from './data.ts'
-import { fieldInput, fieldOutput } from './data.ts'
+import { dataType, scopesOf } from './data.ts'
+import { exportOf } from './json-schema.ts'
 import { upper } from './names.ts'
 import type { Args, Registry, Scalar } from './registry.ts'
 import { JSONScalar, plain } from './scalars.ts'
@@ -29,8 +30,10 @@ export function jsonOutput(
 ): Typed<GraphQLNullableOutputType> {
 	const { validators, fieldTypes } = registry.entry(model).exposed
 	const schema = validators[field.name] ?? fieldTypes[field.name]?.shape
-	const path = pathOf(model, field, '')
-	return (schema && fieldOutput(schema, path, registry.data)) ?? untyped
+	const root = schema && exportOf(schema, 'output')
+	if (root === undefined) return untyped
+	const { output } = scopesOf(root, registry.data, true)
+	return dataType(root, pathOf(model, field, ''), output)
 }
 
 /** `UserPrefsInput`, and whether the schema takes `null`. */
@@ -40,8 +43,10 @@ export function jsonInput(
 	field: Scalar,
 ): Typed<GraphQLNullableInputType> {
 	const schema = registry.entry(model).exposed.validators[field.name]
-	const path = pathOf(model, field, 'Input')
-	return (schema && fieldInput(schema, path, registry.data)) ?? untyped
+	const root = schema && exportOf(schema, 'input')
+	if (root === undefined) return untyped
+	const { input } = scopesOf(root, registry.data, true)
+	return dataType(root, pathOf(model, field, 'Input'), input)
 }
 
 /** A written row's json and plugin values, their dates back to text. */

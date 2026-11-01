@@ -11,15 +11,7 @@ shape now instead of reworking it later.
 
 Each entry uses this shape:
 
-```md
-## D-01: Title
-
-Choice: what we do.
-Why: the reason, from experience when there is one.
-Rejected: the alternatives and why.
-Example: the code a developer writes.
-```
-
+````md
 ## D-01: A bare kernel that grows by plugins
 
 Choice: UltimaBase targets developers coming from Parse, Supabase, Prisma,
@@ -61,6 +53,7 @@ export const app = defineApp({
 })
 export const demo = defineApp({ database: memory(), models: [Post, User] })
 ```
+````
 
 ## D-03: Transports are optional plugins
 
@@ -4646,7 +4639,7 @@ curl -X POST localhost:3000/webhooks/stripe -d '{"id":"…"}' \
 
 ## D-107: `graphqlPlugin()`, the schema it generates and how it mounts
 
-Amended by D-125, D-128, D-132 and D-153.
+Amended by D-125, D-128, D-132, D-153 and D-185.
 
 Choice: completes D-16, D-34, D-41, D-45 and D-55.
 
@@ -8918,7 +8911,7 @@ type Mutation {
 
 ## D-151: Filtered relations and virtual fields
 
-Amended by D-180.
+Amended by D-180, D-184.
 
 Choice: completes D-37, D-44 and D-109; amends D-42.
 
@@ -9371,7 +9364,7 @@ api: ({ plugins }) => plugins.http.mount(uploads, { bodyLimit: false })
 
 ## D-154: Realtime: live lists and live rows
 
-Amended by D-163, D-166 and D-178.
+Amended by D-163, D-166, D-178, D-186 and D-187.
 
 Choice: completes D-25; amends D-106 (WebSocket upgrades), D-107 (the
 `Subscription` type), D-109 (live functions) and D-129 (live reads over
@@ -11985,6 +11978,567 @@ return transaction(
 
 After: unchanged code; the 10 pairs match, each call after 5 attempts at
 most.
+
+## D-184: A virtual's `needs` takes a stored `one` relation's key
+
+Choice: amends D-151.
+
+1. A virtual's `needs` names, besides scalar fields, a `one` relation the row
+   stores (D-77): a required one, or an optional one facing a `many`. A
+   `many` fails to compile on the virtual's line. The optional side of a
+   one-to-one, which has no column (D-37), compiles there, since the line
+   cannot read the target's fields; its rule's `record` has no such key, and
+   it stops startup. Both stop startup.
+2. `record.author` is the key as rules and hooks see it, `{ id }`, or
+   `{ id } | null` when the relation is optional: no `authorId` string.
+3. The kernel reads the key with the row's columns, in the same query; a
+   `run` gets it with no other query. A query that also includes the
+   relation reads the target's row in its place, which is `null` when the
+   relation is empty or the caller cannot read that row (D-109): the keys of
+   those rows are read again, in one query for the page, and the virtual
+   gets the key either way.
+4. A relation's read rule hides the virtuals that need it, as a scalar's
+   does (D-151).
+5. `needs` takes no target field: `needs: ['author.name']` stays refused; a
+   virtual that reads the target's fields queries them in `runMany`.
+
+Why:
+
+- A virtual that compares a row's owner with the caller is common (`isMine`,
+  `canEdit`); without the key, its `runMany` re-reads the page by id to get
+  it, one query per page for a column the row already holds.
+- The key is a column of the row: reading it costs nothing more, as a
+  scalar's does. A `many` or the optional side of a one-to-one is a query on
+  another table.
+- Rules and hooks already see a stored `one` as `{ id }` (D-77); a virtual's
+  record is the same record, cut to its needs.
+- An included row the caller cannot read gave the virtual `null` for a
+  required relation, typed `{ id }`: its `run` failed on `record.author.id`.
+  A row holds one value per field, so the adapter cannot return the key and
+  the included row side by side.
+
+Rejected:
+
+- An `authorId` string: a second name for the same key, which rules and hooks
+  do not use.
+- Target fields (`author.name`): a join per virtual, with its own read rules,
+  which `runMany` already writes in one query for the page.
+- A `many`'s ids: a list per row, read by another query, which `runMany`
+  writes as well.
+- Refusing the optional side of a one-to-one on the virtual's line: telling
+  it from a stored `one` reads the target's fields while the model is typed,
+  the TS7022 cycle of D-151 when the target relates back.
+
+Example, before: `needs` refuses the relation, and `runMany` reads the page
+again to get its key.
+
+```ts
+export const Comment = defineModel({
+	name: 'Comment',
+	fields: (f) => ({
+		author: f.one(() => User, { default: currentUser }),
+		body: f.string(),
+		// TS2322: Type '"author"' is not assignable to type '"body" | keyof SystemFields'.
+		isMine: f.virtual(z.boolean(), { needs: ['author'] }),
+	}),
+}).with({
+	virtuals: {
+		isMine: {
+			runMany: async ({ caller, records }) => {
+				const rows = await Comment.findMany(
+					{
+						where: { id: { in: records.map(({ id }) => id) } },
+						select: { id: true, author: { select: { id: true } } },
+					},
+					{ as: Master },
+				)
+				const authors = new Map(rows.map((row) => [row.id, row.author.id]))
+				return records.map(
+					({ id }) =>
+						caller.kind === 'user' && authors.get(id) === caller.user.id,
+				)
+			},
+		},
+	},
+})
+```
+
+After: the key comes with the row.
+
+```ts
+export const Comment = defineModel({
+	name: 'Comment',
+	fields: (f) => ({
+		author: f.one(() => User, { default: currentUser }),
+		body: f.string(),
+		isMine: f.virtual(z.boolean(), { needs: ['author'] }),
+	}),
+}).with({
+	virtuals: {
+		isMine: {
+			run: ({ caller, record }) =>
+				caller.kind === 'user' && record.author.id === caller.user.id,
+		},
+	},
+})
+```
+
+## D-185: GraphQL counts no connection level, and refuses a relation read twice at validation
+
+Choice: amends D-107, point 6 by point 2 and point 10 by point 3.
+
+1. Every connection has `totalCount`, nested ones included, as D-134 point
+   5 says; the GraphQL guide said the root list only, and now says so.
+2. With `pagination: 'connection'`, the fields of a generated connection
+   and edge type, `edges`, `node`, `cursor`, `pageInfo` and `totalCount`,
+   are no level of `maxDepth`, nor of the depth of an `orderBy` under them.
+   The parent type decides, not the field's name: a model's own field named
+   `node` or `edges` counts. `PageInfo`'s fields count, a model's fields,
+   root fields and an object field's fields too. `pagination: 'list'` is
+   unchanged, every field counting. The default stays 10.
+3. A `many` relation or a virtual selected twice with different arguments
+   is refused as the document is validated, for every caller, Master
+   included, before a query, a mutation or a subscription runs, over HTTP
+   and WebSocket alike: `comments is selected twice with different
+arguments, at posts.edges.node.commenterIds and posts.edges.node.comments;
+read it once.`, with no code, as the depth refusal. A model's fields
+   merge by name, through aliases, fragments and connections, as the
+   kernel's one `select` per row merges them; a root field and a field
+   `extend` adds resolve once per alias, so what they select is compared
+   per response path. Arguments compare as written, in any order and an
+   input's fields in any order: two variables differ, even of one value,
+   and `@skip` or `@include` changes nothing. Two arguments under one
+   response path stay graphql-js's own refusal. The run-time check is
+   removed, since nothing reaches it. The guide shows the workaround: select
+   the relation once with what both fragments need, and slice it on the
+   client.
+
+Why:
+
+- Each nested list cost three levels, the relation, `edges` and `node`, so
+  the default 10 allowed about three nested lists, where REST's 10 allows
+  ten levels of `select` and `include`. Counting a model's fields only, the
+  two transports count the same levels (D-129). `maxRows` already bounds
+  how many rows nested lists return; depth bounds how many relations a
+  document goes through, which the wrappers do not add to.
+- Deciding by the parent type keeps a model free to name a field `node`:
+  a name-based rule would let any model nest through it for free.
+- The run-time refusal came after the document validated and type checked,
+  when a screen first loaded; inside a live query, the whole screen stayed
+  empty. Validation refuses it where every other limit is refused, with
+  both paths, which two colocated fragments in different files need.
+- Comparing the written arguments, not their values, decides before
+  variables are read and gives the same answer for every request of a
+  document, which a check in CI can rely on.
+
+Rejected:
+
+- Reading each alias as its own subquery: the kernel reads one `select`
+  per row, so it needs a second read per alias and a merge of the rows; the
+  issue's own first choice, kept out of scope.
+- Counting by field name (`edges`, `node`), for the reason above.
+- Exporting `depthRule` or a `validateDocuments` helper: no decision needs
+  them yet.
+- Comparing argument values: a document would pass or fail with its
+  variables.
+
+Example, before: the issue's document, refused at the default `maxDepth`.
+
+```graphql
+query {
+	posts(first: 10) {
+		edges {
+			node {
+				comments(first: 3) {
+					edges {
+						node {
+							photos(first: 1) {
+								edges {
+									node {
+										file {
+											url
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+}
+# The document is nested 11 levels deep; the most is 10.
+```
+
+After: the same document passes, 5 levels deep; 11 levels of model fields
+are still refused.
+
+Before: two fragments of one post, refused only as the query ran.
+
+```graphql
+fragment PostCard on Post {
+	commenterIds: comments {
+		edges {
+			node {
+				author {
+					id
+				}
+			}
+		}
+	}
+	...PostFooter
+}
+fragment PostFooter on Post {
+	comments(first: 3) {
+		totalCount
+		edges {
+			node {
+				id
+				body
+			}
+		}
+	}
+}
+# BAD_USER_INPUT: comments is selected twice with different arguments; read it once.
+```
+
+After: refused as the document is validated, naming both paths; the
+fragments select the relation once and slice it on the client.
+
+```graphql
+fragment PostCard on Post {
+	comments {
+		totalCount
+		edges {
+			node {
+				id
+				body
+				author {
+					id
+				}
+			}
+		}
+	}
+}
+# PostFooter receives the first 3 of PostCard's comments.
+```
+
+## D-186: A live list is bounded by `maxLive`, and its refusal says so
+
+Choice: amends D-154, points 3 and 7.
+
+1. `maxTake` bounds a live list in page mode only, where each change
+   resends the whole window. Outside page mode, a live list's `first` (or
+   `take`), at subscribe and at each growth, is bounded by `maxLive` and
+   `maxConnectionRows` only, over GraphQL and REST alike. A nested list in
+   a live selection keeps its model's `maxTake`, as in a query.
+2. The cost stays `first × (1 + the nested rows of each row)`, a nested
+   list counting its `take` rows and theirs. The realtime guide gives it
+   next to `maxLive`, with an example, and the per-model
+   `.with({ realtime: { maxLive } })`.
+3. A refusal past `maxLive`, at subscribe or at a growth, stays
+   `VALIDATION_FAILED` with the same message, and carries
+   `details: { issues: [{ path: ['first'], message }], limit, rows }`:
+   `limit` the model's `maxLive`, `rows` what the list would follow, nested
+   rows included. GraphQL sends it under `extensions.details`, REST in its
+   `400` body, as every public error's details. The `maxConnectionRows`
+   refusal is unchanged.
+4. A growth refused leaves the list as it was. The transport keeps it under
+   the same token, for 10 s, as a completed list: what it sends meanwhile
+   waits. `@ultimabase/live`'s `fetchMore` rejects with the refusal, takes
+   back its variable (Apollo) or its URL's `first` (`liveFetch`), and
+   resumes at the previous size; the subscription's observer and
+   `liveFetch`'s listeners see no error. A refusal at subscribe still fails
+   the read.
+5. `LiveError` gets `details`, the server's, when it sends a record.
+
+Why:
+
+- `maxTake` exists because a page's every row is read and sent each time.
+  A live list sends only what changed, and `maxLive` is the limit made for
+  it: capping it at `maxTake` made `maxLive` above 100 unreachable at
+  subscribe, while growth already passed it.
+- A client cannot know where the limit is before it hits it; with `limit`
+  and `rows` it switches to ordinary cursor reads, as a chat history does,
+  without parsing the message.
+- A growth the server refuses is the client asking too much once, not a
+  broken read: ending the list made the client read everything again.
+
+Rejected:
+
+- Growing up to the limit and no further: `fetchMore` would resolve with
+  fewer rows than asked, and `hasNextPage` would stay true with nothing to
+  fetch.
+- A new error code for the limit: `VALIDATION_FAILED` with its details
+  tells the same, and the codes stay the few clients branch on.
+- Publishing `maxLive` in the schema or a header: the refusal already
+  carries it, where the client needs it.
+
+Example, before: a chat follows its newest messages live, 100 more at a
+time.
+
+```ts
+const live = liveFetch<Page>(`/api/messages?first=125&orderBy=${orderBy}`)
+// 400 BAD_USER_INPUT: first is at most 100 on Message.
+await live.fetchMore({ first: 900 })
+// Past maxLive: the stream ends, and the listeners get the LiveError.
+```
+
+After:
+
+```ts
+const live = liveFetch<Page>(`/api/messages?first=125&orderBy=${orderBy}`)
+try {
+	await live.fetchMore({ first: 900 })
+} catch (error) {
+	if (!(error instanceof LiveError)) throw error
+	error.details // { issues: [...], limit: 1000, rows: 1025 }
+	// The list goes on with its 125 messages; read older ones by cursor.
+	const after = latest?.pageInfo.endCursor
+}
+```
+
+## D-187: A live read follows its virtual fields' reads
+
+Choice: amends D-154, points 10 and 12, and completes D-151.
+
+1. A live row or list that selects a virtual field records the reads its
+   `run` or `runMany` makes, as a live function's (D-154, point 12). The
+   rows read together share them. A write that may change one of those
+   reads computes these rows again, as the subscriber; a row whose value
+   changed is sent again, the others are not.
+2. Nothing to declare: no `live` option on the virtual, no list of models
+   it depends on. A live read that selects no virtual costs nothing more.
+3. Whether a write may change a read is decided more finely, for the
+   rights of a caller and for live functions too:
+   - A read without ids, a count or a group, is stale only when an inserted
+     row passes its `where`, a row is deleted, or an updated row may pass
+     it before or after the update. Before, any write to its model made it
+     stale.
+   - A `where` through a stored `one` relation, as `project: { is: … }`, is
+     stale on any write to the related model, as before. A write to the
+     read's own model is tested against the `where` loosened to what its
+     rows hold: the related id, which the stored key holds. A read rule of
+     the related model joins that relation's filter, so without this every
+     write to the model counted made every subscriber stale.
+   - Another `where` that a row alone does not answer, a text search or an
+     `OR` through a relation, stays coarse: any write to its model or a
+     model it reaches makes it stale.
+4. A delete still recomputes every row whose virtuals read its model: a
+   write carries no old values, so which rows read the deleted one is not
+   known.
+
+Why:
+
+- The issue: a live project showing `openTasksCount` did not move when a
+  task was created, and a client had to open a second subscription for the
+  count. Live functions already follow their reads; a virtual is the same
+  kind of `run`.
+- A declared dependency (`live: [() => Task]`) would resend every row on
+  any write to `Task` and is one more thing to keep in sync with `run`.
+- Measured with `bench/realtime/virtuals.ts`, 1000 subscribers listing
+  `Project` with a virtual counting its open `Task` rows through a
+  `groupBy` as the caller, one `Task` created a write, p50 times:
+
+  | Lists       | Window | Followed coarsely                      | This decision                    |
+  | ----------- | -----: | -------------------------------------- | -------------------------------- |
+  | a list each |     25 | 2000 statements, 1000 messages, 463 ms | 3 statements, 1 message, 69 ms   |
+  | a list each |   1000 | 17.2 s, p99 103 s                      | 3 statements, 1 message, 122 ms  |
+  | one list    |     25 | 1001 statements, 301 ms                | 1002 statements, 319 ms          |
+  | one list    |   1000 | 11.1 s                                 | 10.3 s, the last message at 20 s |
+
+  "Followed coarsely" is any write to `Task` computing every shown row
+  again and sending it. A live read that selects no virtual runs no
+  statement on such a write, before as after.
+
+- One list followed by 1000 subscribers stays costly: each one computes the
+  virtual as itself, one `groupBy` each, since a read rule may give each a
+  different count. Sharing the value between subscribers would be wrong as
+  soon as a rule reads the caller. Computing again only the row the write
+  touched is not possible either: `runMany` may compute a row from the
+  others.
+- Grouping writes close in time, as a live function's wait does, helps a
+  burst but not one write, and delays every message; not done.
+
+Rejected:
+
+- A `live` option listing the models a virtual reads, for the reasons
+  above.
+- Sending again every row whose virtuals read a model written: what the
+  first table measures.
+
+Example, before: a live list showing a count of another model.
+
+```ts
+await viewer.list(
+	'Project',
+	{ first: 25, select: { name: true, openTasks: true } },
+	send,
+)
+await Task.create({ data: { project: { connect: { id: a } } } }, M)
+// Nothing is sent; A shows its old count until A itself changes.
+```
+
+After: unchanged code; the row of A alone is sent again, with
+`openTasks: 1`.
+
+## D-188: A route empties the database outside production
+
+Choice: completes D-49, D-105 and D-106.
+
+1. `httpPlugin()` serves `POST /_ultimabase/reset` when `NODE_ENV` is not
+   `production`. Under `ultimabase start` the route does not exist: it
+   answers 404 as any unknown path.
+2. Only Master through the master key (D-49) calls it; another caller gets
+   `ACCESS_DENIED`. It answers 204.
+3. It empties the rows of every model and keeps the tables: the adapter
+   gains a required `empty()`. `memory()` clears its rows; `postgres()`
+   truncates the models' tables in one statement with `cascade`, as its
+   test setup does (D-137), and keeps `ultimabase_schema` and the migrations.
+   The models of plugins are emptied too, auth's users and sessions among
+   them. No hook, cascade rule or soft delete runs. Stored files stay where
+   their storage keeps them.
+4. The kernel then calls the feed's `missed()` (D-168): live reads read
+   again, and find nothing.
+5. GraphQL and REST do not expose it. It takes no option; the application
+   seeds its own data afterwards.
+6. A remote database is not refused, unlike `ultimabase reset`: the master
+   key and `NODE_ENV` already keep the route out of production.
+7. The testing guide shows it in an "End-to-end tests" section.
+
+Why:
+
+- A front end's end-to-end test starts each test from known data, seeded
+  through the API with the master key (D-49), while the server runs. It had
+  no way to start again from an empty database but to restart the server.
+- `ultimabase reset` rebuilds the database from the migrations, but under
+  `ultimabase dev` the database follows the models through `sync` (D-105):
+  it may hold fields no migration has yet. Replaying the migrations would
+  remove them under the running application. Truncating gives the test the
+  same result, an empty database with the current tables, without touching
+  the tables.
+- One `truncate` costs one statement, whatever the number of tables, which
+  a `beforeEach` runs every test.
+
+Rejected:
+
+- Dropping the tables and replaying the migrations, for the reasons above.
+- `deleteMany` on each model: it runs hooks and soft deletes, and must
+  follow the relations' order.
+- A GraphQL mutation: a schema that differs between development and
+  production breaks the types a client generates from it.
+- A `keep` option listing models to spare: the application seeds them
+  again, as it seeds the rest.
+- A command run from the test: it would empty the tables outside the
+  running server, whose live reads would not know.
+
+Example, before: a Playwright test cannot empty the database without
+restarting the server.
+
+```ts
+test.beforeEach(async () => {
+	// restart `ultimabase dev`, or run `ultimabase reset` and wait for it
+})
+```
+
+After:
+
+```ts
+test.beforeEach(async () => {
+	await fetch('http://localhost:3000/_ultimabase/reset', {
+		method: 'POST',
+		headers: { 'x-ultimabase-master-key': process.env.MASTER_KEY ?? '' },
+	}) // 204
+	await seed()
+})
+```
+
+## D-190: A json schema named as a GraphQL scalar
+
+Choice: completes D-109 and D-125.
+
+1. A schema whose metadata gives an id and `scalar: true`,
+   `.meta({ id: 'RichText', scalar: true })`, is the GraphQL scalar
+   `RichText`, read and written whole, in place of the object type D-125
+   point 3 would make. GraphQL declares it once, described by the schema's
+   description, and uses it on both sides: a scalar has no input type.
+2. The id is read where D-125 point 3 reads it, from the export's `$defs`
+   (Zod), and from an `id` keyword on the schema itself, as Valibot's
+   `v.metadata` and ArkType's `.configure` write it. A shared object type's
+   id is read the same way.
+3. It applies at the field's root or deeper, `{ title, body: RichText }`,
+   and in a function's schema (D-109), which shares the field's types.
+4. `scalar: true` without an id is named by its path, as an object type
+   is (D-125 point 3): `Note.settings` is the scalar `NoteSettings`, on
+   both sides. Without `scalar: true`, nothing changes.
+5. One name given two schemas stops startup, naming both owners (D-125
+   point 3).
+6. A field's filter stays `JSONFilter` (D-149 point 6); the kernel still
+   validates the value with the schema.
+7. OpenAPI keeps the whole JSON Schema (D-144), the keyword included.
+8. The GraphQL guide's types table gains the line.
+
+Why:
+
+- A rich text document is recursive: as an object type, no selection
+  reads it whole, so a client wants it as one value. As `JSON` it shares
+  its name with every untyped value, and a client's codegen, which maps a
+  scalar by name, cannot give it its own type.
+- The developer chooses it on the schema, which already names shared types
+  with `id`; the kernel gains no GraphQL option.
+- Zod puts an id in `$defs`; Valibot and ArkType keep it as a keyword
+  (checked on 2026-11-01 with zod 4, valibot 1.5 and arktype 2.2): reading
+  both lets each library name a type.
+
+Rejected:
+
+- `f.json({ graphql: { scalar: 'RichText' } })`: a plugin's option on a
+  kernel field.
+- A scalar for every recursive schema: the developer chooses it, nothing
+  is implicit.
+- Stopping startup on `scalar: true` without an id: an object type
+  without an id is named by its path, and a scalar can be too. The guide
+  advises an id for a scalar a client's codegen maps, whose name then
+  outlives a renamed field.
+- A `RichTextFilter`: the path filters of `JSONFilter` already filter any
+  json value.
+
+Example, before:
+
+```ts
+body: f.json({ optional: true, validate: Node }),
+```
+
+```graphql
+type Note {
+	body: JSON # every untyped json value has this type
+}
+```
+
+After:
+
+```ts
+const RichText = Node.meta({
+	id: 'RichText',
+	scalar: true,
+	description: 'A Tiptap document',
+})
+body: f.json({ optional: true, validate: RichText }),
+```
+
+```graphql
+"""
+A Tiptap document
+"""
+scalar RichText
+
+type Note {
+	body: RichText
+}
+```
+
+A client's codegen then maps `RichText` to its document type.
 
 ## D-191: GraphQL writes its schema to a file in development
 

@@ -152,7 +152,11 @@ it('refuses a live list over its limits', async () => {
 		errors: [
 			{
 				message: 'first is over 50, the most a live list follows.',
-				extensions: { code: 'VALIDATION_FAILED' },
+				// The limit, and the rows the list would follow.
+				extensions: {
+					code: 'VALIDATION_FAILED',
+					details: { limit: 50, rows: 60 },
+				},
 			},
 		],
 	})
@@ -166,6 +170,7 @@ it('refuses a live list over its limits', async () => {
 	expect(error).toMatchObject({
 		code: 'VALIDATION_FAILED',
 		message: 'first is over 50, the most a live list follows.',
+		details: { limit: 50, rows: 60 },
 	})
 	//#endregion
 })

@@ -1,7 +1,7 @@
 // `httpPlugin()` (D-66, D-106): routes that read the caller, no caching,
 // errors as D-72 sends them, CORS, forms from other origins, the body limit,
-// the port, the client's address behind proxies (D-116) and a stop that
-// waits, 10 s at most.
+// the port, the client's address behind proxies (D-116), a stop that waits,
+// 10 s at most, and the reset route outside production (D-188).
 import { createServer, IncomingMessage } from 'node:http'
 import { Socket } from 'node:net'
 import type { Context } from 'hono'
@@ -14,6 +14,7 @@ import {
 	definePlugin,
 	memory,
 	PublicError,
+	master as root,
 } from 'ultimabase'
 import type { HttpApi, HttpEnv, Routes } from './index.ts'
 import { clientOf, httpPlugin, routes } from './index.ts'
@@ -807,5 +808,39 @@ describe('a client’s address behind proxies (D-116)', () => {
 				`proxies is ${proxies}, not a whole number of proxies in front of the server.`,
 			)
 		}
+	})
+})
+
+const reset = async (url: string, key?: string) =>
+	fetch(`${url}/_ultimabase/reset`, {
+		method: 'POST',
+		headers: key === undefined ? {} : { 'x-ultimabase-master-key': key },
+	})
+
+describe('the reset route (D-188)', () => {
+	it('empties the database for the master key, outside production', async () => {
+		const { url } = await server()
+		await Note.create({ data: { text: 'a' } }, { as: root })
+		const emptied = await reset(url, 'secret')
+		expect(emptied.status).toBe(204)
+		expect(await emptied.text()).toBe('')
+		expect(await Note.count({}, { as: root })).toBe(0)
+	})
+
+	it('refuses another caller', async () => {
+		const { url } = await server()
+		await Note.create({ data: { text: 'a' } }, { as: root })
+		const refused = await reset(url)
+		expect(refused.status).toBe(403)
+		expect(await refused.json()).toMatchObject({ code: 'ACCESS_DENIED' })
+		expect(await Note.count({}, { as: root })).toBe(1)
+	})
+
+	it('does not exist in production', async () => {
+		process.env['NODE_ENV'] = 'production'
+		const { url } = await server()
+		const missing = await reset(url)
+		expect(missing.status).toBe(404)
+		expect(await missing.json()).toMatchObject({ code: 'NOT_FOUND' })
 	})
 })
