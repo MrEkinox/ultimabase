@@ -15,7 +15,7 @@
 		"@ultimabase/http": "workspace:*",
 		"hono": "4.13.13",
 		"ultimabase": "workspace:*",
-		"zod": "4.6.5"
+		"zod": "4.6.7"
 	},
 	"devDependencies": {
 		"@ultimabase/testing": "workspace:*",
