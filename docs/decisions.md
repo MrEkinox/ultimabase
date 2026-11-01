@@ -12675,3 +12675,38 @@ After:
 graphqlPlugin({ generated: 'src/generated/schema.graphql' })
 // `ultimabase dev` writes src/generated/schema.graphql when it changes
 ```
+
+## D-193: `main` requires the CI checks
+
+Choice: completes D-06 and D-156.
+
+1. The ruleset "Protect main" requires the jobs of `ci.yml` that run on a
+   pull request: Commit messages, Validate, Packed packages, Website,
+   PostgreSQL and S3. A pull request merges once they pass.
+2. A pull request need not be up to date with `main` to merge: the push to
+   `main` runs every check again before anything is published (D-156).
+3. The repository's admins may bypass the ruleset on a pull request only,
+   for the release pull request: `changesets/action` opens it with the
+   workflow's token, which starts no workflow, so it never has the checks.
+   A direct push to `main` without passing checks is refused for everyone.
+4. The rules already there stay: `main` is never force-pushed nor deleted.
+5. A pull request that adds or renames such a job in `ci.yml` updates the
+   ruleset when it merges.
+
+Why:
+
+- `AGENTS.md` asks `yarn validate` to pass before a merge into `main`, but
+  nothing enforced it: a merge with the maintainer's token, an agent's
+  included, could land a red pull request.
+- A bypass limited to pull requests still makes a red merge explicit:
+  `gh pr merge` fails, and only `gh pr merge --admin` goes through.
+
+Rejected:
+
+- Requiring an up-to-date branch: each merge in a series would wait for a
+  new run on every other pull request, and `main` is checked after the
+  merge anyway.
+- A GitHub App or personal token for `changesets/action`, so the release
+  pull request gets the checks: a secret to keep and rotate, for versions
+  and changelogs that `main` checks again before publishing.
+- Requiring a review: the project has one maintainer.
