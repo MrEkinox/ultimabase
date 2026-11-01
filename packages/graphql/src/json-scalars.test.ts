@@ -1,5 +1,5 @@
-// A json schema named as a GraphQL scalar (D-190): `scalar: true` with an
-// id, from Zod's `$defs` or an `id` keyword, read and written whole.
+// A json schema named as a GraphQL scalar (D-190): `scalar: true`, named by
+// its id, from Zod's `$defs` or an `id` keyword, or by its path.
 import { httpPlugin } from '@ultimabase/http'
 import type { GraphQLSchema } from 'graphql'
 import { printType } from 'graphql'
@@ -63,6 +63,9 @@ const Point = exporting({
 	required: ['x'],
 })
 
+// Without an id, a scalar is named by its path, as an object type is.
+const Unnamed = z.object({ theme: z.string() }).meta({ scalar: true })
+
 const Note = defineModel({
 	name: 'Note',
 	use: [graphql()],
@@ -73,6 +76,8 @@ const Note = defineModel({
 		maybe: f.json({ validate: Maybe }),
 		either: f.json({ validate: Either }),
 		point: f.json({ optional: true, validate: Point }),
+		settings: f.json({ optional: true, validate: Unnamed }),
+		layout: f.json({ optional: true, validate: z.object({ panel: Unnamed }) }),
 	}),
 }).with({ access: allow.public })
 
@@ -150,6 +155,21 @@ describe('a schema named as a scalar', () => {
 			'  body: RichText\n  page: NotePageInput!\n  plain: Plain\n  maybe: Maybe!\n  either: Either!\n  point: PointInput\n',
 		)
 		expect(typeOf('NoteWhereInput')).toContain('  body: JSONFilter\n')
+	})
+
+	it('names a scalar without an id by its path, on both sides', () => {
+		expect(typeOf('NoteSettings')).toBe('scalar NoteSettings')
+		expect(typeOf('NoteLayoutPanel')).toBe('scalar NoteLayoutPanel')
+		expect(typeOf('NoteSettingsInput')).toBe('none')
+		expect(typeOf('Note')).toContain(
+			'  settings: NoteSettings\n  layout: NoteLayout\n',
+		)
+		expect(typeOf('NoteCreateInput')).toContain(
+			'  settings: NoteSettings\n  layout: NoteLayoutInput\n',
+		)
+		expect(typeOf('NoteLayoutInput')).toBe(
+			'input NoteLayoutInput {\n  panel: NoteLayoutPanel!\n}',
+		)
 	})
 
 	it('names a shared object type by its id keyword', () => {
@@ -234,17 +254,6 @@ const holding = (
 	})
 
 describe('startup', () => {
-	it('refuses a scalar without an id, naming the field', async () => {
-		const unnamed = z.object({ a: z.string() }).meta({ scalar: true })
-		await expect(serving([holding('Doc', unnamed)])).rejects.toThrow(
-			'Doc.body: body is a scalar without an id; name it with .meta({ id }).',
-		)
-		const nested = z.object({ inner: unnamed })
-		await expect(serving([holding('Doc', nested)])).rejects.toThrow(
-			'Doc.body: body.inner is a scalar without an id; name it with .meta({ id }).',
-		)
-	})
-
 	it('refuses one name given two schemas, naming both owners', async () => {
 		const other = z
 			.object({ b: z.string() })

@@ -12001,9 +12001,9 @@ Choice: completes D-109 and D-125.
    id is read the same way.
 3. It applies at the field's root or deeper, `{ title, body: RichText }`,
    and in a function's schema (D-109), which shares the field's types.
-4. `scalar: true` without an id stops startup, naming the field, as a
-   recursive schema without an id does. Without `scalar: true`, nothing
-   changes.
+4. `scalar: true` without an id is named by its path, as an object type
+   is (D-125 point 3): `Note.settings` is the scalar `NoteSettings`, on
+   both sides. Without `scalar: true`, nothing changes.
 5. One name given two schemas stops startup, naming both owners (D-125
    point 3).
 6. A field's filter stays `JSONFilter` (D-149 point 6); the kernel still
@@ -12029,6 +12029,10 @@ Rejected:
   kernel field.
 - A scalar for every recursive schema: the developer chooses it, nothing
   is implicit.
+- Stopping startup on `scalar: true` without an id: an object type
+  without an id is named by its path, and a scalar can be too. The guide
+  advises an id for a scalar a client's codegen maps, whose name then
+  outlives a renamed field.
 - A `RichTextFilter`: the path filters of `JSONFilter` already filter any
   json value.
 

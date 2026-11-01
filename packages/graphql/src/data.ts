@@ -137,15 +137,22 @@ function sharedType<T extends GraphQLNullableType>(
 				),
 		)
 	}
-	if (node['scalar'] === true) {
-		const shape = shapeOf(node, scope.defs)
-		const description = describedBy(node)
-		const { side, types } = scope
-		const scalar = types.scalar(id, side, shape, path.owner, description)
-		return { type: scope.leaf(scalar), nullable: takesNull(node) }
-	}
+	if (node['scalar'] === true) return scalarType(id, node, path, scope)
 	const suffix = scope.side === 'input' ? 'Input' : ''
 	return shapeType(node, { ...path, name: id, suffix }, scope)
+}
+
+/** A node read and written whole, as the scalar `name` (D-190). */
+function scalarType<T extends GraphQLNullableType>(
+	name: string,
+	node: Node,
+	path: Path,
+	scope: Scope<T>,
+): Typed<T> {
+	const shape = shapeOf(node, scope.defs)
+	const { side, types } = scope
+	const scalar = types.scalar(name, side, shape, path.owner, describedBy(node))
+	return { type: scope.leaf(scalar), nullable: takesNull(node) }
 }
 
 function enumType(
@@ -217,11 +224,8 @@ function shapeType<T extends GraphQLNullableType>(
 	path: Path,
 	scope: Scope<T>,
 ): Typed<T> {
-	if (node['scalar'] === true) {
-		throw new Refused(
-			`${path.owner}: ${path.at} is a scalar without an id; name it with .meta({ id }).`,
-		)
-	}
+	// Without an id, named by its path, as an object type is (D-125).
+	if (node['scalar'] === true) return scalarType(path.name, node, path, scope)
 	const variants: unknown = node['anyOf'] ?? node['oneOf']
 	if (Array.isArray(variants)) {
 		const others: readonly unknown[] = variants.filter(
