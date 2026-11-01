@@ -1,0 +1,233 @@
+---
+title: Roles
+description: Give users roles, let roles inherit others, and write rules that ask for a role.
+---
+
+`@ultimabase/roles` gives users roles, such as `writer` or `team`, and adds
+the rule `hasRole`. A role is a row of the role model, which `defineRole`
+declares with its members, the users:
+
+```npm
+npm install @ultimabase/roles
+```
+
+```ts
+import { defineUser } from '@ultimabase/auth'
+import { graphql } from '@ultimabase/graphql'
+import { password } from '@ultimabase/password'
+import { defineRole } from '@ultimabase/roles'
+import { allow } from 'ultimabase'
+
+// Each role has a unique name, its members, and the roles it inherits.
+export const Role = defineRole({
+	name: 'Role',
+	members: () => User,
+	use: [graphql()],
+	// Clients read the roles; the server gives them.
+}).with({ access: allow.readOnly })
+```
+
+The full example, with its tests: [`examples/roles-and-acl`](https://github.com/MrEkinox/ultimabase/tree/main/examples/roles-and-acl).
+
+The user model may list its roles, the other side of `members`:
+
+```ts
+export const User = defineUser({
+	name: 'User',
+	use: [graphql(), password()],
+	fields: (f) => ({ name: f.string(), roles: f.many(() => Role) }),
+}).with({ access: allow.readOnly })
+
+declare module 'ultimabase' {
+	interface Register {
+		readonly user: typeof User
+	}
+}
+```
+
+`rolesPlugin()` goes in the application's plugins. Here it comes with
+[Authentication](/docs/next/auth), which gives each request its user, and
+[ACL](/docs/next/acl):
+
+```ts
+plugins: [
+	// Listens on PORT, or 3000.
+	httpPlugin(),
+	graphqlPlugin(),
+	authPlugin(),
+	passwordPlugin({ signUp: ['name'] }),
+	// Reads each signed-in user's roles once per request.
+	rolesPlugin(),
+	aclPlugin(),
+],
+```
+
+## Give roles
+
+A role is an ordinary row: Master creates it and connects its members, as
+any [relation](/docs/next/relations). Here the server gives Ada the `writer`
+role, and Ada and Grace the `team` role:
+
+```ts
+await Role.create(
+	{ data: { name: 'writer', members: members(ada) } },
+	{ as: master },
+)
+await Role.create(
+	{ data: { name: 'team', members: members(ada, grace) } },
+	{ as: master },
+)
+```
+
+The role model above is read-only for clients: only the server gives roles.
+Its own `access` decides otherwise, as any model's.
+
+## Ask for a role
+
+`hasRole('writer')` is a rule: in the `Note` model, only a writer creates a
+note.
+
+```ts
+import { ACL, acl } from '@ultimabase/acl'
+import { graphql } from '@ultimabase/graphql'
+import { hasRole } from '@ultimabase/roles'
+import { allow, defineModel } from 'ultimabase'
+
+export const Note = defineModel({
+	name: 'Note',
+	use: [
+		graphql(),
+		// A new note is its author's alone: no one else reads or writes it.
+		acl({
+			default: ({ caller }) =>
+				caller.kind === 'user' ? new ACL().allowUser(caller.user) : new ACL(),
+		}),
+	],
+	fields: (f) => ({ title: f.string() }),
+}).with({
+	// The ACL picks the rows; the rules pick who writes a new note.
+	access: {
+		read: allow.public,
+		create: hasRole('writer'),
+		update: allow.public,
+		delete: allow.public,
+	},
+})
+```
+
+```ts
+expect(await request(create, {}, grace.token)).toMatchObject(
+	refused('ACCESS_DENIED'),
+)
+expect(await request(create, {}, ada.token)).toMatchObject({
+	data: { createNote: { title: 'Plans' } },
+})
+```
+
+`hasRole('admin', 'editor')` lets through a user who has either role. It is
+`false` for a visitor, and for Master, who needs no role. In a function or a
+hook, `hasRole(caller, 'writer')` answers the same question as a boolean.
+
+## Inherit roles
+
+A role's `inherits` lists the roles it includes: a member of `editor`, which
+inherits `writer`, is a writer too. `inheritedBy` is the other side.
+
+```ts
+// An editor is a writer too, and Bob is an editor.
+const writer = await Role.findUniqueOrThrow(
+	{ where: { name: 'writer' } },
+	{ as: master },
+)
+await Role.create(
+	{
+		data: {
+			name: 'editor',
+			members: members(bob),
+			inherits: { connect: [{ id: writer.id }] },
+		},
+	},
+	{ as: master },
+)
+expect(await request(create, {}, bob.token)).toMatchObject({
+	data: { createNote: { title: 'Plans' } },
+})
+expect(await request('mutation { myRoles }', {}, bob.token)).toEqual({
+	data: { myRoles: ['editor', 'writer'] },
+})
+```
+
+`rolesOf(caller)` lists the caller's roles, inherited ones included, each
+`{ id, name }`; the `myRoles` function above returns their names:
+
+```ts
+// The caller's roles, inherited ones included, read once per request.
+export const myRoles = defineFunction({
+	name: 'myRoles',
+	output: z.array(z.string()),
+	run: ({ caller }) => rolesOf(caller).map(({ name }) => name),
+}).with({ access: isAuthenticated })
+```
+
+The plugin reads a user's roles once per request, before any rule runs, so
+a rule asking for a role runs no query. A role given during a request
+counts from the next one.
+
+## Reference
+
+### `defineRole(definition)`
+
+| Key       | Type               | Effect                                         |
+| --------- | ------------------ | ---------------------------------------------- |
+| `name`    | string             | The model's name, as `'Role'`.                 |
+| `members` | `() => User`       | The user model, which the members are rows of. |
+| `fields`  | `(f) => ({ ... })` | The role's own fields, as in `defineModel`.    |
+| `use`     | plugin uses        | The model's plugins, as `[graphql()]`.         |
+| `indexes` | index list         | As in `defineModel`.                           |
+| `dbName`  | string             | The stored table's or collection's name.       |
+
+It adds the fields:
+
+| Field         | Type                     | Effect                           |
+| ------------- | ------------------------ | -------------------------------- |
+| `name`        | `string`, unique         | The name rules ask for.          |
+| `members`     | `many` of the user model | The users who have the role.     |
+| `inherits`    | `many` of the role model | The roles a member has too.      |
+| `inheritedBy` | `many` of the role model | The roles that inherit this one. |
+
+`.with` takes the same keys as a model's, as `access`. An application has
+one role model.
+
+### `rolesPlugin()`
+
+It takes no option and must be in plugins when a model is declared with
+`defineRole`. For each signed-in user, it reads the roles once per request,
+following `inherits` five levels per query, as deep as they go; a cycle
+ends where it loops.
+
+### Functions
+
+| Function                    | Returns          | Effect                                                                                     |
+| --------------------------- | ---------------- | ------------------------------------------------------------------------------------------ |
+| `hasRole(...names)`         | a rule           | The caller has one of the roles, inherited ones included; `false` for a visitor or Master. |
+| `hasRole(caller, ...names)` | `boolean`        | The same, for a caller in a function or a hook.                                            |
+| `rolesOf(caller)`           | `{ id, name }[]` | The caller's roles, inherited ones included; `[]` for a visitor or Master.                 |
+
+### Errors
+
+At start:
+
+- An application without a role model: `rolesPlugin() needs a role model:
+declare it with defineRole.`
+- Two role models: `models lists two models defineRole returned: an
+application has one role model.`
+- `members` that is not a function: `defineRole(Role): members is () => the
+user model.`
+- A field of its own named `name`, `members`, `inherits` or `inheritedBy`:
+  `defineRole(Role): inherits is a field defineRole adds.`
+
+When a rule runs:
+
+- `hasRole` for a user, without `rolesPlugin()`: `hasRole reads the roles
+rolesPlugin() gives a caller: add rolesPlugin() to plugins.`
+- `hasRole()` without a name: `hasRole takes a role name.`

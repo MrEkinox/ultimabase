@@ -1,5 +1,34 @@
 # @ultimabase/files
 
+## 0.3.0
+
+### Minor Changes
+
+- 935c507: `filesPlugin({ maxSize })` is the largest file of every file field that sets no `maxSize`, 50 MB by default; a field's own `maxSize` may be larger or smaller (D-152).
+
+### Patch Changes
+
+- Updated dependencies [41cfff6]
+- Updated dependencies [7530d07]
+- Updated dependencies [6e8ebf6]
+- Updated dependencies [760560a]
+- Updated dependencies [21b52bc]
+- Updated dependencies [134d951]
+- Updated dependencies [1195207]
+- Updated dependencies [bc4d6de]
+- Updated dependencies [9cd2dd4]
+- Updated dependencies [f33c16f]
+- Updated dependencies [b06627c]
+- Updated dependencies [8ce42f6]
+- Updated dependencies [b1bc387]
+- Updated dependencies [353c2bf]
+- Updated dependencies [2eb7b9d]
+- Updated dependencies [a7588c3]
+- Updated dependencies [aaf123c]
+- Updated dependencies [714d3bb]
+  - ultimabase@0.3.0
+  - @ultimabase/http@0.3.0
+
 ## 0.2.0
 
 ### Patch Changes

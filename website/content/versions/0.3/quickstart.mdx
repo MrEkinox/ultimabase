@@ -1,0 +1,144 @@
+---
+title: Quickstart
+description: Create an application, run it, query it over GraphQL and test it.
+---
+
+You need Node 24.7 or later: Node runs the TypeScript as it is written, with no
+build step.
+
+## Create the application
+
+```npm
+npm create ultimabase@latest my-app
+cd my-app
+npm install
+```
+
+The starter prints the next commands for the manager that ran it: npm, pnpm
+or yarn. It refuses a directory that is not empty, and a name npm cannot
+use for a package.
+
+## Run it
+
+```npm
+npm run dev
+```
+
+The application listens on `http://localhost:3000`, GraphQL on `/graphql`,
+and restarts when a file changes. `PORT` sets another port. Open
+`http://localhost:3000/graphql` in a browser for GraphiQL, or create a post
+and list the posts from a terminal:
+
+```bash
+curl http://localhost:3000/graphql -H 'content-type: application/json' \
+  -d '{"query":"mutation { createPost(data: { title: \"Hello\" }) { id title } }"}'
+curl http://localhost:3000/graphql -H 'content-type: application/json' \
+  -d '{"query":"{ posts { edges { node { title } } } }"}'
+```
+
+The database is `memory()`: it starts empty at each start. `npm start`
+starts the application in production, as a host does; see
+[Deploy](/docs/next/deploy).
+
+## What the starter wrote
+
+The model: a table, its fields, and who may read and write it. Its rule,
+`allow.public`, lets anyone write, which suits a first try only: an
+application's rules open what its clients may do, as in
+[Access rules](/docs/next/access).
+
+```ts
+// The application's models: each one a table, its fields and who may
+// read and write it.
+import { allow, defineModel } from 'ultimabase'
+
+export const Post = defineModel({
+	name: 'Post',
+	fields: (f) => ({
+		title: f.string(),
+	}),
+	// Anyone may read and write posts; see `allow` for the other rules.
+}).with({ access: allow.public })
+```
+
+The application: its database, its plugins and its models.
+
+```ts
+// The application: its database, its plugins and its models.
+import { graphqlPlugin } from '@ultimabase/graphql'
+import { httpPlugin } from '@ultimabase/http'
+import { defineApp, memory } from 'ultimabase'
+import { Post } from './models.ts'
+
+export const app = defineApp({
+	// For PostgreSQL: postgres({ url: process.env['DATABASE_URL'] }) from @ultimabase/postgres.
+	database: memory(),
+	plugins: [
+		httpPlugin(),
+		graphqlPlugin(),
+		// For REST too: restPlugin() from @ultimabase/rest.
+	],
+	models: [Post],
+})
+```
+
+The file the `dev` and `start` scripts read, which names the application:
+
+```ts
+// What `ultimabase dev` and `ultimabase start` run: the application.
+export { app as default } from './src/app.ts'
+```
+
+Node strips the types and runs what is left, so the code is erasable
+TypeScript, which the starter's `tsconfig.json` checks with
+`erasableSyntaxOnly`. `tsc` and Node both refuse `enum` and `const enum`, a
+`namespace` that holds values, a constructor's parameter properties and
+`import x = require()`. Instead of an enum, a field takes `f.enumOf([...])`,
+or `defineEnum` when several fields share the values; a function's input or
+output takes its schema's enum, as Zod's `z.enum([...])`, whose `.enum`
+gives each value by key; other code takes an object `as const`, as
+`const Status = { Draft: 'draft', Published: 'published' } as const`, whose
+`Status.Draft` is typed `'draft'`. See Node's
+[type stripping](https://nodejs.org/api/typescript.html#type-stripping).
+
+## Test it
+
+```npm
+npm test
+```
+
+Each test file gets the application on a new in-memory database and a free
+port:
+
+```ts
+// Each test runs the application on a new in-memory database and a free port.
+import { testApplication } from '@ultimabase/testing'
+import { master } from 'ultimabase'
+import { expect, it } from 'vitest'
+import { app } from './app.ts'
+import { Post } from './models.ts'
+
+const running = testApplication(app)
+
+it('lists the posts over GraphQL', async () => {
+	await Post.create({ data: { title: 'Hello' } }, { as: master })
+	const response = await fetch(`${running.url}/graphql`, {
+		method: 'POST',
+		headers: { 'content-type': 'application/json' },
+		body: JSON.stringify({ query: '{ posts { edges { node { title } } } }' }),
+	})
+	expect(await response.json()).toEqual({
+		data: { posts: { edges: [{ node: { title: 'Hello' } }] } },
+	})
+})
+```
+
+## Next
+
+- [An application's files](/docs/next/application) explains each file and
+  where new code goes.
+- [Models and fields](/docs/next/models) adds fields and models;
+  [Relations](/docs/next/relations) links them.
+- [Access rules](/docs/next/access) replaces `allow.public` with real rules.
+- [PostgreSQL](/docs/next/postgres) replaces `memory()` with a database that
+  keeps its rows.
