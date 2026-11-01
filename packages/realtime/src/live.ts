@@ -20,7 +20,7 @@ import type { Reach } from './reach.ts'
 import { reachOf } from './reach.ts'
 import { finderOf, Loader, page, pass } from './reads.ts'
 import type { LiveMessage } from './messages.ts'
-import type { Entry } from './window.ts'
+import type { Keys } from './window.ts'
 import { Window } from './window.ts'
 import { Tracking } from './tracking.ts'
 import { VirtualReads } from './virtuals.ts'
@@ -151,9 +151,8 @@ export class Live {
 		}
 	}
 
-	#entry(row: Row): Entry {
-		const keys = sortKeys(this.#spec.model, row, this.#plan.orderBy)
-		return { id: row.id, keys }
+	#entry(row: Row): Keys {
+		return sortKeys(this.#spec.model, row, this.#plan.orderBy)
 	}
 
 	/**
@@ -164,7 +163,7 @@ export class Live {
 	async #after(take: number, loader?: Loader): Promise<readonly Row[]> {
 		const { model } = this.#spec
 		const { where, rights, orderBy } = this.#plan
-		const last = this.#window.entries.at(-1)?.id
+		const last = this.#window.last()
 		if (loader !== undefined && inMemory(model, rights)) {
 			const rows = await loader.after(model, this.#plan, last, take)
 			const kept = rows.filter((row) => matches(model, row, rights))
@@ -270,7 +269,7 @@ export class Live {
 		const { nodes } = await this.#settle(new Set(), new Set(), loader)
 		this.#count = totalCount ? await this.#counted() : undefined
 		this.#hasMore = this.#window.hasMore()
-		const shown = this.#window.shown().flatMap(({ id }) => nodes.get(id) ?? [])
+		const shown = this.#window.shown().flatMap((id) => nodes.get(id) ?? [])
 		if (this.#closed) return
 		if (row) {
 			send({ kind: 'row', revision: this.#next(), row: shown[0] ?? null })
@@ -359,8 +358,8 @@ export class Live {
 		if (this.#closed) return
 		if (row) {
 			if (moves.removed.length + moves.placed.length === 0) return
-			const [entry] = this.#window.shown()
-			const shown = entry === undefined ? null : (nodes.get(entry.id) ?? null)
+			const [id] = this.#window.shown()
+			const shown = id === undefined ? null : (nodes.get(id) ?? null)
 			send({ kind: 'row', revision: this.#next(), row: shown })
 			return
 		}
