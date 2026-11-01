@@ -1,11 +1,13 @@
 // A live list's window (D-154): the first rows of its order, each kept as
 // its id and sort keys, never as the row it shows, and one row more, which
-// says whether rows follow without a read. A row is placed by a binary
-// search; one placed after the last row, when rows may follow, is outside.
+// says whether rows follow without a read. A row is placed and found by a
+// binary search on its keys, which end with its id; one placed after the
+// last row, when rows may follow, is outside.
 // It notes the rows it changes since a mark, so what changed costs what was
 // changed, not a pass over it.
 import type { Order } from 'ultimabase'
 import { compareKeys } from 'ultimabase/internal'
+import type { Ids } from './affected.ts'
 
 export type Entry = { readonly id: string; readonly keys: readonly unknown[] }
 
@@ -21,7 +23,8 @@ export type Moves = {
 
 export class Window {
 	readonly #entries: Entry[] = []
-	readonly #ids = new Set<string>()
+	/** Each entry's keys by id: the ids, and where a binary search finds it. */
+	readonly #keys = new Map<string, readonly unknown[]>()
 	/** Rows may follow the last entry. */
 	rest = false
 	first: number
@@ -61,8 +64,22 @@ export class Window {
 	}
 
 	/** The ids of the entries, kept as they change. */
-	ids(): ReadonlySet<string> {
-		return this.#ids
+	ids(): Ids {
+		return this.#keys
+	}
+
+	/** Where `keys` is or would go, the order being total. */
+	#index(keys: readonly unknown[]): number {
+		const entries = this.#entries
+		let low = 0
+		let high = entries.length
+		while (low < high) {
+			const middle = (low + high) >> 1
+			const at = entries[middle]?.keys ?? []
+			if (compareKeys(at, keys, this.#orderBy) < 0) low = middle + 1
+			else high = middle
+		}
+		return low
 	}
 
 	/** How many rows a read after the last entry must bring. */
@@ -73,18 +90,19 @@ export class Window {
 	/** Adds the rows read after the last entry. */
 	fill(entries: readonly Entry[], rest: boolean): void {
 		this.#entries.push(...entries)
-		for (const { id } of entries) {
+		for (const { id, keys } of entries) {
 			this.#note(id, undefined)
-			this.#ids.add(id)
+			this.#keys.set(id, keys)
 		}
 		this.rest = rest
 	}
 
 	remove(id: string): boolean {
-		if (!this.#ids.delete(id)) return false
-		const at = this.#entries.findIndex((entry) => entry.id === id)
-		this.#note(id, this.#entries[at]?.keys)
-		this.#entries.splice(at, 1)
+		const keys = this.#keys.get(id)
+		if (keys === undefined) return false
+		this.#keys.delete(id)
+		this.#note(id, keys)
+		this.#entries.splice(this.#index(keys), 1)
 		return true
 	}
 
@@ -92,22 +110,15 @@ export class Window {
 	place(entry: Entry): void {
 		this.remove(entry.id)
 		const entries = this.#entries
-		let low = 0
-		let high = entries.length
-		while (low < high) {
-			const middle = (low + high) >> 1
-			const keys = entries[middle]?.keys ?? []
-			if (compareKeys(keys, entry.keys, this.#orderBy) < 0) low = middle + 1
-			else high = middle
-		}
+		const low = this.#index(entry.keys)
 		if (low === entries.length && this.rest) return
 		this.#note(entry.id, undefined)
 		entries.splice(low, 0, entry)
-		this.#ids.add(entry.id)
+		this.#keys.set(entry.id, entry.keys)
 		const last = entries.length > this.first + 1 ? entries.pop() : undefined
 		if (last !== undefined) {
 			this.#note(last.id, last.keys)
-			this.#ids.delete(last.id)
+			this.#keys.delete(last.id)
 			this.rest = true
 		}
 	}
@@ -130,22 +141,22 @@ export class Window {
 		const extra = entries[this.first]?.id
 		const was = (id: string): boolean =>
 			id !== this.#extra &&
-			(notes.has(id) ? notes.get(id) !== undefined : this.#ids.has(id))
-		const shown = (id: string): boolean => id !== extra && this.#ids.has(id)
+			(notes.has(id) ? notes.get(id) !== undefined : this.#keys.has(id))
+		const shown = (id: string): boolean => id !== extra && this.#keys.has(id)
 		const ids = [
 			...new Set([...notes.keys(), ...again, this.#extra, extra]),
 		].filter((id) => id !== undefined)
 		const removed = ids.filter((id) => was(id) && !shown(id))
 		const placed = ids.flatMap((id) => {
-			if (!shown(id)) return []
-			const at = entries.findIndex((entry) => entry.id === id)
+			const keys = this.#keys.get(id)
+			if (keys === undefined || !shown(id)) return []
+			const at = this.#index(keys)
 			const old = notes.get(id)
 			// The rows whose keys stayed keep their order among themselves.
 			const still =
 				was(id) &&
 				!again.has(id) &&
-				(old === undefined ||
-					compareKeys(old, entries[at]?.keys ?? [], this.#orderBy) === 0)
+				(old === undefined || compareKeys(old, keys, this.#orderBy) === 0)
 			return still ? [] : [at]
 		})
 		return { removed, placed: placed.toSorted((a, b) => a - b).map(after) }

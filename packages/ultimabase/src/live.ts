@@ -196,7 +196,8 @@ export async function liveReader(
 	return async (ids, rows) => {
 		if (ids.length === 0) return []
 		const root = { ...read, model, where: and({ id: { in: [...ids] } }, rights) }
-		return app.work.run(async () =>
+		// No async wrapper: a flush makes this call for each subscriber.
+		return app.work.run(() =>
 			reading(app, async (store) => {
 				const found =
 					rows !== undefined && local

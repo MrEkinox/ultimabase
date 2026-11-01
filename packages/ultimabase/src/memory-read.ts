@@ -10,7 +10,7 @@ import type {
 	Step,
 } from './adapter.ts'
 import type { Truth } from './memory-conditions.ts'
-import { and, isFilters, not, or, scalar } from './memory-conditions.ts'
+import { and, both, either, isFilters, not, scalar } from './memory-conditions.ts'
 import { compareKeys, copy, sortable } from './memory-values.ts'
 import { relevance, searches } from './memory-search.ts'
 import { isObject } from './query-values.ts'
@@ -96,23 +96,30 @@ export class Reader {
 
 	matches(model: string, row: StoredRow, filter: Filter | undefined): Truth {
 		if (filter === undefined) return true
-		const truths: Truth[] = []
-		for (const [key, value] of Object.entries(filter)) {
+		// Folded without lists: a live flush tests each subscriber's rows.
+		let all: Truth = true
+		for (const key in filter) {
+			const value = filter[key]
 			if (value === undefined) continue
 			if (key === 'AND' || key === 'OR' || key === 'NOT') {
-				const parts = (filter[key] ?? []).map((part) =>
-					this.matches(model, row, part),
-				)
-				if (key === 'AND') truths.push(and(parts))
-				else if (key === 'OR') truths.push(or(parts))
-				else truths.push(and(parts.map(not)))
+				let parts: Truth = key !== 'OR'
+				for (const part of filter[key] ?? []) {
+					const truth = this.matches(model, row, part)
+					parts =
+						key === 'AND'
+							? both(parts, truth)
+							: key === 'OR'
+								? either(parts, truth)
+								: both(parts, not(truth))
+				}
+				all = both(all, parts)
 			} else if (isFilters(value)) {
 				throw new Error(`${model}.${key} takes a condition, not a list.`)
 			} else {
-				truths.push(this.condition(model, row, key, value))
+				all = both(all, this.condition(model, row, key, value))
 			}
 		}
-		return and(truths)
+		return all
 	}
 
 	private condition(

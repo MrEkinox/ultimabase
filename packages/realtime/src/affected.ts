@@ -32,10 +32,17 @@ export type Tracked = ReadonlyMap<
 	ReadonlyMap<string, ReadonlySet<string>>
 >
 
+/** The window's ids, a set or a map by id. */
+export type Ids = {
+	readonly size: number
+	has: (id: string) => boolean
+	keys: () => Iterable<string>
+}
+
 export type Facing = {
 	readonly model: string
 	readonly reach: Reach
-	readonly window: ReadonlySet<string>
+	readonly window: Ids
 	readonly tracked: Tracked
 	readonly find: Finder
 }
@@ -81,10 +88,10 @@ export async function affected(
 			(step.keyOnTarget && touched(changes, new Set([step.inverse])))
 		if (!lost) continue
 		if (level.negative) return 'resync'
-		for (const id of window) candidates.add(id)
+		for (const id of window.keys()) candidates.add(id)
 	}
 	const again = await shown(facing, batch)
-	for (const id of again === 'all' ? window : again) resend.add(id)
+	for (const id of again === 'all' ? window.keys() : again) resend.add(id)
 	return { candidates, deleted, beyond, resend }
 }
 
@@ -110,7 +117,7 @@ async function shown(
 		}
 		const ids = [...listed(changes.inserts), ...updated]
 		if (ids.length === 0 || window.size === 0) continue
-		for (const id of await find(relation.steps, ids, [...window])) {
+		for (const id of await find(relation.steps, ids, [...window.keys()])) {
 			resend.add(id)
 		}
 	}

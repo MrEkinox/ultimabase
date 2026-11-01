@@ -19,7 +19,7 @@ import type { Batch } from './changes.ts'
 import type { Reach } from './reach.ts'
 import { reachOf } from './reach.ts'
 import type { Loader } from './reads.ts'
-import { finderOf, pass } from './reads.ts'
+import { finderOf, page, pass } from './reads.ts'
 import type { LiveMessage } from './messages.ts'
 import type { Entry } from './window.ts'
 import { Window } from './window.ts'
@@ -83,7 +83,7 @@ export class Live {
 
 	/** Follows `batch`, or reads the window again when changes were missed. */
 	async apply(batch: Batch, loader: Loader, missed: boolean): Promise<void> {
-		const [, settled] = this.#enqueue(async () =>
+		const [, settled] = this.#enqueue(() =>
 			missed ? this.#reset() : this.#apply(batch, loader),
 		)
 		return settled
@@ -128,11 +128,10 @@ export class Live {
 		this.#virtuals.clear()
 	}
 
+	/** Queues `task`; no async wrapper, as each flush queues one per read. */
 	#enqueue(task: () => Promise<void>): readonly [Promise<void>, Promise<void>] {
-		const run = this.#queue.then(async () =>
-			this.#closed ? undefined : task(),
-		)
-		const settled = run.catch(async (error: unknown) => this.#recover(error))
+		const run = this.#queue.then(() => (this.#closed ? undefined : task()))
+		const settled = run.catch((error: unknown) => this.#recover(error))
 		this.#queue = settled
 		return [run, settled]
 	}
@@ -165,24 +164,16 @@ export class Live {
 	 */
 	async #after(take: number, loader?: Loader): Promise<readonly Row[]> {
 		const { model } = this.#spec
-		const { where, filter, rights, orderBy } = this.#plan
-		const last = this.#window.entries.at(-1)
-		const page = {
-			orderBy,
-			...(last && { cursor: { id: { equals: last.id } }, skip: 1 }),
-			take,
-		}
+		const { where, rights, orderBy } = this.#plan
+		const last = this.#window.entries.at(-1)?.id
 		if (loader !== undefined && inMemory(model, rights)) {
-			const rows = await loader.after(model, {
-				...(filter && { where: filter }),
-				...page,
-			})
+			const rows = await loader.after(model, this.#plan, last, take)
 			const kept = rows.filter((row) => matches(model, row, rights))
 			if (kept.length >= take || rows.length < take) return kept.slice(0, take)
 		}
 		return storedRows(model, {
 			...(where && { where }),
-			...page,
+			...page(orderBy, last, take),
 			fields: orderBy.map(({ field }) => field),
 		})
 	}
@@ -215,7 +206,7 @@ export class Live {
 		const rows = loader && (await loader.load(model, ids))
 		this.#reader ??= await liveReader(model, shape, this.caller)
 		const reader = this.#reader
-		const { result: found, reads } = await recordingVirtuals(async () =>
+		const { result: found, reads } = await recordingVirtuals(() =>
 			reader(ids, rows),
 		)
 		this.#virtuals.keep(found, reads)

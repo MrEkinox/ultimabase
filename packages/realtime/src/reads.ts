@@ -1,7 +1,8 @@
 // The reads a flush makes (D-154): the root rows a relation's rows reach,
 // a filter checked on a few rows, in memory when it reads the row alone,
 // and each changed row loaded once for every live read that needs it.
-import type { Filter, Nested, Row } from 'ultimabase'
+import type { Filter, Nested, Order, Row } from 'ultimabase'
+import type { LivePlan } from 'ultimabase/internal'
 import { inMemory, matches, storedRows } from 'ultimabase/internal'
 import type { Finder } from './affected.ts'
 import type { Step } from './reach.ts'
@@ -28,6 +29,20 @@ export const finderOf =
 		return rows.map(({ id }) => id)
 	}
 
+/** The rows after `last` in `orderBy`, `take` of them. */
+export const page = (
+	orderBy: readonly Order[],
+	last: string | undefined,
+	take: number,
+): Nested => ({
+	orderBy,
+	...(last !== undefined && { cursor: { id: { equals: last } }, skip: 1 }),
+	take,
+})
+
+/** Each plan's pages, keyed once rather than on each read. */
+const pages = new WeakMap<LivePlan, string>()
+
 /**
  * Each changed row, read once per flush whatever reads it, and each page
  * of rows after a window's last, once for the live reads that share it.
@@ -43,20 +58,34 @@ export class Loader {
 		return known
 	}
 
-	/** The stored rows `read` finds, whose rows `load` then gives. */
-	async after(model: string, read: Nested): Promise<readonly Row[]> {
-		const key = JSON.stringify([model, read])
-		let page = this.#pages.get(key)
-		if (page === undefined) {
-			page = storedRows(model, read)
-			this.#pages.set(key, page)
-			const rows = await page
+	/**
+	 * The stored rows of `plan`'s own filter after `last`, whose rows `load`
+	 * then gives.
+	 */
+	async after(
+		model: string,
+		plan: LivePlan,
+		last: string | undefined,
+		take: number,
+	): Promise<readonly Row[]> {
+		const { filter, orderBy } = plan
+		const base = pages.get(plan) ?? JSON.stringify([model, filter, orderBy])
+		pages.set(plan, base)
+		const key = `${base} ${last} ${take}`
+		let found = this.#pages.get(key)
+		if (found === undefined) {
+			found = storedRows(model, {
+				...(filter && { where: filter }),
+				...page(orderBy, last, take),
+			})
+			this.#pages.set(key, found)
+			const rows = await found
 			const known = this.#known(model)
 			for (const row of rows) {
 				if (!known.has(row.id)) known.set(row.id, Promise.resolve(row))
 			}
 		}
-		return page
+		return found
 	}
 
 	/** The stored rows of `model` in `ids`; a deleted row is missing. */
