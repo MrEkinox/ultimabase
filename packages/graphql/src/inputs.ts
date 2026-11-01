@@ -153,12 +153,17 @@ const relationFilter = (
 				name,
 				fields: () => {
 					const type = whereInput(registry, field.target)
-					return Object.fromEntries(
+					const fields: GraphQLInputFieldConfigMap = Object.fromEntries(
 						(one ? ['is', 'isNot'] : ['some', 'every', 'none']).map((key) => [
 							key,
 							{ type },
 						]),
 					)
+					// The caller's user, read by the kernel (D-189).
+					if (registry.entry(field.target).exposed.user) {
+						fields['viewer'] = { type: GraphQLBoolean }
+					}
+					return fields
 				},
 			}),
 	)

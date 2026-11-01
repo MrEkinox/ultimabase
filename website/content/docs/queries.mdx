@@ -159,8 +159,8 @@ The second argument is `{ as }`: `master`, a function's or a hook's
 | number, dateTime, decimal, date | `lt`, `lte`, `gt`, `gte`                                                                      |
 | list                            | `has`, `hasSome`, `hasEvery`, `isEmpty`                                                       |
 | json                            | `equals` of the whole value, or `path` with `equals`, `lt`… `stringContains`, `arrayContains` |
-| `one` relation                  | `is`, `isNot`                                                                                 |
-| `many` relation                 | `some`, `every`, `none`                                                                       |
+| `one` relation                  | `is`, `isNot`; `viewer` to the user model                                                     |
+| `many` relation                 | `some`, `every`, `none`; `viewer` to the user model                                           |
 | the row                         | `AND`, `OR`, `NOT`, `_search`                                                                 |
 
 `null` never compares: `{ stock: { lt: 10 } }` and its `NOT` both leave out a

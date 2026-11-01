@@ -39,6 +39,8 @@ export type ModelInfo = {
 	readonly plugins: readonly PluginUse[]
 	/** The plugin whose own model it is, if one (D-110). */
 	readonly owner: string | undefined
+	/** Whether a plugin of its `use` makes it the user model (D-189). */
+	readonly users: boolean
 	/** Its fields computed on read, which the adapter never sees (D-151). */
 	readonly virtuals: ReadonlyMap<string, VirtualInfo>
 }
@@ -342,13 +344,15 @@ export function resolve(
 		for (const index of definition.indexes) {
 			if (index.unique === true) uniques.push(index.fields)
 		}
+		const uses = installedUses(definition, plugins)
 		const info: ModelInfo = {
 			name: model,
 			definition,
 			fields,
 			uniques,
-			plugins: installedUses(definition, plugins),
+			plugins: uses,
 			owner: owners.get(model),
+			users: uses.some((use) => use.code.userModel),
 			virtuals: virtualsOf(model, definition, names),
 		}
 		checkSearch(info)
@@ -374,6 +378,12 @@ export function resolve(
 				})),
 			],
 		})
+	}
+	const users = [...models.values()].filter((info) => info.users)
+	if (users.length > 1) {
+		fail(
+			`${users.map((info) => info.name).join(' and ')} each use a plugin of the user model; one model does.`,
+		)
 	}
 	for (const [value, name] of names) {
 		const info = models.get(name)

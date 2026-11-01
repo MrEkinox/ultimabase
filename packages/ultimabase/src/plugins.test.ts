@@ -580,6 +580,9 @@ describe('definePlugin', () => {
 		expect(() => loose({ name: 'p', commands: {} })).toThrow(
 			new TypeError('p.commands is a function.'),
 		)
+		expect(() => loose({ name: 'p', userModel: false })).toThrow(
+			new TypeError('p.userModel is true.'),
+		)
 	})
 })
 

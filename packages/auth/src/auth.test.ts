@@ -633,7 +633,7 @@ describe('the user model', () => {
 			logger: listening([]),
 		})
 		await expect(app.start()).rejects.toThrow(
-			'models lists two models defineUser returned: an application has one user model.',
+			'User and Member each use a plugin of the user model; one model does.',
 		)
 	})
 })

@@ -1,5 +1,5 @@
 // The inputs of the document (D-144), named and typed as GraphQL's (D-129):
-// each field's value, the filters, `where`, `orderBy`, the unique target
+// each field's value, the filters, `where`, the unique target
 // in REST's flat form, and the data a write takes.
 import { jsonSchemaOf, readable } from '@ultimabase/http/internal'
 import type { SchemaField } from 'ultimabase'
@@ -28,7 +28,7 @@ const upper = (name: string): string =>
 	name.charAt(0).toUpperCase() + name.slice(1)
 
 /** Whether a model has fields its `_search` matches (D-148). */
-const searched = (fields: readonly SchemaField[]): boolean =>
+export const searched = (fields: readonly SchemaField[]): boolean =>
 	fields.some((field) => field.kind === 'scalar' && field.search === true)
 
 const id: Schema = { type: 'string' }
@@ -238,41 +238,14 @@ function relationFilter(doc: Doc, field: Relation): Schema {
 	return doc.components.ref(name, () => {
 		const where = whereOf(doc, field.target)
 		const keys = one ? ['is', 'isNot'] : ['some', 'every', 'none']
-		return objectOf(Object.fromEntries(keys.map((key) => [key, where])))
-	})
-}
-
-/** `PostOrderByInput`, an object or a list of them (D-94, D-134). */
-export function orderByOf(doc: Doc, model: string): Schema {
-	return doc.components.ref(`${model}OrderByInput`, () => {
-		const order = doc.components.ref('SortOrder', () => ({
-			type: 'string',
-			enum: ['asc', 'desc'],
-		}))
-		const entry = entryOf(doc.api, model)
-		const fields: { [name: string]: Schema } = {
-			id: order,
-			createdAt: order,
-			updatedAt: order,
+		const filters = Object.fromEntries(
+			keys.map((key): [string, Schema] => [key, where]),
+		)
+		// The caller's user, read by the kernel (D-189).
+		if (entryOf(doc.api, field.target).exposed.user) {
+			filters['viewer'] = { type: 'boolean' }
 		}
-		// The kernel refuses it in a relation's: a read ranks by its own search.
-		if (searched(readable(entry))) fields['_relevance'] = order
-		for (const field of readable(entry)) {
-			if (field.kind === 'one')
-				fields[field.name] = orderByOf(doc, field.target)
-			else if (field.kind === 'many') {
-				fields[field.name] = doc.components.ref('CountOrderByInput', () =>
-					objectOf({ _count: order }),
-				)
-			} else if (
-				field.type !== 'json' &&
-				!field.list &&
-				entry.exposed.fieldTypes[field.name] === undefined
-			) {
-				fields[field.name] = order
-			}
-		}
-		return objectOf(fields)
+		return objectOf(filters)
 	})
 }
 

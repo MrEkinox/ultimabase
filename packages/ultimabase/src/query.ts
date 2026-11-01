@@ -27,7 +27,7 @@ import type {
 	Groups,
 	SortOrder,
 } from './query-group.ts'
-import type { Identity } from './rules.ts'
+import type { Identity, ViewerFilter } from './rules.ts'
 import type { fieldType } from './symbols.ts'
 import type {
 	DefaultRow,
@@ -71,12 +71,12 @@ type FilterOf<X> =
 				? {
 						readonly is?: Where<TargetFields<TargetOf<X>>> | null | undefined
 						readonly isNot?: Where<TargetFields<TargetOf<X>>> | null | undefined
-					}
+					} & ViewerFilter<TargetOf<X>>
 				: {
 						readonly some?: Where<TargetFields<TargetOf<X>>> | undefined
 						readonly every?: Where<TargetFields<TargetOf<X>>> | undefined
 						readonly none?: Where<TargetFields<TargetOf<X>>> | undefined
-					}
+					} & ViewerFilter<TargetOf<X>>
 
 /** A plugin field type's stored field (D-122), `never` for a kernel one. */
 type StoredOf<X> = X extends {

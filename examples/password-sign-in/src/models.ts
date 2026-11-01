@@ -46,16 +46,12 @@ export const Post = defineModel({
 	}),
 }).with({
 	access: {
-		// Everyone reads published posts; an author reads their drafts too.
-		read: ({ caller, where }) =>
-			caller.kind === 'user'
-				? where({
-						OR: [
-							{ published: { equals: true } },
-							{ author: { is: { id: { equals: caller.user.id } } } },
-						],
-					})
-				: where({ published: { equals: true } }),
+		// Everyone reads published posts; an author reads their drafts too:
+		// `viewer` is the signed-in user, and no one for a visitor.
+		read: ({ where }) =>
+			where({
+				OR: [{ published: { equals: true } }, { author: { viewer: true } }],
+			}),
 		// A post is written in its author's name only: the caller's own.
 		create: isOwner('author'),
 		update: isOwner('author'),
