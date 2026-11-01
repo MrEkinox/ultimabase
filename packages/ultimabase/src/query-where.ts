@@ -67,6 +67,8 @@ export type Scope = {
 		model: ModelInfo,
 		field: Extract<FieldInfo, { readonly kind: 'many' }>,
 	) => Filter | undefined
+	/** The caller's user id, which `viewer` reads (D-189). */
+	readonly viewer: string | undefined
 }
 
 /** `id`, `createdAt` and `updatedAt`, which every model has (D-22). */
@@ -200,6 +202,35 @@ function restricted(
 	return { [operator]: { AND: [readable, inner] } }
 }
 
+/**
+ * `viewer` as the operator and filter it stands for (D-189): the caller's
+ * user, or no row when the caller is no user.
+ */
+function viewerOperand(
+	model: ModelInfo,
+	field: Extract<FieldInfo, { readonly kind: 'one' | 'many' }>,
+	target: ModelInfo,
+	operand: unknown,
+	at: string,
+	viewer: string | undefined,
+): [string, unknown] {
+	if (!target.users) {
+		throw new InvalidQuery(
+			at,
+			`${at}: ${model.name}.${field.name} is no relation to the user model.`,
+		)
+	}
+	if (typeof operand !== 'boolean') {
+		throw new InvalidQuery(at, `${at} must be a boolean.`)
+	}
+	const one = field.kind === 'one'
+	const operator = operand ? (one ? 'is' : 'some') : one ? 'isNot' : 'none'
+	return [
+		operator,
+		viewer === undefined ? { OR: [] } : { id: { equals: viewer } },
+	]
+}
+
 function relationFilters(
 	models: Models,
 	model: ModelInfo,
@@ -216,8 +247,12 @@ function relationFilters(
 	const allowed =
 		field.kind === 'one' ? ['is', 'isNot'] : ['some', 'every', 'none']
 	const filters: Filter[] = []
-	for (const [operator, operand] of entries(value, path)) {
-		const at = `${path}.${operator}`
+	for (const [key, given] of entries(value, path)) {
+		const at = `${path}.${key}`
+		const [operator, operand] =
+			key === 'viewer'
+				? viewerOperand(model, field, target, given, at, scope?.viewer)
+				: [key, given]
 		if (!allowed.includes(operator)) throw unknownKey(at, model.name)
 		const inner =
 			operand === null && field.kind === 'one'

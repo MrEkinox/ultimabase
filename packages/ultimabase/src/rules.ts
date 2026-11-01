@@ -17,6 +17,13 @@ export type UserOf<R> = R extends {
 	? RecordOf<F>
 	: { readonly id: string }
 
+/** `viewer` on the filter of a relation to `Register`'s user model (D-189). */
+export type ViewerFilter<T> = T extends () => { readonly name: infer N }
+	? Register extends { readonly user: { readonly name: N } }
+		? { readonly viewer?: boolean | undefined }
+		: unknown
+	: unknown
+
 /**
  * The keys plugins add to a user caller, each plugin declaring its own
  * (D-121): `declare module 'ultimabase' { interface UserCallerKeys { ... } }`.

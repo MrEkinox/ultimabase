@@ -103,10 +103,13 @@ export class Relations {
 	>()
 	private readonly models: Models
 	private readonly caller: Caller
+	/** The caller's user id, which `viewer` reads (D-189). */
+	readonly viewer: string | undefined
 
 	constructor(models: Models, caller: Caller) {
 		this.models = models
 		this.caller = caller
+		this.viewer = caller.kind === 'user' ? caller.user.id : undefined
 	}
 
 	/** The rows of `model.field` its filter keeps; `undefined` for all. */
@@ -161,5 +164,6 @@ export function trusted(relations: Relations): Scope {
 		ruled: () => false,
 		readable: () => undefined,
 		related: (model, field) => relations.filter(model, field),
+		viewer: relations.viewer,
 	}
 }

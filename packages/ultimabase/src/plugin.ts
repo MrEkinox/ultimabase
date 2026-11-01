@@ -128,6 +128,8 @@ export interface ExposedModel<W = unknown> {
 	readonly with: W | undefined
 	/** Whether the model's `use` lists the plugin's entry. */
 	readonly used: boolean
+	/** Whether it is the user model, which `viewer` filters (D-189). */
+	readonly user: boolean
 	readonly queries: ModelQueries
 	/** `upsert`, which also says whether it created the row (D-142). */
 	readonly upsert: (
@@ -272,6 +274,8 @@ export type PluginDefinition<T extends PluginTypes> = {
 	readonly name: T['name']
 	/** Its package; a plugin of the application has none (D-172). */
 	readonly manifest?: Manifest
+	/** The model that lists it in its `use` is the user model (D-189). */
+	readonly userModel?: true
 	/** The hooks it runs on each model that uses it. */
 	readonly hooks?: PluginHooks<
 		Own<T>,

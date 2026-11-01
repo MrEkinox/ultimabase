@@ -104,6 +104,10 @@ export function pluginCode(definition: unknown): PluginCode {
 	}
 	const redirect = objectAt(definition, 'redirect', `${name}.redirect`)
 	const part = (key: string) => functionAt(definition, key, `${name}.${key}`)
+	const userModel = definition['userModel']
+	if (userModel !== undefined && userModel !== true) {
+		throw new TypeError(`${name}.userModel is true.`)
+	}
 	const models: unknown = definition['models'] ?? []
 	if (!isList(models)) {
 		throw new TypeError(`${name}.models is an array.`)
@@ -111,6 +115,7 @@ export function pluginCode(definition: unknown): PluginCode {
 	return Object.freeze({
 		name,
 		manifest: manifestOf(definition['manifest'], name),
+		userModel: userModel === true,
 		requires,
 		optional,
 		hooks: Object.freeze(hooks),

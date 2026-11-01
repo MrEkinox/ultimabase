@@ -80,6 +80,8 @@ export type ModelDefinition = {
 export type PluginCode = {
 	readonly name: string
 	readonly manifest: Manifest | undefined
+	/** The model that uses it is the user model (D-189). */
+	readonly userModel: boolean
 	readonly requires: readonly string[]
 	readonly optional: readonly string[]
 	readonly hooks: { readonly [hook: string]: Function | undefined }

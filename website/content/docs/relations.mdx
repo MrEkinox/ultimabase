@@ -392,13 +392,14 @@ the other side) and on a filtered relation.
 
 ### Filters
 
-| Filter  | On a `one` or a `many` | Matches the rows                                  |
-| ------- | ---------------------- | ------------------------------------------------- |
-| `is`    | `one`                  | whose related row matches, or is empty for `null` |
-| `isNot` | `one`                  | whose related row does not match                  |
-| `some`  | `many`                 | with at least one related row that matches        |
-| `every` | `many`                 | whose related rows all match, or with none        |
-| `none`  | `many`                 | with no related row that matches                  |
+| Filter   | On a `one` or a `many`  | Matches the rows                                                                      |
+| -------- | ----------------------- | ------------------------------------------------------------------------------------- |
+| `is`     | `one`                   | whose related row matches, or is empty for `null`                                     |
+| `isNot`  | `one`                   | whose related row does not match                                                      |
+| `some`   | `many`                  | with at least one related row that matches                                            |
+| `every`  | `many`                  | whose related rows all match, or with none                                            |
+| `none`   | `many`                  | with no related row that matches                                                      |
+| `viewer` | both, to the user model | that relate to the signed-in user, for `true` (see [Authentication](/docs/next/auth)) |
 
 ### Errors
 

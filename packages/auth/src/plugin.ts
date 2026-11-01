@@ -157,18 +157,14 @@ function closersOf(): readonly ((userId: string) => Promise<void>)[] {
 function usersOf(
 	models: readonly { readonly queries: Users['queries'] }[],
 ): Users {
-	const [first, second] = models.flatMap(({ queries }) => {
+	// The kernel refuses two user models (D-189).
+	const [first] = models.flatMap(({ queries }) => {
 		const output = userModels.get(queries)
 		return output === undefined ? [] : [{ queries, output }]
 	})
 	if (first === undefined) {
 		throw new Refused(
 			'authPlugin() needs a user model: declare it with defineUser.',
-		)
-	}
-	if (second !== undefined) {
-		throw new Refused(
-			'models lists two models defineUser returned: an application has one user model.',
 		)
 	}
 	return first
@@ -199,6 +195,8 @@ async function callerOf(
 const auth = definePlugin<Auth>({
 	name: 'auth',
 	manifest,
+	// The model of `defineUser` is the user model (D-189).
+	userModel: true,
 	requires: { http: httpPlugin },
 	models: [AuthSession, AuthAccount],
 	hooks: {

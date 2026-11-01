@@ -117,6 +117,35 @@ describe('the rules on posts', () => {
 		//#endregion
 	})
 
+	it('lists the signed-in user’s own posts with viewer', async () => {
+		const { ada, grace } = await written()
+		await request(create, {}, as(grace.token))
+		await Post.updateMany({ data: { published: true } }, { as: master })
+		//#region viewer
+		// No user id to send: the server reads the caller.
+		const mine = `{
+			posts(where: { author: { viewer: true } }) {
+				edges { node { author { name } } }
+			}
+		}`
+		expect(at(await request(mine, {}, as(ada.token)), 'data')).toEqual({
+			posts: { edges: [{ node: { author: { name: 'ada' } } }] },
+		})
+		// A visitor is no user: `viewer: true` holds for no post.
+		expect(at(await request(mine), 'data')).toEqual({ posts: { edges: [] } })
+		//#endregion
+		expect(at(await request(mine, {}, as(grace.token)), 'data')).toEqual({
+			posts: { edges: [{ node: { author: { name: 'grace' } } }] },
+		})
+		// `viewer` is on the relations to the user model only.
+		const wrong = User.count(
+			// @ts-expect-error -- posts relates to Post, not to the user model.
+			{ where: { posts: { viewer: true } } },
+			{ as: master },
+		)
+		await expect(wrong).rejects.toMatchObject({ code: 'INVALID_QUERY' })
+	})
+
 	it('shows names to signed-in users only', async () => {
 		//#region names
 		const ada = await signUp('ada')

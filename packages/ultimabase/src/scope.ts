@@ -29,12 +29,14 @@ export class QueryScope implements Scope {
 	/** `undefined` for Master, which skips access rules (D-48). */
 	readonly access: Access | undefined
 	private readonly relations: Relations
+	readonly viewer: string | undefined
 
 	constructor(models: Models, caller: Caller, access: Access | undefined) {
 		this.models = models
 		this.caller = caller
 		this.access = access
 		this.relations = access?.relations ?? new Relations(models, caller)
+		this.viewer = this.relations.viewer
 	}
 
 	check(model: ModelInfo, field: string, path: string, verb: Verb): void {

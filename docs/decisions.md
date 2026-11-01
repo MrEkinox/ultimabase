@@ -12454,6 +12454,90 @@ test.beforeEach(async () => {
 })
 ```
 
+## D-189: `viewer` filters a relation to the signed-in user
+
+Choice: completes D-20, D-62 and D-86.
+
+1. A filter of a relation to the user model takes `viewer: true` or
+   `viewer: false`. On a `one` relation, `true` holds when the related row
+   is the caller's user, `false` when it is another row or none. On a
+   `many` relation, `true` holds when one of the related rows is the
+   caller's user, `false` when none is.
+2. The kernel reads it with the caller, as it reads the rest of the filter:
+   `{ is: { id: { equals: caller.user.id } } }`, `isNot`, `some` and
+   `none`. Adapters and the realtime engine see only these operators. An
+   anonymous caller and Master are no user: `true` matches no row, `false`
+   every row.
+3. It works wherever a filter does: queries from code with `as`, access
+   rules' `where`, REST, GraphQL and live reads, which read their caller
+   again when it changes (D-178).
+4. `definePlugin` takes `userModel: true`: the model that lists such a
+   plugin in its `use` is the user model. auth declares it (D-62). Two such
+   models stop startup. Without one, every `viewer` fails, and `viewer` on
+   a relation to another model fails with `INVALID_QUERY`, naming the
+   field.
+5. Types: `viewer?: boolean` is on the filters of relations whose target
+   is `Register['user']`. Without that declaration, no filter has it in
+   TypeScript; REST and GraphQL still take it.
+6. GraphQL adds `viewer: Boolean` to the filter inputs of relations to the
+   user model, and to no other.
+7. `viewer` combines with the relation's other operators, all of which
+   hold: `owner: { viewer: false, is: { name: 'Ada' } }`.
+
+Why:
+
+- A client lists the rows of one of its user's roles per tab: owned
+  projects, projects shared with it. It had to load its own user first and
+  send its id in every filter, though the server knows the caller.
+- The kernel resolves the filter from the session, so a client cannot
+  name another user through it, and one filter serves every user.
+- A plugin flag keeps the kernel free of auth: any plugin that identifies
+  users as rows of a model can declare it.
+
+Rejected:
+
+- A sentinel in the id operators (`{ id: { equals: VIEWER } }`): it mixes
+  a value with an operator, and GraphQL cannot type it.
+- `isViewer` and `someIsViewer`: one name reads right on both kinds of
+  relation.
+- `viewer` on every relation: on another model it would always be false.
+- A `defineApp({ user })` option: it repeats `defineUser`, which auth
+  already knows.
+
+Example, before:
+
+```graphql
+query Owned($userId: ID!) {
+	projects(where: { owner: { is: { id: { equals: $userId } } } }) {
+		edges {
+			node {
+				name
+			}
+		}
+	}
+}
+```
+
+After: no variable, and the query runs before the client knows its user.
+
+```graphql
+query Owned {
+	projects(where: { owner: { viewer: true } }) {
+		edges {
+			node {
+				name
+			}
+		}
+	}
+}
+# Shared with me: where: { members: { viewer: true }, owner: { viewer: false } }
+```
+
+```ts
+// An access rule
+read: ({ where }) => where({ members: { viewer: true } }),
+```
+
 ## D-190: A json schema named as a GraphQL scalar
 
 Choice: completes D-109 and D-125.

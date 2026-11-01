@@ -10,13 +10,8 @@ import type { ExposedVirtual } from 'ultimabase'
 import type { Entry } from './entries.ts'
 import { entryOf, system } from './entries.ts'
 import type { Doc } from './openapi-inputs.ts'
-import {
-	dataOf,
-	orderByOf,
-	uniqueOf,
-	valueOf,
-	whereOf,
-} from './openapi-inputs.ts'
+import { dataOf, uniqueOf, valueOf, whereOf } from './openapi-inputs.ts'
+import { orderByOf } from './openapi-order.ts'
 import { outputOf } from './openapi-functions.ts'
 import type { Schema } from './openapi.ts'
 import {
