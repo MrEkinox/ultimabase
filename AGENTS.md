@@ -10,10 +10,6 @@ list its entries with `grep -n '^## D-' docs/decisions.md`, read the ones a
 change cites, and the entries named in their `Amended by` line.
 [docs/roadmap.md](docs/roadmap.md) tracks the current phase.
 
-The previous implementation is reference material, never a contract. Read it
-from the `codex-archive` tag (`git worktree add ../ultimadatabase-old codex-archive`);
-reuse an idea, a test or a known pitfall only when a decision calls for it.
-
 ## Working
 
 1. Inspect Git status and preserve unrelated changes. Never push, publish or
