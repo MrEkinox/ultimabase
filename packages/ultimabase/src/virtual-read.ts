@@ -8,10 +8,11 @@ import { restrict } from './query-args.ts'
 import type { Context } from './query-context.ts'
 import type { Computed, Hidden } from './query-project.ts'
 import { project, unseenVirtuals } from './query-project.ts'
-import { isObject, normalizeWhere } from './query-where.ts'
+import { isObject, modelOf, normalizeWhere } from './query-where.ts'
 import { planned } from './scope.ts'
 import type { Store } from './transaction.ts'
 import { checked } from './validation.ts'
+import { virtualRun } from './recorder.ts'
 
 type Row = { readonly [field: string]: unknown }
 
@@ -51,11 +52,13 @@ export async function computeVirtuals(
 	const unseen = new Map(
 		found.map((row) => [row, unseenVirtuals(shape, row, hidden)]),
 	)
+	const keys = await keysOf(store, shape, found)
 	for (const read of shape.virtuals.values()) {
 		const { name } = read.info
 		const shown = found.filter((row) => unseen.get(row)?.has(name) !== true)
 		if (shown.length === 0) continue
-		const values = await valuesOf(context, store, read, shown, hidden)
+		const keyed = shown.map((row) => ({ ...row, ...keys.get(row['id']) }))
+		const values = await valuesOf(context, store, read, keyed, hidden)
 		shown.forEach((row, index) => {
 			const known = computed.get(row) ?? new Map<string, unknown>()
 			known.set(name, values[index])
@@ -63,6 +66,32 @@ export async function computeVirtuals(
 		})
 	}
 	return computed
+}
+
+/**
+ * The stored keys the virtuals need of the rows whose included relation is
+ * `null`, which a row the caller cannot read also is (D-109), in one query.
+ */
+async function keysOf(
+	store: Store,
+	shape: Shape,
+	rows: readonly Row[],
+): Promise<ReadonlyMap<unknown, Row>> {
+	const { model } = shape
+	const needed = [...shape.virtuals.values()].flatMap(({ info }) => info.needs)
+	const included = [...shape.relations.keys()].filter(
+		(name) => needed.includes(name) && model.fields.get(name)?.kind === 'one',
+	)
+	const ids = rows
+		.filter((row) => included.some((name) => !isObject(row[name])))
+		.map((row) => row['id'])
+	if (ids.length === 0) return new Map()
+	const found = await store.find({
+		model: model.name,
+		where: { id: { in: ids } },
+		fields: ['id', ...included],
+	})
+	return new Map(found.map((row) => [row['id'], row]))
 }
 
 /** The value of `read` for each row, in order. */
@@ -87,16 +116,25 @@ async function valuesOf(
 		input = result.value
 	}
 	const { caller } = context
+	const model = modelOf(context.models, info.model)
+	// A needed `one` is its key, even when the query includes it (D-184).
+	const valueOf = (row: Row, need: string): unknown => {
+		const value = row[need] ?? null
+		if (model.fields.get(need)?.kind !== 'one') return value
+		return isObject(value) ? { id: value['id'] } : null
+	}
 	const records = rows.map((row) =>
 		Object.freeze(
-			Object.fromEntries(info.needs.map((need) => [need, row[need] ?? null])),
+			Object.fromEntries(info.needs.map((need) => [need, valueOf(row, need)])),
 		),
 	)
 	let values: readonly unknown[]
 	if (info.many) {
 		// Its queries are its own, not those of a `run` around it.
 		const result: unknown = await sent.exit(async () =>
-			info.run(Object.freeze({ caller, input, records })),
+			virtualRun(async () =>
+				info.run(Object.freeze({ caller, input, records })),
+			),
 		)
 		if (!Array.isArray(result) || result.length !== records.length) {
 			throw new TypeError(
@@ -107,9 +145,11 @@ async function valuesOf(
 	} else {
 		const calls = { count: 0 }
 		values = await sent.run(calls, async () =>
-			Promise.all(
-				records.map(async (record) =>
-					info.run(Object.freeze({ caller, input, record })),
+			virtualRun(async () =>
+				Promise.all(
+					records.map(async (record) =>
+						info.run(Object.freeze({ caller, input, record })),
+					),
 				),
 			),
 		)

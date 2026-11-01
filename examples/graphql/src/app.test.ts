@@ -367,12 +367,12 @@ describe('limits', () => {
 		expect(await message('{ posts(first: 21) { totalCount } }')).toBe(
 			'first is at most 20 on Post.',
 		)
-		// maxDepth: 8 levels, the leaf `name` included.
+		// maxDepth: 5 levels, the leaf `title` included; edges and node are none.
 		expect(
 			await message(
-				'{ people { edges { node { posts { edges { node { author { name } } } } } } } }',
+				'{ people { edges { node { posts { edges { node { author { posts { edges { node { title } } } } } } } } } } }',
 			),
-		).toBe('The document is nested 8 levels deep; the most is 6.')
+		).toBe('The document is nested 5 levels deep; the most is 4.')
 		// maxRows: 100 people and 20 posts of each.
 		const rows =
 			'{ people(first: 100) { edges { node { posts(first: 20) { edges { cursor } } } } } }'
@@ -382,6 +382,60 @@ describe('limits', () => {
 		// Master is not limited.
 		const key = { 'x-ultimabase-master-key': 'dev-master-key' }
 		expect(at(await graphql(rows, {}, key), 'errors')).toBeUndefined()
+		//#endregion
+	})
+
+	it('refuses a relation selected twice with different arguments', async () => {
+		//#region twice
+		const twice = await graphql(`
+			{
+				people {
+					edges {
+						node {
+							...Card
+						}
+					}
+				}
+			}
+			fragment Card on Person {
+				latest: posts(first: 1) {
+					edges {
+						node {
+							title
+						}
+					}
+				}
+				...Footer
+			}
+			fragment Footer on Person {
+				posts(first: 3) {
+					totalCount
+				}
+			}
+		`)
+		expect(at(twice, 'errors', '0', 'message')).toBe(
+			'posts is selected twice with different arguments, at people.edges.node.latest and people.edges.node.posts; read it once.',
+		)
+		// Once, with what both need: Card keeps the first post on the client.
+		const once = await graphql(`
+			{
+				people(first: 10) {
+					edges {
+						node {
+							posts(first: 3) {
+								totalCount
+								edges {
+									node {
+										title
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		`)
+		expect(at(once, 'errors')).toBeUndefined()
 		//#endregion
 	})
 })

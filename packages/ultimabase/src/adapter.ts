@@ -184,8 +184,8 @@ export type Nested = {
 	/** Negative: the rows before the cursor, or the last ones. */
 	readonly take?: number
 	/**
-	 * The system and scalar fields the rows return, `id` always; absent, every
-	 * field and each `one` key (D-136).
+	 * The system and scalar fields and the stored `one` keys the rows return,
+	 * `id` always; absent, every field and each `one` key (D-136, D-184).
 	 */
 	readonly fields?: readonly string[]
 	readonly include?: { readonly [field: string]: Nested }

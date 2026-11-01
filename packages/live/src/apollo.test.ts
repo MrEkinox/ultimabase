@@ -161,6 +161,31 @@ describe('ultimabaseLive', () => {
 		expect(opened()).toBe(1)
 	})
 
+	it('follows past maxTake, and goes on as it was when a growth passes maxLive', async () => {
+		const { client, opened } = await connected()
+		const live: LiveControl = {}
+		const watched = seen(
+			client.subscribe({
+				query: tasks,
+				variables: { first: 125 },
+				context: { live, queryDeduplication: false },
+			}),
+		)
+		expect(titles(await watched.at(1))).toEqual(['a', 'b', 'c'])
+		await live.fetchMore?.({ first: 25 })
+		await expect(live.fetchMore?.({ first: 900 })).rejects.toMatchObject({
+			name: 'LiveError',
+			code: 'VALIDATION_FAILED',
+			message: 'first is over 1000, the most a live list follows.',
+			details: { limit: 1000, rows: 1050 },
+		})
+		const before = watched.results.length
+		await Task.create({ data: { title: 'z', rank: 0, owner: 'ada' } }, M)
+		expect(titles(await watched.at(before + 1))).toEqual(['z', 'a', 'b', 'c'])
+		await live.fetchMore?.({ first: 10 })
+		expect(opened()).toBe(1)
+	})
+
 	it('hands a live row whole', async () => {
 		const { client } = await connected()
 		const [a] = await Task.findMany({ where: { title: 'a' } }, M)

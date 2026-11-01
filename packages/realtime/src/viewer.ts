@@ -8,7 +8,7 @@ import type { Caller, ExposedFunction, ExposedModel, Logger } from 'ultimabase'
 import type { Recorded } from 'ultimabase/internal'
 import { livePlan, recording } from 'ultimabase/internal'
 import type { Batch } from './changes.ts'
-import { checked, invalid } from './checked.ts'
+import { checked, invalid, within } from './checked.ts'
 import { Computed, debounce, ownerOf } from './computed.ts'
 import type { LiveHandle, LiveMessage } from './messages.ts'
 import { Live } from './live.ts'
@@ -319,12 +319,7 @@ export class Viewer {
 			planned.result,
 			'include',
 		)
-		if (first * (1 + nested) > limit) {
-			throw invalid(
-				'first',
-				`first is over ${limit}, the most a live list follows.`,
-			)
-		}
+		within(first * (1 + nested), limit)
 		this.#fits(first * (1 + nested))
 		const live = new Live(
 			{
@@ -357,13 +352,8 @@ export class Viewer {
 				if (!Number.isInteger(more) || more < 1) {
 					throw invalid('first', 'first must be a positive integer.')
 				}
-				if ((live.first + more) * (1 + nested) > limit) {
-					throw invalid(
-						'first',
-						`first is over ${limit}, the most a live list follows.`,
-					)
-				}
 				const grown = (live.first + more) * (1 + nested)
+				within(grown, limit)
 				this.#fits(grown - subscription.rows)
 				subscription.rows = grown
 				return live.grow(more)

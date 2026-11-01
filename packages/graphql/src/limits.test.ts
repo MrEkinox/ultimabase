@@ -193,7 +193,11 @@ describe('a count', () => {
 describe('the depth limit', () => {
 	it('refuses a document deeper than maxDepth, unless Master asks', async () => {
 		await serving({ maxDepth: 3 }, async (url) => {
-			const deep = `{ users { edges { node { name } } } }`
+			// users, posts, author and name: a connection's and an edge's fields
+			// are no level (D-185).
+			const deep = `{ users { edges { node {
+				posts { edges { node { author { name } } } }
+			} } } }`
 			expect(messages(await post(url, deep))).toStrictEqual([
 				'The document is nested 4 levels deep; the most is 3.',
 			])
@@ -204,7 +208,9 @@ describe('the depth limit', () => {
 				`{ ...Root } fragment Root on Query {
 					users { ... on UserConnection { edges { ...Edge } } }
 				}
-				fragment Edge on UserEdge { node { name } }`,
+				fragment Edge on UserEdge {
+					node { posts { edges { node { author { name } } } } }
+				}`,
 			)
 			expect(messages(fragments)).toStrictEqual([
 				'The document is nested 4 levels deep; the most is 3.',

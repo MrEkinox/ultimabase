@@ -2,7 +2,8 @@
 // rows, or reads and writes more than `maxRoots` times at its root, is
 // refused before it runs. Each list counts the rows it asks for, times the
 // rows of the lists above it. Each relation a list's `orderBy` goes through
-// counts one level of `maxDepth` under the list (D-134).
+// counts one level of `maxDepth` under the list (D-134), whose level counts
+// no connection or edge (D-185).
 import type {
 	FieldNode,
 	GraphQLObjectType,
@@ -123,8 +124,10 @@ export function rowBudget(
 				if (read !== undefined) rows += each
 				if (root !== '') rootFields += 1
 				const named = getNamedType(field.type)
+				// A connection's and an edge's fields are no level (D-185).
+				const below = registry.wrappers.has(type.name) ? level : level + 1
 				if (isObjectType(named) && each > 0) {
-					walk(named, fields, each, '', level + 1)
+					walk(named, fields, each, '', below)
 				}
 			}
 		}

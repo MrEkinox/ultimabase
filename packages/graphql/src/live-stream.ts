@@ -69,9 +69,19 @@ const finished = (): IteratorResult<LiveEvent> => ({
 	value: undefined,
 })
 
+/** Keeps a completed live list 10 s for a resume, then ends it. */
+function keepFor(channel: Channel, list: Omit<Kept, 'timer'>): void {
+	const timer = setTimeout(() => {
+		channel.kept.delete(list.keep.token)
+		list.end()
+	}, keptFor)
+	timer.unref()
+	channel.kept.set(list.keep.token, { ...list, timer })
+}
+
 /**
  * The list `token` keeps, taken back when it is the same read and grown to
- * `first` rows; a resume that grows past a limit ends it.
+ * `first` rows; a growth refused past a limit keeps it as it was (D-186).
  */
 export async function resumed(
 	channel: Channel,
@@ -88,7 +98,7 @@ export async function resumed(
 	try {
 		if (first > kept.keep.first) await kept.handle.grow(first - kept.keep.first)
 	} catch (error) {
-		kept.end()
+		keepFor(channel, kept)
 		throw error
 	}
 	kept.keep.first = first
@@ -178,12 +188,7 @@ export async function liveStream(
 			const taker = waiting
 			waiting = undefined
 			taker?.(finished())
-			const timer = setTimeout(() => {
-				channel.kept.delete(keep.token)
-				end()
-			}, keptFor)
-			timer.unref()
-			channel.kept.set(keep.token, { keep, stream, handle: opened, timer, end })
+			keepFor(channel, { keep, stream, handle: opened, end })
 			return finished()
 		},
 		[Symbol.asyncIterator]: () => stream,

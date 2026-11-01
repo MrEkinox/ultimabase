@@ -121,9 +121,10 @@ export async function liveList(
 		throw badInput('mode must be page.')
 	}
 	const { name } = entry.model
-	const read = await run(async () =>
-		readerOf(api, caller.kind === 'master').list(entry, args, ''),
-	)
+	// maxTake bounds page mode only, maxLive a live window (D-186).
+	const wide = { ...entry, maxTake: Number.POSITIVE_INFINITY }
+	const reader = readerOf(api, caller.kind === 'master')
+	const read = await run(async () => reader.list(wide, args, ''))
 	const asked = args[arg]
 	const rows = typeof asked === 'number' ? asked : entry.take
 	const page = mode === 'page'
