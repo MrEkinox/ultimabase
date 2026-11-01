@@ -90,10 +90,13 @@ fields: the output of a virtual field or of a [function](/docs/next/functions).
 
 `f.virtual(output, options)` is computed on read by `.with({ virtuals })`,
 never stored. `needs` lists the fields `run` reads, which are read even when
-the query does not select them. A name that is no field of the model fails to
-compile on the virtual's line, with the closest name suggested (`Did you mean
-'"cover"'?`); `needs` offers no completion, since the model's fields are not
-known yet when it is written. A virtual with an `input` takes arguments and is
+the query does not select them. A stored `one` relation gives its key,
+`{ id }` (or `null` when optional), with no extra query, so a rule can compare
+`record.author.id` with the caller; the virtual is hidden from a caller who
+cannot read the relation, and a `many` is refused. A name that is no field of
+the model fails to compile on the virtual's line, with the closest name
+suggested (`Did you mean '"cover"'?`); `needs` offers no completion, since the
+model's fields are not known yet when it is written. A virtual with an `input` takes arguments and is
 read only when selected:
 
 <include cwd meta='title="src/models.test.ts"'>

@@ -8918,7 +8918,7 @@ type Mutation {
 
 ## D-151: Filtered relations and virtual fields
 
-Amended by D-180.
+Amended by D-180, D-184.
 
 Choice: completes D-37, D-44 and D-109; amends D-42.
 
@@ -11985,3 +11985,107 @@ return transaction(
 
 After: unchanged code; the 10 pairs match, each call after 5 attempts at
 most.
+
+## D-184: A virtual's `needs` takes a stored `one` relation's key
+
+Choice: amends D-151.
+
+1. A virtual's `needs` names, besides scalar fields, a `one` relation the row
+   stores (D-77): a required one, or an optional one facing a `many`. A
+   `many` fails to compile on the virtual's line. The optional side of a
+   one-to-one, which has no column (D-37), compiles there, since the line
+   cannot read the target's fields; its rule's `record` has no such key, and
+   it stops startup. Both stop startup.
+2. `record.author` is the key as rules and hooks see it, `{ id }`, or
+   `{ id } | null` when the relation is optional: no `authorId` string.
+3. The kernel reads the key with the row's columns, in the same query; a
+   `run` gets it with no other query. A query that also includes the
+   relation reads the target's row in its place, which is `null` when the
+   relation is empty or the caller cannot read that row (D-109): the keys of
+   those rows are read again, in one query for the page, and the virtual
+   gets the key either way.
+4. A relation's read rule hides the virtuals that need it, as a scalar's
+   does (D-151).
+5. `needs` takes no target field: `needs: ['author.name']` stays refused; a
+   virtual that reads the target's fields queries them in `runMany`.
+
+Why:
+
+- A virtual that compares a row's owner with the caller is common (`isMine`,
+  `canEdit`); without the key, its `runMany` re-reads the page by id to get
+  it, one query per page for a column the row already holds.
+- The key is a column of the row: reading it costs nothing more, as a
+  scalar's does. A `many` or the optional side of a one-to-one is a query on
+  another table.
+- Rules and hooks already see a stored `one` as `{ id }` (D-77); a virtual's
+  record is the same record, cut to its needs.
+- An included row the caller cannot read gave the virtual `null` for a
+  required relation, typed `{ id }`: its `run` failed on `record.author.id`.
+  A row holds one value per field, so the adapter cannot return the key and
+  the included row side by side.
+
+Rejected:
+
+- An `authorId` string: a second name for the same key, which rules and hooks
+  do not use.
+- Target fields (`author.name`): a join per virtual, with its own read rules,
+  which `runMany` already writes in one query for the page.
+- A `many`'s ids: a list per row, read by another query, which `runMany`
+  writes as well.
+- Refusing the optional side of a one-to-one on the virtual's line: telling
+  it from a stored `one` reads the target's fields while the model is typed,
+  the TS7022 cycle of D-151 when the target relates back.
+
+Example, before: `needs` refuses the relation, and `runMany` reads the page
+again to get its key.
+
+```ts
+export const Comment = defineModel({
+	name: 'Comment',
+	fields: (f) => ({
+		author: f.one(() => User, { default: currentUser }),
+		body: f.string(),
+		// TS2322: Type '"author"' is not assignable to type '"body" | keyof SystemFields'.
+		isMine: f.virtual(z.boolean(), { needs: ['author'] }),
+	}),
+}).with({
+	virtuals: {
+		isMine: {
+			runMany: async ({ caller, records }) => {
+				const rows = await Comment.findMany(
+					{
+						where: { id: { in: records.map(({ id }) => id) } },
+						select: { id: true, author: { select: { id: true } } },
+					},
+					{ as: Master },
+				)
+				const authors = new Map(rows.map((row) => [row.id, row.author.id]))
+				return records.map(
+					({ id }) =>
+						caller.kind === 'user' && authors.get(id) === caller.user.id,
+				)
+			},
+		},
+	},
+})
+```
+
+After: the key comes with the row.
+
+```ts
+export const Comment = defineModel({
+	name: 'Comment',
+	fields: (f) => ({
+		author: f.one(() => User, { default: currentUser }),
+		body: f.string(),
+		isMine: f.virtual(z.boolean(), { needs: ['author'] }),
+	}),
+}).with({
+	virtuals: {
+		isMine: {
+			run: ({ caller, record }) =>
+				caller.kind === 'user' && record.author.id === caller.user.id,
+		},
+	},
+})
+```
