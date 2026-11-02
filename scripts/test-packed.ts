@@ -235,7 +235,8 @@ await serving(process.execPath, ['src/server.ts'], app, async (url) => {
 		{
 			input: {
 				email: 'ada@example.com',
-				password: 'correct horse',
+				// In no breach: the example refuses those (D-209).
+				password: 'packed sign-up of ada, 2026',
 				name: 'ada',
 			},
 		},
