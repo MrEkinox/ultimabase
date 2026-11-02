@@ -10,7 +10,7 @@ import type {
 import { called } from './define-function.ts'
 import type { Client } from './function.ts'
 import { functionDefinitions } from './definition.ts'
-import type { ExposedFunction } from './plugin.ts'
+import type { ExposedFunction } from './exposed.ts'
 import { isObject } from './query-where.ts'
 import type { Resolved } from './schema.ts'
 import { checkInstalled } from './plugin-use.ts'

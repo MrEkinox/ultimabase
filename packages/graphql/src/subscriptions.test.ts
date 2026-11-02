@@ -929,6 +929,7 @@ describe('a connection', () => {
 		expect(await failed(ws.iterate({ query: 'subscription {' }))).toEqual([
 			containing({
 				message: 'Syntax Error: Expected Name, found <EOF>.',
+				extensions: { code: 'BAD_USER_INPUT' },
 			}),
 		])
 		expect(
@@ -936,6 +937,7 @@ describe('a connection', () => {
 		).toEqual([
 			containing({
 				message: 'Cannot query field "nope" on type "Subscription".',
+				extensions: { code: 'BAD_USER_INPUT' },
 			}),
 		])
 	})

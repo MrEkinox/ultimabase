@@ -157,8 +157,9 @@ under `extensions`, as [Errors](/docs/next/errors) lists them; the field is
 	../examples/graphql/src/app.test.ts#errors
 </include>
 
-A document the schema refuses, as an unknown field, has no `extensions`:
-GraphQL's own message says what is wrong. A message never repeats the
+A document the schema refuses, as an unknown field, has the code
+`BAD_USER_INPUT`, as REST's refused query: GraphQL's own message says what
+is wrong. A message never repeats the
 value it refused, so a password never comes back. A server error is
 `Internal error.`, with `INTERNAL` and a `correlationId` the server logs
 beside the error.
@@ -339,13 +340,13 @@ name stays when the field or the model is renamed.
 
 | Code             | Message                                                                                                                    |
 | ---------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| none             | `The document is nested 5 levels deep; the most is 4.`                                                                     |
-| none             | `posts is selected twice with different arguments, at people.edges.node.latest and people.edges.node.posts; read it once.` |
-| none             | `The document asks for more than 2,000 rows. Ask for fewer with first or last.`                                            |
-| none             | `The document asks for more than 20 root fields, a totalCount counted as one more. Send several documents.`                |
-| none             | `The document repeats fields under one name too often. Ask for each field once.`                                           |
-| none             | `Syntax Error: Document contains more than 2000 tokens. Parsing aborted.`                                                  |
-| none             | `GraphQL introspection has been disabled, …`, in production.                                                               |
+| `BAD_USER_INPUT` | `The document is nested 5 levels deep; the most is 4.`                                                                     |
+| `BAD_USER_INPUT` | `posts is selected twice with different arguments, at people.edges.node.latest and people.edges.node.posts; read it once.` |
+| `BAD_USER_INPUT` | `The document asks for more than 2,000 rows. Ask for fewer with first or last.`                                            |
+| `BAD_USER_INPUT` | `The document asks for more than 20 root fields, a totalCount counted as one more. Send several documents.`                |
+| `BAD_USER_INPUT` | `The document repeats fields under one name too often. Ask for each field once.`                                           |
+| `BAD_USER_INPUT` | `Syntax Error: Document contains more than 2000 tokens. Parsing aborted.`                                                  |
+| `BAD_USER_INPUT` | `GraphQL introspection has been disabled, …`, in production.                                                               |
 | none             | `Cannot perform mutations over GET`, a `405`.                                                                              |
 | `BAD_USER_INPUT` | `first is at most 20 on Post.`, `first cannot be negative.`                                                                |
 | `BAD_USER_INPUT` | `after is not a cursor this API returned.`                                                                                 |

@@ -1935,7 +1935,7 @@ beforeFind: ({ where, command }) =>
 
 ## D-72: `PublicError` and the kernel's codes
 
-Amended by D-179.
+Amended by D-179 and D-206.
 
 Choice: `new PublicError(code, message, { details?, cause? })` is the one
 error a client sees, Parse's `Parse.Error` with a named code. The code is a
@@ -4643,7 +4643,7 @@ curl -X POST localhost:3000/webhooks/stripe -d '{"id":"…"}' \
 
 ## D-107: `graphqlPlugin()`, the schema it generates and how it mounts
 
-Amended by D-125, D-128, D-132, D-153 and D-185.
+Amended by D-125, D-128, D-132, D-153, D-185 and D-206.
 
 Choice: completes D-16, D-34, D-41, D-45 and D-55.
 
@@ -13570,4 +13570,93 @@ plugins: [httpPlugin(), maintenancePlugin()]
 
 // In a plugin that requires maintenance:
 await plugins.maintenance.lock()
+```
+
+## D-206: Each plugin declares its codes, and `ErrorCodeOf<typeof app>`
+
+Choice: amends D-72 and D-107.
+
+1. A plugin's types take `errors`, the union of the codes its errors carry
+   beyond the kernel's `ErrorCode`, in capitals:
+   `readonly errors: 'FORBIDDEN' | 'LENGTH_REQUIRED'`.
+2. `ultimabase` exports the type `ErrorCodeOf<A>`: for `typeof app`, the
+   kernel's `ErrorCode` and the `errors` of each plugin `app` lists. An
+   application's own codes are not in it; a client adds them.
+3. The plugins of this repository declare:
+   - http: `BAD_REQUEST`, `BAD_USER_INPUT`, `PAYLOAD_TOO_LARGE`,
+     `UNAVAILABLE`, `UNSUPPORTED_MEDIA_TYPE`;
+   - files: `FORBIDDEN`, `LENGTH_REQUIRED`, `PAYLOAD_TOO_LARGE`,
+     `UNSUPPORTED_MEDIA_TYPE`;
+   - maintenance: `MAINTENANCE`;
+   - every other plugin sends the kernel's codes, or those of a plugin it
+     requires, as graphql sends http's `BAD_USER_INPUT`.
+4. A document graphql-js refuses, as an unknown field, a depth over the
+   limit or introspection in production, carries
+   `extensions.code: 'BAD_USER_INPUT'`, as REST's refused query (D-129).
+   A request graphql-http cannot read, as a mutation over `GET`, stays
+   without a code.
+5. `scripts/codes.test.ts` reads each package's sources: every code its
+   production code sends is the kernel's, its own declared one, or one of
+   a package it depends on, and each code it declares is one it sends.
+   `live`, `testing` and `create-ultimabase` are no server plugin, and are
+   left out.
+
+Why:
+
+- An application coming from Parse keeps a table of messages, one for
+  each code its client may receive. Typed against the codes the server
+  may send, a code a new plugin adds, or one a plugin drops, fails the
+  client's typing instead of showing a raw code.
+- The codes are a plugin's, as its options and its API are: they travel
+  with its types (D-24), from the application value, with no global
+  declaration.
+- A declaration nothing checks drifts: the script holds each plugin to
+  the codes it sends.
+- A client branching on the code of a refused GraphQL document read none:
+  REST gave `BAD_USER_INPUT` for the same mistake.
+
+Rejected:
+
+- A global `Register` interface the application augments: D-24 allows no
+  global declaration but the user model, and D-72 rejected a registry of
+  codes.
+- A runtime list of the codes: a client needs their type, and a list it
+  imports would ship server code.
+- `HTTP_<status>`, which an `HTTPException` with an unnamed status gives,
+  in the union: no plugin sends one, and a client cannot list every
+  status.
+- `BAD_USER_INPUT` in the kernel's `ErrorCode`: the kernel throws
+  `InvalidQuery`, and only a transport sends `BAD_USER_INPUT`; an
+  application without http never meets it.
+- `INVALID_QUERY` in the union: no transport sends it.
+
+Example, before: the client lists the codes it knows by hand, and misses
+those a plugin adds.
+
+```ts
+const messages: Record<string, string> = {
+	NOT_FOUND: 'This page does not exist.',
+	OUT_OF_STOCK: 'This product is out of stock.',
+}
+// MAINTENANCE, added with maintenancePlugin(), shows as a raw code.
+```
+
+After: the application's type lists them, and a missing one fails typing.
+
+```ts
+import type { ErrorCodeOf } from 'ultimabase'
+import type { app } from './app.ts'
+
+const messages = {
+	NOT_FOUND: 'This page does not exist.',
+	OUT_OF_STOCK: 'This product is out of stock.',
+	MAINTENANCE: 'Back in a few minutes.',
+	// … every other code
+} satisfies Record<ErrorCodeOf<typeof app> | 'OUT_OF_STOCK', string>
+
+// In a plugin's types:
+interface Shop extends PluginTypes {
+	readonly name: 'shop'
+	readonly errors: 'CLOSED'
+}
 ```

@@ -15,6 +15,7 @@ import type { Caller } from './rules.ts'
 import type { VirtualRules } from './virtual.ts'
 import type {
 	declaredRecord,
+	errorCodes,
 	fieldType,
 	modelFields,
 	readFilter,
@@ -365,9 +366,13 @@ export type InverseCheck<M> = [AppInverseErrors<M>] extends [never]
 	? unknown
 	: { readonly inverseError: AppInverseErrors<M> }
 
-/** The application `defineApp` returns (D-24, D-59). */
-export interface App<M> {
+/**
+ * The application `defineApp` returns (D-24, D-59), and the codes its
+ * plugins' errors carry (D-206).
+ */
+export interface App<M, E extends string = never> {
 	readonly models: M
+	readonly [errorCodes]?: E
 	start(): Promise<void>
 	stop(): Promise<void>
 }

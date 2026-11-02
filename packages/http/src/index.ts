@@ -64,6 +64,12 @@ export interface Http extends PluginTypes {
 	readonly name: 'http'
 	readonly appOptions: HttpOptions
 	readonly api: HttpApi
+	readonly errors:
+		| 'BAD_REQUEST'
+		| 'BAD_USER_INPUT'
+		| 'PAYLOAD_TOO_LARGE'
+		| 'UNAVAILABLE'
+		| 'UNSUPPORTED_MEDIA_TYPE'
 }
 
 // Each running application's server and mounted routes, by the context its

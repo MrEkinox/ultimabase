@@ -1,16 +1,16 @@
 // A plugin is an interface of types and one `definePlugin` (D-57). Its types
 // travel with its values; nothing is declared globally (D-24).
 import type { Logger } from './app-options.ts'
-import type { Enum, FieldBuilders, StandardSchema } from './fields.ts'
-import type { Client, FunctionShape } from './function.ts'
-import type { ExposedOutput } from './exposed-output.ts'
+import type { FieldBuilders } from './fields.ts'
+import type { FunctionShape } from './function.ts'
+import type { ExposedFunction, ExposedModel } from './exposed.ts'
 import type { Generated } from './generate.ts'
 import type { Identify } from './identify.ts'
 import { pluginEntries, pluginValues } from './definition.ts'
 import { pluginCode } from './plugin-code.ts'
 import type { FieldShape, ModelHooks, ModelShape } from './model.ts'
-import type { Changed, Row, SchemaModel } from './adapter.ts'
-import type { Queries, QueryOptions, UniqueWhere } from './query.ts'
+import type { Changed } from './adapter.ts'
+import type { Queries, UniqueWhere } from './query.ts'
 import type {
 	Caller,
 	Identity,
@@ -18,7 +18,7 @@ import type {
 	UserCallerKeys,
 	UserOf,
 } from './rules.ts'
-import type { pluginTypes } from './symbols.ts'
+import type { errorCodes, pluginTypes } from './symbols.ts'
 
 /** The keys of a user caller a plugin gives (D-121). */
 type CallerKeys = Partial<UserCallerKeys> & object
@@ -56,6 +56,8 @@ export interface PluginTypes {
 	readonly functionWith?: object | false
 	/** Only a query may list it in its `use` (D-154). */
 	readonly queryOnly?: true
+	/** The codes its errors carry beyond the kernel's `ErrorCode` (D-206). */
+	readonly errors?: Uppercase<string>
 }
 
 /** A plugin's types for one model's fields. */
@@ -73,6 +75,9 @@ type AppOptions<T> = T extends { readonly appOptions: infer O } ? O : never
 type Requires<T> = T extends { readonly requires: infer R extends PluginTypes }
 	? R['name']
 	: never
+type ErrorsOf<T> = T extends { readonly errors: infer E extends string }
+	? E
+	: never
 type Optional<T> = T extends { readonly optional: infer R extends PluginTypes }
 	? R['name']
 	: never
@@ -83,93 +88,6 @@ type Apis<T> = (T extends { readonly requires: infer R extends PluginTypes }
 	(T extends { readonly optional: infer R extends PluginTypes }
 		? { readonly [X in R as X['name']]: ApiOf<X> | undefined }
 		: unknown)
-
-type Args = { readonly [key: string]: unknown }
-/** A model's queries as a transport calls them, with its client's arguments. */
-export interface ModelQueries {
-	findUnique(args: Args, options: QueryOptions): Promise<Row | null>
-	findMany(args: Args, options: QueryOptions): Promise<readonly Row[]>
-	count(args: Args, options: QueryOptions): Promise<number>
-	create(args: Args, options: QueryOptions): Promise<Row>
-	update(args: Args, options: QueryOptions): Promise<Row>
-	delete(args: Args, options: QueryOptions): Promise<Row>
-}
-
-/** A model as transports and tools read it (D-16, D-107). */
-export interface ExposedModel<W = unknown> {
-	/** As the adapter receives it (D-73). */
-	readonly schema: SchemaModel
-	/** The model's `description` and its fields' (D-150). */
-	readonly description: string | undefined
-	readonly descriptions: { readonly [field: string]: string }
-	/** Each field whose values are a `defineEnum` (D-150). */
-	readonly enums: { readonly [field: string]: Enum }
-	/** `id`, unique fields and unique indexes (D-52). */
-	readonly uniques: readonly (readonly string[])[]
-	/** Each field with a read rule, `private` when only Master reads it (D-44). */
-	readonly readRules: { readonly [field: string]: 'private' | 'rule' }
-	/** The fields `create` needs: neither optional nor with a default (D-53). */
-	readonly required: readonly string[]
-	/** Each `json` field's `validate`, when it is a Standard Schema (D-125). */
-	readonly validators: { readonly [field: string]: StandardSchema }
-	/** Each plugin field type's field, which a client reads as `toJSON` gives (D-122). */
-	readonly fieldTypes: {
-		readonly [field: string]: {
-			readonly plugin: string
-			/** The field type's own options the field took (D-152). */
-			readonly options: { readonly [key: string]: unknown }
-			readonly toJSON: (value: unknown) => unknown
-			/** What `toJSON` gives, if the field type says (D-152). */
-			readonly shape: StandardSchema | undefined
-		}
-	}
-	/** Its virtual fields, in their order (D-151). */
-	readonly virtuals: readonly ExposedVirtual[]
-	/** The plugin's key of the model's `.with`, if it was given. */
-	readonly with: W | undefined
-	/** Whether the model's `use` lists the plugin's entry. */
-	readonly used: boolean
-	/** Whether it is the user model, which `viewer` filters (D-189). */
-	readonly user: boolean
-	readonly queries: ModelQueries
-	/** `upsert`, which also says whether it created the row (D-142). */
-	readonly upsert: (
-		args: Args,
-		options: QueryOptions,
-	) => Promise<{ readonly row: Row; readonly created: boolean }>
-	/** The `defineModel` value, which a plugin's function may return (D-113). */
-	readonly model: ModelShape
-}
-
-/** A virtual field as transports read it (D-151). */
-export interface ExposedVirtual {
-	readonly name: string
-	readonly description: string | undefined
-	/** A Standard Schema of an object: the field's arguments. */
-	readonly input: StandardSchema | undefined
-	readonly output: ExposedOutput
-	/** In the row without `select`: a value without input. */
-	readonly default: boolean
-}
-
-/** A function as transports read it (D-109). */
-export interface ExposedFunction<W = unknown> {
-	readonly name: string
-	readonly description: string | undefined
-	/** The plugin that gives it, `undefined` for the application's (D-113). */
-	readonly plugin: string | undefined
-	/** A query, which a transport may serve over GET; a mutation otherwise. */
-	readonly query: boolean
-	/** Whether the function's `use` lists the plugin (D-154). */
-	readonly used: boolean
-	readonly input: StandardSchema | undefined
-	/** `undefined` when it returns nothing. */
-	readonly output: ExposedOutput | undefined
-	/** The plugin's key of the function's `.with`, if it was given. */
-	readonly with: W | undefined
-	/** Checks access, validates the input, then runs it for `client` (D-75, D-113). */
-	run(input: unknown, options: QueryOptions, client?: Client): Promise<unknown>
-}
 
 type WithOf<T> = T extends { readonly with: infer W } ? W : never
 type FunctionWithOf<T> = T extends { readonly functionWith: infer W }
@@ -203,9 +121,15 @@ export interface ModelUse<P extends string, T> {
 }
 
 /** A plugin's value in the application's `plugins`. */
-export interface PluginValue<P extends string, R extends string = never> {
+export interface PluginValue<
+	P extends string,
+	R extends string = never,
+	// Any code, for a plugin value whose type is not its plugin's.
+	E extends string = string,
+> {
 	readonly name: P
 	readonly requires?: readonly R[]
+	readonly [errorCodes]?: E
 }
 
 type HookFacts<F, K extends keyof ModelHooks<F>> = Parameters<
@@ -363,7 +287,7 @@ export type PluginDefinition<T extends PluginTypes> = {
 export interface Plugin<T extends PluginTypes> {
 	readonly plugin: (
 		options?: AppOptions<T>,
-	) => PluginValue<T['name'], Requires<T>>
+	) => PluginValue<T['name'], Requires<T>, ErrorsOf<T>>
 	readonly use: PluginEntry<T>
 }
 /** Without options, the entry is the plugin's own types; with them, its
