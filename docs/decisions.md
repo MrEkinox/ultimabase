@@ -13387,6 +13387,8 @@ bob?.email // `string | null | undefined`
 
 ## D-204: `/health` and `/ready`, and a drain before the stop
 
+Amended by D-207.
+
 Choice: amends D-91 and D-106.
 
 1. `httpPlugin` answers `GET /health` and `GET /ready` (and `HEAD`) before
@@ -13475,6 +13477,8 @@ api: ({ plugins }) => {
 ```
 
 ## D-205: `@ultimabase/maintenance`, and the plugins' gates
+
+Amended by D-207.
 
 Choice: amends D-106 and D-166.
 
@@ -13659,4 +13663,94 @@ interface Shop extends PluginTypes {
 	readonly name: 'shop'
 	readonly errors: 'CLOSED'
 }
+```
+
+## D-207: A starting server serves nothing; the maintenance key and initial state
+
+Choice: amends D-204 and D-205.
+
+1. Until every plugin started (D-204 point 5), `httpPlugin` answers every
+   request and upgrade but `/health` and `/ready` 503
+   `{ "code": "UNAVAILABLE", "message": "The application is starting." }`,
+   Master's included, before every gate and the application's `upgrade`.
+   `/ready` keeps its own answer.
+2. `maintenancePlugin({ key })`: a request sending the key in the
+   `x-ultimabase-maintenance-key` header switches the maintenance with
+   `PUT /_ultimabase/maintenance`, as the master key does, which is still
+   accepted. The key opens nothing else: no gate lets it through, and
+   every other route reads its caller as before. It is compared in
+   constant time, on SHA-256 digests.
+3. The key follows the master key's rules (D-49): an empty key is unset,
+   and accepts no request; a space or a character outside ASCII refuses
+   the start, and so does a key under 32 characters under
+   `NODE_ENV=production`. A wrong key, like any other caller, answers 403
+   `ACCESS_DENIED`:
+   `Only the master key or the maintenance key turns the maintenance on or off.`
+4. `maintenancePlugin({ initial })`, `'locked'` or `'unlocked'` (the
+   default), is the state while no row is stored, at the start and after
+   a read that finds none. A stored row always wins, and the start writes
+   nothing. Another value refuses the start. The plugin reads no
+   environment variable: the application passes it, as it does the keys.
+5. A start that cannot read the row fails: `start` rejects with the
+   database's error. Once started, a failed read keeps the state (D-205
+   point 6).
+6. `/ready` stays 200 during the maintenance (D-205 point 7).
+
+Why:
+
+- http listens in its own `start` (D-204), and maintenance read its row in
+  its own, after: a request in between met the maintenance off, and
+  routes whose plugins had not started. During a deployment under
+  maintenance, a new instance served its first clients.
+- Master too waits: a plugin may not be ready for it either, and the
+  window lasts only the start.
+- A deployment pipeline locks the application before a release and
+  unlocks it after its checks. With the master key, a leak of its secret
+  reads and changes every row; the maintenance key switches the
+  maintenance only.
+- A first deployment, or a database restored, holds no row: such an
+  application must start under maintenance, without a server writing a
+  state another one may have set.
+- A server that cannot read the state at start must not guess: serving
+  could expose a migration in progress. A failed start makes the platform
+  try again.
+- D-205 left out a maintenance token and a `startLocked` option as nobody
+  asked for them: an application now does.
+
+Rejected:
+
+- Keys limited to given routes, for any plugin: one route needs one today.
+- Writing `initial` as the row at start: a server starting with another
+  `initial` would overwrite the state a pipeline set.
+- The key letting a request through the maintenance: the pipeline only
+  switches it; its own checks use the master key or a user.
+- Letting Master through while starting, as maintenance does: a plugin
+  that has not started may not answer it right.
+- Starting unlocked when the read fails: it fails open.
+- `/ready` at 503 during the maintenance, for D-205's reason.
+
+Example, before: the pipeline holds the master key, and a fresh database
+starts open.
+
+```ts
+plugins: [httpPlugin(), maintenancePlugin()]
+
+// curl -X PUT /_ultimabase/maintenance \
+//   -H "x-ultimabase-master-key: $MASTER_KEY" -d '{ "enabled": true }'
+```
+
+After: the pipeline holds a key that switches the maintenance only, and a
+fresh database starts locked.
+
+```ts
+plugins: [
+	httpPlugin(),
+	maintenancePlugin({
+		key: process.env.MAINTENANCE_KEY,
+		initial: process.env.START_LOCKED === '1' ? 'locked' : 'unlocked',
+	}),
+]
+
+// curl -X PUT /_ultimabase/maintenance \
+//   -H "x-ultimabase-maintenance-key: $MAINTENANCE_KEY" -d '{ "enabled": false }'
 ```

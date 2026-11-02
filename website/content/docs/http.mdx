@@ -167,7 +167,9 @@ load balancer sends traffic only to an instance that is ready.
 </include>
 
 Both come before every route, the application's included: they read no
-caller, and no CORS applies. `/ready` checks no database: when it fails,
+caller, and no CORS applies. Until every plugin started, every other
+request and WebSocket upgrade answers 503 `UNAVAILABLE`, `The application is
+starting.`, Master's too: a plugin that has not started serves no request. `/ready` checks no database: when it fails,
 every instance would leave the load balancer at once.
 
 On `stop`, `/ready` answers 503 first, and the server serves as before for
