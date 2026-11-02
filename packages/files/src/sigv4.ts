@@ -35,10 +35,14 @@ const stampOf = (now: Date): string =>
 		.replaceAll(/[-:]/g, '')
 		.replace(/\.\d{3}/, '')
 
-/** The URL that runs the request until it expires, signed now. */
-export function presign(signer: Signer, request: Presigned): string {
+/** The URL that runs the request until `expires` seconds after `at`. */
+export function presign(
+	signer: Signer,
+	request: Presigned,
+	at: Date = new Date(),
+): string {
 	const { method, url, expires } = request
-	const stamp = stampOf(new Date())
+	const stamp = stampOf(at)
 	const day = stamp.slice(0, 8)
 	const scope = `${day}/${signer.region}/s3/aws4_request`
 	const headers = new Map(

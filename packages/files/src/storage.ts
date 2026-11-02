@@ -23,7 +23,7 @@ export interface FileStorage {
 	delete(key: string): Promise<void>
 	/** Every key it stores. */
 	keys(): Promise<readonly string[]>
-	/** A public object's stable URL, a private one's presigned for one hour. */
+	/** A public object's stable URL, a private one's presigned, the same for 15 minutes (D-200). */
 	url(key: string): string
 }
 

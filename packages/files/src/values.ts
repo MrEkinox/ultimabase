@@ -21,7 +21,7 @@ export interface FileValue<
 	readonly name: string
 	readonly type: string
 	readonly size: number
-	/** Stable for a public file, presigned for one hour for a private one. */
+	/** Stable for a public file, presigned for a private one, the same for 15 minutes. */
 	readonly url: string
 	readonly inline: I
 	readonly variants: V

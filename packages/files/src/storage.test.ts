@@ -170,10 +170,26 @@ describe('s3()', () => {
 		expect(cdn.url('public/a')).toBe('https://cdn.example.com/public/a')
 		const url = new URL(storage.url('private/a'))
 		expect(url.pathname).toBe('/media/private/a')
-		expect(url.searchParams.get('X-Amz-Expires')).toBe('3600')
+		expect(url.searchParams.get('X-Amz-Expires')).toBe('1800')
 		expect(url.searchParams.get('X-Amz-Credential')).toMatch(
 			/^key\/\d{8}\/fra1\/s3\/aws4_request$/,
 		)
+	})
+
+	// Regression (#97): every read signed anew, so a resent row changed URLs.
+	it('gives a private file the same URL for its 15-minute window', () => {
+		vi.useFakeTimers({ now: new Date('2026-11-02T10:12:03Z') })
+		const storage = s3(options)
+		const first = storage.url('private/a')
+		const url = new URL(first)
+		expect(url.searchParams.get('X-Amz-Date')).toBe('20261102T100000Z')
+		expect(url.searchParams.get('X-Amz-Expires')).toBe('1800')
+		vi.setSystemTime(new Date('2026-11-02T10:14:59.999Z'))
+		expect(storage.url('private/a')).toBe(first)
+		vi.setSystemTime(new Date('2026-11-02T10:15:00Z'))
+		const next = new URL(storage.url('private/a'))
+		expect(next.searchParams.get('X-Amz-Date')).toBe('20261102T101500Z')
+		vi.useRealTimers()
 	})
 })
 
@@ -202,7 +218,7 @@ describe('memoryFiles()', () => {
 		expect(await storage.keys()).toStrictEqual(['public/a'])
 		expect(storage.url('public/a')).toBe('memory://files/public/a')
 		expect(storage.url('private/b')).toBe(
-			'memory://files/private/b?expires=3600',
+			'memory://files/private/b?expires=1800',
 		)
 		await storage.delete('public/a')
 		expect(await storage.keys()).toStrictEqual([])
