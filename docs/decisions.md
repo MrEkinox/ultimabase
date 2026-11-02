@@ -4513,7 +4513,7 @@ npx ultimabase reset --force
 
 ## D-106: `httpPlugin()`, its Hono routes and the caller they read
 
-Amended by D-153, D-166 and D-204.
+Amended by D-153, D-166, D-204 and D-205.
 
 Choice: completes D-27, D-49, D-59 and D-66.
 
@@ -10706,6 +10706,8 @@ authPlugin({ sessions: { lifetime: 8 * hour, longest: 7 * 24 * hour } })
 
 ## D-166: Refusing and closing WebSockets
 
+Amended by D-205.
+
 Choice: amends D-106 and D-154 point 5 (`upgrade(path, accept)`).
 
 1. `httpPlugin({ upgrade })` takes a gate,
@@ -13470,4 +13472,102 @@ httpPlugin() // GET /health, GET /ready; drain: 5000 in production
 api: ({ plugins }) => {
 	plugins.http.ready(() => queue.connected)
 },
+```
+
+## D-205: `@ultimabase/maintenance`, and the plugins' gates
+
+Choice: amends D-106 and D-166.
+
+1. `http.gate(gate)`, called from a plugin's `api`, adds a gate, the type
+   of D-166's `upgrade`. It runs on each request past CORS and the
+   preflights, before the form check, the body limit, the caller and the
+   routes; and on each WebSocket upgrade, after the application's
+   `upgrade`. The gates run in the plugins' order; the first `Response`
+   is the answer, with CORS's headers, and `undefined` lets it through.
+   `/health` and `/ready` are answered before them (D-204).
+2. A new package, `@ultimabase/maintenance`, exports
+   `maintenancePlugin({ retryAfter })`. It requires http. `retryAfter` is
+   in milliseconds, 60 000 by default.
+3. While the maintenance is on, every request and upgrade but Master's
+   answers 503, `Retry-After` in seconds, and:
+   `{ "code": "MAINTENANCE", "message": "The application is under maintenance.", "details": { "retryAfter": 60 } }`.
+   `/graphql` is no exception. As it begins, the sockets open close with
+   1012 `Maintenance` (D-166).
+4. `PUT /_ultimabase/maintenance` with `{ "enabled": true }` or
+   `{ "enabled": false }` turns it on or off, with the master key only:
+   403 `ACCESS_DENIED` for another caller, 400 `VALIDATION_FAILED` for
+   another body. It answers `{ "enabled": … }`. It is never refused.
+5. A plugin that requires maintenance reads `plugins.maintenance`:
+   `lock()` and `unlock()`, which resolve once the state is stored, and
+   `locked()`, this server's state.
+6. The state is one row of the plugin's own model, `MaintenanceState`
+   (D-110), which no transport exposes. Each server reads it as it starts,
+   and again on a change of it and on `missed` (D-154): every server
+   follows. When the row cannot be read, the server keeps its state and
+   logs the error.
+7. `/ready` stays as D-204 has it: the maintenance does not change it.
+
+Why:
+
+- An application coming from Parse turns maintenance on during a
+  migration: its clients show a maintenance page, and no write lands
+  while the data changes. With several servers, a switch held in memory
+  turns one of them only.
+- A plugin could neither answer before the routes, as the routes of the
+  application come first, nor gate the upgrades, which only the
+  application's `upgrade` did. `gate` gives both, past CORS so that a
+  browser reads the refusal.
+- Master passes: the migration's own scripts and the admin work while the
+  clients wait.
+- `/ready` at 503 would take every server out of the load balancer: the
+  clients would meet the load balancer's error, not the maintenance's
+  body.
+- A client detects the maintenance with any request, as
+  `query { __typename }`: 503 and `code === 'MAINTENANCE'`.
+
+Rejected:
+
+- A maintenance token besides the master key, a `startLocked` option, a
+  list of paths it lets through, a CLI command, testing helpers and a
+  `GET` of the state: nobody asked for them yet.
+- The maintenance in http, as an option: an application without it would
+  carry a model and a route it does not use.
+- Tying `/ready` to the maintenance, for the reason above.
+- A gate that reads the caller before it runs: every request would read
+  it, sessions included, even when no gate needs it; maintenance reads it
+  only while it is on.
+
+Example, before: the application keeps a flag in memory, one server only,
+and writes its own gate and route.
+
+```ts
+let locked = false
+httpPlugin({
+	upgrade: () => (locked ? new Response(null, { status: 503 }) : undefined),
+	routes: [
+		routes()
+			.use(async (c, next) => {
+				if (locked && c.var.caller.kind !== 'master') {
+					return c.json({ code: 'MAINTENANCE' }, 503)
+				}
+				await next()
+			})
+			.put('/maintenance', async (c) => {
+				locked = (await c.req.json()).enabled
+				return c.json({ enabled: locked })
+			}),
+	],
+})
+```
+
+After: every server follows one stored state.
+
+```ts
+plugins: [httpPlugin(), maintenancePlugin()]
+
+// curl -X PUT /_ultimabase/maintenance \
+//   -H 'x-ultimabase-master-key: …' -d '{ "enabled": true }'
+
+// In a plugin that requires maintenance:
+await plugins.maintenance.lock()
 ```

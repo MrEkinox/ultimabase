@@ -163,6 +163,7 @@ each capability is a package you add.
 | [`@ultimabase/realtime`](packages/realtime)       | Live lists and rows over GraphQL subscriptions or SSE           |
 | [`@ultimabase/live`](packages/live)               | Its client: SSE, an Apollo link and a React hook                |
 | [`@ultimabase/soft-delete`](packages/soft-delete) | A trash: deleted rows leave the reads and can be restored       |
+| [`@ultimabase/maintenance`](packages/maintenance) | Maintenance on every server: 503 for all but Master             |
 | [`@ultimabase/testing`](packages/testing)         | Test helpers for Vitest, and the database adapters' suite       |
 
 ## Coming from Parse Server or Supabase?

@@ -272,6 +272,7 @@ Exit: the audit's fixes are published.
 ## Phase 7: Parity with the previous base
 
 - [ ] `vector()` field type for pgvector (D-32).
+- [x] Maintenance on every server, Master still served (D-205).
 - [ ] Decide a limit on the whole API, per caller or per address, as a
       `rateLimit()` plugin (D-56); then build it.
 

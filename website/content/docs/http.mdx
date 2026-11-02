@@ -216,6 +216,22 @@ From a plugin that requires the HTTP plugin:
 A check returns a boolean, or a promise of one. One that throws fails, and
 its error is logged with `A readiness check failed.`
 
+### Gates
+
+A plugin answers requests before the caller is read and before any route,
+as [maintenance](/docs/next/maintenance) does. From a plugin that requires
+the HTTP plugin:
+
+| Member                    | Effect                                                                                      |
+| ------------------------- | ------------------------------------------------------------------------------------------- |
+| `plugins.http.gate(gate)` | From the plugin's `api`: `gate(request)` answers each request and upgrade, or lets it pass. |
+
+A gate returns a `Response`, which refuses the request, or `undefined`,
+which lets it through; a promise of either too. It runs after CORS, so
+that a browser reads the refusal, and never on a preflight, `/health` or
+`/ready`. On an upgrade, it runs after `upgrade`. The gates run in the
+plugins' order, and the first `Response` is the answer.
+
 ### WebSockets
 
 A plugin takes the WebSocket upgrades of a path, as GraphQL takes those of

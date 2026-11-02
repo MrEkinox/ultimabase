@@ -1,7 +1,7 @@
 // The Hono application `httpPlugin` serves (D-66, D-106): no caching, the
-// probes (D-204), CORS, forms from other origins, the body limit, each request's caller, the
-// routes, the reset route outside production (D-188), and errors as D-72
-// sends them.
+// probes (D-204), CORS, the plugins' gates (D-205), forms from other
+// origins, the body limit, each request's caller, the routes, the reset
+// route outside production (D-188), and errors as D-72 sends them.
 import { randomUUID } from 'node:crypto'
 import { STATUS_CODES } from 'node:http'
 import type { Context } from 'hono'
@@ -19,6 +19,7 @@ import { probeRoutes } from './probes.ts'
 import { hold } from './request.ts'
 import { resetRoutes } from './reset.ts'
 import type { Gate } from './upgrade.ts'
+import { answer } from './upgrade.ts'
 
 /**
  * What a route's context holds: `c.var.caller` (D-106) and `c.var.address`,
@@ -155,7 +156,10 @@ const pathOf = (request: Request): string =>
 export function appOf(
 	options: HttpOptions,
 	mounted: readonly Mounted[],
-	probes: Probes,
+	{
+		probes,
+		gates,
+	}: { readonly probes: Probes; readonly gates: readonly Gate[] },
 	identify: (request: Request) => Promise<Caller>,
 	logger: Logger,
 ): Hono<HttpEnv> {
@@ -208,6 +212,12 @@ export function appOf(
 			c.header('access-control-allow-credentials', 'true')
 		}
 		c.header('vary', 'Origin', { append: true })
+	})
+	// The plugins' gates, as maintenance: a refusal keeps CORS's headers, so
+	// that a browser reads it (D-205).
+	app.use(async (c, next) => {
+		const gated = await answer(gates, c.req.raw)
+		return gated ?? next()
 	})
 	// A browser sends a form to any site, with that site's cookies, and no
 	// CORS check stops it: a form from a browser, which names its origin or

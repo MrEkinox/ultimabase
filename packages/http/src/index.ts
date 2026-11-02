@@ -12,7 +12,7 @@ import { allowing, appOf } from './app.ts'
 import type { Probes, ReadyCheck } from './probes.ts'
 import { hold } from './request.ts'
 import { closed, listening, portOf, serverOf } from './server.ts'
-import type { Accept, Close, Closing, Taker } from './upgrade.ts'
+import type { Accept, Close, Closing, Gate, Taker } from './upgrade.ts'
 import { closeUpgrades, upgrading } from './upgrade.ts'
 
 export type { HttpEnv, HttpOptions, Routes } from './app.ts'
@@ -49,6 +49,12 @@ export interface HttpApi {
 	 * one fails; call it from your `api` (D-204).
 	 */
 	ready(check: ReadyCheck): void
+	/**
+	 * Answers each request, past CORS, before the caller and the routes, and
+	 * each WebSocket upgrade, past the application's `upgrade`: a response
+	 * refuses it; call it from your `api` (D-205).
+	 */
+	gate(gate: Gate): void
 	/** Where the server listens, `http://localhost:3000`, once it started. */
 	url(): string
 }
@@ -68,6 +74,7 @@ const upgrades = new WeakMap<object, Map<string, Taker>>()
 const taken = new WeakMap<object, ReadonlyMap<Duplex, string>>()
 const urls = new WeakMap<object, string>()
 const probing = new WeakMap<object, Probes & { drain: number }>()
+const gated = new WeakMap<object, Gate[]>()
 
 const http = definePlugin<Http>({
 	name: 'http',
@@ -75,6 +82,7 @@ const http = definePlugin<Http>({
 	api: (context) => {
 		const mounted: Mounted[] = []
 		const takers = new Map<string, Taker>()
+		const gates: Gate[] = []
 		const probes = {
 			started: false,
 			stopping: false,
@@ -84,6 +92,7 @@ const http = definePlugin<Http>({
 		mounts.set(context, mounted)
 		upgrades.set(context, takers)
 		probing.set(context, probes)
+		gated.set(context, gates)
 		const building = (what: string) => {
 			if (mounts.has(context)) return
 			throw new Error(
@@ -106,6 +115,10 @@ const http = definePlugin<Http>({
 				building('add readiness checks')
 				probes.checks.push(check)
 			},
+			gate: (gate) => {
+				building('add gates')
+				gates.push(gate)
+			},
 			closeUpgrades: (closing) => {
 				closeUpgrades(takers, taken.get(context), closing)
 			},
@@ -127,7 +140,8 @@ const http = definePlugin<Http>({
 		probes.drain =
 			options.drain ?? (process.env['NODE_ENV'] === 'production' ? 5000 : 0)
 		const mounted = mounts.get(context) ?? []
-		const app = appOf(options, mounted, probes, identify, logger)
+		const gates = gated.get(context) ?? []
+		const app = appOf(options, mounted, { probes, gates }, identify, logger)
 		mounts.delete(context)
 		const server = serverOf(app.fetch)
 		const takers = upgrades.get(context) ?? new Map<string, Taker>()
@@ -136,7 +150,10 @@ const http = definePlugin<Http>({
 			context,
 			upgrading(server, {
 				takers,
-				gate: options.upgrade,
+				gates: [
+					...(options.upgrade === undefined ? [] : [options.upgrade]),
+					...gates,
+				],
 				allows: allowing(options),
 				addressOf,
 				logger,
@@ -167,6 +184,7 @@ const http = definePlugin<Http>({
 		servers.delete(context)
 		urls.delete(context)
 		probing.delete(context)
+		gated.delete(context)
 		const open = taken.get(context) ?? new Map<Duplex, string>()
 		taken.delete(context)
 		await closed(server, logger, open)

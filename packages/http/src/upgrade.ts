@@ -27,8 +27,9 @@ export type Accept = (upgrade: Upgrade) => void
 export type Close = (code: number, reason: string) => void
 
 /**
- * The application's answer to an upgrade, before the plugin takes it: a
- * response refuses it, `undefined` lets it through (D-166).
+ * The application's answer to an upgrade, before the plugin takes it, or a
+ * plugin's to each request and upgrade: a response refuses it, `undefined`
+ * lets it through (D-166, D-205).
  */
 export type Gate = (
 	request: Request,
@@ -50,10 +51,23 @@ export interface Taker {
 /** What `upgrading` reads from the server's options and plugins. */
 export interface Upgrading {
 	readonly takers: ReadonlyMap<string, Taker>
-	readonly gate: Gate | undefined
+	/** The application's `upgrade`, then the plugins' gates (D-205). */
+	readonly gates: readonly Gate[]
 	readonly allows: (origin: string) => boolean
 	readonly addressOf: (env: { readonly incoming: IncomingMessage }) => string
 	readonly logger: Logger
+}
+
+/** The first gate's refusal of `request`, or `undefined` when all let it through. */
+export async function answer(
+	gates: readonly Gate[],
+	request: Request,
+): Promise<Response | undefined> {
+	for (const gate of gates) {
+		const refused = await gate(request)
+		if (refused !== undefined) return refused
+	}
+	return undefined
 }
 
 /** Sends `response` on the raw socket, then closes it. */
@@ -103,7 +117,7 @@ function requestOf(incoming: IncomingMessage): Request | undefined {
  */
 export function upgrading(
 	server: Server,
-	{ takers, gate, allows, addressOf, logger }: Upgrading,
+	{ takers, gates, allows, addressOf, logger }: Upgrading,
 ): ReadonlyMap<Duplex, string> {
 	const open = new Map<Duplex, string>()
 	server.on('upgrade', (incoming: IncomingMessage, socket: Duplex, head) => {
@@ -132,7 +146,7 @@ export function upgrading(
 		socket.once('close', () => open.delete(socket))
 		void (async () => {
 			try {
-				const refused = await gate?.(request)
+				const refused = await answer(gates, request)
 				if (refused !== undefined) return await send(socket, refused)
 				const address = addressOf({ incoming })
 				taker.accept({ request, address, incoming, socket, head })

@@ -1,0 +1,167 @@
+// Maintenance (D-205): while it is on, every request and WebSocket upgrade but
+// Master's answers 503 `MAINTENANCE`, and the sockets open close with 1012.
+// Its state is a row: every server follows it through the change feed.
+import type { Http } from '@ultimabase/http'
+import { httpPlugin, routes } from '@ultimabase/http'
+import type { Logger, PluginOf, PluginTypes } from 'ultimabase'
+import { definePlugin, master, PublicError } from 'ultimabase'
+import manifest from '../package.json' with { type: 'json' }
+import { MaintenanceState } from './state.ts'
+
+/** What `maintenancePlugin` takes. */
+export interface MaintenanceOptions {
+	/** In milliseconds, how long a client waits before it tries again: 60 000 by default. */
+	readonly retryAfter?: number
+}
+
+/** What the maintenance plugin offers other plugins. */
+export interface MaintenanceApi {
+	/** Begins the maintenance on every server, once stored. */
+	lock(): Promise<void>
+	/** Ends it on every server, once stored. */
+	unlock(): Promise<void>
+	/** Whether this server is in maintenance. */
+	locked(): boolean
+}
+
+/** The maintenance plugin's types (D-57). */
+export interface Maintenance extends PluginTypes {
+	readonly name: 'maintenance'
+	readonly appOptions: MaintenanceOptions
+	readonly requires: Http
+	readonly api: MaintenanceApi
+}
+
+/** The route Master turns it on and off with, which it never refuses. */
+const path = '/_ultimabase/maintenance'
+const key = 'state'
+
+/** This server's state, and how it closes the sockets open. */
+interface State {
+	locked: boolean
+	readonly close: () => void
+	readonly logger: Logger
+}
+
+/** Follows the stored state: as it begins, the sockets open close. */
+function follow(state: State, locked: boolean): void {
+	if (locked && !state.locked) state.close()
+	state.locked = locked
+}
+
+async function stored(): Promise<boolean> {
+	const row = await MaintenanceState.findUnique(
+		{ where: { key } },
+		{ as: master },
+	)
+	return row?.enabled ?? false
+}
+
+async function store(state: State, locked: boolean): Promise<void> {
+	await MaintenanceState.upsert(
+		{
+			where: { key },
+			create: { key, enabled: locked },
+			update: { enabled: locked },
+		},
+		{ as: master },
+	)
+	follow(state, locked)
+}
+
+/** Reads the state again; keeps the last one when it cannot. */
+async function reload(state: State): Promise<void> {
+	try {
+		follow(state, await stored())
+	} catch (error) {
+		state.logger.error(
+			{ err: error },
+			'The maintenance state could not be read: it stays as it was.',
+		)
+	}
+}
+
+const states = new WeakMap<object, State>()
+function stateOf(context: object): State {
+	const state = states.get(context)
+	if (state === undefined) throw new Error('The maintenance plugin has no api.')
+	return state
+}
+
+/** The body of `PUT /_ultimabase/maintenance`, `{ enabled }`. */
+function enabledIn(body: unknown): boolean {
+	const enabled: unknown =
+		typeof body === 'object' && body !== null
+			? Reflect.get(body, 'enabled')
+			: undefined
+	if (typeof enabled !== 'boolean') {
+		throw new PublicError(
+			'VALIDATION_FAILED',
+			'The body is { "enabled": true } or { "enabled": false }.',
+		)
+	}
+	return enabled
+}
+
+const maintenance = definePlugin<Maintenance>({
+	name: 'maintenance',
+	manifest,
+	requires: { http: httpPlugin },
+	models: [MaintenanceState],
+	api: (context) => {
+		const { plugins, options, identify, logger } = context
+		const state: State = {
+			locked: false,
+			close: () =>
+				plugins.http.closeUpgrades({ code: 1012, reason: 'Maintenance' }),
+			logger,
+		}
+		states.set(context, state)
+		const seconds = Math.ceil((options.retryAfter ?? 60_000) / 1000)
+		plugins.http.gate(async (request) => {
+			if (!state.locked || new URL(request.url).pathname === path) {
+				return undefined
+			}
+			const caller = await identify(request).catch(() => undefined)
+			if (caller?.kind === 'master') return undefined
+			return Response.json(
+				{
+					code: 'MAINTENANCE',
+					message: 'The application is under maintenance.',
+					details: { retryAfter: seconds },
+				},
+				{ status: 503, headers: { 'retry-after': String(seconds) } },
+			)
+		})
+		plugins.http.mount(
+			routes().put(path, async (c) => {
+				if (c.var.caller.kind !== 'master') {
+					throw new PublicError(
+						'ACCESS_DENIED',
+						'Only the master key turns the maintenance on or off.',
+					)
+				}
+				const enabled = enabledIn(await c.req.json().catch(() => undefined))
+				await store(state, enabled)
+				return c.json({ enabled })
+			}),
+		)
+		return {
+			lock: () => store(state, true),
+			unlock: () => store(state, false),
+			locked: () => state.locked,
+		}
+	},
+	start: async (context) => {
+		stateOf(context).locked = await stored()
+	},
+	changed: (changes, context) => {
+		if (changes.some((change) => change.model === MaintenanceState.name)) {
+			void reload(stateOf(context))
+		}
+	},
+	missed: (context) => void reload(stateOf(context)),
+})
+
+/** Maintenance, on every server at once (D-205). */
+export const maintenancePlugin: PluginOf<Maintenance> = maintenance.plugin
