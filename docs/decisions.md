@@ -10278,6 +10278,8 @@ messages[0].author?.name ?? 'Deleted account'
 
 ## D-160: Closing an account
 
+Replaced by D-211.
+
 Choice: completes D-112 and D-113, and amends D-113 point 12.
 
 1. auth adds the command `User.closeAccount({ id }, options)`. It closes
@@ -10443,6 +10445,8 @@ const deleteAccount = defineFunction({
 ```
 
 ## D-162: The stored email and the email change
+
+Amended by D-211.
 
 Choice: completes D-113 and D-117, and amends D-113 point 5, D-117 points 1
 and 5, and D-160.
@@ -10884,6 +10888,8 @@ it('reads the lock again after lost changes', async () => {
 ```
 
 ## D-169: When the password was set
+
+Amended by D-211.
 
 Choice: completes D-113, D-117, D-160 and D-162.
 
@@ -13923,3 +13929,50 @@ Rejected: 120 seconds (D-173 rejected two minutes: the run would drift
 unseen); another formatter (a dependency to replace a flag).
 Limit: a change of Prettier's version or options checks every file again,
 which Prettier's cache does by itself.
+
+## D-211: No closing an account
+
+Choice: replaces D-160, and amends D-162 point 2 and D-169 points 3 and 5.
+
+1. auth removes the command `User.closeAccount` and `AuthApi.onCloseAccount`;
+   password removes its listener. An application that ends an account
+   deletes the user: `User.delete` already ends the sessions, unlinks the
+   accounts and deletes password's rows (D-111, D-113, D-117), so the email
+   signs up again.
+2. `email: null` on a user whose password account is linked is still
+   refused, now with `email: A password account keeps its email.` (D-162
+   point 2): nothing else unlinks it.
+3. `passwordSetAt` is `null` only for a user without a password (D-169):
+   nothing sets it back.
+4. D-113 point 12 reads as D-162 left it: `AuthApi.unlinkAccount` unlinks
+   one account.
+
+Why: D-160 was taken for an application migrating from Parse that kept the
+rows of closed accounts; it deletes them instead, as a member list need not
+show an author who left. Nothing else used the command, and keeping it cost
+a case the audit of auth found: inside an application's transaction, the
+second `revokeSessions` ran before the commit, so a sign-in in between kept
+a working session. Removing it before 1.0 is a minor change (0.x).
+
+Rejected: fixing the nested case with an after-commit step (a kernel hook
+for one command no one uses); keeping it behind an option (no speculative
+options).
+
+Example, before:
+
+```ts
+await transaction(async () => {
+	await User.closeAccount({ id }, { as: master })
+	await User.update(
+		{ where: { id }, data: { name: 'Deleted account' } },
+		{ as: master },
+	)
+})
+```
+
+After:
+
+```ts
+// Ends the sessions and deletes the password and the linked accounts.
+await User.delete({ where: { id } }, { as: master })
+```

@@ -63,6 +63,12 @@ describe('auth’s rules', () => {
 		expect(owner({ caller: anonymous, ...record({ id: 'ada' }) })).toBe(false)
 	})
 
+	it('isOwner owns nothing without a record or a value', () => {
+		const owner = isOwner<{ readonly caller: Caller }, 'author'>('author')
+		// @ts-expect-error -- typed facts need a record; untyped ones own nothing.
+		expect(owner({ caller: ada })).toBe(false)
+	})
+
 	it('isOwner lets the value written connect the caller only', () => {
 		type Written = {
 			readonly caller: Caller

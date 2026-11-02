@@ -166,13 +166,12 @@ describe('User.passwordSetAt', () => {
 		)
 	})
 
-	it('tells no one of the sign-up, a Master write or a closed account', async () => {
+	it('tells no one of the sign-up or a Master write', async () => {
 		const { user, app } = await server()
 		await Member.update(
 			{ where: { id: user.id }, data: { passwordSetAt: new Date(0) } },
 			M,
 		)
-		await Member.closeAccount({ id: user.id }, M)
 		await app.stop()
 		expect(outbox).toStrictEqual([])
 	})
@@ -181,12 +180,5 @@ describe('User.passwordSetAt', () => {
 		const { user } = await server({})
 		await Member.setPassword({ id: user.id, password: 'set by Master' }, M)
 		expect(changes).toHaveLength(1)
-	})
-
-	it('is null once the account closes', async () => {
-		const { user } = await server()
-		await Member.closeAccount({ id: user.id }, M)
-		expect(await setAtOf(user.id)).toBeNull()
-		expect(changes).toStrictEqual([null])
 	})
 })

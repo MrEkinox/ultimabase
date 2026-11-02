@@ -88,8 +88,9 @@ const get = (value: unknown, key: string): unknown =>
  * The rule "the caller is the user this `one` relation points to, before and
  * after the write" (D-79): the stored key (D-77) when there is one, and the
  * value written, which may only connect the caller. A create that does not
- * write the relation leaves it to its default. Its facts come from where it
- * is used, so a wrong name fails on the name.
+ * write the relation leaves it to its default; facts with neither a record
+ * nor a value, as a function's, own nothing. Its facts come from where it is
+ * used, so a wrong name fails on the name.
  */
 export function isOwner<
 	Facts extends { readonly caller: Caller },
@@ -99,12 +100,15 @@ export function isOwner<
 		const { caller } = facts
 		if (caller.kind !== 'user') return false
 		const record = get(facts, 'record')
+		const value = get(facts, 'value')
+		// Neither a record nor a value: nothing it owns.
+		if (record === undefined && value === undefined) return false
 		if (
 			record !== undefined &&
 			get(get(record, field), 'id') !== caller.user.id
 		)
 			return false
-		const written = get(get(facts, 'value'), field)
+		const written = get(value, field)
 		return (
 			written === undefined ||
 			get(get(written, 'connect'), 'id') === caller.user.id
