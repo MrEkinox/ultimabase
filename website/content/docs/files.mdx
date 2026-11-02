@@ -131,16 +131,25 @@ also deletes the objects that have no row.
 ## Storage
 
 `s3()` takes a bucket on S3 or on any S3-compatible storage: DigitalOcean
-Spaces, Cloudflare R2, MinIO, SeaweedFS. `memoryFiles()` keeps the files in
-memory, for tests and development; its URLs are `memory://files/…`, never
-served.
+Spaces, Cloudflare R2, MinIO, SeaweedFS. `diskFiles()` keeps the files in a
+directory, for a single server whose directory is a persistent volume, as a
+staging server without S3. `memoryFiles()` keeps them in memory, for tests and
+development.
+
+The application serves the files of `diskFiles()` and `memoryFiles()` at
+`GET /files/<key>`, so a front end shows them as it would from S3: a public
+file at a stable URL, a private one at a URL signed for 15 to 30 minutes.
 
 <include cwd meta='title="src/app.ts"'>
 	../examples/files/src/app.ts#storage
 </include>
 
-Each option of `s3()` takes `undefined`, so the environment fills it
-directly; a missing one throws at start.
+Each option of `s3()` and `diskFiles()` takes `undefined`, so the
+environment fills it directly; a missing one throws at start.
+
+A served file is answered with its type, `X-Content-Type-Options: nosniff`
+and `Content-Security-Policy: sandbox`, so an HTML or SVG file opened from
+the application's origin runs no script there.
 
 ## Reference
 
@@ -177,13 +186,14 @@ scalar, an id or a list operation.
 
 ### `filesPlugin(options)`
 
-| Option          | Type                      | Default          | Effect                                              |
-| --------------- | ------------------------- | ---------------- | --------------------------------------------------- |
-| `storage`       | `s3()` or `memoryFiles()` | required         | Where the files go.                                 |
-| `access.upload` | a rule                    | a signed-in user | Who may upload; Master always may.                  |
-| `maxSize`       | number of bytes           | 50 MB            | The largest file of a field that sets no `maxSize`. |
+| Option          | Type                                     | Default          | Effect                                              |
+| --------------- | ---------------------------------------- | ---------------- | --------------------------------------------------- |
+| `storage`       | `s3()`, `diskFiles()` or `memoryFiles()` | required         | Where the files go.                                 |
+| `access.upload` | a rule                                   | a signed-in user | Who may upload; Master always may.                  |
+| `maxSize`       | number of bytes                          | 50 MB            | The largest file of a field that sets no `maxSize`. |
 
-It requires `httpPlugin()`, and mounts `POST /files`.
+It requires `httpPlugin()`, and mounts `POST /files`, and `GET /files/<key>`
+for `diskFiles()` and `memoryFiles()`.
 
 ### `s3(options)`
 
@@ -199,6 +209,26 @@ It requires `httpPlugin()`, and mounts `POST /files`.
 
 The first five are required, and each takes `undefined`. URLs are
 path-style, `${endpoint}/${bucket}/${key}`; requests are signed with SigV4.
+
+### `diskFiles(options)` and `memoryFiles(options)`
+
+| Option     | Of            | Effect                                                                       |
+| ---------- | ------------- | ---------------------------------------------------------------------------- |
+| `dir`      | `diskFiles()` | The directory, made when missing. Required.                                  |
+| `secret`   | `diskFiles()` | Signs the private URLs: 32 characters at least, the same on every start.     |
+| `servedAt` | both          | The origin of the URLs, behind a proxy; the HTTP server's address otherwise. |
+
+`memoryFiles()` draws its secret at random, so its private URLs end with
+the process, as its files do.
+`diskFiles()` is for one server: two servers do not share a directory.
+
+### `GET /files/<key>`
+
+| Status | Code        | When                                                    |
+| ------ | ----------- | ------------------------------------------------------- |
+| 200    |             | The file, cached a year if public, until expiry if not. |
+| 403    | `FORBIDDEN` | A private file's signature is wrong or expired.         |
+| 404    | `NOT_FOUND` | No file at this key.                                    |
 
 ### `POST /files`
 

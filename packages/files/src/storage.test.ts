@@ -80,7 +80,7 @@ describe('s3()', () => {
 	it('names the options it lacks when the application starts', () => {
 		const storage = s3({ ...options, bucket: undefined, secretAccessKey: '' })
 		expect(() => {
-			storage.start()
+			storage.start({ url: 'http://localhost:3000' })
 		}).toThrow('s3() needs bucket, secretAccessKey: undefined or empty.')
 	})
 
@@ -196,7 +196,7 @@ describe('s3()', () => {
 describe('memoryFiles()', () => {
 	it('holds objects, checks their size and lists their keys', async () => {
 		const storage = memoryFiles()
-		storage.start()
+		storage.start({ url: 'http://localhost:3000' })
 		const body = new Blob(['hello']).stream()
 		await storage.put('public/a', body, {
 			type: 'text/plain',
@@ -216,10 +216,7 @@ describe('memoryFiles()', () => {
 			}),
 		).rejects.toThrow('memoryFiles: private/b has 2 bytes, not 3.')
 		expect(await storage.keys()).toStrictEqual(['public/a'])
-		expect(storage.url('public/a')).toBe('memory://files/public/a')
-		expect(storage.url('private/b')).toBe(
-			'memory://files/private/b?expires=1800',
-		)
+		expect(storage.url('public/a')).toBe('http://localhost:3000/files/public/a')
 		await storage.delete('public/a')
 		expect(await storage.keys()).toStrictEqual([])
 	})

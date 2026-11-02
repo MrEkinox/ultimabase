@@ -57,8 +57,12 @@ async function attachment(name: string, text: string): Promise<string> {
 }
 
 const anId: unknown = expect.any(String)
-const aUrl: unknown = expect.stringMatching(/^memory:\/\/files\/public\//)
-const aPrivateUrl: unknown = expect.stringMatching(/\?expires=1800$/)
+const aUrl: unknown = expect.stringMatching(
+	/^http:\/\/localhost:\d+\/files\/public\//,
+)
+const aPrivateUrl: unknown = expect.stringMatching(
+	/\/files\/private\/.+\?expires=\d+&signature=/,
+)
 
 it('uploads a cover, then writes its id in a post', async () => {
 	//#region upload
@@ -80,6 +84,11 @@ it('uploads a cover, then writes its id in a post', async () => {
 		url: aUrl,
 		inline: { size: { width: 1, height: 1 } },
 	})
+	// The application serves the files of memoryFiles(), as a bucket would.
+	const image = await fetch(
+		String(at(body, 'data', 'createPost', 'cover', 'url')),
+	)
+	expect(image.headers.get('content-type')).toBe('image/png')
 	//#endregion
 })
 

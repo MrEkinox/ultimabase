@@ -3,7 +3,7 @@
 import type { Signer } from './sigv4.ts'
 import { presign } from './sigv4.ts'
 import type { FileStorage } from './storage.ts'
-import { isPublic } from './storage.ts'
+import { isPublic, windowOf } from './storage.ts'
 
 /** What `s3()` takes; the first five are required, read when the application starts. */
 export interface S3Options {
@@ -80,9 +80,6 @@ function pageOf(xml: string): {
 	return { keys, next: truncated && token ? decoded(token) : undefined }
 }
 
-/** A private file's URL stays the same this long, in milliseconds. */
-const urlWindow = 15 * 60 * 1000
-
 /** An S3-compatible storage; its options are checked when the application starts. */
 export function s3(options: S3Options): FileStorage {
 	let config: Config | undefined
@@ -137,8 +134,8 @@ export function s3(options: S3Options): FileStorage {
 		url: (key) => {
 			if (!isPublic(key)) {
 				// The same URL for a whole window, valid one more (D-200).
-				const start = Math.floor(Date.now() / urlWindow) * urlWindow
-				return signed('GET', objectUrl(key), 1800, {}, new Date(start))
+				const start = new Date(windowOf(Date.now()))
+				return signed('GET', objectUrl(key), 1800, {}, start)
 			}
 			const { publicUrl } = options
 			return publicUrl === undefined

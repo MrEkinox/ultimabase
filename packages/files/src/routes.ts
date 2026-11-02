@@ -1,8 +1,10 @@
 // `POST /files?for=Post.cover&name=photo.jpg` (D-152): the file as the raw
-// body, which its field's `maxSize` limits, not the HTTP plugin (D-153).
+// body, which its field's `maxSize` limits, not the HTTP plugin (D-153); and
+// `GET /files/<key>`, for a storage the application serves (D-202).
 import type { Routes } from '@ultimabase/http'
 import { routes } from '@ultimabase/http'
 import { PublicError } from 'ultimabase'
+import { keyPattern } from './storage.ts'
 import { upload } from './upload.ts'
 
 /** An upload's own refusals, which the HTTP plugin does not know. */
@@ -39,4 +41,19 @@ export const uploads = (): Routes =>
 			if (status === undefined) throw error
 			return c.json({ code: error.code, message: error.message }, status)
 		}
+	})
+
+/** The route of a storage's files, which `serve` answers. */
+export const served = (
+	serve: (key: string, url: URL) => Promise<Response>,
+): Routes =>
+	routes().get('/files/:visibility/:id', async (c) => {
+		const key = `${c.req.param('visibility')}/${c.req.param('id')}`
+		if (!keyPattern.test(key)) {
+			return c.json(
+				{ code: 'NOT_FOUND', message: 'No file at this address.' },
+				404,
+			)
+		}
+		return serve(key, new URL(c.req.url))
 	})
