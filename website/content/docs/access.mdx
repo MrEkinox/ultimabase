@@ -65,6 +65,10 @@ to Master: the transports leave it out of their schema.
 sorts on a field that has them, as `featured` above, and only the writes
 are checked.
 
+The rows a query returns type a field with a read rule as optional, in a
+`select` or an `include` too: `notes` above reads `string | undefined`. A
+hook's or a rule's `record` still has every field.
+
 A field rule sees `record.id` typed and the other fields as `unknown`.
 `.with<{ authorId: string }>({ ... })` types the fields its rules read, as in
 `notes` above; `defineModel` checks that each type matches the model's.
@@ -163,3 +167,5 @@ A client's filter refused as `INVALID_QUERY` answers `BAD_USER_INPUT`, a
   throws `A read rule returns a boolean or a read filter.` A write or field
   rule returns a boolean.
 - A field read rule cannot return a filter.
+- A virtual a field read rule hides, and the `_count` of a hidden relation,
+  are typed as present.

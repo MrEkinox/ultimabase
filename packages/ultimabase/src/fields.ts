@@ -1,6 +1,13 @@
 // Field builders (D-09, D-12); a field's `.with` takes the rules of
 // field-rules.ts (D-44).
-import type { Declared, FieldWith } from './field-rules.ts'
+import type {
+	Declared,
+	FieldWith,
+	Hidden,
+	ManyValue,
+	OpenWith,
+	RelationValue,
+} from './field-rules.ts'
 import type { Caller } from './rules.ts'
 import type { calendarDay, fieldType } from './symbols.ts'
 import type { NoOptions, Virtual, VirtualOptions } from './virtual.ts'
@@ -251,26 +258,23 @@ export interface Field<
 	 */
 	// With a declared record, `.with<{ ... }>`; refused without one, so the
 	// next signature applies.
+	// Each form first without a read rule, which makes reads optional (D-44).
+	with<R extends object>(
+		rules: [keyof R] extends [never]
+			? never
+			: FieldWith<NoInfer<R>, Written<I, O>, T> & OpenWith,
+	): Field<V, O, P, never, I, J, S> & Declared<R>
 	with<R extends object>(
 		rules: [keyof R] extends [never]
 			? never
 			: FieldWith<NoInfer<R>, Written<I, O>, T>,
-	): Field<V, O, P, never, I, J, S> & Declared<R>
+	): Field<V, O, P, never, I, J, S> & Declared<R> & Hidden
+	with(
+		rules: FieldWith<never, Written<I, O>, T> & OpenWith,
+	): Field<V, O, P, never, I, J, S>
 	with(
 		rules: FieldWith<never, Written<I, O>, T>,
-	): Field<V, O, P, never, I, J, S>
-}
-
-export type RelationValue = { readonly id: string }
-
-/** What a `many` relation's write rule sees: the caller's lists (D-86). */
-export type ManyValue = {
-	readonly connect: readonly RelationValue[]
-	readonly disconnect: readonly RelationValue[]
-	/** The linked rows it deletes (D-138). */
-	readonly delete: readonly RelationValue[]
-	/** The rows it creates, by the ids the kernel gives them (D-128). */
-	readonly create: readonly RelationValue[]
+	): Field<V, O, P, never, I, J, S> & Hidden
 }
 
 // `T` is the target's thunk, constrained to `object` only: its return type
@@ -282,8 +286,11 @@ export interface One<T, O, U = never> {
 		readonly options: O
 	}
 	with<R extends object = never>(
-		rules: FieldWith<NoInfer<R>, RelationValue | null, U>,
+		rules: FieldWith<NoInfer<R>, RelationValue | null, U> & OpenWith,
 	): One<T, O> & Declared<R>
+	with<R extends object = never>(
+		rules: FieldWith<NoInfer<R>, RelationValue | null, U>,
+	): One<T, O> & Declared<R> & Hidden
 }
 
 export interface Many<T, O, U = never> {
@@ -293,8 +300,11 @@ export interface Many<T, O, U = never> {
 		readonly options: O
 	}
 	with<R extends object = never>(
-		rules: FieldWith<NoInfer<R>, ManyValue, U>,
+		rules: FieldWith<NoInfer<R>, ManyValue, U> & OpenWith,
 	): Many<T, O> & Declared<R>
+	with<R extends object = never>(
+		rules: FieldWith<NoInfer<R>, ManyValue, U>,
+	): Many<T, O> & Declared<R> & Hidden
 }
 
 /**
