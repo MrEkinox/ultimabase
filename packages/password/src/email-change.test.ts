@@ -5,7 +5,7 @@ import { authPlugin, defineUser } from '@ultimabase/auth'
 import { httpPlugin } from '@ultimabase/http'
 import type { Adapter, Caller } from 'ultimabase'
 import { allow, defineApp, memory } from 'ultimabase'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, expectTypeOf, it, vi } from 'vitest'
 import type { Email, PasswordOptions } from './index.ts'
 import { password, passwordPlugin } from './index.ts'
 import {
@@ -130,6 +130,12 @@ describe('User.email', () => {
 			undefined,
 			'grace@example.com',
 		])
+		// So a read types them as optional (D-199).
+		type Row = (typeof rows)[number]
+		expectTypeOf<Pick<Row, 'email' | 'passwordSetAt'>>().toEqualTypeOf<{
+			readonly email?: string | null
+			readonly passwordSetAt?: Date | null
+		}>()
 		await expect(
 			Member.findMany({ where: { email: 'ada@example.com' } }, { as: asGrace }),
 		).rejects.toMatchObject({ code: 'INVALID_QUERY' })

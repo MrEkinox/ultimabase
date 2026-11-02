@@ -1,4 +1,5 @@
 // What every access rule receives, and the kernel's ready-made rules (D-10).
+import type { ReadRecord } from './read-row.ts'
 import type { RecordOf } from './record.ts'
 import type { modelFields, openRead } from './symbols.ts'
 
@@ -15,6 +16,16 @@ export type UserOf<R> = R extends {
 	readonly user: { readonly [modelFields]: infer F }
 }
 	? RecordOf<F>
+	: { readonly id: string }
+
+/**
+ * The registered user model's row as a read gives it: a field a read rule
+ * may hide is optional (D-199, D-203).
+ */
+export type UserRowOf<R> = R extends {
+	readonly user: { readonly [modelFields]: infer F }
+}
+	? ReadRecord<F>
 	: { readonly id: string }
 
 /** `viewer` on the filter of a relation to `Register`'s user model (D-189). */

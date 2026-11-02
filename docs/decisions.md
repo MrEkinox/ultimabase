@@ -2340,6 +2340,8 @@ await Post.update({ where, data: { author: { connect: { id: other } } } }, as)
 
 ## D-80: Tests act as a user with `asUser`
 
+Amended by D-203.
+
 Choice: `@ultimabase/testing` exports `asUser(user)`, which builds the caller
 of a signed-in user from a user record, for a test's `{ as }`. Only
 `@ultimabase/testing` exports it; in an application a user caller comes from
@@ -13042,6 +13044,8 @@ await User.confirmEmailChange({ token })
 
 ## D-199: A field a read rule may hide is optional in reads
 
+Amended by D-203.
+
 Choice: amends D-44.
 
 1. A field with a read rule is optional in the rows a query returns:
@@ -13307,3 +13311,72 @@ Rejected:
   URL a client holds.
 - `Range` requests and `ETag`s: no application asked for them; a video
   belongs in S3.
+
+## D-203: `asUser` takes the user's row as a read gives it
+
+Choice: amends D-80 and D-199.
+
+1. `asUser(user)` takes the registered user model's row as a read gives
+   it, `UserRowOf<Register>`: a field a read rule may hide is optional
+   there (D-199). `caller.user` keeps every field, as the caller a session
+   gives holds the row a Master read returned.
+2. `ultimabase` exports `UserRowOf<R>`, next to `UserOf<R>`, and `Hidden`,
+   the mark a plugin's declared `addedFields` puts on a field with a read
+   rule, so that reads type it as optional too. password marks `email` and
+   `passwordSetAt`.
+
+Why:
+
+- D-199 types a read-ruled field as optional in every read, Master's
+  included, so no row a test reads fits `asUser` any more: D-80's own
+  example stopped compiling. Once password's `email` is marked, every
+  application that signs in with a password would hit it.
+- A sign-up's and a Master read's rows hold every field at run time.
+  Before D-199, `asUser` already took a row another user had read, so
+  taking the read row is no less safe than 0.3.
+- A plugin writes its `addedFields` type by hand, and the kernel cannot
+  read a rule from it: password's `email` was typed as always present,
+  though another caller's row leaves it out.
+
+Rejected:
+
+- Completing `caller.user` from the database when the caller acts: a read
+  per caller for a problem of types alone.
+- An async `asUser(id)` that reads the user as Master: every test waits,
+  and `@ultimabase/testing` would need the running application.
+- Master's reads keeping read-ruled fields required: D-199's second
+  reason.
+- Typing `caller.user` as the read row: every rule reading the user's own
+  field, such as `caller.user.email`, would handle an `undefined` a
+  session never gives.
+- The kernel refusing an `addedFields` type without the mark: `definePlugin`
+  would be generic over the callback's result.
+
+Example, before: the row a sign-up returns does not fit `asUser`.
+
+```ts
+const User = defineUser({
+	name: 'User',
+	use: [password()],
+	fields: (f) => ({
+		name: f.string(),
+		phone: f.string().with({ access: { read: isSelf } }),
+	}),
+})
+
+const ada = await User.signUp(
+	{ email, password, data: { name: 'Ada', phone } },
+	{},
+)
+await Post.findMany({}, { as: asUser(ada) })
+// TS2345: Property 'phone' is optional in type '…' but required in type '…'.
+```
+
+After: it does, and another user's read says `email` may be missing.
+
+```ts
+await Post.findMany({}, { as: asUser(ada) })
+
+const bob = await User.findUnique({ where: { id } }, { as: asUser(ada) })
+bob?.email // `string | null | undefined`
+```
