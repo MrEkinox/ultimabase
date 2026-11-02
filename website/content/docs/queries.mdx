@@ -149,6 +149,8 @@ together, see [Transactions](/docs/next/transactions).
 Every query that returns rows also takes `select`, or `include` and `omit`.
 The second argument is `{ as }`: `master`, a function's or a hook's
 `caller`, or in a test `asUser({ id })`.
+Its type is `QueryOptions`, from `ultimabase`: the second argument of every
+query, every model command and `fn.run`.
 
 ### Filters
 

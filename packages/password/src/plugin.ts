@@ -11,6 +11,7 @@ import type {
 	PluginOf,
 	PluginTypes,
 	Queries,
+	QueryOptions,
 	Register,
 	UseOf,
 	UserOf,
@@ -23,7 +24,7 @@ import {
 	Refused,
 } from 'ultimabase'
 import manifest from '../package.json' with { type: 'json' }
-import type { Options, SignedIn, State } from './core.ts'
+import type { SignedIn, State } from './core.ts'
 import {
 	attemptOf,
 	callerOf,
@@ -72,7 +73,7 @@ export interface PasswordOptions {
 }
 
 /** A transport's client, which counts the attempt and gets the cookie (D-115). */
-type SignInOptions = Options & { readonly client?: Client | undefined }
+type SignInOptions = QueryOptions & { readonly client?: Client | undefined }
 type CreateData<F> = Parameters<Queries<F>['create']>[0]['data']
 type UserRow<F> = Payload<F, {}>
 
@@ -81,7 +82,7 @@ export interface PasswordCommands<F> extends EmailCommands {
 	/** Creates the user, its account and its hash; opens no session. */
 	signUp(
 		args: Credentials & { readonly data: CreateData<F> },
-		options?: Options,
+		options?: QueryOptions,
 	): Promise<UserRow<F>>
 	/**
 	 * Opens a session; with a `client`, counted and with its cookie as the
@@ -98,7 +99,7 @@ export interface PasswordCommands<F> extends EmailCommands {
 	 */
 	setPassword(
 		args: { readonly id: string; readonly password: string },
-		options?: Options,
+		options?: QueryOptions,
 	): Promise<void>
 	/**
 	 * Checks the user's current password before a sensitive action, as

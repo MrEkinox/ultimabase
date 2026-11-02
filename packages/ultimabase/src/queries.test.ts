@@ -8,7 +8,7 @@ import {
 	expectTypeOf,
 	it,
 } from 'vitest'
-import type { ArgsOf } from './index.ts'
+import type { ArgsOf, QueryOptions } from './index.ts'
 import { defineApp, defineModel, master, memory } from './index.ts'
 import { query, type Operation } from './engine.ts'
 import type { Book } from './test/library.ts'
@@ -61,6 +61,15 @@ describe('on the library', () => {
 		expect(await failure('Book', 'count', 3)).toBe('args')
 		expect(await failure('Book', 'count', { ghost: 1 })).toBe('ghost')
 		expect(await failure('Book', 'findUnique', {})).toBe('where')
+	})
+
+	it('names the options every query takes', () => {
+		expectTypeOf<Parameters<typeof Book.findUnique>[1]>().toEqualTypeOf<
+			QueryOptions | undefined
+		>()
+		expectTypeOf<Parameters<typeof Book.create>[1]>().toEqualTypeOf<
+			QueryOptions | undefined
+		>()
 	})
 
 	it('checks where', async () => {

@@ -9,6 +9,7 @@ import type {
 	OutputSpec,
 	PluginOf,
 	PluginTypes,
+	QueryOptions,
 	Register,
 	UseOf,
 	UserOf,
@@ -86,7 +87,7 @@ export interface AuthCommands {
 	/** Ends every session of the user, as Master or as the user. */
 	revokeSessions(
 		where: { readonly id: string },
-		options?: { readonly as?: Identity },
+		options?: QueryOptions,
 	): Promise<void>
 	/**
 	 * Ends every session of the user and unlinks every account, keeping the
@@ -94,7 +95,7 @@ export interface AuthCommands {
 	 */
 	closeAccount(
 		where: { readonly id: string },
-		options?: { readonly as?: Identity },
+		options?: QueryOptions,
 	): Promise<void>
 }
 
