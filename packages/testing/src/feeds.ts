@@ -19,7 +19,13 @@ const Card = defineModel({
 		title: f.string({ unique: true }),
 		rank: f.number({ integer: true, optional: true }),
 		tags: f.many(() => Tag),
+		notes: f.many(() => Note),
 	}),
+})
+
+const Note = defineModel({
+	name: 'Note',
+	fields: (f) => ({ card: f.one(() => Card, { optional: true }) }),
 })
 
 const Tag = defineModel({
@@ -54,7 +60,10 @@ const manifest = {
 function merged(seen: readonly Changed[]): object[] {
 	const entries = new Map<string, { change: Changed; listed?: string[] }>()
 	for (const change of seen) {
-		const target = 'field' in change ? change.field : change.fields?.toSorted()
+		const target =
+			'field' in change
+				? change.field
+				: 'fields' in change && change.fields?.toSorted()
 		const key = JSON.stringify([change.kind, change.model, target])
 		const rows = 'field' in change ? change.pairs : change.ids
 		const known = entries.get(key)
@@ -71,7 +80,8 @@ function merged(seen: readonly Changed[]): object[] {
 		const { kind, model } = change
 		const rows = listed?.toSorted()
 		if ('field' in change) return { kind, model, field: change.field, rows }
-		return { kind, model, fields: change.fields?.toSorted(), rows }
+		const fields = 'fields' in change ? change.fields?.toSorted() : undefined
+		return { kind, model, fields, rows }
 	})
 }
 
@@ -90,7 +100,7 @@ export function feeds(create: () => Adapter): void {
 		beforeEach(async () => {
 			app = defineApp({
 				database: create(),
-				models: [Card, Tag, Wide, Mark],
+				models: [Card, Tag, Note, Wide, Mark],
 				plugins: [watcher.plugin()],
 				logger: silent,
 			})
@@ -128,6 +138,28 @@ export function feeds(create: () => Adapter): void {
 				},
 				{ kind: 'delete', model: 'Card', rows: [b.id] },
 			])
+		})
+
+		it('reports the keys the rows a delete removed held', async () => {
+			const card = await Card.create({ data: { title: 'a' } }, M)
+			const linked = { card: { connect: { id: card.id } } }
+			const a = await Note.create({ data: linked }, M)
+			const b = await Note.create({ data: {} }, M)
+			await settled()
+			await Note.deleteMany({ where: { id: { in: [a.id, b.id] } } }, M)
+			await Mark.create({ data: { at: 0 } }, M)
+			await vi.waitFor(() => {
+				expect(seen.some((change) => change.model === 'Mark')).toBe(true)
+			})
+			const keys = seen.flatMap((change) =>
+				change.kind === 'delete' && change.ids
+					? change.ids.map((id, at) => [id, change.keys?.card?.[at]])
+					: [],
+			)
+			expect(Object.fromEntries(keys)).toEqual({
+				[a.id]: card.id,
+				[b.id]: null,
+			})
 		})
 
 		it('reports the links a write added or removed, not those it found', async () => {

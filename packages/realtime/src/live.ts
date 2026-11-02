@@ -16,8 +16,9 @@ import {
 import type { Finder } from './affected.ts'
 import { affected } from './affected.ts'
 import type { Batch } from './changes.ts'
+import { passing } from './levels.ts'
 import type { Reach } from './reach.ts'
-import { reachOf } from './reach.ts'
+import { modelsOf, reachOf } from './reach.ts'
 import { finderOf, Loader, page, pass } from './reads.ts'
 import type { LiveMessage } from './messages.ts'
 import type { Keys } from './window.ts'
@@ -296,6 +297,8 @@ export class Live {
 				window: window.ids(),
 				tracked: this.#tracking.tracked,
 				find: this.#find,
+				judge: async (level, changes, ids) =>
+					passing(modelsOf(liveSchema()), level, changes, ids, loader),
 			},
 			batch,
 		)

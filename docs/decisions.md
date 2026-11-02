@@ -9364,7 +9364,7 @@ api: ({ plugins }) => plugins.http.mount(uploads, { bodyLimit: false })
 
 ## D-154: Realtime: live lists and live rows
 
-Amended by D-163, D-166, D-178, D-186, D-187 and D-195.
+Amended by D-163, D-166, D-178, D-186, D-187, D-195 and D-196.
 
 Choice: completes D-25; amends D-106 (WebSocket upgrades), D-107 (the
 `Subscription` type), D-109 (live functions) and D-129 (live reads over
@@ -12832,3 +12832,65 @@ Rejected:
 - Running the read rules and `beforeFind` on a flush only for a row new to
   the window: still one plan per subscriber per write, for the same
   rights.
+
+## D-196: A lost right re-checks only the rows it may reach
+
+Choice: amends D-154 points 8, 9 and 10.
+
+1. A delete tells, beside each deleted row's id, the stored `one` keys the
+   row held, read from the delete's own result: still no row is loaded for
+   the feed, and a model without a stored `one` key tells its ids alone.
+
+   ```ts
+   // Before
+   { kind: 'delete', model: 'Member', ids: ['m1'] }
+   // After
+   { kind: 'delete', model: 'Member', ids: ['m1'], keys: { team: ['t1'], user: ['u7'] } }
+   ```
+
+   `keys` lists each key's values in the order of `ids`, `null` for a
+   row without a target, and is absent when `ids` is. On PostgreSQL a
+   notification of a delete then holds `150 / (1 + keys)` rows.
+
+2. A row written at a level of a filter, the rows a relation reaches, is
+   judged by that level's own conditions, those its stored fields answer:
+   at a level that is not negative (D-154 point 9), a row that fails them
+   before and after the write makes no row above pass or fail.
+   - An inserted or linked row is judged as stored after the write; a row
+     updated in a field the conditions read is judged before the update
+     by its fields the update left.
+   - A deleted row is judged by its id and its keys when the conditions
+     read nothing else, and may pass them otherwise.
+3. A live read makes window rows candidates for a link lost at a level, by
+   a delete or by a change of the key the target stores, only when one of
+   the rows that lost it may pass the level's conditions by point 2. A
+   negative level reads the window again, as before.
+4. A recorded read (D-154 point 10) whose `where` reads another row is
+   stale only when a row written at one of its levels may pass that level's
+   conditions by point 2. A link at the root's relation that the root does
+   not store is judged at the level it leads to, not as a change of the
+   root's found rows.
+
+Why:
+
+- Every write at a level re-checked every subscriber that reads through
+  it. The benchmark (`bench/realtime/rights.ts`, 10 000 subscribers) gave,
+  for a member row deleted, 10 000 to 20 000 statements and 3.4 s to 63 s
+  of work, and for a user leaving a role, 10 000 statements and 6.7 s,
+  while one subscriber alone lost rows.
+- A subscriber's level conditions name it (`user: me`): the row written
+  names another one, which its own fields tell without a read. An update
+  or an insert loads that row once per flush already; a delete's row is
+  gone, and its keys are what membership rows are made of.
+- A role's members change as a link, which reads as an update of the role
+  too: the role's id, found by every member's read, made each one stale.
+
+Rejected:
+
+- The deleted rows whole in the feed: a row can be long, and a
+  notification holds 8 000 bytes. Its keys are ids.
+- A shared query for the window rows that reached a former target: it
+  still checks every window for a membership told by a text field, and
+  reads every row of a large team. A membership told by a key needs none.
+- Judging a negative level: a row failing an `every` condition makes the
+  row above fail, so its loss may add a row.

@@ -91,6 +91,11 @@ function part(
 			noted: noted('update', change.model, fields),
 		}
 	}
+	const keys = [...table.fields.values()].flatMap((field) =>
+		field.kind === 'one' && field.stored
+			? [[field.name, catalog.column(table, field.name)] as const]
+			: [],
+	)
 	return {
 		...base,
 		build: (gate) =>
@@ -99,7 +104,7 @@ function part(
 		removes: true,
 		adds: false,
 		reads,
-		noted: noted('delete', change.model),
+		noted: noted('delete', change.model, undefined, keys),
 	}
 }
 
