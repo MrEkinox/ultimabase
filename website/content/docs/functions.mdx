@@ -107,7 +107,9 @@ the same output:
 </include>
 
 A client selecting a relation under a returned row gets it read again as the
-caller, with its rules. A function opens no transaction: see
+caller, with its rules. The row's fields and
+[virtual fields](/docs/next/models#virtual-fields) are those `run` returned,
+over REST and GraphQL as from server code. A function opens no transaction: see
 [Transactions](/docs/next/transactions) to write all or nothing.
 
 ## Pages
