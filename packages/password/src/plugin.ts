@@ -7,7 +7,6 @@ import type {
 	ExposedModel,
 	Field,
 	Hidden,
-	Identity,
 	Payload,
 	PluginOf,
 	PluginTypes,
@@ -17,19 +16,14 @@ import type {
 	UseOf,
 	UserOf,
 } from 'ultimabase'
-import {
-	definePlugin,
-	isMaster,
-	master,
-	PublicError,
-	Refused,
-} from 'ultimabase'
+import { definePlugin, master, Refused } from 'ultimabase'
 import manifest from '../package.json' with { type: 'json' }
 import type { SignedIn, State } from './core.ts'
 import {
 	attemptOf,
 	callerOf,
 	checkCurrent,
+	checkNewFor,
 	createUser,
 	selfOrMaster,
 	setPassword,
@@ -51,8 +45,10 @@ import { mailerOf } from './email-flows.ts'
 import { emailFunctions } from './email-functions.ts'
 import { passwordFunctions } from './functions.ts'
 import type { Credentials, Property } from './input.ts'
-import { emailOf, fieldProperty, passwordOf, valid } from './input.ts'
+import { emailOf, passwordOf, valid } from './input.ts'
 import { PasswordAttempt, PasswordHash, PasswordRequest } from './models.ts'
+import { warnUnchosen } from './new-password.ts'
+import { signUpData, signUpFields } from './sign-up.ts'
 import { PasswordToken } from './tokens.ts'
 
 /** The user fields a sign-up may take; any name before the user is registered. */
@@ -71,6 +67,11 @@ export interface PasswordOptions {
 	 * the application writes. Without it, no function sends one (D-117).
 	 */
 	readonly sendEmail?: SendEmail
+	/**
+	 * Refuses a new password that appears in a known data breach, asking
+	 * Have I Been Pwned with 5 characters of its SHA-1; off by default (D-209).
+	 */
+	readonly breached?: boolean
 }
 
 /** A transport's client, which counts the attempt and gets the cookie (D-115). */
@@ -171,72 +172,6 @@ function usersOf(models: readonly ExposedModel[]): ExposedModel {
 	return first
 }
 
-const reserved = new Set([
-	'id',
-	'createdAt',
-	'updatedAt',
-	'email',
-	'password',
-	'emailVerified',
-	'passwordSetAt',
-])
-
-/** The listed fields' properties; an unknown, a reserved or a missing one stops startup. */
-function signUpFields(
-	users: ExposedModel,
-	listed: readonly string[],
-): ReadonlyMap<string, Property> {
-	const { name, fields } = users.schema
-	const where = `passwordPlugin({ signUp })`
-	const properties = new Map<string, Property>()
-	for (const field of listed) {
-		const found = fields.find((each) => each.name === field)
-		if (found === undefined || reserved.has(field)) {
-			throw new Refused(
-				`${where}: ${name}.${field} is not a field sign-up may take.`,
-			)
-		}
-		properties.set(
-			field,
-			fieldProperty(
-				found,
-				users.required.includes(field),
-				where,
-				users.validators[field],
-			),
-		)
-	}
-	const missing = users.required.filter((field) => !properties.has(field))
-	if (missing.length > 0) {
-		throw new Refused(
-			`${where}: ${name} needs ${missing.join(', ')} to be created; list them.`,
-		)
-	}
-	return properties
-}
-
-/** A sign-up's data, checked against the list unless the caller is Master. */
-function signUpData(state: State, data: object, caller: Identity): object {
-	if (isMaster(caller)) return data
-	if (state.signUp === false) {
-		throw new PublicError('ACCESS_DENIED', 'Sign-up is closed.')
-	}
-	const { signUp } = state
-	const issues = Object.keys(data)
-		.filter((key) => !signUp.has(key))
-		.map((key) => ({ path: ['data', key], message: 'Unknown field.' }))
-	if (issues.length > 0) {
-		throw new PublicError(
-			'VALIDATION_FAILED',
-			'Sign-up takes the listed fields only.',
-			{
-				details: { issues },
-			},
-		)
-	}
-	return data
-}
-
 /** The user model and the sign-up fields, `false` when sign-up is closed. */
 function configOf(
 	options: PasswordOptions,
@@ -320,7 +255,9 @@ const definition = definePlugin<Password>({
 			setPassword: async ({ id, password }, options) => {
 				selfOrMaster(options, id, 'setPassword')
 				const state = stateOf(plugins.auth)
-				await setPassword(state, id, valid(passwordOf, password, 'password'))
+				const checked = valid(passwordOf, password, 'password')
+				await checkNewFor(state, id, checked)
+				await setPassword(state, id, checked)
 			},
 			checkPassword: async ({ id, password }, options) => {
 				selfOrMaster(options, id, 'checkPassword')
@@ -343,7 +280,17 @@ const definition = definePlugin<Password>({
 		const { auth } = plugins
 		const { sendEmail } = options
 		const sending = new Set<Promise<void>>()
-		states.set(auth, { auth, users, signUp, logger, sending, sendEmail })
+		const breached = options.breached === true
+		states.set(auth, {
+			auth,
+			users,
+			signUp,
+			logger,
+			sending,
+			sendEmail,
+			breached,
+		})
+		warnUnchosen(options.breached, logger)
 		// A closed account keeps its row, without a password, an email or a
 		// verified one (D-160, D-162, D-169).
 		auth.onCloseAccount(async (userId) => {

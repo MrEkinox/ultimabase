@@ -113,15 +113,18 @@ const invalidLink = () =>
 
 /**
  * The user a token of `kind` was issued to, and the address it was sent to;
- * a wrong, used or expired one fails.
+ * a wrong, used or expired one fails. `accept` may refuse a valid one before
+ * it is used, which keeps it.
  */
 export async function redeemToken(
 	token: string,
 	kind: EmailKind,
+	accept?: (userId: string) => Promise<void>,
 ): Promise<{ readonly userId: string; readonly email: string | null }> {
 	const hash = hashOf(token)
 	const stored = await PasswordToken.findUnique({ where: { hash } }, M)
 	if (stored?.kind !== kind) throw invalidLink()
+	if (stored.expiresAt.getTime() > Date.now()) await accept?.(stored.userId)
 	// One delete wins, so a token used twice at once works once.
 	const { count } = await PasswordToken.deleteMany({ where: { hash } }, M)
 	if (count === 0 || stored.expiresAt.getTime() <= Date.now()) {

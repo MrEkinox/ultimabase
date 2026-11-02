@@ -40,12 +40,18 @@ export const User = defineUser({
 	},
 })
 
-function listening(lines: string[], errors: string[]): Logger {
+function listening(
+	lines: string[],
+	errors: string[],
+	warnings: string[],
+): Logger {
 	const logger: Logger = {
 		info: (first) => {
 			if (typeof first === 'string') lines.push(first)
 		},
-		warn: () => undefined,
+		warn: (first, message?: string) => {
+			warnings.push(typeof first === 'string' ? first : String(message))
+		},
 		error: (first, message?: string) => {
 			errors.push(typeof first === 'string' ? first : String(message))
 		},
@@ -61,6 +67,7 @@ export async function started(
 ) {
 	const lines: string[] = []
 	const errors: string[] = []
+	const warnings: string[] = []
 	const app = defineApp({
 		database,
 		plugins: [
@@ -70,12 +77,12 @@ export async function started(
 			passwordPlugin(options),
 		],
 		models: [User],
-		logger: listening(lines, errors),
+		logger: listening(lines, errors, warnings),
 	})
 	await app.start()
 	const line = lines.find((first) => first.startsWith('Listening on')) ?? ''
 	const url = line.replace(/^Listening on (.*)\.$/, '$1')
-	return { app, url, errors }
+	return { app, url, errors, warnings }
 }
 
 export const bearer = (token: string) => ({ authorization: `Bearer ${token}` })
