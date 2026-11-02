@@ -649,6 +649,29 @@ models moves from 391 to 395 ms and the slowest from 696 to 711 ms, the model
 edit 2 to 7 ms more. One model edit now passes 50 ms: the 120-field model with field
 rules, at 53 ms (52, 55), against 46 ms.
 
+## After Phase 2: a field a read rule may hide is optional
+
+D-199 marks each field with a read rule in its `.with` overloads, and makes
+it optional in the rows a query returns. Three interleaved runs on
+2026-11-02, "before" being `4e4ba13f`, medians (memory in MB); load average
+2.3 to 4.0. The query edit is the one of Phase 2 closed on `proto-rules-200`
+(`equals: 'current'` to `equals: 42`); every check reported 0 errors and
+every edit exactly one.
+
+| Project                 | Instantiations | Memory | `tsc` | Query: edit |
+| ----------------------- | -------------: | -----: | ----: | ----------: |
+| Before, 200             |      2 454 787 |    496 | 1 334 |             |
+| After, 200              |      2 496 041 |    501 | 1 361 |             |
+| Before, 200, rules      |      2 925 291 |    555 | 1 531 |         850 |
+| After, 200, rules       |      3 031 476 |    571 | 1 562 |         932 |
+| Before, wide 120, rules |      1 006 594 |    263 |   499 |             |
+| After, wide 120, rules  |      1 029 570 |    267 |   511 |             |
+
+1.7 % more instantiations without rules, 3.6 % with them; the query edit
+waits 82 ms more (936, 922, 932 against 878, 850, 839). About two thirds of
+the instantiations come from the `.with` overloads, the rest from the row
+types.
+
 ## Reproducing
 
 ```bash

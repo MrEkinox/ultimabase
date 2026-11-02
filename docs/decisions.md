@@ -1038,7 +1038,7 @@ export const User = defineUser({ name: 'User', fields }).with({
 
 ## D-44: Field access rules per operation
 
-Amended by D-176.
+Amended by D-176, D-199.
 
 Choice: a field's `.with({ access })` takes one rule or one rule per operation
 (`read`, `create`, `update`). A rule has the shape of D-10 and returns `true`
@@ -12945,3 +12945,66 @@ Rejected:
   a gap no subscriber sees.
 - Keeping 150 ms and leaving the item open: a target no planned work
   reaches only stalls the phase.
+
+## D-199: A field a read rule may hide is optional in reads
+
+Choice: amends D-44.
+
+1. A field with a read rule is optional in the rows a query returns:
+   `findMany`, `findFirst`, `findUnique`, `paginate`, a `select` and an
+   `include`, at any depth, and a function's output that returns such a
+   row. `allow.private` is a read rule here. `allow.public` and
+   `allow.readOnly` are none (D-176), so their field stays required.
+2. It is optional for every caller, Master included.
+3. A hook's or a rule's `record` keeps every field: it is the stored row,
+   not what a caller reads.
+4. A virtual hidden by its own read rule or by a need's, and the `_count`
+   of a hidden relation, stay typed as present.
+5. `allow.public` and `allow.readOnly` carry a type-only mark, which the
+   field's `.with` reads to type the field. The kernel still tells them by
+   identity (D-176).
+
+Why:
+
+- A read rule leaves the field out of the rows it refuses (D-44), yet the
+  type said the field was always there. An application migrating from
+  Parse called `post.title.trim()` on a row that had no `title`, and it
+  failed at run time, not in the editor.
+- `{ as: caller }` takes a caller whose kind the types do not know, so they
+  cannot tell Master's rows from a user's. Knowing it would make every
+  query generic in its options, which costs on every query of every model.
+- Measured on the 200 generated models with rules: 3.6 % more
+  instantiations and 82 ms more on a query edit; 1.7 % more without rules
+  (`bench/typing/README.md`).
+
+Rejected:
+
+- Optional only for a caller other than Master: see the second reason.
+- Typing a hidden field `T | null`: the row leaves the key out, it does not
+  set it to `null`.
+- Covering virtuals and `_count`: a virtual's needs are known only once
+  the model is typed, the cycle D-44 avoids.
+
+Example, before: the row's type says `title` is there.
+
+```ts
+const Post = defineModel({
+	name: 'Post',
+	fields: (f) => ({
+		status: f.enumOf(['draft', 'published']),
+		title: f.string().with<{ status: 'draft' | 'published' }>({
+			access: { read: ({ record }) => record.status === 'published' },
+		}),
+	}),
+})
+
+const post = await Post.findFirst({ where: { id } }, { as: caller })
+post?.title.trim() // compiles; throws when the rule hid `title`
+```
+
+After: the row says `title` may be missing.
+
+```ts
+const post = await Post.findFirst({ where: { id } }, { as: caller })
+post?.title?.trim() // `title` is `string | undefined`
+```

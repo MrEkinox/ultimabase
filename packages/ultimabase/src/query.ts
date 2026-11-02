@@ -20,6 +20,7 @@ import type {
 	ScalarFilter,
 } from './query-filter.ts'
 import type { Relevance, SearchWhere } from './query-search.ts'
+import type { HiddenKeys, Picked } from './read-row.ts'
 import type {
 	GroupByArgs,
 	GroupChecked,
@@ -240,25 +241,28 @@ type Output<X, A> =
 				? Payload<TargetFields<TargetOf<X>>, A> | null
 				: Payload<TargetFields<TargetOf<X>>, A>[]
 
-type Selected<F, S> = {
-	readonly [
-		K in Exclude<keyof S, '_count'> as S[K] extends false | undefined
-			? never
-			: K
-	]: K extends keyof F
-		? Output<F[K], S[K]>
-		: K extends keyof SystemFields
-			? SystemFields[K]
-			: never
+type SelectedOutput<F, S, K> = K extends keyof F
+	? Output<F[K], S[K & keyof S]>
+	: K extends keyof SystemFields
+		? SystemFields[K]
+		: never
+
+type Selected<F, S, K extends PropertyKey> = {
+	readonly [P in K]: SelectedOutput<F, S, P>
+}
+type MaybeHidden<F, S, K extends PropertyKey> = {
+	readonly [P in K]?: SelectedOutput<F, S, P>
 }
 
-type Included<F, I> = {
-	readonly [
-		K in Exclude<keyof I, '_count'> as I[K] extends false | undefined
-			? never
-			: K
-	]: K extends keyof F ? Output<F[K], I[K]> : never
-}
+// Each part only when it has keys, so a row reads as one object type.
+type Selection<F, S, K = Picked<S>, N = Extract<K, HiddenKeys<F>>> = [
+	N,
+] extends [never]
+	? Selected<F, S, K & PropertyKey>
+	: [Exclude<K, N>] extends [never]
+		? MaybeHidden<F, S, N & PropertyKey>
+		: Selected<F, S, Exclude<K, N> & PropertyKey> &
+				MaybeHidden<F, S, N & PropertyKey>
 
 /** `omit`: scalars, system fields, default virtuals left out (D-135). */
 export type OmitArgs<F> = {
@@ -281,9 +285,9 @@ type Kept<F, A> = A extends { readonly omit: infer O }
 
 /** Without `select`, scalar fields return and relations do not (D-20). */
 export type Payload<F, A> = A extends { readonly select: infer S }
-	? Selected<F, S> & CountOf<F, S>
+	? Selection<F, S> & CountOf<F, S>
 	: A extends { readonly include: infer I }
-		? Kept<F, A> & Included<F, I> & CountOf<F, I>
+		? Kept<F, A> & Selection<F, I> & CountOf<F, I>
 		: Kept<F, A>
 
 export type QueryOptions = { readonly as?: Identity }

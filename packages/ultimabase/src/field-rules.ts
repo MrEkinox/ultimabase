@@ -1,7 +1,7 @@
 // The rules a field's `.with` takes (D-44), and the plugins' own (D-57).
 import type { RecordFor } from './record.ts'
-import type { Caller } from './rules.ts'
-import type { declaredRecord } from './symbols.ts'
+import type { Caller, OpenRule } from './rules.ts'
+import type { declaredRecord, readHidden } from './symbols.ts'
 
 // `R` is the record type the developer declares for the rules (D-44). It
 // never derives from the model, which is still being typed here: that would
@@ -75,3 +75,26 @@ type PluginFieldRules<T, V> = {
 export type FieldWith<R extends object, V, T = never> = {
 	readonly access?: FieldAccess<R, V>
 } & PluginFieldRules<T, V>
+
+/** Rules that hide the field from no caller: no read rule, or an open one. */
+export type OpenWith = {
+	readonly access?:
+		| OpenRule<object>
+		| { readonly read?: OpenRule<object> | undefined }
+		| undefined
+}
+
+/** A field a read rule may leave out of a row: optional in reads (D-44). */
+export type Hidden = { readonly [readHidden]: true }
+
+export type RelationValue = { readonly id: string }
+
+/** What a `many` relation's write rule sees: the caller's lists (D-86). */
+export type ManyValue = {
+	readonly connect: readonly RelationValue[]
+	readonly disconnect: readonly RelationValue[]
+	/** The linked rows it deletes (D-138). */
+	readonly delete: readonly RelationValue[]
+	/** The rows it creates, by the ids the kernel gives them (D-128). */
+	readonly create: readonly RelationValue[]
+}
