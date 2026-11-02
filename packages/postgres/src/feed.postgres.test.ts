@@ -130,6 +130,10 @@ describe('a notification', () => {
 			'["link","Card","tags",[["a"]]]',
 			'["insert","Card",[1],null]',
 			'["insert","Card",null,[1]]',
+			'["delete","Note",["card"],["a"]]',
+			'["delete","Note",["card"],[["a"]]]',
+			'["delete","Note",["card"],[[1,"c"]]]',
+			'["delete","Note",["card"],[["a",2]]]',
 		]
 		expect(refused.map(changedOf)).toEqual(refused.map(() => undefined))
 		expect(changedOf('["update","Card",["title"],["a"]]')).toEqual({
@@ -137,6 +141,18 @@ describe('a notification', () => {
 			model: 'Card',
 			fields: ['title'],
 			ids: ['a'],
+		})
+		expect(
+			changedOf('["delete","Note",["card"],[["a","c"],["b",null]]]'),
+		).toEqual({
+			kind: 'delete',
+			model: 'Note',
+			ids: ['a', 'b'],
+			keys: { card: ['c', null] },
+		})
+		expect(changedOf('["delete","Note",["card"],null]')).toEqual({
+			kind: 'delete',
+			model: 'Note',
 		})
 		expect(changedOf('["unlink","Card","tags",null]')).toEqual({
 			kind: 'unlink',

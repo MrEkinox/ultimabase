@@ -20,10 +20,16 @@ export type Step = {
 export type Level = {
 	readonly steps: readonly Step[]
 	readonly model: string
-	/** The fields it reads, the key back to the level above included. */
+	/**
+	 * The fields whose update may change which of its rows pass: those it
+	 * reads that its rows store, and the key back to the level above. A
+	 * relation it goes through is judged at the level it leads to (D-196).
+	 */
 	readonly fields: Fields
 	/** Under `NOT`, `isNot`, `every`, `none` or `is: null`: a lost link may add a row. */
 	readonly negative: boolean
+	/** The conditions its rows pass, as the filter writes them there. */
+	readonly filter: Filter
 }
 
 /** A relation the selection shows, or counts. */
@@ -86,6 +92,12 @@ export function stepOf(
 	}
 }
 
+/** Whether `model`'s rows store `name`: no relation, or a key they hold. */
+export function stores(models: Models, model: string, name: string): boolean {
+	const field = models.get(model)?.get(name)
+	return field?.kind !== 'many' && (field?.kind !== 'one' || field.stored)
+}
+
 const relationKeys = ['is', 'isNot', 'some', 'every', 'none'] as const
 
 /** What a nested read selects. */
@@ -136,7 +148,15 @@ export function walk(
 	}
 	visit(filter, negative)
 	const read = all ? 'all' : fields
-	levels.push({ steps, model, fields: read, negative })
+	const own =
+		read === 'all'
+			? read
+			: new Set(
+					[...read].filter(
+						(name) => name === back?.inverse || stores(models, model, name),
+					),
+				)
+	levels.push({ steps, model, fields: own, negative, filter: filter ?? {} })
 	return read
 }
 

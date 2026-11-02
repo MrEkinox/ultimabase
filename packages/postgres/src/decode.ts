@@ -1,11 +1,25 @@
 // What a read's jsonb holds, back as the rows the kernel expects (D-73): a
-// date arrives as text in UTC without its zone, everything else as written.
+// date arrives as its milliseconds since the epoch, everything else as
+// written.
 import type { Nested, Row } from 'ultimabase'
 import { isRow } from 'ultimabase/internal'
-import type { Catalog } from './names.ts'
+import type { Catalog, Table } from './names.ts'
 
-const dates = new Set(['createdAt', 'updatedAt'])
+/** Each table's date fields, listed once rather than on each row. */
+const dated = new WeakMap<Table, readonly string[]>()
 
+function datesOf(table: Table): readonly string[] {
+	const known = dated.get(table)
+	if (known !== undefined) return known
+	const names = ['createdAt', 'updatedAt']
+	for (const [name, field] of table.fields) {
+		if (field.kind === 'scalar' && field.type === 'dateTime') names.push(name)
+	}
+	dated.set(table, names)
+	return names
+}
+
+/** Decodes the parsed `value` in place: it is read once, and a copy costs. */
 function decodeRow(
 	catalog: Catalog,
 	model: string,
@@ -14,19 +28,20 @@ function decodeRow(
 ): Row {
 	if (!isRow(value)) throw new Error(`A ${model} row has no id.`)
 	const table = catalog.table(model)
-	const row: { id: string; [field: string]: unknown } = { ...value }
-	for (const [name, item] of Object.entries(value)) {
+	const row: { id: string; [field: string]: unknown } = value
+	for (const name of datesOf(table)) {
+		const item = row[name]
+		if (typeof item === 'number') row[name] = new Date(item)
+	}
+	const { include } = nested
+	if (include === undefined) return row
+	for (const [name, inner] of Object.entries(include)) {
 		const field = table.fields.get(name)
-		const inner = nested.include?.[name]
-		if (
-			typeof item === 'string' &&
-			(dates.has(name) ||
-				(field?.kind === 'scalar' && field.type === 'dateTime'))
-		) {
-			row[name] = new Date(`${item}Z`)
-		} else if (inner !== undefined && field?.kind === 'many') {
+		const item = row[name]
+		if (item === undefined) continue
+		if (field?.kind === 'many') {
 			row[name] = decodeRows(catalog, field.target, item, inner)
-		} else if (inner !== undefined && field?.kind === 'one' && item !== null) {
+		} else if (field?.kind === 'one' && item !== null) {
 			row[name] = decodeRow(catalog, field.target, item, inner)
 		}
 	}

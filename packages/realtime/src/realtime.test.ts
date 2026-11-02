@@ -155,21 +155,23 @@ const watching = definePlugin<Watching>({
 	},
 })
 
-/** memory(), keeping the feed its `start` was given and the models it finds. */
+type Find = Parameters<Adapter['find']>[0]
+
+/** memory(), keeping the feed its `start` was given and the reads it runs. */
 function kept(): {
 	readonly database: Adapter
 	readonly feed: () => Feed
-	readonly finds: string[]
+	readonly finds: Find[]
 } {
 	const database = memory()
 	let feed: Feed | undefined
-	const finds: string[] = []
+	const finds: Find[] = []
 	return {
 		finds,
 		database: {
 			...database,
 			find: async (read) => {
-				finds.push(read.model)
+				finds.push(read)
 				return database.find(read)
 			},
 			start: async (schema, log, given) => {
@@ -1050,6 +1052,18 @@ describe('the plugin', () => {
 describe('the reads of a flush', () => {
 	beforeEach(async () => seeded())
 
+	it('start from one read of the fields that place and show a row', async () => {
+		await Note.create({ data: { text: 'n1', team: 'One' } }, M)
+		const { finds } = running
+		finds.length = 0
+		const args = { first: 2, orderBy: { text: 'asc' }, select: { text: true } }
+		const { seen } = await list(await connect(), 'Note', args)
+		expect(seen[0]).toMatchObject({ rows: [{ text: 'n1' }] })
+		const notes = finds.filter(({ model }) => model === 'Note')
+		expect(notes).toHaveLength(1)
+		expect(new Set(notes[0]?.fields)).toEqual(new Set(['id', 'text', 'team']))
+	})
+
 	it('are shared by the lists that show the same rows, whoever follows them', async () => {
 		for (const user of ['bob', 'cy']) {
 			await Session.create({ data: { token: `${user}-token`, user } }, M)
@@ -1086,7 +1100,7 @@ describe('the reads of a flush', () => {
 			})
 		}
 		// The changed row, read once for both lists.
-		expect(finds.filter((model) => model === 'Note')).toHaveLength(1)
+		expect(finds.filter(({ model }) => model === 'Note')).toHaveLength(1)
 		finds.length = 0
 		await Note.delete({ where: { id: first?.id ?? '' } }, M)
 		for (const seen of both) {
@@ -1095,7 +1109,7 @@ describe('the reads of a flush', () => {
 			})
 		}
 		// The row each list now shows and the ones after it, once for both.
-		expect(finds.filter((model) => model === 'Note')).toHaveLength(2)
+		expect(finds.filter(({ model }) => model === 'Note')).toHaveLength(2)
 		expect(cy?.seen).toHaveLength(1)
 	})
 })

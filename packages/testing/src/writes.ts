@@ -256,16 +256,19 @@ export function writes(create: () => Adapter): void {
 
 		it('stores any well-formed text and the dates of years 1 to 9999', async () => {
 			const first = new Date('0001-01-01T00:00:00.000Z')
+			const old = new Date('1969-12-31T23:59:59.998Z')
 			const last = new Date('9999-12-31T23:59:59.999Z')
 			const ada = await Player.create(
 				{ data: { name: '😀 Ada', stats: { 'é😀': ['ｚ'] }, bornAt: first } },
 				M,
 			)
+			await Player.create({ data: { name: 'Alan', bornAt: old } }, M)
 			await Player.create({ data: { name: 'Grace', bornAt: last } }, M)
 			expect(
 				await Player.findMany({ orderBy: { bornAt: 'asc' } }, M),
 			).toMatchObject([
 				{ name: '😀 Ada', stats: { 'é😀': ['ｚ'] }, bornAt: first },
+				{ name: 'Alan', bornAt: old },
 				{ name: 'Grace', bornAt: last },
 			])
 			expect(
