@@ -53,7 +53,7 @@ export async function updating(
 	const subject = await state.auth.subjectOf(record.id, method)
 	if (data.email === null) {
 		if (subject === undefined) return
-		const message = 'closeAccount removes the email.'
+		const message = 'A password account keeps its email.'
 		throw new PublicError('VALIDATION_FAILED', `email: ${message}`, {
 			details: { issues: [{ path: ['email'], message }] },
 		})

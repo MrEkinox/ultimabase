@@ -200,10 +200,8 @@ describe('User.email', () => {
 			User.update({ where: { id: user.id }, data: { email: null } }, M),
 		).rejects.toMatchObject({
 			code: 'VALIDATION_FAILED',
-			message: 'email: closeAccount removes the email.',
+			message: 'email: A password account keeps its email.',
 		})
-		await User.closeAccount({ id: user.id }, M)
-		await expect(emailOf(user.id)).resolves.toBeNull()
 		const bare = await User.create({ data: { name: 'Bare' } }, M)
 		await User.update({ where: { id: bare.id }, data: { email: null } }, M)
 	})

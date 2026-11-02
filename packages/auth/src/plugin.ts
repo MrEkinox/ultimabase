@@ -21,9 +21,7 @@ import {
 	master,
 	PublicError,
 	Refused,
-	transaction,
 } from 'ultimabase'
-import { runningApi } from 'ultimabase/internal'
 import manifest from '../package.json' with { type: 'json' }
 import {
 	accountOf,
@@ -69,11 +67,6 @@ export interface AuthApi {
 	subjectOf(userId: string, method: string): Promise<string | undefined>
 	/** Unlinks `userId`'s account of `method`; none linked is no error (D-162). */
 	unlinkAccount(userId: string, method: string): Promise<void>
-	/**
-	 * Runs `listener` in the transaction of each `User.closeAccount`, after
-	 * the user's accounts are unlinked: a method deletes what it keeps.
-	 */
-	onCloseAccount(listener: (userId: string) => Promise<void>): void
 }
 
 /** `authPlugin()`'s options (D-165). */
@@ -86,14 +79,6 @@ export interface AuthOptions {
 export interface AuthCommands {
 	/** Ends every session of the user, as Master or as the user. */
 	revokeSessions(
-		where: { readonly id: string },
-		options?: QueryOptions,
-	): Promise<void>
-	/**
-	 * Ends every session of the user and unlinks every account, keeping the
-	 * row, as Master or as the user (D-160).
-	 */
-	closeAccount(
 		where: { readonly id: string },
 		options?: QueryOptions,
 	): Promise<void>
@@ -120,8 +105,6 @@ interface State {
 const states = new WeakMap<object, State>()
 /** The contexts whose insecure cookie was warned about (D-115). */
 const warned = new WeakSet<object>()
-/** What `onCloseAccount` was given, by auth's API. */
-const closers = new WeakMap<object, ((userId: string) => Promise<void>)[]>()
 
 const M = { as: master }
 
@@ -144,14 +127,6 @@ function selfOrMaster(
 			`User.${command} runs as Master or as the user.`,
 		)
 	}
-}
-
-/** The listeners the running application's methods gave `onCloseAccount`. */
-function closersOf(): readonly ((userId: string) => Promise<void>)[] {
-	const api = runningApi('auth')
-	const listeners =
-		typeof api === 'object' && api !== null ? closers.get(api) : undefined
-	return listeners ?? []
 }
 
 /** The one user model among the application's models (D-62). */
@@ -212,17 +187,6 @@ const auth = definePlugin<Auth>({
 			selfOrMaster(options?.as, id, 'revokeSessions')
 			await revokeSessions(id)
 		},
-		closeAccount: async ({ id }, options) => {
-			selfOrMaster(options?.as, id, 'closeAccount')
-			await transaction(async () => {
-				await revokeSessions(id)
-				await unlinkAccounts(id)
-				for (const listener of closersOf()) await listener(id)
-			})
-			// Again once the accounts are gone: a sign-in that read one before
-			// opened its session before this ends it.
-			await revokeSessions(id)
-		},
 	}),
 	// Its own cookie and user model: this context is not the API's.
 	functions: ({ models }) => authFunctions(cookieOf(), usersOf(models)),
@@ -234,8 +198,7 @@ const auth = definePlugin<Auth>({
 		states.set(context, { cookie, users, durations })
 		// The cookie goes when its session can live no longer.
 		const maxAge = Math.min(Math.ceil(durations.longest / 1000), cookieAge)
-		const listeners: ((userId: string) => Promise<void>)[] = []
-		const api: AuthApi = {
+		return {
 			signIn: async (userId, client) => {
 				// The cookie it replaces would leave a session nobody can end (D-115).
 				const replaced = client?.cookies.get(cookie.name)
@@ -252,12 +215,7 @@ const auth = definePlugin<Auth>({
 			accountOf,
 			subjectOf,
 			unlinkAccount,
-			onCloseAccount: (listener) => {
-				listeners.push(listener)
-			},
 		}
-		closers.set(api, listeners)
-		return api
 	},
 	// A sign-in method requires auth: without one, nobody signs in (D-164).
 	start: ({ dependents, logger }) => {

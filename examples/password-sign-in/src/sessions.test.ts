@@ -1,7 +1,7 @@
 // Sessions: the token a sign-up or a sign-in opens, sent back as a Bearer
 // header or as the cookie, how a session ends, and closing an account.
 import { testApplication } from '@ultimabase/testing'
-import { master, transaction } from 'ultimabase'
+import { master } from 'ultimabase'
 import { expect, it } from 'vitest'
 import { z } from 'zod'
 import { app } from './app.ts'
@@ -121,7 +121,7 @@ it('signs up, signs in and ends sessions from server code', async () => {
 	//#endregion
 })
 
-it('closes an account and keeps its row', async () => {
+it('deletes a user and frees its email', async () => {
 	const ada = await User.signUp(
 		{
 			email: 'ada@example.com',
@@ -130,16 +130,9 @@ it('closes an account and keeps its row', async () => {
 		},
 		{ as: master },
 	)
-	//#region close
-	// Ends the sessions and frees the email, then blanks the row, which
-	// a list of members still shows.
-	await transaction(async () => {
-		await User.closeAccount({ id: ada.id }, { as: master })
-		await User.update(
-			{ where: { id: ada.id }, data: { name: 'Deleted account' } },
-			{ as: master },
-		)
-	})
+	//#region delete
+	// Ends the sessions and deletes the password and the linked accounts.
+	await User.delete({ where: { id: ada.id } }, { as: master })
 	await expect(
 		User.signIn({ email: 'ada@example.com', password: 'correct horse' }),
 	).rejects.toMatchObject({ code: 'INVALID_CREDENTIALS' })

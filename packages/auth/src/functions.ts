@@ -25,6 +25,9 @@ export function authFunctions(
 			const token =
 				caller.kind === 'user' ? callerTokens.get(caller.user) : undefined
 			if (token !== undefined) await closeSession(token)
+			// A Bearer's request may carry another session's cookie: it ends too.
+			const held = client?.cookies.get(cookie.name)
+			if (held !== undefined && held !== token) await closeSession(held)
 			client?.cookies.clear(cookie.name, cookie.options)
 		},
 	}).with({ access: allow.public })

@@ -145,7 +145,7 @@ function stateOf(auth: AuthApi): State {
 	return state
 }
 
-/** Deletes the user's hash, links and email requests (D-113, D-160). */
+/** Deletes the user's hash, links and email requests (D-113, D-117). */
 async function forget(userId: string): Promise<void> {
 	const where = { userId }
 	await PasswordHash.deleteMany({ where }, M)
@@ -291,20 +291,6 @@ const definition = definePlugin<Password>({
 			breached,
 		})
 		warnUnchosen(options.breached, logger)
-		// A closed account keeps its row, without a password, an email or a
-		// verified one (D-160, D-162, D-169).
-		auth.onCloseAccount(async (userId) => {
-			await forget(userId)
-			const where = { id: userId }
-			const user = await users.queries.findUnique({ where }, M)
-			if (user === null) return
-			const { email, emailVerified, passwordSetAt } = user
-			if (email === null && emailVerified !== true && passwordSetAt === null) {
-				return
-			}
-			const data = { email: null, emailVerified: false, passwordSetAt: null }
-			await users.queries.update({ where, data }, M)
-		})
 	},
 	// The emails under way still query: they end before the database closes.
 	stop: async ({ plugins }) => {
