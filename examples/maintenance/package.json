@@ -1,0 +1,26 @@
+{
+	"name": "example-maintenance",
+	"version": "0.0.0",
+	"private": true,
+	"description": "Maintenance on every server: 503 for the clients, Master still served.",
+	"type": "module",
+	"license": "Apache-2.0",
+	"engines": {
+		"node": ">=24.7.0"
+	},
+	"scripts": {
+		"start": "node src/server.ts"
+	},
+	"dependencies": {
+		"@ultimabase/graphql": "workspace:*",
+		"@ultimabase/http": "workspace:*",
+		"@ultimabase/maintenance": "workspace:*",
+		"graphql": "17.0.2",
+		"ultimabase": "workspace:*"
+	},
+	"devDependencies": {
+		"@ultimabase/testing": "workspace:*",
+		"vite": "8.3.4",
+		"vitest": "5.0.5"
+	}
+}

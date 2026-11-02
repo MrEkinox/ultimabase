@@ -2945,6 +2945,21 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@ultimabase/maintenance@workspace:*, @ultimabase/maintenance@workspace:packages/maintenance":
+  version: 0.0.0-use.local
+  resolution: "@ultimabase/maintenance@workspace:packages/maintenance"
+  dependencies:
+    "@ultimabase/http": "workspace:*"
+    "@ultimabase/testing": "workspace:*"
+    ultimabase: "workspace:*"
+    vite: "npm:8.3.4"
+    vitest: "npm:5.0.5"
+  peerDependencies:
+    "@ultimabase/http": ^0.3.0
+    ultimabase: ^0.3.0
+  languageName: unknown
+  linkType: soft
+
 "@ultimabase/password@workspace:*, @ultimabase/password@workspace:packages/password":
   version: 0.0.0-use.local
   resolution: "@ultimabase/password@workspace:packages/password"
@@ -4092,6 +4107,21 @@ __metadata:
     "@ultimabase/graphql": "workspace:*"
     "@ultimabase/http": "workspace:*"
     "@ultimabase/rest": "workspace:*"
+    "@ultimabase/testing": "workspace:*"
+    graphql: "npm:17.0.2"
+    ultimabase: "workspace:*"
+    vite: "npm:8.3.4"
+    vitest: "npm:5.0.5"
+  languageName: unknown
+  linkType: soft
+
+"example-maintenance@workspace:examples/maintenance":
+  version: 0.0.0-use.local
+  resolution: "example-maintenance@workspace:examples/maintenance"
+  dependencies:
+    "@ultimabase/graphql": "workspace:*"
+    "@ultimabase/http": "workspace:*"
+    "@ultimabase/maintenance": "workspace:*"
     "@ultimabase/testing": "workspace:*"
     graphql: "npm:17.0.2"
     ultimabase: "workspace:*"

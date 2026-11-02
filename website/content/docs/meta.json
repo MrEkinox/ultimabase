@@ -26,6 +26,7 @@
 		"soft-delete",
 		"files",
 		"realtime",
+		"maintenance",
 		"---Transports---",
 		"http",
 		"graphql",

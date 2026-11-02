@@ -173,6 +173,9 @@ the socket closes:
 
 ## Maintenance
 
+[`@ultimabase/maintenance`](/docs/next/maintenance) does what follows on
+every server, and refuses the requests too. By hand:
+
 `httpPlugin({ upgrade })` answers each WebSocket upgrade before the plugin
 that takes it, GraphQL's included: a `Response` refuses it, sent as it is,
 and `undefined` lets it through. It runs after the origin check and reads

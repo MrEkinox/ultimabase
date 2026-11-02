@@ -79,6 +79,11 @@ const plugins: readonly (readonly [string, readonly Entry[]])[] = [
 			{ name: 'files', page: 'files', text: 'Uploads, never orphaned.' },
 			{ name: 'realtime', page: 'realtime', text: 'Live lists and rows.' },
 			{ name: 'soft-delete', page: 'soft-delete', text: 'A dated trash.' },
+			{
+				name: 'maintenance',
+				page: 'maintenance',
+				text: '503 on every server.',
+			},
 		],
 	],
 ]

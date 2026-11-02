@@ -1,0 +1,102 @@
+---
+title: Maintenance
+description: Answer 503 to every client while the data changes, on every server, Master still served.
+---
+
+`@ultimabase/maintenance` puts the application in maintenance: every
+request answers 503 until it ends, GraphQL's and REST's included, the
+WebSockets open close, and Master is still served, for the migration's
+scripts and the admin. Every server follows, as the state is a row of the
+database.
+
+```npm
+npm install @ultimabase/maintenance
+```
+
+`maintenancePlugin()` goes in the application's plugins, after
+`httpPlugin()`:
+
+<include cwd meta='title="src/app.ts"'>
+	../examples/maintenance/src/app.ts#plugins
+</include>
+
+The full example, with its tests: [`examples/maintenance`](https://github.com/MrEkinox/ultimabase/tree/main/examples/maintenance).
+
+## Turn it on and off
+
+`PUT /_ultimabase/maintenance`, with the master key, turns it on with
+`{ "enabled": true }` and off with `{ "enabled": false }`, the master key in
+`x-ultimabase-master-key`:
+
+<include cwd meta='title="src/app.test.ts"'>
+	../examples/maintenance/src/app.test.ts#switch
+</include>
+
+## What a client reads
+
+While it is on, every request answers 503 with `Retry-After`, in seconds,
+and the code `MAINTENANCE`. A client that shows a maintenance page sends
+any request, as `{ __typename }` to GraphQL, and reads both:
+
+<include cwd meta='title="src/app.test.ts"'>
+	../examples/maintenance/src/app.test.ts#on
+</include>
+
+The WebSockets open close with 1012, Service Restart: a graphql-ws client
+tries again, meets the 503 and stops. A browser reads the 503 too, as
+CORS's headers come with it; preflights still pass.
+
+`/health` and `/ready` answer as before: the load balancer keeps the
+servers, and the clients read the maintenance's answer rather than the
+load balancer's.
+
+## Master
+
+A request with the master key is served as usual, during maintenance too:
+
+<include cwd meta='title="src/app.test.ts"'>
+	../examples/maintenance/src/app.test.ts#master
+</include>
+
+## Reference
+
+### `maintenancePlugin(options)`
+
+| Option       | Type         | Default | Effect                                                            |
+| ------------ | ------------ | ------- | ----------------------------------------------------------------- |
+| `retryAfter` | milliseconds | 60 000  | What `Retry-After` tells a client to wait, rounded up to seconds. |
+
+It requires `httpPlugin()`, and adds the model `MaintenanceState`, which no
+transport exposes.
+
+### `plugins.maintenance`
+
+A plugin that requires maintenance turns it on and off from its code, as a
+migration would.
+
+| Member     | Effect                                       |
+| ---------- | -------------------------------------------- |
+| `lock()`   | Turns it on, for every server, once stored.  |
+| `unlock()` | Turns it off, for every server, once stored. |
+| `locked()` | Whether this server is in maintenance.       |
+
+Each server reads the state as it starts, and again on each change of it.
+When it cannot read it, it keeps the state it had and logs the error.
+
+### `PUT /_ultimabase/maintenance`
+
+| Status | Code                | When                                                        |
+| ------ | ------------------- | ----------------------------------------------------------- |
+| 200    |                     | `{ "enabled": true }` or `{ "enabled": false }`, as stored. |
+| 400    | `VALIDATION_FAILED` | `The body is { "enabled": true } or { "enabled": false }.`  |
+| 403    | `ACCESS_DENIED`     | `Only the master key turns the maintenance on or off.`      |
+
+### While it is on
+
+| Request                        | Answer                                                                                      |
+| ------------------------------ | ------------------------------------------------------------------------------------------- |
+| any, without the master key    | 503 `MAINTENANCE`, `The application is under maintenance.`, `details.retryAfter` in seconds |
+| a WebSocket upgrade            | the same 503                                                                                |
+| a WebSocket open               | closed with 1012 `Maintenance`                                                              |
+| with the master key            | as usual                                                                                    |
+| preflight, `/health`, `/ready` | as usual                                                                                    |
