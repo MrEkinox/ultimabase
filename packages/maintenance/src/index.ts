@@ -1,17 +1,23 @@
 // Maintenance (D-205): while it is on, every request and WebSocket upgrade but
 // Master's answers 503 `MAINTENANCE`, and the sockets open close with 1012.
-// Its state is a row: every server follows it through the change feed.
+// Its state is a row: every server follows it through the change feed, and
+// starts from `initial` while there is none (D-207).
 import type { Http } from '@ultimabase/http'
 import { httpPlugin, routes } from '@ultimabase/http'
 import type { Logger, PluginOf, PluginTypes } from 'ultimabase'
-import { definePlugin, master, PublicError } from 'ultimabase'
+import { definePlugin, master, PublicError, Refused } from 'ultimabase'
 import manifest from '../package.json' with { type: 'json' }
+import { keyed } from './key.ts'
 import { MaintenanceState } from './state.ts'
 
 /** What `maintenancePlugin` takes. */
 export interface MaintenanceOptions {
 	/** In milliseconds, how long a client waits before it tries again: 60 000 by default. */
 	readonly retryAfter?: number
+	/** Sent in `x-ultimabase-maintenance-key`, it switches the maintenance and nothing else. */
+	readonly key?: string | undefined
+	/** The state while none is stored: `'unlocked'` by default. */
+	readonly initial?: 'locked' | 'unlocked'
 }
 
 /** What the maintenance plugin offers other plugins. */
@@ -37,9 +43,10 @@ export interface Maintenance extends PluginTypes {
 const path = '/_ultimabase/maintenance'
 const key = 'state'
 
-/** This server's state, and how it closes the sockets open. */
+/** This server's state, the one while none is stored, and how it closes the sockets open. */
 interface State {
 	locked: boolean
+	readonly initial: boolean
 	readonly close: () => void
 	readonly logger: Logger
 }
@@ -50,12 +57,12 @@ function follow(state: State, locked: boolean): void {
 	state.locked = locked
 }
 
-async function stored(): Promise<boolean> {
+async function stored(state: State): Promise<boolean> {
 	const row = await MaintenanceState.findUnique(
 		{ where: { key } },
 		{ as: master },
 	)
-	return row?.enabled ?? false
+	return row?.enabled ?? state.initial
 }
 
 async function store(state: State, locked: boolean): Promise<void> {
@@ -73,7 +80,7 @@ async function store(state: State, locked: boolean): Promise<void> {
 /** Reads the state again; keeps the last one when it cannot. */
 async function reload(state: State): Promise<void> {
 	try {
-		follow(state, await stored())
+		follow(state, await stored(state))
 	} catch (error) {
 		state.logger.error(
 			{ err: error },
@@ -111,8 +118,14 @@ const maintenance = definePlugin<Maintenance>({
 	models: [MaintenanceState],
 	api: (context) => {
 		const { plugins, options, identify, logger } = context
+		const { initial = 'unlocked' } = options
+		if (initial !== 'locked' && initial !== 'unlocked') {
+			throw new Refused("The maintenance's initial is 'locked' or 'unlocked'.")
+		}
+		const switches = keyed(options.key)
 		const state: State = {
 			locked: false,
+			initial: initial === 'locked',
 			close: () =>
 				plugins.http.closeUpgrades({ code: 1012, reason: 'Maintenance' }),
 			logger,
@@ -136,10 +149,10 @@ const maintenance = definePlugin<Maintenance>({
 		})
 		plugins.http.mount(
 			routes().put(path, async (c) => {
-				if (c.var.caller.kind !== 'master') {
+				if (c.var.caller.kind !== 'master' && !switches(c.req.raw)) {
 					throw new PublicError(
 						'ACCESS_DENIED',
-						'Only the master key turns the maintenance on or off.',
+						'Only the master key or the maintenance key turns the maintenance on or off.',
 					)
 				}
 				const enabled = enabledIn(await c.req.json().catch(() => undefined))
@@ -154,7 +167,10 @@ const maintenance = definePlugin<Maintenance>({
 		}
 	},
 	start: async (context) => {
-		stateOf(context).locked = await stored()
+		// A read that fails fails the start: the server must not serve
+		// while it does not know whether it is in maintenance (D-207).
+		const state = stateOf(context)
+		state.locked = await stored(state)
 	},
 	changed: (changes, context) => {
 		if (changes.some((change) => change.model === MaintenanceState.name)) {

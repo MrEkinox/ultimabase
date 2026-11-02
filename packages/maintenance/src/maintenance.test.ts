@@ -1,9 +1,10 @@
-// Maintenance (D-205) on `memory()`: Master turns it on and off, every other
-// request and upgrade meets 503 `MAINTENANCE`, the sockets open close with
-// 1012, and the server follows the stored row.
+// Maintenance (D-205, D-207) on `memory()`: Master or the maintenance key
+// turns it on and off, every other request and upgrade meets 503
+// `MAINTENANCE`, the sockets open close with 1012, and the server follows the
+// stored row, or `initial` while there is none.
 import { connect } from 'node:net'
-import { describe, expect, it, vi } from 'vitest'
-import type { Http } from '@ultimabase/http'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import type { Http, HttpApi } from '@ultimabase/http'
 import { httpPlugin, routes } from '@ultimabase/http'
 import { testApplication } from '@ultimabase/testing'
 import type { Adapter, Feed, Logger, PluginTypes } from 'ultimabase'
@@ -14,7 +15,11 @@ import {
 	master,
 	memory,
 } from 'ultimabase'
-import type { Maintenance, MaintenanceApi } from './index.ts'
+import type {
+	Maintenance,
+	MaintenanceApi,
+	MaintenanceOptions,
+} from './index.ts'
 import { maintenancePlugin } from './index.ts'
 import { MaintenanceState } from './state.ts'
 
@@ -23,8 +28,9 @@ interface Watching extends PluginTypes {
 	readonly requires: Http | Maintenance
 }
 
-/** The maintenance API, and the close codes `/live`'s sockets received. */
+/** The maintenance and HTTP APIs, and the close codes `/live`'s sockets received. */
 let api: MaintenanceApi | undefined
+let http: HttpApi | undefined
 const closes: (readonly [number, string])[] = []
 const watching = definePlugin<Watching>({
 	name: 'watching',
@@ -36,6 +42,7 @@ const watching = definePlugin<Watching>({
 	requires: { http: httpPlugin, maintenance: maintenancePlugin },
 	api: ({ plugins }) => {
 		api = plugins.maintenance
+		http = plugins.http
 		plugins.http.upgrade(
 			'/live',
 			({ socket }) => {
@@ -57,10 +64,12 @@ const logger: Logger = {
 }
 
 /**
- * `memory()`, whose rows outlive a restart, whose reads fail while `down`,
- * and whose `missed()` tells the running application changes were lost.
+ * `memory()`, whose rows outlive a restart, whose reads fail while `down`
+ * and wait for `held`, and whose `missed()` tells the running application
+ * changes were lost.
  */
 let down = false
+let held: Promise<void> = Promise.resolve()
 function kept(): Adapter & { readonly missed: () => void } {
 	const base = memory()
 	let feed: Feed | undefined
@@ -76,10 +85,11 @@ function kept(): Adapter & { readonly missed: () => void } {
 				missed: () => feed?.missed(),
 			})
 		},
-		find: (read) =>
-			down
-				? Promise.reject(new Error('The database is down.'))
-				: base.find(read),
+		find: async (read) => {
+			await held
+			if (down) throw new Error('The database is down.')
+			return base.find(read)
+		},
 		missed: () => feed?.missed(),
 	}
 }
@@ -89,7 +99,7 @@ const app = defineApp({
 	database: memory(),
 	plugins: [
 		httpPlugin({ routes: [notes] }),
-		maintenancePlugin({ retryAfter: 90_500 }),
+		maintenancePlugin({ retryAfter: 90_500, key: 'deploy-key' }),
 		watching.plugin(),
 	],
 	models: [],
@@ -170,7 +180,8 @@ describe('the maintenance', () => {
 		expect(anonymous.status).toBe(403)
 		expect(await anonymous.json()).toEqual({
 			code: 'ACCESS_DENIED',
-			message: 'Only the master key turns the maintenance on or off.',
+			message:
+				'Only the master key or the maintenance key turns the maintenance on or off.',
 		})
 		const wrong = await switched('yes')
 		expect(wrong.status).toBe(400)
@@ -184,6 +195,27 @@ describe('the maintenance', () => {
 			body: 'null',
 		})
 		expect(empty.status).toBe(400)
+		expect(maintenance().locked()).toBe(false)
+	})
+
+	it('is switched with the maintenance key, which opens nothing else', async () => {
+		const deploy = { 'x-ultimabase-maintenance-key': 'deploy-key' }
+		const on = await switched(true, deploy)
+		expect(on.status).toBe(200)
+		expect(maintenance().locked()).toBe(true)
+		expect(
+			(await fetch(`${running.url}/notes`, { headers: deploy })).status,
+		).toBe(503)
+		const wrong = await switched(false, {
+			'x-ultimabase-maintenance-key': 'deploy-kez',
+		})
+		expect(wrong.status).toBe(403)
+		expect(await wrong.json()).toEqual({
+			code: 'ACCESS_DENIED',
+			message:
+				'Only the master key or the maintenance key turns the maintenance on or off.',
+		})
+		expect((await switched(false, deploy)).status).toBe(200)
 		expect(maintenance().locked()).toBe(false)
 	})
 
@@ -236,20 +268,31 @@ const Note = defineModel({
 /** The change feed's next turn. */
 const turn = () => new Promise((resolve) => setImmediate(resolve))
 
-/** Starts the application on `database`, which outlives its stops. */
-async function started(database: Adapter) {
-	const application = defineApp({
+/** The application on `database`, which outlives its stops. */
+function appOn(database: Adapter, options: MaintenanceOptions = {}) {
+	return defineApp({
 		database,
 		plugins: [
 			httpPlugin({ port: 0, drain: 0 }),
-			maintenancePlugin(),
+			maintenancePlugin(options),
 			watching.plugin(),
 		],
 		models: [Note],
 		logger,
 	})
+}
+
+/** Starts the application on `database`. */
+async function started(database: Adapter, options?: MaintenanceOptions) {
+	const application = appOn(database, options)
 	await application.start()
 	return application
+}
+
+/** The server's address, once it listens. */
+function address(): string {
+	if (http === undefined) throw new Error('No api.')
+	return http.url()
 }
 
 // On a database the test keeps, as testApplication gives each test its own.
@@ -294,5 +337,122 @@ describe('its stored row', () => {
 			down = false
 			await application.stop()
 		}
+	})
+})
+
+describe('its initial state', () => {
+	it('is the state while no row is stored', async () => {
+		const locked = await started(kept(), { initial: 'locked' })
+		try {
+			expect(maintenance().locked()).toBe(true)
+			const refused = await fetch(`${address()}/notes`)
+			expect(refused.status).toBe(503)
+			expect(await refused.json()).toMatchObject({ code: 'MAINTENANCE' })
+			expect((await fetch(`${address()}/ready`)).status).toBe(200)
+		} finally {
+			await locked.stop()
+		}
+	})
+
+	it('gives way to the stored state, and writes nothing', async () => {
+		const database = kept()
+		const first = await started(database, { initial: 'locked' })
+		try {
+			expect(
+				await MaintenanceState.findUnique(
+					{ where: { key: 'state' } },
+					{ as: master },
+				),
+			).toBeNull()
+			await maintenance().unlock()
+		} finally {
+			await first.stop()
+		}
+		const again = await started(database, { initial: 'locked' })
+		try {
+			expect(maintenance().locked()).toBe(false)
+		} finally {
+			await again.stop()
+		}
+	})
+
+	it('is refused when neither locked nor unlocked', async () => {
+		const initial: unknown = 'on'
+		// @ts-expect-error A JavaScript caller may send anything.
+		await expect(appOn(memory(), { initial }).start()).rejects.toThrow(
+			"The maintenance's initial is 'locked' or 'unlocked'.",
+		)
+	})
+})
+
+describe('its start', () => {
+	it('answers 503 UNAVAILABLE while it reads the state', async () => {
+		const { promise, resolve } = Promise.withResolvers<void>()
+		held = promise
+		const starting = appOn(kept(), { initial: 'locked' })
+		const start = starting.start()
+		try {
+			const at = await vi.waitFor(address)
+			const refused = await fetch(`${at}/notes`, { headers: asMaster })
+			expect(refused.status).toBe(503)
+			expect(await refused.json()).toEqual({
+				code: 'UNAVAILABLE',
+				message: 'The application is starting.',
+			})
+		} finally {
+			held = Promise.resolve()
+			resolve()
+			await start
+			await starting.stop()
+		}
+	})
+
+	it('fails when the state cannot be read', async () => {
+		down = true
+		const failing = appOn(kept())
+		try {
+			await expect(failing.start()).rejects.toThrow('The database is down.')
+		} finally {
+			down = false
+		}
+	})
+})
+
+describe('the maintenance key', () => {
+	const environment = process.env['NODE_ENV']
+	afterEach(() => {
+		process.env['NODE_ENV'] = environment
+	})
+	it('is unset when empty', async () => {
+		const unset = await started(kept(), { key: '' })
+		try {
+			const response = await fetch(`${address()}/_ultimabase/maintenance`, {
+				method: 'PUT',
+				headers: { 'x-ultimabase-maintenance-key': '' },
+				body: JSON.stringify({ enabled: true }),
+			})
+			expect(response.status).toBe(403)
+		} finally {
+			await unset.stop()
+		}
+	})
+
+	it('holds a header’s characters only', async () => {
+		await expect(
+			appOn(memory(), { key: 'deploy key' }).start(),
+		).rejects.toThrow(
+			'The maintenance key holds a space or a character outside ASCII, which a header cannot carry: use letters, digits and symbols only.',
+		)
+	})
+
+	it('holds 32 characters in production', async () => {
+		process.env['NODE_ENV'] = 'production'
+		await expect(
+			appOn(memory(), { key: 'deploy-key' }).start(),
+		).rejects.toThrow(
+			'The maintenance key is 10 characters long; production needs 32 at least: `openssl rand -base64 32` gives one.',
+		)
+		const long = await started(kept(), { key: 'k'.repeat(32) })
+		await long.stop()
 	})
 })

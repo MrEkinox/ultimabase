@@ -1,5 +1,6 @@
 // `GET /health` and `GET /ready` (D-204): served before every route, `/ready`
 // once started and until the stop, with the plugins' checks, and the drain.
+import { connect } from 'node:net'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { Logger, PluginTypes } from 'ultimabase'
 import { defineApp, definePlugin, memory } from 'ultimabase'
@@ -51,6 +52,7 @@ const checking = definePlugin<Checking>({
 	api: ({ plugins }) => {
 		late = plugins.http
 		plugins.http.ready(async () => check())
+		plugins.http.upgrade('/live', ({ socket }) => socket.destroy())
 	},
 	start: async ({ plugins }) => {
 		reached(plugins.http.url())
@@ -138,6 +140,52 @@ describe('/health', () => {
 		expect(response.headers.get('access-control-allow-origin')).toBeNull()
 		expect(response.headers.get('cache-control')).toBe('no-store')
 		expect(identified).toBe(0)
+	})
+})
+
+/** The status line the server answers an upgrade of `target` with. */
+async function upgradeStatus(url: string, target: string): Promise<string> {
+	const { port } = new URL(url)
+	return new Promise<string>((done) => {
+		const socket = connect(Number(port), 'localhost', () => {
+			socket.write(
+				`GET ${target} HTTP/1.1\r\nhost: localhost\r\nconnection: Upgrade\r\nupgrade: websocket\r\n\r\n`,
+			)
+		})
+		let text = ''
+		socket.setEncoding('utf8')
+		socket.on('data', (chunk: string) => {
+			text += chunk
+		})
+		socket.on('end', () => done(text.split('\r\n')[0] ?? ''))
+	})
+}
+
+describe('while the application starts', () => {
+	it('answers every other request 503, Master’s too, then serves', async () => {
+		const { promise, resolve } = Promise.withResolvers<void>()
+		gate = promise
+		const { app } = application({
+			routes: [routes().get('/mine', (c) => c.text('mine'))],
+		})
+		const url = new Promise<string>((done) => {
+			reached = done
+		})
+		running = app
+		const starting = app.start()
+		const at = await url
+		const starts = unavailable('The application is starting.')
+		expect(await answer(await fetch(`${at}/mine`))).toEqual(starts)
+		const master = { 'x-ultimabase-master-key': 'secret' }
+		expect(
+			await answer(await fetch(`${at}/mine`, { headers: master })),
+		).toEqual(starts)
+		expect(await upgradeStatus(at, '/live')).toBe(
+			'HTTP/1.1 503 Service Unavailable',
+		)
+		resolve()
+		await starting
+		expect(await (await fetch(`${at}/mine`)).text()).toBe('mine')
 	})
 })
 

@@ -1,5 +1,5 @@
-// Turns the maintenance on and off as Master would, and reads it as a client
-// does, each test on a new in-memory database.
+// Turns the maintenance on and off as a deployment pipeline would, and reads
+// it as a client does, each test on a new in-memory database.
 import { testApplication } from '@ultimabase/testing'
 import { expect, it } from 'vitest'
 import { app } from './app.ts'
@@ -7,13 +7,13 @@ import { app } from './app.ts'
 const running = testApplication(app)
 
 //#region switch
-/** Turns the maintenance on or off, with the master key. */
+/** Turns the maintenance on or off, with the maintenance key. */
 async function maintenance(enabled: boolean): Promise<Response> {
 	return fetch(`${running.url}/_ultimabase/maintenance`, {
 		method: 'PUT',
 		headers: {
 			'content-type': 'application/json',
-			'x-ultimabase-master-key': 'dev-master-key',
+			'x-ultimabase-maintenance-key': 'dev-maintenance-key',
 		},
 		body: JSON.stringify({ enabled }),
 	})
@@ -63,12 +63,26 @@ it('serves Master meanwhile', async () => {
 	//#endregion
 })
 
-it('turns on with the master key only', async () => {
-	const response = await fetch(`${running.url}/_ultimabase/maintenance`, {
+/** Turns the maintenance on, with `headers`. */
+async function switching(headers: object): Promise<Response> {
+	return fetch(`${running.url}/_ultimabase/maintenance`, {
 		method: 'PUT',
-		headers: { 'content-type': 'application/json' },
+		headers: { 'content-type': 'application/json', ...headers },
 		body: JSON.stringify({ enabled: true }),
 	})
-	expect(response.status).toBe(403)
+}
+
+it('turns on with the maintenance key or the master key only', async () => {
+	expect((await switching({})).status).toBe(403)
 	expect((await graphql('{ __typename }')).status).toBe(200)
+	const master = { 'x-ultimabase-master-key': 'dev-master-key' }
+	expect((await switching(master)).status).toBe(200)
+})
+
+it('lets the maintenance key through nothing else', async () => {
+	await maintenance(true)
+	const response = await graphql('{ __typename }', {
+		'x-ultimabase-maintenance-key': 'dev-maintenance-key',
+	})
+	expect(response.status).toBe(503)
 })

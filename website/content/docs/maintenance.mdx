@@ -7,7 +7,8 @@ description: Answer 503 to every client while the data changes, on every server,
 request answers 503 until it ends, GraphQL's and REST's included, the
 WebSockets open close, and Master is still served, for the migration's
 scripts and the admin. Every server follows, as the state is a row of the
-database.
+database. A deployment pipeline switches it with its own key, which opens
+nothing else.
 
 ```npm
 npm install @ultimabase/maintenance
@@ -24,13 +25,33 @@ The full example, with its tests: [`examples/maintenance`](https://github.com/Mr
 
 ## Turn it on and off
 
-`PUT /_ultimabase/maintenance`, with the master key, turns it on with
-`{ "enabled": true }` and off with `{ "enabled": false }`, the master key in
-`x-ultimabase-master-key`:
+`PUT /_ultimabase/maintenance` turns it on with `{ "enabled": true }` and
+off with `{ "enabled": false }`. It takes the maintenance key, in
+`x-ultimabase-maintenance-key`, or the master key, in
+`x-ultimabase-master-key`; any other caller is refused:
 
 <include cwd meta='title="src/app.test.ts"'>
 	../examples/maintenance/src/app.test.ts#switch
 </include>
+
+The maintenance key does nothing else: a request that sends it meets the
+503 as any other, and every route reads its caller as before. A deployment
+pipeline holds it, rather than the master key, which reads and changes
+every row. It follows the master key's rules: empty, it is unset; under
+`NODE_ENV=production`, the start refuses one under 32 characters, which
+`openssl rand -base64 32` gives.
+
+## Start in maintenance
+
+`initial: 'locked'` starts the application in maintenance while no state is
+stored, as on a new database or one restored from a backup. A stored state
+always wins, and the start writes none. The plugin reads no environment
+variable: the application passes `initial` from its own.
+
+A server that cannot read the state as it starts fails its start rather
+than guess. Until every plugin started, the HTTP plugin answers every
+request 503 `UNAVAILABLE`, Master's too, so no request is served before the
+state is read.
 
 ## What a client reads
 
@@ -62,9 +83,11 @@ A request with the master key is served as usual, during maintenance too:
 
 ### `maintenancePlugin(options)`
 
-| Option       | Type         | Default | Effect                                                            |
-| ------------ | ------------ | ------- | ----------------------------------------------------------------- |
-| `retryAfter` | milliseconds | 60 000  | What `Retry-After` tells a client to wait, rounded up to seconds. |
+| Option       | Type                     | Default      | Effect                                                            |
+| ------------ | ------------------------ | ------------ | ----------------------------------------------------------------- |
+| `retryAfter` | milliseconds             | 60 000       | What `Retry-After` tells a client to wait, rounded up to seconds. |
+| `key`        | string                   | none         | Sent in `x-ultimabase-maintenance-key`, switches the maintenance. |
+| `initial`    | `'locked'`, `'unlocked'` | `'unlocked'` | The state while none is stored.                                   |
 
 It requires `httpPlugin()`, and adds the model `MaintenanceState`, which no
 transport exposes.
@@ -81,22 +104,23 @@ migration would.
 | `locked()` | Whether this server is in maintenance.       |
 
 Each server reads the state as it starts, and again on each change of it.
-When it cannot read it, it keeps the state it had and logs the error.
+When it cannot read it as it starts, the start fails; later, it keeps the
+state it had and logs the error.
 
 ### `PUT /_ultimabase/maintenance`
 
-| Status | Code                | When                                                        |
-| ------ | ------------------- | ----------------------------------------------------------- |
-| 200    |                     | `{ "enabled": true }` or `{ "enabled": false }`, as stored. |
-| 400    | `VALIDATION_FAILED` | `The body is { "enabled": true } or { "enabled": false }.`  |
-| 403    | `ACCESS_DENIED`     | `Only the master key turns the maintenance on or off.`      |
+| Status | Code                | When                                                                          |
+| ------ | ------------------- | ----------------------------------------------------------------------------- |
+| 200    |                     | `{ "enabled": true }` or `{ "enabled": false }`, as stored.                   |
+| 400    | `VALIDATION_FAILED` | `The body is { "enabled": true } or { "enabled": false }.`                    |
+| 403    | `ACCESS_DENIED`     | `Only the master key or the maintenance key turns the maintenance on or off.` |
 
 ### While it is on
 
-| Request                        | Answer                                                                                      |
-| ------------------------------ | ------------------------------------------------------------------------------------------- |
-| any, without the master key    | 503 `MAINTENANCE`, `The application is under maintenance.`, `details.retryAfter` in seconds |
-| a WebSocket upgrade            | the same 503                                                                                |
-| a WebSocket open               | closed with 1012 `Maintenance`                                                              |
-| with the master key            | as usual                                                                                    |
-| preflight, `/health`, `/ready` | as usual                                                                                    |
+| Request                                          | Answer                                                                                      |
+| ------------------------------------------------ | ------------------------------------------------------------------------------------------- |
+| any but Master's, the maintenance key's included | 503 `MAINTENANCE`, `The application is under maintenance.`, `details.retryAfter` in seconds |
+| a WebSocket upgrade                              | the same 503                                                                                |
+| a WebSocket open                                 | closed with 1012 `Maintenance`                                                              |
+| with the master key                              | as usual                                                                                    |
+| preflight, `/health`, `/ready`                   | as usual                                                                                    |

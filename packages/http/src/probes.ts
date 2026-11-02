@@ -1,7 +1,9 @@
 // `GET /health` and `GET /ready` (D-204): whether the server answers, and
-// whether the instance takes traffic.
+// whether the instance takes traffic. Until every plugin started, the
+// server serves nothing else.
 import { Hono } from 'hono'
 import type { Logger } from 'ultimabase'
+import type { Gate } from './upgrade.ts'
 
 /** Whether a service the instance needs is there, read on each `/ready`. */
 export type ReadyCheck = () => boolean | Promise<boolean>
@@ -34,6 +36,20 @@ async function unready(
 		probes.checks.map((check) => passes(check, logger)),
 	)
 	return results.every(Boolean) ? undefined : 'A readiness check failed.'
+}
+
+/**
+ * The first gate: until every plugin started, a request or an upgrade
+ * answers as `/ready` does, Master's too, as a plugin may not be ready.
+ */
+export function startingGate(probes: Probes): Gate {
+	return () =>
+		probes.started
+			? undefined
+			: Response.json(
+					{ code: 'UNAVAILABLE', message: 'The application is starting.' },
+					{ status: 503 },
+				)
 }
 
 /** The two routes, served before every other (`get` answers `HEAD` too). */

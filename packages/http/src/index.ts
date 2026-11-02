@@ -10,6 +10,7 @@ import type { HttpEnv, HttpOptions, Mounted, Routes } from './app.ts'
 import { addresses, proxiesOf } from './address.ts'
 import { allowing, appOf } from './app.ts'
 import type { Probes, ReadyCheck } from './probes.ts'
+import { startingGate } from './probes.ts'
 import { hold } from './request.ts'
 import { closed, listening, portOf, serverOf } from './server.ts'
 import type { Accept, Close, Closing, Gate, Taker } from './upgrade.ts'
@@ -146,8 +147,15 @@ const http = definePlugin<Http>({
 		probes.drain =
 			options.drain ?? (process.env['NODE_ENV'] === 'production' ? 5000 : 0)
 		const mounted = mounts.get(context) ?? []
+		const starting = startingGate(probes)
 		const gates = gated.get(context) ?? []
-		const app = appOf(options, mounted, { probes, gates }, identify, logger)
+		const app = appOf(
+			options,
+			mounted,
+			{ probes, gates: [starting, ...gates] },
+			identify,
+			logger,
+		)
 		mounts.delete(context)
 		const server = serverOf(app.fetch)
 		const takers = upgrades.get(context) ?? new Map<string, Taker>()
@@ -157,6 +165,7 @@ const http = definePlugin<Http>({
 			upgrading(server, {
 				takers,
 				gates: [
+					starting,
 					...(options.upgrade === undefined ? [] : [options.upgrade]),
 					...gates,
 				],
