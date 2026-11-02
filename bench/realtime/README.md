@@ -74,6 +74,61 @@ Same machine as below; 10 writes a case; times in ms.
 - One list: each subscriber counts again as itself, one `groupBy` each, and
   computes its whole window again, which is what 1000 rows cost.
 
+## Rights lost
+
+```sh
+node --expose-gc bench/realtime/rights.ts \
+  [--subscribers 10000] [--windows 25] [--writes 5] [--cases 0,1,2,3] [--url <url>]
+```
+
+Measures what losing a right costs live lists when no row they show is
+written (D-196). A user reads the `Doc` rows of the teams they are a member
+of, through `Member` rows that point to the user and the team, and every
+`Sheet` while they hold the `Reader` role. Each case makes `--writes`
+losses:
+
+- link, one team: every subscriber is a member of one team; one member row
+  is deleted.
+- link, a team each: each subscriber reads their own team; one member row
+  is deleted.
+- role, one user leaves: every subscriber is a reader; one user leaves the
+  role.
+- role, renamed for all: the role is renamed, and every subscriber loses it.
+
+Statements are counted as above. The first and last loser message are the
+times until the losers hear of it; the last statement, until the engine's
+last read. Others' messages are those sent to subscribers who lost nothing.
+
+### 2026-11-02: a lost right re-checks only the rows it may reach (D-196)
+
+Same machine; 5 losses a case; times in ms. Before is commit `bfff0777`.
+
+| Case                  | Window | Statements before | Statements after | Loser message before | Loser message after | Last statement before | Last statement after |
+| --------------------- | -----: | ----------------: | ---------------: | -------------------: | ------------------: | --------------------: | -------------------: |
+| link, one team        |     25 |        9998–10002 |              4–4 |                 63.3 |               147.1 |                3602.6 |                147.0 |
+| link, a team each     |     25 |       19992–20000 |              4–4 |                 66.7 |               142.7 |                7359.9 |                142.5 |
+| role, one user leaves |     25 |       10002–10002 |              4–4 |                 76.0 |               187.0 |                6785.2 |                186.9 |
+| role, renamed for all |     25 |       40002–40002 |      40002–40002 |      58.2 to 10859.3 |     58.5 to 11089.3 |               10859.3 |              11089.3 |
+| link, one team        |   1000 |                 — |              4–4 |                    — |               177.3 |                     — |                175.1 |
+| role, one user leaves |   1000 |                 — |              4–4 |                    — |               182.1 |                     — |                182.1 |
+
+Others' messages are 0 in every case. The renamed role's before is the
+run of 2026-11-01, before the bench's memberships were `one` keys. `link, a
+team each` on windows of 1000 rows was not run: its 10 million rows do not
+fit the server's 4 GB data volume.
+
+- A lost link or role costs 4 statements instead of one or two per
+  subscriber, and the engine is done in under 190 ms instead of 3.6 to 7.4 s.
+- The loser hears of it later, 145 to 190 ms instead of 65 to 75: the
+  flush judges each subscriber's levels in memory, about 10 µs each, before
+  the loser's message goes out.
+- A renamed role is lost by every subscriber: each one is built again, as
+  before.
+- A membership told by a text field, `user: f.string()`, still re-checks
+  every window, since a delete tells its stored `one` keys alone: with this
+  change, one team's member row deleted costs 9998–10002 statements and
+  a last statement at 3.7 s.
+
 ## Runs
 
 ### 2026-11-01: live reads planned once per caller, commit `7a2b89ce`
