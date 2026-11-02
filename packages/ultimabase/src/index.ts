@@ -69,6 +69,7 @@ export type {
 	SingleOptions,
 	StringOptions,
 } from './fields.ts'
+export type { Hidden } from './field-rules.ts'
 export { defineFunction, defineType } from './define-function.ts'
 export type {
 	FieldType,
@@ -117,6 +118,7 @@ export type {
 	Register,
 	UserCallerKeys,
 	UserOf,
+	UserRowOf,
 } from './rules.ts'
 export { allOf, allow, anyOf, isMaster, master } from './rules.ts'
 export { transaction } from './transaction.ts'

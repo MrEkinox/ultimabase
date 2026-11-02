@@ -6,6 +6,7 @@ import type {
 	Client,
 	ExposedModel,
 	Field,
+	Hidden,
 	Identity,
 	Payload,
 	PluginOf,
@@ -123,9 +124,11 @@ export interface Password extends PluginTypes {
 		readonly email: Field<
 			string | null,
 			{ readonly optional: true; readonly unique: true }
-		>
+		> &
+			Hidden
 		/** When the password was last set (D-169). */
-		readonly passwordSetAt: Field<Date | null, { readonly optional: true }>
+		readonly passwordSetAt: Field<Date | null, { readonly optional: true }> &
+			Hidden
 	}
 	readonly commands: PasswordCommands<this['fields']>
 }

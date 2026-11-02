@@ -1,6 +1,6 @@
 // The password functions a client calls: reset and verification emails, a
 // password or email change, and the limit on failed sign-ins.
-import { testApplication } from '@ultimabase/testing'
+import { asUser, testApplication } from '@ultimabase/testing'
 import { master } from 'ultimabase'
 import { expect, it, vi } from 'vitest'
 import { z } from 'zod'
@@ -156,8 +156,8 @@ it('changes the password of the signed-in user', async () => {
 it('checks the password again before a sensitive action', async () => {
 	const ada = await signUp()
 	//#region check
-	// In a function's run, as the caller, with the client it receives.
-	const as = { kind: 'user', user: ada } as const
+	// As the user; a function's run passes its own caller and client.
+	const as = asUser(ada)
 	await User.checkPassword({ id: ada.id, password: 'correct horse' }, { as })
 	await expect(
 		User.checkPassword({ id: ada.id, password: 'wrong password' }, { as }),
