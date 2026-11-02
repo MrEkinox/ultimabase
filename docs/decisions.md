@@ -12785,6 +12785,8 @@ Rejected:
 
 ## D-195: Live reads planned once per caller
 
+Amended by D-197.
+
 Choice: amends D-154 points 9 and 13.
 
 1. A live read plans its rows' read once, as its caller: the read rules and
@@ -12894,3 +12896,31 @@ Rejected:
   reads every row of a large team. A membership told by a key needs none.
 - Judging a negative level: a row failing an `every` condition makes the
   row above fail, so its loss may add a row.
+
+## D-197: The live write target set by the measured run
+
+Choice: amends D-195 point 4.
+
+1. The last message of a write followed by 10 000 subscribers on one list
+   of 25 rows arrives within 160 ms (p50), not 150.
+2. The run of 2026-11-01 (`bench/realtime/README.md`, 157 ms, 167 B a row,
+   28.5 s) meets point 4 so amended and closes the roadmap item with
+   D-196's run of lost rights. Windows shared between subscribers are not
+   called for.
+
+Why:
+
+- The run missed 150 ms by 7 ms, under 5 %, while every other target was
+  met: 157 ms against 230 before
+  D-195, 167 B against 320, 28.5 s against 54.
+- What is left of a flush is each subscriber's own work, its rights
+  checked in memory. Sharing windows, the next step D-195 names, needs a
+  proof that two callers' filters keep the same rows, where a wrong proof
+  leaks rows; 7 ms does not pay for that risk.
+
+Rejected:
+
+- Keeping 150 ms and sharing windows: the risk D-195 rejected it for, for
+  a gap no subscriber sees.
+- Keeping 150 ms and leaving the item open: a target no planned work
+  reaches only stalls the phase.
