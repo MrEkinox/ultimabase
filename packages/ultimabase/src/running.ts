@@ -1,6 +1,7 @@
 // The running application (D-18): its resolved models and functions, its
 // adapter, its logger, its plugins' APIs (D-89) and the operations `stop`
 // waits for (D-91), one per realm.
+import { AsyncLocalStorage } from 'node:async_hooks'
 import type { Adapter, Feed } from './adapter.ts'
 import type { Logger } from './app-options.ts'
 import type { Complete } from './complete.ts'
@@ -22,15 +23,53 @@ export type Running = {
 	readonly complete: Complete
 }
 
-/** The operations running, `*Commit` hooks included, that `stop` waits for. */
+/**
+ * The operations running, `*Commit` hooks included, that `stop` waits for,
+ * and the one that runs alone (D-188).
+ */
 export class Work {
 	private count = 0
 	private readonly idle: (() => void)[] = []
+	/** Settles once the operation running alone is over. */
+	private held: Promise<void> | undefined
+	/** Set inside an operation: what it starts is part of it, never held. */
+	private readonly inside = new AsyncLocalStorage<true>()
 
 	async run<R>(run: () => Promise<R>): Promise<R> {
+		if (this.inside.getStore() === undefined) {
+			while (this.held !== undefined) await this.held
+		}
+		return this.counted(run)
+	}
+
+	/**
+	 * Runs `run` once the running operations are over, holding new ones
+	 * until it is; fails when they still run after `limit` milliseconds.
+	 */
+	async alone<R>(limit: number, run: () => Promise<R>): Promise<R> {
+		while (this.held !== undefined) await this.held
+		const { promise, resolve } = Promise.withResolvers<void>()
+		this.held = promise
+		const late = Promise.withResolvers<never>()
+		const timer = setTimeout(() => {
+			const message = `${this.count} operations still ran after ${limit / 1000} s; nothing was emptied.`
+			late.reject(new Error(message))
+		}, limit)
+		try {
+			await Promise.race([this.settled(), late.promise]).finally(() => {
+				clearTimeout(timer)
+			})
+			return await this.counted(run)
+		} finally {
+			this.held = undefined
+			resolve()
+		}
+	}
+
+	private async counted<R>(run: () => Promise<R>): Promise<R> {
 		this.count += 1
 		try {
-			return await run()
+			return await this.inside.run(true, run)
 		} finally {
 			this.count -= 1
 			if (this.count === 0) for (const done of this.idle.splice(0)) done()
