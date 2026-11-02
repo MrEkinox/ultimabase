@@ -9,12 +9,14 @@ import manifest from '../package.json' with { type: 'json' }
 import type { HttpEnv, HttpOptions, Mounted, Routes } from './app.ts'
 import { addresses, proxiesOf } from './address.ts'
 import { allowing, appOf } from './app.ts'
+import type { Probes, ReadyCheck } from './probes.ts'
 import { hold } from './request.ts'
 import { closed, listening, portOf, serverOf } from './server.ts'
 import type { Accept, Close, Closing, Taker } from './upgrade.ts'
 import { closeUpgrades, upgrading } from './upgrade.ts'
 
 export type { HttpEnv, HttpOptions, Routes } from './app.ts'
+export type { ReadyCheck } from './probes.ts'
 export type { Accept, Close, Closing, Gate, Upgrade } from './upgrade.ts'
 export { clientOf } from './client.ts'
 export type { StandardSchema } from './validate.ts'
@@ -42,6 +44,11 @@ export interface HttpApi {
 	 * those of a plugin that gave no `close` are cut (D-166).
 	 */
 	closeUpgrades(closing: Closing): void
+	/**
+	 * Adds a check `GET /ready` runs on each request: it answers 503 while
+	 * one fails; call it from your `api` (D-204).
+	 */
+	ready(check: ReadyCheck): void
 	/** Where the server listens, `http://localhost:3000`, once it started. */
 	url(): string
 }
@@ -60,6 +67,7 @@ const mounts = new WeakMap<object, Mounted[]>()
 const upgrades = new WeakMap<object, Map<string, Taker>>()
 const taken = new WeakMap<object, ReadonlyMap<Duplex, string>>()
 const urls = new WeakMap<object, string>()
+const probing = new WeakMap<object, Probes & { drain: number }>()
 
 const http = definePlugin<Http>({
 	name: 'http',
@@ -67,8 +75,15 @@ const http = definePlugin<Http>({
 	api: (context) => {
 		const mounted: Mounted[] = []
 		const takers = new Map<string, Taker>()
+		const probes = {
+			started: false,
+			stopping: false,
+			checks: new Array<ReadyCheck>(),
+			drain: 0,
+		}
 		mounts.set(context, mounted)
 		upgrades.set(context, takers)
+		probing.set(context, probes)
 		const building = (what: string) => {
 			if (mounts.has(context)) return
 			throw new Error(
@@ -87,6 +102,10 @@ const http = definePlugin<Http>({
 				}
 				takers.set(path, { accept, close: upgradeOptions?.close })
 			},
+			ready: (check) => {
+				building('add readiness checks')
+				probes.checks.push(check)
+			},
 			closeUpgrades: (closing) => {
 				closeUpgrades(takers, taken.get(context), closing)
 			},
@@ -104,7 +123,11 @@ const http = definePlugin<Http>({
 	start: async (context) => {
 		const { options, identify, logger } = context
 		const port = portOf(options.port)
-		const app = appOf(options, mounts.get(context) ?? [], identify, logger)
+		const probes = probesOf(context)
+		probes.drain =
+			options.drain ?? (process.env['NODE_ENV'] === 'production' ? 5000 : 0)
+		const mounted = mounts.get(context) ?? []
+		const app = appOf(options, mounted, probes, identify, logger)
 		mounts.delete(context)
 		const server = serverOf(app.fetch)
 		const takers = upgrades.get(context) ?? new Map<string, Taker>()
@@ -125,6 +148,17 @@ const http = definePlugin<Http>({
 		urls.set(context, url)
 		logger.info(`Listening on ${url}.`)
 	},
+	started: (context) => {
+		probesOf(context).started = true
+	},
+	// `/ready` answers 503, and the load balancer has `drain` to leave (D-204).
+	stopping: async (context) => {
+		const probes = probesOf(context)
+		probes.stopping = true
+		if (probes.drain > 0) {
+			await new Promise((resolve) => setTimeout(resolve, probes.drain))
+		}
+	},
 	// Stops accepting connections, then waits for running requests (D-59, D-106).
 	stop: async (context) => {
 		const { logger } = context
@@ -132,11 +166,19 @@ const http = definePlugin<Http>({
 		if (server === undefined) return
 		servers.delete(context)
 		urls.delete(context)
+		probing.delete(context)
 		const open = taken.get(context) ?? new Map<Duplex, string>()
 		taken.delete(context)
 		await closed(server, logger, open)
 	},
 })
+
+/** The probes' state of the context `api` received. */
+function probesOf(context: object): Probes & { drain: number } {
+	const probes = probing.get(context)
+	if (probes === undefined) throw new Error('The HTTP plugin has no api.')
+	return probes
+}
 
 /** The application's HTTP server (D-66, D-106). */
 export const httpPlugin: PluginOf<Http> = http.plugin

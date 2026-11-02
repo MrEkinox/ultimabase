@@ -75,7 +75,10 @@ export async function started(
 	const lines: Line[] = []
 	const app = defineApp({
 		database,
-		plugins: [httpPlugin({ port: 0, routes: served }), graphqlPlugin(options)],
+		plugins: [
+			httpPlugin({ port: 0, routes: served, drain: 0 }),
+			graphqlPlugin(options),
+		],
 		models,
 		functions,
 		masterKey: 'secret',

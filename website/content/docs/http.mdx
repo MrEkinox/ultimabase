@@ -154,6 +154,26 @@ A response may hold the caller's data, so every response is sent with
 	../examples/http/src/app.test.ts#cache
 </include>
 
+## Health and readiness
+
+`GET /health` answers 200 `{ "status": "ok" }` as long as the server
+answers: a platform restarts the instance when it does not. `GET /ready`
+answers 200 once every plugin started, and 503 `UNAVAILABLE` while the
+application starts, once its stop began, or while a plugin's check fails: a
+load balancer sends traffic only to an instance that is ready.
+
+<include cwd meta='title="src/app.test.ts"'>
+	../examples/http/src/app.test.ts#probes
+</include>
+
+Both come before every route, the application's included: they read no
+caller, and no CORS applies. `/ready` checks no database: when it fails,
+every instance would leave the load balancer at once.
+
+On `stop`, `/ready` answers 503 first, and the server serves as before for
+`drain` milliseconds, 5000 in production: the load balancer has the time to
+see it and send no more traffic. Then the plugins stop.
+
 ## Testing a route
 
 `routes().request(path)` calls a route without the server, as an anonymous
@@ -169,20 +189,32 @@ above do:
 
 ### `httpPlugin(options)`
 
-| Option      | Type            | Default           | Effect                                                         |
-| ----------- | --------------- | ----------------- | -------------------------------------------------------------- |
-| `routes`    | `routes()[]`    | none              | Mounted at the root, in their order, before the plugins' own.  |
-| `cors`      | origins         | none              | The origins a browser may call from, with its cookies.         |
-| `port`      | number          | `PORT`, then 3000 | Where the server listens.                                      |
-| `bodyLimit` | number of bytes | 1 MB              | The largest request body; files take their own limit.          |
-| `proxies`   | whole number    | 0                 | The proxies in front of the server, read in `X-Forwarded-For`. |
-| `upgrade`   | function        | none              | Answers each WebSocket upgrade: a `Response` refuses it.       |
+| Option      | Type            | Default                         | Effect                                                         |
+| ----------- | --------------- | ------------------------------- | -------------------------------------------------------------- |
+| `routes`    | `routes()[]`    | none                            | Mounted at the root, in their order, before the plugins' own.  |
+| `cors`      | origins         | none                            | The origins a browser may call from, with its cookies.         |
+| `port`      | number          | `PORT`, then 3000               | Where the server listens.                                      |
+| `bodyLimit` | number of bytes | 1 MB                            | The largest request body; files take their own limit.          |
+| `proxies`   | whole number    | 0                               | The proxies in front of the server, read in `X-Forwarded-For`. |
+| `upgrade`   | function        | none                            | Answers each WebSocket upgrade: a `Response` refuses it.       |
+| `drain`     | milliseconds    | 5000 in production, 0 otherwise | How long the stop waits once `/ready` answers 503.             |
 
 Outside production, local origins over `http:` are allowed besides `cors`,
 and `POST /_ultimabase/reset` empties the database for the master key, for
 [end-to-end tests](/docs/next/testing#end-to-end-tests).
-On `stop`, the server stops taking connections and waits 10 seconds at most
-for the requests still running.
+On `stop`, after the `drain`, the server stops taking connections and waits
+10 seconds at most for the requests still running.
+
+### Readiness checks
+
+From a plugin that requires the HTTP plugin:
+
+| Member                      | Effect                                                                                                |
+| --------------------------- | ----------------------------------------------------------------------------------------------------- |
+| `plugins.http.ready(check)` | From the plugin's `api`: `/ready` runs `check()` on each request, and answers 503 when it is `false`. |
+
+A check returns a boolean, or a promise of one. One that throws fails, and
+its error is logged with `A readiness check failed.`
 
 ### WebSockets
 
@@ -234,6 +266,7 @@ keep it to some routes. A route added after `start` is not served.
 | 413    | `PAYLOAD_TOO_LARGE`      | `The body is over 65536 bytes.`                                                                                      |
 | 415    | `UNSUPPORTED_MEDIA_TYPE` | `The body is not JSON: send content-type: application/json.`                                                         |
 | 500    | `INTERNAL`               | `Internal error.`, with `correlationId`.                                                                             |
+| 503    | `UNAVAILABLE`            | `The application is starting.`, `The application is stopping.`, or `A readiness check failed.`, from `/ready`.       |
 | any    | the status's name        | An `HTTPException`, as `401` `UNAUTHORIZED`.                                                                         |
 
 A `PublicError` takes its code's status: `ACCESS_DENIED` 403, `NOT_FOUND`
@@ -254,3 +287,4 @@ production. A client that leaves before its answer counts as `499`.
 
 - One server, HTTP/1.1, without TLS: a proxy or the host serves HTTPS.
 - The `stop` delay of 10 seconds is not an option.
+- The paths `/health` and `/ready` are not options.

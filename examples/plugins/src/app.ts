@@ -6,6 +6,7 @@ import { titles, whoami } from './functions.ts'
 import { Member } from './member.ts'
 import { Article, News } from './models.ts'
 import { apiKeysPlugin } from './plugins/api-keys.ts'
+import { brokerPlugin } from './plugins/broker.ts'
 import { colorPlugin } from './plugins/color.ts'
 import { membersPlugin } from './plugins/members.ts'
 import { publishingPlugin } from './plugins/publishing.ts'
@@ -21,6 +22,7 @@ export const app = defineApp({
 		publishingPlugin(),
 		colorPlugin(),
 		membersPlugin(),
+		brokerPlugin(),
 	],
 	models: [Article, News, Member],
 	functions: [whoami, titles],

@@ -3039,6 +3039,8 @@ await User.delete({ where: { id } }, { as: caller })
 
 ## D-91: `start` and `stop` at run time
 
+Amended by D-204.
+
 Choice: eight details of D-58 and D-59 at run time.
 
 1. `start` starts the database, builds the plugins' APIs (D-89), then runs
@@ -4511,7 +4513,7 @@ npx ultimabase reset --force
 
 ## D-106: `httpPlugin()`, its Hono routes and the caller they read
 
-Amended by D-153 and D-166.
+Amended by D-153, D-166 and D-204.
 
 Choice: completes D-27, D-49, D-59 and D-66.
 
@@ -13379,4 +13381,93 @@ await Post.findMany({}, { as: asUser(ada) })
 
 const bob = await User.findUnique({ where: { id } }, { as: asUser(ada) })
 bob?.email // `string | null | undefined`
+```
+
+## D-204: `/health` and `/ready`, and a drain before the stop
+
+Choice: amends D-91 and D-106.
+
+1. `httpPlugin` answers `GET /health` and `GET /ready` (and `HEAD`) before
+   every other route: no caller is read, no CORS applies, and the
+   application's routes cannot take them.
+2. `/health` answers 200 `{ "status": "ok" }` whenever the server answers,
+   starting and stopping included. It reads nothing.
+3. `/ready` answers 200 `{ "status": "ok" }` once the application started,
+   while it is not stopping and every readiness check passes; otherwise 503
+   `{ "code": "UNAVAILABLE", "message": "…" }`, its message saying which.
+4. `http.ready(check)`, called from a plugin's `api`, adds a check:
+   `() => boolean | Promise<boolean>`. `/ready` runs them all on each
+   request; a check that throws fails, logged with its error.
+5. Two plugin hooks, around `start` and `stop`:
+   - `started(context)`: once every plugin's `start` ran, in the same
+     order, before `Application started.`. It returns nothing.
+   - `stopping(context)`: when `stop` begins, before any plugin's `stop`,
+     every plugin's at once; `stop` waits for them all. One that throws is
+     logged, the stop goes on, and `stop` rejects with the first error, as
+     a failing `stop` (D-91 point 4).
+6. http's `stopping` makes `/ready` answer 503, then waits `drain`
+   milliseconds while the server serves as before:
+   `httpPlugin({ drain })`, 5000 by default under `NODE_ENV=production`,
+   0 otherwise. A second `SIGTERM` still ends the process at once.
+
+Why:
+
+- A container platform restarts an instance whose liveness check fails,
+  and a load balancer sends traffic only to one whose readiness check
+  passes. Each application wrote both routes, and could not know when the
+  plugins had all started, nor when the stop began.
+- http listens in its own `start`, as a plugin's `start` may read
+  `http.url()`: a plugin started after it, or a request it serves, may
+  not be ready yet. `/ready` waits for `started`.
+- On `SIGTERM`, the instance used to close its server at once, while the
+  load balancer still sent it requests: they met connection errors. The
+  drain gives the load balancer the time to read `/ready` and leave the
+  instance first.
+- The drain must come before any plugin's `stop`: a transport stops
+  before http, which it needs (D-91 point 1), and would refuse requests
+  still routed to the instance.
+- Liveness stays 200 while the application starts: a slow start would
+  otherwise make the platform restart it, again and again.
+- In development and tests a stop is immediate: no load balancer waits.
+
+Rejected:
+
+- A database check in `/ready`: when the database fails, every instance
+  leaves the load balancer at once, and an outage becomes a total one; a
+  plugin that wants it adds its own check.
+- A `health` query in GraphQL, as Parse's: a load balancer sends a `GET`
+  and reads the status, and a GraphQL error still answers 200; a client
+  reads `/health` from the same server.
+- Configurable paths, and an option to turn the routes off: nobody needs
+  other paths, and an application's own `/health` is the one these
+  replace.
+- `Retry-After` on `/ready`'s 503: load balancers retry on their own
+  schedule.
+- The drain in the kernel, as an option of `defineApp`: without http,
+  nothing would read it.
+- A state the kernel exposes, `context.state()`, instead of the hooks:
+  http would still need to wait the drain before the other plugins stop.
+
+Example, before: the application writes the routes, and `/ready` answers
+200 until the server closes.
+
+```ts
+httpPlugin({
+	routes: [
+		routes()
+			.get('/health', (c) => c.text('ok'))
+			.get('/ready', (c) => c.text('ok')),
+	],
+})
+```
+
+After: nothing to write. A plugin that waits for a service adds a check.
+
+```ts
+httpPlugin() // GET /health, GET /ready; drain: 5000 in production
+
+// In a plugin that requires http:
+api: ({ plugins }) => {
+	plugins.http.ready(() => queue.connected)
+},
 ```

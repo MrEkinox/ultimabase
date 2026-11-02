@@ -92,6 +92,9 @@ export type PluginCode = {
 	/** The indexes it adds to the models that use it (D-122). */
 	readonly addedIndexes: readonly IndexDefinition[]
 	readonly start: Function | undefined
+	/** Once every plugin started, and when the stop begins (D-204). */
+	readonly started: Function | undefined
+	readonly stopping: Function | undefined
 	readonly generate: Function | undefined
 	readonly stop: Function | undefined
 	/** Who sends a request, if the plugin knows it (D-112). */

@@ -108,13 +108,19 @@ stops using the column, the second removes it.
 
 ## Stop
 
-On `SIGTERM`, the server stops accepting connections, and waits for the
-requests under way, 10 s at most. Then it closes those still running, warns
+Point the platform's liveness check at `GET /health` and its readiness
+check at `GET /ready` (see [HTTP](/docs/next/http#health-and-readiness)).
+
+On `SIGTERM`, `/ready` answers 503, and the server serves as before for 5 s,
+the `drain`: the load balancer stops sending traffic. Then the server stops
+accepting connections, and waits for the requests under way, 10 s at most.
+It closes those still running, warns
 `Stopped 10 s after stop began: closed the requests still running.`, and
 stops the plugins and the database. It logs `Application stopped.` last.
 
-Let the host wait more than 10 s between `SIGTERM` and `SIGKILL`: Docker
-waits 10 s by default, Kubernetes 30 s.
+Let the host wait more than 15 s between `SIGTERM` and `SIGKILL`: Kubernetes
+waits 30 s by default, Docker 10 s, so give Docker a `stop_grace_period`, or
+a shorter `drain`. A second `SIGTERM` ends the process at once.
 
 ## Behind a proxy
 

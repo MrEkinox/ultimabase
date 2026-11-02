@@ -292,6 +292,13 @@ export type PluginDefinition<T extends PluginTypes> = {
 	 * `ultimabase generate` and `ultimabase dev` (D-201).
 	 */
 	readonly generate?: (context: PluginContext<T>) => readonly Generated[]
+	/** Runs once every plugin's `start` ran, in the same order (D-204). */
+	readonly started?: (context: PluginContext<T>) => void
+	/**
+	 * Runs when the stop begins, before any plugin's `stop`, every plugin's
+	 * at once: wait for traffic to leave (D-204).
+	 */
+	readonly stopping?: (context: PluginContext<T>) => void | Promise<void>
 	/** Runs once when the application stops: close, flush (D-15). */
 	readonly stop?: (context: PluginContext<T>) => void | Promise<void>
 	/**

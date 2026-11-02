@@ -100,7 +100,7 @@ export async function started(
 	const app = defineApp({
 		database,
 		plugins: [
-			httpPlugin({ port: 0 }),
+			httpPlugin({ port: 0, drain: 0 }),
 			graphqlPlugin(),
 			authPlugin(options),
 			signing.plugin(),

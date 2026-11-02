@@ -124,7 +124,10 @@ async function started(
 	const lines: Line[] = []
 	const app = defineApp({
 		database: memory(),
-		plugins: [httpPlugin({ port: 0, routes: [notes], ...options }), ...others],
+		plugins: [
+			httpPlugin({ port: 0, routes: [notes], drain: 0, ...options }),
+			...others,
+		],
 		models: [Note],
 		masterKey: 'secret',
 		logger: recorder(lines),

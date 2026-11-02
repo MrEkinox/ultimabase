@@ -1,5 +1,5 @@
-// The Hono application `httpPlugin` serves (D-66, D-106): no caching, CORS,
-// forms from other origins, the body limit, each request's caller, the
+// The Hono application `httpPlugin` serves (D-66, D-106): no caching, the
+// probes (D-204), CORS, forms from other origins, the body limit, each request's caller, the
 // routes, the reset route outside production (D-188), and errors as D-72
 // sends them.
 import { randomUUID } from 'node:crypto'
@@ -14,6 +14,8 @@ import { getPath } from 'hono/utils/url'
 import type { Caller, ErrorCode, Logger } from 'ultimabase'
 import { isLocalHost, PublicError } from 'ultimabase'
 import { addresses, proxiesOf } from './address.ts'
+import type { Probes } from './probes.ts'
+import { probeRoutes } from './probes.ts'
 import { hold } from './request.ts'
 import { resetRoutes } from './reset.ts'
 import type { Gate } from './upgrade.ts'
@@ -50,6 +52,11 @@ export interface HttpOptions {
 	 * response refuses it, as during maintenance (D-166).
 	 */
 	readonly upgrade?: Gate
+	/**
+	 * In milliseconds, how long the stop waits once `/ready` answers 503,
+	 * serving as before: 5000 under `NODE_ENV=production`, 0 otherwise (D-204).
+	 */
+	readonly drain?: number
 }
 
 const statuses: ReadonlyMap<string, ContentfulStatusCode> = new Map<
@@ -148,6 +155,7 @@ const pathOf = (request: Request): string =>
 export function appOf(
 	options: HttpOptions,
 	mounted: readonly Mounted[],
+	probes: Probes,
 	identify: (request: Request) => Promise<Caller>,
 	logger: Logger,
 ): Hono<HttpEnv> {
@@ -181,6 +189,8 @@ export function appOf(
 			c.res = failed(error, c, logger)
 		}
 	})
+	// Before CORS and the caller: a probe reads neither (D-204).
+	app.route('/', probeRoutes(probes, logger))
 	const allowed = (origin: string) => (allows(origin) ? origin : null)
 	// An allowed origin sends its cookies, as auth's session (D-112).
 	const preflight = cors({ origin: allowed, credentials: true })

@@ -35,6 +35,23 @@ type Started = {
 	readonly onSigterm: () => void
 }
 
+/** Runs every plugin's `stopping` at once, each even when another fails. */
+async function drained(plugins: readonly Installed[]): Promise<unknown[]> {
+	const errors: unknown[] = []
+	await Promise.all(
+		plugins.map(async ({ code, context }) => {
+			if (code.stopping === undefined) return
+			try {
+				await Reflect.apply(code.stopping, undefined, [context])
+			} catch (error) {
+				context.logger.error({ err: error }, 'The plugin failed to stop.')
+				errors.push(error)
+			}
+		}),
+	)
+	return errors
+}
+
 /** Stops `plugins` in reverse order, each even when another fails. */
 async function stopped(plugins: readonly Installed[]): Promise<unknown[]> {
 	const errors: unknown[] = []
@@ -159,7 +176,8 @@ export function lifecycle(options: LifecycleOptions): Lifecycle {
 
 	const shutDown = async ({ app, plugins, onSigterm }: Started) => {
 		process.off('SIGTERM', onSigterm)
-		const errors = await stopped(plugins)
+		// Traffic leaves before any plugin stops (D-204).
+		const errors = [...(await drained(plugins)), ...(await stopped(plugins))]
 		// A plugin's stop may still query; the database closes last.
 		await app.work.settled()
 		unregister(app)
@@ -208,6 +226,11 @@ export function lifecycle(options: LifecycleOptions): Lifecycle {
 					await Reflect.apply(code.start, undefined, [context])
 				}
 				ran.push(plugin)
+			}
+			for (const { code, context } of plugins) {
+				if (code.started !== undefined) {
+					Reflect.apply(code.started, undefined, [context])
+				}
 			}
 			if (process.env['NODE_ENV'] === 'development') {
 				const files = generatedOf(plugins)
