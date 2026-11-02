@@ -12406,6 +12406,12 @@ Choice: completes D-49, D-105 and D-106.
 6. A remote database is not refused, unlike `ultimabase reset`: the master
    key and `NODE_ENV` already keep the route out of production.
 7. The testing guide shows it in an "End-to-end tests" section.
+8. It runs alone: it waits for the operations running, `*Commit` hooks
+   included, and holds new ones until the database is empty; what a running
+   operation starts is part of it and is not held. When operations still run
+   after 5 seconds, it fails with `INTERNAL`, empties nothing and lets the
+   held ones through; the error tells how many ran. Open sockets stay
+   connected (amended 2026-11-02).
 
 Why:
 
@@ -12420,6 +12426,12 @@ Why:
   the tables.
 - One `truncate` costs one statement, whatever the number of tables, which
   a `beforeEach` runs every test.
+- A page of the previous test, still connected, writes while the next
+  test resets: the truncate locked one table and waited on another that the
+  write held, which then waited on the first, and PostgreSQL ended the reset
+  with `deadlock detected`. Running alone leaves no write of the application
+  to wait on. The limit keeps an operation that never ends from blocking the
+  test run (amended 2026-11-02).
 
 Rejected:
 
@@ -12432,6 +12444,13 @@ Rejected:
   again, as it seeds the rest.
 - A command run from the test: it would empty the tables outside the
   running server, whose live reads would not know.
+- Retrying the truncate on `deadlock detected`: each try can meet a write
+  again, and a retry hides the race rather than ending it.
+- Locking the tables in a fixed order first: the write takes its own locks
+  in its own order.
+- Ending the other connections to the database: realtime's listening
+  connection and the pool's would end with them, and the requests running
+  would fail with errors of the driver (amended 2026-11-02).
 
 Example, before: a Playwright test cannot empty the database without
 restarting the server.

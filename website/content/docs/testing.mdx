@@ -121,6 +121,12 @@ sessions; the tables stay as `ultimabase dev` keeps them. No hook, cascade
 rule or soft delete runs, and stored files stay where their storage keeps
 them. Live reads read again, and find nothing.
 
+The previous test's page may still be connected and saving: the reset waits
+for the requests already running, holds the new ones until the database is
+empty, then lets them through. When requests still run after 5 seconds, it
+answers 500 `INTERNAL` and empties nothing; the server's log says how many
+were running.
+
 The [HTTP plugin](/docs/next/http) serves the route outside production only:
 under `ultimabase start` it answers 404, as any unknown path. Another
 caller than Master gets 403 `ACCESS_DENIED`.
