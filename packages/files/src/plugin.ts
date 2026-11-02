@@ -6,9 +6,9 @@ import { httpPlugin } from '@ultimabase/http'
 import type {
 	CallerRule,
 	ExposedModel,
-	Identity,
 	PluginOf,
 	PluginTypes,
+	QueryOptions,
 } from 'ultimabase'
 import { definePlugin } from 'ultimabase'
 import manifest from '../package.json' with { type: 'json' }
@@ -130,11 +130,10 @@ const definition = definePlugin<Files>({
 export const filesPlugin: PluginOf<Files> = definition.plugin
 
 /** What `files.upload` takes. */
-export interface UploadArgs {
+export interface UploadArgs extends QueryOptions {
 	/** The field the file is for: `Post.cover`. */
 	readonly for: string
 	readonly name: string
-	readonly as?: Identity
 }
 
 /** The running files plugin, from server code (D-152). */

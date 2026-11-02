@@ -7,6 +7,7 @@ import type {
 	Identity,
 	ExposedModel,
 	Logger,
+	QueryOptions,
 	Register,
 	Row,
 	UserOf,
@@ -238,15 +239,12 @@ export async function signedIn(
 	return { token, expiresAt, user: await asItself(state, userId) }
 }
 
-/** Who sends a command (D-19). */
-export type Options = { readonly as?: Identity }
-
-export const callerOf = (options: Options | undefined): Identity =>
+export const callerOf = (options: QueryOptions | undefined): Identity =>
 	options?.as ?? { kind: 'anonymous' }
 
 /** Refuses `command` on user `id` but as Master or as that user. */
 export function selfOrMaster(
-	options: Options | undefined,
+	options: QueryOptions | undefined,
 	id: string,
 	command: string,
 ): void {

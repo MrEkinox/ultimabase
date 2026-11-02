@@ -3,7 +3,7 @@
 // fails, its objects and its rows are deleted.
 import { randomUUID } from 'node:crypto'
 import { fileTypeFromBuffer } from 'file-type'
-import type { Identity, JsonValue } from 'ultimabase'
+import type { Identity, JsonValue, QueryOptions } from 'ultimabase'
 import { isMaster, PublicError } from 'ultimabase'
 import type { FileInput, FileOptions, Inline } from './field.ts'
 import { bytesOf } from './memory.ts'
@@ -13,13 +13,12 @@ import { settled } from './storage.ts'
 import { runningOf } from './values.ts'
 
 /** What an upload says of its file. */
-export interface UploadOptions {
+export interface UploadOptions extends QueryOptions {
 	/** The field the file is for: `Post.cover`. */
 	readonly for: string
 	readonly name: string
 	/** The declared `Content-Type`, read only when the bytes say none. */
 	readonly type?: string | undefined
-	readonly as?: Identity | undefined
 }
 
 /** How many first bytes the type is read from, as `file-type` reads them. */

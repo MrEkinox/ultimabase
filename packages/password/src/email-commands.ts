@@ -1,8 +1,9 @@
 // password's email flows as commands on the user model (D-198): the code
 // the functions run, for server code, which has no client and waits for the
 // email.
+import type { QueryOptions } from 'ultimabase'
 import { master } from 'ultimabase'
-import type { Options, State } from './core.ts'
+import type { State } from './core.ts'
 import { selfOrMaster } from './core.ts'
 import type { Mailer } from './email-flows.ts'
 import {
@@ -23,19 +24,19 @@ export interface EmailCommands {
 	/** Sends the email's account a reset link, once sent; nothing to an email without one. */
 	requestPasswordReset(
 		args: { readonly email: string },
-		options?: Options,
+		options?: QueryOptions,
 	): Promise<void>
 	/** Sets the password a reset link's user chose, and verifies the email. */
 	resetPassword(
 		args: Token & { readonly password: string },
-		options?: Options,
+		options?: QueryOptions,
 	): Promise<void>
 	/** Verifies the email a verification link went to. */
-	verifyEmail(args: Token, options?: Options): Promise<void>
+	verifyEmail(args: Token, options?: QueryOptions): Promise<void>
 	/** Sends the user a verification link, as Master or as the user. */
 	sendVerificationEmail(
 		args: { readonly id: string },
-		options?: Options,
+		options?: QueryOptions,
 	): Promise<void>
 	/**
 	 * Sends the new email the link that moves the user to it, as Master or
@@ -44,10 +45,10 @@ export interface EmailCommands {
 	 */
 	requestEmailChange(
 		args: { readonly id: string; readonly newEmail: string },
-		options?: Options,
+		options?: QueryOptions,
 	): Promise<void>
 	/** Writes the email an email-change link went to, verified. */
-	confirmEmailChange(args: Token, options?: Options): Promise<void>
+	confirmEmailChange(args: Token, options?: QueryOptions): Promise<void>
 }
 
 const M = { as: master }
