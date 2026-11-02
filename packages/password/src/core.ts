@@ -18,6 +18,7 @@ import type { SendEmail } from './email-flows.ts'
 import { normalized } from './input.ts'
 import type { Attempt } from './models.ts'
 import { limited, PasswordHash } from './models.ts'
+import { checkNew } from './new-password.ts'
 import { PasswordToken } from './tokens.ts'
 
 const M = { as: master }
@@ -34,6 +35,8 @@ export interface State {
 	/** The sends under way, which stopping waits for (D-117). */
 	readonly sending: Set<Promise<void>>
 	readonly sendEmail: SendEmail | undefined
+	/** Whether a new password is checked against the known breaches (D-209). */
+	readonly breached: boolean
 }
 
 /** The `passwordSetAt` each `setPassword` wrote, which its commit tells (D-169). */
@@ -71,8 +74,9 @@ export const attemptOf = (
 
 /**
  * Creates the user, its account and its hash in one transaction, as Master:
- * the caller's fields were checked against the list (D-113). The email's
- * hook links the account (D-162); `passwordSetAt` is the sign-up's (D-169).
+ * the caller's fields were checked against the list (D-113), the password
+ * here (D-209). The email's hook links the account (D-162); `passwordSetAt`
+ * is the sign-up's (D-169).
  */
 export async function createUser(
 	state: State,
@@ -80,6 +84,7 @@ export async function createUser(
 	password: string,
 	data: object,
 ): Promise<{ readonly user: Row; readonly stamp: string }> {
+	await checkNew(state, password, email)
 	const hash = await hashPassword(password)
 	const stamp = randomUUID()
 	return transaction(async () => {
@@ -161,6 +166,17 @@ export async function checkCurrent(
 	await limited(attempt, async () => {
 		if ((await matches(userId, password)) === undefined) throw wrongPassword()
 	})
+}
+
+/** Refuses `password` as `userId`'s new one, given in field `path` (D-209). */
+export async function checkNewFor(
+	state: State,
+	userId: string,
+	password: string,
+	path?: string,
+): Promise<void> {
+	const email = await state.auth.subjectOf(userId, method)
+	await checkNew(state, password, email, path)
 }
 
 /**

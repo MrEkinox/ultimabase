@@ -18,8 +18,9 @@ export const app = defineApp({
 		// Sessions, and the caller of each request.
 		authPlugin(),
 		// A user signs up with an email, a password and a name, and receives
-		// the reset and verification emails sendEmail sends.
-		passwordPlugin({ signUp: ['name'], sendEmail }),
+		// the reset and verification emails sendEmail sends. A new password
+		// in a known data breach is refused.
+		passwordPlugin({ signUp: ['name'], sendEmail, breached: true }),
 	],
 	//#endregion
 	models: [User, Post],

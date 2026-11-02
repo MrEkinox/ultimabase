@@ -55,6 +55,24 @@ const signUp = () =>
 		{ as: master },
 	)
 
+it('refuses a new password that is the email', async () => {
+	//#region new-password
+	await expect(
+		User.signUp(
+			{
+				email: 'ada@example.com',
+				password: 'Ada@Example.com',
+				data: { name: 'Ada' },
+			},
+			{ as: master },
+		),
+	).rejects.toMatchObject({
+		code: 'VALIDATION_FAILED',
+		message: 'password: A password cannot be the email.',
+	})
+	//#endregion
+})
+
 it('resets a forgotten password from the emailed link', async () => {
 	await signUp()
 	//#region reset

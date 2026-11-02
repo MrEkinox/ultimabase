@@ -2,7 +2,7 @@
 // sending an email with its token, and redeeming one.
 import { master, PublicError, transaction } from 'ultimabase'
 import type { State } from './core.ts'
-import { method, setPassword } from './core.ts'
+import { checkNewFor, method, setPassword } from './core.ts'
 import type { Email, EmailKind } from './tokens.ts'
 import { emailLimited, issueToken, redeemToken } from './tokens.ts'
 
@@ -70,7 +70,10 @@ export async function reset(
 	token: string,
 	password: string,
 ): Promise<void> {
-	const { userId } = await redeemToken(token, 'reset')
+	// Checked before the link is used: a refused password keeps it (D-209).
+	const { userId } = await redeemToken(token, 'reset', async (id) =>
+		checkNewFor(state, id, password),
+	)
 	await setPassword(state, userId, password)
 	await verify(state, userId)
 }
