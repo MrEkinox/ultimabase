@@ -11207,6 +11207,8 @@ export const { plugin: archivePlugin, use: archive } = definePlugin<Archive>({
 
 ## D-173: `yarn validate` runs in 90 seconds at most
 
+Amended by D-210.
+
 Choice: amends D-06. `yarn validate` stays under 90 seconds locally, instead
 of one minute. The other budgets of D-06 are unchanged: PostgreSQL tests in a
 separate command, file and package line limits.
@@ -13807,3 +13809,18 @@ await transaction(async () =>
 
 After: the same code rejects with `UNIQUE_VIOLATION` once both reads
 settled, then rolls back; `pg` warns of nothing.
+
+## D-210: Prettier checks with its cache
+
+Choice: amends D-173. `yarn format:check` runs `prettier . --check --cache`:
+Prettier checks again only the files changed since its last run, and keeps
+its cache in `node_modules/.cache`. D-173's 90 seconds hold for a run after
+another, the way a change is validated; the first run after an install, and
+CI's, check every file.
+Why: `yarn validate` reached 89 seconds (2173 tests, against 1916 when D-173
+was taken), with no slow step: growth, not a regression. Prettier took 15.6
+seconds, about 12 ms a file; with its cache a second run takes 2.9.
+Rejected: 120 seconds (D-173 rejected two minutes: the run would drift
+unseen); another formatter (a dependency to replace a flag).
+Limit: a change of Prettier's version or options checks every file again,
+which Prettier's cache does by itself.

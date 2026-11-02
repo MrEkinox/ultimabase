@@ -16,7 +16,7 @@
 	"scripts": {
 		"budgets": "node scripts/check-budgets.ts",
 		"format": "prettier . --write",
-		"format:check": "prettier . --check",
+		"format:check": "prettier . --check --cache",
 		"lint": "oxlint",
 		"postinstall": "husky",
 		"release:version": "changeset version && yarn install --mode=update-lockfile && yarn website:freeze && yarn format",
