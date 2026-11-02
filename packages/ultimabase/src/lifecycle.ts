@@ -6,6 +6,8 @@ import type { PluginCaller } from './complete.ts'
 import { completer } from './complete.ts'
 import { consoleLogger } from './console-logger.ts'
 import { feedOf } from './feed.ts'
+import type { Generated } from './generate.ts'
+import { generatedOf, written as wrote } from './generate.ts'
 import type { PluginIdentify } from './identify.ts'
 import { identifier } from './identify.ts'
 import { checkVersions } from './manifest.ts'
@@ -95,8 +97,62 @@ async function follow(
 	}
 }
 
+/** The application `options` declare, its database not started. */
+function prepared(options: LifecycleOptions) {
+	const { plugins: records, apiOrder } = installed(options.plugins ?? [])
+	const resolved = resolve(
+		options.models,
+		records.map((plugin) => plugin.code),
+	)
+	const base = options.logger ?? consoleLogger()
+	const logger = base.child({ name: 'ultimabase' })
+	// Plugins identify with their contexts, which hold identify.
+	const identifiers: PluginIdentify[] = []
+	const callers: PluginCaller[] = []
+	const complete = completer(callers)
+	const identify = identifier(options.masterKey, logger, identifiers, complete)
+	const { plugins, functions } = withContexts(
+		apiOrder,
+		base,
+		identify,
+		resolved,
+		options.functions ?? [],
+	)
+	identifiers.push(...pluginIdentifiers(records, plugins))
+	callers.push(...pluginCallers(records, plugins))
+	const apis = new Map<string, unknown>()
+	const app: Running = {
+		resolved,
+		adapter: options.database,
+		feed: feedOf(records, plugins),
+		logger,
+		apis,
+		functions: functions.definitions,
+		work: new Work(),
+		complete,
+	}
+	return { records, plugins, app, apis }
+}
+
+/**
+ * The files the plugins generate (D-201): their APIs built, without the
+ * database, a port, or any `start`.
+ */
+export function generatedFiles(
+	options: LifecycleOptions,
+): readonly Generated[] {
+	const { plugins, app, apis } = prepared(options)
+	register(app)
+	try {
+		buildApis(plugins, apis)
+		return generatedOf(plugins)
+	} finally {
+		unregister(app)
+	}
+}
+
 export function lifecycle(options: LifecycleOptions): Lifecycle {
-	const { database, models } = options
+	const { database } = options
 	let started: Started | undefined
 	let stopping: Promise<void> | undefined
 	let starting = false
@@ -136,49 +192,13 @@ export function lifecycle(options: LifecycleOptions): Lifecycle {
 	}
 
 	const launch = async (): Promise<void> => {
-		const { plugins: records, apiOrder } = installed(options.plugins ?? [])
-		const resolved = resolve(
-			models,
-			records.map((plugin) => plugin.code),
-		)
-		const base = options.logger ?? consoleLogger()
-		const logger = base.child({ name: 'ultimabase' })
+		const { records, plugins, app, apis } = prepared(options)
+		const { logger } = app
 		checkVersions(records, logger)
-		// Plugins identify with their contexts, which hold identify.
-		const identifiers: PluginIdentify[] = []
-		const callers: PluginCaller[] = []
-		const complete = completer(callers)
-		const identify = identifier(
-			options.masterKey,
-			logger,
-			identifiers,
-			complete,
-		)
-		const { plugins, functions } = withContexts(
-			apiOrder,
-			base,
-			identify,
-			resolved,
-			options.functions ?? [],
-		)
-		identifiers.push(...pluginIdentifiers(records, plugins))
-		callers.push(...pluginCallers(records, plugins))
-		const feed = feedOf(records, plugins)
-		await database.start(resolved.schema, logger, feed)
-		const apis = new Map<string, unknown>()
-		const app: Running = {
-			resolved,
-			adapter: database,
-			feed,
-			logger,
-			apis,
-			functions: functions.definitions,
-			work: new Work(),
-			complete,
-		}
+		await database.start(app.resolved.schema, logger, app.feed)
 		const ran: Installed[] = []
 		try {
-			await follow(database, resolved.schema, logger)
+			await follow(database, app.resolved.schema, logger)
 			register(app)
 			// An API may read the APIs it needs as it is built (D-89).
 			buildApis(plugins, apis)
@@ -188,6 +208,10 @@ export function lifecycle(options: LifecycleOptions): Lifecycle {
 					await Reflect.apply(code.start, undefined, [context])
 				}
 				ran.push(plugin)
+			}
+			if (process.env['NODE_ENV'] === 'development') {
+				const files = generatedOf(plugins)
+				for (const path of await wrote(files)) logger.info(`Wrote ${path}.`)
 			}
 		} catch (error) {
 			await stopped(ran)

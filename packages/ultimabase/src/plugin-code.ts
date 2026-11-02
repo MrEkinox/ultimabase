@@ -125,6 +125,7 @@ export function pluginCode(definition: unknown): PluginCode {
 		addedFields: part('addedFields'),
 		addedIndexes: indexesOf(definition['addedIndexes'], `${name}.addedIndexes`),
 		start: part('start'),
+		generate: part('generate'),
 		stop: part('stop'),
 		identify: part('identify'),
 		caller: part('caller'),

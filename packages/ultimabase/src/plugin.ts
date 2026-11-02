@@ -4,6 +4,7 @@ import type { Logger } from './app-options.ts'
 import type { Enum, FieldBuilders, StandardSchema } from './fields.ts'
 import type { Client, FunctionShape } from './function.ts'
 import type { ExposedOutput } from './exposed-output.ts'
+import type { Generated } from './generate.ts'
 import type { Identify } from './identify.ts'
 import { pluginEntries, pluginValues } from './definition.ts'
 import { pluginCode } from './plugin-code.ts'
@@ -286,6 +287,11 @@ export type PluginDefinition<T extends PluginTypes> = {
 	readonly redirect?: PluginRedirects<Own<T>, EntryOptions<T>, Apis<T>>
 	/** Runs once when the application starts (D-15). */
 	readonly start?: (context: PluginContext<T>) => void | Promise<void>
+	/**
+	 * The files it generates, once every `api` is built: written by
+	 * `ultimabase generate` and `ultimabase dev` (D-201).
+	 */
+	readonly generate?: (context: PluginContext<T>) => readonly Generated[]
 	/** Runs once when the application stops: close, flush (D-15). */
 	readonly stop?: (context: PluginContext<T>) => void | Promise<void>
 	/**

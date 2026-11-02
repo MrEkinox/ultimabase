@@ -76,6 +76,13 @@ that starts it, so a test imports it without starting it.
 value, and a change to the file restarts the application. `ultimabase start`
 never reads it: in production, the host sets the environment.
 
+`npx ultimabase generate` writes the files the plugins generate, as the
+GraphQL plugin's [schema file](/docs/next/graphql#a-schema-file-for-clients),
+without starting the application: it reads the config and the `.env`, and
+needs no database. It prints `Wrote <path>.` for each file whose content
+changed. `--check` writes nothing, names each file out of date, and exits 1
+when one is, for CI. `ultimabase dev` writes the same files as it starts.
+
 `app.start()` starts the database, then each plugin; the HTTP plugin listens
 on `PORT`, or 3000. `app.stop()` stops the plugins in reverse order, waits
 for the operations still running, then closes the database; a `SIGTERM`
