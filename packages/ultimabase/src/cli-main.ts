@@ -1,14 +1,17 @@
-// The `ultimabase` command (D-105): `dev`, `start`, `sync`, `reset` and
-// `migrate`.
+// The `ultimabase` command (D-105): `dev`, `start`, `sync`, `reset`,
+// `migrate` and `generate` (D-201).
 import { spawn } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import { dirname, extname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { parseArgs } from 'node:util'
+import type { Internals } from './app-internals.ts'
 import { configPath, load } from './cli-config.ts'
 import { migrateDeploy, migrateStatus, reset } from './cli-deploy.ts'
 import { migrateCreate, sync } from './cli-migrate.ts'
 import { Refused } from './errors.ts'
+import { staleOf, written } from './generate.ts'
+import { generatedFiles } from './lifecycle.ts'
 
 const usage = `Usage: ultimabase <command> [--config <path>]
 
@@ -23,8 +26,12 @@ const usage = `Usage: ultimabase <command> [--config <path>]
                          empty one for your SQL.
   migrate deploy         Apply the pending migrations.
   migrate status         Say what a deploy would do; exit 1 if anything.
+  generate [--check]     Write the files the plugins generate, without
+                         starting the application. --check writes
+                         nothing, and exits 1 if a file is out of date.
 
-dev, sync, reset and migrate create load the .env beside the config.`
+dev, sync, reset, migrate create and generate load the .env beside the
+config.`
 
 export type Io = {
 	readonly cwd: string
@@ -88,6 +95,7 @@ function read(args: readonly string[]) {
 			options: {
 				config: { type: 'string' },
 				force: { type: 'boolean', default: false },
+				check: { type: 'boolean', default: false },
 				help: { type: 'boolean', default: false },
 			},
 		})
@@ -106,7 +114,7 @@ async function run(args: readonly string[], io: Io): Promise<number> {
 		(command === 'migrate'
 			? (sub === 'create' && name !== undefined) ||
 				(['deploy', 'status'].includes(sub ?? '') && name === undefined)
-			: ['dev', 'start', 'sync', 'reset'].includes(command ?? '') &&
+			: ['dev', 'start', 'sync', 'reset', 'generate'].includes(command ?? '') &&
 				sub === undefined)
 	if (values.help) {
 		io.out(usage)
@@ -133,7 +141,9 @@ async function run(args: readonly string[], io: Io): Promise<number> {
 	}
 	if (local) process.loadEnvFile(env)
 	if (command === 'start') process.env['NODE_ENV'] ??= 'production'
+	if (command === 'generate') process.env['NODE_ENV'] ??= 'development'
 	const app = await load(path)
+	if (command === 'generate') return generate(app, values.check, io)
 	const dir = join(dirname(path), 'migrations')
 	if (command === 'start') await app.app.start()
 	else if (command === 'sync') {
@@ -149,6 +159,18 @@ async function run(args: readonly string[], io: Io): Promise<number> {
 		return ok ? 0 : 1
 	} else io.out(await migrateCreate(app, dir, name ?? '', io.now()))
 	return 0
+}
+
+/** Writes the plugins' files, or with `check` names the stale ones (D-201). */
+async function generate(app: Internals, check: boolean, io: Io) {
+	const files = generatedFiles(app.options)
+	if (!check) {
+		for (const path of await written(files)) io.out(`Wrote ${path}.`)
+		return 0
+	}
+	const stale = await staleOf(files)
+	for (const { path } of stale) io.out(`${path} is out of date.`)
+	return stale.length === 0 ? 0 : 1
 }
 
 /** Runs the command `args` name, and returns its exit code. */

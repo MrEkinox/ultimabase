@@ -271,6 +271,23 @@ stack.
 	../examples/plugins/src/start.test.ts#header
 </include>
 
+## Generated files
+
+`generate` returns files for a client, as `{ path, content }[]`, the path
+read from the directory the command runs in. `npx ultimabase generate`
+builds every `api` and writes the files whose content changed, without
+starting the database or running any `start`; `ultimabase dev` writes them
+as it starts. Two files at one path stop both. The `rpc` plugin writes the
+names of the functions it serves:
+
+<include cwd meta='title="src/plugins/rpc.ts"'>
+	../examples/plugins/src/plugins/rpc.ts#generate
+</include>
+
+<include cwd meta='title="src/start.test.ts"'>
+	../examples/plugins/src/start.test.ts#generated
+</include>
+
 ## Use other plugins
 
 `requires` names the plugins the plugin needs, by their types and their
@@ -368,6 +385,7 @@ definition required, as `addedFields` or `api`.
 | `api`          | `(context) => api`                            | Built once before any `start`, in the order the plugins need.                               |
 | `start`        | `(context) => void`                           | Runs once when the application starts, after every `api`.                                   |
 | `stop`         | `(context) => void`                           | Runs once when it stops: close, flush.                                                      |
+| `generate`     | `(context) => { path, content }[]`            | Files for `ultimabase generate` and `dev` to write, after every `api`.                      |
 | `changed`      | `(changes, context) => void`                  | What each commit changed, on any server.                                                    |
 | `missed`       | `(context) => void`                           | Changes may have been lost.                                                                 |
 | `requires`     | `{ [name]: plugin function }`                 | The `plugin` functions of the plugins in `requires`.                                        |
@@ -383,8 +401,8 @@ A change is `{ kind, model, ids?, fields? }` for `insert`, `update` and
 
 ### The context
 
-What `start`, `stop`, `api`, `identify`, `caller`, `changed` and `missed`
-receive; `functions` receives it without `functions`.
+What `start`, `stop`, `api`, `generate`, `identify`, `caller`, `changed` and
+`missed` receive; `functions` receives it without `functions`.
 `PluginContext<T>` is its type, for a helper they share, as `cacheOf` in
 [Follow the changes](#follow-the-changes).
 
