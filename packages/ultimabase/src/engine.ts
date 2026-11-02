@@ -15,7 +15,7 @@ import { counted } from './virtual-read.ts'
 import { entries, isObject, unknownKey } from './query-where.ts'
 import { QueryScope, planned } from './scope.ts'
 import type { Commit, Store } from './transaction.ts'
-import { reading, writing } from './transaction.ts'
+import { held, reading, writing } from './transaction.ts'
 import { aggregate } from './aggregate.ts'
 import { distinctOf, groupBy } from './group-by.ts'
 import { removeMany } from './delete-many.ts'
@@ -244,15 +244,17 @@ export async function query(
 	const { app, model } = runningModel(name)
 	const identity = callerOf(options, name)
 	counted()
-	return app.work.run(async () => {
-		const context = await contextOf(app, model, identity)
-		if (isRead(operation)) {
-			const read = reads[operation]
-			return reading(app, async (store) => read(context, store, args))
-		}
-		const write = writes[operation]
-		return writing(app, async (store, commits) =>
-			write(context, store, commits, args),
-		)
-	})
+	return held(async () =>
+		app.work.run(async () => {
+			const context = await contextOf(app, model, identity)
+			if (isRead(operation)) {
+				const read = reads[operation]
+				return reading(app, async (store) => read(context, store, args))
+			}
+			const write = writes[operation]
+			return writing(app, async (store, commits) =>
+				write(context, store, commits, args),
+			)
+		}),
+	)
 }
