@@ -169,3 +169,15 @@ it('refuses a large body, a body that is not JSON and an unknown route', async (
 	})
 	//#endregion
 })
+
+it("answers the platform's health and readiness checks", async () => {
+	//#region probes
+	const health = await fetch(`${running.url}/health`)
+	expect(health.status).toBe(200)
+	expect(await health.json()).toEqual({ status: 'ok' })
+	// 503 while the application starts, stops, or a plugin's check fails.
+	const ready = await fetch(`${running.url}/ready`)
+	expect(ready.status).toBe(200)
+	expect(await ready.json()).toEqual({ status: 'ok' })
+	//#endregion
+})

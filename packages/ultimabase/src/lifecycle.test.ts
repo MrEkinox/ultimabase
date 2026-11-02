@@ -44,6 +44,8 @@ function recorder(bindings: object = {}): Logger {
 }
 
 let gate: Promise<void> = Promise.resolve()
+/** What http's `stopping` waits for. */
+let leaving: Promise<void> = Promise.resolve()
 const Note = defineModel({
 	name: 'Note',
 	fields: (f) => ({ text: f.string() }),
@@ -68,6 +70,12 @@ const cache = definePlugin<Cache>({
 		logger.info('Warm.')
 		if (failing.has('cache.start')) throw new Error('cache.start failed.')
 	},
+	started: () => {
+		log.push('cache.started')
+	},
+	stopping: () => {
+		log.push('cache.stopping')
+	},
 	stop: () => {
 		log.push('cache.stop')
 		if (failing.has('cache.stop')) throw new Error('cache.stop failed.')
@@ -87,6 +95,14 @@ const http = definePlugin<Http>({
 		await Note.create({ data: { text: 'seed' } }, M)
 		log.push('http.start')
 		if (failing.has('http.start')) throw new Error('http.start failed.')
+	},
+	started: () => {
+		log.push('http.started')
+	},
+	stopping: async () => {
+		await leaving
+		log.push('http.stopping')
+		if (failing.has('http.stopping')) throw new Error('http.stopping failed.')
 	},
 	stop: async () => {
 		log.push(`http.stop ${await Note.count({}, M)}`)
@@ -136,6 +152,7 @@ beforeEach(() => {
 	entries.length = 0
 	failing.clear()
 	gate = Promise.resolve()
+	leaving = Promise.resolve()
 	before = listeners()
 	app = started()
 })
@@ -153,6 +170,10 @@ describe('plugins', () => {
 			'cache.start 2',
 			'Note.afterCreateCommit',
 			'http.start',
+			'cache.started',
+			'http.started',
+			'cache.stopping',
+			'http.stopping',
 			'http.stop 1',
 			'cache.stop',
 			'database.stop',
@@ -206,6 +227,32 @@ describe('plugins', () => {
 			message: 'The plugin failed to stop.',
 		})
 		await expect(Note.count({}, M)).rejects.toMatchObject(stopped)
+	})
+
+	it('all leave before any stops, and stop when one fails to', async () => {
+		await app.start()
+		const { promise, resolve } = Promise.withResolvers<void>()
+		leaving = promise
+		failing.add('http.stopping')
+		const stopping = app.stop()
+		await vi.waitFor(() => {
+			expect(log.at(-1)).toBe('cache.stopping')
+		})
+		expect(log).not.toContain('http.stop 1')
+		resolve()
+		await expect(stopping).rejects.toThrow('http.stopping failed.')
+		expect(log.slice(-4)).toEqual([
+			'http.stopping',
+			'http.stop 1',
+			'cache.stop',
+			'database.stop',
+		])
+		expect(entries).toContainEqual({
+			level: 'error',
+			name: 'http',
+			first: { err: new Error('http.stopping failed.') },
+			message: 'The plugin failed to stop.',
+		})
 	})
 
 	it('refuse a start that is not a function', () => {

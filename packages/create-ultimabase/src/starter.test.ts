@@ -7,7 +7,7 @@ import { mkdtempSync, readFileSync, rmSync, symlinkSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { promisify } from 'node:util'
-import { afterEach, expect, it } from 'vitest'
+import { afterEach, expect, it, vi } from 'vitest'
 import { others, ownVersion } from './starter.ts'
 
 const root = resolve(import.meta.dirname, '../../..')
@@ -58,6 +58,11 @@ async function served(directory: string) {
 	})
 	const stop = async () => {
 		const exited = once(server, 'exit')
+		server.kill('SIGTERM')
+		// The drain: /ready answers 503, then a second SIGTERM ends it at once.
+		await vi.waitFor(async () => {
+			expect((await fetch(`${url}/ready`)).status).toBe(503)
+		})
 		server.kill('SIGTERM')
 		await exited
 	}

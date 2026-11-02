@@ -66,7 +66,10 @@ async function serving(...served: Routes[]) {
 	const lines: Line[] = []
 	const app = defineApp({
 		database: memory(),
-		plugins: [httpPlugin({ port: 0, routes: served }), mounting.plugin()],
+		plugins: [
+			httpPlugin({ port: 0, routes: served, drain: 0 }),
+			mounting.plugin(),
+		],
 		models: [],
 		logger: recorder(lines),
 	})
