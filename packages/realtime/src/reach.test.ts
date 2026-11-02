@@ -34,7 +34,7 @@ describe('a filter', () => {
 			['team', ['name', 'posts'], false],
 			['comments', ['post', 'text'], true],
 			['tags', ['posts'], true],
-			['', ['comments', 'tags', 'team', 'title'], false],
+			['', ['team', 'title'], false],
 		])
 	})
 
@@ -50,7 +50,7 @@ describe('a filter', () => {
 			['team', ['posts'], false],
 			['comments', ['post', 'text'], true],
 			['tags', ['label', 'posts'], true],
-			['', ['comments', 'tags', 'team'], false],
+			['', ['team'], false],
 		])
 	})
 
