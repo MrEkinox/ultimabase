@@ -12,8 +12,8 @@ import {
 	signedIn,
 	verified,
 } from './core.ts'
-import type { Mailer } from './email-functions.ts'
-import { later } from './email-functions.ts'
+import type { Mailer } from './email-flows.ts'
+import { later } from './email-flows.ts'
 import type { Property } from './input.ts'
 import { requestLimited } from './models.ts'
 import {

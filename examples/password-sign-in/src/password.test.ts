@@ -224,6 +224,22 @@ it('changes the email from server code', async () => {
 	//#endregion
 })
 
+it('verifies and resets from server code', async () => {
+	const ada = await signUp()
+	//#region server-reset
+	// Commands that name a user run as Master or as that user.
+	await User.sendVerificationEmail({ id: ada.id }, { as: master })
+	await User.verifyEmail({ token: await emailed('verify') })
+	// The email has left once the command resolves.
+	await User.requestPasswordReset({ email: 'ada@example.com' })
+	const token = await emailed('reset')
+	await User.resetPassword({ token, password: 'new secret!' })
+	await expect(
+		User.signIn({ email: 'ada@example.com', password: 'new secret!' }),
+	).resolves.toMatchObject({ user: { name: 'Ada', emailVerified: true } })
+	//#endregion
+})
+
 it('refuses the eleventh failed sign-in within 15 minutes', async () => {
 	await signUp()
 	//#region limit

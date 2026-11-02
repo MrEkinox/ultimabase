@@ -23,11 +23,13 @@ import {
 	Refused,
 } from 'ultimabase'
 import manifest from '../package.json' with { type: 'json' }
-import type { SignedIn, State } from './core.ts'
+import type { Options, SignedIn, State } from './core.ts'
 import {
 	attemptOf,
+	callerOf,
 	checkCurrent,
 	createUser,
+	selfOrMaster,
 	setPassword,
 	signedIn,
 	verified,
@@ -40,8 +42,11 @@ import {
 	updated,
 	updating,
 } from './email-field.ts'
-import type { SendEmail } from './email-functions.ts'
-import { emailFunctions, mailerOf } from './email-functions.ts'
+import type { EmailCommands } from './email-commands.ts'
+import { emailCommands } from './email-commands.ts'
+import type { SendEmail } from './email-flows.ts'
+import { mailerOf } from './email-flows.ts'
+import { emailFunctions } from './email-functions.ts'
 import { passwordFunctions } from './functions.ts'
 import type { Credentials, Property } from './input.ts'
 import { emailOf, fieldProperty, passwordOf, valid } from './input.ts'
@@ -66,14 +71,13 @@ export interface PasswordOptions {
 	readonly sendEmail?: SendEmail
 }
 
-type Options = { readonly as?: Identity }
 /** A transport's client, which counts the attempt and gets the cookie (D-115). */
 type SignInOptions = Options & { readonly client?: Client | undefined }
 type CreateData<F> = Parameters<Queries<F>['create']>[0]['data']
 type UserRow<F> = Payload<F, {}>
 
-/** password's commands on the user model (D-113). */
-export interface PasswordCommands<F> {
+/** password's commands on the user model (D-113, D-198). */
+export interface PasswordCommands<F> extends EmailCommands {
 	/** Creates the user, its account and its hash; opens no session. */
 	signUp(
 		args: Credentials & { readonly data: CreateData<F> },
@@ -243,25 +247,6 @@ function configOf(
 	return { users, fields }
 }
 
-const callerOf = (options: Options | undefined): Identity =>
-	options?.as ?? { kind: 'anonymous' }
-
-/** Refuses `command` on user `id` but as Master or as that user. */
-function selfOrMaster(
-	options: Options | undefined,
-	id: string,
-	command: string,
-): void {
-	const caller = callerOf(options)
-	const self = caller.kind === 'user' && caller.user.id === id
-	if (!self && !isMaster(caller)) {
-		throw new PublicError(
-			'ACCESS_DENIED',
-			`User.${command} runs as Master or as the user.`,
-		)
-	}
-}
-
 const definition = definePlugin<Password>({
 	name: 'password',
 	manifest,
@@ -343,6 +328,7 @@ const definition = definePlugin<Password>({
 					attemptOf(id, client) ?? { subject: id },
 				)
 			},
+			...emailCommands(() => stateOf(plugins.auth)),
 		}
 	},
 	// The functions are built before the APIs (D-89): they read the state

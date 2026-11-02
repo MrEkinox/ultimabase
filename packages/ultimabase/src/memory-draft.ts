@@ -115,8 +115,8 @@ export class Draft {
 			touched.add(change.model)
 			if (change.kind === 'delete') {
 				const removed = this.remove(change)
-				this.reader.removed.set(index, removed)
-				this.note({ kind: 'delete', model: change.model, ids: [...removed] })
+				this.reader.removed.set(index, new Set(removed.map(({ id }) => id)))
+				this.note(this.deleted(change.model, removed))
 			} else this.apply(change)
 		}
 		for (const model of touched) this.checkUnique(model)
@@ -167,12 +167,28 @@ export class Draft {
 		)
 	}
 
-	/** Applies `delete`; returns the ids it removed. */
-	private remove(change: Extract<Change, { kind: 'delete' }>): Set<string> {
+	/** The feed's delete of `rows`, with the `one` keys they stored (D-196). */
+	private deleted(model: string, rows: readonly StoredRow[]): Changed {
+		const ids = rows.map(({ id }) => id)
+		const keys = [...(this.reader.fields.get(model)?.values() ?? [])]
+			.filter((field) => field.kind === 'one' && field.stored)
+			.map(({ name }) => {
+				const values = rows.map((row) => row[name])
+				return [
+					name,
+					values.map((key) => (typeof key === 'string' ? key : null)),
+				] as const
+			})
+		if (keys.length === 0) return { kind: 'delete', model, ids }
+		return { kind: 'delete', model, ids, keys: Object.fromEntries(keys) }
+	}
+
+	/** Applies `delete`; returns the rows it removed. */
+	private remove(change: Extract<Change, { kind: 'delete' }>): StoredRow[] {
 		const table = this.reader.table(change.model)
-		const removed = new Set<string>()
+		const removed: StoredRow[] = []
 		for (const row of this.matching(change.model, change)) {
-			removed.add(row.id)
+			removed.push(row)
 			table.delete(row.id)
 			for (const field of this.joinFields(change.model)) {
 				this.unlink(change.model, field, row.id, [

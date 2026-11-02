@@ -46,10 +46,12 @@ export class Tracking {
 
 	/** Keeps the related rows `node`, as read through `include`, reaches. */
 	track(node: Row, include: LivePlan['include']): void {
+		this.untrack(node.id)
+		if (include === undefined) return
 		const out: (readonly [string, string])[] = []
 		reached(node, include, '', out)
-		this.untrack(node.id)
-		this.#reaching.set(node.id, out)
+		// A row that reaches none keeps no entry.
+		if (out.length > 0) this.#reaching.set(node.id, out)
 		for (const [path, id] of out) {
 			const ids = this.tracked.get(path) ?? new Map<string, Set<string>>()
 			this.tracked.set(path, ids)
