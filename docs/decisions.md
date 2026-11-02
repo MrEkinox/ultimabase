@@ -4984,7 +4984,9 @@ Choice: completes D-27, D-45, D-75 and D-107, and amends D-45's outputs.
    of each relation: one query per model, only when a relation is selected
    (D-46). A returned row the caller cannot read has no relations: `null`
    for a `one`, an empty list for a `many`. Its scalars are those `run`
-   returned, since a function is trusted server code (D-27).
+   returned, since a function is trusted server code (D-27); so are its
+   virtuals (D-151), and one `run` left out is read with the relations
+   (amended 2026-11-02).
 6. GraphQL types of a schema, from its JSON Schema (draft 2020-12, D-45):
    `string` is `String`, and `DateTime` with `format: 'date-time'`
    (`z.iso.datetime()`), as the models' dates are; the validator receives

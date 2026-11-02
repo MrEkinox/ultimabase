@@ -1,6 +1,7 @@
-// A function's output as the client reads it (D-109): its scalars as `run`
-// returned them, its rows' relations re-read by id as the caller, in one
-// query per model and only when a relation is selected.
+// A function's output as the client reads it (D-109): its scalars and
+// virtuals as `run` returned them, its rows' relations and the virtuals `run`
+// left out re-read by id as the caller, in one query per model and only when
+// one is selected.
 import { badInput, rowsOf, run } from '@ultimabase/http/internal'
 import type { FieldNode, GraphQLResolveInfo } from 'graphql'
 import type { ExposedOutput } from 'ultimabase'
@@ -65,7 +66,12 @@ export async function reread(
 	}
 
 	const row = (model: string, item: object, nodes: readonly FieldNode[]) => {
-		const select = relationsOf(model, nodes)
+		// A virtual `run` returned is kept, as a scalar is (D-109).
+		const select = Object.fromEntries(
+			Object.entries(relationsOf(model, nodes)).filter(
+				([name, read]) => read !== true || !Object.hasOwn(item, name),
+			),
+		)
 		if (Object.keys(select).length === 0) return item
 		const copy: Row = { ...item }
 		const { id } = copy
@@ -146,14 +152,17 @@ export async function reread(
 		const byId = new Map(rowsOf(read).map((found) => [found.id, found]))
 		for (const [id, copies] of rows) {
 			const found = byId.get(id)
-			for (const name of Object.keys(select)) {
+			for (const [name, wanted] of Object.entries(select)) {
 				// A row the caller cannot read has no relations (D-109).
 				const many = entry.model.fields.some(
 					(field) => field.name === name && field.kind === 'many',
 				)
 				const empty = many ? [] : null
 				const relation = found === undefined ? empty : Reflect.get(found, name)
-				for (const copy of copies) copy[name] = relation
+				for (const copy of copies) {
+					if (wanted !== true || !Object.hasOwn(copy, name))
+						copy[name] = relation
+				}
 			}
 		}
 	}
