@@ -5378,7 +5378,7 @@ curl localhost:3000/graphql -H 'authorization: Bearer expired…' -d '…'
 
 ## D-113: `passwordPlugin()`, linked accounts, plugin functions and `viewer`
 
-Amended by D-115, D-125, D-160, D-161 and D-162.
+Amended by D-115, D-125, D-160, D-161, D-162 and D-198.
 
 Choice: completes D-33, D-56, D-109 and D-112, and amends D-56, D-109 and
 D-112.
@@ -12801,3 +12801,93 @@ Rejected:
   request nobody asked for.
 - A CI check that every `uses:` names a SHA: the workflows are two files,
   read in each pull request that changes them.
+
+## D-198: password's email flows as commands
+
+Choice: completes D-117 and D-162, and amends D-113 point 7.
+
+1. Six commands on the user model, beside `signUp`, `signIn`,
+   `setPassword` and `checkPassword`:
+   - `User.requestPasswordReset({ email }, options)`;
+   - `User.resetPassword({ token, password }, options)`;
+   - `User.verifyEmail({ token }, options)`;
+   - `User.sendVerificationEmail({ id }, options)`;
+   - `User.requestEmailChange({ id, newEmail }, options)`;
+   - `User.confirmEmailChange({ token }, options)`.
+
+   Each resolves `undefined` once its work is done, and runs the code its
+   function runs (D-117, D-162): the same tokens, emails, checks and errors.
+
+2. Callers. A command keeps its function's access. Those whose function is
+   public take any caller: a token, or the inbox a link goes to, is the
+   proof. Those whose function needs a signed-in user name the user by `id`
+   and run as Master or as that user, as `setPassword` does; any other
+   caller fails with `ACCESS_DENIED`.
+3. Commands have no client: no address limit and no attempt is counted, as
+   `User.signIn` (D-113). The account's three emails per hour still apply:
+   past them, a command fails with `TOO_MANY_ATTEMPTS`,
+   `requestPasswordReset` included.
+4. A command waits for its email. It resolves once `sendEmail` has
+   resolved, and rejects with its error: server code, and a test, know
+   the email left. `requestPasswordReset` with an email without an account
+   sends nothing and resolves; it does not tell server code apart from the
+   function's answer.
+5. `requestEmailChange` takes no current password, as `setPassword` takes
+   none: server code checks the user's intent first, with
+   `User.checkPassword` when it holds the password. A taken email fails
+   with `UNIQUE_VIOLATION` and the user's `email` in its details.
+6. Without `sendEmail`, the commands that send an email throw an `Error`,
+   `User.requestPasswordReset needs passwordPlugin({ sendEmail }).`: the
+   types cannot depend on an option, and it is the application's mistake.
+   The token commands need no option: without emails no token exists, and
+   they fail as with a wrong token.
+7. No `changePassword` command: `checkPassword` then `setPassword` is it.
+   No command for auth's `signOut`, which `User.revokeSessions` covers, nor
+   for `viewer`, since server code holds the user.
+
+Why: server code and tests reach a flow from the model as they reach the
+rest, with `asUser(record)` and Master; posting GraphQL for one flow made
+tests and admin functions reimplement tokens or go through HTTP. Waiting
+for the email is what server code wants, while the function answers
+before it for the client's sake. Naming the user by `id` is how server code
+acts for one, as every other user command.
+Rejected:
+
+- exporting the functions as values with their `run` (issue's first shape):
+  a plugin's functions are built from its options when the application
+  starts, so an exported value would look the running plugin up, and the
+  signed-in functions would need a forged caller to name a user;
+- the current password on `requestEmailChange`: server code proves intent
+  its own way, as with `setPassword`;
+- Master only: an application acting as the user gets its rules, as with
+  `setPassword`;
+- returning whether an email left: server code that needs it reads the
+  user, and `requestPasswordReset` would differ from its function.
+
+Example, before:
+
+```ts
+// A test, or an admin function, posts GraphQL.
+await fetch(`${url}/graphql`, {
+	method: 'POST',
+	body: JSON.stringify({
+		query:
+			'mutation ($input: RequestPasswordResetInput!) { requestPasswordReset(input: $input) }',
+		variables: { input: { email: 'ada@example.test' } },
+	}),
+})
+```
+
+After:
+
+```ts
+await User.requestPasswordReset({ email: 'ada@example.test' })
+await User.resetPassword({ token, password: 'new secret!' })
+await User.sendVerificationEmail({ id: user.id }, { as: master })
+await User.verifyEmail({ token })
+await User.requestEmailChange(
+	{ id: user.id, newEmail: 'ada@new.example' },
+	{ as: { kind: 'user', user } },
+)
+await User.confirmEmailChange({ token })
+```
