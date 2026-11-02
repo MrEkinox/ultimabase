@@ -9124,7 +9124,7 @@ type Stage {
 
 ## D-152: Files
 
-Amended by D-200.
+Amended by D-200 and D-202.
 
 Choice: completes D-32 and D-122; amends D-32 (no `local()`), D-89 (a
 plugin model knows its name) and D-122 points 2 and 5.
@@ -13228,3 +13228,82 @@ Rejected:
 - Connecting to the database to build: CI and a client developer would
   need one.
 - An asynchronous `generate`: no file needs I/O to be built today.
+
+## D-202: `memoryFiles()` and `diskFiles()` are served by the application
+
+Choice: amends D-152 points 1 and 5.
+
+1. A storage may serve its objects itself: the files plugin then mounts
+   `GET /files/<key>`, and a file's URL is that route's. `s3()` does not:
+   its URLs stay the bucket's (D-152, D-200).
+2. `memoryFiles({ servedAt })` is served. `servedAt` is the origin a
+   client reaches the application at; it defaults to the HTTP server's
+   address, `http://localhost:3000`.
+3. `diskFiles({ dir, secret, servedAt })` stores each object in `dir` as
+   `<key>` and its type in `<key>.json`, written to a temporary name then
+   renamed, so a half-written file is never served. `secret` signs the
+   private URLs, 32 characters at least. It is for one server whose `dir`
+   outlives a deploy, as a Docker volume: a preview, a staging server, a
+   small application.
+4. A private file's URL is signed:
+   `/files/private/<id>?expires=<seconds>&signature=<HMAC-SHA256>`, with
+   the window and the expiry of D-200, so it stays the same for 15
+   minutes. `memoryFiles()` draws its secret at start. A signature that
+   does not match, or has expired, gets 403; a missing object 404.
+5. The route answers with the stored type, `X-Content-Type-Options:
+nosniff` and `Content-Security-Policy: sandbox`, and `Content-Disposition:
+attachment` where D-152 sets it. A public file is cached for a year, as
+   its key never changes; a private one until its URL expires.
+
+Before, a front end's tests, and a staging server without S3:
+
+```ts
+filesPlugin({ storage: memoryFiles() })
+post.cover.url // 'memory://files/public/3f2a…': no browser loads it
+
+filesPlugin({ storage: s3({ bucket, endpoint: 'http://garage:3900', … }) })
+// another service to run, with its keys
+```
+
+After:
+
+```ts
+filesPlugin({ storage: memoryFiles() })
+post.cover.url // 'http://localhost:3000/files/public/3f2a…'
+
+filesPlugin({
+	storage: diskFiles({
+		dir: '/data/files',
+		secret: process.env.FILES_SECRET,
+		servedAt: 'https://staging.example.com',
+	}),
+})
+post.cover.url // 'https://staging.example.com/files/public/3f2a…'
+avatar.url // '…/files/private/9c1e…?expires=1793612400&signature=…'
+```
+
+Why:
+
+- A front end's tests upload and show files: with `memory://` URLs they
+  need an S3 emulator, which no test should write to.
+- A staging server often has no S3, and an S3-compatible service is one
+  more process, its keys and its volume, for a disk the server already
+  has. D-152 dropped `local()` because a disk is lost when its server is
+  replaced: a volume is not, and the limits are written where the storage
+  is documented.
+- D-152 serves files from the storage's origin so a file cannot read the
+  application's cookies. `sandbox` gives the response an origin of its
+  own even when it is opened, `nosniff` keeps its declared type, and the
+  types a browser runs stay downloads.
+- D-200 rejected a route that redirects to S3: a request per image for a
+  URL S3 already checks. Here the route is the only way to the bytes.
+
+Rejected:
+
+- `databaseFiles()`: the bytes would grow the database and its backups,
+  and every read would hold a connection.
+- Serving `s3()` through the application: its URLs already work.
+- A random secret for `diskFiles()`: a restart would break every private
+  URL a client holds.
+- `Range` requests and `ETag`s: no application asked for them; a video
+  belongs in S3.

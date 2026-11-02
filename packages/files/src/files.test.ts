@@ -245,7 +245,7 @@ describe('a write', () => {
 			inline: { first: 0x89, named: 'a.png' },
 			variants: { thumb: { type: 'image/webp', size: 16 } },
 		})
-		expect(post.cover?.url).toMatch(/^memory:\/\/files\/public\//)
+		expect(post.cover?.url).toMatch(/^http:\/\/localhost:\d+\/files\/public\//)
 		const rows = await blobs()
 		expect(
 			rows.map(({ state, attachedTo, deleteAfter }) => [

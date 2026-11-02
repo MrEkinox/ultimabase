@@ -1,7 +1,7 @@
-// `memoryFiles()` (D-152): a storage in memory, which tests use, so that no
-// test writes to a real storage.
+// `memoryFiles()` (D-152, D-202): a storage in memory, which tests use, so
+// that no test writes to a real storage; the application serves its files.
+import { serving } from './served.ts'
 import type { FileBody, FileStorage } from './storage.ts'
-import { isPublic } from './storage.ts'
 
 /** An object `memoryFiles()` holds. */
 export interface MemoryObject {
@@ -21,12 +21,19 @@ export async function bytesOf(body: FileBody): Promise<Uint8Array> {
 	return new Uint8Array(await new Response(body).arrayBuffer())
 }
 
-/** A storage in memory: its URLs are `memory://files/<key>`, never served. */
-export function memoryFiles(): MemoryFiles {
+/** What `memoryFiles` takes. */
+export interface MemoryOptions {
+	/** The origin its URLs start with: the HTTP server's address by default. */
+	readonly servedAt?: string | undefined
+}
+
+/** A storage in memory, its files served at `GET /files/<key>`. */
+export function memoryFiles(options: MemoryOptions = {}): MemoryFiles {
 	const objects = new Map<string, MemoryObject>()
+	const served = serving('memoryFiles', options)
 	return {
 		objects,
-		start: () => {},
+		start: served.start,
 		put: async (key, body, { type, size, attachment }) => {
 			const bytes = await bytesOf(body)
 			if (bytes.length !== size) {
@@ -40,7 +47,11 @@ export function memoryFiles(): MemoryFiles {
 			objects.delete(key)
 		},
 		keys: async () => [...objects.keys()],
-		url: (key) =>
-			`memory://files/${key}${isPublic(key) ? '' : '?expires=1800'}`,
+		url: served.url,
+		serve: (key, url) =>
+			served.serve(key, url, async () => {
+				const object = objects.get(key)
+				return object && { ...object, size: object.body.length }
+			}),
 	}
 }

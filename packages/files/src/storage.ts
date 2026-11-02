@@ -1,6 +1,6 @@
-// What `filesPlugin` stores files in (D-152): an S3-compatible storage, or
-// memory for tests. A key starts with `public/` or `private/`, which says
-// how the object is served.
+// What `filesPlugin` stores files in (D-152, D-202): an S3-compatible
+// storage, a disk, or memory for tests. A key starts with `public/` or
+// `private/`, which says how the object is served.
 
 /** A file's bytes: streamed from a request, or held in memory. */
 export type FileBody = ReadableStream<Uint8Array> | Uint8Array
@@ -14,10 +14,16 @@ export interface PutOptions {
 	readonly attachment: boolean
 }
 
-/** A storage adapter: `s3()` or `memoryFiles()`. */
+/** The running HTTP server, which a storage that serves its files reads. */
+export interface Server {
+	/** Its address, as `http://localhost:3000`. */
+	readonly url: string
+}
+
+/** A storage adapter: `s3()`, `diskFiles()` or `memoryFiles()`. */
 export interface FileStorage {
 	/** Checks its options when the application starts. */
-	start(): void
+	start(server: Server): void
 	put(key: string, body: FileBody, options: PutOptions): Promise<void>
 	/** Deletes an object; a missing one is not an error. */
 	delete(key: string): Promise<void>
@@ -25,7 +31,22 @@ export interface FileStorage {
 	keys(): Promise<readonly string[]>
 	/** A public object's stable URL, a private one's presigned, the same for 15 minutes (D-200). */
 	url(key: string): string
+	/**
+	 * The answer of `GET /files/<key>`, for a storage the application serves
+	 * (D-202); `url` then gives that route's URL.
+	 */
+	serve?(key: string, url: URL): Promise<Response>
 }
+
+/** A private file's URL stays the same this long, in milliseconds (D-200). */
+export const urlWindow: number = 15 * 60 * 1000
+
+/** The start of the window `now` is in, in milliseconds. */
+export const windowOf = (now: number): number =>
+	Math.floor(now / urlWindow) * urlWindow
+
+/** A file's key: `public/<uuid>` or `private/<uuid>`. */
+export const keyPattern: RegExp = /^(public|private)\/[0-9a-f-]{36}$/u
 
 /** Whether a key is served to everyone. */
 export const isPublic = (key: string): boolean => key.startsWith('public/')

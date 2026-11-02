@@ -6,8 +6,8 @@ attachments, each with a preview variant. A client uploads a file with
 `POST /files`, then writes its id in a post.
 
 - `src/models.ts`: the `Post` model and its file fields.
-- `src/app.ts`: the application, on `memoryFiles()`, or `s3()` when
-  `NODE_ENV` is `production`.
+- `src/app.ts`: the application, on `memoryFiles()`, on `diskFiles()` when
+  `FILES_DIR` is set, or `s3()` when `NODE_ENV` is `production`.
 - `src/app.test.ts`: uploads over HTTP, writes over GraphQL, the refused
   uploads, and `files.upload` and `files.check` from server code.
 

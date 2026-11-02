@@ -26,7 +26,7 @@ import {
 } from './lifecycle.ts'
 import { FilesBlob } from './model.ts'
 import type { FileBody, FileStorage } from './storage.ts'
-import { uploads } from './routes.ts'
+import { served, uploads } from './routes.ts'
 import { upload } from './upload.ts'
 import { runningOf, useRunning } from './values.ts'
 
@@ -86,8 +86,11 @@ const definition = definePlugin<Files>({
 	manifest,
 	requires: { http: httpPlugin },
 	models: [FilesBlob],
-	api: ({ plugins }) => {
+	api: ({ plugins, options }) => {
 		plugins.http.mount(uploads(), { bodyLimit: false })
+		// A storage the application serves gets its route (D-202).
+		const serve = options.storage.serve?.bind(options.storage)
+		if (serve !== undefined) plugins.http.mount(served(serve))
 	},
 	hooks: {
 		beforeCreate: (facts) => resolve(facts),
@@ -98,12 +101,12 @@ const definition = definePlugin<Files>({
 		afterUpdateCommit: (facts) => deleteLost(facts),
 		afterDeleteCommit: (facts) => deleteHeld(facts),
 	},
-	start: async ({ options, models, logger }) => {
+	start: async ({ options, models, logger, plugins }) => {
 		const { storage, access, maxSize = defaultMaxSize } = options
 		if (!isByteCount(maxSize)) {
 			throw new Error('filesPlugin’s maxSize is a number of bytes.')
 		}
-		storage.start()
+		storage.start({ url: plugins.http.url() })
 		const fields = fieldsOf(models)
 		useRunning({
 			storage,

@@ -1,7 +1,9 @@
 // `POST /files` (D-152, D-153): the raw body stored for its field, limited
-// by the field's `maxSize` and not by the HTTP plugin's 1 MB.
+// by the field's `maxSize` and not by the HTTP plugin's 1 MB; and
+// `GET /files/<key>`, which serves `memoryFiles()` (D-202).
 import { allow } from 'ultimabase'
-import { afterEach, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
+import { files } from './plugin.ts'
 import { M, masterKey, pdf, png, Post, started } from './test/app.ts'
 
 let stop: (() => Promise<void>) | undefined
@@ -118,4 +120,45 @@ it('reads an empty body as an empty file', async () => {
 		headers: { 'content-type': 'text/plain' },
 	})
 	expect(status).toBe(201)
+})
+
+describe('GET /files/<key>', () => {
+	it('serves a public file, and a private one at its signed URL', async () => {
+		await start()
+		const { as } = M
+		const cover = await files.upload(png, {
+			for: 'Post.cover',
+			name: 'a.png',
+			as,
+		})
+		const doc = await files.upload(pdf, { for: 'Post.doc', name: 'a.pdf', as })
+		const created = await Post.create(
+			{ data: { title: 'a', cover: cover.id, doc: doc.id, attachments: [] } },
+			M,
+		)
+		const image = await fetch(created.cover?.url ?? '')
+		expect(image.headers.get('content-type')).toBe('image/png')
+		expect(new Uint8Array(await image.arrayBuffer())).toStrictEqual(png)
+		const signed = new URL(created.doc?.url ?? '')
+		const document = await fetch(signed)
+		expect(document.status).toBe(200)
+		expect(await document.text()).toBe(new TextDecoder().decode(pdf))
+		signed.searchParams.set('signature', 'forged')
+		expect((await fetch(signed)).status).toBe(403)
+	})
+
+	it('answers 404 for a key it does not hold, or that is not a key', async () => {
+		const url = await start()
+		for (const path of [
+			'public/00000000-0000-4000-8000-000000000000',
+			'public/a',
+		]) {
+			const response = await fetch(`${url}/files/${path}`)
+			expect(response.status).toBe(404)
+			expect(await response.json()).toStrictEqual({
+				code: 'NOT_FOUND',
+				message: 'No file at this address.',
+			})
+		}
+	})
 })
