@@ -94,6 +94,21 @@ const firstStage = defineFunction({
 	},
 }).with({ access: allow.public })
 
+// Regression (#102): one row holds the virtual `run` returned, one lacks it.
+const keptStages = defineFunction({
+	name: 'keptStages',
+	query: true,
+	output: [Stage],
+	run: async () => {
+		const [one, two] = await Stage.findMany({ orderBy: { name: 'asc' } }, M)
+		if (one === undefined || two === undefined) throw new Error('No stages.')
+		// A row without it, as untyped code may return.
+		const bare = { ...two }
+		Reflect.deleteProperty(bare, 'label')
+		return [{ ...one, label: 'as run' }, bare]
+	},
+}).with({ access: allow.public })
+
 const quiet: Logger = {
 	info: () => {},
 	warn: () => {},
@@ -139,7 +154,7 @@ async function started(options: GraphqlOptions = {}) {
 			}),
 		],
 		models: [Stage, Image],
-		functions: [firstStage],
+		functions: [firstStage, keptStages],
 		logger,
 	})
 	await app.start()
@@ -221,6 +236,19 @@ describe('a virtual over GraphQL', () => {
 		const result = await post(url, '{ firstStage { name label } }')
 		expect(result).toStrictEqual({
 			data: { firstStage: { name: 'one', label: 'ONE' } },
+		})
+	})
+
+	it('keeps the value run returned, and computes the one it left out', async () => {
+		const { url } = await started()
+		const result = await post(url, '{ keptStages { name label } }')
+		expect(result).toStrictEqual({
+			data: {
+				keptStages: [
+					{ name: 'one', label: 'as run' },
+					{ name: 'two', label: 'TWO' },
+				],
+			},
 		})
 	})
 

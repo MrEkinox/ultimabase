@@ -15,12 +15,24 @@ export type Noted = {
 	readonly per: number
 }
 
-/** A part of rows, told by their ids: 150 of 40 bytes fit beside a head. */
+/**
+ * A part of rows, told by their ids: 150 of 40 bytes fit beside a head. A
+ * delete's rows come with the `keys` they stored, as `[field, column]`,
+ * each row then an array of its id and keys (D-196).
+ */
 export function rows(
 	kind: 'insert' | 'update' | 'delete',
 	model: string,
 	fields?: readonly string[],
+	keys: readonly (readonly [string, string])[] = [],
 ): Noted {
+	if (kind === 'delete' && keys.length > 0) {
+		const names = keys.map(([field]) => field)
+		const head = JSON.stringify([kind, model, names]).slice(0, -1)
+		const columns = [sql.id('id'), ...keys.map(([, column]) => sql.id(column))]
+		const item = sql`json_build_array(${sql.join(columns)})`
+		return { head: `${head},`, item, per: Math.floor(150 / columns.length) }
+	}
 	const listed =
 		fields === undefined || JSON.stringify(fields).length > feedFields
 			? null
@@ -91,6 +103,8 @@ export function changedOf(payload: string | undefined): Changed | undefined {
 		return undefined
 	}
 	if (target !== null && !strings(target)) return undefined
+	if (kind === 'delete' && target !== null)
+		return deleted(model, target, listed)
 	if (listed !== null && !strings(listed)) return undefined
 	return {
 		kind,
@@ -98,4 +112,32 @@ export function changedOf(payload: string | undefined): Changed | undefined {
 		...(target ? { fields: target } : {}),
 		...(listed ? { ids: listed } : {}),
 	}
+}
+
+const keyed = (
+	value: unknown,
+	size: number,
+): value is [string, ...(string | null)[]][] =>
+	Array.isArray(value) &&
+	value.every(
+		(item) =>
+			Array.isArray(item) &&
+			item.length === size &&
+			typeof item[0] === 'string' &&
+			item.every((key) => key === null || typeof key === 'string'),
+	)
+
+/** A delete whose rows come with the keys `names` (D-196). */
+function deleted(
+	model: string,
+	names: readonly string[],
+	listed: unknown,
+): Changed | undefined {
+	if (listed === null) return { kind: 'delete', model }
+	if (!keyed(listed, names.length + 1)) return undefined
+	const ids = listed.map(([id]) => id)
+	const keys = Object.fromEntries(
+		names.map((name, at) => [name, listed.map((row) => row[at + 1] ?? null)]),
+	)
+	return { kind: 'delete', model, ids, keys }
 }

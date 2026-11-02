@@ -16,6 +16,14 @@ export function or(truths: readonly Truth[]): Truth {
 	return truths.includes(null) ? null : false
 }
 
+/** `and` of two truths, folded without a list: a live flush tests many rows. */
+export const both = (a: Truth, b: Truth): Truth =>
+	a === false || b === false ? false : a === null || b === null ? null : true
+
+/** `or` of two truths, folded without a list. */
+export const either = (a: Truth, b: Truth): Truth =>
+	a === true || b === true ? true : a === null || b === null ? null : false
+
 export function not(truth: Truth): Truth {
 	return truth === null ? null : !truth
 }
@@ -32,20 +40,24 @@ export function scalar(
 	sorted: (value: unknown) => unknown,
 ): Truth {
 	if (condition.path !== undefined) return jsonPath(stored, condition)
-	const truths: Truth[] = []
+	let all: Truth = true
+	const push = (truth: Truth): void => {
+		all = both(all, truth)
+	}
 	const known = stored !== null
-	const fold =
-		condition.mode === 'insensitive' ? lower : (item: unknown) => item
-	const value = fold(stored)
+	const insensitive = condition.mode === 'insensitive'
+	const value = insensitive ? lower(stored) : stored
 	for (const [operator, raw] of Object.entries(condition)) {
 		if (raw === undefined || operator === 'mode') continue
-		const operand: unknown = Array.isArray(raw)
-			? raw.map((item: unknown) => fold(item))
-			: fold(raw)
+		const operand: unknown = !insensitive
+			? raw
+			: Array.isArray(raw)
+				? raw.map((item: unknown) => lower(item))
+				: lower(raw)
 		if (operator === 'equals' || operator === 'not') {
 			const equal =
 				operand === null ? !known : known ? same(value, operand) : null
-			truths.push(operator === 'equals' ? equal : not(equal))
+			push(operator === 'equals' ? equal : not(equal))
 		} else if (operator === 'in' || operator === 'notIn') {
 			const list: readonly unknown[] = Array.isArray(operand) ? operand : []
 			const found =
@@ -54,16 +66,16 @@ export function scalar(
 					: known
 						? list.some((item) => same(value, item))
 						: null
-			truths.push(operator === 'in' ? found : not(found))
+			push(operator === 'in' ? found : not(found))
 		} else if (!known) {
-			truths.push(null)
+			push(null)
 		} else if (operator.startsWith('has') || operator === 'isEmpty') {
 			const items: readonly unknown[] = Array.isArray(value) ? value : []
 			const wanted: readonly unknown[] = Array.isArray(operand)
 				? operand
 				: [operand]
 			const holds = (item: unknown): boolean => items.includes(item)
-			truths.push(
+			push(
 				operator === 'isEmpty'
 					? (items.length === 0) === operand
 					: operator === 'hasEvery'
@@ -71,18 +83,18 @@ export function scalar(
 						: wanted.some(holds),
 			)
 		} else if (operator === 'contains') {
-			truths.push(text(value, operand, (a, b) => a.includes(b)))
+			push(text(value, operand, (a, b) => a.includes(b)))
 		} else if (operator === 'startsWith') {
-			truths.push(text(value, operand, (a, b) => a.startsWith(b)))
+			push(text(value, operand, (a, b) => a.startsWith(b)))
 		} else if (operator === 'endsWith') {
-			truths.push(text(value, operand, (a, b) => a.endsWith(b)))
+			push(text(value, operand, (a, b) => a.endsWith(b)))
 		} else {
 			const order = compareValues(sorted(value), sorted(operand))
-			if (operator === 'lt') truths.push(order < 0)
-			else if (operator === 'lte') truths.push(order <= 0)
-			else if (operator === 'gt') truths.push(order > 0)
-			else truths.push(order >= 0)
+			if (operator === 'lt') push(order < 0)
+			else if (operator === 'lte') push(order <= 0)
+			else if (operator === 'gt') push(order > 0)
+			else push(order >= 0)
 		}
 	}
-	return and(truths)
+	return all
 }

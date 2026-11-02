@@ -99,8 +99,9 @@ export class Engine {
 		this.#missed = false
 		const batch = batchOf(changes, liveSchema())
 		const loader = new Loader()
-		await bounded([...this.#viewers], concurrency, async (viewer) =>
-			this.#guarded(viewer, async () => viewer.flush(batch, loader, missed)),
+		// No async wrappers: a flush makes these calls for each viewer.
+		await bounded([...this.#viewers], concurrency, (viewer) =>
+			this.#guarded(viewer, () => viewer.flush(batch, loader, missed)),
 		)
 	}
 

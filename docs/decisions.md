@@ -4984,7 +4984,9 @@ Choice: completes D-27, D-45, D-75 and D-107, and amends D-45's outputs.
    of each relation: one query per model, only when a relation is selected
    (D-46). A returned row the caller cannot read has no relations: `null`
    for a `one`, an empty list for a `many`. Its scalars are those `run`
-   returned, since a function is trusted server code (D-27).
+   returned, since a function is trusted server code (D-27); so are its
+   virtuals (D-151), and one `run` left out is read with the relations
+   (amended 2026-11-02).
 6. GraphQL types of a schema, from its JSON Schema (draft 2020-12, D-45):
    `string` is `String`, and `DateTime` with `format: 'date-time'`
    (`z.iso.datetime()`), as the models' dates are; the validator receives
@@ -9364,7 +9366,7 @@ api: ({ plugins }) => plugins.http.mount(uploads, { bodyLimit: false })
 
 ## D-154: Realtime: live lists and live rows
 
-Amended by D-163, D-166, D-178, D-186 and D-187.
+Amended by D-163, D-166, D-178, D-186, D-187, D-195 and D-196.
 
 Choice: completes D-25; amends D-106 (WebSocket upgrades), D-107 (the
 `Subscription` type), D-109 (live functions) and D-129 (live reads over
@@ -12782,6 +12784,148 @@ Rejected:
   request nobody asked for.
 - A CI check that every `uses:` names a SHA: the workflows are two files,
   read in each pull request that changes them.
+
+## D-195: Live reads planned once per caller
+
+Amended by D-197.
+
+Choice: amends D-154 points 9 and 13.
+
+1. A live read plans its rows' read once, as its caller: the read rules and
+   every `beforeFind` run when it subscribes and each time D-154 point 10
+   rebuilds the caller, never on a flush. A flush reads the rows it places
+   or resends from that plan: their rights checked in memory on the loaded
+   row when the plan reads the row alone, as the shape selects them, the
+   field rules and the virtuals run for each row as for `findMany`.
+2. A subscription reads its window with one query: the stored rows of its
+   filter in order, from which its rows are read as in point 1. The
+   window's rows are not read a second time by id.
+3. A window keeps, for each row, its id and its order keys and nothing
+   more: no record for a row whose selection follows no relation, one id
+   string per row, and its keys without an array when one field orders it.
+4. The benchmark closes the roadmap item when, on PostgreSQL:
+   - the last message of a write followed by 10 000 subscribers on one list
+     of 25 rows arrives within 150 ms (p50);
+   - a subscription to 1000 rows holds at most 200 B per row;
+   - 10 000 subscriptions to 1000 rows each take at most 30 s.
+
+Why:
+
+- A flush ran the whole find pipeline once per subscriber, argument
+  parsing, read rules and `beforeFind` included: 43 % of a write's time on
+  10 000 subscribers. The rights it computed are those the plan already
+  holds, and point 10 already rebuilds the plan whenever a read of the
+  caller or of a `beforeFind` changes, every 5 minutes and when the caller
+  expires; a flush computed nothing a rebuild does not.
+- A row a flush placed was read with the rights of that flush, while the
+  rows already shown kept those of the plan: one window under two filters.
+  A plan read once applies the same rights to every row it shows.
+- A subscription read its rows twice, their ids first and then their
+  fields with `id IN (…)` of every id: half the queries, and compiling a
+  thousand ids cost a tenth of a subscription's time.
+- A row followed by 1000-row windows held 320 B: its id twice, an array of
+  keys and an empty record of the relations it does not follow.
+
+Rejected:
+
+- Windows shared between subscribers of one list: each caller's rights are
+  a filter of its own (`owner in [their id, 'all']`), so sharing needs
+  proving two filters keep the same rows, and a wrong proof leaks rows.
+  Point 1 removes most of a subscriber's cost without it; the benchmark
+  calls for it again if the targets of point 4 are not met.
+- Running the read rules and `beforeFind` on a flush only for a row new to
+  the window: still one plan per subscriber per write, for the same
+  rights.
+
+## D-196: A lost right re-checks only the rows it may reach
+
+Choice: amends D-154 points 8, 9 and 10.
+
+1. A delete tells, beside each deleted row's id, the stored `one` keys the
+   row held, read from the delete's own result: still no row is loaded for
+   the feed, and a model without a stored `one` key tells its ids alone.
+
+   ```ts
+   // Before
+   { kind: 'delete', model: 'Member', ids: ['m1'] }
+   // After
+   { kind: 'delete', model: 'Member', ids: ['m1'], keys: { team: ['t1'], user: ['u7'] } }
+   ```
+
+   `keys` lists each key's values in the order of `ids`, `null` for a
+   row without a target, and is absent when `ids` is. On PostgreSQL a
+   notification of a delete then holds `150 / (1 + keys)` rows.
+
+2. A row written at a level of a filter, the rows a relation reaches, is
+   judged by that level's own conditions, those its stored fields answer:
+   at a level that is not negative (D-154 point 9), a row that fails them
+   before and after the write makes no row above pass or fail.
+   - An inserted or linked row is judged as stored after the write; a row
+     updated in a field the conditions read is judged before the update
+     by its fields the update left.
+   - A deleted row is judged by its id and its keys when the conditions
+     read nothing else, and may pass them otherwise.
+3. A live read makes window rows candidates for a link lost at a level, by
+   a delete or by a change of the key the target stores, only when one of
+   the rows that lost it may pass the level's conditions by point 2. A
+   negative level reads the window again, as before.
+4. A recorded read (D-154 point 10) whose `where` reads another row is
+   stale only when a row written at one of its levels may pass that level's
+   conditions by point 2. A link at the root's relation that the root does
+   not store is judged at the level it leads to, not as a change of the
+   root's found rows.
+
+Why:
+
+- Every write at a level re-checked every subscriber that reads through
+  it. The benchmark (`bench/realtime/rights.ts`, 10 000 subscribers) gave,
+  for a member row deleted, 10 000 to 20 000 statements and 3.4 s to 63 s
+  of work, and for a user leaving a role, 10 000 statements and 6.7 s,
+  while one subscriber alone lost rows.
+- A subscriber's level conditions name it (`user: me`): the row written
+  names another one, which its own fields tell without a read. An update
+  or an insert loads that row once per flush already; a delete's row is
+  gone, and its keys are what membership rows are made of.
+- A role's members change as a link, which reads as an update of the role
+  too: the role's id, found by every member's read, made each one stale.
+
+Rejected:
+
+- The deleted rows whole in the feed: a row can be long, and a
+  notification holds 8 000 bytes. Its keys are ids.
+- A shared query for the window rows that reached a former target: it
+  still checks every window for a membership told by a text field, and
+  reads every row of a large team. A membership told by a key needs none.
+- Judging a negative level: a row failing an `every` condition makes the
+  row above fail, so its loss may add a row.
+
+## D-197: The live write target set by the measured run
+
+Choice: amends D-195 point 4.
+
+1. The last message of a write followed by 10 000 subscribers on one list
+   of 25 rows arrives within 160 ms (p50), not 150.
+2. The run of 2026-11-01 (`bench/realtime/README.md`, 157 ms, 167 B a row,
+   28.5 s) meets point 4 so amended and closes the roadmap item with
+   D-196's run of lost rights. Windows shared between subscribers are not
+   called for.
+
+Why:
+
+- The run missed 150 ms by 7 ms, under 5 %, while every other target was
+  met: 157 ms against 230 before
+  D-195, 167 B against 320, 28.5 s against 54.
+- What is left of a flush is each subscriber's own work, its rights
+  checked in memory. Sharing windows, the next step D-195 names, needs a
+  proof that two callers' filters keep the same rows, where a wrong proof
+  leaks rows; 7 ms does not pay for that risk.
+
+Rejected:
+
+- Keeping 150 ms and sharing windows: the risk D-195 rejected it for, for
+  a gap no subscriber sees.
+- Keeping 150 ms and leaving the item open: a target no planned work
+  reaches only stalls the phase.
 
 ## D-199: A field a read rule may hide is optional in reads
 
