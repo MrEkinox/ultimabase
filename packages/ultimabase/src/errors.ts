@@ -1,6 +1,7 @@
 // The errors a client may see (D-28, D-72). Any other error is masked as
 // `INTERNAL` with a correlation id. `Refused` is for the developer (D-119).
 import type { JsonValue } from './fields.ts'
+import type { errorCodes } from './symbols.ts'
 
 /** The kernel's codes; a transport gives each its own status (D-72). */
 export type ErrorCode =
@@ -14,6 +15,16 @@ export type ErrorCode =
 	| 'TOO_MANY_ATTEMPTS'
 	| 'CONFLICT'
 	| 'INTERNAL'
+
+/**
+ * Every code an application's server may send: the kernel's, and those of
+ * its plugins (D-206). An application adds its own.
+ */
+export type ErrorCodeOf<A> =
+	| ErrorCode
+	| (A extends { readonly [errorCodes]?: infer E }
+			? Exclude<E, undefined>
+			: never)
 
 /** One failing value, as Standard Schema reports it (D-23). */
 export type Issue = {

@@ -46,6 +46,11 @@ export interface Files extends PluginTypes {
 	readonly name: 'files'
 	readonly appOptions: FilesOptions
 	readonly requires: Http
+	readonly errors:
+		| 'FORBIDDEN'
+		| 'LENGTH_REQUIRED'
+		| 'PAYLOAD_TOO_LARGE'
+		| 'UNSUPPORTED_MEDIA_TYPE'
 }
 
 /** Ten minutes, between two sweeps. */

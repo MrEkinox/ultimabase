@@ -6,6 +6,7 @@ import { beforeEach, expect, it, vi } from 'vitest'
 import { z } from 'zod'
 import { app } from './app.ts'
 import { order } from './functions.ts'
+import { messageOf } from './messages.ts'
 import { Product } from './models.ts'
 
 const running = testApplication(app)
@@ -110,5 +111,17 @@ it('masks any other error, and logs it', async () => {
 	const line = String(logged.mock.calls[0]?.[0])
 	expect(line).toContain(correlationId)
 	expect(line).toContain('NEWSLETTER_URL is not set.')
+	//#endregion
+})
+
+it('shows a message for each code a client receives', async () => {
+	//#region shown
+	const response = await post('/api/functions/order', {
+		sku: 'MUG-1',
+		quantity: 5,
+	})
+	const { code } = z.object({ code: z.string() }).parse(await response.json())
+	expect(messageOf(code)).toBe('This product is out of stock.')
+	expect(messageOf('A_CODE_NO_SERVER_SENDS')).toBe('Something went wrong.')
 	//#endregion
 })

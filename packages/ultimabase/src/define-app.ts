@@ -24,6 +24,7 @@ type Missing<P extends readonly PluginValue<string, string>[], X> = Exclude<
 	Used<X>,
 	P[number]['name'] | undefined
 >
+type CodesOf<V> = V extends PluginValue<string, string, infer E> ? E : never
 type RequiresOf<V> = V extends PluginValue<string, infer R> ? R : never
 type Unmet<P extends readonly PluginValue<string, string>[]> = Exclude<
 	RequiresOf<P[number]>,
@@ -103,6 +104,6 @@ export function defineApp<
 	} & NoInfer<PluginCheck<P, M, Fn>> &
 		NoInfer<ModelCheck<M>> &
 		NoInfer<InverseCheck<M>>,
-): App<M> {
+): App<M, CodesOf<P[number]>> {
 	return remember({ models: options.models, ...lifecycle(options) }, options)
 }

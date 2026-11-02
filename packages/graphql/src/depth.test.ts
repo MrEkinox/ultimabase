@@ -168,6 +168,22 @@ describe('the depth of a connection', () => {
 			])
 		})
 	})
+
+	// D-206: a client's table of codes holds graphql-js's refusals too.
+	it('gives every refusal of the document the code BAD_USER_INPUT', async () => {
+		await serving({ maxDepth: 2 }, async (url) => {
+			for (const document of [
+				'{ posts {',
+				'{ nope }',
+				'{ comments { edges { node { node { title } } } } }',
+			]) {
+				const { errors } = await post(url, document)
+				expect(errors?.map((error) => error.extensions)).toStrictEqual([
+					{ code: 'BAD_USER_INPUT' },
+				])
+			}
+		})
+	})
 })
 
 describe("pagination: 'list'", () => {

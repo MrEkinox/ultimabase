@@ -369,22 +369,23 @@ A transport refuses at start what it cannot serve:
 
 ### The types
 
-| Key            | Type                     | Effect                                                         |
-| -------------- | ------------------------ | -------------------------------------------------------------- |
-| `name`         | string literal           | The plugin's name, the key of its `.with` and of `plugins`.    |
-| `fields`       | `unknown`                | Set by the kernel: the fields of the model that uses it.       |
-| `value`        | `unknown`                | Set by the kernel: the value of the field holding `fieldWith`. |
-| `options`      | object                   | The options of its entry, `publishing({ … })`.                 |
-| `appOptions`   | object                   | The options of its application value, `apiKeysPlugin({ … })`.  |
-| `requires`     | plugin types, or a union | The plugins it needs.                                          |
-| `optional`     | plugin types, or a union | The plugins it uses when installed.                            |
-| `api`          | object                   | What it offers other plugins.                                  |
-| `addedFields`  | `{ [field]: Field }`     | The fields it adds to each model that uses it.                 |
-| `commands`     | object                   | What it adds to each model, as `Article.publish`.              |
-| `with`         | object or `false`        | Its key of a model's `.with`; `false` turns it off.            |
-| `fieldWith`    | object                   | Its key of a field's `.with`.                                  |
-| `functionWith` | object or `false`        | Its key of a function's `.with`; `false` turns it off.         |
-| `queryOnly`    | `true`                   | Only a query function may list it in its `use`.                |
+| Key            | Type                     | Effect                                                                                          |
+| -------------- | ------------------------ | ----------------------------------------------------------------------------------------------- |
+| `name`         | string literal           | The plugin's name, the key of its `.with` and of `plugins`.                                     |
+| `fields`       | `unknown`                | Set by the kernel: the fields of the model that uses it.                                        |
+| `value`        | `unknown`                | Set by the kernel: the value of the field holding `fieldWith`.                                  |
+| `options`      | object                   | The options of its entry, `publishing({ … })`.                                                  |
+| `appOptions`   | object                   | The options of its application value, `apiKeysPlugin({ … })`.                                   |
+| `requires`     | plugin types, or a union | The plugins it needs.                                                                           |
+| `optional`     | plugin types, or a union | The plugins it uses when installed.                                                             |
+| `api`          | object                   | What it offers other plugins.                                                                   |
+| `addedFields`  | `{ [field]: Field }`     | The fields it adds to each model that uses it.                                                  |
+| `commands`     | object                   | What it adds to each model, as `Article.publish`.                                               |
+| `with`         | object or `false`        | Its key of a model's `.with`; `false` turns it off.                                             |
+| `fieldWith`    | object                   | Its key of a field's `.with`.                                                                   |
+| `functionWith` | object or `false`        | Its key of a function's `.with`; `false` turns it off.                                          |
+| `queryOnly`    | `true`                   | Only a query function may list it in its `use`.                                                 |
+| `errors`       | a union of codes         | The codes its errors carry beyond the kernel's, which [`ErrorCodeOf`](/docs/next/errors) reads. |
 
 Each key is optional but `name`; a key in the types makes its part of the
 definition required, as `addedFields` or `api`.

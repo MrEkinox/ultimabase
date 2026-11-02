@@ -273,6 +273,7 @@ Exit: the audit's fixes are published.
 
 - [ ] `vector()` field type for pgvector (D-32).
 - [x] Maintenance on every server, Master still served (D-205).
+- [x] Every code a server may send, typed for its client (D-206).
 - [ ] Decide a limit on the whole API, per caller or per address, as a
       `rateLimit()` plugin (D-56); then build it.
 

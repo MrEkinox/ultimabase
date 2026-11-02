@@ -30,6 +30,7 @@ export interface Maintenance extends PluginTypes {
 	readonly appOptions: MaintenanceOptions
 	readonly requires: Http
 	readonly api: MaintenanceApi
+	readonly errors: 'MAINTENANCE'
 }
 
 /** The route Master turns it on and off with, which it never refuses. */
