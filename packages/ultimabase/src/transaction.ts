@@ -37,6 +37,8 @@ type Open = {
 	failure: { readonly error: unknown } | undefined
 	/** Run again on a conflict (D-179). */
 	readonly serializable: boolean
+	/** Its queries still running: it ends once they settle (D-208). */
+	readonly pending: Set<Promise<unknown>>
 }
 
 /** A serializable transaction's attempts before `CONFLICT` (D-183). */
@@ -104,11 +106,35 @@ async function joined<R>(open: Open, run: () => Promise<R>): Promise<R> {
 		)
 	}
 	try {
-		return await run()
+		return await tracked(open, run())
 	} catch (error) {
 		open.failure ??= { error }
 		throw error
 	}
+}
+
+/** Keeps `running` in `open` until it settles (D-208). */
+async function tracked<R>(open: Open, running: Promise<R>): Promise<R> {
+	open.pending.add(running)
+	try {
+		return await running
+	} finally {
+		open.pending.delete(running)
+	}
+}
+
+/**
+ * Runs a model's query, held in the open transaction from its call on: one
+ * the callback does not wait for still ends before it (D-208).
+ */
+export async function held<R>(run: () => Promise<R>): Promise<R> {
+	const open = opened.getStore()
+	return open === undefined ? run() : tracked(open, run())
+}
+
+/** Waits for every query in it, those a settled one started included. */
+async function settled(open: Open): Promise<void> {
+	while (open.pending.size > 0) await Promise.allSettled(open.pending)
 }
 
 async function committed(logger: Logger, commits: Commit[]): Promise<void> {
@@ -126,6 +152,7 @@ async function committed(logger: Logger, commits: Commit[]): Promise<void> {
 
 /** A transaction that failed to begin has nothing to roll back. */
 async function rollback(open: Open): Promise<void> {
+	await settled(open)
 	const tx = await open.tx?.catch(() => undefined)
 	await tx?.rollback()
 }
@@ -141,6 +168,7 @@ async function atomic<R>(
 		commits: [],
 		failure: undefined,
 		serializable,
+		pending: new Set(),
 	}
 	let result: R
 	try {
@@ -153,6 +181,7 @@ async function atomic<R>(
 			? failure.error
 			: error
 	}
+	await settled(open)
 	if (open.failure !== undefined) {
 		await rollback(open)
 		throw open.failure.error

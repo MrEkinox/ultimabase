@@ -54,6 +54,10 @@ in it.`, and `transaction` rejects with the first error:
 	../examples/transactions/src/app.test.ts#failed
 </include>
 
+The rollback waits for the queries still running in the transaction, those
+of a `Promise.all` and those the callback started without waiting for them,
+and so does the commit.
+
 To try a write and go on when it fails, run it outside the transaction.
 
 ## Locks and concurrency
@@ -145,6 +149,8 @@ hooks ran, or rejects with the error that rolled it back.
 ### Limits
 
 - No savepoint: a nested `transaction` cannot roll back alone.
+- A query that never settles keeps its transaction, and its connection,
+  open.
 - A transaction holds its locks while the callback runs: call external
   services before it, or from a `*Commit` hook after it.
 - A serializable transaction runs 10 attempts, a number no option changes.

@@ -899,6 +899,8 @@ export const archiveTodo = defineFunction({
 
 ## D-36: Hooks share the operation's transaction; functions open their own
 
+Amended by D-208.
+
 Choice: queries made inside an in-transaction hook join that transaction
 without a `tx` argument (Node's `AsyncLocalStorage`). A function (D-27)
 runs without a transaction; the developer opens one explicitly with `await
@@ -13754,3 +13756,54 @@ plugins: [
 // curl -X PUT /_ultimabase/maintenance \
 //   -H "x-ultimabase-maintenance-key: $MAINTENANCE_KEY" -d '{ "enabled": false }'
 ```
+
+## D-208: A transaction ends once its queries settle
+
+Choice: amends D-36.
+
+1. A transaction sends its `ROLLBACK` or its `COMMIT` only once every
+   query in it has settled. A failed query still rolls all of it back, and
+   `transaction` still rejects with the first failure, a `Conflict` that
+   runs a serializable one again included (D-179).
+2. A model's query belongs to the open transaction from its call, before
+   its first statement: one the callback starts without waiting for it
+   holds the transaction until it settles, and its failure rolls it back.
+
+Why:
+
+- A connection runs one statement at a time. When a query failed beside
+  others of a `Promise.all`, the rollback went out while they still waited
+  on the connection: `pg` 8 queues it and warns, pg@9 refuses it, and the
+  transaction ended under code still reading in it.
+- A query the callback did not wait for began after the callback
+  returned: it ran after the commit, on a transaction already ended.
+
+Rejected:
+
+- Cancelling the pending queries: PostgreSQL cancels a statement only from
+  another connection, and the queries end soon once one failed, as no new
+  one runs (D-88).
+- Waiting only before a rollback: a commit beside a pending read has the
+  same race.
+
+Limit: a query that never settles holds its transaction open, and the
+connection with it. A query started from a timer once the transaction
+ended is not held by it.
+
+Example, before: the failed `create` rolls back while the reads still wait
+on the connection.
+
+```ts
+await transaction(async () =>
+	Promise.all([
+		User.create({ data: { username: 'ada' } }, M), // UNIQUE_VIOLATION
+		User.findMany({}, M),
+		User.findMany({}, M),
+	]),
+)
+// pg: DeprecationWarning: Calling client.query() when the client is
+// already executing a query is deprecated...
+```
+
+After: the same code rejects with `UNIQUE_VIOLATION` once both reads
+settled, then rolls back; `pg` warns of nothing.
