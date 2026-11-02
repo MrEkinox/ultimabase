@@ -160,14 +160,17 @@ export class Compiler {
 	}
 
 	/**
-	 * A scalar column, a date in UTC whatever the session's time zone, a
-	 * decimal as text, which jsonb would make a number (D-145).
+	 * A scalar column, a date as its milliseconds since the epoch, which
+	 * decode faster than text, a decimal as text, which jsonb would make a
+	 * number (D-145).
 	 */
 	private scalar(table: Table, alias: string, name: string): Sql {
 		const column = this.filters.column(table, alias, name)
 		const kind = this.catalog.kind(table, name)
 		if (kind === 'decimal') return sql`cast(${column} as text)`
-		return kind === 'dateTime' ? sql`(${column} at time zone 'UTC')` : column
+		return kind === 'dateTime'
+			? sql`floor(extract(epoch from ${column}) * 1000)`
+			: column
 	}
 
 	/** A row as jsonb: its fields, each `one` as `{ id }`, then its includes. */

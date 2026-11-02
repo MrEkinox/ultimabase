@@ -1,6 +1,6 @@
 // What every access rule receives, and the kernel's ready-made rules (D-10).
 import type { RecordOf } from './record.ts'
-import type { modelFields } from './symbols.ts'
+import type { modelFields, openRead } from './symbols.ts'
 
 export type Operation = 'read' | 'create' | 'update' | 'delete'
 
@@ -82,16 +82,23 @@ export type AnyRule = (facts: {
 /** A rule that reads only the caller also fits a function's access (D-27). */
 export type CallerRule = (facts: { readonly caller: Caller }) => boolean
 
+/** A rule every caller reads through, which hides no field (D-176). */
+export type OpenRule<R> = R & { readonly [openRead]: true }
+
 type Allow = {
-	readonly public: CallerRule
-	readonly readOnly: AnyRule
+	readonly public: OpenRule<CallerRule>
+	readonly readOnly: OpenRule<AnyRule>
 	readonly private: CallerRule
 }
 
+const open = <R extends object>(rule: R): OpenRule<R> =>
+	// oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the mark is a type only; the kernel tells these rules by identity (D-176).
+	rule as unknown as OpenRule<R>
+
 /** Open to everyone, open to reads, closed to everyone but Master (D-10). */
 export const allow: Allow = Object.freeze({
-	public: () => true,
-	readOnly: ({ operation }) => operation === 'read',
+	public: open<CallerRule>(() => true),
+	readOnly: open<AnyRule>(({ operation }) => operation === 'read'),
 	private: () => false,
 })
 

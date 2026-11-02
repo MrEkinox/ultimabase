@@ -1,16 +1,80 @@
 // Whether a write may change what a recorded read found (D-154): a caller or
 // a live read's plan that read it is built again.
-import type { Condition, Filter, Row } from 'ultimabase'
+import type { Filter } from 'ultimabase'
 import type { Recorded } from 'ultimabase/internal'
 import { inMemory, liveSchema, matches } from 'ultimabase/internal'
 import type { Batch, Fields, ModelChanges } from './changes.ts'
 import { listed, touched } from './changes.ts'
-import { modelsOf, stepOf, walk } from './reach.ts'
+import { held, loosened, reaches } from './levels.ts'
+import { modelsOf, stepOf, stores, walk } from './reach.ts'
 import type { Level, Models } from './reach.ts'
 import type { Loader } from './reads.ts'
 
 const fieldsOf = (fields: readonly string[] | undefined): Fields =>
 	fields === undefined ? 'all' : new Set(fields)
+
+/** What a recorded read is judged by, the same at every write. */
+type Judged = {
+	/** The levels its relations reach. */
+	readonly further: readonly Level[]
+	/** The fields that chose its own rows, its relations' links aside. */
+	readonly filters: Fields
+	/** What its own rows alone answer; `null` when they cannot. */
+	readonly where: Filter | undefined | null
+	/** The links a relation read followed, as model and field. */
+	readonly links: readonly (readonly [string, Fields])[]
+}
+
+/** The two sides of the relation a read followed, `model.field`. */
+function linksOf(
+	models: Models,
+	relation: string | undefined,
+): readonly (readonly [string, Fields])[] {
+	if (relation === undefined) return []
+	const [model = '', field = ''] = relation.split('.')
+	const step = stepOf(models, model, field)
+	const own = [model, new Set([field])] as const
+	return step ? [own, [step.target, new Set([step.inverse])]] : [own]
+}
+
+const judgedReads = new WeakMap<Recorded, Judged>()
+
+function judgedOf(models: Models, read: Recorded): Judged {
+	const known = judgedReads.get(read)
+	if (known !== undefined) return known
+	const { model, where } = read
+	const links = linksOf(models, read.relation)
+	let judged: Judged = {
+		further: [],
+		filters: fieldsOf(read.filters),
+		where,
+		links,
+	}
+	if (where !== undefined && !inMemory(model, where)) {
+		const levels: Level[] = []
+		walk(models, model, where, [], false, levels)
+		const further = levels.filter(({ steps }) => steps.length > 0)
+		// A link its relations follow is judged at the level it leads to.
+		const linked = new Set(further.map(({ steps }) => steps[0]?.relation))
+		const { filters } = judged
+		judged = {
+			further,
+			filters:
+				filters === 'all'
+					? filters
+					: new Set(
+							[...filters].filter(
+								(name) => !linked.has(name) || stores(models, model, name),
+							),
+						),
+			// Its own rows are then checked against what they alone answer.
+			where: loosened(models, model, where) ?? null,
+			links,
+		}
+	}
+	judgedReads.set(read, judged)
+	return judged
+}
 
 /** Whether a write in `batch` may change what `read` found. */
 async function stale(
@@ -19,30 +83,21 @@ async function stale(
 	loader: Loader,
 ): Promise<boolean> {
 	const models = modelsOf(liveSchema())
-	if (read.relation !== undefined) {
-		const [model = '', field = ''] = read.relation.split('.')
-		const step = stepOf(models, model, field)
-		if (touched(batch.get(model), new Set([field]))) return true
-		if (step && touched(batch.get(step.target), new Set([step.inverse]))) {
+	const { further, filters, where, links } = judgedOf(models, read)
+	for (const [linked, fields] of links) {
+		if (touched(batch.get(linked), fields)) return true
+	}
+	const { model, ids } = read
+	for (const level of further) {
+		const changes = batch.get(level.model)
+		if (changes && (await reaches(models, level, changes, loader))) {
 			return true
 		}
 	}
-	const { model, ids } = read
-	let { where } = read
-	if (where !== undefined && !inMemory(model, where)) {
-		const levels: Level[] = []
-		walk(models, model, where, [], false, levels)
-		const further = levels.filter(({ steps }) => steps.length > 0)
-		if (further.some((level) => batch.has(level.model))) return true
-		// Its own rows are then checked against what they alone answer.
-		const loose = loosened(models, model, where)
-		if (loose === undefined) return batch.has(model)
-		where = loose
-	}
+	if (where === null) return batch.has(model)
 	const changes = batch.get(model)
 	if (changes === undefined) return false
 	const { inserts, deletes } = changes
-	const filters = fieldsOf(read.filters)
 	const any =
 		read.fields === undefined || filters === 'all'
 			? 'all'
@@ -61,61 +116,6 @@ async function stale(
 	if (where === undefined) return true
 	const rows = await loader.load(model, others)
 	return [...rows.values()].some((row) => matches(model, row, where))
-}
-
-const isList = (
-	value: Condition | readonly Filter[],
-): value is readonly Filter[] => Array.isArray(value)
-
-/** The conditions on a relation's target id in `filter`, its own or its `AND`'s. */
-function idsOf(filter: Filter): Filter[] {
-	const { id, AND = [] } = filter
-	const own = id === undefined || isList(id) ? [] : [{ id }]
-	return [...own, ...AND.flatMap(idsOf)]
-}
-
-/**
- * What a row passing `where` passes too, which its stored fields answer:
- * `where` without its relations, but for a related id, which a stored key
- * holds; `undefined` when something else reads more than the row.
- */
-function loosened(
-	models: Models,
-	model: string,
-	where: Filter,
-): Filter | undefined {
-	const parts: Filter[] = []
-	for (const [key, value] of Object.entries(where)) {
-		const part = { [key]: value }
-		if (value === undefined || inMemory(model, part)) parts.push(part)
-		else if (isList(value)) {
-			if (key !== 'AND') return undefined
-			for (const inner of value) {
-				const loose = loosened(models, model, inner)
-				if (loose === undefined) return undefined
-				parts.push(loose)
-			}
-		} else if (stepOf(models, model, key) === undefined) return undefined
-		else if (value.is) {
-			const keys = idsOf(value.is).map((id) => ({ [key]: { is: id } }))
-			parts.push(...keys.filter((condition) => inMemory(model, condition)))
-		}
-	}
-	return { AND: parts }
-}
-
-/** Whether `where` may hold for `row` before an update that set `set`. */
-function held(model: string, row: Row, where: Filter, set: Fields): boolean {
-	if (set === 'all') return true
-	// A filter on a field the update left fails before as it does after.
-	const left = Object.entries(where).filter(
-		([key]) => key !== 'AND' && key !== 'OR' && key !== 'NOT' && !set.has(key),
-	)
-	const { AND = [] } = where
-	return (
-		matches(model, row, Object.fromEntries(left)) &&
-		AND.every((part) => held(model, row, part, set))
-	)
 }
 
 /**

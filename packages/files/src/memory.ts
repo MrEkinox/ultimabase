@@ -41,6 +41,6 @@ export function memoryFiles(): MemoryFiles {
 		},
 		keys: async () => [...objects.keys()],
 		url: (key) =>
-			`memory://files/${key}${isPublic(key) ? '' : '?expires=3600'}`,
+			`memory://files/${key}${isPublic(key) ? '' : '?expires=1800'}`,
 	}
 }

@@ -58,7 +58,7 @@ async function attachment(name: string, text: string): Promise<string> {
 
 const anId: unknown = expect.any(String)
 const aUrl: unknown = expect.stringMatching(/^memory:\/\/files\/public\//)
-const aPrivateUrl: unknown = expect.stringMatching(/\?expires=3600$/)
+const aPrivateUrl: unknown = expect.stringMatching(/\?expires=1800$/)
 
 it('uploads a cover, then writes its id in a post', async () => {
 	//#region upload

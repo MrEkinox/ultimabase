@@ -424,7 +424,11 @@ describe('a live list', () => {
 	it('sends an error, then ends, when the engine closes it', async () => {
 		const api = await started()
 		await seeded()
-		const stream = await streaming(`${api}/tasks${qs(ranked)}`)
+		// Its rows' read is planned once (D-195); its count runs `beforeFind`
+		// on each flush, and fails.
+		const stream = await streaming(
+			`${api}/tasks${qs({ ...ranked, totalCount: true })}`,
+		)
 		await stream.next()
 		failing = true
 		await Task.create({ data: { title: 'z', rank: 0, owner: 'ada' } }, M)

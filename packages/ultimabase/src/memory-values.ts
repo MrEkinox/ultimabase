@@ -5,6 +5,7 @@ import { isObject } from './query-where.ts'
 
 /** Equality as PostgreSQL's: `-0` is `0`, json keys come in any order. */
 export function same(a: unknown, b: unknown): boolean {
+	if (a === b) return true
 	if (a instanceof Date && b instanceof Date) return a.getTime() === b.getTime()
 	if (Array.isArray(a) && Array.isArray(b))
 		return (
@@ -65,7 +66,10 @@ export function compareKeys(
 	b: readonly unknown[],
 	order: readonly Sort[],
 ): number {
-	for (const [at, { direction, nulls }] of order.entries()) {
+	// No `entries()`: a live window compares keys on each change it places.
+	let at = -1
+	for (const { direction, nulls } of order) {
+		at += 1
 		const left = a[at] ?? null
 		const right = b[at] ?? null
 		if (left === null || right === null) {

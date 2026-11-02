@@ -259,11 +259,11 @@ for production yet, and fixes ship as 0.1.x or 0.2.
 - [x] Releases from CI (D-156, D-157), proved by a canary and a release.
 - [x] A roadmap on the website (D-192).
 - [ ] A full audit of every package, its fixes merged.
-- [ ] Realtime faster on many subscribers (D-154): the find pipeline run once
-      per subscriber on one list (230 ms for 10 000 on 25 rows), 305 KiB per
-      subscription to 1000 rows, a subscription reading its window alone,
-      and a lost link or role passing over the whole window
-      (`bench/realtime/README.md`).
+- [x] Realtime faster on many subscribers (D-154, D-195, D-196, D-197): the
+      find pipeline run once per subscriber on one list (230 ms for 10 000
+      on 25 rows), 305 KiB per subscription to 1000 rows, a subscription
+      reading its window alone, and a lost link or role passing over the
+      whole window (`bench/realtime/README.md`).
 - [ ] Decide refusing breached and common passwords (NIST SP 800-63B
       §5.1.1.2): `passwordPlugin()` checks only a new password's length.
 

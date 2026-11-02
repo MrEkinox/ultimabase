@@ -4,7 +4,7 @@ import type { Caller } from 'ultimabase'
 import { isMaster, master, PublicError } from 'ultimabase'
 import type { State } from './core.ts'
 import { method, passwordSet } from './core.ts'
-import { later } from './email-functions.ts'
+import { later } from './email-flows.ts'
 import { emailOf, valid } from './input.ts'
 import { PasswordToken } from './tokens.ts'
 
