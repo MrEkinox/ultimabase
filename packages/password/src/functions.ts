@@ -7,6 +7,7 @@ import type { State } from './core.ts'
 import {
 	attemptOf,
 	checkCurrent,
+	checkNewFor,
 	createUser,
 	setPassword,
 	signedIn,
@@ -87,6 +88,7 @@ export function passwordFunctions(
 			const state = stateOf()
 			const { id } = user
 			await checkCurrent(id, input.currentPassword, attemptOf(id, client))
+			await checkNewFor(state, id, input.newPassword, 'newPassword')
 			const stamp = await setPassword(state, id, input.newPassword)
 			return signedIn(state, { userId: id, stamp }, client)
 		}),

@@ -5386,7 +5386,7 @@ curl localhost:3000/graphql -H 'authorization: Bearer expired…' -d '…'
 
 ## D-113: `passwordPlugin()`, linked accounts, plugin functions and `viewer`
 
-Amended by D-115, D-125, D-160, D-161, D-162 and D-198.
+Amended by D-115, D-125, D-160, D-161, D-162, D-198 and D-209.
 
 Choice: completes D-33, D-56, D-109 and D-112, and amends D-56, D-109 and
 D-112.
@@ -13807,3 +13807,102 @@ await transaction(async () =>
 
 After: the same code rejects with `UNIQUE_VIOLATION` once both reads
 settled, then rolls back; `pg` warns of nothing.
+
+## D-209: Breached passwords, and a password that is the email
+
+Choice: amends D-113.
+
+1. `passwordPlugin({ breached: true })` refuses a new password that
+   appears in a known data breach, with Have I Been Pwned's range API:
+   the plugin sends the first 5 characters of the password's SHA-1 and
+   reads the matching suffixes, with padding; no package. It checks on
+   sign-up, `changePassword`, a reset and `User.setPassword`, Master's
+   included, never on a sign-in. It is off by default: without the
+   option, the plugin calls no third party.
+2. When the service does not answer within 2 seconds, or answers an
+   error, the password is accepted and the logger warns: an outage of a
+   third party does not close sign-up.
+3. The check is skipped when `NODE_ENV` is `test`, as Vitest and Jest set
+   it: an application's tests call no third party, and a test password
+   needs no care.
+4. In production, a start without the `breached` option logs one warning:
+   `Breached passwords are accepted: passwordPlugin({ breached: true })
+refuses them.` Writing `breached: false` silences it.
+5. A new password equal to the account's email, or to the part before its
+   `@`, ignoring case, is refused, with or without `breached`. A change and
+   a reset compare it with the user's current email.
+6. A reset checks the new password before it uses the link: a refused
+   password leaves the link valid for another try.
+7. A password still has 8 to 256 characters (D-113). The documentation
+   says that NIST SP 800-63B rev. 4 asks for 15 when the password is the
+   only factor, and that OWASP ASVS 5 keeps 8 as its minimum.
+
+Both refusals are `VALIDATION_FAILED`, with the issue on the password's
+input field (`password`, or `newPassword` for `changePassword`):
+`password: This password appears in a data breach: choose another.` and
+`password: A password cannot be the email.`
+
+Why:
+
+- A list of the most common passwords is a part of the breached ones:
+  one check covers both, with no list to ship and keep current.
+- k-anonymity sends 5 hexadecimal characters, shared by hundreds of
+  hashes; padding hides the answer's size. The password never leaves the
+  server.
+- A third-party call is the application's choice to make, as Auth0 and
+  Supabase ask it; the production warning makes the default a choice too.
+- The email check needs no service and refuses the first password an
+  attacker tries with an email in hand.
+
+Rejected:
+
+- A list of common passwords in the package: the maintained ones weigh
+  2 to 9 MB, and a short one misses what the breach check finds.
+- The `hibp` package: it would save some fifteen lines, and adds a
+  dependency (D-92).
+- On by default: a library that calls a third party unasked surprises
+  the application and its privacy policy.
+- Refusing the password when the service fails: an outage would close
+  sign-up and every change.
+- A strength meter (zxcvbn): NIST advises against composition rules, and
+  the breach check refuses the guessable passwords.
+- A minimum length option: 8 stays the floor, and an application that
+  wants more checks the length in its own form.
+
+Limit: the check depends on the service's availability, and sends the 5
+characters to it on each new password. A password already stored is not
+checked again.
+
+Example, before: any 8 characters are accepted.
+
+```ts
+passwordPlugin({ signUp: ['name'], sendEmail })
+
+await User.signUp(
+	{ email: 'ada@example.com', password: 'password123', data: { name: 'Ada' } },
+	{ as: master },
+) // created
+```
+
+After: the application turns the check on, and the sign-up is refused.
+
+```ts
+passwordPlugin({ signUp: ['name'], sendEmail, breached: true })
+
+await User.signUp(
+	{ email: 'ada@example.com', password: 'password123', data: { name: 'Ada' } },
+	{ as: master },
+)
+// VALIDATION_FAILED: password: This password appears in a data breach:
+// choose another.
+
+await User.signUp(
+	{
+		email: 'ada@example.com',
+		password: 'Ada@Example.com',
+		data: { name: 'Ada' },
+	},
+	{ as: master },
+)
+// VALIDATION_FAILED: password: A password cannot be the email.
+```
