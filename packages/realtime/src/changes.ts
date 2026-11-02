@@ -15,6 +15,8 @@ export interface ModelChanges {
 	readonly deletes?: Rows
 	/** The fields its updates set. */
 	readonly fields?: Fields
+	/** The stored `one` keys each deleted row held, by id (D-196). */
+	readonly keys?: ReadonlyMap<string, Readonly<Record<string, string | null>>>
 }
 
 export type Batch = ReadonlyMap<string, ModelChanges>
@@ -24,6 +26,7 @@ type Building = {
 	updates?: Set<string> | 'all'
 	deletes?: Set<string> | 'all'
 	fields?: Set<string> | 'all'
+	keys?: Map<string, Record<string, string | null>>
 }
 
 const merge = (
@@ -75,10 +78,19 @@ export function batchOf(changes: readonly Changed[], schema: Schema): Batch {
 			}
 		} else if (change.kind === 'update') {
 			updated(change.model, change.ids, change.fields)
-		} else if (change.kind === 'insert' || change.kind === 'delete') {
+		} else if (change.kind === 'insert') {
 			const building = of(change.model)
-			const kind = change.kind === 'insert' ? 'inserts' : 'deletes'
-			building[kind] = merge(building[kind], change.ids)
+			building.inserts = merge(building.inserts, change.ids)
+		} else if (change.kind === 'delete') {
+			const building = of(change.model)
+			building.deletes = merge(building.deletes, change.ids)
+			const keys = (building.keys ??= new Map())
+			for (const [at, id] of (change.ids ?? []).entries()) {
+				const held = Object.entries(change.keys ?? {}).map(
+					([field, values]) => [field, values[at] ?? null] as const,
+				)
+				keys.set(id, Object.fromEntries(held))
+			}
 		}
 	}
 	return batch

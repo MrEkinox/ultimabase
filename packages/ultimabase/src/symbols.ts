@@ -10,3 +10,7 @@ export declare const nullableOf: unique symbol
 export declare const pageOf: unique symbol
 /** Marks a calendar day's options, a string compared in order (D-150). */
 export declare const calendarDay: unique symbol
+/** Marks a field a read rule may hide from a row (D-44). */
+export declare const readHidden: unique symbol
+/** Marks `allow.public` and `allow.readOnly`, no read rule (D-176). */
+export declare const openRead: unique symbol

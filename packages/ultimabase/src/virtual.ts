@@ -4,7 +4,8 @@
 import type { SchemaTypes, StandardSchema } from './fields.ts'
 import type { OutputValue } from './function.ts'
 import type { Payload, Shaping } from './query.ts'
-import type { RecordFor, RecordOf, StoredRecord } from './record.ts'
+import type { ReadRecord } from './read-row.ts'
+import type { RecordFor, StoredRecord } from './record.ts'
 import type { Caller } from './rules.ts'
 import type { fieldType, modelFields, nullableOf } from './symbols.ts'
 
@@ -199,8 +200,8 @@ export type DefaultVirtuals<F> = {
 
 /** A row without `select`: its scalars, and its default virtuals. */
 export type DefaultRow<F> = [DefaultVirtualKeys<F>] extends [never]
-	? RecordOf<F>
-	: RecordOf<F> & DefaultVirtuals<F>
+	? ReadRecord<F>
+	: ReadRecord<F> & DefaultVirtuals<F>
 
 /** The virtuals an `include` takes, none for a model without. */
 export type VirtualIncludes<F> = [VirtualKeys<F>] extends [never]

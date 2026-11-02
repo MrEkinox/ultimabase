@@ -6,7 +6,7 @@ import type { ModelShape } from './model.ts'
 import type { Page } from './page.ts'
 import type { ModelUse, PluginTypes } from './plugin.ts'
 import type { QueryOptions } from './query.ts'
-import type { RecordOf } from './record.ts'
+import type { ReadRecord } from './read-row.ts'
 import type { Caller } from './rules.ts'
 import type { modelFields, nullableOf, pageOf, typeFields } from './symbols.ts'
 
@@ -42,7 +42,7 @@ export type TypeFields = { readonly [field: string]: OutputSpec }
 
 /** The value of an output: typed, never validated (D-45). */
 export type OutputValue<O> = O extends { readonly [modelFields]: infer F }
-	? RecordOf<F>
+	? ReadRecord<F>
 	: O extends { readonly [typeFields]: infer F }
 		? { readonly [K in keyof F]: OutputValue<F[K]> }
 		: O extends { readonly [nullableOf]: infer X }

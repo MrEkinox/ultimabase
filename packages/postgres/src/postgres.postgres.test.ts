@@ -343,6 +343,25 @@ describe('postgres()', () => {
 			await adapter.stop()
 		}
 	})
+
+	it('reads a date written elsewhere to its millisecond, before 1970 too', async () => {
+		const adapter = postgres({ url: inSchema(url, schema) })
+		await started(adapter, thing)
+		try {
+			await adapter.write({
+				changes: [{ kind: 'insert', model: 'Thing', row: row('a') }],
+			})
+			// Microseconds, which the kernel never writes: they are dropped.
+			await run(
+				url,
+				`update "${schema}"."thing" set "created_at" = '1969-12-31 23:59:59.9985+00'`,
+			)
+			const [found] = await adapter.find({ model: 'Thing' })
+			expect(found?.['createdAt']).toEqual(new Date('1969-12-31T23:59:59.998Z'))
+		} finally {
+			await adapter.stop()
+		}
+	})
 })
 
 const shelved: Schema = {
