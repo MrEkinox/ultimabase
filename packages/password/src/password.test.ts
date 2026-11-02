@@ -200,7 +200,10 @@ describe('signing up', () => {
 		const { url } = await server()
 		await signUp(url)
 		const again = await signUp(url, { email: 'ADA@example.com' })
-		expect(errorOf(again.body)).toMatchObject({ code: 'UNIQUE_VIOLATION' })
+		expect(errorOf(again.body)).toStrictEqual({
+			code: 'UNIQUE_VIOLATION',
+			details: { model: 'User', fields: ['email'] },
+		})
 		expect(await User.count({}, M)).toBe(1)
 		expect(await PasswordHash.count({}, M)).toBe(1)
 	})

@@ -161,3 +161,70 @@ it('empties the running database, then has live reads read again (D-188)', async
 	await Note.create({ data: { text: 'one' } }, M)
 	expect(await Note.count({}, M)).toBe(1)
 })
+
+/** An application whose database records when it empties, and its log. */
+async function emptying(): Promise<string[]> {
+	const database = memory()
+	const calls: string[] = []
+	const app = defineApp({
+		database: {
+			...database,
+			empty: async () => {
+				calls.push('empty')
+				return database.empty()
+			},
+		},
+		models: [Note],
+	})
+	await app.start()
+	stop = async () => app.stop()
+	return calls
+}
+
+it('empties once the running operations are over, new ones held (D-188)', async () => {
+	const calls = await emptying()
+	const { promise: saved, resolve: save } = Promise.withResolvers<void>()
+	const { promise: wrote, resolve: write } = Promise.withResolvers<void>()
+	// A request writes when the reset comes, and goes on writing.
+	const running = transaction(async () => {
+		await Note.create({ data: { text: 'one' } }, M)
+		write()
+		await saved
+		await Note.create({ data: { text: 'two' } }, M)
+		calls.push('saved')
+	})
+	await wrote
+	const emptied = emptyRunning()
+	const later = Note.create({ data: { text: 'three' } }, M).then(() =>
+		calls.push('later'),
+	)
+	await new Promise((done) => setTimeout(done, 20))
+	expect(calls).toEqual([])
+	save()
+	await Promise.all([running, emptied, later])
+	expect(calls).toEqual(['saved', 'empty', 'later'])
+	expect(await Note.findMany({ select: { text: true } }, M)).toEqual([
+		{ text: 'three' },
+	])
+})
+
+it('fails when operations still run after 5 s, emptying nothing (D-188)', async () => {
+	const calls = await emptying()
+	const { promise: saved, resolve: save } = Promise.withResolvers<void>()
+	vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+	try {
+		const running = transaction(async () => saved)
+		const emptied = emptyRunning().catch((error: unknown) => error)
+		await vi.advanceTimersByTimeAsync(5000)
+		expect(await emptied).toMatchObject({
+			message: '1 operations still ran after 5 s; nothing was emptied.',
+		})
+		expect(calls).toEqual([])
+		// New operations are no longer held.
+		await Note.create({ data: { text: 'one' } }, M)
+		save()
+		await running
+	} finally {
+		vi.useRealTimers()
+	}
+})

@@ -155,8 +155,17 @@ function emailChangeFunctions(
 			await checkCurrent(id, input.currentPassword, attemptOf(id, client))
 			const { newEmail } = input
 			// The caller proved the password: telling it is no enumeration.
-			if ((await stateOf().auth.accountOf(method, newEmail)) !== undefined) {
-				throw new PublicError('UNIQUE_VIOLATION', 'This email has an account.')
+			const { auth, users } = stateOf()
+			if ((await auth.accountOf(method, newEmail)) !== undefined) {
+				// The details of a taken email at sign-up, the user's `email`.
+				const details = { model: users.schema.name, fields: ['email'] }
+				throw new PublicError(
+					'UNIQUE_VIOLATION',
+					'This email has an account.',
+					{
+						details,
+					},
+				)
 			}
 			const refused = await mail('emailChange', id, newEmail)
 			if (refused !== undefined) throw refused
