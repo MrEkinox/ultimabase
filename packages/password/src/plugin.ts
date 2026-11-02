@@ -219,8 +219,8 @@ const definition = definePlugin<Password>({
 		afterUpdate: async ({ record, previous, plugins }) => {
 			await updated(stateOf(plugins.auth), record, previous)
 		},
-		afterUpdateCommit: ({ record, previous, plugins }) => {
-			committed(stateOf(plugins.auth), record, previous)
+		afterUpdateCommit: async ({ record, previous, plugins }) => {
+			await committed(stateOf(plugins.auth), record, previous)
 		},
 		// The user's hash and tokens go with them (D-113, D-117).
 		afterDelete: async ({ record }) => {

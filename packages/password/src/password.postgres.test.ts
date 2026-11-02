@@ -3,7 +3,7 @@
 // leaves, a reset's token and hourly counts, and requests that race.
 import { expect, it, vi } from 'vitest'
 import type { Email } from './index.ts'
-import { PublicError } from 'ultimabase'
+import { PublicError, transaction } from 'ultimabase'
 import {
 	hourly,
 	limited,
@@ -12,6 +12,7 @@ import {
 	PasswordRequest,
 } from './models.ts'
 import {
+	bearer,
 	graphqlOf,
 	M,
 	signInQuery,
@@ -133,6 +134,35 @@ for (const url of urls) {
 			)
 		} finally {
 			vi.restoreAllMocks()
+			await running.app.stop()
+		}
+	})
+
+	it(`ends a sign-in that raced setPassword in a transaction on ${new URL(url).host}`, async () => {
+		const running = await started(undefined, database(url))
+		try {
+			const user = await User.signUp({ ...ada, data: { name: 'Ada' } })
+			const { promise: inside, resolve: reached } =
+				Promise.withResolvers<void>()
+			const { promise: gate, resolve: release } = Promise.withResolvers<void>()
+			const outer = transaction(async () => {
+				await User.setPassword({ id: user.id, password: 'new secret!' }, M)
+				reached()
+				await gate
+			})
+			await inside
+			// The old password still holds until the application's commit.
+			const opened = await User.signIn(ada)
+			release()
+			await outer
+			const viewer = await graphqlOf(
+				running.url,
+				'{ viewer { id } }',
+				{},
+				bearer(opened.token),
+			)
+			expect(viewer.body).toMatchObject({ code: 'UNAUTHENTICATED' })
+		} finally {
 			await running.app.stop()
 		}
 	})

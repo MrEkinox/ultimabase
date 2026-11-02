@@ -83,18 +83,22 @@ export async function updated(
 }
 
 /**
- * Once the write commits, when `sendEmail` exists, tells the old address its
- * new email (D-162) and the account a password `setPassword` set (D-169).
+ * Once the write commits, ends the sessions of a password `setPassword` set
+ * (D-212) and, when `sendEmail` exists, tells the account (D-169) and the old
+ * address its new email (D-162).
  */
-export function committed(
+export async function committed(
 	state: State,
 	record: Emailed & { readonly passwordSetAt: Date | null },
 	previous: Emailed,
-): void {
+): Promise<void> {
 	const { sendEmail, auth } = state
-	if (sendEmail === undefined) return
 	const { id: userId, passwordSetAt } = record
-	if (passwordSetAt !== null && passwordSet(userId, passwordSetAt)) {
+	const set = passwordSetAt !== null && passwordSet(userId, passwordSetAt)
+	// Again once the new stamp is visible, in any transaction (see `signedIn`).
+	if (set) await auth.revokeSessions(userId)
+	if (sendEmail === undefined) return
+	if (set) {
 		later(state, async () => {
 			// A user stored before D-162 reads no email: its account has it.
 			const to = await auth.subjectOf(userId, method)

@@ -39,7 +39,7 @@ export interface State {
 	readonly breached: boolean
 }
 
-/** The `passwordSetAt` each `setPassword` wrote, which its commit tells (D-169). */
+/** The `passwordSetAt` each `setPassword` wrote, which its commit acts on (D-212). */
 const setting = new Set<string>()
 
 /** Whether `setPassword` wrote `at` for `userId`, told once. */
@@ -181,8 +181,8 @@ export async function checkNewFor(
 
 /**
  * Replaces `userId`'s hash, or gives one to an email without (D-162), ends
- * every session of the user, deletes its pending reset tokens (D-117) and
- * sets `passwordSetAt` (D-169); the new stamp.
+ * every session of the user, deletes its pending reset and email-change
+ * links (D-117, D-212) and sets `passwordSetAt` (D-169); the new stamp.
  */
 export async function setPassword(
 	state: State,
@@ -206,22 +206,19 @@ export async function setPassword(
 		await (stored === null
 			? PasswordHash.create({ data: { userId, ...data } }, M)
 			: PasswordHash.update({ where: { userId }, data }, M))
-		await PasswordToken.deleteMany({ where: { userId, kind: 'reset' } }, M)
+		// A link asked for with the old password dies with it (D-212).
+		const kind = { in: ['reset', 'emailChange'] }
+		await PasswordToken.deleteMany({ where: { userId, kind } }, M)
 		await state.auth.revokeSessions(userId)
-		// Through the user's queries, so the application's hooks see it, and
-		// password's own tells the account once it commits (D-169).
+		// Through the user's queries, so the application's hooks see it; password's
+		// own end the sessions again and tell the account once it commits (D-212).
 		const passwordSetAt = new Date()
-		if (state.sendEmail !== undefined) {
-			setting.add(`${userId} ${passwordSetAt.getTime()}`)
-		}
+		setting.add(`${userId} ${passwordSetAt.getTime()}`)
 		await state.users.queries.update(
 			{ where: { id: userId }, data: { passwordSetAt } },
 			M,
 		)
 	})
-	// Again once the stamp is visible: a sign-in that read the old one opened
-	// its session before, so this ends it (see `signedIn`).
-	await state.auth.revokeSessions(userId)
 	return stamp
 }
 
