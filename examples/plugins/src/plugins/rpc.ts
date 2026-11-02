@@ -9,8 +9,11 @@ import { z } from 'zod'
 
 export interface Rpc extends PluginTypes {
 	readonly name: 'rpc'
-	/** `rpcPlugin({ path })`, `/rpc` by default. */
-	readonly appOptions: { readonly path?: string }
+	/**
+	 * `rpcPlugin({ path, generated })`: `/rpc` by default, and the file
+	 * listing the functions' names, none by default.
+	 */
+	readonly appOptions: { readonly path?: string; readonly generated?: string }
 	readonly requires: Http
 	/** What it offers other plugins: a function's address. */
 	readonly api: { readonly url: (name: string) => string }
@@ -18,6 +21,12 @@ export interface Rpc extends PluginTypes {
 	readonly functionWith: false
 }
 //#endregion
+
+/** A function's name over RPC: a plugin's is named after its plugin. */
+const nameOf = (fn: {
+	readonly name: string
+	readonly plugin: string | undefined
+}) => (fn.plugin === undefined ? fn.name : `${fn.plugin}.${fn.name}`)
 
 //#region definition
 const definition = definePlugin<Rpc>({
@@ -38,8 +47,7 @@ const definition = definePlugin<Rpc>({
 		const names: string[] = []
 		for (const fn of functions) {
 			if (fn.with === false) continue
-			// A plugin's function is named after its plugin.
-			const name = fn.plugin === undefined ? fn.name : `${fn.plugin}.${fn.name}`
+			const name = nameOf(fn)
 			if (fn.output !== undefined && fn.output.kind !== 'schema') {
 				throw new Refused(
 					`rpc answers JSON, and ${name} returns a model: give it a schema output, or .with({ rpc: false }).`,
@@ -67,6 +75,15 @@ const definition = definePlugin<Rpc>({
 	start: ({ plugins, options, logger }) => {
 		if (process.env['NODE_ENV'] === 'production') return
 		logger.info(`RPC on ${plugins.http.url()}${options.path ?? '/rpc'}.`)
+	},
+	//#endregion
+	//#region generate
+	// Written by `ultimabase generate`, and by `ultimabase dev` as it starts.
+	generate: ({ functions, options }) => {
+		if (options.generated === undefined) return []
+		const names = functions.filter((fn) => fn.with !== false).map(nameOf)
+		const content = `${JSON.stringify(names, null, '\t')}\n`
+		return [{ path: options.generated, content }]
 	},
 	//#endregion
 })

@@ -12626,6 +12626,8 @@ A client's codegen then maps `RichText` to its document type.
 
 ## D-191: GraphQL writes its schema to a file in development
 
+Amended by D-201.
+
 Choice: completes D-45.
 
 1. `graphqlPlugin({ generated: 'src/generated/schema.graphql' })` writes
@@ -12782,3 +12784,78 @@ Rejected:
   request nobody asked for.
 - A CI check that every `uses:` names a SHA: the workflows are two files,
   read in each pull request that changes them.
+
+## D-201: `ultimabase generate` writes the plugins' generated files
+
+Choice: amends D-191 points 1, 2 and 6.
+
+1. A plugin declares the files it generates with `generate`: it receives
+   its context once every plugin's `api` is built, and returns
+   `{ path, content }[]`. A path is read from the current directory.
+2. `ultimabase generate` loads the config and the `.env` beside it, as
+   `dev` does, and builds the plugins' APIs without starting the
+   database, opening a port, or running any `start`. It writes each file
+   whose content differs, creating missing folders, and prints
+   `Wrote <path>.` for each; nothing when every file is current.
+3. `ultimabase generate --check` writes nothing. It prints
+   `<path> is out of date.` for each file that differs or is missing, and
+   exits 1 when one does.
+4. `ultimabase dev` writes them the same way each time the application
+   starts, after the plugins' `start`, and logs `Wrote <path>.`. Only
+   `NODE_ENV=development` writes: not `start`, nor tests.
+5. `graphqlPlugin({ generated })` becomes the GraphQL plugin's `generate`:
+   one file, the served schema as SDL, `extend` applied. GraphQL writes
+   nothing itself.
+6. A path given twice, by two plugins or by one, stops the command and
+   `dev`: `src/x.graphql is generated twice, by graphql and docs.`
+7. The command sets `NODE_ENV` to `development` when it is unset, as `dev`
+   does, so a plugin builds what `dev` would write.
+
+Before, a client developer after a pull, and CI:
+
+```sh
+docker compose up -d postgres
+npx ultimabase dev   # writes src/generated/schema.graphql, then Ctrl-C
+# CI: nothing checks the committed file
+```
+
+After:
+
+```sh
+npx ultimabase generate
+# Wrote src/generated/schema.graphql.
+
+npx ultimabase generate --check   # in CI
+# src/generated/schema.graphql is out of date.   (exit 1)
+```
+
+A plugin's own file:
+
+```ts
+definePlugin<Docs>({
+	name: 'docs',
+	generate: ({ models }) => [
+		{ path: 'docs/models.md', content: tableOf(models) },
+	],
+})
+```
+
+Why:
+
+- The generated files depend on the models, the functions and the
+  plugins' options, which the config holds: building them needs neither a
+  database nor a port. A client developer refreshes them without the
+  backend running, and CI checks them.
+- A stale committed schema was seen: a model change merged without a
+  `dev` run left the file behind until a client query failed (D-191
+  rejected a check until then).
+- The CLI knows no plugin: it runs each plugin's `generate`. The APIs are
+  already built before any `start` (D-107), so the step exists.
+
+Rejected:
+
+- `ultimabase graphql schema`: the CLI would know GraphQL (D-191).
+- Writing from a plugin's `api`: it runs in tests and in production too.
+- Connecting to the database to build: CI and a client developer would
+  need one.
+- An asynchronous `generate`: no file needs I/O to be built today.

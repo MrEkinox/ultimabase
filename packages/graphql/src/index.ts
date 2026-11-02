@@ -8,6 +8,7 @@ import {
 	MaxIntrospectionDepthRule,
 	NoSchemaIntrospectionCustomRule,
 	parse,
+	printSchema,
 	specifiedRules,
 	validate,
 	validateExecutionArgs,
@@ -22,7 +23,6 @@ import { definePlugin } from 'ultimabase'
 import manifest from '../package.json' with { type: 'json' }
 import { depthRule, introspectionDepthRule } from './depth.ts'
 import { formatter } from './errors.ts'
-import { writeGenerated } from './generated.ts'
 import type { GraphqlFunctionWith } from './functions.ts'
 import { functionFields } from './functions.ts'
 import { graphiqlPage } from './graphiql.ts'
@@ -69,8 +69,8 @@ export interface GraphqlOptions {
 	/** Replaces the generated schema with one built from it (D-45). */
 	readonly extend?: (schema: GraphQLSchema) => GraphQLSchema
 	/**
-	 * Where `ultimabase dev` writes the served schema as SDL, from the
-	 * current directory, when it changes (D-191).
+	 * Where `ultimabase generate` and `ultimabase dev` write the served schema
+	 * as SDL, from the current directory, when it changes (D-191, D-201).
 	 */
 	readonly generated?: string
 }
@@ -90,8 +90,8 @@ const maxTokens = 2000
 
 // What closes each running application's WebSockets, by its plugin's context.
 const closers = new WeakMap<object, () => Promise<void>>()
-// What writes each running application's schema file, by its plugin's context.
-const writers = new WeakMap<object, () => Promise<void>>()
+// The schema file each application generates, by its plugin's context.
+const files = new WeakMap<object, { path: string; schema: GraphQLSchema }>()
 
 const plugin = definePlugin<Graphql>({
 	name: 'graphql',
@@ -129,13 +129,8 @@ const plugin = definePlugin<Graphql>({
 			},
 		})
 		const schema = options.extend?.(generated) ?? generated
-		const file = options.generated
-		if (file !== undefined) {
-			writers.set(pluginContext, async () => {
-				if (await writeGenerated(file, schema)) {
-					logger.info(`GraphQL schema written to ${file}.`)
-				}
-			})
+		if (options.generated !== undefined) {
+			files.set(pluginContext, { path: options.generated, schema })
 		}
 		const production = process.env['NODE_ENV'] === 'production'
 		const hideSuggestions = !(options.introspection ?? !production)
@@ -244,7 +239,12 @@ const plugin = definePlugin<Graphql>({
 		logger.info(
 			`GraphiQL on ${plugins.http.url()}${options.path ?? '/graphql'}.`,
 		)
-		if (environment === 'development') await writers.get(context)?.()
+	},
+	// The served schema as SDL, for a client's codegen (D-191, D-201).
+	generate: (context) => {
+		const file = files.get(context)
+		if (file === undefined) return []
+		return [{ path: file.path, content: `${printSchema(file.schema)}\n` }]
 	},
 	// Before the HTTP plugin's stop, which waits for the sockets to close.
 	stop: async (context) => closers.get(context)?.(),

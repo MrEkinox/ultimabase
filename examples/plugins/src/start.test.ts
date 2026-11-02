@@ -1,4 +1,8 @@
-// What the plugins do at start: use an optional plugin, or refuse to run.
+// What the plugins do at start: use an optional plugin, refuse to run, or
+// write the file they generate.
+import { mkdtemp, readFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { httpPlugin } from '@ultimabase/http'
 import {
 	defineApp,
@@ -7,13 +11,35 @@ import {
 	master,
 	memory,
 } from 'ultimabase'
-import { expect, it } from 'vitest'
+import { afterEach, expect, it, vi } from 'vitest'
 import { apiKeysPlugin } from './plugins/api-keys.ts'
 import { rpc, rpcPlugin } from './plugins/rpc.ts'
 
 const Note = defineModel({
 	name: 'Note',
 	fields: (f) => ({ text: f.string() }),
+})
+
+afterEach(() => {
+	vi.unstubAllEnvs()
+})
+
+it('writes the functions it serves in development', async () => {
+	const folder = await mkdtemp(join(tmpdir(), 'rpc-'))
+	const generated = join(folder, 'rpc.json')
+	vi.stubEnv('NODE_ENV', 'development')
+	//#region generated
+	const ping = defineFunction({ name: 'ping', use: [rpc()], run: () => {} })
+	const app = defineApp({
+		database: memory(),
+		plugins: [httpPlugin({ port: 0 }), rpcPlugin({ generated })],
+		models: [],
+		functions: [ping],
+	})
+	await app.start()
+	expect(JSON.parse(await readFile(generated, 'utf8'))).toEqual(['ping'])
+	//#endregion
+	await app.stop()
 })
 
 it('refuses a function the transport cannot serve', async () => {

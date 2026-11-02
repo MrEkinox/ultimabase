@@ -222,10 +222,15 @@ field on a model's type.
 
 With `generated: 'src/generated/schema.graphql'`, as in the application
 above, `ultimabase dev` writes the schema it serves, `extend` applied, to
-that file as it starts, and logs `GraphQL schema written to
-src/generated/schema.graphql.`. It writes it only when its content changed,
-so a codegen watching it runs after a change only. The path is read from the
-directory `ultimabase dev` runs in, and missing folders are created.
+that file as it starts, and logs `Wrote src/generated/schema.graphql.`. It
+writes it only when its content changed, so a codegen watching it runs after
+a change only. The path is read from the directory the command runs in, and
+missing folders are created.
+
+`npx ultimabase generate` writes it without starting the application: no
+database, no port. `npx ultimabase generate --check` writes nothing and exits
+1 when the file is out of date, so CI catches a model change merged without
+its schema. See [Starting it](/docs/next/application#starting-it).
 
 The file is committed: a front end points
 [GraphQL Code Generator](https://the-guild.dev/graphql/codegen)'s `schema` at
@@ -281,7 +286,7 @@ each.
 | `maxRows`       | number                     | 20 000            | The most rows a document may return, each list times those above it.            |
 | `introspection` | boolean                    | off in production | Introspection, and the "Did you mean" suggestions of refused fields.            |
 | `extend`        | `(schema) => schema`       | none              | The schema to serve, built from the generated one.                              |
-| `generated`     | string                     | none              | The file `ultimabase dev` writes the served schema to, as SDL.                  |
+| `generated`     | string                     | none              | The file `ultimabase generate` and `dev` write the served schema to, as SDL.    |
 
 It requires `httpPlugin()`. With [`realtimePlugin()`](/docs/next/realtime),
 it serves subscriptions over WebSocket on `path`. Master is limited by

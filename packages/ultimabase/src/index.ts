@@ -95,6 +95,7 @@ export type {
 	ExposedType,
 	OutputForm,
 } from './exposed-output.ts'
+export type { Generated } from './generate.ts'
 export type { Page, PageArgs, PageQuery } from './page.ts'
 export type {
 	ExposedFunction,

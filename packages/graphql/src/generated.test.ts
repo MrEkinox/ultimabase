@@ -1,5 +1,5 @@
-// The schema file `generated` names (D-191): written by `ultimabase dev`,
-// with `extend` applied, only when its content changed.
+// The schema file `generated` names (D-191, D-201): written by
+// `ultimabase dev`, with `extend` applied, only when its content changed.
 import { mkdtemp, readFile, stat } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -9,9 +9,7 @@ import { started } from './test/app.ts'
 
 const written = (lines: readonly { readonly first: unknown }[]) =>
 	lines.filter(
-		(line) =>
-			typeof line.first === 'string' &&
-			line.first.startsWith('GraphQL schema written'),
+		(line) => typeof line.first === 'string' && line.first.startsWith('Wrote '),
 	)
 
 async function file(): Promise<string> {
@@ -37,9 +35,7 @@ describe('the generated schema file (D-191)', () => {
 		expect(printed).toContain('type Post {')
 		expect(printed).toContain('hello: String')
 		expect(printed.endsWith('}\n')).toBe(true)
-		expect(written(lines).map((line) => line.first)).toEqual([
-			`GraphQL schema written to ${path}.`,
-		])
+		expect(written(lines).map((line) => line.first)).toEqual([`Wrote ${path}.`])
 	})
 
 	it('is left as it is when its content did not change', async () => {
