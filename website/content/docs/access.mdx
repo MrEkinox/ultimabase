@@ -17,7 +17,9 @@ The full example, with its tests: [`examples/access-rules`](https://github.com/M
 `allow.public`, `allow.readOnly` and `allow.private` cover the common cases:
 `access: allow.readOnly` lets everyone read and only Master write. Rules are
 synchronous and run no query: a check that needs another row goes in a
-[hook](/docs/next/hooks).
+[hook](/docs/next/hooks). Access rules, [roles](/docs/next/roles) and the
+[ACL](/docs/next/acl) each fit a kind of right: see
+[Rules, roles or ACL](#rules-roles-or-acl).
 
 ## Read rules
 
@@ -73,6 +75,45 @@ A field rule sees `record.id` typed and the other fields as `unknown`.
 `.with<{ authorId: string }>({ ... })` types the fields its rules read, as in
 `notes` above; `defineModel` checks that each type matches the model's.
 
+## Rights from a relation
+
+A read rule's filter goes through relations as a query's does. A project's
+members read it, and the tasks in it, with no role to keep in step:
+
+<include cwd meta='title="src/projects.ts"'>
+	../examples/access-rules/src/projects.ts#projects
+</include>
+
+A member who leaves the project reads none of its tasks from the next
+query on, and a [live read](/docs/next/realtime#rights) follows the
+relations its filter goes through:
+
+<include cwd meta='title="src/projects.test.ts"'>
+	../examples/access-rules/src/projects.test.ts#relation-read
+</include>
+
+Each read joins the relation. PostgreSQL indexes every relation's key, and
+both columns of a join table, so the join needs no index of yours. With the
+[auth plugin](/docs/next/auth), `{ viewer: true }` on a relation to the user
+model stands for the caller: `members: { some: { viewer: true } }`.
+
+## Rights over a group's rows
+
+A write rule receives the row, with its own `one` relations as `{ id }`, but
+cannot read further: `Project.update` above checks `record.owner`, yet a
+task's rule cannot tell who owns its project. Two hooks keep a task's writes
+to its project's owner, as in the model above:
+
+- `beforeFind` adds the owner to the filter when `operation` is `'update'`
+  or `'delete'`: another member's write finds no row, `NOT_FOUND`, as a
+  read rule's would.
+- `beforeCreate` reads the project as Master, and throws `ACCESS_DENIED`
+  when the caller does not own it.
+
+<include cwd meta='title="src/projects.test.ts"'>
+	../examples/access-rules/src/projects.test.ts#group-write
+</include>
+
 ## Master
 
 Master skips every rule. Server code passes `{ as: master }`; a transport
@@ -98,6 +139,23 @@ A client meets the same rules, with the same error:
 The caller comes from the request: the [auth plugin](/docs/next/auth) reads
 a session and adds `signedIn`, `isOwner`, `isSelf` and `isAuthenticated` to
 the rules; [roles](/docs/next/roles) adds `hasRole`.
+
+## Rules, roles or ACL
+
+Each kind of right has its tool:
+
+| The right                                                         | Fits                                          | Why                                                                                                                         |
+| ----------------------------------------------------------------- | --------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| Follows from data the app holds: a membership, an owner, a status | A read rule's filter, through a relation      | Nothing to keep in step: a member who leaves reads nothing more. Conditions on the row join the same filter.                |
+| Given to a person across the app: an admin, a moderator, support  | [Roles](/docs/next/roles) and `hasRole`       | The right belongs to the person, not to a group's data.                                                                     |
+| Chosen row by row, by a user: share this note with Ada and Grace  | The [ACL](/docs/next/acl), by user or by role | The right is the data: nothing else holds it.                                                                               |
+| Migrated from Parse                                               | Roles and the ACL                             | They match Parse's `_Role` and ACLs one to one; moving a group's rights to a relation later removes the hooks that sync it. |
+
+They combine: an operation passes the model's access rules, then the ACL
+picks among the rows they let through. A role given during a request counts
+from the next one ([Roles](/docs/next/roles#inherit-roles)), and a live read
+is planned again when a role, an ACL or a session changes
+([Realtime](/docs/next/realtime#rights)).
 
 ## Reference
 
