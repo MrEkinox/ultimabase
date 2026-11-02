@@ -66,5 +66,6 @@ await Post.update({
 })
 
 export type QueryChecks = [
-	Expect<Equal<typeof first, { readonly title: string } | null>>,
+	// `title` has a read rule, which may hide it (D-44).
+	Expect<Equal<typeof first, { readonly title?: string } | null>>,
 ]

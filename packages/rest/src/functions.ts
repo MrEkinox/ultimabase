@@ -59,8 +59,9 @@ export function getParams(root: Node | undefined): {
 	return { accepted: { ...none, [as]: ['input'] }, flat: false }
 }
 
-/** The rows of each model whose default virtuals are read again. */
-type Pending = Map<Entry, { id: string; copy: { [field: string]: unknown } }[]>
+/** The rows of each model whose default virtuals are read, and which ones. */
+type Pending = Map<Entry, { id: string; copy: Copy; names: string[] }[]>
+type Copy = { [field: string]: unknown }
 
 const nonNull = (where: string): TypeError =>
 	new TypeError(`Cannot return null for non-nullable field ${where}.`)
@@ -72,7 +73,7 @@ type Reading = {
 	readonly paging: ReadonlyMap<string, Paging>
 }
 
-/** A row as a model's output returns it, its default virtuals read after. */
+/** A row as a model's output returns it, the virtuals `run` left out read after. */
 function rowOut(reading: Reading, model: string, value: unknown): unknown {
 	const row = rowOf(value)
 	if (row === undefined) {
@@ -80,9 +81,12 @@ function rowOut(reading: Reading, model: string, value: unknown): unknown {
 	}
 	const entry = entryOf(reading.api, model)
 	const copy = shaped(row, defaultShape(entry))
-	if (defaultVirtuals(entry).length > 0) {
-		const { pending } = reading
-		pending.set(entry, [...(pending.get(entry) ?? []), { id: row.id, copy }])
+	const names = defaultVirtuals(entry).filter(
+		(name) => !Object.hasOwn(row, name),
+	)
+	const rows = reading.pending.get(entry) ?? []
+	if (names.length > 0) {
+		reading.pending.set(entry, [...rows, { id: row.id, copy, names }])
 	}
 	return copy
 }
@@ -136,7 +140,7 @@ async function outputOf(
 /** The default virtuals of a function's rows, read by id as the caller (D-151). */
 async function withVirtuals(pending: Pending, as: Caller): Promise<void> {
 	for (const [entry, rows] of pending) {
-		const names = defaultVirtuals(entry)
+		const names = [...new Set(rows.flatMap((row) => row.names))]
 		const ids = [...new Set(rows.map(({ id }) => id))]
 		const found = await entry.exposed.queries.findMany(
 			{
@@ -150,9 +154,9 @@ async function withVirtuals(pending: Pending, as: Caller): Promise<void> {
 			{ as },
 		)
 		const byId = new Map(found.map((row) => [row.id, row]))
-		for (const { id, copy } of rows) {
+		for (const { id, copy, names: own } of rows) {
 			// A row the caller cannot read has none (D-109).
-			for (const name of names) copy[name] = byId.get(id)?.[name] ?? null
+			for (const name of own) copy[name] = byId.get(id)?.[name] ?? null
 		}
 	}
 }

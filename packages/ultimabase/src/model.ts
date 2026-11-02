@@ -3,6 +3,7 @@
 import type { Nullable, Paginated } from './function.ts'
 import type { Page, PageQuery } from './page.ts'
 import type { FindWhere, Queries, QueryOptions, Where } from './query.ts'
+import type { ReadRecord } from './read-row.ts'
 import type {
 	CreateData,
 	RecordOf,
@@ -160,7 +161,7 @@ export interface Model<N extends string, F, P, W, X = never> extends Queries<
 		this: void,
 		args?: PageQuery<F>,
 		options?: QueryOptions,
-	): Page<RecordOf<F>>
+	): Page<ReadRecord<F>>
 }
 
 export type FieldShape = {

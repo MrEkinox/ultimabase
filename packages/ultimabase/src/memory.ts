@@ -31,31 +31,52 @@ function fed(changes: readonly Changed[]): Changed[] {
 		readonly change: Changed
 		readonly ids: string[]
 		readonly pairs: (readonly [string, string])[]
+		readonly keys: Map<string, (string | null)[]>
 	}
 	const entries = new Map<string, Entry>()
 	for (const change of changes) {
-		const linked = 'field' in change
 		const key = JSON.stringify([
 			change.kind,
 			change.model,
-			linked ? change.field : change.fields,
+			'field' in change ? change.field : 'fields' in change && change.fields,
 		])
-		const entry = entries.get(key) ?? { change, ids: [], pairs: [] }
-		if (linked) entry.pairs.push(...(change.pairs ?? []))
+		const entry: Entry = entries.get(key) ?? {
+			change,
+			ids: [],
+			pairs: [],
+			keys: new Map(),
+		}
+		if ('field' in change) entry.pairs.push(...(change.pairs ?? []))
 		else entry.ids.push(...(change.ids ?? []))
+		if (change.kind === 'delete') {
+			for (const [field, values] of Object.entries(change.keys ?? {})) {
+				entry.keys.set(field, [...(entry.keys.get(field) ?? []), ...values])
+			}
+		}
 		entries.set(key, entry)
 	}
-	return [...entries.values()].map(({ change, ids, pairs }): Changed => {
+	return [...entries.values()].map(({ change, ids, pairs, keys }): Changed => {
 		if ('field' in change) {
 			const { kind, model, field } = change
 			const listed = pairs.length > feedIds ? {} : { pairs }
 			return { kind, model, field, ...listed }
 		}
+		const listed = ids.length > feedIds ? undefined : ids
+		if (change.kind === 'delete') {
+			const { kind, model } = change
+			if (listed === undefined) return { kind, model }
+			const keyed = keys.size > 0 && { keys: Object.fromEntries(keys) }
+			return { kind, model, ids: listed, ...keyed }
+		}
 		const { kind, model, fields } = change
-		const listed = ids.length > feedIds ? {} : { ids }
 		const some =
 			fields !== undefined && JSON.stringify(fields).length <= feedFields
-		return { kind, model, ...listed, ...(some ? { fields } : {}) }
+		return {
+			kind,
+			model,
+			...(listed && { ids: listed }),
+			...(some ? { fields } : {}),
+		}
 	})
 }
 

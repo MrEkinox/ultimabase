@@ -16,10 +16,14 @@ const plan = (more: Partial<LivePlan>): LivePlan => ({
 	...more,
 })
 
-/** A live list of posts p1 and p2; its finder answers `found` outside it. */
+/**
+ * A live list of posts p1 and p2; its finder answers `found` outside it,
+ * and the rows in `failing` fail their level's conditions.
+ */
 const facing = (
 	more: Partial<LivePlan>,
 	found: readonly string[] = [],
+	failing: readonly string[] = [],
 ): Facing & { readonly asked: unknown[] } => {
 	const asked: unknown[] = []
 	const find: Finder = async (steps, ids, within) => {
@@ -32,6 +36,8 @@ const facing = (
 		window: new Set(['p1', 'p2']),
 		tracked: new Map([['comments', new Map([['c1', new Set(['p1'])]])]]),
 		find,
+		judge: async (_level, _changes, ids) =>
+			ids.filter((id) => !failing.includes(id)),
 		asked,
 	}
 }
@@ -78,6 +84,31 @@ describe('the changes of a live list', () => {
 		const read = facing({ where: { comments: { none: {} } } })
 		const changes = batch([['Comment', { deletes: new Set(['c1']) }]])
 		expect(await affected(read, changes)).toBe('resync')
+	})
+
+	it('reads nothing for rows that fail their level before and after', async () => {
+		const read = facing(
+			{ where: { comments: { some: { text: { equals: 'x' } } } } },
+			['p3'],
+		)
+		const failing = facing(
+			{ where: { comments: { some: { text: { equals: 'x' } } } } },
+			['p3'],
+			['c1', 'c2'],
+		)
+		const changes = batch([
+			['Comment', { inserts: new Set(['c2']), deletes: new Set(['c1']) }],
+		])
+		expect(await affected(failing, changes)).toEqual({
+			candidates: new Set(),
+			deleted: new Set(),
+			beyond: false,
+			resend: new Set(),
+		})
+		expect(failing.asked).toEqual([])
+		expect(await affected(read, changes)).toMatchObject({
+			candidates: new Set(['p3', 'p1', 'p2']),
+		})
 	})
 
 	it('sends every row again when a nested filter reaches the change', async () => {

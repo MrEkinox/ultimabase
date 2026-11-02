@@ -312,11 +312,21 @@ export type Write = {
  */
 export type Changed =
 	| {
-			readonly kind: 'insert' | 'update' | 'delete'
+			readonly kind: 'insert' | 'update'
 			readonly model: string
 			readonly ids?: readonly string[]
 			/** The fields an update set, `updatedAt` included. */
 			readonly fields?: readonly string[]
+	  }
+	| {
+			readonly kind: 'delete'
+			readonly model: string
+			readonly ids?: readonly string[]
+			/**
+			 * The stored `one` keys of the rows, each in the order of `ids`,
+			 * `null` without a target; absent with `ids` (D-196).
+			 */
+			readonly keys?: { readonly [field: string]: readonly (string | null)[] }
 	  }
 	| {
 			readonly kind: 'link' | 'unlink'

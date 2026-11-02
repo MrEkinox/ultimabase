@@ -3,25 +3,25 @@
 // run one after another; one that fails reads the window again, and a
 // second failure closes it.
 import type { Caller, Logger, ModelQueries, Row } from 'ultimabase'
-import type { LivePlan } from 'ultimabase/internal'
+import type { LivePlan, LiveReader } from 'ultimabase/internal'
 import {
 	inMemory,
+	liveReader,
 	liveSchema,
 	matches,
 	recordingVirtuals,
-	servedRows,
 	sortKeys,
 	storedRows,
 } from 'ultimabase/internal'
 import type { Finder } from './affected.ts'
 import { affected } from './affected.ts'
 import type { Batch } from './changes.ts'
+import { passing } from './levels.ts'
 import type { Reach } from './reach.ts'
-import { reachOf } from './reach.ts'
-import type { Loader } from './reads.ts'
-import { finderOf, pass } from './reads.ts'
+import { modelsOf, reachOf } from './reach.ts'
+import { finderOf, Loader, page, pass } from './reads.ts'
 import type { LiveMessage } from './messages.ts'
-import type { Entry } from './window.ts'
+import type { Keys } from './window.ts'
 import { Window } from './window.ts'
 import { Tracking } from './tracking.ts'
 import { VirtualReads } from './virtuals.ts'
@@ -42,6 +42,8 @@ export type Spec = {
 export class Live {
 	caller: Caller
 	#plan: LivePlan
+	/** Its rows' read, planned once for the caller and the plan (D-195). */
+	#reader: LiveReader | undefined
 	#reach: Reach
 	#window: Window
 	readonly #spec: Spec
@@ -81,7 +83,7 @@ export class Live {
 
 	/** Follows `batch`, or reads the window again when changes were missed. */
 	async apply(batch: Batch, loader: Loader, missed: boolean): Promise<void> {
-		const [, settled] = this.#enqueue(async () =>
+		const [, settled] = this.#enqueue(() =>
 			missed ? this.#reset() : this.#apply(batch, loader),
 		)
 		return settled
@@ -94,6 +96,7 @@ export class Live {
 				JSON.stringify(plan) === JSON.stringify(this.#plan) &&
 				JSON.stringify(caller) === JSON.stringify(this.caller)
 			this.caller = caller
+			this.#reader = undefined
 			if (same) return
 			this.#plan = plan
 			this.#reach = reachOf(liveSchema(), this.#spec.model, plan)
@@ -125,11 +128,10 @@ export class Live {
 		this.#virtuals.clear()
 	}
 
+	/** Queues `task`; no async wrapper, as each flush queues one per read. */
 	#enqueue(task: () => Promise<void>): readonly [Promise<void>, Promise<void>] {
-		const run = this.#queue.then(async () =>
-			this.#closed ? undefined : task(),
-		)
-		const settled = run.catch(async (error: unknown) => this.#recover(error))
+		const run = this.#queue.then(() => (this.#closed ? undefined : task()))
+		const settled = run.catch((error: unknown) => this.#recover(error))
 		this.#queue = settled
 		return [run, settled]
 	}
@@ -150,9 +152,8 @@ export class Live {
 		}
 	}
 
-	#entry(row: Row): Entry {
-		const keys = sortKeys(this.#spec.model, row, this.#plan.orderBy)
-		return { id: row.id, keys }
+	#entry(row: Row): Keys {
+		return sortKeys(this.#spec.model, row, this.#plan.orderBy)
 	}
 
 	/**
@@ -162,24 +163,16 @@ export class Live {
 	 */
 	async #after(take: number, loader?: Loader): Promise<readonly Row[]> {
 		const { model } = this.#spec
-		const { where, filter, rights, orderBy } = this.#plan
-		const last = this.#window.entries.at(-1)
-		const page = {
-			orderBy,
-			...(last && { cursor: { id: { equals: last.id } }, skip: 1 }),
-			take,
-		}
+		const { where, rights, orderBy } = this.#plan
+		const last = this.#window.last()
 		if (loader !== undefined && inMemory(model, rights)) {
-			const rows = await loader.after(model, {
-				...(filter && { where: filter }),
-				...page,
-			})
+			const rows = await loader.after(model, this.#plan, last, take)
 			const kept = rows.filter((row) => matches(model, row, rights))
 			if (kept.length >= take || rows.length < take) return kept.slice(0, take)
 		}
 		return storedRows(model, {
 			...(where && { where }),
-			...page,
+			...page(orderBy, last, take),
 			fields: orderBy.map(({ field }) => field),
 		})
 	}
@@ -208,13 +201,12 @@ export class Live {
 		loader?: Loader,
 	): Promise<readonly string[]> {
 		if (ids.length === 0) return []
-		const { model, queries, shape } = this.#spec
-		const args = { ...shape, where: { id: { in: ids } } }
+		const { model, shape } = this.#spec
 		const rows = loader && (await loader.load(model, ids))
-		const { result: found, reads } = await recordingVirtuals(async () =>
-			rows === undefined
-				? queries.findMany(args, { as: this.caller })
-				: servedRows(model, args, this.caller, rows),
+		this.#reader ??= await liveReader(model, shape, this.caller)
+		const reader = this.#reader
+		const { result: found, reads } = await recordingVirtuals(() =>
+			reader(ids, rows),
 		)
 		this.#virtuals.keep(found, reads)
 		for (const node of found) {
@@ -265,18 +257,22 @@ export class Live {
 		this.#window = new Window(orderBy, first)
 		this.#tracking.clear()
 		this.#virtuals.clear()
+		// One query, of the fields that place and show a row, given to the reader.
+		const { placing: place, showing: show } = this.#reach
 		const rows = await storedRows(model, {
 			...(where && { where }),
 			orderBy,
 			take: first + 2,
-			fields: orderBy.map(({ field }) => field),
+			...(place !== 'all' && show !== 'all' && { fields: [...place, ...show] }),
 		})
+		const loader = new Loader()
+		loader.keep(model, rows)
 		const entries = rows.slice(0, first + 1).map((each) => this.#entry(each))
 		this.#window.fill(entries, rows.length > first + 1)
-		const { nodes } = await this.#settle(new Set(), new Set())
+		const { nodes } = await this.#settle(new Set(), new Set(), loader)
 		this.#count = totalCount ? await this.#counted() : undefined
 		this.#hasMore = this.#window.hasMore()
-		const shown = this.#window.shown().flatMap(({ id }) => nodes.get(id) ?? [])
+		const shown = this.#window.shown().flatMap((id) => nodes.get(id) ?? [])
 		if (this.#closed) return
 		if (row) {
 			send({ kind: 'row', revision: this.#next(), row: shown[0] ?? null })
@@ -301,6 +297,8 @@ export class Live {
 				window: window.ids(),
 				tracked: this.#tracking.tracked,
 				find: this.#find,
+				judge: async (level, changes, ids) =>
+					passing(modelsOf(liveSchema()), level, changes, ids, loader),
 			},
 			batch,
 		)
@@ -365,8 +363,8 @@ export class Live {
 		if (this.#closed) return
 		if (row) {
 			if (moves.removed.length + moves.placed.length === 0) return
-			const [entry] = this.#window.shown()
-			const shown = entry === undefined ? null : (nodes.get(entry.id) ?? null)
+			const [id] = this.#window.shown()
+			const shown = id === undefined ? null : (nodes.get(id) ?? null)
 			send({ kind: 'row', revision: this.#next(), row: shown })
 			return
 		}

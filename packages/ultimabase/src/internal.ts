@@ -22,13 +22,13 @@ export { issueOf } from './write-data.ts'
 export { decimalPattern } from './decimal.ts'
 export type { Recorded } from './recorder.ts'
 export { recording, recordingVirtuals } from './recorder.ts'
-export type { LivePlan } from './live.ts'
+export type { LivePlan, LiveReader } from './live.ts'
 export {
 	inMemory,
 	liveSchema,
 	livePlan,
+	liveReader,
 	matches,
-	servedRows,
 	sortKeys,
 	storedRows,
 } from './live.ts'
@@ -76,12 +76,13 @@ export function runningApi(name: string): unknown {
 }
 
 /**
- * Empties the running application's database, then has its live reads read
- * again (D-188).
+ * Empties the running application's database once its running operations
+ * are over, new ones held until then, then has its live reads read again
+ * (D-188).
  */
 export async function emptyRunning(): Promise<void> {
 	const app = current()
 	if (app === undefined) throw new Error('No application is running.')
-	await app.work.run(async () => app.adapter.empty())
+	await app.work.alone(5000, async () => app.adapter.empty())
 	app.feed?.missed()
 }

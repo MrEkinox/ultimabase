@@ -49,28 +49,27 @@ export type Checks = [
 				readonly createdAt: Date
 				readonly updatedAt: Date
 			} & {
-				readonly title: string
 				readonly status: 'draft' | 'published'
 				readonly views: number
 				readonly pinned: boolean | null
 				readonly publishedAt: Date | null
 				readonly meta: unknown
 				readonly deletedAt: Date | null
-			}
+				// A read rule may hide it (D-44).
+			} & { readonly title?: string }
 		>
 	>,
 	Expect<
 		Equal<
 			(typeof selected)[number],
 			{
-				readonly title: string
-				readonly author: { readonly email: string } | null
+				readonly author: { readonly email?: string } | null
 				readonly tags: ({
 					readonly id: string
 					readonly createdAt: Date
 					readonly updatedAt: Date
 				} & { readonly label: string })[]
-			}
+			} & { readonly title?: string }
 		>
 	>,
 	Expect<

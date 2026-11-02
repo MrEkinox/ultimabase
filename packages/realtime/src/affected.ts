@@ -1,9 +1,9 @@
 // What a flush's changes do to one live read (D-154): the root rows to place
 // again, the window rows deleted or to send again, or a resync when the feed
 // does not say which rows changed.
-import type { Batch } from './changes.ts'
+import type { Batch, ModelChanges } from './changes.ts'
 import { listed, touched, unlisted } from './changes.ts'
-import type { Reach, Step } from './reach.ts'
+import type { Level, Reach, Step } from './reach.ts'
 
 export type Affected = {
 	/** Root rows whose membership or order may have changed. */
@@ -32,12 +32,30 @@ export type Tracked = ReadonlyMap<
 	ReadonlyMap<string, ReadonlySet<string>>
 >
 
+/** The window's ids, a set or a map by id. */
+export type Ids = {
+	readonly size: number
+	has: (id: string) => boolean
+	keys: () => Iterable<string>
+}
+
+/**
+ * The ids among `ids`, rows `changes` wrote at `level`, that may make a
+ * row above pass or fail (D-196).
+ */
+export type Judge = (
+	level: Level,
+	changes: ModelChanges,
+	ids: readonly string[],
+) => Promise<readonly string[]>
+
 export type Facing = {
 	readonly model: string
 	readonly reach: Reach
-	readonly window: ReadonlySet<string>
+	readonly window: Ids
 	readonly tracked: Tracked
 	readonly find: Finder
+	readonly judge: Judge
 }
 
 /** What `batch` does to the live read `facing` describes. */
@@ -45,7 +63,7 @@ export async function affected(
 	facing: Facing,
 	batch: Batch,
 ): Promise<Affected | 'resync'> {
-	const { model, reach, window, find } = facing
+	const { model, reach, window, find, judge } = facing
 	const root = batch.get(model)
 	if (unlisted(root)) return 'resync'
 	const candidates = new Set(listed(root?.inserts))
@@ -68,23 +86,25 @@ export async function affected(
 		const step = level.steps.at(-1)
 		if (step === undefined || changes === undefined) continue
 		if (unlisted(changes)) return 'resync'
-		const ids = [
+		const rewritten = listed(changes.updates)
+		const written = [
 			...listed(changes.inserts),
-			...(touched(changes, level.fields) ? listed(changes.updates) : []),
+			...(touched(changes, level.fields) ? rewritten : []),
 		]
+		const ids = written.length > 0 ? await judge(level, changes, written) : []
 		if (ids.length > 0) {
 			for (const id of await find(level.steps, ids)) candidates.add(id)
 		}
 		// A link lost where it is stored: the rows that had it are unknown.
-		const lost =
-			changes.deletes !== undefined ||
-			(step.keyOnTarget && touched(changes, new Set([step.inverse])))
-		if (!lost) continue
+		const moved = step.keyOnTarget && touched(changes, new Set([step.inverse]))
+		const losing = [...listed(changes.deletes), ...(moved ? rewritten : [])]
+		if (losing.length === 0) continue
 		if (level.negative) return 'resync'
-		for (const id of window) candidates.add(id)
+		if ((await judge(level, changes, losing)).length === 0) continue
+		for (const id of window.keys()) candidates.add(id)
 	}
 	const again = await shown(facing, batch)
-	for (const id of again === 'all' ? window : again) resend.add(id)
+	for (const id of again === 'all' ? window.keys() : again) resend.add(id)
 	return { candidates, deleted, beyond, resend }
 }
 
@@ -110,7 +130,7 @@ async function shown(
 		}
 		const ids = [...listed(changes.inserts), ...updated]
 		if (ids.length === 0 || window.size === 0) continue
-		for (const id of await find(relation.steps, ids, [...window])) {
+		for (const id of await find(relation.steps, ids, [...window.keys()])) {
 			resend.add(id)
 		}
 	}
