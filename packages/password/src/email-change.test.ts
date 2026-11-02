@@ -331,10 +331,17 @@ describe('requestEmailChange and confirmEmailChange', () => {
 			email: 'grace@example.com',
 			data: { name: 'Grace' },
 		})
+		// The details a taken email has at sign-up.
+		const details = { model: 'User', fields: ['email'] }
 		for (const taken of ['grace@example.com', ada.email]) {
-			expect((await request(url, session, taken)).body).toMatchObject(
-				failed('UNIQUE_VIOLATION', 'This email has an account.'),
-			)
+			expect((await request(url, session, taken)).body).toMatchObject({
+				errors: [
+					{
+						message: 'This email has an account.',
+						extensions: { code: 'UNIQUE_VIOLATION', details },
+					},
+				],
+			})
 		}
 		expect(outbox).toHaveLength(0)
 	})
