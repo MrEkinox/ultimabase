@@ -9122,6 +9122,8 @@ type Stage {
 
 ## D-152: Files
 
+Amended by D-200.
+
 Choice: completes D-32 and D-122; amends D-32 (no `local()`), D-89 (a
 plugin model knows its name) and D-122 points 2 and 5.
 
@@ -12782,3 +12784,54 @@ Rejected:
   request nobody asked for.
 - A CI check that every `uses:` names a SHA: the workflows are two files,
   read in each pull request that changes them.
+
+## D-200: A private file's URL stays the same for 15 minutes
+
+Choice: amends D-152 points 3 and 7.
+
+1. `s3()` signs a private file's read URL with the start of its
+   15-minute window of UTC time, not the time of the read, and an expiry
+   of 30 minutes: every read in one window returns the same URL, valid 15
+   to 30 minutes from the read.
+2. The window is fixed: no option. Uploads, deletes and listings keep
+   their 15-minute presigns from the time of the request.
+3. `memoryFiles()` gives a private file `memory://files/<key>?expires=1800`,
+   the same at every read.
+4. A public file's URL stays as it is: stable, not signed.
+
+Before, the same row read twice, a minute apart:
+
+```ts
+const a = await Post.findUnique({ where: { id } }, { as })
+const b = await Post.findUnique({ where: { id } }, { as })
+a.cover.url // …&X-Amz-Date=20261102T101203Z&X-Amz-Expires=3600&…
+b.cover.url // …&X-Amz-Date=20261102T101307Z&X-Amz-Expires=3600&…
+```
+
+After:
+
+```ts
+a.cover.url // …&X-Amz-Date=20261102T100000Z&X-Amz-Expires=1800&…
+b.cover.url // the same string
+```
+
+Why:
+
+- A live read sends a row again when something else in it changed. A new
+  signature then changes every file URL in the row: the client downloads
+  the images again, since the URL is their cache key, and a form or a
+  component keyed by the value resets.
+- A URL is computed while the read decodes (D-152), with no storage call
+  and no cache: the window keeps that.
+- A URL is still valid at least one full window after the last read that
+  gave it, so a client that keeps it for its window never holds an expired
+  one.
+
+Rejected:
+
+- A `/files/<key>` route that checks read access and redirects to a fresh
+  presigned URL: a route, a read per image, and its own access rules, for
+  a URL that S3 checks already.
+- An option for the window: no application asked for another one.
+- One-hour windows: with the two-window expiry, a leaked URL would work up
+  to two hours, twice as long as today.

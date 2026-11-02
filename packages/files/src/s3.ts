@@ -80,6 +80,9 @@ function pageOf(xml: string): {
 	return { keys, next: truncated && token ? decoded(token) : undefined }
 }
 
+/** A private file's URL stays the same this long, in milliseconds. */
+const urlWindow = 15 * 60 * 1000
+
 /** An S3-compatible storage; its options are checked when the application starts. */
 export function s3(options: S3Options): FileStorage {
 	let config: Config | undefined
@@ -90,7 +93,8 @@ export function s3(options: S3Options): FileStorage {
 		url: URL,
 		expires: number,
 		headers: { readonly [name: string]: string } = {},
-	) => presign(configured(), { method, url, expires, headers })
+		at?: Date,
+	) => presign(configured(), { method, url, expires, headers }, at)
 	return {
 		start: () => {
 			configured()
@@ -131,7 +135,11 @@ export function s3(options: S3Options): FileStorage {
 			return keys
 		},
 		url: (key) => {
-			if (!isPublic(key)) return signed('GET', objectUrl(key), 3600)
+			if (!isPublic(key)) {
+				// The same URL for a whole window, valid one more (D-200).
+				const start = Math.floor(Date.now() / urlWindow) * urlWindow
+				return signed('GET', objectUrl(key), 1800, {}, new Date(start))
+			}
 			const { publicUrl } = options
 			return publicUrl === undefined
 				? objectUrl(key).href

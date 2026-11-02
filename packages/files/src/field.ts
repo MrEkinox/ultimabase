@@ -46,7 +46,7 @@ export interface FileOptions {
 	readonly maxSize?: number
 	/** MIME types or patterns: `['image/*', 'application/pdf']`; any by default. */
 	readonly accept?: readonly string[]
-	/** Served to everyone at a stable URL; presigned for one hour otherwise. */
+	/** Served to everyone at a stable URL; presigned otherwise, the same for 15 minutes. */
 	readonly public?: boolean
 	readonly inline?: { readonly [key: string]: Inline }
 	readonly variants?: { readonly [key: string]: Variant }

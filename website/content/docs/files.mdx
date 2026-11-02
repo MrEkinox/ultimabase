@@ -103,9 +103,16 @@ streams it to the storage.
 ## Public and private files
 
 A public file has a stable URL, which a CDN may cache; a private one, the
-default, reads with a URL signed for one hour. Either way the URL is the
-storage's, not the application's, so a file cannot read the application's
-cookies. The read and access rules of the row decide who gets the URL.
+default, reads with a signed URL. Either way the URL is the storage's, not
+the application's, so a file cannot read the application's cookies. The
+read and access rules of the row decide who gets the URL.
+
+A private file's URL stays the same for 15 minutes: every read in one
+window of UTC time, :00 to :15, :15 to :30 and so on, returns it, and it
+works until the end of the next window. A URL is valid 15 to 30 minutes
+after the read that gave it, and a row sent again by a live read keeps its
+URLs, so the client neither downloads its images again nor sees its
+values change.
 
 ## From server code
 
@@ -145,7 +152,7 @@ directly; a missing one throws at start.
 | `list`        | boolean                              | `false`      | A list of files, `[]` when empty.                                            |
 | `maxSize`     | number of bytes                      | the plugin's | The largest file the field takes, larger or smaller than the plugin's.       |
 | `accept`      | MIME types or patterns               | any          | `['image/*', 'application/pdf']`; an undetected type must be listed as is.   |
-| `public`      | boolean                              | `false`      | A stable URL; a private file's URL is signed for one hour.                   |
+| `public`      | boolean                              | `false`      | A stable URL; a private file's URL is signed, the same for 15 minutes.       |
 | `inline`      | `{ [name]: run \| { run, schema } }` | none         | Values computed at upload, each JSON of 2 KB at most, read with the row.     |
 | `variants`    | `{ [name]: run }`                    | none         | Other files made at upload, each `({ body, type, name }) => { body, type }`. |
 | `description` | string                               | none         | The field's description in GraphQL and OpenAPI.                              |
@@ -155,15 +162,15 @@ stored before it.
 
 ### What a file reads as
 
-| Key        | Type                                      | Effect                                                   |
-| ---------- | ----------------------------------------- | -------------------------------------------------------- |
-| `id`       | string                                    | What a write takes.                                      |
-| `name`     | string                                    | The name given at upload.                                |
-| `type`     | string                                    | The detected MIME type, or the declared one.             |
-| `size`     | number                                    | In bytes.                                                |
-| `url`      | string                                    | Stable for a public file, signed for one hour otherwise. |
-| `inline`   | object                                    | The `inline` values.                                     |
-| `variants` | `{ [name]: { type, size, url } \| null }` | The variants.                                            |
+| Key        | Type                                      | Effect                                                           |
+| ---------- | ----------------------------------------- | ---------------------------------------------------------------- |
+| `id`       | string                                    | What a write takes.                                              |
+| `name`     | string                                    | The name given at upload.                                        |
+| `type`     | string                                    | The detected MIME type, or the declared one.                     |
+| `size`     | number                                    | In bytes.                                                        |
+| `url`      | string                                    | Stable for a public file, signed for 15 to 30 minutes otherwise. |
+| `inline`   | object                                    | The `inline` values.                                             |
+| `variants` | `{ [name]: { type, size, url } \| null }` | The variants.                                                    |
 
 In GraphQL the field is typed, as `PostCover`; a write takes the `JSON`
 scalar, an id or a list operation.
