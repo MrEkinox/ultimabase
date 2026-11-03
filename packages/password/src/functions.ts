@@ -59,7 +59,10 @@ export function passwordFunctions(
 			const state = stateOf()
 			if (client !== undefined) await requestLimited('signUp', client.address)
 			const { email, password, ...data } = input
-			const { user, stamp } = await createUser(state, email, password, data)
+			const { user, stamp } = await createUser(state, email, password, data, [
+				'input',
+				'password',
+			])
 			if (mailer !== undefined) {
 				later(state, async () => {
 					await mailer('verify', user.id, email)
@@ -88,7 +91,7 @@ export function passwordFunctions(
 			const state = stateOf()
 			const { id } = user
 			await checkCurrent(id, input.currentPassword, attemptOf(id, client))
-			await checkNewFor(state, id, input.newPassword, 'newPassword')
+			await checkNewFor(state, id, input.newPassword, ['input', 'newPassword'])
 			const stamp = await setPassword(state, id, input.newPassword)
 			return signedIn(state, { userId: id, stamp }, client)
 		}),

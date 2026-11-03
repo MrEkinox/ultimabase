@@ -52,7 +52,9 @@ the JSON field with a schema is an object type, the decimal a string.
 Each field checks its type; `validate` adds a rule. It takes a Standard
 Schema (Zod, Valibot, ArkType…) or a function that returns the value to
 store and throws to refuse it; the issue takes the error's message, and a
-`PublicError`'s code for the client to test. A refused write writes nothing
+`PublicError`'s code for the client to test. A schema's issue keeps its
+code when it is in capitals, as `NAME_LENGTH`; a library's, as Zod's
+`too_small`, is left out. A refused write writes nothing
 and returns `VALIDATION_FAILED`, with one issue per refused field; a second
 row with a unique value returns `UNIQUE_VIOLATION`. With
 `unique: 'insensitive'`, a string clashes with another case of itself,

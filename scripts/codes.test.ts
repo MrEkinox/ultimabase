@@ -15,7 +15,7 @@ const packages = 'packages'
 // codes, `create-ultimabase` is the command line: none is a server's plugin.
 const outside = new Set(['live', 'testing', 'create-ultimabase'])
 
-/** All-caps literals that name no code: environment variables, Node's errors and signals, HTTP methods, SQL, schema names. */
+/** All-caps literals that name no error's code: environment variables, Node's errors and signals, HTTP methods, SQL, schema names, issue codes (D-224). */
 const notCodes = new Set([
 	'NODE_ENV',
 	'PORT',
@@ -37,6 +37,9 @@ const notCodes = new Set([
 	'NFKC',
 	'JSON',
 	'REST',
+	'PASSWORD_LENGTH',
+	'PASSWORD_IS_EMAIL',
+	'PASSWORD_BREACHED',
 ])
 
 // The kernel's query errors, which every transport sends as BAD_USER_INPUT.

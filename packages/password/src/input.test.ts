@@ -107,6 +107,7 @@ describe('a sign-up input', () => {
 				{
 					path: ['input', 'password'],
 					message: 'A password has 8 to 256 characters.',
+					code: 'PASSWORD_LENGTH',
 				},
 				{ path: ['input', 'name'], message: 'Required.' },
 				{ path: ['input', 'age'], message: 'Expected a finite number.' },

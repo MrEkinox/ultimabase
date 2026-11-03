@@ -2709,6 +2709,8 @@ export const Person = defineModel({
 
 ## D-88: Hooks, validation and transactions at run time
 
+Amended by D-224.
+
 Choice: eleven details of D-15, D-23, D-36, D-67 and D-71 at run time.
 
 1. A `*Commit` hook is awaited before its operation, or the outermost
@@ -13833,6 +13835,8 @@ settled, then rolls back; `pg` warns of nothing.
 
 ## D-209: Breached passwords, and a password that is the email
 
+Amended by D-224.
+
 Choice: amends D-113.
 
 1. `passwordPlugin({ breached: true })` refuses a new password that
@@ -14843,6 +14847,44 @@ Rejected:
 - A missed occurrence run once per occurrence, which floods a restart.
 - The files sweep moved onto jobs, which would make files require jobs.
 
+## D-222: The maintenance's `retryAfter` is a positive number
+
+Choice: amends D-205 point 2.
+
+1. `maintenancePlugin({ retryAfter })` takes a finite number of
+   milliseconds above 0. Another value, as `NaN`, `0`, a negative number or
+   `Infinity`, refuses the start:
+   `The maintenance's retryAfter is a positive number of milliseconds.`
+
+Why:
+
+- The header carried the value as written: `Retry-After: NaN` and
+  `Retry-After: -5`, which a client reads as nothing or as at once, and
+  `details.retryAfter` was `null` for `NaN`. The start refuses an `initial`
+  it does not know already (D-207 point 4).
+- `0` tells every client to try again at once, which loads the servers
+  during the maintenance.
+
+Rejected:
+
+- Accepting `0`, for the reason above.
+- Clamping a wrong value to the default: a typo would pass unseen.
+
+Example, before: a value read from the environment, unset, starts the
+application and sends `Retry-After: NaN`.
+
+```ts
+maintenancePlugin({ retryAfter: Number(process.env.RETRY_AFTER) })
+// 503, retry-after: NaN, { "details": { "retryAfter": null } }
+```
+
+After: the start says why.
+
+```ts
+maintenancePlugin({ retryAfter: Number(process.env.RETRY_AFTER) })
+// Refused: The maintenance's retryAfter is a positive number of milliseconds.
+```
+
 ## D-223: The server's own origin over HTTPS, and the body limit and drain checked
 
 Choice: amends D-106 points 5 and 6, D-154 (the upgrade's origin) and D-204
@@ -14912,6 +14954,77 @@ After: the start says why.
 httpPlugin({ bodyLimit: Number(process.env.BODY_LIMIT) })
 // Refused: bodyLimit is NaN, not a whole number of bytes above 0.
 ```
+
+## D-224: An issue's code, from a schema and from the password's refusals
+
+Choice: amends D-88 and D-209.
+
+1. The kernel keeps an issue's `code` from any Standard Schema, a
+   function's input or a field's schema, when it is a string of capitals,
+   digits and underscores starting with a capital: `PASSWORD_LENGTH`. Any
+   other `code`, as Zod's `too_small`, is dropped, as before: an issue's
+   code is the application's stable contract, not a library's.
+2. The password's three refusals of a new password carry a code:
+   `PASSWORD_LENGTH` (8 to 256 characters), `PASSWORD_IS_EMAIL` and
+   `PASSWORD_BREACHED`, on sign-up, `changePassword`, a reset and
+   `User.setPassword`. One code for the length: the bounds are fixed.
+3. In a function, the three refusals share the path the input's other
+   issues have, `['input', 'newPassword']`; a command's stay on the
+   argument, `['password']`. The messages do not change.
+4. An issue's code is not an error's: the error stays `VALIDATION_FAILED`,
+   so a plugin does not declare its issue codes in its `PluginTypes`
+   `errors` (D-206), which types `error.code`.
+
+Before, a client told a breached password from a short one by its English
+message, and `changePassword`'s two refusals of the same field had two
+paths:
+
+```ts
+// changePassword({ input: { currentPassword, newPassword: 'short' } })
+issues: [
+	{
+		path: ['input', 'newPassword'],
+		message: 'A password has 8 to 256 characters.',
+	},
+]
+// changePassword({ input: { currentPassword, newPassword: 'ada.lovelace' } })
+issues: [{ path: ['newPassword'], message: 'A password cannot be the email.' }]
+```
+
+After:
+
+```ts
+issues: [
+	{
+		path: ['input', 'newPassword'],
+		message: 'A password has 8 to 256 characters.',
+		code: 'PASSWORD_LENGTH',
+	},
+]
+issues: [
+	{
+		path: ['input', 'newPassword'],
+		message: 'A password cannot be the email.',
+		code: 'PASSWORD_IS_EMAIL',
+	},
+]
+
+const [issue] = error.details.issues
+const text = {
+	PASSWORD_LENGTH: t('length'),
+	PASSWORD_IS_EMAIL: t('email'),
+	PASSWORD_BREACHED: t('breached'),
+}
+```
+
+Rejected:
+
+- Checking the length in the function's run, after its input: a sign-up
+  would no longer list every issue of its input at once.
+- Keeping any string `code`: Zod's and ArkType's issue codes would reach the
+  client, and change with the library.
+- `PASSWORD_TOO_SHORT` and `PASSWORD_TOO_LONG`: a client knows the bounds,
+  and the length of what it sent.
 
 ## D-225: `.commands` before `.with`, and a builder's return type across models
 

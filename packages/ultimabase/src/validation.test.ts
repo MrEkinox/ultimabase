@@ -151,6 +151,24 @@ describe('a validate the types would refuse', () => {
 		})
 	})
 
+	// A client could not tell a schema's refusals apart but by their message.
+	it("keeps an issue's code in capitals, and drops a library's (D-224)", async () => {
+		const issues = [
+			{ message: 'Too short.', code: 'NAME_LENGTH' },
+			{ message: 'Too small.', code: 'too_small' },
+			{ message: 'Odd.', code: 7 },
+		]
+		expect(await probe(schema(() => ({ issues })))).toEqual({
+			issues: [
+				{ path: ['n'], message: 'Too short.', code: 'NAME_LENGTH' },
+				{ path: ['n'], message: 'Too small.' },
+				{ path: ['n'], message: 'Odd.' },
+			],
+		})
+		const zod = await probe(z.string().min(2))
+		expect(zod).toEqual({ issues: [{ path: ['n'], message: aMessage }] })
+	})
+
 	it('runs a schema with `this` as its ~standard', async () => {
 		const standard = {
 			version: 1,
