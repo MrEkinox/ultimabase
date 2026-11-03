@@ -12,14 +12,15 @@ import {
 	specifiedRules,
 	validate,
 	validateExecutionArgs,
+	validateSchema,
 } from 'graphql'
-import { createHandler } from 'graphql-http/lib/use/fetch'
+import { createHandler } from 'graphql-http'
 import type { Http } from '@ultimabase/http'
 import { clientOf, httpPlugin, routes } from '@ultimabase/http'
 import type { Realtime } from '@ultimabase/realtime'
 import { realtimePlugin } from '@ultimabase/realtime'
 import type { Caller, Client, PluginOf, PluginTypes, UseOf } from 'ultimabase'
-import { definePlugin } from 'ultimabase'
+import { definePlugin, Refused } from 'ultimabase'
 import manifest from '../package.json' with { type: 'json' }
 import { depthRule, introspectionDepthRule } from './depth.ts'
 import { formatter } from './errors.ts'
@@ -129,6 +130,13 @@ const plugin = definePlugin<Graphql>({
 			},
 		})
 		const schema = options.extend?.(generated) ?? generated
+		// An invalid schema fails every request: it refuses the start (D-227).
+		const invalid = validateSchema(schema).map(({ message }) => message)
+		if (invalid.length > 0) {
+			throw new Refused(
+				`graphqlPlugin: the schema is invalid. ${invalid.join(' ')}`,
+			)
+		}
 		if (options.generated !== undefined) {
 			files.set(pluginContext, { path: options.generated, schema })
 		}
@@ -142,16 +150,6 @@ const plugin = definePlugin<Graphql>({
 		const budget = rowBudget(registry, { maxRows, maxDepth }, called.reads)
 		// The contexts of Master's requests, which no budget limits.
 		const exempt = new WeakSet<object>()
-		// The caller the HTTP plugin read and the client, by its request.
-		const requests = new WeakMap<
-			Request,
-			{ readonly caller: Caller; readonly client: Client }
-		>()
-		const heldOf = (request: Request) => {
-			const held = requests.get(request)
-			if (held === undefined) throw new Error('No caller was read.')
-			return held
-		}
 		const operations: Operations = {
 			schema,
 			// Validation is quadratic in a field repeated under one key, so a
@@ -192,15 +190,19 @@ const plugin = definePlugin<Graphql>({
 			format: formatter(logger),
 			logger,
 		}
-		const handler = createHandler<Context>({
+		// The core handler, not the fetch adapter, which answers a thrown error
+		// with an empty 500 the HTTP plugin never logs (D-227).
+		const handler = createHandler<
+			Request,
+			{ readonly caller: Caller; readonly client: Client },
+			Context
+		>({
 			schema,
 			parse: operations.parse,
-			context: (request) => {
-				const { caller, client } = heldOf(request.raw)
-				return operations.context(caller, client)
-			},
-			validationRules: (request) =>
-				operations.rules(heldOf(request.raw).caller.kind === 'master'),
+			context: ({ context: { caller, client } }) =>
+				operations.context(caller, client),
+			validationRules: ({ context: { caller } }) =>
+				operations.rules(caller.kind === 'master'),
 			validate: (_, document, rules) => operations.validate(document, rules),
 			execute: operations.execute,
 			formatError: operations.format,
@@ -214,17 +216,17 @@ const plugin = definePlugin<Graphql>({
 					c.req.method === 'GET' &&
 					c.req.header('accept')?.includes('text/html') === true
 				if (page !== undefined && browsing) return page()
-				// A middleware may have read the body: Hono kept it, not the request.
-				const request =
-					c.req.method === 'POST' && c.req.raw.bodyUsed
-						? new Request(c.req.raw, {
-								method: 'POST',
-								body: await c.req.text(),
-							})
-						: c.req.raw
 				const { client, sent } = clientOf(c)
-				requests.set(request, { caller: c.var.caller, client })
-				return sent(await handler(request))
+				const [body, init] = await handler({
+					method: c.req.method,
+					url: c.req.url,
+					headers: c.req.raw.headers,
+					// Hono keeps a body a middleware has read.
+					body: async () => c.req.text(),
+					raw: c.req.raw,
+					context: { caller: c.var.caller, client },
+				})
+				return sent(new Response(body, init))
 			}),
 		)
 		if (realtime !== undefined) {

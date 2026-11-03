@@ -5,7 +5,7 @@
 	"maintenance": 240,
 	"postgres": 4095,
 	"http": 1590,
-	"graphql": 4760,
+	"graphql": 4790,
 	"auth": 790,
 	"password": 2213,
 	"roles": 330,
