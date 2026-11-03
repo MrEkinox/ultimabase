@@ -2,7 +2,7 @@
 import { readable } from '@ultimabase/http/internal'
 import { entryOf } from './entries.ts'
 import type { Schema } from './openapi.ts'
-import { objectOf } from './openapi.ts'
+import { described, objectOf } from './openapi.ts'
 import type { Doc } from './openapi-inputs.ts'
 import { searched } from './openapi-inputs.ts'
 
@@ -36,6 +36,6 @@ export function orderByOf(doc: Doc, model: string): Schema {
 				fields[field.name] = order
 			}
 		}
-		return objectOf(fields)
+		return objectOf(described(fields, {}, entry.exposed.deprecations))
 	})
 }

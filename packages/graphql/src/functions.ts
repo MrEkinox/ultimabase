@@ -189,6 +189,7 @@ class Builder {
 			// Absent when a read rule hides it (D-44).
 			type: ruled && type instanceof GraphQLNonNull ? type.ofType : type,
 			description: virtual.description,
+			deprecationReason: virtual.deprecated,
 			args: given?.args ?? {},
 			resolve: (source, _, context, info) => {
 				const value: unknown = Reflect.get(Object(source), name)
@@ -257,6 +258,7 @@ class Builder {
 		const config = {
 			type,
 			description: fn.description,
+			deprecationReason: fn.deprecated,
 			args: { ...given?.args, ...(paged ? pageArgsOf(registry) : {}) },
 		}
 		const field: Field = {

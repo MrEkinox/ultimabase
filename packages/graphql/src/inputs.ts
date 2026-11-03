@@ -19,7 +19,7 @@ import {
 import type { SchemaField } from 'ultimabase'
 import { upper } from './names.ts'
 import type { Args, Registry, Scalar } from './registry.ts'
-import { scalarType } from './registry.ts'
+import { deprecated, scalarType } from './registry.ts'
 import { DateTime } from './scalars.ts'
 
 /** An input object's value, as the kernel's arguments. */
@@ -204,7 +204,7 @@ export function whereInput(
 									: relationFilter(registry, field),
 						}
 					}
-					return fields
+					return deprecated(entry, fields)
 				},
 			}),
 	)
@@ -271,7 +271,7 @@ export function orderByInput(
 							fields[field.name] = { type }
 						}
 					}
-					return fields
+					return deprecated(entry, fields)
 				},
 			}),
 	)

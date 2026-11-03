@@ -104,7 +104,8 @@ function exposed(name: string, resolved: Resolved): readonly ExposedModel[] {
 		return Object.freeze({
 			schema: schemaOf(resolved, info.name),
 			description: info.definition.description,
-			descriptions: descriptions(info),
+			descriptions: texts(info, 'description'),
+			deprecations: texts(info, 'deprecated'),
 			enums: enums(info),
 			uniques: info.uniques,
 			readRules: readRules(info),
@@ -115,6 +116,7 @@ function exposed(name: string, resolved: Resolved): readonly ExposedModel[] {
 				Object.freeze({
 					name: virtual.name,
 					description: virtual.description,
+					deprecated: virtual.deprecated,
 					input: virtual.input?.schema,
 					output: virtual.output,
 					default: virtual.default,
@@ -149,12 +151,15 @@ function required(info: ModelInfo): readonly string[] {
 		.map((field) => field.name)
 }
 
-/** Each field's `description` (D-150). */
-function descriptions(info: ModelInfo): ExposedModel['descriptions'] {
+/** Each field's `description` (D-150) or `deprecated` (D-216). */
+function texts(
+	info: ModelInfo,
+	key: 'description' | 'deprecated',
+): { readonly [field: string]: string } {
 	const found: { [field: string]: string } = {}
 	for (const field of info.fields.values()) {
-		const description = field.options['description']
-		if (typeof description === 'string') found[field.name] = description
+		const text = field.options[key]
+		if (typeof text === 'string') found[field.name] = text
 	}
 	return found
 }

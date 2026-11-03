@@ -125,7 +125,7 @@ describe('a field type with options', () => {
 	it('refuses an option it does not name', () => {
 		// @ts-expect-error: a score takes max, not min.
 		expect(() => score({ min: 1 })).toThrow(
-			'A score field takes default, description, max only, not min.',
+			'A score field takes default, description, deprecated, max only, not min.',
 		)
 	})
 

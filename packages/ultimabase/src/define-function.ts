@@ -4,7 +4,6 @@
 import { refused } from './access.ts'
 import type { FunctionDefinition, Output } from './definition.ts'
 import {
-	describedBy,
 	functionDefinitions,
 	holdsPage,
 	nameOf,
@@ -13,6 +12,7 @@ import {
 	typeDefinitions,
 	withOnce,
 } from './definition.ts'
+import { describedBy } from './described.ts'
 import { entriesOf } from './plugin-use.ts'
 import { callerOf } from './engine.ts'
 import { PublicError, Refused } from './errors.ts'
@@ -138,6 +138,8 @@ export function defineFunction<
 		readonly name: N
 		/** What the function does, which the transports show (D-150). */
 		readonly description?: string
+		/** Why clients should stop calling it, and what replaces it (D-216). */
+		readonly deprecated?: string
 		/** A query, served over GET too; a mutation by default (D-109). */
 		readonly query?: boolean
 		readonly use?: U
@@ -153,6 +155,7 @@ export function defineFunction<
 	const { query = false, input, output, run } = definition
 	const name = nameOf(definition.name, 'defineFunction')
 	const description = describedBy(definition.description, name)
+	const deprecated = describedBy(definition.deprecated, name, 'deprecated')
 	if (typeof query !== 'boolean')
 		throw new Refused(`${name}: query is a boolean.`)
 	if (input !== undefined && standardOf(input) === undefined) {
@@ -168,6 +171,7 @@ export function defineFunction<
 	const record: FunctionDefinition = {
 		name,
 		description,
+		deprecated,
 		query,
 		input,
 		output: read,

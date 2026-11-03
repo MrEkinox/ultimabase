@@ -132,6 +132,7 @@ export function exposedFunctions(
 		return Object.freeze({
 			name: record.name,
 			description: record.description,
+			deprecated: record.deprecated,
 			plugin: functions.plugins.get(value),
 			query: record.query,
 			used: record.uses.some((use) => use.code.name === name),

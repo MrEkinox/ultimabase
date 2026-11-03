@@ -1,6 +1,7 @@
 // Shared enums (D-150): one name and its values, which every field taking
 // it shows as one GraphQL enum and one OpenAPI schema; storage is unchanged.
-import { describedBy, enumValues, sharedEnums } from './definition.ts'
+import { enumValues, sharedEnums } from './definition.ts'
+import { describedBy } from './described.ts'
 import type { Enum } from './fields.ts'
 
 /** A shared enum, frozen, which `f.enumOf` takes in place of its values. */

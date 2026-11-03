@@ -25,6 +25,8 @@ export interface ExposedModel<W = unknown> {
 	/** The model's `description` and its fields' (D-150). */
 	readonly description: string | undefined
 	readonly descriptions: { readonly [field: string]: string }
+	/** Each field's `deprecated`: why clients should stop using it (D-216). */
+	readonly deprecations: { readonly [field: string]: string }
 	/** Each field whose values are a `defineEnum` (D-150). */
 	readonly enums: { readonly [field: string]: Enum }
 	/** `id`, unique fields and unique indexes (D-52). */
@@ -68,6 +70,8 @@ export interface ExposedModel<W = unknown> {
 export interface ExposedVirtual {
 	readonly name: string
 	readonly description: string | undefined
+	/** Why clients should stop reading it (D-216). */
+	readonly deprecated: string | undefined
 	/** A Standard Schema of an object: the field's arguments. */
 	readonly input: StandardSchema | undefined
 	readonly output: ExposedOutput
@@ -79,6 +83,8 @@ export interface ExposedVirtual {
 export interface ExposedFunction<W = unknown> {
 	readonly name: string
 	readonly description: string | undefined
+	/** Why clients should stop calling it (D-216). */
+	readonly deprecated: string | undefined
 	/** The plugin that gives it, `undefined` for the application's (D-113). */
 	readonly plugin: string | undefined
 	/** A query, which a transport may serve over GET; a mutation otherwise. */

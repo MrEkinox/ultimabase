@@ -21,6 +21,7 @@ export type VirtualInfo = {
 	/** A value without input is in the row without `select`. */
 	readonly default: boolean
 	readonly description: string | undefined
+	readonly deprecated: string | undefined
 }
 
 /** The keys that shape a model output's rows, which no input property takes. */
@@ -115,7 +116,12 @@ export function virtualsOf(
 		if (output.kind === 'model' && !models.has(output.value)) {
 			throw new Refused(`${where}: its output model is not in models.`)
 		}
-		const { input: schema, needs: listed, description } = field.options
+		const {
+			input: schema,
+			needs: listed,
+			description,
+			deprecated,
+		} = field.options
 		const input = schema === undefined ? undefined : standardOf(schema)
 		if (schema !== undefined && input === undefined) {
 			throw new Refused(`${where}: input is a Standard Schema of an object.`)
@@ -144,6 +150,7 @@ export function virtualsOf(
 			...ruleOf(given, where),
 			default: output.kind === 'schema' && input === undefined,
 			description: typeof description === 'string' ? description : undefined,
+			deprecated: typeof deprecated === 'string' ? deprecated : undefined,
 		})
 	}
 	return virtuals
