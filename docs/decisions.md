@@ -14654,3 +14654,182 @@ keeps telling a missing target from another parent's); clearing the
 relation when a parent changes (a silent loss, where refusing names it);
 the target's field checked by the types (its model's type, read inside a
 cycle of models such as `Task` and `Milestone`, makes the types circular).
+
+## D-221: Jobs: an outbox and scheduled jobs, a plugin
+
+Choice: the plugin `@ultimabase/jobs` runs work after a write commits, later,
+or on a schedule, with no kernel change (D-25):
+
+1. A job is declared with `defineJob({ name, run })` (D-13) and registered
+   with `jobsPlugin({ jobs: [...] })`. Its `run` receives `{ input, id }` and
+   runs as Master (D-19).
+2. Each pending run is a row of the plugin's model `JobsRun`: the job's
+   name, its input, when it is due, its attempts, its last error, its lease
+   and its state (`pending` or `failed`). A run that succeeds deletes its row.
+3. The call starts from the definition, as `Model.create` (D-18) and
+   `fn.run` (D-75): `job.enqueue(input, { after })`, or
+   `job.enqueue({ after })` when it has no input. It validates the input
+   (a Standard Schema, as a function's, D-27) and writes the row in the
+   current transaction, or alone outside one (D-36). Written from an
+   `after*` hook, the row exists if and only if the write committed. It
+   takes no `as`: enqueuing is server code.
+4. No `job.run`: it would skip the queue and the retries. Tests run the due
+   jobs with `runJobs()` from `@ultimabase/testing`.
+5. `after` delays a run, in milliseconds (a number, as `sessions.lifetime`
+   in D-165 and `limit.window` in D-218). No cancellation: a run checks the
+   state it acts on when it runs.
+6. A job has one form, which the types enforce: an `input`, or `every`
+   (milliseconds), or `cron` (a pattern of five fields: a standard, not a
+   keyword of ours, D-14). `timeZone` exists only
+   with `cron` and is UTC by default. A recurring job takes no input and is
+   never enqueued. `defineJob` refuses at import an `every` that is not a
+   positive number and a `cron` croner refuses; `enqueue` refuses an `after`
+   that is not a positive number.
+7. One instance runs a row at a time, through a lease: an `updateMany` of
+   the row where its lease has expired sets it five minutes ahead, and only
+   the instance whose update counts one row runs it. It works on memory and
+   postgres alike, and a lease held by an instance that died expires.
+8. A run happens at least once: a run longer than its lease, or an instance
+   dying after the job's effect and before the row's delete, runs it again.
+   `id`, the row's id, is the key a job makes its effect idempotent with.
+9. A failed run is retried after 10 s, 20 s, 40 s and so on, doubling, up
+   to ten attempts (about 2 h 50 min in all); then its row turns `failed`,
+   is kept, and is logged with the job's name and the error. A recurring
+   job's failure is logged and its next occurrence runs as usual.
+10. The instance that enqueued a run starts it right after the commit when
+    it is due; every instance looks for due rows every five seconds, a
+    fixed value and not an option.
+11. A recurring job has one row, which holds its next due time and its
+    pattern; a run sets the next one. At startup the plugin creates the
+    rows of new recurring jobs, sets again the due time of one whose
+    `every` or `cron` changed, and deletes those of jobs no longer
+    declared. A row whose job is no longer declared turns `failed` when it
+    is due.
+12. An occurrence missed while no instance ran runs once at startup, never
+    once per missed occurrence.
+13. Cron patterns go through `croner` (D-92), only for
+    `new Cron(pattern, { timezone, mode: '5-part' }).nextRun(from)`, never as a
+    timer. It removes the parsing of a format and the time-zone and daylight
+    saving rules, a subject of its own. Version 11, whose daylight saving
+    handling 10 lacked: a fixed time skipped by spring forward runs at the
+    first valid time after the gap, and once when fall back repeats it. A
+    test fixes both. Days of the month and of the week combine with OR, as
+    in cron.
+14. The memory adapter takes the same path; `runJobs()` runs the due rows
+    of a test application, against a clock the test advances.
+
+Out of scope: the files sweep (D-152), which keeps its own timer, since
+plugins are independent of each other (D-21).
+
+Why: a commit hook (D-15) runs once, in memory: a crash or a failure after
+the commit loses its work, and Parse had nothing better. A row written in the
+write's transaction keeps it, and a process that dies leaves it for another.
+A `setTimeout` lives in one process and is lost at restart.
+
+Before: a commit hook, lost on a crash or a failed call, and a timer kept in
+one process:
+
+```ts
+export const CampaignSession = defineModel({
+	name: 'CampaignSession',
+	fields: (f) => ({ closedAt: f.dateTime({ optional: true }) }),
+}).with({
+	hooks: {
+		afterUpdateCommit: async ({ record }) => {
+			if (record.closedAt !== null) await voice.closeRoom(record.id)
+		},
+	},
+})
+
+// Ends a user's sessions ten minutes after they go offline.
+const timers = new Map<string, NodeJS.Timeout>()
+function offline(user: string) {
+	timers.set(
+		user,
+		setTimeout(() => void endSessions(user), 10 * 60 * 1000),
+	)
+}
+```
+
+After:
+
+```ts
+export const closeRoom = defineJob({
+	name: 'closeRoom',
+	input: z.object({ session: z.string() }),
+	run: ({ input, id }) => voice.closeRoom(input.session, { key: id }),
+})
+
+export const CampaignSession = defineModel({
+	name: 'CampaignSession',
+	fields: (f) => ({ closedAt: f.dateTime({ optional: true }) }),
+}).with({
+	hooks: {
+		// In the write's transaction: the run exists if the update committed.
+		afterUpdate: async ({ record }) => {
+			if (record.closedAt !== null) {
+				await closeRoom.enqueue({ session: record.id })
+			}
+		},
+	},
+})
+
+export const endSessions = defineJob({
+	name: 'endSessions',
+	input: z.object({ user: z.string() }),
+	// Checks the user is still offline: a run is never cancelled.
+	run: ({ input }) => endIfOffline(input.user),
+})
+await endSessions.enqueue({ user }, { after: 10 * 60 * 1000 })
+
+export const dailyDigest = defineJob({
+	name: 'dailyDigest',
+	cron: '0 3 * * *',
+	timeZone: 'Europe/Paris',
+	run: () => sendDigests(),
+})
+
+export const app = defineApp({
+	database,
+	models,
+	plugins: [jobsPlugin({ jobs: [closeRoom, endSessions, dailyDigest] })],
+})
+```
+
+In a test:
+
+```ts
+const running = testApplication(app)
+
+it('closes the room once the session closes', async () => {
+	await CampaignSession.update(
+		{ where: { id }, data: { closedAt: new Date() } },
+		{ as: master },
+	)
+	await runJobs()
+	expect(voice.closed).toStrictEqual([id])
+})
+```
+
+Rejected:
+
+- `app.enqueue('closeRoom', input)`, which names the job by a string and
+  imports the application (D-18, D-75).
+- `job.run`, which skips the queue and the retries.
+- `as` on `enqueue`: a run acts on the server's behalf, after the caller's
+  request.
+- A PostgreSQL advisory lock, which memory does not have and which a
+  connection pool makes hard to hold.
+- Exactly once: no queue that calls another service can promise it; the
+  key moves it to the service.
+- Cancelling a run: the job checks its state instead, which also covers the
+  state changing after the run was enqueued.
+- Durations as strings (`'10 minutes'`), through the `ms` package: the
+  repository's durations are numbers of milliseconds, and `ms('10 minutes')`
+  gives one for whoever wants to write them so.
+- Croner as the scheduler: its timers run in every instance, where the
+  lease runs each occurrence once.
+- Six- and seven-field patterns (seconds, years): no case needs them, and a
+  five-second poll could not keep a second's precision.
+- A missed occurrence run once per occurrence, which floods a restart.
+- The files sweep moved onto jobs, which would make files require jobs.
