@@ -127,7 +127,8 @@ The messages of an invalid value: `An ACL is an ACL or { read, write }.`,
 `owner is not a permission.`, `read is a list of subjects.`, `read[0]: a
 subject is *, user:<id> or role:<id>.` `ACL.fromJSON` throws the same
 messages as a `TypeError`, and `ACL.fromEntries` throws `team is not an ACL
-entry.`
+entry.` A method given a user or a role whose id is empty or holds a line
+break throws a `TypeError`: `"" is not a user id.`, `"" is not a role id.`
 
 At start, `acl()` without `default` throws `acl() takes default: the ACL of
 a row created without one.`

@@ -54,7 +54,11 @@ grammar. A row reads its `id`, `createdAt` and `updatedAt` besides its
 fields; a relation to one row reads `null` when the caller may not read
 it. A write nests its [relations](/docs/next/relations)' writes: `connect`,
 `create` and `connectOrCreate`, and in an update `update`, `disconnect`,
-`set` and `delete`. Here a person is created with three posts:
+`set` and `delete`. GraphQL has no empty input, so what would take one is
+left out: a relation to a model with nothing else to write, as a book that
+is only its shelf, is only connected, and a model with no field is created
+with `createPing { id }` and neither updated nor upserted. Here a person is
+created with three posts:
 
 <include cwd meta='title="src/app.test.ts"'>
 	../examples/graphql/src/app.test.ts#create
@@ -217,7 +221,8 @@ to read every row the field returns in one query:
 Prefer a [function](/docs/next/functions) with `query: true` for a new
 query: it is typed from its schema, served over REST too, and checked by
 its access rule. `extend` is for what a function cannot express, as a
-field on a model's type.
+field on a model's type. A schema it returns that GraphQL finds invalid
+refuses the start, with GraphQL's reasons.
 
 ## A schema file for clients
 

@@ -167,13 +167,15 @@ describe('an upgrade', () => {
 
 	it('comes from the server’s origin, one CORS allows, or no browser', async () => {
 		const { url } = await started()
-		for (const origin of [url, 'http://localhost:5173', undefined]) {
+		// The server's own host over HTTPS, as a proxy forwards it (D-223).
+		const secure = url.replace('http:', 'https:')
+		for (const origin of [url, secure, 'http://localhost:5173', undefined]) {
 			const headers = origin === undefined ? {} : { origin }
 			const answer = await upgraded(`${url}/live`, headers)
 			expect(answer.status).toBe(101)
 			answer.socket?.destroy()
 		}
-		expect(taken).toHaveLength(3)
+		expect(taken).toHaveLength(4)
 	})
 
 	it('is refused from another origin before its plugin sees it', async () => {
