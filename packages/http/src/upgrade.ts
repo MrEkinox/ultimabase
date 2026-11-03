@@ -6,6 +6,7 @@ import type { IncomingMessage, Server } from 'node:http'
 import { STATUS_CODES } from 'node:http'
 import type { Duplex } from 'node:stream'
 import type { Logger } from 'ultimabase'
+import { isOwnOrigin } from './address.ts'
 import type { Limiter } from './limit.ts'
 
 /**
@@ -130,13 +131,17 @@ export function upgrading(
 		if (request === undefined) {
 			return refuse(socket, 400, 'BAD_REQUEST', 'The upgrade has no URL.')
 		}
-		const { origin, pathname } = new URL(request.url)
+		const { pathname } = new URL(request.url)
 		const taker = takers.get(pathname)
 		if (taker === undefined) {
 			return refuse(socket, 404, 'NOT_FOUND', `No upgrade at ${pathname}.`)
 		}
 		const from = incoming.headers.origin
-		if (from !== undefined && from !== origin && !allows(from)) {
+		if (
+			from !== undefined &&
+			!isOwnOrigin(from, request.url) &&
+			!allows(from)
+		) {
 			return refuse(
 				socket,
 				403,

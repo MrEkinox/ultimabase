@@ -1,4 +1,5 @@
-// The port the server listens on, and its listening (D-106).
+// The port the server listens on, and its listening (D-106); the body
+// limit and the drain (D-223).
 import type { Server } from 'node:http'
 import { createServer } from 'node:http'
 import type { Duplex } from 'node:stream'
@@ -18,6 +19,22 @@ export function portOf(option: number | undefined): number {
 	if (Number.isInteger(port) && port >= 0 && port <= 65_535) return port
 	const name = option === undefined ? 'PORT' : 'port'
 	throw new Refused(`${name} is ${given}, not a port between 0 and 65535.`)
+}
+
+/** The `bodyLimit` option, a whole number of bytes above 0; 1 MB by default. */
+export function bodyLimitOf(option: number | undefined): number {
+	const bytes = option ?? 1024 * 1024
+	if (Number.isInteger(bytes) && bytes > 0) return bytes
+	throw new Refused(
+		`bodyLimit is ${bytes}, not a whole number of bytes above 0.`,
+	)
+}
+
+/** The `drain` option, in milliseconds: 5000 in production, 0 otherwise. */
+export function drainOf(option: number | undefined): number {
+	const ms = option ?? (process.env['NODE_ENV'] === 'production' ? 5000 : 0)
+	if (Number.isInteger(ms) && ms >= 0) return ms
+	throw new Refused(`drain is ${ms}, not a whole number of milliseconds.`)
 }
 
 export async function listening(server: Server, port: number): Promise<number> {
