@@ -120,6 +120,10 @@ once they are done, so a test or a serverless function never ends before
 them. A `*Commit` hook that throws is logged at `error` and is not thrown:
 the write is already committed.
 
+A `*Commit` hook runs in memory: a crash before it ends loses it. What must
+happen even then goes in a [job](/docs/next/jobs), enqueued from an
+`after*` hook in the write's transaction.
+
 ## Limit a person's writes
 
 The HTTP server limits each address's requests

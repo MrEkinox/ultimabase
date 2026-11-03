@@ -1,0 +1,25 @@
+{
+	"name": "example-jobs",
+	"version": "0.0.0",
+	"private": true,
+	"description": "Jobs: a room closed after a call ends, a purge every hour, a report each night.",
+	"type": "module",
+	"license": "Apache-2.0",
+	"engines": {
+		"node": ">=24.7.0"
+	},
+	"scripts": {
+		"start": "node src/server.ts"
+	},
+	"dependencies": {
+		"@ultimabase/http": "workspace:*",
+		"@ultimabase/jobs": "workspace:*",
+		"ultimabase": "workspace:*",
+		"zod": "4.6.7"
+	},
+	"devDependencies": {
+		"@ultimabase/testing": "workspace:*",
+		"vite": "8.3.4",
+		"vitest": "5.0.5"
+	}
+}
