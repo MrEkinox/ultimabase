@@ -19,7 +19,7 @@ import {
 import type { HttpApi, HttpEnv, Routes } from './index.ts'
 import { clientOf, httpPlugin, routes } from './index.ts'
 import { addresses } from './address.ts'
-import { portOf } from './server.ts'
+import { bodyLimitOf, drainOf, portOf } from './server.ts'
 
 const Note = defineModel({
 	name: 'Note',
@@ -553,6 +553,55 @@ describe('a form from another origin', () => {
 			headers: { cookie, origin: 'https://evil.example.com' },
 		})
 		expect(await read.text()).toBe('read')
+	})
+
+	it('passes from its own host over HTTPS, as a proxy forwards it', async () => {
+		const { url } = await server({ port: 0, routes: [forms] })
+		const cookie = 'session=token'
+		// The proxy serves HTTPS and forwards over HTTP (D-223).
+		const secure = await posted(url, {
+			cookie,
+			origin: url.replace('http:', 'https:'),
+		})
+		expect(await secure.text()).toBe('sent')
+	})
+})
+
+describe('the body limit and the drain', () => {
+	it('are whole numbers, the body limit above 0', () => {
+		expect(bodyLimitOf(undefined)).toBe(1024 * 1024)
+		expect(bodyLimitOf(10)).toBe(10)
+		expect(drainOf(0)).toBe(0)
+		expect(drainOf(100)).toBe(100)
+		process.env['NODE_ENV'] = 'production'
+		expect(drainOf(undefined)).toBe(5000)
+		process.env['NODE_ENV'] = 'test'
+		expect(drainOf(undefined)).toBe(0)
+	})
+
+	it('refuse the start otherwise', async () => {
+		// `NaN` and `Infinity` lifted the limit, and skipped the drain (D-223).
+		for (const value of [Number.NaN, Number.POSITIVE_INFINITY, -1, 0, 1.5]) {
+			expect(() => bodyLimitOf(value)).toThrow(
+				`bodyLimit is ${value}, not a whole number of bytes above 0.`,
+			)
+		}
+		for (const value of [Number.NaN, Number.POSITIVE_INFINITY, -1, 1.5]) {
+			expect(() => drainOf(value)).toThrow(
+				`drain is ${value}, not a whole number of milliseconds.`,
+			)
+		}
+		for (const options of [{ bodyLimit: Number.NaN }, { drain: -1 }]) {
+			const app = defineApp({
+				database: memory(),
+				plugins: [httpPlugin({ port: 0, ...options })],
+				models: [],
+				logger: recorder([]),
+			})
+			// An application that started anyway stops, for the next tests.
+			const starting = app.start().then(async () => app.stop())
+			await expect(starting).rejects.toThrow('not a whole number')
+		}
 	})
 })
 

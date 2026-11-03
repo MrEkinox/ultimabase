@@ -13,7 +13,7 @@ import { limiter } from './limit.ts'
 import type { Probes, ReadyCheck } from './probes.ts'
 import { startingGate } from './probes.ts'
 import { hold } from './request.ts'
-import { closed, listening, portOf, serverOf } from './server.ts'
+import { closed, drainOf, listening, portOf, serverOf } from './server.ts'
 import type { Accept, Close, Closing, Gate, Taker } from './upgrade.ts'
 import { closeUpgrades, upgrading } from './upgrade.ts'
 
@@ -146,8 +146,7 @@ const http = definePlugin<Http>({
 		const { options, identify, logger } = context
 		const port = portOf(options.port)
 		const probes = probesOf(context)
-		probes.drain =
-			options.drain ?? (process.env['NODE_ENV'] === 'production' ? 5000 : 0)
+		probes.drain = drainOf(options.drain)
 		const mounted = mounts.get(context) ?? []
 		const starting = startingGate(probes)
 		const gates = gated.get(context) ?? []
