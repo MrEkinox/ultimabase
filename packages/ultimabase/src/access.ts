@@ -308,6 +308,42 @@ export class Access {
 			}
 		}
 	}
+	/** Whether a field has a write rule for `operation` (D-213). */
+	rules(
+		model: ModelInfo,
+		field: string,
+		operation: 'create' | 'update',
+	): boolean {
+		return fieldRule(model, field, operation) !== undefined
+	}
+
+	/**
+	 * Fails with `ACCESS_DENIED` unless the field's own rule allows a
+	 * many-to-many link written from its other side (D-213).
+	 */
+	allowLink(
+		model: ModelInfo,
+		field: string,
+		operation: 'create' | 'update',
+		link: {
+			readonly record?: Values
+			readonly value: Values
+			readonly via: string
+		},
+	): void {
+		const rule = fieldRule(model, field, operation)
+		if (rule === undefined) return
+		const { record, value, via } = link
+		const facts = {
+			caller: this.caller,
+			operation,
+			...(record === undefined ? {} : { record: recordOf(model, record) }),
+			value,
+		}
+		if (decide(rule, facts)) return
+		const refusal = { model: model.name, operation, field, via }
+		throw denied(refusal, this.caller, this.logger)
+	}
 }
 
 /** The query's access rules; `undefined` for Master, which skips them. */

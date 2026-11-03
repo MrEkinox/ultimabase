@@ -327,6 +327,9 @@ It is read, filtered, counted and sorted like any `many`:
   stored on the other side.
 - A field rule on a `many`, in `f.many(...).with(...)`, receives what the
   write does to it: `{ connect, disconnect, create, delete }`.
+- A many-to-many written from its other side runs this side's field rule
+  too, once per row it links or unlinks: when `Book.tags` connects a tag, the
+  rule of `Tag.books` runs with the tag as `record` and the book in `connect`.
 
 ## Over GraphQL
 

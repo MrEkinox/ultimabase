@@ -11,7 +11,7 @@ import type {
 	ModelUse,
 	PluginTypes,
 } from 'ultimabase'
-import { defineModel, Refused } from 'ultimabase'
+import { allow, defineModel, Refused } from 'ultimabase'
 import type { Roles } from './plugin.ts'
 import { roleModels, rolesUse } from './plugin.ts'
 
@@ -113,12 +113,14 @@ export function defineRole(definition: {
 					`defineRole(${name}): ${taken} is a field defineRole adds.`,
 				)
 			}
+			// Only Master gives a role, from either side of its links (D-213).
+			const given = { access: { write: allow.private } }
 			return {
 				...own,
 				name: f.string({ unique: true }),
-				members: f.many(members),
-				inherits: f.many(self, { inverse: 'inheritedBy' }),
-				inheritedBy: f.many(self, { inverse: 'inherits' }),
+				members: f.many(members).with(given),
+				inherits: f.many(self, { inverse: 'inheritedBy' }).with(given),
+				inheritedBy: f.many(self, { inverse: 'inherits' }).with(given),
 			}
 		},
 		indexes: definition.indexes ?? [],

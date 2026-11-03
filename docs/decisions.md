@@ -2553,7 +2553,7 @@ fail.
 
 ## D-86: Access rules on relations, filters and written rows
 
-Amended by D-128, D-138 and D-159.
+Amended by D-128, D-138, D-159 and D-213.
 
 Choice: five details of D-10, D-44 and D-78 at run time.
 
@@ -6147,7 +6147,7 @@ await Note.update(
 
 ## D-123: `rolesPlugin()`, `defineRole` and roles inside roles
 
-Amended by D-126.
+Amended by D-126 and D-213.
 
 Choice: amends D-13; Parse's roles.
 
@@ -14014,4 +14014,64 @@ await transaction(async () => {
 })
 // Before: a sign-in with the old password while this ran kept its session.
 // After: that session ends once the transaction commits.
+```
+
+## D-213: Only Master gives a role, from either side of the link
+
+Choice: amends D-86 point 1 and D-123 point 2.
+
+1. A `many` relation written from its other side passes this side's field
+   rule too, as a `one` relation's moved key passes the target's rules
+   (D-78). When `Post.tags` links, unlinks or `set`s a tag, the field rule
+   of `Tag.posts` runs on each tag row the caller reads: `update`, with the
+   tag as `record` and `value: { connect: [{ id: post }] }` or
+   `disconnect`. A tag created to be linked runs its `create` rule. A
+   refusal is `ACCESS_DENIED` naming `Tag`, `posts` and `via: 'Post.tags'`.
+   The target model's own rules stay as D-124 point 5 says: linking a row
+   reads it.
+2. `defineRole` gives `members`, `inherits` and `inheritedBy` the rule
+   `write: allow.private`. Only Master, so server code, gives or takes a
+   role, from the role or from the user's `roles`; a client writes the
+   role's own fields as its `access` allows.
+3. Known and kept: the read of a caller's roles (D-123 point 4) follows
+   five levels in one statement, so a graph where each role inherits many
+   others reads that many rows to the power five; only Master writes the
+   graph. A caller's roles read inside a transaction that rolls back stay
+   on that caller until the request ends, as any value read in it.
+
+Why: the audit of roles found that a user allowed to edit their own row
+(`update: isSelf`) connected `roles` to Admin and became an Admin: the
+user's side of a many-to-many passed the User rules alone, and the Role
+side's rules never ran. The same held for any field rule on one side of a
+many-to-many, written from the other.
+
+Rejected: a documented field rule the developer adds to the user's `roles`
+(forgotten, it makes anyone an Admin); the target model's `update` rule on
+every link (a user could no longer tag a post with a read-only tag);
+the role model's own `update` rule deciding who gives roles (a rule written
+for the role's fields would also give its members); one query per level of
+inheritance (D-123 rejected it: three statements instead of one for an
+ordinary three-level hierarchy, on every request).
+
+Example, before and after the same code:
+
+```ts
+const User = defineUser({
+	name: 'User',
+	fields: (f) => ({ name: f.string(), roles: f.many(() => Role) }),
+}).with({ access: { read: isAuthenticated, update: isSelf } })
+
+await User.update(
+	{ where: { id: eve.id }, data: { roles: { connect: [{ id: admin.id }] } } },
+	{ as: asUser(eve) },
+)
+// Before: Eve is an Admin.
+// After: ACCESS_DENIED, Role update refused (field members, via User.roles).
+
+// A function gives the role, after its own check:
+if (!hasRole(caller, 'Admin')) throw new PublicError('ACCESS_DENIED', '…')
+await Role.update(
+	{ where: { id: admin.id }, data: { members: { connect: [{ id: userId }] } } },
+	{ as: master },
+)
 ```
