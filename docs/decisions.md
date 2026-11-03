@@ -1312,7 +1312,7 @@ Rejected: one feature set identical on every adapter.
 
 ## D-52: Unique fields on the field, indexes in `defineModel`
 
-Amended by D-170, D-174.
+Amended by D-170, D-174, D-215.
 
 Choice: a field takes `unique: true` (`f.string({ unique: true })`); indexes
 over one or several fields go in `defineModel`, since they shape the model
@@ -14074,4 +14074,76 @@ await Role.update(
 	{ where: { id: admin.id }, data: { members: { connect: [{ id: userId }] } } },
 	{ as: master },
 )
+```
+
+## D-215: Partial unique indexes
+
+Choice: amends D-52.
+
+1. A `unique: true` index of `defineModel` takes `where`, a filter in the
+   query syntax narrowed to what every database indexes: each key names a
+   scalar field of the model that is no list, `json` or plugin's field type,
+   including a field a plugin adds, as `deletedAt`; `id`, `createdAt` and
+   `updatedAt` are refused. A field takes a value, `null`, `{ equals }` or
+   `{ not }`; several keys all hold. `OR`, `in`, relations and an empty
+   `where` are refused, in the type and when the app starts.
+2. `where` needs `unique: true` and no `contains`; it takes
+   `mode: 'insensitive'`. A plugin's `addedIndexes` take no `where`.
+3. The rows `where` keeps share no values; the rows outside it are never in
+   conflict. `{ not: 'x' }` leaves out the rows that are `null`, as SQL's
+   `<>`. A refused write is `UNIQUE_VIOLATION` naming the index's fields.
+4. A partial index is no target of `findUnique`, `update` or `upsert`: it
+   names no single row.
+5. `postgres()` creates `unique index <table>_<columns>[_lower]_<hash>_key …
+where …`, the hash being 8 characters of the predicate's. The snapshot
+   keeps the predicate; a new `where` drops the index and creates it again.
+   Rows that already break it fail the migration, with a `tries` message.
+6. `memory()` checks the rows `where` keeps, as `postgres()` does.
+7. The soft-delete plugin does not change: its documentation tells to write
+   `where: { deletedAt: null }` for a value a deleted row gives back.
+
+Why: an app moving from Parse keeps one open row per person (an attendance
+not yet closed, a cart not yet paid) with a `beforeCreate` hook that counts
+and refuses. Two concurrent requests both pass the count: only the database
+holds the rule under concurrency, and an index only holds it when it can
+leave out the closed rows.
+
+Rejected: a hook or a check in a transaction (two transactions both pass it
+under `read committed`); a raw SQL predicate (no `memory()` behaviour, no
+type check, a different string per database); `OR`, `in` and relations in
+`where` (beyond what a portable index states, for no case met yet); making
+soft-delete add `deletedAt: null` to every unique index (a deleted row's
+value given back is a choice of the app, not of the plugin); a partial index
+as a `findUnique` target (several rows can share its value).
+
+Example, before and after:
+
+```ts
+// Before: a hook two concurrent requests both pass.
+export const Attendance = defineModel({
+	name: 'Attendance',
+	fields: (f) => ({
+		person: f.one(() => Person),
+		leftAt: f.dateTime({ optional: true }),
+	}),
+}).with({
+	beforeCreate: async ({ data }) => {
+		const open = await Attendance.count(
+			{ where: { person: { id: data.person.connect.id }, leftAt: null } },
+			{ as: master },
+		)
+		if (open > 0)
+			throw new PublicError('ALREADY_OPEN', 'One attendance is open.')
+	},
+})
+
+// After: the database refuses the second open row, UNIQUE_VIOLATION.
+export const Attendance = defineModel({
+	name: 'Attendance',
+	fields: (f) => ({
+		person: f.one(() => Person),
+		leftAt: f.dateTime({ optional: true }),
+	}),
+	indexes: [{ fields: ['person'], unique: true, where: { leftAt: null } }],
+})
 ```

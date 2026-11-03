@@ -15,14 +15,12 @@ import { query } from './engine.ts'
 import type { Operation } from './engine.ts'
 import { addFields, usedBy } from './plugin-use.ts'
 import type { FieldBuilders } from './fields.ts'
+import type { FieldShape, Model, RecordCheck } from './model.ts'
 import type {
-	FieldShape,
 	IndexCheck,
 	IndexShape,
-	Model,
-	RecordCheck,
 	UniqueIndexFields,
-} from './model.ts'
+} from './model-indexes.ts'
 import type { ForModel, ModelUse, PluginTypes } from './plugin.ts'
 import { Refused } from './errors.ts'
 import { paginate } from './page.ts'
@@ -203,6 +201,7 @@ function createModel(definition: {
 				...(index.unique === undefined ? {} : { unique: index.unique }),
 				...(index.contains === undefined ? {} : { contains: index.contains }),
 				...(index.mode === undefined ? {} : { mode: index.mode }),
+				...(index.where === undefined ? {} : { where: index.where }),
 			})),
 			// A plugin's, checked with the model's at startup (D-122).
 			...indexes,

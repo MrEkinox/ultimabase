@@ -6,6 +6,7 @@ import type {
 	Change,
 	Changed,
 	CountRead,
+	Filter,
 	ListUpdate,
 	Read,
 	Row,
@@ -312,22 +313,35 @@ export class Draft {
 
 	/**
 	 * Unique fields, unique indexes and one-to-one keys; `null` never clashes.
-	 * A case-insensitive index compares its strings lowered (D-170).
+	 * A case-insensitive index compares its strings lowered (D-170); a
+	 * partial one, the rows its `where` selects (D-215).
 	 */
 	private checkUnique(model: string): void {
 		const definition = this.schema.models.find((each) => each.name === model)
 		if (definition === undefined) return
-		const sets = definition.indexes
+		const sets: {
+			fields: readonly string[]
+			lower: boolean
+			where?: Filter
+		}[] = definition.indexes
 			.filter((index) => index.unique)
-			.map(({ fields, mode }) => ({ fields, lower: mode === 'insensitive' }))
+			.map(({ fields, mode, where }) => ({
+				fields,
+				lower: mode === 'insensitive',
+				...(where === undefined ? {} : { where }),
+			}))
 		for (const field of definition.fields) {
 			if (field.kind !== 'many' && field.unique) {
 				sets.push({ fields: [field.name], lower: false })
 			}
 		}
-		const rows = [...this.reader.table(model).values()]
-		for (const { fields, lower } of sets) {
+		const all = [...this.reader.table(model).values()]
+		for (const { fields, lower, where } of sets) {
 			const seen = new Set<string>()
+			const rows =
+				where === undefined
+					? all
+					: all.filter((row) => this.reader.matches(model, row, where) === true)
 			for (const row of rows) {
 				const values = fields.map((field) => {
 					const value = row[field] ?? null

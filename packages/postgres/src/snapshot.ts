@@ -44,6 +44,15 @@ export type TableSnapshot = {
 	readonly search: Search | null
 	/** The case-insensitive keys' columns, absent when none (D-170). */
 	readonly lowerUniques?: { readonly [name: string]: string[] }
+	/** The partial keys, absent when none (D-215). */
+	readonly partialUniques?: { readonly [name: string]: PartialUnique }
+}
+
+/** A partial key: its columns, lowered or not, and the rows it keeps. */
+export type PartialUnique = {
+	readonly columns: string[]
+	readonly where: string
+	readonly lower?: true
 }
 
 export type Search = {
@@ -86,6 +95,7 @@ type Building = {
 	foreignKeys: Record<string, ForeignKey>
 	search: Search | null
 	lowerUniques?: Record<string, string[]>
+	partialUniques?: Record<string, PartialUnique>
 }
 
 type Claim = (name: string, what: string) => string
@@ -203,10 +213,17 @@ export function snapshotOf(catalog: Catalog): Snapshot {
 			field(catalog, claims, table, building, given)
 		}
 		const [, ...uniques] = table.uniques
-		for (const { name, fields, lower } of uniques) {
+		for (const { name, fields, lower, where } of uniques) {
 			const key = `unique key on ${on(model, fields)}`
 			const columns = fields.map((given) => catalog.column(table, given))
-			if (lower === undefined) {
+			if (where !== undefined) {
+				const claimed = schema(name, `the partial ${key}`)
+				;(building.partialUniques ??= {})[claimed] = {
+					columns,
+					where,
+					...(lower === undefined ? {} : { lower }),
+				}
+			} else if (lower === undefined) {
 				building.uniques[schema(name, `the ${key}`)] = columns
 			} else {
 				const claimed = schema(name, `the case-insensitive ${key}`)

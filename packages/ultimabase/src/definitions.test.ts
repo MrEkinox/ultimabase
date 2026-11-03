@@ -1,7 +1,7 @@
 // What `defineModel`, the field builders and schema resolution refuse at
 // startup, and the stored names they keep (D-37, D-63).
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { defineModel, Refused } from './index.ts'
+import { defineApp, defineModel, master, memory, Refused } from './index.ts'
 import { resolve } from './schema.ts'
 import { uuidv7 } from './uuid.ts'
 
@@ -406,6 +406,164 @@ describe('schema resolution (D-37)', () => {
 				{ fields: ['a'], unique: true, contains: true, mode: 'insensitive' },
 			],
 		})
+	})
+})
+
+/** The fields of a model whose partial index its types refuse. */
+const refusedFields = (
+	f: Parameters<Parameters<typeof defineModel>[0]['fields']>[0],
+) => ({
+	title: f.string(),
+	tags: f.string({ list: true }),
+	data: f.json(),
+})
+
+/** Resolves a model with the partial unique index `shape`. */
+const partialIndex = (shape: object) => () => {
+	const Bad = defineModel({
+		name: 'Bad',
+		fields: (f) => ({
+			title: f.string(),
+			pages: f.number(),
+			tags: f.string({ list: true }),
+			data: f.json(),
+		}),
+		// @ts-expect-error: refused by its types too.
+		indexes: [shape],
+	})
+	resolve([Bad])
+}
+
+describe('partial unique indexes (D-215)', () => {
+	const Ticket = defineModel({
+		name: 'Ticket',
+		fields: (f) => ({
+			code: f.string(),
+			pages: f.number({ optional: true }),
+			done: f.boolean(),
+			at: f.dateTime(),
+		}),
+		indexes: [
+			{
+				fields: ['code'],
+				unique: true,
+				where: {
+					done: true,
+					code: { not: 'x' },
+					pages: { equals: null },
+					at: new Date(0),
+				},
+			},
+		],
+	})
+
+	it('keeps a where of values, null, equals and not, as the adapter reads it', () => {
+		expect(fieldsOf([Ticket], 'Ticket')?.indexes).toEqual([
+			{
+				fields: ['code'],
+				unique: true,
+				contains: false,
+				where: {
+					done: { equals: true },
+					code: { not: 'x' },
+					pages: { equals: null },
+					at: { equals: new Date(0) },
+				},
+			},
+		])
+	})
+
+	it('refuses a where off a unique index, empty, or on another field', () => {
+		const unique = 'Bad: an index with a where is unique, without contains.'
+		expect(partialIndex({ fields: ['title'], where: { pages: 1 } })).toThrow(
+			unique,
+		)
+		for (const where of [{}, 'title']) {
+			expect(partialIndex({ fields: ['title'], unique: true, where })).toThrow(
+				"Bad: an index's where names a field at least.",
+			)
+		}
+		for (const name of ['tags', 'data', 'createdAt', 'id', 'nope']) {
+			expect(
+				partialIndex({ fields: ['title'], unique: true, where: { [name]: 1 } }),
+			).toThrow(
+				`Bad: index where '${name}' is not a scalar field that is no list, json or plugin's field type.`,
+			)
+		}
+		for (const condition of [
+			{ in: ['a'] },
+			{ equals: 'a', not: 'b' },
+			{ contains: 'a' },
+		]) {
+			expect(
+				partialIndex({
+					fields: ['title'],
+					unique: true,
+					where: { title: condition },
+				}),
+			).toThrow(
+				"Bad: index where 'title' takes a value, null, { equals } or { not }.",
+			)
+		}
+		expect(
+			partialIndex({ fields: ['title'], unique: true, where: { pages: 'x' } }),
+		).toThrow("Bad: index where 'pages': ")
+		// Its types refuse the same indexes.
+		defineModel({
+			name: 'Loose',
+			fields: refusedFields,
+			// @ts-expect-error: unique.
+			indexes: [{ fields: ['title'], where: { title: 'a' } }],
+		})
+		defineModel({
+			name: 'Bad',
+			fields: refusedFields,
+			// @ts-expect-error: a list.
+			indexes: [{ fields: ['title'], unique: true, where: { tags: null } }],
+		})
+		defineModel({
+			name: 'Bad',
+			fields: refusedFields,
+			// @ts-expect-error: json.
+			indexes: [{ fields: ['title'], unique: true, where: { data: null } }],
+		})
+		defineModel({
+			name: 'Bad',
+			fields: refusedFields,
+			indexes: [
+				// @ts-expect-error: the kernel's.
+				{ fields: ['title'], unique: true, where: { createdAt: null } },
+			],
+		})
+		defineModel({
+			name: 'Bad',
+			fields: refusedFields,
+			indexes: [
+				// @ts-expect-error: no in.
+				{ fields: ['title'], unique: true, where: { title: { in: ['a'] } } },
+			],
+		})
+		defineModel({
+			name: 'Bad',
+			fields: refusedFields,
+			// @ts-expect-error: a string.
+			indexes: [{ fields: ['title'], unique: true, where: { title: 1 } }],
+		})
+	})
+
+	it('is no target of findUnique', async () => {
+		const app = defineApp({ database: memory(), models: [Ticket] })
+		await app.start()
+		try {
+			await expect(
+				// @ts-expect-error: rows outside the where share a code.
+				Ticket.findUnique({ where: { code: 'a' } }, { as: master }),
+			).rejects.toThrow(
+				'where must name exactly id, a unique field or a unique index of Ticket.',
+			)
+		} finally {
+			await app.stop()
+		}
 	})
 })
 

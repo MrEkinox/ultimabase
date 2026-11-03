@@ -92,6 +92,25 @@ it('deletes, reads the trash and restores from server code', async () => {
 	//#endregion
 })
 
+it('gives the title of a deleted post back', async () => {
+	//#region unique
+	const as = { as: master }
+	const post = await Post.create({ data: { title: 'Draft' } }, as)
+	await expect(
+		Post.create({ data: { title: 'Draft' } }, as),
+	).rejects.toMatchObject({
+		code: 'UNIQUE_VIOLATION',
+		details: { model: 'Post', fields: ['title'] },
+	})
+	await Post.delete({ where: { id: post.id } }, as)
+	await Post.create({ data: { title: 'Draft' } }, as)
+	// The deleted post comes back only once its title is free again.
+	await expect(
+		Post.restore({ where: { id: post.id } }, as),
+	).rejects.toMatchObject({ code: 'UNIQUE_VIOLATION' })
+	//#endregion
+})
+
 it('lets no client date a post', async () => {
 	//#region deleted-at
 	const body = await request(

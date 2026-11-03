@@ -2,7 +2,16 @@
 // overrides, the join tables of many-to-many relations, and constraint
 // names that fit PostgreSQL's 63 bytes.
 import { createHash } from 'node:crypto'
-import type { ScalarType, Schema, SchemaField, SchemaModel } from 'ultimabase'
+import type {
+	IndexValue,
+	IndexWhere,
+	ScalarType,
+	Schema,
+	SchemaField,
+	SchemaModel,
+} from 'ultimabase'
+import { literal } from './fills.ts'
+import { id } from './plan-parts.ts'
 
 /**
  * What a column holds: `id` and a `one` key hold uuids, a list the array of
@@ -16,6 +25,8 @@ export type Unique = {
 	readonly fields: readonly string[]
 	/** A case-insensitive key compares its text columns lowered (D-170). */
 	readonly lower?: true
+	/** A partial key's predicate: the rows it keeps (D-215). */
+	readonly where?: string
 }
 
 export type Table = {
@@ -23,8 +34,8 @@ export type Table = {
 	readonly model: SchemaModel
 	readonly fields: ReadonlyMap<string, SchemaField>
 	/**
-	 * The primary key, unique fields, unique indexes, one-to-one keys, and
-	 * the case-insensitive keys (D-170).
+	 * The primary key, unique fields, unique indexes, one-to-one keys, the
+	 * case-insensitive keys (D-170) and the partial ones (D-215).
 	 */
 	readonly uniques: readonly Unique[]
 }
@@ -56,13 +67,34 @@ export function snake(name: string): string {
 		.toLowerCase()
 }
 
+const hash = (text: string): string =>
+	createHash('sha256').update(text).digest('hex').slice(0, 8)
+
+const valueOf = (value: Exclude<IndexValue, null>): string => {
+	if (value instanceof Date)
+		return `${literal(value.toISOString())}::timestamptz`
+	return typeof value === 'string' ? literal(value) : String(value)
+}
+
+/** A partial key's predicate; `not` leaves out `null`, as SQL's `<>` (D-215). */
+function predicate(where: IndexWhere, column: (field: string) => string) {
+	return Object.entries(where)
+		.map(([field, condition]) => {
+			const at = id(column(field))
+			const not = !('equals' in condition)
+			const value = 'equals' in condition ? condition.equals : condition.not
+			if (value === null) return `${at} is ${not ? 'not ' : ''}null`
+			return `${at} ${not ? '<>' : '='} ${valueOf(value)}`
+		})
+		.join(' and ')
+}
+
 /** A name PostgreSQL keeps whole: a long one ends with its hash. */
 export function constraint(name: string): string {
 	if (Buffer.byteLength(name) <= 63) return name
 	let head = name
 	while (Buffer.byteLength(head) > 54) head = head.slice(0, -1)
-	const hash = createHash('sha256').update(name).digest('hex').slice(0, 8)
-	return `${head}_${hash}`
+	return `${head}_${hash(name)}`
 }
 
 /** The relation field a foreign key belongs to, and the model it links. */
@@ -93,23 +125,39 @@ export class Catalog {
 		this.tables = tables
 		const uniques = new Map<string, { model: string; fields: string[] }>()
 		for (const table of tables.values()) {
-			const sets: { fields: readonly string[]; lower: boolean }[] = [
-				{ fields: ['id'], lower: false },
-			]
+			const sets: {
+				fields: readonly string[]
+				lower: boolean
+				where?: string
+			}[] = [{ fields: ['id'], lower: false }]
 			for (const field of table.model.fields) {
 				const stored =
 					field.kind === 'scalar' || (field.kind === 'one' && field.stored)
 				if (stored && field.unique)
 					sets.push({ fields: [field.name], lower: false })
 			}
-			for (const { unique, fields, mode } of table.model.indexes) {
-				if (unique) sets.push({ fields, lower: mode === 'insensitive' })
+			const column = (field: string) => this.column(table, field)
+			for (const { unique, fields, mode, where } of table.model.indexes) {
+				if (!unique) continue
+				const lower = mode === 'insensitive'
+				sets.push(
+					where === undefined
+						? { fields, lower }
+						: { fields, lower, where: predicate(where, column) },
+				)
 			}
-			const named = sets.map(({ fields, lower }, at) => {
-				const columns = fields.map((field) => this.column(table, field))
-				const key = `${table.name}_${columns.join('_')}${lower ? '_lower' : ''}_key`
+			const named = sets.map(({ fields, lower, where }, at): Unique => {
+				const columns = fields.map(column)
+				// A partial key's name tells its predicate apart (D-215).
+				const part = where === undefined ? '' : `_${hash(where)}`
+				const key = `${table.name}_${columns.join('_')}${lower ? '_lower' : ''}${part}_key`
 				const name = constraint(at === 0 ? `${table.name}_pkey` : key)
-				return lower ? { name, fields, lower } : { name, fields }
+				return {
+					name,
+					fields,
+					...(lower ? { lower } : {}),
+					...(where === undefined ? {} : { where }),
+				}
 			})
 			tables.set(table.model.name, { ...table, uniques: named })
 			for (const { name, fields } of named) {
