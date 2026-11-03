@@ -14314,6 +14314,91 @@ type Query {
 }
 ```
 
+## D-217: An application's commands on a model
+
+Choice: completes D-89; D-71 is unchanged.
+
+1. `.commands<T>(build)` adds the application's commands to a model, as a
+   plugin's `commands` adds its own (D-89): `Match.end(id)` next to
+   `Match.update(…)`. It is called once, before or after `.with`, and
+   returns the model with them. `build` receives `{ queries }`, the model's
+   queries, and returns an object of functions; an object of functions is
+   refused, as a command reads as one call.
+2. `T` is an interface the application writes, with each command's
+   signature and its comment. Without it, `build`'s return fails to compile
+   on `name the commands type: .commands<MatchCommands>(...)`: a model whose
+   commands' types are inferred from their bodies reads itself in its own
+   type, which TypeScript refuses (TS7022) as soon as a command calls the
+   model.
+3. A command calls another of its model through the model's value,
+   `Match.other()`; the interface types it.
+4. A command runs on the server only: no transport serves it, and
+   `defineFunction` stays the way a client calls code.
+5. A command named after a model method, `with`, `nullable`, `paginated`,
+   `paginate`, `commands`, a query, or after a plugin's command stops the
+   definition: `Match.end: the application adds a command named after a
+model method.`, `Match.end: soft-delete and the application both add
+this command.` A plugin's command named `paginate`, `paginated` or
+   `commands` is refused the same way, instead of being overwritten.
+6. A command runs as the application's code: the application's hooks get
+   no `command` (D-71).
+7. The model stays frozen. A test runs the real command on the memory
+   database rather than replacing it.
+
+Why: an application's operation on one model, ending a match or closing an
+order, sits in a file of loose functions that take the model's queries,
+apart from the model they belong to. Parse's `Parse.Object.extend` gives
+the class its methods; a command gives the model its own, without a
+class.
+
+Rejected:
+
+- `.with({ commands })`: `.with`'s rules read the typed rows, and a generic
+  in `.with` breaks the inference of the models that use it today.
+- Commands typed by their bodies: TS7022 on every command that calls the
+  model, the case that motivates them.
+- A plugin per model to hold its commands: a plugin's name, manifest and
+  installation for one application's code.
+- Instance methods on a row (`match.end()`): a row is plain data, which the
+  transports and live queries send as it is.
+
+Example:
+
+```ts
+// Before: the model's operation lives apart from it.
+export const Match = defineModel({
+	name: 'Match',
+	fields: (f) => ({ ended: f.boolean({ default: false }) }),
+})
+export async function endMatch(id: string): Promise<boolean> {
+	const { count } = await Match.updateMany(
+		{ where: { id, ended: false }, data: { ended: true } },
+		{ as: master },
+	)
+	return count > 0
+}
+await endMatch(match.id)
+
+// After
+interface MatchCommands {
+	/** Ends a running match: `false` when it had already ended. */
+	end(id: string): Promise<boolean>
+}
+export const Match = defineModel({
+	name: 'Match',
+	fields: (f) => ({ ended: f.boolean({ default: false }) }),
+}).commands<MatchCommands>(({ queries }) => ({
+	end: async (id) => {
+		const { count } = await queries.updateMany(
+			{ where: { id, ended: false }, data: { ended: true } },
+			{ as: master },
+		)
+		return count > 0
+	},
+}))
+await Match.end(match.id)
+```
+
 ## D-218: `httpPlugin()` limits each address's requests
 
 Choice: amends D-56; D-113 is unchanged.

@@ -123,6 +123,29 @@ to Master: the transports leave it out of their schema.
 
 [Access rules](/docs/next/access) lists the other rules.
 
+## Commands
+
+`.commands<T>(build)` adds the application's own operations to a model, next
+to its queries: `Product` above ends with a `restock` command.
+
+<include cwd meta='title="src/models.test.ts"'>
+	../examples/models-and-queries/src/models.test.ts#command
+</include>
+
+- `T` is an interface with each command's signature and comment. Without it,
+  `build` fails to compile on `name the commands type`, as a command that
+  calls its model could not infer its own type.
+- `build` receives `{ queries }`, the model's queries, and returns an object
+  of functions. A command calls another through the model: `Product.other()`.
+- `.commands` is called once, before or after `.with`.
+- A command runs on the server only: no transport serves it. A client calls
+  a [function](/docs/next/functions).
+- A command named after a model method (`findMany`, `with`, `paginate`…) or
+  after a plugin's command stops the definition:
+  `Product.with: the application adds a command named after a model method.`
+- A test runs the real command on the memory database: the model is frozen,
+  so a spy cannot replace it.
+
 ## Reference
 
 ### `defineModel(definition)`
@@ -140,6 +163,7 @@ to Master: the transports leave it out of their schema.
 typed rows: [access](/docs/next/access), [hooks](/docs/next/hooks), the
 virtuals' `run`, and [relation filters](/docs/next/relations). Each plugin of
 `use` adds its own key.
+`.commands<T>(build)` adds the application's [commands](#commands).
 
 ### Field types
 

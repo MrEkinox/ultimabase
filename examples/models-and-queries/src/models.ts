@@ -1,10 +1,16 @@
-// The catalog's model: one field of each type, an index and virtual fields.
+// The catalog's model: one field of each type, an index, virtual fields and
+// a command.
 //#region model
 import { randomUUID } from 'node:crypto'
 import { graphql } from '@ultimabase/graphql'
-import { allow, defineModel, PublicError } from 'ultimabase'
+import { allow, defineModel, master, PublicError } from 'ultimabase'
 import { z } from 'zod'
 import { Price, Status } from './types.ts'
+
+interface ProductCommands {
+	/** Adds `count` items to a product's stock: the new stock. */
+	restock(id: string, count: number): Promise<number>
+}
 
 export const Product = defineModel({
 	name: 'Product',
@@ -74,19 +80,33 @@ export const Product = defineModel({
 		// One product of a name per release day, whatever its case.
 		{ fields: ['name', 'releasedOn'], unique: true, mode: 'insensitive' },
 	],
-}).with({
-	access: allow.public,
-	virtuals: {
-		label: { run: ({ record }) => `${record.name} (${record.sku})` },
-		priceIn: {
-			run: ({ record, input }) => ({
-				amount:
-					input.currency === 'EUR'
-						? record.price
-						: (Number(record.price) * 1.1).toFixed(2),
-				currency: input.currency,
-			}),
-		},
-	},
 })
+	.with({
+		access: allow.public,
+		virtuals: {
+			label: { run: ({ record }) => `${record.name} (${record.sku})` },
+			priceIn: {
+				run: ({ record, input }) => ({
+					amount:
+						input.currency === 'EUR'
+							? record.price
+							: (Number(record.price) * 1.1).toFixed(2),
+					currency: input.currency,
+				}),
+			},
+		},
+	})
+	// Server code only: no transport serves a command.
+	.commands<ProductCommands>(({ queries }) => ({
+		restock: async (id, count) => {
+			const { stock } = await queries.update(
+				{
+					where: { id },
+					data: { stock: { increment: count }, restockedAt: new Date() },
+				},
+				{ as: master },
+			)
+			return stock
+		},
+	}))
 //#endregion
