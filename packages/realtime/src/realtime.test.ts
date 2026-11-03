@@ -703,10 +703,10 @@ describe('a viewer', () => {
 			'Session is not live.',
 		)
 		await expect(refused('Post', {})).rejects.toThrow(
-			'first must be a positive integer.',
+			'first must be a non-negative integer.',
 		)
 		await expect(refused('Post', { first: 1.5 })).rejects.toThrow(
-			'first must be a positive integer.',
+			'first must be a non-negative integer.',
 		)
 		await expect(
 			refused('Post', { first: 1, totalCount: 'yes' }),

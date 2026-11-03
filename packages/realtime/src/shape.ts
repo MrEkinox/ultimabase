@@ -59,15 +59,18 @@ export type Shape = {
 	readonly shape: Args
 }
 
-/** `args`' window and selection; a list's `first` is a positive integer. */
+/**
+ * `args`' window and selection; a list's `first` is an integer, 0 for a
+ * count alone (D-226).
+ */
 export function shapeOf(args: unknown, row: boolean): Shape {
 	const read = isArgs(args) ? args : {}
 	const { where, first, totalCount } = read
 	if (
 		!row &&
-		(!Number.isInteger(first) || typeof first !== 'number' || first < 1)
+		(!Number.isInteger(first) || typeof first !== 'number' || first < 0)
 	) {
-		throw invalid('first', 'first must be a positive integer.')
+		throw invalid('first', 'first must be a non-negative integer.')
 	}
 	if (!row && totalCount !== undefined && typeof totalCount !== 'boolean') {
 		throw invalid('totalCount', 'totalCount must be a boolean.')
