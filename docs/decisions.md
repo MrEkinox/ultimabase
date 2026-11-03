@@ -14910,3 +14910,90 @@ After: the start says why.
 httpPlugin({ bodyLimit: Number(process.env.BODY_LIMIT) })
 // Refused: bodyLimit is NaN, not a whole number of bytes above 0.
 ```
+
+## D-227: No empty GraphQL input, and an invalid schema refuses the start
+
+Choice: amends D-107 point 8, D-128, D-138 and D-142.
+
+1. GraphQL has no input object without a field, so none is generated, nor
+   the argument or mutation that would take it:
+   - a nested relation input leaves out `create`, `connectOrCreate` and
+     `update` when its target has no field to write but the relation back:
+     it keeps `connect`, and `disconnect`, `delete` and `set` where they
+     apply;
+   - a model with no field to write is created with `createPing { id }`,
+     without `data`, and has no `updatePing` and no `upsertPing`.
+2. The plugin validates the served schema, `extend` applied, before the
+   start: an invalid one refuses it with GraphQL's messages, as
+   `graphqlPlugin: the schema is invalid. Input Object type Empty must define
+one or more fields.`
+3. Requests run on `graphql-http`'s core handler rather than its fetch
+   adapter: an error it throws reaches the HTTP plugin, which logs it with a
+   `correlationId` and answers `INTERNAL` (D-106).
+
+Why:
+
+- A model whose only fields are relations, as a book that is only its shelf,
+  generated `BookCreateWithoutShelfInput {}`. The schema was invalid: every
+  request, `{ __typename }` included, got an empty 500.
+- The fetch adapter caught the error and printed it with `console.error`, so
+  the application's logger showed only `POST /graphql 500`.
+- Such a target is still created on its own side, and a row without data is
+  still created; only the forms GraphQL cannot write go.
+- REST is unchanged: its body is JSON, where `{}` is a value.
+  `PATCH /api/pings/:id` with `{}` still answers 200.
+
+Rejected:
+
+- A placeholder field, as `_: Boolean`, in each empty input: it appears in
+  every client's types and means nothing.
+- Validating on the first request: the start is where a schema error is
+  seen and fixed.
+
+Example, before: a book is only its shelf.
+
+```ts
+const Book = defineModel({
+	name: 'Book',
+	use: [graphql()],
+	fields: (f) => ({ shelf: f.one(() => Shelf) }),
+})
+```
+
+```graphql
+{
+	__typename
+}
+# 500, empty body, on every request
+```
+
+After: the schema is served, and a shelf's books are connected.
+
+```graphql
+mutation {
+	createBook(data: { shelf: { connect: { id: "…" } } }) {
+		id
+	}
+}
+mutation {
+	updateShelf(where: { id: "…" }, data: { books: { connect: [{ id: "…" }] } }) {
+		id
+	}
+}
+```
+
+Before: an `extend` that breaks the schema starts, then fails every
+request.
+
+```ts
+graphqlPlugin({ extend: () => brokenSchema })
+// starts; every request: 500, empty body
+```
+
+After: the start says why.
+
+```ts
+graphqlPlugin({ extend: () => brokenSchema })
+// Refused: graphqlPlugin: the schema is invalid. Input Object type Empty
+// must define one or more fields.
+```
