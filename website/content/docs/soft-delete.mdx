@@ -41,6 +41,17 @@ included, and `deleteMany` keeps its rows too:
 	../examples/soft-delete/src/app.test.ts#commands
 </include>
 
+## Unique values
+
+A deleted row keeps its values, unique ones included. An index whose
+`where` keeps only the rows not deleted, `where: { deletedAt: null }`, as
+`Post` has on its title, lets a new row take the value a deleted one held;
+restoring that row is then a `UNIQUE_VIOLATION`:
+
+<include cwd meta='title="src/app.test.ts"'>
+	../examples/soft-delete/src/app.test.ts#unique
+</include>
+
 ## Over a transport
 
 No transport exposes the commands by themselves: a function gives them to
@@ -83,13 +94,13 @@ model uses `softDelete()`. `softDelete()` adds:
 
 ### What a delete does
 
-| Case                    | Result                                                                  |
-| ----------------------- | ----------------------------------------------------------------------- |
-| `delete`, `deleteMany`  | Dates the rows and returns them, as a delete does; no row is removed.   |
-| the row's relations     | Stay: a soft-deleted row cascades nothing, and keeps its related rows.  |
-| the row's unique values | Stay taken: a new row with the same unique value is `UNIQUE_VIOLATION`. |
-| a read, a count         | Leaves the deleted rows out, for every caller.                          |
-| a relation to the row   | A `one` to it reads `null`, for every caller.                           |
+| Case                    | Result                                                                             |
+| ----------------------- | ---------------------------------------------------------------------------------- |
+| `delete`, `deleteMany`  | Dates the rows and returns them, as a delete does; no row is removed.              |
+| the row's relations     | Stay: a soft-deleted row cascades nothing, and keeps its related rows.             |
+| the row's unique values | Stay taken, unless an index's `where` is `{ deletedAt: null }`: see Unique values. |
+| a read, a count         | Leaves the deleted rows out, for every caller.                                     |
+| a relation to the row   | A `one` to it reads `null`, for every caller.                                      |
 
 ### Errors
 

@@ -334,15 +334,16 @@ export function resolve(
 			}
 			fields.set(name, fieldOf(model, name, field))
 		}
-		checkIndexes(model, fields, definition.indexes)
+		const indexes = checkIndexes(model, fields, definition.indexes)
 		const uniques: (readonly string[])[] = [['id']]
 		for (const field of fields.values()) {
 			if (field.kind === 'scalar' && (field.unique || insensitive(field))) {
 				uniques.push([field.name])
 			}
 		}
-		for (const index of definition.indexes) {
-			if (index.unique === true) uniques.push(index.fields)
+		// A partial index is no target: rows outside it share values (D-215).
+		for (const index of indexes) {
+			if (index.unique && index.where === undefined) uniques.push(index.fields)
 		}
 		const uses = installedUses(definition, plugins)
 		const info: ModelInfo = {
@@ -363,12 +364,7 @@ export function resolve(
 			...(definition.dbName === undefined ? {} : { dbName: definition.dbName }),
 			fields: [...fields.values()].map((field) => schemaField(info, field)),
 			indexes: [
-				...definition.indexes.map((index) => ({
-					fields: index.fields,
-					unique: index.unique === true,
-					contains: index.contains === true,
-					...(index.mode === undefined ? {} : { mode: index.mode }),
-				})),
+				...indexes,
 				// A field's own comes as its index (D-170).
 				...[...fields.values()].filter(insensitive).map((field) => ({
 					fields: [field.name],

@@ -1,9 +1,11 @@
 // A snapshot read back from a database or `migrations/schema.json` (D-105),
-// checked; a key 0.2 did not write is optional (D-170).
+// checked; a key an earlier version did not write is optional (D-170,
+// D-215).
 import type {
 	Check,
 	Column,
 	ForeignKey,
+	PartialUnique,
 	Search,
 	Snapshot,
 	TableSnapshot,
@@ -68,6 +70,18 @@ const foreignKeyOf = (value: unknown): ForeignKey | undefined =>
 const stringsOf = (value: unknown): string[] | undefined =>
 	isStrings(value) ? value : undefined
 
+const partialOf = (value: unknown): PartialUnique | undefined =>
+	isRecord(value) &&
+	isStrings(value['columns']) &&
+	typeof value['where'] === 'string' &&
+	(value['lower'] === undefined || value['lower'] === true)
+		? {
+				columns: value['columns'],
+				where: value['where'],
+				...(value['lower'] === true ? { lower: true as const } : {}),
+			}
+		: undefined
+
 /** A search, `null` for none, or `undefined` when it is neither. */
 const searchOf = (value: unknown): Search | null | undefined =>
 	value === null
@@ -99,6 +113,10 @@ function tableOf(value: unknown): TableSnapshot | undefined {
 		value['lowerUniques'] === undefined
 			? {}
 			: entries(value['lowerUniques'], stringsOf)
+	const partial =
+		value['partialUniques'] === undefined
+			? {}
+			: entries(value['partialUniques'], partialOf)
 	const model = value['model']
 	if (
 		typeof model !== 'string' ||
@@ -112,7 +130,8 @@ function tableOf(value: unknown): TableSnapshot | undefined {
 		trigrams === undefined ||
 		foreignKeys === undefined ||
 		search === undefined ||
-		lower === undefined
+		lower === undefined ||
+		partial === undefined
 	) {
 		return undefined
 	}
@@ -128,6 +147,7 @@ function tableOf(value: unknown): TableSnapshot | undefined {
 		foreignKeys,
 		search,
 		...(Object.keys(lower).length > 0 ? { lowerUniques: lower } : {}),
+		...(Object.keys(partial).length > 0 ? { partialUniques: partial } : {}),
 	}
 }
 

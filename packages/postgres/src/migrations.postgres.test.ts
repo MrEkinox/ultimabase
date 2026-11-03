@@ -9,6 +9,7 @@ import { pathToFileURL } from 'node:url'
 import { Client } from 'pg'
 import type {
 	Adapter,
+	IndexWhere,
 	Logger,
 	Migrations,
 	Schema,
@@ -283,6 +284,43 @@ const insertAccount = (handle: string, kind = 'a') =>
 		inSchema(schema),
 		`insert into account values (gen_random_uuid(), now(), now(), '${handle}', '${kind}', 1)`,
 	)
+
+/** A seat whose holder is unique among the rows `where` keeps, or always (D-215). */
+const seat = (where?: IndexWhere, lower = false): Schema => ({
+	models: [
+		{
+			name: 'Seat',
+			fields: [
+				scalar('holder', 'string', { dbName: 'person' }),
+				scalar('leftAt', 'dateTime', { optional: true }),
+				scalar('status', 'string'),
+				scalar('rank', 'number'),
+			],
+			indexes:
+				where === undefined
+					? []
+					: [
+							{
+								fields: ['holder'],
+								unique: true,
+								contains: false,
+								where,
+								...(lower ? { mode: 'insensitive' as const } : {}),
+							},
+						],
+		},
+	],
+})
+const insertSeat = (person: string, leftAt = 'null', status = 'here') =>
+	query(
+		inSchema(schema),
+		`insert into seat values (gen_random_uuid(), now(), now(), '${person}', ${leftAt}, '${status}', 1)`,
+	)
+/** The name of the seat's partial key in `to`. */
+const partialKey = (to: Schema): string =>
+	Object.keys(
+		parseSnapshot(migrations.snapshot(to)).tables['seat']?.partialUniques ?? {},
+	).join()
 
 /** A post whose sizes are a list among `values` (D-127). */
 const sizes = (values: readonly string[]): Schema => ({
@@ -906,6 +944,95 @@ describe('a sync on postgres()', () => {
 		expect(() => migrations.plan(broken, account(true))).toThrow(
 			'The schema snapshot is not one postgres() wrote.',
 		)
+	})
+
+	it('adds, remakes and drops a partial unique key, refused over rows it keeps that share a value (D-215)', async () => {
+		const open: IndexWhere = {
+			leftAt: { equals: null },
+			status: { not: 'gone' },
+			rank: { equals: 1 },
+		}
+		const predicate = `"left_at" is null and "status" <> 'gone' and "rank" = 1`
+		await sync(undefined, seat())
+		await insertSeat('ada')
+		await insertSeat('ada')
+		const key = partialKey(seat(open))
+		expect(key).toMatch(/^seat_person_[0-9a-f]{8}_key$/)
+		const added = `create unique index "${key}" on "seat" ("person") where ${predicate}`
+		expect(
+			migrations.plan(migrations.snapshot(seat()), seat(open)),
+		).toStrictEqual([
+			{
+				sql: added,
+				model: 'Seat',
+				does: 'added a partial unique key on holder',
+				tries:
+					'a partial unique key on Seat (holder) fails when two rows it keeps share a value',
+			},
+		])
+		await expect(sync(seat(), seat(open))).rejects.toMatchObject({
+			name: 'MigrationFailed',
+			at: added,
+		})
+		await query(inSchema(schema), `update seat set status = 'gone'`)
+		await insertSeat('ada')
+		await sync(seat(), seat(open))
+		await expect(insertSeat('ada')).rejects.toThrow(key)
+		await insertSeat('ada', 'now()')
+		await insertSeat('ada', 'null', 'gone')
+		const { tables } = parseSnapshot(migrations.snapshot(seat(open)))
+		expect(tables['seat']?.partialUniques).toStrictEqual({
+			[key]: { columns: ['person'], where: predicate },
+		})
+		expect(tables['seat']?.uniques).toStrictEqual({})
+		const { snapshot } = (await migrations.stored()) ?? {}
+		expect(migrations.plan(snapshot, seat(open))).toStrictEqual([])
+		// A new where makes the index again, under the name it tells apart.
+		const since: IndexWhere = { leftAt: { not: new Date(0) } }
+		const remade = await sync(seat(open), seat(since, true))
+		const other = partialKey(seat(since, true))
+		expect(other).toMatch(/^seat_person_lower_[0-9a-f]{8}_key$/)
+		expect(remade.map(({ sql }) => sql)).toStrictEqual([
+			`drop index "${key}"`,
+			`create unique index "${other}" on "seat" (lower("person" collate "default")) where "left_at" <> '1970-01-01T00:00:00.000Z'::timestamptz`,
+		])
+		expect(changes(remade)).toStrictEqual([
+			'Seat: dropped the partial unique key on holder',
+			'Seat: added a partial unique key on holder',
+		])
+		await expect(insertSeat('ADA', 'now()')).rejects.toThrow(other)
+		const dropped = await sync(seat(since, true), seat())
+		expect(dropped.map(({ sql }) => sql)).toStrictEqual([
+			`drop index "${other}"`,
+		])
+		await expect(insertSeat('ADA', 'now()')).resolves.toBeDefined()
+	})
+
+	it('reads a snapshot without partial keys, and refuses a broken one (D-215)', () => {
+		const written = migrations.snapshot(seat())
+		expect(JSON.stringify(written)).not.toContain('partialUniques')
+		expect(parseSnapshot(written)).toStrictEqual(written)
+		const open: IndexWhere = { leftAt: { equals: null } }
+		const { tables } = parseSnapshot(migrations.snapshot(seat(open, true)))
+		expect(tables['seat']?.partialUniques).toStrictEqual({
+			[partialKey(seat(open, true))]: {
+				columns: ['person'],
+				where: '"left_at" is null',
+				lower: true,
+			},
+		})
+		for (const partialUniques of [
+			{ k: { columns: ['person'] } },
+			{ k: { columns: ['person'], where: 'x', lower: false } },
+		]) {
+			const broken = {
+				postgres: 1,
+				tables: { seat: { ...tables['seat'], partialUniques } },
+			}
+			expect(() => migrations.plan(broken, seat(open))).toThrow(
+				'The schema snapshot is not one postgres() wrote.',
+			)
+		}
 	})
 
 	it('adds, remakes and drops the search column with its GIN index (D-148)', async () => {

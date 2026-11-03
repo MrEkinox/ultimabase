@@ -13,6 +13,8 @@ export type {
 	Feed,
 	Filter,
 	GroupKey,
+	IndexValue,
+	IndexWhere,
 	ListUpdate,
 	Migration,
 	Migrations,
@@ -90,7 +92,8 @@ export type {
 	ServerFunction,
 } from './function.ts'
 export { memory } from './memory.ts'
-export type { App, FindOperation, IndexShape, Model } from './model.ts'
+export type { App, FindOperation, Model } from './model.ts'
+export type { IndexShape } from './model-indexes.ts'
 export type {
 	ExposedOutput,
 	ExposedType,

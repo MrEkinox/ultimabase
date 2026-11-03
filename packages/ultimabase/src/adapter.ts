@@ -101,7 +101,18 @@ export type SchemaModel = {
 		readonly contains: boolean
 		/** A unique index whose string and enum fields ignore case (D-170). */
 		readonly mode?: 'insensitive'
+		/** A unique index over the rows it selects only (D-215). */
+		readonly where?: IndexWhere
 	}[]
+}
+
+/** A value a partial unique index compares a field with (D-215). */
+export type IndexValue = string | number | boolean | Date | null
+
+/** A partial unique index's rows: each field equals a value, or not (D-215). */
+export type IndexWhere = {
+	readonly [field: string]:
+		{ readonly equals: IndexValue } | { readonly not: IndexValue }
 }
 
 export type Schema = { readonly models: readonly SchemaModel[] }

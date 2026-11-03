@@ -61,6 +61,8 @@ export type IndexDefinition = {
 	readonly contains?: true
 	/** A unique index whose string fields ignore case (D-170). */
 	readonly mode?: 'insensitive'
+	/** A unique index over the rows it selects, checked at startup (D-215). */
+	readonly where?: unknown
 }
 
 export type ModelDefinition = {

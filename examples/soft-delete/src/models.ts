@@ -9,6 +9,8 @@ export const Post = defineModel({
 	// Adds `deletedAt`, `Post.trash` and `Post.restore`.
 	use: [graphql(), softDelete()],
 	fields: (f) => ({ title: f.string() }),
+	// A title is unique among the kept posts: a deleted one gives it back.
+	indexes: [{ fields: ['title'], unique: true, where: { deletedAt: null } }],
 	// Open to every client, to keep the example on soft delete.
 }).with({ access: allow.public })
 //#endregion
