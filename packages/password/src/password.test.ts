@@ -222,6 +222,7 @@ describe('signing up', () => {
 					{
 						path: ['input', 'password'],
 						message: 'A password has 8 to 256 characters.',
+						code: 'PASSWORD_LENGTH',
 					},
 				],
 			},

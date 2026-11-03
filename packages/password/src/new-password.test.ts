@@ -16,6 +16,7 @@ import {
 	graphqlOf,
 	M,
 	signInQuery,
+	signUpQuery,
 	started,
 	tokenIn,
 	tokenOf,
@@ -48,14 +49,32 @@ const asEmail = {
 	message: 'password: A password cannot be the email.',
 	details: {
 		issues: [
-			{ path: ['password'], message: 'A password cannot be the email.' },
+			{
+				path: ['password'],
+				message: 'A password cannot be the email.',
+				code: 'PASSWORD_IS_EMAIL',
+			},
 		],
 	},
 }
 const inBreach = {
 	code: 'VALIDATION_FAILED',
 	message: 'password: This password appears in a data breach: choose another.',
+	details: {
+		issues: [
+			{
+				path: ['password'],
+				message: 'This password appears in a data breach: choose another.',
+				code: 'PASSWORD_BREACHED',
+			},
+		],
+	},
 }
+
+/** A GraphQL body refused with one issue. */
+const refusedWith = (issue: object) => ({
+	errors: [{ extensions: { details: { issues: [issue] } } }],
+})
 
 const suffixOf = (password: string) =>
 	createHash('sha1').update(password).digest('hex').toUpperCase().slice(5)
@@ -120,6 +139,49 @@ describe('a password that is the email', () => {
 		)
 		// The old password still signs in.
 		await User.signIn({ email: ada.email, password: 'correct horse' })
+	})
+
+	// A client told the refusals apart by their English message, and a
+	// function's two refusals of one field had two paths.
+	it("gives a function's refusals a code, on its input's path (D-224)", async () => {
+		const { url } = await server()
+		const { body } = await graphqlOf(url, signUpQuery, {
+			input: { email: ada.email, password: 'ada.lovelace', name: 'Ada' },
+		})
+		expect(body).toMatchObject(
+			refusedWith({
+				path: ['input', 'password'],
+				message: 'A password cannot be the email.',
+				code: 'PASSWORD_IS_EMAIL',
+			}),
+		)
+		await User.signUp({ ...ada, password: 'correct horse' }, M)
+		const signed = await graphqlOf(url, signInQuery, {
+			input: { email: ada.email, password: 'correct horse' },
+		})
+		const token = bearer(tokenOf(signed.body, 'signIn'))
+		const change = async (newPassword: string) =>
+			graphqlOf(
+				url,
+				changeQuery,
+				{ input: { currentPassword: 'correct horse', newPassword } },
+				token,
+			)
+		const path = ['input', 'newPassword']
+		expect((await change('short')).body).toMatchObject(
+			refusedWith({
+				path,
+				message: 'A password has 8 to 256 characters.',
+				code: 'PASSWORD_LENGTH',
+			}),
+		)
+		expect((await change('ada.lovelace')).body).toMatchObject(
+			refusedWith({
+				path,
+				message: 'A password cannot be the email.',
+				code: 'PASSWORD_IS_EMAIL',
+			}),
+		)
 	})
 
 	it('keeps a reset link the refused password did not use', async () => {

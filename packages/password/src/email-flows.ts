@@ -82,10 +82,11 @@ export async function reset(
 	state: State,
 	token: string,
 	password: string,
+	path?: readonly string[],
 ): Promise<void> {
 	// Checked before the link is used: a refused password keeps it (D-209).
 	const userId = await redeemCurrent(state, token, 'reset', async (id) =>
-		checkNewFor(state, id, password),
+		checkNewFor(state, id, password, path),
 	)
 	await setPassword(state, userId, password)
 	await verify(state, userId)

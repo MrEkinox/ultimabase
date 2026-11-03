@@ -30,7 +30,7 @@ export type ErrorCodeOf<A> =
 export type Issue = {
 	readonly path: readonly (string | number)[]
 	readonly message: string
-	/** A stable code for a client, from a `PublicError` a `validate` function throws (D-88). */
+	/** A stable code for a client: a thrown `PublicError`'s (D-88), or a schema issue's in capitals (D-224). */
 	readonly code?: string
 }
 

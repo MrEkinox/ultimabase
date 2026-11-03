@@ -5,8 +5,9 @@ import { PublicError, Refused } from 'ultimabase'
 import { decimalPattern, issueOf } from 'ultimabase/internal'
 
 type Node = { readonly [key: string]: unknown }
-type Read = { readonly value: unknown } | { readonly message: string }
-type Issue = { readonly path: readonly string[]; readonly message: string }
+type Refusal = { readonly message: string; readonly code?: string }
+type Read = { readonly value: unknown } | Refusal
+type Issue = Refusal & { readonly path: readonly string[] }
 type Scalar = Extract<SchemaField, { readonly kind: 'scalar' }>
 type Result<O> = { readonly value: O } | { readonly issues: readonly Issue[] }
 
@@ -53,13 +54,16 @@ export function emailOf(value: unknown): Read {
 export const normalized = (password: string): string =>
 	password.normalize('NFKC')
 
-/** A password to store, normalized: 8 to 256 characters, no other rule (D-113). */
+/** A password to store, normalized: 8 to 256 characters, no other rule (D-113, D-224). */
 export function passwordOf(value: unknown): Read {
 	if (typeof value !== 'string') return { message: 'Expected a string.' }
 	const password = normalized(value)
 	const length = Array.from(password).length
 	if (length < 8 || length > 256) {
-		return { message: 'A password has 8 to 256 characters.' }
+		return {
+			message: 'A password has 8 to 256 characters.',
+			code: 'PASSWORD_LENGTH',
+		}
 	}
 	return { value: password }
 }
@@ -72,7 +76,7 @@ export function valid<T>(
 ): T {
 	const result = read(value)
 	if ('message' in result) {
-		const issues = [{ path: [path], message: result.message }]
+		const issues = [{ path: [path], ...result }]
 		throw new PublicError('VALIDATION_FAILED', `${path}: ${result.message}`, {
 			details: { issues },
 		})
@@ -212,7 +216,7 @@ function objectRead(
 		}
 		const result = read(given)
 		if ('message' in result) {
-			issues.push({ path: [...path, key], message: result.message })
+			issues.push({ path: [...path, key], ...result })
 		} else output[key] = result.value
 	}
 	return output

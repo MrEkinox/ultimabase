@@ -48,6 +48,9 @@ function pathOf(
 	]
 }
 
+/** A code of the application's own: a library's, as Zod's `too_small`, is dropped (D-224). */
+const stableCode = /^[A-Z][A-Z0-9_]*$/u
+
 /**
  * What a Standard Schema returns for `value`, its issues' paths behind
  * `prefix`; `where` names the schema when it breaks the standard.
@@ -65,13 +68,17 @@ export async function checked(
 	)
 	if (isObject(result) && Array.isArray(result['issues'])) {
 		return {
-			issues: result['issues'].map((issue: unknown) => ({
-				path: pathOf(prefix, isObject(issue) ? issue['path'] : undefined),
-				message:
-					isObject(issue) && typeof issue['message'] === 'string'
-						? issue['message']
-						: 'Invalid value.',
-			})),
+			issues: result['issues'].map((issue: unknown): Issue => {
+				const { path, message, code }: { readonly [key: string]: unknown } =
+					isObject(issue) ? issue : {}
+				return {
+					path: pathOf(prefix, path),
+					message: typeof message === 'string' ? message : 'Invalid value.',
+					...(typeof code === 'string' && stableCode.test(code)
+						? { code }
+						: {}),
+				}
+			}),
 		}
 	}
 	if (isObject(result) && 'value' in result) return { value: result['value'] }
