@@ -76,6 +76,7 @@ describe('an ACL', () => {
 			'An ACL is an ACL or { read, write }.',
 		)
 		expect(() => ACL.fromJSON(null)).toThrow('An ACL is an ACL')
+		expect(() => ACL.fromJSON([])).toThrow('An ACL is an ACL')
 		expect(() => ACL.fromJSON({ delete: [] })).toThrow(
 			'delete is not a permission.',
 		)
@@ -85,5 +86,20 @@ describe('an ACL', () => {
 		expect(() => ACL.fromJSON({ write: ['*', 'team:1'] })).toThrow(
 			'write[1]: a subject is *, user:<id> or role:<id>.',
 		)
+	})
+
+	// An entry its decoding refuses made every read of its model throw.
+	it('refuses an id no entry holds, before any row stores it', () => {
+		const acl = new ACL()
+		for (const id of ['', 'u\n1']) {
+			const user = `${JSON.stringify(id)} is not a user id.`
+			const role = `${JSON.stringify(id)} is not a role id.`
+			expect(() => acl.allowUser({ id })).toThrow(user)
+			expect(() => acl.denyUser({ id })).toThrow(user)
+			expect(() => acl.userCan({ id }, 'read')).toThrow(user)
+			expect(() => acl.allowRole({ id })).toThrow(role)
+			expect(() => acl.denyRole({ id })).toThrow(role)
+			expect(() => acl.roleCan({ id }, 'read')).toThrow(role)
+		}
 	})
 })

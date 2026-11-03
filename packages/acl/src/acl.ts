@@ -25,6 +25,18 @@ function permissionOf(entry: string): Permission | undefined {
 	return isSubject(entry.slice(permission.length + 1)) ? permission : undefined
 }
 
+/**
+ * The subject of a user or a role; an id no entry holds throws, so an ACL
+ * never stores what its decoding refuses.
+ */
+function subjectOf(kind: 'user' | 'role', of: { readonly id: string }): string {
+	const named = `${kind}:${of.id}`
+	if (!isSubject(named)) {
+		throw new TypeError(`${JSON.stringify(of.id)} is not a ${kind} id.`)
+	}
+	return named
+}
+
 /** The permissions given, or both when none is. */
 const given = (perms: readonly Permission[]): readonly Permission[] =>
 	perms.length === 0 ? permissions : perms
@@ -35,7 +47,7 @@ const given = (perms: readonly Permission[]): readonly Permission[] =>
  */
 export function parsed(value: unknown): ACL | string {
 	if (value instanceof ACL) return value
-	if (typeof value !== 'object' || value === null) {
+	if (typeof value !== 'object' || value === null || Array.isArray(value)) {
 		return 'An ACL is an ACL or { read, write }.'
 	}
 	const entries: string[] = []
@@ -83,10 +95,10 @@ export class ACL {
 		return acl
 	}
 
-	#changed(subject: string, perms: readonly Permission[], add: boolean): ACL {
+	#changed(who: string, perms: readonly Permission[], add: boolean): ACL {
 		const entries = new Set(this.#entries)
 		for (const permission of given(perms)) {
-			const entry = `${permission}:${subject}`
+			const entry = `${permission}:${who}`
 			if (add) entries.add(entry)
 			else entries.delete(entry)
 		}
@@ -101,14 +113,14 @@ export class ACL {
 		user: { readonly id: string },
 		...perms: readonly Permission[]
 	): ACL {
-		return this.#changed(`user:${user.id}`, perms, true)
+		return this.#changed(subjectOf('user', user), perms, true)
 	}
 
 	allowRole(
 		role: { readonly id: string },
 		...perms: readonly Permission[]
 	): ACL {
-		return this.#changed(`role:${role.id}`, perms, true)
+		return this.#changed(subjectOf('role', role), perms, true)
 	}
 
 	denyPublic(...perms: readonly Permission[]): ACL {
@@ -119,14 +131,14 @@ export class ACL {
 		user: { readonly id: string },
 		...perms: readonly Permission[]
 	): ACL {
-		return this.#changed(`user:${user.id}`, perms, false)
+		return this.#changed(subjectOf('user', user), perms, false)
 	}
 
 	denyRole(
 		role: { readonly id: string },
 		...perms: readonly Permission[]
 	): ACL {
-		return this.#changed(`role:${role.id}`, perms, false)
+		return this.#changed(subjectOf('role', role), perms, false)
 	}
 
 	publicCan(permission: Permission): boolean {
@@ -134,11 +146,11 @@ export class ACL {
 	}
 
 	userCan(user: { readonly id: string }, permission: Permission): boolean {
-		return this.#entries.has(`${permission}:user:${user.id}`)
+		return this.#entries.has(`${permission}:${subjectOf('user', user)}`)
 	}
 
 	roleCan(role: { readonly id: string }, permission: Permission): boolean {
-		return this.#entries.has(`${permission}:role:${role.id}`)
+		return this.#entries.has(`${permission}:${subjectOf('role', role)}`)
 	}
 
 	/** The ids of the users having the permission. */
