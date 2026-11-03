@@ -6,6 +6,7 @@ import type {
 	GraphQLNullableInputType,
 	GraphQLNullableOutputType,
 } from 'graphql'
+import { maxFilterDepth } from 'ultimabase/internal'
 import type { Path, Typed } from './data.ts'
 import { dataType, scopesOf } from './data.ts'
 import { exportOf } from './json-schema.ts'
@@ -70,18 +71,26 @@ const each = (value: unknown, map: (where: Args) => Args): unknown =>
 			? map({ ...value })
 			: value
 
-/** A filter's json operands, their dates back to text, through relations. */
+/**
+ * A filter's json operands, their dates back to text, through relations.
+ * Past the deepest level, it is left as is, for the kernel to refuse
+ * (D-228).
+ */
 export function plainWhere(
 	registry: Registry,
 	model: string,
 	where: Args,
+	depth = 1,
 ): Args {
+	if (depth > maxFilterDepth) return where
 	const fields = registry.entry(model).model.fields
 	const plained: { [key: string]: unknown } = {}
 	for (const [key, value] of Object.entries(where)) {
 		const field = fields.find((candidate) => candidate.name === key)
 		if (key === 'AND' || key === 'OR' || key === 'NOT') {
-			plained[key] = each(value, (inner) => plainWhere(registry, model, inner))
+			plained[key] = each(value, (inner) =>
+				plainWhere(registry, model, inner, depth + 1),
+			)
 		} else if (field?.kind === 'scalar') {
 			plained[key] = field.type === 'json' ? plain(value) : value
 		} else if (field !== undefined) {
@@ -90,7 +99,9 @@ export function plainWhere(
 				Object.fromEntries(
 					Object.entries(operators).map(([operator, inner]) => [
 						operator,
-						each(inner, (target) => plainWhere(registry, field.target, target)),
+						each(inner, (target) =>
+							plainWhere(registry, field.target, target, depth + 1),
+						),
 					]),
 				),
 			)

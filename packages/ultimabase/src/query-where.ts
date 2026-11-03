@@ -238,6 +238,7 @@ function relationFilters(
 	value: unknown,
 	path: string,
 	scope: Scope | undefined,
+	depth: number,
 ): Filter[] {
 	const target = modelOf(models, field.target)
 	const readable =
@@ -257,7 +258,7 @@ function relationFilters(
 		const inner =
 			operand === null && field.kind === 'one'
 				? null
-				: normalizeWhere(models, target, operand, at, scope)
+				: normalizeWhere(models, target, operand, at, scope, false, depth + 1)
 		filters.push({
 			[field.name]:
 				readable === undefined
@@ -276,21 +277,34 @@ function list(
 	single: boolean,
 	scope: Scope | undefined,
 	stored: boolean,
+	depth: number,
 ): Filter[] {
+	const at = (item: unknown, to: string) =>
+		normalizeWhere(models, model, item, to, scope, stored, depth + 1)
 	if (Array.isArray(value)) {
-		return value.map((item: unknown, index) =>
-			normalizeWhere(models, model, item, `${path}.${index}`, scope, stored),
-		)
+		return value.map((item: unknown, index) => at(item, `${path}.${index}`))
 	}
-	if (single) return [normalizeWhere(models, model, value, path, scope, stored)]
+	if (single) return [at(value, path)]
 	throw new InvalidQuery(path, `${path} must be a list.`)
+}
+
+/** The most levels a filter nests, well within the stack (D-228). */
+export const maxFilterDepth = 32
+
+/** Refuses a filter `depth` levels deep, past `maxFilterDepth` (D-228). */
+export function checkDepth(depth: number, path: string): void {
+	if (depth <= maxFilterDepth) return
+	throw new InvalidQuery(
+		path,
+		`${path}: the filter is nested more than ${maxFilterDepth} levels deep.`,
+	)
 }
 
 /**
  * A `where` of `model`, normalized; `path` names it in errors. With a
  * `scope`, relation filters see readable rows only (D-86). Only a
  * `beforeFind`'s, `stored`, filters a plugin field, in its stored form
- * (D-122).
+ * (D-122). Each `AND`, `OR`, `NOT` and relation filter is a level deeper.
  */
 export function normalizeWhere(
 	models: Models,
@@ -299,13 +313,16 @@ export function normalizeWhere(
 	path: string,
 	scope?: Scope,
 	stored = false,
+	depth = 1,
 ): Filter {
+	checkDepth(depth, path)
 	const filter: { [key: string]: Condition | Filter[] } = {}
 	const relations: Filter[] = []
 	for (const [key, value] of entries(where, path)) {
 		const at = `${path}.${key}`
 		if (key === 'AND' || key === 'NOT' || key === 'OR') {
-			filter[key] = list(models, model, value, at, key !== 'OR', scope, stored)
+			const single = key !== 'OR'
+			filter[key] = list(models, model, value, at, single, scope, stored, depth)
 			continue
 		}
 		if (key === '_search' && searchedFields(model.fields.values()).length > 0) {
@@ -326,7 +343,9 @@ export function normalizeWhere(
 		}
 		scope?.check(model, key, at, 'filters')
 		if (field !== undefined && field.kind !== 'scalar') {
-			relations.push(...relationFilters(models, model, field, value, at, scope))
+			relations.push(
+				...relationFilters(models, model, field, value, at, scope, depth),
+			)
 			continue
 		}
 		const condition =
