@@ -43,6 +43,22 @@ type Relation = Exclude<SchemaField, { readonly kind: 'scalar' }>
 
 const facing = (field: Relation): string => `Without${upper(field.inverse)}`
 
+/** A view is read-only (D-151). */
+const isView = (field: SchemaField): boolean =>
+	field.kind === 'many' && field.from !== undefined
+
+/**
+ * Whether a model's data input has a field, `without` aside: GraphQL has no
+ * empty input object, so an empty one is not generated, nor what takes it
+ * (D-227).
+ */
+const writes = (registry: Registry, model: string, without?: string) =>
+	registry
+		.entry(model)
+		.exposed.schema.fields.some(
+			(field) => field.name !== without && !isView(field),
+		)
+
 /** `CommentCreateOrConnectWithoutPostInput { where, create }` (D-138). */
 const orCreateInput = (
 	registry: Registry,
@@ -120,8 +136,9 @@ function relationInput(
 		const row = listed(connectInput(registry))
 		const visible = registry.entry(field.target).visible
 		const updating = !creating && visible
+		const data = writes(registry, field.target, field.inverse)
 		const fields: GraphQLInputFieldConfigMap = { connect: { type: row } }
-		if (visible) {
+		if (visible && data) {
 			fields['connectOrCreate'] = {
 				type: listed(orCreateInput(registry, field)),
 			}
@@ -139,7 +156,7 @@ function relationInput(
 		if (!creating && many && field.filtered !== true) {
 			fields['set'] = { type: row }
 		}
-		if (updating) {
+		if (updating && data) {
 			fields['update'] = {
 				type: many
 					? listed(updateWhereInput(registry, field))
@@ -231,9 +248,7 @@ function dataInput(
 					const required = new Set(creating ? exposed.required : [])
 					const fields: GraphQLInputFieldConfigMap = {}
 					for (const field of exposed.schema.fields) {
-						// A view is read-only (D-151).
-						const view = field.kind === 'many' && field.from !== undefined
-						if (field.name === without || view) continue
+						if (field.name === without || isView(field)) continue
 						const type = fieldInput(registry, model, field, creating)
 						fields[field.name] = {
 							type: required.has(field.name) ? new GraphQLNonNull(type) : type,
@@ -272,14 +287,28 @@ export function mutationFields(registry: Registry, entry: Entry): Fields {
 		uniqueWhere(registry, name, objectOf(args['where']))
 	const dataOf = (args: Args): Args =>
 		kernelData(registry, name, objectOf(args['data']))
-	return {
+	// A model without a field is created with no data, and not updated (D-227).
+	const writable = writes(registry, name)
+	const create: Fields = {
 		[`create${name}`]: {
 			type: new GraphQLNonNull(type),
-			args: { data: data(true) },
+			args: writable ? { data: data(true) } : {},
 			resolve: written(async (args, select, context) =>
 				queries.create({ data: dataOf(args), select }, as(context)),
 			),
 		},
+	}
+	const deleted: Fields = {
+		[`delete${name}`]: {
+			type: new GraphQLNonNull(deletedType(registry, name)),
+			args: { where },
+			resolve: async (_, args, context) =>
+				run(async () => queries.delete({ where: unique(args) }, as(context))),
+		},
+	}
+	if (!writable) return { ...create, ...deleted }
+	return {
+		...create,
 		[`update${name}`]: {
 			type: new GraphQLNonNull(type),
 			args: { where, data: data(false) },
@@ -307,11 +336,6 @@ export function mutationFields(registry: Registry, entry: Entry): Fields {
 				return row
 			}),
 		},
-		[`delete${name}`]: {
-			type: new GraphQLNonNull(deletedType(registry, name)),
-			args: { where },
-			resolve: async (_, args, context) =>
-				run(async () => queries.delete({ where: unique(args) }, as(context))),
-		},
+		...deleted,
 	}
 }

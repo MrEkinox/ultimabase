@@ -4521,7 +4521,7 @@ npx ultimabase reset --force
 
 ## D-106: `httpPlugin()`, its Hono routes and the caller they read
 
-Amended by D-153, D-166, D-204 and D-205.
+Amended by D-153, D-166, D-204, D-205 and D-223.
 
 Choice: completes D-27, D-49, D-59 and D-66.
 
@@ -9391,7 +9391,7 @@ api: ({ plugins }) => plugins.http.mount(uploads, { bodyLimit: false })
 
 ## D-154: Realtime: live lists and live rows
 
-Amended by D-163, D-166, D-178, D-186, D-187, D-195 and D-196.
+Amended by D-163, D-166, D-178, D-186, D-187, D-195, D-196 and D-223.
 
 Choice: completes D-25; amends D-106 (WebSocket upgrades), D-107 (the
 `Subscription` type), D-109 (live functions) and D-129 (live reads over
@@ -13414,7 +13414,7 @@ bob?.email // `string | null | undefined`
 
 ## D-204: `/health` and `/ready`, and a drain before the stop
 
-Amended by D-207.
+Amended by D-207 and D-223.
 
 Choice: amends D-91 and D-106.
 
@@ -14845,6 +14845,76 @@ Rejected:
 - A missed occurrence run once per occurrence, which floods a restart.
 - The files sweep moved onto jobs, which would make files require jobs.
 
+## D-223: The server's own origin over HTTPS, and the body limit and drain checked
+
+Choice: amends D-106 points 5 and 6, D-154 (the upgrade's origin) and D-204
+point 6.
+
+1. An `Origin` is the server's own when its host, with its port, is the one
+   the request was sent to, whatever its scheme. The form check (D-106
+   point 6) and the upgrade check (D-154) both read it so:
+   `https://api.example.com` is the own origin of a request to
+   `http://api.example.com`, as a proxy serving HTTPS forwards it.
+2. `bodyLimit` is a whole number of bytes above 0. Another value, as `NaN`,
+   `Infinity`, `0`, `-1` or `1.5`, refuses the start:
+   `bodyLimit is NaN, not a whole number of bytes above 0.`
+3. `drain` is a whole number of milliseconds, 0 included. Another value
+   refuses the start: `drain is -1, not a whole number of milliseconds.`
+
+Why:
+
+- The server serves HTTP only, and HTTPS comes from a proxy (D-106). It saw
+  `http://api.example.com`, and a page of the API's own origin sent
+  `Origin: https://api.example.com`: its WebSockets were refused with a 403,
+  and its forms too in a browser that sends no `Sec-Fetch-Site`, unless
+  `cors` listed the API itself.
+- Comparing the hosts lets no other site in: a browser names the page's
+  origin, which a script cannot change. The scheme added nothing:
+  `http://api.example.com` passed already.
+- `bodyLimit: NaN` and `Infinity` lifted the limit: a body of 5 MB passed. A
+  negative limit refused every body. `drain: NaN`, `-1` and `Infinity`
+  skipped the drain, and `Infinity` printed Node's `TimeoutOverflowWarning`.
+  The start refuses a wrong `proxies`, `port` and `rateLimit` already.
+- `0` as a body limit refuses every body; a mount that reads its own body
+  lifts the limit with `bodyLimit: false` (D-153).
+
+Rejected:
+
+- Reading `X-Forwarded-Proto` for the scheme: it is trusted only behind
+  `proxies`, and the host alone decides the same thing.
+- Clamping a wrong value to the default: a typo would pass unseen.
+
+Example, before: behind a proxy serving HTTPS, a dashboard served by the
+API itself opens a subscription.
+
+```ts
+httpPlugin({ cors: ['https://app.example.com'] })
+// From a page of https://api.example.com:
+new WebSocket('wss://api.example.com/graphql')
+// 403 "A WebSocket from another origin is refused."
+```
+
+After: it opens, with no `cors` entry for the API itself.
+
+```ts
+httpPlugin({ cors: ['https://app.example.com'] })
+new WebSocket('wss://api.example.com/graphql') // 101
+```
+
+Before: a limit read from the environment, unset, lifts the limit.
+
+```ts
+httpPlugin({ bodyLimit: Number(process.env.BODY_LIMIT) })
+// a body of 5 MB passes
+```
+
+After: the start says why.
+
+```ts
+httpPlugin({ bodyLimit: Number(process.env.BODY_LIMIT) })
+// Refused: bodyLimit is NaN, not a whole number of bytes above 0.
+```
+
 ## D-224: An issue's code, from a schema and from the password's refusals
 
 Choice: amends D-88 and D-209.
@@ -14915,3 +14985,90 @@ Rejected:
   client, and change with the library.
 - `PASSWORD_TOO_SHORT` and `PASSWORD_TOO_LONG`: a client knows the bounds,
   and the length of what it sent.
+
+## D-227: No empty GraphQL input, and an invalid schema refuses the start
+
+Choice: amends D-107 point 8, D-128, D-138 and D-142.
+
+1. GraphQL has no input object without a field, so none is generated, nor
+   the argument or mutation that would take it:
+   - a nested relation input leaves out `create`, `connectOrCreate` and
+     `update` when its target has no field to write but the relation back:
+     it keeps `connect`, and `disconnect`, `delete` and `set` where they
+     apply;
+   - a model with no field to write is created with `createPing { id }`,
+     without `data`, and has no `updatePing` and no `upsertPing`.
+2. The plugin validates the served schema, `extend` applied, before the
+   start: an invalid one refuses it with GraphQL's messages, as
+   `graphqlPlugin: the schema is invalid. Input Object type Empty must define
+one or more fields.`
+3. Requests run on `graphql-http`'s core handler rather than its fetch
+   adapter: an error it throws reaches the HTTP plugin, which logs it with a
+   `correlationId` and answers `INTERNAL` (D-106).
+
+Why:
+
+- A model whose only fields are relations, as a book that is only its shelf,
+  generated `BookCreateWithoutShelfInput {}`. The schema was invalid: every
+  request, `{ __typename }` included, got an empty 500.
+- The fetch adapter caught the error and printed it with `console.error`, so
+  the application's logger showed only `POST /graphql 500`.
+- Such a target is still created on its own side, and a row without data is
+  still created; only the forms GraphQL cannot write go.
+- REST is unchanged: its body is JSON, where `{}` is a value.
+  `PATCH /api/pings/:id` with `{}` still answers 200.
+
+Rejected:
+
+- A placeholder field, as `_: Boolean`, in each empty input: it appears in
+  every client's types and means nothing.
+- Validating on the first request: the start is where a schema error is
+  seen and fixed.
+
+Example, before: a book is only its shelf.
+
+```ts
+const Book = defineModel({
+	name: 'Book',
+	use: [graphql()],
+	fields: (f) => ({ shelf: f.one(() => Shelf) }),
+})
+```
+
+```graphql
+{
+	__typename
+}
+# 500, empty body, on every request
+```
+
+After: the schema is served, and a shelf's books are connected.
+
+```graphql
+mutation {
+	createBook(data: { shelf: { connect: { id: "…" } } }) {
+		id
+	}
+}
+mutation {
+	updateShelf(where: { id: "…" }, data: { books: { connect: [{ id: "…" }] } }) {
+		id
+	}
+}
+```
+
+Before: an `extend` that breaks the schema starts, then fails every
+request.
+
+```ts
+graphqlPlugin({ extend: () => brokenSchema })
+// starts; every request: 500, empty body
+```
+
+After: the start says why.
+
+```ts
+graphqlPlugin({ extend: () => brokenSchema })
+// Refused: graphqlPlugin: the schema is invalid. Input Object type Empty
+// must define one or more fields.
+```

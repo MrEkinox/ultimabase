@@ -13,12 +13,13 @@ import type { ContentfulStatusCode } from 'hono/utils/http-status'
 import { getPath } from 'hono/utils/url'
 import type { Caller, ErrorCode, Logger } from 'ultimabase'
 import { isLocalHost, PublicError } from 'ultimabase'
-import { addresses, proxiesOf } from './address.ts'
+import { addresses, isOwnOrigin, proxiesOf } from './address.ts'
 import type { Limiter, RateLimit } from './limit.ts'
 import type { Probes } from './probes.ts'
 import { probeRoutes } from './probes.ts'
 import { hold } from './request.ts'
 import { resetRoutes } from './reset.ts'
+import { bodyLimitOf } from './server.ts'
 import type { Gate } from './upgrade.ts'
 import { answer } from './upgrade.ts'
 
@@ -176,7 +177,7 @@ export function appOf(
 ): Hono<HttpEnv> {
 	const local = process.env['NODE_ENV'] !== 'production'
 	const allows = allowing(options)
-	const maxSize = options.bodyLimit ?? 1024 * 1024
+	const maxSize = bodyLimitOf(options.bodyLimit)
 	const addressOf = addresses(proxiesOf(options.proxies), logger)
 	const app = new Hono<HttpEnv>({ getPath: pathOf })
 	// A response may hold the caller's data: no cache keeps one, errors
@@ -250,7 +251,7 @@ export function appOf(
 				origin !== undefined ||
 				site !== undefined) &&
 			site !== 'same-origin' &&
-			origin !== new URL(c.req.url).origin &&
+			!isOwnOrigin(origin ?? '', c.req.url) &&
 			allowed(origin ?? '') === null
 		) {
 			throw new PublicError(
