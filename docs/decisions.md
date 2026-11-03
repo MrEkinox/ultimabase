@@ -14841,6 +14841,44 @@ Rejected:
 - A missed occurrence run once per occurrence, which floods a restart.
 - The files sweep moved onto jobs, which would make files require jobs.
 
+## D-222: The maintenance's `retryAfter` is a positive number
+
+Choice: amends D-205 point 2.
+
+1. `maintenancePlugin({ retryAfter })` takes a finite number of
+   milliseconds above 0. Another value, as `NaN`, `0`, a negative number or
+   `Infinity`, refuses the start:
+   `The maintenance's retryAfter is a positive number of milliseconds.`
+
+Why:
+
+- The header carried the value as written: `Retry-After: NaN` and
+  `Retry-After: -5`, which a client reads as nothing or as at once, and
+  `details.retryAfter` was `null` for `NaN`. The start refuses an `initial`
+  it does not know already (D-207 point 4).
+- `0` tells every client to try again at once, which loads the servers
+  during the maintenance.
+
+Rejected:
+
+- Accepting `0`, for the reason above.
+- Clamping a wrong value to the default: a typo would pass unseen.
+
+Example, before: a value read from the environment, unset, starts the
+application and sends `Retry-After: NaN`.
+
+```ts
+maintenancePlugin({ retryAfter: Number(process.env.RETRY_AFTER) })
+// 503, retry-after: NaN, { "details": { "retryAfter": null } }
+```
+
+After: the start says why.
+
+```ts
+maintenancePlugin({ retryAfter: Number(process.env.RETRY_AFTER) })
+// Refused: The maintenance's retryAfter is a positive number of milliseconds.
+```
+
 ## D-223: The server's own origin over HTTPS, and the body limit and drain checked
 
 Choice: amends D-106 points 5 and 6, D-154 (the upgrade's origin) and D-204
