@@ -23,21 +23,37 @@ export const orNull = (schema: Schema): Schema =>
 
 export const arrayOf = (items: Schema): Schema => ({ type: 'array', items })
 
-/** `schema` with its `description`, when it has one (D-150). */
+/**
+ * `schema` with its `description` (D-150), and `deprecated` (D-216) with the
+ * reason ending the description: OpenAPI has no field for it.
+ */
 export const describe = (
 	schema: Schema,
 	description: string | undefined,
-): Schema => (description === undefined ? schema : { ...schema, description })
+	deprecated?: string,
+): Schema => {
+	if (deprecated === undefined) {
+		return description === undefined ? schema : { ...schema, description }
+	}
+	const reason = `Deprecated: ${deprecated}`
+	return {
+		...schema,
+		description:
+			description === undefined ? reason : `${description}\n\n${reason}`,
+		deprecated: true,
+	}
+}
 
-/** Each property with its field's `description` (D-150). */
+/** Each property with its field's `description` (D-150) and `deprecated` (D-216). */
 export const described = (
 	properties: { readonly [key: string]: Schema },
 	descriptions: { readonly [field: string]: string },
+	deprecations: { readonly [field: string]: string },
 ): { readonly [key: string]: Schema } =>
 	Object.fromEntries(
 		Object.entries(properties).map(([key, schema]) => [
 			key,
-			describe(schema, descriptions[key]),
+			describe(schema, descriptions[key], deprecations[key]),
 		]),
 	)
 

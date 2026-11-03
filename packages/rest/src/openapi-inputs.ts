@@ -228,7 +228,7 @@ export function whereOf(doc: Doc, model: string): Schema {
 					? scalarFilter(doc, model, field)
 					: relationFilter(doc, field)
 		}
-		return objectOf(fields)
+		return objectOf(described(fields, {}, entry.exposed.deprecations))
 	})
 }
 
@@ -367,6 +367,7 @@ export function dataOf(
 		const required = creating
 			? entry.exposed.required.filter((each) => each !== without)
 			: []
-		return objectOf(described(fields, entry.exposed.descriptions), required)
+		const { descriptions, deprecations } = entry.exposed
+		return objectOf(described(fields, descriptions, deprecations), required)
 	})
 }

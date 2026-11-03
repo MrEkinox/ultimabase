@@ -12,6 +12,7 @@ import { fieldBuilders, fieldDefinitions, pluginEntries } from './definition.ts'
 import type { Command } from './plugin-code.ts'
 import { inCommand } from './plugin-code.ts'
 import { isObject, systemFields } from './query-where.ts'
+import { deprecatable } from './described.ts'
 import { Refused } from './errors.ts'
 
 /** The kernel's names, which a model's field cannot take (D-22, D-20, D-134, D-148). */
@@ -57,6 +58,7 @@ export function addFields(
 				`${model}.${field}: ${plugin} adds a field ${owner} already has.`,
 			)
 		}
+		deprecatable(`${model}.${field}`, recorded)
 		fields.set(field, recorded)
 		if (plugin !== undefined) owners.set(field, plugin)
 	}

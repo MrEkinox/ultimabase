@@ -52,8 +52,13 @@ export const Product = defineModel({
 			optional: true,
 			validate: z.object({ color: z.string(), materials: z.array(z.string()) }),
 		}),
-		// The column keeps the name an older table gave it.
-		legacyCode: f.string({ optional: true, dbName: 'old_code' }),
+		// The column keeps the name an older table gave it; clients see the
+		// field is deprecated.
+		legacyCode: f.string({
+			optional: true,
+			dbName: 'old_code',
+			deprecated: 'Use sku.',
+		}),
 		// Computed on read, from the fields `needs` lists.
 		label: f.virtual(z.string(), { needs: ['name', 'sku'] }),
 		priceIn: f.virtual(() => Price, {

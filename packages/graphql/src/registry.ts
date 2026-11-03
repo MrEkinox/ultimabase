@@ -123,15 +123,38 @@ export class Registry {
 	}
 }
 
-/** Each field's `description` (D-150), on the fields of a type or an input. */
-export function described<
-	C extends { readonly description?: string | null | undefined },
->(entry: Entry, fields: { [field: string]: C }): { [field: string]: C } {
+type Config = {
+	readonly description?: string | null | undefined
+	readonly deprecationReason?: string | null | undefined
+}
+
+/**
+ * Each field's `description` (D-150) and `deprecated` (D-216), on the fields
+ * of a type or an input.
+ */
+export function described<C extends Config>(
+	entry: Entry,
+	fields: { [field: string]: C },
+): { [field: string]: C } {
 	for (const [field, description] of Object.entries(
 		entry.exposed.descriptions,
 	)) {
 		const config = fields[field]
 		if (config !== undefined) fields[field] = { ...config, description }
+	}
+	return deprecated(entry, fields)
+}
+
+/** Each field's `deprecated` (D-216), on the fields of a type or an input. */
+export function deprecated<C extends Config>(
+	entry: Entry,
+	fields: { [field: string]: C },
+): { [field: string]: C } {
+	for (const [field, deprecationReason] of Object.entries(
+		entry.exposed.deprecations,
+	)) {
+		const config = fields[field]
+		if (config !== undefined) fields[field] = { ...config, deprecationReason }
 	}
 	return fields
 }

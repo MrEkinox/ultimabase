@@ -2,7 +2,6 @@
 // recorded for `start`, and the model value whose methods run the queries
 // (D-18) and its plugins' commands (D-89).
 import {
-	describedBy,
 	fieldBuilders,
 	modelDefinitions,
 	nameOf,
@@ -11,6 +10,7 @@ import {
 	withOnce,
 } from './definition.ts'
 import type { FieldDefinition, ModelDefinition } from './definition.ts'
+import { describedBy } from './described.ts'
 import { query } from './engine.ts'
 import type { Operation } from './engine.ts'
 import { addFields, usedBy } from './plugin-use.ts'

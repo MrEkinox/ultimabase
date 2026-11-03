@@ -2,9 +2,9 @@
 // kernel field and seen by code as the value its `decode` gives.
 import type { Codec, FieldDefinition, FieldOptions } from './definition.ts'
 import { build, fieldBuilders, fieldDefinitions } from './definition.ts'
+import type { Described, DeprecatedCheck } from './described.ts'
 import type {
 	DefaultFunction,
-	Described,
 	Field,
 	FieldBuilders,
 	JsonValue,
@@ -65,11 +65,11 @@ export type FieldType<
 	// Weak, as `Described` is, so a name it lacks fails to compile.
 	O extends object = Described,
 > = <const G extends FieldTypeOptions<I> & Partial<O> = {}>(
-	options?: G,
+	options?: G & NoInfer<DeprecatedCheck<StoredOptions<S> & G>>,
 ) => Field<V, StoredOptions<S> & G, P, never, I, true, S>
 
 const storedOptions = new Set(['list', 'optional', 'precision', 'scale'])
-const kernelOptions = new Set(['default', 'description'])
+const kernelOptions = new Set(['default', 'description', 'deprecated'])
 type Options = { readonly [key: string]: unknown }
 
 /**
@@ -153,7 +153,10 @@ function codecOf(plugin: string, definition: Options, options: Options): Codec {
 	})
 }
 
-/** The names a builder takes, `default`, `description` and the type's own. */
+/**
+ * The names a builder takes, `default`, `description`, `deprecated` and the
+ * type's own.
+ */
 function namesOf(plugin: string, definition: Options): ReadonlySet<string> {
 	const names = definition['options'] ?? []
 	if (
@@ -169,7 +172,7 @@ function namesOf(plugin: string, definition: Options): ReadonlySet<string> {
 
 /**
  * A plugin's field type (D-122): its builder takes `default`, `description`
- * (D-150) and the type's own options (D-152), and its value is stored through
+ * (D-150), `deprecated` (D-216) and the type's own options (D-152), and its value is stored through
  * `stored`, encoded after the hooks and decoded on each read.
  */
 export function defineFieldType<
@@ -199,7 +202,7 @@ export function defineFieldType(
 			if (!names.has(option)) {
 				throw new Error(
 					names.size === kernelOptions.size
-						? `A ${plugin} field takes default and description only, not ${option}: its stored field says the rest.`
+						? `A ${plugin} field takes default, description and deprecated only, not ${option}: its stored field says the rest.`
 						: `A ${plugin} field takes ${[...names].join(', ')} only, not ${option}.`,
 				)
 			}

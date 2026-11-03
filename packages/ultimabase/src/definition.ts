@@ -5,6 +5,7 @@ import type { Enum, StandardSchema } from './fields.ts'
 import type { OutputForm } from './exposed-output.ts'
 import type { Manifest } from './plugin.ts'
 import type { Standard } from './validation.ts'
+import { describedBy } from './described.ts'
 import { Refused } from './errors.ts'
 import { isObject } from './query-where.ts'
 import { standardOf } from './validation.ts'
@@ -155,6 +156,7 @@ export type TypeDefinition = {
 export type FunctionDefinition = {
 	readonly name: string
 	readonly description: string | undefined
+	readonly deprecated: string | undefined
 	readonly query: boolean
 	readonly input: StandardSchema | undefined
 	readonly output: Output | undefined
@@ -207,18 +209,6 @@ export function nameOf(name: unknown, by: string): string {
 	return name
 }
 
-/** A `description` (D-150): a non-empty string, when given. */
-export function describedBy(
-	description: unknown,
-	of: string,
-): string | undefined {
-	if (description === undefined) return undefined
-	if (typeof description !== 'string' || description === '') {
-		throw new Error(`${of}: description is a non-empty string.`)
-	}
-	return description
-}
-
 /**
  * The `.with` of a model or a function: its rules, in one call, read when
  * they apply, so it returns the same value.
@@ -237,6 +227,7 @@ export const withOnce =
 /** A field value, keyed by its definition; `.with` takes its rules once. */
 export function build(definition: FieldDefinition): object {
 	describedBy(definition.options['description'], 'A field')
+	describedBy(definition.options['deprecated'], 'A field', 'deprecated')
 	const field = {
 		with: (rules: object): object => {
 			if (definition.rules !== undefined) {

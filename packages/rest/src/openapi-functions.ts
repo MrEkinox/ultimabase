@@ -120,7 +120,7 @@ export function functionPaths(
 		const operation = {
 			operationId: doc.components.operation(name, owner, 'name'),
 			tags: ['functions'],
-			...(fn.description !== undefined && { description: fn.description }),
+			...describe({}, fn.description, fn.deprecated),
 			...(fn.query && parameters.length > 0 && { parameters }),
 			...(!fn.query &&
 				given !== undefined && {

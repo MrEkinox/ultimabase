@@ -155,22 +155,23 @@ virtuals' `run`, and [relation filters](/docs/next/relations). Each plugin of
 | `f.enumOf(values)`                | the values' union               | An array, or a `defineEnum`; `list: true`.                                         |
 | `f.one(() => Model)`              | a row                           | See [Relations](/docs/next/relations).                                             |
 | `f.many(() => Model)`             | rows                            | See [Relations](/docs/next/relations).                                             |
-| `f.virtual(output, options?)`     | the output's type               | Computed on read; `input`, `needs`, `description`.                                 |
+| `f.virtual(output, options?)`     | the output's type               | Computed on read; `input`, `needs`, `description`, `deprecated`.                   |
 
 Plugins add their own types: `password()` and `file()`. See
 [Write a plugin](/docs/next/plugins) for `defineFieldType`.
 
 ### Field options
 
-| Option        | Type                                      | Default       | Effect                                                                                                |
-| ------------- | ----------------------------------------- | ------------- | ----------------------------------------------------------------------------------------------------- |
-| `optional`    | `boolean`                                 | `false`       | The field may be `null`; a write may leave it out.                                                    |
-| `unique`      | `boolean`, or `'insensitive'` on a string | `false`       | Two rows cannot hold the same value, regardless of case with `'insensitive'`; `null` is not compared. |
-| `default`     | a value, or `({ caller }) => value`       | none          | Written when a create leaves the field out; a function returning `undefined` gives none.              |
-| `validate`    | Standard Schema, or `(value) => value`    | none          | Refuses a value, or returns the value to store.                                                       |
-| `list`        | `true`                                    | `false`       | Strings, numbers and enums: a list, `[]` when empty; never optional nor unique.                       |
-| `description` | `string`                                  | none          | Shown in the GraphQL schema and the OpenAPI document.                                                 |
-| `dbName`      | `string`                                  | the adapter's | The stored column's name.                                                                             |
+| Option        | Type                                      | Default       | Effect                                                                                                                                                                                               |
+| ------------- | ----------------------------------------- | ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `optional`    | `boolean`                                 | `false`       | The field may be `null`; a write may leave it out.                                                                                                                                                   |
+| `unique`      | `boolean`, or `'insensitive'` on a string | `false`       | Two rows cannot hold the same value, regardless of case with `'insensitive'`; `null` is not compared.                                                                                                |
+| `default`     | a value, or `({ caller }) => value`       | none          | Written when a create leaves the field out; a function returning `undefined` gives none.                                                                                                             |
+| `validate`    | Standard Schema, or `(value) => value`    | none          | Refuses a value, or returns the value to store.                                                                                                                                                      |
+| `list`        | `true`                                    | `false`       | Strings, numbers and enums: a list, `[]` when empty; never optional nor unique.                                                                                                                      |
+| `description` | `string`                                  | none          | Shown in the GraphQL schema and the OpenAPI document.                                                                                                                                                |
+| `deprecated`  | `string`                                  | none          | Why clients should stop using the field, and what replaces it: `@deprecated` in GraphQL, `deprecated: true` in OpenAPI. Only on a field a create may leave out: optional, with a default, or a list. |
+| `dbName`      | `string`                                  | the adapter's | The stored column's name.                                                                                                                                                                            |
 
 ### Errors
 

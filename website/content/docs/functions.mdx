@@ -139,15 +139,16 @@ path takes them, as `profile.posts={"first":20,"totalCount":true}`.
 
 ### `defineFunction(definition)`
 
-| Key           | Type                       | Default  | Effect                                                            |
-| ------------- | -------------------------- | -------- | ----------------------------------------------------------------- |
-| `name`        | `string`                   | required | The GraphQL field's name and the REST route's.                    |
-| `run`         | `(facts) => output`        | required | The operation; may be `async`.                                    |
-| `input`       | a Standard Schema          | none     | Validates the input; without it, `run` receives none.             |
-| `output`      | see below                  | none     | The output's type; without it, `run` returns nothing.             |
-| `query`       | `boolean`                  | `false`  | A query, over GET too; a mutation otherwise.                      |
-| `use`         | `[graphql()]`, `[rest()]`… | `[]`     | The transports whose key `.with` sets. Every transport serves it. |
-| `description` | `string`                   | none     | Shown in the GraphQL schema and the OpenAPI document.             |
+| Key           | Type                       | Default  | Effect                                                                                                             |
+| ------------- | -------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------ |
+| `name`        | `string`                   | required | The GraphQL field's name and the REST route's.                                                                     |
+| `run`         | `(facts) => output`        | required | The operation; may be `async`.                                                                                     |
+| `input`       | a Standard Schema          | none     | Validates the input; without it, `run` receives none.                                                              |
+| `output`      | see below                  | none     | The output's type; without it, `run` returns nothing.                                                              |
+| `query`       | `boolean`                  | `false`  | A query, over GET too; a mutation otherwise.                                                                       |
+| `use`         | `[graphql()]`, `[rest()]`… | `[]`     | The transports whose key `.with` sets. Every transport serves it.                                                  |
+| `description` | `string`                   | none     | Shown in the GraphQL schema and the OpenAPI document.                                                              |
+| `deprecated`  | `string`                   | none     | Why clients should stop calling it, and what replaces it: `@deprecated` in GraphQL, `deprecated: true` in OpenAPI. |
 
 `.with({ access, graphql, rest })` sets its rule and, for a transport of
 `use`, `{ name }` to rename it there or `false` to hide it.

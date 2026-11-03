@@ -19,6 +19,8 @@ export type VirtualOptions = {
 	 */
 	readonly needs?: readonly string[]
 	readonly description?: string
+	/** Why clients should stop reading it, and what replaces it (D-216). */
+	readonly deprecated?: string
 }
 
 /** The options of a virtual given none. */

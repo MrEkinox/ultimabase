@@ -1,5 +1,6 @@
 // Field builders (D-09, D-12); a field's `.with` takes the rules of
 // field-rules.ts (D-44).
+import type { Described, DeprecatedCheck } from './described.ts'
 import type {
 	Declared,
 	FieldWith,
@@ -48,9 +49,6 @@ export type Validate<V> = StandardSchema<V, V> | ((value: V) => V | Promise<V>)
 export type DefaultFunction<V> = (facts: {
 	readonly caller: Caller
 }) => V | undefined
-
-/** What a field means, which the transports show and nothing reads (D-150). */
-export type Described = { readonly description?: string }
 
 /** What shapes a scalar field (D-08, D-23, D-52, D-53). */
 export type ScalarOptions<V> = Described & {
@@ -116,7 +114,7 @@ type ListCheck<O> = (O extends { readonly optional: unknown }
 		: unknown)
 type ListableCheck<O, V> = O extends { readonly list: true }
 	? ListCheck<O> & ValidateCheck<O, readonly V[]>
-	: ValidateCheck<O, V>
+	: ScalarCheck<O, V>
 type Listable<V, O, T> = O extends { readonly list: true }
 	? Field<readonly V[], O, never, T>
 	: Field<V, O, never, T>
@@ -152,6 +150,7 @@ type ValidateCheck<O, V> = O extends {
 			: unknown
 		: AnyCheck<S>
 	: unknown
+type ScalarCheck<O, V> = ValidateCheck<O, V> & DeprecatedCheck<O>
 
 /** What shapes a `json` field (D-53): its schema gives its types. */
 export type JsonOptions = Described & {
@@ -341,30 +340,30 @@ export interface FieldBuilders<T> {
 	 * read and written as strings at that scale: `'12.50'` (D-145).
 	 */
 	readonly decimal: <const O extends DecimalOptions>(
-		options: O & NoInfer<ValidateCheck<O, string>>,
+		options: O & NoInfer<ScalarCheck<O, string>>,
 	) => Field<string, O, never, T>
 	readonly boolean: <
 		const O extends ScalarOptions<boolean> = ScalarOptions<boolean>,
 	>(
-		options?: O & NoInfer<ValidateCheck<O, boolean>>,
+		options?: O & NoInfer<ScalarCheck<O, boolean>>,
 	) => Field<boolean, O, never, T>
 	readonly dateTime: <
 		const O extends ScalarOptions<Date> = ScalarOptions<Date>,
 	>(
-		options?: O & NoInfer<ValidateCheck<O, Date>>,
+		options?: O & NoInfer<ScalarCheck<O, Date>>,
 	) => Field<Date, O, never, T>
 	/** A calendar day, the string `'2026-07-31'`, without a time zone (D-150). */
 	readonly date: <
 		const O extends ScalarOptions<string> = ScalarOptions<string>,
 	>(
-		options?: O & NoInfer<ValidateCheck<O, string>>,
+		options?: O & NoInfer<ScalarCheck<O, string>>,
 	) => Field<string, O & Day, never, T>
 	/**
 	 * Without a schema, a `json` value is `unknown` and written as JSON; with
 	 * one, it reads the schema's output and is written its input (D-53).
 	 */
 	readonly json: <const O extends JsonOptions = JsonOptions>(
-		options?: O & NoInfer<JsonCheck<O>>,
+		options?: O & NoInfer<JsonCheck<O> & DeprecatedCheck<O>>,
 	) => Field<JsonOutput<O>, O, never, T, JsonInput<O>, true>
 	/**
 	 * With `list: true`, a list of its values, `[]` when empty (D-127); a
@@ -380,7 +379,7 @@ export interface FieldBuilders<T> {
 	) => Listable<E, O, T>
 	readonly one: <M extends object, const O extends OneOptions = OneOptions>(
 		target: M,
-		options?: O & NoInfer<OneCheck<O>>,
+		options?: O & NoInfer<OneCheck<O> & DeprecatedCheck<O>>,
 	) => One<M, O, T>
 	readonly many: <M extends object, const O extends ManyOptions = ManyOptions>(
 		target: M,

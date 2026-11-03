@@ -108,12 +108,13 @@ export function rowOf(doc: Doc, model: string): Schema {
 			fields[name] = describe(
 				ruled ? orNull(value) : value,
 				virtual.description,
+				virtual.deprecated,
 			)
 			if (virtual.default) required.push(name)
 		}
-		const { description, descriptions } = entry.exposed
+		const { description, descriptions, deprecations } = entry.exposed
 		return describe(
-			objectOf(described(fields, descriptions), required),
+			objectOf(described(fields, descriptions, deprecations), required),
 			description,
 		)
 	})

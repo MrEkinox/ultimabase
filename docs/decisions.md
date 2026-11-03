@@ -6077,6 +6077,8 @@ access: {
 
 ## D-122: Plugin field types at run time
 
+Amended by D-216.
+
 Choice: completes D-32, typed until now and not run.
 
 1. The kernel exports `defineFieldType`, which a plugin calls once:
@@ -8764,6 +8766,8 @@ await Post.findMany(
 
 ## D-150: Calendar dates, field descriptions and shared enums
 
+Amended by D-216.
+
 Choice: completes D-09 and D-109; amends D-65 and D-127 point 3.
 
 1. The instant of D-65 is `f.dateTime()`: `timestamptz` on PostgreSQL, a
@@ -8919,7 +8923,7 @@ type Mutation {
 
 ## D-151: Filtered relations and virtual fields
 
-Amended by D-180, D-184.
+Amended by D-180, D-184, D-216.
 
 Choice: completes D-37, D-44 and D-109; amends D-42.
 
@@ -14074,4 +14078,89 @@ await Role.update(
 	{ where: { id: admin.id }, data: { members: { connect: [{ id: userId }] } } },
 	{ as: master },
 )
+```
+
+## D-216: Deprecated fields and functions
+
+Choice: completes D-150 point 3; amends D-122 and D-151.
+
+1. Every field builder takes `deprecated`, a non-empty string that says why
+   and what replaces it: the kernel's, `one`, `many`, `virtual` and a plugin
+   field type's. `defineFunction` takes one too. It changes no behaviour: the
+   field is read, written, filtered and sorted as before.
+2. Only a field a client may leave out is deprecated: `optional`, with a
+   `default`, a list, a `many` or a virtual. On a field a create must send,
+   `deprecated` fails to compile and stops the start, as GraphQL refuses
+   `@deprecated` on a required input and a client cannot stop sending it.
+   Renaming a field makes the old one `optional`, or gives it a `default`,
+   in the same change.
+3. GraphQL shows `@deprecated(reason:)` on the model's type and its
+   `Deleted` type, on the field in its `WhereInput`, `OrderByInput`,
+   `CreateInput` and `UpdateInput`, on a virtual field, and on a function's
+   query or mutation field.
+4. OpenAPI shows `deprecated: true` on the property in the row, the filter,
+   the sort and the data inputs, and on a function's operation. The reason
+   ends the description, `Deprecated: Use displayName.`, after the
+   description when there is one: OpenAPI has no field for it, and
+   generated clients copy the description into their `@deprecated`.
+
+Why: a field or a function a client should stop using needs a signal its
+tools show: GraphiQL hides deprecated fields, editors strike them through,
+and generated clients warn. A description says it in prose that no tool
+reads.
+
+Rejected:
+
+- Deprecated enum values: a value is a plain string today, so marking one
+  needs a new syntax, and OpenAPI cannot mark one value of an enum. Its own
+  decision, when an application needs it.
+- A deprecated model or type: GraphQL deprecates no type.
+- The fields of a function's input and output: its Standard Schema says
+  them in its JSON Schema (D-45).
+- Counting the requests that touch a deprecated field: it inspects every
+  selection, filter, sort and data on the hot path, for a signal the schema
+  already gives. A development warning of the logger, once per field, would
+  be its own decision.
+
+Example:
+
+```ts
+// Before: a client learns from the description, if it reads it.
+const Person = defineModel({
+	name: 'Person',
+	fields: (f) => ({
+		displayName: f.string(),
+		name: f.string({ optional: true, description: 'Old, use displayName.' }),
+	}),
+})
+
+// After
+const Person = defineModel({
+	name: 'Person',
+	fields: (f) => ({
+		displayName: f.string(),
+		name: f.string({ optional: true, deprecated: 'Use displayName.' }),
+		// f.string({ deprecated: '…' }) fails: a create must send it.
+	}),
+})
+
+export const legacySearch = defineFunction({
+	name: 'legacySearch',
+	deprecated: 'Use search.',
+	// …
+})
+```
+
+```graphql
+type Person {
+	displayName: String!
+	name: String @deprecated(reason: "Use displayName.")
+}
+input PersonWhereInput {
+	name: StringFilter @deprecated(reason: "Use displayName.")
+}
+type Query {
+	legacySearch(input: LegacySearchInput!): [Person!]!
+		@deprecated(reason: "Use search.")
+}
 ```
