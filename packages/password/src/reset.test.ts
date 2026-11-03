@@ -277,6 +277,32 @@ describe('resetting a password', () => {
 		])
 	})
 
+	it('deletes an email-change link when a password is set', async () => {
+		const { user } = await server()
+		// Asked for with the old password, which a reset then replaces.
+		const moving = await issueToken(user.id, 'emailChange', 'eve@example.com')
+		await User.setPassword({ id: user.id, password: 'set by Master' }, M)
+		await expect(User.confirmEmailChange({ token: moving })).rejects.toThrow(
+			'This link is invalid or has expired.',
+		)
+		const row = await User.findUnique({ where: { id: user.id } }, M)
+		expect(row?.email).toBe(ada.email)
+	})
+
+	it('refuses a link sent to an email the account has left', async () => {
+		const { url, user } = await server()
+		await User.update(
+			{ where: { id: user.id }, data: { email: 'ada@new.example' } },
+			M,
+		)
+		// Issued for the old email as the change committed.
+		const stale = await issueToken(user.id, 'reset', ada.email)
+		expect((await reset(url, stale)).body).toMatchObject(invalidLink)
+		expect(JSON.stringify((await signIn(url, 'new secret!')).body)).toContain(
+			'INVALID_CREDENTIALS',
+		)
+	})
+
 	it('deletes expired tokens when it issues one', async () => {
 		const { user } = await server()
 		const now = Date.now()

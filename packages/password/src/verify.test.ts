@@ -179,6 +179,19 @@ describe('verifying an email', () => {
 		expect(await verified()).toBe(true)
 	})
 
+	it('refuses a link sent to an email the account has left', async () => {
+		const { url } = await server()
+		const { user } = await signedInAda(url)
+		await User.update(
+			{ where: { id: user.id }, data: { email: 'ada@new.example' } },
+			M,
+		)
+		// Issued for the old email as the change committed.
+		const stale = await issueToken(user.id, 'verify', ada.email)
+		expect((await verify(url, stale)).body).toMatchObject(invalidLink)
+		expect(await verified()).toBe(false)
+	})
+
 	it('is absent without sendEmail', async () => {
 		const { url } = await server({})
 		for (const query of [verifyQuery, sendQuery]) {

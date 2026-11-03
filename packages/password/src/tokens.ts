@@ -108,7 +108,7 @@ export async function issueToken(
 	}
 }
 
-const invalidLink = () =>
+export const invalidLink = (): PublicError =>
 	new PublicError('INVALID_CREDENTIALS', 'This link is invalid or has expired.')
 
 /**

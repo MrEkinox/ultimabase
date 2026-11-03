@@ -4,7 +4,7 @@ import { master, PublicError, transaction } from 'ultimabase'
 import type { State } from './core.ts'
 import { checkNewFor, method, setPassword } from './core.ts'
 import type { Email, EmailKind } from './tokens.ts'
-import { emailLimited, issueToken, redeemToken } from './tokens.ts'
+import { emailLimited, invalidLink, issueToken, redeemToken } from './tokens.ts'
 
 /**
  * Runs `work` after the response, so its time tells nothing; a failure is
@@ -53,6 +53,19 @@ async function verify(state: State, userId: string): Promise<void> {
 	await state.users.queries.update({ where, data: { emailVerified: true } }, M)
 }
 
+/** A token's user, while the account keeps the email it went to (D-212). */
+async function redeemCurrent(
+	state: State,
+	token: string,
+	kind: 'reset' | 'verify',
+	accept?: (userId: string) => Promise<void>,
+): Promise<string> {
+	const { userId, email } = await redeemToken(token, kind, accept)
+	const current = await state.auth.subjectOf(userId, method)
+	if (email !== current) throw invalidLink()
+	return userId
+}
+
 /** Sends a reset link to `email`'s account; nothing to an email without one. */
 export async function requestReset(
 	state: State,
@@ -71,7 +84,7 @@ export async function reset(
 	password: string,
 ): Promise<void> {
 	// Checked before the link is used: a refused password keeps it (D-209).
-	const { userId } = await redeemToken(token, 'reset', async (id) =>
+	const userId = await redeemCurrent(state, token, 'reset', async (id) =>
 		checkNewFor(state, id, password),
 	)
 	await setPassword(state, userId, password)
@@ -80,7 +93,7 @@ export async function reset(
 
 /** Verifies the email a verification token went to. */
 export async function verifyWith(state: State, token: string): Promise<void> {
-	const { userId } = await redeemToken(token, 'verify')
+	const userId = await redeemCurrent(state, token, 'verify')
 	await verify(state, userId)
 }
 

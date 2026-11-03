@@ -5386,7 +5386,7 @@ curl localhost:3000/graphql -H 'authorization: Bearer expired…' -d '…'
 
 ## D-113: `passwordPlugin()`, linked accounts, plugin functions and `viewer`
 
-Amended by D-115, D-125, D-160, D-161, D-162, D-198 and D-209.
+Amended by D-115, D-125, D-160, D-161, D-162, D-198, D-209 and D-212.
 
 Choice: completes D-33, D-56, D-109 and D-112, and amends D-56, D-109 and
 D-112.
@@ -5766,7 +5766,7 @@ before.
 
 ## D-117: Password reset and email verification
 
-Amended by D-162.
+Amended by D-162 and D-212.
 
 Choice: completes D-113 point 12 and D-115.
 
@@ -13975,4 +13975,43 @@ After:
 ```ts
 // Ends the sessions and deletes the password and the linked accounts.
 await User.delete({ where: { id } }, { as: master })
+```
+
+## D-212: A new password ends the links and sessions of the old one
+
+Choice: amends D-113 point 11 and D-117 point 5.
+
+1. Setting a password deletes the user's pending reset and email-change
+   links: one asked for with the old password dies with it. A verification
+   link stays: it proves the same email, whatever the password.
+2. A reset or verification link works only while the account's email is
+   the one it went to. A link sent to an email the account has left fails
+   as a used one, `INVALID_CREDENTIALS`, and is used up.
+3. A sign-in that read the old stamp is ended once the write of the new
+   password commits, by password's `afterUpdateCommit` hook on the user,
+   rather than right after `setPassword`: inside an application's
+   transaction, the commit is the application's.
+
+Why: the audit of password found three cases. Someone who knows the
+password asks to move the email; the owner resets the password, yet the
+link still moves the account. A link issued as the email changed went to
+the old address but acted on the new one, verifying an email nobody
+proved. And as with `closeAccount` (D-211), inside an application's
+transaction the second `revokeSessions` ran before the commit, so a
+sign-in in between kept a working session.
+
+Rejected: deleting every link, the verification one too (it costs a new
+email and protects nothing); a kernel `afterCommit` for plugins (the user's
+commit hook already runs then); checking the stamp on every request (a read
+per request, in auth, for a case the commit settles).
+
+Example, before and after the same code:
+
+```ts
+await transaction(async () => {
+	await User.setPassword({ id, password }, { as: master })
+	await AuditLog.create({ data: { userId: id, action: 'password' } })
+})
+// Before: a sign-in with the old password while this ran kept its session.
+// After: that session ends once the transaction commits.
 ```
