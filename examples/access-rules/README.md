@@ -3,7 +3,8 @@
 A newsroom's articles, shown on the documentation's Access rules page: a read
 rule that filters the rows, write rules per operation, rules on single fields
 and rules combined with `allOf`. A team's projects show rights that follow
-from a relation, and the hooks that keep a group's writes to its owner.
+from a relation, and a write rule's filter that keeps a group's writes to its
+owner.
 
 - `src/models.ts`: the `Article` model and its rules.
 - `src/projects.ts`: the `Person`, `Project` and `Task` models, read through

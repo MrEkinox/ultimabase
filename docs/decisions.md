@@ -2164,6 +2164,8 @@ const posts = await openPosts.run({ as: caller })
 
 ## D-76: Access rules are synchronous
 
+Amended by D-214.
+
 Choice: access rules (D-10, D-44) return their result directly, never a
 `Promise`, and cannot query. A check that needs other records takes the tool
 that runs it without a hidden query:
@@ -2376,6 +2378,8 @@ await expect(
 ```
 
 ## D-81: `anyOf` and `allOf` combine read filters
+
+Amended by D-214.
 
 Choice: the kernel exports `allOf` next to `anyOf` (D-10). Both take the
 facts and the result type from where they are used, so in a read rule each
@@ -14076,6 +14080,80 @@ await Role.update(
 )
 ```
 
+## D-214: A write rule may return `where()`
+
+Choice: amends D-76 and D-81; as PostgreSQL's row security, `USING` and
+`WITH CHECK`.
+
+1. A model's `create`, `update`, `delete` or `write` rule receives `where`,
+   as a read rule does, and may return `true`, `false` or `where({ ... })`.
+   A filter says which rows the caller writes:
+   - `update`: the row matches it before the write and after it, so a task
+     moved to another project matches there too;
+   - `delete`: the row matches it before the delete;
+   - `create`: the created row matches it, its connected and its created
+     relations included.
+     It holds wherever the rule runs: `updateMany`, `deleteMany`, `upsert`,
+     nested creates (D-128), nested updates (D-138) and relations written
+     from the other side (D-78). Field rules stay boolean (D-44).
+2. A row that does not match fails the whole write with `ACCESS_DENIED` and
+   the details of D-82, as a rule returning `false`: the caller reads the
+   row, so the refusal tells nothing a read does not. An `updateMany` over
+   rows the filter leaves out is refused, never narrowed.
+3. `where(filter, error)` throws `error`, a `PublicError`, when the row does
+   not match, so a client learns why with its own code (D-206). Only a
+   write rule's `where` takes it. A rule may also throw a `PublicError`
+   itself, which the write throws as it is.
+4. `allOf` checks each filter alone, each with its error; `anyOf` joins the
+   filters with `OR` and fails with `ACCESS_DENIED`. One `where` with an
+   `OR` inside gives its own error.
+5. The filter is the rule's own, trusted as a read rule's (D-86): the read
+   rules of the models it goes through do not narrow it. Master runs no rule.
+6. Cost, only when a rule returns a filter: the check before is a count in
+   the write's statement (D-99); the check after is a count once the write
+   has run, in its transaction, since one statement does not see its own
+   changes.
+
+Why: "a task is edited by its project's owner" needed a rule that says
+"any user" and two hooks that say the rest, a `beforeFind` for updates and
+deletes and a `beforeCreate` that reads the project and throws by hand;
+forgetting one opened the model, on every model under a parent.
+
+Rejected: rows outside the filter left out of the write, as `beforeFind`
+does (an `updateMany` would change fewer rows than asked, without a word,
+while a `false` refuses); `NOT_FOUND` on a refusal (the row is readable);
+a create filter on the connected relations only (narrower, and harder to
+say than "the created row matches"); a message instead of an error (a
+client needs a stable code); the check after in the write's statement
+(PostgreSQL's parts of one statement do not see each other's changes).
+
+Example, `examples/access-rules`, before and after:
+
+````ts
+// Before: the rule says "any user"; the hooks are the real rule.
+access: {
+	write: ({ caller }) => caller.kind === 'user',
+},
+hooks: {
+	beforeFind: ({ caller, operation, where }) =>
+		operation !== 'read' && caller.kind === 'user'
+			? where({ project: { is: { owner: { is: { id: caller.user.id } } } } })
+			: undefined,
+	beforeCreate: async ({ caller, data }) => {
+		// Reads the project as Master, throws ACCESS_DENIED by hand.
+	},
+}
+
+// After
+access: {
+	write: ({ caller, where }) =>
+		caller.kind === 'user' &&
+		where(
+			{ project: { is: { owner: { is: { id: caller.user.id } } } } },
+			new PublicError('NOT_PROJECT_OWNER', 'Only the project owner edits its tasks.'),
+		),
+}
+
 ## D-215: Partial unique indexes
 
 Choice: amends D-52.
@@ -14146,4 +14224,4 @@ export const Attendance = defineModel({
 	}),
 	indexes: [{ fields: ['person'], unique: true, where: { leftAt: null } }],
 })
-```
+````

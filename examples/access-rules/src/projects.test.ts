@@ -68,23 +68,23 @@ it('lets only the project’s owner write its tasks', async () => {
 		{ data: { title: 'Parse', project: { connect: { id: project.id } } } },
 		ada,
 	)
-	// Grace reads the task, but writes it as if it did not exist.
+	// Grace reads the task, but the rule refuses her writes.
+	const refused = {
+		code: 'NOT_PROJECT_OWNER',
+		message: 'Only the project’s owner writes its tasks.',
+	}
 	await expect(
 		Task.update({ where: { id: task.id }, data: { done: true } }, grace),
-	).rejects.toMatchObject({ code: 'NOT_FOUND' })
+	).rejects.toMatchObject(refused)
 	await expect(
 		Task.delete({ where: { id: task.id } }, grace),
-	).rejects.toMatchObject({ code: 'NOT_FOUND' })
-	// Nor does she add one: the hook refuses it.
+	).rejects.toMatchObject(refused)
 	await expect(
 		Task.create(
 			{ data: { title: 'Lex', project: { connect: { id: project.id } } } },
 			grace,
 		),
-	).rejects.toMatchObject({
-		code: 'ACCESS_DENIED',
-		message: 'Only the project’s owner adds a task.',
-	})
+	).rejects.toMatchObject(refused)
 	// Ada, the owner, does both.
 	const done = await Task.update(
 		{ where: { id: task.id }, data: { done: true } },

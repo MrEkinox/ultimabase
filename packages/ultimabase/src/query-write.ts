@@ -55,7 +55,7 @@ async function created(
 	const child = { ...context, model, id, set: {}, at }
 	await resolveData(resolving(child, skips, true), draft)
 	const sent: Readonly<Draft> = skips ? {} : { ...draft }
-	if (!skips) scope.access?.allow(model, 'create', { data: sent })
+	if (!skips) scope.access?.allow(model, 'create', { data: sent, id })
 	await prepared(model, draft, scope.caller, true, at)
 	await runHook(model, 'beforeCreate', { caller: scope.caller, data: draft })
 	plan.events.push({ model, operation: 'create', id })

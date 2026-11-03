@@ -734,11 +734,11 @@ describe('a write rule record (D-77, D-87)', () => {
 describe('a rule that breaks the contract', () => {
 	it('fails with a TypeError', async () => {
 		expect(await broken({ read: () => 3 }, 'count')).toBe(
-			'A read rule returns a boolean or a read filter.',
+			'A read rule returns a boolean or a filter.',
 		)
 		expect(await broken({ read: () => false }, 'count')).toBeUndefined()
 		expect(await broken({ create: () => 'yes' }, 'create')).toBe(
-			'A write rule or a field rule returns a boolean.',
+			'A write rule returns a boolean or a filter.',
 		)
 		expect(await broken({ write: true }, 'create')).toBe(
 			'An access rule is a function.',
