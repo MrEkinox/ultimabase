@@ -2709,6 +2709,8 @@ export const Person = defineModel({
 
 ## D-88: Hooks, validation and transactions at run time
 
+Amended by D-224.
+
 Choice: eleven details of D-15, D-23, D-36, D-67 and D-71 at run time.
 
 1. A `*Commit` hook is awaited before its operation, or the outermost
@@ -13833,6 +13835,8 @@ settled, then rolls back; `pg` warns of nothing.
 
 ## D-209: Breached passwords, and a password that is the email
 
+Amended by D-224.
+
 Choice: amends D-113.
 
 1. `passwordPlugin({ breached: true })` refuses a new password that
@@ -14948,6 +14952,77 @@ After: the start says why.
 httpPlugin({ bodyLimit: Number(process.env.BODY_LIMIT) })
 // Refused: bodyLimit is NaN, not a whole number of bytes above 0.
 ```
+
+## D-224: An issue's code, from a schema and from the password's refusals
+
+Choice: amends D-88 and D-209.
+
+1. The kernel keeps an issue's `code` from any Standard Schema, a
+   function's input or a field's schema, when it is a string of capitals,
+   digits and underscores starting with a capital: `PASSWORD_LENGTH`. Any
+   other `code`, as Zod's `too_small`, is dropped, as before: an issue's
+   code is the application's stable contract, not a library's.
+2. The password's three refusals of a new password carry a code:
+   `PASSWORD_LENGTH` (8 to 256 characters), `PASSWORD_IS_EMAIL` and
+   `PASSWORD_BREACHED`, on sign-up, `changePassword`, a reset and
+   `User.setPassword`. One code for the length: the bounds are fixed.
+3. In a function, the three refusals share the path the input's other
+   issues have, `['input', 'newPassword']`; a command's stay on the
+   argument, `['password']`. The messages do not change.
+4. An issue's code is not an error's: the error stays `VALIDATION_FAILED`,
+   so a plugin does not declare its issue codes in its `PluginTypes`
+   `errors` (D-206), which types `error.code`.
+
+Before, a client told a breached password from a short one by its English
+message, and `changePassword`'s two refusals of the same field had two
+paths:
+
+```ts
+// changePassword({ input: { currentPassword, newPassword: 'short' } })
+issues: [
+	{
+		path: ['input', 'newPassword'],
+		message: 'A password has 8 to 256 characters.',
+	},
+]
+// changePassword({ input: { currentPassword, newPassword: 'ada.lovelace' } })
+issues: [{ path: ['newPassword'], message: 'A password cannot be the email.' }]
+```
+
+After:
+
+```ts
+issues: [
+	{
+		path: ['input', 'newPassword'],
+		message: 'A password has 8 to 256 characters.',
+		code: 'PASSWORD_LENGTH',
+	},
+]
+issues: [
+	{
+		path: ['input', 'newPassword'],
+		message: 'A password cannot be the email.',
+		code: 'PASSWORD_IS_EMAIL',
+	},
+]
+
+const [issue] = error.details.issues
+const text = {
+	PASSWORD_LENGTH: t('length'),
+	PASSWORD_IS_EMAIL: t('email'),
+	PASSWORD_BREACHED: t('breached'),
+}
+```
+
+Rejected:
+
+- Checking the length in the function's run, after its input: a sign-up
+  would no longer list every issue of its input at once.
+- Keeping any string `code`: Zod's and ArkType's issue codes would reach the
+  client, and change with the library.
+- `PASSWORD_TOO_SHORT` and `PASSWORD_TOO_LONG`: a client knows the bounds,
+  and the length of what it sent.
 
 ## D-227: No empty GraphQL input, and an invalid schema refuses the start
 

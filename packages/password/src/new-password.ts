@@ -32,25 +32,26 @@ async function breached(password: string, logger: Logger): Promise<boolean> {
 	}
 }
 
-const refused = (path: string, message: string) =>
-	new PublicError('VALIDATION_FAILED', `${path}: ${message}`, {
-		details: { issues: [{ path: [path], message }] },
+const refused = (path: readonly string[], message: string, code: string) =>
+	new PublicError('VALIDATION_FAILED', `${path.at(-1)}: ${message}`, {
+		details: { issues: [{ path, message, code }] },
 	})
 
 /**
  * Refuses `password`, normalized, as the new password of the account whose
- * email is `email`; `path` names the input field.
+ * email is `email`; `path` names the input field, behind `input` in a
+ * function (D-224).
  */
 export async function checkNew(
 	state: State,
 	password: string,
 	email: string | undefined,
-	path = 'password',
+	path: readonly string[] = ['password'],
 ): Promise<void> {
 	const typed = password.toLowerCase()
 	const local = email?.slice(0, email.indexOf('@'))
 	if (typed === email || typed === local) {
-		throw refused(path, 'A password cannot be the email.')
+		throw refused(path, 'A password cannot be the email.', 'PASSWORD_IS_EMAIL')
 	}
 	// An application's tests call no third party (D-209).
 	if (!state.breached || process.env['NODE_ENV'] === 'test') return
@@ -58,6 +59,7 @@ export async function checkNew(
 		throw refused(
 			path,
 			'This password appears in a data breach: choose another.',
+			'PASSWORD_BREACHED',
 		)
 	}
 }
