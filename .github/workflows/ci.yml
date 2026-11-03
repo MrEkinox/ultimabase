@@ -1,7 +1,9 @@
 name: CI
 
 on:
+  # `edited`: a new title is the squashed commit's message, so it is linted.
   pull_request:
+    types: [opened, synchronize, reopened, edited]
   push:
     branches: [main]
   workflow_dispatch:
@@ -29,6 +31,12 @@ jobs:
       # branch's first push has no previous commit to start from.
       - if: github.event_name == 'pull_request'
         run: yarn commitlint --from ${{ github.event.pull_request.base.sha }} --to ${{ github.event.pull_request.head.sha }}
+      # A squash merge writes the title and the number as the commit's header.
+      - if: github.event_name == 'pull_request'
+        run: printf '%s (#%s)\n' "$TITLE" "$NUMBER" | yarn commitlint
+        env:
+          TITLE: ${{ github.event.pull_request.title }}
+          NUMBER: ${{ github.event.pull_request.number }}
       - if: github.event_name == 'push' && !startsWith(github.event.before, '0000000')
         run: yarn commitlint --from ${{ github.event.before }} --to ${{ github.sha }}
 
