@@ -21,6 +21,7 @@ const isAda = (caller: Caller): boolean =>
 	caller.kind === 'user' && caller.user.id === 'ada'
 
 const deleted: string[] = []
+const updated: string[] = []
 const Post = defineModel({
 	name: 'Post',
 	fields: (f) => ({
@@ -36,6 +37,12 @@ const Post = defineModel({
 		delete: ({ caller }) => isAda(caller),
 	},
 	hooks: {
+		beforeUpdate: ({ caller, data }) => {
+			const at = data.deletedAt
+			const change =
+				at === undefined ? 'edit' : at === null ? 'restore' : 'delete'
+			updated.push(`${caller.kind}:${change}`)
+		},
 		afterDeleteCommit: ({ record }) => {
 			deleted.push(record.title)
 		},
@@ -63,6 +70,7 @@ const trashed = async (): Promise<string[]> =>
 let id: string
 beforeEach(async () => {
 	deleted.length = 0
+	updated.length = 0
 	await app.start()
 	id = (await Post.create({ data: { title: 'Draft' } }, M)).id
 	await Post.create({ data: { title: 'Kept' } }, M)
@@ -91,6 +99,14 @@ describe('a deleted row', () => {
 		expect(await Post.trash.count({}, M)).toBe(1)
 		// The application's hooks still see a delete.
 		expect(deleted).toEqual(['Draft'])
+	})
+
+	// The redirect's update runs its own pipeline (D-89): its hooks see it.
+	it('runs the update hooks too, as Master, deletedAt in data', async () => {
+		await Post.delete({ where: { id } }, user('ada'))
+		await Post.restore({ where: { id } }, user('ada'))
+		await Post.update({ where: { id }, data: { title: 'Back' } }, M)
+		expect(updated).toEqual(['master:delete', 'user:restore', 'master:edit'])
 	})
 
 	it('needs the delete rule', async () => {
