@@ -80,6 +80,30 @@ and a hook that throws undoes it all.
 `create` and `update` read their row again after these hooks, so the
 returned row shows what they wrote.
 
+## A rule across a row's fields
+
+A rule that compares fields of one row reads the row as written, in
+`afterCreate` and `afterUpdate`: an update's `data` holds only the fields it
+changes, `record` all of them. The hooks run for every caller, Master
+included, and for each row of a `createMany` or an `updateMany`; a throw
+undoes the write.
+
+<include cwd meta='title="src/models.ts"'>
+	../examples/hooks/src/models.ts#row-rule
+</include>
+
+<include cwd meta='title="src/app.test.ts"'>
+	../examples/hooks/src/app.test.ts#row-rule
+</include>
+
+The hook decides when its rule applies. `afterUpdate` also runs on the rows a
+`setNull` relation empties when its target is deleted: a rule that needs the
+relation can check only the writes that change it, comparing `record` with
+`previous`, and the delete goes through. A `check` constraint written in SQL
+holds at every write, and would refuse that delete;
+[postgres()](/docs/next/postgres#your-own-sql) returns its refusal as
+`VALIDATION_FAILED`.
+
 ## Once it commits
 
 `afterCreateCommit`, `afterUpdateCommit` and `afterDeleteCommit` get the same

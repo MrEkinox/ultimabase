@@ -14483,3 +14483,60 @@ deployment of several instances no application has yet); a sliding window
 a `.with({ rateLimit })` key per operation (it saves the hook's ten lines);
 limits per path, as Parse (a batch or a GraphQL document holds many
 operations).
+
+## D-219: A rule across a row's fields, and a check of your own
+
+Choice: amends D-98; D-149 and D-215 are unchanged.
+
+1. A rule that compares fields of one row is the model's `afterCreate` and
+   `afterUpdate` hooks: they read `record`, the row as written, run for
+   every caller and each row of a bulk write, and a throw undoes the write.
+   The hooks guide shows it. The hook chooses the writes it checks, so a
+   rule a `setNull` relation may empty later does not refuse that delete.
+2. `postgres()` returns a `check` constraint's refusal (`23514`) as
+   `VALIDATION_FAILED`, `Invalid data.`, with one issue: `path: []` and
+   `The row breaks the check <name>.`, the constraint's name. UltimaBase
+   writes no check on a model's table, so every such constraint is the
+   application's own, added in its SQL migration (D-137); `migrate create`
+   leaves it in place, as it drops only the constraints it knows.
+
+Why: before, a hand-written check returned 500 `INTERNAL`, a crash for the
+client where the row was only refused. The issue names the constraint and
+no field: Postgres does not say which column broke it. A hook holds the
+rule in TypeScript, for every caller, with a code of the application's own.
+Before:
+
+```ts
+// migration: alter table "visit" add constraint "visit_ended"
+//   check (("ended_at" is null) = ("end_reason" is null));
+await Visit.create({ data: { endedAt: new Date() } }, { as: master })
+// INTERNAL, 500
+```
+
+After, the same constraint:
+
+```ts
+await Visit.create({ data: { endedAt: new Date() } }, { as: master })
+// VALIDATION_FAILED, issues: [{ path: [], message:
+//   'The row breaks the check visit_ended.' }]
+```
+
+Or the rule as a hook:
+
+```ts
+export const Call = defineModel({ name: 'Call', fields }).with({
+	hooks: {
+		afterCreate: ({ record }) => checkEnding(record),
+		afterUpdate: ({ record }) => checkEnding(record),
+	},
+})
+```
+
+Rejected: a model `checks` key that writes `check` constraints (a
+constraint holds at every write, so a rule that a `setNull` relation may
+empty would refuse the target's delete; comparing two fields is the field
+references D-149 rejected; an OR of conditions goes beyond the filters
+D-215 accepts); checking in `beforeUpdate` (its `data` holds only the
+changed fields, so each rule merges them with `record` itself); a field in
+the issue's `path` read from the constraint's SQL (a guess Postgres does
+not make).

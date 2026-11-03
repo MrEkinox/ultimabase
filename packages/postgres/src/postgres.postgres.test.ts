@@ -27,7 +27,7 @@ import { createAdapter, requireVersion } from './adapter.ts'
 import { postgres } from './index.ts'
 import { Catalog, constraint } from './names.ts'
 import { snapshotOf } from './snapshot.ts'
-import { translate } from './write.ts'
+import { translate } from './translate.ts'
 
 /** The adapter's warnings: none on a database that folds every letter. */
 const warnings: unknown[] = []
@@ -912,6 +912,60 @@ describe('a write that races a delete on postgres()', () => {
 		await expect(tx.commit()).rejects.toEqual(
 			new RelationViolation('Song', 'genre', 'Genre', true),
 		)
+	})
+})
+
+const Visit = defineModel({
+	name: 'Visit',
+	fields: (f) => ({
+		endedAt: f.dateTime({ optional: true }),
+		endReason: f.string({ optional: true }),
+	}),
+})
+
+describe('a check the application adds on postgres()', () => {
+	const url = urls[0] ?? ''
+	let schema = ''
+	let app: ReturnType<typeof defineApp>
+	beforeEach(async () => {
+		schema = `t_${randomUUID().replaceAll('-', '')}`
+		await run(url, `create schema "${schema}"`)
+		const database = createAdapter({ url: inSchema(url, schema) })
+		app = defineApp({ database, models: [Visit], logger })
+		await app.start()
+		// As a migration of its own adds it.
+		await run(
+			url,
+			`alter table "${schema}"."visit" add constraint "visit_ended" check (("ended_at" is null) = ("end_reason" is null))`,
+		)
+	})
+	afterEach(async () => {
+		await app.stop()
+		await run(url, `drop schema "${schema}" cascade`)
+	})
+
+	it('refuses a row it rejects as VALIDATION_FAILED, naming it (D-219)', async () => {
+		const refused = {
+			code: 'VALIDATION_FAILED',
+			message: 'Invalid data.',
+			details: {
+				issues: [
+					{ path: [], message: 'The row breaks the check visit_ended.' },
+				],
+			},
+		}
+		await expect(
+			Visit.create({ data: { endedAt: new Date() } }, M),
+		).rejects.toMatchObject(refused)
+		const { id } = await Visit.create({ data: {} }, M)
+		await expect(
+			Visit.update({ where: { id }, data: { endReason: 'done' } }, M),
+		).rejects.toMatchObject(refused)
+		await Visit.update(
+			{ where: { id }, data: { endedAt: new Date(), endReason: 'done' } },
+			M,
+		)
+		expect(await Visit.count({ where: { endReason: 'done' } }, M)).toBe(1)
 	})
 })
 

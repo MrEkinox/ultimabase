@@ -3,7 +3,7 @@ import { asUser, testApplication } from '@ultimabase/testing'
 import { master, transaction } from 'ultimabase'
 import { beforeEach, expect, it } from 'vitest'
 import { app } from './app.ts'
-import { Activity, Comment, Ticket } from './models.ts'
+import { Activity, Call, Comment, Ticket } from './models.ts'
 import { outbox } from './outbox.ts'
 
 const running = testApplication(app)
@@ -126,5 +126,30 @@ it('limits the comments each person posts a minute', async () => {
 	const grace = { as: asUser({ id: 'grace' }) }
 	const comment = await Comment.create({ data: { text: '1' } }, grace)
 	expect(comment.authorId).toBe('grace')
+	//#endregion
+})
+
+it('refuses a row whose fields disagree', async () => {
+	//#region row-rule
+	await expect(
+		Call.create({ data: { endedAt: new Date() } }, as),
+	).rejects.toMatchObject({ code: 'CALL_ENDING' })
+
+	const call = await Call.create({ data: {} }, as)
+	// The update gives one field; the hook reads both on the row.
+	await expect(
+		Call.update({ where: { id: call.id }, data: { endReason: 'done' } }, as),
+	).rejects.toMatchObject({ code: 'CALL_ENDING' })
+	const unchanged = await Call.findUniqueOrThrow({ where: { id: call.id } }, as)
+	expect(unchanged.endReason).toBeNull()
+
+	const ended = await Call.update(
+		{
+			where: { id: call.id },
+			data: { endedAt: new Date(), endReason: 'done' },
+		},
+		as,
+	)
+	expect(ended.endReason).toBe('done')
 	//#endregion
 })
