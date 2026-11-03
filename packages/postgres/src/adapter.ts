@@ -43,7 +43,8 @@ import {
 import { parseSnapshot } from './snapshot-parse.ts'
 import { snapshotOf } from './snapshot.ts'
 import type { Statement } from './write.ts'
-import { compileWrite, translate } from './write.ts'
+import { translate } from './translate.ts'
+import { compileWrite } from './write.ts'
 
 export type Options = {
 	readonly url: string | undefined

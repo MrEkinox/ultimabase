@@ -3,12 +3,10 @@
 // the changes through CTEs named as the written tables, or, with `before`,
 // takes the rows its model's delete removed from that delete's RETURNING
 // (D-102, D-104), or, with no such delete, those its update changed (D-133). A read of the one row a change writes takes it from that
-// change's RETURNING (D-103). The unique
-// constraint a refused change names is the kernel's `UniqueViolation` (D-98).
+// change's RETURNING (D-103).
 import type { RawBuilder } from 'kysely'
 import { sql } from 'kysely'
 import type { Change, Check, Filter, Read, Row, Write } from 'ultimabase'
-import { Conflict, RelationViolation, UniqueViolation } from 'ultimabase'
 import type { Sql } from './filter.ts'
 import { Filters, uuid, value } from './filter.ts'
 import type { Catalog, Table } from './names.ts'
@@ -352,49 +350,4 @@ export function compileWrite(
 			checks: first ? checks.length : 0,
 		}
 	})
-}
-
-type Refusal = {
-	readonly code: string
-	readonly constraint: string
-	readonly message: string
-}
-
-function isRefusal(error: unknown): error is Refusal {
-	return (
-		error instanceof Error &&
-		'code' in error &&
-		typeof error.code === 'string' &&
-		'constraint' in error &&
-		typeof error.constraint === 'string'
-	)
-}
-
-/** A serialization failure or a deadlock (D-179). */
-const conflicts = new Set(['40001', '40P01'])
-
-/** A constraint's refusal or a conflict as the kernel's error; any other as is. */
-export function translate(catalog: Catalog, error: unknown): unknown {
-	if (
-		error instanceof Error &&
-		'code' in error &&
-		typeof error.code === 'string' &&
-		conflicts.has(error.code)
-	) {
-		return new Conflict({ cause: error })
-	}
-	if (!isRefusal(error)) return error
-	if (error.code === '23505') {
-		const unique = catalog.uniques.get(error.constraint)
-		if (unique !== undefined) {
-			return new UniqueViolation(unique.model, unique.fields)
-		}
-	}
-	const key = catalog.foreignKeys.get(error.constraint)
-	if (error.code === '23503' && key !== undefined) {
-		// Only the message tells the deleting side from the linking one.
-		const restricted = error.message.startsWith('update or delete')
-		return new RelationViolation(key.model, key.field, key.target, restricted)
-	}
-	return error
 }

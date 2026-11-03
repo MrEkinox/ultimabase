@@ -97,3 +97,34 @@ export const Comment = defineModel({
 	},
 })
 //#endregion
+
+//#region row-rule
+type Ending = { endedAt: Date | null; endReason: string | null }
+
+// Read on the row as written, whichever fields the write changed.
+function checkEnding({ endedAt, endReason }: Ending): void {
+	if ((endedAt === null) !== (endReason === null)) {
+		throw new PublicError('CALL_ENDING', 'An ended call has a reason.')
+	}
+}
+
+/** A call ends with a reason: both fields are set, or neither. */
+export const Call = defineModel({
+	name: 'Call',
+	fields: (f) => ({
+		endedAt: f.dateTime({ optional: true }),
+		endReason: f.enumOf(['done', 'missed'], { optional: true }),
+	}),
+}).with({
+	hooks: {
+		// For every caller and each row of a createMany or an updateMany, in
+		// the write's transaction: throwing undoes the write.
+		afterCreate: ({ record }) => {
+			checkEnding(record)
+		},
+		afterUpdate: ({ record }) => {
+			checkEnding(record)
+		},
+	},
+})
+//#endregion

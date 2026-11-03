@@ -137,6 +137,11 @@ your SQL in it.`
 	../examples/postgres/src/migrations.test.ts#data
 </include>
 
+A `check` constraint of your own refuses a row with `VALIDATION_FAILED`, one
+issue naming it: `The row breaks the check visit_ended.` A rule a hook can
+hold instead stays in TypeScript, and chooses the writes it checks
+([hooks](/docs/next/hooks#a-rule-across-a-rows-fields)).
+
 Each file runs in a transaction: if a statement fails, the file is rolled
 back. Some statements cannot run in a transaction, such as
 `create index concurrently`. Put such a statement alone in its file, with
