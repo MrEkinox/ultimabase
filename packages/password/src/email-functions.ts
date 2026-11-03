@@ -54,7 +54,7 @@ export function emailFunctions(
 		input: resetPasswordInput,
 		output: done,
 		run: async ({ input: { input } }) => {
-			await reset(stateOf(), input.token, input.password)
+			await reset(stateOf(), input.token, input.password, ['input', 'password'])
 			return true
 		},
 	}).with({ access: allow.public })

@@ -83,8 +83,9 @@ export async function createUser(
 	email: string,
 	password: string,
 	data: object,
+	path?: readonly string[],
 ): Promise<{ readonly user: Row; readonly stamp: string }> {
-	await checkNew(state, password, email)
+	await checkNew(state, password, email, path)
 	const hash = await hashPassword(password)
 	const stamp = randomUUID()
 	return transaction(async () => {
@@ -173,7 +174,7 @@ export async function checkNewFor(
 	state: State,
 	userId: string,
 	password: string,
-	path?: string,
+	path?: readonly string[],
 ): Promise<void> {
 	const email = await state.auth.subjectOf(userId, method)
 	await checkNew(state, password, email, path)

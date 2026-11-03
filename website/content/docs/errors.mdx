@@ -122,8 +122,9 @@ it adds them, as `ErrorCodeOf<typeof app> | 'OUT_OF_STOCK'`.
 | `MAINTENANCE`            | `maintenance`   | Any request but Master's, during maintenance.                   | 503         | `{ retryAfter }`, in seconds |
 | the application's own    | the application | A `PublicError` it threw.                                       | 400         | its own                      |
 
-An issue is `{ path, message }`: `path` lists the keys to the refused
-value, as `['days']`.
+An issue is `{ path, message, code? }`: `path` lists the keys to the refused
+value, as `['days']`, and `code`, in capitals, is the one a client tests: a
+`PublicError`'s, or a schema issue's.
 
 ### The answer
 
