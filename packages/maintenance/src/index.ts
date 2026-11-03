@@ -1,7 +1,8 @@
 // Maintenance (D-205): while it is on, every request and WebSocket upgrade but
 // Master's answers 503 `MAINTENANCE`, and the sockets open close with 1012.
 // Its state is a row: every server follows it through the change feed, and
-// starts from `initial` while there is none (D-207).
+// starts from `initial` while there is none (D-207). Reads and writes are
+// numbered: one that ends after a later one has no effect.
 import type { Http } from '@ultimabase/http'
 import { httpPlugin, routes } from '@ultimabase/http'
 import type { Logger, PluginOf, PluginTypes } from 'ultimabase'
@@ -43,18 +44,34 @@ export interface Maintenance extends PluginTypes {
 const path = '/_ultimabase/maintenance'
 const key = 'state'
 
-/** This server's state, the one while none is stored, and how it closes the sockets open. */
+/**
+ * This server's state, the reads and writes begun and the last applied, the
+ * state while none is stored, and how it closes the sockets open.
+ */
 interface State {
 	locked: boolean
+	begun: number
+	applied: number
 	readonly initial: boolean
 	readonly close: () => void
 	readonly logger: Logger
 }
 
-/** Follows the stored state: as it begins, the sockets open close. */
-function follow(state: State, locked: boolean): void {
+/**
+ * Follows the state the `n`th read or write found, unless a later one was
+ * applied: as the maintenance begins, the sockets open close.
+ */
+function follow(state: State, n: number, locked: boolean): void {
+	if (n < state.applied) return
+	state.applied = n
 	if (locked && !state.locked) state.close()
 	state.locked = locked
+}
+
+/** Reads the stored state, then follows it. */
+async function read(state: State): Promise<void> {
+	const n = ++state.begun
+	follow(state, n, await stored(state))
 }
 
 async function stored(state: State): Promise<boolean> {
@@ -66,6 +83,7 @@ async function stored(state: State): Promise<boolean> {
 }
 
 async function store(state: State, locked: boolean): Promise<void> {
+	const n = ++state.begun
 	await MaintenanceState.upsert(
 		{
 			where: { key },
@@ -74,13 +92,13 @@ async function store(state: State, locked: boolean): Promise<void> {
 		},
 		{ as: master },
 	)
-	follow(state, locked)
+	follow(state, n, locked)
 }
 
 /** Reads the state again; keeps the last one when it cannot. */
 async function reload(state: State): Promise<void> {
 	try {
-		follow(state, await stored(state))
+		await read(state)
 	} catch (error) {
 		state.logger.error(
 			{ err: error },
@@ -122,18 +140,28 @@ const maintenance = definePlugin<Maintenance>({
 		if (initial !== 'locked' && initial !== 'unlocked') {
 			throw new Refused("The maintenance's initial is 'locked' or 'unlocked'.")
 		}
+		const { retryAfter = 60_000 } = options
+		if (!Number.isFinite(retryAfter) || retryAfter <= 0) {
+			throw new Refused(
+				"The maintenance's retryAfter is a positive number of milliseconds.",
+			)
+		}
 		const switches = keyed(options.key)
 		const state: State = {
 			locked: false,
+			begun: 0,
+			applied: 0,
 			initial: initial === 'locked',
 			close: () =>
 				plugins.http.closeUpgrades({ code: 1012, reason: 'Maintenance' }),
 			logger,
 		}
 		states.set(context, state)
-		const seconds = Math.ceil((options.retryAfter ?? 60_000) / 1000)
+		const seconds = Math.ceil(retryAfter / 1000)
 		plugins.http.gate(async (request) => {
-			if (!state.locked || new URL(request.url).pathname === path) {
+			const switching =
+				request.method === 'PUT' && new URL(request.url).pathname === path
+			if (!state.locked || switching) {
 				return undefined
 			}
 			const caller = await identify(request).catch(() => undefined)
@@ -169,8 +197,7 @@ const maintenance = definePlugin<Maintenance>({
 	start: async (context) => {
 		// A read that fails fails the start: the server must not serve
 		// while it does not know whether it is in maintenance (D-207).
-		const state = stateOf(context)
-		state.locked = await stored(state)
+		await read(stateOf(context))
 	},
 	changed: (changes, context) => {
 		if (changes.some((change) => change.model === MaintenanceState.name)) {

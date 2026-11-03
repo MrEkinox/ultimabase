@@ -89,8 +89,10 @@ A request with the master key is served as usual, during maintenance too:
 | `key`        | string                   | none         | Sent in `x-ultimabase-maintenance-key`, switches the maintenance. |
 | `initial`    | `'locked'`, `'unlocked'` | `'unlocked'` | The state while none is stored.                                   |
 
-It requires `httpPlugin()`, and adds the model `MaintenanceState`, which no
-transport exposes.
+`retryAfter` is a positive number: another value, as `0` or `NaN`, refuses
+the start with `The maintenance's retryAfter is a positive number of
+milliseconds.` It requires `httpPlugin()`, and adds the model
+`MaintenanceState`, which no transport exposes.
 
 ### `plugins.maintenance`
 
@@ -103,9 +105,10 @@ migration would.
 | `unlock()` | Turns it off, for every server, once stored. |
 | `locked()` | Whether this server is in maintenance.       |
 
-Each server reads the state as it starts, and again on each change of it.
-When it cannot read it as it starts, the start fails; later, it keeps the
-state it had and logs the error.
+Each server reads the state as it starts, and again on each change of it;
+a read that answers after a later one is ignored. When it cannot read it as
+it starts, the start fails; later, it keeps the state it had and logs the
+error.
 
 ### `PUT /_ultimabase/maintenance`
 

@@ -165,6 +165,13 @@ describe('the maintenance', () => {
 		expect((await fetch(`${running.url}/notes`)).status).toBe(200)
 	})
 
+	it('answers 503 on its own path but to a PUT', async () => {
+		await maintenance().lock()
+		const read = await fetch(`${running.url}/_ultimabase/maintenance`)
+		expect(read.status).toBe(503)
+		expect(await read.json()).toMatchObject({ code: 'MAINTENANCE' })
+	})
+
 	it('lets Master through', async () => {
 		await maintenance().lock()
 		const response = await fetch(`${running.url}/notes`, { headers: asMaster })
@@ -382,6 +389,79 @@ describe('its initial state', () => {
 		await expect(appOn(memory(), { initial }).start()).rejects.toThrow(
 			"The maintenance's initial is 'locked' or 'unlocked'.",
 		)
+	})
+})
+
+describe('its retryAfter', () => {
+	it('is refused unless a positive number of milliseconds', async () => {
+		for (const retryAfter of [Number.NaN, 0, -5000, Infinity]) {
+			await expect(appOn(memory(), { retryAfter }).start()).rejects.toThrow(
+				"The maintenance's retryAfter is a positive number of milliseconds.",
+			)
+		}
+	})
+})
+
+/**
+ * `memory()` whose first read after the change following `lagNext()` reads
+ * at once, and answers once `release` is called.
+ */
+let release: (() => void) | undefined
+function lagging(): Adapter & { readonly lagNext: () => void } {
+	const base = memory()
+	let lag = false
+	let next = false
+	return {
+		...base,
+		start: (schema, given, feed) =>
+			base.start(schema, given, {
+				changed: (changes) => {
+					if (lag) next = true
+					lag = false
+					feed?.changed(changes)
+				},
+				missed: () => feed?.missed(),
+			}),
+		find: async (read) => {
+			const rows = await base.find(read)
+			if (next) {
+				next = false
+				const { promise, resolve } = Promise.withResolvers<void>()
+				release = resolve
+				await promise
+			}
+			return rows
+		},
+		lagNext: () => {
+			lag = true
+		},
+	}
+}
+
+describe('its reads', () => {
+	// Two servers switch it: the read of the first switch answers last.
+	it('keep the latest state when an older read answers late', async () => {
+		const database = lagging()
+		const application = await started(database)
+		try {
+			database.lagNext()
+			await MaintenanceState.create(
+				{ data: { key: 'state', enabled: true } },
+				{ as: master },
+			)
+			await vi.waitFor(() => expect(release).toBeDefined())
+			await MaintenanceState.update(
+				{ where: { key: 'state' }, data: { enabled: false } },
+				{ as: master },
+			)
+			await turn()
+			release?.()
+			await turn()
+			expect(maintenance().locked()).toBe(false)
+		} finally {
+			release = undefined
+			await application.stop()
+		}
 	})
 })
 
