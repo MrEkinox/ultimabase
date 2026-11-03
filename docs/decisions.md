@@ -1423,7 +1423,7 @@ Later: an iterator reading a large table in batches by cursor
 
 ## D-56: Passwords use Argon2id, sign-in is rate limited
 
-Amended by D-113.
+Amended by D-113 and D-218.
 
 Choice: the `password` plugin hashes passwords with Argon2id from Node's
 `node:crypto` (OWASP parameters: 19 MiB memory, 2 passes, parallelism 1) and
@@ -1434,8 +1434,8 @@ database (D-113, amended 2026-10-24).
 Why: Argon2id is OWASP's first recommendation and Node's LTS ships it, so no
 native dependency is compiled; a brute-force guard must not depend on an
 optional plugin.
-A general limit for the whole API, per caller or per address, comes later as
-a separate `rateLimit()` plugin.
+`httpPlugin()` limits each address's requests, and a hook each person's
+writes (D-218).
 Rejected: bcrypt (72-byte limit); scrypt (second choice once Argon2id is
 built in); a native `argon2` package; sign-in protection left to a general
 rate-limit plugin.
@@ -14322,8 +14322,8 @@ Choice: completes D-89; D-71 is unchanged.
    plugin's `commands` adds its own (D-89): `Match.end(id)` next to
    `Match.update(…)`. It is called once, before or after `.with`, and
    returns the model with them. `build` receives `{ queries }`, the model's
-   queries, and returns an object of functions; an object of functions is
-   refused, as a command reads as one call.
+   queries, and returns an object of functions; any other value, a nested
+   object of functions included, is refused, as a command reads as one call.
 2. `T` is an interface the application writes, with each command's
    signature and its comment. Without it, `build`'s return fails to compile
    on `name the commands type: .commands<MatchCommands>(...)`: a model whose
@@ -14398,3 +14398,84 @@ export const Match = defineModel({
 }))
 await Match.end(match.id)
 ```
+
+## D-218: `httpPlugin()` limits each address's requests
+
+Choice: amends D-56; D-113 is unchanged.
+
+1. `httpPlugin()` counts each client address's requests and upgrades in
+   the instance's memory, in a fixed window: 600 a minute by default,
+   `rateLimit: { requests, window }` (a window in milliseconds) to change
+   it, `rateLimit: false` to turn it off; each number is a whole number
+   above 0, checked at start.
+2. The address is the client's as `proxies` reads it (D-116); an IPv6
+   address counts by its /64, an IPv4-mapped one as IPv4. A local or
+   private address is never counted, so a proxy that `proxies` does not
+   name is not refused for all its clients.
+3. Over the limit, the server answers 429 `TOO_MANY_ATTEMPTS` with
+   `details: { retryAfter }` and `Retry-After`, the seconds until the
+   window ends, before the gates, the caller and the routes, so a flood
+   reads no session. Master's key passes over the limit; a wrong key does
+   not. The first refusal of an address in a window logs a warning.
+4. Each instance counts its own requests: behind a load balancer the limit
+   is per instance. A shared store is decided when an application needs it.
+5. A limit per person on a write is the model's `beforeCreate` hook: it
+   counts the caller's rows since the window began and throws
+   `TOO_MANY_ATTEMPTS`, which HTTP sends the same way. The hooks guide shows
+   it. Sign-in and password reset keep the `password` plugin's limits, per
+   account and address together (D-56, D-113).
+
+Why: without a limit, one client, signed in or not, sends as many requests
+as Node takes, and an application should not need a proxy to survive it.
+Counting before the caller keeps a flood from costing a database read per
+request; counting in memory costs no store and no dependency beyond
+ipaddr.js. A hook counts operations, not requests, so REST, GraphQL aliases
+(D-107 point 6) and server code share one count, where Parse's limit per
+path is bypassed by a batch (CVE-2026-30972) and sees `/graphql` as one
+path. Before, in Parse:
+
+```ts
+new ParseServer({
+	rateLimit: { requestPath: '*', requestTimeWindow: 60_000, requestCount: 600 },
+})
+```
+
+After:
+
+```ts
+httpPlugin() // 600 requests a minute per address
+httpPlugin({ rateLimit: { requests: 100, window: 60_000 } })
+httpPlugin({ rateLimit: false }) // a proxy limits in front
+```
+
+A limit per person:
+
+```ts
+export const Message = defineModel({ name: 'Message', fields }).with({
+	hooks: {
+		beforeCreate: async ({ caller }): Promise<void> => {
+			if (caller.kind !== 'user') return
+			const since = new Date(Date.now() - 60_000)
+			const recent = await Message.count(
+				{ where: { authorId: caller.user.id, createdAt: { gt: since } } },
+				{ as: master },
+			)
+			if (recent >= 30) {
+				throw new PublicError('TOO_MANY_ATTEMPTS', 'Wait a minute.', {
+					details: { retryAfter: 60 },
+				})
+			}
+		},
+	},
+})
+```
+
+Rejected: no limit, a proxy's job (most small deployments have none); a
+separate `rateLimit()` plugin (the address and the upgrades are the HTTP
+plugin's, and a safety net on by default should not need installing); a
+Redis or database store (a dependency and a read per request, for a
+deployment of several instances no application has yet); a sliding window
+(more memory per address for a smoother edge a safety net does not need);
+a `.with({ rateLimit })` key per operation (it saves the hook's ten lines);
+limits per path, as Parse (a batch or a GraphQL document holds many
+operations).

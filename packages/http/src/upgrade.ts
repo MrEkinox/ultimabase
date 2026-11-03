@@ -6,6 +6,7 @@ import type { IncomingMessage, Server } from 'node:http'
 import { STATUS_CODES } from 'node:http'
 import type { Duplex } from 'node:stream'
 import type { Logger } from 'ultimabase'
+import type { Limiter } from './limit.ts'
 
 /**
  * An upgrade a plugin takes: Node's request, its socket and first bytes, as
@@ -53,6 +54,8 @@ export interface Upgrading {
 	readonly takers: ReadonlyMap<string, Taker>
 	/** The application's `upgrade`, then the plugins' gates (D-205). */
 	readonly gates: readonly Gate[]
+	/** Counts the upgrade with the address's requests (D-218). */
+	readonly rateLimit: Limiter
 	readonly allows: (origin: string) => boolean
 	readonly addressOf: (env: { readonly incoming: IncomingMessage }) => string
 	readonly logger: Logger
@@ -117,7 +120,7 @@ function requestOf(incoming: IncomingMessage): Request | undefined {
  */
 export function upgrading(
 	server: Server,
-	{ takers, gates, allows, addressOf, logger }: Upgrading,
+	{ takers, gates, rateLimit, allows, addressOf, logger }: Upgrading,
 ): ReadonlyMap<Duplex, string> {
 	const open = new Map<Duplex, string>()
 	server.on('upgrade', (incoming: IncomingMessage, socket: Duplex, head) => {
@@ -146,9 +149,10 @@ export function upgrading(
 		socket.once('close', () => open.delete(socket))
 		void (async () => {
 			try {
-				const refused = await answer(gates, request)
-				if (refused !== undefined) return await send(socket, refused)
 				const address = addressOf({ incoming })
+				const refused =
+					(await rateLimit(request, address)) ?? (await answer(gates, request))
+				if (refused !== undefined) return await send(socket, refused)
 				taker.accept({ request, address, incoming, socket, head })
 			} catch (error) {
 				logger.error({ err: error }, 'An upgrade failed.')

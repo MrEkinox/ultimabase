@@ -62,6 +62,24 @@ Without `proxies`, a request with `X-Forwarded-For` from a local network
 logs a warning once: every client would count as the proxy, and
 [password](/docs/next/password)'s limits would block them all at once.
 
+## Rate limit
+
+Each client address may send 600 requests a minute, WebSocket upgrades
+included; past that, the server answers 429 `TOO_MANY_ATTEMPTS` with
+`Retry-After`, the seconds until the minute ends, before it reads any
+session. `rateLimit` changes the limit, or turns it off with `false` when a
+proxy limits in front:
+
+<include cwd meta='title="src/app.test.ts"'>
+	../examples/http/src/app.test.ts#limit
+</include>
+
+The address is the one `proxies` reads; an IPv6 address counts by its /64,
+and a local or private one is never counted. The master key passes over
+the limit. Each instance counts in its own memory, so behind a load
+balancer the limit is per instance. A limit per person on a write is a
+[hook](/docs/next/hooks#limit-a-persons-writes).
+
 ## Validate a request
 
 `validate(target, schema)` checks a part of the request with any
@@ -191,15 +209,16 @@ above do:
 
 ### `httpPlugin(options)`
 
-| Option      | Type            | Default                         | Effect                                                         |
-| ----------- | --------------- | ------------------------------- | -------------------------------------------------------------- |
-| `routes`    | `routes()[]`    | none                            | Mounted at the root, in their order, before the plugins' own.  |
-| `cors`      | origins         | none                            | The origins a browser may call from, with its cookies.         |
-| `port`      | number          | `PORT`, then 3000               | Where the server listens.                                      |
-| `bodyLimit` | number of bytes | 1 MB                            | The largest request body; files take their own limit.          |
-| `proxies`   | whole number    | 0                               | The proxies in front of the server, read in `X-Forwarded-For`. |
-| `upgrade`   | function        | none                            | Answers each WebSocket upgrade: a `Response` refuses it.       |
-| `drain`     | milliseconds    | 5000 in production, 0 otherwise | How long the stop waits once `/ready` answers 503.             |
+| Option      | Type                              | Default                         | Effect                                                             |
+| ----------- | --------------------------------- | ------------------------------- | ------------------------------------------------------------------ |
+| `routes`    | `routes()[]`                      | none                            | Mounted at the root, in their order, before the plugins' own.      |
+| `cors`      | origins                           | none                            | The origins a browser may call from, with its cookies.             |
+| `port`      | number                            | `PORT`, then 3000               | Where the server listens.                                          |
+| `bodyLimit` | number of bytes                   | 1 MB                            | The largest request body; files take their own limit.              |
+| `proxies`   | whole number                      | 0                               | The proxies in front of the server, read in `X-Forwarded-For`.     |
+| `rateLimit` | `{ requests, window }` or `false` | 600 per 60 000 ms               | Each address's requests and upgrades in a window, in milliseconds. |
+| `upgrade`   | function                          | none                            | Answers each WebSocket upgrade: a `Response` refuses it.           |
+| `drain`     | milliseconds                      | 5000 in production, 0 otherwise | How long the stop waits once `/ready` answers 503.                 |
 
 Outside production, local origins over `http:` are allowed besides `cors`,
 and `POST /_ultimabase/reset` empties the database for the master key, for
@@ -283,6 +302,7 @@ keep it to some routes. A route added after `start` is not served.
 | 404    | `NOT_FOUND`              | `No route matches GET /nowhere.`                                                                                     |
 | 413    | `PAYLOAD_TOO_LARGE`      | `The body is over 65536 bytes.`                                                                                      |
 | 415    | `UNSUPPORTED_MEDIA_TYPE` | `The body is not JSON: send content-type: application/json.`                                                         |
+| 429    | `TOO_MANY_ATTEMPTS`      | `Too many requests: try again later.`, with `details.retryAfter` and `Retry-After`.                                  |
 | 500    | `INTERNAL`               | `Internal error.`, with `correlationId`.                                                                             |
 | 503    | `UNAVAILABLE`            | `The application is starting.`, `The application is stopping.`, or `A readiness check failed.`, from `/ready`.       |
 | any    | the status's name        | An `HTTPException`, as `401` `UNAUTHORIZED`.                                                                         |
@@ -293,7 +313,8 @@ A `PublicError` takes its code's status: `ACCESS_DENIED` 403, `NOT_FOUND`
 429 with `Retry-After`, any other code 400.
 
 At start: `proxies is 1.5, not a whole number of proxies in front of the
-server.`, and `PORT is 80a, not a port between 0 and 65535.`
+server.`, `rateLimit.requests is 0, not a whole number above 0.`, and `PORT
+is 80a, not a port between 0 and 65535.`
 
 ### The development log
 

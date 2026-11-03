@@ -2,7 +2,8 @@
 // documented surface: new runs of it on another database, quieter, the
 // running plugins' APIs, what raw SQL and tests on the declared database
 // need (D-137), what live reads need (D-154), the feed tests call (D-168),
-// the pages functions return (D-182) and the reset route (D-188).
+// the pages functions return (D-182), the reset route (D-188) and the
+// master key's header the rate limit checks (D-218).
 import type { Adapter, Feed } from './adapter.ts'
 import { internalsOf } from './app-internals.ts'
 import type { Logger } from './app-options.ts'
@@ -18,6 +19,7 @@ export { isRow } from './field-codec.ts'
 export type { PageSource } from './page.ts'
 export { pageSource } from './page.ts'
 export { joining } from './transaction.ts'
+export { masterKeyHeader } from './identify.ts'
 export { issueOf } from './write-data.ts'
 export { decimalPattern } from './decimal.ts'
 export type { Recorded } from './recorder.ts'

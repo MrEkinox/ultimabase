@@ -96,6 +96,26 @@ once they are done, so a test or a serverless function never ends before
 them. A `*Commit` hook that throws is logged at `error` and is not thrown:
 the write is already committed.
 
+## Limit a person's writes
+
+The HTTP server limits each address's requests
+([rate limit](/docs/next/http#rate-limit)). A limit per person on a write is
+a `beforeCreate` hook that counts the caller's recent rows and throws
+`TOO_MANY_ATTEMPTS`, sent with HTTP 429 and `Retry-After`:
+
+<include cwd meta='title="src/models.ts"'>
+	../examples/hooks/src/models.ts#limit
+</include>
+
+It counts writes, not requests: a GraphQL document that creates ten comments
+with aliases counts ten. Writes sent at the same instant may each pass the
+count; a limit that must never be exceeded runs the write in a
+[serializable transaction](/docs/next/transactions#serializable-transactions).
+
+<include cwd meta='title="src/app.test.ts"'>
+	../examples/hooks/src/app.test.ts#limit
+</include>
+
 ## Reference
 
 ### Hooks

@@ -19,6 +19,9 @@ export const app = defineApp({
 			// One proxy in front: the client's address is read from
 			// X-Forwarded-For.
 			proxies: 1,
+			// 100 requests a minute per client address; 600 by default, false
+			// for none.
+			rateLimit: { requests: 100, window: 60_000 },
 		}),
 	],
 	//#endregion

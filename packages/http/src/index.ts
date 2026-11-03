@@ -9,6 +9,7 @@ import manifest from '../package.json' with { type: 'json' }
 import type { HttpEnv, HttpOptions, Mounted, Routes } from './app.ts'
 import { addresses, proxiesOf } from './address.ts'
 import { allowing, appOf } from './app.ts'
+import { limiter } from './limit.ts'
 import type { Probes, ReadyCheck } from './probes.ts'
 import { startingGate } from './probes.ts'
 import { hold } from './request.ts'
@@ -17,6 +18,7 @@ import type { Accept, Close, Closing, Gate, Taker } from './upgrade.ts'
 import { closeUpgrades, upgrading } from './upgrade.ts'
 
 export type { HttpEnv, HttpOptions, Routes } from './app.ts'
+export type { RateLimit } from './limit.ts'
 export type { ReadyCheck } from './probes.ts'
 export type { Accept, Close, Closing, Gate, Upgrade } from './upgrade.ts'
 export { clientOf } from './client.ts'
@@ -149,10 +151,11 @@ const http = definePlugin<Http>({
 		const mounted = mounts.get(context) ?? []
 		const starting = startingGate(probes)
 		const gates = gated.get(context) ?? []
+		const rateLimit = limiter(options.rateLimit, identify, logger)
 		const app = appOf(
 			options,
 			mounted,
-			{ probes, gates: [starting, ...gates] },
+			{ probes, gates: [starting, ...gates], rateLimit },
 			identify,
 			logger,
 		)
@@ -169,6 +172,7 @@ const http = definePlugin<Http>({
 					...(options.upgrade === undefined ? [] : [options.upgrade]),
 					...gates,
 				],
+				rateLimit,
 				allows: allowing(options),
 				addressOf,
 				logger,
