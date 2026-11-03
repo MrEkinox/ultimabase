@@ -165,6 +165,17 @@ export interface Model<N extends string, F, P, W, X = never> extends Queries<
 	/** The plugins it uses, checked against the application's (D-24). */
 	readonly plugins?: P
 	with(rules: ModelWith<F, W, N>): this
+	/**
+	 * Adds the application's commands, typed by the interface `C` (D-217):
+	 * `.commands<MatchCommands>(({ queries }) => ({ end: async (id) => … }))`.
+	 */
+	commands<
+		C extends object = {
+			readonly error: 'name the commands type: .commands<MatchCommands>(...)'
+		},
+	>(
+		build: (model: { readonly queries: Queries<F, X, N> }) => NoInfer<C>,
+	): this & C
 	/** The model, or `null`, as a function's output (D-109). */
 	nullable(): Nullable<this>
 	/** A page of the model, as a function's output (D-182). */

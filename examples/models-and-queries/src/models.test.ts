@@ -76,6 +76,17 @@ it('reads a virtual field with its input', async () => {
 	//#endregion
 })
 
+it('runs a command on the model', async () => {
+	const { id } = await Product.create(
+		{ data: { name: 'Mug', sku: 'MUG-001', price: '12.00' } },
+		{ as: master },
+	)
+	//#region command
+	await expect(Product.restock(id, 12)).resolves.toBe(12)
+	await expect(Product.restock(id, 3)).resolves.toBe(15)
+	//#endregion
+})
+
 it('refuses a value its field does not accept', async () => {
 	//#region refused
 	await expect(

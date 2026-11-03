@@ -643,6 +643,12 @@ describe('a model’s use', () => {
 		expect(() => using(adding('a', { with: () => 1 }))).toThrow(
 			'Page.with: a adds a command named after a model method.',
 		)
+		// Regression: these were overwritten by the model's own methods.
+		for (const method of ['paginate', 'paginated', 'commands']) {
+			expect(() => using(adding('a', { [method]: () => 1 }))).toThrow(
+				`Page.${method}: a adds a command named after a model method.`,
+			)
+		}
 		const twice = { go: () => 1 }
 		expect(() => using(adding('a', twice), adding('b', twice))).toThrow(
 			'Page.go: a and b both add this command.',
