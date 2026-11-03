@@ -1,0 +1,44 @@
+// A relation's options (D-37, D-54, D-151, D-220).
+import type { Described } from './described.ts'
+import type { DefaultFunction } from './fields.ts'
+
+/** What shapes a `one` relation (D-37, D-54). */
+export type OneOptions = Described & {
+	readonly optional?: boolean
+	/** The target's id (D-53). */
+	readonly default?:
+		{ readonly id: string } | DefaultFunction<{ readonly id: string }>
+	readonly onDelete?: 'cascade' | 'restrict' | 'setNull'
+	readonly inverse?: string
+	readonly dbName?: string
+	/**
+	 * Its target shares a parent with the row (D-220): with `'project'`, the
+	 * target's `project` is the row's; with `{ campaign: 'id' }`, the
+	 * target's `campaign` is the row itself.
+	 */
+	readonly within?: string | { readonly [field: string]: string }
+}
+// `setNull` empties the relation, which only an optional one may be (D-54).
+// The message is an object: a literal would empty the whole options type.
+export type OneCheck<O> = O extends { readonly optional: true }
+	? unknown
+	: O extends { readonly onDelete: 'setNull' }
+		? {
+				readonly onDelete: {
+					readonly error: 'setNull needs an optional relation'
+				}
+			}
+		: unknown
+
+export type ManyOptions = Described &
+	(
+		| { readonly inverse?: string; readonly from?: undefined }
+		| {
+				/**
+				 * A view: read-only, on the link of this other `many` of the
+				 * model, its rows those its filter keeps (D-151).
+				 */
+				readonly from: string
+				readonly inverse?: undefined
+		  }
+	)

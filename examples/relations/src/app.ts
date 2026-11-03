@@ -14,6 +14,9 @@ import {
 	Series,
 	Transfer,
 	Volume,
+	Project,
+	Milestone,
+	Task,
 } from './shapes.ts'
 
 export const app = defineApp({
@@ -37,5 +40,8 @@ export const app = defineApp({
 		Membership,
 		Series,
 		Volume,
+		Project,
+		Milestone,
+		Task,
 	],
 })

@@ -19,6 +19,7 @@ import { guarded } from './write-target.ts'
 import { uuidv7 } from './uuid.ts'
 import { rowChecks } from './write-filter.ts'
 import { writingOf } from './writing.ts'
+import { withinChecks } from './within.ts'
 import { returned } from './writes.ts'
 
 /** A row's data, as `create` reads it, with no write but `connect` on a `one`. */
@@ -103,7 +104,10 @@ async function created(
 	// An `after*` hook may change the rows: they are read once it ran (D-88).
 	const again = rereads(events)
 	const ruled = rowChecks(scope.access)
-	writing.checks.push(...ruled.before)
+	writing.checks.push(
+		...ruled.before,
+		...withinChecks(scope.models, changes, events),
+	)
 	const write = {
 		checks: writing.checks.map(({ check }) => check),
 		changes,

@@ -319,6 +319,38 @@ It is read, filtered, counted and sorted like any `many`:
   applies to every read, Master's included. Writes still reach the rows it
   hides, so `connect` and `disconnect` work and `set` is refused.
 
+### A relation kept within a parent
+
+`within` keeps a `one`'s target in the row's parent: a task links only a
+milestone of its own project.
+
+<include cwd meta='title="src/shapes.ts"'>
+	../examples/relations/src/shapes.ts#within
+</include>
+
+`within: 'project'` says the milestone's `project` is the task's `project`.
+Every write that would part them is refused: linking a milestone of another
+project, moving the task to another project, or moving the milestone while
+a task links it.
+
+<include cwd meta='title="src/shapes.test.ts"'>
+	../examples/relations/src/shapes.test.ts#within-write
+</include>
+
+- The pair may name the row itself, or another of its relations:
+  `within: { project: 'id' }` on `Project.featured` keeps it among the
+  project's own milestones, and `within: { milestone: 'featured' }` on
+  `Project.featuredTask` keeps it among the featured milestone's tasks.
+- The target's field is a required `one`; the row's side may be optional. A
+  row whose relation or parent is `null` holds nothing.
+- `within` goes on the side that stores the key, never on a `many`.
+- A write is checked against the rows as they were before it: one that moves
+  a milestone and links a task to it in the same write is refused. Write
+  them one after the other.
+- [`postgres()`](/docs/next/postgres) keeps it in the database too, with a
+  foreign key over both columns, so concurrent writes and SQL of your own
+  cannot part them.
+
 ## Relations in access rules and hooks
 
 - A rule or a hook sees a `one` as `{ id }`, or `null` when it is empty. A
@@ -357,14 +389,15 @@ as JSON.
 
 ### `f.one(target, options)`
 
-| Option        | Type                                   | Default                                       | Effect                                                               |
-| ------------- | -------------------------------------- | --------------------------------------------- | -------------------------------------------------------------------- |
-| `optional`    | `boolean`                              | `false`                                       | The row may have no related row; the field reads `null`.             |
-| `onDelete`    | `'cascade' \| 'restrict' \| 'setNull'` | `restrict` if required, `setNull` if optional | What deleting the target does. Only on the side that stores the key. |
-| `default`     | `{ id }`, or a function returning one  | none                                          | The row a create links when it writes none.                          |
-| `inverse`     | `string`                               | found by target                               | The other side's field, when two relations join the same models.     |
-| `dbName`      | `string`                               | the field's name                              | The stored key's column.                                             |
-| `description` | `string`                               | none                                          | Shown in GraphQL and REST schemas.                                   |
+| Option        | Type                                             | Default                                       | Effect                                                                                                           |
+| ------------- | ------------------------------------------------ | --------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `optional`    | `boolean`                                        | `false`                                       | The row may have no related row; the field reads `null`.                                                         |
+| `onDelete`    | `'cascade' \| 'restrict' \| 'setNull'`           | `restrict` if required, `setNull` if optional | What deleting the target does. Only on the side that stores the key.                                             |
+| `default`     | `{ id }`, or a function returning one            | none                                          | The row a create links when it writes none.                                                                      |
+| `inverse`     | `string`                                         | found by target                               | The other side's field, when two relations join the same models.                                                 |
+| `dbName`      | `string`                                         | the field's name                              | The stored key's column.                                                                                         |
+| `within`      | `string`, or `{ [target field]: 'id' \| field }` | none                                          | The target's field equals the row's: the target stays in the row's parent. Only on the side that stores the key. |
+| `description` | `string`                                         | none                                          | Shown in GraphQL and REST schemas.                                                                               |
 
 ### `f.many(target, options)`
 
@@ -423,23 +456,27 @@ its `code` and its `path`; a client receives it as `BAD_USER_INPUT`.
 The application refuses to start, with one of these messages, when a relation
 is declared wrongly:
 
-| Message                                                                                             | Fix                                                       |
-| --------------------------------------------------------------------------------------------------- | --------------------------------------------------------- |
-| `Book.author: Author has no relation to Book; add its side.`                                        | Declare the other side.                                   |
-| ``Book.author: Author has several relations to Book; name one with `inverse`.``                     | Name the other side with `inverse` on both fields.        |
-| `Transfer.from: inverse 'outgoing' is not a relation of Branch to Transfer.`                        | Name a field of the target that points back.              |
-| `Transfer.from and Branch.outgoing do not name each other.`                                         | Make the two `inverse` agree.                             |
-| `Member.card and Card.member: make one side of a one-to-one relation optional.`                     | Mark exactly one side `optional: true`.                   |
-| `Member.card: onDelete belongs on Card.member, which stores the key.`                               | Move `onDelete` to the required side.                     |
-| `Book.author: setNull needs an optional relation.`                                                  | Make the relation optional, or choose another `onDelete`. |
-| `Book.author: its target is not in models.`                                                         | Add the target to the application's `models`.             |
-| `Post.author: a plugin's model relates only to models of the same plugin; keep the id as a scalar.` | Store the id in a `string` field.                         |
-| `Series.released is a view and takes no inverse.`                                                   | Remove `inverse` from the view.                           |
-| `Series.released: from 'volumes' is not a many relation.`                                           | Point `from` at a `many` of the same model.               |
-| `Series.released: from 'volumes' relates to Volume, not Book.`                                      | Give the view the target of the relation it reads.        |
-| `Series.released: from 'latest' is a view; name its relation.`                                      | Point `from` at a declared relation, not another view.    |
-| `Series.released is a view; filter it in .with({ relations }).`                                     | Give the view its filter.                                 |
-| `Series.with.relations.title: title is not a many relation.`                                        | Filter only a `many`.                                     |
+| Message                                                                                             | Fix                                                           |
+| --------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
+| `Book.author: Author has no relation to Book; add its side.`                                        | Declare the other side.                                       |
+| ``Book.author: Author has several relations to Book; name one with `inverse`.``                     | Name the other side with `inverse` on both fields.            |
+| `Transfer.from: inverse 'outgoing' is not a relation of Branch to Transfer.`                        | Name a field of the target that points back.                  |
+| `Transfer.from and Branch.outgoing do not name each other.`                                         | Make the two `inverse` agree.                                 |
+| `Member.card and Card.member: make one side of a one-to-one relation optional.`                     | Mark exactly one side `optional: true`.                       |
+| `Member.card: onDelete belongs on Card.member, which stores the key.`                               | Move `onDelete` to the required side.                         |
+| `Book.author: setNull needs an optional relation.`                                                  | Make the relation optional, or choose another `onDelete`.     |
+| `Book.author: its target is not in models.`                                                         | Add the target to the application's `models`.                 |
+| `Post.author: a plugin's model relates only to models of the same plugin; keep the id as a scalar.` | Store the id in a `string` field.                             |
+| `Series.released is a view and takes no inverse.`                                                   | Remove `inverse` from the view.                               |
+| `Series.released: from 'volumes' is not a many relation.`                                           | Point `from` at a `many` of the same model.                   |
+| `Series.released: from 'volumes' relates to Volume, not Book.`                                      | Give the view the target of the relation it reads.            |
+| `Series.released: from 'latest' is a view; name its relation.`                                      | Point `from` at a declared relation, not another view.        |
+| `Milestone.tasks: within belongs on Task.milestone, which stores the key.`                          | Move `within` to the side that stores the key.                |
+| `Task.milestone: within names one pair, a field of the target and id or a field of the row.`        | Give one pair, such as `{ project: 'id' }`.                   |
+| `Task.milestone: within names stage, a one relation of Task.`                                       | Name a stored `one` of the row, or `id`.                      |
+| `Task.milestone: within names project, a required one relation of Milestone to Project.`            | Make the target's field a required `one` to the row's parent. |
+| `Series.released is a view; filter it in .with({ relations }).`                                     | Give the view its filter.                                     |
+| `Series.with.relations.title: title is not a many relation.`                                        | Filter only a `many`.                                         |
 
 ### Limits
 

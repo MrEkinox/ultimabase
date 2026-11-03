@@ -65,7 +65,11 @@ const scalar = (
 	...more,
 })
 
-const one = (name: string, target: string, inverse: string): SchemaField => ({
+const one = (
+	name: string,
+	target: string,
+	inverse: string,
+): Extract<SchemaField, { kind: 'one' }> => ({
 	kind: 'one',
 	name,
 	target,
@@ -364,6 +368,44 @@ const addSearch = (columns: string) => [
 
 const changes = (statements: readonly { model: string; does: string }[]) =>
 	statements.map(({ model, does }) => `${model}: ${does}`)
+
+const run = async (statement: string) => query(inSchema(schema), statement)
+
+/** Tasks whose milestone is kept within their project, or not (D-220). */
+const tasks = (within: boolean): Schema => ({
+	models: [
+		{
+			name: 'Project',
+			fields: [
+				many('milestones', 'Milestone', 'project'),
+				many('tasks', 'Task', 'project'),
+			],
+			indexes: [],
+		},
+		{
+			name: 'Milestone',
+			fields: [
+				one('project', 'Project', 'milestones'),
+				many('tasks', 'Task', 'milestone'),
+			],
+			indexes: [],
+		},
+		{
+			name: 'Task',
+			fields: [
+				one('project', 'Project', 'tasks'),
+				{
+					...one('milestone', 'Milestone', 'tasks'),
+					optional: true,
+					...(within
+						? { within: { target: 'project', source: 'project' } }
+						: {}),
+				},
+			],
+			indexes: [],
+		},
+	],
+})
 
 describe('a sync on postgres()', () => {
 	it('builds an empty database, then changes every kind of thing a model holds', async () => {
@@ -1317,6 +1359,59 @@ describe('a sync on postgres()', () => {
 		)
 	})
 
+	it('keeps a relation within its parent, and lets it go (D-220)', async () => {
+		await sync(undefined, tasks(false))
+		const [mine, theirs, milestone] = [randomUUID(), randomUUID(), randomUUID()]
+		await run(
+			`insert into project values ('${mine}', now(), now()), ('${theirs}', now(), now())`,
+		)
+		await run(
+			`insert into milestone values ('${milestone}', now(), now(), '${mine}')`,
+		)
+		await run(
+			`insert into task values (gen_random_uuid(), now(), now(), '${theirs}', '${milestone}')`,
+		)
+		const key = `alter table "task" add constraint "task_milestone_id_within_fkey" foreign key ("milestone_id", "project_id") references "milestone" ("id", "project_id") deferrable initially deferred`
+		await expect(sync(tasks(false), tasks(true))).rejects.toMatchObject({
+			name: 'MigrationFailed',
+			at: key,
+			reason:
+				'insert or update on table "task" violates foreign key constraint "task_milestone_id_within_fkey"',
+		})
+		await run(`update task set project_id = '${mine}'`)
+		const statements = await sync(tasks(false), tasks(true))
+		expect(
+			statements.map(({ sql, does, tries }) => [sql, does, tries]),
+		).toStrictEqual([
+			[
+				'alter table "milestone" add constraint "milestone_id_project_id_key" unique ("id", "project_id")',
+				'added a unique key on id, project',
+				undefined,
+			],
+			[
+				key,
+				'added the foreign key on milestone',
+				'keeping "Task.milestone" within project fails when a row links outside it',
+			],
+		])
+		const { tables } = parseSnapshot(migrations.snapshot(tasks(true)))
+		expect(tables['task']?.foreignKeys).toMatchObject({
+			task_milestone_id_within_fkey: {
+				column: 'milestone_id',
+				table: 'milestone',
+				cascade: false,
+				within: { column: 'project_id', target: 'project_id' },
+			},
+		})
+		expect(
+			migrations.plan(migrations.snapshot(tasks(true)), tasks(true)),
+		).toStrictEqual([])
+		expect(changes(await sync(tasks(true), tasks(false)))).toStrictEqual([
+			'Task: dropped the foreign key on milestone',
+			'Milestone: dropped the unique key on id, project',
+		])
+	})
+
 	it('refuses a snapshot postgres() did not write', () => {
 		expect(() => migrations.plan({ postgres: 2 }, before)).toThrow(
 			'The schema snapshot is not one postgres() wrote.',
@@ -1324,6 +1419,19 @@ describe('a sync on postgres()', () => {
 		expect(() =>
 			migrations.plan({ postgres: 1, tables: { t: {} } }, before),
 		).toThrow('The schema snapshot is not one postgres() wrote.')
+		const { tables } = parseSnapshot(migrations.snapshot(tasks(true)))
+		const key = { column: 'milestone_id', table: 'milestone', cascade: false }
+		const task = (within: unknown) => ({
+			postgres: 1,
+			tables: {
+				...tables,
+				task: { ...tables['task'], foreignKeys: { key: { ...key, within } } },
+			},
+		})
+		expect(migrations.plan(task(undefined), tasks(true))).not.toStrictEqual([])
+		expect(() => migrations.plan(task({ column: 'id' }), tasks(true))).toThrow(
+			'The schema snapshot is not one postgres() wrote.',
+		)
 	})
 })
 

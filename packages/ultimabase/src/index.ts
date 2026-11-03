@@ -13,8 +13,6 @@ export type {
 	Feed,
 	Filter,
 	GroupKey,
-	IndexValue,
-	IndexWhere,
 	ListUpdate,
 	Migration,
 	Migrations,
@@ -33,6 +31,7 @@ export type {
 	Transaction,
 	Write,
 } from './adapter.ts'
+export type { IndexValue, IndexWhere } from './adapter-indexes.ts'
 export {
 	CheckFailed,
 	Conflict,
@@ -65,12 +64,12 @@ export type {
 	JsonValue,
 	ListOptions,
 	Many,
-	ManyOptions,
 	One,
 	ScalarOptions,
 	SingleOptions,
 	StringOptions,
 } from './fields.ts'
+export type { ManyOptions } from './relation-options.ts'
 export type { Hidden } from './field-rules.ts'
 export { defineFunction, defineType } from './define-function.ts'
 export type {

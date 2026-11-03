@@ -55,17 +55,33 @@ const checkOf = (value: unknown): Check | undefined =>
 			}
 		: undefined
 
-const foreignKeyOf = (value: unknown): ForeignKey | undefined =>
-	isRecord(value) &&
-	typeof value['column'] === 'string' &&
-	typeof value['table'] === 'string' &&
-	typeof value['cascade'] === 'boolean'
-		? {
-				column: value['column'],
-				table: value['table'],
-				cascade: value['cascade'],
-			}
-		: undefined
+const withinOf = (value: unknown): ForeignKey['within'] | null =>
+	value === undefined
+		? undefined
+		: isRecord(value) &&
+			  typeof value['column'] === 'string' &&
+			  typeof value['target'] === 'string'
+			? { column: value['column'], target: value['target'] }
+			: null
+
+const foreignKeyOf = (value: unknown): ForeignKey | undefined => {
+	if (
+		!isRecord(value) ||
+		typeof value['column'] !== 'string' ||
+		typeof value['table'] !== 'string' ||
+		typeof value['cascade'] !== 'boolean'
+	) {
+		return undefined
+	}
+	const within = withinOf(value['within'])
+	if (within === null) return undefined
+	return {
+		column: value['column'],
+		table: value['table'],
+		cascade: value['cascade'],
+		...(within === undefined ? {} : { within }),
+	}
+}
 
 const stringsOf = (value: unknown): string[] | undefined =>
 	isStrings(value) ? value : undefined

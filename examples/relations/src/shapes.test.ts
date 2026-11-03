@@ -11,8 +11,11 @@ import {
 	Club,
 	Member,
 	Membership,
+	Milestone,
+	Project,
 	Reader,
 	Series,
+	Task,
 } from './shapes.ts'
 
 testApplication(app)
@@ -180,5 +183,60 @@ it('reads only the released volumes of a series through its view', async () => {
 		'A Wizard of Earthsea',
 	])
 	expect(read._count).toEqual({ volumes: 2, released: 1 })
+	//#endregion
+})
+
+it('keeps a task within the project of its milestone', async () => {
+	//#region within-write
+	const site = await Project.create({ data: { name: 'Site' } }, { as: master })
+	const shop = await Project.create({ data: { name: 'Shop' } }, { as: master })
+	const beta = await Milestone.create(
+		{ data: { name: 'Beta', project: { connect: { id: site.id } } } },
+		{ as: master },
+	)
+	await Task.create(
+		{
+			data: {
+				title: 'Write the docs',
+				project: { connect: { id: site.id } },
+				milestone: { connect: { id: beta.id } },
+			},
+		},
+		{ as: master },
+	)
+	const refused = {
+		code: 'VALIDATION_FAILED',
+		details: {
+			issues: [
+				{
+					path: ['milestone'],
+					message: 'Task.milestone needs a Milestone of the same project.',
+				},
+			],
+		},
+	}
+	// A task of another project cannot link the milestone.
+	await expect(
+		Task.create(
+			{
+				data: {
+					title: 'Ship',
+					project: { connect: { id: shop.id } },
+					milestone: { connect: { id: beta.id } },
+				},
+			},
+			{ as: master },
+		),
+	).rejects.toMatchObject(refused)
+	// Nor can the milestone leave its project while a task links it.
+	await expect(
+		Milestone.update(
+			{
+				where: { id: beta.id },
+				data: { project: { connect: { id: shop.id } } },
+			},
+			{ as: master },
+		),
+	).rejects.toMatchObject({ code: 'VALIDATION_FAILED' })
 	//#endregion
 })

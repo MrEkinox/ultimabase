@@ -30,6 +30,7 @@ import { updated } from './write-plan.ts'
 import { uuidv7 } from './uuid.ts'
 import { guarded, target } from './write-target.ts'
 import { writingOf } from './writing.ts'
+import { withinChecks } from './within.ts'
 import { rowChecks } from './write-filter.ts'
 import { byId } from './query-where.ts'
 
@@ -64,7 +65,7 @@ async function written(
 	await steps.check(writing)
 	const changes = await steps.changes(writing)
 	const ruled = rowChecks(scope.access)
-	checks.push(...ruled.before)
+	checks.push(...ruled.before, ...withinChecks(context.models, changes, events))
 	const read = { model: model.name, ...at.read, where: byId(at.id) }
 	const again = rereads(events)
 	const write = {
