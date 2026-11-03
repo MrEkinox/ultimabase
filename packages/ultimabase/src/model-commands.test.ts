@@ -17,6 +17,7 @@ import {
 	memory,
 	transaction,
 } from './index.ts'
+import type { WhereOf } from './index.ts'
 
 const M = { as: master }
 /** The matches each `afterUpdate` saw end. */
@@ -80,6 +81,43 @@ const Note = defineModel({
 	}))
 	.with({ access: { read: ({ where }) => where({ text: 'shown' }) } })
 
+interface GameCommands {
+	/** Ends a game and closes its seats. */
+	end(id: string): Promise<void>
+}
+/** Two models whose commands call each other: each builder names its return type. */
+const Game = defineModel({
+	name: 'Game',
+	fields: (f) => ({
+		ended: f.boolean({ default: false }),
+		seats: f.many(() => Seat, { inverse: 'game' }),
+	}),
+}).commands<GameCommands>(({ queries }): GameCommands => ({
+	end: async (id) => {
+		await queries.update({ where: { id }, data: { ended: true } }, M)
+		await Seat.leave({ id })
+	},
+}))
+
+interface SeatCommands {
+	/** Closes the open seats of the games a filter matches. */
+	leave(games: WhereOf<typeof Game>): Promise<void>
+}
+const Seat = defineModel({
+	name: 'Seat',
+	fields: (f) => ({
+		game: f.one(() => Game, { inverse: 'seats' }),
+		open: f.boolean({ default: true }),
+	}),
+}).commands<SeatCommands>(({ queries }): SeatCommands => ({
+	leave: async (games) => {
+		await queries.updateMany(
+			{ where: { game: { is: games }, open: true }, data: { open: false } },
+			M,
+		)
+	},
+}))
+
 interface Archive extends PluginTypes {
 	readonly name: 'archive'
 	readonly commands: { readonly archive: () => number }
@@ -107,7 +145,7 @@ describe('an application’s commands', () => {
 	beforeEach(async () => {
 		const app = defineApp({
 			database: memory(),
-			models: [Match, Announcement, Note],
+			models: [Match, Announcement, Note, Game, Seat],
 		})
 		await app.start()
 		stop = async () => app.stop()
@@ -134,6 +172,19 @@ describe('an application’s commands', () => {
 		await Match.createMany({ data: [{}, {}, { ended: true }] }, M)
 		await expect(Match.endAll()).resolves.toBe(2)
 		await expect(Match.count({ where: { ended: false } }, M)).resolves.toBe(0)
+	})
+
+	// Without Seat's builder return type, as its commands name Game, both models
+	// typed `any` (TS7022).
+	it('types two models whose commands call each other', async () => {
+		const game = await Game.create({ data: {} }, M)
+		const seat = { game: { connect: { id: game.id } } }
+		await Seat.createMany({ data: [seat, seat] }, M)
+		await Game.end(game.id)
+		await expect(Seat.count({ where: { open: true } }, M)).resolves.toBe(0)
+		expectTypeOf<Parameters<typeof Seat.leave>[0]>().toEqualTypeOf<
+			WhereOf<typeof Game>
+		>()
 	})
 
 	it('keeps the rules of a `.with` after it', async () => {
