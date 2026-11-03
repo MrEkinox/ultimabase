@@ -41,8 +41,10 @@ role, and Ada and Grace the `team` role:
 	../examples/roles-and-acl/src/app.test.ts#give
 </include>
 
-The role model above is read-only for clients: only the server gives roles.
-Its own `access` decides otherwise, as any model's.
+Only Master gives or takes a role: `members`, `inherits` and `inheritedBy`
+refuse every client write, from the role or from the user's `roles`. The role
+model's own `access` decides who writes its other fields. To let an admin give
+roles, write a function that checks `hasRole` and writes as Master.
 
 ## Ask for a role
 

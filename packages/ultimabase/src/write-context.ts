@@ -131,6 +131,19 @@ export function linking(
 			})
 		}
 		const targets = [...connect, ...made]
+		// The other side's field rule judges the link too (D-213).
+		if (!skips && (targets.length > 0 || disconnect.length > 0)) {
+			context.before.push({
+				kind: 'guard',
+				model: field.target,
+				field: field.inverse,
+				via: viaOf(context, field),
+				id: context.id,
+				connect,
+				disconnect,
+				made,
+			})
+		}
 		if (targets.length > 0) {
 			context.after.push({ kind: 'link', ...link, targets })
 		}

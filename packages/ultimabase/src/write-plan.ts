@@ -55,7 +55,23 @@ export type Drop = {
 	readonly written: ReadonlySet<string>
 }
 
-export type Step = Change | Move | Detach | Drop
+/**
+ * A join's links, checked against the other side's field rule: `field` of
+ * the `model` rows it links to `id` (D-213).
+ */
+export type Guard = {
+	readonly kind: 'guard'
+	readonly model: string
+	readonly field: string
+	readonly via: string
+	readonly id: string
+	readonly connect: readonly string[]
+	readonly disconnect: readonly string[]
+	/** The rows the write creates to link them. */
+	readonly made: readonly string[]
+}
+
+export type Step = Change | Move | Detach | Drop | Guard
 
 /**
  * A check of the write, and what `NOT_FOUND` says when it fails (D-99), or
@@ -194,6 +210,42 @@ async function detach(step: Detach, writing: Writing): Promise<Change[]> {
 	return [{ ...link, kind: 'unlink', targets: kept }]
 }
 
+/**
+ * Runs the other side's field rule on each row a join links or unlinks, as
+ * a move runs the target's rules; a row the caller cannot read is left to
+ * the connect's `NOT_FOUND` (D-213).
+ */
+async function guard(step: Guard, writing: Writing): Promise<Change[]> {
+	const { access, models } = writing.scope
+	if (access === undefined) return []
+	const { model, field, via, id, connect } = step
+	const target = modelOf(models, model)
+	const value = (key: 'connect' | 'disconnect') => ({
+		connect: [],
+		disconnect: [],
+		delete: [],
+		create: [],
+		[key]: [{ id }],
+	})
+	// Its rows are made alike: one check judges them all.
+	if (step.made.length > 0) {
+		access.allowLink(target, field, 'create', { value: value('connect'), via })
+	}
+	const linked = [...connect, ...step.disconnect]
+	if (linked.length === 0 || !access.rules(target, field, 'update')) return []
+	const filter = await writing.scope.filter(model, false)
+	const where = and(byIds(linked), filter)
+	for (const record of await writing.store.find({ model, where })) {
+		const key = connect.includes(record.id) ? 'connect' : 'disconnect'
+		access.allowLink(target, field, 'update', {
+			record,
+			value: value(key),
+			via,
+		})
+	}
+	return []
+}
+
 /** The steps of one write, and the ids its `connect`s need to exist. */
 export class Plan {
 	readonly steps: Step[] = []
@@ -276,6 +328,8 @@ export class Plan {
 			if (step.kind === 'move') changes.push(...(await move(step, writing)))
 			else if (step.kind === 'detach') {
 				changes.push(...(await detach(step, writing)))
+			} else if (step.kind === 'guard') {
+				changes.push(...(await guard(step, writing)))
 			} else if (step.kind === 'drop') {
 				changes.push(...(await writing.drop(step)))
 			} else changes.push(step)
