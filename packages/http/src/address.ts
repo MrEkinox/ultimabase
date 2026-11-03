@@ -28,6 +28,13 @@ for (const [network, prefix] of [
 export const isNearby = (address: string): boolean =>
 	nearby.check(address, isIP(address) === 4 ? 'ipv4' : 'ipv6')
 
+/**
+ * Whether `origin` is the server's own: the host the request was sent to,
+ * over any scheme, as a proxy serving HTTPS forwards it over HTTP (D-223).
+ */
+export const isOwnOrigin = (origin: string, url: string): boolean =>
+	URL.canParse(origin) && new URL(origin).host === new URL(url).host
+
 /** The `proxies` option, a whole number; 0 by default. */
 export function proxiesOf(option: number | undefined): number {
 	const proxies = option ?? 0

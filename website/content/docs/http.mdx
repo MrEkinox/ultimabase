@@ -145,7 +145,8 @@ The server answers some requests itself, before any route:
 A browser calls the API from another origin only when `cors` lists it, and
 then sends its cookies, as auth's session. Outside production
 (`NODE_ENV=production`), local origins are allowed too, as
-`http://localhost:5173`:
+`http://localhost:5173`. The API's own host passes over `http:` and
+`https:` alike, as a proxy serving HTTPS forwards it:
 
 <include cwd meta='title="src/app.test.ts"'>
 	../examples/http/src/app.test.ts#cors
@@ -214,7 +215,7 @@ above do:
 | `routes`    | `routes()[]`                      | none                            | Mounted at the root, in their order, before the plugins' own.      |
 | `cors`      | origins                           | none                            | The origins a browser may call from, with its cookies.             |
 | `port`      | number                            | `PORT`, then 3000               | Where the server listens.                                          |
-| `bodyLimit` | number of bytes                   | 1 MB                            | The largest request body; files take their own limit.              |
+| `bodyLimit` | whole number of bytes             | 1 MB                            | The largest request body; files take their own limit.              |
 | `proxies`   | whole number                      | 0                               | The proxies in front of the server, read in `X-Forwarded-For`.     |
 | `rateLimit` | `{ requests, window }` or `false` | 600 per 60 000 ms               | Each address's requests and upgrades in a window, in milliseconds. |
 | `upgrade`   | function                          | none                            | Answers each WebSocket upgrade: a `Response` refuses it.           |
@@ -313,8 +314,10 @@ A `PublicError` takes its code's status: `ACCESS_DENIED` 403, `NOT_FOUND`
 429 with `Retry-After`, any other code 400.
 
 At start: `proxies is 1.5, not a whole number of proxies in front of the
-server.`, `rateLimit.requests is 0, not a whole number above 0.`, and `PORT
-is 80a, not a port between 0 and 65535.`
+server.`, `rateLimit.requests is 0, not a whole number above 0.`,
+`bodyLimit is NaN, not a whole number of bytes above 0.`, `drain is -1, not
+a whole number of milliseconds.`, and `PORT is 80a, not a port between 0
+and 65535.`
 
 ### The development log
 
