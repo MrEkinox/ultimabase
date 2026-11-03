@@ -1,6 +1,11 @@
 // The output types (D-107): each model's object type, its edges and
 // connections, and the arguments of its lists.
-import { connection, readable, rowsOf } from '@ultimabase/http/internal'
+import {
+	connection,
+	countedPage,
+	readable,
+	rowsOf,
+} from '@ultimabase/http/internal'
 import type {
 	GraphQLFieldConfig,
 	GraphQLFieldConfigArgumentMap,
@@ -165,22 +170,27 @@ function manyField(
 		type: ruled ? type : new GraphQLNonNull(type),
 		args: listArgs(registry, field.target),
 		resolve: (source, args, context) => {
-			const value = readOf(source, model, field.name, ruled)
-			if (value === null) return null
-			const rows = rowsOf(value)
 			const { page } = listRead(
 				registry,
 				registry.entry(field.target),
 				args,
 				isMaster(context),
 			)
+			const counts: unknown = Reflect.get(Object(source), '_count')
+			const count: unknown = Reflect.get(Object(counts), field.name)
+			// A count alone, its rows not read (D-226).
+			const unread = Reflect.get(Object(source), field.name) === undefined
+			if (unread && page !== undefined && typeof count === 'number') {
+				return { ...countedPage(page, count), totalCount: count }
+			}
+			const value = readOf(source, model, field.name, ruled)
+			if (value === null) return null
+			const rows = rowsOf(value)
 			if (page === undefined) return rows
 			return {
 				...connection(rows, page, (row) => row),
 				// The row's `_count`, read when the connection selects it (D-134).
 				totalCount: () => {
-					const counts: unknown = Reflect.get(Object(source), '_count')
-					const count: unknown = Reflect.get(Object(counts), field.name)
 					if (typeof count === 'number') return count
 					throw new Error(
 						`${model}.${field.name} was not counted; select it with context.select(info).`,

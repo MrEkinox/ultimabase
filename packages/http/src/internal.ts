@@ -12,8 +12,10 @@ export type {
 export {
 	applied,
 	connection,
+	countedPage,
 	pageArgs,
 	pageOf,
+	readsNoRow,
 	rowOf,
 	rowsOf,
 } from './pages.ts'

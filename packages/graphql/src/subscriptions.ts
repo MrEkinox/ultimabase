@@ -26,7 +26,7 @@ import { connectionType, isMaster, listArgs, objectType } from './outputs.ts'
 import { whereOf } from './pages.ts'
 import type { Args, Context, Entry, Registry } from './registry.ts'
 import type { Key } from './select.ts'
-import { grouped, rowNodes, selectOf } from './select.ts'
+import { countsOnly, grouped, rowNodes, selectOf } from './select.ts'
 
 type Fields = { [field: string]: GraphQLFieldConfig<unknown, Context, Args> }
 type Message = Exclude<LiveMessage, { readonly kind: 'closed' }>
@@ -241,9 +241,15 @@ function liveFields(registry: Registry, entry: Entry): Fields {
 			subscribe: async (_, args, context, info) => {
 				const { channel, page } = liveOf(context)
 				const master = isMaster(context)
-				const { read: paged, relay } = pageOf(pagination, wide, args, master)
+				const window = pageOf(pagination, wide, args, master)
+				const { read: paged, relay } = window
 				const asked = relay === undefined ? paged['take'] : relay.size
-				const rows = typeof asked === 'number' ? asked : entry.take
+				// A count alone follows a window of no row (D-226).
+				const rows = countsOnly(info, info.fieldNodes, window)
+					? 0
+					: typeof asked === 'number'
+						? asked
+						: entry.take
 				const arg = connected ? 'first' : 'take'
 				if (page && rows > entry.maxTake) {
 					throw badInput(

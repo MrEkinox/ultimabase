@@ -281,6 +281,10 @@ sent again with its row when a related row is created or deleted. A related
 row that moves to another row sends the row it joins again, not the one it
 left, whose count stays as it was until that row changes.
 
+A count alone, `tasks { totalCount }` over GraphQL or
+`first=0&totalCount=true` over REST, follows no row: it reads no node, and
+each change sends the new `totalCount` and no row.
+
 ### Transports
 
 | Transport | How                                                                                                                       |

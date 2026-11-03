@@ -5,8 +5,10 @@ import type { Page } from '@ultimabase/http/internal'
 import {
 	badInput,
 	connection,
+	countedPage,
 	pageArgs,
 	pageOf,
+	readsNoRow,
 	rowsOf,
 	run,
 } from '@ultimabase/http/internal'
@@ -120,9 +122,15 @@ export async function readPage(
 ): Promise<unknown> {
 	const source = pageSource(value, model)
 	const { read, relay } = paging.page
+	const counting = () => run(async () => source.count())
+	// A count alone reads no row (D-226).
+	if (relay !== undefined && paging.counted && readsNoRow(paging.page)) {
+		const count = await counting()
+		return { ...countedPage(relay, count), totalCount: count }
+	}
 	const rows = rowsOf(await run(async () => source.findMany(read)))
 	if (relay === undefined) return rows.map(node)
 	const page = connection(rows, relay, node)
 	if (!paging.counted) return page
-	return { ...page, totalCount: await run(async () => source.count()) }
+	return { ...page, totalCount: await counting() }
 }

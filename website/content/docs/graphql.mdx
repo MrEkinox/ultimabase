@@ -81,6 +81,12 @@ for `maxTake` at most, 100 by default, or the model's own:
 connection too, with its own `first`, `orderBy`, `where` and
 `totalCount`.
 
+A connection that selects `totalCount` without `edges` or `pageInfo`, or
+asks `first: 0` or `last: 0` without a cursor, counts its rows and reads
+none: `posts { totalCount }` costs one count, at any depth. Without a row,
+`hasNextPage` (or `hasPreviousPage` with `last`) says whether the count is
+above 0, and both cursors are null.
+
 `pagination: 'list'` serves lists instead, with `take` and `skip`, at every
 depth:
 

@@ -4,10 +4,12 @@
 import type { Relay } from '@ultimabase/http/internal'
 import {
 	connection,
+	countedPage,
 	pageArgs,
 	pageOf,
 	readable,
 	readableVirtuals,
+	readsNoRow,
 	rowOf,
 	rowsOf,
 } from '@ultimabase/http/internal'
@@ -217,7 +219,8 @@ class Reader {
 				const filter = many.read['where']
 				counts[name] = filter === undefined ? true : { where: filter }
 			}
-			kernel[name] = many.read
+			// A count alone reads no row (D-226).
+			if (!counted || !readsNoRow(many)) kernel[name] = many.read
 			fields.push({
 				kind: 'many',
 				name,
@@ -372,8 +375,12 @@ export function shaped(row: Row, shape: Shape): { [field: string]: unknown } {
 		} else if (field.kind === 'returned') {
 			out[field.name] = returned(field, value)
 		} else if (value === undefined || value === null) {
-			// Absent when the field's read rule hides it (D-44).
-			out[field.name] = null
+			// Hidden by its read rule (D-44), or a count alone (D-226).
+			const count = countOf(row, field.name)
+			out[field.name] =
+				field.relay && field.counted && typeof count === 'number'
+					? { ...countedPage(field.relay, count), totalCount: count }
+					: null
 		} else {
 			const rows = rowsOf(value)
 			const node = (each: Row) => shaped(each, field.shape)
