@@ -1,6 +1,7 @@
 // The indexes a plan drops and creates: B-tree, GIN on a list (D-120),
 // trigram for `contains` (D-141), the `_search` column with its GIN index
-// (D-148), and the unique indexes of case-insensitive keys (D-170).
+// (D-148), and the unique indexes of case-insensitive keys (D-170) and of
+// partial ones (D-215).
 import { literal } from './fills.ts'
 import type { Emit, Named } from './plan-parts.ts'
 import { added, changed, fields, id, keyOf, list, same } from './plan-parts.ts'
@@ -26,16 +27,30 @@ const indexesOf = (table: TableSnapshot | undefined): Named<Index> =>
  * A case-insensitive key's columns, a text one lowered under the database's
  * collation, as an insensitive equality reads it (D-170).
  */
+const lowered = (table: TableSnapshot | undefined, columns: string[]) =>
+	columns.map((column) =>
+		table?.columns[column]?.type === 'text collate "C"'
+			? `lower(${id(column)} collate "default")`
+			: id(column),
+	)
+
 const lowersOf = (table: TableSnapshot | undefined): Named<string[]> =>
 	Object.fromEntries(
 		Object.entries(table?.lowerUniques ?? {}).map(([key, columns]) => [
 			key,
-			columns.map((column) =>
-				table?.columns[column]?.type === 'text collate "C"'
-					? `lower(${id(column)} collate "default")`
-					: id(column),
-			),
+			lowered(table, columns),
 		]),
+	)
+
+/** A partial key's indexed columns and predicate, as its index reads them (D-215). */
+const partialsOf = (table: TableSnapshot | undefined): Named<string> =>
+	Object.fromEntries(
+		Object.entries(table?.partialUniques ?? {}).map(
+			([key, { columns, where, lower }]) => [
+				key,
+				`(${lower ? lowered(table, columns).join(', ') : list(columns)}) where ${where}`,
+			],
+		),
 	)
 
 /** Drops the indexes of `from` that `to` changes. */
@@ -62,6 +77,13 @@ export function dropIndexes(
 		emit(
 			`drop index ${id(key)}`,
 			`dropped the case-insensitive unique key on ${fields(from, columns)}`,
+		)
+	}
+	for (const [key] of changed(partialsOf(from), partialsOf(to))) {
+		const columns = from.partialUniques?.[key]?.columns ?? []
+		emit(
+			`drop index ${id(key)}`,
+			`dropped the partial unique key on ${fields(from, columns)}`,
 		)
 	}
 	// A generated column holds nothing of its own: a change makes it again.
@@ -104,15 +126,27 @@ export function addIndexes(
 			`indexed ${fields(table, [column])} for contains`,
 		)
 	}
-	for (const [key, lowered] of added(lowersOf(was), lowersOf(table))) {
+	for (const [key, lower] of added(lowersOf(was), lowersOf(table))) {
 		const columns = table.lowerUniques?.[key] ?? []
 		emit(
-			`create unique index ${id(key)} on ${id(name)} (${lowered.join(', ')})`,
+			`create unique index ${id(key)} on ${id(name)} (${lower.join(', ')})`,
 			`added a case-insensitive unique key on ${fields(table, columns)}`,
 			was === undefined
 				? {}
 				: {
 						tries: `a case-insensitive unique key on ${keyOf(table, columns)} fails when two rows share a value regardless of case`,
+					},
+		)
+	}
+	for (const [key, indexed] of added(partialsOf(was), partialsOf(table))) {
+		const columns = table.partialUniques?.[key]?.columns ?? []
+		emit(
+			`create unique index ${id(key)} on ${id(name)} ${indexed}`,
+			`added a partial unique key on ${fields(table, columns)}`,
+			was === undefined
+				? {}
+				: {
+						tries: `a partial unique key on ${keyOf(table, columns)} fails when two rows it keeps share a value`,
 					},
 		)
 	}

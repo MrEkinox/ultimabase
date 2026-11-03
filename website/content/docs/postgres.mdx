@@ -90,7 +90,10 @@ Each model is a table, each field a column, named in snake case: `Task` is
 A required field is `not null`; an optional one is nullable. A unique field
 or index is a unique constraint; a case-insensitive one is a unique index
 over `lower()` of its text columns, named `_lower_key`, which also serves an
-insensitive `equals`. The foreign keys have no `on delete`:
+insensitive `equals`. A unique index with a `where` is a partial unique
+index, `create unique index … where …`, its name ending in a hash of its
+predicate; a new `where` drops it and creates it again, and rows that
+already share a value fail the migration. The foreign keys have no `on delete`:
 UltimaBase runs `onDelete` itself, with the hooks and access rules.
 Constraint names end in `_pkey`, `_key`, `_lower_key`, `_fkey`, `_check` and `_idx`. A
 name longer than PostgreSQL's 63 bytes keeps its first 54 bytes plus an

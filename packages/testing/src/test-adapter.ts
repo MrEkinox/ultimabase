@@ -17,6 +17,7 @@ import { jsonPaths } from './json-paths.ts'
 import { lists } from './lists.ts'
 import { nested } from './nested.ts'
 import { numbers } from './numbers.ts'
+import { partialUniqueCases } from './partial-unique-cases.ts'
 import { projection } from './projection.ts'
 import { reads } from './reads.ts'
 import { relationFilters } from './relation-filters.ts'
@@ -47,6 +48,7 @@ export function testAdapter(
 		cases(create)
 		writes(create)
 		uniqueCases(create)
+		partialUniqueCases(create)
 		cascades(create)
 		lists(create)
 		jsonPaths(create)

@@ -1,10 +1,18 @@
 // The indexes of a model, checked against its fields (D-52, D-120, D-141,
-// D-170, D-174), and its searched fields (D-148).
-import type { SchemaField } from './adapter.ts'
+// D-170, D-174, D-215), and its searched fields (D-148).
+import type { IndexValue, IndexWhere, SchemaModel } from './adapter.ts'
 import type { IndexDefinition } from './definition.ts'
-import type { ModelInfo } from './schema.ts'
+import type { FieldInfo, ModelInfo } from './schema.ts'
 import { readRules } from './access.ts'
 import { Refused } from './errors.ts'
+import { isObject, misfit } from './query-values.ts'
+
+type Fields = ReadonlyMap<string, FieldInfo>
+
+const isIndexValue = (value: unknown): value is IndexValue =>
+	value === null ||
+	value instanceof Date ||
+	['string', 'number', 'boolean'].includes(typeof value)
 
 /** An index on a list is a GIN index of that list alone (D-120). */
 function listIndex(model: string, name: string, index: IndexDefinition): void {
@@ -21,7 +29,7 @@ function listIndex(model: string, name: string, index: IndexDefinition): void {
 /** A `contains` index covers one string field, not a list (D-141). */
 function containsIndex(
 	model: string,
-	fields: ReadonlyMap<string, SchemaField>,
+	fields: Fields,
 	index: IndexDefinition,
 ): void {
 	const [name] = index.fields
@@ -45,7 +53,7 @@ function containsIndex(
  */
 function insensitiveIndex(
 	model: string,
-	fields: ReadonlyMap<string, SchemaField>,
+	fields: Fields,
 	index: IndexDefinition,
 ): void {
 	const text = index.fields.some((name) => {
@@ -59,16 +67,69 @@ function insensitiveIndex(
 	}
 }
 
-// The kernel's fields, in a non-unique index only (D-22, D-174).
+// The kernel's fields: in a non-unique index only, in no where (D-22, D-174,
+// D-215).
 const implicit = new Set(['id', 'createdAt', 'updatedAt'])
 
-/** Refuses an index over a field that is not one of the model's columns. */
+/**
+ * A partial unique index's filter: scalar fields that are no list, no json
+ * and no plugin's field type, each equal to a value or `null`, or not
+ * (D-215).
+ */
+function whereOf(
+	model: string,
+	fields: Fields,
+	index: IndexDefinition,
+): IndexWhere {
+	const { where } = index
+	if (index.unique !== true || index.contains === true) {
+		throw new Refused(
+			`${model}: an index with a where is unique, without contains.`,
+		)
+	}
+	if (!isObject(where) || Object.keys(where).length === 0) {
+		throw new Refused(`${model}: an index's where names a field at least.`)
+	}
+	const normal: { [field: string]: IndexWhere[string] } = {}
+	for (const [name, given] of Object.entries(where)) {
+		const field = implicit.has(name) ? undefined : fields.get(name)
+		if (
+			field?.kind !== 'scalar' ||
+			field.list ||
+			field.type === 'json' ||
+			field.codec !== undefined
+		) {
+			throw new Refused(
+				`${model}: index where '${name}' is not a scalar field that is no list, json or plugin's field type.`,
+			)
+		}
+		const condition = isObject(given) ? given : { equals: given }
+		const [operator, ...others] = Object.keys(condition)
+		if ((operator !== 'equals' && operator !== 'not') || others.length > 0) {
+			throw new Refused(
+				`${model}: index where '${name}' takes a value, null, { equals } or { not }.`,
+			)
+		}
+		const value = condition[operator]
+		const issue = value === null ? undefined : misfit(value, field)
+		if (issue !== undefined || !isIndexValue(value)) {
+			throw new Refused(`${model}: index where '${name}': ${issue}`)
+		}
+		normal[name] = operator === 'equals' ? { equals: value } : { not: value }
+	}
+	return normal
+}
+
+/**
+ * Refuses an index over a field that is not one of the model's columns;
+ * returns the indexes as the adapter reads them.
+ */
 export function checkIndexes(
 	model: string,
-	fields: ReadonlyMap<string, SchemaField>,
+	fields: Fields,
 	indexes: readonly IndexDefinition[],
-): void {
-	for (const index of indexes) {
+): SchemaModel['indexes'] {
+	return indexes.map((index) => {
 		for (const name of index.fields) {
 			if (implicit.has(name)) {
 				if (index.unique !== true) continue
@@ -92,7 +153,16 @@ export function checkIndexes(
 		}
 		if (index.contains === true) containsIndex(model, fields, index)
 		if (index.mode !== undefined) insensitiveIndex(model, fields, index)
-	}
+		return {
+			fields: index.fields,
+			unique: index.unique === true,
+			contains: index.contains === true,
+			...(index.mode === undefined ? {} : { mode: index.mode }),
+			...(index.where === undefined
+				? {}
+				: { where: whereOf(model, fields, index) }),
+		}
+	})
 }
 
 /**
