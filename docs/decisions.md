@@ -14322,8 +14322,8 @@ Choice: completes D-89; D-71 is unchanged.
    plugin's `commands` adds its own (D-89): `Match.end(id)` next to
    `Match.update(…)`. It is called once, before or after `.with`, and
    returns the model with them. `build` receives `{ queries }`, the model's
-   queries, and returns an object of functions; an object of functions is
-   refused, as a command reads as one call.
+   queries, and returns an object of functions; any other value, a nested
+   object of functions included, is refused, as a command reads as one call.
 2. `T` is an interface the application writes, with each command's
    signature and its comment. Without it, `build`'s return fails to compile
    on `name the commands type: .commands<MatchCommands>(...)`: a model whose
