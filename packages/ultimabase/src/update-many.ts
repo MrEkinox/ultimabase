@@ -22,6 +22,7 @@ import { prepared, readData } from './write-data.ts'
 import type { Plan } from './write-plan.ts'
 import { updated } from './write-plan.ts'
 import { checkedWrite, guarded } from './write-target.ts'
+import { rowChecks } from './write-filter.ts'
 import { writingOf } from './writing.ts'
 import { returned } from './writes.ts'
 
@@ -185,10 +186,13 @@ async function lockedRows(
 	}
 	// An `after*` hook may change the rows: they are read once it ran (D-88).
 	const again = rereads(events)
+	const ruled = rowChecks(scope.access)
+	const checks = [...writing.checks, ...ruled.before]
 	const written = await inRange(
 		model,
-		checkedWrite(store, writing.checks, changes, again ? undefined : read),
+		checkedWrite(store, checks, changes, again ? undefined : read),
 	)
+	await ruled.verify(store)
 	await settle(store, caller, events, commits)
 	if (at === undefined || read === undefined) return ids
 	const result = again ? await store.find(read) : written

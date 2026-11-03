@@ -1,4 +1,5 @@
 // What every access rule receives, and the kernel's ready-made rules (D-10).
+import { PublicError } from './errors.ts'
 import type { ReadRecord } from './read-row.ts'
 import type { RecordOf } from './record.ts'
 import type { modelFields, openRead } from './symbols.ts'
@@ -113,13 +114,32 @@ export const allow: Allow = Object.freeze({
 	private: () => false,
 })
 
-const filters = new WeakMap<object, unknown>()
+/** One `where` of a filter, and the error a written row outside it throws. */
+export type FilterPart = {
+	readonly where: unknown
+	readonly error?: PublicError
+}
+
+const filters = new WeakMap<object, readonly FilterPart[]>()
+
+function token(parts: readonly FilterPart[]): object {
+	const made = Object.freeze({})
+	filters.set(made, parts)
+	return made
+}
 
 /** The read filter a read rule's `where` returns (D-10). */
 export function readFilter(where: unknown): object {
-	const token = Object.freeze({})
-	filters.set(token, where)
-	return token
+	return token([{ where }])
+}
+
+/** The filter a write rule's `where` returns, with its error (D-214). */
+export function writeFilter(where: unknown, error?: unknown): object {
+	if (error === undefined) return readFilter(where)
+	if (!(error instanceof PublicError)) {
+		throw new TypeError("A write rule's where takes a PublicError.")
+	}
+	return token([{ where, error }])
 }
 
 /** Whether a rule's result is a read filter. */
@@ -127,14 +147,20 @@ export function isReadFilter(value: unknown): value is object {
 	return typeof value === 'object' && value !== null && filters.has(value)
 }
 
-/** The `where` a read filter holds. */
-export function filterOf(token: object): unknown {
-	return filters.get(token)
+/** The `where`s a filter holds, each checked alone in a write (D-214). */
+export function partsOf(filter: object): readonly FilterPart[] {
+	return filters.get(filter) ?? []
+}
+
+/** The `where` a read filter holds: all its parts. */
+export function filterOf(filter: object): unknown {
+	const parts = partsOf(filter).map(({ where }) => where)
+	return parts.length === 1 ? parts[0] : { AND: parts }
 }
 
 type Results = { readonly decided: boolean; readonly filters: object[] }
 
-// A rule returns a boolean, or a filter in a read rule (D-76, D-81).
+// A rule returns a boolean or a filter (D-76, D-81, D-214).
 function collect(
 	rules: readonly Rule[],
 	facts: unknown,
@@ -146,16 +172,17 @@ function collect(
 		if (result === decisive) return { decided: true, filters: [] }
 		if (isReadFilter(result)) found.push(result)
 		else if (typeof result !== 'boolean') {
-			throw new TypeError('A rule returns a boolean or a read filter.')
+			throw new TypeError('A rule returns a boolean or a filter.')
 		}
 	}
 	return { decided: false, filters: found }
 }
 
+// `allOf` keeps each filter with its error; `anyOf` joins them, losing
+// theirs (D-214).
 function combine(
 	rules: readonly Rule[],
 	decisive: boolean,
-	operator: 'AND' | 'OR',
 ): (facts: unknown) => unknown {
 	return (facts) => {
 		const { decided, filters: found } = collect(rules, facts, decisive)
@@ -163,7 +190,8 @@ function combine(
 		const [first, ...others] = found
 		if (first === undefined) return !decisive
 		if (others.length === 0) return first
-		return readFilter({ [operator]: found.map(filterOf) })
+		if (!decisive) return token(found.flatMap(partsOf))
+		return readFilter({ OR: found.map(filterOf) })
 	}
 }
 type Rule = (facts: never) => unknown
@@ -183,8 +211,9 @@ type Combined<Rules extends readonly Named[]> = (
 /**
  * True when one of the rules is (D-10). The facts and the result come from
  * where it is used, never from the rules, so each rule is typed by its place.
- * In a read rule, the filters combine with `OR` (D-81): `true` from any rule
- * lets every row through, `false` adds nothing.
+ * Their filters combine with `OR` (D-81): `true` from any rule lets every
+ * row through, `false` adds nothing; a written row outside them is
+ * `ACCESS_DENIED`, their errors lost (D-214).
  */
 export function anyOf<Facts, R = boolean>(
 	...rules: readonly NoInfer<(facts: Facts) => R>[]
@@ -194,13 +223,13 @@ export function anyOf<const Rules extends readonly Named[]>(
 	...rules: Rules
 ): Combined<Rules>
 export function anyOf(...rules: readonly Rule[]): (facts: never) => unknown {
-	return combine(rules, true, 'OR')
+	return combine(rules, true)
 }
 
 /**
- * True when every rule is (D-81), typed as `anyOf`. In a read rule, the
- * filters combine with `AND`: `false` from any rule hides every row, `true`
- * adds nothing.
+ * True when every rule is (D-81), typed as `anyOf`. Their filters combine
+ * with `AND`: `false` from any rule hides every row, `true` adds nothing; a
+ * written row is checked against each filter, with its own error (D-214).
  */
 export function allOf<Facts, R = boolean>(
 	...rules: readonly NoInfer<(facts: Facts) => R>[]
@@ -209,5 +238,5 @@ export function allOf<const Rules extends readonly Named[]>(
 	...rules: Rules
 ): Combined<Rules>
 export function allOf(...rules: readonly Rule[]): (facts: never) => unknown {
-	return combine(rules, false, 'AND')
+	return combine(rules, false)
 }

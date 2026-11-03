@@ -74,13 +74,15 @@ export type Guard = {
 export type Step = Change | Move | Detach | Drop | Guard
 
 /**
- * A check of the write, and what `NOT_FOUND` says when it fails (D-99), or
- * the relation a failed `RELATION_RESTRICTED` names (D-102).
+ * A check of the write, and what `NOT_FOUND` says when it fails (D-99), the
+ * relation a failed `RELATION_RESTRICTED` names (D-102), or its refusal.
  */
 export type Checked = {
 	readonly check: Check
 	readonly message: string
 	readonly restricted?: { readonly model: string; readonly field: string }
+	/** The refusal of a row outside its write rule's filter (D-214). */
+	readonly refuse?: () => PublicError
 }
 
 /**

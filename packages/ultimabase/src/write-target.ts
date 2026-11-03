@@ -51,6 +51,7 @@ export async function guarded(
 	} catch (error) {
 		const failed =
 			error instanceof CheckFailed ? checks[error.index] : undefined
+		if (failed?.refuse !== undefined) throw failed.refuse()
 		if (failed?.restricted !== undefined) {
 			throw new PublicError('RELATION_RESTRICTED', failed.message, {
 				details: { ...failed.restricted },

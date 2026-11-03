@@ -30,6 +30,7 @@ import { updated } from './write-plan.ts'
 import { uuidv7 } from './uuid.ts'
 import { guarded, target } from './write-target.ts'
 import { writingOf } from './writing.ts'
+import { rowChecks } from './write-filter.ts'
 import { byId } from './query-where.ts'
 
 /** The shape a single-row write returns, and each row of a bulk one's (D-149). */
@@ -62,6 +63,8 @@ async function written(
 	events.push(...steps.events)
 	await steps.check(writing)
 	const changes = await steps.changes(writing)
+	const ruled = rowChecks(scope.access)
+	checks.push(...ruled.before)
 	const read = { model: model.name, ...at.read, where: byId(at.id) }
 	const again = rereads(events)
 	const write = {
@@ -69,9 +72,14 @@ async function written(
 		changes,
 		...(again ? {} : { read }),
 	}
-	// Nothing follows a write without hooks: it may need no transaction.
-	const run = settles(events) ? store.write(write) : store.last(write)
-	const rows = await guarded(run, checks)
+	// Nothing follows a write without hooks or checks after it: it may need
+	// no transaction.
+	const alone = !settles(events) && !ruled.after
+	const rows = await guarded(
+		alone ? store.last(write) : store.write(write),
+		checks,
+	)
+	await ruled.verify(store)
 	await settle(store, scope.caller, events, commits)
 	// An `after*` hook may have changed the rows: read them again (D-88).
 	const result = again ? await store.find(read) : rows
@@ -92,7 +100,7 @@ async function creating(
 	const reach = { scope, reads: store, model, id: made, at: [] }
 	await resolveData({ ...reach, creating: true, trusted: false }, draft)
 	const sent: Readonly<Draft> = { ...draft }
-	scope.access?.allow(model, 'create', { data: sent })
+	scope.access?.allow(model, 'create', { data: sent, id: made })
 	await prepared(model, draft, caller, true)
 	await runHook(model, 'beforeCreate', { caller, data: draft })
 	const { id, plan: steps } = await createPlan(

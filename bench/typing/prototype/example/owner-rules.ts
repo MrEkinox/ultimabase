@@ -72,8 +72,8 @@ export const MoreMistakes = defineModel({
 			// @ts-expect-error: `txt` is not a field of the model.
 			({ where }) => where({ txt: 'a' }),
 		),
-		// @ts-expect-error: only a read rule receives `where`.
-		update: anyOf(isOwner('owner'), ({ where }) => where !== undefined),
+		// @ts-expect-error: a write rule's `where` takes the model's fields.
+		update: anyOf(isOwner('owner'), ({ where }) => where({ txt: 'a' })),
 		delete: anyOf(
 			signedIn(() => false),
 			// @ts-expect-error: `ownr` is not a `one` relation, inside `anyOf`.
