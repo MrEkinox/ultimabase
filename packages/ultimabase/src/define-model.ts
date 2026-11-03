@@ -1,6 +1,6 @@
 // `defineModel` (D-07, D-12): the fields its callback and its plugins build,
 // recorded for `start`, and the model value whose methods run the queries
-// (D-18) and its plugins' commands (D-89).
+// (D-18), its plugins' commands (D-89) and the application's (D-217).
 import {
 	fieldBuilders,
 	modelDefinitions,
@@ -13,7 +13,8 @@ import type { FieldDefinition, ModelDefinition } from './definition.ts'
 import { describedBy } from './described.ts'
 import { query } from './engine.ts'
 import type { Operation } from './engine.ts'
-import { addFields, usedBy } from './plugin-use.ts'
+import { addFields, modelMethods, usedBy } from './plugin-use.ts'
+import type { PluginCommand } from './plugin-use.ts'
 import type { FieldBuilders } from './fields.ts'
 import type { FieldShape, Model, RecordCheck } from './model.ts'
 import type {
@@ -24,6 +25,7 @@ import type {
 import type { ForModel, ModelUse, PluginTypes } from './plugin.ts'
 import { Refused } from './errors.ts'
 import { paginate } from './page.ts'
+import { isObject } from './query-where.ts'
 
 // The intersection of the used plugins' commands; `unknown` without any.
 type CommandFn<U, F> =
@@ -210,18 +212,71 @@ function createModel(definition: {
 		queries,
 		rules: undefined,
 	}
-	const model: { [key: string]: unknown } = {
-		name,
-		...queries,
-		...Object.fromEntries(commands),
-	}
-	model['with'] = withOnce(name, record, () => frozen)
+	const members: { [key: string]: unknown } = { ...queries }
+	for (const [command, { value }] of commands) members[command] = value
+	const shared = { record, queries, commands, added: false }
+	return modelValue(shared, members)
+}
+
+/** What a model's values share: `.commands` adds to them once. */
+type Built = {
+	readonly record: ModelDefinition
+	readonly queries: object
+	readonly commands: ReadonlyMap<string, PluginCommand>
+	added: boolean
+}
+
+/** A frozen value of the model, whose methods return it. */
+function modelValue(built: Built, members: object): object {
+	const { name } = built.record
+	const model: { [key: string]: unknown } = { name, ...members }
+	model['with'] = withOnce(name, built.record, () => frozen)
 	model['nullable'] = (): object =>
 		nullable({ kind: 'model', value: frozen, name })
 	model['paginated'] = (): object => paginated(frozen, name)
 	model['paginate'] = (args?: unknown, options?: unknown): object =>
 		paginate(name, args, options)
+	model['commands'] = (build: unknown): object => {
+		if (built.added) {
+			throw new Refused(`${name} takes its commands in one \`.commands\`.`)
+		}
+		if (typeof build !== 'function') {
+			throw new Refused(`${name}.commands takes a function.`)
+		}
+		const given = Object.freeze({ queries: built.queries })
+		const added: unknown = Reflect.apply(build, undefined, [given])
+		const all = { ...members, ...commandsOf(name, added, built) }
+		built.added = true
+		return modelValue(built, all)
+	}
 	const frozen = Object.freeze(model)
-	modelDefinitions.set(frozen, record)
+	modelDefinitions.set(frozen, built.record)
 	return frozen
+}
+
+/** The application's commands `build` returned, each a function (D-217). */
+function commandsOf(name: string, added: unknown, built: Built): object {
+	const refused = new Refused(
+		`${name}.commands returns an object of functions.`,
+	)
+	if (!isObject(added)) throw refused
+	for (const [command, value] of Object.entries(added)) {
+		if (typeof value !== 'function') throw refused
+		const path = `${name}.${command}`
+		if (
+			modelMethods.includes(command) ||
+			Object.hasOwn(built.queries, command)
+		) {
+			throw new Refused(
+				`${path}: the application adds a command named after a model method.`,
+			)
+		}
+		const plugin = built.commands.get(command)?.plugin
+		if (plugin !== undefined) {
+			throw new Refused(
+				`${path}: ${plugin} and the application both add this command.`,
+			)
+		}
+	}
+	return added
 }

@@ -64,6 +64,19 @@ export function addFields(
 	}
 }
 
+/** The names a model's value holds besides its queries, which no command takes. */
+export const modelMethods: readonly string[] = [
+	'name',
+	'with',
+	'nullable',
+	'paginated',
+	'paginate',
+	'commands',
+]
+
+/** A plugin's command on a model, with the plugin that adds it. */
+export type PluginCommand = { readonly plugin: string; readonly value: unknown }
+
 /** Runs a command's function, or each function of its object, as it. */
 function wrapped(value: unknown, command: Command, path: string): unknown {
 	const run =
@@ -90,9 +103,8 @@ function commandsOf(
 	model: string,
 	uses: readonly PluginUse[],
 	methods: ReadonlySet<string>,
-): ReadonlyMap<string, unknown> {
-	const commands = new Map<string, unknown>()
-	const owners = new Map<string, string>()
+): ReadonlyMap<string, PluginCommand> {
+	const commands = new Map<string, PluginCommand>()
 	for (const { code, model: given } of uses) {
 		if (code.commands === undefined) continue
 		const built: unknown = Reflect.apply(code.commands, undefined, [given])
@@ -106,15 +118,15 @@ function commandsOf(
 					`${path}: ${code.name} adds a command named after a model method.`,
 				)
 			}
-			const other = owners.get(command)
+			const other = commands.get(command)
 			if (other !== undefined) {
 				throw new Refused(
-					`${path}: ${other} and ${code.name} both add this command.`,
+					`${path}: ${other.plugin} and ${code.name} both add this command.`,
 				)
 			}
-			owners.set(command, code.name)
 			const running = { model, plugin: code.name, command }
-			commands.set(command, wrapped(value, running, path))
+			const plugin = code.name
+			commands.set(command, { plugin, value: wrapped(value, running, path) })
 		}
 	}
 	return commands
@@ -148,7 +160,7 @@ export function usedBy(
 	queries: object,
 ): {
 	readonly uses: readonly PluginUse[]
-	readonly commands: ReadonlyMap<string, unknown>
+	readonly commands: ReadonlyMap<string, PluginCommand>
 	readonly indexes: readonly IndexDefinition[]
 } {
 	const uses: PluginUse[] = []
@@ -169,7 +181,7 @@ export function usedBy(
 		const names = redirecting.map((each) => each.code.name).join(' and ')
 		throw new Refused(`${model}: ${names} both redirect delete.`)
 	}
-	const methods = new Set(['name', 'with', 'nullable', ...Object.keys(queries)])
+	const methods = new Set([...modelMethods, ...Object.keys(queries)])
 	return {
 		uses,
 		commands: commandsOf(model, uses, methods),
