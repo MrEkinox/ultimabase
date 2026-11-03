@@ -166,7 +166,12 @@ to its queries: `Product` above ends with a `restock` command.
   calls its model could not infer its own type.
 - `build` receives `{ queries }`, the model's queries, and returns an object
   of functions. A command calls another through the model: `Product.other()`.
-- `.commands` is called once, before or after `.with`.
+- `.commands` is called once, before `.with`: in a cycle of relations, a
+  `.with` before it whose rules read a model of the cycle, as the signed-in
+  user's, makes the model read itself in its own type (TS7022).
+- When two models' commands call each other, the builder whose interface
+  names the other model writes its return type:
+  `({ queries }): SeatCommands => ({ ... })` for a `leave(games: WhereOf<typeof Game>)`.
 - A command runs on the server only: no transport serves it. A client calls
   a [function](/docs/next/functions).
 - A command named after a model method (`findMany`, `with`, `paginate`…) or

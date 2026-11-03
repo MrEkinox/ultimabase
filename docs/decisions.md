@@ -14327,6 +14327,8 @@ type Query {
 
 ## D-217: An application's commands on a model
 
+Amended by D-225.
+
 Choice: completes D-89; D-71 is unchanged.
 
 1. `.commands<T>(build)` adds the application's commands to a model, as a
@@ -15023,6 +15025,81 @@ Rejected:
   client, and change with the library.
 - `PASSWORD_TOO_SHORT` and `PASSWORD_TOO_LONG`: a client knows the bounds,
   and the length of what it sent.
+
+## D-225: `.commands` before `.with`, and a builder's return type across models
+
+Choice: amends D-217.
+
+1. `.commands` comes before `.with`. TypeScript checks a generic call in
+   full, its receiver included, so a `.with` before `.commands<T>` is
+   checked again; in a cycle of relations, rules that read a model of the
+   cycle, as the signed-in user's through `Register.user`, make the model
+   read itself in its own type (TS7022). Outside such a cycle either order
+   still compiles; the guide's examples call `.commands` first.
+2. When two models' commands call each other, the builder of the one whose
+   interface names the other, `leave(games: WhereOf<typeof Game>)`, writes
+   its return type: `({ queries }): SeatCommands => ({ … })`. Without it,
+   TypeScript infers the builder's return from its body, which reads
+   `Game`, whose builder calls `Seat` (TS7024, TS7022).
+
+Why: neither comes from the kernel's types. TypeScript resolves a generic
+call fully and infers an unannotated arrow's return from its body; the
+guide said `.commands` came "before or after `.with`", and named no
+annotation.
+
+Rejected:
+
+- Types that refuse a `.with` before `.commands`: every model's type would
+  carry its calls' order, for a cycle few models have, and the second case
+  would remain.
+- A curried `.commands<T>()(build)`: it fixes the second case only, and
+  changes every command's definition for it.
+
+Example:
+
+```ts
+// Before: Membership types as `any` (TS7022), as Register.user is Account.
+export const Membership = defineModel({ name: 'Membership', fields })
+	.with({
+		access: {
+			read: signedIn(({ user, where }) =>
+				where({ user: { is: { id: user.id } } }),
+			),
+		},
+	})
+	.commands<MembershipCommands>(() => ({ join: async () => {} }))
+
+// After
+export const Membership = defineModel({ name: 'Membership', fields })
+	.commands<MembershipCommands>(() => ({ join: async () => {} }))
+	.with({
+		access: {
+			read: signedIn(({ user, where }) =>
+				where({ user: { is: { id: user.id } } }),
+			),
+		},
+	})
+
+// Before: Game and Seat type as `any` (TS7024, TS7022).
+export const Seat = defineModel({
+	name: 'Seat',
+	fields,
+}).commands<SeatCommands>(({ queries }) => ({
+	leave: async (games) => {
+		/* … */
+	},
+}))
+
+// After
+export const Seat = defineModel({
+	name: 'Seat',
+	fields,
+}).commands<SeatCommands>(({ queries }): SeatCommands => ({
+	leave: async (games) => {
+		/* … */
+	},
+}))
+```
 
 ## D-226: A count alone reads no row
 

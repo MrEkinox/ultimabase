@@ -86,6 +86,19 @@ export const Product = defineModel({
 		{ fields: ['name', 'releasedOn'], unique: true, mode: 'insensitive' },
 	],
 })
+	// Server code only: no transport serves a command.
+	.commands<ProductCommands>(({ queries }) => ({
+		restock: async (id, count) => {
+			const { stock } = await queries.update(
+				{
+					where: { id },
+					data: { stock: { increment: count }, restockedAt: new Date() },
+				},
+				{ as: master },
+			)
+			return stock
+		},
+	}))
 	.with({
 		access: allow.public,
 		virtuals: {
@@ -101,17 +114,4 @@ export const Product = defineModel({
 			},
 		},
 	})
-	// Server code only: no transport serves a command.
-	.commands<ProductCommands>(({ queries }) => ({
-		restock: async (id, count) => {
-			const { stock } = await queries.update(
-				{
-					where: { id },
-					data: { stock: { increment: count }, restockedAt: new Date() },
-				},
-				{ as: master },
-			)
-			return stock
-		},
-	}))
 //#endregion
