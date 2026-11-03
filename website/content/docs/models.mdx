@@ -62,6 +62,33 @@ row with a unique value returns `UNIQUE_VIOLATION`. With
 	../examples/models-and-queries/src/models.test.ts#refused
 </include>
 
+## Change a JSON field's shape
+
+The database keeps each JSON value as it was written: a new schema does not
+rewrite the rows stored before it. Server code reads them as they are, typed
+by the new schema; GraphQL fails the field of a row that does not fit it.
+
+A change the old rows still fit needs nothing more: a new key, if it is
+optional, or a new member of a union. Make a new key optional rather than
+give it a `.default(...)`: a default fills the rows written after, and types
+the key as always there, which the rows stored before lack.
+
+<include cwd meta='title="src/models.test.ts"'>
+	../examples/models-and-queries/src/models.test.ts#json-shape
+</include>
+
+A change the old rows do not fit (a renamed key, a key made required, a new
+structure) rewrites them in the deploy that brings it: an `update` of the
+table with PostgreSQL's `jsonb` functions, such as `jsonb_set`, in a
+migration of your own (see [Your own SQL](/docs/next/postgres#your-own-sql)).
+While a deploy runs the old code and the new side by side, the old code
+still writes the old shape: accept both for that deploy, with a union of the
+two schemas, and keep the new one alone in the next.
+
+The kernel does not convert an old shape when it reads it: filters, sorting
+and unique indexes compare the stored value, and would disagree with what the
+read returns.
+
 ## Shared enums
 
 `f.enumOf(['S', 'M', 'L'])` declares the values in place: GraphQL names the
