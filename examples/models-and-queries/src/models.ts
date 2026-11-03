@@ -56,7 +56,12 @@ export const Product = defineModel({
 		// A schema types the JSON and validates it.
 		specs: f.json({
 			optional: true,
-			validate: z.object({ color: z.string(), materials: z.array(z.string()) }),
+			validate: z.object({
+				color: z.string(),
+				materials: z.array(z.string()),
+				// Added later: optional, as the rows stored before lack it.
+				finish: z.string().optional(),
+			}),
 		}),
 		// The column keeps the name an older table gave it; clients see the
 		// field is deprecated.

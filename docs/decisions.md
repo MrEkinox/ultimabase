@@ -6403,7 +6403,11 @@ for storage (unions, free keys), so a shape GraphQL cannot type falls back to
 Rejected: `JSON` for every field (the shape is known); stopping startup on a
 union in a field; a filter typed from the output side, which needs a third
 set of type names for a rare transform; refusing JSON fields at sign-up,
-whose input the schema already describes.
+whose input the schema already describes; a function that upgrades an old
+shape on read (point 7), whose result the filters, sorting and unique
+indexes, which compare the stored value, would contradict; validating every
+row on read, a cost each read pays where GraphQL already fails a field that
+does not fit.
 Example:
 
 ```ts
