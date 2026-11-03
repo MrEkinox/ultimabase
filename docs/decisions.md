@@ -4651,7 +4651,7 @@ curl -X POST localhost:3000/webhooks/stripe -d '{"id":"…"}' \
 
 ## D-107: `graphqlPlugin()`, the schema it generates and how it mounts
 
-Amended by D-125, D-128, D-132, D-153, D-185 and D-206.
+Amended by D-125, D-128, D-132, D-153, D-185, D-206 and D-227.
 
 Choice: completes D-16, D-34, D-41, D-45 and D-55.
 
@@ -6595,6 +6595,8 @@ await Shop.findMany({ where: { sizes: { has: 42 } } })
 
 ## D-128: Nested creation, `create` in a relation write
 
+Amended by D-227.
+
 Choice: a relation write takes `create` beside `connect`, in `create` and
 `update`, with Prisma's spelling (D-20).
 
@@ -7571,6 +7573,8 @@ const running = testApplication(app, { database: 'declared' })
 
 ## D-138: Nested `set`, `update`, `delete` and `connectOrCreate`
 
+Amended by D-227.
+
 Choice: a relation write takes Prisma's `set`, `update` and `delete` in
 `update`, and `connectOrCreate` in `create` and `update` (D-20). It amends
 D-20, D-86 and D-128.
@@ -7926,6 +7930,8 @@ create index "book_title_trgm" on "book" using gin (("title" collate "default") 
 ```
 
 ## D-142: `upsert`
+
+Amended by D-227.
 
 Choice: amends D-20 and D-129.
 
