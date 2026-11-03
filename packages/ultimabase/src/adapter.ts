@@ -1,5 +1,6 @@
 // The adapter contract (D-73): what the kernel sends a storage adapter, fully
 // prepared. Names are the models' own; `dbName` says what to store them as.
+import type { IndexWhere } from './adapter-indexes.ts'
 import type { JsonCondition } from './adapter-json.ts'
 import type { Migrations } from './adapter-migrations.ts'
 import type { Logger } from './app-options.ts'
@@ -72,6 +73,8 @@ export type SchemaField =
 			readonly optional: boolean
 			readonly onDelete: 'cascade' | 'restrict' | 'setNull'
 			readonly dbName?: string
+			/** The target's `target` field equals the row's `source` (D-220). */
+			readonly within?: { readonly target: string; readonly source: string }
 	  }
 	| {
 			readonly kind: 'many'
@@ -104,15 +107,6 @@ export type SchemaModel = {
 		/** A unique index over the rows it selects only (D-215). */
 		readonly where?: IndexWhere
 	}[]
-}
-
-/** A value a partial unique index compares a field with (D-215). */
-export type IndexValue = string | number | boolean | Date | null
-
-/** A partial unique index's rows: each field equals a value, or not (D-215). */
-export type IndexWhere = {
-	readonly [field: string]:
-		{ readonly equals: IndexValue } | { readonly not: IndexValue }
 }
 
 export type Schema = { readonly models: readonly SchemaModel[] }

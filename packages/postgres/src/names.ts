@@ -104,6 +104,9 @@ export type Relation = {
 	readonly target: string
 }
 
+/** The row's relation a `within` key's refusal reports, and its message. */
+export type Within = { readonly field: string; readonly message: string }
+
 export class Catalog {
 	readonly tables: ReadonlyMap<string, Table>
 	readonly joins: ReadonlyMap<string, Join>
@@ -111,6 +114,8 @@ export class Catalog {
 	readonly uniques: ReadonlyMap<string, { model: string; fields: string[] }>
 	/** Foreign key name → the relation a refusal reports (D-99). */
 	readonly foreignKeys: ReadonlyMap<string, Relation>
+	/** A `within` key's name → the issue a refusal reports (D-220). */
+	readonly withins: ReadonlyMap<string, Within>
 	/** The text search configuration of `_search` (D-148). */
 	readonly language: string
 
@@ -167,6 +172,7 @@ export class Catalog {
 		this.uniques = uniques
 		this.joins = this.joinsOf()
 		this.foreignKeys = this.foreignKeysOf()
+		this.withins = this.withinsOf()
 	}
 
 	table(model: string): Table {
@@ -225,6 +231,22 @@ export class Catalog {
 			}
 		}
 		return keys
+	}
+
+	/** Named as the snapshot names them, with the kernel's message. */
+	private withinsOf(): Map<string, Within> {
+		const withins = new Map<string, Within>()
+		for (const table of this.tables.values()) {
+			for (const field of table.model.fields) {
+				if (field.kind !== 'one' || field.within === undefined) continue
+				const column = this.column(table, field.name)
+				withins.set(constraint(`${table.name}_${column}_within_fkey`), {
+					field: field.name,
+					message: `${table.model.name}.${field.name} needs a ${field.target} of the same ${field.within.target}.`,
+				})
+			}
+		}
+		return withins
 	}
 
 	/**

@@ -13,10 +13,12 @@ export type Column = {
 	readonly nullable: boolean
 }
 
+/** `within` pairs a second column with the target's, absent when none (D-220). */
 export type ForeignKey = {
 	readonly column: string
 	readonly table: string
 	readonly cascade: boolean
+	readonly within?: { readonly column: string; readonly target: string }
 }
 
 /** A column among `values`; each element of a list's (D-127). */
@@ -186,6 +188,31 @@ function field(
 		cascade: false,
 	}
 	if (!given.unique) index(claims, building, table.name, [column], what)
+	if (given.within === undefined) return
+	const name = constraint(`${table.name}_${column}_within_fkey`)
+	const target = catalog.table(given.target)
+	building.foreignKeys[claims.schema(name, `the within key of ${what}`)] = {
+		column,
+		table: target.name,
+		cascade: false,
+		within: {
+			column: catalog.column(table, given.within.source),
+			target: catalog.column(target, given.within.target),
+		},
+	}
+}
+
+/** Each model's fields a `within` relation keeps its rows within (D-220). */
+function parentsOf(catalog: Catalog): Map<string, Set<string>> {
+	const parents = new Map<string, Set<string>>()
+	for (const table of catalog.tables.values()) {
+		for (const given of table.model.fields) {
+			if (given.kind !== 'one' || given.within === undefined) continue
+			const fields = parents.get(given.target) ?? new Set()
+			parents.set(given.target, fields.add(given.within.target))
+		}
+	}
+	return parents
 }
 
 /** The fields of a key or an index, as `Thing(a, b)`. */
@@ -196,6 +223,7 @@ const on = (model: string, fields: readonly string[]) =>
 export function snapshotOf(catalog: Catalog): Snapshot {
 	const tables: Record<string, Building> = {}
 	const schema = claimer()
+	const parents = parentsOf(catalog)
 	for (const table of catalog.tables.values()) {
 		const model = table.model.name
 		const claims = { schema, columns: claimer() }
@@ -229,6 +257,13 @@ export function snapshotOf(catalog: Catalog): Snapshot {
 				const claimed = schema(name, `the case-insensitive ${key}`)
 				;(building.lowerUniques ??= {})[claimed] = columns
 			}
+		}
+		// The key a `within` relation's foreign key references.
+		for (const parent of parents.get(model) ?? []) {
+			const column = catalog.column(table, parent)
+			const name = constraint(`${table.name}_id_${column}_key`)
+			const what = `the unique key on ${on(model, ['id', parent])}`
+			building.uniques[schema(name, what)] = ['id', column]
 		}
 		for (const { fields, unique, contains } of table.model.indexes) {
 			if (unique) continue

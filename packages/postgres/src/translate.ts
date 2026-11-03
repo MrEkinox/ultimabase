@@ -1,7 +1,7 @@
 // A database refusal as the kernel's error: a unique constraint's as
 // `UniqueViolation` (D-98), a foreign key's as `RelationViolation` (D-99), a
-// conflict as `Conflict` (D-179), a check of the application's own as
-// `VALIDATION_FAILED` (D-219).
+// conflict as `Conflict` (D-179), a check of the application's own or a
+// relation kept within its parent as `VALIDATION_FAILED` (D-219, D-220).
 import {
 	Conflict,
 	PublicError,
@@ -45,6 +45,15 @@ export function translate(catalog: Catalog, error: unknown): unknown {
 		if (unique !== undefined) {
 			return new UniqueViolation(unique.model, unique.fields)
 		}
+	}
+	const within = catalog.withins.get(error.constraint)
+	if (error.code === '23503' && within !== undefined) {
+		// Whichever side the write moved, as only a race reaches it (D-220).
+		const issue = { path: [within.field], message: within.message }
+		return new PublicError('VALIDATION_FAILED', 'Invalid data.', {
+			details: { issues: [issue] },
+			cause: error,
+		})
 	}
 	const key = catalog.foreignKeys.get(error.constraint)
 	if (error.code === '23503' && key !== undefined) {

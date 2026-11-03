@@ -228,11 +228,32 @@ type OneKeys<F> = {
 		: never
 }[keyof F]
 
+// The row's side of a `within` names a `one` relation of the model, or `id`
+// against the target's field, which its model's type would make circular
+// (D-220).
+type Within<A> = OneKeys<A> | { readonly [field: string]: OneKeys<A> | 'id' }
+type WithinCheck<X, A> = X extends {
+	readonly [fieldType]: {
+		readonly kind: 'one'
+		readonly options: { readonly within: infer W }
+	}
+}
+	? [W] extends [Within<A>]
+		? unknown
+		: {
+				readonly [fieldType]: {
+					readonly options: { readonly within: Within<A> }
+				}
+			}
+	: unknown
+
 // A field typed before the model cannot check its record against it, nor a
 // virtual its `needs`, which may name a field a plugin adds (`A`) or a `one`
 // relation, whose key the row may store (D-184).
 export type RecordCheck<F, A = F> = {
-	readonly [K in keyof F]: F[K] extends { readonly [declaredRecord]: infer D }
+	readonly [K in keyof F]: (F[K] extends {
+		readonly [declaredRecord]: infer D
+	}
 		? { readonly [declaredRecord]: Expected<D, F> }
 		: F[K] extends { readonly [fieldType]: { readonly kind: 'virtual' } }
 			? {
@@ -242,7 +263,8 @@ export type RecordCheck<F, A = F> = {
 						}
 					}
 				}
-			: unknown
+			: unknown) &
+		WithinCheck<F[K], A>
 }
 
 /**

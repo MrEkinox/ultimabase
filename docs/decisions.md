@@ -14540,3 +14540,121 @@ D-215 accepts); checking in `beforeUpdate` (its `data` holds only the
 changed fields, so each rule merges them with `record` itself); a field in
 the issue's `path` read from the constraint's SQL (a guess Postgres does
 not make).
+
+## D-220: A relation kept within the row's parent
+
+Choice: amends D-37 and D-99; D-54 is unchanged.
+
+1. A stored `one` relation takes `within`: its target shares a parent with
+   the row. `within: 'project'` says the target's `project` is the row's
+   `project`. `within: { campaign: 'id' }` says the target's `campaign` is the
+   row itself, and `within: { stage: 'mainStage' }` says the target's `stage`
+   is the row's `mainStage`. One pair: a target field, and `id` or a field of
+   the row.
+2. The relation is stored. The row's field is a stored `one`, optional or
+   not, and the target's field a required stored `one` to the same model, or
+   to the row's model when the row's side is `id`. The types check the row's
+   field as a virtual's `needs` (D-180); the start checks both, the target's
+   read from the target's model:
+   `Task.milestone: within names project, a required one relation of
+Milestone to Project.`, `Task.milestone: within names mainStage, a one
+relation of Task.`
+3. The rule holds when either side changes: a write that links the row to a
+   target, through `connect`, `connectOrCreate` or the target's own side,
+   changes the row's parent, or changes the target's parent while a row
+   links it. A row whose relation or parent is `null` holds nothing. The
+   target's field is required: the database's key compares only the row's
+   side, and skips it when one of its values is `null`.
+4. The kernel checks it among the write's checks (D-99), in the write's
+   statement, with no extra query. A target that does not exist stays
+   `NOT_FOUND`; one of another parent is `VALIDATION_FAILED`, one issue on the
+   field the write gave, whichever side it wrote:
+   `Task.milestone needs a Milestone of the same project.` A nested `create`
+   of the target is checked on its data. A check reads the rows as they were
+   before the write: a write that both moves a target and links it is
+   checked against the target's former parent, and `postgres()` holds the
+   rule at commit.
+5. `postgres()` holds it too, against concurrent writes and SQL of the
+   application's own: a unique key on the target's `(id, project_id)`, and a
+   foreign key from the row's `(milestone_id, project_id)` to it, deferred as
+   the others (D-98). The relation's own foreign key keeps `onDelete`, which
+   the kernel applies (D-54): a `setNull` empties `milestone_id` only, so the
+   composite key no longer compares. Its refusal, which a race alone
+   reaches, is the issue on the row's relation. `migrate create` writes and
+   drops both with `within`.
+6. `memory()` needs nothing more: its writes run one at a time.
+7. A `many` relation takes no `within`: its link table holds no parent.
+
+Why: rows of a group point at rows of the same group, and nothing stopped a
+task from linking another project's milestone. A hook checks it with a read
+per write, misses the target's side unless a second hook watches it, and
+lets two concurrent writes through, each reading the state before the
+other; only the database's key holds against those. Before, two hooks:
+
+```ts
+const sameProject = async (record: TaskRow): Promise<void> => {
+	if (record.milestone === null) return
+	const found = await Milestone.count(
+		{
+			where: {
+				id: record.milestone.id,
+				project: { is: { id: record.project.id } },
+			},
+		},
+		{ as: master },
+	)
+	if (found === 0) throw new PublicError('NOT_SAME_PROJECT', 'Wrong project.')
+}
+
+export const Task = defineModel({
+	name: 'Task',
+	fields: (f) => ({
+		project: f.one(() => Project),
+		milestone: f.one(() => Milestone, { optional: true }),
+	}),
+}).with({
+	hooks: {
+		afterCreate: ({ record }) => sameProject(record),
+		afterUpdate: ({ record }) => sameProject(record),
+	},
+})
+// ...and on Milestone, an afterUpdate refusing a project change while tasks
+// link it.
+```
+
+After:
+
+```ts
+export const Task = defineModel({
+	name: 'Task',
+	fields: (f) => ({
+		project: f.one(() => Project),
+		milestone: f.one(() => Milestone, { optional: true, within: 'project' }),
+	}),
+})
+
+export const Project = defineModel({
+	name: 'Project',
+	fields: (f) => ({
+		milestones: f.many(() => Milestone),
+		// One of the project's own milestones, and a task of that milestone.
+		featured: f.one(() => Milestone, {
+			optional: true,
+			within: { project: 'id' },
+		}),
+		featuredTask: f.one(() => Task, {
+			optional: true,
+			within: { milestone: 'featured' },
+		}),
+	}),
+})
+```
+
+Rejected: a hook per relation (the reasons above); several pairs per
+relation (no case needs them yet); `sameAs` (it does not read for
+`{ project: 'id' }`); the composite key alone, with `on delete set null
+(milestone_id)` (the kernel applies `onDelete`, and the relation's own key
+keeps telling a missing target from another parent's); clearing the
+relation when a parent changes (a silent loss, where refusing names it);
+the target's field checked by the types (its model's type, read inside a
+cycle of models such as `Task` and `Milestone`, makes the types circular).

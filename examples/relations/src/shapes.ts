@@ -107,3 +107,33 @@ export const Volume = defineModel({
 	}),
 })
 //#endregion
+
+//#region within
+export const Project = defineModel({
+	name: 'Project',
+	fields: (f) => ({
+		name: f.string(),
+		milestones: f.many(() => Milestone),
+		tasks: f.many(() => Task),
+	}),
+})
+
+export const Milestone = defineModel({
+	name: 'Milestone',
+	fields: (f) => ({
+		name: f.string(),
+		project: f.one(() => Project, { onDelete: 'cascade' }),
+		tasks: f.many(() => Task),
+	}),
+})
+
+export const Task = defineModel({
+	name: 'Task',
+	fields: (f) => ({
+		title: f.string(),
+		project: f.one(() => Project, { onDelete: 'cascade' }),
+		// The milestone's `project` is the task's `project`.
+		milestone: f.one(() => Milestone, { optional: true, within: 'project' }),
+	}),
+})
+//#endregion

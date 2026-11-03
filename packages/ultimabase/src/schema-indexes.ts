@@ -1,6 +1,7 @@
 // The indexes of a model, checked against its fields (D-52, D-120, D-141,
 // D-170, D-174, D-215), and its searched fields (D-148).
-import type { IndexValue, IndexWhere, SchemaModel } from './adapter.ts'
+import type { IndexValue, IndexWhere } from './adapter-indexes.ts'
+import type { SchemaModel } from './adapter.ts'
 import type { IndexDefinition } from './definition.ts'
 import type { FieldInfo, ModelInfo } from './schema.ts'
 import { readRules } from './access.ts'

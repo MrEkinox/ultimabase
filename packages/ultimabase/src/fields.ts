@@ -9,6 +9,7 @@ import type {
 	OpenWith,
 	RelationValue,
 } from './field-rules.ts'
+import type { ManyOptions, OneCheck, OneOptions } from './relation-options.ts'
 import type { Caller } from './rules.ts'
 import type { calendarDay, fieldType } from './symbols.ts'
 import type { NoOptions, Virtual, VirtualOptions } from './virtual.ts'
@@ -185,41 +186,6 @@ type JsonCheck<O> = (O extends {
 			? unknown
 			: { readonly default: JsonInput<O> | DefaultFunction<JsonInput<O>> }
 		: unknown)
-
-/** What shapes a `one` relation (D-37, D-54). */
-export type OneOptions = Described & {
-	readonly optional?: boolean
-	/** The target's id (D-53). */
-	readonly default?:
-		{ readonly id: string } | DefaultFunction<{ readonly id: string }>
-	readonly onDelete?: 'cascade' | 'restrict' | 'setNull'
-	readonly inverse?: string
-	readonly dbName?: string
-}
-// `setNull` empties the relation, which only an optional one may be (D-54).
-// The message is an object: a literal would empty the whole options type.
-type OneCheck<O> = O extends { readonly optional: true }
-	? unknown
-	: O extends { readonly onDelete: 'setNull' }
-		? {
-				readonly onDelete: {
-					readonly error: 'setNull needs an optional relation'
-				}
-			}
-		: unknown
-
-export type ManyOptions = Described &
-	(
-		| { readonly inverse?: string; readonly from?: undefined }
-		| {
-				/**
-				 * A view: read-only, on the link of this other `many` of the
-				 * model, its rows those its filter keeps (D-151).
-				 */
-				readonly from: string
-				readonly inverse?: undefined
-		  }
-	)
 
 /** An optional field may be written `null`. */
 type Written<V, O> = O extends { readonly optional: true } ? V | null : V

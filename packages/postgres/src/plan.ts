@@ -284,9 +284,12 @@ function addKeys(
 		emit(
 			add(`constraint ${id(key)} unique (${list(columns)})`),
 			`added a unique key on ${fields(to, columns)}`,
-			{
-				tries: `a unique key on ${keyOf(to, columns)} fails when two rows share a value`,
-			},
+			// A key holding the id, as a `within` key's (D-220), never fails.
+			columns.includes('id')
+				? {}
+				: {
+						tries: `a unique key on ${keyOf(to, columns)} fails when two rows share a value`,
+					},
 		)
 	}
 	for (const [key, given] of added(from.checks, to.checks)) {
@@ -301,9 +304,16 @@ function addKeys(
 const foreignKey = (
 	table: string,
 	key: string,
-	{ column: name, table: target, cascade }: ForeignKey,
-): string =>
-	`alter table ${id(table)} add constraint ${id(key)} foreign key (${id(name)}) references ${id(target)} ("id")${cascade ? ' on delete cascade' : ''} deferrable initially deferred`
+	{ column: name, table: target, cascade, within }: ForeignKey,
+): string => {
+	const [columns, theirs] = within
+		? [
+				[name, within.column],
+				['id', within.target],
+			]
+		: [[name], ['id']]
+	return `alter table ${id(table)} add constraint ${id(key)} foreign key (${list(columns)}) references ${id(target)} (${list(theirs)})${cascade ? ' on delete cascade' : ''} deferrable initially deferred`
+}
 
 /** Every statement from `from`, or an empty database, to `to`. */
 export function plan(
@@ -370,6 +380,7 @@ export function plan(
 		const keys = added(was?.foreignKeys ?? {}, table.foreignKeys)
 		for (const [key, given] of keys) {
 			const field = fields(table, [given.column])
+			const within = given.within && fields(table, [given.within.column])
 			emit(6, table.model)(
 				foreignKey(name, key, given),
 				`added the foreign key on ${field}`,
@@ -377,7 +388,9 @@ export function plan(
 				was?.columns[given.column] === undefined
 					? {}
 					: {
-							tries: `linking "${table.model}.${field}" fails when a row points to no row`,
+							tries: within
+								? `keeping "${table.model}.${field}" within ${within} fails when a row links outside it`
+								: `linking "${table.model}.${field}" fails when a row points to no row`,
 						},
 			)
 		}
