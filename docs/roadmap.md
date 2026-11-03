@@ -276,12 +276,14 @@ Exit: the audit's fixes are published.
 - [x] Every code a server may send, typed for its client (D-206).
 - [x] A limit on each address's requests in `httpPlugin()`, and a hook's
       per person (D-218).
+- [x] Jobs: runs enqueued in a write's transaction, delayed or recurring,
+      retried until they succeed (D-221).
 
 Exit: every feature of the previous base has an example, in far fewer lines.
 
 ## Beyond
 
-OAuth and magic link, jobs, admin, multi-tenancy (D-25).
+OAuth and magic link, admin, multi-tenancy (D-25).
 A typed browser client (D-25).
 A `geoPoint()` field type (D-57).
 MySQL, SQLite and MongoDB adapters (D-51).

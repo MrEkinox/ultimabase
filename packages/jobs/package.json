@@ -1,0 +1,48 @@
+{
+	"name": "@ultimabase/jobs",
+	"version": "0.3.0",
+	"description": "Jobs for UltimaBase: work enqueued with a write's transaction, delayed or on a schedule, retried until it succeeds.",
+	"type": "module",
+	"license": "Apache-2.0",
+	"homepage": "https://ultimabase.dev/docs/jobs",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/MrEkinox/ultimabase.git",
+		"directory": "packages/jobs"
+	},
+	"engines": {
+		"node": ">=24.7.0"
+	},
+	"exports": {
+		".": "./src/index.ts"
+	},
+	"files": [
+		"dist",
+		"src",
+		"!src/**/*.test.ts",
+		"!src/test"
+	],
+	"scripts": {
+		"prepack": "rm -rf dist && yarn run -T tsc --project tsconfig.build.json"
+	},
+	"publishConfig": {
+		"exports": {
+			".": "./dist/index.js"
+		}
+	},
+	"peerDependencies": {
+		"ultimabase": "^0.3.0"
+	},
+	"devDependencies": {
+		"@types/pg": "8.23.1",
+		"@ultimabase/postgres": "workspace:*",
+		"@ultimabase/testing": "workspace:*",
+		"pg": "8.23.1",
+		"ultimabase": "workspace:*",
+		"vite": "8.3.4",
+		"vitest": "5.0.5"
+	},
+	"dependencies": {
+		"croner": "11.0.0"
+	}
+}

@@ -27,6 +27,7 @@
 		"files",
 		"realtime",
 		"maintenance",
+		"jobs",
 		"---Transports---",
 		"http",
 		"graphql",

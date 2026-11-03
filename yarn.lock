@@ -2911,6 +2911,23 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@ultimabase/jobs@workspace:*, @ultimabase/jobs@workspace:packages/jobs":
+  version: 0.0.0-use.local
+  resolution: "@ultimabase/jobs@workspace:packages/jobs"
+  dependencies:
+    "@types/pg": "npm:8.23.1"
+    "@ultimabase/postgres": "workspace:*"
+    "@ultimabase/testing": "workspace:*"
+    croner: "npm:11.0.0"
+    pg: "npm:8.23.1"
+    ultimabase: "workspace:*"
+    vite: "npm:8.3.4"
+    vitest: "npm:5.0.5"
+  peerDependencies:
+    ultimabase: ^0.3.0
+  languageName: unknown
+  linkType: soft
+
 "@ultimabase/live@workspace:*, @ultimabase/live@workspace:packages/live":
   version: 0.0.0-use.local
   resolution: "@ultimabase/live@workspace:packages/live"
@@ -3637,6 +3654,13 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"croner@npm:11.0.0":
+  version: 11.0.0
+  resolution: "croner@npm:11.0.0"
+  checksum: 10c0/0017d58231ef879dcd23969222d85e39c97c2e0125e26e5e4723db735c5e4ac8b0732e9a33aea6f5428bdb35f522e8119a15e29f71b836324a05c3c7b7fceab8
+  languageName: node
+  linkType: hard
+
 "csstype@npm:^3.2.2":
   version: 3.2.3
   resolution: "csstype@npm:3.2.3"
@@ -4113,6 +4137,20 @@ __metadata:
     ultimabase: "workspace:*"
     vite: "npm:8.3.4"
     vitest: "npm:5.0.5"
+  languageName: unknown
+  linkType: soft
+
+"example-jobs@workspace:examples/jobs":
+  version: 0.0.0-use.local
+  resolution: "example-jobs@workspace:examples/jobs"
+  dependencies:
+    "@ultimabase/http": "workspace:*"
+    "@ultimabase/jobs": "workspace:*"
+    "@ultimabase/testing": "workspace:*"
+    ultimabase: "workspace:*"
+    vite: "npm:8.3.4"
+    vitest: "npm:5.0.5"
+    zod: "npm:4.6.7"
   languageName: unknown
   linkType: soft
 

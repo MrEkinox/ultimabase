@@ -3,7 +3,8 @@
 // running plugins' APIs, what raw SQL and tests on the declared database
 // need (D-137), what live reads need (D-154), the feed tests call (D-168),
 // the pages functions return (D-182), the reset route (D-188) and the
-// master key's header the rate limit checks (D-218).
+// master key's header the rate limit checks (D-218) and the Standard Schema
+// check a job's input takes (D-221).
 import type { Adapter, Feed } from './adapter.ts'
 import { internalsOf } from './app-internals.ts'
 import type { Logger } from './app-options.ts'
@@ -22,6 +23,7 @@ export { joining } from './transaction.ts'
 export { masterKeyHeader } from './identify.ts'
 export { issueOf } from './write-data.ts'
 export { decimalPattern } from './decimal.ts'
+export { checked, standardOf } from './validation.ts'
 export type { Recorded } from './recorder.ts'
 export { recording, recordingVirtuals } from './recorder.ts'
 export type { LivePlan, LiveReader } from './live.ts'

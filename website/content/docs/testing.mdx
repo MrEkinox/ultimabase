@@ -153,6 +153,11 @@ It returns, read during a test:
 | -------- | ------------------------------------------------------------------------------ | --------------------------------------- |
 | `user`   | `{ id }`, or the registered user's row, as a sign-up or a Master read gives it | a caller of kind `'user'`, for `{ as }` |
 
+### `runJobs()`
+
+Runs, during a test, the [jobs](/docs/next/jobs#in-a-test) due now, and
+the runs they enqueue.
+
 ### Errors
 
 | Message                                                                                                                                                              | When                                          |
