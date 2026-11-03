@@ -88,7 +88,14 @@ for (const url of urls) {
 					'mutation ($input: RequestPasswordResetInput!) { requestPasswordReset(input: $input) }',
 					{ input: { email: ada.email } },
 				)
-			for (let index = 0; index < 4; index += 1) await request()
+			// Each email goes before the next request: requests at once replace
+			// each other's token in any order, and the last email held a gone one.
+			for (const sent of [2, 3, 3, 3]) {
+				await request()
+				await vi.waitFor(() => {
+					expect(outbox).toHaveLength(sent)
+				})
+			}
 			await vi.waitFor(async () => {
 				expect(outbox).toHaveLength(3)
 				expect(

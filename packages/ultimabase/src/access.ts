@@ -6,11 +6,20 @@ import type { Filter } from './adapter.ts'
 import type { Logger } from './app-options.ts'
 import { Relations, trusted } from './relations.ts'
 import type { Caller } from './rules.ts'
-import { allow, filterOf, isMaster, isReadFilter, readFilter } from './rules.ts'
+import {
+	allow,
+	filterOf,
+	isMaster,
+	isReadFilter,
+	readFilter,
+	writeFilter,
+} from './rules.ts'
 import type { ModelInfo } from './schema.ts'
 import type { Models, Verb } from './query-where.ts'
 import { entries, isObject, modelOf, normalizeWhere } from './query-where.ts'
 import { madeId } from './uuid.ts'
+import type { RowRule } from './write-filter.ts'
+import { rowRules } from './write-filter.ts'
 
 type Operation = 'read' | 'create' | 'update' | 'delete'
 type Values = { readonly [field: string]: unknown }
@@ -52,7 +61,7 @@ function run(rule: unknown, facts: object): unknown {
 function decide(rule: unknown, facts: object): boolean {
 	const result = run(rule, facts)
 	if (typeof result !== 'boolean') {
-		throw new TypeError('A write rule or a field rule returns a boolean.')
+		throw new TypeError('A field rule returns a boolean.')
 	}
 	return result
 }
@@ -179,16 +188,22 @@ function denied(refusal: Refusal, caller: Caller, logger: Logger): PublicError {
 	return refused(details, `${model} ${operation} refused.`, caller, logger)
 }
 
-/** A write's stored `record`, its `value`, and the relation it comes from. */
+/**
+ * A write's stored `record`, its `value`, the relation it comes from, and
+ * the `id` a create gives its row.
+ */
 export type Write = {
 	readonly record?: Values
 	readonly data?: unknown
 	readonly via?: string
+	readonly id?: string
 }
 
 /** The access rules of one query, for a caller other than Master. */
 export class Access {
 	private readonly filters = new Map<string, Filter | undefined>()
+	/** The rows the write rules' filters must match (D-214). */
+	private readonly written: RowRule[] = []
 	readonly models: Models
 	readonly caller: Caller
 	private readonly logger: Logger
@@ -222,7 +237,7 @@ export class Access {
 		if (result === true) return undefined
 		if (result === false) return closed
 		if (!isReadFilter(result)) {
-			throw new TypeError('A read rule returns a boolean or a read filter.')
+			throw new TypeError('A read rule returns a boolean or a filter.')
 		}
 		// The rule's own filter is trusted: no guard, no other rule (D-86).
 		const path = `${model.name}.access.read`
@@ -294,8 +309,15 @@ export class Access {
 			...(write.via === undefined ? {} : { via: write.via }),
 		}
 		const rule = ruleOf(accessOf(model.definition.rules), operation)
-		if (rule === undefined || !decide(rule, facts))
-			throw denied(refusal, this.caller, this.logger)
+		const result =
+			rule === undefined ? false : run(rule, { ...facts, where: writeFilter })
+		if (result === false) throw denied(refusal, this.caller, this.logger)
+		if (result !== true) {
+			const refuse = () => denied(refusal, this.caller, this.logger)
+			const ruled = { result, operation, refuse }
+			const { models, relations } = this
+			this.written.push(...rowRules(models, relations, model, write, ruled))
+		}
 		for (const [field, given] of Object.entries(value ?? {})) {
 			const check = fieldRule(model, field, operation)
 			if (check === undefined || updatesOnly(model, field, given)) continue
@@ -308,6 +330,11 @@ export class Access {
 			}
 		}
 	}
+	/** The rows the write rules' filters must match, taken once (D-214). */
+	rowRules(): RowRule[] {
+		return this.written.splice(0)
+	}
+
 	/** Whether a field has a write rule for `operation` (D-213). */
 	rules(
 		model: ModelInfo,

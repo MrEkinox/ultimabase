@@ -1,5 +1,6 @@
 // The model `defineModel(...).with(...)` returns (D-07, D-24) and the
 // application `defineApp` assembles.
+import type { PublicError } from './errors.ts'
 import type { Nullable, Paginated } from './function.ts'
 import type { Page, PageQuery } from './page.ts'
 import type { FindWhere, Queries, QueryOptions, Where } from './query.ts'
@@ -39,7 +40,7 @@ type DeleteFacts<F, N extends string> = {
 	readonly record: StoredRecord<F, N>
 }
 
-/** A read filter; only the `where` a read rule receives builds one (D-10). */
+/** A filter; only the `where` a rule receives builds one (D-10, D-214). */
 type ReadFilter = { readonly [readFilter]: true }
 /**
  * A model read rule cannot see the record: it may return a filter (D-10).
@@ -50,6 +51,16 @@ type ReadRule<F> = (
 	facts: ReadFacts & { readonly where: (filter: Where<F>) => ReadFilter },
 ) => boolean | ReadFilter
 
+/**
+ * A model write rule may return a filter the written row matches, and the
+ * error a row outside it throws (D-214).
+ */
+type WriteRule<Facts, F> = (
+	facts: Facts & {
+		readonly where: (filter: Where<F>, error?: PublicError) => ReadFilter
+	},
+) => boolean | ReadFilter
+
 /** One rule, or one rule per operation; `write` covers the three writes. */
 export type ModelAccess<F, N extends string> =
 	| ((
@@ -58,12 +69,13 @@ export type ModelAccess<F, N extends string> =
 	  ) => boolean)
 	| {
 			readonly read?: ReadRule<F>
-			readonly create?: (facts: CreateFacts<F, N>) => boolean
-			readonly update?: (facts: UpdateFacts<F, N>) => boolean
-			readonly delete?: (facts: DeleteFacts<F, N>) => boolean
-			readonly write?: (
-				facts: CreateFacts<F, N> | UpdateFacts<F, N> | DeleteFacts<F, N>,
-			) => boolean
+			readonly create?: WriteRule<CreateFacts<F, N>, F>
+			readonly update?: WriteRule<UpdateFacts<F, N>, F>
+			readonly delete?: WriteRule<DeleteFacts<F, N>, F>
+			readonly write?: WriteRule<
+				CreateFacts<F, N> | UpdateFacts<F, N> | DeleteFacts<F, N>,
+				F
+			>
 	  }
 
 type Hook<Facts> = (

@@ -2,7 +2,7 @@
 // project's members and its owner, with no role to keep in step.
 //#region projects
 import { graphql } from '@ultimabase/graphql'
-import { PublicError, allow, defineModel, master } from 'ultimabase'
+import { PublicError, allow, defineModel } from 'ultimabase'
 import type { Caller } from 'ultimabase'
 
 /** The caller's user id, or `undefined` for anyone else. */
@@ -55,38 +55,18 @@ export const Task = defineModel({
 			where({
 				project: { is: { members: { some: { id: caller.user.id } } } },
 			}),
-		write: ({ caller }) => caller.kind === 'user',
-	},
-	hooks: {
-		// Only the project's owner updates or deletes its tasks: for another
-		// member, the row is not found.
-		beforeFind: ({ caller, operation, where }) =>
-			operation !== 'read' && caller.kind === 'user'
-				? where({
-						project: { is: { owner: { is: { id: caller.user.id } } } },
-					})
-				: undefined,
-		// Only the project's owner adds a task: the hook reads the project as
-		// Master, as a rule cannot query. Hooks run for Master too, who passes;
-		// a project created with the task meets Project's own rules instead.
-		beforeCreate: async ({ caller, data }) => {
-			if (caller.kind !== 'user' || !('connect' in data.project)) return
-			const owned = await Project.count(
-				{
-					where: {
-						id: data.project.connect.id,
-						owner: { is: { id: caller.user.id } },
-					},
-				},
-				{ as: master },
-			)
-			if (owned === 0) {
-				throw new PublicError(
-					'ACCESS_DENIED',
-					'Only the project’s owner adds a task.',
-				)
-			}
-		},
+		// Only the project's owner writes its tasks: the row matches the
+		// filter before an update or a delete, and after a create or an
+		// update, so no task moves to a project of someone else's.
+		write: ({ caller, where }) =>
+			caller.kind === 'user' &&
+			where(
+				{ project: { is: { owner: { is: { id: caller.user.id } } } } },
+				new PublicError(
+					'NOT_PROJECT_OWNER',
+					'Only the project’s owner writes its tasks.',
+				),
+			),
 	},
 })
 //#endregion
