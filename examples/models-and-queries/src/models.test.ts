@@ -56,6 +56,33 @@ it('writes and reads each field type', async () => {
 	//#endregion
 })
 
+it('reads a JSON value without a key its schema added later', async () => {
+	//#region json-shape
+	// Without `finish`, as the rows stored before it was added.
+	const chair = await Product.create(
+		{
+			data: {
+				name: 'Chair',
+				sku: 'CHR-001',
+				price: '80.00',
+				specs: { color: 'oak', materials: ['wood'] },
+			},
+		},
+		{ as: master },
+	)
+	// Its type is `string | undefined`: the code handles both.
+	expect(chair.specs?.finish ?? 'raw').toBe('raw')
+	const finished = await Product.update(
+		{
+			where: { id: chair.id },
+			data: { specs: { color: 'oak', materials: ['wood'], finish: 'matte' } },
+		},
+		{ as: master },
+	)
+	expect(finished.specs?.finish).toBe('matte')
+	//#endregion
+})
+
 it('reads a virtual field with its input', async () => {
 	await Product.create(
 		{ data: { name: 'Mug', sku: 'MUG-001', price: '12.00' } },
