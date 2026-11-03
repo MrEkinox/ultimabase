@@ -99,6 +99,20 @@ it("reads the client's address behind a proxy", async () => {
 	//#endregion
 })
 
+it('refuses an address over the rate limit', async () => {
+	//#region limit
+	const address = '198.51.100.4'
+	const whoami = () =>
+		fetch(`${running.url}/whoami`, { headers: { 'x-forwarded-for': address } })
+	for (let sent = 0; sent < 100; sent += 1) await whoami()
+	const refused = await whoami()
+	expect(refused.status).toBe(429)
+	// The seconds until the minute ends, also in details.retryAfter.
+	expect(Number(refused.headers.get('retry-after'))).toBeGreaterThan(0)
+	expect(await refused.json()).toMatchObject({ code: 'TOO_MANY_ATTEMPTS' })
+	//#endregion
+})
+
 it('sends no-store unless a route sets its cache', async () => {
 	//#region cache
 	const prices = await fetch(`${running.url}/prices`)

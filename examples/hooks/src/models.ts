@@ -1,4 +1,4 @@
-// Support tickets, and the activity they record.
+// Support tickets, the activity they record, and comments under a limit.
 //#region ticket
 import { graphql } from '@ultimabase/graphql'
 import { PublicError, allow, defineModel, master } from 'ultimabase'
@@ -65,3 +65,35 @@ export const Activity = defineModel({
 		text: f.string(),
 	}),
 }).with({ access: allow.readOnly })
+
+//#region limit
+/** Each person posts at most 5 comments a minute. */
+export const Comment = defineModel({
+	name: 'Comment',
+	fields: (f) => ({
+		text: f.string(),
+		authorId: f.string({
+			default: ({ caller }) =>
+				caller.kind === 'user' ? caller.user.id : undefined,
+		}),
+	}),
+}).with({
+	access: { create: ({ caller }) => caller.kind === 'user' },
+	hooks: {
+		// Counts operations, not requests: REST, GraphQL and server code alike.
+		beforeCreate: async ({ caller }): Promise<void> => {
+			if (caller.kind !== 'user') return
+			const since = new Date(Date.now() - 60_000)
+			const recent = await Comment.count(
+				{ where: { authorId: caller.user.id, createdAt: { gt: since } } },
+				{ as: master },
+			)
+			if (recent >= 5) {
+				throw new PublicError('TOO_MANY_ATTEMPTS', 'Wait a minute.', {
+					details: { retryAfter: 60 },
+				})
+			}
+		},
+	},
+})
+//#endregion

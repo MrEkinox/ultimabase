@@ -1,9 +1,9 @@
 // The hooks at work, each test on a new in-memory database.
-import { testApplication } from '@ultimabase/testing'
+import { asUser, testApplication } from '@ultimabase/testing'
 import { master, transaction } from 'ultimabase'
 import { beforeEach, expect, it } from 'vitest'
 import { app } from './app.ts'
-import { Activity, Ticket } from './models.ts'
+import { Activity, Comment, Ticket } from './models.ts'
 import { outbox } from './outbox.ts'
 
 const running = testApplication(app)
@@ -107,5 +107,24 @@ it('refuses an open ticket over GraphQL', async () => {
 			},
 		],
 	})
+	//#endregion
+})
+
+it('limits the comments each person posts a minute', async () => {
+	//#region limit
+	const ada = { as: asUser({ id: 'ada' }) }
+	for (const text of ['1', '2', '3', '4', '5']) {
+		await Comment.create({ data: { text } }, ada)
+	}
+	await expect(
+		Comment.create({ data: { text: '6' } }, ada),
+	).rejects.toMatchObject({
+		code: 'TOO_MANY_ATTEMPTS',
+		details: { retryAfter: 60 },
+	})
+	// Each person's comments count apart.
+	const grace = { as: asUser({ id: 'grace' }) }
+	const comment = await Comment.create({ data: { text: '1' } }, grace)
+	expect(comment.authorId).toBe('grace')
 	//#endregion
 })

@@ -1,5 +1,5 @@
 // The Hono application `httpPlugin` serves (D-66, D-106): no caching, the
-// probes (D-204), CORS, the plugins' gates (D-205), forms from other
+// probes (D-204), CORS, the rate limit (D-218), the plugins' gates (D-205), forms from other
 // origins, the body limit, each request's caller, the routes, the reset
 // route outside production (D-188), and errors as D-72 sends them.
 import { randomUUID } from 'node:crypto'
@@ -14,6 +14,7 @@ import { getPath } from 'hono/utils/url'
 import type { Caller, ErrorCode, Logger } from 'ultimabase'
 import { isLocalHost, PublicError } from 'ultimabase'
 import { addresses, proxiesOf } from './address.ts'
+import type { Limiter, RateLimit } from './limit.ts'
 import type { Probes } from './probes.ts'
 import { probeRoutes } from './probes.ts'
 import { hold } from './request.ts'
@@ -58,6 +59,11 @@ export interface HttpOptions {
 	 * serving as before: 5000 under `NODE_ENV=production`, 0 otherwise (D-204).
 	 */
 	readonly drain?: number
+	/**
+	 * Each public address's requests and upgrades, counted in the instance's
+	 * memory: 600 a minute by default, `false` for none (D-218).
+	 */
+	readonly rateLimit?: RateLimit | false
 }
 
 const statuses: ReadonlyMap<string, ContentfulStatusCode> = new Map<
@@ -159,7 +165,12 @@ export function appOf(
 	{
 		probes,
 		gates,
-	}: { readonly probes: Probes; readonly gates: readonly Gate[] },
+		rateLimit,
+	}: {
+		readonly probes: Probes
+		readonly gates: readonly Gate[]
+		readonly rateLimit: Limiter
+	},
 	identify: (request: Request) => Promise<Caller>,
 	logger: Logger,
 ): Hono<HttpEnv> {
@@ -212,6 +223,11 @@ export function appOf(
 			c.header('access-control-allow-credentials', 'true')
 		}
 		c.header('vary', 'Origin', { append: true })
+	})
+	// Before the gates and the caller: a flood reads no session (D-218).
+	app.use(async (c, next) => {
+		const limited = await rateLimit(c.req.raw, addressOf(c.env))
+		return limited ?? next()
 	})
 	// The plugins' gates, as maintenance: a refusal keeps CORS's headers, so
 	// that a browser reads it (D-205).

@@ -24,7 +24,8 @@ for (const [network, prefix] of [
 	nearby.addSubnet(network, prefix, 'ipv6')
 }
 
-const isNearby = (address: string): boolean =>
+/** Whether an address is local or private, as a proxy's often is. */
+export const isNearby = (address: string): boolean =>
 	nearby.check(address, isIP(address) === 4 ? 'ipv4' : 'ipv6')
 
 /** The `proxies` option, a whole number; 0 by default. */
