@@ -1062,6 +1062,36 @@ describe('follow', () => {
 		expect(state.sent).toEqual(['reset 1', 'reset 4', 'changes 5'])
 	})
 
+	it('drops rows and values too while the buffer is full, and waits once', async () => {
+		const seen = await viewer()
+		const state = fake()
+		let resent = 0
+		let send: (message: LiveMessage) => void = ignored
+		await follow(state.sink, seen, shape, async (_, taking) => {
+			send = taking
+			return {
+				grow: async () => undefined,
+				resend: async () => {
+					resent += 1
+				},
+				close: () => undefined,
+			}
+		})
+		send({ kind: 'value', revision: 1, value: 'a' })
+		state.full = true
+		for (let at = 2; at <= 4; at += 1) {
+			send({ kind: 'row', revision: at, row: null })
+			send({ kind: 'value', revision: at, value: 'b' })
+		}
+		expect(state.sent).toEqual(['data "a"'])
+		expect(state.drains).toHaveLength(1)
+		state.full = false
+		state.drains[0]?.()
+		expect(resent).toBe(1)
+		send({ kind: 'value', revision: 5, value: 'c' })
+		expect(state.sent).toEqual(['data "a"', 'data "c"'])
+	})
+
 	it('asks for the window once open when the buffer filled before', async () => {
 		const seen = await viewer()
 		const state = fake()

@@ -149,17 +149,19 @@ export async function liveStream(
 			ending = true
 			return push(closed(message.error))
 		}
-		if (dropping && message.kind === 'changes') return
-		if (!dropping && channel.full()) {
+		// Once full, every message is dropped until the client drains: one
+		// resend then brings it the current state.
+		if (dropping) return
+		if (channel.full()) {
 			queue.length = 0
 			dropping = true
 			channel.drained(() => {
+				dropping = false
 				if (handle === undefined) owed = true
 				else void handle.resend()
 			})
 			return
 		}
-		dropping = false
 		push(event(message))
 	}
 	const opened = await open(send)

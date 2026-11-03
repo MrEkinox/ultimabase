@@ -133,6 +133,12 @@ const changed = (revision: number): LiveMessage => ({
 	changes: [],
 })
 
+const valued = (revision: number): LiveMessage => ({
+	kind: 'value',
+	revision,
+	value: revision,
+})
+
 const eventOf = (message: LiveMessage) =>
 	new LiveEvent(message, (result) => result)
 const closedEvent = () => new LiveEvent('closed', (result) => result)
@@ -168,6 +174,31 @@ describe('a live stream', () => {
 		send(changed(6))
 		// What was queued is dropped too: the window it changed comes again.
 		expect(await rootsOf(stream)).toEqual([reset(4), changed(5), 'closed'])
+	})
+
+	it('drops rows and values too while the socket is full, and waits once', async () => {
+		const channel = fake(await viewer())
+		const read = handled()
+		const stream = await liveStream(
+			channel.channel,
+			read.open,
+			eventOf,
+			closedEvent,
+		)
+		const { send, resent } = read.opened()
+		send(valued(1))
+		channel.full = true
+		for (let revision = 2; revision <= 4; revision += 1) {
+			send({ kind: 'row', revision, row: null })
+			send(valued(revision))
+		}
+		expect(channel.drains).toHaveLength(1)
+		channel.full = false
+		for (const then of channel.drains) then()
+		expect(resent()).toBe(1)
+		send(valued(5))
+		send({ kind: 'closed' })
+		expect(await rootsOf(stream)).toEqual([valued(5), 'closed'])
 	})
 
 	it('asks for the window once opened when the socket drained before', async () => {

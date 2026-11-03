@@ -217,6 +217,20 @@ describe('the query string', () => {
 			refused('The query parameter where is not JSON.'),
 		)
 	})
+	it.each([
+		['{"__proto__":{"title":"one"}}', '__proto__'],
+		['{"AND":[{"__proto__":{"title":"one"}}]}', 'AND.0.__proto__'],
+		[
+			'{"createdAt":{"__proto__":{"gt":"2000-01-01T00:00:00Z"}}}',
+			'createdAt.__proto__',
+		],
+	])('refuses a __proto__ key in where %s', async (where, key) => {
+		const { url } = await serving()
+		const query = `?where=${encodeURIComponent(where)}`
+		expect(await call(url, 'GET', `/api/posts${query}`)).toEqual(
+			refused(`Unknown key 'where.${key}' on Post.`, `where.${key}`),
+		)
+	})
 })
 
 describe('a connection', () => {

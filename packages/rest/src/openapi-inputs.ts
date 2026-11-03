@@ -18,7 +18,7 @@ import {
 	refTo,
 } from './openapi.ts'
 
-type Scalar = Extract<SchemaField, { readonly kind: 'scalar' }>
+export type Scalar = Extract<SchemaField, { readonly kind: 'scalar' }>
 type Relation = Exclude<SchemaField, Scalar>
 
 /** What the document is built from: its components and REST's models. */
@@ -120,6 +120,13 @@ export function valueOf(
 	}
 	const { schema } = item(doc, entry.model.name, field, side)
 	return field.list ? arrayOf(schema) : schema
+}
+
+/** A scalar field's output, `null` when it is optional or a rule hides it. */
+export function scalarOf(doc: Doc, entry: Entry, field: Scalar): Schema {
+	const ruled = entry.exposed.readRules[field.name] === 'rule'
+	const value = valueOf(doc, entry, field, 'output')
+	return ruled || (field.optional && !field.list) ? orNull(value) : value
 }
 
 const base = ['equals', 'not', 'in', 'notIn']

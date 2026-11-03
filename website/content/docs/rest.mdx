@@ -148,7 +148,8 @@ says which it did:
 	../examples/rest/src/app.test.ts#upsert
 </include>
 
-`DELETE` answers the row as it was, its default fields only:
+`DELETE` answers the row as it was, as GraphQL's `DeletedPost`: `id`, the
+dates and its scalar fields, without its relations or its virtuals:
 
 <include cwd meta='title="src/app.test.ts"'>
 	../examples/rest/src/app.test.ts#delete

@@ -30,14 +30,17 @@ const isDate = (field: SchemaField | undefined, key: string): boolean =>
 /** A date field's filter: a value, or operators whose values are dates. */
 function dateFilter(value: unknown, path: string): unknown {
 	if (!isArgs(value)) return date(value, path)
-	const filter: { [operator: string]: unknown } = {}
+	const filter: [string, unknown][] = []
 	for (const [operator, operand] of Object.entries(value)) {
 		const at = `${path}.${operator}`
-		filter[operator] = Array.isArray(operand)
-			? operand.map((item: unknown, index) => date(item, `${at}.${index}`))
-			: date(operand, at)
+		filter.push([
+			operator,
+			Array.isArray(operand)
+				? operand.map((item: unknown, index) => date(item, `${at}.${index}`))
+				: date(operand, at),
+		])
 	}
-	return filter
+	return Object.fromEntries(filter)
 }
 
 const each = (
@@ -61,27 +64,31 @@ export function whereOf(
 	path: string,
 ): Args {
 	const fields = entryOf(api, model).model.fields
-	const read: { [key: string]: unknown } = {}
+	// Built from its entries: a `__proto__` key stays a key, which the kernel
+	// refuses, instead of a prototype that loses the filter.
+	const read: [string, unknown][] = []
 	for (const [key, value] of Object.entries(where)) {
 		const at = `${path}.${key}`
 		const field = fields.find((candidate) => candidate.name === key)
 		if (key === 'AND' || key === 'OR' || key === 'NOT') {
-			read[key] = each(value, at, (inner, to) => whereOf(api, model, inner, to))
-		} else if (isDate(field, key)) read[key] = dateFilter(value, at)
+			read.push([
+				key,
+				each(value, at, (inner, to) => whereOf(api, model, inner, to)),
+			])
+		} else if (isDate(field, key)) read.push([key, dateFilter(value, at)])
 		else if (field !== undefined && field.kind !== 'scalar' && isArgs(value)) {
 			// `is`, `some` and the others each take the target's filter.
 			const { target } = field
-			read[key] = Object.fromEntries(
-				Object.entries(value).map(([operator, inner]) => [
-					operator,
-					isArgs(inner)
-						? whereOf(api, target, inner, `${at}.${operator}`)
-						: inner,
-				]),
-			)
-		} else read[key] = value
+			const operators = Object.entries(value).map(([operator, inner]) => [
+				operator,
+				isArgs(inner)
+					? whereOf(api, target, inner, `${at}.${operator}`)
+					: inner,
+			])
+			read.push([key, Object.fromEntries(operators)])
+		} else read.push([key, value])
 	}
-	return read
+	return Object.fromEntries(read)
 }
 
 type Read = (item: Args, path: string) => Args
