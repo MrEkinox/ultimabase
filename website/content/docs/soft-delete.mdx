@@ -72,6 +72,11 @@ A delete still needs the model's `delete` rule, and its `beforeDelete` and
 `afterDelete` [hooks](/docs/next/hooks) run as for any delete. `trash` reads
 under the `read` rule and `restore` writes under the `update` rule.
 
+The date is an update, written as Master: a delete also runs the model's
+`beforeUpdate`, `afterUpdate` and `afterUpdateCommit` hooks, their `caller`
+Master's. A hook tells it from an edit by its `data.deletedAt`, a date for
+a delete and `null` for a `restore`.
+
 Only Master writes `deletedAt`, so a client deletes through the `delete`
 rule and never dates a row itself:
 
