@@ -64,14 +64,16 @@ type OwnerKey<Facts> = [Facts] extends [never]
 	? string
 	: Facts extends { readonly record: infer R }
 		? Keys<R, Ref>
-		: Facts extends { readonly where: unknown }
+		: Facts extends { readonly operation: 'read' }
 			? 'a read rule has no record to own'
 			: Facts extends { readonly value: infer V }
 				? Connects<V>
 				: string
 
 /** The facts it needs; a read rule's are refused on the name alone. */
-type Owned<Facts, K extends string> = Facts extends { readonly where: unknown }
+type Owned<Facts, K extends string> = Facts extends {
+	readonly operation: 'read'
+}
 	? Facts
 	: Facts extends { readonly record: unknown }
 		? Facts & { readonly record: { readonly [P in K]: Ref } }

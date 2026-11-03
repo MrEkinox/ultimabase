@@ -99,16 +99,23 @@ model stands for the caller: `members: { some: { viewer: true } }`.
 
 ## Rights over a group's rows
 
-A write rule receives the row, with its own `one` relations as `{ id }`, but
-cannot read further: `Project.update` above checks `record.owner`, yet a
-task's rule cannot tell who owns its project. Two hooks keep a task's writes
-to its project's owner, as in the model above:
+A write rule receives the row, with its own `one` relations as `{ id }`:
+`Project.update` above checks `record.owner`. To go further, a model's
+`create`, `update`, `delete` or `write` rule returns `where(...)`, as a read
+rule does. `Task.write` above keeps a task's writes to its project's owner:
 
-- `beforeFind` adds the owner to the filter when `operation` is `'update'`
-  or `'delete'`: another member's write finds no row, `NOT_FOUND`, as a
-  read rule's would.
-- `beforeCreate` reads the project as Master, and throws `ACCESS_DENIED`
-  when the caller does not own it.
+- an update's row matches the filter before the write and after it, so no
+  task moves to another owner's project;
+- a delete's row matches it before;
+- a create's row matches it after, with the relations it connects or
+  creates.
+
+A row outside the filter refuses the whole write, an `updateMany` or a
+`deleteMany` included, and nothing is written. The error is the one `where`
+takes as its second argument, a `PublicError`, or `ACCESS_DENIED` without
+one. The filter goes through the same relations as a read rule's and is
+checked in the write's own statement, or by one count per filter in its
+transaction.
 
 <include cwd meta='title="src/projects.test.ts"'>
 	../examples/access-rules/src/projects.test.ts#group-write
@@ -198,19 +205,19 @@ User } }` types `caller.user` as the user model's row: see
 
 ### Rules
 
-| Rule              | Effect                                                           |
-| ----------------- | ---------------------------------------------------------------- |
-| `allow.public`    | Everyone.                                                        |
-| `allow.readOnly`  | Everyone reads; nobody but Master writes.                        |
-| `allow.private`   | Nobody but Master.                                               |
-| `anyOf(...rules)` | True when one rule is; in a read rule, the filters with `OR`.    |
-| `allOf(...rules)` | True when every rule is; in a read rule, the filters with `AND`. |
+| Rule              | Effect                                                                           |
+| ----------------- | -------------------------------------------------------------------------------- |
+| `allow.public`    | Everyone.                                                                        |
+| `allow.readOnly`  | Everyone reads; nobody but Master writes.                                        |
+| `allow.private`   | Nobody but Master.                                                               |
+| `anyOf(...rules)` | True when one rule is; the filters joined with `OR`, refused as `ACCESS_DENIED`. |
+| `allOf(...rules)` | True when every rule is; each filter checked alone, with its own error.          |
 
 ### Errors
 
 | Code            | When                                                                                                                                   | `details`                            |
 | --------------- | -------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------ |
-| `ACCESS_DENIED` | A write rule refused: `Article create refused.`                                                                                        | `{ model, operation, field?, via? }` |
+| `ACCESS_DENIED` | A write rule refused, or a row outside its filter given no error: `Article create refused.`                                            | `{ model, operation, field?, via? }` |
 | `NOT_FOUND`     | An update or a delete of a row the read rule hides.                                                                                    | none                                 |
 | `INVALID_QUERY` | A filter, a sort or an aggregate on a field with a read rule: `where.notes: Article.notes has a read rule; only Master filters on it.` | none                                 |
 
@@ -221,9 +228,10 @@ A client's filter refused as `INVALID_QUERY` answers `BAD_USER_INPUT`, a
 ### Limits
 
 - A rule returns its result directly, never a `Promise`, and cannot query.
-- A model read rule returns `true`, `false` or `where(...)`; any other value
-  throws `A read rule returns a boolean or a read filter.` A write or field
-  rule returns a boolean.
+- A model rule returns `true`, `false` or `where(...)`; any other value
+  throws `A read rule returns a boolean or a filter.` or `A write rule returns
+a boolean or a filter.` A field rule returns a boolean:
+  `A field rule returns a boolean.`
 - A field read rule cannot return a filter.
 - A virtual a field read rule hides, and the `_count` of a hidden relation,
   are typed as present.

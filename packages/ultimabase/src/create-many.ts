@@ -16,6 +16,8 @@ import type { Draft } from './write-data.ts'
 import { prepared, readData } from './write-data.ts'
 import { Plan } from './write-plan.ts'
 import { guarded } from './write-target.ts'
+import { uuidv7 } from './uuid.ts'
+import { rowChecks } from './write-filter.ts'
 import { writingOf } from './writing.ts'
 import { returned } from './writes.ts'
 
@@ -58,9 +60,16 @@ async function created(
 	const drafts = Array.isArray(data)
 		? data.map((row: unknown, index) => rowData(context, row, `data.${index}`))
 		: [rowData(context, data, 'data')]
-	const sent: readonly Readonly<Draft>[] = drafts.map((draft) => ({ ...draft }))
+	// The data as sent, before its hooks ran, and the id each row takes.
+	const made = drafts.map((draft) => ({
+		draft,
+		sent: { ...draft },
+		id: uuidv7(),
+	}))
 	// One row refused, none written (D-111).
-	for (const each of sent) scope.access?.allow(model, 'create', { data: each })
+	for (const { sent, id } of made) {
+		scope.access?.allow(model, 'create', { data: sent, id })
+	}
 	if (drafts.length === 0) return []
 	for (const draft of drafts) {
 		await prepared(model, draft, caller, true)
@@ -72,13 +81,15 @@ async function created(
 	const ids: string[] = []
 	const plans: Plan[] = []
 	const connects = new Plan()
-	for (const [index, draft] of drafts.entries()) {
+	for (const row of made) {
+		const { draft, sent } = row
 		const { id, plan } = await createPlan(
 			scope,
 			model,
 			draft,
-			sent[index] ?? {},
+			sent,
 			store,
+			row.id,
 		)
 		ids.push(id)
 		events.push({ model, operation: 'create', id }, ...plan.events)
@@ -91,14 +102,19 @@ async function created(
 	const read = at && { model: model.name, ...at.read, where: byIds(ids) }
 	// An `after*` hook may change the rows: they are read once it ran (D-88).
 	const again = rereads(events)
+	const ruled = rowChecks(scope.access)
+	writing.checks.push(...ruled.before)
 	const write = {
 		checks: writing.checks.map(({ check }) => check),
 		changes,
 		...(read && !again && { read }),
 	}
-	// Nothing follows a write without hooks: it may need no transaction.
-	const run = settles(events) ? store.write(write) : store.last(write)
+	// Nothing follows a write without hooks or checks after it: it may need
+	// no transaction.
+	const alone = !settles(events) && !ruled.after
+	const run = alone ? store.last(write) : store.write(write)
 	const rows = await guarded(run, writing.checks)
+	await ruled.verify(store)
 	await settle(store, caller, events, commits)
 	if (at === undefined || read === undefined) return ids
 	const found = new Map(

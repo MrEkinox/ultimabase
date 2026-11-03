@@ -9,6 +9,7 @@ import { filtered, given } from './query-context.ts'
 import { byIds } from './query-where.ts'
 import type { Commit, Store } from './transaction.ts'
 import { checkedWrite, guarded } from './write-target.ts'
+import { rowChecks } from './write-filter.ts'
 import { cascaded, writingOf } from './writing.ts'
 
 export async function removeMany(
@@ -62,11 +63,15 @@ export async function deleted(
 	rows: readonly Row[],
 ): Promise<void> {
 	const { models, model, caller, scope } = context
+	const ruled = rowChecks(scope.access)
 	const locked = cascadeWhere(models, model, byIds(rows.map(({ id }) => id)))
 	if (locked !== undefined) {
-		await checkedWrite(store, locked.checks, locked.changes)
+		const checks = [...locked.checks, ...ruled.before]
+		await checkedWrite(store, checks, locked.changes)
 		return
 	}
+	// Before the hooks and redirects, which may write no statement.
+	await ruled.verify(store, 'before')
 	const events: Event[] = []
 	const writing = writingOf(scope, store, events)
 	const cascade = await cascadeOf(models, model, rows, store)
