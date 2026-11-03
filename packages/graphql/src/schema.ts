@@ -1,6 +1,6 @@
 // The schema (D-107): for each visible model, `post(where)` and `posts(...)`,
 // each read in one kernel query as its caller, and its mutations.
-import { connection, rowsOf, run } from '@ultimabase/http/internal'
+import { connection, countedPage, rowsOf, run } from '@ultimabase/http/internal'
 import type { GraphQLFieldConfig, GraphQLNamedType } from 'graphql'
 import {
 	GraphQLList,
@@ -13,7 +13,7 @@ import { connectionType, isMaster, listArgs, objectType } from './outputs.ts'
 import { listRead, whereOf } from './pages.ts'
 import type { Args, Context, Entry, Registry } from './registry.ts'
 import { as } from './registry.ts'
-import { rowNodes, selectOf } from './select.ts'
+import { countsOnly, rowNodes, selectOf } from './select.ts'
 import { mutationFields } from './mutations.ts'
 import type { RootField } from './functions.ts'
 import { Refused } from 'ultimabase'
@@ -52,6 +52,13 @@ function rootFields(registry: Registry, entry: Entry): Fields {
 			resolve: async (_, args, context, info) => {
 				const master = isMaster(context)
 				const { read, page } = listRead(registry, entry, args, master)
+				const counting = () =>
+					run(() => queries.count(whereOf(registry, name, args), as(context)))
+				// A count alone reads no row (D-226).
+				if (page && countsOnly(info, info.fieldNodes, { read, relay: page })) {
+					const count = await counting()
+					return { ...countedPage(page, count), totalCount: count }
+				}
 				const select = selectOf(
 					registry,
 					info,
@@ -69,9 +76,7 @@ function rootFields(registry: Registry, entry: Entry): Fields {
 					// Called by the default resolver, so counted only when selected,
 					// and once however many aliases ask.
 					totalCount: async () => {
-						counted ??= run(() =>
-							queries.count(whereOf(registry, name, args), as(context)),
-						)
+						counted ??= counting()
 						return counted
 					},
 				}

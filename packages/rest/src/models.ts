@@ -3,7 +3,14 @@
 // caller, answered with the JSON the matching GraphQL field returns.
 import type { Routes, StandardSchema } from '@ultimabase/http'
 import { validate } from '@ultimabase/http'
-import { badInput, connection, pageArgs, run } from '@ultimabase/http/internal'
+import {
+	badInput,
+	connection,
+	countedPage,
+	pageArgs,
+	readsNoRow,
+	run,
+} from '@ultimabase/http/internal'
 import type { Caller, Row } from 'ultimabase'
 import { InvalidQuery, PublicError } from 'ultimabase'
 import type { Api, Args, Entry } from './entries.ts'
@@ -61,13 +68,20 @@ async function list(
 	const size = totalCount === true ? Math.max(read.size, entry.take) : read.size
 	bounded(api, caller, read.shape, size)
 	const { queries } = entry.exposed
+	const { relay } = read
+	const counting = () =>
+		queries.count(filterOf(api, entry, args['where'], 'where'), { as: caller })
+	// A count alone reads no row (D-226).
+	if (totalCount === true && relay !== undefined && readsNoRow(read)) {
+		const count = await counting()
+		return { ...countedPage(relay, count), totalCount: count }
+	}
 	const rows = await queries.findMany(read.read, { as: caller })
 	const node = (row: Row) => shaped(row, read.shape)
-	if (read.relay === undefined) return rows.map(node)
-	const page = connection(rows, read.relay, node)
+	if (relay === undefined) return rows.map(node)
+	const page = connection(rows, relay, node)
 	if (totalCount !== true) return page
-	const where = filterOf(api, entry, args['where'], 'where')
-	return { ...page, totalCount: await queries.count(where, { as: caller }) }
+	return { ...page, totalCount: await counting() }
 }
 
 const notFound = (entry: Entry): Error =>

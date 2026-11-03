@@ -242,7 +242,7 @@ describe('a list', () => {
 		)
 		expect(titles(found)).toStrictEqual(['four', 'two'])
 		const unranked = await ask(
-			`{ posts(orderBy: [{ _relevance: desc }]) { totalCount } }`,
+			`{ posts(orderBy: [{ _relevance: desc }]) { edges { cursor } } }`,
 		)
 		expect(unranked.errors?.[0]?.message).toContain(
 			"sorts by the _search at the top of the read's where",

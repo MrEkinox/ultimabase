@@ -14,7 +14,14 @@ import type {
 } from '@ultimabase/realtime'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { z } from 'zod'
-import type { Caller, Identity, Logger, PluginTypes } from 'ultimabase'
+import type {
+	Adapter,
+	Caller,
+	Identity,
+	Logger,
+	PluginTypes,
+	Read,
+} from 'ultimabase'
 import {
 	PublicError,
 	allow,
@@ -154,12 +161,13 @@ type Options = {
 	readonly rest?: RestOptions
 	/** `false` leaves realtime out, and the live model with it. */
 	readonly realtime?: RealtimeOptions | false
+	readonly database?: Adapter
 }
 
 /** Starts the application; returns its API's URL. */
 async function started(options: Options = {}): Promise<string> {
 	const app = defineApp({
-		database: memory(),
+		database: options.database ?? memory(),
 		plugins: [
 			httpPlugin({ port: 0 }),
 			...(options.realtime === false ? [] : [realtimePlugin(options.realtime)]),
@@ -356,6 +364,48 @@ describe('a live list', () => {
 					{ upsert: { cursor, node: { id: a, title: 'A' } }, after: zed.id },
 				],
 			},
+		})
+	})
+
+	it('follows a count alone, first 0, with no row (D-226)', async () => {
+		const reads: Read[] = []
+		const database = memory()
+		const find = database.find.bind(database)
+		database.find = async (read) => {
+			reads.push(read)
+			return find(read)
+		}
+		const api = await started({ database })
+		await seeded()
+		reads.length = 0
+		const stream = await streaming(
+			`${api}/tasks${qs({ first: 0, totalCount: true })}`,
+		)
+		const empty = { startCursor: null, endCursor: null }
+		const first = await stream.next()
+		expect(first).toEqual({
+			event: 'data',
+			id: revision,
+			data: {
+				edges: [],
+				pageInfo: { hasNextPage: true, hasPreviousPage: false, ...empty },
+				totalCount: 3,
+			},
+		})
+		const tasks = reads.filter((read) => read.model === 'Task')
+		// The window reads the sort keys of 2 rows, and no node; a seeded row
+		// whose change comes in late is read by its id.
+		const windows = tasks.filter(({ take }) => take !== undefined)
+		expect(new Set(windows.map(({ take }) => take))).toStrictEqual(new Set([2]))
+		const byId = tasks.filter(({ take }) => take === undefined)
+		expect(
+			byId.filter(({ where }) => where?.['id'] === undefined),
+		).toStrictEqual([])
+		await Task.create({ data: { title: 'z', rank: 0, owner: 'ada' } }, M)
+		expect(await stream.next()).toEqual({
+			event: 'live',
+			id: revision,
+			data: { revision, changes: [], totalCount: 4 },
 		})
 	})
 

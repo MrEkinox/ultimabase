@@ -297,6 +297,11 @@ model or the function is served with the defaults.
 relation, in connection mode. A query function takes its input's keys
 instead.
 
+`first=0` (or `last=0`) with `totalCount=true` and no cursor counts the rows
+and reads none, at the root, in an `include` and in a function's page:
+`edges` is `[]`, both cursors are null, and `hasNextPage` (or
+`hasPreviousPage`) says whether the count is above 0.
+
 ### Types
 
 A field reads as in GraphQL's JSON: `f.dateTime()` is ISO 8601 text, as

@@ -163,6 +163,24 @@ export function connection<N>(
 	}
 }
 
+/** Whether a counted page reads no row: `first` or `last` 0, no cursor (D-226). */
+export const readsNoRow = (page: Page): boolean =>
+	page.relay?.size === 0 && page.read['cursor'] === undefined
+
+/** A page read as its count alone, which tells whether rows follow (D-226). */
+export function countedPage(page: Relay, count: number): Connection<never> {
+	const more = count > 0
+	return {
+		edges: [],
+		pageInfo: {
+			hasNextPage: more && !page.backward,
+			hasPreviousPage: more && page.backward,
+			startCursor: null,
+			endCursor: null,
+		},
+	}
+}
+
 /** A row's relation as the kernel returned it. */
 export function rowsOf(value: unknown): readonly Row[] {
 	return Array.isArray(value) ? value.filter(isRow) : []

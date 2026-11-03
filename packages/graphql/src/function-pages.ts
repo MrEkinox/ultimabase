@@ -3,6 +3,7 @@
 // caller, its count only when selected.
 import {
 	connection,
+	countedPage,
 	pageArgs,
 	pageOf,
 	rowsOf,
@@ -15,7 +16,7 @@ import { pageSource } from 'ultimabase/internal'
 import { connectionType, isMaster, objectType } from './outputs.ts'
 import type { Args, Context, Registry } from './registry.ts'
 import { reread } from './reread.ts'
-import { rowNodes } from './select.ts'
+import { countsOnly, rowNodes } from './select.ts'
 
 /** A page's type: the model's connection, or a list of its rows. */
 export function pageType(registry: Registry, model: string): GraphQLOutputType {
@@ -64,7 +65,13 @@ export async function readPage(
 	const source = pageSource(value, model)
 	const entry = registry.entry(model)
 	const { pagination } = registry.settings
-	const { read, relay } = pageOf(pagination, entry, args, isMaster(context))
+	const page = pageOf(pagination, entry, args, isMaster(context))
+	const { read, relay } = page
+	// A count alone reads no row (D-226).
+	if (relay !== undefined && countsOnly(info, info.fieldNodes, page)) {
+		const count = await run(async () => source.count())
+		return { ...countedPage(relay, count), totalCount: count }
+	}
 	const found = rowsOf(await run(async () => source.findMany(read)))
 	const output = { kind: 'model', name: model, form: 'list' } as const
 	// The row budget counted the page's rows before it ran.

@@ -9391,7 +9391,7 @@ api: ({ plugins }) => plugins.http.mount(uploads, { bodyLimit: false })
 
 ## D-154: Realtime: live lists and live rows
 
-Amended by D-163, D-166, D-178, D-186, D-187, D-195, D-196 and D-223.
+Amended by D-163, D-166, D-178, D-186, D-187, D-195, D-196, D-223 and D-226.
 
 Choice: completes D-25; amends D-106 (WebSocket upgrades), D-107 (the
 `Subscription` type), D-109 (live functions) and D-129 (live reads over
@@ -15023,6 +15023,82 @@ Rejected:
   client, and change with the library.
 - `PASSWORD_TOO_SHORT` and `PASSWORD_TOO_LONG`: a client knows the bounds,
   and the length of what it sent.
+
+## D-226: A count alone reads no row
+
+Choice: completes D-134 point 5 and 6; amends D-154 point 3.
+
+1. A connection that asks for its `totalCount` and no row reads no row:
+   the count is its only read, at the root, in a relation and in a
+   function's page (D-182), over HTTP and live.
+2. GraphQL reads it from the selection: a connection whose selection has
+   neither `edges` nor `pageInfo` asks for no row, whatever its `first`.
+   `first: 0` or `last: 0`, with no cursor, asks for none either, so its
+   `pageInfo` comes from the count.
+3. REST has no selection of a connection's fields, so it asks with
+   `first: 0` (or `last: 0`), no cursor, and `totalCount: true`, at the
+   root, in an `include` and in a function's page. GraphQL takes the same
+   arguments with the same meaning (D-129).
+4. Without a row, `hasNextPage` (forward) or `hasPreviousPage` (backward)
+   is `totalCount > 0`, the cursors `null` and `edges` empty: what a read
+   of one row more said. With a cursor, `first: 0` still reads that one
+   row: the count holds the whole `where`, not what follows the cursor.
+5. A live list takes `first: 0` (D-154 point 3 said a positive integer),
+   and GraphQL follows a live connection that selects neither `edges` nor
+   `pageInfo` with a window of none. The window still reads the sort keys
+   of the row past it and of one more, to tell whether rows follow and to
+   place a change, never a node. `fetchMore` grows it by 1 row at least.
+6. The row budget is unchanged: a `totalCount` counts as `take` rows at
+   least (D-134 point 7), since the count reads what it counts.
+
+Why:
+
+- A list that shows "12 comments" under each post read a full page of
+  comments per post, 101 rows by default, to drop them all.
+- A live counter, the members online in a room, needed a window of rows
+  it never showed, which also counted against `maxLive`.
+
+Rejected:
+
+- A REST grammar to leave `edges` out (`include={"posts":{"edges":false}}`):
+  a second way to say what `first: 0` says, and GraphQL has no such
+  argument.
+- Deriving `hasNextPage` from the count after a cursor, which would need a
+  second count of the rows after it.
+- A live window of no row at all, which would need the realtime window to
+  place changes without the row past it: a rewrite for two keys read.
+
+Example:
+
+```graphql
+# Before: 101 comments read per post, then dropped. After: one count each
+posts(first: 20) {
+	edges {
+		node {
+			title
+			comments {
+				totalCount
+			}
+		}
+	}
+}
+
+# Before: refused, "first must be a positive integer.". After: a live count
+subscription {
+	members(where: { online: true }) {
+		totalCount
+	}
+}
+```
+
+```
+# Before: one comment read per post. After: none
+GET /api/posts?first=20&include={"comments":{"first":0,"totalCount":true}}
+
+# Before: refused. After: a live count, as server-sent events
+GET /api/members?first=0&totalCount=true&where={"online":true}
+Accept: text/event-stream
+```
 
 ## D-227: No empty GraphQL input, and an invalid schema refuses the start
 

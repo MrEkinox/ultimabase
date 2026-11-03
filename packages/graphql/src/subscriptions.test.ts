@@ -13,7 +13,14 @@ import { createClient } from 'graphql-ws'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { WebSocket } from 'ws'
 import { z } from 'zod'
-import type { Caller, Identity, Logger, PluginTypes } from 'ultimabase'
+import type {
+	Adapter,
+	Caller,
+	Identity,
+	Logger,
+	PluginTypes,
+	Read,
+} from 'ultimabase'
 import {
 	PublicError,
 	allow,
@@ -189,6 +196,7 @@ type Options = {
 	readonly realtime?: RealtimeOptions | false
 	readonly models?: readonly (typeof Task | typeof Note)[]
 	readonly upgrade?: Gate
+	readonly database?: Adapter
 }
 
 let schema: GraphQLSchema | undefined
@@ -211,7 +219,7 @@ async function started(options: Options = {}): Promise<string> {
 		sessions.plugin(),
 	]
 	const app = defineApp({
-		database: memory(),
+		database: options.database ?? memory(),
 		plugins,
 		models: options.models ?? [Task, Note],
 		functions:
@@ -317,6 +325,37 @@ const tasks = `subscription { tasks(first: 2, orderBy: [{ rank: asc }]) {
 } }`
 
 describe('a live list', () => {
+	it('follows a count alone with no row (D-226)', async () => {
+		const reads: Read[] = []
+		const database = memory()
+		const find = database.find.bind(database)
+		database.find = async (read) => {
+			reads.push(read)
+			return find(read)
+		}
+		const url = await started({ database })
+		await seeded()
+		reads.length = 0
+		const results = subscribed(url, 'subscription { tasks { totalCount } }')
+		expect(await next(results)).toEqual({
+			data: { tasks: { totalCount: 3 } },
+			extensions: { live: { revision, resume: token } },
+		})
+		const read = reads.filter((each) => each.model === 'Task')
+		// The window reads the sort keys of 2 rows, and no node; a seeded row
+		// whose change comes in late is read by its id.
+		const windows = read.filter(({ take }) => take !== undefined)
+		expect(new Set(windows.map(({ take }) => take))).toStrictEqual(new Set([2]))
+		const byId = read.filter(({ take }) => take === undefined)
+		expect(
+			byId.filter(({ where }) => where?.['id'] === undefined),
+		).toStrictEqual([])
+		await Task.create({ data: { title: 'z', rank: 0, owner: 'ada' } }, M)
+		expect(await next(results)).toEqual({
+			extensions: { live: { revision, totalCount: 4 } },
+		})
+	})
+
 	it('sends its window, then only what changed', async () => {
 		const url = await started()
 		const [a = '', b = '', c = ''] = await seeded()
@@ -417,7 +456,7 @@ describe('a live list', () => {
 		const results = opening(url, undefined, {
 			'x-ultimabase-master-key': 'secret',
 		}).ws.iterate({
-			query: 'subscription { tasks(first: 4) { totalCount } }',
+			query: 'subscription { tasks(first: 4) { edges { cursor } } }',
 			extensions: { live: { mode: 'page' } },
 		})
 		expect(await next(results)).toEqual({
@@ -448,7 +487,7 @@ describe('a live list', () => {
 		await results.return?.()
 		const over = subscribed(
 			url,
-			'subscription { tasks(first: 1001) { totalCount } }',
+			'subscription { tasks(first: 1001) { edges { cursor } } }',
 		)
 		expect(await next(over)).toEqual({
 			errors: [

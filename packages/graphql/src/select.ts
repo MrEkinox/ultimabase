@@ -1,6 +1,7 @@
 // A query's selection as one kernel read (D-107): the fields asked for, and
 // each `many` relation's own page and count, read with its parent's rows.
-import { readable } from '@ultimabase/http/internal'
+import type { Page } from '@ultimabase/http/internal'
+import { readable, readsNoRow } from '@ultimabase/http/internal'
 import type {
 	FieldNode,
 	GraphQLObjectType,
@@ -136,6 +137,20 @@ function virtualRead(
 	return { ...input, select: selectOf(registry, info, target, nodes, master) }
 }
 
+/**
+ * Whether a connection asks for its `totalCount` and no row: no `edges` nor
+ * `pageInfo`, or `first: 0` with no cursor (D-226).
+ */
+export function countsOnly(
+	info: Info,
+	nodes: readonly Selecting[],
+	page: Page,
+): boolean {
+	const asked = grouped(info, nodes)
+	if (page.relay === undefined || !asked.has('totalCount')) return false
+	return (!asked.has('edges') && !asked.has('pageInfo')) || readsNoRow(page)
+}
+
 /** The kernel's `select` for what a query asks of a model's rows. */
 export function selectOf(
 	registry: Registry,
@@ -188,16 +203,17 @@ export function selectOf(
 			continue
 		}
 		const args = argsOf(type, name, fieldNodes, info)
-		const { read } = listRead(registry, target, args, master)
+		const { read, page } = listRead(registry, target, args, master)
 		const list = registry.settings.pagination === 'list'
 		const below = list ? fieldNodes : nodesOf(info, fieldNodes)
-		select[name] = {
-			...read,
-			select: selectOf(registry, info, targetObject, below, master),
-		}
 		if (!list && grouped(info, fieldNodes).has('totalCount')) {
 			counts[name] =
 				read['where'] === undefined ? true : { where: read['where'] }
+		}
+		if (countsOnly(info, fieldNodes, { read, relay: page })) continue
+		select[name] = {
+			...read,
+			select: selectOf(registry, info, targetObject, below, master),
 		}
 	}
 	if (Object.keys(counts).length > 0) select['_count'] = { select: counts }
