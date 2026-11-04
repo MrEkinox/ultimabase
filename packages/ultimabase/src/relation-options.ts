@@ -1,4 +1,4 @@
-// A relation's options (D-37, D-54, D-151, D-220).
+// A relation's options (D-37, D-54, D-151, D-220, D-237).
 import type { Described } from './described.ts'
 import type { DefaultFunction } from './fields.ts'
 
@@ -9,6 +9,11 @@ export type OneOptions = Described & {
 	readonly default?:
 		{ readonly id: string } | DefaultFunction<{ readonly id: string }>
 	readonly onDelete?: 'cascade' | 'restrict' | 'setNull'
+	/**
+	 * The target's `one` on the other side of a one-to-one; this side then
+	 * stores no key. Without it, this side stores the key, and its target has
+	 * no field back unless one of the target's relations names it (D-237).
+	 */
 	readonly inverse?: string
 	readonly dbName?: string
 	/**
@@ -32,7 +37,11 @@ export type OneCheck<O> = O extends { readonly optional: true }
 
 export type ManyOptions = Described &
 	(
-		| { readonly inverse?: string; readonly from?: undefined }
+		| {
+				/** The target's relation on the other side (D-237). */
+				readonly inverse: string
+				readonly from?: undefined
+		  }
 		| {
 				/**
 				 * A view: read-only, on the link of this other `many` of the

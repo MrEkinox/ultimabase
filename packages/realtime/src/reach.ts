@@ -11,7 +11,8 @@ export type Step = {
 	readonly relation: string
 	readonly many: boolean
 	readonly target: string
-	readonly inverse: string
+	/** The target's side, absent when none (D-237). */
+	readonly inverse?: string
 	/** The target stores the key: a link changes there, out of sight. */
 	readonly keyOnTarget: boolean
 }
@@ -74,6 +75,10 @@ export function modelsOf(schema: Schema): Models {
 	return models
 }
 
+/** The target's field facing a step, none for a `one` without one (D-237). */
+export const facingOf = (step: Step): string[] =>
+	step.inverse === undefined ? [] : [step.inverse]
+
 /** The relation `name` of `model`, if it is one. */
 export function stepOf(
 	models: Models,
@@ -82,12 +87,14 @@ export function stepOf(
 ): Step | undefined {
 	const field = models.get(model)?.get(name)
 	if (field === undefined || field.kind === 'scalar') return undefined
-	const back = models.get(field.target)?.get(field.inverse)
+	const { inverse } = field
+	const back =
+		inverse === undefined ? undefined : models.get(field.target)?.get(inverse)
 	return {
 		relation: name,
 		many: field.kind === 'many',
 		target: field.target,
-		inverse: field.inverse,
+		...(inverse === undefined ? {} : { inverse }),
 		keyOnTarget: back?.kind === 'one' && back.stored,
 	}
 }
@@ -121,7 +128,7 @@ export function walk(
 ): Fields {
 	const fields = new Set<string>()
 	const back = steps.at(-1)
-	if (back !== undefined) fields.add(back.inverse)
+	for (const name of back ? facingOf(back) : []) fields.add(name)
 	let all = false
 	const visit = (part: Filter | undefined, under: boolean): void => {
 		for (const [key, value] of Object.entries(part ?? {})) {
@@ -220,7 +227,7 @@ function walkShown(
 			inner.orderBy,
 			deep,
 		)
-		const fields = union(showing(inner, [step.inverse]), filtered)
+		const fields = union(showing(inner, facingOf(step)), filtered)
 		shown.push({
 			path: named(name),
 			steps,
@@ -245,7 +252,7 @@ function walkShown(
 			path: named(`_count.${name}`),
 			steps: [...at.steps, step],
 			model: step.target,
-			fields: union(new Set([step.inverse]), filtered),
+			fields: union(new Set(facingOf(step)), filtered),
 			counted: true,
 		})
 	}

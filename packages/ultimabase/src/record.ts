@@ -62,77 +62,58 @@ type TargetName<T> = T extends () => infer M
 	: never
 
 /**
- * Whether field `J` of target `T` may face field `K` of model `N`, as startup
- * resolves it (D-37).
+ * Whether field `J` of target `T` names field `K` of model `N` with its
+ * `inverse` (D-237).
  */
-type Facing<N, K, T, J> =
+type Names<N, K, T, J> =
 	TargetFields<T>[J & keyof TargetFields<T>] extends Relation<
 		'one' | 'many',
 		infer B,
 		infer O
 	>
 		? O extends { readonly inverse: infer I extends string }
-			? [I] extends [K]
+			? [I, TargetName<B>] extends [K, N]
 				? true
 				: false
-			: [J, TargetName<T>] extends [K, N]
-				? false
-				: [TargetName<B>] extends [N]
-					? true
-					: false
+			: false
 		: false
 
 /**
- * The field of relation `X`'s target that faces it, named `K` on model `N`:
- * the rows it creates leave it out (D-128).
+ * The field of relation `X`'s target on its other side, named `K` on model
+ * `N`: the one it names, or the one naming it; the rows it creates leave it
+ * out (D-128, D-237).
  */
 type InverseOf<N, K, X> =
 	X extends Relation<'one' | 'many', infer T, infer O>
 		? O extends { readonly inverse: infer I extends string }
 			? I
 			: {
-					[J in keyof TargetFields<T>]: Facing<N, K, T, J> extends true
+					[J in keyof TargetFields<T>]: Names<N, K, T, J> extends true
 						? J
 						: never
 				}[keyof TargetFields<T>]
 		: never
 
 /**
- * Whether relation `X`, named `K` on model `N`, faces a `one`: the two
- * sides of a one-to-one, of which the required one stores the key (D-37).
+ * A `one` relation the row stores: one that names no other side. The side
+ * of a one-to-one that names the other has no column (D-237).
  */
-type FacesOne<N, K, X> =
-	X extends Relation<'one', infer T>
-		? [InverseOf<N, K, X>] extends [never]
-			? false
-			: TargetFields<T>[InverseOf<N, K, X> &
-						keyof TargetFields<T>] extends Relation<'one'>
-				? true
-				: false
-		: false
-
-/**
- * A `one` relation the row stores: a required one, or an optional one facing
- * a `many`. The optional side of a one-to-one has no column (D-37).
- */
-type Stored<N, K, X> =
+type Stored<X> =
 	X extends Relation<'one', unknown, infer O>
-		? IsOptional<O> extends true
-			? FacesOne<N, K, X> extends true
-				? false
-				: true
+		? O extends { readonly inverse: string }
+			? false
 			: true
 		: false
 
 /**
- * The stored row of model `N` that access rules and hooks receive (D-77):
+ * The stored row that access rules and hooks receive (D-77):
  * the record plus the key of each `one` relation the row stores, with no
  * query.
  */
-export type StoredRecord<F, N extends string> = RecordOf<F> & {
-	readonly [
-		K in keyof F as Stored<N, K, F[K]> extends true ? K : never
-	]: StoredRef<F[K]>
+export type StoredRecord<F> = RecordOf<F> & {
+	readonly [K in keyof F as Stored<F[K]> extends true ? K : never]: StoredRef<
+		F[K]
+	>
 }
 
 type Loose = { readonly id: string; readonly [field: string]: unknown }

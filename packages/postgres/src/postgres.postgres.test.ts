@@ -277,8 +277,8 @@ describe('postgres()', () => {
 		const Folder = defineModel({
 			name: 'Folder',
 			fields: (f) => ({
-				parent: f.one(() => Folder, { optional: true, inverse: 'children' }),
-				children: f.many(() => Folder),
+				parent: f.one(() => Folder, { optional: true }),
+				children: f.many(() => Folder, { inverse: 'parent' }),
 			}),
 		})
 		// With JIT on, these settings would compile every statement.
@@ -825,11 +825,11 @@ for (const url of urls) {
 
 const Genre = defineModel({
 	name: 'Genre',
-	fields: (f) => ({ songs: f.many(() => Song) }),
+	fields: (f) => ({ songs: f.many(() => Song, { inverse: 'genre' }) }),
 })
 const Song = defineModel({
 	name: 'Song',
-	fields: (f) => ({ genre: f.one(() => Genre, { inverse: 'songs' }) }),
+	fields: (f) => ({ genre: f.one(() => Genre) }),
 })
 
 describe('a transaction whose connection the server ends', () => {

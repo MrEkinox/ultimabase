@@ -3,7 +3,10 @@ import { defineModel } from 'ultimabase'
 
 export const Author = defineModel({
 	name: 'Author',
-	fields: (f) => ({ name: f.string(), posts: f.many(() => Post) }),
+	fields: (f) => ({
+		name: f.string(),
+		posts: f.many(() => Post, { inverse: 'author' }),
+	}),
 })
 
 export const Post = defineModel({

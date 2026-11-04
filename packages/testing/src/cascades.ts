@@ -13,10 +13,10 @@ const Shop = defineModel({
 	name: 'Shop',
 	fields: (f) => ({
 		name: f.string({ unique: true }),
-		aisles: f.many(() => Aisle),
-		items: f.many(() => Item),
-		clerks: f.many(() => Clerk),
-		orders: f.many(() => Order),
+		aisles: f.many(() => Aisle, { inverse: 'shop' }),
+		items: f.many(() => Item, { inverse: 'shop' }),
+		clerks: f.many(() => Clerk, { inverse: 'shop' }),
+		orders: f.many(() => Order, { inverse: 'shop' }),
 	}),
 }).with({ access: { read: open, delete: open } })
 
@@ -25,7 +25,7 @@ const Aisle = defineModel({
 	fields: (f) => ({
 		label: f.string(),
 		shop: f.one(() => Shop, { onDelete: 'cascade' }),
-		items: f.many(() => Item),
+		items: f.many(() => Item, { inverse: 'aisle' }),
 	}),
 })
 
@@ -36,7 +36,7 @@ const Item = defineModel({
 		label: f.string(),
 		aisle: f.one(() => Aisle, { onDelete: 'cascade' }),
 		shop: f.one(() => Shop, { onDelete: 'cascade' }),
-		orders: f.many(() => Order),
+		orders: f.many(() => Order, { inverse: 'item' }),
 	}),
 })
 
@@ -67,23 +67,25 @@ const Folder = defineModel({
 		parent: f.one(() => Folder, {
 			optional: true,
 			onDelete: 'cascade',
-			inverse: 'children',
 		}),
-		children: f.many(() => Folder),
+		children: f.many(() => Folder, { inverse: 'parent' }),
 	}),
 })
 
 /** A model a delete both deletes and empties: its rows are loaded (D-102). */
 const Room = defineModel({
 	name: 'Room',
-	fields: (f) => ({ seats: f.many(() => Seat), spares: f.many(() => Seat) }),
+	fields: (f) => ({
+		seats: f.many(() => Seat, { inverse: 'room' }),
+		spares: f.many(() => Seat, { inverse: 'spare' }),
+	}),
 })
 const Seat = defineModel({
 	name: 'Seat',
 	fields: (f) => ({
 		name: f.string(),
-		room: f.one(() => Room, { onDelete: 'cascade', inverse: 'seats' }),
-		spare: f.one(() => Room, { optional: true, inverse: 'spares' }),
+		room: f.one(() => Room, { onDelete: 'cascade' }),
+		spare: f.one(() => Room, { optional: true }),
 	}),
 })
 
@@ -91,15 +93,15 @@ const Seat = defineModel({
 const Wall = defineModel({
 	name: 'Wall',
 	fields: (f) => ({
-		fronts: f.many(() => Poster),
-		backs: f.many(() => Poster),
+		fronts: f.many(() => Poster, { inverse: 'front' }),
+		backs: f.many(() => Poster, { inverse: 'back' }),
 	}),
 })
 const Poster = defineModel({
 	name: 'Poster',
 	fields: (f) => ({
-		front: f.one(() => Wall, { optional: true, inverse: 'fronts' }),
-		back: f.one(() => Wall, { optional: true, inverse: 'backs' }),
+		front: f.one(() => Wall, { optional: true }),
+		back: f.one(() => Wall, { optional: true }),
 	}),
 })
 

@@ -90,7 +90,7 @@ export function scalar(
 /** Whether a row of the other side, but `kept`, holds this one's key. */
 export async function holds(
 	context: Context,
-	field: Extract<FieldInfo, { readonly kind: 'one' }>,
+	field: Extract<FieldInfo, { readonly kind: 'one'; readonly stored: false }>,
 	kept: string | undefined,
 ): Promise<boolean> {
 	const count = await context.reads.count({

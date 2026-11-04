@@ -26,7 +26,7 @@ const Project = defineModel({
 	fields: (f) => ({
 		name: f.string(),
 		owner: f.string(),
-		tasks: f.many(() => Task),
+		tasks: f.many(() => Task, { inverse: 'project' }),
 	}),
 }).with({
 	access: {

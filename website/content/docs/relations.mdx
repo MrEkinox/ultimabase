@@ -3,10 +3,10 @@ title: Relations
 description: Link models with `one` and `many`, write related rows in one call, read and filter through them, and choose what deleting a row does.
 ---
 
-A relation links the rows of two models: an author's books, a book's tags. It
-is declared on both sides, `f.one` on the side that points to one row and
-`f.many` on the side that holds a list. UltimaBase stores the keys, keeps them
-valid, and lets every query write, read, filter and sort through them.
+A relation links the rows of two models: an author's books, a book's tags.
+`f.one` points to one row and `f.many` holds a list. UltimaBase stores the
+keys, keeps them valid, and lets every query write, read, filter and sort
+through them.
 
 The models of this page: an author writes books, a publisher prints them, tags
 sort them.
@@ -17,11 +17,11 @@ sort them.
 
 The full example, with its tests: [`examples/relations`](https://github.com/MrEkinox/ultimabase/tree/main/examples/relations).
 
-- `Author.books` and `Book.author` are the two sides of one relation: one
-  author, many books. Read from `Book`, the same relation is many-to-one: many
-  books, one author. `Book` stores the key.
-- `Book.tags` and `Tag.books` are both `many`: a many-to-many relation. A join
-  table, created for you, holds the pairs.
+- `Author.books` names `Book.author` with `inverse`: they are the two sides of
+  one relation, one author and many books. Read from `Book`, the same relation
+  is many-to-one: many books, one author. `Book` stores the key.
+- `Book.tags` and `Tag.books` are both `many` and name each other: a
+  many-to-many relation. A join table, created for you, holds the pairs.
 - `onDelete` says what deleting an author does to her books. Without it, a
   required relation refuses the delete and an optional one empties its key.
 
@@ -30,15 +30,23 @@ arguments over GraphQL or REST, as [Over GraphQL](#over-graphql) shows.
 
 ## Declaring a relation
 
-Each relation has two fields, one on each model, that find each other by
-their targets. A field without its other side is refused when the application
-starts.
+A `one` alone is a relation: it stores the key, and its target has no field
+for it. To read the relation from the target too, declare its other side
+there, naming the `one` with `inverse`. Nothing pairs by itself: a relation
+has another side only when one of the two names it.
 
-| Shape                                           | One side                                | Other side            | Key stored           |
-| ----------------------------------------------- | --------------------------------------- | --------------------- | -------------------- |
-| One-to-many, or many-to-one from the other side | `f.many(() => Book)`                    | `f.one(() => Author)` | on the `one` side    |
-| Many-to-many                                    | `f.many(() => Tag)`                     | `f.many(() => Book)`  | in a join table      |
-| One-to-one                                      | `f.one(() => Card, { optional: true })` | `f.one(() => Member)` | on the required side |
+| Shape                                           | One side                                                   | Other side                                | Key stored        |
+| ----------------------------------------------- | ---------------------------------------------------------- | ----------------------------------------- | ----------------- |
+| One-sided                                       | `f.one(() => Branch)`                                      | none                                      | on the `one`      |
+| One-to-many, or many-to-one from the other side | `f.many(() => Book, { inverse: 'author' })`                | `f.one(() => Author)`                     | on the `one` side |
+| Many-to-many                                    | `f.many(() => Tag, { inverse: 'books' })`                  | `f.many(() => Book, { inverse: 'tags' })` | in a join table   |
+| One-to-one                                      | `f.one(() => Card, { inverse: 'member', optional: true })` | `f.one(() => Member)`                     | on the named side |
+
+- A `many` always names its other side: the `one` that stores the key, or the
+  `many` that names it back.
+- The `one` that stores the key names nothing: its other side names it.
+- A relation that names a field that is missing, or does not point back, is
+  refused when the application starts.
 
 The target is a function, `() => Book`, so two models can point to each other
 in any order in the file.
@@ -236,8 +244,9 @@ of its rows, whatever `onDelete` says.
 
 ### One-to-one
 
-Both sides are `one`, and exactly one is optional. The required side stores
-the key, and `onDelete` belongs to it.
+Both sides are `one`. The side that names the other with `inverse` is
+optional and stores no key. The side it names stores the key, unique, and
+`onDelete` belongs to it.
 
 <include cwd meta='title="src/shapes.ts"'>
 	../examples/relations/src/shapes.ts#one-to-one
@@ -253,6 +262,26 @@ instead.
 <include cwd meta='title="src/shapes.test.ts"'>
 	../examples/relations/src/shapes.test.ts#one-to-one-write
 </include>
+
+### A one-sided relation
+
+A `one` that no relation names stores its key, and its target has no field
+for it. A notice belongs to a branch; a branch does not list its notices:
+
+<include cwd meta='title="src/shapes.ts"'>
+	../examples/relations/src/shapes.ts#one-sided
+</include>
+
+It is written, read, filtered and sorted like any `one`, and its `onDelete`
+applies when the branch is deleted:
+
+<include cwd meta='title="src/shapes.test.ts"'>
+	../examples/relations/src/shapes.test.ts#one-sided-write
+</include>
+
+A nested write from the target is not possible, as the target has no field
+for it. Declare `notices: f.many(() => Notice, { inverse: 'branch' })` on
+`Branch` when it should have one.
 
 ### A model related to itself
 
@@ -270,8 +299,8 @@ A relation may target its own model: a category's parent and children.
 
 ### Two relations between the same models
 
-When two models are linked twice, each field names its other side with
-`inverse`:
+When two models are linked twice, each `many` names its own `one`, as any
+`many` does:
 
 <include cwd meta='title="src/shapes.ts"'>
 	../examples/relations/src/shapes.ts#inverse
@@ -382,7 +411,8 @@ the same `where`, `orderBy`, `take`, `skip` and `cursor`:
 The nested inputs are named after the relation, as in Prisma:
 `BookCreateWithoutAuthorInput`, `BookUpdateManyWithoutAuthorNestedInput`. The
 inputs of a `one`, such as `{ connect }` or `{ create }`, are `@oneOf`: they
-take one operation. REST takes the same `data`, `where`, `include` and `select`
+take one operation. A one-sided `one` takes its target's whole input, such as
+`BranchCreateNestedOneInput`, since the target has no field back. REST takes the same `data`, `where`, `include` and `select`
 as JSON.
 
 ## Reference
@@ -394,18 +424,18 @@ as JSON.
 | `optional`    | `boolean`                                        | `false`                                       | The row may have no related row; the field reads `null`.                                                         |
 | `onDelete`    | `'cascade' \| 'restrict' \| 'setNull'`           | `restrict` if required, `setNull` if optional | What deleting the target does. Only on the side that stores the key.                                             |
 | `default`     | `{ id }`, or a function returning one            | none                                          | The row a create links when it writes none.                                                                      |
-| `inverse`     | `string`                                         | found by target                               | The other side's field, when two relations join the same models.                                                 |
+| `inverse`     | `string`                                         | none                                          | On the optional side of a one-to-one: the target's `one`, which stores the key. Without it, nothing names back.  |
 | `dbName`      | `string`                                         | the field's name                              | The stored key's column.                                                                                         |
 | `within`      | `string`, or `{ [target field]: 'id' \| field }` | none                                          | The target's field equals the row's: the target stays in the row's parent. Only on the side that stores the key. |
 | `description` | `string`                                         | none                                          | Shown in GraphQL and REST schemas.                                                                               |
 
 ### `f.many(target, options)`
 
-| Option        | Type     | Default         | Effect                                                                           |
-| ------------- | -------- | --------------- | -------------------------------------------------------------------------------- |
-| `inverse`     | `string` | found by target | The other side's field, when two relations join the same models.                 |
-| `from`        | `string` | none            | Makes the field a view of this other `many`, filtered in `.with({ relations })`. |
-| `description` | `string` | none            | Shown in GraphQL and REST schemas.                                               |
+| Option        | Type     | Default  | Effect                                                                                                 |
+| ------------- | -------- | -------- | ------------------------------------------------------------------------------------------------------ |
+| `inverse`     | `string` | required | The target's `one` that stores the key, or its `many` that names this one back.                        |
+| `from`        | `string` | none     | Instead of `inverse`: makes the field a view of this other `many`, filtered in `.with({ relations })`. |
+| `description` | `string` | none     | Shown in GraphQL and REST schemas.                                                                     |
 
 `.with({ relations: { field: { where } } })` on the model filters a `many` or
 a view; `where` is `({ caller, where }) => where({ ... }) | boolean`.
@@ -458,11 +488,14 @@ is declared wrongly:
 
 | Message                                                                                             | Fix                                                           |
 | --------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
-| `Book.author: Author has no relation to Book; add its side.`                                        | Declare the other side.                                       |
-| ``Book.author: Author has several relations to Book; name one with `inverse`.``                     | Name the other side with `inverse` on both fields.            |
-| `Transfer.from: inverse 'outgoing' is not a relation of Branch to Transfer.`                        | Name a field of the target that points back.                  |
-| `Transfer.from and Branch.outgoing do not name each other.`                                         | Make the two `inverse` agree.                                 |
-| `Member.card and Card.member: make one side of a one-to-one relation optional.`                     | Mark exactly one side `optional: true`.                       |
+| `Author.books: a many names its other side with inverse.`                                           | Name the target's field with `inverse`.                       |
+| `Branch.outgoing: inverse 'source' is not a relation of Transfer to Branch.`                        | Name a field of the target that points back.                  |
+| `Category.children cannot be its own inverse.`                                                      | Name the other field of the relation.                         |
+| `Book.author: inverse names a many; drop it, Author.books names this side.`                         | Remove `inverse` from the `one`.                              |
+| `Branch.outgoing and Branch.incoming both name Transfer.from.`                                      | Name a different field from each.                             |
+| `Book.tags and Tag.books do not name each other.`                                                   | Make the two `inverse` of a many-to-many agree.               |
+| `Member.card and Card.member name each other; only the side that stores no key names the other.`    | Remove `inverse` from the side that stores the key.           |
+| `Member.card: the side of a one-to-one that names the other stores no key, and is optional.`        | Make the side that names the other `optional: true`.          |
 | `Member.card: onDelete belongs on Card.member, which stores the key.`                               | Move `onDelete` to the required side.                         |
 | `Book.author: setNull needs an optional relation.`                                                  | Make the relation optional, or choose another `onDelete`.     |
 | `Book.author: its target is not in models.`                                                         | Add the target to the application's `models`.                 |
@@ -475,13 +508,14 @@ is declared wrongly:
 | `Task.milestone: within names one pair, a field of the target and id or a field of the row.`        | Give one pair, such as `{ project: 'id' }`.                   |
 | `Task.milestone: within names stage, a one relation of Task.`                                       | Name a stored `one` of the row, or `id`.                      |
 | `Task.milestone: within names project, a required one relation of Milestone to Project.`            | Make the target's field a required `one` to the row's parent. |
+| `Ticket.assignee: within names Member.org, which needs its other side.`                             | Declare the `many` that names `Member.org`.                   |
 | `Series.released is a view; filter it in .with({ relations }).`                                     | Give the view its filter.                                     |
 | `Series.with.relations.title: title is not a many relation.`                                        | Filter only a `many`.                                         |
 
 ### Limits
 
-- A `many` can face only one `one` of its target, unless both name each other
-  with `inverse`.
+- A field is named by at most one relation: two `many` cannot name the same
+  `one`.
 - Sorting by `_count` or through a relation reads every row the `where`
   selects before it sorts and pages.
 - `connect` and `connectOrCreate` find a row by `id`; `connectOrCreate` also by

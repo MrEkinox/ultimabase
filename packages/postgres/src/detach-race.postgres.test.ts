@@ -41,13 +41,16 @@ const open = { read: () => true, update: () => true }
 
 const Club = defineModel({
 	name: 'Club',
-	fields: (f) => ({ label: f.string(), members: f.many(() => Member) }),
+	fields: (f) => ({
+		label: f.string(),
+		members: f.many(() => Member, { inverse: 'clubs' }),
+	}),
 }).with({ access: open })
 const Member = defineModel({
 	name: 'Member',
 	fields: (f) => ({
 		archived: f.boolean({ default: false }),
-		clubs: f.many(() => Club),
+		clubs: f.many(() => Club, { inverse: 'members' }),
 	}),
 }).with({
 	access: open,

@@ -1,5 +1,6 @@
 // The schema `start` resolves from the application's models: each relation
-// gets its inverse and the side that stores its key (D-37, D-54, D-64).
+// gets the other side it names or is named by, and the side that stores its
+// key (D-37, D-54, D-64, D-237).
 import type { Schema, SchemaField, SchemaModel } from './adapter.ts'
 import type {
 	Codec,
@@ -13,6 +14,8 @@ import type { Digits } from './decimal.ts'
 import type { Enum } from './fields.ts'
 import { modelDefinitions } from './definition.ts'
 import { Refused } from './errors.ts'
+import type { Linked } from './pairing.ts'
+import { namedOf, pairsOf } from './pairing.ts'
 import { installedUses } from './plugin-use.ts'
 import { checkRelations, isFiltered, viewField } from './relations.ts'
 import { checkIndexes, checkSearch } from './schema-indexes.ts'
@@ -53,63 +56,16 @@ export type Resolved = {
 	readonly byValue: ReadonlyMap<object, ModelInfo>
 }
 
-type Relation = Extract<FieldDefinition, { readonly kind: 'one' | 'many' }>
-type Linked = {
-	readonly model: string
-	readonly name: string
-	readonly field: Relation
-	readonly target: string
-}
-
 function fail(message: string): never {
 	throw new Refused(message)
 }
 
-function inverseOf(link: Linked, links: readonly Linked[]): Linked {
-	const { model, name, target } = link
-	const where = `${model}.${name}`
-	const named = link.field.options['inverse']
-	const back = links.filter(
-		(other) =>
-			other.model === target &&
-			other.target === model &&
-			!(other.model === model && other.name === name),
-	)
-	if (typeof named === 'string') {
-		const found = links.find(
-			(other) => other.model === target && other.name === named,
-		)
-		if (found === undefined || found.target !== model) {
-			fail(
-				`${where}: inverse '${named}' is not a relation of ${target} to ${model}.`,
-			)
-		}
-		if (found.model === model && found.name === name) {
-			fail(`${where} cannot be its own inverse.`)
-		}
-		return found
-	}
-	const candidates = back.filter((other) => {
-		const theirs = other.field.options['inverse']
-		return typeof theirs !== 'string' || theirs === name
-	})
-	const [only, ...others] = candidates
-	if (only === undefined) {
-		fail(`${where}: ${target} has no relation to ${model}; add its side.`)
-	}
-	if (others.length > 0) {
-		fail(
-			`${where}: ${target} has several relations to ${model}; name one with \`inverse\`.`,
-		)
-	}
-	return only
-}
-
-function relationField(link: Linked, inverse: Linked): FieldInfo {
+function relationField(link: Linked, inverse: Linked | undefined): FieldInfo {
 	const { field } = link
 	const optional = field.options['optional'] === true
 	const where = `${link.model}.${link.name}`
 	if (field.kind === 'many') {
+		if (inverse === undefined) throw new Error('A many has its other side.')
 		return {
 			kind: 'many',
 			name: link.name,
@@ -119,21 +75,12 @@ function relationField(link: Linked, inverse: Linked): FieldInfo {
 			options: field.options,
 		}
 	}
-	let stored = inverse.field.kind === 'many'
-	if (inverse.field.kind === 'one') {
-		const theirs = inverse.field.options['optional'] === true
-		if (optional === theirs) {
-			fail(
-				`${where} and ${inverse.model}.${inverse.name}: make one side of a one-to-one relation optional.`,
-			)
-		}
-		stored = !optional
-	}
+	// The side of a one-to-one that names the other stores no key (D-237).
+	const stored = namedOf(link) === undefined
 	const asked = field.options['onDelete']
+	const theirs = inverse && `${inverse.model}.${inverse.name}`
 	if (!stored && asked !== undefined) {
-		fail(
-			`${where}: onDelete belongs on ${inverse.model}.${inverse.name}, which stores the key.`,
-		)
+		fail(`${where}: onDelete belongs on ${theirs}, which stores the key.`)
 	}
 	if (asked === 'setNull' && !optional) {
 		throw new Refused(`${where}: setNull needs an optional relation.`)
@@ -149,18 +96,14 @@ function relationField(link: Linked, inverse: Linked): FieldInfo {
 		kind: 'one',
 		name: link.name,
 		target: link.target,
-		inverse: inverse.name,
-		stored,
-		unique: stored && inverse.field.kind === 'one',
+		...(stored || inverse === undefined
+			? { stored: true, ...(inverse ? { inverse: inverse.name } : {}) }
+			: { stored: false, inverse: inverse.name }),
+		unique: stored && inverse?.field.kind === 'one',
 		optional,
 		onDelete,
 		...(typeof dbName === 'string' ? { dbName } : {}),
-		...withinOf(
-			where,
-			field.options,
-			stored,
-			`${inverse.model}.${inverse.name}`,
-		),
+		...withinOf(where, field.options, stored, theirs),
 		options: field.options,
 	}
 }
@@ -267,6 +210,9 @@ function definitionsOf(
 	return { definitions, names, owners }
 }
 
+const linkOf = (list: readonly Linked[], model: string, name: string) =>
+	list.find((each) => each.model === model && each.name === name)
+
 /** Resolves the application's models, or stops startup with a message. */
 export function resolve(
 	values: readonly unknown[],
@@ -298,20 +244,10 @@ export function resolve(
 			;(typeof from === 'string' ? views : links).push(link)
 		}
 	}
-	const inverses = new Map(links.map((link) => [link, inverseOf(link, links)]))
-	for (const [link, inverse] of inverses) {
-		if (inverses.get(inverse) !== link) {
-			fail(
-				`${link.model}.${link.name} and ${inverse.model}.${inverse.name} do not name each other.`,
-			)
-		}
-	}
-	const linkOf = (list: readonly Linked[], model: string, name: string) =>
-		list.find((each) => each.model === model && each.name === name)
+	const inverses = pairsOf(links)
 	const relationOf = (model: string, name: string): FieldInfo | undefined => {
 		const link = linkOf(links, model, name)
-		const inverse = link && inverses.get(link)
-		return link && inverse ? relationField(link, inverse) : undefined
+		return link && relationField(link, inverses.get(link))
 	}
 	const fieldOf = (model: string, name: string, field: FieldDefinition) => {
 		const view = linkOf(views, model, name)

@@ -31,7 +31,7 @@ const Person = defineModel({
 			description: 'Its place.',
 			deprecated: 'Use order.',
 		}),
-		pets: f.many(() => Pet, { deprecated: 'Use animals.' }),
+		pets: f.many(() => Pet, { inverse: 'owner', deprecated: 'Use animals.' }),
 		shout: f.virtual(z.string(), {
 			needs: ['displayName'],
 			deprecated: 'Upper-case it.',

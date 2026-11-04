@@ -52,7 +52,7 @@ const Writer = defineModel({
 	name: 'Writer',
 	fields: (f) => ({
 		names: f.string({ list: true }),
-		posts: f.many(() => Post),
+		posts: f.many(() => Post, { inverse: 'writer' }),
 	}),
 }).with({ access: allow.public })
 

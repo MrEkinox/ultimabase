@@ -349,7 +349,7 @@ export interface FieldBuilders<T> {
 	) => One<M, O, T>
 	readonly many: <M extends object, const O extends ManyOptions = ManyOptions>(
 		target: M,
-		options?: O,
+		options: O,
 	) => Many<M, O, T>
 	/**
 	 * Computed on read by the model's `.with({ virtuals })` (D-151): a

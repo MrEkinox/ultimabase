@@ -40,7 +40,7 @@ const Stage = defineModel({
 		secret: f.string({ default: 'hush' }).with({
 			access: { read: allow.private },
 		}),
-		images: f.many(() => Image),
+		images: f.many(() => Image, { inverse: 'stage' }),
 		label: f.virtual(z.string(), { needs: ['name'] }),
 		thumb: f.virtual(z.string(), {
 			input: z.object({ size: z.number().int().positive() }),
@@ -106,7 +106,7 @@ const Image = defineModel({
 		url: f.string(),
 		hidden: f.boolean({ default: false }),
 		stage: f.one(() => Stage, { onDelete: 'cascade' }),
-		tags: f.many(() => Tag),
+		tags: f.many(() => Tag, { inverse: 'image' }),
 		big: f.virtual(z.string(), { needs: ['url'] }),
 	}),
 }).with({
@@ -635,7 +635,7 @@ describe('a virtual', () => {
 		const Shelf = defineModel({
 			name: 'Shelf',
 			fields: (f) => ({
-				books: f.many(() => Book),
+				books: f.many(() => Book, { inverse: 'shelf' }),
 				// @ts-expect-error -- a many is no key of the row
 				size: f.virtual(z.number(), { needs: ['books'] }),
 			}),
@@ -647,7 +647,7 @@ describe('a virtual', () => {
 		const Seat = defineModel({
 			name: 'Seat',
 			fields: (f) => ({
-				pad: f.one(() => Pad, { optional: true }),
+				pad: f.one(() => Pad, { inverse: 'seat', optional: true }),
 				padded: f.virtual(z.boolean(), { needs: ['pad'] }),
 			}),
 		}).with({

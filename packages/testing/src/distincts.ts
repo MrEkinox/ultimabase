@@ -15,7 +15,7 @@ const Club = defineModel({
 	name: 'Club',
 	fields: (f) => ({
 		hidden: f.boolean({ default: false }),
-		visits: f.many(() => Visit),
+		visits: f.many(() => Visit, { inverse: 'club' }),
 	}),
 }).with({ access: { read: ({ where }) => where({ hidden: false }) } })
 

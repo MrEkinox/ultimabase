@@ -10,7 +10,10 @@ const person = (id: string) => ({ connect: { id } })
 
 const Person = defineModel({
 	name: 'Person',
-	fields: (f) => ({ name: f.string(), attendances: f.many(() => Attendance) }),
+	fields: (f) => ({
+		name: f.string(),
+		attendances: f.many(() => Attendance, { inverse: 'person' }),
+	}),
 })
 
 const Attendance = defineModel({

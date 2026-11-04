@@ -219,7 +219,7 @@ describe('optional relations and defaults (D-53)', () => {
 		name: 'Team',
 		fields: (f) => ({
 			name: f.string({ default: () => 'unnamed' }),
-			members: f.many(() => Member),
+			members: f.many(() => Member, { inverse: 'team' }),
 		}),
 	})
 	const Member = defineModel({

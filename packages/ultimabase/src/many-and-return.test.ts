@@ -52,8 +52,8 @@ const Deck = defineModel({
 	name: 'Deck',
 	fields: (f) => ({
 		name: f.string(),
-		cards: f.many(() => Card),
-		tallies: f.many(() => Tally),
+		cards: f.many(() => Card, { inverse: 'deck' }),
+		tallies: f.many(() => Tally, { inverse: 'deck' }),
 	}),
 }).with({ access: { read: () => true } })
 

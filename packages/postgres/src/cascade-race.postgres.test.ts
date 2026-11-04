@@ -43,21 +43,21 @@ const Writer = defineModel({
 	name: 'Writer',
 	fields: (f) => ({
 		code: f.string({ unique: true }),
-		novels: f.many(() => Novel),
+		novels: f.many(() => Novel, { inverse: 'writer' }),
 	}),
 }).with({ access: { read: () => true, delete: () => true } })
 const Novel = defineModel({
 	name: 'Novel',
 	fields: (f) => ({
 		title: f.string(),
-		writer: f.one(() => Writer, { onDelete: 'cascade', inverse: 'novels' }),
-		chapters: f.many(() => Chapter),
+		writer: f.one(() => Writer, { onDelete: 'cascade' }),
+		chapters: f.many(() => Chapter, { inverse: 'novel' }),
 	}),
 })
 const Chapter = defineModel({
 	name: 'Chapter',
 	fields: (f) => ({
-		novel: f.one(() => Novel, { onDelete: 'cascade', inverse: 'chapters' }),
+		novel: f.one(() => Novel, { onDelete: 'cascade' }),
 	}),
 })
 

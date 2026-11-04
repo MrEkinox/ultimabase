@@ -12,7 +12,7 @@ const Shelf = defineModel({
 	name: 'Shelf',
 	fields: (f) => ({
 		label: f.string({ unique: true }),
-		items: f.many(() => Item),
+		items: f.many(() => Item, { inverse: 'shelf' }),
 	}),
 }).with({
 	hooks: {
@@ -62,10 +62,9 @@ const Vault = defineModel({
 const Entry = defineModel({
 	name: 'Entry',
 	fields: (f) => ({
-		vault: f.one(() => Vault, { optional: true, inverse: 'entries' }),
+		vault: f.one(() => Vault, { optional: true }),
 		spare: f.one(() => Vault, {
 			optional: true,
-			inverse: 'spares',
 			default: () => spare,
 		}),
 	}),
@@ -85,7 +84,10 @@ let dropped: string | undefined
 
 const Desk = defineModel({
 	name: 'Desk',
-	fields: (f) => ({ label: f.string(), pens: f.many(() => Pen) }),
+	fields: (f) => ({
+		label: f.string(),
+		pens: f.many(() => Pen, { inverse: 'desk' }),
+	}),
 }).with({
 	hooks: {
 		afterUpdate: async () => {

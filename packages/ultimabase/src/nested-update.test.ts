@@ -45,9 +45,9 @@ const User = defineModel({
 	name: 'User',
 	fields: (f) => ({
 		name: f.string(),
-		posts: f.many(() => Post),
-		profile: f.one(() => Profile, { optional: true }),
-		comments: f.many(() => Comment),
+		posts: f.many(() => Post, { inverse: 'author' }),
+		profile: f.one(() => Profile, { inverse: 'user', optional: true }),
+		comments: f.many(() => Comment, { inverse: 'author' }),
 	}),
 }).with({ access: { read: () => true, update: () => true } })
 
@@ -65,7 +65,7 @@ const Post = defineModel({
 		title: f.string(),
 		author: f.one(() => User, { optional: true, onDelete: 'cascade' }),
 		comments: f
-			.many(() => Comment)
+			.many(() => Comment, { inverse: 'post' })
 			.with({
 				access: {
 					update: ({ value }) => {
@@ -74,10 +74,10 @@ const Post = defineModel({
 					},
 				},
 			}),
-		notes: f.many(() => Note),
-		tags: f.many(() => Tag),
+		notes: f.many(() => Note, { inverse: 'post' }),
+		tags: f.many(() => Tag, { inverse: 'posts' }),
 		cover: f.one(() => Cover, { optional: true, onDelete: 'cascade' }),
-		drafts: f.many(() => Draft),
+		drafts: f.many(() => Draft, { inverse: 'post' }),
 	}),
 }).with({
 	access: { read: () => true, create: () => true, update: () => true },
@@ -95,7 +95,7 @@ const Comment = defineModel({
 		likes: f.number({ default: 0 }),
 		post: f.one(() => Post, { onDelete: 'cascade' }),
 		author: f.one(() => User, { optional: true }),
-		replies: f.many(() => Reply),
+		replies: f.many(() => Reply, { inverse: 'comment' }),
 	}),
 }).with({
 	access: {
@@ -155,13 +155,16 @@ const Tag = defineModel({
 	name: 'Tag',
 	fields: (f) => ({
 		name: f.string({ unique: true }),
-		posts: f.many(() => Post),
+		posts: f.many(() => Post, { inverse: 'tags' }),
 	}),
 }).with({ access: { read: () => true, create: () => true } })
 
 const Cover = defineModel({
 	name: 'Cover',
-	fields: (f) => ({ url: f.string(), posts: f.many(() => Post) }),
+	fields: (f) => ({
+		url: f.string(),
+		posts: f.many(() => Post, { inverse: 'cover' }),
+	}),
 }).with({ access: { read: () => true, delete: () => true } })
 
 /** Soft-deleted by the trash plugin's redirect (D-89). */

@@ -6,7 +6,7 @@ import { inMemory, liveSchema, matches } from 'ultimabase/internal'
 import type { Batch, Fields, ModelChanges } from './changes.ts'
 import { listed, touched } from './changes.ts'
 import { held, loosened, reaches } from './levels.ts'
-import { modelsOf, stepOf, stores, walk } from './reach.ts'
+import { facingOf, modelsOf, stepOf, stores, walk } from './reach.ts'
 import type { Level, Models } from './reach.ts'
 import type { Loader } from './reads.ts'
 
@@ -34,7 +34,7 @@ function linksOf(
 	const [model = '', field = ''] = relation.split('.')
 	const step = stepOf(models, model, field)
 	const own = [model, new Set([field])] as const
-	return step ? [own, [step.target, new Set([step.inverse])]] : [own]
+	return step ? [own, [step.target, new Set(facingOf(step))]] : [own]
 }
 
 const judgedReads = new WeakMap<Recorded, Judged>()

@@ -12,7 +12,7 @@ export const Ticket = defineModel({
 		status: f.enumOf(['open', 'closed'], { default: 'open' }),
 		closedAt: f.dateTime({ optional: true }),
 		spam: f.boolean({ default: false }),
-		activity: f.many(() => Activity),
+		activity: f.many(() => Activity, { inverse: 'ticket' }),
 	}),
 }).with({
 	access: allow.public,

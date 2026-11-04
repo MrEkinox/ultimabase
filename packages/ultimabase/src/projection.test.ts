@@ -21,7 +21,10 @@ const Doc = defineModel({
 
 const Owner = defineModel({
 	name: 'Owner',
-	fields: (f) => ({ name: f.string(), docs: f.many(() => Doc) }),
+	fields: (f) => ({
+		name: f.string(),
+		docs: f.many(() => Doc, { inverse: 'owner' }),
+	}),
 }).with({ access: allow.readOnly })
 
 const reads: Read[] = []

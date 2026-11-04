@@ -29,7 +29,7 @@ const Order = defineModel({
 			access: { read: ({ caller }) => caller.kind === 'master' },
 		}),
 		hidden: f.boolean({ default: false }),
-		lines: f.many(() => Line),
+		lines: f.many(() => Line, { inverse: 'order' }),
 	}),
 }).with({
 	access: { read: ({ where }) => where({ hidden: false }) },

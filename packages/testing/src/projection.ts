@@ -9,7 +9,10 @@ const M = { as: master }
 
 const Writer = defineModel({
 	name: 'Writer',
-	fields: (f) => ({ name: f.string(), notes: f.many(() => Note) }),
+	fields: (f) => ({
+		name: f.string(),
+		notes: f.many(() => Note, { inverse: 'writer' }),
+	}),
 })
 
 const Note = defineModel({

@@ -13,7 +13,10 @@ const open = () => true
 
 const Firm = defineModel({
 	name: 'Firm',
-	fields: (f) => ({ name: f.string(), authors: f.many(() => Author) }),
+	fields: (f) => ({
+		name: f.string(),
+		authors: f.many(() => Author, { inverse: 'firm' }),
+	}),
 }).with({ access: { read: open } })
 
 /** A user reads the authors who are not retired. */
@@ -23,7 +26,7 @@ const Author = defineModel({
 		name: f.string(),
 		retired: f.boolean({ default: false }),
 		firm: f.one(() => Firm, { optional: true }),
-		articles: f.many(() => Article),
+		articles: f.many(() => Article, { inverse: 'author' }),
 	}),
 }).with({ access: { read: ({ where }) => where({ retired: false }) } })
 
@@ -32,8 +35,8 @@ const Article = defineModel({
 	fields: (f) => ({
 		title: f.string({ unique: true }),
 		author: f.one(() => Author, { optional: true }),
-		remarks: f.many(() => Remark),
-		labels: f.many(() => Label),
+		remarks: f.many(() => Remark, { inverse: 'article' }),
+		labels: f.many(() => Label, { inverse: 'articles' }),
 	}),
 }).with({ access: { read: open } })
 
@@ -49,7 +52,10 @@ const Remark = defineModel({
 
 const Label = defineModel({
 	name: 'Label',
-	fields: (f) => ({ text: f.string(), articles: f.many(() => Article) }),
+	fields: (f) => ({
+		text: f.string(),
+		articles: f.many(() => Article, { inverse: 'labels' }),
+	}),
 }).with({ access: { read: open } })
 
 const titles = (rows: readonly { readonly title: string }[]): string[] =>

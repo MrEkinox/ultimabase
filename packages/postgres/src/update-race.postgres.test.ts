@@ -43,7 +43,7 @@ const Doc = defineModel({
 	fields: (f) => ({
 		label: f.string(),
 		archived: f.boolean({ default: false }),
-		notes: f.many(() => Note),
+		notes: f.many(() => Note, { inverse: 'doc' }),
 	}),
 }).with({
 	hooks: { beforeFind: ({ where }) => where({ archived: false }) },
@@ -52,7 +52,7 @@ const Doc = defineModel({
 const Note = defineModel({
 	name: 'Note',
 	fields: (f) => ({
-		doc: f.one(() => Doc, { optional: true, inverse: 'notes' }),
+		doc: f.one(() => Doc, { optional: true }),
 	}),
 })
 

@@ -5,6 +5,6 @@ export const Tag = defineModel({
 	name: 'Tag',
 	fields: (f) => ({
 		label: f.string({ unique: true }),
-		posts: f.many(() => Post),
+		posts: f.many(() => Post, { inverse: 'tags' }),
 	}),
 })

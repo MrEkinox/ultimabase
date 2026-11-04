@@ -19,12 +19,18 @@ const database = createAdapter({ url: server })
 
 const Card = defineModel({
 	name: 'Card',
-	fields: (f) => ({ title: f.string(), tags: f.many(() => Tag) }),
+	fields: (f) => ({
+		title: f.string(),
+		tags: f.many(() => Tag, { inverse: 'cards' }),
+	}),
 })
 
 const Tag = defineModel({
 	name: 'Tag',
-	fields: (f) => ({ label: f.string(), cards: f.many(() => Card) }),
+	fields: (f) => ({
+		label: f.string(),
+		cards: f.many(() => Card, { inverse: 'tags' }),
+	}),
 })
 
 let seen: Changed[] = []

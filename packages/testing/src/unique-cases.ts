@@ -19,7 +19,10 @@ const Account = defineModel({
 
 const Club = defineModel({
 	name: 'Club',
-	fields: (f) => ({ name: f.string(), members: f.many(() => Member) }),
+	fields: (f) => ({
+		name: f.string(),
+		members: f.many(() => Member, { inverse: 'club' }),
+	}),
 })
 
 const Member = defineModel({

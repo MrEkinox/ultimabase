@@ -20,10 +20,9 @@ const Project = defineModel({
 	fields: (f) => ({
 		name: f.string(),
 		milestones: f.many(() => Milestone, { inverse: 'project' }),
-		tasks: f.many(() => Task),
+		tasks: f.many(() => Task, { inverse: 'project' }),
 		featured: f.one(() => Milestone, {
 			optional: true,
-			inverse: 'featuredIn',
 			within: { project: 'id' },
 		}),
 	}),
@@ -33,8 +32,8 @@ const Milestone = defineModel({
 	name: 'Milestone',
 	fields: (f) => ({
 		name: f.string(),
-		project: f.one(() => Project, { inverse: 'milestones' }),
-		tasks: f.many(() => Task),
+		project: f.one(() => Project),
+		tasks: f.many(() => Task, { inverse: 'milestone' }),
 		featuredIn: f.many(() => Project, { inverse: 'featured' }),
 	}),
 })

@@ -10,8 +10,8 @@ const Writer = defineModel({
 	name: 'Writer',
 	fields: (f) => ({
 		name: f.string(),
-		notes: f.many(() => Note),
-		labels: f.many(() => Label),
+		notes: f.many(() => Note, { inverse: 'writer' }),
+		labels: f.many(() => Label, { inverse: 'writers' }),
 	}),
 }).with({
 	access: allow.public,
@@ -39,7 +39,7 @@ const Label = defineModel({
 	fields: (f) => ({
 		name: f.string({ unique: true }),
 		hidden: f.boolean({ default: false }),
-		writers: f.many(() => Writer),
+		writers: f.many(() => Writer, { inverse: 'labels' }),
 	}),
 }).with({
 	access: allow.public,
@@ -253,7 +253,7 @@ describe('a filtered relation', () => {
 			name: 'Club',
 			fields: (f) => ({
 				name: f.string(),
-				members: f.many(() => Member),
+				members: f.many(() => Member, { inverse: 'club' }),
 			}),
 		}).with({
 			// A club is readable when one of its active members is.
@@ -304,7 +304,7 @@ const people = (relations: object) => {
 		name: 'Person',
 		fields: (f) => ({
 			name: f.string(),
-			best: f.one(() => Person, { optional: true, inverse: 'fans' }),
+			best: f.one(() => Person, { optional: true }),
 			fans: f.many(() => Person, { inverse: 'best' }),
 		}),
 	})
@@ -333,21 +333,27 @@ const fansOf = async (where: () => unknown) => {
 	)
 }
 
-const shelf = () =>
-	defineModel({
+const shelf = () => {
+	const Item = defineModel({
+		name: 'Item',
+		fields: (f) => ({ shelf: f.one(() => Shelf) }),
+	})
+	const Shelf = defineModel({
 		name: 'Shelf',
 		fields: (f) => ({
-			notes: f.many(() => Note),
-			first: f.one(() => Note),
+			items: f.many(() => Item, { inverse: 'shelf' }),
+			first: f.one(() => Item),
 		}),
 	}).with({
 		relations: {
 			// @ts-expect-error -- the target has no `ghost` field
-			notes: { where: ({ where }) => where({ ghost: true }) },
+			items: { where: ({ where }) => where({ ghost: true }) },
 			// @ts-expect-error -- a one relation takes no filter (D-151)
 			first: { where: () => true },
 		},
 	})
+	return Shelf
+}
 
 describe('a relation filter', () => {
 	it('stops startup unless it names a many relation with a where', async () => {

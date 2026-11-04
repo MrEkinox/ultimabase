@@ -23,7 +23,7 @@ const Ticket = defineModel({
 	name: 'KeeperTicket',
 	fields: (f) => ({
 		userId: f.string(),
-		notes: f.many(() => TicketNote),
+		notes: f.many(() => TicketNote, { inverse: 'ticket' }),
 	}),
 	indexes: [{ fields: ['userId'] }],
 })
@@ -193,7 +193,7 @@ describe('a plugin’s own models are refused', () => {
 	it('when one relates to the application’s models', async () => {
 		const Owner = defineModel({
 			name: 'Owner',
-			fields: (f) => ({ badges: f.many(() => Badge) }),
+			fields: (f) => ({ badges: f.many(() => Badge, { inverse: 'owner' }) }),
 		})
 		const Badge = defineModel({
 			name: 'BadgesBadge',

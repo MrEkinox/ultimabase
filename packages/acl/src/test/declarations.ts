@@ -4,11 +4,18 @@ import { ACL, acl, aclPlugin } from '@ultimabase/acl'
 import { defineRole, rolesPlugin } from '@ultimabase/roles'
 import { allow, defineApp, defineModel, memory } from 'ultimabase'
 
-export const Role = defineRole({ name: 'Role', members: () => User })
+export const Role = defineRole({
+	name: 'Role',
+	members: () => User,
+	inverse: 'roles',
+})
 
 export const User = defineModel({
 	name: 'User',
-	fields: (f) => ({ email: f.string(), roles: f.many(() => Role) }),
+	fields: (f) => ({
+		email: f.string(),
+		roles: f.many(() => Role, { inverse: 'members' }),
+	}),
 })
 
 /** A note its author reads and writes, and no one else. */

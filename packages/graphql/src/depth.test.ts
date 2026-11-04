@@ -27,7 +27,7 @@ const Comment = defineModel({
 		post: f.one(() => Post),
 		// A model's own field named like an edge's still counts.
 		node: f.one(() => Post, { optional: true }),
-		photos: f.many(() => Photo),
+		photos: f.many(() => Photo, { inverse: 'comment' }),
 	}),
 }).with({ access: allow.readOnly })
 
@@ -43,7 +43,10 @@ const Photo = defineModel({
 const File = defineModel({
 	name: 'File',
 	use: [graphql()],
-	fields: (f) => ({ url: f.string(), photos: f.many(() => Photo) }),
+	fields: (f) => ({
+		url: f.string(),
+		photos: f.many(() => Photo, { inverse: 'file' }),
+	}),
 }).with({ access: allow.readOnly })
 
 /** Runs `check` against an application of these models, seeded. */

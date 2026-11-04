@@ -36,7 +36,7 @@ const Writer = defineModel({
 	use: [rest()],
 	fields: (f) => ({
 		name: f.string({ unique: true }),
-		books: f.many(() => Book),
+		books: f.many(() => Book, { inverse: 'writer' }),
 	}),
 }).with({ access: allow.public })
 
@@ -52,6 +52,8 @@ const Book = defineModel({
 		isbn: f.json({ optional: true, validate: Isbn }),
 		notes: f.string({ list: true }),
 		writer: f.one(() => Writer, { optional: true }),
+		// One-sided: no relation of `Writer` names it (D-237).
+		editor: f.one(() => Writer, { optional: true }),
 	}),
 	indexes: [{ fields: ['writer', 'title'], unique: true }],
 }).with({ access: allow.public })
@@ -231,6 +233,9 @@ describe('the document', () => {
 				'WriterArgs',
 				'WriterCreateNestedOneWithoutBooksInput',
 				'BookUpdateManyWithoutWriterNestedInput',
+				// A one-sided `one` writes its target's whole input (D-237).
+				'WriterCreateNestedOneInput',
+				'WriterUpdateOneNestedInput',
 				'StringFilter',
 				'StringListFilter',
 				'JSONFilter',
@@ -241,6 +246,11 @@ describe('the document', () => {
 				'Shelf',
 			]),
 		)
+		expect(
+			JSON.stringify(
+				at(document, 'components', 'schemas', 'WriterCreateNestedOneInput'),
+			),
+		).toContain('#/components/schemas/WriterCreateInput"')
 		expect(
 			at(document, 'components', 'schemas', 'Book', 'properties', 'price'),
 		).toEqual({

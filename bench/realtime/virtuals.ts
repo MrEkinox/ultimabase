@@ -23,7 +23,7 @@ const Project = defineModel({
 	fields: (f) => ({
 		name: f.string(),
 		owner: f.string(),
-		tasks: f.many(() => Task),
+		tasks: f.many(() => Task, { inverse: 'project' }),
 		openTasks: f.virtual(z.int(), { needs: [] }),
 	}),
 	indexes: [{ fields: ['owner', 'name'] }],

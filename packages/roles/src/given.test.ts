@@ -16,13 +16,20 @@ import { defineRole, hasRole, rolesPlugin } from './index.ts'
 const M = { as: master }
 
 // The models let a client write: only the role fields stop it.
-const Role = defineRole({ name: 'Role', members: () => User }).with({
+const Role = defineRole({
+	name: 'Role',
+	members: () => User,
+	inverse: 'roles',
+}).with({
 	access: allow.public,
 })
 // A user edits their own row, as a profile.
 const User = defineModel({
 	name: 'User',
-	fields: (f) => ({ email: f.string(), roles: f.many(() => Role) }),
+	fields: (f) => ({
+		email: f.string(),
+		roles: f.many(() => Role, { inverse: 'members' }),
+	}),
 }).with({
 	access: {
 		read: allow.public,

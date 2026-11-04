@@ -22,7 +22,7 @@ const enumOf = (values: readonly unknown[]): void => {
 
 const Writer = defineModel({
 	name: 'Writer',
-	fields: (f) => ({ essays: f.many(() => Essay) }),
+	fields: (f) => ({ essays: f.many(() => Essay, { inverse: 'writer' }) }),
 })
 const Essay = defineModel({
 	name: 'Essay',
@@ -39,10 +39,10 @@ const index = (field: string) => () => {
 			name: 'Shelf',
 			fields: (f: {
 				one: (target: () => unknown, options: object) => object
-				many: (target: () => unknown) => object
+				many: (target: () => unknown, options: object) => object
 			}) => ({
 				parent: f.one(() => Shelf, { optional: true }),
-				children: f.many(() => Shelf),
+				children: f.many(() => Shelf, { inverse: 'parent' }),
 			}),
 			indexes: [{ fields: [field] }],
 		},
@@ -135,15 +135,15 @@ describe('schema resolution (D-37)', () => {
 		const Pair = defineModel({
 			name: 'Pair',
 			fields: (f) => ({
-				left: f.one(() => Side, { inverse: 'lefts' }),
-				right: f.one(() => Side, { inverse: 'rights' }),
+				left: f.one(() => Side),
+				right: f.one(() => Side),
 			}),
 		})
 		const Side = defineModel({
 			name: 'Side',
 			fields: (f) => ({
 				lefts: f.many(() => Pair, { inverse: 'left' }),
-				rights: f.many(() => Pair),
+				rights: f.many(() => Pair, { inverse: 'right' }),
 			}),
 		})
 		const pair = fieldsOf([Pair, Side], 'Pair')
@@ -170,16 +170,36 @@ describe('schema resolution (D-37)', () => {
 		const Draft = defineModel({
 			name: 'Draft',
 			fields: (f) => ({
-				first: f.one(() => Desk, { inverse: 'drafts' }),
-				second: f.one(() => Desk, { inverse: 'drafts' }),
+				lead: f.one(() => Desk),
+				desks: f.many(() => Desk, { inverse: 'drafts' }),
 			}),
 		})
 		const Desk = defineModel({
 			name: 'Desk',
-			fields: (f) => ({ drafts: f.many(() => Draft, { inverse: 'first' }) }),
+			fields: (f) => ({
+				// Names a `one`, while `Draft.desks` names it (D-237).
+				drafts: f.many(() => Draft, { inverse: 'lead' }),
+			}),
 		})
 		expect(() => resolve([Draft, Desk])).toThrow(
-			'Draft.second and Desk.drafts do not name each other.',
+			'Draft.desks and Desk.drafts do not name each other.',
+		)
+		expect(() => resolve([Desk, Draft])).toThrow(
+			'Desk.drafts and Draft.lead do not name each other.',
+		)
+		const Shelf = defineModel({
+			name: 'Shelf',
+			fields: (f) => ({
+				first: f.many(() => Book, { inverse: 'shelf' }),
+				second: f.many(() => Book, { inverse: 'shelf' }),
+			}),
+		})
+		const Book = defineModel({
+			name: 'Book',
+			fields: (f) => ({ shelf: f.one(() => Shelf) }),
+		})
+		expect(() => resolve([Shelf, Book])).toThrow(
+			'Shelf.first and Shelf.second both name Book.shelf.',
 		)
 	})
 
@@ -187,7 +207,11 @@ describe('schema resolution (D-37)', () => {
 		const Card = defineModel({
 			name: 'Card',
 			fields: (f) => ({
-				holder: f.one(() => Holder, { optional: true, onDelete: 'cascade' }),
+				holder: f.one(() => Holder, {
+					inverse: 'card',
+					optional: true,
+					onDelete: 'cascade',
+				}),
 			}),
 		})
 		const Holder = defineModel({
@@ -209,7 +233,7 @@ describe('schema resolution (D-37)', () => {
 		})
 		const Owner = defineModel({
 			name: 'Writer',
-			fields: (f) => ({ essays: f.many(() => Strict) }),
+			fields: (f) => ({ essays: f.many(() => Strict, { inverse: 'writer' }) }),
 		})
 		expect(() => resolve([Owner, Strict])).toThrow(
 			'Strict.writer: setNull needs an optional relation.',
@@ -227,7 +251,7 @@ describe('schema resolution (D-37)', () => {
 		})
 		const Author = defineModel({
 			name: 'Author',
-			fields: (f) => ({ notes: f.many(() => Note) }),
+			fields: (f) => ({ notes: f.many(() => Note, { inverse: 'writer' }) }),
 		})
 		expect(fieldsOf([Note, Author], 'Note')).toMatchObject({
 			dbName: 'notes',

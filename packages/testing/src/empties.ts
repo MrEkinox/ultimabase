@@ -11,7 +11,7 @@ const Shelf = defineModel({
 	name: 'Shelf',
 	fields: (f) => ({
 		name: f.string({ unique: true }),
-		books: f.many(() => Book),
+		books: f.many(() => Book, { inverse: 'shelf' }),
 	}),
 })
 
@@ -20,13 +20,16 @@ const Book = defineModel({
 	fields: (f) => ({
 		title: f.string(),
 		shelf: f.one(() => Shelf, { onDelete: 'restrict' }),
-		tags: f.many(() => Tag),
+		tags: f.many(() => Tag, { inverse: 'books' }),
 	}),
 })
 
 const Tag = defineModel({
 	name: 'Tag',
-	fields: (f) => ({ text: f.string(), books: f.many(() => Book) }),
+	fields: (f) => ({
+		text: f.string(),
+		books: f.many(() => Book, { inverse: 'tags' }),
+	}),
 })
 
 export function empties(create: () => Adapter): void {

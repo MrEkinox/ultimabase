@@ -20,21 +20,21 @@ const M = { as: master }
 const idOf = (caller: Caller): string =>
 	caller.kind === 'user' ? caller.user.id : ''
 
-const Role = defineRole({ name: 'Role', members: () => User })
+const Role = defineRole({ name: 'Role', members: () => User, inverse: 'roles' })
 const User = defineModel({
 	name: 'User',
 	fields: (f) => ({
 		name: f.string(),
-		roles: f.many(() => Role),
-		memberships: f.many(() => Member),
+		roles: f.many(() => Role, { inverse: 'members' }),
+		memberships: f.many(() => Member, { inverse: 'user' }),
 	}),
 })
 const Team = defineModel({
 	name: 'Team',
 	fields: (f) => ({
 		name: f.string(),
-		members: f.many(() => Member),
-		docs: f.many(() => Doc),
+		members: f.many(() => Member, { inverse: 'team' }),
+		docs: f.many(() => Doc, { inverse: 'team' }),
 	}),
 })
 const Member = defineModel({

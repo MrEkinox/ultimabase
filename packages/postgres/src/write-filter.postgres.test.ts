@@ -42,7 +42,10 @@ const ada = { as: asUser({ id: 'ada' }) }
 
 const Project = defineModel({
 	name: 'Project',
-	fields: (f) => ({ owner: f.string(), tasks: f.many(() => Task) }),
+	fields: (f) => ({
+		owner: f.string(),
+		tasks: f.many(() => Task, { inverse: 'project' }),
+	}),
 }).with({
 	access: {
 		read: () => true,

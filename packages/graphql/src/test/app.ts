@@ -16,7 +16,7 @@ export const User = defineModel({
 		password: f.string({ optional: true }).with({
 			access: { read: allow.private },
 		}),
-		posts: f.many(() => Post),
+		posts: f.many(() => Post, { inverse: 'author' }),
 	}),
 }).with({ access: allow.readOnly, graphql: { maxTake: 3 } })
 

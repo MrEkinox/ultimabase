@@ -13,7 +13,7 @@ export const Profile = defineModel({
 		born: f.dateTime(),
 		settings: f.json(),
 		level: f.enumOf(['junior', 'senior']),
-		manager: f.one(() => Profile, { optional: true, inverse: 'reports' }),
-		reports: f.many(() => Profile),
+		manager: f.one(() => Profile, { optional: true }),
+		reports: f.many(() => Profile, { inverse: 'manager' }),
 	}),
 })

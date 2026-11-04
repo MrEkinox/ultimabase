@@ -24,7 +24,10 @@ const Post = defineModel({
 
 const Author = defineModel({
 	name: 'Author',
-	fields: (f) => ({ name: f.string(), posts: f.many(() => Post) }),
+	fields: (f) => ({
+		name: f.string(),
+		posts: f.many(() => Post, { inverse: 'author' }),
+	}),
 })
 
 const titles = (rows: readonly { readonly title: string }[]): string[] =>

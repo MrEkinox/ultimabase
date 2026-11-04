@@ -11,9 +11,9 @@ const Writer = defineModel({
 	use: [rest()],
 	fields: (f) => ({
 		name: f.string(),
-		notes: f.many(() => Note),
+		notes: f.many(() => Note, { inverse: 'writer' }),
 		drafts: f.many(() => Note, { from: 'notes' }),
-		labels: f.many(() => Label),
+		labels: f.many(() => Label, { inverse: 'writer' }),
 	}),
 }).with({
 	access: allow.public,

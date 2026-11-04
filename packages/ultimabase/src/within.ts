@@ -45,8 +45,8 @@ function rulesOf(models: Models): readonly Rule[] {
 				field: field.name,
 				within: field.within,
 				target: field.target,
-				// The start checked it is a `one` (checkWithin).
-				inverse: theirs?.kind === 'one' ? theirs.inverse : '',
+				// The start checked it is a `one` with its other side (checkWithin).
+				inverse: theirs?.kind === 'one' ? (theirs.inverse ?? '') : '',
 				message: `${model.name}.${field.name} needs a ${field.target} of the same ${field.within.target}.`,
 			})
 		}

@@ -38,7 +38,7 @@ export const Match = defineModel({
 	name: 'Match',
 	fields: (f) => ({
 		ended: f.boolean({ default: false }),
-		announcements: f.many(() => Announcement),
+		announcements: f.many(() => Announcement, { inverse: 'match' }),
 	}),
 })
 	.with({
@@ -106,7 +106,7 @@ interface SeatCommands {
 const Seat = defineModel({
 	name: 'Seat',
 	fields: (f) => ({
-		game: f.one(() => Game, { inverse: 'seats' }),
+		game: f.one(() => Game),
 		open: f.boolean({ default: true }),
 	}),
 }).commands<SeatCommands>(({ queries }): SeatCommands => ({

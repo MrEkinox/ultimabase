@@ -26,7 +26,7 @@ const Post = defineModel({
 	name: 'Post',
 	fields: (f) => ({
 		title: f.string({ unique: true }),
-		comments: f.many(() => Comment),
+		comments: f.many(() => Comment, { inverse: 'post' }),
 	}),
 	use: [softDelete()],
 }).with({

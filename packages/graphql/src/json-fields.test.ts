@@ -45,13 +45,18 @@ const Profile = defineModel({
 		notes: f.json({ optional: true }),
 		checked: f.json({ optional: true, validate: (value) => value }),
 		team: f.one(() => Team, { optional: true }),
+		// One-sided: no relation of `Team` names it (D-237).
+		sponsor: f.one(() => Team, { optional: true }),
 	}),
 }).with({ access: allow.readOnly })
 
 const Team = defineModel({
 	name: 'Team',
 	use: [graphql()],
-	fields: (f) => ({ name: f.string(), members: f.many(() => Profile) }),
+	fields: (f) => ({
+		name: f.string(),
+		members: f.many(() => Profile, { inverse: 'team' }),
+	}),
 }).with({ access: allow.readOnly })
 
 const ship = defineFunction({
@@ -154,6 +159,28 @@ describe('a typed json field', () => {
 		expect(typeOf('ProfileUpdateInput')).toContain(
 			'  prefs: ProfilePrefsInput\n',
 		)
+	})
+
+	it("writes a one-sided one with its target's whole input (D-237)", () => {
+		expect(typeOf('ProfileCreateInput')).toContain(
+			'  sponsor: TeamCreateNestedOneInput\n',
+		)
+		expect(typeOf('TeamCreateNestedOneInput')).toBe(
+			[
+				'input TeamCreateNestedOneInput @oneOf {',
+				'  connect: ConnectInput',
+				'  connectOrCreate: TeamCreateOrConnectInput',
+				'  create: TeamCreateInput',
+				'}',
+			].join('\n'),
+		)
+		expect(typeOf('ProfileUpdateInput')).toContain(
+			'  sponsor: TeamUpdateOneNestedInput\n',
+		)
+		expect(typeOf('TeamUpdateOneNestedInput')).toContain(
+			'  update: TeamUpdateInput\n',
+		)
+		expect(typeOf('Team')).not.toContain('sponsor')
 	})
 
 	it('names relation writes after their target and the relation back (D-138)', () => {

@@ -18,8 +18,8 @@ const Card = defineModel({
 	fields: (f) => ({
 		title: f.string({ unique: true }),
 		rank: f.number({ integer: true, optional: true }),
-		tags: f.many(() => Tag),
-		notes: f.many(() => Note),
+		tags: f.many(() => Tag, { inverse: 'cards' }),
+		notes: f.many(() => Note, { inverse: 'card' }),
 	}),
 })
 
@@ -30,7 +30,10 @@ const Note = defineModel({
 
 const Tag = defineModel({
 	name: 'Tag',
-	fields: (f) => ({ label: f.string(), cards: f.many(() => Card) }),
+	fields: (f) => ({
+		label: f.string(),
+		cards: f.many(() => Card, { inverse: 'tags' }),
+	}),
 })
 
 const long = Array.from({ length: 30 }, (_, index) =>

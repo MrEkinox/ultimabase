@@ -51,11 +51,16 @@ await Article.findUnique({ where: { lang: 'en', title: 'Hello' } })
 // @ts-expect-error -- a relation is targeted by its id
 await Article.findUnique({ where: { author: { id: 'u1' }, slug: 'hello' } })
 
+const Label = defineModel({
+	name: 'Label',
+	fields: (f) => ({ refused: f.one(() => Refused) }),
+})
+
 export const Refused = defineModel({
 	name: 'Refused',
 	fields: (f) => ({
 		slug: f.string(),
-		tags: f.many(() => Article),
+		tags: f.many(() => Label, { inverse: 'refused' }),
 		// @ts-expect-error -- a default returns the field's type
 		views: f.number({ default: ({ caller }) => caller.kind }),
 		// @ts-expect-error -- a relation's default is the target's `{ id }`

@@ -2,7 +2,6 @@
 // (D-77). `tsc` fails if one does not hold.
 import { defineModel } from '../index.ts'
 import { Author } from './author.ts'
-import { Book } from './book.ts'
 
 export const Review = defineModel({
 	name: 'Review',
@@ -10,7 +9,7 @@ export const Review = defineModel({
 		text: f.string(),
 		author: f.one(() => Author),
 		editor: f.one(() => Author, { optional: true }),
-		books: f.many(() => Book),
+		quotes: f.many(() => Quote, { inverse: 'review' }),
 	}),
 }).with({
 	access: {
@@ -27,7 +26,12 @@ export const Review = defineModel({
 			// @ts-expect-error: an optional relation's key may be `null`.
 			void record.editor.id
 			// @ts-expect-error: a `many` relation has no key in the row.
-			void record.books
+			void record.quotes
 		},
 	},
+})
+
+const Quote = defineModel({
+	name: 'Quote',
+	fields: (f) => ({ text: f.string(), review: f.one(() => Review) }),
 })

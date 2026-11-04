@@ -16,7 +16,7 @@ const Team = defineModel({
 	name: 'Team',
 	fields: (f) => ({
 		hidden: f.boolean({ default: false }),
-		deals: f.many(() => Deal),
+		deals: f.many(() => Deal, { inverse: 'team' }),
 	}),
 }).with({ access: { read: ({ where }) => where({ hidden: false }) } })
 

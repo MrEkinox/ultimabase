@@ -27,7 +27,7 @@ const Note = defineModel({
 		owner: f.string(),
 		pinned: f.boolean({ default: false }),
 		folder: f.one(() => Folder, { optional: true }),
-		tags: f.many(() => Label),
+		tags: f.many(() => Label, { inverse: 'notes' }),
 	}),
 }).with({
 	access: {
@@ -51,12 +51,18 @@ const Note = defineModel({
 
 const Folder = defineModel({
 	name: 'Folder',
-	fields: (f) => ({ name: f.string(), notes: f.many(() => Note) }),
+	fields: (f) => ({
+		name: f.string(),
+		notes: f.many(() => Note, { inverse: 'folder' }),
+	}),
 }).with({ access: { read: () => true } })
 
 const Label = defineModel({
 	name: 'Label',
-	fields: (f) => ({ name: f.string(), notes: f.many(() => Note) }),
+	fields: (f) => ({
+		name: f.string(),
+		notes: f.many(() => Note, { inverse: 'tags' }),
+	}),
 })
 
 const texts = async () =>

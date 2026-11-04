@@ -14,8 +14,8 @@ const Board = defineModel({
 	name: 'Board',
 	fields: (f) => ({
 		name: f.string(),
-		tickets: f.many(() => Ticket),
-		notes: f.many(() => Note),
+		tickets: f.many(() => Ticket, { inverse: 'board' }),
+		notes: f.many(() => Note, { inverse: 'board' }),
 	}),
 }).with({ access: { read: () => true } })
 

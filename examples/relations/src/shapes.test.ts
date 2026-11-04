@@ -12,6 +12,7 @@ import {
 	Member,
 	Membership,
 	Milestone,
+	Notice,
 	Project,
 	Reader,
 	Series,
@@ -120,6 +121,26 @@ it('reads the two relations between branches', async () => {
 	expect(read.outgoing.map((transfer) => transfer.to?.city)).toEqual(['Lyon'])
 	expect(read.incoming).toEqual([])
 	//#endregion
+})
+
+it('links a notice to a branch that has no field for it', async () => {
+	//#region one-sided-write
+	const paris = await Branch.create({ data: { city: 'Paris' } }, { as: master })
+	await Notice.create(
+		{
+			data: { text: 'Closed on Monday', branch: { connect: { id: paris.id } } },
+		},
+		{ as: master },
+	)
+	const found = await Notice.findMany(
+		{ where: { branch: { is: { city: 'Paris' } } }, include: { branch: true } },
+		{ as: master },
+	)
+	expect(found.map((notice) => notice.branch?.city)).toEqual(['Paris'])
+	//#endregion
+	// `onDelete: 'cascade'` deletes the notices with their branch.
+	await Branch.delete({ where: { id: paris.id } }, { as: master })
+	expect(await Notice.count({}, { as: master })).toBe(0)
 })
 
 it('reads the members of a club through their memberships', async () => {

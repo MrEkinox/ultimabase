@@ -16,7 +16,7 @@ export const Post = defineModel({
 		likes: f.number({ integer: true, default: 0 }),
 		publishedAt: f.dateTime({ optional: true }),
 		author: f.one(() => Person),
-		revisions: f.many(() => Revision),
+		revisions: f.many(() => Revision, { inverse: 'post' }),
 	}),
 	// A client asks for 20 posts at most in one list.
 }).with({ access: allow.public, rest: { maxTake: 20 } })
@@ -26,7 +26,10 @@ export const Post = defineModel({
 export const Person = defineModel({
 	name: 'Person',
 	use: [rest(), graphql()],
-	fields: (f) => ({ name: f.string(), posts: f.many(() => Post) }),
+	fields: (f) => ({
+		name: f.string(),
+		posts: f.many(() => Post, { inverse: 'author' }),
+	}),
 	// `persons` otherwise: the route is /api/people.
 }).with({
 	access: allow.public,

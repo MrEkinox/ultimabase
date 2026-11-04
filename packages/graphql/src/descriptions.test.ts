@@ -27,7 +27,10 @@ const Writer = defineModel({
 	use: [graphql()],
 	fields: (f) => ({
 		name: f.string({ description: 'As printed.' }),
-		notes: f.many(() => Note, { description: 'What they wrote.' }),
+		notes: f.many(() => Note, {
+			inverse: 'writer',
+			description: 'What they wrote.',
+		}),
 		prefs: f.json({
 			optional: true,
 			description: 'How they read.',

@@ -50,10 +50,10 @@ const Note = defineModel({
 	fields: (f) => ({
 		text: f.string(),
 		account: f
-			.one(() => Account, { inverse: 'notes' })
+			.one(() => Account)
 			.with({ access: { read: ({ caller }) => caller.kind === 'master' } }),
 		shared: f
-			.one(() => Account, { optional: true, inverse: 'shares' })
+			.one(() => Account, { optional: true })
 			.with({ access: { update: allow.private } }),
 	}),
 }).with({ access: allow.public })

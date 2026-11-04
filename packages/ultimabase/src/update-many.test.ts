@@ -37,7 +37,7 @@ const Memo = defineModel({
 		owner: f.string(),
 		hidden: f.boolean({ default: false }),
 		score: f.number({ integer: true, default: 0 }),
-		lines: f.many(() => Line),
+		lines: f.many(() => Line, { inverse: 'memo' }),
 	}),
 }).with({
 	access: { read: ({ where }) => where({ hidden: false }), update: mine },

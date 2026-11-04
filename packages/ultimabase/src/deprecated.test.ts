@@ -37,7 +37,10 @@ const Author = defineModel({
 	name: 'Author',
 	fields: (f) => ({
 		name: f.string(),
-		posts: f.many(() => Post, { deprecated: 'Use articles.' }),
+		posts: f.many(() => Post, {
+			inverse: 'author',
+			deprecated: 'Use articles.',
+		}),
 	}),
 })
 const Post = defineModel({

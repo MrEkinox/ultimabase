@@ -16,7 +16,7 @@ export const User = defineModel({
 		password: f.string({ optional: true }).with({
 			access: { read: allow.private },
 		}),
-		posts: f.many(() => Post),
+		posts: f.many(() => Post, { inverse: 'author' }),
 	}),
 }).with({ access: allow.readOnly, rest: { maxTake: 3 } })
 
@@ -31,7 +31,7 @@ export const Post = defineModel({
 		meta: f.json({ optional: true }),
 		publishedAt: f.dateTime({ optional: true }),
 		author: f.one(() => User),
-		tags: f.many(() => Tag),
+		tags: f.many(() => Tag, { inverse: 'post' }),
 	}),
 	indexes: [{ fields: ['author', 'slug'], unique: true }],
 }).with({ access: allow.readOnly })

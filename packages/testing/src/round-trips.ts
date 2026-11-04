@@ -12,7 +12,10 @@ const M = { as: master }
 
 const Writer = defineModel({
 	name: 'Writer',
-	fields: (f) => ({ name: f.string(), novels: f.many(() => Novel) }),
+	fields: (f) => ({
+		name: f.string(),
+		novels: f.many(() => Novel, { inverse: 'writer' }),
+	}),
 })
 
 const Novel = defineModel({
@@ -20,7 +23,7 @@ const Novel = defineModel({
 	fields: (f) => ({
 		title: f.string(),
 		writer: f.one(() => Writer, { onDelete: 'cascade' }),
-		genres: f.many(() => Genre),
+		genres: f.many(() => Genre, { inverse: 'novels' }),
 	}),
 })
 
@@ -29,7 +32,10 @@ const byWriter = (id: string) => ({ title: 'A', writer: { connect: { id } } })
 
 const Genre = defineModel({
 	name: 'Genre',
-	fields: (f) => ({ label: f.string(), novels: f.many(() => Novel) }),
+	fields: (f) => ({
+		label: f.string(),
+		novels: f.many(() => Novel, { inverse: 'genres' }),
+	}),
 })
 
 const open = () => true
@@ -44,7 +50,10 @@ const me = '00000000-0000-4000-8000-000000000000'
 let hooks = 0
 const Cabinet = defineModel({
 	name: 'Cabinet',
-	fields: (f) => ({ label: f.string(), drawers: f.many(() => Drawer) }),
+	fields: (f) => ({
+		label: f.string(),
+		drawers: f.many(() => Drawer, { inverse: 'cabinet' }),
+	}),
 }).with({ access: { read: open, update: open, delete: open } })
 
 /** A model with an update hook, which a relation write reaches. */
@@ -91,9 +100,7 @@ export function roundTrips(create: () => Adapter, counted: () => number): void {
 	describe('round trips', () => {
 		started(create, [Writer, Novel, Genre, Shelf, Cabinet, Drawer, Note, Memo])
 
-		let writer = ''
-		let genre = ''
-		let engines = ''
+		let [writer, genre, engines] = ['', '', '']
 		beforeEach(async () => {
 			genre = (await Genre.create({ data: { label: 'tale' } }, M)).id
 			writer = (await Writer.create({ data: { name: 'Ada' } }, M)).id

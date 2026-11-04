@@ -34,7 +34,7 @@ const Member = defineModel({
 	fields: (f) => ({
 		name: f.string(),
 		hidden: f.boolean({ default: false }),
-		comments: f.many(() => Comment),
+		comments: f.many(() => Comment, { inverse: 'author' }),
 	}),
 }).with({ access: { read: ({ where }) => where({ hidden: false }) } })
 

@@ -13,7 +13,7 @@ export function withinOf(
 	where: string,
 	options: FieldOptions,
 	stored: boolean,
-	inverse: string,
+	inverse: string | undefined,
 ): { readonly within?: Within } {
 	const within = options['within']
 	if (within === undefined) return {}
@@ -64,6 +64,12 @@ export function checkWithin(models: ReadonlyMap<string, ModelInfo>): void {
 			) {
 				throw new Refused(
 					`${where}: within names ${target}, a required one relation of ${field.target} to ${parent}.`,
+				)
+			}
+			// Its other side tells which targets a parent holds (D-237).
+			if (theirs.inverse === undefined) {
+				throw new Refused(
+					`${where}: within names ${field.target}.${target}, which needs its other side.`,
 				)
 			}
 		}

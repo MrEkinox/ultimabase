@@ -13,7 +13,7 @@ export const Post = defineModel({
 		status: f.enumOf(['draft', 'published'], { default: 'draft' }),
 		likes: f.number({ integer: true, default: 0 }),
 		author: f.one(() => Person),
-		revisions: f.many(() => Revision),
+		revisions: f.many(() => Revision, { inverse: 'post' }),
 	}),
 	// A client asks for 20 posts at most in one list.
 }).with({ access: allow.public, graphql: { maxTake: 20 } })
@@ -23,7 +23,10 @@ export const Post = defineModel({
 export const Person = defineModel({
 	name: 'Person',
 	use: [graphql()],
-	fields: (f) => ({ name: f.string(), posts: f.many(() => Post) }),
+	fields: (f) => ({
+		name: f.string(),
+		posts: f.many(() => Post, { inverse: 'author' }),
+	}),
 	// `persons` otherwise: the list field is `people`.
 }).with({ access: allow.public, graphql: { plural: 'people' } })
 //#endregion

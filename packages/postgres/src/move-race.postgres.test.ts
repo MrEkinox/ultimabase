@@ -42,40 +42,40 @@ const open = { read: () => true, update: () => true, delete: () => true }
 const Shelf = defineModel({
 	name: 'Shelf',
 	fields: (f) => ({
-		books: f.many(() => Book),
-		tagged: f.many(() => Tagged),
+		books: f.many(() => Book, { inverse: 'shelf' }),
+		tagged: f.many(() => Tagged, { inverse: 'shelf' }),
 	}),
 }).with({ access: open })
 const Book = defineModel({
 	name: 'Book',
 	fields: (f) => ({
-		shelf: f.one(() => Shelf, { optional: true, inverse: 'books' }),
+		shelf: f.one(() => Shelf, { optional: true }),
 	}),
 }).with({ access: open })
 /** A book with an update hook: a move reads it and updates it by id. */
 const Tagged = defineModel({
 	name: 'Tagged',
 	fields: (f) => ({
-		shelf: f.one(() => Shelf, { optional: true, inverse: 'tagged' }),
+		shelf: f.one(() => Shelf, { optional: true }),
 	}),
 }).with({ access: open, hooks: { beforeUpdate: async () => {} } })
 
 const Author = defineModel({
 	name: 'Author',
-	fields: (f) => ({ tomes: f.many(() => Tome) }),
+	fields: (f) => ({ tomes: f.many(() => Tome, { inverse: 'author' }) }),
 }).with({ access: open })
 /** A delete hook: the cascade loads its rows and deletes them by id. */
 const Tome = defineModel({
 	name: 'Tome',
 	fields: (f) => ({
-		author: f.one(() => Author, { onDelete: 'cascade', inverse: 'tomes' }),
-		pages: f.many(() => Page),
+		author: f.one(() => Author, { onDelete: 'cascade' }),
+		pages: f.many(() => Page, { inverse: 'tome' }),
 	}),
 }).with({ access: open, hooks: { beforeDelete: async () => {} } })
 const Page = defineModel({
 	name: 'Page',
 	fields: (f) => ({
-		tome: f.one(() => Tome, { onDelete: 'cascade', inverse: 'pages' }),
+		tome: f.one(() => Tome, { onDelete: 'cascade' }),
 	}),
 })
 

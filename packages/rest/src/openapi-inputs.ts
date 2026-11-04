@@ -297,7 +297,9 @@ const oneKey = (schema: Schema): Schema => ({
 function relationInput(doc: Doc, field: Relation, creating: boolean): Schema {
 	const many = field.kind === 'many'
 	const shape = many ? 'Many' : field.optional ? 'One' : 'OneRequired'
-	const facing = `Without${upper(field.inverse)}`
+	// A `one` without a target's side takes the target's whole input (D-237).
+	const facing =
+		field.inverse === undefined ? '' : `Without${upper(field.inverse)}`
 	const name = creating
 		? `${field.target}CreateNested${many ? 'Many' : 'One'}${facing}Input`
 		: `${field.target}Update${shape}${facing}NestedInput`

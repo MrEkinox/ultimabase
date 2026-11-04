@@ -12,7 +12,10 @@ import { asMaster, at, post, started } from './test/app.ts'
 const Shelf = defineModel({
 	name: 'Shelf',
 	use: [graphql()],
-	fields: (f) => ({ name: f.string(), books: f.many(() => Book) }),
+	fields: (f) => ({
+		name: f.string(),
+		books: f.many(() => Book, { inverse: 'shelf' }),
+	}),
 })
 const Book = defineModel({
 	name: 'Book',
@@ -22,12 +25,15 @@ const Book = defineModel({
 const Article = defineModel({
 	name: 'Article',
 	use: [graphql()],
-	fields: (f) => ({ title: f.string(), tags: f.many(() => Tag) }),
+	fields: (f) => ({
+		title: f.string(),
+		tags: f.many(() => Tag, { inverse: 'articles' }),
+	}),
 })
 const Tag = defineModel({
 	name: 'Tag',
 	use: [graphql()],
-	fields: (f) => ({ articles: f.many(() => Article) }),
+	fields: (f) => ({ articles: f.many(() => Article, { inverse: 'tags' }) }),
 })
 const Ping = defineModel({ name: 'Ping', use: [graphql()], fields: () => ({}) })
 

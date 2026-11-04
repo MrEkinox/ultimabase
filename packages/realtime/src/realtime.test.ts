@@ -41,8 +41,8 @@ const Team = defineModel({
 	name: 'Team',
 	fields: (f) => ({
 		name: f.string(),
-		members: f.many(() => Member),
-		posts: f.many(() => Post),
+		members: f.many(() => Member, { inverse: 'team' }),
+		posts: f.many(() => Post, { inverse: 'team' }),
 	}),
 })
 const Member = defineModel({
@@ -51,7 +51,10 @@ const Member = defineModel({
 })
 const Author = defineModel({
 	name: 'Author',
-	fields: (f) => ({ name: f.string(), posts: f.many(() => Post) }),
+	fields: (f) => ({
+		name: f.string(),
+		posts: f.many(() => Post, { inverse: 'author' }),
+	}),
 	use: [realtime()],
 }).with({ access: { read: () => true } })
 /** A user reads the posts of the teams they belong to. */
@@ -63,7 +66,7 @@ const Post = defineModel({
 		open: f.boolean({ default: true }),
 		team: f.one(() => Team),
 		author: f.one(() => Author, { optional: true }),
-		comments: f.many(() => Comment),
+		comments: f.many(() => Comment, { inverse: 'post' }),
 	}),
 	use: [realtime()],
 }).with({

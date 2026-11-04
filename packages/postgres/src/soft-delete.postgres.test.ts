@@ -41,13 +41,16 @@ const committed: string[] = []
 
 const Writer = defineModel({
 	name: 'Writer',
-	fields: (f) => ({ name: f.string(), notes: f.many(() => Note) }),
+	fields: (f) => ({
+		name: f.string(),
+		notes: f.many(() => Note, { inverse: 'writer' }),
+	}),
 })
 const Note = defineModel({
 	name: 'Note',
 	fields: (f) => ({
 		text: f.string(),
-		writer: f.one(() => Writer, { onDelete: 'cascade', inverse: 'notes' }),
+		writer: f.one(() => Writer, { onDelete: 'cascade' }),
 	}),
 	use: [softDelete()],
 }).with({
