@@ -33,6 +33,10 @@ export function migrationsOf(database: Adapter): Migrations {
 	return database.migrations
 }
 
+/** The field or model a removal may be, or those it may be one of (D-232). */
+const choice = (names: readonly string[]): string =>
+	names.length === 1 ? names.join('') : `one of ${names.join(', ')}`
+
 function refusal(losing: readonly Statement[]): string {
 	const models = [...new Set(losing.map((statement) => statement.model))]
 	const why = losing.map((statement) => statement.loses).join('; ')
@@ -42,7 +46,7 @@ function refusal(losing: readonly Statement[]): string {
 			...(rename === undefined
 				? []
 				: [
-						`  -- a rename? keep its data: give ${rename.to} dbName: '${rename.dbName}'.`,
+						`  -- a rename? keep its data: give ${choice(rename.to.map(({ name }) => name))} dbName: '${rename.dbName}'.`,
 					]),
 			`  ${sql};`,
 		]),

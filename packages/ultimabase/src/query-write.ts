@@ -152,6 +152,23 @@ async function one(
 	if (target !== undefined) {
 		context.plan.connect(field.target, [target], skips, operation)
 	}
+	// The other side's key, when it may be empty, is emptied before it moves:
+	// its column is unique (D-239).
+	const loose = !field.stored && isOptional(context, field)
+	if (loose && !creating && write.kind !== 'delete') {
+		context.after.push({
+			kind: 'move',
+			model: field.target,
+			field: field.inverse,
+			via: viaOf(context, field),
+			where: {
+				[field.inverse]: { is: byId(context.id) },
+				...(target === undefined ? {} : { id: { not: target } }),
+			},
+			to: null,
+			trusted: skips,
+		})
+	}
 	if (write.kind === 'create') {
 		const made = await created(context, field, write.data, write.at, skips)
 		target = made.id
@@ -168,7 +185,7 @@ async function one(
 	}
 	// A deleted row holds no key; another one may not be left empty (D-37).
 	if (write.kind === 'delete') return
-	if (!creating && (await holds(context, field, target))) {
+	if (!creating && !loose && (await holds(context, field, target))) {
 		fail(
 			context,
 			[field.name],
@@ -187,6 +204,17 @@ async function one(
 			trusted: skips,
 		})
 	}
+}
+
+/** Whether the target's side of a one-to-one, which stores the key, may be empty. */
+function isOptional(
+	context: Context,
+	field: Extract<FieldInfo, { readonly kind: 'one'; readonly stored: false }>,
+): boolean {
+	const other = modelOf(context.scope.models, field.target).fields.get(
+		field.inverse,
+	)
+	return other?.kind === 'one' && other.optional
 }
 
 /** Deletes, then creates, disconnects and connects, then updates (D-138). */

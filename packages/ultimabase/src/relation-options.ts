@@ -1,4 +1,4 @@
-// A relation's options (D-37, D-54, D-151, D-220, D-237, D-240).
+// A relation's options (D-37, D-54, D-151, D-220, D-236, D-237, D-240).
 import type { Described } from './described.ts'
 import type { DefaultFunction } from './fields.ts'
 
@@ -58,6 +58,11 @@ export type ManyOptions = Described &
 				/** The target's relation on the other side (D-237). */
 				readonly inverse: string
 				readonly from?: undefined
+				/**
+				 * Facing a `many`, every row it links has the row's `project`
+				 * with `'project'` (D-236).
+				 */
+				readonly within?: string
 		  }
 		| {
 				/**

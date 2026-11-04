@@ -96,6 +96,12 @@ export type SchemaField =
 			 * relation's `inverse` and `join` (D-151).
 			 */
 			readonly from?: string
+			/**
+			 * Facing a `many`, on the side declaring it: every row it links
+			 * has the row's value of this field, a `one` both models share
+			 * (D-236).
+			 */
+			readonly within?: string
 	  }
 
 export type SchemaModel = {

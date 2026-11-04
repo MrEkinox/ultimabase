@@ -3505,7 +3505,7 @@ await Note.create({ data }, { as: asUser({ id: 'ada' }) })
 
 ## D-98: The PostgreSQL adapter's tables, names and test setup
 
-Amended by D-105 and D-132.
+Amended by D-105, D-132 and D-234.
 
 Choice:
 
@@ -4070,7 +4070,7 @@ await Ticket.update({ where: { id }, data: { label: 'x' } }, { as: master })
 
 ## D-105: `ultimabase.config.ts`, the `ultimabase` commands and a schema snapshot
 
-Amended by D-171.
+Amended by D-171 and D-232.
 
 Choice: amends D-26, D-73 and D-98 point 1.
 
@@ -9406,7 +9406,8 @@ api: ({ plugins }) => plugins.http.mount(uploads, { bodyLimit: false })
 
 ## D-154: Realtime: live lists and live rows
 
-Amended by D-163, D-166, D-178, D-186, D-187, D-195, D-196, D-223 and D-226.
+Amended by D-163, D-166, D-178, D-186, D-187, D-195, D-196, D-223, D-226,
+D-229 and D-230.
 
 Choice: completes D-25; amends D-106 (WebSocket upgrades), D-107 (the
 `Subscription` type), D-109 (live functions) and D-129 (live reads over
@@ -13620,6 +13621,8 @@ await plugins.maintenance.lock()
 
 ## D-206: Each plugin declares its codes, and `ErrorCodeOf<typeof app>`
 
+Amended by D-231.
+
 Choice: amends D-72 and D-107.
 
 1. A plugin's types take `errors`, the union of the codes its errors carry
@@ -14429,6 +14432,8 @@ await Match.end(match.id)
 
 ## D-218: `httpPlugin()` limits each address's requests
 
+Amended by D-230.
+
 Choice: amends D-56; D-113 is unchanged.
 
 1. `httpPlugin()` counts each client address's requests and upgrades in
@@ -14567,7 +14572,7 @@ not make).
 
 ## D-220: A relation kept within the row's parent
 
-Amended by D-238.
+Amended by D-235, D-236 and D-238.
 
 Choice: amends D-37 and D-99; D-54 is unchanged.
 
@@ -14974,6 +14979,8 @@ httpPlugin({ bodyLimit: Number(process.env.BODY_LIMIT) })
 
 ## D-224: An issue's code, from a schema and from the password's refusals
 
+Amended by D-231.
+
 Choice: amends D-88 and D-209.
 
 1. The kernel keeps an issue's `code` from any Standard Schema, a
@@ -15362,7 +15369,513 @@ query ($where: PostWhereInput) {
 # $where 20,000 levels deep: BAD_USER_INPUT, The variables are nested too deep.
 ```
 
+## D-229: A live function's rows count in `maxRows` over a WebSocket
+
+Choice: amends D-154 point 12; D-107's row budget is unchanged.
+
+1. A live function's subscription over a WebSocket is counted by the row
+   budget as the same query over HTTP: a document that may return more than
+   `maxRows` rows is refused with `BAD_USER_INPUT` before `run` runs, and
+   Master's is not counted (D-107).
+2. The budget counts the document once, when it is subscribed, not at each
+   wake: a wake runs the same document.
+3. A model's live list and live row stay out of `maxRows`: `maxLive`,
+   `maxTake` in page mode and `maxConnectionRows` bound them (D-154), and
+   the rows of the relations they select count in `maxLive` instead. REST's
+   live lists check their depth only.
+
+Why: `{ ranked(above: 0) { id } }` over HTTP was refused past `maxRows`, but
+`subscription { ranked(above: 0) { id } }` ran in full, then again at each
+write, so a client with a socket skipped the budget. A live list's rows are
+already bounded, by limits sized for a list that is kept; counting them
+again in `maxRows` would refuse the large live lists D-154 serves.
+
+Example, before: `maxRows: 5`, and a function's list counts `take`, 100.
+
+```graphql
+query {
+	ranked(above: 0) {
+		id
+	}
+}
+# The document asks for more than 5 rows. Ask for fewer with first or last.
+subscription {
+	ranked(above: 0) {
+		id
+	}
+}
+# runs, and runs again at each write
+```
+
+After: both are refused with the same error; Master's are both served.
+
+Rejected: counting at each wake (the document does not change between
+wakes); counting a model's live list in `maxRows` (its own limits bound it,
+and REST does not count it).
+
+## D-230: Each operation over a WebSocket counts as a request
+
+Choice: amends D-218 point 1 and D-154 point 5.
+
+1. Each `subscribe` message on a GraphQL socket counts as one request of
+   the address the upgrade came from, in the same window as its HTTP
+   requests. Pings, `connection_init` and `complete` are not counted.
+2. Over the limit, that operation fails with `TOO_MANY_ATTEMPTS`,
+   `Too many requests: try again later.`, and `details: { retryAfter }`,
+   the seconds until the window ends, as the 429's body. The socket stays
+   open: the next operation after the window runs.
+3. An operation is counted once the connection's caller is read and before
+   its document is parsed, so a flood costs neither a parse nor a session
+   read. Master's key on the upgrade request passes, as over HTTP; a
+   connection whose caller is Master through `connection_init` only is
+   counted.
+4. `httpPlugin`'s `Upgrade` gains `limit()`: it counts one more request of
+   the upgrade's address and returns the seconds to wait when it is over
+   the limit, `undefined` within it. A plugin that serves several
+   operations on one socket calls it for each.
+
+Why: the limit counted the upgrade only, so one socket carried as many
+queries and mutations as the client sent, past any limit. Closing the socket would end the client's live
+subscriptions for one operation too many, so only that operation is
+refused, as an HTTP request is.
+
+Example, before: `rateLimit: { requests: 3, window: 60_000 }`.
+
+```ts
+await fetch(url, init) // 200
+await fetch(url, init) // 200
+await fetch(url, init) // 429
+const client = createClient({ url: ws })
+await first(client, '{ ping }') // "pong", and every one after
+```
+
+After: the upgrade and two operations, then:
+
+```ts
+await first(client, '{ ping }')
+// errors: [{ message: 'Too many requests: try again later.',
+//   extensions: { code: 'TOO_MANY_ATTEMPTS', details: { retryAfter: 60 } } }]
+```
+
+A plugin with its own socket protocol:
+
+```ts
+plugins.http.upgrade('/feed', (upgrade) => {
+	onMessage(upgrade, async (message) => {
+		const retryAfter = await upgrade.limit()
+		if (retryAfter !== undefined) return refuse(message, retryAfter)
+		return serve(message)
+	})
+})
+```
+
+Rejected: closing the socket over the limit (it ends the client's live
+reads for one operation); a separate count per socket (a client opens
+another socket); counting each message, pings included (a quiet
+connection would use the address's budget).
+
+## D-231: Each plugin declares its issue codes, and `IssueCodeOf<typeof app>`
+
+Choice: amends D-206 and D-224.
+
+1. A plugin's types take `issues`, the union of the codes its
+   `VALIDATION_FAILED` issues carry, in capitals:
+   `readonly issues: 'PASSWORD_LENGTH' | 'PASSWORD_IS_EMAIL' | 'PASSWORD_BREACHED'`.
+   `errors` keeps typing `error.code` only (D-224).
+2. `ultimabase` exports the type `IssueCodeOf<A>`: for `typeof app`, the
+   `issues` of each plugin `app` lists, `never` with none. The kernel gives
+   no issue a code of its own. An application's own issue codes, from a
+   schema or a `PublicError`, are not in it; a client adds them, as with
+   `ErrorCodeOf` (D-206).
+3. The password plugin declares its three codes (D-224).
+4. One type-only key of a plugin's value and of the application carries
+   both unions, `{ errors, issues }`: one more union is no new key and no
+   new type parameter. `ultimabase` exports its type, `Codes`, which a
+   declaration emitted for an exported `app` names.
+5. `scripts/codes.test.ts` reads `issues` as it reads `errors`: a code a
+   package sends is declared in one of them, and each one declared is
+   sent. The password's codes leave its list of literals that are no code.
+
+Why:
+
+- A client translates each issue code, as it translates each error code. A
+  list it writes by hand misses a code a plugin adds, and shows the generic
+  text instead: typed against the application, the missing code fails its
+  typing.
+- The codes are the plugin's, beside its `errors` (D-206): no global
+  declaration.
+- The script held the password's codes in a hand-kept list of exceptions;
+  declared, they are checked as every other code is.
+
+Rejected:
+
+- The issue codes in `errors`: `ErrorCodeOf` would list codes no error
+  carries (D-224).
+- A runtime list of the codes, which D-206 rejected: a client imports no
+  server value. A client that tests a code at runtime keeps its list,
+  checked against the type.
+- A second type-only key and a fourth type parameter for the issues.
+
+Example, before: the client lists the password's codes by hand, and a code
+the plugin adds compiles and shows the generic text.
+
+```ts
+const passwordIssueCodes = [
+	'PASSWORD_LENGTH',
+	'PASSWORD_IS_EMAIL',
+	'PASSWORD_BREACHED',
+] as const
+const messages: Record<(typeof passwordIssueCodes)[number], string> = {
+	PASSWORD_LENGTH: '8 to 256 characters',
+	PASSWORD_IS_EMAIL: 'Not your email',
+	PASSWORD_BREACHED: 'Found in a data breach',
+}
+```
+
+After: the application's type lists them, and a missing one fails typing.
+
+```ts
+import type { IssueCodeOf } from 'ultimabase'
+import type { app } from './app.ts'
+
+const messages = {
+	PASSWORD_LENGTH: '8 to 256 characters',
+	PASSWORD_IS_EMAIL: 'Not your email',
+	PASSWORD_BREACHED: 'Found in a data breach',
+} satisfies Record<IssueCodeOf<typeof app>, string>
+
+// In a plugin's types:
+interface Password extends PluginTypes {
+	readonly name: 'password'
+	readonly issues: 'PASSWORD_LENGTH' | 'PASSWORD_IS_EMAIL' | 'PASSWORD_BREACHED'
+}
+```
+
+## D-232: A rename hint lists every added column alike, never one twice
+
+Choice: amends D-105.
+
+1. A removed column whose type only one added column has keeps its hint, as
+   before: `migrate create` writes the SQL that renames it, and the `sync`
+   refusal names the field to give `dbName`.
+2. A removed column that several added columns may be lists them all, in
+   the models' order, for the developer to choose; the refusal says
+   `give one of Account.emailMessages, Account.emailInvites dbName: 'mail_on_message'`.
+3. An added column that is the only one alike for two removals or more
+   gives no hint: naming it on each would propose it twice.
+4. Removed tables follow the same rules, compared by their columns' names,
+   types and nullability, as before.
+5. The file's hint says what to replace: the drop, and the line adding the
+   column the developer keeps, which would fail once the rename made it.
+   With one candidate:
+
+   ```sql
+   -- a rename? replace this drop and the line adding Account.emailMessages with: alter table … rename column …;
+   ```
+
+   With several, one commented line each, as in the example below.
+
+6. `Statement.rename` is `{ dbName, to: { name, sql }[] }`: the adapter
+   gives each candidate, and the kernel writes them.
+
+Why:
+
+- Each removal took the first added column of its type: settings renamed
+  together in one change all got a hint into the same column, and following
+  the hints put every value in it.
+- A hint that looks right and is wrong is worse than none. Only the
+  developer knows which column a removed one became.
+
+Rejected:
+
+- Picking the closest name: a guess presented as an answer.
+- `migrate create --rename Account.mailOnMessage=emailMessages`, or a
+  question per removal: a new API of the command, while editing the
+  written SQL already says the rename. It can come later, on a need.
+
+Example, before:
+
+```ts
+// Account's mailOnMessage, mailOnInvite and pushOnMessage become
+// emailMessages, emailInvites and pushMessages, all booleans.
+```
+
+```sql
+-- removing "Account.mailOnMessage" deletes data.
+-- a rename? write: alter table "account" rename column "mail_on_message" to "email_messages";
+alter table "account" drop column "mail_on_message";
+
+-- removing "Account.mailOnInvite" deletes data.
+-- a rename? write: alter table "account" rename column "mail_on_invite" to "email_messages";
+alter table "account" drop column "mail_on_invite";
+```
+
+After:
+
+```sql
+-- removing "Account.mailOnMessage" deletes data.
+-- a rename? replace this drop and the line adding the one you keep with one of:
+--   alter table "account" rename column "mail_on_message" to "email_messages";
+--   alter table "account" rename column "mail_on_message" to "email_invites";
+--   alter table "account" rename column "mail_on_message" to "push_messages";
+alter table "account" drop column "mail_on_message";
+```
+
+## D-234: A relation has no index of its own when a key or an index starts with it
+
+Choice: amends D-98.
+
+1. A stored `one` relation that is not unique gets its index,
+   `<table>_<column>_idx`, unless a unique key or an index of its model
+   starts with its column: PostgreSQL reads a B-tree by its first column,
+   so that one serves the relation's reads and its foreign key's checks.
+2. A key or an index counts unique or not, case-insensitive or not, but
+   not partial (D-215), which holds only the rows it keeps, and not a
+   `contains` one (D-141), a trigram index of a string.
+3. An index of the model on the relation alone is now that index. Before,
+   the start refused it: `the index on Membership.team and the index on
+Membership(team) are both stored as "membership_team_id_idx"`.
+4. A database built before keeps the extra index until the next sync or
+   migration drops it. Dropping an index loses no data, so a sync applies
+   it without `--force`.
+
+Why: the extra index costs a write on each insert and update, and its
+storage, for reads the other index already serves; schema linters report
+it as redundant.
+
+Rejected: dropping it for any index that holds the column, not first: a
+B-tree read by a later column scans the whole index.
+
+Example, before:
+
+```ts
+const Membership = defineModel({
+	name: 'Membership',
+	fields: (f) => ({ team: f.one(() => Team), person: f.one(() => Person) }),
+	indexes: [{ fields: ['team', 'person'], unique: true }],
+})
+```
+
+```sql
+alter table "membership" add constraint "membership_team_id_person_id_key" unique ("team_id", "person_id");
+create index "membership_team_id_idx" on "membership" ("team_id");
+create index "membership_person_id_idx" on "membership" ("person_id");
+```
+
+After:
+
+```sql
+alter table "membership" add constraint "membership_team_id_person_id_key" unique ("team_id", "person_id");
+create index "membership_person_id_idx" on "membership" ("person_id");
+```
+
+## D-235: A relation kept within an unset parent holds no target
+
+Choice: amends D-220.
+
+1. A row whose parent is `null` links no target through a relation kept
+   within it: a target always has a parent of its own, so none shares an
+   unset one. With `featuredTask` kept `within: { milestone: 'featured' }`,
+   a project with no `featured` milestone has no `featuredTask`. A relation
+   whose own value is `null` still holds nothing, as before.
+2. The kernel refuses, among the write's checks (D-99), with D-220's issue:
+   a write that links a target to a row whose parent is unset, through the
+   row or the target's side, on the relation's field; a write that empties
+   the parent of a row that keeps its target, from either side, on the
+   parent's field. The same write emptying both is accepted.
+3. A delete that empties the parent empties the target first. A target's
+   field to the parent is required (D-220), so a parent deleted has its
+   targets deleted by their `onDelete: 'cascade'`, or is refused by their
+   `restrict`, and the row's relation is emptied with them, before the
+   parent's.
+4. `postgres()` holds it too, when the parent is an optional field: a check
+   `CHECK (featured_id IS NOT NULL OR featured_task_id IS NULL)`, named
+   `project_featured_task_id_within_check`, beside D-220's foreign key, which
+   skips a row once one of its columns is `NULL`. A check is not deferred:
+   the cascade empties the relation before the field it rests on. Its
+   refusal, which a race alone reaches, is the issue on the row's relation.
+   `migrate create` writes and drops it with `within`: `Project: made
+featuredTask need featured`.
+
+Why: a row with no parent took any target, the kernel's checks skipped it
+and the database's key compared nothing, so an application wrote the
+missing half in a hook, which concurrent writes passed. Before:
+
+```ts
+export const Project = defineModel({
+	name: 'Project',
+	fields: (f) => ({
+		featured: f.one(() => Milestone, {
+			optional: true,
+			within: { project: 'id' },
+		}),
+		featuredTask: f.one(() => Task, {
+			optional: true,
+			within: { milestone: 'featured' },
+		}),
+	}),
+}).with({
+	hooks: {
+		afterUpdate: ({ record }) => {
+			if (record.featured === null && record.featuredTask !== null) {
+				throw new PublicError('NO_MILESTONE', 'No featured milestone.')
+			}
+		},
+	},
+})
+
+// Accepted without the hook: a task of any milestone, with none featured.
+await Project.update(
+	{ where: { id }, data: { featuredTask: { connect: { id: task } } } },
+	{ as: master },
+)
+```
+
+After, with no hook:
+
+```ts
+await Project.update(
+	{ where: { id }, data: { featuredTask: { connect: { id: task } } } },
+	{ as: master },
+)
+// VALIDATION_FAILED: Project.featuredTask needs a Task of the same milestone.
+
+await Project.update(
+	{ where: { id }, data: { featured: { disconnect: true } } },
+	{ as: master },
+)
+// VALIDATION_FAILED, on featured while a featuredTask is linked:
+// Project.featuredTask needs a Task of the same milestone.
+
+await Project.update(
+	{
+		where: { id },
+		data: {
+			featured: { disconnect: true },
+			featuredTask: { disconnect: true },
+		},
+	},
+	{ as: master },
+)
+// Accepted.
+```
+
+Rejected:
+
+- `MATCH FULL` on D-220's foreign key: it also refuses a parent with no
+  target, the usual case.
+- Emptying the target when a write empties the parent: a silent loss, where
+  refusing names it, as D-220 rejects for a moved parent.
+- A deferred check: PostgreSQL defers no check; a trigger would, for a rule
+  the cascade's order already keeps.
+
+## D-236: A many-to-many relation kept within the row's parent
+
+Choice: amends D-220.
+
+1. A `many` facing a `many` takes `within: 'project'`: every row it links
+   has the row's `project`. That form only: both models' `project` is a
+   required stored `one` to the same model. It is declared on one side and
+   holds from both. The start refuses the others:
+   `Note.tasks: within names project, a required one relation of Note and of
+Task to the same model.`, `Note.tasks: within on a many names a field both
+models share, as within: 'project'.`, `Note.tasks and Task.notes: within
+goes on one side.` A `many` facing a `one` keeps D-220's
+   `Project.tasks: within belongs on Task.project, which stores the key.`
+2. The rule holds when either side changes: a write that links two rows,
+   through `connect`, `create`, `connectOrCreate` or `set`, from either
+   side, or changes the parent of a row that stays linked, on either side.
+   A link the same write removes, or whose row it deletes, holds nothing.
+3. The kernel checks it among the write's checks (D-99), as D-220 does, with
+   D-220's issue: `Note.tasks needs a Task of the same project.`, on the
+   relation the write gave (`tasks`, or `notes` from the other side), or on
+   `project` when a parent change breaks a link. A check reads a row the
+   write does not hold as it was before the write, as D-220's.
+4. `postgres()` holds it too. The join table gets a required `project_id`,
+   which each link takes from its row on the declared side, `Note`: the row
+   the write inserts, or else the row as stored; each model gets a
+   unique key on `(id, project_id)`; and the join two foreign keys,
+   `(note_id, project_id)` to `note (id, project_id)` and
+   `(task_id, project_id)` to `task (id, project_id)`, deferred as the others
+   (D-98), `on update cascade`: a row moved carries its links' parent, and
+   the other side's key refuses at commit a link left outside it. Its
+   refusal, which a race alone reaches, is the issue on the declared
+   relation. `migrate create` adds the column filled from the rows it links,
+   then the keys, which fail when a row links outside its parent, and drops
+   them with `within`.
+5. `memory()` needs nothing more: its writes run one at a time.
+
+Why: a many-to-many often links rows of one parent only, a note about tasks
+of its project, and nothing stopped a link to another project's task. Each
+application re-read the links after every write, one count per linked
+model, as Master since the caller may not read the rows elsewhere; it
+missed the targets' side, and two concurrent writes passed it. Before:
+
+```ts
+export const Note = defineModel({
+	name: 'Note',
+	fields: (f) => ({
+		project: f.one(() => Project, { onDelete: 'cascade' }),
+		tasks: f.many(() => Task, { inverse: 'notes' }),
+	}),
+}).with({
+	hooks: {
+		afterCreate: ({ record }) => sameProject(record),
+		afterUpdate: ({ record }) => sameProject(record),
+	},
+})
+
+const sameProject = async (note: { id: string; project: { id: string } }) => {
+	const elsewhere = await Task.count(
+		{
+			where: {
+				notes: { some: { id: note.id } },
+				project: { isNot: { id: note.project.id } },
+			},
+		},
+		{ as: master },
+	)
+	if (elsewhere > 0) throw new PublicError('NOT_SAME_PROJECT', 'Wrong project.')
+}
+```
+
+After, with no hook:
+
+```ts
+export const Note = defineModel({
+	name: 'Note',
+	fields: (f) => ({
+		project: f.one(() => Project, { onDelete: 'cascade' }),
+		tasks: f.many(() => Task, { inverse: 'notes', within: 'project' }),
+	}),
+})
+
+await Note.update(
+	{ where: { id: note }, data: { tasks: { connect: [{ id: theirs }] } } },
+	{ as: master },
+)
+// VALIDATION_FAILED, on tasks: Note.tasks needs a Task of the same project.
+
+await Task.update(
+	{ where: { id: task }, data: { project: { connect: { id: other } } } },
+	{ as: master },
+)
+// VALIDATION_FAILED, on project while a note of the first project links it.
+```
+
+Rejected:
+
+- The object forms, `{ campaign: 'id' }` and `{ stage: 'mainStage' }`: no
+  case needs them on a `many` yet.
+- Declaring it on both sides: one rule written twice, which could disagree.
+- The kernel's checks alone: two concurrent writes pass them, as the hook.
+- The join's keys without `on update cascade`: a write moving a row and
+  every row it links, which the kernel accepts, would leave the join's
+  `project_id` behind and be refused at commit.
+
 ## D-237: A relation's other side is named, and a `one` may have none
+
+Amended by D-239.
 
 Choice: amends D-37, D-87 and D-123.
 
@@ -15402,7 +15915,9 @@ a one-to-one that names the other stores no key, and is optional.`
 7. `within` (D-220) names a target's field that a `many` of the parent
    names: the parent's side tells which targets it holds. Otherwise startup
    stops: `Ticket.assignee: within names Member.org, which needs its other
-side.`
+side.` A many-to-many's `within` (D-236) needs the same of both models'
+   `one` to the parent: `Desk.tickets: within names Desk.org, which needs its
+other side.`
 8. `defineRole` (D-123) names the user model's field `roles`, as it names
    its own `members`, `inherits` and `inheritedBy`: the user model declares
    `roles: f.many(() => Role, { inverse: 'members' })`; without it, the
@@ -15572,6 +16087,74 @@ const Desk = defineModel({
 // Type error: relationError: "Ticket.team: within 'orgn' is not a field
 // of the target"
 defineApp({ database: memory(), models: [Org, Team, Desk, Drawer, Ticket] })
+```
+
+## D-239: An optional one-to-one moves from the side without the key
+
+Choice: amends D-237.
+
+1. When the side that stores the key of a one-to-one is optional, the side
+   without the key moves it: `connect` empties the key of the row that held
+   this one and points the connected row here; `create` empties it and
+   writes the new row with the key; `disconnect` empties it. The row left
+   behind stays, with no key, as a `disconnect` of a `many` leaves it.
+2. The row left empty is written before the row that takes the key, so the
+   unique key never holds the same value twice.
+3. From the side that stores the key, connecting a row another row already
+   holds stays a unique conflict, `UNIQUE_VIOLATION`: a write does not take
+   a link from a row it does not name.
+4. When the side that stores the key is required, nothing changes (D-37): a
+   write that would leave a row without its side fails with
+   `The Card it points to cannot be left without one.`
+
+Why:
+
+- D-237 lets both sides of a one-to-one be optional, but its writes from
+  the side without the key still asked that the old row keep its side: a
+  member could not change locker, though the locker may stand empty.
+- A row whose key may be empty is left empty, as a `many` leaves the rows it
+  disconnects; refusing the write only made the caller do it in two steps.
+
+Rejected:
+
+- Taking the row from its holder on a `connect` from the side that stores
+  the key: it would empty a row the write does not name (D-233, closed).
+- Deleting the row left behind: `delete: true` already says that.
+
+Example, before:
+
+```ts
+// A member changes locker in two writes: the move fails with
+// "The Locker it points to cannot be left without one."
+await Locker.update({
+	where: { id: old.id },
+	data: { member: { disconnect: true } },
+})
+await Member.update({
+	where: { id: ada.id },
+	data: { locker: { connect: { id: spare.id } } },
+})
+```
+
+After:
+
+```ts
+const Member = defineModel({
+	name: 'Member',
+	fields: (f) => ({
+		locker: f.one(() => Locker, { inverse: 'member', optional: true }),
+	}),
+})
+const Locker = defineModel({
+	name: 'Locker',
+	fields: (f) => ({ member: f.one(() => Member, { optional: true }) }),
+})
+
+// The old locker is left empty.
+await Member.update({
+	where: { id: ada.id },
+	data: { locker: { connect: { id: spare.id } } },
+})
 ```
 
 ## D-240: A `one` view reads the single row a filter keeps

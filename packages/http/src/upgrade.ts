@@ -8,6 +8,7 @@ import type { Duplex } from 'node:stream'
 import type { Logger } from 'ultimabase'
 import { isOwnOrigin } from './address.ts'
 import type { Limiter } from './limit.ts'
+import { tooMany } from './limit.ts'
 
 /**
  * An upgrade a plugin takes: Node's request, its socket and first bytes, as
@@ -20,6 +21,11 @@ export interface Upgrade {
 	readonly incoming: IncomingMessage
 	readonly socket: Duplex
 	readonly head: Buffer
+	/**
+	 * Counts one more request of the address, as the upgrade was counted: the
+	 * seconds until it may send again when it is over the limit (D-230).
+	 */
+	readonly limit: () => Promise<number | undefined>
 }
 
 /** Takes an upgrade on its path; the socket is the plugin's from then on. */
@@ -155,10 +161,12 @@ export function upgrading(
 		void (async () => {
 			try {
 				const address = addressOf({ incoming })
+				const limit = async () => rateLimit(request, address)
+				const wait = await limit()
 				const refused =
-					(await rateLimit(request, address)) ?? (await answer(gates, request))
+					wait === undefined ? await answer(gates, request) : tooMany(wait)
 				if (refused !== undefined) return await send(socket, refused)
-				taker.accept({ request, address, incoming, socket, head })
+				taker.accept({ request, address, incoming, socket, head, limit })
 			} catch (error) {
 				logger.error({ err: error }, 'An upgrade failed.')
 				refuse(socket, 500, 'INTERNAL', 'Internal error.')
