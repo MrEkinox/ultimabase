@@ -55,7 +55,12 @@ npx ultimabase sync --force
 a migration, whose SQL you can edit (see [Migrations](#migrations)). When a
 removed field looks renamed, the refusal says so: `-- a rename? keep its
 data: give Locker.title dbName: 'label'.` That `dbName` keeps the old
-column, with its data, under the new field.
+column, with its data, under the new field. When several added fields may be
+the removed one, it lists them, `give one of Locker.title, Locker.code
+dbName: 'label'.`, and a migration file lists one `rename column` line for
+each: replace the drop, and the line adding the field you keep, with the
+right one. An added field that two removed ones may be is
+named for neither.
 
 A sync also refuses a change the rows cannot take, such as a required field
 without a default on a table that holds rows. Make the field optional, give

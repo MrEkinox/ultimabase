@@ -15,6 +15,11 @@ const Renamed = defineModel({
 	name: 'Locker',
 	fields: (f) => ({ title: f.string(), size: f.number() }),
 })
+/** Two added fields, either of which may be the removed `label` (D-232). */
+const Split = defineModel({
+	name: 'Locker',
+	fields: (f) => ({ title: f.string(), code: f.string(), size: f.number() }),
+})
 const Shelf = defineModel({
 	name: 'Shelf',
 	fields: (f) => ({ label: f.string() }),
@@ -37,7 +42,9 @@ afterEach(() => {
 
 function app(
 	state: FakeState,
-	...models: (typeof Locker | typeof Renamed | typeof Shelf | typeof Grown)[]
+	...models: (
+		typeof Locker | typeof Renamed | typeof Split | typeof Shelf | typeof Grown
+	)[]
 ) {
 	const logger = recording()
 	return {
@@ -110,6 +117,17 @@ describe('a development start', () => {
 		// The refusal stopped the database: the application starts again.
 		await first.app.start()
 		await first.app.stop()
+	})
+
+	it('names each field a removed one may be', async () => {
+		const state = fakeState()
+		const first = app(state, Locker)
+		await first.app.start()
+		await first.app.stop()
+		const { app: split } = app(state, Split)
+		await expect(split.start()).rejects.toThrow(
+			"  -- a rename? keep its data: give one of Locker.title, Locker.code dbName: 'label'.\n  drop Locker.label;",
+		)
 	})
 
 	it('applies it with force', async () => {

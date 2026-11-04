@@ -8,6 +8,7 @@ import { literal } from './fills.ts'
 import { addIndexes, addsTrigrams, dropIndexes } from './plan-indexes.ts'
 import type { Emit, Named } from './plan-parts.ts'
 import { added, changed, fields, id, keyOf, list, same } from './plan-parts.ts'
+import { columnHints, tableHints } from './plan-renames.ts'
 import type { Check, ForeignKey, Snapshot, TableSnapshot } from './snapshot.ts'
 
 /** A key's columns as a tried change names them: `Locker (label, size)`. */
@@ -23,15 +24,6 @@ const shown = (type: string): string => type.replace(' collate "C"', '')
 
 const column = (name: string, type: string, nullable: boolean): string =>
 	`${id(name)} ${type}${nullable ? '' : ' not null'}`
-
-/**
- * Columns as a rename compares them: names, types and nullability, sorted,
- * because a stored snapshot's columns come back in jsonb's order.
- */
-const shape = (table: TableSnapshot): unknown =>
-	Object.entries(table.columns)
-		.map(([name, { type, nullable }]) => [name, type, nullable])
-		.toSorted(([a], [b]) => String(a).localeCompare(String(b)))
 
 function create(name: string, table: TableSnapshot): string {
 	const parts = [
@@ -215,23 +207,12 @@ function alterColumns(
 	emit: Emit,
 ): void {
 	const table = `alter table ${id(name)}`
-	const fresh = Object.entries(to.columns).filter(
-		([key]) => from.columns[key] === undefined,
-	)
+	const hints = columnHints(name, from, to)
 	for (const [key, was] of Object.entries(from.columns)) {
 		if (to.columns[key] !== undefined) continue
-		const twin = fresh.find(([, now]) => now.type === was.type)
 		emit(`${table} drop column ${id(key)}`, `removed ${was.field}`, {
 			loses: `removing "${from.model}.${was.field}" deletes data`,
-			...(twin === undefined
-				? {}
-				: {
-						rename: {
-							to: `${to.model}.${twin[1].field}`,
-							dbName: key,
-							sql: `${table} rename column ${id(key)} to ${id(twin[0])}`,
-						},
-					}),
+			...hints.get(key),
 		})
 	}
 	for (const [key, now] of Object.entries(to.columns)) {
@@ -332,6 +313,7 @@ export function plan(
 	const fresh = Object.entries(after).filter(
 		([name]) => before[name] === undefined,
 	)
+	const hints = tableHints(before, after)
 	for (const [name, table] of Object.entries(before)) {
 		const now = after[name]
 		const keys = changed(table.foreignKeys, now?.foreignKeys ?? {})
@@ -347,18 +329,9 @@ export function plan(
 			addKeys(name, table, now, emit(5, now.model))
 			continue
 		}
-		const twin = fresh.find(([, created]) => same(shape(created), shape(table)))
 		emit(2, table.model)(`drop table ${id(name)}`, 'removed', {
 			loses: `removing ${table.model} deletes its rows`,
-			...(twin === undefined
-				? {}
-				: {
-						rename: {
-							to: twin[1].model,
-							dbName: name,
-							sql: `alter table ${id(name)} rename to ${id(twin[0])}`,
-						},
-					}),
+			...hints.get(name),
 		})
 	}
 	for (const [name, table] of fresh) {
