@@ -37,17 +37,40 @@ export function migrationsOf(database: Adapter): Migrations {
 const choice = (names: readonly string[]): string =>
 	names.length === 1 ? names.join('') : `one of ${names.join(', ')}`
 
-function refusal(losing: readonly Statement[]): string {
+/** Each oneOf's key, `Model.field`, which takes no dbName (D-247). */
+const keysOf = (schema: Schema): ReadonlySet<string> =>
+	new Set(
+		schema.models.flatMap(({ name, fields }) =>
+			fields.flatMap((field) =>
+				field.kind === 'one' && field.of !== undefined
+					? [`${name}.${field.name}`]
+					: [],
+			),
+		),
+	)
+
+/** What a removal that may be a rename keeps its data with (D-232). */
+function hints(keys: ReadonlySet<string>, rename: Statement['rename']) {
+	const names = rename?.to.map(({ name }) => name) ?? []
+	const { key, other } = Object.groupBy(names, (name) =>
+		keys.has(name) ? 'key' : 'other',
+	)
+	return [
+		other &&
+			`  -- a rename? keep its data: give ${choice(other)} dbName: '${rename?.dbName}'.`,
+		key &&
+			`  -- a rename to ${choice(key)}? A oneOf's key takes no dbName: \`sync --force\` loses its data here, and \`migrate create\` writes the rename.`,
+	].filter((line) => line !== undefined)
+}
+
+function refusal(schema: Schema, losing: readonly Statement[]): string {
+	const keys = keysOf(schema)
 	const models = [...new Set(losing.map((statement) => statement.model))]
 	const why = losing.map((statement) => statement.loses).join('; ')
 	return [
 		`UltimaBase did not sync ${models.join(', ')}: ${why}.`,
 		...losing.flatMap(({ sql, rename }) => [
-			...(rename === undefined
-				? []
-				: [
-						`  -- a rename? keep its data: give ${choice(rename.to.map(({ name }) => name))} dbName: '${rename.dbName}'.`,
-					]),
+			...hints(keys, rename),
 			`  ${sql};`,
 		]),
 		'Run `npx ultimabase sync --force` to apply it to this development database,',
@@ -101,7 +124,7 @@ export async function synced(
 	if (from !== undefined && hashOf(from) === hashOf(to)) return undefined
 	const statements = migrations.plan(from, schema)
 	const losing = statements.filter((statement) => statement.loses !== undefined)
-	if (losing.length > 0 && !force) throw new Refused(refusal(losing))
+	if (losing.length > 0 && !force) throw new Refused(refusal(schema, losing))
 	try {
 		await migrations.apply({ kind: 'sync', from, statements, to })
 	} catch (error) {
