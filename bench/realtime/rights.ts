@@ -20,7 +20,7 @@ const M = { as: master }
 const idOf = (caller: Caller): string =>
 	caller.kind === 'user' ? caller.user.id : ''
 
-const Role = defineRole({ name: 'Role', members: () => User, inverse: 'roles' })
+const Role = defineRole({ name: 'Role', members: () => User })
 const User = defineModel({
 	name: 'User',
 	fields: (f) => ({

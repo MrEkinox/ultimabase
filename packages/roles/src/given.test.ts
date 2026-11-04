@@ -19,7 +19,6 @@ const M = { as: master }
 const Role = defineRole({
 	name: 'Role',
 	members: () => User,
-	inverse: 'roles',
 }).with({
 	access: allow.public,
 })

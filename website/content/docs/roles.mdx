@@ -5,8 +5,7 @@ description: Give users roles, let roles inherit others, and write rules that as
 
 `@ultimabase/roles` gives users roles, such as `writer` or `team`, and adds
 the rule `hasRole`. A role is a row of the role model, which `defineRole`
-declares with its members, the users, and `inverse`, the user model's field
-that lists its roles:
+declares with its members, the users:
 
 ```npm
 npm install @ultimabase/roles
@@ -18,8 +17,8 @@ npm install @ultimabase/roles
 
 The full example, with its tests: [`examples/roles-and-acl`](https://github.com/MrEkinox/ultimabase/tree/main/examples/roles-and-acl).
 
-The user model lists its roles, the other side of `members`, which names
-`members` back, as both sides of a many-to-many do:
+The user model lists its roles in `roles`, the other side of `members`, which
+it names with `inverse`:
 
 <include cwd meta='title="src/models.ts"'>
 	../examples/roles-and-acl/src/models.ts#user
@@ -93,7 +92,6 @@ counts from the next one.
 | --------- | ------------------ | ---------------------------------------------- |
 | `name`    | string             | The model's name, as `'Role'`.                 |
 | `members` | `() => User`       | The user model, which the members are rows of. |
-| `inverse` | string             | The user model's field, as `'roles'`.          |
 | `fields`  | `(f) => ({ ... })` | The role's own fields, as in `defineModel`.    |
 | `use`     | plugin uses        | The model's plugins, as `[graphql()]`.         |
 | `indexes` | index list         | As in `defineModel`.                           |
@@ -136,6 +134,8 @@ declare it with defineRole.`
 application has one role model.`
 - `members` that is not a function: `defineRole(Role): members is () => the
 user model.`
+- A user model without `roles: f.many(() => Role, { inverse: 'members' })`:
+  `Role.members: inverse 'roles' is not a relation of User to Role.`
 - A field of its own named `name`, `members`, `inherits` or `inheritedBy`:
   `defineRole(Role): inherits is a field defineRole adds.`
 

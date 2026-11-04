@@ -7,7 +7,6 @@ import { allow, defineApp, defineModel, memory } from 'ultimabase'
 export const Role = defineRole({
 	name: 'Role',
 	members: () => User,
-	inverse: 'roles',
 })
 
 export const User = defineModel({

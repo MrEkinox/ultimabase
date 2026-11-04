@@ -20,7 +20,7 @@ import { realtime, realtimePlugin } from './index.ts'
 
 const M = { as: master }
 
-const Role = defineRole({ name: 'Role', members: () => User, inverse: 'roles' })
+const Role = defineRole({ name: 'Role', members: () => User })
 const User = defineModel({
 	name: 'User',
 	fields: (f) => ({

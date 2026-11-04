@@ -10,7 +10,6 @@ import { allow } from 'ultimabase'
 export const Role = defineRole({
 	name: 'Role',
 	members: () => User,
-	inverse: 'roles',
 	use: [graphql()],
 	// Clients read the roles; the server gives them.
 }).with({ access: allow.readOnly })

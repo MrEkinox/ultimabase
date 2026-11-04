@@ -15401,11 +15401,11 @@ a one-to-one that names the other stores no key, and is optional.`
    names: the parent's side tells which targets it holds. Otherwise startup
    stops: `Ticket.assignee: within names Member.org, which needs its other
 side.`
-8. `defineRole` (D-123) takes `inverse`, the user model's field that lists
-   its roles, which names `members` back as any many-to-many does:
-   `defineRole({ name: 'Role', members: () => User, inverse: 'roles' })`
-   with `roles: f.many(() => Role, { inverse: 'members' })` on the user
-   model. The user model now lists its roles.
+8. `defineRole` (D-123) names the user model's field `roles`, as it names
+   its own `members`, `inherits` and `inheritedBy`: the user model declares
+   `roles: f.many(() => Role, { inverse: 'members' })`; without it, the
+   types of `defineApp` refuse the models and startup stops: `Role.members: inverse 'roles' is not a relation of User to
+Role.` `defineRole` takes no `inverse`: the name it would give is fixed.
 
 Why:
 

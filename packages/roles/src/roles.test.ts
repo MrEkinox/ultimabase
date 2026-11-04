@@ -25,7 +25,6 @@ const M = { as: master }
 const Role = defineRole({
 	name: 'Role',
 	members: () => User,
-	inverse: 'roles',
 	fields: (f) => ({ color: f.string({ optional: true }) }),
 })
 const User = defineModel({
@@ -223,7 +222,6 @@ describe('the roles plugin', () => {
 		const Other = defineRole({
 			name: 'Other',
 			members: () => Member,
-			inverse: 'roles',
 		})
 		const Member = defineModel({
 			name: 'Member',
@@ -250,13 +248,12 @@ describe('defineRole', () => {
 	it('refuses what is not a role model', () => {
 		expect(() =>
 			// @ts-expect-error: members is the user model's thunk.
-			defineRole({ name: 'Bad', members: User, inverse: 'roles' }),
+			defineRole({ name: 'Bad', members: User }),
 		).toThrow('defineRole(Bad): members is () => the user model.')
 		expect(() =>
 			defineRole({
 				name: 'Bad',
 				members: () => User,
-				inverse: 'roles',
 				fields: (f) => ({ inherits: f.string() }),
 			}),
 		).toThrow('defineRole(Bad): inherits is a field defineRole adds.')
@@ -264,11 +261,27 @@ describe('defineRole', () => {
 			defineRole({
 				name: 'Bad',
 				members: () => User,
-				inverse: 'roles',
 				// @ts-expect-error: fields returns the fields.
 				fields: () => 'color',
 			}),
 		).toThrow('defineRole(Bad): fields returns an object.')
+	})
+
+	it('needs the user model to list its roles in roles (D-237)', async () => {
+		const Crew = defineRole({ name: 'Crew', members: () => Sailor })
+		const Sailor = defineModel({
+			name: 'Sailor',
+			fields: (f) => ({ crews: f.many(() => Crew, { inverse: 'members' }) }),
+		})
+		// @ts-expect-error: Sailor lists its roles in crews, not roles.
+		const app = defineApp({
+			database: memory(),
+			plugins: [rolesPlugin()],
+			models: [Crew, Sailor],
+		})
+		await expect(app.start()).rejects.toThrow(
+			"Crew.members: inverse 'roles' is not a relation of Sailor to Crew.",
+		)
 	})
 
 	it('keeps its dbName and indexes', async () => {
@@ -276,13 +289,12 @@ describe('defineRole', () => {
 			name: 'Team',
 			dbName: 'teams',
 			members: () => Player,
-			inverse: 'teams',
 			fields: (f) => ({ rank: f.number() }),
 			indexes: [{ fields: ['rank'] }],
 		})
 		const Player = defineModel({
 			name: 'Player',
-			fields: (f) => ({ teams: f.many(() => Team, { inverse: 'members' }) }),
+			fields: (f) => ({ roles: f.many(() => Team, { inverse: 'members' }) }),
 		})
 		const app = defineApp({
 			database: memory(),
