@@ -77,6 +77,7 @@ const statuses: ReadonlyMap<string, ContentfulStatusCode> = new Map<
 	['VALIDATION_FAILED', 400],
 	['UNIQUE_VIOLATION', 409],
 	['RELATION_RESTRICTED', 409],
+	['RELATION_SIZE', 409],
 	['UNAUTHENTICATED', 401],
 	['INVALID_CREDENTIALS', 401],
 	['TOO_MANY_ATTEMPTS', 429],

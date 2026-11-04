@@ -14,6 +14,7 @@ const messages = {
 	VALIDATION_FAILED: 'Check the values you entered.',
 	UNIQUE_VIOLATION: 'This value is already taken.',
 	RELATION_RESTRICTED: 'Other records still use this one.',
+	RELATION_SIZE: 'This has too few or too many items.',
 	UNAUTHENTICATED: 'Sign in to continue.',
 	INVALID_CREDENTIALS: 'Wrong email or password.',
 	TOO_MANY_ATTEMPTS: 'Too many attempts: try again later.',

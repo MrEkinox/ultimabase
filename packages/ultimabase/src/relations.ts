@@ -9,6 +9,7 @@ import { isObject, modelOf, normalizeWhere } from './query-where.ts'
 import type { Caller } from './rules.ts'
 import { filterOf, isReadFilter, readFilter } from './rules.ts'
 import type { FieldInfo, ModelInfo } from './schema.ts'
+import { sizeOf } from './sizes.ts'
 
 type Many = Extract<FieldInfo, { readonly kind: 'many' }>
 type One = Extract<FieldInfo, { readonly kind: 'one' }>
@@ -72,6 +73,7 @@ export function viewField(
 	if (options['inverse'] !== undefined) {
 		throw new Refused(`${at} is a view and takes no inverse.`)
 	}
+	sizeOf(at, options, false)
 	if (source === 'view') {
 		throw new Refused(`${at}: from '${from}' is a view; name its relation.`)
 	}

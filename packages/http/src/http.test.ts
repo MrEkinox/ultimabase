@@ -243,6 +243,12 @@ describe('an error', () => {
 	failing.get('/wrong', () => {
 		throw new PublicError('INVALID_CREDENTIALS', 'Wrong email or password.')
 	})
+	failing.get('/full', () => {
+		throw new PublicError(
+			'RELATION_SIZE',
+			'Poll.choices holds 2 to 4 rows: this write leaves 5.',
+		)
+	})
 	failing.get('/conflict', () => {
 		throw new PublicError(
 			'CONFLICT',
@@ -294,6 +300,8 @@ describe('an error', () => {
 		expect(wrong.status).toBe(401)
 		const conflict = await fetch(`${url}/conflict`)
 		expect(conflict.status).toBe(409)
+		const full = await fetch(`${url}/full`)
+		expect(full.status).toBe(409)
 	})
 
 	it('masks any other error, and logs it with its correlation id', async () => {

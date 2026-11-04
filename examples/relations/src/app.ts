@@ -19,6 +19,8 @@ import {
 	Milestone,
 	Task,
 	Note,
+	Poll,
+	Choice,
 } from './shapes.ts'
 
 export const app = defineApp({
@@ -47,5 +49,7 @@ export const app = defineApp({
 		Milestone,
 		Task,
 		Note,
+		Poll,
+		Choice,
 	],
 })

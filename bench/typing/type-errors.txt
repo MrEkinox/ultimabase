@@ -88,6 +88,15 @@ prototype/example/checks.ts: Broken.posts: inverse 'autor' is not a field of Pos
 TS2345: Argument of type '{ database: Adapter; plugins: [PluginValue<"softDelete", never, never>, PluginValue<"acl", never, never>, PluginValue<"graphql", never, never>, PluginValue<...>, PluginValue<...>]; models: [...]; }' is not assignable to parameter of type '{ readonly database: Adapter; readonly plugins?: readonly [PluginValue<"softDelete", never, never>, PluginValue<"acl", never, never>, PluginValue<"graphql", never, never>, PluginValue<...>, PluginValue<...>]; readonly models: readonly [...]; readonly functions?: []; readonly masterKey?: MasterKey; readonly logger?: ...'.
   Property 'relationError' is missing in type '{ database: Adapter; plugins: [PluginValue<"softDelete", never, never>, PluginValue<"acl", never, never>, PluginValue<"graphql", never, never>, PluginValue<...>, PluginValue<...>]; models: [...]; }' but required in type '{ readonly relationError: "Broken.posts: inverse 'autor' is not a field of the target"; }'.
 
+prototype/example/checks.ts: a view takes no size.
+TS2345: Argument of type '{ from: string; size: { max: number; }; }' is not assignable to parameter of type 'ManyOptions'.
+  Types of property 'size' are incompatible.
+    Type '{ max: number; }' is not assignable to type 'undefined'.
+
+prototype/example/checks.ts: Labels.posts: size bounds a one-to-many relation only.
+TS2345: Argument of type '{ database: Adapter; plugins: [PluginValue<"softDelete", never, never>, PluginValue<"acl", never, never>, PluginValue<"graphql", never, never>, PluginValue<...>, PluginValue<...>]; models: [...]; }' is not assignable to parameter of type '{ readonly database: Adapter; readonly plugins?: readonly [PluginValue<"softDelete", never, never>, PluginValue<"acl", never, never>, PluginValue<"graphql", never, never>, PluginValue<...>, PluginValue<...>]; readonly models: readonly [...]; readonly functions?: []; readonly masterKey?: MasterKey; readonly logger?: ...'.
+  Property 'relationError' is missing in type '{ database: Adapter; plugins: [PluginValue<"softDelete", never, never>, PluginValue<"acl", never, never>, PluginValue<"graphql", never, never>, PluginValue<...>, PluginValue<...>]; models: [...]; }' but required in type '{ readonly relationError: "Labels.posts: size bounds a one-to-many relation only"; }'.
+
 prototype/example/declared.ts: `status` is 'draft' | 'published'.
 TS2367: This comparison appears to be unintentional because the types '"draft" | "published"' and '"archived"' have no overlap.
 

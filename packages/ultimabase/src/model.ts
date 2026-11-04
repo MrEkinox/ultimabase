@@ -339,8 +339,8 @@ export type ModelShape = {
 }
 
 // An `inverse` names a field of the target (D-37), and so does a `within`
-// (D-220). They are checked here, where every model is typed, since reading
-// the target while declaring is a cycle.
+// (D-220); a `size` faces a `one` (D-242). They are checked here, where every
+// model is typed, since reading the target while declaring is a cycle.
 type WithinNames<W> = W extends string ? W : keyof W
 type NameErrors<N extends string, F> = {
 	[K in keyof F]: F[K] extends {
@@ -359,6 +359,16 @@ type NameErrors<N extends string, F> = {
 						? U extends string
 							? `${N}.${K & string}: within '${U}' is not a field of the target`
 							: never
+						: never
+					: never)
+			| (O extends {
+					readonly size: object
+					readonly inverse: infer I extends keyof TargetFields<T>
+			  }
+					? TargetFields<T>[I] extends {
+							readonly [fieldType]: { readonly kind: 'many' }
+						}
+						? `${N}.${K & string}: size bounds a one-to-many relation only`
 						: never
 					: never)
 		: never
