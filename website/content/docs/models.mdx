@@ -79,7 +79,9 @@ decimal:
 A model passes them to its builder, and completes them in place:
 `f.string({ ...text({ max: 280 }), optional: true })`. The field keeps
 everything `f.string` gives it: it is sorted and filtered as a string, and
-its `.with` takes the rules of the model's plugins.
+its `.with` takes the rules of the model's plugins. A preset that picks the
+builder itself, a string or a list of them, takes the model's builders
+instead: `text(f, { list: true })`, typed with `FieldBuilders<T>`.
 
 <include cwd meta='title="src/models.test.ts"'>
 	../examples/models-and-queries/src/models.test.ts#preset
