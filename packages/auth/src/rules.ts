@@ -1,4 +1,4 @@
-// auth's ready-made rules and default (D-10, D-62, D-79, D-83), and their
+// auth's ready-made rules and default (D-10, D-62, D-79, D-83, D-241), and their
 // function counterpart (D-181): each reads the caller, the record's stored
 // keys (D-77) and the value written.
 import type { Caller, CallerRule, Register, UserOf } from 'ultimabase'
@@ -56,19 +56,27 @@ type Connects<V> = {
 		? never
 		: P
 }[keyof V]
+/** The `one` relations a read rule's `where` filters with `is` (D-241). */
+type Filtered<W> = {
+	[P in keyof W]-?: 'is' extends keyof NonNullable<W[P]> ? P : never
+}[keyof W]
 /**
- * The record's `one` relations, those a create connects, or any name outside
- * a model's rules.
+ * The record's `one` relations, those a create connects or a read filters, or
+ * any name outside a model's rules.
  */
 type OwnerKey<Facts> = [Facts] extends [never]
 	? string
 	: Facts extends { readonly record: infer R }
 		? Keys<R, Ref>
-		: Facts extends { readonly operation: 'read' }
-			? 'a read rule has no record to own'
-			: Facts extends { readonly value: infer V }
+		: Facts extends { readonly where: (filter: infer W) => unknown }
+			? Facts extends { readonly value: infer V }
 				? Connects<V>
-				: string
+				: Filtered<W>
+			: Facts extends { readonly operation: 'read' }
+				? 'a read rule without where has no record to own'
+				: Facts extends { readonly value: infer V }
+					? Connects<V>
+					: string
 
 /** The facts it needs; a read rule's are refused on the name alone. */
 type Owned<Facts, K extends string> = Facts extends {
@@ -81,6 +89,14 @@ type Owned<Facts, K extends string> = Facts extends {
 			? Facts
 			: Facts & { readonly record: { readonly [P in K]: Ref } }
 
+/** A model read rule's filter, a boolean anywhere else. */
+type Owns<Facts> = Facts extends {
+	readonly operation: 'read'
+	readonly where: (filter: never) => infer F
+}
+	? F | false
+	: boolean
+
 const get = (value: unknown, key: string): unknown =>
 	typeof value === 'object' && value !== null
 		? Reflect.get(value, key)
@@ -90,21 +106,33 @@ const get = (value: unknown, key: string): unknown =>
  * The rule "the caller is the user this `one` relation points to, before and
  * after the write" (D-79): the stored key (D-77) when there is one, and the
  * value written, which may only connect the caller. A create that does not
- * write the relation leaves it to its default; facts with neither a record
- * nor a value, as a function's, own nothing. Its facts come from where it is
- * used, so a wrong name fails on the name.
+ * write the relation leaves it to its default. A model read rule gets the
+ * filter on the relation (D-241); other facts with neither a record nor a
+ * value, as a function's, own nothing. Its facts come from where it is used,
+ * so a wrong name fails on the name.
  */
 export function isOwner<
 	Facts extends { readonly caller: Caller },
 	const K extends OwnerKey<Facts>,
->(field: K): (facts: Owned<Facts, K>) => boolean {
+>(field: K): (facts: Owned<Facts, K>) => Owns<Facts>
+export function isOwner(
+	field: string,
+): (facts: { readonly caller: Caller }) => unknown {
 	return (facts) => {
 		const { caller } = facts
 		if (caller.kind !== 'user') return false
 		const record = get(facts, 'record')
 		const value = get(facts, 'value')
-		// Neither a record nor a value: nothing it owns.
-		if (record === undefined && value === undefined) return false
+		if (record === undefined && value === undefined) {
+			const where = get(facts, 'where')
+			// A read: the rows whose relation is the caller. Else nothing it owns.
+			if (get(facts, 'operation') !== 'read' || typeof where !== 'function')
+				return false
+			const filter: unknown = Reflect.apply(where, undefined, [
+				{ [field]: { is: { id: caller.user.id } } },
+			])
+			return filter
+		}
 		if (
 			record !== undefined &&
 			get(get(record, field), 'id') !== caller.user.id

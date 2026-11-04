@@ -310,8 +310,8 @@ TS2345: Argument of type '"ownr"' is not assignable to parameter of type '"owner
 prototype/example/owner-rules.ts: `text` is not a relation.
 TS2345: Argument of type '"text"' is not assignable to parameter of type '"owner"'.
 
-prototype/example/owner-rules.ts: a read rule has no record to own.
-TS2345: Argument of type '"owner"' is not assignable to parameter of type '"a read rule has no record to own"'.
+prototype/example/owner-rules.ts: `text` is not a relation, in a read.
+TS2345: Argument of type '"text"' is not assignable to parameter of type '"owner"'.
 
 prototype/example/owner-rules.ts: `titel` is not a field of the record.
 TS2339: Property 'titel' does not exist on type 'CreateData<{ readonly text: Field<string, StringOptions, never, never, string, false, never>; readonly owner: One<() => ModelOf<"User", { readonly email: Field<string, { readonly unique: true; }, ... 4 more ..., never> & Hidden; ... 4 more ...; readonly invitedBy: One<...>; }, readonly [...], readonly [...]>, OneOpt...'.

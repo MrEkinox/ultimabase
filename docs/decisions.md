@@ -2290,6 +2290,8 @@ await Post.update(
 
 ## D-79: auth's `signedIn` and `isOwner` rules
 
+Amended by D-241.
+
 Choice: auth exports two ready-made rules (D-10), next to `isAuthenticated`
 and `isSelf`. `signedIn(rule)` runs `rule` for a signed-in caller only, with
 `user` (the registered user model's record, D-62) among its facts, and is
@@ -2453,6 +2455,8 @@ PublicError {
 ```
 
 ## D-83: Shared rules, and `isOwner` checked on its name
+
+Amended by D-241.
 
 Choice: `anyOf` and `allOf` (D-81) also accept rules already typed, outside
 any access key, so a combination is defined once in a `const` and used by
@@ -16264,4 +16268,83 @@ const project = await Project.findUnique({
 })
 const sprint = project?.activeSprint ?? null
 await Project.findMany({ where: { activeSprint: { isNot: null } } })
+```
+
+## D-241: `isOwner` in a model read rule filters on the owner
+
+Choice: amends D-79 and D-83.
+
+1. In a model's read rule, `isOwner('author')` returns
+   `where({ author: { is: { id: caller.user.id } } })` for a signed-in
+   caller, and `false` for anyone else. A model whose rows only their owner
+   reads and writes writes `read: isOwner('author')` and
+   `write: isOwner('author')`.
+2. Its name is a `one` relation the read rule's `where` filters with `is`;
+   any other name fails on the name, as in a write rule (D-83). The target is
+   not checked to be the user model, as in a write rule (D-79).
+3. It combines with `anyOf` and `allOf` as any rule that returns a filter
+   (D-81, D-214): `anyOf(isOwner('sender'), isOwner('recipient'))` keeps the
+   rows either side owns, and `anyOf(isOwner('author'), isAdmin)` keeps every
+   row for an admin.
+4. A field read rule and a virtual's read rule receive the record: there it
+   still compares the stored key (D-79). A model rule written as a single
+   function receives no `where`, so a read owns nothing there, as before.
+
+Why: an application with several private models wrote the same owner filter
+by hand under each relation's name, while its write rules already named the
+owner with `isOwner`.
+Rejected: a separate `ownedBy('author')` for reads, a second name for the same
+owner; a check that the target is the user model, which a write rule does not
+make either.
+Example:
+
+Before:
+
+```ts
+export const Note = defineModel({
+	name: 'Note',
+	fields: (f) => ({
+		author: f.one(() => User, { default: currentUser }),
+		title: f.string(),
+	}),
+}).with({
+	access: {
+		read: signedIn(({ user, where }) =>
+			where({ author: { is: { id: user.id } } }),
+		),
+		write: isOwner('author'),
+	},
+})
+
+export const Friendship = defineModel({ name: 'Friendship', fields }).with({
+	access: {
+		read: signedIn(({ user, where }) =>
+			where({
+				OR: [
+					{ from: { is: { id: user.id } } },
+					{ to: { is: { id: user.id } } },
+				],
+			}),
+		),
+		delete: anyOf(isOwner('from'), isOwner('to')),
+	},
+})
+```
+
+After:
+
+```ts
+export const Note = defineModel({ name: 'Note', fields }).with({
+	access: { read: isOwner('author'), write: isOwner('author') },
+})
+
+export const Friendship = defineModel({ name: 'Friendship', fields }).with({
+	access: {
+		read: anyOf(isOwner('from'), isOwner('to')),
+		delete: anyOf(isOwner('from'), isOwner('to')),
+	},
+})
+
+read: isOwner('title')
+// Argument of type '"title"' is not assignable to parameter of type '"author"'.
 ```
