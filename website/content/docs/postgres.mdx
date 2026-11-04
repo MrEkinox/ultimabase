@@ -55,7 +55,12 @@ npx ultimabase sync --force
 a migration, whose SQL you can edit (see [Migrations](#migrations)). When a
 removed field looks renamed, the refusal says so: `-- a rename? keep its
 data: give Locker.title dbName: 'label'.` That `dbName` keeps the old
-column, with its data, under the new field.
+column, with its data, under the new field. When several added fields may be
+the removed one, it lists them, `give one of Locker.title, Locker.code
+dbName: 'label'.`, and a migration file lists one `rename column` line for
+each: replace the drop, and the line adding the field you keep, with the
+right one. An added field that two removed ones may be is
+named for neither.
 
 A sync also refuses a change the rows cannot take, such as a required field
 without a default on a table that holds rows. Make the field optional, give
@@ -83,7 +88,7 @@ Each model is a table, each field a column, named in snake case: `Task` is
 | `f.json()`                 | `jsonb`                                                                                                                 |
 | `f.enumOf()`               | `text`, with a check of its values                                                                                      |
 | a list (`list: true`)      | `text[]`, `double precision[]` or `integer[]`                                                                           |
-| `f.one()`, the side stored | `<field>_id uuid`, indexed, with a foreign key checked at commit                                                        |
+| `f.one()`, the side stored | `<field>_id uuid`, indexed unless a key or an index starts with it, with a foreign key checked at commit                |
 | `f.many()` both ways       | a table `<table>_<field>`, with a `<table>_id` column per side                                                          |
 | `search: true`             | a generated `_search` column, with a GIN index                                                                          |
 | `within`                   | a foreign key over the key and the parent's column, `_within_fkey`, to a unique key on the target's `(id, <parent>_id)` |

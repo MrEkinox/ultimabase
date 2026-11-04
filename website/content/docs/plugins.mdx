@@ -386,6 +386,7 @@ A transport refuses at start what it cannot serve:
 | `functionWith` | object or `false`        | Its key of a function's `.with`; `false` turns it off.                                          |
 | `queryOnly`    | `true`                   | Only a query function may list it in its `use`.                                                 |
 | `errors`       | a union of codes         | The codes its errors carry beyond the kernel's, which [`ErrorCodeOf`](/docs/next/errors) reads. |
+| `issues`       | a union of codes         | The codes its `VALIDATION_FAILED` issues carry, which [`IssueCodeOf`](/docs/next/errors) reads. |
 
 Each key is optional but `name`; a key in the types makes its part of the
 definition required, as `addedFields` or `api`.

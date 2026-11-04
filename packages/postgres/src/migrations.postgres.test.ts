@@ -410,6 +410,56 @@ const tasks = (within: boolean, optional = false): Schema => ({
 	],
 })
 
+/** Memberships of a team and a person, with the given indexes. */
+const memberships = (indexes: Schema['models'][number]['indexes']): Schema => ({
+	models: [
+		{
+			name: 'Team',
+			fields: [many('members', 'Membership', 'team')],
+			indexes: [],
+		},
+		{
+			name: 'Person',
+			fields: [many('teams', 'Membership', 'person')],
+			indexes: [],
+		},
+		{
+			name: 'Membership',
+			fields: [
+				one('team', 'Team', 'members'),
+				one('person', 'Person', 'teams'),
+			],
+			indexes,
+		},
+	],
+})
+
+const accountWith = (...given: [string, Scalar['type']][]): Schema => ({
+	models: [
+		{
+			name: 'Account',
+			fields: given.map(([name, type]) => scalar(name, type)),
+			indexes: [],
+		},
+	],
+})
+const modelsNamed = (...names: string[]): Schema => ({
+	models: names.map((name) => ({
+		name,
+		fields: [scalar('label', 'string')],
+		indexes: [],
+	})),
+})
+/** Each removal that may be a rename, with the names it may be (D-232). */
+const hintsOf = (from: Schema, to: Schema) =>
+	migrations
+		.plan(migrations.snapshot(from), to)
+		.flatMap(({ rename }) =>
+			rename === undefined
+				? []
+				: [[rename.dbName, rename.to.map(({ name }) => name)]],
+		)
+
 describe('a sync on postgres()', () => {
 	it('builds an empty database, then changes every kind of thing a model holds', async () => {
 		await sync(undefined, before)
@@ -445,17 +495,20 @@ describe('a sync on postgres()', () => {
 			[
 				'removing Old deletes its rows',
 				{
-					to: 'New',
 					dbName: 'old',
-					sql: 'alter table "old" rename to "new"',
+					to: [{ name: 'New', sql: 'alter table "old" rename to "new"' }],
 				},
 			],
 			[
 				'removing "Shelf.note" deletes data',
 				{
-					to: 'Shelf.remark',
 					dbName: 'note',
-					sql: 'alter table "shelf" rename column "note" to "remark"',
+					to: [
+						{
+							name: 'Shelf.remark',
+							sql: 'alter table "shelf" rename column "note" to "remark"',
+						},
+					],
 				},
 			],
 			[
@@ -1300,9 +1353,61 @@ describe('a sync on postgres()', () => {
 		await sync(undefined, before)
 		const stored = await migrations.stored()
 		const statements = migrations.plan(stored?.snapshot, after)
-		expect(statements.find(({ model }) => model === 'Old')?.rename?.to).toBe(
-			'New',
-		)
+		expect(
+			statements.find(({ model }) => model === 'Old')?.rename?.to,
+		).toStrictEqual([{ name: 'New', sql: 'alter table "old" rename to "new"' }])
+	})
+
+	// Regression: each removal was offered the first added column or table
+	// alike, so every hint of several renames named the same one (D-232).
+	it('never offers one added column or table for two removals (D-232)', () => {
+		const settings = [
+			'Account.emailMessages',
+			'Account.emailInvites',
+			'Account.pushMessages',
+		]
+		expect(
+			hintsOf(
+				accountWith(
+					['mailOnMessage', 'boolean'],
+					['mailOnInvite', 'boolean'],
+					['pushOnMessage', 'boolean'],
+				),
+				accountWith(
+					['emailMessages', 'boolean'],
+					['emailInvites', 'boolean'],
+					['pushMessages', 'boolean'],
+				),
+			),
+		).toStrictEqual([
+			['mail_on_message', settings],
+			['mail_on_invite', settings],
+			['push_on_message', settings],
+		])
+		expect(
+			hintsOf(
+				accountWith(['mailOnMessage', 'boolean'], ['note', 'string']),
+				accountWith(['emailMessages', 'boolean'], ['remark', 'string']),
+			),
+		).toStrictEqual([
+			['mail_on_message', ['Account.emailMessages']],
+			['note', ['Account.remark']],
+		])
+		expect(
+			hintsOf(
+				accountWith(['mailOnMessage', 'boolean'], ['mailOnInvite', 'boolean']),
+				accountWith(['emailMessages', 'boolean']),
+			),
+		).toStrictEqual([])
+		expect(
+			hintsOf(modelsNamed('Left', 'Right'), modelsNamed('North', 'South')),
+		).toStrictEqual([
+			['left', ['North', 'South']],
+			['right', ['North', 'South']],
+		])
+		expect(
+			hintsOf(modelsNamed('Left', 'Right'), modelsNamed('North')),
+		).toStrictEqual([])
 	})
 
 	it('keeps the join of a model renamed with its dbName', async () => {
@@ -1479,6 +1584,38 @@ describe('a sync on postgres()', () => {
 		expect(created.map(({ sql }) => sql).join('\n')).toContain(
 			'constraint "task_milestone_id_within_check" check ("project_id" is not null or "milestone_id" is null)',
 		)
+	})
+
+	it('indexes no relation that a key or an index starts with (D-234)', async () => {
+		const key = { fields: ['team', 'person'], unique: true, contains: false }
+		const indexOf = (indexes: Schema['models'][number]['indexes']) =>
+			parseSnapshot(migrations.snapshot(memberships(indexes))).tables[
+				'membership'
+			]?.indexes
+		const both = {
+			membership_team_id_idx: ['team_id'],
+			membership_person_id_idx: ['person_id'],
+		}
+		const person = { membership_person_id_idx: ['person_id'] }
+		expect(indexOf([])).toStrictEqual(both)
+		expect(indexOf([key])).toStrictEqual(person)
+		expect(indexOf([{ ...key, unique: false }])).toStrictEqual({
+			...person,
+			membership_team_id_person_id_idx: ['team_id', 'person_id'],
+		})
+		expect(
+			indexOf([{ ...key, fields: ['team'], unique: false }]),
+		).toStrictEqual({ membership_team_id_idx: ['team_id'], ...person })
+		// A partial key serves only the rows it keeps.
+		const where: IndexWhere = { person: { not: null } }
+		expect(indexOf([{ ...key, where }])).toStrictEqual(both)
+		await sync(undefined, memberships([]))
+		expect(
+			changes(await sync(memberships([]), memberships([key]))),
+		).toStrictEqual([
+			'Membership: dropped the index on team',
+			'Membership: added a unique key on team, person',
+		])
 	})
 
 	it('refuses a snapshot postgres() did not write', () => {

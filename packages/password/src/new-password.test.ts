@@ -1,13 +1,14 @@
 // A new password's checks (D-209): never the account's email, and, with
 // `breached: true`, in no breach Have I Been Pwned knows; the service's
 // failure accepts it, a test skips it, and production warns of no choice.
+// `IssueCodeOf` lists their codes (D-231).
 import { createHash } from 'node:crypto'
 import { authPlugin } from '@ultimabase/auth'
 import { graphqlPlugin } from '@ultimabase/graphql'
 import { httpPlugin } from '@ultimabase/http'
-import type { Logger } from 'ultimabase'
+import type { IssueCodeOf, Logger } from 'ultimabase'
 import { defineApp, memory } from 'ultimabase'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, expectTypeOf, it, vi } from 'vitest'
 import type { Email, PasswordOptions } from './index.ts'
 import { passwordPlugin } from './index.ts'
 import {
@@ -302,5 +303,14 @@ describe('a production start', () => {
 		])
 		expect(await warningsOf({ breached: false })).toEqual([])
 		expect(await warningsOf({ breached: true })).toEqual([])
+	})
+})
+
+describe('IssueCodeOf', () => {
+	it("is the three codes of a new password's refusal (D-231)", () => {
+		type App = Awaited<ReturnType<typeof started>>['app']
+		expectTypeOf<IssueCodeOf<App>>().toEqualTypeOf<
+			'PASSWORD_LENGTH' | 'PASSWORD_IS_EMAIL' | 'PASSWORD_BREACHED'
+		>()
 	})
 })
