@@ -208,8 +208,7 @@ describe('the limiter', () => {
 			expect(await limit(request, '203.0.113.5')).toBeUndefined()
 		}
 		vi.advanceTimersByTime(59_500)
-		const refused = await limit(request, '203.0.113.5')
-		expect(refused?.headers.get('retry-after')).toBe('1')
+		expect(await limit(request, '203.0.113.5')).toBe(1)
 		vi.advanceTimersByTime(500)
 		expect(await limit(request, '203.0.113.5')).toBeUndefined()
 	})

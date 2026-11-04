@@ -52,7 +52,13 @@ export type {
 	ModelOf,
 } from './define-model.ts'
 export { defineModel } from './define-model.ts'
-export type { ErrorCode, ErrorCodeOf, Issue } from './errors.ts'
+export type {
+	Codes,
+	ErrorCode,
+	ErrorCodeOf,
+	Issue,
+	IssueCodeOf,
+} from './errors.ts'
 export { InvalidQuery, PublicError, Refused } from './errors.ts'
 export type {
 	DecimalOptions,

@@ -3501,7 +3501,7 @@ await Note.create({ data }, { as: asUser({ id: 'ada' }) })
 
 ## D-98: The PostgreSQL adapter's tables, names and test setup
 
-Amended by D-105 and D-132.
+Amended by D-105, D-132 and D-234.
 
 Choice:
 
@@ -4066,7 +4066,7 @@ await Ticket.update({ where: { id }, data: { label: 'x' } }, { as: master })
 
 ## D-105: `ultimabase.config.ts`, the `ultimabase` commands and a schema snapshot
 
-Amended by D-171.
+Amended by D-171 and D-232.
 
 Choice: amends D-26, D-73 and D-98 point 1.
 
@@ -9402,7 +9402,8 @@ api: ({ plugins }) => plugins.http.mount(uploads, { bodyLimit: false })
 
 ## D-154: Realtime: live lists and live rows
 
-Amended by D-163, D-166, D-178, D-186, D-187, D-195, D-196, D-223 and D-226.
+Amended by D-163, D-166, D-178, D-186, D-187, D-195, D-196, D-223, D-226,
+D-229 and D-230.
 
 Choice: completes D-25; amends D-106 (WebSocket upgrades), D-107 (the
 `Subscription` type), D-109 (live functions) and D-129 (live reads over
@@ -13616,6 +13617,8 @@ await plugins.maintenance.lock()
 
 ## D-206: Each plugin declares its codes, and `ErrorCodeOf<typeof app>`
 
+Amended by D-231.
+
 Choice: amends D-72 and D-107.
 
 1. A plugin's types take `errors`, the union of the codes its errors carry
@@ -14425,6 +14428,8 @@ await Match.end(match.id)
 
 ## D-218: `httpPlugin()` limits each address's requests
 
+Amended by D-230.
+
 Choice: amends D-56; D-113 is unchanged.
 
 1. `httpPlugin()` counts each client address's requests and upgrades in
@@ -14970,6 +14975,8 @@ httpPlugin({ bodyLimit: Number(process.env.BODY_LIMIT) })
 
 ## D-224: An issue's code, from a schema and from the password's refusals
 
+Amended by D-231.
+
 Choice: amends D-88 and D-209.
 
 1. The kernel keeps an issue's `code` from any Standard Schema, a
@@ -15356,6 +15363,306 @@ query ($where: PostWhereInput) {
 # $where 33 levels deep: BAD_USER_INPUT, where.NOT.0.….NOT.0: the filter is
 # nested more than 32 levels deep.
 # $where 20,000 levels deep: BAD_USER_INPUT, The variables are nested too deep.
+```
+
+## D-229: A live function's rows count in `maxRows` over a WebSocket
+
+Choice: amends D-154 point 12; D-107's row budget is unchanged.
+
+1. A live function's subscription over a WebSocket is counted by the row
+   budget as the same query over HTTP: a document that may return more than
+   `maxRows` rows is refused with `BAD_USER_INPUT` before `run` runs, and
+   Master's is not counted (D-107).
+2. The budget counts the document once, when it is subscribed, not at each
+   wake: a wake runs the same document.
+3. A model's live list and live row stay out of `maxRows`: `maxLive`,
+   `maxTake` in page mode and `maxConnectionRows` bound them (D-154), and
+   the rows of the relations they select count in `maxLive` instead. REST's
+   live lists check their depth only.
+
+Why: `{ ranked(above: 0) { id } }` over HTTP was refused past `maxRows`, but
+`subscription { ranked(above: 0) { id } }` ran in full, then again at each
+write, so a client with a socket skipped the budget. A live list's rows are
+already bounded, by limits sized for a list that is kept; counting them
+again in `maxRows` would refuse the large live lists D-154 serves.
+
+Example, before: `maxRows: 5`, and a function's list counts `take`, 100.
+
+```graphql
+query {
+	ranked(above: 0) {
+		id
+	}
+}
+# The document asks for more than 5 rows. Ask for fewer with first or last.
+subscription {
+	ranked(above: 0) {
+		id
+	}
+}
+# runs, and runs again at each write
+```
+
+After: both are refused with the same error; Master's are both served.
+
+Rejected: counting at each wake (the document does not change between
+wakes); counting a model's live list in `maxRows` (its own limits bound it,
+and REST does not count it).
+
+## D-230: Each operation over a WebSocket counts as a request
+
+Choice: amends D-218 point 1 and D-154 point 5.
+
+1. Each `subscribe` message on a GraphQL socket counts as one request of
+   the address the upgrade came from, in the same window as its HTTP
+   requests. Pings, `connection_init` and `complete` are not counted.
+2. Over the limit, that operation fails with `TOO_MANY_ATTEMPTS`,
+   `Too many requests: try again later.`, and `details: { retryAfter }`,
+   the seconds until the window ends, as the 429's body. The socket stays
+   open: the next operation after the window runs.
+3. An operation is counted once the connection's caller is read and before
+   its document is parsed, so a flood costs neither a parse nor a session
+   read. Master's key on the upgrade request passes, as over HTTP; a
+   connection whose caller is Master through `connection_init` only is
+   counted.
+4. `httpPlugin`'s `Upgrade` gains `limit()`: it counts one more request of
+   the upgrade's address and returns the seconds to wait when it is over
+   the limit, `undefined` within it. A plugin that serves several
+   operations on one socket calls it for each.
+
+Why: the limit counted the upgrade only, so one socket carried as many
+queries and mutations as the client sent, past any limit. Closing the socket would end the client's live
+subscriptions for one operation too many, so only that operation is
+refused, as an HTTP request is.
+
+Example, before: `rateLimit: { requests: 3, window: 60_000 }`.
+
+```ts
+await fetch(url, init) // 200
+await fetch(url, init) // 200
+await fetch(url, init) // 429
+const client = createClient({ url: ws })
+await first(client, '{ ping }') // "pong", and every one after
+```
+
+After: the upgrade and two operations, then:
+
+```ts
+await first(client, '{ ping }')
+// errors: [{ message: 'Too many requests: try again later.',
+//   extensions: { code: 'TOO_MANY_ATTEMPTS', details: { retryAfter: 60 } } }]
+```
+
+A plugin with its own socket protocol:
+
+```ts
+plugins.http.upgrade('/feed', (upgrade) => {
+	onMessage(upgrade, async (message) => {
+		const retryAfter = await upgrade.limit()
+		if (retryAfter !== undefined) return refuse(message, retryAfter)
+		return serve(message)
+	})
+})
+```
+
+Rejected: closing the socket over the limit (it ends the client's live
+reads for one operation); a separate count per socket (a client opens
+another socket); counting each message, pings included (a quiet
+connection would use the address's budget).
+
+## D-231: Each plugin declares its issue codes, and `IssueCodeOf<typeof app>`
+
+Choice: amends D-206 and D-224.
+
+1. A plugin's types take `issues`, the union of the codes its
+   `VALIDATION_FAILED` issues carry, in capitals:
+   `readonly issues: 'PASSWORD_LENGTH' | 'PASSWORD_IS_EMAIL' | 'PASSWORD_BREACHED'`.
+   `errors` keeps typing `error.code` only (D-224).
+2. `ultimabase` exports the type `IssueCodeOf<A>`: for `typeof app`, the
+   `issues` of each plugin `app` lists, `never` with none. The kernel gives
+   no issue a code of its own. An application's own issue codes, from a
+   schema or a `PublicError`, are not in it; a client adds them, as with
+   `ErrorCodeOf` (D-206).
+3. The password plugin declares its three codes (D-224).
+4. One type-only key of a plugin's value and of the application carries
+   both unions, `{ errors, issues }`: one more union is no new key and no
+   new type parameter. `ultimabase` exports its type, `Codes`, which a
+   declaration emitted for an exported `app` names.
+5. `scripts/codes.test.ts` reads `issues` as it reads `errors`: a code a
+   package sends is declared in one of them, and each one declared is
+   sent. The password's codes leave its list of literals that are no code.
+
+Why:
+
+- A client translates each issue code, as it translates each error code. A
+  list it writes by hand misses a code a plugin adds, and shows the generic
+  text instead: typed against the application, the missing code fails its
+  typing.
+- The codes are the plugin's, beside its `errors` (D-206): no global
+  declaration.
+- The script held the password's codes in a hand-kept list of exceptions;
+  declared, they are checked as every other code is.
+
+Rejected:
+
+- The issue codes in `errors`: `ErrorCodeOf` would list codes no error
+  carries (D-224).
+- A runtime list of the codes, which D-206 rejected: a client imports no
+  server value. A client that tests a code at runtime keeps its list,
+  checked against the type.
+- A second type-only key and a fourth type parameter for the issues.
+
+Example, before: the client lists the password's codes by hand, and a code
+the plugin adds compiles and shows the generic text.
+
+```ts
+const passwordIssueCodes = [
+	'PASSWORD_LENGTH',
+	'PASSWORD_IS_EMAIL',
+	'PASSWORD_BREACHED',
+] as const
+const messages: Record<(typeof passwordIssueCodes)[number], string> = {
+	PASSWORD_LENGTH: '8 to 256 characters',
+	PASSWORD_IS_EMAIL: 'Not your email',
+	PASSWORD_BREACHED: 'Found in a data breach',
+}
+```
+
+After: the application's type lists them, and a missing one fails typing.
+
+```ts
+import type { IssueCodeOf } from 'ultimabase'
+import type { app } from './app.ts'
+
+const messages = {
+	PASSWORD_LENGTH: '8 to 256 characters',
+	PASSWORD_IS_EMAIL: 'Not your email',
+	PASSWORD_BREACHED: 'Found in a data breach',
+} satisfies Record<IssueCodeOf<typeof app>, string>
+
+// In a plugin's types:
+interface Password extends PluginTypes {
+	readonly name: 'password'
+	readonly issues: 'PASSWORD_LENGTH' | 'PASSWORD_IS_EMAIL' | 'PASSWORD_BREACHED'
+}
+```
+
+## D-232: A rename hint lists every added column alike, never one twice
+
+Choice: amends D-105.
+
+1. A removed column whose type only one added column has keeps its hint, as
+   before: `migrate create` writes the SQL that renames it, and the `sync`
+   refusal names the field to give `dbName`.
+2. A removed column that several added columns may be lists them all, in
+   the models' order, for the developer to choose; the refusal says
+   `give one of Account.emailMessages, Account.emailInvites dbName: 'mail_on_message'`.
+3. An added column that is the only one alike for two removals or more
+   gives no hint: naming it on each would propose it twice.
+4. Removed tables follow the same rules, compared by their columns' names,
+   types and nullability, as before.
+5. The file's hint says what to replace: the drop, and the line adding the
+   column the developer keeps, which would fail once the rename made it.
+   With one candidate:
+
+   ```sql
+   -- a rename? replace this drop and the line adding Account.emailMessages with: alter table … rename column …;
+   ```
+
+   With several, one commented line each, as in the example below.
+
+6. `Statement.rename` is `{ dbName, to: { name, sql }[] }`: the adapter
+   gives each candidate, and the kernel writes them.
+
+Why:
+
+- Each removal took the first added column of its type: settings renamed
+  together in one change all got a hint into the same column, and following
+  the hints put every value in it.
+- A hint that looks right and is wrong is worse than none. Only the
+  developer knows which column a removed one became.
+
+Rejected:
+
+- Picking the closest name: a guess presented as an answer.
+- `migrate create --rename Account.mailOnMessage=emailMessages`, or a
+  question per removal: a new API of the command, while editing the
+  written SQL already says the rename. It can come later, on a need.
+
+Example, before:
+
+```ts
+// Account's mailOnMessage, mailOnInvite and pushOnMessage become
+// emailMessages, emailInvites and pushMessages, all booleans.
+```
+
+```sql
+-- removing "Account.mailOnMessage" deletes data.
+-- a rename? write: alter table "account" rename column "mail_on_message" to "email_messages";
+alter table "account" drop column "mail_on_message";
+
+-- removing "Account.mailOnInvite" deletes data.
+-- a rename? write: alter table "account" rename column "mail_on_invite" to "email_messages";
+alter table "account" drop column "mail_on_invite";
+```
+
+After:
+
+```sql
+-- removing "Account.mailOnMessage" deletes data.
+-- a rename? replace this drop and the line adding the one you keep with one of:
+--   alter table "account" rename column "mail_on_message" to "email_messages";
+--   alter table "account" rename column "mail_on_message" to "email_invites";
+--   alter table "account" rename column "mail_on_message" to "push_messages";
+alter table "account" drop column "mail_on_message";
+```
+
+## D-234: A relation has no index of its own when a key or an index starts with it
+
+Choice: amends D-98.
+
+1. A stored `one` relation that is not unique gets its index,
+   `<table>_<column>_idx`, unless a unique key or an index of its model
+   starts with its column: PostgreSQL reads a B-tree by its first column,
+   so that one serves the relation's reads and its foreign key's checks.
+2. A key or an index counts unique or not, case-insensitive or not, but
+   not partial (D-215), which holds only the rows it keeps, and not a
+   `contains` one (D-141), a trigram index of a string.
+3. An index of the model on the relation alone is now that index. Before,
+   the start refused it: `the index on Membership.team and the index on
+Membership(team) are both stored as "membership_team_id_idx"`.
+4. A database built before keeps the extra index until the next sync or
+   migration drops it. Dropping an index loses no data, so a sync applies
+   it without `--force`.
+
+Why: the extra index costs a write on each insert and update, and its
+storage, for reads the other index already serves; schema linters report
+it as redundant.
+
+Rejected: dropping it for any index that holds the column, not first: a
+B-tree read by a later column scans the whole index.
+
+Example, before:
+
+```ts
+const Membership = defineModel({
+	name: 'Membership',
+	fields: (f) => ({ team: f.one(() => Team), person: f.one(() => Person) }),
+	indexes: [{ fields: ['team', 'person'], unique: true }],
+})
+```
+
+```sql
+alter table "membership" add constraint "membership_team_id_person_id_key" unique ("team_id", "person_id");
+create index "membership_team_id_idx" on "membership" ("team_id");
+create index "membership_person_id_idx" on "membership" ("person_id");
+```
+
+After:
+
+```sql
+alter table "membership" add constraint "membership_team_id_person_id_key" unique ("team_id", "person_id");
+create index "membership_person_id_idx" on "membership" ("person_id");
 ```
 
 ## D-235: A relation kept within an unset parent holds no target
