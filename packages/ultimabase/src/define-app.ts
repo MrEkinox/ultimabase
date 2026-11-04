@@ -8,7 +8,7 @@ import { lifecycle } from './lifecycle.ts'
 import type {
 	App,
 	FieldTypePlugins,
-	InverseCheck,
+	RelationNameCheck,
 	ModelShape,
 } from './model.ts'
 import type { PluginValue } from './plugin.ts'
@@ -103,7 +103,7 @@ export function defineApp<
 		readonly logger?: Logger
 	} & NoInfer<PluginCheck<P, M, Fn>> &
 		NoInfer<ModelCheck<M>> &
-		NoInfer<InverseCheck<M>>,
+		NoInfer<RelationNameCheck<M>>,
 ): App<M, CodesOf<P[number]>> {
 	return remember({ models: options.models, ...lifecycle(options) }, options)
 }

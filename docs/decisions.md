@@ -8951,7 +8951,7 @@ type Mutation {
 
 ## D-151: Filtered relations and virtual fields
 
-Amended by D-180, D-184, D-216.
+Amended by D-180, D-184, D-216, D-238.
 
 Choice: completes D-37, D-44 and D-109; amends D-42.
 
@@ -14567,6 +14567,8 @@ not make).
 
 ## D-220: A relation kept within the row's parent
 
+Amended by D-238.
+
 Choice: amends D-37 and D-99; D-54 is unchanged.
 
 1. A stored `one` relation takes `within`: its target shares a parent with
@@ -15504,4 +15506,70 @@ await Comment.create({
 	},
 })
 await Comment.findMany({ where: { author: { is: { name: 'Ann' } } } })
+```
+
+## D-238: The types check the field names of `from` and `within`
+
+Choice: amends D-151 and D-220.
+
+1. A view's `from` names a `many` of its model that stores its rows. Any
+   other name is a type error on the field, which lists the names allowed:
+   `from: 'drawrs'` and `from: 'open'`, a view, fail on `defineModel`.
+2. The target's side of a `within` (D-220), the string or the keys of its
+   object, names a field of the target. Any other name is a type error on
+   `defineApp`, where every model is typed, as an `inverse` already is
+   (D-37): `relationError: "Ticket.team: within 'orgn' is not a field of
+the target"`.
+3. A name typed `string`, not a literal, fails as an unknown one does; a
+   cast, or JavaScript, still reaches the startup checks, which are
+   unchanged.
+
+Why:
+
+- A typo or a rename in these names showed only when the application
+  started. `from` names a field of the model being declared, which its
+  type already holds; the target's fields are typed on `defineApp`, the
+  only place reading them is no cycle.
+
+Rejected:
+
+- Checking `within`'s target side on `f.one`, with completion: reading the
+  target's fields while declaring makes the model types circular (#158).
+- Checking that a view and the `many` it reads relate to the same model in
+  the types: the target behind the thunk is the cycle above; startup says
+  it.
+
+Example, before: both start-time errors only.
+
+```ts
+const Desk = defineModel({
+	name: 'Desk',
+	fields: (f) => ({
+		drawers: f.many(() => Drawer, { inverse: 'desk' }),
+		open: f.many(() => Drawer, { from: 'drawrs' }), // compiles
+	}),
+})
+const Ticket = defineModel({
+	name: 'Ticket',
+	fields: (f) => ({
+		org: f.one(() => Org),
+		team: f.one(() => Team, { optional: true, within: 'orgn' }), // compiles
+	}),
+})
+```
+
+After:
+
+```ts
+const Desk = defineModel({
+	name: 'Desk',
+	fields: (f) => ({
+		drawers: f.many(() => Drawer, { inverse: 'desk' }),
+		// Type error: Type '"drawrs"' is not assignable to type '"drawers"'.
+		open: f.many(() => Drawer, { from: 'drawrs' }),
+	}),
+})
+// Type error: relationError: "Ticket.team: within 'orgn' is not a field
+// of the target"
+defineApp({ database: memory(), models: [Org, Team, Desk, Drawer, Ticket] })
 ```

@@ -45,8 +45,10 @@ has another side only when one of the two names it.
 - A `many` always names its other side: the `one` that stores the key, or the
   `many` that names it back.
 - The `one` that stores the key names nothing: its other side names it.
-- A relation that names a field that is missing, or does not point back, is
-  refused when the application starts.
+- A name in `inverse`, `within` or `from` that is not a field of the model it
+  names is a type error, on `defineApp` for `inverse` and `within`, on the
+  field for `from`. A relation that does not point back is refused when the
+  application starts.
 
 The target is a function, `() => Book`, so two models can point to each other
 in any order in the file.
