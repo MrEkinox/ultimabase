@@ -64,8 +64,8 @@ logs a warning once: every client would count as the proxy, and
 
 ## Rate limit
 
-Each client address may send 600 requests a minute, WebSocket upgrades
-included; past that, the server answers 429 `TOO_MANY_ATTEMPTS` with
+Each client address may send 600 requests a minute, WebSocket upgrades and
+each operation sent over a socket included; past that, the server answers 429 `TOO_MANY_ATTEMPTS` with
 `Retry-After`, the seconds until the minute ends, before it reads any
 session. `rateLimit` changes the limit, or turns it off with `false` when a
 proxy limits in front:
@@ -77,8 +77,10 @@ proxy limits in front:
 The address is the one `proxies` reads; an IPv6 address counts by its /64,
 and a local or private one is never counted. The master key passes over
 the limit. Each instance counts in its own memory, so behind a load
-balancer the limit is per instance. A limit per person on a write is a
-[hook](/docs/next/hooks#limit-a-persons-writes).
+balancer the limit is per instance. An operation over the limit on a
+GraphQL socket fails with the same `TOO_MANY_ATTEMPTS` and
+`details.retryAfter`, and the socket stays open. A limit per person on a
+write is a [hook](/docs/next/hooks#limit-a-persons-writes).
 
 ## Validate a request
 
@@ -266,6 +268,12 @@ the HTTP plugin:
 | ----------------------------------------------- | ----------------------------------------------------------------------------------------- |
 | `plugins.http.upgrade(path, accept, { close })` | Takes the upgrades of `path`, from the plugin's `api`; `close(code, reason)` closes them. |
 | `plugins.http.closeUpgrades({ code, reason })`  | Closes the sockets open; with `path`, those of one path. Cuts those without `close`.      |
+
+`accept` receives the upgrade: its `request`, the client's `address`, the
+`socket`, and `limit()`, which counts one more request of the address and
+returns the seconds to wait when it is over the limit, `undefined` within
+it. A plugin that serves several operations on one socket calls it for
+each.
 
 `closeUpgrades` with a path no plugin takes throws `No plugin takes the
 upgrades of /x.`; before the start and after the stop, it closes nothing.
