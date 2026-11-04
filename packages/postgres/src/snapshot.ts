@@ -4,6 +4,7 @@
 import type { ScalarType, SchemaField } from 'ultimabase'
 import type { Catalog, Table } from './names.ts'
 import { constraint } from './names.ts'
+import { kindChecks } from './snapshot-kinds.ts'
 import { Refused } from 'ultimabase'
 
 /** `field` is the model's name for it, which messages use. */
@@ -26,8 +27,10 @@ export type ForeignKey = {
 }
 
 /**
- * A column among `values`, each element of a list's (D-127); or a `within`
- * relation's column, empty while its `parent` column is (D-235).
+ * A column among `values`, each element of a list's (D-127); a `within`
+ * relation's column, empty while its `parent` column is (D-235); or a
+ * `oneOf`'s `kinds` columns, one of them set, at most one when `optional`
+ * (D-247).
  */
 export type Check =
 	| {
@@ -36,6 +39,11 @@ export type Check =
 			readonly list?: true
 	  }
 	| { readonly column: string; readonly parent: string }
+	| {
+			readonly field: string
+			readonly kinds: string[]
+			readonly optional?: true
+	  }
 
 /**
  * `model` is the model's name, or `Book.tags` for a join table. Constraints
@@ -283,6 +291,9 @@ export function snapshotOf(catalog: Catalog): Snapshot {
 		const led = leading(table)
 		for (const given of table.model.fields) {
 			field(catalog, claims, table, building, given, led)
+		}
+		for (const { name, what, check } of kindChecks(catalog, table)) {
+			building.checks[claims.schema(name, what)] = check
 		}
 		const [, ...uniques] = table.uniques
 		for (const { name, fields, lower, where } of uniques) {

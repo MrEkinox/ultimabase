@@ -366,6 +366,35 @@ const addSearch = (columns: string) => [
 	'create index "article__search_idx" on "article" using gin ("_search")',
 ]
 
+/**
+ * Comments on a post or a photo by a `oneOf` (D-247), optional or not, or
+ * on nothing.
+ */
+const comments = (oneOf: boolean, optional = false): Schema => ({
+	models: [
+		{ name: 'Post', fields: [], indexes: [] },
+		{ name: 'Photo', fields: [], indexes: [] },
+		{
+			name: 'Comment',
+			fields: [
+				scalar('body', 'string'),
+				...(oneOf
+					? (['post', 'photo'] as const).map((kind) => ({
+							...one(
+								`target${kind === 'post' ? 'Post' : 'Photo'}`,
+								kind === 'post' ? 'Post' : 'Photo',
+								'comments',
+							),
+							optional: true,
+							of: { field: 'target', kind, optional },
+						}))
+					: []),
+			],
+			indexes: [],
+		},
+	],
+})
+
 const changes = (statements: readonly { model: string; does: string }[]) =>
 	statements.map(({ model, does }) => `${model}: ${does}`)
 
@@ -1619,6 +1648,64 @@ describe('a sync on postgres()', () => {
 		const created = migrations.plan(undefined, tasks(true, true))
 		expect(created.map(({ sql }) => sql).join('\n')).toContain(
 			'constraint "task_milestone_id_within_check" check ("project_id" is not null or "milestone_id" is null)',
+		)
+	})
+
+	it('keeps one key of a oneOf set, or at most one when optional (D-247)', async () => {
+		await sync(undefined, comments(false))
+		await run(
+			`insert into comment values (gen_random_uuid(), now(), now(), 'a')`,
+		)
+		const check = `alter table "comment" add constraint "comment_target_check" check (num_nonnulls("target_post_id", "target_photo_id") = 1)`
+		await expect(sync(comments(false), comments(true))).rejects.toMatchObject({
+			name: 'MigrationFailed',
+			at: check,
+			reason:
+				'check constraint "comment_target_check" of relation "comment" is violated by some row',
+		})
+		await run('delete from comment')
+		const statements = await sync(comments(false), comments(true))
+		expect(
+			statements.flatMap(({ sql, does, tries }) =>
+				sql === check ? [[does, tries]] : [],
+			),
+		).toStrictEqual([
+			[
+				'made target hold one of its kinds',
+				'making "Comment.target" hold one of its kinds fails when a row holds another number',
+			],
+		])
+		const [post, photo] = [randomUUID(), randomUUID()]
+		await run(`insert into post values ('${post}', now(), now())`)
+		await run(`insert into photo values ('${photo}', now(), now())`)
+		const both = `insert into comment values (gen_random_uuid(), now(), now(), 'b', '${post}', '${photo}')`
+		await expect(run(both)).rejects.toThrow('comment_target_check')
+		const optional = await sync(comments(true), comments(true, true))
+		expect(changes(optional)).toStrictEqual([
+			'Comment: dropped the kinds of target',
+			'Comment: made target hold at most one of its kinds',
+		])
+		await run(
+			`insert into comment values (gen_random_uuid(), now(), now(), 'c')`,
+		)
+		await expect(run(both)).rejects.toThrow('comment_target_check')
+		const { tables } = parseSnapshot(migrations.snapshot(comments(true, true)))
+		expect(tables['comment']?.checks).toStrictEqual({
+			comment_target_check: {
+				field: 'target',
+				kinds: ['target_post_id', 'target_photo_id'],
+				optional: true,
+			},
+		})
+		expect(
+			migrations.plan(
+				migrations.snapshot(comments(true, true)),
+				comments(true, true),
+			),
+		).toStrictEqual([])
+		const created = migrations.plan(undefined, comments(true, true))
+		expect(created.map(({ sql }) => sql).join('\n')).toContain(
+			'constraint "comment_target_check" check (num_nonnulls("target_post_id", "target_photo_id") <= 1)',
 		)
 	})
 

@@ -18,6 +18,7 @@ import { jsonPaths } from './json-paths.ts'
 import { lists } from './lists.ts'
 import { nested } from './nested.ts'
 import { numbers } from './numbers.ts'
+import { oneOfs } from './one-ofs.ts'
 import { oneViews } from './one-views.ts'
 import { partialUniqueCases } from './partial-unique-cases.ts'
 import { projection } from './projection.ts'
@@ -62,6 +63,7 @@ export function testAdapter(
 		counts(create)
 		relationFilters(create)
 		oneViews(create)
+		oneOfs(create)
 		exists(create)
 		virtuals(create)
 		aggregates(create)

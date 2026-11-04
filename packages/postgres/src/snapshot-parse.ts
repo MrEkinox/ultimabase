@@ -45,7 +45,13 @@ const columnOf = (value: unknown): Column | undefined =>
 		: undefined
 
 function checkOf(value: unknown): Check | undefined {
-	if (!isRecord(value) || typeof value['column'] !== 'string') return undefined
+	if (!isRecord(value)) return undefined
+	const { field, kinds } = value
+	if (typeof field === 'string' && isStrings(kinds)) {
+		const optional = value['optional'] === true
+		return { field, kinds, ...(optional ? { optional: true as const } : {}) }
+	}
+	if (typeof value['column'] !== 'string') return undefined
 	const { column, values, parent } = value
 	if (typeof parent === 'string') return { column, parent }
 	if (!isStrings(values)) return undefined
