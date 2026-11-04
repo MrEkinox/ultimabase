@@ -21,7 +21,8 @@ export function counted(
 	const counts = new Map<string, Filter>()
 	if (value === true) {
 		for (const field of model.fields.values()) {
-			if (field.kind === 'many' && field.exists === undefined) {
+			// A one-sided many-to-many's hidden side is no field (D-248).
+			if (field.kind === 'many' && !field.exists && !field.hidden) {
 				counts.set(field.name, filter(field))
 			}
 		}
@@ -35,7 +36,7 @@ export function counted(
 	for (const [name, chosen] of entries(given.get('select'), select)) {
 		const at = `${select}.${name}`
 		const field = model.fields.get(name)
-		if (field?.kind !== 'many' || field.exists) {
+		if (field?.kind !== 'many' || field.exists || field.hidden) {
 			throw unknownKey(at, model.name)
 		}
 		if (chosen === false) continue

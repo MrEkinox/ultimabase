@@ -1,6 +1,7 @@
 // The other shapes a relation takes. These models are written and read by
 // server code only, as Master, so they have no access rules and no GraphQL.
 import { defineModel } from 'ultimabase'
+import { Book } from './models.ts'
 
 //#region one-to-one
 export const Member = defineModel({
@@ -63,6 +64,18 @@ export const Notice = defineModel({
 	fields: (f) => ({
 		text: f.string(),
 		branch: f.one(() => Branch, { onDelete: 'cascade' }),
+	}),
+})
+//#endregion
+
+//#region one-sided-many
+// A many-to-many declared on one side: a reading list names its books, and
+// `Book` has no field for the lists that name it.
+export const ReadingList = defineModel({
+	name: 'ReadingList',
+	fields: (f) => ({
+		title: f.string(),
+		books: f.many(() => Book, { inverse: false }),
 	}),
 })
 //#endregion

@@ -296,16 +296,19 @@ export class Catalog {
 				if (field.kind !== 'many' || !field.join || field.from !== undefined)
 					continue
 				const target = this.table(field.target)
+				const inverse = target.fields.get(field.inverse)
+				// One declared on one side is named after it (D-248).
+				const alone = inverse?.kind === 'many' && inverse.hidden === true
 				const self = table === target
-				const first = self
-					? field.name < field.inverse
-					: table.name < target.name
-				if (!first) continue
+				const first =
+					alone ||
+					(self ? field.name < field.inverse : table.name < target.name)
+				if (!first || field.hidden === true) continue
 				const name = `${table.name}_${snake(field.name)}`
-				const mine = self ? `${snake(field.inverse)}_id` : `${table.name}_id`
+				const mine =
+					self && !alone ? `${snake(field.inverse)}_id` : `${table.name}_id`
 				const theirs = self ? `${snake(field.name)}_id` : `${target.name}_id`
 				const relation = `${table.model.name}.${field.name}`
-				const inverse = target.fields.get(field.inverse)
 				const kept =
 					field.within ??
 					(inverse?.kind === 'many' ? inverse.within : undefined)

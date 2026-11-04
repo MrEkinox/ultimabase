@@ -4,7 +4,7 @@ import type { TargetFields } from './record.ts'
 import type { fieldType, modelFields } from './symbols.ts'
 
 // An `inverse` names a field of the target (D-37), and so does a `within`
-// (D-220); a `size` faces a `one` (D-242), and a `many` facing a `oneOf`
+// (D-220); a `size` faces a `one` (D-242, D-248), and a `many` facing a `oneOf`
 // takes neither (D-247). They are checked here, where every
 // model is typed, since reading the target while declaring is a cycle.
 type WithinNames<W> = W extends string ? W : keyof W
@@ -26,6 +26,9 @@ type NameErrors<N extends string, F> = {
 							? `${N}.${K & string}: within '${U}' is not a field of the target`
 							: never
 						: never
+					: never)
+			| (O extends { readonly size: object; readonly inverse: false }
+					? `${N}.${K & string}: size bounds a one-to-many relation only`
 					: never)
 			| (O extends {
 					readonly size: object

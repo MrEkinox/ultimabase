@@ -4,7 +4,7 @@ import type { Filter, Nested } from './adapter.ts'
 import { and } from './access.ts'
 import { InvalidQuery } from './errors.ts'
 import { oneOfArgs } from './one-of-read.ts'
-import { hiddenKey } from './one-of-schema.ts'
+import { concealed } from './one-sided.ts'
 import type { ModelInfo } from './schema.ts'
 import type { VirtualInfo } from './schema-virtuals.ts'
 import { counted } from './query-counted.ts'
@@ -233,7 +233,7 @@ export function plan(
 					: field.kind === 'scalar'
 			if (
 				(field === undefined && !scalar) ||
-				hiddenKey(field) ||
+				concealed(field) ||
 				(base === 'include' && scalar)
 			) {
 				throw unknownKey(where, model.name)

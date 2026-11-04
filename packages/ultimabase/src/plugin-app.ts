@@ -221,7 +221,11 @@ function fieldTypes(info: ModelInfo): ExposedModel['fieldTypes'] {
 function schemaOf(resolved: Resolved, name: string): SchemaModel {
 	const found = resolved.schema.models.find((model) => model.name === name)
 	if (found === undefined) throw new Error(`${name} has no schema.`)
-	return found
+	// A one-sided many-to-many's hidden side is no field of a client's (D-248).
+	const fields = found.fields.filter(
+		(field) => field.kind !== 'many' || field.hidden !== true,
+	)
+	return { ...found, fields }
 }
 
 /**

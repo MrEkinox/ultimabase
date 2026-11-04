@@ -17,7 +17,7 @@ import { checked, validated } from './validation.ts'
 import type { OrCreate } from './relation-write.ts'
 import { manyWrite, oneOfWrite, oneWrite } from './relation-write.ts'
 import type { OneOfInfo } from './one-of-schema.ts'
-import { hiddenKey } from './one-of-schema.ts'
+import { concealed } from './one-sided.ts'
 import { refuseSet } from './relations.ts'
 
 /** The data a `before*` hook changes in place (D-71). */
@@ -79,7 +79,7 @@ export function readData(
 			field === undefined ||
 			((field.kind === 'many' || (field.kind === 'one' && !field.stored)) &&
 				field.from !== undefined) ||
-			hiddenKey(field)
+			concealed(field)
 		) {
 			throw unknownKey(path, model.name)
 		}

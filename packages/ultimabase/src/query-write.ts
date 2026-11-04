@@ -29,7 +29,7 @@ import type { Draft } from './write-data.ts'
 import { prepared, readData } from './write-data.ts'
 import type { Reads, Step } from './write-plan.ts'
 import { oneOfField, unsetOneOfs } from './one-of-write.ts'
-import { hiddenKey } from './one-of-schema.ts'
+import { concealed } from './one-sided.ts'
 import { Plan } from './write-plan.ts'
 
 /**
@@ -264,7 +264,7 @@ async function fields(
 		const field = context.model.fields.get(name)
 		const oneOf = context.model.oneOfs.get(name)
 		// The caller's data was read before the hooks: a hook wrote the key.
-		if ((field === undefined || hiddenKey(field)) && oneOf === undefined) {
+		if ((field === undefined || concealed(field)) && oneOf === undefined) {
 			throw hookError(
 				context,
 				unknownKey(pathOf(context, name), context.model.name),

@@ -1,6 +1,6 @@
 // The schema `start` resolves from the application's models: each relation
 // gets the other side it names or is named by, and the side that stores its
-// key (D-37, D-54, D-64, D-237).
+// key (D-37, D-54, D-64, D-237, D-248).
 import type { Schema, SchemaField, SchemaModel } from './adapter.ts'
 import type {
 	Codec,
@@ -19,6 +19,7 @@ import { namedOf, pairsOf } from './pairing.ts'
 import { installedUses } from './plugin-use.ts'
 import type { OneOfInfo } from './one-of-schema.ts'
 import { facing, oneOfOf } from './one-of-schema.ts'
+import { oneSidedOf } from './one-sided.ts'
 import { checkOneViews, oneViewField } from './one-views.ts'
 import { checkRelations, isFiltered, viewField } from './relations.ts'
 import { checkIndexes, checkSearch } from './schema-indexes.ts'
@@ -276,8 +277,15 @@ export function resolve(
 			;(typeof from === 'string' ? views : links).push(link)
 		}
 	}
-	// A target's many names a oneOf's kind (D-247).
-	links.splice(0, links.length, ...links.map((link) => facing(link, oneOfs)))
+	// A target's many names a oneOf's kind (D-247); one declared alone, a
+	// hidden many of its target (D-248).
+	const valueOf = new Map([...names].map(([value, name]) => [name, value]))
+	const sided = oneSidedOf(
+		links.map((link) => facing(link, oneOfs)),
+		(model, name) => definitions.get(model)?.fields.has(name) === true,
+		(model) => valueOf.get(model),
+	)
+	links.splice(0, links.length, ...sided.links)
 	const inverses = pairsOf(links)
 	const relationOf = (model: string, name: string): FieldInfo | undefined => {
 		const link = linkOf(links, model, name)
@@ -320,6 +328,11 @@ export function resolve(
 				)
 			}
 			fields.set(name, fieldOf(model, name, field))
+		}
+		for (const link of sided.hidden.filter((each) => each.model === model)) {
+			const many = relationOf(model, link.name)
+			if (many?.kind === 'many')
+				fields.set(link.name, { ...many, hidden: true })
 		}
 		const indexes = checkIndexes(model, fields, definition.indexes)
 		const uniques: (readonly string[])[] = [['id']]

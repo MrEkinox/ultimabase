@@ -104,6 +104,8 @@ export type SchemaField =
 			readonly exists?: true
 			/** Facing a `many`, declaring it: the `one` each pair shares (D-236). */
 			readonly within?: string
+			/** The other side of a `many` declared with `inverse: false` (D-248). */
+			readonly hidden?: true
 	  }
 
 export type SchemaModel = {
