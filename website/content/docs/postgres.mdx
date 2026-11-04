@@ -75,23 +75,24 @@ Each model is a table, each field a column, named in snake case: `Task` is
 	../examples/postgres/src/models.ts#models
 </include>
 
-| Field                      | Column                                                                                                                  |
-| -------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| `id`                       | `uuid`, the primary key                                                                                                 |
-| `createdAt`, `updatedAt`   | `timestamptz not null`                                                                                                  |
-| `f.string()`               | `text collate "C"`                                                                                                      |
-| `f.number()`               | `double precision`; `integer` with `integer: true`                                                                      |
-| `f.decimal()`              | `numeric(precision, scale)`                                                                                             |
-| `f.boolean()`              | `boolean`                                                                                                               |
-| `f.dateTime()`             | `timestamptz`                                                                                                           |
-| `f.date()`                 | `date`                                                                                                                  |
-| `f.json()`                 | `jsonb`                                                                                                                 |
-| `f.enumOf()`               | `text`, with a check of its values                                                                                      |
-| a list (`list: true`)      | `text[]`, `double precision[]` or `integer[]`                                                                           |
-| `f.one()`, the side stored | `<field>_id uuid`, indexed unless a key or an index starts with it, with a foreign key checked at commit                |
-| `f.many()` both ways       | a table `<table>_<field>`, with a `<table>_id` column per side                                                          |
-| `search: true`             | a generated `_search` column, with a GIN index                                                                          |
-| `within`                   | a foreign key over the key and the parent's column, `_within_fkey`, to a unique key on the target's `(id, <parent>_id)` |
+| Field                      | Column                                                                                                                          |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `id`                       | `uuid`, the primary key                                                                                                         |
+| `createdAt`, `updatedAt`   | `timestamptz not null`                                                                                                          |
+| `f.string()`               | `text collate "C"`                                                                                                              |
+| `f.number()`               | `double precision`; `integer` with `integer: true`                                                                              |
+| `f.decimal()`              | `numeric(precision, scale)`                                                                                                     |
+| `f.boolean()`              | `boolean`                                                                                                                       |
+| `f.dateTime()`             | `timestamptz`                                                                                                                   |
+| `f.date()`                 | `date`                                                                                                                          |
+| `f.json()`                 | `jsonb`                                                                                                                         |
+| `f.enumOf()`               | `text`, with a check of its values                                                                                              |
+| a list (`list: true`)      | `text[]`, `double precision[]` or `integer[]`                                                                                   |
+| `f.one()`, the side stored | `<field>_id uuid`, indexed unless a key or an index starts with it, with a foreign key checked at commit                        |
+| `f.many()` both ways       | a table `<table>_<field>`, with a `<table>_id` column per side                                                                  |
+| `search: true`             | a generated `_search` column, with a GIN index                                                                                  |
+| `within`                   | a foreign key over the key and the parent's column, `_within_fkey`, to a unique key on the target's `(id, <parent>_id)`         |
+| `within` on a `many`       | a `<parent>_id` column on the join table, and per side a `_within_fkey` to that side's `(id, <parent>_id)`, `on update cascade` |
 
 A required field is `not null`; an optional one is nullable. A unique field
 or index is a unique constraint; a case-insensitive one is a unique index
@@ -106,6 +107,11 @@ your own that parts a row from its target's parent fails the transaction with
 the kernel's `VALIDATION_FAILED`, its issue on the row's relation. With an
 optional parent, a check `_within_check` keeps the key `null` while the
 parent's is, and fails the statement with the same issue.
+A many-to-many's join table stores each link's parent: a row moved to
+another parent carries its links, and the other side's key refuses at
+commit a link left across two parents. `migrate create` fills the column
+from the rows each link holds, then adds the keys, which fail while a link
+crosses two parents.
 Constraint names end in `_pkey`, `_key`, `_lower_key`, `_fkey`, `_within_fkey`, `_check`, `_within_check` and `_idx`. A
 name longer than PostgreSQL's 63 bytes keeps its first 54 bytes plus an
 8-character hash. `dbName` names a table or a column yourself (see

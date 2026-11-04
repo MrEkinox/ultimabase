@@ -13,12 +13,16 @@ export type Column = {
 	readonly nullable: boolean
 }
 
-/** `within` pairs a second column with the target's, absent when none (D-220). */
+/**
+ * `within` pairs a second column with the target's, absent when none
+ * (D-220); `follows` moves it with the target's, as a join's (D-236).
+ */
 export type ForeignKey = {
 	readonly column: string
 	readonly table: string
 	readonly cascade: boolean
 	readonly within?: { readonly column: string; readonly target: string }
+	readonly follows?: true
 }
 
 /**
@@ -223,14 +227,22 @@ function field(
 	}
 }
 
-/** Each model's fields a `within` relation keeps its rows within (D-220). */
+/**
+ * Each model's fields a `within` relation keeps its rows within (D-220), on
+ * both sides of a many-to-many's (D-236).
+ */
 function parentsOf(catalog: Catalog): Map<string, Set<string>> {
 	const parents = new Map<string, Set<string>>()
+	const keep = (model: string, name: string) =>
+		parents.set(model, (parents.get(model) ?? new Set()).add(name))
 	for (const table of catalog.tables.values()) {
 		for (const given of table.model.fields) {
-			if (given.kind !== 'one' || given.within === undefined) continue
-			const fields = parents.get(given.target) ?? new Set()
-			parents.set(given.target, fields.add(given.within.target))
+			if (given.kind === 'one' && given.within !== undefined) {
+				keep(given.target, given.within.target)
+			} else if (given.kind === 'many' && given.within !== undefined) {
+				keep(table.model.name, given.within)
+				keep(given.target, given.within)
+			}
 		}
 	}
 	return parents
@@ -331,22 +343,35 @@ export function snapshotOf(catalog: Catalog): Snapshot {
 		const claims = { schema, columns: claimer() }
 		schema(join.table, `the join table of ${side}`)
 		const building = empty(claims, side, join.table, [join.self, join.other])
-		for (const column of [join.self, join.other]) {
-			building.columns[column] = {
-				field: column,
-				type: 'uuid',
-				nullable: false,
-			}
+		const { within } = join
+		const columns = [join.self, join.other]
+		const named = columns.map((column) => [column, column] as const)
+		for (const [column, name] of within
+			? [...named, [within.column, within.field] as const]
+			: named) {
+			claims.columns(column, `the column ${column} of ${side}`)
+			building.columns[column] = { field: name, type: 'uuid', nullable: false }
 		}
-		for (const [column, table] of [
-			[join.self, join.owner],
-			[join.other, join.target],
+		for (const [column, table, end] of [
+			[join.self, join.owner, 'owner'],
+			[join.other, join.target, 'target'],
 		] as const) {
 			const key = constraint(`${join.table}_${column}_fkey`)
 			building.foreignKeys[schema(key, `the foreign key of ${side}`)] = {
 				column,
 				table,
 				cascade: true,
+			}
+			if (within === undefined) continue
+			// Each side's row and the link share a parent; a row moved carries
+			// its links (D-236).
+			const name = constraint(`${join.table}_${column}_within_fkey`)
+			building.foreignKeys[schema(name, `the within key of ${side}`)] = {
+				column,
+				table,
+				cascade: false,
+				within: { column: within.column, target: within[end] },
+				follows: true,
 			}
 		}
 		index(claims, building, join.table, [join.other], side)

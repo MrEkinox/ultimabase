@@ -47,6 +47,16 @@ function addColumn(
 			tries: `adding the required "${model}.${now.field}" fails when ${model} holds rows: make it optional, or give it a value as its default, not a function`,
 		})
 	}
+	if (fill.rows) {
+		const empty = `${table} add column ${column(key, now.type, true)}`
+		emit(empty, `added ${now.field}`)
+		emit(fill.sql, `${fill.shown} in the rows it held`)
+		emit(
+			`${table} alter column ${id(key)} set not null`,
+			`made ${now.field} required`,
+		)
+		return
+	}
 	// The rows take the default; the column keeps none, as the models say.
 	emit(`${add} default ${fill.sql}`, `added ${now.field}`)
 	emit(
@@ -217,7 +227,7 @@ function alterColumns(
 const foreignKey = (
 	table: string,
 	key: string,
-	{ column: name, table: target, cascade, within }: ForeignKey,
+	{ column: name, table: target, cascade, within, follows }: ForeignKey,
 ): string => {
 	const [columns, theirs] = within
 		? [
@@ -225,7 +235,7 @@ const foreignKey = (
 				['id', within.target],
 			]
 		: [[name], ['id']]
-	return `alter table ${id(table)} add constraint ${id(key)} foreign key (${list(columns)}) references ${id(target)} (${list(theirs)})${cascade ? ' on delete cascade' : ''} deferrable initially deferred`
+	return `alter table ${id(table)} add constraint ${id(key)} foreign key (${list(columns)}) references ${id(target)} (${list(theirs)})${cascade ? ' on delete cascade' : ''}${follows ? ' on update cascade' : ''} deferrable initially deferred`
 }
 
 /** Every statement from `from`, or an empty database, to `to`. */

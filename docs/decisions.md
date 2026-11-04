@@ -14568,7 +14568,7 @@ not make).
 
 ## D-220: A relation kept within the row's parent
 
-Amended by D-235.
+Amended by D-235 and D-236.
 
 Choice: amends D-37 and D-99; D-54 is unchanged.
 
@@ -15764,3 +15764,107 @@ Rejected:
   refusing names it, as D-220 rejects for a moved parent.
 - A deferred check: PostgreSQL defers no check; a trigger would, for a rule
   the cascade's order already keeps.
+
+## D-236: A many-to-many relation kept within the row's parent
+
+Choice: amends D-220.
+
+1. A `many` facing a `many` takes `within: 'project'`: every row it links
+   has the row's `project`. That form only: both models' `project` is a
+   required stored `one` to the same model. It is declared on one side and
+   holds from both. The start refuses the others:
+   `Note.tasks: within names project, a required one relation of Note and of
+Task to the same model.`, `Note.tasks: within on a many names a field both
+models share, as within: 'project'.`, `Note.tasks and Task.notes: within
+goes on one side.` A `many` facing a `one` keeps D-220's
+   `Project.tasks: within belongs on Task.project, which stores the key.`
+2. The rule holds when either side changes: a write that links two rows,
+   through `connect`, `create`, `connectOrCreate` or `set`, from either
+   side, or changes the parent of a row that stays linked, on either side.
+   A link the same write removes, or whose row it deletes, holds nothing.
+3. The kernel checks it among the write's checks (D-99), as D-220 does, with
+   D-220's issue: `Note.tasks needs a Task of the same project.`, on the
+   relation the write gave (`tasks`, or `notes` from the other side), or on
+   `project` when a parent change breaks a link. A check reads a row the
+   write does not hold as it was before the write, as D-220's.
+4. `postgres()` holds it too. The join table gets a required `project_id`,
+   which each link takes from its row on the declared side, `Note`: the row
+   the write inserts, or else the row as stored; each model gets a
+   unique key on `(id, project_id)`; and the join two foreign keys,
+   `(note_id, project_id)` to `note (id, project_id)` and
+   `(task_id, project_id)` to `task (id, project_id)`, deferred as the others
+   (D-98), `on update cascade`: a row moved carries its links' parent, and
+   the other side's key refuses at commit a link left outside it. Its
+   refusal, which a race alone reaches, is the issue on the declared
+   relation. `migrate create` adds the column filled from the rows it links,
+   then the keys, which fail when a row links outside its parent, and drops
+   them with `within`.
+5. `memory()` needs nothing more: its writes run one at a time.
+
+Why: a many-to-many often links rows of one parent only, a note about tasks
+of its project, and nothing stopped a link to another project's task. Each
+application re-read the links after every write, one count per linked
+model, as Master since the caller may not read the rows elsewhere; it
+missed the targets' side, and two concurrent writes passed it. Before:
+
+```ts
+export const Note = defineModel({
+	name: 'Note',
+	fields: (f) => ({
+		project: f.one(() => Project, { onDelete: 'cascade' }),
+		tasks: f.many(() => Task, { inverse: 'notes' }),
+	}),
+}).with({
+	hooks: {
+		afterCreate: ({ record }) => sameProject(record),
+		afterUpdate: ({ record }) => sameProject(record),
+	},
+})
+
+const sameProject = async (note: { id: string; project: { id: string } }) => {
+	const elsewhere = await Task.count(
+		{
+			where: {
+				notes: { some: { id: note.id } },
+				project: { isNot: { id: note.project.id } },
+			},
+		},
+		{ as: master },
+	)
+	if (elsewhere > 0) throw new PublicError('NOT_SAME_PROJECT', 'Wrong project.')
+}
+```
+
+After, with no hook:
+
+```ts
+export const Note = defineModel({
+	name: 'Note',
+	fields: (f) => ({
+		project: f.one(() => Project, { onDelete: 'cascade' }),
+		tasks: f.many(() => Task, { inverse: 'notes', within: 'project' }),
+	}),
+})
+
+await Note.update(
+	{ where: { id: note }, data: { tasks: { connect: [{ id: theirs }] } } },
+	{ as: master },
+)
+// VALIDATION_FAILED, on tasks: Note.tasks needs a Task of the same project.
+
+await Task.update(
+	{ where: { id: task }, data: { project: { connect: { id: other } } } },
+	{ as: master },
+)
+// VALIDATION_FAILED, on project while a note of the first project links it.
+```
+
+Rejected:
+
+- The object forms, `{ campaign: 'id' }` and `{ stage: 'mainStage' }`: no
+  case needs them on a `many` yet.
+- Declaring it on both sides: one rule written twice, which could disagree.
+- The kernel's checks alone: two concurrent writes pass them, as the hook.
+- The join's keys without `on update cascade`: a write moving a row and
+  every row it links, which the kernel accepts, would leave the join's
+  `project_id` behind and be refused at commit.

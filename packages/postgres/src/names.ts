@@ -52,6 +52,16 @@ export type Join = {
 	readonly other: string
 	readonly owner: string
 	readonly target: string
+	/**
+	 * A relation kept within a parent (D-236): its field, the join's column,
+	 * and the owner's and the target's.
+	 */
+	readonly within?: {
+		readonly field: string
+		readonly column: string
+		readonly owner: string
+		readonly target: string
+	}
 }
 
 const system: ReadonlyMap<string, readonly [string, Kind]> = new Map([
@@ -252,6 +262,19 @@ export class Catalog {
 				}
 			}
 		}
+		// A join's two keys report the relation declaring it (D-236).
+		for (const [side, join] of this.joins) {
+			const declared = this.table(side.split('.')[0] ?? '').fields
+			const field = declared.get(side.split('.')[1] ?? '')
+			if (field?.kind !== 'many' || field.within === undefined) continue
+			const message = `${side} needs a ${field.target} of the same ${field.within}.`
+			for (const column of [join.self, join.other]) {
+				withins.set(constraint(`${join.table}_${column}_within_fkey`), {
+					field: field.name,
+					message,
+				})
+			}
+		}
 		return withins
 	}
 
@@ -276,6 +299,21 @@ export class Catalog {
 				const mine = self ? `${snake(field.inverse)}_id` : `${table.name}_id`
 				const theirs = self ? `${snake(field.name)}_id` : `${target.name}_id`
 				const relation = `${table.model.name}.${field.name}`
+				const inverse = target.fields.get(field.inverse)
+				const kept =
+					field.within ??
+					(inverse?.kind === 'many' ? inverse.within : undefined)
+				const within = (owner: Table, other: Table) =>
+					kept === undefined
+						? {}
+						: {
+								within: {
+									field: kept,
+									column: `${snake(kept)}_id`,
+									owner: this.column(owner, kept),
+									target: this.column(other, kept),
+								},
+							}
 				joins.set(relation, {
 					relation,
 					table: name,
@@ -283,6 +321,7 @@ export class Catalog {
 					other: theirs,
 					owner: table.name,
 					target: target.name,
+					...within(table, target),
 				})
 				joins.set(`${target.model.name}.${field.inverse}`, {
 					relation,
@@ -291,6 +330,7 @@ export class Catalog {
 					other: mine,
 					owner: target.name,
 					target: table.name,
+					...within(target, table),
 				})
 			}
 		}
