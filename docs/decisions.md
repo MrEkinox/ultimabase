@@ -3501,7 +3501,7 @@ await Note.create({ data }, { as: asUser({ id: 'ada' }) })
 
 ## D-98: The PostgreSQL adapter's tables, names and test setup
 
-Amended by D-105 and D-132.
+Amended by D-105, D-132 and D-234.
 
 Choice:
 
@@ -15613,4 +15613,52 @@ After:
 --   alter table "account" rename column "mail_on_message" to "email_invites";
 --   alter table "account" rename column "mail_on_message" to "push_messages";
 alter table "account" drop column "mail_on_message";
+```
+
+## D-234: A relation has no index of its own when a key or an index starts with it
+
+Choice: amends D-98.
+
+1. A stored `one` relation that is not unique gets its index,
+   `<table>_<column>_idx`, unless a unique key or an index of its model
+   starts with its column: PostgreSQL reads a B-tree by its first column,
+   so that one serves the relation's reads and its foreign key's checks.
+2. A key or an index counts unique or not, case-insensitive or not, but
+   not partial (D-215), which holds only the rows it keeps, and not a
+   `contains` one (D-141), a trigram index of a string.
+3. An index of the model on the relation alone is now that index. Before,
+   the start refused it: `the index on Membership.team and the index on
+Membership(team) are both stored as "membership_team_id_idx"`.
+4. A database built before keeps the extra index until the next sync or
+   migration drops it. Dropping an index loses no data, so a sync applies
+   it without `--force`.
+
+Why: the extra index costs a write on each insert and update, and its
+storage, for reads the other index already serves; schema linters report
+it as redundant.
+
+Rejected: dropping it for any index that holds the column, not first: a
+B-tree read by a later column scans the whole index.
+
+Example, before:
+
+```ts
+const Membership = defineModel({
+	name: 'Membership',
+	fields: (f) => ({ team: f.one(() => Team), person: f.one(() => Person) }),
+	indexes: [{ fields: ['team', 'person'], unique: true }],
+})
+```
+
+```sql
+alter table "membership" add constraint "membership_team_id_person_id_key" unique ("team_id", "person_id");
+create index "membership_team_id_idx" on "membership" ("team_id");
+create index "membership_person_id_idx" on "membership" ("person_id");
+```
+
+After:
+
+```sql
+alter table "membership" add constraint "membership_team_id_person_id_key" unique ("team_id", "person_id");
+create index "membership_person_id_idx" on "membership" ("person_id");
 ```
