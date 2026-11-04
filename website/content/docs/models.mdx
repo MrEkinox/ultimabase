@@ -64,6 +64,27 @@ row with a unique value returns `UNIQUE_VIOLATION`. With
 	../examples/models-and-queries/src/models.test.ts#refused
 </include>
 
+## Field presets
+
+A rule several fields share, a text that is trimmed and never blank, is a
+function of your own that returns the field's options.
+`satisfies StringOptions` checks them as `f.string` does;
+`SingleOptions<number>` does the same for a number, `DecimalOptions` for a
+decimal:
+
+<include cwd meta='title="src/presets.ts"'>
+	../examples/models-and-queries/src/presets.ts#preset
+</include>
+
+A model passes them to its builder, and completes them in place:
+`f.string({ ...text({ max: 280 }), optional: true })`. The field keeps
+everything `f.string` gives it: it is sorted and filtered as a string, and
+its `.with` takes the rules of the model's plugins.
+
+<include cwd meta='title="src/models.test.ts"'>
+	../examples/models-and-queries/src/models.test.ts#preset
+</include>
+
 ## Change a JSON field's shape
 
 The database keeps each JSON value as it was written: a new schema does not
