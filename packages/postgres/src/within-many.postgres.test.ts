@@ -19,8 +19,7 @@ const Project = defineModel({
 	name: 'Project',
 	fields: (f) => ({
 		name: f.string(),
-		notes: f.many(() => Note, { inverse: 'project' }),
-		tasks: f.many(() => Task, { inverse: 'project' }),
+		// No many of its notes or tasks: within needs none (D-243).
 	}),
 })
 

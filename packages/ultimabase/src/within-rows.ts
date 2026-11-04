@@ -1,9 +1,11 @@
 // The rows a write knows, as they end, for the checks of the relations kept
 // within a parent (D-220, D-236): the rows it inserts, and those it updates by
-// id from the row it read.
+// id from the row it read; the parents it does not know, read before it.
 import type { Change, Filter } from './adapter.ts'
 import type { Event } from './hooks.ts'
 import { isObject } from './query-values.ts'
+import { byIds } from './query-where.ts'
+import type { Store } from './transaction.ts'
 
 export type Known = {
 	readonly values: { [field: string]: unknown }
@@ -83,4 +85,21 @@ export function knownRows(
 	}
 	for (const id of gone) for (const each of rows.values()) each.delete(id)
 	return { rows, blind, gone }
+}
+
+/**
+ * The `parent` of the rows of `model` among `ids`, as stored before the
+ * write: a check compares it where the write does not know it (D-243). A row
+ * that does not exist has none.
+ */
+export async function storedParents(
+	store: Pick<Store, 'find'>,
+	model: string,
+	parent: string,
+	ids: readonly string[],
+): Promise<ReadonlyMap<string, string | null>> {
+	if (ids.length === 0) return new Map()
+	const where = byIds([...new Set(ids)])
+	const rows = await store.find({ model, where, fields: [parent] })
+	return new Map(rows.map((row) => [row.id, keyOf(row[parent])]))
 }

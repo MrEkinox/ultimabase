@@ -20,8 +20,7 @@ const Project = defineModel({
 	name: 'Project',
 	fields: (f) => ({
 		name: f.string(),
-		milestones: f.many(() => Milestone, { inverse: 'project' }),
-		tasks: f.many(() => Task, { inverse: 'project' }),
+		// No many of its milestones or tasks: within needs none (D-243).
 		featured: f.one(() => Milestone, {
 			optional: true,
 			within: { project: 'id' },

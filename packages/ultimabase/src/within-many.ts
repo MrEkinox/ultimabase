@@ -1,20 +1,21 @@
 // The writes a many-to-many kept within the row's parent refuses (D-236): a
 // link between two rows of different parents, from either side, or a parent
 // change that leaves a link across two. The rows the write knows are compared
-// as they end; the others are counted, as they were before it (D-99).
+// as they end; the others are counted, as they were before it (D-99), a row's
+// parent read first when the write knows neither side's (D-243).
 import type { Change, Check, Filter } from './adapter.ts'
 import type { Models } from './query-where.ts'
 import { byId, byIds } from './query-where.ts'
 import { invalid } from './write-data.ts'
+import type { Store } from './transaction.ts'
 import type { Checked } from './write-plan.ts'
 import type { Ended } from './within-rows.ts'
-import { idsOf, keyOf } from './within-rows.ts'
+import { idsOf, keyOf, storedParents } from './within-rows.ts'
 
-/** One side of the relation: its model, its `many`, the parent's `many`. */
+/** One side of the relation: its model and its `many`. */
 type Side = {
 	readonly model: string
 	readonly field: string
-	readonly owner: string
 }
 
 type Rule = {
@@ -25,12 +26,10 @@ type Rule = {
 	readonly message: string
 }
 
-/** The rows of a model the links need, which `filter` keeps. */
+/** The rows of a model the links need, all of which `filter` keeps. */
 type Need = {
 	readonly model: string
 	readonly filter: Filter
-	/** All of them, or none. */
-	readonly all: boolean
 	readonly name: string
 	readonly ids: Set<string>
 }
@@ -46,20 +45,12 @@ export function manyRulesOf(models: Models): readonly Rule[] {
 		for (const field of model.fields.values()) {
 			if (field.kind !== 'many' || field.within === undefined) continue
 			const parent = field.within
-			// The start checked both are a `one` with its other side
-			// (checkWithin), and that a `many` names its own (D-237).
-			const owner = (name: string) => {
-				const own = models.get(name)?.fields.get(parent)
-				return own?.kind === 'one' ? (own.inverse ?? '') : ''
-			}
+			// The start checked both share the `one` (checkWithin), and that a
+			// `many` names its own (D-237).
 			rules.push({
 				sides: [
-					{ model: model.name, field: field.name, owner: owner(model.name) },
-					{
-						model: field.target,
-						field: field.inverse ?? '',
-						owner: owner(field.target),
-					},
+					{ model: model.name, field: field.name },
+					{ model: field.target, field: field.inverse ?? '' },
 				],
 				parent,
 				message: `${model.name}.${field.name} needs a ${field.target} of the same ${parent}.`,
@@ -136,11 +127,12 @@ function apart(ends: ReadonlyMap<string, string>, parent: string, q: string) {
  * The checks a write's many-to-many `within` relations need; throws on a
  * link it knows breaks one.
  */
-export function withinManyChecks(
+export async function withinManyChecks(
 	rules: readonly Rule[],
+	store: Pick<Store, 'find'>,
 	changes: readonly Change[],
 	known: Ended,
-): Checked[] {
+): Promise<Checked[]> {
 	const checks: Checked[] = []
 	for (const rule of rules) {
 		const { parent, message, sides } = rule
@@ -154,39 +146,40 @@ export function withinManyChecks(
 		] as const
 		const [mine, yours] = parents
 		const { linked, unlinked } = pairsOf(rule, changes)
+		// The rows whose parent neither side of their link knows.
+		const blind = linked.flatMap(({ pair: [row, target] }) =>
+			mine.ends.has(row) || yours.ends.has(target) ? [] : [row],
+		)
+		const read = await storedParents(store, own.model, parent, blind)
 		// The rows of a side a filter needs, each a target of a link.
 		const needs = new Map<string, Need>()
 		for (const { pair, name } of linked) {
 			const [row, target] = pair
-			const [p, q] = [mine.ends.get(row), yours.ends.get(target)]
+			const p = mine.ends.get(row) ?? read.get(row) ?? undefined
+			const q = yours.ends.get(target)
 			if (p !== undefined && q !== undefined) {
 				if (p !== q) throw refuse(name)()
 				continue
 			}
+			const at = p ?? q
+			// A row that does not exist stays `NOT_FOUND`, by the others.
+			if (at === undefined) continue
 			// The side whose parent is unknown.
 			const [side, id] = q === undefined ? [theirs, target] : [own, row]
-			const at = p ?? q
-			const filter =
-				at !== undefined
-					? { [parent]: { is: byId(at) } }
-					: // Neither is known: the target's parent is not the row's.
-						{
-							NOT: [{ [parent]: { is: { [own.owner]: { some: byId(row) } } } }],
-						}
-			const key = `${side.model}|${name}|${JSON.stringify(filter)}`
+			const filter = { [parent]: { is: byId(at) } }
+			const key = `${side.model}|${name}|${at}`
 			const group = needs.get(key) ?? {
 				model: side.model,
 				filter,
-				all: at !== undefined,
 				name,
 				ids: new Set<string>(),
 			}
 			needs.set(key, group)
 			group.ids.add(id)
 		}
-		for (const { model, filter, all, name, ids } of needs.values()) {
+		for (const { model, filter, name, ids } of needs.values()) {
 			const where = { AND: [byIds([...ids]), filter] }
-			add({ model, where, count: all ? ids.size : 0 }, name)
+			add({ model, where, count: ids.size }, name)
 		}
 		// The rows a parent change leaves linked to a row of another parent.
 		for (const [index, { moved }] of parents.entries()) {

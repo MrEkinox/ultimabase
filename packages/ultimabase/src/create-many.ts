@@ -106,7 +106,7 @@ async function created(
 	const ruled = rowChecks(scope.access)
 	writing.checks.push(
 		...ruled.before,
-		...withinChecks(scope.models, changes, events),
+		...(await withinChecks(scope.models, store, changes, events)),
 	)
 	const write = {
 		checks: writing.checks.map(({ check }) => check),

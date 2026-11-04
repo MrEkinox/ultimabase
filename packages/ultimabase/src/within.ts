@@ -1,7 +1,8 @@
 // The writes a relation kept within the row's parent refuses (D-220). The
 // rows a write inserts, or updates by id from the row it read, are compared
 // as they end; the others are counted by the write's checks (D-99), against
-// the rows as they were before it.
+// the rows as they were before it, a target's parent read first when the
+// write does not know it (D-243).
 import type { Change, Check, Filter } from './adapter.ts'
 import type { Event } from './hooks.ts'
 import type { Models } from './query-where.ts'
@@ -9,7 +10,8 @@ import { byId, byIds } from './query-where.ts'
 import { invalid } from './write-data.ts'
 import type { Checked } from './write-plan.ts'
 import { manyRulesOf, withinManyChecks } from './within-many.ts'
-import { keyOf, knownRows } from './within-rows.ts'
+import type { Store } from './transaction.ts'
+import { keyOf, knownRows, storedParents } from './within-rows.ts'
 import type { Within } from './within-schema.ts'
 
 type Rule = {
@@ -18,8 +20,6 @@ type Rule = {
 	readonly field: string
 	readonly within: Within
 	readonly target: string
-	/** The parent's `many` facing the target's field. */
-	readonly inverse: string
 	readonly message: string
 }
 
@@ -32,14 +32,11 @@ function rulesOf(models: Models): readonly Rule[] {
 	for (const model of models.values()) {
 		for (const field of model.fields.values()) {
 			if (field.kind !== 'one' || field.within === undefined) continue
-			const theirs = models.get(field.target)?.fields.get(field.within.target)
 			rules.push({
 				model: model.name,
 				field: field.name,
 				within: field.within,
 				target: field.target,
-				// The start checked it is a `one` with its other side (checkWithin).
-				inverse: theirs?.kind === 'one' ? (theirs.inverse ?? '') : '',
 				message: `${model.name}.${field.name} needs a ${field.target} of the same ${field.within.target}.`,
 			})
 		}
@@ -61,17 +58,18 @@ function apart(rule: Rule, parent: Filter): Filter {
  * The checks a write's `within` relations need, after its others so a
  * missing row stays `NOT_FOUND`; throws on a row it knows breaks one.
  */
-export function withinChecks(
+export async function withinChecks(
 	models: Models,
+	store: Pick<Store, 'find'>,
 	changes: readonly Change[],
 	events: readonly Event[],
-): Checked[] {
+): Promise<Checked[]> {
 	const rules = rulesOf(models)
 	const many = manyRulesOf(models)
 	if (rules.length === 0 && many.length === 0) return []
 	const ended = knownRows(changes, events)
 	const { rows, blind } = ended
-	const checks = withinManyChecks(many, changes, ended)
+	const checks = await withinManyChecks(many, store, changes, ended)
 	for (const rule of rules) {
 		const { model, field, target, message } = rule
 		const { source, target: parent } = rule.within
@@ -94,6 +92,9 @@ export function withinChecks(
 		// The rows this write deletes or links again, which a moved target leaves.
 		const settled: Filter[] = []
 		const written: string[] = []
+		// The statements linking a target, with its parent when the write knows it.
+		type Linking = { readonly where: Filter; readonly m: string; q?: string }
+		const linking: Linking[] = []
 		for (const [id, row] of rows.get(model) ?? []) {
 			const m = keyOf(row.values[field])
 			const p = source === 'id' ? id : keyOf(row.values[source])
@@ -134,18 +135,21 @@ export function withinChecks(
 				add({ model, where, count: 0 }, source)
 			} else if (m !== undefined && p !== undefined) decide(m, p, field)
 			else if (m !== undefined) {
-				const known = targets?.get(m)
-				const q = known && keyOf(known.values[parent])
-				const where = apart(
-					rule,
-					q ? byId(q) : { [rule.inverse]: { some: byId(m) } },
-				)
-				add({ model, where: { AND: [change.where, where] }, count: 0 }, field)
+				const q = keyOf(targets?.get(m)?.values[parent]) ?? undefined
+				linking.push({ where: change.where, m, ...(q && { q }) })
 			} else if (p !== undefined) {
 				const other = { NOT: [{ [parent]: { is: byId(p) } }] }
 				const where = { AND: [change.where, { [field]: { is: other } }] }
 				add({ model, where, count: 0 }, source)
 			}
+		}
+		const unknown = linking.flatMap(({ m, q }) => (q ? [] : [m]))
+		const read = await storedParents(store, target, parent, unknown)
+		for (const { where, m, q = read.get(m) } of linking) {
+			// A target that does not exist stays `NOT_FOUND`, by the others.
+			if (!q) continue
+			const away = { AND: [where, apart(rule, byId(q))] }
+			add({ model, where: away, count: 0 }, field)
 		}
 		for (const [p, { ids, name }] of linked) {
 			const where = { AND: [byIds([...ids]), { [parent]: { is: byId(p) } }] }
