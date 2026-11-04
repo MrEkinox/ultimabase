@@ -147,6 +147,19 @@ describe('a virtual over REST', () => {
 		])
 	})
 
+	it('is not in a deleted row, as in GraphQL’s DeletedStage', async () => {
+		const { url } = await serving()
+		const { body } = await call(url, 'GET', `/api/stages${qs(ordered)}`)
+		const id = String(at(body, 0, 'id'))
+		const sent = await call(url, 'DELETE', `/api/stages/${id}`)
+		expect(Object.keys(at(sent.body) ?? {})).toStrictEqual([
+			'id',
+			'createdAt',
+			'updatedAt',
+			'name',
+		])
+	})
+
 	it('reads its input, a model’s rows and a type in select', async () => {
 		const { url } = await serving()
 		const select = {
@@ -282,6 +295,27 @@ describe('a virtual in the OpenAPI document', () => {
 			readOnly: true,
 		})
 		expect(at(stage, 'properties', 'leak')).toBeUndefined()
+		const deleted = schema('DeletedStage')
+		expect(Object.keys(at(deleted, 'properties') ?? {})).toStrictEqual([
+			'id',
+			'createdAt',
+			'updatedAt',
+			'name',
+		])
+		expect(at(deleted, 'required')).toStrictEqual(
+			Object.keys(at(deleted, 'properties') ?? {}),
+		)
+		const removal = at(
+			body,
+			'paths',
+			'/stages/{id}',
+			'delete',
+			'responses',
+			'200',
+		)
+		expect(at(removal, 'content', 'application/json', 'schema')).toStrictEqual({
+			$ref: '#/components/schemas/DeletedStage',
+		})
 		const select = at(schema('StageSelect'), 'properties')
 		expect(at(select, 'label')).toStrictEqual({ type: 'boolean' })
 		expect(at(select, 'thumb', 'required')).toStrictEqual(['size'])

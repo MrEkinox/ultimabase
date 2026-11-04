@@ -15,7 +15,13 @@ import type { Caller, Row } from 'ultimabase'
 import { InvalidQuery, PublicError } from 'ultimabase'
 import type { Api, Args, Entry } from './entries.ts'
 import type { Read } from './fields.ts'
-import { defaultShape, filterOf, readerOf, shaped } from './fields.ts'
+import {
+	defaultShape,
+	defaultVirtuals,
+	filterOf,
+	readerOf,
+	shaped,
+} from './fields.ts'
 import { bounded } from './limits.ts'
 import type { Live } from './streams.ts'
 import { liveList, liveRow, wantsEvents } from './live.ts'
@@ -119,6 +125,14 @@ export function modelRoutes(
 ): void {
 	const path = `${base}/${entry.plural}`
 	const { queries } = entry.exposed
+	// A deleted row as it was, without its relations or its virtuals, as
+	// GraphQL's `DeletedPost` (D-107).
+	const virtuals = new Set(defaultVirtuals(entry))
+	const deleted = {
+		fields: defaultShape(entry).fields.filter(
+			({ name }) => !virtuals.has(name),
+		),
+	}
 	app.get(path, async (c) => {
 		const { caller } = c.var
 		if (wantsEvents(c.req.raw)) {
@@ -188,7 +202,6 @@ export function modelRoutes(
 				{ as: caller },
 			)
 		})
-		// As it was, without its relations (D-102).
-		return c.json(shaped(row, defaultShape(entry)))
+		return c.json(shaped(row, deleted))
 	})
 }

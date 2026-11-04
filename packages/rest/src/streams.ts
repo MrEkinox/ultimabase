@@ -144,16 +144,18 @@ export async function follow(
 			}
 			return sink.end()
 		}
-		if (dropping && message.kind === 'changes') return
-		if (!dropping && sink.full()) {
+		// Once full, every message is dropped until the client drains: one
+		// resend then brings it the current state.
+		if (dropping) return
+		if (sink.full()) {
 			dropping = true
 			sink.drained(() => {
+				dropping = false
 				if (handle === undefined) owed = true
 				else void handle.resend()
 			})
 			return
 		}
-		dropping = false
 		if (message.kind === 'value') {
 			return sink.send('data', message.value, message.revision)
 		}

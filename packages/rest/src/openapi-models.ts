@@ -9,8 +9,8 @@ import {
 import type { ExposedVirtual } from 'ultimabase'
 import type { Entry } from './entries.ts'
 import { entryOf, system } from './entries.ts'
-import type { Doc } from './openapi-inputs.ts'
-import { dataOf, uniqueOf, valueOf, whereOf } from './openapi-inputs.ts'
+import type { Doc, Scalar } from './openapi-inputs.ts'
+import { dataOf, scalarOf, uniqueOf, whereOf } from './openapi-inputs.ts'
 import { orderByOf } from './openapi-order.ts'
 import { outputOf } from './openapi-functions.ts'
 import type { Schema } from './openapi.ts'
@@ -60,6 +60,28 @@ function connectionOf(doc: Doc, name: string, target: string): Schema {
 	})
 }
 
+const date: Schema = { type: 'string', format: 'date-time' }
+const dates = { id: text, createdAt: date, updatedAt: date }
+
+/**
+ * `DeletedPost`: a deleted row as it was, `id`, the dates and its scalar
+ * fields, without its relations or its virtuals, as GraphQL's (D-107).
+ */
+function deletedOf(doc: Doc, model: string): Schema {
+	return doc.components.ref(`Deleted${model}`, () => {
+		const entry = entryOf(doc.api, model)
+		const fields: { [name: string]: Schema } = { ...dates }
+		const scalars = readable(entry).filter(
+			(field): field is Scalar => field.kind === 'scalar',
+		)
+		for (const field of scalars)
+			fields[field.name] = scalarOf(doc, entry, field)
+		const { descriptions, deprecations } = entry.exposed
+		const required = [...system, ...scalars.map(({ name }) => name)]
+		return objectOf(described(fields, descriptions, deprecations), required)
+	})
+}
+
 /**
  * `Post`: its default fields, which a row always holds without `select`,
  * and its relations, which `include` adds. A field with a read rule may be
@@ -68,19 +90,12 @@ function connectionOf(doc: Doc, name: string, target: string): Schema {
 export function rowOf(doc: Doc, model: string): Schema {
 	return doc.components.ref(model, () => {
 		const entry = entryOf(doc.api, model)
-		const date: Schema = { type: 'string', format: 'date-time' }
-		const fields: { [name: string]: Schema } = {
-			id: text,
-			createdAt: date,
-			updatedAt: date,
-		}
+		const fields: { [name: string]: Schema } = { ...dates }
 		const required = [...system]
 		for (const field of readable(entry)) {
 			const ruled = entry.exposed.readRules[field.name] === 'rule'
 			if (field.kind === 'scalar') {
-				const value = valueOf(doc, entry, field, 'output')
-				const empty = ruled || (field.optional && !field.list)
-				fields[field.name] = empty ? orNull(value) : value
+				fields[field.name] = scalarOf(doc, entry, field)
 				required.push(field.name)
 			} else if (field.kind === 'one') {
 				fields[field.name] = orNull(rowOf(doc, field.target))
@@ -370,7 +385,7 @@ export function modelPaths(doc: Doc, entry: Entry): { [path: string]: Schema } {
 				operationId: own(`delete${model}`),
 				tags,
 				responses: {
-					200: answer(`The ${model} as it was, without relations.`, row),
+					200: answer(`The ${model} as it was.`, deletedOf(doc, model)),
 					...failed,
 				},
 			},
