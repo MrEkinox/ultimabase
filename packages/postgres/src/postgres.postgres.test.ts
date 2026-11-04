@@ -966,6 +966,8 @@ describe('a check the application adds on postgres()', () => {
 			M,
 		)
 		expect(await Visit.count({ where: { endReason: 'done' } }, M)).toBe(1)
+		expect(await Visit.exists({ where: { endReason: 'done' } }, M)).toBe(true)
+		expect(await Visit.exists({ where: { endReason: 'lost' } }, M)).toBe(false)
 	})
 })
 

@@ -30,6 +30,7 @@ export type Operation =
 	| 'findFirstOrThrow'
 	| 'findUniqueOrThrow'
 	| 'count'
+	| 'exists'
 	| 'aggregate'
 	| 'groupBy'
 	| 'create'
@@ -136,18 +137,12 @@ async function findUnique(
 	return first(context, store, rows, shape, scope.access)
 }
 
-async function count(
-	context: Context,
-	store: Store,
-	args: unknown,
-): Promise<number> {
+/** What a `count` or an `exists` reads: its `where`, and the read rule. */
+async function countRead(context: Context, args: unknown) {
 	const { model } = context
-	const where = await filtered(
-		context,
-		given(args, model.name, ['where'], []),
-		'read',
-	)
-	return store.count({ model: model.name, ...(where && { where }) })
+	const found = given(args, model.name, ['where'], [])
+	const where = await filtered(context, found, 'read')
+	return { model: model.name, ...(where && { where }) }
 }
 
 type Run = (context: Context, store: Store, args: unknown) => Promise<unknown>
@@ -165,6 +160,7 @@ type ReadOperation =
 	| 'findFirstOrThrow'
 	| 'findUniqueOrThrow'
 	| 'count'
+	| 'exists'
 	| 'aggregate'
 	| 'groupBy'
 
@@ -185,7 +181,13 @@ const reads: { readonly [O in ReadOperation]: Run } = {
 		find(context, store, args, true),
 	),
 	findUniqueOrThrow: orThrow(findUnique),
-	count,
+	count: async (context, store, args) =>
+		store.count(await countRead(context, args)),
+	// Reads at most one row, its `id` (D-244).
+	exists: async (context, store, args) => {
+		const read = { ...(await countRead(context, args)), fields: [], take: 1 }
+		return (await store.find(read)).length > 0
+	},
 	aggregate,
 	groupBy,
 }

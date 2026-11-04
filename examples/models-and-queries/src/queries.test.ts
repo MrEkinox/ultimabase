@@ -190,6 +190,8 @@ it('searches the text fields', async () => {
 it('counts and aggregates', async () => {
 	//#region aggregate
 	expect(await Product.count({ where: { stock: { gt: 0 } } }, as)).toBe(3)
+	// Reads at most one row, rather than counting them all.
+	expect(await Product.exists({ where: { stock: { gt: 20 } } }, as)).toBe(true)
 
 	const totals = await Product.aggregate(
 		{

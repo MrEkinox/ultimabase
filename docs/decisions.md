@@ -460,8 +460,8 @@ read: ({ caller, where }) =>
 
 ## D-20: The query API follows Prisma Client
 
-Amended by D-128, D-132, D-133, D-135, D-138, D-140, D-142, D-143, D-149 and
-D-228.
+Amended by D-128, D-132, D-133, D-135, D-138, D-140, D-142, D-143, D-149,
+D-228 and D-244.
 
 Choice: operations, their names and their arguments follow Prisma Client, so
 a developer coming from Prisma reads UltimaBase queries as Prisma: `findUnique`,
@@ -11442,6 +11442,8 @@ await Post.update({ where: { id }, data: { featured: true } }, { as: caller })
 
 ## D-177: A test lists the queries a callback makes
 
+Amended by D-244.
+
 Choice: amends D-130.
 
 1. The value `testApplication` returns gains `queries(callback)`. It runs
@@ -16576,4 +16578,49 @@ await Card.update({
 	data: { labels: { connect: [{ id: labelOfAnotherBoard.id }] } },
 })
 // VALIDATION_FAILED: Card.labels needs a Label of the same board.
+```
+
+## D-244: `exists`
+
+Choice: completes D-20 and D-177.
+
+1. `Model.exists({ where }, options?)` resolves to `true` when a row `where`
+   selects is one the caller reads, else to `false`. It takes the arguments
+   `count` takes and applies the same rules: the model's read rule, its
+   `beforeFind` hooks, the open transaction. `where` is optional.
+2. It reads at most one row, its `id`: the adapter receives a `find` with
+   `take: 1` and `fields: []`. No adapter method is added, and `queries()`
+   (D-177) lists it as `'find Membership'`.
+3. It is for server code, as `aggregate` (D-143): neither REST nor GraphQL
+   serves it. A model's `queries` in its commands and hooks have it.
+
+Why: server code asks whether a row exists, a membership before a write, a
+duplicate before an invite, with `(await Model.count(...)) > 0`, which counts
+every row when one is enough. Prisma has no `exists`, and its users write the
+same `count` or a `findFirst` with `select: { id: true }`, which reads `null`
+or a row to compare.
+Cost: a method each model gains, server only.
+Rejected: `findFirst` with `select: { id: true }`, which says less and
+returns a row; an adapter `exists` translated as `select exists (...)`, which
+`find` with `take: 1` already answers by the primary key; serving it to
+clients, which read `totalCount` or a `findFirst` for the same answer.
+Example:
+
+Before:
+
+```ts
+const member =
+	(await Membership.count(
+		{ where: { user: { is: { id: userId } }, club: { is: { id: clubId } } } },
+		{ as: caller },
+	)) > 0
+```
+
+After:
+
+```ts
+const member = await Membership.exists(
+	{ where: { user: { is: { id: userId } }, club: { is: { id: clubId } } } },
+	{ as: caller },
+)
 ```
