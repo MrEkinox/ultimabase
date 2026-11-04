@@ -444,6 +444,17 @@ A visitor and Master are no user, and read `null`:
 	../examples/password-sign-in/src/app.test.ts#my-vote
 </include>
 
+`viewer: false`, alone in a `one` view's filter, reads the other row of a
+pair: `otherMember: f.one(() => Member, { from: 'members' })` with
+`where({ user: { viewer: false } })` reads, for a member of a chat, the
+other member, and `null` for anyone else, Master included.
+
+- The `many` it reads holds two rows at most, `size: { max: 2 }`, and the
+  target takes a unique index on the key and the relation,
+  `{ fields: ['chat', 'user'], unique: true }`.
+- Nothing else stands in the filter.
+- A read that finds two other rows, written around the application, fails.
+
 An exists, declared with `f.exists(target, { from })`, reads whether a view
 keeps a row: `hasVoted` above reads `true` once the caller voted, and `false`
 otherwise. Its filter is given in `.with({ relations })` as a `many` view's,
@@ -664,14 +675,14 @@ the other side) and on a filtered relation.
 
 ### Filters
 
-| Filter   | On a `one` or a `many`  | Matches the rows                                                                      |
-| -------- | ----------------------- | ------------------------------------------------------------------------------------- |
-| `is`     | `one`                   | whose related row matches, or is empty for `null`                                     |
-| `isNot`  | `one`                   | whose related row does not match                                                      |
-| `some`   | `many`                  | with at least one related row that matches                                            |
-| `every`  | `many`                  | whose related rows all match, or with none                                            |
-| `none`   | `many`                  | with no related row that matches                                                      |
-| `viewer` | both, to the user model | that relate to the signed-in user, for `true` (see [Authentication](/docs/next/auth)) |
+| Filter   | On a `one` or a `many`  | Matches the rows                                                                                                    |
+| -------- | ----------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `is`     | `one`                   | whose related row matches, or is empty for `null`                                                                   |
+| `isNot`  | `one`                   | whose related row does not match                                                                                    |
+| `some`   | `many`                  | with at least one related row that matches                                                                          |
+| `every`  | `many`                  | whose related rows all match, or with none                                                                          |
+| `none`   | `many`                  | with no related row that matches                                                                                    |
+| `viewer` | both, to the user model | that relate to the signed-in user, for `true`, or another user, for `false` (see [Authentication](/docs/next/auth)) |
 
 On a `oneOf`, `is` and `isNot` take the fields every kind shares, a kind
 takes a `one`'s filter, `{ video: { is: ... } }`, and `kind` the name of a
@@ -727,7 +738,8 @@ is declared wrongly:
 | `Series.with.relations.title: title is not a many relation.`                                                                                                                | Filter only a `many`.                                            |
 | `Series.upcoming reads one Volume: give Volume a unique index on series whose where the filter keeps, as { fields: ['series'], unique: true, where: { released: false } }.` | Add the index the message shows.                                 |
 | `Poll.myVote reads one Vote: give Vote a unique index on poll and voter, as { fields: ['poll', 'voter'], unique: true }.`                                                   | Add the index the message shows.                                 |
-| `Poll.myVote reads one Vote: viewer: false keeps several rows; a one view takes viewer: true.`                                                                              | Pin the viewer with `viewer: true`.                              |
+| `Chat.otherMember reads one Member: viewer: false reads the other row of a pair; give members size: { max: 2 }.`                                                            | Bound the `many` to two rows.                                    |
+| `Chat.otherMember reads one Member: viewer: false stands alone in the filter, as where({ user: { viewer: false } }).`                                                       | Remove the filter's other conditions.                            |
 | `Poll.myVote reads one Vote: viewer pins a field of the filter's top level, outside OR, NOT and nested relations.`                                                          | Move `viewer` to the top of the filter.                          |
 | `Poll.choices: size takes whole numbers, min from 0 and max from 1, as { min: 1, max: 10 }.`                                                                                | Give whole numbers, `max` at least `min`.                        |
 | `Book.tags: size bounds a one-to-many relation only.`                                                                                                                       | Remove `size` from a many-to-many or a view.                     |

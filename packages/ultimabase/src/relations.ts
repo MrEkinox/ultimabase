@@ -18,6 +18,11 @@ type One = Extract<FieldInfo, { readonly kind: 'one' }>
 export const viewFilters: WeakMap<FieldInfo, Filter> = new WeakMap()
 /** The `one` views that pin a field to the viewer, run per caller (D-245). */
 export const viewerViews: WeakSet<FieldInfo> = new WeakSet()
+/**
+ * The `one` views on the other row of a pair, with the filter that keeps
+ * them to a caller whose own row is in it (D-249).
+ */
+export const otherViews: WeakMap<FieldInfo, object> = new WeakMap()
 
 export function relationsOf(model: ModelInfo): {
 	readonly [field: string]: unknown
@@ -163,11 +168,13 @@ export class Relations {
 			throw new TypeError(`${path} returns where({ ... }) or a boolean.`)
 		}
 		const target = modelOf(this.models, field.target)
+		const where = filterOf(result)
+		const member = otherViews.get(field)
 		// Trusted server code, as a read rule's own filter (D-86).
 		return normalizeWhere(
 			this.models,
 			target,
-			filterOf(result),
+			member === undefined ? where : { AND: [where, member] },
 			path,
 			trusted(this),
 		)

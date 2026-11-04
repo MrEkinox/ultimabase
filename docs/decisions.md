@@ -16165,7 +16165,7 @@ await Member.update({
 
 ## D-240: A `one` view reads the single row a filter keeps
 
-Amended by D-245.
+Amended by D-245, D-249.
 
 Choice: amends D-151.
 
@@ -16628,6 +16628,8 @@ const member = await Membership.exists(
 ```
 
 ## D-245: A `one` view pins a field to the viewer
+
+Amended by D-249.
 
 Choice: amends D-240 point 2.
 
@@ -17099,4 +17101,123 @@ await Task.update(
 await Task.findMany({
 	where: { assignees: { some: { user: { is: { id: me } } } } },
 })
+```
+
+## D-249: A `one` view reads the other row of a pair
+
+Choice: amends D-245 point 2; completes D-240 point 5.
+
+1. A `one` view's filter may be `viewer: false` on one relation of the
+   target, alone: `otherMember: { where: ({ where }) => where({ user: {
+viewer: false } }) }`. It reads the other row of a pair: the row of the
+   `many` whose relation is not the caller's user, for a caller whose own
+   row is in that `many`. Anyone else reads `null`: a user with no row of
+   their own, anonymous and Master, as `viewer` matches no row for them
+   (D-189 point 2).
+2. Startup stops unless the `many` holds at most two rows: `Conversation.
+otherMember reads one Member: viewer: false reads the other row of a pair;
+give members size: { max: 2 }.` A `size` (D-242) whose `max` is 1 or 2
+   passes.
+3. The index check of D-245 point 3 applies to the relation `viewer: false`
+   names: a unique index on the key of the `many` and that relation, without
+   `where`, as `{ fields: ['conversation', 'user'], unique: true }`, which
+   keeps the two rows to two users.
+4. The filter holds nothing else: a condition beside it, `viewer: true`
+   included, or `viewer: false` inside `OR`, `NOT` or a nested relation stops
+   startup: `Conversation.otherMember reads one Member: viewer: false stands
+alone in the filter, as where({ user: { viewer: false } }).`
+5. Such a view runs its filter for each caller, as D-245 point 4: the filter
+   becomes "the relation is not the viewer, and the parent has a row whose
+   relation is the viewer". A live query (D-154) follows it as D-245 point 5:
+   a member joining or leaving sends the rows again.
+6. A `one` view whose filter keeps several rows fails the read instead of
+   showing one of them, on `memory()` and `postgres()`. The checks above and
+   D-240 point 4 keep this from happening through the kernel; `size` is held
+   by the kernel's lock on the parent (D-242), not by the database, so rows
+   written around the kernel can break it.
+
+Why: a pair (a private conversation and its two members, a match and its two
+players) reads the other side far more often than its own. With `size: {
+max: 2 }` and the caller's own row in the pair, one row is left; the startup
+check ties the view to the two facts that keep it single, as D-240 ties it to
+an index. Reading `null` for a caller outside the pair keeps the view from
+holding the two rows of a pair that caller does not belong to.
+Cost: the view's filter runs at each query and reaches the parent's `many`
+once more, to find the caller's own row.
+Rejected: `pick: 'first'` with an `orderBy`, which reads one row of several
+by an order the data does not hold (D-240, Rejected); reading the first row
+by id for Master or a non-member, the same pick; accepting a filter beside
+`viewer: false`, which no longer reads "the other row" and would need its
+own proof of a single row.
+Example:
+
+Before:
+
+```ts
+const Conversation = defineModel({
+	name: 'Conversation',
+	fields: (f) => ({
+		members: f.many(() => Member, {
+			inverse: 'conversation',
+			size: { max: 2 },
+		}),
+		otherMembers: f.many(() => Member, { from: 'members' }),
+	}),
+}).with({
+	relations: {
+		otherMembers: { where: ({ where }) => where({ user: { viewer: false } }) },
+	},
+})
+const Member = defineModel({
+	name: 'Member',
+	fields: (f) => ({
+		conversation: f.one(() => Conversation, { onDelete: 'cascade' }),
+		user: f.one(() => User, { onDelete: 'cascade' }),
+	}),
+	indexes: [{ fields: ['conversation', 'user'], unique: true }],
+})
+
+const conversation = await Conversation.findUnique(
+	{ where: { id }, include: { otherMembers: { take: 1 } } },
+	{ as: caller },
+)
+const other = conversation?.otherMembers[0] ?? null
+```
+
+```graphql
+conversation(id: $id) {
+	otherMembers(first: 1) { edges { node { user { name } } } }
+}
+```
+
+After:
+
+```ts
+const Conversation = defineModel({
+	name: 'Conversation',
+	fields: (f) => ({
+		members: f.many(() => Member, {
+			inverse: 'conversation',
+			size: { max: 2 },
+		}),
+		otherMember: f.one(() => Member, { from: 'members' }),
+	}),
+}).with({
+	relations: {
+		otherMember: { where: ({ where }) => where({ user: { viewer: false } }) },
+	},
+})
+// Member unchanged: its unique index on conversation and user stays.
+
+const conversation = await Conversation.findUnique(
+	{ where: { id }, include: { otherMember: true } },
+	{ as: caller },
+)
+const other = conversation?.otherMember ?? null
+```
+
+```graphql
+conversation(id: $id) {
+	otherMember { user { name } }
+}
 ```

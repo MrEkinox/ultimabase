@@ -313,9 +313,13 @@ export class Reader {
 			if (field === undefined || field.kind === 'scalar') continue
 			const rows = this.related(model, field, row)
 			if (field.kind === 'one') {
-				const other = rows.find(
+				const [other, ...more] = rows.filter(
 					(each) => this.matches(field.target, each, nested.where) === true,
 				)
+				// A view keeping two rows fails the read (D-249).
+				if (more.length > 0) {
+					throw new Error(`${model}.${name} keeps several rows, not one.`)
+				}
 				result[name] =
 					other === undefined ? null : this.output(field.target, other, nested)
 			} else {

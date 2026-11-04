@@ -15,10 +15,9 @@ import {
 
 const users = definePlugin({ name: 'users', userModel: true })
 
-// Variables, so no excess property check: without `Register`, no filter
+// A variable, so no excess property check: without `Register`, no filter
 // takes `viewer` (D-189 point 5).
 const mine = { viewer: true, isNot: undefined }
-const theirs = { viewer: false, is: undefined }
 
 const Account = defineModel({
 	name: 'Account',
@@ -212,10 +211,7 @@ describe('the start of a one view that pins the viewer', () => {
 		)
 	})
 
-	it('refuses viewer: false, and a viewer it does not pin', async () => {
-		await expect(start({ user: theirs })).rejects.toThrow(
-			`${at}: viewer: false keeps several rows; a one view takes viewer: true.`,
-		)
+	it('refuses a viewer it does not pin', async () => {
 		const stray = `${at}: viewer pins a field of the filter's top level, outside OR, NOT and nested relations.`
 		await expect(
 			start({ OR: [{ user: mine }, { removed: true }] }),
