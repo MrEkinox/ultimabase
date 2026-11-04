@@ -188,14 +188,17 @@ const plugin = definePlugin<Graphql>({
 			execute: async (args) => {
 				const validated = coerced({ ...args, hideSuggestions })
 				if (!('schema' in validated)) return { errors: validated }
+				const refused = operations.budget(validated)
+				if (refused !== undefined) return { errors: [refused] }
+				return executeRootSelectionSet(validated)
+			},
+			budget: (validated) => {
 				const { contextValue } = validated
 				const master =
 					typeof contextValue === 'object' &&
 					contextValue !== null &&
 					exempt.has(contextValue)
-				const refused = master ? undefined : budget(validated)
-				if (refused !== undefined) return { errors: [refused] }
-				return executeRootSelectionSet(validated)
+				return master ? undefined : budget(validated)
 			},
 			context: (caller, client) => {
 				const master = caller.kind === 'master'
