@@ -6,10 +6,10 @@ import type { Draft } from './write-data.ts'
 export type At = readonly (string | number)[]
 
 /** The locked row each resolved `update` data or `delete` reaches. */
-export const rows = new WeakMap<object, Row>()
+export const rows: WeakMap<object, Row> = new WeakMap()
 
 /** Where a `connectOrCreate`'s create sits in the write's data. */
-export const origins = new WeakMap<object, At>()
+export const origins: WeakMap<object, At> = new WeakMap()
 
 /** A `one` relation write, resolved. */
 export type One =

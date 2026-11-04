@@ -26,8 +26,7 @@ export type OneOfOptions = Described & {
 }
 
 /** The kinds `f.oneOf` takes: each a thunk of its model, none a filter key. */
-export type OneOfKinds = {
-	readonly [kind: string]: object
+export type OneOfKinds = { readonly [kind: string]: object } & {
 	readonly kind?: never
 	readonly is?: never
 	readonly isNot?: never
@@ -150,3 +149,32 @@ export type OneOfFilter<X> =
 export type OneOfKeys<F> = {
 	[K in keyof F]: F[K] extends OneOfShape ? K : never
 }[keyof F]
+
+/** The operations the writes `W` of each kind take. */
+type Operation<W> = W[keyof W] extends infer U
+	? U extends unknown
+		? keyof U
+		: never
+	: never
+
+/** Operation `O` of the write `W`, `never` where it takes none. */
+type Operand<W, O extends PropertyKey> = W extends {
+	readonly [P in O]: infer V
+}
+	? V
+	: never
+
+/**
+ * Each operation, on one of the kinds of `W`: `{ connect: { post: { id } } |
+ * { photo: { id } } }`, so that a kind picked at run time is written too,
+ * and two kinds are not.
+ */
+export type Kinded<W> = {
+	[O in Operation<W>]: {
+		readonly [Op in O]: {
+			[P in keyof W]: { readonly [Q in P]: Operand<W[P], O> } & {
+				readonly [Q in Exclude<keyof W, P>]?: never
+			}
+		}[keyof W]
+	}
+}[Operation<W>]

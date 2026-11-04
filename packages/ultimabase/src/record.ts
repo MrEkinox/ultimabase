@@ -1,5 +1,10 @@
 // The record a model stores, and the data written to it.
-import type { KindOne, OneOfShape, OneOfStored } from './one-of-types.ts'
+import type {
+	Kinded,
+	KindOne,
+	OneOfShape,
+	OneOfStored,
+} from './one-of-types.ts'
 import type { UniqueWhere } from './query.ts'
 import type { fieldType, modelFields } from './symbols.ts'
 import type { VirtualKeys } from './virtual.ts'
@@ -174,18 +179,10 @@ type Connect<N, K, X, Resolved extends boolean = false> =
 	| (Resolved extends true
 			? never
 			: { readonly connectOrCreate: OrCreate<N, K, X> })
-/** Each operation of `W` on kind `P`: `{ connect: { photo: { id } } }`. */
-type Kinded<W, P> = W extends unknown
-	? P extends PropertyKey
-		? { readonly [O in keyof W]: { readonly [Q in P]: W[O] } }
-		: never
-	: never
 /** A `oneOf` names its kind, which it writes as a `one` (D-247). */
 type KindConnect<N, K, X, Resolved extends boolean = false> =
 	X extends OneOfShape<infer T>
-		? {
-				[P in keyof T]: Kinded<Connect<N, K, KindOne<T, P>, Resolved>, P>
-			}[keyof T]
+		? Kinded<{ [P in keyof T]: Connect<N, K, KindOne<T, P>, Resolved> }>
 		: never
 /** A relation is connected or created (D-20, D-128, D-138). */
 type CreateInput<X, N, K> = X extends Scalar
@@ -338,7 +335,7 @@ export type CreateManyData<F> = Creating<
 		readonly [K in keyof F]: F[K] extends Scalar
 			? WrittenValue<F[K]>
 			: F[K] extends OneOfShape<infer T>
-				? Kinded<{ readonly connect: Ref }, keyof T>
+				? Kinded<{ [P in keyof T]: { readonly connect: Ref } }>
 				: { readonly connect: Ref }
 	}
 >

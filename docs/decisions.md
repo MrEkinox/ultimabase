@@ -16861,7 +16861,8 @@ Choice: completes D-37, D-54 and D-237.
 4. A write names the kind: `{ connect: { photo: { id } } }`, `create` and
    `connectOrCreate` the same way; an update to another kind empties the
    former. `disconnect: true` empties an optional field. Naming two kinds,
-   or none, is `VALIDATION_FAILED`.
+   or none, is `INVALID_QUERY`, as a `one` given two operations; a create
+   without a required field is `VALIDATION_FAILED`, as for any field.
 5. `postgres()` stores a foreign key per kind, named after the field and
    the kind (`target_post_id`, `target_photo_id`), each indexed as a `one`'s
    key, and a check named after the table and the field

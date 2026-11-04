@@ -75,6 +75,10 @@ const Note = defineModel({
 
 const M = { as: master }
 
+/** A post's or a photo's ref, by what `id` starts with. */
+const picked = (id: string) =>
+	id.startsWith('p') ? { post: { id } } : { photo: { id } }
+
 const typed = async (post: string) => [
 	// @ts-expect-error -- a required oneOf is written
 	Comment.create({ data: { body: 'b' } }, M),
@@ -85,6 +89,18 @@ const typed = async (post: string) => [
 		},
 		M,
 	),
+	Comment.create(
+		{
+			data: {
+				body: 'b',
+				// @ts-expect-error -- one kind at a time
+				target: { connect: { post: { id: post }, photo: { id: post } } },
+			},
+		},
+		M,
+	),
+	// A kind picked at run time is written too.
+	Comment.create({ data: { body: 'b', target: { connect: picked(post) } } }, M),
 	Comment.update(
 		{
 			where: { id: post },
@@ -416,7 +432,14 @@ describe('a oneOf', () => {
 			write({
 				target: { connect: { post: { id: post }, photo: { id: photo } } },
 			}),
-		).rejects.toThrow('data.target.connect')
+		).rejects.toMatchObject({
+			code: 'INVALID_QUERY',
+			message: 'data.target.connect names one of post, photo.',
+		})
+		await expect(write({ target: { connect: {} } })).rejects.toMatchObject({
+			code: 'INVALID_QUERY',
+			message: 'data.target.connect names one of post, photo.',
+		})
 		await expect(
 			write({ target: { connect: { video: { id: post } } } }),
 		).rejects.toThrow('data.target.connect names one of post, photo.')
