@@ -7,7 +7,7 @@ import type { Fill, Fills } from './fills.ts'
 import { addIndexes, addsTrigrams } from './plan-indexes.ts'
 import { addKeys, checked, dropKeys } from './plan-keys.ts'
 import type { Emit, Named } from './plan-parts.ts'
-import { added, changed, fields, id, list, same } from './plan-parts.ts'
+import { added, changed, fields, id, list } from './plan-parts.ts'
 import { columnHints, tableHints } from './plan-renames.ts'
 import type { ForeignKey, Snapshot, TableSnapshot } from './snapshot.ts'
 
