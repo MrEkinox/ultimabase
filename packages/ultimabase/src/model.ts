@@ -1,6 +1,6 @@
 // The model `defineModel(...).with(...)` returns (D-07, D-24) and the
 // application `defineApp` assembles.
-import type { PublicError } from './errors.ts'
+import type { Codes, PublicError } from './errors.ts'
 import type { Nullable, Paginated } from './function.ts'
 import type { Page, PageQuery } from './page.ts'
 import type { FindWhere, Queries, QueryOptions, Where } from './query.ts'
@@ -16,7 +16,7 @@ import type { Caller } from './rules.ts'
 import type { VirtualRules } from './virtual.ts'
 import type {
 	declaredRecord,
-	errorCodes,
+	codes,
 	fieldType,
 	modelFields,
 	readFilter,
@@ -317,11 +317,11 @@ export type InverseCheck<M> = [AppInverseErrors<M>] extends [never]
 
 /**
  * The application `defineApp` returns (D-24, D-59), and the codes its
- * plugins' errors carry (D-206).
+ * plugins' errors and issues carry (D-206, D-231).
  */
-export interface App<M, E extends string = never> {
+export interface App<M, C extends Codes = never> {
 	readonly models: M
-	readonly [errorCodes]?: E
+	readonly [codes]?: C
 	start(): Promise<void>
 	stop(): Promise<void>
 }
