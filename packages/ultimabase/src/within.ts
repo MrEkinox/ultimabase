@@ -115,28 +115,12 @@ function knownRows(changes: readonly Change[], events: readonly Event[]) {
 	return { rows, blind }
 }
 
-/** The row's rows whose parent is not `parent`, or none when it is unset. */
-function outside(rule: Rule, parent: string): Filter {
+/** The rule's rows whose parent is unset or not the one `parent` finds. */
+function apart(rule: Rule, parent: Filter): Filter {
 	const { source } = rule.within
-	if (source === 'id') return { NOT: [byId(parent)] }
+	if (source === 'id') return { NOT: [parent] }
 	return {
-		AND: [
-			{ [source]: { isNot: null } },
-			{ NOT: [{ [source]: { is: byId(parent) } }] },
-		],
-	}
-}
-
-/** The row's rows whose parent does not hold `target`, or none when unset. */
-function away(rule: Rule, target: string): Filter {
-	const { source } = rule.within
-	const holds = { [rule.inverse]: { some: byId(target) } }
-	if (source === 'id') return { NOT: [holds] }
-	return {
-		AND: [
-			{ [source]: { isNot: null } },
-			{ NOT: [{ [source]: { is: holds } }] },
-		],
+		OR: [{ [source]: { is: null } }, { NOT: [{ [source]: { is: parent } }] }],
 	}
 }
 
@@ -182,13 +166,15 @@ export function withinChecks(
 			if (mine && !row.fresh) written.push(id)
 			const theirs = m !== null && targets?.get(m)
 			const moved = theirs && (theirs.fresh || theirs.wrote.has(parent))
-			if (m === null || p === null || (!mine && !moved)) continue
+			if (m === null || (!mine && !moved)) continue
 			const name = !mine
 				? parent
 				: row.wrote.has(field) || row.fresh
 					? field
 					: source
-			decide(m, p, name)
+			if (p !== null) decide(m, p, name)
+			// A target needs the row's parent: an unset one holds none (D-235).
+			else if (mine) throw refuse(name)()
 		}
 		for (const change of blind) {
 			if (change.model !== model) continue
@@ -197,12 +183,28 @@ export function withinChecks(
 			}
 			const m = field in change.set ? keyOf(change.set[field]) : undefined
 			const p = source in change.set ? keyOf(change.set[source]) : undefined
-			if (m === null || p === null) continue
-			if (m !== undefined && p !== undefined) decide(m, p, field)
+			if (m === null) continue
+			if (p === null) {
+				if (m !== undefined) throw refuse(field)()
+				// The rows it leaves linked, unless the write empties them too.
+				const emptied = blind.flatMap((other) =>
+					other.model === model &&
+					field in other.set &&
+					other.set[field] === null
+						? [{ NOT: [other.where] }]
+						: [],
+				)
+				const held = { [field]: { isNot: null } }
+				const where = { AND: [change.where, held, ...emptied] }
+				add({ model, where, count: 0 }, source)
+			} else if (m !== undefined && p !== undefined) decide(m, p, field)
 			else if (m !== undefined) {
 				const known = targets?.get(m)
 				const q = known && keyOf(known.values[parent])
-				const where = q ? outside(rule, q) : away(rule, m)
+				const where = apart(
+					rule,
+					q ? byId(q) : { [rule.inverse]: { some: byId(m) } },
+				)
 				add({ model, where: { AND: [change.where, where] }, count: 0 }, field)
 			} else if (p !== undefined) {
 				const other = { NOT: [{ [parent]: { is: byId(p) } }] }
@@ -227,7 +229,7 @@ export function withinChecks(
 			if (q === null) continue
 			const where = [
 				{ [field]: { is: change.where } },
-				outside(rule, q),
+				apart(rule, byId(q)),
 				...settled.map((each) => ({ NOT: [each] })),
 			]
 			add({ model, where: { AND: where }, count: 0 }, parent)

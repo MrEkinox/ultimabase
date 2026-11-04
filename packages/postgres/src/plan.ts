@@ -4,20 +4,12 @@
 // statement finds what it needs.
 import type { Statement } from 'ultimabase'
 import type { Fill, Fills } from './fills.ts'
-import { literal } from './fills.ts'
-import { addIndexes, addsTrigrams, dropIndexes } from './plan-indexes.ts'
+import { addIndexes, addsTrigrams } from './plan-indexes.ts'
+import { addKeys, checked, dropKeys } from './plan-keys.ts'
 import type { Emit, Named } from './plan-parts.ts'
-import { added, changed, fields, id, keyOf, list, same } from './plan-parts.ts'
+import { added, changed, fields, id, list } from './plan-parts.ts'
 import { columnHints, tableHints } from './plan-renames.ts'
-import type { Check, ForeignKey, Snapshot, TableSnapshot } from './snapshot.ts'
-
-/** A key's columns as a tried change names them: `Locker (label, size)`. */
-/** An enum's values; a list's elements are among them, with `<@` (D-127). */
-function checked(name: string, { column, values, list: all }: Check): string {
-	const items = values.map(literal).join(', ')
-	const test = all ? `<@ array[${items}]::text[]` : `in (${items})`
-	return `constraint ${id(name)} check (${id(column)} ${test})`
-}
+import type { ForeignKey, Snapshot, TableSnapshot } from './snapshot.ts'
 
 /** A type as messages show it, without its collation. */
 const shown = (type: string): string => type.replace(' collate "C"', '')
@@ -37,27 +29,6 @@ function create(name: string, table: TableSnapshot): string {
 		...Object.entries(table.checks).map(([key, given]) => checked(key, given)),
 	]
 	return `create table ${id(name)} (\n\t${parts.join(',\n\t')}\n)`
-}
-
-/** Drops the keys, checks and indexes of `from` that `to` changes. */
-function dropKeys(
-	name: string,
-	from: TableSnapshot,
-	to: TableSnapshot,
-	emit: Emit,
-): void {
-	const drop = (key: string) =>
-		`alter table ${id(name)} drop constraint ${id(key)}`
-	if (!same(from.primaryKey, to.primaryKey)) {
-		emit(drop(from.primaryKey.name), 'dropped the primary key')
-	}
-	for (const [key, columns] of changed(from.uniques, to.uniques)) {
-		emit(drop(key), `dropped the unique key on ${fields(from, columns)}`)
-	}
-	for (const [key, { column: on }] of changed(from.checks, to.checks)) {
-		emit(drop(key), `dropped the values of ${fields(from, [on])}`)
-	}
-	dropIndexes(name, from, to, emit)
 }
 
 /** Adds a column; a required one takes its fixed default in the rows. */
@@ -240,45 +211,6 @@ function alterColumns(
 				},
 			)
 		}
-	}
-}
-
-/** Adds the keys and checks of `to` that `from` lacks or changed. */
-function addKeys(
-	name: string,
-	from: TableSnapshot,
-	to: TableSnapshot,
-	emit: Emit,
-): void {
-	const add = (part: string) => `alter table ${id(name)} add ${part}`
-	if (!same(from.primaryKey, to.primaryKey)) {
-		const { name: key, columns } = to.primaryKey
-		emit(
-			add(`constraint ${id(key)} primary key (${list(columns)})`),
-			`keyed on ${fields(to, columns)}`,
-			{
-				tries: `keying ${keyOf(to, columns)} fails when two rows share a value`,
-			},
-		)
-	}
-	for (const [key, columns] of added(from.uniques, to.uniques)) {
-		emit(
-			add(`constraint ${id(key)} unique (${list(columns)})`),
-			`added a unique key on ${fields(to, columns)}`,
-			// A key holding the id, as a `within` key's (D-220), never fails.
-			columns.includes('id')
-				? {}
-				: {
-						tries: `a unique key on ${keyOf(to, columns)} fails when two rows share a value`,
-					},
-		)
-	}
-	for (const [key, given] of added(from.checks, to.checks)) {
-		const field = fields(to, [given.column])
-		const values = given.values.join(', ')
-		emit(add(checked(key, given)), `limited ${field} to ${values}`, {
-			tries: `limiting "${to.model}.${field}" to ${values} fails when a row holds another value`,
-		})
 	}
 }
 
