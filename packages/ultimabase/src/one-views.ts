@@ -1,13 +1,20 @@
 // A `one` view (D-240): the one row of a one-to-many `many` that its filter
 // keeps, which a unique index of the target holds single. The filter runs
-// once, at startup, where the index check reads it.
+// once, at startup, where the index check reads it; one that pins fields to
+// the viewer runs again for each caller (D-245).
 import type { Condition, Filter, SchemaModel } from './adapter.ts'
 import type { IndexValue, IndexWhere } from './adapter-indexes.ts'
 import type { FieldOptions } from './definition.ts'
 import { InvalidQuery, Refused } from './errors.ts'
 import type { Models, Scope } from './query-where.ts'
 import { isObject, modelOf, normalizeWhere } from './query-where.ts'
-import { isFiltered, relationsOf, viewField, viewFilters } from './relations.ts'
+import {
+	isFiltered,
+	relationsOf,
+	viewerViews,
+	viewField,
+	viewFilters,
+} from './relations.ts'
 import { filterOf, isReadFilter, readFilter } from './rules.ts'
 import type { FieldInfo, ModelInfo } from './schema.ts'
 
@@ -71,26 +78,35 @@ export function checkOneViews(
 	for (const model of models.values()) {
 		for (const field of model.fields.values()) {
 			if (!isOneView(field)) continue
+			const at = `${model.name}.${field.name} reads one ${field.target}`
 			const filter = run(models, model, field)
+			const pinned = pinnedOf(filter, at)
+			const fields = new Set([field.inverse, ...pinned])
 			const target = schema.find((each) => each.name === field.target)
 			const held = target?.indexes.some(
 				(index) =>
 					index.unique &&
-					index.fields.length === 1 &&
-					index.fields[0] === field.inverse &&
+					index.fields.every((name) => fields.has(name)) &&
 					(index.where === undefined || keeps(filter, index.where)),
 			)
 			if (held !== true) {
-				const where = shownWhere(modelOf(models, field.target), filter)
-				const as =
-					where === undefined
-						? ''
-						: `, as { fields: ['${field.inverse}'], unique: true, where: ${where} }`
+				const named = [...fields]
+				const where = shownWhere(modelOf(models, field.target), filter, pinned)
+				const list = named.map((name) => `'${name}'`).join(', ')
+				const index = `{ fields: [${list}], unique: true`
+				// An index on the pinned fields holds one row without a where.
+				const how =
+					where !== undefined
+						? ` whose where the filter keeps, as ${index}, where: ${where} }`
+						: pinned.length > 0
+							? `, as ${index} }`
+							: ' whose where the filter keeps'
 				throw new Refused(
-					`${model.name}.${field.name} reads one ${field.target}: give ${field.target} a unique index on ${field.inverse} whose where the filter keeps${as}.`,
+					`${at}: give ${field.target} a unique index on ${named.join(' and ')}${how}.`,
 				)
 			}
 			viewFilters.set(field, filter)
+			if (pinned.length > 0) viewerViews.add(field)
 		}
 	}
 }
@@ -120,7 +136,37 @@ function run(models: Models, model: ModelInfo, field: OneView): Filter {
 	}
 }
 
-/** The scope of a filter run at startup: no caller, no other filter. */
+/** The user id the startup run reads as the viewer's, to find what it pins. */
+const someViewer = 'ultimabase:startup-viewer'
+/** `viewer: true` and `viewer: false` on a relation, once normalized. */
+const [pin, unpin] = ['is', 'isNot'].map((key) =>
+	JSON.stringify({ [key]: { id: { equals: someViewer } } }),
+)
+
+/**
+ * The fields `filter` pins to the viewer, each row's own: `viewer: true` on a
+ * relation of the filter's top level. Stops startup on any other `viewer`.
+ */
+function pinnedOf(filter: Filter, at: string): readonly string[] {
+	const values = [filter, ...(filter.AND ?? [])].flatMap((part) =>
+		Object.entries(part).map(
+			([key, value]) => [key, JSON.stringify(value)] as const,
+		),
+	)
+	const pinned = values.flatMap(([key, value]) => (value === pin ? [key] : []))
+	const uses = JSON.stringify(filter).split(JSON.stringify(someViewer)).length
+	if (uses - 1 === pinned.length) return pinned
+	throw new Refused(
+		values.some(([, value]) => value === unpin)
+			? `${at}: viewer: false keeps several rows; a one view takes viewer: true.`
+			: `${at}: viewer pins a field of the filter's top level, outside OR, NOT and nested relations.`,
+	)
+}
+
+/**
+ * The scope of a filter run at startup: no caller, no other filter, and a
+ * viewer only to find the fields it pins.
+ */
 function startup(path: string): Scope {
 	return {
 		check: () => undefined,
@@ -132,9 +178,7 @@ function startup(path: string): Scope {
 				`${path}: ${model.name}.${field.name} is filtered, which a one view's filter does not read.`,
 			)
 		},
-		get viewer(): string | undefined {
-			throw new Refused(`${path} reads no viewer: it runs once, at startup.`)
-		},
+		viewer: someViewer,
 	}
 }
 
@@ -177,9 +221,14 @@ function shown(value: unknown): string | undefined {
 }
 
 /** `filter` written as an index's `where` of `target`, when it can be. */
-function shownWhere(target: ModelInfo, filter: Filter): string | undefined {
+function shownWhere(
+	target: ModelInfo,
+	filter: Filter,
+	pinned: readonly string[],
+): string | undefined {
 	const parts: string[] = []
 	for (const [key, condition] of Object.entries(filter)) {
+		if (pinned.includes(key)) continue
 		const field = target.fields.get(key)
 		if (field?.kind !== 'scalar' || field.list || !isCondition(condition)) {
 			return undefined

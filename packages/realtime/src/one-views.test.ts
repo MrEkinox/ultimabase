@@ -1,5 +1,7 @@
 // A live read follows a `one` view (D-240) as it follows a `many` one: a
-// write to its target's rows sends again the rows whose view changed.
+// write to its target's rows sends again the rows whose view changed, and a
+// view that pins the viewer follows each caller's own row (D-245).
+import { asUser } from '@ultimabase/testing'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { PluginTypes } from 'ultimabase'
 import {
@@ -15,6 +17,18 @@ import { realtime, realtimePlugin } from './index.ts'
 
 const M = { as: master }
 
+const users = definePlugin({ name: 'users', userModel: true })
+
+// A variable, so no excess property check: without `Register`, no filter
+// takes `viewer` (D-189 point 5).
+const mine = { viewer: true, isNot: undefined }
+
+const Account = defineModel({
+	name: 'Account',
+	use: [users.use()],
+	fields: (f) => ({ votes: f.many(() => Vote, { inverse: 'user' }) }),
+}).with({ access: allow.public })
+
 const Board = defineModel({
 	name: 'Board',
 	use: [realtime()],
@@ -22,11 +36,27 @@ const Board = defineModel({
 		name: f.string(),
 		rounds: f.many(() => Round, { inverse: 'board' }),
 		current: f.one(() => Round, { from: 'rounds' }),
+		votes: f.many(() => Vote, { inverse: 'board' }),
+		myVote: f.one(() => Vote, { from: 'votes' }),
 	}),
 }).with({
 	access: allow.public,
-	relations: { current: { where: ({ where }) => where({ open: true }) } },
+	relations: {
+		current: { where: ({ where }) => where({ open: true }) },
+		myVote: { where: ({ where }) => where({ user: mine }) },
+	},
 })
+
+const Vote = defineModel({
+	name: 'Vote',
+	use: [realtime()],
+	fields: (f) => ({
+		score: f.number(),
+		board: f.one(() => Board),
+		user: f.one(() => Account),
+	}),
+	indexes: [{ fields: ['board', 'user'], unique: true }],
+}).with({ access: allow.public })
 
 const Round = defineModel({
 	name: 'Round',
@@ -55,6 +85,11 @@ const watching = definePlugin<Watching>({
 	api: ({ plugins }) => {
 		api = plugins.realtime
 	},
+	// A request's `authorization` names its user.
+	identify: async (request) => {
+		const id = request.headers.get('authorization')
+		return id === null ? undefined : asUser({ id })
+	},
 })
 
 let app: ReturnType<typeof defineApp> | undefined
@@ -67,8 +102,8 @@ const quiet = async () => new Promise((done) => setTimeout(done, 100))
 beforeEach(async () => {
 	app = defineApp({
 		database: memory(),
-		models: [Board, Round],
-		plugins: [realtimePlugin(), watching.plugin()],
+		models: [Account, Board, Round, Vote],
+		plugins: [users.plugin(), realtimePlugin(), watching.plugin()],
 	})
 	await app.start()
 	const created = await Board.create(
@@ -124,6 +159,81 @@ describe('a live list showing a one view', () => {
 		await vi.waitFor(() => expect(seen).toHaveLength(3))
 		expect(seen[2]).toMatchObject({
 			changes: [{ upsert: { name: 'Ada', current: { name: 'Second' } } }],
+		})
+	})
+})
+
+/** The messages of a live list of each board's `myVote`, as `user`. */
+async function voted(user?: string): Promise<LiveMessage[]> {
+	if (api === undefined) throw new Error('No realtime API.')
+	const headers: Record<string, string> =
+		user === undefined ? {} : { authorization: user }
+	const viewer = await api.connect(
+		new Request('http://localhost/', { headers }),
+	)
+	const seen: LiveMessage[] = []
+	await viewer.list(
+		'Board',
+		{
+			first: 10,
+			orderBy: { name: 'asc' },
+			select: { name: true, myVote: { select: { score: true } } },
+		},
+		(message) => seen.push(message),
+	)
+	await vi.waitFor(() => expect(seen).toHaveLength(1))
+	return seen
+}
+
+describe('a live list showing a one view that pins the viewer', () => {
+	it('follows each caller’s own row', async () => {
+		const ann = (await Account.create({ data: {} }, M)).id
+		const ben = (await Account.create({ data: {} }, M)).id
+		const vote = async (user: string, score: number) =>
+			Vote.create(
+				{
+					data: {
+						score,
+						board: { connect: { id: ada } },
+						user: { connect: { id: user } },
+					},
+				},
+				M,
+			)
+		await vote(ben, 1)
+		await quiet()
+		const [anns, bens, nobody] = [
+			await voted(ann),
+			await voted(ben),
+			await voted(),
+		]
+		expect(anns[0]).toMatchObject({
+			rows: [
+				{ name: 'Ada', myVote: null },
+				{ name: 'Bob', myVote: null },
+			],
+		})
+		expect(bens[0]).toMatchObject({
+			rows: [{ name: 'Ada', myVote: { score: 1 } }, { myVote: null }],
+		})
+		await vote(ann, 2)
+		await vi.waitFor(() => expect(anns).toHaveLength(2))
+		expect(anns[1]).toMatchObject({
+			changes: [{ upsert: { name: 'Ada', myVote: { score: 2 } } }],
+		})
+		await Vote.updateMany({ where: {}, data: { score: 3 } }, M)
+		// A write to a link sends its rows again, changed or not (D-154).
+		await vi.waitFor(() =>
+			expect(bens.at(-1)).toMatchObject({
+				changes: [{ upsert: { name: 'Ada', myVote: { score: 3 } } }],
+			}),
+		)
+		await quiet()
+		// A caller that is no user reads none, whatever the votes.
+		const sent = JSON.stringify(nobody)
+		expect(sent).not.toContain('score')
+		expect(nobody[0]).toMatchObject({
+			rows: [{ myVote: null }, { myVote: null }],
 		})
 	})
 })

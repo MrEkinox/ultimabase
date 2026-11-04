@@ -5,7 +5,7 @@ import { httpPlugin } from '@ultimabase/http'
 import { passwordPlugin } from '@ultimabase/password'
 import { defineApp, memory } from 'ultimabase'
 import { sendEmail } from './mail.ts'
-import { Post, User } from './models.ts'
+import { Poll, Post, User, Vote } from './models.ts'
 
 export const app = defineApp({
 	// Kept in memory, so the example needs no database.
@@ -23,7 +23,7 @@ export const app = defineApp({
 		passwordPlugin({ signUp: ['name'], sendEmail, breached: true }),
 	],
 	//#endregion
-	models: [User, Post],
+	models: [User, Post, Poll, Vote],
 	//#region master-key
 	// A request with this key in `x-ultimabase-master-key` acts as Master, so
 	// a script can make an editor; unset, no request can.

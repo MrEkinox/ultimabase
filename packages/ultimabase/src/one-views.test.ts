@@ -9,14 +9,7 @@ import {
 	it,
 } from 'vitest'
 import { query } from './engine.ts'
-import {
-	allow,
-	defineApp,
-	defineModel,
-	definePlugin,
-	master,
-	memory,
-} from './index.ts'
+import { allow, defineApp, defineModel, master, memory } from './index.ts'
 import type { FieldShape } from './model.ts'
 
 const Project = defineModel({
@@ -381,46 +374,5 @@ describe('a one view', () => {
 					where({ ghost: true }),
 			}),
 		).rejects.toMatchObject({ name: 'Refused' })
-	})
-})
-
-describe('a one view', () => {
-	it('reads no viewer: its filter runs once, at startup', async () => {
-		// A variable, so no excess property check: without `Register`, no
-		// filter takes `viewer`.
-		const viewing = { viewer: true, isNot: undefined }
-		const users = definePlugin({ name: 'users', userModel: true })
-		const Account = defineModel({
-			name: 'Account',
-			use: [users.use()],
-			fields: (f) => ({ seats: f.many(() => Seat, { inverse: 'holder' }) }),
-		})
-		const Club = defineModel({
-			name: 'Club',
-			fields: (f) => ({
-				seats: f.many(() => Seat, { inverse: 'club' }),
-				mine: f.one(() => Seat, { from: 'seats' }),
-			}),
-		}).with({
-			relations: {
-				mine: { where: ({ where }) => where({ holder: viewing }) },
-			},
-		})
-		const Seat = defineModel({
-			name: 'Seat',
-			fields: (f) => ({
-				club: f.one(() => Club),
-				holder: f.one(() => Account),
-			}),
-			indexes: [{ fields: ['club'], unique: true }],
-		})
-		const accounts = defineApp({
-			database: memory(),
-			plugins: [users.plugin()],
-			models: [Account, Club, Seat],
-		})
-		await expect(accounts.start()).rejects.toThrow(
-			'Club.with.relations.mine.where reads no viewer: it runs once, at startup.',
-		)
 	})
 })
