@@ -118,6 +118,8 @@ export interface PasswordCommands<F> extends EmailCommands {
 export interface Password extends PluginTypes {
 	readonly name: 'password'
 	readonly requires: Auth
+	/** A refused new password's issue (D-224). */
+	readonly issues: 'PASSWORD_LENGTH' | 'PASSWORD_IS_EMAIL' | 'PASSWORD_BREACHED'
 	readonly appOptions: PasswordOptions
 	readonly addedFields: {
 		readonly emailVerified: Field<boolean, { readonly default: false }>

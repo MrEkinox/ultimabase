@@ -1,7 +1,7 @@
 // The errors a client may see (D-28, D-72). Any other error is masked as
 // `INTERNAL` with a correlation id. `Refused` is for the developer (D-119).
 import type { JsonValue } from './fields.ts'
-import type { errorCodes } from './symbols.ts'
+import type { codes } from './symbols.ts'
 
 /** The kernel's codes; a transport gives each its own status (D-72). */
 export type ErrorCode =
@@ -16,15 +16,28 @@ export type ErrorCode =
 	| 'CONFLICT'
 	| 'INTERNAL'
 
+/** The codes of a plugin's errors and of its issues (D-206, D-231). */
+export type Codes<E extends string = string, I extends string = string> = {
+	readonly errors: E
+	readonly issues: I
+}
+
+// Each of the application's plugins' codes, or `undefined`: an optional key.
+type CodesIn<A> = A extends { readonly [codes]?: infer C } ? C : never
+type ErrorsIn<C> = C extends { readonly errors: infer E } ? E : never
+type IssuesIn<C> = C extends { readonly issues: infer I } ? I : never
+
 /**
  * Every code an application's server may send: the kernel's, and those of
  * its plugins (D-206). An application adds its own.
  */
-export type ErrorCodeOf<A> =
-	| ErrorCode
-	| (A extends { readonly [errorCodes]?: infer E }
-			? Exclude<E, undefined>
-			: never)
+export type ErrorCodeOf<A> = ErrorCode | ErrorsIn<CodesIn<A>>
+
+/**
+ * Every code its plugins give a `VALIDATION_FAILED` issue (D-231). An
+ * application adds its own, as a schema's or a `PublicError`'s (D-224).
+ */
+export type IssueCodeOf<A> = IssuesIn<CodesIn<A>>
 
 /** One failing value, as Standard Schema reports it (D-23). */
 export type Issue = {
