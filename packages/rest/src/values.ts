@@ -2,6 +2,7 @@
 // `Date` from its field's type, in filters and in data, as `DateTime` is.
 import type { SchemaField } from 'ultimabase'
 import { InvalidQuery } from 'ultimabase'
+import { maxFilterDepth } from 'ultimabase/internal'
 import type { Api, Args } from './entries.ts'
 import { entryOf } from './entries.ts'
 
@@ -56,13 +57,19 @@ const each = (
 			? map(value, path)
 			: value
 
-/** A filter with its dates read, through `AND`, `OR`, `NOT` and relations. */
+/**
+ * A filter with its dates read, through `AND`, `OR`, `NOT` and relations.
+ * Past the deepest level, it is left as is, for the kernel to refuse
+ * (D-228).
+ */
 export function whereOf(
 	api: Api,
 	model: string,
 	where: Args,
 	path: string,
+	depth = 1,
 ): Args {
+	if (depth > maxFilterDepth) return where
 	const fields = entryOf(api, model).model.fields
 	// Built from its entries: a `__proto__` key stays a key, which the kernel
 	// refuses, instead of a prototype that loses the filter.
@@ -73,7 +80,9 @@ export function whereOf(
 		if (key === 'AND' || key === 'OR' || key === 'NOT') {
 			read.push([
 				key,
-				each(value, at, (inner, to) => whereOf(api, model, inner, to)),
+				each(value, at, (inner, to) =>
+					whereOf(api, model, inner, to, depth + 1),
+				),
 			])
 		} else if (isDate(field, key)) read.push([key, dateFilter(value, at)])
 		else if (field !== undefined && field.kind !== 'scalar' && isArgs(value)) {
@@ -82,7 +91,7 @@ export function whereOf(
 			const operators = Object.entries(value).map(([operator, inner]) => [
 				operator,
 				isArgs(inner)
-					? whereOf(api, target, inner, `${at}.${operator}`)
+					? whereOf(api, target, inner, `${at}.${operator}`, depth + 1)
 					: inner,
 			])
 			read.push([key, Object.fromEntries(operators)])

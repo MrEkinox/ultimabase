@@ -192,5 +192,9 @@ A client's query refused as `INVALID_QUERY` answers `BAD_USER_INPUT`, a
 ### Limits
 
 - `skip` and `take` are whole numbers; `distinct` takes no `cursor`.
+- A `where` or a `having` nests at most 32 levels, for every caller: each
+  `AND`, `OR` and `NOT` item and each relation filter is one level deeper.
+  The 33rd is refused: `where.NOT.….NOT: the filter is nested more than 32
+levels deep.`
 - `aggregate` takes the fields a sort takes; `groupBy` and `distinct` take
   them and the `one` relations.

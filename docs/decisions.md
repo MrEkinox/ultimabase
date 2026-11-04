@@ -460,7 +460,8 @@ read: ({ caller, where }) =>
 
 ## D-20: The query API follows Prisma Client
 
-Amended by D-128, D-132, D-133, D-135, D-138, D-140, D-142, D-143 and D-149.
+Amended by D-128, D-132, D-133, D-135, D-138, D-140, D-142, D-143, D-149 and
+D-228.
 
 Choice: operations, their names and their arguments follow Prisma Client, so
 a developer coming from Prisma reads UltimaBase queries as Prisma: `findUnique`,
@@ -1404,6 +1405,8 @@ Rejected: no cascade (Parse), which leaves dangling pointers; cascades by
 database foreign keys.
 
 ## D-55: Reads have configurable limits
+
+Amended by D-228.
 
 Choice: limits protect the server from clients. A request arriving through a
 transport, from a caller other than Master, gets 100 rows when it gives no
@@ -8543,6 +8546,8 @@ const posts = await Post.findMany(
 
 ## D-149: `having`, rows from bulk writes, `nulls`, list updates and JSON paths
 
+Amended by D-228.
+
 Choice: completes D-20; amends D-120 point 2, D-125, D-133, D-135 and
 D-146 point 3.
 
@@ -15268,4 +15273,85 @@ After: the start says why.
 graphqlPlugin({ extend: () => brokenSchema })
 // Refused: graphqlPlugin: the schema is invalid. Input Object type Empty
 // must define one or more fields.
+```
+
+## D-228: A filter nests at most 32 levels
+
+Choice: amends D-20, D-55 and D-149.
+
+1. A `where` nests at most 32 levels. The filter is level 1; each item of
+   `AND`, `OR` and `NOT`, and each relation filter (`is`, `isNot`, `some`,
+   `every`, `none`, `viewer`), is one level deeper. The kernel refuses the
+   33rd level as it reaches it, without reading further, as
+   `INVALID_QUERY`, which a transport answers `BAD_USER_INPUT`, a `400`:
+   `where.NOT.….NOT: the filter is nested more than 32 levels deep.`
+2. A `having` nests at most 32 levels too, its `AND`, `OR` and `NOT` counted
+   the same way.
+3. The limit holds for every caller, Master and server code included, a
+   read or write rule's filter and a `beforeFind`'s too: it is not D-55's
+   budget against clients but the stack's own limit.
+4. REST and GraphQL read a filter's dates and json values through the same
+   levels; past the 32nd they leave the rest as it is, for the kernel to
+   refuse. `maxFilterDepth` is exported from `ultimabase/internal` for them.
+5. GraphQL's variables are coerced by graphql-js, recursively, before the
+   plugin sees them: variables nested deeper than the stack answer
+   `BAD_USER_INPUT`, `The variables are nested too deep.`, instead of
+   `INTERNAL`.
+
+Why:
+
+- Filters were read recursively at every step, the kernel's, REST's and
+  graphql-js's: a filter 5,000 levels deep ran out of stack, which answered
+  `500 INTERNAL` and logged an error, for one request a client can send
+  again and again.
+- 32 levels is far more than a hand-written or generated filter needs, and
+  far less than the stack holds, with room for a filter combined with rules.
+- One limit, in the kernel, answers the same in REST, GraphQL and functions
+  (D-129); a transport only stops reading where the kernel refuses.
+
+Rejected:
+
+- Exempting Master and server code, as D-55 does: past the stack they fail
+  anyway, with a `RangeError`.
+- Bounding the depth of GraphQL's variables as JSON: the bound would be
+  arbitrary, and would refuse a json field's value nested deep.
+- Reading filters without recursion: every walker, graphql-js's included,
+  would change, for filters no one writes.
+
+Example, before:
+
+```ts
+let where: PostWhere = { title: 'a' }
+for (let level = 1; level < 5000; level += 1) where = { NOT: where }
+await Post.findMany({ where })
+// RangeError: Maximum call stack size exceeded
+```
+
+```http
+PUT /api/posts
+{ "where": { "NOT": { "NOT": … 5,000 levels … } }, "create": {}, "update": {} }
+500 { "code": "INTERNAL", "message": "Internal error." }
+```
+
+After:
+
+```ts
+await Post.findMany({ where })
+// InvalidQuery: where.NOT.….NOT: the filter is nested more than 32 levels deep.
+```
+
+```http
+GET /api/posts?where={"NOT":{"NOT": … 33 levels … }}
+400 { "code": "BAD_USER_INPUT", "message": "where.NOT.….NOT: the filter is nested more than 32 levels deep.", "details": { "path": "where.NOT.….NOT" } }
+```
+
+```graphql
+query ($where: PostWhereInput) {
+	posts(where: $where) {
+		totalCount
+	}
+}
+# $where 33 levels deep: BAD_USER_INPUT, where.NOT.0.….NOT.0: the filter is
+# nested more than 32 levels deep.
+# $where 20,000 levels deep: BAD_USER_INPUT, The variables are nested too deep.
 ```

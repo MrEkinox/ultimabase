@@ -584,3 +584,45 @@ describe('a middleware of the application', () => {
 		}
 	})
 })
+
+const query =
+	'query ($where: PostWhereInput) { posts(where: $where) { totalCount } }'
+/** A filter `levels` deep, its `NOT`s around one title, as JSON text. */
+const nots = (levels: number) =>
+	`${'{"NOT":'.repeat(levels - 1)}{"title":{"equals":"one"}}${'}'.repeat(levels - 1)}`
+/** `where` sent as a variable, as text: JSON.stringify runs out of stack. */
+async function sent(url: string, where: string) {
+	const response = await fetch(url, {
+		method: 'POST',
+		headers: { 'content-type': 'application/json', ...asMaster },
+		body: `{"query":${JSON.stringify(query)},"variables":{"where":${where}}}`,
+	})
+	const result: unknown = await response.json()
+	return at(result, 'errors')
+}
+const refused = (message: string) => [
+	{ message, extensions: { code: 'BAD_USER_INPUT' } },
+]
+
+describe('a filter nested too deep (D-228)', () => {
+	it('nests 32 levels, and is refused at the 33rd', async () => {
+		await serving({}, async (url) => {
+			expect(await sent(url, nots(32))).toBeUndefined()
+			// `NOT` is a list in GraphQL: each level is its first item.
+			const path = ['where', ...Array.from({ length: 32 }, () => 'NOT.0')]
+			expect(await sent(url, nots(33))).toMatchObject(
+				refused(
+					`${path.join('.')}: the filter is nested more than 32 levels deep.`,
+				),
+			)
+		})
+	})
+
+	it('is refused when graphql-js runs out of stack reading it', async () => {
+		await serving({}, async (url) => {
+			expect(await sent(url, nots(20_000))).toStrictEqual(
+				refused('The variables are nested too deep.'),
+			)
+		})
+	})
+})

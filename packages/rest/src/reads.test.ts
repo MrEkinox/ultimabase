@@ -233,6 +233,48 @@ describe('the query string', () => {
 	})
 })
 
+/** A filter `levels` deep, its `NOT`s around one title. */
+const nots = (levels: number): unknown =>
+	Array.from({ length: levels - 1 }).reduce<unknown>(
+		(where) => ({ NOT: where }),
+		{ title: 'one' },
+	)
+const path = (levels: number) =>
+	['where', ...Array.from({ length: levels - 1 }, () => 'NOT')].join('.')
+
+describe('a filter nested too deep', () => {
+	it('nests 32 levels, and is refused at the 33rd (D-228)', async () => {
+		const { url } = await serving()
+		const read = await get(url, '/api/posts', { where: nots(32) })
+		expect(read.status).toBe(200)
+		expect(await get(url, '/api/posts', { where: nots(33) })).toEqual(
+			refused(
+				`${path(33)}: the filter is nested more than 32 levels deep.`,
+				path(33),
+			),
+		)
+	})
+
+	it('reads a body thousands of levels deep without running out of stack', async () => {
+		const { url } = await serving()
+		// As text: JSON.stringify would itself run out of stack.
+		const where = `${'{"NOT":'.repeat(19_999)}{"title":"one"}${'}'.repeat(19_999)}`
+		const response = await fetch(`${url}/api/posts`, {
+			method: 'PUT',
+			headers: { 'content-type': 'application/json' },
+			body: `{"where":${where},"create":{},"update":{}}`,
+		})
+		const body: unknown = await response.json()
+		// The REST transport reads 32 levels, then the kernel refuses it.
+		expect({ status: response.status, body }).toEqual(
+			refused(
+				'where must name exactly id, a unique field or a unique index of Post.',
+				'where',
+			),
+		)
+	})
+})
+
 describe('a connection', () => {
 	it('pages forward and backward with cursors', async () => {
 		const { url } = await serving()

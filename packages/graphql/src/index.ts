@@ -2,9 +2,10 @@
 // and the functions, mounted on the HTTP plugin and run as each request's
 // caller; with the realtime plugin, its live models' subscriptions (D-154).
 // In development, it writes the schema to a file for clients (D-191).
-import type { GraphQLSchema } from 'graphql'
+import type { ExecutionArgs, GraphQLSchema } from 'graphql'
 import {
 	executeRootSelectionSet,
+	GraphQLError,
 	MaxIntrospectionDepthRule,
 	NoSchemaIntrospectionCustomRule,
 	parse,
@@ -89,6 +90,23 @@ export interface Graphql extends PluginTypes {
 /** About ten times the standard introspection query. */
 const maxTokens = 2000
 
+/**
+ * The arguments, their variables coerced. graphql-js coerces them
+ * recursively: nested deeper than the stack, they are refused (D-228).
+ */
+function coerced(
+	args: ExecutionArgs,
+): ReturnType<typeof validateExecutionArgs> {
+	const validated = validateExecutionArgs(args)
+	if ('schema' in validated) return validated
+	const deep = validated.some(
+		({ originalError }) => originalError instanceof RangeError,
+	)
+	return deep
+		? [new GraphQLError('The variables are nested too deep.')]
+		: validated
+}
+
 // What closes each running application's WebSockets, by its plugin's context.
 const closers = new WeakMap<object, () => Promise<void>>()
 // The schema file each application generates, by its plugin's context.
@@ -168,7 +186,7 @@ const plugin = definePlugin<Graphql>({
 				return validate(schema, document, rules, { hideSuggestions })
 			},
 			execute: async (args) => {
-				const validated = validateExecutionArgs({ ...args, hideSuggestions })
+				const validated = coerced({ ...args, hideSuggestions })
 				if (!('schema' in validated)) return { errors: validated }
 				const { contextValue } = validated
 				const master =

@@ -9,7 +9,7 @@ import { decimalPattern, normalized } from './decimal.ts'
 import { InvalidQuery } from './errors.ts'
 import type { Context } from './query-context.ts'
 import type { Operand } from './query-where.ts'
-import { entries, fieldCondition, isObject } from './query-where.ts'
+import { checkDepth, entries, fieldCondition, isObject } from './query-where.ts'
 
 /** An aggregate's position in the group's values, added if not asked. */
 export type Position = (asked: Asked) => number
@@ -117,7 +117,9 @@ export function having(
 	by: readonly string[],
 	position: Position,
 	path = 'having',
+	depth = 1,
 ): Filter {
+	checkDepth(depth, path)
 	const filter: Parts = {}
 	for (const [name, part] of entries(value, path)) {
 		const at = `${path}.${name}`
@@ -136,6 +138,7 @@ export function having(
 				by,
 				position,
 				Array.isArray(part) ? `${at}.${index}` : at,
+				depth + 1,
 			),
 		)
 	}
