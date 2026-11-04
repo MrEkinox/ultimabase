@@ -17,7 +17,7 @@ import { recordExpiry } from './recorder.ts'
 import { exposedFunctions, resolveFunctions } from './functions.ts'
 import { isObject } from './query-where.ts'
 import { Refused } from './errors.ts'
-import { sizeNote } from './sizes.ts'
+import { sizeNote, sizesOf } from './sizes.ts'
 import type { Enum, StandardSchema } from './fields.ts'
 import { standardOf } from './validation.ts'
 
@@ -108,6 +108,7 @@ function exposed(name: string, resolved: Resolved): readonly ExposedModel[] {
 			descriptions: texts(info, 'description'),
 			deprecations: texts(info, 'deprecated'),
 			enums: enums(info),
+			sizes: sizesOf(info),
 			uniques: info.uniques,
 			readRules: readRules(info),
 			required: required(info),

@@ -221,8 +221,9 @@ reads outside the database.
 A live list follows at most `maxLive` rows, 1000 by default, or the model's
 own `.with({ realtime: { maxLive } })`, nested rows included: it costs
 `first × (1 + the nested rows of each row)`, a nested list counting its
-`take` rows and theirs. A hundred posts, each with its three latest comments,
-follow 100 × (1 + 3) = 400 rows. `maxTake` bounds page mode only.
+`take` rows and theirs, or its relation's `size.max` when that is smaller. A
+hundred posts, each with its three latest comments, follow 100 × (1 + 3) =
+400 rows. `maxTake` bounds page mode only.
 
 A refusal past the limit, at subscribe or at `fetchMore`, gives both numbers
 as `details: { limit, rows }`: under `extensions.details` over GraphQL, in

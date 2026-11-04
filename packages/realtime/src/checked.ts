@@ -1,6 +1,7 @@
 // What a live read may ask (D-154): its order sorts by the model's own
 // fields, and its selection reaches only live models, each nested list with a
-// take. A refusal names the argument it comes from.
+// take, counted up to its size (D-242). A refusal names the argument it comes
+// from.
 import type { ExposedModel } from 'ultimabase'
 import { PublicError } from 'ultimabase'
 import type { LivePlan } from 'ultimabase/internal'
@@ -47,6 +48,7 @@ export function checked(
 		const used = exposed.find(({ schema }) => schema.name === target)
 		if (!used?.used) throw invalid(at, `${target} is not live.`)
 	}
+	const own = exposed.find(({ schema }) => schema.name === model)
 	let rows = 0
 	for (const [name, inner] of Object.entries(plan.include ?? {})) {
 		const step = stepOf(models, model, name)
@@ -61,7 +63,9 @@ export function checked(
 		if (inner.take === undefined) {
 			throw invalid(at, `A live ${name} list needs a take.`)
 		}
-		rows += Math.abs(inner.take) * (1 + below)
+		// A bounded many holds no more than its size (D-242).
+		const max = own?.sizes[name]?.max ?? Infinity
+		rows += Math.min(Math.abs(inner.take), max) * (1 + below)
 	}
 	for (const name of Object.keys(plan.count ?? {})) {
 		const step = stepOf(models, model, name)
