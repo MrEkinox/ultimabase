@@ -259,6 +259,12 @@ the old card would be left without its member, and the write fails with
 `The Card it points to cannot be left without one.` Update or delete the card
 instead.
 
+When the side that stores the key is optional too, as
+`member: f.one(() => Member, { optional: true })` on the card would make it,
+the member moves its card instead: `connect`, `create` and `disconnect` leave
+the old card with no member. From the card's side, connecting a member another
+card holds fails with `UNIQUE_VIOLATION`.
+
 <include cwd meta='title="src/shapes.test.ts"'>
 	../examples/relations/src/shapes.test.ts#one-to-one-write
 </include>

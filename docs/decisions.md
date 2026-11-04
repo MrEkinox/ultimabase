@@ -15362,6 +15362,8 @@ query ($where: PostWhereInput) {
 
 ## D-237: A relation's other side is named, and a `one` may have none
 
+Amended by D-239.
+
 Choice: amends D-37, D-87 and D-123.
 
 1. A `one` without `inverse` stores the key: its column, foreign key and
@@ -15504,4 +15506,72 @@ await Comment.create({
 	},
 })
 await Comment.findMany({ where: { author: { is: { name: 'Ann' } } } })
+```
+
+## D-239: An optional one-to-one moves from the side without the key
+
+Choice: amends D-237.
+
+1. When the side that stores the key of a one-to-one is optional, the side
+   without the key moves it: `connect` empties the key of the row that held
+   this one and points the connected row here; `create` empties it and
+   writes the new row with the key; `disconnect` empties it. The row left
+   behind stays, with no key, as a `disconnect` of a `many` leaves it.
+2. The row left empty is written before the row that takes the key, so the
+   unique key never holds the same value twice.
+3. From the side that stores the key, connecting a row another row already
+   holds stays a unique conflict, `UNIQUE_VIOLATION`: a write does not take
+   a link from a row it does not name.
+4. When the side that stores the key is required, nothing changes (D-37): a
+   write that would leave a row without its side fails with
+   `The Card it points to cannot be left without one.`
+
+Why:
+
+- D-237 lets both sides of a one-to-one be optional, but its writes from
+  the side without the key still asked that the old row keep its side: a
+  member could not change locker, though the locker may stand empty.
+- A row whose key may be empty is left empty, as a `many` leaves the rows it
+  disconnects; refusing the write only made the caller do it in two steps.
+
+Rejected:
+
+- Taking the row from its holder on a `connect` from the side that stores
+  the key: it would empty a row the write does not name (D-233, closed).
+- Deleting the row left behind: `delete: true` already says that.
+
+Example, before:
+
+```ts
+// A member changes locker in two writes: the move fails with
+// "The Locker it points to cannot be left without one."
+await Locker.update({
+	where: { id: old.id },
+	data: { member: { disconnect: true } },
+})
+await Member.update({
+	where: { id: ada.id },
+	data: { locker: { connect: { id: spare.id } } },
+})
+```
+
+After:
+
+```ts
+const Member = defineModel({
+	name: 'Member',
+	fields: (f) => ({
+		locker: f.one(() => Locker, { inverse: 'member', optional: true }),
+	}),
+})
+const Locker = defineModel({
+	name: 'Locker',
+	fields: (f) => ({ member: f.one(() => Member, { optional: true }) }),
+})
+
+// The old locker is left empty.
+await Member.update({
+	where: { id: ada.id },
+	data: { locker: { connect: { id: spare.id } } },
+})
 ```
