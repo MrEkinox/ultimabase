@@ -258,8 +258,11 @@ export function orderByInput(
 					if (searched(readable(entry))) fields['_relevance'] = { type }
 					for (const field of readable(entry)) {
 						if (field.kind === 'one') {
-							fields[field.name] = {
-								type: orderByInput(registry, field.target),
+							// A `one` view sorts nothing (D-240).
+							if (field.stored || field.from === undefined) {
+								fields[field.name] = {
+									type: orderByInput(registry, field.target),
+								}
 							}
 						} else if (field.kind === 'many') {
 							fields[field.name] = { type: countOrderBy(registry) }

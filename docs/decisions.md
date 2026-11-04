@@ -8951,7 +8951,7 @@ type Mutation {
 
 ## D-151: Filtered relations and virtual fields
 
-Amended by D-180, D-184, D-216, D-238.
+Amended by D-180, D-184, D-216, D-238, D-240.
 
 Choice: completes D-37, D-44 and D-109; amends D-42.
 
@@ -15572,4 +15572,113 @@ const Desk = defineModel({
 // Type error: relationError: "Ticket.team: within 'orgn' is not a field
 // of the target"
 defineApp({ database: memory(), models: [Org, Team, Desk, Drawer, Ticket] })
+```
+
+## D-240: A `one` view reads the single row a filter keeps
+
+Choice: amends D-151.
+
+1. A `one` takes `from`, as a `many` does (D-151):
+   `activeSprint: f.one(() => Sprint, { from: 'sprints' })`. It reads the row
+   of that `many` its filter keeps, or `null`. It takes no other option: it
+   is always nullable, read-only, and has no key, `inverse`, `onDelete` nor
+   `within`.
+2. Its filter lives in `.with({ relations })`, written as a `many` view's,
+   with no caller: `activeSprint: { where: ({ where }) => where({ closedAt:
+null }) }`. It runs once, at startup; `viewer` (D-189) is refused in it.
+3. `from` names a one-to-many `many` of the model, which is no view: a
+   many-to-many or a view is refused, since no index of the target holds
+   its rows single.
+4. Startup stops unless a unique index of the target holds the row single:
+   an index on the key of the `many` alone, whose `where` (D-215) the filter
+   keeps, each of its conditions written in the filter as well:
+   `Project.activeSprint reads one Sprint: give Sprint a unique index on project
+whose where the filter keeps, as { fields: ['project'], unique: true, where:
+{ closedAt: null } }.` A unique index without `where` holds it too.
+5. Reads are a `one`'s: `include`, nested `select`, `omit` of its fields, and
+   `is` and `isNot` in a `where`, `is: null` for none. The target's read rule
+   applies (D-86): a row the caller may not read reads as `null`. A `one`
+   view sorts nothing (`orderBy`); to revisit if usage asks.
+6. Transports publish a nullable object: GraphQL `activeSprint: Sprint`,
+   with no arguments and no connection; REST `include` and `select`; no
+   input names it. A live query (D-154) follows it as it follows a `many`
+   view.
+
+Why:
+
+- A `many` often holds at most one row a filter keeps: a project's active
+  sprint, a document's current draft, an order's open payment. The other rows
+  stay, as history or as rows other models point to. A `many` view made each
+  reader handle a list for one row: `take: 1` and `[0]` on the server, a
+  connection and `first: 1` in GraphQL, `some` and `none` for "has one".
+- "At most one" stays a database guarantee: the startup check ties the view
+  to the index that holds it, so a removed index stops startup instead of
+  turning the view into a `LIMIT 1` over rows that are no longer single.
+- A fixed filter is what the index check can read. A filter on the caller
+  would change the rows per request, which no index describes; the target's
+  read rule already narrows what each caller sees.
+
+Rejected:
+
+- A virtual returning the row: it loses nested `select`, the relation
+  filters and the target's read rule applied as for a relation.
+- Reading the first row without an index: two rows would show one of them
+  silently, by an order nobody chose.
+- `optional: true` on the view: a view is always nullable, the word would
+  repeat it.
+- A filter with the caller: see Why.
+
+Example, before:
+
+```ts
+const Project = defineModel({
+	name: 'Project',
+	fields: (f) => ({
+		sprints: f.many(() => Sprint, { inverse: 'project' }),
+		activeSprints: f.many(() => Sprint, { from: 'sprints' }),
+	}),
+}).with({
+	relations: {
+		activeSprints: { where: ({ where }) => where({ closedAt: null }) },
+	},
+})
+const Sprint = defineModel({
+	name: 'Sprint',
+	fields: (f) => ({
+		closedAt: f.dateTime({ optional: true }),
+		project: f.one(() => Project, { onDelete: 'cascade' }),
+	}),
+	indexes: [{ fields: ['project'], unique: true, where: { closedAt: null } }],
+})
+
+const project = await Project.findUnique({
+	where: { id },
+	include: { activeSprints: { take: 1 } },
+})
+const sprint = project?.activeSprints[0] ?? null
+await Project.findMany({ where: { activeSprints: { some: {} } } })
+```
+
+After:
+
+```ts
+const Project = defineModel({
+	name: 'Project',
+	fields: (f) => ({
+		sprints: f.many(() => Sprint, { inverse: 'project' }),
+		activeSprint: f.one(() => Sprint, { from: 'sprints' }),
+	}),
+}).with({
+	relations: {
+		activeSprint: { where: ({ where }) => where({ closedAt: null }) },
+	},
+})
+// Sprint unchanged: its partial unique index holds the active sprint single.
+
+const project = await Project.findUnique({
+	where: { id },
+	include: { activeSprint: true },
+})
+const sprint = project?.activeSprint ?? null
+await Project.findMany({ where: { activeSprint: { isNot: null } } })
 ```

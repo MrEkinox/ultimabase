@@ -45,9 +45,10 @@ type Relation = Exclude<SchemaField, { readonly kind: 'scalar' }>
 const facing = (field: Relation): string =>
 	field.inverse === undefined ? '' : `Without${upper(field.inverse)}`
 
-/** A view is read-only (D-151). */
+/** A view is read-only (D-151, D-240). */
 const isView = (field: SchemaField): boolean =>
-	field.kind === 'many' && field.from !== undefined
+	(field.kind === 'many' || (field.kind === 'one' && !field.stored)) &&
+	field.from !== undefined
 
 /**
  * Whether a model's data input has a field, `without` aside: GraphQL has no

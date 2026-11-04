@@ -132,17 +132,38 @@ type RelationFilter<T> = {
 	}) => boolean | ReadFilter
 }
 
-/** A filter for each `many` relation that has one (D-151). */
+/**
+ * A `one` view's filter, which reads no caller: it is checked once, against
+ * the target's unique indexes (D-240).
+ */
+type OneViewFilter<T> = {
+	readonly where: (facts: {
+		readonly where: (filter: Where<T>) => ReadFilter
+	}) => ReadFilter
+}
+
+/** A filter for each `many` relation that has one, and each `one` view. */
 export type RelationFilters<F> = {
 	readonly [
 		K in keyof F as F[K] extends {
 			readonly [fieldType]: { readonly kind: 'many' }
 		}
 			? K
-			: never
+			: F[K] extends OneView
+				? K
+				: never
 	]?: F[K] extends { readonly [fieldType]: { readonly target: infer T } }
-		? RelationFilter<TargetFields<T>>
+		? F[K] extends OneView
+			? OneViewFilter<TargetFields<T>>
+			: RelationFilter<TargetFields<T>>
 		: never
+}
+
+type OneView = {
+	readonly [fieldType]: {
+		readonly kind: 'one'
+		readonly options: { readonly from: string }
+	}
 }
 
 /** The kernel's keys; `W` holds one key per plugin (D-42, D-151). */
@@ -217,14 +238,14 @@ type Expected<D, F> = {
 		: `'${P & string}' is not a scalar field of the model`
 }
 
-// The `one` relations of `F`, told without their target's fields, which a
-// field typed before the model cannot read (D-184).
+// The `one` relations of `F` but its views, told without their target's
+// fields, which a field typed before the model cannot read (D-184, D-240).
 type OneKeys<F> = {
-	[K in keyof F]: F[K] extends {
-		readonly [fieldType]: { readonly kind: 'one' }
-	}
-		? K
-		: never
+	[K in keyof F]: F[K] extends OneView
+		? never
+		: F[K] extends { readonly [fieldType]: { readonly kind: 'one' } }
+			? K
+			: never
 }[keyof F]
 
 // The row's side of a `within` names a `one` relation of the model, or `id`
@@ -258,10 +279,11 @@ type StoredManyKeys<F> = {
 		: never
 }[keyof F]
 
-// A view's `from` names a `many` of the model that stores its rows (D-151).
+// A view's `from` names a `many` of the model that stores its rows (D-151,
+// D-240).
 type FromCheck<X, A> = X extends {
 	readonly [fieldType]: {
-		readonly kind: 'many'
+		readonly kind: 'one' | 'many'
 		readonly options: { readonly from: infer R }
 	}
 }

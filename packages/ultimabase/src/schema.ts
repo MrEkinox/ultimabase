@@ -17,6 +17,7 @@ import { Refused } from './errors.ts'
 import type { Linked } from './pairing.ts'
 import { namedOf, pairsOf } from './pairing.ts'
 import { installedUses } from './plugin-use.ts'
+import { checkOneViews, oneViewField } from './one-views.ts'
 import { checkRelations, isFiltered, viewField } from './relations.ts'
 import { checkIndexes, checkSearch } from './schema-indexes.ts'
 import type { VirtualInfo } from './schema-virtuals.ts'
@@ -238,8 +239,8 @@ export function resolve(
 					`${model}.${name}: a plugin's model relates only to models of the same plugin; keep the id as a scalar.`,
 				)
 			}
-			// A view reads the link of another relation (D-151).
-			const from = field.kind === 'many' ? field.options['from'] : undefined
+			// A view reads the link of another relation (D-151, D-240).
+			const from = field.options['from']
 			const link = { model, name, field, target }
 			;(typeof from === 'string' ? views : links).push(link)
 		}
@@ -255,7 +256,7 @@ export function resolve(
 			return relationOf(model, name) ?? scalarField(name, field)
 		}
 		const from = String(field.options['from'])
-		return viewField(
+		return (field.kind === 'one' ? oneViewField : viewField)(
 			{ model, name, target: view.target, options: field.options },
 			from,
 			linkOf(views, model, from) ? 'view' : relationOf(model, from),
@@ -319,6 +320,7 @@ export function resolve(
 		})
 	}
 	checkWithin(models)
+	checkOneViews(models, schemaModels)
 	const users = [...models.values()].filter((info) => info.users)
 	if (users.length > 1) {
 		fail(

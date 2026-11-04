@@ -71,6 +71,8 @@ export type SchemaField =
 			readonly dbName?: string
 			/** The target's `target` field equals the row's `source` (D-220). */
 			readonly within?: { readonly target: string; readonly source: string }
+			/** A view, stored nowhere: the `many` whose one row it reads (D-240). */
+			readonly from?: string
 	  } & (
 			| {
 					/** This side stores the key, one per pair (D-37). */

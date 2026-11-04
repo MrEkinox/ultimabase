@@ -1,9 +1,26 @@
-// A relation's options (D-37, D-54, D-151, D-220, D-237).
+// A relation's options (D-37, D-54, D-151, D-220, D-237, D-240).
 import type { Described } from './described.ts'
 import type { DefaultFunction } from './fields.ts'
 
-/** What shapes a `one` relation (D-37, D-54). */
-export type OneOptions = Described & {
+/** What shapes a `one` relation (D-37, D-54), or a `one` view (D-240). */
+export type OneOptions = Described & (StoredOne | OneView)
+
+type OneView = {
+	/**
+	 * A view: read-only, the one row of this one-to-many `many` of the model
+	 * that its filter keeps (D-240).
+	 */
+	readonly from: string
+	readonly optional?: undefined
+	readonly default?: undefined
+	readonly onDelete?: undefined
+	readonly inverse?: undefined
+	readonly dbName?: undefined
+	readonly within?: undefined
+}
+
+type StoredOne = {
+	readonly from?: undefined
 	readonly optional?: boolean
 	/** The target's id (D-53). */
 	readonly default?:

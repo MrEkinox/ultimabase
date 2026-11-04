@@ -205,6 +205,23 @@ it('reads only the released volumes of a series through its view', async () => {
 	])
 	expect(read._count).toEqual({ volumes: 2, released: 1 })
 	//#endregion
+
+	//#region one-view-read
+	const next = await Series.findUniqueOrThrow(
+		{
+			where: { id: series.id },
+			select: { upcoming: { select: { title: true } } },
+		},
+		{ as: master },
+	)
+	expect(next.upcoming).toEqual({ title: 'The Other Wind' })
+	// Filtered like a `one`.
+	const writing = await Series.findMany(
+		{ where: { upcoming: { isNot: null } } },
+		{ as: master },
+	)
+	expect(writing.map((each) => each.title)).toEqual(['Earthsea'])
+	//#endregion
 })
 
 it('keeps a task within the project of its milestone', async () => {

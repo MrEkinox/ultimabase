@@ -19,6 +19,7 @@ export type DeprecatedCheck<O> = O extends { readonly deprecated: unknown }
 			| { readonly optional: true }
 			| { readonly default: unknown }
 			| { readonly list: true }
+			| { readonly from: string }
 		? unknown
 		: {
 				readonly deprecated: {
