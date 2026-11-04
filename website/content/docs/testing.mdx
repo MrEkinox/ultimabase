@@ -62,7 +62,7 @@ that a loop does not query once per row.
 </include>
 
 An entry names the operation and the model: `find`, `count`, `aggregate` or
-`write`, then `Note`. A write that changes several models names them all,
+`write`, then `Note`; `exists` is a `find`. A write that changes several models names them all,
 as `write Invite, User`. The queries of a
 [transaction](/docs/next/transactions) are listed; its begin and its
 commit are not.

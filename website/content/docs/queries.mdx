@@ -85,8 +85,9 @@ configuration of that name.
 
 ## Count and aggregate
 
-`count` counts the rows of a `where`. `aggregate` computes `_count`, `_sum`,
-`_avg`, `_min` and `_max` of the rows the caller reads:
+`count` counts the rows of a `where`; `exists` says whether there is one, and
+reads at most one. `aggregate` computes `_count`, `_sum`, `_avg`, `_min` and
+`_max` of the rows the caller reads:
 
 <include cwd meta='title="src/queries.test.ts"'>
 	../examples/models-and-queries/src/queries.test.ts#aggregate
@@ -106,8 +107,8 @@ order:
 	../examples/models-and-queries/src/queries.test.ts#distinct
 </include>
 
-`aggregate` and `groupBy` are for server code; the transports do not expose
-them. A field with its own read rule is aggregated by Master only.
+`exists`, `aggregate` and `groupBy` are for server code; the transports do
+not expose them. A field with its own read rule is aggregated by Master only.
 
 ## Write many rows
 

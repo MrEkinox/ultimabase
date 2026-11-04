@@ -272,6 +272,7 @@ describe('queries()', () => {
 		const queries = await running.queries(async () => {
 			await Author.findMany({}, M)
 			await Author.count({}, M)
+			await Author.exists({}, M)
 			await Post.aggregate({ _count: true }, M)
 			await Author.create(
 				{ data: { name: 'Grace', posts: { create: [{ title: 'Hi' }] } } },
@@ -281,6 +282,7 @@ describe('queries()', () => {
 		expect(queries).toStrictEqual([
 			'find Author',
 			'count Author',
+			'find Author',
 			'aggregate Post',
 			'write Author, Post',
 		])

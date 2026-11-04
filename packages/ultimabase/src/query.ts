@@ -15,6 +15,7 @@ import type { Exact } from './exact.ts'
 import type { JsonValue } from './fields.ts'
 import type { AggregateArgs, Aggregates, IsOrdered } from './query-aggregate.ts'
 import type { BulkQueries } from './query-bulk.ts'
+import type { CountQueries } from './query-count.ts'
 import type {
 	JsonPathFilter,
 	ListFilter,
@@ -330,7 +331,8 @@ export type UpsertArgs<F, X = never, N = never> = Shaping<F> & {
 /** Model methods (D-18), the subset the prototype measures. */
 // Each query is a closure on its model: it can be passed around unbound.
 /** `N` is the model's name, which nested creation needs (D-128). */
-export interface Queries<F, X = never, N = never> extends BulkQueries<F> {
+export interface Queries<F, X = never, N = never>
+	extends BulkQueries<F>, CountQueries<F> {
 	findMany<const A extends FindManyArgs<F, X>>(
 		this: void,
 		args?: A & NoInfer<Exact<A, FindManyArgs<F, X>>>,
@@ -358,11 +360,6 @@ export interface Queries<F, X = never, N = never> extends BulkQueries<F> {
 		args: A & NoInfer<Exact<A, FindUniqueArgs<F, X>>>,
 		options?: QueryOptions,
 	): Promise<Payload<F, A>>
-	count(
-		this: void,
-		args?: { readonly where?: Where<F> },
-		options?: QueryOptions,
-	): Promise<number>
 	/** Of the rows the caller reads; server code only (D-143). */
 	aggregate<const A extends AggregateArgs<F>>(
 		this: void,
