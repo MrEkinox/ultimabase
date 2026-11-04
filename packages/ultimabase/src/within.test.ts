@@ -44,7 +44,7 @@ const Task = defineModel({
 const Goal = defineModel({
 	name: 'Goal',
 	fields: (f) => ({
-		milestone: f.one(() => Milestone),
+		milestone: f.one(() => Milestone, { onDelete: 'cascade' }),
 		featuredIn: f.many(() => Project, { inverse: 'featuredGoal' }),
 	}),
 })
@@ -98,6 +98,17 @@ const start = async (models: Parameters<typeof defineApp>[0]['models']) => {
 	app = defineApp({ database: memory(), models })
 	return app.start()
 }
+
+const goalOf = async (milestone: string) =>
+	(await Goal.create({ data: { milestone: project(milestone) } }, M)).id
+const feature = (featuredGoal: string) =>
+	Project.update(
+		{
+			where: { id: a },
+			data: { featured: project(ma), featuredGoal: project(featuredGoal) },
+		},
+		M,
+	)
 
 describe('a row linked to its target', () => {
 	it('links a target of its parent, and refuses another', async () => {
@@ -361,6 +372,99 @@ describe('within a field of another name', () => {
 				M,
 			),
 		).rejects.toMatchObject(refused('milestone', goal))
+	})
+})
+
+describe('a row whose parent is unset', () => {
+	it('links no target', async () => {
+		const mine = await goalOf(ma)
+		await expect(
+			Project.update(
+				{ where: { id: a }, data: { featuredGoal: project(mine) } },
+				M,
+			),
+		).rejects.toMatchObject(refused('featuredGoal', goal))
+		await expect(
+			Project.create({ data: { name: 'C', featuredGoal: project(mine) } }, M),
+		).rejects.toMatchObject(refused('featuredGoal', goal))
+	})
+
+	it('refuses a target its parent connects', async () => {
+		const mine = await goalOf(ma)
+		await expect(
+			Goal.update(
+				{ where: { id: mine }, data: { featuredIn: { connect: [{ id: b }] } } },
+				M,
+			),
+		).rejects.toMatchObject(refused('featuredGoal', goal))
+	})
+
+	it('refuses its parent emptied while a target is linked', async () => {
+		await feature(await goalOf(ma))
+		await expect(
+			Project.update(
+				{ where: { id: a }, data: { featured: { disconnect: true } } },
+				M,
+			),
+		).rejects.toMatchObject(refused('featured', goal))
+		await expect(
+			Milestone.update(
+				{
+					where: { id: ma },
+					data: { featuredIn: { disconnect: [{ id: a }] } },
+				},
+				M,
+			),
+		).rejects.toMatchObject(refused('featured', goal))
+		await Project.update(
+			{
+				where: { id: a },
+				data: {
+					featured: { disconnect: true },
+					featuredGoal: { disconnect: true },
+				},
+			},
+			M,
+		)
+	})
+
+	it('lets a parent be emptied with no target', async () => {
+		await Project.update(
+			{ where: { id: a }, data: { featured: project(ma) } },
+			M,
+		)
+		await Milestone.update(
+			{ where: { id: ma }, data: { featuredIn: { disconnect: [{ id: a }] } } },
+			M,
+		)
+		const found = await Project.findUnique(
+			{ where: { id: a }, select: { featured: true } },
+			M,
+		)
+		expect(found?.featured).toBeNull()
+	})
+
+	it('lets the parent be deleted, emptying the target first', async () => {
+		await feature(await goalOf(ma))
+		await Milestone.delete({ where: { id: ma } }, M)
+		const found = await Project.findUnique(
+			{ where: { id: a }, select: { featured: true, featuredGoal: true } },
+			M,
+		)
+		expect(found).toEqual({ featured: null, featuredGoal: null })
+	})
+
+	it('lets another row’s write delete the parent', async () => {
+		await feature(await goalOf(ma))
+		await Task.update(
+			{ where: { id: t }, data: { milestone: { delete: true } } },
+			M,
+		)
+		const found = await Project.findUnique(
+			{ where: { id: a }, select: { featured: true, featuredGoal: true } },
+			M,
+		)
+		expect(found).toEqual({ featured: null, featuredGoal: null })
 	})
 })
 

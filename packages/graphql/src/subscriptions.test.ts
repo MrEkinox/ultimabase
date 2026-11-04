@@ -2,7 +2,7 @@
 // the realtime plugin runs, a list's first result `{ data }` and then only
 // what changed under `extensions.live`, page mode, the limits, and the
 // socket closing with its caller and with the application.
-import type { Gate, Http, HttpApi } from '@ultimabase/http'
+import type { Gate, Http, HttpApi, HttpOptions } from '@ultimabase/http'
 import { httpPlugin } from '@ultimabase/http'
 import { realtime, realtimePlugin } from '@ultimabase/realtime'
 import type { RealtimeOptions } from '@ultimabase/realtime'
@@ -65,6 +65,17 @@ const Note = defineModel({
 	name: 'Note',
 	use: [graphql()],
 	fields: (f) => ({ text: f.string() }),
+}).with({ access: allow.readOnly })
+/** A board and its cards, followed live with their relation. */
+const Board = defineModel({
+	name: 'Board',
+	use: [graphql(), realtime()],
+	fields: (f) => ({ cards: f.many(() => Card, { inverse: 'board' }) }),
+}).with({ access: allow.readOnly })
+const Card = defineModel({
+	name: 'Card',
+	use: [graphql(), realtime()],
+	fields: (f) => ({ board: f.one(() => Board) }),
 }).with({ access: allow.readOnly })
 
 const cookie = defineFunction({
@@ -194,8 +205,11 @@ afterEach(async () => {
 type Options = {
 	readonly graphql?: GraphqlOptions
 	readonly realtime?: RealtimeOptions | false
-	readonly models?: readonly (typeof Task | typeof Note)[]
+	readonly models?: readonly (
+		typeof Task | typeof Note | typeof Board | typeof Card
+	)[]
 	readonly upgrade?: Gate
+	readonly http?: Pick<HttpOptions, 'proxies' | 'rateLimit'>
 	readonly database?: Adapter
 }
 
@@ -205,6 +219,7 @@ async function started(options: Options = {}): Promise<string> {
 	const plugins = [
 		httpPlugin({
 			port: 0,
+			...options.http,
 			...(options.upgrade && { upgrade: options.upgrade }),
 		}),
 		maintenance.plugin(),
@@ -592,6 +607,27 @@ describe('a live function', () => {
 		expect(await next(count)).toMatchObject({ data: { counted: 4 } })
 	})
 
+	it('counts its rows in maxRows, as its query over HTTP (D-229)', async () => {
+		const url = await started({ graphql: { maxRows: 5 } })
+		await seeded()
+		expect(await next(subscribed(url, query))).toEqual({
+			errors: [
+				containing({
+					message:
+						'The document asks for more than 5 rows. Ask for fewer with first or last.',
+					extensions: { code: 'BAD_USER_INPUT' },
+				}),
+			],
+		})
+		const results = opening(url, undefined, {
+			'x-ultimabase-master-key': 'secret',
+		}).ws.iterate({ query })
+		expect(await next(results)).toMatchObject({
+			data: { ranked: [{ title: 'b' }, { title: 'c' }] },
+		})
+		await results.return?.()
+	})
+
 	it('sends the public error it fails with, then completes', async () => {
 		const url = await started()
 		await seeded()
@@ -881,6 +917,68 @@ describe('the subscriptions', () => {
 				}),
 			],
 		})
+	})
+
+	it('do not count a live list in maxRows, which maxLive bounds (D-229)', async () => {
+		const url = await started({
+			graphql: { maxRows: 1 },
+			models: [Task, Board, Card],
+		})
+		const board = await Board.create({ data: {} }, M)
+		await Card.create({ data: { board: { connect: { id: board.id } } } }, M)
+		const results = subscribed(
+			url,
+			`subscription { boards(first: 2) { edges { node {
+				cards(first: 2) { edges { node { id } } }
+			} } } }`,
+		)
+		expect(await next(results)).toMatchObject({
+			data: { boards: { edges: [{ node: { cards: { edges: [anything] } } }] } },
+		})
+		await results.return?.()
+	})
+
+	it('count each operation as a request of the address (D-230)', async () => {
+		vi.useFakeTimers({ toFake: ['Date'] })
+		try {
+			const url = await started({
+				http: { proxies: 1, rateLimit: { requests: 3, window: 60_000 } },
+			})
+			const { ws, closes } = opening(url, 'ada', {
+				'x-forwarded-for': '203.0.113.5',
+			})
+			// The upgrade and two operations, then the third is over the limit.
+			for (let sent = 0; sent < 2; sent += 1) {
+				expect(await next(ws.iterate({ query: '{ named }' }))).toEqual({
+					data: { named: 'undefined' },
+				})
+			}
+			expect(await failed(ws.iterate({ query: '{ named }' }))).toEqual([
+				containing({
+					message: 'Too many requests: try again later.',
+					extensions: {
+						code: 'TOO_MANY_ATTEMPTS',
+						details: { retryAfter: 60 },
+					},
+				}),
+			])
+			vi.setSystemTime(Date.now() + 60_000)
+			expect(await next(ws.iterate({ query: '{ named }' }))).toEqual({
+				data: { named: 'undefined' },
+			})
+			expect(closes).toEqual([])
+			const asMaster = opening(url, undefined, {
+				'x-forwarded-for': '203.0.113.5',
+				'x-ultimabase-master-key': 'secret',
+			}).ws
+			for (let sent = 0; sent < 4; sent += 1) {
+				expect(await next(asMaster.iterate({ query: '{ named }' }))).toEqual({
+					data: { named: null },
+				})
+			}
+		} finally {
+			vi.useRealTimers()
+		}
 	})
 
 	it('are not served without the realtime plugin', async () => {

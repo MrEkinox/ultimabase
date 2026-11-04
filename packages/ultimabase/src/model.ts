@@ -1,6 +1,6 @@
 // The model `defineModel(...).with(...)` returns (D-07, D-24) and the
 // application `defineApp` assembles.
-import type { PublicError } from './errors.ts'
+import type { Codes, PublicError } from './errors.ts'
 import type { Nullable, Paginated } from './function.ts'
 import type { Page, PageQuery } from './page.ts'
 import type { FindWhere, Queries, QueryOptions, Where } from './query.ts'
@@ -16,7 +16,7 @@ import type { Caller } from './rules.ts'
 import type { VirtualRules } from './virtual.ts'
 import type {
 	declaredRecord,
-	errorCodes,
+	codes,
 	fieldType,
 	modelFields,
 	readFilter,
@@ -229,19 +229,21 @@ type OneKeys<F> = {
 
 // The row's side of a `within` names a `one` relation of the model, or `id`
 // against the target's field, which its model's type would make circular
-// (D-220).
-type Within<A> = OneKeys<A> | { readonly [field: string]: OneKeys<A> | 'id' }
+// (D-220); a `many`'s names a `one` relation of both (D-236).
+type Within<A, K> =
+	| OneKeys<A>
+	| (K extends 'one' ? { readonly [field: string]: OneKeys<A> | 'id' } : never)
 type WithinCheck<X, A> = X extends {
 	readonly [fieldType]: {
-		readonly kind: 'one'
+		readonly kind: infer K
 		readonly options: { readonly within: infer W }
 	}
 }
-	? [W] extends [Within<A>]
+	? [W] extends [Within<A, K>]
 		? unknown
 		: {
 				readonly [fieldType]: {
-					readonly options: { readonly within: Within<A> }
+					readonly options: { readonly within: Within<A, K> }
 				}
 			}
 	: unknown
@@ -316,11 +318,11 @@ export type InverseCheck<M> = [AppInverseErrors<M>] extends [never]
 
 /**
  * The application `defineApp` returns (D-24, D-59), and the codes its
- * plugins' errors carry (D-206).
+ * plugins' errors and issues carry (D-206, D-231).
  */
-export interface App<M, E extends string = never> {
+export interface App<M, C extends Codes = never> {
 	readonly models: M
-	readonly [errorCodes]?: E
+	readonly [codes]?: C
 	start(): Promise<void>
 	stop(): Promise<void>
 }

@@ -408,7 +408,7 @@ TS2353: Object literal may only specify known properties, and 'softDelete' does 
 
 prototype/example/plugin-parts.ts: each requirement is its own plugin's value.
 TS2322: Type 'PluginOf<Tenant>' is not assignable to type 'PluginFn<"auth">'.
-  Type 'PluginValue<"tenant", never, never>' is not assignable to type 'PluginValue<"auth", string, string>' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Type 'PluginValue<"tenant", never, never>' is not assignable to type 'PluginValue<"auth", string, Codes>' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
     Type '"tenant"' is not assignable to type '"auth"'.
 
 prototype/example/plugin-parts.ts: archive declares requirements.

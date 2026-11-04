@@ -1,7 +1,8 @@
 // A database refusal as the kernel's error: a unique constraint's as
 // `UniqueViolation` (D-98), a foreign key's as `RelationViolation` (D-99), a
 // conflict as `Conflict` (D-179), a check of the application's own or a
-// relation kept within its parent as `VALIDATION_FAILED` (D-219, D-220).
+// relation kept within its parent as `VALIDATION_FAILED` (D-219, D-220,
+// D-235).
 import {
 	Conflict,
 	PublicError,
@@ -47,8 +48,10 @@ export function translate(catalog: Catalog, error: unknown): unknown {
 		}
 	}
 	const within = catalog.withins.get(error.constraint)
-	if (error.code === '23503' && within !== undefined) {
-		// Whichever side the write moved, as only a race reaches it (D-220).
+	const parted = error.code === '23503' || error.code === '23514'
+	if (parted && within !== undefined) {
+		// Whichever side the write moved, as only a race reaches it (D-220,
+		// D-235).
 		const issue = { path: [within.field], message: within.message }
 		return new PublicError('VALIDATION_FAILED', 'Invalid data.', {
 			details: { issues: [issue] },
@@ -61,7 +64,8 @@ export function translate(catalog: Catalog, error: unknown): unknown {
 		const restricted = error.message.startsWith('update or delete')
 		return new RelationViolation(key.model, key.field, key.target, restricted)
 	}
-	// UltimaBase writes no check of its own on a model's table (D-219).
+	// The kernel refuses an enum's other values first: any other check is the
+	// application's own (D-219).
 	if (error.code === '23514') {
 		const message = `The row breaks the check ${error.constraint}.`
 		return new PublicError('VALIDATION_FAILED', 'Invalid data.', {

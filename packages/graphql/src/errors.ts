@@ -35,9 +35,10 @@ export function formatter(logger: Logger): Format {
 		// refused: their messages are written for the client.
 		if (!(error instanceof GraphQLError)) return error
 		const original = error.originalError
-		if (original === undefined || original instanceof GraphQLError) {
-			return unvalued(error)
-		}
+		// graphql-js's refusal of the request; at a field's path, it refused
+		// the value the server returned, which is the server's error.
+		const refusal = original instanceof GraphQLError && error.path === undefined
+		if (original === undefined || refusal) return unvalued(error)
 		const at = { nodes: error.nodes, path: error.path }
 		if (original instanceof PublicError) {
 			const { code, details } = original
