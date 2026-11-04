@@ -1,4 +1,4 @@
-// auth's rules and default (D-10, D-62, D-79, D-83), on the caller alone.
+// auth's rules and default (D-10, D-62, D-79, D-83, D-241), on the caller alone.
 import { asUser } from '@ultimabase/testing'
 import { describe, expect, expectTypeOf, it } from 'vitest'
 import type { Caller, Register, UserOf } from 'ultimabase'
@@ -17,6 +17,9 @@ const anonymous: Caller = { kind: 'anonymous' }
 const record = (author: { id: string } | null) => ({ record: { author } })
 const connect = (id: string) => ({ connect: { id } })
 const value = (author: unknown) => ({ value: { author } })
+
+// A read rule's `where`, returning the filter it is given.
+const wrapped = (filter: object) => ({ filter })
 
 describe('auth’s rules', () => {
 	it('isAuthenticated is true for a user only', () => {
@@ -99,6 +102,26 @@ describe('auth’s rules', () => {
 				...value(connect('ada')),
 			}),
 		).toBe(false)
+	})
+
+	it('isOwner filters a model read on the relation', () => {
+		type Read = {
+			readonly caller: Caller
+			readonly operation: 'read'
+			readonly where: (filter: {
+				readonly author?: { readonly is?: { readonly id?: string } }
+				readonly title?: string
+			}) => object
+		}
+		const owner = isOwner<Read, 'author'>('author')
+		const read = { operation: 'read', where: wrapped } as const
+		expect(owner({ caller: ada, ...read })).toStrictEqual({
+			filter: { author: { is: { id: 'ada' } } },
+		})
+		expect(owner({ caller: anonymous, ...read })).toBe(false)
+		expectTypeOf(owner).returns.toEqualTypeOf<object | false>()
+		// @ts-expect-error -- a read filters on a `one` relation only.
+		isOwner<Read, 'title'>('title')
 	})
 
 	it('isSelf is true for the caller’s own record', () => {
