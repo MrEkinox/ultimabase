@@ -407,6 +407,32 @@ const tasks = (within: boolean): Schema => ({
 	],
 })
 
+const accountWith = (...given: [string, Scalar['type']][]): Schema => ({
+	models: [
+		{
+			name: 'Account',
+			fields: given.map(([name, type]) => scalar(name, type)),
+			indexes: [],
+		},
+	],
+})
+const modelsNamed = (...names: string[]): Schema => ({
+	models: names.map((name) => ({
+		name,
+		fields: [scalar('label', 'string')],
+		indexes: [],
+	})),
+})
+/** Each removal that may be a rename, with the names it may be (D-232). */
+const hintsOf = (from: Schema, to: Schema) =>
+	migrations
+		.plan(migrations.snapshot(from), to)
+		.flatMap(({ rename }) =>
+			rename === undefined
+				? []
+				: [[rename.dbName, rename.to.map(({ name }) => name)]],
+		)
+
 describe('a sync on postgres()', () => {
 	it('builds an empty database, then changes every kind of thing a model holds', async () => {
 		await sync(undefined, before)
@@ -442,17 +468,20 @@ describe('a sync on postgres()', () => {
 			[
 				'removing Old deletes its rows',
 				{
-					to: 'New',
 					dbName: 'old',
-					sql: 'alter table "old" rename to "new"',
+					to: [{ name: 'New', sql: 'alter table "old" rename to "new"' }],
 				},
 			],
 			[
 				'removing "Shelf.note" deletes data',
 				{
-					to: 'Shelf.remark',
 					dbName: 'note',
-					sql: 'alter table "shelf" rename column "note" to "remark"',
+					to: [
+						{
+							name: 'Shelf.remark',
+							sql: 'alter table "shelf" rename column "note" to "remark"',
+						},
+					],
 				},
 			],
 			[
@@ -1297,9 +1326,61 @@ describe('a sync on postgres()', () => {
 		await sync(undefined, before)
 		const stored = await migrations.stored()
 		const statements = migrations.plan(stored?.snapshot, after)
-		expect(statements.find(({ model }) => model === 'Old')?.rename?.to).toBe(
-			'New',
-		)
+		expect(
+			statements.find(({ model }) => model === 'Old')?.rename?.to,
+		).toStrictEqual([{ name: 'New', sql: 'alter table "old" rename to "new"' }])
+	})
+
+	// Regression: each removal was offered the first added column or table
+	// alike, so every hint of several renames named the same one (D-232).
+	it('never offers one added column or table for two removals (D-232)', () => {
+		const settings = [
+			'Account.emailMessages',
+			'Account.emailInvites',
+			'Account.pushMessages',
+		]
+		expect(
+			hintsOf(
+				accountWith(
+					['mailOnMessage', 'boolean'],
+					['mailOnInvite', 'boolean'],
+					['pushOnMessage', 'boolean'],
+				),
+				accountWith(
+					['emailMessages', 'boolean'],
+					['emailInvites', 'boolean'],
+					['pushMessages', 'boolean'],
+				),
+			),
+		).toStrictEqual([
+			['mail_on_message', settings],
+			['mail_on_invite', settings],
+			['push_on_message', settings],
+		])
+		expect(
+			hintsOf(
+				accountWith(['mailOnMessage', 'boolean'], ['note', 'string']),
+				accountWith(['emailMessages', 'boolean'], ['remark', 'string']),
+			),
+		).toStrictEqual([
+			['mail_on_message', ['Account.emailMessages']],
+			['note', ['Account.remark']],
+		])
+		expect(
+			hintsOf(
+				accountWith(['mailOnMessage', 'boolean'], ['mailOnInvite', 'boolean']),
+				accountWith(['emailMessages', 'boolean']),
+			),
+		).toStrictEqual([])
+		expect(
+			hintsOf(modelsNamed('Left', 'Right'), modelsNamed('North', 'South')),
+		).toStrictEqual([
+			['left', ['North', 'South']],
+			['right', ['North', 'South']],
+		])
+		expect(
+			hintsOf(modelsNamed('Left', 'Right'), modelsNamed('North')),
+		).toStrictEqual([])
 	})
 
 	it('keeps the join of a model renamed with its dbName', async () => {

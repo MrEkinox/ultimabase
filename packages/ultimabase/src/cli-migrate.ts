@@ -63,6 +63,22 @@ export async function read(dir: string): Promise<Folder> {
 const stamp = (now: Date): string =>
 	now.toISOString().replaceAll(/[-:T]/g, '').slice(0, 'yyyyMMddHHmmss'.length)
 
+/**
+ * A removal's rename: the SQL that replaces it and the line adding its new
+ * name, or each to choose from (D-232).
+ */
+function hint(rename: Statement['rename']): string[] {
+	const to = rename?.to ?? []
+	const replace = '-- a rename? replace this drop and the line adding'
+	if (to.length < 2) {
+		return to.map(({ name, sql }) => `${replace} ${name} with: ${sql};`)
+	}
+	return [
+		`${replace} the one you keep with one of:`,
+		...to.map(({ sql }) => `--   ${sql};`),
+	]
+}
+
 function body(
 	hash: string,
 	statements: readonly Statement[],
@@ -72,7 +88,7 @@ function body(
 		[
 			...(loses === undefined ? [] : [`-- ${loses}.`]),
 			...(tries === undefined ? [] : [`-- ${tries}.`]),
-			...(rename === undefined ? [] : [`-- a rename? write: ${rename.sql};`]),
+			...hint(rename),
 			`${sql};`,
 		].join('\n'),
 	)

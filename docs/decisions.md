@@ -4066,7 +4066,7 @@ await Ticket.update({ where: { id }, data: { label: 'x' } }, { as: master })
 
 ## D-105: `ultimabase.config.ts`, the `ultimabase` commands and a schema snapshot
 
-Amended by D-171.
+Amended by D-171 and D-232.
 
 Choice: amends D-26, D-73 and D-98 point 1.
 
@@ -15543,4 +15543,74 @@ interface Password extends PluginTypes {
 	readonly name: 'password'
 	readonly issues: 'PASSWORD_LENGTH' | 'PASSWORD_IS_EMAIL' | 'PASSWORD_BREACHED'
 }
+```
+
+## D-232: A rename hint lists every added column alike, never one twice
+
+Choice: amends D-105.
+
+1. A removed column whose type only one added column has keeps its hint, as
+   before: `migrate create` writes the SQL that renames it, and the `sync`
+   refusal names the field to give `dbName`.
+2. A removed column that several added columns may be lists them all, in
+   the models' order, for the developer to choose; the refusal says
+   `give one of Account.emailMessages, Account.emailInvites dbName: 'mail_on_message'`.
+3. An added column that is the only one alike for two removals or more
+   gives no hint: naming it on each would propose it twice.
+4. Removed tables follow the same rules, compared by their columns' names,
+   types and nullability, as before.
+5. The file's hint says what to replace: the drop, and the line adding the
+   column the developer keeps, which would fail once the rename made it.
+   With one candidate:
+
+   ```sql
+   -- a rename? replace this drop and the line adding Account.emailMessages with: alter table … rename column …;
+   ```
+
+   With several, one commented line each, as in the example below.
+
+6. `Statement.rename` is `{ dbName, to: { name, sql }[] }`: the adapter
+   gives each candidate, and the kernel writes them.
+
+Why:
+
+- Each removal took the first added column of its type: settings renamed
+  together in one change all got a hint into the same column, and following
+  the hints put every value in it.
+- A hint that looks right and is wrong is worse than none. Only the
+  developer knows which column a removed one became.
+
+Rejected:
+
+- Picking the closest name: a guess presented as an answer.
+- `migrate create --rename Account.mailOnMessage=emailMessages`, or a
+  question per removal: a new API of the command, while editing the
+  written SQL already says the rename. It can come later, on a need.
+
+Example, before:
+
+```ts
+// Account's mailOnMessage, mailOnInvite and pushOnMessage become
+// emailMessages, emailInvites and pushMessages, all booleans.
+```
+
+```sql
+-- removing "Account.mailOnMessage" deletes data.
+-- a rename? write: alter table "account" rename column "mail_on_message" to "email_messages";
+alter table "account" drop column "mail_on_message";
+
+-- removing "Account.mailOnInvite" deletes data.
+-- a rename? write: alter table "account" rename column "mail_on_invite" to "email_messages";
+alter table "account" drop column "mail_on_invite";
+```
+
+After:
+
+```sql
+-- removing "Account.mailOnMessage" deletes data.
+-- a rename? replace this drop and the line adding the one you keep with one of:
+--   alter table "account" rename column "mail_on_message" to "email_messages";
+--   alter table "account" rename column "mail_on_message" to "email_invites";
+--   alter table "account" rename column "mail_on_message" to "push_messages";
+alter table "account" drop column "mail_on_message";
 ```

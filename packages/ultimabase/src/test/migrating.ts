@@ -64,20 +64,22 @@ function plan(from: unknown, to: unknown): Statement[] {
 			continue
 		}
 		const fresh = now.filter((field) => !fields.includes(field))
+		// Every added field may be a removed one's new name.
 		for (const field of fields.filter((given) => !now.includes(given))) {
-			const twin = fresh[0]
 			statements.push({
 				sql: `drop ${model}.${field}`,
 				model,
 				does: `removed ${field}`,
 				loses: `removing "${model}.${field}" deletes data`,
-				...(twin === undefined
+				...(fresh.length === 0
 					? {}
 					: {
 							rename: {
-								to: `${model}.${twin}`,
 								dbName: field,
-								sql: `rename ${field} to ${twin}`,
+								to: fresh.map((twin) => ({
+									name: `${model}.${twin}`,
+									sql: `rename ${field} to ${twin}`,
+								})),
 							},
 						}),
 			})
