@@ -136,15 +136,16 @@ hooks ran, or rejects with the error that rolled it back.
 
 ### Errors
 
-| Error                                                                                              | When                                                    |
-| -------------------------------------------------------------------------------------------------- | ------------------------------------------------------- |
-| the callback's error                                                                               | The callback threw; nothing was written.                |
-| the failed query's error                                                                           | A query failed, caught or not; nothing was written.     |
-| `A query failed in this transaction, which rolls back: no other query runs in it.`                 | A query ran after one failed.                           |
-| `transaction runs on a started application.`                                                       | No application is started.                              |
-| `RELATION_RESTRICTED`, `NOT_FOUND`                                                                 | PostgreSQL's foreign keys refused at the commit.        |
-| `CONFLICT`                                                                                         | A serializable transaction conflicted 10 times.         |
-| `A transaction cannot become serializable once it began; open the serializable transaction first.` | The option, inside a transaction that began without it. |
+| Error                                                                                              | When                                                                        |
+| -------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| the callback's error                                                                               | The callback threw; nothing was written.                                    |
+| the failed query's error                                                                           | A query failed, caught or not; nothing was written.                         |
+| `A query failed in this transaction, which rolls back: no other query runs in it.`                 | A query ran after one failed.                                               |
+| `transaction runs on a started application.`                                                       | No application is started.                                                  |
+| `RELATION_RESTRICTED`, `NOT_FOUND`                                                                 | PostgreSQL's foreign keys refused at the commit.                            |
+| `RELATION_SIZE`                                                                                    | A parent the transaction touched holds too few or too many rows at its end. |
+| `CONFLICT`                                                                                         | A serializable transaction conflicted 10 times.                             |
+| `A transaction cannot become serializable once it began; open the serializable transaction first.` | The option, inside a transaction that began without it.                     |
 
 ### Limits
 

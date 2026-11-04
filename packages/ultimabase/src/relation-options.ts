@@ -1,4 +1,5 @@
-// A relation's options (D-37, D-54, D-151, D-220, D-236, D-237, D-240).
+// A relation's options (D-37, D-54, D-151, D-220, D-236, D-237, D-240,
+// D-242).
 import type { Described } from './described.ts'
 import type { DefaultFunction } from './fields.ts'
 
@@ -63,6 +64,11 @@ export type ManyOptions = Described &
 				 * with `'project'` (D-236).
 				 */
 				readonly within?: string
+				/**
+				 * Facing a `one`, the fewest and the most rows each parent holds
+				 * at the end of a transaction that touches it (D-242).
+				 */
+				readonly size?: { readonly min?: number; readonly max?: number }
 		  }
 		| {
 				/**
@@ -71,5 +77,6 @@ export type ManyOptions = Described &
 				 */
 				readonly from: string
 				readonly inverse?: undefined
+				readonly size?: undefined
 		  }
 	)

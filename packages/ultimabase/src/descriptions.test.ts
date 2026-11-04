@@ -34,6 +34,7 @@ const Author = defineModel({
 		posts: f.many(() => Post, {
 			inverse: 'author',
 			description: 'What they wrote.',
+			size: { max: 3 },
 		}),
 	}),
 })
@@ -95,7 +96,10 @@ describe('descriptions', () => {
 		const [author, post] = seen.models
 		expect(author).toMatchObject({
 			description: 'Who writes the posts.',
-			descriptions: { name: 'As printed.', posts: 'What they wrote.' },
+			descriptions: {
+				name: 'As printed.',
+				posts: 'What they wrote. Holds at most 3 rows.',
+			},
 		})
 		expect(post?.description).toBeUndefined()
 		expect(post?.descriptions).toStrictEqual({
