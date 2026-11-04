@@ -1,5 +1,89 @@
 # @ultimabase/password
 
+## 0.4.0
+
+### Minor Changes
+
+- 215832f: `passwordPlugin({ breached: true })` refuses a new password that appears in
+  a known data breach, asking Have I Been Pwned with the first 5 characters
+  of its SHA-1; it is off by default, accepts the password when the service
+  does not answer within 2 seconds, asks nothing under `NODE_ENV=test`, and a
+  production start without the option warns. A new password equal to the
+  account's email, or to its local part, is refused. A refused reset keeps
+  its link (D-209).
+- 957bb20: `User.closeAccount` and `AuthApi.onCloseAccount` are removed (D-211): delete
+  the user instead, which ends its sessions, unlinks its accounts and deletes
+  its password, so the email signs up again. `email: null` on a user with a
+  password account is refused with `email: A password account keeps its
+email.`
+- 3f23551: The email flows are commands on the user model for server code and tests:
+  `User.requestPasswordReset({ email })`, `User.resetPassword({ token, password })`,
+  `User.verifyEmail({ token })`, `User.sendVerificationEmail({ id })`,
+  `User.requestEmailChange({ id, newEmail })` and
+  `User.confirmEmailChange({ token })`. Each runs its function's code and
+  resolves once the email has left.
+
+### Patch Changes
+
+- 67d5152: `asUser` takes the user's row as a sign-up or a Master read returns it, whose
+  read-ruled fields are optional, instead of refusing it (D-203). A user's
+  `email` and `passwordSetAt` are optional in the rows a read returns, since
+  only the user and Master read them; `ultimabase` exports `UserRowOf` and
+  `Hidden` for it.
+- e61e1c2: `requestEmailChange` refuses a taken email with the details of a sign-up,
+  `{ model: 'User', fields: ['email'] }`.
+- 11b7633: `IssueCodeOf<typeof app>` types the codes the plugins give a
+  `VALIDATION_FAILED` issue, which a plugin declares in its types' `issues`.
+  The password plugin declares `PASSWORD_LENGTH`, `PASSWORD_IS_EMAIL` and
+  `PASSWORD_BREACHED` (D-231).
+- 6f37f70: A schema's issue keeps its code when it is in capitals, as `NAME_LENGTH`;
+  a library's, as Zod's `too_small`, is left out. The password's refusals
+  carry `PASSWORD_LENGTH`, `PASSWORD_IS_EMAIL` and `PASSWORD_BREACHED`, and
+  within a function they share the input's path, as
+  `['input', 'newPassword']` (D-224).
+- 6bbea47: A new password deletes the pending email-change link, a reset or verification link sent to an email the account has left fails, and a sign-in that raced `setPassword` inside an application's transaction ends once it commits (D-212).
+- 1d7fda8: `ultimabase` exports `QueryOptions`, the `{ as }` every query, model command
+  and `fn.run` take; auth, files and password use it instead of their own
+  copies.
+- Updated dependencies [67d5152]
+- Updated dependencies [957bb20]
+- Updated dependencies [4c2d462]
+- Updated dependencies [7accc26]
+- Updated dependencies [783fc4b]
+- Updated dependencies [f38d1fb]
+- Updated dependencies [8dca2cf]
+- Updated dependencies [4e1a966]
+- Updated dependencies [e4c1252]
+- Updated dependencies [11b7633]
+- Updated dependencies [6f37f70]
+- Updated dependencies [9b491fb]
+- Updated dependencies [9b491fb]
+- Updated dependencies [b65eb74]
+- Updated dependencies [1354efd]
+- Updated dependencies [b994e6e]
+- Updated dependencies [fb807e1]
+- Updated dependencies [69699b2]
+- Updated dependencies [957bb20]
+- Updated dependencies [4b37376]
+- Updated dependencies [d76e882]
+- Updated dependencies [ebdf8a0]
+- Updated dependencies [1a5c324]
+- Updated dependencies [b5c22b0]
+- Updated dependencies [1d7fda8]
+- Updated dependencies [a778695]
+- Updated dependencies [adafb1a]
+- Updated dependencies [2afc370]
+- Updated dependencies [e61e1c2]
+- Updated dependencies [844627a]
+- Updated dependencies [eb6dbbf]
+- Updated dependencies [c9a8228]
+- Updated dependencies [501c0cb]
+- Updated dependencies [644a24f]
+- Updated dependencies [efc4303]
+- Updated dependencies [6c1cfe5]
+  - ultimabase@0.4.0
+  - @ultimabase/auth@0.4.0
+
 ## 0.3.0
 
 ### Minor Changes

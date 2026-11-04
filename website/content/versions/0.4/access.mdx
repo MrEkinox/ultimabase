@@ -1,0 +1,469 @@
+---
+title: Access rules
+description: Decide who reads which rows and fields, and who creates, updates and deletes them.
+---
+
+Every query runs as a caller: an anonymous visitor, a signed-in user, or
+Master, the server's own code. A model's `.with({ access })` decides what
+each caller may do, and a model without rules is closed to everyone but
+Master. Each rule is a plain function that returns `true` or `false`:
+
+```ts
+import { graphql } from '@ultimabase/graphql'
+import { allOf, allow, anyOf, defineModel } from 'ultimabase'
+import type { Caller } from 'ultimabase'
+
+/** The caller's user id, or `undefined` for anyone else. */
+const userId = (caller: Caller) =>
+	caller.kind === 'user' ? caller.user.id : undefined
+
+export const Article = defineModel({
+	name: 'Article',
+	use: [graphql()],
+	fields: (f) => ({
+		title: f.string(),
+		status: f.enumOf(['draft', 'published'], { default: 'draft' }),
+		// Written once, with the caller's id: nobody signs for someone else.
+		authorId: f.string({ default: ({ caller }) => userId(caller) }).with({
+			access: {
+				create: ({ caller, value }) => value === userId(caller),
+				update: allow.private,
+			},
+		}),
+		// The author's notes: other readers get the article without them.
+		notes: f.string({ optional: true }).with<{ authorId: string }>({
+			access: {
+				read: ({ caller, record }) => record.authorId === userId(caller),
+			},
+		}),
+		// Only the server features an article.
+		featured: f.boolean({ default: false }).with({ access: allow.readOnly }),
+	}),
+}).with({
+	access: {
+		// Everyone reads what is published; an author reads their drafts too.
+		read: anyOf(
+			({ where }) => where({ status: 'published' }),
+			({ caller, where }) =>
+				caller.kind === 'user' && where({ authorId: caller.user.id }),
+		),
+		create: ({ caller }) => caller.kind === 'user',
+		update: ({ caller, record }) => record.authorId === userId(caller),
+		// An author deletes their own drafts, and nothing published.
+		delete: allOf(
+			({ caller, record }) => record.authorId === userId(caller),
+			({ record }) => record.status === 'draft',
+		),
+	},
+})
+```
+
+The full example, with its tests: [`examples/access-rules`](https://github.com/MrEkinox/ultimabase/tree/main/examples/access-rules).
+
+`allow.public`, `allow.readOnly` and `allow.private` cover the common cases:
+`access: allow.readOnly` lets everyone read and only Master write. Rules are
+synchronous and run no query: a check that needs another row goes in a
+[hook](/docs/next/hooks). Access rules, [roles](/docs/next/roles) and the
+[ACL](/docs/next/acl) each fit a kind of right: see
+[Rules, roles or ACL](#rules-roles-or-acl).
+
+## Read rules
+
+A read rule returns `true` to let every row through, `false` to hide them
+all, or a filter built with the `where` it receives, in the form of a
+query's `where`. The filter joins every query on the model, so pages,
+counts and relation filters stay exact:
+
+```ts
+await Article.create(
+	{ data: { title: 'Draft', notes: 'Check the dates.' } },
+	ada,
+)
+await Article.create(
+	{ data: { title: 'Launch', status: 'published', notes: 'Embargo.' } },
+	ada,
+)
+// The filter joins the query: pages and counts stay exact.
+expect(titles(await Article.findMany({}, ada))).toEqual(['Draft', 'Launch'])
+expect(titles(await Article.findMany({}, grace))).toEqual(['Launch'])
+expect(await Article.count({}, grace)).toBe(1)
+// A field read rule hides the value, row by row.
+const [launch] = await Article.findMany({}, grace)
+expect(launch).not.toHaveProperty('notes')
+// Nor can a filter guess it.
+await expect(
+	Article.findMany({ where: { notes: { contains: 'E' } } }, grace),
+).rejects.toMatchObject({
+	code: 'INVALID_QUERY',
+	message:
+		'where.notes: Article.notes has a read rule; only Master filters on it.',
+})
+```
+
+`anyOf` joins the rules' filters with `OR`, `allOf` with `AND`. A read rule
+does not see the row: to decide on a row's values, filter on them.
+
+## Write rules
+
+`create`, `update` and `delete` each take a rule; `write` covers the three,
+and a specific key wins over it. A write rule also receives the stored
+`record` (on `update` and `delete`) and the written `value` (on `create` and
+`update`). A row the caller cannot read cannot be written either: it is
+`NOT_FOUND`, so a refusal never tells that the row exists.
+
+```ts
+const draft = await Article.create({ data: { title: 'Draft' } }, ada)
+expect(draft.authorId).toBe('ada')
+
+// Grace reads no draft of Ada's: for her, it does not exist.
+await expect(
+	Article.update({ where: { id: draft.id }, data: { title: 'Mine' } }, grace),
+).rejects.toMatchObject({ code: 'NOT_FOUND' })
+
+// A field rule: nobody signs an article for someone else.
+await expect(
+	Article.create({ data: { title: 'Fake', authorId: 'grace' } }, ada),
+).rejects.toMatchObject({
+	code: 'ACCESS_DENIED',
+	message: 'Article create refused.',
+	details: { model: 'Article', operation: 'create', field: 'authorId' },
+})
+
+// Published, the article can no longer be deleted by its author.
+await Article.update(
+	{ where: { id: draft.id }, data: { status: 'published' } },
+	ada,
+)
+await expect(
+	Article.delete({ where: { id: draft.id } }, ada),
+).rejects.toMatchObject({
+	code: 'ACCESS_DENIED',
+	details: { model: 'Article', operation: 'delete' },
+})
+```
+
+A refused write writes nothing and fails with `ACCESS_DENIED`; its `details`
+name the model, the operation and the field whose rule refused. The logger
+receives the same details and the caller's id. `updateMany` and `deleteMany`
+run the rules on each row.
+
+## Field rules
+
+A field's `.with({ access })` takes one rule, or one per operation: `read`,
+`create`, `update`, and `write` for both writes. A field rule runs after the
+model's, only when the write names the field; it receives the row's `record`
+and the field's `value`.
+
+A read rule on a field hides its value from the rows it refuses. A caller
+other than Master cannot filter, sort or aggregate on such a field, which
+would reveal the value one guess at a time. `allow.private` leaves the field
+to Master: the transports leave it out of their schema.
+`allow.public` and `allow.readOnly` are no read rule: everyone filters and
+sorts on a field that has them, as `featured` above, and only the writes
+are checked.
+
+The rows a query returns type a field with a read rule as optional, in a
+`select` or an `include` too: `notes` above reads `string | undefined`. A
+hook's or a rule's `record` still has every field.
+
+A field rule sees `record.id` typed and the other fields as `unknown`.
+`.with<{ authorId: string }>({ ... })` types the fields its rules read, as in
+`notes` above; `defineModel` checks that each type matches the model's.
+
+## Rights from a relation
+
+A read rule's filter goes through relations as a query's does. A project's
+members read it, and the tasks in it, with no role to keep in step:
+
+```ts
+import { graphql } from '@ultimabase/graphql'
+import { PublicError, allow, defineModel } from 'ultimabase'
+import type { Caller } from 'ultimabase'
+
+/** The caller's user id, or `undefined` for anyone else. */
+const userId = (caller: Caller) =>
+	caller.kind === 'user' ? caller.user.id : undefined
+
+export const Person = defineModel({
+	name: 'Person',
+	use: [graphql()],
+	fields: (f) => ({
+		name: f.string(),
+		projects: f.many(() => Project, { inverse: 'members' }),
+		owned: f.many(() => Project, { inverse: 'owner' }),
+	}),
+}).with({ access: allow.readOnly })
+
+export const Project = defineModel({
+	name: 'Project',
+	use: [graphql()],
+	fields: (f) => ({
+		name: f.string(),
+		owner: f.one(() => Person),
+		members: f.many(() => Person, { inverse: 'projects' }),
+		tasks: f.many(() => Task, { inverse: 'project' }),
+	}),
+}).with({
+	access: {
+		// Its members read a project, through the relation to the caller.
+		read: ({ caller, where }) =>
+			caller.kind === 'user' &&
+			where({ members: { some: { id: caller.user.id } } }),
+		// A rule sees the row's own `one` relations as `{ id }`: enough here.
+		update: ({ caller, record }) => record.owner.id === userId(caller),
+	},
+})
+
+export const Task = defineModel({
+	name: 'Task',
+	use: [graphql()],
+	fields: (f) => ({
+		title: f.string(),
+		done: f.boolean({ default: false }),
+		project: f.one(() => Project, { onDelete: 'cascade' }),
+	}),
+}).with({
+	access: {
+		// The members of its project read a task, one relation further.
+		read: ({ caller, where }) =>
+			caller.kind === 'user' &&
+			where({
+				project: { is: { members: { some: { id: caller.user.id } } } },
+			}),
+		// Only the project's owner writes its tasks: the row matches the
+		// filter before an update or a delete, and after a create or an
+		// update, so no task moves to a project of someone else's.
+		write: ({ caller, where }) =>
+			caller.kind === 'user' &&
+			where(
+				{ project: { is: { owner: { is: { id: caller.user.id } } } } },
+				new PublicError(
+					'NOT_PROJECT_OWNER',
+					'Only the project’s owner writes its tasks.',
+				),
+			),
+	},
+})
+```
+
+A member who leaves the project reads none of its tasks from the next
+query on, and a [live read](/docs/next/realtime#rights) follows the
+relations its filter goes through:
+
+```ts
+await Task.create(
+	{ data: { title: 'Parse', project: { connect: { id: project.id } } } },
+	ada,
+)
+// Grace is a member: she reads the task; Alan is not.
+expect(await Task.count({}, grace)).toBe(1)
+expect(await Task.count({}, alan)).toBe(0)
+// Out of the project, Grace reads nothing from her next query on.
+await Project.update(
+	{
+		where: { id: project.id },
+		data: { members: { disconnect: [{ id: graceId }] } },
+	},
+	{ as: master },
+)
+expect(await Task.count({}, grace)).toBe(0)
+```
+
+Each read joins the relation. PostgreSQL indexes every relation's key, and
+both columns of a join table, so the join needs no index of yours. With the
+[auth plugin](/docs/next/auth), `{ viewer: true }` on a relation to the user
+model stands for the caller: `members: { some: { viewer: true } }`.
+
+## Rights over a group's rows
+
+A write rule receives the row, with its own `one` relations as `{ id }`:
+`Project.update` above checks `record.owner`. To go further, a model's
+`create`, `update`, `delete` or `write` rule returns `where(...)`, as a read
+rule does. `Task.write` above keeps a task's writes to its project's owner:
+
+- an update's row matches the filter before the write and after it, so no
+  task moves to another owner's project;
+- a delete's row matches it before;
+- a create's row matches it after, with the relations it connects or
+  creates.
+
+A row outside the filter refuses the whole write, an `updateMany` or a
+`deleteMany` included, and nothing is written. The error is the one `where`
+takes as its second argument, a `PublicError`, or `ACCESS_DENIED` without
+one. The filter goes through the same relations as a read rule's and is
+checked in the write's own statement, or by one count per filter in its
+transaction.
+
+```ts
+const task = await Task.create(
+	{ data: { title: 'Parse', project: { connect: { id: project.id } } } },
+	ada,
+)
+// Grace reads the task, but the rule refuses her writes.
+const refused = {
+	code: 'NOT_PROJECT_OWNER',
+	message: 'Only the project’s owner writes its tasks.',
+}
+await expect(
+	Task.update({ where: { id: task.id }, data: { done: true } }, grace),
+).rejects.toMatchObject(refused)
+await expect(
+	Task.delete({ where: { id: task.id } }, grace),
+).rejects.toMatchObject(refused)
+await expect(
+	Task.create(
+		{ data: { title: 'Lex', project: { connect: { id: project.id } } } },
+		grace,
+	),
+).rejects.toMatchObject(refused)
+// Ada, the owner, does both.
+const done = await Task.update(
+	{ where: { id: task.id }, data: { done: true } },
+	ada,
+)
+expect(done.done).toBe(true)
+await Task.delete({ where: { id: task.id } }, ada)
+```
+
+## Master
+
+Master skips every rule. Server code passes `{ as: master }`; a transport
+acts as Master only with the master key (see [HTTP](/docs/next/http)), and
+in production only with a key written `{ key, production: true }` (see
+[Deploy](/docs/next/deploy)).
+
+```ts
+const draft = await Article.create({ data: { title: 'Draft' } }, ada)
+await expect(
+	Article.update({ where: { id: draft.id }, data: { featured: true } }, ada),
+).rejects.toMatchObject({ code: 'ACCESS_DENIED' })
+const featured = await Article.update(
+	{ where: { id: draft.id }, data: { featured: true } },
+	{ as: master },
+)
+expect(featured.featured).toBe(true)
+// allow.readOnly is no read rule: the author filters on the field.
+const listed = await Article.findMany(
+	{ where: { featured: { equals: true } } },
+	ada,
+)
+expect(listed.map(({ id }) => id)).toEqual([draft.id])
+```
+
+A function or a hook receives the `caller` it runs for: `{ as: caller }`
+runs the rules for that caller, `{ as: master }` acts as the server.
+
+## Over the transports
+
+A client meets the same rules, with the same error:
+
+```ts
+const response = await fetch(`${running.url}/graphql`, {
+	method: 'POST',
+	headers: { 'content-type': 'application/json' },
+	body: JSON.stringify({
+		query: 'mutation { createArticle(data: { title: "Hi" }) { id } }',
+	}),
+})
+expect(await response.json()).toMatchObject({
+	errors: [
+		{
+			message: 'Article create refused.',
+			extensions: { code: 'ACCESS_DENIED' },
+		},
+	],
+})
+```
+
+The caller comes from the request: the [auth plugin](/docs/next/auth) reads
+a session and adds `signedIn`, `isOwner`, `isSelf` and `isAuthenticated` to
+the rules; [roles](/docs/next/roles) adds `hasRole`.
+
+## Rules, roles or ACL
+
+Each kind of right has its tool:
+
+| The right                                                         | Fits                                          | Why                                                                                                                         |
+| ----------------------------------------------------------------- | --------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| Follows from data the app holds: a membership, an owner, a status | A read rule's filter, through a relation      | Nothing to keep in step: a member who leaves reads nothing more. Conditions on the row join the same filter.                |
+| Given to a person across the app: an admin, a moderator, support  | [Roles](/docs/next/roles) and `hasRole`       | The right belongs to the person, not to a group's data.                                                                     |
+| Chosen row by row, by a user: share this note with Ada and Grace  | The [ACL](/docs/next/acl), by user or by role | The right is the data: nothing else holds it.                                                                               |
+| Migrated from Parse                                               | Roles and the ACL                             | They match Parse's `_Role` and ACLs one to one; moving a group's rights to a relation later removes the hooks that sync it. |
+
+They combine: an operation passes the model's access rules, then the ACL
+picks among the rows they let through. A role given during a request counts
+from the next one ([Roles](/docs/next/roles#inherit-roles)), and a live read
+is planned again when a role, an ACL or a session changes
+([Realtime](/docs/next/realtime#rights)).
+
+## Reference
+
+### `access`
+
+| Where   | Form                                                    | Operations                                                       |
+| ------- | ------------------------------------------------------- | ---------------------------------------------------------------- |
+| a model | a rule, or `{ read, create, update, delete, write }`    | `write` stands for `create`, `update` and `delete`               |
+| a field | a rule, or `{ read, create, update, write }`            | `write` stands for `create` and `update`                         |
+| either  | a missing key, on a model: closed; on a field: no check | a specific key wins over `write`; a single rule covers every one |
+
+### What a rule receives
+
+| Rule           | Facts                                        | Returns                    |
+| -------------- | -------------------------------------------- | -------------------------- |
+| model `read`   | `caller`, `operation`, `where`               | `true`, `false`, `where()` |
+| model `create` | `caller`, `operation`, `value` (the data)    | `boolean`                  |
+| model `update` | `caller`, `operation`, `record`, `value`     | `boolean`                  |
+| model `delete` | `caller`, `operation`, `record`              | `boolean`                  |
+| field `read`   | `caller`, `operation`, `record`              | `boolean`                  |
+| field `create` | `caller`, `operation`, `value` (the field's) | `boolean`                  |
+| field `update` | `caller`, `operation`, `record`, `value`     | `boolean`                  |
+
+`record` holds the stored row: `id`, `createdAt`, `updatedAt`, each field,
+and each `one` relation as `{ id }` or `null`. A relation's `value` is ids,
+never data: `{ id }` or `null` for a `one`, `{ connect, disconnect, create,
+delete }` lists of `{ id }` for a `many`.
+
+`caller` is one of:
+
+| `caller.kind` | Other keys                                     |
+| ------------- | ---------------------------------------------- |
+| `'anonymous'` | none                                           |
+| `'user'`      | `user`: `{ id }`, or the registered user model |
+| `'master'`    | `master.source`: `'code'` or `'key'`           |
+
+`declare module 'ultimabase' { interface Register { readonly user: typeof
+User } }` types `caller.user` as the user model's row: see
+[Authentication](/docs/next/auth).
+
+### Rules
+
+| Rule              | Effect                                                                           |
+| ----------------- | -------------------------------------------------------------------------------- |
+| `allow.public`    | Everyone.                                                                        |
+| `allow.readOnly`  | Everyone reads; nobody but Master writes.                                        |
+| `allow.private`   | Nobody but Master.                                                               |
+| `anyOf(...rules)` | True when one rule is; the filters joined with `OR`, refused as `ACCESS_DENIED`. |
+| `allOf(...rules)` | True when every rule is; each filter checked alone, with its own error.          |
+
+### Errors
+
+| Code            | When                                                                                                                                   | `details`                            |
+| --------------- | -------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------ |
+| `ACCESS_DENIED` | A write rule refused, or a row outside its filter given no error: `Article create refused.`                                            | `{ model, operation, field?, via? }` |
+| `NOT_FOUND`     | An update or a delete of a row the read rule hides.                                                                                    | none                                 |
+| `INVALID_QUERY` | A filter, a sort or an aggregate on a field with a read rule: `where.notes: Article.notes has a read rule; only Master filters on it.` | none                                 |
+
+`via` names the relation a nested write came through, as `'Post.comments'`.
+A client's filter refused as `INVALID_QUERY` answers `BAD_USER_INPUT`, a
+`400`.
+
+### Limits
+
+- A rule returns its result directly, never a `Promise`, and cannot query.
+- A model rule returns `true`, `false` or `where(...)`; any other value
+  throws `A read rule returns a boolean or a filter.` or `A write rule returns
+a boolean or a filter.` A field rule returns a boolean:
+  `A field rule returns a boolean.`
+- A field read rule cannot return a filter.
+- A virtual a field read rule hides, and the `_count` of a hidden relation,
+  are typed as present.

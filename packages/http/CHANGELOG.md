@@ -1,5 +1,97 @@
 # @ultimabase/http
 
+## 0.4.0
+
+### Minor Changes
+
+- 7accc26: Each plugin declares the codes its errors carry in its types' `errors`, and `ultimabase` exports `ErrorCodeOf<typeof app>`: the kernel's codes and those of each plugin the application lists, for a client to type its messages against (D-206). A GraphQL document the schema refuses, as an unknown field, now carries `extensions.code: 'BAD_USER_INPUT'`, as REST's refused query.
+- 4e1a966: `httpPlugin` answers `GET /health` and `GET /ready`, before every route.
+  `/ready` answers 503 until every plugin started, once the stop began, and
+  while a check a plugin added with `plugins.http.ready(check)` fails. On
+  `stop`, the server keeps serving for `drain` milliseconds, 5000 in
+  production, before the plugins stop. Plugins get two hooks: `started`, once
+  every plugin started, and `stopping`, before any plugin stops (D-204).
+  Until every plugin started, every other request and upgrade answers 503
+  `UNAVAILABLE`, Master's too (D-207).
+- e4c1252: `httpPlugin()` limits each client address to 600 requests and upgrades a
+  minute, answering 429 `TOO_MANY_ATTEMPTS` with `Retry-After` past it, before
+  any session is read (D-218). `rateLimit: { requests, window }` changes the
+  limit and `rateLimit: false` turns it off. An IPv6 address counts by its /64;
+  a local or private address is never counted; the master key passes.
+- 9cebf63: New package, `@ultimabase/maintenance`: `maintenancePlugin()` answers 503
+  `MAINTENANCE`, with `Retry-After`, to every request and WebSocket upgrade
+  but Master's, and closes the open sockets with 1012, while the maintenance
+  is on. `PUT /_ultimabase/maintenance { enabled }`, with the master key or
+  the `key` option sent in `x-ultimabase-maintenance-key`, turns it on and
+  off, and so do `plugins.maintenance.lock()` and `unlock()`; every server
+  follows the stored state, or `initial` while none is stored, and a start
+  that cannot read it fails (D-207). `/health` and `/ready` are left
+  alone. Plugins add their own gates with `plugins.http.gate(gate)`, run on
+  each request past CORS and on each upgrade (D-205).
+
+### Patch Changes
+
+- 9c6ca70: A connection asking for its `totalCount` alone reads no row: over GraphQL
+  when neither `edges` nor `pageInfo` is selected, or with `first: 0`; over
+  REST and live with `first=0&totalCount=true` (D-226).
+- 4fba06b: Each operation sent over a GraphQL WebSocket counts as a request of its
+  address: over the limit it fails with `TOO_MANY_ATTEMPTS` and
+  `details.retryAfter`, and the socket stays open. `Upgrade` gains `limit()`,
+  which counts one more request for a plugin's own socket (D-230). A live
+  function's subscription is refused past `maxRows`, as its query over HTTP
+  (D-229). A value graphql-js cannot send, as an `Int` above 2³¹, is an
+  `INTERNAL` error, logged with its `correlationId`, instead of
+  `BAD_USER_INPUT` (D-106).
+- 6e7d759: A WebSocket or a form from the server's own host over HTTPS, as a proxy
+  serving HTTPS forwards it, is the server's own origin, not refused unless
+  `cors` lists it. The start refuses a `bodyLimit` that is not a whole number
+  of bytes above 0, as `NaN`, which lifted the limit, and a `drain` that is
+  not a whole number of milliseconds.
+- b65eb74: A `many` facing a `one` takes `size: { min, max }` (D-242): each parent a
+  write or a transaction touches holds `min` to `max` rows at its end, or the
+  write is refused with `RELATION_SIZE`, `details: { model, field, id, min,
+max, size }`, and nothing of it is kept. Every path counts: nested and bulk
+  writes, moves from either side, deletes, cascades and `setNull`; deleting
+  the parent is never refused by its own bound. Each write locks the parents
+  it touches, so concurrent writes cannot pass the bound together. A
+  many-to-many or a view with a `size` is refused by the types and at startup.
+  HTTP sends `RELATION_SIZE` as 409, and the GraphQL and OpenAPI schemas state
+  the bound in the field's description: `Holds 2 to 4 rows.`
+- Updated dependencies [67d5152]
+- Updated dependencies [4c2d462]
+- Updated dependencies [7accc26]
+- Updated dependencies [783fc4b]
+- Updated dependencies [f38d1fb]
+- Updated dependencies [8dca2cf]
+- Updated dependencies [4e1a966]
+- Updated dependencies [e4c1252]
+- Updated dependencies [11b7633]
+- Updated dependencies [6f37f70]
+- Updated dependencies [9b491fb]
+- Updated dependencies [9b491fb]
+- Updated dependencies [b65eb74]
+- Updated dependencies [1354efd]
+- Updated dependencies [b994e6e]
+- Updated dependencies [fb807e1]
+- Updated dependencies [69699b2]
+- Updated dependencies [4b37376]
+- Updated dependencies [d76e882]
+- Updated dependencies [ebdf8a0]
+- Updated dependencies [b5c22b0]
+- Updated dependencies [1d7fda8]
+- Updated dependencies [a778695]
+- Updated dependencies [adafb1a]
+- Updated dependencies [2afc370]
+- Updated dependencies [e61e1c2]
+- Updated dependencies [844627a]
+- Updated dependencies [eb6dbbf]
+- Updated dependencies [c9a8228]
+- Updated dependencies [501c0cb]
+- Updated dependencies [644a24f]
+- Updated dependencies [efc4303]
+- Updated dependencies [6c1cfe5]
+  - ultimabase@0.4.0
+
 ## 0.3.0
 
 ### Minor Changes
