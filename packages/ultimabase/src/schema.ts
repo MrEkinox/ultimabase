@@ -243,8 +243,13 @@ export function resolve(
 					`${model}.${name}: a plugin's model relates only to models of the same plugin; keep the id as a scalar.`,
 				)
 			}
-			// A view reads the link of another relation (D-151, D-240).
+			// A view reads the link of another relation (D-151, D-240, D-246).
 			const from = field.options['from']
+			if (field.kind === 'exists' && typeof from !== 'string') {
+				throw new Refused(
+					`${model}.${name}: an exists names its many with from.`,
+				)
+			}
 			const link = { model, name, field, target }
 			;(typeof from === 'string' ? views : links).push(link)
 		}
@@ -260,11 +265,11 @@ export function resolve(
 			return relationOf(model, name) ?? scalarField(name, field)
 		}
 		const from = String(field.options['from'])
-		return (field.kind === 'one' ? oneViewField : viewField)(
-			{ model, name, target: view.target, options: field.options },
-			from,
-			linkOf(views, model, from) ? 'view' : relationOf(model, from),
-		)
+		const read = { model, name, target: view.target, options: field.options }
+		const source = linkOf(views, model, from) ? 'view' : relationOf(model, from)
+		return field.kind === 'one'
+			? oneViewField(read, from, source)
+			: viewField(read, from, source, field.kind === 'exists')
 	}
 	const models = new Map<string, ModelInfo>()
 	const byValue = new Map<object, ModelInfo>()

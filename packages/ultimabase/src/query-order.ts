@@ -121,6 +121,12 @@ function keys(
 			order.push(...keys(models, target, value, where, scope, next, search))
 			continue
 		}
+		if (known.exists) {
+			throw new InvalidQuery(
+				where,
+				`${where}: ${model.name}.${field} is an exists, which sorts nothing.`,
+			)
+		}
 		const [only, ...rest] = isObject(value) ? Object.entries(value) : []
 		if (only?.[0] !== '_count' || rest.length > 0) {
 			throw new InvalidQuery(

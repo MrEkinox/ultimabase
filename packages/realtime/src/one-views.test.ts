@@ -1,6 +1,7 @@
-// A live read follows a `one` view (D-240) as it follows a `many` one: a
-// write to its target's rows sends again the rows whose view changed, and a
-// view that pins the viewer follows each caller's own row (D-245).
+// A live read follows a `one` view (D-240) and an `exists` (D-246) as it
+// follows a `many` one: a write to its target's rows sends again the rows
+// whose view changed, and a view that pins the viewer follows each caller's
+// own row (D-245).
 import { asUser } from '@ultimabase/testing'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { PluginTypes } from 'ultimabase'
@@ -38,12 +39,14 @@ const Board = defineModel({
 		current: f.one(() => Round, { from: 'rounds' }),
 		votes: f.many(() => Vote, { inverse: 'board' }),
 		myVote: f.one(() => Vote, { from: 'votes' }),
+		hasVoted: f.exists(() => Vote, { from: 'votes' }),
 	}),
 }).with({
 	access: allow.public,
 	relations: {
 		current: { where: ({ where }) => where({ open: true }) },
 		myVote: { where: ({ where }) => where({ user: mine }) },
+		hasVoted: { where: ({ where }) => where({ user: mine }) },
 	},
 })
 
@@ -163,8 +166,13 @@ describe('a live list showing a one view', () => {
 	})
 })
 
-/** The messages of a live list of each board's `myVote`, as `user`. */
-async function voted(user?: string): Promise<LiveMessage[]> {
+/** The messages of a live list of boards, read with `args`, as `user`. */
+async function voted(
+	user?: string,
+	args: object = {
+		select: { name: true, myVote: { select: { score: true } } },
+	},
+): Promise<LiveMessage[]> {
 	if (api === undefined) throw new Error('No realtime API.')
 	const headers: Record<string, string> =
 		user === undefined ? {} : { authorization: user }
@@ -174,32 +182,29 @@ async function voted(user?: string): Promise<LiveMessage[]> {
 	const seen: LiveMessage[] = []
 	await viewer.list(
 		'Board',
-		{
-			first: 10,
-			orderBy: { name: 'asc' },
-			select: { name: true, myVote: { select: { score: true } } },
-		},
+		{ first: 10, orderBy: { name: 'asc' }, ...args },
 		(message) => seen.push(message),
 	)
 	await vi.waitFor(() => expect(seen).toHaveLength(1))
 	return seen
 }
 
+const vote = async (user: string, score: number) =>
+	Vote.create(
+		{
+			data: {
+				score,
+				board: { connect: { id: ada } },
+				user: { connect: { id: user } },
+			},
+		},
+		M,
+	)
+
 describe('a live list showing a one view that pins the viewer', () => {
 	it('follows each caller’s own row', async () => {
 		const ann = (await Account.create({ data: {} }, M)).id
 		const ben = (await Account.create({ data: {} }, M)).id
-		const vote = async (user: string, score: number) =>
-			Vote.create(
-				{
-					data: {
-						score,
-						board: { connect: { id: ada } },
-						user: { connect: { id: user } },
-					},
-				},
-				M,
-			)
 		await vote(ben, 1)
 		await quiet()
 		const [anns, bens, nobody] = [
@@ -235,5 +240,35 @@ describe('a live list showing a one view that pins the viewer', () => {
 		expect(nobody[0]).toMatchObject({
 			rows: [{ myVote: null }, { myVote: null }],
 		})
+	})
+})
+
+describe('a live list of an exists that pins the viewer', () => {
+	it('sends a row again when its exists changes, and follows its filter', async () => {
+		const ann = (await Account.create({ data: {} }, M)).id
+		const shown = await voted(ann, { select: { name: true, hasVoted: true } })
+		const kept = await voted(ann, {
+			where: { hasVoted: true },
+			select: { name: true },
+		})
+		expect(shown[0]).toMatchObject({
+			rows: [
+				{ name: 'Ada', hasVoted: false },
+				{ name: 'Bob', hasVoted: false },
+			],
+		})
+		expect(kept[0]).toMatchObject({ rows: [] })
+		await vote(ann, 1)
+		await vi.waitFor(() => expect(shown).toHaveLength(2))
+		// A `one` or `many` view sends Bob again too, unchanged.
+		const row: unknown = expect.objectContaining({
+			name: 'Ada',
+			hasVoted: true,
+		})
+		const upsert: unknown = expect.objectContaining({ upsert: row })
+		const changes: unknown = expect.arrayContaining([upsert])
+		expect(shown[1]).toMatchObject({ changes })
+		await vi.waitFor(() => expect(kept).toHaveLength(2))
+		expect(kept[1]).toMatchObject({ changes: [{ upsert: { name: 'Ada' } }] })
 	})
 })

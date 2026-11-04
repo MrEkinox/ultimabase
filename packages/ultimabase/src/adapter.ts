@@ -93,6 +93,8 @@ export type SchemaField =
 			readonly filtered?: true
 			/** A view, read-only, on the link of the `many` it names (D-151). */
 			readonly from?: string
+			/** A view read as whether it keeps a row, with take 1 (D-246). */
+			readonly exists?: true
 			/** Facing a `many`, declaring it: the `one` each pair shares (D-236). */
 			readonly within?: string
 	  }
@@ -384,10 +386,7 @@ export interface Adapter extends Omit<Transaction, 'commit' | 'rollback'> {
 	 */
 	start(schema: Schema, logger: Logger, feed?: Feed): Promise<void>
 	stop(): Promise<void>
-	/**
-	 * Removes the rows of every model and keeps the tables, running no hook
-	 * (D-188).
-	 */
+	/** Removes every model's rows, keeps the tables and runs no hook (D-188). */
 	empty(): Promise<void>
 	/**
 	 * With `isolation: 'serializable'`, a serializable transaction, or a throw

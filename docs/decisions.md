@@ -16727,3 +16727,107 @@ const post = await Post.findUnique(
 )
 const myLike = post?.myLike ?? null
 ```
+
+## D-246: `f.exists` reads whether a view keeps a row
+
+Choice: completes D-151 and D-244.
+
+1. `isLiked: f.exists(() => Like, { from: 'likes' })` declares a view
+   (D-151) that reads `true` when its filter keeps a row of the `many` that
+   `from` names, else `false`. `from` names a `many` of the model that stores
+   its rows, facing a `one` or a `many`. As every view, it takes a filter in
+   `.with({ relations })`, which may read `caller` and `viewer` as a `many`
+   view's does (D-151, D-189). It needs no index: two rows still read `true`.
+2. A read names it in `select` or `include` with `true`: `select: { isLiked:
+true }`. It reads `true` or `false`, never `null`. The adapter receives it
+   as a `many` view marked `exists: true`, read with `take: 1` and its `id`
+   only: no adapter method is added.
+3. A `where` takes it as a boolean: `{ isLiked: true }` is `{ likes: { some:
+... } }` through its filter, `{ isLiked: false }` is `none`. It takes no
+   other operator.
+4. The target's read rule applies, as on any relation (D-86): a row the
+   caller cannot read is no row. A caller that is no user reads `false`
+   where the filter takes `viewer: true`.
+5. It sorts nothing, `_count` counts it not, and no data writes it.
+6. GraphQL serves it as `isLiked: Boolean!`, and `isLiked: Boolean` in the
+   model's `where` input; REST takes it in `select`, `include` and `where`,
+   and its OpenAPI document types it `boolean`. A live query (D-154)
+   follows it as it follows a `many` view.
+
+Why: whether the caller liked a post, follows a user or belongs to a club
+is the fact a list shows on every row, and filters on. A `one` view (D-245)
+reads the row itself but needs a unique index; a `many` view read with
+`take: 1` returns a list for a boolean, which each client compares. The
+issue asked for a virtual reading a `one` view through `needs`, which
+computes the boolean but neither GraphQL nor REST filters on.
+Cost: a field kind each transport serves.
+Rejected: a virtual whose `needs` names a `one` view, which no `where`
+filters; `f.some`, which reads as a filter beside `Model.exists` (D-244); a
+`one` view compared with `null` on the client, which needs the unique index
+and reads the row.
+Example:
+
+Before:
+
+```ts
+const Post = defineModel({
+	name: 'Post',
+	fields: (f) => ({
+		likes: f.many(() => Like, { inverse: 'post' }),
+		myLikes: f.many(() => Like, { from: 'likes' }),
+	}),
+}).with({
+	relations: {
+		myLikes: { where: ({ where }) => where({ user: { viewer: true } }) },
+	},
+})
+
+const posts = await Post.findMany(
+	{ include: { myLikes: { take: 1, select: { id: true } } } },
+	{ as: caller },
+)
+const liked = posts.map((post) => post.myLikes.length > 0)
+const likedOnly = await Post.findMany(
+	{ where: { myLikes: { some: {} } } },
+	{ as: caller },
+)
+```
+
+After:
+
+```ts
+const Post = defineModel({
+	name: 'Post',
+	fields: (f) => ({
+		likes: f.many(() => Like, { inverse: 'post' }),
+		isLiked: f.exists(() => Like, { from: 'likes' }),
+	}),
+}).with({
+	relations: {
+		isLiked: { where: ({ where }) => where({ user: { viewer: true } }) },
+	},
+})
+
+const posts = await Post.findMany(
+	{ select: { title: true, isLiked: true } },
+	{ as: caller },
+)
+const liked = posts.map((post) => post.isLiked)
+const likedOnly = await Post.findMany(
+	{ where: { isLiked: true } },
+	{ as: caller },
+)
+```
+
+```graphql
+query {
+	posts(where: { isLiked: true }) {
+		edges {
+			node {
+				title
+				isLiked
+			}
+		}
+	}
+}
+```

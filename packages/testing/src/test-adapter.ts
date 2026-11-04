@@ -11,6 +11,7 @@ import { counts } from './counts.ts'
 import { decimals } from './decimals.ts'
 import { distincts } from './distincts.ts'
 import { empties } from './empties.ts'
+import { exists } from './exists.ts'
 import { feeds } from './feeds.ts'
 import { groups } from './groups.ts'
 import { jsonPaths } from './json-paths.ts'
@@ -61,6 +62,7 @@ export function testAdapter(
 		counts(create)
 		relationFilters(create)
 		oneViews(create)
+		exists(create)
 		virtuals(create)
 		aggregates(create)
 		groups(create)

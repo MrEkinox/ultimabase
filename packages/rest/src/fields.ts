@@ -182,10 +182,11 @@ class Reader {
 				throw unknownKey(where, model)
 			}
 			if (value === false) continue
-			if (field === undefined || field.kind === 'scalar') {
-				if (value !== true) {
+			const plain = field === undefined || field.kind === 'scalar'
+			// An exists reads a boolean, as a scalar (D-246).
+			if (plain || (field.kind === 'many' && field.exists)) {
+				if (value !== true)
 					throw new InvalidQuery(where, `${where} must be a boolean.`)
-				}
 				kernel[name] = true
 				fields.push(scalar(entry, name))
 				continue

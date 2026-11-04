@@ -242,6 +242,21 @@ function relationFilters(
 ): Filter[] {
 	const target = modelOf(models, field.target)
 	const readable = scope?.related(model, field)
+	// An exists filters on whether its view keeps a row (D-246).
+	if (field.kind === 'many' && field.exists) {
+		if (typeof value !== 'boolean') {
+			throw new InvalidQuery(path, `${path} must be a boolean.`)
+		}
+		const operator = value ? 'some' : 'none'
+		return [
+			{
+				[field.name]:
+					readable === undefined
+						? { [operator]: {} }
+						: restricted(operator, {}, readable),
+			},
+		]
+	}
 	const allowed =
 		field.kind === 'one' ? ['is', 'isNot'] : ['some', 'every', 'none']
 	const filters: Filter[] = []

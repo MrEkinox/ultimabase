@@ -264,6 +264,13 @@ export function objectType(
 								type: objectType(registry, field.target),
 								resolve: (source) => readOf(source, model, field.name, ruled),
 							}
+						} else if (field.kind === 'many' && field.exists) {
+							// Whether its view keeps a row (D-246).
+							const type = GraphQLBoolean
+							fields[field.name] = {
+								type: ruled ? type : new GraphQLNonNull(type),
+								resolve: (source) => readOf(source, model, field.name, ruled),
+							}
 						} else if (field.kind === 'many') {
 							fields[field.name] = manyField(registry, model, field, ruled)
 						}

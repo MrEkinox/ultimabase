@@ -49,7 +49,7 @@ export function oneViewField(
 		if (described.has(key) || options[key] === undefined) continue
 		throw new Refused(`${at} is a view and takes no ${key}.`)
 	}
-	const many = viewField(view, from, source)
+	const many = viewField(view, from, source, false)
 	if (many.kind !== 'many') throw new Error('A view reads a many.')
 	if (many.join) {
 		throw new Refused(

@@ -3,7 +3,10 @@
 import type { FieldDefinition } from './definition.ts'
 import { Refused } from './errors.ts'
 
-type Relation = Extract<FieldDefinition, { readonly kind: 'one' | 'many' }>
+type Relation = Exclude<
+	FieldDefinition,
+	{ readonly kind: 'scalar' | 'virtual' }
+>
 export type Linked = {
 	readonly model: string
 	readonly name: string

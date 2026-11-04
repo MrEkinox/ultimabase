@@ -49,9 +49,14 @@ export function project(
 		if (!unseen?.has(field)) result[field] = row[field] ?? null
 	}
 	for (const [name, nested] of shape.relations) {
-		if (!unseen?.has(name)) {
-			result[name] = project(row[name], nested, hidden, computed)
-		}
+		if (unseen?.has(name)) continue
+		// An exists reads its one row's id as whether it keeps one (D-246).
+		const field = shape.model.fields.get(name)
+		const rows = row[name]
+		result[name] =
+			field?.kind === 'many' && field.exists
+				? Array.isArray(rows) && rows.length > 0
+				: project(rows, nested, hidden, computed)
 	}
 	const values = computed?.get(row)
 	const unseenVirtual =

@@ -190,7 +190,7 @@ export function selectOf(
 			for (const key of system) select[key] = true
 			continue
 		}
-		if (field.kind === 'scalar') {
+		if (field.kind === 'scalar' || (field.kind === 'many' && field.exists)) {
 			select[name] = true
 			continue
 		}
