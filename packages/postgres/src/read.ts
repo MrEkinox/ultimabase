@@ -213,9 +213,10 @@ export class Compiler {
 			}
 			const where = this.filters.where(field.target, to, inner.where)
 			const row = this.row(field.target, to, inner)
+			// No limit: a view keeping two rows fails the read (D-249).
 			pairs.set(
 				name,
-				sql`(select ${row} from ${reach.from} where ${reach.on} and ${where} limit 1)`,
+				sql`(select ${row} from ${reach.from} where ${reach.on} and ${where})`,
 			)
 		}
 		const counts = Object.entries(nested.count ?? {}).map(

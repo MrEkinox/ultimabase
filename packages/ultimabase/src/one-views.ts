@@ -1,7 +1,8 @@
 // A `one` view (D-240): the one row of a one-to-many `many` that its filter
 // keeps, which a unique index of the target holds single. The filter runs
 // once, at startup, where the index check reads it; one that pins fields to
-// the viewer runs again for each caller (D-245).
+// the viewer runs again for each caller (D-245), as one on the other row of a
+// pair does (D-249).
 import type { Condition, Filter, SchemaModel } from './adapter.ts'
 import type { IndexValue, IndexWhere } from './adapter-indexes.ts'
 import type { FieldOptions } from './definition.ts'
@@ -10,6 +11,7 @@ import type { Models, Scope } from './query-where.ts'
 import { isObject, modelOf, normalizeWhere } from './query-where.ts'
 import {
 	isFiltered,
+	otherViews,
 	relationsOf,
 	viewerViews,
 	viewField,
@@ -17,6 +19,7 @@ import {
 } from './relations.ts'
 import { filterOf, isReadFilter, readFilter } from './rules.ts'
 import type { FieldInfo, ModelInfo } from './schema.ts'
+import { sizeOf } from './sizes.ts'
 
 export type OneView = Extract<
 	FieldInfo,
@@ -80,7 +83,8 @@ export function checkOneViews(
 			if (!isOneView(field)) continue
 			const at = `${model.name}.${field.name} reads one ${field.target}`
 			const filter = run(models, model, field)
-			const pinned = pinnedOf(filter, at)
+			const other = otherOf(model, field, filter, at)
+			const pinned = other === undefined ? pinnedOf(filter, at) : [other]
 			const fields = new Set([field.inverse, ...pinned])
 			const target = schema.find((each) => each.name === field.target)
 			const held = target?.indexes.some(
@@ -107,6 +111,12 @@ export function checkOneViews(
 			}
 			viewFilters.set(field, filter)
 			if (pinned.length > 0) viewerViews.add(field)
+			if (other !== undefined) {
+				const own = { some: { [other]: { viewer: true } } }
+				otherViews.set(field, {
+					[field.inverse]: { is: { [field.from]: own } },
+				})
+			}
 		}
 	}
 }
@@ -139,9 +149,9 @@ function run(models: Models, model: ModelInfo, field: OneView): Filter {
 /** The user id the startup run reads as the viewer's, to find what it pins. */
 const someViewer = 'ultimabase:startup-viewer'
 /** `viewer: true` and `viewer: false` on a relation, once normalized. */
-const [pin, unpin] = ['is', 'isNot'].map((key) =>
-	JSON.stringify({ [key]: { id: { equals: someViewer } } }),
-)
+const onViewer = (key: string) =>
+	JSON.stringify({ [key]: { id: { equals: someViewer } } })
+const [pin, unpin] = [onViewer('is'), onViewer('isNot')]
 
 /**
  * The fields `filter` pins to the viewer, each row's own: `viewer: true` on a
@@ -157,10 +167,42 @@ function pinnedOf(filter: Filter, at: string): readonly string[] {
 	const uses = JSON.stringify(filter).split(JSON.stringify(someViewer)).length
 	if (uses - 1 === pinned.length) return pinned
 	throw new Refused(
-		values.some(([, value]) => value === unpin)
-			? `${at}: viewer: false keeps several rows; a one view takes viewer: true.`
-			: `${at}: viewer pins a field of the filter's top level, outside OR, NOT and nested relations.`,
+		`${at}: viewer pins a field of the filter's top level, outside OR, NOT and nested relations.`,
 	)
+}
+
+/**
+ * The relation `filter` sets to `viewer: false`, on a view of the other row
+ * of a pair (D-249); `undefined` when it sets none. Stops startup unless it
+ * stands alone and the `many` holds at most two rows.
+ */
+function otherOf(
+	model: ModelInfo,
+	field: OneView,
+	filter: Filter,
+	at: string,
+): string | undefined {
+	const text = JSON.stringify(filter)
+	const found = text.indexOf(unpin)
+	if (found < 0) return undefined
+	const name = /"([^"]+)":$/.exec(text.slice(0, found))?.[1] ?? ''
+	const [first, ...others] = Object.entries(filter)
+	if (others.length > 0 || JSON.stringify(first?.[1]) !== unpin) {
+		throw new Refused(
+			`${at}: viewer: false stands alone in the filter, as where({ ${name}: { viewer: false } }).`,
+		)
+	}
+	const source = model.fields.get(field.from)
+	const max =
+		source?.kind === 'many'
+			? sizeOf(at, source.options, source.join)?.max
+			: undefined
+	if (max === undefined || max > 2) {
+		throw new Refused(
+			`${at}: viewer: false reads the other row of a pair; give ${field.from} size: { max: 2 }.`,
+		)
+	}
+	return name
 }
 
 /**
