@@ -18,10 +18,11 @@ export const Draft = defineModel({
 			isOwner('owner'),
 			signedIn(({ user }) => user.role !== 'reader'),
 		),
-		// Everyone reads published drafts; a user also reads their own (D-81).
+		// Everyone reads published drafts; a user also reads their own (D-81,
+		// D-241).
 		read: anyOf(
 			({ where }) => where({ status: 'published' }),
-			signedIn(({ user, where }) => where({ owner: { is: { id: user.id } } })),
+			isOwner('owner'),
 		),
 		update: anyOf(
 			isOwner('editor'),
@@ -42,8 +43,8 @@ export const Mistakes = defineModel({
 		delete: isOwner('ownr'),
 		// @ts-expect-error: `text` is not a relation.
 		update: isOwner('text'),
-		// @ts-expect-error: a read rule has no record to own.
-		read: isOwner('owner'),
+		// @ts-expect-error: `text` is not a relation, in a read.
+		read: isOwner('text'),
 		// @ts-expect-error: `titel` is not a field of the record.
 		create: signedIn(({ value }) => value.titel === ''),
 	},

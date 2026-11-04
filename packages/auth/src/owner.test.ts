@@ -1,8 +1,9 @@
 // `isOwner` on the value written (D-79): a post is created and kept in its
-// author's name only, the caller's own.
+// author's name only, the caller's own. In a read rule, it keeps the rows the
+// caller owns (D-241).
 import { httpPlugin } from '@ultimabase/http'
 import type { Caller, Logger } from 'ultimabase'
-import { allow, defineApp, defineModel, memory } from 'ultimabase'
+import { allow, anyOf, defineApp, defineModel, memory } from 'ultimabase'
 import { afterEach, describe, expect, it } from 'vitest'
 import { authPlugin, currentUser, defineUser, isOwner } from './index.ts'
 import { M } from './test/app.ts'
@@ -30,9 +31,23 @@ const Post = defineModel({
 	}),
 }).with({
 	access: {
-		read: allow.public,
+		read: isOwner('author'),
 		create: isOwner('author'),
 		update: isOwner('author'),
+	},
+})
+
+const Letter = defineModel({
+	name: 'Letter',
+	fields: (f) => ({
+		text: f.string(),
+		sender: f.one(() => User, { default: currentUser }),
+		recipient: f.one(() => User),
+	}),
+}).with({
+	access: {
+		read: anyOf(isOwner('sender'), isOwner('recipient')),
+		create: isOwner('sender'),
 	},
 })
 
@@ -50,7 +65,7 @@ async function started() {
 	const app = defineApp({
 		database: memory(),
 		plugins: [httpPlugin({ port: 0 }), authPlugin()],
-		models: [User, Post],
+		models: [User, Post, Letter],
 		logger: quiet,
 	})
 	await app.start()
@@ -116,5 +131,38 @@ describe('isOwner on the value written', () => {
 			as(mallory.id),
 		)
 		expect(renamed.title).toBe('Still mine')
+	})
+})
+
+const titles = async (caller: { as: Caller }): Promise<unknown> =>
+	(await Post.findMany({ select: { title: true } }, caller)).map(
+		(row) => row.title,
+	)
+
+describe('isOwner in a read rule', () => {
+	const anonymous = { as: { kind: 'anonymous' } } as const
+
+	it('reads the caller’s own rows only', async () => {
+		const { mallory, victim, post } = await started()
+		expect(await titles(as(mallory.id))).toEqual(['Mine'])
+		expect(await titles(as(victim.id))).toEqual([])
+		expect(await titles(anonymous)).toEqual([])
+		const where = { id: post.id }
+		expect(await Post.findUnique({ where }, as(victim.id))).toBeNull()
+	})
+
+	it('keeps the rows either relation owns, with anyOf', async () => {
+		const { mallory, victim } = await started()
+		const other = await User.create({ data: { name: 'other' } }, M)
+		await Letter.create(
+			{ data: { text: 'Hi', recipient: { connect: { id: victim.id } } } },
+			as(mallory.id),
+		)
+		const texts = async (id: string) =>
+			(await Letter.findMany({}, as(id))).map((row) => row.text)
+		expect(await texts(mallory.id)).toEqual(['Hi'])
+		expect(await texts(victim.id)).toEqual(['Hi'])
+		expect(await texts(other.id)).toEqual([])
+		expect(await Letter.findMany({}, anonymous)).toEqual([])
 	})
 })
