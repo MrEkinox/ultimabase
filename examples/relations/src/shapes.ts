@@ -115,6 +115,7 @@ export const Project = defineModel({
 		name: f.string(),
 		milestones: f.many(() => Milestone),
 		tasks: f.many(() => Task),
+		notes: f.many(() => Note),
 	}),
 })
 
@@ -134,6 +135,19 @@ export const Task = defineModel({
 		project: f.one(() => Project, { onDelete: 'cascade' }),
 		// The milestone's `project` is the task's `project`.
 		milestone: f.one(() => Milestone, { optional: true, within: 'project' }),
+		notes: f.many(() => Note),
+	}),
+})
+//#endregion
+
+//#region within-many
+export const Note = defineModel({
+	name: 'Note',
+	fields: (f) => ({
+		text: f.string(),
+		project: f.one(() => Project, { onDelete: 'cascade' }),
+		// Every task a note links has the note's `project`.
+		tasks: f.many(() => Task, { inverse: 'notes', within: 'project' }),
 	}),
 })
 //#endregion

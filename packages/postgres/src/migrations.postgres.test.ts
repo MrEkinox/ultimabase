@@ -371,8 +371,11 @@ const changes = (statements: readonly { model: string; does: string }[]) =>
 
 const run = async (statement: string) => query(inSchema(schema), statement)
 
-/** Tasks whose milestone is kept within their project, or not (D-220). */
-const tasks = (within: boolean): Schema => ({
+/**
+ * Tasks whose milestone is kept within their project, or not (D-220), and
+ * whose project is optional or not (D-235).
+ */
+const tasks = (within: boolean, optional = false): Schema => ({
 	models: [
 		{
 			name: 'Project',
@@ -393,7 +396,7 @@ const tasks = (within: boolean): Schema => ({
 		{
 			name: 'Task',
 			fields: [
-				one('project', 'Project', 'tasks'),
+				{ ...one('project', 'Project', 'tasks'), optional },
 				{
 					...one('milestone', 'Milestone', 'tasks'),
 					optional: true,
@@ -406,6 +409,92 @@ const tasks = (within: boolean): Schema => ({
 		},
 	],
 })
+
+/** Notes linking tasks kept within their project, or not (D-236). */
+const notes = (within: boolean): Schema => ({
+	models: [
+		{
+			name: 'Project',
+			fields: [
+				many('notes', 'Note', 'project'),
+				many('tasks', 'Task', 'project'),
+			],
+			indexes: [],
+		},
+		{
+			name: 'Note',
+			fields: [
+				one('project', 'Project', 'notes'),
+				{
+					kind: 'many',
+					name: 'tasks',
+					target: 'Task',
+					inverse: 'notes',
+					join: true,
+					...(within ? { within: 'project' } : {}),
+				},
+			],
+			indexes: [],
+		},
+		{
+			name: 'Task',
+			fields: [
+				one('project', 'Project', 'tasks'),
+				many('notes', 'Note', 'tasks', true),
+			],
+			indexes: [],
+		},
+	],
+})
+/** Memberships of a team and a person, with the given indexes. */
+const memberships = (indexes: Schema['models'][number]['indexes']): Schema => ({
+	models: [
+		{
+			name: 'Team',
+			fields: [many('members', 'Membership', 'team')],
+			indexes: [],
+		},
+		{
+			name: 'Person',
+			fields: [many('teams', 'Membership', 'person')],
+			indexes: [],
+		},
+		{
+			name: 'Membership',
+			fields: [
+				one('team', 'Team', 'members'),
+				one('person', 'Person', 'teams'),
+			],
+			indexes,
+		},
+	],
+})
+
+const accountWith = (...given: [string, Scalar['type']][]): Schema => ({
+	models: [
+		{
+			name: 'Account',
+			fields: given.map(([name, type]) => scalar(name, type)),
+			indexes: [],
+		},
+	],
+})
+const modelsNamed = (...names: string[]): Schema => ({
+	models: names.map((name) => ({
+		name,
+		fields: [scalar('label', 'string')],
+		indexes: [],
+	})),
+})
+/** Each removal that may be a rename, with the names it may be (D-232). */
+const hintsOf = (from: Schema, to: Schema) =>
+	migrations
+		.plan(migrations.snapshot(from), to)
+		.flatMap(({ rename }) =>
+			rename === undefined
+				? []
+				: [[rename.dbName, rename.to.map(({ name }) => name)]],
+		)
 
 describe('a sync on postgres()', () => {
 	it('builds an empty database, then changes every kind of thing a model holds', async () => {
@@ -442,17 +531,20 @@ describe('a sync on postgres()', () => {
 			[
 				'removing Old deletes its rows',
 				{
-					to: 'New',
 					dbName: 'old',
-					sql: 'alter table "old" rename to "new"',
+					to: [{ name: 'New', sql: 'alter table "old" rename to "new"' }],
 				},
 			],
 			[
 				'removing "Shelf.note" deletes data',
 				{
-					to: 'Shelf.remark',
 					dbName: 'note',
-					sql: 'alter table "shelf" rename column "note" to "remark"',
+					to: [
+						{
+							name: 'Shelf.remark',
+							sql: 'alter table "shelf" rename column "note" to "remark"',
+						},
+					],
 				},
 			],
 			[
@@ -1297,9 +1389,61 @@ describe('a sync on postgres()', () => {
 		await sync(undefined, before)
 		const stored = await migrations.stored()
 		const statements = migrations.plan(stored?.snapshot, after)
-		expect(statements.find(({ model }) => model === 'Old')?.rename?.to).toBe(
-			'New',
-		)
+		expect(
+			statements.find(({ model }) => model === 'Old')?.rename?.to,
+		).toStrictEqual([{ name: 'New', sql: 'alter table "old" rename to "new"' }])
+	})
+
+	// Regression: each removal was offered the first added column or table
+	// alike, so every hint of several renames named the same one (D-232).
+	it('never offers one added column or table for two removals (D-232)', () => {
+		const settings = [
+			'Account.emailMessages',
+			'Account.emailInvites',
+			'Account.pushMessages',
+		]
+		expect(
+			hintsOf(
+				accountWith(
+					['mailOnMessage', 'boolean'],
+					['mailOnInvite', 'boolean'],
+					['pushOnMessage', 'boolean'],
+				),
+				accountWith(
+					['emailMessages', 'boolean'],
+					['emailInvites', 'boolean'],
+					['pushMessages', 'boolean'],
+				),
+			),
+		).toStrictEqual([
+			['mail_on_message', settings],
+			['mail_on_invite', settings],
+			['push_on_message', settings],
+		])
+		expect(
+			hintsOf(
+				accountWith(['mailOnMessage', 'boolean'], ['note', 'string']),
+				accountWith(['emailMessages', 'boolean'], ['remark', 'string']),
+			),
+		).toStrictEqual([
+			['mail_on_message', ['Account.emailMessages']],
+			['note', ['Account.remark']],
+		])
+		expect(
+			hintsOf(
+				accountWith(['mailOnMessage', 'boolean'], ['mailOnInvite', 'boolean']),
+				accountWith(['emailMessages', 'boolean']),
+			),
+		).toStrictEqual([])
+		expect(
+			hintsOf(modelsNamed('Left', 'Right'), modelsNamed('North', 'South')),
+		).toStrictEqual([
+			['left', ['North', 'South']],
+			['right', ['North', 'South']],
+		])
+		expect(
+			hintsOf(modelsNamed('Left', 'Right'), modelsNamed('North')),
+		).toStrictEqual([])
 	})
 
 	it('keeps the join of a model renamed with its dbName', async () => {
@@ -1409,6 +1553,190 @@ describe('a sync on postgres()', () => {
 		expect(changes(await sync(tasks(true), tasks(false)))).toStrictEqual([
 			'Task: dropped the foreign key on milestone',
 			'Milestone: dropped the unique key on id, project',
+		])
+	})
+
+	it('keeps a relation within an optional parent, and lets it go (D-235)', async () => {
+		await sync(undefined, tasks(false, true))
+		const [project, milestone] = [randomUUID(), randomUUID()]
+		await run(`insert into project values ('${project}', now(), now())`)
+		await run(
+			`insert into milestone values ('${milestone}', now(), now(), '${project}')`,
+		)
+		await run(
+			`insert into task values (gen_random_uuid(), now(), now(), null, '${milestone}')`,
+		)
+		const check = `alter table "task" add constraint "task_milestone_id_within_check" check ("project_id" is not null or "milestone_id" is null)`
+		await expect(
+			sync(tasks(false, true), tasks(true, true)),
+		).rejects.toMatchObject({
+			name: 'MigrationFailed',
+			at: check,
+			reason:
+				'check constraint "task_milestone_id_within_check" of relation "task" is violated by some row',
+		})
+		await run(`update task set project_id = '${project}'`)
+		const statements = await sync(tasks(false, true), tasks(true, true))
+		expect(
+			statements.map(({ sql, does, tries }) => [sql, does, tries]),
+		).toStrictEqual([
+			[
+				'alter table "milestone" add constraint "milestone_id_project_id_key" unique ("id", "project_id")',
+				'added a unique key on id, project',
+				undefined,
+			],
+			[
+				check,
+				'made milestone need project',
+				'making "Task.milestone" need project fails when a row holds one without it',
+			],
+			[
+				`alter table "task" add constraint "task_milestone_id_within_fkey" foreign key ("milestone_id", "project_id") references "milestone" ("id", "project_id") deferrable initially deferred`,
+				'added the foreign key on milestone',
+				'keeping "Task.milestone" within project fails when a row links outside it',
+			],
+		])
+		const { tables } = parseSnapshot(migrations.snapshot(tasks(true, true)))
+		expect(tables['task']?.checks).toStrictEqual({
+			task_milestone_id_within_check: {
+				column: 'milestone_id',
+				parent: 'project_id',
+			},
+		})
+		expect(
+			migrations.plan(
+				migrations.snapshot(tasks(true, true)),
+				tasks(true, true),
+			),
+		).toStrictEqual([])
+		expect(
+			changes(await sync(tasks(true, true), tasks(false, true))),
+		).toStrictEqual([
+			'Task: dropped the foreign key on milestone',
+			'Milestone: dropped the unique key on id, project',
+			'Task: dropped the check of milestone on project',
+		])
+		const created = migrations.plan(undefined, tasks(true, true))
+		expect(created.map(({ sql }) => sql).join('\n')).toContain(
+			'constraint "task_milestone_id_within_check" check ("project_id" is not null or "milestone_id" is null)',
+		)
+	})
+
+	it('keeps a many-to-many within its parent, and lets it go (D-236)', async () => {
+		await sync(undefined, notes(false))
+		const [mine, theirs] = [randomUUID(), randomUUID()]
+		const [note, task, other] = [randomUUID(), randomUUID(), randomUUID()]
+		await run(
+			`insert into project values ('${mine}', now(), now()), ('${theirs}', now(), now())`,
+		)
+		await run(`insert into note values ('${note}', now(), now(), '${mine}')`)
+		await run(
+			`insert into task values ('${task}', now(), now(), '${mine}'), ('${other}', now(), now(), '${theirs}')`,
+		)
+		await run(
+			`insert into note_tasks values ('${note}', '${task}'), ('${note}', '${other}')`,
+		)
+		const key = `alter table "note_tasks" add constraint "note_tasks_task_id_within_fkey" foreign key ("task_id", "project_id") references "task" ("id", "project_id") on update cascade deferrable initially deferred`
+		await expect(sync(notes(false), notes(true))).rejects.toMatchObject({
+			name: 'MigrationFailed',
+			at: key,
+			reason:
+				'insert or update on table "note_tasks" violates foreign key constraint "note_tasks_task_id_within_fkey"',
+		})
+		await run(`delete from note_tasks where task_id = '${other}'`)
+		const statements = await sync(notes(false), notes(true))
+		expect(
+			statements.map(({ sql, does, tries }) => [sql, does, tries]),
+		).toStrictEqual([
+			[
+				'alter table "note_tasks" add column "project_id" uuid',
+				'added project',
+				undefined,
+			],
+			[
+				'update "note_tasks" set "project_id" = (select "project_id" from "note" where "id" = "note_tasks"."note_id")',
+				"the project of each link's Note in the rows it held",
+				undefined,
+			],
+			[
+				'alter table "note_tasks" alter column "project_id" set not null',
+				'made project required',
+				undefined,
+			],
+			[
+				'alter table "note" add constraint "note_id_project_id_key" unique ("id", "project_id")',
+				'added a unique key on id, project',
+				undefined,
+			],
+			[
+				'alter table "task" add constraint "task_id_project_id_key" unique ("id", "project_id")',
+				'added a unique key on id, project',
+				undefined,
+			],
+			[
+				`alter table "note_tasks" add constraint "note_tasks_note_id_within_fkey" foreign key ("note_id", "project_id") references "note" ("id", "project_id") on update cascade deferrable initially deferred`,
+				'added the foreign key on note_id',
+				'keeping "Note.tasks.note_id" within project fails when a row links outside it',
+			],
+			[
+				key,
+				'added the foreign key on task_id',
+				'keeping "Note.tasks.task_id" within project fails when a row links outside it',
+			],
+		])
+		expect(
+			await run('select note_id, task_id, project_id from note_tasks'),
+		).toStrictEqual([{ note_id: note, task_id: task, project_id: mine }])
+		const { tables } = parseSnapshot(migrations.snapshot(notes(true)))
+		expect(
+			tables['note_tasks']?.foreignKeys['note_tasks_note_id_within_fkey'],
+		).toStrictEqual({
+			column: 'note_id',
+			table: 'note',
+			cascade: false,
+			within: { column: 'project_id', target: 'project_id' },
+			follows: true,
+		})
+		expect(
+			migrations.plan(migrations.snapshot(notes(true)), notes(true)),
+		).toStrictEqual([])
+		expect(changes(await sync(notes(true), notes(false)))).toStrictEqual([
+			'Note.tasks: dropped the foreign key on note_id',
+			'Note.tasks: dropped the foreign key on task_id',
+			'Note: dropped the unique key on id, project',
+			'Task: dropped the unique key on id, project',
+			'Note.tasks: removed project',
+		])
+	})
+	it('indexes no relation that a key or an index starts with (D-234)', async () => {
+		const key = { fields: ['team', 'person'], unique: true, contains: false }
+		const indexOf = (indexes: Schema['models'][number]['indexes']) =>
+			parseSnapshot(migrations.snapshot(memberships(indexes))).tables[
+				'membership'
+			]?.indexes
+		const both = {
+			membership_team_id_idx: ['team_id'],
+			membership_person_id_idx: ['person_id'],
+		}
+		const person = { membership_person_id_idx: ['person_id'] }
+		expect(indexOf([])).toStrictEqual(both)
+		expect(indexOf([key])).toStrictEqual(person)
+		expect(indexOf([{ ...key, unique: false }])).toStrictEqual({
+			...person,
+			membership_team_id_person_id_idx: ['team_id', 'person_id'],
+		})
+		expect(
+			indexOf([{ ...key, fields: ['team'], unique: false }]),
+		).toStrictEqual({ membership_team_id_idx: ['team_id'], ...person })
+		// A partial key serves only the rows it keeps.
+		const where: IndexWhere = { person: { not: null } }
+		expect(indexOf([{ ...key, where }])).toStrictEqual(both)
+		await sync(undefined, memberships([]))
+		expect(
+			changes(await sync(memberships([]), memberships([key]))),
+		).toStrictEqual([
+			'Membership: dropped the index on team',
+			'Membership: added a unique key on team, person',
 		])
 	})
 

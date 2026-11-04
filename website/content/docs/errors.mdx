@@ -78,6 +78,10 @@ fails its typing:
 	../examples/errors/src/app.test.ts#shown
 </include>
 
+`IssueCodeOf<typeof app>` is, the same way, every code its plugins give
+an issue of `VALIDATION_FAILED`, as the password's `PASSWORD_BREACHED`: a
+client types its issue messages as `Record<IssueCodeOf<typeof app>, string>`.
+
 A plugin declares its codes beside its name, in its
 [types](/docs/next/plugins).
 
@@ -97,6 +101,12 @@ A plugin declares its codes beside its name, in its
 `ErrorCodeOf<typeof app>` is the union of the kernel's `ErrorCode` and the
 codes of each plugin `app` lists. An application's own codes are not in it:
 it adds them, as `ErrorCodeOf<typeof app> | 'OUT_OF_STOCK'`.
+
+### `IssueCodeOf<A>`
+
+`IssueCodeOf<typeof app>` is the union of the issue codes of each plugin
+`app` lists, `never` with none. The kernel gives no issue a code of its own;
+an application's, from a schema or a `PublicError`, are not in it.
 
 ### Codes
 

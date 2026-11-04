@@ -9,6 +9,7 @@ import type {
 	ExecutionResult,
 	GraphQLSchema,
 	Source,
+	ValidatedExecutionArgs,
 	ValidationRule,
 } from 'graphql'
 import {
@@ -39,6 +40,10 @@ export type Operations = {
 		rules?: readonly ValidationRule[],
 	) => readonly GraphQLError[]
 	readonly execute: (args: ExecutionArgs) => Promise<ExecutionResult>
+	/** The row budget's refusal of a document, none for Master's (D-107). */
+	readonly budget: (
+		validated: ValidatedExecutionArgs,
+	) => GraphQLError | undefined
 	readonly context: (caller: Caller, client: Client) => Context
 	readonly hideSuggestions: boolean
 	readonly format: ReturnType<typeof formatter>
@@ -176,6 +181,15 @@ export function serveSockets(
 			if (viewer === undefined || channel === undefined || viewer.closed) {
 				return forbidden()
 			}
+			// Each operation counts as a request of the address (D-230).
+			const retryAfter = await upgrade.limit()
+			if (retryAfter !== undefined) {
+				return [
+					new GraphQLError('Too many requests: try again later.', {
+						extensions: { code: 'TOO_MANY_ATTEMPTS', details: { retryAfter } },
+					}),
+				]
+			}
 			let document: DocumentNode
 			try {
 				document = operations.parse(payload.query)
@@ -219,6 +233,9 @@ export function serveSockets(
 		subscribe: async (args) => {
 			const validated = validateSubscriptionArgs({ ...args, hideSuggestions })
 			if (!('schema' in validated)) return { errors: validated }
+			// A live function's rows count as its query's (D-229).
+			const refused = operations.budget(validated)
+			if (refused !== undefined) return { errors: [refused] }
 			const source = await createSourceEventStream(validated)
 			if (!(Symbol.asyncIterator in source)) return source
 			return mapSourceToResponseEvent(validated, source, async (event) => {

@@ -220,12 +220,24 @@ describe('migrate create', () => {
 		)
 		expect((await read(renamed ?? '')).split('\n').slice(2)).toStrictEqual([
 			'-- removing "Locker.label" deletes data.',
-			'-- a rename? write: rename label to title;',
+			'-- a rename? replace this drop and the line adding Locker.title with: rename label to title;',
 			'drop Locker.label;',
 			'',
 			'-- adding "Locker.title" fails when Locker holds rows.',
 			'add Locker.title;',
 			'',
+		])
+
+		const third = await config('create', { Locker: ['name', 'code'] })
+		expect(await run('migrate', 'create', 'split', '--config', third)).toBe(0)
+		const split = (await migrations()).find((name) =>
+			name.endsWith('_split.sql'),
+		)
+		expect((await read(split ?? '')).split('\n').slice(2, 6)).toStrictEqual([
+			'-- removing "Locker.title" deletes data.',
+			'-- a rename? replace this drop and the line adding the one you keep with one of:',
+			'--   rename title to name;',
+			'--   rename title to code;',
 		])
 	})
 

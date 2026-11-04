@@ -4,34 +4,18 @@
 // statement finds what it needs.
 import type { Statement } from 'ultimabase'
 import type { Fill, Fills } from './fills.ts'
-import { literal } from './fills.ts'
-import { addIndexes, addsTrigrams, dropIndexes } from './plan-indexes.ts'
+import { addIndexes, addsTrigrams } from './plan-indexes.ts'
+import { addKeys, checked, dropKeys } from './plan-keys.ts'
 import type { Emit, Named } from './plan-parts.ts'
-import { added, changed, fields, id, keyOf, list, same } from './plan-parts.ts'
-import type { Check, ForeignKey, Snapshot, TableSnapshot } from './snapshot.ts'
-
-/** A key's columns as a tried change names them: `Locker (label, size)`. */
-/** An enum's values; a list's elements are among them, with `<@` (D-127). */
-function checked(name: string, { column, values, list: all }: Check): string {
-	const items = values.map(literal).join(', ')
-	const test = all ? `<@ array[${items}]::text[]` : `in (${items})`
-	return `constraint ${id(name)} check (${id(column)} ${test})`
-}
+import { added, changed, fields, id, list, same } from './plan-parts.ts'
+import { columnHints, tableHints } from './plan-renames.ts'
+import type { ForeignKey, Snapshot, TableSnapshot } from './snapshot.ts'
 
 /** A type as messages show it, without its collation. */
 const shown = (type: string): string => type.replace(' collate "C"', '')
 
 const column = (name: string, type: string, nullable: boolean): string =>
 	`${id(name)} ${type}${nullable ? '' : ' not null'}`
-
-/**
- * Columns as a rename compares them: names, types and nullability, sorted,
- * because a stored snapshot's columns come back in jsonb's order.
- */
-const shape = (table: TableSnapshot): unknown =>
-	Object.entries(table.columns)
-		.map(([name, { type, nullable }]) => [name, type, nullable])
-		.toSorted(([a], [b]) => String(a).localeCompare(String(b)))
 
 function create(name: string, table: TableSnapshot): string {
 	const parts = [
@@ -45,27 +29,6 @@ function create(name: string, table: TableSnapshot): string {
 		...Object.entries(table.checks).map(([key, given]) => checked(key, given)),
 	]
 	return `create table ${id(name)} (\n\t${parts.join(',\n\t')}\n)`
-}
-
-/** Drops the keys, checks and indexes of `from` that `to` changes. */
-function dropKeys(
-	name: string,
-	from: TableSnapshot,
-	to: TableSnapshot,
-	emit: Emit,
-): void {
-	const drop = (key: string) =>
-		`alter table ${id(name)} drop constraint ${id(key)}`
-	if (!same(from.primaryKey, to.primaryKey)) {
-		emit(drop(from.primaryKey.name), 'dropped the primary key')
-	}
-	for (const [key, columns] of changed(from.uniques, to.uniques)) {
-		emit(drop(key), `dropped the unique key on ${fields(from, columns)}`)
-	}
-	for (const [key, { column: on }] of changed(from.checks, to.checks)) {
-		emit(drop(key), `dropped the values of ${fields(from, [on])}`)
-	}
-	dropIndexes(name, from, to, emit)
 }
 
 /** Adds a column; a required one takes its fixed default in the rows. */
@@ -83,6 +46,16 @@ function addColumn(
 		return emit(add, `added ${now.field}`, {
 			tries: `adding the required "${model}.${now.field}" fails when ${model} holds rows: make it optional, or give it a value as its default, not a function`,
 		})
+	}
+	if (fill.rows) {
+		const empty = `${table} add column ${column(key, now.type, true)}`
+		emit(empty, `added ${now.field}`)
+		emit(fill.sql, `${fill.shown} in the rows it held`)
+		emit(
+			`${table} alter column ${id(key)} set not null`,
+			`made ${now.field} required`,
+		)
+		return
 	}
 	// The rows take the default; the column keeps none, as the models say.
 	emit(`${add} default ${fill.sql}`, `added ${now.field}`)
@@ -215,23 +188,12 @@ function alterColumns(
 	emit: Emit,
 ): void {
 	const table = `alter table ${id(name)}`
-	const fresh = Object.entries(to.columns).filter(
-		([key]) => from.columns[key] === undefined,
-	)
+	const hints = columnHints(name, from, to)
 	for (const [key, was] of Object.entries(from.columns)) {
 		if (to.columns[key] !== undefined) continue
-		const twin = fresh.find(([, now]) => now.type === was.type)
 		emit(`${table} drop column ${id(key)}`, `removed ${was.field}`, {
 			loses: `removing "${from.model}.${was.field}" deletes data`,
-			...(twin === undefined
-				? {}
-				: {
-						rename: {
-							to: `${to.model}.${twin[1].field}`,
-							dbName: key,
-							sql: `${table} rename column ${id(key)} to ${id(twin[0])}`,
-						},
-					}),
+			...hints.get(key),
 		})
 	}
 	for (const [key, now] of Object.entries(to.columns)) {
@@ -262,49 +224,10 @@ function alterColumns(
 	}
 }
 
-/** Adds the keys and checks of `to` that `from` lacks or changed. */
-function addKeys(
-	name: string,
-	from: TableSnapshot,
-	to: TableSnapshot,
-	emit: Emit,
-): void {
-	const add = (part: string) => `alter table ${id(name)} add ${part}`
-	if (!same(from.primaryKey, to.primaryKey)) {
-		const { name: key, columns } = to.primaryKey
-		emit(
-			add(`constraint ${id(key)} primary key (${list(columns)})`),
-			`keyed on ${fields(to, columns)}`,
-			{
-				tries: `keying ${keyOf(to, columns)} fails when two rows share a value`,
-			},
-		)
-	}
-	for (const [key, columns] of added(from.uniques, to.uniques)) {
-		emit(
-			add(`constraint ${id(key)} unique (${list(columns)})`),
-			`added a unique key on ${fields(to, columns)}`,
-			// A key holding the id, as a `within` key's (D-220), never fails.
-			columns.includes('id')
-				? {}
-				: {
-						tries: `a unique key on ${keyOf(to, columns)} fails when two rows share a value`,
-					},
-		)
-	}
-	for (const [key, given] of added(from.checks, to.checks)) {
-		const field = fields(to, [given.column])
-		const values = given.values.join(', ')
-		emit(add(checked(key, given)), `limited ${field} to ${values}`, {
-			tries: `limiting "${to.model}.${field}" to ${values} fails when a row holds another value`,
-		})
-	}
-}
-
 const foreignKey = (
 	table: string,
 	key: string,
-	{ column: name, table: target, cascade, within }: ForeignKey,
+	{ column: name, table: target, cascade, within, follows }: ForeignKey,
 ): string => {
 	const [columns, theirs] = within
 		? [
@@ -312,7 +235,7 @@ const foreignKey = (
 				['id', within.target],
 			]
 		: [[name], ['id']]
-	return `alter table ${id(table)} add constraint ${id(key)} foreign key (${list(columns)}) references ${id(target)} (${list(theirs)})${cascade ? ' on delete cascade' : ''} deferrable initially deferred`
+	return `alter table ${id(table)} add constraint ${id(key)} foreign key (${list(columns)}) references ${id(target)} (${list(theirs)})${cascade ? ' on delete cascade' : ''}${follows ? ' on update cascade' : ''} deferrable initially deferred`
 }
 
 /** Every statement from `from`, or an empty database, to `to`. */
@@ -332,6 +255,7 @@ export function plan(
 	const fresh = Object.entries(after).filter(
 		([name]) => before[name] === undefined,
 	)
+	const hints = tableHints(before, after)
 	for (const [name, table] of Object.entries(before)) {
 		const now = after[name]
 		const keys = changed(table.foreignKeys, now?.foreignKeys ?? {})
@@ -347,18 +271,9 @@ export function plan(
 			addKeys(name, table, now, emit(5, now.model))
 			continue
 		}
-		const twin = fresh.find(([, created]) => same(shape(created), shape(table)))
 		emit(2, table.model)(`drop table ${id(name)}`, 'removed', {
 			loses: `removing ${table.model} deletes its rows`,
-			...(twin === undefined
-				? {}
-				: {
-						rename: {
-							to: twin[1].model,
-							dbName: name,
-							sql: `alter table ${id(name)} rename to ${id(twin[0])}`,
-						},
-					}),
+			...hints.get(name),
 		})
 	}
 	for (const [name, table] of fresh) {

@@ -1,12 +1,18 @@
-// `ErrorCodeOf<typeof app>` (D-206): the kernel's codes, and those of the
-// application's plugins, for a client's table of messages.
+// `ErrorCodeOf<typeof app>` (D-206) and `IssueCodeOf<typeof app>` (D-231):
+// the codes of the application's plugins, for a client's table of messages.
 import { describe, expectTypeOf, it } from 'vitest'
-import type { ErrorCode, ErrorCodeOf, PluginTypes } from './index.ts'
+import type {
+	ErrorCode,
+	ErrorCodeOf,
+	IssueCodeOf,
+	PluginTypes,
+} from './index.ts'
 import { defineApp, definePlugin, memory } from './index.ts'
 
 interface Shop extends PluginTypes {
 	readonly name: 'shop'
 	readonly errors: 'OUT_OF_STOCK' | 'CLOSED'
+	readonly issues: 'SKU_FORMAT'
 }
 const shop = definePlugin<Shop>({
 	name: 'shop',
@@ -46,5 +52,26 @@ describe('ErrorCodeOf', () => {
 		})
 		type Messages = Record<ErrorCodeOf<typeof app>, string>
 		expectTypeOf<{ OUT_OF_STOCK: string }>().not.toExtend<Messages>()
+	})
+})
+
+describe('IssueCodeOf', () => {
+	it("is its plugins' issue codes, not their error codes", () => {
+		const app = defineApp({
+			database: memory(),
+			plugins: [shop.plugin(), quiet.plugin()],
+			models: [],
+		})
+		expectTypeOf<IssueCodeOf<typeof app>>().toEqualTypeOf<'SKU_FORMAT'>()
+	})
+
+	it('is none without a plugin that declares one', () => {
+		const app = defineApp({
+			database: memory(),
+			plugins: [quiet.plugin()],
+			models: [],
+		})
+		expectTypeOf<IssueCodeOf<typeof app>>().toBeNever()
+		expectTypeOf<ErrorCodeOf<typeof app>>().toEqualTypeOf<ErrorCode>()
 	})
 })

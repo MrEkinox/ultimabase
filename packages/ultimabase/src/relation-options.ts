@@ -1,4 +1,4 @@
-// A relation's options (D-37, D-54, D-151, D-220).
+// A relation's options (D-37, D-54, D-151, D-220, D-236).
 import type { Described } from './described.ts'
 import type { DefaultFunction } from './fields.ts'
 
@@ -32,7 +32,15 @@ export type OneCheck<O> = O extends { readonly optional: true }
 
 export type ManyOptions = Described &
 	(
-		| { readonly inverse?: string; readonly from?: undefined }
+		| {
+				readonly inverse?: string
+				readonly from?: undefined
+				/**
+				 * Facing a `many`, every row it links has the row's `project`
+				 * with `'project'` (D-236).
+				 */
+				readonly within?: string
+		  }
 		| {
 				/**
 				 * A view: read-only, on the link of this other `many` of the
