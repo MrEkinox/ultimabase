@@ -97,14 +97,9 @@ export async function storedParents(
 	model: string,
 	parent: string,
 	ids: readonly string[],
-): Promise<ReadonlyMap<string, string>> {
+): Promise<ReadonlyMap<string, string | null>> {
 	if (ids.length === 0) return new Map()
 	const where = byIds([...new Set(ids)])
 	const rows = await store.find({ model, where, fields: [parent] })
-	return new Map(
-		rows.flatMap((row) => {
-			const q = keyOf(row[parent])
-			return q === null ? [] : [[row.id, q] as const]
-		}),
-	)
+	return new Map(rows.map((row) => [row.id, keyOf(row[parent])]))
 }

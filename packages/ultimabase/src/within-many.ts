@@ -155,7 +155,7 @@ export async function withinManyChecks(
 		const needs = new Map<string, Need>()
 		for (const { pair, name } of linked) {
 			const [row, target] = pair
-			const p = mine.ends.get(row) ?? read.get(row)
+			const p = mine.ends.get(row) ?? read.get(row) ?? undefined
 			const q = yours.ends.get(target)
 			if (p !== undefined && q !== undefined) {
 				if (p !== q) throw refuse(name)()

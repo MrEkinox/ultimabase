@@ -147,7 +147,7 @@ export async function withinChecks(
 		const read = await storedParents(store, target, parent, unknown)
 		for (const { where, m, q = read.get(m) } of linking) {
 			// A target that does not exist stays `NOT_FOUND`, by the others.
-			if (q === undefined) continue
+			if (!q) continue
 			const away = { AND: [where, apart(rule, byId(q))] }
 			add({ model, where: away, count: 0 }, field)
 		}
