@@ -89,16 +89,9 @@ export type SchemaField =
 			readonly join: boolean
 			/** Its reads see the rows a filter keeps; it takes no `set` (D-151). */
 			readonly filtered?: true
-			/**
-			 * A view: read-only, on the link of the `many` it names, with that
-			 * relation's `inverse` and `join` (D-151).
-			 */
+			/** A view, read-only, on the link of the `many` it names (D-151). */
 			readonly from?: string
-			/**
-			 * Facing a `many`, on the side declaring it: every row it links
-			 * has the row's value of this field, a `one` both models share
-			 * (D-236).
-			 */
+			/** Facing a `many`, declaring it: the `one` each pair shares (D-236). */
 			readonly within?: string
 	  }
 
