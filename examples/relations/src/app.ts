@@ -18,6 +18,7 @@ import {
 	Project,
 	Milestone,
 	Task,
+	Note,
 } from './shapes.ts'
 
 export const app = defineApp({
@@ -45,5 +46,6 @@ export const app = defineApp({
 		Project,
 		Milestone,
 		Task,
+		Note,
 	],
 })

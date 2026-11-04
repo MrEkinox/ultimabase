@@ -9,7 +9,7 @@ import { sql } from 'kysely'
 import type { Change, Check, Filter, Read, Row, Write } from 'ultimabase'
 import type { Sql } from './filter.ts'
 import { Filters, uuid, value } from './filter.ts'
-import type { Catalog, Table } from './names.ts'
+import type { Catalog, Join, Table } from './names.ts'
 import { computed } from './numbers.ts'
 import type { Part } from './parts.ts'
 import { fieldsOf, grouped, inserted, sizeOf } from './parts.ts'
@@ -48,14 +48,20 @@ function idOf(where: Filter | undefined): string | undefined {
 	return 'equals' in id && typeof id.equals === 'string' ? id.equals : undefined
 }
 
+/** The rows a write inserts, by `Model:id`. */
+type Inserted = ReadonlyMap<string, Row>
+
+type Link = Extract<Change, { readonly kind: 'link' | 'unlink' }>
+
 /** The CTE of a change, `undefined` when it changes nothing. */
 function part(
 	catalog: Catalog,
 	change: Exclude<Change, { readonly kind: 'insert' }>,
 	removed: ReadonlyMap<number, string>,
+	fresh: Inserted,
 ): Part | undefined {
 	if (change.kind !== 'update' && change.kind !== 'delete') {
-		return links(catalog, change)
+		return links(catalog, change, fresh)
 	}
 	const table = catalog.table(change.model)
 	const name = sql.id(table.name)
@@ -106,10 +112,26 @@ function part(
 	}
 }
 
+/**
+ * The parent a link kept within one takes (D-236): its row's, which a row
+ * the statement inserts holds, and a row it moves carries to it.
+ */
+function parentOf(join: Join, change: Link, fresh: Inserted): Sql[] {
+	const { within } = join
+	if (within === undefined) return []
+	const given = fresh.get(`${change.model}:${change.id}`)?.[within.field]
+	if (typeof given === 'string') return [sql`cast(${given} as uuid)`]
+	const { owner } = join
+	return [
+		sql`(select ${sql.id(within.owner)} from ${sql.id(owner)} where "id" = cast(${change.id} as uuid))`,
+	]
+}
+
 /** A link or unlink of nothing, or of ids no row has, changes nothing. */
 function links(
 	catalog: Catalog,
-	change: Extract<Change, { readonly kind: 'link' | 'unlink' }>,
+	change: Link,
+	fresh: Inserted,
 ): Part | undefined {
 	const join = catalog.join(change.model, change.field)
 	const name = sql.id(join.table)
@@ -147,8 +169,17 @@ function links(
 		}
 	}
 	if (change.targets.length === 0) return undefined
+	const parent = parentOf(join, change, fresh)
 	const rows = sql.join(
-		change.targets.map((target) => sql`(${id}, cast(${target} as uuid))`),
+		change.targets.map(
+			(target) =>
+				sql`(${sql.join([id, sql`cast(${target} as uuid)`, ...parent])})`,
+		),
+	)
+	const columns = sql.join(
+		[join.self, join.other, ...(join.within ? [join.within.column] : [])].map(
+			(column) => sql.id(column),
+		),
 	)
 	return {
 		...pairs(change.targets),
@@ -157,7 +188,7 @@ function links(
 				gate === undefined
 					? sql`values ${rows}`
 					: sql`select * from (values ${rows}) as "v" where ${gate}`
-			return sql`insert into ${name} (${self}, ${other}) ${source} on conflict do nothing returning *`
+			return sql`insert into ${name} (${columns}) ${source} on conflict do nothing returning *`
 		},
 		inserts: true,
 		removes: false,
@@ -244,6 +275,13 @@ export function compileWrite(
 			: sizeOf(compileRows(catalog, write.read, undefined).rows))
 	const parts: Part[] = []
 	const removed = new Map<number, string>()
+	const rows = new Map(
+		write.changes.flatMap((change) =>
+			change.kind === 'insert'
+				? [[`${change.model}:${change.row.id}`, change.row] as const]
+				: [],
+		),
+	)
 	// Consecutive rows of a table, setting the same fields, go in one insert.
 	let batch: { readonly model: string; readonly rows: Row[] } | undefined
 	const flush = (): void => {
@@ -269,7 +307,7 @@ export function compileWrite(
 			continue
 		}
 		flush()
-		const each = part(catalog, change, removed)
+		const each = part(catalog, change, removed, rows)
 		if (each === undefined) continue
 		if (change.kind === 'delete') removed.set(index, cteName(parts.length))
 		parts.push(each)
