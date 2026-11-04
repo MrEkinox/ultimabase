@@ -133,8 +133,8 @@ type RelationFilter<T> = {
 }
 
 /**
- * A `one` view's filter, which reads no caller: it is checked once, against
- * the target's unique indexes (D-240).
+ * A `one` view's filter, checked once against the target's unique indexes
+ * (D-240); reads no caller, but may pin relations to `viewer: true` (D-245).
  */
 type OneViewFilter<T> = {
 	readonly where: (facts: {

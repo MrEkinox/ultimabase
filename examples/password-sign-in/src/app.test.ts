@@ -4,7 +4,7 @@ import { testApplication } from '@ultimabase/testing'
 import { master } from 'ultimabase'
 import { describe, expect, it } from 'vitest'
 import { app } from './app.ts'
-import { Post, User } from './models.ts'
+import { Poll, Post, User } from './models.ts'
 
 const running = testApplication(app)
 
@@ -195,5 +195,41 @@ describe('the rules on posts', () => {
 		expect(await request(remove, { id: post }, as(grace.token))).toEqual({
 			data: { deletePost: { title: 'Hello' } },
 		})
+	})
+})
+
+describe('a poll', () => {
+	it('shows each user their own vote', async () => {
+		const ada = await signUp('ada')
+		const grace = await signUp('grace')
+		const poll = await Poll.create(
+			{ data: { question: 'Tabs?' } },
+			{ as: master },
+		)
+		//#region my-vote
+		const vote = `mutation ($poll: ID!) {
+			createVote(data: { choice: "yes", poll: { connect: { id: $poll } } }) {
+				choice
+			}
+		}`
+		await request(vote, { poll: poll.id }, as(ada.token))
+		const polls = '{ polls { edges { node { question myVote { choice } } } } }'
+		const read = async (headers?: Record<string, string>) =>
+			at(await request(polls, {}, headers), 'data', 'polls', 'edges')
+		expect(await read(as(ada.token))).toEqual([
+			{ node: { question: 'Tabs?', myVote: { choice: 'yes' } } },
+		])
+		// Grace has not voted, and a visitor is no user.
+		expect(await read(as(grace.token))).toEqual([
+			{ node: { question: 'Tabs?', myVote: null } },
+		])
+		expect(await read()).toEqual([
+			{ node: { question: 'Tabs?', myVote: null } },
+		])
+		//#endregion
+		// The unique index refuses a second vote.
+		expect(await request(vote, { poll: poll.id }, as(ada.token))).toMatchObject(
+			refused('UNIQUE_VIOLATION'),
+		)
 	})
 })

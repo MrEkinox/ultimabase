@@ -63,3 +63,36 @@ export const Post = defineModel({
 	},
 })
 //#endregion
+
+//#region poll
+export const Poll = defineModel({
+	name: 'Poll',
+	use: [graphql()],
+	fields: (f) => ({
+		question: f.string(),
+		votes: f.many(() => Vote, { inverse: 'poll' }),
+		// A one view: the caller's own vote, or null.
+		myVote: f.one(() => Vote, { from: 'votes' }),
+	}),
+}).with({
+	// Read by all; the server asks the questions.
+	access: allow.readOnly,
+	relations: {
+		myVote: { where: ({ where }) => where({ voter: { viewer: true } }) },
+	},
+})
+
+export const Vote = defineModel({
+	name: 'Vote',
+	use: [graphql()],
+	fields: (f) => ({
+		choice: f.string(),
+		poll: f.one(() => Poll),
+		voter: f.one(() => User, { default: currentUser }),
+	}),
+	// One vote per user and poll: what keeps `myVote` single.
+	indexes: [{ fields: ['poll', 'voter'], unique: true }],
+}).with({
+	access: { read: isAuthenticated, create: isOwner('voter') },
+})
+//#endregion

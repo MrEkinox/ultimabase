@@ -16165,6 +16165,8 @@ await Member.update({
 
 ## D-240: A `one` view reads the single row a filter keeps
 
+Amended by D-245.
+
 Choice: amends D-151.
 
 1. A `one` takes `from`, as a `many` does (D-151):
@@ -16623,4 +16625,105 @@ const member = await Membership.exists(
 	{ where: { user: { is: { id: userId } }, club: { is: { id: clubId } } } },
 	{ as: caller },
 )
+```
+
+## D-245: A `one` view pins a field to the viewer
+
+Choice: amends D-240 point 2.
+
+1. A `one` view's filter may set `viewer: true` (D-189) on relations of its
+   top level, beside its other conditions, in `AND` included: `myLike: {
+where: ({ where }) => where({ user: { viewer: true } }) }`. Each such
+   relation is pinned: every caller reads the row whose relation is its own
+   user.
+2. The startup run reads a stand-in viewer, to learn which relations the
+   filter pins. It stops on `viewer: false`, which keeps every other user's
+   row: `Post.myLike reads one Like: viewer: false keeps several rows; a one
+view takes viewer: true.` It stops on a `viewer` inside `OR`, `NOT` or a
+   nested relation, which pins no field of the row: `Post.myLike reads one
+Like: viewer pins a field of the filter's top level, outside OR, NOT and
+nested relations.`
+3. The index check of D-240 point 4 widens: a unique index of the target
+   whose fields are the key of the `many` and any of the pinned relations,
+   whose `where` the filter keeps, holds the row single. Without one:
+   `Post.myLike reads one Like: give Like a unique index on post and user, as
+{ fields: ['post', 'user'], unique: true }.` The suggested index carries the
+   filter's `where` when the filter has one it can show.
+4. A view that pins the viewer runs its filter again at each query, for its
+   caller, as a `many` view's does (D-151). A caller that is no user,
+   anonymous or Master, reads `null`, as `viewer: true` matches no row for it
+   (D-189 point 2).
+5. A live query (D-154) follows it as it follows a `many` view: each
+   connection reads its own caller's row, and a write to the target's link
+   sends the rows again.
+6. The filter still reads no `caller`: `viewer` is the one fact about the
+   caller it may read, since it is the one that names a field the index can
+   hold.
+
+Why: the caller's own row is the most common single row of a `many`: their
+like on a post, their membership in a club, their follow of a user. A unique
+index on the key and the user already keeps it single for every caller, so
+the startup check can still tie the view to that index; only the user it
+reads changes per caller. Without it, the row stays a `many` view read with
+`take: 1` and `[0]`, or `first: 1` in GraphQL.
+Cost: the filter of such a view runs at each query instead of once, as a
+`many` view's does.
+Rejected: `caller` in the filter, which the startup run could not read
+without guessing which fields it pins; requiring the index on exactly the key
+and the pinned relations, when an index on the key alone holds the row single
+too; reading `viewer: false` as "another user's row", which no index holds
+single.
+Example:
+
+Before:
+
+```ts
+const Post = defineModel({
+	name: 'Post',
+	fields: (f) => ({
+		likes: f.many(() => Like, { inverse: 'post' }),
+		myLikes: f.many(() => Like, { from: 'likes' }),
+	}),
+}).with({
+	relations: {
+		myLikes: { where: ({ where }) => where({ user: { viewer: true } }) },
+	},
+})
+const Like = defineModel({
+	name: 'Like',
+	fields: (f) => ({
+		post: f.one(() => Post, { onDelete: 'cascade' }),
+		user: f.one(() => User, { onDelete: 'cascade' }),
+	}),
+	indexes: [{ fields: ['post', 'user'], unique: true }],
+})
+
+const post = await Post.findUnique(
+	{ where: { id }, include: { myLikes: { take: 1 } } },
+	{ as: caller },
+)
+const myLike = post?.myLikes[0] ?? null
+```
+
+After:
+
+```ts
+const Post = defineModel({
+	name: 'Post',
+	fields: (f) => ({
+		likes: f.many(() => Like, { inverse: 'post' }),
+		myLike: f.one(() => Like, { from: 'likes' }),
+	}),
+}).with({
+	relations: {
+		myLike: { where: ({ where }) => where({ user: { viewer: true } }) },
+	},
+})
+// Like unchanged: its unique index on post and user holds the row single.
+
+const post = await Post.findUnique(
+	{ where: { id }, include: { myLike: true } },
+	{ as: caller },
+)
+const myLike = post?.myLike ?? null
 ```

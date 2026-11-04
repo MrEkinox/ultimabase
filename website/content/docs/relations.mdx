@@ -403,10 +403,23 @@ It is read and filtered like a `one`, with `is`, `isNot` and `is: null`:
 
 - `from` names a one-to-many `many` of the same model, not another view.
 - The filter's function receives only `{ where }` and returns
-  `where({ ... })`: it runs once, at startup, and reads no caller. The
-  target's read rule still applies, so a row the caller cannot read reads
-  `null`.
+  `where({ ... })`. The target's read rule still applies, so a row the
+  caller cannot read reads `null`.
 - A `one` view is not written and sorts nothing.
+
+A `one` view can pin a relation to the user model to the signed-in user with
+`viewer: true`, at the top of its filter. A unique index on the target's key
+and that relation holds the row single, so each user reads their own:
+
+<include cwd meta='title="src/models.ts"'>
+	../examples/password-sign-in/src/models.ts#poll
+</include>
+
+A visitor and Master are no user, and read `null`:
+
+<include cwd meta='title="src/app.test.ts"'>
+	../examples/password-sign-in/src/app.test.ts#my-vote
+</include>
 
 ### A relation kept within a parent
 
@@ -601,7 +614,9 @@ is declared wrongly:
 | `Series.released is a view; filter it in .with({ relations }).`                                                                                                             | Give the view its filter.                                     |
 | `Series.with.relations.title: title is not a many relation.`                                                                                                                | Filter only a `many`.                                         |
 | `Series.upcoming reads one Volume: give Volume a unique index on series whose where the filter keeps, as { fields: ['series'], unique: true, where: { released: false } }.` | Add the index the message shows.                              |
-| `Series.with.relations.upcoming.where reads no viewer: it runs once, at startup.`                                                                                           | Filter a `one` view without the caller.                       |
+| `Poll.myVote reads one Vote: give Vote a unique index on poll and voter, as { fields: ['poll', 'voter'], unique: true }.`                                                   | Add the index the message shows.                              |
+| `Poll.myVote reads one Vote: viewer: false keeps several rows; a one view takes viewer: true.`                                                                              | Pin the viewer with `viewer: true`.                           |
+| `Poll.myVote reads one Vote: viewer pins a field of the filter's top level, outside OR, NOT and nested relations.`                                                          | Move `viewer` to the top of the filter.                       |
 | `Poll.choices: size takes whole numbers, min from 0 and max from 1, as { min: 1, max: 10 }.`                                                                                | Give whole numbers, `max` at least `min`.                     |
 | `Book.tags: size bounds a one-to-many relation only.`                                                                                                                       | Remove `size` from a many-to-many or a view.                  |
 

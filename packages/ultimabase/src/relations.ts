@@ -16,6 +16,8 @@ type One = Extract<FieldInfo, { readonly kind: 'one' }>
 
 /** Each `one` view's filter, which runs once, at startup (D-240). */
 export const viewFilters: WeakMap<FieldInfo, Filter> = new WeakMap()
+/** The `one` views that pin a field to the viewer, run per caller (D-245). */
+export const viewerViews: WeakSet<FieldInfo> = new WeakSet()
 
 export function relationsOf(model: ModelInfo): {
 	readonly [field: string]: unknown
@@ -125,7 +127,9 @@ export class Relations {
 
 	/** The rows of `model.field` its filter keeps; `undefined` for all. */
 	filter(model: ModelInfo, field: Many | One): Filter | undefined {
-		if (field.kind === 'one') return viewFilters.get(field)
+		if (field.kind === 'one' && !viewerViews.has(field)) {
+			return viewFilters.get(field)
+		}
 		const key = `${model.name}.${field.name}`
 		const known = this.filters.get(key)
 		if (known === pending) {
@@ -143,7 +147,7 @@ export class Relations {
 
 	private run(
 		model: ModelInfo,
-		field: Many,
+		field: Many | One,
 		rule: unknown,
 	): Filter | undefined {
 		const path = `${model.name}.with.relations.${field.name}.where`
