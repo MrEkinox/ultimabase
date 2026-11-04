@@ -15,6 +15,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { setTimeout } from 'node:timers/promises'
 import { gte } from 'semver'
+import { publishTaken } from './publish-taken.ts'
 import { releaseNotes } from './release-notes.ts'
 
 type Result = { readonly ok: boolean; readonly output: string }
@@ -94,8 +95,7 @@ const publish = async (pkg: Package, tag: string, packs: string) => {
 			console.log(`Published ${label} under ${tag}.`)
 			return
 		}
-		// npm took an earlier try it did not confirm.
-		if (/EPUBLISHCONFLICT|cannot publish over/u.test(result.output)) {
+		if (publishTaken(result.output)) {
 			console.log(`${label} is on npm already.`)
 			return
 		}
