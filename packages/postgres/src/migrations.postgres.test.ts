@@ -410,6 +410,43 @@ const tasks = (within: boolean, optional = false): Schema => ({
 	],
 })
 
+/** Notes linking tasks kept within their project, or not (D-236). */
+const notes = (within: boolean): Schema => ({
+	models: [
+		{
+			name: 'Project',
+			fields: [
+				many('notes', 'Note', 'project'),
+				many('tasks', 'Task', 'project'),
+			],
+			indexes: [],
+		},
+		{
+			name: 'Note',
+			fields: [
+				one('project', 'Project', 'notes'),
+				{
+					kind: 'many',
+					name: 'tasks',
+					target: 'Task',
+					inverse: 'notes',
+					join: true,
+					...(within ? { within: 'project' } : {}),
+				},
+			],
+			indexes: [],
+		},
+		{
+			name: 'Task',
+			fields: [
+				one('project', 'Project', 'tasks'),
+				many('notes', 'Note', 'tasks', true),
+			],
+			indexes: [],
+		},
+	],
+})
+
 describe('a sync on postgres()', () => {
 	it('builds an empty database, then changes every kind of thing a model holds', async () => {
 		await sync(undefined, before)
@@ -1479,6 +1516,93 @@ describe('a sync on postgres()', () => {
 		expect(created.map(({ sql }) => sql).join('\n')).toContain(
 			'constraint "task_milestone_id_within_check" check ("project_id" is not null or "milestone_id" is null)',
 		)
+	})
+
+	it('keeps a many-to-many within its parent, and lets it go (D-236)', async () => {
+		await sync(undefined, notes(false))
+		const [mine, theirs] = [randomUUID(), randomUUID()]
+		const [note, task, other] = [randomUUID(), randomUUID(), randomUUID()]
+		await run(
+			`insert into project values ('${mine}', now(), now()), ('${theirs}', now(), now())`,
+		)
+		await run(`insert into note values ('${note}', now(), now(), '${mine}')`)
+		await run(
+			`insert into task values ('${task}', now(), now(), '${mine}'), ('${other}', now(), now(), '${theirs}')`,
+		)
+		await run(
+			`insert into note_tasks values ('${note}', '${task}'), ('${note}', '${other}')`,
+		)
+		const key = `alter table "note_tasks" add constraint "note_tasks_task_id_within_fkey" foreign key ("task_id", "project_id") references "task" ("id", "project_id") on update cascade deferrable initially deferred`
+		await expect(sync(notes(false), notes(true))).rejects.toMatchObject({
+			name: 'MigrationFailed',
+			at: key,
+			reason:
+				'insert or update on table "note_tasks" violates foreign key constraint "note_tasks_task_id_within_fkey"',
+		})
+		await run(`delete from note_tasks where task_id = '${other}'`)
+		const statements = await sync(notes(false), notes(true))
+		expect(
+			statements.map(({ sql, does, tries }) => [sql, does, tries]),
+		).toStrictEqual([
+			[
+				'alter table "note_tasks" add column "project_id" uuid',
+				'added project',
+				undefined,
+			],
+			[
+				'update "note_tasks" set "project_id" = (select "project_id" from "note" where "id" = "note_tasks"."note_id")',
+				"the project of each link's Note in the rows it held",
+				undefined,
+			],
+			[
+				'alter table "note_tasks" alter column "project_id" set not null',
+				'made project required',
+				undefined,
+			],
+			[
+				'alter table "note" add constraint "note_id_project_id_key" unique ("id", "project_id")',
+				'added a unique key on id, project',
+				undefined,
+			],
+			[
+				'alter table "task" add constraint "task_id_project_id_key" unique ("id", "project_id")',
+				'added a unique key on id, project',
+				undefined,
+			],
+			[
+				`alter table "note_tasks" add constraint "note_tasks_note_id_within_fkey" foreign key ("note_id", "project_id") references "note" ("id", "project_id") on update cascade deferrable initially deferred`,
+				'added the foreign key on note_id',
+				'keeping "Note.tasks.note_id" within project fails when a row links outside it',
+			],
+			[
+				key,
+				'added the foreign key on task_id',
+				'keeping "Note.tasks.task_id" within project fails when a row links outside it',
+			],
+		])
+		expect(
+			await run('select note_id, task_id, project_id from note_tasks'),
+		).toStrictEqual([{ note_id: note, task_id: task, project_id: mine }])
+		const { tables } = parseSnapshot(migrations.snapshot(notes(true)))
+		expect(
+			tables['note_tasks']?.foreignKeys['note_tasks_note_id_within_fkey'],
+		).toStrictEqual({
+			column: 'note_id',
+			table: 'note',
+			cascade: false,
+			within: { column: 'project_id', target: 'project_id' },
+			follows: true,
+		})
+		expect(
+			migrations.plan(migrations.snapshot(notes(true)), notes(true)),
+		).toStrictEqual([])
+		expect(changes(await sync(notes(true), notes(false)))).toStrictEqual([
+			'Note.tasks: dropped the foreign key on note_id',
+			'Note.tasks: dropped the foreign key on task_id',
+			'Note: dropped the unique key on id, project',
+			'Task: dropped the unique key on id, project',
+			'Note.tasks: removed project',
+		])
 	})
 
 	it('refuses a snapshot postgres() did not write', () => {

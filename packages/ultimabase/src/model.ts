@@ -230,19 +230,21 @@ type OneKeys<F> = {
 
 // The row's side of a `within` names a `one` relation of the model, or `id`
 // against the target's field, which its model's type would make circular
-// (D-220).
-type Within<A> = OneKeys<A> | { readonly [field: string]: OneKeys<A> | 'id' }
+// (D-220); a `many`'s names a `one` relation of both (D-236).
+type Within<A, K> =
+	| OneKeys<A>
+	| (K extends 'one' ? { readonly [field: string]: OneKeys<A> | 'id' } : never)
 type WithinCheck<X, A> = X extends {
 	readonly [fieldType]: {
-		readonly kind: 'one'
+		readonly kind: infer K
 		readonly options: { readonly within: infer W }
 	}
 }
-	? [W] extends [Within<A>]
+	? [W] extends [Within<A, K>]
 		? unknown
 		: {
 				readonly [fieldType]: {
-					readonly options: { readonly within: Within<A> }
+					readonly options: { readonly within: Within<A, K> }
 				}
 			}
 	: unknown

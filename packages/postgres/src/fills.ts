@@ -1,12 +1,20 @@
 // The fixed defaults a column added to a table with rows fills them with
 // (D-105); a list's is `[]` when it has none (D-120, D-127).
 import type { Catalog, Kind } from './names.ts'
+import { id } from './plan-parts.ts'
 
 export const literal = (value: string): string =>
 	`'${value.replaceAll("'", "''")}'`
 
-/** A fixed default as SQL, and as the log shows it: `'draft'`. */
-export type Fill = { readonly sql: string; readonly shown: string }
+/**
+ * A fixed default as SQL, and as the log shows it: `'draft'`; or, `rows`,
+ * the update filling each row from another table (D-236).
+ */
+export type Fill = {
+	readonly sql: string
+	readonly shown: string
+	readonly rows?: true
+}
 
 /** Each table's columns with a fixed default (D-105). */
 export type Fills = {
@@ -47,6 +55,20 @@ export function fillsOf(catalog: Catalog): Fills {
 			columns[catalog.column(table, field.name)] = fillOf(kind, given)
 		}
 		fills[table.name] = columns
+	}
+	// A link kept within a parent takes its row's (D-236).
+	for (const [side, join] of catalog.joins) {
+		if (side !== join.relation || join.within === undefined) continue
+		const { field, column, owner } = join.within
+		const [table, self] = [id(join.table), id(join.self)]
+		const value = `(select ${id(owner)} from ${id(join.owner)} where "id" = ${table}.${self})`
+		fills[join.table] = {
+			[column]: {
+				sql: `update ${table} set ${id(column)} = ${value}`,
+				shown: `the ${field} of each link's ${side.split('.')[0]}`,
+				rows: true,
+			},
+		}
 	}
 	return fills
 }

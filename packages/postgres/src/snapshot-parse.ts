@@ -81,6 +81,7 @@ const foreignKeyOf = (value: unknown): ForeignKey | undefined => {
 		table: value['table'],
 		cascade: value['cascade'],
 		...(within === undefined ? {} : { within }),
+		...(value['follows'] === true ? { follows: true as const } : {}),
 	}
 }
 
