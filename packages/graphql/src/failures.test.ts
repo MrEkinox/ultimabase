@@ -1,5 +1,6 @@
-// What fails on the server (D-227): an invalid schema refuses the start, and
-// an error the handler throws is the HTTP plugin's, logged with its id.
+// What fails on the server (D-227): an invalid schema refuses the start, an
+// error the handler throws is the HTTP plugin's, logged with its id, and a
+// value graphql-js cannot send is the server's error (D-106).
 import {
 	GraphQLInputObjectType,
 	GraphQLObjectType,
@@ -7,7 +8,9 @@ import {
 	GraphQLString,
 } from 'graphql'
 import { expect, it, vi } from 'vitest'
-import { at, started } from './test/app.ts'
+import { z } from 'zod'
+import { allow, defineFunction } from 'ultimabase'
+import { at, post, started } from './test/app.ts'
 
 const broken = vi.hoisted(() => ({ executor: false }))
 vi.mock(import('graphql'), async (original) => {
@@ -54,4 +57,31 @@ it('logs an error the handler throws, and masks it', async () => {
 	const logged = lines.find(({ level }) => level === 'error')
 	expect(at(logged?.first, 'correlationId')).toBe(at(body, 'correlationId'))
 	expect(at(logged?.first, 'err', 'message')).toBe('The executor broke.')
+})
+
+it('masks and logs a value its type cannot send', async () => {
+	// Above 2³¹, which a GraphQL Int cannot hold.
+	const big = defineFunction({
+		name: 'big',
+		query: true,
+		output: z.number().int(),
+		run: () => 3_000_000_000,
+	}).with({ access: allow.public })
+	const { app, lines, url } = await started({}, undefined, [], [big])
+	const correlationId: unknown = expect.any(String)
+	const result = await post(`${url}/graphql`, '{ big }')
+	await app.stop()
+	expect(result.errors).toEqual([
+		expect.objectContaining({
+			message: 'Internal error.',
+			extensions: { code: 'INTERNAL', correlationId },
+		}),
+	])
+	const logged = lines.find(({ level }) => level === 'error')
+	expect(at(logged?.first, 'correlationId')).toBe(
+		at(result.errors, 0, 'extensions', 'correlationId'),
+	)
+	expect(at(logged?.first, 'err', 'message')).toBe(
+		'Int cannot represent non 32-bit signed integer value: 3000000000',
+	)
 })

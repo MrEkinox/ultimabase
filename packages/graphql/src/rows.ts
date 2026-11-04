@@ -108,6 +108,8 @@ export function rowBudget(
 				const field = type.getFields()[node.name.value]
 				if (field === undefined) continue
 				const read = readOf(type, root, node.name.value)
+				// A live list's rows are bounded by `maxLive` instead (D-154).
+				if (root === 'subscription' && read === undefined) continue
 				let each = times
 				if (read?.kind === 'many') {
 					const asked = getArgumentValues(field, node, args.variableValues)

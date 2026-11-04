@@ -9402,7 +9402,8 @@ api: ({ plugins }) => plugins.http.mount(uploads, { bodyLimit: false })
 
 ## D-154: Realtime: live lists and live rows
 
-Amended by D-163, D-166, D-178, D-186, D-187, D-195, D-196, D-223 and D-226.
+Amended by D-163, D-166, D-178, D-186, D-187, D-195, D-196, D-223, D-226,
+D-229 and D-230.
 
 Choice: completes D-25; amends D-106 (WebSocket upgrades), D-107 (the
 `Subscription` type), D-109 (live functions) and D-129 (live reads over
@@ -14427,6 +14428,8 @@ await Match.end(match.id)
 
 ## D-218: `httpPlugin()` limits each address's requests
 
+Amended by D-230.
+
 Choice: amends D-56; D-113 is unchanged.
 
 1. `httpPlugin()` counts each client address's requests and upgrades in
@@ -15360,6 +15363,111 @@ query ($where: PostWhereInput) {
 # $where 20,000 levels deep: BAD_USER_INPUT, The variables are nested too deep.
 ```
 
+## D-229: A live function's rows count in `maxRows` over a WebSocket
+
+Choice: amends D-154 point 12; D-107's row budget is unchanged.
+
+1. A live function's subscription over a WebSocket is counted by the row
+   budget as the same query over HTTP: a document that may return more than
+   `maxRows` rows is refused with `BAD_USER_INPUT` before `run` runs, and
+   Master's is not counted (D-107).
+2. The budget counts the document once, when it is subscribed, not at each
+   wake: a wake runs the same document.
+3. A model's live list and live row stay out of `maxRows`: `maxLive`,
+   `maxTake` in page mode and `maxConnectionRows` bound them (D-154), and
+   the rows of the relations they select count in `maxLive` instead. REST's
+   live lists check their depth only.
+
+Why: `{ ranked(above: 0) { id } }` over HTTP was refused past `maxRows`, but
+`subscription { ranked(above: 0) { id } }` ran in full, then again at each
+write, so a client with a socket skipped the budget. A live list's rows are
+already bounded, by limits sized for a list that is kept; counting them
+again in `maxRows` would refuse the large live lists D-154 serves.
+
+Example, before: `maxRows: 5`, and a function's list counts `take`, 100.
+
+```graphql
+query {
+	ranked(above: 0) {
+		id
+	}
+}
+# The document asks for more than 5 rows. Ask for fewer with first or last.
+subscription {
+	ranked(above: 0) {
+		id
+	}
+}
+# runs, and runs again at each write
+```
+
+After: both are refused with the same error; Master's are both served.
+
+Rejected: counting at each wake (the document does not change between
+wakes); counting a model's live list in `maxRows` (its own limits bound it,
+and REST does not count it).
+
+## D-230: Each operation over a WebSocket counts as a request
+
+Choice: amends D-218 point 1 and D-154 point 5.
+
+1. Each `subscribe` message on a GraphQL socket counts as one request of
+   the address the upgrade came from, in the same window as its HTTP
+   requests. Pings, `connection_init` and `complete` are not counted.
+2. Over the limit, that operation fails with `TOO_MANY_ATTEMPTS`,
+   `Too many requests: try again later.`, and `details: { retryAfter }`,
+   the seconds until the window ends, as the 429's body. The socket stays
+   open: the next operation after the window runs.
+3. An operation is counted once the connection's caller is read and before
+   its document is parsed, so a flood costs neither a parse nor a session
+   read. Master's key on the upgrade request passes, as over HTTP; a
+   connection whose caller is Master through `connection_init` only is
+   counted.
+4. `httpPlugin`'s `Upgrade` gains `limit()`: it counts one more request of
+   the upgrade's address and returns the seconds to wait when it is over
+   the limit, `undefined` within it. A plugin that serves several
+   operations on one socket calls it for each.
+
+Why: the limit counted the upgrade only, so one socket carried as many
+queries and mutations as the client sent, past any limit. Closing the socket would end the client's live
+subscriptions for one operation too many, so only that operation is
+refused, as an HTTP request is.
+
+Example, before: `rateLimit: { requests: 3, window: 60_000 }`.
+
+```ts
+await fetch(url, init) // 200
+await fetch(url, init) // 200
+await fetch(url, init) // 429
+const client = createClient({ url: ws })
+await first(client, '{ ping }') // "pong", and every one after
+```
+
+After: the upgrade and two operations, then:
+
+```ts
+await first(client, '{ ping }')
+// errors: [{ message: 'Too many requests: try again later.',
+//   extensions: { code: 'TOO_MANY_ATTEMPTS', details: { retryAfter: 60 } } }]
+```
+
+A plugin with its own socket protocol:
+
+```ts
+plugins.http.upgrade('/feed', (upgrade) => {
+	onMessage(upgrade, async (message) => {
+		const retryAfter = await upgrade.limit()
+		if (retryAfter !== undefined) return refuse(message, retryAfter)
+		return serve(message)
+	})
+})
+```
+
+Rejected: closing the socket over the limit (it ends the client's live
+reads for one operation); a separate count per socket (a client opens
+another socket); counting each message, pings included (a quiet
+connection would use the address's budget).
+
 ## D-231: Each plugin declares its issue codes, and `IssueCodeOf<typeof app>`
 
 Choice: amends D-206 and D-224.
@@ -15436,3 +15544,4 @@ interface Password extends PluginTypes {
 	readonly issues: 'PASSWORD_LENGTH' | 'PASSWORD_IS_EMAIL' | 'PASSWORD_BREACHED'
 }
 ```
+

@@ -15,6 +15,7 @@ import type { Caller, ErrorCode, Logger } from 'ultimabase'
 import { isLocalHost, PublicError } from 'ultimabase'
 import { addresses, isOwnOrigin, proxiesOf } from './address.ts'
 import type { Limiter, RateLimit } from './limit.ts'
+import { tooMany } from './limit.ts'
 import type { Probes } from './probes.ts'
 import { probeRoutes } from './probes.ts'
 import { hold } from './request.ts'
@@ -227,8 +228,8 @@ export function appOf(
 	})
 	// Before the gates and the caller: a flood reads no session (D-218).
 	app.use(async (c, next) => {
-		const limited = await rateLimit(c.req.raw, addressOf(c.env))
-		return limited ?? next()
+		const wait = await rateLimit(c.req.raw, addressOf(c.env))
+		return wait === undefined ? next() : tooMany(wait)
 	})
 	// The plugins' gates, as maintenance: a refusal keeps CORS's headers, so
 	// that a browser reads it (D-205).
