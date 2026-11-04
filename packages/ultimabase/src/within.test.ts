@@ -592,4 +592,42 @@ describe('at start', () => {
 			'Bad.pick: within names projet, a one relation of Bad.',
 		)
 	})
+
+	it('types the target’s side on the application (#176)', async () => {
+		const Org = defineModel({
+			name: 'Org',
+			fields: (f) => ({
+				teams: f.many(() => Team, { inverse: 'org' }),
+				tickets: f.many(() => Ticket, { inverse: 'org' }),
+			}),
+		})
+		const Team = defineModel({
+			name: 'Team',
+			fields: (f) => ({
+				org: f.one(() => Org),
+				tickets: f.many(() => Ticket, { inverse: 'team' }),
+				reviews: f.many(() => Ticket, { inverse: 'reviewer' }),
+			}),
+		})
+		const Ticket = defineModel({
+			name: 'Ticket',
+			fields: (f) => ({
+				org: f.one(() => Org),
+				owner: f.one(() => Org),
+				team: f.one(() => Team, { optional: true, within: 'owner' }),
+				reviewer: f.one(() => Team, {
+					optional: true,
+					within: { orgn: 'org' },
+				}),
+			}),
+		})
+		// @ts-expect-error -- Team has no owner, nor orgn
+		const ticketing = defineApp({
+			database: memory(),
+			models: [Org, Team, Ticket],
+		})
+		await expect(ticketing.start()).rejects.toThrow(
+			'Ticket.team: within names owner, a required one relation of Team to Org.',
+		)
+	})
 })

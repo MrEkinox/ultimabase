@@ -3,6 +3,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { allow, defineApp, defineModel, master, memory } from './index.ts'
 import { query } from './engine.ts'
+import type { FieldShape } from './model.ts'
 
 const Author = defineModel({
 	name: 'Author',
@@ -231,10 +232,10 @@ const start = (
 			notes: f.many(() => Note, { inverse: 'shelf' }),
 			first: f.one(() => Note, { optional: true }),
 			other: f.many(() => Note, { from: 'notes' }),
-			view:
-				target === 'Note'
-					? f.many(() => Note, options)
-					: f.many(() => Shelf, options),
+			// Widened, as JavaScript would leave it: the types take `notes` alone.
+			view: (target === 'Note'
+				? f.many(() => Note, options)
+				: f.many(() => Shelf, options)) as FieldShape,
 		}),
 	})
 	Reflect.apply(Reflect.get(Shelf, 'with'), Shelf, [{ relations }])
@@ -279,5 +280,23 @@ describe('a view', () => {
 				inverse: 'shelf',
 			}),
 		).rejects.toThrow('Shelf.view is a view and takes no inverse.')
+	})
+	it('types the many it reads (#176)', () => {
+		const Desk = defineModel({
+			name: 'Desk',
+			fields: (f) => ({
+				drawers: f.many(() => Drawer, { inverse: 'desk' }),
+				open: f.many(() => Drawer, { from: 'drawers' }),
+				// @ts-expect-error -- Desk has no many named drawrs
+				typo: f.many(() => Drawer, { from: 'drawrs' }),
+				// @ts-expect-error -- a view reads a many that stores its rows
+				nested: f.many(() => Drawer, { from: 'open' }),
+			}),
+		})
+		const Drawer = defineModel({
+			name: 'Drawer',
+			fields: (f) => ({ desk: f.one(() => Desk) }),
+		})
+		expect([Desk.name, Drawer.name]).toEqual(['Desk', 'Drawer'])
 	})
 })

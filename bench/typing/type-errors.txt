@@ -86,7 +86,7 @@ TS2322: Type '"author"' is not assignable to type 'ScalarKeys<{ readonly title: 
 
 prototype/example/checks.ts: Broken.posts: inverse 'autor' is not a field of Post.
 TS2345: Argument of type '{ database: Adapter; plugins: [PluginValue<"softDelete", never, never>, PluginValue<"acl", never, never>, PluginValue<"graphql", never, never>, PluginValue<...>, PluginValue<...>]; models: [...]; }' is not assignable to parameter of type '{ readonly database: Adapter; readonly plugins?: readonly [PluginValue<"softDelete", never, never>, PluginValue<"acl", never, never>, PluginValue<"graphql", never, never>, PluginValue<...>, PluginValue<...>]; readonly models: readonly [...]; readonly functions?: []; readonly masterKey?: MasterKey; readonly logger?: ...'.
-  Property 'inverseError' is missing in type '{ database: Adapter; plugins: [PluginValue<"softDelete", never, never>, PluginValue<"acl", never, never>, PluginValue<"graphql", never, never>, PluginValue<...>, PluginValue<...>]; models: [...]; }' but required in type '{ readonly inverseError: "Broken.posts: inverse 'autor' is not a field of the target"; }'.
+  Property 'relationError' is missing in type '{ database: Adapter; plugins: [PluginValue<"softDelete", never, never>, PluginValue<"acl", never, never>, PluginValue<"graphql", never, never>, PluginValue<...>, PluginValue<...>]; models: [...]; }' but required in type '{ readonly relationError: "Broken.posts: inverse 'autor' is not a field of the target"; }'.
 
 prototype/example/declared.ts: `status` is 'draft' | 'published'.
 TS2367: This comparison appears to be unintentional because the types '"draft" | "published"' and '"archived"' have no overlap.
