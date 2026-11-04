@@ -7,6 +7,7 @@ import { PublicError } from './errors.ts'
 import type { Issue } from './errors.ts'
 import type { Event } from './hooks.ts'
 import { hasHook, runHook } from './hooks.ts'
+import { moveOf } from './one-of-schema.ts'
 import type { ModelInfo } from './schema.ts'
 import type { QueryScope } from './scope.ts'
 import type { Store } from './transaction.ts'
@@ -122,16 +123,15 @@ async function hooked(
 	const { model, field, to } = step
 	const changes: Change[] = []
 	for (const row of rows) {
-		const data: Draft = {
-			[field]: to === null ? { disconnect: true } : { connect: { id: to } },
-		}
+		const moving = moveOf(target, field, to)
+		const data: Draft = { ...moving.data }
 		await runHook(target, 'beforeUpdate', {
 			caller: writing.scope.caller,
 			record: recordOf(target, row),
 			data,
 		})
-		Reflect.deleteProperty(data, field)
-		const set = { [field]: to, updatedAt: new Date(Date.now()) }
+		Reflect.deleteProperty(data, moving.key)
+		const set = { ...moving.set, updatedAt: new Date(Date.now()) }
 		changes.push({ kind: 'update', model, where: byId(row.id), set })
 		writing.events.push({
 			model: target,
@@ -158,7 +158,8 @@ async function move(step: Move, writing: Writing): Promise<Change[]> {
 	const target = modelOf(scope.models, model)
 	const filter = await scope.filter(model, trusted, 'update')
 	const access = trusted ? undefined : scope.access
-	const set = { [field]: to, updatedAt: new Date(Date.now()) }
+	const { set: keys, data } = moveOf(target, field, to)
+	const set = { ...keys, updatedAt: new Date(Date.now()) }
 	if (access === undefined && !updated(target)) {
 		return [{ kind: 'update', model, where: and(where, filter), set }]
 	}
@@ -167,9 +168,6 @@ async function move(step: Move, writing: Writing): Promise<Change[]> {
 		where: and(where, filter),
 		lock: true,
 	})
-	const data = {
-		[field]: to === null ? { disconnect: true } : { connect: { id: to } },
-	}
 	for (const record of rows)
 		access?.allow(target, 'update', { record, data, via })
 	return moved(step, target, rows, writing)
@@ -188,7 +186,8 @@ export async function moved(
 	if (updated(target)) return hooked(step, target, rows, writing)
 	if (rows.length === 0) return []
 	const { model, field, to } = step
-	const set = { [field]: to, updatedAt: new Date(Date.now()) }
+	const keys = moveOf(target, field, to).set
+	const set = { ...keys, updatedAt: new Date(Date.now()) }
 	return [
 		{ kind: 'update', model, where: byIds(rows.map((row) => row.id)), set },
 	]

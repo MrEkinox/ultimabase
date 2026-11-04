@@ -53,7 +53,12 @@ export function sortOf(value: unknown, path: string, optional: boolean): Sort {
 /** A scalar field that sorts: no json, no list, no plugin field (D-94). */
 function sortable(model: ModelInfo, field: string, path: string): void {
 	const known = model.fields.get(field)
-	if (known === undefined) {
+	if (model.oneOfs.has(field)) {
+		throw new InvalidQuery(path, `${path} is a oneOf, which cannot be sorted.`)
+	}
+	// A oneOf's hidden keys are no field of the caller's (D-247).
+	const hidden = known?.kind === 'one' && known.of !== undefined
+	if (known === undefined || hidden) {
 		if (!systemFields.includes(field)) throw unknownKey(path, model.name)
 		return
 	}

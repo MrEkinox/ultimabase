@@ -15,6 +15,7 @@ import type {
 	OneCheck,
 	OneOptions,
 } from './relation-options.ts'
+import type { OneOf, OneOfKinds, OneOfOptions } from './one-of-types.ts'
 import type { Caller } from './rules.ts'
 import type { calendarDay, fieldType } from './symbols.ts'
 import type { NoOptions, Virtual, VirtualOptions } from './virtual.ts'
@@ -361,6 +362,14 @@ export interface FieldBuilders<T> {
 		target: M,
 		options?: O & NoInfer<OneCheck<O> & DeprecatedCheck<O>>,
 	) => One<M, O, T>
+	/** A `one` to a row of one of its kinds' models (D-247). */
+	readonly oneOf: <
+		const M extends OneOfKinds,
+		const O extends OneOfOptions = OneOfOptions,
+	>(
+		targets: M,
+		options?: O & NoInfer<OneCheck<O> & DeprecatedCheck<O>>,
+	) => OneOf<M, O, T>
 	readonly many: <M extends object, const O extends ManyOptions = ManyOptions>(
 		target: M,
 		options: O,

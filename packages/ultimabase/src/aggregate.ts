@@ -36,8 +36,10 @@ export function typeOf(
 	const refuse = (kind: string): never => {
 		throw new InvalidQuery(path, `${path} is ${kind}, which cannot be ${verb}.`)
 	}
+	if (model.oneOfs.has(field)) return refuse('a oneOf')
 	const known = model.fields.get(field)
-	if (known === undefined) {
+	// A oneOf's hidden keys are no field of the caller's (D-247).
+	if (known === undefined || (known.kind === 'one' && known.of !== undefined)) {
 		if (!systemFields.includes(field)) throw unknownKey(path, model.name)
 		return field === 'id' ? 'string' : 'dateTime'
 	}

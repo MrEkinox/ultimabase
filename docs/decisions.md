@@ -16831,3 +16831,151 @@ query {
 	}
 }
 ```
+
+## D-247: `f.oneOf`, a `one` whose target is one model among several
+
+Choice: completes D-37, D-54 and D-237.
+
+1. `target: f.oneOf({ post: () => Post, photo: () => Photo }, options)`
+   declares a stored relation to one row of one of its kinds. Its options are
+   `optional`, `onDelete` and `description`. Each target names it from a
+   `many`: `comments: f.many(() => Comment, { inverse: 'target' })`. That
+   `many` is a one-to-many as any other: read, filtered, counted, viewed
+   and written, a `connect` from it setting the row's kind.
+2. A row reads a tagged value, `{ kind: 'photo', photo: { id, ... } }`,
+   which TypeScript narrows on `kind`; an optional field reads `null` when
+   unset. `select` and `include` take `true`, the kind and the scalars of
+   the row's target, or an object of kinds, each taking what a `one` takes:
+   `{ target: { photo: { select: { url: true } }, post: true } }`. A kind it
+   leaves out reads `{ kind: 'video' }` alone. A target the caller cannot
+   read makes the value `null`, as a `one` include does (D-86); its kind is
+   not shown.
+3. A `where` takes, on `target`:
+   - `is` and `isNot`, on the fields every kind shares: a field each kind
+     declares with the same type, a relation to the same model. The adapter
+     turns it into one branch per kind;
+   - a kind, `{ photo: { is: ... } }` or `{ photo: { isNot: ... } }`, a
+     `one`'s filter on that kind;
+   - `kind`, `{ kind: 'photo' }`;
+   - `is: null` and `isNot: null`, on an optional field.
+4. A write names the kind: `{ connect: { photo: { id } } }`, `create` and
+   `connectOrCreate` the same way; an update to another kind empties the
+   former. `disconnect: true` empties an optional field. Naming two kinds,
+   or none, is `VALIDATION_FAILED`.
+5. `postgres()` stores a foreign key per kind, named after the field and
+   the kind (`target_post_id`, `target_photo_id`), each indexed as a `one`'s
+   key, and a check named after the table and the field
+   (`comment_target_check`): `num_nonnulls(...) = 1`, or `<= 1` when
+   optional. `onDelete` applies to every kind; `setNull` needs `optional`
+   (D-54), so the check never refuses a target's delete. `migrate create`
+   writes and drops the keys and the check with the field.
+6. GraphQL serves an object type, not a union, so that its JSON is the
+   kernel's and REST's (D-129): `CommentTarget { kind: CommentTargetKind!,
+post: Post, photo: Photo }`, the kind's field set and the others `null`.
+   Its `where` input, `CommentTargetFilter`, takes point 3's keys, with
+   `CommentTargetSharedWhereInput` for `is` and `isNot`; its data inputs are
+   `@oneOf` objects of kinds. REST takes the same shapes and its OpenAPI
+   document types them. A live query (D-154) follows it as a relation
+   filter.
+7. Not with a `oneOf`, refused by the types and at the start: `within`
+   (D-220), `unique`, `default`, `dbName`, a view that reads it or is one,
+   and `orderBy` on it; on the targets' `many`, `within` and `size`. Field
+   rules in `.with` are accepted, as on a `one`.
+
+Why: a comment on a post, a photo or a video was an optional `one` per
+kind, a hook checking that exactly one is set, every rule written once per
+kind and three nullable fields in the API. The keys stay real foreign keys,
+so the database keeps cascades and integrity, which a type column beside a
+single id would lose. A shared parent model adds a table, a join on every
+read and a row to create with each target.
+Cost: a field kind every adapter and transport serves, and a GraphQL type
+that is not the union clients may expect.
+Rejected: a GraphQL union (`... on Photo`), whose JSON differs from the
+kernel's and REST's (D-129); `f.one` taking an object of targets, which
+widens the types and messages of every `one`; a type column and one id; a
+shared parent model; an `inverse` option on the `oneOf` (D-237 names the
+other side from the `many`).
+Example:
+
+Before:
+
+```ts
+const Comment = defineModel({
+	name: 'Comment',
+	fields: (f) => ({
+		// One of the three.
+		post: f.one(() => Post, { optional: true, onDelete: 'cascade' }),
+		photo: f.one(() => Photo, { optional: true, onDelete: 'cascade' }),
+		video: f.one(() => Video, { optional: true, onDelete: 'cascade' }),
+		body: f.string(),
+	}),
+}).with({
+	access: {
+		read: signedIn(({ user, where }) =>
+			where({
+				OR: [
+					{ post: { is: { space: { is: memberOf(user.id) } } } },
+					{ photo: { is: { space: { is: memberOf(user.id) } } } },
+					{ video: { is: { space: { is: memberOf(user.id) } } } },
+				],
+			}),
+		),
+	},
+	hooks: {
+		afterCreate: ({ record }) => {
+			const set = [record.post, record.photo, record.video]
+			if (set.filter((one) => one !== null).length !== 1) {
+				throw new AppError('COMMENT_TARGET')
+			}
+		},
+	},
+})
+```
+
+After:
+
+```ts
+const Comment = defineModel({
+	name: 'Comment',
+	fields: (f) => ({
+		target: f.oneOf(
+			{ post: () => Post, photo: () => Photo, video: () => Video },
+			{ onDelete: 'cascade' },
+		),
+		body: f.string(),
+	}),
+}).with({
+	access: {
+		read: signedIn(({ user, where }) =>
+			where({ target: { is: { space: { is: memberOf(user.id) } } } }),
+		),
+	},
+})
+
+await Comment.create(
+	{ data: { body: 'Nice', target: { connect: { photo: { id } } } } },
+	{ as: caller },
+)
+const [comment] = await Comment.findMany(
+	{ select: { target: { photo: { select: { url: true } } } } },
+	{ as: caller },
+)
+if (comment?.target?.kind === 'photo') comment.target.photo.url
+```
+
+```graphql
+query {
+	comments {
+		edges {
+			node {
+				target {
+					kind
+					photo {
+						url
+					}
+				}
+			}
+		}
+	}
+}
+```

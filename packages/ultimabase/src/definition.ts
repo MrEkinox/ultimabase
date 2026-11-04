@@ -7,6 +7,7 @@ import type { Manifest } from './plugin.ts'
 import type { Standard } from './validation.ts'
 import { describedBy } from './described.ts'
 import { Refused } from './errors.ts'
+import { kindsOf } from './one-of-kinds.ts'
 import { isObject } from './query-where.ts'
 import { standardOf } from './validation.ts'
 
@@ -44,6 +45,13 @@ export type FieldDefinition =
 			/** `exists` reads whether its `many` view keeps a row (D-246). */
 			readonly kind: 'one' | 'many' | 'exists'
 			readonly target: () => unknown
+			readonly options: FieldOptions
+			readonly rules?: object
+	  }
+	| {
+			/** A stored `one` to a row of one of its kinds (D-247). */
+			readonly kind: 'oneOf'
+			readonly targets: ReadonlyMap<string, () => unknown>
 			readonly options: FieldOptions
 			readonly rules?: object
 	  }
@@ -347,6 +355,8 @@ export const fieldBuilders: object = Object.freeze({
 	one: relation('one'),
 	many: relation('many'),
 	exists: relation('exists'),
+	oneOf: (targets: unknown, options?: FieldOptions): object =>
+		build({ kind: 'oneOf', targets: kindsOf(targets), options: options ?? {} }),
 	virtual: (output: unknown, options?: FieldOptions): object =>
 		build({ kind: 'virtual', output, options: options ?? {} }),
 })

@@ -16,7 +16,9 @@ import { byId, entries, modelOf, unknownKey } from './query-where.ts'
 import type { Context, Relation } from './write-context.ts'
 import {
 	fail,
+	hiddenKey,
 	holds,
+	isOptional,
 	linking,
 	pathOf,
 	resolving,
@@ -27,6 +29,7 @@ import {
 import type { Draft } from './write-data.ts'
 import { prepared, readData } from './write-data.ts'
 import type { Reads, Step } from './write-plan.ts'
+import { oneOfField, unsetOneOfs } from './one-of-write.ts'
 import { Plan } from './write-plan.ts'
 
 /**
@@ -51,7 +54,11 @@ async function created(
 	const inverse =
 		field.inverse === undefined ? undefined : model.fields.get(field.inverse)
 	if (inverse?.kind === 'one' && inverse.stored) {
-		draft[inverse.name] = { connect: { id: context.id } }
+		const { of } = inverse
+		const connect = { id: context.id }
+		// A oneOf's kind is written through the oneOf (D-247).
+		if (of === undefined) draft[inverse.name] = { connect }
+		else draft[of.field] = { connect: { [of.kind]: connect } }
 	}
 	const child = { ...context, model, id, set: {}, at }
 	await resolveData(resolving(child, skips, true), draft)
@@ -206,17 +213,6 @@ async function one(
 	}
 }
 
-/** Whether the target's side of a one-to-one, which stores the key, may be empty. */
-function isOptional(
-	context: Context,
-	field: Extract<FieldInfo, { readonly kind: 'one'; readonly stored: false }>,
-): boolean {
-	const other = modelOf(context.scope.models, field.target).fields.get(
-		field.inverse,
-	)
-	return other?.kind === 'one' && other.optional
-}
-
 /** Deletes, then creates, disconnects and connects, then updates (D-138). */
 async function many(
 	context: Context,
@@ -266,21 +262,26 @@ async function fields(
 	const at = ['data', ...context.at].join('.')
 	for (const [name, value] of entries(data, at)) {
 		const field = context.model.fields.get(name)
+		const oneOf = context.model.oneOfs.get(name)
 		// The caller's data was read before the hooks: a hook wrote the key.
-		if (field === undefined) {
+		if ((field === undefined || hiddenKey(field)) && oneOf === undefined) {
 			throw hookError(
 				context,
 				unknownKey(pathOf(context, name), context.model.name),
 			)
 		}
 		given.add(name)
+		for (const kind of oneOf?.kinds.values() ?? []) given.add(kind.field)
 		try {
-			if (field.kind === 'scalar') scalar(context, field, value)
-			else if (field.kind === 'one') await one(context, field, value, creating)
-			else await many(context, field, value, creating)
+			if (oneOf !== undefined) {
+				await oneOfField(context, oneOf, value, creating, one)
+			} else if (field?.kind === 'scalar') scalar(context, field, value)
+			else if (field?.kind === 'one') await one(context, field, value, creating)
+			else if (field !== undefined) await many(context, field, value, creating)
 		} catch (error) {
 			// The caller's relation value reaches rows only now (D-138).
-			throw trusted(context, field, value) ? hookError(context, error) : error
+			const named = oneOf ?? { name }
+			throw trusted(context, named, value) ? hookError(context, error) : error
 		}
 	}
 	return given
@@ -324,6 +325,7 @@ async function inserted(context: Context, draft: Draft): Promise<Step[]> {
 		} else if (field.optional) context.set[field.name] = null
 		else fail(context, [field.name], 'Required.')
 	}
+	unsetOneOfs(context)
 	const now = Date.now()
 	const row: Row = {
 		...context.set,

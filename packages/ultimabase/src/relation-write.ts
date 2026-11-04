@@ -135,6 +135,58 @@ export function oneWrite(
 	return { kind: key === 'delete' ? 'delete' : 'disconnect' }
 }
 
+/** A `oneOf` write (D-247): one operation on one kind, or `disconnect`. */
+export type OneOfWrite =
+	| {
+			readonly kind: string
+			readonly write: Extract<
+				OneWrite,
+				{ readonly kind: 'connect' | 'create' | 'connectOrCreate' }
+			>
+	  }
+	| {
+			readonly kind: undefined
+			readonly write: { readonly kind: 'disconnect' }
+	  }
+
+export function oneOfWrite(
+	value: unknown,
+	path: string,
+	kinds: readonly string[],
+	optional: boolean,
+	creating: boolean,
+): OneOfWrite {
+	const ops = ['connect', 'connectOrCreate', 'create']
+	if (optional && !creating) ops.push('disconnect')
+	const given = value === null ? [] : entries(value, path)
+	const [entry] = given
+	if (entry === undefined || given.length !== 1 || !ops.includes(entry[0])) {
+		throw new InvalidQuery(path, `${path} takes one of ${ops.join(', ')}.`)
+	}
+	const [key, operand] = entry
+	const at = `${path}.${key}`
+	if (key === 'disconnect') {
+		if (operand !== true) throw new InvalidQuery(at, `${at} must be true.`)
+		return { kind: undefined, write: { kind: key } }
+	}
+	const named = entries(operand, at)
+	const [chosen] = named
+	if (
+		chosen === undefined ||
+		named.length !== 1 ||
+		!kinds.includes(chosen[0])
+	) {
+		throw new InvalidQuery(at, `${at} names one of ${kinds.join(', ')}.`)
+	}
+	const [kind, inner] = chosen
+	const where = `${at}.${kind}`
+	if (key === 'connect')
+		return { kind, write: { kind: key, id: ref(inner, where) } }
+	if (key === 'create')
+		return { kind, write: { kind: key, data: made(inner, where) } }
+	return { kind, write: { kind: 'connectOrCreate', ...orCreate(inner, where) } }
+}
+
 /** A `many` relation write, each operation's list. */
 export type ManyWrite = {
 	readonly connect: string[]
@@ -172,5 +224,29 @@ export function manyWrite(
 		connectOrCreate: each('connectOrCreate', orCreate),
 		update: each('update', updating),
 		delete: each('delete', (item) => item),
+	}
+}
+
+/** Fails when a row is named by two operations of the relation (D-138). */
+export function once(
+	many: {
+		readonly connect: readonly string[]
+		readonly disconnect: readonly string[]
+		readonly update: readonly { readonly row: { readonly id: string } }[]
+		readonly delete: readonly { readonly row: { readonly id: string } }[]
+	},
+	path: string,
+): void {
+	const seen = new Set<string>()
+	const links = new Set([...many.connect, ...many.disconnect])
+	const named = [
+		...many.update.map(({ row }) => row.id),
+		...many.delete.map(({ row }) => row.id),
+	]
+	for (const id of named) {
+		if (seen.has(id) || links.has(id)) {
+			throw new InvalidQuery(path, `${path} names the same row twice.`)
+		}
+		seen.add(id)
 	}
 }

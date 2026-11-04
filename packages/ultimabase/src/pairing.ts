@@ -5,7 +5,7 @@ import { Refused } from './errors.ts'
 
 type Relation = Exclude<
 	FieldDefinition,
-	{ readonly kind: 'scalar' | 'virtual' }
+	{ readonly kind: 'scalar' | 'virtual' | 'oneOf' }
 >
 export type Linked = {
 	readonly model: string

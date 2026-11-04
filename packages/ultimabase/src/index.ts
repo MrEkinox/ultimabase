@@ -77,6 +77,7 @@ export type {
 	StringOptions,
 } from './fields.ts'
 export type { ExistsOptions, ManyOptions } from './relation-options.ts'
+export type { OneOf, OneOfOptions } from './one-of-types.ts'
 export type { Hidden } from './field-rules.ts'
 export { defineFunction, defineType } from './define-function.ts'
 export type {

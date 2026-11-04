@@ -15,7 +15,8 @@ import {
 } from './query-where.ts'
 import { checked, validated } from './validation.ts'
 import type { OrCreate } from './relation-write.ts'
-import { manyWrite, oneWrite } from './relation-write.ts'
+import { manyWrite, oneOfWrite, oneWrite } from './relation-write.ts'
+import type { OneOfInfo } from './one-of-schema.ts'
 import { refuseSet } from './relations.ts'
 
 /** The data a `before*` hook changes in place (D-71). */
@@ -55,22 +56,31 @@ export function readData(
 	inverse?: string,
 ): Draft {
 	const draft: Draft = {}
+	const back = inverse === undefined ? undefined : model.fields.get(inverse)
+	// A `oneOf` written through one of its kinds is that kind's (D-247).
+	const through = back?.kind === 'one' ? back.of?.field : undefined
 	for (const [name, value] of entries(data, at)) {
 		const field = model.fields.get(name)
 		const path = `${at}.${name}`
-		// A view is read-only (D-151, D-240).
-		if (
-			field === undefined ||
-			((field.kind === 'many' || (field.kind === 'one' && !field.stored)) &&
-				field.from !== undefined)
-		) {
-			throw unknownKey(path, model.name)
-		}
-		if (name === inverse) {
+		if (name === inverse || name === through) {
 			throw new InvalidQuery(
 				path,
 				`${path} cannot be written: it links to the row being written.`,
 			)
+		}
+		const oneOf = model.oneOfs.get(name)
+		if (oneOf !== undefined) {
+			draft[name] = oneOfData(models, model, oneOf, value, path, creating)
+			continue
+		}
+		// A view is read-only (D-151, D-240); a oneOf's keys are hidden.
+		if (
+			field === undefined ||
+			((field.kind === 'many' || (field.kind === 'one' && !field.stored)) &&
+				field.from !== undefined) ||
+			(field.kind === 'one' && field.of !== undefined)
+		) {
+			throw unknownKey(path, model.name)
 		}
 		draft[name] = value
 		if (field.kind === 'scalar') continue
@@ -117,6 +127,40 @@ export function readData(
 		draft[name] = copy
 	}
 	return draft
+}
+
+/** A `oneOf` value (D-247), its nested rows read as its kind's target. */
+function oneOfData(
+	models: Models,
+	model: ModelInfo,
+	info: OneOfInfo,
+	value: unknown,
+	path: string,
+	creating: boolean,
+): Draft {
+	const kinds = [...info.kinds.keys()]
+	const { kind, write } = oneOfWrite(
+		value,
+		path,
+		kinds,
+		info.optional,
+		creating,
+	)
+	if (kind === undefined) return { disconnect: true }
+	const hidden = model.fields.get(info.kinds.get(kind)?.field ?? '')
+	const target = hidden?.kind === 'one' ? models.get(hidden.target) : undefined
+	const at = `${path}.${write.kind}.${kind}`
+	const nested = (item: Draft, where: string): Draft =>
+		target === undefined || hidden?.kind !== 'one'
+			? item
+			: readData(models, target, item, true, where, hidden.inverse)
+	const operand =
+		write.kind === 'connect'
+			? { id: write.id }
+			: write.kind === 'create'
+				? nested(write.data, at)
+				: { where: write.where, create: nested(write.create, `${at}.create`) }
+	return { [write.kind]: { [kind]: operand } }
 }
 
 /** A relation default's id: the target's `{ id }` or a record of it (D-53). */
