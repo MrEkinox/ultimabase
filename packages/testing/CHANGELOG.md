@@ -1,5 +1,95 @@
 # @ultimabase/testing
 
+## 0.4.0
+
+### Minor Changes
+
+- b087ae6: New package, `@ultimabase/jobs`: `defineJob({ name, input, run })` gives a
+  job whose `enqueue(input, { after })` writes a run in the current
+  transaction, so it exists if and only if the write commits; a job with
+  `every` or `cron` and `timeZone` runs on its schedule. `jobsPlugin({ jobs })`
+  runs them on every server, each run on one through a five-minute lease,
+  retried 10 s later, then twice as long each time, up to ten attempts; a run
+  runs at least once, its `id` the idempotency key. `runJobs()`, from
+  `@ultimabase/testing`, runs during a test the runs due now and those they
+  enqueue (D-221).
+- fb807e1: An optional one-to-one moves from the side without the key (D-239). When the
+  side that stores the key is optional, `connect`, `create` and `disconnect`
+  from the other side leave the old row with no key instead of failing with
+  `… cannot be left without one.` From the side that stores the key, connecting
+  a row another row holds stays a `UNIQUE_VIOLATION`.
+- 69699b2: A relation's other side is named, never found by itself (D-237). A `one`
+  without `inverse` stores its key and its target gets no field:
+  `author: f.one(() => User)` no longer asks `User` for a `many`. A `many`
+  names its other side with `inverse`, which the types require:
+  `posts: f.many(() => Post, { inverse: 'author' })`, and both sides of a
+  many-to-many name each other. In a one-to-one, the optional side names the
+  other and stores no key; the side it names stores the key. The user model of
+  `defineRole` lists its roles in
+  `roles: f.many(() => Role, { inverse: 'members' })`. GraphQL and OpenAPI give
+  a one-sided `one` its target's whole input, `UserCreateNestedOneInput`.
+  `StoredRecord` and the types built on it lose their second parameter.
+- ebdf8a0: A `one` view reads the one row of a one-to-many `many` that its filter keeps,
+  or `null` (D-240): `upcoming: f.one(() => Volume, { from: 'volumes' })`,
+  filtered in `.with({ relations: { upcoming: { where: ({ where }) =>
+where({ released: false }) } } })`. The filter runs once, at startup, and
+  reads no caller; a unique index on the target's key, with a `where` the
+  filter keeps, must hold the row single, or the application does not start.
+  The view is read like a `one`, by include, select and `is`, `isNot` and
+  `is: null`; it is not written and sorts nothing. GraphQL publishes it as a
+  nullable field, and OpenAPI leaves it out of inputs and `orderBy`. The
+  memory adapter's include of a `one` with a filter reads the first row it
+  keeps.
+- b5c22b0: A unique index takes `where`, a filter of values, `null`, `equals` and
+  `not` on the model's scalar fields: the rows it keeps share no values, the
+  others are never in conflict. `postgres()` creates a partial unique index,
+  and `memory()` checks the same rows. `where: { deletedAt: null }` lets a
+  new row take the unique value of a soft-deleted one (D-215).
+
+### Patch Changes
+
+- 67d5152: `asUser` takes the user's row as a sign-up or a Master read returns it, whose
+  read-ruled fields are optional, instead of refusing it (D-203). A user's
+  `email` and `passwordSetAt` are optional in the rows a read returns, since
+  only the user and Master read them; `ultimabase` exports `UserRowOf` and
+  `Hidden` for it.
+- 9b491fb: A lost right re-checks only the live reads it may reach (D-196). A delete in the feed tells the stored `one` keys of each deleted row, and a write through a read rule's relation is judged by that level's own conditions: with 10 000 subscribers, a deleted member row or a user leaving a role costs 4 statements instead of 10 000 to 20 000, and the engine is done in under 190 ms instead of 3.6 to 7.4 s. The subscriber who loses rows hears of it after about 150 to 190 ms instead of 65 to 75.
+- 9b491fb: A read returns its dates as milliseconds since the epoch and decodes its rows in place, without copying them: 10 000 subscriptions to lists of 1000 rows open in 40 s instead of 52. A date stored with microseconds by another writer rounds down to its millisecond, before 1970 too.
+- Updated dependencies [67d5152]
+- Updated dependencies [4c2d462]
+- Updated dependencies [7accc26]
+- Updated dependencies [783fc4b]
+- Updated dependencies [f38d1fb]
+- Updated dependencies [8dca2cf]
+- Updated dependencies [4e1a966]
+- Updated dependencies [e4c1252]
+- Updated dependencies [11b7633]
+- Updated dependencies [6f37f70]
+- Updated dependencies [9b491fb]
+- Updated dependencies [9b491fb]
+- Updated dependencies [b65eb74]
+- Updated dependencies [1354efd]
+- Updated dependencies [b994e6e]
+- Updated dependencies [fb807e1]
+- Updated dependencies [69699b2]
+- Updated dependencies [4b37376]
+- Updated dependencies [d76e882]
+- Updated dependencies [ebdf8a0]
+- Updated dependencies [b5c22b0]
+- Updated dependencies [1d7fda8]
+- Updated dependencies [a778695]
+- Updated dependencies [adafb1a]
+- Updated dependencies [2afc370]
+- Updated dependencies [e61e1c2]
+- Updated dependencies [844627a]
+- Updated dependencies [eb6dbbf]
+- Updated dependencies [c9a8228]
+- Updated dependencies [501c0cb]
+- Updated dependencies [644a24f]
+- Updated dependencies [efc4303]
+- Updated dependencies [6c1cfe5]
+  - ultimabase@0.4.0
+
 ## 0.3.0
 
 ### Minor Changes

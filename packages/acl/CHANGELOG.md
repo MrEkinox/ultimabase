@@ -1,5 +1,48 @@
 # @ultimabase/acl
 
+## 0.4.0
+
+### Patch Changes
+
+- a76cc09: An `ACL` method given a user or a role whose id is empty or holds a line
+  break throws a `TypeError`: such an entry was stored, then made every read
+  of its model throw. The `acl` field also refuses an array (D-124).
+- Updated dependencies [67d5152]
+- Updated dependencies [4c2d462]
+- Updated dependencies [7accc26]
+- Updated dependencies [783fc4b]
+- Updated dependencies [f38d1fb]
+- Updated dependencies [8dca2cf]
+- Updated dependencies [4e1a966]
+- Updated dependencies [e4c1252]
+- Updated dependencies [11b7633]
+- Updated dependencies [6f37f70]
+- Updated dependencies [9b491fb]
+- Updated dependencies [9b491fb]
+- Updated dependencies [b65eb74]
+- Updated dependencies [1354efd]
+- Updated dependencies [b994e6e]
+- Updated dependencies [fb807e1]
+- Updated dependencies [69699b2]
+- Updated dependencies [4b37376]
+- Updated dependencies [d76e882]
+- Updated dependencies [ebdf8a0]
+- Updated dependencies [b5c22b0]
+- Updated dependencies [1d7fda8]
+- Updated dependencies [a778695]
+- Updated dependencies [adafb1a]
+- Updated dependencies [2afc370]
+- Updated dependencies [e61e1c2]
+- Updated dependencies [844627a]
+- Updated dependencies [eb6dbbf]
+- Updated dependencies [c9a8228]
+- Updated dependencies [501c0cb]
+- Updated dependencies [644a24f]
+- Updated dependencies [efc4303]
+- Updated dependencies [6c1cfe5]
+  - ultimabase@0.4.0
+  - @ultimabase/roles@0.4.0
+
 ## 0.3.0
 
 ### Patch Changes

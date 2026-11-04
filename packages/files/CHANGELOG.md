@@ -1,5 +1,58 @@
 # @ultimabase/files
 
+## 0.4.0
+
+### Minor Changes
+
+- 7accc26: Each plugin declares the codes its errors carry in its types' `errors`, and `ultimabase` exports `ErrorCodeOf<typeof app>`: the kernel's codes and those of each plugin the application lists, for a client to type its messages against (D-206). A GraphQL document the schema refuses, as an unknown field, now carries `extensions.code: 'BAD_USER_INPUT'`, as REST's refused query.
+- 1d37bc8: `diskFiles({ dir, secret })` stores the files in a directory, for one server with a persistent volume, and `memoryFiles()` now gives real URLs: the application serves both at `GET /files/<key>`, a private file at a signed URL, sandboxed and never sniffed (D-202).
+
+### Patch Changes
+
+- 1d7fda8: `ultimabase` exports `QueryOptions`, the `{ as }` every query, model command
+  and `fn.run` take; auth, files and password use it instead of their own
+  copies.
+- 08e0dec: A private file's URL stays the same for 15 minutes: `s3()` signs it with the start of its 15-minute window and an expiry of 30 minutes, so a row read again, as a live read resends it, keeps its URLs (D-200).
+- Updated dependencies [67d5152]
+- Updated dependencies [9c6ca70]
+- Updated dependencies [4c2d462]
+- Updated dependencies [7accc26]
+- Updated dependencies [783fc4b]
+- Updated dependencies [f38d1fb]
+- Updated dependencies [8dca2cf]
+- Updated dependencies [4fba06b]
+- Updated dependencies [4e1a966]
+- Updated dependencies [6e7d759]
+- Updated dependencies [e4c1252]
+- Updated dependencies [11b7633]
+- Updated dependencies [6f37f70]
+- Updated dependencies [9b491fb]
+- Updated dependencies [9b491fb]
+- Updated dependencies [9cebf63]
+- Updated dependencies [b65eb74]
+- Updated dependencies [1354efd]
+- Updated dependencies [b994e6e]
+- Updated dependencies [fb807e1]
+- Updated dependencies [69699b2]
+- Updated dependencies [4b37376]
+- Updated dependencies [d76e882]
+- Updated dependencies [ebdf8a0]
+- Updated dependencies [b5c22b0]
+- Updated dependencies [1d7fda8]
+- Updated dependencies [a778695]
+- Updated dependencies [adafb1a]
+- Updated dependencies [2afc370]
+- Updated dependencies [e61e1c2]
+- Updated dependencies [844627a]
+- Updated dependencies [eb6dbbf]
+- Updated dependencies [c9a8228]
+- Updated dependencies [501c0cb]
+- Updated dependencies [644a24f]
+- Updated dependencies [efc4303]
+- Updated dependencies [6c1cfe5]
+  - ultimabase@0.4.0
+  - @ultimabase/http@0.4.0
+
 ## 0.3.0
 
 ### Minor Changes

@@ -1,6 +1,6 @@
 {
 	"name": "@ultimabase/jobs",
-	"version": "0.3.0",
+	"version": "0.4.0",
 	"description": "Jobs for UltimaBase: work enqueued with a write's transaction, delayed or on a schedule, retried until it succeeds.",
 	"type": "module",
 	"license": "Apache-2.0",
@@ -31,7 +31,7 @@
 		}
 	},
 	"peerDependencies": {
-		"ultimabase": "^0.3.0"
+		"ultimabase": "^0.4.0"
 	},
 	"devDependencies": {
 		"@types/pg": "8.23.1",

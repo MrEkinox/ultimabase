@@ -1,5 +1,71 @@
 # @ultimabase/auth
 
+## 0.4.0
+
+### Minor Changes
+
+- 957bb20: `User.closeAccount` and `AuthApi.onCloseAccount` are removed (D-211): delete
+  the user instead, which ends its sessions, unlinks its accounts and deletes
+  its password, so the email signs up again. `email: null` on a user with a
+  password account is refused with `email: A password account keeps its
+email.`
+- 1a5c324: `isOwner(field)` works in a model read rule: it keeps the rows whose `one` relation `field` is the caller, and none for a visitor. It combines with `anyOf` and `allOf` (D-241).
+
+### Patch Changes
+
+- 957bb20: `signOut` with a Bearer also ends the session of the cookie the request
+  carries, before clearing it. `isOwner` is `false` when the facts carry
+  neither a record nor a value, as a function's do, instead of letting every
+  signed-in user in.
+- 1d7fda8: `ultimabase` exports `QueryOptions`, the `{ as }` every query, model command
+  and `fn.run` take; auth, files and password use it instead of their own
+  copies.
+- 6c1cfe5: A model's `create`, `update`, `delete` or `write` rule may return
+  `where(filter, error?)`, as a read rule does (D-214). An update's row matches
+  the filter before and after the write, a delete's before, a create's after,
+  with the relations it connects or creates; a row outside it refuses the whole
+  write with the given `PublicError`, or `ACCESS_DENIED`. `isOwner` still tells
+  a read rule from a write rule now that both receive `where`.
+- Updated dependencies [67d5152]
+- Updated dependencies [9c6ca70]
+- Updated dependencies [4c2d462]
+- Updated dependencies [7accc26]
+- Updated dependencies [783fc4b]
+- Updated dependencies [f38d1fb]
+- Updated dependencies [8dca2cf]
+- Updated dependencies [4fba06b]
+- Updated dependencies [4e1a966]
+- Updated dependencies [6e7d759]
+- Updated dependencies [e4c1252]
+- Updated dependencies [11b7633]
+- Updated dependencies [6f37f70]
+- Updated dependencies [9b491fb]
+- Updated dependencies [9b491fb]
+- Updated dependencies [9cebf63]
+- Updated dependencies [b65eb74]
+- Updated dependencies [1354efd]
+- Updated dependencies [b994e6e]
+- Updated dependencies [fb807e1]
+- Updated dependencies [69699b2]
+- Updated dependencies [4b37376]
+- Updated dependencies [d76e882]
+- Updated dependencies [ebdf8a0]
+- Updated dependencies [b5c22b0]
+- Updated dependencies [1d7fda8]
+- Updated dependencies [a778695]
+- Updated dependencies [adafb1a]
+- Updated dependencies [2afc370]
+- Updated dependencies [e61e1c2]
+- Updated dependencies [844627a]
+- Updated dependencies [eb6dbbf]
+- Updated dependencies [c9a8228]
+- Updated dependencies [501c0cb]
+- Updated dependencies [644a24f]
+- Updated dependencies [efc4303]
+- Updated dependencies [6c1cfe5]
+  - ultimabase@0.4.0
+  - @ultimabase/http@0.4.0
+
 ## 0.3.0
 
 ### Minor Changes
