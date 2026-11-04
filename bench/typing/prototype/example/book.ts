@@ -9,7 +9,8 @@ export const Book = defineModel({
 		pages: f.number({ optional: true }),
 		author: f.one(() => Author),
 		reviewer: f.one(() => Author, { optional: true }),
-		sequels: f.many(() => Book),
+		prequel: f.one(() => Book, { optional: true }),
+		sequels: f.many(() => Book, { inverse: 'prequel' }),
 	}),
 }).with({
 	access: {

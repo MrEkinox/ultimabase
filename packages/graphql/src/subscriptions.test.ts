@@ -70,7 +70,7 @@ const Note = defineModel({
 const Board = defineModel({
 	name: 'Board',
 	use: [graphql(), realtime()],
-	fields: (f) => ({ cards: f.many(() => Card) }),
+	fields: (f) => ({ cards: f.many(() => Card, { inverse: 'board' }) }),
 }).with({ access: allow.readOnly })
 const Card = defineModel({
 	name: 'Card',

@@ -922,6 +922,8 @@ reason about.
 
 ## D-37: Relations are `one` and `many`, declared on both sides
 
+Amended by D-220 and D-237.
+
 Choice: a relation field is `f.one(() => Target)` or `f.many(() => Target)`, and
 both models declare their side. `one` facing `many` is one-to-many; `many`
 facing `many` is many-to-many through a join table. When two relations join
@@ -2660,6 +2662,8 @@ access: { read: ({ where }) => where({ author: { is: { email: { endsWith: '@team
 ```
 
 ## D-87: A rule's record omits the optional side of a one-to-one
+
+Amended by D-237.
 
 Choice: the `record` and `previous` types of access rules and hooks hold only
 the `one` relations the row stores (D-37). The optional side of a one-to-one
@@ -6158,7 +6162,7 @@ await Note.update(
 
 ## D-123: `rolesPlugin()`, `defineRole` and roles inside roles
 
-Amended by D-126 and D-213.
+Amended by D-126, D-213 and D-237.
 
 Choice: amends D-13; Parse's roles.
 
@@ -15868,3 +15872,151 @@ Rejected:
 - The join's keys without `on update cascade`: a write moving a row and
   every row it links, which the kernel accepts, would leave the join's
   `project_id` behind and be refused at commit.
+
+## D-237: A relation's other side is named, and a `one` may have none
+
+Choice: amends D-37, D-87 and D-123.
+
+1. A `one` without `inverse` stores the key: its column, foreign key and
+   `onDelete` live on its side. Its target gets no field unless a relation
+   of the target names it.
+2. A `many` names its other side with `inverse`, which the types require: in
+   one-to-many, the target's `one` that stores the key
+   (`posts: f.many(() => Post, { inverse: 'author' })`); in many-to-many,
+   the target's `many`, which names it back. A view (`from`, D-151) names
+   none.
+3. A one-to-one is a `one` naming the target's `one` with `inverse`. The
+   side that names stores no key, and is optional; the side it names stores
+   the key, unique, optional or not.
+4. Nothing pairs by itself. Startup stops, with a message, on:
+   - a `many` without `inverse`, from JavaScript or a cast:
+     `User.posts: a many names its other side with inverse.`
+   - a `one` whose `inverse` names a `many`:
+     `Post.author: inverse names a many; drop it, User.posts names this side.`
+   - a one-to-one whose two sides name each other: `User.profile and
+Profile.user name each other; only the side that stores no key names the
+other.`
+   - a one-to-one whose naming side is required: `User.profile: the side of
+a one-to-one that names the other stores no key, and is optional.`
+   - two relations naming the same field, and a many-to-many whose sides do
+     not name each other: `User.posts and User.drafts both name Post.author.`
+   - an `inverse` naming no relation of the target to the model, as before
+     (D-24, D-37).
+5. Writes, reads and filters through a `one` without other side are those of
+   any stored `one`: `connect`, `create`, `connectOrCreate`, nested `update`
+   and `delete`, `is` and `isNot`, `include`. A nested `create` takes the
+   target's whole input, `UserCreateInput` (GraphQL and OpenAPI name it
+   `UserCreateNestedOneInput`, with no `Without…`), and a nested write from
+   the target leaves the relation in the row's data.
+6. A rule's `record` holds every `one` that stores the key (D-87): each one
+   without `inverse`.
+7. `within` (D-220) names a target's field that a `many` of the parent
+   names: the parent's side tells which targets it holds. Otherwise startup
+   stops: `Ticket.assignee: within names Member.org, which needs its other
+side.` A many-to-many's `within` (D-236) needs the same of both models'
+   `one` to the parent: `Desk.tickets: within names Desk.org, which needs its
+other side.`
+8. `defineRole` (D-123) names the user model's field `roles`, as it names
+   its own `members`, `inherits` and `inheritedBy`: the user model declares
+   `roles: f.many(() => Role, { inverse: 'members' })`; without it, the
+   types of `defineApp` refuse the models and startup stops: `Role.members: inverse 'roles' is not a relation of User to
+Role.` `defineRole` takes no `inverse`: the name it would give is fixed.
+
+Why:
+
+- Most `one` relations are read from their own side: a comment's author, an
+  invitation's sender. D-37 made the target declare a `many` for each of
+  them, which crowded central models (the user) and published, in each
+  transport, a connection, filters and a count sort that nothing used.
+- Pairing by itself paired whatever it found. Two `one` relations between
+  two models, meant apart, became a one-to-one with a unique key no one
+  asked for; a second relation between two models broke startup until one
+  side named the other. Named sides read the same in every model, and the
+  name lives where it decides something: on the side that stores nothing.
+- Parse's pointer is one-sided; an application moving from Parse writes its
+  pointers as `one` relations with no extra field.
+- Which side of a one-to-one stores the key follows from the declaration,
+  not from which side is optional: both sides may be optional (D-233 asked
+  for it).
+
+Rejected:
+
+- `inverse: false` on a `one`, with pairing by itself kept: one more value,
+  and the silent one-to-one stays.
+- A `many` without `inverse` as a one-sided many-to-many (Parse's
+  relation): a forgotten `inverse` on a one-to-many would store its rows in
+  a join table, next to the key, with no error. To revisit, with its own
+  option, if usage asks for it.
+- Naming on both sides of a one-to-many: the `one` side would repeat what
+  the `many` says.
+- Refusing nested writes through a one-sided `one`: its target's row is an
+  ordinary row, reached through the key the row stores.
+
+Example, before:
+
+```ts
+const Comment = defineModel({
+	name: 'Comment',
+	fields: (f) => ({
+		text: f.string(),
+		author: f.one(() => User),
+		post: f.one(() => Post),
+	}),
+})
+const User = defineModel({
+	name: 'User',
+	fields: (f) => ({
+		name: f.string(),
+		// Only there because Comment.author needs a side.
+		comments: f.many(() => Comment),
+		profile: f.one(() => Profile, { optional: true }),
+	}),
+})
+const Profile = defineModel({
+	name: 'Profile',
+	fields: (f) => ({ user: f.one(() => User) }),
+})
+const Post = defineModel({
+	name: 'Post',
+	fields: (f) => ({ comments: f.many(() => Comment) }),
+})
+```
+
+After:
+
+```ts
+const Comment = defineModel({
+	name: 'Comment',
+	fields: (f) => ({
+		text: f.string(),
+		author: f.one(() => User),
+		post: f.one(() => Post),
+	}),
+})
+const User = defineModel({
+	name: 'User',
+	fields: (f) => ({
+		name: f.string(),
+		profile: f.one(() => Profile, { optional: true, inverse: 'user' }),
+	}),
+})
+const Profile = defineModel({
+	name: 'Profile',
+	fields: (f) => ({ user: f.one(() => User) }),
+})
+const Post = defineModel({
+	name: 'Post',
+	fields: (f) => ({
+		comments: f.many(() => Comment, { inverse: 'post' }),
+	}),
+})
+
+await Comment.create({
+	data: {
+		text: 'Hi',
+		author: { connect: { id: ann.id } },
+		post: { connect: { id: post.id } },
+	},
+})
+await Comment.findMany({ where: { author: { is: { name: 'Ann' } } } })
+```

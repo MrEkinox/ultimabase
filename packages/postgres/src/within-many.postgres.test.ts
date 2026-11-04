@@ -19,8 +19,8 @@ const Project = defineModel({
 	name: 'Project',
 	fields: (f) => ({
 		name: f.string(),
-		notes: f.many(() => Note),
-		tasks: f.many(() => Task),
+		notes: f.many(() => Note, { inverse: 'project' }),
+		tasks: f.many(() => Task, { inverse: 'project' }),
 	}),
 })
 
@@ -37,7 +37,7 @@ const Task = defineModel({
 	fields: (f) => ({
 		name: f.string(),
 		project: f.one(() => Project, { onDelete: 'cascade' }),
-		notes: f.many(() => Note),
+		notes: f.many(() => Note, { inverse: 'tasks' }),
 	}),
 })
 

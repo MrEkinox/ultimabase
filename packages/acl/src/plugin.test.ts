@@ -18,11 +18,17 @@ const M = { as: master }
 const Role = defineRole({ name: 'Role', members: () => User })
 const User = defineModel({
 	name: 'User',
-	fields: (f) => ({ email: f.string(), roles: f.many(() => Role) }),
+	fields: (f) => ({
+		email: f.string(),
+		roles: f.many(() => Role, { inverse: 'members' }),
+	}),
 })
 const Folder = defineModel({
 	name: 'Folder',
-	fields: (f) => ({ name: f.string(), notes: f.many(() => Note) }),
+	fields: (f) => ({
+		name: f.string(),
+		notes: f.many(() => Note, { inverse: 'folder' }),
+	}),
 }).with({ access: allow.public })
 /** A note its author reads and writes; an anonymous one is public. */
 const Note = defineModel({

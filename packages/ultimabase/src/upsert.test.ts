@@ -25,7 +25,7 @@ const Tag = defineModel({
 		uses: f.number({ integer: true, default: 0 }),
 		hidden: f.boolean({ default: false }),
 		by: f.string({ optional: true }),
-		notes: f.many(() => Note),
+		notes: f.many(() => Note, { inverse: 'tag' }),
 	}),
 }).with({
 	access: {

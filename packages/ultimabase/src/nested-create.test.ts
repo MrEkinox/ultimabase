@@ -17,7 +17,7 @@ const Shop = defineModel({
 	fields: (f) => ({
 		name: f.string(),
 		items: f
-			.many(() => Item)
+			.many(() => Item, { inverse: 'shop' })
 			.with({
 				access: {
 					create: ({ value }) => {
@@ -26,7 +26,7 @@ const Shop = defineModel({
 					},
 				},
 			}),
-		sign: f.one(() => Sign, { optional: true }),
+		sign: f.one(() => Sign, { inverse: 'shop', optional: true }),
 	}),
 }).with({
 	access: {
@@ -57,7 +57,7 @@ const Item = defineModel({
 		label: f.string(),
 		size: f.number({ default: 1 }),
 		shop: f.one(() => Shop, { onDelete: 'cascade' }),
-		parts: f.many(() => Part),
+		parts: f.many(() => Part, { inverse: 'item' }),
 	}),
 }).with({
 	access: {

@@ -12,7 +12,7 @@ const Team = defineModel({
 	name: 'Team',
 	fields: (f) => ({
 		name: f.string({ unique: true }),
-		players: f.many(() => Player),
+		players: f.many(() => Player, { inverse: 'team' }),
 	}),
 })
 
@@ -26,8 +26,8 @@ const Player = defineModel({
 		stats: f.json({ optional: true }),
 		bornAt: f.dateTime({ optional: true }),
 		team: f.one(() => Team, { optional: true }),
-		badge: f.one(() => Badge, { optional: true }),
-		skills: f.many(() => Skill),
+		badge: f.one(() => Badge, { inverse: 'player', optional: true }),
+		skills: f.many(() => Skill, { inverse: 'players' }),
 	}),
 	indexes: [{ fields: ['name', 'team'], unique: true }],
 })
@@ -41,7 +41,7 @@ const Skill = defineModel({
 	name: 'Skill',
 	fields: (f) => ({
 		label: f.string({ unique: true }),
-		players: f.many(() => Player),
+		players: f.many(() => Player, { inverse: 'skills' }),
 	}),
 })
 

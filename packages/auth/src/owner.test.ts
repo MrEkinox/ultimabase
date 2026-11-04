@@ -16,7 +16,10 @@ const quiet: Logger = {
 
 const User = defineUser({
 	name: 'User',
-	fields: (f) => ({ name: f.string(), posts: f.many(() => Post) }),
+	fields: (f) => ({
+		name: f.string(),
+		posts: f.many(() => Post, { inverse: 'author' }),
+	}),
 }).with({ access: allow.readOnly })
 
 const Post = defineModel({

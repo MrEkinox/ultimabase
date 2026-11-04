@@ -23,7 +23,10 @@ const ada = asUser({ id: 'ada' })
 
 const Author = defineModel({
 	name: 'Author',
-	fields: (f) => ({ name: f.string(), posts: f.many(() => Post) }),
+	fields: (f) => ({
+		name: f.string(),
+		posts: f.many(() => Post, { inverse: 'author' }),
+	}),
 }).with({
 	access: {
 		read: ({ caller, where }) =>

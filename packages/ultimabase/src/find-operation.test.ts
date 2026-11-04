@@ -12,11 +12,17 @@ const seen: FindOperation[] = []
 const allowed = { read: () => true, create: () => true, update: () => true }
 const Author = defineModel({
 	name: 'Author',
-	fields: (f) => ({ name: f.string(), posts: f.many(() => Post) }),
+	fields: (f) => ({
+		name: f.string(),
+		posts: f.many(() => Post, { inverse: 'author' }),
+	}),
 }).with({ access: allowed })
 const Tag = defineModel({
 	name: 'Tag',
-	fields: (f) => ({ label: f.string(), posts: f.many(() => Post) }),
+	fields: (f) => ({
+		label: f.string(),
+		posts: f.many(() => Post, { inverse: 'tags' }),
+	}),
 }).with({ access: allowed })
 /** A locked post is read, never written. */
 const Post = defineModel({
@@ -25,7 +31,7 @@ const Post = defineModel({
 		title: f.string(),
 		locked: f.boolean({ default: false }),
 		author: f.one(() => Author, { optional: true }),
-		tags: f.many(() => Tag),
+		tags: f.many(() => Tag, { inverse: 'posts' }),
 	}),
 }).with({
 	access: { ...allowed, delete: () => true },

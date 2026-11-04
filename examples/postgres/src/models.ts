@@ -8,7 +8,7 @@ export const Project = defineModel({
 	use: [graphql()],
 	fields: (f) => ({
 		name: f.string({ unique: true }),
-		tasks: f.many(() => Task),
+		tasks: f.many(() => Task, { inverse: 'project' }),
 	}),
 	// Open to every client, to keep the example on the database.
 }).with({ access: allow.public })

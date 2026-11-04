@@ -19,7 +19,10 @@ export const Role = defineRole({
 export const User = defineUser({
 	name: 'User',
 	use: [graphql(), password()],
-	fields: (f) => ({ name: f.string(), roles: f.many(() => Role) }),
+	fields: (f) => ({
+		name: f.string(),
+		roles: f.many(() => Role, { inverse: 'members' }),
+	}),
 }).with({ access: allow.readOnly })
 
 declare module 'ultimabase' {

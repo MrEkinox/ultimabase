@@ -46,17 +46,18 @@ export function manyRulesOf(models: Models): readonly Rule[] {
 		for (const field of model.fields.values()) {
 			if (field.kind !== 'many' || field.within === undefined) continue
 			const parent = field.within
-			// The start checked both are a `one` (checkWithin).
+			// The start checked both are a `one` with its other side
+			// (checkWithin), and that a `many` names its own (D-237).
 			const owner = (name: string) => {
 				const own = models.get(name)?.fields.get(parent)
-				return own?.kind === 'one' ? own.inverse : ''
+				return own?.kind === 'one' ? (own.inverse ?? '') : ''
 			}
 			rules.push({
 				sides: [
 					{ model: model.name, field: field.name, owner: owner(model.name) },
 					{
 						model: field.target,
-						field: field.inverse,
+						field: field.inverse ?? '',
 						owner: owner(field.target),
 					},
 				],

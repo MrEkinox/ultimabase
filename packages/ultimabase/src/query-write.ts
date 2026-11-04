@@ -48,9 +48,10 @@ async function created(
 	const id = skips || plan.made.has(made) ? uuidv7() : made
 	const path = ['data', ...at].join('.')
 	const draft = readData(scope.models, model, data, true, path, field.inverse)
-	const inverse = model.fields.get(field.inverse)
+	const inverse =
+		field.inverse === undefined ? undefined : model.fields.get(field.inverse)
 	if (inverse?.kind === 'one' && inverse.stored) {
-		draft[field.inverse] = { connect: { id: context.id } }
+		draft[inverse.name] = { connect: { id: context.id } }
 	}
 	const child = { ...context, model, id, set: {}, at }
 	await resolveData(resolving(child, skips, true), draft)

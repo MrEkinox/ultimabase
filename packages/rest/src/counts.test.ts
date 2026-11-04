@@ -47,7 +47,9 @@ const Shelf = defineModel({
 	use: [rest()],
 	fields: (f) => ({
 		name: f.string(),
-		books: f.many(() => Book).with({ access: { read: () => false } }),
+		books: f
+			.many(() => Book, { inverse: 'shelf' })
+			.with({ access: { read: () => false } }),
 	}),
 }).with({ access: allow.readOnly })
 const Book = defineModel({

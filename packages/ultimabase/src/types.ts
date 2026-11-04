@@ -34,7 +34,7 @@ type UniqueOf<M> = Parts<M>['unique']
 type NameOf<M> = Parts<M>['name']
 
 type Operations<F, X, N> = {
-	readonly findMany: FindManyArgs<F, X, N>
+	readonly findMany: FindManyArgs<F, X>
 	readonly findFirst: FindFirstArgs<F, X>
 	readonly findUnique: FindUniqueArgs<F, X>
 	readonly findFirstOrThrow: FindFirstArgs<F, X>

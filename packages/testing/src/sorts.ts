@@ -12,7 +12,7 @@ const Writer = defineModel({
 	name: 'Writer',
 	fields: (f) => ({
 		nick: f.string({ optional: true }),
-		notes: f.many(() => Note),
+		notes: f.many(() => Note, { inverse: 'writer' }),
 	}),
 })
 

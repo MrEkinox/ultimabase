@@ -31,7 +31,7 @@ const User = defineModel({
 		email: f.string({ unique: true }).with({
 			access: { read: ({ caller, record }) => owns(caller, record.id) },
 		}),
-		posts: f.many(() => Post),
+		posts: f.many(() => Post, { inverse: 'author' }),
 	}),
 }).with({ access: allow.readOnly })
 
@@ -43,7 +43,7 @@ const Post = defineModel({
 		status: f.enumOf(['draft', 'published'], { default: 'published' }),
 		author: f.one(() => User),
 		comments: f
-			.many(() => Comment)
+			.many(() => Comment, { inverse: 'post' })
 			.with({
 				access: {
 					update: ({ value }) => {
@@ -52,7 +52,7 @@ const Post = defineModel({
 					},
 				},
 			}),
-		tags: f.many(() => Tag),
+		tags: f.many(() => Tag, { inverse: 'posts' }),
 	}),
 }).with({
 	access: {
@@ -93,7 +93,7 @@ const Tag = defineModel({
 	fields: (f) => ({
 		label: f.string({ unique: true }),
 		hidden: f.boolean({ default: false }),
-		posts: f.many(() => Post),
+		posts: f.many(() => Post, { inverse: 'tags' }),
 	}),
 }).with({
 	access: {
@@ -650,7 +650,7 @@ const Person = defineModel({
 	name: 'Person',
 	fields: (f) => ({
 		name: f.string(),
-		passport: f.one(() => Passport, { optional: true }),
+		passport: f.one(() => Passport, { inverse: 'holder', optional: true }),
 		issued: f.many(() => Passport, { inverse: 'issuer' }),
 	}),
 }).with({
@@ -669,7 +669,7 @@ const Passport = defineModel({
 	name: 'Passport',
 	fields: (f) => ({
 		holder: f.one(() => Person),
-		issuer: f.one(() => Person, { optional: true, inverse: 'issued' }),
+		issuer: f.one(() => Person, { optional: true }),
 	}),
 }).with({
 	access: {
@@ -686,7 +686,7 @@ const Passport = defineModel({
 const Node = defineModel({
 	name: 'Node',
 	fields: (f) => ({
-		next: f.one(() => Node, { optional: true }),
+		next: f.one(() => Node, { inverse: 'previous', optional: true }),
 		previous: f.one(() => Node),
 	}),
 }).with({
@@ -702,7 +702,7 @@ const Node = defineModel({
 // An optional one facing a many stores its key.
 const Shelf = defineModel({
 	name: 'Shelf',
-	fields: (f) => ({ items: f.many(() => Item) }),
+	fields: (f) => ({ items: f.many(() => Item, { inverse: 'shelf' }) }),
 })
 const Item = defineModel({
 	name: 'Item',

@@ -9,10 +9,9 @@ const Project = defineModel({
 	fields: (f) => ({
 		name: f.string(),
 		milestones: f.many(() => Milestone, { inverse: 'project' }),
-		tasks: f.many(() => Task),
+		tasks: f.many(() => Task, { inverse: 'project' }),
 		featured: f.one(() => Milestone, {
 			optional: true,
-			inverse: 'featuredIn',
 			within: { project: 'id' },
 		}),
 		featuredGoal: f.one(() => Goal, {
@@ -26,9 +25,9 @@ const Milestone = defineModel({
 	name: 'Milestone',
 	fields: (f) => ({
 		name: f.string(),
-		project: f.one(() => Project, { inverse: 'milestones' }),
-		tasks: f.many(() => Task),
-		goals: f.many(() => Goal),
+		project: f.one(() => Project),
+		tasks: f.many(() => Task, { inverse: 'milestone' }),
+		goals: f.many(() => Goal, { inverse: 'milestone' }),
 		featuredIn: f.many(() => Project, { inverse: 'featured' }),
 	}),
 })
@@ -46,7 +45,7 @@ const Goal = defineModel({
 	name: 'Goal',
 	fields: (f) => ({
 		milestone: f.one(() => Milestone, { onDelete: 'cascade' }),
-		featuredIn: f.many(() => Project),
+		featuredIn: f.many(() => Project, { inverse: 'featuredGoal' }),
 	}),
 })
 
@@ -474,15 +473,15 @@ describe('at start', () => {
 		const Team = defineModel({
 			name: 'Team',
 			fields: (f) => ({
-				boards: f.many(() => Board),
-				cards: f.many(() => Card),
+				boards: f.many(() => Board, { inverse: 'team' }),
+				cards: f.many(() => Card, { inverse: 'team' }),
 			}),
 		})
 		const Board = defineModel({
 			name: 'Board',
 			fields: (f) => ({
 				team: f.one(() => Team, { optional: true }),
-				cards: f.many(() => Card),
+				cards: f.many(() => Card, { inverse: 'board' }),
 			}),
 		})
 		const Card = defineModel({
@@ -508,7 +507,7 @@ describe('at start', () => {
 		})
 		const Lid = defineModel({
 			name: 'Lid',
-			fields: (f) => ({ boxes: f.many(() => Box) }),
+			fields: (f) => ({ boxes: f.many(() => Box, { inverse: 'lid' }) }),
 		})
 		await expect(start([Box, Lid])).rejects.toThrow(
 			'Box.lid: within names label, a one relation of Box.',
@@ -520,7 +519,7 @@ describe('at start', () => {
 			const Shelf = defineModel({
 				name: 'Shelf',
 				fields: (f) => ({
-					book: f.one(() => Book, { optional: true, inverse: 'picks', within }),
+					book: f.one(() => Book, { optional: true, within }),
 					books: f.many(() => Book, { inverse: 'shelf' }),
 				}),
 			})
@@ -528,7 +527,7 @@ describe('at start', () => {
 				name: 'Book',
 				fields: (f) => ({
 					shelf: f.one(() => Shelf),
-					picks: f.many(() => Shelf),
+					picks: f.many(() => Shelf, { inverse: 'book' }),
 				}),
 			})
 			return start([Shelf, Book])
@@ -543,7 +542,11 @@ describe('at start', () => {
 			name: 'Seat',
 			fields: (f) => ({
 				room: f.one(() => Room),
-				guest: f.one(() => Guest, { optional: true, within: 'room' }),
+				guest: f.one(() => Guest, {
+					inverse: 'seat',
+					optional: true,
+					within: 'room',
+				}),
 			}),
 		})
 		const Guest = defineModel({
@@ -553,8 +556,8 @@ describe('at start', () => {
 		const Room = defineModel({
 			name: 'Room',
 			fields: (f) => ({
-				seats: f.many(() => Seat),
-				guests: f.many(() => Guest),
+				seats: f.many(() => Seat, { inverse: 'room' }),
+				guests: f.many(() => Guest, { inverse: 'room' }),
 			}),
 		})
 		await expect(start([Seat, Guest, Room])).rejects.toThrow(
@@ -565,11 +568,17 @@ describe('at start', () => {
 	it('types the row’s side', async () => {
 		const Owner = defineModel({
 			name: 'Owner',
-			fields: (f) => ({ items: f.many(() => Item), bads: f.many(() => Bad) }),
+			fields: (f) => ({
+				items: f.many(() => Item, { inverse: 'owner' }),
+				bads: f.many(() => Bad, { inverse: 'owner' }),
+			}),
 		})
 		const Item = defineModel({
 			name: 'Item',
-			fields: (f) => ({ owner: f.one(() => Owner), bads: f.many(() => Bad) }),
+			fields: (f) => ({
+				owner: f.one(() => Owner),
+				bads: f.many(() => Bad, { inverse: 'pick' }),
+			}),
 		})
 		const Bad = defineModel({
 			name: 'Bad',

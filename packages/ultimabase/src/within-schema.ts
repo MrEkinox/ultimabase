@@ -14,7 +14,7 @@ export function withinOf(
 	where: string,
 	options: FieldOptions,
 	stored: boolean,
-	inverse: string,
+	inverse: string | undefined,
 ): { readonly within?: Within } {
 	const within = options['within']
 	if (within === undefined) return {}
@@ -107,11 +107,20 @@ export function checkWithin(models: ReadonlyMap<string, ModelInfo>): void {
 					`${where}: within names ${target}, a required one relation of ${field.target} to ${parent}.`,
 				)
 			}
+			// Its other side tells which targets a parent holds (D-237).
+			if (theirs.inverse === undefined) {
+				throw new Refused(
+					`${where}: within names ${field.target}.${target}, which needs its other side.`,
+				)
+			}
 		}
 	}
 }
 
-/** Both models' `field` is a required stored `one` to one model (D-236). */
+/**
+ * Both models' `field` is a required stored `one` to one model (D-236), with
+ * its other side, which tells which rows a parent holds (D-237).
+ */
 function checkShared(
 	models: ReadonlyMap<string, ModelInfo>,
 	model: ModelInfo,
@@ -129,5 +138,13 @@ function checkShared(
 		throw new Refused(
 			`${where}: within names ${field}, a required one relation of ${model.name} and of ${target} to the same model.`,
 		)
+	}
+	for (const each of [model.name, target]) {
+		const found = models.get(each)?.fields.get(field)
+		if (found?.kind === 'one' && found.inverse === undefined) {
+			throw new Refused(
+				`${where}: within names ${each}.${field}, which needs its other side.`,
+			)
+		}
 	}
 }

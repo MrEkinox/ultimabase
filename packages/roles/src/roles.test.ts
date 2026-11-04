@@ -29,7 +29,10 @@ const Role = defineRole({
 })
 const User = defineModel({
 	name: 'User',
-	fields: (f) => ({ email: f.string(), roles: f.many(() => Role) }),
+	fields: (f) => ({
+		email: f.string(),
+		roles: f.many(() => Role, { inverse: 'members' }),
+	}),
 })
 
 /** Each caller a read rule received. */
@@ -216,10 +219,13 @@ describe('the roles plugin', () => {
 		await expect(none.start()).rejects.toThrow(
 			'rolesPlugin() needs a role model: declare it with defineRole.',
 		)
-		const Other = defineRole({ name: 'Other', members: () => Member })
+		const Other = defineRole({
+			name: 'Other',
+			members: () => Member,
+		})
 		const Member = defineModel({
 			name: 'Member',
-			fields: (f) => ({ roles: f.many(() => Other) }),
+			fields: (f) => ({ roles: f.many(() => Other, { inverse: 'members' }) }),
 		})
 		const two = defineApp({
 			database: memory(),
@@ -261,6 +267,23 @@ describe('defineRole', () => {
 		).toThrow('defineRole(Bad): fields returns an object.')
 	})
 
+	it('needs the user model to list its roles in roles (D-237)', async () => {
+		const Crew = defineRole({ name: 'Crew', members: () => Sailor })
+		const Sailor = defineModel({
+			name: 'Sailor',
+			fields: (f) => ({ crews: f.many(() => Crew, { inverse: 'members' }) }),
+		})
+		// @ts-expect-error: Sailor lists its roles in crews, not roles.
+		const app = defineApp({
+			database: memory(),
+			plugins: [rolesPlugin()],
+			models: [Crew, Sailor],
+		})
+		await expect(app.start()).rejects.toThrow(
+			"Crew.members: inverse 'roles' is not a relation of Sailor to Crew.",
+		)
+	})
+
 	it('keeps its dbName and indexes', async () => {
 		const Team = defineRole({
 			name: 'Team',
@@ -271,7 +294,7 @@ describe('defineRole', () => {
 		})
 		const Player = defineModel({
 			name: 'Player',
-			fields: (f) => ({ teams: f.many(() => Team) }),
+			fields: (f) => ({ roles: f.many(() => Team, { inverse: 'members' }) }),
 		})
 		const app = defineApp({
 			database: memory(),

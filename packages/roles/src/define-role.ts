@@ -19,10 +19,13 @@ type Uses = readonly ModelUse<string, PluginTypes>[]
 /** The role model's `use`: roles first, then the developer's plugins. */
 type WithRoles<U extends Uses> = readonly [ModelUse<'roles', Roles>, ...U]
 
-/** The fields `defineRole` adds; `R` is the role model's own thunk. */
+/**
+ * The fields `defineRole` adds; `R` is the role model's own thunk. The user
+ * model lists its roles in `roles` (D-237).
+ */
 export type RoleFields<M, R> = {
 	readonly name: Field<string, { readonly unique: true }>
-	readonly members: Many<M, { readonly inverse?: string }>
+	readonly members: Many<M, { readonly inverse: 'roles' }>
 	readonly inherits: Many<R, { readonly inverse: 'inheritedBy' }>
 	readonly inheritedBy: Many<R, { readonly inverse: 'inherits' }>
 }
@@ -118,7 +121,7 @@ export function defineRole(definition: {
 			return {
 				...own,
 				name: f.string({ unique: true }),
-				members: f.many(members).with(given),
+				members: f.many(members, { inverse: 'roles' }).with(given),
 				inherits: f.many(self, { inverse: 'inheritedBy' }).with(given),
 				inheritedBy: f.many(self, { inverse: 'inherits' }).with(given),
 			}

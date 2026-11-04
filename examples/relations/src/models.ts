@@ -9,7 +9,7 @@ export const Author = defineModel({
 	fields: (f) => ({
 		name: f.string(),
 		// One author, many books: `Book.author` is the other side.
-		books: f.many(() => Book),
+		books: f.many(() => Book, { inverse: 'author' }),
 	}),
 	// Open to every client, to keep the example on relations.
 }).with({ access: allow.public })
@@ -17,7 +17,10 @@ export const Author = defineModel({
 export const Publisher = defineModel({
 	name: 'Publisher',
 	use: [graphql()],
-	fields: (f) => ({ name: f.string(), books: f.many(() => Book) }),
+	fields: (f) => ({
+		name: f.string(),
+		books: f.many(() => Book, { inverse: 'publisher' }),
+	}),
 }).with({ access: allow.public })
 
 export const Tag = defineModel({
@@ -26,7 +29,7 @@ export const Tag = defineModel({
 	fields: (f) => ({
 		label: f.string({ unique: true }),
 		// Many tags, many books: a join table holds the pairs.
-		books: f.many(() => Book),
+		books: f.many(() => Book, { inverse: 'tags' }),
 	}),
 }).with({ access: allow.public })
 
@@ -39,7 +42,7 @@ export const Book = defineModel({
 		author: f.one(() => Author, { onDelete: 'cascade' }),
 		// Required and without `onDelete`: a publisher with books stays.
 		publisher: f.one(() => Publisher),
-		tags: f.many(() => Tag),
+		tags: f.many(() => Tag, { inverse: 'books' }),
 	}),
 }).with({ access: allow.public })
 //#endregion

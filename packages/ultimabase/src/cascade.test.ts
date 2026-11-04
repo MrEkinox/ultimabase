@@ -61,12 +61,12 @@ const User = defineModel({
 	name: 'User',
 	fields: (f) => ({
 		name: f.string(),
-		posts: f.many(() => Post),
-		edited: f.many(() => Post),
-		comments: f.many(() => Comment),
-		invoices: f.many(() => Invoice),
-		badges: f.many(() => Badge),
-		notes: f.many(() => Note),
+		posts: f.many(() => Post, { inverse: 'author' }),
+		edited: f.many(() => Post, { inverse: 'editor' }),
+		comments: f.many(() => Comment, { inverse: 'writer' }),
+		invoices: f.many(() => Invoice, { inverse: 'user' }),
+		badges: f.many(() => Badge, { inverse: 'owner' }),
+		notes: f.many(() => Note, { inverse: 'author' }),
 	}),
 }).with({
 	access: { read: () => true, delete: () => true },
@@ -88,10 +88,10 @@ const Post = defineModel({
 	fields: (f) => ({
 		title: f.string(),
 		orphaned: f.boolean({ default: false }),
-		author: f.one(() => User, { onDelete: 'cascade', inverse: 'posts' }),
-		editor: f.one(() => User, { optional: true, inverse: 'edited' }),
-		comments: f.many(() => Comment),
-		tags: f.many(() => Tag),
+		author: f.one(() => User, { onDelete: 'cascade' }),
+		editor: f.one(() => User, { optional: true }),
+		comments: f.many(() => Comment, { inverse: 'post' }),
+		tags: f.many(() => Tag, { inverse: 'posts' }),
 	}),
 }).with({
 	// The cascade checks the delete rule of the row deleted only (D-54).
@@ -162,7 +162,10 @@ const Badge = defineModel({
 
 const Tag = defineModel({
 	name: 'Tag',
-	fields: (f) => ({ name: f.string(), posts: f.many(() => Post) }),
+	fields: (f) => ({
+		name: f.string(),
+		posts: f.many(() => Post, { inverse: 'tags' }),
+	}),
 })
 
 const Note = defineModel({
@@ -171,7 +174,7 @@ const Note = defineModel({
 	fields: (f) => ({
 		text: f.string(),
 		author: f.one(() => User, { onDelete: 'cascade' }),
-		replies: f.many(() => Reply),
+		replies: f.many(() => Reply, { inverse: 'note' }),
 	}),
 }).with({
 	hooks: {
@@ -200,9 +203,8 @@ const Category = defineModel({
 		parent: f.one(() => Category, {
 			optional: true,
 			onDelete: 'cascade',
-			inverse: 'children',
 		}),
-		children: f.many(() => Category),
+		children: f.many(() => Category, { inverse: 'parent' }),
 	}),
 }).with({
 	hooks: {
@@ -215,7 +217,10 @@ const Category = defineModel({
 // A model without hooks, whose deleted rows a hooked model references.
 const Desk = defineModel({
 	name: 'Desk',
-	fields: (f) => ({ name: f.string(), lamps: f.many(() => Lamp) }),
+	fields: (f) => ({
+		name: f.string(),
+		lamps: f.many(() => Lamp, { inverse: 'desk' }),
+	}),
 })
 
 const Lamp = defineModel({
@@ -235,7 +240,10 @@ const Lamp = defineModel({
 // A cascade without any hooks, planned in one write.
 const Shelf = defineModel({
 	name: 'Shelf',
-	fields: (f) => ({ name: f.string(), boxes: f.many(() => Box) }),
+	fields: (f) => ({
+		name: f.string(),
+		boxes: f.many(() => Box, { inverse: 'shelf' }),
+	}),
 })
 
 const Box = defineModel({

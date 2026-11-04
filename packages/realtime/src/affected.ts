@@ -4,6 +4,7 @@
 import type { Batch, ModelChanges } from './changes.ts'
 import { listed, touched, unlisted } from './changes.ts'
 import type { Level, Reach, Step } from './reach.ts'
+import { facingOf } from './reach.ts'
 
 export type Affected = {
 	/** Root rows whose membership or order may have changed. */
@@ -96,7 +97,7 @@ export async function affected(
 			for (const id of await find(level.steps, ids)) candidates.add(id)
 		}
 		// A link lost where it is stored: the rows that had it are unknown.
-		const moved = step.keyOnTarget && touched(changes, new Set([step.inverse]))
+		const moved = step.keyOnTarget && touched(changes, new Set(facingOf(step)))
 		const losing = [...listed(changes.deletes), ...(moved ? rewritten : [])]
 		if (losing.length === 0) continue
 		if (level.negative) return 'resync'

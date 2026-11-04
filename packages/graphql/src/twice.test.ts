@@ -22,7 +22,7 @@ const Post = defineModel({
 	use: [graphql(), realtime()],
 	fields: (f) => ({
 		title: f.string(),
-		comments: f.many(() => Comment),
+		comments: f.many(() => Comment, { inverse: 'post' }),
 		thumb: f.virtual(z.string(), {
 			input: z.object({ size: z.int().positive() }),
 			needs: ['title'],

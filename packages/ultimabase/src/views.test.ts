@@ -8,9 +8,9 @@ const Author = defineModel({
 	name: 'Author',
 	fields: (f) => ({
 		name: f.string(),
-		posts: f.many(() => Post),
+		posts: f.many(() => Post, { inverse: 'author' }),
 		published: f.many(() => Post, { from: 'posts' }),
-		tags: f.many(() => Tag),
+		tags: f.many(() => Tag, { inverse: 'authors' }),
 		featured: f.many(() => Tag, { from: 'tags' }),
 	}),
 }).with({
@@ -35,7 +35,7 @@ const Tag = defineModel({
 	fields: (f) => ({
 		name: f.string({ unique: true }),
 		featured: f.boolean({ default: false }),
-		authors: f.many(() => Author),
+		authors: f.many(() => Author, { inverse: 'tags' }),
 	}),
 }).with({ access: allow.public })
 
@@ -184,7 +184,7 @@ describe('a view', () => {
 			name: 'Person',
 			fields: (f) => ({
 				name: f.string(),
-				best: f.one(() => Person, { optional: true, inverse: 'fans' }),
+				best: f.one(() => Person, { optional: true }),
 				fans: f.many(() => Person, { inverse: 'best' }),
 				young: f.many(() => Person, { from: 'fans' }),
 			}),
@@ -228,8 +228,8 @@ const start = (
 		name: 'Shelf',
 		fields: (f) => ({
 			label: f.string(),
-			notes: f.many(() => Note),
-			first: f.one(() => Note, { optional: true, inverse: 'opened' }),
+			notes: f.many(() => Note, { inverse: 'shelf' }),
+			first: f.one(() => Note, { optional: true }),
 			other: f.many(() => Note, { from: 'notes' }),
 			view:
 				target === 'Note'

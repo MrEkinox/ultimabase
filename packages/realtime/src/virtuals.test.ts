@@ -22,7 +22,7 @@ const Project = defineModel({
 	use: [realtime()],
 	fields: (f) => ({
 		name: f.string(),
-		tasks: f.many(() => Task),
+		tasks: f.many(() => Task, { inverse: 'project' }),
 		openTasks: f.virtual(z.int(), { needs: [] }),
 	}),
 }).with({

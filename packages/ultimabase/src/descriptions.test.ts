@@ -31,7 +31,10 @@ const Author = defineModel({
 	description: 'Who writes the posts.',
 	fields: (f) => ({
 		name: f.string({ description: 'As printed.' }),
-		posts: f.many(() => Post, { description: 'What they wrote.' }),
+		posts: f.many(() => Post, {
+			inverse: 'author',
+			description: 'What they wrote.',
+		}),
 	}),
 })
 const Post = defineModel({

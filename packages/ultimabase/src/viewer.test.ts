@@ -28,7 +28,7 @@ const Project = defineModel({
 	name: 'Project',
 	fields: (f) => ({
 		name: f.string(),
-		owner: f.one(() => Account, { optional: true, inverse: 'owned' }),
+		owner: f.one(() => Account, { optional: true }),
 		members: f.many(() => Account, { inverse: 'joined' }),
 		tag: f.one(() => Tag, { optional: true }),
 	}),
@@ -36,7 +36,10 @@ const Project = defineModel({
 
 const Tag = defineModel({
 	name: 'Tag',
-	fields: (f) => ({ name: f.string(), projects: f.many(() => Project) }),
+	fields: (f) => ({
+		name: f.string(),
+		projects: f.many(() => Project, { inverse: 'tag' }),
+	}),
 }).with({ access: allow.public })
 
 // A variable, so no excess property check: without `Register`, no filter
@@ -46,7 +49,10 @@ const joined = { viewer: true, none: undefined }
 // The rule's own filter reads `viewer` with the caller too.
 const Report = defineModel({
 	name: 'Report',
-	fields: (f) => ({ title: f.string(), readers: f.many(() => Reader) }),
+	fields: (f) => ({
+		title: f.string(),
+		readers: f.many(() => Reader, { inverse: 'reports' }),
+	}),
 }).with({
 	access: { read: ({ where }) => where({ readers: joined }) },
 })
@@ -54,7 +60,7 @@ const Report = defineModel({
 const Reader = defineModel({
 	name: 'Reader',
 	use: [users.use()],
-	fields: (f) => ({ reports: f.many(() => Report) }),
+	fields: (f) => ({ reports: f.many(() => Report, { inverse: 'readers' }) }),
 }).with({ access: allow.public })
 
 let app: ReturnType<typeof defineApp>
@@ -182,7 +188,7 @@ describe('invalid viewer filters', () => {
 	it('fails on every relation without a user model', async () => {
 		const Writer = defineModel({
 			name: 'Writer',
-			fields: (f) => ({ notes: f.many(() => Note) }),
+			fields: (f) => ({ notes: f.many(() => Note, { inverse: 'writer' }) }),
 		}).with({ access: allow.public })
 		const Note = defineModel({
 			name: 'Note',

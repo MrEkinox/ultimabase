@@ -69,9 +69,19 @@ export const nests = (model: ModelInfo, draft: Draft): boolean =>
 	})
 
 /** The rows of the other side linked to the row written. */
-function linked(r: Resolving, field: Relation, target: ModelInfo): Filter {
-	const inverse = target.fields.get(field.inverse)
+async function linked(
+	r: Resolving,
+	field: Relation,
+	target: ModelInfo,
+): Promise<Filter> {
 	const parent = { id: { equals: r.id } }
+	if (field.inverse === undefined) {
+		// No other side (D-237): the key the row stores names the linked row.
+		const read = { model: r.model.name, where: parent, fields: [field.name] }
+		const key = (await r.reads.find({ ...read, take: 1 }))[0]?.[field.name]
+		return { id: { in: isObject(key) ? [key['id']] : [] } }
+	}
+	const inverse = target.fields.get(field.inverse)
 	return {
 		[field.inverse]:
 			inverse?.kind === 'many' ? { some: parent } : { is: parent },
@@ -90,7 +100,7 @@ async function reached(
 	const filter = await r.scope.filter(target.name, r.trusted, operation)
 	const [row] = await r.reads.find({
 		model: target.name,
-		where: and(and(linked(r, field, target), where), filter),
+		where: and(and(await linked(r, field, target), where), filter),
 		take: 1,
 		lock: true,
 	})
@@ -253,7 +263,7 @@ async function changing(
 /** `set` as the links it changes, from the linked rows the caller reads. */
 async function setting(
 	r: Resolving,
-	field: Relation,
+	field: Extract<FieldInfo, { readonly kind: 'many' }>,
 	target: ModelInfo,
 	set: readonly string[],
 	leaving: ReadonlySet<string>,
@@ -270,7 +280,7 @@ async function setting(
 	const filter = await r.scope.filter(target.name, r.trusted)
 	const current = await r.reads.find({
 		model: target.name,
-		where: and(linked(r, field, target), filter),
+		where: and(await linked(r, field, target), filter),
 		lock: true,
 	})
 	const kept = new Set(set)

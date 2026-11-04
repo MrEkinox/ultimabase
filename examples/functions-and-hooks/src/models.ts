@@ -9,7 +9,7 @@ export const Product = defineModel({
 	fields: (f) => ({
 		name: f.string(),
 		stock: f.number({ integer: true, default: 0 }),
-		orders: f.many(() => Order),
+		orders: f.many(() => Order, { inverse: 'product' }),
 	}),
 }).with({
 	// Clients read the products; only the server changes them.

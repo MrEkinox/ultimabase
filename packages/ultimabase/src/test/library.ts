@@ -7,8 +7,8 @@ export const Author = defineModel({
 	fields: (f) => ({
 		name: f.string({ unique: true }),
 		level: f.enumOf(['junior', 'senior'], { default: 'junior' }),
-		books: f.many(() => Book),
-		profile: f.one(() => Profile, { optional: true }),
+		books: f.many(() => Book, { inverse: 'author' }),
+		profile: f.one(() => Profile, { inverse: 'author', optional: true }),
 	}),
 })
 
@@ -29,7 +29,7 @@ export const Book = defineModel({
 		meta: f.json({ optional: true }),
 		releasedAt: f.dateTime({ optional: true }),
 		author: f.one(() => Author),
-		tags: f.many(() => Tag),
+		tags: f.many(() => Tag, { inverse: 'books' }),
 	}),
 	indexes: [{ fields: ['title', 'author'], unique: true }],
 })
@@ -38,7 +38,7 @@ export const Tag = defineModel({
 	name: 'Tag',
 	fields: (f) => ({
 		label: f.string({ unique: true }),
-		books: f.many(() => Book),
+		books: f.many(() => Book, { inverse: 'tags' }),
 	}),
 })
 

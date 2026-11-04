@@ -31,13 +31,13 @@ type CreateFacts<F, N extends string> = {
 type UpdateFacts<F, N extends string> = {
 	readonly caller: Caller
 	readonly operation: 'update'
-	readonly record: StoredRecord<F, N>
+	readonly record: StoredRecord<F>
 	readonly value: UpdateData<F, N, false>
 }
-type DeleteFacts<F, N extends string> = {
+type DeleteFacts<F> = {
 	readonly caller: Caller
 	readonly operation: 'delete'
-	readonly record: StoredRecord<F, N>
+	readonly record: StoredRecord<F>
 }
 
 /** A filter; only the `where` a rule receives builds one (D-10, D-214). */
@@ -64,16 +64,15 @@ type WriteRule<Facts, F> = (
 /** One rule, or one rule per operation; `write` covers the three writes. */
 export type ModelAccess<F, N extends string> =
 	| ((
-			facts:
-				ReadFacts | CreateFacts<F, N> | UpdateFacts<F, N> | DeleteFacts<F, N>,
+			facts: ReadFacts | CreateFacts<F, N> | UpdateFacts<F, N> | DeleteFacts<F>,
 	  ) => boolean)
 	| {
 			readonly read?: ReadRule<F>
 			readonly create?: WriteRule<CreateFacts<F, N>, F>
 			readonly update?: WriteRule<UpdateFacts<F, N>, F>
-			readonly delete?: WriteRule<DeleteFacts<F, N>, F>
+			readonly delete?: WriteRule<DeleteFacts<F>, F>
 			readonly write?: WriteRule<
-				CreateFacts<F, N> | UpdateFacts<F, N> | DeleteFacts<F, N>,
+				CreateFacts<F, N> | UpdateFacts<F, N> | DeleteFacts<F>,
 				F
 			>
 	  }
@@ -81,12 +80,12 @@ export type ModelAccess<F, N extends string> =
 type Hook<Facts> = (
 	facts: Facts & { readonly caller: Caller },
 ) => void | Promise<void>
-type RecordHook<F, N extends string> = Hook<{
-	readonly record: StoredRecord<F, N>
+type RecordHook<F> = Hook<{
+	readonly record: StoredRecord<F>
 }>
-type UpdatedHook<F, N extends string> = Hook<{
-	readonly record: StoredRecord<F, N>
-	readonly previous: StoredRecord<F, N>
+type UpdatedHook<F> = Hook<{
+	readonly record: StoredRecord<F>
+	readonly previous: StoredRecord<F>
 }>
 /** The data a `before*` hook changes in place (D-71). */
 type Draft<D> = { -readonly [K in keyof D]: D[K] }
@@ -110,16 +109,16 @@ export type ModelHooks<F, N extends string = string> = {
 	}) => ReadFilter | void | Promise<ReadFilter | void>
 	readonly beforeCreate?: Hook<{ readonly data: Draft<CreateData<F, N>> }>
 	readonly beforeUpdate?: Hook<{
-		readonly record: StoredRecord<F, N>
+		readonly record: StoredRecord<F>
 		readonly data: Draft<UpdateData<F, N, false>>
 	}>
-	readonly beforeDelete?: RecordHook<F, N>
-	readonly afterCreate?: RecordHook<F, N>
-	readonly afterUpdate?: UpdatedHook<F, N>
-	readonly afterDelete?: RecordHook<F, N>
-	readonly afterCreateCommit?: RecordHook<F, N>
-	readonly afterUpdateCommit?: UpdatedHook<F, N>
-	readonly afterDeleteCommit?: RecordHook<F, N>
+	readonly beforeDelete?: RecordHook<F>
+	readonly afterCreate?: RecordHook<F>
+	readonly afterUpdate?: UpdatedHook<F>
+	readonly afterDelete?: RecordHook<F>
+	readonly afterCreateCommit?: RecordHook<F>
+	readonly afterUpdateCommit?: UpdatedHook<F>
+	readonly afterDeleteCommit?: RecordHook<F>
 }
 
 /**
@@ -151,7 +150,7 @@ export type ModelWith<F, W, N extends string> = {
 	readonly access?: ModelAccess<F, N>
 	readonly hooks?: ModelHooks<F, N>
 	readonly relations?: RelationFilters<F>
-	readonly virtuals?: VirtualRules<F, N>
+	readonly virtuals?: VirtualRules<F>
 } & W
 
 /** `X` lists the fields of each unique index (D-52). */

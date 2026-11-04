@@ -17,7 +17,8 @@ npm install @ultimabase/roles
 
 The full example, with its tests: [`examples/roles-and-acl`](https://github.com/MrEkinox/ultimabase/tree/main/examples/roles-and-acl).
 
-The user model may list its roles, the other side of `members`:
+The user model lists its roles in `roles`, the other side of `members`, which
+it names with `inverse`:
 
 <include cwd meta='title="src/models.ts"'>
 	../examples/roles-and-acl/src/models.ts#user
@@ -133,6 +134,8 @@ declare it with defineRole.`
 application has one role model.`
 - `members` that is not a function: `defineRole(Role): members is () => the
 user model.`
+- A user model without `roles: f.many(() => Role, { inverse: 'members' })`:
+  `Role.members: inverse 'roles' is not a relation of User to Role.`
 - A field of its own named `name`, `members`, `inherits` or `inheritedBy`:
   `defineRole(Role): inherits is a field defineRole adds.`
 

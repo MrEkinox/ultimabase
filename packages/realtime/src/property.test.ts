@@ -23,8 +23,8 @@ const Team = defineModel({
 	name: 'Team',
 	fields: (f) => ({
 		name: f.string(),
-		members: f.many(() => Member),
-		posts: f.many(() => Post),
+		members: f.many(() => Member, { inverse: 'team' }),
+		posts: f.many(() => Post, { inverse: 'team' }),
 	}),
 })
 const Member = defineModel({

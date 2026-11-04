@@ -245,7 +245,10 @@ it('takes a declared database with tables only when it gives a file its own', ()
 describe('queries()', () => {
 	const Author = defineModel({
 		name: 'Author',
-		fields: (f) => ({ name: f.string(), posts: f.many(() => Post) }),
+		fields: (f) => ({
+			name: f.string(),
+			posts: f.many(() => Post, { inverse: 'author' }),
+		}),
 	})
 	const Post = defineModel({
 		name: 'Post',

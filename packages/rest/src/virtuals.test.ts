@@ -25,7 +25,7 @@ const Stage = defineModel({
 	fields: (f) => ({
 		name: f.string(),
 		secret: f.string().with({ access: { read: allow.private } }),
-		images: f.many(() => Image),
+		images: f.many(() => Image, { inverse: 'stage' }),
 		label: f.virtual(z.string(), {
 			needs: ['name'],
 			description: 'Its name, loud.',

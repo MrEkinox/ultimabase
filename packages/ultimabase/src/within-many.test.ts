@@ -8,8 +8,8 @@ const Project = defineModel({
 	name: 'Project',
 	fields: (f) => ({
 		name: f.string(),
-		notes: f.many(() => Note),
-		tasks: f.many(() => Task),
+		notes: f.many(() => Note, { inverse: 'project' }),
+		tasks: f.many(() => Task, { inverse: 'project' }),
 	}),
 })
 
@@ -26,14 +26,14 @@ const Task = defineModel({
 	fields: (f) => ({
 		name: f.string(),
 		project: f.one(() => Project),
-		notes: f.many(() => Note),
-		labels: f.many(() => Label),
+		notes: f.many(() => Note, { inverse: 'tasks' }),
+		labels: f.many(() => Label, { inverse: 'tasks' }),
 	}),
 })
 
 const Label = defineModel({
 	name: 'Label',
-	fields: (f) => ({ tasks: f.many(() => Task) }),
+	fields: (f) => ({ tasks: f.many(() => Task, { inverse: 'labels' }) }),
 })
 
 const M = { as: master }
@@ -237,7 +237,7 @@ describe('the start', () => {
 		const Team = defineModel({
 			name: 'Team',
 			fields: (f) => ({
-				boards: f.many(() => Board),
+				boards: f.many(() => Board, { inverse: 'team' }),
 				cards: f.many(() => Card, { inverse: 'team' }),
 				others: f.many(() => Card, { inverse: 'other' }),
 			}),
@@ -254,11 +254,35 @@ describe('the start', () => {
 			fields: (f) => ({
 				team: f.one(() => Team),
 				other: f.one(() => Team),
-				boards: f.many(() => Board),
+				boards: f.many(() => Board, { inverse: 'cards' }),
 			}),
 		})
 		await expect(start([Team, Board, Card])).rejects.toThrow(
 			'Board.cards: within names team, a required one relation of Board and of Card to the same model.',
+		)
+	})
+
+	it("needs the other side of each model's one to the parent", async () => {
+		const Org = defineModel({
+			name: 'Org',
+			fields: (f) => ({ tickets: f.many(() => Ticket, { inverse: 'org' }) }),
+		})
+		const Desk = defineModel({
+			name: 'Desk',
+			fields: (f) => ({
+				org: f.one(() => Org),
+				tickets: f.many(() => Ticket, { inverse: 'desks', within: 'org' }),
+			}),
+		})
+		const Ticket = defineModel({
+			name: 'Ticket',
+			fields: (f) => ({
+				org: f.one(() => Org),
+				desks: f.many(() => Desk, { inverse: 'tickets' }),
+			}),
+		})
+		await expect(start([Org, Desk, Ticket])).rejects.toThrow(
+			'Desk.tickets: within names Desk.org, which needs its other side.',
 		)
 	})
 
@@ -267,22 +291,25 @@ describe('the start', () => {
 			name: 'Shelf',
 			fields: (f) => ({
 				room: f.one(() => Room),
-				// @ts-expect-error -- a many takes the string form only
-				books: f.many(() => Book, { within: { room: 'id' } }),
+				books: f.many(() => Book, {
+					inverse: 'shelves',
+					// @ts-expect-error -- a many takes the string form only
+					within: { room: 'id' },
+				}),
 			}),
 		})
 		const Book = defineModel({
 			name: 'Book',
 			fields: (f) => ({
 				room: f.one(() => Room),
-				shelves: f.many(() => Shelf),
+				shelves: f.many(() => Shelf, { inverse: 'books' }),
 			}),
 		})
 		const Room = defineModel({
 			name: 'Room',
 			fields: (f) => ({
-				shelves: f.many(() => Shelf),
-				books: f.many(() => Book),
+				shelves: f.many(() => Shelf, { inverse: 'room' }),
+				books: f.many(() => Book, { inverse: 'room' }),
 			}),
 		})
 		await expect(start([Shelf, Book, Room])).rejects.toThrow(
@@ -292,19 +319,22 @@ describe('the start', () => {
 			name: 'Pin',
 			fields: (f) => ({
 				room: f.one(() => Hall),
-				charts: f.many(() => Chart, { within: 'room' }),
+				charts: f.many(() => Chart, { inverse: 'pins', within: 'room' }),
 			}),
 		})
 		const Chart = defineModel({
 			name: 'Chart',
 			fields: (f) => ({
 				room: f.one(() => Hall),
-				pins: f.many(() => Pin, { within: 'room' }),
+				pins: f.many(() => Pin, { inverse: 'charts', within: 'room' }),
 			}),
 		})
 		const Hall = defineModel({
 			name: 'Hall',
-			fields: (f) => ({ pins: f.many(() => Pin), charts: f.many(() => Chart) }),
+			fields: (f) => ({
+				pins: f.many(() => Pin, { inverse: 'room' }),
+				charts: f.many(() => Chart, { inverse: 'room' }),
+			}),
 		})
 		await expect(start([Pin, Chart, Hall])).rejects.toThrow(
 			'Pin.charts and Chart.pins: within goes on one side.',
@@ -313,7 +343,7 @@ describe('the start', () => {
 			name: 'Lane',
 			fields: (f) => ({
 				hall: f.one(() => Gate),
-				stops: f.many(() => Stop, { within: 'hall' }),
+				stops: f.many(() => Stop, { inverse: 'lane', within: 'hall' }),
 			}),
 		})
 		const Stop = defineModel({
@@ -322,7 +352,10 @@ describe('the start', () => {
 		})
 		const Gate = defineModel({
 			name: 'Gate',
-			fields: (f) => ({ lanes: f.many(() => Lane), stops: f.many(() => Stop) }),
+			fields: (f) => ({
+				lanes: f.many(() => Lane, { inverse: 'hall' }),
+				stops: f.many(() => Stop, { inverse: 'hall' }),
+			}),
 		})
 		await expect(start([Lane, Stop, Gate])).rejects.toThrow(
 			'Lane.stops: within belongs on Stop.lane, which stores the key.',

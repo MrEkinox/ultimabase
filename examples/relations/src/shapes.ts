@@ -8,7 +8,7 @@ export const Member = defineModel({
 	fields: (f) => ({
 		name: f.string(),
 		// Optional: a member may have no card yet.
-		card: f.one(() => Card, { optional: true }),
+		card: f.one(() => Card, { inverse: 'member', optional: true }),
 	}),
 })
 
@@ -29,7 +29,7 @@ export const Category = defineModel({
 		name: f.string(),
 		// Optional, so deleting a parent empties its children's `parent`.
 		parent: f.one(() => Category, { optional: true }),
-		children: f.many(() => Category),
+		children: f.many(() => Category, { inverse: 'parent' }),
 	}),
 })
 //#endregion
@@ -44,13 +44,25 @@ export const Branch = defineModel({
 	}),
 })
 
-// Two relations to Branch: each side names the other with `inverse`.
+// Two relations to Branch, each named by its own `many`.
 export const Transfer = defineModel({
 	name: 'Transfer',
 	fields: (f) => ({
 		copies: f.number({ integer: true }),
-		from: f.one(() => Branch, { inverse: 'outgoing' }),
-		to: f.one(() => Branch, { inverse: 'incoming' }),
+		from: f.one(() => Branch),
+		to: f.one(() => Branch),
+	}),
+})
+//#endregion
+
+//#region one-sided
+// Named by no relation: the notice stores its branch's key, and `Branch` has
+// no field for its notices.
+export const Notice = defineModel({
+	name: 'Notice',
+	fields: (f) => ({
+		text: f.string(),
+		branch: f.one(() => Branch, { onDelete: 'cascade' }),
 	}),
 })
 //#endregion
@@ -60,7 +72,7 @@ export const Reader = defineModel({
 	name: 'Reader',
 	fields: (f) => ({
 		name: f.string(),
-		memberships: f.many(() => Membership),
+		memberships: f.many(() => Membership, { inverse: 'reader' }),
 	}),
 })
 
@@ -68,7 +80,7 @@ export const Club = defineModel({
 	name: 'Club',
 	fields: (f) => ({
 		name: f.string(),
-		memberships: f.many(() => Membership),
+		memberships: f.many(() => Membership, { inverse: 'club' }),
 	}),
 })
 
@@ -88,7 +100,7 @@ export const Series = defineModel({
 	name: 'Series',
 	fields: (f) => ({
 		title: f.string(),
-		volumes: f.many(() => Volume),
+		volumes: f.many(() => Volume, { inverse: 'series' }),
 		// A view: the volumes its filter keeps, read-only.
 		released: f.many(() => Volume, { from: 'volumes' }),
 	}),
@@ -113,9 +125,9 @@ export const Project = defineModel({
 	name: 'Project',
 	fields: (f) => ({
 		name: f.string(),
-		milestones: f.many(() => Milestone),
-		tasks: f.many(() => Task),
-		notes: f.many(() => Note),
+		milestones: f.many(() => Milestone, { inverse: 'project' }),
+		tasks: f.many(() => Task, { inverse: 'project' }),
+		notes: f.many(() => Note, { inverse: 'project' }),
 	}),
 })
 
@@ -124,7 +136,7 @@ export const Milestone = defineModel({
 	fields: (f) => ({
 		name: f.string(),
 		project: f.one(() => Project, { onDelete: 'cascade' }),
-		tasks: f.many(() => Task),
+		tasks: f.many(() => Task, { inverse: 'milestone' }),
 	}),
 })
 
@@ -135,7 +147,7 @@ export const Task = defineModel({
 		project: f.one(() => Project, { onDelete: 'cascade' }),
 		// The milestone's `project` is the task's `project`.
 		milestone: f.one(() => Milestone, { optional: true, within: 'project' }),
-		notes: f.many(() => Note),
+		notes: f.many(() => Note, { inverse: 'tasks' }),
 	}),
 })
 //#endregion

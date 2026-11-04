@@ -76,9 +76,9 @@ type In<P> = P extends { readonly input: infer S }
 		: never
 	: undefined
 type NeedsOf<P> = P extends { readonly needs: readonly (infer K)[] } ? K : never
-type Row<F, N extends string, P> = Pick<
-	StoredRecord<F, N>,
-	(NeedsOf<P> & keyof StoredRecord<F, N>) | 'id'
+type Row<F, P> = Pick<
+	StoredRecord<F>,
+	(NeedsOf<P> & keyof StoredRecord<F>) | 'id'
 >
 
 export type VirtualKeys<F> = {
@@ -89,12 +89,12 @@ export type VirtualKeys<F> = {
 		: never
 }[keyof F]
 
-type Rule<F, N extends string, O, P> =
+type Rule<F, O, P> =
 	| {
 			readonly run: (facts: {
 				readonly caller: Caller
 				readonly input: In<P>
-				readonly record: Row<F, N, P>
+				readonly record: Row<F, P>
 			}) => VirtualValue<O> | Promise<VirtualValue<O>>
 			readonly runMany?: never
 	  }
@@ -103,15 +103,15 @@ type Rule<F, N extends string, O, P> =
 			readonly runMany: (facts: {
 				readonly caller: Caller
 				readonly input: In<P>
-				readonly records: readonly Row<F, N, P>[]
+				readonly records: readonly Row<F, P>[]
 			}) => readonly VirtualValue<O>[] | Promise<readonly VirtualValue<O>[]>
 			readonly run?: never
 	  }
 
 // A `needs` that names no field of the model fails on the field (RecordCheck).
-type Checked<F, N extends string, X> =
+type Checked<F, X> =
 	Facts<X> extends { readonly output: infer O; readonly options: infer P }
-		? Rule<F, N, O, P>
+		? Rule<F, O, P>
 		: never
 
 // The rules of a model whose fields did not compile: any rule, whose facts
@@ -132,9 +132,9 @@ type LooseRules = {
 }
 
 /** `run` or `runMany` for each virtual of the model. */
-export type VirtualRules<F, N extends string> = string extends keyof F
+export type VirtualRules<F> = string extends keyof F
 	? LooseRules
-	: { readonly [K in VirtualKeys<F>]: Checked<F, N, F[K]> }
+	: { readonly [K in VirtualKeys<F>]: Checked<F, F[K]> }
 
 /** The model a virtual returns rows of, `never` for another output. */
 type ModelOf<R> = R extends { readonly [modelFields]: infer F }

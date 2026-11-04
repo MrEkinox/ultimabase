@@ -34,7 +34,10 @@ const Session = defineModel({
 })
 const Team = defineModel({
 	name: 'Team',
-	fields: (f) => ({ name: f.string(), posts: f.many(() => Post) }),
+	fields: (f) => ({
+		name: f.string(),
+		posts: f.many(() => Post, { inverse: 'team' }),
+	}),
 }).with({ access: { read: () => true } })
 const Post = defineModel({
 	name: 'Post',

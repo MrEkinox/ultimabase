@@ -13,8 +13,8 @@ const Writer = defineModel({
 	name: 'Writer',
 	fields: (f) => ({
 		name: f.string({ unique: true }),
-		notes: f.many(() => Note),
-		labels: f.many(() => Label),
+		notes: f.many(() => Note, { inverse: 'writer' }),
+		labels: f.many(() => Label, { inverse: 'writers' }),
 		drafts: f.many(() => Note, { from: 'notes' }),
 		secrets: f.many(() => Label, { from: 'labels' }),
 	}),
@@ -42,7 +42,7 @@ const Label = defineModel({
 	fields: (f) => ({
 		name: f.string(),
 		hidden: f.boolean({ default: false }),
-		writers: f.many(() => Writer),
+		writers: f.many(() => Writer, { inverse: 'labels' }),
 	}),
 }).with({ access: allow.public })
 

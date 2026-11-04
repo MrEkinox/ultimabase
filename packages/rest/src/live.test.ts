@@ -50,7 +50,10 @@ let held: Promise<void> | undefined
 const Project = defineModel({
 	name: 'Project',
 	use: [rest()],
-	fields: (f) => ({ name: f.string(), tasks: f.many(() => Task) }),
+	fields: (f) => ({
+		name: f.string(),
+		tasks: f.many(() => Task, { inverse: 'project' }),
+	}),
 }).with({ access: allow.readOnly })
 
 /** A user reads their own tasks. */

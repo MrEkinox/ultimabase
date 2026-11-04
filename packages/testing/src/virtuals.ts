@@ -38,7 +38,7 @@ const Shelf = defineModel({
 	name: 'Shelf',
 	fields: (f) => ({
 		name: f.string(),
-		books: f.many(() => Book),
+		books: f.many(() => Book, { inverse: 'shelf' }),
 		label: f.virtual(text, { needs: ['name'] }),
 		padded: f.virtual(text, { input: width, needs: ['name'] }),
 		latest: f.virtual(() => [Book], { input: first }),
@@ -76,13 +76,16 @@ const Book = defineModel({
 	fields: (f) => ({
 		title: f.string(),
 		shelf: f.one(() => Shelf, { optional: true }),
-		tags: f.many(() => Tag),
+		tags: f.many(() => Tag, { inverse: 'books' }),
 	}),
 }).with({ access: allow.public })
 
 const Tag = defineModel({
 	name: 'Tag',
-	fields: (f) => ({ name: f.string(), books: f.many(() => Book) }),
+	fields: (f) => ({
+		name: f.string(),
+		books: f.many(() => Book, { inverse: 'tags' }),
+	}),
 }).with({ access: allow.public })
 
 export function virtuals(create: () => Adapter): void {

@@ -20,8 +20,8 @@ const Tag = defineModel({
 	use: [graphql()],
 	fields: (f) => ({
 		label: f.string(),
-		owner: f.one(() => Person, { inverse: 'tags' }),
-		watcher: f.one(() => Person, { inverse: 'hidden', optional: true }),
+		owner: f.one(() => Person),
+		watcher: f.one(() => Person, { optional: true }),
 	}),
 }).with({ access: allow.readOnly, graphql: false })
 

@@ -663,7 +663,7 @@ describe('starting', () => {
 		await expect(start([User])).rejects.toThrow('User needs name')
 		const Team = defineModel({
 			name: 'Team',
-			fields: (f) => ({ members: f.many(() => Member) }),
+			fields: (f) => ({ members: f.many(() => Member, { inverse: 'team' }) }),
 		})
 		const Member = defineUser({
 			name: 'User',

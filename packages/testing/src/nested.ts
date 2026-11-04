@@ -11,8 +11,8 @@ const Blogger = defineModel({
 	name: 'Blogger',
 	fields: (f) => ({
 		name: f.string(),
-		posts: f.many(() => Post),
-		card: f.one(() => Card, { optional: true }),
+		posts: f.many(() => Post, { inverse: 'blogger' }),
+		card: f.one(() => Card, { inverse: 'blogger', optional: true }),
 	}),
 })
 
@@ -30,8 +30,8 @@ const Post = defineModel({
 	fields: (f) => ({
 		title: f.string({ unique: true }),
 		blogger: f.one(() => Blogger, { onDelete: 'cascade' }),
-		comments: f.many(() => Comment),
-		topics: f.many(() => Topic),
+		comments: f.many(() => Comment, { inverse: 'post' }),
+		topics: f.many(() => Topic, { inverse: 'posts' }),
 	}),
 })
 
@@ -45,7 +45,10 @@ const Comment = defineModel({
 
 const Topic = defineModel({
 	name: 'Topic',
-	fields: (f) => ({ label: f.string(), posts: f.many(() => Post) }),
+	fields: (f) => ({
+		label: f.string(),
+		posts: f.many(() => Post, { inverse: 'topics' }),
+	}),
 })
 
 export function nested(create: () => Adapter): void {

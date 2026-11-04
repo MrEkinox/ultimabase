@@ -3,11 +3,17 @@
 import { defineRole, rolesPlugin } from '@ultimabase/roles'
 import { defineApp, defineModel, memory } from 'ultimabase'
 
-export const Role = defineRole({ name: 'Role', members: () => User })
+export const Role = defineRole({
+	name: 'Role',
+	members: () => User,
+})
 
 export const User = defineModel({
 	name: 'User',
-	fields: (f) => ({ email: f.string(), roles: f.many(() => Role) }),
+	fields: (f) => ({
+		email: f.string(),
+		roles: f.many(() => Role, { inverse: 'members' }),
+	}),
 })
 
 export const app = defineApp({

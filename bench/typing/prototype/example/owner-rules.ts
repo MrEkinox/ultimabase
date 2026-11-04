@@ -49,11 +49,16 @@ export const Mistakes = defineModel({
 	},
 })
 
+const Reader = defineModel({
+	name: 'Reader',
+	fields: (f) => ({ draft: f.one(() => CreateMistakes) }),
+})
+
 export const CreateMistakes = defineModel({
 	name: 'CreateMistakes',
 	fields: (f) => ({
 		owner: f.one(() => User),
-		readers: f.many(() => User),
+		readers: f.many(() => Reader, { inverse: 'draft' }),
 	}),
 }).with({
 	access: {

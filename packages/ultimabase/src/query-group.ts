@@ -28,15 +28,12 @@ export type SortOrder<V> = null extends V
 		  }
 	: Direction
 /** The `one` relations the row stores (D-37). */
-type StoredOnes<F, N> = Exclude<
-	keyof StoredRecord<F, N & string>,
-	keyof RecordOf<F>
->
+type StoredOnes<F> = Exclude<keyof StoredRecord<F>, keyof RecordOf<F>>
 /** What a group takes: a scalar an aggregate takes, or a stored relation. */
-export type GroupField<F, N> = Aggregated<F> | StoredOnes<F, N>
+export type GroupField<F> = Aggregated<F> | StoredOnes<F>
 
-type GroupOrderBy<F, N, B extends PropertyKey> = {
-	readonly [K in B]?: SortOrder<GroupValue<F, N, K>> | undefined
+type GroupOrderBy<F, B extends PropertyKey> = {
+	readonly [K in B]?: SortOrder<GroupValue<F, K>> | undefined
 } & {
 	readonly _count?:
 		| Direction
@@ -76,7 +73,7 @@ type AggregateFilters<F, K> = {
 type Having<F, N, B extends PropertyKey> = {
 	readonly [K in Aggregated<F>]?:
 		| (K extends B
-				? GroupValue<F, N, K> | (ValueFilter<F, K> & AggregateFilters<F, K>)
+				? GroupValue<F, K> | (ValueFilter<F, K> & AggregateFilters<F, K>)
 				: AggregateFilters<F, K>)
 		| undefined
 } & {
@@ -88,12 +85,12 @@ type Having<F, N, B extends PropertyKey> = {
 export type GroupByArgs<
 	F,
 	N,
-	B extends GroupField<F, N> = GroupField<F, N>,
+	B extends GroupField<F> = GroupField<F>,
 > = AggregateArgs<F> & {
 	readonly by: readonly [B, ...B[]]
 	readonly having?: Having<F, N, B> | undefined
 	readonly orderBy?:
-		GroupOrderBy<F, N, B> | readonly GroupOrderBy<F, N, B>[] | undefined
+		GroupOrderBy<F, B> | readonly GroupOrderBy<F, B>[] | undefined
 	readonly skip?: number | undefined
 	readonly take?: number | undefined
 }
@@ -107,7 +104,7 @@ export type GroupChecked<
 	F,
 	N,
 	A extends { readonly by: readonly unknown[] },
-> = Exact<A, GroupByArgs<F, N, A['by'][number] & GroupField<F, N>>> &
+> = Exact<A, GroupByArgs<F, N, A['by'][number] & GroupField<F>>> &
 	(A extends { readonly having: infer H }
 		? [H] extends [Having<F, N, A['by'][number] & PropertyKey> | undefined]
 			? unknown
@@ -119,19 +116,16 @@ export type GroupChecked<
 		: unknown)
 
 /** A relation's target id, `null` when unset or unreadable (D-86). */
-type GroupValue<F, N, K> =
-	K extends StoredOnes<F, N>
+type GroupValue<F, K> =
+	K extends StoredOnes<F>
 		? { readonly id: string } | null
-		: K extends keyof StoredRecord<F, N & string>
-			? StoredRecord<F, N & string>[K]
+		: K extends keyof StoredRecord<F>
+			? StoredRecord<F>[K]
 			: never
 
 /** What `groupBy` returns for the arguments `A`. */
-export type Groups<F, N, A> = A extends {
+export type Groups<F, A> = A extends {
 	readonly by: readonly (infer B)[]
 }
-	? ({ readonly [K in B & PropertyKey]: GroupValue<F, N, K> } & Aggregates<
-			F,
-			A
-		>)[]
+	? ({ readonly [K in B & PropertyKey]: GroupValue<F, K> } & Aggregates<F, A>)[]
 	: never

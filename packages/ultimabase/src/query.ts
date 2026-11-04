@@ -302,9 +302,8 @@ export type FindFirstArgs<F, X = never> = Shaping<F> & {
 }
 
 /** `findMany`: `distinct` keeps one row per key, without `cursor` (D-147). */
-export type FindManyArgs<F, X = never, N = never> = FindFirstArgs<F, X> & {
-	readonly distinct?:
-		readonly [GroupField<F, N>, ...GroupField<F, N>[]] | undefined
+export type FindManyArgs<F, X = never> = FindFirstArgs<F, X> & {
+	readonly distinct?: readonly [GroupField<F>, ...GroupField<F>[]] | undefined
 }
 
 export type FindUniqueArgs<F, X = never> = Shaping<F> & {
@@ -331,9 +330,9 @@ export type UpsertArgs<F, X = never, N = never> = Shaping<F> & {
 // Each query is a closure on its model: it can be passed around unbound.
 /** `N` is the model's name, which nested creation needs (D-128). */
 export interface Queries<F, X = never, N = never> extends BulkQueries<F> {
-	findMany<const A extends FindManyArgs<F, X, N>>(
+	findMany<const A extends FindManyArgs<F, X>>(
 		this: void,
-		args?: A & NoInfer<Exact<A, FindManyArgs<F, X, N>>>,
+		args?: A & NoInfer<Exact<A, FindManyArgs<F, X>>>,
 		options?: QueryOptions,
 	): Promise<Payload<F, A>[]>
 	findFirst<const A extends FindFirstArgs<F, X>>(
@@ -374,7 +373,7 @@ export interface Queries<F, X = never, N = never> extends BulkQueries<F> {
 		this: void,
 		args: A & NoInfer<GroupChecked<F, N, A>>,
 		options?: QueryOptions,
-	): Promise<Groups<F, N, A>>
+	): Promise<Groups<F, A>>
 	create<const A extends CreateArgs<F, N>>(
 		this: void,
 		args: A & NoInfer<Exact<A, CreateArgs<F, N>>>,

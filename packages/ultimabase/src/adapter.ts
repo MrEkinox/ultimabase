@@ -60,14 +60,10 @@ export type SchemaField =
 			/** Its default when it is a value, not a function (D-105). */
 			readonly default?: unknown
 	  }
-	| {
+	| ({
 			readonly kind: 'one'
 			readonly name: string
 			readonly target: string
-			/** The target's field on the other side (D-37). */
-			readonly inverse: string
-			/** Whether this side stores the key, one per pair (D-37). */
-			readonly stored: boolean
 			/** One-to-one: the stored key is unique. */
 			readonly unique: boolean
 			readonly optional: boolean
@@ -75,7 +71,15 @@ export type SchemaField =
 			readonly dbName?: string
 			/** The target's `target` field equals the row's `source` (D-220). */
 			readonly within?: { readonly target: string; readonly source: string }
-	  }
+	  } & (
+			| {
+					/** This side stores the key, one per pair (D-37). */
+					readonly stored: true
+					/** The target's field on the other side, absent when none (D-237). */
+					readonly inverse?: string
+			  }
+			| { readonly stored: false; readonly inverse: string }
+	  ))
 	| {
 			readonly kind: 'many'
 			readonly name: string
@@ -85,16 +89,9 @@ export type SchemaField =
 			readonly join: boolean
 			/** Its reads see the rows a filter keeps; it takes no `set` (D-151). */
 			readonly filtered?: true
-			/**
-			 * A view: read-only, on the link of the `many` it names, with that
-			 * relation's `inverse` and `join` (D-151).
-			 */
+			/** A view, read-only, on the link of the `many` it names (D-151). */
 			readonly from?: string
-			/**
-			 * Facing a `many`, on the side declaring it: every row it links
-			 * has the row's value of this field, a `one` both models share
-			 * (D-236).
-			 */
+			/** Facing a `many`, declaring it: the `one` each pair shares (D-236). */
 			readonly within?: string
 	  }
 

@@ -145,45 +145,74 @@ describe('schema resolution (D-37)', () => {
 		fields: (f) => ({ name: f.string() }),
 	})
 
-	it('needs the other side of a relation', () => {
+	it('gives a one that no relation names no other side (D-237)', () => {
 		const Essay = defineModel({
 			name: 'Essay',
 			fields: (f) => ({ writer: f.one(() => Writer) }),
 		})
-		expect(() => resolve([Writer, Essay])).toThrow(
-			'Essay.writer: Writer has no relation to Essay; add its side.',
-		)
+		const { models } = resolve([Writer, Essay])
+		expect(models.get('Essay')?.fields.get('writer')).toMatchObject({
+			stored: true,
+			unique: false,
+		})
+		expect([...(models.get('Writer')?.fields.keys() ?? [])]).toEqual(['name'])
 	})
 
-	it('needs a named inverse between several relations', () => {
+	it('needs a many to name its other side (D-237)', () => {
 		const Pair = defineModel({
 			name: 'Pair',
-			fields: (f) => ({
-				left: f.one(() => Side),
-				right: f.one(() => Side),
-			}),
+			fields: (f) => ({ side: f.one(() => Side) }),
 		})
 		const Side = defineModel({
 			name: 'Side',
-			fields: (f) => ({
-				lefts: f.many(() => Pair),
-				rights: f.many(() => Pair),
-			}),
+			// @ts-expect-error -- a many takes its options, `inverse` among them
+			fields: (f) => ({ pairs: f.many(() => Pair) }),
 		})
-		expect(() => resolve([Pair, Side])).toThrow('name one with `inverse`')
+		expect(() => resolve([Pair, Side])).toThrow(
+			'Side.pairs: a many names its other side with inverse.',
+		)
 	})
 
-	it('needs one optional side of a one-to-one', () => {
+	it('refuses a one naming a many (D-237)', () => {
+		const Pair = defineModel({
+			name: 'Pair',
+			fields: (f) => ({ side: f.one(() => Side, { inverse: 'pairs' }) }),
+		})
+		const Side = defineModel({
+			name: 'Side',
+			fields: (f) => ({ pairs: f.many(() => Pair, { inverse: 'side' }) }),
+		})
+		expect(() => resolve([Pair, Side])).toThrow(
+			'Pair.side: inverse names a many; drop it, Side.pairs names this side.',
+		)
+	})
+
+	it('needs the side of a one-to-one that names the other optional (D-237)', () => {
 		const Card = defineModel({
 			name: 'Card',
 			fields: (f) => ({ holder: f.one(() => Holder) }),
 		})
 		const Holder = defineModel({
 			name: 'Holder',
-			fields: (f) => ({ card: f.one(() => Card) }),
+			fields: (f) => ({ card: f.one(() => Card, { inverse: 'holder' }) }),
 		})
 		expect(() => resolve([Card, Holder])).toThrow(
-			'make one side of a one-to-one relation optional',
+			'Holder.card: the side of a one-to-one that names the other stores no key, and is optional.',
+		)
+		const Badge = defineModel({
+			name: 'Badge',
+			fields: (f) => ({
+				owner: f.one(() => Owner, { optional: true, inverse: 'badge' }),
+			}),
+		})
+		const Owner = defineModel({
+			name: 'Owner',
+			fields: (f) => ({
+				badge: f.one(() => Badge, { optional: true, inverse: 'owner' }),
+			}),
+		})
+		expect(() => resolve([Badge, Owner])).toThrow(
+			'Badge.owner and Owner.badge name each other; only the side that stores no key names the other.',
 		)
 	})
 
@@ -203,7 +232,7 @@ describe('schema resolution (D-37)', () => {
 		)
 	})
 
-	it('puts the key on the many side and the required one side', () => {
+	it('puts the key on the many side and the side naming none', () => {
 		const { schema } = resolve([Author, Profile, Book, Tag])
 		const fields = (model: string) =>
 			schema.models.find((each) => each.name === model)?.fields ?? []

@@ -61,7 +61,7 @@ export const Post = defineModel({
 				access: { create: allow.private, update: allow.private },
 			}),
 		reviewer: f.one(() => User, { optional: true }),
-		tags: f.many(() => Tag),
+		tags: f.many(() => Tag, { inverse: 'posts' }),
 	}),
 }).with({
 	access: {

@@ -41,7 +41,9 @@ const connectInput = (registry: Registry): GraphQLInputObjectType =>
 
 type Relation = Exclude<SchemaField, { readonly kind: 'scalar' }>
 
-const facing = (field: Relation): string => `Without${upper(field.inverse)}`
+// A `one` without a target's side takes the target's whole input (D-237).
+const facing = (field: Relation): string =>
+	field.inverse === undefined ? '' : `Without${upper(field.inverse)}`
 
 /** A view is read-only (D-151). */
 const isView = (field: SchemaField): boolean =>

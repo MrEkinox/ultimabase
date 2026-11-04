@@ -24,9 +24,9 @@ export const Project = defineModel({
 	use: [graphql()],
 	fields: (f) => ({
 		name: f.string(),
-		owner: f.one(() => Person, { inverse: 'owned' }),
+		owner: f.one(() => Person),
 		members: f.many(() => Person, { inverse: 'projects' }),
-		tasks: f.many(() => Task),
+		tasks: f.many(() => Task, { inverse: 'project' }),
 	}),
 }).with({
 	access: {

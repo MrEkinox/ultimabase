@@ -25,7 +25,7 @@ const Tag = defineModel({
 		name: f.string(),
 		hidden: f.boolean({ default: false }),
 		posts: f
-			.many(() => Post)
+			.many(() => Post, { inverse: 'tags' })
 			.with({
 				access: {
 					create: (facts) => {
@@ -45,7 +45,10 @@ const Tag = defineModel({
 
 const Post = defineModel({
 	name: 'Post',
-	fields: (f) => ({ title: f.string(), tags: f.many(() => Tag) }),
+	fields: (f) => ({
+		title: f.string(),
+		tags: f.many(() => Tag, { inverse: 'posts' }),
+	}),
 }).with({ access: allow.public })
 
 async function codeOf(run: () => Promise<unknown>): Promise<unknown> {

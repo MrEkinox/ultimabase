@@ -13,7 +13,10 @@ const users = definePlugin({ name: 'users', userModel: true })
 const Member = defineModel({
 	name: 'Member',
 	use: [users.use(), graphql()],
-	fields: (f) => ({ name: f.string(), notes: f.many(() => Note) }),
+	fields: (f) => ({
+		name: f.string(),
+		notes: f.many(() => Note, { inverse: 'author' }),
+	}),
 }).with({ access: allow.readOnly })
 
 const Note = defineModel({
