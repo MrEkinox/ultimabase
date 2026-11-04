@@ -169,7 +169,7 @@ describe('schema resolution (D-37)', () => {
 			fields: (f) => ({ pairs: f.many(() => Pair) }),
 		})
 		expect(() => resolve([Pair, Side])).toThrow(
-			'Side.pairs: a many names its other side with inverse.',
+			'Side.pairs: a many names its other side with inverse, or takes inverse: false for a many-to-many with no other side.',
 		)
 	})
 

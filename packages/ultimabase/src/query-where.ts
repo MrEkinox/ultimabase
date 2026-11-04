@@ -6,7 +6,7 @@ import { storedValue } from './decimal.ts'
 import { InvalidQuery } from './errors.ts'
 import type { FieldInfo, ModelInfo } from './schema.ts'
 import { oneOfFilters } from './one-of-where.ts'
-import { hiddenKey } from './one-of-schema.ts'
+import { concealed } from './one-sided.ts'
 import { listCondition } from './query-conditions.ts'
 import { isPathFilter, jsonCondition } from './query-json.ts'
 import { searchedFields } from './query-search.ts'
@@ -356,7 +356,7 @@ export function normalizeWhere(
 		}
 		const field = model.fields.get(key)
 		const type = typeOf(model, key)
-		if ((field === undefined && type === undefined) || hiddenKey(field)) {
+		if ((field === undefined && type === undefined) || concealed(field)) {
 			throw unknownKey(at, model.name)
 		}
 		const codec = field?.kind === 'scalar' ? field.codec : undefined

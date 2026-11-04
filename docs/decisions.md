@@ -15881,7 +15881,7 @@ Rejected:
 
 ## D-237: A relation's other side is named, and a `one` may have none
 
-Amended by D-239 and D-243.
+Amended by D-239, D-243 and D-248.
 
 Choice: amends D-37, D-87 and D-123.
 
@@ -16987,4 +16987,116 @@ query {
 		}
 	}
 }
+```
+
+## D-248: A many-to-many declared on one side
+
+Choice: amends D-237.
+
+1. A `many` with `inverse: false` is a many-to-many declared on its side
+   only: `assignees: f.many(() => Membership, { inverse: false })`. Its
+   target gets no field. A `many` without `inverse` stays refused (D-237
+   point 4), and its message names the new form:
+   `Task.assignees: a many names its other side with inverse, or takes
+inverse: false for a many-to-many with no other side.`
+2. On its side, it is any many-to-many: its join table holds the two keys
+   (D-64); its writes (`connect`, `create`, `connectOrCreate`, `set`,
+   `disconnect`, nested `update` and `delete`), its filters (`some`,
+   `every`, `none`), its count and its `orderBy` are those of a `many`
+   facing a `many`; `within` (D-236) and the views on it (`from`, D-151;
+   `f.exists`, D-246) are accepted. `size` stays refused, as on any
+   many-to-many (D-242).
+3. Deleting a row of either side removes its links, as on a many-to-many
+   named on both sides.
+4. Its join table is named after its side, `task_assignees`, with
+   `task_id` and `membership_id`; facing its own model, `user_follows` with
+   `user_id` and `follows_id`. Moving a relation between one side and two
+   renames its join table: `sync` refuses it as a removal (D-232), and
+   `migrate create` writes it.
+5. The kernel gives the target a hidden `many` named back, as D-247 hides a
+   `oneOf`'s keys: storage adapters and plugins that follow relations read
+   it as the other side of a many-to-many. Transports, the models' types,
+   rules' `record` and `defineRole` skip it. Its name is the model's and the
+   field's, `taskAssignees`; the start stops when the target has a field of
+   that name: `Task.assignees: Membership has a field taskAssignees, the
+name its hidden side takes.`
+
+Why: a many-to-many is often read from one side, the people a task is
+assigned to. D-237 left it two-sided, so the target declared a `many` that
+nothing read, which each transport published as a connection, filters and a
+count, and which was kept in step by hand. D-237 rejected a `many` without
+`inverse` as this form, since a forgotten `inverse` on a one-to-many would
+store its rows in a join table next to the key with no error; it left the
+form to revisit with an option of its own, which `inverse: false` is.
+
+Rejected:
+
+- A `many` without `inverse` as this form, as a `one` without `inverse` is
+  (D-237): the same form as a `one`, but the one-to-many, the most common
+  relation, would get a join table by mistake with no error.
+- One rule for both kinds, a side without `inverse` stores and the other
+  names it: a `many` would store a join table, and a two-sided many-to-many
+  would be named from one side, as a one-to-one. It keeps the same trap: a
+  one-to-many's forgotten `inverse` gives two relations, the join and the
+  key, and the start cannot tell it from a many-to-many next to a `one`.
+- `inverse: false` on a `one` too: a `one` without `inverse` stores the key
+  whether or not its target names it, so `false` would be wrong once the
+  target names it, and the most written relation would carry it.
+- Hiding the target's `many` from transports: it is still declared and kept
+  in step.
+- An `inverse` a `many` may lack in the adapters' schema: each reader of a
+  many-to-many's other side, in every package, would handle its absence.
+
+Example, before:
+
+```ts
+const Task = defineModel({
+	name: 'Task',
+	fields: (f) => ({
+		project: f.one(() => Project, { onDelete: 'cascade' }),
+		assignees: f.many(() => Membership, {
+			inverse: 'tasks',
+			within: 'project',
+		}),
+	}),
+})
+const Membership = defineModel({
+	name: 'Membership',
+	fields: (f) => ({
+		project: f.one(() => Project, { onDelete: 'cascade' }),
+		user: f.one(() => User, { onDelete: 'cascade' }),
+		// Only there because Task.assignees needs its other side.
+		tasks: f.many(() => Task, { inverse: 'assignees' }),
+	}),
+})
+```
+
+After:
+
+```ts
+const Task = defineModel({
+	name: 'Task',
+	fields: (f) => ({
+		project: f.one(() => Project, { onDelete: 'cascade' }),
+		assignees: f.many(() => Membership, {
+			inverse: false,
+			within: 'project',
+		}),
+	}),
+})
+const Membership = defineModel({
+	name: 'Membership',
+	fields: (f) => ({
+		project: f.one(() => Project, { onDelete: 'cascade' }),
+		user: f.one(() => User, { onDelete: 'cascade' }),
+	}),
+})
+
+await Task.update(
+	{ where: { id: task }, data: { assignees: { connect: [{ id: ann }] } } },
+	{ as: master },
+)
+await Task.findMany({
+	where: { assignees: { some: { user: { is: { id: me } } } } },
+})
 ```

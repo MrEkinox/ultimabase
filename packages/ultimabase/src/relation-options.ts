@@ -1,5 +1,5 @@
 // A relation's options (D-37, D-54, D-151, D-220, D-236, D-237, D-240,
-// D-242, D-246).
+// D-242, D-246, D-248).
 import type { Described } from './described.ts'
 import type { DefaultFunction } from './fields.ts'
 
@@ -56,8 +56,11 @@ export type OneCheck<O> = O extends { readonly optional: true }
 export type ManyOptions = Described &
 	(
 		| {
-				/** The target's relation on the other side (D-237). */
-				readonly inverse: string
+				/**
+				 * The target's relation on the other side (D-237), or `false`
+				 * for a many-to-many the target declares no side of (D-248).
+				 */
+				readonly inverse: string | false
 				readonly from?: undefined
 				/**
 				 * Facing a `many`, every row it links has the row's `project`

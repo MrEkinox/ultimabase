@@ -4,6 +4,7 @@ import { testApplication } from '@ultimabase/testing'
 import { master } from 'ultimabase'
 import { expect, it } from 'vitest'
 import { app } from './app.ts'
+import { Author, Book, Publisher } from './models.ts'
 import {
 	Article,
 	Branch,
@@ -19,6 +20,7 @@ import {
 	Poll,
 	Project,
 	Reader,
+	ReadingList,
 	Remark,
 	Series,
 	Task,
@@ -147,6 +149,57 @@ it('links a notice to a branch that has no field for it', async () => {
 	// `onDelete: 'cascade'` deletes the notices with their branch.
 	await Branch.delete({ where: { id: paris.id } }, { as: master })
 	expect(await Notice.count({}, { as: master })).toBe(0)
+})
+
+it('lists books on a reading list that they have no field for', async () => {
+	const author = await Author.create(
+		{ data: { name: 'Le Guin' } },
+		{ as: master },
+	)
+	const publisher = await Publisher.create(
+		{ data: { name: 'Ace' } },
+		{ as: master },
+	)
+	const book = (title: string) =>
+		Book.create(
+			{
+				data: {
+					title,
+					author: { connect: { id: author.id } },
+					publisher: { connect: { id: publisher.id } },
+				},
+			},
+			{ as: master },
+		)
+	const earthsea = await book('A Wizard of Earthsea')
+	//#region one-sided-many-write
+	const list = await ReadingList.create(
+		{
+			data: {
+				title: 'Winter',
+				books: { connect: [{ id: earthsea.id }] },
+			},
+		},
+		{ as: master },
+	)
+	const found = await ReadingList.findMany(
+		{
+			where: { books: { some: { title: { contains: 'Earthsea' } } } },
+			select: { title: true, books: { select: { title: true } } },
+		},
+		{ as: master },
+	)
+	expect(found).toEqual([
+		{ title: 'Winter', books: [{ title: 'A Wizard of Earthsea' }] },
+	])
+	//#endregion
+	// Deleting a book removes it from the lists.
+	await Book.delete({ where: { id: earthsea.id } }, { as: master })
+	const read = await ReadingList.findUniqueOrThrow(
+		{ where: { id: list.id }, include: { books: true } },
+		{ as: master },
+	)
+	expect(read.books).toEqual([])
 })
 
 it('reads the members of a club through their memberships', async () => {

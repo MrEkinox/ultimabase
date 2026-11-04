@@ -6,7 +6,7 @@ import type { Context } from './query-context.ts'
 import { filtered, given } from './query-context.ts'
 import { entries, systemFields, unknownKey } from './query-where.ts'
 import type { ModelInfo } from './schema.ts'
-import { hiddenKey } from './one-of-schema.ts'
+import { concealed } from './one-sided.ts'
 import type { Store } from './transaction.ts'
 
 const operations = {
@@ -39,7 +39,7 @@ export function typeOf(
 	}
 	if (model.oneOfs.has(field)) return refuse('a oneOf')
 	const known = model.fields.get(field)
-	if (known === undefined || hiddenKey(known)) {
+	if (known === undefined || concealed(known)) {
 		if (!systemFields.includes(field)) throw unknownKey(path, model.name)
 		return field === 'id' ? 'string' : 'dateTime'
 	}

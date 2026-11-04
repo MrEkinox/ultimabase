@@ -31,7 +31,9 @@ function namesOf(link: Linked, links: readonly Linked[]): Linked | undefined {
 	const named = namedOf(link)
 	if (named === undefined) {
 		if (link.field.kind === 'many') {
-			fail(`${at(link)}: a many names its other side with inverse.`)
+			fail(
+				`${at(link)}: a many names its other side with inverse, or takes inverse: false for a many-to-many with no other side.`,
+			)
 		}
 		return undefined
 	}

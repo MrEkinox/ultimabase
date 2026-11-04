@@ -210,3 +210,44 @@ defineApp({
 	],
 	models: [Labels, Post, User, Tag],
 })
+
+// A many declared on one side is a many-to-many (D-248): its target gets no
+// field, and a size fails in `defineApp`.
+const Pinned = defineModel({
+	name: 'Pinned',
+	fields: (f) => ({ posts: f.many(() => Post, { inverse: false }) }),
+})
+const Sized = defineModel({
+	name: 'Sized',
+	fields: (f) => ({
+		posts: f.many(() => Post, { inverse: false, size: { max: 3 } }),
+	}),
+})
+defineApp({
+	database: memory(),
+	plugins: [
+		softDeletePlugin(),
+		aclPlugin(),
+		graphqlPlugin(),
+		httpPlugin(),
+		authPlugin(),
+	],
+	models: [Pinned, Post, User, Tag],
+})
+void Pinned.update({
+	where: { id: 'p' },
+	data: { posts: { connect: [{ id: 'q' }] } },
+})
+void Pinned.findMany({ where: { posts: { some: { id: 'q' } } } })
+// @ts-expect-error: Sized.posts: size bounds a one-to-many relation only.
+defineApp({
+	database: memory(),
+	plugins: [
+		softDeletePlugin(),
+		aclPlugin(),
+		graphqlPlugin(),
+		httpPlugin(),
+		authPlugin(),
+	],
+	models: [Sized, Post, User, Tag],
+})
