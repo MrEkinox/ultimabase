@@ -12,6 +12,7 @@ import {
 	Member,
 	Membership,
 	Milestone,
+	Note,
 	Notice,
 	Project,
 	Reader,
@@ -255,6 +256,61 @@ it('keeps a task within the project of its milestone', async () => {
 			{
 				where: { id: beta.id },
 				data: { project: { connect: { id: shop.id } } },
+			},
+			{ as: master },
+		),
+	).rejects.toMatchObject({ code: 'VALIDATION_FAILED' })
+	//#endregion
+})
+
+it('keeps the tasks a note links within its project', async () => {
+	//#region within-many-write
+	const site = await Project.create({ data: { name: 'Site' } }, { as: master })
+	const shop = await Project.create({ data: { name: 'Shop' } }, { as: master })
+	const task = await Task.create(
+		{ data: { title: 'Ship', project: { connect: { id: shop.id } } } },
+		{ as: master },
+	)
+	const note = await Note.create(
+		{
+			data: {
+				text: 'Release plan',
+				project: { connect: { id: site.id } },
+				tasks: {
+					create: [
+						{ title: 'Write the docs', project: { connect: { id: site.id } } },
+					],
+				},
+			},
+		},
+		{ as: master },
+	)
+	const refused = {
+		code: 'VALIDATION_FAILED',
+		details: {
+			issues: [
+				{
+					path: ['tasks'],
+					message: 'Note.tasks needs a Task of the same project.',
+				},
+			],
+		},
+	}
+	// A task of another project cannot be linked, from either side.
+	await expect(
+		Note.update(
+			{
+				where: { id: note.id },
+				data: { tasks: { connect: [{ id: task.id }] } },
+			},
+			{ as: master },
+		),
+	).rejects.toMatchObject(refused)
+	await expect(
+		Task.update(
+			{
+				where: { id: task.id },
+				data: { notes: { connect: [{ id: note.id }] } },
 			},
 			{ as: master },
 		),

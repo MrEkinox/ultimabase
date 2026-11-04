@@ -373,14 +373,35 @@ a task links it.
   project's own milestones, and `within: { milestone: 'featured' }` on
   `Project.featuredTask` keeps it among the featured milestone's tasks.
 - The target's field is a required `one`; the row's side may be optional. A
-  row whose relation or parent is `null` holds nothing.
-- `within` goes on the side that stores the key, never on a `many`.
+  row whose relation is `null` holds nothing; a row whose parent is `null`
+  links no target. With no `featured` milestone, linking a `featuredTask` is
+  refused, and so is emptying `featured` while a `featuredTask` is linked:
+  empty both in one write. Deleting the featured milestone empties both.
+- `within` goes on the side that stores the key. On a `many` facing a
+  `one`, the start points to that side.
 - A write is checked against the rows as they were before it: one that moves
   a milestone and links a task to it in the same write is refused. Write
   them one after the other.
 - [`postgres()`](/docs/next/postgres) keeps it in the database too, with a
   foreign key over both columns, so concurrent writes and SQL of your own
   cannot part them.
+
+A many-to-many takes `within` too, on one side: every task a note links
+has the note's `project`.
+
+<include cwd meta='title="src/shapes.ts"'>
+	../examples/relations/src/shapes.ts#within-many
+</include>
+
+Both models' `project` is a required `one` to the same model, and `within`
+names it. The rule holds from both sides: linking a task of another project,
+from the note or from the task, is refused, and so is moving a note or a
+task to another project while a link holds it. A write that moves a row with
+the rows it links, or removes the link, passes.
+
+<include cwd meta='title="src/shapes.test.ts"'>
+	../examples/relations/src/shapes.test.ts#within-many-write
+</include>
 
 ## Relations in access rules and hooks
 
@@ -437,6 +458,7 @@ as JSON.
 | ------------- | -------- | -------- | ------------------------------------------------------------------------------------------------------ |
 | `inverse`     | `string` | required | The target's `one` that stores the key, or its `many` that names this one back.                        |
 | `from`        | `string` | none     | Instead of `inverse`: makes the field a view of this other `many`, filtered in `.with({ relations })`. |
+| `within`      | `string` | none     | A many-to-many's rows share this `one` of both models. On one side only.                               |
 | `description` | `string` | none     | Shown in GraphQL and REST schemas.                                                                     |
 
 `.with({ relations: { field: { where } } })` on the model filters a `many` or

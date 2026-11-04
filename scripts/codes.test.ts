@@ -1,7 +1,7 @@
 // Each plugin declares the codes its errors carry beyond the kernel's
-// (D-206): a code a package's production code sends is the kernel's, its own
-// declared one, or that of a package it builds on, and each code it declares
-// is one it sends. Reads the sources: every all-caps string literal is a
+// (D-206), and those its issues carry (D-231): a code a package's production
+// code sends is the kernel's, its own declared one, or that of a package it
+// builds on, and each code it declares is one it sends. Reads the sources: every all-caps string literal is a
 // code, but those listed as not one.
 import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { STATUS_CODES } from 'node:http'
@@ -15,7 +15,7 @@ const packages = 'packages'
 // codes, `create-ultimabase` is the command line: none is a server's plugin.
 const outside = new Set(['live', 'testing', 'create-ultimabase'])
 
-/** All-caps literals that name no error's code: environment variables, Node's errors and signals, HTTP methods, SQL, schema names, issue codes (D-224). */
+/** All-caps literals that name no error's code: environment variables, Node's errors and signals, HTTP methods, SQL, schema names. */
 const notCodes = new Set([
 	'NODE_ENV',
 	'PORT',
@@ -37,16 +37,14 @@ const notCodes = new Set([
 	'NFKC',
 	'JSON',
 	'REST',
-	'PASSWORD_LENGTH',
-	'PASSWORD_IS_EMAIL',
-	'PASSWORD_BREACHED',
 ])
 
 // The kernel's query errors, which every transport sends as BAD_USER_INPUT.
 const unsent = new Set(['INVALID_QUERY'])
 
 const literal = /'(?<code>[A-Z][A-Z0-9_]{3,})'/gu
-const declaration = /readonly errors:(?<union>(?:\s*\|?\s*'[A-Z0-9_]+')+)/u
+const declaration =
+	/readonly (?:errors|issues):(?<union>(?:\s*\|?\s*'[A-Z0-9_]+')+)/gu
 const kernelUnion =
 	/export type ErrorCode =(?<union>(?:\s*\|?\s*'[A-Z0-9_]+')+)/u
 
@@ -78,9 +76,11 @@ function codesOf(sources: readonly string[]) {
 	const declared = new Set<string>()
 	const sent = new Set<string>()
 	for (const source of sources) {
-		const found = declaration.exec(source)
-		for (const code of codesIn(found?.groups?.['union'])) declared.add(code)
-		const rest = found === null ? source : source.replace(found[0], '')
+		let rest = source
+		for (const found of source.matchAll(declaration)) {
+			for (const code of codesIn(found.groups?.['union'])) declared.add(code)
+			rest = rest.replace(found[0], '')
+		}
 		for (const { groups } of rest.matchAll(literal)) {
 			const code = groups?.['code'] ?? ''
 			if (!notCodes.has(code)) sent.add(code)
@@ -120,11 +120,11 @@ it('reads the kernel codes and a declaration', () => {
 	expect(kernel).toContain('ACCESS_DENIED')
 	expect(kernel).toContain('INTERNAL')
 	const { declared, sent } = codesOf([
-		"interface Shop { readonly errors: 'CLOSED' | 'SOLD_OUT' }",
+		"interface Shop { readonly errors: 'CLOSED' | 'SOLD_OUT'; readonly issues: 'SKU_FORMAT' }",
 		"throw new PublicError(\n\t'CLOSED',\n\t'Closed.')",
 		"process.env['NODE_ENV']; throw new HTTPException(415)",
 	])
-	expect([...declared]).toEqual(['CLOSED', 'SOLD_OUT'])
+	expect([...declared]).toEqual(['CLOSED', 'SOLD_OUT', 'SKU_FORMAT'])
 	expect([...sent]).toEqual(['CLOSED', 'UNSUPPORTED_MEDIA_TYPE'])
 })
 
@@ -144,7 +144,7 @@ it.each(names)(
 		)
 		expect(
 			undeclared,
-			'Declare them in its PluginTypes `errors`, or list them in notCodes.',
+			'Declare them in its PluginTypes `errors` or `issues`, or list them in notCodes.',
 		).toEqual([])
 		expect([...own.declared].filter((code) => !own.sent.has(code))).toEqual([])
 	},

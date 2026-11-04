@@ -44,16 +44,17 @@ const columnOf = (value: unknown): Column | undefined =>
 			}
 		: undefined
 
-const checkOf = (value: unknown): Check | undefined =>
-	isRecord(value) &&
-	typeof value['column'] === 'string' &&
-	isStrings(value['values'])
-		? {
-				column: value['column'],
-				values: value['values'],
-				...(value['list'] === true ? { list: true as const } : {}),
-			}
-		: undefined
+function checkOf(value: unknown): Check | undefined {
+	if (!isRecord(value) || typeof value['column'] !== 'string') return undefined
+	const { column, values, parent } = value
+	if (typeof parent === 'string') return { column, parent }
+	if (!isStrings(values)) return undefined
+	return {
+		column,
+		values,
+		...(value['list'] === true ? { list: true as const } : {}),
+	}
+}
 
 const withinOf = (value: unknown): ForeignKey['within'] | null =>
 	value === undefined
@@ -80,6 +81,7 @@ const foreignKeyOf = (value: unknown): ForeignKey | undefined => {
 		table: value['table'],
 		cascade: value['cascade'],
 		...(within === undefined ? {} : { within }),
+		...(value['follows'] === true ? { follows: true as const } : {}),
 	}
 }
 

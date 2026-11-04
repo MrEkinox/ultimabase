@@ -21,7 +21,7 @@ import { checkRelations, isFiltered, viewField } from './relations.ts'
 import { checkIndexes, checkSearch } from './schema-indexes.ts'
 import type { VirtualInfo } from './schema-virtuals.ts'
 import { virtualsOf } from './schema-virtuals.ts'
-import { checkWithin, withinOf } from './within-schema.ts'
+import { checkWithin, withinManyOf, withinOf } from './within-schema.ts'
 
 /**
  * A field as the kernel reads it: its schema, its builder's options, a
@@ -72,6 +72,7 @@ function relationField(link: Linked, inverse: Linked | undefined): FieldInfo {
 			target: link.target,
 			inverse: inverse.name,
 			join: inverse.field.kind === 'many',
+			...withinManyOf(where, field.options, inverse),
 			options: field.options,
 		}
 	}

@@ -255,7 +255,9 @@ writes it under `ultimabase start` or in tests, where `NODE_ENV` is
 
 A document from a caller other than Master is refused before it runs when
 it nests deeper than `maxDepth`, or may return more than `maxRows` rows,
-each list counting its `first` times the lists above it. A list asking for
+each list counting its `first` times the lists above it. A live function's
+subscription counts as its query; a live list counts in its
+[`maxLive`](/docs/next/realtime#reference) instead. A list asking for
 more than its `maxTake` is refused as it runs:
 
 <include cwd meta='title="src/app.test.ts"'>

@@ -13,20 +13,29 @@ export type Column = {
 	readonly nullable: boolean
 }
 
-/** `within` pairs a second column with the target's, absent when none (D-220). */
+/**
+ * `within` pairs a second column with the target's, absent when none
+ * (D-220); `follows` moves it with the target's, as a join's (D-236).
+ */
 export type ForeignKey = {
 	readonly column: string
 	readonly table: string
 	readonly cascade: boolean
 	readonly within?: { readonly column: string; readonly target: string }
+	readonly follows?: true
 }
 
-/** A column among `values`; each element of a list's (D-127). */
-export type Check = {
-	readonly column: string
-	readonly values: string[]
-	readonly list?: true
-}
+/**
+ * A column among `values`, each element of a list's (D-127); or a `within`
+ * relation's column, empty while its `parent` column is (D-235).
+ */
+export type Check =
+	| {
+			readonly column: string
+			readonly values: string[]
+			readonly list?: true
+	  }
+	| { readonly column: string; readonly parent: string }
 
 /**
  * `model` is the model's name, or `Book.tags` for a join table. Constraints
@@ -155,6 +164,7 @@ function field(
 	table: Table,
 	building: Building,
 	given: SchemaField,
+	led: ReadonlySet<string>,
 ): void {
 	if (given.kind === 'many' || (given.kind === 'one' && !given.stored)) return
 	const what = `${table.model.name}.${given.name}`
@@ -187,32 +197,65 @@ function field(
 		table: catalog.table(given.target).name,
 		cascade: false,
 	}
-	if (!given.unique) index(claims, building, table.name, [column], what)
+	// A key or an index that starts with the column serves it (D-234).
+	if (!given.unique && !led.has(given.name)) {
+		index(claims, building, table.name, [column], what)
+	}
 	if (given.within === undefined) return
 	const name = constraint(`${table.name}_${column}_within_fkey`)
 	const target = catalog.table(given.target)
+	const { source } = given.within
+	const parent = catalog.column(table, source)
 	building.foreignKeys[claims.schema(name, `the within key of ${what}`)] = {
 		column,
 		table: target.name,
 		cascade: false,
 		within: {
-			column: catalog.column(table, given.within.source),
+			column: parent,
 			target: catalog.column(target, given.within.target),
 		},
 	}
+	// The key skips a row whose parent is unset: a check refuses its target.
+	const optional = table.model.fields.some(
+		(each) => each.name === source && each.kind === 'one' && each.optional,
+	)
+	if (!optional) return
+	const check = constraint(`${table.name}_${column}_within_check`)
+	building.checks[claims.schema(check, `the within check of ${what}`)] = {
+		column,
+		parent,
+	}
 }
 
-/** Each model's fields a `within` relation keeps its rows within (D-220). */
+/**
+ * Each model's fields a `within` relation keeps its rows within (D-220), on
+ * both sides of a many-to-many's (D-236).
+ */
 function parentsOf(catalog: Catalog): Map<string, Set<string>> {
 	const parents = new Map<string, Set<string>>()
+	const keep = (model: string, name: string) =>
+		parents.set(model, (parents.get(model) ?? new Set()).add(name))
 	for (const table of catalog.tables.values()) {
 		for (const given of table.model.fields) {
-			if (given.kind !== 'one' || given.within === undefined) continue
-			const fields = parents.get(given.target) ?? new Set()
-			parents.set(given.target, fields.add(given.within.target))
+			if (given.kind === 'one' && given.within !== undefined) {
+				keep(given.target, given.within.target)
+			} else if (given.kind === 'many' && given.within !== undefined) {
+				keep(table.model.name, given.within)
+				keep(given.target, given.within)
+			}
 		}
 	}
 	return parents
+}
+
+/** The first field of each of the model's keys and indexes, not partial. */
+function leading(table: Table): Set<string> {
+	const indexes = table.model.indexes.filter(
+		({ unique, contains, where }) =>
+			!unique && !contains && where === undefined,
+	)
+	const keys = table.uniques.filter(({ where }) => where === undefined)
+	return new Set([...keys, ...indexes].flatMap(({ fields }) => fields[0] ?? []))
 }
 
 /** The fields of a key or an index, as `Thing(a, b)`. */
@@ -237,8 +280,9 @@ export function snapshotOf(catalog: Catalog): Snapshot {
 			claims.columns(column, `${model}.${name}`)
 			building.columns[column] = { field: name, type, nullable: false }
 		}
+		const led = leading(table)
 		for (const given of table.model.fields) {
-			field(catalog, claims, table, building, given)
+			field(catalog, claims, table, building, given, led)
 		}
 		const [, ...uniques] = table.uniques
 		for (const { name, fields, lower, where } of uniques) {
@@ -299,22 +343,35 @@ export function snapshotOf(catalog: Catalog): Snapshot {
 		const claims = { schema, columns: claimer() }
 		schema(join.table, `the join table of ${side}`)
 		const building = empty(claims, side, join.table, [join.self, join.other])
-		for (const column of [join.self, join.other]) {
-			building.columns[column] = {
-				field: column,
-				type: 'uuid',
-				nullable: false,
-			}
+		const { within } = join
+		const columns = [join.self, join.other]
+		const named = columns.map((column) => [column, column] as const)
+		for (const [column, name] of within
+			? [...named, [within.column, within.field] as const]
+			: named) {
+			claims.columns(column, `the column ${column} of ${side}`)
+			building.columns[column] = { field: name, type: 'uuid', nullable: false }
 		}
-		for (const [column, table] of [
-			[join.self, join.owner],
-			[join.other, join.target],
+		for (const [column, table, end] of [
+			[join.self, join.owner, 'owner'],
+			[join.other, join.target, 'target'],
 		] as const) {
 			const key = constraint(`${join.table}_${column}_fkey`)
 			building.foreignKeys[schema(key, `the foreign key of ${side}`)] = {
 				column,
 				table,
 				cascade: true,
+			}
+			if (within === undefined) continue
+			// Each side's row and the link share a parent; a row moved carries
+			// its links (D-236).
+			const name = constraint(`${join.table}_${column}_within_fkey`)
+			building.foreignKeys[schema(name, `the within key of ${side}`)] = {
+				column,
+				table,
+				cascade: false,
+				within: { column: within.column, target: within[end] },
+				follows: true,
 			}
 		}
 		index(claims, building, join.table, [join.other], side)

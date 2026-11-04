@@ -303,7 +303,7 @@ A `Transaction` has `find`, `count`, `aggregate`, `write`, `commit()` and
 | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `scalar`   | `name`, `type` (`string`, `number`, `decimal`, `boolean`, `dateTime`, `date`, `json`, `enum`), `values?`, `list`, `integer?`, `precision?`, `scale?`, `optional`, `unique`, `search?`, `dbName?`, `default?`                    |
 | `one`      | `name`, `target`, `inverse`, `stored`, `unique`, `optional`, `onDelete` (`cascade`, `restrict`, `setNull`), `dbName?`, `within?` (`{ target, source }`: the target's `target` field equals the row's `source`, a field or `id`) |
-| `many`     | `name`, `target`, `inverse`, `join`, `filtered?`, `from?`                                                                                                                                                                       |
+| `many`     | `name`, `target`, `inverse`, `join`, `filtered?`, `from?`, `within?` (the `one` both models share)                                                                                                                              |
 
 An integer runs from -2³¹ to 2³¹ - 1. A decimal is a string at its `scale`.
 A list is never `null`: `[]` when empty.
