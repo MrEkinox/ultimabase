@@ -15544,4 +15544,3 @@ interface Password extends PluginTypes {
 	readonly issues: 'PASSWORD_LENGTH' | 'PASSWORD_IS_EMAIL' | 'PASSWORD_BREACHED'
 }
 ```
-
