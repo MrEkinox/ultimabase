@@ -4,8 +4,8 @@ export declare const modelFields: unique symbol
 export declare const fieldType: unique symbol
 export declare const declaredRecord: unique symbol
 export declare const pluginTypes: unique symbol
-/** The codes a plugin's errors may carry, beyond the kernel's (D-206). */
-export declare const errorCodes: unique symbol
+/** The codes a plugin's errors and issues may carry (D-206, D-231). */
+export declare const codes: unique symbol
 export declare const readFilter: unique symbol
 export declare const typeFields: unique symbol
 export declare const nullableOf: unique symbol

@@ -12,11 +12,25 @@ export interface RateLimit {
 	readonly window: number
 }
 
-/** A request's refusal, or `undefined` when it is within the limit. */
+/**
+ * Counts a request: the seconds until its address may send again when it is
+ * over the limit, `undefined` when it is within it.
+ */
 export type Limiter = (
 	request: Request,
 	address: string,
-) => Promise<Response | undefined>
+) => Promise<number | undefined>
+
+/** The 429 of a request over the limit, `seconds` before the window ends. */
+export const tooMany = (seconds: number): Response =>
+	Response.json(
+		{
+			code: 'TOO_MANY_ATTEMPTS',
+			message: 'Too many requests: try again later.',
+			details: { retryAfter: seconds },
+		},
+		{ status: 429, headers: { 'retry-after': String(seconds) } },
+	)
 
 /**
  * An IPv6 client holds a whole /64: it counts as one, as the `password`
@@ -80,14 +94,6 @@ export function limiter(
 				`${network} sent over ${limit.requests} requests in ${limit.window} ms: refused until the window ends.`,
 			)
 		}
-		const seconds = Math.ceil((ends - now) / 1000)
-		return Response.json(
-			{
-				code: 'TOO_MANY_ATTEMPTS',
-				message: 'Too many requests: try again later.',
-				details: { retryAfter: seconds },
-			},
-			{ status: 429, headers: { 'retry-after': String(seconds) } },
-		)
+		return Math.ceil((ends - now) / 1000)
 	}
 }

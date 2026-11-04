@@ -1,6 +1,7 @@
 // A plugin is an interface of types and one `definePlugin` (D-57). Its types
 // travel with its values; nothing is declared globally (D-24).
 import type { Logger } from './app-options.ts'
+import type { Codes } from './errors.ts'
 import type { FieldBuilders } from './fields.ts'
 import type { FunctionShape } from './function.ts'
 import type { ExposedFunction, ExposedModel } from './exposed.ts'
@@ -18,7 +19,7 @@ import type {
 	UserCallerKeys,
 	UserOf,
 } from './rules.ts'
-import type { errorCodes, pluginTypes } from './symbols.ts'
+import type { codes, pluginTypes } from './symbols.ts'
 
 /** The keys of a user caller a plugin gives (D-121). */
 type CallerKeys = Partial<UserCallerKeys> & object
@@ -58,6 +59,8 @@ export interface PluginTypes {
 	readonly queryOnly?: true
 	/** The codes its errors carry beyond the kernel's `ErrorCode` (D-206). */
 	readonly errors?: Uppercase<string>
+	/** The codes its `VALIDATION_FAILED` issues carry (D-224, D-231). */
+	readonly issues?: Uppercase<string>
 }
 
 /** A plugin's types for one model's fields. */
@@ -78,6 +81,13 @@ type Requires<T> = T extends { readonly requires: infer R extends PluginTypes }
 type ErrorsOf<T> = T extends { readonly errors: infer E extends string }
 	? E
 	: never
+type IssuesOf<T> = T extends { readonly issues: infer I extends string }
+	? I
+	: never
+// `never` for a plugin without codes, as its value prints in a type error.
+type CodesOf<T> = [ErrorsOf<T> | IssuesOf<T>] extends [never]
+	? never
+	: Codes<ErrorsOf<T>, IssuesOf<T>>
 type Optional<T> = T extends { readonly optional: infer R extends PluginTypes }
 	? R['name']
 	: never
@@ -125,11 +135,11 @@ export interface PluginValue<
 	P extends string,
 	R extends string = never,
 	// Any code, for a plugin value whose type is not its plugin's.
-	E extends string = string,
+	C extends Codes = Codes,
 > {
 	readonly name: P
 	readonly requires?: readonly R[]
-	readonly [errorCodes]?: E
+	readonly [codes]?: C
 }
 
 type HookFacts<F, K extends keyof ModelHooks<F>> = Parameters<
@@ -287,7 +297,7 @@ export type PluginDefinition<T extends PluginTypes> = {
 export interface Plugin<T extends PluginTypes> {
 	readonly plugin: (
 		options?: AppOptions<T>,
-	) => PluginValue<T['name'], Requires<T>, ErrorsOf<T>>
+	) => PluginValue<T['name'], Requires<T>, CodesOf<T>>
 	readonly use: PluginEntry<T>
 }
 /** Without options, the entry is the plugin's own types; with them, its
