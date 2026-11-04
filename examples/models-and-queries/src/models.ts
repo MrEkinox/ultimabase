@@ -5,6 +5,7 @@ import { randomUUID } from 'node:crypto'
 import { graphql } from '@ultimabase/graphql'
 import { allow, defineModel, master, PublicError } from 'ultimabase'
 import { z } from 'zod'
+import { text } from './presets.ts'
 import { Price, Status } from './types.ts'
 
 interface ProductCommands {
@@ -34,7 +35,8 @@ export const Product = defineModel({
 			validate: z.string().regex(/^[A-Z]{3}-\d{3}$/u),
 			description: 'Three capitals, a dash and three digits.',
 		}),
-		summary: f.string({ optional: true }),
+		// A preset of the app's: its options, completed in place.
+		summary: f.string({ ...text({ max: 280 }), optional: true }),
 		// Exact: read and written as a string at its scale, '12.50'.
 		price: f.decimal({ precision: 10, scale: 2 }),
 		// Read by the server only.

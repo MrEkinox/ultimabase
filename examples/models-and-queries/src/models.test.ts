@@ -192,3 +192,26 @@ it('refuses a value its field does not accept', async () => {
 	})
 	//#endregion
 })
+
+it("validates a field with the app's preset", async () => {
+	//#region preset
+	const mug = await Product.create(
+		{
+			data: { name: 'Mug', sku: 'MUG-001', price: '12.00', summary: ' Blue. ' },
+		},
+		{ as: master },
+	)
+	expect(mug.summary).toBe('Blue.')
+	await expect(
+		Product.create(
+			{
+				data: { name: 'Cup', sku: 'CUP-001', price: '8.00', summary: '  ' },
+			},
+			{ as: master },
+		),
+	).rejects.toMatchObject({
+		code: 'VALIDATION_FAILED',
+		details: { issues: [{ path: ['summary'], message: 'Never blank.' }] },
+	})
+	//#endregion
+})
