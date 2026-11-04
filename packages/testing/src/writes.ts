@@ -27,6 +27,7 @@ const Player = defineModel({
 		bornAt: f.dateTime({ optional: true }),
 		team: f.one(() => Team, { optional: true }),
 		badge: f.one(() => Badge, { optional: true }),
+		locker: f.one(() => Locker, { optional: true }),
 		skills: f.many(() => Skill),
 	}),
 	indexes: [{ fields: ['name', 'team'], unique: true }],
@@ -35,6 +36,15 @@ const Player = defineModel({
 const Badge = defineModel({
 	name: 'Badge',
 	fields: (f) => ({ code: f.string(), player: f.one(() => Player) }),
+})
+
+/** Both sides optional: the one naming onDelete stores the key (D-233). */
+const Locker = defineModel({
+	name: 'Locker',
+	fields: (f) => ({
+		code: f.string(),
+		player: f.one(() => Player, { optional: true, onDelete: 'setNull' }),
+	}),
 })
 
 const Skill = defineModel({
@@ -56,7 +66,7 @@ const skill = async (label: string) => Skill.create({ data: { label } }, M)
 
 export function writes(create: () => Adapter): void {
 	describe('writes', () => {
-		const database = started(create, [Team, Player, Badge, Skill])
+		const database = started(create, [Team, Player, Badge, Locker, Skill])
 
 		it('creates a row and returns it as stored', async () => {
 			const bornAt = new Date(Date.UTC(1990, 4, 17, 8, 30, 15, 250))
@@ -190,6 +200,36 @@ export function writes(create: () => Adapter): void {
 				M,
 			)
 			expect(moved).toMatchObject({ player: { id: grace.id } })
+		})
+
+		it('moves an optional one-to-one from the side without the key', async () => {
+			const ada = await Player.create(
+				{ data: { name: 'Ada', locker: { create: { code: 'L1' } } } },
+				M,
+			)
+			const spare = await Locker.create({ data: { code: 'L2' } }, M)
+			const moved = await Player.update(
+				{
+					where: { id: ada.id },
+					data: { locker: { connect: { id: spare.id } } },
+					include: { locker: true },
+				},
+				M,
+			)
+			expect(moved.locker?.code).toBe('L2')
+			const free = { where: { player: { is: null } } }
+			expect(await Locker.count(free, M)).toBe(1)
+			await expect(
+				Locker.create(
+					{ data: { code: 'L3', player: { connect: { id: ada.id } } } },
+					M,
+				),
+			).rejects.toMatchObject({ code: 'UNIQUE_VIOLATION' })
+			await Player.update(
+				{ where: { id: ada.id }, data: { locker: { disconnect: true } } },
+				M,
+			)
+			expect(await Locker.count(free, M)).toBe(2)
 		})
 
 		it('links and unlinks a many-to-many, and unlinks a deleted row', async () => {

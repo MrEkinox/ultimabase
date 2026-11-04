@@ -22,6 +22,27 @@ export const Card = defineModel({
 })
 //#endregion
 
+//#region optional-one-to-one
+export const Librarian = defineModel({
+	name: 'Librarian',
+	fields: (f) => ({
+		name: f.string(),
+		// Optional: a librarian may have no desk.
+		desk: f.one(() => Desk, { optional: true }),
+	}),
+})
+
+export const Desk = defineModel({
+	name: 'Desk',
+	fields: (f) => ({
+		floor: f.number({ integer: true }),
+		// Optional too: a desk may be free. `onDelete` marks the side that
+		// stores the key.
+		librarian: f.one(() => Librarian, { optional: true, onDelete: 'setNull' }),
+	}),
+})
+//#endregion
+
 //#region self
 export const Category = defineModel({
 	name: 'Category',

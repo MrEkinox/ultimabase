@@ -9,6 +9,8 @@ import {
 	Card,
 	Category,
 	Club,
+	Desk,
+	Librarian,
 	Member,
 	Membership,
 	Milestone,
@@ -47,6 +49,31 @@ it('creates, reads and deletes the card of a member', async () => {
 	)
 	expect(read.card).toBeNull()
 	expect(await Card.count({}, { as: master })).toBe(0)
+})
+
+it('gives a librarian a desk, then moves them to another one', async () => {
+	//#region optional-one-to-one-write
+	const ground = await Desk.create({ data: { floor: 0 } }, { as: master })
+	const ada = await Librarian.create(
+		{ data: { name: 'Ada', desk: { create: { floor: 1 } } } },
+		{ as: master },
+	)
+	// The desk on floor 1 is free again; the ground floor desk is Ada's.
+	await Librarian.update(
+		{ where: { id: ada.id }, data: { desk: { connect: { id: ground.id } } } },
+		{ as: master },
+	)
+	//#endregion
+	const free = await Desk.findMany(
+		{ where: { librarian: { is: null } } },
+		{ as: master },
+	)
+	expect(free.map((desk) => desk.floor)).toEqual([1])
+	const read = await Desk.findUniqueOrThrow(
+		{ where: { id: ground.id }, include: { librarian: true } },
+		{ as: master },
+	)
+	expect(read.librarian?.name).toBe('Ada')
 })
 
 it('nests categories, and empties a parent that is deleted', async () => {

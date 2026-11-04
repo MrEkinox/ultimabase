@@ -922,6 +922,8 @@ reason about.
 
 ## D-37: Relations are `one` and `many`, declared on both sides
 
+Amended by D-233.
+
 Choice: a relation field is `f.one(() => Target)` or `f.many(() => Target)`, and
 both models declare their side. `one` facing `many` is one-to-many; `many`
 facing `many` is many-to-many through a join table. When two relations join
@@ -15354,4 +15356,103 @@ query ($where: PostWhereInput) {
 # $where 33 levels deep: BAD_USER_INPUT, where.NOT.0.….NOT.0: the filter is
 # nested more than 32 levels deep.
 # $where 20,000 levels deep: BAD_USER_INPUT, The variables are nested too deep.
+```
+
+## D-233: An optional one-to-one stores its key on the side naming `onDelete`
+
+Choice: amends D-37.
+
+1. When both sides of a one-to-one are optional, the side that names
+   `onDelete` stores the key. The key may be empty and is unique: many rows
+   store none, and two rows never store the same one. In PostgreSQL it is a
+   nullable column under a unique index, which accepts several nulls.
+2. When neither side names `onDelete`, startup stops:
+   `Thread.project and Project.thread: make one side of the one-to-one required, or give the side that stores the key onDelete.`
+   When both do, startup stops too:
+   `Thread.project and Project.thread: only one side of a one-to-one stores the key; keep onDelete on that one.`
+3. A required side facing an optional one still stores the key, as D-37
+   says; `onDelete` stays refused on the side that does not store it.
+4. From the side without the key, `create`, `connect` and `disconnect`
+   move the key, as they move a required one-to-one's (D-37, D-138):
+   connecting a row first empties the key of the row that held this one,
+   and takes the connected row from the row it pointed to. `create` writes
+   the new row after this one, with its key, so a hook is not needed.
+5. From the side that stores the key, connecting a row another row already
+   holds is a unique conflict, `UNIQUE_VIOLATION`, as for any unique key: a
+   write does not take a link from a row it does not name.
+6. Access rules and hooks receive the key on the storing side only
+   (D-77): `record.project` is `{ id } | null` on a thread, and a project's
+   record has no `thread`.
+
+Why:
+
+- Some one-to-ones have no required side. A user pins at most one project
+  and a project is pinned by at most one user; a thread belongs to at most
+  one project and direct messages belong to none. D-37 left them a `many` of
+  at most one row, held by a unique index the schema did not know: the API
+  published a connection, `some`, `every` and `none` for a single row.
+- Putting the key on the side created first is wrong for both cascade and
+  creation: the project would store `thread`, deleting the thread would
+  delete the project, and the project could not be created with a thread
+  that does not exist yet.
+- `onDelete` already says which side reacts when the other one goes: that
+  is the side holding the key, as on a `one` facing a `many`. No new option
+  is needed.
+
+Rejected:
+
+- An explicit `stores: true` option: one more word, which says what
+  `onDelete` already says.
+- Taking the row from its holder on a `connect` from the storing side: it
+  would silently empty a row the write does not name.
+- Keeping D-37 and pointing to a `pinned` boolean with a partial unique
+  index (D-215): it fits a pin per owner only, and not a thread a project
+  opens.
+
+Example, before:
+
+```ts
+export const Thread = defineModel({
+	name: 'Thread',
+	fields: (f) => ({
+		project: f.one(() => Project, { optional: true, onDelete: 'cascade' }),
+	}),
+	indexes: [{ fields: ['project'], unique: true }],
+})
+export const Project = defineModel({
+	name: 'Project',
+	// At most one row, by the index above.
+	fields: (f) => ({ threads: f.many(() => Thread) }),
+}).with({
+	hooks: {
+		afterCreate: ({ record }) =>
+			Thread.create({ data: { project: { connect: { id: record.id } } } }),
+	},
+})
+// With `thread: f.one(() => Thread, { optional: true })` instead, startup
+// stops: make one side of a one-to-one relation optional.
+```
+
+After:
+
+```ts
+export const Thread = defineModel({
+	name: 'Thread',
+	fields: (f) => ({
+		project: f.one(() => Project, { optional: true, onDelete: 'cascade' }),
+	}),
+})
+export const Project = defineModel({
+	name: 'Project',
+	fields: (f) => ({ thread: f.one(() => Thread, { optional: true }) }),
+})
+
+await Project.create({ data: { name: 'Atlas', thread: { create: {} } } })
+await Project.update({
+	where: { id: atlas.id },
+	data: { thread: { connect: { id: lobby.id } } },
+})
+// lobby.project is atlas; the thread atlas held before has no project.
+await Thread.create({ data: { project: { connect: { id: atlas.id } } } })
+// UniqueViolation: Unique constraint failed on Thread (project).
 ```

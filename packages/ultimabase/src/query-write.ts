@@ -151,6 +151,25 @@ async function one(
 	if (target !== undefined) {
 		context.plan.connect(field.target, [target], skips, operation)
 	}
+	const inverse = modelOf(context.scope.models, field.target).fields.get(
+		field.inverse,
+	)
+	// An optional key held is emptied first: its column is unique (D-233).
+	const loose = !field.stored && inverse?.kind === 'one' && inverse.optional
+	if (loose && !creating && write.kind !== 'delete') {
+		context.after.push({
+			kind: 'move',
+			model: field.target,
+			field: field.inverse,
+			via: viaOf(context, field),
+			where: {
+				[field.inverse]: { is: byId(context.id) },
+				...(target === undefined ? {} : { id: { not: target } }),
+			},
+			to: null,
+			trusted: skips,
+		})
+	}
 	if (write.kind === 'create') {
 		const made = await created(context, field, write.data, write.at, skips)
 		target = made.id
@@ -167,7 +186,7 @@ async function one(
 	}
 	// A deleted row holds no key; another one may not be left empty (D-37).
 	if (write.kind === 'delete') return
-	if (!creating && (await holds(context, field, target))) {
+	if (!creating && !loose && (await holds(context, field, target))) {
 		fail(
 			context,
 			[field.name],

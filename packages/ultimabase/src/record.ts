@@ -112,14 +112,16 @@ type FacesOne<N, K, X> =
 		: false
 
 /**
- * A `one` relation the row stores: a required one, or an optional one facing
- * a `many`. The optional side of a one-to-one has no column (D-37).
+ * A `one` relation the row stores: a required one, an optional one facing a
+ * `many`, or an optional one-to-one side naming `onDelete` (D-37, D-233).
  */
 type Stored<N, K, X> =
 	X extends Relation<'one', unknown, infer O>
 		? IsOptional<O> extends true
 			? FacesOne<N, K, X> extends true
-				? false
+				? O extends { readonly onDelete: string }
+					? true
+					: false
 				: true
 			: true
 		: false

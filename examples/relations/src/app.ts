@@ -8,6 +8,8 @@ import {
 	Card,
 	Category,
 	Club,
+	Desk,
+	Librarian,
 	Member,
 	Membership,
 	Reader,
@@ -32,6 +34,8 @@ export const app = defineApp({
 		// The other shapes, used as Master only.
 		Member,
 		Card,
+		Librarian,
+		Desk,
 		Category,
 		Branch,
 		Transfer,
