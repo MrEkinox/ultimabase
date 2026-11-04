@@ -1,7 +1,7 @@
 // A function's output as the client reads it (D-109): its scalars and
-// virtuals as `run` returned them, its rows' relations and the virtuals `run`
-// left out re-read by id as the caller, in one query per model and only when
-// one is selected.
+// virtuals as `run` returned them, its rows' relations and the virtuals and
+// exists `run` left out re-read by id as the caller, in one query per model
+// and only when one is selected.
 import { badInput, rowsOf, run } from '@ultimabase/http/internal'
 import type { FieldNode, GraphQLResolveInfo } from 'graphql'
 import type { ExposedOutput } from 'ultimabase'
@@ -45,12 +45,16 @@ export async function reread(
 		if (known !== undefined) return known
 		const type = objectType(registry, model)
 		const select = selectOf(registry, info, type, nodes, master)
-		// A virtual is computed when its row is read (D-151).
-		const { virtuals } = registry.entry(model).exposed
+		// A virtual is computed when its row is read (D-151), an exists too.
+		const { exposed, model: schema } = registry.entry(model)
+		const computed = [
+			...exposed.virtuals,
+			...schema.fields.filter((field) => field.kind === 'many' && field.exists),
+		]
 		const found = Object.fromEntries(
 			Object.entries(select).filter(
 				([name, read]) =>
-					read !== true || virtuals.some((virtual) => virtual.name === name),
+					read !== true || computed.some((field) => field.name === name),
 			),
 		)
 		relations.set(nodes, found)

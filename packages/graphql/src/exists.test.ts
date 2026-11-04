@@ -2,7 +2,7 @@
 // `Boolean` in `where`, in no data input and no `orderBy`.
 import type { GraphQLSchema } from 'graphql'
 import { isInputObjectType, isObjectType, printType } from 'graphql'
-import { allow, defineModel, memory } from 'ultimabase'
+import { allow, defineFunction, defineModel, memory } from 'ultimabase'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { graphql } from './index.ts'
 import { M, post, started } from './test/app.ts'
@@ -30,6 +30,14 @@ const Note = defineModel({
 	}),
 }).with({ access: allow.public })
 
+// Regression (#210): `run` reads no exists, so the output re-reads it.
+const firstWriter = defineFunction({
+	name: 'firstWriter',
+	query: true,
+	output: Writer,
+	run: async () => Writer.findFirstOrThrow({ orderBy: { name: 'asc' } }, M),
+}).with({ access: allow.public })
+
 let schema: GraphQLSchema | undefined
 let running: Awaited<ReturnType<typeof started>>
 beforeAll(async () => {
@@ -42,7 +50,7 @@ beforeAll(async () => {
 		},
 		memory(),
 		[],
-		[],
+		[firstWriter],
 		[Writer, Note],
 	)
 	await Writer.create(
@@ -116,5 +124,14 @@ describe('an exists over GraphQL', () => {
 		expect(isInputObjectType(where) && printType(where)).toContain(
 			'hasPinned: Boolean\n',
 		)
+	})
+
+	it('is re-read in a function output', async () => {
+		expect(
+			await post(
+				`${running.url}/graphql`,
+				'{ firstWriter { name hasPinned } }',
+			),
+		).toStrictEqual({ data: { firstWriter: { name: 'Ada', hasPinned: true } } })
 	})
 })
