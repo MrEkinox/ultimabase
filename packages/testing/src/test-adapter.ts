@@ -17,6 +17,7 @@ import { jsonPaths } from './json-paths.ts'
 import { lists } from './lists.ts'
 import { nested } from './nested.ts'
 import { numbers } from './numbers.ts'
+import { oneViews } from './one-views.ts'
 import { partialUniqueCases } from './partial-unique-cases.ts'
 import { projection } from './projection.ts'
 import { reads } from './reads.ts'
@@ -59,6 +60,7 @@ export function testAdapter(
 		calendarDays(create)
 		counts(create)
 		relationFilters(create)
+		oneViews(create)
 		virtuals(create)
 		aggregates(create)
 		groups(create)

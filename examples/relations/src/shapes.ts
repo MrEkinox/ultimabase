@@ -103,10 +103,13 @@ export const Series = defineModel({
 		volumes: f.many(() => Volume, { inverse: 'series' }),
 		// A view: the volumes its filter keeps, read-only.
 		released: f.many(() => Volume, { from: 'volumes' }),
+		// A one view: the one volume its filter keeps, or null.
+		upcoming: f.one(() => Volume, { from: 'volumes' }),
 	}),
 }).with({
 	relations: {
 		released: { where: ({ where }) => where({ released: true }) },
+		upcoming: { where: ({ where }) => where({ released: false }) },
 	},
 })
 
@@ -117,6 +120,8 @@ export const Volume = defineModel({
 		released: f.boolean({ default: false }),
 		series: f.one(() => Series, { onDelete: 'cascade' }),
 	}),
+	// One unreleased volume per series: what keeps `upcoming` single.
+	indexes: [{ fields: ['series'], unique: true, where: { released: false } }],
 })
 //#endregion
 

@@ -58,10 +58,11 @@ export function readData(
 	for (const [name, value] of entries(data, at)) {
 		const field = model.fields.get(name)
 		const path = `${at}.${name}`
-		// A view is read-only (D-151).
+		// A view is read-only (D-151, D-240).
 		if (
 			field === undefined ||
-			(field.kind === 'many' && field.from !== undefined)
+			((field.kind === 'many' || (field.kind === 'one' && !field.stored)) &&
+				field.from !== undefined)
 		) {
 			throw unknownKey(path, model.name)
 		}

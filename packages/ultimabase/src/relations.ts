@@ -1,6 +1,6 @@
-// The filter of a `many` relation, from its model's `.with({ relations })`
-// (D-151): every read of the relation sees only the rows it keeps, Master's
-// too, and a filtered relation takes no `set`.
+// The filter of a `many` relation or a `one` view, from its model's
+// `.with({ relations })` (D-151, D-240): every read of the relation sees only
+// the rows it keeps, Master's too, and a filtered relation takes no `set`.
 import type { Filter } from './adapter.ts'
 import type { FieldOptions } from './definition.ts'
 import { InvalidQuery, Refused } from './errors.ts'
@@ -11,21 +11,32 @@ import { filterOf, isReadFilter, readFilter } from './rules.ts'
 import type { FieldInfo, ModelInfo } from './schema.ts'
 
 type Many = Extract<FieldInfo, { readonly kind: 'many' }>
+type One = Extract<FieldInfo, { readonly kind: 'one' }>
 
-function relationsOf(model: ModelInfo): { readonly [field: string]: unknown } {
+/** Each `one` view's filter, which runs once, at startup (D-240). */
+export const viewFilters: WeakMap<FieldInfo, Filter> = new WeakMap()
+
+export function relationsOf(model: ModelInfo): {
+	readonly [field: string]: unknown
+} {
 	const { rules } = model.definition
 	const relations = isObject(rules) ? rules['relations'] : undefined
 	return isObject(relations) ? relations : {}
 }
 
+const isView = (field: FieldInfo | undefined): boolean =>
+	(field?.kind === 'many' || (field?.kind === 'one' && !field.stored)) &&
+	field.from !== undefined
+
 /**
- * Stops startup on a filter that names no `many` of the model, or on a view
- * without one (D-151).
+ * Stops startup on a filter that names no `many` nor view of the model, or
+ * on a view without one (D-151, D-240).
  */
 export function checkRelations(model: ModelInfo): void {
 	for (const [name, rule] of Object.entries(relationsOf(model))) {
 		const where = `${model.name}.with.relations.${name}`
-		if (model.fields.get(name)?.kind !== 'many') {
+		const field = model.fields.get(name)
+		if (field?.kind !== 'many' && !isView(field)) {
 			throw new Refused(`${where}: ${name} is not a many relation.`)
 		}
 		if (!isObject(rule) || typeof rule['where'] !== 'function') {
@@ -33,12 +44,10 @@ export function checkRelations(model: ModelInfo): void {
 		}
 	}
 	for (const field of model.fields.values()) {
-		if (field.kind === 'many' && field.from !== undefined) {
-			if (!isFiltered(model, field.name)) {
-				throw new Refused(
-					`${model.name}.${field.name} is a view; filter it in .with({ relations }).`,
-				)
-			}
+		if (isView(field) && !isFiltered(model, field.name)) {
+			throw new Refused(
+				`${model.name}.${field.name} is a view; filter it in .with({ relations }).`,
+			)
 		}
 	}
 }
@@ -113,7 +122,8 @@ export class Relations {
 	}
 
 	/** The rows of `model.field` its filter keeps; `undefined` for all. */
-	filter(model: ModelInfo, field: Many): Filter | undefined {
+	filter(model: ModelInfo, field: Many | One): Filter | undefined {
+		if (field.kind === 'one') return viewFilters.get(field)
 		const key = `${model.name}.${field.name}`
 		const known = this.filters.get(key)
 		if (known === pending) {

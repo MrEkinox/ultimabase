@@ -360,10 +360,11 @@ export function dataOf(
 		const entry = entryOf(doc.api, model)
 		const fields: { [name: string]: Schema } = {}
 		for (const field of entry.model.fields) {
-			// A view is read-only (D-151).
+			// A view is read-only (D-151, D-240).
 			if (
 				field.name === without ||
-				(field.kind === 'many' && field.from !== undefined)
+				((field.kind === 'many' || (field.kind === 'one' && !field.stored)) &&
+					field.from !== undefined)
 			)
 				continue
 			if (field.kind !== 'scalar') {

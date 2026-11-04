@@ -96,11 +96,12 @@ type InverseOf<N, K, X> =
 
 /**
  * A `one` relation the row stores: one that names no other side. The side
- * of a one-to-one that names the other has no column (D-237).
+ * of a one-to-one that names the other has no column (D-237), nor a view
+ * (D-240).
  */
 type Stored<X> =
 	X extends Relation<'one', unknown, infer O>
-		? O extends { readonly inverse: string }
+		? [O] extends [{ readonly inverse: string } | { readonly from: string }]
 			? false
 			: true
 		: false
@@ -309,7 +310,7 @@ export type CreateData<F, N = never, E = never> = Creating<
 export type CreateManyData<F> = Creating<
 	F,
 	| { [K in keyof F]: F[K] extends Relation<'many'> ? K : never }[keyof F]
-	| VirtualKeys<F>,
+	| Unwritten<F>,
 	{
 		readonly [K in keyof F]: F[K] extends Scalar
 			? WrittenValue<F[K]>
@@ -327,11 +328,11 @@ export type UpdateData<F, N = never, Operations extends boolean = true> = {
 		UpdateInput<F[K], N, K, Operations> | undefined
 }
 
-/** The views and virtuals of `F`, which no data writes (D-151). */
-type Unwritten<F> = Views<F> | VirtualKeys<F>
-type Views<F> = {
+/** The views and virtuals of `F`, which no data writes (D-151, D-240). */
+type Unwritten<F> = ViewKeys<F> | VirtualKeys<F>
+export type ViewKeys<F> = {
 	[K in keyof F]: F[K] extends Relation<
-		'many',
+		'one' | 'many',
 		unknown,
 		{ readonly from: string }
 	>

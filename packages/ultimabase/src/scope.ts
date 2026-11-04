@@ -60,7 +60,7 @@ export class QueryScope implements Scope {
 
 	related(
 		model: ModelInfo,
-		field: Extract<FieldInfo, { readonly kind: 'many' }>,
+		field: Extract<FieldInfo, { readonly kind: 'one' | 'many' }>,
 	): Filter | undefined {
 		return and(this.relations.filter(model, field), this.readable(field.target))
 	}

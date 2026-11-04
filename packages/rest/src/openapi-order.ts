@@ -22,9 +22,12 @@ export function orderByOf(doc: Doc, model: string): Schema {
 		// The kernel refuses it in a relation's: a read ranks by its own search.
 		if (searched(readable(entry))) fields['_relevance'] = order
 		for (const field of readable(entry)) {
-			if (field.kind === 'one')
-				fields[field.name] = orderByOf(doc, field.target)
-			else if (field.kind === 'many') {
+			if (field.kind === 'one') {
+				// A `one` view sorts nothing (D-240).
+				if (field.stored || field.from === undefined) {
+					fields[field.name] = orderByOf(doc, field.target)
+				}
+			} else if (field.kind === 'many') {
 				fields[field.name] = doc.components.ref('CountOrderByInput', () =>
 					objectOf({ _count: order }),
 				)

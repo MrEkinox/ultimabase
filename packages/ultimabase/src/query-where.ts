@@ -60,12 +60,12 @@ export type Scope = {
 	/** A model's read filter; `undefined` when every row passes. */
 	readonly readable: (model: string) => Filter | undefined
 	/**
-	 * The rows a `many` relation reads: its filter (D-151) and its target's
+	 * The rows a relation reads: its filter (D-151, D-240) and its target's
 	 * read filter; `undefined` when every row passes.
 	 */
 	readonly related: (
 		model: ModelInfo,
-		field: Extract<FieldInfo, { readonly kind: 'many' }>,
+		field: Extract<FieldInfo, { readonly kind: 'one' | 'many' }>,
 	) => Filter | undefined
 	/** The caller's user id, which `viewer` reads (D-189). */
 	readonly viewer: string | undefined
@@ -241,10 +241,7 @@ function relationFilters(
 	depth: number,
 ): Filter[] {
 	const target = modelOf(models, field.target)
-	const readable =
-		field.kind === 'one'
-			? scope?.readable(field.target)
-			: scope?.related(model, field)
+	const readable = scope?.related(model, field)
 	const allowed =
 		field.kind === 'one' ? ['is', 'isNot'] : ['some', 'every', 'none']
 	const filters: Filter[] = []

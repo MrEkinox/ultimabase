@@ -277,11 +277,7 @@ export function plan(
 				field.kind === 'many' ? manyKeys : oneKeys,
 				scope,
 			)
-			const readable =
-				field.kind === 'one'
-					? scope?.readable(field.target)
-					: scope?.related(model, field)
-			nested[name] = restrict(relation.read, readable)
+			nested[name] = restrict(relation.read, scope?.related(model, field))
 			relations.set(name, relation.shape)
 		}
 	}

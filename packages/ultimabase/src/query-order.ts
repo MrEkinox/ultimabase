@@ -109,6 +109,12 @@ function keys(
 		}
 		const target = modelOf(models, known.target)
 		if (known.kind === 'one') {
+			if (!known.stored && known.from !== undefined) {
+				throw new InvalidQuery(
+					where,
+					`${where}: ${model.name}.${field} is a one view, which sorts nothing.`,
+				)
+			}
 			const readable = scope?.readable(target.name)
 			const step = { relation: field, ...(readable && { where: readable }) }
 			const next = [...through, step]

@@ -297,7 +297,13 @@ export class Reader {
 			}
 		}
 		for (const field of this.fields.get(model)?.values() ?? []) {
-			if (field.kind === 'one' && !field.stored && reads(field.name)) {
+			// A view's row is the one its filter keeps, read by `include` (D-240).
+			if (
+				field.kind === 'one' &&
+				!field.stored &&
+				field.from === undefined &&
+				reads(field.name)
+			) {
 				const [other] = this.related(model, field, row)
 				result[field.name] = other === undefined ? null : { id: other.id }
 			}
@@ -307,12 +313,11 @@ export class Reader {
 			if (field === undefined || field.kind === 'scalar') continue
 			const rows = this.related(model, field, row)
 			if (field.kind === 'one') {
-				const [other] = rows
+				const other = rows.find(
+					(each) => this.matches(field.target, each, nested.where) === true,
+				)
 				result[name] =
-					other !== undefined &&
-					this.matches(field.target, other, nested.where) === true
-						? this.output(field.target, other, nested)
-						: null
+					other === undefined ? null : this.output(field.target, other, nested)
 			} else {
 				result[name] = this.select(field.target, rows, nested).map((other) =>
 					this.output(field.target, other, nested),

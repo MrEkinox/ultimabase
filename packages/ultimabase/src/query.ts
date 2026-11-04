@@ -9,6 +9,7 @@ import type {
 	TargetFields,
 	UniqueKeys,
 	UpdateData,
+	ViewKeys,
 } from './record.ts'
 import type { Exact } from './exact.ts'
 import type { JsonValue } from './fields.ts'
@@ -154,13 +155,13 @@ type KeysOf<F, Kind> = {
 
 /**
  * An optional field sorts with its `null`s first or last (D-149), a `one`
- * relation by its target's fields, a `many` by its count (D-134).
+ * but a view by its target's fields, a `many` by its count (D-134, D-240).
  */
 type Sorts<F> = {
 	readonly [K in SortedKeys<F> | keyof SystemFields]?:
 		SortOrder<K extends keyof RecordOf<F> ? RecordOf<F>[K] : never> | undefined
 } & {
-	readonly [K in KeysOf<F, 'one'>]?:
+	readonly [K in Exclude<KeysOf<F, 'one'>, ViewKeys<F>>]?:
 		Sorts<TargetFields<TargetOf<F[K]>>> | undefined
 } & {
 	readonly [K in KeysOf<F, 'many'>]?: { readonly _count: Direction } | undefined

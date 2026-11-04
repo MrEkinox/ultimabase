@@ -192,7 +192,8 @@ export class Compiler {
 					field.name,
 					sql`case when ${key} is null then null else jsonb_build_object('id', ${key}) end`,
 				)
-			} else if (field.kind === 'one') {
+			} else if (field.kind === 'one' && field.from === undefined) {
+				// A view's row is the one its filter keeps, read by `include` (D-240).
 				const to = this.filters.alias()
 				const reach = this.filters.reach(table, alias, field, to)
 				pairs.set(
