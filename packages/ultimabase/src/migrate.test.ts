@@ -35,6 +35,28 @@ const Grown = defineModel({
 	}),
 })
 
+/** A note on a desk, then on a desk or a wall (D-247). */
+const OnDesk = defineModel({
+	name: 'Note',
+	fields: (f) => ({ desk: f.one(() => Desk, { optional: true }) }),
+})
+const Desk = defineModel({
+	name: 'Desk',
+	fields: (f) => ({ notes: f.many(() => OnDesk, { inverse: 'desk' }) }),
+})
+const OnEither = defineModel({
+	name: 'Note',
+	fields: (f) => ({ on: f.oneOf({ desk: () => Bench, wall: () => Wall }) }),
+})
+const Bench = defineModel({
+	name: 'Desk',
+	fields: (f) => ({ notes: f.many(() => OnEither, { inverse: 'on' }) }),
+})
+const Wall = defineModel({
+	name: 'Wall',
+	fields: (f) => ({ notes: f.many(() => OnEither, { inverse: 'on' }) }),
+})
+
 const environment = process.env['NODE_ENV']
 afterEach(() => {
 	process.env['NODE_ENV'] = environment
@@ -127,6 +149,22 @@ describe('a development start', () => {
 		const { app: split } = app(state, Split)
 		await expect(split.start()).rejects.toThrow(
 			"  -- a rename? keep its data: give one of Locker.title, Locker.code dbName: 'label'.\n  drop Locker.label;",
+		)
+	})
+
+	// Regression (#211): a oneOf's key takes no dbName, which sync hinted.
+	it('says a oneOf key a removed one may be takes no dbName', async () => {
+		const state = fakeState()
+		const database = migrating(state)
+		await synced(
+			database,
+			schemaOf({ database, models: [OnDesk, Desk] }),
+			recording(),
+			false,
+		)
+		const either = schemaOf({ database, models: [OnEither, Bench, Wall] })
+		await expect(synced(database, either, recording(), false)).rejects.toThrow(
+			"  -- a rename to one of Note.onDesk, Note.onWall? A oneOf's key takes no dbName: `sync --force` loses its data here, and `migrate create` writes the rename.\n  drop Note.desk;",
 		)
 	})
 

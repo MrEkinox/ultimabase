@@ -16881,7 +16881,10 @@ post: Post, photo: Photo }`, the kind's field set and the others `null`.
 7. Not with a `oneOf`, refused by the types and at the start: `within`
    (D-220), `unique`, `default`, `dbName`, a view that reads it or is one,
    and `orderBy` on it; on the targets' `many`, `within` and `size`. Field
-   rules in `.with` are accepted, as on a `one`.
+   rules in `.with` are accepted, as on a `one`. A `sync` that refuses to
+   drop a field one of its hidden keys may be (D-232) suggests no `dbName`:
+   it says `sync --force` loses that data and `migrate create` writes the
+   rename.
 8. A relation feature decided after this one may refuse a `oneOf`, and the
    `many` facing one, at the start and in the types, as point 7 does,
    instead of serving it; it serves a `oneOf` once a decision records the
