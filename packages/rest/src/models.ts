@@ -15,13 +15,8 @@ import type { Caller, Row } from 'ultimabase'
 import { InvalidQuery, PublicError } from 'ultimabase'
 import type { Api, Args, Entry } from './entries.ts'
 import type { Read } from './fields.ts'
-import {
-	defaultShape,
-	defaultVirtuals,
-	filterOf,
-	readerOf,
-	shaped,
-} from './fields.ts'
+import { defaultShape, defaultVirtuals, filterOf, readerOf } from './fields.ts'
+import { shaped } from './shapes.ts'
 import { bounded } from './limits.ts'
 import type { Live } from './streams.ts'
 import { liveList, liveRow, wantsEvents } from './live.ts'

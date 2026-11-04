@@ -190,3 +190,34 @@ export const Choice = defineModel({
 	}),
 })
 //#endregion
+
+//#region one-of
+export const Article = defineModel({
+	name: 'Article',
+	fields: (f) => ({
+		title: f.string(),
+		remarks: f.many(() => Remark, { inverse: 'subject' }),
+	}),
+})
+
+export const Video = defineModel({
+	name: 'Video',
+	fields: (f) => ({
+		title: f.string(),
+		url: f.string({ unique: true }),
+		remarks: f.many(() => Remark, { inverse: 'subject' }),
+	}),
+})
+
+export const Remark = defineModel({
+	name: 'Remark',
+	fields: (f) => ({
+		text: f.string(),
+		// One article or one video: never both, never neither.
+		subject: f.oneOf(
+			{ article: () => Article, video: () => Video },
+			{ onDelete: 'cascade' },
+		),
+	}),
+})
+//#endregion

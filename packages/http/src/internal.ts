@@ -19,13 +19,17 @@ export {
 	rowOf,
 	rowsOf,
 } from './pages.ts'
-export type { Node, Served } from './transport.ts'
+export type { Node, Served, ServedOneOf } from './transport.ts'
 export {
 	badInput,
+	backOf,
+	declared,
 	isNode,
 	jsonSchemaOf,
+	oneOfsOf,
 	plural,
 	readable,
+	readableOneOfs,
 	readableVirtuals,
 	run,
 } from './transport.ts'

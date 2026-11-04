@@ -491,10 +491,53 @@ the rows it links, or removes the link, passes.
 	../examples/relations/src/shapes.test.ts#within-many-write
 </include>
 
+### A relation to one of several models
+
+A remark is on an article or on a video, never both and never neither.
+`f.oneOf` takes the kinds, each named and given its model; each model names
+the field back from a `many`, as for a `one`.
+
+<include cwd meta='title="src/shapes.ts"'>
+	../examples/relations/src/shapes.ts#one-of
+</include>
+
+A write names the kind it links or creates. A read gives the kind, and the
+row of each kind it asks for: `select` and `include` take `true`, or an
+object of kinds, each taking what a `one` takes.
+
+<include cwd meta='title="src/shapes.test.ts"'>
+	../examples/relations/src/shapes.test.ts#one-of-write
+</include>
+
+- A kind the read leaves out reads `{ kind }` alone. TypeScript narrows the
+  value on `kind`.
+- Linking another kind empties the former. An optional `oneOf` reads `null`
+  when it is empty, and takes `disconnect: true`.
+- Each kind's `many` is a one-to-many as any other: a `connect` from
+  `Video.remarks` sets the remark's kind to `video`.
+- A target the caller cannot read makes the value `null`, as a `one`'s.
+- `onDelete` applies to every kind.
+
+A `where` filters through one kind, through the fields every kind declares
+with the same type, or by kind:
+
+<include cwd meta='title="src/shapes.test.ts"'>
+	../examples/relations/src/shapes.test.ts#one-of-filter
+</include>
+
+`is: null` and `isNot: null` match an optional `oneOf` that is empty, or
+set. [`postgres()`](/docs/next/postgres) stores a foreign key per kind,
+`subject_article_id` and `subject_video_id`, and a check that one of them is
+set, so the database keeps the cascades and the rule. A `oneOf` takes no
+`unique`, `default`, `dbName` or `within`, is not sorted, grouped or
+aggregated, and no view reads it; the kinds' `many` take no `within` or
+`size`.
+
 ## Relations in access rules and hooks
 
-- A rule or a hook sees a `one` as `{ id }`, or `null` when it is empty. A
-  `many` is absent from the record.
+- A rule or a hook sees a `one` as `{ id }`, or `null` when it is empty, and
+  a `oneOf` as `{ kind: 'video', video: { id } }`. A `many` is absent from
+  the record.
 - The optional side of a one-to-one is absent from the record too: the key is
   stored on the other side.
 - A field rule on a `many`, in `f.many(...).with(...)`, receives what the
@@ -523,8 +566,11 @@ The nested inputs are named after the relation, as in Prisma:
 `BookCreateWithoutAuthorInput`, `BookUpdateManyWithoutAuthorNestedInput`. The
 inputs of a `one`, such as `{ connect }` or `{ create }`, are `@oneOf`: they
 take one operation. A one-sided `one` takes its target's whole input, such as
-`BranchCreateNestedOneInput`, since the target has no field back. REST takes the same `data`, `where`, `include` and `select`
-as JSON.
+`BranchCreateNestedOneInput`, since the target has no field back. A `oneOf`
+is an object type, not a union, so that its JSON is REST's:
+`RemarkSubject { kind: RemarkSubjectKind!, article: Article, video: Video }`,
+filtered by `RemarkSubjectFilter` and written through `@oneOf` inputs of
+kinds. REST takes the same `data`, `where`, `include` and `select` as JSON.
 
 ## Reference
 
@@ -551,6 +597,17 @@ as JSON.
 | `size`        | `{ min?: number, max?: number }` | none     | Facing a `one`: the fewest and the most rows each parent holds.                                        |
 | `description` | `string`                         | none     | Shown in GraphQL and REST schemas.                                                                     |
 
+### `f.oneOf(kinds, options)`
+
+`kinds` names two models or more, each by a thunk: `{ article: () => Article,
+video: () => Video }`. A kind is not named `is`, `isNot` or `kind`.
+
+| Option        | Type                                   | Default                                       | Effect                                                   |
+| ------------- | -------------------------------------- | --------------------------------------------- | -------------------------------------------------------- |
+| `optional`    | `boolean`                              | `false`                                       | The row may have no related row; the field reads `null`. |
+| `onDelete`    | `'cascade' \| 'restrict' \| 'setNull'` | `restrict` if required, `setNull` if optional | What deleting the target does, whatever its kind.        |
+| `description` | `string`                               | none                                          | Shown in GraphQL and REST schemas.                       |
+
 ### `f.exists(target, options)`
 
 | Option        | Type     | Default  | Effect                                                                      |
@@ -574,6 +631,10 @@ a view; `where` is `({ caller, where }) => where({ ... }) | boolean`. On a
 | `update`          | `{ ...data }`         | `[{ where, data }]`   |
 | `delete`          | `true`, optional only | `[{ ...where }]`      |
 
+A `oneOf` takes `create`, `connect` and `connectOrCreate` as a `one` does,
+under one kind: `{ connect: { video: { id } } }`; and `disconnect: true` when
+it is optional.
+
 `set` cannot be combined with `connect` or `disconnect`, and is refused when
 the rows it would unlink cannot be left without this row (a required `one` on
 the other side) and on a filtered relation.
@@ -589,16 +650,20 @@ the other side) and on a filtered relation.
 | `none`   | `many`                  | with no related row that matches                                                      |
 | `viewer` | both, to the user model | that relate to the signed-in user, for `true` (see [Authentication](/docs/next/auth)) |
 
+On a `oneOf`, `is` and `isNot` take the fields every kind shares, a kind
+takes a `one`'s filter, `{ video: { is: ... } }`, and `kind` the name of a
+kind.
+
 ### Errors
 
-| Code                  | When                                                                                                                                    | Example message                                                                                          |
-| --------------------- | --------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| `RELATION_RESTRICTED` | A delete removes a row that a `restrict` relation points to.                                                                            | `Book.publisher references a Publisher the delete removes.`                                              |
-| `RELATION_SIZE`       | A write leaves a parent with fewer rows than its `min` or more than its `max`.                                                          | `Poll.choices holds 2 to 4 rows: this write leaves 1.`                                                   |
-| `NOT_FOUND`           | A `connect` names a row that does not exist or that the caller cannot read; an `update` or `delete` names a row not linked to this one. | `A connected Publisher does not exist.`, `No Book matches data.books.update.0.where.`                    |
-| `INVALID_QUERY`       | A write names the same row twice, writes the relation back to its parent, or uses `set` where it is refused.                            | `A Book cannot be left without its author.`, `data.books.set cannot be used with connect or disconnect.` |
-| `VALIDATION_FAILED`   | A nested row's data is invalid, or a one-to-one would leave a row without its required side. The path names it.                         | path `['books', 'create', 0, 'title']`                                                                   |
-| `UNIQUE_VIOLATION`    | Two `connectOrCreate` create the same unique value at once.                                                                             |                                                                                                          |
+| Code                  | When                                                                                                                                                | Example message                                                                                          |
+| --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `RELATION_RESTRICTED` | A delete removes a row that a `restrict` relation points to.                                                                                        | `Book.publisher references a Publisher the delete removes.`                                              |
+| `RELATION_SIZE`       | A write leaves a parent with fewer rows than its `min` or more than its `max`.                                                                      | `Poll.choices holds 2 to 4 rows: this write leaves 1.`                                                   |
+| `NOT_FOUND`           | A `connect` names a row that does not exist or that the caller cannot read; an `update` or `delete` names a row not linked to this one.             | `A connected Publisher does not exist.`, `No Book matches data.books.update.0.where.`                    |
+| `INVALID_QUERY`       | A write names the same row twice, writes the relation back to its parent, uses `set` where it is refused, or names two kinds of a `oneOf`, or none. | `A Book cannot be left without its author.`, `data.books.set cannot be used with connect or disconnect.` |
+| `VALIDATION_FAILED`   | A nested row's data is invalid, or a one-to-one would leave a row without its required side. The path names it.                                     | path `['books', 'create', 0, 'title']`                                                                   |
+| `UNIQUE_VIOLATION`    | Two `connectOrCreate` create the same unique value at once.                                                                                         |                                                                                                          |
 
 `RELATION_RESTRICTED` carries `details: { model, field }`, the relation that
 refused. `RELATION_SIZE` carries `details: { model, field, id, min, max,
@@ -642,6 +707,10 @@ is declared wrongly:
 | `Poll.myVote reads one Vote: viewer pins a field of the filter's top level, outside OR, NOT and nested relations.`                                                          | Move `viewer` to the top of the filter.                       |
 | `Poll.choices: size takes whole numbers, min from 0 and max from 1, as { min: 1, max: 10 }.`                                                                                | Give whole numbers, `max` at least `min`.                     |
 | `Book.tags: size bounds a one-to-many relation only.`                                                                                                                       | Remove `size` from a many-to-many or a view.                  |
+| `f.oneOf() takes two kinds or more.`                                                                                                                                        | Give a second kind, or use `f.one`.                           |
+| `f.oneOf(): is is a filter's key, not a kind.`                                                                                                                              | Rename the kind.                                              |
+| `Remark.subject: a oneOf takes no unique.`                                                                                                                                  | Remove the option.                                            |
+| `Video.remarks: a many facing a oneOf takes no size.`                                                                                                                       | Remove `size` or `within` from the `many`.                    |
 
 ### Limits
 

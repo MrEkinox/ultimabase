@@ -1,6 +1,6 @@
 // The read inputs (D-107), as the query API spells them (D-20): filters,
 // `where`, `orderBy` and the `@oneOf` unique target.
-import { readable } from '@ultimabase/http/internal'
+import { readable, readableOneOfs } from '@ultimabase/http/internal'
 import type {
 	GraphQLInputFieldConfigMap,
 	GraphQLInputType,
@@ -18,6 +18,7 @@ import {
 } from 'graphql'
 import type { SchemaField } from 'ultimabase'
 import { upper } from './names.ts'
+import { oneOfFilter } from './one-ofs.ts'
 import type { Args, Registry, Scalar } from './registry.ts'
 import { deprecated, scalarType } from './registry.ts'
 import { DateTime } from './scalars.ts'
@@ -140,7 +141,7 @@ const scalarFilter = (
 	return filter(registry, item, operators[field.type])
 }
 
-const relationFilter = (
+export const relationFilter = (
 	registry: Registry,
 	field: Exclude<SchemaField, Scalar>,
 ): GraphQLInputObjectType => {
@@ -204,6 +205,18 @@ export function whereInput(
 									: field.kind === 'many' && field.exists
 										? GraphQLBoolean
 										: relationFilter(registry, field),
+						}
+					}
+					// A `oneOf` by its kind, a kind, or the fields they share (D-247).
+					for (const oneOf of readableOneOfs(entry)) {
+						fields[oneOf.name] = {
+							type: oneOfFilter(
+								registry,
+								model,
+								oneOf,
+								(target) => whereInput(registry, target),
+								(field) => relationFilter(registry, field),
+							),
 						}
 					}
 					return deprecated(entry, fields)

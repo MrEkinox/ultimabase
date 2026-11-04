@@ -3,7 +3,7 @@
 // one kernel write run as its caller. A create, an update and an upsert
 // return the row as the query asks for it, a delete the row as it was,
 // without its relations.
-import { run } from '@ultimabase/http/internal'
+import { declared, oneOfsOf, run } from '@ultimabase/http/internal'
 import type {
 	GraphQLFieldConfig,
 	GraphQLInputFieldConfigMap,
@@ -20,6 +20,7 @@ import type { SchemaField } from 'ultimabase'
 import { objectOf, uniqueInput, uniqueWhere } from './inputs.ts'
 import { jsonInput, plainData } from './json-fields.ts'
 import { upper } from './names.ts'
+import { back, oneOfData, oneOfInput } from './one-ofs.ts'
 import { deletedType, isMaster, objectType } from './outputs.ts'
 import type { Args, Context, Entry, Registry } from './registry.ts'
 import { as, described, valueType } from './registry.ts'
@@ -42,8 +43,10 @@ const connectInput = (registry: Registry): GraphQLInputObjectType =>
 type Relation = Exclude<SchemaField, { readonly kind: 'scalar' }>
 
 // A `one` without a target's side takes the target's whole input (D-237).
-const facing = (field: Relation): string =>
-	field.inverse === undefined ? '' : `Without${upper(field.inverse)}`
+const facing = (registry: Registry, field: Relation): string => {
+	const inverse = back(registry, field)
+	return inverse === undefined ? '' : `Without${upper(inverse)}`
+}
 
 /** A view is read-only (D-151, D-240). */
 const isView = (field: SchemaField): boolean =>
@@ -59,15 +62,20 @@ const writes = (registry: Registry, model: string, without?: string) =>
 	registry
 		.entry(model)
 		.exposed.schema.fields.some(
-			(field) => field.name !== without && !isView(field),
+			(field) => declared(field) !== without && !isView(field),
 		)
+
+/** Whether a relation creates its target: a visible one with data. */
+const creates = (registry: Registry, field: Relation): boolean =>
+	registry.entry(field.target).visible &&
+	writes(registry, field.target, back(registry, field))
 
 /** `CommentCreateOrConnectWithoutPostInput { where, create }` (D-138). */
 const orCreateInput = (
 	registry: Registry,
 	field: Relation,
 ): GraphQLInputObjectType => {
-	const name = `${field.target}CreateOrConnect${facing(field)}Input`
+	const name = `${field.target}CreateOrConnect${facing(registry, field)}Input`
 	return registry.input(
 		name,
 		() =>
@@ -79,7 +87,7 @@ const orCreateInput = (
 					},
 					create: {
 						type: new GraphQLNonNull(
-							dataInput(registry, field.target, true, field.inverse),
+							dataInput(registry, field.target, true, back(registry, field)),
 						),
 					},
 				}),
@@ -92,7 +100,7 @@ const updateWhereInput = (
 	registry: Registry,
 	field: Relation,
 ): GraphQLInputObjectType => {
-	const name = `${field.target}UpdateWithWhereUnique${facing(field)}Input`
+	const name = `${field.target}UpdateWithWhereUnique${facing(registry, field)}Input`
 	return registry.input(
 		name,
 		() =>
@@ -104,7 +112,7 @@ const updateWhereInput = (
 					},
 					data: {
 						type: new GraphQLNonNull(
-							dataInput(registry, field.target, false, field.inverse),
+							dataInput(registry, field.target, false, back(registry, field)),
 						),
 					},
 				}),
@@ -131,21 +139,26 @@ function relationInput(
 	const many = field.kind === 'many'
 	const shape = many ? 'Many' : field.optional ? 'One' : 'OneRequired'
 	const name = creating
-		? `${field.target}CreateNested${many ? 'Many' : 'One'}${facing(field)}Input`
-		: `${field.target}Update${shape}${facing(field)}NestedInput`
+		? `${field.target}CreateNested${many ? 'Many' : 'One'}${facing(registry, field)}Input`
+		: `${field.target}Update${shape}${facing(registry, field)}NestedInput`
 	return registry.input(name, () => {
 		const listed = <T extends GraphQLInputObjectType>(type: T) =>
 			many ? new GraphQLList(new GraphQLNonNull(type)) : type
 		const row = listed(connectInput(registry))
 		const visible = registry.entry(field.target).visible
 		const updating = !creating && visible
-		const data = writes(registry, field.target, field.inverse)
+		const data = writes(registry, field.target, back(registry, field))
 		const fields: GraphQLInputFieldConfigMap = { connect: { type: row } }
 		if (visible && data) {
 			fields['connectOrCreate'] = {
 				type: listed(orCreateInput(registry, field)),
 			}
-			const created = dataInput(registry, field.target, true, field.inverse)
+			const created = dataInput(
+				registry,
+				field.target,
+				true,
+				back(registry, field),
+			)
 			fields['create'] = { type: listed(created) }
 		}
 		if (updating && shape !== 'OneRequired') {
@@ -163,7 +176,7 @@ function relationInput(
 			fields['update'] = {
 				type: many
 					? listed(updateWhereInput(registry, field))
-					: dataInput(registry, field.target, false, field.inverse),
+					: dataInput(registry, field.target, false, back(registry, field)),
 			}
 		}
 		// A `one` relation takes one of them.
@@ -204,6 +217,16 @@ function kernelData(registry: Registry, model: string, data: Args): Args {
 			map('delete', unique)
 		} else map('update', row)
 		plained[field.name] = write
+	}
+	for (const oneOf of oneOfsOf(registry.entry(model).model)) {
+		const value = plained[oneOf.name]
+		if (typeof value !== 'object' || value === null) continue
+		plained[oneOf.name] = oneOfData(
+			oneOf,
+			objectOf(value),
+			(target, item) => kernelData(registry, target, objectOf(item)),
+			(target, item) => uniqueWhere(registry, target, objectOf(item)),
+		)
 	}
 	return plained
 }
@@ -250,12 +273,35 @@ function dataInput(
 					const { exposed } = registry.entry(model)
 					const required = new Set(creating ? exposed.required : [])
 					const fields: GraphQLInputFieldConfigMap = {}
+					const needed = (key: string, type: GraphQLNullableInputType) => ({
+						type: required.has(key) ? new GraphQLNonNull(type) : type,
+					})
 					for (const field of exposed.schema.fields) {
-						if (field.name === without || isView(field)) continue
+						if (declared(field) === without || isView(field)) continue
+						// A `oneOf`'s kinds are written through it (D-247).
+						if (field.kind === 'one' && field.of !== undefined) continue
 						const type = fieldInput(registry, model, field, creating)
-						fields[field.name] = {
-							type: required.has(field.name) ? new GraphQLNonNull(type) : type,
-						}
+						fields[field.name] = needed(field.name, type)
+					}
+					for (const oneOf of oneOfsOf(exposed.schema)) {
+						if (oneOf.name === without) continue
+						const type = oneOfInput(registry, model, oneOf, creating, {
+							connect: () => connectInput(registry),
+							connectOrCreate: (field) =>
+								creates(registry, field)
+									? orCreateInput(registry, field)
+									: undefined,
+							create: (field) =>
+								creates(registry, field)
+									? dataInput(
+											registry,
+											field.target,
+											true,
+											back(registry, field),
+										)
+									: undefined,
+						})
+						fields[oneOf.name] = needed(oneOf.name, type)
 					}
 					return described(registry.entry(model), fields)
 				},

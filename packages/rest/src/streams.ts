@@ -12,8 +12,8 @@ import type {
 	Viewer,
 } from '@ultimabase/realtime'
 import type { Logger } from 'ultimabase'
-import type { Shape } from './fields.ts'
-import { shaped } from './fields.ts'
+import type { Shape } from './shapes.ts'
+import { shaped } from './shapes.ts'
 import type { Events } from './sse.ts'
 import { eventsTo } from './sse.ts'
 

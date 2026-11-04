@@ -1,5 +1,7 @@
 // Values as GraphQL's JSON (D-129): a date is ISO 8601 text, read back to a
 // `Date` from its field's type, in filters and in data, as `DateTime` is.
+import type { ServedOneOf } from '@ultimabase/http/internal'
+import { oneOfsOf } from '@ultimabase/http/internal'
 import type { SchemaField } from 'ultimabase'
 import { InvalidQuery } from 'ultimabase'
 import { maxFilterDepth } from 'ultimabase/internal'
@@ -8,6 +10,9 @@ import { entryOf } from './entries.ts'
 
 const iso =
 	/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:\d{2})$/
+
+export const unknownKey = (path: string, model: string): InvalidQuery =>
+	new InvalidQuery(path, `Unknown key '${path}' on ${model}.`)
 
 export const isArgs = (value: unknown): value is Args =>
 	typeof value === 'object' && value !== null && !Array.isArray(value)
@@ -71,6 +76,7 @@ export function whereOf(
 ): Args {
 	if (depth > maxFilterDepth) return where
 	const fields = entryOf(api, model).model.fields
+	const oneOfs = oneOfsOf(entryOf(api, model).model)
 	// Built from its entries: a `__proto__` key stays a key, which the kernel
 	// refuses, instead of a prototype that loses the filter.
 	const read: [string, unknown][] = []
@@ -86,16 +92,60 @@ export function whereOf(
 			])
 		} else if (isDate(field, key)) read.push([key, dateFilter(value, at)])
 		else if (field !== undefined && field.kind !== 'scalar' && isArgs(value)) {
-			// `is`, `some` and the others each take the target's filter.
-			const { target } = field
-			const operators = Object.entries(value).map(([operator, inner]) => [
-				operator,
-				isArgs(inner)
-					? whereOf(api, target, inner, `${at}.${operator}`, depth + 1)
-					: inner,
+			read.push([key, related(api, field.target, value, at, depth)])
+		} else {
+			const oneOf = oneOfs.find((candidate) => candidate.name === key)
+			read.push([
+				key,
+				oneOf !== undefined && isArgs(value)
+					? oneOfWhere(api, oneOf, value, at, depth)
+					: value,
 			])
-			read.push([key, Object.fromEntries(operators)])
-		} else read.push([key, value])
+		}
+	}
+	return Object.fromEntries(read)
+}
+
+/** `is`, `some` and the others, each the target's filter. */
+function related(
+	api: Api,
+	target: string,
+	value: Args,
+	path: string,
+	depth: number,
+): Args {
+	const operators = Object.entries(value).map(
+		([operator, inner]): [string, unknown] => [
+			operator,
+			isArgs(inner)
+				? whereOf(api, target, inner, `${path}.${operator}`, depth + 1)
+				: inner,
+		],
+	)
+	return Object.fromEntries(operators)
+}
+
+/**
+ * A `oneOf`'s filter (D-247): each kind's a relation's, `is` and `isNot`
+ * the shared fields', whose dates are any kind's.
+ */
+function oneOfWhere(
+	api: Api,
+	oneOf: ServedOneOf,
+	value: Args,
+	path: string,
+	depth: number,
+): Args {
+	const [first] = oneOf.kinds
+	const read: [string, unknown][] = []
+	for (const [key, operand] of Object.entries(value)) {
+		const at = `${path}.${key}`
+		const kind = oneOf.kinds.find((candidate) => candidate.kind === key)
+		if (kind !== undefined && isArgs(operand)) {
+			read.push([key, related(api, kind.field.target, operand, at, depth)])
+		} else if ((key === 'is' || key === 'isNot') && isArgs(operand)) {
+			read.push([key, whereOf(api, first.field.target, operand, at, depth + 1)])
+		} else read.push([key, operand])
 	}
 	return Object.fromEntries(read)
 }
@@ -133,7 +183,7 @@ function relationOf(
 	for (const [key, operand] of Object.entries(value)) {
 		const at = `${path}.${key}`
 		if (hidden && reaching.has(key)) {
-			throw new InvalidQuery(at, `Unknown key '${at}' on ${model}.`)
+			throw unknownKey(at, model)
 		}
 		if (key === 'create') read[key] = each(operand, at, row)
 		else if (key === 'connectOrCreate') {
@@ -148,6 +198,40 @@ function relationOf(
 		else if (key === 'delete' && field.kind === 'many') {
 			read[key] = each(operand, at, unique)
 		}
+	}
+	return read
+}
+
+/**
+ * A `oneOf`'s write (D-247): each kind's row of `create` and
+ * `connectOrCreate` read as its model's; a hidden kind is only connected.
+ */
+function oneOfData(
+	api: Api,
+	model: string,
+	oneOf: ServedOneOf,
+	value: Args,
+	path: string,
+): Args {
+	const read: { [key: string]: unknown } = { ...value }
+	for (const op of ['create', 'connectOrCreate']) {
+		const operand = value[op]
+		if (!isArgs(operand)) continue
+		const kinds: { [kind: string]: unknown } = { ...operand }
+		for (const { kind, field } of oneOf.kinds) {
+			const item = operand[kind]
+			const at = `${path}.${op}.${kind}`
+			if (item === undefined) continue
+			if (!entryOf(api, field.target).visible) throw unknownKey(at, model)
+			const row: Read = (inner, to) => dataOf(api, field.target, inner, to)
+			const unique: Read = (inner, to) => whereOf(api, field.target, inner, to)
+			kinds[kind] = !isArgs(item)
+				? item
+				: op === 'create'
+					? row(item, at)
+					: within(within(item, 'where', at, unique), 'create', at, row)
+		}
+		read[op] = kinds
 	}
 	return read
 }
@@ -174,6 +258,12 @@ export function dataOf(
 		} else if (isArgs(value)) {
 			read[field.name] = relationOf(api, model, field, value, at)
 		}
+	}
+	for (const oneOf of oneOfsOf(entryOf(api, model).model)) {
+		const value = data[oneOf.name]
+		const at = `${path}.${oneOf.name}`
+		if (isArgs(value))
+			read[oneOf.name] = oneOfData(api, model, oneOf, value, at)
 	}
 	return read
 }

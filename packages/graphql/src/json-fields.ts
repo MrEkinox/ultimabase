@@ -6,6 +6,8 @@ import type {
 	GraphQLNullableInputType,
 	GraphQLNullableOutputType,
 } from 'graphql'
+import type { ServedOneOf } from '@ultimabase/http/internal'
+import { oneOfsOf } from '@ultimabase/http/internal'
 import { maxFilterDepth } from 'ultimabase/internal'
 import type { Path, Typed } from './data.ts'
 import { dataType, scopesOf } from './data.ts'
@@ -83,10 +85,11 @@ export function plainWhere(
 	depth = 1,
 ): Args {
 	if (depth > maxFilterDepth) return where
-	const fields = registry.entry(model).model.fields
+	const schema = registry.entry(model).model
 	const plained: { [key: string]: unknown } = {}
 	for (const [key, value] of Object.entries(where)) {
-		const field = fields.find((candidate) => candidate.name === key)
+		const field = schema.fields.find((candidate) => candidate.name === key)
+		const oneOf = oneOfsOf(schema).find((candidate) => candidate.name === key)
 		if (key === 'AND' || key === 'OR' || key === 'NOT') {
 			plained[key] = each(value, (inner) =>
 				plainWhere(registry, model, inner, depth + 1),
@@ -105,7 +108,50 @@ export function plainWhere(
 					]),
 				),
 			)
+		} else if (oneOf !== undefined) {
+			plained[key] = plainOneOf(registry, oneOf, value, depth)
 		} else plained[key] = value
 	}
 	return plained
 }
+
+/**
+ * A `oneOf`'s filter (D-247): `is` and `isNot` its first kind's, the shared
+ * fields being the same in each, and each kind its target's relation filter.
+ */
+function plainOneOf(
+	registry: Registry,
+	oneOf: ServedOneOf,
+	value: unknown,
+	depth: number,
+): unknown {
+	const [first] = oneOf.kinds
+	const targets = new Map(
+		oneOf.kinds.map(({ kind, field }) => [kind, field.target]),
+	)
+	const within = (target: string) => (inner: unknown) =>
+		each(inner, (where) => plainWhere(registry, target, where, depth + 1))
+	return each(value, (operators) =>
+		Object.fromEntries(
+			Object.entries(operators).map(([operator, inner]) => {
+				const target = targets.get(operator)
+				if (target !== undefined) {
+					return [
+						operator,
+						each(inner, (relation) => plainRelation(relation, within(target))),
+					]
+				}
+				if (operator === 'kind') return [operator, inner]
+				return [operator, within(first.field.target)(inner)]
+			}),
+		),
+	)
+}
+
+const plainRelation = (relation: Args, within: (inner: unknown) => unknown) =>
+	Object.fromEntries(
+		Object.entries(relation).map(([operator, inner]) => [
+			operator,
+			within(inner),
+		]),
+	)
