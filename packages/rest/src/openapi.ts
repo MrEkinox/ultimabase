@@ -7,7 +7,7 @@ import { Refused } from 'ultimabase'
 import type { Api } from './entries.ts'
 import type { Routed } from './functions.ts'
 import { functionPaths } from './openapi-functions.ts'
-import { modelPaths } from './openapi-models.ts'
+import { modelPaths } from './openapi-routes.ts'
 
 export type Schema = Node
 
@@ -66,6 +66,18 @@ export const objectOf = (
 	properties,
 	...(required.length > 0 && { required }),
 	additionalProperties: false,
+})
+
+/** One value or a list: GraphQL takes either for a list argument. */
+export const oneOrMore = (schema: Schema): Schema => ({
+	anyOf: [schema, arrayOf(schema)],
+})
+
+/** Exactly one of an object's keys, as a GraphQL `@oneOf` input. */
+export const oneKey = (schema: Schema): Schema => ({
+	...schema,
+	minProperties: 1,
+	maxProperties: 1,
 })
 
 /** A JSON value under `name`, as a parameter or a body holds it. */

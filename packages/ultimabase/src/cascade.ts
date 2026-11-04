@@ -5,6 +5,7 @@ import type { Change, Filter, Row } from './adapter.ts'
 import { PublicError } from './errors.ts'
 import { hasHook, redirectOf } from './hooks.ts'
 import type { Models } from './query-where.ts'
+import { declaredName } from './one-of-schema.ts'
 import type { ModelInfo } from './schema.ts'
 import type { Checked, Reads } from './write-plan.ts'
 import { updated } from './write-plan.ts'
@@ -137,8 +138,9 @@ export async function cascadeOf(
 	// A row the cascade removes no longer references anything.
 	const stays = (from: ModelInfo, id: string): boolean =>
 		!deleted.has(keyOf(from, id))
-	for (const { model: from, field, id, to } of restricted) {
+	for (const { model: from, field: key, id, to } of restricted) {
 		if (!stays(from, id)) continue
+		const field = declaredName(from, key)
 		throw new PublicError(
 			'RELATION_RESTRICTED',
 			`${from.name}.${field} references a ${to} the delete removes.`,
@@ -278,8 +280,11 @@ export function cascadeWhere(
 				where: left(group.model, group.filters),
 				count: 0,
 			},
-			message: `${group.model.name}.${group.field} references a ${group.to} the delete removes.`,
-			restricted: { model: group.model.name, field: group.field },
+			message: `${group.model.name}.${declaredName(group.model, group.field)} references a ${group.to} the delete removes.`,
+			restricted: {
+				model: group.model.name,
+				field: declaredName(group.model, group.field),
+			},
 		}))
 	// A level after the levels above it: its parents have a lower depth.
 	const levels = [...deleted].toSorted(([, a], [, b]) => a.depth - b.depth)

@@ -150,6 +150,11 @@ function required(info: ModelInfo): readonly string[] {
 				field.options['list'] !== true,
 		)
 		.map((field) => field.name)
+		.concat(
+			[...info.oneOfs.values()]
+				.filter((oneOf) => !oneOf.optional)
+				.map((oneOf) => oneOf.name),
+		)
 }
 
 /**
@@ -168,6 +173,10 @@ function texts(
 			key === 'description' ? sizeNote(info.name, field) : undefined,
 		].filter((part) => part !== undefined)
 		if (text.length > 0) found[field.name] = text.join(' ')
+	}
+	for (const oneOf of info.oneOfs.values()) {
+		const own = oneOf.options[key]
+		if (typeof own === 'string') found[oneOf.name] = own
 	}
 	return found
 }

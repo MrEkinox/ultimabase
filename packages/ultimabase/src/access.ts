@@ -1,6 +1,7 @@
 // Access rules at run time (D-10, D-44, D-86): each model's read filter, the
 // fields a caller may not filter on or see, and the rules a write runs.
 // Master skips them all (D-48): its queries get no `Access`.
+import { fieldValue, recordOf, updatesOnly } from './access-values.ts'
 import { InvalidQuery, PublicError } from './errors.ts'
 import type { Filter } from './adapter.ts'
 import type { Logger } from './app-options.ts'
@@ -17,7 +18,6 @@ import {
 import type { ModelInfo } from './schema.ts'
 import type { Models, Verb } from './query-where.ts'
 import { entries, isObject, modelOf, normalizeWhere } from './query-where.ts'
-import { madeId } from './uuid.ts'
 import type { RowRule } from './write-filter.ts'
 import { rowRules } from './write-filter.ts'
 
@@ -74,7 +74,7 @@ export function readRules(model: ModelInfo): {
 	readonly [field: string]: 'private' | 'rule'
 } {
 	const rules: { [field: string]: 'private' | 'rule' } = {}
-	for (const field of model.fields.keys()) {
+	for (const field of [...model.fields.keys(), ...model.oneOfs.keys()]) {
 		const rule = fieldRule(model, field, 'read')
 		if (rule !== undefined) {
 			rules[field] = rule === allow.private ? 'private' : 'rule'
@@ -97,63 +97,7 @@ export function readRules(model: ModelInfo): {
 	return rules
 }
 
-/** The record a rule sees: each stored `one` key as `{ id }` or `null` (D-77). */
-export function recordOf(model: ModelInfo, row: Values): Values {
-	const record: { [field: string]: unknown } = {
-		id: row['id'],
-		createdAt: row['createdAt'],
-		updatedAt: row['updatedAt'],
-	}
-	for (const field of model.fields.values()) {
-		const value = row[field.name]
-		if (field.kind === 'scalar') record[field.name] = value ?? null
-		else if (field.kind === 'one' && field.stored) {
-			record[field.name] = isObject(value) ? { id: value['id'] } : null
-		}
-	}
-	return record
-}
-
-function ids(value: unknown, key: string): { readonly id: unknown }[] {
-	const list = isObject(value) ? value[key] : undefined
-	return Array.isArray(list)
-		? list.map((item: unknown) => ({ id: isObject(item) ? item['id'] : null }))
-		: []
-}
-
-/** The value a field rule sees (D-44, D-86): a relation's ids, not its data. */
-function fieldValue(model: ModelInfo, name: string, given: unknown): unknown {
-	const kind = model.fields.get(name)?.kind
-	const create = isObject(given) ? given['create'] : undefined
-	if (kind === 'many') {
-		return {
-			connect: ids(given, 'connect'),
-			disconnect: ids(given, 'disconnect'),
-			delete: ids(given, 'delete'),
-			// The rows it creates, by the ids the kernel gives them (D-128).
-			create: Array.isArray(create)
-				? create.filter(isObject).map((item) => ({ id: madeId(item) }))
-				: [],
-		}
-	}
-	if (kind !== 'one') return given
-	if (isObject(create)) return { id: madeId(create) }
-	const connect = isObject(given) ? given['connect'] : undefined
-	return isObject(connect) ? { id: connect['id'] } : null
-}
-
-/**
- * Whether a relation value only updates linked rows: it changes no link, so
- * the field rule does not judge it (D-138).
- */
-function updatesOnly(model: ModelInfo, name: string, given: unknown): boolean {
-	const kind = model.fields.get(name)?.kind
-	if (!isObject(given) || given['update'] === undefined) return false
-	if (kind === 'one') return true
-	if (kind !== 'many') return false
-	const links = ['connect', 'disconnect', 'create', 'delete']
-	return links.every((key) => ids(given, key).length === 0)
-}
+export { recordOf } from './access-values.ts'
 
 const closed: Filter = { OR: [] }
 

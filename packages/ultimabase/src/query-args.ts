@@ -3,8 +3,11 @@
 import type { Filter, Nested } from './adapter.ts'
 import { and } from './access.ts'
 import { InvalidQuery } from './errors.ts'
-import type { FieldInfo, ModelInfo } from './schema.ts'
+import { oneOfArgs } from './one-of-read.ts'
+import { hiddenKey } from './one-of-schema.ts'
+import type { ModelInfo } from './schema.ts'
 import type { VirtualInfo } from './schema-virtuals.ts'
+import { counted } from './query-counted.ts'
 import { orderBy } from './query-order.ts'
 import type { Models, Scope } from './query-where.ts'
 import {
@@ -24,6 +27,8 @@ export type Shape = {
 	/** The `many` relations `_count` returns (D-134). */
 	readonly counts: readonly string[]
 	readonly virtuals: ReadonlyMap<string, VirtualRead>
+	/** Each `oneOf` it reads, and the kinds it shows (D-247). */
+	readonly oneOfs: ReadonlyMap<string, ReadonlySet<string>>
 }
 
 /** A virtual a read computes (D-151): its input, and a model's rows. */
@@ -33,8 +38,6 @@ export type VirtualRead = {
 	readonly path: string
 	readonly plan: Plan | undefined
 }
-
-type Many = Extract<FieldInfo, { readonly kind: 'many' }>
 
 export type Plan = { readonly read: Nested; readonly shape: Shape }
 
@@ -58,60 +61,6 @@ export function integer(value: unknown, path: string, least?: number): number {
 		throw new InvalidQuery(path, `${path} must be an integer${range}.`)
 	}
 	return value
-}
-
-/** `_count`: the `many` relations it names, each with its filter (D-134). */
-function counted(
-	models: Models,
-	model: ModelInfo,
-	value: unknown,
-	path: string,
-	scope: Scope | undefined,
-): Map<string, Filter> {
-	const filter = (field: Many, where?: Filter): Filter =>
-		and(where, scope?.related(model, field)) ?? {}
-	const counts = new Map<string, Filter>()
-	if (value === true) {
-		for (const field of model.fields.values()) {
-			if (field.kind === 'many' && field.exists === undefined) {
-				counts.set(field.name, filter(field))
-			}
-		}
-		return counts
-	}
-	const given = new Map(entries(value, path))
-	for (const key of given.keys()) {
-		if (key !== 'select') throw unknownKey(`${path}.${key}`, model.name)
-	}
-	const select = `${path}.select`
-	for (const [name, chosen] of entries(given.get('select'), select)) {
-		const at = `${select}.${name}`
-		const field = model.fields.get(name)
-		if (field?.kind !== 'many' || field.exists) {
-			throw unknownKey(at, model.name)
-		}
-		if (chosen === false) continue
-		if (chosen === true) {
-			counts.set(name, filter(field))
-			continue
-		}
-		const args = new Map(entries(chosen, at))
-		for (const key of args.keys()) {
-			if (key !== 'where') throw unknownKey(`${at}.${key}`, model.name)
-		}
-		const counting = modelOf(models, field.target)
-		const where = args.has('where')
-			? normalizeWhere(
-					models,
-					counting,
-					args.get('where'),
-					`${at}.where`,
-					scope,
-				)
-			: undefined
-		counts.set(name, filter(field, where))
-	}
-	return counts
 }
 
 /** A unique target (D-52): exactly `id`, a unique field or a unique index. */
@@ -237,6 +186,22 @@ export function plan(
 			virtuals.set(info.name, virtualRead(models, info, true, '', scope))
 	}
 	const nested: { [field: string]: Nested } = {}
+	const oneOfs = new Map<string, ReadonlySet<string>>()
+	const related = (name: string, value: unknown, where: string): void => {
+		const field = model.fields.get(name)
+		if (field === undefined || field.kind === 'scalar') return
+		const relation = plan(
+			models,
+			modelOf(models, field.target),
+			value,
+			where,
+			field.kind,
+			field.kind === 'many' ? manyKeys : oneKeys,
+			scope,
+		)
+		nested[name] = restrict(relation.read, scope?.related(model, field))
+		relations.set(name, relation.shape)
+	}
 	let count = new Map<string, Filter>()
 	const chosen = select ?? include
 	if (chosen !== undefined) {
@@ -255,12 +220,22 @@ export function plan(
 					virtuals.set(name, virtualRead(models, virtual, value, where, scope))
 				continue
 			}
+			const oneOf = model.oneOfs.get(name)
+			if (oneOf !== undefined) {
+				if (value === false) continue
+				oneOfs.set(name, oneOfArgs(model.name, oneOf, value, where, related))
+				continue
+			}
 			const field = model.fields.get(name)
 			const scalar =
 				field === undefined
 					? systemFields.includes(name)
 					: field.kind === 'scalar'
-			if ((field === undefined && !scalar) || (base === 'include' && scalar)) {
+			if (
+				(field === undefined && !scalar) ||
+				hiddenKey(field) ||
+				(base === 'include' && scalar)
+			) {
 				throw unknownKey(where, model.name)
 			}
 			if (value === false) continue
@@ -275,22 +250,15 @@ export function plan(
 				fields.push(name)
 				continue
 			}
-			if (field === undefined || field.kind === 'scalar') continue
-			const relation = plan(
-				models,
-				modelOf(models, field.target),
+			related(
+				name,
 				exists
 					? { take: 1, select: { id: true } }
 					: value === true
 						? undefined
 						: value,
 				where,
-				field.kind,
-				field.kind === 'many' ? manyKeys : oneKeys,
-				scope,
 			)
-			nested[name] = restrict(relation.read, scope?.related(model, field))
-			relations.set(name, relation.shape)
 		}
 	}
 	if (Object.keys(nested).length > 0) read.include = nested
@@ -337,6 +305,7 @@ export function plan(
 	const names = [
 		...shown,
 		...relations.keys(),
+		...oneOfs.keys(),
 		...count.keys(),
 		...virtuals.keys(),
 	]
@@ -344,7 +313,17 @@ export function plan(
 		read.fields = [...new Set(['id', ...shown, ...needs])]
 	}
 	const counts = [...count.keys()]
-	return { read, shape: { model, fields: shown, relations, counts, virtuals } }
+	return {
+		read,
+		shape: {
+			model,
+			fields: shown,
+			relations,
+			counts,
+			virtuals,
+			oneOfs,
+		},
+	}
 }
 
 /** The scalar and system fields `omit` leaves out of the rows (D-135). */

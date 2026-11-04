@@ -210,7 +210,7 @@ export interface Model<N extends string, F, P, W, X = never> extends Queries<
 
 export type FieldShape = {
 	readonly [fieldType]: {
-		readonly kind: 'scalar' | 'one' | 'many' | 'exists' | 'virtual'
+		readonly kind: 'scalar' | 'one' | 'oneOf' | 'many' | 'exists' | 'virtual'
 		readonly options: object
 	}
 }
@@ -337,56 +337,6 @@ export type ModelShape = {
 	readonly name: string
 	readonly [modelFields]: object
 }
-
-// An `inverse` names a field of the target (D-37), and so does a `within`
-// (D-220); a `size` faces a `one` (D-242). They are checked here, where every
-// model is typed, since reading the target while declaring is a cycle.
-type WithinNames<W> = W extends string ? W : keyof W
-type NameErrors<N extends string, F> = {
-	[K in keyof F]: F[K] extends {
-		readonly [fieldType]: {
-			readonly target: infer T
-			readonly options: infer O
-		}
-	}
-		? | (O extends { readonly inverse: infer I extends string }
-					? I extends keyof TargetFields<T>
-						? never
-						: `${N}.${K & string}: inverse '${I}' is not a field of the target`
-					: never)
-			| (O extends { readonly within: infer W }
-					? Exclude<WithinNames<W>, keyof TargetFields<T>> extends infer U
-						? U extends string
-							? `${N}.${K & string}: within '${U}' is not a field of the target`
-							: never
-						: never
-					: never)
-			| (O extends {
-					readonly size: object
-					readonly inverse: infer I extends keyof TargetFields<T>
-			  }
-					? TargetFields<T>[I] extends {
-							readonly [fieldType]: { readonly kind: 'many' }
-						}
-						? `${N}.${K & string}: size bounds a one-to-many relation only`
-						: never
-					: never)
-		: never
-}[keyof F]
-
-type AppNameErrors<M> = {
-	[I in keyof M]: M[I] extends {
-		readonly name: infer N extends string
-		readonly [modelFields]: infer F
-	}
-		? NameErrors<N, F>
-		: never
-}[number & keyof M]
-
-/** Checked on the whole options object, as `ModelCheck` is. */
-export type RelationNameCheck<M> = [AppNameErrors<M>] extends [never]
-	? unknown
-	: { readonly relationError: AppNameErrors<M> }
 
 /**
  * The application `defineApp` returns (D-24, D-59), and the codes its

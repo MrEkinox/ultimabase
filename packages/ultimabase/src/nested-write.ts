@@ -3,7 +3,7 @@
 // read locked, and `set` and `connectOrCreate` as the links they stand for.
 import { and } from './access.ts'
 import type { Filter, Row } from './adapter.ts'
-import { InvalidQuery, PublicError } from './errors.ts'
+import { PublicError } from './errors.ts'
 import { computeOn, operationsOf } from './number-update.ts'
 import { uniqueWhere } from './query-args.ts'
 import { isObject, modelOf } from './query-where.ts'
@@ -11,12 +11,17 @@ import type { FieldInfo, ModelInfo } from './schema.ts'
 import type { QueryScope } from './scope.ts'
 import { planned } from './scope.ts'
 import type { Updating } from './relation-write.ts'
-import { manyWrite, oneWrite } from './relation-write.ts'
+import type { OneOfInfo } from './one-of-schema.ts'
+import { declaredName } from './one-of-schema.ts'
+import { manyWrite, once, oneOfWrite, oneWrite } from './relation-write.ts'
 import type { Draft } from './write-data.ts'
 import { invalid, readData } from './write-data.ts'
 import type { Reads } from './write-plan.ts'
+import { required } from './write-context.ts'
+import type { At, Many, One } from './nested-value.ts'
+import { manyValue, oneValue, origins, rows } from './nested-value.ts'
 
-type At = readonly (string | number)[]
+export type { Many, One } from './nested-value.ts'
 
 type Relation = Extract<FieldInfo, { readonly kind: 'one' | 'many' }>
 
@@ -32,35 +37,12 @@ export type Resolving = {
 	readonly at: At
 }
 
-/** The locked row each resolved `update` data or `delete` reaches. */
-const rows = new WeakMap<object, Row>()
-
-/** Where a `connectOrCreate`'s create sits in the write's data. */
-const origins = new WeakMap<object, At>()
-
-/** A `one` relation write, resolved. */
-export type One =
-	| { readonly kind: 'connect'; readonly id: string }
-	| { readonly kind: 'create'; readonly data: Draft; readonly at: At }
-	| { readonly kind: 'update'; readonly data: Draft; readonly row: Row }
-	| { readonly kind: 'delete'; readonly row: Row }
-	| { readonly kind: 'disconnect' }
-
-/** A `many` relation write, resolved. */
-export type Many = {
-	readonly connect: readonly string[]
-	readonly disconnect: readonly string[]
-	readonly create: readonly { readonly data: Draft; readonly at: At }[]
-	readonly update: readonly { readonly data: Draft; readonly row: Row }[]
-	readonly delete: readonly { readonly row: Row; readonly path: string }[]
-}
-
 const nesting = ['set', 'connectOrCreate', 'update', 'delete']
 
 /** Whether a relation value of `draft` needs resolving or reaches a row. */
 export const nests = (model: ModelInfo, draft: Draft): boolean =>
 	Object.entries(draft).some(([name, value]) => {
-		const kind = model.fields.get(name)?.kind
+		const kind = model.oneOfs.has(name) ? 'one' : model.fields.get(name)?.kind
 		return (
 			(kind === 'one' || kind === 'many') &&
 			isObject(value) &&
@@ -213,6 +195,46 @@ export async function resolveOne(
 	return { kind: 'delete', row }
 }
 
+/**
+ * A `oneOf` value resolved (D-247): its kind's hidden `one` and the value it
+ * takes, a `connectOrCreate` found or made a `create`; `undefined` for
+ * `disconnect`.
+ */
+export async function resolveOneOf(
+	r: Resolving,
+	info: OneOfInfo,
+	value: unknown,
+): Promise<
+	| {
+			readonly kind: string
+			readonly field: string
+			readonly operation: 'connect' | 'create'
+			readonly operand: Draft
+	  }
+	| undefined
+> {
+	const path = ['data', ...r.at, info.name].join('.')
+	const named = oneOfWrite(value, path, info, r.creating)
+	if (named === undefined) return undefined
+	const { kind, field, target, write } = named
+	if (write.kind === 'connect') {
+		return { kind, field, operation: 'connect', operand: { id: write.id } }
+	}
+	const at = [...r.at, info.name, write.kind, kind]
+	if (write.kind === 'create') {
+		if (!origins.has(write.data)) origins.set(write.data, at)
+		return { kind, field, operation: 'create', operand: write.data }
+	}
+	const model = modelOf(r.scope.models, target)
+	const where = `${['data', ...at].join('.')}.where`
+	const id = await found(r, model, write.where, where)
+	if (id !== undefined) {
+		return { kind, field, operation: 'connect', operand: { id } }
+	}
+	origins.set(write.create, [...at, 'create'])
+	return { kind, field, operation: 'create', operand: write.create }
+}
+
 /** The linked rows `update` and `delete` name, each once (D-138). */
 async function changing(
 	r: Resolving,
@@ -269,11 +291,11 @@ async function setting(
 	leaving: ReadonlySet<string>,
 ): Promise<Pick<Many, 'connect' | 'disconnect'>> {
 	const inverse = target.fields.get(field.inverse)
-	if (inverse?.kind === 'one' && !inverse.optional) {
+	if (inverse?.kind === 'one' && required(inverse)) {
 		throw invalid([
 			{
 				path: [...r.at, field.name, 'set'],
-				message: `A ${target.name} cannot be left without its ${field.inverse}.`,
+				message: `A ${target.name} cannot be left without its ${declaredName(target, field.inverse)}.`,
 			},
 		])
 	}
@@ -288,22 +310,6 @@ async function setting(
 	return {
 		connect: [...kept].filter((id) => !ids.has(id)),
 		disconnect: [...ids].filter((id) => !kept.has(id) && !leaving.has(id)),
-	}
-}
-
-/** Fails when a row is named by two operations of the relation (D-138). */
-function once(many: Many, path: string): void {
-	const seen = new Set<string>()
-	const links = new Set([...many.connect, ...many.disconnect])
-	const named = [
-		...many.update.map(({ row }) => row.id),
-		...many.delete.map(({ row }) => row.id),
-	]
-	for (const id of named) {
-		if (seen.has(id) || links.has(id)) {
-			throw new InvalidQuery(path, `${path} names the same row twice.`)
-		}
-		seen.add(id)
 	}
 }
 
@@ -350,48 +356,18 @@ export async function resolveMany(
 	return many
 }
 
-/** A resolved `one` as the relation value hooks and rules see. */
-function oneValue(one: One): unknown {
-	if (one.kind === 'connect') return { connect: { id: one.id } }
-	if (one.kind === 'create') return { create: one.data }
-	if (one.kind === 'update') return { update: one.data }
-	if (one.kind === 'disconnect') return { disconnect: true }
-	const value = { delete: true }
-	rows.set(value, one.row)
-	return value
-}
-
-const ref = (id: string) => ({ id })
-
-/** A resolved `many` as the relation value hooks and rules see. */
-function manyValue(many: Many): Draft {
-	const value: Draft = {}
-	if (many.connect.length > 0) value['connect'] = many.connect.map(ref)
-	if (many.disconnect.length > 0) value['disconnect'] = many.disconnect.map(ref)
-	if (many.create.length > 0) {
-		value['create'] = many.create.map(({ data }) => data)
-	}
-	if (many.update.length > 0) {
-		value['update'] = many.update.map(({ data, row }) => ({
-			where: { id: row.id },
-			data,
-		}))
-	}
-	if (many.delete.length > 0) {
-		value['delete'] = many.delete.map(({ row }) => {
-			const where = { id: row.id }
-			rows.set(where, row)
-			return where
-		})
-	}
-	return value
-}
-
 /** Resolves each relation value of `draft` in place, before the rules. */
 export async function resolveData(r: Resolving, draft: Draft): Promise<void> {
 	for (const [name, value] of Object.entries(draft)) {
 		const field = r.model.fields.get(name)
-		if (field?.kind === 'one') {
+		const oneOf = r.model.oneOfs.get(name)
+		if (oneOf !== undefined) {
+			const one = await resolveOneOf(r, oneOf, value)
+			draft[name] =
+				one === undefined
+					? { disconnect: true }
+					: { [one.operation]: { [one.kind]: one.operand } }
+		} else if (field?.kind === 'one') {
 			draft[name] = oneValue(await resolveOne(r, field, value))
 		} else if (field?.kind === 'many') {
 			draft[name] = manyValue(await resolveMany(r, field, value))

@@ -237,7 +237,13 @@ export class Catalog {
 					key = `${join.table}_${join.other}_fkey`
 				} else continue
 				const target = field.target
-				keys.set(constraint(key), { model, field: field.name, target })
+				// A `oneOf`'s key reports the field declared (D-247).
+				const named = field.kind === 'one' ? field.of?.field : undefined
+				keys.set(constraint(key), {
+					model,
+					field: named ?? field.name,
+					target,
+				})
 			}
 		}
 		return keys

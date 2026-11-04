@@ -17,10 +17,10 @@ import { Refused } from 'ultimabase'
 import { pageSource } from 'ultimabase/internal'
 import type { Api, Args } from './entries.ts'
 import { entryOf } from './entries.ts'
-import { sizeOf, unknownKey } from './fields.ts'
+import { sizeOf } from './fields.ts'
 import { bounded } from './limits.ts'
 import type { Accepted } from './params.ts'
-import { isArgs } from './values.ts'
+import { isArgs, unknownKey } from './values.ts'
 
 /** A page of an output: '' at the root, `profile.posts` in a type. */
 export type PageAt = { readonly path: string; readonly model: string }

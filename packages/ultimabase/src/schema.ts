@@ -17,6 +17,8 @@ import { Refused } from './errors.ts'
 import type { Linked } from './pairing.ts'
 import { namedOf, pairsOf } from './pairing.ts'
 import { installedUses } from './plugin-use.ts'
+import type { OneOfInfo } from './one-of-schema.ts'
+import { facing, oneOfOf } from './one-of-schema.ts'
 import { checkOneViews, oneViewField } from './one-views.ts'
 import { checkRelations, isFiltered, viewField } from './relations.ts'
 import { checkIndexes, checkSearch } from './schema-indexes.ts'
@@ -49,6 +51,8 @@ export type ModelInfo = {
 	readonly users: boolean
 	/** Its fields computed on read, which the adapter never sees (D-151). */
 	readonly virtuals: ReadonlyMap<string, VirtualInfo>
+	/** Its `oneOf` fields, each stored as a hidden `one` per kind (D-247). */
+	readonly oneOfs: ReadonlyMap<string, OneOfInfo>
 }
 
 export type Resolved = {
@@ -226,10 +230,10 @@ export function resolve(
 	const { definitions, names, owners } = definitionsOf(values, plugins)
 	const links: Linked[] = []
 	const views: Linked[] = []
+	const oneOfs = new Map<string, Map<string, OneOfInfo>>()
 	for (const [model, definition] of definitions) {
-		for (const [name, field] of definition.fields) {
-			if (field.kind === 'scalar' || field.kind === 'virtual') continue
-			const value = field.target()
+		const targetOf = (name: string, thunk: () => unknown): string => {
+			const value = thunk()
 			const target =
 				typeof value === 'object' && value !== null
 					? names.get(value)
@@ -237,12 +241,30 @@ export function resolve(
 			if (target === undefined) {
 				throw new Refused(`${model}.${name}: its target is not in models.`)
 			}
-			const owner = owners.get(model)
-			if (owner !== owners.get(target)) {
+			if (owners.get(model) !== owners.get(target)) {
 				throw new Refused(
 					`${model}.${name}: a plugin's model relates only to models of the same plugin; keep the id as a scalar.`,
 				)
 			}
+			return target
+		}
+		const mine = new Map<string, OneOfInfo>()
+		oneOfs.set(model, mine)
+		for (const [name, field] of definition.fields) {
+			if (field.kind === 'scalar' || field.kind === 'virtual') continue
+			if (field.kind === 'oneOf') {
+				const { info, ones } = oneOfOf(
+					model,
+					name,
+					field,
+					definition.fields,
+					(kind, thunk) => targetOf(`${name}.${kind}`, thunk),
+				)
+				mine.set(name, info)
+				links.push(...ones)
+				continue
+			}
+			const target = targetOf(name, field.target)
 			// A view reads the link of another relation (D-151, D-240, D-246).
 			const from = field.options['from']
 			if (field.kind === 'exists' && typeof from !== 'string') {
@@ -254,6 +276,8 @@ export function resolve(
 			;(typeof from === 'string' ? views : links).push(link)
 		}
 	}
+	// A target's many names a oneOf's kind (D-247).
+	links.splice(0, links.length, ...links.map((link) => facing(link, oneOfs)))
 	const inverses = pairsOf(links)
 	const relationOf = (model: string, name: string): FieldInfo | undefined => {
 		const link = linkOf(links, model, name)
@@ -279,6 +303,16 @@ export function resolve(
 		for (const [name, field] of definition.fields) {
 			// A virtual is no field of the adapter's (D-151).
 			if (field.kind === 'virtual') continue
+			if (field.kind === 'oneOf') {
+				const info = oneOfs.get(model)?.get(name)
+				for (const [kind, hidden] of info?.kinds ?? []) {
+					const one = relationOf(model, hidden.field)
+					if (one?.kind !== 'one' || info === undefined) continue
+					const of = { field: name, kind, optional: info.optional }
+					fields.set(hidden.field, { ...one, of })
+				}
+				continue
+			}
 			const plugin = field.kind === 'scalar' ? field.codec?.plugin : undefined
 			if (plugin !== undefined && !plugins.some((p) => p.name === plugin)) {
 				fail(
@@ -308,6 +342,7 @@ export function resolve(
 			owner: owners.get(model),
 			users: uses.some((use) => use.code.userModel),
 			virtuals: virtualsOf(model, definition, fields, names),
+			oneOfs: oneOfs.get(model) ?? new Map(),
 		}
 		checkSearch(info)
 		checkRelations(info)

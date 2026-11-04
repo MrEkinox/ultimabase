@@ -5,6 +5,8 @@ import type { Condition, Filter, ScalarType } from './adapter.ts'
 import { storedValue } from './decimal.ts'
 import { InvalidQuery } from './errors.ts'
 import type { FieldInfo, ModelInfo } from './schema.ts'
+import { oneOfFilters } from './one-of-where.ts'
+import { hiddenKey } from './one-of-schema.ts'
 import { listCondition } from './query-conditions.ts'
 import { isPathFilter, jsonCondition } from './query-json.ts'
 import { searchedFields } from './query-search.ts'
@@ -341,9 +343,20 @@ export function normalizeWhere(
 			if (value !== undefined) filter[key] = { search: cleanText(value, at) }
 			continue
 		}
+		const oneOf = model.oneOfs.get(key)
+		if (oneOf !== undefined) {
+			scope?.check(model, key, at, 'filters')
+			const related = (name: string, operand: unknown, to: string) => {
+				const one = model.fields.get(name)
+				if (one?.kind !== 'one') throw new Error('A kind has its one.')
+				return relationFilters(models, model, one, operand, to, scope, depth)
+			}
+			relations.push(...oneOfFilters(model.name, oneOf, value, at, related))
+			continue
+		}
 		const field = model.fields.get(key)
 		const type = typeOf(model, key)
-		if (field === undefined && type === undefined) {
+		if ((field === undefined && type === undefined) || hiddenKey(field)) {
 			throw unknownKey(at, model.name)
 		}
 		const codec = field?.kind === 'scalar' ? field.codec : undefined

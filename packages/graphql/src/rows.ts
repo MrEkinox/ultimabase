@@ -15,6 +15,7 @@ import {
 	GraphQLError,
 	isObjectType,
 } from 'graphql'
+import { oneOfsOf } from '@ultimabase/http/internal'
 import type { Info, Selecting } from './select.ts'
 import { grouped } from './select.ts'
 import type { Entry, Registry } from './registry.ts'
@@ -82,7 +83,10 @@ export function rowBudget(
 		if (root === 'mutation') return one
 		if (root === 'query') return roots.get(name)
 		const entry = registry.entries.get(type.name)
-		const field = entry?.model.fields.find((f) => f.name === name)
+		if (entry === undefined) return undefined
+		// A `oneOf` reads one row, of one of its kinds (D-247).
+		if (oneOfsOf(entry.model).some((o) => o.name === name)) return one
+		const field = entry.model.fields.find((f) => f.name === name)
 		if (field === undefined || field.kind === 'scalar') return undefined
 		if (field.kind === 'one' || (field.kind === 'many' && field.exists)) {
 			return one

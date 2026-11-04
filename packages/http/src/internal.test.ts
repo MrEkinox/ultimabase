@@ -1,14 +1,20 @@
 // The transport core REST and GraphQL share (D-139): pages, errors, names
 // and JSON Schema reading.
 import { describe, expect, it } from 'vitest'
+import type { SchemaField } from 'ultimabase'
 import { InvalidQuery, PublicError, Refused } from 'ultimabase'
 import {
+	backOf,
 	badInput,
 	connection,
+	declared,
 	jsonSchemaOf,
+	oneOfsOf,
 	pageArgs,
 	pageOf,
 	plural,
+	readable,
+	readableOneOfs,
 	rowsOf,
 	run,
 } from './internal.ts'
@@ -125,5 +131,89 @@ describe('the shared helpers', () => {
 			}),
 			'f: no export.',
 		)
+	})
+})
+
+const key = (
+	name: string,
+	target: string,
+	of?: { field: string; kind: string; optional: boolean },
+): SchemaField => ({
+	kind: 'one',
+	name,
+	target,
+	unique: false,
+	optional: true,
+	onDelete: 'restrict',
+	stored: true,
+	...(of === undefined ? {} : { of }),
+})
+
+/** A `comments` relation from a kind, back by `inverse`. */
+const comments = (inverse?: string): SchemaField => ({
+	...key('comments', 'Comment'),
+	...(inverse === undefined ? {} : { inverse }),
+})
+
+describe('a oneOf', () => {
+	const target = { field: 'target', optional: false }
+	const about = { field: 'about', optional: true }
+	const model = {
+		name: 'Comment',
+		indexes: [],
+		fields: [
+			key('author', 'User'),
+			key('targetPost', 'Post', { ...target, kind: 'post' }),
+			key('targetPhoto', 'Photo', { ...target, kind: 'photo' }),
+			key('aboutPost', 'Post', { ...about, kind: 'post' }),
+		],
+	}
+
+	it('gathers its kinds from their keys, read through it only', () => {
+		const [author, targetPost] = model.fields
+		const served = {
+			model,
+			exposed: { readRules: { about: 'private' as const }, virtuals: [] },
+		}
+		expect(oneOfsOf(model)).toStrictEqual([
+			{
+				name: 'target',
+				optional: false,
+				kinds: [
+					{ kind: 'post', field: targetPost },
+					{ kind: 'photo', field: model.fields[2] },
+				],
+			},
+			{
+				name: 'about',
+				optional: true,
+				kinds: [{ kind: 'post', field: model.fields[3] }],
+			},
+		])
+		expect(readable(served)).toStrictEqual([author])
+		expect(readableOneOfs(served).map(({ name }) => name)).toStrictEqual([
+			'target',
+		])
+		expect(model.fields.map(declared)).toStrictEqual([
+			'author',
+			'target',
+			'target',
+			'about',
+		])
+	})
+
+	it('names the way back to it by the oneOf a kind belongs to', () => {
+		expect(backOf(comments('targetPhoto'), model)).toBe('target')
+		expect(backOf(comments('author'), model)).toBe('author')
+		expect(backOf(comments(), model)).toBeUndefined()
+		const title: SchemaField = {
+			kind: 'scalar',
+			name: 'title',
+			type: 'string',
+			optional: false,
+			list: false,
+			unique: false,
+		}
+		expect(backOf(title, model)).toBeUndefined()
 	})
 })

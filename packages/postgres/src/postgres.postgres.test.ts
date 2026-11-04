@@ -825,11 +825,23 @@ for (const url of urls) {
 
 const Genre = defineModel({
 	name: 'Genre',
-	fields: (f) => ({ songs: f.many(() => Song, { inverse: 'genre' }) }),
+	fields: (f) => ({
+		songs: f.many(() => Song, { inverse: 'genre' }),
+		reviews: f.many(() => Review, { inverse: 'about' }),
+	}),
 })
 const Song = defineModel({
 	name: 'Song',
-	fields: (f) => ({ genre: f.one(() => Genre) }),
+	fields: (f) => ({
+		genre: f.one(() => Genre),
+		reviews: f.many(() => Review, { inverse: 'about' }),
+	}),
+})
+const Review = defineModel({
+	name: 'Review',
+	fields: (f) => ({
+		about: f.oneOf({ song: () => Song, genre: () => Genre }),
+	}),
 })
 
 describe('a transaction whose connection the server ends', () => {
@@ -869,7 +881,7 @@ describe('a write that races a delete on postgres()', () => {
 		schema = `t_${randomUUID().replaceAll('-', '')}`
 		await run(url, `create schema "${schema}"`)
 		database = createAdapter({ url: inSchema(url, schema) })
-		app = defineApp({ database, models: [Genre, Song], logger })
+		app = defineApp({ database, models: [Genre, Song, Review], logger })
 		await app.start()
 	})
 	afterEach(async () => {
@@ -911,6 +923,26 @@ describe('a write that races a delete on postgres()', () => {
 		})
 		await expect(tx.commit()).rejects.toEqual(
 			new RelationViolation('Song', 'genre', 'Genre', true),
+		)
+	})
+
+	it('names the oneOf its COMMIT restricts, not its kind’s key (D-247)', async () => {
+		const genre = await Genre.create({ data: {} }, M)
+		const tx = await database.begin()
+		await tx.write({
+			changes: [{ kind: 'delete', model: 'Genre', where: byId(genre.id) }],
+		})
+		await tx.write({
+			changes: [
+				{
+					kind: 'insert',
+					model: 'Review',
+					row: { ...stamp(), aboutGenre: genre.id },
+				},
+			],
+		})
+		await expect(tx.commit()).rejects.toEqual(
+			new RelationViolation('Review', 'about', 'Genre', true),
 		)
 	})
 })

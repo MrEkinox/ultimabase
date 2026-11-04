@@ -5,13 +5,9 @@ import { remember } from './app-internals.ts'
 import type { Logger, MasterKey } from './app-options.ts'
 import type { FunctionShape } from './function.ts'
 import { lifecycle } from './lifecycle.ts'
-import type {
-	App,
-	FieldTypePlugins,
-	RelationNameCheck,
-	ModelShape,
-} from './model.ts'
+import type { App, FieldTypePlugins, ModelShape } from './model.ts'
 import type { PluginValue } from './plugin.ts'
+import type { RelationNameCheck } from './relation-names.ts'
 import type { fieldType, modelFields } from './symbols.ts'
 
 // Checked on the `defineApp` line, where every model is typed (D-24).

@@ -21,6 +21,9 @@ import {
 	Note,
 	Poll,
 	Choice,
+	Article,
+	Video,
+	Remark,
 } from './shapes.ts'
 
 export const app = defineApp({
@@ -51,5 +54,8 @@ export const app = defineApp({
 		Note,
 		Poll,
 		Choice,
+		Article,
+		Video,
+		Remark,
 	],
 })

@@ -34,7 +34,7 @@ function scalarData(context: Context, data: unknown): Draft {
 	const { models, model } = context
 	for (const [name] of entries(data, 'data')) {
 		if (model.fields.get(name)?.kind === 'scalar') continue
-		if (!model.fields.has(name)) continue
+		if (!model.fields.has(name) && !model.oneOfs.has(name)) continue
 		const path = `data.${name}`
 		throw new InvalidQuery(
 			path,

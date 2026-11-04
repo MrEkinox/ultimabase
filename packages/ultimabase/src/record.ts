@@ -1,4 +1,10 @@
 // The record a model stores, and the data written to it.
+import type {
+	Kinded,
+	KindOne,
+	OneOfShape,
+	OneOfStored,
+} from './one-of-types.ts'
 import type { UniqueWhere } from './query.ts'
 import type { fieldType, modelFields } from './symbols.ts'
 import type { VirtualKeys } from './virtual.ts'
@@ -115,6 +121,10 @@ export type StoredRecord<F> = RecordOf<F> & {
 	readonly [K in keyof F as Stored<F[K]> extends true ? K : never]: StoredRef<
 		F[K]
 	>
+} & {
+	readonly [K in keyof F as F[K] extends OneOfShape ? K : never]: OneOfStored<
+		F[K]
+	>
 }
 
 type Loose = { readonly id: string; readonly [field: string]: unknown }
@@ -169,16 +179,23 @@ type Connect<N, K, X, Resolved extends boolean = false> =
 	| (Resolved extends true
 			? never
 			: { readonly connectOrCreate: OrCreate<N, K, X> })
+/** A `oneOf` names its kind, which it writes as a `one` (D-247). */
+type KindConnect<N, K, X, Resolved extends boolean = false> =
+	X extends OneOfShape<infer T>
+		? Kinded<{ [P in keyof T]: Connect<N, K, KindOne<T, P>, Resolved> }>
+		: never
 /** A relation is connected or created (D-20, D-128, D-138). */
 type CreateInput<X, N, K> = X extends Scalar
 	? WrittenValue<X>
-	: X extends Relation<'one'>
-		? Connect<N, K, X>
-		: {
-				readonly connect?: readonly Ref[]
-				readonly create?: readonly Created<N, K, X>[]
-				readonly connectOrCreate?: readonly OrCreate<N, K, X>[]
-			}
+	: X extends OneOfShape
+		? KindConnect<N, K, X>
+		: X extends Relation<'one'>
+			? Connect<N, K, X>
+			: {
+					readonly connect?: readonly Ref[]
+					readonly create?: readonly Created<N, K, X>[]
+					readonly connectOrCreate?: readonly OrCreate<N, K, X>[]
+				}
 /** A plain number field: no list, no JSON, no plugin field type. */
 type IsNumber<X> = X extends {
 	readonly [fieldType]: {
@@ -195,15 +212,18 @@ type IsNumber<X> = X extends {
 		: false
 	: false
 
-/** Exactly one of `T`'s keys; `undefined` leaves the field as it is. */
-type OneOf<T> = {
-	[K in keyof T]: { readonly [P in K]: T[K] | undefined } & {
+/** Exactly one of `T`'s keys. */
+export type Exactly<T> = {
+	[K in keyof T]: { readonly [P in K]: T[K] } & {
 		readonly [P in Exclude<keyof T, K>]?: never
 	}
 }[keyof T]
 
+/** Exactly one of `T`'s keys; `undefined` leaves the field as it is. */
+type ExactlyOne<T> = Exactly<{ [K in keyof T]: T[K] | undefined }>
+
 /** One operation on a number, computed on the row (D-132). */
-type NumberUpdate<V> = OneOf<{
+type NumberUpdate<V> = ExactlyOne<{
 	readonly set: V
 	readonly increment: number
 	readonly decrement: number
@@ -212,7 +232,7 @@ type NumberUpdate<V> = OneOf<{
 }>
 
 /** One operation on a list, with an element or a list of them (D-149). */
-type ListUpdate<E> = OneOf<{
+type ListUpdate<E> = ExactlyOne<{
 	readonly set: E | readonly E[]
 	readonly push: E | readonly E[]
 	readonly pushUnique: E | readonly E[]
@@ -265,9 +285,12 @@ type UpdateInput<X, N, K, Operations extends boolean> = X extends Scalar
 				? WrittenValue<X>
 				: WrittenValue<X> | ListUpdate<ElementOf<X>>
 		: WrittenValue<X>
-	: X extends Relation<'one', unknown, infer O>
-		? OneUpdate<N, K, X, O, Operations>
-		: ManyUpdate<N, K, X, Operations>
+	: X extends OneOfShape<unknown, infer O>
+		? | KindConnect<N, K, X, Not<Operations>>
+			| (IsOptional<O> extends true ? { readonly disconnect: true } : never)
+		: X extends Relation<'one', unknown, infer O>
+			? OneUpdate<N, K, X, O, Operations>
+			: ManyUpdate<N, K, X, Operations>
 // A list left unwritten is empty (D-120).
 type Needed<X> =
 	X extends Scalar<unknown, infer O>
@@ -276,7 +299,7 @@ type Needed<X> =
 			: O extends { readonly default: unknown } | { readonly list: true }
 				? false
 				: true
-		: X extends Relation<'one', unknown, infer O>
+		: X extends Relation<'one', unknown, infer O> | OneOfShape<unknown, infer O>
 			? IsOptional<O> extends true
 				? false
 				: O extends { readonly default: unknown }
@@ -314,7 +337,9 @@ export type CreateManyData<F> = Creating<
 	{
 		readonly [K in keyof F]: F[K] extends Scalar
 			? WrittenValue<F[K]>
-			: { readonly connect: Ref }
+			: F[K] extends OneOfShape<infer T>
+				? Kinded<{ [P in keyof T]: { readonly connect: Ref } }>
+				: { readonly connect: Ref }
 	}
 >
 

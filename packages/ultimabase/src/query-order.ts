@@ -4,6 +4,7 @@
 import type { Order, Sort, Step } from './adapter.ts'
 import { InvalidQuery } from './errors.ts'
 import type { ModelInfo } from './schema.ts'
+import { hiddenKey } from './one-of-schema.ts'
 import { searchedFields } from './query-search.ts'
 import type { Models, Scope } from './query-where.ts'
 import {
@@ -53,7 +54,10 @@ export function sortOf(value: unknown, path: string, optional: boolean): Sort {
 /** A scalar field that sorts: no json, no list, no plugin field (D-94). */
 function sortable(model: ModelInfo, field: string, path: string): void {
 	const known = model.fields.get(field)
-	if (known === undefined) {
+	if (model.oneOfs.has(field)) {
+		throw new InvalidQuery(path, `${path} is a oneOf, which cannot be sorted.`)
+	}
+	if (known === undefined || hiddenKey(known)) {
 		if (!systemFields.includes(field)) throw unknownKey(path, model.name)
 		return
 	}

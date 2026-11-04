@@ -7,11 +7,16 @@ import { added, changed, fields, id, keyOf, list, same } from './plan-parts.ts'
 import type { Check, TableSnapshot } from './snapshot.ts'
 
 /**
- * An enum's values, a list's elements among them with `<@` (D-127); or a
- * `within` relation's column, empty while its parent's is (D-235).
+ * An enum's values, a list's elements among them with `<@` (D-127); a
+ * `within` relation's column, empty while its parent's is (D-235); or a
+ * `oneOf`'s keys, one of them set (D-247).
  */
 export function checked(name: string, given: Check): string {
 	const constraint = `constraint ${id(name)} check`
+	if ('kinds' in given) {
+		const set = given.optional ? '<= 1' : '= 1'
+		return `${constraint} (num_nonnulls(${list(given.kinds)}) ${set})`
+	}
 	if ('parent' in given) {
 		return `${constraint} (${id(given.parent)} is not null or ${id(given.column)} is null)`
 	}
@@ -36,11 +41,12 @@ export function dropKeys(
 		emit(drop(key), `dropped the unique key on ${fields(from, columns)}`)
 	}
 	for (const [key, given] of changed(from.checks, to.checks)) {
-		const field = fields(from, [given.column])
 		const does =
-			'parent' in given
-				? `dropped the check of ${field} on ${fields(from, [given.parent])}`
-				: `dropped the values of ${field}`
+			'kinds' in given
+				? `dropped the kinds of ${given.field}`
+				: 'parent' in given
+					? `dropped the check of ${fields(from, [given.column])} on ${fields(from, [given.parent])}`
+					: `dropped the values of ${fields(from, [given.column])}`
 		emit(drop(key), does)
 	}
 	dropIndexes(name, from, to, emit)
@@ -77,6 +83,14 @@ export function addKeys(
 		)
 	}
 	for (const [key, given] of added(from.checks, to.checks)) {
+		if ('kinds' in given) {
+			const { field } = given
+			const one = given.optional ? 'at most one' : 'one'
+			emit(add(checked(key, given)), `made ${field} hold ${one} of its kinds`, {
+				tries: `making "${to.model}.${field}" hold ${one} of its kinds fails when a row holds another number`,
+			})
+			continue
+		}
 		const field = fields(to, [given.column])
 		if ('parent' in given) {
 			const parent = fields(to, [given.parent])

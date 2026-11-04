@@ -22,6 +22,12 @@ import type {
 	ScalarFilter,
 } from './query-filter.ts'
 import type { Relevance, SearchWhere } from './query-search.ts'
+import type {
+	OneOfArgs,
+	OneOfFilter,
+	OneOfKeys,
+	OneOfOutput,
+} from './one-of-types.ts'
 import type { HiddenKeys, Picked } from './read-row.ts'
 import type {
 	GroupByArgs,
@@ -58,7 +64,7 @@ type IsList<X> = X extends {
 /** A json field's value, any JSON without a schema, or a path filter (D-149). */
 type JsonFilter<V> = V | ScalarFilter<NonNullable<V>> | JsonPathFilter
 
-type FilterOf<X> =
+export type FilterOf<X> =
 	IsList<X> extends true
 		? StoredValue<X> extends readonly (infer E)[]
 			? ListFilter<E>
@@ -72,17 +78,20 @@ type FilterOf<X> =
 					| ScalarFilter<NonNullable<StoredValue<X>>, IsOrdered<X>>
 			: KindOf<X> extends 'exists'
 				? boolean
-				: KindOf<X> extends 'one'
-					? {
-							readonly is?: Where<TargetFields<TargetOf<X>>> | null | undefined
-							readonly isNot?:
-								Where<TargetFields<TargetOf<X>>> | null | undefined
-						} & ViewerFilter<TargetOf<X>>
-					: {
-							readonly some?: Where<TargetFields<TargetOf<X>>> | undefined
-							readonly every?: Where<TargetFields<TargetOf<X>>> | undefined
-							readonly none?: Where<TargetFields<TargetOf<X>>> | undefined
-						} & ViewerFilter<TargetOf<X>>
+				: KindOf<X> extends 'oneOf'
+					? OneOfFilter<X>
+					: KindOf<X> extends 'one'
+						? {
+								readonly is?:
+									Where<TargetFields<TargetOf<X>>> | null | undefined
+								readonly isNot?:
+									Where<TargetFields<TargetOf<X>>> | null | undefined
+							} & ViewerFilter<TargetOf<X>>
+						: {
+								readonly some?: Where<TargetFields<TargetOf<X>>> | undefined
+								readonly every?: Where<TargetFields<TargetOf<X>>> | undefined
+								readonly none?: Where<TargetFields<TargetOf<X>>> | undefined
+							} & ViewerFilter<TargetOf<X>>
 
 /** A plugin field type's stored field (D-122), `never` for a kernel one. */
 type StoredOf<X> = X extends {
@@ -173,21 +182,25 @@ type Sorts<F> = {
 /** A read's sort, by its `_search`'s relevance too (D-148). */
 export type OrderBy<F> = Sorts<F> & Relevance<F>
 
-// An `exists` reads a boolean, shaped by nothing (D-246).
-type RelationArgs<X> =
+// An `exists` reads a boolean, shaped by nothing (D-246); a `oneOf` is
+// shaped by kind (D-247).
+export type RelationArgs<X> =
 	KindOf<X> extends 'exists'
 		? never
-		: Shaping<TargetFields<TargetOf<X>>> &
-				(KindOf<X> extends 'many'
-					? {
-							readonly where?: Where<TargetFields<TargetOf<X>>> | undefined
-							readonly orderBy?: OrderBy<TargetFields<TargetOf<X>>> | undefined
-							readonly take?: number | undefined
-							readonly skip?: number | undefined
-							readonly cursor?:
-								UniqueWhere<TargetFields<TargetOf<X>>> | undefined
-						}
-					: unknown)
+		: KindOf<X> extends 'oneOf'
+			? OneOfArgs<X>
+			: Shaping<TargetFields<TargetOf<X>>> &
+					(KindOf<X> extends 'many'
+						? {
+								readonly where?: Where<TargetFields<TargetOf<X>>> | undefined
+								readonly orderBy?:
+									OrderBy<TargetFields<TargetOf<X>>> | undefined
+								readonly take?: number | undefined
+								readonly skip?: number | undefined
+								readonly cursor?:
+									UniqueWhere<TargetFields<TargetOf<X>>> | undefined
+							}
+						: unknown)
 
 export type Select<F> = {
 	readonly [K in keyof SystemFields]?: boolean
@@ -200,10 +213,13 @@ export type Select<F> = {
 } & Counts<F>
 
 /** A model without relations or virtuals takes no `include`. */
-export type Include<F> = [RelationKeys<F> | VirtualKeys<F>] extends [never]
+export type Include<F> = [
+	RelationKeys<F> | OneOfKeys<F> | VirtualKeys<F>,
+] extends [never]
 	? never
 	: {
-			readonly [K in RelationKeys<F>]?: boolean | RelationArgs<F[K]>
+			readonly [K in RelationKeys<F> | OneOfKeys<F>]?:
+				boolean | RelationArgs<F[K]>
 		} & VirtualIncludes<F> &
 			Counts<F>
 
@@ -216,9 +232,11 @@ type Output<X, A> =
 			? VirtualOutput<X, A>
 			: KindOf<X> extends 'exists'
 				? boolean
-				: KindOf<X> extends 'one'
-					? Payload<TargetFields<TargetOf<X>>, A> | null
-					: Payload<TargetFields<TargetOf<X>>, A>[]
+				: KindOf<X> extends 'oneOf'
+					? OneOfOutput<X, A>
+					: KindOf<X> extends 'one'
+						? Payload<TargetFields<TargetOf<X>>, A> | null
+						: Payload<TargetFields<TargetOf<X>>, A>[]
 
 type SelectedOutput<F, S, K> = K extends keyof F
 	? Output<F[K], S[K & keyof S]>

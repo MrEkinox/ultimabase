@@ -3,8 +3,8 @@
 import { badInput } from '@ultimabase/http/internal'
 import type { Caller } from 'ultimabase'
 import type { Api } from './entries.ts'
-import type { Shape } from './fields.ts'
-import { depthOf, rowsBelow } from './fields.ts'
+import type { Shape } from './shapes.ts'
+import { depthOf, rowsBelow } from './shapes.ts'
 
 /** Refuses a request above the limits; `rows` absent checks its depth only. */
 export function bounded(

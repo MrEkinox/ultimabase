@@ -2,6 +2,7 @@
 // around its own, and the checks of its scalar and `one` values.
 import type { Many, Resolving } from './nested-write.ts'
 import { storedValue } from './decimal.ts'
+import { declaredName } from './one-of-schema.ts'
 import type { FieldInfo, ModelInfo } from './schema.ts'
 import type { QueryScope } from './scope.ts'
 import type { Draft } from './write-data.ts'
@@ -45,7 +46,7 @@ export const pathOf = (context: Context, name: string): string =>
  */
 export function trusted(
 	context: Context,
-	field: FieldInfo,
+	field: { readonly name: string },
 	value: unknown,
 ): boolean {
 	return (
@@ -149,9 +150,8 @@ export function linking(
 		}
 		return
 	}
-	const inverse = modelOf(context.scope.models, field.target).fields.get(
-		field.inverse,
-	)
+	const facing = modelOf(context.scope.models, field.target)
+	const inverse = facing.fields.get(field.inverse)
 	const move = {
 		kind: 'move',
 		model: field.target,
@@ -160,11 +160,11 @@ export function linking(
 		trusted: skips,
 	} as const
 	if (disconnect.length > 0) {
-		if (inverse?.kind === 'one' && !inverse.optional) {
+		if (inverse?.kind === 'one' && required(inverse)) {
 			fail(
 				context,
 				[field.name, 'disconnect'],
-				`A ${field.target} cannot be left without its ${field.inverse}.`,
+				`A ${field.target} cannot be left without its ${declaredName(facing, field.inverse)}.`,
 			)
 		} else {
 			context.after.push({
@@ -180,4 +180,20 @@ export function linking(
 	if (connect.length > 0) {
 		context.after.push({ ...move, where: byIds(connect), to: context.id })
 	}
+}
+
+/** Whether a `one` may not be empty: a required `oneOf`'s kind may (D-247). */
+export const required = (
+	field: Extract<FieldInfo, { readonly kind: 'one' }>,
+): boolean => !field.optional || field.of?.optional === false
+
+/** Whether the target's side of a one-to-one, which stores the key, may be empty. */
+export function isOptional(
+	context: Context,
+	field: Extract<FieldInfo, { readonly kind: 'one'; readonly stored: false }>,
+): boolean {
+	const other = modelOf(context.scope.models, field.target).fields.get(
+		field.inverse,
+	)
+	return other?.kind === 'one' && other.optional
 }

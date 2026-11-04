@@ -3,6 +3,8 @@
 // the fields the caller's read rules hide (D-44).
 import type { Shape } from './query-args.ts'
 import type { ModelInfo } from './schema.ts'
+import { folded } from './one-of-read.ts'
+import { hiddenKey } from './one-of-schema.ts'
 import { isObject } from './query-where.ts'
 
 /** The fields of a row its field read rules hide (D-44). */
@@ -42,7 +44,12 @@ export function project(
 		return row.map((item: unknown) => project(item, shape, hidden, computed))
 	}
 	if (!isObject(row)) return null
-	const names = [...shape.fields, ...shape.relations.keys(), ...shape.counts]
+	const names = [
+		...shape.fields,
+		...shape.relations.keys(),
+		...shape.oneOfs.keys(),
+		...shape.counts,
+	]
 	const unseen = hidden?.(shape.model, row, names)
 	const result: { [field: string]: unknown } = {}
 	for (const field of shape.fields) {
@@ -52,11 +59,20 @@ export function project(
 		if (unseen?.has(name)) continue
 		// An exists reads its one row's id as whether it keeps one (D-246).
 		const field = shape.model.fields.get(name)
+		if (hiddenKey(field)) continue
 		const rows = row[name]
 		result[name] =
 			field?.kind === 'many' && field.exists
 				? Array.isArray(rows) && rows.length > 0
 				: project(rows, nested, hidden, computed)
+	}
+	for (const [name, shown] of shape.oneOfs) {
+		const info = shape.model.oneOfs.get(name)
+		if (unseen?.has(name) || info === undefined) continue
+		result[name] = folded(info, shown, row, (field, target) => {
+			const nested = shape.relations.get(field)
+			return nested && project(target, nested, hidden, computed)
+		})
 	}
 	const values = computed?.get(row)
 	const unseenVirtual =

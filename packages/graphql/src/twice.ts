@@ -12,6 +12,7 @@ import type {
 	ValueNode,
 } from 'graphql'
 import { getNamedType, GraphQLError, isObjectType, Kind, print } from 'graphql'
+import { oneOfsOf } from '@ultimabase/http/internal'
 import type { Registry } from './registry.ts'
 import type { Key } from './select.ts'
 
@@ -131,8 +132,9 @@ export function twiceRule(registry: Registry): ValidationRule {
 				}
 				const relation = entry.model.fields.find((f) => f.name === name)
 				const virtual = entry.exposed.virtuals.some((v) => v.name === name)
+				const oneOf = oneOfsOf(entry.model).some((o) => o.name === name)
 				if (virtual || relation?.kind === 'many') refuse(name, found)
-				if (virtual || relation !== undefined) {
+				if (virtual || oneOf || relation !== undefined) {
 					walk(child, below(found), byName)
 					continue
 				}

@@ -1,7 +1,7 @@
 // A query's selection as one kernel read (D-107): the fields asked for, and
 // each `many` relation's own page and count, read with its parent's rows.
 import type { Page } from '@ultimabase/http/internal'
-import { readable, readsNoRow } from '@ultimabase/http/internal'
+import { oneOfsOf, readable, readsNoRow } from '@ultimabase/http/internal'
 import type {
 	FieldNode,
 	GraphQLObjectType,
@@ -179,6 +179,22 @@ export function selectOf(
 				fieldNodes,
 				master,
 			)
+			continue
+		}
+		const oneOf = oneOfsOf(entry.model).find((o) => o.name === name)
+		if (oneOf !== undefined) {
+			// Each kind asked, shaped by what it selects; the others by id (D-247).
+			const asked = grouped(info, fieldNodes)
+			const kinds: { [kind: string]: unknown } = {}
+			for (const { kind, field } of oneOf.kinds) {
+				const below = asked.get(kind)
+				if (below === undefined) continue
+				const target = objectType(registry, field.target)
+				kinds[kind] = {
+					select: selectOf(registry, info, target, below, master),
+				}
+			}
+			select[name] = kinds
 			continue
 		}
 		const field = entry.model.fields.find((f) => f.name === name)

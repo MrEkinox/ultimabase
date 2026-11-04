@@ -47,7 +47,7 @@ function grouping(
 			throw new InvalidQuery(path, `${path} repeats ${field}.`)
 		}
 		const known = model.fields.get(field)
-		if (known?.kind !== 'one' || !known.stored) {
+		if (known?.kind !== 'one' || !known.stored || known.of !== undefined) {
 			typeOf(model, field, path, done)
 		}
 		scope.check(model, field, path, verb)

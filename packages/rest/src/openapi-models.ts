@@ -1,16 +1,19 @@
 // A model's part of the document (D-144): its row, as GraphQL's type, its
-// pages, its `select` and `include`, and its six routes.
+// pages, and its `select` and `include`.
 import {
 	isNode,
 	jsonSchemaOf,
 	readable,
+	readableOneOfs,
 	readableVirtuals,
 } from '@ultimabase/http/internal'
 import type { ExposedVirtual } from 'ultimabase'
 import type { Entry } from './entries.ts'
 import { entryOf, system } from './entries.ts'
-import type { Doc, Scalar } from './openapi-inputs.ts'
-import { dataOf, scalarOf, uniqueOf, whereOf } from './openapi-inputs.ts'
+import { whereOf } from './openapi-filters.ts'
+import type { Doc } from './openapi-inputs.ts'
+import { scalarOf } from './openapi-inputs.ts'
+import { oneOfArgs, oneOfRow } from './openapi-one-ofs.ts'
 import { orderByOf } from './openapi-order.ts'
 import { outputOf } from './openapi-functions.ts'
 import type { Schema } from './openapi.ts'
@@ -18,7 +21,6 @@ import {
 	arrayOf,
 	describe,
 	described,
-	failed,
 	hoisted,
 	json,
 	objectOf,
@@ -61,25 +63,10 @@ function connectionOf(doc: Doc, name: string, target: string): Schema {
 }
 
 const date: Schema = { type: 'string', format: 'date-time' }
-const dates = { id: text, createdAt: date, updatedAt: date }
-
-/**
- * `DeletedPost`: a deleted row as it was, `id`, the dates and its scalar
- * fields, without its relations or its virtuals, as GraphQL's (D-107).
- */
-function deletedOf(doc: Doc, model: string): Schema {
-	return doc.components.ref(`Deleted${model}`, () => {
-		const entry = entryOf(doc.api, model)
-		const fields: { [name: string]: Schema } = { ...dates }
-		const scalars = readable(entry).filter(
-			(field): field is Scalar => field.kind === 'scalar',
-		)
-		for (const field of scalars)
-			fields[field.name] = scalarOf(doc, entry, field)
-		const { descriptions, deprecations } = entry.exposed
-		const required = [...system, ...scalars.map(({ name }) => name)]
-		return objectOf(described(fields, descriptions, deprecations), required)
-	})
+export const dates: { readonly [field: string]: Schema } = {
+	id: text,
+	createdAt: date,
+	updatedAt: date,
 }
 
 /**
@@ -114,6 +101,12 @@ export function rowOf(doc: Doc, model: string): Schema {
 				fields[field.name] = ruled ? orNull(many) : many
 			}
 		}
+		// A `oneOf`, its kind and that kind's row (D-247).
+		for (const oneOf of readableOneOfs(entry)) {
+			const ruled = entry.exposed.readRules[oneOf.name] === 'rule'
+			const value = oneOfRow(doc, model, oneOf, (target) => rowOf(doc, target))
+			fields[oneOf.name] = ruled || oneOf.optional ? orNull(value) : value
+		}
 		// A virtual, computed: in the default row without an input (D-151).
 		for (const virtual of readableVirtuals(entry)) {
 			const { name } = virtual
@@ -147,7 +140,7 @@ function pageOf(doc: Doc, entry: Entry): { [name: string]: Schema } {
 }
 
 /** `PostSelect`, `PostInclude`, a relation's arguments (D-129). */
-function fieldsOf(doc: Doc, model: string, select: boolean): Schema {
+export function fieldsOf(doc: Doc, model: string, select: boolean): Schema {
 	const name = `${model}${select ? 'Select' : 'Include'}`
 	return doc.components.ref(name, () => {
 		const entry = entryOf(doc.api, model)
@@ -164,6 +157,11 @@ function fieldsOf(doc: Doc, model: string, select: boolean): Schema {
 				field.kind === 'many' && field.exists
 					? flag
 					: { anyOf: [flag, args(doc, field.target)] }
+		}
+		for (const oneOf of readableOneOfs(entry)) {
+			fields[oneOf.name] = oneOfArgs(doc, model, oneOf, (target) =>
+				argsOf(doc, target),
+			)
 		}
 		for (const virtual of readableVirtuals(entry)) {
 			fields[virtual.name] = virtualArgsOf(doc, model, virtual)
@@ -249,13 +247,17 @@ function listArgsOf(doc: Doc, model: string): Schema {
 	})
 }
 
-const ordering = (doc: Doc, model: string): Schema => {
+export const ordering = (doc: Doc, model: string): Schema => {
 	const order = orderByOf(doc, model)
 	return { anyOf: [order, arrayOf(order)] }
 }
 
 /** A query parameter: JSON, or a string or a number as is. */
-const param = (name: string, schema: Schema, description?: string): Schema => {
+export const param = (
+	name: string,
+	schema: Schema,
+	description?: string,
+): Schema => {
 	const plain = schema['type'] === 'string' || schema['type'] === 'integer'
 	return {
 		name,
@@ -284,115 +286,4 @@ export function pageParams(
 	}
 	if (path !== '') return [param(path, objectOf(args))]
 	return Object.entries(args).map(([name, schema]) => param(name, schema))
-}
-
-function fieldParams(doc: Doc, model: string): readonly Schema[] {
-	return [
-		param(
-			'select',
-			fieldsOf(doc, model, true),
-			'The fields to return, and only those; not with include.',
-		),
-		param(
-			'include',
-			fieldsOf(doc, model, false),
-			'The relations to add to the default fields.',
-		),
-	]
-}
-
-const answer = (description: string, schema: Schema): Schema => ({
-	description,
-	content: json(schema),
-})
-
-const body = (schema: Schema): Schema => ({
-	required: true,
-	content: json(schema),
-})
-
-/** `/posts` and `/posts/{id}`, as REST serves them (D-129, D-142). */
-export function modelPaths(doc: Doc, entry: Entry): { [path: string]: Schema } {
-	const { components } = doc
-	const model = entry.model.name
-	const own = (id: string) => components.operation(id, model, 'plural')
-	const tags = [model]
-	const row = rowOf(doc, model)
-	const one = model.charAt(0).toLowerCase() + model.slice(1)
-	const id = {
-		name: 'id',
-		in: 'path',
-		required: true,
-		schema: text,
-	}
-	return {
-		[`/${entry.plural}`]: {
-			get: {
-				operationId: own(entry.plural),
-				tags,
-				parameters: [
-					param('where', whereOf(doc, model)),
-					param('orderBy', ordering(doc, model)),
-					...fieldParams(doc, model),
-					...pageParams(doc, model),
-				],
-				responses: {
-					200: answer(`The ${model} rows.`, listOf(doc, model)),
-					...failed,
-				},
-			},
-			post: {
-				operationId: own(`create${model}`),
-				tags,
-				parameters: fieldParams(doc, model),
-				requestBody: body(dataOf(doc, model, true)),
-				responses: { 201: answer(`The ${model} created.`, row), ...failed },
-			},
-			put: {
-				operationId: own(`upsert${model}`),
-				tags,
-				description: `Updates the ${model} where matches, or creates it.`,
-				parameters: fieldParams(doc, model),
-				requestBody: body(
-					objectOf(
-						{
-							where: uniqueOf(doc, model),
-							create: dataOf(doc, model, true),
-							update: dataOf(doc, model, false),
-						},
-						['where', 'create', 'update'],
-					),
-				),
-				responses: {
-					200: answer(`The ${model} updated.`, row),
-					201: answer(`The ${model} created.`, row),
-					...failed,
-				},
-			},
-		},
-		[`/${entry.plural}/{id}`]: {
-			parameters: [id],
-			get: {
-				operationId: own(one),
-				tags,
-				parameters: fieldParams(doc, model),
-				responses: { 200: answer(`The ${model}.`, row), ...failed },
-			},
-			patch: {
-				operationId: own(`update${model}`),
-				tags,
-				parameters: fieldParams(doc, model),
-				requestBody: body(dataOf(doc, model, false)),
-				responses: { 200: answer(`The ${model} updated.`, row), ...failed },
-			},
-			delete: {
-				operationId: own(`delete${model}`),
-				tags,
-				responses: {
-					200: answer(`The ${model} as it was.`, deletedOf(doc, model)),
-					...failed,
-				},
-			},
-		},
-	}
 }

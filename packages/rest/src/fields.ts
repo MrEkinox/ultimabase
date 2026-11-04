@@ -3,59 +3,20 @@
 // either, a row holds its readable scalar fields and no relation.
 import type { Relay } from '@ultimabase/http/internal'
 import {
-	connection,
-	countedPage,
 	pageArgs,
 	pageOf,
 	readable,
+	readableOneOfs,
 	readableVirtuals,
 	readsNoRow,
-	rowOf,
-	rowsOf,
 } from '@ultimabase/http/internal'
-import type { ExposedVirtual, Row } from 'ultimabase'
+import type { ExposedVirtual } from 'ultimabase'
 import { InvalidQuery } from 'ultimabase'
 import type { Api, Args, Entry } from './entries.ts'
 import { entryOf, system } from './entries.ts'
-import { isArgs, whereOf } from './values.ts'
-
-/** A field of the response, in the order the request wrote it. */
-type Out =
-	| {
-			readonly kind: 'scalar'
-			readonly name: string
-			readonly toJSON: ((value: unknown) => unknown) | undefined
-	  }
-	| { readonly kind: 'one'; readonly name: string; readonly shape: Shape }
-	| {
-			readonly kind: 'many'
-			readonly name: string
-			readonly shape: Shape
-			readonly relay: Relay | undefined
-			/** The rows it asks for, which the row budget counts. */
-			readonly size: number
-			/** Whether it answers its `totalCount` (D-134). */
-			readonly counted: boolean
-	  }
-	| {
-			/** A virtual's rows of a model, re-read by the kernel (D-151). */
-			readonly kind: 'returned'
-			readonly name: string
-			readonly owner: string
-			readonly shape: Shape
-			readonly list: boolean
-			/** The rows it counts: `take` for a list, as a function's (D-109). */
-			readonly size: number
-	  }
-
-/**
- * What a row of the response holds. `sorted` is the relations its list's
- * `orderBy` goes through, each a level of `maxDepth` (D-134).
- */
-export type Shape = {
-	readonly fields: readonly Out[]
-	readonly sorted?: number
-}
+import { oneOfRead } from './one-ofs.ts'
+import type { Out, Shape } from './shapes.ts'
+import { isArgs, unknownKey, whereOf } from './values.ts'
 
 /** A row's fields and its relations' reads, as the kernel takes them. */
 export type Read = {
@@ -74,9 +35,6 @@ function sortDepth(orderBy: unknown): number {
 		),
 	)
 }
-
-export const unknownKey = (path: string, model: string): InvalidQuery =>
-	new InvalidQuery(path, `Unknown key '${path}' on ${model}.`)
 
 const scalar = (entry: Entry, name: string): Out => ({
 	kind: 'scalar',
@@ -170,6 +128,21 @@ class Reader {
 				const known = fields.findIndex((each) => each.name === name)
 				if (known === -1) fields.push(read.field)
 				else fields[known] = read.field
+				continue
+			}
+			const oneOf = readableOneOfs(entry).find((each) => each.name === name)
+			if (oneOf !== undefined) {
+				if (value === false) continue
+				const read = oneOfRead(
+					model,
+					oneOf,
+					value,
+					where,
+					(target, inner, to) =>
+						this.fields(entryOf(this.#api, target), inner, to),
+				)
+				kernel[name] = read.read
+				fields.push(read.field)
 				continue
 			}
 			const field = readable(entry).find((each) => each.name === name)
@@ -309,91 +282,3 @@ class Reader {
 /** The reader of a request's `select` and `include`. */
 export const readerOf = (api: Api, master: boolean): Reader =>
 	new Reader(api, master)
-
-/** The levels of relations a row nests, the row counting one. */
-export function depthOf(shape: Shape): number {
-	let deepest = shape.sorted ?? 0
-	for (const field of shape.fields) {
-		if (field.kind !== 'scalar')
-			deepest = Math.max(deepest, depthOf(field.shape))
-	}
-	return 1 + deepest
-}
-
-/** The rows the relations of `times` rows may return, as D-107 counts them. */
-export function rowsBelow(shape: Shape, times: number): number {
-	let rows = 0
-	for (const field of shape.fields) {
-		if (field.kind === 'scalar') continue
-		const each = field.kind === 'one' ? times : times * field.size
-		rows += each
-		if (each > 0) rows += rowsBelow(field.shape, each)
-	}
-	return rows
-}
-
-/** The count the kernel read of a row's relation (D-134). */
-function countOf(row: Row, name: string): unknown {
-	const counts = row['_count']
-	return isArgs(counts) ? counts[name] : undefined
-}
-
-/** A virtual's rows of a model, at most `take` under a relation (D-109). */
-function returned(
-	field: Extract<Out, { readonly kind: 'returned' }>,
-	value: unknown,
-): unknown {
-	if (!field.list) {
-		const row = rowOf(value)
-		return row === undefined ? null : shaped(row, field.shape)
-	}
-	const rows = rowsOf(value)
-	const relates = field.shape.fields.some((each) => each.kind !== 'scalar')
-	if (rows.length > field.size && relates) {
-		throw new RangeError(
-			`${field.owner} returned ${rows.length} rows; a list counts take (${field.size}) rows, so it holds no more under a selected relation.`,
-		)
-	}
-	return rows.map((row) => shaped(row, field.shape))
-}
-
-/** A row as GraphQL returns it: its fields, its relations' pages. */
-export function shaped(row: Row, shape: Shape): { [field: string]: unknown } {
-	const out: { [field: string]: unknown } = {}
-	for (const field of shape.fields) {
-		const value = row[field.name]
-		if (field.kind === 'scalar') {
-			out[field.name] =
-				value === undefined || value === null
-					? null
-					: field.toJSON === undefined
-						? value
-						: field.toJSON(value)
-		} else if (field.kind === 'one') {
-			const target = rowOf(value)
-			out[field.name] =
-				target === undefined ? null : shaped(target, field.shape)
-		} else if (field.kind === 'returned') {
-			out[field.name] = returned(field, value)
-		} else if (value === undefined || value === null) {
-			// Hidden by its read rule (D-44), or a count alone (D-226).
-			const count = countOf(row, field.name)
-			out[field.name] =
-				field.relay && field.counted && typeof count === 'number'
-					? { ...countedPage(field.relay, count), totalCount: count }
-					: null
-		} else {
-			const rows = rowsOf(value)
-			const node = (each: Row) => shaped(each, field.shape)
-			if (field.relay === undefined) {
-				out[field.name] = rows.map(node)
-				continue
-			}
-			const page = connection(rows, field.relay, node)
-			out[field.name] = field.counted
-				? { ...page, totalCount: countOf(row, field.name) }
-				: page
-		}
-	}
-	return out
-}

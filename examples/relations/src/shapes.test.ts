@@ -5,6 +5,7 @@ import { master } from 'ultimabase'
 import { expect, it } from 'vitest'
 import { app } from './app.ts'
 import {
+	Article,
 	Branch,
 	Card,
 	Choice,
@@ -18,8 +19,10 @@ import {
 	Poll,
 	Project,
 	Reader,
+	Remark,
 	Series,
 	Task,
+	Video,
 } from './shapes.ts'
 
 testApplication(app)
@@ -369,4 +372,82 @@ it('keeps a poll between 2 and 4 choices', async () => {
 	await Poll.delete({ where: { id: poll.id } }, { as: master })
 	expect(await Choice.count({}, { as: master })).toBe(0)
 	//#endregion
+})
+
+it('relates a remark to an article or a video', async () => {
+	//#region one-of-write
+	const article = await Article.create(
+		{ data: { title: 'Looms' } },
+		{ as: master },
+	)
+	// A write names the kind it links or creates.
+	const clear = await Remark.create(
+		{
+			data: {
+				text: 'Clear',
+				subject: { connect: { article: { id: article.id } } },
+			},
+		},
+		{ as: master },
+	)
+	const short = await Remark.create(
+		{
+			include: { subject: true },
+			data: {
+				text: 'Short',
+				subject: { create: { video: { title: 'Intro', url: 'intro.mp4' } } },
+			},
+		},
+		{ as: master },
+	)
+	// A read gives the kind, and the row of each kind it asks for.
+	const remarks = await Remark.findMany(
+		{
+			orderBy: { text: 'asc' },
+			select: { text: true, subject: { video: { select: { url: true } } } },
+		},
+		{ as: master },
+	)
+	expect(remarks).toEqual([
+		{ text: 'Clear', subject: { kind: 'article' } },
+		{ text: 'Short', subject: { kind: 'video', video: { url: 'intro.mp4' } } },
+	])
+	// TypeScript narrows the value on its kind.
+	const { subject } = short
+	const video = subject?.kind === 'video' ? subject.video.id : ''
+	expect(subject).toMatchObject({ kind: 'video', video: { title: 'Intro' } })
+	// Linking another kind empties the former.
+	await Remark.update(
+		{
+			where: { id: clear.id },
+			data: { subject: { connect: { video: { id: video } } } },
+		},
+		{ as: master },
+	)
+	expect(
+		await Article.findUnique(
+			{ where: { id: article.id }, include: { remarks: true } },
+			{ as: master },
+		),
+	).toMatchObject({ remarks: [] })
+	//#endregion
+	//#region one-of-filter
+	// Through one kind, through the fields every kind shares, or by kind.
+	const onIntro = await Remark.count(
+		{ where: { subject: { video: { is: { url: { equals: 'intro.mp4' } } } } } },
+		{ as: master },
+	)
+	const startingWithI = await Remark.count(
+		{ where: { subject: { is: { title: { startsWith: 'I' } } } } },
+		{ as: master },
+	)
+	const onArticles = await Remark.count(
+		{ where: { subject: { kind: 'article' } } },
+		{ as: master },
+	)
+	expect([onIntro, startingWithI, onArticles]).toEqual([2, 2, 0])
+	//#endregion
+	// Deleting the video deletes its remarks with it.
+	await Video.deleteMany({ where: {} }, { as: master })
+	expect(await Remark.count({}, { as: master })).toBe(0)
 })

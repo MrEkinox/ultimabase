@@ -4,6 +4,7 @@ import {
 	connection,
 	countedPage,
 	readable,
+	readableOneOfs,
 	rowsOf,
 } from '@ultimabase/http/internal'
 import type {
@@ -25,6 +26,7 @@ import { orderByInput, whereInput } from './inputs.ts'
 import { upper } from './names.ts'
 import { listRead } from './pages.ts'
 import { jsonOutput } from './json-fields.ts'
+import { oneOfType } from './one-ofs.ts'
 import type { Args, Context, Registry } from './registry.ts'
 import { described, valueType } from './registry.ts'
 import { DateTime } from './scalars.ts'
@@ -273,6 +275,16 @@ export function objectType(
 							}
 						} else if (field.kind === 'many') {
 							fields[field.name] = manyField(registry, model, field, ruled)
+						}
+					}
+					for (const oneOf of readableOneOfs(entry)) {
+						const ruled = entry.exposed.readRules[oneOf.name] === 'rule'
+						const type = oneOfType(registry, model, oneOf, (target) =>
+							objectType(registry, target),
+						)
+						fields[oneOf.name] = {
+							type: oneOf.optional || ruled ? type : required(type),
+							resolve: (source) => readOf(source, model, oneOf.name, ruled),
 						}
 					}
 					Object.assign(fields, registry.virtualFields(model))
