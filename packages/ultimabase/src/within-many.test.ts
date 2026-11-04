@@ -262,28 +262,61 @@ describe('the start', () => {
 		)
 	})
 
-	it("needs the other side of each model's one to the parent", async () => {
-		const Org = defineModel({
-			name: 'Org',
-			fields: (f) => ({ tickets: f.many(() => Ticket, { inverse: 'org' }) }),
+	it("needs no many of the parent, on either model's side (D-243)", async () => {
+		const Board = defineModel({
+			name: 'Board',
+			fields: (f) => ({ name: f.string() }),
 		})
-		const Desk = defineModel({
-			name: 'Desk',
+		const Tag = defineModel({
+			name: 'Tag',
 			fields: (f) => ({
-				org: f.one(() => Org),
-				tickets: f.many(() => Ticket, { inverse: 'desks', within: 'org' }),
+				board: f.one(() => Board, { onDelete: 'cascade' }),
+				cards: f.many(() => Card, { inverse: 'tags' }),
 			}),
 		})
-		const Ticket = defineModel({
-			name: 'Ticket',
+		const Card = defineModel({
+			name: 'Card',
 			fields: (f) => ({
-				org: f.one(() => Org),
-				desks: f.many(() => Desk, { inverse: 'tickets' }),
+				board: f.one(() => Board, { onDelete: 'cascade' }),
+				tags: f.many(() => Tag, { inverse: 'cards', within: 'board' }),
 			}),
 		})
-		await expect(start([Org, Desk, Ticket])).rejects.toThrow(
-			'Desk.tickets: within names Desk.org, which needs its other side.',
+		await start([Board, Tag, Card])
+		const board = async () =>
+			(await Board.create({ data: { name: 'B' } }, M)).id
+		const [one, two] = [await board(), await board()]
+		const ours = (await Tag.create({ data: { board: project(one) } }, M)).id
+		const other = (await Tag.create({ data: { board: project(two) } }, M)).id
+		const card = (await Card.create({ data: { board: project(one) } }, M)).id
+		const message = 'Card.tags needs a Tag of the same board.'
+		const refusal = (path: string) => ({
+			code: 'VALIDATION_FAILED',
+			details: { issues: [{ path: [path], message }] },
+		})
+		await Card.update(
+			{ where: { id: card }, data: { tags: { connect: ids(ours) } } },
+			M,
 		)
+		await expect(
+			Card.update(
+				{ where: { id: card }, data: { tags: { connect: ids(other) } } },
+				M,
+			),
+		).rejects.toMatchObject(refusal('tags'))
+		await expect(
+			Tag.update(
+				{ where: { id: other }, data: { cards: { connect: ids(card) } } },
+				M,
+			),
+		).rejects.toMatchObject(refusal('cards'))
+		await expect(
+			Card.update({ where: { id: card }, data: { board: project(two) } }, M),
+		).rejects.toMatchObject(refusal('board'))
+		const found = await Card.findUnique(
+			{ where: { id: card }, select: { tags: { select: { id: true } } } },
+			M,
+		)
+		expect(found?.tags).toEqual(ids(ours))
 	})
 
 	it('takes the string form, on one side of a many-to-many', async () => {

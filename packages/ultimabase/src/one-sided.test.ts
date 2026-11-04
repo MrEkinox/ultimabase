@@ -6,6 +6,7 @@ import { defineApp, defineModel, master, memory } from './index.ts'
 import { resolve } from './schema.ts'
 
 const M = { as: master }
+const connect = (id: string) => ({ connect: { id } })
 
 const Person = defineModel({
 	name: 'Person',
@@ -70,10 +71,10 @@ describe('a one relation that no relation names (D-237)', () => {
 		])
 	})
 
-	it('refuses a within whose target has no other side', () => {
+	it('keeps a within whose target has no other side (D-243)', async () => {
 		const Org = defineModel({
 			name: 'Org',
-			fields: (f) => ({ tickets: f.many(() => Ticket, { inverse: 'org' }) }),
+			fields: (f) => ({ name: f.string() }),
 		})
 		const Member = defineModel({
 			name: 'Member',
@@ -83,12 +84,58 @@ describe('a one relation that no relation names (D-237)', () => {
 			name: 'Ticket',
 			fields: (f) => ({
 				org: f.one(() => Org),
-				assignee: f.one(() => Member, { within: 'org' }),
+				assignee: f.one(() => Member, { optional: true, within: 'org' }),
 			}),
 		})
-		expect(() => resolve([Org, Member, Ticket])).toThrow(
-			'Ticket.assignee: within names Member.org, which needs its other side.',
-		)
+		const app = defineApp({
+			database: memory(),
+			models: [Org, Member, Ticket],
+		})
+		await app.start()
+		try {
+			const org = async () => (await Org.create({ data: { name: 'O' } }, M)).id
+			const [one, two] = [await org(), await org()]
+			const ours = (await Member.create({ data: { org: connect(one) } }, M)).id
+			const other = (await Member.create({ data: { org: connect(two) } }, M)).id
+			const refusal = {
+				code: 'VALIDATION_FAILED',
+				details: {
+					issues: [
+						{
+							path: ['assignee'],
+							message: 'Ticket.assignee needs a Member of the same org.',
+						},
+					],
+				},
+			}
+			const ticket = await Ticket.create(
+				{ data: { org: connect(one), assignee: connect(ours) } },
+				M,
+			)
+			await expect(
+				Ticket.create(
+					{ data: { org: connect(one), assignee: connect(other) } },
+					M,
+				),
+			).rejects.toMatchObject(refusal)
+			await expect(
+				Ticket.update(
+					{ where: { id: ticket.id }, data: { assignee: connect(other) } },
+					M,
+				),
+			).rejects.toMatchObject(refusal)
+			await expect(
+				Ticket.update(
+					{ where: { id: ticket.id }, data: { assignee: connect('missing') } },
+					M,
+				),
+			).rejects.toMatchObject({ code: 'NOT_FOUND' })
+			await expect(
+				Member.update({ where: { id: ours }, data: { org: connect(two) } }, M),
+			).rejects.toMatchObject({ code: 'VALIDATION_FAILED' })
+		} finally {
+			await app.stop()
+		}
 	})
 
 	describe('on memory()', () => {

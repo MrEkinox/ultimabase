@@ -65,7 +65,8 @@ async function written(
 	await steps.check(writing)
 	const changes = await steps.changes(writing)
 	const ruled = rowChecks(scope.access)
-	checks.push(...ruled.before, ...withinChecks(context.models, changes, events))
+	const within = await withinChecks(context.models, store, changes, events)
+	checks.push(...ruled.before, ...within)
 	const read = { model: model.name, ...at.read, where: byId(at.id) }
 	const again = rereads(events)
 	const write = {

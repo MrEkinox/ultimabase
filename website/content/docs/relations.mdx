@@ -406,6 +406,8 @@ a task links it.
   empty both in one write. Deleting the featured milestone empties both.
 - `within` goes on the side that stores the key. On a `many` facing a
   `one`, the start points to that side.
+- The parent needs no `many` of its milestones or tasks: a write reads, by
+  key, the parent of a target it does not hold.
 - A write is checked against the rows as they were before it: one that moves
   a milestone and links a task to it in the same write is refused. Write
   them one after the other.
@@ -561,7 +563,6 @@ is declared wrongly:
 | `Task.milestone: within names one pair, a field of the target and id or a field of the row.`                                                                                | Give one pair, such as `{ project: 'id' }`.                   |
 | `Task.milestone: within names stage, a one relation of Task.`                                                                                                               | Name a stored `one` of the row, or `id`.                      |
 | `Task.milestone: within names project, a required one relation of Milestone to Project.`                                                                                    | Make the target's field a required `one` to the row's parent. |
-| `Ticket.assignee: within names Member.org, which needs its other side.`                                                                                                     | Declare the `many` that names `Member.org`.                   |
 | `Series.released is a view; filter it in .with({ relations }).`                                                                                                             | Give the view its filter.                                     |
 | `Series.with.relations.title: title is not a many relation.`                                                                                                                | Filter only a `many`.                                         |
 | `Series.upcoming reads one Volume: give Volume a unique index on series whose where the filter keeps, as { fields: ['series'], unique: true, where: { released: false } }.` | Add the index the message shows.                              |

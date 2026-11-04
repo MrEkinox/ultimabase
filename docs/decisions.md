@@ -14576,7 +14576,7 @@ not make).
 
 ## D-220: A relation kept within the row's parent
 
-Amended by D-235, D-236 and D-238.
+Amended by D-235, D-236, D-238 and D-243.
 
 Choice: amends D-37 and D-99; D-54 is unchanged.
 
@@ -15879,7 +15879,7 @@ Rejected:
 
 ## D-237: A relation's other side is named, and a `one` may have none
 
-Amended by D-239.
+Amended by D-239 and D-243.
 
 Choice: amends D-37, D-87 and D-123.
 
@@ -16347,4 +16347,80 @@ export const Friendship = defineModel({ name: 'Friendship', fields }).with({
 
 read: isOwner('title')
 // Argument of type '"title"' is not assignable to parameter of type '"author"'.
+```
+
+## D-243: `within` needs no `many` of the parent
+
+Choice: amends D-220 point 4 and D-237 point 7.
+
+1. `within`, on a `one` (D-220) or a many-to-many (D-236), needs no
+   relation that names the parent's side: the start no longer stops on
+   `Ticket.assignee: within names Member.org, which needs its other side.`
+   nor on `Desk.tickets: within names Desk.org, which needs its other side.`
+2. A write that links a target whose parent it does not know reads that
+   parent first, by key, one query per relation for all the targets of the
+   write: `select id, board_id from label where id in (...)`. A many-to-many
+   link whose two rows' parents the write knows neither of reads the declared
+   side's row. The check then compares the parent in the write's statement,
+   as for a target the write holds. A target that does not exist stays
+   `NOT_FOUND`.
+3. The read runs in the write's transaction, before its statement. Between
+   the two, `postgres()` holds the rule at commit with its composite key
+   (D-220 point 5); `memory()` runs its writes one at a time (D-220 point 6).
+
+Why: since D-237 a model declares only the relations it reads. `within`
+filtered through the parent's `many` to learn which targets it held, which
+brought back a field nothing else read, and the types (D-238) accept the
+model, so the error showed only at startup. Reading the target's own `one`
+by key is the same answer.
+Cost: a write that links a target it does not hold makes one more query, by
+primary key, in its transaction; a write that holds its targets, or links
+none, makes none.
+Rejected: requiring the parent's `many` in the types, so the error shows in
+the editor: the field would still be one nothing reads; a filter through the
+target's key in the check's statement, which the adapter's counts (D-99) do
+not express.
+Example:
+
+Before:
+
+```ts
+const Board = defineModel({
+	name: 'Board',
+	fields: (f) => ({
+		name: f.string(),
+		// Only there because within needs them.
+		labels: f.many(() => Label, { inverse: 'board' }),
+		cards: f.many(() => Card, { inverse: 'board' }),
+	}),
+})
+```
+
+After:
+
+```ts
+const Board = defineModel({
+	name: 'Board',
+	fields: (f) => ({ name: f.string() }),
+})
+const Label = defineModel({
+	name: 'Label',
+	fields: (f) => ({
+		board: f.one(() => Board, { onDelete: 'cascade' }),
+		cards: f.many(() => Card, { inverse: 'labels' }),
+	}),
+})
+const Card = defineModel({
+	name: 'Card',
+	fields: (f) => ({
+		board: f.one(() => Board, { onDelete: 'cascade' }),
+		labels: f.many(() => Label, { inverse: 'cards', within: 'board' }),
+	}),
+})
+
+await Card.update({
+	where: { id: card.id },
+	data: { labels: { connect: [{ id: labelOfAnotherBoard.id }] } },
+})
+// VALIDATION_FAILED: Card.labels needs a Label of the same board.
 ```
