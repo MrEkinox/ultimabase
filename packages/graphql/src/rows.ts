@@ -84,7 +84,9 @@ export function rowBudget(
 		const entry = registry.entries.get(type.name)
 		const field = entry?.model.fields.find((f) => f.name === name)
 		if (field === undefined || field.kind === 'scalar') return undefined
-		if (field.kind === 'one') return one
+		if (field.kind === 'one' || (field.kind === 'many' && field.exists)) {
+			return one
+		}
 		return { kind: 'many', entry: registry.entry(field.target) }
 	}
 	return (args) => {

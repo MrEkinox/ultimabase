@@ -421,6 +421,21 @@ A visitor and Master are no user, and read `null`:
 	../examples/password-sign-in/src/app.test.ts#my-vote
 </include>
 
+An exists, declared with `f.exists(target, { from })`, reads whether a view
+keeps a row: `hasVoted` above reads `true` once the caller voted, and `false`
+otherwise. Its filter is given in `.with({ relations })` as a `many` view's,
+`viewer` included.
+
+- `select` and `include` take `true`, and the field reads `true` or `false`.
+- `where: { hasVoted: true }` keeps the rows whose view keeps a row, `false`
+  those whose view keeps none.
+- The target's read rule applies: a row the caller cannot read is not
+  counted.
+- An exists is not written, sorts nothing and is not in `_count`. Over
+  GraphQL it is a `Boolean!`, over REST a `boolean`. A query that sorts on it
+  is refused with `INVALID_QUERY`:
+  `orderBy.hasVoted: Poll.hasVoted is an exists, which sorts nothing.`
+
 ### A relation kept within a parent
 
 `within` keeps a `one`'s target in the row's parent: a task links only a
@@ -536,6 +551,13 @@ as JSON.
 | `size`        | `{ min?: number, max?: number }` | none     | Facing a `one`: the fewest and the most rows each parent holds.                                        |
 | `description` | `string`                         | none     | Shown in GraphQL and REST schemas.                                                                     |
 
+### `f.exists(target, options)`
+
+| Option        | Type     | Default  | Effect                                                                      |
+| ------------- | -------- | -------- | --------------------------------------------------------------------------- |
+| `from`        | `string` | required | The `many` of the same model whose rows, filtered, the field says it keeps. |
+| `description` | `string` | none     | Shown in GraphQL and REST schemas.                                          |
+
 `.with({ relations: { field: { where } } })` on the model filters a `many` or
 a view; `where` is `({ caller, where }) => where({ ... }) | boolean`. On a
 `one` view, `where` is `({ where }) => where({ ... })`.
@@ -612,6 +634,7 @@ is declared wrongly:
 | `Task.milestone: within names stage, a one relation of Task.`                                                                                                               | Name a stored `one` of the row, or `id`.                      |
 | `Task.milestone: within names project, a required one relation of Milestone to Project.`                                                                                    | Make the target's field a required `one` to the row's parent. |
 | `Series.released is a view; filter it in .with({ relations }).`                                                                                                             | Give the view its filter.                                     |
+| `Poll.hasVoted: an exists names its many with from.`                                                                                                                        | Name a `many` of the same model with `from`.                  |
 | `Series.with.relations.title: title is not a many relation.`                                                                                                                | Filter only a `many`.                                         |
 | `Series.upcoming reads one Volume: give Volume a unique index on series whose where the filter keeps, as { fields: ['series'], unique: true, where: { released: false } }.` | Add the index the message shows.                              |
 | `Poll.myVote reads one Vote: give Vote a unique index on poll and voter, as { fields: ['poll', 'voter'], unique: true }.`                                                   | Add the index the message shows.                              |

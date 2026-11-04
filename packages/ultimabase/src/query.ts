@@ -15,7 +15,7 @@ import type { Exact } from './exact.ts'
 import type { JsonValue } from './fields.ts'
 import type { AggregateArgs, Aggregates, IsOrdered } from './query-aggregate.ts'
 import type { BulkQueries } from './query-bulk.ts'
-import type { CountQueries } from './query-count.ts'
+import type { CountOf, CountQueries, Counts } from './query-count.ts'
 import type {
 	JsonPathFilter,
 	ListFilter,
@@ -44,7 +44,7 @@ import type {
 type KindOf<X> = X extends { readonly [fieldType]: { readonly kind: infer K } }
 	? K
 	: never
-type TargetOf<X> = X extends {
+export type TargetOf<X> = X extends {
 	readonly [fieldType]: { readonly target: infer T }
 }
 	? T
@@ -70,16 +70,19 @@ type FilterOf<X> =
 					>
 				: | StoredValue<X>
 					| ScalarFilter<NonNullable<StoredValue<X>>, IsOrdered<X>>
-			: KindOf<X> extends 'one'
-				? {
-						readonly is?: Where<TargetFields<TargetOf<X>>> | null | undefined
-						readonly isNot?: Where<TargetFields<TargetOf<X>>> | null | undefined
-					} & ViewerFilter<TargetOf<X>>
-				: {
-						readonly some?: Where<TargetFields<TargetOf<X>>> | undefined
-						readonly every?: Where<TargetFields<TargetOf<X>>> | undefined
-						readonly none?: Where<TargetFields<TargetOf<X>>> | undefined
-					} & ViewerFilter<TargetOf<X>>
+			: KindOf<X> extends 'exists'
+				? boolean
+				: KindOf<X> extends 'one'
+					? {
+							readonly is?: Where<TargetFields<TargetOf<X>>> | null | undefined
+							readonly isNot?:
+								Where<TargetFields<TargetOf<X>>> | null | undefined
+						} & ViewerFilter<TargetOf<X>>
+					: {
+							readonly some?: Where<TargetFields<TargetOf<X>>> | undefined
+							readonly every?: Where<TargetFields<TargetOf<X>>> | undefined
+							readonly none?: Where<TargetFields<TargetOf<X>>> | undefined
+						} & ViewerFilter<TargetOf<X>>
 
 /** A plugin field type's stored field (D-122), `never` for a kernel one. */
 type StoredOf<X> = X extends {
@@ -150,7 +153,7 @@ export type SortedKeys<F> = {
 			? never
 			: K
 }[Exclude<ScalarKeys<F>, PluginKeys<F>>]
-type KeysOf<F, Kind> = {
+export type KeysOf<F, Kind> = {
 	[K in keyof F]: KindOf<F[K]> extends Kind ? K : never
 }[keyof F]
 
@@ -170,49 +173,21 @@ type Sorts<F> = {
 /** A read's sort, by its `_search`'s relevance too (D-148). */
 export type OrderBy<F> = Sorts<F> & Relevance<F>
 
-/** `_count`: every `many` relation, or the ones `select` names (D-134). */
-type Count<F> =
-	| true
-	| {
-			readonly select: {
-				readonly [K in KeysOf<F, 'many'>]?:
-					| boolean
-					| { readonly where?: Where<TargetFields<TargetOf<F[K]>>> | undefined }
-			}
-	  }
-
-/** A model with a `many` relation takes `_count`. */
-type Counts<F> = [KeysOf<F, 'many'>] extends [never]
-	? unknown
-	: { readonly _count?: Count<F> | false }
-
-type Counted<F, C> = C extends { readonly select: infer S }
-	? {
-			readonly [
-				K in keyof S as S[K] extends false | undefined ? never : K
-			]: number
-		}
-	: C extends true
-		? { readonly [K in KeysOf<F, 'many'>]: number }
-		: unknown
-
-/** The `_count` of a `select` or an `include` `A`. */
-type CountOf<F, A> = A extends { readonly _count: infer C }
-	? C extends false | undefined
-		? unknown
-		: { readonly _count: Counted<F, C> }
-	: unknown
-
-type RelationArgs<X> = Shaping<TargetFields<TargetOf<X>>> &
-	(KindOf<X> extends 'many'
-		? {
-				readonly where?: Where<TargetFields<TargetOf<X>>> | undefined
-				readonly orderBy?: OrderBy<TargetFields<TargetOf<X>>> | undefined
-				readonly take?: number | undefined
-				readonly skip?: number | undefined
-				readonly cursor?: UniqueWhere<TargetFields<TargetOf<X>>> | undefined
-			}
-		: unknown)
+// An `exists` reads a boolean, shaped by nothing (D-246).
+type RelationArgs<X> =
+	KindOf<X> extends 'exists'
+		? never
+		: Shaping<TargetFields<TargetOf<X>>> &
+				(KindOf<X> extends 'many'
+					? {
+							readonly where?: Where<TargetFields<TargetOf<X>>> | undefined
+							readonly orderBy?: OrderBy<TargetFields<TargetOf<X>>> | undefined
+							readonly take?: number | undefined
+							readonly skip?: number | undefined
+							readonly cursor?:
+								UniqueWhere<TargetFields<TargetOf<X>>> | undefined
+						}
+					: unknown)
 
 export type Select<F> = {
 	readonly [K in keyof SystemFields]?: boolean
@@ -239,9 +214,11 @@ type Output<X, A> =
 		? StoredValue<X>
 		: KindOf<X> extends 'virtual'
 			? VirtualOutput<X, A>
-			: KindOf<X> extends 'one'
-				? Payload<TargetFields<TargetOf<X>>, A> | null
-				: Payload<TargetFields<TargetOf<X>>, A>[]
+			: KindOf<X> extends 'exists'
+				? boolean
+				: KindOf<X> extends 'one'
+					? Payload<TargetFields<TargetOf<X>>, A> | null
+					: Payload<TargetFields<TargetOf<X>>, A>[]
 
 type SelectedOutput<F, S, K> = K extends keyof F
 	? Output<F[K], S[K & keyof S]>

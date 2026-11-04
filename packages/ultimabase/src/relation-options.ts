@@ -1,5 +1,5 @@
 // A relation's options (D-37, D-54, D-151, D-220, D-236, D-237, D-240,
-// D-242).
+// D-242, D-246).
 import type { Described } from './described.ts'
 import type { DefaultFunction } from './fields.ts'
 
@@ -80,3 +80,9 @@ export type ManyOptions = Described &
 				readonly size?: undefined
 		  }
 	)
+
+/**
+ * What shapes an `exists` view (D-246): `from` names this other `many` of
+ * the model, whose rows its filter keeps.
+ */
+export type ExistsOptions = Described & { readonly from: string }

@@ -10,7 +10,7 @@ type Scalar<V = unknown, O = unknown> = {
 		readonly options: O
 	}
 }
-type Relation<K extends 'one' | 'many', T = unknown, O = unknown> = {
+type Relation<K extends 'one' | 'many' | 'exists', T = unknown, O = unknown> = {
 	readonly [fieldType]: {
 		readonly kind: K
 		readonly target: T
@@ -328,11 +328,11 @@ export type UpdateData<F, N = never, Operations extends boolean = true> = {
 		UpdateInput<F[K], N, K, Operations> | undefined
 }
 
-/** The views and virtuals of `F`, which no data writes (D-151, D-240). */
+/** The views and virtuals of `F`, which no data writes (D-151, D-246). */
 type Unwritten<F> = ViewKeys<F> | VirtualKeys<F>
 export type ViewKeys<F> = {
 	[K in keyof F]: F[K] extends Relation<
-		'one' | 'many',
+		'one' | 'many' | 'exists',
 		unknown,
 		{ readonly from: string }
 	>
@@ -360,5 +360,5 @@ export type UniqueKeys<F> = {
 }[keyof F]
 
 export type RelationKeys<F> = {
-	[K in keyof F]: F[K] extends Relation<'one' | 'many'> ? K : never
+	[K in keyof F]: F[K] extends Relation<'one' | 'many' | 'exists'> ? K : never
 }[keyof F]

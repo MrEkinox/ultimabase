@@ -233,7 +233,9 @@ export function whereOf(doc: Doc, model: string): Schema {
 			fields[field.name] =
 				field.kind === 'scalar'
 					? scalarFilter(doc, model, field)
-					: relationFilter(doc, field)
+					: field.kind === 'many' && field.exists
+						? { type: 'boolean' }
+						: relationFilter(doc, field)
 		}
 		return objectOf(described(fields, {}, entry.exposed.deprecations))
 	})

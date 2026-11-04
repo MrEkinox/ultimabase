@@ -99,6 +99,9 @@ export function rowOf(doc: Doc, model: string): Schema {
 				required.push(field.name)
 			} else if (field.kind === 'one') {
 				fields[field.name] = orNull(rowOf(doc, field.target))
+			} else if (field.exists) {
+				// Whether its view keeps a row (D-246).
+				fields[field.name] = ruled ? orNull(flag) : flag
 			} else {
 				const many =
 					doc.api.pagination === 'connection'
@@ -155,11 +158,12 @@ function fieldsOf(doc: Doc, model: string, select: boolean): Schema {
 				if (select) fields[field.name] = flag
 				continue
 			}
-			const args =
-				field.kind === 'one'
-					? argsOf(doc, field.target)
-					: listArgsOf(doc, field.target)
-			fields[field.name] = { anyOf: [flag, args] }
+			const args = field.kind === 'one' ? argsOf : listArgsOf
+			// An exists takes `true` and no arguments (D-246).
+			fields[field.name] =
+				field.kind === 'many' && field.exists
+					? flag
+					: { anyOf: [flag, args(doc, field.target)] }
 		}
 		for (const virtual of readableVirtuals(entry)) {
 			fields[virtual.name] = virtualArgsOf(doc, model, virtual)

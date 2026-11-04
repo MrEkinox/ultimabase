@@ -213,18 +213,21 @@ describe('a poll', () => {
 			}
 		}`
 		await request(vote, { poll: poll.id }, as(ada.token))
-		const polls = '{ polls { edges { node { question myVote { choice } } } } }'
+		const polls =
+			'{ polls { edges { node { question myVote { choice } hasVoted } } } }'
 		const read = async (headers?: Record<string, string>) =>
 			at(await request(polls, {}, headers), 'data', 'polls', 'edges')
 		expect(await read(as(ada.token))).toEqual([
-			{ node: { question: 'Tabs?', myVote: { choice: 'yes' } } },
+			{
+				node: { question: 'Tabs?', myVote: { choice: 'yes' }, hasVoted: true },
+			},
 		])
 		// Grace has not voted, and a visitor is no user.
 		expect(await read(as(grace.token))).toEqual([
-			{ node: { question: 'Tabs?', myVote: null } },
+			{ node: { question: 'Tabs?', myVote: null, hasVoted: false } },
 		])
 		expect(await read()).toEqual([
-			{ node: { question: 'Tabs?', myVote: null } },
+			{ node: { question: 'Tabs?', myVote: null, hasVoted: false } },
 		])
 		//#endregion
 		// The unique index refuses a second vote.

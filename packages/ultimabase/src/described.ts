@@ -45,7 +45,7 @@ export function describedBy(
 export function deprecatable(at: string, field: FieldDefinition): void {
 	const { kind, options } = field
 	if (options['deprecated'] === undefined) return
-	if (kind === 'many' || kind === 'virtual') return
+	if (kind === 'many' || kind === 'exists' || kind === 'virtual') return
 	if (
 		options['optional'] !== true &&
 		options['default'] === undefined &&

@@ -73,12 +73,15 @@ export const Poll = defineModel({
 		votes: f.many(() => Vote, { inverse: 'poll' }),
 		// A one view: the caller's own vote, or null.
 		myVote: f.one(() => Vote, { from: 'votes' }),
+		// An exists: whether the caller voted.
+		hasVoted: f.exists(() => Vote, { from: 'votes' }),
 	}),
 }).with({
 	// Read by all; the server asks the questions.
 	access: allow.readOnly,
 	relations: {
 		myVote: { where: ({ where }) => where({ voter: { viewer: true } }) },
+		hasVoted: { where: ({ where }) => where({ voter: { viewer: true } }) },
 	},
 })
 

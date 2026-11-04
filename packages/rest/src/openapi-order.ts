@@ -28,6 +28,8 @@ export function orderByOf(doc: Doc, model: string): Schema {
 					fields[field.name] = orderByOf(doc, field.target)
 				}
 			} else if (field.kind === 'many') {
+				// An exists sorts nothing (D-246).
+				if (field.exists) continue
 				fields[field.name] = doc.components.ref('CountOrderByInput', () =>
 					objectOf({ _count: order }),
 				)

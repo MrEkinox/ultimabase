@@ -142,11 +142,11 @@ type OneViewFilter<T> = {
 	}) => ReadFilter
 }
 
-/** A filter for each `many` relation that has one, and each `one` view. */
+/** A filter for each `many` relation that has one, each view (D-246). */
 export type RelationFilters<F> = {
 	readonly [
 		K in keyof F as F[K] extends {
-			readonly [fieldType]: { readonly kind: 'many' }
+			readonly [fieldType]: { readonly kind: 'many' | 'exists' }
 		}
 			? K
 			: F[K] extends OneView
@@ -210,7 +210,7 @@ export interface Model<N extends string, F, P, W, X = never> extends Queries<
 
 export type FieldShape = {
 	readonly [fieldType]: {
-		readonly kind: 'scalar' | 'one' | 'many' | 'virtual'
+		readonly kind: 'scalar' | 'one' | 'many' | 'exists' | 'virtual'
 		readonly options: object
 	}
 }
@@ -285,7 +285,7 @@ type StoredManyKeys<F> = {
 // D-240).
 type FromCheck<X, A> = X extends {
 	readonly [fieldType]: {
-		readonly kind: 'one' | 'many'
+		readonly kind: 'one' | 'many' | 'exists'
 		readonly options: { readonly from: infer R }
 	}
 }

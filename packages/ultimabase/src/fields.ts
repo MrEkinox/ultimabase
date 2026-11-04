@@ -9,7 +9,12 @@ import type {
 	OpenWith,
 	RelationValue,
 } from './field-rules.ts'
-import type { ManyOptions, OneCheck, OneOptions } from './relation-options.ts'
+import type {
+	ExistsOptions,
+	ManyOptions,
+	OneCheck,
+	OneOptions,
+} from './relation-options.ts'
 import type { Caller } from './rules.ts'
 import type { calendarDay, fieldType } from './symbols.ts'
 import type { NoOptions, Virtual, VirtualOptions } from './virtual.ts'
@@ -272,6 +277,15 @@ export interface Many<T, O, U = never> {
 	): Many<T, O> & Declared<R> & Hidden
 }
 
+/** Whether its view keeps a row of the target, `T` (D-246). */
+export interface Exists<T, O> {
+	readonly [fieldType]: {
+		readonly kind: 'exists'
+		readonly target: T
+		readonly options: O
+	}
+}
+
 /**
  * The field builders, which only `defineModel`'s `fields` callback receives:
  * typed by the model's `use`, a field's `.with` takes those plugins' rules
@@ -351,6 +365,14 @@ export interface FieldBuilders<T> {
 		target: M,
 		options: O,
 	) => Many<M, O, T>
+	/**
+	 * `true` when the filter of its `.with({ relations })` keeps a row of the
+	 * `many` its `from` names, else `false` (D-246).
+	 */
+	readonly exists: <M extends object, const O extends ExistsOptions>(
+		target: M,
+		options: O,
+	) => Exists<M, O>
 	/**
 	 * Computed on read by the model's `.with({ virtuals })` (D-151): a
 	 * Standard Schema, or a model or a type behind an arrow, `() => [Image]`.

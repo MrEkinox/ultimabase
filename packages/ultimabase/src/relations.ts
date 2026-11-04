@@ -69,6 +69,7 @@ export function viewField(
 	},
 	from: string,
 	source: FieldInfo | 'view' | undefined,
+	exists: boolean,
 ): FieldInfo {
 	const { model, name, target, options } = view
 	const at = `${model}.${name}`
@@ -87,7 +88,7 @@ export function viewField(
 			`${at}: from '${from}' relates to ${source.target}, not ${target}.`,
 		)
 	}
-	return { ...source, name, from, options }
+	return { ...source, name, from, options, ...(exists && { exists }) }
 }
 
 /** Whether `.with({ relations })` filters `field` of `model`. */

@@ -154,10 +154,9 @@ export async function reread(
 			const found = byId.get(id)
 			for (const [name, wanted] of Object.entries(select)) {
 				// A row the caller cannot read has no relations (D-109).
-				const many = entry.model.fields.some(
-					(field) => field.name === name && field.kind === 'many',
-				)
-				const empty = many ? [] : null
+				const field = entry.model.fields.find((f) => f.name === name)
+				const many = field?.kind === 'many'
+				const empty = many && field.exists ? false : many ? [] : null
 				const relation = found === undefined ? empty : Reflect.get(found, name)
 				for (const copy of copies) {
 					if (wanted !== true || !Object.hasOwn(copy, name))

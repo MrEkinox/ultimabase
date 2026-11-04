@@ -201,7 +201,9 @@ export function whereInput(
 							type:
 								field.kind === 'scalar'
 									? scalarFilter(registry, model, field)
-									: relationFilter(registry, field),
+									: field.kind === 'many' && field.exists
+										? GraphQLBoolean
+										: relationFilter(registry, field),
 						}
 					}
 					return deprecated(entry, fields)
@@ -265,7 +267,10 @@ export function orderByInput(
 								}
 							}
 						} else if (field.kind === 'many') {
-							fields[field.name] = { type: countOrderBy(registry) }
+							// An exists sorts nothing (D-246).
+							if (!field.exists) {
+								fields[field.name] = { type: countOrderBy(registry) }
+							}
 						} else if (
 							field.type !== 'json' &&
 							!field.list &&

@@ -41,7 +41,8 @@ export type FieldDefinition =
 			readonly codec?: Codec
 	  }
 	| {
-			readonly kind: 'one' | 'many'
+			/** `exists` reads whether its `many` view keeps a row (D-246). */
+			readonly kind: 'one' | 'many' | 'exists'
 			readonly target: () => unknown
 			readonly options: FieldOptions
 			readonly rules?: object
@@ -305,7 +306,7 @@ function decimal(options?: FieldOptions): object {
 }
 
 const relation =
-	(kind: 'one' | 'many') =>
+	(kind: 'one' | 'many' | 'exists') =>
 	(target: () => unknown, options?: FieldOptions): object =>
 		build({ kind, target, options: options ?? {} })
 
@@ -345,6 +346,7 @@ export const fieldBuilders: object = Object.freeze({
 	enumOf,
 	one: relation('one'),
 	many: relation('many'),
+	exists: relation('exists'),
 	virtual: (output: unknown, options?: FieldOptions): object =>
 		build({ kind: 'virtual', output, options: options ?? {} }),
 })

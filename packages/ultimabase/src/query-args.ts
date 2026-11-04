@@ -73,7 +73,9 @@ function counted(
 	const counts = new Map<string, Filter>()
 	if (value === true) {
 		for (const field of model.fields.values()) {
-			if (field.kind === 'many') counts.set(field.name, filter(field))
+			if (field.kind === 'many' && field.exists === undefined) {
+				counts.set(field.name, filter(field))
+			}
 		}
 		return counts
 	}
@@ -85,7 +87,9 @@ function counted(
 	for (const [name, chosen] of entries(given.get('select'), select)) {
 		const at = `${select}.${name}`
 		const field = model.fields.get(name)
-		if (field?.kind !== 'many') throw unknownKey(at, model.name)
+		if (field?.kind !== 'many' || field.exists) {
+			throw unknownKey(at, model.name)
+		}
 		if (chosen === false) continue
 		if (chosen === true) {
 			counts.set(name, filter(field))
@@ -260,10 +264,14 @@ export function plan(
 				throw unknownKey(where, model.name)
 			}
 			if (value === false) continue
-			if (scalar) {
+			// An exists reads one row's id, whether one is there (D-246).
+			const exists = field?.kind === 'many' && field.exists === true
+			if (scalar || exists) {
 				if (value !== true) {
 					throw new InvalidQuery(where, `${where} must be a boolean.`)
 				}
+			}
+			if (scalar) {
 				fields.push(name)
 				continue
 			}
@@ -271,7 +279,11 @@ export function plan(
 			const relation = plan(
 				models,
 				modelOf(models, field.target),
-				value === true ? undefined : value,
+				exists
+					? { take: 1, select: { id: true } }
+					: value === true
+						? undefined
+						: value,
 				where,
 				field.kind,
 				field.kind === 'many' ? manyKeys : oneKeys,

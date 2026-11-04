@@ -63,6 +63,7 @@ export { InvalidQuery, PublicError, Refused } from './errors.ts'
 export type {
 	DecimalOptions,
 	Enum,
+	Exists,
 	Field,
 	FieldBuilders,
 	InsensitiveOptions,
@@ -75,7 +76,7 @@ export type {
 	SingleOptions,
 	StringOptions,
 } from './fields.ts'
-export type { ManyOptions } from './relation-options.ts'
+export type { ExistsOptions, ManyOptions } from './relation-options.ts'
 export type { Hidden } from './field-rules.ts'
 export { defineFunction, defineType } from './define-function.ts'
 export type {
