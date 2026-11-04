@@ -20,6 +20,7 @@ import { installedUses } from './plugin-use.ts'
 import { checkOneViews, oneViewField } from './one-views.ts'
 import { checkRelations, isFiltered, viewField } from './relations.ts'
 import { checkIndexes, checkSearch } from './schema-indexes.ts'
+import { sizeOf } from './sizes.ts'
 import type { VirtualInfo } from './schema-virtuals.ts'
 import { virtualsOf } from './schema-virtuals.ts'
 import { checkWithin, withinManyOf, withinOf } from './within-schema.ts'
@@ -67,12 +68,14 @@ function relationField(link: Linked, inverse: Linked | undefined): FieldInfo {
 	const where = `${link.model}.${link.name}`
 	if (field.kind === 'many') {
 		if (inverse === undefined) throw new Error('A many has its other side.')
+		const join = inverse.field.kind === 'many'
+		sizeOf(where, field.options, join)
 		return {
 			kind: 'many',
 			name: link.name,
 			target: link.target,
 			inverse: inverse.name,
-			join: inverse.field.kind === 'many',
+			join,
 			...withinManyOf(where, field.options, inverse),
 			options: field.options,
 		}

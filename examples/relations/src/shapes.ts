@@ -168,3 +168,25 @@ export const Note = defineModel({
 	}),
 })
 //#endregion
+
+//#region size
+export const Poll = defineModel({
+	name: 'Poll',
+	fields: (f) => ({
+		question: f.string(),
+		// Every poll holds 2 to 4 choices at the end of a write.
+		choices: f.many(() => Choice, {
+			inverse: 'poll',
+			size: { min: 2, max: 4 },
+		}),
+	}),
+})
+
+export const Choice = defineModel({
+	name: 'Choice',
+	fields: (f) => ({
+		label: f.string(),
+		poll: f.one(() => Poll, { onDelete: 'cascade' }),
+	}),
+})
+//#endregion

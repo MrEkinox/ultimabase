@@ -110,27 +110,28 @@ an application's, from a schema or a `PublicError`, are not in it.
 
 ### Codes
 
-| Code                     | Package         | When                                                            | REST status | `details`                    |
-| ------------------------ | --------------- | --------------------------------------------------------------- | ----------- | ---------------------------- |
-| `VALIDATION_FAILED`      | the kernel      | A value or an input its schema refused.                         | 400         | `{ issues }`                 |
-| `ACCESS_DENIED`          | the kernel      | An access rule refused.                                         | 403         | what refused                 |
-| `NOT_FOUND`              | the kernel      | No row matches, or the caller cannot read it.                   | 404         | none                         |
-| `UNIQUE_VIOLATION`       | the kernel      | A second row with a unique value.                               | 409         | `{ model, fields }`          |
-| `RELATION_RESTRICTED`    | the kernel      | A delete a `restrict` relation refused.                         | 409         | `{ model, field }`           |
-| `UNAUTHENTICATED`        | the kernel      | A session is needed, or it ended.                               | 401         | none                         |
-| `INVALID_CREDENTIALS`    | the kernel      | A wrong email or password.                                      | 401         | none                         |
-| `TOO_MANY_ATTEMPTS`      | the kernel      | Too many sign-ins; `Retry-After` says when to try again.        | 429         | `{ retryAfter }`, in seconds |
-| `CONFLICT`               | the kernel      | A serializable transaction conflicted 10 times.                 | 409         | none                         |
-| `INTERNAL`               | the kernel      | Any error that is not a `PublicError`.                          | 500         | `correlationId`, beside it   |
-| `BAD_USER_INPUT`         | `http`          | A client's query, parameter, body or document refused.          | 400         | `{ path }`, from the kernel  |
-| `BAD_REQUEST`            | `http`          | A body or an upgrade HTTP cannot read.                          | 400         | none                         |
-| `PAYLOAD_TOO_LARGE`      | `http`, `files` | A body over `bodyLimit`, or a file over `maxSize`.              | 413         | none                         |
-| `UNSUPPORTED_MEDIA_TYPE` | `http`, `files` | A body that is not JSON, or a file of a type not accepted.      | 415         | none                         |
-| `UNAVAILABLE`            | `http`          | Any request while the application starts; `/ready` as it stops. | 503         | none                         |
-| `LENGTH_REQUIRED`        | `files`         | An upload without `Content-Length`.                             | 411         | none                         |
-| `FORBIDDEN`              | `files`         | A private file's URL not signed, or expired.                    | 403         | none                         |
-| `MAINTENANCE`            | `maintenance`   | Any request but Master's, during maintenance.                   | 503         | `{ retryAfter }`, in seconds |
-| the application's own    | the application | A `PublicError` it threw.                                       | 400         | its own                      |
+| Code                     | Package         | When                                                            | REST status | `details`                              |
+| ------------------------ | --------------- | --------------------------------------------------------------- | ----------- | -------------------------------------- |
+| `VALIDATION_FAILED`      | the kernel      | A value or an input its schema refused.                         | 400         | `{ issues }`                           |
+| `ACCESS_DENIED`          | the kernel      | An access rule refused.                                         | 403         | what refused                           |
+| `NOT_FOUND`              | the kernel      | No row matches, or the caller cannot read it.                   | 404         | none                                   |
+| `UNIQUE_VIOLATION`       | the kernel      | A second row with a unique value.                               | 409         | `{ model, fields }`                    |
+| `RELATION_RESTRICTED`    | the kernel      | A delete a `restrict` relation refused.                         | 409         | `{ model, field }`                     |
+| `RELATION_SIZE`          | the kernel      | A write left a parent out of its `many`'s `size`.               | 409         | `{ model, field, id, min, max, size }` |
+| `UNAUTHENTICATED`        | the kernel      | A session is needed, or it ended.                               | 401         | none                                   |
+| `INVALID_CREDENTIALS`    | the kernel      | A wrong email or password.                                      | 401         | none                                   |
+| `TOO_MANY_ATTEMPTS`      | the kernel      | Too many sign-ins; `Retry-After` says when to try again.        | 429         | `{ retryAfter }`, in seconds           |
+| `CONFLICT`               | the kernel      | A serializable transaction conflicted 10 times.                 | 409         | none                                   |
+| `INTERNAL`               | the kernel      | Any error that is not a `PublicError`.                          | 500         | `correlationId`, beside it             |
+| `BAD_USER_INPUT`         | `http`          | A client's query, parameter, body or document refused.          | 400         | `{ path }`, from the kernel            |
+| `BAD_REQUEST`            | `http`          | A body or an upgrade HTTP cannot read.                          | 400         | none                                   |
+| `PAYLOAD_TOO_LARGE`      | `http`, `files` | A body over `bodyLimit`, or a file over `maxSize`.              | 413         | none                                   |
+| `UNSUPPORTED_MEDIA_TYPE` | `http`, `files` | A body that is not JSON, or a file of a type not accepted.      | 415         | none                                   |
+| `UNAVAILABLE`            | `http`          | Any request while the application starts; `/ready` as it stops. | 503         | none                                   |
+| `LENGTH_REQUIRED`        | `files`         | An upload without `Content-Length`.                             | 411         | none                                   |
+| `FORBIDDEN`              | `files`         | A private file's URL not signed, or expired.                    | 403         | none                                   |
+| `MAINTENANCE`            | `maintenance`   | Any request but Master's, during maintenance.                   | 503         | `{ retryAfter }`, in seconds           |
+| the application's own    | the application | A `PublicError` it threw.                                       | 400         | its own                                |
 
 An issue is `{ path, message, code? }`: `path` lists the keys to the refused
 value, as `['days']`, and `code`, in capitals, is the one a client tests: a

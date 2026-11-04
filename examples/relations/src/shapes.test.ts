@@ -7,6 +7,7 @@ import { app } from './app.ts'
 import {
 	Branch,
 	Card,
+	Choice,
 	Category,
 	Club,
 	Member,
@@ -14,6 +15,7 @@ import {
 	Milestone,
 	Note,
 	Notice,
+	Poll,
 	Project,
 	Reader,
 	Series,
@@ -332,5 +334,39 @@ it('keeps the tasks a note links within its project', async () => {
 			{ as: master },
 		),
 	).rejects.toMatchObject({ code: 'VALIDATION_FAILED' })
+	//#endregion
+})
+
+it('keeps a poll between 2 and 4 choices', async () => {
+	//#region size-write
+	const poll = await Poll.create(
+		{
+			data: {
+				question: 'Lunch?',
+				choices: { create: [{ label: 'Pizza' }, { label: 'Salad' }] },
+			},
+			include: { choices: true },
+		},
+		{ as: master },
+	)
+	// A poll with one choice cannot be created.
+	await expect(
+		Poll.create(
+			{ data: { question: 'Yes?', choices: { create: [{ label: 'Yes' }] } } },
+			{ as: master },
+		),
+	).rejects.toMatchObject({
+		code: 'RELATION_SIZE',
+		message: 'Poll.choices holds 2 to 4 rows: this write leaves 1.',
+		details: { model: 'Poll', field: 'choices', min: 2, max: 4, size: 1 },
+	})
+	// Nor can a write from the other side leave it with one.
+	const [pizza] = poll.choices
+	await expect(
+		Choice.delete({ where: { id: pizza?.id ?? '' } }, { as: master }),
+	).rejects.toMatchObject({ code: 'RELATION_SIZE' })
+	// Deleting the poll deletes its choices with it.
+	await Poll.delete({ where: { id: poll.id } }, { as: master })
+	expect(await Choice.count({}, { as: master })).toBe(0)
 	//#endregion
 })

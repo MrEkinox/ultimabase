@@ -3,7 +3,13 @@
 import { AsyncLocalStorage } from 'node:async_hooks'
 import { randomUUID } from 'node:crypto'
 import { setTimeout } from 'node:timers/promises'
-import type { Adapter, BeginOptions, Transaction } from './adapter.ts'
+import type {
+	Adapter,
+	BeginOptions,
+	Row,
+	Transaction,
+	Write,
+} from './adapter.ts'
 import { Conflict, RelationViolation } from './adapter.ts'
 import type { Logger } from './app-options.ts'
 import { PublicError } from './errors.ts'
@@ -11,6 +17,8 @@ import { decoded } from './field-codec.ts'
 import { recordCount, recordFind } from './recorder.ts'
 import type { Running } from './running.ts'
 import { current } from './running.ts'
+import type { Touched } from './sizes.ts'
+import { bounded, checkSizes, touch } from './sizes.ts'
 import { refused } from './write-target.ts'
 
 /** What a query reads and writes through. */
@@ -39,6 +47,8 @@ type Open = {
 	readonly serializable: boolean
 	/** Its queries still running: it ends once they settle (D-208). */
 	readonly pending: Set<Promise<unknown>>
+	/** The parents of a bounded `many` its writes touched (D-242). */
+	readonly touched: Touched
 }
 
 /** A serializable transaction's attempts before `CONFLICT` (D-183). */
@@ -83,17 +93,28 @@ function decoding(app: Running, store: Store): Store {
 	}
 }
 
-/** Queries in the transaction; `owner`'s last write may run alone. */
+/** A write in the transaction, after it locks the bounded parents (D-242). */
+async function written(open: Open, write: Write): Promise<Row[]> {
+	const tx = await begun(open)
+	await touch(open.app.resolved.models, tx, write, open.touched)
+	return tx.write(write)
+}
+
+/**
+ * Queries in the transaction; `owner`'s last write may run alone, unless it
+ * changes a bounded relation (D-99, D-242).
+ */
 function storeOf(open: Open, owner: boolean): Store {
+	const { adapter, resolved } = open.app
 	return decoding(open.app, {
 		find: async (read) => (await begun(open)).find(read),
 		count: async (read) => (await begun(open)).count(read),
 		aggregate: async (read) => (await begun(open)).aggregate(read),
-		write: async (write) => (await begun(open)).write(write),
+		write: async (write) => written(open, write),
 		last: async (write) =>
-			owner && open.tx === undefined
-				? open.app.adapter.write(write)
-				: (await begun(open)).write(write),
+			owner && open.tx === undefined && !bounded(resolved.models, write)
+				? adapter.write(write)
+				: written(open, write),
 	})
 }
 
@@ -169,6 +190,7 @@ async function atomic<R>(
 		failure: undefined,
 		serializable,
 		pending: new Set(),
+		touched: new Map(),
 	}
 	let result: R
 	try {
@@ -186,8 +208,15 @@ async function atomic<R>(
 		await rollback(open)
 		throw open.failure.error
 	}
+	const tx = await open.tx
 	try {
-		await (await open.tx)?.commit()
+		if (tx !== undefined) await checkSizes(tx, open.touched)
+	} catch (error) {
+		await rollback(open)
+		throw error
+	}
+	try {
+		await tx?.commit()
 	} catch (error) {
 		// A deferred foreign key checks at the commit (D-99).
 		throw error instanceof RelationViolation ? refused(error) : error

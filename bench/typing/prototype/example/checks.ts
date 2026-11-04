@@ -181,3 +181,32 @@ defineApp({
 	],
 	models: [Broken, Post, User, Tag],
 })
+
+// A size bounds a one-to-many (D-242): a many-to-many fails in `defineApp`,
+// a view in its options.
+const Labels = defineModel({
+	name: 'Labels',
+	fields: (f) => ({
+		posts: f.many(() => Post, { inverse: 'tags', size: { max: 3 } }),
+	}),
+})
+defineModel({
+	name: 'Shelf',
+	fields: (f) => ({
+		posts: f.many(() => Post, { inverse: 'author' }),
+		// @ts-expect-error: a view takes no size.
+		some: f.many(() => Post, { from: 'posts', size: { max: 1 } }),
+	}),
+})
+// @ts-expect-error: Labels.posts: size bounds a one-to-many relation only.
+defineApp({
+	database: memory(),
+	plugins: [
+		softDeletePlugin(),
+		aclPlugin(),
+		graphqlPlugin(),
+		httpPlugin(),
+		authPlugin(),
+	],
+	models: [Labels, Post, User, Tag],
+})

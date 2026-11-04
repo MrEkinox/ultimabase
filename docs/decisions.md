@@ -16349,6 +16349,159 @@ read: isOwner('title')
 // Argument of type '"title"' is not assignable to parameter of type '"author"'.
 ```
 
+## D-242: A `many` holds a minimum and a maximum of rows
+
+Choice: completes D-37 and D-237; amends D-99.
+
+1. A one-to-many `many` takes `size: { min, max }`:
+   `photos: f.many(() => Photo, { inverse: 'album', size: { min: 1, max: 10 } })`.
+   Either bound may be left out; `min` defaults to 0. Startup stops unless
+   each bound is an integer, `min` at least 0, `max` at least 1 and at
+   least `min`. A many-to-many and a view (`from`) take no `size`: the types
+   refuse it.
+2. The bound holds at the end of the transaction, on every parent row the
+   transaction touched and that still exists. A write touches the parent it
+   adds a row to and the one it takes a row from: a create, an update that
+   moves the `one`, a delete, a cascade, `setNull`, and the parent's own
+   nested `create`, `connect`, `connectOrCreate`, `disconnect`, `set`
+   and `delete`. A parent
+   created in the transaction is touched too, so `min` holds from its
+   create on: its rows come in the same write, nested, or in the same
+   `transaction()`.
+3. A parent deleted in the transaction is not checked, so its cascade
+   deletes all its rows. Any other delete that leaves a parent under `min`
+   is refused, a cascade from another model included.
+4. It holds for every caller, Master too, and counts every stored row of
+   the relation, whatever the caller may read. Rows already stored are not
+   checked until a write touches their parent.
+5. Concurrent writes: the kernel locks each parent row it checks before the
+   write changes its rows, so two writes to one parent run one after the
+   other, and the count at the end sees the other's committed rows. A write
+   on a bounded relation therefore runs in a transaction and loads the rows
+   it moves or deletes, to know their parent (D-99, point 4 and 5).
+6. The refusal is a new code, `RELATION_SIZE`, 409 as `RELATION_RESTRICTED`:
+   `Album.photos holds 1 to 10 rows: this write leaves 11.`, with
+   `details: { model: 'Album', field: 'photos', id, min: 1, max: 10, size: 11 }`.
+   The transaction rolls back.
+7. The GraphQL schema and the OpenAPI document state the bound in the
+   field's description, after its own: `Holds 1 to 10 rows.`
+
+Why:
+
+- A bounded relation was three hooks on two models, each with a count: one
+  on the parent's create for `min`, one on the row's create for `max`, one
+  on the row's delete for the last row, which had to read whether the
+  parent still existed to let its cascade through.
+- The hooks left holes: moving a row to another parent passed both bounds,
+  and two rows added at once both passed the count, under the default
+  isolation.
+- Checking at the end of the transaction lets a parent and its first rows
+  be written in one transaction, and a row move between two parents.
+- The bound is the field's, so the schemas can show it.
+
+Rejected:
+
+- An `error` option replacing `RELATION_SIZE`: one error could not say
+  which bound broke nor the size; a client maps the code with
+  `details.field`, and knows the action it ran.
+- `size` on a many-to-many: no use asks for it yet; its link rows have two
+  parents.
+- Checking each write on its own, when it runs: a parent and its first rows
+  could not be created apart, nor a row moved between two parents.
+- A `check` constraint or a trigger in the database: it binds the adapter,
+  and a constraint cannot count rows of another table.
+- `minItems` and `maxItems` in OpenAPI: a read of the relation is filtered
+  and paged, so the array a response holds is not the relation's size.
+- A model `validate` hook run once per touched parent: more general, but
+  the bound is no longer on the field, and nothing reads it.
+
+Example, before:
+
+```ts
+export const Album = defineModel({
+	name: 'Album',
+	fields: (f) => ({
+		photos: f.many(() => Photo, { inverse: 'album' }),
+	}),
+}).with({
+	hooks: {
+		afterCreate: async ({ record }) => {
+			const photos = await Photo.count(
+				{ where: { album: { is: { id: record.id } } } },
+				{ as: master },
+			)
+			if (photos === 0) throw new PublicError('ALBUM_PHOTO_REQUIRED', '…')
+		},
+	},
+})
+
+export const Photo = defineModel({
+	name: 'Photo',
+	fields: (f) => ({
+		album: f.one(() => Album, { onDelete: 'cascade' }),
+	}),
+}).with({
+	hooks: {
+		afterCreate: async ({ record }) => {
+			const photos = await Photo.count(
+				{ where: { album: { is: { id: record.album.id } } } },
+				{ as: master },
+			)
+			if (photos > 10) throw new PublicError('ALBUM_PHOTOS_LIMIT', '…')
+		},
+		afterDelete: async ({ record }) => {
+			const [albums, photos] = await Promise.all([
+				Album.count({ where: { id: record.album.id } }, { as: master }),
+				Photo.count(
+					{ where: { album: { is: { id: record.album.id } } } },
+					{ as: master },
+				),
+			])
+			if (albums > 0 && photos === 0) {
+				throw new PublicError('ALBUM_LAST_PHOTO', '…')
+			}
+		},
+	},
+})
+
+// Passes both hooks: an album may end with 0 or 11 photos.
+await Photo.update({
+	where: { id },
+	data: { album: { connect: { id: other } } },
+})
+```
+
+After:
+
+```ts
+export const Album = defineModel({
+	name: 'Album',
+	fields: (f) => ({
+		photos: f.many(() => Photo, {
+			inverse: 'album',
+			size: { min: 1, max: 10 },
+		}),
+	}),
+})
+
+export const Photo = defineModel({
+	name: 'Photo',
+	fields: (f) => ({
+		album: f.one(() => Album, { onDelete: 'cascade' }),
+	}),
+})
+
+await Album.create({ data: { photos: { create: [{ file }] } } })
+await Album.create({ data: {} })
+// RELATION_SIZE: Album.photos holds 1 to 10 rows: this write leaves 0.
+await Album.delete({ where: { id } }) // its photos go with it
+
+// In a client:
+if (error.code === 'RELATION_SIZE' && error.details.field === 'photos') {
+	toast(error.details.size > error.details.max ? t('tooMany') : t('lastPhoto'))
+}
+```
+
 ## D-243: `within` needs no `many` of the parent
 
 Choice: amends D-220 point 4 and D-237 point 7.

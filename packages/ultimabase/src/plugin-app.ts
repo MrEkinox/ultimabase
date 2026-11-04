@@ -17,6 +17,7 @@ import { recordExpiry } from './recorder.ts'
 import { exposedFunctions, resolveFunctions } from './functions.ts'
 import { isObject } from './query-where.ts'
 import { Refused } from './errors.ts'
+import { sizeNote } from './sizes.ts'
 import type { Enum, StandardSchema } from './fields.ts'
 import { standardOf } from './validation.ts'
 
@@ -151,15 +152,22 @@ function required(info: ModelInfo): readonly string[] {
 		.map((field) => field.name)
 }
 
-/** Each field's `description` (D-150) or `deprecated` (D-216). */
+/**
+ * Each field's `description` (D-150), then its bound (D-242), or its
+ * `deprecated` (D-216).
+ */
 function texts(
 	info: ModelInfo,
 	key: 'description' | 'deprecated',
 ): { readonly [field: string]: string } {
 	const found: { [field: string]: string } = {}
 	for (const field of info.fields.values()) {
-		const text = field.options[key]
-		if (typeof text === 'string') found[field.name] = text
+		const own = field.options[key]
+		const text = [
+			typeof own === 'string' ? own : undefined,
+			key === 'description' ? sizeNote(info.name, field) : undefined,
+		].filter((part) => part !== undefined)
+		if (text.length > 0) found[field.name] = text.join(' ')
 	}
 	return found
 }

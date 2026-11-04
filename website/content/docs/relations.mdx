@@ -242,6 +242,37 @@ A cascade runs the hooks of every row it deletes, but checks the access rules
 only on the row the caller deletes. A many-to-many link is removed with either
 of its rows, whatever `onDelete` says.
 
+## Bounding the rows of a many
+
+`size` on a `many` that faces a `one` bounds how many rows each parent
+holds: every poll keeps 2 to 4 choices.
+
+<include cwd meta='title="src/shapes.ts"'>
+	../examples/relations/src/shapes.ts#size
+</include>
+
+The bound is checked at the end of the write, or of the
+[transaction](/docs/next/transactions), on each parent the write touched:
+a create, a row added or moved from either side, a delete, a cascade or a
+`setNull`. A write that leaves a parent out of its bounds is refused with
+`RELATION_SIZE`, and nothing of it is kept.
+
+<include cwd meta='title="src/shapes.test.ts"'>
+	../examples/relations/src/shapes.test.ts#size-write
+</include>
+
+- A parent with a `min` is created with its rows: in the same write, or in
+  one transaction with the writes that add them.
+- Deleting the parent deletes or empties its rows with it, and is never
+  refused by its own bound.
+- `min` is from 0, `max` from 1; either may be left out. A many-to-many and a
+  view take no `size`, refused by the types and at startup.
+- Each write locks the parents it touches, so concurrent writes to one
+  parent run one after the other and cannot pass the bound together.
+- The GraphQL and OpenAPI schemas state the bound in the field's
+  description: `Holds 2 to 4 rows.`
+- `database.sql` statements of your own are not checked.
+
 ## Other shapes
 
 ### One-to-one
@@ -484,12 +515,13 @@ as JSON.
 
 ### `f.many(target, options)`
 
-| Option        | Type     | Default  | Effect                                                                                                 |
-| ------------- | -------- | -------- | ------------------------------------------------------------------------------------------------------ |
-| `inverse`     | `string` | required | The target's `one` that stores the key, or its `many` that names this one back.                        |
-| `from`        | `string` | none     | Instead of `inverse`: makes the field a view of this other `many`, filtered in `.with({ relations })`. |
-| `within`      | `string` | none     | A many-to-many's rows share this `one` of both models. On one side only.                               |
-| `description` | `string` | none     | Shown in GraphQL and REST schemas.                                                                     |
+| Option        | Type                             | Default  | Effect                                                                                                 |
+| ------------- | -------------------------------- | -------- | ------------------------------------------------------------------------------------------------------ |
+| `inverse`     | `string`                         | required | The target's `one` that stores the key, or its `many` that names this one back.                        |
+| `from`        | `string`                         | none     | Instead of `inverse`: makes the field a view of this other `many`, filtered in `.with({ relations })`. |
+| `within`      | `string`                         | none     | A many-to-many's rows share this `one` of both models. On one side only.                               |
+| `size`        | `{ min?: number, max?: number }` | none     | Facing a `one`: the fewest and the most rows each parent holds.                                        |
+| `description` | `string`                         | none     | Shown in GraphQL and REST schemas.                                                                     |
 
 `.with({ relations: { field: { where } } })` on the model filters a `many` or
 a view; `where` is `({ caller, where }) => where({ ... }) | boolean`. On a
@@ -527,13 +559,16 @@ the other side) and on a filtered relation.
 | Code                  | When                                                                                                                                    | Example message                                                                                          |
 | --------------------- | --------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
 | `RELATION_RESTRICTED` | A delete removes a row that a `restrict` relation points to.                                                                            | `Book.publisher references a Publisher the delete removes.`                                              |
+| `RELATION_SIZE`       | A write leaves a parent with fewer rows than its `min` or more than its `max`.                                                          | `Poll.choices holds 2 to 4 rows: this write leaves 1.`                                                   |
 | `NOT_FOUND`           | A `connect` names a row that does not exist or that the caller cannot read; an `update` or `delete` names a row not linked to this one. | `A connected Publisher does not exist.`, `No Book matches data.books.update.0.where.`                    |
 | `INVALID_QUERY`       | A write names the same row twice, writes the relation back to its parent, or uses `set` where it is refused.                            | `A Book cannot be left without its author.`, `data.books.set cannot be used with connect or disconnect.` |
 | `VALIDATION_FAILED`   | A nested row's data is invalid, or a one-to-one would leave a row without its required side. The path names it.                         | path `['books', 'create', 0, 'title']`                                                                   |
 | `UNIQUE_VIOLATION`    | Two `connectOrCreate` create the same unique value at once.                                                                             |                                                                                                          |
 
 `RELATION_RESTRICTED` carries `details: { model, field }`, the relation that
-refused. On the server, `INVALID_QUERY` is thrown as an `InvalidQuery`, with
+refused. `RELATION_SIZE` carries `details: { model, field, id, min, max,
+size }`: the parent, its bounds, `max` `null` when it has none, and the rows
+the write leaves it. On the server, `INVALID_QUERY` is thrown as an `InvalidQuery`, with
 its `code` and its `path`; a client receives it as `BAD_USER_INPUT`.
 
 ### Startup errors
@@ -567,6 +602,8 @@ is declared wrongly:
 | `Series.with.relations.title: title is not a many relation.`                                                                                                                | Filter only a `many`.                                         |
 | `Series.upcoming reads one Volume: give Volume a unique index on series whose where the filter keeps, as { fields: ['series'], unique: true, where: { released: false } }.` | Add the index the message shows.                              |
 | `Series.with.relations.upcoming.where reads no viewer: it runs once, at startup.`                                                                                           | Filter a `one` view without the caller.                       |
+| `Poll.choices: size takes whole numbers, min from 0 and max from 1, as { min: 1, max: 10 }.`                                                                                | Give whole numbers, `max` at least `min`.                     |
+| `Book.tags: size bounds a one-to-many relation only.`                                                                                                                       | Remove `size` from a many-to-many or a view.                  |
 
 ### Limits
 
