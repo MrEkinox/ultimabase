@@ -5,18 +5,13 @@ import type { OneOfKey } from './adapter.ts'
 import type { FieldDefinition, FieldOptions } from './definition.ts'
 import { Refused } from './errors.ts'
 import type { Linked } from './pairing.ts'
-import type { ModelInfo } from './schema.ts'
+import type { FieldInfo, ModelInfo } from './schema.ts'
 
 type OneOfDefinition = Extract<FieldDefinition, { readonly kind: 'oneOf' }>
-type OneDefinition = Extract<
-	FieldDefinition,
-	{ readonly kind: 'one' | 'many' | 'exists' }
->
 
 export type OneOfInfo = {
 	readonly name: string
 	readonly optional: boolean
-	readonly onDelete: 'cascade' | 'restrict' | 'setNull'
 	/** Each kind's hidden `one`, and the model it targets. */
 	readonly kinds: ReadonlyMap<
 		string,
@@ -25,17 +20,18 @@ export type OneOfInfo = {
 	readonly options: FieldOptions
 }
 
+/** A `oneOf` kind's key, no field of the caller's: its `oneOf` writes it. */
+export const hiddenKey = (
+	field: FieldInfo | undefined,
+): field is Extract<FieldInfo, { readonly kind: 'one' }> & {
+	readonly of: OneOfKey
+} => field?.kind === 'one' && field.of !== undefined
+
 /** The field a developer declared: a hidden `one`'s `oneOf`, else `field`. */
 export function declaredName(model: ModelInfo, field: string): string {
 	const known = model.fields.get(field)
-	return known?.kind === 'one' && known.of !== undefined
-		? known.of.field
-		: field
+	return hiddenKey(known) ? known.of.field : field
 }
-
-/** A kind's hidden `one`, `targetPost` for kind `post` of `target`. */
-export const hiddenOf = (name: string, kind: string): string =>
-	`${name}${kind.charAt(0).toUpperCase()}${kind.slice(1)}`
 
 const unsupported = ['within', 'unique', 'default', 'dbName', 'from', 'inverse']
 
@@ -53,10 +49,7 @@ export function oneOfOf(
 	field: OneOfDefinition,
 	declared: ReadonlyMap<string, unknown>,
 	targetOf: (kind: string, target: () => unknown) => string,
-): {
-	readonly info: OneOfInfo
-	readonly ones: readonly (Linked & { readonly of: OneOfKey })[]
-} {
+): { readonly info: OneOfInfo; readonly ones: readonly Linked[] } {
 	const where = `${model}.${name}`
 	for (const option of unsupported) {
 		if (field.options[option] !== undefined) {
@@ -75,9 +68,10 @@ export function oneOfOf(
 				? 'setNull'
 				: 'restrict'
 	const kinds = new Map<string, { field: string; target: string }>()
-	const ones: (Linked & { readonly of: OneOfKey })[] = []
+	const ones: Linked[] = []
 	for (const [kind, thunk] of field.targets) {
-		const hidden = hiddenOf(name, kind)
+		// Kind `post` of `target` stores its key as `targetPost`.
+		const hidden = `${name}${kind.charAt(0).toUpperCase()}${kind.slice(1)}`
 		if (declared.has(hidden)) {
 			fail(
 				`${where}: kind ${kind} stores its key as ${hidden}, a field of ${model}.`,
@@ -89,24 +83,19 @@ export function oneOfOf(
 			fail(`${where}: kinds ${twin[0]} and ${kind} both target ${target}.`)
 		}
 		kinds.set(kind, { field: hidden, target })
-		const one: OneDefinition = {
-			kind: 'one',
-			target: thunk,
-			options: { optional: true, onDelete },
-			...(field.rules === undefined ? {} : { rules: field.rules }),
-		}
 		ones.push({
 			model,
 			name: hidden,
-			field: one,
+			field: {
+				kind: 'one',
+				target: thunk,
+				options: { optional: true, onDelete },
+				...(field.rules === undefined ? {} : { rules: field.rules }),
+			},
 			target,
-			of: { field: name, kind, optional },
 		})
 	}
-	return {
-		info: { name, optional, onDelete, kinds, options: field.options },
-		ones,
-	}
+	return { info: { name, optional, kinds, options: field.options }, ones }
 }
 
 /**
@@ -153,20 +142,16 @@ export function moveOf(
 	readonly data: { readonly [key: string]: unknown }
 } {
 	const one = model.fields.get(field)
-	const of = one?.kind === 'one' ? one.of : undefined
-	const info = of === undefined ? undefined : model.oneOfs.get(of.field)
+	const of = hiddenKey(one) ? one.of : undefined
+	const key = of?.field ?? field
 	const set: { [key: string]: string | null } = { [field]: to }
-	const connect = to === null ? undefined : { id: to }
-	if (of === undefined || info === undefined) {
-		const data = connect === undefined ? { disconnect: true } : { connect }
-		return { key: field, set, data: { [field]: data } }
-	}
-	for (const kind of info.kinds.values()) {
+	for (const kind of model.oneOfs.get(key)?.kinds.values() ?? []) {
 		if (kind.field !== field) set[kind.field] = null
 	}
+	const connect = to === null ? undefined : { id: to }
 	const data =
 		connect === undefined
 			? { disconnect: true }
-			: { connect: { [of.kind]: connect } }
-	return { key: of.field, set, data: { [of.field]: data } }
+			: { connect: of === undefined ? connect : { [of.kind]: connect } }
+	return { key, set, data: { [key]: data } }
 }

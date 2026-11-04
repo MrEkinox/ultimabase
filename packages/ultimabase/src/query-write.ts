@@ -16,7 +16,6 @@ import { byId, entries, modelOf, unknownKey } from './query-where.ts'
 import type { Context, Relation } from './write-context.ts'
 import {
 	fail,
-	hiddenKey,
 	holds,
 	isOptional,
 	linking,
@@ -30,6 +29,7 @@ import type { Draft } from './write-data.ts'
 import { prepared, readData } from './write-data.ts'
 import type { Reads, Step } from './write-plan.ts'
 import { oneOfField, unsetOneOfs } from './one-of-write.ts'
+import { hiddenKey } from './one-of-schema.ts'
 import { Plan } from './write-plan.ts'
 
 /**

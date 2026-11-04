@@ -196,41 +196,43 @@ export async function resolveOne(
 }
 
 /**
- * A `oneOf` value resolved (D-247): its kind, none for `disconnect`, and the
- * value of that kind's `one`, a `connectOrCreate` found or made a `create`.
+ * A `oneOf` value resolved (D-247): its kind's hidden `one` and the value it
+ * takes, a `connectOrCreate` found or made a `create`; `undefined` for
+ * `disconnect`.
  */
 export async function resolveOneOf(
 	r: Resolving,
 	info: OneOfInfo,
 	value: unknown,
-): Promise<{ readonly kind: string | undefined; readonly value: Draft }> {
+): Promise<
+	| {
+			readonly kind: string
+			readonly field: string
+			readonly operation: 'connect' | 'create'
+			readonly operand: Draft
+	  }
+	| undefined
+> {
 	const path = ['data', ...r.at, info.name].join('.')
-	const kinds = [...info.kinds.keys()]
-	const { kind, write } = oneOfWrite(
-		value,
-		path,
-		kinds,
-		info.optional,
-		r.creating,
-	)
-	const target = kind === undefined ? undefined : info.kinds.get(kind)
-	if (kind === undefined || target === undefined) {
-		return { kind: undefined, value: { disconnect: true } }
-	}
+	const named = oneOfWrite(value, path, info, r.creating)
+	if (named === undefined) return undefined
+	const { kind, field, target, write } = named
 	if (write.kind === 'connect') {
-		return { kind, value: { connect: { id: write.id } } }
+		return { kind, field, operation: 'connect', operand: { id: write.id } }
 	}
 	const at = [...r.at, info.name, write.kind, kind]
 	if (write.kind === 'create') {
 		if (!origins.has(write.data)) origins.set(write.data, at)
-		return { kind, value: { create: write.data } }
+		return { kind, field, operation: 'create', operand: write.data }
 	}
-	const model = modelOf(r.scope.models, target.target)
+	const model = modelOf(r.scope.models, target)
 	const where = `${['data', ...at].join('.')}.where`
 	const id = await found(r, model, write.where, where)
-	if (id !== undefined) return { kind, value: { connect: { id } } }
+	if (id !== undefined) {
+		return { kind, field, operation: 'connect', operand: { id } }
+	}
 	origins.set(write.create, [...at, 'create'])
-	return { kind, value: { create: write.create } }
+	return { kind, field, operation: 'create', operand: write.create }
 }
 
 /** The linked rows `update` and `delete` name, each once (D-138). */
@@ -361,11 +363,10 @@ export async function resolveData(r: Resolving, draft: Draft): Promise<void> {
 		const oneOf = r.model.oneOfs.get(name)
 		if (oneOf !== undefined) {
 			const one = await resolveOneOf(r, oneOf, value)
-			const [operation, operand] = Object.entries(one.value)[0] ?? []
 			draft[name] =
-				one.kind === undefined || operation === undefined
-					? one.value
-					: { [operation]: { [one.kind]: operand } }
+				one === undefined
+					? { disconnect: true }
+					: { [one.operation]: { [one.kind]: one.operand } }
 		} else if (field?.kind === 'one') {
 			draft[name] = oneValue(await resolveOne(r, field, value))
 		} else if (field?.kind === 'many') {

@@ -6,19 +6,19 @@ import { InvalidQuery } from './errors.ts'
 import type { OneOfInfo } from './one-of-schema.ts'
 import { entries, isObject, unknownKey } from './query-where.ts'
 
-/** The kinds a read of a `oneOf` shows, and the args of each hidden `one`. */
+type Values = { readonly [field: string]: unknown }
+
+/**
+ * The kinds a read of a `oneOf` shows; each hidden `one` read by `related`
+ * with its args.
+ */
 export function oneOfArgs(
 	model: string,
 	info: OneOfInfo,
 	value: unknown,
 	path: string,
-): {
-	readonly shown: ReadonlySet<string>
-	readonly args: ReadonlyMap<
-		string,
-		{ readonly at: string; readonly args: unknown }
-	>
-} {
+	related: (field: string, args: unknown, path: string) => void,
+): ReadonlySet<string> {
 	const chosen = new Map<string, unknown>()
 	if (value === true) {
 		for (const kind of info.kinds.keys()) chosen.set(kind, true)
@@ -32,28 +32,25 @@ export function oneOfArgs(
 			if (given !== false) chosen.set(kind, given)
 		}
 	}
-	const args = new Map<string, { at: string; args: unknown }>()
 	for (const [kind, { field }] of info.kinds) {
 		const given = chosen.get(kind)
-		args.set(field, {
-			at: `${path}.${kind}`,
-			args:
-				given === undefined
-					? { select: { id: true } }
-					: given === true
-						? undefined
-						: given,
-		})
+		const args =
+			given === undefined
+				? { select: { id: true } }
+				: given === true
+					? undefined
+					: given
+		related(field, args, `${path}.${kind}`)
 	}
-	return { shown: new Set(chosen.keys()), args }
+	return new Set(chosen.keys())
 }
 
 /** A row's `oneOf` as it reads: its kind, the target if shown, or `null`. */
 export function folded(
 	info: OneOfInfo,
 	shown: ReadonlySet<string>,
-	row: { readonly [field: string]: unknown },
-	project: (field: string, target: unknown) => unknown,
+	row: Values,
+	project: (field: string, target: Values) => unknown,
 ): unknown {
 	for (const [kind, { field }] of info.kinds) {
 		const target = row[field]

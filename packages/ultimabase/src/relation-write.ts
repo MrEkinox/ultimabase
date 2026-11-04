@@ -2,6 +2,7 @@
 // `connect`, `connectOrCreate` and `create`, and in an update `delete`,
 // `disconnect`, `update` and, on a `many`, `set`.
 import { InvalidQuery } from './errors.ts'
+import type { OneOfInfo } from './one-of-schema.ts'
 import { clean, entries, isObject, unknownKey } from './query-where.ts'
 import type { Draft } from './write-data.ts'
 
@@ -135,29 +136,28 @@ export function oneWrite(
 	return { kind: key === 'delete' ? 'delete' : 'disconnect' }
 }
 
-/** A `oneOf` write (D-247): one operation on one kind, or `disconnect`. */
-export type OneOfWrite =
-	| {
-			readonly kind: string
-			readonly write: Extract<
-				OneWrite,
-				{ readonly kind: 'connect' | 'create' | 'connectOrCreate' }
-			>
-	  }
-	| {
-			readonly kind: undefined
-			readonly write: { readonly kind: 'disconnect' }
-	  }
+/**
+ * A `oneOf` write (D-247): one operation on one kind, and that kind's hidden
+ * `one`; `undefined` for `disconnect`.
+ */
+export type OneOfWrite = {
+	readonly kind: string
+	readonly field: string
+	readonly target: string
+	readonly write: Extract<
+		OneWrite,
+		{ readonly kind: 'connect' | 'create' | 'connectOrCreate' }
+	>
+}
 
 export function oneOfWrite(
 	value: unknown,
 	path: string,
-	kinds: readonly string[],
-	optional: boolean,
+	info: OneOfInfo,
 	creating: boolean,
-): OneOfWrite {
+): OneOfWrite | undefined {
 	const ops = ['connect', 'connectOrCreate', 'create']
-	if (optional && !creating) ops.push('disconnect')
+	if (info.optional && !creating) ops.push('disconnect')
 	const given = value === null ? [] : entries(value, path)
 	const [entry] = given
 	if (entry === undefined || given.length !== 1 || !ops.includes(entry[0])) {
@@ -167,24 +167,23 @@ export function oneOfWrite(
 	const at = `${path}.${key}`
 	if (key === 'disconnect') {
 		if (operand !== true) throw new InvalidQuery(at, `${at} must be true.`)
-		return { kind: undefined, write: { kind: key } }
+		return undefined
 	}
 	const named = entries(operand, at)
-	const [chosen] = named
-	if (
-		chosen === undefined ||
-		named.length !== 1 ||
-		!kinds.includes(chosen[0])
-	) {
-		throw new InvalidQuery(at, `${at} names one of ${kinds.join(', ')}.`)
+	const [kind, inner] = named[0] ?? []
+	const hidden = kind === undefined ? undefined : info.kinds.get(kind)
+	if (kind === undefined || hidden === undefined || named.length !== 1) {
+		const kinds = [...info.kinds.keys()].join(', ')
+		throw new InvalidQuery(at, `${at} names one of ${kinds}.`)
 	}
-	const [kind, inner] = chosen
 	const where = `${at}.${kind}`
-	if (key === 'connect')
-		return { kind, write: { kind: key, id: ref(inner, where) } }
-	if (key === 'create')
-		return { kind, write: { kind: key, data: made(inner, where) } }
-	return { kind, write: { kind: 'connectOrCreate', ...orCreate(inner, where) } }
+	const write: OneOfWrite['write'] =
+		key === 'connect'
+			? { kind: key, id: ref(inner, where) }
+			: key === 'create'
+				? { kind: key, data: made(inner, where) }
+				: { kind: 'connectOrCreate', ...orCreate(inner, where) }
+	return { kind, ...hidden, write }
 }
 
 /** A `many` relation write, each operation's list. */

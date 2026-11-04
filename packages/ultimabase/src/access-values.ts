@@ -1,20 +1,11 @@
 // The values access rules see (D-44, D-77, D-86): a row's stored keys as
 // `{ id }`, a relation write's ids, a `oneOf` as its kind and row (D-247).
-import type { OneOfInfo } from './one-of-schema.ts'
+import { folded } from './one-of-read.ts'
 import type { ModelInfo } from './schema.ts'
 import { isObject } from './query-where.ts'
 import { madeId } from './uuid.ts'
 
 type Values = { readonly [field: string]: unknown }
-
-/** A `oneOf`'s kind and row's id, or `null` when it names none. */
-function oneOfRecord(info: OneOfInfo, row: Values): unknown {
-	for (const [kind, { field }] of info.kinds) {
-		const value = row[field]
-		if (isObject(value)) return { kind, [kind]: { id: value['id'] } }
-	}
-	return null
-}
 
 /**
  * The record a rule sees: each stored `one` key as `{ id }` or `null`
@@ -34,7 +25,10 @@ export function recordOf(model: ModelInfo, row: Values): Values {
 		}
 	}
 	for (const info of model.oneOfs.values()) {
-		record[info.name] = oneOfRecord(info, row)
+		const kinds = new Set(info.kinds.keys())
+		record[info.name] = folded(info, kinds, row, (_, one) => ({
+			id: one['id'],
+		}))
 	}
 	return record
 }

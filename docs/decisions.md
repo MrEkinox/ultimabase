@@ -16882,6 +16882,10 @@ post: Post, photo: Photo }`, the kind's field set and the others `null`.
    (D-220), `unique`, `default`, `dbName`, a view that reads it or is one,
    and `orderBy` on it; on the targets' `many`, `within` and `size`. Field
    rules in `.with` are accepted, as on a `one`.
+8. A relation feature decided after this one may refuse a `oneOf`, and the
+   `many` facing one, at the start and in the types, as point 7 does,
+   instead of serving it; it serves a `oneOf` once a decision records the
+   need.
 
 Why: a comment on a post, a photo or a video was an optional `one` per
 kind, a hook checking that exactly one is set, every rule written once per
@@ -16889,8 +16893,9 @@ kind and three nullable fields in the API. The keys stay real foreign keys,
 so the database keeps cascades and integrity, which a type column beside a
 single id would lose. A shared parent model adds a table, a join on every
 read and a row to create with each target.
-Cost: a field kind every adapter and transport serves, and a GraphQL type
-that is not the union clients may expect.
+Cost: a field kind every adapter and transport serves, about 2000 lines
+across the packages, and a GraphQL type that is not the union clients may
+expect; point 8 keeps later relation features from paying it by default.
 Rejected: a GraphQL union (`... on Photo`), whose JSON differs from the
 kernel's and REST's (D-129); `f.one` taking an object of targets, which
 widens the types and messages of every `one`; a type column and one id; a

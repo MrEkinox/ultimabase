@@ -4,6 +4,7 @@
 import type { Shape } from './query-args.ts'
 import type { ModelInfo } from './schema.ts'
 import { folded } from './one-of-read.ts'
+import { hiddenKey } from './one-of-schema.ts'
 import { isObject } from './query-where.ts'
 
 /** The fields of a row its field read rules hide (D-44). */
@@ -58,7 +59,7 @@ export function project(
 		if (unseen?.has(name)) continue
 		// An exists reads its one row's id as whether it keeps one (D-246).
 		const field = shape.model.fields.get(name)
-		if (field?.kind === 'one' && field.of !== undefined) continue
+		if (hiddenKey(field)) continue
 		const rows = row[name]
 		result[name] =
 			field?.kind === 'many' && field.exists

@@ -6,6 +6,7 @@ import type { Context } from './query-context.ts'
 import { filtered, given } from './query-context.ts'
 import { entries, systemFields, unknownKey } from './query-where.ts'
 import type { ModelInfo } from './schema.ts'
+import { hiddenKey } from './one-of-schema.ts'
 import type { Store } from './transaction.ts'
 
 const operations = {
@@ -38,8 +39,7 @@ export function typeOf(
 	}
 	if (model.oneOfs.has(field)) return refuse('a oneOf')
 	const known = model.fields.get(field)
-	// A oneOf's hidden keys are no field of the caller's (D-247).
-	if (known === undefined || (known.kind === 'one' && known.of !== undefined)) {
+	if (known === undefined || hiddenKey(known)) {
 		if (!systemFields.includes(field)) throw unknownKey(path, model.name)
 		return field === 'id' ? 'string' : 'dateTime'
 	}

@@ -4,6 +4,7 @@
 import type { Order, Sort, Step } from './adapter.ts'
 import { InvalidQuery } from './errors.ts'
 import type { ModelInfo } from './schema.ts'
+import { hiddenKey } from './one-of-schema.ts'
 import { searchedFields } from './query-search.ts'
 import type { Models, Scope } from './query-where.ts'
 import {
@@ -56,9 +57,7 @@ function sortable(model: ModelInfo, field: string, path: string): void {
 	if (model.oneOfs.has(field)) {
 		throw new InvalidQuery(path, `${path} is a oneOf, which cannot be sorted.`)
 	}
-	// A oneOf's hidden keys are no field of the caller's (D-247).
-	const hidden = known?.kind === 'one' && known.of !== undefined
-	if (known === undefined || hidden) {
+	if (known === undefined || hiddenKey(known)) {
 		if (!systemFields.includes(field)) throw unknownKey(path, model.name)
 		return
 	}

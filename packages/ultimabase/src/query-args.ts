@@ -4,6 +4,7 @@ import type { Filter, Nested } from './adapter.ts'
 import { and } from './access.ts'
 import { InvalidQuery } from './errors.ts'
 import { oneOfArgs } from './one-of-read.ts'
+import { hiddenKey } from './one-of-schema.ts'
 import type { ModelInfo } from './schema.ts'
 import type { VirtualInfo } from './schema-virtuals.ts'
 import { counted } from './query-counted.ts'
@@ -222,11 +223,7 @@ export function plan(
 			const oneOf = model.oneOfs.get(name)
 			if (oneOf !== undefined) {
 				if (value === false) continue
-				const kinds = oneOfArgs(model.name, oneOf, value, where)
-				for (const [hidden, each] of kinds.args) {
-					related(hidden, each.args, each.at)
-				}
-				oneOfs.set(name, kinds.shown)
+				oneOfs.set(name, oneOfArgs(model.name, oneOf, value, where, related))
 				continue
 			}
 			const field = model.fields.get(name)
@@ -234,11 +231,9 @@ export function plan(
 				field === undefined
 					? systemFields.includes(name)
 					: field.kind === 'scalar'
-			// A oneOf's hidden keys are no field of the caller's (D-247).
-			const hidden = field?.kind === 'one' && field.of !== undefined
 			if (
 				(field === undefined && !scalar) ||
-				hidden ||
+				hiddenKey(field) ||
 				(base === 'include' && scalar)
 			) {
 				throw unknownKey(where, model.name)

@@ -10,7 +10,7 @@ import type {
 	RelationValue,
 } from './field-rules.ts'
 import type { FilterOf, Payload, RelationArgs, Where } from './query.ts'
-import type { TargetFields } from './record.ts'
+import type { Exactly, TargetFields } from './record.ts'
 import type { fieldType } from './symbols.ts'
 
 /** What shapes a `oneOf`: what a stored `one` takes but its key's (D-247). */
@@ -42,12 +42,7 @@ export type OneOfValue<T> = {
 	[K in keyof T]: Tagged<K, RelationValue>
 }[keyof T]
 
-export interface OneOf<T, O, U = never> {
-	readonly [fieldType]: {
-		readonly kind: 'oneOf'
-		readonly targets: T
-		readonly options: O
-	}
+export interface OneOf<T, O, U = never> extends OneOfShape<T, O> {
 	with<R extends object = never>(
 		rules: FieldWith<NoInfer<R>, OneOfValue<T> | null, U> & OpenWith,
 	): OneOf<T, O> & Declared<R>
@@ -171,10 +166,6 @@ type Operand<W, O extends PropertyKey> = W extends {
  */
 export type Kinded<W> = {
 	[O in Operation<W>]: {
-		readonly [Op in O]: {
-			[P in keyof W]: { readonly [Q in P]: Operand<W[P], O> } & {
-				readonly [Q in Exclude<keyof W, P>]?: never
-			}
-		}[keyof W]
+		readonly [Op in O]: Exactly<{ [P in keyof W]: Operand<W[P], O> }>
 	}
 }[Operation<W>]

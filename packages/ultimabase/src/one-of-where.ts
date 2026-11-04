@@ -22,10 +22,6 @@ export function oneOfFilters(
 	related: Related,
 ): Filter[] {
 	const filters: Filter[] = []
-	const each = (operator: string, operand: unknown, at: string): Filter[] =>
-		[...info.kinds.values()].map(({ field }) =>
-			all(related(field, { [operator]: operand }, at)),
-		)
 	for (const [key, given] of entries(value, path)) {
 		const at = `${path}.${key}`
 		const kind = info.kinds.get(key)
@@ -47,11 +43,11 @@ export function oneOfFilters(
 		if (given === null && !info.optional) {
 			throw new InvalidQuery(at, `${at}: ${model}.${info.name} is required.`)
 		}
+		const each = [...info.kinds.values()].map(({ field }) =>
+			all(related(field, { [key]: given }, at)),
+		)
 		// Is X: one kind's is; is not X: no kind's is (`null` none set).
-		const empty = given === null
-		const any = (key === 'is') !== empty
-		const filtered = each(key, given, at)
-		filters.push(any ? { OR: filtered } : all(filtered))
+		filters.push((key === 'is') !== (given === null) ? { OR: each } : all(each))
 	}
 	return filters
 }

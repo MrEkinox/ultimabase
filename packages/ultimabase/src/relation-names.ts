@@ -37,13 +37,11 @@ type NameErrors<N extends string, F> = {
 						? `${N}.${K & string}: size bounds a one-to-many relation only`
 						: never
 					: never)
-			| (TargetFields<T> extends infer G
-					? O extends { readonly inverse: infer I extends keyof G }
-						? G[I] extends OneOfShape
-							? O extends
-									{ readonly within: unknown } | { readonly size: unknown }
-								? `${N}.${K & string}: a many facing a oneOf takes no within or size`
-								: never
+			| (O extends { readonly inverse: infer I extends keyof TargetFields<T> }
+					? TargetFields<T>[I] extends OneOfShape
+						? O extends
+								{ readonly within: unknown } | { readonly size: unknown }
+							? `${N}.${K & string}: a many facing a oneOf takes no within or size`
 							: never
 						: never
 					: never)

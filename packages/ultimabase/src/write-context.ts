@@ -197,7 +197,3 @@ export function isOptional(
 	)
 	return other?.kind === 'one' && other.optional
 }
-
-/** A `oneOf` kind's key, which only its `oneOf` writes (D-247). */
-export const hiddenKey = (field: FieldInfo): boolean =>
-	field.kind === 'one' && field.of !== undefined

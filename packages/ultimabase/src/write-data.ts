@@ -17,6 +17,7 @@ import { checked, validated } from './validation.ts'
 import type { OrCreate } from './relation-write.ts'
 import { manyWrite, oneOfWrite, oneWrite } from './relation-write.ts'
 import type { OneOfInfo } from './one-of-schema.ts'
+import { hiddenKey } from './one-of-schema.ts'
 import { refuseSet } from './relations.ts'
 
 /** The data a `before*` hook changes in place (D-71). */
@@ -78,7 +79,7 @@ export function readData(
 			field === undefined ||
 			((field.kind === 'many' || (field.kind === 'one' && !field.stored)) &&
 				field.from !== undefined) ||
-			(field.kind === 'one' && field.of !== undefined)
+			hiddenKey(field)
 		) {
 			throw unknownKey(path, model.name)
 		}
@@ -138,17 +139,11 @@ function oneOfData(
 	path: string,
 	creating: boolean,
 ): Draft {
-	const kinds = [...info.kinds.keys()]
-	const { kind, write } = oneOfWrite(
-		value,
-		path,
-		kinds,
-		info.optional,
-		creating,
-	)
-	if (kind === undefined) return { disconnect: true }
-	const hidden = model.fields.get(info.kinds.get(kind)?.field ?? '')
-	const target = hidden?.kind === 'one' ? models.get(hidden.target) : undefined
+	const named = oneOfWrite(value, path, info, creating)
+	if (named === undefined) return { disconnect: true }
+	const { kind, write } = named
+	const hidden = model.fields.get(named.field)
+	const target = models.get(named.target)
 	const at = `${path}.${write.kind}.${kind}`
 	const nested = (item: Draft, where: string): Draft =>
 		target === undefined || hidden?.kind !== 'one'

@@ -212,12 +212,15 @@ type IsNumber<X> = X extends {
 		: false
 	: false
 
-/** Exactly one of `T`'s keys; `undefined` leaves the field as it is. */
-type ExactlyOne<T> = {
-	[K in keyof T]: { readonly [P in K]: T[K] | undefined } & {
+/** Exactly one of `T`'s keys. */
+export type Exactly<T> = {
+	[K in keyof T]: { readonly [P in K]: T[K] } & {
 		readonly [P in Exclude<keyof T, K>]?: never
 	}
 }[keyof T]
+
+/** Exactly one of `T`'s keys; `undefined` leaves the field as it is. */
+type ExactlyOne<T> = Exactly<{ [K in keyof T]: T[K] | undefined }>
 
 /** One operation on a number, computed on the row (D-132). */
 type NumberUpdate<V> = ExactlyOne<{

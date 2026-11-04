@@ -1,7 +1,7 @@
 // The schema `start` resolves from the application's models: each relation
 // gets the other side it names or is named by, and the side that stores its
 // key (D-37, D-54, D-64, D-237).
-import type { OneOfKey, Schema, SchemaField, SchemaModel } from './adapter.ts'
+import type { Schema, SchemaField, SchemaModel } from './adapter.ts'
 import type {
 	Codec,
 	FieldDefinition,
@@ -231,7 +231,6 @@ export function resolve(
 	const links: Linked[] = []
 	const views: Linked[] = []
 	const oneOfs = new Map<string, Map<string, OneOfInfo>>()
-	const keys = new Map<string, OneOfKey>()
 	for (const [model, definition] of definitions) {
 		const targetOf = (name: string, thunk: () => unknown): string => {
 			const value = thunk()
@@ -262,10 +261,7 @@ export function resolve(
 					(kind, thunk) => targetOf(`${name}.${kind}`, thunk),
 				)
 				mine.set(name, info)
-				for (const { of, ...one } of ones) {
-					keys.set(`${model}.${one.name}`, of)
-					links.push(one)
-				}
+				links.push(...ones)
 				continue
 			}
 			const target = targetOf(name, field.target)
@@ -308,12 +304,12 @@ export function resolve(
 			// A virtual is no field of the adapter's (D-151).
 			if (field.kind === 'virtual') continue
 			if (field.kind === 'oneOf') {
-				for (const kind of oneOfs.get(model)?.get(name)?.kinds.values() ?? []) {
-					const one = relationOf(model, kind.field)
-					const of = keys.get(`${model}.${kind.field}`)
-					if (one?.kind === 'one' && of !== undefined) {
-						fields.set(kind.field, { ...one, of })
-					}
+				const info = oneOfs.get(model)?.get(name)
+				for (const [kind, hidden] of info?.kinds ?? []) {
+					const one = relationOf(model, hidden.field)
+					if (one?.kind !== 'one' || info === undefined) continue
+					const of = { field: name, kind, optional: info.optional }
+					fields.set(hidden.field, { ...one, of })
 				}
 				continue
 			}

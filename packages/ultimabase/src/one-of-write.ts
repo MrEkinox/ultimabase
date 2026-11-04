@@ -27,16 +27,15 @@ export async function oneOfField(
 	const r = resolving(context, skips, creating)
 	const resolved = await resolveOneOf(r, info, value)
 	for (const [kind, { field }] of info.kinds) {
-		if (kind !== resolved.kind) context.set[field] = null
+		if (kind !== resolved?.kind) context.set[field] = null
 	}
-	const chosen = info.kinds.get(resolved.kind ?? '')
-	const field = context.model.fields.get(chosen?.field ?? '')
+	if (resolved === undefined) return
+	const field = context.model.fields.get(resolved.field)
 	if (field?.kind !== 'one') return
+	const written = { [resolved.operation]: resolved.operand }
 	// The kind's `one` is the caller's when the `oneOf` is (D-67).
-	const sent = skips
-		? context.sent
-		: { ...context.sent, [field.name]: resolved.value }
-	await one({ ...context, sent }, field, resolved.value, creating)
+	const sent = skips ? context.sent : { ...context.sent, [field.name]: written }
+	await one({ ...context, sent }, field, written, creating)
 }
 
 /** Fails on a required `oneOf` a create leaves without a kind. */
