@@ -155,6 +155,7 @@ function field(
 	table: Table,
 	building: Building,
 	given: SchemaField,
+	led: ReadonlySet<string>,
 ): void {
 	if (given.kind === 'many' || (given.kind === 'one' && !given.stored)) return
 	const what = `${table.model.name}.${given.name}`
@@ -187,7 +188,10 @@ function field(
 		table: catalog.table(given.target).name,
 		cascade: false,
 	}
-	if (!given.unique) index(claims, building, table.name, [column], what)
+	// A key or an index that starts with the column serves it (D-234).
+	if (!given.unique && !led.has(given.name)) {
+		index(claims, building, table.name, [column], what)
+	}
 	if (given.within === undefined) return
 	const name = constraint(`${table.name}_${column}_within_fkey`)
 	const target = catalog.table(given.target)
@@ -215,6 +219,16 @@ function parentsOf(catalog: Catalog): Map<string, Set<string>> {
 	return parents
 }
 
+/** The first field of each of the model's keys and indexes, not partial. */
+function leading(table: Table): Set<string> {
+	const indexes = table.model.indexes.filter(
+		({ unique, contains, where }) =>
+			!unique && !contains && where === undefined,
+	)
+	const keys = table.uniques.filter(({ where }) => where === undefined)
+	return new Set([...keys, ...indexes].flatMap(({ fields }) => fields[0] ?? []))
+}
+
 /** The fields of a key or an index, as `Thing(a, b)`. */
 const on = (model: string, fields: readonly string[]) =>
 	`${model}(${fields.join(', ')})`
@@ -237,8 +251,9 @@ export function snapshotOf(catalog: Catalog): Snapshot {
 			claims.columns(column, `${model}.${name}`)
 			building.columns[column] = { field: name, type, nullable: false }
 		}
+		const led = leading(table)
 		for (const given of table.model.fields) {
-			field(catalog, claims, table, building, given)
+			field(catalog, claims, table, building, given, led)
 		}
 		const [, ...uniques] = table.uniques
 		for (const { name, fields, lower, where } of uniques) {

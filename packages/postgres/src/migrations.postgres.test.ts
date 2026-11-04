@@ -407,6 +407,30 @@ const tasks = (within: boolean): Schema => ({
 	],
 })
 
+/** Memberships of a team and a person, with the given indexes. */
+const memberships = (indexes: Schema['models'][number]['indexes']): Schema => ({
+	models: [
+		{
+			name: 'Team',
+			fields: [many('members', 'Membership', 'team')],
+			indexes: [],
+		},
+		{
+			name: 'Person',
+			fields: [many('teams', 'Membership', 'person')],
+			indexes: [],
+		},
+		{
+			name: 'Membership',
+			fields: [
+				one('team', 'Team', 'members'),
+				one('person', 'Person', 'teams'),
+			],
+			indexes,
+		},
+	],
+})
+
 describe('a sync on postgres()', () => {
 	it('builds an empty database, then changes every kind of thing a model holds', async () => {
 		await sync(undefined, before)
@@ -1409,6 +1433,38 @@ describe('a sync on postgres()', () => {
 		expect(changes(await sync(tasks(true), tasks(false)))).toStrictEqual([
 			'Task: dropped the foreign key on milestone',
 			'Milestone: dropped the unique key on id, project',
+		])
+	})
+
+	it('indexes no relation that a key or an index starts with (D-234)', async () => {
+		const key = { fields: ['team', 'person'], unique: true, contains: false }
+		const indexOf = (indexes: Schema['models'][number]['indexes']) =>
+			parseSnapshot(migrations.snapshot(memberships(indexes))).tables[
+				'membership'
+			]?.indexes
+		const both = {
+			membership_team_id_idx: ['team_id'],
+			membership_person_id_idx: ['person_id'],
+		}
+		const person = { membership_person_id_idx: ['person_id'] }
+		expect(indexOf([])).toStrictEqual(both)
+		expect(indexOf([key])).toStrictEqual(person)
+		expect(indexOf([{ ...key, unique: false }])).toStrictEqual({
+			...person,
+			membership_team_id_person_id_idx: ['team_id', 'person_id'],
+		})
+		expect(
+			indexOf([{ ...key, fields: ['team'], unique: false }]),
+		).toStrictEqual({ membership_team_id_idx: ['team_id'], ...person })
+		// A partial key serves only the rows it keeps.
+		const where: IndexWhere = { person: { not: null } }
+		expect(indexOf([{ ...key, where }])).toStrictEqual(both)
+		await sync(undefined, memberships([]))
+		expect(
+			changes(await sync(memberships([]), memberships([key]))),
+		).toStrictEqual([
+			'Membership: dropped the index on team',
+			'Membership: added a unique key on team, person',
 		])
 	})
 
