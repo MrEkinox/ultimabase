@@ -15614,4 +15614,3 @@ After:
 --   alter table "account" rename column "mail_on_message" to "push_messages";
 alter table "account" drop column "mail_on_message";
 ```
-
