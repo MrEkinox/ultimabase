@@ -4,6 +4,7 @@
 import { testApplication } from '@ultimabase/testing'
 import { defineApp, defineModel, master, transaction } from 'ultimabase'
 import { describe, expect, it } from 'vitest'
+import { Client } from 'pg'
 import { createAdapter } from './adapter.ts'
 
 const servers =
@@ -26,6 +27,10 @@ const Project = defineModel({
 			inverse: 'featuredIn',
 			within: { project: 'id' },
 		}),
+		featuredGoal: f.one(() => Goal, {
+			optional: true,
+			within: { milestone: 'featured' },
+		}),
 	}),
 })
 
@@ -35,6 +40,7 @@ const Milestone = defineModel({
 		name: f.string(),
 		project: f.one(() => Project, { inverse: 'milestones' }),
 		tasks: f.many(() => Task),
+		goals: f.many(() => Goal),
 		featuredIn: f.many(() => Project, { inverse: 'featured' }),
 	}),
 })
@@ -48,11 +54,42 @@ const Task = defineModel({
 	}),
 })
 
+const Goal = defineModel({
+	name: 'Goal',
+	fields: (f) => ({
+		milestone: f.one(() => Milestone, { onDelete: 'cascade' }),
+		featuredIn: f.many(() => Project),
+	}),
+})
+
 const refused = (path: string, message: string) => ({
 	code: 'VALIDATION_FAILED',
 	details: { issues: [{ path: [path], message }] },
 })
 const task = 'Task.milestone needs a Milestone of the same project.'
+
+/** Waits until a statement waits on a lock `holder` holds. */
+async function blocking(holder: Client): Promise<void> {
+	const { rows: held } = await holder.query<{ pid: number }>(
+		'select pg_backend_pid() as pid',
+	)
+	const watcher = new Client({ connectionString: server })
+	await watcher.connect()
+	try {
+		for (let tries = 0; tries < 300; tries += 1) {
+			const { rows } = await watcher.query<{ n: number }>(
+				`select count(*)::int as n from pg_stat_activity
+				 where $1 = any(pg_blocking_pids(pid))`,
+				[held[0]?.pid],
+			)
+			if ((rows[0]?.n ?? 0) > 0) return
+			await new Promise((resolve) => setTimeout(resolve, 10))
+		}
+	} finally {
+		await watcher.end()
+	}
+	throw new Error('The write never waited on the row lock.')
+}
 
 /** Two projects, and a milestone of the first. */
 async function seed() {
@@ -66,9 +103,12 @@ async function seed() {
 }
 
 describe('a relation kept within its parent on postgres()', () => {
-	testApplication(defineApp({ database, models: [Project, Milestone, Task] }), {
-		database: 'declared',
-	})
+	testApplication(
+		defineApp({ database, models: [Project, Milestone, Task, Goal] }),
+		{
+			database: 'declared',
+		},
+	)
 
 	it("keys the row's target and parent against the target's", async () => {
 		const keys = await database.sql<{ name: string; definition: string }>`
@@ -79,8 +119,22 @@ describe('a relation kept within its parent on postgres()', () => {
 			order by conname`
 		expect(keys).toStrictEqual([
 			{
+				name: 'goal_id_milestone_id_key',
+				definition: 'UNIQUE (id, milestone_id)',
+			},
+			{
 				name: 'milestone_id_project_id_key',
 				definition: 'UNIQUE (id, project_id)',
+			},
+			{
+				name: 'project_featured_goal_id_within_check',
+				definition:
+					'CHECK (((featured_id IS NOT NULL) OR (featured_goal_id IS NULL)))',
+			},
+			{
+				name: 'project_featured_goal_id_within_fkey',
+				definition:
+					'FOREIGN KEY (featured_goal_id, featured_id) REFERENCES goal(id, milestone_id) DEFERRABLE INITIALLY DEFERRED',
 			},
 			{
 				name: 'project_featured_id_within_fkey',
@@ -164,5 +218,79 @@ describe('a relation kept within its parent on postgres()', () => {
 				M,
 			),
 		).toStrictEqual({ featured: { id: milestone } })
+	})
+
+	it('empties a target before the parent a delete empties', async () => {
+		const { mine, milestone } = await seed()
+		const goal = await Goal.create(
+			{ data: { milestone: { connect: { id: milestone } } } },
+			M,
+		)
+		await Project.update(
+			{
+				where: { id: mine },
+				data: {
+					featured: { connect: { id: milestone } },
+					featuredGoal: { connect: { id: goal.id } },
+				},
+			},
+			M,
+		)
+		await Milestone.delete({ where: { id: milestone } }, M)
+		expect(
+			await Project.findUnique(
+				{ where: { id: mine }, select: { featured: true, featuredGoal: true } },
+				M,
+			),
+		).toStrictEqual({ featured: null, featuredGoal: null })
+	})
+
+	it('refuses a parent emptied while a statement links a target', async () => {
+		const { mine, milestone } = await seed()
+		const goal = await Goal.create(
+			{ data: { milestone: { connect: { id: milestone } } } },
+			M,
+		)
+		await Project.update(
+			{
+				where: { id: mine },
+				data: { featured: { connect: { id: milestone } } },
+			},
+			M,
+		)
+		const [{ schema } = { schema: '' }] = await database.sql<{
+			schema: string
+		}>`
+			select current_schema() as schema`
+		const options = encodeURIComponent(`-c search_path=${schema}`)
+		const other = new Client({
+			connectionString: `${server}?options=${options}`,
+		})
+		await other.connect()
+		try {
+			// The kernel counts no linked target, then waits on the row's lock.
+			await other.query('begin')
+			await other.query(
+				'update project set featured_goal_id = $1 where id = $2',
+				[goal.id, mine],
+			)
+			const emptied = Milestone.update(
+				{
+					where: { id: milestone },
+					data: { featuredIn: { disconnect: [{ id: mine }] } },
+				},
+				M,
+			)
+			await blocking(other)
+			await other.query('commit')
+			await expect(emptied).rejects.toMatchObject(
+				refused(
+					'featuredGoal',
+					'Project.featuredGoal needs a Goal of the same milestone.',
+				),
+			)
+		} finally {
+			await other.end()
+		}
 	})
 })

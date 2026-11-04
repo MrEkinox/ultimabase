@@ -240,10 +240,16 @@ export class Catalog {
 			for (const field of table.model.fields) {
 				if (field.kind !== 'one' || field.within === undefined) continue
 				const column = this.column(table, field.name)
-				withins.set(constraint(`${table.name}_${column}_within_fkey`), {
+				const within = {
 					field: field.name,
 					message: `${table.model.name}.${field.name} needs a ${field.target} of the same ${field.within.target}.`,
-				})
+				}
+				for (const kind of ['fkey', 'check']) {
+					withins.set(
+						constraint(`${table.name}_${column}_within_${kind}`),
+						within,
+					)
+				}
 			}
 		}
 		return withins

@@ -98,8 +98,10 @@ already share a value fail the migration. The foreign keys have no `on delete`:
 UltimaBase runs `onDelete` itself, with the hooks and access rules. A
 relation's `within` key is checked at commit too: a concurrent write or SQL of
 your own that parts a row from its target's parent fails the transaction with
-the kernel's `VALIDATION_FAILED`, its issue on the row's relation.
-Constraint names end in `_pkey`, `_key`, `_lower_key`, `_fkey`, `_within_fkey`, `_check` and `_idx`. A
+the kernel's `VALIDATION_FAILED`, its issue on the row's relation. With an
+optional parent, a check `_within_check` keeps the key `null` while the
+parent's is, and fails the statement with the same issue.
+Constraint names end in `_pkey`, `_key`, `_lower_key`, `_fkey`, `_within_fkey`, `_check`, `_within_check` and `_idx`. A
 name longer than PostgreSQL's 63 bytes keeps its first 54 bytes plus an
 8-character hash. `dbName` names a table or a column yourself (see
 [Models and fields](/docs/next/models)).

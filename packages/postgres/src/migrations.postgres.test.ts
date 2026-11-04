@@ -371,8 +371,11 @@ const changes = (statements: readonly { model: string; does: string }[]) =>
 
 const run = async (statement: string) => query(inSchema(schema), statement)
 
-/** Tasks whose milestone is kept within their project, or not (D-220). */
-const tasks = (within: boolean): Schema => ({
+/**
+ * Tasks whose milestone is kept within their project, or not (D-220), and
+ * whose project is optional or not (D-235).
+ */
+const tasks = (within: boolean, optional = false): Schema => ({
 	models: [
 		{
 			name: 'Project',
@@ -393,7 +396,7 @@ const tasks = (within: boolean): Schema => ({
 		{
 			name: 'Task',
 			fields: [
-				one('project', 'Project', 'tasks'),
+				{ ...one('project', 'Project', 'tasks'), optional },
 				{
 					...one('milestone', 'Milestone', 'tasks'),
 					optional: true,
@@ -1410,6 +1413,72 @@ describe('a sync on postgres()', () => {
 			'Task: dropped the foreign key on milestone',
 			'Milestone: dropped the unique key on id, project',
 		])
+	})
+
+	it('keeps a relation within an optional parent, and lets it go (D-235)', async () => {
+		await sync(undefined, tasks(false, true))
+		const [project, milestone] = [randomUUID(), randomUUID()]
+		await run(`insert into project values ('${project}', now(), now())`)
+		await run(
+			`insert into milestone values ('${milestone}', now(), now(), '${project}')`,
+		)
+		await run(
+			`insert into task values (gen_random_uuid(), now(), now(), null, '${milestone}')`,
+		)
+		const check = `alter table "task" add constraint "task_milestone_id_within_check" check ("project_id" is not null or "milestone_id" is null)`
+		await expect(
+			sync(tasks(false, true), tasks(true, true)),
+		).rejects.toMatchObject({
+			name: 'MigrationFailed',
+			at: check,
+			reason:
+				'check constraint "task_milestone_id_within_check" of relation "task" is violated by some row',
+		})
+		await run(`update task set project_id = '${project}'`)
+		const statements = await sync(tasks(false, true), tasks(true, true))
+		expect(
+			statements.map(({ sql, does, tries }) => [sql, does, tries]),
+		).toStrictEqual([
+			[
+				'alter table "milestone" add constraint "milestone_id_project_id_key" unique ("id", "project_id")',
+				'added a unique key on id, project',
+				undefined,
+			],
+			[
+				check,
+				'made milestone need project',
+				'making "Task.milestone" need project fails when a row holds one without it',
+			],
+			[
+				`alter table "task" add constraint "task_milestone_id_within_fkey" foreign key ("milestone_id", "project_id") references "milestone" ("id", "project_id") deferrable initially deferred`,
+				'added the foreign key on milestone',
+				'keeping "Task.milestone" within project fails when a row links outside it',
+			],
+		])
+		const { tables } = parseSnapshot(migrations.snapshot(tasks(true, true)))
+		expect(tables['task']?.checks).toStrictEqual({
+			task_milestone_id_within_check: {
+				column: 'milestone_id',
+				parent: 'project_id',
+			},
+		})
+		expect(
+			migrations.plan(
+				migrations.snapshot(tasks(true, true)),
+				tasks(true, true),
+			),
+		).toStrictEqual([])
+		expect(
+			changes(await sync(tasks(true, true), tasks(false, true))),
+		).toStrictEqual([
+			'Task: dropped the foreign key on milestone',
+			'Milestone: dropped the unique key on id, project',
+			'Task: dropped the check of milestone on project',
+		])
+		const created = migrations.plan(undefined, tasks(true, true))
+		expect(created.map(({ sql }) => sql).join('\n')).toContain(
+			'constraint "task_milestone_id_within_check" check ("project_id" is not null or "milestone_id" is null)',
+		)
 	})
 
 	it('refuses a snapshot postgres() did not write', () => {

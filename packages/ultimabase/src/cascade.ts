@@ -57,6 +57,14 @@ function referencesTo(
 
 const keyOf = (model: ModelInfo, id: string): string => `${model.name}:${id}`
 
+/** How many `within` relations a field's chain holds, itself included. */
+function chainOf(model: ModelInfo, field: string, depth = 0): number {
+	const at = model.fields.get(field)
+	// A chain of the model's fields is no longer than they are.
+	if (at?.kind !== 'one' || !at.within || depth > model.fields.size) return 0
+	return 1 + chainOf(model, at.within.source, depth + 1)
+}
+
 /**
  * Loads every row deleting `deleting` reaches, level by level, as stored: no
  * `beforeFind`, no access rules (D-54, D-90). Fails with
@@ -143,10 +151,15 @@ export async function cascadeOf(
 			.slice(roots.length)
 			.toReversed()
 			.concat(roots),
-		nulled: [...nulled.values()].map((group) => ({
-			...group,
-			rows: group.rows.filter((found) => stays(group.model, found.id)),
-		})),
+		// A `within` relation is emptied before the field it rests on: a row
+		// never holds a target with no parent, which PostgreSQL checks at each
+		// statement (D-235).
+		nulled: [...nulled.values()]
+			.toSorted((a, b) => chainOf(b.model, b.field) - chainOf(a.model, a.field))
+			.map((group) => ({
+				...group,
+				rows: group.rows.filter((found) => stays(group.model, found.id)),
+			})),
 	}
 }
 

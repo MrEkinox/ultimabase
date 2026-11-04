@@ -21,12 +21,17 @@ export type ForeignKey = {
 	readonly within?: { readonly column: string; readonly target: string }
 }
 
-/** A column among `values`; each element of a list's (D-127). */
-export type Check = {
-	readonly column: string
-	readonly values: string[]
-	readonly list?: true
-}
+/**
+ * A column among `values`, each element of a list's (D-127); or a `within`
+ * relation's column, empty while its `parent` column is (D-235).
+ */
+export type Check =
+	| {
+			readonly column: string
+			readonly values: string[]
+			readonly list?: true
+	  }
+	| { readonly column: string; readonly parent: string }
 
 /**
  * `model` is the model's name, or `Book.tags` for a join table. Constraints
@@ -191,14 +196,26 @@ function field(
 	if (given.within === undefined) return
 	const name = constraint(`${table.name}_${column}_within_fkey`)
 	const target = catalog.table(given.target)
+	const { source } = given.within
+	const parent = catalog.column(table, source)
 	building.foreignKeys[claims.schema(name, `the within key of ${what}`)] = {
 		column,
 		table: target.name,
 		cascade: false,
 		within: {
-			column: catalog.column(table, given.within.source),
+			column: parent,
 			target: catalog.column(target, given.within.target),
 		},
+	}
+	// The key skips a row whose parent is unset: a check refuses its target.
+	const optional = table.model.fields.some(
+		(each) => each.name === source && each.kind === 'one' && each.optional,
+	)
+	if (!optional) return
+	const check = constraint(`${table.name}_${column}_within_check`)
+	building.checks[claims.schema(check, `the within check of ${what}`)] = {
+		column,
+		parent,
 	}
 }
 

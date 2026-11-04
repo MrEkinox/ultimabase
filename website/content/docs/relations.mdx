@@ -342,7 +342,10 @@ a task links it.
   project's own milestones, and `within: { milestone: 'featured' }` on
   `Project.featuredTask` keeps it among the featured milestone's tasks.
 - The target's field is a required `one`; the row's side may be optional. A
-  row whose relation or parent is `null` holds nothing.
+  row whose relation is `null` holds nothing; a row whose parent is `null`
+  links no target. With no `featured` milestone, linking a `featuredTask` is
+  refused, and so is emptying `featured` while a `featuredTask` is linked:
+  empty both in one write. Deleting the featured milestone empties both.
 - `within` goes on the side that stores the key, never on a `many`.
 - A write is checked against the rows as they were before it: one that moves
   a milestone and links a task to it in the same write is refused. Write

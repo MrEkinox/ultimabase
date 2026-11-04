@@ -14563,6 +14563,8 @@ not make).
 
 ## D-220: A relation kept within the row's parent
 
+Amended by D-235.
+
 Choice: amends D-37 and D-99; D-54 is unchanged.
 
 1. A stored `one` relation takes `within`: its target shares a parent with
@@ -15355,3 +15357,103 @@ query ($where: PostWhereInput) {
 # nested more than 32 levels deep.
 # $where 20,000 levels deep: BAD_USER_INPUT, The variables are nested too deep.
 ```
+
+## D-235: A relation kept within an unset parent holds no target
+
+Choice: amends D-220.
+
+1. A row whose parent is `null` links no target through a relation kept
+   within it: a target always has a parent of its own, so none shares an
+   unset one. With `featuredTask` kept `within: { milestone: 'featured' }`,
+   a project with no `featured` milestone has no `featuredTask`. A relation
+   whose own value is `null` still holds nothing, as before.
+2. The kernel refuses, among the write's checks (D-99), with D-220's issue:
+   a write that links a target to a row whose parent is unset, through the
+   row or the target's side, on the relation's field; a write that empties
+   the parent of a row that keeps its target, from either side, on the
+   parent's field. The same write emptying both is accepted.
+3. A delete that empties the parent empties the target first. A target's
+   field to the parent is required (D-220), so a parent deleted has its
+   targets deleted by their `onDelete: 'cascade'`, or is refused by their
+   `restrict`, and the row's relation is emptied with them, before the
+   parent's.
+4. `postgres()` holds it too, when the parent is an optional field: a check
+   `CHECK (featured_id IS NOT NULL OR featured_task_id IS NULL)`, named
+   `project_featured_task_id_within_check`, beside D-220's foreign key, which
+   skips a row once one of its columns is `NULL`. A check is not deferred:
+   the cascade empties the relation before the field it rests on. Its
+   refusal, which a race alone reaches, is the issue on the row's relation.
+   `migrate create` writes and drops it with `within`: `Project: made
+featuredTask need featured`.
+
+Why: a row with no parent took any target, the kernel's checks skipped it
+and the database's key compared nothing, so an application wrote the
+missing half in a hook, which concurrent writes passed. Before:
+
+```ts
+export const Project = defineModel({
+	name: 'Project',
+	fields: (f) => ({
+		featured: f.one(() => Milestone, {
+			optional: true,
+			within: { project: 'id' },
+		}),
+		featuredTask: f.one(() => Task, {
+			optional: true,
+			within: { milestone: 'featured' },
+		}),
+	}),
+}).with({
+	hooks: {
+		afterUpdate: ({ record }) => {
+			if (record.featured === null && record.featuredTask !== null) {
+				throw new PublicError('NO_MILESTONE', 'No featured milestone.')
+			}
+		},
+	},
+})
+
+// Accepted without the hook: a task of any milestone, with none featured.
+await Project.update(
+	{ where: { id }, data: { featuredTask: { connect: { id: task } } } },
+	{ as: master },
+)
+```
+
+After, with no hook:
+
+```ts
+await Project.update(
+	{ where: { id }, data: { featuredTask: { connect: { id: task } } } },
+	{ as: master },
+)
+// VALIDATION_FAILED: Project.featuredTask needs a Task of the same milestone.
+
+await Project.update(
+	{ where: { id }, data: { featured: { disconnect: true } } },
+	{ as: master },
+)
+// VALIDATION_FAILED, on featured while a featuredTask is linked:
+// Project.featuredTask needs a Task of the same milestone.
+
+await Project.update(
+	{
+		where: { id },
+		data: {
+			featured: { disconnect: true },
+			featuredTask: { disconnect: true },
+		},
+	},
+	{ as: master },
+)
+// Accepted.
+```
+
+Rejected:
+
+- `MATCH FULL` on D-220's foreign key: it also refuses a parent with no
+  target, the usual case.
+- Emptying the target when a write empties the parent: a silent loss, where
+  refusing names it, as D-220 rejects for a moved parent.
+- A deferred check: PostgreSQL defers no check; a trigger would, for a rule
+  the cascade's order already keeps.
