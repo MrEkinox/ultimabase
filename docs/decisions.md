@@ -13616,6 +13616,8 @@ await plugins.maintenance.lock()
 
 ## D-206: Each plugin declares its codes, and `ErrorCodeOf<typeof app>`
 
+Amended by D-231.
+
 Choice: amends D-72 and D-107.
 
 1. A plugin's types take `errors`, the union of the codes its errors carry
@@ -14968,6 +14970,8 @@ httpPlugin({ bodyLimit: Number(process.env.BODY_LIMIT) })
 
 ## D-224: An issue's code, from a schema and from the password's refusals
 
+Amended by D-231.
+
 Choice: amends D-88 and D-209.
 
 1. The kernel keeps an issue's `code` from any Standard Schema, a
@@ -15354,4 +15358,81 @@ query ($where: PostWhereInput) {
 # $where 33 levels deep: BAD_USER_INPUT, where.NOT.0.….NOT.0: the filter is
 # nested more than 32 levels deep.
 # $where 20,000 levels deep: BAD_USER_INPUT, The variables are nested too deep.
+```
+
+## D-231: Each plugin declares its issue codes, and `IssueCodeOf<typeof app>`
+
+Choice: amends D-206 and D-224.
+
+1. A plugin's types take `issues`, the union of the codes its
+   `VALIDATION_FAILED` issues carry, in capitals:
+   `readonly issues: 'PASSWORD_LENGTH' | 'PASSWORD_IS_EMAIL' | 'PASSWORD_BREACHED'`.
+   `errors` keeps typing `error.code` only (D-224).
+2. `ultimabase` exports the type `IssueCodeOf<A>`: for `typeof app`, the
+   `issues` of each plugin `app` lists, `never` with none. The kernel gives
+   no issue a code of its own. An application's own issue codes, from a
+   schema or a `PublicError`, are not in it; a client adds them, as with
+   `ErrorCodeOf` (D-206).
+3. The password plugin declares its three codes (D-224).
+4. One type-only key of a plugin's value and of the application carries
+   both unions, `{ errors, issues }`: one more union is no new key and no
+   new type parameter. `ultimabase` exports its type, `Codes`, which a
+   declaration emitted for an exported `app` names.
+5. `scripts/codes.test.ts` reads `issues` as it reads `errors`: a code a
+   package sends is declared in one of them, and each one declared is
+   sent. The password's codes leave its list of literals that are no code.
+
+Why:
+
+- A client translates each issue code, as it translates each error code. A
+  list it writes by hand misses a code a plugin adds, and shows the generic
+  text instead: typed against the application, the missing code fails its
+  typing.
+- The codes are the plugin's, beside its `errors` (D-206): no global
+  declaration.
+- The script held the password's codes in a hand-kept list of exceptions;
+  declared, they are checked as every other code is.
+
+Rejected:
+
+- The issue codes in `errors`: `ErrorCodeOf` would list codes no error
+  carries (D-224).
+- A runtime list of the codes, which D-206 rejected: a client imports no
+  server value. A client that tests a code at runtime keeps its list,
+  checked against the type.
+- A second type-only key and a fourth type parameter for the issues.
+
+Example, before: the client lists the password's codes by hand, and a code
+the plugin adds compiles and shows the generic text.
+
+```ts
+const passwordIssueCodes = [
+	'PASSWORD_LENGTH',
+	'PASSWORD_IS_EMAIL',
+	'PASSWORD_BREACHED',
+] as const
+const messages: Record<(typeof passwordIssueCodes)[number], string> = {
+	PASSWORD_LENGTH: '8 to 256 characters',
+	PASSWORD_IS_EMAIL: 'Not your email',
+	PASSWORD_BREACHED: 'Found in a data breach',
+}
+```
+
+After: the application's type lists them, and a missing one fails typing.
+
+```ts
+import type { IssueCodeOf } from 'ultimabase'
+import type { app } from './app.ts'
+
+const messages = {
+	PASSWORD_LENGTH: '8 to 256 characters',
+	PASSWORD_IS_EMAIL: 'Not your email',
+	PASSWORD_BREACHED: 'Found in a data breach',
+} satisfies Record<IssueCodeOf<typeof app>, string>
+
+// In a plugin's types:
+interface Password extends PluginTypes {
+	readonly name: 'password'
+	readonly issues: 'PASSWORD_LENGTH' | 'PASSWORD_IS_EMAIL' | 'PASSWORD_BREACHED'
+}
 ```
