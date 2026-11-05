@@ -6,7 +6,7 @@ import type { Row } from 'ultimabase'
 import type { Recorded } from 'ultimabase/internal'
 import type { Batch } from './changes.ts'
 import type { Loader } from './reads.ts'
-import { anyStale } from './stale.ts'
+import { anyStale, mayBeStale } from './stale.ts'
 
 type Group = { readonly reads: readonly Recorded[]; readonly ids: Set<string> }
 
@@ -47,6 +47,14 @@ export class VirtualReads {
 		this.#prints.delete(id)
 		group.ids.delete(id)
 		if (group.ids.size === 0) this.#groups.delete(group)
+	}
+
+	/** Whether `batch` wrote a model one of its reads depends on. */
+	mayChange(batch: Batch): boolean {
+		for (const { reads } of this.#groups) {
+			if (mayBeStale(reads, batch)) return true
+		}
+		return false
 	}
 
 	/**

@@ -9,7 +9,8 @@ import { recording } from 'ultimabase/internal'
 import type { Batch } from './changes.ts'
 import type { LiveMessage } from './messages.ts'
 import type { Loader } from './reads.ts'
-import { anyStale } from './stale.ts'
+import { anyStale, mayBeStale } from './stale.ts'
+import type { Waited } from './tasks.ts'
 
 /** A function's name, with its plugin's for a plugin's (D-113). */
 export const ownerOf = (fn: ExposedFunction): string =>
@@ -60,9 +61,19 @@ export class Computed {
 	}
 
 	/** Wakes it when a write in `batch` may change what it read. */
-	async apply(batch: Batch, loader: Loader, missed: boolean): Promise<void> {
-		if (this.#closed) return
-		if (missed || (await anyStale(this.reads, batch, loader))) this.#wake()
+	apply(batch: Batch, loader: Loader, missed: boolean): Waited {
+		if (this.#closed) return undefined
+		if (missed) {
+			this.#wake()
+			return undefined
+		}
+		return mayBeStale(this.reads, batch)
+			? this.#judge(batch, loader)
+			: undefined
+	}
+
+	async #judge(batch: Batch, loader: Loader): Promise<void> {
+		if (await anyStale(this.reads, batch, loader)) this.#wake()
 	}
 
 	/** Runs it again at once as `caller`, whose rights changed. */

@@ -60,6 +60,8 @@ export type Reach = {
 	readonly shown: readonly Shown[]
 	/** The levels a nested filter or order reaches further (D-252). */
 	readonly deep: readonly Deep[]
+	/** Every model above: a write to any other leaves the read as it was (D-255). */
+	readonly models: ReadonlySet<string>
 }
 
 export type Models = ReadonlyMap<string, ReadonlyMap<string, SchemaField>>
@@ -115,7 +117,7 @@ const relationKeys = ['is', 'isNot', 'some', 'every', 'none'] as const
 /** What a nested read selects. */
 type Read = Pick<Nested, 'include' | 'count' | 'fields'>
 
-const isList = (
+export const isList = (
 	value: Condition | readonly Filter[],
 ): value is readonly Filter[] => Array.isArray(value)
 
@@ -314,5 +316,10 @@ export function reachOf(schema: Schema, model: string, plan: LivePlan): Reach {
 		showing: showing(plan),
 		shown,
 		deep,
+		models: new Set([
+			...levels.map((level) => level.model),
+			...shown.map((relation) => relation.model),
+			...deep.map(({ level }) => level.model),
+		]),
 	}
 }

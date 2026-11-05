@@ -1,17 +1,13 @@
 // A write at a level of a filter, judged by the level's own conditions
 // (D-196): a row that fails them before and after the write makes no row
 // above pass or fail, so it costs no read of the rows above.
-import type { Condition, Filter, Row } from 'ultimabase'
+import type { Filter, Row } from 'ultimabase'
 import { inMemory, matches } from 'ultimabase/internal'
 import type { Fields, ModelChanges } from './changes.ts'
 import { listed, touched, unlisted } from './changes.ts'
-import { stepOf } from './reach.ts'
+import { isList, stepOf } from './reach.ts'
 import type { Level, Models } from './reach.ts'
 import type { Loader } from './reads.ts'
-
-const isList = (
-	value: Condition | readonly Filter[],
-): value is readonly Filter[] => Array.isArray(value)
 
 /** The conditions on a relation's target id in `filter`, its own or its `AND`'s. */
 function idsOf(filter: Filter): Filter[] {

@@ -3,9 +3,12 @@
 // and each changed row loaded once for every live read that needs it.
 import type { Filter, Nested, Order, Row } from 'ultimabase'
 import type { LivePlan, SharedReads } from 'ultimabase/internal'
-import { inMemory, matches, storedRows } from 'ultimabase/internal'
+import { inMemory, liveSchema, matches, storedRows } from 'ultimabase/internal'
 import type { Finder } from './affected.ts'
+import { loosened } from './levels.ts'
 import type { Step } from './reach.ts'
+import { modelsOf } from './reach.ts'
+import { Held, keyOf, possible, required } from './needs.ts'
 
 /** A filter on the root that holds when `steps` reach a row passing `inner`. */
 export const through = (steps: readonly Step[], inner: Filter): Filter =>
@@ -93,6 +96,7 @@ export class Loader {
 	>()
 	readonly #pages = new Map<string, Promise<readonly Row[]>>()
 	readonly #reaching = new Map<string, Promise<readonly string[] | undefined>>()
+	readonly #holding = new Map<string, Map<string, Promise<Held | undefined>>>()
 	readonly #counts = new Map<string, Promise<number>>()
 	/** A flush's adapter reads, for the live reads that ask the same (D-252). */
 	readonly reads: SharedReads | undefined
@@ -159,6 +163,41 @@ export class Loader {
 		return found
 	}
 
+	/**
+	 * The `model` rows whose key `key` holds each of `ids`, once for the live
+	 * reads that ask (D-255); `undefined` past what one read holds.
+	 */
+	async holding(
+		model: string,
+		key: string,
+		ids: readonly string[],
+	): Promise<ReadonlyMap<string, Held | undefined>> {
+		const name = `${model} ${key}`
+		const known =
+			this.#holding.get(name) ?? new Map<string, Promise<Held | undefined>>()
+		this.#holding.set(name, known)
+		const missing = ids.filter((id) => !known.has(id))
+		if (missing.length > 0) {
+			const read = storedRows(model, {
+				where: { [key]: { is: among(missing) } },
+				take: sharedRows + 1,
+			}).then((rows) => {
+				if (rows.length > sharedRows) return undefined
+				this.keep(model, rows)
+				return Map.groupBy(rows, (row) => keyOf(row, key))
+			})
+			for (const id of missing) {
+				known.set(
+					id,
+					read.then((rows) => rows && new Held(rows.get(id) ?? [])),
+				)
+			}
+		}
+		const found = new Map<string, Held | undefined>()
+		for (const id of ids) found.set(id, await known.get(id))
+		return found
+	}
+
 	/** A count, once for the live reads with the same `model` and `where`. */
 	async counted(
 		model: string,
@@ -210,48 +249,60 @@ export class Loader {
 	}
 }
 
-/** A filter's conditions: those a row answers alone, and the others. */
-type Split = { readonly local: Filter; readonly rest: readonly Filter[] }
+/** What a row answers alone of a filter, and the conditions it can't. */
+type Split = {
+	readonly local: Filter
+	readonly rest: readonly Filter[]
+	/** The rest as one filter, which a row's related rows may refuse. */
+	readonly whole: Filter
+}
 
 const splits = new WeakMap<Filter, Split>()
-
-/** Each condition `filter` requires of a row. */
-const required = (filter: Filter): readonly Filter[] =>
-	Object.entries(filter).flatMap(([key, value]): readonly Filter[] => {
-		if (value === undefined) return []
-		return key === 'AND' && Array.isArray(value)
-			? value.flatMap(required)
-			: [{ [key]: value }]
-	})
 
 function splitOf(model: string, filter: Filter): Split {
 	const known = splits.get(filter)
 	if (known !== undefined) return known
+	const models = modelsOf(liveSchema())
 	const parts = required(filter)
+	const rest = parts.filter((part) => !inMemory(model, part))
 	const split = {
-		local: { AND: parts.filter((part) => inMemory(model, part)) },
-		rest: parts.filter((part) => !inMemory(model, part)),
+		local: {
+			AND: [
+				...parts.filter((part) => inMemory(model, part)),
+				// What a row of the rest passes too, a related id for one (D-255).
+				...rest.flatMap((part) => {
+					const loose = loosened(models, model, part)
+					return loose === undefined ? [] : [loose]
+				}),
+			],
+		},
+		rest,
+		whole: { AND: rest },
 	}
 	splits.set(filter, split)
 	return split
 }
 
+const ids = (rows: readonly Row[]) => rows.map(({ id }) => id)
+
 /**
  * The ids of `rows` that pass `filter`: what a row answers alone in memory,
- * and a query only for the rows that pass that (D-252).
+ * what the rows related to it can refuse, read once per flush (D-255), and a
+ * query only for the rows left (D-252).
  */
 export async function pass(
 	model: string,
 	rows: ReadonlyMap<string, Row>,
 	filter: Filter | undefined,
+	loader: Loader,
 ): Promise<ReadonlySet<string>> {
 	if (filter === undefined || rows.size === 0) return new Set(rows.keys())
-	const { local, rest } = splitOf(model, filter)
-	const kept = [...rows.values()]
-		.filter((row) => matches(model, row, local))
-		.map(({ id }) => id)
-	if (kept.length === 0 || rest.length === 0) return new Set(kept)
-	const where = { AND: [among(kept), ...rest] }
+	const { local, rest, whole } = splitOf(model, filter)
+	const kept = [...rows.values()].filter((row) => matches(model, row, local))
+	if (kept.length === 0 || rest.length === 0) return new Set(ids(kept))
+	const left = await possible(model, kept, whole, loader)
+	if (left.length === 0) return new Set()
+	const where = { AND: [among(ids(left)), ...rest] }
 	const passed = await storedRows(model, { where, fields: ['id'] })
 	return new Set(passed.map(({ id }) => id))
 }

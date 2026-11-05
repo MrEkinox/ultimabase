@@ -4,7 +4,7 @@ import type { Filter } from 'ultimabase'
 import type { Recorded } from 'ultimabase/internal'
 import { inMemory, liveSchema, matches } from 'ultimabase/internal'
 import type { Batch, Fields, ModelChanges } from './changes.ts'
-import { listed, touched } from './changes.ts'
+import { listed, touched, wrote } from './changes.ts'
 import { held, loosened, reaches } from './levels.ts'
 import { facingOf, modelsOf, stepOf, stores, walk } from './reach.ts'
 import type { Level, Models } from './reach.ts'
@@ -23,6 +23,8 @@ type Judged = {
 	readonly where: Filter | undefined | null
 	/** The links a relation read followed, as model and field. */
 	readonly links: readonly (readonly [string, Fields])[]
+	/** Every model it depends on: a write to any other can't change it. */
+	readonly models: ReadonlySet<string>
 }
 
 /** The two sides of the relation a read followed, `model.field`. */
@@ -44,18 +46,20 @@ function judgedOf(models: Models, read: Recorded): Judged {
 	if (known !== undefined) return known
 	const { model, where } = read
 	const links = linksOf(models, read.relation)
+	const linked = links.map(([name]) => name)
 	let judged: Judged = {
 		further: [],
 		filters: fieldsOf(read.filters),
 		where,
 		links,
+		models: new Set([model, ...linked]),
 	}
 	if (where !== undefined && !inMemory(model, where)) {
 		const levels: Level[] = []
 		walk(models, model, where, [], false, levels)
 		const further = levels.filter(({ steps }) => steps.length > 0)
 		// A link its relations follow is judged at the level it leads to.
-		const linked = new Set(further.map(({ steps }) => steps[0]?.relation))
+		const through = new Set(further.map(({ steps }) => steps[0]?.relation))
 		const { filters } = judged
 		judged = {
 			further,
@@ -64,12 +68,17 @@ function judgedOf(models: Models, read: Recorded): Judged {
 					? filters
 					: new Set(
 							[...filters].filter(
-								(name) => !linked.has(name) || stores(models, model, name),
+								(name) => !through.has(name) || stores(models, model, name),
 							),
 						),
 			// Its own rows are then checked against what they alone answer.
 			where: loosened(models, model, where) ?? null,
 			links,
+			models: new Set([
+				model,
+				...linked,
+				...further.map((level) => level.model),
+			]),
 		}
 	}
 	judgedReads.set(read, judged)
@@ -144,11 +153,22 @@ async function counted(
 	)
 }
 
+/** Whether `batch` wrote a model `read` depends on, which costs no wait. */
+const mayChange = (read: Recorded, batch: Batch): boolean =>
+	wrote(batch, judgedOf(modelsOf(liveSchema()), read).models)
+
+/** Whether `batch` wrote a model one of `reads` depends on (D-255). */
+export const mayBeStale = (reads: readonly Recorded[], batch: Batch): boolean =>
+	reads.some((read) => mayChange(read, batch))
+
 export const anyStale = async (
 	reads: readonly Recorded[],
 	batch: Batch,
 	loader: Loader,
 ): Promise<boolean> => {
-	for (const read of reads) if (await stale(read, batch, loader)) return true
+	for (const read of reads) {
+		if (mayChange(read, batch) && (await stale(read, batch, loader)))
+			return true
+	}
 	return false
 }

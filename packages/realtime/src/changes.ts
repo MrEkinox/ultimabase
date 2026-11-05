@@ -108,6 +108,12 @@ export function touched(
 	return false
 }
 
+/** Whether `batch` wrote a row of one of `models`. */
+export function wrote(batch: Batch, models: ReadonlySet<string>): boolean {
+	for (const model of batch.keys()) if (models.has(model)) return true
+	return false
+}
+
 /** Whether a list of `changes` is unknown. */
 export const unlisted = (changes: ModelChanges | undefined): boolean =>
 	changes?.inserts === 'all' ||

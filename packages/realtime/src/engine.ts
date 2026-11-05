@@ -13,15 +13,35 @@ const gather = 50
 /** How many viewers follow a flush at once. */
 const concurrency = 8
 
-/** Runs `task` on each of `items`, `limit` at a time. */
+/** The longest a flush holds the event loop, in milliseconds (D-255). */
+const slice = 8
+
+/**
+ * Runs `task` on each of `items`, `limit` at a time. Tasks that wait for
+ * nothing would hold the event loop until the last: writes, requests and
+ * timers get their turn every `slice`.
+ */
 async function bounded<T>(
 	items: readonly T[],
 	limit: number,
 	task: (item: T) => Promise<void>,
 ): Promise<void> {
 	let next = 0
+	let since = performance.now()
+	/** The turn every worker waits for: each its own would run them all in one. */
+	let turn: Promise<void> | undefined
+	const rest = async (): Promise<void> => {
+		await new Promise(setImmediate)
+		turn = undefined
+		since = performance.now()
+	}
 	const worker = async (): Promise<void> => {
 		while (next < items.length) {
+			if (performance.now() - since > slice) {
+				turn ??= rest()
+				await turn
+				continue
+			}
 			const item = items[next]
 			next += 1
 			if (item !== undefined) await task(item)
@@ -97,6 +117,9 @@ export class Engine {
 		const missed = this.#missed
 		this.#changes = []
 		this.#missed = false
+		// A flush that outlasted the gather took these with its own: the walk of
+		// every viewer would cost as much for nothing, and hold the loop (D-255).
+		if (changes.length === 0 && !missed) return
 		const batch = batchOf(changes, liveSchema())
 		const loader = new Loader(new Map())
 		// No async wrappers: a flush makes these calls for each viewer.

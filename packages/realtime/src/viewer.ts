@@ -190,7 +190,8 @@ export class Viewer {
 			await this.rebuild()
 		}
 		const lives = [...this.#live.keys(), ...this.#computed.keys()]
-		await Promise.all(lives.map((live) => live.apply(batch, loader, missed)))
+		const running = lives.map((live) => live.apply(batch, loader, missed))
+		await Promise.all(running.filter((run) => run !== undefined))
 	}
 
 	/**

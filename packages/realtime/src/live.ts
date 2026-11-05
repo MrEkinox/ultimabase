@@ -13,11 +13,14 @@ import {
 } from 'ultimabase/internal'
 import { affected } from './affected.ts'
 import type { Batch } from './changes.ts'
+import { wrote } from './changes.ts'
 import { passing } from './levels.ts'
 import type { Reach } from './reach.ts'
 import { modelsOf, reachOf } from './reach.ts'
 import { finderOf, Loader, pass, rowsAfter } from './reads.ts'
 import type { Spec } from './messages.ts'
+import type { Waited } from './tasks.ts'
+import { Tasks } from './tasks.ts'
 import { bigRead, inParts, inTurn } from './turns.ts'
 import type { Keys } from './window.ts'
 import { Window } from './window.ts'
@@ -35,9 +38,7 @@ export class Live {
 	#count: number | undefined
 	#hasMore = false
 	#revision = 0
-	#queue: Promise<void> = Promise.resolve()
-	/** The reads of the whole window it is running or has queued. */
-	#rereads = 0
+	readonly #tasks = new Tasks()
 	#closed = false
 
 	constructor(spec: Spec, caller: Caller, plan: LivePlan, first: number) {
@@ -50,22 +51,27 @@ export class Live {
 
 	/** Reads the window and sends it; a failure closes the read. */
 	async start(): Promise<void> {
-		this.#rereads += 1
-		const run = this.#reset().finally(() => {
-			this.#rereads -= 1
-		})
-		this.#queue = run.catch(() => undefined)
 		try {
-			await run
+			await this.#tasks.first(async () => this.#reset())
 		} catch (error) {
 			this.close()
 			throw error
 		}
 	}
 
-	/** Follows `batch`, or reads the window again when changes were missed. */
-	async apply(batch: Batch, loader: Loader, missed: boolean): Promise<void> {
+	/**
+	 * Follows `batch`, or reads the window again when changes were missed. A
+	 * write out of its reach costs nothing, unless a task may yet read it.
+	 */
+	apply(batch: Batch, loader: Loader, missed: boolean): Waited {
 		if (missed) return this.#waited(this.#reread())
+		if (
+			this.#tasks.resting &&
+			!wrote(batch, this.#reach.models) &&
+			!this.#virtuals.mayChange(batch)
+		) {
+			return undefined
+		}
 		const [, settled] = this.#enqueue(() => this.#apply(batch, loader))
 		return this.#waited(settled)
 	}
@@ -115,11 +121,10 @@ export class Live {
 
 	/** Queues a read of the whole window. */
 	async #reread(): Promise<void> {
-		this.#rereads += 1
-		const [, settled] = this.#enqueue(async () => this.#reset())
-		return settled.finally(() => {
-			this.#rereads -= 1
-		})
+		return this.#tasks.reread(
+			() => (this.#closed ? undefined : this.#reset()),
+			async (error) => this.#recover(error),
+		)
 	}
 
 	/** Reads the window from a task: a big read queues, for no flush to wait. */
@@ -129,17 +134,16 @@ export class Live {
 	}
 
 	/** What a flush waits for: `settled`, but no big read (D-254). */
-	#waited(settled: Promise<void>): Promise<void> | undefined {
-		const big = this.#rereads > 0 && this.#window.first >= bigRead
+	#waited(settled: Promise<void>): Waited {
+		const big = this.#tasks.rereading && this.#window.first >= bigRead
 		return big ? undefined : settled
 	}
 
-	/** Queues `task`; no async wrapper, as each flush queues one per read. */
 	#enqueue(task: () => Promise<void>): readonly [Promise<void>, Promise<void>] {
-		const run = this.#queue.then(() => (this.#closed ? undefined : task()))
-		const settled = run.catch((error: unknown) => this.#recover(error))
-		this.#queue = settled
-		return [run, settled]
+		return this.#tasks.add(
+			() => (this.#closed ? undefined : task()),
+			async (error) => this.#recover(error),
+		)
 	}
 
 	async #recover(error: unknown): Promise<void> {
@@ -304,13 +308,13 @@ export class Live {
 		const gone = new Set(effect.deleted)
 		const candidates = [...effect.candidates].filter((id) => !gone.has(id))
 		const rows = await loader.load(model, candidates)
-		const kept = await pass(model, rows, this.#plan.where)
+		const kept = await pass(model, rows, this.#plan.where, loader)
 		const inside = window.ids()
 		const leaving = candidates.filter((id) => inside.has(id) && !kept.has(id))
 		const left = new Map(
 			leaving.flatMap((id) => rows.get(id) ?? []).map((row) => [row.id, row]),
 		)
-		const readable = await pass(model, left, this.#plan.rights)
+		const readable = await pass(model, left, this.#plan.rights, loader)
 		const recount =
 			totalCount &&
 			(candidates.length > 0 || effect.deleted.size > 0 || effect.beyond)

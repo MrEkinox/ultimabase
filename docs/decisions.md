@@ -17377,7 +17377,7 @@ drop table "account_chats";
 
 ## D-252: A live list costs what its readers see, whatever its size
 
-Amended by D-253 and D-254.
+Amended by D-253, D-254 and D-255.
 
 Choice: amends D-154 points 3 and 7, D-186 points 1 to 3 and its rejection of
 growing up to the limit, D-195 and D-196.
@@ -17626,3 +17626,70 @@ Rejected:
   next, so `memo` renders 1 row, at 0.68 ms for 2000 rows and 21.77 ms for 50 000.
   Mounting is what costs, at 840 ms for 10 000 rows on happy-dom. The
   documentation recommends `memo` and a virtual list instead.
+
+## D-255: A write costs its readers, whoever else is connected
+
+Choice: amends D-252 points 1, 3 and 10.
+
+1. A row of a filter naming a related id is judged on its key before any query,
+   even when the filter's read rule sits next to that id: the row of another
+   chat costs a list of messages nothing. `loosened`'s conditions join what a
+   row answers alone; the whole filter still decides for the rows they keep.
+2. What a filter requires through a relation is read once per flush for all the
+   lists that ask, then checked in memory for each: `{ members: { some: { user:
+me } } }` reads the members of the changed chats once, and each list looks its
+   viewer up in them. This follows `is` and `some`, and `OR` when each branch
+   requires something. `every`, `none`, `isNot`, `NOT`, a search and a many-to-many
+   relation say nothing, and the query decides as before.
+3. These checks can only refuse. A row they keep still goes to the query with the
+   whole filter, so rights stay decided by the database, and a query costs a true
+   reader rather than a connected viewer. A link changed after the shared read is
+   a change of a level the list follows, so it is judged in the next flush.
+4. A shared read holds 10 000 rows at most, like the reads of D-252. Past that,
+   the rows it would have judged go to the query, as before.
+5. Rows held for a flush are found by the related id a filter names, through an
+   index built on the first such filter, so a room of 5000 members costs each
+   viewer one lookup rather than 5000 checks.
+6. A flush with nothing to hand ends at once. Flushes queue up when one outlasts
+   the gather, the first takes every change, and the others used to walk every
+   viewer for nothing, holding the event loop for seconds once writes stopped.
+7. A live read none of whose models the batch wrote returns without a task, a
+   promise or a wait: its reach proves the write leaves it as it was. Only a read
+   with no task running or queued may skip, since a first read in flight could
+   miss the write.
+8. A flush gives the event loop a turn every 8 ms, so writes, requests and timers
+   do not wait for the walk. Every worker of the flush waits for the same turn.
+
+Why: 10 000 connected viewers with 50 000 live reads on a 12-core machine, one
+Node process, and Postgres on the same machine, one lone write:
+
+| Each viewer                   | Statements, before | After | Told, before |  After |
+| ----------------------------- | -----------------: | ----: | -----------: | -----: |
+| Chats with one other person   |              20013 |    18 |      6144 ms | 389 ms |
+| Is in a campaign, NPC created |              10007 |    14 |      4943 ms | 178 ms |
+| Follows 20 users, one online  |                  6 |     6 |       281 ms | 293 ms |
+
+Under a steady load, the longest stall of the event loop went from 29 981 ms to
+53 ms (presence, 100 writes a second). A commit at 5 chat messages a second went
+from 22 ms to 40 ms: points 1 to 5 alone made it 226 ms, as the flush's work moved
+from Postgres to this process, and point 8 brought it back.
+
+Known limits:
+
+- The walk still visits every live read a write's model concerns, so its cost
+  grows with the connected viewers: about 250 ms per flush with 50 000 reads,
+  which saturates one core from 5 writes a second. Point 8 keeps writes fast
+  meanwhile, not announcements. These hold within a second up to 10 chat messages,
+  50 NPCs and 100 presence changes a second, with a p50 of 494, 249 and 409 ms, and
+  fall behind past that.
+- Only a read that shares no model with a write skips it, so a read concerned by
+  the model but not by the row still costs its visit.
+- Writes to one row closing up in a flush tell its readers once, of the last state.
+- Not measured: several instances, real sockets across a network.
+
+Rejected:
+
+- A smaller slice: 8 ms already brings a commit to about 40 ms, the walk's total
+  stays the same, and each turn costs a pass of the event loop.
+- Holding each list's row ids to refuse rows sooner: it would hold memory for every
+  quiet list, which D-253 removed.
