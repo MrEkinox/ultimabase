@@ -17523,3 +17523,28 @@ return (
 	/>
 )
 ```
+
+## D-253: A big live list holds nothing while it is quiet
+
+Choice: amends D-252 point 2.
+
+1. A follower keeps no rows, on the server, over GraphQL and REST. A `changes`
+   message carries `ends`, the ids of the first and last rows shown, only when
+   they changed; the transports build `pageInfo`'s cursors from them. Page mode
+   keeps its window, bounded by `maxTake`, as it resends it.
+2. The transports let go of a message once it is sent: `LiveEvent` drops its
+   root, and the result sent drops its data, as graphql-js and graphql-ws keep
+   the last ones until the next message, which a quiet list may never have.
+
+Why:
+
+- Measured end to end over sockets, at 10 000 rows and 20 subscribers (the first
+  line before): a subscriber held 62 461 KiB after its first message and now
+  holds 1 963, the window of D-252. A heap snapshot finds no row retained.
+- It was also the time: a followed list walked every row on each message. The
+  author of 1 row in 50 reached the last client in 1747 ms and now in 272, an
+  update in 154 ms and now in 59.
+
+Rejected:
+
+- Keeping the rows in the follower and walking fewer of them: the memory stays.

@@ -8,6 +8,7 @@ import {
 	applied,
 	badInput,
 	connection,
+	endsOf,
 	pageOf,
 	run,
 } from '@ultimabase/http/internal'
@@ -95,7 +96,9 @@ function follower(
 ): (message: Message) => LiveEvent {
 	const [key, edgesKey, pageInfoKey, totalCountKey] = keysOf(info, connected)
 	let token = resume
+	// Page mode resends its window, bounded by maxTake; else its ends do (D-253).
 	let window: readonly Row[] = []
+	let ends: readonly Row[] = []
 	let hasMore = false
 	let count: number | undefined
 	let pageInfo = ''
@@ -116,24 +119,28 @@ function follower(
 		hasMore = message.hasMore ?? hasMore
 		count = message.totalCount ?? count
 		if (message.kind === 'reset' || page) {
-			window =
+			const rows =
 				message.kind === 'reset'
 					? message.rows
 					: applied(window, message.changes, (row) => row)
+			if (page) window = rows
+			ends = endsOf(
+				[rows[0], rows.at(-1)].flatMap((row) => (row ? [row.id] : [])),
+			)
 			const shown = token
 			token = undefined
-			return new LiveEvent(rootOf(window), (result) =>
+			return new LiveEvent(rootOf(rows), (result) =>
 				revised(sent(result), revision, shown),
 			)
 		}
 		const { changes } = message
-		window = applied(window, changes, ({ id }) => ({ id }))
+		if (message.ends !== undefined) ends = endsOf(message.ends)
 		const upserts = changes.flatMap((change) =>
 			'upsert' in change ? [change.upsert] : [],
 		)
 		const root = connected
 			? {
-					...connectionOf(window, hasMore, count),
+					...connectionOf(ends, hasMore, count),
 					edges: connectionOf(upserts, false, undefined).edges,
 				}
 			: upserts

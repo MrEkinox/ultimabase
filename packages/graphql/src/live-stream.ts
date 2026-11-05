@@ -5,17 +5,42 @@
 import type { ExecutionResult } from 'graphql'
 import type { LiveHandle, LiveMessage, Viewer } from '@ultimabase/realtime'
 
+/**
+ * What to send of `result`, which lets go of its data: graphql-ws and
+ * graphql-js keep the last result until the next, which a quiet list may never
+ * have (D-253).
+ */
+export function released<Result extends { data?: unknown }>(
+	result: Result,
+): Result {
+	const sent = { ...result }
+	const kept: { data?: unknown } = result
+	kept.data = null
+	return sent
+}
+
 /** A message to run against the selection, and how its result is sent. */
 export class LiveEvent {
-	readonly root: unknown
-	readonly finish: (result: ExecutionResult) => ExecutionResult
+	root: unknown
+	#finish: (result: ExecutionResult) => ExecutionResult
 
 	constructor(
 		root: unknown,
 		finish: (result: ExecutionResult) => ExecutionResult,
 	) {
 		this.root = root
-		this.finish = finish
+		this.#finish = finish
+	}
+
+	/**
+	 * What to send for its `result`. Lets go of its rows: graphql-js keeps the
+	 * last event until the next one, which a quiet list may never have (D-253).
+	 */
+	finish(result: ExecutionResult): ExecutionResult {
+		const finish = this.#finish
+		this.root = undefined
+		this.#finish = (done) => done
+		return finish(result)
 	}
 }
 

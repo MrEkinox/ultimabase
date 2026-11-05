@@ -267,6 +267,7 @@ export class Live {
 		const { nodes } = await this.#settle(new Set(), new Set(), loader)
 		this.#count = totalCount ? await this.#counted() : undefined
 		this.#hasMore = this.#hasNext()
+		this.#window.endsMoved()
 		const shown = this.#window.shown().flatMap((id) => nodes.get(id) ?? [])
 		for (const node of shown) this.#window.sent(node.id, node)
 		if (this.#closed) return
@@ -381,12 +382,14 @@ export class Live {
 		if (changes.length === 0 && !more && totalCount === undefined && !always) {
 			return
 		}
+		const ends = this.#window.endsMoved()
 		send({
 			kind: 'changes',
 			revision: this.#next(),
 			changes,
 			...(more && { hasMore }),
 			...(totalCount !== undefined && { totalCount }),
+			...(ends && { ends }),
 		})
 	}
 }

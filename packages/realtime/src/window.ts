@@ -58,6 +58,8 @@ export class Window {
 	#was: Map<string, Keys | undefined> | undefined
 	/** The row past those shown at the mark. */
 	#extra: string | undefined
+	/** The first and last rows shown, as last told. */
+	#ends: readonly string[] = []
 
 	constructor(orderBy: readonly Order[], first: number) {
 		this.#orderBy = orderBy
@@ -105,6 +107,21 @@ export class Window {
 	/** The ids of the rows a client shows. */
 	shown(): readonly string[] {
 		return this.#entries.slice(0, this.first).map((keys) => this.#id(keys))
+	}
+
+	/**
+	 * The ids of the first and last rows shown, without a pass, if they changed
+	 * since it last told them (D-253).
+	 */
+	endsMoved(): readonly string[] | undefined {
+		const count = Math.min(this.#entries.length, this.first)
+		const ends =
+			count === 0
+				? []
+				: [this.#idAt(0), this.#idAt(count - 1)].flatMap((id) => id ?? [])
+		if (ends[0] === this.#ends[0] && ends[1] === this.#ends[1]) return undefined
+		this.#ends = ends
+		return ends
 	}
 
 	hasMore(): boolean {

@@ -306,6 +306,7 @@ describe('a live list', () => {
 				{ upsert: titled('p0'), after: null },
 			],
 			totalCount: 5,
+			ends: [expect.any(String), posts[0]?.id],
 		})
 	})
 
@@ -342,6 +343,7 @@ describe('a live list', () => {
 				{ upsert: titled('p3'), after: posts[1]?.id },
 			],
 			totalCount: 3,
+			ends: [posts[1]?.id, posts[2]?.id],
 		})
 	})
 
@@ -361,6 +363,7 @@ describe('a live list', () => {
 				{ remove: posts[1]?.id, gone: false },
 				{ upsert: titled('p3'), after: null },
 			],
+			ends: [posts[2]?.id, posts[0]?.id],
 		})
 	})
 
@@ -377,6 +380,7 @@ describe('a live list', () => {
 			kind: 'changes',
 			revision: 2,
 			changes: [{ upsert: titled('p3'), after: null }],
+			ends: [posts[2]?.id, posts[1]?.id],
 		})
 	})
 
@@ -419,6 +423,7 @@ describe('a live list', () => {
 				{ upsert: titled('p3'), after: posts[1]?.id },
 			],
 			totalCount: 3,
+			ends: [posts[1]?.id, posts[2]?.id],
 		})
 	})
 
@@ -450,6 +455,7 @@ describe('a live list', () => {
 				{ upsert: titled('p4'), after: posts[2]?.id },
 			],
 			hasMore: false,
+			ends: [posts[0]?.id, posts[3]?.id],
 		})
 		await expect(handle.grow(0)).rejects.toThrow(
 			'first must be a positive integer.',
@@ -512,6 +518,7 @@ describe('the rights of a live list', () => {
 			],
 			hasMore: false,
 			totalCount: 0,
+			ends: [],
 		})
 	})
 
@@ -986,6 +993,7 @@ describe('the plugin', () => {
 			revision: 2,
 			changes: [{ upsert: titled('p3'), after: posts[1]?.id }],
 			hasMore: false,
+			ends: [posts[0]?.id, posts[2]?.id],
 		})
 		// Nothing to add, and the client still gets its answer.
 		await handle.grow(1)

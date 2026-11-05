@@ -27,7 +27,7 @@ import type { Caller, Client, Logger } from 'ultimabase'
 import { PublicError } from 'ultimabase'
 import type { formatter } from './errors.ts'
 import type { Channel } from './live-stream.ts'
-import { LiveEvent, lives } from './live-stream.ts'
+import { LiveEvent, lives, released } from './live-stream.ts'
 import type { Context } from './registry.ts'
 
 /** How the GraphQL plugin runs a document, over HTTP as over WebSocket. */
@@ -246,11 +246,14 @@ export function serveSockets(
 					: result
 			})
 		},
-		onNext: (_ctx, _id, _payload, _args, { data, errors, extensions }) => ({
-			...(data === undefined ? {} : { data }),
-			...(errors === undefined ? {} : { errors: formatted(errors) }),
-			...(extensions === undefined ? {} : { extensions }),
-		}),
+		onNext: (_ctx, _id, _payload, _args, result) => {
+			const { data, errors, extensions } = released(result)
+			return {
+				...(data === undefined ? {} : { data }),
+				...(errors === undefined ? {} : { errors: formatted(errors) }),
+				...(extensions === undefined ? {} : { extensions }),
+			}
+		},
 		onError: (_ctx, _id, _payload, errors) => formatted(errors),
 	})
 	const sockets = new WebSocketServer({

@@ -444,6 +444,42 @@ describe('a live list', () => {
 		await results.return?.()
 	})
 
+	it('moves its cursors as its first and last rows go, holding no rows (D-253)', async () => {
+		const url = await started()
+		const [a = '', b = '', c = ''] = await seeded()
+		const results = subscribed(
+			url,
+			`subscription { tasks(first: 3, orderBy: [{ rank: asc }]) {
+				edges { cursor } pageInfo { startCursor endCursor }
+			} }`,
+		)
+		const first: unknown = await next(results)
+		const cursors = JSON.stringify(first).match(/"cursor":"[^"]+"/g) ?? []
+		const [, middle = '', end = ''] = cursors.map((at) => at.slice(10, -1))
+		expect(first).toMatchObject({
+			data: { tasks: { pageInfo: { endCursor: end } } },
+		})
+		await Task.delete({ where: { id: a } }, M)
+		expect(await next(results)).toMatchObject({
+			extensions: {
+				live: { pageInfo: { startCursor: middle, endCursor: end } },
+			},
+		})
+		await Task.delete({ where: { id: c } }, M)
+		expect(await next(results)).toMatchObject({
+			extensions: {
+				live: { pageInfo: { startCursor: middle, endCursor: middle } },
+			},
+		})
+		await Task.delete({ where: { id: b } }, M)
+		expect(await next(results)).toMatchObject({
+			extensions: {
+				live: { pageInfo: { startCursor: null, endCursor: null } },
+			},
+		})
+		await results.return?.()
+	})
+
 	it('in page mode, sends its whole window each time', async () => {
 		const url = await started()
 		const [a = ''] = await seeded()

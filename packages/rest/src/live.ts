@@ -4,7 +4,13 @@
 // list first sends the token that resumes it, as `event: resume`. A live
 // function sends its whole result as `event: data` each time it changes.
 import { randomUUID } from 'node:crypto'
-import { applied, badInput, connection, run } from '@ultimabase/http/internal'
+import {
+	applied,
+	badInput,
+	connection,
+	endsOf,
+	run,
+} from '@ultimabase/http/internal'
 import type { Caller, Logger, Row } from 'ultimabase'
 import { PublicError } from 'ultimabase'
 import type { Api, Args, Entry } from './entries.ts'
@@ -39,21 +45,23 @@ function listWriter(
 	shape: Shape,
 ): Write {
 	const node = (row: Row) => shaped(row, shape)
+	// Page mode resends its window, bounded by maxTake; else its ends do (D-253).
 	let window: readonly Row[] = []
+	let ends: readonly Row[] = []
 	let hasMore = false
 	let count: number | undefined
 	let pageInfo = ''
 	const infoOf = () => {
-		const { pageInfo: info } = connection(window, fromTop, () => null)
+		const { pageInfo: info } = connection(ends, fromTop, () => null)
 		return { ...info, hasNextPage: hasMore }
 	}
-	const data = (revision: number) => {
+	const data = (rows: readonly Row[], revision: number) => {
 		const info = infoOf()
 		pageInfo = JSON.stringify(info)
-		const { edges } = connection(window, fromTop, node)
+		const { edges } = connection(rows, fromTop, node)
 		const body = connected
 			? { edges, pageInfo: info, ...(counted && { totalCount: count }) }
-			: window.map(node)
+			: rows.map(node)
 		events.send('data', body, revision)
 	}
 	return (message) => {
@@ -61,14 +69,18 @@ function listWriter(
 		hasMore = message.hasMore ?? hasMore
 		count = message.totalCount ?? count
 		if (message.kind === 'reset' || page) {
-			window =
+			const rows =
 				message.kind === 'reset'
 					? message.rows
 					: applied(window, message.changes, (row) => row)
-			return data(revision)
+			if (page) window = rows
+			ends = endsOf(
+				[rows[0], rows.at(-1)].flatMap((row) => (row ? [row.id] : [])),
+			)
+			return data(rows, revision)
 		}
 		const { changes } = message
-		window = applied(window, changes, ({ id }) => ({ id }))
+		if (message.ends !== undefined) ends = endsOf(message.ends)
 		const live: { [key: string]: unknown } = {
 			revision,
 			changes: changes.map((change) => {

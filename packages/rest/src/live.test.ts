@@ -598,6 +598,27 @@ describe('a resumed live list', () => {
 		})
 	})
 
+	it('moves its cursors as its first and last rows go, holding no rows (D-253)', async () => {
+		const api = await started()
+		const [a = '', b = '', c = ''] = await seeded()
+		const stream = await streaming(`${api}/tasks${qs({ ...ranked, first: 3 })}`)
+		const first = JSON.stringify(await stream.next())
+		const cursors = first.match(/"cursor":"[^"]+"/g) ?? []
+		const [, middle = '', end = ''] = cursors.map((at) => at.slice(10, -1))
+		await Task.delete({ where: { id: a } }, M)
+		expect(await stream.next()).toMatchObject({
+			data: { pageInfo: { startCursor: middle, endCursor: end } },
+		})
+		await Task.delete({ where: { id: c } }, M)
+		expect(await stream.next()).toMatchObject({
+			data: { pageInfo: { startCursor: middle, endCursor: middle } },
+		})
+		await Task.delete({ where: { id: b } }, M)
+		expect(await stream.next()).toMatchObject({
+			data: { pageInfo: { startCursor: null, endCursor: null } },
+		})
+	})
+
 	it('is taken from a stream the server has not seen its client leave', async () => {
 		const api = await started()
 		const [, b = '', c = ''] = await seeded()

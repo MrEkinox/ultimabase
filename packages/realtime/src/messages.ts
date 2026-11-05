@@ -24,6 +24,8 @@ export type LiveMessage =
 			readonly hasMore?: boolean
 			/** Only when it changed. */
 			readonly totalCount?: number
+			/** The ids of the first and last rows shown, only when they changed. */
+			readonly ends?: readonly string[]
 	  }
 	| {
 			readonly kind: 'row'

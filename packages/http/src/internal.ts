@@ -11,6 +11,7 @@ export type {
 } from './pages.ts'
 export {
 	applied,
+	endsOf,
 	connection,
 	countedPage,
 	pageArgs,

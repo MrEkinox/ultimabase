@@ -8,7 +8,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { PluginTypes } from 'ultimabase'
 import { defineApp, definePlugin, memory } from 'ultimabase'
 import type { Channel, Keep } from './live-stream.ts'
-import { LiveEvent, liveStream, resumed } from './live-stream.ts'
+import { LiveEvent, liveStream, released, resumed } from './live-stream.ts'
 
 interface Keeping extends PluginTypes {
 	readonly name: 'keeping'
@@ -362,5 +362,26 @@ describe('a completed live list', () => {
 		await ended.return?.()
 		expect(channel.channel.kept.size).toBe(0)
 		expect(other.opened().closed()).toBe(1)
+	})
+})
+
+describe('a sent message', () => {
+	it('lets go of its rows, which graphql-js keeps until the next (D-253)', () => {
+		const event = new LiveEvent({ rows: [1] }, (result) => ({
+			...result,
+			extensions: { revision: 1 },
+		}))
+		expect(event.finish({ data: {} })).toEqual({
+			data: {},
+			extensions: { revision: 1 },
+		})
+		expect(event.root).toBeUndefined()
+		expect(event.finish({ data: {} })).toEqual({ data: {} })
+	})
+
+	it('sends a result whole and leaves it no data (D-253)', () => {
+		const result = { data: { a: 1 }, extensions: { b: 2 } }
+		expect(released(result)).toEqual({ data: { a: 1 }, extensions: { b: 2 } })
+		expect(result).toEqual({ data: null, extensions: { b: 2 } })
 	})
 })
