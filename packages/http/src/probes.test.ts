@@ -240,15 +240,28 @@ describe('/ready', () => {
 describe('the drain', () => {
 	it('answers 503 on /ready, serving as before, then stops', async () => {
 		const { app, url } = await started({ drain: 100 })
-		const began = performance.now()
-		const stopping = app.stop()
-		expect(await answer(await fetch(`${url}/ready`))).toEqual(
-			unavailable('The application is stopping.'),
-		)
-		expect(await answer(await fetch(`${url}/health`))).toEqual(ok)
+		// The drain ends only when told to: a slow machine cannot outrun the fetches.
+		vi.useFakeTimers({ toFake: ['setTimeout'] })
+		let stopped = false
+		const stopping = (async () => {
+			await app.stop()
+			stopped = true
+		})()
+		// Together, on a connection each: with `setTimeout` faked, a fetch reusing an
+		// idle connection stalls for 6 s, past the test's timeout.
+		const [ready, health] = await Promise.all([
+			fetch(`${url}/ready`).then(answer),
+			fetch(`${url}/health`).then(answer),
+		])
+		expect(ready).toEqual(unavailable('The application is stopping.'))
+		expect(health).toEqual(ok)
+		await vi.advanceTimersByTimeAsync(99)
+		expect(stopped).toBe(false)
+		await vi.advanceTimersByTimeAsync(1)
+		vi.useRealTimers()
 		await stopping
 		running = undefined
-		expect(performance.now() - began).toBeGreaterThanOrEqual(95)
+		expect(stopped).toBe(true)
 		await expect(fetch(`${url}/health`)).rejects.toThrow('fetch failed')
 	})
 
