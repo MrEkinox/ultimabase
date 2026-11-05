@@ -14,7 +14,10 @@ const M = { as: master }
 
 const Writer = defineModel({
 	name: 'Writer',
-	fields: (f) => ({ name: f.string(), novels: f.many(() => Novel) }),
+	fields: (f) => ({
+		name: f.string(),
+		novels: f.many(() => Novel, { inverse: 'writer' }),
+	}),
 })
 
 const Novel = defineModel({
@@ -22,13 +25,16 @@ const Novel = defineModel({
 	fields: (f) => ({
 		title: f.string(),
 		writer: f.one(() => Writer, { onDelete: 'cascade' }),
-		genres: f.many(() => Genre),
+		genres: f.many(() => Genre, { inverse: 'novels' }),
 	}),
 })
 
 const Genre = defineModel({
 	name: 'Genre',
-	fields: (f) => ({ label: f.string(), novels: f.many(() => Novel) }),
+	fields: (f) => ({
+		label: f.string(),
+		novels: f.many(() => Novel, { inverse: 'genres' }),
+	}),
 })
 
 let app: App<unknown> | undefined
