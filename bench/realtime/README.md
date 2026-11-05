@@ -141,6 +141,7 @@ node --expose-gc --max-old-space-size=24576 bench/realtime/wire.ts \
   [--cases 25x1000,2000x100,10000x20,50000x20] [--total 55000] [--plain] \
   [--busy] [--url <url>]
 NODE_ENV=production node --max-old-space-size=16384 bench/realtime/render.ts
+node bench/realtime/pages.ts [--target 50000] [--url <url>]
 ```
 
 The gate of D-252: what a live list costs, whatever its size. The tables are
@@ -172,8 +173,36 @@ costs about 1 ms a row, and a production table has them.
   `useLiveSubscription`, up to the commit, every row rendered, or `memo` rows, or
   only the rows a virtual list keeps mounted. On happy-dom: a browser's layout
   and paint do not count.
+- `pages.ts`: a list read page after page, 25 rows at a time, from `fetchMore` to
+  the commit, by a real client over a real socket: without React (link), then
+  through `useLiveSubscription` as `render.ts` renders it. Rows on screen is the
+  commit that shows the page; All settled, the one where `fetchingMore` is false;
+  both medians of the pages in the 500 rows before each size, and Worst the
+  slowest of them. `applyLive` alone is timed on the list as it stands, for a page
+  and for one row in 50 told again where it stands. On happy-dom, and no
+  network latency.
 
 ## Runs
+
+### 2026-11-05: a message costs what it changes
+
+Same machine; Node 24.20.0; times in ms. `pages.ts`, 55 000 rows, Rows on screen,
+before and after `applyLive` stopped scanning the list for each row of a message:
+
+|  Rows | Link before | Link after | Virtual before | Virtual after | Memo before | Memo after | Every row before | Every row after |
+| ----: | ----------: | ---------: | -------------: | ------------: | ----------: | ---------: | ---------------: | --------------: |
+|   500 |        15.2 |       14.8 |           14.3 |          13.8 |        14.1 |       14.1 |             14.8 |            14.7 |
+|  1000 |        14.2 |       13.3 |           14.3 |          13.4 |        14.6 |       13.5 |             15.7 |            15.4 |
+|  2000 |        15.4 |       13.2 |           15.0 |          13.3 |        17.0 |       14.8 |             20.6 |            19.2 |
+|  5000 |        19.2 |       14.0 |           19.3 |          14.5 |        23.8 |       18.2 |             36.7 |            32.8 |
+| 10000 |        28.1 |       17.1 |           27.4 |          17.6 |        39.6 |       27.8 |             72.4 |            58.3 |
+| 20000 |        39.0 |       22.7 |           39.7 |          23.8 |        62.6 |       46.7 |            146.4 |           125.9 |
+| 50000 |       152.6 |       39.9 |          144.2 |          41.4 |       223.9 |      118.8 |            453.0 |           327.2 |
+
+- At 50 000 rows `applyLive` takes 81.8 ms for a page before, 12.5 after, in the
+  same run as the times above. The rest of the gain is not attributed.
+- Before and after are two runs, not one process.
+- Not measured: a browser's layout and paint, network latency, several clients.
 
 ### 2026-11-05: a big live list makes nobody wait (D-254)
 
