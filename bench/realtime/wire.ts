@@ -81,6 +81,8 @@ const { values } = parseArgs({
 		total: { type: 'string', default: '55000' },
 		url: { type: 'string' },
 		plain: { type: 'boolean', default: false },
+		// The bystander writes an author the list shows: messages reach full sockets.
+		busy: { type: 'boolean', default: false },
 	},
 })
 const total = Number(values.total)
@@ -163,13 +165,17 @@ try {
 				`${new Date().toISOString().slice(0, 10)}, Node ${process.version}, ${total} rows, compression ${deflate ? 'on' : 'off'}; median of 3, times in ms.\n`,
 			)
 			console.log(
-				'| Rows | Subscribers | One alone | All at once | Longest stall | Others wait | KiB a subscriber | First message MiB | Update | Author of 1 row in 50 | New first row |\n| --: | --: | --: | --: | --: | --: | --: | --: | --- | --- | --- |',
+				'| Rows | Subscribers | One alone | All at once | Longest stall | Others wait | Caught up | KiB a subscriber | First message MiB | Update | Author of 1 row in 50 | New first row |\n| --: | --: | --: | --: | --: | --: | --: | --: | --: | --- | --- | --- |',
 			)
 			const opening = async (
 				from: number,
 				count: number,
 				rows: number,
-			): Promise<{ readonly ms: number; readonly bytes: number }> => {
+			): Promise<{
+				readonly at: number
+				readonly ms: number
+				readonly bytes: number
+			}> => {
 				const start = now()
 				const reached = next('opened', 600)
 				told({
@@ -182,7 +188,7 @@ try {
 					deflate,
 				})
 				const { at, bytes } = await reached
-				return { ms: at - start, bytes }
+				return { at, ms: at - start, bytes }
 			}
 			const closing = async () => {
 				const closed = next('closed')
@@ -191,6 +197,8 @@ try {
 				await waited(200)
 				await bench.quiet()
 			}
+			// Shown by the bystander's list alone: no message follows it.
+			const other = await Person.create({ data: { name: 'a' } }, M)
 			const bystander = await bench.api.connect(
 				new Request('http://localhost/', {
 					headers: { authorization: 'bystander' },
@@ -219,7 +227,7 @@ try {
 						})
 						await Person.update(
 							{
-								where: { id: people[0]?.id ?? '' },
+								where: { id: values.busy ? (people[0]?.id ?? '') : other.id },
 								data: { name: 'a' + randomUUID() },
 							},
 							M,
@@ -246,6 +254,12 @@ try {
 				const all = await opening(0, subscribers, rows)
 				const waits = await others()
 				stalls.disable()
+				await bench.quiet()
+				// What was told during the opening still has to arrive; a whole read
+				// sent again is silent while it reads.
+				const settled = next('settled', 900)
+				told({ kind: 'settle', silence: 15_000 })
+				const caughtUp = Math.max(0, (await settled).at - all.at)
 				await bench.quiet()
 				const held = ((await heap()) - before) / subscribers / 1024
 				const write = async (run: (index: number) => Promise<unknown>) => {
@@ -304,7 +318,7 @@ try {
 					made.push(id)
 				})
 				console.log(
-					`| ${rows} | ${subscribers} | ${alone.ms.toFixed(0)} | ${all.ms.toFixed(0)} | ${(stalls.max / 1e6).toFixed(0)} | ${waits} | ${held.toFixed(0)} | ${(all.bytes / 1048576).toFixed(2)} | ${update} | ${author} | ${insert} |`,
+					`| ${rows} | ${subscribers} | ${alone.ms.toFixed(0)} | ${all.ms.toFixed(0)} | ${(stalls.max / 1e6).toFixed(0)} | ${waits} | ${caughtUp.toFixed(0)} | ${held.toFixed(0)} | ${(all.bytes / 1048576).toFixed(2)} | ${update} | ${author} | ${insert} |`,
 				)
 				for (const id of made) await Msg.delete({ where: { id } }, M)
 				await bench.quiet()

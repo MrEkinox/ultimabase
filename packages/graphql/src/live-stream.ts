@@ -1,8 +1,9 @@
 // A live read as graphql-ws streams it (D-154): the engine's messages in
-// order, each run against the subscription's selection, and those the client
-// cannot take while its socket is full dropped until the window is sent again.
+// order, each run against the subscription's selection, and those a full socket
+// cannot take dropped until the window is sent again.
 // A completed live list is kept 10 s for a resume, its later events waiting.
 import type { ExecutionResult } from 'graphql'
+import { Backlog } from '@ultimabase/http/internal'
 import type { LiveHandle, LiveMessage, Viewer } from '@ultimabase/realtime'
 
 /**
@@ -146,7 +147,8 @@ export async function liveStream(
 	let waiting: ((next: IteratorResult<LiveEvent>) => void) | undefined
 	let ending = false
 	let done = false
-	// Changes are dropped from a full buffer until the window comes whole.
+	// Past what a full buffer takes, messages drop until the window comes whole.
+	const backlog = new Backlog()
 	let dropping = false
 	let owed = false
 	let handle: LiveHandle | undefined
@@ -174,10 +176,10 @@ export async function liveStream(
 			ending = true
 			return push(closed(message.error))
 		}
-		// Once full, every message is dropped until the client drains: one
-		// resend then brings it the current state.
+		// Past that, every message is dropped until the client drains: one resend
+		// then brings it the current state.
 		if (dropping) return
-		if (channel.full()) {
+		if (!backlog.takes(channel.full(), message)) {
 			queue.length = 0
 			dropping = true
 			channel.drained(() => {

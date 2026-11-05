@@ -99,6 +99,10 @@ that many rows. It grows the variable that the root field's `first` (or
 stays in between. A call during a growth is ignored. A growth that fails goes
 to `error` and `onError`, and the list goes on as it was.
 
+A message keeps the object of every row it did not change, so a row component
+in `memo` renders only the rows that did. Past some thousands of rows, use a
+virtual list: mounting every row is what costs, not the messages.
+
 A message costs the rows it changed, whatever the list's size: 1.2 ms at 50 000
 rows. The hook reads with `no-cache`, and the link writes each row to Apollo's
 cache alone, so a fragment elsewhere reads it, and holds it there until it

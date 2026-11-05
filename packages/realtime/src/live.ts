@@ -2,13 +2,11 @@
 // row placed or removed at a time, and sends only what changed. Its tasks
 // run one after another; one that fails reads the window again, and a
 // second failure closes it.
-import type { Caller, Logger, ModelQueries, Row } from 'ultimabase'
+import type { Caller, Row } from 'ultimabase'
 import type { LivePlan, LiveReader } from 'ultimabase/internal'
 import {
-	inMemory,
 	liveReader,
 	liveSchema,
-	matches,
 	recordingVirtuals,
 	sortKeys,
 	storedRows,
@@ -18,26 +16,12 @@ import type { Batch } from './changes.ts'
 import { passing } from './levels.ts'
 import type { Reach } from './reach.ts'
 import { modelsOf, reachOf } from './reach.ts'
-import { finderOf, Loader, page, pass } from './reads.ts'
-import type { LiveMessage } from './messages.ts'
+import { finderOf, Loader, pass, rowsAfter } from './reads.ts'
+import type { Spec } from './messages.ts'
+import { bigRead, inParts, inTurn } from './turns.ts'
 import type { Keys } from './window.ts'
 import { Window } from './window.ts'
 import { VirtualReads } from './virtuals.ts'
-
-export type Spec = {
-	readonly model: string
-	readonly queries: ModelQueries
-	/** The read's own `where`, which `totalCount` counts. */
-	readonly where: unknown
-	/** Its `select`, `include` or `omit`, each level's `id` selected. */
-	readonly shape: { readonly [key: string]: unknown }
-	readonly totalCount: boolean
-	readonly row: boolean
-	/** The rows it follows at most; past them it has no next page (D-252). */
-	readonly limit: number
-	readonly send: (message: LiveMessage) => void
-	readonly logger: Logger
-}
 
 export class Live {
 	caller: Caller
@@ -52,6 +36,8 @@ export class Live {
 	#hasMore = false
 	#revision = 0
 	#queue: Promise<void> = Promise.resolve()
+	/** The reads of the whole window it is running or has queued. */
+	#rereads = 0
 	#closed = false
 
 	constructor(spec: Spec, caller: Caller, plan: LivePlan, first: number) {
@@ -64,7 +50,10 @@ export class Live {
 
 	/** Reads the window and sends it; a failure closes the read. */
 	async start(): Promise<void> {
-		const run = this.#reset()
+		this.#rereads += 1
+		const run = this.#reset().finally(() => {
+			this.#rereads -= 1
+		})
 		this.#queue = run.catch(() => undefined)
 		try {
 			await run
@@ -76,10 +65,9 @@ export class Live {
 
 	/** Follows `batch`, or reads the window again when changes were missed. */
 	async apply(batch: Batch, loader: Loader, missed: boolean): Promise<void> {
-		const [, settled] = this.#enqueue(() =>
-			missed ? this.#reset() : this.#apply(batch, loader),
-		)
-		return settled
+		if (missed) return this.#waited(this.#reread())
+		const [, settled] = this.#enqueue(() => this.#apply(batch, loader))
+		return this.#waited(settled)
 	}
 
 	/** Takes the caller's new plan; a changed one reads the window again. */
@@ -93,9 +81,9 @@ export class Live {
 			if (same) return
 			this.#plan = plan
 			this.#reach = reachOf(liveSchema(), this.#spec.model, plan)
-			await this.#reset()
+			await this.#again()
 		})
-		return settled
+		return this.#waited(settled)
 	}
 
 	/** Shows `more` rows after the last one. */
@@ -117,13 +105,33 @@ export class Live {
 
 	/** Reads the window again and sends it whole. */
 	async resend(): Promise<void> {
-		const [, settled] = this.#enqueue(async () => this.#reset())
-		return settled
+		return this.#reread()
 	}
 
 	close(): void {
 		this.#closed = true
 		this.#virtuals.clear()
+	}
+
+	/** Queues a read of the whole window. */
+	async #reread(): Promise<void> {
+		this.#rereads += 1
+		const [, settled] = this.#enqueue(async () => this.#reset())
+		return settled.finally(() => {
+			this.#rereads -= 1
+		})
+	}
+
+	/** Reads the window from a task: a big read queues, for no flush to wait. */
+	async #again(): Promise<void> {
+		if (this.#window.first < bigRead) return this.#reset()
+		void this.#reread()
+	}
+
+	/** What a flush waits for: `settled`, but no big read (D-254). */
+	#waited(settled: Promise<void>): Promise<void> | undefined {
+		const big = this.#rereads > 0 && this.#window.first >= bigRead
+		return big ? undefined : settled
 	}
 
 	/** Queues `task`; no async wrapper, as each flush queues one per read. */
@@ -155,31 +163,12 @@ export class Live {
 		return sortKeys(this.#spec.model, row, this.#plan.orderBy).concat(undefined)
 	}
 
-	/**
-	 * The stored rows after the window's last, from `where` and in order:
-	 * from the flush's read of the read's own filter when its rights, checked
-	 * in memory, leave enough.
-	 */
-	async #after(take: number, loader?: Loader): Promise<readonly Row[]> {
-		const { model } = this.#spec
-		const { where, rights, orderBy } = this.#plan
-		const last = this.#window.last()
-		if (loader !== undefined && inMemory(model, rights)) {
-			const rows = await loader.after(model, this.#plan, last, take)
-			const kept = rows.filter((row) => matches(model, row, rights))
-			if (kept.length >= take || rows.length < take) return kept.slice(0, take)
-		}
-		return storedRows(model, {
-			...(where && { where }),
-			...page(orderBy, last, take),
-			fields: orderBy.map(({ field }) => field),
-		})
-	}
-
 	async #refill(loader?: Loader): Promise<void> {
 		const missing = this.#window.missing()
 		if (missing <= 0) return
-		const rows = await this.#after(missing + 1, loader)
+		const { model } = this.#spec
+		const last = this.#window.last()
+		const rows = await rowsAfter(model, this.#plan, last, missing + 1, loader)
 		const entries = rows.slice(0, missing).map((row) => this.#entry(row))
 		this.#window.fill(entries, rows.length > missing)
 	}
@@ -205,7 +194,7 @@ export class Live {
 		this.#reader ??= await liveReader(model, shape, this.caller)
 		const reader = this.#reader
 		const { result: found, reads } = await recordingVirtuals(() =>
-			reader(ids, rows, loader?.reads),
+			inParts(ids, (part) => reader(part, rows, loader?.reads)),
 		)
 		this.#virtuals.keep(found, reads)
 		for (const node of found) nodes.set(node.id, node)
@@ -247,6 +236,12 @@ export class Live {
 	}
 
 	async #reset(): Promise<void> {
+		return inTurn(this.#window.first, async () =>
+			this.#closed ? undefined : this.#readWhole(),
+		)
+	}
+
+	async #readWhole(): Promise<void> {
 		const { model, row, send, totalCount } = this.#spec
 		const { where, orderBy } = this.#plan
 		const { first } = this.#window
@@ -298,7 +293,7 @@ export class Live {
 			},
 			batch,
 		)
-		if (effect === 'resync') return this.#reset()
+		if (effect === 'resync') return this.#again()
 		// A row whose virtuals now read differently is sent again.
 		const again = await this.#virtuals.changed(batch, loader, async (ids) => {
 			const nodes = new Map<string, Row>()

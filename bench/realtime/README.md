@@ -137,6 +137,10 @@ node --expose-gc --max-old-space-size=24576 bench/realtime/lists.ts \
 node --expose-gc --max-old-space-size=24576 bench/realtime/rooms.ts \
   [--rooms 200] [--viewers 5] [--window 25] [--open-parts] [--url <url>]
 node --max-old-space-size=8192 bench/realtime/hook.ts
+node --expose-gc --max-old-space-size=24576 bench/realtime/wire.ts \
+  [--cases 25x1000,2000x100,10000x20,50000x20] [--total 55000] [--plain] \
+  [--busy] [--url <url>]
+NODE_ENV=production node --max-old-space-size=16384 bench/realtime/render.ts
 ```
 
 The gate of D-252: what a live list costs, whatever its size. The tables are
@@ -157,8 +161,64 @@ costs about 1 ms a row, and a production table has them.
   `ultimabaseLive` read as `useLiveSubscription` does (hook), and as a plain
   subscription (plain), then an update and a row gone. React's rendering is not
   counted.
+- `wire.ts`: the lists of `lists.ts` from the write to the socket's far end, read
+  by real clients over GraphQL over WebSocket from a thread of their own, so
+  JSON, compression and the sockets count; clients do not parse. All at once
+  opens every subscriber together, and Others wait is what another client's
+  write waits meanwhile, median and last; Caught up, how long messages kept
+  arriving after that. `--busy` makes that write change an author the list shows,
+  so the opening list is told too. `--plain` turns compression off.
+- `render.ts`: the client alone, with React: the list through
+  `useLiveSubscription`, up to the commit, every row rendered, or `memo` rows, or
+  only the rows a virtual list keeps mounted. On happy-dom: a browser's layout
+  and paint do not count.
 
 ## Runs
+
+### 2026-11-05: a big live list makes nobody wait (D-254)
+
+Same machine; Node 24.20.0; times in ms. Caught up is how long messages kept
+arriving after the last client opened.
+
+`wire.ts`, 55 000 rows, compression on, nobody writing to the list:
+
+|  Rows | Subscribers | One alone | All at once | Longest stall | Others wait | Update         | Author of 1 row in 50       | New first row  |
+| ----: | ----------: | --------: | ----------: | ------------: | ----------: | -------------- | --------------------------- | -------------- |
+|    25 |        1000 |        58 |        3490 |            87 |           - | 3 stmts, 223.6 | 5 stmts, 248.5, 1.6 KiB     | 3 stmts, 172.0 |
+|  2000 |         100 |       297 |       12313 |           443 |  636 / 1323 | 3 stmts, 76.5  | 5 stmts, 281.7, 61.6 KiB    | 3 stmts, 67.4  |
+| 10000 |          20 |      1371 |       16472 |           371 |    68 / 475 | 3 stmts, 61.9  | 5 stmts, 279.9, 308.0 KiB   | 3 stmts, 59.9  |
+| 50000 |          20 |      6863 |      126272 |          1929 |   56 / 1960 | 3 stmts, 62.5  | 5 stmts, 1126.0, 1541.7 KiB | 3 stmts, 59.9  |
+
+The same with `--busy`, an author the list shows written all along the opening:
+
+|  Rows | Subscribers | All at once | Longest stall | Others wait | Caught up | Update        |
+| ----: | ----------: | ----------: | ------------: | ----------: | --------: | ------------- |
+|  2000 |         100 |       15613 |           557 |   57 / 1390 |       809 | 3 stmts, 75.1 |
+| 10000 |          20 |       23647 |           774 |   61 / 1534 |       374 | 3 stmts, 62.6 |
+| 50000 |          20 |      208198 |          6992 |   58 / 6996 |    227883 | 3 stmts, 61.9 |
+
+Before this decision, 10 000 rows and 20 subscribers with `--busy`: Others wait
+773 / 11659, and an update's message 14 514 KiB, the whole window, against 1.6.
+50 000 rows and 20 subscribers failed, Postgres killed for lack of memory.
+
+`render.ts`, on happy-dom, so no layout and no paint:
+
+|  Rows | Rendered  | First message | Update p50 | Row gone | Rows rendered by an update |
+| ----: | --------- | ------------: | ---------: | -------: | -------------------------: |
+|    25 | every row |          12.2 |       0.28 |      1.5 |                         25 |
+|    25 | memo      |           4.8 |       0.16 |      0.2 |                          1 |
+|    25 | virtual   |           4.1 |       0.17 |      0.3 |                         25 |
+|  2000 | every row |         128.6 |       3.14 |      3.7 |                       2000 |
+|  2000 | memo      |         105.3 |       0.68 |      1.0 |                          1 |
+|  2000 | virtual   |          61.1 |       0.16 |      0.7 |                         30 |
+| 10000 | every row |         840.9 |      27.08 |     19.2 |                      10000 |
+| 10000 | memo      |         839.4 |       4.02 |      5.8 |                          1 |
+| 10000 | virtual   |         245.0 |       0.31 |      0.9 |                         30 |
+| 50000 | every row |       10665.7 |     102.23 |    119.4 |                      50000 |
+| 50000 | memo      |       10649.4 |      21.77 |     27.4 |                          1 |
+| 50000 | virtual   |        1387.7 |       2.01 |      3.8 |                         30 |
+
+`hook.ts`, a row gone from 50 000 rows: 125.3 ms before, 3.5 ms after.
 
 ### 2026-11-05: a live list costs what its readers see (D-252)
 

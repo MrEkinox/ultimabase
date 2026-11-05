@@ -16,12 +16,14 @@ export type Command =
 			readonly deflate: boolean
 	  }
 	| { readonly kind: 'expect'; readonly count: number }
+	| { readonly kind: 'settle'; readonly silence: number }
 	| { readonly kind: 'close' }
 
 export type Reply =
 	| { readonly kind: 'opened'; readonly at: number; readonly bytes: number }
 	| { readonly kind: 'ready' }
 	| { readonly kind: 'reached'; readonly at: number; readonly bytes: number }
+	| { readonly kind: 'settled'; readonly at: number }
 	| { readonly kind: 'closed' }
 	| { readonly kind: 'failed'; readonly message: string }
 
@@ -35,6 +37,7 @@ const reply = (message: Reply) => {
 let sockets: WebSocket[] = []
 let counted = 0
 let expected = Number.POSITIVE_INFINITY
+let lastMessage = 0
 
 function opened(command: Extract<Command, { kind: 'open' }>): void {
 	let first = 0
@@ -67,6 +70,7 @@ function opened(command: Extract<Command, { kind: 'open' }>): void {
 					}),
 				)
 			} else if (head.includes('"next"')) {
+				lastMessage = now()
 				if (!started) {
 					started = true
 					first += 1
@@ -94,6 +98,12 @@ port.on('message', (command: Command) => {
 		counted = 0
 		expected = command.count
 		reply({ kind: 'ready' })
+	} else if (command.kind === 'settle') {
+		const watch = setInterval(() => {
+			if (now() - lastMessage < command.silence) return
+			clearInterval(watch)
+			reply({ kind: 'settled', at: lastMessage })
+		}, 100)
 	} else {
 		for (const socket of sockets) socket.terminate()
 		sockets = []

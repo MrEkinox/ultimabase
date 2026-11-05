@@ -1,6 +1,6 @@
 // What a live read sends (D-154), which a transport writes in its own shape,
 // and its handle.
-import type { Row } from 'ultimabase'
+import type { Logger, ModelQueries, Row } from 'ultimabase'
 
 /** A row that left the window, `gone` when deleted or no longer readable. */
 export type Removal = { readonly remove: string; readonly gone: boolean }
@@ -48,4 +48,20 @@ export interface LiveHandle {
 	/** Sends the whole window again, as after messages were dropped. */
 	resend(this: void): Promise<void>
 	close(this: void): void
+}
+
+/** What a live read follows, and whom it tells. */
+export type Spec = {
+	readonly model: string
+	readonly queries: ModelQueries
+	/** The read's own `where`, which `totalCount` counts. */
+	readonly where: unknown
+	/** Its `select`, `include` or `omit`, each level's `id` selected. */
+	readonly shape: { readonly [key: string]: unknown }
+	readonly totalCount: boolean
+	readonly row: boolean
+	/** The rows it follows at most; past them it has no next page (D-252). */
+	readonly limit: number
+	readonly send: (message: LiveMessage) => void
+	readonly logger: Logger
 }

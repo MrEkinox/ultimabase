@@ -28,6 +28,7 @@ import { PublicError } from 'ultimabase'
 import type { formatter } from './errors.ts'
 import type { Channel } from './live-stream.ts'
 import { LiveEvent, lives, released } from './live-stream.ts'
+import { inParts } from './parts.ts'
 import type { Context } from './registry.ts'
 
 /** How the GraphQL plugin runs a document, over HTTP as over WebSocket. */
@@ -96,13 +97,14 @@ function channelOf(viewer: Viewer, socket: WebSocket): Channel {
 		if (pending > 0) return
 		for (const then of waiters.splice(0)) then()
 	}
+	const parts = inParts(socket)
 	sends.set(socket, (data) => {
 		pending += 1
-		socket.send(data, written)
+		parts.send(data, written)
 	})
 	return {
 		viewer,
-		full: () => socket.bufferedAmount > maxBuffer,
+		full: () => socket.bufferedAmount + parts.unsent() > maxBuffer,
 		drained: (then) => {
 			if (pending === 0) then()
 			else waiters.push(then)

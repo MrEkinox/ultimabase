@@ -16,6 +16,7 @@ let running: Running | undefined
 const sockets: Client[] = []
 const stops: (() => void)[] = []
 afterEach(async () => {
+	vi.useRealTimers()
 	for (const stop of stops.splice(0)) stop()
 	await Promise.all(sockets.splice(0).map(async (socket) => socket.dispose()))
 	await running?.stop()
@@ -196,6 +197,34 @@ describe('a live read’s rows in the cache', () => {
 		await Task.delete({ where: { id: a } }, M)
 		await read.at(3)
 		expect(titleOf(cache, a)).toBeNull()
+	})
+
+	it('collects what gone rows left once, a moment after they went', async () => {
+		vi.useFakeTimers({ toFake: ['setTimeout'] })
+		const { cache, read } = sent([
+			{
+				data: { all: [row, { ...row, id: 'b', title: 'b' }] },
+				extensions: { live: { revision: 1 } },
+			},
+			{
+				extensions: {
+					live: { revision: 2, changes: [{ remove: 'a', gone: true }] },
+				},
+			},
+			{
+				extensions: {
+					live: { revision: 3, changes: [{ remove: 'b', gone: true }] },
+				},
+			},
+		])
+		const collected = vi.spyOn(cache, 'gc')
+		await read.at(3)
+		expect(titleOf(cache, 'a')).toBeNull()
+		expect(collected).not.toHaveBeenCalled()
+		vi.advanceTimersByTime(1000)
+		expect(collected).toHaveBeenCalledTimes(1)
+		vi.advanceTimersByTime(1000)
+		expect(collected).toHaveBeenCalledTimes(1)
 	})
 
 	it('keeps a live row, until it is gone', async () => {

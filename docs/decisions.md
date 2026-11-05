@@ -9411,7 +9411,7 @@ api: ({ plugins }) => plugins.http.mount(uploads, { bodyLimit: false })
 ## D-154: Realtime: live lists and live rows
 
 Amended by D-163, D-166, D-178, D-186, D-187, D-195, D-196, D-223, D-226,
-D-229, D-230 and D-252.
+D-229, D-230, D-252 and D-254.
 
 Choice: completes D-25; amends D-106 (WebSocket upgrades), D-107 (the
 `Subscription` type), D-109 (live functions) and D-129 (live reads over
@@ -17377,6 +17377,8 @@ drop table "account_chats";
 
 ## D-252: A live list costs what its readers see, whatever its size
 
+Amended by D-253 and D-254.
+
 Choice: amends D-154 points 3 and 7, D-186 points 1 to 3 and its rejection of
 growing up to the limit, D-195 and D-196.
 
@@ -17548,3 +17550,79 @@ Why:
 Rejected:
 
 - Keeping the rows in the follower and walking fewer of them: the memory stays.
+
+## D-254: A big live list makes nobody wait
+
+Choice: amends D-154's rule on a full socket buffer, and D-252.
+
+1. A flush does not wait for a big whole read. A list of at least 1000 rows that
+   reads its window again keeps its changes in order behind that read, and the
+   other lists get their messages meanwhile.
+2. Whole reads of at least 1000 rows take turns in the process: they hold 20 000
+   rows at once at most, and a read alone may hold more. Smaller ones never
+   wait.
+3. A statement reads 2000 rows at most: a big read goes in parts, so that writes
+   find a connection between them.
+4. A client whose buffer is full still gets the changes of its window, as long
+   as what they carry since the buffer was last not full, counted as the changes
+   of each message plus one, does not exceed the rows it was last shown. Past
+   that, messages are dropped and it gets the window again once it drained. So a
+   slow client costs at most about two windows, and a client on a small list
+   behaves as before. REST and GraphQL share this in `@ultimabase/http/internal`.
+5. Over GraphQL, a message goes to the socket in WebSocket fragments of 256 KiB,
+   each once the last is written, so that a ping passes between them. The keep-
+   alive itself does not change: a client that stops reading is still cut after
+   two beats, 24 s. A fragment is standard WebSocket: clients see one message.
+6. `@ultimabase/live` collects what gone rows left a second later, at most once a
+   second for a cache, instead of on each message.
+
+Why:
+
+- A client on a slow link never got a big first message. At 1.2 MiB/s with a
+  first message of 82 MB, the pings it answers wait behind that message, so it
+  was cut at 24 s and read it whole again, forever. It now arrives in 41 s and
+  the socket stays open. A client that stopped reading is still cut at 24 s.
+- Subscribers opening 10 000 rows held up everybody: at 20 of them, another
+  client's message waited 773 ms median and 11 659 ms at most. Now 61 and 1534.
+- Whole reads all at once killed the database: 20 subscribers on 50 000 rows
+  failed and Postgres was killed for lack of memory (`jsonb_agg`, 8.3 GB). They
+  now all open, in 126 s, one at a time. Below that, turns cost little: 14.5 s to
+  16.5 s at 10 000 rows, and a writer's list waits 68 ms.
+- A write during an opening sent every subscriber the whole window: a dropped
+  message meant a resend. 14.5 MiB a message then, 1.6 KiB now. The opening takes
+  longer, 14.5 s to 23.6 s, because those messages now arrive.
+- A row gone from a 50 000 row list took 125.3 ms in its message, 3.5 ms now. The
+  walk still costs about 125 ms, once, a second later.
+- Fragments cost nothing measurable: 126.8 s without, 126.3 s with.
+
+Known limits, measured or not:
+
+- 20 subscribers open 50 000 rows while the author of 1000 of them changes about
+  once a second: all opened in 208 s, then 228 s more to catch up, during which
+  an update takes seconds. Once caught up, an update is 62 ms. The process is
+  saturated, and no list this large with so many writes exists yet.
+- A slow client under writes can still get its window again after draining.
+- A ping also waits behind what the kernel and the network hold: the fragments
+  remove only what the process held.
+- REST has no ping answered by the client, so no such cut, and no fragments.
+- At a redeploy every subscriber reconnects and reads whole, in turns, as tokens
+  do not survive one: 126 s for 20 subscribers on 50 000 rows.
+- Not measured: several instances, a real browser's layout and paint.
+
+Rejected:
+
+- Sharing a row's hash and message among subscribers, proposed first: each viewer
+  decodes its own rows under its own field rules, so sharing risks showing one
+  viewer's row to another, for at most 8 % of an author's 272 ms.
+- Checking rights in batch for big rooms: 200 rooms of 5 cost 67.5 ms, and the
+  one room of 1000 that costs 536 ms exists in no app migrated so far.
+- A sliding window of the list on the server: nothing needs it while the largest
+  list of the app migrated is 4000 rows. Reserved for a list that hits this wall.
+- Letting a client stay alive while its buffer progresses, instead of fragments:
+  `bufferedAmount` counts a whole write until it ends, so no progress shows
+  during one message. It passed a first measure only because its own pings grew
+  the buffer, and was cut at 24 s once they did not.
+- Changing the client for React: a row keeps its object from one message to the
+  next, so `memo` renders 1 row, at 0.68 ms for 2000 rows and 21.77 ms for 50 000.
+  Mounting is what costs, at 840 ms for 10 000 rows on happy-dom. The
+  documentation recommends `memo` and a virtual list instead.

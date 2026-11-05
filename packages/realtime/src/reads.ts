@@ -50,6 +50,31 @@ export const page = (
 	take,
 })
 
+/**
+ * The stored rows after `last`, from the plan's `where` and in order: from the
+ * flush's read of the read's own filter when its rights, checked in memory,
+ * leave enough.
+ */
+export async function rowsAfter(
+	model: string,
+	plan: LivePlan,
+	last: string | undefined,
+	take: number,
+	loader?: Loader,
+): Promise<readonly Row[]> {
+	const { where, rights, orderBy } = plan
+	if (loader !== undefined && inMemory(model, rights)) {
+		const rows = await loader.after(model, plan, last, take)
+		const kept = rows.filter((row) => matches(model, row, rights))
+		if (kept.length >= take || rows.length < take) return kept.slice(0, take)
+	}
+	return storedRows(model, {
+		...(where && { where }),
+		...page(orderBy, last, take),
+		fields: orderBy.map(({ field }) => field),
+	})
+}
+
 /** The root rows a flush reads for all its live reads, at most. */
 const sharedRows = 10_000
 

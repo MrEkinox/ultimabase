@@ -69,6 +69,20 @@ function refusalOf(result: ApolloLink.Result): LiveError | undefined {
 	return liveErrorOf({ ...error.extensions, message: error.message }, fallback)
 }
 
+/** How long what gone rows left waits: collecting walks the cache (D-254). */
+const collectAfter = 1000
+const collecting = new WeakSet<ApolloCache>()
+
+/** Collects what gone rows left in `cache`, once for all that go meanwhile. */
+function collect(cache: ApolloCache): void {
+	if (collecting.has(cache)) return
+	collecting.add(cache)
+	setTimeout(() => {
+		collecting.delete(cache)
+		cache.gc()
+	}, collectAfter)
+}
+
 /** Evicts from `cache` the rows of `list` that `changes` names gone. */
 function evict(
 	cache: ApolloCache,
@@ -89,7 +103,7 @@ function evict(
 				: undefined
 		if (entity !== undefined) cache.evict({ id: entity })
 	}
-	cache.gc()
+	collect(cache)
 }
 
 /** Follows `operation`, a live subscription, applying its messages. */

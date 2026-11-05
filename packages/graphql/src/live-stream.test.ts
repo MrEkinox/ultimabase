@@ -176,6 +176,36 @@ describe('a live stream', () => {
 		expect(await rootsOf(stream)).toEqual([reset(4), changed(5), 'closed'])
 	})
 
+	it("sends a big window's changes through a full socket, no window again", async () => {
+		const channel = fake(await viewer())
+		const read = handled()
+		const stream = await liveStream(
+			channel.channel,
+			read.open,
+			eventOf,
+			closedEvent,
+		)
+		const { send, resent } = read.opened()
+		const opening: LiveMessage = {
+			kind: 'reset',
+			revision: 1,
+			rows: Array.from({ length: 10 }, (_, index) => ({ id: `${index}` })),
+			hasMore: false,
+		}
+		send(opening)
+		channel.full = true
+		const change: LiveMessage = {
+			kind: 'changes',
+			revision: 2,
+			changes: [{ remove: '1', gone: true }],
+		}
+		send(change)
+		expect(channel.drains).toHaveLength(0)
+		expect(resent()).toBe(0)
+		send({ kind: 'closed' })
+		expect(await rootsOf(stream)).toEqual([opening, change, 'closed'])
+	})
+
 	it('drops rows and values too while the socket is full, and waits once', async () => {
 		const channel = fake(await viewer())
 		const read = handled()
