@@ -16,7 +16,7 @@ export interface S3Options {
 	/** Sends `x-amz-acl: public-read` with a public file, which Spaces needs. */
 	readonly publicAcl?: boolean
 	/** The base of a public file's URL, a CDN; the storage's own otherwise. */
-	readonly publicUrl?: string
+	readonly publicUrl?: string | undefined
 }
 
 const required = [

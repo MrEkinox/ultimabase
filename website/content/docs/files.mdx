@@ -203,7 +203,8 @@ for `diskFiles()` and `memoryFiles()`.
 | `publicAcl`       | Sends `x-amz-acl: public-read` with a public file, which Spaces needs. |
 | `publicUrl`       | The base of a public file's URL, a CDN; the storage's own otherwise.   |
 
-The first five are required, and each takes `undefined`. URLs are
+The first five are required. Each option but `publicAcl` takes `undefined`,
+so it can be read from the environment as it is. URLs are
 path-style, `${endpoint}/${bucket}/${key}`; requests are signed with SigV4.
 
 ### `diskFiles(options)` and `memoryFiles(options)`
