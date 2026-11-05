@@ -11,10 +11,12 @@ const untyped = (definition: object): void => {
 }
 
 /** Builds an enum field from values its types would refuse. */
-const enumOf = (values: readonly unknown[]): void => {
+const enumOf = (values: readonly unknown[] | undefined): void => {
 	untyped({
 		name: 'Note',
-		fields: (f: { enumOf: (list: readonly unknown[]) => object }) => ({
+		fields: (f: {
+			enumOf: (list: readonly unknown[] | undefined) => object
+		}) => ({
 			level: f.enumOf(values),
 		}),
 	})
@@ -127,6 +129,14 @@ describe('field builders', () => {
 			'enumOf lists a value twice: a, a.',
 		)
 		expect(() => enumOf(['a', 'b'])).not.toThrow()
+	})
+
+	// Regression (#226): two model files importing each other read the
+	// other's values before its module ran.
+	it('names the cause of an enum read before it is defined', () => {
+		expect(() => enumOf(undefined)).toThrow(
+			'enumOf received undefined: a model file that imports another may read its values before they are defined. Move them to a file that imports no model.',
+		)
 	})
 })
 
