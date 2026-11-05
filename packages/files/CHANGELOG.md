@@ -1,5 +1,29 @@
 # @ultimabase/files
 
+## 0.5.0
+
+### Minor Changes
+
+- afa0568: `@ultimabase/files/client` uploads files from a browser: `uploader({ url,
+headers })` gives `upload(file, { for })`, which resolves to the id to write
+  in a row, or `upload(files, { for })` for a list. A refused upload rejects
+  with a `FileError` carrying the server's `code`, `message` and `details`. It
+  imports nothing of the server, whose packages become optional peers.
+
+### Patch Changes
+
+- 95a0c1f: `s3({ publicUrl })` takes `undefined`, as the other options read from the
+  environment do: `publicUrl: process.env['S3_PUBLIC_URL']` type-checks, and
+  `undefined` keeps the storage's own URL.
+- Updated dependencies [20e2cc5]
+- Updated dependencies [efc5f10]
+- Updated dependencies [fa67fd3]
+- Updated dependencies [3646c66]
+- Updated dependencies [9e34dc6]
+- Updated dependencies [05cc9ce]
+  - ultimabase@0.5.0
+  - @ultimabase/http@0.5.0
+
 ## 0.4.0
 
 ### Minor Changes

@@ -1,5 +1,30 @@
 # ultimabase
 
+## 0.5.0
+
+### Minor Changes
+
+- efc5f10: A live list counts a nested `many` at the smaller of its `take` and its
+  `size.max`: `images(first: 100)` on a `size: { max: 10 }` relation counts 10
+  rows toward `maxLive`, not 100. A model's `ExposedModel` lists its bounded
+  relations as `sizes`.
+- fa67fd3: `f.many(() => Membership, { inverse: false })` declares a many-to-many on
+  one side only: its target gets no field, and no transport publishes one. It
+  reads, writes, filters, counts and sorts as any many-to-many, takes
+  `within`, and refuses `size`. `postgres()` names its join table after the
+  declared side, `task_assignees`. Live queries follow it (D-248).
+- 3646c66: A `one` view whose filter is only `{ user: { viewer: false } }` reads the
+  other row of a pair: a member reads the other member, anyone else `null`.
+  Its `many` takes `size: { max: 2 }` and the target a unique index on the key
+  and the relation. A `one` view that finds two rows fails the read (D-249).
+
+### Patch Changes
+
+- 20e2cc5: `f.enumOf(undefined)` names its likely cause: two model files importing each
+  other, one reading the other's values before they are defined.
+- 9e34dc6: A `sync` refusing to drop a field a `oneOf`'s key may be no longer suggests a `dbName` the `oneOf` refuses: it says `sync --force` loses the data and `migrate create` writes the rename.
+- 05cc9ce: `migrate create`'s hint for a table that looks renamed, a model's or a join's, now renames its keys and indexes too, one statement per line: following it gives the database a fresh sync gives. It renamed the table alone, which kept the old key and index names, and a join that moved to its other side kept its old key order, so the next migration failed.
+
 ## 0.4.0
 
 ### Minor Changes

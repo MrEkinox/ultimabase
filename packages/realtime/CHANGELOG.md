@@ -1,5 +1,21 @@
 # @ultimabase/realtime
 
+## 0.5.0
+
+### Patch Changes
+
+- efc5f10: A live list counts a nested `many` at the smaller of its `take` and its
+  `size.max`: `images(first: 100)` on a `size: { max: 10 }` relation counts 10
+  rows toward `maxLive`, not 100. A model's `ExposedModel` lists its bounded
+  relations as `sizes`.
+- Updated dependencies [20e2cc5]
+- Updated dependencies [efc5f10]
+- Updated dependencies [fa67fd3]
+- Updated dependencies [3646c66]
+- Updated dependencies [9e34dc6]
+- Updated dependencies [05cc9ce]
+  - ultimabase@0.5.0
+
 ## 0.4.0
 
 ### Minor Changes

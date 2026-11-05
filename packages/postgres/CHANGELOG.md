@@ -1,5 +1,30 @@
 # @ultimabase/postgres
 
+## 0.5.0
+
+### Minor Changes
+
+- fa67fd3: `f.many(() => Membership, { inverse: false })` declares a many-to-many on
+  one side only: its target gets no field, and no transport publishes one. It
+  reads, writes, filters, counts and sorts as any many-to-many, takes
+  `within`, and refuses `size`. `postgres()` names its join table after the
+  declared side, `task_assignees`. Live queries follow it (D-248).
+
+### Patch Changes
+
+- 3646c66: A `one` view whose filter is only `{ user: { viewer: false } }` reads the
+  other row of a pair: a member reads the other member, anyone else `null`.
+  Its `many` takes `size: { max: 2 }` and the target a unique index on the key
+  and the relation. A `one` view that finds two rows fails the read (D-249).
+- 05cc9ce: `migrate create`'s hint for a table that looks renamed, a model's or a join's, now renames its keys and indexes too, one statement per line: following it gives the database a fresh sync gives. It renamed the table alone, which kept the old key and index names, and a join that moved to its other side kept its old key order, so the next migration failed.
+- Updated dependencies [20e2cc5]
+- Updated dependencies [efc5f10]
+- Updated dependencies [fa67fd3]
+- Updated dependencies [3646c66]
+- Updated dependencies [9e34dc6]
+- Updated dependencies [05cc9ce]
+  - ultimabase@0.5.0
+
 ## 0.4.0
 
 ### Minor Changes
