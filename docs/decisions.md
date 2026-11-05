@@ -9166,7 +9166,7 @@ type Stage {
 
 ## D-152: Files
 
-Amended by D-200 and D-202.
+Amended by D-200, D-202 and D-250.
 
 Choice: completes D-32 and D-122; amends D-32 (no `local()`), D-89 (a
 plugin model knows its name) and D-122 points 2 and 5.
@@ -17219,5 +17219,91 @@ const other = conversation?.otherMember ?? null
 ```graphql
 conversation(id: $id) {
 	otherMember { user { name } }
+}
+```
+
+## D-250: A browser client for uploads
+
+Choice: completes D-152.
+
+1. `@ultimabase/files/client` exports `uploader` and `FileError`. It
+   imports nothing of the server: a browser bundle takes it alone.
+   `ultimabase` and `@ultimabase/http` become optional peers of
+   `@ultimabase/files`, so a client app installs neither; a server has
+   both, and the files plugin's `requires` names a missing HTTP plugin.
+2. `uploader({ url, headers })` takes the server's address and the
+   headers of each upload: an object, or a function read at each upload,
+   so a refreshed session is sent.
+3. `upload(file, { for, signal })` sends `POST /files?for=&name=` with the
+   file's name, its type and its length, and resolves to its id.
+   `upload(files, { for, signal })` takes any iterable of files, a
+   `FileList` included, sends them at once, and resolves to their ids in
+   order. The first failure rejects it and aborts the others; what they
+   stored is swept within the hour (D-152).
+4. A refusal rejects with a `FileError { code, message, details }`, the
+   shape of `LiveError` (D-154): the server's body, or
+   `INTERNAL` / `The upload failed.` when the body is not one. A request
+   that reaches no server rejects with `NETWORK` /
+   `The upload did not reach the server.`. An aborted upload rejects with
+   the signal's reason, as `fetch` does.
+5. `for` is a `string`.
+
+Why:
+
+- Every client app wrote the same `fetch`, parsed an untyped body and
+  mapped its error by hand; the route and its query are the server's to
+  know.
+- A subpath, not a package: one package for files, server and client.
+  Optional peers keep the server out of a client's install; `file-type`
+  is installed and never bundled.
+- The same error shape as `LiveError` lets an app map `code` once for
+  every transport.
+- Sending at once with no limit: a form holds a few files; the browser
+  queues the connections it does not open.
+
+Cost: `upload` reports no progress, which `fetch` cannot give for a
+request body; `for` is checked by the server only.
+
+Rejected:
+
+- A package of its own, `@ultimabase/uploads`: a second package for one
+  feature.
+- `XMLHttpRequest` for progress, a React hook and a generated union of
+  the file fields for `for`: to revisit when usage asks.
+- An Apollo link that uploads the files of a mutation's variables: it
+  needs a map of the GraphQL inputs to the file fields; to revisit.
+- A list's results settled one by one: a form writes all its files or
+  none.
+
+Before:
+
+```ts
+const query = new URLSearchParams({ for: 'Profile.avatar', name: file.name })
+const response = await fetch(`${backendUrl}/files?${query}`, {
+	method: 'POST',
+	headers: authHeaders(),
+	body: file,
+})
+const body: unknown = await response.json()
+if (response.ok && isObject(body) && typeof body.id === 'string') return body.id
+throw new AppError(String(Reflect.get(Object(body), 'code')))
+```
+
+After:
+
+```ts
+import { FileError, uploader } from '@ultimabase/files/client'
+
+export const files = uploader({ url: backendUrl, headers: authHeaders })
+
+const avatar = await files.upload(file, { for: 'Profile.avatar' })
+const photos = await files.upload(input.files, { for: 'Gallery.photos' })
+
+try {
+	await files.upload(file, { for: 'Profile.avatar' })
+} catch (error) {
+	if (error instanceof FileError && error.code === 'PAYLOAD_TOO_LARGE') {
+		// The field's maxSize.
+	}
 }
 ```
