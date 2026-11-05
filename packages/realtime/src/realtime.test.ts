@@ -454,16 +454,6 @@ describe('a live list', () => {
 		await expect(handle.grow(0)).rejects.toThrow(
 			'first must be a positive integer.',
 		)
-		const over = 'first is over 1000, the most a live list follows.'
-		await expect(handle.grow(1000)).rejects.toMatchObject({
-			code: 'VALIDATION_FAILED',
-			message: over,
-			details: {
-				issues: [{ path: ['first'], message: over }],
-				limit: 1000,
-				rows: 1004,
-			},
-		})
 		// The list goes on as it was.
 		await handle.grow(1)
 		expect(seen.at(-1)).toMatchObject({ kind: 'changes', revision: 3 })
@@ -714,19 +704,12 @@ describe('a viewer', () => {
 		await expect(
 			refused('Post', { first: 1, totalCount: 'yes' }),
 		).rejects.toThrow('totalCount must be a boolean.')
-		await expect(refused('Post', { first: 1001 })).rejects.toThrow(
-			'first is over 1000, the most a live list follows.',
+		await expect(refused('Post', { first: 50_001 })).rejects.toThrow(
+			'first is over 50000, the most a live list follows.',
 		)
 		await expect(refused('Comment', { first: 5 })).rejects.toThrow(
 			'first is over 4, the most a live list follows.',
 		)
-		// Each post follows its 3 comments: 300 × (1 + 3) rows.
-		await expect(
-			refused('Post', { first: 300, include: { comments: { take: 3 } } }),
-		).rejects.toMatchObject({
-			message: 'first is over 1000, the most a live list follows.',
-			details: { limit: 1000, rows: 1200 },
-		})
 		await expect(
 			refused('Post', { first: 1, include: { comments: true } }),
 		).rejects.toThrow('A live comments list needs a take.')
@@ -810,11 +793,9 @@ describe('a live list with nested rows', () => {
 			],
 		})
 		await Comment.delete({ where: { id: comment.id } }, M)
+		// The row that showed it alone: the others read as they were sent.
 		expect(await message(seen, 4)).toMatchObject({
-			changes: [
-				{ upsert: { title: 'p1' } },
-				{ upsert: { title: 'p2', comments: [] } },
-			],
+			changes: [{ upsert: { title: 'p2', comments: [] } }],
 		})
 	})
 
@@ -837,13 +818,16 @@ describe('a live list with nested rows', () => {
 		expect(await message(seen, 2)).toMatchObject({
 			changes: [{ upsert: { title: 'p2', _count: { comments: 1 } } }],
 		})
-		// The post it moves to is sent again; the one it leaves is not.
+		// Both the post it moves to and the one it leaves are sent again.
 		await Comment.update(
 			{ where: { id: comment.id }, data: { post: { connect: { id: p1 } } } },
 			M,
 		)
 		expect(await message(seen, 3)).toMatchObject({
-			changes: [{ upsert: { title: 'p1', _count: { comments: 1 } } }],
+			changes: [
+				{ upsert: { title: 'p1', _count: { comments: 1 } } },
+				{ upsert: { title: 'p2', _count: { comments: 0 } } },
+			],
 		})
 		expect(await message(followed, 2)).toMatchObject({
 			row: { title: 'p1', _count: { comments: 1 } },
@@ -984,6 +968,51 @@ describe('the plugin', () => {
 			"realtime's refresh must be a positive integer.",
 		)
 		await seeded()
+	})
+
+	it('grows up to its limit and no further, and stays live', async () => {
+		await seeded({ maxLive: 3 })
+		const { seen, handle } = await list(await connect(), 'Post', {
+			...ranked,
+			first: 2,
+			totalCount: true,
+		})
+		// The count stays true: p4 exists, past the limit.
+		expect(seen.at(0)).toMatchObject({ totalCount: 4, hasMore: true })
+		// One row fits of the five asked for, and p4 is left out for good.
+		await handle.grow(5)
+		expect(seen.at(-1)).toEqual({
+			kind: 'changes',
+			revision: 2,
+			changes: [{ upsert: titled('p3'), after: posts[1]?.id }],
+			hasMore: false,
+		})
+		// Nothing to add, and the client still gets its answer.
+		await handle.grow(1)
+		expect(seen.at(-1)).toEqual({ kind: 'changes', revision: 3, changes: [] })
+		await Post.update(
+			{ where: { id: posts[0]?.id ?? '' }, data: { title: 'first' } },
+			M,
+		)
+		await vi.waitFor(() => {
+			expect(seen.at(-1)).toMatchObject({
+				revision: 4,
+				changes: [{ upsert: { title: 'first' } }],
+			})
+		})
+	})
+
+	it('holds two growths at once to its limit', async () => {
+		await seeded({ maxLive: 3, maxConnectionRows: 3 })
+		const { seen, handle } = await list(await connect(), 'Post', {
+			...ranked,
+			first: 1,
+		})
+		await Promise.all([handle.grow(2), handle.grow(2)])
+		const sent = seen.slice(1).map((each) => JSON.stringify(each))
+		expect(sent.join()).toContain('p2')
+		expect(sent.join()).toContain('p3')
+		expect(sent.join()).not.toContain('p4')
 	})
 
 	it('limits the live reads and the rows one connection follows', async () => {

@@ -280,10 +280,12 @@ function liveFields(registry: Registry, entry: Entry): Fields {
 							: await resumed(channel, resume, signature, rows)
 					if (taken !== undefined) return taken
 					const keep: Keep = { token: randomUUID(), signature, first: rows }
+					// A kept list that grew to the limit opens again at it (D-252).
+					const first =
+						resume === undefined ? rows : channel.viewer.capped(name, rows)
 					return liveStream(
 						channel,
-						async (send) =>
-							channel.viewer.list(name, { ...read, first: rows }, send),
+						async (send) => channel.viewer.list(name, { ...read, first }, send),
 						follower(info, connected, page, keep.token),
 						closedEvent,
 						keep,

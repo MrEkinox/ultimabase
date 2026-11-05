@@ -13,7 +13,6 @@ import {
 	sortKeys,
 	storedRows,
 } from 'ultimabase/internal'
-import type { Finder } from './affected.ts'
 import { affected } from './affected.ts'
 import type { Batch } from './changes.ts'
 import { passing } from './levels.ts'
@@ -23,7 +22,6 @@ import { finderOf, Loader, page, pass } from './reads.ts'
 import type { LiveMessage } from './messages.ts'
 import type { Keys } from './window.ts'
 import { Window } from './window.ts'
-import { Tracking } from './tracking.ts'
 import { VirtualReads } from './virtuals.ts'
 
 export type Spec = {
@@ -35,6 +33,8 @@ export type Spec = {
 	readonly shape: { readonly [key: string]: unknown }
 	readonly totalCount: boolean
 	readonly row: boolean
+	/** The rows it follows at most; past them it has no next page (D-252). */
+	readonly limit: number
 	readonly send: (message: LiveMessage) => void
 	readonly logger: Logger
 }
@@ -47,8 +47,6 @@ export class Live {
 	#reach: Reach
 	#window: Window
 	readonly #spec: Spec
-	readonly #find: Finder
-	readonly #tracking = new Tracking()
 	readonly #virtuals = new VirtualReads()
 	#count: number | undefined
 	#hasMore = false
@@ -62,11 +60,6 @@ export class Live {
 		this.#plan = plan
 		this.#reach = reachOf(liveSchema(), spec.model, plan)
 		this.#window = new Window(plan.orderBy, first)
-		this.#find = finderOf(spec.model)
-	}
-
-	get first(): number {
-		return this.#window.first
 	}
 
 	/** Reads the window and sends it; a failure closes the read. */
@@ -109,11 +102,17 @@ export class Live {
 	async grow(more: number): Promise<void> {
 		const [run] = this.#enqueue(async () => {
 			this.#window.mark()
-			this.#window.first += more
+			const { first } = this.#window
+			this.#window.first = Math.min(first + more, this.#spec.limit)
 			// Sent even when no row follows: the client waits for it.
 			await this.#send(new Set(), new Set(), false, true)
 		})
 		return run
+	}
+
+	/** Rows follow the window, and it may still reach them. */
+	#hasNext(): boolean {
+		return this.#window.first < this.#spec.limit && this.#window.hasMore()
 	}
 
 	/** Reads the window again and sends it whole. */
@@ -124,7 +123,6 @@ export class Live {
 
 	close(): void {
 		this.#closed = true
-		this.#tracking.clear()
 		this.#virtuals.clear()
 	}
 
@@ -153,7 +151,8 @@ export class Live {
 	}
 
 	#entry(row: Row): Keys {
-		return sortKeys(this.#spec.model, row, this.#plan.orderBy)
+		// With the slot of the hash: an array grown later takes 160 bytes more.
+		return sortKeys(this.#spec.model, row, this.#plan.orderBy).concat(undefined)
 	}
 
 	/**
@@ -206,13 +205,10 @@ export class Live {
 		this.#reader ??= await liveReader(model, shape, this.caller)
 		const reader = this.#reader
 		const { result: found, reads } = await recordingVirtuals(() =>
-			reader(ids, rows),
+			reader(ids, rows, loader?.reads),
 		)
 		this.#virtuals.keep(found, reads)
-		for (const node of found) {
-			nodes.set(node.id, node)
-			this.#tracking.track(node, this.#plan.include)
-		}
+		for (const node of found) nodes.set(node.id, node)
 		return ids.filter((id) => !nodes.has(id))
 	}
 
@@ -255,7 +251,6 @@ export class Live {
 		const { where, orderBy } = this.#plan
 		const { first } = this.#window
 		this.#window = new Window(orderBy, first)
-		this.#tracking.clear()
 		this.#virtuals.clear()
 		// One query, of the fields that place and show a row, given to the reader.
 		const { placing: place, showing: show } = this.#reach
@@ -271,8 +266,9 @@ export class Live {
 		this.#window.fill(entries, rows.length > first + 1)
 		const { nodes } = await this.#settle(new Set(), new Set(), loader)
 		this.#count = totalCount ? await this.#counted() : undefined
-		this.#hasMore = this.#window.hasMore()
+		this.#hasMore = this.#hasNext()
 		const shown = this.#window.shown().flatMap((id) => nodes.get(id) ?? [])
+		for (const node of shown) this.#window.sent(node.id, node)
 		if (this.#closed) return
 		if (row) {
 			send({ kind: 'row', revision: this.#next(), row: shown[0] ?? null })
@@ -295,8 +291,7 @@ export class Live {
 				model,
 				reach: this.#reach,
 				window: window.ids(),
-				tracked: this.#tracking.tracked,
-				find: this.#find,
+				find: finderOf(model, loader),
 				judge: async (level, changes, ids) =>
 					passing(modelsOf(liveSchema()), level, changes, ids, loader),
 			},
@@ -350,19 +345,27 @@ export class Live {
 	): Promise<void> {
 		const { row, send } = this.#spec
 		const { moves, nodes } = await this.#settle(again, gone, loader)
-		for (const id of moves.removed) {
-			this.#tracking.untrack(id)
-			this.#virtuals.forget(id)
-		}
+		for (const id of moves.removed) this.#virtuals.forget(id)
 		let totalCount: number | undefined
 		if (recount) {
-			const count = await this.#counted()
+			const { model } = this.#spec
+			const count = await (loader === undefined
+				? this.#counted()
+				: loader.counted(model, this.#plan.where, async () => this.#counted()))
 			if (count !== this.#count) totalCount = count
 			this.#count = count
 		}
+		// A row read again as it was sent, and in its place, is not sent (D-252).
+		const placed = moves.placed.flatMap(({ id, after, moved }) => {
+			const node = nodes.get(id)
+			if (node === undefined) return []
+			return this.#window.sent(id, node) || moved
+				? [{ upsert: node, after }]
+				: []
+		})
 		if (this.#closed) return
 		if (row) {
-			if (moves.removed.length + moves.placed.length === 0) return
+			if (moves.removed.length + placed.length === 0) return
 			const [id] = this.#window.shown()
 			const shown = id === undefined ? null : (nodes.get(id) ?? null)
 			send({ kind: 'row', revision: this.#next(), row: shown })
@@ -370,12 +373,9 @@ export class Live {
 		}
 		const changes = [
 			...moves.removed.map((id) => ({ remove: id, gone: gone.has(id) })),
-			...moves.placed.flatMap(({ id, after }) => {
-				const node = nodes.get(id)
-				return node === undefined ? [] : [{ upsert: node, after }]
-			}),
+			...placed,
 		]
-		const hasMore = this.#window.hasMore()
+		const hasMore = this.#hasNext()
 		const more = hasMore !== this.#hasMore
 		this.#hasMore = hasMore
 		if (changes.length === 0 && !more && totalCount === undefined && !always) {

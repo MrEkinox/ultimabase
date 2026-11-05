@@ -2956,10 +2956,13 @@ __metadata:
     vitest: "npm:5.0.5"
   peerDependencies:
     "@apollo/client": ^4.0.0
+    graphql: ^16.0.0 || ^17.0.0
     react: ^18.0.0 || ^19.0.0
     rxjs: ^7.3.0
   peerDependenciesMeta:
     "@apollo/client":
+      optional: true
+    graphql:
       optional: true
     react:
       optional: true

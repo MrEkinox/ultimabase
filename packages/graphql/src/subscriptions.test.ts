@@ -502,15 +502,15 @@ describe('a live list', () => {
 		await results.return?.()
 		const over = subscribed(
 			url,
-			'subscription { tasks(first: 1001) { edges { cursor } } }',
+			'subscription { tasks(first: 50001) { edges { cursor } } }',
 		)
 		expect(await next(over)).toEqual({
 			errors: [
 				containing({
-					message: 'first is over 1000, the most a live list follows.',
+					message: 'first is over 50000, the most a live list follows.',
 					extensions: containing({
 						code: 'VALIDATION_FAILED',
-						details: containing({ limit: 1000, rows: 1001 }),
+						details: containing({ limit: 50_000, rows: 50_001 }),
 					}),
 				}),
 			],
@@ -796,8 +796,54 @@ describe('a resumed live list', () => {
 		await results.return?.()
 	})
 
-	it('is refused past its limit, with it, and kept as it was', async () => {
+	it('stops at its limit, says so, and stays live', async () => {
 		const url = await started({ realtime: { maxLive: 2 } })
+		const [a = ''] = await seeded()
+		const { ws } = opening(url)
+		const kept = await completed(ws)
+		const results = ws.iterate({
+			query: growing,
+			variables: { first: 3 },
+			extensions: { live: { resume: kept } },
+		})
+		expect(await next(results)).toEqual({
+			extensions: { live: { revision: 2, changes: [] } },
+		})
+		await Task.update({ where: { id: a }, data: { title: 'A' } }, M)
+		expect(await next(results)).toEqual({
+			extensions: {
+				live: {
+					revision: 3,
+					changes: [{ upsert: { node: { title: 'A' } }, after: null }],
+				},
+			},
+		})
+		await results.return?.()
+	})
+
+	it('opens at its limit when the list it grew is gone', async () => {
+		const url = await started({ realtime: { maxLive: 2 } })
+		await seeded()
+		const { ws } = opening(url)
+		const results = ws.iterate({
+			query: growing,
+			variables: { first: 3 },
+			extensions: { live: { resume: 'gone' } },
+		})
+		expect(await next(results)).toEqual({
+			data: {
+				tasks: {
+					edges: ['a', 'b'].map((title) => ({ node: { title } })),
+					pageInfo: { hasNextPage: false },
+				},
+			},
+			extensions: { live: { revision, resume: token } },
+		})
+		await results.return?.()
+	})
+
+	it('is refused past its connection, with it, and kept as it was', async () => {
+		const url = await started({ realtime: { maxConnectionRows: 2 } })
 		const [a = ''] = await seeded()
 		const { ws } = opening(url)
 		const kept = await completed(ws)
@@ -806,19 +852,11 @@ describe('a resumed live list', () => {
 			variables: { first: 3 },
 			extensions: { live: { resume: kept } },
 		})
-		const message = 'first is over 2, the most a live list follows.'
 		expect(await next(refused)).toEqual({
 			errors: [
 				containing({
-					message,
-					extensions: {
-						code: 'VALIDATION_FAILED',
-						details: {
-							issues: [{ path: ['first'], message }],
-							limit: 2,
-							rows: 3,
-						},
-					},
+					message: 'A connection follows at most 2 rows.',
+					extensions: containing({ code: 'VALIDATION_FAILED' }),
 				}),
 			],
 		})

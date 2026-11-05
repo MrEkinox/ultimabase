@@ -129,7 +129,94 @@ fit the server's 4 GB data volume.
   change, one team's member row deleted costs 9998–10002 statements and
   a last statement at 3.7 s.
 
+## Live lists
+
+```sh
+node --expose-gc --max-old-space-size=24576 bench/realtime/lists.ts \
+  [--cases 25x100,25x1000,2000x10,10000x5,50000x5] [--total 55000] [--url <url>]
+node --expose-gc --max-old-space-size=24576 bench/realtime/rooms.ts \
+  [--rooms 200] [--viewers 5] [--window 25] [--open-parts] [--url <url>]
+node --max-old-space-size=8192 bench/realtime/hook.ts
+```
+
+The gate of D-252: what a live list costs, whatever its size. The tables are
+analyzed before anything is timed: without planner statistics a nested read
+costs about 1 ms a row, and a production table has them.
+
+- `lists.ts`: each row has an author and 8 attachments, which every subscriber
+  reads, under a read rule that does not name the viewer. A case is
+  `<rows>x<subscribers>` on one list. Subscribe each is the first read of one
+  list; KiB a subscriber and Bytes a row, the heap they hold after a full
+  garbage collection; Grow, the time for 25 more rows. Each write runs three
+  times: its statements and the last subscriber's message, as medians.
+- `rooms.ts`: a chat. Only a room's members may read its messages and their
+  attachments, a rule naming the viewer through a relation. Each write goes to
+  one room; Other rooms told counts the messages sent past it. `--open-parts`
+  drops the rule on attachments.
+- `hook.ts`: the client alone, without a database. It sends a list through
+  `ultimabaseLive` read as `useLiveSubscription` does (hook), and as a plain
+  subscription (plain), then an update and a row gone. React's rendering is not
+  counted.
+
 ## Runs
+
+### 2026-11-05: a live list costs what its readers see (D-252)
+
+Same machine; Node 24.20.0; times in ms.
+
+`lists.ts`, 55 000 rows, each with an author and 8 attachments:
+
+|  Rows | Subscribers | Subscribe each | KiB a subscriber | Bytes a row | First message MiB | Grow | Update        | Author of 1 row in 50 | New first row |
+| ----: | ----------: | -------------: | ---------------: | ----------: | ----------------: | ---: | ------------- | --------------------- | ------------- |
+|    25 |         100 |            5.0 |               16 |         669 |              0.03 |  7.0 | 3 stmts, 58.5 | 4 stmts, 66.2         | 3 stmts, 58.2 |
+|    25 |        1000 |            4.7 |               16 |         653 |              0.03 |  6.8 | 3 stmts, 80.2 | 4 stmts, 120.2        | 3 stmts, 74.6 |
+|  2000 |          10 |          190.8 |              314 |         161 |              2.16 |  8.2 | 3 stmts, 55.8 | 4 stmts, 69.1         | 3 stmts, 56.0 |
+| 10000 |           5 |          947.8 |             2025 |         207 |             10.82 | 10.0 | 3 stmts, 55.1 | 4 stmts, 91.2         | 3 stmts, 55.8 |
+| 50000 |           5 |         4799.5 |             9396 |         192 |             54.17 | 20.9 | 3 stmts, 55.5 | 4 stmts, 213.9        | 3 stmts, 55.9 |
+
+`rooms.ts`, 1000 viewers in 200 rooms of 5, 25 rows, subscribing in 5.8 ms each:
+
+| Write          | Statements | Last message | Other rooms told |
+| -------------- | ---------: | -----------: | ---------------: |
+| update text    |          7 |         67.5 |                0 |
+| update author  |          8 |         74.0 |                0 |
+| new attachment |          8 |         69.6 |                0 |
+| new first row  |         12 |         71.4 |                0 |
+
+`hook.ts`:
+
+|  Rows | Read  | First message | Update p50 | Row gone |
+| ----: | ----- | ------------: | ---------: | -------: |
+|    25 | hook  |           6.6 |       0.09 |      0.9 |
+|    25 | plain |           6.1 |       1.30 |      2.0 |
+|  1000 | hook  |          37.8 |       0.08 |      2.5 |
+|  1000 | plain |          56.7 |      25.63 |     36.9 |
+| 10000 | hook  |         289.0 |       0.23 |     17.4 |
+| 10000 | plain |         561.2 |     251.54 |    358.2 |
+| 50000 | hook  |        1442.1 |       1.18 |    125.3 |
+| 50000 | plain |        2943.6 |    2306.37 |   3170.8 |
+
+- The gate holds: a write costs the same from 25 to 50 000 rows, 80 ms at 1000
+  subscribers against the 160 ms objective, and a room of 5 takes about ten
+  statements whoever else is connected.
+- About 50 ms of each last message is the engine's flush delay, not work.
+- What still grows with the list is its first read, its first message and its
+  memory: 4.8 s, 54 MiB and 9.4 MiB a subscriber at 50 000 rows. A list that
+  long is for few readers; 1000 of them would hold about 9 GB, extrapolated.
+- An author shown on 1 row in 50 takes 214 ms at 50 000 rows with 5 subscribers,
+  399 ms with 20, where 1000 rows show it. Where that time goes is not
+  investigated.
+- At 20 subscribers a window holds 201 bytes a row at 10 000 rows, 190 at 50 000.
+  At 5 or 10 subscribers the heap's noise moves this figure by tens of bytes.
+- A rule naming the viewer keeps one read per viewer of one list:
+  `--rooms 1 --viewers 1000` costs 1002 statements and 536 ms for an update,
+  2002 and 737 ms for a new first row, 1003 and 1190 ms for an author (D-252).
+- `totalCount`, by a one-off script not in this folder, 100 subscribers on a
+  window of 10 000: an insert past the window costs 2 statements and 63 ms under
+  a rule not naming the viewer, 101 statements and 304 ms under one naming them.
+- Not measured: React's rendering at scale, a table past 60 000 rows, 1000
+  subscribers on a list of 50 000, `pg_notify` under concurrent writers, several
+  instances.
 
 ### 2026-11-01: live reads planned once per caller, commit `7a2b89ce`
 

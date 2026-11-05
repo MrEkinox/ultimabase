@@ -6,7 +6,6 @@ import type { Enum, StandardSchema } from './fields.ts'
 import type { Client } from './function.ts'
 import type { ModelShape } from './model.ts'
 import type { QueryOptions } from './query.ts'
-import type { Size } from './sizes.ts'
 
 type Args = { readonly [key: string]: unknown }
 /** A model's queries as a transport calls them, with its client's arguments. */
@@ -30,8 +29,6 @@ export interface ExposedModel<W = unknown> {
 	readonly deprecations: { readonly [field: string]: string }
 	/** Each field whose values are a `defineEnum` (D-150). */
 	readonly enums: { readonly [field: string]: Enum }
-	/** Each `many` with a `size`: the rows each parent holds (D-242). */
-	readonly sizes: { readonly [field: string]: Size }
 	/** `id`, unique fields and unique indexes (D-52). */
 	readonly uniques: readonly (readonly string[])[]
 	/** Each field with a read rule, `private` when only Master reads it (D-44). */

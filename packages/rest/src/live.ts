@@ -148,7 +148,15 @@ export async function liveList(
 		followed,
 		request,
 		read.shape,
-		async (viewer, send) => viewer.list(name, listed, send),
+		// A kept list that grew to the limit opens again at it (D-252).
+		async (viewer, send) =>
+			viewer.list(
+				name,
+				typeof resume === 'string'
+					? { ...listed, first: viewer.capped(name, rows) }
+					: listed,
+				send,
+			),
 		{
 			write: (events) =>
 				listWriter(events, connected, page, totalCount === true, read.shape),

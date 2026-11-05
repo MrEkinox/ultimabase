@@ -163,7 +163,11 @@ export function matches(
 export type LiveReader = (
 	ids: readonly string[],
 	rows?: ReadonlyMap<string, Row>,
+	reads?: SharedReads,
 ) => Promise<readonly Row[]>
+
+/** The adapter reads of one flush, for the live reads that ask the same. */
+export type SharedReads = Map<string, Promise<readonly Row[]>>
 
 /**
  * `findMany({ ...shape, where: { id: { in: ids } } })` on `model` as
@@ -194,7 +198,26 @@ export async function liveReader(
 		inMemory(model, rights)
 	const readable = (row: Row | undefined): row is Row =>
 		row !== undefined && (rights === undefined || matches(model, row, rights))
-	return async (ids, rows) => {
+	// A root rule a row answers alone is checked on the read's rows: the read
+	// then needs them whole, and no longer names its caller (D-252).
+	const alone = rights !== undefined && inMemory(model, rights)
+	const { fields: _fields, ...whole } = read
+	const asked = alone ? whole : read
+	const key = JSON.stringify([model, asked, alone ? undefined : rights])
+	const shared = async (
+		ids: readonly string[],
+		reads: SharedReads,
+	): Promise<readonly Row[]> => {
+		const each = `${key} ${ids.join()}`
+		const known = reads.get(each)
+		if (known !== undefined) return known
+		const among = { id: { in: [...ids] } }
+		const where = alone ? among : and(among, rights)
+		const found = app.adapter.find({ ...asked, model, where })
+		reads.set(each, found)
+		return found
+	}
+	return async (ids, rows, reads) => {
 		if (ids.length === 0) return []
 		const root = {
 			...read,
@@ -211,7 +234,15 @@ export async function liveReader(
 								root,
 								ids.map((id) => rows.get(id)).filter(readable),
 							)
-						: await store.find(root)
+						: reads === undefined
+							? await store.find(root)
+							: decoded(
+									models,
+									root,
+									(await shared(ids, reads)).filter(
+										(row) => !alone || readable(row),
+									),
+								)
 				const shown = await shapedRows(
 					context,
 					store,

@@ -44,9 +44,10 @@ const TasksDocument = gql`
 `
 
 export function TaskList() {
-	const { data, fetchMore } = useLiveSubscription<Tasks>(TasksDocument, {
-		variables: { first: 2 },
-	})
+	const { data, fetchMore, fetchingMore } = useLiveSubscription<Tasks>(
+		TasksDocument,
+		{ variables: { first: 2 } },
+	)
 	if (data === undefined) return <p>Loading…</p>
 	return (
 		<>
@@ -56,7 +57,9 @@ export function TaskList() {
 				))}
 			</ul>
 			{data.tasks.pageInfo.hasNextPage && (
-				<button onClick={() => void fetchMore({ first: 2 })}>More</button>
+				<button disabled={fetchingMore} onClick={() => void fetchMore()}>
+					More
+				</button>
 			)}
 		</>
 	)

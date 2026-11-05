@@ -161,7 +161,7 @@ describe('ultimabaseLive', () => {
 		expect(opened()).toBe(1)
 	})
 
-	it('follows past maxTake, and goes on as it was when a growth passes maxLive', async () => {
+	it('follows past maxTake, and goes on as it was when a growth passes maxConnectionRows', async () => {
 		const { client, opened } = await connected()
 		const live: LiveControl = {}
 		const watched = seen(
@@ -176,8 +176,7 @@ describe('ultimabaseLive', () => {
 		await expect(live.fetchMore?.({ first: 900 })).rejects.toMatchObject({
 			name: 'LiveError',
 			code: 'VALIDATION_FAILED',
-			message: 'first is over 1000, the most a live list follows.',
-			details: { limit: 1000, rows: 1050 },
+			message: 'A connection follows at most 1000 rows.',
 		})
 		const before = watched.results.length
 		await Task.create({ data: { title: 'z', rank: 0, owner: 'ada' } }, M)

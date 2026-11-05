@@ -668,18 +668,47 @@ describe('a resumed live list', () => {
 		expect(stream.token()).toBe(token)
 	})
 
-	it('is refused past its limit, with it, and kept as it was', async () => {
+	it('stops at its limit, says so, and stays live', async () => {
 		const api = await started({ realtime: { maxLive: 2 } })
+		const [a = ''] = await seeded()
+		const token = await left(api)
+		const stream = await streaming(
+			`${api}/tasks${qs({ ...ranked, first: 3, resume: token })}`,
+		)
+		expect(await stream.next()).toMatchObject({
+			event: 'live',
+			data: { revision: 2, changes: [] },
+		})
+		await Task.update({ where: { id: a }, data: { title: 'A' } }, M)
+		expect(await stream.next()).toMatchObject({
+			event: 'live',
+			data: { changes: [{ upsert: { node: { id: a, title: 'A' } } }] },
+		})
+		expect(stream.token()).toBe(token)
+	})
+
+	it('opens at its limit when the list it grew is gone', async () => {
+		const api = await started({ realtime: { maxLive: 2 } })
+		await seeded()
+		const stream = await streaming(
+			`${api}/tasks${qs({ ...ranked, first: 3, resume: 'gone' })}`,
+		)
+		expect(await stream.next()).toMatchObject({
+			event: 'data',
+			data: { pageInfo: { hasNextPage: false } },
+		})
+	})
+
+	it('is refused past its connection, with it, and kept as it was', async () => {
+		const api = await started({ realtime: { maxConnectionRows: 2 } })
 		const [a = ''] = await seeded()
 		const token = await left(api)
 		const resumed = qs({ ...ranked, first: 3, resume: token })
 		const { status, body } = await answered(`${api}/tasks${resumed}`)
 		expect(status).toBe(400)
-		const message = 'first is over 2, the most a live list follows.'
-		expect(body).toEqual({
+		expect(body).toMatchObject({
 			code: 'VALIDATION_FAILED',
-			message,
-			details: { issues: [{ path: ['first'], message }], limit: 2, rows: 3 },
+			message: 'A connection follows at most 2 rows.',
 		})
 		await Task.update({ where: { id: a }, data: { title: 'A' } }, M)
 		const stream = await streaming(
@@ -834,7 +863,7 @@ describe('the live reads', () => {
 			[{ after: 'x' }, "Unknown query parameter 'after'"],
 			[{ totalCount: 1 }, 'totalCount must be true or false.'],
 			[{ mode: 'all' }, 'mode must be page.'],
-			[{ first: 1001 }, 'first is over 1000, the most a live list follows.'],
+			[{ first: 50_001 }, 'first is over 50000, the most a live list follows.'],
 		] as const
 		for (const [params, message] of refused) {
 			const { status, body } = await answered(`${api}/tasks${qs(params)}`)

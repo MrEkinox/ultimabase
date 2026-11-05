@@ -18,7 +18,7 @@ export const Task = defineModel({
 }).with({
 	// Open to every client, to keep the example on realtime.
 	access: allow.public,
-	// A live list follows at most 50 tasks; 1000 by default.
+	// A live list follows at most 50 tasks; 50 000 by default.
 	realtime: { maxLive: 50 },
 })
 //#endregion

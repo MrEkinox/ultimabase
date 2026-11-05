@@ -9411,7 +9411,7 @@ api: ({ plugins }) => plugins.http.mount(uploads, { bodyLimit: false })
 ## D-154: Realtime: live lists and live rows
 
 Amended by D-163, D-166, D-178, D-186, D-187, D-195, D-196, D-223, D-226,
-D-229 and D-230.
+D-229, D-230 and D-252.
 
 Choice: completes D-25; amends D-106 (WebSocket upgrades), D-107 (the
 `Subscription` type), D-109 (live functions) and D-129 (live reads over
@@ -12285,6 +12285,8 @@ fragment PostCard on Post {
 
 ## D-186: A live list is bounded by `maxLive`, and its refusal says so
 
+Amended by D-252.
+
 Choice: amends D-154, points 3 and 7.
 
 1. `maxTake` bounds a live list in page mode only, where each change
@@ -12865,7 +12867,7 @@ Rejected:
 
 ## D-195: Live reads planned once per caller
 
-Amended by D-197.
+Amended by D-197 and D-252.
 
 Choice: amends D-154 points 9 and 13.
 
@@ -12916,6 +12918,8 @@ Rejected:
   rights.
 
 ## D-196: A lost right re-checks only the rows it may reach
+
+Amended by D-252.
 
 Choice: amends D-154 points 8, 9 and 10.
 
@@ -17369,4 +17373,153 @@ After:
 --   drop index "account_chats_chat_id_idx";
 --   alter table "chat_members" add constraint "chat_members_pkey" primary key ("chat_id", "account_id");
 drop table "account_chats";
+```
+
+## D-252: A live list costs what its readers see, whatever its size
+
+Choice: amends D-154 points 3 and 7, D-186 points 1 to 3 and its rejection of
+growing up to the limit, D-195 and D-196.
+
+1. A write costs what the viewers it concerns see. A row is judged by what it
+   answers alone in memory before any query, and a query reads only the rows
+   that pass that. The rows a relation reaches are read once per flush for
+   every live read asking the same, up to 10 000 rows; past that, one query
+   per window. A write at a level of a shown relation's filter or order is
+   judged by that level's conditions, as a filter's levels are (D-196).
+2. A row read again as it was sent is not sent (#200). A window keeps, with a
+   row's keys, a hash of 53 bits of what it was last sent as. A row that moved
+   or is new is sent even if it reads the same. This holds in row mode, and
+   page mode still resends its window when anything else changes.
+3. Live reads with the same read and rights share one adapter read per flush.
+   The whole request is the key, so sharing cannot cross two rights. A root
+   rule a row answers alone leaves the key and is checked after the read.
+   Field rules and virtual fields stay per caller. Rules naming the viewer
+   through a relation do not share: each viewer keeps one read per change.
+4. A window keeps no record of the related rows it showed (the `Tracking` of
+   D-154). Updates and inserts reach the rows through the current links. A
+   deleted row with the key on its side reaches its parent through the `keys`
+   of the feed (D-196). A deleted row a stored key names reaches them through
+   the feed's `setNull` update, or its cascade's delete. The feed says neither
+   which rows lost a key that moved, nor which lost a many-to-many target
+   deleted (D-154): those re-read the window, and the hash of point 2 drops
+   what did not change.
+5. `maxLive` counts the rows of the list, not the rows nested in them: 50 000
+   by default, and `maxConnectionRows` 100 000. Nested rows stay bounded by
+   their `take` and `maxTake`. This replaces the cost of D-186 point 2.
+6. A list grows up to `maxLive` and no further: past it, `fetchMore` adds what
+   fits and `hasNextPage` is `false`, over GraphQL and REST, and a growth with
+   nothing to add does nothing. Rows already loaded stay live, `totalCount`
+   stays true. A `first` past `maxLive` at subscribe is still refused, as is a
+   growth past `maxConnectionRows`. A growth that crossed the limit leaves the
+   client's `first` above it: reconnecting with its token opens at the limit,
+   and without a token it is refused as at subscribe, so that a `first` too
+   large is never accepted in silence.
+7. `useLiveSubscription` holds the pagination:
+   - `fetchMore()` without argument adds a page of the first page's size;
+     `fetchMore({ first })` stays. A call during a growth is ignored.
+   - `fetchingMore` says that a growth is running.
+   - A failed growth goes to `error` and `onError`, the list stays as it was,
+     and the promise resolves. A read without a `first` variable still throws.
+
+     `control.fetchMore` of the link and `liveFetch` keep rejecting: they are
+     the lower level.
+8. On the client, a message costs the rows it changed. The hook reads with
+   `no-cache`, the link holds the list and applies each message to it, and
+   only the changed rows are written to the cache, through a fragment derived
+   from the selection. A plain `useSubscription` goes on working, at the cost
+   of a whole-list cache write per message.
+   - The rows of the first message are written too, once, so that a fragment
+     elsewhere reads them; a growth writes the rows it adds.
+   - Apollo holds a row against `cache.gc()` for each direct write. The link
+     keeps one hold per row shown and releases it once the row leaves the list
+     or the read closes.
+   - Only a read passing a control, the hook's, writes rows. A plain
+     subscription leaves the cache to Apollo.
+   - `graphql` is an optional peer of `@ultimabase/live`, as of Apollo.
+   - Under `dataMasking`, Apollo warns once in development that a `no-cache`
+     subscription is not cached. The rows are in the cache all the same.
+9. A live read with `totalCount` counts once per flush for every read with the
+   same filter. A filter naming the viewer counts per viewer.
+10. The benchmark gates a merge on what a list's readers pay, with relations:
+    25 rows against 50 000, 1000 subscribers on one list and 1000 viewers in
+    200 rooms. An update reaches the last subscriber within 160 ms at p50 when
+    the rows are read once (D-197), and a write in a room of 5 takes about ten
+    statements whoever else is connected.
+11. Events the client places in a cache of its own, on top of an ordinary paged
+    query, come back only if the memory of loaded rows is measured to be the
+    wall and nothing else fixes it. They save memory, not the reads a relation
+    costs per subscriber: an event still has to be read with each viewer's
+    rights.
+
+Why:
+
+- A real application's rules name the viewer through a relation. A write in a
+  chat of 5 with 1000 connected made about 1000 to 2200 statements and sent
+  995 messages to viewers of other chats. It now makes 7 to 12 and sends none.
+- A longer list does not slow a change: an update takes 58 ms at 25 rows and
+  56 ms at 50 000, with relations. What grew with the list was on the client (a
+  message at 50 000 rows takes 2.3 s through a plain `useSubscription`, 1.2 ms
+  through the hook), the
+  `Tracking` memory (137 MiB per subscription at 50 000 nested rows) and the
+  limit counting nested rows, which forced applications to set `maxLive` by
+  hand and write a hook around `fetchMore`.
+- What the client still pays at 50 000 rows: 1.4 s for the first message, once,
+  which a list reached by growing never pays, and 125 ms for a row gone, since
+  `cache.gc()` walks the cache.
+- The hash costs 24 bytes a row: 190 to 201 in all, for rows with 9 related
+  rows at 20 subscribers, around the 200 of D-195 point 4.
+  Its slot is reserved when the keys are made: an array grown later takes 160
+  bytes more, as measured.
+
+Rejected:
+
+- Client-placed events, Parse LiveQuery's way, now: same reasons as D-154, and
+  point 11 above.
+- Sharing one window between subscribers: D-195's reasons stand, and the reads
+  are what costs, not the windows.
+- Skipping the root rights when reading again a row in the window, which would
+  share the reads of rules naming the viewer: for some milliseconds a viewer
+  who just lost access would receive a row's newer data (D-154's third goal).
+- Redis or another external store: the wall is the read per subscriber, which
+  it does not remove. `pg_notify` under concurrent writes and several instances
+  are not measured yet.
+- Comparing the whole row instead of a hash: it keeps the rows on the server,
+  which D-195 removed.
+- A compact `Tracking`: about 100 bytes per nested row at best, for an answer
+  the feed and the hash give.
+
+Before:
+
+```tsx
+const { data, fetchMore } = useLiveSubscription(FriendListDocument, {
+	variables: { first: 25, search },
+})
+const [loadingMore, setLoadingMore] = useState(false)
+const loadMore = async () => {
+	setLoadingMore(true)
+	try {
+		await fetchMore({ first: 25 })
+	} catch (error) {
+		if (error instanceof LiveError && error.details?.limit) setFull(true)
+		else showError(error)
+	} finally {
+		setLoadingMore(false)
+	}
+}
+```
+
+After:
+
+```tsx
+const { data, fetchMore, fetchingMore } = useLiveSubscription(
+	FriendListDocument,
+	{ variables: { first: 25, search } },
+)
+return (
+	<LoadMoreButton
+		pageInfo={data?.friendships.pageInfo}
+		onLoadMore={fetchMore}
+		loading={fetchingMore}
+	/>
+)
 ```

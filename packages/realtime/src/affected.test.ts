@@ -27,14 +27,17 @@ const facing = (
 ): Facing & { readonly asked: unknown[] } => {
 	const asked: unknown[] = []
 	const find: Finder = async (steps, ids, within) => {
-		asked.push([steps.map(({ relation }) => relation), ids, within])
+		asked.push([
+			steps.map(({ relation }) => relation),
+			ids,
+			within && [...within.keys()],
+		])
 		return within === undefined ? found : []
 	}
 	return {
 		model: 'Post',
 		reach: reachOf(schema, 'Post', plan(more)),
 		window: new Set(['p1', 'p2']),
-		tracked: new Map([['comments', new Map([['c1', new Set(['p1'])]])]]),
 		find,
 		judge: async (_level, _changes, ids) =>
 			ids.filter((id) => !failing.includes(id)),
@@ -58,7 +61,16 @@ describe('the changes of a live list', () => {
 				['Team', { updates: new Set(['t1']), fields: new Set(['name']) }],
 				[
 					'Comment',
-					{ updates: new Set(['c1', 'c7']), fields: new Set(['text']) },
+					{
+						updates: new Set(['c1', 'c7']),
+						fields: new Set(['text']),
+						deletes: new Set(['c2', 'c3', 'c4']),
+						keys: new Map([
+							['c2', { post: 'p1' }],
+							['c3', { post: 'p9' }],
+							['c4', { post: null }],
+						]),
+					},
 				],
 			]),
 		)
@@ -111,14 +123,18 @@ describe('the changes of a live list', () => {
 		})
 	})
 
-	it('sends every row again when a nested filter reaches the change', async () => {
+	it('asks which rows a nested filter reaches, all of them when it loses one', async () => {
 		const include = {
 			comments: { where: { post: { is: { tags: { some: {} } } } } },
 		}
 		const read = facing({ include })
-		const changes = batch([['Tag', { inserts: new Set(['x']) }]])
-		const result = await affected(read, changes)
-		expect(result).toMatchObject({ resend: new Set(['p1', 'p2']) })
+		const written = batch([['Tag', { inserts: new Set(['x']) }]])
+		expect(await affected(read, written)).toMatchObject({ resend: new Set() })
+		expect(read.asked).toEqual([[['tags'], ['x'], ['p1', 'p2']]])
+		const lost = batch([['Tag', { deletes: new Set(['x']) }]])
+		expect(await affected(read, lost)).toMatchObject({
+			resend: new Set(['p1', 'p2']),
+		})
 	})
 
 	it('sends every row again when a shown relation does not say which rows changed', async () => {

@@ -7,7 +7,7 @@ import type { FieldOptions } from './definition.ts'
 import { isObject } from './query-where.ts'
 import type { FieldInfo, ModelInfo } from './schema.ts'
 
-export type Size = {
+type Size = {
 	readonly min: number
 	readonly max: number | undefined
 }
@@ -247,17 +247,6 @@ export function sizeNote(model: string, field: FieldInfo): string | undefined {
 	if (field.kind !== 'many') return undefined
 	const size = sizeOf(`${model}.${field.name}`, field.options, field.join)
 	return size === undefined ? undefined : `Holds ${range(size)}.`
-}
-
-/** Each bounded `many`'s size (D-242), which plugins read. */
-export function sizesOf(info: ModelInfo): { readonly [field: string]: Size } {
-	const found: { [field: string]: Size } = {}
-	for (const field of info.fields.values()) {
-		if (field.kind !== 'many') continue
-		const size = sizeOf(`${info.name}.${field.name}`, field.options, field.join)
-		if (size !== undefined) found[field.name] = size
-	}
-	return found
 }
 
 /** Refuses the transaction when a touched parent left its bounds. */

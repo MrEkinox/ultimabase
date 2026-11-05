@@ -82,9 +82,9 @@ const realtimeDefinition = definePlugin<Realtime>({
 				functions,
 				identify,
 				logger,
-				maxLive: options.maxLive ?? 1000,
+				maxLive: options.maxLive ?? 50_000,
 				maxSubscriptions: options.maxSubscriptions ?? 100,
-				maxConnectionRows: options.maxConnectionRows ?? 10_000,
+				maxConnectionRows: options.maxConnectionRows ?? 100_000,
 			},
 			options.refresh ?? 300_000,
 		)

@@ -136,7 +136,7 @@ describe('liveFetch', () => {
 		expect(urls.slice(1).every((each) => each.includes('resume='))).toBe(true)
 	})
 
-	it('follows past maxTake, and goes on as it was when a growth passes maxLive', async () => {
+	it('follows past maxTake, and goes on as it was when a growth passes maxConnectionRows', async () => {
 		const url = await tasks()
 		const urls = requested()
 		const live = liveFetch(`${url}?${ranked(125)}`, { headers: ada })
@@ -145,8 +145,7 @@ describe('liveFetch', () => {
 		await live.fetchMore({ first: 25 })
 		await expect(live.fetchMore({ first: 900 })).rejects.toMatchObject({
 			code: 'VALIDATION_FAILED',
-			message: 'first is over 1000, the most a live list follows.',
-			details: { limit: 1000, rows: 1050 },
+			message: 'A connection follows at most 1000 rows.',
 		})
 		await Task.create({ data: { title: 'z', rank: 0, owner: 'ada' } }, M)
 		await vi.waitFor(() => {
@@ -214,8 +213,8 @@ describe('liveFetch', () => {
 		expect(await failed(refused)).toMatchObject({
 			name: 'LiveError',
 			code: 'VALIDATION_FAILED',
-			message: 'first is over 1000, the most a live list follows.',
-			details: { limit: 1000, rows: 5000 },
+			message: 'first is over 2000, the most a live list follows.',
+			details: { limit: 2000, rows: 5000 },
 		})
 		const select = encodeURIComponent('{"title":true}')
 		const anonymous = seen(

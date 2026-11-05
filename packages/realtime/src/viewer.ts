@@ -293,6 +293,14 @@ export class Viewer {
 		for (const send of sends) send({ kind: 'closed' })
 	}
 
+	/**
+	 * `first` within what a live list of `model` follows: what a client reopens
+	 * a list with that it grew to the limit and lost (D-252).
+	 */
+	capped(model: string, first: number): number {
+		return Math.min(first, this.#limit(model))
+	}
+
 	async #follow(
 		model: string,
 		args: unknown,
@@ -310,15 +318,10 @@ export class Viewer {
 		const planned = await recording(async () =>
 			livePlan(model, liveArgs(args, row), caller, row),
 		)
-		const limit = exposed.with?.maxLive ?? this.#settings.maxLive
-		const nested = checked(
-			this.#settings.models,
-			model,
-			planned.result,
-			'include',
-		)
-		within(first * (1 + nested), limit)
-		this.#fits(first * (1 + nested))
+		const limit = this.#limit(model)
+		checked(this.#settings.models, model, planned.result, 'include')
+		within(first, limit)
+		this.#fits(first)
 		const live = new Live(
 			{
 				model,
@@ -327,6 +330,7 @@ export class Viewer {
 				shape,
 				totalCount,
 				row,
+				limit,
 				send,
 				logger: this.#settings.logger,
 			},
@@ -335,9 +339,8 @@ export class Viewer {
 			first,
 		)
 		const { reads, expires } = planned
-		const rows = first * (1 + nested)
-		const subscription = { model, args, row, send, rows, reads, expires }
-		this.#live.set(live, subscription)
+		const followed = { model, args, row, send, rows: first, reads, expires }
+		this.#live.set(live, followed)
 		try {
 			await live.start()
 		} catch (error) {
@@ -350,10 +353,9 @@ export class Viewer {
 				if (!Number.isInteger(more) || more < 1) {
 					throw invalid('first', 'first must be a positive integer.')
 				}
-				const grown = (live.first + more) * (1 + nested)
-				within(grown, limit)
-				this.#fits(grown - subscription.rows)
-				subscription.rows = grown
+				const rows = Math.min(followed.rows + more, limit)
+				this.#fits(rows - followed.rows)
+				followed.rows = rows
 				return live.grow(more)
 			},
 			resend: async () => live.resend(),
@@ -362,6 +364,14 @@ export class Viewer {
 				this.#live.delete(live)
 			},
 		}
+	}
+
+	/** The rows a live list of `model` follows at most. */
+	#limit(model: string): number {
+		const exposed = this.#settings.models.find(
+			({ schema }) => schema.name === model,
+		)
+		return exposed?.with?.maxLive ?? this.#settings.maxLive
 	}
 
 	/** Refuses one more live read past what the connection holds. */

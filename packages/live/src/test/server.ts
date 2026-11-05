@@ -78,7 +78,7 @@ export async function started(): Promise<Running> {
 		database: memory(),
 		plugins: [
 			httpPlugin({ port: 0 }),
-			realtimePlugin(),
+			realtimePlugin({ maxLive: 2000, maxConnectionRows: 1000 }),
 			restPlugin(),
 			graphqlPlugin(),
 			sessions.plugin(),

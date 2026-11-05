@@ -73,8 +73,8 @@ mode, only `maxLive` bounds a live list:
 ## React and Apollo
 
 `ultimabaseLive()`, from `@ultimabase/live/apollo`, is an Apollo link placed
-before the WebSocket link: it applies each change and hands Apollo the
-whole result.
+before the WebSocket link: it applies each change to the list it holds and
+hands Apollo the result.
 
 ```npm
 npm install @apollo/client graphql-ws rxjs
@@ -86,16 +86,26 @@ npm install @apollo/client graphql-ws rxjs
 
 `useLiveSubscription`, from `@ultimabase/live/react`, takes the options of
 Apollo's `useSubscription` and returns its result plus `fetchMore`, which
-adds rows to the list on the same socket:
+adds rows to the list on the same socket, and `fetchingMore`, true while it
+runs:
 
 <include cwd meta='title="src/TaskList.tsx"'>
 	../examples/realtime/src/TaskList.tsx#component
 </include>
 
-`fetchMore` grows the variable that the root field's `first` (or `take`)
-reads, whatever its name, and resolves once the rows arrived; `data` stays
-in between. A row deleted or no longer readable leaves Apollo's cache too,
-so no other component keeps showing it.
+`fetchMore()` adds a page of the first page's size, and `fetchMore({ first })`
+that many rows. It grows the variable that the root field's `first` (or
+`take`) reads, whatever its name, and resolves once the rows arrived; `data`
+stays in between. A call during a growth is ignored. A growth that fails goes
+to `error` and `onError`, and the list goes on as it was.
+
+A message costs the rows it changed, whatever the list's size: 1.2 ms at 50 000
+rows. The hook reads with `no-cache`, and the link writes each row to Apollo's
+cache alone, so a fragment elsewhere reads it, and holds it there until it
+leaves the list or the read closes. A row deleted or no longer readable leaves
+the cache too, so no other component keeps showing it. A plain
+`useSubscription` through the link works as well, but Apollo then writes the
+whole list on each message: 2.3 s at 50 000 rows.
 
 ## Over Server-Sent Events
 
@@ -218,18 +228,19 @@ reads outside the database.
 	../examples/realtime/src/app.test.ts#limits
 </include>
 
-A live list follows at most `maxLive` rows, 1000 by default, or the model's
-own `.with({ realtime: { maxLive } })`, nested rows included: it costs
-`first × (1 + the nested rows of each row)`, a nested list counting its
-`take` rows and theirs, or its relation's `size.max` when that is smaller. A
-hundred posts, each with its three latest comments, follow 100 × (1 + 3) =
-400 rows. `maxTake` bounds page mode only.
+A live list follows at most `maxLive` rows, 50 000 by default, or the model's
+own `.with({ realtime: { maxLive } })`. Nested rows do not count: a nested list
+is bounded by its `take`.
 
-A refusal past the limit, at subscribe or at `fetchMore`, gives both numbers
-as `details: { limit, rows }`: under `extensions.details` over GraphQL, in
-the `400` body over REST, as `LiveError.details` in `@ultimabase/live`. A
-refused `fetchMore` rejects, and the list goes on following its window as it
-was.
+A `first` past `maxLive` at subscribe is refused, with both numbers as
+`details: { limit, rows }`: under `extensions.details` over GraphQL, in the
+`400` body over REST, as `LiveError.details` in `@ultimabase/live`.
+
+`fetchMore` is not refused at the limit: it adds what fits, then `hasNextPage`
+is `false` and a growth does nothing. The rows loaded stay live, and
+`totalCount` stays true. A connection following more than `maxConnectionRows`
+rows in all refuses the growth: `liveFetch`'s `fetchMore` rejects, the hook's
+goes to `error`, and the list goes on following its window as it was.
 
 A failed live read does not reconnect. Over `liveFetch`, `subscribe`'s
 second function gets a `LiveError` with the server's `code`; over GraphQL,
@@ -237,9 +248,9 @@ the subscription gets `errors`, as a query does.
 
 ## Long lists
 
-A list can be longer than any live list should be. Follow its first rows
-live, and once `fetchMore` reports the limit, read the next ones with
-ordinary queries, from the cursor where the live window ends:
+A list can be longer than `maxLive`. Follow its first rows live, and once
+`hasNextPage` is `false`, read the next ones with ordinary queries, from the
+cursor where the live window ends:
 
 <include cwd meta='title="src/history.ts"'>
 	../examples/realtime/src/history.ts#history
@@ -257,12 +268,12 @@ a page that must keep it on screen keeps the rows it showed.
 `.with({ realtime: { maxLive } })`, a function its wait with
 `.with({ realtime: { debounce } })`.
 
-| Option              | Default   | Effect                                                   |
-| ------------------- | --------- | -------------------------------------------------------- |
-| `maxLive`           | 1000      | The most rows a live list follows, nested rows included. |
-| `maxSubscriptions`  | 100       | The most live reads one connection holds.                |
-| `maxConnectionRows` | 10 000    | The most rows one connection follows in all.             |
-| `refresh`           | 5 minutes | How often, in milliseconds, each caller is built again.  |
+| Option              | Default   | Effect                                                  |
+| ------------------- | --------- | ------------------------------------------------------- |
+| `maxLive`           | 50 000    | The most rows a live list follows, nested rows apart.   |
+| `maxSubscriptions`  | 100       | The most live reads one connection holds.               |
+| `maxConnectionRows` | 100 000   | The most list rows one connection follows in all.       |
+| `refresh`           | 5 minutes | How often, in milliseconds, each caller is built again. |
 
 ### Messages
 
@@ -322,16 +333,17 @@ A listener that throws is logged; the others still run.
 | `liveFetch(url, { headers })`                            | `{ subscribe(listener, failed), fetchMore({ first }) }`; `subscribe` returns what stops it. |
 | `LiveError`                                              | A failed live read: `code`, `message`, and the server's `details` if any.                   |
 | `ultimabaseLive()`, from `./apollo`                      | The Apollo link, before the WebSocket link.                                                 |
-| `useLiveSubscription(document, options)`, from `./react` | `useSubscription`'s result, plus `fetchMore({ first })`.                                    |
+| `useLiveSubscription(document, options)`, from `./react` | `useSubscription`'s result, plus `fetchMore` and `fetchingMore`.                            |
 
-Apollo 4 with `rxjs`, and React 18 or 19, are optional peer dependencies.
+Apollo 4 with `graphql` and `rxjs`, and React 18 or 19, are optional peer
+dependencies.
 
 ### Errors
 
 | Code                | Message                                                                                         |
 | ------------------- | ----------------------------------------------------------------------------------------------- |
 | `VALIDATION_FAILED` | `first is over 50, the most a live list follows.`, with `details: { limit, rows }`.             |
-| `VALIDATION_FAILED` | `A connection holds at most 100 live reads.`, `A connection follows at most 10000 rows.`        |
+| `VALIDATION_FAILED` | `A connection holds at most 100 live reads.`, `A connection follows at most 100000 rows.`       |
 | `VALIDATION_FAILED` | `Author is not live.`: the selection reaches a model whose `use` lacks `realtime()`.            |
 | `VALIDATION_FAILED` | `A live list sorts by Task's own fields: author reads another row.`                             |
 | `VALIDATION_FAILED` | `A live comments list needs a take.`, for a nested list.                                        |
@@ -340,6 +352,7 @@ Apollo 4 with `rxjs`, and React 18 or 19, are optional peer dependencies.
 | `BAD_USER_INPUT`    | `Select the node's id to follow a live list.`, from the client.                                 |
 | `BAD_USER_INPUT`    | `fetchMore grows a live list: its root field needs first or take from a variable.`              |
 | `BAD_USER_INPUT`    | `fetchMore grows a live subscription once it runs.`                                             |
+| `BAD_USER_INPUT`    | `first must be a positive integer.`                                                             |
 | `INTERNAL`          | `The live read closed.`: the server closed it.                                                  |
 
 At start: `realtime's maxLive must be a positive integer.`, and

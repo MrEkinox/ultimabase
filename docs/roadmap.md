@@ -267,6 +267,7 @@ for production yet, and fixes ship as 0.1.x or 0.2.
       on 25 rows), 305 KiB per subscription to 1000 rows, a subscription
       reading its window alone, and a lost link or role passing over the
       whole window (`bench/realtime/README.md`).
+- [x] A live list costs what its readers see, whatever its size (D-252).
 - [x] Refuse breached and common passwords (NIST SP 800-63B §5.1.1.2):
       `passwordPlugin({ breached: true })`, and never the email (D-209).
 
