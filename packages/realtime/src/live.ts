@@ -16,7 +16,7 @@ import type { Batch } from './changes.ts'
 import { wrote } from './changes.ts'
 import { passing } from './levels.ts'
 import type { Reach } from './reach.ts'
-import { modelsOf, reachOf } from './reach.ts'
+import { modelsOf } from './reach.ts'
 import { finderOf, Loader, pass, rowsAfter } from './reads.ts'
 import type { Spec } from './messages.ts'
 import type { Waited } from './tasks.ts'
@@ -38,14 +38,15 @@ export class Live {
 	#count: number | undefined
 	#hasMore = false
 	#revision = 0
-	readonly #tasks = new Tasks()
+	readonly #tasks: Tasks
 	#closed = false
 
 	constructor(spec: Spec, caller: Caller, plan: LivePlan, first: number) {
 		this.#spec = spec
 		this.caller = caller
 		this.#plan = plan
-		this.#reach = reachOf(liveSchema(), spec.model, plan)
+		this.#tasks = new Tasks(spec.readers, this)
+		this.#reach = spec.readers.followPlan(spec, this, plan)
 		this.#window = new Window(plan.orderBy, first)
 	}
 
@@ -86,7 +87,7 @@ export class Live {
 			this.#reader = undefined
 			if (same) return
 			this.#plan = plan
-			this.#reach = reachOf(liveSchema(), this.#spec.model, plan)
+			this.#reach = this.#spec.readers.followPlan(this.#spec, this, plan)
 			await this.#again()
 		})
 		return this.#waited(settled)
@@ -117,6 +118,7 @@ export class Live {
 	close(): void {
 		this.#closed = true
 		this.#virtuals.clear()
+		this.#spec.readers.forget(this)
 	}
 
 	/** Queues a read of the whole window. */
@@ -201,6 +203,7 @@ export class Live {
 			inParts(ids, (part) => reader(part, rows, loader?.reads)),
 		)
 		this.#virtuals.keep(found, reads)
+		this.#spec.readers.always(this, !this.#closed && this.#virtuals.holding)
 		for (const node of found) nodes.set(node.id, node)
 		return ids.filter((id) => !nodes.has(id))
 	}

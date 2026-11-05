@@ -4,27 +4,20 @@
 // changed and closes them all when it is no longer the same user. A caller
 // that stops holding at a time is built again then. A live function runs
 // again as the rebuilt caller.
-import type { Caller, ExposedFunction, ExposedModel, Logger } from 'ultimabase'
+import type { Caller } from 'ultimabase'
 import type { Recorded } from 'ultimabase/internal'
 import { livePlan, recording } from 'ultimabase/internal'
 import type { Batch } from './changes.ts'
-import { checked, invalid, within } from './checked.ts'
+import { checked, fits, holds, invalid, whoOf, within } from './checked.ts'
 import { Computed, debounce, ownerOf } from './computed.ts'
 import type { LiveHandle, LiveMessage } from './messages.ts'
 import { Live } from './live.ts'
+import type { Concerned, Owner, Readers } from './readers.ts'
 import type { Loader } from './reads.ts'
+import type { Settings } from './settings.ts'
+import { told, waitUntil } from './settings.ts'
 import { liveArgs, shapeOf } from './shape.ts'
 import { anyStale } from './stale.ts'
-
-export type Settings = {
-	readonly models: readonly ExposedModel<{ readonly maxLive?: number }>[]
-	readonly functions: readonly ExposedFunction<{ readonly debounce?: number }>[]
-	readonly maxLive: number
-	readonly maxSubscriptions: number
-	readonly maxConnectionRows: number
-	readonly identify: (request: Request) => Promise<Caller>
-	readonly logger: Logger
-}
 
 type Subscription = {
 	readonly model: string
@@ -39,20 +32,9 @@ type Subscription = {
 
 type Built<R> = Awaited<ReturnType<typeof recording<R>>>
 
-/** The least wait before a rebuild, so a past expiry is no hot loop. */
-const soonest = 1000
-/** The longest wait `setTimeout` keeps. */
-const latest = 2 ** 31 - 1
-
-/** Who `caller` is, which a rebuilt caller must keep. */
-const whoOf = (caller: Caller): string => {
-	if (caller.kind !== 'user') return JSON.stringify(caller)
-	const id: unknown = Reflect.get(caller.user, 'id')
-	return JSON.stringify(['user', id])
-}
-
-export class Viewer {
+export class Viewer implements Owner {
 	readonly #settings: Settings
+	readonly #readers: Readers
 	#request: Request
 	/** What runs once it closes, the engine's first (D-163). */
 	readonly #listeners: (() => void)[] = []
@@ -70,15 +52,21 @@ export class Viewer {
 		settings: Settings,
 		request: Request,
 		identified: Built<Caller>,
-		hooks: { readonly onClose: () => void; readonly onDue: () => void },
+		hooks: {
+			readonly onClose: () => void
+			readonly onDue: () => void
+			readonly readers: Readers
+		},
 	) {
 		this.#settings = settings
+		this.#readers = hooks.readers
 		this.#request = request
 		this.#caller = identified.result
 		this.#reads = identified.reads
 		this.#expires = identified.expires
 		this.#listeners.push(hooks.onClose)
 		this.#onDue = hooks.onDue
+		this.#index()
 		this.#reschedule()
 	}
 
@@ -129,6 +117,8 @@ export class Viewer {
 				debounce: exposed.with?.debounce ?? debounce,
 				onRun: () => this.#reschedule(),
 				onFail: () => this.#computed.delete(computed),
+				readers: this.#readers,
+				owner: this,
 			},
 			this.#caller,
 		)
@@ -136,6 +126,7 @@ export class Viewer {
 		try {
 			await computed.start()
 		} catch (error) {
+			computed.close()
 			this.#computed.delete(computed)
 			throw error
 		}
@@ -159,39 +150,53 @@ export class Viewer {
 		this.#live.clear()
 		for (const computed of this.#computed.keys()) computed.close()
 		this.#computed.clear()
-		this.#told()
+		this.#readers.forget(this)
+		told(this.#listeners, this.#settings.logger)
 	}
 
 	/** Runs `listener` once it closes, at once when it is closed (D-163). */
 	onClose(listener: () => void): void {
 		this.#listeners.push(listener)
-		if (this.#closed) this.#told()
+		if (this.#closed) told(this.#listeners, this.#settings.logger)
 	}
 
-	/** Runs each listener once; one that throws is logged, not the others. */
-	#told(): void {
-		for (const listener of this.#listeners.splice(0)) {
-			try {
-				listener()
-			} catch (error) {
-				this.#settings.logger.error({ err: error }, 'A close listener failed.')
-			}
-		}
-	}
-
-	/** Follows `batch`: rebuilds the caller first when a write may change it. */
-	async flush(batch: Batch, loader: Loader, missed: boolean): Promise<void> {
-		if (this.#closed) return
-		const reads = [
+	/** What built the caller and each live read's plan. */
+	#built(): readonly Recorded[] {
+		return [
 			...this.#reads,
 			...[...this.#live.values()].flatMap((subscription) => subscription.reads),
 		]
-		if (missed || (await anyStale(reads, batch, loader))) {
+	}
+
+	/** Tells the index what a write may change for it to be built again. */
+	#index(): void {
+		if (!this.#closed) this.#readers.followReads(this, this, this.#built())
+	}
+
+	/**
+	 * Follows `batch`, for the reads it may concern: rebuilds the caller first
+	 * when a write may change it.
+	 */
+	async flush(
+		batch: Batch,
+		loader: Loader,
+		concerned: Concerned,
+	): Promise<void> {
+		if (this.#closed) return
+		const missed = concerned === 'all'
+		if (
+			missed ||
+			(concerned.has(this) && (await anyStale(this.#built(), batch, loader)))
+		) {
 			await this.rebuild()
 		}
 		const lives = [...this.#live.keys(), ...this.#computed.keys()]
-		const running = lives.map((live) => live.apply(batch, loader, missed))
-		await Promise.all(running.filter((run) => run !== undefined))
+		const running = lives.flatMap((live) =>
+			missed || concerned.has(live)
+				? (live.apply(batch, loader, missed) ?? [])
+				: [],
+		)
+		await Promise.all(running)
 	}
 
 	/**
@@ -223,6 +228,11 @@ export class Viewer {
 	/** Builds the caller again, then each live read's plan. */
 	async rebuild(): Promise<void> {
 		if (this.#closed) return
+		await this.#readers.during(this, async () => this.#rebuilt())
+		this.#index()
+	}
+
+	async #rebuilt(): Promise<void> {
 		const identified = await this.#identified()
 		if (identified === undefined) return
 		const caller = identified.result
@@ -262,17 +272,11 @@ export class Viewer {
 		this.#due = undefined
 		if (this.#closed) return
 		const subscriptions = [...this.#live.values(), ...this.#computed.keys()]
-		const times = [
+		const wait = waitUntil([
 			this.#expires,
 			...subscriptions.map(({ expires }) => expires),
-		]
-			.filter((at) => at !== undefined)
-			.map((at) => at.getTime())
-		if (times.length === 0) return
-		const wait = Math.min(
-			Math.max(Math.min(...times) - Date.now(), soonest),
-			latest,
-		)
+		])
+		if (wait === undefined) return
 		this.#due = setTimeout(this.#onDue, wait)
 		this.#due.unref()
 	}
@@ -316,9 +320,11 @@ export class Viewer {
 		this.#holds()
 		const { first, where, totalCount, shape } = shapeOf(args, row)
 		const caller = this.#caller
-		const planned = await recording(async () =>
-			livePlan(model, liveArgs(args, row), caller, row),
+		const planned = await this.#readers.during(this, async () =>
+			recording(async () => livePlan(model, liveArgs(args, row), caller, row)),
 		)
+		// What a closed viewer registers would stay in the index for good.
+		if (this.#closed) throw new Error('The viewer is closed.')
 		const limit = this.#limit(model)
 		checked(this.#settings.models, model, planned.result, 'include')
 		within(first, limit)
@@ -334,6 +340,8 @@ export class Viewer {
 				limit,
 				send,
 				logger: this.#settings.logger,
+				readers: this.#readers,
+				owner: this,
 			},
 			caller,
 			planned.result,
@@ -342,6 +350,7 @@ export class Viewer {
 		const { reads, expires } = planned
 		const followed = { model, args, row, send, rows: first, reads, expires }
 		this.#live.set(live, followed)
+		this.#index()
 		try {
 			await live.start()
 		} catch (error) {
@@ -377,23 +386,14 @@ export class Viewer {
 
 	/** Refuses one more live read past what the connection holds. */
 	#holds(): void {
-		const { maxSubscriptions } = this.#settings
-		if (this.#live.size + this.#computed.size < maxSubscriptions) return
-		throw invalid(
-			'subscriptions',
-			`A connection holds at most ${maxSubscriptions} live reads.`,
-		)
+		const reads = this.#live.size + this.#computed.size
+		holds(reads, this.#settings.maxSubscriptions)
 	}
 
 	/** Refuses `more` rows past what the connection follows in all. */
 	#fits(more: number): void {
-		const { maxConnectionRows } = this.#settings
 		let rows = more
 		for (const subscription of this.#live.values()) rows += subscription.rows
-		if (rows <= maxConnectionRows) return
-		throw invalid(
-			'first',
-			`A connection follows at most ${maxConnectionRows} rows.`,
-		)
+		fits(rows, this.#settings.maxConnectionRows)
 	}
 }

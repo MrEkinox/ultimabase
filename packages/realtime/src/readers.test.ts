@@ -429,23 +429,17 @@ it('a write out of a list reach costs that list nothing', async () => {
 	await follow('Note', id, notesOf(chat))
 	await quiet()
 	const applied = vi.spyOn(Live.prototype, 'apply')
-	const waits = () =>
-		applied.mock.results.map(({ value }) => value !== undefined)
 	await Note.create({ data: { text: 'one', chat: links(chat.id) } }, M)
-	await vi.waitFor(() => expect(applied).toHaveBeenCalledTimes(2))
+	await vi.waitFor(() => expect(applied).toHaveBeenCalledOnce())
 	// The chats list holds no note, the notes list holds them.
-	expect(waits().filter(Boolean)).toHaveLength(1)
 	await quiet()
+	expect(applied).toHaveBeenCalledOnce()
 	applied.mockClear()
+	// Both rules name the user through a seat, none reads a name.
 	await User.update({ where: { id }, data: { name: 'ada2' } }, M)
-	await vi.waitFor(() => expect(applied).toHaveBeenCalledTimes(2))
-	// Both rules name the user through a seat.
-	expect(waits()).toEqual([true, true])
-	await quiet()
-	applied.mockClear()
 	await Tag.create({ data: { name: 'tag' } }, M)
-	await vi.waitFor(() => expect(applied).toHaveBeenCalledTimes(2))
-	expect(waits()).toEqual([false, false])
+	await quiet()
+	expect(applied).not.toHaveBeenCalled()
 	applied.mockRestore()
 })
 

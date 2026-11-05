@@ -185,7 +185,7 @@ function showing(nested: Read, also: readonly string[] = []): Fields {
 	])
 }
 
-const union = (a: Fields, b: Fields): Fields =>
+export const union = (a: Fields, b: Fields): Fields =>
 	a === 'all' || b === 'all' ? 'all' : new Set([...a, ...b])
 
 /**

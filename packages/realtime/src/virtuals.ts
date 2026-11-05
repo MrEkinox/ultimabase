@@ -20,6 +20,11 @@ export class VirtualReads {
 	readonly #prints = new Map<string, string>()
 	#fresh = new Map<string, Row>()
 
+	/** Whether it holds reads, which no route describes (D-256). */
+	get holding(): boolean {
+		return this.#groups.size > 0
+	}
+
 	clear(): void {
 		this.#groups.clear()
 		this.#of.clear()

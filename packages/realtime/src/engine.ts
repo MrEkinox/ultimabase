@@ -1,11 +1,14 @@
 // The realtime engine (D-154): changes wait 50 ms, then one flush reads each
-// changed row once and hands the batch to every viewer, a few at a time.
+// changed row once and hands the batch to the viewers holding a read it may
+// concern (D-256), a few at a time.
 // Every viewer's caller is built again on a timer, and when it expires.
 import type { Changed } from 'ultimabase'
 import { liveSchema, recording } from 'ultimabase/internal'
 import { batchOf } from './changes.ts'
+import type { Owner } from './readers.ts'
+import { Readers } from './readers.ts'
 import { Loader } from './reads.ts'
-import type { Settings } from './viewer.ts'
+import type { Settings } from './settings.ts'
 import { Viewer } from './viewer.ts'
 
 /** How long changes wait, so the writes close together share one message. */
@@ -53,6 +56,7 @@ async function bounded<T>(
 export class Engine {
 	readonly #settings: Settings
 	readonly #viewers = new Set<Viewer>()
+	readonly #readers = new Readers()
 	readonly #refresh: NodeJS.Timeout
 	#changes: Changed[] = []
 	#missed = false
@@ -73,6 +77,7 @@ export class Engine {
 		const { identify } = this.#settings
 		const identified = await recording(async () => identify(request))
 		const viewer = new Viewer(this.#settings, request, identified, {
+			readers: this.#readers,
 			onClose: () => this.#viewers.delete(viewer),
 			onDue: () => {
 				this.#chain = this.#chain.then(async () =>
@@ -122,9 +127,16 @@ export class Engine {
 		if (changes.length === 0 && !missed) return
 		const batch = batchOf(changes, liveSchema())
 		const loader = new Loader(new Map())
+		if (missed) {
+			await bounded([...this.#viewers], concurrency, (viewer) =>
+				this.#guarded(viewer, () => viewer.flush(batch, loader, 'all')),
+			)
+			return
+		}
+		const concerned = await this.#readers.concerned(batch, loader)
 		// No async wrappers: a flush makes these calls for each viewer.
-		await bounded([...this.#viewers], concurrency, (viewer) =>
-			this.#guarded(viewer, () => viewer.flush(batch, loader, missed)),
+		await bounded([...concerned], concurrency, ([viewer, reads]) =>
+			this.#guarded(viewer, () => viewer.flush(batch, loader, reads)),
 		)
 	}
 
@@ -135,7 +147,7 @@ export class Engine {
 	}
 
 	/** A viewer that fails is logged and closed; the others go on. */
-	async #guarded(viewer: Viewer, task: () => Promise<void>): Promise<void> {
+	async #guarded(viewer: Owner, task: () => Promise<void>): Promise<void> {
 		try {
 			await task()
 		} catch (error) {

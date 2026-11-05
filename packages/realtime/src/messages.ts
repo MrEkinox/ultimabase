@@ -1,5 +1,6 @@
 // What a live read sends (D-154), which a transport writes in its own shape,
 // and its handle.
+import type { Owner, Readers } from './readers.ts'
 import type { Logger, ModelQueries, Row } from 'ultimabase'
 
 /** A row that left the window, `gone` when deleted or no longer readable. */
@@ -64,4 +65,7 @@ export type Spec = {
 	readonly limit: number
 	readonly send: (message: LiveMessage) => void
 	readonly logger: Logger
+	/** The index it is followed in, for its owner (D-256). */
+	readonly readers: Readers
+	readonly owner: Owner
 }

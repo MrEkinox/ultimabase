@@ -14,7 +14,7 @@ const fieldsOf = (fields: readonly string[] | undefined): Fields =>
 	fields === undefined ? 'all' : new Set(fields)
 
 /** What a recorded read is judged by, the same at every write. */
-type Judged = {
+export type Judged = {
 	/** The levels its relations reach. */
 	readonly further: readonly Level[]
 	/** The fields that chose its own rows, its relations' links aside. */
@@ -41,7 +41,7 @@ function linksOf(
 
 const judgedReads = new WeakMap<Recorded, Judged>()
 
-function judgedOf(models: Models, read: Recorded): Judged {
+export function judgedOf(models: Models, read: Recorded): Judged {
 	const known = judgedReads.get(read)
 	if (known !== undefined) return known
 	const { model, where } = read

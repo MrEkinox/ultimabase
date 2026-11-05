@@ -17629,6 +17629,8 @@ Rejected:
 
 ## D-255: A write costs its readers, whoever else is connected
 
+Amended by D-256.
+
 Choice: amends D-252 points 1, 3 and 10.
 
 1. A row of a filter naming a related id is judged on its key before any query,
@@ -17693,3 +17695,72 @@ Rejected:
   stays the same, and each turn costs a pass of the event loop.
 - Holding each list's row ids to refuse rows sooner: it would hold memory for every
   quiet list, which D-253 removed.
+
+## D-256: A write visits the reads it can concern
+
+Choice: amends D-255's known limits. Nothing changes for a developer: no option, no
+new message, the same rows told.
+
+1. The engine keeps an index of its live reads: lists, rows, live functions' reads,
+   and what built each caller and plan. Those of one shape share an entry: the
+   routes from each model they reach back to their root, the fields that matter on
+   each, and the relation their filter pins on an id.
+2. A pin is an id every row of the read must lead to: `id: { in }`, a stored key
+   (`chat: { is: { id } }`), or either through relations a row can be walked along
+   (`members: { some: { user: { is: { id } } } }`). The shortest one wins. `OR`,
+   `NOT`, `every`, `none`, `isNot` and a many-to-many relation pin nothing.
+3. A flush asks each shape what its writes concern. A written row goes back along
+   its route to root rows, read once per flush whatever reads it, then forward to
+   the pins those rows hold, and only the reads pinned there are visited. It holds
+   ids of pins, no rows, so a quiet list stays as cheap as D-253 made it.
+4. Every read of a shape is visited when no answer is sure: a key or a link of a
+   route moved, a row under a relation was deleted, the feed did not list its rows,
+   a read past D-252's shared limit or that failed, or the shape has no pin.
+5. A read is visited whatever it is pinned on when a task of it may still read
+   the write: a read in progress, a function running, a caller being rebuilt. So is
+   one holding virtual fields' reads, which the routes do not describe.
+6. A recorded read is pinned as a plan is, even when its `where` is more than a
+   row answers: a row outside the pin was never part of what it found.
+7. A viewer closed while it plans a live read refuses it: what it registered would
+   stay in the index for good.
+
+Why: 10 000 users on one process and one Postgres, `bench/realtime/platform.ts`. The
+rate is the highest that holds: 95 % of the asked rate done, and told within 1 second at the
+95th percentile. The first two columns are the delay of a write alone.
+
+| Scenario              | Lone write, before | After | Holds, before | After |
+| --------------------- | ------------------ | ----- | ------------- | ----- |
+| Private chats         | 389 ms             | 69 ms | 10/s          | 100/s |
+| Non-player characters | 178 ms             | 74 ms | 50/s          | 100/s |
+| Online and offline    | 293 ms             | 67 ms | 100/s         | 200/s |
+
+It costs 0.04 to 0.07 GiB more heap for those 10 000 users, and 4 to 14 % longer to
+connect them. It also costs more SQL at an equal rate, as a flush goes back from what
+was written: 180 statements a second against 132 for 10 chat messages a second, 534
+against 165 for 100 presence changes a second. Those reads replace work this process
+did for each list. The package grows by 593 lines.
+
+Each read skipped could be one a client never hears of, so this was checked once
+against the old walk, by a patch not kept: every read the index left out was still
+visited, and logged if it then told something or read again. Over the whole suite it
+logged nothing. Over 1497 random writes on 80 live reads it logged 36 of 26 366 visits,
+all a live function's read woken by the delete of a row of another pin, which the old
+check woke for any delete: none changed what it reads. With the index emptied, the
+same log held 4473 entries, so it does catch what is left out.
+
+Known limits:
+
+- A delete under a relation visits every read of that shape, as before this decision.
+- A many-to-many link, and an `OR`, leave a read unpinned: it is visited for every
+  write on its routes.
+- A write on a shown relation goes back to as many as 10 000 root rows, each read whole.
+- Past those rates the process is not always what stops: online and offline stops
+  holding at 500/s with 36 % of a core, a campaign at 200/s with 79 %. What stops them
+  was not investigated.
+
+Rejected:
+
+- An index of row ids to reads: 50 to 100 bytes a row, and it misses a row entering
+  a window, the case a list exists for.
+- Evaluating each list's filter against a written row in a shared structure: rights
+  go through relations, so most cannot be answered from the row.

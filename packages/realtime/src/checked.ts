@@ -1,7 +1,7 @@
 // What a live read may ask (D-154): its order sorts by the model's own
 // fields, and its selection reaches only live models, each nested list with a
 // take. A refusal names the argument it comes from.
-import type { ExposedModel } from 'ultimabase'
+import type { Caller, ExposedModel } from 'ultimabase'
 import { PublicError } from 'ultimabase'
 import type { LivePlan } from 'ultimabase/internal'
 import { liveSchema } from 'ultimabase/internal'
@@ -11,6 +11,31 @@ export const invalid = (path: string, message: string): PublicError =>
 	new PublicError('VALIDATION_FAILED', message, {
 		details: { issues: [{ path: [path], message }] },
 	})
+
+/** Who `caller` is, which a rebuilt caller must keep. */
+export const whoOf = (caller: Caller): string => {
+	if (caller.kind !== 'user') return JSON.stringify(caller)
+	const id: unknown = Reflect.get(caller.user, 'id')
+	return JSON.stringify(['user', id])
+}
+
+/** Refuses one more live read past what a connection holds. */
+export function holds(reads: number, maxSubscriptions: number): void {
+	if (reads < maxSubscriptions) return
+	throw invalid(
+		'subscriptions',
+		`A connection holds at most ${maxSubscriptions} live reads.`,
+	)
+}
+
+/** Refuses `rows` past what a connection follows in all. */
+export function fits(rows: number, maxConnectionRows: number): void {
+	if (rows <= maxConnectionRows) return
+	throw invalid(
+		'first',
+		`A connection follows at most ${maxConnectionRows} rows.`,
+	)
+}
 
 /**
  * Refuses a live list opened with `rows` past `limit` (D-252); its details

@@ -1,5 +1,7 @@
 // A live read's tasks, one after another: a flush waits for them, unless one
-// is a big read (D-254), and a read with none costs a flush nothing (D-255).
+// is a big read (D-254), and a read with none costs a flush nothing (D-255). The
+// index knows while it has some: a write may yet be read by one (D-256).
+import type { Readers } from './readers.ts'
 
 /** What a flush waits for, nothing when it has nothing to do. */
 export type Waited = Promise<void> | undefined
@@ -10,6 +12,23 @@ export class Tasks {
 	#busy = 0
 	/** The reads of the whole window it is running or has queued. */
 	#rereads = 0
+	readonly #readers: Readers
+	readonly #reader: object
+
+	constructor(readers: Readers, reader: object) {
+		this.#readers = readers
+		this.#reader = reader
+	}
+
+	#up(): void {
+		this.#busy += 1
+		if (this.#busy === 1) this.#readers.busy(this.#reader, true)
+	}
+
+	#down(): void {
+		this.#busy -= 1
+		if (this.#busy === 0) this.#readers.busy(this.#reader, false)
+	}
 
 	get resting(): boolean {
 		return this.#busy === 0
@@ -22,10 +41,10 @@ export class Tasks {
 	/** Runs the first read at once: its failure is its caller's. */
 	first(read: () => Promise<void>): Promise<void> {
 		this.#rereads += 1
-		this.#busy += 1
+		this.#up()
 		const run = read().finally(() => {
 			this.#rereads -= 1
-			this.#busy -= 1
+			this.#down()
 		})
 		this.#queue = run.catch(() => undefined)
 		return run
@@ -39,10 +58,10 @@ export class Tasks {
 		task: () => Promise<void> | undefined,
 		recover: (error: unknown) => Promise<void>,
 	): readonly [Promise<void>, Promise<void>] {
-		this.#busy += 1
+		this.#up()
 		const run = this.#queue.then(task)
 		const settled = run.catch(recover).finally(() => {
-			this.#busy -= 1
+			this.#down()
 		})
 		this.#queue = settled
 		return [run, settled]

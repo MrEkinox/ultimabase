@@ -270,6 +270,7 @@ for production yet, and fixes ship as 0.1.x or 0.2.
 - [x] A live list costs what its readers see, whatever its size (D-252).
 - [x] A big live list makes nobody wait, not even a slow client (D-254).
 - [x] A write costs its readers, whoever else is connected (D-255).
+- [x] A write visits the reads it can concern (D-256).
 - [x] Refuse breached and common passwords (NIST SP 800-63B §5.1.1.2):
       `passwordPlugin({ breached: true })`, and never the email (D-209).
 
