@@ -14,7 +14,8 @@
 		"node": ">=24.7.0"
 	},
 	"exports": {
-		".": "./src/index.ts"
+		".": "./src/index.ts",
+		"./client": "./src/client.ts"
 	},
 	"files": [
 		"dist",
@@ -27,7 +28,8 @@
 	},
 	"publishConfig": {
 		"exports": {
-			".": "./dist/index.js"
+			".": "./dist/index.js",
+			"./client": "./dist/client.js"
 		}
 	},
 	"dependencies": {
@@ -36,6 +38,14 @@
 	"peerDependencies": {
 		"@ultimabase/http": "^0.4.0",
 		"ultimabase": "^0.4.0"
+	},
+	"peerDependenciesMeta": {
+		"@ultimabase/http": {
+			"optional": true
+		},
+		"ultimabase": {
+			"optional": true
+		}
 	},
 	"devDependencies": {
 		"@types/pg": "8.23.1",

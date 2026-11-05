@@ -37,6 +37,8 @@ const notCodes = new Set([
 	'NFKC',
 	'JSON',
 	'REST',
+	// files' browser client: an upload that reached no server.
+	'NETWORK',
 ])
 
 // The kernel's query errors, which every transport sends as BAD_USER_INPUT.

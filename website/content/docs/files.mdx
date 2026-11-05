@@ -30,16 +30,12 @@ which it requires. It takes the storage, and who may upload:
 
 ## Upload, then write the id
 
-A client sends the file as the raw body of `POST /files`, with the field it
-is for and its name; the answer is its `id`. A browser's `File` gives
-`fetch` its type and its size:
-
-<include cwd meta='title="src/app.test.ts"'>
-	../examples/files/src/app.test.ts#upload-function
-</include>
-
-The client then writes the id in the post, over GraphQL or REST, and reads
-the file back with its URL and its `inline` values:
+A client sends the file to `POST /files` with the field it is for, and gets
+its `id` back. In a browser, `uploader()` from `@ultimabase/files/client`
+does it: it imports nothing of the server, and takes a `File` or a list of
+them, such as an input's `FileList`. The client then writes the id in the
+post, over GraphQL or REST, and reads the file back with its URL and its
+`inline` values:
 
 <include cwd meta='title="src/app.test.ts"'>
 	../examples/files/src/app.test.ts#upload
@@ -247,6 +243,28 @@ the declared type. The answer is `201` with `{ id }`.
 | 411    | `LENGTH_REQUIRED`        | `Content-Length is required.`                                           |
 | 413    | `PAYLOAD_TOO_LARGE`      | `The file is over 100000 bytes.`                                        |
 | 415    | `UNSUPPORTED_MEDIA_TYPE` | `text/plain is not accepted.`, or `An undetected type is not accepted.` |
+
+### `uploader(options)`
+
+From `@ultimabase/files/client`, for a browser.
+
+| Option    | Effect                                                                              |
+| --------- | ----------------------------------------------------------------------------------- |
+| `url`     | The server's address; uploads go to its `/files`.                                   |
+| `headers` | The headers of each upload, such as a session's, or a function read at each upload. |
+
+| Function                         | Returns             | Effect                                                                                          |
+| -------------------------------- | ------------------- | ----------------------------------------------------------------------------------------------- |
+| `upload(file, { for, signal })`  | `Promise<string>`   | Uploads a `File` for the field `for`, as `Post.cover`; resolves to its id.                      |
+| `upload(files, { for, signal })` | `Promise<string[]>` | Uploads the files at once; resolves to their ids in order. The first failure aborts the others. |
+
+A refused upload rejects with a `FileError`, whose `code`, `message` and
+`details` are the server's, as in the table above; another answer is
+`INTERNAL`, `The upload failed.`. An upload that reaches no server is
+`NETWORK`, `The upload did not reach the server.`. An upload aborted by
+`signal` rejects with the signal's reason. A file a failed list had
+already stored is never written in a row, so it leaves the storage within
+the hour.
 
 ### `files`
 

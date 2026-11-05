@@ -2868,6 +2868,11 @@ __metadata:
   peerDependencies:
     "@ultimabase/http": ^0.4.0
     ultimabase: ^0.4.0
+  peerDependenciesMeta:
+    "@ultimabase/http":
+      optional: true
+    ultimabase:
+      optional: true
   languageName: unknown
   linkType: soft
 
