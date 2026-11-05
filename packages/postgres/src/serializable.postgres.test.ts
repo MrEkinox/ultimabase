@@ -4,7 +4,13 @@
 import { randomUUID } from 'node:crypto'
 import { Client } from 'pg'
 import type { Logger } from 'ultimabase'
-import { defineApp, defineModel, master, transaction } from 'ultimabase'
+import {
+	defineApp,
+	defineModel,
+	master,
+	PublicError,
+	transaction,
+} from 'ultimabase'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { createAdapter } from './adapter.ts'
 
@@ -148,6 +154,22 @@ async function like(user: string, target: string): Promise<void> {
 	)
 }
 
+/**
+ * Runs `call` again once after a `CONFLICT`, as an application does: the tenth
+ * conflict is an allowed answer under a burst (D-183), which CI has reached.
+ * The 10 pairs test needs more attempts, so a broken retry still fails it.
+ */
+async function again(call: () => Promise<void>): Promise<void> {
+	try {
+		await call()
+	} catch (error) {
+		if (!(error instanceof PublicError) || error.code !== 'CONFLICT') {
+			throw error
+		}
+		await call()
+	}
+}
+
 /** The isolation level `database` runs a transaction at. */
 async function isolation(
 	database: ReturnType<typeof createAdapter>,
@@ -191,7 +213,10 @@ for (const url of urls) {
 		it('matches 20 pairs liking each other at once', async () => {
 			const pairs = Array.from({ length: 20 }, (_, at) => [`a${at}`, `b${at}`])
 			await Promise.all(
-				pairs.flatMap(([a = '', b = '']) => [like(a, b), like(b, a)]),
+				pairs.flatMap(([a = '', b = '']) => [
+					again(async () => like(a, b)),
+					again(async () => like(b, a)),
+				]),
 			)
 			const matched = await Like.count(
 				{ where: { matchedAt: { not: null } } },
@@ -210,7 +235,10 @@ for (const url of urls) {
 			await Promise.all(
 				Array.from({ length: 10 }, (_, at) => {
 					const [a = '', b = ''] = ids.slice(2 * at, 2 * at + 2)
-					return [heart(a, b), heart(b, a)]
+					return [
+						again(async () => heart(a, b)),
+						again(async () => heart(b, a)),
+					]
 				}).flat(),
 			)
 			expect(await Match.count({}, M)).toBe(20)
