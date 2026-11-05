@@ -142,6 +142,9 @@ node --expose-gc --max-old-space-size=24576 bench/realtime/wire.ts \
   [--busy] [--url <url>]
 NODE_ENV=production node --max-old-space-size=16384 bench/realtime/render.ts
 node bench/realtime/pages.ts [--target 50000] [--url <url>]
+node --expose-gc --max-old-space-size=24576 bench/realtime/platform.ts \
+  [--scenario chat|campaign|presence] [--users 10000] [--rates 5,10,20,50,100] \
+  [--seconds 15] [--follow 20] [--no-badges] [--url <url>]
 ```
 
 The gate of D-252: what a live list costs, whatever its size. The tables are
@@ -181,8 +184,50 @@ costs about 1 ms a row, and a production table has them.
   slowest of them. `applyLive` alone is timed on the list as it stands, for a page
   and for one row in 50 told again where it stands. On happy-dom, and no
   network latency.
+- `platform.ts`: a whole platform on one process, in the engine, without sockets
+  or serialization. Every user is connected with what each screen holds: a count
+  of badges, their campaigns, the users they follow, and their chats, the messages
+  of a private chat or the NPCs of a campaign of five. `--scenario` picks the write:
+  a message, an NPC, a user going online. A lone write is told to the viewers the
+  walk reaches last. Then the rate climbs: Told is how long after its due time a
+  write reaches its readers, and a rate holds when the writes keep up and Told p95
+  stays under 1 s. Writes to one row closing up in a flush tell its readers once,
+  so Told can come out short, and Drain then shows the bench's patience of 30 s.
 
 ## Runs
+
+### 2026-11-05: a write costs its readers (D-255)
+
+Same machine; Node 24.20.0; `platform.ts`, 10 000 users, 50 000 live reads, Postgres
+on the same machine; times in ms. These runs predate the split of the bench into
+three files and the rewrite of `bounded` that keeps its logic; a chat at 5 writes a
+second after them: Told p50 394, p95 654.
+
+A lone write, before and after D-255:
+
+| Write             | Statements before | After | Told before | After |
+| ----------------- | ----------------: | ----: | ----------: | ----: |
+| A private message |             20013 |    18 |        6144 |   389 |
+| An NPC            |             10007 |    14 |        4943 |   178 |
+| A user online     |                 6 |     6 |         281 |   293 |
+
+A steady load, after:
+
+| Write             |  /s | Commit p50 | Told p50 | Told p95 | Told max | Drain s | SQL /s | CPU % | Longest stall | Holds |
+| ----------------- | --: | ---------: | -------: | -------: | -------: | ------: | -----: | ----: | ------------: | ----- |
+| A private message |   5 |         40 |      386 |      673 |      772 |     0.3 |     78 |   113 |            92 | yes   |
+| A private message |  10 |         41 |      494 |      773 |      884 |     0.6 |    132 |   102 |            20 | yes   |
+| A private message |  20 |         42 |      931 |     1518 |     1830 |     1.0 |    234 |   112 |            87 | no    |
+| A private message |  50 |         50 |     6542 |    15579 |    18775 |    12.2 |    328 |   107 |            55 | no    |
+| An NPC            |  20 |         13 |      154 |      231 |      417 |     0.2 |    266 |   110 |            73 | yes   |
+| An NPC            |  50 |         11 |      249 |      416 |      693 |     0.3 |    643 |   105 |            73 | yes   |
+| An NPC            | 100 |          8 |     1950 |     4469 |     5788 |     3.4 |   1015 |   101 |            68 | no    |
+| A user online     |  50 |         13 |      310 |      496 |      726 |    30.4 |     84 |    39 |            41 | yes   |
+| A user online     | 100 |         11 |      409 |      688 |      931 |    30.4 |    165 |    44 |            53 | yes   |
+| A user online     | 200 |          7 |      850 |     1508 |     1917 |    31.0 |    322 |    39 |            35 | no    |
+
+- Past the rate that holds, Told grows with the run: the flushes fall behind.
+- Not measured: sockets, serialization, several instances.
 
 ### 2026-11-05: a message costs what it changes
 
