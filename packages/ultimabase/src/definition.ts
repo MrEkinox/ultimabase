@@ -339,6 +339,11 @@ function enumOf(values: unknown, options?: FieldOptions): object {
 	if (shared !== undefined) {
 		return listable('enum', options, shared.values, shared)
 	}
+	if (values === undefined) {
+		throw new Error(
+			'enumOf received undefined: a model file that imports another may read its values before they are defined. Move them to a file that imports no model.',
+		)
+	}
 	return listable('enum', options, enumValues(values, 'enumOf'))
 }
 

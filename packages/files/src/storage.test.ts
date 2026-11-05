@@ -168,6 +168,9 @@ describe('s3()', () => {
 		)
 		const cdn = s3({ ...options, publicUrl: 'https://cdn.example.com/' })
 		expect(cdn.url('public/a')).toBe('https://cdn.example.com/public/a')
+		// Regression (#225): an unset variable is the storage's own URL.
+		const unset = s3({ ...options, publicUrl: undefined })
+		expect(unset.url('public/a')).toBe(storage.url('public/a'))
 		const url = new URL(storage.url('private/a'))
 		expect(url.pathname).toBe('/media/private/a')
 		expect(url.searchParams.get('X-Amz-Expires')).toBe('1800')
