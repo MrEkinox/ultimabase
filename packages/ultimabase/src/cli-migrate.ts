@@ -63,19 +63,32 @@ export async function read(dir: string): Promise<Folder> {
 const stamp = (now: Date): string =>
 	now.toISOString().replaceAll(/[-:T]/g, '').slice(0, 'yyyyMMddHHmmss'.length)
 
+/** A hint's statements, one commented line each. */
+const lines = (sql: readonly string[]): string[] =>
+	sql.map((line) => `--   ${line};`)
+
 /**
  * A removal's rename: the SQL that replaces it and the line adding its new
- * name, or each to choose from (D-232).
+ * name, or each to choose from (D-232), one statement per line (D-251).
  */
 function hint(rename: Statement['rename']): string[] {
 	const to = rename?.to ?? []
 	const replace = '-- a rename? replace this drop and the line adding'
-	if (to.length < 2) {
-		return to.map(({ name, sql }) => `${replace} ${name} with: ${sql};`)
+	const [only, ...others] = to
+	if (only === undefined) return []
+	if (others.length === 0) {
+		const [line, ...more] = only.sql
+		return more.length === 0
+			? [`${replace} ${only.name} with: ${line};`]
+			: [`${replace} ${only.name} with:`, ...lines(only.sql)]
 	}
+	const apart = to.some(({ sql }) => sql.length > 1)
 	return [
 		`${replace} the one you keep with one of:`,
-		...to.map(({ sql }) => `--   ${sql};`),
+		...to.flatMap(({ sql }, at) => [
+			...(apart && at > 0 ? ['--'] : []),
+			...lines(sql),
+		]),
 	]
 }
 

@@ -18,11 +18,14 @@ export type Statement = {
 	/**
 	 * A removal that may be a rename: the name it keeps its data under with
 	 * `dbName` (`label`), and each field or model that may be the same
-	 * (`Locker.title`), with the SQL that renames to it (D-232).
+	 * (`Locker.title`), with the statements that rename to it (D-232, D-251).
 	 */
 	readonly rename?: {
 		readonly dbName: string
-		readonly to: readonly { readonly name: string; readonly sql: string }[]
+		readonly to: readonly {
+			readonly name: string
+			readonly sql: readonly string[]
+		}[]
 	}
 }
 
