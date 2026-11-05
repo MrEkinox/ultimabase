@@ -239,6 +239,35 @@ describe('migrate create', () => {
 			'--   rename title to name;',
 			'--   rename title to code;',
 		])
+
+		// A table's rename takes several statements, one per line (D-251).
+		const moved = await config('create', { Cabinet: ['name', 'code'] })
+		expect(await run('migrate', 'create', 'move', '--config', moved)).toBe(0)
+		const move = (await migrations()).find((name) => name.endsWith('_move.sql'))
+		expect((await read(move ?? '')).split('\n').slice(2, 7)).toStrictEqual([
+			'-- removing Locker deletes its rows.',
+			'-- a rename? replace this drop and the line adding Cabinet with:',
+			'--   rename Locker to Cabinet;',
+			'--   rekey Cabinet;',
+			'drop Locker;',
+		])
+
+		const both = await config('create', {
+			Box: ['name', 'code'],
+			Crate: ['name', 'code'],
+		})
+		expect(await run('migrate', 'create', 'pack', '--config', both)).toBe(0)
+		const pack = (await migrations()).find((name) => name.endsWith('_pack.sql'))
+		expect((await read(pack ?? '')).split('\n').slice(2, 10)).toStrictEqual([
+			'-- removing Cabinet deletes its rows.',
+			'-- a rename? replace this drop and the line adding the one you keep with one of:',
+			'--   rename Cabinet to Box;',
+			'--   rekey Box;',
+			'--',
+			'--   rename Cabinet to Crate;',
+			'--   rekey Crate;',
+			'drop Cabinet;',
+		])
 	})
 
 	it('writes a file without statements when only names changed', async () => {

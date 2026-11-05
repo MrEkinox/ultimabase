@@ -14,6 +14,7 @@ import type {
 	Migrations,
 	Schema,
 	SchemaField,
+	Statement,
 } from 'ultimabase'
 import { MigrationFailed } from 'ultimabase'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -525,6 +526,74 @@ const hintsOf = (from: Schema, to: Schema) =>
 				: [[rename.dbName, rename.to.map(({ name }) => name)]],
 		)
 
+/** Chats and accounts, both sides of their join declared or one (D-248). */
+const chats = (both: boolean): Schema => ({
+	models: [
+		{
+			name: 'Chat',
+			fields: [
+				scalar('title', 'string'),
+				many('members', 'Account', 'chats', true),
+			],
+			indexes: [],
+		},
+		{
+			name: 'Account',
+			fields: [
+				scalar('name', 'string'),
+				{
+					...many('chats', 'Chat', 'members', true),
+					...(both ? {} : { hidden: true }),
+				},
+			],
+			indexes: [],
+		},
+	],
+})
+
+/** Boxes on a model named `name`, with a unique key, a check and an index. */
+const racks = (name: string): Schema => ({
+	models: [
+		{
+			name,
+			fields: [
+				scalar('label', 'string', { unique: true }),
+				scalar('kind', 'enum', { values: ['wood', 'metal'] }),
+				scalar('size', 'number'),
+				many('boxes', 'Box', 'shelf'),
+			],
+			indexes: [{ fields: ['size'], unique: false, contains: false }],
+		},
+		{ name: 'Box', fields: [one('shelf', name, 'boxes')], indexes: [] },
+	],
+})
+
+/** A plan with each table's rename hint followed, as a developer would. */
+const followed = (statements: readonly Statement[]): Statement[] => {
+	const created = new Set(
+		statements.flatMap(({ rename }) => rename?.to[0]?.name ?? []),
+	)
+	return statements.flatMap((statement) => {
+		const hint = statement.rename?.to[0]
+		if (hint !== undefined && statement.sql.startsWith('drop table')) {
+			return hint.sql.map((sql) => ({ ...statement, sql }))
+		}
+		const create = statement.sql.startsWith('create table')
+		return create && created.has(statement.model) ? [] : [statement]
+	})
+}
+
+/** Each key and index of the schema, as PostgreSQL defines it. */
+const structure = async (): Promise<unknown[]> =>
+	query(
+		url,
+		`select conrelid::regclass::text as at, conname as name, pg_get_constraintdef(oid) as definition
+		from pg_constraint where connamespace = '${schema}'::regnamespace
+		union all
+		select tablename, indexname, indexdef from pg_indexes where schemaname = '${schema}'
+		order by 1, 2`,
+	)
+
 describe('a sync on postgres()', () => {
 	it('builds an empty database, then changes every kind of thing a model holds', async () => {
 		await sync(undefined, before)
@@ -561,7 +630,16 @@ describe('a sync on postgres()', () => {
 				'removing Old deletes its rows',
 				{
 					dbName: 'old',
-					to: [{ name: 'New', sql: 'alter table "old" rename to "new"' }],
+					to: [
+						{
+							name: 'New',
+							sql: [
+								'alter table "old" rename to "new"',
+								'alter table "new" drop constraint "old_pkey"',
+								'alter table "new" add constraint "new_pkey" primary key ("id")',
+							],
+						},
+					],
 				},
 			],
 			[
@@ -571,7 +649,7 @@ describe('a sync on postgres()', () => {
 					to: [
 						{
 							name: 'Shelf.remark',
-							sql: 'alter table "shelf" rename column "note" to "remark"',
+							sql: ['alter table "shelf" rename column "note" to "remark"'],
 						},
 					],
 				},
@@ -1419,8 +1497,10 @@ describe('a sync on postgres()', () => {
 		const stored = await migrations.stored()
 		const statements = migrations.plan(stored?.snapshot, after)
 		expect(
-			statements.find(({ model }) => model === 'Old')?.rename?.to,
-		).toStrictEqual([{ name: 'New', sql: 'alter table "old" rename to "new"' }])
+			statements
+				.find(({ model }) => model === 'Old')
+				?.rename?.to.map(({ name }) => name),
+		).toStrictEqual(['New'])
 	})
 
 	// Regression: each removal was offered the first added column or table
@@ -1491,6 +1571,68 @@ describe('a sync on postgres()', () => {
 				'select count(*)::int as n from posts_tags',
 			),
 		).toStrictEqual([{ n: 1 }])
+	})
+
+	// Regression (#224): the hint renamed the table alone, which kept the old
+	// key and index names, and a join's old key order.
+	it("follows a table's rename hint to the database a fresh sync gives (D-251)", async () => {
+		const cases: [Schema, Schema, string[], string][] = [
+			[
+				chats(true),
+				chats(false),
+				[
+					"insert into account values ('a0000000-0000-4000-8000-000000000000', now(), now(), 'Ada')",
+					"insert into chat values ('c0000000-0000-4000-8000-000000000000', now(), now(), 'Hi')",
+					"insert into account_chats values ('a0000000-0000-4000-8000-000000000000', 'c0000000-0000-4000-8000-000000000000')",
+				],
+				'chat_members',
+			],
+			[
+				racks('Shelf'),
+				racks('Rack'),
+				[
+					"insert into shelf values ('a0000000-0000-4000-8000-000000000000', now(), now(), 'Top', 'wood', 1)",
+					"insert into box values ('b0000000-0000-4000-8000-000000000000', now(), now(), 'a0000000-0000-4000-8000-000000000000')",
+				],
+				'rack',
+			],
+		]
+		const moved = migrations.plan(
+			migrations.snapshot(chats(true)),
+			chats(false),
+		)
+		expect(moved.flatMap(({ rename }) => rename?.to ?? [])).toStrictEqual([
+			{
+				name: 'Chat.members',
+				sql: [
+					'alter table "account_chats" rename to "chat_members"',
+					'alter table "chat_members" drop constraint "account_chats_pkey"',
+					'drop index "account_chats_chat_id_idx"',
+					'alter table "chat_members" add constraint "chat_members_pkey" primary key ("chat_id", "account_id")',
+				],
+			},
+		])
+		for (const [from, to, rows, renamed] of cases) {
+			await sync(undefined, to)
+			const fresh = await structure()
+			await migrations.reset()
+			await sync(undefined, from)
+			for (const row of rows) await query(inSchema(schema), row)
+			const was = migrations.snapshot(from)
+			const statements = followed(migrations.plan(was, to))
+			const now = migrations.snapshot(to)
+			await migrations.apply({ kind: 'sync', from: was, statements, to: now })
+			expect(await structure()).toStrictEqual(fresh)
+			expect(
+				await query(
+					inSchema(schema),
+					`select count(*)::int as n from ${renamed}`,
+				),
+			).toStrictEqual([{ n: 1 }])
+			const stored = await migrations.stored()
+			expect(migrations.plan(stored?.snapshot, to)).toStrictEqual([])
+			await migrations.reset()
+		}
 	})
 
 	it('gives a view no column, key or join of its own (D-151)', async () => {

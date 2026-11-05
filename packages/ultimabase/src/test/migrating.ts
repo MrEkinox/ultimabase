@@ -52,14 +52,27 @@ function plan(from: unknown, to: unknown): Statement[] {
 	const before = from === undefined ? {} : modelsOf(from)
 	const after = modelsOf(to)
 	const statements: Statement[] = []
+	const created = Object.keys(after).filter((model) => !(model in before))
 	for (const [model, fields] of Object.entries(before)) {
 		const now = after[model]
 		if (now === undefined) {
+			// Every created model may be its new name, in two statements.
 			statements.push({
 				sql: `drop ${model}`,
 				model,
 				does: 'removed',
 				loses: `removing ${model} deletes its rows`,
+				...(created.length === 0
+					? {}
+					: {
+							rename: {
+								dbName: model,
+								to: created.map((twin) => ({
+									name: twin,
+									sql: [`rename ${model} to ${twin}`, `rekey ${twin}`],
+								})),
+							},
+						}),
 			})
 			continue
 		}
@@ -78,7 +91,7 @@ function plan(from: unknown, to: unknown): Statement[] {
 								dbName: field,
 								to: fresh.map((twin) => ({
 									name: `${model}.${twin}`,
-									sql: `rename ${field} to ${twin}`,
+									sql: [`rename ${field} to ${twin}`],
 								})),
 							},
 						}),
@@ -93,8 +106,7 @@ function plan(from: unknown, to: unknown): Statement[] {
 			})
 		}
 	}
-	for (const model of Object.keys(after)) {
-		if (before[model] !== undefined) continue
+	for (const model of created) {
 		statements.push({ sql: `create ${model}`, model, does: 'created' })
 	}
 	return statements

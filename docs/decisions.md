@@ -15559,6 +15559,8 @@ interface Password extends PluginTypes {
 
 ## D-232: A rename hint lists every added column alike, never one twice
 
+Amended by D-251.
+
 Choice: amends D-105.
 
 1. A removed column whose type only one added column has keeps its hint, as
@@ -17306,4 +17308,65 @@ try {
 		// The field's maxSize.
 	}
 }
+```
+
+## D-251: A table's rename hint renames its keys and indexes too
+
+Choice: amends D-232 point 5.
+
+1. A removed table's hint renames it, drops the primary key, unique keys,
+   checks and indexes the old table holds, and adds the primary key, unique
+   keys and checks of the new one: each of their names holds the table's.
+2. It still replaces the drop and the line creating the new table. The
+   lines it keeps drop the old table's foreign keys before it, and create
+   the new one's indexes and foreign keys after it.
+3. A hint of several statements writes one per line under `with:`. Several
+   candidates of several statements are separated by an empty comment line.
+   A column's hint stays on one line.
+4. `Statement.rename.to[].sql` is `readonly string[]`, its statements in
+   order.
+
+Why:
+
+- Renaming the table alone left the old key and index names, and a join
+  table that moved to its other side (D-248) kept its old key order. The
+  snapshot then named what the database did not hold, and the next
+  migration failed.
+- Dropping and adding what the old table held reuses the plan's own
+  statements, so following the hint gives the database a fresh sync gives.
+  It rebuilds the keys and indexes once, which a rename can afford.
+
+Rejected:
+
+- Renaming each key and index in place (`rename constraint`,
+  `alter index … rename`), which rebuilds none: the hint would replace the
+  index and foreign key lines too, and a key whose column order changes
+  still needs rebuilding.
+- Writing the rename itself for a join table that moves to its other side:
+  the stored snapshot does not keep both field names, so it needs a new
+  snapshot format, and it would not cover a model renamed.
+
+Example, before: `Account.chats` becomes one-sided (`inverse: false`), so
+the join of `Chat.members` is named after `Chat`.
+
+```sql
+-- removing Account.chats deletes its rows.
+-- a rename? replace this drop and the line adding Chat.members with: alter table "account_chats" rename to "chat_members";
+drop table "account_chats";
+```
+
+Following it left `account_chats_pkey (account_id, chat_id)` and the index
+`account_chats_chat_id_idx`, where a fresh sync holds
+`chat_members_pkey (chat_id, account_id)` and `chat_members_account_id_idx`.
+
+After:
+
+```sql
+-- removing Account.chats deletes its rows.
+-- a rename? replace this drop and the line adding Chat.members with:
+--   alter table "account_chats" rename to "chat_members";
+--   alter table "chat_members" drop constraint "account_chats_pkey";
+--   drop index "account_chats_chat_id_idx";
+--   alter table "chat_members" add constraint "chat_members_pkey" primary key ("chat_id", "account_id");
+drop table "account_chats";
 ```

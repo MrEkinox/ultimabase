@@ -60,7 +60,10 @@ the removed one, it lists them, `give one of Locker.title, Locker.code
 dbName: 'label'.`, and a migration file lists one `rename column` line for
 each: replace the drop, and the line adding the field you keep, with the
 right one. An added field that two removed ones may be is
-named for neither. A `oneOf`'s keys take no `dbName`: when the removed field
+named for neither. A removed table that looks renamed, a model's or a
+join's, gets the same hint in a migration file, one statement per line: it
+renames the table, then its keys and indexes. Replace the drop, and the line
+creating the new table, with them. A `oneOf`'s keys take no `dbName`: when the removed field
 may be one, the refusal says `--force` loses its data and a migration keeps it.
 
 A sync also refuses a change the rows cannot take, such as a required field
