@@ -1,6 +1,6 @@
 // A normalized `where` as SQL (D-73): PostgreSQL's three-valued logic is the
 // one `memory()` mimics, and a relation condition is an `exists` subquery.
-import { sql } from 'kysely'
+import { sql } from './text.ts'
 import type { Condition, Filter, SchemaField } from 'ultimabase'
 import { compares, jsonPath } from './json-filter.ts'
 import type { Sql } from './logic.ts'

@@ -1,9 +1,9 @@
 // The SQL a filter is made of (D-73): conditions joined with PostgreSQL's
 // three-valued logic, and a `like` pattern that matches its text only.
-import type { RawBuilder } from 'kysely'
-import { sql } from 'kysely'
+import type { Sql } from './text.ts'
+import { sql } from './text.ts'
 
-export type Sql = RawBuilder<unknown>
+export type { Sql } from './text.ts'
 
 export function all(parts: readonly Sql[]): Sql {
 	if (parts.length === 0) return sql`true`

@@ -1174,6 +1174,8 @@ main defence.
 
 ## D-47: SQL adapters build queries with Kysely
 
+Amended by D-257.
+
 Choice: the PostgreSQL adapter, and later MySQL, build SQL with Kysely, a
 schema-less query builder; one internal relation compiler, shared by the SQL
 adapters, produces the single query of D-46. Kysely never appears in public
@@ -17764,3 +17766,32 @@ Rejected:
   a window, the case a list exists for.
 - Evaluating each list's filter against a written row in a shared structure: rights
   go through relations, so most cannot be answered from the row.
+
+## D-257: The adapter writes its SQL itself, Kysely runs it
+
+Choice: amends D-47, whose "builder overhead is negligible next to a database round
+trip" holds for one call at a time and not for a process that reads for thousands of
+live lists. Nothing changes for a developer: same statements, same public
+`postgres.sql` tag, which stays Kysely's.
+
+`packages/postgres/src/text.ts`, 105 lines, gives the adapter the `sql`, `sql.id`,
+`sql.lit`, `sql.raw` and `sql.join` it used. A fragment keeps its strings and values;
+the statement is written once, at the end. Kysely still runs it: pool, transactions,
+statement log, migrations. A test compares what both write for the same fragments.
+
+Measured with `bench/realtime/platform.ts`, 10 000 connected users, 10 s a rate:
+
+| Scenario, writes /s     | Told p95 before |    After | Drain before |  After |
+| ----------------------- | --------------: | -------: | -----------: | -----: |
+| Chat, 200               |         2136 ms |   108 ms |        1.7 s |  0.1 s |
+| Campaign, 200           |         1385 ms |   833 ms |        1.4 s |  0.8 s |
+| Campaign, 500           |        27296 ms | 22112 ms |       28.9 s | 23.2 s |
+| Online and offline, 500 |         2632 ms |  2314 ms |       32.1 s | 31.8 s |
+
+Kysely's builder was the first cost in every scenario, 17 to 20 % of the JavaScript
+thread: a frozen object and a query id for each fragment, a walk of its nodes. One call
+at a time gains far less, 0 to 6 % on `bench/writes` and `bench/compare`, as the round
+trip takes most of it.
+
+Rejected: caching whole statements per query shape, not needed yet; another driver or
+builder, as the choice of Kysely to run statements and migrations still stands.

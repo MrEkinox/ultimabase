@@ -1,5 +1,5 @@
 // A json value's path filter as SQL (D-149), as `memory()` runs it.
-import { sql } from 'kysely'
+import { sql } from './text.ts'
 import type { Condition } from 'ultimabase'
 import type { Sql } from './logic.ts'
 import { all, pattern } from './logic.ts'

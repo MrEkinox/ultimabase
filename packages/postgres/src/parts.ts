@@ -1,19 +1,11 @@
 // The changes of a write as CTEs, and how they split into statements (D-99).
-import { createQueryId, PostgresQueryCompiler, sql } from 'kysely'
 import type { Row } from 'ultimabase'
 import type { Sql } from './filter.ts'
 import { value } from './filter.ts'
 import type { Catalog, Kind } from './names.ts'
 import type { Noted } from './notify.ts'
 import { rows as noted } from './notify.ts'
-
-const compiler = new PostgresQueryCompiler()
-
-/** How many parameters a piece of SQL binds. */
-export function sizeOf(piece: Sql): number {
-	return compiler.compileQuery(piece.toOperationNode(), createQueryId())
-		.parameters.length
-}
+import { sizeOf, sql } from './text.ts'
 
 /** A change as a CTE, and what deciding where it runs needs of it. */
 export type Part = {

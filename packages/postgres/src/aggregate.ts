@@ -4,7 +4,7 @@
 // are a jsonb array: a sum and an average as float8, a date in UTC as a read
 // returns it, a decimal as text, exact (D-145).
 import type { QueryExecutorProvider } from 'kysely'
-import { sql } from 'kysely'
+import { sql } from './text.ts'
 import type { Aggregate, AggregateRead, Filter, GroupKey } from 'ultimabase'
 import type { Sql } from './filter.ts'
 import { all, any, isFilters } from './filter.ts'

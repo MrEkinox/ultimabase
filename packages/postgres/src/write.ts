@@ -4,21 +4,21 @@
 // takes the rows its model's delete removed from that delete's RETURNING
 // (D-102, D-104), or, with no such delete, those its update changed (D-133). A read of the one row a change writes takes it from that
 // change's RETURNING (D-103).
-import type { RawBuilder } from 'kysely'
-import { sql } from 'kysely'
+import { sql } from './text.ts'
 import type { Change, Check, Filter, Read, Row, Write } from 'ultimabase'
 import type { Sql } from './filter.ts'
 import { Filters, uuid, value } from './filter.ts'
 import type { Catalog, Join, Table } from './names.ts'
 import { computed } from './numbers.ts'
 import type { Part } from './parts.ts'
-import { fieldsOf, grouped, inserted, sizeOf } from './parts.ts'
+import { fieldsOf, grouped, inserted } from './parts.ts'
+import { sizeOf } from './text.ts'
 import { notifying, pairs as linked, rows as noted } from './notify.ts'
 import { compileRows } from './read.ts'
 
 /** A statement of a write: how many checks its result carries, `c0`… */
 export type Statement = {
-	readonly sql: RawBuilder<{ readonly [column: string]: unknown }>
+	readonly sql: Sql
 	readonly checks: number
 }
 
