@@ -305,9 +305,10 @@ export function serveSockets(
 	const sockets = new WebSocketServer({
 		noServer: true,
 		maxPayload: maxBuffer,
-		// `ws` honours the threshold only without context takeover (D-266).
+		// `ws` honours the threshold only without context takeover (D-266), and
+		// a row's change to its many followers is not worth zlib (D-273).
 		perMessageDeflate: {
-			threshold: 1024,
+			threshold: 2048,
 			serverNoContextTakeover: true,
 			clientNoContextTakeover: true,
 			// Each socket keeps its compressor: a small one (D-269).

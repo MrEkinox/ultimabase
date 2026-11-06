@@ -9413,7 +9413,7 @@ api: ({ plugins }) => plugins.http.mount(uploads, { bodyLimit: false })
 ## D-154: Realtime: live lists and live rows
 
 Amended by D-163, D-166, D-178, D-186, D-187, D-195, D-196, D-223, D-226,
-D-229, D-230, D-252, D-254, D-266, D-271 and D-272.
+D-229, D-230, D-252, D-254, D-266, D-271, D-272 and D-273.
 
 Choice: completes D-25; amends D-106 (WebSocket upgrades), D-107 (the
 `Subscription` type), D-109 (live functions) and D-129 (live reads over
@@ -18038,6 +18038,8 @@ row from 172.6 to about 133. The subscribers' first windows do not change (3 386
 
 ## D-266: Only messages above 1 KB are compressed
 
+Amended by D-273.
+
 Choice: nothing changes in a developer's code; sockets negotiate no context takeover.
 
 D-154 compresses WebSocket messages above 1 KB, but `ws` honours its `threshold` only when the
@@ -18179,3 +18181,19 @@ the event loop for 1.8 s, and every other user of the server waited that long.
 `bench/realtime/wire.ts`, 50 000 rows, 1 subscriber: longest stall 1 795 to 501 ms, opening 4.6 s
 unchanged. With 20 subscribers: longest stall 1 812 to 632 ms, the others' longest wait 1 801 to
 1 129 ms, all opened in 76.9 to 68.7 s.
+
+## D-273: Only messages above 2 KB are compressed
+
+Choice: amends D-154 and D-266; nothing changes in a developer's code, and a client sees a few more
+bytes.
+
+A message compresses alone since D-266, in zlib's limited queue and the thread pool, once for each
+socket. A change of one row is the message that goes to the most sockets, and it is about 1.6 KB.
+
+1. Messages up to 2 KB go out as they are; above, they compress as before.
+2. The price, on a message of a few rows with a cursor: 1.2 KB goes out as 1.2 KB rather than 0.6,
+   and 2 KB rather than about 0.8. A window of 25 rows still compresses.
+3. 4 KB gains no more on a row's change and costs up to 2.6 KB a message, so it was not kept.
+
+`bench/realtime/wire.ts`, 25 rows and 1 000 subscribers: an update 120 to 94-98 ms, the author of a
+row in 50 112 to 86-88 ms. At 10 000 users the chat, whose messages are small, does not move.

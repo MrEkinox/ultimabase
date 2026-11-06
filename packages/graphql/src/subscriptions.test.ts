@@ -1398,9 +1398,14 @@ describe('a connection', () => {
 		await vi.waitFor(() => {
 			expect(compressed()).toEqual([false])
 		})
-		send({ type: 'ping', payload: { big: 'x'.repeat(2000) } })
+		// A row's change, sent to all who follow it, stays as it is (D-273).
+		send({ type: 'ping', payload: { big: 'x'.repeat(1900) } })
 		await vi.waitFor(() => {
-			expect(compressed()).toEqual([false, true])
+			expect(compressed()).toEqual([false, false])
+		})
+		send({ type: 'ping', payload: { big: 'x'.repeat(2100) } })
+		await vi.waitFor(() => {
+			expect(compressed()).toEqual([false, false, true])
 		})
 		socket.destroy()
 	})
