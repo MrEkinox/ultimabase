@@ -80,7 +80,7 @@ const fileNode = (
 	variants: { readonly [key: string]: unknown },
 ) =>
 	closed({
-		id: string,
+		id: { type: 'string', format: 'uuid' },
 		name: string,
 		type: string,
 		size,

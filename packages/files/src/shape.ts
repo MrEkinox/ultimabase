@@ -51,7 +51,7 @@ function fileNode(options: FileOptions): Node {
 		(key) => [key, nullable(variant)] as const,
 	)
 	return closed({
-		id: string,
+		id: { type: 'string', format: 'uuid' },
 		name: string,
 		type: string,
 		size,
