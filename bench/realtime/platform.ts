@@ -2,11 +2,13 @@
 // screen holds, and writes at a sustained rate. The rate climbs until delivery
 // no longer keeps up. In the engine, without sockets or serialization.
 // `node --max-old-space-size=24576 bench/realtime/platform.ts --scenario chat`
-import { monitorEventLoopDelay } from 'node:perf_hooks'
 import { parseArgs } from 'node:util'
+import { graphqlPlugin } from '@ultimabase/graphql'
+import { httpPlugin } from '@ultimabase/http'
 import type { LiveMessage } from '@ultimabase/realtime'
 import { defineApp } from 'ultimabase'
 import { silent } from '../../packages/testing/src/silent.ts'
+import { climbing } from './platform-climb.ts'
 import {
 	badgeRuns,
 	badges,
@@ -21,7 +23,7 @@ import {
 	User,
 } from './platform-models.ts'
 import { seed, writerOf } from './platform-writes.ts'
-import { benched, median, plugins, urlOf, waited } from './shared.ts'
+import { benched, plugins, urlOf, waited } from './shared.ts'
 
 const { values } = parseArgs({
 	options: {
@@ -57,9 +59,6 @@ async function bounded<T>(
 		}),
 	)
 }
-const ranked = (sorted: readonly number[], at: number): number =>
-	sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * at))] ?? 0
-
 await benched(
 	urlOf(values.url),
 	(database) =>
@@ -76,7 +75,8 @@ await benched(
 				CampaignNpc,
 			],
 			functions: [badges],
-			plugins,
+			// The models use GraphQL for `platform-wire.ts`; nothing connects here.
+			plugins: [httpPlugin({ port: 0 }), ...plugins, graphqlPlugin()],
 			logger: silent,
 		}),
 	async (bench) => {
@@ -258,106 +258,28 @@ await benched(
 				: scenario === 'campaign'
 					? campaigns.length - 1
 					: userCount - 1
-		const settled = async (expected: number, patience: number) => {
-			const start = Date.now()
-			let last = delays.length
-			let changed = Date.now()
-			while (delays.length < expected && Date.now() - changed < patience) {
-				await waited(5)
-				if (delays.length !== last) {
-					last = delays.length
-					changed = Date.now()
-				}
-			}
-			return Date.now() - start
-		}
-		const lone: { ms: number; statements: number; turn: number }[] = []
-		for (let run = 0; run < 3; run += 1) {
-			delays = []
-			counting = true
-			const before = bench.statements()
-			const due = Date.now()
-			await write(due, lastIndex)
-			await settled(hearing, 60_000)
-			const ms = Date.now() - due
-			await bench.quiet()
-			counting = false
-			lone.push({
-				ms,
-				statements: bench.statements() - before,
-				turn: Date.now() - due,
-			})
-		}
-		const middle = (key: 'ms' | 'statements' | 'turn') =>
-			median(lone.map((entry) => entry[key]))
-		console.log(
-			`A lone write, the walk's last viewers told: ${middle('ms')} ms, ${middle('statements')} statements, all quiet after ${middle('turn')} ms.\n`,
-		)
-		console.log(
-			'| Asked /s | Done /s | Commit p50 | Told p50 | Told p95 | Told max | Told | Drain s | SQL /s | Badge runs | CPU % | Longest stall | Holds |\n| --: | --: | --: | --: | --: | --: | --: | --: | --: | --: | --: | --: | --- |',
-		)
-		const loop = monitorEventLoopDelay({ resolution: 10 })
-		for (const rate of rates) {
-			delays = []
-			delivered = 0
-			counting = true
-			const beforeRuns = badgeRuns.count
-			const beforeStatements = bench.statements()
-			const beforeCpu = process.cpuUsage()
-			loop.reset()
-			loop.enable()
-			const began = Date.now()
-			const total = rate * seconds
-			const commits: number[] = []
-			let done = 0
-			let started = 0
-			const running = new Set<Promise<void>>()
-			while (started < total) {
-				// A whole millisecond: the writes carry it as text, and it is read back.
-				const due = began + Math.floor((started * 1000) / rate)
-				const now = Date.now()
-				if (due > now) {
-					await waited(Math.min(5, due - now))
-					continue
-				}
-				// Writers past a pool's worth wait, as requests would.
-				if (running.size >= 64) {
-					await Promise.race(running)
-					continue
-				}
-				// Anyone: a viewer's place in the flush's walk must not favour it.
-				const index = Math.floor(Math.random() * userCount)
-				started += 1
-				const task: Promise<void> = write(due, index).then(() => {
-					commits.push(Date.now() - due)
-					done += 1
-					running.delete(task)
-					return undefined
-				})
-				running.add(task)
-			}
-			await Promise.all(running)
-			const wrote = (Date.now() - began) / 1000
-			const drain = (await settled(hearing * total, 30_000)) / 1000
-			const wall = (Date.now() - began) / 1000
-			counting = false
-			loop.disable()
-			const cpu = process.cpuUsage(beforeCpu)
-			const sorted = delays.toSorted((a, b) => a - b)
-			const commit = ranked(
-				commits.toSorted((a, b) => a - b),
-				0.5,
-			)
-			const holds =
-				done / wrote >= rate * 0.95 &&
-				ranked(sorted, 0.95) < 1000 &&
-				sorted.length > 0
-			console.log(
-				`| ${rate} | ${(done / wrote).toFixed(0)} | ${commit} | ${ranked(sorted, 0.5)} | ${ranked(sorted, 0.95)} | ${sorted.at(-1) ?? 0} | ${sorted.length} | ${drain.toFixed(1)} | ${((bench.statements() - beforeStatements) / wall).toFixed(0)} | ${badgeRuns.count - beforeRuns} | ${(((cpu.user + cpu.system) / 1e6 / wall) * 100).toFixed(0)} | ${(loop.max / 1e6).toFixed(0)} | ${holds ? 'yes' : 'NO'} |`,
-			)
-			if (ranked(sorted, 0.95) > 30_000) break
-			await waited(2000)
-		}
+		await climbing({
+			bench,
+			rates,
+			seconds,
+			users: userCount,
+			hearing,
+			last: lastIndex,
+			write,
+			runs: () => badgeRuns.count,
+			told: {
+				begin: () => {
+					delays = []
+					delivered = 0
+					counting = true
+				},
+				count: () => delays.length,
+				end: () => {
+					counting = false
+					return delays
+				},
+			},
+		})
 		const closeStart = performance.now()
 		for (const handle of handles) handle.close()
 		for (const viewer of viewers) viewer.close()

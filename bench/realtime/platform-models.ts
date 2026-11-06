@@ -1,8 +1,12 @@
 // The models and the function of the platform bench: what its screens read.
+import { graphql } from '@ultimabase/graphql'
 import { realtime } from '@ultimabase/realtime'
 import type { Caller } from 'ultimabase'
 import { allow, defineFunction, defineModel } from 'ultimabase'
 import { z } from 'zod'
+
+// `platform-wire.ts` follows them over GraphQL; `platform.ts` ignores this.
+const use = [graphql(), realtime()]
 
 const idOf = (caller: Caller): string =>
 	caller.kind === 'user' ? caller.user.id : ''
@@ -19,7 +23,7 @@ export const playedBy = (caller: Caller) => ({
 
 export const User = defineModel({
 	name: 'User',
-	use: [realtime()],
+	use,
 	fields: (f) => ({
 		name: f.string(),
 		isOnline: f.boolean({ default: false }),
@@ -28,7 +32,7 @@ export const User = defineModel({
 }).with({ access: { read: () => true } })
 export const Chat = defineModel({
 	name: 'Chat',
-	use: [realtime()],
+	use,
 	fields: (f) => ({
 		lastMessageAt: f.dateTime(),
 		members: f.many(() => ChatMember, { inverse: 'chat' }),
@@ -43,7 +47,7 @@ export const Chat = defineModel({
 })
 export const ChatMember = defineModel({
 	name: 'ChatMember',
-	use: [realtime()],
+	use,
 	fields: (f) => ({
 		chat: f.one(() => Chat),
 		user: f.one(() => User),
@@ -59,7 +63,7 @@ export const ChatMember = defineModel({
 })
 export const ChatMessage = defineModel({
 	name: 'ChatMessage',
-	use: [realtime()],
+	use,
 	fields: (f) => ({
 		text: f.string(),
 		chat: f.one(() => Chat),
@@ -74,7 +78,7 @@ export const ChatMessage = defineModel({
 })
 export const FriendRequest = defineModel({
 	name: 'FriendRequest',
-	use: [realtime()],
+	use,
 	fields: (f) => ({ toUser: f.one(() => User), fromUser: f.one(() => User) }),
 	indexes: [{ fields: ['toUser'] }, { fields: ['fromUser'] }],
 }).with({
@@ -86,7 +90,7 @@ export const FriendRequest = defineModel({
 })
 export const Campaign = defineModel({
 	name: 'Campaign',
-	use: [realtime()],
+	use,
 	fields: (f) => ({
 		name: f.string(),
 		gameMaster: f.one(() => User),
@@ -102,7 +106,7 @@ export const Campaign = defineModel({
 })
 export const CampaignMember = defineModel({
 	name: 'CampaignMember',
-	use: [realtime()],
+	use,
 	fields: (f) => ({
 		campaign: f.one(() => Campaign),
 		user: f.one(() => User),
@@ -112,7 +116,7 @@ export const CampaignMember = defineModel({
 }).with({ access: { read: () => true } })
 export const CampaignNpc = defineModel({
 	name: 'CampaignNpc',
-	use: [realtime()],
+	use,
 	fields: (f) => ({
 		name: f.string(),
 		visible: f.boolean({ default: true }),
@@ -137,7 +141,7 @@ export const badgeRuns = { count: 0 }
 export const badges = defineFunction({
 	name: 'badges',
 	query: true,
-	use: [realtime()],
+	use,
 	output: z.object({ unread: z.number(), friends: z.number() }),
 	run: async ({ caller }) => {
 		badgeRuns.count += 1
