@@ -18075,3 +18075,22 @@ window's page info, read or not. So what users follow in common rarely ran toget
 Over the wire, 10 000 users each following 20 others, with D-266, told p50 and p95: 500 changes a
 second 1 551, 2 382 to 593, 1 147 ms; 1 000 a second 4 045, 6 113 to 3 750, 5 683 ms; 200 a second
 45, 73 to 41, 64 ms.
+
+## D-268: A document is read and validated once
+
+Choice: nothing changes in a developer's code.
+
+An application sends the same few documents again and again, yet each subscription of each user
+parsed and validated its own: a quarter of the retained heap was GraphQL syntax trees, about 10 KB
+a subscription.
+
+1. The GraphQL plugin keeps the 500 documents of at most 4 KB it was last asked for, over HTTP and
+   WebSocket. A document that fails to parse is not kept. A document may hold user input in its text
+   only if the client wrote it so; the bound is what such a client can make it hold.
+2. A tree remembers the rule sets it passed. A document Master may send is still refused to a user
+   past `maxDepth`, in either order. What fails validation is validated again.
+3. Rule sets are built once per server, Master's and a user's.
+4. Which subscribers run together is now stored by context, since their documents may be one.
+
+Over the wire, 10 000 users, presence: connect 68.6 to 44.8 s, heap 1.52 to 1.10 GiB, told p50 at
+500 changes a second 402 to 295 ms, at 1 000 a second 2 590 to 2 338 ms.

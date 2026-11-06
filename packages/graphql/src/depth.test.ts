@@ -98,6 +98,19 @@ const nested = (levels: number): string =>
 		? 'title'
 		: `comments(first: 1) { edges { node { node { ${nested(levels - 1)} } } } }`
 
+describe('a document read before (D-268)', () => {
+	it('is judged by the rules of whoever sends it, in either order', async () => {
+		await serving({ pagination: 'list', maxDepth: 2 }, async (url) => {
+			const deep = `{ posts { comments { body } } }`
+			const refusal = ['The document is nested 3 levels deep; the most is 2.']
+			expect(messages(await post(url, deep))).toStrictEqual(refusal)
+			expect(messages(await post(url, deep, {}, asMaster))).toBeUndefined()
+			expect(messages(await post(url, deep))).toStrictEqual(refusal)
+			expect(messages(await post(url, deep, {}, asMaster))).toBeUndefined()
+		})
+	})
+})
+
 describe('the depth of a connection', () => {
 	it('counts posts, comments, photos, file and url: 5 levels', async () => {
 		await serving({}, async (url) => {

@@ -93,8 +93,9 @@ function cookiesOf(request: Request): Client['cookies'] {
 	return { get: (name) => cookies.get(name), set: unset, clear: unset }
 }
 
-// What makes two subscriptions run an event alike, by their documents.
-const shapes = new WeakMap<DocumentNode, string>()
+// What makes two subscriptions run an event alike, by their contexts: their
+// documents may be one (D-268).
+const shapes = new WeakMap<object, string>()
 
 // How each socket sends, counted by its channel once it has one.
 const sends = new WeakMap<WebSocket, (data: string) => void>()
@@ -226,9 +227,10 @@ export function serveSockets(
 				address: upgrade.address,
 				cookies: cookiesOf(upgrade.request),
 			}
+			const contextValue = operations.context(caller, client)
 			if (operation?.operation === 'subscription') {
 				shapes.set(
-					document,
+					contextValue,
 					JSON.stringify([
 						master,
 						payload.operationName,
@@ -237,7 +239,6 @@ export function serveSockets(
 					]),
 				)
 			}
-			const contextValue = operations.context(caller, client)
 			const live: unknown = payload.extensions?.['live']
 			const page = isLive(live) && live.mode === 'page'
 			const resume = isLive(live) ? live.resume : undefined
@@ -263,7 +264,7 @@ export function serveSockets(
 			if (refused !== undefined) return { errors: [refused] }
 			const source = await createSourceEventStream(validated)
 			if (!(Symbol.asyncIterator in source)) return source
-			const shape = String(shapes.get(args.document))
+			const shape = String(shapes.get(Object(args.contextValue)))
 			return mapSourceToResponseEvent(validated, source, async (event) => {
 				const { rootValue } = event
 				const execute = () => executeSubscriptionEvent(event)

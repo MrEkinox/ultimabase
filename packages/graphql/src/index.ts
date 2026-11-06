@@ -24,6 +24,7 @@ import type { Caller, Client, PluginOf, PluginTypes, UseOf } from 'ultimabase'
 import { definePlugin, Refused } from 'ultimabase'
 import manifest from '../package.json' with { type: 'json' }
 import { depthRule, introspectionDepthRule } from './depth.ts'
+import { parsedOnce, validatedOnce } from './documents.ts'
 import { formatter } from './errors.ts'
 import type { GraphqlFunctionWith } from './functions.ts'
 import { functionFields } from './functions.ts'
@@ -166,6 +167,13 @@ const plugin = definePlugin<Graphql>({
 		const twice = twiceRule(registry)
 		const maxRows = options.maxRows ?? 20_000
 		const budget = rowBudget(registry, { maxRows, maxDepth }, called.reads)
+		const masterRules = [
+			...specifiedRules.filter((rule) => rule !== MaxIntrospectionDepthRule),
+			introspectionDepthRule,
+			twice,
+			...closed,
+		]
+		const userRules = [...masterRules, depth]
 		// The contexts of Master's requests, which no budget limits.
 		const exempt = new WeakSet<object>()
 		const operations: Operations = {
@@ -173,19 +181,13 @@ const plugin = definePlugin<Graphql>({
 			pure: schema === generated,
 			// Validation is quadratic in a field repeated under one key, so a
 			// document is bounded before it is validated.
-			parse: (source) => parse(source, { maxTokens }),
-			rules: (master) => [
-				...specifiedRules.filter((rule) => rule !== MaxIntrospectionDepthRule),
-				introspectionDepthRule,
-				twice,
-				...closed,
-				...(master ? [] : [depth]),
-			],
-			validate: (document, rules) => {
+			parse: parsedOnce((source) => parse(source, { maxTokens })),
+			rules: (master) => (master ? masterRules : userRules),
+			validate: validatedOnce((document, rules) => {
 				const refused = overlapRefusal(document)
 				if (refused !== undefined) return [refused]
 				return validate(schema, document, rules, { hideSuggestions })
-			},
+			}),
 			execute: async (args) => {
 				const validated = coerced({ ...args, hideSuggestions })
 				if (!('schema' in validated)) return { errors: validated }
