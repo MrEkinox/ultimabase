@@ -1,6 +1,7 @@
 // A live read's stream (D-154): changes a full socket cannot take are dropped
 // until its window is sent again, and its end closes the read, or the socket
 // when the viewer ended. A completed list is kept for a resume.
+import type { ExecutionResult } from 'graphql'
 import type { LiveHandle, LiveMessage, Viewer } from '@ultimabase/realtime'
 import { realtimePlugin } from '@ultimabase/realtime'
 import type { RealtimeApi, Realtime } from '@ultimabase/realtime'
@@ -8,7 +9,13 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { PluginTypes } from 'ultimabase'
 import { defineApp, definePlugin, memory } from 'ultimabase'
 import type { Channel, Keep } from './live-stream.ts'
-import { LiveEvent, liveStream, released, resumed } from './live-stream.ts'
+import {
+	LiveEvent,
+	liveStream,
+	released,
+	resumed,
+	SharedResults,
+} from './live-stream.ts'
 
 interface Keeping extends PluginTypes {
 	readonly name: 'keeping'
@@ -413,5 +420,45 @@ describe('a sent message', () => {
 		const result = { data: { a: 1 }, extensions: { b: 2 } }
 		expect(released(result)).toEqual({ data: { a: 1 }, extensions: { b: 2 } })
 		expect(result).toEqual({ data: null, extensions: { b: 2 } })
+	})
+})
+
+const running = () => ({
+	execute: vi.fn<() => ExecutionResult>(() => ({ data: { a: 1 } })),
+	together: new SharedResults(),
+})
+
+describe('the results subscriptions run alike (D-265)', () => {
+	it('runs one row once for one selection', async () => {
+		const { execute, together } = running()
+		const [first, second] = await Promise.all([
+			together.run('shape', { id: 'a' }, execute),
+			together.run('shape', { id: 'a' }, execute),
+		])
+		expect(execute).toHaveBeenCalledOnce()
+		expect(second).toBe(first)
+	})
+
+	it('runs again for another row or another selection', async () => {
+		const { execute, together } = running()
+		await together.run('shape', { id: 'a' }, execute)
+		await together.run('shape', { id: 'b' }, execute)
+		await together.run('other', { id: 'a' }, execute)
+		expect(execute).toHaveBeenCalledTimes(3)
+	})
+
+	it('forgets its results as the loop turns', async () => {
+		const { execute, together } = running()
+		await together.run('shape', { id: 'a' }, execute)
+		await new Promise((resolve) => setImmediate(resolve))
+		await together.run('shape', { id: 'a' }, execute)
+		expect(execute).toHaveBeenCalledTimes(2)
+	})
+
+	it('runs a root with no JSON once too', async () => {
+		const { execute, together } = running()
+		await together.run('shape', undefined, execute)
+		await together.run('shape', undefined, execute)
+		expect(execute).toHaveBeenCalledOnce()
 	})
 })

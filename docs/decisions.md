@@ -18008,3 +18008,28 @@ holds, 498 to 591 done; campaign at 2 000 3 256, 2 648 to 2 098, 1 483, 1 316 to
 presence at 1 000 209, 16 to 88, 8. Alone, without the realtime: create 1.14 to 0.86, update
 by id 1.20 to 0.89, a many disconnected and connected 1.58 to 1.06, read by id 0.96 to 0.79,
 against the driver's 0.69.
+
+## D-265: Subscribers of one row share its execution
+
+Choice: nothing changes in a developer's code.
+
+On the real wire, graphql-js ran each live message once per subscriber and took 28.5 % of the
+busy time: its executor makes an `AbortController` and, ending, a `DOMException` with its stack,
+per message. That cannot be avoided from outside the library, so it now runs less often.
+
+1. Subscribers of one row, with the same document, variables and master flag, share one
+   execution within a turn of the loop. The key is that shape and the JSON of the row, so rows
+   a rule or a virtual shows differently to two viewers run apart.
+2. This holds because a generated resolver reads only its row, its selection and the master
+   flag. `extend` (D-107) may add a resolver reading `context.caller`, so a schema `extend`
+   changed runs per subscriber. An `extend` returning the schema it was given shares.
+3. A live function's value runs per subscriber: it may be any object, with its own methods. A
+   whole window does too, costly to compare and rarely sent to many at once.
+4. The assumption is the one `Window.sent` makes (D-252): a row's JSON says what it shows. Only
+   a plugin value hiding data from its JSON could differ, within one row of one model.
+5. A result is forgotten as the loop turns, so no row stays longer than it takes to send.
+
+Over GraphQL on a WebSocket, 1 000 subscribers of a window of 25, last message p50: an update
+goes from 227.5 to about 165 ms, the author of 1 row in 50 from 210.2 to about 160, a new first
+row from 172.6 to about 133. The subscribers' first windows do not change (3 386 to about
+3 300 ms for 1 000 at once).

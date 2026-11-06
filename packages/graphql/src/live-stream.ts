@@ -23,13 +23,17 @@ export function released<Result extends { data?: unknown }>(
 /** A message to run against the selection, and how its result is sent. */
 export class LiveEvent {
 	root: unknown
+	/** Whether its root is rows, which `SharedResults` may run for others. */
+	readonly shared: boolean
 	#finish: (result: ExecutionResult) => ExecutionResult
 
 	constructor(
 		root: unknown,
 		finish: (result: ExecutionResult) => ExecutionResult,
+		shared = true,
 	) {
 		this.root = root
+		this.shared = shared
 		this.#finish = finish
 	}
 
@@ -42,6 +46,37 @@ export class LiveEvent {
 		this.root = undefined
 		this.#finish = (done) => done
 		return finish(result)
+	}
+}
+
+/**
+ * The results of the events subscriptions run alike: what a generated type
+ * shows of a row depends on that row and on the selection, so subscribers of
+ * one row share one execution (D-265). Forgotten as the loop turns: a result
+ * stays no longer than it takes to send.
+ */
+export class SharedResults {
+	readonly #results = new Map<string, Map<string, Promise<ExecutionResult>>>()
+
+	async run(
+		shape: string,
+		root: unknown,
+		execute: () => ExecutionResult | Promise<ExecutionResult>,
+	): Promise<ExecutionResult> {
+		const results = this.#results
+		if (results.size === 0) setImmediate(() => results.clear())
+		let alike = results.get(shape)
+		if (alike === undefined) {
+			alike = new Map()
+			results.set(shape, alike)
+		}
+		const key = JSON.stringify(root) ?? ''
+		let result = alike.get(key)
+		if (result === undefined) {
+			result = Promise.resolve(execute())
+			alike.set(key, result)
+		}
+		return result
 	}
 }
 

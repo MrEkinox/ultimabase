@@ -112,8 +112,13 @@ function follower(
 	return (message) => {
 		if (message.kind === 'row' || message.kind === 'value') {
 			const { revision } = message
-			const root = message.kind === 'row' ? message.row : message.value
-			return new LiveEvent(root, (result) => revised(result, revision))
+			// A live function's value may be anything its field's resolvers read.
+			const row = message.kind === 'row'
+			return new LiveEvent(
+				row ? message.row : message.value,
+				(result) => revised(result, revision),
+				row,
+			)
 		}
 		const { revision } = message
 		hasMore = message.hasMore ?? hasMore
@@ -129,8 +134,11 @@ function follower(
 			)
 			const shown = token
 			token = undefined
-			return new LiveEvent(rootOf(rows), (result) =>
-				revised(sent(result), revision, shown),
+			// A whole window is costly to compare, and rarely sent to many at once.
+			return new LiveEvent(
+				rootOf(rows),
+				(result) => revised(sent(result), revision, shown),
+				false,
 			)
 		}
 		const { changes } = message

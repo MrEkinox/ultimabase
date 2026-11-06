@@ -279,6 +279,7 @@ for production yet, and fixes ship as 0.1.x or 0.2.
 - [x] A live read names its viewer only where a rule says more (D-262).
 - [x] A flush reads the rows related to its rows together (D-263).
 - [x] A composed statement is prepared once per connection (D-264).
+- [x] Subscribers of one row share its execution (D-265).
 - [x] Refuse breached and common passwords (NIST SP 800-63B §5.1.1.2):
       `passwordPlugin({ breached: true })`, and never the email (D-209).
 

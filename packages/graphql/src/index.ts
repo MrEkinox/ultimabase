@@ -170,6 +170,7 @@ const plugin = definePlugin<Graphql>({
 		const exempt = new WeakSet<object>()
 		const operations: Operations = {
 			schema,
+			pure: schema === generated,
 			// Validation is quadratic in a field repeated under one key, so a
 			// document is bounded before it is validated.
 			parse: (source) => parse(source, { maxTokens }),

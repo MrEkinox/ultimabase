@@ -27,13 +27,15 @@ import type { Caller, Client, Logger } from 'ultimabase'
 import { PublicError } from 'ultimabase'
 import type { formatter } from './errors.ts'
 import type { Channel } from './live-stream.ts'
-import { LiveEvent, lives, released } from './live-stream.ts'
+import { LiveEvent, lives, released, SharedResults } from './live-stream.ts'
 import { inParts } from './parts.ts'
 import type { Context } from './registry.ts'
 
 /** How the GraphQL plugin runs a document, over HTTP as over WebSocket. */
 export type Operations = {
 	readonly schema: GraphQLSchema
+	/** Whether a generated resolver runs every field: `extend` changed none. */
+	readonly pure: boolean
 	readonly parse: (source: string | Source) => DocumentNode
 	readonly rules: (master: boolean) => readonly ValidationRule[]
 	readonly validate: (
@@ -84,6 +86,9 @@ function cookiesOf(request: Request): Client['cookies'] {
 	}
 	return { get: (name) => cookies.get(name), set: unset, clear: unset }
 }
+
+// What makes two subscriptions run an event alike, by their documents.
+const shapes = new WeakMap<DocumentNode, string>()
 
 // How each socket sends, counted by its channel once it has one.
 const sends = new WeakMap<WebSocket, (data: string) => void>()
@@ -146,6 +151,7 @@ export function serveSockets(
 	operations: Operations,
 ): () => Promise<void> {
 	const { schema, logger, format, hideSuggestions } = operations
+	const together = new SharedResults()
 	const formatted = (errors: readonly GraphQLError[]) =>
 		errors.map((error) => {
 			const shown = format(error)
@@ -214,6 +220,15 @@ export function serveSockets(
 				address: upgrade.address,
 				cookies: cookiesOf(upgrade.request),
 			}
+			shapes.set(
+				document,
+				JSON.stringify([
+					master,
+					payload.operationName,
+					payload.variables,
+					payload.query,
+				]),
+			)
 			const contextValue = operations.context(caller, client)
 			const live: unknown = payload.extensions?.['live']
 			const page = isLive(live) && live.mode === 'page'
@@ -240,12 +255,16 @@ export function serveSockets(
 			if (refused !== undefined) return { errors: [refused] }
 			const source = await createSourceEventStream(validated)
 			if (!(Symbol.asyncIterator in source)) return source
+			const shape = String(shapes.get(args.document))
 			return mapSourceToResponseEvent(validated, source, async (event) => {
-				const result = await executeSubscriptionEvent(event)
 				const { rootValue } = event
-				return rootValue instanceof LiveEvent
-					? rootValue.finish(result)
-					: result
+				const execute = () => executeSubscriptionEvent(event)
+				if (!(rootValue instanceof LiveEvent)) return execute()
+				return rootValue.finish(
+					await (operations.pure && rootValue.shared
+						? together.run(shape, rootValue.root, execute)
+						: execute()),
+				)
 			})
 		},
 		onNext: (_ctx, _id, _payload, _args, result) => {

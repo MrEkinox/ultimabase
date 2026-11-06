@@ -7,7 +7,7 @@ import { httpPlugin } from '@ultimabase/http'
 import { realtime, realtimePlugin } from '@ultimabase/realtime'
 import type { RealtimeOptions } from '@ultimabase/realtime'
 import type { GraphQLSchema } from 'graphql'
-import { parse, subscribe } from 'graphql'
+import { assertObjectType, extendSchema, parse, subscribe } from 'graphql'
 import type { Client, FormattedExecutionResult } from 'graphql-ws'
 import { createClient } from 'graphql-ws'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -32,6 +32,7 @@ import {
 	memory,
 } from 'ultimabase'
 import type { GraphqlOptions } from './index.ts'
+import type { GraphqlContext } from './index.ts'
 import { graphql, graphqlPlugin } from './index.ts'
 
 const M = { as: master }
@@ -214,6 +215,7 @@ type Options = {
 }
 
 let schema: GraphQLSchema | undefined
+let titles = 0
 /** Starts the application; returns its WebSocket URL. */
 async function started(options: Options = {}): Promise<string> {
 	const plugins = [
@@ -228,7 +230,7 @@ async function started(options: Options = {}): Promise<string> {
 			...options.graphql,
 			extend: (built) => {
 				schema = built
-				return built
+				return options.graphql?.extend?.(built) ?? built
 			},
 		}),
 		sessions.plugin(),
@@ -618,6 +620,103 @@ describe('a live list', () => {
 			'A live read of Task failed: it reads again.',
 			'A live read of Task failed: it closes.',
 		])
+	})
+})
+
+/** Counts how many times `Task.title` runs, in the generated schema itself. */
+function countingTitles(built: GraphQLSchema): GraphQLSchema {
+	const field = assertObjectType(built.getType('Task')).getFields()['title']
+	if (field) {
+		field.resolve = (source: unknown) => {
+			titles += 1
+			return Reflect.get(Object(source), 'title')
+		}
+	}
+	return built
+}
+
+/** A schema that replaces the generated one, a field showing its reader. */
+function showingReader(built: GraphQLSchema): GraphQLSchema {
+	const extended = extendSchema(
+		built,
+		parse(`extend type Card { reader: String }`),
+	)
+	const { reader } = assertObjectType(extended.getType('Card')).getFields()
+	if (reader) {
+		reader.resolve = (_: unknown, __: unknown, context: GraphqlContext) =>
+			idOf(context.caller)
+	}
+	return extended
+}
+
+/** A live list's message that one row changed, as `node`. */
+const changed = (node: object) => ({
+	extensions: {
+		live: { revision, changes: [{ upsert: { node }, after: null }] },
+	},
+})
+
+describe('subscribers of one row (D-265)', () => {
+	const titled = 'subscription { tasks { edges { node { title } } } }'
+	it('share its execution, each told', async () => {
+		const url = await started({ graphql: { extend: countingTitles } })
+		const [id] = await seeded()
+		const first = subscribed(url, titled)
+		const second = subscribed(url, titled)
+		await next(first)
+		await next(second)
+		titles = 0
+		await Task.update({ where: { id: String(id) }, data: { title: 'A' } }, M)
+		expect(await next(first)).toEqual(changed({ title: 'A' }))
+		expect(await next(second)).toEqual(changed({ title: 'A' }))
+		expect(titles).toBe(1)
+	})
+
+	it('run again for another selection or other variables', async () => {
+		const url = await started()
+		const [id] = await seeded()
+		const plain = subscribed(url, titled)
+		const renamed = subscribed(
+			url,
+			'subscription { tasks { edges { node { name: title } } } }',
+		)
+		await next(plain)
+		await next(renamed)
+		await Task.update({ where: { id: String(id) }, data: { title: 'A' } }, M)
+		expect(await next(plain)).toEqual(changed({ title: 'A' }))
+		expect(await next(renamed)).toEqual(changed({ name: 'A' }))
+	})
+
+	it('run apart once `extend` changed the schema', async () => {
+		const url = await started({
+			graphql: { extend: showingReader },
+			models: [Task, Note, Board, Card],
+		})
+		const board = await Board.create({ data: {} }, M)
+		const query = 'subscription { cards { edges { node { reader } } } }'
+		const ada = subscribed(url, query)
+		const bob = subscribed(url, query, undefined, 'bob')
+		await next(ada)
+		await next(bob)
+		await Card.create({ data: { board: { connect: { id: board.id } } } }, M)
+		expect(await next(ada)).toMatchObject(changed({ reader: 'ada' }))
+		expect(await next(bob)).toMatchObject(changed({ reader: 'bob' }))
+	})
+
+	it('of a live function run apart, its value being anything', async () => {
+		const url = await started({ graphql: { extend: countingTitles } })
+		await seeded()
+		const query = 'subscription { ranked(above: 1) { title } }'
+		const first = subscribed(url, query)
+		const second = subscribed(url, query)
+		await next(first)
+		await next(second)
+		titles = 0
+		await Task.updateMany({ where: { title: 'b' }, data: { title: 'B' } }, M)
+		const value = { data: { ranked: [{ title: 'B' }, { title: 'c' }] } }
+		expect(await next(first)).toMatchObject(value)
+		expect(await next(second)).toMatchObject(value)
+		expect(titles).toBe(4)
 	})
 })
 
