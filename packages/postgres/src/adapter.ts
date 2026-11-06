@@ -31,6 +31,7 @@ import type { Listener } from './listen.ts'
 import { channelOf, listening } from './listen.ts'
 import { plan } from './plan.ts'
 import { pooled } from './pool.ts'
+import { preparing } from './prepared.ts'
 import { compileCount, compileFind } from './read.ts'
 import {
 	connecting,
@@ -208,6 +209,7 @@ export function createAdapter(options: Options): Postgres {
 			pool.on('error', () => undefined)
 			pool.on('connect', (client) => {
 				client.on('error', () => undefined)
+				preparing(client)
 				// Compiling a nested read costs a hundred times more than running
 				// it; queued, this runs before the client's first query (D-47).
 				client.query('set jit = off').catch(() => undefined)

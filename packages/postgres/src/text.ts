@@ -3,6 +3,7 @@
 // order they say it, and writes the statement once, at the end.
 import type { QueryExecutorProvider } from 'kysely'
 import { CompiledQuery } from 'kysely'
+import { prepare } from './prepared.ts'
 
 type Rows = { readonly rows: readonly { readonly [column: string]: unknown }[] }
 
@@ -19,16 +20,15 @@ export class Sql {
 	/** Runs the statement, in the transaction `db` may be. */
 	async execute(db: QueryExecutorProvider): Promise<Rows> {
 		const { text, parameters } = compiled(this)
+		prepare(text, parameters.length)
 		return db.getExecutor().executeQuery(CompiledQuery.raw(text, parameters))
 	}
 }
 
 function written(piece: Sql, parameters: unknown[], before: string): string {
 	const { strings, values } = piece
-	let text = before
-	for (const [at, part] of strings.entries()) {
-		text += part
-		if (at >= values.length) continue
+	let text = before + (strings[0] ?? '')
+	for (let at = 0; at < values.length; at++) {
 		const item = values[at]
 		if (item instanceof Sql) {
 			text = written(item, parameters, text)
@@ -36,6 +36,7 @@ function written(piece: Sql, parameters: unknown[], before: string): string {
 			parameters.push(item)
 			text += `$${parameters.length}`
 		}
+		text += strings[at + 1] ?? ''
 	}
 	return text
 }
@@ -65,16 +66,18 @@ const quoted = (name: string): string =>
 
 const comma = fixed(', ')
 
+/** No text around a list's items, whatever their number. */
+const between: readonly string[] = []
+
 function join(items: readonly unknown[], separator: Sql = comma): Sql {
 	const values: unknown[] = []
-	for (const [at, item] of items.entries()) {
-		if (at > 0) values.push(separator)
+	let first = true
+	for (const item of items) {
+		if (!first) values.push(separator)
+		first = false
 		values.push(item)
 	}
-	return new Sql(
-		Array.from({ length: values.length + 1 }, () => ''),
-		values,
-	)
+	return new Sql(between, values)
 }
 
 type Tag = {

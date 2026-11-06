@@ -1174,7 +1174,7 @@ main defence.
 
 ## D-47: SQL adapters build queries with Kysely
 
-Amended by D-257.
+Amended by D-257, D-264.
 
 Choice: the PostgreSQL adapter, and later MySQL, build SQL with Kysely, a
 schema-less query builder; one internal relation compiler, shared by the SQL
@@ -17976,3 +17976,35 @@ ten seconds at 1 000 writes a second, every other viewer of the same flush askin
 
 Campaign at 1 000 writes a second: told p50 from 2 017 to 47 ms, and it holds; 1 958 to
 1 052 statements a second.
+
+## D-264: A composed statement is prepared once per connection
+
+Choice: amends D-47. Nothing changes in a developer's code.
+
+Under load PostgreSQL spent more time planning the statements the adapter composes than
+running them, and an application asks the same few, 72 to 200 in the benches.
+
+1. A statement `text.ts` composes runs as a named statement, parsed once per connection. The
+   raw SQL of `database.sql` (D-137) and the migrations stay unnamed: they may `select *`,
+   which a change of table would refuse under a prepared statement. Every composed statement
+   returns jsonb, booleans or counts, so a table changing replans it and nothing else.
+2. PostgreSQL's `plan_cache_mode` stays on `auto`. Forcing a plan per run keeps nearly all the
+   cost (chat at 600 writes a second: 492 done, commit p50 942 ms), so the gain is the plans
+   reused. `auto` runs a statement five times with its values before it may reuse a plan.
+3. At most 500 statements, a connection holding some 22 KB for each: a backend measured 2.1 MB
+   before and 6 MB with 172 statements. A statement past 64 parameters, a long list of ids
+   rarely asked twice alike, stays unnamed. Past the cap, new statements stay unnamed.
+4. PgBouncer in transaction mode needs version 1.21 or later and `max_prepared_statements`
+   above 0, or a statement finds itself unknown on another server connection. No option turns
+   this off yet: that is a public choice left to the maintainer.
+
+Composing also costs less. A write only composes its read and its checks when it has rows to
+split, a name is put in snake case once, and a list's text allocates nothing per item:
+`compileWrite` from 17.7 % to 10.4 % of the busy time in chat.
+
+Told p50 and commit p50 in ms, 10 s per rate, with both:
+chat at 500 writes a second 482, 207 to 52, 11; chat at 600 1 356, 1 072 to 267, 78, and it
+holds, 498 to 591 done; campaign at 2 000 3 256, 2 648 to 2 098, 1 483, 1 316 to 1 491 done;
+presence at 1 000 209, 16 to 88, 8. Alone, without the realtime: create 1.14 to 0.86, update
+by id 1.20 to 0.89, a many disconnected and connected 1.58 to 1.06, read by id 0.96 to 0.79,
+against the driver's 0.69.

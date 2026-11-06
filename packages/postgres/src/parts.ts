@@ -108,7 +108,9 @@ function fits(prior: Written | undefined, each: Part): boolean {
  * aside) or reads one, since the parts of a statement see the database as it
  * was, or when its parameters would not fit in the `room` left.
  */
-export function grouped(parts: readonly Part[], room: number): Part[][] {
+export function grouped(parts: readonly Part[], room: () => number): Part[][] {
+	// A part alone has nothing to go apart from.
+	if (parts.length < 2) return [[...parts]]
 	const groups: Part[][] = [[]]
 	const written = new Map<string, Written>()
 	let used = 0
@@ -117,7 +119,7 @@ export function grouped(parts: readonly Part[], room: number): Part[][] {
 		const clash =
 			!fits(written.get(each.table), each) ||
 			[...each.reads].some((table) => written.has(table)) ||
-			(used > 0 && used + size > room)
+			(used > 0 && used + size > room())
 		if (clash) {
 			groups.push([])
 			written.clear()
