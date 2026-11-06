@@ -7,7 +7,7 @@ import type { FieldOptions } from './definition.ts'
 import { isObject } from './query-where.ts'
 import type { FieldInfo, ModelInfo } from './schema.ts'
 
-type Size = {
+export type Size = {
 	readonly min: number
 	readonly max: number | undefined
 }
@@ -45,6 +45,26 @@ export function sizeOf(
 	if (join || options['from'] !== undefined) {
 		throw new Refused(`${where}: size bounds a one-to-many relation only.`)
 	}
+	return boundsFrom(where, size)
+}
+
+/**
+ * A list's `size`, or `undefined` when it bounds nothing (D-281); stops startup
+ * on a size a field that is no list has, or on bounds as a `many`'s.
+ */
+export function listSizeOf(
+	where: string,
+	options: FieldOptions,
+): Size | undefined {
+	const size = options['size']
+	if (size === undefined) return undefined
+	if (options['list'] !== true) {
+		throw new Refused(`${where}: size bounds a list only.`)
+	}
+	return boundsFrom(where, size)
+}
+
+function boundsFrom(where: string, size: unknown): Size | undefined {
 	const { min = 0, max } = isObject(size) ? size : {}
 	const ordered =
 		isObject(size) &&
@@ -230,23 +250,38 @@ export async function touch(
 	}
 }
 
-const rows = (count: number): string =>
-	count === 1 ? '1 row' : `${String(count)} rows`
+const counted = (count: number, noun: string): string =>
+	count === 1 ? `1 ${noun}` : `${String(count)} ${noun}s`
 
-const range = ({ min, max }: Size): string =>
+const range = ({ min, max }: Size, noun: string): string =>
 	max === undefined
-		? `at least ${rows(min)}`
+		? `at least ${counted(min, noun)}`
 		: min === 0
-			? `at most ${rows(max)}`
+			? `at most ${counted(max, noun)}`
 			: min === max
-				? `exactly ${rows(max)}`
-				: `${String(min)} to ${rows(max)}`
+				? `exactly ${counted(max, noun)}`
+				: `${String(min)} to ${counted(max, noun)}`
 
-/** A bounded `many`'s bound, which its description states (D-242). */
+/** What a list outside its `size` is told, if it is (D-281). */
+export function listIssue(
+	size: Size | undefined,
+	list: unknown,
+): string | undefined {
+	if (size === undefined || !Array.isArray(list)) return undefined
+	const { min, max } = size
+	return list.length >= min && (max === undefined || list.length <= max)
+		? undefined
+		: `Expected ${range(size, 'value')}.`
+}
+
+/** A bounded `many`'s or list's bound, which its description states (D-242). */
 export function sizeNote(model: string, field: FieldInfo): string | undefined {
+	if (field.kind === 'scalar') {
+		return field.size && `Holds ${range(field.size, 'value')}.`
+	}
 	if (field.kind !== 'many') return undefined
 	const size = sizeOf(`${model}.${field.name}`, field.options, field.join)
-	return size === undefined ? undefined : `Holds ${range(size)}.`
+	return size === undefined ? undefined : `Holds ${range(size, 'row')}.`
 }
 
 /** Refuses the transaction when a touched parent left its bounds. */
@@ -274,7 +309,7 @@ export async function checkSizes(
 			if (size >= min && (max === undefined || size <= max)) continue
 			throw new PublicError(
 				'RELATION_SIZE',
-				`${parent}.${field} holds ${range(bound)}: this write leaves ${String(size)}.`,
+				`${parent}.${field} holds ${range(bound, 'row')}: this write leaves ${String(size)}.`,
 				{ details: { model: parent, field, id, min, max: max ?? null, size } },
 			)
 		}

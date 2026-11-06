@@ -100,11 +100,18 @@ export function computed(
 	return integer ? Math.trunc(from / by) : from / by
 }
 
-/** Whether the row must be read first: a field's `validate` sees the result. */
+/**
+ * Whether the row must be read first: a field's `validate` or `size` (D-281)
+ * sees the result.
+ */
 export function validates(model: ModelInfo, operations: Operations): boolean {
-	return [...operations.keys()].some(
-		(name) => model.fields.get(name)?.options['validate'] !== undefined,
-	)
+	return [...operations.keys()].some((name) => {
+		const field = model.fields.get(name)
+		return (
+			field?.options['validate'] !== undefined ||
+			(field?.kind === 'scalar' && field.size !== undefined)
+		)
+	})
 }
 
 /** Writes each computed number and list into the draft, from the locked `row`. */

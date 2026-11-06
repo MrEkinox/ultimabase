@@ -23,7 +23,7 @@ import { oneSidedOf } from './one-sided.ts'
 import { checkOneViews, oneViewField } from './one-views.ts'
 import { checkRelations, isFiltered, viewField } from './relations.ts'
 import { checkIndexes, checkSearch } from './schema-indexes.ts'
-import { sizeOf } from './sizes.ts'
+import { listSizeOf, sizeOf } from './sizes.ts'
 import type { VirtualInfo } from './schema-virtuals.ts'
 import { virtualsOf } from './schema-virtuals.ts'
 import { checkWithin, withinManyOf, withinOf } from './within-schema.ts'
@@ -124,9 +124,14 @@ const digitsOf = (options: FieldOptions): Digits => ({
 	scale: Number(options['scale']),
 })
 
-function scalarField(name: string, field: FieldDefinition): FieldInfo {
+function scalarField(
+	model: string,
+	name: string,
+	field: FieldDefinition,
+): FieldInfo {
 	if (field.kind !== 'scalar') throw new Error('Expected a scalar field.')
 	const dbName = field.options['dbName']
+	const size = listSizeOf(`${model}.${name}`, field.options)
 	// A field type's default is a value code sees, never a column's; its
 	// stored field's fills the rows stored before it (D-122, D-152).
 	const fixed: unknown =
@@ -137,6 +142,7 @@ function scalarField(name: string, field: FieldDefinition): FieldInfo {
 		type: field.type,
 		...(field.values === undefined ? {} : { values: field.values }),
 		list: field.options['list'] === true,
+		...(size === undefined ? {} : { size }),
 		...(field.type === 'number' && field.options['integer'] === true
 			? { integer: true }
 			: {}),
@@ -294,7 +300,7 @@ export function resolve(
 	const fieldOf = (model: string, name: string, field: FieldDefinition) => {
 		const view = linkOf(views, model, name)
 		if (view === undefined) {
-			return relationOf(model, name) ?? scalarField(name, field)
+			return relationOf(model, name) ?? scalarField(model, name, field)
 		}
 		const from = String(field.options['from'])
 		const read = { model, name, target: view.target, options: field.options }

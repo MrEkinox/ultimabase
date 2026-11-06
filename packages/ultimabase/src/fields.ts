@@ -102,6 +102,8 @@ export type ListOptions<V> = Described & {
 	readonly list: true
 	readonly default?: readonly V[] | DefaultFunction<readonly V[]>
 	readonly validate?: Validate<readonly V[]>
+	/** The fewest and the most values it holds, after the hooks (D-281). */
+	readonly size?: { readonly min?: number; readonly max?: number }
 	readonly dbName?: string
 }
 // A list is `[]` when empty and may hold a value twice. The messages are

@@ -48,6 +48,11 @@ export type SchemaField =
 			 * `null`, `[]` when empty (D-120, D-127).
 			 */
 			readonly list: boolean
+			/** The fewest and the most values a list holds (D-281). */
+			readonly size?: {
+				readonly min: number
+				readonly max: number | undefined
+			}
 			/** A `number` of whole numbers from -2^31 to 2^31 - 1 (D-132). */
 			readonly integer?: true
 			/**

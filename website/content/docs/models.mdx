@@ -64,6 +64,23 @@ row with a unique value returns `UNIQUE_VIOLATION`. With
 	../examples/models-and-queries/src/models.test.ts#refused
 </include>
 
+## Bounding a list
+
+`size` sets the fewest and the most values a list holds. Either bound may be
+left out:
+
+```ts
+languages: f.enumOf(Language, { list: true, size: { min: 1 } }),
+```
+
+The bound holds after the [hooks](/docs/next/hooks), so a `beforeCreate` may
+fill the list, and on what `push` or `remove` leaves. A write outside it fails
+with `VALIDATION_FAILED`, `Expected at least 1 value.`, for every caller.
+PostgreSQL enforces it too, with a check that a
+[migration](/docs/next/postgres) adds; rows it would refuse must be filled
+first. The GraphQL schema and the OpenAPI document state it in the field's
+description.
+
 ## Field presets
 
 A rule several fields share, a text that is trimmed and never blank, is a

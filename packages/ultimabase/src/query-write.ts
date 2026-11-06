@@ -15,6 +15,7 @@ import { madeId, uuidv7 } from './uuid.ts'
 import { byId, entries, modelOf, unknownKey } from './query-where.ts'
 import type { Context, Relation } from './write-context.ts'
 import {
+	checkSize,
 	fail,
 	holds,
 	isOptional,
@@ -322,6 +323,7 @@ async function inserted(context: Context, draft: Draft): Promise<Step[]> {
 		// A list left unwritten is empty (D-120).
 		if (field.kind === 'scalar' && field.list) {
 			context.set[field.name] = []
+			checkSize(context, field, [])
 		} else if (field.optional) context.set[field.name] = null
 		else fail(context, [field.name], 'Required.')
 	}

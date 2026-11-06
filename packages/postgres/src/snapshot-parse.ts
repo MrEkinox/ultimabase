@@ -1,8 +1,8 @@
 // A snapshot read back from a database or `migrations/schema.json` (D-105),
 // checked; a key an earlier version did not write is optional (D-170,
 // D-215).
+import type { Check } from './check.ts'
 import type {
-	Check,
 	Column,
 	ForeignKey,
 	PartialUnique,
@@ -52,8 +52,11 @@ function checkOf(value: unknown): Check | undefined {
 		return { field, kinds, ...(optional ? { optional: true as const } : {}) }
 	}
 	if (typeof value['column'] !== 'string') return undefined
-	const { column, values, parent } = value
+	const { column, values, parent, min, max } = value
 	if (typeof parent === 'string') return { column, parent }
+	if (typeof min === 'number') {
+		return { column, min, ...(typeof max === 'number' ? { max } : {}) }
+	}
 	if (!isStrings(values)) return undefined
 	return {
 		column,

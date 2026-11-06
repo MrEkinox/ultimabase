@@ -2,7 +2,7 @@
 // one when the field is optional.
 import type { Catalog, Table } from './names.ts'
 import { constraint, snake } from './names.ts'
-import type { Check } from './snapshot.ts'
+import type { Check } from './check.ts'
 
 /** Each `oneOf` of the table's model: its check's name, words and columns. */
 export function kindChecks(

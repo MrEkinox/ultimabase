@@ -4,12 +4,13 @@ import { literal } from './fills.ts'
 import { dropIndexes } from './plan-indexes.ts'
 import type { Emit } from './plan-parts.ts'
 import { added, changed, fields, id, keyOf, list, same } from './plan-parts.ts'
-import type { Check, TableSnapshot } from './snapshot.ts'
+import type { Check } from './check.ts'
+import type { TableSnapshot } from './snapshot.ts'
 
 /**
  * An enum's values, a list's elements among them with `<@` (D-127); a
- * `within` relation's column, empty while its parent's is (D-235); or a
- * `oneOf`'s keys, one of them set (D-247).
+ * `within` relation's column, empty while its parent's is (D-235); a `oneOf`'s
+ * keys, one of them set (D-247); or a list's number of values (D-281).
  */
 export function checked(name: string, given: Check): string {
 	const constraint = `constraint ${id(name)} check`
@@ -20,9 +21,31 @@ export function checked(name: string, given: Check): string {
 	if ('parent' in given) {
 		return `${constraint} (${id(given.parent)} is not null or ${id(given.column)} is null)`
 	}
+	if ('min' in given) {
+		const { min, max } = given
+		const held =
+			max === undefined
+				? `>= ${String(min)}`
+				: min === 0
+					? `<= ${String(max)}`
+					: `between ${String(min)} and ${String(max)}`
+		return `${constraint} (cardinality(${id(given.column)}) ${held})`
+	}
 	const items = given.values.map(literal).join(', ')
 	const test = given.list ? `<@ array[${items}]::text[]` : `in (${items})`
 	return `${constraint} (${id(given.column)} ${test})`
+}
+
+/** What dropping a column's check does. */
+function dropped(from: TableSnapshot, given: Check): string {
+	if ('kinds' in given) return `dropped the kinds of ${given.field}`
+	const field = fields(from, [given.column])
+	if ('parent' in given) {
+		return `dropped the check of ${field} on ${fields(from, [given.parent])}`
+	}
+	return 'min' in given
+		? `dropped the size of ${field}`
+		: `dropped the values of ${field}`
 }
 
 /** Drops the keys, checks and indexes of `from` that `to` changes. */
@@ -41,13 +64,7 @@ export function dropKeys(
 		emit(drop(key), `dropped the unique key on ${fields(from, columns)}`)
 	}
 	for (const [key, given] of changed(from.checks, to.checks)) {
-		const does =
-			'kinds' in given
-				? `dropped the kinds of ${given.field}`
-				: 'parent' in given
-					? `dropped the check of ${fields(from, [given.column])} on ${fields(from, [given.parent])}`
-					: `dropped the values of ${fields(from, [given.column])}`
-		emit(drop(key), does)
+		emit(drop(key), dropped(from, given))
 	}
 	dropIndexes(name, from, to, emit)
 }
@@ -96,6 +113,12 @@ export function addKeys(
 			const parent = fields(to, [given.parent])
 			emit(add(checked(key, given)), `made ${field} need ${parent}`, {
 				tries: `making "${to.model}.${field}" need ${parent} fails when a row holds one without it`,
+			})
+			continue
+		}
+		if ('min' in given) {
+			emit(add(checked(key, given)), `bounded the size of ${field}`, {
+				tries: `bounding the size of "${to.model}.${field}" fails when a row holds another number of values`,
 			})
 			continue
 		}

@@ -43,6 +43,7 @@ const Post = defineModel({
 	fields: (f) => ({
 		title: f.string(),
 		tags: f.string({ list: true, description: 'Its topics.' }),
+		colours: f.string({ list: true, size: { max: 10 } }),
 		price: f.decimal({ precision: 6, scale: 2, description: 'In euros.' }),
 		on: f.date({ description: 'Its day.' }),
 		meta: f.json({ optional: true, description: 'Anything.' }),
@@ -104,6 +105,7 @@ describe('descriptions', () => {
 		expect(post?.description).toBeUndefined()
 		expect(post?.descriptions).toStrictEqual({
 			tags: 'Its topics.',
+			colours: 'Holds at most 10 values.',
 			price: 'In euros.',
 			on: 'Its day.',
 			meta: 'Anything.',

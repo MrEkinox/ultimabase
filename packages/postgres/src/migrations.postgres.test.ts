@@ -345,6 +345,22 @@ const insertSizes = (row: string) =>
 		`insert into post values (gen_random_uuid(), now(), now(), '${row}')`,
 	)
 
+/** A post whose `tags` hold what `size` says (D-281). */
+const tagged = (size?: { min: number; max: number | undefined }): Schema => ({
+	models: [
+		{
+			name: 'Post',
+			fields: [
+				scalar('tags', 'string', {
+					list: true,
+					...(size === undefined ? {} : { size }),
+				}),
+			],
+			indexes: [],
+		},
+	],
+})
+
 /** An article whose `searched` fields are in its search (D-148). */
 const article = (searched: readonly string[]): Schema => ({
 	models: [
@@ -1495,6 +1511,70 @@ describe('a sync on postgres()', () => {
 				where table_schema = '${schema}' and column_name = 'flag'`,
 			),
 		).toStrictEqual([{ column_default: null }])
+	})
+
+	it('bounds the number of values a list holds (D-281)', async () => {
+		const between = tagged({ min: 1, max: 3 })
+		const [created] = await sync(undefined, between)
+		expect(created?.sql).toContain(
+			'constraint "post_tags_size_check" check (cardinality("tags") between 1 and 3)',
+		)
+		await insertSizes('{a}')
+		await expect(insertSizes('{}')).rejects.toThrow('post_tags_size_check')
+		await expect(insertSizes('{a,b,c,d}')).rejects.toThrow(
+			'post_tags_size_check',
+		)
+		// The stored snapshot holds the bounds, as a plan reads them back.
+		const stored = await migrations.stored()
+		expect(migrations.plan(stored?.snapshot, between)).toStrictEqual([])
+		const least = await sync(between, tagged({ min: 1, max: undefined }))
+		expect(least).toMatchObject([
+			{
+				sql: 'alter table "post" drop constraint "post_tags_size_check"',
+				does: 'dropped the size of tags',
+			},
+			{
+				sql: 'alter table "post" add constraint "post_tags_size_check" check (cardinality("tags") >= 1)',
+				does: 'bounded the size of tags',
+				tries:
+					'bounding the size of "Post.tags" fails when a row holds another number of values',
+			},
+		])
+		const most = await sync(
+			tagged({ min: 1, max: undefined }),
+			tagged({ min: 0, max: 3 }),
+		)
+		expect(most[1]?.sql).toContain('(cardinality("tags") <= 3)')
+		await insertSizes('{}')
+		const none = await sync(tagged({ min: 0, max: 3 }), tagged())
+		expect(none.map(({ sql }) => sql)).toStrictEqual([
+			'alter table "post" drop constraint "post_tags_size_check"',
+		])
+	})
+
+	it('adds a bound after the column it bounds, for a fill to run first (D-281)', () => {
+		const post = (...fields: readonly SchemaField[]): Schema => ({
+			models: [
+				{
+					name: 'Post',
+					fields: [scalar('title', 'string'), ...fields],
+					indexes: [],
+				},
+			],
+		})
+		const added = migrations.plan(
+			migrations.snapshot(post()),
+			post(
+				scalar('tags', 'string', {
+					list: true,
+					size: { min: 1, max: undefined },
+				}),
+			),
+		)
+		expect(added.map(({ sql }) => sql)).toStrictEqual([
+			`alter table "post" add column "tags" text[] not null default '{}'::text[]`,
+			'alter table "post" add constraint "post_tags_size_check" check (cardinality("tags") >= 1)',
+		])
 	})
 
 	it('tries a required field added without a fixed default', () => {
