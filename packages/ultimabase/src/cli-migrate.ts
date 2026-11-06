@@ -97,12 +97,13 @@ function body(
 	statements: readonly Statement[],
 	none: string,
 ): string {
-	const blocks = statements.map(({ sql, loses, tries, rename }) =>
+	const blocks = statements.map(({ sql, loses, tries, rename, note }) =>
 		[
 			...(loses === undefined ? [] : [`-- ${loses}.`]),
 			...(tries === undefined ? [] : [`-- ${tries}.`]),
 			...hint(rename),
 			`${sql};`,
+			...(note === undefined ? [] : [`-- ${note}.`]),
 		].join('\n'),
 	)
 	const parts = blocks.length > 0 ? blocks : [none]

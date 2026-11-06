@@ -14,6 +14,8 @@ export type Fill = {
 	readonly sql: string
 	readonly shown: string
 	readonly rows?: true
+	/** A list's `[]`, which no default of the model asked for (D-280). */
+	readonly implicit?: true
 }
 
 /** Each table's columns with a fixed default (D-105). */
@@ -52,7 +54,9 @@ export function fillsOf(catalog: Catalog): Fills {
 			const given = field.list ? (field.default ?? []) : field.default
 			if (given === undefined) continue
 			const kind = catalog.kind(table, field.name)
-			columns[catalog.column(table, field.name)] = fillOf(kind, given)
+			const fill = fillOf(kind, given)
+			columns[catalog.column(table, field.name)] =
+				field.default === undefined ? { ...fill, implicit: true } : fill
 		}
 		fills[table.name] = columns
 	}

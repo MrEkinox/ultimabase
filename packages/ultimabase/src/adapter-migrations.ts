@@ -16,6 +16,12 @@ export type Statement = {
 	 */
 	readonly tries?: string
 	/**
+	 * What the author of a migration file may have to do after it, which the
+	 * file shows below it: `The stored rows hold an empty "Account.languages":
+	 * fill them here if the model needs a value`.
+	 */
+	readonly note?: string
+	/**
 	 * A removal that may be a rename: the name it keeps its data under with
 	 * `dbName` (`label`), and each field or model that may be the same
 	 * (`Locker.title`), with the statements that rename to it (D-232, D-251).

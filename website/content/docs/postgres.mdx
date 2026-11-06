@@ -147,6 +147,12 @@ may fail on the rows gets a comment above it, such as `-- removing
 "Locker.label" deletes data.`. Read the file, and edit it before you commit
 it.
 
+A required field added with a fixed default takes it in the stored rows, and
+its column keeps it, so that code still running without the field can still
+insert during a deploy. A change of the column's type drops it. A list without
+a default is empty in the stored rows: a comment below its statement says so,
+and that is where to write the values the rows need.
+
 ### Your own SQL
 
 When no model changed, `migrate create` writes a file for your SQL: a data
