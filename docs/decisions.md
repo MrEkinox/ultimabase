@@ -18196,4 +18196,6 @@ socket. A change of one row is the message that goes to the most sockets, and it
 3. 4 KB gains no more on a row's change and costs up to 2.6 KB a message, so it was not kept.
 
 `bench/realtime/wire.ts`, 25 rows and 1 000 subscribers: an update 120 to 94-98 ms, the author of a
-row in 50 112 to 86-88 ms. At 10 000 users the chat, whose messages are small, does not move.
+row in 50 112 to 86-88 ms. `platform-wire.ts`, 10 000 users, one run each: campaign at 1 500 asked
+1 020 to 1 201 written a second, chat at 600 asked 454 to 478, connecting the chat 50.7 to 46.7 s and
+the process 4.11 to 3.49 GiB, the clients' threads included: fewer sockets ever keep a compressor.

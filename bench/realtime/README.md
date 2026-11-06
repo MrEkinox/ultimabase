@@ -196,6 +196,41 @@ costs about 1 ms a row, and a production table has them.
 
 ## Runs
 
+### 2026-11-06: over the wire, D-266 to D-273
+
+`platform-wire.ts`, 10 000 users on real sockets, Postgres with `fsync` off, one run each, from
+commit `96479ac76` (the first bench of this kind) to `85d8d2c2b`. Told p95 in ms.
+
+|                   | Chat before | Chat after | Campaign before | Campaign after | Presence before | Presence after |
+| ----------------- | ----------: | ---------: | --------------: | -------------: | --------------: | -------------: |
+| All connected, s  |        84.0 |       46.7 |            83.3 |           49.8 |            65.7 |           38.2 |
+| Heap, GiB         |        1.93 |       1.38 |            1.74 |           1.29 |            1.53 |           1.09 |
+| A lone write, ms  |          89 |         29 |              83 |             35 |              78 |             33 |
+| Statements of one |          10 |         13 |               4 |              4 |               6 |              6 |
+
+| Scenario | Asked /s | Done /s before | Done /s after | p95 before | p95 after | Holds before | Holds after |
+| -------- | -------: | -------------: | ------------: | ---------: | --------: | ------------ | ----------- |
+| Chat     |      400 |            400 |           400 |        374 |       209 | yes          | yes         |
+| Campaign |     1000 |            966 |           998 |       4556 |       384 | no           | yes         |
+| Presence |      500 |            499 |           486 |       9659 |       401 | no           | yes         |
+| Presence |     1000 |            861 |           958 |      14201 |      4848 | no           | no          |
+
+Past what holds, the main thread is full: chat 478 written a second at 600 asked, campaign 1 201 at
+1 500 asked. Presence at 1 000 asked varies from 901 to 988 from one run to the next.
+
+`wire.ts`, 55 000 rows, compression on, nobody writing to the list, against the table of D-254
+below:
+
+|  Rows | Subscribers | One alone | All at once | Longest stall | Others wait | Update        | Author of 1 row in 50      | New first row |
+| ----: | ----------: | --------: | ----------: | ------------: | ----------: | ------------- | -------------------------- | ------------- |
+|    25 |        1000 |        64 |        2723 |           172 |           - | 3 stmts, 87.6 | 5 stmts, 123.1, 1.6 KiB    | 3 stmts, 65.0 |
+|  2000 |         100 |       296 |       11695 |           396 |  825 / 1041 | 3 stmts, 14.6 | 5 stmts, 144.1, 61.6 KiB   | 3 stmts, 10.8 |
+| 10000 |          20 |       993 |       11886 |           236 |  323 / 1336 | 3 stmts, 6.5  | 5 stmts, 169.9, 308.0 KiB  | 3 stmts, 6.4  |
+| 50000 |          20 |      4389 |       67747 |           634 |  151 / 1027 | 3 stmts, 6.7  | 5 stmts, 832.6, 1541.7 KiB | 3 stmts, 7.3  |
+
+Others wait more at the middle now that a big window gives them turns between its parts: at 50 000
+rows and 20 subscribers the median goes from 56 to 151 ms, and the longest from 1 960 to 1 027.
+
 ### 2026-11-05: a write costs its readers (D-255)
 
 Same machine; Node 24.20.0; `platform.ts`, 10 000 users, 50 000 live reads, Postgres
