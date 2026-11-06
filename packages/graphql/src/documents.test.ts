@@ -5,7 +5,7 @@ import { parsedOnce, validatedOnce } from './documents.ts'
 
 describe('parsedOnce', () => {
 	it('answers a document it has read with the same tree', () => {
-		const reading = vi.fn(parse)
+		const reading = vi.fn<typeof parse>(parse)
 		const read = parsedOnce(reading)
 		expect(read('{ a }')).toBe(read('{ a }'))
 		expect(read('{ b }')).not.toBe(read('{ a }'))
@@ -19,7 +19,7 @@ describe('parsedOnce', () => {
 	})
 
 	it('forgets the least recently asked past 500 documents', () => {
-		const reading = vi.fn(parse)
+		const reading = vi.fn<typeof parse>(parse)
 		const read = parsedOnce(reading)
 		const asked = read('{ asked }')
 		const old = read('{ old }')
@@ -31,7 +31,7 @@ describe('parsedOnce', () => {
 	})
 
 	it('holds no document too long, as a source or as text', () => {
-		const reading = vi.fn(parse)
+		const reading = vi.fn<typeof parse>(parse)
 		const read = parsedOnce(reading)
 		const long = `{ ${'a '.repeat(2100)}}`
 		const source = new Source('{ a }')
@@ -48,7 +48,7 @@ describe('validatedOnce', () => {
 	const master: readonly ValidationRule[] = []
 
 	it('validates a document once by its rules', () => {
-		const validating = vi.fn(() => [])
+		const validating = vi.fn<() => GraphQLError[]>(() => [])
 		const validate = validatedOnce(validating)
 		expect(validate(document, user)).toEqual([])
 		expect(validate(document, user)).toEqual([])
@@ -67,7 +67,7 @@ describe('validatedOnce', () => {
 	})
 
 	it('remembers each set of rules a document passed', () => {
-		const validating = vi.fn(() => [])
+		const validating = vi.fn<() => GraphQLError[]>(() => [])
 		const validate = validatedOnce(validating)
 		validate(document, user)
 		validate(document, master)
@@ -77,7 +77,7 @@ describe('validatedOnce', () => {
 	})
 
 	it('validates every time without rules', () => {
-		const validating = vi.fn(() => [])
+		const validating = vi.fn<() => GraphQLError[]>(() => [])
 		const validate = validatedOnce(validating)
 		validate(document)
 		validate(document)

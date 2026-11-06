@@ -264,7 +264,10 @@ export function serveSockets(
 			if (refused !== undefined) return { errors: [refused] }
 			const source = await createSourceEventStream(validated)
 			if (!(Symbol.asyncIterator in source)) return source
-			const shape = String(shapes.get(Object(args.contextValue)))
+			const { contextValue } = args
+			const shape = String(
+				isLive(contextValue) ? shapes.get(contextValue) : undefined,
+			)
 			return mapSourceToResponseEvent(validated, source, async (event) => {
 				const { rootValue } = event
 				const execute = () => executeSubscriptionEvent(event)

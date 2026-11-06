@@ -1,7 +1,12 @@
 // The documents a server has read (D-268): an application sends the same few
 // again and again, over HTTP and for each subscription of each user. Read once,
 // they are one tree in memory rather than one per subscriber.
-import type { DocumentNode, GraphQLError, Source, ValidationRule } from 'graphql'
+import type {
+	DocumentNode,
+	GraphQLError,
+	Source,
+	ValidationRule,
+} from 'graphql'
 
 /** Bounds what unknown documents can hold: 40 bytes or so a character. */
 const documents = 500
