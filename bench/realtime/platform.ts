@@ -313,7 +313,8 @@ await benched(
 			let started = 0
 			const running = new Set<Promise<void>>()
 			while (started < total) {
-				const due = began + (started * 1000) / rate
+				// A whole millisecond: the writes carry it as text, and it is read back.
+				const due = began + Math.floor((started * 1000) / rate)
 				const now = Date.now()
 				if (due > now) {
 					await waited(Math.min(5, due - now))
