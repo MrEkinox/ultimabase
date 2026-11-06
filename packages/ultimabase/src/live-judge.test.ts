@@ -5,7 +5,7 @@ import { afterAll, beforeAll, beforeEach, expect, it } from 'vitest'
 import type { Adapter, Row } from './index.ts'
 import { allow, defineApp, defineModel, master, memory } from './index.ts'
 import type { Judge } from './internal.ts'
-import { liveReader, storedRows } from './internal.ts'
+import { liveReader, SharedReads, storedRows } from './internal.ts'
 
 const M = { as: master }
 
@@ -77,13 +77,13 @@ beforeEach(() => {
 
 it('takes the stored rows the judge lets through, with no read', async () => {
 	const reader = await liveReader('Letter', plain, ada)
-	const found = await reader(ids, rows, new Map(), verdict(hers))
+	const found = await reader(ids, rows, new SharedReads(), verdict(hers))
 	expect(found).toEqual([{ id: hers, text: 'ada' }])
 	expect(finds).toEqual([])
 })
 
 it('reads once for every caller when the judge is sure, each seeing its rows', async () => {
-	const reads = new Map<string, Promise<readonly Row[]>>()
+	const reads = new SharedReads()
 	const hersRead = await liveReader('Letter', joined, ada)
 	const hisRead = await liveReader('Letter', joined, bob)
 	finds = []
@@ -97,7 +97,7 @@ it('reads once for every caller when the judge is sure, each seeing its rows', a
 })
 
 it('asks the database per caller when the judge cannot tell', async () => {
-	const reads = new Map<string, Promise<readonly Row[]>>()
+	const reads = new SharedReads()
 	const hersRead = await liveReader('Letter', plain, ada)
 	const hisRead = await liveReader('Letter', plain, bob)
 	finds = []
@@ -113,7 +113,7 @@ it('asks the database per caller when the judge cannot tell', async () => {
 it('checks the rule in the read without a judge', async () => {
 	const reader = await liveReader('Letter', plain, ada)
 	const expected = [{ id: hers, text: 'ada' }]
-	expect(await reader(ids, rows, new Map())).toEqual(expected)
+	expect(await reader(ids, rows, new SharedReads())).toEqual(expected)
 	expect(await reader(ids, rows)).toEqual(expected)
 	expect(await reader(ids)).toEqual(expected)
 })

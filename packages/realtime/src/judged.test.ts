@@ -3,7 +3,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import type { Adapter, Filter, Row } from 'ultimabase'
 import { defineApp, defineModel, master, memory } from 'ultimabase'
-import { storedRows } from 'ultimabase/internal'
+import { SharedReads, storedRows } from 'ultimabase/internal'
 import { Loader, judgeOf, pass } from './reads.ts'
 
 const M = { as: master }
@@ -85,7 +85,7 @@ const memberOf = (user: string): Filter => ({
 
 describe('a rule the rows held answer', () => {
 	it('asks the database nothing of the model itself', async () => {
-		const loader = new Loader(new Map())
+		const loader = new Loader(new SharedReads())
 		const passed = await pass('Chat', rows, memberOf(ada), loader)
 		expect(passed).toEqual(new Set([mine]))
 		expect(finds).toEqual(['Member'])
@@ -98,7 +98,7 @@ describe('a rule the rows held answer', () => {
 
 	it('holds through a key the row stores', async () => {
 		const owned: Filter = { owner: { is: { name: { equals: 'ada' } } } }
-		const passed = await pass('Chat', rows, owned, new Loader(new Map()))
+		const passed = await pass('Chat', rows, owned, new Loader(new SharedReads()))
 		expect(passed).toEqual(new Set([mine]))
 		expect(finds).toEqual(['User'])
 	})
@@ -107,7 +107,7 @@ describe('a rule the rows held answer', () => {
 		const either: Filter = {
 			OR: [memberOf(ada), { title: { equals: 'theirs' } }],
 		}
-		const passed = await pass('Chat', rows, either, new Loader(new Map()))
+		const passed = await pass('Chat', rows, either, new Loader(new SharedReads()))
 		expect(passed).toEqual(new Set([mine, theirs]))
 		expect(finds).not.toContain('Chat')
 	})
@@ -116,7 +116,7 @@ describe('a rule the rows held answer', () => {
 		const both: Filter = {
 			AND: [{ title: { equals: 'mine' } }, memberOf(ada)],
 		}
-		const passed = await pass('Chat', rows, both, new Loader(new Map()))
+		const passed = await pass('Chat', rows, both, new Loader(new SharedReads()))
 		expect(passed).toEqual(new Set([mine]))
 		expect(finds).not.toContain('Chat')
 	})
@@ -160,14 +160,14 @@ describe('a rule the rows held do not settle', () => {
 	it.each(unsettled)(
 		'goes to the database when it %s',
 		async (_, filter, ids) => {
-			const passed = await pass('Chat', rows, filter(), new Loader(new Map()))
+			const passed = await pass('Chat', rows, filter(), new Loader(new SharedReads()))
 			expect(passed).toEqual(new Set(ids()))
 			expect(finds).toContain('Chat')
 		},
 	)
 
 	it('goes to the database past what a read holds', async () => {
-		const loader = new Loader(new Map())
+		const loader = new Loader(new SharedReads())
 		loader.holding = async (_, __, ids) =>
 			new Map(ids.map((id) => [id, undefined]))
 		const passed = await pass('Chat', rows, memberOf(ada), loader)
@@ -178,7 +178,7 @@ describe('a rule the rows held do not settle', () => {
 
 describe('a judge', () => {
 	it('answers once for a rule, from the rows held', async () => {
-		const judge = judgeOf('Chat', rows, new Loader(new Map()))
+		const judge = judgeOf('Chat', rows, new Loader(new SharedReads()))
 		const rule = memberOf(ada)
 		expect(await judge(rule)).toEqual(new Set([mine]))
 		expect(await judge(rule)).toEqual(new Set([mine]))
@@ -186,14 +186,14 @@ describe('a judge', () => {
 	})
 
 	it('answers nothing when only a query can tell', async () => {
-		const judge = judgeOf('Chat', rows, new Loader(new Map()))
+		const judge = judgeOf('Chat', rows, new Loader(new SharedReads()))
 		const rule = { tags: { some: { label: { equals: 'x' } } } }
 		expect(await judge(rule)).toBeUndefined()
 		expect(finds).toEqual([])
 	})
 
 	it('answers with no row left, whatever else the rule says', async () => {
-		const judge = judgeOf('Chat', rows, new Loader(new Map()))
+		const judge = judgeOf('Chat', rows, new Loader(new SharedReads()))
 		const rule = {
 			AND: [
 				{ title: { equals: 'nobody' } },
@@ -207,7 +207,7 @@ describe('a judge', () => {
 
 describe('the rows a flush expects (D-261)', () => {
 	it('are read together, with the first that asks', async () => {
-		const loader = new Loader(new Map())
+		const loader = new Loader(new SharedReads())
 		loader.expect('Chat', [mine, theirs])
 		const first = await loader.load('Chat', [mine])
 		expect([...first.keys()]).toEqual([mine])
@@ -217,7 +217,7 @@ describe('the rows a flush expects (D-261)', () => {
 	})
 
 	it('are not read when they are more than one read holds', async () => {
-		const loader = new Loader(new Map())
+		const loader = new Loader(new SharedReads())
 		const many = Array.from({ length: 10_001 }, (_, at) => `row-${at}`)
 		loader.expect('Chat', many)
 		await loader.load('Chat', [mine])

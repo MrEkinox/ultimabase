@@ -3,7 +3,7 @@
 // concern (D-256), a few at a time.
 // Every viewer's caller is built again on a timer, and when it expires.
 import type { Changed } from 'ultimabase'
-import { liveSchema, recording } from 'ultimabase/internal'
+import { liveSchema, recording, SharedReads } from 'ultimabase/internal'
 import { batchOf } from './changes.ts'
 import type { Owner } from './readers.ts'
 import { Readers } from './readers.ts'
@@ -126,7 +126,7 @@ export class Engine {
 		// every viewer would cost as much for nothing, and hold the loop (D-255).
 		if (changes.length === 0 && !missed) return
 		const batch = batchOf(changes, liveSchema())
-		const loader = new Loader(new Map())
+		const loader = new Loader(new SharedReads())
 		if (missed) {
 			await bounded([...this.#viewers], concurrency, (viewer) =>
 				this.#guarded(viewer, () => viewer.flush(batch, loader, 'all')),

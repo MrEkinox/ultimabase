@@ -542,7 +542,7 @@ const owner: Owner = {
 	end: () => undefined,
 }
 const concerned = async (readers: Readers) =>
-	readers.concerned(noWrite, new Loader(new Map()))
+	readers.concerned(noWrite, new Loader())
 
 it('a busy read is visited whatever a write says: its task may miss it', async () => {
 	const readers = new Readers()

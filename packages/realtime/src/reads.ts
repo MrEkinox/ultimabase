@@ -3,12 +3,18 @@
 // and each changed row loaded once for every live read that needs it.
 import type { Filter, Nested, Order, Row } from 'ultimabase'
 import type { Judge, LivePlan, SharedReads } from 'ultimabase/internal'
-import { inMemory, liveSchema, matches, storedRows } from 'ultimabase/internal'
+import {
+	inMemory,
+	liveSchema,
+	matches,
+	required,
+	storedRows,
+} from 'ultimabase/internal'
 import type { Finder } from './affected.ts'
 import { loosened } from './levels.ts'
 import type { Step } from './reach.ts'
 import { modelsOf } from './reach.ts'
-import { Held, keyOf, possible, required } from './needs.ts'
+import { Held, keyOf, possible } from './needs.ts'
 
 /** A filter on the root that holds when `steps` reach a row passing `inner`. */
 export const through = (steps: readonly Step[], inner: Filter): Filter =>
@@ -84,6 +90,12 @@ const named = (steps: readonly Step[]): string =>
 /** The root rows a flush reads for all its live reads, at most. */
 const sharedRows = 10_000
 
+/** One read of rows by id: a failure reaches whoever asks, once for them all. */
+type Reading = Promise<ReadonlyMap<string, Row>>
+
+/** One read of what holds some ids; nothing, past what one read holds. */
+type Holding = Promise<ReadonlyMap<string, Held> | undefined>
+
 /** Each plan's pages, keyed once rather than on each read. */
 const pages = new WeakMap<LivePlan, string>()
 
@@ -92,16 +104,13 @@ const pages = new WeakMap<LivePlan, string>()
  * of rows after a window's last, once for the live reads that share it.
  */
 export class Loader {
-	/** Each row by id: kept whole, or being read. */
-	readonly #rows = new Map<
-		string,
-		Map<string, Row | Promise<Row | undefined>>
-	>()
+	/** Each row by id: kept whole, or the one read that brings it. */
+	readonly #rows = new Map<string, Map<string, Row | Reading>>()
 	readonly #pages = new Map<string, Promise<readonly Row[]>>()
 	readonly #reaching = new Map<string, Promise<readonly string[] | undefined>>()
 	/** The root rows each written row leads to, walked for every read (D-258). */
 	readonly #led = new Map<string, ReadonlyMap<string, readonly string[]>>()
-	readonly #holding = new Map<string, Map<string, Promise<Held | undefined>>>()
+	readonly #holding = new Map<string, Map<string, Holding>>()
 	readonly #counts = new Map<string, Promise<number>>()
 	/** The rows of each model that a flush may ask for, read with the first. */
 	readonly #expected = new Map<string, Set<string>>()
@@ -112,9 +121,8 @@ export class Loader {
 		this.reads = reads
 	}
 
-	#known(model: string): Map<string, Row | Promise<Row | undefined>> {
-		const known =
-			this.#rows.get(model) ?? new Map<string, Row | Promise<Row | undefined>>()
+	#known(model: string): Map<string, Row | Reading> {
+		const known = this.#rows.get(model) ?? new Map<string, Row | Reading>()
 		this.#rows.set(model, known)
 		return known
 	}
@@ -196,8 +204,7 @@ export class Loader {
 		ids: readonly string[],
 	): Promise<ReadonlyMap<string, Held | undefined>> {
 		const name = `${model} ${key}`
-		const known =
-			this.#holding.get(name) ?? new Map<string, Promise<Held | undefined>>()
+		const known = this.#holding.get(name) ?? new Map<string, Holding>()
 		this.#holding.set(name, known)
 		const missing = ids.filter((id) => !known.has(id))
 		if (missing.length > 0) {
@@ -207,17 +214,15 @@ export class Loader {
 			}).then((rows) => {
 				if (rows.length > sharedRows) return undefined
 				this.keep(model, rows)
-				return Map.groupBy(rows, (row) => keyOf(row, key))
-			})
-			for (const id of missing) {
-				known.set(
-					id,
-					read.then((rows) => rows && new Held(rows.get(id) ?? [])),
+				const groups = Map.groupBy(rows, (row) => keyOf(row, key))
+				return new Map(
+					missing.map((id) => [id, new Held(groups.get(id) ?? [])]),
 				)
-			}
+			})
+			for (const id of missing) known.set(id, read)
 		}
 		const found = new Map<string, Held | undefined>()
-		for (const id of ids) found.set(id, await known.get(id))
+		for (const id of ids) found.set(id, (await known.get(id))?.get(id))
 		return found
 	}
 
@@ -251,6 +256,7 @@ export class Loader {
 		const expected = this.#expected.get(model) ?? new Set()
 		for (const id of ids) expected.add(id)
 		this.#expected.set(model, expected)
+		this.reads?.expect(model, ids)
 	}
 
 	/** The stored rows of `model` in `ids`; a deleted row is missing. */
@@ -270,18 +276,13 @@ export class Loader {
 			const read = storedRows(model, { where: among(missing) }).then(
 				(rows) => new Map(rows.map((row) => [row.id, row])),
 			)
-			for (const id of missing) {
-				known.set(
-					id,
-					read.then((rows) => rows.get(id)),
-				)
-			}
+			for (const id of missing) known.set(id, read)
 		}
 		const found = new Map<string, Row>()
 		for (const id of ids) {
 			// A kept row is no promise: awaiting each would cost a turn.
 			const kept = known.get(id)
-			const row = kept instanceof Promise ? await kept : kept
+			const row = kept instanceof Promise ? (await kept).get(id) : kept
 			if (row !== undefined) found.set(id, row)
 		}
 		return found

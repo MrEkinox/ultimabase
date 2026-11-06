@@ -2,7 +2,7 @@
 // live read that asks (D-255): a rule naming the viewer through a relation
 // costs each list a lookup, and a query only for those it may let read.
 import type { Filter, Row } from 'ultimabase'
-import { inMemory, liveSchema, matches } from 'ultimabase/internal'
+import { inMemory, liveSchema, matches, required } from 'ultimabase/internal'
 import type { Models, Step } from './reach.ts'
 import { isList, modelsOf, stepOf, stores } from './reach.ts'
 import type { Loader } from './reads.ts'
@@ -69,15 +69,6 @@ export class Held {
 		return index.get(id) ?? []
 	}
 }
-
-/** Each condition `filter` requires of a row. */
-export const required = (filter: Filter): readonly Filter[] =>
-	Object.entries(filter).flatMap(([key, value]): readonly Filter[] => {
-		if (value === undefined) return []
-		return key === 'AND' && isList(value)
-			? value.flatMap(required)
-			: [{ [key]: value }]
-	})
 
 /** The related id `part`, a condition a row answers alone, names. */
 function pinOf(models: Models, model: string, part: Filter): Pin | undefined {

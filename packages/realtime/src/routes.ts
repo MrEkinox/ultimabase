@@ -2,8 +2,8 @@
 // it reaches back to its root, and the ids its filter requires of every row.
 import type { Condition, Filter } from 'ultimabase'
 import type { LivePlan, Recorded } from 'ultimabase/internal'
+import { required } from 'ultimabase/internal'
 import type { Fields } from './changes.ts'
-import { required } from './needs.ts'
 import type { Models, Reach, Step } from './reach.ts'
 import { isList, stepOf, stores, union } from './reach.ts'
 import { judgedOf } from './stale.ts'

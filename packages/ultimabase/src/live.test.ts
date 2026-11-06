@@ -10,6 +10,7 @@ import {
 	inMemory,
 	livePlan,
 	liveReader,
+	SharedReads,
 	liveSchema,
 	matches,
 	recording,
@@ -472,12 +473,12 @@ describe('rows read for a live read', () => {
 		}
 		const reader = await liveReader('Review', shape, ada)
 		const ids = [kept.id, refused.id]
-		const found = await reader(ids, rows, new Map())
+		const found = await reader(ids, rows, new SharedReads())
 		const args = { ...shape, where: { id: { in: ids } } }
 		expect(found).toEqual(await Review.findMany(args, { as: ada }))
 		expect(found).toEqual([{ id: kept.id, text: 'kept', author: null }])
 		// Without the stored rows, the read itself checks the rule.
-		expect(await reader(ids, undefined, new Map())).toEqual(found)
+		expect(await reader(ids, undefined, new SharedReads())).toEqual(found)
 	})
 
 	it('run beforeFind once, when planned', async () => {

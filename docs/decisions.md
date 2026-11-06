@@ -12869,7 +12869,7 @@ Rejected:
 
 ## D-195: Live reads planned once per caller
 
-Amended by D-197 and D-252.
+Amended by D-197, D-252 and D-262.
 
 Choice: amends D-154 points 9 and 13.
 
@@ -17842,6 +17842,8 @@ Known limits:
 
 ## D-259: A rule the rows of a flush answer needs no query
 
+Amended by D-262.
+
 Choice: amends D-252 point 3 and D-255 point 2.
 
 D-255 reads once what a filter requires through a relation, but only to refuse
@@ -17934,3 +17936,24 @@ id, about 8 500 of the 23 113 statements of ten seconds of presence at 500 write
 2. A root with no connected reader is read for nothing: one more id in one statement,
    against one statement per reader.
 3. Past 10 000 rows (the most a flush's shared reads hold), only what is asked is read.
+
+## D-262: A live read names its viewer only where a rule says more
+
+Choice: amends D-195 and D-259. Nothing changes for a developer.
+
+A rule usually repeats its parent's on the way down: a chat shows to its members, and so
+does a chat's member, by `{ chat: { is: <the chat's rule> } }`. Every viewer's read of a
+chat so named that viewer in each of its relations, and read alone: 16 410 of the 26 442
+statements of ten seconds of presence at 1 000 writes a second, 69 seconds of database time
+out of 120.
+
+1. A planned live read drops a relation's condition on the row above when that row's rule
+   already holds it: the row shows only if it passes, and the relation's key on the target
+   is what leads there. A condition asking anything more stays, whole.
+2. A read naming nobody once that is done is one statement for all its viewers, each given
+   the rows its rights let through (D-259). It also brings the roots the flush expects
+   (D-261), at most 1 000 per statement: the next root asked for reads the next ones.
+3. A read still naming its viewer, or counting a relation, reads only the rows it asks for:
+   bringing the others along would cost each viewer every root of the flush.
+4. Only live reads do this. Other reads could too, and it would simplify their SQL; that is
+   a separate choice, to measure with `bench/compare`.

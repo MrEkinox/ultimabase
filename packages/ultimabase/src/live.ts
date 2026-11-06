@@ -14,6 +14,8 @@ import { contextOf } from './engine.ts'
 import { decoded, isRow } from './field-codec.ts'
 import { Reader } from './memory-read.ts'
 import { sortable } from './memory-values.ts'
+import type { SharedReads } from './live-shared.ts'
+import { namesNobody, spared } from './live-shared.ts'
 import { isFilters } from './memory-conditions.ts'
 import { plan, uniqueWhere } from './query-args.ts'
 import { shapedRows } from './query-context.ts'
@@ -170,9 +172,6 @@ export type LiveReader = (
 /** Which of the stored rows pass a filter, if that takes no query (D-259). */
 export type Judge = (filter: Filter) => Promise<ReadonlySet<string> | undefined>
 
-/** The adapter reads of one flush, for the live reads that ask the same. */
-export type SharedReads = Map<string, Promise<readonly Row[]>>
-
 /**
  * `findMany({ ...shape, where: { id: { in: ids } } })` on `model` as
  * `caller`, planned once (D-195): its read rules and every `beforeFind` run
@@ -195,8 +194,10 @@ export async function liveReader(
 			rights: scope.readable(model),
 		})),
 	)
-	const { read, shape: shaped, rights } = prepared
+	const { shape: shaped, rights } = prepared
+	const read = spared(models, context.model, prepared.read, rights)
 	const plain = read.include === undefined && read.count === undefined
+	const anyone = namesNobody(read)
 	const alone = rights === undefined || inMemory(model, rights)
 	// The rows the caller may read, when that takes no query. The read then no
 	// longer names its caller; its relations hold what the caller sees of them,
@@ -217,14 +218,12 @@ export async function liveReader(
 		reads: SharedReads,
 		sure: boolean,
 	): Promise<readonly Row[]> => {
-		const each = `${sure ? bare : named} ${ids.join()}`
-		const known = reads.get(each)
-		if (known !== undefined) return known
-		const among = { id: { in: [...ids] } }
-		const where = sure ? among : and(among, rights)
-		const found = app.adapter.find({ ...read, model, where })
-		reads.set(each, found)
-		return found
+		const key = sure ? bare : named
+		return reads.rows(key, model, ids, sure && anyone, async (part) => {
+			const among = { id: { in: [...part] } }
+			const where = sure ? among : and(among, rights)
+			return app.adapter.find({ ...read, model, where })
+		})
 	}
 	return async (ids, rows, reads, judge) => {
 		if (ids.length === 0) return []

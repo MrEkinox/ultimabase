@@ -738,14 +738,14 @@ it('a rule a row answers alone still decides, on a field nobody selected', async
 	)
 })
 
-it('a rule naming the viewer through a relation keeps one read each', async () => {
+it("a relation rule repeating its parent's costs a viewer no read (D-262)", async () => {
 	const { room, users, msg, author } = await roomOf(['ada', 'bob'])
 	const edit = (text: string) => async () =>
 		Msg.update({ where: { id: msg.id }, data: { text } }, M)
 	await follow('Msg', author.id, inRoom(room))
 	const alone = await readsOf(edit('one'))
 	await follow('Msg', users[1]?.id ?? '', inRoom(room))
-	expect(await readsOf(edit('two'))).toBeGreaterThan(alone)
+	expect(await readsOf(edit('two'))).toBe(alone)
 })
 
 it('a shared read that fails sends each of its lists whole again', async () => {
