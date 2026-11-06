@@ -11525,6 +11525,7 @@ it('invites with one read and one write', async () => {
 ## D-178: A socket's query reads its caller again
 
 Choice: amends D-154, point 5.
+Amended by D-278.
 
 1. A query or a mutation sent over the GraphQL socket reads its caller again
    before it runs, with the request the viewer holds, as HTTP reads one per
@@ -18241,3 +18242,94 @@ default, 300 ms to 3 s, and needs nothing.
 This is not what absorbs a mass reconnection. The storm bench (`bench/realtime/README.md`,
 2026-11-06) shows 9000 clients arriving within 5 s taking about as long as 9000 arriving at once on
 one process, and no delay at 150 a second: what absorbs it is arriving slower than a process connects.
+
+## D-276: The server's connection queue holds 4096
+
+Choice: no developer's code changes, and no option. Connections arriving together wait instead of
+being cut.
+
+1. The HTTP server listens with `{ port, backlog: 4096 }`, a constant. The system caps it at its own
+   limit: `net.core.somaxconn`, 4096 on a recent Linux, 128 on macOS.
+2. Past the queue, what happens stays the system's: Linux cuts or ignores the attempt.
+
+Why, from the storm bench (`bench/realtime/README.md`, 2026-11-06), Linux, one process, 9000
+arriving within 5 s: Node's default of 511 lost 800 to 1500 attempts and took 124 to 140 s, retries
+included. With 4096 it lost none and took 62 s. A bare Node server shows the same: 3500 connections
+at once wait at most 1175 ms at 511, and at most 192 ms at 4096.
+
+Rejected:
+
+- An option: nothing tells a developer what else to set it to, and a higher value than the system's
+  does nothing.
+- Leaving it to a reverse proxy: most deployments have one, and it then meets the same queue.
+
+## D-277: A few connections open at once
+
+Choice: no developer's code changes, and no option. Under a storm, those arriving wait their turn
+in the server, and the writes of those already there go on.
+
+1. A process runs at most 8 opening tasks at once, in the order they came: reading a connecting
+   caller, planning and first reading a live read, and the first run of a live function. The gate
+   is in the realtime engine, so GraphQL and SSE share it (D-129).
+2. The others wait without holding a PostgreSQL connection, so they fail no 10 s wait for one
+   (`postgres()`'s `wait`), and take nothing from a write or a request.
+3. A turn is given back after 5 s even when its task still runs: a hanging `identify` or live
+   function slows the openings and does not stop them.
+4. A read whose connection closed while it waited reads nothing.
+5. Not behind the gate: `fetchMore`, a resend, a flush and a rebuild (8 viewers at a time since
+   D-154), HTTP requests, and a query over a socket. An HTTP storm can still meet the 10 s wait.
+
+Why, from the same bench: 9000 arriving at the same instant queued thousands of reads in the pool,
+and more than 10 s in the queue fails. That made about 10 600 first reads fail, and 207 of about
+1500 writes of connected users. What an opening costs is the process's time, about 145 a second
+whichever queue holds them, so holding them in the server costs nothing the pool's queue did not.
+
+8 is what a flush already allows, and leaves connections to the writes in the default pool of 10.
+
+Rejected:
+
+- A public option: no measure says a value would suit better, and the pool's size is a developer's
+  to change first.
+- A larger pool: it moves the queue to PostgreSQL.
+- Serving the most recent first: those who waited longest would wait for ever.
+
+## D-278: A failure of the server closes a socket with `1013`
+
+Choice: amends D-178, point 2. `4403` now means refused, and only that.
+
+1. When the caller read is another user, or `identify` throws a `PublicError`, the socket closes
+   with `4403`, as before.
+2. When `identify` fails any other way, on connecting or later, or when a viewer fails, the socket
+   closes with `1013` ("Try again later"). A query or a subscription sent to it meanwhile gets the
+   same close, and its operation the error it had.
+3. The viewer still closes: nothing runs as a caller that could not be read. The client that comes
+   back is identified again.
+4. SSE does not change: its stream ends without a code, and `liveFetch` reconnects.
+
+Why: the same bench closed 1226 sockets with `4403` for no other reason than a busy pool. `4403`
+says "you may not", which an application may read as "signed out". `graphql-ws` retries on both,
+and treats `1011` as final, so `1013` is the code that retries and says what happened.
+
+Rejected:
+
+- Keeping the viewer open and reading the caller again later: it would keep following as a caller
+  it could not read.
+- `1011`: `graphql-ws` stops retrying on it, so a passing failure would end the client's connection
+  for good.
+
+Example, before: the pool is busy for a moment, and an application that treats a refusal as a
+signing out signs its user out.
+
+```ts
+createClient({
+	url,
+	on: {
+		closed: (event) => {
+			if (Reflect.get(Object(event), 'code') === 4403) signOut()
+		},
+	},
+})
+```
+
+After: the same code runs only for a real refusal. A busy pool closes with `1013`, and `graphql-ws`
+reconnects by itself.
