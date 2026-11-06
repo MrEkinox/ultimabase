@@ -146,6 +146,19 @@ describe('the rows a pin sees', () => {
 		expect([...found.keys()]).toEqual(['a', 'b'])
 	})
 
+	it('expects the rows it walked and the roots it reached (D-261)', async () => {
+		const batch = batchOf('Note', { inserts: set('n1', 'n2') })
+		const loader = loaderOf({
+			Note: [row('n1', { chat: 'a' }), row('n2', { chat: 'b' })],
+		})
+		const expected = vi.spyOn(loader, 'expect')
+		await pinned(shapeOf([notes], byId), batch, loader)
+		expect(expected.mock.calls).toEqual([
+			['Note', ['n1', 'n2']],
+			['Chat', set('a', 'b')],
+		])
+	})
+
 	it('of a many-to-many link, every row for each root it finds', async () => {
 		const toTag: Step = {
 			relation: 'tags',

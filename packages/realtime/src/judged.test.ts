@@ -204,3 +204,24 @@ describe('a judge', () => {
 		expect(finds).toEqual([])
 	})
 })
+
+describe('the rows a flush expects (D-261)', () => {
+	it('are read together, with the first that asks', async () => {
+		const loader = new Loader(new Map())
+		loader.expect('Chat', [mine, theirs])
+		const first = await loader.load('Chat', [mine])
+		expect([...first.keys()]).toEqual([mine])
+		const second = await loader.load('Chat', [theirs])
+		expect([...second.keys()]).toEqual([theirs])
+		expect(finds).toEqual(['Chat'])
+	})
+
+	it('are not read when they are more than one read holds', async () => {
+		const loader = new Loader(new Map())
+		const many = Array.from({ length: 10_001 }, (_, at) => `row-${at}`)
+		loader.expect('Chat', many)
+		await loader.load('Chat', [mine])
+		await loader.load('Chat', [theirs])
+		expect(finds).toEqual(['Chat', 'Chat'])
+	})
+})

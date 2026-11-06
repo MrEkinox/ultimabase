@@ -17800,7 +17800,7 @@ builder, as the choice of Kysely to run statements and migrations still stands.
 
 ## D-258: A read sees only the rows that lead to it
 
-Amended by D-260.
+Amended by D-260, D-261.
 
 Choice: amends D-256. Nothing changes for a developer: no option, no new message, the
 same rows told.
@@ -17919,3 +17919,18 @@ lists with what a new reader finds: no difference, and a broken check is seen on
 
 Known limit: the viewer's own reads, those that built its caller, still test the whole
 batch. They were absent from the measure, and did not cost anything worth a line.
+
+## D-261: A flush reads the rows it expects together
+
+Choice: amends D-258. Nothing changes for a developer.
+
+D-258 gave each read the rows that lead to its pin, and each read then loaded its own: a
+flush that used to read a batch in one statement read it in one statement per viewer, by
+id, about 8 500 of the 23 113 statements of ten seconds of presence at 500 writes a second.
+
+1. The walk of a flush says which rows will be asked for: those written, and the roots
+   they reached. The first read that misses a row of a model reads those of that model
+   with it.
+2. A root with no connected reader is read for nothing: one more id in one statement,
+   against one statement per reader.
+3. Past 10 000 rows (the most a flush's shared reads hold), only what is asked is read.

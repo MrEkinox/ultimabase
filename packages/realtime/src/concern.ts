@@ -203,10 +203,12 @@ export async function concernOf(
 		}
 		const written = [...inserts, ...updates]
 		if (written.length === 0) continue
+		loader.expect(model, written)
 		const roots = await rootsOf(root, steps, written, loader)
 		if (roots === undefined) return 'all'
 		const reached = new Set<string>()
 		for (const at of roots.values()) for (const id of at) reached.add(id)
+		loader.expect(root, reached)
 		const pins = await along([...reached], forward)
 		if (pins === undefined) return 'all'
 		const pick = (rows: readonly string[], kind: 'inserts' | 'updates') => {

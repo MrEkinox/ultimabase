@@ -103,6 +103,8 @@ export class Loader {
 	readonly #led = new Map<string, ReadonlyMap<string, readonly string[]>>()
 	readonly #holding = new Map<string, Map<string, Promise<Held | undefined>>>()
 	readonly #counts = new Map<string, Promise<number>>()
+	/** The rows of each model that a flush may ask for, read with the first. */
+	readonly #expected = new Map<string, Set<string>>()
 	/** A flush's adapter reads, for the live reads that ask the same (D-252). */
 	readonly reads: SharedReads | undefined
 
@@ -241,14 +243,30 @@ export class Loader {
 		}
 	}
 
+	/**
+	 * The `ids` of `model` some read of this flush will likely ask for: the first
+	 * `load` that misses reads them all, rather than each reader its own.
+	 */
+	expect(model: string, ids: Iterable<string>): void {
+		const expected = this.#expected.get(model) ?? new Set()
+		for (const id of ids) expected.add(id)
+		this.#expected.set(model, expected)
+	}
+
 	/** The stored rows of `model` in `ids`; a deleted row is missing. */
 	async load(
 		model: string,
 		ids: readonly string[],
 	): Promise<ReadonlyMap<string, Row>> {
 		const known = this.#known(model)
-		const missing = ids.filter((id) => !known.has(id))
+		let missing = ids.filter((id) => !known.has(id))
 		if (missing.length > 0) {
+			const expected = this.#expected.get(model)
+			if (expected !== undefined && expected.size <= sharedRows) {
+				this.#expected.delete(model)
+				for (const id of missing) expected.add(id)
+				missing = [...expected].filter((id) => !known.has(id))
+			}
 			const read = storedRows(model, { where: among(missing) }).then(
 				(rows) => new Map(rows.map((row) => [row.id, row])),
 			)

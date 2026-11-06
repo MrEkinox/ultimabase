@@ -275,6 +275,7 @@ for production yet, and fixes ship as 0.1.x or 0.2.
 - [x] A read sees only the rows that lead to it (D-258).
 - [x] A rule the rows of a flush answer needs no query (D-259).
 - [x] A live function is given only the rows that lead to its reads (D-260).
+- [x] A flush reads the rows it expects together (D-261).
 - [x] Refuse breached and common passwords (NIST SP 800-63B §5.1.1.2):
       `passwordPlugin({ breached: true })`, and never the email (D-209).
 
