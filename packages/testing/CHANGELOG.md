@@ -1,5 +1,14 @@
 # @ultimabase/testing
 
+## 0.6.0
+
+### Patch Changes
+
+- Updated dependencies [41b5dca]
+- Updated dependencies [41b5dca]
+- Updated dependencies [41b5dca]
+  - ultimabase@0.6.0
+
 ## 0.5.0
 
 ### Patch Changes

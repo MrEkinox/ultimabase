@@ -1,0 +1,1672 @@
+---
+title: Relations
+description: Link models with `one` and `many`, write related rows in one call, read and filter through them, and choose what deleting a row does.
+---
+
+A relation links the rows of two models: an author's books, a book's tags.
+`f.one` points to one row and `f.many` holds a list. UltimaBase stores the
+keys, keeps them valid, and lets every query write, read, filter and sort
+through them:
+
+```ts
+import { graphql } from '@ultimabase/graphql'
+import { allow, defineModel } from 'ultimabase'
+
+export const Author = defineModel({
+	name: 'Author',
+	use: [graphql()],
+	fields: (f) => ({
+		name: f.string(),
+		// One author, many books: `Book.author` is the other side.
+		books: f.many(() => Book, { inverse: 'author' }),
+	}),
+	// Open to every client, to keep the example on relations.
+}).with({ access: allow.public })
+```
+
+The full example, with its tests: [`examples/relations`](https://github.com/MrEkinox/ultimabase/tree/main/examples/relations).
+
+| To                                      | Use                                                                                                    |
+| --------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| link two models                         | [`f.one`, `f.many`](#declare-a-relation)                                                               |
+| create a row with its related rows      | [`create`, `connect`](#create-rows-with-their-relations)                                               |
+| link or unlink existing rows            | [`connect`, `disconnect`, `set`](#link-and-unlink-rows)                                                |
+| link a row, or create it when missing   | [`connectOrCreate`](#replace-a-list-or-link-a-row-and-create-it-if-missing)                            |
+| change or delete the linked rows        | [`update`, `delete`](#update-and-delete-related-rows)                                                  |
+| read related rows                       | [`include`, `select`](#include-and-select)                                                             |
+| filter or sort through a relation       | [`is`, `some`, `_count`, `orderBy`](#filter-through-a-relation)                                        |
+| choose what deleting a row does         | [`onDelete`](#deleting-a-row-that-others-point-to)                                                     |
+| keep a `many` to 2 to 4 rows            | [`size`](#bounding-the-rows-of-a-many)                                                                 |
+| link one row to one row                 | [one-to-one](#one-to-one)                                                                              |
+| link without a field on the other model | [one-sided](#a-one-sided-relation), [a many-to-many on one side](#a-many-to-many-declared-on-one-side) |
+| relate a model to itself                | [`f.one(() => Category)`](#a-model-related-to-itself)                                                  |
+| store fields on a link                  | [a join model](#a-many-to-many-with-fields-of-its-own)                                                 |
+| show some of a `many`'s rows            | [a view](#views-and-filtered-relations)                                                                |
+| read the caller's own row               | [`viewer`](#the-signed-in-user-viewer), [`f.exists`](#does-a-row-exist-fexists)                        |
+| keep a link inside one parent           | [`within`](#a-relation-kept-within-a-parent)                                                           |
+| link to an article or a video           | [`f.oneOf`](#a-relation-to-one-of-several-models)                                                      |
+| use relations over GraphQL              | [Over GraphQL](#over-graphql)                                                                          |
+
+The queries below run on the server, as Master: the tests write `as` for
+`{ as: master }`. A client sends the same arguments over GraphQL or REST, as
+[Over GraphQL](#over-graphql) shows.
+
+## Declare a relation
+
+The models of this page: an author writes books, a publisher prints them, tags
+sort them. `Author` is above; these are the others:
+
+```ts
+export const Publisher = defineModel({
+	name: 'Publisher',
+	use: [graphql()],
+	fields: (f) => ({
+		name: f.string(),
+		books: f.many(() => Book, { inverse: 'publisher' }),
+	}),
+}).with({ access: allow.public })
+```
+
+```ts
+export const Tag = defineModel({
+	name: 'Tag',
+	use: [graphql()],
+	fields: (f) => ({
+		label: f.string({ unique: true }),
+		// Many tags, many books: a join table holds the pairs.
+		books: f.many(() => Book, { inverse: 'tags' }),
+	}),
+}).with({ access: allow.public })
+```
+
+```ts
+export const Book = defineModel({
+	name: 'Book',
+	use: [graphql()],
+	fields: (f) => ({
+		title: f.string(),
+		// Deleting an author deletes their books.
+		author: f.one(() => Author, { onDelete: 'cascade' }),
+		// Required and without `onDelete`: a publisher with books stays.
+		publisher: f.one(() => Publisher),
+		tags: f.many(() => Tag, { inverse: 'books' }),
+	}),
+}).with({ access: allow.public })
+```
+
+- `Author.books` names `Book.author` with `inverse`: they are the two sides of
+  one relation. From `Author` it is one author, many books; from `Book`, many
+  books, one author. `Book` stores the key.
+- `Book.tags` and `Tag.books` are both `many` and name each other: a
+  many-to-many relation. A join table, created for you, holds the pairs.
+- `onDelete` says what deleting an author does to her books. Without it, a
+  required relation refuses the delete and an optional one empties its key.
+
+A `one` alone is a relation: it stores the key, and its target has no field
+for it. To read it from the target too, declare the other side there and name
+the `one` with `inverse`. Nothing pairs by itself.
+
+- A `many` always names its other side: the `one` that stores the key, or the
+  `many` that names it back. The `one` that stores the key names nothing: its
+  other side names it.
+- A name in `inverse`, `within` or `from` that is not a field of the model it
+  names is a type error: on `defineApp` for `inverse` and `within`, on the
+  field for `from`. A relation that does not point back is refused when the
+  application starts.
+
+| Shape                                           | One side                                                   | Other side                                | Key stored        |
+| ----------------------------------------------- | ---------------------------------------------------------- | ----------------------------------------- | ----------------- |
+| One-sided                                       | `f.one(() => Branch)`                                      | none                                      | on the `one`      |
+| One-to-many, or many-to-one from the other side | `f.many(() => Book, { inverse: 'author' })`                | `f.one(() => Author)`                     | on the `one` side |
+| Many-to-many                                    | `f.many(() => Tag, { inverse: 'books' })`                  | `f.many(() => Book, { inverse: 'tags' })` | in a join table   |
+| One-to-one                                      | `f.one(() => Card, { inverse: 'member', optional: true })` | `f.one(() => Member)`                     | on the named side |
+
+A `one` is required unless it is `optional: true`: a book cannot be created
+without its author. A `many` is a list, `[]` when empty, and never required.
+The target is a function, `() => Book`, so two models can point to each other
+in any order in the file.
+
+## Write related rows
+
+A create or an update writes related rows in the same call, under the
+relation's field. Everything in the call is one write: if any part is
+refused, nothing is stored.
+
+These examples start from a library: the publisher Ace (`ace`); Ursula K. Le
+Guin (`ursula`) with The Dispossessed (tags utopia, classic) and The Lathe of
+Heaven; Octavia E. Butler (`octavia`) with Kindred. `dispossessed`, `lathe`,
+`kindred` and `classic` are those books and the tag.
+
+### Create rows with their relations
+
+`create` makes the related rows; `connect` links rows that exist, by `id`. A
+`one` takes a single object; a `many` takes a list. A required `one` must be
+written when the row is created, by `connect` or `create`:
+
+```ts
+const sower = await Book.create(
+	{
+		data: {
+			title: 'Parable of the Sower',
+			author: { connect: { id: octavia.id } },
+			publisher: { connect: { id: ace.id } },
+			tags: { create: [{ label: 'dystopia' }, { label: 'afrofuturism' }] },
+		},
+	},
+	as,
+)
+```
+
+### Link and unlink rows
+
+`connect` adds links and `disconnect` removes them, from either side of the
+relation:
+
+```ts
+await Book.update(
+	{
+		where: { id: lathe.id },
+		data: { tags: { connect: [{ id: classic.id }] } },
+	},
+	as,
+)
+```
+
+```ts
+// The same link, removed from the other side:
+await Tag.update(
+	{
+		where: { id: classic.id },
+		data: { books: { disconnect: [{ id: lathe.id }] } },
+	},
+	as,
+)
+```
+
+Connecting a `one` replaces its row. Here a book moves to another author:
+
+```ts
+await Book.update(
+	{
+		where: { id: kindred.id },
+		data: { author: { connect: { id: ursula.id } } },
+	},
+	as,
+)
+```
+
+An optional `one` is emptied with `disconnect: true`:
+
+```ts
+await Category.update(
+	{ where: { id: fantasy.id }, data: { parent: { disconnect: true } } },
+	as,
+)
+```
+
+### Replace a list, or link a row and create it if missing
+
+`set` replaces every link of a `many` with the rows it names:
+
+```ts
+await Book.update(
+	{
+		where: { id: dispossessed.id },
+		data: { tags: { set: [{ id: classic.id }] } },
+	},
+	as,
+)
+```
+
+`connectOrCreate` links the row its `where` finds, by `id` or a unique field,
+and creates it from `create` when there is none:
+
+```ts
+const utopia = { where: { label: 'utopia' }, create: { label: 'utopia' } }
+const anarchy = {
+	where: { label: 'anarchy' },
+	create: { label: 'anarchy' },
+}
+await Book.update(
+	{
+		where: { id: dispossessed.id },
+		data: { tags: { connectOrCreate: [utopia, anarchy] } },
+	},
+	as,
+)
+```
+
+### Update and delete related rows
+
+`update` changes linked rows and `delete` deletes them. On a `many`, each one
+names its rows with a `where`; only rows linked to this row are reached.
+
+```ts
+await Author.update(
+	{
+		where: { id: ursula.id },
+		data: {
+			books: {
+				update: [{ where: { id: lathe.id }, data: { title: 'Lathe' } }],
+			},
+		},
+	},
+	as,
+)
+```
+
+```ts
+await Author.update(
+	{
+		where: { id: ursula.id },
+		data: { books: { delete: [{ id: dispossessed.id }] } },
+	},
+	as,
+)
+```
+
+On a `one`, `update` takes the data directly and `delete: true` deletes the
+linked row, as [one-to-one](#one-to-one) shows.
+
+### A write the server refuses
+
+A `connect` to a row that does not exist fails with `NOT_FOUND`:
+
+```ts
+const data = {
+	title: 'The Word for World Is Forest',
+	author: { connect: { id: ursula.id } },
+	publisher: { connect: { id: '01890000-0000-7000-8000-000000000000' } },
+}
+await expect(Book.create({ data }, as)).rejects.toMatchObject({
+	code: 'NOT_FOUND',
+	message: 'A connected Publisher does not exist.',
+})
+```
+
+A write the types refuse, such as linking a book back to the publisher being
+created, throws an `InvalidQuery` (`INVALID_QUERY`) when the types are
+bypassed, and answers `BAD_USER_INPUT`, a `400`, when a client sends it:
+
+```ts
+const book = {
+	title: 'The Left Hand of Darkness',
+	author: { connect: { id: ursula.id } },
+	publisher: { connect: { id: ace.id } },
+}
+await expect(
+	Publisher.create(
+		// @ts-expect-error -- the publisher is the one being created
+		{ data: { name: 'Tor', books: { create: [book] } } },
+		as,
+	),
+).rejects.toThrow(InvalidQuery)
+```
+
+The [errors](#errors) list every refusal.
+
+## Read related rows
+
+### Include and select
+
+`include` adds related rows to the result. A `many` in an `include` takes the
+arguments of a `findMany`: `where`, `orderBy`, `take`, `skip`, `cursor`, and a
+nested `include` or `select`.
+
+Here Ursula's books are sorted by title, each with its publisher, whose `name`
+reads `'Ace'`. Adding `take: 10` keeps the first ten, and `tags: true` in the
+book's `include` adds its tags.
+
+```ts
+const author = await Author.findUniqueOrThrow(
+	{
+		where: { id: ursula.id },
+		include: {
+			books: { orderBy: { title: 'asc' }, include: { publisher: true } },
+		},
+	},
+	as,
+)
+```
+
+`select` returns only the fields it names, relations included, at any depth.
+The result's type follows it:
+
+```ts
+const books = await Book.findMany(
+	{
+		where: { title: 'Kindred' },
+		select: { title: true, author: { select: { name: true } } },
+	},
+	as,
+)
+expect(books).toEqual([
+	{ title: 'Kindred', author: { name: 'Octavia E. Butler' } },
+])
+```
+
+A `one` reads `null` when the caller cannot read its target: a read rule hides
+it, or it is in the [trash](/docs/next/soft-delete). Its type includes `null`,
+even for a required relation, whose key is never empty.
+
+### Filter through a relation
+
+A `where` reaches the related rows: `is` and `isNot` on a `one`, `some`,
+`every` and `none` on a `many`. They nest, so a filter can cross several
+relations.
+
+```ts
+// `is` and `isNot` on a `one`
+const hers = await Book.findMany(
+	{ where: { author: { is: { name: 'Octavia E. Butler' } } } },
+	as,
+)
+expect(hers.map((book) => book.title)).toEqual(['Kindred'])
+```
+
+```ts
+const withClassic = await Author.findMany(
+	{ where: { books: { some: { tags: { some: { label: 'classic' } } } } } },
+	as,
+)
+expect(withClassic.map((author) => author.name)).toEqual(['Ursula K. Le Guin'])
+const untagged = await Author.findMany(
+	{ where: { books: { every: { tags: { none: {} } } } } },
+	as,
+)
+expect(untagged.map((author) => author.name)).toEqual(['Octavia E. Butler'])
+```
+
+`is: null` finds the rows whose optional `one` is empty, `isNot: null` those
+where it is set. `every` is true for a row with no related row.
+
+### Count and sort
+
+`_count` counts the related rows of each `many`, with a `where` if needed:
+`_count: { select: { books: { where: { title: 'Kindred' } } } }`. An `orderBy`
+sorts by that count. Ursula has 2 books and Octavia 1:
+
+```ts
+const authors = await Author.findMany(
+	{
+		orderBy: { books: { _count: 'desc' } },
+		include: { _count: { select: { books: true } } },
+	},
+	as,
+)
+expect(authors.map((author) => author._count.books)).toEqual([2, 1])
+```
+
+An `orderBy` also sorts through a `one`, by a field of the related row:
+
+```ts
+const books = await Book.findMany(
+	{ orderBy: [{ author: { name: 'asc' } }, { title: 'asc' }] },
+	as,
+)
+expect(books.map((book) => book.title)).toEqual([
+	'Kindred',
+	'The Dispossessed',
+	'The Lathe of Heaven',
+])
+```
+
+A row the caller's access rules hide is absent everywhere: from an `include`,
+from a `_count`, and from the rows a filter matches. A required `one` whose row
+is hidden reads as `null`.
+
+## Deleting a row that others point to
+
+The `onDelete` of a `one` says what deleting its target does to the rows that
+point to it.
+
+| `onDelete` | Deleting the target                    | Default for       |
+| ---------- | -------------------------------------- | ----------------- |
+| `restrict` | is refused while a row points to it    | a required `one`  |
+| `cascade`  | deletes the rows that point to it, too | never             |
+| `setNull`  | empties their key                      | an optional `one` |
+
+`Book.author` cascades: deleting an author deletes her books, and their links
+to tags. The tags stay.
+
+```ts
+await Author.delete({ where: { id: ursula.id } }, as)
+expect(await Book.count({}, as)).toBe(1)
+expect(await Tag.count({}, as)).toBe(2)
+```
+
+`Book.publisher` restricts: a publisher with books cannot be deleted.
+
+```ts
+await expect(
+	Publisher.delete({ where: { id: ace.id } }, as),
+).rejects.toMatchObject({
+	code: 'RELATION_RESTRICTED',
+	message: 'Book.publisher references a Publisher the delete removes.',
+})
+```
+
+An optional `one` is emptied: deleting a category leaves its children without
+a parent, as [A model related to itself](#a-model-related-to-itself) shows.
+`setNull` on a required relation is refused by the types and at startup.
+
+## Bounding the rows of a many
+
+`size` on a `many` that faces a `one` bounds how many rows each parent
+holds: every poll keeps 2 to 4 choices.
+
+```ts
+export const Poll = defineModel({
+	name: 'Poll',
+	fields: (f) => ({
+		question: f.string(),
+		// Every poll holds 2 to 4 choices at the end of a write.
+		choices: f.many(() => Choice, {
+			inverse: 'poll',
+			size: { min: 2, max: 4 },
+		}),
+	}),
+})
+
+export const Choice = defineModel({
+	name: 'Choice',
+	fields: (f) => ({
+		label: f.string(),
+		poll: f.one(() => Poll, { onDelete: 'cascade' }),
+	}),
+})
+```
+
+A write that leaves a parent out of its bounds is refused with
+`RELATION_SIZE`, and nothing of it is kept. The bound is checked at the end of
+the write, or of the [transaction](/docs/next/transactions):
+
+```ts
+const poll = await Poll.create(
+	{
+		data: {
+			question: 'Lunch?',
+			choices: { create: [{ label: 'Pizza' }, { label: 'Salad' }] },
+		},
+		include: { choices: true },
+	},
+	as,
+)
+```
+
+```ts
+// A poll with one choice cannot be created.
+const one = { question: 'Yes?', choices: { create: [{ label: 'Yes' }] } }
+await expect(Poll.create({ data: one }, as)).rejects.toMatchObject({
+	code: 'RELATION_SIZE',
+	message: 'Poll.choices holds 2 to 4 rows: this write leaves 1.',
+	details: { model: 'Poll', field: 'choices', min: 2, max: 4, size: 1 },
+})
+```
+
+The [details](#details) say what the check covers.
+
+## Other shapes
+
+### One-to-one
+
+Both sides are `one`. The side that names the other with `inverse` is
+optional and stores no key. The side it names stores the key, unique, and
+`onDelete` belongs to it. A member has at most one card; a card always has its
+member.
+
+```ts
+export const Member = defineModel({
+	name: 'Member',
+	fields: (f) => ({
+		name: f.string(),
+		// Optional: a member may have no card yet.
+		card: f.one(() => Card, { inverse: 'member', optional: true }),
+	}),
+})
+
+export const Card = defineModel({
+	name: 'Card',
+	fields: (f) => ({
+		number: f.string({ unique: true }),
+		// Required: the side that stores the key. A card goes with its member.
+		member: f.one(() => Member, { onDelete: 'cascade' }),
+	}),
+})
+```
+
+```ts
+const ada = await Member.create(
+	{ data: { name: 'Ada', card: { create: { number: 'C-1' } } } },
+	as,
+)
+const card = await Card.findUniqueOrThrow(
+	{ where: { number: 'C-1' }, include: { member: true } },
+	as,
+)
+expect(card.member?.name).toBe('Ada')
+```
+
+```ts
+await Member.update(
+	{ where: { id: ada.id }, data: { card: { update: { number: 'C-2' } } } },
+	as,
+)
+// `delete: true` on the optional side deletes the linked card.
+await Member.update(
+	{ where: { id: ada.id }, data: { card: { delete: true } } },
+	as,
+)
+```
+
+A member that already has a card cannot `connect` or `create` another one:
+the old card would be left without its member, and the write fails with
+`The Card it points to cannot be left without one.` Update or delete the card
+instead.
+
+When the side that stores the key is optional too, as
+`member: f.one(() => Member, { optional: true })` on the card would make it,
+the member moves its card instead: `connect`, `create` and `disconnect` leave
+the old card with no member. From the card's side, connecting a member another
+card holds fails with `UNIQUE_VIOLATION`.
+
+### A one-sided relation
+
+A `one` that no relation names stores its key, and its target has no field
+for it. A notice belongs to a branch; a branch does not list its notices:
+
+```ts
+// Named by no relation: the notice stores its branch's key, and `Branch` has
+// no field for its notices.
+export const Notice = defineModel({
+	name: 'Notice',
+	fields: (f) => ({
+		text: f.string(),
+		branch: f.one(() => Branch, { onDelete: 'cascade' }),
+	}),
+})
+```
+
+It is written, read, filtered and sorted like any `one`, and its `onDelete`
+applies when the branch is deleted. `paris` is a branch whose city is Paris:
+
+```ts
+await Notice.create(
+	{
+		data: { text: 'Closed on Monday', branch: { connect: { id: paris.id } } },
+	},
+	as,
+)
+```
+
+```ts
+const found = await Notice.findMany(
+	{ where: { branch: { is: { city: 'Paris' } } }, include: { branch: true } },
+	as,
+)
+expect(found.map((notice) => notice.branch?.city)).toEqual(['Paris'])
+```
+
+A nested write from the target is not possible, as the target has no field
+for it. Declare `notices: f.many(() => Notice, { inverse: 'branch' })` on
+`Branch` when it should have one.
+
+### A many-to-many declared on one side
+
+A `many` with `inverse: false` is a many-to-many its target has no field
+for. A reading list names its books; a book does not list the reading lists:
+
+```ts
+// A many-to-many declared on one side: a reading list names its books, and
+// `Book` has no field for the lists that name it.
+export const ReadingList = defineModel({
+	name: 'ReadingList',
+	fields: (f) => ({
+		title: f.string(),
+		books: f.many(() => Book, { inverse: false }),
+	}),
+})
+```
+
+Its join table holds the two keys, as any many-to-many's. It is written,
+read, filtered, counted and sorted like one, takes `within`, and deleting a
+row of either side removes its links. `earthsea` is the book A Wizard of
+Earthsea:
+
+```ts
+const list = await ReadingList.create(
+	{
+		data: { title: 'Winter', books: { connect: [{ id: earthsea.id }] } },
+	},
+	as,
+)
+```
+
+```ts
+const found = await ReadingList.findMany(
+	{
+		where: { books: { some: { title: { contains: 'Earthsea' } } } },
+		select: { title: true, books: { select: { title: true } } },
+	},
+	as,
+)
+expect(found).toEqual([
+	{ title: 'Winter', books: [{ title: 'A Wizard of Earthsea' }] },
+])
+```
+
+- `size` is refused, as on any many-to-many.
+- The join table is named after the declared side, `reading_list_books`;
+  giving the relation a second side later renames it, which `migrate create`
+  writes.
+- The kernel names the hidden other side `readingListBooks`, so the target
+  cannot have a field of that name.
+
+### A model related to itself
+
+A relation may target its own model: a category's parent and children.
+
+```ts
+export const Category = defineModel({
+	name: 'Category',
+	fields: (f) => ({
+		name: f.string(),
+		// Optional, so deleting a parent empties its children's `parent`.
+		parent: f.one(() => Category, { optional: true }),
+		children: f.many(() => Category, { inverse: 'parent' }),
+	}),
+})
+```
+
+A category is created with its children:
+
+```ts
+const fiction = await Category.create(
+	{
+		data: {
+			name: 'Fiction',
+			children: { create: [{ name: 'Fantasy' }, { name: 'Horror' }] },
+		},
+	},
+	as,
+)
+```
+
+`parent` is optional, so deleting a category empties its children's parent:
+
+```ts
+await Category.delete({ where: { id: fiction.id } }, as)
+const left = await Category.findMany(
+	{ orderBy: { name: 'asc' }, include: { parent: true } },
+	as,
+)
+expect(left.map(({ name, parent }) => [name, parent])).toEqual([
+	['Fantasy', null],
+	['Horror', null],
+])
+```
+
+### Two relations between the same models
+
+When two models are linked twice, each `many` names its own `one`, as any
+`many` does:
+
+```ts
+export const Branch = defineModel({
+	name: 'Branch',
+	fields: (f) => ({
+		city: f.string(),
+		outgoing: f.many(() => Transfer, { inverse: 'from' }),
+		incoming: f.many(() => Transfer, { inverse: 'to' }),
+	}),
+})
+
+// Two relations to Branch, each named by its own `many`.
+export const Transfer = defineModel({
+	name: 'Transfer',
+	fields: (f) => ({
+		copies: f.number({ integer: true }),
+		from: f.one(() => Branch),
+		to: f.one(() => Branch),
+	}),
+})
+```
+
+```ts
+const paris = await Branch.create({ data: { city: 'Paris' } }, as)
+const transfer = { copies: 12, from: { connect: { id: paris.id } } }
+await Branch.create(
+	{ data: { city: 'Lyon', incoming: { create: [transfer] } } },
+	as,
+)
+```
+
+```ts
+const read = await Branch.findUniqueOrThrow(
+	{
+		where: { id: paris.id },
+		include: { outgoing: { include: { to: true } }, incoming: true },
+	},
+	as,
+)
+expect(read.outgoing.map((sent) => sent.to?.city)).toEqual(['Lyon'])
+expect(read.incoming).toEqual([])
+```
+
+### A many-to-many with fields of its own
+
+The join table of a many-to-many holds only the two keys. To store more, a
+role or a date, make the join a model with two `one` relations. A reader and a
+club each list their memberships:
+
+```ts
+export const Reader = defineModel({
+	name: 'Reader',
+	fields: (f) => ({
+		name: f.string(),
+		memberships: f.many(() => Membership, { inverse: 'reader' }),
+	}),
+})
+
+export const Club = defineModel({
+	name: 'Club',
+	fields: (f) => ({
+		name: f.string(),
+		memberships: f.many(() => Membership, { inverse: 'club' }),
+	}),
+})
+```
+
+```ts
+// A many-to-many with fields of its own: a model with two `one` relations.
+export const Membership = defineModel({
+	name: 'Membership',
+	fields: (f) => ({
+		role: f.enumOf(['member', 'host'], { default: 'member' }),
+		reader: f.one(() => Reader, { onDelete: 'cascade' }),
+		club: f.one(() => Club, { onDelete: 'cascade' }),
+	}),
+})
+```
+
+`club` is a club named Thursday readers. Grace joins it as its host, and the
+club reads its members through the join:
+
+```ts
+const membership = {
+	role: 'host' as const,
+	club: { connect: { id: club.id } },
+}
+await Reader.create(
+	{ data: { name: 'Grace', memberships: { create: [membership] } } },
+	as,
+)
+```
+
+```ts
+const read = await Club.findUniqueOrThrow(
+	{
+		where: { id: club.id },
+		include: { memberships: { include: { reader: true } } },
+	},
+	as,
+)
+expect(
+	read.memberships.map(({ role, reader }) => [reader?.name, role]),
+).toEqual([['Grace', 'host']])
+```
+
+### Views and filtered relations
+
+A view is a read-only `many` that shows some of the rows of another `many` of
+the same model: `from` names that relation, and `.with({ relations })` gives
+the filter. A `one` view shows the one row its filter keeps, or `null`:
+
+```ts
+export const Series = defineModel({
+	name: 'Series',
+	fields: (f) => ({
+		title: f.string(),
+		volumes: f.many(() => Volume, { inverse: 'series' }),
+		// A view: the volumes its filter keeps, read-only.
+		released: f.many(() => Volume, { from: 'volumes' }),
+		// A one view: the one volume its filter keeps, or null.
+		upcoming: f.one(() => Volume, { from: 'volumes' }),
+	}),
+}).with({
+	relations: {
+		released: { where: ({ where }) => where({ released: true }) },
+		upcoming: { where: ({ where }) => where({ released: false }) },
+	},
+})
+```
+
+A `many` view is read, filtered, counted and sorted like any relation. A
+`one` view is read and filtered. Here a series, Earthsea, has two volumes, Wizard
+(released) and Wind:
+
+```ts
+const series = await Series.create(
+	{
+		data: {
+			title: 'Earthsea',
+			volumes: {
+				create: [{ title: 'Wizard', released: true }, { title: 'Wind' }],
+			},
+		},
+	},
+	as,
+)
+```
+
+```ts
+const read = await Series.findUniqueOrThrow(
+	{
+		where: { id: series.id },
+		include: {
+			released: true,
+			_count: { select: { volumes: true, released: true } },
+		},
+	},
+	as,
+)
+expect(read.released.map((volume) => volume.title)).toEqual(['Wizard'])
+expect(read._count).toEqual({ volumes: 2, released: 1 })
+```
+
+A unique index on the target's key, with a `where` the filter keeps, holds
+a `one` view's row single:
+
+```ts
+export const Volume = defineModel({
+	name: 'Volume',
+	fields: (f) => ({
+		title: f.string(),
+		released: f.boolean({ default: false }),
+		series: f.one(() => Series, { onDelete: 'cascade' }),
+	}),
+	// One unreleased volume per series: what keeps `upcoming` single.
+	indexes: [{ fields: ['series'], unique: true, where: { released: false } }],
+})
+```
+
+A `one` view is read and filtered like a `one`, with `is`, `isNot` and
+`is: null`:
+
+```ts
+const next = await Series.findUniqueOrThrow(
+	{
+		where: { id: series.id },
+		select: { upcoming: { select: { title: true } } },
+	},
+	as,
+)
+expect(next.upcoming).toEqual({ title: 'Wind' })
+```
+
+```ts
+// Filtered like a `one`.
+const writing = await Series.findMany(
+	{ where: { upcoming: { isNot: null } } },
+	as,
+)
+expect(writing.map((each) => each.title)).toEqual(['Earthsea'])
+```
+
+#### The signed-in user: `viewer`
+
+A `one` view can pin a relation to the user model to the signed-in user with
+`viewer: true`, at the top of its filter. A unique index on the target's key
+and that relation holds the row single, so each user reads their own:
+
+```ts
+export const Poll = defineModel({
+	name: 'Poll',
+	use: [graphql()],
+	fields: (f) => ({
+		question: f.string(),
+		votes: f.many(() => Vote, { inverse: 'poll' }),
+		// A one view: the caller's own vote, or null.
+		myVote: f.one(() => Vote, { from: 'votes' }),
+		// An exists: whether the caller voted.
+		hasVoted: f.exists(() => Vote, { from: 'votes' }),
+	}),
+}).with({
+	// Read by all; the server asks the questions.
+	access: allow.readOnly,
+	relations: {
+		myVote: { where: ({ where }) => where({ voter: { viewer: true } }) },
+		hasVoted: { where: ({ where }) => where({ voter: { viewer: true } }) },
+	},
+})
+```
+
+```ts
+export const Vote = defineModel({
+	name: 'Vote',
+	use: [graphql()],
+	fields: (f) => ({
+		choice: f.string(),
+		poll: f.one(() => Poll),
+		voter: f.one(() => User, { default: currentUser }),
+	}),
+	// One vote per user and poll: what keeps `myVote` single.
+	indexes: [{ fields: ['poll', 'voter'], unique: true }],
+}).with({
+	access: { read: isAuthenticated, create: isOwner('voter') },
+})
+```
+
+A poll asks `Tabs?`, created as Master. Ada, signed in, sent
+`createVote(data: { choice: "yes", poll: { connect: { id: $poll } } })`, with
+`$poll` the poll's id, so her request reads her vote:
+
+```graphql
+query {
+	polls {
+		edges {
+			node {
+				question
+				myVote {
+					choice
+				}
+				hasVoted
+			}
+		}
+	}
+}
+```
+
+```json
+{
+	"data": {
+		"polls": {
+			"edges": [
+				{
+					"node": {
+						"question": "Tabs?",
+						"myVote": { "choice": "yes" },
+						"hasVoted": true
+					}
+				}
+			]
+		}
+	}
+}
+```
+
+A user who has not voted, a visitor and Master read `myVote` as `null` and
+`hasVoted` as `false`.
+
+`viewer: false`, alone in a `one` view's filter, reads the other row of a
+pair: `otherMember: f.one(() => Member, { from: 'members' })` with
+`where({ user: { viewer: false } })` reads, for a member of a chat, the
+other member, and `null` for anyone else, Master included.
+
+#### Does a row exist: `f.exists`
+
+An exists, declared with `f.exists(target, { from })`, reads whether a view
+keeps a row: `hasVoted` above reads `true` once the caller voted, and `false`
+otherwise. Its filter is given in `.with({ relations })` as a `many` view's,
+`viewer` included. `where: { hasVoted: true }` keeps the rows whose view keeps
+a row, `false` those whose view keeps none.
+
+### A relation kept within a parent
+
+`within` keeps a `one`'s target in the row's parent: a task links only a
+milestone of its own project.
+
+```ts
+export const Project = defineModel({
+	name: 'Project',
+	fields: (f) => ({
+		name: f.string(),
+		milestones: f.many(() => Milestone, { inverse: 'project' }),
+		tasks: f.many(() => Task, { inverse: 'project' }),
+		notes: f.many(() => Note, { inverse: 'project' }),
+	}),
+})
+```
+
+```ts
+export const Milestone = defineModel({
+	name: 'Milestone',
+	fields: (f) => ({
+		name: f.string(),
+		project: f.one(() => Project, { onDelete: 'cascade' }),
+		tasks: f.many(() => Task, { inverse: 'milestone' }),
+	}),
+})
+
+export const Task = defineModel({
+	name: 'Task',
+	fields: (f) => ({
+		title: f.string(),
+		project: f.one(() => Project, { onDelete: 'cascade' }),
+		// The milestone's `project` is the task's `project`.
+		milestone: f.one(() => Milestone, { optional: true, within: 'project' }),
+		notes: f.many(() => Note, { inverse: 'tasks' }),
+	}),
+})
+```
+
+`within: 'project'` says the milestone's `project` is the task's `project`.
+Every write that would part them is refused: linking a milestone of another
+project, moving the task to another project, or moving the milestone while
+a task links it.
+
+`site` and `shop` are projects, and `beta` is a milestone of `site`. A refusal
+is `VALIDATION_FAILED` with the issue `{ path: ['milestone'], message: 'Task.milestone
+needs a Milestone of the same project.' }`.
+
+```ts
+await Task.create(
+	{
+		data: {
+			title: 'Write the docs',
+			project: { connect: { id: site.id } },
+			milestone: { connect: { id: beta.id } },
+		},
+	},
+	as,
+)
+```
+
+```ts
+// A task of another project cannot link the milestone.
+const data = {
+	title: 'Ship',
+	project: { connect: { id: shop.id } },
+	milestone: { connect: { id: beta.id } },
+}
+await expect(Task.create({ data }, as)).rejects.toMatchObject(refused)
+```
+
+```ts
+// Nor can the milestone leave its project while a task links it.
+const move = { project: { connect: { id: shop.id } } }
+await expect(
+	Milestone.update({ where: { id: beta.id }, data: move }, as),
+).rejects.toMatchObject({ code: 'VALIDATION_FAILED' })
+```
+
+A many-to-many takes `within` too, on one side: every task a note links
+has the note's `project`.
+
+```ts
+export const Note = defineModel({
+	name: 'Note',
+	fields: (f) => ({
+		text: f.string(),
+		project: f.one(() => Project, { onDelete: 'cascade' }),
+		// Every task a note links has the note's `project`.
+		tasks: f.many(() => Task, { inverse: 'notes', within: 'project' }),
+	}),
+})
+```
+
+Both models' `project` is a required `one` to the same model, and `within`
+names it. The rule holds from both sides: linking a task of another project,
+from the note or from the task, is refused, and so is moving a note or a
+task to another project while a link holds it.
+
+Here `site` and `shop` are projects, and `task` is a task of `shop`. A refusal from the note carries the
+issue `{ path: ['tasks'], message: 'Note.tasks needs a Task of the same project.' }`.
+
+```ts
+const here = { connect: { id: site.id } }
+const note = await Note.create(
+	{
+		data: {
+			text: 'Release plan',
+			project: here,
+			tasks: { create: [{ title: 'Write the docs', project: here }] },
+		},
+	},
+	as,
+)
+```
+
+```ts
+// A task of another project cannot be linked, from the note...
+const link = { tasks: { connect: [{ id: task.id }] } }
+await expect(
+	Note.update({ where: { id: note.id }, data: link }, as),
+).rejects.toMatchObject(refused)
+```
+
+```ts
+// ...nor from the task.
+const back = { notes: { connect: [{ id: note.id }] } }
+await expect(
+	Task.update({ where: { id: task.id }, data: back }, as),
+).rejects.toMatchObject({ code: 'VALIDATION_FAILED' })
+```
+
+### A relation to one of several models
+
+A remark is on an article or on a video, never both and never neither.
+`f.oneOf` takes the kinds, each named and given its model; each model names
+the field back from a `many`, as for a `one`.
+
+```ts
+export const Article = defineModel({
+	name: 'Article',
+	fields: (f) => ({
+		title: f.string(),
+		remarks: f.many(() => Remark, { inverse: 'subject' }),
+	}),
+})
+```
+
+```ts
+export const Video = defineModel({
+	name: 'Video',
+	fields: (f) => ({
+		title: f.string(),
+		url: f.string({ unique: true }),
+		remarks: f.many(() => Remark, { inverse: 'subject' }),
+	}),
+})
+
+export const Remark = defineModel({
+	name: 'Remark',
+	fields: (f) => ({
+		text: f.string(),
+		// One article or one video: never both, never neither.
+		subject: f.oneOf(
+			{ article: () => Article, video: () => Video },
+			{ onDelete: 'cascade' },
+		),
+	}),
+})
+```
+
+`article` is an Article titled Looms. A write names the kind it links or
+creates:
+
+```ts
+// A write names the kind it links or creates.
+const clear = await Remark.create(
+	{
+		data: {
+			text: 'Clear',
+			subject: { connect: { article: { id: article.id } } },
+		},
+	},
+	as,
+)
+```
+
+```ts
+const video = { title: 'Intro', url: 'intro.mp4' }
+const short = await Remark.create(
+	{
+		include: { subject: true },
+		data: { text: 'Short', subject: { create: { video } } },
+	},
+	as,
+)
+```
+
+A read gives the kind, and the row of each kind it asks for: `select` and
+`include` take `true`, or an object of kinds, each taking what a `one` takes.
+A kind the read leaves out reads `{ kind }` alone, and TypeScript narrows the
+value on `kind`:
+
+```ts
+// A read gives the kind, and the row of each kind it asks for.
+const remarks = await Remark.findMany(
+	{
+		orderBy: { text: 'asc' },
+		select: { text: true, subject: { video: { select: { url: true } } } },
+	},
+	as,
+)
+expect(remarks).toEqual([
+	{ text: 'Clear', subject: { kind: 'article' } },
+	{ text: 'Short', subject: { kind: 'video', video: { url: 'intro.mp4' } } },
+])
+```
+
+```ts
+// TypeScript narrows the value on its kind.
+const { subject } = short
+const id = subject?.kind === 'video' ? subject.video.id : ''
+expect(subject).toMatchObject({ kind: 'video', video: { title: 'Intro' } })
+```
+
+Linking another kind empties the former. An optional `oneOf` reads `null` when
+it is empty, and takes `disconnect: true`:
+
+```ts
+// Linking another kind empties the former.
+await Remark.update(
+	{
+		where: { id: clear.id },
+		data: { subject: { connect: { video: { id } } } },
+	},
+	as,
+)
+```
+
+```ts
+const articles = await Article.findUnique(
+	{ where: { id: article.id }, include: { remarks: true } },
+	as,
+)
+expect(articles).toMatchObject({ remarks: [] })
+```
+
+A `where` filters through one kind, through the fields every kind declares
+with the same type, or by kind:
+
+```ts
+// Through one kind, or through the fields every kind shares.
+const onIntro = await Remark.count(
+	{ where: { subject: { video: { is: { url: { equals: 'intro.mp4' } } } } } },
+	as,
+)
+const startingWithI = await Remark.count(
+	{ where: { subject: { is: { title: { startsWith: 'I' } } } } },
+	as,
+)
+expect([onIntro, startingWithI]).toEqual([2, 2])
+```
+
+```ts
+// By kind.
+const onArticles = await Remark.count(
+	{ where: { subject: { kind: 'article' } } },
+	as,
+)
+expect(onArticles).toBe(0)
+```
+
+## Relations in access rules and hooks
+
+- A rule or a hook sees a `one` as `{ id }`, or `null` when it is empty, and
+  a `oneOf` as `{ kind: 'video', video: { id } }`. A `many` is absent from
+  the record.
+- The optional side of a one-to-one is absent from the record too: the key is
+  stored on the other side.
+- A field rule on a `many`, in `f.many(...).with(...)`, receives what the
+  write does to it: `{ connect, disconnect, create, delete }`.
+- A many-to-many written from its other side runs this side's field rule
+  too, once per row it links or unlinks: when `Book.tags` connects a tag, the
+  rule of `Tag.books` runs with the tag as `record` and the book in `connect`.
+
+## Over GraphQL
+
+The `graphql()` plugin of each model serves the same writes and reads. A
+client creates an author with her books and their tags in one mutation.
+`$publisher` is the id of a publisher created before:
+
+```graphql
+mutation ($publisher: ID!) {
+	createAuthor(
+		data: {
+			name: "Ursula"
+			books: {
+				create: [
+					{
+						title: "The Dispossessed"
+						publisher: { connect: { id: $publisher } }
+						tags: { create: [{ label: "utopia" }, { label: "classic" }] }
+					}
+				]
+			}
+		}
+	) {
+		name
+		books {
+			edges {
+				node {
+					title
+				}
+			}
+		}
+	}
+}
+```
+
+```json
+{
+	"data": {
+		"createAuthor": {
+			"name": "Ursula",
+			"books": { "edges": [{ "node": { "title": "The Dispossessed" } }] }
+		}
+	}
+}
+```
+
+A `many` is a connection, with `edges { node }` and `totalCount`, and takes
+the same `where`, `orderBy`, `take`, `skip` and `cursor`. With a second book,
+The Lathe of Heaven, written the same way, and `$id` the author's id:
+
+```graphql
+query ($id: ID!) {
+	author(where: { id: $id }) {
+		books(orderBy: [{ title: asc }]) {
+			totalCount
+			edges {
+				node {
+					title
+					tags {
+						totalCount
+					}
+				}
+			}
+		}
+	}
+}
+```
+
+```json
+{
+	"data": {
+		"author": {
+			"books": {
+				"totalCount": 2,
+				"edges": [
+					{
+						"node": { "title": "The Dispossessed", "tags": { "totalCount": 2 } }
+					},
+					{
+						"node": {
+							"title": "The Lathe of Heaven",
+							"tags": { "totalCount": 0 }
+						}
+					}
+				]
+			}
+		}
+	}
+}
+```
+
+REST takes the same `data`, `where`, `include` and `select` as JSON. The
+nested input names are in the [details](#details).
+
+## Details
+
+### Writes
+
+- Each nested row is written as if written alone: the target model's access
+  rules, field rules and hooks run for it. A nested `create` of a `Book` needs
+  the right to create a book.
+- Linking or unlinking a row from the other side updates that row: `connect`
+  under `Tag.books` runs the update rule of the `Book` it links.
+- Within one relation, the operations run in this order: `delete`, then
+  `create` and `connectOrCreate`, then `disconnect` and `connect`, then
+  `update`.
+- The relation back to the row being written is not written again: a book
+  created under a publisher cannot also `connect` its publisher. The types
+  refuse it, and so does the server, for clients.
+
+### Deleting
+
+- A cascade runs the hooks of every row it deletes, but checks the access
+  rules only on the row the caller deletes.
+- A many-to-many link is removed with either of its rows, whatever `onDelete`
+  says.
+
+### Size
+
+- The bound is checked on each parent the write touched: a create, a row added
+  or moved from either side, a delete, a cascade or a `setNull`.
+- A parent with a `min` is created with its rows: in the same write, or in
+  one transaction with the writes that add them.
+- Deleting the parent deletes or empties its rows with it, and is never
+  refused by its own bound.
+- `min` is from 0, `max` from 1; either may be left out. A many-to-many and a
+  view take no `size`, refused by the types and at startup.
+- Each write locks the parents it touches, so concurrent writes to one
+  parent run one after the other and cannot pass the bound together.
+- The GraphQL and OpenAPI schemas state the bound in the field's
+  description: `Holds 2 to 4 rows.`
+- `database.sql` statements of your own are not checked.
+
+### Views
+
+- A `many` view is not written: it takes no `inverse` and no `onDelete`, and is
+  absent from a create's or an update's `data`. Write its rows through the
+  relation it reads.
+- Its filter's function receives `{ caller, where }` and returns
+  `where({ ... })` or a boolean. It can depend on the caller.
+- `.with({ relations })` also filters a declared `many` itself. Its filter
+  applies to every read, Master's included. Writes still reach the rows it
+  hides, so `connect` and `disconnect` work and `set` is refused.
+- A `one` view's `from` names a one-to-many `many` of the same model, not
+  another view.
+- A `one` view's filter receives only `{ where }` and returns `where({ ... })`.
+  The target's read rule still applies, so a row the caller cannot read reads
+  `null`.
+- A `one` view is not written and sorts nothing.
+
+### `viewer` and `f.exists`
+
+- With `viewer: false`, the `many` it reads holds two rows at most,
+  `size: { max: 2 }`, and the target takes a unique index on the key and the
+  relation, `{ fields: ['chat', 'user'], unique: true }`.
+- Nothing else stands in that filter.
+- A read that finds two other rows, written around the application, fails.
+- In `f.exists`, `select` and `include` take `true`, and the field reads `true`
+  or `false`.
+- The target's read rule applies: a row the caller cannot read is not
+  counted.
+- An exists is not written, sorts nothing and is not in `_count`. Over
+  GraphQL it is a `Boolean!`, over REST a `boolean`. A query that sorts on it
+  is refused with `INVALID_QUERY`:
+  `orderBy.hasVoted: Poll.hasVoted is an exists, which sorts nothing.`
+
+### `within`
+
+- The pair may name the row itself, or another of its relations:
+  `within: { project: 'id' }` on `Project.featured` keeps it among the
+  project's own milestones, and `within: { milestone: 'featured' }` on
+  `Project.featuredTask` keeps it among the featured milestone's tasks.
+- The target's field is a required `one`; the row's side may be optional. A
+  row whose relation is `null` holds nothing; a row whose parent is `null`
+  links no target.
+- With no `featured` milestone, linking a `featuredTask` is refused, and so is
+  emptying `featured` while a `featuredTask` is linked: empty both in one
+  write. Deleting the featured milestone empties both.
+- `within` goes on the side that stores the key. On a `many` facing a
+  `one`, the start points to that side.
+- The parent needs no `many` of its milestones or tasks: a write reads, by
+  key, the parent of a target it does not hold.
+- A write is checked against the rows as they were before it: one that moves
+  a milestone and links a task to it in the same write is refused. Write
+  them one after the other.
+- On a many-to-many, a write that moves a row with the rows it links, or
+  removes the link, passes. On a `one`, moving a target while updating its row
+  is refused.
+- [`postgres()`](/docs/next/postgres) keeps it in the database too, with a
+  foreign key over both columns, so concurrent writes and SQL of your own
+  cannot part them.
+
+### `oneOf`
+
+- Each kind's `many` is a one-to-many as any other: a `connect` from
+  `Video.remarks` sets the remark's kind to `video`.
+- A target the caller cannot read makes the value `null`, as a `one`'s.
+- `onDelete` applies to every kind.
+- `is: null` and `isNot: null` match an optional `oneOf` that is empty, or
+  set.
+- [`postgres()`](/docs/next/postgres) stores a foreign key per kind,
+  `subject_article_id` and `subject_video_id`, and a check that one of them is
+  set, so the database keeps the cascades and the rule.
+- A `oneOf` takes no `unique`, `default`, `dbName` or `within`, is not sorted,
+  grouped or aggregated, and no view reads it; the kinds' `many` take no
+  `within` or `size`.
+
+### GraphQL names
+
+- The nested inputs are named after the relation, as in Prisma:
+  `BookCreateWithoutAuthorInput`, `BookUpdateManyWithoutAuthorNestedInput`.
+- The inputs of a `one`, such as `{ connect }` or `{ create }`, are `@oneOf`:
+  they take one operation.
+- A one-sided `one` takes its target's whole input, such as
+  `BranchCreateNestedOneInput`, since the target has no field back.
+- A `oneOf` is an object type, not a union, so that its JSON is REST's:
+  `RemarkSubject { kind: RemarkSubjectKind!, article: Article, video: Video }`,
+  filtered by `RemarkSubjectFilter` and written through `@oneOf` inputs of
+  kinds.
+
+## Reference
+
+### `f.one(target, options)`
+
+| Option        | Type                                             | Default                                       | Effect                                                                                                           |
+| ------------- | ------------------------------------------------ | --------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `optional`    | `boolean`                                        | `false`                                       | The row may have no related row; the field reads `null`.                                                         |
+| `onDelete`    | `'cascade' \| 'restrict' \| 'setNull'`           | `restrict` if required, `setNull` if optional | What deleting the target does. Only on the side that stores the key.                                             |
+| `default`     | `{ id }`, or a function returning one            | none                                          | The row a create links when it writes none.                                                                      |
+| `inverse`     | `string`                                         | none                                          | On the optional side of a one-to-one: the target's `one`, which stores the key. Without it, nothing names back.  |
+| `dbName`      | `string`                                         | the field's name                              | The stored key's column.                                                                                         |
+| `within`      | `string`, or `{ [target field]: 'id' \| field }` | none                                          | The target's field equals the row's: the target stays in the row's parent. Only on the side that stores the key. |
+| `from`        | `string`                                         | none                                          | Makes the field a read-only view: the one row of this `many` that its filter keeps.                              |
+| `description` | `string`                                         | none                                          | Shown in GraphQL and REST schemas.                                                                               |
+
+### `f.many(target, options)`
+
+| Option        | Type                             | Default  | Effect                                                                                                                         |
+| ------------- | -------------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `inverse`     | `string \| false`                | required | The target's `one` that stores the key, or its `many` that names this one back; `false` for a many-to-many with no other side. |
+| `from`        | `string`                         | none     | Instead of `inverse`: makes the field a view of this other `many`, filtered in `.with({ relations })`.                         |
+| `within`      | `string`                         | none     | A many-to-many's rows share this `one` of both models. On one side only.                                                       |
+| `size`        | `{ min?: number, max?: number }` | none     | Facing a `one`: the fewest and the most rows each parent holds.                                                                |
+| `description` | `string`                         | none     | Shown in GraphQL and REST schemas.                                                                                             |
+
+### `f.oneOf(kinds, options)`
+
+`kinds` names two models or more, each by a thunk: `{ article: () => Article,
+video: () => Video }`. A kind is not named `is`, `isNot` or `kind`.
+
+| Option        | Type                                   | Default                                       | Effect                                                   |
+| ------------- | -------------------------------------- | --------------------------------------------- | -------------------------------------------------------- |
+| `optional`    | `boolean`                              | `false`                                       | The row may have no related row; the field reads `null`. |
+| `onDelete`    | `'cascade' \| 'restrict' \| 'setNull'` | `restrict` if required, `setNull` if optional | What deleting the target does, whatever its kind.        |
+| `description` | `string`                               | none                                          | Shown in GraphQL and REST schemas.                       |
+
+### `f.exists(target, options)`
+
+| Option        | Type     | Default  | Effect                                                                      |
+| ------------- | -------- | -------- | --------------------------------------------------------------------------- |
+| `from`        | `string` | required | The `many` of the same model whose rows, filtered, the field says it keeps. |
+| `description` | `string` | none     | Shown in GraphQL and REST schemas.                                          |
+
+`.with({ relations: { field: { where } } })` on the model filters a `many` or
+a view; `where` is `({ caller, where }) => where({ ... }) | boolean`. On a
+`one` view, `where` is `({ where }) => where({ ... })`.
+
+### Nested writes
+
+| Operation         | On a `one`            | On a `many`           |
+| ----------------- | --------------------- | --------------------- |
+| `create`          | `{ ...data }`         | `[{ ...data }]`       |
+| `connect`         | `{ id }`              | `[{ id }]`            |
+| `connectOrCreate` | `{ where, create }`   | `[{ where, create }]` |
+| `disconnect`      | `true`, optional only | `[{ id }]`            |
+| `set`             | none                  | `[{ id }]`, alone     |
+| `update`          | `{ ...data }`         | `[{ where, data }]`   |
+| `delete`          | `true`, optional only | `[{ ...where }]`      |
+
+A `oneOf` takes `create`, `connect` and `connectOrCreate` as a `one` does,
+under one kind: `{ connect: { video: { id } } }`; and `disconnect: true` when
+it is optional.
+
+`set` cannot be combined with `connect` or `disconnect`, and is refused when
+the rows it would unlink cannot be left without this row (a required `one` on
+the other side) and on a filtered relation.
+
+### Filters
+
+| Filter   | On a `one` or a `many`  | Matches the rows                                                                                                    |
+| -------- | ----------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `is`     | `one`                   | whose related row matches, or is empty for `null`                                                                   |
+| `isNot`  | `one`                   | whose related row does not match                                                                                    |
+| `some`   | `many`                  | with at least one related row that matches                                                                          |
+| `every`  | `many`                  | whose related rows all match, or with none                                                                          |
+| `none`   | `many`                  | with no related row that matches                                                                                    |
+| `viewer` | both, to the user model | that relate to the signed-in user, for `true`, or another user, for `false` (see [Authentication](/docs/next/auth)) |
+
+On a `oneOf`, `is` and `isNot` take the fields every kind shares, a kind
+takes a `one`'s filter, `{ video: { is: ... } }`, and `kind` the name of a
+kind.
+
+### Errors
+
+| Code                  | When                                                                                                                                                | Example message                                                                                          |
+| --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `RELATION_RESTRICTED` | A delete removes a row that a `restrict` relation points to.                                                                                        | `Book.publisher references a Publisher the delete removes.`                                              |
+| `RELATION_SIZE`       | A write leaves a parent with fewer rows than its `min` or more than its `max`.                                                                      | `Poll.choices holds 2 to 4 rows: this write leaves 1.`                                                   |
+| `NOT_FOUND`           | A `connect` names a row that does not exist or that the caller cannot read; an `update` or `delete` names a row not linked to this one.             | `A connected Publisher does not exist.`, `No Book matches data.books.update.0.where.`                    |
+| `INVALID_QUERY`       | A write names the same row twice, writes the relation back to its parent, uses `set` where it is refused, or names two kinds of a `oneOf`, or none. | `A Book cannot be left without its author.`, `data.books.set cannot be used with connect or disconnect.` |
+| `VALIDATION_FAILED`   | A nested row's data is invalid, or a one-to-one would leave a row without its required side. The path names it.                                     | path `['books', 'create', 0, 'title']`                                                                   |
+| `UNIQUE_VIOLATION`    | Two `connectOrCreate` create the same unique value at once.                                                                                         |                                                                                                          |
+
+`RELATION_RESTRICTED` carries `details: { model, field }`, the relation that
+refused. `RELATION_SIZE` carries `details: { model, field, id, min, max,
+size }`: the parent, its bounds, `max` `null` when it has none, and the rows
+the write leaves it. On the server, `INVALID_QUERY` is thrown as an `InvalidQuery`, with
+its `code` and its `path`; a client receives it as `BAD_USER_INPUT`.
+
+### Startup errors
+
+The application refuses to start, with one of these messages, when a relation
+is declared wrongly:
+
+| Message                                                                                                                                                                     | Fix                                                              |
+| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| `Author.books: a many names its other side with inverse, or takes inverse: false for a many-to-many with no other side.`                                                    | Name the target's field with `inverse`, or set `inverse: false`. |
+| `ReadingList.books: Book has a field readingListBooks, the name its hidden side takes.`                                                                                     | Rename the target's field.                                       |
+| `Branch.outgoing: inverse 'source' is not a relation of Transfer to Branch.`                                                                                                | Name a field of the target that points back.                     |
+| `Category.children cannot be its own inverse.`                                                                                                                              | Name the other field of the relation.                            |
+| `Book.author: inverse names a many; drop it, Author.books names this side.`                                                                                                 | Remove `inverse` from the `one`.                                 |
+| `Branch.outgoing and Branch.incoming both name Transfer.from.`                                                                                                              | Name a different field from each.                                |
+| `Book.tags and Tag.books do not name each other.`                                                                                                                           | Make the two `inverse` of a many-to-many agree.                  |
+| `Member.card and Card.member name each other; only the side that stores no key names the other.`                                                                            | Remove `inverse` from the side that stores the key.              |
+| `Member.card: the side of a one-to-one that names the other stores no key, and is optional.`                                                                                | Make the side that names the other `optional: true`.             |
+| `Member.card: onDelete belongs on Card.member, which stores the key.`                                                                                                       | Move `onDelete` to the required side.                            |
+| `Book.author: setNull needs an optional relation.`                                                                                                                          | Make the relation optional, or choose another `onDelete`.        |
+| `Book.author: its target is not in models.`                                                                                                                                 | Add the target to the application's `models`.                    |
+| `Post.author: a plugin's model relates only to models of the same plugin; keep the id as a scalar.`                                                                         | Store the id in a `string` field.                                |
+| `Series.released is a view and takes no inverse.`                                                                                                                           | Remove `inverse` from the view.                                  |
+| `Series.released: from 'volumes' is not a many relation.`                                                                                                                   | Point `from` at a `many` of the same model.                      |
+| `Series.released: from 'volumes' relates to Volume, not Book.`                                                                                                              | Give the view the target of the relation it reads.               |
+| `Series.released: from 'latest' is a view; name its relation.`                                                                                                              | Point `from` at a declared relation, not another view.           |
+| `Milestone.tasks: within belongs on Task.milestone, which stores the key.`                                                                                                  | Move `within` to the side that stores the key.                   |
+| `Task.milestone: within names one pair, a field of the target and id or a field of the row.`                                                                                | Give one pair, such as `{ project: 'id' }`.                      |
+| `Task.milestone: within names stage, a one relation of Task.`                                                                                                               | Name a stored `one` of the row, or `id`.                         |
+| `Task.milestone: within names project, a required one relation of Milestone to Project.`                                                                                    | Make the target's field a required `one` to the row's parent.    |
+| `Series.released is a view; filter it in .with({ relations }).`                                                                                                             | Give the view its filter.                                        |
+| `Poll.hasVoted: an exists names its many with from.`                                                                                                                        | Name a `many` of the same model with `from`.                     |
+| `Series.with.relations.title: title is not a many relation.`                                                                                                                | Filter only a `many`.                                            |
+| `Series.upcoming reads one Volume: give Volume a unique index on series whose where the filter keeps, as { fields: ['series'], unique: true, where: { released: false } }.` | Add the index the message shows.                                 |
+| `Poll.myVote reads one Vote: give Vote a unique index on poll and voter, as { fields: ['poll', 'voter'], unique: true }.`                                                   | Add the index the message shows.                                 |
+| `Chat.otherMember reads one Member: viewer: false reads the other row of a pair; give members size: { max: 2 }.`                                                            | Bound the `many` to two rows.                                    |
+| `Chat.otherMember reads one Member: viewer: false stands alone in the filter, as where({ user: { viewer: false } }).`                                                       | Remove the filter's other conditions.                            |
+| `Poll.myVote reads one Vote: viewer pins a field of the filter's top level, outside OR, NOT and nested relations.`                                                          | Move `viewer` to the top of the filter.                          |
+| `Poll.choices: size takes whole numbers, min from 0 and max from 1, as { min: 1, max: 10 }.`                                                                                | Give whole numbers, `max` at least `min`.                        |
+| `Book.tags: size bounds a one-to-many relation only.`                                                                                                                       | Remove `size` from a many-to-many or a view.                     |
+| `f.oneOf() takes two kinds or more.`                                                                                                                                        | Give a second kind, or use `f.one`.                              |
+| `f.oneOf(): is is a filter's key, not a kind.`                                                                                                                              | Rename the kind.                                                 |
+| `Remark.subject: a oneOf takes no unique.`                                                                                                                                  | Remove the option.                                               |
+| `Video.remarks: a many facing a oneOf takes no size.`                                                                                                                       | Remove `size` or `within` from the `many`.                       |
+
+### Limits
+
+- A field is named by at most one relation: two `many` cannot name the same
+  `one`.
+- Sorting by `_count` or through a relation reads every row the `where`
+  selects before it sorts and pages.
+- `connect` and `connectOrCreate` find a row by `id`; `connectOrCreate` also by
+  a unique field.
+- Not built yet: a nested `upsert`, `createMany`, `updateMany` and
+  `deleteMany`.
+- A client reading through a transport gets at most the transport's `take`
+  limit on each list, nested lists included, and GraphQL refuses a query
+  nested deeper than its `maxDepth`.
