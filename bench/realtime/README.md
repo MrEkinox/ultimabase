@@ -234,10 +234,43 @@ The limits of this reading:
 - `kern.ipc.somaxconn` is 128 here and caps the listen backlog, where Linux allows Node's 511 by
   default. The overflow is inferred: `netstat -s` shows 0 listen queue overflows and did not move.
 - `EADDRNOTAVAIL` is the clients running out of ports on one address: real clients have their own.
-- Linux and several processes are not measured.
+- Several processes are not measured.
 
 D-275 spreads `liveFetch`'s reconnections over the wait, 5 s at most. The row at 5 s shows what such
 a spread gives: it stops clients in lockstep, it does not absorb 9000 at once on one process.
+
+The same series under Linux, in a `node:24` container of Docker on the same Mac, with `somaxconn` at
+4096, clients and Postgres sharing its 12 CPUs, Postgres reached directly, Node v24.22.2, one run per
+cell. First as it was, with Node's backlog of 511, or 4096 in a preloaded copy:
+
+| Arriving within | Backlog |  All in |             All states |           New visitor | Visitors failed | Told, connected | Attempts lost                          |     Writes failed |
+| --------------: | ------: | ------: | ---------------------: | --------------------: | --------------: | --------------: | -------------------------------------- | ----------------: |
+|           120 s |     511 | 120.2 s |         10 / 201 / 773 |         4 / 150 / 693 |       0 of 1215 |   31 / 77 / 757 | none                                   |              none |
+|            60 s |     511 |  61.3 s |      334 / 1209 / 1696 |     289 / 1174 / 1626 |        0 of 628 |  65 / 208 / 769 | none                                   |              none |
+|            30 s |     511 |  79.9 s |   6876 / 43598 / 70726 |  2918 / 38866 / 68494 |       15 of 814 |  62 / 209 / 757 | 958 `ECONNRESET`                       |              none |
+|             5 s |     511 | 139.7 s | 30048 / 73728 / 137847 |      4 / 4064 / 71689 |       6 of 1410 |  49 / 136 / 682 | 798 `ECONNRESET`, 4 `ETIMEDOUT`        |              none |
+|            30 s |    4096 |  62.9 s |  16728 / 31400 / 37945 | 15967 / 28094 / 36842 |        0 of 645 |  70 / 226 / 968 | none                                   |              none |
+|             5 s |    4096 |  61.9 s |  26699 / 55351 / 57167 | 22310 / 28179 / 56992 |        0 of 636 |  72 / 246 / 858 | none                                   |              none |
+|             0 s |    4096 |  73.9 s |  45464 / 71753 / 73634 | 32022 / 46774 / 51939 |        0 of 754 | 313 / 685 / 736 | 1226 closed `4403`, 1820 closed `1006` | 207 of about 1500 |
+
+The run at 0 s also logged 10 607 failed first reads, all waiting more than 10 s for one of the 10
+PostgreSQL connections. With D-276 to D-278, from commit `d34deba73`, nothing fails at any pace: no
+answer in error, no write failed, no socket closed once ready, no `A live viewer failed`:
+
+| Arriving within |  All in |           First state |            All states |           New visitor | Visitors failed | Told, connected | Longest stall, ms | Writes failed |
+| --------------: | ------: | --------------------: | --------------------: | --------------------: | --------------: | --------------: | ----------------: | ------------: |
+|           120 s | 120.1 s |         3 / 107 / 737 |         9 / 134 / 771 |          4 / 80 / 658 |       0 of 1215 |   34 / 67 / 758 |               393 |     0 of 2444 |
+|            60 s |  61.8 s |     723 / 1524 / 1760 |     747 / 1547 / 1791 |     697 / 1483 / 1707 |        0 of 634 |  65 / 208 / 694 |               308 |     0 of 1277 |
+|            30 s |  61.5 s | 15847 / 30080 / 35800 | 15870 / 30104 / 35822 | 15012 / 27091 / 34571 |        0 of 631 |  65 / 186 / 686 |               456 |     0 of 1272 |
+|             5 s |  59.5 s | 25982 / 53315 / 54630 | 26004 / 53351 / 54648 | 20197 / 28553 / 54383 |        0 of 611 |  65 / 157 / 617 |               363 |     0 of 1232 |
+|             0 s |  59.3 s | 20425 / 55460 / 58196 | 34830 / 57596 / 59106 |   686 / 25775 / 28468 |        0 of 609 | 68 / 472 / 1712 |              1532 |     0 of 1228 |
+|      0 s, again |  59.5 s | 33336 / 56671 / 59238 | 33736 / 57415 / 59260 | 10330 / 28598 / 30523 |        0 of 611 | 69 / 392 / 1308 |              1191 |     0 of 1231 |
+
+One process still opens about 150 clients a second, whatever the pace: 9000 take about 60 s. That
+ceiling did not move. What it removed is the failures, and the time they cost. The new visitor did
+not get ahead of the storm: past the ceiling it waits behind the queue, up to about 28 s, which is
+4096 connections at 145 a second. Why accepting is that slow is not established. The 60 s row is
+slower than with the backlog of 511, in one run each.
 
 ### 2026-11-06: over the wire, D-266 to D-273
 
