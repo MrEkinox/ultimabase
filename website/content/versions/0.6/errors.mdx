@@ -1,0 +1,344 @@
+---
+title: Errors
+description: Refuse with an error the client can read, and keep every other error on the server.
+---
+
+A `PublicError` is an error the client is meant to read. Throw one from a
+function, a hook or a plugin to refuse:
+
+```ts
+import { PublicError, allow, defineFunction, master } from 'ultimabase'
+import { z } from 'zod'
+import { Product } from './models.ts'
+
+export const order = defineFunction({
+	name: 'order',
+	input: z.object({ sku: z.string(), quantity: z.int().min(1) }),
+	run: async ({ input: { sku, quantity } }) => {
+		const product = await Product.findUniqueOrThrow(
+			{ where: { sku } },
+			{ as: master },
+		)
+		if (product.stock < quantity) {
+			throw new PublicError('OUT_OF_STOCK', `Only ${product.stock} left.`, {
+				details: { sku: product.sku, left: product.stock },
+			})
+		}
+		await Product.update(
+			{ where: { id: product.id }, data: { stock: { decrement: quantity } } },
+			{ as: master },
+		)
+	},
+}).with({ access: allow.public })
+```
+
+The full example, with its tests: [`examples/errors`](https://github.com/MrEkinox/ultimabase/tree/main/examples/errors).
+
+The code, the message and the details reach the client, from server code and
+over every transport.
+
+The examples sell products. The tests write one, `{ sku: 'MUG-1', name: 'Mug',
+stock: 2 }`, and its `sku` is `unique`: so `Only 2 left.`, `left: 2` and
+`UNIQUE_VIOLATION` below.
+
+| To                                         | Use                                                            |
+| ------------------------------------------ | -------------------------------------------------------------- |
+| refuse with a reason the client can act on | [`new PublicError(code, message, options)`](#refuse-a-request) |
+| branch on an error in server code          | [`error.code`](#catch-it-in-server-code)                       |
+| see what a REST client receives            | [the answer](#what-a-rest-client-receives)                     |
+| see what a GraphQL client receives         | [`extensions`](#what-a-graphql-client-receives)                |
+| keep a bug or a failed service private     | [`INTERNAL`](#every-other-error)                               |
+| show a message for each code               | [`ErrorCodeOf`](#type-the-codes-in-a-client)                   |
+
+## Refuse a request
+
+`new PublicError(code, message, { details })` takes three things:
+
+- `code` is in capitals: `OUT_OF_STOCK`, or one of the kernel's
+  [codes](#codes), which keep their meaning.
+- `message` is shown to the client as it is, so write it for the client.
+- `details` is any JSON value, sent with the error.
+
+`options.cause` keeps the error this one comes from, on the server.
+
+## Catch it in server code
+
+A caller in server code catches it, and branches on its `code`:
+
+```ts
+// A caller branches on the code, and lets any other error go on.
+const outcome = await order.run({ sku: 'MUG-1', quantity: 5 }).then(
+	() => 'Ordered.',
+	(error: unknown) => {
+		if (error instanceof PublicError && error.code === 'OUT_OF_STOCK') {
+			return `Sorry: ${error.message}`
+		}
+		throw error
+	},
+)
+expect(outcome).toBe('Sorry: Only 2 left.')
+```
+
+The details are on the error too:
+
+```ts
+await expect(order.run({ sku: 'MUG-1', quantity: 5 })).rejects.toMatchObject({
+	code: 'OUT_OF_STOCK',
+	details: { sku: 'MUG-1', left: 2 },
+})
+```
+
+The kernel's own errors are `PublicError`s too, with the codes listed in
+[Codes](#codes):
+
+```ts
+await expect(
+	Product.create({ data: { sku: 'MUG-1', name: 'Other mug' } }, { as: master }),
+).rejects.toMatchObject({
+	code: 'UNIQUE_VIOLATION',
+	details: { model: 'Product', fields: ['sku'] },
+})
+```
+
+## What a REST client receives
+
+REST answers with the error as its body, and a status from its code. An
+application's own code is a `400`:
+
+```http
+POST /api/functions/order
+content-type: application/json
+
+{ "sku": "MUG-1", "quantity": 5 }
+```
+
+```json
+{
+	"code": "OUT_OF_STOCK",
+	"message": "Only 2 left.",
+	"details": { "sku": "MUG-1", "left": 2 }
+}
+```
+
+## What a GraphQL client receives
+
+GraphQL puts the code and the details in the error's `extensions`, with the
+`path` of the field that failed. Its requests go to `POST /graphql`:
+
+```graphql
+mutation {
+	order(sku: "MUG-1", quantity: 5)
+}
+```
+
+```json
+{
+	"errors": [
+		{
+			"message": "Only 2 left.",
+			"locations": [{ "line": 2, "column": 2 }],
+			"path": ["order"],
+			"extensions": {
+				"code": "OUT_OF_STOCK",
+				"details": { "sku": "MUG-1", "left": 2 }
+			}
+		}
+	],
+	"data": null
+}
+```
+
+## Every other error
+
+An error that is not a `PublicError`, a bug or a service that failed, never
+reaches the client: its message could hold a secret.
+
+```ts
+export const subscribe = defineFunction({
+	name: 'subscribe',
+	input: z.object({ email: z.email() }),
+	run: async ({ input }) => {
+		const url = process.env['NEWSLETTER_URL']
+		// Any other error is masked: the client sees `INTERNAL`.
+		if (url === undefined) throw new Error('NEWSLETTER_URL is not set.')
+		await fetch(url, { method: 'POST', body: JSON.stringify(input) })
+	},
+}).with({ access: allow.public })
+```
+
+Its request answers `INTERNAL` with a `500` and a correlation id, which the
+response file shows as `…`: it changes at each run. The server logs the error
+with the same id:
+
+```http
+POST /api/functions/subscribe
+content-type: application/json
+
+{ "email": "ada@example.com" }
+```
+
+```json
+{
+	"code": "INTERNAL",
+	"message": "Internal error.",
+	"correlationId": "…"
+}
+```
+
+The test reads that id from the response, and the line the server logs:
+
+```ts
+// The log line holds the same id, and the error with its stack.
+const line = String(logged.mock.calls[0]?.[0])
+expect(line).toContain(correlationId)
+expect(line).toContain('NEWSLETTER_URL is not set.')
+```
+
+- The log line is `A request failed.` over REST and `A GraphQL field failed.`
+  over GraphQL, at error level, with `correlationId` and `err`.
+- `defineApp({ logger })` takes a [pino](https://getpino.io) logger, or any
+  logger with its `info`, `warn`, `error` and `child`.
+- Without a logger, the kernel writes a readable line in a terminal and a JSON
+  line everywhere else.
+
+## Type the codes in a client
+
+`ErrorCodeOf<typeof app>` is every code the application's server may send: the
+kernel's, and those of each plugin it lists, as HTTP's `PAYLOAD_TOO_LARGE`.
+Add the application's own codes to it:
+
+```ts
+import type { ErrorCodeOf } from 'ultimabase'
+import type { app } from './app.ts'
+
+type Code = ErrorCodeOf<typeof app> | 'OUT_OF_STOCK'
+```
+
+A client types its messages against it. A code a new plugin adds, or one a
+plugin drops, fails its typing:
+
+```ts
+const messages = {
+	OUT_OF_STOCK: 'This product is out of stock.',
+	ACCESS_DENIED: 'You cannot do this.',
+	NOT_FOUND: 'This page does not exist.',
+	VALIDATION_FAILED: 'Check the values you entered.',
+	UNIQUE_VIOLATION: 'This value is already taken.',
+	RELATION_RESTRICTED: 'Other records still use this one.',
+	RELATION_SIZE: 'This has too few or too many items.',
+	UNAUTHENTICATED: 'Sign in to continue.',
+	INVALID_CREDENTIALS: 'Wrong email or password.',
+	TOO_MANY_ATTEMPTS: 'Too many attempts: try again later.',
+	CONFLICT: 'Someone changed this at the same time: try again.',
+	INTERNAL: 'Something went wrong.',
+	// From @ultimabase/http.
+	BAD_REQUEST: 'Something went wrong.',
+	BAD_USER_INPUT: 'Something went wrong.',
+	PAYLOAD_TOO_LARGE: 'This is too large.',
+	UNAVAILABLE: 'The service is restarting: try again.',
+	UNSUPPORTED_MEDIA_TYPE: 'Something went wrong.',
+} satisfies Record<Code, string>
+```
+
+```ts
+const known: ReadonlyMap<string, string> = new Map(Object.entries(messages))
+
+/** The message for a code a response carries, or a generic one. */
+export const messageOf = (code: string): string =>
+	known.get(code) ?? messages.INTERNAL
+```
+
+```ts
+// `code` is the one of the REST answer above: OUT_OF_STOCK.
+expect(messageOf(code)).toBe('This product is out of stock.')
+expect(messageOf('A_CODE_NO_SERVER_SENDS')).toBe('Something went wrong.')
+```
+
+`IssueCodeOf<typeof app>` is, the same way, every code its plugins give an
+issue of `VALIDATION_FAILED`, as the password's `PASSWORD_BREACHED`. A client
+types its issue messages as `Record<IssueCodeOf<typeof app>, string>`.
+
+A plugin declares its codes beside its name, in its
+[types](/docs/next/plugins).
+
+A query the kernel refuses throws an `InvalidQuery`:
+
+```ts
+await expect(
+	// @ts-expect-error `titel` is no field: the types refuse it too.
+	Product.findMany({ where: { titel: 'Mug' } }, { as: master }),
+).rejects.toThrow(InvalidQuery)
+```
+
+## Details
+
+- A code not in capitals is a type error.
+- A query the kernel refuses, such as an unknown field, throws an
+  `InvalidQuery` in server code, with the code `INVALID_QUERY` and its `path`.
+- Sent by a client, it answers `BAD_USER_INPUT` with the same message.
+- Thrown by server code and left uncaught, it is a bug, masked as `INTERNAL`.
+- HTTP refuses some requests before any code runs, with the status's name as
+  the code: a body over `bodyLimit` is `413` `PAYLOAD_TOO_LARGE`. See
+  [HTTP](/docs/next/http).
+- An `HTTPException` a route throws takes its status's name too, as
+  `UNAUTHORIZED`, or `HTTP_<status>` for a status with none: it is not in
+  `ErrorCodeOf`.
+
+## Reference
+
+### `new PublicError(code, message, options?)`
+
+| Argument          | Type         | Effect                                                     |
+| ----------------- | ------------ | ---------------------------------------------------------- |
+| `code`            | `string`     | In capitals: a kernel code, or the application's own.      |
+| `message`         | `string`     | Shown to the client as is: write it for the client.        |
+| `options.details` | a JSON value | Sent with the error; `{ issues }` for `VALIDATION_FAILED`. |
+| `options.cause`   | `unknown`    | The error it comes from, kept on the server.               |
+
+### `ErrorCodeOf<A>`
+
+`ErrorCodeOf<typeof app>` is the union of the kernel's `ErrorCode` and the
+codes of each plugin `app` lists. An application's own codes are not in it:
+it adds them, as `ErrorCodeOf<typeof app> | 'OUT_OF_STOCK'`.
+
+### `IssueCodeOf<A>`
+
+`IssueCodeOf<typeof app>` is the union of the issue codes of each plugin
+`app` lists, `never` with none. The kernel gives no issue a code of its own;
+an application's, from a schema or a `PublicError`, are not in it.
+
+### Codes
+
+| Code                     | Package         | When                                                            | REST status | `details`                              |
+| ------------------------ | --------------- | --------------------------------------------------------------- | ----------- | -------------------------------------- |
+| `VALIDATION_FAILED`      | the kernel      | A value or an input its schema refused.                         | 400         | `{ issues }`                           |
+| `ACCESS_DENIED`          | the kernel      | An access rule refused.                                         | 403         | what refused                           |
+| `NOT_FOUND`              | the kernel      | No row matches, or the caller cannot read it.                   | 404         | none                                   |
+| `UNIQUE_VIOLATION`       | the kernel      | A second row with a unique value.                               | 409         | `{ model, fields }`                    |
+| `RELATION_RESTRICTED`    | the kernel      | A delete a `restrict` relation refused.                         | 409         | `{ model, field }`                     |
+| `RELATION_SIZE`          | the kernel      | A write left a parent out of its `many`'s `size`.               | 409         | `{ model, field, id, min, max, size }` |
+| `UNAUTHENTICATED`        | the kernel      | A session is needed, or it ended.                               | 401         | none                                   |
+| `INVALID_CREDENTIALS`    | the kernel      | A wrong email or password.                                      | 401         | none                                   |
+| `TOO_MANY_ATTEMPTS`      | the kernel      | Too many sign-ins; `Retry-After` says when to try again.        | 429         | `{ retryAfter }`, in seconds           |
+| `CONFLICT`               | the kernel      | A serializable transaction conflicted 10 times.                 | 409         | none                                   |
+| `INTERNAL`               | the kernel      | Any error that is not a `PublicError`.                          | 500         | `correlationId`, beside it             |
+| `BAD_USER_INPUT`         | `http`          | A client's query, parameter, body or document refused.          | 400         | `{ path }`, from the kernel            |
+| `BAD_REQUEST`            | `http`          | A body or an upgrade HTTP cannot read.                          | 400         | none                                   |
+| `PAYLOAD_TOO_LARGE`      | `http`, `files` | A body over `bodyLimit`, or a file over `maxSize`.              | 413         | none                                   |
+| `UNSUPPORTED_MEDIA_TYPE` | `http`, `files` | A body that is not JSON, or a file of a type not accepted.      | 415         | none                                   |
+| `UNAVAILABLE`            | `http`          | Any request while the application starts; `/ready` as it stops. | 503         | none                                   |
+| `LENGTH_REQUIRED`        | `files`         | An upload without `Content-Length`.                             | 411         | none                                   |
+| `FORBIDDEN`              | `files`         | A private file's URL not signed, or expired.                    | 403         | none                                   |
+| `MAINTENANCE`            | `maintenance`   | Any request but Master's, during maintenance.                   | 503         | `{ retryAfter }`, in seconds           |
+| the application's own    | the application | A `PublicError` it threw.                                       | 400         | its own                                |
+
+An issue is `{ path, message, code? }`: `path` lists the keys to the refused
+value, as `['days']`, and `code`, in capitals, is the one a client tests: a
+`PublicError`'s, or a schema issue's.
+
+### The answer
+
+| Transport | Shape                                                                |
+| --------- | -------------------------------------------------------------------- |
+| REST      | `{ code, message, details? }`, or `{ code, message, correlationId }` |
+| GraphQL   | `errors: [{ message, path, extensions: { code, details? } }]`        |

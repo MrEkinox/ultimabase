@@ -1,0 +1,386 @@
+---
+title: ACL
+description: Store on each row who may read it and who may write it, by user, by role or for the public.
+---
+
+`@ultimabase/acl` stores on each row its rights: who reads it and who writes
+it, by user, by [role](/docs/next/roles), or for the public. A query then
+sees only the rows its caller may read, and writes only those it may write.
+
+`acl()` goes in a model's `use`, and its `default` gives the rights of a new
+row. Here, a new note is its author's alone:
+
+```npm
+npm install @ultimabase/acl
+```
+
+```ts
+import { ACL, acl } from '@ultimabase/acl'
+import { graphql } from '@ultimabase/graphql'
+import { hasRole } from '@ultimabase/roles'
+import { allow, defineModel } from 'ultimabase'
+
+export const Note = defineModel({
+	name: 'Note',
+	use: [
+		graphql(),
+		// A new note is its author's alone: no one else reads or writes it.
+		acl({
+			default: ({ caller }) =>
+				caller.kind === 'user' ? new ACL().allowUser(caller.user) : new ACL(),
+		}),
+	],
+	fields: (f) => ({ title: f.string() }),
+}).with({
+	// The ACL picks the rows; the rules pick who writes a new note.
+	access: {
+		read: allow.public,
+		create: hasRole('writer'),
+		update: allow.public,
+		delete: allow.public,
+	},
+})
+```
+
+The full example, with its tests: [`examples/roles-and-acl`](https://github.com/MrEkinox/ultimabase/tree/main/examples/roles-and-acl).
+
+| To                                | Use                                              |
+| --------------------------------- | ------------------------------------------------ |
+| turn the ACL on                   | [`aclPlugin()`](#set-it-up)                      |
+| keep a new row to its author      | [`default`](#default-rights)                     |
+| share a row with a role or a user | [a function that writes as Master](#share-a-row) |
+| give a row to the public          | [`new ACL().allowPublic()`](#the-acl-class)      |
+| build, test and read rights       | [the `ACL` class](#the-acl-class)                |
+
+## Set it up
+
+`aclPlugin()` goes in the application's plugins:
+
+```ts
+plugins: [
+	// Listens on PORT, or 3000.
+	httpPlugin(),
+	graphqlPlugin(),
+	authPlugin(),
+	passwordPlugin({ signUp: ['name'] }),
+	// Reads each signed-in user's roles once per request.
+	rolesPlugin(),
+	aclPlugin(),
+],
+```
+
+The model's [access rules](/docs/next/access) still decide who may create,
+read, update and delete; the ACL then picks which rows. Above, every caller
+may read and write notes, and only a writer creates one.
+
+## Default rights
+
+Each caller meets only the notes its rights name. Ada holds the role `writer`,
+given as [Roles](/docs/next/roles) shows, so she may create a note. She sends
+it with her `Authorization: Bearer` token, and is its author:
+
+```graphql
+mutation {
+	createNote(data: { title: "Plans" }) {
+		id
+		title
+	}
+}
+```
+
+```json
+{ "data": { "createNote": { "id": "…", "title": "Plans" } } }
+```
+
+She reads it:
+
+```graphql
+query {
+	notes {
+		edges {
+			node {
+				title
+			}
+		}
+	}
+}
+```
+
+```json
+{ "data": { "notes": { "edges": [{ "node": { "title": "Plans" } }] } } }
+```
+
+Grace sends the same request and gets `"edges": []`.
+
+## Share a row
+
+Only Master writes an ACL: a client that could, could give itself any row.
+Sharing is a [function](/docs/next/functions) that checks the caller, then
+writes the new rights as Master:
+
+```ts
+export const shareNote = defineFunction({
+	name: 'shareNote',
+	input: z.object({ note: z.string(), role: z.string() }),
+	output: Note,
+	run: async ({ caller, input }) => {
+		// Read as the caller: a note it cannot read does not exist for it.
+		const note = await Note.findUnique(
+			{ where: { id: input.note } },
+			{ as: caller },
+		)
+		if (note === null) throw new PublicError('NOT_FOUND', 'No such note.')
+		if (!note.acl.allows(caller, 'write')) {
+			throw new PublicError(
+				'ACCESS_DENIED',
+				'Only a writer of the note shares it.',
+			)
+		}
+		const where = { name: input.role }
+		const role = await Role.findUnique({ where }, { as: master })
+		if (role === null) throw new PublicError('NOT_FOUND', 'No such role.')
+		// Only Master writes an ACL, once the function has checked the caller.
+		const data = { acl: note.acl.allowRole(role, 'read') }
+		return Note.update({ where: { id: note.id }, data }, { as: master })
+	},
+}).with({ access: isAuthenticated })
+```
+
+Ada shares the note with the role `team`:
+
+```graphql
+mutation ($note: String!) {
+	shareNote(note: $note, role: "team") {
+		title
+	}
+}
+```
+
+```json
+{ "data": { "shareNote": { "title": "Plans" } } }
+```
+
+Grace, a member of `team`, now reads the note, and Bob, who is not, does not.
+Grace has only the read right, so to her the note cannot be updated:
+
+```graphql
+mutation ($note: ID!) {
+	updateNote(where: { id: $note }, data: { title: "Mine" }) {
+		title
+	}
+}
+```
+
+```json
+{
+	"errors": [
+		{
+			"message": "No Note matches.",
+			"locations": [{ "line": 2, "column": 2 }],
+			"path": ["updateNote"],
+			"extensions": { "code": "NOT_FOUND" }
+		}
+	],
+	"data": null
+}
+```
+
+| Who and when                          | Answer          |
+| ------------------------------------- | --------------- |
+| Grace shares the note, before Ada has | `NOT_FOUND`     |
+| Grace shares it, once she reads it    | `ACCESS_DENIED` |
+| Grace updates or deletes it           | `NOT_FOUND`     |
+
+A row the caller cannot read does not exist for it: reading, updating,
+deleting or connecting it answers `NOT_FOUND`, as for a row that was never
+created. A write needs both rights, `read` and `write`.
+
+## Write an ACL
+
+Master writes the `acl` field as an `ACL` or as its JSON, `{ read, write }`,
+each a list of subjects: `*` for the public, `user:<id>` or `role:<id>`. A
+client cannot write it, even on its own note:
+
+```graphql
+mutation {
+	createNote(data: { title: "Open", acl: { read: ["*"], write: [] } }) {
+		id
+	}
+}
+```
+
+```json
+{
+	"errors": [
+		{
+			"message": "Note create refused.",
+			"locations": [{ "line": 2, "column": 2 }],
+			"path": ["createNote"],
+			"extensions": {
+				"code": "ACCESS_DENIED",
+				"details": { "model": "Note", "operation": "create", "field": "acl" }
+			}
+		}
+	],
+	"data": null
+}
+```
+
+Master can. The tests write `as` for `{ as: master }`. Here it writes the JSON
+form; `new ACL()` builds the other, as [the class](#the-acl-class) shows:
+
+```ts
+const note = await Note.create(
+	{ data: { title: 'News', acl: { read: ['*'], write: [] } } },
+	as,
+)
+expect(note.acl.publicCan('read')).toBe(true)
+```
+
+A client reads the field as that JSON:
+
+```graphql
+query {
+	notes {
+		edges {
+			node {
+				title
+				acl
+			}
+		}
+	}
+}
+```
+
+```json
+{
+	"data": {
+		"notes": {
+			"edges": [
+				{ "node": { "title": "News", "acl": { "read": ["*"], "write": [] } } }
+			]
+		}
+	}
+}
+```
+
+## The `ACL` class
+
+An `ACL` never changes: each method returns a new one. A method given no
+permission gives or takes both:
+
+```ts
+const ada = { id: 'u_1' }
+const staff = { id: 'r_1' }
+// Without permissions, a method gives or takes both.
+const rights = new ACL()
+	.allowPublic('read')
+	.allowUser(ada)
+	.allowRole(staff, 'read')
+expect(rights.toJSON()).toEqual({
+	read: ['*', 'role:r_1', 'user:u_1'],
+	write: ['user:u_1'],
+})
+```
+
+Ask what the rights hold:
+
+```ts
+expect(rights.userCan(ada, 'write')).toBe(true)
+expect(rights.roleCan(staff, 'write')).toBe(false)
+expect(rights.users('read')).toEqual(['u_1'])
+expect(rights.roles('read')).toEqual(['r_1'])
+```
+
+Take rights back, and list the stored entries:
+
+```ts
+const closed = rights.denyPublic().denyUser(ada, 'write')
+expect(closed.publicCan('read')).toBe(false)
+expect(closed.entries()).toEqual(['read:role:r_1', 'read:user:u_1'])
+```
+
+Turn the JSON back into an ACL, which refuses a bad subject:
+
+```ts
+// The JSON back to an ACL; a subject is *, user:<id> or role:<id>.
+expect(ACL.fromJSON(closed.toJSON()).entries()).toEqual(closed.entries())
+expect(() => ACL.fromJSON({ read: ['team'] })).toThrow(
+	'read[0]: a subject is *, user:<id> or role:<id>.',
+)
+```
+
+`acl.allows(caller, 'write')`, as in `shareNote`, tells whether a caller has
+the right through the public, its user or one of its roles. A write needs
+the read too. It is `true` for Master.
+
+## Details
+
+- An empty ACL, `new ACL()`, leaves the row to Master.
+- The ACL plugin works without the roles plugin, for the public and users.
+- A role's rights go to its members and to the members of the roles that
+  inherit it.
+
+## Reference
+
+### `acl({ default })` and `aclPlugin()`
+
+| Key       | Type                  | Effect                                                  |
+| --------- | --------------------- | ------------------------------------------------------- |
+| `default` | `({ caller }) => ACL` | The rights of a row created without an `acl`. Required. |
+
+`acl()` adds to the model the field `acl`, indexed, which only Master
+writes. `aclPlugin()` takes no option and must be in plugins when a model
+uses `acl()`.
+
+### The `ACL` class
+
+| Method                               | Returns    | Effect                                                    |
+| ------------------------------------ | ---------- | --------------------------------------------------------- |
+| `new ACL()`                          | `ACL`      | No rights: only Master.                                   |
+| `allowPublic(...perms)`              | `ACL`      | Gives everyone, visitors included, the permissions.       |
+| `allowUser(user, ...perms)`          | `ACL`      | Gives a user, `{ id }`, the permissions.                  |
+| `allowRole(role, ...perms)`          | `ACL`      | Gives a role's members, `{ id }`, the permissions.        |
+| `denyPublic`, `denyUser`, `denyRole` | `ACL`      | Takes the permissions back, with the same arguments.      |
+| `publicCan(perm)`                    | `boolean`  | Whether the public has the permission.                    |
+| `userCan(user, perm)`                | `boolean`  | Whether the user has it by name, without its roles.       |
+| `roleCan(role, perm)`                | `boolean`  | Whether the role has it by name.                          |
+| `allows(caller, perm)`               | `boolean`  | Whether the caller has it, by any subject; Master always. |
+| `users(perm)`, `roles(perm)`         | `string[]` | The ids of the users or roles named for the permission.   |
+| `toJSON()`                           | `AclJson`  | `{ read, write }`, what a client reads.                   |
+| `entries()`                          | `string[]` | The stored entries, sorted, as `'read:user:u_1'`.         |
+| `ACL.fromJSON(json)`                 | `ACL`      | The ACL `toJSON` gave.                                    |
+| `ACL.fromEntries(entries)`           | `ACL`      | The ACL `entries` gave.                                   |
+
+A permission is `'read'` or `'write'`; `write` covers update and delete.
+
+### Errors
+
+| Code                | When                                                                                |
+| ------------------- | ----------------------------------------------------------------------------------- |
+| `ACCESS_DENIED`     | A caller other than Master writes `acl`.                                            |
+| `NOT_FOUND`         | A write or a connect targets a row the caller may not read, or read but not write.  |
+| `VALIDATION_FAILED` | An `acl` value that is not an ACL: its issue's message says why, at path `['acl']`. |
+
+The messages of an invalid value:
+
+- `An ACL is an ACL or { read, write }.`
+- `owner is not a permission.`
+- `read is a list of subjects.`
+- `read[0]: a subject is *, user:<id> or role:<id>.`
+
+Other messages:
+
+- `ACL.fromJSON` throws the same messages as a `TypeError`.
+- `ACL.fromEntries` throws `team is not an ACL entry.`
+- A method given a user or a role whose id is empty or holds a line break
+  throws a `TypeError`: `"" is not a user id.`, `"" is not a role id.`
+
+At start, `acl()` without `default` throws `acl() takes default: the ACL of
+a row created without one.`
+
+### Limits
+
+- The rights are checked on every query, at every level of a relation; a
+  read adds one filter on the indexed `acl` field.
+- A role's rights reach its members only with `rolesPlugin()`.

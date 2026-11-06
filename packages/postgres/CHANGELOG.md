@@ -1,5 +1,21 @@
 # @ultimabase/postgres
 
+## 0.6.0
+
+### Minor Changes
+
+- 41b5dca: A required field added with a fixed default now keeps it as its column's default, where the plan dropped it in the same transaction. Code still running without the field can then still insert during a rolling deploy. A list without a default keeps `'{}'`. A change of the column's type drops the default. `migrate create` writes a comment below an added list that no default fills, so that the file says the stored rows hold it empty: `-- The stored rows hold an empty "Account.languages": fill them here if the model needs a value.`
+- 41b5dca: A list takes `size: { min, max }`, as a `many` does: `f.enumOf(Language, { list: true, size: { min: 1 } })`. The bound holds after the hooks, so a `beforeCreate` may fill the list, and on what `push` and `remove` leave. A write outside it fails with `VALIDATION_FAILED`. PostgreSQL enforces it too, with a check of its own, and the schemas state it in the field's description.
+- a47bbc4: The adapter plans a statement it composes once per connection, where PostgreSQL planned it on every run. A pooler that shares server connections between clients may then find a statement unknown: PgBouncer in transaction mode needs version 1.21 or later and `max_prepared_statements` above 0. Where it cannot, `postgres({ url, prepared: false })` plans each statement every time.
+
+### Patch Changes
+
+- a47bbc4: A write costs its readers: it visits only the reads it can concern, and runs fewer statements. Subscribers of one row share its execution, a document is validated once, and a message is compressed only above 2 KB.
+- Updated dependencies [41b5dca]
+- Updated dependencies [41b5dca]
+- Updated dependencies [41b5dca]
+  - ultimabase@0.6.0
+
 ## 0.5.0
 
 ### Minor Changes

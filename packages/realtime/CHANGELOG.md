@@ -1,5 +1,22 @@
 # @ultimabase/realtime
 
+## 0.6.0
+
+### Minor Changes
+
+- a47bbc4: A live list costs what its readers see, whatever its length. `maxLive` is now 50 000 rows by default, where it was 1000, and `maxConnectionRows` 100 000, where it was 10 000. Nested rows no longer count toward `maxLive`: a nested list is bounded by its `take`. `fetchMore` past `maxLive` is no longer refused: it adds what fits, then `hasNextPage` is `false`. A connection past `maxConnectionRows` still refuses the growth.
+
+  A write in a read's reach no longer sends the rows that did not change. The read still reads them again, and a page-mode read still resends its window.
+
+### Patch Changes
+
+- a47bbc4: A storm of connections no longer fails. The server's connection queue holds 4096, and at most 8 connections open at once. A socket closed by a failure of the server now gets `1013`, which `graphql-ws` retries, where it got `4403`: `4403` now means refused, and only that. `liveFetch` reconnects at a random moment of its wait, so that clients cut together do not come back together.
+- a47bbc4: A write costs its readers: it visits only the reads it can concern, and runs fewer statements. Subscribers of one row share its execution, a document is validated once, and a message is compressed only above 2 KB.
+- Updated dependencies [41b5dca]
+- Updated dependencies [41b5dca]
+- Updated dependencies [41b5dca]
+  - ultimabase@0.6.0
+
 ## 0.5.0
 
 ### Patch Changes

@@ -1,0 +1,797 @@
+---
+title: Write a database adapter
+description: Store the models in a database of your own, and check it with the contract suite.
+---
+
+An adapter is the object an application's `database` holds, and it only stores
+and reads rows. `timed` runs another adapter, counts its calls and logs the
+slow ones:
+
+```ts
+import type {
+	Adapter,
+	BeginOptions,
+	Logger,
+	Transaction,
+	Write,
+} from 'ultimabase'
+
+export type TimedOptions = {
+	/** Milliseconds from which a call is logged; 100 by default. */
+	readonly slow?: number
+}
+
+/** An adapter, and how many round trips it has made. */
+export type Timed = Adapter & { readonly roundTrips: () => number }
+
+/** The models a write changes: `Post, Author`. */
+const modelsOf = (write: Write) =>
+	[...new Set(write.changes.map((change) => change.model))].join(', ')
+```
+
+The full example, with its tests: [`examples/adapter`](https://github.com/MrEkinox/ultimabase/tree/main/examples/adapter).
+
+`memory()` and `postgres()` are two adapters. The kernel sends each read and
+write fully prepared: its filters normalized, its ids, dates and defaults set
+and its access rules applied. An adapter is not a plugin: an application has
+one. `timed` counts its calls, each a round trip to the database. An
+application uses it as any adapter:
+
+```ts
+export const database = timed(memory(), { slow: 100 })
+
+export const app = defineApp({
+	database,
+	plugins: [httpPlugin(), restPlugin()],
+	models: [Author, Post],
+})
+```
+
+| To                                  | Use                                                |
+| ----------------------------------- | -------------------------------------------------- |
+| check an adapter                    | [`testAdapter`](#check-it-with-the-contract-suite) |
+| connect and disconnect              | [`start`, `stop`](#start-and-stop)                 |
+| read rows                           | [`find`, `count`, `aggregate`](#reads)             |
+| write rows                          | [`write`](#writes)                                 |
+| group calls in a transaction        | [`begin`](#transactions)                           |
+| keep each query to one round trip   | [`roundTrips`](#one-round-trip-per-query)          |
+| refuse a write as the database does | [`UniqueViolation` and the others](#errors)        |
+| tell realtime what a commit changed | [`Feed`](#the-change-feed)                         |
+| keep the tables in step with models | [`migrations`](#migrations)                        |
+| log through the kernel              | [`logger`](#log-through-the-kernel)                |
+
+## Check it with the contract suite
+
+`testAdapter`, from `@ultimabase/testing`, runs the contract suite on an
+adapter: 131 tests of what every adapter does alike, through the public API.
+An adapter that passes it runs every query, plugin and transport of
+UltimaBase.
+
+```npm
+npm install --save-dev @ultimabase/testing vitest
+```
+
+Run it in a test file, with a new adapter for each test. `roundTrips` says how
+many round trips the adapter has made, for the suite to count:
+
+```ts
+let current: Timed | undefined
+testAdapter(
+	'timed',
+	() => {
+		current = timed(memory())
+		return current
+	},
+	{ roundTrips: () => current?.roundTrips() ?? 0 },
+)
+```
+
+## Start and stop
+
+`start` receives the models, the kernel's logger and, when realtime is on, the
+change feed. It connects; `stop` disconnects. `timed` keeps the logger for its
+warnings and passes all three on:
+
+```ts
+// The kernel's logger and the change feed: pass them on.
+start: async (schema, kernelLogger, feed) => {
+	logger = kernelLogger
+	await adapter.start(schema, kernelLogger, feed)
+},
+stop: async () => adapter.stop(),
+```
+
+The models arrive as a `Schema`: each model's fields, its relations from both
+sides and its indexes, `{ name, fields, indexes }`. `id`, `createdAt` and
+`updatedAt` are implicit. For the example's `Author` and `Post`, `start`
+receives these fields, among others. A scalar field with a default:
+
+```ts
+{
+	kind: 'scalar',
+	name: 'views',
+	type: 'number',
+	list: false,
+	integer: true,
+	optional: false,
+	unique: false,
+	default: 0,
+},
+```
+
+A `one` relation with `stored: true` holds the key: `Post` stores its author's
+id under `author`.
+
+```ts
+{
+	kind: 'one',
+	name: 'author',
+	target: 'Author',
+	inverse: 'posts',
+	// Post holds the key.
+	stored: true,
+	unique: false,
+	optional: false,
+	onDelete: 'restrict',
+},
+```
+
+`Author` sees the other side, a `many`:
+
+```ts
+{
+	kind: 'many',
+	name: 'posts',
+	target: 'Post',
+	inverse: 'author',
+	join: false,
+},
+```
+
+- A `many` facing a `many` has `join: true`, and the adapter keeps the pairs,
+  through `link` and `unlink` changes.
+- A field or model with `dbName` is stored under that name.
+
+## Reads
+
+`find` returns the rows of a `Read`, `count` counts the rows a filter keeps,
+and `aggregate` returns one list per group. `timed` times each one:
+
+```ts
+find: trip(
+	(read) => `find ${read.model}`,
+	async (read) => adapter.find(read),
+),
+count: trip(
+	(read) => `count ${read.model}`,
+	async (read) => adapter.count(read),
+),
+aggregate: trip(
+	(read) => `aggregate ${read.model}`,
+	async (read) => adapter.aggregate(read),
+),
+```
+
+A read arrives normalized. The tests record each read in `sent.reads`.
+`Post.findMany({ where: { slug: 'hello' }, include: { author: true } })`
+reaches `find` as:
+
+```ts
+expect(sent.reads.at(-1)).toEqual({
+	model: 'Post',
+	// `{ slug: 'hello' }`, normalized.
+	where: { slug: { equals: 'hello' } },
+	// Always ending with `id`, so the order is total.
+	orderBy: [{ field: 'id', direction: 'asc' }],
+	fields: ['id', 'createdAt', 'updatedAt', 'slug', 'views'],
+	include: {
+		author: { fields: ['id', 'createdAt', 'updatedAt', 'name'] },
+	},
+})
+```
+
+- `fields` lists the fields to return, the access rules' hidden ones left out.
+- `include` holds each relation's own read, at any depth.
+- `orderBy` always ends with `id`, so the order is total and a `cursor`
+  resumes where a page ended.
+- A read with `lock` locks the rows it returns, in `id` order, until its
+  transaction ends.
+
+## Writes
+
+`write` runs a whole `Write` and returns the rows its `read` selects. `timed`
+times it, and `empty`, which removes every row:
+
+```ts
+write: trip(
+	(write) => `write ${modelsOf(write)}`,
+	async (write) => adapter.write(write),
+),
+empty: trip(
+	() => 'empty',
+	async () => adapter.empty(),
+),
+```
+
+A write is one unit: its checks first, then its changes, then its read. A
+`Post.create` that connects the author `ada` sends three parts. First its
+checks:
+
+```ts
+// Written only when the author exists: one row, counted first.
+checks: [{ model: 'Author', where: { id: { in: [ada.id] } }, count: 1 }],
+```
+
+Then its changes, here one insert:
+
+```ts
+// The id, the dates and the defaults are set; the key is the author's id.
+row: {
+	id: anId,
+	createdAt: aDate,
+	updatedAt: aDate,
+	slug: 'hello',
+	views: 0,
+	author: ada.id,
+},
+```
+
+Then the read of the rows to return:
+
+```ts
+// The rows the write returns, read in the same write.
+read: {
+	model: 'Post',
+	where: { id: { equals: anId } },
+	fields: ['id', 'createdAt', 'updatedAt', 'slug', 'views'],
+},
+```
+
+- Each check counts the rows a filter keeps. When one counts other than its
+  `count`, the write writes nothing and throws `CheckFailed`.
+- The changes are inserts, updates, deletes, and links and unlinks of
+  `many`-to-`many` pairs.
+- An update's `compute` computes a number or a list on each row: `increment`,
+  `decrement`, `multiply` and `divide`, `push`, `pushUnique` and `remove`.
+- With `before`, the read selects among the rows the write deleted, as they
+  were.
+
+## Transactions
+
+`begin` returns a `Transaction`: the reads and `write`, then `commit` or
+`rollback`. The kernel begins one for `transaction()`, and for a write that
+locks its rows first. `timed` wraps the `tx` its adapter returns in
+`timedTransaction`, and times each call of it. Each is a round trip, the commit
+included:
+
+```ts
+find: trip(
+	(read) => `find ${read.model}`,
+	async (read) => tx.find(read),
+),
+count: trip(
+	(read) => `count ${read.model}`,
+	async (read) => tx.count(read),
+),
+aggregate: trip(
+	(read) => `aggregate ${read.model}`,
+	async (read) => tx.aggregate(read),
+),
+write: trip(
+	(write) => `write ${modelsOf(write)}`,
+	async (write) => tx.write(write),
+),
+commit: trip(
+	() => 'commit',
+	async () => tx.commit(),
+),
+rollback: trip(
+	() => 'rollback',
+	async () => tx.rollback(),
+),
+```
+
+```ts
+begin: trip<[BeginOptions?], Transaction>(
+	() => 'begin',
+	async (asked) => timedTransaction(await adapter.begin(asked)),
+),
+```
+
+- A transaction's writes are seen by its own reads and by no one else's before
+  the commit.
+- A failed write in a transaction leaves it to be rolled back, even when the
+  callback catches the error.
+
+### Serializable transactions
+
+`begin({ isolation: 'serializable' })` begins one for
+`transaction(run, { isolation: 'serializable' })`.
+
+- An adapter that cannot hold that isolation throws from `begin`, never begins
+  a weaker one.
+- One that runs its transactions one at a time, as `memory()`, already holds
+  it.
+- When the database aborts a transaction for a conflict with another, a
+  serialization failure or a deadlock, the adapter throws `Conflict`, and the
+  kernel runs a serializable callback again.
+
+Here the database aborts the first commit: a wrapped `begin` returns its `tx`
+with this `commit`, and `conflicts` starts at 1.
+
+```ts
+commit: async () => {
+	if (conflicts === 0) return tx.commit()
+	conflicts -= 1
+	await tx.rollback()
+	throw new Conflict()
+},
+```
+
+The callback runs twice, and its write is kept once. `transaction` comes from
+`ultimabase`, `Author` is the example's model, and the tests write `M` for
+`{ as: master }`:
+
+```ts
+let attempts = 0
+await transaction(
+	async () => {
+		attempts += 1
+		await Author.create({ data: { name: 'Ada' } }, M)
+	},
+	{ isolation: 'serializable' },
+)
+expect(attempts).toBe(2)
+expect(await Author.count({}, M)).toBe(1)
+```
+
+## One round trip per query
+
+The kernel asks the adapter once per query: a read and its relations at any
+depth, a count, a create and its connections, an update or a delete by id. An
+adapter keeps it so by answering each call in one round trip to its database.
+The suite counts them with `roundTrips`. `timed` counts its calls:
+
+```ts
+/** `run` as one round trip, logged under `label` when it is slow. */
+const trip =
+	<A extends unknown[], R>(
+		label: (...given: A) => string,
+		run: (...given: A) => Promise<R>,
+	) =>
+	async (...given: A): Promise<R> => {
+		trips += 1
+		const started = performance.now()
+		try {
+			return await run(...given)
+		} finally {
+			const took = Math.round(performance.now() - started)
+			if (took >= slow) logger?.warn(`${label(...given)} took ${took} ms.`)
+		}
+	}
+```
+
+An application's tests run on its declared adapter with
+`database: 'declared'`. `memory()` starts empty, so each test does:
+
+```ts
+// memory() starts empty, so each test starts on an empty database.
+testApplication(app, { database: 'declared' })
+```
+
+Each query is one round trip, a read and its relations at any depth included:
+two writes and a read make three. `database` is the `timed(memory())` of
+`src/app.ts`:
+
+```ts
+const before = database.roundTrips()
+const ada = await Author.create({ data: { name: 'Ada' } }, M)
+await Post.create(
+	{ data: { slug: 'hello', author: { connect: { id: ada.id } } } },
+	M,
+)
+await Author.findMany({ include: { posts: { include: { author: true } } } }, M)
+expect(database.roundTrips() - before).toBe(3)
+```
+
+## Errors
+
+An adapter throws one of these errors, from `ultimabase`, when its database
+refuses a write. The kernel turns each into the error the developer sees. Any
+other error reaches the developer as `INTERNAL`. The tests write `hello` for
+the `Post` row of slug `hello` and `adapter` for a `memory()` that holds the
+author `a1`.
+
+### A unique index refuses a row
+
+Throw `UniqueViolation` with the model and the index's fields:
+
+```ts
+await adapter.write({
+	changes: [{ kind: 'insert', model: 'Post', row: hello }],
+})
+// The same slug under another id.
+const again = adapter.write({
+	changes: [{ kind: 'insert', model: 'Post', row: { ...hello, id: 'p2' } }],
+})
+await expect(again).rejects.toBeInstanceOf(UniqueViolation)
+await expect(again).rejects.toMatchObject({
+	model: 'Post',
+	fields: ['slug'],
+})
+```
+
+The developer sees `UNIQUE_VIOLATION`:
+
+```ts
+const ada = await Author.create({ data: { name: 'Ada' } }, M)
+const data = { slug: 'hello', author: { connect: { id: ada.id } } }
+await Post.create({ data }, M)
+await expect(Post.create({ data }, M)).rejects.toMatchObject({
+	code: 'UNIQUE_VIOLATION',
+	message: 'Unique constraint failed on Post (slug).',
+	details: { model: 'Post', fields: ['slug'] },
+})
+```
+
+### A check counts other than its count
+
+Throw `CheckFailed` with its index in `checks`, and write nothing. `other` is
+a `Post` row:
+
+```ts
+// A connected author that is gone: the first check counts 0, not 1.
+const connected = adapter.write({
+	checks: [{ model: 'Author', where: { id: { in: ['gone'] } }, count: 1 }],
+	changes: [{ kind: 'insert', model: 'Post', row: other }],
+})
+await expect(connected).rejects.toBeInstanceOf(CheckFailed)
+await expect(connected).rejects.toMatchObject({ index: 0 })
+// Nothing was written.
+expect(await adapter.count({ model: 'Post' })).toBe(1)
+```
+
+The developer sees the error the kernel attached to that check, here a
+connected author that does not exist:
+
+```ts
+const connect = { id: missing }
+await expect(
+	Post.create({ data: { slug: 'hello', author: { connect } } }, M),
+).rejects.toMatchObject({
+	code: 'NOT_FOUND',
+	message: 'A connected Author does not exist.',
+})
+expect(await Post.count({}, M)).toBe(0)
+```
+
+### A number leaves its range
+
+A computed number falls outside its field's range, or is not finite: throw
+`OutOfRange` with the model and the field. This write increments a view count
+past the largest integer, on `hello`, whose id is `p1`:
+
+```ts
+// Past the largest integer, 2 ** 31 - 1.
+const increment = adapter.write({
+	changes: [
+		{
+			kind: 'update',
+			model: 'Post',
+			where: { id: { equals: 'p1' } },
+			set: {},
+			compute: { views: { operation: 'increment', by: 2 ** 31 } },
+		},
+	],
+})
+```
+
+The adapter throws:
+
+```ts
+await expect(increment).rejects.toBeInstanceOf(OutOfRange)
+await expect(increment).rejects.toMatchObject({
+	model: 'Post',
+	field: 'views',
+})
+```
+
+The developer sees `VALIDATION_FAILED`, with the field's range. A post holds
+2,147,483,647 views, and an update increments them:
+
+```ts
+// `hello` holds 2_147_483_647 views, the largest integer.
+const refused = Post.update(
+	{ where: { slug: 'hello' }, data: { views: { increment: 1 } } },
+	M,
+)
+await expect(refused).rejects.toMatchObject({ code: 'VALIDATION_FAILED' })
+```
+
+The issue carries the range:
+
+```ts
+await expect(refused).rejects.toMatchObject({
+	details: {
+		issues: [
+			{
+				path: ['views'],
+				message:
+					'Expected a whole number from -2,147,483,648 to 2,147,483,647.',
+			},
+		],
+	},
+})
+```
+
+### A foreign key refuses a write
+
+It happens when a row was deleted between the checks and the change: throw
+`RelationViolation` with the model, the field, the target and whether a delete
+was restricted. Here the author was deleted between the write's check and its
+insert:
+
+```ts
+const inner = memory()
+// The author was deleted between the write's check and its insert.
+const racing: Adapter = {
+	...inner,
+	write: async () => {
+		throw new RelationViolation('Post', 'author', 'Author', false)
+	},
+}
+```
+
+The developer sees `NOT_FOUND`, or `RELATION_RESTRICTED` when `restricted` is
+true. Here it is false:
+
+```ts
+const connect = { id: 'a1' }
+await expect(
+	Post.create({ data: { slug: 'hello', author: { connect } } }, M),
+).rejects.toMatchObject({
+	code: 'NOT_FOUND',
+	message: 'A connected Author does not exist.',
+})
+```
+
+### A migration statement is refused
+
+Throw `MigrationFailed` with the statement or the file, and what the database
+said. This adapter's `migrations.apply` refuses `sql`, the statement
+`CREATE TABLE "Post" ()`:
+
+```ts
+apply: async () => {
+	throw new MigrationFailed(sql, 'permission denied for schema public')
+},
+```
+
+In development the start stops with:
+
+```ts
+await expect(app.start()).rejects.toThrow(
+	[
+		'UltimaBase did not sync Post: the database refused it.',
+		'  CREATE TABLE "Post" ();',
+		'  -- permission denied for schema public',
+	].join('\n'),
+)
+```
+
+## The change feed
+
+With realtime on, `start` receives a `Feed`. Once a write commits, the adapter
+calls `changed` with what it changed, on every server: PostgreSQL sends it
+through its notifications. It calls `missed` when changes may have been lost,
+as when its listener reconnects.
+
+- A rollback, a failed write and an update that changes nothing send nothing.
+- How changes group into entries and calls is the adapter's.
+
+The feed is the third argument of `start`:
+`start({ models }, logger, { changed, missed })`. Here `adapter` is a `memory()`
+started with a `changed` that pushes to `fed`, and `author` stands for a row
+with the id `a1` and its dates. An insert is fed once it commits:
+
+```ts
+await adapter.write({
+	changes: [
+		{ kind: 'insert', model: 'Author', row: { ...author, name: 'Ada' } },
+	],
+})
+// Once committed, a moment later, as a database's notification.
+await expect
+	.poll(() => fed)
+	.toEqual([[{ kind: 'insert', model: 'Author', ids: ['a1'] }]])
+```
+
+A change lists at most `feedIds` ids or pairs; past that, it lists none:
+
+```ts
+const rows = Array.from({ length: feedIds + 1 }, (_, index) => ({
+	...author,
+	id: `a${String(index)}`,
+	name: 'Ada',
+}))
+await adapter.write({
+	changes: rows.map((row) => ({ kind: 'insert', model: 'Author', row })),
+})
+// More than `feedIds` rows: the change names none.
+await expect.poll(() => fed).toEqual([[{ kind: 'insert', model: 'Author' }]])
+```
+
+An update lists the fields it set, `updatedAt` included, unless they are every
+field or, as JSON, longer than `feedFields`. The model `Wide` has a field
+named by that many characters:
+
+```ts
+// A field name as long as `feedFields`: the list of fields, as JSON, is longer.
+const long = 'x'.repeat(feedFields)
+```
+
+`watched` is a `memory()` started with `Wide` and a `changed` that pushes to
+`feed`. It holds one row, whose insert is `feed[0]`, and an update sets that
+field:
+
+```ts
+await watched.write({
+	changes: [
+		{
+			kind: 'update',
+			model: 'Wide',
+			where: { id: { equals: 'a1' } },
+			set: { [long]: 'y' },
+		},
+	],
+})
+```
+
+The change lists the row and no field:
+
+```ts
+await expect
+	.poll(() => feed[1])
+	.toEqual([{ kind: 'update', model: 'Wide', ids: ['a1'] }])
+```
+
+## Migrations
+
+An adapter for a database that keeps its tables has `migrations`. An adapter
+for a database that starts empty every time, as `memory()`, has none.
+
+- The kernel then syncs the tables in development and checks them in
+  production.
+- The CLI writes and deploys migration files; see
+  [PostgreSQL](/docs/next/postgres).
+
+`timed` passes its adapter's on:
+
+```ts
+// memory() has none; PostgreSQL's sync and deploy go through as they are.
+...(adapter.migrations !== undefined && {
+	migrations: adapter.migrations,
+}),
+```
+
+- A snapshot is JSON in the adapter's own format: what its database makes of
+  the models.
+- `plan` gives the statements from one snapshot to the models', each with what
+  it does and, for the log, what it loses or may break.
+- `apply` runs a sync or a deploy under a lock one database holds at a time.
+
+## Log through the kernel
+
+`start` receives the kernel's logger: an adapter logs through it, so its
+messages share the application's format and level. `timed` warns of each call
+that takes `slow` milliseconds or more. The tests' `capturing` logger keeps its
+warnings in `warnings`:
+
+```ts
+// From 0 ms, every call is slow.
+const app = defineApp({
+	database: timed(memory(), { slow: 0 }),
+	logger: capturing,
+	models: [Author, Post],
+})
+await app.start()
+await Author.findMany({}, M)
+expect(warnings).toContainEqual(
+	expect.stringMatching(/^find Author took \d+ ms\.$/),
+)
+```
+
+## Reference
+
+### `Adapter`
+
+| Member                         | Does                                                                 |
+| ------------------------------ | -------------------------------------------------------------------- |
+| `start(schema, logger, feed?)` | Connects, then the kernel syncs or checks the tables.                |
+| `stop()`                       | Disconnects.                                                         |
+| `empty()`                      | Removes every model's rows, join rows included; keeps the tables.    |
+| `find(read)`                   | The rows of a `Read`.                                                |
+| `count(read)`                  | How many rows `where` keeps.                                         |
+| `aggregate(read)`              | One list per group: its keys' values, then its aggregates'.          |
+| `write(write)`                 | Runs a `Write` whole, returns the rows its `read` selects.           |
+| `begin(options?)`              | A `Transaction`; `{ isolation: 'serializable' }` or a throw.         |
+| `migrations?`                  | How the database follows the models; none for one that starts empty. |
+
+A `Transaction` has `find`, `count`, `aggregate`, `write`, `commit()` and
+`rollback()`.
+
+### `Schema`
+
+`{ models }`, each model `{ name, dbName?, fields, indexes }`, each index
+`{ fields, unique, contains }` (`contains` serves `contains` and
+`mode: 'insensitive'`).
+
+| Field kind | Properties                                                                                                                                                                                                                      |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `scalar`   | `name`, `type` (`string`, `number`, `decimal`, `boolean`, `dateTime`, `date`, `json`, `enum`), `values?`, `list`, `integer?`, `precision?`, `scale?`, `optional`, `unique`, `search?`, `dbName?`, `default?`                    |
+| `one`      | `name`, `target`, `inverse`, `stored`, `unique`, `optional`, `onDelete` (`cascade`, `restrict`, `setNull`), `dbName?`, `within?` (`{ target, source }`: the target's `target` field equals the row's `source`, a field or `id`) |
+| `many`     | `name`, `target`, `inverse`, `join`, `filtered?`, `from?`, `within?` (the `one` both models share)                                                                                                                              |
+
+An integer runs from -2³¹ to 2³¹ - 1. A decimal is a string at its `scale`.
+A list is never `null`: `[]` when empty.
+
+### `Read` and `Write`
+
+| Shape       | Properties                                                                                                                                              |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Read`      | `model`, `where?`, `orderBy?` (ending with `id`), `cursor?`, `skip?`, `take?`, `fields?`, `include?`, `count?`, `lock?`, `distinct?`                    |
+| `CountRead` | `model`, `where?`                                                                                                                                       |
+| `Write`     | `checks?`, `changes`, `read?`, `before?`                                                                                                                |
+| `Check`     | `model`, `where`, `count`, `lock?`                                                                                                                      |
+| `Change`    | `insert` `{ model, row }`, `update` `{ model, where, set, compute? }`, `delete` `{ model, where }`, `link` and `unlink` `{ model, field, id, targets }` |
+
+In a change, a stored `one` key is the target's id or `null`.
+
+### Errors
+
+| Throw                                                 | When                                                                                      | The developer sees                                                                   |
+| ----------------------------------------------------- | ----------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| `UniqueViolation(model, fields)`                      | A unique index refuses a row.                                                             | `UNIQUE_VIOLATION`, `details: { model, fields }`                                     |
+| `CheckFailed(index)`                                  | A check counts other than its `count`.                                                    | The error of that check: `NOT_FOUND` or `RELATION_RESTRICTED`                        |
+| `OutOfRange(model, field)`                            | A computed number leaves its range or is not finite.                                      | `VALIDATION_FAILED`, the field's range in `issues`                                   |
+| `RelationViolation(model, field, target, restricted)` | A foreign key refuses a write.                                                            | `NOT_FOUND`, or `RELATION_RESTRICTED` with `details: { model, field }`               |
+| `MigrationFailed(at, reason, locked?)`                | The database refuses a statement or a file; `locked` when it waited too long for a table. | The start, `migrate deploy` or `reset` stops with the statement and the reason       |
+| `Conflict()`                                          | The database aborts a transaction for a conflict with another.                            | A serializable transaction runs again; `CONFLICT` after 10 attempts, else `INTERNAL` |
+
+### The feed
+
+| Name         | Value or shape                                                                                       |
+| ------------ | ---------------------------------------------------------------------------------------------------- |
+| `Feed`       | `changed(changes)`, `missed()`                                                                       |
+| `Changed`    | `insert`, `update`, `delete` `{ model, ids?, fields? }`; `link`, `unlink` `{ model, field, pairs? }` |
+| `feedIds`    | `1000`: the most ids or pairs a change lists.                                                        |
+| `feedFields` | `1500`: the longest list of fields, as JSON, an update lists.                                        |
+
+A delete's links go with its rows, unlisted. How changes group into entries
+and calls is the adapter's.
+
+### `Migrations`
+
+| Member               | Does                                                                         |
+| -------------------- | ---------------------------------------------------------------------------- |
+| `snapshot(schema)`   | What the database makes of the models, as JSON.                              |
+| `plan(from, schema)` | The statements from a snapshot, or `undefined` for an empty database.        |
+| `stored()`           | The database's snapshot and the migrations applied, if any.                  |
+| `apply(run)`         | Runs a `sync` (statements) or a `deploy` (files) under a lock.               |
+| `reset()`            | Drops every table, for `ultimabase reset`; returns the models' tables.       |
+| `remote?`            | The database's host when it is not on this machine: `reset` needs `--force`. |
+
+A `Statement` is `{ sql, model, does, loses?, tries?, rename? }`.
+
+### `testAdapter`
+
+`testAdapter(name, create, { roundTrips })` declares a Vitest `describe` named
+`the ${name} adapter`.
+
+- `create` returns a new adapter for each test, on an empty database.
+- `roundTrips` returns how many round trips the adapters have made so far,
+  `BEGIN` and `COMMIT` included; the suite checks the differences.
+
+It covers reads, filters, sorts, counts, aggregates, groups, nested writes,
+cascades, lists, JSON paths, decimals, dates, searches, transactions, the feed
+and round trips.

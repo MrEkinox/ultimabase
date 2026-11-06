@@ -1,5 +1,16 @@
 # @ultimabase/maintenance
 
+## 0.6.0
+
+### Patch Changes
+
+- Updated dependencies [a47bbc4]
+- Updated dependencies [41b5dca]
+- Updated dependencies [41b5dca]
+- Updated dependencies [41b5dca]
+  - @ultimabase/http@0.6.0
+  - ultimabase@0.6.0
+
 ## 0.5.0
 
 ### Patch Changes

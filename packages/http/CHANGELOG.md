@@ -1,5 +1,15 @@
 # @ultimabase/http
 
+## 0.6.0
+
+### Patch Changes
+
+- a47bbc4: A storm of connections no longer fails. The server's connection queue holds 4096, and at most 8 connections open at once. A socket closed by a failure of the server now gets `1013`, which `graphql-ws` retries, where it got `4403`: `4403` now means refused, and only that. `liveFetch` reconnects at a random moment of its wait, so that clients cut together do not come back together.
+- Updated dependencies [41b5dca]
+- Updated dependencies [41b5dca]
+- Updated dependencies [41b5dca]
+  - ultimabase@0.6.0
+
 ## 0.5.0
 
 ### Patch Changes

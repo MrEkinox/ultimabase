@@ -1,5 +1,17 @@
 # @ultimabase/files
 
+## 0.6.0
+
+### Patch Changes
+
+- a4e42fe: A file's `id` is an `ID` in GraphQL, as every id, and `{ type: 'string', format: 'uuid' }` in OpenAPI: it was a `String`. A client passing a file's id in a variable declares `$id: ID!`.
+- Updated dependencies [a47bbc4]
+- Updated dependencies [41b5dca]
+- Updated dependencies [41b5dca]
+- Updated dependencies [41b5dca]
+  - @ultimabase/http@0.6.0
+  - ultimabase@0.6.0
+
 ## 0.5.0
 
 ### Minor Changes
