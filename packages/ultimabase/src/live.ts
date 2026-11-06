@@ -198,12 +198,11 @@ export async function liveReader(
 		inMemory(model, rights)
 	const readable = (row: Row | undefined): row is Row =>
 		row !== undefined && (rights === undefined || matches(model, row, rights))
-	// A root rule a row answers alone is checked on the read's rows: the read
-	// then needs them whole, and no longer names its caller (D-252).
+	// A root rule a row answers alone is checked on the stored rows, not on what
+	// the read returns, whose relations hold what the caller sees of them: the
+	// read then no longer names its caller (D-252).
 	const alone = rights !== undefined && inMemory(model, rights)
-	const { fields: _fields, ...whole } = read
-	const asked = alone ? whole : read
-	const key = JSON.stringify([model, asked, alone ? undefined : rights])
+	const key = JSON.stringify([model, read, alone ? undefined : rights])
 	const shared = async (
 		ids: readonly string[],
 		reads: SharedReads,
@@ -213,7 +212,7 @@ export async function liveReader(
 		if (known !== undefined) return known
 		const among = { id: { in: [...ids] } }
 		const where = alone ? among : and(among, rights)
-		const found = app.adapter.find({ ...asked, model, where })
+		const found = app.adapter.find({ ...read, model, where })
 		reads.set(each, found)
 		return found
 	}
@@ -234,13 +233,13 @@ export async function liveReader(
 								root,
 								ids.map((id) => rows.get(id)).filter(readable),
 							)
-						: reads === undefined
+						: reads === undefined || rows === undefined
 							? await store.find(root)
 							: decoded(
 									models,
 									root,
 									(await shared(ids, reads)).filter(
-										(row) => !alone || readable(row),
+										(row) => !alone || readable(rows.get(row.id)),
 									),
 								)
 				const shown = await shapedRows(
