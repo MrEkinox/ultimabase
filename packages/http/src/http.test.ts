@@ -383,6 +383,44 @@ describe('an error', () => {
 		})
 	})
 
+	it('refuses a body over the limit that declares no length', async () => {
+		const { url } = await server({ port: 0, routes: [notes], bodyLimit: 10 })
+		const encoded = new TextEncoder().encode('more than ten bytes')
+		const large = await fetch(`${url}/notes`, {
+			method: 'POST',
+			duplex: 'half',
+			body: new ReadableStream({
+				start: (controller) => {
+					controller.enqueue(encoded)
+					controller.close()
+				},
+			}),
+		})
+		expect(large.status).toBe(413)
+	})
+
+	it('reads a body under the limit, with its length or without', async () => {
+		const echo = routes().post('/echo', async (c) => c.json(await c.req.json()))
+		const { url } = await server({ port: 0, routes: [echo] })
+		const encoded = new TextEncoder().encode(JSON.stringify({ text: 'hi' }))
+		const declared = await fetch(`${url}/echo`, {
+			method: 'POST',
+			body: encoded,
+		})
+		expect(await declared.json()).toStrictEqual({ text: 'hi' })
+		const undeclared = await fetch(`${url}/echo`, {
+			method: 'POST',
+			duplex: 'half',
+			body: new ReadableStream({
+				start: (controller) => {
+					controller.enqueue(encoded)
+					controller.close()
+				},
+			}),
+		})
+		expect(await undeclared.json()).toStrictEqual({ text: 'hi' })
+	})
+
 	it("lifts the limit for a mount's routes that read their own body", async () => {
 		const { url } = await server({ port: 0, bodyLimit: 10 }, ownBody.plugin())
 		const body = 'more than ten bytes'
@@ -483,6 +521,30 @@ describe('CORS', () => {
 			headers: { origin, 'access-control-request-method': 'GET' },
 		})
 		expect(preflight.status).toBe(204)
+	})
+
+	it('reaches a response whose headers are immutable', async () => {
+		const origin = 'https://app.example.com'
+		const { url } = await server({ port: 0, routes: [notes], cors: [origin] })
+		const moved = await fetch(`${url}/moved`, {
+			redirect: 'manual',
+			headers: { origin },
+		})
+		expect(moved.status).toBe(301)
+		expect(moved.headers.get('access-control-allow-origin')).toBe(origin)
+		expect(moved.headers.get('access-control-allow-credentials')).toBe('true')
+		expect(moved.headers.get('vary')).toBe('Origin')
+		expect(moved.headers.get('cache-control')).toBe('no-store')
+	})
+
+	it('adds to the vary a route says', async () => {
+		const own = routes().get('/varied', (c) => {
+			c.header('vary', 'Accept')
+			return c.text('varied')
+		})
+		const { url } = await server({ port: 0, routes: [own] })
+		const varied = await fetch(`${url}/varied`)
+		expect(varied.headers.get('vary')).toBe('Accept, Origin')
 	})
 })
 

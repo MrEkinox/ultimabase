@@ -159,6 +159,21 @@ const pathOf = (request: Request): string =>
 	)
 
 /**
+ * Sets a header of an answered request on the response itself: `c.header` would
+ * copy it, and the copy, unlike the adapter's own response, sends its body
+ * through a stream. A response of `fetch` or `Response.redirect` keeps its
+ * headers: that one is copied.
+ */
+function stamp(c: Context, name: string, value: string, append = false): void {
+	try {
+		if (append) c.res.headers.append(name, value)
+		else c.res.headers.set(name, value)
+	} catch {
+		c.header(name, value, { append })
+	}
+}
+
+/**
  * Reads `NODE_ENV` once, when the application starts. The application's
  * routes come before those plugins mounted (D-107).
  */
@@ -187,7 +202,7 @@ export function appOf(
 	app.use(async (c, next) => {
 		await next()
 		if (!c.res.headers.has('cache-control'))
-			c.header('cache-control', 'no-store')
+			stamp(c, 'cache-control', 'no-store')
 	})
 	// Each request once answered, outside production (D-108).
 	if (local) {
@@ -215,17 +230,19 @@ export function appOf(
 	app.use(async (c, next) => {
 		// Hono's `cors` answers every OPTIONS: a route's own runs, unless the
 		// request is a preflight.
-		const asked = c.req.header('access-control-request-method')
-		if (c.req.method !== 'OPTIONS' || asked !== undefined) {
+		if (
+			c.req.method === 'OPTIONS' &&
+			c.req.header('access-control-request-method') !== undefined
+		) {
 			return preflight(c, next)
 		}
 		await next()
 		const origin = allowed(c.req.header('origin') ?? '')
 		if (origin !== null) {
-			c.header('access-control-allow-origin', origin)
-			c.header('access-control-allow-credentials', 'true')
+			stamp(c, 'access-control-allow-origin', origin)
+			stamp(c, 'access-control-allow-credentials', 'true')
 		}
-		c.header('vary', 'Origin', { append: true })
+		stamp(c, 'vary', 'Origin', true)
 	})
 	// Before the gates and the caller: a flood reads no session (D-218).
 	app.use(async (c, next) => {
@@ -263,17 +280,15 @@ export function appOf(
 		}
 		await next()
 	})
-	const limit = bodyLimit({
-		maxSize,
-		onError: (c) =>
-			c.json(
-				{
-					code: 'PAYLOAD_TOO_LARGE',
-					message: `The body is over ${maxSize} bytes.`,
-				},
-				413,
-			),
-	})
+	const tooLarge = (c: Context) =>
+		c.json(
+			{
+				code: 'PAYLOAD_TOO_LARGE',
+				message: `The body is over ${maxSize} bytes.`,
+			},
+			413,
+		)
+	const limit = bodyLimit({ maxSize, onError: tooLarge })
 	// The routes of the mounts that read their own body, by method: their
 	// `use` and `all` match any request, so they never lift the limit (D-153).
 	const unlimited = new Hono()
@@ -283,9 +298,18 @@ export function appOf(
 		}
 	}
 	app.use(async (c, next) => {
+		if (c.req.method === 'GET' || c.req.method === 'HEAD') return next()
 		const [matched] = unlimited.router.match(c.req.method, c.req.path)
-		if (matched.length > 0) await next()
-		else return limit(c, next)
+		if (matched.length > 0) return next()
+		// Hono's limit opens the body to read this header.
+		const declared = c.req.header('content-length')
+		if (
+			declared === undefined ||
+			c.req.header('transfer-encoding') !== undefined
+		) {
+			return limit(c, next)
+		}
+		return Number(declared) > maxSize ? tooLarge(c) : next()
 	})
 	app.use(async (c, next) => {
 		hold(c, await identify(c.req.raw), addressOf(c.env))
