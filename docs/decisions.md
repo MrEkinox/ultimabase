@@ -18515,8 +18515,10 @@ for its readers.
    whole. The example's test sends the file and compares the response with the JSON file, parsed.
    `scripts/requests.ts` does this for the tests. It is no public API, and no package holds it. A
    `.graphql` file starts with `query` or `mutation`, even where GraphQL lets a query omit it.
-3. **Ids and cursors read `…`** in a response file, since they change at each run. The test replaces
-   the values of `id`, `cursor`, `startCursor` and `endCursor` before comparing.
+3. **What changes at each run reads `…`** in a response file. The test replaces the values of `id`,
+   `cursor`, `startCursor`, `endCursor`, `createdAt` and `updatedAt` before comparing. A value the file
+   must name, as an id in a REST path, is written `$id` in an `.http` file, as in GraphQL, and the test
+   passes it.
 4. **A long model is shown in pieces.** A region may be a fragment, as one hook of a `hooks` object. A
    page's first include still shows its file's imports, so a page may open with a small model of its
    own file.

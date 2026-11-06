@@ -1,5 +1,6 @@
 import { defineConfig, defineDocs } from 'fumadocs-mdx/config'
 import convert from 'npm-to-yarn'
+import { codeEndsAtItsLastLine } from './scripts/regions.ts'
 
 const postprocess = { includeProcessedMarkdown: true }
 
@@ -25,6 +26,7 @@ function inManager(manager: 'pnpm' | 'yarn'): (command: string) => string {
 // reader's choice is kept from page to page.
 export default defineConfig({
 	mdxOptions: {
+		remarkPlugins: [codeEndsAtItsLastLine],
 		remarkNpmOptions: {
 			persist: { id: 'package-manager' },
 			packageManagers: [

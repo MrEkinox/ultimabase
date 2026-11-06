@@ -128,7 +128,7 @@ describe('limits', () => {
 		)
 		// Master is not limited.
 		const key = { 'x-ultimabase-master-key': 'dev-master-key' }
-		expect(at(await send(rows, {}, key), 'errors')).toBeUndefined()
+		expect(at(await send(rows, {}, { headers: key }), 'errors')).toBeUndefined()
 	})
 
 	it('refuses a relation selected twice with different arguments', async () => {

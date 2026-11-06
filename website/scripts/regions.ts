@@ -80,3 +80,21 @@ export function codeBlock(website: string, include: Include): string {
 	const language = extname(include.file).slice(1)
 	return `${fence}${language}\n${code.replace(/\r?\n$/u, '')}\n${fence}`
 }
+
+/** The part of a Markdown tree `codeEndsAtItsLastLine` reads. */
+interface MarkdownNode {
+	readonly type: string
+	value?: string | undefined
+	readonly children?: readonly MarkdownNode[]
+}
+
+const endCodeBlocks = (node: MarkdownNode) => {
+	if (node.type === 'code') node.value = node.value?.replace(/\r?\n$/u, '')
+	node.children?.forEach(endCodeBlocks)
+}
+
+/**
+ * A remark plugin: a code block ends at its last line. The include plugin keeps
+ * the newline that ends a file included whole, which shows as an empty line.
+ */
+export const codeEndsAtItsLastLine = () => endCodeBlocks
