@@ -7,6 +7,7 @@ import { definePlugin } from 'ultimabase'
 import manifest from '../package.json' with { type: 'json' }
 import { ownerOf } from './computed.ts'
 import { Engine } from './engine.ts'
+import { Gate, opening } from './gate.ts'
 import type { Viewer } from './viewer.ts'
 
 export type { LiveHandle, LiveMessage, Removal, Upsert } from './messages.ts'
@@ -85,6 +86,7 @@ const realtimeDefinition = definePlugin<Realtime>({
 				maxLive: options.maxLive ?? 50_000,
 				maxSubscriptions: options.maxSubscriptions ?? 100,
 				maxConnectionRows: options.maxConnectionRows ?? 100_000,
+				opens: new Gate(opening),
 			},
 			options.refresh ?? 300_000,
 		)

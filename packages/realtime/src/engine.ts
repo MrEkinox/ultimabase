@@ -75,8 +75,10 @@ export class Engine {
 
 	/** A viewer for `request`'s caller, kept until it closes. */
 	async connect(request: Request): Promise<Viewer> {
-		const { identify } = this.#settings
-		const identified = await recording(async () => identify(request))
+		const { identify, opens } = this.#settings
+		const identified = await opens.run(async () =>
+			recording(async () => identify(request)),
+		)
 		const viewer = new Viewer(this.#settings, request, identified, {
 			readers: this.#readers,
 			onClose: () => this.#viewers.delete(viewer),
@@ -150,13 +152,13 @@ export class Engine {
 		)
 	}
 
-	/** A viewer that fails is logged and closed; the others go on. */
+	/** A viewer that fails is logged and ended as failed; the others go on. */
 	async #guarded(viewer: Owner, task: () => Promise<void>): Promise<void> {
 		try {
 			await task()
 		} catch (error) {
 			this.#settings.logger.error({ err: error }, 'A live viewer failed.')
-			viewer.end()
+			viewer.end(true)
 		}
 	}
 }

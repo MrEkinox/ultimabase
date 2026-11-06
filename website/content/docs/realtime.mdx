@@ -313,7 +313,9 @@ each change sends the new `totalCount` and no row.
 The caller is the upgrade request's, by cookie or `Authorization`, or
 `connection_init`'s `{ authorization: 'Bearer …' }`. An upgrade from an
 `Origin` the HTTP plugin's CORS does not allow is a `403`. A socket whose
-caller becomes another user closes with `4403`. A query or mutation sent
+caller becomes another user closes with `4403`; one whose server could not
+read its caller or follow its reads closes with `1013`, and its client
+connects again. A query or mutation sent
 over the socket reads its caller again first, as over HTTP; a
 subscription keeps the connection's. A client message is at
 most 1 MB; the server pings every 12 seconds. Over SSE, a row that does
@@ -328,6 +330,7 @@ not exist is `null`, not a `404`, and a model that is not live is a `400`.
 | `viewer.row(model, { where }, send)` | A live row, by a unique `where`.                                          |
 | `viewer.onClose(listener)`           | Runs `listener` once the viewer closes; at once if it is closed.          |
 | `viewer.close()` and `viewer.closed` | Closes every live read; whether it is closed.                             |
+| `viewer.failed`                      | Whether it ended on a failure of the server, not for its caller.          |
 
 A listener that throws is logged; the others still run.
 

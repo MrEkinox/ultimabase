@@ -27,7 +27,7 @@ export const seenBy = (
 /** Whoever holds live reads and follows a flush for them: a viewer. */
 export interface Owner {
 	flush(batch: Batch, loader: Loader, concerned: Concerned): Promise<void>
-	end(): void
+	end(failed?: boolean): void
 }
 
 type Entry = {

@@ -130,8 +130,8 @@ export type Channel = {
 	readonly full: () => boolean
 	/** Runs `then` once everything sent is written. */
 	readonly drained: (then: () => void) => void
-	/** Closes the socket: its caller is no longer the same user. */
-	readonly forbid: () => void
+	/** Closes the socket: its viewer ended, and says why (D-278). */
+	readonly shut: () => void
 	/** The completed live lists a resume may take back, by token. */
 	readonly kept: Map<string, Kept>
 }
@@ -249,7 +249,7 @@ export async function liveStream(
 		if (message.kind === 'closed') {
 			if (channel.viewer.closed) {
 				end()
-				return channel.forbid()
+				return channel.shut()
 			}
 			ending = true
 			return push(closed(message.error))

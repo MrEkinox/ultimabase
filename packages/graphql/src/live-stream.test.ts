@@ -75,7 +75,7 @@ function fake(seen: Viewer): Fake {
 			drained: (then) => {
 				state.drains.push(then)
 			},
-			forbid: () => {
+			shut: () => {
 				state.forbidden += 1
 			},
 			kept: new Map(),

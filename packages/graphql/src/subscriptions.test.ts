@@ -150,6 +150,7 @@ const revoked = new Set<string>()
 /** Each user's name, read again with their caller. */
 const names = new Map<string, string>()
 let held: Promise<void> | undefined
+let brokenLater = false
 interface Sessions extends PluginTypes {
 	readonly name: 'sessions'
 }
@@ -163,7 +164,8 @@ const sessions = definePlugin<Sessions>({
 	},
 	identify: async (request): Promise<Identity | undefined> => {
 		const id = request.headers.get('authorization')
-		if (id === 'broken') throw new Error('Identify broke.')
+		if (id === 'broken' || brokenLater) throw new Error('Identify broke.')
+		if (id === 'refused') throw new PublicError('ACCESS_DENIED', 'Refused.')
 		if (id === 'slow') await held
 		if (id === null || revoked.has(id)) return undefined
 		const user = { id, name: names.get(id) }
@@ -203,6 +205,7 @@ afterEach(async () => {
 	failing = false
 	breaking = undefined
 	held = undefined
+	brokenLater = false
 })
 
 type Options = {
@@ -1302,12 +1305,40 @@ describe('a connection', () => {
 		])
 	})
 
-	it('is refused when its caller is not read', async () => {
+	it('tries again later when its caller could not be read (D-278)', async () => {
 		const url = await started()
 		const { ws, closes } = opening(url, 'broken')
 		await failed(ws.iterate({ query: tasks }))
-		expect(closes).toEqual([{ code: 4403, reason: 'Forbidden' }])
+		expect(closes).toEqual([{ code: 1013, reason: 'Try again later' }])
 		expect(errors).toEqual(['A WebSocket caller was not read.'])
+	})
+
+	it('is refused when identify refuses it publicly', async () => {
+		const url = await started()
+		const { ws, closes } = opening(url, 'refused')
+		await failed(ws.iterate({ query: tasks }))
+		expect(closes).toEqual([{ code: 4403, reason: 'Forbidden' }])
+		expect(errors).toEqual([])
+	})
+
+	it('tries again later when a query’s caller could not be read (D-278)', async () => {
+		const url = await started()
+		const { ws, closes } = opening(url)
+		await next(ws.iterate({ query: '{ cookie }' }))
+		brokenLater = true
+		await failed(ws.iterate({ query: '{ cookie }' }))
+		expect(closes).toEqual([{ code: 1013, reason: 'Try again later' }])
+	})
+
+	it('tries again later when a rebuild could not read its caller (D-278)', async () => {
+		const url = await started({ realtime: { refresh: 20 } })
+		await seeded()
+		const { ws, closes } = opening(url)
+		const results = ws.iterate({ query: tasks })
+		await next(results)
+		brokenLater = true
+		await failed(results)
+		expect(closes).toEqual([{ code: 1013, reason: 'Try again later' }])
 	})
 
 	it('closes 4403 when its caller is no longer the same user', async () => {

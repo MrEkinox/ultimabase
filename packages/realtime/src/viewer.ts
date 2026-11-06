@@ -15,8 +15,8 @@ import { Live } from './live.ts'
 import type { Concerned, Owner, Readers } from './readers.ts'
 import { seenBy } from './readers.ts'
 import type { Loader } from './loader.ts'
-import type { Settings } from './settings.ts'
-import { told, waitUntil } from './settings.ts'
+import type { Built, Settings } from './settings.ts'
+import { builtAgain, limitOf, told, waitUntil } from './settings.ts'
 import { liveArgs, shapeOf } from './shape.ts'
 import { anyStale } from './stale.ts'
 
@@ -30,8 +30,6 @@ type Subscription = {
 	reads: readonly Recorded[]
 	expires: Date | undefined
 }
-
-type Built<R> = Awaited<ReturnType<typeof recording<R>>>
 
 export class Viewer implements Owner {
 	readonly #settings: Settings
@@ -47,6 +45,7 @@ export class Viewer implements Owner {
 	#expires: Date | undefined
 	#due: NodeJS.Timeout | undefined
 	#closed = false
+	#failed = false
 
 	/** `onDue` runs once the caller stops holding, to rebuild it. */
 	constructor(
@@ -80,13 +79,19 @@ export class Viewer implements Owner {
 		return this.#closed
 	}
 
+	/** Whether it ended on a failure of the server, not for its caller (D-278). */
+	get failed(): boolean {
+		return this.#failed
+	}
+
 	/** A live list of `model`'s rows, from the top of its order. */
 	async list(
 		model: string,
 		args: unknown,
 		send: (message: LiveMessage) => void,
 	): Promise<LiveHandle> {
-		return this.#follow(model, args, false, send)
+		const { opens } = this.#settings
+		return opens.run(async () => this.#follow(model, args, false, send))
 	}
 
 	/** A live row of `model`, by a unique `where`. */
@@ -95,7 +100,8 @@ export class Viewer implements Owner {
 		args: unknown,
 		send: (message: LiveMessage) => void,
 	): Promise<LiveHandle> {
-		return this.#follow(model, args, true, send)
+		const { opens } = this.#settings
+		return opens.run(async () => this.#follow(model, args, true, send))
 	}
 
 	/**
@@ -125,7 +131,7 @@ export class Viewer implements Owner {
 		)
 		this.#computed.set(computed, send)
 		try {
-			await computed.start()
+			await this.#settings.opens.run(async () => computed.start())
 		} catch (error) {
 			computed.close()
 			this.#computed.delete(computed)
@@ -217,12 +223,13 @@ export class Viewer implements Owner {
 
 	/** The caller built again; the viewer ends when it is another user. */
 	async #identified(): Promise<Built<Caller> | undefined> {
-		const identified = await recording(async () =>
-			this.#settings.identify(this.#request),
-		).catch(() => undefined)
+		const { identified, failed } = await builtAgain(
+			this.#settings,
+			this.#request,
+		)
 		const who = identified && whoOf(identified.result)
 		if (who === whoOf(this.#caller)) return identified
-		this.end()
+		this.end(failed)
 		return undefined
 	}
 
@@ -289,8 +296,9 @@ export class Viewer implements Owner {
 		subscription?.send({ kind: 'closed' })
 	}
 
-	/** Closes every live read, telling each. */
-	end(): void {
+	/** Closes every live read, telling each; `failed` says the server did. */
+	end(failed = false): void {
+		this.#failed ||= failed
 		const sends = [
 			...[...this.#live.values()].map(({ send }) => send),
 			...this.#computed.values(),
@@ -304,7 +312,7 @@ export class Viewer implements Owner {
 	 * a list with that it grew to the limit and lost (D-252).
 	 */
 	capped(model: string, first: number): number {
-		return Math.min(first, this.#limit(model))
+		return Math.min(first, limitOf(this.#settings, model))
 	}
 
 	async #follow(
@@ -326,7 +334,7 @@ export class Viewer implements Owner {
 		)
 		// What a closed viewer registers would stay in the index for good.
 		if (this.#closed) throw new Error('The viewer is closed.')
-		const limit = this.#limit(model)
+		const limit = limitOf(this.#settings, model)
 		checked(this.#settings.models, model, planned.result, 'include')
 		within(first, limit)
 		this.#fits(first)
@@ -375,14 +383,6 @@ export class Viewer implements Owner {
 				this.#live.delete(live)
 			},
 		}
-	}
-
-	/** The rows a live list of `model` follows at most. */
-	#limit(model: string): number {
-		const exposed = this.#settings.models.find(
-			({ schema }) => schema.name === model,
-		)
-		return exposed?.with?.maxLive ?? this.#settings.maxLive
 	}
 
 	/** Refuses one more live read past what the connection holds. */

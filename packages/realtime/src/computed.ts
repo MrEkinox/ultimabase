@@ -70,6 +70,8 @@ export class Computed {
 
 	/** Runs it a first time; an error is thrown, as a refused subscription. */
 	async start(): Promise<void> {
+		// Its connection closed while it waited for its turn (D-277).
+		if (this.#closed) return
 		this.#kept(await this.#ran())
 	}
 

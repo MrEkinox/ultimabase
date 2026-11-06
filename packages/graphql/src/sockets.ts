@@ -101,6 +101,17 @@ const shapes = new WeakMap<object, string>()
 // How each socket sends, counted by its channel once it has one.
 const sends = new WeakMap<WebSocket, (data: string) => void>()
 
+/** The server failed, which says nothing of the caller: its client tries again. */
+const tryAgain = (socket: WebSocket) => {
+	socket.close(1013, 'Try again later')
+}
+
+/** Closes a socket whose viewer ended, or that never had one (D-278). */
+const shut = (socket: WebSocket, viewer: Viewer | undefined) => {
+	if (viewer?.failed === true) tryAgain(socket)
+	else socket.close(CloseCode.Forbidden, 'Forbidden')
+}
+
 /** The socket's channel: what it holds unsent, and when that is written. */
 function channelOf(viewer: Viewer, socket: WebSocket): Channel {
 	let pending = 0
@@ -122,7 +133,9 @@ function channelOf(viewer: Viewer, socket: WebSocket): Channel {
 			if (pending === 0) then()
 			else waiters.push(then)
 		},
-		forbid: () => socket.close(CloseCode.Forbidden, 'Forbidden'),
+		shut: () => {
+			shut(socket, viewer)
+		},
 		kept: new Map(),
 	}
 }
@@ -184,6 +197,7 @@ export function serveSockets(
 			} catch (error) {
 				if (!(error instanceof PublicError)) {
 					logger.error({ err: error }, 'A WebSocket caller was not read.')
+					tryAgain(socket)
 				}
 				return false
 			}
@@ -191,7 +205,7 @@ export function serveSockets(
 		onSubscribe: async (ctx, _, payload) => {
 			const { viewer, channel, upgrade, socket } = ctx.extra
 			const forbidden = () => {
-				socket.close(CloseCode.Forbidden, 'Forbidden')
+				shut(socket, viewer)
 				return [new GraphQLError('Forbidden')]
 			}
 			if (viewer === undefined || channel === undefined || viewer.closed) {
