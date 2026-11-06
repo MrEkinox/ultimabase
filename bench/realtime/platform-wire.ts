@@ -229,12 +229,13 @@ try {
 			const opened = (performance.now() - started) / 1000
 			await bench.quiet()
 			globalThis.gc?.()
-			const heap = process.memoryUsage().heapUsed / 2 ** 30
+			const { heapUsed, rss } = process.memoryUsage()
+			const heap = heapUsed / 2 ** 30
 			console.log(
 				`${new Date().toISOString().slice(0, 10)}, Node ${process.version}, ${scenario} over the wire, ${userCount} users.`,
 			)
 			console.log(
-				`All connected in ${opened.toFixed(1)} s (${((opened * 1000) / userCount).toFixed(2)} ms a user); heap ${heap.toFixed(2)} GiB.\n`,
+				`All connected in ${opened.toFixed(1)} s (${((opened * 1000) / userCount).toFixed(2)} ms a user); heap ${heap.toFixed(2)} GiB, process ${(rss / 2 ** 30).toFixed(2)} GiB, client threads included.\n`,
 			)
 
 			await climbing({

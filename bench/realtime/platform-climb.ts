@@ -37,10 +37,12 @@ export type Climb = {
 export async function climbing(climb: Climb): Promise<void> {
 	const { bench, hearing, last, rates, runs, seconds, told, users, write } =
 		climb
+	// How long until the last delivery: two changes of a row may make one message,
+	// so that some never come, and waiting for them is no work.
 	const settled = async (expected: number, patience: number) => {
 		const start = Date.now()
 		let seen = told.count()
-		let changed = Date.now()
+		let changed = start
 		while (told.count() < expected && Date.now() - changed < patience) {
 			await waited(5)
 			if (told.count() !== seen) {
@@ -48,7 +50,7 @@ export async function climbing(climb: Climb): Promise<void> {
 				changed = Date.now()
 			}
 		}
-		return Date.now() - start
+		return changed - start
 	}
 	const lone: { ms: number; statements: number; turn: number }[] = []
 	for (let run = 0; run < 3; run += 1) {
@@ -114,8 +116,8 @@ export async function climbing(climb: Climb): Promise<void> {
 		}
 		await Promise.all(running)
 		const wrote = (Date.now() - began) / 1000
-		const drain = (await settled(hearing * total, 30_000)) / 1000
-		const wall = (Date.now() - began) / 1000
+		const drain = (await settled(hearing * total, 3000)) / 1000
+		const wall = wrote + drain
 		const delays = await told.end()
 		loop.disable()
 		const cpu = process.cpuUsage(beforeCpu)
