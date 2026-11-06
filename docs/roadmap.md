@@ -283,6 +283,7 @@ for production yet, and fixes ship as 0.1.x or 0.2.
 - [x] Only messages above 1 KB are compressed (D-266).
 - [x] Subscribers of one row share it whatever window they follow (D-267).
 - [x] A document is read and validated once (D-268).
+- [x] A socket keeps a small compressor (D-269).
 - [x] Refuse breached and common passwords (NIST SP 800-63B §5.1.1.2):
       `passwordPlugin({ breached: true })`, and never the email (D-209).
 

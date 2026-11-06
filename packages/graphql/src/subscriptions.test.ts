@@ -12,6 +12,7 @@ import { assertObjectType, extendSchema, parse, subscribe } from 'graphql'
 import type { Client, FormattedExecutionResult } from 'graphql-ws'
 import { createClient } from 'graphql-ws'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import type { RawData } from 'ws'
 import { WebSocket } from 'ws'
 import { z } from 'zod'
 import type {
@@ -1402,6 +1403,28 @@ describe('a connection', () => {
 			expect(compressed()).toEqual([false, true])
 		})
 		socket.destroy()
+	})
+
+	it('keeps a small compressor, and a big message crosses it whole (D-269)', async () => {
+		const socket = new WebSocket(await started(), 'graphql-transport-ws')
+		let negotiated: unknown
+		socket.once('upgrade', ({ headers }) => {
+			negotiated = headers['sec-websocket-extensions']
+		})
+		await new Promise((done) => socket.once('open', done))
+		expect(negotiated).toContain('server_max_window_bits=12')
+		// Larger than the window, what it repeats further back than it reaches.
+		const big = Array.from({ length: 40_000 }, (_, at) => at % 97).join()
+		const answer = new Promise<RawData>((done) => {
+			socket.once('message', done)
+		})
+		socket.send(JSON.stringify({ type: 'ping', payload: { big } }))
+		const answered = [await answer].flat().map((part) => new Uint8Array(part))
+		expect(JSON.parse(Buffer.concat(answered).toString())).toEqual({
+			type: 'pong',
+			payload: { big },
+		})
+		socket.close()
 	})
 
 	it('that does not answer a ping is cut', async () => {

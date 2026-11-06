@@ -18094,3 +18094,25 @@ a subscription.
 
 Over the wire, 10 000 users, presence: connect 68.6 to 44.8 s, heap 1.52 to 1.10 GiB, told p50 at
 500 changes a second 402 to 295 ms, at 1 000 a second 2 590 to 2 338 ms.
+
+## D-269: A socket keeps a small compressor
+
+Choice: nothing changes in a developer's code; the server negotiates a smaller window.
+
+`ws` keeps a zlib compressor per socket from its first message above 1 KB, whatever the message
+sizes after it. With zlib's defaults, a window of 15 bits and `memLevel` 8, it holds 109 KB a socket
+after a 4.7 KB message and 243 KB after a 47 KB one, outside the heap, so that no heap figure shows
+it: 1.1 to 2.4 GiB at 10 000 users.
+
+1. The server answers `server_max_window_bits=12` and compresses with `memLevel` 5. RFC 7692 lets a
+   server say so even to a client that did not offer it, so that no client loses compression.
+2. A message compresses alone since D-266, and JSON repeats its keys within a row: a window of 4 KB
+   sees what a window of 32 KB sees until a message is very large. On the wire: 25 rows the same,
+   100 rows +0.8 %, 1 000 rows +3 %.
+3. The compression level stays zlib's default: level 3 saves a third of the compressing, which runs
+   off the event loop, for 6 to 12 % more bytes.
+4. The client's own window is left alone: `ws` then refuses a client that does not offer
+   `client_max_window_bits`, which would lose compression.
+
+Measured alone, server and clients in separate processes, 2 000 sockets: 109 to 44 KB a socket after
+a 4.7 KB message, 243 to 64 KB after a 47 KB one. The time to send does not move.

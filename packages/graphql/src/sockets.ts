@@ -297,6 +297,9 @@ export function serveSockets(
 			threshold: 1024,
 			serverNoContextTakeover: true,
 			clientNoContextTakeover: true,
+			// Each socket keeps its compressor: a small one (D-269).
+			serverMaxWindowBits: 12,
+			zlibDeflateOptions: { memLevel: 5 },
 		},
 		handleProtocols,
 	})
