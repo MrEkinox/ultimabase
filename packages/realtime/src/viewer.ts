@@ -13,6 +13,7 @@ import { Computed, debounce, ownerOf } from './computed.ts'
 import type { LiveHandle, LiveMessage } from './messages.ts'
 import { Live } from './live.ts'
 import type { Concerned, Owner, Readers } from './readers.ts'
+import { seenBy } from './readers.ts'
 import type { Loader } from './reads.ts'
 import type { Settings } from './settings.ts'
 import { told, waitUntil } from './settings.ts'
@@ -193,7 +194,7 @@ export class Viewer implements Owner {
 		const lives = [...this.#live.keys(), ...this.#computed.keys()]
 		const running = lives.flatMap((live) =>
 			missed || concerned.has(live)
-				? (live.apply(batch, loader, missed) ?? [])
+				? (live.apply(seenBy(concerned, live, batch), loader, missed) ?? [])
 				: [],
 		)
 		await Promise.all(running)

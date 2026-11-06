@@ -78,6 +78,9 @@ export async function rowsAfter(
 	})
 }
 
+const named = (steps: readonly Step[]): string =>
+	steps.map(({ relation }) => relation).join('.')
+
 /** The root rows a flush reads for all its live reads, at most. */
 const sharedRows = 10_000
 
@@ -96,6 +99,8 @@ export class Loader {
 	>()
 	readonly #pages = new Map<string, Promise<readonly Row[]>>()
 	readonly #reaching = new Map<string, Promise<readonly string[] | undefined>>()
+	/** The root rows each written row leads to, walked for every read (D-258). */
+	readonly #led = new Map<string, ReadonlyMap<string, readonly string[]>>()
 	readonly #holding = new Map<string, Map<string, Promise<Held | undefined>>>()
 	readonly #counts = new Map<string, Promise<number>>()
 	/** A flush's adapter reads, for the live reads that ask the same (D-252). */
@@ -147,8 +152,14 @@ export class Loader {
 		steps: readonly Step[],
 		ids: readonly string[],
 	): Promise<readonly string[] | undefined> {
-		const path = steps.map(({ relation }) => relation).join('.')
-		const key = `${model} ${path} ${ids.join()}`
+		const path = `${model} ${named(steps)}`
+		const led = this.#led.get(path)
+		if (led !== undefined && ids.every((id) => led.has(id))) {
+			return Promise.resolve([
+				...new Set(ids.flatMap((id) => led.get(id) ?? [])),
+			])
+		}
+		const key = `${path} ${ids.join()}`
 		let found = this.#reaching.get(key)
 		if (found === undefined) {
 			found = storedRows(model, {
@@ -161,6 +172,16 @@ export class Loader {
 			this.#reaching.set(key, found)
 		}
 		return found
+	}
+
+	/** Keeps what `led` found of the `model` rows that `steps` reach: no query. */
+	lead(
+		model: string,
+		steps: readonly Step[],
+		led: ReadonlyMap<string, readonly string[]>,
+	): void {
+		const path = `${model} ${named(steps)}`
+		this.#led.set(path, new Map([...(this.#led.get(path) ?? []), ...led]))
 	}
 
 	/**

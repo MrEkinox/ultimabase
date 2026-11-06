@@ -2,12 +2,10 @@
 // it reaches back to its root, and the ids its filter requires of every row.
 import type { Condition, Filter } from 'ultimabase'
 import type { LivePlan, Recorded } from 'ultimabase/internal'
-import type { Batch, Fields, ModelChanges } from './changes.ts'
-import { listed, touched, unlisted } from './changes.ts'
-import { keyOf, required } from './needs.ts'
+import type { Fields } from './changes.ts'
+import { required } from './needs.ts'
 import type { Models, Reach, Step } from './reach.ts'
 import { isList, stepOf, stores, union } from './reach.ts'
-import type { Loader } from './reads.ts'
 import { judgedOf } from './stale.ts'
 
 /** The ids a read's rows must lead to, along `path`, by `key` there. */
@@ -217,98 +215,4 @@ export function shapeOf({ root, pin, routes }: Interest): Shape {
 			...links.keys(),
 		]),
 	}
-}
-
-/** The pins the root rows deleted held, `'all'` when they do not say. */
-function deletedPins(
-	{ path, key }: NonNullable<Shape['pin']>,
-	deletes: readonly string[],
-	changes: ModelChanges,
-): readonly string[] | 'all' {
-	if (deletes.length === 0 || (path.length === 0 && key === 'id'))
-		return deletes
-	if (path.length > 0) return 'all'
-	const pins: string[] = []
-	for (const id of deletes) {
-		const held = changes.keys?.get(id)?.[key]
-		if (held === undefined) return 'all'
-		if (held !== null) pins.push(held)
-	}
-	return pins
-}
-
-/** The pins root rows `ids` lead to, `'all'` past what one read holds. */
-async function pinsFrom(
-	root: string,
-	{ path, key }: NonNullable<Shape['pin']>,
-	ids: readonly string[],
-	loader: Loader,
-): Promise<readonly string[] | 'all'> {
-	if (ids.length === 0) return []
-	let model = root
-	let at = ids
-	for (const step of path) {
-		if (step.keyOnTarget && step.inverse !== undefined) {
-			const held = await loader.holding(step.target, step.inverse, at)
-			const next = new Set<string>()
-			for (const found of held.values()) {
-				if (found === undefined) return 'all'
-				for (const row of found.rows) next.add(row.id)
-			}
-			at = [...next]
-		} else {
-			const rows = await loader.load(model, at)
-			at = [...rows.values()].flatMap((row) => keyOf(row, step.relation) ?? [])
-		}
-		model = step.target
-	}
-	if (key === 'id') return at
-	const rows = await loader.load(model, at)
-	return [...rows.values()].flatMap((row) => keyOf(row, key) ?? [])
-}
-
-/**
- * The pins whose reads of `shape` a write in `batch` may concern; `'all'` when
- * no answer is sure, which a read that fails also means to the caller.
- */
-export async function concernOf(
-	shape: Shape,
-	batch: Batch,
-	loader: Loader,
-): Promise<ReadonlySet<string> | 'all'> {
-	const { root, pin, routes, links } = shape
-	for (const [model, fields] of links) {
-		const changes = batch.get(model)
-		if (unlisted(changes) || touched(changes, fields)) return 'all'
-	}
-	const pins = new Set<string>()
-	const roots = new Set<string>()
-	for (const { steps, model, fields } of routes) {
-		const changes = batch.get(model)
-		if (changes === undefined) continue
-		if (unlisted(changes)) return 'all'
-		const deletes = listed(changes.deletes)
-		const written = [
-			...listed(changes.inserts),
-			...(touched(changes, fields) ? listed(changes.updates) : []),
-		]
-		if (pin === undefined) {
-			if (deletes.length + written.length > 0) return 'all'
-			continue
-		}
-		if (steps.length > 0 && deletes.length > 0) return 'all'
-		const held = deletedPins(pin, deletes, changes)
-		if (held === 'all') return 'all'
-		for (const id of held) pins.add(id)
-		if (written.length === 0) continue
-		const found =
-			steps.length === 0 ? written : await loader.reaching(root, steps, written)
-		if (found === undefined) return 'all'
-		for (const id of found) roots.add(id)
-	}
-	if (pin === undefined) return pins
-	const led = await pinsFrom(root, pin, [...roots], loader)
-	if (led === 'all') return 'all'
-	for (const id of led) pins.add(id)
-	return pins
 }

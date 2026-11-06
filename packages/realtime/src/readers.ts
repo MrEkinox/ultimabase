@@ -3,15 +3,26 @@
 import type { LivePlan, Recorded } from 'ultimabase/internal'
 import { liveSchema } from 'ultimabase/internal'
 import type { Batch } from './changes.ts'
-import { wrote } from './changes.ts'
+import { joined, wrote } from './changes.ts'
+import { concernOf } from './concern.ts'
 import type { Reach } from './reach.ts'
 import { modelsOf, reachOf } from './reach.ts'
 import type { Loader } from './reads.ts'
 import type { Interest, Shape } from './routes.ts'
-import { concernOf, interestOfPlan, interestOfRead, shapeOf } from './routes.ts'
+import { interestOfPlan, interestOfRead, shapeOf } from './routes.ts'
 
-/** The reads a flush visits: some of an owner's, or all of them. */
-export type Concerned = ReadonlySet<object> | 'all'
+/**
+ * The reads a flush visits: some of an owner's, each with the rows it can see
+ * or the whole batch (`undefined`), or all of them.
+ */
+export type Concerned = ReadonlyMap<object, Batch | undefined> | 'all'
+
+/** What `reader` is to read of `batch`. */
+export const seenBy = (
+	concerned: Concerned,
+	reader: object,
+	batch: Batch,
+): Batch => (concerned === 'all' ? batch : (concerned.get(reader) ?? batch))
 
 /** Whoever holds live reads and follows a flush for them: a viewer. */
 export interface Owner {
@@ -22,6 +33,8 @@ export interface Owner {
 type Entry = {
 	readonly reader: object
 	readonly owner: Owner
+	/** A live list reads the rows it can see; anything else reads them all. */
+	readonly narrows: boolean
 	within: readonly Membership[]
 }
 
@@ -47,7 +60,7 @@ export class Readers {
 		const schema = liveSchema()
 		const reach = reachOf(schema, spec.model, plan)
 		const interest = interestOfPlan(modelsOf(schema), spec.model, plan, reach)
-		this.#follow(spec.owner, reader, [interest])
+		this.#follow(spec.owner, reader, [interest], true)
 		return reach
 	}
 
@@ -55,12 +68,17 @@ export class Readers {
 	followReads(owner: Owner, reader: object, reads: readonly Recorded[]): void {
 		const models = modelsOf(liveSchema())
 		const interests = reads.map((read) => interestOfRead(models, read))
-		this.#follow(owner, reader, interests)
+		this.#follow(owner, reader, interests, false)
 	}
 
-	#follow(owner: Owner, reader: object, interests: readonly Interest[]): void {
+	#follow(
+		owner: Owner,
+		reader: object,
+		interests: readonly Interest[],
+		narrows: boolean,
+	): void {
 		this.#leave(reader)
-		const entry: Entry = { reader, owner, within: [] }
+		const entry: Entry = { reader, owner, narrows, within: [] }
 		entry.within = interests.map((interest) => {
 			const made = shapeOf(interest)
 			const shape = this.#shapes.get(made.key) ?? {
@@ -121,16 +139,22 @@ export class Readers {
 		else this.#always.delete(reader)
 	}
 
-	/** The reads `batch` may concern, by owner. */
+	/** The reads `batch` may concern, by owner, each with what it can see. */
 	async concerned(
 		batch: Batch,
 		loader: Loader,
-	): Promise<ReadonlyMap<Owner, ReadonlySet<object>>> {
-		const found = new Map<Owner, Set<object>>()
-		const add = ({ owner, reader }: Entry): void => {
-			const known = found.get(owner)
-			if (known === undefined) found.set(owner, new Set([reader]))
-			else known.add(reader)
+	): Promise<ReadonlyMap<Owner, ReadonlyMap<object, Batch | undefined>>> {
+		const found = new Map<Owner, Map<object, Batch[] | undefined>>()
+		const add = ({ owner, reader, narrows }: Entry, seen?: Batch): void => {
+			let reads = found.get(owner)
+			if (reads === undefined) {
+				reads = new Map()
+				found.set(owner, reads)
+			}
+			const known = reads.get(reader)
+			if (seen === undefined || !narrows) reads.set(reader, undefined)
+			else if (known !== undefined) known.push(seen)
+			else if (!reads.has(reader)) reads.set(reader, [seen])
 		}
 		// Before any wait: a task started after this reads the write.
 		for (const reader of [...this.#busy.keys(), ...this.#always]) {
@@ -148,10 +172,25 @@ export class Readers {
 		)
 		for (const [at, shape] of shapes.entries()) {
 			const pins = answers[at] ?? 'all'
-			for (const pin of pins === 'all' ? shape.readers.keys() : pins) {
-				for (const entry of shape.readers.get(pin) ?? []) add(entry)
+			if (pins === 'all') {
+				for (const held of shape.readers.values()) {
+					for (const entry of held) add(entry)
+				}
+				continue
+			}
+			for (const [pin, seen] of pins) {
+				for (const entry of shape.readers.get(pin) ?? []) add(entry, seen)
 			}
 		}
-		return found
+		const concerned = new Map<Owner, Map<object, Batch | undefined>>()
+		for (const [owner, reads] of found) {
+			const seen = new Map<object, Batch | undefined>()
+			for (const [reader, batches] of reads) {
+				const [only, second] = batches ?? []
+				seen.set(reader, second === undefined ? only : joined(batches ?? []))
+			}
+			concerned.set(owner, seen)
+		}
+		return concerned
 	}
 }

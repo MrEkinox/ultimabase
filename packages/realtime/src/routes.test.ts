@@ -14,6 +14,7 @@ import {
 	memory,
 } from 'ultimabase'
 import type { Batch } from './changes.ts'
+import { listed } from './changes.ts'
 import { Computed } from './computed.ts'
 import type { LiveMessage, Realtime, RealtimeApi } from './index.ts'
 import { realtime, realtimePlugin } from './index.ts'
@@ -372,13 +373,13 @@ it('a read that fails visits every list of its shape', async () => {
 	const hers = await follow('Note', first.id, inChat(first.chat, select))
 	await follow('Note', second.id, inChat(second.chat, select))
 	await quiet()
-	const reaching = vi
-		.spyOn(Loader.prototype, 'reaching')
+	const holding = vi
+		.spyOn(Loader.prototype, 'holding')
 		.mockRejectedValueOnce(new Error('No read.'))
 	const rename = async () =>
 		User.update({ where: { id: first.id }, data: { name: 'ada2' } }, M)
 	expect(await visitsOf(rename)).toBe(2)
-	reaching.mockRestore()
+	holding.mockRestore()
 	await vi.waitFor(() => expect(seenIn(hers)).toContain('ada2'))
 })
 
@@ -523,7 +524,9 @@ it('a busy read is visited whatever a write says: its task may miss it', async (
 	readers.busy(reader, true)
 	readers.busy(reader, true)
 	readers.busy(reader, false)
-	expect((await concerned(readers)).get(owner)).toEqual(new Set([reader]))
+	expect((await concerned(readers)).get(owner)).toEqual(
+		new Map([[reader, undefined]]),
+	)
 	readers.busy(reader, false)
 	expect((await concerned(readers)).size).toBe(0)
 })
@@ -543,11 +546,80 @@ it('a read that holds virtuals is visited until it stops or is forgotten', async
 	readers.followReads(owner, reader, [])
 	readers.always(reader, true)
 	readers.followReads(owner, reader, [])
-	expect((await concerned(readers)).get(owner)).toEqual(new Set([reader]))
+	expect((await concerned(readers)).get(owner)).toEqual(
+		new Map([[reader, undefined]]),
+	)
 	readers.always(reader, false)
 	expect((await concerned(readers)).size).toBe(0)
 	readers.always(reader, true)
 	readers.forget(reader)
 	readers.followReads(owner, reader, [])
 	expect((await concerned(readers)).size).toBe(0)
+})
+
+/** The rows of `model` each list visited by `write` was given (D-258). */
+async function rowsSeen(
+	model: string,
+	write: () => Promise<unknown>,
+): Promise<readonly (readonly string[])[]> {
+	await visitsOf(write)
+	return applied.mock.calls.map(([batch]) => {
+		const changes = batch.get(model)
+		return [...listed(changes?.inserts), ...listed(changes?.updates)].toSorted()
+	})
+}
+
+it('a list sees only the rows that lead to its pin', async () => {
+	const first = await chatOf('ada')
+	const second = await chatOf('bob')
+	const hers = await follow('Note', first.id, inChat(first.chat))
+	const his = await follow('Note', second.id, inChat(second.chat))
+	const made: string[] = []
+	const seen = await rowsSeen('Note', async () => {
+		const notes = await Promise.all([
+			noteIn(first, 'one'),
+			noteIn(second, 'two'),
+		])
+		made.push(...notes.map(({ id }) => id))
+	})
+	expect(new Set(seen.map(String))).toEqual(new Set(made))
+	expect(seenIn(hers)).toContain('one')
+	expect(seenIn(hers)).not.toContain('two')
+	expect(seenIn(his)).toContain('two')
+})
+
+it('a list pinned on two ids sees the rows of both, once', async () => {
+	const ada = await User.create({ data: { name: 'ada' } }, M)
+	const bob = await User.create({ data: { name: 'bob' } }, M)
+	const both = await follow('User', ada.id, {
+		first: 10,
+		select: { name: true },
+		where: { id: { in: [ada.id, bob.id] } },
+	})
+	const seen = await rowsSeen('User', async () =>
+		Promise.all([
+			User.update({ where: { id: ada.id }, data: { name: 'ada2' } }, M),
+			User.update({ where: { id: bob.id }, data: { name: 'bob2' } }, M),
+		]),
+	)
+	expect(seen).toEqual([[ada.id, bob.id].toSorted()])
+	expect(seenIn(both)).toContain('ada2')
+	expect(seenIn(both)).toContain('bob2')
+})
+
+it('a walk answers the reads that ask where it led, with no query', async () => {
+	const loader = new Loader()
+	const step = {
+		relation: 'notes',
+		many: true,
+		target: 'Note',
+		inverse: 'chat',
+		keyOnTarget: true,
+	}
+	loader.lead('Chat', [step], new Map([['n', ['a']]]))
+	loader.lead('Chat', [step], new Map([['m', ['a', 'b']]]))
+	await expect(loader.reaching('Chat', [step], ['n', 'm'])).resolves.toEqual([
+		'a',
+		'b',
+	])
 })

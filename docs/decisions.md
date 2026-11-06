@@ -17700,6 +17700,8 @@ Rejected:
 
 ## D-256: A write visits the reads it can concern
 
+Amended by D-258.
+
 Choice: amends D-255's known limits. Nothing changes for a developer: no option, no
 new message, the same rows told.
 
@@ -17795,3 +17797,43 @@ trip takes most of it.
 
 Rejected: caching whole statements per query shape, not needed yet; another driver or
 builder, as the choice of Kysely to run statements and migrations still stands.
+
+## D-258: A read sees only the rows that lead to it
+
+Choice: amends D-256. Nothing changes for a developer: no option, no new message, the
+same rows told.
+
+1. A flush already walks each written row back to its root rows and on to their pins.
+   It now keeps that walk: each read is given the rows that lead to its pins, rather
+   than the whole batch.
+2. A read gets the whole batch whenever D-256 visits every read of its shape, and when
+   it is visited for another reason than a row of its pin: a task in progress, virtual
+   fields' reads, a read that built a caller, a plan or a result. A key or a link moved
+   is such a case, which is why a row that leads elsewhere cannot enter a window.
+3. A read pinned on several ids gets the rows of all of them, joined. A many-to-many
+   link, which no walk follows, gives every row to each root found.
+4. What a walk found answers the reads that ask the same way back, with no query.
+
+Why: at saturation a flush cost the rows times the reads, a larger batch made a slower
+flush, and a slower flush a larger batch. It now costs the rows times the reads each
+reaches. 10 000 users on one process and one Postgres, `bench/realtime/platform.ts`, 95th
+percentile of the delay to be told, and how long the backlog took to drain:
+
+| Scenario, rate               | Told, before | After | Drain, before | After  |
+| ---------------------------- | ------------ | ----- | ------------- | ------ |
+| Non-player characters, 500/s | 22.1 s       | 9.0 s | 23.2 s        | 9.3 s  |
+| Online and offline, 500/s    | 2.3 s        | 1.5 s | 31.8 s        | 31.0 s |
+
+Below saturation nothing moves: 3 runs of a campaign at 200/s gave 504 to 957 ms against
+833 ms, and of chats at 200/s 99 to 147 ms against 108 ms. The package grows by 214 lines.
+
+Each row a read no longer sees could be one a client misses, so this was checked by
+replaying what each of 80 live reads was told over random writes, then comparing it with
+what a new reader finds. Whole batch and narrowed gave the same messages, seed by seed. The
+same replay found a bug no test caught, in D-252's shared reads, fixed by a test of its own.
+
+Known limits:
+
+- No scenario holds more for it: told within a second at the 95th percentile still stops
+  at the same rate. It stops being a cliff: at 1000/s a campaign drains in 12 s, not 78 s.
+- A walk costs what it reads, and the reads it replaces were only the ones past the pin.
