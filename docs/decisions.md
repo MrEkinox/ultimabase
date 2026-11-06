@@ -18595,6 +18595,17 @@ const ticket = await Ticket.create({ data: { title: '  Printer jam ' } }, as)
 expect(ticket.title).toBe('Printer jam')
 ```
 
+## D-283: A benchmark measures a whole request
+
+Choice: amends D-100. Nothing changes in a developer's code.
+
+`bench/writes` and `bench/compare` stop at the query, and `bench/realtime` at the socket of a
+subscriber: nothing measured what a client's request costs, in the middlewares, the caller and the
+transports. `bench/http` does, for REST and GraphQL, signed in and under a read rule, against a server
+in production mode, with its clients in a process of their own. It compares the server's CPU per
+request, beside the requests a second, and a bare `node:http` and `pg` as its floor. Details in
+[`bench/http`](../bench/http/README.md).
+
 ## D-290: A client's bad frame closes its socket, not the server
 
 Choice: internal, nothing changes for a developer. A WebSocket that receives an invalid frame, or one past `maxPayload`, emits
