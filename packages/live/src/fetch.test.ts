@@ -295,6 +295,7 @@ describe('liveFetch out of step', () => {
 
 	it('reconnects after a server error or what it cannot read, backing off', async () => {
 		vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+		vi.spyOn(Math, 'random').mockReturnValue(1)
 		try {
 			const urls = answering(
 				new Response('Bad gateway', { status: 502 }),
@@ -309,6 +310,38 @@ describe('liveFetch out of step', () => {
 			// The token's event reset the backoff.
 			await vi.advanceTimersByTimeAsync(100)
 			expect(urls[2]).toBe('http://x/api/tasks?take=1&resume=t')
+			expect(await watched.at(1)).toEqual([{ id: 'a' }])
+		} finally {
+			vi.useRealTimers()
+		}
+	})
+
+	it('reconnects at a random moment of the backoff, so clients cut together spread', async () => {
+		vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+		const random = vi.spyOn(Math, 'random').mockReturnValue(0.5)
+		try {
+			const urls = answering(
+				new Response('Bad gateway', { status: 502 }),
+				new Response('Bad gateway', { status: 502 }),
+				new Response('Bad gateway', { status: 502 }),
+				sse(data(1, ['a'])),
+			)
+			const watched = seen(liveFetch('http://x/api/tasks?take=1'))
+			// Half of 100 ms.
+			await vi.advanceTimersByTimeAsync(49)
+			expect(urls).toHaveLength(1)
+			// A tenth of 200 ms: another draw for each wait, the backoff doubling.
+			random.mockReturnValue(0.1)
+			await vi.advanceTimersByTimeAsync(1)
+			expect(urls).toHaveLength(2)
+			await vi.advanceTimersByTimeAsync(19)
+			expect(urls).toHaveLength(2)
+			// Nothing of 400 ms.
+			random.mockReturnValue(0)
+			await vi.advanceTimersByTimeAsync(1)
+			expect(urls).toHaveLength(3)
+			await vi.advanceTimersByTimeAsync(1)
+			expect(urls).toHaveLength(4)
 			expect(await watched.at(1)).toEqual([{ id: 'a' }])
 		} finally {
 			vi.useRealTimers()

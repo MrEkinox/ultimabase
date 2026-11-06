@@ -289,6 +289,7 @@ for production yet, and fixes ship as 0.1.x or 0.2.
 - [x] A big live window runs in parts, so that the others wait for a part (D-272).
 - [x] Only messages above 2 KB are compressed (D-273).
 - [x] `postgres({ prepared: false })` runs every statement unnamed (D-274).
+- [x] `liveFetch` reconnects at a random moment of its wait (D-275).
 - [x] Refuse breached and common passwords (NIST SP 800-63B §5.1.1.2):
       `passwordPlugin({ breached: true })`, and never the email (D-209).
 

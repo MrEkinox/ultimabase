@@ -150,8 +150,8 @@ export function liveFetch<T = unknown>(
 			if (error instanceof LiveError) return fail(error)
 		}
 		if (request !== controller) return
-		// Cut, ended or refused for a while: reconnect with the token.
-		timer = setTimeout(open, backoff)
+		// Cut, ended or refused: reconnect with the token, at random (D-275).
+		timer = setTimeout(open, Math.random() * backoff)
 		backoff = Math.min(backoff * 2, lastBackoff)
 	}
 

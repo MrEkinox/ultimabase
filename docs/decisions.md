@@ -18223,3 +18223,21 @@ database: postgres({ url: process.env['DATABASE_URL'], prepared: false })
 2. It holds for one adapter, so two applications in a process choose apart. The list of statements
    stays shared: it costs nothing to a connection that never reads it.
 3. No option on the cap or the planning: nothing has asked for one.
+
+## D-275: `liveFetch` reconnects at a random moment of its wait
+
+Choice: no developer's code changes. Clients cut together no longer come back together.
+
+`liveFetch` waited exactly its backoff before reconnecting, 100 ms doubling to 5 s, so every client
+cut by the same restart reconnected in the same instant. `graphql-ws` already adds randomness by
+default, 300 ms to 3 s, and needs nothing.
+
+1. The wait is `Math.random() * backoff`, full jitter: the whole wait is random, which spreads twice
+   as far as keeping half of it fixed. The doubling is what protects a server that refuses, and
+   stays.
+2. The first wait and the 5 s cap do not change. A longer cap would spread further, at the price of
+   the 10 s resume window (D-154).
+
+This is not what absorbs a mass reconnection. The storm bench (`bench/realtime/README.md`,
+2026-11-06) shows 9000 clients arriving within 5 s taking about as long as 9000 arriving at once on
+one process, and no delay at 150 a second: what absorbs it is arriving slower than a process connects.
