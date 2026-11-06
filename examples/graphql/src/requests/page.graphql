@@ -1,0 +1,16 @@
+query ($after: String) {
+	posts(first: 2, after: $after, orderBy: [{ likes: desc }]) {
+		totalCount
+		edges {
+			cursor
+			node {
+				title
+				likes
+			}
+		}
+		pageInfo {
+			hasNextPage
+			endCursor
+		}
+	}
+}

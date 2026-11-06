@@ -1,0 +1,6 @@
+mutation {
+	deletePost(where: { slug: "plans" }) {
+		id
+		title
+	}
+}

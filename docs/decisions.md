@@ -9890,6 +9890,7 @@ Amended 2026-10-30: the landing page's sections, colors and typeface.
 Amended 2026-10-30: the landing page shows regions of several examples,
 each linking to its file.
 Amended 2026-10-30: Cloudflare serves the site at ultimabase.dev.
+Amended 2026-11-06: a page shows what a developer writes (D-282).
 
 Choice: completes D-31; the examples stay its source of truth.
 
@@ -18496,4 +18497,91 @@ languages: f.enumOf(Language, { list: true, size: { min: 1 } }),
 
 ```sql
 alter table "account" add constraint "account_languages_size_check" check (cardinality("languages") >= 1);
+```
+
+## D-282: A page shows what a developer writes
+
+Choice: amends D-155. Readers find the documentation's facts, but its code shows too much: 240 of its 397 blocks
+hold a line of test or harness, and a GraphQL request sits in a `graphql()` function no developer has.
+Everything shown stays executed; what changes is which code is shown. This holds first for the pages
+listed as rewritten, as a pilot on `graphql` and `hooks`; the others follow only if the pilot works
+for its readers.
+
+1. **A short test stays.** A region of a test is shown when it is 12 lines at most and calls neither
+   `fetch` nor a function its test file declares. Its `expect` shows the result, and unlike a comment
+   it is executed.
+2. **A request and its response are files.** A GraphQL document is `requests/<name>.graphql`, a request
+   with its HTTP grammar `requests/<name>.http`, and a response `requests/<name>.json`, each included
+   whole. The example's test sends the file and compares the response with the JSON file, parsed.
+   `scripts/requests.ts` does this for the tests. It is no public API, and no package holds it. A
+   `.graphql` file starts with `query` or `mutation`, even where GraphQL lets a query omit it.
+3. **Ids and cursors read `…`** in a response file, since they change at each run. The test replaces
+   the values of `id`, `cursor`, `startCursor` and `endCursor` before comparing.
+4. **A long model is shown in pieces.** A region may be a fragment, as one hook of a `hooks` object. A
+   page's first include still shows its file's imports, so a page may open with a small model of its
+   own file.
+5. **A page is written to be scanned.** It opens with one sentence and its shortest example, gives a
+   section to each thing a developer wants to do, and moves edge cases into a `Details` part of lists
+   and tables, above the reference. Nothing is folded away: search and reading stay whole.
+6. **Tools hold it.** `scripts/docs.test.ts` holds, for each rewritten page: 60 words per paragraph, 25
+   lines per block, rule 1, and a sibling test naming each request file it includes. A page not yet
+   rewritten is on a list that only shrinks.
+
+The reference of each page and D-155's checks stay as they are: every exported value and option still
+appears in an included region. Frozen versions are untouched.
+
+Rejected:
+
+- Never including a test: it needs a function around each snippet for no gain on a short block, and
+  replaces an executed `expect` by a comment nothing checks.
+- `toMatchFileSnapshot` for responses: it compares text, so it fights Prettier on the same file.
+  Comparing parsed JSON leaves the file's layout to Prettier.
+- Hiding lines of a region with a marker: a third kind of marker in `regions.ts` and in Fumadocs' own
+  reader, where splitting a region needs none.
+- Accordions for edge cases: they hide text from the eye and add a click, where a section at the
+  bottom keeps the top short.
+- Splitting `relations` now: a page that long needs its own decision once the pilot is judged.
+
+Example, before: what a developer read to learn how to filter, around a function they do not have.
+
+```ts
+const body = await graphql(`
+	{
+		posts(where: { likes: { gte: 10 } }) {
+			edges {
+				node {
+					title
+				}
+			}
+		}
+	}
+`)
+expect(body).toEqual({
+	data: { posts: { edges: [{ node: { title: 'Notes' } }] } },
+})
+```
+
+After: the document they send, then the response they get.
+
+```graphql
+{
+	posts(where: { likes: { gte: 10 } }) {
+		edges {
+			node {
+				title
+			}
+		}
+	}
+}
+```
+
+```json
+{ "data": { "posts": { "edges": [{ "node": { "title": "Notes" } }] } } }
+```
+
+A short test stays as it is:
+
+```ts
+const ticket = await Ticket.create({ data: { title: '  Printer jam ' } }, as)
+expect(ticket.title).toBe('Printer jam')
 ```

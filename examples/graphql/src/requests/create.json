@@ -1,0 +1,15 @@
+{
+	"data": {
+		"createPerson": {
+			"id": "…",
+			"name": "Ada",
+			"posts": {
+				"edges": [
+					{ "node": { "slug": "notes" } },
+					{ "node": { "slug": "sketch" } },
+					{ "node": { "slug": "plans" } }
+				]
+			}
+		}
+	}
+}

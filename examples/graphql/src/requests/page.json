@@ -1,0 +1,12 @@
+{
+	"data": {
+		"posts": {
+			"totalCount": 3,
+			"edges": [
+				{ "cursor": "…", "node": { "title": "Notes", "likes": 12 } },
+				{ "cursor": "…", "node": { "title": "Plans", "likes": 7 } }
+			],
+			"pageInfo": { "hasNextPage": true, "endCursor": "…" }
+		}
+	}
+}

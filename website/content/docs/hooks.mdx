@@ -3,147 +3,219 @@ title: Hooks
 description: Run code before and after each read and write of a model, in its transaction or once it commits.
 ---
 
-A hook is a model's own code, run on each of its reads and writes: it
-changes the data before it is written, refuses a write, hides rows, or writes
-more once a row has changed. A model's `.with({ hooks })` lists them:
+A hook is a model's own code, run on each of its reads and writes. A model's
+`.with({ hooks })` lists them:
 
-<include cwd meta='title="src/models.ts"'>
-	../examples/hooks/src/models.ts#ticket
+<include cwd meta='title="src/tag.ts"'>
+	../examples/hooks/src/tag.ts#tag
 </include>
 
 The full example, with its tests: [`examples/hooks`](https://github.com/MrEkinox/ultimabase/tree/main/examples/hooks).
 
+| To                                  | Use                                                           |
+| ----------------------------------- | ------------------------------------------------------------- |
+| change the data before it's written | [`beforeCreate`, `beforeUpdate`](#change-the-data)            |
+| refuse a write                      | [any `before*` hook](#refuse-a-write)                         |
+| hide rows                           | [`beforeFind`](#hide-rows)                                    |
+| write more with the row             | [`afterCreate`, `afterUpdate`, `afterDelete`](#after-a-write) |
+| compare a row's fields              | [`afterCreate`, `afterUpdate`](#a-rule-across-a-rows-fields)  |
+| email, call a webhook               | [`afterCreateCommit` and the others](#once-it-commits)        |
+| limit a person's writes             | [`beforeCreate`](#limit-a-persons-writes)                     |
+
 Each hook receives the `caller` of the query, and may be `async`. A query it
 makes passes its own `{ as }`: `{ as: caller }` for the caller's rules,
-`{ as: master }` for none, as the `Activity` above.
+`{ as: master }` for none, with `master` from `ultimabase`.
+
+The sections below show the hooks of a support ticket, which starts like this.
+Its tests write `as` for `{ as: master }`.
+
+<include cwd meta='title="src/models.ts"'>
+	../examples/hooks/src/models.ts#ticket-fields
+</include>
 
 ## Change the data
 
 `beforeCreate` receives the `data` of the create; `beforeUpdate` the stored
-`record` and the `data` of the update. Each changes `data` in place, after
-the access rules and before the write. `beforeCreate` runs after the defaults,
-so a field with a default is already set, in its value and in its type:
+`record` and the `data` of the update. Each changes `data` in place:
+
+<include cwd meta='title="src/models.ts"'>
+	../examples/hooks/src/models.ts#change
+</include>
 
 <include cwd meta='title="src/app.test.ts"'>
 	../examples/hooks/src/app.test.ts#before
 </include>
 
-A field a hook writes skips its field access rules: here `closedAt`, which no
-client writes. After the hooks, the data is checked again: a required field
-left empty fails with `VALIDATION_FAILED` and `Required.`, so a hook may fill
-it.
+- They run after the access rules, and before the write.
+- `beforeCreate` runs after the defaults: a field with a default is already
+  set, in its value and in its type.
+- A field a hook writes skips its field access rules: here `closedAt`, which
+  no client writes.
+- The data is checked again after the hooks: a required field left empty fails
+  with `VALIDATION_FAILED` and `Required.`, so a hook may fill it.
 
 ## Refuse a write
 
-A `before*` hook refuses by throwing; nothing is written. A `PublicError`
-reaches the client with its code, message and details; any other error is
-`INTERNAL` for the client, its message logged and never sent.
+A `before*` hook refuses by throwing, and nothing is written:
+
+<include cwd meta='title="src/models.ts"'>
+	../examples/hooks/src/models.ts#refuse
+</include>
 
 <include cwd meta='title="src/app.test.ts"'>
 	../examples/hooks/src/app.test.ts#refuse
 </include>
 
+- A `PublicError`, from `ultimabase`, reaches the client with its code, message
+  and details. See [Errors](/docs/next/errors).
+- Any other error is `INTERNAL` for the client, its message logged and never
+  sent.
+
 Over GraphQL, the same error:
 
-<include cwd meta='title="src/app.test.ts"'>
-	../examples/hooks/src/app.test.ts#graphql
+<include cwd meta='title="Request"'>
+	../examples/hooks/src/requests/delete-open.graphql
 </include>
 
-See [Errors](/docs/next/errors) for `PublicError`.
+<include cwd meta='title="Response"'>
+	../examples/hooks/src/requests/delete-open.json
+</include>
 
 ## Hide rows
 
-`beforeFind` returns a filter built with `where`, or nothing. The filter
-joins every query that reaches the model, whoever the caller, Master
-included: lists, counts, includes, relation filters, and the rows an update
-or a delete targets.
+`beforeFind` returns a filter built with `where`, or nothing:
+
+<include cwd meta='title="src/models.ts"'>
+	../examples/hooks/src/models.ts#find
+</include>
 
 <include cwd meta='title="src/app.test.ts"'>
 	../examples/hooks/src/app.test.ts#find
 </include>
 
+The filter joins every query that reaches the model, whoever the caller, Master
+included: lists, counts, includes, relation filters, and the rows an update or
+a delete targets. This is how [soft delete](/docs/next/soft-delete) hides the
+deleted rows.
+
 `operation` says what the rows are found for: `'read'`, `'update'` or
-`'delete'`. A create returns its row even when the filter hides it. A
-`cascade` delete reaches the hidden rows too. This is how
-[soft delete](/docs/next/soft-delete) hides the deleted rows.
+`'delete'`.
 
 ## After a write
 
-`afterCreate`, `afterUpdate` and `afterDelete` run in the write's
-transaction, once the row is written: `record` is the row as written, and an
-update's `previous` the row before. What they write commits with the row,
-and a hook that throws undoes it all.
+`afterCreate`, `afterUpdate` and `afterDelete` run in the write's transaction,
+once the row is written. `record` is the row as written, and an update's
+`previous` the row before:
+
+<include cwd meta='title="src/models.ts"'>
+	../examples/hooks/src/models.ts#after
+</include>
 
 <include cwd meta='title="src/app.test.ts"'>
 	../examples/hooks/src/app.test.ts#after
 </include>
 
-`create` and `update` read their row again after these hooks, so the
-returned row shows what they wrote.
+- What they write commits with the row, and a hook that throws undoes it all.
+- `create` and `update` read their row again after these hooks, so the returned
+  row shows what they wrote.
 
 ## A rule across a row's fields
 
 A rule that compares fields of one row reads the row as written, in
 `afterCreate` and `afterUpdate`: an update's `data` holds only the fields it
-changes, `record` all of them. The hooks run for every caller, Master
-included, and for each row of a `createMany` or an `updateMany`; a throw
-undoes the write.
+changes, `record` all of them. Here a call ends with a reason:
 
 <include cwd meta='title="src/models.ts"'>
 	../examples/hooks/src/models.ts#row-rule
+</include>
+
+<include cwd meta='title="src/models.ts"'>
+	../examples/hooks/src/models.ts#call
 </include>
 
 <include cwd meta='title="src/app.test.ts"'>
 	../examples/hooks/src/app.test.ts#row-rule
 </include>
 
-The hook decides when its rule applies. `afterUpdate` also runs on the rows a
-`setNull` relation empties when its target is deleted: a rule that needs the
-relation can check only the writes that change it, comparing `record` with
-`previous`, and the delete goes through. A `check` constraint written in SQL
-holds at every write, and would refuse that delete;
-[postgres()](/docs/next/postgres#your-own-sql) returns its refusal as
-`VALIDATION_FAILED`.
+The hooks run for every caller, Master included, and for each row of a
+`createMany` or an `updateMany`. A throw undoes the write.
 
 ## Once it commits
 
 `afterCreateCommit`, `afterUpdateCommit` and `afterDeleteCommit` get the same
-facts, and run once the transaction commits, never after a rollback. They
-are for what cannot be undone: an email, a webhook, a message to another
-service.
+facts as the `after*` hooks, and run once the transaction commits. They are for
+what cannot be undone: an email, a webhook, a message to another service. Here
+`outbox` stands for an email service: an array of the messages sent.
+
+<include cwd meta='title="src/models.ts"'>
+	../examples/hooks/src/models.ts#commit
+</include>
+
+A rollback sends nothing, and the ticket stays open:
+
+<include cwd meta='title="src/app.test.ts"'>
+	../examples/hooks/src/app.test.ts#rollback
+</include>
+
+A commit sends it:
 
 <include cwd meta='title="src/app.test.ts"'>
 	../examples/hooks/src/app.test.ts#commit
 </include>
 
-The write, or the outermost [transaction](/docs/next/transactions), resolves
-once they are done, so a test or a serverless function never ends before
-them. A `*Commit` hook that throws is logged at `error` and is not thrown:
-the write is already committed.
-
-A `*Commit` hook runs in memory: a crash before it ends loses it. What must
-happen even then goes in a [job](/docs/next/jobs), enqueued from an
-`after*` hook in the write's transaction.
+- The write, or the outermost [transaction](/docs/next/transactions), resolves
+  once they are done, so a test or a serverless function never ends before them.
+- A `*Commit` hook that throws is logged at `error` and is not thrown: the write
+  is already committed.
+- A `*Commit` hook runs in memory: a crash before it ends loses it. What must
+  happen even then goes in a [job](/docs/next/jobs), enqueued from an `after*`
+  hook in the write's transaction.
 
 ## Limit a person's writes
 
 The HTTP server limits each address's requests
-([rate limit](/docs/next/http#rate-limit)). A limit per person on a write is
-a `beforeCreate` hook that counts the caller's recent rows and throws
-`TOO_MANY_ATTEMPTS`, sent with HTTP 429 and `Retry-After`:
+([rate limit](/docs/next/http#rate-limit)). A limit per person on a write is a
+`beforeCreate` hook that counts the caller's recent rows and throws
+`TOO_MANY_ATTEMPTS`, sent with HTTP 429 and `Retry-After`.
+
+A comment stores its author, and only a signed-in person may create one:
+
+<include cwd meta='title="src/models.ts"'>
+	../examples/hooks/src/models.ts#comment
+</include>
 
 <include cwd meta='title="src/models.ts"'>
 	../examples/hooks/src/models.ts#limit
 </include>
 
-It counts writes, not requests: a GraphQL document that creates ten comments
-with aliases counts ten. Writes sent at the same instant may each pass the
-count; a limit that must never be exceeded runs the write in a
-[serializable transaction](/docs/next/transactions#serializable-transactions).
-
 <include cwd meta='title="src/app.test.ts"'>
 	../examples/hooks/src/app.test.ts#limit
 </include>
+
+- Each person's comments count apart.
+- It counts writes, not requests: a GraphQL document that creates ten comments
+  with aliases counts ten.
+- Writes sent at the same instant may each pass the count; a limit that must
+  never be exceeded runs the write in a
+  [serializable transaction](/docs/next/transactions#serializable-transactions).
+
+## Details
+
+### `beforeFind`
+
+- A create returns its row even when the filter hides it.
+- A `cascade` delete reaches the hidden rows too.
+
+### A rule and `setNull`
+
+`afterUpdate` also runs on the rows a `setNull` relation empties when its target
+is deleted. The hook decides when its rule applies: a rule that needs the
+relation can check only the writes that change it, comparing `record` with
+`previous`, and the delete goes through.
+
+A `check` constraint written in SQL holds at every write, and would refuse that
+delete; [postgres()](/docs/next/postgres#your-own-sql) returns its refusal as
+`VALIDATION_FAILED`.
 
 ## Reference
 

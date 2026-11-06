@@ -1,0 +1,9 @@
+query {
+	me
+	drafts {
+		title
+		author {
+			name
+		}
+	}
+}

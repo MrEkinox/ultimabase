@@ -1,0 +1,12 @@
+{
+	"errors": [
+		{
+			"message": "posts is selected twice with different arguments, at people.edges.node.latest and people.edges.node.posts; read it once.",
+			"locations": [
+				{ "line": 12, "column": 2 },
+				{ "line": 19, "column": 2 }
+			],
+			"extensions": { "code": "BAD_USER_INPUT" }
+		}
+	]
+}

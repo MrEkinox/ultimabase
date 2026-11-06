@@ -1,0 +1,1 @@
+GET /graphql?query={post(where:{slug:"notes"}){title}}

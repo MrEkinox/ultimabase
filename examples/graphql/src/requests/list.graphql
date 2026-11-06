@@ -1,0 +1,11 @@
+query {
+	posts(take: 1, skip: 1, orderBy: [{ title: asc }]) {
+		title
+		author {
+			name
+			posts(take: 5) {
+				slug
+			}
+		}
+	}
+}

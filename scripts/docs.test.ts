@@ -3,7 +3,7 @@
 // a region of an example, and the regions it includes show every value a
 // package exports. A frozen version holds its code, not includes.
 import { existsSync, readdirSync, readFileSync } from 'node:fs'
-import { join, relative } from 'node:path'
+import { basename, dirname, join, relative } from 'node:path'
 import {
 	API,
 	SignatureKind,
@@ -71,6 +71,8 @@ function read(file: string): [string, string | undefined] {
 }
 
 const starter = 'packages/create-ultimabase/template/'
+const requestFile =
+	/^examples\/[^/]+\/src\/requests\/[^/]+\.(?:graphql|http|json)$/u
 
 it('writes no code in a page, and includes only regions that exist', () => {
 	const problems = pages.flatMap(([page, text]) => [
@@ -83,17 +85,17 @@ it('writes no code in a page, and includes only regions that exist', () => {
 			),
 		...includesOf(text).flatMap((include) => {
 			const [file, content] = read(include.file)
-			// The starter's template is included whole: its files are the
-			// developer's, without region markers.
-			const template = file.startsWith(starter)
+			// The starter's template and a request file are included whole:
+			// they are the developer's, without region markers.
+			const whole = file.startsWith(starter) || requestFile.test(file)
 			if (
 				!fromWebsite(include) ||
-				(template
+				(whole
 					? include.region !== undefined
 					: !file.startsWith('examples/') || include.region === undefined)
 			) {
 				return [
-					`${page}: ${include.tag} is not <include cwd>../examples/<file>#<region></include>, or a whole file of ${starter}.`,
+					`${page}: ${include.tag} is not <include cwd>../examples/<file>#<region></include>, a whole file of ${starter}, or a whole request file.`,
 				]
 			}
 			if (content === undefined) return [`${page}: ${file} does not exist.`]
@@ -428,5 +430,121 @@ it("copies each of the README's code blocks from a region of an example", () => 
 				? []
 				: [`README.md: the block under ${source} differs from its region`]
 		})
+	expect(problems).toEqual([])
+})
+
+/** The pages not yet written to be scanned (D-282); this list only shrinks. */
+const unwritten = new Set(
+	'access acl adapters application auth coming-from-parse deploy errors files functions http index jobs maintenance memory models password plugins postgres queries quickstart realtime relations rest roadmap roles soft-delete testing transactions'.split(
+		' ',
+	),
+)
+const written = pages.filter(([page]) => !unwritten.has(basename(page, '.mdx')))
+
+/** The paragraphs of a page: what is neither a heading, a list nor a table. */
+function paragraphsOf(page: string): string[] {
+	return page
+		.replace(/^---\n[\s\S]*?\n---\n/u, '')
+		.replaceAll(/^```[\s\S]*?^```$/gmu, '')
+		.split(/\n\s*\n/u)
+		.map((block) => block.trim())
+		.filter((block) => block !== '' && !/^(?:#|\||- |\d+\. |<)/u.test(block))
+}
+
+/** What keeps a test's region off a page: its length, or its harness. */
+function harnessIn(test: string, shown: string): string[] {
+	const lines = shown.trimEnd().split('\n').length
+	const declared = [
+		...test.matchAll(
+			/^(?:async )?function (\w+)|^const (\w+) = (?:async )?\(/gmu,
+		),
+	].map((match) => match[1] ?? match[2] ?? '')
+	return [
+		...(lines > 12 ? [`${String(lines)} lines, 12 at most`] : []),
+		...(shown.includes('fetch(') ? ['it calls fetch'] : []),
+		...declared
+			.filter((name) => new RegExp(`\\b${name}\\(`, 'u').test(shown))
+			.map((name) => `it calls ${name}, which its test file declares`),
+	]
+}
+
+it('reads what keeps a region of a test off a page', () => {
+	const test = 'async function send() {}\nconst at = (a) => a\nconst as = {}\n'
+	expect(harnessIn(test, 'Ticket.create({}, as)')).toEqual([])
+	expect(harnessIn(test, 'at(await send())\nawait fetch(url)')).toEqual([
+		'it calls fetch',
+		'it calls send, which its test file declares',
+		'it calls at, which its test file declares',
+	])
+	expect(harnessIn(test, 'a\n'.repeat(13))).toEqual(['13 lines, 12 at most'])
+})
+
+it('lists as unwritten only pages that exist, and leaves some written', () => {
+	const names = pages.map(([page]) => basename(page, '.mdx'))
+	expect([...unwritten].filter((name) => !names.includes(name))).toEqual([])
+	expect(written.length).toBeGreaterThan(0)
+})
+
+it('keeps a written page easy to scan (D-282)', () => {
+	const problems = written.flatMap(([page, text]) => [
+		...paragraphsOf(text)
+			.filter((paragraph) => paragraph.split(/\s+/u).length > 60)
+			.map(
+				(paragraph) =>
+					`${page}: a paragraph is over 60 words: ${paragraph.slice(0, 60)}…`,
+			),
+		...includesOf(text).flatMap((include) => {
+			const [file, content = ''] = read(include.file)
+			const shown =
+				include.region === undefined
+					? content
+					: (region(content, include.region) ?? '')
+			const name = `${file}#${include.region ?? ''}`
+			const lines = shown.trimEnd().split('\n').length
+			return [
+				...(lines > 25
+					? [`${page}: ${name} is ${String(lines)} lines, 25 at most.`]
+					: []),
+				...(file.includes('.test.')
+					? harnessIn(content, shown).map(
+							(problem) => `${page}: ${name}: ${problem}.`,
+						)
+					: []),
+			]
+		}),
+	])
+	expect(problems).toEqual([])
+})
+
+it('sends every request file a page shows, in a test beside it (D-282)', () => {
+	const problems = pages.flatMap(([page, text]) =>
+		includesOf(text).flatMap((include) => {
+			const [file] = read(include.file)
+			if (!requestFile.test(file)) return []
+			const source = dirname(dirname(file))
+			const tests = readdirSync(source)
+				.filter((name) => name.includes('.test.'))
+				.map((name) => readFileSync(join(source, name), 'utf8'))
+				.join('\n')
+			const name = basename(file).replace(/\.\w+$/u, '')
+			return tests.includes(`'${name}'`)
+				? []
+				: [`${page}: no test of ${source} sends ${file}.`]
+		}),
+	)
+	expect(problems).toEqual([])
+})
+
+it('names the operation of every GraphQL request a page shows (D-282)', () => {
+	const problems = pages.flatMap(([page, text]) =>
+		includesOf(text).flatMap((include) => {
+			const [file, content = ''] = read(include.file)
+			return file.endsWith('.graphql') &&
+				requestFile.test(file) &&
+				!/^(?:query|mutation)\b/u.test(content)
+				? [`${page}: ${file} starts with neither query nor mutation.`]
+				: []
+		}),
+	)
 	expect(problems).toEqual([])
 })

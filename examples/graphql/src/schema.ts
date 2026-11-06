@@ -15,7 +15,23 @@ import { Post } from './models.ts'
 
 export function extend(schema: GraphQLSchema): GraphQLSchema {
 	const post = assertObjectType(schema.getType('Post'))
-	const fields: GraphQLFieldConfigMap<unknown, GraphqlContext> = {
+	const config = schema.toConfig()
+	return new GraphQLSchema({
+		...config,
+		query: new GraphQLObjectType({
+			name: 'Query',
+			fields: { ...schema.getQueryType()?.toConfig().fields, ...added(post) },
+		}),
+		types: config.types.filter((type) => type.name !== 'Query'),
+	})
+}
+//#endregion
+
+//#region fields
+function added(
+	post: GraphQLObjectType,
+): GraphQLFieldConfigMap<unknown, GraphqlContext> {
+	return {
 		me: {
 			type: new GraphQLNonNull(GraphQLString),
 			resolve: (_, __, context) => context.caller.kind,
@@ -31,14 +47,5 @@ export function extend(schema: GraphQLSchema): GraphQLSchema {
 				),
 		},
 	}
-	const config = schema.toConfig()
-	return new GraphQLSchema({
-		...config,
-		query: new GraphQLObjectType({
-			name: 'Query',
-			fields: { ...schema.getQueryType()?.toConfig().fields, ...fields },
-		}),
-		types: config.types.filter((type) => type.name !== 'Query'),
-	})
 }
 //#endregion

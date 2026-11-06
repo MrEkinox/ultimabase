@@ -1,0 +1,11 @@
+{
+	"errors": [
+		{
+			"message": "Close the ticket first.",
+			"locations": [{ "line": 2, "column": 2 }],
+			"path": ["deleteTicket"],
+			"extensions": { "code": "TICKET_OPEN" }
+		}
+	],
+	"data": null
+}

@@ -1,0 +1,10 @@
+mutation ($ada: ID!) {
+	upsertPost(
+		where: { slug: "ideas" }
+		create: { title: "Ideas", slug: "ideas", author: { connect: { id: $ada } } }
+		update: { likes: 1 }
+	) {
+		title
+		likes
+	}
+}
