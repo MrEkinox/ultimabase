@@ -35,6 +35,7 @@ import {
 	variablesBelowRoot,
 } from './live-stream.ts'
 import { inParts } from './parts.ts'
+import { ranInPieces } from './pieces.ts'
 import type { Context } from './registry.ts'
 
 /** How the GraphQL plugin runs a document, over HTTP as over WebSocket. */
@@ -272,10 +273,22 @@ export function serveSockets(
 				const { rootValue } = event
 				const execute = () => executeSubscriptionEvent(event)
 				if (!(rootValue instanceof LiveEvent)) return execute()
+				const { pieces, root, shared } = rootValue
+				if (!operations.pure) return rootValue.finish(await execute())
 				return rootValue.finish(
-					await (operations.pure && rootValue.shared
-						? together.run(shape, rootValue.root, execute)
-						: execute()),
+					await (pieces !== undefined
+						? ranInPieces(
+								pieces,
+								(part) =>
+									executeSubscriptionEvent({
+										...event,
+										rootValue: { root: part },
+									}),
+								execute,
+							)
+						: shared
+							? together.run(shape, root, execute)
+							: execute()),
 				)
 			})
 		},

@@ -11,6 +11,7 @@ import type {
 import { Kind, visit } from 'graphql'
 import { Backlog } from '@ultimabase/http/internal'
 import type { LiveHandle, LiveMessage, Viewer } from '@ultimabase/realtime'
+import type { Pieces } from './pieces.ts'
 
 /**
  * What to send of `result`, which lets go of its data: graphql-ws and
@@ -31,15 +32,19 @@ export class LiveEvent {
 	root: unknown
 	/** Whether its root is rows, which `SharedResults` may run for others. */
 	readonly shared: boolean
+	/** A big window's parts, which run a turn of the loop each (D-272). */
+	pieces: Pieces | undefined
 	#finish: (result: ExecutionResult) => ExecutionResult
 
 	constructor(
 		root: unknown,
 		finish: (result: ExecutionResult) => ExecutionResult,
 		shared = true,
+		pieces?: Pieces,
 	) {
 		this.root = root
 		this.shared = shared
+		this.pieces = pieces
 		this.#finish = finish
 	}
 
@@ -50,6 +55,7 @@ export class LiveEvent {
 	finish(result: ExecutionResult): ExecutionResult {
 		const finish = this.#finish
 		this.root = undefined
+		this.pieces = undefined
 		this.#finish = (done) => done
 		return finish(result)
 	}

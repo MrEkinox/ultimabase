@@ -9413,7 +9413,7 @@ api: ({ plugins }) => plugins.http.mount(uploads, { bodyLimit: false })
 ## D-154: Realtime: live lists and live rows
 
 Amended by D-163, D-166, D-178, D-186, D-187, D-195, D-196, D-223, D-226,
-D-229, D-230, D-252, D-254, D-266 and D-271.
+D-229, D-230, D-252, D-254, D-266, D-271 and D-272.
 
 Choice: completes D-25; amends D-106 (WebSocket upgrades), D-107 (the
 `Subscription` type), D-109 (live functions) and D-129 (live reads over
@@ -18011,7 +18011,7 @@ against the driver's 0.69.
 
 ## D-265: Subscribers of one row share its execution
 
-Amended by D-267.
+Amended by D-267, D-272.
 
 Choice: nothing changes in a developer's code.
 
@@ -18157,3 +18157,25 @@ its readers over the wire were a timer with nothing to gather.
 `bench/realtime/platform-wire.ts`, 10 000 users, a lone chat message: 84 to 21-38 ms; a lone change
 of presence: 84 to 25-36 ms, with presence at 1 000 /s where it was. Chat at
 400 /s: told p50 59 to 52 ms, p95 189 to 167 ms. At 600 /s it holds 476 /s, 431 before.
+
+## D-272: A big live window runs in parts
+
+Choice: amends D-154 and D-265; nothing changes in a developer's code or on the wire.
+
+graphql-js runs a selection without yielding: the first message of a live list of 50 000 rows held
+the event loop for 1.8 s, and every other user of the server waited that long.
+
+1. A window of more than 2 000 rows runs 2 000 rows at a time, about 40 ms each, with a turn of the
+   loop between two parts. Page info and count are the whole window's, in every part, and each edge
+   keeps its cursor.
+2. Only the window sent whole does: what a change sends is a few rows.
+3. A part with an error runs the window again whole, so that an error's path counts from the
+   window. An error is rare, and a window's parts read rows they already hold.
+4. Only where the generated resolvers run every field (D-265): a field given by `extend` may read
+   the whole connection.
+5. Sending the message stays one block of about 0.5 s at 50 000 rows, `JSON.stringify` inside
+   `graphql-ws`; at the 20 000 rows of the default budget, about 0.2 s.
+
+`bench/realtime/wire.ts`, 50 000 rows, 1 subscriber: longest stall 1 795 to 501 ms, opening 4.6 s
+unchanged. With 20 subscribers: longest stall 1 812 to 632 ms, the others' longest wait 1 801 to
+1 129 ms, all opened in 76.9 to 68.7 s.

@@ -25,6 +25,8 @@ import type { Keep, Live } from './live-stream.ts'
 import { LiveEvent, liveStream, lives, resumed } from './live-stream.ts'
 import { connectionType, isMaster, listArgs, objectType } from './outputs.ts'
 import { whereOf } from './pages.ts'
+import type { Pieces } from './pieces.ts'
+import { cut, joined, rowsAtOnce } from './pieces.ts'
 import type { Args, Context, Entry, Registry } from './registry.ts'
 import type { Key } from './select.ts'
 import { countsOnly, grouped, rowNodes, selectOf } from './select.ts'
@@ -109,6 +111,23 @@ function follower(
 	let ran = ''
 	const rootOf = (rows: readonly Row[]) =>
 		connected ? connectionOf(rows, hasMore, count) : rows
+	/** A big window in parts, whose lists make the window's (D-272). */
+	const piecesOf = (rows: readonly Row[]): Pieces | undefined => {
+		if (rows.length <= rowsAtOnce) return undefined
+		if (!connected) {
+			return {
+				roots: cut(rows),
+				merged: (results) => joined(results, ({ data }) => data, key),
+			}
+		}
+		if (edgesKey === undefined) return undefined
+		const whole = connectionOf(rows, hasMore, count)
+		return {
+			roots: cut(whole.edges).map((edges) => ({ ...whole, edges })),
+			merged: (results) =>
+				joined(results, ({ data }) => valueAt(data, key), edgesKey),
+		}
+	}
 	const sent = (result: ExecutionResult): ExecutionResult => {
 		const at = valueAt(result.data, key)
 		pageInfo = JSON.stringify(valueAt(at, pageInfoKey)) ?? ''
@@ -154,6 +173,7 @@ function follower(
 				rootOf(rows),
 				(result) => revised(sent(result), revision, shown),
 				false,
+				piecesOf(rows),
 			)
 		}
 		const { changes } = message
