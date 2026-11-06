@@ -18606,6 +18606,44 @@ in production mode, with its clients in a process of their own. It compares the 
 request, beside the requests a second, and a bare `node:http` and `pg` as its floor. Details in
 [`bench/http`](../bench/http/README.md).
 
+## D-284: A response stays the adapter's light one
+
+Choice: amends D-66. A developer's code does not change. Two headers change, listed below.
+
+`@hono/node-server` answers without building a `Request` or a `Response`, and writes a JSON response
+in one call, until something reads the body or copies the response. On every request, three middlewares
+of `httpPlugin` did: Hono's `bodyLimit` opens the body, on a `GET` too, Hono's `cors` sets its headers
+before the route, which turns the route's response into a copy, and `c.header` after the route copies it
+again, and a copy sends its body through a stream.
+
+1. A header set after the route goes on the response itself, and on a copy only when that response keeps
+   its headers, as `Response.redirect`'s.
+2. CORS on a request that is not a preflight sets its headers once the route answered. Hono's `cors` still
+   answers preflights.
+3. The body limit lets `GET` and `HEAD` through, and compares a declared `Content-Length` with the limit
+   without opening the body. A body that declares no length, or a chunked one, is counted by Hono's as
+   before.
+
+Two responses change. `Access-Control-Allow-Credentials` goes out only with an allowed origin, as it
+already did on a route's own `OPTIONS`; it meant nothing to a browser without one. A route's own `Vary` is
+kept, `Accept, Origin`, where the middleware used to replace it, which could serve a cached answer for the
+wrong `Accept`.
+
+The server's CPU per request, in µs, against the reference of `bench/http`, median of three runs, 5 s a
+case; requests a second in brackets:
+
+| Case                                     |     Before |      After |      |
+| :--------------------------------------- | ---------: | ---------: | ---: |
+| REST, read by id, a visitor              | 470 (2758) | 400 (3140) | -15% |
+| REST, read by id, signed in              | 694 (1516) | 631 (1608) |  -9% |
+| REST, a list of 25, nested, signed in    | 1186 (894) | 1118 (895) |  -6% |
+| REST, create, signed in                  | 924 (1194) | 785 (1374) | -15% |
+| REST, update, signed in                  | 1267 (846) | 1076 (863) | -15% |
+| GraphQL, read by id, signed in           | 908 (1262) | 748 (1456) | -18% |
+| GraphQL, a list of 25, nested, signed in | 1660 (510) | 1476 (497) | -11% |
+| GraphQL, create, signed in               | 986 (1164) | 821 (1337) | -17% |
+| GraphQL, update, signed in               | 1284 (824) | 1095 (885) | -15% |
+
 ## D-290: A client's bad frame closes its socket, not the server
 
 Choice: internal, nothing changes for a developer. A WebSocket that receives an invalid frame, or one past `maxPayload`, emits
