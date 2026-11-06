@@ -1,0 +1,20 @@
+{
+	"edges": [
+		{
+			"cursor": "…",
+			"node": {
+				"createdAt": "…",
+				"id": "…",
+				"published": true,
+				"title": "Hello",
+				"updatedAt": "…"
+			}
+		}
+	],
+	"pageInfo": {
+		"endCursor": "…",
+		"hasNextPage": false,
+		"hasPreviousPage": false,
+		"startCursor": "…"
+	}
+}

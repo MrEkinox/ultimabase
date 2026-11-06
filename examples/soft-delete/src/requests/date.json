@@ -1,0 +1,18 @@
+{
+	"errors": [
+		{
+			"message": "Post create refused.",
+			"locations": [{ "line": 2, "column": 2 }],
+			"path": ["createPost"],
+			"extensions": {
+				"code": "ACCESS_DENIED",
+				"details": {
+					"model": "Post",
+					"operation": "create",
+					"field": "deletedAt"
+				}
+			}
+		}
+	],
+	"data": null
+}

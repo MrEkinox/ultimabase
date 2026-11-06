@@ -1,0 +1,22 @@
+{
+	"errors": [
+		{
+			"message": "first is over 50, the most a live list follows.",
+			"locations": [{ "line": 2, "column": 2 }],
+			"path": ["tasks"],
+			"extensions": {
+				"code": "VALIDATION_FAILED",
+				"details": {
+					"issues": [
+						{
+							"path": ["first"],
+							"message": "first is over 50, the most a live list follows."
+						}
+					],
+					"limit": 50,
+					"rows": 60
+				}
+			}
+		}
+	]
+}

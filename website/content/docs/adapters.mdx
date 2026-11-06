@@ -3,15 +3,9 @@ title: Write a database adapter
 description: Store the models in a database of your own, and check it with the contract suite.
 ---
 
-An adapter is the object an application's `database` holds: `memory()` and
-`postgres()` are two. The kernel sends it every read and write fully
-prepared, its filters normalized, its ids, dates and defaults set and its
-access rules applied, so an adapter only stores and reads rows. It is not a
-plugin: an application has one.
-
-The [example](https://github.com/MrEkinox/ultimabase/tree/main/examples/adapter)
-writes `timed`, an adapter that runs another. It counts its calls, each a
-round trip to the database, and logs the slow ones:
+An adapter is the object an application's `database` holds, and it only stores
+and reads rows. `timed` runs another adapter, counts its calls and logs the
+slow ones:
 
 <include cwd meta='title="src/timed.ts"'>
 	../examples/adapter/src/timed.ts#types
@@ -19,49 +13,82 @@ round trip to the database, and logs the slow ones:
 
 The full example, with its tests: [`examples/adapter`](https://github.com/MrEkinox/ultimabase/tree/main/examples/adapter).
 
-An application uses it as any adapter:
+`memory()` and `postgres()` are two adapters. The kernel sends each read and
+write fully prepared: its filters normalized, its ids, dates and defaults set
+and its access rules applied. An adapter is not a plugin: an application has
+one. `timed` counts its calls, each a round trip to the database. An
+application uses it as any adapter:
 
 <include cwd meta='title="src/app.ts"'>
 	../examples/adapter/src/app.ts#app
 </include>
 
-`testAdapter`, from `@ultimabase/testing`, runs the contract suite on it:
-131 tests of what every adapter does alike, through the public API. Run it
-in a test file, with a new adapter for each test:
+| To                                  | Use                                                |
+| ----------------------------------- | -------------------------------------------------- |
+| check an adapter                    | [`testAdapter`](#check-it-with-the-contract-suite) |
+| connect and disconnect              | [`start`, `stop`](#start-and-stop)                 |
+| read rows                           | [`find`, `count`, `aggregate`](#reads)             |
+| write rows                          | [`write`](#writes)                                 |
+| group calls in a transaction        | [`begin`](#transactions)                           |
+| keep each query to one round trip   | [`roundTrips`](#one-round-trip-per-query)          |
+| refuse a write as the database does | [`UniqueViolation` and the others](#errors)        |
+| tell realtime what a commit changed | [`Feed`](#the-change-feed)                         |
+| keep the tables in step with models | [`migrations`](#migrations)                        |
+| log through the kernel              | [`logger`](#log-through-the-kernel)                |
 
-<include cwd meta='title="src/contract.test.ts"'>
-	../examples/adapter/src/contract.test.ts#suite
-</include>
+## Check it with the contract suite
+
+`testAdapter`, from `@ultimabase/testing`, runs the contract suite on an
+adapter: 131 tests of what every adapter does alike, through the public API.
+An adapter that passes it runs every query, plugin and transport of
+UltimaBase.
 
 ```npm
 npm install --save-dev @ultimabase/testing vitest
 ```
 
-An adapter that passes it runs every query, plugin and transport of
-UltimaBase.
+Run it in a test file, with a new adapter for each test. `roundTrips` says how
+many round trips the adapter has made, for the suite to count:
+
+<include cwd meta='title="src/contract.test.ts"'>
+	../examples/adapter/src/contract.test.ts#suite
+</include>
 
 ## Start and stop
 
-`start` receives the models, the kernel's logger and, when realtime is on,
-the change feed. It connects; `stop` disconnects. `timed` keeps the logger
-for its warnings and passes all three on:
+`start` receives the models, the kernel's logger and, when realtime is on, the
+change feed. It connects; `stop` disconnects. `timed` keeps the logger for its
+warnings and passes all three on:
 
 <include cwd meta='title="src/timed.ts"'>
 	../examples/adapter/src/timed.ts#start
 </include>
 
 The models arrive as a `Schema`: each model's fields, its relations from both
-sides and its indexes. `id`, `createdAt` and `updatedAt` are implicit. For
-the example's `Author` and `Post`, `start` receives:
+sides and its indexes, `{ name, fields, indexes }`. `id`, `createdAt` and
+`updatedAt` are implicit. For the example's `Author` and `Post`, `start`
+receives these fields, among others. A scalar field with a default:
 
 <include cwd meta='title="src/adapter.test.ts"'>
-	../examples/adapter/src/adapter.test.ts#schema
+	../examples/adapter/src/adapter.test.ts#schema-scalar
 </include>
 
-A `one` relation with `stored: true` holds the key: `Post` stores its
-author's id under `author`. A `many` facing a `many` has `join: true`, and the
-adapter keeps the pairs, through `link` and `unlink` changes. A field or
-model with `dbName` is stored under that name.
+A `one` relation with `stored: true` holds the key: `Post` stores its author's
+id under `author`.
+
+<include cwd meta='title="src/adapter.test.ts"'>
+	../examples/adapter/src/adapter.test.ts#schema-one
+</include>
+
+`Author` sees the other side, a `many`:
+
+<include cwd meta='title="src/adapter.test.ts"'>
+	../examples/adapter/src/adapter.test.ts#schema-many
+</include>
+
+- A `many` facing a `many` has `join: true`, and the adapter keeps the pairs,
+  through `link` and `unlink` changes.
+- A field or model with `dbName` is stored under that name.
 
 ## Reads
 
@@ -72,46 +99,66 @@ and `aggregate` returns one list per group. `timed` times each one:
 	../examples/adapter/src/timed.ts#reads
 </include>
 
-A read arrives normalized. `Post.findMany({ where: { slug: 'hello' }, include: { author: true } })`
+A read arrives normalized. The tests record each read in `sent.reads`.
+`Post.findMany({ where: { slug: 'hello' }, include: { author: true } })`
 reaches `find` as:
 
 <include cwd meta='title="src/adapter.test.ts"'>
 	../examples/adapter/src/adapter.test.ts#read
 </include>
 
-`fields` lists the fields to return, the access rules' hidden ones left out.
-`include` holds each relation's own read, at any depth. `orderBy` always
-ends with `id`, so the order is total and a `cursor` resumes where a page
-ended. A read with `lock` locks the rows it returns, in `id` order, until
-its transaction ends.
+- `fields` lists the fields to return, the access rules' hidden ones left out.
+- `include` holds each relation's own read, at any depth.
+- `orderBy` always ends with `id`, so the order is total and a `cursor`
+  resumes where a page ended.
+- A read with `lock` locks the rows it returns, in `id` order, until its
+  transaction ends.
 
 ## Writes
 
-`write` runs a whole `Write` and returns the rows its `read` selects:
+`write` runs a whole `Write` and returns the rows its `read` selects. `timed`
+times it, and `empty`, which removes every row:
 
 <include cwd meta='title="src/timed.ts"'>
 	../examples/adapter/src/timed.ts#write
 </include>
 
 A write is one unit: its checks first, then its changes, then its read. A
-`Post.create` that connects an author sends:
+`Post.create` that connects the author `ada` sends three parts. First its
+checks:
 
 <include cwd meta='title="src/adapter.test.ts"'>
-	../examples/adapter/src/adapter.test.ts#write
+	../examples/adapter/src/adapter.test.ts#write-checks
 </include>
 
-Each check counts the rows a filter keeps. When one counts other than its
-`count`, the write writes nothing and throws `CheckFailed`. The changes are
-inserts, updates, deletes, and links and unlinks of `many`-to-`many` pairs.
-An update's `compute` computes a number or a list on each row: `increment`,
-`decrement`, `multiply` and `divide`, `push`, `pushUnique` and `remove`. With
-`before`, the read selects among the rows the write deleted, as they were.
+Then its changes, here one insert:
+
+<include cwd meta='title="src/adapter.test.ts"'>
+	../examples/adapter/src/adapter.test.ts#write-row
+</include>
+
+Then the read of the rows to return:
+
+<include cwd meta='title="src/adapter.test.ts"'>
+	../examples/adapter/src/adapter.test.ts#write-read
+</include>
+
+- Each check counts the rows a filter keeps. When one counts other than its
+  `count`, the write writes nothing and throws `CheckFailed`.
+- The changes are inserts, updates, deletes, and links and unlinks of
+  `many`-to-`many` pairs.
+- An update's `compute` computes a number or a list on each row: `increment`,
+  `decrement`, `multiply` and `divide`, `push`, `pushUnique` and `remove`.
+- With `before`, the read selects among the rows the write deleted, as they
+  were.
 
 ## Transactions
 
 `begin` returns a `Transaction`: the reads and `write`, then `commit` or
 `rollback`. The kernel begins one for `transaction()`, and for a write that
-locks its rows first. `timed` times each call of it:
+locks its rows first. `timed` wraps the `tx` its adapter returns in
+`timedTransaction`, and times each call of it. Each is a round trip, the commit
+included:
 
 <include cwd meta='title="src/timed.ts"'>
 	../examples/adapter/src/timed.ts#transaction
@@ -121,39 +168,60 @@ locks its rows first. `timed` times each call of it:
 	../examples/adapter/src/timed.ts#begin
 </include>
 
-A transaction's writes are seen by its own reads and by no one else's
-before the commit. A failed write in a transaction leaves it to be rolled
-back, even when the callback catches the error.
+- A transaction's writes are seen by its own reads and by no one else's before
+  the commit.
+- A failed write in a transaction leaves it to be rolled back, even when the
+  callback catches the error.
 
-`begin({ isolation: 'serializable' })` begins a serializable transaction for
-`transaction(run, { isolation: 'serializable' })`. An adapter that cannot
-hold that isolation throws from `begin`, never begins a weaker one; one
-that runs its transactions one at a time, as `memory()`, already holds it.
-When the database aborts a transaction for a conflict with another, a
-serialization failure or a deadlock, the adapter throws `Conflict`, and the
-kernel runs a serializable callback again.
+### Serializable transactions
+
+`begin({ isolation: 'serializable' })` begins one for
+`transaction(run, { isolation: 'serializable' })`.
+
+- An adapter that cannot hold that isolation throws from `begin`, never begins
+  a weaker one.
+- One that runs its transactions one at a time, as `memory()`, already holds
+  it.
+- When the database aborts a transaction for a conflict with another, a
+  serialization failure or a deadlock, the adapter throws `Conflict`, and the
+  kernel runs a serializable callback again.
+
+Here the database aborts the first commit: a wrapped `begin` returns its `tx`
+with this `commit`, and `conflicts` starts at 1.
 
 <include cwd meta='title="src/adapter.test.ts"'>
 	../examples/adapter/src/adapter.test.ts#conflict
 </include>
 
+The callback runs twice, and its write is kept once. `transaction` comes from
+`ultimabase`, `Author` is the example's model, and the tests write `M` for
+`{ as: master }`:
+
+<include cwd meta='title="src/adapter.test.ts"'>
+	../examples/adapter/src/adapter.test.ts#conflict-retry
+</include>
+
 ## One round trip per query
 
 The kernel asks the adapter once per query: a read and its relations at any
-depth, a count, a create and its connections, an update or a delete by id.
-An adapter keeps it so by answering each call in one round trip to its
-database; the suite counts them with `roundTrips`. `timed` counts its calls:
+depth, a count, a create and its connections, an update or a delete by id. An
+adapter keeps it so by answering each call in one round trip to its database.
+The suite counts them with `roundTrips`. `timed` counts its calls:
 
 <include cwd meta='title="src/timed.ts"'>
 	../examples/adapter/src/timed.ts#trip
 </include>
 
 An application's tests run on its declared adapter with
-`database: 'declared'`; `memory()` starts empty, so each test does:
+`database: 'declared'`. `memory()` starts empty, so each test does:
 
 <include cwd meta='title="src/app.test.ts"'>
 	../examples/adapter/src/app.test.ts#test-application
 </include>
+
+Each query is one round trip, a read and its relations at any depth included:
+two writes and a read make three. `database` is the `timed(memory())` of
+`src/app.ts`:
 
 <include cwd meta='title="src/app.test.ts"'>
 	../examples/adapter/src/app.test.ts#round-trips
@@ -161,12 +229,15 @@ An application's tests run on its declared adapter with
 
 ## Errors
 
-An adapter throws one of five errors, from `ultimabase`, when its database
-refuses a write; the kernel turns each into the error the developer sees.
-Any other error reaches the developer as `INTERNAL`.
+An adapter throws one of these errors, from `ultimabase`, when its database
+refuses a write. The kernel turns each into the error the developer sees. Any
+other error reaches the developer as `INTERNAL`. The tests write `hello` for
+the `Post` row of slug `hello` and `adapter` for a `memory()` that holds the
+author `a1`.
 
-A unique index refuses a row: throw `UniqueViolation` with the model and the
-index's fields.
+### A unique index refuses a row
+
+Throw `UniqueViolation` with the model and the index's fields:
 
 <include cwd meta='title="src/adapter.test.ts"'>
 	../examples/adapter/src/adapter.test.ts#unique-violation
@@ -178,8 +249,10 @@ The developer sees `UNIQUE_VIOLATION`:
 	../examples/adapter/src/app.test.ts#unique
 </include>
 
-A check counts other than its `count`: throw `CheckFailed` with its index in
-`checks`, and write nothing.
+### A check counts other than its count
+
+Throw `CheckFailed` with its index in `checks`, and write nothing. `other` is
+a `Post` row:
 
 <include cwd meta='title="src/adapter.test.ts"'>
 	../examples/adapter/src/adapter.test.ts#check-failed
@@ -192,31 +265,64 @@ connected author that does not exist:
 	../examples/adapter/src/app.test.ts#check
 </include>
 
+### A number leaves its range
+
 A computed number falls outside its field's range, or is not finite: throw
-`OutOfRange` with the model and the field.
+`OutOfRange` with the model and the field. This write increments a view count
+past the largest integer, on `hello`, whose id is `p1`:
 
 <include cwd meta='title="src/adapter.test.ts"'>
 	../examples/adapter/src/adapter.test.ts#out-of-range
 </include>
 
-The developer sees `VALIDATION_FAILED`, with the field's range:
+The adapter throws:
+
+<include cwd meta='title="src/adapter.test.ts"'>
+	../examples/adapter/src/adapter.test.ts#out-of-range-thrown
+</include>
+
+The developer sees `VALIDATION_FAILED`, with the field's range. A post holds
+2,147,483,647 views, and an update increments them:
 
 <include cwd meta='title="src/app.test.ts"'>
 	../examples/adapter/src/app.test.ts#out-of-range
 </include>
 
-A foreign key refuses a write, when a row was deleted between the checks and
-the change: throw `RelationViolation` with the model, the field, the target
-and whether a delete was restricted. The developer sees `NOT_FOUND`, or
-`RELATION_RESTRICTED` when `restricted` is true:
+The issue carries the range:
+
+<include cwd meta='title="src/app.test.ts"'>
+	../examples/adapter/src/app.test.ts#out-of-range-issues
+</include>
+
+### A foreign key refuses a write
+
+It happens when a row was deleted between the checks and the change: throw
+`RelationViolation` with the model, the field, the target and whether a delete
+was restricted. Here the author was deleted between the write's check and its
+insert:
 
 <include cwd meta='title="src/adapter.test.ts"'>
 	../examples/adapter/src/adapter.test.ts#relation-violation
 </include>
 
-A migration statement is refused: throw `MigrationFailed` with the statement
-or the file, and what the database said. In development the start stops
-with:
+The developer sees `NOT_FOUND`, or `RELATION_RESTRICTED` when `restricted` is
+true. Here it is false:
+
+<include cwd meta='title="src/adapter.test.ts"'>
+	../examples/adapter/src/adapter.test.ts#relation-refused
+</include>
+
+### A migration statement is refused
+
+Throw `MigrationFailed` with the statement or the file, and what the database
+said. This adapter's `migrations.apply` refuses `sql`, the statement
+`CREATE TABLE "Post" ()`:
+
+<include cwd meta='title="src/adapter.test.ts"'>
+	../examples/adapter/src/adapter.test.ts#migration-apply
+</include>
+
+In development the start stops with:
 
 <include cwd meta='title="src/adapter.test.ts"'>
 	../examples/adapter/src/adapter.test.ts#migration-failed
@@ -224,11 +330,18 @@ with:
 
 ## The change feed
 
-With realtime on, `start` receives a `Feed`. Once a write commits, the
-adapter calls `changed` with what it changed, on every server: PostgreSQL
-sends it through its notifications. It calls `missed` when changes may have
-been lost, as when its listener reconnects. A rollback, a failed write and
-an update that changes nothing send nothing.
+With realtime on, `start` receives a `Feed`. Once a write commits, the adapter
+calls `changed` with what it changed, on every server: PostgreSQL sends it
+through its notifications. It calls `missed` when changes may have been lost,
+as when its listener reconnects.
+
+- A rollback, a failed write and an update that changes nothing send nothing.
+- How changes group into entries and calls is the adapter's.
+
+The feed is the third argument of `start`:
+`start({ models }, logger, { changed, missed })`. Here `adapter` is a `memory()`
+started with a `changed` that pushes to `fed`, and `author` stands for a row
+with the id `a1` and its dates. An insert is fed once it commits:
 
 <include cwd meta='title="src/adapter.test.ts"'>
 	../examples/adapter/src/adapter.test.ts#feed
@@ -240,35 +353,56 @@ A change lists at most `feedIds` ids or pairs; past that, it lists none:
 	../examples/adapter/src/adapter.test.ts#feed-limits
 </include>
 
-An update lists the fields it set, `updatedAt` included, unless they are
-every field or, as JSON, longer than `feedFields`:
+An update lists the fields it set, `updatedAt` included, unless they are every
+field or, as JSON, longer than `feedFields`. The model `Wide` has a field
+named by that many characters:
+
+<include cwd meta='title="src/adapter.test.ts"'>
+	../examples/adapter/src/adapter.test.ts#feed-long
+</include>
+
+`watched` is a `memory()` started with `Wide` and a `changed` that pushes to
+`feed`. It holds one row, whose insert is `feed[0]`, and an update sets that
+field:
 
 <include cwd meta='title="src/adapter.test.ts"'>
 	../examples/adapter/src/adapter.test.ts#feed-fields
 </include>
 
+The change lists the row and no field:
+
+<include cwd meta='title="src/adapter.test.ts"'>
+	../examples/adapter/src/adapter.test.ts#feed-fields-result
+</include>
+
 ## Migrations
 
-An adapter for a database that keeps its tables has `migrations`: the
-kernel then syncs the tables in development and checks them in production,
-and the CLI writes and deploys migration files (see
-[PostgreSQL](/docs/next/postgres)). An adapter for a database that starts
-empty every time, as `memory()`, has none. `timed` passes its adapter's on:
+An adapter for a database that keeps its tables has `migrations`. An adapter
+for a database that starts empty every time, as `memory()`, has none.
+
+- The kernel then syncs the tables in development and checks them in
+  production.
+- The CLI writes and deploys migration files; see
+  [PostgreSQL](/docs/next/postgres).
+
+`timed` passes its adapter's on:
 
 <include cwd meta='title="src/timed.ts"'>
 	../examples/adapter/src/timed.ts#migrations
 </include>
 
-A snapshot is JSON in the adapter's own format: what its database makes of
-the models. `plan` gives the statements from one snapshot to the models',
-each with what it does and, for the log, what it loses or may break.
-`apply` runs a sync or a deploy under a lock one database holds at a time.
+- A snapshot is JSON in the adapter's own format: what its database makes of
+  the models.
+- `plan` gives the statements from one snapshot to the models', each with what
+  it does and, for the log, what it loses or may break.
+- `apply` runs a sync or a deploy under a lock one database holds at a time.
 
 ## Log through the kernel
 
 `start` receives the kernel's logger: an adapter logs through it, so its
-messages share the application's format and level. `timed` warns of each
-call that takes `slow` milliseconds or more:
+messages share the application's format and level. `timed` warns of each call
+that takes `slow` milliseconds or more. The tests' `capturing` logger keeps its
+warnings in `warnings`:
 
 <include cwd meta='title="src/adapter.test.ts"'>
 	../examples/adapter/src/adapter.test.ts#slow
@@ -358,10 +492,13 @@ A `Statement` is `{ sql, model, does, loses?, tries?, rename? }`.
 
 ### `testAdapter`
 
-`testAdapter(name, create, { roundTrips })` declares a Vitest `describe`
-named `the ${name} adapter`. `create` returns a new adapter for each test,
-on an empty database. `roundTrips` returns how many round trips the
-adapters have made so far, `BEGIN` and `COMMIT` included; the suite checks
-the differences. It covers reads, filters, sorts, counts, aggregates,
-groups, nested writes, cascades, lists, JSON paths, decimals, dates,
-searches, transactions, the feed and round trips.
+`testAdapter(name, create, { roundTrips })` declares a Vitest `describe` named
+`the ${name} adapter`.
+
+- `create` returns a new adapter for each test, on an empty database.
+- `roundTrips` returns how many round trips the adapters have made so far,
+  `BEGIN` and `COMMIT` included; the suite checks the differences.
+
+It covers reads, filters, sorts, counts, aggregates, groups, nested writes,
+cascades, lists, JSON paths, decimals, dates, searches, transactions, the feed
+and round trips.

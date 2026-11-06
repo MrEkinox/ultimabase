@@ -1,0 +1,6 @@
+mutation {
+	createNote(data: { title: "Plans" }) {
+		id
+		title
+	}
+}

@@ -1,0 +1,5 @@
+PUT /_ultimabase/maintenance
+content-type: application/json
+x-ultimabase-maintenance-key: dev-maintenance-key
+
+{ "enabled": true }

@@ -1,0 +1,4 @@
+POST /graphql
+content-type: application/json
+
+{ "query": "{ posts { totalCount } }" }

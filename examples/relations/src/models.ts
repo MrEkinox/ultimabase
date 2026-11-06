@@ -1,5 +1,5 @@
 // The models: authors write books, a publisher prints them, tags sort them.
-//#region models
+//#region author
 import { graphql } from '@ultimabase/graphql'
 import { allow, defineModel } from 'ultimabase'
 
@@ -13,7 +13,9 @@ export const Author = defineModel({
 	}),
 	// Open to every client, to keep the example on relations.
 }).with({ access: allow.public })
+//#endregion
 
+//#region publisher
 export const Publisher = defineModel({
 	name: 'Publisher',
 	use: [graphql()],
@@ -22,7 +24,9 @@ export const Publisher = defineModel({
 		books: f.many(() => Book, { inverse: 'publisher' }),
 	}),
 }).with({ access: allow.public })
+//#endregion
 
+//#region tag
 export const Tag = defineModel({
 	name: 'Tag',
 	use: [graphql()],
@@ -32,7 +36,9 @@ export const Tag = defineModel({
 		books: f.many(() => Book, { inverse: 'tags' }),
 	}),
 }).with({ access: allow.public })
+//#endregion
 
+//#region book
 export const Book = defineModel({
 	name: 'Book',
 	use: [graphql()],

@@ -4,12 +4,17 @@ import { testApplication } from '@ultimabase/testing'
 import { master } from 'ultimabase'
 import { expect, it } from 'vitest'
 import { z } from 'zod'
+import { requestFiles } from '../../../scripts/requests.ts'
 import { app } from './app.ts'
-import { User } from './models.ts'
+import { User } from './user.ts'
 
 const running = testApplication(app)
+const { file, check } = requestFiles(
+	new URL('requests/', import.meta.url),
+	running,
+)
+const as = { as: master }
 
-//#region request
 /** A GraphQL request, and its response. */
 const post = (
 	query: string,
@@ -21,7 +26,6 @@ const post = (
 		headers: { 'content-type': 'application/json', ...headers },
 		body: JSON.stringify({ query, variables }),
 	})
-//#endregion
 
 const viewer = async (headers: Record<string, string>): Promise<unknown> => {
 	const response = await post('{ viewer { name } }', {}, headers)
@@ -33,7 +37,6 @@ const signedUp = z.object({
 })
 
 it('sends the token as a Bearer header', async () => {
-	//#region bearer
 	const response = await post(
 		`mutation ($input: SignUpInput!) {
 			signUp(input: $input) { token expiresAt user { name } }
@@ -50,7 +53,6 @@ it('sends the token as a Bearer header', async () => {
 	const bearer = { authorization: `Bearer ${token}` }
 	expect(await viewer(bearer)).toEqual({ data: { viewer: { name: 'Ada' } } })
 	expect(await viewer({})).toEqual({ data: { viewer: null } })
-	//#endregion
 })
 
 it('sets the cookie a browser sends back', async () => {
@@ -62,7 +64,6 @@ it('sets the cookie a browser sends back', async () => {
 		},
 		{ as: master },
 	)
-	//#region cookie
 	const response = await post(
 		`mutation ($input: SignInInput!) { signIn(input: $input) { user { name } } }`,
 		{ input: { email: 'ada@example.com', password: 'correct horse' } },
@@ -83,67 +84,70 @@ it('sets the cookie a browser sends back', async () => {
 	)
 	// A stale cookie is anonymous, so the browser can sign in again.
 	expect(await viewer(cookie)).toEqual({ data: { viewer: null } })
+})
+
+it('sends the token a request file returns', async () => {
+	const input = {
+		email: 'ada@example.com',
+		password: 'correct horse',
+		name: 'Ada',
+	}
+	const body = signedUp.parse(await file('sign-up', { input }))
+	const { token } = body.data.signUp
+	const bearer = { headers: { authorization: `Bearer ${token}` } }
+	// With the token the caller is Ada; without it, no one.
+	await check('viewer', {}, bearer)
+	expect(await file('viewer')).toEqual({ data: { viewer: null } })
+})
+
+it('signs in from a request file, and ends the session of a cookie', async () => {
+	const credentials = { email: 'ada@example.com', password: 'correct horse' }
+	await User.signUp({ ...credentials, data: { name: 'Ada' } }, as)
+	await check('sign-in', { input: credentials })
+	//#region session-cookie
+	const { token } = await User.signIn(credentials)
+	const cookie = { headers: { cookie: `ultimabase_session=${token}` } }
 	//#endregion
+	await check('viewer', {}, cookie)
+	await check('sign-out', {}, cookie)
+	// The session has ended, so the cookie is stale: no one.
+	expect(await file('viewer', {}, cookie)).toEqual({ data: { viewer: null } })
 })
 
 it('signs up, signs in and ends sessions from server code', async () => {
 	//#region commands
-	const ada = await User.signUp(
-		{
-			email: 'ada@example.com',
-			password: 'correct horse',
-			data: { name: 'Ada' },
-		},
-		{ as: master },
-	)
+	const credentials = { email: 'ada@example.com', password: 'correct horse' }
+	// Creates the user, and opens no session.
+	const ada = await User.signUp({ ...credentials, data: { name: 'Ada' } }, as)
 	// Opens a session, as the signIn function does, without its cookie.
-	const { token, user } = await User.signIn({
-		email: 'ada@example.com',
-		password: 'correct horse',
-	})
+	const { token, user } = await User.signIn(credentials)
 	expect(user?.name).toBe('Ada')
-
-	// Ends every session of the user, on every device.
-	await User.revokeSessions({ id: ada.id }, { as: master })
-	// The request is refused before it runs, whatever it asks.
-	const revoked = await post(
-		'{ viewer { name } }',
-		{},
-		{
-			authorization: `Bearer ${token}`,
-		},
-	)
-	expect(revoked.status).toBe(401)
-	expect(await revoked.json()).toEqual({
-		code: 'UNAUTHENTICATED',
-		message: 'The session expired or was revoked: sign in again.',
-	})
 	//#endregion
+
+	//#region revoke
+	// Ends every session of the user, on every device.
+	await User.revokeSessions({ id: ada.id }, as)
+	//#endregion
+	// The request is refused before it runs, whatever it asks.
+	const headers = { authorization: `Bearer ${token}` }
+	await check('ended', {}, { headers, status: 401 })
 })
 
 it('deletes a user and frees its email', async () => {
-	const ada = await User.signUp(
-		{
-			email: 'ada@example.com',
-			password: 'correct horse',
-			data: { name: 'Ada' },
-		},
-		{ as: master },
-	)
+	const credentials = { email: 'ada@example.com', password: 'correct horse' }
+	const ada = await User.signUp({ ...credentials, data: { name: 'Ada' } }, as)
 	//#region delete
 	// Ends the sessions and deletes the password and the linked accounts.
-	await User.delete({ where: { id: ada.id } }, { as: master })
-	await expect(
-		User.signIn({ email: 'ada@example.com', password: 'correct horse' }),
-	).rejects.toMatchObject({ code: 'INVALID_CREDENTIALS' })
+	await User.delete({ where: { id: ada.id } }, as)
+	await expect(User.signIn(credentials)).rejects.toMatchObject({
+		code: 'INVALID_CREDENTIALS',
+	})
+	//#endregion
+	//#region delete-again
 	// The email signs up again, as a new user.
 	const again = await User.signUp(
-		{
-			email: 'ada@example.com',
-			password: 'another horse',
-			data: { name: 'Ada' },
-		},
-		{ as: master },
+		{ ...credentials, password: 'another horse', data: { name: 'Ada' } },
+		as,
 	)
 	expect(again.id).not.toBe(ada.id)
 	//#endregion

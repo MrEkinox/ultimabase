@@ -1,0 +1,1 @@
+GET /api/posts?first=2&orderBy={"likes":"desc"}&select={"title":true}&totalCount=true

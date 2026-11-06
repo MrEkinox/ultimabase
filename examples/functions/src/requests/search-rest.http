@@ -1,0 +1,1 @@
+GET /api/functions/searchBooks?text=dune&available=true

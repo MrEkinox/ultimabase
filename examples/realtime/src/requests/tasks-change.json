@@ -1,0 +1,11 @@
+{
+	"extensions": {
+		"live": {
+			"revision": 2,
+			"changes": [
+				{ "remove": "…", "gone": false },
+				{ "upsert": { "node": { "id": "…", "title": "new" } }, "after": null }
+			]
+		}
+	}
+}

@@ -1,0 +1,5 @@
+$ npx ultimabase migrate status
+20261026200257_init.sql is pending.
+20261029230454_add_priority.sql is pending.
+20261029230505_first_tasks_urgent.sql is pending.
+20261029230507_open_tasks_index.sql is pending.

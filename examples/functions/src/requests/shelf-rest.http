@@ -1,0 +1,1 @@
+GET /api/functions/shelf?first=1&totalCount=true

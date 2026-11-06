@@ -1,0 +1,4 @@
+$ DATABASE_URL= npx ultimabase start
+postgres() was given no url: is the variable it reads set?
+$ DATABASE_URL=postgres://postgres@localhost:1/app npx ultimabase start
+Cannot reach PostgreSQL at localhost:1 (ECONNREFUSED): is it running, and is its url right?

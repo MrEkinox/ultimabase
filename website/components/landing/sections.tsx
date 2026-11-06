@@ -180,10 +180,7 @@ export function Users() {
 					{
 						name: 'Bearer token',
 						code: (
-							<Example
-								file="password-sign-in/src/sessions.test.ts"
-								region="bearer"
-							/>
+							<Example file="password-sign-in/src/requests/viewer.graphql" />
 						),
 						result: (
 							<Result eyebrow="viewer" title="The token is the user">
@@ -201,10 +198,7 @@ export function Users() {
 					{
 						name: 'Cookie',
 						code: (
-							<Example
-								file="password-sign-in/src/sessions.test.ts"
-								region="cookie"
-							/>
+							<Example file="password-sign-in/src/requests/sign-in.graphql" />
 						),
 						result: (
 							<Result eyebrow="viewer" title="A browser needs nothing">

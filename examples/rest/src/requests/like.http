@@ -1,0 +1,4 @@
+POST /api/functions/like
+content-type: application/json
+
+{ "slug": "sketch" }

@@ -1,0 +1,9 @@
+{
+	"edges": [{ "cursor": "…", "node": { "name": "Ada" } }],
+	"pageInfo": {
+		"hasNextPage": false,
+		"hasPreviousPage": false,
+		"startCursor": "…",
+		"endCursor": "…"
+	}
+}

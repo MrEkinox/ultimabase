@@ -64,6 +64,15 @@
 				"eslint/max-lines": "off",
 				"ultimabase/no-decision-in-string": "off"
 			}
+		},
+		{
+			"files": ["examples/**/*.test.ts"],
+			"rules": {
+				"vitest/expect-expect": [
+					"error",
+					{ "assertFunctionNames": ["expect", "check", "matches", "play"] }
+				]
+			}
 		}
 	]
 }

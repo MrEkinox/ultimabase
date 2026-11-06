@@ -2,6 +2,7 @@
 import { graphqlPlugin } from '@ultimabase/graphql'
 import { httpPlugin } from '@ultimabase/http'
 import { defineApp, memory } from 'ultimabase'
+import { Category } from './category.ts'
 import { Product } from './models.ts'
 import { Opening, Shift } from './schedule.ts'
 
@@ -10,5 +11,5 @@ export const app = defineApp({
 	database: memory(),
 	// Listens on PORT, or 3000.
 	plugins: [httpPlugin(), graphqlPlugin()],
-	models: [Product, Shift, Opening],
+	models: [Product, Category, Shift, Opening],
 })

@@ -1,0 +1,12 @@
+query {
+	posts {
+		edges {
+			node {
+				cover {
+					name
+					url
+				}
+			}
+		}
+	}
+}

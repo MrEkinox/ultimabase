@@ -1,0 +1,9 @@
+query {
+	posts {
+		edges {
+			node {
+				title
+			}
+		}
+	}
+}

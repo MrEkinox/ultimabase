@@ -1,0 +1,2 @@
+$ MASTER_KEY=secret npx ultimabase start
+The master key is 6 characters long; production needs 32 at least: `openssl rand -base64 32` gives one.

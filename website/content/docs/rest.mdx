@@ -3,17 +3,19 @@ title: REST
 description: The REST API generated from the models and the functions, its routes, its parameters, its OpenAPI document and its limits.
 ---
 
-`@ultimabase/rest` serves a REST API generated from the models and the
-functions, on the [HTTP](/docs/next/http) server. It is the
-[GraphQL](/docs/next/graphql) API in HTTP's grammar: the same names, the same
-operators and the same answers. Each request runs as its caller, under the
-models' [access rules](/docs/next/access). Every model and every function
-of the application is served; listing `rest()` in a model's `use` lets its
-`.with({ rest })` set its routes' name and its limits, or hide it:
+`@ultimabase/rest` serves a REST API generated from your models and functions,
+on the [HTTP](/docs/next/http) server. It is the [GraphQL](/docs/next/graphql)
+API in HTTP's grammar: the same names, operators and shapes, and the same default limits: each plugin
+sets its own. Each
+request runs as its caller, under the models' [access rules](/docs/next/access).
 
 ```npm
 npm install @ultimabase/rest
 ```
+
+Every model and every function of the application is served. Listing `rest()`
+in a model's `use` lets its `.with({ rest })` set its routes' name and its
+limits, or hide it:
 
 <include cwd meta='title="src/models.ts"'>
 	../examples/rest/src/models.ts#post
@@ -21,22 +23,47 @@ npm install @ultimabase/rest
 
 The full example, with its tests: [`examples/rest`](https://github.com/MrEkinox/ultimabase/tree/main/examples/rest).
 
-`restPlugin()` goes in the application's plugins, after `httpPlugin()`,
-which it requires:
+`restPlugin()` goes in the application's plugins, after `httpPlugin()`, which
+it requires:
 
 <include cwd meta='title="src/app.ts"'>
 	../examples/rest/src/app.ts#plugins
 </include>
 
 The API is under `/api`, and the server logs `REST on
-http://localhost:3000/api.` outside production. A query parameter holds
-JSON, unless it is a cursor; a body is JSON, sent with
-`content-type: application/json`. The tests on this page call it with these
-two helpers:
+http://localhost:3000/api.` outside production. The examples below start from
+one person, Ada, with three posts: the request that creates her is under [What
+a model gets](#what-a-model-gets). A client lists the people with a `GET`:
 
-<include cwd meta='title="src/app.test.ts"'>
-	../examples/rest/src/app.test.ts#request
+<include cwd meta='title="Request"'>
+	../examples/rest/src/requests/people.http
 </include>
+
+<include cwd meta='title="Response"'>
+	../examples/rest/src/requests/people.json
+</include>
+
+The responses on this page write ids, dates and cursors as `…`, which change at
+each run. A request that writes, or reads a row by its id, writes `$id`: the
+text names the row it stands for.
+
+A query parameter holds JSON, unless it is a cursor. The requests on this page
+leave it as it is; a client that encodes it, as `URLSearchParams` does, sends
+the same request. A body is JSON, sent with `content-type: application/json`.
+
+| To                                         | Go to                                                      |
+| ------------------------------------------ | ---------------------------------------------------------- |
+| Create, update, upsert or delete a row     | [What a model gets](#what-a-model-gets), [Writes](#writes) |
+| Page through a list                        | [Pages](#pages)                                            |
+| Read one row                               | [One row](#one-row)                                        |
+| Choose the fields and the relations        | [Choose the fields](#choose-the-fields)                    |
+| Filter and sort                            | [Filters](#filters)                                        |
+| Send a date, a day or a decimal            | [Dates](#dates)                                            |
+| Handle an error                            | [Errors](#errors)                                          |
+| Rename a route, hide a model or a function | [Names](#names)                                            |
+| Compare with GraphQL                       | [REST and GraphQL](#rest-and-graphql)                      |
+| Generate a client                          | [OpenAPI](#openapi)                                        |
+| Bound what a client asks                   | [Limits](#limits)                                          |
 
 ## What a model gets
 
@@ -51,202 +78,422 @@ two helpers:
 | `PATCH /api/posts/:id`  | updates, as `updatePost`; the body is its data | `200`                        |
 | `DELETE /api/posts/:id` | deletes, as `deletePost`                       | `200`, the row as it was     |
 
-A write's body nests its [relations](/docs/next/relations)' writes, as in
-GraphQL: `connect`, `create` and `connectOrCreate`, and in an update
-`update`, `disconnect`, `set` and `delete`. A write takes `select` or
-`include` as query parameters, to shape its answer. Here a person is
-created with three posts:
+A write nests its [relations](/docs/next/relations)' writes: `connect`, `create`
+and `connectOrCreate`, and in an update `update`, `disconnect`, `set` and
+`delete`. A write takes `select` or `include` as query parameters, to shape its
+answer. Here a person is created with three posts, and answers `201`:
 
-<include cwd meta='title="src/app.test.ts"'>
-	../examples/rest/src/app.test.ts#create
+<include cwd meta='title="Request"'>
+	../examples/rest/src/requests/create.http
 </include>
 
-<include cwd meta='title="src/app.test.ts"'>
-	../examples/rest/src/app.test.ts#created
+<include cwd meta='title="Response"'>
+	../examples/rest/src/requests/create.json
 </include>
 
 ## Pages
 
-A list answers a Relay connection, as GraphQL does: `edges`, each with its
-`cursor` and its `node`, then `pageInfo`. `first` and `after` page forward,
-`last` and `before` backward; `after` and `before` are cursors, sent as
-they are, without JSON. `totalCount=true` adds the count of rows the
-`where` matches:
+A list answers a [Relay](https://relay.dev/graphql/connections.htm) connection,
+as GraphQL does: `first` rows `after` a cursor, or `last` rows `before` one. It
+answers `200`:
 
-<include cwd meta='title="src/app.test.ts"'>
-	../examples/rest/src/app.test.ts#page
+<include cwd meta='title="Request"'>
+	../examples/rest/src/requests/page.http
 </include>
 
-With `pagination: 'list'`, every list is an array, paged with `take` and
-`skip`, and has no `totalCount`:
+<include cwd meta='title="Response"'>
+	../examples/rest/src/requests/page.json
+</include>
+
+- `totalCount=true` counts every row the `where` matches.
+- `pageInfo.endCursor` is where the next page starts.
+- `after` and `before` are cursors, sent as they are, without JSON.
+- Without `first` or `last`, a list returns `take` rows, 100 by default.
+- A client asks for `maxTake` at most, 100 by default, or the model's own:
+  `.with({ rest: { maxTake: 20 } })` above.
+- A relation's list is a connection too, with its own `first`, `orderBy`,
+  `where` and `totalCount`.
+
+The next page sends that cursor as `after`, here the last post, `Sketch`:
+
+<include cwd meta='title="Request"'>
+	../examples/rest/src/requests/next.http
+</include>
+
+<include cwd meta='title="Response"'>
+	../examples/rest/src/requests/next.json
+</include>
+
+`pagination: 'list'` serves arrays instead, paged with `take` and `skip`, at every
+depth, and without `totalCount`:
 
 <include cwd meta='title="src/list.ts"'>
 	../examples/rest/src/list.ts#list
 </include>
 
-<include cwd meta='title="src/list.test.ts"'>
-	../examples/rest/src/list.test.ts#read
+With a person who has two posts:
+
+<include cwd meta='title="Request"'>
+	../examples/rest/src/requests/list.http
+</include>
+
+<include cwd meta='title="Response"'>
+	../examples/rest/src/requests/list.json
 </include>
 
 ## One row
 
-`GET /api/posts/:id` reads a row by its id; a row that does not exist, or
-that the caller may not read, is a `404`:
+`GET /api/posts/:id` reads a row by its id, and answers `200`. Here `$id` is
+the id of Ada's post `Notes`:
 
-<include cwd meta='title="src/app.test.ts"'>
-	../examples/rest/src/app.test.ts#row
+<include cwd meta='title="Request"'>
+	../examples/rest/src/requests/get.http
 </include>
 
-Without `select` or `include`, a row holds its `id`, `createdAt` and
-`updatedAt`, each field the caller may read, and the virtuals read by
-default; no relation. A list's rows hold the same.
+<include cwd meta='title="Response"'>
+	../examples/rest/src/requests/get.json
+</include>
+
+A row that does not exist, or that the caller may not read, is a `404`:
+
+<include cwd meta='title="Request"'>
+	../examples/rest/src/requests/missing.http
+</include>
+
+<include cwd meta='title="Response"'>
+	../examples/rest/src/requests/missing.json
+</include>
+
+- Without `select` or `include`, a row holds its `id`, `createdAt` and
+  `updatedAt`, each field the caller may read, and the virtuals read by
+  default; no relation.
+- A list's rows hold the same.
 
 ## Choose the fields
 
-`select` names the fields a row holds; `include` adds relations to the
-default fields. Both nest: a relation's value is `true`, or what to read
-of it, with a many relation's own `where`, `orderBy`, `first` and
-`totalCount`. A row takes one of the two, never both:
+`select` names the fields a row holds; `include` adds relations to the default
+fields. A row takes one of the two, never both. Both nest: a relation's value
+is `true`, or what to read of it, with a many relation's own `where`,
+`orderBy`, `first` and `totalCount`. Here `$id` is Ada's id:
 
-<include cwd meta='title="src/app.test.ts"'>
-	../examples/rest/src/app.test.ts#fields
+<include cwd meta='title="Request"'>
+	../examples/rest/src/requests/select.http
+</include>
+
+<include cwd meta='title="Response"'>
+	../examples/rest/src/requests/select.json
+</include>
+
+`include` keeps the default fields, and adds the author. `$id` is the id of
+`Notes`:
+
+<include cwd meta='title="Request"'>
+	../examples/rest/src/requests/include.http
+</include>
+
+<include cwd meta='title="Response"'>
+	../examples/rest/src/requests/include.json
 </include>
 
 ## Filters
 
-`where` takes the operators of [queries](/docs/next/queries): `equals`,
-`gt`, `startsWith`, `in` and the others on a field; `is` and `isNot` on a
-relation to one row; `some`, `every` and `none` on a many relation; `AND`,
-`OR` and `NOT` around them. `orderBy` takes a field, or a list of them:
+`where` takes an object per field, and `orderBy` a field, or a list of them:
 
-<include cwd meta='title="src/app.test.ts"'>
-	../examples/rest/src/app.test.ts#filter
+| On                    | Operators                                                                  |
+| --------------------- | -------------------------------------------------------------------------- |
+| every field           | `equals`, `not`, `in`, `notIn`                                             |
+| numbers and dates     | `lt`, `lte`, `gt`, `gte`                                                   |
+| text                  | `contains`, `startsWith`, `endsWith`, `mode: "insensitive"` to ignore case |
+| a relation to one row | `is`, `isNot`                                                              |
+| a relation to many    | `some`, `every`, `none`                                                    |
+| filters               | `AND`, `OR`, `NOT` combine them                                            |
+
+This table is not complete. These are the operators of
+[queries](/docs/next/queries); a field also takes:
+
+- A list field: `has`, `hasSome`, `hasEvery` and `isEmpty`.
+- A JSON field: `path`, `stringContains`, `stringStartsWith`, `stringEndsWith`,
+  `arrayContains`, `arrayStartsWith` and `arrayEndsWith`, with the number
+  operators and `mode`.
+- An `id` or an enum: the text operators, without `mode`.
+
+Here a filter on two
+fields and on a relation to one row:
+
+<include cwd meta='title="Request"'>
+	../examples/rest/src/requests/filter.http
+</include>
+
+<include cwd meta='title="Response"'>
+	../examples/rest/src/requests/filter.json
+</include>
+
+And one on a relation to many:
+
+<include cwd meta='title="Request"'>
+	../examples/rest/src/requests/some.http
+</include>
+
+<include cwd meta='title="Response"'>
+	../examples/rest/src/requests/some.json
 </include>
 
 ## Dates
 
-A `dateTime` is ISO 8601 text, in a response, a body or a filter; a `date`
-is a day, as `'2026-07-31'`; a `decimal` is text, as `'12.50'`:
+A `dateTime` is ISO 8601 text, in a response, a body or a filter. Here a post
+is created with a date, and answers `201`. `$id` is Ada's id:
 
-<include cwd meta='title="src/app.test.ts"'>
-	../examples/rest/src/app.test.ts#dates
+<include cwd meta='title="Request"'>
+	../examples/rest/src/requests/launch.http
 </include>
+
+<include cwd meta='title="Response"'>
+	../examples/rest/src/requests/launch.json
+</include>
+
+A filter on it answers `200`:
+
+<include cwd meta='title="Request"'>
+	../examples/rest/src/requests/since.http
+</include>
+
+<include cwd meta='title="Response"'>
+	../examples/rest/src/requests/since.json
+</include>
+
+A `date` is a day, as `'2026-07-31'`, and a `decimal` is text, as `'12.50'`.
 
 ## Writes
 
-`PATCH` sets the fields its body holds, and leaves the others:
+`PATCH` sets the fields its body holds, and leaves the others. `$id` is the id
+of `Sketch`. It answers `200`:
 
-<include cwd meta='title="src/app.test.ts"'>
-	../examples/rest/src/app.test.ts#update
+<include cwd meta='title="Request"'>
+	../examples/rest/src/requests/update.http
 </include>
 
-`PUT` on the list's route finds a row by a unique `where`: it updates it
-with `update`, or creates it from `create` when there is none. The status
-says which it did:
-
-<include cwd meta='title="src/app.test.ts"'>
-	../examples/rest/src/app.test.ts#upsert
+<include cwd meta='title="Response"'>
+	../examples/rest/src/requests/update.json
 </include>
 
-`DELETE` answers the row as it was, as GraphQL's `DeletedPost`: `id`, the
-dates and its scalar fields, without its relations or its virtuals:
+`PUT` on the list's route finds a row by a unique `where`: it updates it with
+`update`, or creates it from `create` when there is none. The status says which
+it did, `201` for a created row. `$id` is Ada's id:
 
-<include cwd meta='title="src/app.test.ts"'>
-	../examples/rest/src/app.test.ts#delete
+<include cwd meta='title="Request"'>
+	../examples/rest/src/requests/upsert.http
 </include>
 
-A write sets values: the number operations of
-[queries](/docs/next/queries), as `{ increment: 1 }`, are for server code,
-as a function's. Over REST, they are refused with `data.likes must be
-a number.`
+<include cwd meta='title="Response"'>
+	../examples/rest/src/requests/upsert.json
+</include>
+
+Sent again, it finds the row and answers `200`, with `likes: 1`.
+
+`DELETE` answers `200` with the row as it was, as GraphQL's `DeletedPost`: `id`,
+the dates and its scalar fields, without its relations or its virtuals. The
+row is gone: reading it again is a `404`. `$id` is the id of `Plans`:
+
+<include cwd meta='title="Request"'>
+	../examples/rest/src/requests/delete.http
+</include>
+
+<include cwd meta='title="Response"'>
+	../examples/rest/src/requests/delete.json
+</include>
+
+A write sets values. The number operations of [queries](/docs/next/queries), as
+`{ "increment": 1 }`, are for server code, as a function's. Over REST, they are
+refused with `data.likes must be a number.`
 
 ## Errors
 
-An error is a status and a body `{ code, message, details }`, with the
-status of its code, as [Errors](/docs/next/errors) lists them; a
-`UNIQUE_VIOLATION` is a `409`. A wrong query parameter is a `400`
-`BAD_USER_INPUT`, before the request runs:
+An error is a status and a body `{ code, message, details }`, with the status of
+its code, as [Errors](/docs/next/errors) lists them. Here a post takes a slug
+already used, a `409`. `$id` is Ada's id:
 
-<include cwd meta='title="src/app.test.ts"'>
-	../examples/rest/src/app.test.ts#errors
+<include cwd meta='title="Request"'>
+	../examples/rest/src/requests/duplicate.http
 </include>
+
+<include cwd meta='title="Response"'>
+	../examples/rest/src/requests/duplicate.json
+</include>
+
+A wrong query parameter is a `400` `BAD_USER_INPUT`, before the request runs:
+
+<include cwd meta='title="Request"'>
+	../examples/rest/src/requests/notjson.http
+</include>
+
+<include cwd meta='title="Response"'>
+	../examples/rest/src/requests/notjson.json
+</include>
+
+- A parameter given twice, an unknown parameter and a refused value are `400`
+  too: the Errors table of the reference lists each message.
+- A `UNIQUE_VIOLATION` is a `409`, a missing row a `404`.
+- A server error is `Internal error.`, with `INTERNAL` and a `correlationId`.
 
 ## Names
 
+### A route's name
+
 A route's name is the model's plural, in lower case: `posts` for `Post`. A
-plural the default spells wrong takes `.with({ rest: { plural } })`:
+plural the default spells wrong takes `.with({ rest: { plural } })`; the
+`/api/people` request above uses it:
 
 <include cwd meta='title="src/models.ts"'>
 	../examples/rest/src/models.ts#person
 </include>
 
-`.with({ rest: false })` serves a model without routes of its own: it is
-read through its relations, and connected, never created:
+### A model served only through its relations
+
+`.with({ rest: false })` serves a model without routes of its own: it is read
+through its relations, and connected, never created. Server code creates its
+rows, as Master; the revision below was created that way:
 
 <include cwd meta='title="src/models.ts"'>
 	../examples/rest/src/models.ts#revision
 </include>
 
-A function is served under `/api/functions/`. A query function is a `GET`,
-each input key a query parameter, a string as it is and any other value as
-JSON; any other function is a `POST`, its body its input. With `rest()` in
-its `use`, `.with({ rest: { name } })` renames its route, and
-`.with({ rest: false })` does not serve it:
+A post reads its revisions, and answers `200`. `$id` is the id of `Notes`, the
+post that revision belongs to:
+
+<include cwd meta='title="Request"'>
+	../examples/rest/src/requests/revisions.http
+</include>
+
+<include cwd meta='title="Response"'>
+	../examples/rest/src/requests/revisions.json
+</include>
+
+At the root, `GET /api/revisions` is a `404`.
+
+### A function's name
+
+A function is served under `/api/functions/`, and `rest()` in its `use` lets
+`.with({ rest })` rename its route or hide it. A query function is a `GET`:
 
 <include cwd meta='title="src/functions.ts"'>
-	../examples/rest/src/functions.ts#functions
+	../examples/rest/src/functions.ts#topPosts
 </include>
 
-<include cwd meta='title="src/app.test.ts"'>
-	../examples/rest/src/app.test.ts#names
+- Each input key is a query parameter, a string as it is and any other value as
+  JSON.
+- It answers `200`.
+- `.with({ rest: { name } })` renames its route: this one is served as
+  `trending`.
+
+<include cwd meta='title="Request"'>
+	../examples/rest/src/requests/trending.http
 </include>
 
-<include cwd meta='title="src/app.test.ts"'>
-	../examples/rest/src/app.test.ts#hidden
+<include cwd meta='title="Response"'>
+	../examples/rest/src/requests/trending.json
 </include>
+
+Any other function is a `POST`, its body its input, and it answers `200`, not
+`201`:
+
+<include cwd meta='title="src/functions.ts"'>
+	../examples/rest/src/functions.ts#like
+</include>
+
+<include cwd meta='title="Request"'>
+	../examples/rest/src/requests/like.http
+</include>
+
+<include cwd meta='title="Response"'>
+	../examples/rest/src/requests/like.json
+</include>
+
+`.with({ rest: false })` does not serve a function:
+
+<include cwd meta='title="src/functions.ts"'>
+	../examples/rest/src/functions.ts#reindex
+</include>
+
+`POST /api/functions/reindex` is a `404`.
 
 ## REST and GraphQL
 
-Both APIs read the same arguments and answer the same JSON: a client moves
-from one to the other without changing its data.
+Both APIs read the same arguments and answer the same JSON: a client moves from
+one to the other without changing its data.
 
-<include cwd meta='title="src/app.test.ts"'>
-	../examples/rest/src/app.test.ts#twin
+<include cwd meta='title="Request"'>
+	../examples/rest/src/requests/twin.http
+</include>
+
+<include cwd meta='title="Response"'>
+	../examples/rest/src/requests/twin.json
+</include>
+
+The same read in GraphQL:
+
+<include cwd meta='title="Request"'>
+	../examples/rest/src/requests/twin-graphql.graphql
+</include>
+
+It answers the REST body, under `data.posts`:
+
+<include cwd meta='title="Response"'>
+	../examples/rest/src/requests/twin-graphql.json
 </include>
 
 ## OpenAPI
 
-`GET /api/openapi.json` is the API's [OpenAPI 3.1](https://spec.openapis.org/oas/v3.1.0)
-document: each route, its parameters, its bodies, its answers and its
-errors, as JSON Schema. A client generator or a tool such as Swagger UI
-reads it:
+`GET /api/openapi.json` is the API's
+[OpenAPI 3.1](https://spec.openapis.org/oas/v3.1.0) document: each route, its
+parameters, its bodies, its answers and its errors, as JSON Schema. A client
+generator or a tool such as Swagger UI reads it:
 
-<include cwd meta='title="src/app.test.ts"'>
-	../examples/rest/src/app.test.ts#openapi
+<include cwd meta='title="Request"'>
+	../examples/rest/src/requests/openapi.http
 </include>
 
-Each operation is named as its GraphQL field, as `posts`, `post`,
-`createPost`, `upsertPost`, `updatePost`, `deletePost`, and a function's
-name. Its schemas are named as GraphQL's types, as `Post` and
-`PostWhereInput`, with `PostSelect`, `PostInclude` and `Error`.
+- It answers `200`, with `openapi: "3.1.0"`, `info.title` `UltimaBase REST API`
+  and `servers: [{ "url": "/api" }]`.
+- Its `paths` are each route, as `/people`, `/people/{id}`, `/posts`,
+  `/posts/{id}`, and a function's `/functions/trending` and `/functions/like`.
+  `/revisions` and `/functions/reindex` are absent: their model and function
+  are not served.
+- Each operation is named as its GraphQL field: `posts`, `post`, `createPost`,
+  `upsertPost`, `updatePost`, `deletePost`, and a function's name.
+- Its schemas are named as GraphQL's types, as `Post` and `PostWhereInput`, with
+  `PostSelect`, `PostInclude` and `Error`.
 
 ## Limits
 
-A request from a caller other than Master is refused before it runs when
-it nests deeper than `maxDepth`, its `orderBy` counted, or may return more
-than `maxRows` rows, each list counting its `first` times the lists above
-it. A list asking for more than its `maxTake` is refused as it runs:
+A caller other than Master meets three limits. A request over `maxDepth` or
+`maxRows` is refused before it runs, and a list over its `maxTake` as it runs,
+each as a `400`. With the application above:
 
-<include cwd meta='title="src/app.test.ts"'>
-	../examples/rest/src/app.test.ts#limits
-</include>
+| Over            | Asking for                                                  | Message                                                                        |
+| --------------- | ----------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| `maxTake: 20`   | `posts?first=21`                                            | `first is at most 20 on Post.`                                                 |
+| `maxDepth: 4`   | people, their posts, their author, their posts, each author | `The request is nested 5 levels deep, its orderBy included; the most is 4.`    |
+| `maxRows: 2000` | `people?first=100`, each with `posts` of `first: 20`        | `The request asks for more than 2,000 rows. Ask for fewer with first or last.` |
+
+Here `restPlugin({ maxDepth: 4, maxRows: 2000 })` sets two of them; the
+defaults, 10 and 20 000, are GraphQL's. Master, as a request with the `x-ultimabase-master-key` header, is not limited.
+[Details](#what-counts-toward-the-limits) says what each one counts.
 
 ## Live reads
 
-With [`realtimePlugin()`](/docs/next/realtime), a list, a row or a query
-function of a live model answers a stream of Server-Sent Events when the
-request sends `Accept: text/event-stream`. The [Realtime](/docs/next/realtime)
-page shows it.
+With [`realtimePlugin()`](/docs/next/realtime), a list, a row or a query function
+of a live model answers a stream of Server-Sent Events when the request sends
+`Accept: text/event-stream`. The [Realtime](/docs/next/realtime) page shows it.
+
+## Details
+
+### What counts toward the limits
+
+- `maxRows` counts each list's `first` or `last` times the lists above it, or
+  its `take` in list mode.
+- `maxDepth` counts the fields a request nests, and each relation its `orderBy`
+  goes through.
+- Master is bounded by none of them.
 
 ## Reference
 

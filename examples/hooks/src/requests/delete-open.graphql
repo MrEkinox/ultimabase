@@ -1,0 +1,5 @@
+mutation ($id: ID!) {
+	deleteTicket(where: { id: $id }) {
+		id
+	}
+}

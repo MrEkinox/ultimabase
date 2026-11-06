@@ -3,112 +3,196 @@ title: Files
 description: Upload files to S3-compatible storage, attach them to rows, and never leave an orphan.
 ---
 
-`@ultimabase/files` stores files in S3 or any S3-compatible storage, and
-adds the field type `file()`. A client uploads a file first, then writes its
-id in a row, as any other value; a replaced or deleted file leaves the
-storage after the commit, so no object is left without a row.
+`@ultimabase/files` stores files in S3 or any S3-compatible storage, and adds
+the field type `file()`.
 
 ```npm
 npm install @ultimabase/files
 ```
 
-A post here has a public cover image, whose width and height are read once
-at upload, and a list of private text attachments, each with a preview:
-
-<include cwd meta='title="src/models.ts"'>
-	../examples/files/src/models.ts#post
-</include>
-
-The full example, with its tests: [`examples/files`](https://github.com/MrEkinox/ultimabase/tree/main/examples/files).
-
-`filesPlugin()` goes in the application's plugins, after `httpPlugin()`,
-which it requires. It takes the storage, and who may upload:
+`filesPlugin()` goes in the application's plugins, after `httpPlugin()`, which
+it requires. It takes the storage, and who may upload:
 
 <include cwd meta='title="src/app.ts"'>
 	../examples/files/src/app.ts#plugins
 </include>
 
+The full example, with its tests: [`examples/files`](https://github.com/MrEkinox/ultimabase/tree/main/examples/files).
+
+| To                                    | Use                                                 |
+| ------------------------------------- | --------------------------------------------------- |
+| attach a file to a row                | [`file()`, then `POST /files`](#add-a-file-field)   |
+| upload from a browser                 | [`uploader()`](#upload-then-write-the-id)           |
+| attach several files, in order        | [`list: true`](#lists-of-files)                     |
+| accept some types, limit the size     | [`accept`, `maxSize`](#types-and-sizes)             |
+| read a width, a thumbnail             | [`inline`, `variants`](#inline-values-and-variants) |
+| serve a file from a CDN, or privately | [`public`](#public-and-private-files)               |
+| upload from server code               | [`files.upload`, `files.check`](#from-server-code)  |
+| choose S3, a directory or memory      | [`s3()`, `diskFiles()`, `memoryFiles()`](#storage)  |
+
+A client uploads a file first, then writes its id in a row, as any other
+value. A replaced or deleted file leaves the storage after the commit, so no
+object is left without a row.
+
+## Add a file field
+
+`file()` is a field type. The model's file starts with these imports. It has
+`use: [graphql()]` and ends with `.with({ access: allow.public })`: the model
+is open to every client, to keep the example on files.
+
+<include cwd meta='title="src/models.ts"'>
+	../examples/files/src/models.ts#imports
+</include>
+
+A post here has a public cover image, which takes PNG files of 5 MB at most:
+
+<include cwd meta='title="src/models.ts"'>
+	../examples/files/src/models.ts#cover
+</include>
+
+Its width and height are read once at upload, by `inline`, which
+[a later section](#inline-values-and-variants) shows. `file()`'s options are
+in the [reference](#fileoptions).
+
 ## Upload, then write the id
 
 A client sends the file to `POST /files` with the field it is for, and gets
-its `id` back. In a browser, `uploader()` from `@ultimabase/files/client`
-does it: it imports nothing of the server, and takes a `File` or a list of
-them, such as an input's `FileList`. The client then writes the id in the
-post, over GraphQL or REST, and reads the file back with its URL and its
-`inline` values:
+its `id` back. In a browser, `uploader()` from `@ultimabase/files/client` does
+it, then the client writes the id in the post, over GraphQL or REST:
 
 <include cwd meta='title="src/app.test.ts"'>
 	../examples/files/src/app.test.ts#upload
 </include>
 
-An upload is pending for one hour: written in a row by then, it is
-attached; otherwise it is deleted. Only its uploader may write it, and only
-in the field it was uploaded for; Master writes any. A visitor's upload has
-no uploader, so any caller may write it, as in this example.
+The Request writes the id the upload returned, as `$cover`:
+
+<include cwd meta='title="Request"'>
+	../examples/files/src/requests/create-post.graphql
+</include>
+
+<include cwd meta='title="Response"'>
+	../examples/files/src/requests/create-post.json
+</include>
+
+`uploader()` imports nothing of the server, and takes a `File` or a list of
+them, such as an input's `FileList`. The client reads the file back with its
+`url` and its `inline` values; a public file's `url` is stable. The Request
+reads it:
+
+<include cwd meta='title="Request"'>
+	../examples/files/src/requests/read-cover.graphql
+</include>
+
+The `url` is the storage's own: here `http://localhost:<port>/files/public/…`,
+which the application serves for `memoryFiles()`.
+
+- An upload is pending for one hour: written in a row by then, it is
+  attached; otherwise it is deleted.
+- Only its uploader may write it, and only in the field it was uploaded for.
+  Master writes any.
+- A visitor's upload has no uploader, so any caller may write it, as in this
+  example.
 
 ## Lists of files
 
-A field with `list: true` holds files in order, each once, and reads `[]`
-when empty. A write gives the new list of ids, or `{ set }`, `{ push }`,
-`{ pushUnique }` or `{ remove }`, as a kernel [list](/docs/next/models):
+A field with `list: true` holds files in order, each once, and reads `[]` when
+empty. The attachments of a post are private text files:
 
-<include cwd meta='title="src/app.test.ts"'>
-	../examples/files/src/app.test.ts#list
+<include cwd meta='title="src/models.ts"'>
+	../examples/files/src/models.ts#attachments
 </include>
 
-Two clients pushing at once keep both files: the list is computed on the
-row the write has locked.
+A write gives the new list of ids, or one of the list operations of a kernel
+[list](/docs/next/models):
+
+| Write                      | Effect                             |
+| -------------------------- | ---------------------------------- |
+| `["<id>", "<id>"]`         | Replaces the list.                 |
+| `{ set: ["<id>"] }`        | Replaces the list.                 |
+| `{ push: ["<id>"] }`       | Adds the files at the end.         |
+| `{ pushUnique: ["<id>"] }` | Adds those the list does not hold. |
+| `{ remove: ["<id>"] }`     | Removes the files.                 |
+
+Pushing a file. The post holds `notes.txt`, a 17-byte text file; the request
+pushes `prices.txt`, and the test passes `$id` as the post's id and `$attachments`
+as `{ push: [<id of prices.txt>] }`:
+
+<include cwd meta='title="Request"'>
+	../examples/files/src/requests/push-attachment.graphql
+</include>
+
+<include cwd meta='title="Response"'>
+	../examples/files/src/requests/push-attachment.json
+</include>
+
+Two clients pushing at once keep both files: the list is computed on the row
+the write has locked. A private file's `url` is signed:
+`/files/private/…?expires=…&signature=…`. The request above does not select
+it.
 
 ## Types and sizes
 
-The type is read from the file's first bytes, never trusted from the
-client. A type it detects must match `accept`; a type it does not detect,
-such as text, is taken as declared only when `accept` lists it as is, as
-`text/plain`, and the file is then served as a download. An SVG is served as
-a download too, so a browser never runs it.
+The type is read from the file's first bytes, never trusted from the client.
+`accept` lists the types a field takes, and an upload of another type is
+refused:
 
 <include cwd meta='title="src/app.test.ts"'>
 	../examples/files/src/app.test.ts#refused
 </include>
 
-`maxSize` limits each field before the body is read. A field that sets none
-takes `filesPlugin({ maxSize })`, 50 MB by default: the counterpart of
-`httpPlugin()`'s `bodyLimit` for JSON bodies, whose 1 MB does not apply to
-`POST /files`. Check the size in the browser too; a client still sending a
-large body may see the connection close before the `413`.
+- A type it detects must match `accept`.
+- A type it does not detect, such as text, is taken as declared only when
+  `accept` lists it as is, as `text/plain`, and the file is then served as a
+  download.
+- An SVG is served as a download too, so a browser never runs it.
+
+`maxSize` limits each field before the body is read:
+
+<include cwd meta='title="src/app.test.ts"'>
+	../examples/files/src/app.test.ts#large
+</include>
+
+- A field that sets none takes `filesPlugin({ maxSize })`, 50 MB by default.
+- It is the counterpart of `httpPlugin()`'s `bodyLimit` for JSON bodies, whose
+  1 MB does not apply to `POST /files`.
+- Check the size in the browser too: a client still sending a large body may
+  see the connection close before the `413`.
 
 ## Inline values and variants
 
-`inline` names values computed once at upload, and read with the row
-without a second request: a blurred placeholder, a page count, an image's
-size. Each is a function of `{ body, type, name }`, or `{ run, schema }`
-to type it in GraphQL and OpenAPI. Here the size of a PNG comes from its
-header:
+`inline` names values computed once at upload, and read with the row without a
+second request: a blurred placeholder, a page count, an image's size. Each is
+a function of `{ body, type, name }`, or `{ run, schema }` to type it in
+GraphQL and OpenAPI. Here the size of a PNG comes from its header:
 
 <include cwd meta='title="src/models.ts"'>
 	../examples/files/src/models.ts#png-size
 </include>
 
-`variants` names other files made from the upload, such as a thumbnail;
-each is a function of `{ body, type, name }` returning `{ body, type }`,
-and reads as `{ type, size, url }`. Variants are made in parallel at
-upload, and one that throws fails the upload. A field with `inline` or
-`variants` holds the file in memory during the upload; any other field
-streams it to the storage.
+`variants` names other files made from the upload, such as a thumbnail. The
+attachments above have a `preview` of their first 100 bytes:
+
+- Each variant is a function of `{ body, type, name }`.
+- It returns `{ body, type }`, and reads as `{ type, size, url }`.
+- Variants are made in parallel at upload, and one that throws fails the
+  upload.
+- A field with `inline` or `variants` holds the file in memory during the
+  upload; any other field streams it to the storage.
 
 ## Public and private files
 
-A public file has a stable URL, which a CDN may cache; a private one, the
-default, reads with a signed URL. Either way the URL is the storage's, not
-the application's, so a file cannot read the application's cookies. The
-read and access rules of the row decide who gets the URL.
+A public file has a stable URL, which a CDN may cache. A private one, the
+default, reads with a signed URL. Either way the URL is the storage's, not the
+application's, so a file cannot read the application's cookies. The read and
+access rules of the row decide who gets the URL.
 
-A private file's URL stays the same for 15 minutes: every read in one
-window of UTC time, :00 to :15, :15 to :30 and so on, returns it, and it
-works until the end of the next window. A URL is valid 15 to 30 minutes
-after the read that gave it, and a row sent again by a live read keeps its
-URLs, so the client neither downloads its images again nor sees its
-values change.
+A private file's URL stays the same for 15 minutes:
+
+- Every read in one window of UTC time, :00 to :15, :15 to :30 and so on,
+  returns it, and it works until the end of the next window.
+- A URL is valid 15 to 30 minutes after the read that gave it.
+- A row sent again by a live read keeps its URLs, so the client neither
+  downloads its images again nor sees its values change.
 
 ## From server code
 
@@ -120,32 +204,49 @@ with the database:
 	../examples/files/src/app.test.ts#server
 </include>
 
-The plugin sweeps at start and every ten minutes, deleting the expired
-uploads and any file a crash left released. `files.check({ delete: true })`
-also deletes the objects that have no row.
+- The plugin sweeps at start and every ten minutes, deleting the expired
+  uploads and any file a crash left released.
+- `files.check({ delete: true })` also deletes the objects that have no row.
 
 ## Storage
 
+The example's `chooseStorage()` picks one by environment: S3 under
+`NODE_ENV=production`, a directory when `FILES_DIR` is set, memory otherwise,
+so neither the example's server nor its tests write to a real storage.
+
 `s3()` takes a bucket on S3 or on any S3-compatible storage: DigitalOcean
-Spaces, Cloudflare R2, MinIO, SeaweedFS. `diskFiles()` keeps the files in a
-directory, for a single server whose directory is a persistent volume, as a
-staging server without S3. `memoryFiles()` keeps them in memory, for tests and
-development.
+Spaces, Cloudflare R2, MinIO, SeaweedFS:
+
+<include cwd meta='title="src/storage.ts"'>
+	../examples/files/src/storage.ts#s3
+</include>
+
+`diskFiles()` keeps the files in a directory, for a single server whose
+directory is a persistent volume, as a staging server without S3:
+
+<include cwd meta='title="src/storage.ts"'>
+	../examples/files/src/storage.ts#disk
+</include>
+
+`memoryFiles()` keeps them in memory, for tests and development:
+
+<include cwd meta='title="src/storage.ts"'>
+	../examples/files/src/storage.ts#memory
+</include>
 
 The application serves the files of `diskFiles()` and `memoryFiles()` at
 `GET /files/<key>`, so a front end shows them as it would from S3: a public
 file at a stable URL, a private one at a URL signed for 15 to 30 minutes.
 
-<include cwd meta='title="src/app.ts"'>
-	../examples/files/src/app.ts#storage
-</include>
+## Details
 
-Each option of `s3()` and `diskFiles()` takes `undefined`, so the
-environment fills it directly; a missing one throws at start.
-
-A served file is answered with its type, `X-Content-Type-Options: nosniff`
-and `Content-Security-Policy: sandbox`, so an HTML or SVG file opened from
-the application's origin runs no script there.
+- Each option of `s3()` and `diskFiles()` takes `undefined`, so the environment
+  fills it directly; a missing one throws at start.
+- A served file is answered with its type, `X-Content-Type-Options: nosniff`
+  and `Content-Security-Policy: sandbox`, so an HTML or SVG file opened from
+  the application's origin runs no script there.
+- A key added to `inline` or `variants` later reads `null` for the files
+  stored before it.
 
 ## Reference
 
@@ -259,13 +360,18 @@ From `@ultimabase/files/client`, for a browser.
 | `upload(file, { for, signal })`  | `Promise<string>`   | Uploads a `File` for the field `for`, as `Post.cover`; resolves to its id.                      |
 | `upload(files, { for, signal })` | `Promise<string[]>` | Uploads the files at once; resolves to their ids in order. The first failure aborts the others. |
 
-A refused upload rejects with a `FileError`, whose `code`, `message` and
-`details` are the server's, as in the table above; another answer is
-`INTERNAL`, `The upload failed.`. An upload that reaches no server is
-`NETWORK`, `The upload did not reach the server.`. An upload aborted by
-`signal` rejects with the signal's reason. A file a failed list had
-already stored is never written in a row, so it leaves the storage within
-the hour.
+A failed upload rejects with a `FileError`, whose `code`, `message` and
+`details` are:
+
+| Failure               | `code`       | `message`                              |
+| --------------------- | ------------ | -------------------------------------- |
+| refused by the server | the server's | the server's, as in the table above    |
+| another answer        | `INTERNAL`   | `The upload failed.`                   |
+| no server reached     | `NETWORK`    | `The upload did not reach the server.` |
+
+- An upload aborted by `signal` rejects with the signal's reason.
+- A file a failed list had already stored is never written in a row, so it
+  leaves the storage within the hour.
 
 ### `files`
 
@@ -305,4 +411,3 @@ schema, and a variant that throws, fail the upload with a server error.
 - A pending upload expires after one hour; the sweep runs every ten
   minutes. Neither delay is an option.
 - A [soft-deleted](/docs/next/soft-delete) row keeps its files.
-- No local-disk storage.

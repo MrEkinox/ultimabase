@@ -1,106 +1,58 @@
 // Runs the four plugins as an application does, each test on a new in-memory
 // database: the RPC transport, the API keys, publishing and the color type.
-import { request } from 'node:http'
+// Each request file a page shows is sent here and its response compared with
+// its JSON file (D-282).
+import type { IncomingMessage } from 'node:http'
+import { get } from 'node:http'
 import { asUser, testApplication } from '@ultimabase/testing'
 import { master } from 'ultimabase'
 import { expect, it } from 'vitest'
+import { requestFiles } from '../../../scripts/requests.ts'
 import { app } from './app.ts'
 import { Article, News } from './models.ts'
 import { ApiKey, createApiKey } from './plugins/api-keys.ts'
 import { Editor } from './plugins/publishing.ts'
 
 const running = testApplication(app)
+const { file, check } = requestFiles(
+	new URL('requests/', import.meta.url),
+	running,
+)
 const M = { as: master }
 const aKey: unknown = expect.any(String)
-
-//#region call
-/** What a client sends: `POST /rpc/<name>`, with its headers. */
-const call = async (
-	name: string,
-	input: unknown = {},
-	headers: Record<string, string> = {},
-) => {
-	const response = await fetch(`${running.url}/rpc/${name}`, {
-		method: 'POST',
-		headers: { 'content-type': 'application/json', ...headers },
-		body: JSON.stringify(input),
-	})
-	return { status: response.status, body: await response.json() }
-}
-//#endregion
 
 it('runs a function as the API key owner', async () => {
 	//#region api-key
 	// Master creates a key; the key itself is shown only here.
 	const { key } = await createApiKey.run({ owner: 'ada', name: 'CI' }, M)
-	expect(await call('whoami', {}, { 'x-api-key': key })).toEqual({
-		status: 200,
-		body: { output: { user: 'ada', editor: false } },
-	})
-	expect(await call('whoami')).toEqual({
-		status: 200,
-		body: { output: { user: null, editor: false } },
-	})
 	//#endregion
-	//#region unknown-key
-	expect(await call('whoami', {}, { 'x-api-key': 'guess' })).toEqual({
-		status: 401,
-		body: { code: 'UNAUTHENTICATED', message: 'This API key is unknown.' },
-	})
-	//#endregion
+	await check('whoami-key', { key }, { status: 200 })
+	await check('whoami', {}, { status: 200 })
+	await check('unknown-key', {}, { status: 401 })
 	//#region revoked
 	// The cache forgets a deleted key: `changed` cleared it.
 	await ApiKey.deleteMany({ where: { owner: 'ada' } }, M)
-	expect((await call('whoami', {}, { 'x-api-key': key })).status).toBe(401)
 	//#endregion
+	await check('revoked', { key }, { status: 401 })
 })
 
 it("runs a plugin's function under its plugin's name", async () => {
-	//#region plugin-function
-	const created = await call(
-		'apiKeys.createApiKey',
-		{ owner: 'ada', name: 'CI' },
-		{ 'x-ultimabase-master-key': 'dev-master-key' },
-	)
-	expect(created).toEqual({
-		status: 200,
-		body: { output: { key: aKey } },
-	})
+	const created = await file('create-key', {}, { status: 200 })
+	expect(created).toEqual({ output: { key: aKey } })
 	// Master only: an anonymous caller is refused.
-	expect(
-		await call('apiKeys.createApiKey', { owner: 'ada', name: 'CI' }),
-	).toEqual({
-		status: 403,
-		body: {
-			code: 'ACCESS_DENIED',
-			message: 'createApiKey refused.',
-			details: { function: 'createApiKey' },
-		},
-	})
-	//#endregion
+	await check('create-key-refused', {}, { status: 403 })
 })
 
 it('lists the functions for a developer on this machine only', async () => {
+	await check('list', {}, { status: 200 })
 	//#region list
-	const listed = await fetch(`${running.url}/rpc`)
-	expect(await listed.json()).toEqual([
-		'whoami',
-		'titles',
-		'apiKeys.createApiKey',
-	])
 	// The same request under another host name.
-	const status = await new Promise<number | undefined>((resolve, reject) => {
-		const sent = request(`${running.url}/rpc`, {
-			headers: { host: 'api.example.com' },
-		})
-		sent.on('response', (response) => {
-			response.resume()
-			resolve(response.statusCode)
-		})
-		sent.on('error', reject)
-		sent.end()
+	const response = await new Promise<IncomingMessage>((resolve, reject) => {
+		const headers = { host: 'api.example.com' }
+		get(`${running.url}/rpc`, { headers }, resolve).on('error', reject)
 	})
-	expect(status).toBe(404)
+	response.resume()
+	expect(response.statusCode).toBe(404)
 	//#endregion
 })
 
@@ -108,10 +60,11 @@ it('keeps drafts for editors', async () => {
 	//#region drafts
 	const ada = asUser({ id: 'ada' })
 	await Article.create({ data: { title: 'Draft' } }, { as: ada })
-	// An anonymous caller and a user who is not an editor read no draft.
-	expect(await call('titles')).toEqual({ status: 200, body: { output: [] } })
+	// A user who is not an editor reads no draft.
 	expect(await Article.count({}, { as: ada })).toBe(0)
 	//#endregion
+	// Nor does an anonymous caller.
+	await check('titles-draft', {}, { status: 200 })
 	//#region editor
 	await Editor.create({ data: { userId: 'ada' } }, M)
 	expect(await Article.count({}, { as: asUser({ id: 'ada' }) })).toBe(1)
@@ -125,11 +78,8 @@ it('publishes a draft', async () => {
 	const published = await Article.publish({ where: { id: draft.id } }, M)
 	expect(published.publishedAt).toBeInstanceOf(Date)
 	expect(await Article.drafts.count({}, M)).toBe(0)
-	expect(await call('titles')).toEqual({
-		status: 200,
-		body: { output: ['Launch'] },
-	})
 	//#endregion
+	await check('titles-published', {}, { status: 200 })
 })
 
 it('lets only an editor date a row', async () => {
@@ -176,7 +126,6 @@ it('reads a color as its channels', async () => {
 		M,
 	)
 	expect(red.accent).toEqual({ red: 185, green: 28, blue: 28 })
-	// The default, and a write as channels.
 	const blue = await Article.create({ data: { title: 'Blue' } }, M)
 	expect(blue.accent).toEqual({ red: 29, green: 78, blue: 216 })
 	const green = await Article.create(

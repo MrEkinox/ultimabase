@@ -1,9 +1,9 @@
 // Support tickets, the activity they record, and comments under a limit.
-//#region ticket
 import { graphql } from '@ultimabase/graphql'
 import { PublicError, allow, defineModel, master } from 'ultimabase'
 import { outbox } from './outbox.ts'
 
+//#region ticket-fields
 export const Ticket = defineModel({
 	name: 'Ticket',
 	use: [graphql()],
@@ -17,8 +17,13 @@ export const Ticket = defineModel({
 }).with({
 	access: allow.public,
 	hooks: {
+		// The sections below show each hook.
+		//#endregion
+		//#region find
 		// A spam ticket exists for nobody, Master included.
 		beforeFind: ({ where }) => where({ spam: false }),
+		//#endregion
+		//#region change
 		// Changes `data` in place, before it is written.
 		beforeCreate: ({ data }) => {
 			data.title = data.title.trim()
@@ -28,12 +33,16 @@ export const Ticket = defineModel({
 				data.closedAt = new Date()
 			}
 		},
+		//#endregion
+		//#region refuse
 		// Throwing refuses the write; a PublicError reaches the client.
 		beforeDelete: ({ record }) => {
 			if (record.status === 'open') {
 				throw new PublicError('TICKET_OPEN', 'Close the ticket first.')
 			}
 		},
+		//#endregion
+		//#region after
 		// In the write's transaction: if it throws, the update is undone.
 		afterUpdate: async ({ record, previous }) => {
 			if (previous.status === record.status) return
@@ -47,15 +56,17 @@ export const Ticket = defineModel({
 				{ as: master },
 			)
 		},
+		//#endregion
+		//#region commit
 		// Once the transaction commits, never after a rollback.
 		afterUpdateCommit: ({ record, previous }) => {
 			if (previous.status !== 'closed' && record.status === 'closed') {
 				outbox.push(`Your ticket "${record.title}" is closed.`)
 			}
 		},
+		//#endregion
 	},
 })
-//#endregion
 
 export const Activity = defineModel({
 	name: 'Activity',
@@ -66,10 +77,10 @@ export const Activity = defineModel({
 	}),
 }).with({ access: allow.readOnly })
 
-//#region limit
 /** Each person posts at most 5 comments a minute. */
 export const Comment = defineModel({
 	name: 'Comment',
+	//#region comment
 	fields: (f) => ({
 		text: f.string(),
 		authorId: f.string({
@@ -77,9 +88,11 @@ export const Comment = defineModel({
 				caller.kind === 'user' ? caller.user.id : undefined,
 		}),
 	}),
+	//#endregion
 }).with({
 	access: { create: ({ caller }) => caller.kind === 'user' },
 	hooks: {
+		//#region limit
 		// Counts operations, not requests: REST, GraphQL and server code alike.
 		beforeCreate: async ({ caller }): Promise<void> => {
 			if (caller.kind !== 'user') return
@@ -94,9 +107,9 @@ export const Comment = defineModel({
 				})
 			}
 		},
+		//#endregion
 	},
 })
-//#endregion
 
 //#region row-rule
 type Ending = { endedAt: Date | null; endReason: string | null }
@@ -107,7 +120,9 @@ function checkEnding({ endedAt, endReason }: Ending): void {
 		throw new PublicError('CALL_ENDING', 'An ended call has a reason.')
 	}
 }
+//#endregion
 
+//#region call
 /** A call ends with a reason: both fields are set, or neither. */
 export const Call = defineModel({
 	name: 'Call',

@@ -1,4 +1,5 @@
 // A lending library's books.
+//#region book
 import { graphql } from '@ultimabase/graphql'
 import { rest } from '@ultimabase/rest'
 import { allow, defineModel } from 'ultimabase'
@@ -11,3 +12,4 @@ export const Book = defineModel({
 		borrowedBy: f.string({ optional: true }),
 	}),
 }).with({ access: allow.readOnly })
+//#endregion

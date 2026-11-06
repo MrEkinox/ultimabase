@@ -1,0 +1,6 @@
+{
+	"data": {
+		"people": { "edges": [{ "node": { "name": "Ada" } }] },
+		"trending": [{ "title": "Notes" }]
+	}
+}

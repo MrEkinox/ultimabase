@@ -1,0 +1,18 @@
+{
+	"data": {
+		"createProject": {
+			"name": "Launch",
+			"tasks": {
+				"edges": [
+					{
+						"node": {
+							"title": "Write the README",
+							"done": false,
+							"priority": 0
+						}
+					}
+				]
+			}
+		}
+	}
+}

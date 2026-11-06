@@ -1,6 +1,5 @@
 // The library's operations: a client borrows and returns a book only
 // through them.
-//#region borrow
 import { isAuthenticated, signedInRun } from '@ultimabase/auth'
 import { graphql } from '@ultimabase/graphql'
 import {
@@ -13,12 +12,15 @@ import {
 import { z } from 'zod'
 import { Book } from './models.ts'
 
+//#region loan
 // A named object: a model and data together.
 export const Loan = defineType({
 	name: 'Loan',
 	fields: { book: Book, dueOn: z.iso.date() },
 })
+//#endregion
 
+//#region borrow
 export const borrowBook = defineFunction({
 	name: 'borrowBook',
 	input: z.object({ book: z.string(), days: z.int().min(1).max(30) }),
@@ -42,26 +44,6 @@ export const borrowBook = defineFunction({
 		return { book: lent, dueOn: due.toISOString().slice(0, 10) }
 	}),
 }).with({ access: isAuthenticated })
-//#endregion
-
-//#region search
-// A query: served over GraphQL's Query and REST's GET.
-export const searchBooks = defineFunction({
-	name: 'searchBooks',
-	query: true,
-	input: z.object({ text: z.string().min(1), available: z.boolean() }),
-	output: [Book],
-	run: ({ input, caller }) =>
-		Book.findMany(
-			{
-				where: {
-					_search: input.text,
-					...(input.available ? { borrowedBy: null } : {}),
-				},
-			},
-			{ as: caller },
-		),
-}).with({ access: allow.public })
 //#endregion
 
 //#region return

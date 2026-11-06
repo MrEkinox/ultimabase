@@ -1,0 +1,13 @@
+query {
+	polls {
+		edges {
+			node {
+				question
+				myVote {
+					choice
+				}
+				hasVoted
+			}
+		}
+	}
+}

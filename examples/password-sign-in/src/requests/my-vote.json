@@ -1,0 +1,15 @@
+{
+	"data": {
+		"polls": {
+			"edges": [
+				{
+					"node": {
+						"question": "Tabs?",
+						"myVote": { "choice": "yes" },
+						"hasVoted": true
+					}
+				}
+			]
+		}
+	}
+}

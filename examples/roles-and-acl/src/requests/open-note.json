@@ -1,0 +1,14 @@
+{
+	"errors": [
+		{
+			"message": "Note create refused.",
+			"locations": [{ "line": 2, "column": 2 }],
+			"path": ["createNote"],
+			"extensions": {
+				"code": "ACCESS_DENIED",
+				"details": { "model": "Note", "operation": "create", "field": "acl" }
+			}
+		}
+	],
+	"data": null
+}

@@ -10,6 +10,7 @@ owner.
 - `src/projects.ts`: the `Person`, `Project` and `Task` models, read through
   their members.
 - `src/app.ts`: the application.
+- `src/requests/`: the requests and responses the page shows.
 - `src/app.test.ts`: the rules at work for two signed-in users, for Master,
   and for an anonymous caller over GraphQL.
 - `src/projects.test.ts`: a project's members, its owner and an outsider.

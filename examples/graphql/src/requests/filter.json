@@ -1,0 +1,6 @@
+{
+	"data": {
+		"posts": { "edges": [{ "node": { "title": "Notes" } }] },
+		"people": { "edges": [{ "node": { "name": "Ada" } }] }
+	}
+}

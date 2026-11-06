@@ -16,8 +16,8 @@ const Article = defineModel({
 	fields: (f) => ({ body: f.string({ search: true }) }),
 }).with({ access: allow.public })
 
-//#region options
 const app = defineApp({
+	//#region options
 	database: postgres({
 		url: process.env['DATABASE_URL'],
 		// At most 20 queries at once; the next waits up to 10 s for one.
@@ -28,9 +28,9 @@ const app = defineApp({
 		// Words stemmed as English: "running" finds "runs".
 		searchLanguage: 'english',
 	}),
+	//#endregion
 	models: [Article],
 })
-//#endregion
 
 testApplication(app, { database: 'declared' })
 

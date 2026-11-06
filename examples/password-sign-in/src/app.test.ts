@@ -1,83 +1,73 @@
 // Uses the application as a client would, each test on a new in-memory
 // database: sign-up, sign-in, and the rules that read the signed-in user.
+// Each request file a page shows is sent here and its response compared with
+// its JSON file (D-282).
 import { testApplication } from '@ultimabase/testing'
 import { master } from 'ultimabase'
 import { describe, expect, it } from 'vitest'
+import { requestFiles } from '../../../scripts/requests.ts'
 import { app } from './app.ts'
-import { Poll, Post, User } from './models.ts'
+import { Poll, Post } from './models.ts'
+import { User } from './user.ts'
 
-const running = testApplication(app)
-
-/** A GraphQL request's response body. */
-async function request(
-	query: string,
-	variables: object = {},
-	headers: Record<string, string> = {},
-): Promise<unknown> {
-	const response = await fetch(`${running.url}/graphql`, {
-		method: 'POST',
-		headers: { 'content-type': 'application/json', ...headers },
-		body: JSON.stringify({ query, variables }),
-	})
-	return response.json()
-}
+const { send, file, check } = requestFiles(
+	new URL('requests/', import.meta.url),
+	testApplication(app),
+)
 
 /** The value under `path` in a response body. */
 const at = (value: unknown, ...path: string[]): unknown =>
 	path.reduce<unknown>((inner, key) => Reflect.get(Object(inner), key), value)
 
-const as = (token: string) => ({ authorization: `Bearer ${token}` })
 const refused = (code: string) => ({ errors: [{ extensions: { code } }] })
 
+/** A user signed up, with the headers of their session. */
 async function signUp(name: string) {
-	const body = await request(
+	const body = await send(
 		`mutation ($input: SignUpInput!) { signUp(input: $input) { token user { id } } }`,
 		{
-			input: { email: `${name}@example.com`, password: 'correct horse', name },
+			input: {
+				email: `${name.toLowerCase()}@example.com`,
+				password: 'correct horse',
+				name,
+			},
 		},
 	)
 	const id = String(at(body, 'data', 'signUp', 'user', 'id'))
-	return { id, token: String(at(body, 'data', 'signUp', 'token')) }
+	const token = String(at(body, 'data', 'signUp', 'token'))
+	return {
+		id,
+		token,
+		bearer: { headers: { authorization: `Bearer ${token}` } },
+	}
 }
 
-const create =
-	'mutation { createPost(data: { title: "Hello" }) { id author { name } } }'
-
-/** Ada's post, with Ada and Grace signed up. */
+/** Ada's draft post, with Ada and Grace signed up. */
 async function written() {
-	const ada = await signUp('ada')
-	const grace = await signUp('grace')
-	const body = await request(create, {}, as(ada.token))
+	const ada = await signUp('Ada')
+	const grace = await signUp('Grace')
+	const body = await check('create-post', {}, ada.bearer)
 	return { ada, grace, post: String(at(body, 'data', 'createPost', 'id')) }
 }
 
-const titles = async (headers: Record<string, string> = {}) => {
-	const body = await request(
-		'{ posts { edges { node { title } } } }',
-		{},
-		headers,
-	)
-	return at(body, 'data', 'posts', 'edges')
-}
-
 const signIn = (password: string) =>
-	request(
+	send(
 		`mutation ($input: SignInInput!) { signIn(input: $input) { user { id name editor } } }`,
 		{ input: { email: 'ada@example.com', password } },
 	)
 
 describe('signing up and in', () => {
 	it('signs up, then signs in with the same password', async () => {
-		const ada = await signUp('ada')
+		const ada = await signUp('Ada')
 		expect(await signIn('correct horse')).toEqual({
-			data: { signIn: { user: { id: ada.id, name: 'ada', editor: false } } },
+			data: { signIn: { user: { id: ada.id, name: 'Ada', editor: false } } },
 		})
-		const viewer = await request('{ viewer { name } }', {}, as(ada.token))
-		expect(viewer).toEqual({ data: { viewer: { name: 'ada' } } })
+		const viewer = await send('{ viewer { name } }', {}, ada.bearer)
+		expect(viewer).toEqual({ data: { viewer: { name: 'Ada' } } })
 	})
 
 	it('refuses a wrong password', async () => {
-		await signUp('ada')
+		await signUp('Ada')
 		expect(await signIn('wrong horse')).toMatchObject(
 			refused('INVALID_CREDENTIALS'),
 		)
@@ -86,56 +76,53 @@ describe('signing up and in', () => {
 
 describe('the rules on posts', () => {
 	it('lets a signed-in user write a post, which is theirs', async () => {
-		const ada = await signUp('ada')
-		expect(await request(create)).toMatchObject(refused('ACCESS_DENIED'))
-		const body = await request(create, {}, as(ada.token))
-		expect(at(body, 'data', 'createPost', 'author')).toEqual({ name: 'ada' })
+		const ada = await signUp('Ada')
+		//#region own-post
+		// A visitor cannot write a post; Ada can, and it is hers.
+		expect(await file('create-post')).toMatchObject({
+			errors: [{ extensions: { code: 'ACCESS_DENIED' } }],
+		})
+		await check('create-post', {}, ada.bearer)
+		//#endregion
 	})
 
 	it('shows a draft to its author only, and a published post to all', async () => {
-		//#region drafts
 		const { ada, grace, post } = await written()
-		const hello = [{ node: { title: 'Hello' } }]
-		expect(await titles()).toEqual([])
-		expect(await titles(as(grace.token))).toEqual([])
-		expect(await titles(as(ada.token))).toEqual(hello)
-		const publish = `mutation ($id: ID!) {
-			updatePost(where: { id: $id }, data: { published: true }) { published }
-		}`
+		//#region drafts
+		// A draft is its author's: a visitor and Grace see none.
+		const none = { data: { posts: { edges: [] } } }
+		expect(await file('posts')).toEqual(none)
+		expect(await file('posts', {}, grace.bearer)).toEqual(none)
+		await check('posts', {}, ada.bearer)
+		//#endregion
+		//#region draft-publish
 		// Grace cannot see the draft, so it does not exist for her.
-		expect(await request(publish, { id: post }, as(grace.token))).toMatchObject(
-			refused('NOT_FOUND'),
-		)
-		expect(await request(publish, { id: post }, as(ada.token))).toEqual({
-			data: { updatePost: { published: true } },
+		expect(await file('publish', { id: post }, grace.bearer)).toMatchObject({
+			errors: [{ extensions: { code: 'NOT_FOUND' } }],
 		})
-		expect(await titles()).toEqual(hello)
-		// Now she sees it, but it is not hers.
-		expect(await request(publish, { id: post }, as(grace.token))).toMatchObject(
-			refused('ACCESS_DENIED'),
-		)
+		await check('publish', { id: post }, ada.bearer)
+		//#endregion
+		//#region published
+		// Everyone reads it now, but only its author changes it.
+		await check('posts')
+		expect(await file('publish', { id: post }, grace.bearer)).toMatchObject({
+			errors: [{ extensions: { code: 'ACCESS_DENIED' } }],
+		})
 		//#endregion
 	})
 
 	it('lists the signed-in user’s own posts with viewer', async () => {
 		const { ada, grace } = await written()
-		await request(create, {}, as(grace.token))
+		await file('create-post', {}, grace.bearer)
 		await Post.updateMany({ data: { published: true } }, { as: master })
 		//#region viewer
 		// No user id to send: the server reads the caller.
-		const mine = `{
-			posts(where: { author: { viewer: true } }) {
-				edges { node { author { name } } }
-			}
-		}`
-		expect(at(await request(mine, {}, as(ada.token)), 'data')).toEqual({
-			posts: { edges: [{ node: { author: { name: 'ada' } } }] },
-		})
+		await check('mine', {}, ada.bearer)
 		// A visitor is no user: `viewer: true` holds for no post.
-		expect(at(await request(mine), 'data')).toEqual({ posts: { edges: [] } })
+		expect(await file('mine')).toEqual({ data: { posts: { edges: [] } } })
 		//#endregion
-		expect(at(await request(mine, {}, as(grace.token)), 'data')).toEqual({
-			posts: { edges: [{ node: { author: { name: 'grace' } } }] },
+		expect(at(await file('mine', {}, grace.bearer), 'data')).toEqual({
+			posts: { edges: [{ node: { author: { name: 'Grace' } } }] },
 		})
 		// `viewer` is on the relations to the user model only.
 		const wrong = User.count(
@@ -147,13 +134,11 @@ describe('the rules on posts', () => {
 	})
 
 	it('shows names to signed-in users only', async () => {
+		const ada = await signUp('Ada')
 		//#region names
-		const ada = await signUp('ada')
-		const names = '{ users { edges { node { name } } } }'
-		expect(await request(names)).toEqual({ data: { users: { edges: [] } } })
-		expect(await request(names, {}, as(ada.token))).toEqual({
-			data: { users: { edges: [{ node: { name: 'ada' } }] } },
-		})
+		// A visitor sees no names; a signed-in user reads them.
+		expect(await file('names')).toEqual({ data: { users: { edges: [] } } })
+		await check('names', {}, ada.bearer)
 		//#endregion
 	})
 
@@ -163,16 +148,16 @@ describe('the rules on posts', () => {
 		const rename = `mutation ($id: ID!) {
 			updateUser(where: { id: $id }, data: { name: "Grace" }) { name }
 		}`
-		expect(await request(rename, { id }, as(ada.token))).toMatchObject(
+		expect(await send(rename, { id }, ada.bearer)).toMatchObject(
 			refused('ACCESS_DENIED'),
 		)
-		expect(await request(rename, { id }, as(grace.token))).toEqual({
+		expect(await send(rename, { id }, grace.bearer)).toEqual({
 			data: { updateUser: { name: 'Grace' } },
 		})
 		const promote = `mutation ($id: ID!) {
 			updateUser(where: { id: $id }, data: { editor: true }) { editor }
 		}`
-		expect(await request(promote, { id }, as(grace.token))).toMatchObject(
+		expect(await send(promote, { id }, grace.bearer)).toMatchObject(
 			refused('ACCESS_DENIED'),
 		)
 	})
@@ -184,7 +169,7 @@ describe('the rules on posts', () => {
 			{ as: master },
 		)
 		const remove = `mutation ($id: ID!) { deletePost(where: { id: $id }) { title } }`
-		expect(await request(remove, { id: post }, as(grace.token))).toMatchObject(
+		expect(await send(remove, { id: post }, grace.bearer)).toMatchObject(
 			refused('ACCESS_DENIED'),
 		)
 		// The server makes an editor, here as Master.
@@ -192,7 +177,7 @@ describe('the rules on posts', () => {
 			{ where: { id: grace.id }, data: { editor: true } },
 			{ as: master },
 		)
-		expect(await request(remove, { id: post }, as(grace.token))).toEqual({
+		expect(await send(remove, { id: post }, grace.bearer)).toEqual({
 			data: { deletePost: { title: 'Hello' } },
 		})
 	})
@@ -200,38 +185,35 @@ describe('the rules on posts', () => {
 
 describe('a poll', () => {
 	it('shows each user their own vote', async () => {
-		const ada = await signUp('ada')
-		const grace = await signUp('grace')
+		const ada = await signUp('Ada')
+		const grace = await signUp('Grace')
 		const poll = await Poll.create(
 			{ data: { question: 'Tabs?' } },
 			{ as: master },
 		)
-		//#region my-vote
 		const vote = `mutation ($poll: ID!) {
 			createVote(data: { choice: "yes", poll: { connect: { id: $poll } } }) {
 				choice
 			}
 		}`
-		await request(vote, { poll: poll.id }, as(ada.token))
-		const polls =
-			'{ polls { edges { node { question myVote { choice } hasVoted } } } }'
-		const read = async (headers?: Record<string, string>) =>
-			at(await request(polls, {}, headers), 'data', 'polls', 'edges')
-		expect(await read(as(ada.token))).toEqual([
-			{
-				node: { question: 'Tabs?', myVote: { choice: 'yes' }, hasVoted: true },
-			},
-		])
+		await send(vote, { poll: poll.id }, ada.bearer)
+		await check('my-vote', {}, ada.bearer)
+		//#region my-vote
 		// Grace has not voted, and a visitor is no user.
-		expect(await read(as(grace.token))).toEqual([
-			{ node: { question: 'Tabs?', myVote: null, hasVoted: false } },
-		])
-		expect(await read()).toEqual([
-			{ node: { question: 'Tabs?', myVote: null, hasVoted: false } },
-		])
+		const nobody = {
+			data: {
+				polls: {
+					edges: [
+						{ node: { question: 'Tabs?', myVote: null, hasVoted: false } },
+					],
+				},
+			},
+		}
+		expect(await file('my-vote', {}, grace.bearer)).toEqual(nobody)
+		expect(await file('my-vote')).toEqual(nobody)
 		//#endregion
 		// The unique index refuses a second vote.
-		expect(await request(vote, { poll: poll.id }, as(ada.token))).toMatchObject(
+		expect(await send(vote, { poll: poll.id }, ada.bearer)).toMatchObject(
 			refused('UNIQUE_VIOLATION'),
 		)
 	})

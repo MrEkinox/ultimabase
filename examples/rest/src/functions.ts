@@ -5,7 +5,7 @@ import { allow, defineFunction } from 'ultimabase'
 import { z } from 'zod'
 import { Post } from './models.ts'
 
-//#region functions
+//#region topPosts
 export const topPosts = defineFunction({
 	name: 'topPosts',
 	use: [rest()],
@@ -19,7 +19,9 @@ export const topPosts = defineFunction({
 		),
 	// Served at GET /api/functions/trending.
 }).with({ access: allow.public, rest: { name: 'trending' } })
+//#endregion
 
+//#region like
 export const like = defineFunction({
 	name: 'like',
 	use: [rest()],
@@ -32,7 +34,9 @@ export const like = defineFunction({
 			{ as: caller },
 		),
 }).with({ access: allow.public })
+//#endregion
 
+//#region reindex
 export const reindex = defineFunction({
 	name: 'reindex',
 	use: [rest()],

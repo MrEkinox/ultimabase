@@ -9,6 +9,7 @@ writes an ACL, so the function checks the caller before it changes one.
 - `src/notes.ts`: the `Note` model, whose rows hold an ACL.
 - `src/functions.ts`: the `shareNote` and `myRoles` functions.
 - `src/app.ts`: the application.
+- `src/requests/`: the requests and responses the page shows.
 - `src/app.test.ts`: each right, used over GraphQL, and the `ACL` class.
 
 `yarn start` serves it on http://localhost:3000/graphql; `yarn vitest

@@ -1,0 +1,10 @@
+subscription {
+	tasks(first: 2, orderBy: [{ rank: asc }]) {
+		edges {
+			node {
+				id
+				title
+			}
+		}
+	}
+}

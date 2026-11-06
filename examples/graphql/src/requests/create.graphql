@@ -1,0 +1,24 @@
+mutation {
+	createPerson(
+		data: {
+			name: "Ada"
+			posts: {
+				create: [
+					{ title: "Notes", slug: "notes", likes: 12, status: published }
+					{ title: "Sketch", slug: "sketch", likes: 3 }
+					{ title: "Plans", slug: "plans", likes: 7, status: published }
+				]
+			}
+		}
+	) {
+		id
+		name
+		posts {
+			edges {
+				node {
+					slug
+				}
+			}
+		}
+	}
+}

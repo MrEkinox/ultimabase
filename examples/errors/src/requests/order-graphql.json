@@ -1,0 +1,14 @@
+{
+	"errors": [
+		{
+			"message": "Only 2 left.",
+			"locations": [{ "line": 2, "column": 2 }],
+			"path": ["order"],
+			"extensions": {
+				"code": "OUT_OF_STOCK",
+				"details": { "sku": "MUG-1", "left": 2 }
+			}
+		}
+	],
+	"data": null
+}

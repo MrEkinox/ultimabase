@@ -1,0 +1,14 @@
+{
+	"errors": [
+		{
+			"message": "Unique constraint failed on Post (slug).",
+			"locations": [{ "line": 2, "column": 2 }],
+			"path": ["createPost"],
+			"extensions": {
+				"code": "UNIQUE_VIOLATION",
+				"details": { "model": "Post", "fields": ["slug"] }
+			}
+		}
+	],
+	"data": null
+}

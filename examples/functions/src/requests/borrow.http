@@ -1,0 +1,4 @@
+POST /api/functions/borrowBook
+content-type: application/json
+
+{ "book": "$id", "days": 14 }

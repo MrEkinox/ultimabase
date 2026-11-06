@@ -1,0 +1,10 @@
+query {
+	notes {
+		edges {
+			node {
+				title
+				acl
+			}
+		}
+	}
+}

@@ -1,0 +1,18 @@
+{
+	"data": {
+		"posts": {
+			"edges": [
+				{
+					"cursor": "…",
+					"node": { "title": "Notes", "author": { "name": "Ada" } }
+				}
+			],
+			"pageInfo": {
+				"hasNextPage": false,
+				"hasPreviousPage": false,
+				"startCursor": "…",
+				"endCursor": "…"
+			}
+		}
+	}
+}

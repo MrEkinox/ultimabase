@@ -16,7 +16,7 @@ export const colorPlugin: PluginOf<Color> = definePlugin<Color>({
 }).plugin
 //#endregion
 
-//#region field-type
+//#region color-values
 const Hex = z.string().regex(/^#[0-9a-f]{6}$/, 'A color is #rrggbb.')
 const Rgb = z.object({
 	red: z.int().min(0).max(255),
@@ -33,6 +33,9 @@ const rgbOf = (hex: string): Rgb => ({
 const hexOf = ({ red, green, blue }: Rgb): string =>
 	`#${[red, green, blue].map((n) => n.toString(16).padStart(2, '0')).join('')}`
 
+//#endregion
+
+//#region field-type
 /** `color({ palette })` takes only the colors of its palette. */
 type ColorOptions = { readonly palette?: readonly string[] }
 

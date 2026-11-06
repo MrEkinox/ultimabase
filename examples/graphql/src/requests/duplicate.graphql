@@ -1,0 +1,7 @@
+mutation ($ada: ID!) {
+	createPost(
+		data: { title: "Again", slug: "notes", author: { connect: { id: $ada } } }
+	) {
+		id
+	}
+}

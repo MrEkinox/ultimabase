@@ -1,12 +1,14 @@
 // What a client shows for each code: every code the server may send, its
 // plugins' included, and the application's own. A code a plugin adds or
 // drops fails typing here.
-//#region messages
+//#region messages-type
 import type { ErrorCodeOf } from 'ultimabase'
 import type { app } from './app.ts'
 
 type Code = ErrorCodeOf<typeof app> | 'OUT_OF_STOCK'
+//#endregion
 
+//#region messages
 const messages = {
 	OUT_OF_STOCK: 'This product is out of stock.',
 	ACCESS_DENIED: 'You cannot do this.',
@@ -27,7 +29,9 @@ const messages = {
 	UNAVAILABLE: 'The service is restarting: try again.',
 	UNSUPPORTED_MEDIA_TYPE: 'Something went wrong.',
 } satisfies Record<Code, string>
+//#endregion
 
+//#region message-of
 const known: ReadonlyMap<string, string> = new Map(Object.entries(messages))
 
 /** The message for a code a response carries, or a generic one. */

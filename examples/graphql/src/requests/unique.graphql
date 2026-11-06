@@ -1,0 +1,11 @@
+query {
+	notes: post(where: { slug: "notes" }) {
+		title
+		author {
+			name
+		}
+	}
+	missing: post(where: { slug: "nowhere" }) {
+		title
+	}
+}

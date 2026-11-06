@@ -1,6 +1,6 @@
 # Plugins
 
-Four plugins written for an application, each one a kind a plugin can be:
+Six plugins written for an application, each one a kind a plugin can be:
 
 - `src/plugins/publishing.ts`: a model plugin. It adds `publishedAt`, an
   index, hooks that hide drafts, the `drafts` and `publish` commands, and the
@@ -12,9 +12,14 @@ Four plugins written for an application, each one a kind a plugin can be:
   keys in a cache that its changes clear. It uses rpc when it is installed.
 - `src/plugins/rpc.ts`: a transport on the HTTP plugin, `POST /rpc/<name>`
   for each function, which offers other plugins a function's address.
+- `src/plugins/members.ts`: a user model. The model that uses `members` is the
+  application's users, here `src/member.ts`.
+- `src/plugins/broker.ts`: a plugin that waits for traffic. The instance is
+  ready while its broker is connected, and it leaves before the others stop.
 
 The application lists them in `src/app.ts`; `src/models.ts` and
-`src/functions.ts` use them. `src/app.test.ts` calls them as a client does,
+`src/functions.ts` use them, and `src/requests/` holds the requests and
+responses the page shows. `src/app.test.ts` calls them as a client does,
 and `src/start.test.ts` what they do at start, refusals included.
 
 `yarn start` serves it on http://localhost:3000; `yarn vitest examples/plugins`

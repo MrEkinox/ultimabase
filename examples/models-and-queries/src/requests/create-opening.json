@@ -1,0 +1,8 @@
+{
+	"data": {
+		"createOpening": {
+			"availableOn": ["monday"],
+			"searchFilters": { "availableOn": ["tuesday"] }
+		}
+	}
+}

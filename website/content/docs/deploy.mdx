@@ -17,10 +17,23 @@ npx ultimabase start
 
 `start` sets `NODE_ENV` to `production` unless it is set, then starts the
 application that `ultimabase.config.ts` exports; the starter's `npm start`
-runs it. In production, a start
-never changes the tables: it checks that the migrations deployed match the
-models, and refuses to start otherwise (see [PostgreSQL](/docs/next/postgres)
-for writing migrations).
+runs it. The application reads its settings from the environment:
+
+<include cwd meta='title="src/app.ts"'>
+	../examples/postgres/src/app.ts#app
+</include>
+
+The full example, with its tests: [`examples/postgres`](https://github.com/MrEkinox/ultimabase/tree/main/examples/postgres).
+
+| To                                       | See                                                 |
+| ---------------------------------------- | --------------------------------------------------- |
+| set `DATABASE_URL`, `PORT`, `MASTER_KEY` | [The environment](#the-environment)                 |
+| start the application                    | [Start](#start)                                     |
+| know what a deploy will do               | [Check before a deploy](#check-before-a-deploy)     |
+| go back to an earlier release            | [Roll back the code](#roll-back-the-code)           |
+| stop without cutting requests            | [Stop](#stop)                                       |
+| serve HTTPS                              | [Behind a proxy](#behind-a-proxy)                   |
+| know what production changes             | [What production changes](#what-production-changes) |
 
 ## The environment
 
@@ -33,46 +46,54 @@ for writing migrations).
 
 `ultimabase start` and `migrate deploy` never read a `.env` file: set the
 variables on the host. `DATABASE_URL` and `MASTER_KEY` are the names the
-application reads, as the example does:
+application above reads.
 
-<include cwd meta='title="src/app.ts"'>
-	../examples/postgres/src/app.ts#app
-</include>
+### The master key
 
-The full example, with its tests: [`examples/postgres`](https://github.com/MrEkinox/ultimabase/tree/main/examples/postgres).
+- A master key works in production only when written
+  `{ key, production: true }`.
+- Written as a plain string, a request that sends it is refused with `The
+master key is refused in production.`
+- A key shorter than 32 characters refuses the start:
 
-A master key works in production only when written
-`{ key, production: true }`. Written as a plain string, a request that sends
-it is refused with `The master key is refused in production.` A key shorter
-than 32 characters refuses the start:
-
-<include cwd meta='title="src/app.postgres.test.ts"'>
-	../examples/postgres/src/app.postgres.test.ts#short-key
+<include cwd meta='title="Terminal"'>
+	../examples/postgres/src/requests/start-weak-key.console
 </include>
 
 ## Start
 
-Once the migrations are deployed, the application starts, and serves until
-it gets `SIGTERM`:
+In production, a start never changes the tables: it checks that the
+migrations deployed match the models, and refuses to start otherwise (see
+[PostgreSQL](/docs/next/postgres#migrations) for writing migrations). Once
+they are deployed, the application starts, and serves until it gets
+`SIGTERM`.
 
-<include cwd meta='title="src/app.postgres.test.ts"'>
-	../examples/postgres/src/app.postgres.test.ts#deploy
+- It logs `Listening on http://localhost:3000.`, then one JSON line per
+  event when its output is not a terminal.
+- On `SIGTERM` it finishes the requests under way, logs `Application
+stopped.`, and ends by the signal, which a shell reports as 143: 128
+  plus SIGTERM's number.
+
+Once the migrations are deployed, a test starts the application in
+production and sends it this request, which creates a project with a task:
+
+<include cwd meta='title="Request"'>
+	../examples/postgres/src/requests/create-project.graphql
 </include>
 
-<include cwd meta='title="src/app.postgres.test.ts"'>
-	../examples/postgres/src/app.postgres.test.ts#start
+<include cwd meta='title="Response"'>
+	../examples/postgres/src/requests/create-project.json
 </include>
 
-It logs `Listening on http://localhost:3000.`, then one JSON line per event
-when its output is not a terminal. Without a deploy, or with a database
-that does not answer, it prints why and exits 1:
+Without a deploy, or with a database that does not answer, it prints why
+and exits 1:
 
-<include cwd meta='title="src/app.postgres.test.ts"'>
-	../examples/postgres/src/app.postgres.test.ts#refused
+<include cwd meta='title="Terminal"'>
+	../examples/postgres/src/requests/start-no-schema.console
 </include>
 
-<include cwd meta='title="src/app.postgres.test.ts"'>
-	../examples/postgres/src/app.postgres.test.ts#unreachable
+<include cwd meta='title="Terminal"'>
+	../examples/postgres/src/requests/start-unreachable.console
 </include>
 
 `npx ultimabase start` prints a refusal as one line. A script that calls
@@ -85,15 +106,19 @@ stack.
 when there is one: a release step can run it to know whether a deploy has
 work to do.
 
-<include cwd meta='title="src/app.postgres.test.ts"'>
-	../examples/postgres/src/app.postgres.test.ts#status
+<include cwd meta='title="Terminal"'>
+	../examples/postgres/src/requests/migrate-status.console
 </include>
+
+After a deploy, it says `The database is up to date.` and exits 0.
 
 Each migration runs in a transaction, and waits 5 s at most for a table
 another session holds. A failed migration is rolled back, and the deploy
-stops on it: `<file> was not applied: <reason>`, then
-`The database rolled it back: fix it, then deploy again.` The migrations
-before it stay applied.
+stops on it:
+
+- `<file> was not applied: <reason>`;
+- then `The database rolled it back: fix it, then deploy again.`
+- The migrations before it stay applied.
 
 ## Roll back the code
 
@@ -111,16 +136,21 @@ stops using the column, the second removes it.
 Point the platform's liveness check at `GET /health` and its readiness
 check at `GET /ready` (see [HTTP](/docs/next/http#health-and-readiness)).
 
-On `SIGTERM`, `/ready` answers 503, and the server serves as before for 5 s,
-the `drain`: the load balancer stops sending traffic. Then the server stops
-accepting connections, and waits for the requests under way, 10 s at most.
-It closes those still running, warns
-`Stopped 10 s after stop began: closed the requests still running.`, and
-stops the plugins and the database. It logs `Application stopped.` last.
+On `SIGTERM`, in this order:
 
-Let the host wait more than 15 s between `SIGTERM` and `SIGKILL`: Kubernetes
-waits 30 s by default, Docker 10 s, so give Docker a `stop_grace_period`, or
-a shorter `drain`. A second `SIGTERM` ends the process at once.
+1. `/ready` answers 503, and the server serves as before for 5 s, the
+   `drain`: the load balancer stops sending traffic.
+2. The server stops accepting connections, and waits for the requests under
+   way, 10 s at most.
+3. It closes those still running, and warns `Stopped 10 s after stop began:
+closed the requests still running.`
+4. It stops the plugins and the database, and logs `Application stopped.`
+   last.
+
+Let the host wait more than 15 s between `SIGTERM` and `SIGKILL`:
+Kubernetes waits 30 s by default, Docker 10 s, so give Docker a
+`stop_grace_period`, or a shorter `drain`. A second `SIGTERM` ends the
+process at once.
 
 ## Behind a proxy
 

@@ -1,0 +1,19 @@
+{
+	"id": "…",
+	"createdAt": "…",
+	"updatedAt": "…",
+	"name": "Ada",
+	"posts": {
+		"edges": [
+			{ "cursor": "…", "node": { "slug": "notes" } },
+			{ "cursor": "…", "node": { "slug": "sketch" } },
+			{ "cursor": "…", "node": { "slug": "plans" } }
+		],
+		"pageInfo": {
+			"hasNextPage": false,
+			"hasPreviousPage": false,
+			"startCursor": "…",
+			"endCursor": "…"
+		}
+	}
+}

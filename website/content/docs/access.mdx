@@ -15,132 +15,270 @@ Master. Each rule is a plain function that returns `true` or `false`:
 The full example, with its tests: [`examples/access-rules`](https://github.com/MrEkinox/ultimabase/tree/main/examples/access-rules).
 
 `allow.public`, `allow.readOnly` and `allow.private` cover the common cases:
-`access: allow.readOnly` lets everyone read and only Master write. Rules are
-synchronous and run no query: a check that needs another row goes in a
-[hook](/docs/next/hooks). Access rules, [roles](/docs/next/roles) and the
-[ACL](/docs/next/acl) each fit a kind of right: see
-[Rules, roles or ACL](#rules-roles-or-acl).
+`access: allow.readOnly` lets everyone read and only Master write. The tests
+write `ada` and `grace` for `{ as: asUser({ id }) }`, two signed-in users.
+Ada creates a comment; a visitor, who has no `{ as }`, cannot:
+
+<include cwd meta='title="src/app.test.ts"'>
+	../examples/access-rules/src/app.test.ts#comment
+</include>
+
+| To                                      | Use                                                    |
+| --------------------------------------- | ------------------------------------------------------ |
+| show each caller some rows              | [a `read` rule](#read-rules)                           |
+| refuse a create, an update, a delete    | [`create`, `update`, `delete`, `write`](#write-rules)  |
+| hide or protect one field               | [a field's `access`](#field-rules)                     |
+| give rows to a project's members        | [a filter through a relation](#rights-from-a-relation) |
+| let an owner write a group's rows       | [`where` in a write rule](#rights-over-a-groups-rows)  |
+| act as the server                       | [`master`](#master)                                    |
+| choose between rules, roles and the ACL | [Rules, roles or ACL](#rules-roles-or-acl)             |
+
+Rules are synchronous and run no query: a check that needs another row goes
+in a [hook](/docs/next/hooks). The tests read and write an `Article`, whose
+rules the sections show in pieces.
 
 ## Read rules
 
 A read rule returns `true` to let every row through, `false` to hide them
 all, or a filter built with the `where` it receives, in the form of a
-query's `where`. The filter joins every query on the model, so pages,
-counts and relation filters stay exact:
+query's `where`. `Article` shows everyone what is published, and an author
+their drafts too:
 
-<include cwd meta='title="src/app.test.ts"'>
-	../examples/access-rules/src/app.test.ts#read
+<include cwd meta='title="src/models.ts"'>
+	../examples/access-rules/src/models.ts#article-read
 </include>
 
-`anyOf` joins the rules' filters with `OR`, `allOf` with `AND`. A read rule
-does not see the row: to decide on a row's values, filter on them.
+- `anyOf` joins the rules' filters with `OR`, `allOf` with `AND`.
+- A read rule does not see the row: to decide on a row's values, filter on
+  them.
+- The filter joins every query on the model, so pages, counts and relation
+  filters stay exact.
+
+Ada writes a draft and a published article:
+
+<include cwd meta='title="src/app.test.ts"'>
+	../examples/access-rules/src/app.test.ts#read-create
+</include>
+
+Each caller reads what its rule lets through:
+
+<include cwd meta='title="src/app.test.ts"'>
+	../examples/access-rules/src/app.test.ts#read-rows
+</include>
 
 ## Write rules
 
 `create`, `update` and `delete` each take a rule; `write` covers the three,
-and a specific key wins over it. A write rule also receives the stored
-`record` (on `update` and `delete`) and the written `value` (on `create` and
-`update`). A row the caller cannot read cannot be written either: it is
-`NOT_FOUND`, so a refusal never tells that the row exists.
+and a specific key wins over it. `Article` lets a user create, an author
+update, and an author delete a draft only. Its rules read the caller's id with
+`userId`:
 
-<include cwd meta='title="src/app.test.ts"'>
-	../examples/access-rules/src/app.test.ts#write
+<include cwd meta='title="src/models.ts"'>
+	../examples/access-rules/src/models.ts#user-id
 </include>
 
-A refused write writes nothing and fails with `ACCESS_DENIED`; its `details`
-name the model, the operation and the field whose rule refused. The logger
-receives the same details and the caller's id. `updateMany` and `deleteMany`
-run the rules on each row.
+<include cwd meta='title="src/models.ts"'>
+	../examples/access-rules/src/models.ts#article-write
+</include>
+
+A write rule receives:
+
+- the stored `record`, on `update` and `delete`;
+- the written `value`, on `create` and `update`.
+
+A row the caller cannot read cannot be written either: it is `NOT_FOUND`, so
+a refusal never tells that the row exists. Grace reads no draft of Ada's, so
+to her it does not exist:
+
+<include cwd meta='title="src/app.test.ts"'>
+	../examples/access-rules/src/app.test.ts#write-owner
+</include>
+
+A refused write writes nothing and fails with `ACCESS_DENIED`. Its `details`
+name the model, the operation and the field whose rule refused. Once Ada
+publishes her draft, it refuses her delete:
+
+<include cwd meta='title="src/app.test.ts"'>
+	../examples/access-rules/src/app.test.ts#write-delete
+</include>
 
 ## Field rules
 
 A field's `.with({ access })` takes one rule, or one per operation: `read`,
 `create`, `update`, and `write` for both writes. A field rule runs after the
-model's, only when the write names the field; it receives the row's `record`
+model's, only when the write names the field. It receives the row's `record`
 and the field's `value`.
 
-A read rule on a field hides its value from the rows it refuses. A caller
-other than Master cannot filter, sort or aggregate on such a field, which
-would reveal the value one guess at a time. `allow.private` leaves the field
-to Master: the transports leave it out of their schema.
-`allow.public` and `allow.readOnly` are no read rule: everyone filters and
-sorts on a field that has them, as `featured` above, and only the writes
-are checked.
+`authorId` is written once, with the caller's id: nobody signs for someone
+else. A field rule refuses with the field in its `details`:
 
-The rows a query returns type a field with a read rule as optional, in a
-`select` or an `include` too: `notes` above reads `string | undefined`. A
-hook's or a rule's `record` still has every field.
+<include cwd meta='title="src/models.ts"'>
+	../examples/access-rules/src/models.ts#field-author
+</include>
 
-A field rule sees `record.id` typed and the other fields as `unknown`.
-`.with<{ authorId: string }>({ ... })` types the fields its rules read, as in
-`notes` above; `defineModel` checks that each type matches the model's.
+<include cwd meta='title="src/app.test.ts"'>
+	../examples/access-rules/src/app.test.ts#write-field
+</include>
+
+`.with<{ authorId: string }>({ ... })` types the fields a rule reads:
+`defineModel` checks that each type matches the model's. A field rule sees
+`record.id` typed and the other fields as `unknown` otherwise.
+
+<include cwd meta='title="src/models.ts"'>
+	../examples/access-rules/src/models.ts#field-notes
+</include>
+
+A read rule on a field hides its value from the rows it refuses:
+
+<include cwd meta='title="src/app.test.ts"'>
+	../examples/access-rules/src/app.test.ts#read-field
+</include>
+
+A caller other than Master cannot filter, sort or aggregate on such a field,
+which would reveal the value one guess at a time:
+
+<include cwd meta='title="src/app.test.ts"'>
+	../examples/access-rules/src/app.test.ts#read-filter
+</include>
+
+- `allow.private` leaves the field to Master: the transports leave it out of
+  their schema.
+- `allow.public` and `allow.readOnly` are no read rule: everyone filters and
+  sorts on a field that has them, and only the writes are checked.
+- `featured` has `allow.readOnly`: only the server writes it.
+
+<include cwd meta='title="src/models.ts"'>
+	../examples/access-rules/src/models.ts#field-featured
+</include>
 
 ## Rights from a relation
 
 A read rule's filter goes through relations as a query's does. A project's
-members read it, and the tasks in it, with no role to keep in step:
+members read it, and the tasks in it, with no role to keep in step. `Person`
+and `Project` relate by `members`:
 
 <include cwd meta='title="src/projects.ts"'>
-	../examples/access-rules/src/projects.ts#projects
+	../examples/access-rules/src/projects.ts#person
 </include>
 
-A member who leaves the project reads none of its tasks from the next
-query on, and a [live read](/docs/next/realtime#rights) follows the
-relations its filter goes through:
+<include cwd meta='title="src/projects.ts"'>
+	../examples/access-rules/src/projects.ts#project-fields
+</include>
+
+The project's members read it, through the relation to the caller:
+
+<include cwd meta='title="src/projects.ts"'>
+	../examples/access-rules/src/projects.ts#project-access
+</include>
+
+A task's `project` is a relation too, so its members read it one relation
+further:
+
+<include cwd meta='title="src/projects.ts"'>
+	../examples/access-rules/src/projects.ts#task-fields
+</include>
+
+<include cwd meta='title="src/projects.ts"'>
+	../examples/access-rules/src/projects.ts#task-read
+</include>
+
+The tests write `ada`, `grace` and `alan` for the callers of three people, and
+`graceId` for Grace's id. Ada owns the project `project` and is a member with
+Grace; Alan is in none.
+
+A member who leaves the project reads none of its tasks from the next query on,
+and a [live read](/docs/next/realtime#rights) follows the relations its filter
+goes through:
 
 <include cwd meta='title="src/projects.test.ts"'>
-	../examples/access-rules/src/projects.test.ts#relation-read
+	../examples/access-rules/src/projects.test.ts#member-reads
 </include>
 
-Each read joins the relation. PostgreSQL indexes every relation's key, and
-both columns of a join table, so the join needs no index of yours. With the
-[auth plugin](/docs/next/auth), `{ viewer: true }` on a relation to the user
-model stands for the caller: `members: { some: { viewer: true } }`.
+<include cwd meta='title="src/projects.test.ts"'>
+	../examples/access-rules/src/projects.test.ts#member-leaves
+</include>
+
+- Each read joins the relation. PostgreSQL indexes every relation's key, and
+  both columns of a join table, so the join needs no index of yours.
+- With the [auth plugin](/docs/next/auth), `{ viewer: true }` on a relation to
+  the user model stands for the caller: `members: { some: { viewer: true } }`.
 
 ## Rights over a group's rows
 
 A write rule receives the row, with its own `one` relations as `{ id }`:
 `Project.update` above checks `record.owner`. To go further, a model's
 `create`, `update`, `delete` or `write` rule returns `where(...)`, as a read
-rule does. `Task.write` above keeps a task's writes to its project's owner:
+rule does. `Task.write` keeps a task's writes to its project's owner, and
+refuses with a `PublicError`, imported from `ultimabase`:
 
-- an update's row matches the filter before the write and after it, so no
-  task moves to another owner's project;
-- a delete's row matches it before;
-- a create's row matches it after, with the relations it connects or
-  creates.
+<include cwd meta='title="src/projects.ts"'>
+	../examples/access-rules/src/projects.ts#task-write
+</include>
+
+The row must match the filter:
+
+- an update's row, before the write and after it, so no task moves to another
+  owner's project;
+- a delete's row, before;
+- a create's row, after, with the relations it connects or creates.
+
+Grace, a member, reads `task`, a task Ada created in `project`, but the rule
+refuses her update:
+
+<include cwd meta='title="src/projects.test.ts"'>
+	../examples/access-rules/src/projects.test.ts#refused-update
+</include>
+
+She cannot delete it, nor create another in the project:
+
+<include cwd meta='title="src/projects.test.ts"'>
+	../examples/access-rules/src/projects.test.ts#refused-delete
+</include>
+
+<include cwd meta='title="src/projects.test.ts"'>
+	../examples/access-rules/src/projects.test.ts#refused-create
+</include>
+
+Ada, the owner, updates the task and deletes it:
+
+<include cwd meta='title="src/projects.test.ts"'>
+	../examples/access-rules/src/projects.test.ts#owner-writes
+</include>
 
 A row outside the filter refuses the whole write, an `updateMany` or a
 `deleteMany` included, and nothing is written. The error is the one `where`
-takes as its second argument, a `PublicError`, or `ACCESS_DENIED` without
-one. The filter goes through the same relations as a read rule's and is
-checked in the write's own statement, or by one count per filter in its
-transaction.
-
-<include cwd meta='title="src/projects.test.ts"'>
-	../examples/access-rules/src/projects.test.ts#group-write
-</include>
+takes as its second argument, a `PublicError`, or `ACCESS_DENIED` without one.
 
 ## Master
 
-Master skips every rule. Server code passes `{ as: master }`; a transport
-acts as Master only with the master key (see [HTTP](/docs/next/http)), and
-in production only with a key written `{ key, production: true }` (see
-[Deploy](/docs/next/deploy)).
+Master skips every rule. Server code passes `{ as: master }`. A transport acts
+as Master only with the master key (see [HTTP](/docs/next/http)), and in
+production only with a key written `{ key, production: true }` (see
+[Deploy](/docs/next/deploy)). Ada cannot feature an article; Master can:
 
 <include cwd meta='title="src/app.test.ts"'>
 	../examples/access-rules/src/app.test.ts#master
 </include>
 
-A function or a hook receives the `caller` it runs for: `{ as: caller }`
-runs the rules for that caller, `{ as: master }` acts as the server.
+A function or a hook receives the `caller` it runs for: `{ as: caller }` runs
+the rules for that caller, `{ as: master }` acts as the server. `allow.readOnly` is no read
+rule, so the author filters on `featured`:
+
+<include cwd meta='title="src/app.test.ts"'>
+	../examples/access-rules/src/app.test.ts#master-filter
+</include>
 
 ## Over the transports
 
-A client meets the same rules, with the same error:
+A client meets the same rules, with the same error. An anonymous caller
+creates an article:
 
-<include cwd meta='title="src/app.test.ts"'>
-	../examples/access-rules/src/app.test.ts#graphql
+<include cwd meta='title="Request"'>
+	../examples/access-rules/src/requests/create-anonymous.graphql
+</include>
+
+<include cwd meta='title="Response"'>
+	../examples/access-rules/src/requests/create-anonymous.json
 </include>
 
 The caller comes from the request: the [auth plugin](/docs/next/auth) reads
@@ -163,6 +301,17 @@ picks among the rows they let through. A role given during a request counts
 from the next one ([Roles](/docs/next/roles#inherit-roles)), and a live read
 is planned again when a role, an ACL or a session changes
 ([Realtime](/docs/next/realtime#rights)).
+
+## Details
+
+- The logger receives the details of a refused write, and the caller's id.
+- `updateMany` and `deleteMany` run the write rules on each row.
+- A read rule on a field makes it optional in the rows a query returns, in a
+  `select` or an `include` too: `notes` reads `string | undefined`. A hook's
+  or a rule's `record` still has every field.
+- A group's write filter goes through the same relations as a read rule's. It
+  is checked in the write's own statement, or by one count per filter in its
+  transaction.
 
 ## Reference
 

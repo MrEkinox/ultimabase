@@ -1,0 +1,9 @@
+subscription {
+	tasks(first: 60) {
+		edges {
+			node {
+				id
+			}
+		}
+	}
+}

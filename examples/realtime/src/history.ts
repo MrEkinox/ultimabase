@@ -1,6 +1,5 @@
 // A list longer than a live list should be: the first tasks live, the ones
 // past maxLive read once with ordinary queries.
-//#region history
 import { liveFetch } from '@ultimabase/live'
 import { z } from 'zod'
 
@@ -19,15 +18,18 @@ const orderBy = encodeURIComponent('[{"rank":"asc"}]')
 
 /** The tasks at `url`, the first 25 live; `more` shows 25 more. */
 export function history(url: string) {
+	//#region history-live
 	const live = liveFetch<Page>(`${url}/api/tasks?first=25&orderBy=${orderBy}`)
 	let latest: Page | undefined
 	const stop = live.subscribe((page) => {
 		latest = page
 	})
+	//#endregion
 	let older: readonly Task[] = []
 	// Where the older tasks go on, once the live list stopped growing.
 	let after: string | null | undefined
 
+	//#region history-more
 	/** Grows the live list, then, past its limit, reads the next tasks once. */
 	async function more(): Promise<void> {
 		if (after === undefined) {
@@ -44,6 +46,7 @@ export function history(url: string) {
 		older = [...older, ...page.edges.map(({ node }) => node)]
 		after = page.pageInfo.hasNextPage ? page.pageInfo.endCursor : null
 	}
+	//#endregion
 
 	const shown = (): readonly Task[] => [
 		...(latest?.edges.map(({ node }) => node) ?? []),
@@ -51,4 +54,3 @@ export function history(url: string) {
 	]
 	return { shown, more, stop }
 }
-//#endregion

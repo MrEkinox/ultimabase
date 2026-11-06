@@ -4,7 +4,9 @@ Sign-up and sign-in with a password (`authPlugin()`, `passwordPlugin()`), the
 reset and verification emails, and access rules that read the signed-in
 user: a draft is its author's, an editor deletes anyone's post.
 
-- `src/models.ts`: the `User` and `Post` models and their rules.
+- `src/user.ts`: the `User` model and its registration.
+- `src/models.ts`: the `Post`, `Poll` and `Vote` models and their rules.
+- `src/requests/`: the GraphQL requests and responses the pages show.
 - `src/mail.ts`: the emails password sends, kept in a list.
 - `src/app.ts`: the application.
 - `src/app.test.ts`: each rule, used over GraphQL.

@@ -7,6 +7,8 @@ matched in a serializable transaction.
 
 - `src/models.ts`: the `Account` model, read by its owner only, and `Like`.
 - `src/functions.ts`: the `transfer` and `like` functions.
+- `src/close.ts`: `closeAccount`, a balance moved and an account deleted, both
+  or neither.
 - `src/app.ts`: the application.
 - `src/app.test.ts`: the transfers that commit and those that roll back,
   and two likes that match.

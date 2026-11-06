@@ -1,0 +1,5 @@
+POST /webhooks/payment
+origin: https://elsewhere.example
+content-type: text/plain
+
+{}

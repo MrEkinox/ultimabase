@@ -1,0 +1,13 @@
+{
+	"data": {
+		"createPost": {
+			"cover": {
+				"id": "…",
+				"name": "cover.png",
+				"type": "image/png",
+				"size": 68,
+				"inline": { "size": { "width": 1, "height": 1 } }
+			}
+		}
+	}
+}

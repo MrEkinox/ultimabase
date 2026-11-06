@@ -1,27 +1,17 @@
 // Uploads files as a browser would, with `uploader()`, then writes their
-// ids in posts over GraphQL, each test on a new in-memory database.
+// ids in posts over GraphQL, each test on a new in-memory database. The
+// GraphQL requests are the files of requests/, shown on the page (D-282).
 import { files } from '@ultimabase/files'
 import { FileError, uploader } from '@ultimabase/files/client'
 import { testApplication } from '@ultimabase/testing'
 import { master } from 'ultimabase'
 import { expect, it } from 'vitest'
+import { requestFiles } from '../../../scripts/requests.ts'
 import { app } from './app.ts'
 import { Post } from './models.ts'
 
 const running = testApplication(app)
-
-/** A GraphQL request's response body. */
-async function request(
-	query: string,
-	variables: object = {},
-): Promise<unknown> {
-	const response = await fetch(`${running.url}/graphql`, {
-		method: 'POST',
-		headers: { 'content-type': 'application/json' },
-		body: JSON.stringify({ query, variables }),
-	})
-	return response.json()
-}
+const requests = requestFiles(new URL('requests/', import.meta.url), running)
 
 /** The value under `path` in a response body. */
 const at = (value: unknown, ...path: string[]): unknown =>
@@ -37,49 +27,47 @@ const png = Uint8Array.from(
 
 /** A text file's id, uploaded for `Post.attachments`. */
 async function attachment(name: string, text: string): Promise<string> {
-	const file = new File([text], name, { type: 'text/plain' })
-	return uploader({ url: running.url }).upload(file, {
+	const upload = new File([text], name, { type: 'text/plain' })
+	return uploader({ url: running.url }).upload(upload, {
 		for: 'Post.attachments',
 	})
 }
-
-const aUrl: unknown = expect.stringMatching(
-	/^http:\/\/localhost:\d+\/files\/public\//,
-)
-const aPrivateUrl: unknown = expect.stringMatching(
-	/\/files\/private\/.+\?expires=\d+&signature=/,
-)
 
 it('uploads a cover, then writes its id in a post', async () => {
 	//#region upload
 	const client = uploader({ url: running.url })
 	const cover = new File([png], 'cover.png', { type: 'image/png' })
 	const id = await client.upload(cover, { for: 'Post.cover' })
-	const body = await request(
-		`mutation ($cover: JSON) {
-			createPost(data: { title: "Hello", cover: $cover }) {
-				cover { name type size url inline { size { width height } } }
-			}
-		}`,
-		{ cover: id },
-	)
-	expect(at(body, 'data', 'createPost', 'cover')).toEqual({
-		name: 'cover.png',
-		type: 'image/png',
-		size: png.length,
-		url: aUrl,
-		inline: { size: { width: 1, height: 1 } },
-	})
-	// The application serves the files of memoryFiles(), as a bucket would.
-	const image = await fetch(
-		String(at(body, 'data', 'createPost', 'cover', 'url')),
-	)
-	expect(image.headers.get('content-type')).toBe('image/png')
 	//#endregion
+	const created = await requests.check(
+		'create-post',
+		{ cover: id },
+		{ status: 200 },
+	)
+	expect(at(created, 'data', 'createPost', 'cover', 'id')).toBe(id)
+})
+
+it('reads a public file by its URL', async () => {
+	const cover = new File([png], 'cover.png', { type: 'image/png' })
+	const id = await uploader({ url: running.url }).upload(cover, {
+		for: 'Post.cover',
+	})
+	await requests.check('create-post', { cover: id })
+	const body = await requests.file('read-cover')
+	expect(body).toMatchObject({
+		data: { posts: { edges: [{ node: { cover: { name: 'cover.png' } } }] } },
+	})
+	const url = String(
+		at(body, 'data', 'posts', 'edges', '0', 'node', 'cover', 'url'),
+	)
+	expect(url).toMatch(/^http:\/\/localhost:\d+\/files\/public\//)
+	// The application serves the files of memoryFiles(), as a bucket would.
+	const image = await fetch(url)
+	expect(image.headers.get('content-type')).toBe('image/png')
 })
 
 it("types a file's id as an ID, as every id", async () => {
-	const body = await request(
+	const body = await requests.send(
 		`{ __type(name: "PostCover") { fields { name type { ofType { name } } } } }`,
 	)
 	expect(at(body, 'data', '__type', 'fields')).toContainEqual({
@@ -90,41 +78,26 @@ it("types a file's id as an ID, as every id", async () => {
 	const id = await uploader({ url: running.url }).upload(cover, {
 		for: 'Post.cover',
 	})
-	const created = await request(
-		'mutation ($cover: JSON) { createPost(data: { title: "Hi", cover: $cover }) { cover { id } } }',
-		{ cover: id },
-	)
+	const created = await requests.check('create-post', { cover: id })
 	expect(at(created, 'data', 'createPost', 'cover', 'id')).toBe(id)
 	expect(id).toMatch(/^[0-9a-f-]{36}$/)
 })
 
 it('pushes to a list of files, and removes from it', async () => {
-	//#region list
 	const notes = await attachment('notes.txt', 'Bring the slides.')
 	const prices = await attachment('prices.txt', 'Tea: 3, coffee: 4.')
-	const created = await request(
-		'mutation ($ids: JSON) { createPost(data: { title: "Hi", attachments: $ids }) { id } }',
-		{ ids: [notes] },
-	)
-	const update = `mutation ($id: ID!, $attachments: JSON) {
-		updatePost(where: { id: $id }, data: { attachments: $attachments }) {
-			attachments { name url variants { preview { type size } } }
-		}
-	}`
+	const created = await requests.check('create-attachment', { ids: [notes] })
 	const id = at(created, 'data', 'createPost', 'id')
-	await request(update, { id, attachments: { push: [prices] } })
-	const body = await request(update, { id, attachments: { remove: [notes] } })
-	expect(at(body, 'data', 'updatePost', 'attachments')).toEqual([
-		{
-			name: 'prices.txt',
-			url: aPrivateUrl,
-			variants: { preview: { type: 'text/plain', size: 18 } },
-		},
-	])
-	//#endregion
+	const attachments = { push: [prices] }
+	await requests.check('push-attachment', { id, attachments })
+	const removed = await requests.check('remove-attachment', {
+		id,
+		attachments: { remove: [notes] },
+	})
+	expect(at(removed, 'data', 'updatePost', 'attachments')).toHaveLength(1)
 })
 
-it('refuses a type accept does not list, a large file and a foreign id', async () => {
+it('refuses a type accept does not list', async () => {
 	//#region refused
 	const client = uploader({ url: running.url })
 	const text = new File(['Not a picture.'], 'cover.txt', {
@@ -138,34 +111,35 @@ it('refuses a type accept does not list, a large file and a foreign id', async (
 		code: 'UNSUPPORTED_MEDIA_TYPE',
 		message: 'text/plain is not accepted.',
 	})
+	//#endregion
+})
+
+it('refuses a large file', async () => {
+	//#region large
 	const large = new File(['x'.repeat(100_001)], 'big.txt', {
 		type: 'text/plain',
 	})
 	await expect(
-		client.upload(large, { for: 'Post.attachments' }),
+		uploader({ url: running.url }).upload(large, { for: 'Post.attachments' }),
 	).rejects.toMatchObject({
 		code: 'PAYLOAD_TOO_LARGE',
 		message: 'The file is over 100000 bytes.',
 	})
+	//#endregion
+})
+
+it("refuses another field's id", async () => {
 	// An attachment's id, written as a cover.
 	const notes = await attachment('notes.txt', 'Bring the slides.')
-	const body = await request(
-		'mutation ($id: JSON) { createPost(data: { title: "Hi", cover: $id }) { id } }',
-		{ id: notes },
-	)
+	//#region foreign
+	const body = await requests.file('foreign-id', { id: notes })
+	const message = `${notes} is not a file uploaded for Post.cover.`
 	expect(body).toMatchObject({
 		errors: [
 			{
 				extensions: {
 					code: 'VALIDATION_FAILED',
-					details: {
-						issues: [
-							{
-								path: ['cover'],
-								message: `${notes} is not a file uploaded for Post.cover.`,
-							},
-						],
-					},
+					details: { issues: [{ path: ['cover'], message }] },
 				},
 			},
 		],

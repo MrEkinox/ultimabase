@@ -17,8 +17,19 @@ npm install @ultimabase/roles
 
 The full example, with its tests: [`examples/roles-and-acl`](https://github.com/MrEkinox/ultimabase/tree/main/examples/roles-and-acl).
 
-The user model lists its roles in `roles`, the other side of `members`, which
-it names with `inverse`:
+| To                              | Use                                              |
+| ------------------------------- | ------------------------------------------------ |
+| list a user's roles on the user | [`roles`, with `inverse: 'members'`](#set-it-up) |
+| read each user's roles          | [`rolesPlugin()`](#set-it-up)                    |
+| give a role to users            | [create a role as Master](#give-roles)           |
+| let a role through a rule       | [`hasRole('writer')`](#ask-for-a-role)           |
+| let a role include another      | [`inherits`](#inherit-roles)                     |
+| list the caller's roles         | [`rolesOf(caller)`](#inherit-roles)              |
+
+## Set it up
+
+The user model lists its roles in `roles`, the other side of `members`,
+which it names with `inverse`:
 
 <include cwd meta='title="src/models.ts"'>
 	../examples/roles-and-acl/src/models.ts#user
@@ -35,54 +46,83 @@ it names with `inverse`:
 ## Give roles
 
 A role is an ordinary row: Master creates it and connects its members, as
-any [relation](/docs/next/relations). Here the server gives Ada the `writer`
-role, and Ada and Grace the `team` role:
+any [relation](/docs/next/relations). The tests write `as` for
+`{ as: master }`. The server gives Ada the `writer` role:
 
 <include cwd meta='title="src/app.test.ts"'>
-	../examples/roles-and-acl/src/app.test.ts#give
+	../examples/roles-and-acl/src/app.test.ts#give-writer
 </include>
 
-Only Master gives or takes a role: `members`, `inherits` and `inheritedBy`
-refuse every client write, from the role or from the user's `roles`. The role
-model's own `access` decides who writes its other fields. To let an admin give
-roles, write a function that checks `hasRole` and writes as Master.
+and Ada and Grace the `team` role:
+
+<include cwd meta='title="src/app.test.ts"'>
+	../examples/roles-and-acl/src/app.test.ts#give-team
+</include>
+
+- Only Master gives or takes a role: `members`, `inherits` and `inheritedBy`
+  refuse every client write, from the role or from the user's `roles`.
+- The role model's own `access` decides who writes its other fields.
+- To let an admin give roles, write a function that checks `hasRole` and
+  writes as Master.
 
 ## Ask for a role
 
-`hasRole('writer')` is a rule: in the `Note` model, only a writer creates a
-note.
+`hasRole('writer')` is a rule, imported from `@ultimabase/roles`. In the
+`Note` model of [ACL](/docs/next/acl), in `src/notes.ts`, only a
+writer creates a note:
 
 <include cwd meta='title="src/notes.ts"'>
-	../examples/roles-and-acl/src/notes.ts#note
+	../examples/roles-and-acl/src/notes.ts#rule
 </include>
 
-<include cwd meta='title="src/app.test.ts"'>
-	../examples/roles-and-acl/src/app.test.ts#writer
+Ada, a writer, creates a note, sent with her `Authorization: Bearer` token:
+
+<include cwd meta='title="Request"'>
+	../examples/roles-and-acl/src/requests/create-note.graphql
 </include>
 
-`hasRole('admin', 'editor')` lets through a user who has either role. It is
-`false` for a visitor, and for Master, who needs no role. In a function or a
-hook, `hasRole(caller, 'writer')` answers the same question as a boolean.
+<include cwd meta='title="Response"'>
+	../examples/roles-and-acl/src/requests/create-note.json
+</include>
+
+Grace, who has no `writer` role, gets `ACCESS_DENIED`.
+
+- `hasRole('admin', 'editor')` lets through a user who has either role.
+- It is `false` for a visitor, and for Master, who needs no role.
+- In a function or a hook, `hasRole(caller, 'writer')` answers the same
+  question as a boolean.
 
 ## Inherit roles
 
 A role's `inherits` lists the roles it includes: a member of `editor`, which
-inherits `writer`, is a writer too. `inheritedBy` is the other side.
+inherits `writer`, is a writer too. `inheritedBy` is the other side. Here
+Bob, a user, is an editor, and `writer` is the role created above:
 
 <include cwd meta='title="src/app.test.ts"'>
 	../examples/roles-and-acl/src/app.test.ts#inherit
 </include>
 
-`rolesOf(caller)` lists the caller's roles, inherited ones included, each
-`{ id, name }`; the `myRoles` function above returns their names:
+Bob can now create a note. `rolesOf(caller)` lists the caller's roles,
+inherited ones included, each `{ id, name }`. The `myRoles` function returns
+their names. Bob sends the request, and gets his own roles:
 
 <include cwd meta='title="src/functions.ts"'>
 	../examples/roles-and-acl/src/functions.ts#my-roles
 </include>
 
-The plugin reads a user's roles once per request, before any rule runs, so
-a rule asking for a role runs no query. A role given during a request
-counts from the next one.
+<include cwd meta='title="Request"'>
+	../examples/roles-and-acl/src/requests/my-roles.graphql
+</include>
+
+<include cwd meta='title="Response"'>
+	../examples/roles-and-acl/src/requests/my-roles.json
+</include>
+
+## Details
+
+- The plugin reads a user's roles once per request, before any rule runs, so
+  a rule asking for a role runs no query.
+- A role given during a request counts from the next one.
 
 ## Reference
 

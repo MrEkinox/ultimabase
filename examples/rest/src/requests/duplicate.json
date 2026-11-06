@@ -1,0 +1,5 @@
+{
+	"code": "UNIQUE_VIOLATION",
+	"message": "Unique constraint failed on Post (slug).",
+	"details": { "model": "Post", "fields": ["slug"] }
+}

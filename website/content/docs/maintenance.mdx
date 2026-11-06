@@ -3,19 +3,14 @@ title: Maintenance
 description: Answer 503 to every client while the data changes, on every server, Master still served.
 ---
 
-`@ultimabase/maintenance` puts the application in maintenance: every
-request answers 503 until it ends, GraphQL's and REST's included, the
-WebSockets open close, and Master is still served, for the migration's
-scripts and the admin. Every server follows, as the state is a row of the
-database. A deployment pipeline switches it with its own key, which opens
-nothing else.
+`@ultimabase/maintenance` puts the application in maintenance: every request
+answers 503 until it ends, and Master is still served.
 
 ```npm
 npm install @ultimabase/maintenance
 ```
 
-`maintenancePlugin()` goes in the application's plugins, after
-`httpPlugin()`:
+`maintenancePlugin()` goes in the application's plugins, after `httpPlugin()`:
 
 <include cwd meta='title="src/app.ts"'>
 	../examples/maintenance/src/app.ts#plugins
@@ -23,61 +18,107 @@ npm install @ultimabase/maintenance
 
 The full example, with its tests: [`examples/maintenance`](https://github.com/MrEkinox/ultimabase/tree/main/examples/maintenance).
 
+| To                                  | Use                                                   |
+| ----------------------------------- | ----------------------------------------------------- |
+| turn it on or off from a deployment | [`PUT /_ultimabase/maintenance`](#turn-it-on-and-off) |
+| start a new database in maintenance | [`initial: 'locked'`](#start-in-maintenance)          |
+| show a maintenance page             | [the 503 and `Retry-After`](#what-a-client-reads)     |
+| run a migration meanwhile           | [the master key](#master)                             |
+| turn it on from a plugin            | [`plugins.maintenance`](#pluginsmaintenance)          |
+
+Every server follows, as the state is a row of the database. GraphQL and REST
+answer 503, and the WebSockets open close.
+
 ## Turn it on and off
 
-`PUT /_ultimabase/maintenance` turns it on with `{ "enabled": true }` and
-off with `{ "enabled": false }`. It takes the maintenance key, in
-`x-ultimabase-maintenance-key`, or the master key, in
-`x-ultimabase-master-key`; any other caller is refused:
+`PUT /_ultimabase/maintenance` turns it on with `{ "enabled": true }` and off
+with `{ "enabled": false }`. It answers 200 with the state as stored:
 
-<include cwd meta='title="src/app.test.ts"'>
-	../examples/maintenance/src/app.test.ts#switch
+<include cwd meta='title="Request"'>
+	../examples/maintenance/src/requests/turn-on.http
 </include>
 
-The maintenance key does nothing else: a request that sends it meets the
-503 as any other, and every route reads its caller as before. A deployment
-pipeline holds it, rather than the master key, which reads and changes
-every row. It follows the master key's rules: empty, it is unset; under
-`NODE_ENV=production`, the start refuses one under 32 characters, which
-`openssl rand -base64 32` gives.
+<include cwd meta='title="Response"'>
+	../examples/maintenance/src/requests/turn-on.json
+</include>
+
+The request takes the maintenance key, in `x-ultimabase-maintenance-key`, or
+the master key, in `x-ultimabase-master-key`. Any other caller is refused. The
+request above holds the maintenance key. The test sends it, and sends
+`turn-off` the same way, with status 200.
+
+A deployment pipeline holds the maintenance key rather than the master key,
+which reads and changes every row. The key does nothing else, and follows the
+master key's rules:
+
+- Empty, it is unset.
+- Under `NODE_ENV=production`, the start refuses one under 32 characters.
+  `openssl rand -base64 32` gives a good one.
+- A request that sends it meets the 503 as any other, and every route reads
+  its caller as before.
 
 ## Start in maintenance
 
 `initial: 'locked'` starts the application in maintenance while no state is
-stored, as on a new database or one restored from a backup. A stored state
-always wins, and the start writes none. The plugin reads no environment
-variable: the application passes `initial` from its own.
+stored, as on a new database or one restored from a backup.
 
-A server that cannot read the state as it starts fails its start rather
-than guess. Until every plugin started, the HTTP plugin answers every
-request 503 `UNAVAILABLE`, Master's too, so no request is served before the
-state is read.
+- A stored state always wins, and the start writes none.
+- `initial` is read from no environment variable: the application passes it
+  from its own.
 
 ## What a client reads
 
-While it is on, every request answers 503 with `Retry-After`, in seconds,
-and the code `MAINTENANCE`. A client that shows a maintenance page sends
-any request, as `{ __typename }` to GraphQL, and reads both:
+While it is on, every request answers 503 with the code `MAINTENANCE`, and
+`Retry-After` in seconds. A client that shows a maintenance page sends any
+request, as `{ __typename }` to GraphQL, and reads both:
 
-<include cwd meta='title="src/app.test.ts"'>
-	../examples/maintenance/src/app.test.ts#on
+<include cwd meta='title="Request"'>
+	../examples/maintenance/src/requests/ping.graphql
 </include>
 
-The WebSockets open close with 1012, Service Restart: a graphql-ws client
-tries again, meets the 503 and stops. A browser reads the 503 too, as
-CORS's headers come with it; preflights still pass.
+<include cwd meta='title="Response"'>
+	../examples/maintenance/src/requests/ping.json
+</include>
 
-`/health` and `/ready` answer as before: the load balancer keeps the
-servers, and the clients read the maintenance's answer rather than the
-load balancer's.
+The response's header is `Retry-After: 120`, as `retryAfter` is 120 000
+milliseconds. The test sends the request while the maintenance is on.
+
+- The WebSockets open close with 1012, Service Restart: a graphql-ws client
+  tries again, meets the 503 and stops.
+- A browser reads the 503 too, as CORS's headers come with it. Preflights
+  still pass.
+- `/health` and `/ready` answer as before: the load balancer keeps the
+  servers, and the clients read the maintenance's answer rather than the load
+  balancer's.
 
 ## Master
 
-A request with the master key is served as usual, during maintenance too:
+A request with the master key is served as usual, during maintenance too, for
+the migration's scripts and the admin. The key goes in `x-ultimabase-master-key`,
+and is accepted outside production only: a plain string key is refused there
+with `The master key is refused in production.`
 
-<include cwd meta='title="src/app.test.ts"'>
-	../examples/maintenance/src/app.test.ts#master
+The `Post` model has a `title`, which every client reads. No rule opens a
+create, so only Master writes one:
+
+<include cwd meta='title="Request"'>
+	../examples/maintenance/src/requests/migrate.graphql
 </include>
+
+<include cwd meta='title="Response"'>
+	../examples/maintenance/src/requests/migrate.json
+</include>
+
+The test sends it with the header `x-ultimabase-master-key`, and the answer is
+200, as if the maintenance were off.
+
+## Details
+
+- A server that cannot read the state as it starts fails its start rather than
+  guess.
+- Until every plugin started, the HTTP plugin answers every request 503
+  `UNAVAILABLE`, Master's too, so no request is served before the state is
+  read.
 
 ## Reference
 

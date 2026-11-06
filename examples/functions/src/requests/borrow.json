@@ -1,0 +1,5 @@
+{
+	"code": "ACCESS_DENIED",
+	"message": "borrowBook refused.",
+	"details": { "function": "borrowBook" }
+}

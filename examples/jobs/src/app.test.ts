@@ -13,16 +13,14 @@ const day = 24 * 60 * minute
 const ended = (days: number) => new Date(Date.now() - days * day)
 
 //#region clock
-// Before the application starts: its recurring jobs are due from now.
 beforeEach(() => {
-	// Fakes the date alone, so the timers still run.
+	// Before the application starts: its recurring jobs are due from now.
 	vi.useFakeTimers({ toFake: ['Date'] })
 	vi.setSystemTime(new Date('2027-01-04T08:00:00Z'))
 })
 afterEach(() => {
 	vi.useRealTimers()
 })
-
 testApplication(app)
 //#endregion
 
@@ -34,11 +32,9 @@ beforeEach(() => {
 it('closes the room ten minutes after the call ends', async () => {
 	//#region run
 	const call = await Call.create({ data: { room: 'standup' } }, { as: master })
-	await Call.update(
-		{ where: { id: call.id }, data: { endedAt: new Date() } },
-		{ as: master },
-	)
-	// Runs what is due now, and what those runs enqueue: nothing yet.
+	const ending = { where: { id: call.id }, data: { endedAt: new Date() } }
+	await Call.update(ending, { as: master })
+	// Runs what is due now: the room stays open ten minutes.
 	await runJobs()
 	expect(closedRooms).toEqual([])
 

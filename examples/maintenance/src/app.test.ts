@@ -1,66 +1,45 @@
 // Turns the maintenance on and off as a deployment pipeline would, and reads
-// it as a client does, each test on a new in-memory database.
+// it as a client does, each test on a new in-memory database. The requests
+// are the files of requests/, shown on the page (D-282).
 import { testApplication } from '@ultimabase/testing'
 import { expect, it } from 'vitest'
+import { requestFiles } from '../../../scripts/requests.ts'
 import { app } from './app.ts'
 
 const running = testApplication(app)
+const { check } = requestFiles(new URL('requests/', import.meta.url), running)
 
-//#region switch
-/** Turns the maintenance on or off, with the maintenance key. */
-async function maintenance(enabled: boolean): Promise<Response> {
-	return fetch(`${running.url}/_ultimabase/maintenance`, {
-		method: 'PUT',
-		headers: {
-			'content-type': 'application/json',
-			'x-ultimabase-maintenance-key': 'dev-maintenance-key',
-		},
-		body: JSON.stringify({ enabled }),
-	})
-}
-//#endregion
+const master = { 'x-ultimabase-master-key': 'dev-master-key' }
 
-/** A GraphQL request, as a client sends it. */
-async function graphql(query: string, headers: object = {}) {
-	return fetch(`${running.url}/graphql`, {
-		method: 'POST',
-		headers: { 'content-type': 'application/json', ...headers },
-		body: JSON.stringify({ query }),
-	})
-}
+it('turns the maintenance on and off with the maintenance key', async () => {
+	await check('turn-on', {}, { status: 200 })
+	await check('turn-off', {}, { status: 200 })
+})
 
 it('answers 503 to the clients until it ends', async () => {
-	//#region on
-	const on = await maintenance(true)
-	expect(await on.json()).toEqual({ enabled: true })
+	await check('turn-on')
 
-	const response = await graphql('{ __typename }')
-	expect(response.status).toBe(503)
-	expect(response.headers.get('retry-after')).toBe('120')
-	expect(await response.json()).toEqual({
-		code: 'MAINTENANCE',
-		message: 'The application is under maintenance.',
-		details: { retryAfter: 120 },
+	await check('ping', {}, { status: 503 })
+	const response = await fetch(`${running.url}/graphql`, {
+		method: 'POST',
+		headers: { 'content-type': 'application/json' },
+		body: JSON.stringify({ query: '{ __typename }' }),
 	})
-	//#endregion
+	expect(response.headers.get('retry-after')).toBe('120')
 
-	await maintenance(false)
-	expect((await graphql('{ __typename }')).status).toBe(200)
+	await check('turn-off')
+	const after = await fetch(`${running.url}/graphql`, {
+		method: 'POST',
+		headers: { 'content-type': 'application/json' },
+		body: JSON.stringify({ query: '{ __typename }' }),
+	})
+	expect(after.status).toBe(200)
 })
 
 it('serves Master meanwhile', async () => {
-	await maintenance(true)
-	//#region master
-	const response = await graphql(
-		'mutation { createPost(data: { title: "Migrated" }) { title } }',
-		{
-			'x-ultimabase-master-key': 'dev-master-key',
-		},
-	)
-	expect(await response.json()).toEqual({
-		data: { createPost: { title: 'Migrated' } },
-	})
-	//#endregion
+	await check('turn-on')
+	const headers = { 'x-ultimabase-master-key': 'dev-master-key' }
+	await check('migrate', {}, { headers, status: 200 })
 })
 
 /** Turns the maintenance on, with `headers`. */
@@ -72,16 +51,24 @@ async function switching(headers: object): Promise<Response> {
 	})
 }
 
+/** A GraphQL request, as a client sends it. */
+async function graphql(headers: object = {}) {
+	return fetch(`${running.url}/graphql`, {
+		method: 'POST',
+		headers: { 'content-type': 'application/json', ...headers },
+		body: JSON.stringify({ query: '{ __typename }' }),
+	})
+}
+
 it('turns on with the maintenance key or the master key only', async () => {
 	expect((await switching({})).status).toBe(403)
-	expect((await graphql('{ __typename }')).status).toBe(200)
-	const master = { 'x-ultimabase-master-key': 'dev-master-key' }
+	expect((await graphql()).status).toBe(200)
 	expect((await switching(master)).status).toBe(200)
 })
 
 it('lets the maintenance key through nothing else', async () => {
-	await maintenance(true)
-	const response = await graphql('{ __typename }', {
+	await check('turn-on')
+	const response = await graphql({
 		'x-ultimabase-maintenance-key': 'dev-maintenance-key',
 	})
 	expect(response.status).toBe(503)

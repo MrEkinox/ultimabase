@@ -1,0 +1,14 @@
+{
+	"errors": [
+		{
+			"message": "returnBooks refused.",
+			"locations": [{ "line": 2, "column": 2 }],
+			"path": ["giveBack"],
+			"extensions": {
+				"code": "ACCESS_DENIED",
+				"details": { "function": "returnBooks" }
+			}
+		}
+	],
+	"data": null
+}

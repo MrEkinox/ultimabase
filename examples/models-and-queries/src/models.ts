@@ -1,6 +1,5 @@
 // The catalog's model: one field of each type, an index, virtual fields and
 // a command.
-//#region model
 import { randomUUID } from 'node:crypto'
 import { graphql } from '@ultimabase/graphql'
 import { allow, defineModel, master, PublicError } from 'ultimabase'
@@ -8,16 +7,19 @@ import { z } from 'zod'
 import { text } from './presets.ts'
 import { Price, Status } from './types.ts'
 
+//#region commands-type
 interface ProductCommands {
 	/** Adds `count` items to a product's stock: the new stock. */
 	restock(id: string, count: number): Promise<number>
 }
+//#endregion
 
 export const Product = defineModel({
 	name: 'Product',
 	description: 'A product of the catalog.',
 	use: [graphql()],
 	fields: (f) => ({
+		//#region field-name
 		// Required unless `optional: true`; `search: true` makes it searchable.
 		name: f.string({
 			search: true,
@@ -30,31 +32,45 @@ export const Product = defineModel({
 				return name
 			},
 		}),
+		//#endregion
+		//#region field-sku
 		sku: f.string({
 			unique: true,
 			validate: z.string().regex(/^[A-Z]{3}-\d{3}$/u),
 			description: 'Three capitals, a dash and three digits.',
 		}),
+		//#endregion
+		//#region field-summary
 		// A preset of the app's: its options, completed in place.
 		summary: f.string({ ...text({ max: 280 }), optional: true }),
+		//#endregion
+		//#region field-price
 		// Exact: read and written as a string at its scale, '12.50'.
 		price: f.decimal({ precision: 10, scale: 2 }),
 		// Read by the server only.
 		cost: f
 			.decimal({ precision: 10, scale: 2, optional: true })
 			.with({ access: { read: allow.private } }),
+		//#endregion
+		//#region field-defaults
 		// A function computes the default when the write leaves it out.
 		reference: f.string({ unique: true, default: () => randomUUID() }),
 		stock: f.number({ integer: true, default: 0 }),
 		weight: f.number({ optional: true }),
 		available: f.boolean({ default: true }),
+		//#endregion
+		//#region field-dates
 		// A calendar day, '2026-07-31'; a dateTime is a Date.
 		releasedOn: f.date({ optional: true }),
 		restockedAt: f.dateTime({ optional: true }),
+		//#endregion
+		//#region field-lists
 		status: f.enumOf(Status, { default: 'draft' }),
 		// Lists are [] when empty.
 		sizes: f.enumOf(['S', 'M', 'L'], { list: true }),
 		keywords: f.string({ list: true }),
+		//#endregion
+		//#region field-json
 		// A schema types the JSON and validates it.
 		specs: f.json({
 			optional: true,
@@ -65,6 +81,8 @@ export const Product = defineModel({
 				finish: z.string().optional(),
 			}),
 		}),
+		//#endregion
+		//#region field-legacy
 		// The column keeps the name an older table gave it; clients see the
 		// field is deprecated.
 		legacyCode: f.string({
@@ -72,13 +90,17 @@ export const Product = defineModel({
 			dbName: 'old_code',
 			deprecated: 'Use sku.',
 		}),
+		//#endregion
+		//#region field-virtual
 		// Computed on read, from the fields `needs` lists.
 		label: f.virtual(z.string(), { needs: ['name', 'sku'] }),
 		priceIn: f.virtual(() => Price, {
 			input: z.object({ currency: z.enum(['EUR', 'USD']) }),
 			needs: ['price'],
 		}),
+		//#endregion
 	}),
+	//#region indexes
 	// Lists the products of a status by release day, fast.
 	indexes: [
 		{ fields: ['status', 'releasedOn'] },
@@ -87,7 +109,9 @@ export const Product = defineModel({
 		// One product of a name per release day, whatever its case.
 		{ fields: ['name', 'releasedOn'], unique: true, mode: 'insensitive' },
 	],
+	//#endregion
 })
+	//#region commands
 	// Server code only: no transport serves a command.
 	.commands<ProductCommands>(({ queries }) => ({
 		restock: async (id, count) => {
@@ -101,6 +125,8 @@ export const Product = defineModel({
 			return stock
 		},
 	}))
+	//#endregion
+	//#region virtuals
 	.with({
 		access: allow.public,
 		virtuals: {

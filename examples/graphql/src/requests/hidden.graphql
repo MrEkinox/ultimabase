@@ -1,0 +1,11 @@
+query {
+	post(where: { slug: "notes" }) {
+		revisions {
+			edges {
+				node {
+					text
+				}
+			}
+		}
+	}
+}

@@ -100,7 +100,9 @@ export function Hero() {
 					},
 					{
 						name: 'GraphQL',
-						code: <Example file="introduction/src/app.test.ts" region="read" />,
+						code: (
+							<Example file="introduction/src/requests/read-posts.graphql" />
+						),
 						result: (
 							<Result eyebrow="What a client reads" title="One post of two">
 								<Rows>
@@ -116,7 +118,7 @@ export function Hero() {
 					},
 					{
 						name: 'REST',
-						code: <Example file="introduction/src/app.test.ts" region="rest" />,
+						code: <Example file="introduction/src/requests/list-posts.http" />,
 						result: (
 							<Result eyebrow="GET /api/posts" title="The same post">
 								<Rows>
@@ -151,7 +153,7 @@ export function Hero() {
 					{
 						name: 'A write',
 						code: (
-							<Example file="introduction/src/app.test.ts" region="write" />
+							<Example file="introduction/src/requests/create-post.graphql" />
 						),
 						result: (
 							<Result eyebrow="What a client writes" title="Nothing">

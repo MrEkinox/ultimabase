@@ -32,3 +32,18 @@ export async function sendEmail(email: Email): Promise<void> {
 	outbox.push({ ...email, text: `Open ${link}` })
 }
 //#endregion
+
+//#region emailed
+/** The token of the latest email of `kind`, once `sendEmail` has it. */
+export async function emailed(
+	kind: 'reset' | 'verify' | 'emailChange',
+): Promise<string> {
+	for (let attempt = 0; attempt < 100; attempt += 1) {
+		const found = outbox.findLast((email) => email.kind === kind)
+		if (found !== undefined && 'token' in found) return found.token
+		// The emails go out after the function answers.
+		await new Promise((resolve) => setTimeout(resolve, 10))
+	}
+	throw new Error(`No ${kind} email was sent.`)
+}
+//#endregion

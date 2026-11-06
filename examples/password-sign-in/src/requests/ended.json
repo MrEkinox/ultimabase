@@ -1,0 +1,4 @@
+{
+	"code": "UNAUTHENTICATED",
+	"message": "The session expired or was revoked: sign in again."
+}

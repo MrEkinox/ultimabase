@@ -5,6 +5,7 @@ once published, and that only server code writes.
 
 - `src/models.ts`: the `Post` model.
 - `src/app.ts`: the application.
+- `src/requests/`: the requests and responses the page shows.
 - `src/app.test.ts`: the posts read and refused over GraphQL, read over
   REST and from server code.
 

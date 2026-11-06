@@ -1,0 +1,22 @@
+query {
+	posts(
+		where: {
+			status: { equals: published }
+			likes: { gte: 10 }
+			author: { is: { name: { startsWith: "A" } } }
+		}
+	) {
+		edges {
+			node {
+				title
+			}
+		}
+	}
+	people(where: { posts: { some: { likes: { lt: 5 } } } }) {
+		edges {
+			node {
+				name
+			}
+		}
+	}
+}

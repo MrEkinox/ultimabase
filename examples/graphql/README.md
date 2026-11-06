@@ -9,6 +9,8 @@ a function sets, the limits a client meets, and a field added with
 - `src/functions.ts`: two functions, one renamed and one hidden.
 - `src/schema.ts`: the fields `extend` adds.
 - `src/app.ts`: the application.
+- `src/requests/`: the requests and responses the page shows, each sent by
+  a test.
 - `src/app.test.ts`: the API used as a client would.
 - `src/list.ts` and `src/list.test.ts`: the same models with
   `pagination: 'list'`.

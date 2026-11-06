@@ -1,0 +1,16 @@
+mutation ($cover: JSON) {
+	createPost(data: { title: "Hello", cover: $cover }) {
+		cover {
+			id
+			name
+			type
+			size
+			inline {
+				size {
+					width
+					height
+				}
+			}
+		}
+	}
+}

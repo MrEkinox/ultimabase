@@ -1,0 +1,9 @@
+mutation ($input: SignUpInput!) {
+	signUp(input: $input) {
+		token
+		expiresAt
+		user {
+			name
+		}
+	}
+}

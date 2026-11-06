@@ -1,0 +1,9 @@
+mutation {
+	createPost(data: { title: "Hello" }) {
+		id
+		title
+		author {
+			name
+		}
+	}
+}

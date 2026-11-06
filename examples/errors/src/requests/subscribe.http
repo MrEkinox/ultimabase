@@ -1,0 +1,4 @@
+POST /api/functions/subscribe
+content-type: application/json
+
+{ "email": "ada@example.com" }

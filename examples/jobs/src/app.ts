@@ -8,7 +8,7 @@ import { outbox } from './services.ts'
 
 const day = 24 * 60 * 60 * 1000
 
-//#region recurring
+//#region every
 // Every hour from the start, in milliseconds.
 export const purgeCalls = defineJob({
 	name: 'purgeCalls',
@@ -21,7 +21,9 @@ export const purgeCalls = defineJob({
 		)
 	},
 })
+//#endregion
 
+//#region cron
 // At 3:00 each night in Paris, daylight saving included; UTC by default.
 export const nightlyReport = defineJob({
 	name: 'nightlyReport',

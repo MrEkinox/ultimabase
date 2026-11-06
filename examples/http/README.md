@@ -7,6 +7,7 @@ validated, and the answers the HTTP plugin gives by itself.
 - `src/models.ts`: the `Order` model.
 - `src/routes.ts`: the routes.
 - `src/app.ts`: the application.
+- `src/requests/`: the request and response files the page shows.
 - `src/app.test.ts`: the routes called as a client does, CORS, the body
   limit and the errors.
 

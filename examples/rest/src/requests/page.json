@@ -1,0 +1,13 @@
+{
+	"edges": [
+		{ "cursor": "…", "node": { "title": "Notes" } },
+		{ "cursor": "…", "node": { "title": "Plans" } }
+	],
+	"pageInfo": {
+		"hasNextPage": true,
+		"hasPreviousPage": false,
+		"startCursor": "…",
+		"endCursor": "…"
+	},
+	"totalCount": 3
+}

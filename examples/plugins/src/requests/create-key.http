@@ -1,0 +1,5 @@
+POST /rpc/apiKeys.createApiKey
+content-type: application/json
+x-ultimabase-master-key: dev-master-key
+
+{ "owner": "ada", "name": "CI" }

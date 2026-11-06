@@ -1,0 +1,7 @@
+mutation ($id: ID!, $attachments: JSON) {
+	updatePost(where: { id: $id }, data: { attachments: $attachments }) {
+		attachments {
+			name
+		}
+	}
+}

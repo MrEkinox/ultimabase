@@ -18,6 +18,16 @@ npm install -D @ultimabase/testing vitest
 
 The full example, with its tests: [`examples/testing`](https://github.com/MrEkinox/ultimabase/tree/main/examples/testing).
 
+| To                                       | Use                                                      |
+| ---------------------------------------- | -------------------------------------------------------- |
+| start each test without rows             | [`testApplication(app)`](#a-new-database-each-test)      |
+| act as a signed-in user                  | [`asUser({ id })`](#as-a-signed-in-user)                 |
+| call the API as a client                 | [`running.url`](#over-http)                              |
+| prove which queries a call makes         | [`running.queries(callback)`](#the-queries-a-test-makes) |
+| test on PostgreSQL                       | [`{ database: 'declared' }`](#on-postgresql)             |
+| test a plugin's `missed`                 | [`running.feed.missed()`](#lost-changes)                 |
+| empty the database between browser tests | [`POST /_ultimabase/reset`](#end-to-end-tests)           |
+
 The application starts as it is declared, its plugins and functions
 included, but without its info lines: warnings and errors still print.
 
@@ -39,62 +49,86 @@ access rules apply, as in the application.
 	../examples/testing/src/app.test.ts#as-user
 </include>
 
-`{ as: master }` skips the rules, to seed rows or read them all. Without
-`as`, the caller is anonymous.
+- `{ as: master }` skips the rules, to seed rows or read them all.
+- Without `as`, the caller is anonymous.
 
 ## Over HTTP
 
 `running.url` is the server's address during a test, such as
-`http://localhost:54321`: a test calls the API as a client does.
+`http://localhost:54321`: a test calls the API as a client does, here at
+`${running.url}/graphql`. The test first writes the note `Milk`, owned by
+`ada`. Without a session the caller is anonymous, so no note is its own and
+the list is empty:
 
-<include cwd meta='title="src/app.test.ts"'>
-	../examples/testing/src/app.test.ts#http
+<include cwd meta='title="Request"'>
+	../examples/testing/src/requests/notes.graphql
+</include>
+
+<include cwd meta='title="Response"'>
+	../examples/testing/src/requests/notes.json
 </include>
 
 ## The queries a test makes
 
 `running.queries(callback)` lists the queries the callback sends to the
-database, in their order: a test proves that a refusal reads nothing, or
-that a loop does not query once per row.
+database, in their order. A test proves that a refusal reads nothing:
+
+<include cwd meta='title="src/app.test.ts"'>
+	../examples/testing/src/app.test.ts#no-queries
+</include>
+
+Or that a loop does not query once per row. An entry names the operation
+and the model:
 
 <include cwd meta='title="src/app.test.ts"'>
 	../examples/testing/src/app.test.ts#queries
 </include>
 
-An entry names the operation and the model: `find`, `count`, `aggregate` or
-`write`, then `Note`; `exists` is a `find`. A write that changes several models names them all,
-as `write Invite, User`. The queries of a
-[transaction](/docs/next/transactions) are listed; its begin and its
-commit are not.
+- The operation is `find`, `count`, `aggregate` or `write`; `exists` is a
+  `find`.
+- A write that changes several models names them all, as
+  `write Invite, User`.
+- The queries of a [transaction](/docs/next/transactions) are listed; its
+  begin and its commit are not.
 
 ## On PostgreSQL
 
 `{ database: 'declared' }` runs the tests on the application's own
 database: on `postgres()`, in a schema of the test file's own, named
-`ultimabase_test_<random>`. The first test creates the tables in it, each
-later one starts with them emptied, and the schema is dropped after the
-file's last test. No other table is read or written.
+`ultimabase_test_<random>`.
 
 <include cwd meta='title="src/tasks.postgres.test.ts"'>
 	../examples/postgres/src/tasks.postgres.test.ts#declared
 </include>
 
-A test on PostgreSQL checks what `memory()` cannot: raw SQL, a
-constraint, the real column types. It is slower: keep most tests on
-`memory()`, and name these `*.postgres.test.ts` to run them apart.
+- A test writes a project with a task, deletes the project, and counts
+  no task left: the task goes with its project, as the model says.
+- The first test creates the tables in the schema, each later one starts
+  with them emptied, and the schema is dropped after the file's last test.
+- No other table is read or written.
+
+A test on PostgreSQL checks what `memory()` cannot: raw SQL, a constraint,
+the real column types. It is slower: keep most tests on `memory()`, and
+name these `*.postgres.test.ts` to run them apart.
 
 ## Lost changes
 
 A plugin that follows the [changes](/docs/next/plugins#follow-the-changes)
-reads again, in `missed`, what it may have lost after a lost connection:
+reads again, in `missed`, what it may have lost after a lost connection.
+This one counts the open tasks again:
 
-<include cwd meta='title="src/missed.postgres.test.ts"'>
-	../examples/postgres/src/missed.postgres.test.ts#plugin
+<include cwd meta='title="src/open-tasks.ts"'>
+	../examples/postgres/src/open-tasks.ts#plugin
 </include>
 
 `running.feed.missed()` calls each plugin's `missed`, as after a lost
-connection. On `postgres()`, `database.sql` writes a change the feed does not
-report, since the feed reports the writes of the API only:
+connection. On `postgres()`, `database.sql` writes a change the feed does
+not report, since the feed reports the writes of the API only. The
+application of the test:
+
+<include cwd meta='title="src/missed.postgres.test.ts"'>
+	../examples/postgres/src/missed.postgres.test.ts#missed-app
+</include>
 
 <include cwd meta='title="src/missed.postgres.test.ts"'>
 	../examples/postgres/src/missed.postgres.test.ts#missed
@@ -105,31 +139,35 @@ report, since the feed reports the writes of the API only:
 ## End-to-end tests
 
 A front end's end-to-end tests run against `ultimabase dev`.
-`POST /_ultimabase/reset` with the master key empties the database and
-answers 204: each test starts from no rows and seeds its own through the
-API.
+`POST /_ultimabase/reset` with the master key empties the database: each
+test starts from no rows and seeds its own through the API.
 
-<include cwd meta='title="src/app.test.ts"'>
-	../examples/testing/src/app.test.ts#reset
+<include cwd meta='title="Request"'>
+	../examples/testing/src/requests/reset.http
 </include>
 
-A [Playwright](https://playwright.dev) fixture sends the same request before
-each test, then seeds the test's rows with the master key.
+It answers 204 with no body. A [Playwright](https://playwright.dev) fixture
+sends the same request before each test, then seeds the test's rows with
+the master key.
 
-Every model's rows go, those of plugins included, as auth's users and
-sessions; the tables stay as `ultimabase dev` keeps them. No hook, cascade
-rule or soft delete runs, and stored files stay where their storage keeps
-them. Live reads read again, and find nothing.
+- Every model's rows go, those of plugins included, as auth's users and
+  sessions.
+- The tables stay as `ultimabase dev` keeps them.
+- No hook, cascade rule or soft delete runs, and stored files stay where
+  their storage keeps them.
+- Live reads read again, and find nothing.
 
-The previous test's page may still be connected and saving: the reset waits
-for the requests already running, holds the new ones until the database is
-empty, then lets them through. When requests still run after 5 seconds, it
-answers 500 `INTERNAL` and empties nothing; the server's log says how many
-were running.
-
-The [HTTP plugin](/docs/next/http) serves the route outside production only:
-under `ultimabase start` it answers 404, as any unknown path. Another
+The [HTTP plugin](/docs/next/http) serves the route outside production
+only: under `ultimabase start` it answers 404, as any unknown path. Another
 caller than Master gets 403 `ACCESS_DENIED`.
+
+## Details
+
+- The previous test's page may still be connected and saving: the reset
+  waits for the requests already running, and holds the new ones until the
+  database is empty, then lets them through.
+- When requests still run after 5 seconds, the reset answers 500 `INTERNAL`
+  and empties nothing; the server's log says how many were running.
 
 ## Reference
 

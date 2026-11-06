@@ -3,9 +3,11 @@
 // start.
 import { spawn } from 'node:child_process'
 import { randomBytes, randomUUID } from 'node:crypto'
-import { dirname } from 'node:path'
+import { readFile } from 'node:fs/promises'
+import { dirname, join } from 'node:path'
 import { Client } from 'pg'
 import { afterEach, beforeEach, expect, it } from 'vitest'
+import { requestFiles } from '../../../scripts/requests.ts'
 
 const [server = ''] = (
 	process.env['TEST_DATABASE_URL'] ??
@@ -89,6 +91,35 @@ async function ultimabase(
 	return { code, signal, output }
 }
 
+/**
+ * Runs each `$` line of requests/<name>.console, the block a page shows, and
+ * compares what it prints; `codes` holds the exit code of each.
+ */
+async function play(
+	name: string,
+	codes: readonly number[],
+	env: { readonly [name: string]: string } = {},
+): Promise<void> {
+	const file = join(import.meta.dirname, 'requests', `${name}.console`)
+	const steps = (await readFile(file, 'utf8')).split(/^\$ /mu).slice(1)
+	expect(steps).toHaveLength(codes.length)
+	for (const [index, step] of steps.entries()) {
+		const [line = '', ...printed] = step.split('\n')
+		const words = line.split(' ')
+		const start = words.indexOf('npx')
+		const set = words.slice(0, start).map((word): [string, string] => {
+			const [variable = '', value = ''] = word.split('=')
+			return [variable, value]
+		})
+		expect(words[start + 1]).toBe('ultimabase')
+		expect(
+			await ultimabase(words.slice(start + 2).join(' '), {
+				env: { ...env, ...Object.fromEntries(set) },
+			}),
+		).toMatchObject({ code: codes[index], output: printed.join('\n') })
+	}
+}
+
 const development = { NODE_ENV: 'development' }
 // Up to five processes start in turn: alone about 2 s each, more while the
 // whole suite measures coverage beside them.
@@ -97,39 +128,9 @@ const processes = 60_000
 it(
 	'refuses a production start before the migrations are deployed',
 	async () => {
-		//#region refused
-		expect(await ultimabase('start')).toMatchObject({
-			code: 1,
-			output:
-				'The database has no UltimaBase schema: run `npx ultimabase migrate deploy`, then start again.\n',
-		})
-		//#endregion
-		//#region unreachable
-		expect(
-			await ultimabase('start', { env: { DATABASE_URL: '' } }),
-		).toMatchObject({
-			code: 1,
-			output: 'postgres() was given no url: is the variable it reads set?\n',
-		})
-		expect(
-			await ultimabase('start', {
-				env: { DATABASE_URL: 'postgres://postgres@localhost:1/app' },
-			}),
-		).toMatchObject({
-			code: 1,
-			output:
-				'Cannot reach PostgreSQL at localhost:1 (ECONNREFUSED): is it running, and is its url right?\n',
-		})
-		//#endregion
-		//#region short-key
-		expect(
-			await ultimabase('start', { env: { MASTER_KEY: 'secret' } }),
-		).toMatchObject({
-			code: 1,
-			output:
-				'The master key is 6 characters long; production needs 32 at least: `openssl rand -base64 32` gives one.\n',
-		})
-		//#endregion
+		await play('start-no-schema', [1])
+		await play('start-unreachable', [1, 1])
+		await play('start-weak-key', [1])
 	},
 	processes,
 )
@@ -137,36 +138,9 @@ it(
 it(
 	'deploys the migrations, then serves the application on them',
 	async () => {
-		//#region status
 		// Exits 1 while a deploy has something to do.
-		expect(await ultimabase('migrate status')).toMatchObject({
-			code: 1,
-			output: [
-				'20261026200257_init.sql is pending.',
-				'20261029230454_add_priority.sql is pending.',
-				'20261029230505_first_tasks_urgent.sql is pending.',
-				'20261029230507_open_tasks_index.sql is pending.',
-				'',
-			].join('\n'),
-		})
-		//#endregion
-		//#region deploy
-		expect(await ultimabase('migrate deploy')).toMatchObject({
-			code: 0,
-			output: [
-				'Applied 20261026200257_init.sql.',
-				'Applied 20261029230454_add_priority.sql.',
-				'Applied 20261029230505_first_tasks_urgent.sql.',
-				'Applied 20261029230507_open_tasks_index.sql.',
-				'',
-			].join('\n'),
-		})
-		expect(await ultimabase('migrate status')).toMatchObject({
-			code: 0,
-			output: 'The database is up to date.\n',
-		})
-		//#endregion
-		//#region index
+		await play('migrate-status', [1])
+		await play('migrate-deploy', [0, 0])
 		// The index the migration without a transaction built.
 		expect(
 			await query(
@@ -177,43 +151,21 @@ it(
 			{ indexname: 'task_pkey' },
 			{ indexname: 'task_project_id_idx' },
 		])
-		//#endregion
 
-		//#region start
-		let body: unknown
 		const started = await ultimabase('start', {
 			// `openssl rand -base64 32` gives such a key.
 			env: { MASTER_KEY: randomBytes(32).toString('base64') },
 			use: async (url) => {
-				const response = await fetch(`${url}/graphql`, {
-					method: 'POST',
-					headers: { 'content-type': 'application/json' },
-					body: JSON.stringify({
-						query: `mutation { createProject(data: { name: "Launch",
-						tasks: { create: [{ title: "Write the README" }] } }) {
-						name tasks { edges { node { title done priority } } } } }`,
-					}),
+				const { check } = requestFiles(new URL('requests/', import.meta.url), {
+					url,
 				})
-				body = await response.json()
-			},
-		})
-		expect(body).toEqual({
-			data: {
-				createProject: {
-					name: 'Launch',
-					tasks: {
-						edges: [
-							{ node: { title: 'Write the README', done: false, priority: 0 } },
-						],
-					},
-				},
+				await check('create-project', {}, { status: 200 })
 			},
 		})
 		// SIGTERM finishes the requests under way, then stops it: it ends
 		// with 143, 128 plus SIGTERM's number.
 		expect(started.code).toBe(143)
 		expect(started.output).toContain('Application stopped.')
-		//#endregion
 	},
 	processes,
 )
@@ -221,42 +173,14 @@ it(
 it(
 	'syncs a development database, then rebuilds it from the migrations',
 	async () => {
-		//#region sync
+		// Logged, so one JSON line here and a readable one in a terminal.
 		const synced = await ultimabase('sync', { env: development })
 		expect(synced.code).toBe(0)
 		expect(synced.output).toContain("Created the database's tables.")
-		expect(await ultimabase('sync', { env: development })).toMatchObject({
-			code: 0,
-			output: 'The database already matches the models.\n',
-		})
-		//#endregion
-		//#region synced-deploy
+		await play('sync', [0], development)
 		// A deploy runs only on a database the migrations built.
-		expect(
-			await ultimabase('migrate deploy', { env: development }),
-		).toMatchObject({
-			code: 1,
-			output: [
-				'Development sync changed this database since its last deploy: deploy applies migrations only to a database they built.',
-				'Restore the dump you test on, or rebuild this database from the migrations with `npx ultimabase reset`.',
-				'',
-			].join('\n'),
-		})
-		//#endregion
-		//#region reset
-		expect(await ultimabase('reset', { env: development })).toMatchObject({
-			code: 0,
-			output: [
-				'Dropped project, task.',
-				'Applied 20261026200257_init.sql.',
-				'Applied 20261029230454_add_priority.sql.',
-				'Applied 20261029230505_first_tasks_urgent.sql.',
-				'Applied 20261029230507_open_tasks_index.sql.',
-				'',
-			].join('\n'),
-		})
-		//#endregion
-		//#region production
+		await play('deploy-after-sync', [1], development)
+		await play('reset', [0], development)
 		// In production, only a deploy changes the tables.
 		expect(await ultimabase('sync')).toMatchObject({
 			code: 1,
@@ -268,7 +192,6 @@ it(
 			output:
 				'reset rebuilds only a development database: it is refused in production.\n',
 		})
-		//#endregion
 	},
 	processes,
 )

@@ -1,0 +1,14 @@
+query {
+	people(first: 10) {
+		edges {
+			node {
+				posts(first: 3) {
+					totalCount
+					pageInfo {
+						hasNextPage
+					}
+				}
+			}
+		}
+	}
+}

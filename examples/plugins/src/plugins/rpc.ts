@@ -62,6 +62,8 @@ const definition = definePlugin<Rpc>({
 				return sent(c.json({ output: output ?? null }))
 			})
 		}
+		//#endregion
+		//#region api-list
 		// The list of functions, for a developer on this machine only.
 		app.get(base, (c) =>
 			isLocalHost(new URL(c.req.url).hostname) ? c.json(names) : c.notFound(),

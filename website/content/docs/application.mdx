@@ -24,7 +24,13 @@ Each model is a table: `defineModel` names it and declares its fields, then
 `.with()` adds what reads its typed rows, its access rules and its hooks.
 
 <include cwd meta='title="src/models.ts"'>
-	../examples/functions-and-hooks/src/models.ts#models
+	../examples/functions-and-hooks/src/models.ts#product
+</include>
+
+An order takes from the stock, in its own transaction:
+
+<include cwd meta='title="src/models.ts"'>
+	../examples/functions-and-hooks/src/models.ts#order
 </include>
 
 The full example, with its tests: [`examples/functions-and-hooks`](https://github.com/MrEkinox/ultimabase/tree/main/examples/functions-and-hooks).
@@ -71,22 +77,33 @@ Both find `ultimabase.config.ts` in the directory they run in, or
 file. The application lives in `src/app.ts`, apart from the file
 that starts it, so a test imports it without starting it.
 
-`ultimabase dev` loads the `.env` file beside the config, as
-`DATABASE_URL=postgres://localhost/app`; a variable already set keeps its
-value, and a change to the file restarts the application. `ultimabase start`
-never reads it: in production, the host sets the environment.
+### The `.env` file
 
-`npx ultimabase generate` writes the files the plugins generate, as the
-GraphQL plugin's [schema file](/docs/next/graphql#a-schema-file-for-clients),
-without starting the application: it reads the config and the `.env`, and
-needs no database. It prints `Wrote <path>.` for each file whose content
-changed. `--check` writes nothing, names each file out of date, and exits 1
-when one is, for CI. `ultimabase dev` writes the same files as it starts.
+- `ultimabase dev` loads the `.env` file beside the config, as
+  `DATABASE_URL=postgres://localhost/app`.
+- A variable already set keeps its value, and a change to the file restarts the
+  application.
+- `ultimabase start` never reads it: in production, the host sets the
+  environment.
 
-`app.start()` starts the database, then each plugin; the HTTP plugin listens
-on `PORT`, or 3000. `app.stop()` stops the plugins in reverse order, waits
-for the operations still running, then closes the database; a `SIGTERM`
-calls it.
+### Generated files
+
+`npx ultimabase generate` writes the files the plugins generate, as the GraphQL
+plugin's [schema file](/docs/next/graphql#a-schema-file-for-clients), without
+starting the application.
+
+- It reads the config and the `.env`, and needs no database.
+- It prints `Wrote <path>.` for each file whose content changed.
+- `--check` writes nothing, names each file out of date, and exits 1 when one
+  is, for CI.
+- `ultimabase dev` writes the same files as it starts.
+
+### Start and stop
+
+- `app.start()` starts the database, then each plugin; the HTTP plugin listens
+  on `PORT`, or 3000.
+- `app.stop()` stops the plugins in reverse order, waits for the operations
+  still running, then closes the database; a `SIGTERM` calls it.
 
 ## Reference
 

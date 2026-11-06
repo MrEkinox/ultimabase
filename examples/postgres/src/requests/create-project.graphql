@@ -1,0 +1,16 @@
+mutation {
+	createProject(
+		data: { name: "Launch", tasks: { create: [{ title: "Write the README" }] } }
+	) {
+		name
+		tasks {
+			edges {
+				node {
+					title
+					done
+					priority
+				}
+			}
+		}
+	}
+}

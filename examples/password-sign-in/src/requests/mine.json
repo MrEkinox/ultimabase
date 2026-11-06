@@ -1,0 +1,5 @@
+{
+	"data": {
+		"posts": { "edges": [{ "node": { "author": { "name": "Ada" } } }] }
+	}
+}

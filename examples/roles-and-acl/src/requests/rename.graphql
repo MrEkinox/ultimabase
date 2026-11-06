@@ -1,0 +1,5 @@
+mutation ($note: ID!) {
+	updateNote(where: { id: $note }, data: { title: "Mine" }) {
+		title
+	}
+}

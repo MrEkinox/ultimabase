@@ -4,7 +4,7 @@ import { httpPlugin } from '@ultimabase/http'
 import { softDeletePlugin } from '@ultimabase/soft-delete'
 import { defineApp, memory } from 'ultimabase'
 import { restorePost, trash } from './functions.ts'
-import { Post } from './models.ts'
+import { Post, Tag } from './models.ts'
 
 export const app = defineApp({
 	// Kept in memory, so the example needs no database.
@@ -13,6 +13,6 @@ export const app = defineApp({
 	// Listens on PORT, or 3000.
 	plugins: [httpPlugin(), graphqlPlugin(), softDeletePlugin()],
 	//#endregion
-	models: [Post],
+	models: [Post, Tag],
 	functions: [trash, restorePost],
 })

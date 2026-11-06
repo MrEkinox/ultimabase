@@ -1,0 +1,1 @@
+GET /api/posts?where={"status":{"equals":"published"},"likes":{"gte":10},"author":{"is":{"name":{"startsWith":"A"}}}}&select={"title":true}

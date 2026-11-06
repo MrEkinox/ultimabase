@@ -1,0 +1,3 @@
+$ npx ultimabase migrate deploy
+Development sync changed this database since its last deploy: deploy applies migrations only to a database they built.
+Restore the dump you test on, or rebuild this database from the migrations with `npx ultimabase reset`.

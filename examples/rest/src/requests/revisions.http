@@ -1,0 +1,1 @@
+GET /api/posts/$id?select={"revisions":{"select":{"text":true}}}

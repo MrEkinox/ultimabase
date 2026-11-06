@@ -3,25 +3,36 @@ title: Jobs
 description: Run code once a write commits, after a delay, or on a schedule, retried until it succeeds, on every server.
 ---
 
-`@ultimabase/jobs` runs code outside the request that asked for it. A run
-is a row of the database, written in the write's transaction: it exists if
-and only if the write committed, a crash or a restart does not lose it, and
-it is retried until it succeeds. A job can also run every few minutes, or
-on a cron pattern in a time zone. Every server runs the jobs, and each run
-on one server at a time.
+`@ultimabase/jobs` runs code outside the request that asked for it, retried
+until it succeeds.
 
 ```npm
 npm install @ultimabase/jobs
 ```
 
-A job takes a name, the input its runs take, and the function that runs
-them:
+A job takes a name, the input its runs take, and the function that runs them:
 
 <include cwd meta='title="src/models.ts"'>
 	../examples/jobs/src/models.ts#job
 </include>
 
 The full example, with its tests: [`examples/jobs`](https://github.com/MrEkinox/ultimabase/tree/main/examples/jobs).
+
+| To                                   | Use                                           |
+| ------------------------------------ | --------------------------------------------- |
+| run code once a write commits        | [`enqueue`](#enqueue-a-run)                   |
+| run it later                         | [`enqueue(input, { after })`](#enqueue-a-run) |
+| retry a failure, or run twice safely | [`id`, the idempotency key](#once-or-more)    |
+| run every hour                       | [`every`](#recurring-jobs)                    |
+| run at 3:00 each night               | [`cron` and `timeZone`](#recurring-jobs)      |
+| start the jobs                       | [`jobsPlugin()`](#the-plugin)                 |
+| run the jobs in a test               | [`runJobs()`](#in-a-test)                     |
+
+A run is a row of the database, written in the write's transaction:
+
+- It exists if and only if the write committed.
+- A crash or a restart does not lose it.
+- Every server runs the jobs, and each run on one server at a time.
 
 ## Enqueue a run
 
@@ -34,10 +45,11 @@ rollback. `after` delays it, in milliseconds:
 	../examples/jobs/src/models.ts#enqueue
 </include>
 
-A run due now starts as its transaction commits, on the server that wrote
-it; a delayed run starts within five seconds of its due time, on whichever
-server finds it first. An invalid input is refused with
-`VALIDATION_FAILED`, as a function's, and no run is written.
+- A run due now starts as its transaction commits, on the server that wrote it.
+- A delayed run starts within five seconds of its due time, on whichever
+  server finds it first.
+- An invalid input is refused with `VALIDATION_FAILED`, as a function's, and
+  no run is written.
 
 A `*Commit` [hook](/docs/next/hooks) runs once too, but in memory: a crash
 before it ends loses it, and it never runs again. A job is for what must
@@ -46,32 +58,39 @@ happen, even after a crash.
 ## Once or more
 
 A run that throws runs again 10 seconds later, then twice as long each time.
-After ten attempts, about 2 h 50 min, its row turns `failed` and is kept,
-with its last error, for someone to read.
+After ten attempts, about 2 h 50 min, its row turns `failed` and is kept, with
+its last error, for someone to read.
 
-A run may also run twice: a server that crashes mid-run leaves it to
-another five minutes later. A job that calls another service passes `id`,
-the run's, as its idempotency key, or checks the state it changes. A run is
-never cancelled: the job reads what is still true, as whether the call is
-still over, when it runs.
+A run may also run twice: a server that crashes mid-run leaves it to another
+five minutes later. So:
+
+- A job that calls another service passes `id`, the run's, as its idempotency
+  key, as `closeRoom` does above, or checks the state it changes.
+- A run is never cancelled: the job reads what is still true when it runs, as
+  whether the call is still over.
 
 ## Recurring jobs
 
-A job with `every` runs every few milliseconds from the start; one with
-`cron` runs on a five-field pattern, minute, hour, day of the month, month
-and day of the week, in `timeZone`, UTC by default:
+A job with `every` runs every few milliseconds from the start:
 
 <include cwd meta='title="src/app.ts"'>
-	../examples/jobs/src/app.ts#recurring
+	../examples/jobs/src/app.ts#every
 </include>
 
-A recurring job takes no input and is never enqueued. Each has one row,
-holding its next due time, so each occurrence runs on one server. While no
-server ran, missed occurrences run once, not once each. A failure is
-logged at `error`, and the next occurrence runs as planned.
+One with `cron` runs on a five-field pattern, minute, hour, day of the month,
+month and day of the week, in `timeZone`, UTC by default:
 
-Across daylight saving, a time the clocks skip runs at the first time after
-the gap, and a time they repeat runs once.
+<include cwd meta='title="src/app.ts"'>
+	../examples/jobs/src/app.ts#cron
+</include>
+
+- A recurring job takes no input and is never enqueued.
+- Each has one row, holding its next due time, so each occurrence runs on one
+  server.
+- While no server ran, missed occurrences run once, not once each.
+- A failure is logged at `error`, and the next occurrence runs as planned.
+- Across daylight saving, a time the clocks skip runs at the first time after
+  the gap, and a time they repeat runs once.
 
 ## The plugin
 
@@ -81,16 +100,17 @@ the gap, and a time they repeat runs once.
 	../examples/jobs/src/app.ts#plugins
 </include>
 
-At start, it writes the rows of new recurring jobs, re-times those whose
-schedule changed, and deletes those of jobs no longer declared. Stopping,
-a server waits for the runs it started.
+- At start, it writes the rows of new recurring jobs, re-times those whose
+  schedule changed, and deletes those of jobs no longer declared.
+- Stopping, a server waits for the runs it started.
 
 ## In a test
 
-`runJobs()`, from `@ultimabase/testing`, runs every run due now, and the
-runs they enqueue, as the servers would. The clock decides what is due:
-`vi.useFakeTimers({ toFake: ['Date'] })` moves the date alone, before the
-application starts, so the recurring jobs are due from it:
+`runJobs()`, from `@ultimabase/testing`, runs every run due now, and the runs
+they enqueue, as the servers would. The clock decides what is due.
+`vi.useFakeTimers({ toFake: ['Date'] })` moves the date alone, so the timers
+still run, before the application starts, so the recurring jobs are due from
+it:
 
 <include cwd meta='title="src/app.test.ts"'>
 	../examples/jobs/src/app.test.ts#clock

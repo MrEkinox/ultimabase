@@ -1,8 +1,8 @@
-// The application: a GraphQL API over HTTP on the articles.
+// The application: a GraphQL API over HTTP on the articles and comments.
 import { graphqlPlugin } from '@ultimabase/graphql'
 import { httpPlugin } from '@ultimabase/http'
 import { defineApp, memory } from 'ultimabase'
-import { Article } from './models.ts'
+import { Article, Comment } from './models.ts'
 import { Person, Project, Task } from './projects.ts'
 
 export const app = defineApp({
@@ -10,5 +10,5 @@ export const app = defineApp({
 	database: memory(),
 	// Listens on PORT, or 3000.
 	plugins: [httpPlugin(), graphqlPlugin()],
-	models: [Article, Person, Project, Task],
+	models: [Article, Comment, Person, Project, Task],
 })

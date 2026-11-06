@@ -1,0 +1,11 @@
+{
+	"data": {
+		"createProduct": {
+			"price": "39.90",
+			"status": "published",
+			"specs": { "color": "black", "materials": ["steel"] },
+			"label": "Desk lamp (LMP-001)",
+			"priceIn": { "amount": "43.89", "currency": "USD" }
+		}
+	}
+}

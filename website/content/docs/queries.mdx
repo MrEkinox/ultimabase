@@ -3,21 +3,40 @@ title: Queries
 description: Read, filter, sort, page, count, aggregate, search and write many rows from server code.
 ---
 
-Each model has its queries: `Product.findMany`, `Product.create`… They take
-an object of arguments, then `{ as }`, the caller whose access rules apply.
-The rows come back typed from the arguments: a `select` returns the fields
-it names, no more.
+Each model has its queries: `Product.findMany`, `Product.create`… They take an
+object of arguments, then `{ as }`, the caller whose access rules apply.
 
-<include cwd meta='title="src/queries.test.ts"'>
-	../examples/models-and-queries/src/queries.test.ts#seed
+<include cwd meta='title="src/stock.ts"'>
+	../examples/models-and-queries/src/stock.ts#low-stock
 </include>
 
 The full example, with its tests: [`examples/models-and-queries`](https://github.com/MrEkinox/ultimabase/tree/main/examples/models-and-queries).
 
-The examples run as Master, which every rule allows; a function or a hook
-passes its own `caller`. See [Access rules](/docs/next/access). The
-transports take the same arguments: see [GraphQL](/docs/next/graphql) and
-[REST](/docs/next/rest).
+- The rows come back typed from the arguments: a `select` returns the fields
+  it names, no more.
+- The examples run as Master, which every rule allows. A function or a hook
+  passes its own `caller`: see [Access rules](/docs/next/access).
+- The transports take the same arguments: see [GraphQL](/docs/next/graphql) and
+  [REST](/docs/next/rest).
+
+The examples below read four products:
+
+| Name       | `sku`     | `price` | `stock` | `status`    | `keywords`    | `releasedOn` |
+| ---------- | --------- | ------- | ------- | ----------- | ------------- | ------------ |
+| Desk lamp  | `LMP-001` | 39.90   | 5       | `published` | light, office | 2026-03-01   |
+| Floor lamp | `LMP-002` | 89.00   | 0       | `published` | light         | 2026-05-10   |
+| Mug        | `MUG-001` | 12.00   | 40      | `draft`     | kitchen       | none         |
+| Teapot     | `TEA-001` | 24.50   | 12      | `archived`  | kitchen       | none         |
+
+| To                                | Use                                                     |
+| --------------------------------- | ------------------------------------------------------- |
+| keep some rows                    | [`where`](#filter)                                      |
+| order rows, take a page           | [`orderBy`, `skip`, `take`, `cursor`](#sort-and-page)   |
+| get one row                       | [`findUnique`, `findFirst`](#find-one-row)              |
+| get some fields                   | [`select`, `omit`](#choose-the-fields)                  |
+| find words in the text fields     | [`_search`](#search)                                    |
+| count, total, group               | [`count`, `aggregate`, `groupBy`](#count-and-aggregate) |
+| write, update or delete many rows | [`createMany`, `updateMany`…](#write-many-rows)         |
 
 ## Filter
 
@@ -28,46 +47,96 @@ equality; an object holds operators:
 	../examples/models-and-queries/src/queries.test.ts#where
 </include>
 
-A field left `undefined` filters nothing, so an optional argument can pass
-straight through. A relation filters by its target's fields: see
-[Relations](/docs/next/relations).
+A string and a day:
+
+<include cwd meta='title="src/queries.test.ts"'>
+	../examples/models-and-queries/src/queries.test.ts#where-string
+</include>
+
+A list, and a number:
+
+<include cwd meta='title="src/queries.test.ts"'>
+	../examples/models-and-queries/src/queries.test.ts#where-list
+</include>
+
+`AND`, `OR` and `NOT` combine filters:
+
+<include cwd meta='title="src/queries.test.ts"'>
+	../examples/models-and-queries/src/queries.test.ts#where-logic
+</include>
+
+- A field left `undefined` filters nothing, so an optional argument can pass
+  straight through.
+- A relation filters by its target's fields: see
+  [Relations](/docs/next/relations).
+- Every operator is in the [filters table](#filters).
 
 ## Sort and page
 
 `orderBy` takes a field and `'asc'` or `'desc'`, or a list of them, the first
-deciding. Without it, rows come in `id` order, which is the order they were
-created in. `skip` leaves rows out, `take` keeps at most that many:
+deciding. `skip` leaves rows out, `take` keeps at most that many:
 
 <include cwd meta='title="src/queries.test.ts"'>
 	../examples/models-and-queries/src/queries.test.ts#order
 </include>
 
-A `cursor` names a unique row the page starts at: `skip: 1` starts after it,
-and a negative `take` reads the rows before it.
+- Without `orderBy`, rows come in `id` order, which is the order they were
+  created in.
+- An optional field's `null`s sort last when ascending. `{ sort, nulls }`
+  places them:
+
+<include cwd meta='title="src/queries.test.ts"'>
+	../examples/models-and-queries/src/queries.test.ts#order-nulls
+</include>
+
+A `cursor` names a unique row the page starts at. Read a first page, and keep
+its last row:
 
 <include cwd meta='title="src/queries.test.ts"'>
 	../examples/models-and-queries/src/queries.test.ts#cursor
 </include>
 
+`skip: 1` starts the next page after that row. A negative `take` reads the
+rows before the cursor.
+
+<include cwd meta='title="src/queries.test.ts"'>
+	../examples/models-and-queries/src/queries.test.ts#cursor-next
+</include>
+
 ## Find one row
 
-`findUnique` takes a unique `where`: the `id`, a unique field, or the fields
-of a unique index together. `findFirst` takes any `where` and returns the
-first row in its order. Both return `null` when nothing matches; their
-`OrThrow` forms fail with `NOT_FOUND`.
+`findUnique` takes a unique `where`: the `id`, a unique field, or the fields of
+a unique index together.
 
 <include cwd meta='title="src/queries.test.ts"'>
 	../examples/models-and-queries/src/queries.test.ts#unique
 </include>
 
+<include cwd meta='title="src/queries.test.ts"'>
+	../examples/models-and-queries/src/queries.test.ts#unique-index
+</include>
+
+`findFirst` takes any `where` and returns the first row in its order. Both
+return `null` when nothing matches. Their `OrThrow` forms fail with
+`NOT_FOUND`:
+
+<include cwd meta='title="src/queries.test.ts"'>
+	../examples/models-and-queries/src/queries.test.ts#find-first
+</include>
+
 ## Choose the fields
 
-`select` returns the fields it names; `omit` returns all but those. A read
-returns every stored field by default, relations only when `include` or
-`select` names them.
+A read returns every stored field by default, and relations only when
+`include` or `select` names them. `select` returns the fields it names:
 
 <include cwd meta='title="src/queries.test.ts"'>
 	../examples/models-and-queries/src/queries.test.ts#select
+</include>
+
+`omit` returns all but the fields it names:
+
+<include cwd meta='title="src/queries.test.ts"'>
+	../examples/models-and-queries/src/queries.test.ts#omit
 </include>
 
 ## Search
@@ -79,25 +148,39 @@ returns every stored field by default, relations only when `include` or
 	../examples/models-and-queries/src/queries.test.ts#search
 </include>
 
-Words are lowered, without stems: `lamps` does not find `lamp`.
-`postgres({ searchLanguage: 'english' })` stems them with PostgreSQL's
-configuration of that name.
+- Words are lowered, without stems: `lamps` does not find `lamp`.
+- `postgres({ searchLanguage: 'english' })` stems them with PostgreSQL's
+  configuration of that name.
 
 ## Count and aggregate
 
-`count` counts the rows of a `where`; `exists` says whether there is one, and
-reads at most one. `aggregate` computes `_count`, `_sum`, `_avg`, `_min` and
-`_max` of the rows the caller reads:
+`count` counts the rows of a `where`. `exists` says whether there is one, and
+reads at most one:
+
+<include cwd meta='title="src/queries.test.ts"'>
+	../examples/models-and-queries/src/queries.test.ts#count
+</include>
+
+`aggregate` computes `_count`, `_sum`, `_avg`, `_min` and `_max` of the rows the
+caller reads:
 
 <include cwd meta='title="src/queries.test.ts"'>
 	../examples/models-and-queries/src/queries.test.ts#aggregate
 </include>
 
-`groupBy` computes them per group of `by`'s values; `having` keeps the groups
+<include cwd meta='title="src/queries.test.ts"'>
+	../examples/models-and-queries/src/queries.test.ts#aggregate-range
+</include>
+
+`groupBy` computes them per group of `by`'s values. `having` keeps the groups
 whose values or aggregates match:
 
 <include cwd meta='title="src/queries.test.ts"'>
 	../examples/models-and-queries/src/queries.test.ts#group-by
+</include>
+
+<include cwd meta='title="src/queries.test.ts"'>
+	../examples/models-and-queries/src/queries.test.ts#group-by-rows
 </include>
 
 `distinct` keeps, of the rows with the same values, the first in the read's
@@ -107,23 +190,61 @@ order:
 	../examples/models-and-queries/src/queries.test.ts#distinct
 </include>
 
-`exists`, `aggregate` and `groupBy` are for server code; the transports do
-not expose them. A field with its own read rule is aggregated by Master only.
+<include cwd meta='title="src/queries.test.ts"'>
+	../examples/models-and-queries/src/queries.test.ts#distinct-rows
+</include>
+
+- `exists`, `aggregate` and `groupBy` are for server code: the transports do
+  not expose them.
+- A field with its own read rule is aggregated by Master only.
 
 ## Write many rows
 
-`createMany`, `updateMany` and `deleteMany` return `{ count }`; each writes
-all its rows or none. `createManyAndReturn` and `updateManyAndReturn` return
-the rows instead. `upsert` updates the row its unique `where` finds, or
-creates it:
+`createMany`, `updateMany` and `deleteMany` return `{ count }`. Each writes all
+its rows or none.
 
 <include cwd meta='title="src/queries.test.ts"'>
-	../examples/models-and-queries/src/queries.test.ts#bulk
+	../examples/models-and-queries/src/queries.test.ts#create-many
 </include>
 
-`updateMany` writes no relation, and `createMany` no nested row. Each row's
-access rules and hooks run as for one write. To write several models
-together, see [Transactions](/docs/next/transactions).
+<include cwd meta='title="src/queries.test.ts"'>
+	../examples/models-and-queries/src/queries.test.ts#update-many
+</include>
+
+<include cwd meta='title="src/queries.test.ts"'>
+	../examples/models-and-queries/src/queries.test.ts#delete-many
+</include>
+
+`createManyAndReturn` and `updateManyAndReturn` return the rows instead:
+
+<include cwd meta='title="src/queries.test.ts"'>
+	../examples/models-and-queries/src/queries.test.ts#return-rows
+</include>
+
+`upsert` updates the row its unique `where` finds, or creates it:
+
+<include cwd meta='title="src/queries.test.ts"'>
+	../examples/models-and-queries/src/queries.test.ts#upsert
+</include>
+
+- `updateMany` writes no relation, and `createMany` no nested row.
+- Each row's access rules and hooks run as for one write.
+- To write several models together, see
+  [Transactions](/docs/next/transactions).
+
+## Details
+
+- `skip` and `take` are whole numbers; `distinct` takes no `cursor`.
+- A `where` or a `having` nests at most 32 levels, for every caller: each
+  `AND`, `OR` and `NOT` item and each relation filter is one level deeper.
+  The 33rd is refused: `where.NOT.….NOT: the filter is nested more than 32
+levels deep.`
+- `aggregate` takes the fields a sort takes; `groupBy` and `distinct` take
+  them and the `one` relations.
+- `null` never compares: `{ stock: { lt: 10 } }` and its `NOT` both leave out a
+  row without a stock.
+- A `contains` filter on a large table needs an index with `contains: true`:
+  see [Models and fields](/docs/next/models#indexes).
 
 ## Reference
 
@@ -166,10 +287,6 @@ query, every model command and `fn.run`.
 | `many` relation                 | `some`, `every`, `none`; `viewer` to the user model                                           |
 | the row                         | `AND`, `OR`, `NOT`, `_search`                                                                 |
 
-`null` never compares: `{ stock: { lt: 10 } }` and its `NOT` both leave out a
-row without a stock. A `contains` filter on a large table needs an index
-with `contains: true`: see [Models and fields](/docs/next/models).
-
 ### Sorts
 
 | Sort                               | Effect                                                                           |
@@ -189,13 +306,3 @@ with `contains: true`: see [Models and fields](/docs/next/models).
 
 A client's query refused as `INVALID_QUERY` answers `BAD_USER_INPUT`, a
 `400`, with the same message and the `path` in its details.
-
-### Limits
-
-- `skip` and `take` are whole numbers; `distinct` takes no `cursor`.
-- A `where` or a `having` nests at most 32 levels, for every caller: each
-  `AND`, `OR` and `NOT` item and each relation filter is one level deeper.
-  The 33rd is refused: `where.NOT.….NOT: the filter is nested more than 32
-levels deep.`
-- `aggregate` takes the fields a sort takes; `groupBy` and `distinct` take
-  them and the `one` relations.

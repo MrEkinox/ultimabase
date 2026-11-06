@@ -7,7 +7,9 @@ GraphQL and over REST.
 - `src/models.ts`: the `Book` model, read-only for clients.
 - `src/functions.ts`: `borrowBook`, `searchBooks` and `returnBooks`, and the
   `Loan` type.
+- `src/search.ts`: `searchBooks`, a query any visitor may call.
 - `src/app.ts`: the application.
+- `src/requests/`: the requests and responses the page shows.
 - `src/app.test.ts`: the functions run from server code and called over each
   transport.
 

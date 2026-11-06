@@ -2,7 +2,14 @@ import { mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { codeBlock, fromWebsite, includesOf, region } from './regions.ts'
+import config from '../source.config.ts'
+import {
+	codeBlock,
+	codeEndsAtItsLastLine,
+	fromWebsite,
+	includesOf,
+	region,
+} from './regions.ts'
 
 const file = [
 	'const before = 1',
@@ -83,5 +90,30 @@ describe('codeBlock', () => {
 		expect(() => include && codeBlock(directory, include)).toThrow(
 			'a.ts has no region "doc"',
 		)
+	})
+})
+
+const blocks = (...values: readonly string[]) => ({
+	type: 'root',
+	children: [
+		{ type: 'paragraph', children: [{ type: 'text', value: 'a\n' }] },
+		{
+			type: 'listItem',
+			children: values.map((value) => ({ type: 'code', value })),
+		},
+	],
+})
+
+describe('codeEndsAtItsLastLine', () => {
+	it('drops the newline that ends a file included whole', () => {
+		const tree = blocks('{ "a": 1 }\n', 'one\r\n', 'two\n\n', 'three')
+		codeEndsAtItsLastLine()(tree)
+		expect(tree).toEqual(blocks('{ "a": 1 }', 'one', 'two\n', 'three'))
+	})
+
+	it('runs on the pages of the site', () => {
+		expect(config.mdxOptions).toMatchObject({
+			remarkPlugins: [codeEndsAtItsLastLine],
+		})
 	})
 })

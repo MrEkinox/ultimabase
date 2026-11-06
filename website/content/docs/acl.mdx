@@ -6,8 +6,9 @@ description: Store on each row who may read it and who may write it, by user, by
 `@ultimabase/acl` stores on each row its rights: who reads it and who writes
 it, by user, by [role](/docs/next/roles), or for the public. A query then
 sees only the rows its caller may read, and writes only those it may write.
+
 `acl()` goes in a model's `use`, and its `default` gives the rights of a new
-row; here, a new note is its author's alone:
+row. Here, a new note is its author's alone:
 
 ```npm
 npm install @ultimabase/acl
@@ -19,6 +20,16 @@ npm install @ultimabase/acl
 
 The full example, with its tests: [`examples/roles-and-acl`](https://github.com/MrEkinox/ultimabase/tree/main/examples/roles-and-acl).
 
+| To                                | Use                                              |
+| --------------------------------- | ------------------------------------------------ |
+| turn the ACL on                   | [`aclPlugin()`](#set-it-up)                      |
+| keep a new row to its author      | [`default`](#default-rights)                     |
+| share a row with a role or a user | [a function that writes as Master](#share-a-row) |
+| give a row to the public          | [`new ACL().allowPublic()`](#the-acl-class)      |
+| build, test and read rights       | [the `ACL` class](#the-acl-class)                |
+
+## Set it up
+
 `aclPlugin()` goes in the application's plugins:
 
 <include cwd meta='title="src/app.ts"'>
@@ -27,12 +38,33 @@ The full example, with its tests: [`examples/roles-and-acl`](https://github.com/
 
 The model's [access rules](/docs/next/access) still decide who may create,
 read, update and delete; the ACL then picks which rows. Above, every caller
-may read and write notes, and only a writer creates one, but each caller
-meets only the notes its rights name:
+may read and write notes, and only a writer creates one.
 
-<include cwd meta='title="src/app.test.ts"'>
-	../examples/roles-and-acl/src/app.test.ts#author
+## Default rights
+
+Each caller meets only the notes its rights name. Ada holds the role `writer`,
+given as [Roles](/docs/next/roles) shows, so she may create a note. She sends
+it with her `Authorization: Bearer` token, and is its author:
+
+<include cwd meta='title="Request"'>
+	../examples/roles-and-acl/src/requests/create-note.graphql
 </include>
+
+<include cwd meta='title="Response"'>
+	../examples/roles-and-acl/src/requests/create-note.json
+</include>
+
+She reads it:
+
+<include cwd meta='title="Request"'>
+	../examples/roles-and-acl/src/requests/notes.graphql
+</include>
+
+<include cwd meta='title="Response"'>
+	../examples/roles-and-acl/src/requests/notes.json
+</include>
+
+Grace sends the same request and gets `"edges": []`.
 
 ## Share a row
 
@@ -44,12 +76,32 @@ writes the new rights as Master:
 	../examples/roles-and-acl/src/functions.ts#share
 </include>
 
-Once Ada shares the note with `team`, Grace, a member, reads it; Bob does
-not. Grace has no write right, so to her the note cannot be updated:
+Ada shares the note with the role `team`:
 
-<include cwd meta='title="src/app.test.ts"'>
-	../examples/roles-and-acl/src/app.test.ts#share
+<include cwd meta='title="Request"'>
+	../examples/roles-and-acl/src/requests/share.graphql
 </include>
+
+<include cwd meta='title="Response"'>
+	../examples/roles-and-acl/src/requests/share.json
+</include>
+
+Grace, a member of `team`, now reads the note, and Bob, who is not, does not.
+Grace has only the read right, so to her the note cannot be updated:
+
+<include cwd meta='title="Request"'>
+	../examples/roles-and-acl/src/requests/rename.graphql
+</include>
+
+<include cwd meta='title="Response"'>
+	../examples/roles-and-acl/src/requests/rename.json
+</include>
+
+| Who and when                          | Answer          |
+| ------------------------------------- | --------------- |
+| Grace shares the note, before Ada has | `NOT_FOUND`     |
+| Grace shares it, once she reads it    | `ACCESS_DENIED` |
+| Grace updates or deletes it           | `NOT_FOUND`     |
 
 A row the caller cannot read does not exist for it: reading, updating,
 deleting or connecting it answers `NOT_FOUND`, as for a row that was never
@@ -59,15 +111,32 @@ created. A write needs both rights, `read` and `write`.
 
 Master writes the `acl` field as an `ACL` or as its JSON, `{ read, write }`,
 each a list of subjects: `*` for the public, `user:<id>` or `role:<id>`. A
-client reads the field as that JSON, and cannot write it:
+client cannot write it, even on its own note:
 
-<include cwd meta='title="src/app.test.ts"'>
-	../examples/roles-and-acl/src/app.test.ts#write
+<include cwd meta='title="Request"'>
+	../examples/roles-and-acl/src/requests/open-note.graphql
 </include>
 
-An empty ACL, `new ACL()`, leaves the row to Master. The ACL plugin works
-without the roles plugin, for the public and users; a role's rights go to
-its members and to the members of the roles that inherit it.
+<include cwd meta='title="Response"'>
+	../examples/roles-and-acl/src/requests/open-note.json
+</include>
+
+Master can. The tests write `as` for `{ as: master }`. Here it writes the JSON
+form; `new ACL()` builds the other, as [the class](#the-acl-class) shows:
+
+<include cwd meta='title="src/app.test.ts"'>
+	../examples/roles-and-acl/src/app.test.ts#master-acl
+</include>
+
+A client reads the field as that JSON:
+
+<include cwd meta='title="Request"'>
+	../examples/roles-and-acl/src/requests/public-notes.graphql
+</include>
+
+<include cwd meta='title="Response"'>
+	../examples/roles-and-acl/src/requests/public-notes.json
+</include>
 
 ## The `ACL` class
 
@@ -78,9 +147,34 @@ permission gives or takes both:
 	../examples/roles-and-acl/src/app.test.ts#class
 </include>
 
+Ask what the rights hold:
+
+<include cwd meta='title="src/app.test.ts"'>
+	../examples/roles-and-acl/src/app.test.ts#ask
+</include>
+
+Take rights back, and list the stored entries:
+
+<include cwd meta='title="src/app.test.ts"'>
+	../examples/roles-and-acl/src/app.test.ts#deny
+</include>
+
+Turn the JSON back into an ACL, which refuses a bad subject:
+
+<include cwd meta='title="src/app.test.ts"'>
+	../examples/roles-and-acl/src/app.test.ts#from-json
+</include>
+
 `acl.allows(caller, 'write')`, as in `shareNote`, tells whether a caller has
-the right through the public, its user or one of its roles; a write needs
+the right through the public, its user or one of its roles. A write needs
 the read too. It is `true` for Master.
+
+## Details
+
+- An empty ACL, `new ACL()`, leaves the row to Master.
+- The ACL plugin works without the roles plugin, for the public and users.
+- A role's rights go to its members and to the members of the roles that
+  inherit it.
 
 ## Reference
 
@@ -123,12 +217,19 @@ A permission is `'read'` or `'write'`; `write` covers update and delete.
 | `NOT_FOUND`         | A write or a connect targets a row the caller may not read, or read but not write.  |
 | `VALIDATION_FAILED` | An `acl` value that is not an ACL: its issue's message says why, at path `['acl']`. |
 
-The messages of an invalid value: `An ACL is an ACL or { read, write }.`,
-`owner is not a permission.`, `read is a list of subjects.`, `read[0]: a
-subject is *, user:<id> or role:<id>.` `ACL.fromJSON` throws the same
-messages as a `TypeError`, and `ACL.fromEntries` throws `team is not an ACL
-entry.` A method given a user or a role whose id is empty or holds a line
-break throws a `TypeError`: `"" is not a user id.`, `"" is not a role id.`
+The messages of an invalid value:
+
+- `An ACL is an ACL or { read, write }.`
+- `owner is not a permission.`
+- `read is a list of subjects.`
+- `read[0]: a subject is *, user:<id> or role:<id>.`
+
+Other messages:
+
+- `ACL.fromJSON` throws the same messages as a `TypeError`.
+- `ACL.fromEntries` throws `team is not an ACL entry.`
+- A method given a user or a role whose id is empty or holds a line break
+  throws a `TypeError`: `"" is not a user id.`, `"" is not a role id.`
 
 At start, `acl()` without `default` throws `acl() takes default: the ACL of
 a row created without one.`

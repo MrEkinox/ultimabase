@@ -1,0 +1,6 @@
+subscription ($id: ID!) {
+	task(where: { id: $id }) {
+		title
+		done
+	}
+}

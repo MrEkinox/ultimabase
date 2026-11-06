@@ -17,11 +17,22 @@ A model, and the rule that decides what a client reads:
 
 The full example, with its tests: [`examples/introduction`](https://github.com/MrEkinox/ultimabase/tree/main/examples/introduction).
 
-The GraphQL API serves the posts, the rule applied: a client gets the
-published post, not the draft.
+Server code, acting as `master` from `ultimabase`, past every rule, writes a
+published post and a draft:
 
 <include cwd meta='title="src/app.test.ts"'>
-	../examples/introduction/src/app.test.ts#read
+	../examples/introduction/src/app.test.ts#seed
+</include>
+
+A client asks for the posts over GraphQL, and gets the published one, the rule
+applied:
+
+<include cwd meta='title="Request"'>
+	../examples/introduction/src/requests/read-posts.graphql
+</include>
+
+<include cwd meta='title="Response"'>
+	../examples/introduction/src/requests/read-posts.json
 </include>
 
 Start an application, then follow the [Quickstart](/docs/next/quickstart):

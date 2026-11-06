@@ -17,6 +17,7 @@ export const Note = defineModel({
 	],
 	fields: (f) => ({ title: f.string() }),
 }).with({
+	//#region rule
 	// The ACL picks the rows; the rules pick who writes a new note.
 	access: {
 		read: allow.public,
@@ -24,5 +25,6 @@ export const Note = defineModel({
 		update: allow.public,
 		delete: allow.public,
 	},
+	//#endregion
 })
 //#endregion

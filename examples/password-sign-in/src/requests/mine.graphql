@@ -1,0 +1,11 @@
+query {
+	posts(where: { author: { viewer: true } }) {
+		edges {
+			node {
+				author {
+					name
+				}
+			}
+		}
+	}
+}

@@ -1,0 +1,7 @@
+mutation {
+	updatePost(where: { slug: "sketch" }, data: { likes: 4, status: published }) {
+		title
+		likes
+		status
+	}
+}

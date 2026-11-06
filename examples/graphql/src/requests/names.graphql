@@ -1,0 +1,12 @@
+query {
+	people {
+		edges {
+			node {
+				name
+			}
+		}
+	}
+	trending(count: 1) {
+		title
+	}
+}

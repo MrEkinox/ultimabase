@@ -9,6 +9,7 @@ show both answer alike.
 - `src/models.ts`: the `Person`, `Post` and `Revision` models.
 - `src/functions.ts`: three functions, one renamed and one hidden.
 - `src/app.ts`: the application.
+- `src/requests/`: the requests and responses the page shows.
 - `src/app.test.ts`: the API used as a client would.
 - `src/list.ts` and `src/list.test.ts`: the same models with
   `pagination: 'list'`.

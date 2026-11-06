@@ -1,0 +1,4 @@
+PATCH /api/posts/$id?select={"likes":true,"status":true}
+content-type: application/json
+
+{ "likes": 4, "status": "published" }

@@ -1,0 +1,1 @@
+GET /api/posts?take=1&skip=1&orderBy={"title":"asc"}&select={"title":true,"author":{"select":{"name":true,"posts":{"take":5,"select":{"slug":true}}}}}

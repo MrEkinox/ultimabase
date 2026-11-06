@@ -1,0 +1,12 @@
+{
+	"name": "Ada",
+	"posts": {
+		"edges": [{ "cursor": "…", "node": { "slug": "sketch" } }],
+		"pageInfo": {
+			"hasNextPage": true,
+			"hasPreviousPage": false,
+			"startCursor": "…",
+			"endCursor": "…"
+		}
+	}
+}

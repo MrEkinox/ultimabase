@@ -9,7 +9,10 @@ virtual fields computed on read.
 - `src/types.ts`: the `Status` enum and the `Price` type it uses.
 - `src/schedule.ts`: a list with a size, and a shared enum inside a JSON
   field's schema.
+- `src/category.ts`: the shortest model.
+- `src/stock.ts`: the stock report, written as server code.
 - `src/app.ts`: the application.
+- `src/requests/`: the requests and responses the page shows.
 - `src/app.test.ts`: a product created and read over GraphQL.
 - `src/models.test.ts`: each field type written and read from server code,
   and the values a field refuses.
