@@ -53,6 +53,8 @@ export type Reply =
 			readonly all: readonly number[]
 			/** Why attempts were lost, and how many times. */
 			readonly lost: Readonly<Record<string, number>>
+			/** The errors its first answers carried, by code. */
+			readonly errors: Readonly<Record<string, number>>
 	  }
 	| {
 			readonly kind: 'probes'
@@ -61,7 +63,12 @@ export type Reply =
 	  }
 	| { readonly kind: 'began' }
 	| { readonly kind: 'count'; readonly count: number }
-	| { readonly kind: 'ended'; readonly delays: readonly number[] }
+	| {
+			readonly kind: 'ended'
+			readonly delays: readonly number[]
+			/** The sockets closed once ready, by close code. */
+			readonly closes: Readonly<Record<string, number>>
+	  }
 	| { readonly kind: 'closed' }
 	| { readonly kind: 'failed'; readonly message: string }
 
@@ -78,6 +85,8 @@ let field = ''
 let counting = false
 let delays: number[] = []
 let reported = 0
+const closes: Record<string, number> = {}
+let closing = false
 
 const dueOf = (value: unknown): number =>
 	typeof value === 'string'
@@ -103,6 +112,18 @@ function timed(data: Buffer): void {
 	}
 }
 
+const counted = (counts: Record<string, number>, key: string) => {
+	counts[key] = (counts[key] ?? 0) + 1
+}
+
+/** The code of the first error of a `next` or an `error` message. */
+const codeOf = (data: Buffer): string => {
+	const payload = nested(JSON.parse(data.toString()), 'payload')
+	const errors = Array.isArray(payload) ? payload : nested(payload, 'errors')
+	const first: unknown = Array.isArray(errors) ? errors[0] : undefined
+	return String(nested(first, 'extensions', 'code'))
+}
+
 type Opening = {
 	/** Its first subscription answered. */
 	readonly first: () => void
@@ -110,6 +131,8 @@ type Opening = {
 	readonly ready: () => void
 	/** Lost before that, once. */
 	readonly lost: (why: string) => void
+	/** One of its subscriptions answered with an error. */
+	readonly errored: (data: Buffer) => void
 }
 
 function connecting(url: string, client: Client, on: Opening): void {
@@ -140,7 +163,14 @@ function connecting(url: string, client: Client, on: Opening): void {
 	})
 	socket.on('close', (code) => {
 		lost(`closed ${code}`)
+		if (waiting.size === 0 && !closing) counted(closes, String(code))
 	})
+	const answered = (id: string) => {
+		if (!waiting.delete(id)) return false
+		if (waiting.size === client.subscriptions.length - 1) on.first()
+		if (waiting.size === 0) on.ready()
+		return true
+	}
 	socket.on('message', (data: Buffer) => {
 		const head = data.subarray(0, 40).toString()
 		if (head.includes('"connection_ack"')) {
@@ -155,15 +185,11 @@ function connecting(url: string, client: Client, on: Opening): void {
 			}
 		} else if (head.includes('"next"')) {
 			const id = head.slice(7, head.indexOf('"', 7))
-			if (waiting.delete(id)) {
-				if (data.includes('"errors"')) {
-					reply({ kind: 'failed', message: data.toString().slice(0, 500) })
-				}
-				if (waiting.size === client.subscriptions.length - 1) on.first()
-				if (waiting.size === 0) on.ready()
-			} else if (counting && id === 't') timed(data)
+			if (waiting.has(id) && data.includes('"errors"')) on.errored(data)
+			if (!answered(id) && counting && id === 't') timed(data)
 		} else if (head.includes('"error"')) {
-			reply({ kind: 'failed', message: data.toString().slice(0, 500) })
+			on.errored(data)
+			answered(head.slice(7, head.indexOf('"', 7)))
 		}
 	})
 }
@@ -186,6 +212,9 @@ function opened(command: Extract<Command, { kind: 'open' }>): void {
 			lost: (message) => {
 				reply({ kind: 'failed', message })
 			},
+			errored: (data) => {
+				reply({ kind: 'failed', message: data.toString().slice(0, 500) })
+			},
 		})
 	}
 	for (let index = 0; index < opening; index += 1) start()
@@ -196,8 +225,9 @@ function stormed(command: Extract<Command, { kind: 'storm' }>): void {
 	const first: number[] = []
 	const all: number[] = []
 	const lost: Record<string, number> = {}
+	const errors: Record<string, number> = {}
 	if (command.clients.length === 0) {
-		reply({ kind: 'stormed', first, all, lost })
+		reply({ kind: 'stormed', first, all, lost, errors })
 	}
 	for (const client of command.clients) {
 		const arrival = Math.random() * command.over
@@ -213,11 +243,14 @@ function stormed(command: Extract<Command, { kind: 'storm' }>): void {
 				ready: () => {
 					all.push(Date.now() - arrived)
 					if (all.length === command.clients.length) {
-						reply({ kind: 'stormed', first, all, lost })
+						reply({ kind: 'stormed', first, all, lost, errors })
 					}
 				},
+				errored: (data) => {
+					counted(errors, codeOf(data))
+				},
 				lost: (why) => {
-					lost[why] = (lost[why] ?? 0) + 1
+					counted(lost, why)
 					// What `graphql-ws` waits by default before its first retry.
 					setTimeout(attempt, 1000 + 300 + Math.random() * 2700)
 				},
@@ -257,11 +290,7 @@ function probed(command: Extract<Command, { kind: 'probe' }>): void {
 				response.on('data', (chunk: Buffer) => chunks.push(chunk))
 				response.on('end', () => {
 					const text = Buffer.concat(chunks).toString()
-					const fine = response.statusCode === 200 && !text.includes('"errors"')
-					if (!fine) {
-						reply({ kind: 'failed', message: text.slice(0, 500) })
-					}
-					settle(fine)
+					settle(response.statusCode === 200 && !text.includes('"errors"'))
 				})
 			},
 		)
@@ -302,8 +331,9 @@ port.on('message', (command: Command) => {
 		reply({ kind: 'began' })
 	} else if (command.kind === 'end') {
 		counting = false
-		reply({ kind: 'ended', delays })
+		reply({ kind: 'ended', delays, closes })
 	} else {
+		closing = true
 		for (const socket of sockets) socket.terminate()
 		reply({ kind: 'closed' })
 	}

@@ -8,6 +8,7 @@ import type { Bench } from './shared.ts'
 import { waited } from './shared.ts'
 
 type Stormed = Extract<Reply, { kind: 'stormed' }>
+export type Counts = Readonly<Record<string, number>>
 
 export type Storm = {
 	readonly bench: Bench
@@ -23,7 +24,21 @@ export type Storm = {
 	readonly authorization: string
 	readonly storm: () => Promise<readonly Stormed[]>
 	readonly begin: () => Promise<void>
-	readonly end: () => Promise<readonly number[]>
+	readonly end: () => Promise<{
+		readonly delays: readonly number[]
+		readonly closes: Counts
+	}>
+}
+
+/** The counts of each, summed by key. */
+export const summed = (each: readonly Counts[]): Counts => {
+	const counts: Record<string, number> = {}
+	for (const one of each) {
+		for (const [key, times] of Object.entries(one)) {
+			counts[key] = (counts[key] ?? 0) + times
+		}
+	}
+	return counts
 }
 
 const ranks = (values: readonly number[]): string => {
@@ -45,7 +60,6 @@ export async function storming(storm: Storm): Promise<void> {
 	const probes = new Promise<Extract<Reply, { kind: 'probes' }>>((resolve) => {
 		prober.on('message', (reply: Reply) => {
 			if (reply.kind === 'probes') resolve(reply)
-			if (reply.kind === 'failed') throw new Error(reply.message)
 		})
 	})
 	const loop = monitorEventLoopDelay({ resolution: 10 })
@@ -62,16 +76,22 @@ export async function storming(storm: Storm): Promise<void> {
 	})
 
 	const running = new Set<Promise<unknown>>()
-	const writing = { on: true }
+	const writing = { on: true, made: 0, failed: 0 }
 	const began = Date.now()
 	const writer = (async () => {
 		for (let done = 0; writing.on; done += 1) {
 			const due = began + Math.floor((done * 1000) / storm.writes)
 			if (due > Date.now()) await waited(due - Date.now())
 			const index = Math.floor(Math.random() * storm.reach)
-			const task: Promise<unknown> = storm.write(due, index).finally(() => {
-				running.delete(task)
-			})
+			writing.made += 1
+			const task: Promise<unknown> = storm
+				.write(due, index)
+				.catch(() => {
+					writing.failed += 1
+				})
+				.finally(() => {
+					running.delete(task)
+				})
 			running.add(task)
 		}
 	})()
@@ -85,24 +105,20 @@ export async function storming(storm: Storm): Promise<void> {
 	told({ kind: 'probed' })
 	const { delays, failed } = await probes
 	await waited(2000)
-	const heard = await storm.end()
+	const { delays: heard, closes } = await storm.end()
 	loop.disable()
 	await prober.terminate()
 
-	const lost: Record<string, number> = {}
-	for (const reply of replies) {
-		for (const [why, times] of Object.entries(reply.lost)) {
-			lost[why] = (lost[why] ?? 0) + times
-		}
-	}
+	const lost = summed(replies.map((reply) => reply.lost))
+	const errors = summed(replies.map((reply) => reply.errors))
 	console.log(
 		`${new Date().toISOString().slice(0, 10)}, Node ${process.version}: ${storm.arriving} arriving within ${storm.over / 1000} s, ${storm.connected} connected, ${storm.writes} writes a second.`,
 	)
 	console.log(
-		'| Over s | All in s | First state | All states | New visitor | Visitors failed | Told, connected | Longest stall | Attempts lost |\n| --: | --: | --: | --: | --: | --: | --: | --: | --- |',
+		'| Over s | All in s | First state | All states | New visitor | Visitors failed | Told, connected | Longest stall | Attempts lost | Answers in error | Writes failed | Closed once ready |\n| --: | --: | --: | --: | --: | --: | --: | --: | --- | --- | --: | --- |',
 	)
 	console.log(
-		`| ${storm.over / 1000} | ${whole.toFixed(1)} | ${ranks(replies.flatMap(({ first }) => first))} | ${ranks(replies.flatMap(({ all }) => all))} | ${ranks(delays)} | ${failed} of ${delays.length + failed} | ${ranks(heard)} | ${(loop.max / 1e6).toFixed(0)} | ${JSON.stringify(lost)} |`,
+		`| ${storm.over / 1000} | ${whole.toFixed(1)} | ${ranks(replies.flatMap(({ first }) => first))} | ${ranks(replies.flatMap(({ all }) => all))} | ${ranks(delays)} | ${failed} of ${delays.length + failed} | ${ranks(heard)} | ${(loop.max / 1e6).toFixed(0)} | ${JSON.stringify(lost)} | ${JSON.stringify(errors)} | ${writing.failed} of ${writing.made} | ${JSON.stringify(closes)} |`,
 	)
 	await storm.bench.quiet()
 }

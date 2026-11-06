@@ -9,7 +9,7 @@ import { httpPlugin } from '@ultimabase/http'
 import type { Logger } from 'ultimabase'
 import { defineApp } from 'ultimabase'
 import { climbing } from './platform-climb.ts'
-import { storming } from './platform-storm.ts'
+import { storming, summed } from './platform-storm.ts'
 import {
 	badgeRuns,
 	badges,
@@ -269,9 +269,13 @@ try {
 					},
 					end: async () => {
 						const replies = await all(() => ({ kind: 'end' }))
-						return replies.flatMap((reply) =>
-							reply.kind === 'ended' ? reply.delays : [],
+						const ended = replies.flatMap((reply) =>
+							reply.kind === 'ended' ? [reply] : [],
 						)
+						return {
+							delays: ended.flatMap(({ delays }) => delays),
+							closes: summed(ended.map(({ closes }) => closes)),
+						}
 					},
 				})
 				await all(() => ({ kind: 'close' }))
