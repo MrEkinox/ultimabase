@@ -84,6 +84,48 @@ const named = (name: string) =>
 	}).with({ access: allow.public })
 
 describe('a shared enum over GraphQL', () => {
+	it('is the type a JSON field names with the same values', async () => {
+		const Club = defineModel({
+			name: 'Club',
+			use: [graphql()],
+			fields: (f) => ({
+				status: f.enumOf(Status),
+				filters: f.json({
+					validate: z
+						.object({
+							seen: z.array(z.enum(Status.values).meta({ id: 'Status' })),
+						})
+						.meta({ id: 'SearchFilters' }),
+				}),
+			}),
+		}).with({ access: allow.public })
+		const schema = await started([Club])
+		const filters = schema.getType('SearchFilters')
+		if (!isObjectType(filters)) throw new Error('No type.')
+		expect(filters.getFields()['seen']?.type.toString()).toBe('[Status!]!')
+		const input = schema.getType('SearchFiltersInput')
+		if (!isInputObjectType(input)) throw new Error('No input.')
+		expect(input.getFields()['seen']?.type.toString()).toBe('[Status!]!')
+	})
+
+	it('is refused at start when a JSON field names it with other values', async () => {
+		const Club = defineModel({
+			name: 'Club',
+			use: [graphql()],
+			fields: (f) => ({
+				status: f.enumOf(Status),
+				filters: f.json({
+					validate: z
+						.object({
+							seen: z.array(z.enum(['active']).meta({ id: 'Status' })),
+						})
+						.meta({ id: 'SearchFilters' }),
+				}),
+			}),
+		}).with({ access: allow.public })
+		await expect(started([Club])).rejects.toThrow('two shapes; name each once.')
+	})
+
 	it('is one enum type for every field and function schema of it', async () => {
 		const schema = await started([Person, Team], [ban])
 		const status = schema.getType('Status')

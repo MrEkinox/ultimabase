@@ -53,6 +53,54 @@ async function documentOf(
 const ref = (name: string) => ({ $ref: `#/components/schemas/${name}` })
 
 describe('a shared enum in the OpenAPI document', () => {
+	it('is the schema a JSON field names with the same values', async () => {
+		const Club = defineModel({
+			name: 'Club',
+			use: [rest()],
+			fields: (f) => ({
+				status: f.enumOf(Status),
+				filters: f.json({
+					validate: z
+						.object({
+							seen: z.array(z.enum(Status.values).meta({ id: 'Status' })),
+						})
+						.meta({ id: 'SearchFilters' }),
+				}),
+			}),
+		}).with({ access: allow.public })
+		const document = await documentOf([Club])
+		expect(
+			at(
+				document,
+				'components',
+				'schemas',
+				'SearchFilters',
+				'properties',
+				'seen',
+			),
+		).toStrictEqual({ type: 'array', items: ref('Status') })
+	})
+
+	it('is refused at start when a JSON field names it with other values', async () => {
+		const Club = defineModel({
+			name: 'Club',
+			use: [rest()],
+			fields: (f) => ({
+				status: f.enumOf(Status),
+				filters: f.json({
+					validate: z
+						.object({
+							seen: z.array(z.enum(['active']).meta({ id: 'Status' })),
+						})
+						.meta({ id: 'SearchFilters' }),
+				}),
+			}),
+		}).with({ access: allow.public })
+		await expect(documentOf([Club])).rejects.toThrow(
+			'two shapes; name each once.',
+		)
+	})
+
 	it('is one schema each property and function schema of it references', async () => {
 		const document = await documentOf([Person, Team], [ban])
 		const schemas = (...path: readonly string[]) =>

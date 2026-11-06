@@ -146,6 +146,28 @@ TypeScript `enum`, which Node does not run (see the
 [Quickstart](/docs/next/quickstart)). `Status.values` lists the values, and
 `(typeof Status.values)[number]` is their type.
 
+A Zod enum with the same values and the same name is the same type. That is
+how a JSON field or a function's schema uses a shared enum, with
+`.meta({ id })`:
+
+```ts
+const Weekday = defineEnum('Weekday', ['monday', 'tuesday', 'wednesday'])
+
+const weekday = z.enum(Weekday.values).meta({ id: 'Weekday' })
+
+availableOn: f.enumOf(Weekday, { list: true }),
+searchFilters: f.json({
+	validate: z
+		.object({ availableOn: z.array(weekday) })
+		.meta({ id: 'SearchFilters' }),
+}),
+```
+
+GraphQL gives `SearchFilters.availableOn` the type `[Weekday!]!`, and OpenAPI
+references the one `Weekday` schema. The same name with other values stops the
+start, so a typo in the values cannot make a second type; one in the `id` makes
+a type of that name.
+
 ## Object types
 
 `defineType` declares a shape that is not a table, with a Zod object's
