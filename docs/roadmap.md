@@ -285,6 +285,7 @@ for production yet, and fixes ship as 0.1.x or 0.2.
 - [x] A document is read and validated once (D-268).
 - [x] A socket keeps a small compressor (D-269).
 - [x] A big list reads a few parts at once (D-270).
+- [x] A change after a quiet goes at once (D-271).
 - [x] Refuse breached and common passwords (NIST SP 800-63B §5.1.1.2):
       `passwordPlugin({ breached: true })`, and never the email (D-209).
 

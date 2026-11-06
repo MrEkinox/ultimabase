@@ -422,6 +422,36 @@ it('a flush slower than the gather leaves no empty flush behind', async () => {
 	flushes.mockRestore()
 })
 
+it('a change after a quiet flushes at once, the next ones 50 ms later', async () => {
+	const { chat, users } = await chatOf(['ada'])
+	const seen = await follow('Chat', users[0]?.id ?? '', chats)
+	await quiet()
+	const rename = async (name: string) =>
+		Chat.update({ where: { id: chat.id }, data: { name } }, M)
+	const flushed: number[] = []
+	// oxlint-disable-next-line typescript/unbound-method -- Called on its viewer.
+	const flush = Viewer.prototype.flush
+	const flushes = vi
+		.spyOn(Viewer.prototype, 'flush')
+		.mockImplementation(async function flushing(
+			this: Viewer,
+			...args: Parameters<Viewer['flush']>
+		) {
+			flushed.push(performance.now())
+			return flush.apply(this, args)
+		})
+	const timers = vi.spyOn(globalThis, 'setTimeout')
+	await rename('one')
+	await vi.waitFor(() => expect(flushes).toHaveBeenCalledOnce())
+	expect(timers.mock.calls.map(([, delay]) => delay)).toContain(0)
+	await rename('two')
+	await vi.waitFor(() => expect(seenIn(seen)).toContain('"name":"two"'))
+	expect(flushed).toHaveLength(2)
+	expect((flushed[1] ?? 0) - (flushed[0] ?? 0)).toBeGreaterThanOrEqual(49)
+	flushes.mockRestore()
+	timers.mockRestore()
+})
+
 it('a write out of a list reach costs that list nothing', async () => {
 	const { chat, users } = await chatOf(['ada'])
 	const id = users[0]?.id ?? ''

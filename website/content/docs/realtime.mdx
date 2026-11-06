@@ -290,7 +290,8 @@ a page that must keep it on screen keeps the rows it showed.
 |                            |                          | `{ remove, gone }`: a row out of the window; `gone` if deleted or hidden. |
 | `totalCount`, `pageInfo`   | when they changed        | Their new values, when selected.                                          |
 
-Changes within 50 ms are sent as one message.
+A change after a quiet is sent at once; the next ones wait for 50 ms to have
+passed, and are sent as one message.
 
 A nested relation's count, its connection's `totalCount` or `_count`, is
 sent again with its row when a related row is created or deleted. A related

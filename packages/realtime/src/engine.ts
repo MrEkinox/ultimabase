@@ -1,4 +1,4 @@
-// The realtime engine (D-154): changes wait 50 ms, then one flush reads each
+// The realtime engine (D-154, D-271): at most one flush each 50 ms reads each
 // changed row once and hands the batch to the viewers holding a read it may
 // concern (D-256), a few at a time.
 // Every viewer's caller is built again on a timer, and when it expires.
@@ -11,7 +11,7 @@ import { Loader } from './loader.ts'
 import type { Settings } from './settings.ts'
 import { Viewer } from './viewer.ts'
 
-/** How long changes wait, so the writes close together share one message. */
+/** The least between two flushes: the writes in between share one message. */
 const gather = 50
 /** How many viewers follow a flush at once. */
 const concurrency = 8
@@ -62,6 +62,7 @@ export class Engine {
 	#missed = false
 	#stopped = false
 	#timer: NodeJS.Timeout | undefined
+	#flushed = 0
 	#chain: Promise<void> = Promise.resolve()
 
 	constructor(settings: Settings, refresh: number) {
@@ -111,10 +112,13 @@ export class Engine {
 	#schedule(): void {
 		// A change the adapter delivers once the application stopped is late.
 		if (this.#stopped || this.#timer !== undefined) return
+		// A change after a quiet goes at once: nothing is left to gather (D-271).
+		const wait = Math.max(this.#flushed + gather - performance.now(), 0)
 		this.#timer = setTimeout(() => {
 			this.#timer = undefined
+			this.#flushed = performance.now()
 			this.#chain = this.#chain.then(async () => this.#flush())
-		}, gather)
+		}, wait)
 	}
 
 	async #flush(): Promise<void> {

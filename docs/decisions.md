@@ -9413,7 +9413,7 @@ api: ({ plugins }) => plugins.http.mount(uploads, { bodyLimit: false })
 ## D-154: Realtime: live lists and live rows
 
 Amended by D-163, D-166, D-178, D-186, D-187, D-195, D-196, D-223, D-226,
-D-229, D-230, D-252, D-254 and D-266.
+D-229, D-230, D-252, D-254, D-266 and D-271.
 
 Choice: completes D-25; amends D-106 (WebSocket upgrades), D-107 (the
 `Subscription` type), D-109 (live functions) and D-129 (live reads over
@@ -18136,3 +18136,24 @@ Parts were already separate statements, so nothing is less consistent than it wa
 `bench/realtime/wire.ts`, 50 000 rows: one alone 7 100 to 4 622 ms, all at once 7 000 to 4 462 ms,
 another client's message 56 / 71 to 59 / 94 ms (median / worst). Twenty subscribers at once:
 76.9 s, 126 s when D-254 measured them.
+
+## D-271: A change after a quiet goes at once
+
+Choice: amends D-154, which sent the changes within 50 ms as one message; nothing changes in a
+developer's code.
+
+Every change waited a fixed 50 ms before its flush, so 50 of the 84 ms a lone write took to reach
+its readers over the wire were a timer with nothing to gather.
+
+1. Two flushes stay at least 50 ms apart, what D-154 asked of the gather: the changes in between
+   share one message.
+2. A change more than 50 ms after the last flush starts one at once. Its transaction's other
+   changes come with it, since notifications of one tick reach the engine together.
+3. Writes outside a transaction may now make two messages rather than one: the first write alone,
+   the others 50 ms later, no later than they came before. That costs a chat message of 4 writes
+   13 statements instead of 10.
+4. Under load a flush is always less than 50 ms old, so nothing changes.
+
+`bench/realtime/platform-wire.ts`, 10 000 users, a lone chat message: 84 to 21-38 ms; a lone change
+of presence: 84 to 25-36 ms, with presence at 1 000 /s where it was. Chat at
+400 /s: told p50 59 to 52 ms, p95 189 to 167 ms. At 600 /s it holds 476 /s, 431 before.
