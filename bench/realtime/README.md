@@ -196,6 +196,49 @@ costs about 1 ms a row, and a production table has them.
 
 ## Runs
 
+### 2026-11-06: a storm of connections
+
+`node --expose-gc --max-old-space-size=24576 bench/realtime/platform-wire.ts --scenario chat --storm <seconds>`:
+10 000 users of the chat scenario, each with its 5 subscriptions. 1000 connect calmly and write 20
+messages a second among them. The 9000 others arrive at random within the given seconds, retrying a
+lost connection the way `graphql-ws` does, and a new visitor opens a connection of its own for one
+request every 100 ms. The figures are in ms, p50 / p95 / max, one run each.
+
+| Arriving within | A second |  All in |             First state |              All states |         New visitor | Visitors failed |    Told, connected | Attempts lost                          |
+| --------------: | -------: | ------: | ----------------------: | ----------------------: | ------------------: | --------------: | -----------------: | -------------------------------------- |
+|           120 s |       75 | 120.2 s |            4 / 18 / 670 |            8 / 32 / 699 |        4 / 15 / 609 |       0 of 1214 |      41 / 62 / 682 | none                                   |
+|            60 s |      150 |  60.2 s |           9 / 289 / 535 |          18 / 317 / 569 |       7 / 269 / 514 |        0 of 618 |     43 / 146 / 505 | none                                   |
+|            30 s |      300 |  91.8 s |    5128 / 46264 / 78978 |    5224 / 46289 / 78989 | 632 / 24215 / 47072 |       39 of 930 |   59 / 5276 / 8514 | 1290 `ETIMEDOUT`                       |
+|             5 s |     1800 | 104.0 s |  27560 / 94353 / 102712 |  28841 / 94378 / 102720 |   74 / 9357 / 68234 |     107 of 1048 | 64 / 24154 / 29370 | 3332 `ETIMEDOUT`, 8051 `EADDRNOTAVAIL` |
+|             0 s |      all | 120.2 s | 50619 / 117251 / 120096 | 50642 / 117277 / 120110 |    5 / 4048 / 28471 |      23 of 1213 |  57 / 5610 / 11473 | 10124 `ETIMEDOUT`                      |
+|      0 s, again |      all |  76.1 s |   35105 / 68712 / 75955 |   35138 / 68742 / 75957 |   965 / 4814 / 8077 |      203 of 775 |   97 / 6847 / 9585 | 26483 `ETIMEDOUT`                      |
+
+Below what a process connects, about 200 users a second, nobody notices: at 150 a second a client
+has all its states in 18 ms, the new visitor answers in 7 ms and the connected are told in 43 ms. Far
+above it, a same-instant arrival is not 50 s of work but 76 to 120 s, and the longest stall of the
+server's loop is still about a second at most.
+
+Most of the difference is spent before the server hears of a client. A traced run of 3500 arriving
+at once lost 2412 attempts, all still connecting after about 10 s. A bare Node `http` server with no
+UltimaBase does the same on this machine, for 3500 connections opened at once:
+
+| Work per connection | Connected | `ETIMEDOUT` | p50 ms | Max ms |
+| ------------------: | --------: | ----------: | -----: | -----: |
+|                   0 |      3500 |           0 |    198 |    272 |
+|                1 ms |      1835 |        1665 |   1349 |  13215 |
+|                4 ms |      1056 |        2444 |   2429 |  13228 |
+
+The limits of this reading:
+
+- One Mac, clients on the same machine, one server process, fsync off.
+- `kern.ipc.somaxconn` is 128 here and caps the listen backlog, where Linux allows Node's 511 by
+  default. The overflow is inferred: `netstat -s` shows 0 listen queue overflows and did not move.
+- `EADDRNOTAVAIL` is the clients running out of ports on one address: real clients have their own.
+- Linux and several processes are not measured.
+
+D-275 spreads `liveFetch`'s reconnections over the wait, 5 s at most. The row at 5 s shows what such
+a spread gives: it stops clients in lockstep, it does not absorb 9000 at once on one process.
+
 ### 2026-11-06: over the wire, D-266 to D-273
 
 `platform-wire.ts`, 10 000 users on real sockets, Postgres with `fsync` off, one run each, from

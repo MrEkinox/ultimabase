@@ -9,6 +9,7 @@ import { httpPlugin } from '@ultimabase/http'
 import type { Logger } from 'ultimabase'
 import { defineApp } from 'ultimabase'
 import { climbing } from './platform-climb.ts'
+import { storming } from './platform-storm.ts'
 import {
 	badgeRuns,
 	badges,
@@ -33,6 +34,10 @@ const { values } = parseArgs({
 		seconds: { type: 'string', default: '10' },
 		follow: { type: 'string', default: '20' },
 		threads: { type: 'string', default: '4' },
+		// A storm instead of the climb: the rest arrive within so many seconds.
+		storm: { type: 'string' },
+		connected: { type: 'string', default: '1000' },
+		writes: { type: 'string', default: '20' },
 		url: { type: 'string' },
 	},
 })
@@ -217,14 +222,68 @@ try {
 						? 'name'
 						: 'lastSeenAt'
 			const threads = workers.length
+			const url = `${origin.replace(/^http/, 'ws')}/graphql`
+			const clientsOf = (thread: number, from: number, to: number) =>
+				users.flatMap((_, index) =>
+					index >= from && index < to && index % threads === thread
+						? [clientOf(index)]
+						: [],
+				)
+			if (values.storm !== undefined) {
+				const connected = Number(values.connected)
+				await all((thread) => ({
+					kind: 'open',
+					url,
+					field,
+					clients: clientsOf(thread, 0, connected),
+				}))
+				await bench.quiet()
+				await storming({
+					bench,
+					over: Number(values.storm) * 1000,
+					arriving: userCount - connected,
+					connected,
+					writes: Number(values.writes),
+					// The writes reach those already there, and only them.
+					reach: Math.max(
+						1,
+						Math.floor(connected / (scenario === 'campaign' ? 5 : 2)),
+					),
+					write: writerOf(scenario, world),
+					origin: `${origin}/graphql`,
+					authorization: userAt(0),
+					storm: async () => {
+						const replies = await all((thread) => ({
+							kind: 'storm',
+							url,
+							field,
+							clients: clientsOf(thread, connected, userCount),
+							over: Number(values.storm) * 1000,
+						}))
+						return replies.flatMap((reply) =>
+							reply.kind === 'stormed' ? [reply] : [],
+						)
+					},
+					begin: async () => {
+						await all(() => ({ kind: 'begin' }))
+					},
+					end: async () => {
+						const replies = await all(() => ({ kind: 'end' }))
+						return replies.flatMap((reply) =>
+							reply.kind === 'ended' ? reply.delays : [],
+						)
+					},
+				})
+				await all(() => ({ kind: 'close' }))
+				await waited(500)
+				return
+			}
 			const started = performance.now()
 			await all((thread) => ({
 				kind: 'open',
-				url: `${origin.replace(/^http/, 'ws')}/graphql`,
+				url,
 				field,
-				clients: users.flatMap((_, index) =>
-					index % threads === thread ? [clientOf(index)] : [],
-				),
+				clients: clientsOf(thread, 0, userCount),
 			}))
 			const opened = (performance.now() - started) / 1000
 			await bench.quiet()
