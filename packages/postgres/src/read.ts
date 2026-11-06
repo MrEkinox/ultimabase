@@ -1,6 +1,6 @@
 // A read as one statement (D-46): every list, the root's and each included
-// `many`, is a jsonb array the database builds, so relations at any depth
-// cost no extra round trip.
+// `many`, is a JSON array the database builds, so relations at any depth
+// cost no extra round trip (D-285).
 import { sql } from './text.ts'
 import type {
 	CountRead,
@@ -15,16 +15,22 @@ import type { Reach, Sql } from './filter.ts'
 import { all, Filters } from './filter.ts'
 import type { Catalog, Table } from './names.ts'
 
-const empty = sql`cast('[]' as jsonb)`
+const empty = sql`cast('[]' as json)`
 
-/** PostgreSQL takes at most 100 arguments: 50 pairs per `jsonb_build_object`. */
+/**
+ * PostgreSQL takes at most 100 arguments: 50 pairs per call. Only jsonb joins
+ * two objects, so a wider row pays for it.
+ */
 function object(pairs: readonly (readonly [string, Sql])[]): Sql {
+	const build = sql.raw(
+		pairs.length > 50 ? 'jsonb_build_object' : 'json_build_object',
+	)
 	const chunks: Sql[] = []
 	for (let at = 0; at < pairs.length; at += 50) {
 		const items = pairs
 			.slice(at, at + 50)
 			.flatMap(([key, item]) => [sql.lit(key), item])
-		chunks.push(sql`jsonb_build_object(${sql.join(items)})`)
+		chunks.push(sql`${build}(${sql.join(items)})`)
 	}
 	return sql.join(chunks, sql` || `)
 }
@@ -52,7 +58,7 @@ export class Compiler {
 		this.filters = new Filters(catalog)
 	}
 
-	/** The rows `nested` selects among those `reach` gives, as a jsonb array. */
+	/** The rows `nested` selects among those `reach` gives, as a JSON array. */
 	list(model: string, nested: Nested, reach: Reach, alias: string): Sql {
 		const take = nested.take
 		if (take === 0) return empty
@@ -84,9 +90,14 @@ export class Compiler {
 		const skip = nested.skip ?? 0
 		const offset = skip === 0 ? sql`` : sql` offset ${skip}`
 		const row = this.row(model, alias, nested)
-		const rows = sql`select ${row} as "r", row_number() over (order by ${by}) as "n" from ${from} where ${all(conditions)} order by ${by}${limit}${offset}`
-		const sequence = backward ? sql`"n" desc` : sql`"n"`
-		return sql`(select coalesce(jsonb_agg("q"."r" order by ${sequence}), ${empty}) from (${rows}) as "q")`
+		// The aggregate reads the rows in the order they come, and nothing stands
+		// between it and their sort; only a backward list has to turn them round.
+		const numbered = backward
+			? sql`, row_number() over (order by ${by}) as "n"`
+			: sql``
+		const rows = sql`select ${row} as "r"${numbered} from ${from} where ${all(conditions)} order by ${by}${limit}${offset}`
+		const turned = backward ? sql` order by "n" desc` : sql``
+		return sql`(select coalesce(json_agg("q"."r"${turned}), ${empty}) from (${rows}) as "q")`
 	}
 
 	/**
@@ -161,7 +172,7 @@ export class Compiler {
 
 	/**
 	 * A scalar column, a date as its milliseconds since the epoch, which
-	 * decode faster than text, a decimal as text, which jsonb would make a
+	 * decode faster than text, a decimal as text, which JSON would make a
 	 * number (D-145).
 	 */
 	private scalar(table: Table, alias: string, name: string): Sql {
@@ -173,7 +184,7 @@ export class Compiler {
 			: column
 	}
 
-	/** A row as jsonb: its fields, each `one` as `{ id }`, then its includes. */
+	/** A row as JSON: its fields, each `one` as `{ id }`, then its includes. */
 	row(model: string, alias: string, nested: Nested): Sql {
 		const table = this.catalog.table(model)
 		const pairs = new Map<string, Sql>()
@@ -190,7 +201,7 @@ export class Compiler {
 				const key = this.filters.column(table, alias, field.name)
 				pairs.set(
 					field.name,
-					sql`case when ${key} is null then null else jsonb_build_object('id', ${key}) end`,
+					sql`case when ${key} is null then null else json_build_object('id', ${key}) end`,
 				)
 			} else if (field.kind === 'one' && field.from === undefined) {
 				// A view's row is the one its filter keeps, read by `include` (D-240).
@@ -198,7 +209,7 @@ export class Compiler {
 				const reach = this.filters.reach(table, alias, field, to)
 				pairs.set(
 					field.name,
-					sql`(select jsonb_build_object('id', ${sql.id(to, 'id')}) from ${reach.from} where ${reach.on} limit 1)`,
+					sql`(select json_build_object('id', ${sql.id(to, 'id')}) from ${reach.from} where ${reach.on} limit 1)`,
 				)
 			}
 		}
@@ -252,7 +263,7 @@ function kept(
 }
 
 /**
- * `read`'s rows as one jsonb array, its root rows taken from `source`, by
+ * `read`'s rows as one JSON array, its root rows taken from `source`, by
  * default its table, and the tables it reaches besides; a locked read locks
  * the root rows its `where` selects, in `id` order (D-99, D-133).
  */
@@ -278,7 +289,7 @@ export function compileRows(
 	return { rows, tables: compiler.filters.tables }
 }
 
-/** The statement that returns `read`'s rows as one jsonb array, `rows`. */
+/** The statement that returns `read`'s rows as one JSON array, `rows`. */
 export function compileFind(catalog: Catalog, read: Read): Sql {
 	return sql`select ${compileRows(catalog, read).rows} as "rows"`
 }
