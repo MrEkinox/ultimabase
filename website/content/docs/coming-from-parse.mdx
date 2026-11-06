@@ -1,0 +1,144 @@
+---
+title: Coming from Parse
+description: Each Parse Server habit and its UltimaBase form, with what changes for the client.
+---
+
+A Parse application finds its habits here under another form. Most of them move
+from the code around a write to one line on the model.
+
+| In Parse                          | In UltimaBase                                                                    |
+| --------------------------------- | -------------------------------------------------------------------------------- |
+| Open classes, closed by CLPs      | A model is [closed](/docs/next/access) until its rules open it                   |
+| `useMasterKey: true`              | `{ as: master }`                                                                 |
+| Roles and ACLs                    | [Filters in the read rules](#roles-and-acls), or the same two plugins            |
+| LiveQuery and event subscriptions | [Live queries](#livequery-and-event-subscriptions)                               |
+| `afterDelete` cascades            | [`onDelete`](#afterdelete-cascades)                                              |
+| `Parse.File` and GridFS           | [`@ultimabase/files`](#parsefile-and-gridfs)                                     |
+| Numeric error codes               | [String codes](#error-codes)                                                     |
+| `X-Parse-Session-Token`           | [`Authorization: Bearer`](#session-token)                                        |
+| `Parse.Cloud.define`              | [`defineFunction`](/docs/next/functions), with its input and output schemas      |
+| `beforeSave`, `afterSave`         | [`beforeCreate`, `beforeUpdate`, `afterCreate`, `afterUpdate`](/docs/next/hooks) |
+| `objectId`                        | `id`, a string                                                                   |
+| `query.include('author')`         | `include: { author: true }`; a read returns no relation otherwise                |
+
+## Roles and ACLs
+
+Parse keeps a right on each row: `acl.setRoleReadAccess('Project-42-Member', true)`
+on every task, and hooks that keep the role's users in step with the project. A
+right that follows from the data needs neither. Here the members of a project
+read its tasks, and a member who leaves reads none of them from the next query
+on:
+
+<include cwd meta='title="src/projects.ts"'>
+	../examples/access-rules/src/projects.ts#projects
+</include>
+
+The full example, with its tests: [`examples/access-rules`](https://github.com/MrEkinox/ultimabase/tree/main/examples/access-rules).
+
+The filter joins every query on the model, so pages and counts stay exact. A
+right that does not follow from the data keeps its Parse form:
+[`hasRole('admin')`](/docs/next/roles) for a right given to a person across the
+application, and an [`ACL`](/docs/next/acl) for one a user chooses row by row.
+Both match Parse's, so a migration may start with them and move a group's rights
+to a filter later. [Rules, roles or ACL](/docs/next/access#rules-roles-or-acl)
+says which fits.
+
+## LiveQuery and event subscriptions
+
+LiveQuery sends events, and the client applies each to its list:
+`new Parse.Query('Task').subscribe()`, then `subscription.on('create', …)`, and
+the same for `update` and `delete`. A subscription of events of your own does
+that work by hand.
+
+Here `realtime()` in the model's `use` makes its reads live: a client subscribes
+to the query it would run, and gets the list once, then only what changed, under
+its read rules. A row that leaves the caller's rights leaves the list:
+
+<include cwd meta='title="src/TaskList.tsx"'>
+	../examples/realtime/src/TaskList.tsx#component
+</include>
+
+[Realtime](/docs/next/realtime) covers the Apollo link, a list's window and the
+limits.
+
+## `afterDelete` cascades
+
+In Parse, `Parse.Cloud.afterDelete('Author', …)` finds the author's books and
+calls `Parse.Object.destroyAll(books, { useMasterKey: true })`, and a failure
+halfway leaves the rest behind. Here the relation says it, as `Task.project` does
+above, with `f.one(() => Author, { onDelete: 'cascade' })`, and the delete is one
+transaction:
+
+<include cwd meta='title="src/queries.test.ts"'>
+	../examples/relations/src/queries.test.ts#cascade
+</include>
+
+A required `one` is `restrict` by default, and refuses the delete with
+`RELATION_RESTRICTED`; an optional one is `setNull`.
+[Relations](/docs/next/relations#deleting-a-row-that-others-point-to) has the
+table. A hook remains for what is no row of the database: `afterDeleteCommit`
+runs once the transaction commits.
+
+## `Parse.File` and GridFS
+
+In Parse, `new Parse.File('cover.png', input.files[0])` is saved, then set on the
+row: `post.set('cover', file)`. Here the field states what it accepts,
+`file({ accept: ['image/png'], maxSize: 5_000_000 })`, and the client uploads,
+then writes the id the upload returned:
+
+<include cwd meta='title="src/app.test.ts"'>
+	../examples/files/src/app.test.ts#upload
+</include>
+
+There is no GridFS: [storage](/docs/next/files#storage) is S3 or any compatible
+service, or a directory for a single server. Stored files are to be copied
+there, and an upload written in no row within the hour is deleted.
+
+## Error codes
+
+A client tests a string, which `ErrorCodeOf<typeof app>` types. GraphQL puts it
+in the error's `extensions`, and REST in its body:
+
+<include cwd meta='title="src/app.test.ts"'>
+	../examples/errors/src/app.test.ts#graphql
+</include>
+
+| Parse                          | UltimaBase                                       |
+| ------------------------------ | ------------------------------------------------ |
+| `101`, `OBJECT_NOT_FOUND`      | `NOT_FOUND`, or `INVALID_CREDENTIALS` at sign-in |
+| `119`, `OPERATION_FORBIDDEN`   | `ACCESS_DENIED`                                  |
+| `137`, `DUPLICATE_VALUE`       | `UNIQUE_VIOLATION`                               |
+| `142`, `VALIDATION_ERROR`      | `VALIDATION_FAILED`, with `details.issues`       |
+| `209`, `INVALID_SESSION_TOKEN` | `UNAUTHENTICATED`                                |
+| A `Parse.Error` of your own    | `new PublicError('OUT_OF_STOCK', message)`       |
+
+A row the caller cannot read answers `NOT_FOUND`, as one that does not exist.
+[Errors](/docs/next/errors#codes) lists every code.
+
+## Session token
+
+`X-Parse-Application-Id` and `X-Parse-Session-Token` go. A session token goes in
+the standard header, and no application id goes anywhere. A web application may
+send nothing: a sign-in over HTTP also sets an `HttpOnly` cookie.
+
+<include cwd meta='title="src/sessions.test.ts"'>
+	../examples/password-sign-in/src/sessions.test.ts#bearer
+</include>
+
+[Sessions](/docs/next/auth#sessions) has the details.
+
+## What changes for the client
+
+The client changes most, so read this list before you plan the move.
+
+- **A selected `one` is nullable**, required or not. It reads `null` when the
+  caller cannot read the row, so code guards on it: `task.project?.name`.
+- **A list is a connection**, with `edges`, `node`, `pageInfo` and `totalCount`,
+  not an array. It takes `first`, `after`, `orderBy` and `where`, on a relation
+  too. [GraphQL](/docs/next/graphql#pages) shows a page.
+- **An error is a string code**, as above, and a wrong password and an expired
+  link give the same `INVALID_CREDENTIALS`.
+- **One header**: `Authorization`, on the HTTP link and the file uploads, and in
+  `connection_init` on a WebSocket.
+- **Events become lists**: what a client built from events, it now reads from a
+  live query.
