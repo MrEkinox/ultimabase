@@ -1,4 +1,4 @@
-// What a read's jsonb holds, back as the rows the kernel expects (D-73): a
+// What a read's JSON holds, back as the rows the kernel expects (D-73): a
 // date arrives as its milliseconds since the epoch, everything else as
 // written.
 import type { Nested, Row } from 'ultimabase'
@@ -48,7 +48,7 @@ function decodeRow(
 	return row
 }
 
-/** The rows of a jsonb array of `model`, with the relations `nested` includes. */
+/** The rows of a JSON array of `model`, with the relations `nested` includes. */
 export function decodeRows(
 	catalog: Catalog,
 	model: string,

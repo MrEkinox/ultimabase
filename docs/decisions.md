@@ -18644,6 +18644,60 @@ case; requests a second in brackets:
 | GraphQL, create, signed in               | 986 (1164) | 821 (1337) | -17% |
 | GraphQL, update, signed in               | 1284 (824) | 1095 (885) | -15% |
 
+## D-285: A read builds its rows as `json`, without numbering them
+
+Status: agreed, 2026-11-06. No public API changes: what a read returns is the
+same, keys and values alike.
+
+The compiled read built each row with `jsonb_build_object` and its list with
+`jsonb_agg(… order by "n")`, where `"n"` was a `row_number()` computed in the
+subquery. `jsonb` parses every value into its binary form, sorts each object's
+keys, and is then turned back into text for the client, which never uses any of
+that; the numbering kept in memory, for the aggregate to sort again, what the
+subquery had just sorted.
+
+A read now builds `json` with `json_build_object` and `json_agg`, in the order
+its subquery's `order by` gives. Only a list read backwards keeps `row_number()`,
+to turn its rows round. A row of more than 50 fields keeps `jsonb_build_object`
+for its chunks, since only `jsonb` has `||`, and embeds in the rest as a value.
+
+The order rests on what PostgreSQL does, not on a sentence that promises it: its
+documentation says of a sorted subquery that this "will usually work", and warns
+only of an outer level that adds a join. Here the outer level is the aggregate
+alone, a sorted subquery is never flattened, and `json_agg` has no combine
+function, so it runs in one process above a `Gather Merge`, which keeps the
+order. `read-json.postgres.test.ts` forces parallel plans and checks the order of
+6000 rows, both ways and nested, on each server the suite runs on.
+
+Measured on one connection, prepared, median in ms, the Docker round trip (0.57
+ms) included, on 2000 posts for the first two rows, on 50 000 for the others, with
+3 comments each:
+
+| Statement            | Before |  After |
+| -------------------- | -----: | -----: |
+| by id                |  0.638 |  0.611 |
+| a list of 25, nested |  2.084 |  1.684 |
+| 1000 rows, flat      |   11.3 |    6.8 |
+| 50 000 rows, flat    |  535.5 |  286.7 |
+| 1000 rows, nested    |   36.2 |   22.0 |
+| 50 000 rows, nested  | 1857.5 | 1006.9 |
+
+The peak memory of the backend (`VmHWM`) falls from 146 MB to 73 MB on 50 000
+flat rows and from 442 MB to 239 MB on 50 000 nested rows. The text sent grows
+by about 3.5 %, the spaces `json_build_object` writes, already counted in the
+times.
+
+Over HTTP, `bench/http`, median of 3 runs, requests a second: a nested GraphQL
+list of 25 rows from 497 to 742, a nested REST list from 895 to 1007. A live
+list's first read, `bench/realtime/lists.ts`, subscribe time: 97.8 to 65.6 ms at
+1000 rows, 2385 to 1733 ms at 50 000. `bench/compare`, 10 writers with their
+novels and genres: 2.74 to 1.92 ms. Writes and reads by id do not change beyond
+noise.
+
+Rejected: keeping `jsonb` and only dropping the numbering, 7 to 10 % against 46 %
+at 50 000 nested rows. The idea D-103 rejected, building a row straight from a
+write's CTE, stays rejected: there is still one way to compile a read.
+
 ## D-290: A client's bad frame closes its socket, not the server
 
 Choice: internal, nothing changes for a developer. A WebSocket that receives an invalid frame, or one past `maxPayload`, emits
