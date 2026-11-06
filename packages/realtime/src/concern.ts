@@ -7,7 +7,7 @@ import { listed, touched, unlisted } from './changes.ts'
 import type { Held } from './needs.ts'
 import { keyOf } from './needs.ts'
 import type { Step } from './reach.ts'
-import type { Loader } from './reads.ts'
+import type { Loader } from './loader.ts'
 import type { Shape } from './routes.ts'
 
 /** Where each id leads. */

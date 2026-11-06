@@ -9,7 +9,7 @@ import { recording } from 'ultimabase/internal'
 import type { Batch } from './changes.ts'
 import type { LiveMessage } from './messages.ts'
 import type { Owner, Readers } from './readers.ts'
-import type { Loader } from './reads.ts'
+import type { Loader } from './loader.ts'
 import { anyStale, mayBeStale } from './stale.ts'
 import type { Waited } from './tasks.ts'
 

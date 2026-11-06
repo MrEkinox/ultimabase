@@ -7,7 +7,7 @@ import { joined, wrote } from './changes.ts'
 import { concernOf } from './concern.ts'
 import type { Reach } from './reach.ts'
 import { modelsOf, reachOf } from './reach.ts'
-import type { Loader } from './reads.ts'
+import type { Loader } from './loader.ts'
 import type { Interest, Shape } from './routes.ts'
 import { interestOfPlan, interestOfRead, shapeOf } from './routes.ts'
 

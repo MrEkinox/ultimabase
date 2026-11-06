@@ -21,7 +21,7 @@ import { realtime, realtimePlugin } from './index.ts'
 import { Live } from './live.ts'
 import type { Owner } from './readers.ts'
 import { Readers } from './readers.ts'
-import { Loader } from './reads.ts'
+import { Loader } from './loader.ts'
 import { Viewer } from './viewer.ts'
 
 const M = { as: master }

@@ -7,7 +7,7 @@ import { liveSchema, recording, SharedReads } from 'ultimabase/internal'
 import { batchOf } from './changes.ts'
 import type { Owner } from './readers.ts'
 import { Readers } from './readers.ts'
-import { Loader } from './reads.ts'
+import { Loader } from './loader.ts'
 import type { Settings } from './settings.ts'
 import { Viewer } from './viewer.ts'
 

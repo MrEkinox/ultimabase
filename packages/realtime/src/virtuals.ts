@@ -5,7 +5,7 @@ import { createHash } from 'node:crypto'
 import type { Row } from 'ultimabase'
 import type { Recorded } from 'ultimabase/internal'
 import type { Batch } from './changes.ts'
-import type { Loader } from './reads.ts'
+import type { Loader } from './loader.ts'
 import { anyStale, mayBeStale } from './stale.ts'
 
 type Group = { readonly reads: readonly Recorded[]; readonly ids: Set<string> }

@@ -7,7 +7,7 @@ import type { Fields, ModelChanges } from './changes.ts'
 import { listed, touched, unlisted } from './changes.ts'
 import { isList, stepOf } from './reach.ts'
 import type { Level, Models } from './reach.ts'
-import type { Loader } from './reads.ts'
+import type { Loader } from './loader.ts'
 
 /** The conditions on a relation's target id in `filter`, its own or its `AND`'s. */
 function idsOf(filter: Filter): Filter[] {

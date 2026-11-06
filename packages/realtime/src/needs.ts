@@ -5,7 +5,7 @@ import type { Filter, Row } from 'ultimabase'
 import { inMemory, liveSchema, matches, required } from 'ultimabase/internal'
 import type { Models, Step } from './reach.ts'
 import { isList, modelsOf, stepOf, stores } from './reach.ts'
-import type { Loader } from './reads.ts'
+import type { Loader } from './loader.ts'
 
 /** A related id a filter names, on the relation holding it as a key. */
 type Pin = { readonly relation: string; readonly id: string }
@@ -149,7 +149,7 @@ async function keep(
 		if (rows.length === 0) break
 		rows = await ('any' in other
 			? keepAny(other.any, rows, loader, doubt)
-			: keepRelated(other.step, other.need, rows, loader, doubt))
+			: keepRelated(model, other, rows, loader, doubt))
 	}
 	return rows
 }
@@ -169,13 +169,13 @@ async function keepAny(
 }
 
 async function keepRelated(
-	step: Step,
-	need: Need,
+	model: string,
+	{ step, need }: { readonly step: Step; readonly need: Need },
 	rows: readonly Row[],
 	loader: Loader,
 	doubt: Doubt,
 ): Promise<readonly Row[]> {
-	const related = await relatedOf(step, rows, loader)
+	const related = await relatedOf(model, step, rows, loader)
 	const kept: Row[] = []
 	for (const row of rows) {
 		const held = related(row)
@@ -191,19 +191,23 @@ async function keepRelated(
 	return kept
 }
 
-/** Finds a row's related rows, read once per flush. */
+/** Finds a row's related rows, read once per flush with the others' (D-263). */
 async function relatedOf(
+	model: string,
 	step: Step,
 	rows: readonly Row[],
 	loader: Loader,
 ): Promise<(row: Row) => Held | undefined> {
 	const ids = rows.map(({ id }) => id)
 	if (step.keyOnTarget && step.inverse !== undefined) {
-		const holding = await loader.holding(step.target, step.inverse, ids)
+		const holding = await loader.holding(step.target, step.inverse, ids, model)
 		return (row) => holding.get(row.id)
 	}
 	const keys = rows.flatMap((row) => keyOf(row, step.relation) ?? [])
-	const targets = await loader.load(step.target, keys)
+	const targets = await loader.load(step.target, keys, {
+		model,
+		relation: step.relation,
+	})
 	return (row) => {
 		const key = keyOf(row, step.relation)
 		const target = key === undefined ? undefined : targets.get(key)

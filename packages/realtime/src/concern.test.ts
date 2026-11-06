@@ -7,7 +7,7 @@ import { joined } from './changes.ts'
 import { concernOf } from './concern.ts'
 import { Held } from './needs.ts'
 import type { Step } from './reach.ts'
-import { Loader } from './reads.ts'
+import { Loader } from './loader.ts'
 import type { Route, Shape } from './routes.ts'
 
 const row = (id: string, more: object = {}): Row => ({

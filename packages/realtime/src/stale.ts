@@ -8,7 +8,7 @@ import { listed, touched, wrote } from './changes.ts'
 import { held, loosened, reaches } from './levels.ts'
 import { facingOf, modelsOf, stepOf, stores, walk } from './reach.ts'
 import type { Level, Models } from './reach.ts'
-import type { Loader } from './reads.ts'
+import type { Loader } from './loader.ts'
 
 const fieldsOf = (fields: readonly string[] | undefined): Fields =>
 	fields === undefined ? 'all' : new Set(fields)

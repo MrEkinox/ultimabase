@@ -17957,3 +17957,22 @@ out of 120.
    bringing the others along would cost each viewer every root of the flush.
 4. Only live reads do this. Other reads could too, and it would simplify their SQL; that is
    a separate choice, to measure with `bench/compare`.
+
+## D-263: A flush reads the rows related to its rows together
+
+Choice: amends D-255. Nothing changes for a developer.
+
+A rule walking a relation read only the related rows of the viewer who asked, so one read
+per campaign: 5 977 reads of a campaign and 5 977 of its members out of 21 962 statements in
+ten seconds at 1 000 writes a second, every other viewer of the same flush asking the next.
+
+1. A read of the rows a relation leads to brings those of every row of that model the flush
+   has read, at most 1 000 ids, for the first viewer to miss one. A viewer finding its own
+   read costs no scan.
+2. Past the 10 000 rows one read holds, the rows read together are too many to tell apart:
+   the viewers already waiting go to a query, as they do for one crowded row (D-255), and
+   each next viewer reads its own for the rest of the flush.
+3. A row read is kept whole, so later viewers get it without waiting a turn.
+
+Campaign at 1 000 writes a second: told p50 from 2 017 to 47 ms, and it holds; 1 958 to
+1 052 statements a second.

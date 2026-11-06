@@ -4,7 +4,8 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import type { Adapter, Filter, Row } from 'ultimabase'
 import { defineApp, defineModel, master, memory } from 'ultimabase'
 import { SharedReads, storedRows } from 'ultimabase/internal'
-import { Loader, judgeOf, pass } from './reads.ts'
+import { Loader } from './loader.ts'
+import { judgeOf, pass } from './reads.ts'
 
 const M = { as: master }
 
@@ -98,7 +99,12 @@ describe('a rule the rows held answer', () => {
 
 	it('holds through a key the row stores', async () => {
 		const owned: Filter = { owner: { is: { name: { equals: 'ada' } } } }
-		const passed = await pass('Chat', rows, owned, new Loader(new SharedReads()))
+		const passed = await pass(
+			'Chat',
+			rows,
+			owned,
+			new Loader(new SharedReads()),
+		)
 		expect(passed).toEqual(new Set([mine]))
 		expect(finds).toEqual(['User'])
 	})
@@ -107,7 +113,12 @@ describe('a rule the rows held answer', () => {
 		const either: Filter = {
 			OR: [memberOf(ada), { title: { equals: 'theirs' } }],
 		}
-		const passed = await pass('Chat', rows, either, new Loader(new SharedReads()))
+		const passed = await pass(
+			'Chat',
+			rows,
+			either,
+			new Loader(new SharedReads()),
+		)
 		expect(passed).toEqual(new Set([mine, theirs]))
 		expect(finds).not.toContain('Chat')
 	})
@@ -160,7 +171,12 @@ describe('a rule the rows held do not settle', () => {
 	it.each(unsettled)(
 		'goes to the database when it %s',
 		async (_, filter, ids) => {
-			const passed = await pass('Chat', rows, filter(), new Loader(new SharedReads()))
+			const passed = await pass(
+				'Chat',
+				rows,
+				filter(),
+				new Loader(new SharedReads()),
+			)
 			expect(passed).toEqual(new Set(ids()))
 			expect(finds).toContain('Chat')
 		},
@@ -223,5 +239,90 @@ describe('the rows a flush expects (D-261)', () => {
 		await loader.load('Chat', [mine])
 		await loader.load('Chat', [theirs])
 		expect(finds).toEqual(['Chat', 'Chat'])
+	})
+})
+
+const inChat = (title: string): Filter => ({
+	chat: { is: { title: { equals: title } } },
+})
+const held = (row: Row | undefined): ReadonlyMap<string, Row> =>
+	new Map(row === undefined ? [] : [[row.id, row]])
+
+describe('the rows related to a flush', () => {
+	it('are read together through a key each row stores (D-263)', async () => {
+		const members = await storedRows('Member', {})
+		const [first, second] = members
+		const loader = new Loader()
+		loader.keep('Member', members)
+		finds = []
+		const one = await pass('Member', held(first), inChat('mine'), loader)
+		const other = await pass('Member', held(second), inChat('theirs'), loader)
+		expect(finds).toEqual(['Chat'])
+		expect([...one, ...other].toSorted()).toEqual(
+			members.map(({ id }) => id).toSorted(),
+		)
+	})
+
+	it('are read together through a key they store (D-263)', async () => {
+		const loader = new Loader()
+		loader.keep('Chat', [...rows.values()])
+		const one = await pass('Chat', held(rows.get(mine)), memberOf(ada), loader)
+		const other = await pass(
+			'Chat',
+			held(rows.get(theirs)),
+			memberOf(bob),
+			loader,
+		)
+		expect(finds).toEqual(['Member'])
+		expect(one).toEqual(new Set([mine]))
+		expect(other).toEqual(new Set([theirs]))
+	})
+
+	it('stop at what the flush read when it asks (D-263)', async () => {
+		const loader = new Loader()
+		const asked = rows.get(mine)
+		loader.keep('Chat', asked === undefined ? [] : [asked])
+		expect(await pass('Chat', held(asked), memberOf(ada), loader)).toEqual(
+			new Set([mine]),
+		)
+		const other = await pass(
+			'Chat',
+			held(rows.get(theirs)),
+			memberOf(bob),
+			loader,
+		)
+		expect(finds).toEqual(['Member', 'Member'])
+		expect(other).toEqual(new Set([theirs]))
+	})
+
+	it('a row read is given without another read, a deleted one stays missing', async () => {
+		const loader = new Loader()
+		expect((await loader.load('Chat', [mine, 'gone'])).get(mine)?.id).toBe(mine)
+		const again = await loader.load('Chat', [mine, 'gone'])
+		expect([...again.keys()]).toEqual([mine])
+		expect(finds).toEqual(['Chat'])
+	})
+
+	it('are read apart once too many to read together (D-263)', async () => {
+		const crowd = await Chat.create({ data: { title: 'crowd' } }, M)
+		const data = Array.from({ length: 10_001 }, () => ({
+			user: { connect: { id: ada } },
+			chat: { connect: { id: crowd.id } },
+		}))
+		await Member.createMany({ data }, M)
+		const loader = new Loader()
+		loader.keep('Chat', [...(await storedRows('Chat', {}))])
+		finds = []
+		// Everyone's rows come back too many: this reader's own go to a query.
+		const first = await loader.holding('Member', 'chat', [mine], 'Chat')
+		expect(first.get(mine)).toBeUndefined()
+		// From then on each reader reads its own, and only the crowd stays open.
+		const second = await loader.holding('Member', 'chat', [mine], 'Chat')
+		expect(second.get(mine)?.rows.length).toBe(1)
+		const third = await loader.holding('Member', 'chat', [crowd.id], 'Chat')
+		expect(third.get(crowd.id)).toBeUndefined()
+		const fourth = await loader.holding('Member', 'chat', [crowd.id], 'Chat')
+		expect(fourth.get(crowd.id)).toBeUndefined()
+		expect(finds).toEqual(['Member', 'Member', 'Member'])
 	})
 })
