@@ -78,6 +78,26 @@ it('uploads a cover, then writes its id in a post', async () => {
 	//#endregion
 })
 
+it("types a file's id as an ID, as every id", async () => {
+	const body = await request(
+		`{ __type(name: "PostCover") { fields { name type { ofType { name } } } } }`,
+	)
+	expect(at(body, 'data', '__type', 'fields')).toContainEqual({
+		name: 'id',
+		type: { ofType: { name: 'ID' } },
+	})
+	const cover = new File([png], 'cover.png', { type: 'image/png' })
+	const id = await uploader({ url: running.url }).upload(cover, {
+		for: 'Post.cover',
+	})
+	const created = await request(
+		'mutation ($cover: JSON) { createPost(data: { title: "Hi", cover: $cover }) { cover { id } } }',
+		{ cover: id },
+	)
+	expect(at(created, 'data', 'createPost', 'cover', 'id')).toBe(id)
+	expect(id).toMatch(/^[0-9a-f-]{36}$/)
+})
+
 it('pushes to a list of files, and removes from it', async () => {
 	//#region list
 	const notes = await attachment('notes.txt', 'Bring the slides.')
