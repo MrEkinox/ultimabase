@@ -17800,6 +17800,8 @@ builder, as the choice of Kysely to run statements and migrations still stands.
 
 ## D-258: A read sees only the rows that lead to it
 
+Amended by D-260.
+
 Choice: amends D-256. Nothing changes for a developer: no option, no new message, the
 same rows told.
 
@@ -17881,3 +17883,39 @@ told p50 and statements per second:
 
 A lone write to a campaign runs 4 statements rather than 14, a lone chat message
 11 rather than 18. Presence gains little: its rule is `read: true`.
+
+## D-260: A live function is given only the rows that lead to its reads
+
+Choice: amends D-258 point 2. Nothing changes for a developer.
+
+D-258 gave each list the rows that lead to its pin, and still gave the whole batch to a
+read that built a caller, a plan or a result. A live function was then woken by a row of
+its own and tested every row of the flush against every read it recorded: a badge counter
+read per user, with a batch that grows when the process falls behind, is the rows times
+the reads D-258 removed for lists. At 400 chat messages a second this was a fifth of the
+busy time.
+
+1. A recorded read pinned by its filter gets the rows that lead to its pin, like a list.
+2. A read with no pin, or that followed a relation, still gets the whole batch, and so
+   does any read a flush visits for another reason (D-258 point 2's task in progress and
+   virtual fields' reads, a key or a link moved).
+3. A read on several shapes gets the rows of all of them, joined.
+
+Why this cannot miss a row: the pin comes from a condition the filter requires, so a row
+leading to another pin fails the filter unless it moved, and a move is a link moved, which
+gives the whole batch. A row's fields are tested against the same fields as the route.
+
+`bench/realtime/platform.ts`, 10 000 users on one process and one Postgres, private chats:
+
+| Rate   | Told p50, before | After | Told p95, before | After  | Drain, before | After |
+| ------ | ---------------- | ----- | ---------------- | ------ | ------------- | ----- |
+| 400 /s | 5.0 s            | 2.7 s | 8.4 s            | 4.7 s  | 4.6 s         | 2.0 s |
+| 600 /s | 12.2 s           | 7.1 s | 16.2 s           | 10.6 s | 11.3 s        | 5.3 s |
+
+Below saturation nothing moves: at 200/s, 42 ms and 62 ms before and after.
+
+Checked by replaying 8 seeds of random writes and comparing 36 live function values and 80
+lists with what a new reader finds: no difference, and a broken check is seen on 35 of 36.
+
+Known limit: the viewer's own reads, those that built its caller, still test the whole
+batch. They were absent from the measure, and did not cost anything worth a line.

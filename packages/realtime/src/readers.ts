@@ -33,8 +33,6 @@ export interface Owner {
 type Entry = {
 	readonly reader: object
 	readonly owner: Owner
-	/** A live list reads the rows it can see; anything else reads them all. */
-	readonly narrows: boolean
 	within: readonly Membership[]
 }
 
@@ -60,7 +58,7 @@ export class Readers {
 		const schema = liveSchema()
 		const reach = reachOf(schema, spec.model, plan)
 		const interest = interestOfPlan(modelsOf(schema), spec.model, plan, reach)
-		this.#follow(spec.owner, reader, [interest], true)
+		this.#follow(spec.owner, reader, [interest])
 		return reach
 	}
 
@@ -68,17 +66,12 @@ export class Readers {
 	followReads(owner: Owner, reader: object, reads: readonly Recorded[]): void {
 		const models = modelsOf(liveSchema())
 		const interests = reads.map((read) => interestOfRead(models, read))
-		this.#follow(owner, reader, interests, false)
+		this.#follow(owner, reader, interests)
 	}
 
-	#follow(
-		owner: Owner,
-		reader: object,
-		interests: readonly Interest[],
-		narrows: boolean,
-	): void {
+	#follow(owner: Owner, reader: object, interests: readonly Interest[]): void {
 		this.#leave(reader)
-		const entry: Entry = { reader, owner, narrows, within: [] }
+		const entry: Entry = { reader, owner, within: [] }
 		entry.within = interests.map((interest) => {
 			const made = shapeOf(interest)
 			const shape = this.#shapes.get(made.key) ?? {
@@ -145,14 +138,14 @@ export class Readers {
 		loader: Loader,
 	): Promise<ReadonlyMap<Owner, ReadonlyMap<object, Batch | undefined>>> {
 		const found = new Map<Owner, Map<object, Batch[] | undefined>>()
-		const add = ({ owner, reader, narrows }: Entry, seen?: Batch): void => {
+		const add = ({ owner, reader }: Entry, seen?: Batch): void => {
 			let reads = found.get(owner)
 			if (reads === undefined) {
 				reads = new Map()
 				found.set(owner, reads)
 			}
 			const known = reads.get(reader)
-			if (seen === undefined || !narrows) reads.set(reader, undefined)
+			if (seen === undefined) reads.set(reader, undefined)
 			else if (known !== undefined) known.push(seen)
 			else if (!reads.has(reader)) reads.set(reader, [seen])
 		}

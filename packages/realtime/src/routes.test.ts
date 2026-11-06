@@ -448,6 +448,34 @@ it('a live function runs again only for what it read', async () => {
 	await vi.waitFor(() => expect(seenIn(seen)).toContain('"value":1'))
 })
 
+it('a live function is given only the rows that lead to its read (D-260)', async () => {
+	const first = await chatOf('ada')
+	const second = await chatOf('bob')
+	watched = first.chat.id
+	const seen: LiveMessage[] = []
+	const viewer = await connect(first.id)
+	await viewer.value(
+		'notesRead',
+		async () => notesRead.run({ as: master }),
+		(message) => seen.push(message),
+	)
+	await vi.waitFor(() => expect(seen).toHaveLength(1))
+	await quiet()
+	const given = vi.spyOn(Computed.prototype, 'apply')
+	const [here] = await Promise.all([
+		noteIn(first, 'here'),
+		noteIn(second, 'elsewhere'),
+	])
+	await vi.waitFor(() => expect(seenIn(seen)).toContain('"value":1'))
+	const rows = given.mock.calls.flatMap(([batch]) => [
+		...listed(batch.get('Note')?.inserts),
+	])
+	expect(rows).toEqual([here.id])
+	given.mockRestore()
+	await Note.delete({ where: { id: here.id } }, M)
+	await vi.waitFor(() => expect(seenIn(seen)).toContain('"value":0'))
+})
+
 it('a live function that cannot start leaves nothing behind', async () => {
 	const { id } = await chatOf('ada')
 	failing = true
