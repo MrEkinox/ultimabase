@@ -9,12 +9,14 @@ export type { Postgres }
  * `process.env.DATABASE_URL` perhaps, is refused when the app starts. A query
  * waits up to 10 seconds for one of its `connections`, 10 by default.
  * `_search` reads its words in `searchLanguage`, a text search configuration
- * of the server, `'simple'` by default.
+ * of the server, `'simple'` by default. `prepared: false` plans every statement
+ * each time, for a pooler that cannot keep a statement on a connection.
  */
 export function postgres(options: {
 	readonly url: string | undefined
 	readonly connections?: number
 	readonly searchLanguage?: string
+	readonly prepared?: boolean
 }): Postgres {
 	return createAdapter(options)
 }

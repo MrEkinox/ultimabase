@@ -56,6 +56,8 @@ export type Options = {
 	readonly log?: (event: LogEvent) => void
 	/** The text search configuration of every `_search`, `'simple'` by default (D-148). */
 	readonly searchLanguage?: string
+	/** Plans a composed statement once per connection; `true` by default (D-264, D-274). */
+	readonly prepared?: boolean
 }
 
 /** What `postgres()` returns: an adapter that also runs raw SQL (D-137). */
@@ -209,7 +211,7 @@ export function createAdapter(options: Options): Postgres {
 			pool.on('error', () => undefined)
 			pool.on('connect', (client) => {
 				client.on('error', () => undefined)
-				preparing(client)
+				if (options.prepared !== false) preparing(client)
 				// Compiling a nested read costs a hundred times more than running
 				// it; queued, this runs before the client's first query (D-47).
 				client.query('set jit = off').catch(() => undefined)

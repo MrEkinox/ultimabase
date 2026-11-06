@@ -17979,6 +17979,8 @@ Campaign at 1 000 writes a second: told p50 from 2 017 to 47 ms, and it holds; 1
 
 ## D-264: A composed statement is prepared once per connection
 
+Amended by D-274.
+
 Choice: amends D-47. Nothing changes in a developer's code.
 
 Under load PostgreSQL spent more time planning the statements the adapter composes than
@@ -17995,8 +17997,8 @@ running them, and an application asks the same few, 72 to 200 in the benches.
    before and 6 MB with 172 statements. A statement past 64 parameters, a long list of ids
    rarely asked twice alike, stays unnamed. Past the cap, new statements stay unnamed.
 4. PgBouncer in transaction mode needs version 1.21 or later and `max_prepared_statements`
-   above 0, or a statement finds itself unknown on another server connection. No option turns
-   this off yet: that is a public choice left to the maintainer.
+   above 0, or a statement finds itself unknown on another server connection. D-274 turns this
+   off.
 
 Composing also costs less. A write only composes its read and its checks when it has rows to
 split, a name is put in snake case once, and a list's text allocates nothing per item:
@@ -18199,3 +18201,25 @@ socket. A change of one row is the message that goes to the most sockets, and it
 row in 50 112 to 86-88 ms. `platform-wire.ts`, 10 000 users, one run each: campaign at 1 500 asked
 1 020 to 1 201 written a second, chat at 600 asked 454 to 478, connecting the chat 50.7 to 46.7 s and
 the process 4.11 to 3.49 GiB, the clients' threads included: fewer sockets ever keep a compressor.
+
+## D-274: `prepared: false` runs every statement unnamed
+
+Choice: amends D-264. A developer's code changes only to turn it off.
+
+D-264 prepares what the adapter composes, and a connection pooler that shares server connections
+between clients may then find a statement unknown: PgBouncer in transaction mode before 1.21, or
+without `max_prepared_statements`. Such an application had no way out but changing its pooler.
+
+```ts
+// Before: always prepared.
+database: postgres({ url: process.env['DATABASE_URL'] })
+
+// After: the same by default, and a way out.
+database: postgres({ url: process.env['DATABASE_URL'], prepared: false })
+```
+
+1. `prepared` is a boolean on `postgres()`, `true` by default. `false` sends every statement as
+   an unnamed one, the planning cost D-264 removed coming back with it.
+2. It holds for one adapter, so two applications in a process choose apart. The list of statements
+   stays shared: it costs nothing to a connection that never reads it.
+3. No option on the cap or the planning: nothing has asked for one.
