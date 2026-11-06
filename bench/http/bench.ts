@@ -23,7 +23,7 @@ import { isMeasured } from './load.ts'
 
 const usage = `node bench/http/bench.ts [--seconds 6] [--concurrency 16] [--cases <substring>] [--profile <file>] [--url <postgres url>]
 
-  --seconds      timed seconds of each case, after 2 untimed
+  --seconds      timed seconds of each case, after 2 untimed, 10 for the first
   --concurrency  clients, each with a connection of its own
   --cases        only the cases whose name holds this text
   --profile      a file for the CPU profile of the timed seconds, for one case
@@ -32,6 +32,7 @@ const usage = `node bench/http/bench.ts [--seconds 6] [--concurrency 16] [--case
 
 const M = { as: master }
 const port = 34_517
+const coldStart = 10
 
 declare module 'ultimabase' {
 	interface Register {
@@ -113,9 +114,9 @@ async function loaded(
 	sent: readonly Sent[],
 	concurrency: number,
 	seconds: number,
+	warm = 2,
 ): Promise<Row> {
 	const child = fork(new URL('load.ts', import.meta.url), { execArgv: [] })
-	const warm = 2
 	const asked: Asked = { port, sent, concurrency, warm, seconds }
 	const finished = new Promise<Measured>((done, fail) => {
 		child.once('message', (message) => {
@@ -269,7 +270,10 @@ try {
 	console.error(`${new Date().toISOString()} seeded`)
 	for (const each of casesOf(ids.slice(0, 500), token)) {
 		if (!each.name.includes(values.cases)) continue
-		rows.push(await loaded(each.name, each.sent, concurrency, seconds))
+		// A cold process compiles its code during the first case: that case would
+		// count a price the server pays once.
+		const warm = rows.length === 0 ? coldStart : 2
+		rows.push(await loaded(each.name, each.sent, concurrency, seconds, warm))
 	}
 	await app.stop()
 	const [first = ''] = ids
