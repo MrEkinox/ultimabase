@@ -203,13 +203,19 @@ export async function liveReader(
 	// longer names its caller; its relations hold what the caller sees of them,
 	// which is not what a root rule is checked on (D-252).
 	const allowed = async (
+		ids: readonly string[],
 		rows: ReadonlyMap<string, Row> | undefined,
 		judge: Judge | undefined,
 	): Promise<ReadonlySet<string> | undefined> => {
 		if (rows === undefined) return undefined
 		if (rights !== undefined && !alone) return judge?.(rights)
-		const kept = [...rows.values()].filter((row) => matches(model, row, rights))
-		return new Set(kept.map(({ id }) => id))
+		// Among `ids` alone: a big list's parts all come with its whole rows.
+		return new Set(
+			ids.filter((id) => {
+				const row = rows.get(id)
+				return row !== undefined && matches(model, row, rights)
+			}),
+		)
 	}
 	const bare = JSON.stringify([model, read])
 	const named = alone ? bare : JSON.stringify([model, read, rights])
@@ -235,7 +241,7 @@ export async function liveReader(
 		// No async wrapper: a flush makes this call for each subscriber.
 		return app.work.run(() =>
 			reading(app, async (store) => {
-				const may = await allowed(rows, judge)
+				const may = await allowed(ids, rows, judge)
 				const found =
 					rows !== undefined && may !== undefined && plain
 						? decoded(

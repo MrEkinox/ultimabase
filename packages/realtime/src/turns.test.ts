@@ -104,4 +104,64 @@ describe('inParts', () => {
 		expect(calls).toEqual([2000, 2000, 500])
 		expect(found).toEqual(ids(4500))
 	})
+
+	it('runs a few parts at once and keeps their order', async () => {
+		const gates: (() => void)[] = []
+		let started = 0
+		const found = inParts(ids(20_000), async (part) => {
+			started += 1
+			await new Promise<void>((go) => {
+				gates.push(go)
+			})
+			return part
+		})
+		await settled()
+		expect(started).toBe(4)
+		// The last started ends first: the result keeps the order of the ids.
+		gates.pop()?.()
+		await settled()
+		expect(started).toBe(5)
+		for (let part = 1; part < 10; part += 1) {
+			gates.pop()?.()
+			await settled()
+		}
+		expect(await found).toEqual(ids(20_000))
+	})
+
+	it('counts the parts of every read together', async () => {
+		const gates: (() => void)[] = []
+		let started = 0
+		const read = async (part: readonly string[]) => {
+			started += 1
+			await new Promise<void>((go) => {
+				gates.push(go)
+			})
+			return part
+		}
+		const both = Promise.all([
+			inParts(ids(10_000), read),
+			inParts(ids(10_000), read),
+		])
+		await settled()
+		expect(started).toBe(4)
+		for (let part = 0; part < 10; part += 1) {
+			gates.shift()?.()
+			await settled()
+		}
+		await both
+	})
+
+	it('lets the next part go when one fails', async () => {
+		let started = 0
+		const failing = inParts(ids(12_000), async (part) => {
+			started += 1
+			if (started === 1) throw new Error('A part failed.')
+			return part
+		})
+		await expect(failing).rejects.toThrow('A part failed.')
+		await settled()
+		expect(started).toBe(6)
+		// Nothing stays counted: a later read runs at once.
+		expect(await inParts(ids(4000), async (part) => part)).toHaveLength(4000)
+	})
 })

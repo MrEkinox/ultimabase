@@ -1,6 +1,6 @@
 // The reads of a big live list's window (D-254): many at once fill the memory of
 // the process and of the database, and hold the pool others write with. They
-// take turns, and read a part at a time.
+// take turns, and read a part at a time, a few parts at once (D-270).
 
 /** The rows from which a live read is big: smaller ones never wait. */
 export const bigRead = 1000
@@ -8,6 +8,8 @@ export const bigRead = 1000
 const atOnce = 20_000
 /** The rows one statement reads at most. */
 const part = 2000
+/** The statements big reads run at once, whatever their number. */
+const partsAtOnce = 4
 
 type Waiting = { readonly rows: number; readonly go: () => void }
 
@@ -46,15 +48,36 @@ export async function inTurn(
 	}
 }
 
-/** What `read` finds for `ids`, a part at a time when they are many. */
+let running = 0
+const parts: (() => void)[] = []
+
+/** Runs `read` once fewer than `partsAtOnce` statements run, first come first. */
+async function inPartTurn<T>(read: () => Promise<T>): Promise<T> {
+	if (running < partsAtOnce) running += 1
+	else {
+		await new Promise<void>((go) => {
+			parts.push(go)
+		})
+	}
+	try {
+		return await read()
+	} finally {
+		const go = parts.shift()
+		if (go === undefined) running -= 1
+		else go()
+	}
+}
+
+/** What `read` finds for `ids`, in order, by parts when they are many. */
 export async function inParts<T>(
 	ids: readonly string[],
 	read: (ids: readonly string[]) => Promise<readonly T[]>,
 ): Promise<readonly T[]> {
 	if (ids.length <= part) return read(ids)
-	const found: T[] = []
+	const reads: Promise<readonly T[]>[] = []
 	for (let from = 0; from < ids.length; from += part) {
-		found.push(...(await read(ids.slice(from, from + part))))
+		const some = ids.slice(from, from + part)
+		reads.push(inPartTurn(async () => read(some)))
 	}
-	return found
+	return (await Promise.all(reads)).flat()
 }

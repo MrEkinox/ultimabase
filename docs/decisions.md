@@ -18116,3 +18116,23 @@ it: 1.1 to 2.4 GiB at 10 000 users.
 
 Measured alone, server and clients in separate processes, 2 000 sockets: 109 to 44 KB a socket after
 a 4.7 KB message, 243 to 64 KB after a 47 KB one. The time to send does not move.
+
+## D-270: A big list reads a few parts at once
+
+Choice: amends D-254, point 3; nothing changes in a developer's code.
+
+A list of 50 000 rows read its window in 25 statements of 2 000 rows, one after the other. For
+4 of the 7 seconds of its opening the process had nothing to do but wait for them, and each of
+them filtered all 50 000 rows by the caller's rights.
+
+1. The parts of a big read run at once, 4 statements in all across every big read of the process,
+   first come first. Six of the pool's 10 connections stay free for writes, which D-254 asks for.
+2. A pool of fewer connections is not known here: its writes queue behind these statements for
+   as long as the statements take, about 135 ms each.
+3. A part filters only its own rows.
+
+Parts were already separate statements, so nothing is less consistent than it was.
+
+`bench/realtime/wire.ts`, 50 000 rows: one alone 7 100 to 4 622 ms, all at once 7 000 to 4 462 ms,
+another client's message 56 / 71 to 59 / 94 ms (median / worst). Twenty subscribers at once:
+76.9 s, 126 s when D-254 measured them.
