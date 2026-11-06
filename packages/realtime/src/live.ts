@@ -17,7 +17,7 @@ import { wrote } from './changes.ts'
 import { passing } from './levels.ts'
 import type { Reach } from './reach.ts'
 import { modelsOf } from './reach.ts'
-import { finderOf, Loader, pass, rowsAfter } from './reads.ts'
+import { finderOf, judgeOf, Loader, pass, rowsAfter } from './reads.ts'
 import type { Spec } from './messages.ts'
 import type { Waited } from './tasks.ts'
 import { Tasks } from './tasks.ts'
@@ -197,10 +197,12 @@ export class Live {
 		if (ids.length === 0) return []
 		const { model, shape } = this.#spec
 		const rows = loader && (await loader.load(model, ids))
+		const shared = loader?.reads
+		const judge = rows && shared && judgeOf(model, rows, loader)
 		this.#reader ??= await liveReader(model, shape, this.caller)
 		const reader = this.#reader
 		const { result: found, reads } = await recordingVirtuals(() =>
-			inParts(ids, (part) => reader(part, rows, loader?.reads)),
+			inParts(ids, (part) => reader(part, rows, shared, judge)),
 		)
 		this.#virtuals.keep(found, reads)
 		this.#spec.readers.always(this, !this.#closed && this.#virtuals.holding)

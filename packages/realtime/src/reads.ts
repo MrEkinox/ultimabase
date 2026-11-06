@@ -2,7 +2,7 @@
 // a filter checked on a few rows, in memory when it reads the row alone,
 // and each changed row loaded once for every live read that needs it.
 import type { Filter, Nested, Order, Row } from 'ultimabase'
-import type { LivePlan, SharedReads } from 'ultimabase/internal'
+import type { Judge, LivePlan, SharedReads } from 'ultimabase/internal'
 import { inMemory, liveSchema, matches, storedRows } from 'ultimabase/internal'
 import type { Finder } from './affected.ts'
 import { loosened } from './levels.ts'
@@ -306,10 +306,30 @@ function splitOf(model: string, filter: Filter): Split {
 
 const ids = (rows: readonly Row[]) => rows.map(({ id }) => id)
 
+type Tried = {
+	readonly left: readonly Row[]
+	/** What the rows held did not settle, which a query may. */
+	readonly rest: readonly Filter[]
+}
+
+/** What `rows` leave of `filter`, answered in memory and by related rows. */
+async function tried(
+	model: string,
+	rows: ReadonlyMap<string, Row>,
+	filter: Filter,
+	loader: Loader,
+): Promise<Tried> {
+	const { local, rest, whole } = splitOf(model, filter)
+	const kept = [...rows.values()].filter((row) => matches(model, row, local))
+	if (kept.length === 0 || rest.length === 0) return { left: kept, rest: [] }
+	const { rows: left, sure } = await possible(model, kept, whole, loader)
+	return { left, rest: left.length === 0 || sure ? [] : rest }
+}
+
 /**
  * The ids of `rows` that pass `filter`: what a row answers alone in memory,
  * what the rows related to it can refuse, read once per flush (D-255), and a
- * query only for the rows left (D-252).
+ * query only for what those rows leave open (D-252, D-259).
  */
 export async function pass(
 	model: string,
@@ -318,12 +338,30 @@ export async function pass(
 	loader: Loader,
 ): Promise<ReadonlySet<string>> {
 	if (filter === undefined || rows.size === 0) return new Set(rows.keys())
-	const { local, rest, whole } = splitOf(model, filter)
-	const kept = [...rows.values()].filter((row) => matches(model, row, local))
-	if (kept.length === 0 || rest.length === 0) return new Set(ids(kept))
-	const left = await possible(model, kept, whole, loader)
-	if (left.length === 0) return new Set()
+	const { left, rest } = await tried(model, rows, filter, loader)
+	if (rest.length === 0) return new Set(ids(left))
 	const where = { AND: [among(ids(left)), ...rest] }
 	const passed = await storedRows(model, { where, fields: ['id'] })
 	return new Set(passed.map(({ id }) => id))
+}
+
+/**
+ * Tells which of `rows`, stored whole, pass a filter, once for a read, when
+ * the rows a flush holds answer without a query (D-259).
+ */
+export function judgeOf(
+	model: string,
+	rows: ReadonlyMap<string, Row>,
+	loader: Loader,
+): Judge {
+	const known = new Map<Filter, Promise<ReadonlySet<string> | undefined>>()
+	return async (filter) => {
+		const found =
+			known.get(filter) ??
+			tried(model, rows, filter, loader).then(({ left, rest }) =>
+				rest.length === 0 ? new Set(ids(left)) : undefined,
+			)
+		known.set(filter, found)
+		return found
+	}
 }

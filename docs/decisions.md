@@ -17631,7 +17631,7 @@ Rejected:
 
 ## D-255: A write costs its readers, whoever else is connected
 
-Amended by D-256.
+Amended by D-256 and D-259.
 
 Choice: amends D-252 points 1, 3 and 10.
 
@@ -17837,3 +17837,47 @@ Known limits:
 - No scenario holds more for it: told within a second at the 95th percentile still stops
   at the same rate. It stops being a cliff: at 1000/s a campaign drains in 12 s, not 78 s.
 - A walk costs what it reads, and the reads it replaces were only the ones past the pin.
+
+## D-259: A rule the rows of a flush answer needs no query
+
+Choice: amends D-252 point 3 and D-255 point 2.
+
+D-255 reads once what a filter requires through a relation, but only to refuse
+rows: each viewer then asked the database to confirm the rest of them, and read
+its shape again under its own rights. On a list of a campaign's NPCs, 75 % of a
+flush's statements came from those two, re-asking what the flush already held.
+
+1. When what a filter requires is entirely in the rows held for the flush, what
+   they say is the answer: no query confirms it. That holds when each condition
+   is answered alone by the row or is an `is` or a `some` that says nothing else
+   of its relation, down to the bottom, an `OR` when each branch holds, and no
+   related set passed the 10 000 rows a read keeps.
+2. Anything else goes to the database as before: `none`, `every`, `isNot`, `NOT`,
+   a search, a many-to-many relation, two conditions on one relation, a set too
+   large to hold.
+3. A live read told the verdict needs no rule of its own: with no relation to
+   show it serves the stored rows, and with relations it shares one read across
+   every caller, under a key that does not name the rights, and keeps what the
+   verdict lets through. Relations stay under each caller's own field rules.
+4. Only a flush judges: its rows are whole. The rows of a first read may hold a
+   part of their fields and are not judged.
+5. The verdict is what the flush read when it started. A write committed after
+   that read carries a model the rule reaches, so it comes in a later flush that
+   judges again, as for any row a flush reads (D-154).
+
+Before and after, 10 000 users on `bench/realtime/platform.ts`, 10 s per rate,
+told p50 and statements per second:
+
+| Scenario | Writes/s | Before          | After           |
+| -------- | -------- | --------------- | --------------- |
+| Campaign | 100      | 54 ms, 1311/s   | 41 ms, 317/s    |
+| Campaign | 200      | 347 ms, 2437/s  | 40 ms, 616/s    |
+| Campaign | 500      | 6058 ms, 2462/s | 51 ms, 1505/s   |
+| Campaign | 1000     | 8809 ms, 2505/s | 1916 ms, 1924/s |
+| Chat     | 100      | 44 ms, 1433/s   | 37 ms, 923/s    |
+| Chat     | 200      | 65 ms, 2871/s   | 42 ms, 1743/s   |
+| Chat     | 400      | 7876 ms, 952/s  | 3934 ms, 706/s  |
+| Presence | 500      | 900 ms, 564/s   | 792 ms, 571/s   |
+
+A lone write to a campaign runs 4 statements rather than 14, a lone chat message
+11 rather than 18. Presence gains little: its rule is `read: true`.

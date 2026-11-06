@@ -17,11 +17,17 @@ type Need = {
 	readonly own: Filter | undefined
 	readonly pin: Pin | undefined
 	readonly others: readonly Other[]
+	/** It leaves nothing out: a row passing it passes the filter (D-259). */
+	readonly whole: boolean
 }
 
-type Other =
+type Other = { readonly whole: boolean } & (
 	| { readonly any: readonly Need[] }
 	| { readonly step: Step; readonly need: Need }
+)
+
+/** Whether a related row was too many to hold, so a query must decide. */
+type Doubt = { held: boolean }
 
 /** A related row's id, as the row holds its key. */
 export function keyOf(row: Row, relation: string): string | undefined {
@@ -98,7 +104,9 @@ function otherOf(
 	if (isList(value)) {
 		if (key !== 'OR' || value.length === 0) return undefined
 		const any = value.map((branch) => needOf(models, model, branch))
-		return any.every((need) => need !== undefined) ? { any } : undefined
+		return any.every((need) => need !== undefined)
+			? { any, whole: any.every((need) => need.whole) }
+			: undefined
 	}
 	const step = stepOf(models, model, key)
 	const inner = value.some ?? value.is
@@ -109,7 +117,9 @@ function otherOf(
 		(step.keyOnTarget && step.inverse !== undefined) ||
 		(!step.many && stores(models, model, key))
 	const need = readable ? needOf(models, step.target, inner) : undefined
-	return need === undefined ? undefined : { step, need }
+	if (need === undefined) return undefined
+	const only = Object.values(value).filter((each) => each !== undefined)
+	return { step, need, whole: need.whole && only.length === 1 }
 }
 
 function needOf(
@@ -119,11 +129,12 @@ function needOf(
 ): Need | undefined {
 	const parts = required(filter)
 	const own = parts.filter((part) => inMemory(model, part))
-	const others = parts.flatMap((part) =>
-		inMemory(model, part) ? [] : (otherOf(models, model, part) ?? []),
-	)
+	const rest = parts.filter((part) => !inMemory(model, part))
+	const others = rest.flatMap((part) => otherOf(models, model, part) ?? [])
 	if (own.length === 0 && others.length === 0) return undefined
 	return {
+		whole:
+			others.length === rest.length && others.every((other) => other.whole),
 		model,
 		own: own.length === 0 ? undefined : { AND: own },
 		pin: own.flatMap((part) => pinOf(models, model, part) ?? [])[0],
@@ -138,6 +149,7 @@ async function keep(
 	need: Need,
 	held: Held,
 	loader: Loader,
+	doubt: Doubt,
 ): Promise<readonly Row[]> {
 	const { model, own, pin, others } = need
 	let rows = pin === undefined ? held.rows : held.with(pin)
@@ -145,8 +157,8 @@ async function keep(
 	for (const other of others) {
 		if (rows.length === 0) break
 		rows = await ('any' in other
-			? keepAny(other.any, rows, loader)
-			: keepRelated(other.step, other.need, rows, loader))
+			? keepAny(other.any, rows, loader, doubt)
+			: keepRelated(other.step, other.need, rows, loader, doubt))
 	}
 	return rows
 }
@@ -155,11 +167,12 @@ async function keepAny(
 	any: readonly Need[],
 	rows: readonly Row[],
 	loader: Loader,
+	doubt: Doubt,
 ): Promise<readonly Row[]> {
 	const held = new Held(rows)
 	const kept = new Set<Row>()
 	for (const need of any) {
-		for (const row of await keep(need, held, loader)) kept.add(row)
+		for (const row of await keep(need, held, loader, doubt)) kept.add(row)
 	}
 	return rows.filter((row) => kept.has(row))
 }
@@ -169,13 +182,18 @@ async function keepRelated(
 	need: Need,
 	rows: readonly Row[],
 	loader: Loader,
+	doubt: Doubt,
 ): Promise<readonly Row[]> {
 	const related = await relatedOf(step, rows, loader)
 	const kept: Row[] = []
 	for (const row of rows) {
 		const held = related(row)
 		// Too many to hold at once: the query decides.
-		if (held === undefined || (await keep(need, held, loader)).length > 0) {
+		if (held === undefined) doubt.held = true
+		if (
+			held === undefined ||
+			(await keep(need, held, loader, doubt)).length > 0
+		) {
 			kept.push(row)
 		}
 	}
@@ -204,18 +222,21 @@ async function relatedOf(
 
 /**
  * The `rows` that may pass the `rest` of a filter, which only a query can
- * tell for sure.
+ * tell for sure, unless `sure`: the rows held then answered all of it (D-259).
  */
 export async function possible(
 	model: string,
 	rows: readonly Row[],
 	filter: Filter,
 	loader: Loader,
-): Promise<readonly Row[]> {
+): Promise<{ readonly rows: readonly Row[]; readonly sure: boolean }> {
 	let need = needs.get(filter)
 	if (need === undefined) {
 		need = needOf(modelsOf(liveSchema()), model, filter) ?? null
 		needs.set(filter, need)
 	}
-	return need === null ? rows : keep(need, new Held(rows), loader)
+	if (need === null) return { rows, sure: false }
+	const doubt = { held: false }
+	const kept = await keep(need, new Held(rows), loader, doubt)
+	return { rows: kept, sure: need.whole && !doubt.held }
 }

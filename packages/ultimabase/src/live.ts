@@ -164,7 +164,11 @@ export type LiveReader = (
 	ids: readonly string[],
 	rows?: ReadonlyMap<string, Row>,
 	reads?: SharedReads,
+	judge?: Judge,
 ) => Promise<readonly Row[]>
+
+/** Which of the stored rows pass a filter, if that takes no query (D-259). */
+export type Judge = (filter: Filter) => Promise<ReadonlySet<string> | undefined>
 
 /** The adapter reads of one flush, for the live reads that ask the same. */
 export type SharedReads = Map<string, Promise<readonly Row[]>>
@@ -192,31 +196,37 @@ export async function liveReader(
 		})),
 	)
 	const { read, shape: shaped, rights } = prepared
-	const local =
-		read.include === undefined &&
-		read.count === undefined &&
-		inMemory(model, rights)
-	const readable = (row: Row | undefined): row is Row =>
-		row !== undefined && (rights === undefined || matches(model, row, rights))
-	// A root rule a row answers alone is checked on the stored rows, not on what
-	// the read returns, whose relations hold what the caller sees of them: the
-	// read then no longer names its caller (D-252).
-	const alone = rights !== undefined && inMemory(model, rights)
-	const key = JSON.stringify([model, read, alone ? undefined : rights])
+	const plain = read.include === undefined && read.count === undefined
+	const alone = rights === undefined || inMemory(model, rights)
+	// The rows the caller may read, when that takes no query. The read then no
+	// longer names its caller; its relations hold what the caller sees of them,
+	// which is not what a root rule is checked on (D-252).
+	const allowed = async (
+		rows: ReadonlyMap<string, Row> | undefined,
+		judge: Judge | undefined,
+	): Promise<ReadonlySet<string> | undefined> => {
+		if (rows === undefined) return undefined
+		if (rights !== undefined && !alone) return judge?.(rights)
+		const kept = [...rows.values()].filter((row) => matches(model, row, rights))
+		return new Set(kept.map(({ id }) => id))
+	}
+	const bare = JSON.stringify([model, read])
+	const named = alone ? bare : JSON.stringify([model, read, rights])
 	const shared = async (
 		ids: readonly string[],
 		reads: SharedReads,
+		sure: boolean,
 	): Promise<readonly Row[]> => {
-		const each = `${key} ${ids.join()}`
+		const each = `${sure ? bare : named} ${ids.join()}`
 		const known = reads.get(each)
 		if (known !== undefined) return known
 		const among = { id: { in: [...ids] } }
-		const where = alone ? among : and(among, rights)
+		const where = sure ? among : and(among, rights)
 		const found = app.adapter.find({ ...read, model, where })
 		reads.set(each, found)
 		return found
 	}
-	return async (ids, rows, reads) => {
+	return async (ids, rows, reads, judge) => {
 		if (ids.length === 0) return []
 		const root = {
 			...read,
@@ -226,21 +236,27 @@ export async function liveReader(
 		// No async wrapper: a flush makes this call for each subscriber.
 		return app.work.run(() =>
 			reading(app, async (store) => {
+				const may = await allowed(rows, judge)
 				const found =
-					rows !== undefined && local
+					rows !== undefined && may !== undefined && plain
 						? decoded(
 								models,
 								root,
-								ids.map((id) => rows.get(id)).filter(readable),
+								ids.flatMap((id): Row[] => {
+									const row = may.has(id) ? rows.get(id) : undefined
+									return row === undefined ? [] : [row]
+								}),
 							)
 						: reads === undefined || rows === undefined
 							? await store.find(root)
 							: decoded(
 									models,
 									root,
-									(await shared(ids, reads)).filter(
-										(row) => !alone || readable(rows.get(row.id)),
-									),
+									may === undefined
+										? [...(await shared(ids, reads, false))]
+										: (await shared(ids, reads, true)).filter(({ id }) =>
+												may.has(id),
+											),
 								)
 				const shown = await shapedRows(
 					context,
