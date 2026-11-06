@@ -13,6 +13,9 @@ anything below.
 - Prove, do not assert: quote the command and its result for every claim of
   success. A check that was not run is reported as not run.
 - Disagree when warranted, and explain why.
+- Run every long command under a hard time limit, so that a hung command ends
+  by itself: `perl -e 'alarm shift; exec @ARGV' 600 <command>` (macOS has no
+  `timeout`). Never end a turn waiting for a command that has no limit.
 
 ## Authorizations
 
