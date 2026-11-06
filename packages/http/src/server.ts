@@ -1,5 +1,5 @@
 // The port the server listens on, and its listening (D-106); the body
-// limit and the drain (D-223).
+// limit and the drain (D-223); its connection queue (D-276).
 import type { Server } from 'node:http'
 import { createServer } from 'node:http'
 import type { Duplex } from 'node:stream'
@@ -37,6 +37,9 @@ export function drainOf(option: number | undefined): number {
 	throw new Refused(`drain is ${ms}, not a whole number of milliseconds.`)
 }
 
+/** The connections waiting to be accepted; the system caps it at its own. */
+const backlog = 4096
+
 export async function listening(server: Server, port: number): Promise<number> {
 	await new Promise<void>((done, fail) => {
 		const refused = (error: Error) => {
@@ -51,7 +54,7 @@ export async function listening(server: Server, port: number): Promise<number> {
 			)
 		}
 		server.once('error', refused)
-		server.listen(port, () => {
+		server.listen({ port, backlog }, () => {
 			server.off('error', refused)
 			done()
 		})
