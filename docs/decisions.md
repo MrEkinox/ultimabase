@@ -9413,7 +9413,7 @@ api: ({ plugins }) => plugins.http.mount(uploads, { bodyLimit: false })
 ## D-154: Realtime: live lists and live rows
 
 Amended by D-163, D-166, D-178, D-186, D-187, D-195, D-196, D-223, D-226,
-D-229, D-230, D-252 and D-254.
+D-229, D-230, D-252, D-254 and D-266.
 
 Choice: completes D-25; amends D-106 (WebSocket upgrades), D-107 (the
 `Subscription` type), D-109 (live functions) and D-129 (live reads over
@@ -18011,6 +18011,8 @@ against the driver's 0.69.
 
 ## D-265: Subscribers of one row share its execution
 
+Amended by D-267.
+
 Choice: nothing changes in a developer's code.
 
 On the real wire, graphql-js ran each live message once per subscriber and took 28.5 % of the
@@ -18033,3 +18035,43 @@ Over GraphQL on a WebSocket, 1 000 subscribers of a window of 25, last message p
 goes from 227.5 to about 165 ms, the author of 1 row in 50 from 210.2 to about 160, a new first
 row from 172.6 to about 133. The subscribers' first windows do not change (3 386 to about
 3 300 ms for 1 000 at once).
+
+## D-266: Only messages above 1 KB are compressed
+
+Choice: nothing changes in a developer's code; sockets negotiate no context takeover.
+
+D-154 compresses WebSocket messages above 1 KB, but `ws` honours its `threshold` only when the
+negotiated extension has no context takeover. So every message was compressed, each going through
+zlib's limited queue and the thread pool.
+
+1. The server asks for `server_no_context_takeover` and `client_no_context_takeover`. A message
+   below 1 KB goes out as it is.
+2. The price: a message above 1 KB compresses alone, so it does not benefit from the ones before.
+   Live messages are mostly small, and a big window has its own repetition.
+3. Small frames now share a TCP chunk. `ws` on Node then delivers a refused growth's result and its
+   end in one tick, and `graphql-ws` releases the socket twice if the link unsubscribes between
+   them. So the link opens the next read and lets the refused one end by itself.
+
+Over the wire, 10 000 users each following 20 others, told p50 and p95: 500 changes a second
+6 297, 9 659 to 1 551, 2 382 ms; 1 000 a second 10 677, 14 201 to 4 045, 6 113 ms. 200 a second
+62, 98 to 45, 73 ms. The memory does not move: 4.63 to 4.60 GiB, the clients' threads included.
+
+## D-267: Subscribers of one row share it whatever window they follow
+
+Choice: nothing changes in a developer's code.
+
+D-265 shared an execution between subscribers with the same variables and the same root. Yet the
+variables of a list usually differ, its `where` naming the viewer, and its root carried each
+window's page info, read or not. So what users follow in common rarely ran together.
+
+1. The shape holds only the variables read below the root field: its arguments chose the rows, and
+   its resolver ignores them. A root's directives, its other selections and the fragments count,
+   all of them whether used or not: a variable wrongly counted only costs a shared execution.
+2. A message carries the page info only when the window's has moved; any other runs with a constant
+   one, whose result is not sent. The count is the message's, or 0 likewise.
+3. So windows sharing a row and a selection run once, unless their page info moved, and those whose
+   page info did move still run apart. A real client selects `pageInfo` in about half of its lists.
+
+Over the wire, 10 000 users each following 20 others, with D-266, told p50 and p95: 500 changes a
+second 1 551, 2 382 to 593, 1 147 ms; 1 000 a second 4 045, 6 113 to 3 750, 5 683 ms; 200 a second
+45, 73 to 41, 64 ms.

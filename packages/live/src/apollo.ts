@@ -128,6 +128,7 @@ function followed(
 		let token: string | undefined
 		let inner: Subscription | undefined
 		let closed = false
+		let reads = 0
 		// What takes back a growth that has not arrived yet.
 		let undo: (() => void) | undefined
 		const waiting: Waiter[] = []
@@ -149,6 +150,9 @@ function followed(
 			if (undo !== undefined && refused !== undefined) {
 				undo()
 				settle(refused)
+				// The refused read ends by itself, perhaps in this same tick: left now,
+				// `graphql-ws` lets go of the socket twice, and closes it under the next.
+				inner = undefined
 				return open()
 			}
 			const live: unknown = result.extensions?.['live']
@@ -190,6 +194,8 @@ function followed(
 							...extensions,
 							live: { ...(isRecord(asked) && asked), resume: token },
 						}
+			reads += 1
+			const read = reads
 			inner = forward(operation).subscribe({
 				next: (result) => {
 					try {
@@ -200,6 +206,7 @@ function followed(
 				},
 				error: fail,
 				complete: () => {
+					if (read !== reads) return
 					settle()
 					observer.complete()
 				},

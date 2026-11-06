@@ -59,6 +59,9 @@ function connectionOf(
 	return { edges, pageInfo: { ...pageInfo, hasNextPage: hasMore }, totalCount }
 }
 
+/** A page info no message shows, so that it keeps windows from running apart. */
+const unmoved = connectionOf([], false, undefined).pageInfo
+
 const revised = (
 	result: ExecutionResult,
 	revision: number,
@@ -102,12 +105,23 @@ function follower(
 	let hasMore = false
 	let count: number | undefined
 	let pageInfo = ''
+	// The page info its last result ran with, whichever of it the query selects.
+	let ran = ''
 	const rootOf = (rows: readonly Row[]) =>
 		connected ? connectionOf(rows, hasMore, count) : rows
 	const sent = (result: ExecutionResult): ExecutionResult => {
 		const at = valueAt(result.data, key)
 		pageInfo = JSON.stringify(valueAt(at, pageInfoKey)) ?? ''
 		return result
+	}
+	/** The window's page info where the query reads it and it moved. */
+	const moved = () => {
+		if (pageInfoKey === undefined) return undefined
+		const current = connectionOf(ends, hasMore, count).pageInfo
+		const json = JSON.stringify(current)
+		if (json === ran) return undefined
+		ran = json
+		return current
 	}
 	return (message) => {
 		if (message.kind === 'row' || message.kind === 'value') {
@@ -132,6 +146,7 @@ function follower(
 			ends = endsOf(
 				[rows[0], rows.at(-1)].flatMap((row) => (row ? [row.id] : [])),
 			)
+			moved()
 			const shown = token
 			token = undefined
 			// A whole window is costly to compare, and rarely sent to many at once.
@@ -146,10 +161,13 @@ function follower(
 		const upserts = changes.flatMap((change) =>
 			'upsert' in change ? [change.upsert] : [],
 		)
+		// Only what this message sends may differ between windows (D-267).
+		const movedTo = moved()
 		const root = connected
 			? {
-					...connectionOf(ends, hasMore, count),
 					edges: connectionOf(upserts, false, undefined).edges,
+					pageInfo: movedTo ?? unmoved,
+					totalCount: message.totalCount ?? 0,
 				}
 			: upserts
 		return new LiveEvent(root, (result) => {
@@ -168,10 +186,10 @@ function follower(
 			if (message.totalCount !== undefined && totalCountKey !== undefined) {
 				live['totalCount'] = valueAt(at, totalCountKey)
 			}
-			const before = pageInfo
-			sent(result)
-			if (pageInfoKey !== undefined && pageInfo !== before) {
-				live['pageInfo'] = valueAt(at, pageInfoKey)
+			if (movedTo !== undefined) {
+				const before = pageInfo
+				sent(result)
+				if (pageInfo !== before) live['pageInfo'] = valueAt(at, pageInfoKey)
 			}
 			return {
 				...(result.errors && { errors: result.errors }),

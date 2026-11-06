@@ -27,7 +27,13 @@ import type { Caller, Client, Logger } from 'ultimabase'
 import { PublicError } from 'ultimabase'
 import type { formatter } from './errors.ts'
 import type { Channel } from './live-stream.ts'
-import { LiveEvent, lives, released, SharedResults } from './live-stream.ts'
+import {
+	LiveEvent,
+	lives,
+	released,
+	SharedResults,
+	variablesBelowRoot,
+} from './live-stream.ts'
 import { inParts } from './parts.ts'
 import type { Context } from './registry.ts'
 
@@ -220,15 +226,17 @@ export function serveSockets(
 				address: upgrade.address,
 				cookies: cookiesOf(upgrade.request),
 			}
-			shapes.set(
-				document,
-				JSON.stringify([
-					master,
-					payload.operationName,
-					payload.variables,
-					payload.query,
-				]),
-			)
+			if (operation?.operation === 'subscription') {
+				shapes.set(
+					document,
+					JSON.stringify([
+						master,
+						payload.operationName,
+						payload.query,
+						variablesBelowRoot(document, operation, payload.variables),
+					]),
+				)
+			}
 			const contextValue = operations.context(caller, client)
 			const live: unknown = payload.extensions?.['live']
 			const page = isLive(live) && live.mode === 'page'
@@ -280,7 +288,12 @@ export function serveSockets(
 	const sockets = new WebSocketServer({
 		noServer: true,
 		maxPayload: maxBuffer,
-		perMessageDeflate: { threshold: 1024 },
+		// `ws` honours the threshold only without context takeover (D-266).
+		perMessageDeflate: {
+			threshold: 1024,
+			serverNoContextTakeover: true,
+			clientNoContextTakeover: true,
+		},
 		handleProtocols,
 	})
 	const beats = new WeakMap<WebSocket, () => void>()

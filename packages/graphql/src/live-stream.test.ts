@@ -2,6 +2,7 @@
 // until its window is sent again, and its end closes the read, or the socket
 // when the viewer ended. A completed list is kept for a resume.
 import type { ExecutionResult } from 'graphql'
+import { getOperationAST, parse } from 'graphql'
 import type { LiveHandle, LiveMessage, Viewer } from '@ultimabase/realtime'
 import { realtimePlugin } from '@ultimabase/realtime'
 import type { RealtimeApi, Realtime } from '@ultimabase/realtime'
@@ -15,6 +16,7 @@ import {
 	released,
 	resumed,
 	SharedResults,
+	variablesBelowRoot,
 } from './live-stream.ts'
 
 interface Keeping extends PluginTypes {
@@ -426,6 +428,43 @@ describe('a sent message', () => {
 const running = () => ({
 	execute: vi.fn<() => ExecutionResult>(() => ({ data: { a: 1 } })),
 	together: new SharedResults(),
+})
+
+const below = (source: string, values?: Record<string, unknown>) => {
+	const document = parse(source)
+	const operation = getOperationAST(document)
+	if (!operation) throw new Error('No operation.')
+	return variablesBelowRoot(document, operation, values)
+}
+
+describe('the variables below the root (D-267)', () => {
+	it('leaves out what only chose the rows', () => {
+		expect(
+			below('subscription ($w: W) { tasks(where: $w) { id } }', { w: 1 }),
+		).toEqual([])
+	})
+
+	it('names what a selection, a directive or a fragment reads', () => {
+		expect(
+			below(
+				`subscription ($a: A, $b: B, $c: C, $d: D) {
+					tasks(where: $a) @include(if: $b) { id @skip(if: $c) ...Part }
+				}
+				fragment Part on Task { name(as: $d) }`,
+				{ a: 1, b: 2, c: 3, d: 4 },
+			),
+		).toEqual([
+			['b', 2],
+			['c', 3],
+			['d', 4],
+		])
+	})
+
+	it('reads a root selection that is no field whole', () => {
+		expect(
+			below('subscription ($a: A) { ... @include(if: $a) { tasks { id } } }'),
+		).toEqual([['a', undefined]])
+	})
 })
 
 describe('the results subscriptions run alike (D-265)', () => {

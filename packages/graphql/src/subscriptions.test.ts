@@ -2,6 +2,7 @@
 // the realtime plugin runs, a list's first result `{ data }` and then only
 // what changed under `extensions.live`, page mode, the limits, and the
 // socket closing with its caller and with the application.
+import { createConnection } from 'node:net'
 import type { Gate, Http, HttpApi, HttpOptions } from '@ultimabase/http'
 import { httpPlugin } from '@ultimabase/http'
 import { realtime, realtimePlugin } from '@ultimabase/realtime'
@@ -672,6 +673,54 @@ describe('subscribers of one row (D-265)', () => {
 		expect(titles).toBe(1)
 	})
 
+	it('share it whatever window their arguments chose (D-267)', async () => {
+		const url = await started({ graphql: { extend: countingTitles } })
+		const [id] = await seeded()
+		const query = `subscription ($first: Int) {
+			tasks(first: $first, orderBy: [{ rank: asc }]) {
+				totalCount edges { node { title } } pageInfo { endCursor }
+			}
+		}`
+		const of = async (first: number) => {
+			const results = opening(url).ws.iterate({
+				query,
+				variables: { first },
+			})
+			await next(results)
+			return results
+		}
+		const small = await of(1)
+		const wide = await of(2)
+		titles = 0
+		await Task.update({ where: { id: String(id) }, data: { title: 'A' } }, M)
+		// Neither window moved, so neither is told of its page info.
+		expect(await next(small)).toEqual(changed({ title: 'A' }))
+		expect(await next(wide)).toEqual(changed({ title: 'A' }))
+		expect(titles).toBe(1)
+	})
+
+	it('run apart for a variable that changes what a row shows (D-267)', async () => {
+		const url = await started()
+		const [id] = await seeded()
+		const query = `subscription ($hide: Boolean!) {
+			tasks { edges { node { title @skip(if: $hide) rank } } }
+		}`
+		const of = async (hide: boolean) => {
+			const results = opening(url).ws.iterate({
+				query,
+				variables: { hide },
+			})
+			await next(results)
+			return results
+		}
+		const shown = await of(false)
+		const hidden = await of(true)
+		const data = { title: 'A', rank: 5 }
+		await Task.update({ where: { id: String(id) }, data }, M)
+		expect(await next(shown)).toEqual(changed({ title: 'A', rank: 5 }))
+		expect(await next(hidden)).toEqual(changed({ rank: 5 }))
+	})
+
 	it('run again for another selection or other variables', async () => {
 		const url = await started()
 		const [id] = await seeded()
@@ -1298,6 +1347,61 @@ describe('a connection', () => {
 		await new Promise((done) => socket.once('open', done))
 		expect(socket.extensions).toBe('permessage-deflate')
 		socket.close()
+	})
+
+	it('compresses only what is worth it, each message alone (D-266)', async () => {
+		const { hostname, pathname, port } = new URL(await started())
+		const socket = createConnection(Number(port), hostname)
+		let received = Buffer.alloc(0)
+		socket.on('data', (chunk) => {
+			received = Buffer.concat([received, chunk])
+		})
+		socket.write(
+			[
+				`GET ${pathname} HTTP/1.1`,
+				`Host: ${hostname}:${port}`,
+				'Upgrade: websocket',
+				'Connection: Upgrade',
+				'Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==',
+				'Sec-WebSocket-Version: 13',
+				'Sec-WebSocket-Protocol: graphql-transport-ws',
+				'Sec-WebSocket-Extensions: permessage-deflate',
+				'\r\n',
+			].join('\r\n'),
+		)
+		// A client's frame, its mask of zeros leaving the text as it is.
+		const send = (message: object) => {
+			const text = JSON.stringify(message).padEnd(200)
+			const size = [text.length >> 8, text.length & 0xff]
+			const head = [0x81, 0x80 | 126, ...size, 0, 0, 0, 0]
+			socket.write(Buffer.concat([Buffer.from(head), Buffer.from(text)]))
+		}
+		/** Whether each frame the server sent is compressed. */
+		const compressed = () => {
+			const frames: boolean[] = []
+			let at = received.indexOf('\r\n\r\n') + 4
+			while (at < received.length) {
+				const size = received.readUInt8(at + 1)
+				frames.push((received.readUInt8(at) & 0x40) !== 0)
+				at += size === 126 ? 4 + received.readUInt16BE(at + 2) : 2 + size
+			}
+			return frames
+		}
+		await vi.waitFor(() => {
+			expect(received.toString()).toContain('\r\n\r\n')
+		})
+		const answer = received.toString().toLowerCase()
+		expect(answer).toContain('server_no_context_takeover')
+		expect(answer).toContain('client_no_context_takeover')
+		send({ type: 'ping' })
+		await vi.waitFor(() => {
+			expect(compressed()).toEqual([false])
+		})
+		send({ type: 'ping', payload: { big: 'x'.repeat(2000) } })
+		await vi.waitFor(() => {
+			expect(compressed()).toEqual([false, true])
+		})
+		socket.destroy()
 	})
 
 	it('that does not answer a ping is cut', async () => {

@@ -2,7 +2,13 @@
 // order, each run against the subscription's selection, and those a full socket
 // cannot take dropped until the window is sent again.
 // A completed live list is kept 10 s for a resume, its later events waiting.
-import type { ExecutionResult } from 'graphql'
+import type {
+	ASTNode,
+	DocumentNode,
+	ExecutionResult,
+	OperationDefinitionNode,
+} from 'graphql'
+import { Kind, visit } from 'graphql'
 import { Backlog } from '@ultimabase/http/internal'
 import type { LiveHandle, LiveMessage, Viewer } from '@ultimabase/realtime'
 
@@ -47,6 +53,37 @@ export class LiveEvent {
 		this.#finish = (done) => done
 		return finish(result)
 	}
+}
+
+/**
+ * The values of what an event's execution reads: the arguments of the root
+ * field chose its rows, and subscriptions differing only there run alike (D-267).
+ */
+export function variablesBelowRoot(
+	document: DocumentNode,
+	operation: OperationDefinitionNode,
+	values: { readonly [name: string]: unknown } | null | undefined,
+): readonly unknown[] {
+	const names = new Set<string>()
+	const read = (node: ASTNode) => {
+		visit(node, {
+			Variable: (variable) => {
+				names.add(variable.name.value)
+			},
+		})
+	}
+	for (const selection of operation.selectionSet.selections) {
+		if (selection.kind === Kind.FIELD) {
+			selection.directives?.forEach(read)
+			if (selection.selectionSet !== undefined) read(selection.selectionSet)
+		} else {
+			read(selection)
+		}
+	}
+	for (const definition of document.definitions) {
+		if (definition.kind === Kind.FRAGMENT_DEFINITION) read(definition)
+	}
+	return [...names].toSorted().map((name) => [name, values?.[name]])
 }
 
 /**
