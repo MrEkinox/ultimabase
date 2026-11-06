@@ -7,6 +7,8 @@ virtual fields computed on read.
 
 - `src/models.ts`: the `Product` model.
 - `src/types.ts`: the `Status` enum and the `Price` type it uses.
+- `src/schedule.ts`: a list with a size, and a shared enum inside a JSON
+  field's schema.
 - `src/app.ts`: the application.
 - `src/app.test.ts`: a product created and read over GraphQL.
 - `src/models.test.ts`: each field type written and read from server code,

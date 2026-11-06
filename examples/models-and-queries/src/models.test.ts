@@ -5,6 +5,7 @@ import { master } from 'ultimabase'
 import { expect, it } from 'vitest'
 import { app } from './app.ts'
 import { Product } from './models.ts'
+import { Shift } from './schedule.ts'
 
 testApplication(app)
 
@@ -212,6 +213,19 @@ it("validates a field with the app's preset", async () => {
 	).rejects.toMatchObject({
 		code: 'VALIDATION_FAILED',
 		details: { issues: [{ path: ['summary'], message: 'Never blank.' }] },
+	})
+	//#endregion
+})
+
+it('refuses a list outside its size', async () => {
+	//#region list-size-refused
+	await expect(
+		Shift.create({ data: { staff: [] } }, { as: master }),
+	).rejects.toMatchObject({
+		code: 'VALIDATION_FAILED',
+		details: {
+			issues: [{ path: ['staff'], message: 'Expected 1 to 5 values.' }],
+		},
 	})
 	//#endregion
 })
