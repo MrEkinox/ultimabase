@@ -1,7 +1,8 @@
 // Apollo's link to live subscriptions (D-154), placed before the WebSocket
 // link: it applies each message of a live list to the result it holds and
-// hands Apollo the whole result. It grows the list by completing it and
-// subscribing again with the token, in one tick, so the socket stays open.
+// hands Apollo the whole result, and for the hook writes the rows that changed
+// to the cache (D-252). It grows the list by completing it and subscribing
+// again with the token, in one tick, so the socket stays open.
 import type { ApolloCache } from '@apollo/client'
 import { ApolloLink } from '@apollo/client'
 import type { DocumentNode, FieldNode, OperationDefinitionNode } from 'graphql'
@@ -11,13 +12,18 @@ import type { LiveChange, LiveList } from './apply.ts'
 import { applyLive } from './apply.ts'
 import { LiveError, liveErrorOf } from './error.ts'
 import { isList, isMessage, isRecord } from './guards.ts'
+import { CachedRows, rowsOf } from './rows.ts'
+
+/** A growth's rows: `first`, or as many as the first page's. */
+export type LiveGrowth = { readonly first?: number }
 
 /**
  * What grows a live subscription, passed as its `live` context: the link
- * sets `fetchMore`.
+ * sets `fetchMore`. A subscription read with one has its rows written to the
+ * cache one by one (D-252).
  */
 export type LiveControl = {
-	fetchMore?: (options: { readonly first: number }) => Promise<void>
+	fetchMore?: (options?: LiveGrowth) => Promise<void>
 }
 
 type Data = { readonly [key: string]: unknown }
@@ -29,8 +35,9 @@ type Waiter = {
 const isControl = (value: unknown): value is LiveControl =>
 	typeof value === 'object' && value !== null
 
-/** The root field's key, and the variable its `first` or `take` reads. */
+/** The root field, its key, and the variable its `first` or `take` reads. */
 function rootOf(query: DocumentNode): {
+	readonly field?: FieldNode
 	readonly key?: string
 	readonly grows?: string
 } {
@@ -47,6 +54,7 @@ function rootOf(query: DocumentNode): {
 		({ name }) => name.value === 'first' || name.value === 'take',
 	)?.value
 	return {
+		field,
 		key: field.alias?.value ?? field.name.value,
 		...(value?.kind === 'Variable' && { grows: value.name.value }),
 	}
@@ -61,14 +69,18 @@ function refusalOf(result: ApolloLink.Result): LiveError | undefined {
 	return liveErrorOf({ ...error.extensions, message: error.message }, fallback)
 }
 
-/** The rows of `list`, the nodes under a connection. */
-function rowsOf(list: LiveList): readonly unknown[] {
-	if (Array.isArray(list)) return list
-	const edges: unknown = Reflect.get(list, 'edges')
-	if (!Array.isArray(edges)) return []
-	return edges.map((edge: unknown) =>
-		isRecord(edge) ? edge['node'] : undefined,
-	)
+/** How long what gone rows left waits: collecting walks the cache (D-254). */
+const collectAfter = 1000
+const collecting = new WeakSet<ApolloCache>()
+
+/** Collects what gone rows left in `cache`, once for all that go meanwhile. */
+function collect(cache: ApolloCache): void {
+	if (collecting.has(cache)) return
+	collecting.add(cache)
+	setTimeout(() => {
+		collecting.delete(cache)
+		cache.gc()
+	}, collectAfter)
 }
 
 /** Evicts from `cache` the rows of `list` that `changes` names gone. */
@@ -91,7 +103,7 @@ function evict(
 				: undefined
 		if (entity !== undefined) cache.evict({ id: entity })
 	}
-	cache.gc()
+	collect(cache)
 }
 
 /** Follows `operation`, a live subscription, applying its messages. */
@@ -99,17 +111,24 @@ function followed(
 	operation: ApolloLink.Operation,
 	forward: ApolloLink.ForwardFunction,
 ): Observable<ApolloLink.Result> {
-	const { key, grows } = rootOf(operation.query)
+	const { field, key, grows } = rootOf(operation.query)
 	const { cache } = operation.client
 	const { extensions } = operation
 	const asked: unknown = extensions['live']
 	const control: unknown = operation.getContext()['live']
+	const page: unknown =
+		grows === undefined ? undefined : operation.variables[grows]
 	return new Observable((observer) => {
+		const rows =
+			field !== undefined && isControl(control)
+				? new CachedRows(operation, field)
+				: undefined
 		let data: Data | undefined
 		let revision = 0
 		let token: string | undefined
 		let inner: Subscription | undefined
 		let closed = false
+		let reads = 0
 		// What takes back a growth that has not arrived yet.
 		let undo: (() => void) | undefined
 		const waiting: Waiter[] = []
@@ -126,16 +145,20 @@ function followed(
 			observer.error(error)
 		}
 		const received = (result: ApolloLink.Result) => {
-			// A growth refused, past maxLive: the list goes on as it was (D-186).
+			// A growth refused, past maxConnectionRows: the list goes on as it was.
 			const refused = undo && refusalOf(result)
 			if (undo !== undefined && refused !== undefined) {
 				undo()
 				settle(refused)
+				// The refused read ends by itself, perhaps in this same tick: left now,
+				// `graphql-ws` lets go of the socket twice, and closes it under the next.
+				inner = undefined
 				return open()
 			}
 			const live: unknown = result.extensions?.['live']
-			if (key === undefined || !isMessage(live)) return observer.next(result)
 			const whole: unknown = 'data' in result ? result.data : undefined
+			if (key !== undefined && isRecord(whole)) rows?.shown(whole[key])
+			if (key === undefined || !isMessage(live)) return observer.next(result)
 			if (isRecord(whole)) {
 				data = whole
 				revision = live.revision
@@ -157,6 +180,7 @@ function followed(
 			}
 			revision += 1
 			data = { ...data, [key]: next }
+			rows?.changed(live.changes ?? [], !Array.isArray(list))
 			observer.next({ ...result, data })
 			evict(cache, list, live.changes)
 			settle()
@@ -170,6 +194,8 @@ function followed(
 							...extensions,
 							live: { ...(isRecord(asked) && asked), resume: token },
 						}
+			reads += 1
+			const read = reads
 			inner = forward(operation).subscribe({
 				next: (result) => {
 					try {
@@ -180,15 +206,17 @@ function followed(
 				},
 				error: fail,
 				complete: () => {
+					if (read !== reads) return
 					settle()
 					observer.complete()
 				},
 			})
 		}
 		if (isControl(control)) {
-			control.fetchMore = async ({ first: more }) => {
+			control.fetchMore = async (options) => {
 				const shown: unknown =
 					grows === undefined ? undefined : operation.variables[grows]
+				const more = options?.first ?? page
 				if (
 					grows === undefined ||
 					typeof shown !== 'number' ||
@@ -199,7 +227,7 @@ function followed(
 						'fetchMore grows a live list: its root field needs first or take from a variable.',
 					)
 				}
-				if (!Number.isInteger(more) || more < 1) {
+				if (typeof more !== 'number' || !Number.isInteger(more) || more < 1) {
 					throw new LiveError(
 						'BAD_USER_INPUT',
 						'first must be a positive integer.',
@@ -222,6 +250,7 @@ function followed(
 			closed = true
 			inner?.unsubscribe()
 			settle()
+			rows?.close()
 		}
 	})
 }

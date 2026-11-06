@@ -2,15 +2,17 @@
 // the realtime plugin runs, a list's first result `{ data }` and then only
 // what changed under `extensions.live`, page mode, the limits, and the
 // socket closing with its caller and with the application.
+import { createConnection } from 'node:net'
 import type { Gate, Http, HttpApi, HttpOptions } from '@ultimabase/http'
 import { httpPlugin } from '@ultimabase/http'
 import { realtime, realtimePlugin } from '@ultimabase/realtime'
 import type { RealtimeOptions } from '@ultimabase/realtime'
 import type { GraphQLSchema } from 'graphql'
-import { parse, subscribe } from 'graphql'
+import { assertObjectType, extendSchema, parse, subscribe } from 'graphql'
 import type { Client, FormattedExecutionResult } from 'graphql-ws'
 import { createClient } from 'graphql-ws'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import type { RawData } from 'ws'
 import { WebSocket } from 'ws'
 import { z } from 'zod'
 import type {
@@ -32,6 +34,7 @@ import {
 	memory,
 } from 'ultimabase'
 import type { GraphqlOptions } from './index.ts'
+import type { GraphqlContext } from './index.ts'
 import { graphql, graphqlPlugin } from './index.ts'
 
 const M = { as: master }
@@ -147,6 +150,7 @@ const revoked = new Set<string>()
 /** Each user's name, read again with their caller. */
 const names = new Map<string, string>()
 let held: Promise<void> | undefined
+let brokenLater = false
 interface Sessions extends PluginTypes {
 	readonly name: 'sessions'
 }
@@ -160,7 +164,8 @@ const sessions = definePlugin<Sessions>({
 	},
 	identify: async (request): Promise<Identity | undefined> => {
 		const id = request.headers.get('authorization')
-		if (id === 'broken') throw new Error('Identify broke.')
+		if (id === 'broken' || brokenLater) throw new Error('Identify broke.')
+		if (id === 'refused') throw new PublicError('ACCESS_DENIED', 'Refused.')
 		if (id === 'slow') await held
 		if (id === null || revoked.has(id)) return undefined
 		const user = { id, name: names.get(id) }
@@ -200,6 +205,7 @@ afterEach(async () => {
 	failing = false
 	breaking = undefined
 	held = undefined
+	brokenLater = false
 })
 
 type Options = {
@@ -214,6 +220,7 @@ type Options = {
 }
 
 let schema: GraphQLSchema | undefined
+let titles = 0
 /** Starts the application; returns its WebSocket URL. */
 async function started(options: Options = {}): Promise<string> {
 	const plugins = [
@@ -228,7 +235,7 @@ async function started(options: Options = {}): Promise<string> {
 			...options.graphql,
 			extend: (built) => {
 				schema = built
-				return built
+				return options.graphql?.extend?.(built) ?? built
 			},
 		}),
 		sessions.plugin(),
@@ -444,6 +451,42 @@ describe('a live list', () => {
 		await results.return?.()
 	})
 
+	it('moves its cursors as its first and last rows go, holding no rows (D-253)', async () => {
+		const url = await started()
+		const [a = '', b = '', c = ''] = await seeded()
+		const results = subscribed(
+			url,
+			`subscription { tasks(first: 3, orderBy: [{ rank: asc }]) {
+				edges { cursor } pageInfo { startCursor endCursor }
+			} }`,
+		)
+		const first: unknown = await next(results)
+		const cursors = JSON.stringify(first).match(/"cursor":"[^"]+"/g) ?? []
+		const [, middle = '', end = ''] = cursors.map((at) => at.slice(10, -1))
+		expect(first).toMatchObject({
+			data: { tasks: { pageInfo: { endCursor: end } } },
+		})
+		await Task.delete({ where: { id: a } }, M)
+		expect(await next(results)).toMatchObject({
+			extensions: {
+				live: { pageInfo: { startCursor: middle, endCursor: end } },
+			},
+		})
+		await Task.delete({ where: { id: c } }, M)
+		expect(await next(results)).toMatchObject({
+			extensions: {
+				live: { pageInfo: { startCursor: middle, endCursor: middle } },
+			},
+		})
+		await Task.delete({ where: { id: b } }, M)
+		expect(await next(results)).toMatchObject({
+			extensions: {
+				live: { pageInfo: { startCursor: null, endCursor: null } },
+			},
+		})
+		await results.return?.()
+	})
+
 	it('in page mode, sends its whole window each time', async () => {
 		const url = await started()
 		const [a = ''] = await seeded()
@@ -502,15 +545,15 @@ describe('a live list', () => {
 		await results.return?.()
 		const over = subscribed(
 			url,
-			'subscription { tasks(first: 1001) { edges { cursor } } }',
+			'subscription { tasks(first: 50001) { edges { cursor } } }',
 		)
 		expect(await next(over)).toEqual({
 			errors: [
 				containing({
-					message: 'first is over 1000, the most a live list follows.',
+					message: 'first is over 50000, the most a live list follows.',
 					extensions: containing({
 						code: 'VALIDATION_FAILED',
-						details: containing({ limit: 1000, rows: 1001 }),
+						details: containing({ limit: 50_000, rows: 50_001 }),
 					}),
 				}),
 			],
@@ -582,6 +625,151 @@ describe('a live list', () => {
 			'A live read of Task failed: it reads again.',
 			'A live read of Task failed: it closes.',
 		])
+	})
+})
+
+/** Counts how many times `Task.title` runs, in the generated schema itself. */
+function countingTitles(built: GraphQLSchema): GraphQLSchema {
+	const field = assertObjectType(built.getType('Task')).getFields()['title']
+	if (field) {
+		field.resolve = (source: unknown) => {
+			titles += 1
+			return Reflect.get(Object(source), 'title')
+		}
+	}
+	return built
+}
+
+/** A schema that replaces the generated one, a field showing its reader. */
+function showingReader(built: GraphQLSchema): GraphQLSchema {
+	const extended = extendSchema(
+		built,
+		parse(`extend type Card { reader: String }`),
+	)
+	const { reader } = assertObjectType(extended.getType('Card')).getFields()
+	if (reader) {
+		reader.resolve = (_: unknown, __: unknown, context: GraphqlContext) =>
+			idOf(context.caller)
+	}
+	return extended
+}
+
+/** A live list's message that one row changed, as `node`. */
+const changed = (node: object) => ({
+	extensions: {
+		live: { revision, changes: [{ upsert: { node }, after: null }] },
+	},
+})
+
+describe('subscribers of one row (D-265)', () => {
+	const titled = 'subscription { tasks { edges { node { title } } } }'
+	it('share its execution, each told', async () => {
+		const url = await started({ graphql: { extend: countingTitles } })
+		const [id] = await seeded()
+		const first = subscribed(url, titled)
+		const second = subscribed(url, titled)
+		await next(first)
+		await next(second)
+		titles = 0
+		await Task.update({ where: { id: String(id) }, data: { title: 'A' } }, M)
+		expect(await next(first)).toEqual(changed({ title: 'A' }))
+		expect(await next(second)).toEqual(changed({ title: 'A' }))
+		expect(titles).toBe(1)
+	})
+
+	it('share it whatever window their arguments chose (D-267)', async () => {
+		const url = await started({ graphql: { extend: countingTitles } })
+		const [id] = await seeded()
+		const query = `subscription ($first: Int) {
+			tasks(first: $first, orderBy: [{ rank: asc }]) {
+				totalCount edges { node { title } } pageInfo { endCursor }
+			}
+		}`
+		const of = async (first: number) => {
+			const results = opening(url).ws.iterate({
+				query,
+				variables: { first },
+			})
+			await next(results)
+			return results
+		}
+		const small = await of(1)
+		const wide = await of(2)
+		titles = 0
+		await Task.update({ where: { id: String(id) }, data: { title: 'A' } }, M)
+		// Neither window moved, so neither is told of its page info.
+		expect(await next(small)).toEqual(changed({ title: 'A' }))
+		expect(await next(wide)).toEqual(changed({ title: 'A' }))
+		expect(titles).toBe(1)
+	})
+
+	it('run apart for a variable that changes what a row shows (D-267)', async () => {
+		const url = await started()
+		const [id] = await seeded()
+		const query = `subscription ($hide: Boolean!) {
+			tasks { edges { node { title @skip(if: $hide) rank } } }
+		}`
+		const of = async (hide: boolean) => {
+			const results = opening(url).ws.iterate({
+				query,
+				variables: { hide },
+			})
+			await next(results)
+			return results
+		}
+		const shown = await of(false)
+		const hidden = await of(true)
+		const data = { title: 'A', rank: 5 }
+		await Task.update({ where: { id: String(id) }, data }, M)
+		expect(await next(shown)).toEqual(changed({ title: 'A', rank: 5 }))
+		expect(await next(hidden)).toEqual(changed({ rank: 5 }))
+	})
+
+	it('run again for another selection or other variables', async () => {
+		const url = await started()
+		const [id] = await seeded()
+		const plain = subscribed(url, titled)
+		const renamed = subscribed(
+			url,
+			'subscription { tasks { edges { node { name: title } } } }',
+		)
+		await next(plain)
+		await next(renamed)
+		await Task.update({ where: { id: String(id) }, data: { title: 'A' } }, M)
+		expect(await next(plain)).toEqual(changed({ title: 'A' }))
+		expect(await next(renamed)).toEqual(changed({ name: 'A' }))
+	})
+
+	it('run apart once `extend` changed the schema', async () => {
+		const url = await started({
+			graphql: { extend: showingReader },
+			models: [Task, Note, Board, Card],
+		})
+		const board = await Board.create({ data: {} }, M)
+		const query = 'subscription { cards { edges { node { reader } } } }'
+		const ada = subscribed(url, query)
+		const bob = subscribed(url, query, undefined, 'bob')
+		await next(ada)
+		await next(bob)
+		await Card.create({ data: { board: { connect: { id: board.id } } } }, M)
+		expect(await next(ada)).toMatchObject(changed({ reader: 'ada' }))
+		expect(await next(bob)).toMatchObject(changed({ reader: 'bob' }))
+	})
+
+	it('of a live function run apart, its value being anything', async () => {
+		const url = await started({ graphql: { extend: countingTitles } })
+		await seeded()
+		const query = 'subscription { ranked(above: 1) { title } }'
+		const first = subscribed(url, query)
+		const second = subscribed(url, query)
+		await next(first)
+		await next(second)
+		titles = 0
+		await Task.updateMany({ where: { title: 'b' }, data: { title: 'B' } }, M)
+		const value = { data: { ranked: [{ title: 'B' }, { title: 'c' }] } }
+		expect(await next(first)).toMatchObject(value)
+		expect(await next(second)).toMatchObject(value)
+		expect(titles).toBe(4)
 	})
 })
 
@@ -796,8 +984,54 @@ describe('a resumed live list', () => {
 		await results.return?.()
 	})
 
-	it('is refused past its limit, with it, and kept as it was', async () => {
+	it('stops at its limit, says so, and stays live', async () => {
 		const url = await started({ realtime: { maxLive: 2 } })
+		const [a = ''] = await seeded()
+		const { ws } = opening(url)
+		const kept = await completed(ws)
+		const results = ws.iterate({
+			query: growing,
+			variables: { first: 3 },
+			extensions: { live: { resume: kept } },
+		})
+		expect(await next(results)).toEqual({
+			extensions: { live: { revision: 2, changes: [] } },
+		})
+		await Task.update({ where: { id: a }, data: { title: 'A' } }, M)
+		expect(await next(results)).toEqual({
+			extensions: {
+				live: {
+					revision: 3,
+					changes: [{ upsert: { node: { title: 'A' } }, after: null }],
+				},
+			},
+		})
+		await results.return?.()
+	})
+
+	it('opens at its limit when the list it grew is gone', async () => {
+		const url = await started({ realtime: { maxLive: 2 } })
+		await seeded()
+		const { ws } = opening(url)
+		const results = ws.iterate({
+			query: growing,
+			variables: { first: 3 },
+			extensions: { live: { resume: 'gone' } },
+		})
+		expect(await next(results)).toEqual({
+			data: {
+				tasks: {
+					edges: ['a', 'b'].map((title) => ({ node: { title } })),
+					pageInfo: { hasNextPage: false },
+				},
+			},
+			extensions: { live: { revision, resume: token } },
+		})
+		await results.return?.()
+	})
+
+	it('is refused past its connection, with it, and kept as it was', async () => {
+		const url = await started({ realtime: { maxConnectionRows: 2 } })
 		const [a = ''] = await seeded()
 		const { ws } = opening(url)
 		const kept = await completed(ws)
@@ -806,19 +1040,11 @@ describe('a resumed live list', () => {
 			variables: { first: 3 },
 			extensions: { live: { resume: kept } },
 		})
-		const message = 'first is over 2, the most a live list follows.'
 		expect(await next(refused)).toEqual({
 			errors: [
 				containing({
-					message,
-					extensions: {
-						code: 'VALIDATION_FAILED',
-						details: {
-							issues: [{ path: ['first'], message }],
-							limit: 2,
-							rows: 3,
-						},
-					},
+					message: 'A connection follows at most 2 rows.',
+					extensions: containing({ code: 'VALIDATION_FAILED' }),
 				}),
 			],
 		})
@@ -1079,12 +1305,40 @@ describe('a connection', () => {
 		])
 	})
 
-	it('is refused when its caller is not read', async () => {
+	it('tries again later when its caller could not be read (D-278)', async () => {
 		const url = await started()
 		const { ws, closes } = opening(url, 'broken')
 		await failed(ws.iterate({ query: tasks }))
-		expect(closes).toEqual([{ code: 4403, reason: 'Forbidden' }])
+		expect(closes).toEqual([{ code: 1013, reason: 'Try again later' }])
 		expect(errors).toEqual(['A WebSocket caller was not read.'])
+	})
+
+	it('is refused when identify refuses it publicly', async () => {
+		const url = await started()
+		const { ws, closes } = opening(url, 'refused')
+		await failed(ws.iterate({ query: tasks }))
+		expect(closes).toEqual([{ code: 4403, reason: 'Forbidden' }])
+		expect(errors).toEqual([])
+	})
+
+	it('tries again later when a query’s caller could not be read (D-278)', async () => {
+		const url = await started()
+		const { ws, closes } = opening(url)
+		await next(ws.iterate({ query: '{ cookie }' }))
+		brokenLater = true
+		await failed(ws.iterate({ query: '{ cookie }' }))
+		expect(closes).toEqual([{ code: 1013, reason: 'Try again later' }])
+	})
+
+	it('tries again later when a rebuild could not read its caller (D-278)', async () => {
+		const url = await started({ realtime: { refresh: 20 } })
+		await seeded()
+		const { ws, closes } = opening(url)
+		const results = ws.iterate({ query: tasks })
+		await next(results)
+		brokenLater = true
+		await failed(results)
+		expect(closes).toEqual([{ code: 1013, reason: 'Try again later' }])
 	})
 
 	it('closes 4403 when its caller is no longer the same user', async () => {
@@ -1124,6 +1378,88 @@ describe('a connection', () => {
 		const socket = new WebSocket(url, 'graphql-transport-ws')
 		await new Promise((done) => socket.once('open', done))
 		expect(socket.extensions).toBe('permessage-deflate')
+		socket.close()
+	})
+
+	it('compresses only what is worth it, each message alone (D-266)', async () => {
+		const { hostname, pathname, port } = new URL(await started())
+		const socket = createConnection(Number(port), hostname)
+		let received = Buffer.alloc(0)
+		socket.on('data', (chunk) => {
+			received = Buffer.concat([received, chunk])
+		})
+		socket.write(
+			[
+				`GET ${pathname} HTTP/1.1`,
+				`Host: ${hostname}:${port}`,
+				'Upgrade: websocket',
+				'Connection: Upgrade',
+				'Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==',
+				'Sec-WebSocket-Version: 13',
+				'Sec-WebSocket-Protocol: graphql-transport-ws',
+				'Sec-WebSocket-Extensions: permessage-deflate',
+				'\r\n',
+			].join('\r\n'),
+		)
+		// A client's frame, its mask of zeros leaving the text as it is.
+		const send = (message: object) => {
+			const text = JSON.stringify(message).padEnd(200)
+			const size = [text.length >> 8, text.length & 0xff]
+			const head = [0x81, 0x80 | 126, ...size, 0, 0, 0, 0]
+			socket.write(Buffer.concat([Buffer.from(head), Buffer.from(text)]))
+		}
+		/** Whether each frame the server sent is compressed. */
+		const compressed = () => {
+			const frames: boolean[] = []
+			let at = received.indexOf('\r\n\r\n') + 4
+			while (at < received.length) {
+				const size = received.readUInt8(at + 1)
+				frames.push((received.readUInt8(at) & 0x40) !== 0)
+				at += size === 126 ? 4 + received.readUInt16BE(at + 2) : 2 + size
+			}
+			return frames
+		}
+		await vi.waitFor(() => {
+			expect(received.toString()).toContain('\r\n\r\n')
+		})
+		const answer = received.toString().toLowerCase()
+		expect(answer).toContain('server_no_context_takeover')
+		expect(answer).toContain('client_no_context_takeover')
+		send({ type: 'ping' })
+		await vi.waitFor(() => {
+			expect(compressed()).toEqual([false])
+		})
+		// A row's change, sent to all who follow it, stays as it is (D-273).
+		send({ type: 'ping', payload: { big: 'x'.repeat(1900) } })
+		await vi.waitFor(() => {
+			expect(compressed()).toEqual([false, false])
+		})
+		send({ type: 'ping', payload: { big: 'x'.repeat(2100) } })
+		await vi.waitFor(() => {
+			expect(compressed()).toEqual([false, false, true])
+		})
+		socket.destroy()
+	})
+
+	it('keeps a small compressor, and a big message crosses it whole (D-269)', async () => {
+		const socket = new WebSocket(await started(), 'graphql-transport-ws')
+		let negotiated: unknown
+		socket.once('upgrade', ({ headers }) => {
+			negotiated = headers['sec-websocket-extensions']
+		})
+		await new Promise((done) => socket.once('open', done))
+		expect(negotiated).toContain('server_max_window_bits=12')
+		// Larger than the window, what it repeats further back than it reaches.
+		const big = Array.from({ length: 40_000 }, (_, at) => at % 97).join()
+		const answer = new Promise<RawData>((done) => {
+			socket.once('message', done)
+		})
+		socket.send(JSON.stringify({ type: 'ping', payload: { big } }))
+		const answered = [await answer].flat().map((part) => new Uint8Array(part))
+		expect(JSON.parse(Buffer.concat(answered).toString())).toEqual({
+			type: 'pong',
+			payload: { big },
+		})
 		socket.close()
 	})
 

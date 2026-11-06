@@ -26,7 +26,8 @@ export { decimalPattern } from './decimal.ts'
 export { checked, standardOf } from './validation.ts'
 export type { Recorded } from './recorder.ts'
 export { recording, recordingVirtuals } from './recorder.ts'
-export type { LivePlan, LiveReader } from './live.ts'
+export { required, SharedReads } from './live-shared.ts'
+export type { Judge, LivePlan, LiveReader } from './live.ts'
 export {
 	inMemory,
 	liveSchema,

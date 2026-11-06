@@ -8,8 +8,10 @@ import type { Recorded } from 'ultimabase/internal'
 import { recording } from 'ultimabase/internal'
 import type { Batch } from './changes.ts'
 import type { LiveMessage } from './messages.ts'
-import type { Loader } from './reads.ts'
-import { anyStale } from './stale.ts'
+import type { Owner, Readers } from './readers.ts'
+import type { Loader } from './loader.ts'
+import { anyStale, mayBeStale } from './stale.ts'
+import type { Waited } from './tasks.ts'
 
 /** A function's name, with its plugin's for a plugin's (D-113). */
 export const ownerOf = (fn: ExposedFunction): string =>
@@ -31,7 +33,12 @@ export type ComputedOptions = {
 	readonly onRun: () => void
 	/** Runs once an error closed it, after it sent so. */
 	readonly onFail: () => void
+	/** The index it is followed in, for its owner (D-256). */
+	readonly readers: Readers
+	readonly owner: Owner
 }
+
+type Ran = Awaited<ReturnType<typeof recording<unknown>>>
 
 export class Computed {
 	readonly #options: ComputedOptions
@@ -51,18 +58,37 @@ export class Computed {
 	constructor(options: ComputedOptions, caller: Caller) {
 		this.#options = options
 		this.#caller = caller
+		// Followed from now: a flush visits a first run as it visits any other.
+		options.readers.followReads(options.owner, this, [])
+	}
+
+	/** Runs the function, a flush visiting it until it read. */
+	async #ran(): Promise<Ran> {
+		const compute = async () => this.#options.compute(this.#caller)
+		return this.#options.readers.during(this, async () => recording(compute))
 	}
 
 	/** Runs it a first time; an error is thrown, as a refused subscription. */
 	async start(): Promise<void> {
-		const ran = await recording(async () => this.#options.compute(this.#caller))
-		this.#kept(ran)
+		// Its connection closed while it waited for its turn (D-277).
+		if (this.#closed) return
+		this.#kept(await this.#ran())
 	}
 
 	/** Wakes it when a write in `batch` may change what it read. */
-	async apply(batch: Batch, loader: Loader, missed: boolean): Promise<void> {
-		if (this.#closed) return
-		if (missed || (await anyStale(this.reads, batch, loader))) this.#wake()
+	apply(batch: Batch, loader: Loader, missed: boolean): Waited {
+		if (this.#closed) return undefined
+		if (missed) {
+			this.#wake()
+			return undefined
+		}
+		return mayBeStale(this.reads, batch)
+			? this.#judge(batch, loader)
+			: undefined
+	}
+
+	async #judge(batch: Batch, loader: Loader): Promise<void> {
+		if (await anyStale(this.reads, batch, loader)) this.#wake()
 	}
 
 	/** Runs it again at once as `caller`, whose rights changed. */
@@ -83,6 +109,7 @@ export class Computed {
 		this.#closed = true
 		clearTimeout(this.#timer)
 		this.#timer = undefined
+		this.#options.readers.forget(this)
 	}
 
 	#wake(): void {
@@ -120,9 +147,9 @@ export class Computed {
 	}
 
 	async #run(): Promise<void> {
-		let ran: Awaited<ReturnType<typeof recording<unknown>>>
+		let ran: Ran
 		try {
-			ran = await recording(async () => this.#options.compute(this.#caller))
+			ran = await this.#ran()
 		} catch (error) {
 			if (this.#closed) return
 			this.close()
@@ -133,8 +160,10 @@ export class Computed {
 	}
 
 	/** Keeps a run's reads and sends its result, unless the last was equal. */
-	#kept(ran: Awaited<ReturnType<typeof recording<unknown>>>): void {
+	#kept(ran: Ran): void {
 		this.reads = ran.reads
+		const { readers, owner } = this.#options
+		if (!this.#closed) readers.followReads(owner, this, ran.reads)
 		this.expires = ran.expires
 		this.#options.onRun()
 		if (this.#revision > 0 && isDeepStrictEqual(ran.result, this.#last)) {

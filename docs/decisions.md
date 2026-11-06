@@ -1174,6 +1174,8 @@ main defence.
 
 ## D-47: SQL adapters build queries with Kysely
 
+Amended by D-257, D-264.
+
 Choice: the PostgreSQL adapter, and later MySQL, build SQL with Kysely, a
 schema-less query builder; one internal relation compiler, shared by the SQL
 adapters, produces the single query of D-46. Kysely never appears in public
@@ -9411,7 +9413,7 @@ api: ({ plugins }) => plugins.http.mount(uploads, { bodyLimit: false })
 ## D-154: Realtime: live lists and live rows
 
 Amended by D-163, D-166, D-178, D-186, D-187, D-195, D-196, D-223, D-226,
-D-229 and D-230.
+D-229, D-230, D-252, D-254, D-266, D-271, D-272 and D-273.
 
 Choice: completes D-25; amends D-106 (WebSocket upgrades), D-107 (the
 `Subscription` type), D-109 (live functions) and D-129 (live reads over
@@ -11523,6 +11525,7 @@ it('invites with one read and one write', async () => {
 ## D-178: A socket's query reads its caller again
 
 Choice: amends D-154, point 5.
+Amended by D-278.
 
 1. A query or a mutation sent over the GraphQL socket reads its caller again
    before it runs, with the request the viewer holds, as HTTP reads one per
@@ -12285,6 +12288,8 @@ fragment PostCard on Post {
 
 ## D-186: A live list is bounded by `maxLive`, and its refusal says so
 
+Amended by D-252.
+
 Choice: amends D-154, points 3 and 7.
 
 1. `maxTake` bounds a live list in page mode only, where each change
@@ -12865,7 +12870,7 @@ Rejected:
 
 ## D-195: Live reads planned once per caller
 
-Amended by D-197.
+Amended by D-197, D-252 and D-262.
 
 Choice: amends D-154 points 9 and 13.
 
@@ -12916,6 +12921,8 @@ Rejected:
   rights.
 
 ## D-196: A lost right re-checks only the rows it may reach
+
+Amended by D-252.
 
 Choice: amends D-154 points 8, 9 and 10.
 
@@ -17370,3 +17377,959 @@ After:
 --   alter table "chat_members" add constraint "chat_members_pkey" primary key ("chat_id", "account_id");
 drop table "account_chats";
 ```
+
+## D-252: A live list costs what its readers see, whatever its size
+
+Amended by D-253, D-254 and D-255.
+
+Choice: amends D-154 points 3 and 7, D-186 points 1 to 3 and its rejection of
+growing up to the limit, D-195 and D-196.
+
+1. A write costs what the viewers it concerns see. A row is judged by what it
+   answers alone in memory before any query, and a query reads only the rows
+   that pass that. The rows a relation reaches are read once per flush for
+   every live read asking the same, up to 10 000 rows; past that, one query
+   per window. A write at a level of a shown relation's filter or order is
+   judged by that level's conditions, as a filter's levels are (D-196).
+2. A row read again as it was sent is not sent (#200). A window keeps, with a
+   row's keys, a hash of 53 bits of what it was last sent as. A row that moved
+   or is new is sent even if it reads the same. This holds in row mode, and
+   page mode still resends its window when anything else changes.
+3. Live reads with the same read and rights share one adapter read per flush.
+   The whole request is the key, so sharing cannot cross two rights. A root
+   rule a row answers alone leaves the key and is checked after the read.
+   Field rules and virtual fields stay per caller. Rules naming the viewer
+   through a relation do not share: each viewer keeps one read per change.
+4. A window keeps no record of the related rows it showed (the `Tracking` of
+   D-154). Updates and inserts reach the rows through the current links. A
+   deleted row with the key on its side reaches its parent through the `keys`
+   of the feed (D-196). A deleted row a stored key names reaches them through
+   the feed's `setNull` update, or its cascade's delete. The feed says neither
+   which rows lost a key that moved, nor which lost a many-to-many target
+   deleted (D-154): those re-read the window, and the hash of point 2 drops
+   what did not change.
+5. `maxLive` counts the rows of the list, not the rows nested in them: 50 000
+   by default, and `maxConnectionRows` 100 000. Nested rows stay bounded by
+   their `take` and `maxTake`. This replaces the cost of D-186 point 2.
+6. A list grows up to `maxLive` and no further: past it, `fetchMore` adds what
+   fits and `hasNextPage` is `false`, over GraphQL and REST, and a growth with
+   nothing to add does nothing. Rows already loaded stay live, `totalCount`
+   stays true. A `first` past `maxLive` at subscribe is still refused, as is a
+   growth past `maxConnectionRows`. A growth that crossed the limit leaves the
+   client's `first` above it: reconnecting with its token opens at the limit,
+   and without a token it is refused as at subscribe, so that a `first` too
+   large is never accepted in silence.
+7. `useLiveSubscription` holds the pagination:
+   - `fetchMore()` without argument adds a page of the first page's size;
+     `fetchMore({ first })` stays. A call during a growth is ignored.
+   - `fetchingMore` says that a growth is running.
+   - A failed growth goes to `error` and `onError`, the list stays as it was,
+     and the promise resolves. A read without a `first` variable still throws.
+
+     `control.fetchMore` of the link and `liveFetch` keep rejecting: they are
+     the lower level.
+8. On the client, a message costs the rows it changed. The hook reads with
+   `no-cache`, the link holds the list and applies each message to it, and
+   only the changed rows are written to the cache, through a fragment derived
+   from the selection. A plain `useSubscription` goes on working, at the cost
+   of a whole-list cache write per message.
+   - The rows of the first message are written too, once, so that a fragment
+     elsewhere reads them; a growth writes the rows it adds.
+   - Apollo holds a row against `cache.gc()` for each direct write. The link
+     keeps one hold per row shown and releases it once the row leaves the list
+     or the read closes.
+   - Only a read passing a control, the hook's, writes rows. A plain
+     subscription leaves the cache to Apollo.
+   - `graphql` is an optional peer of `@ultimabase/live`, as of Apollo.
+   - Under `dataMasking`, Apollo warns once in development that a `no-cache`
+     subscription is not cached. The rows are in the cache all the same.
+9. A live read with `totalCount` counts once per flush for every read with the
+   same filter. A filter naming the viewer counts per viewer.
+10. The benchmark gates a merge on what a list's readers pay, with relations:
+    25 rows against 50 000, 1000 subscribers on one list and 1000 viewers in
+    200 rooms. An update reaches the last subscriber within 160 ms at p50 when
+    the rows are read once (D-197), and a write in a room of 5 takes about ten
+    statements whoever else is connected.
+11. Events the client places in a cache of its own, on top of an ordinary paged
+    query, come back only if the memory of loaded rows is measured to be the
+    wall and nothing else fixes it. They save memory, not the reads a relation
+    costs per subscriber: an event still has to be read with each viewer's
+    rights.
+
+Why:
+
+- A real application's rules name the viewer through a relation. A write in a
+  chat of 5 with 1000 connected made about 1000 to 2200 statements and sent
+  995 messages to viewers of other chats. It now makes 7 to 12 and sends none.
+- A longer list does not slow a change: an update takes 58 ms at 25 rows and
+  56 ms at 50 000, with relations. What grew with the list was on the client (a
+  message at 50 000 rows takes 2.3 s through a plain `useSubscription`, 1.2 ms
+  through the hook), the
+  `Tracking` memory (137 MiB per subscription at 50 000 nested rows) and the
+  limit counting nested rows, which forced applications to set `maxLive` by
+  hand and write a hook around `fetchMore`.
+- What the client still pays at 50 000 rows: 1.4 s for the first message, once,
+  which a list reached by growing never pays, and 125 ms for a row gone, since
+  `cache.gc()` walks the cache.
+- The hash costs 24 bytes a row: 190 to 201 in all, for rows with 9 related
+  rows at 20 subscribers, around the 200 of D-195 point 4.
+  Its slot is reserved when the keys are made: an array grown later takes 160
+  bytes more, as measured.
+
+Rejected:
+
+- Client-placed events, Parse LiveQuery's way, now: same reasons as D-154, and
+  point 11 above.
+- Sharing one window between subscribers: D-195's reasons stand, and the reads
+  are what costs, not the windows.
+- Skipping the root rights when reading again a row in the window, which would
+  share the reads of rules naming the viewer: for some milliseconds a viewer
+  who just lost access would receive a row's newer data (D-154's third goal).
+- Redis or another external store: the wall is the read per subscriber, which
+  it does not remove. `pg_notify` under concurrent writes and several instances
+  are not measured yet.
+- Comparing the whole row instead of a hash: it keeps the rows on the server,
+  which D-195 removed.
+- A compact `Tracking`: about 100 bytes per nested row at best, for an answer
+  the feed and the hash give.
+
+Before:
+
+```tsx
+const { data, fetchMore } = useLiveSubscription(FriendListDocument, {
+	variables: { first: 25, search },
+})
+const [loadingMore, setLoadingMore] = useState(false)
+const loadMore = async () => {
+	setLoadingMore(true)
+	try {
+		await fetchMore({ first: 25 })
+	} catch (error) {
+		if (error instanceof LiveError && error.details?.limit) setFull(true)
+		else showError(error)
+	} finally {
+		setLoadingMore(false)
+	}
+}
+```
+
+After:
+
+```tsx
+const { data, fetchMore, fetchingMore } = useLiveSubscription(
+	FriendListDocument,
+	{ variables: { first: 25, search } },
+)
+return (
+	<LoadMoreButton
+		pageInfo={data?.friendships.pageInfo}
+		onLoadMore={fetchMore}
+		loading={fetchingMore}
+	/>
+)
+```
+
+## D-253: A big live list holds nothing while it is quiet
+
+Choice: amends D-252 point 2.
+
+1. A follower keeps no rows, on the server, over GraphQL and REST. A `changes`
+   message carries `ends`, the ids of the first and last rows shown, only when
+   they changed; the transports build `pageInfo`'s cursors from them. Page mode
+   keeps its window, bounded by `maxTake`, as it resends it.
+2. The transports let go of a message once it is sent: `LiveEvent` drops its
+   root, and the result sent drops its data, as graphql-js and graphql-ws keep
+   the last ones until the next message, which a quiet list may never have.
+
+Why:
+
+- Measured end to end over sockets, at 10 000 rows and 20 subscribers (the first
+  line before): a subscriber held 62 461 KiB after its first message and now
+  holds 1 963, the window of D-252. A heap snapshot finds no row retained.
+- It was also the time: a followed list walked every row on each message. The
+  author of 1 row in 50 reached the last client in 1747 ms and now in 272, an
+  update in 154 ms and now in 59.
+
+Rejected:
+
+- Keeping the rows in the follower and walking fewer of them: the memory stays.
+
+## D-254: A big live list makes nobody wait
+
+Choice: amends D-154's rule on a full socket buffer, and D-252.
+
+1. A flush does not wait for a big whole read. A list of at least 1000 rows that
+   reads its window again keeps its changes in order behind that read, and the
+   other lists get their messages meanwhile.
+2. Whole reads of at least 1000 rows take turns in the process: they hold 20 000
+   rows at once at most, and a read alone may hold more. Smaller ones never
+   wait.
+3. A statement reads 2000 rows at most: a big read goes in parts, so that writes
+   find a connection between them.
+4. A client whose buffer is full still gets the changes of its window, as long
+   as what they carry since the buffer was last not full, counted as the changes
+   of each message plus one, does not exceed the rows it was last shown. Past
+   that, messages are dropped and it gets the window again once it drained. So a
+   slow client costs at most about two windows, and a client on a small list
+   behaves as before. REST and GraphQL share this in `@ultimabase/http/internal`.
+5. Over GraphQL, a message goes to the socket in WebSocket fragments of 256 KiB,
+   each once the last is written, so that a ping passes between them. The keep-
+   alive itself does not change: a client that stops reading is still cut after
+   two beats, 24 s. A fragment is standard WebSocket: clients see one message.
+6. `@ultimabase/live` collects what gone rows left a second later, at most once a
+   second for a cache, instead of on each message.
+
+Why:
+
+- A client on a slow link never got a big first message. At 1.2 MiB/s with a
+  first message of 82 MB, the pings it answers wait behind that message, so it
+  was cut at 24 s and read it whole again, forever. It now arrives in 41 s and
+  the socket stays open. A client that stopped reading is still cut at 24 s.
+- Subscribers opening 10 000 rows held up everybody: at 20 of them, another
+  client's message waited 773 ms median and 11 659 ms at most. Now 61 and 1534.
+- Whole reads all at once killed the database: 20 subscribers on 50 000 rows
+  failed and Postgres was killed for lack of memory (`jsonb_agg`, 8.3 GB). They
+  now all open, in 126 s, one at a time. Below that, turns cost little: 14.5 s to
+  16.5 s at 10 000 rows, and a writer's list waits 68 ms.
+- A write during an opening sent every subscriber the whole window: a dropped
+  message meant a resend. 14.5 MiB a message then, 1.6 KiB now. The opening takes
+  longer, 14.5 s to 23.6 s, because those messages now arrive.
+- A row gone from a 50 000 row list took 125.3 ms in its message, 3.5 ms now. The
+  walk still costs about 125 ms, once, a second later.
+- Fragments cost nothing measurable: 126.8 s without, 126.3 s with.
+
+Known limits, measured or not:
+
+- 20 subscribers open 50 000 rows while the author of 1000 of them changes about
+  once a second: all opened in 208 s, then 228 s more to catch up, during which
+  an update takes seconds. Once caught up, an update is 62 ms. The process is
+  saturated, and no list this large with so many writes exists yet.
+- A slow client under writes can still get its window again after draining.
+- A ping also waits behind what the kernel and the network hold: the fragments
+  remove only what the process held.
+- REST has no ping answered by the client, so no such cut, and no fragments.
+- At a redeploy every subscriber reconnects and reads whole, in turns, as tokens
+  do not survive one: 126 s for 20 subscribers on 50 000 rows.
+- Not measured: several instances, a real browser's layout and paint.
+
+Rejected:
+
+- Sharing a row's hash and message among subscribers, proposed first: each viewer
+  decodes its own rows under its own field rules, so sharing risks showing one
+  viewer's row to another, for at most 8 % of an author's 272 ms.
+- Checking rights in batch for big rooms: 200 rooms of 5 cost 67.5 ms, and the
+  one room of 1000 that costs 536 ms exists in no app migrated so far.
+- A sliding window of the list on the server: nothing needs it while the largest
+  list of the app migrated is 4000 rows. Reserved for a list that hits this wall.
+- Letting a client stay alive while its buffer progresses, instead of fragments:
+  `bufferedAmount` counts a whole write until it ends, so no progress shows
+  during one message. It passed a first measure only because its own pings grew
+  the buffer, and was cut at 24 s once they did not.
+- Changing the client for React: a row keeps its object from one message to the
+  next, so `memo` renders 1 row, at 0.68 ms for 2000 rows and 21.77 ms for 50 000.
+  Mounting is what costs, at 840 ms for 10 000 rows on happy-dom. The
+  documentation recommends `memo` and a virtual list instead.
+
+## D-255: A write costs its readers, whoever else is connected
+
+Amended by D-256 and D-259.
+
+Choice: amends D-252 points 1, 3 and 10.
+
+1. A row of a filter naming a related id is judged on its key before any query,
+   even when the filter's read rule sits next to that id: the row of another
+   chat costs a list of messages nothing. `loosened`'s conditions join what a
+   row answers alone; the whole filter still decides for the rows they keep.
+2. What a filter requires through a relation is read once per flush for all the
+   lists that ask, then checked in memory for each: `{ members: { some: { user:
+me } } }` reads the members of the changed chats once, and each list looks its
+   viewer up in them. This follows `is` and `some`, and `OR` when each branch
+   requires something. `every`, `none`, `isNot`, `NOT`, a search and a many-to-many
+   relation say nothing, and the query decides as before.
+3. These checks can only refuse. A row they keep still goes to the query with the
+   whole filter, so rights stay decided by the database, and a query costs a true
+   reader rather than a connected viewer. A link changed after the shared read is
+   a change of a level the list follows, so it is judged in the next flush.
+4. A shared read holds 10 000 rows at most, like the reads of D-252. Past that,
+   the rows it would have judged go to the query, as before.
+5. Rows held for a flush are found by the related id a filter names, through an
+   index built on the first such filter, so a room of 5000 members costs each
+   viewer one lookup rather than 5000 checks.
+6. A flush with nothing to hand ends at once. Flushes queue up when one outlasts
+   the gather, the first takes every change, and the others used to walk every
+   viewer for nothing, holding the event loop for seconds once writes stopped.
+7. A live read none of whose models the batch wrote returns without a task, a
+   promise or a wait: its reach proves the write leaves it as it was. Only a read
+   with no task running or queued may skip, since a first read in flight could
+   miss the write.
+8. A flush gives the event loop a turn every 8 ms, so writes, requests and timers
+   do not wait for the walk. Every worker of the flush waits for the same turn.
+
+Why: 10 000 connected viewers with 50 000 live reads on a 12-core machine, one
+Node process, and Postgres on the same machine, one lone write:
+
+| Each viewer                   | Statements, before | After | Told, before |  After |
+| ----------------------------- | -----------------: | ----: | -----------: | -----: |
+| Chats with one other person   |              20013 |    18 |      6144 ms | 389 ms |
+| Is in a campaign, NPC created |              10007 |    14 |      4943 ms | 178 ms |
+| Follows 20 users, one online  |                  6 |     6 |       281 ms | 293 ms |
+
+Under a steady load, the longest stall of the event loop went from 29 981 ms to
+53 ms (presence, 100 writes a second). A commit at 5 chat messages a second went
+from 22 ms to 40 ms: points 1 to 5 alone made it 226 ms, as the flush's work moved
+from Postgres to this process, and point 8 brought it back.
+
+Known limits:
+
+- The walk still visits every live read a write's model concerns, so its cost
+  grows with the connected viewers: about 250 ms per flush with 50 000 reads,
+  which saturates one core from 5 writes a second. Point 8 keeps writes fast
+  meanwhile, not announcements. These hold within a second up to 10 chat messages,
+  50 NPCs and 100 presence changes a second, with a p50 of 494, 249 and 409 ms, and
+  fall behind past that.
+- Only a read that shares no model with a write skips it, so a read concerned by
+  the model but not by the row still costs its visit.
+- Writes to one row closing up in a flush tell its readers once, of the last state.
+- Not measured: several instances, real sockets across a network.
+
+Rejected:
+
+- A smaller slice: 8 ms already brings a commit to about 40 ms, the walk's total
+  stays the same, and each turn costs a pass of the event loop.
+- Holding each list's row ids to refuse rows sooner: it would hold memory for every
+  quiet list, which D-253 removed.
+
+## D-256: A write visits the reads it can concern
+
+Amended by D-258.
+
+Choice: amends D-255's known limits. Nothing changes for a developer: no option, no
+new message, the same rows told.
+
+1. The engine keeps an index of its live reads: lists, rows, live functions' reads,
+   and what built each caller and plan. Those of one shape share an entry: the
+   routes from each model they reach back to their root, the fields that matter on
+   each, and the relation their filter pins on an id.
+2. A pin is an id every row of the read must lead to: `id: { in }`, a stored key
+   (`chat: { is: { id } }`), or either through relations a row can be walked along
+   (`members: { some: { user: { is: { id } } } }`). The shortest one wins. `OR`,
+   `NOT`, `every`, `none`, `isNot` and a many-to-many relation pin nothing.
+3. A flush asks each shape what its writes concern. A written row goes back along
+   its route to root rows, read once per flush whatever reads it, then forward to
+   the pins those rows hold, and only the reads pinned there are visited. It holds
+   ids of pins, no rows, so a quiet list stays as cheap as D-253 made it.
+4. Every read of a shape is visited when no answer is sure: a key or a link of a
+   route moved, a row under a relation was deleted, the feed did not list its rows,
+   a read past D-252's shared limit or that failed, or the shape has no pin.
+5. A read is visited whatever it is pinned on when a task of it may still read
+   the write: a read in progress, a function running, a caller being rebuilt. So is
+   one holding virtual fields' reads, which the routes do not describe.
+6. A recorded read is pinned as a plan is, even when its `where` is more than a
+   row answers: a row outside the pin was never part of what it found.
+7. A viewer closed while it plans a live read refuses it: what it registered would
+   stay in the index for good.
+
+Why: 10 000 users on one process and one Postgres, `bench/realtime/platform.ts`. The
+rate is the highest that holds: 95 % of the asked rate done, and told within 1 second at the
+95th percentile. The first two columns are the delay of a write alone.
+
+| Scenario              | Lone write, before | After | Holds, before | After |
+| --------------------- | ------------------ | ----- | ------------- | ----- |
+| Private chats         | 389 ms             | 69 ms | 10/s          | 100/s |
+| Non-player characters | 178 ms             | 74 ms | 50/s          | 100/s |
+| Online and offline    | 293 ms             | 67 ms | 100/s         | 200/s |
+
+It costs 0.04 to 0.07 GiB more heap for those 10 000 users, and 4 to 14 % longer to
+connect them. It also costs more SQL at an equal rate, as a flush goes back from what
+was written: 180 statements a second against 132 for 10 chat messages a second, 534
+against 165 for 100 presence changes a second. Those reads replace work this process
+did for each list. The package grows by 593 lines.
+
+Each read skipped could be one a client never hears of, so this was checked once
+against the old walk, by a patch not kept: every read the index left out was still
+visited, and logged if it then told something or read again. Over the whole suite it
+logged nothing. Over 1497 random writes on 80 live reads it logged 36 of 26 366 visits,
+all a live function's read woken by the delete of a row of another pin, which the old
+check woke for any delete: none changed what it reads. With the index emptied, the
+same log held 4473 entries, so it does catch what is left out.
+
+Known limits:
+
+- A delete under a relation visits every read of that shape, as before this decision.
+- A many-to-many link, and an `OR`, leave a read unpinned: it is visited for every
+  write on its routes.
+- A write on a shown relation goes back to as many as 10 000 root rows, each read whole.
+- Past those rates the process is not always what stops: online and offline stops
+  holding at 500/s with 36 % of a core, a campaign at 200/s with 79 %. What stops them
+  was not investigated.
+
+Rejected:
+
+- An index of row ids to reads: 50 to 100 bytes a row, and it misses a row entering
+  a window, the case a list exists for.
+- Evaluating each list's filter against a written row in a shared structure: rights
+  go through relations, so most cannot be answered from the row.
+
+## D-257: The adapter writes its SQL itself, Kysely runs it
+
+Choice: amends D-47, whose "builder overhead is negligible next to a database round
+trip" holds for one call at a time and not for a process that reads for thousands of
+live lists. Nothing changes for a developer: same statements, same public
+`postgres.sql` tag, which stays Kysely's.
+
+`packages/postgres/src/text.ts`, 105 lines, gives the adapter the `sql`, `sql.id`,
+`sql.lit`, `sql.raw` and `sql.join` it used. A fragment keeps its strings and values;
+the statement is written once, at the end. Kysely still runs it: pool, transactions,
+statement log, migrations. A test compares what both write for the same fragments.
+
+Measured with `bench/realtime/platform.ts`, 10 000 connected users, 10 s a rate:
+
+| Scenario, writes /s     | Told p95 before |    After | Drain before |  After |
+| ----------------------- | --------------: | -------: | -----------: | -----: |
+| Chat, 200               |         2136 ms |   108 ms |        1.7 s |  0.1 s |
+| Campaign, 200           |         1385 ms |   833 ms |        1.4 s |  0.8 s |
+| Campaign, 500           |        27296 ms | 22112 ms |       28.9 s | 23.2 s |
+| Online and offline, 500 |         2632 ms |  2314 ms |       32.1 s | 31.8 s |
+
+Kysely's builder was the first cost in every scenario, 17 to 20 % of the JavaScript
+thread: a frozen object and a query id for each fragment, a walk of its nodes. One call
+at a time gains far less, 0 to 6 % on `bench/writes` and `bench/compare`, as the round
+trip takes most of it.
+
+Rejected: caching whole statements per query shape, not needed yet; another driver or
+builder, as the choice of Kysely to run statements and migrations still stands.
+
+## D-258: A read sees only the rows that lead to it
+
+Amended by D-260, D-261.
+
+Choice: amends D-256. Nothing changes for a developer: no option, no new message, the
+same rows told.
+
+1. A flush already walks each written row back to its root rows and on to their pins.
+   It now keeps that walk: each read is given the rows that lead to its pins, rather
+   than the whole batch.
+2. A read gets the whole batch whenever D-256 visits every read of its shape, and when
+   it is visited for another reason than a row of its pin: a task in progress, virtual
+   fields' reads, a read that built a caller, a plan or a result. A key or a link moved
+   is such a case, which is why a row that leads elsewhere cannot enter a window.
+3. A read pinned on several ids gets the rows of all of them, joined. A many-to-many
+   link, which no walk follows, gives every row to each root found.
+4. What a walk found answers the reads that ask the same way back, with no query.
+
+Why: at saturation a flush cost the rows times the reads, a larger batch made a slower
+flush, and a slower flush a larger batch. It now costs the rows times the reads each
+reaches. 10 000 users on one process and one Postgres, `bench/realtime/platform.ts`, 95th
+percentile of the delay to be told, and how long the backlog took to drain:
+
+| Scenario, rate               | Told, before | After | Drain, before | After  |
+| ---------------------------- | ------------ | ----- | ------------- | ------ |
+| Non-player characters, 500/s | 22.1 s       | 9.0 s | 23.2 s        | 9.3 s  |
+| Online and offline, 500/s    | 2.3 s        | 1.5 s | 31.8 s        | 31.0 s |
+
+Below saturation nothing moves: 3 runs of a campaign at 200/s gave 504 to 957 ms against
+833 ms, and of chats at 200/s 99 to 147 ms against 108 ms. The package grows by 214 lines.
+
+Each row a read no longer sees could be one a client misses, so this was checked by
+replaying what each of 80 live reads was told over random writes, then comparing it with
+what a new reader finds. Whole batch and narrowed gave the same messages, seed by seed. The
+same replay found a bug no test caught, in D-252's shared reads, fixed by a test of its own.
+
+Known limits:
+
+- No scenario holds more for it: told within a second at the 95th percentile still stops
+  at the same rate. It stops being a cliff: at 1000/s a campaign drains in 12 s, not 78 s.
+- A walk costs what it reads, and the reads it replaces were only the ones past the pin.
+
+## D-259: A rule the rows of a flush answer needs no query
+
+Amended by D-262.
+
+Choice: amends D-252 point 3 and D-255 point 2.
+
+D-255 reads once what a filter requires through a relation, but only to refuse
+rows: each viewer then asked the database to confirm the rest of them, and read
+its shape again under its own rights. On a list of a campaign's NPCs, 75 % of a
+flush's statements came from those two, re-asking what the flush already held.
+
+1. When what a filter requires is entirely in the rows held for the flush, what
+   they say is the answer: no query confirms it. That holds when each condition
+   is answered alone by the row or is an `is` or a `some` that says nothing else
+   of its relation, down to the bottom, an `OR` when each branch holds, and no
+   related set passed the 10 000 rows a read keeps.
+2. Anything else goes to the database as before: `none`, `every`, `isNot`, `NOT`,
+   a search, a many-to-many relation, two conditions on one relation, a set too
+   large to hold.
+3. A live read told the verdict needs no rule of its own: with no relation to
+   show it serves the stored rows, and with relations it shares one read across
+   every caller, under a key that does not name the rights, and keeps what the
+   verdict lets through. Relations stay under each caller's own field rules.
+4. Only a flush judges: its rows are whole. The rows of a first read may hold a
+   part of their fields and are not judged.
+5. The verdict is what the flush read when it started. A write committed after
+   that read carries a model the rule reaches, so it comes in a later flush that
+   judges again, as for any row a flush reads (D-154).
+
+Before and after, 10 000 users on `bench/realtime/platform.ts`, 10 s per rate,
+told p50 and statements per second:
+
+| Scenario | Writes/s | Before          | After           |
+| -------- | -------- | --------------- | --------------- |
+| Campaign | 100      | 54 ms, 1311/s   | 41 ms, 317/s    |
+| Campaign | 200      | 347 ms, 2437/s  | 40 ms, 616/s    |
+| Campaign | 500      | 6058 ms, 2462/s | 51 ms, 1505/s   |
+| Campaign | 1000     | 8809 ms, 2505/s | 1916 ms, 1924/s |
+| Chat     | 100      | 44 ms, 1433/s   | 37 ms, 923/s    |
+| Chat     | 200      | 65 ms, 2871/s   | 42 ms, 1743/s   |
+| Chat     | 400      | 7876 ms, 952/s  | 3934 ms, 706/s  |
+| Presence | 500      | 900 ms, 564/s   | 792 ms, 571/s   |
+
+A lone write to a campaign runs 4 statements rather than 14, a lone chat message
+11 rather than 18. Presence gains little: its rule is `read: true`.
+
+## D-260: A live function is given only the rows that lead to its reads
+
+Choice: amends D-258 point 2. Nothing changes for a developer.
+
+D-258 gave each list the rows that lead to its pin, and still gave the whole batch to a
+read that built a caller, a plan or a result. A live function was then woken by a row of
+its own and tested every row of the flush against every read it recorded: a badge counter
+read per user, with a batch that grows when the process falls behind, is the rows times
+the reads D-258 removed for lists. At 400 chat messages a second this was a fifth of the
+busy time.
+
+1. A recorded read pinned by its filter gets the rows that lead to its pin, like a list.
+2. A read with no pin, or that followed a relation, still gets the whole batch, and so
+   does any read a flush visits for another reason (D-258 point 2's task in progress and
+   virtual fields' reads, a key or a link moved).
+3. A read on several shapes gets the rows of all of them, joined.
+
+Why this cannot miss a row: the pin comes from a condition the filter requires, so a row
+leading to another pin fails the filter unless it moved, and a move is a link moved, which
+gives the whole batch. A row's fields are tested against the same fields as the route.
+
+`bench/realtime/platform.ts`, 10 000 users on one process and one Postgres, private chats:
+
+| Rate   | Told p50, before | After | Told p95, before | After  | Drain, before | After |
+| ------ | ---------------- | ----- | ---------------- | ------ | ------------- | ----- |
+| 400 /s | 5.0 s            | 2.7 s | 8.4 s            | 4.7 s  | 4.6 s         | 2.0 s |
+| 600 /s | 12.2 s           | 7.1 s | 16.2 s           | 10.6 s | 11.3 s        | 5.3 s |
+
+Below saturation nothing moves: at 200/s, 42 ms and 62 ms before and after.
+
+Checked by replaying 8 seeds of random writes and comparing 36 live function values and 80
+lists with what a new reader finds: no difference, and a broken check is seen on 35 of 36.
+
+Known limit: the viewer's own reads, those that built its caller, still test the whole
+batch. They were absent from the measure, and did not cost anything worth a line.
+
+## D-261: A flush reads the rows it expects together
+
+Choice: amends D-258. Nothing changes for a developer.
+
+D-258 gave each read the rows that lead to its pin, and each read then loaded its own: a
+flush that used to read a batch in one statement read it in one statement per viewer, by
+id, about 8 500 of the 23 113 statements of ten seconds of presence at 500 writes a second.
+
+1. The walk of a flush says which rows will be asked for: those written, and the roots
+   they reached. The first read that misses a row of a model reads those of that model
+   with it.
+2. A root with no connected reader is read for nothing: one more id in one statement,
+   against one statement per reader.
+3. Past 10 000 rows (the most a flush's shared reads hold), only what is asked is read.
+
+## D-262: A live read names its viewer only where a rule says more
+
+Choice: amends D-195 and D-259. Nothing changes for a developer.
+
+A rule usually repeats its parent's on the way down: a chat shows to its members, and so
+does a chat's member, by `{ chat: { is: <the chat's rule> } }`. Every viewer's read of a
+chat so named that viewer in each of its relations, and read alone: 16 410 of the 26 442
+statements of ten seconds of presence at 1 000 writes a second, 69 seconds of database time
+out of 120.
+
+1. A planned live read drops a relation's condition on the row above when that row's rule
+   already holds it: the row shows only if it passes, and the relation's key on the target
+   is what leads there. A condition asking anything more stays, whole.
+2. A read naming nobody once that is done is one statement for all its viewers, each given
+   the rows its rights let through (D-259). It also brings the roots the flush expects
+   (D-261), at most 1 000 per statement: the next root asked for reads the next ones.
+3. A read still naming its viewer, or counting a relation, reads only the rows it asks for:
+   bringing the others along would cost each viewer every root of the flush.
+4. Only live reads do this. Other reads could too, and it would simplify their SQL; that is
+   a separate choice, to measure with `bench/compare`.
+
+## D-263: A flush reads the rows related to its rows together
+
+Choice: amends D-255. Nothing changes for a developer.
+
+A rule walking a relation read only the related rows of the viewer who asked, so one read
+per campaign: 5 977 reads of a campaign and 5 977 of its members out of 21 962 statements in
+ten seconds at 1 000 writes a second, every other viewer of the same flush asking the next.
+
+1. A read of the rows a relation leads to brings those of every row of that model the flush
+   has read, at most 1 000 ids, for the first viewer to miss one. A viewer finding its own
+   read costs no scan.
+2. Past the 10 000 rows one read holds, the rows read together are too many to tell apart:
+   the viewers already waiting go to a query, as they do for one crowded row (D-255), and
+   each next viewer reads its own for the rest of the flush.
+3. A row read is kept whole, so later viewers get it without waiting a turn.
+
+Campaign at 1 000 writes a second: told p50 from 2 017 to 47 ms, and it holds; 1 958 to
+1 052 statements a second.
+
+## D-264: A composed statement is prepared once per connection
+
+Amended by D-274.
+
+Choice: amends D-47. Nothing changes in a developer's code.
+
+Under load PostgreSQL spent more time planning the statements the adapter composes than
+running them, and an application asks the same few, 72 to 200 in the benches.
+
+1. A statement `text.ts` composes runs as a named statement, parsed once per connection. The
+   raw SQL of `database.sql` (D-137) and the migrations stay unnamed: they may `select *`,
+   which a change of table would refuse under a prepared statement. Every composed statement
+   returns jsonb, booleans or counts, so a table changing replans it and nothing else.
+2. PostgreSQL's `plan_cache_mode` stays on `auto`. Forcing a plan per run keeps nearly all the
+   cost (chat at 600 writes a second: 492 done, commit p50 942 ms), so the gain is the plans
+   reused. `auto` runs a statement five times with its values before it may reuse a plan.
+3. At most 500 statements, a connection holding some 22 KB for each: a backend measured 2.1 MB
+   before and 6 MB with 172 statements. A statement past 64 parameters, a long list of ids
+   rarely asked twice alike, stays unnamed. Past the cap, new statements stay unnamed.
+4. PgBouncer in transaction mode needs version 1.21 or later and `max_prepared_statements`
+   above 0, or a statement finds itself unknown on another server connection. D-274 turns this
+   off.
+
+Composing also costs less. A write only composes its read and its checks when it has rows to
+split, a name is put in snake case once, and a list's text allocates nothing per item:
+`compileWrite` from 17.7 % to 10.4 % of the busy time in chat.
+
+Told p50 and commit p50 in ms, 10 s per rate, with both:
+chat at 500 writes a second 482, 207 to 52, 11; chat at 600 1 356, 1 072 to 267, 78, and it
+holds, 498 to 591 done; campaign at 2 000 3 256, 2 648 to 2 098, 1 483, 1 316 to 1 491 done;
+presence at 1 000 209, 16 to 88, 8. Alone, without the realtime: create 1.14 to 0.86, update
+by id 1.20 to 0.89, a many disconnected and connected 1.58 to 1.06, read by id 0.96 to 0.79,
+against the driver's 0.69.
+
+## D-265: Subscribers of one row share its execution
+
+Amended by D-267, D-272.
+
+Choice: nothing changes in a developer's code.
+
+On the real wire, graphql-js ran each live message once per subscriber and took 28.5 % of the
+busy time: its executor makes an `AbortController` and, ending, a `DOMException` with its stack,
+per message. That cannot be avoided from outside the library, so it now runs less often.
+
+1. Subscribers of one row, with the same document, variables and master flag, share one
+   execution within a turn of the loop. The key is that shape and the JSON of the row, so rows
+   a rule or a virtual shows differently to two viewers run apart.
+2. This holds because a generated resolver reads only its row, its selection and the master
+   flag. `extend` (D-107) may add a resolver reading `context.caller`, so a schema `extend`
+   changed runs per subscriber. An `extend` returning the schema it was given shares.
+3. A live function's value runs per subscriber: it may be any object, with its own methods. A
+   whole window does too, costly to compare and rarely sent to many at once.
+4. The assumption is the one `Window.sent` makes (D-252): a row's JSON says what it shows. Only
+   a plugin value hiding data from its JSON could differ, within one row of one model.
+5. A result is forgotten as the loop turns, so no row stays longer than it takes to send.
+
+Over GraphQL on a WebSocket, 1 000 subscribers of a window of 25, last message p50: an update
+goes from 227.5 to about 165 ms, the author of 1 row in 50 from 210.2 to about 160, a new first
+row from 172.6 to about 133. The subscribers' first windows do not change (3 386 to about
+3 300 ms for 1 000 at once).
+
+## D-266: Only messages above 1 KB are compressed
+
+Amended by D-273.
+
+Choice: nothing changes in a developer's code; sockets negotiate no context takeover.
+
+D-154 compresses WebSocket messages above 1 KB, but `ws` honours its `threshold` only when the
+negotiated extension has no context takeover. So every message was compressed, each going through
+zlib's limited queue and the thread pool.
+
+1. The server asks for `server_no_context_takeover` and `client_no_context_takeover`. A message
+   below 1 KB goes out as it is.
+2. The price: a message above 1 KB compresses alone, so it does not benefit from the ones before.
+   Live messages are mostly small, and a big window has its own repetition.
+3. Small frames now share a TCP chunk. `ws` on Node then delivers a refused growth's result and its
+   end in one tick, and `graphql-ws` releases the socket twice if the link unsubscribes between
+   them. So the link opens the next read and lets the refused one end by itself.
+
+Over the wire, 10 000 users each following 20 others, told p50 and p95: 500 changes a second
+6 297, 9 659 to 1 551, 2 382 ms; 1 000 a second 10 677, 14 201 to 4 045, 6 113 ms. 200 a second
+62, 98 to 45, 73 ms. The memory does not move: 4.63 to 4.60 GiB, the clients' threads included.
+
+## D-267: Subscribers of one row share it whatever window they follow
+
+Choice: nothing changes in a developer's code.
+
+D-265 shared an execution between subscribers with the same variables and the same root. Yet the
+variables of a list usually differ, its `where` naming the viewer, and its root carried each
+window's page info, read or not. So what users follow in common rarely ran together.
+
+1. The shape holds only the variables read below the root field: its arguments chose the rows, and
+   its resolver ignores them. A root's directives, its other selections and the fragments count,
+   all of them whether used or not: a variable wrongly counted only costs a shared execution.
+2. A message carries the page info only when the window's has moved; any other runs with a constant
+   one, whose result is not sent. The count is the message's, or 0 likewise.
+3. So windows sharing a row and a selection run once, unless their page info moved, and those whose
+   page info did move still run apart. A real client selects `pageInfo` in about half of its lists.
+
+Over the wire, 10 000 users each following 20 others, with D-266, told p50 and p95: 500 changes a
+second 1 551, 2 382 to 593, 1 147 ms; 1 000 a second 4 045, 6 113 to 3 750, 5 683 ms; 200 a second
+45, 73 to 41, 64 ms.
+
+## D-268: A document is read and validated once
+
+Choice: nothing changes in a developer's code.
+
+An application sends the same few documents again and again, yet each subscription of each user
+parsed and validated its own: a quarter of the retained heap was GraphQL syntax trees, about 10 KB
+a subscription.
+
+1. The GraphQL plugin keeps the 500 documents of at most 4 KB it was last asked for, over HTTP and
+   WebSocket. A document that fails to parse is not kept. A document may hold user input in its text
+   only if the client wrote it so; the bound is what such a client can make it hold.
+2. A tree remembers the rule sets it passed. A document Master may send is still refused to a user
+   past `maxDepth`, in either order. What fails validation is validated again.
+3. Rule sets are built once per server, Master's and a user's.
+4. Which subscribers run together is now stored by context, since their documents may be one.
+
+Over the wire, 10 000 users, presence: connect 68.6 to 44.8 s, heap 1.52 to 1.10 GiB, told p50 at
+500 changes a second 402 to 295 ms, at 1 000 a second 2 590 to 2 338 ms.
+
+## D-269: A socket keeps a small compressor
+
+Choice: nothing changes in a developer's code; the server negotiates a smaller window.
+
+`ws` keeps a zlib compressor per socket from its first message above 1 KB, whatever the message
+sizes after it. With zlib's defaults, a window of 15 bits and `memLevel` 8, it holds 109 KB a socket
+after a 4.7 KB message and 243 KB after a 47 KB one, outside the heap, so that no heap figure shows
+it: 1.1 to 2.4 GiB at 10 000 users.
+
+1. The server answers `server_max_window_bits=12` and compresses with `memLevel` 5. RFC 7692 lets a
+   server say so even to a client that did not offer it, so that no client loses compression.
+2. A message compresses alone since D-266, and JSON repeats its keys within a row: a window of 4 KB
+   sees what a window of 32 KB sees until a message is very large. On the wire: 25 rows the same,
+   100 rows +0.8 %, 1 000 rows +3 %.
+3. The compression level stays zlib's default: level 3 saves a third of the compressing, which runs
+   off the event loop, for 6 to 12 % more bytes.
+4. The client's own window is left alone: `ws` then refuses a client that does not offer
+   `client_max_window_bits`, which would lose compression.
+
+Measured alone, server and clients in separate processes, 2 000 sockets: 109 to 44 KB a socket after
+a 4.7 KB message, 243 to 64 KB after a 47 KB one. The time to send does not move.
+
+## D-270: A big list reads a few parts at once
+
+Choice: amends D-254, point 3; nothing changes in a developer's code.
+
+A list of 50 000 rows read its window in 25 statements of 2 000 rows, one after the other. For
+4 of the 7 seconds of its opening the process had nothing to do but wait for them, and each of
+them filtered all 50 000 rows by the caller's rights.
+
+1. The parts of a big read run at once, 4 statements in all across every big read of the process,
+   first come first. Six of the pool's 10 connections stay free for writes, which D-254 asks for.
+2. A pool of fewer connections is not known here: its writes queue behind these statements for
+   as long as the statements take, about 135 ms each.
+3. A part filters only its own rows.
+
+Parts were already separate statements, so nothing is less consistent than it was.
+
+`bench/realtime/wire.ts`, 50 000 rows: one alone 7 100 to 4 622 ms, all at once 7 000 to 4 462 ms,
+another client's message 56 / 71 to 59 / 94 ms (median / worst). Twenty subscribers at once:
+76.9 s, 126 s when D-254 measured them.
+
+## D-271: A change after a quiet goes at once
+
+Choice: amends D-154, which sent the changes within 50 ms as one message; nothing changes in a
+developer's code.
+
+Every change waited a fixed 50 ms before its flush, so 50 of the 84 ms a lone write took to reach
+its readers over the wire were a timer with nothing to gather.
+
+1. Two flushes stay at least 50 ms apart, what D-154 asked of the gather: the changes in between
+   share one message.
+2. A change more than 50 ms after the last flush starts one at once. Its transaction's other
+   changes come with it, since notifications of one tick reach the engine together.
+3. Writes outside a transaction may now make two messages rather than one: the first write alone,
+   the others 50 ms later, no later than they came before. That costs a chat message of 4 writes
+   13 statements instead of 10.
+4. Under load a flush is always less than 50 ms old, so nothing changes.
+
+`bench/realtime/platform-wire.ts`, 10 000 users, a lone chat message: 84 to 21-38 ms; a lone change
+of presence: 84 to 25-36 ms, with presence at 1 000 /s where it was. Chat at
+400 /s: told p50 59 to 52 ms, p95 189 to 167 ms. At 600 /s it holds 476 /s, 431 before.
+
+## D-272: A big live window runs in parts
+
+Choice: amends D-154 and D-265; nothing changes in a developer's code or on the wire.
+
+graphql-js runs a selection without yielding: the first message of a live list of 50 000 rows held
+the event loop for 1.8 s, and every other user of the server waited that long.
+
+1. A window of more than 2 000 rows runs 2 000 rows at a time, about 40 ms each, with a turn of the
+   loop between two parts. Page info and count are the whole window's, in every part, and each edge
+   keeps its cursor.
+2. Only the window sent whole does: what a change sends is a few rows.
+3. A part with an error runs the window again whole, so that an error's path counts from the
+   window. An error is rare, and a window's parts read rows they already hold.
+4. Only where the generated resolvers run every field (D-265): a field given by `extend` may read
+   the whole connection.
+5. Sending the message stays one block of about 0.5 s at 50 000 rows, `JSON.stringify` inside
+   `graphql-ws`; at the 20 000 rows of the default budget, about 0.2 s.
+
+`bench/realtime/wire.ts`, 50 000 rows, 1 subscriber: longest stall 1 795 to 501 ms, opening 4.6 s
+unchanged. With 20 subscribers: longest stall 1 812 to 632 ms, the others' longest wait 1 801 to
+1 129 ms, all opened in 76.9 to 68.7 s.
+
+## D-273: Only messages above 2 KB are compressed
+
+Choice: amends D-154 and D-266; nothing changes in a developer's code, and a client sees a few more
+bytes.
+
+A message compresses alone since D-266, in zlib's limited queue and the thread pool, once for each
+socket. A change of one row is the message that goes to the most sockets, and it is about 1.6 KB.
+
+1. Messages up to 2 KB go out as they are; above, they compress as before.
+2. The price, on a message of a few rows with a cursor: 1.2 KB goes out as 1.2 KB rather than 0.6,
+   and 2 KB rather than about 0.8. A window of 25 rows still compresses.
+3. 4 KB gains no more on a row's change and costs up to 2.6 KB a message, so it was not kept.
+
+`bench/realtime/wire.ts`, 25 rows and 1 000 subscribers: an update 120 to 94-98 ms, the author of a
+row in 50 112 to 86-88 ms. `platform-wire.ts`, 10 000 users, one run each: campaign at 1 500 asked
+1 020 to 1 201 written a second, chat at 600 asked 454 to 478, connecting the chat 50.7 to 46.7 s and
+the process 4.11 to 3.49 GiB, the clients' threads included: fewer sockets ever keep a compressor.
+
+## D-274: `prepared: false` runs every statement unnamed
+
+Choice: amends D-264. A developer's code changes only to turn it off.
+
+D-264 prepares what the adapter composes, and a connection pooler that shares server connections
+between clients may then find a statement unknown: PgBouncer in transaction mode before 1.21, or
+without `max_prepared_statements`. Such an application had no way out but changing its pooler.
+
+```ts
+// Before: always prepared.
+database: postgres({ url: process.env['DATABASE_URL'] })
+
+// After: the same by default, and a way out.
+database: postgres({ url: process.env['DATABASE_URL'], prepared: false })
+```
+
+1. `prepared` is a boolean on `postgres()`, `true` by default. `false` sends every statement as
+   an unnamed one, the planning cost D-264 removed coming back with it.
+2. It holds for one adapter, so two applications in a process choose apart. The list of statements
+   stays shared: it costs nothing to a connection that never reads it.
+3. No option on the cap or the planning: nothing has asked for one.
+
+## D-275: `liveFetch` reconnects at a random moment of its wait
+
+Choice: no developer's code changes. Clients cut together no longer come back together.
+
+`liveFetch` waited exactly its backoff before reconnecting, 100 ms doubling to 5 s, so every client
+cut by the same restart reconnected in the same instant. `graphql-ws` already adds randomness by
+default, 300 ms to 3 s, and needs nothing.
+
+1. The wait is `Math.random() * backoff`, full jitter: the whole wait is random, which spreads twice
+   as far as keeping half of it fixed. The doubling is what protects a server that refuses, and
+   stays.
+2. The first wait and the 5 s cap do not change. A longer cap would spread further, at the price of
+   the 10 s resume window (D-154).
+
+This is not what absorbs a mass reconnection. The storm bench (`bench/realtime/README.md`,
+2026-11-06) shows 9000 clients arriving within 5 s taking about as long as 9000 arriving at once on
+one process, and no delay at 150 a second: what absorbs it is arriving slower than a process connects.
+
+## D-276: The server's connection queue holds 4096
+
+Choice: no developer's code changes, and no option. Connections arriving together wait instead of
+being cut.
+
+1. The HTTP server listens with `{ port, backlog: 4096 }`, a constant. The system caps it at its own
+   limit: `net.core.somaxconn`, 4096 on a recent Linux, 128 on macOS.
+2. Past the queue, what happens stays the system's: Linux cuts or ignores the attempt.
+
+Why, from the storm bench (`bench/realtime/README.md`, 2026-11-06), Linux, one process, 9000
+arriving within 5 s: Node's default of 511 lost 800 to 1500 attempts and took 124 to 140 s, retries
+included. With 4096 it lost none and took 62 s. A bare Node server shows the same: 3500 connections
+at once wait at most 1175 ms at 511, and at most 192 ms at 4096.
+
+Rejected:
+
+- An option: nothing tells a developer what else to set it to, and a higher value than the system's
+  does nothing.
+- Leaving it to a reverse proxy: most deployments have one, and it then meets the same queue.
+
+## D-277: A few connections open at once
+
+Choice: no developer's code changes, and no option. Under a storm, those arriving wait their turn
+in the server, and the writes of those already there go on.
+
+1. A process runs at most 8 opening tasks at once, in the order they came: reading a connecting
+   caller, planning and first reading a live read, and the first run of a live function. The gate
+   is in the realtime engine, so GraphQL and SSE share it (D-129).
+2. The others wait without holding a PostgreSQL connection, so they fail no 10 s wait for one
+   (`postgres()`'s `wait`), and take nothing from a write or a request.
+3. A turn is given back after 5 s even when its task still runs: a hanging `identify` or live
+   function slows the openings and does not stop them.
+4. A read whose connection closed while it waited reads nothing.
+5. Not behind the gate: `fetchMore`, a resend, a flush and a rebuild (8 viewers at a time since
+   D-154), HTTP requests, and a query over a socket. An HTTP storm can still meet the 10 s wait.
+
+Why, from the same bench: 9000 arriving at the same instant queued thousands of reads in the pool,
+and more than 10 s in the queue fails. That made about 10 600 first reads fail, and 207 of about
+1500 writes of connected users. What an opening costs is the process's time, about 145 a second
+whichever queue holds them, so holding them in the server costs nothing the pool's queue did not.
+
+8 is what a flush already allows, and leaves connections to the writes in the default pool of 10.
+
+Rejected:
+
+- A public option: no measure says a value would suit better, and the pool's size is a developer's
+  to change first.
+- A larger pool: it moves the queue to PostgreSQL.
+- Serving the most recent first: those who waited longest would wait for ever.
+
+## D-278: A failure of the server closes a socket with `1013`
+
+Choice: amends D-178, point 2. `4403` now means refused, and only that.
+
+1. When the caller read is another user, or `identify` throws a `PublicError`, the socket closes
+   with `4403`, as before.
+2. When `identify` fails any other way, on connecting or later, or when a viewer fails, the socket
+   closes with `1013` ("Try again later"). A query or a subscription sent to it meanwhile gets the
+   same close, and its operation the error it had.
+3. The viewer still closes: nothing runs as a caller that could not be read. The client that comes
+   back is identified again.
+4. SSE does not change: its stream ends without a code, and `liveFetch` reconnects.
+
+Why: the same bench closed 1226 sockets with `4403` for no other reason than a busy pool. `4403`
+says "you may not", which an application may read as "signed out". `graphql-ws` retries on both,
+and treats `1011` as final, so `1013` is the code that retries and says what happened.
+
+Rejected:
+
+- Keeping the viewer open and reading the caller again later: it would keep following as a caller
+  it could not read.
+- `1011`: `graphql-ws` stops retrying on it, so a passing failure would end the client's connection
+  for good.
+
+Example, before: the pool is busy for a moment, and an application that treats a refusal as a
+signing out signs its user out.
+
+```ts
+createClient({
+	url,
+	on: {
+		closed: (event) => {
+			if (Reflect.get(Object(event), 'code') === 4403) signOut()
+		},
+	},
+})
+```
+
+After: the same code runs only for a real refusal. A busy pool closes with `1013`, and `graphql-ws`
+reconnects by itself.

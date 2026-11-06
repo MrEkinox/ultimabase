@@ -4,7 +4,7 @@
 // it back, grown, even before the server saw it leave. A live list's first
 // event is its token.
 import { randomUUID } from 'node:crypto'
-import { run } from '@ultimabase/http/internal'
+import { Backlog, run } from '@ultimabase/http/internal'
 import type {
 	LiveHandle,
 	LiveMessage,
@@ -117,9 +117,9 @@ function relayOf(): Relay {
 
 /**
  * Follows the read `open` starts into `sink`; a list's changes go through
- * `list`. Changes are dropped while the client's buffer is full, until the
- * engine sends the window again. A closing error is sent as it comes: its
- * read made it public.
+ * `list`. Past what a full buffer takes, messages are dropped until the engine
+ * sends the window again. A closing error is sent as it comes: its read made it
+ * public.
  */
 export async function follow(
 	sink: Sink,
@@ -130,6 +130,7 @@ export async function follow(
 ): Promise<LiveHandle> {
 	const writes = list?.(sink)
 	let handle: LiveHandle | undefined
+	const backlog = new Backlog()
 	let dropping = false
 	let owed = false
 	const send = (message: LiveMessage) => {
@@ -144,10 +145,10 @@ export async function follow(
 			}
 			return sink.end()
 		}
-		// Once full, every message is dropped until the client drains: one
-		// resend then brings it the current state.
+		// Past that, every message is dropped until the client drains: one resend
+		// then brings it the current state.
 		if (dropping) return
-		if (sink.full()) {
+		if (!backlog.takes(sink.full(), message)) {
 			dropping = true
 			sink.drained(() => {
 				dropping = false

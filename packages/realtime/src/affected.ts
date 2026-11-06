@@ -3,7 +3,7 @@
 // does not say which rows changed.
 import type { Batch, ModelChanges } from './changes.ts'
 import { listed, touched, unlisted } from './changes.ts'
-import type { Level, Reach, Step } from './reach.ts'
+import type { Deep, Level, Reach, Shown, Step } from './reach.ts'
 import { facingOf } from './reach.ts'
 
 export type Affected = {
@@ -24,14 +24,8 @@ export type Affected = {
 export type Finder = (
 	steps: readonly Step[],
 	ids: readonly string[],
-	within?: readonly string[],
+	within?: Ids,
 ) => Promise<readonly string[]>
-
-/** The window rows each row a shown relation reached is shown under. */
-export type Tracked = ReadonlyMap<
-	string,
-	ReadonlyMap<string, ReadonlySet<string>>
->
 
 /** The window's ids, a set or a map by id. */
 export type Ids = {
@@ -54,7 +48,6 @@ export type Facing = {
 	readonly model: string
 	readonly reach: Reach
 	readonly window: Ids
-	readonly tracked: Tracked
 	readonly find: Finder
 	readonly judge: Judge
 }
@@ -98,10 +91,10 @@ export async function affected(
 		}
 		// A link lost where it is stored: the rows that had it are unknown.
 		const moved = step.keyOnTarget && touched(changes, new Set(facingOf(step)))
-		const losing = [...listed(changes.deletes), ...(moved ? rewritten : [])]
-		if (losing.length === 0) continue
+		const gone = [...listed(changes.deletes), ...(moved ? rewritten : [])]
+		if (gone.length === 0) continue
 		if (level.negative) return 'resync'
-		if ((await judge(level, changes, losing)).length === 0) continue
+		if ((await judge(level, changes, gone)).length === 0) continue
 		for (const id of window.keys()) candidates.add(id)
 	}
 	const again = await shown(facing, batch)
@@ -109,31 +102,92 @@ export async function affected(
 	return { candidates, deleted, beyond, resend }
 }
 
+/**
+ * The window rows a write at a level of a shown relation's filter or order
+ * may change (D-252): judged by the level's own conditions as a filter's
+ * levels are (D-196). A row a stored key leads to is new to every row: the
+ * row that would link it is written too, at its own level.
+ */
+async function below(
+	{ window, find, judge }: Facing,
+	{ level, path, parent }: Deep,
+	batch: Batch,
+): Promise<readonly string[] | 'all'> {
+	const changes = batch.get(level.model)
+	const step = level.steps.at(-1)
+	if (step === undefined || changes === undefined) return []
+	if (unlisted(changes)) return 'all'
+	const linked = step.many || step.keyOnTarget
+	const rewritten = listed(changes.updates)
+	// A link lost: the rows that had it are unknown.
+	const moved = linked && touched(changes, new Set(facingOf(step)))
+	const gone = [
+		...(parent ? [] : listed(changes.deletes)),
+		...(moved ? rewritten : []),
+	]
+	if ((await judge(level, changes, gone)).length > 0) return 'all'
+	const written = [
+		...(linked ? listed(changes.inserts) : []),
+		...(touched(changes, level.fields) ? rewritten : []),
+	]
+	const ids = await judge(level, changes, written)
+	return ids.length === 0 || window.size === 0 ? [] : find(path, ids, window)
+}
+
+/**
+ * The window rows that lost a row of `relation` (D-252). A deleted row with
+ * the key on its side names its parent. A row a stored key names is written
+ * with the row that named it, emptied or deleted. A many-to-many link goes
+ * unlisted, and a key that moved does not say where from.
+ */
+async function losing(
+	{ window, find }: Facing,
+	{ steps }: Shown,
+	changes: ModelChanges,
+): Promise<readonly string[] | 'all'> {
+	const step = steps.at(-1)
+	const deletes = listed(changes.deletes)
+	if (step === undefined) return []
+	if (!step.keyOnTarget) return step.many && deletes.length > 0 ? 'all' : []
+	if (touched(changes, new Set(facingOf(step)))) return 'all'
+	const parents = new Set<string>()
+	for (const id of deletes) {
+		const parent = changes.keys?.get(id)?.[step.inverse ?? '']
+		if (parent === undefined) return 'all'
+		if (parent !== null) parents.add(parent)
+	}
+	const above = steps.slice(0, -1)
+	if (above.length > 0) {
+		return parents.size === 0 ? [] : find(above, [...parents], window)
+	}
+	return [...parents].filter((id) => window.has(id))
+}
+
 /** The window rows whose shown relations changed. */
 async function shown(
 	facing: Facing,
 	batch: Batch,
 ): Promise<ReadonlySet<string> | 'all'> {
-	const { reach, window, tracked, find } = facing
-	for (const model of reach.deep) if (batch.has(model)) return 'all'
+	const { reach, window, find } = facing
 	const resend = new Set<string>()
+	for (const deep of reach.deep) {
+		const again = await below(facing, deep, batch)
+		if (again === 'all') return 'all'
+		for (const id of again) resend.add(id)
+	}
 	for (const relation of reach.shown) {
 		const changes = batch.get(relation.model)
 		if (changes === undefined) continue
 		if (unlisted(changes)) return 'all'
-		const updated = touched(changes, relation.fields)
-			? listed(changes.updates)
-			: []
-		if (relation.counted && changes.deletes !== undefined) return 'all'
-		const known = tracked.get(relation.path)
-		for (const id of [...updated, ...listed(changes.deletes)]) {
-			for (const root of known?.get(id) ?? []) resend.add(root)
-		}
-		const ids = [...listed(changes.inserts), ...updated]
+		const lost = await losing(facing, relation, changes)
+		if (lost === 'all') return 'all'
+		for (const id of lost) resend.add(id)
+		const ids = [
+			...listed(changes.inserts),
+			...(touched(changes, relation.fields) ? listed(changes.updates) : []),
+		]
 		if (ids.length === 0 || window.size === 0) continue
-		for (const id of await find(relation.steps, ids, [...window.keys()])) {
-			resend.add(id)
-		}
+		for (const id of await find(relation.steps, ids, window)) resend.add(id)
 	}
 	return resend
 }

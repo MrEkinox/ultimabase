@@ -136,7 +136,7 @@ describe('liveFetch', () => {
 		expect(urls.slice(1).every((each) => each.includes('resume='))).toBe(true)
 	})
 
-	it('follows past maxTake, and goes on as it was when a growth passes maxLive', async () => {
+	it('follows past maxTake, and goes on as it was when a growth passes maxConnectionRows', async () => {
 		const url = await tasks()
 		const urls = requested()
 		const live = liveFetch(`${url}?${ranked(125)}`, { headers: ada })
@@ -145,8 +145,7 @@ describe('liveFetch', () => {
 		await live.fetchMore({ first: 25 })
 		await expect(live.fetchMore({ first: 900 })).rejects.toMatchObject({
 			code: 'VALIDATION_FAILED',
-			message: 'first is over 1000, the most a live list follows.',
-			details: { limit: 1000, rows: 1050 },
+			message: 'A connection follows at most 1000 rows.',
 		})
 		await Task.create({ data: { title: 'z', rank: 0, owner: 'ada' } }, M)
 		await vi.waitFor(() => {
@@ -214,8 +213,8 @@ describe('liveFetch', () => {
 		expect(await failed(refused)).toMatchObject({
 			name: 'LiveError',
 			code: 'VALIDATION_FAILED',
-			message: 'first is over 1000, the most a live list follows.',
-			details: { limit: 1000, rows: 5000 },
+			message: 'first is over 2000, the most a live list follows.',
+			details: { limit: 2000, rows: 5000 },
 		})
 		const select = encodeURIComponent('{"title":true}')
 		const anonymous = seen(
@@ -296,6 +295,7 @@ describe('liveFetch out of step', () => {
 
 	it('reconnects after a server error or what it cannot read, backing off', async () => {
 		vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+		vi.spyOn(Math, 'random').mockReturnValue(1)
 		try {
 			const urls = answering(
 				new Response('Bad gateway', { status: 502 }),
@@ -310,6 +310,38 @@ describe('liveFetch out of step', () => {
 			// The token's event reset the backoff.
 			await vi.advanceTimersByTimeAsync(100)
 			expect(urls[2]).toBe('http://x/api/tasks?take=1&resume=t')
+			expect(await watched.at(1)).toEqual([{ id: 'a' }])
+		} finally {
+			vi.useRealTimers()
+		}
+	})
+
+	it('reconnects at a random moment of the backoff, so clients cut together spread', async () => {
+		vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+		const random = vi.spyOn(Math, 'random').mockReturnValue(0.5)
+		try {
+			const urls = answering(
+				new Response('Bad gateway', { status: 502 }),
+				new Response('Bad gateway', { status: 502 }),
+				new Response('Bad gateway', { status: 502 }),
+				sse(data(1, ['a'])),
+			)
+			const watched = seen(liveFetch('http://x/api/tasks?take=1'))
+			// Half of 100 ms.
+			await vi.advanceTimersByTimeAsync(49)
+			expect(urls).toHaveLength(1)
+			// A tenth of 200 ms: another draw for each wait, the backoff doubling.
+			random.mockReturnValue(0.1)
+			await vi.advanceTimersByTimeAsync(1)
+			expect(urls).toHaveLength(2)
+			await vi.advanceTimersByTimeAsync(19)
+			expect(urls).toHaveLength(2)
+			// Nothing of 400 ms.
+			random.mockReturnValue(0)
+			await vi.advanceTimersByTimeAsync(1)
+			expect(urls).toHaveLength(3)
+			await vi.advanceTimersByTimeAsync(1)
+			expect(urls).toHaveLength(4)
 			expect(await watched.at(1)).toEqual([{ id: 'a' }])
 		} finally {
 			vi.useRealTimers()

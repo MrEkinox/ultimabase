@@ -14,6 +14,8 @@ import { contextOf } from './engine.ts'
 import { decoded, isRow } from './field-codec.ts'
 import { Reader } from './memory-read.ts'
 import { sortable } from './memory-values.ts'
+import type { SharedReads } from './live-shared.ts'
+import { namesNobody, spared } from './live-shared.ts'
 import { isFilters } from './memory-conditions.ts'
 import { plan, uniqueWhere } from './query-args.ts'
 import { shapedRows } from './query-context.ts'
@@ -163,7 +165,12 @@ export function matches(
 export type LiveReader = (
 	ids: readonly string[],
 	rows?: ReadonlyMap<string, Row>,
+	reads?: SharedReads,
+	judge?: Judge,
 ) => Promise<readonly Row[]>
+
+/** Which of the stored rows pass a filter, if that takes no query (D-259). */
+export type Judge = (filter: Filter) => Promise<ReadonlySet<string> | undefined>
 
 /**
  * `findMany({ ...shape, where: { id: { in: ids } } })` on `model` as
@@ -187,14 +194,44 @@ export async function liveReader(
 			rights: scope.readable(model),
 		})),
 	)
-	const { read, shape: shaped, rights } = prepared
-	const local =
-		read.include === undefined &&
-		read.count === undefined &&
-		inMemory(model, rights)
-	const readable = (row: Row | undefined): row is Row =>
-		row !== undefined && (rights === undefined || matches(model, row, rights))
-	return async (ids, rows) => {
+	const { shape: shaped, rights } = prepared
+	const read = spared(models, context.model, prepared.read, rights)
+	const plain = read.include === undefined && read.count === undefined
+	const anyone = namesNobody(read)
+	const alone = rights === undefined || inMemory(model, rights)
+	// The rows the caller may read, when that takes no query. The read then no
+	// longer names its caller; its relations hold what the caller sees of them,
+	// which is not what a root rule is checked on (D-252).
+	const allowed = async (
+		ids: readonly string[],
+		rows: ReadonlyMap<string, Row> | undefined,
+		judge: Judge | undefined,
+	): Promise<ReadonlySet<string> | undefined> => {
+		if (rows === undefined) return undefined
+		if (rights !== undefined && !alone) return judge?.(rights)
+		// Among `ids` alone: a big list's parts all come with its whole rows.
+		return new Set(
+			ids.filter((id) => {
+				const row = rows.get(id)
+				return row !== undefined && matches(model, row, rights)
+			}),
+		)
+	}
+	const bare = JSON.stringify([model, read])
+	const named = alone ? bare : JSON.stringify([model, read, rights])
+	const shared = async (
+		ids: readonly string[],
+		reads: SharedReads,
+		sure: boolean,
+	): Promise<readonly Row[]> => {
+		const key = sure ? bare : named
+		return reads.rows(key, model, ids, sure && anyone, async (part) => {
+			const among = { id: { in: [...part] } }
+			const where = sure ? among : and(among, rights)
+			return app.adapter.find({ ...read, model, where })
+		})
+	}
+	return async (ids, rows, reads, judge) => {
 		if (ids.length === 0) return []
 		const root = {
 			...read,
@@ -204,14 +241,28 @@ export async function liveReader(
 		// No async wrapper: a flush makes this call for each subscriber.
 		return app.work.run(() =>
 			reading(app, async (store) => {
+				const may = await allowed(ids, rows, judge)
 				const found =
-					rows !== undefined && local
+					rows !== undefined && may !== undefined && plain
 						? decoded(
 								models,
 								root,
-								ids.map((id) => rows.get(id)).filter(readable),
+								ids.flatMap((id): Row[] => {
+									const row = may.has(id) ? rows.get(id) : undefined
+									return row === undefined ? [] : [row]
+								}),
 							)
-						: await store.find(root)
+						: reads === undefined || rows === undefined
+							? await store.find(root)
+							: decoded(
+									models,
+									root,
+									may === undefined
+										? [...(await shared(ids, reads, false))]
+										: (await shared(ids, reads, true)).filter(({ id }) =>
+												may.has(id),
+											),
+								)
 				const shown = await shapedRows(
 					context,
 					store,

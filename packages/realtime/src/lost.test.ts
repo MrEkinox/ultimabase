@@ -180,9 +180,9 @@ it('re-checks the list of the member a deleted row named, alone', async () => {
 		changes: docs.map((id) => ({ remove: id })),
 	})
 	expect([ada?.length, cy?.length]).toEqual([1, 1])
-	// Bob's rows loaded, then checked against his rights: whether they stay
-	// in his list, whether he still reads them. No one else's.
-	expect(reads).toBe(3)
+	// Bob's rows loaded, and the team's members, read once, refuse them all:
+	// no query asks whether they stay in his list or whether he reads them.
+	expect(reads).toBe(1)
 })
 
 it('builds again the caller who left a role, alone', async () => {

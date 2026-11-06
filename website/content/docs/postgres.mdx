@@ -240,6 +240,13 @@ Name these files `*.postgres.test.ts`, and keep the other tests on
 	../examples/postgres/src/search.postgres.test.ts#stems
 </include>
 
+The adapter plans a statement it composes once per connection, which PostgreSQL
+would otherwise do on every run. A pooler that shares server connections between
+clients may then find a statement unknown: PgBouncer in transaction mode needs
+version 1.21 or later and `max_prepared_statements` above 0. Where it cannot,
+`postgres({ url, prepared: false })` plans each statement every time, at the cost
+of that planning under load.
+
 ## Reference
 
 ### `postgres(options)`
@@ -249,6 +256,7 @@ Name these files `*.postgres.test.ts`, and keep the other tests on
 | `url`            | `string \| undefined`   | required   | The connection string. Unset or empty, the start is refused.             |
 | `connections`    | whole number, 1 or more | `10`       | The connections opened at most; a query waits up to 10 s for a free one. |
 | `searchLanguage` | `string`                | `'simple'` | The text search configuration `_search` reads words in.                  |
+| `prepared`       | `boolean`               | `true`     | Plans a composed statement once per connection; `false` plans every run. |
 
 ### Commands
 

@@ -163,6 +163,13 @@ export function connection<N>(
 	}
 }
 
+/**
+ * The first and last of `ids` as rows: a live window's page info without the
+ * rows between (D-253).
+ */
+export const endsOf = (ids: readonly string[]): readonly Row[] =>
+	ids.map((id) => ({ id }))
+
 /** Whether a counted page reads no row: `first` or `last` 0, no cursor (D-226). */
 export const readsNoRow = (page: Page): boolean =>
 	page.relay?.size === 0 && page.read['cursor'] === undefined

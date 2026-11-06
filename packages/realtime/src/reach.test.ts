@@ -103,23 +103,26 @@ describe('a selection', () => {
 		})
 		expect(reach.showing).toEqual(new Set(['id', 'name', 'title', 'posts']))
 		expect(
-			reach.shown.map(({ path, model, fields, counted }) => [
-				path,
+			reach.shown.map(({ steps, model, fields }) => [
+				steps.map(({ relation }) => relation).join('.'),
 				model,
 				fields === 'all' ? 'all' : [...fields].toSorted(),
-				counted,
 			]),
 		).toEqual([
-			['posts', 'Post', 'all', false],
-			['posts.comments', 'Comment', ['id', 'post', 'text'], false],
-			['posts._count.tags', 'Tag', ['label', 'posts'], true],
-			['_count.posts', 'Post', ['team'], true],
+			['posts', 'Post', 'all'],
+			['posts.comments', 'Comment', ['id', 'post', 'text']],
+			['posts.tags', 'Tag', ['label', 'posts']],
+			['posts', 'Post', ['team']],
 		])
-		expect([...reach.deep].toSorted()).toEqual([
-			'Comment',
-			'Post',
-			'Tag',
-			'Team',
+		expect(
+			reach.deep.map(({ level, path }) => [
+				level.model,
+				path.map(({ relation }) => relation).join('.'),
+			]),
+		).toEqual([
+			['Tag', 'posts.tags'],
+			['Team', ''],
+			['Comment', 'posts.comments'],
 		])
 	})
 })

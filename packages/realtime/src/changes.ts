@@ -108,6 +108,12 @@ export function touched(
 	return false
 }
 
+/** Whether `batch` wrote a row of one of `models`. */
+export function wrote(batch: Batch, models: ReadonlySet<string>): boolean {
+	for (const model of batch.keys()) if (models.has(model)) return true
+	return false
+}
+
 /** Whether a list of `changes` is unknown. */
 export const unlisted = (changes: ModelChanges | undefined): boolean =>
 	changes?.inserts === 'all' ||
@@ -117,3 +123,27 @@ export const unlisted = (changes: ModelChanges | undefined): boolean =>
 /** The ids of `rows`, none when they are every row. */
 export const listed = (rows: Rows | undefined): readonly string[] =>
 	rows === undefined || rows === 'all' ? [] : [...rows]
+
+const both = (a: Rows | undefined, b: Rows | undefined): Rows | undefined => {
+	if (a === undefined || b === undefined) return a ?? b
+	return a === 'all' || b === 'all' ? 'all' : new Set([...a, ...b])
+}
+
+/** The rows of `batches`, all narrowed from one flush's batch (D-258). */
+export function joined(batches: readonly Batch[]): Batch {
+	const joint = new Map<string, ModelChanges>()
+	for (const batch of batches) {
+		for (const [model, changes] of batch) {
+			const known = joint.get(model)
+			const mixed: { -readonly [K in keyof ModelChanges]: ModelChanges[K] } = {
+				...changes,
+			}
+			for (const kind of ['inserts', 'updates', 'deletes'] as const) {
+				const rows = both(known?.[kind], changes[kind])
+				if (rows !== undefined) mixed[kind] = rows
+			}
+			joint.set(model, mixed)
+		}
+	}
+	return joint
+}

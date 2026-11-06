@@ -1,5 +1,5 @@
-// What a live list follows (D-154): a nested `many` counts its take, or its
-// `size.max` when that is smaller (D-242).
+// What a live list follows (D-252): `maxLive` counts the rows of the list, and
+// nested rows stay bounded by their `take`.
 import { afterAll, beforeAll, expect, it } from 'vitest'
 import type { PluginTypes } from 'ultimabase'
 import { allow, defineApp, defineModel, definePlugin, memory } from 'ultimabase'
@@ -11,15 +11,8 @@ const Gallery = defineModel({
 	use: [realtime()],
 	fields: (f) => ({
 		title: f.string(),
-		images: f.many(() => Image, { inverse: 'gallery', size: { max: 10 } }),
 		notes: f.many(() => Note, { inverse: 'gallery' }),
 	}),
-}).with({ access: allow.public })
-
-const Image = defineModel({
-	name: 'Image',
-	use: [realtime()],
-	fields: (f) => ({ url: f.string(), gallery: f.one(() => Gallery) }),
 }).with({ access: allow.public })
 
 const Note = defineModel({
@@ -48,18 +41,18 @@ const watching = definePlugin<Watching>({
 
 const app = defineApp({
 	database: memory(),
-	models: [Gallery, Image, Note],
+	models: [Gallery, Note],
 	plugins: [realtimePlugin(), watching.plugin()],
 })
 beforeAll(async () => app.start())
 afterAll(async () => app.stop())
 
-/** The rows a live list of galleries refuses to follow, from its details. */
-async function refused(include: object): Promise<unknown> {
+/** What a live list of galleries answers: `undefined`, or its refusal. */
+async function refusal(args: object): Promise<unknown> {
 	if (api === undefined) throw new Error('No realtime API.')
 	const viewer = await api.connect(new Request('http://localhost/'))
 	try {
-		await viewer.list('Gallery', { first: 100, include }, () => undefined)
+		await viewer.list('Gallery', args, () => undefined)
 		return undefined
 	} catch (error) {
 		return error
@@ -68,15 +61,21 @@ async function refused(include: object): Promise<unknown> {
 	}
 }
 
-// Regression (#212): a take past `size.max` counted rows that cannot exist.
-it('counts a bounded many at its size.max', async () => {
-	// 100 × (1 + 10) rows, not 100 × (1 + 100).
-	expect(await refused({ images: { take: 100 } })).toMatchObject({
-		details: { limit: 1000, rows: 1100 },
+it('counts the rows of the list, not the rows nested in them', async () => {
+	const include = { notes: { take: 1000 } }
+	expect(await refusal({ first: 50_000, include })).toBeUndefined()
+})
+
+it('refuses to open a list past the limit, with it', async () => {
+	expect(await refusal({ first: 50_001 })).toMatchObject({
+		code: 'VALIDATION_FAILED',
+		message: 'first is over 50000, the most a live list follows.',
+		details: { limit: 50_000, rows: 50_001 },
 	})
-	expect(await refused({ images: { take: 9 } })).toBeUndefined()
-	// An unbounded many counts its take.
-	expect(await refused({ notes: { take: 100 } })).toMatchObject({
-		details: { rows: 10_100 },
+})
+
+it('still needs a take on a nested list', async () => {
+	expect(await refusal({ first: 1, include: { notes: true } })).toMatchObject({
+		message: 'A live notes list needs a take.',
 	})
 })

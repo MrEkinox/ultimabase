@@ -1,7 +1,7 @@
 // What a write changed, told by its own statements (D-154): each part's rows
 // go to `pg_notify` by chunks that fit its 8000 bytes, or as `null` past
 // `feedIds`. The notifications leave with the commit; a rollback drops them.
-import { sql } from 'kysely'
+import { sql } from './text.ts'
 import type { Changed } from 'ultimabase'
 import { feedFields, feedIds } from 'ultimabase'
 import type { Sql } from './filter.ts'

@@ -10,6 +10,7 @@ import {
 	inMemory,
 	livePlan,
 	liveReader,
+	SharedReads,
 	liveSchema,
 	matches,
 	recording,
@@ -59,6 +60,22 @@ const Post = defineModel({
 	},
 })
 
+/** Whose reviews a user reads: a rule a row answers alone, by its relation's key. */
+let reviewed = ''
+const Review = defineModel({
+	name: 'Review',
+	fields: (f) => ({
+		text: f.string(),
+		author: f.one(() => Author, { optional: true }),
+	}),
+}).with({
+	access: {
+		read: ({ caller, where }) =>
+			caller.kind === 'master' ||
+			where({ author: { is: { id: { equals: reviewed } } } }),
+	},
+})
+
 type Where = NonNullable<Parameters<typeof Post.findMany>[0]>['where']
 
 const first = (rows: readonly Row[]): Row => {
@@ -69,7 +86,7 @@ const first = (rows: readonly Row[]): Row => {
 
 let app: ReturnType<typeof defineApp>
 beforeEach(async () => {
-	app = defineApp({ database: memory(), models: [Author, Post] })
+	app = defineApp({ database: memory(), models: [Author, Post, Review] })
 	await app.start()
 })
 afterEach(async () => app.stop())
@@ -313,6 +330,7 @@ describe('a live plan', () => {
 		expect(liveSchema().models.map(({ name }) => name)).toEqual([
 			'Author',
 			'Post',
+			'Review',
 		])
 	})
 
@@ -434,6 +452,33 @@ describe('rows read for a live read', () => {
 		expect(byId(result)).toEqual(byId(await Post.findMany(args, { as: ada })))
 		expect(await reader(ids)).toEqual(result)
 		expect(await reader([])).toEqual([])
+	})
+
+	it('keep a row whose rule holds when its relation is hidden from the caller', async () => {
+		const hidden = await Author.create({ data: { name: 'Hidden' } }, M)
+		const other = await Author.create({ data: { name: 'Ada' } }, M)
+		const kept = await Review.create(
+			{ data: { text: 'kept', author: { connect: { id: hidden.id } } } },
+			M,
+		)
+		const refused = await Review.create(
+			{ data: { text: 'refused', author: { connect: { id: other.id } } } },
+			M,
+		)
+		reviewed = hidden.id
+		const stored = await storedRows('Review', {})
+		const rows = new Map(stored.map((row) => [row.id, row]))
+		const shape = {
+			select: { id: true, text: true, author: { select: { name: true } } },
+		}
+		const reader = await liveReader('Review', shape, ada)
+		const ids = [kept.id, refused.id]
+		const found = await reader(ids, rows, new SharedReads())
+		const args = { ...shape, where: { id: { in: ids } } }
+		expect(found).toEqual(await Review.findMany(args, { as: ada }))
+		expect(found).toEqual([{ id: kept.id, text: 'kept', author: null }])
+		// Without the stored rows, the read itself checks the rule.
+		expect(await reader(ids, undefined, new SharedReads())).toEqual(found)
 	})
 
 	it('run beforeFind once, when planned', async () => {

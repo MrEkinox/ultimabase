@@ -1,21 +1,125 @@
 // A live read as graphql-ws streams it (D-154): the engine's messages in
-// order, each run against the subscription's selection, and those the client
-// cannot take while its socket is full dropped until the window is sent again.
+// order, each run against the subscription's selection, and those a full socket
+// cannot take dropped until the window is sent again.
 // A completed live list is kept 10 s for a resume, its later events waiting.
-import type { ExecutionResult } from 'graphql'
+import type {
+	ASTNode,
+	DocumentNode,
+	ExecutionResult,
+	OperationDefinitionNode,
+} from 'graphql'
+import { Kind, visit } from 'graphql'
+import { Backlog } from '@ultimabase/http/internal'
 import type { LiveHandle, LiveMessage, Viewer } from '@ultimabase/realtime'
+import type { Pieces } from './pieces.ts'
+
+/**
+ * What to send of `result`, which lets go of its data: graphql-ws and
+ * graphql-js keep the last result until the next, which a quiet list may never
+ * have (D-253).
+ */
+export function released<Result extends { data?: unknown }>(
+	result: Result,
+): Result {
+	const sent = { ...result }
+	const kept: { data?: unknown } = result
+	kept.data = null
+	return sent
+}
 
 /** A message to run against the selection, and how its result is sent. */
 export class LiveEvent {
-	readonly root: unknown
-	readonly finish: (result: ExecutionResult) => ExecutionResult
+	root: unknown
+	/** Whether its root is rows, which `SharedResults` may run for others. */
+	readonly shared: boolean
+	/** A big window's parts, which run a turn of the loop each (D-272). */
+	pieces: Pieces | undefined
+	#finish: (result: ExecutionResult) => ExecutionResult
 
 	constructor(
 		root: unknown,
 		finish: (result: ExecutionResult) => ExecutionResult,
+		shared = true,
+		pieces?: Pieces,
 	) {
 		this.root = root
-		this.finish = finish
+		this.shared = shared
+		this.pieces = pieces
+		this.#finish = finish
+	}
+
+	/**
+	 * What to send for its `result`. Lets go of its rows: graphql-js keeps the
+	 * last event until the next one, which a quiet list may never have (D-253).
+	 */
+	finish(result: ExecutionResult): ExecutionResult {
+		const finish = this.#finish
+		this.root = undefined
+		this.pieces = undefined
+		this.#finish = (done) => done
+		return finish(result)
+	}
+}
+
+/**
+ * The values of what an event's execution reads: the arguments of the root
+ * field chose its rows, and subscriptions differing only there run alike (D-267).
+ */
+export function variablesBelowRoot(
+	document: DocumentNode,
+	operation: OperationDefinitionNode,
+	values: { readonly [name: string]: unknown } | null | undefined,
+): readonly unknown[] {
+	const names = new Set<string>()
+	const read = (node: ASTNode) => {
+		visit(node, {
+			Variable: (variable) => {
+				names.add(variable.name.value)
+			},
+		})
+	}
+	for (const selection of operation.selectionSet.selections) {
+		if (selection.kind === Kind.FIELD) {
+			selection.directives?.forEach(read)
+			if (selection.selectionSet !== undefined) read(selection.selectionSet)
+		} else {
+			read(selection)
+		}
+	}
+	for (const definition of document.definitions) {
+		if (definition.kind === Kind.FRAGMENT_DEFINITION) read(definition)
+	}
+	return [...names].toSorted().map((name) => [name, values?.[name]])
+}
+
+/**
+ * The results of the events subscriptions run alike: what a generated type
+ * shows of a row depends on that row and on the selection, so subscribers of
+ * one row share one execution (D-265). Forgotten as the loop turns: a result
+ * stays no longer than it takes to send.
+ */
+export class SharedResults {
+	readonly #results = new Map<string, Map<string, Promise<ExecutionResult>>>()
+
+	async run(
+		shape: string,
+		root: unknown,
+		execute: () => ExecutionResult | Promise<ExecutionResult>,
+	): Promise<ExecutionResult> {
+		const results = this.#results
+		if (results.size === 0) setImmediate(() => results.clear())
+		let alike = results.get(shape)
+		if (alike === undefined) {
+			alike = new Map()
+			results.set(shape, alike)
+		}
+		const key = JSON.stringify(root) ?? ''
+		let result = alike.get(key)
+		if (result === undefined) {
+			result = Promise.resolve(execute())
+			alike.set(key, result)
+		}
+		return result
 	}
 }
 
@@ -26,8 +130,8 @@ export type Channel = {
 	readonly full: () => boolean
 	/** Runs `then` once everything sent is written. */
 	readonly drained: (then: () => void) => void
-	/** Closes the socket: its caller is no longer the same user. */
-	readonly forbid: () => void
+	/** Closes the socket: its viewer ended, and says why (D-278). */
+	readonly shut: () => void
 	/** The completed live lists a resume may take back, by token. */
 	readonly kept: Map<string, Kept>
 }
@@ -121,7 +225,8 @@ export async function liveStream(
 	let waiting: ((next: IteratorResult<LiveEvent>) => void) | undefined
 	let ending = false
 	let done = false
-	// Changes are dropped from a full buffer until the window comes whole.
+	// Past what a full buffer takes, messages drop until the window comes whole.
+	const backlog = new Backlog()
 	let dropping = false
 	let owed = false
 	let handle: LiveHandle | undefined
@@ -144,15 +249,15 @@ export async function liveStream(
 		if (message.kind === 'closed') {
 			if (channel.viewer.closed) {
 				end()
-				return channel.forbid()
+				return channel.shut()
 			}
 			ending = true
 			return push(closed(message.error))
 		}
-		// Once full, every message is dropped until the client drains: one
-		// resend then brings it the current state.
+		// Past that, every message is dropped until the client drains: one resend
+		// then brings it the current state.
 		if (dropping) return
-		if (channel.full()) {
+		if (!backlog.takes(channel.full(), message)) {
 			queue.length = 0
 			dropping = true
 			channel.drained(() => {

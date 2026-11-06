@@ -1,7 +1,7 @@
 // A list longer than a live list should be: the first tasks live, the ones
 // past maxLive read once with ordinary queries.
 //#region history
-import { LiveError, liveFetch } from '@ultimabase/live'
+import { liveFetch } from '@ultimabase/live'
 import { z } from 'zod'
 
 const task = z.object({ id: z.string(), title: z.string() })
@@ -31,14 +31,10 @@ export function history(url: string) {
 	/** Grows the live list, then, past its limit, reads the next tasks once. */
 	async function more(): Promise<void> {
 		if (after === undefined) {
-			try {
-				return await live.fetchMore({ first: 25 })
-			} catch (error) {
-				if (!(error instanceof LiveError) || !error.details?.['limit']) {
-					throw error
-				}
-				after = latest?.pageInfo.endCursor ?? null
+			if (latest?.pageInfo.hasNextPage !== false) {
+				return live.fetchMore({ first: 25 })
 			}
+			after = latest.pageInfo.endCursor
 		}
 		if (after === null) return
 		const response = await fetch(

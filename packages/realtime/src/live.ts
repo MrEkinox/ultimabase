@@ -2,42 +2,30 @@
 // row placed or removed at a time, and sends only what changed. Its tasks
 // run one after another; one that fails reads the window again, and a
 // second failure closes it.
-import type { Caller, Logger, ModelQueries, Row } from 'ultimabase'
+import type { Caller, Row } from 'ultimabase'
 import type { LivePlan, LiveReader } from 'ultimabase/internal'
 import {
-	inMemory,
 	liveReader,
 	liveSchema,
-	matches,
 	recordingVirtuals,
 	sortKeys,
 	storedRows,
 } from 'ultimabase/internal'
-import type { Finder } from './affected.ts'
 import { affected } from './affected.ts'
 import type { Batch } from './changes.ts'
+import { wrote } from './changes.ts'
 import { passing } from './levels.ts'
 import type { Reach } from './reach.ts'
-import { modelsOf, reachOf } from './reach.ts'
-import { finderOf, Loader, page, pass } from './reads.ts'
-import type { LiveMessage } from './messages.ts'
+import { modelsOf } from './reach.ts'
+import { Loader } from './loader.ts'
+import { finderOf, judgeOf, pass, rowsAfter } from './reads.ts'
+import type { Spec } from './messages.ts'
+import type { Waited } from './tasks.ts'
+import { Tasks } from './tasks.ts'
+import { bigRead, inParts, inTurn } from './turns.ts'
 import type { Keys } from './window.ts'
 import { Window } from './window.ts'
-import { Tracking } from './tracking.ts'
 import { VirtualReads } from './virtuals.ts'
-
-export type Spec = {
-	readonly model: string
-	readonly queries: ModelQueries
-	/** The read's own `where`, which `totalCount` counts. */
-	readonly where: unknown
-	/** Its `select`, `include` or `omit`, each level's `id` selected. */
-	readonly shape: { readonly [key: string]: unknown }
-	readonly totalCount: boolean
-	readonly row: boolean
-	readonly send: (message: LiveMessage) => void
-	readonly logger: Logger
-}
 
 export class Live {
 	caller: Caller
@@ -47,46 +35,47 @@ export class Live {
 	#reach: Reach
 	#window: Window
 	readonly #spec: Spec
-	readonly #find: Finder
-	readonly #tracking = new Tracking()
 	readonly #virtuals = new VirtualReads()
 	#count: number | undefined
 	#hasMore = false
 	#revision = 0
-	#queue: Promise<void> = Promise.resolve()
+	readonly #tasks: Tasks
 	#closed = false
 
 	constructor(spec: Spec, caller: Caller, plan: LivePlan, first: number) {
 		this.#spec = spec
 		this.caller = caller
 		this.#plan = plan
-		this.#reach = reachOf(liveSchema(), spec.model, plan)
+		this.#tasks = new Tasks(spec.readers, this)
+		this.#reach = spec.readers.followPlan(spec, this, plan)
 		this.#window = new Window(plan.orderBy, first)
-		this.#find = finderOf(spec.model)
-	}
-
-	get first(): number {
-		return this.#window.first
 	}
 
 	/** Reads the window and sends it; a failure closes the read. */
 	async start(): Promise<void> {
-		const run = this.#reset()
-		this.#queue = run.catch(() => undefined)
 		try {
-			await run
+			await this.#tasks.first(async () => this.#reset())
 		} catch (error) {
 			this.close()
 			throw error
 		}
 	}
 
-	/** Follows `batch`, or reads the window again when changes were missed. */
-	async apply(batch: Batch, loader: Loader, missed: boolean): Promise<void> {
-		const [, settled] = this.#enqueue(() =>
-			missed ? this.#reset() : this.#apply(batch, loader),
-		)
-		return settled
+	/**
+	 * Follows `batch`, or reads the window again when changes were missed. A
+	 * write out of its reach costs nothing, unless a task may yet read it.
+	 */
+	apply(batch: Batch, loader: Loader, missed: boolean): Waited {
+		if (missed) return this.#waited(this.#reread())
+		if (
+			this.#tasks.resting &&
+			!wrote(batch, this.#reach.models) &&
+			!this.#virtuals.mayChange(batch)
+		) {
+			return undefined
+		}
+		const [, settled] = this.#enqueue(() => this.#apply(batch, loader))
+		return this.#waited(settled)
 	}
 
 	/** Takes the caller's new plan; a changed one reads the window again. */
@@ -99,41 +88,65 @@ export class Live {
 			this.#reader = undefined
 			if (same) return
 			this.#plan = plan
-			this.#reach = reachOf(liveSchema(), this.#spec.model, plan)
-			await this.#reset()
+			this.#reach = this.#spec.readers.followPlan(this.#spec, this, plan)
+			await this.#again()
 		})
-		return settled
+		return this.#waited(settled)
 	}
 
 	/** Shows `more` rows after the last one. */
 	async grow(more: number): Promise<void> {
 		const [run] = this.#enqueue(async () => {
 			this.#window.mark()
-			this.#window.first += more
+			const { first } = this.#window
+			this.#window.first = Math.min(first + more, this.#spec.limit)
 			// Sent even when no row follows: the client waits for it.
 			await this.#send(new Set(), new Set(), false, true)
 		})
 		return run
 	}
 
+	/** Rows follow the window, and it may still reach them. */
+	#hasNext(): boolean {
+		return this.#window.first < this.#spec.limit && this.#window.hasMore()
+	}
+
 	/** Reads the window again and sends it whole. */
 	async resend(): Promise<void> {
-		const [, settled] = this.#enqueue(async () => this.#reset())
-		return settled
+		return this.#reread()
 	}
 
 	close(): void {
 		this.#closed = true
-		this.#tracking.clear()
 		this.#virtuals.clear()
+		this.#spec.readers.forget(this)
 	}
 
-	/** Queues `task`; no async wrapper, as each flush queues one per read. */
+	/** Queues a read of the whole window. */
+	async #reread(): Promise<void> {
+		return this.#tasks.reread(
+			() => (this.#closed ? undefined : this.#reset()),
+			async (error) => this.#recover(error),
+		)
+	}
+
+	/** Reads the window from a task: a big read queues, for no flush to wait. */
+	async #again(): Promise<void> {
+		if (this.#window.first < bigRead) return this.#reset()
+		void this.#reread()
+	}
+
+	/** What a flush waits for: `settled`, but no big read (D-254). */
+	#waited(settled: Promise<void>): Waited {
+		const big = this.#tasks.rereading && this.#window.first >= bigRead
+		return big ? undefined : settled
+	}
+
 	#enqueue(task: () => Promise<void>): readonly [Promise<void>, Promise<void>] {
-		const run = this.#queue.then(() => (this.#closed ? undefined : task()))
-		const settled = run.catch((error: unknown) => this.#recover(error))
-		this.#queue = settled
-		return [run, settled]
+		return this.#tasks.add(
+			() => (this.#closed ? undefined : task()),
+			async (error) => this.#recover(error),
+		)
 	}
 
 	async #recover(error: unknown): Promise<void> {
@@ -153,34 +166,16 @@ export class Live {
 	}
 
 	#entry(row: Row): Keys {
-		return sortKeys(this.#spec.model, row, this.#plan.orderBy)
-	}
-
-	/**
-	 * The stored rows after the window's last, from `where` and in order:
-	 * from the flush's read of the read's own filter when its rights, checked
-	 * in memory, leave enough.
-	 */
-	async #after(take: number, loader?: Loader): Promise<readonly Row[]> {
-		const { model } = this.#spec
-		const { where, rights, orderBy } = this.#plan
-		const last = this.#window.last()
-		if (loader !== undefined && inMemory(model, rights)) {
-			const rows = await loader.after(model, this.#plan, last, take)
-			const kept = rows.filter((row) => matches(model, row, rights))
-			if (kept.length >= take || rows.length < take) return kept.slice(0, take)
-		}
-		return storedRows(model, {
-			...(where && { where }),
-			...page(orderBy, last, take),
-			fields: orderBy.map(({ field }) => field),
-		})
+		// With the slot of the hash: an array grown later takes 160 bytes more.
+		return sortKeys(this.#spec.model, row, this.#plan.orderBy).concat(undefined)
 	}
 
 	async #refill(loader?: Loader): Promise<void> {
 		const missing = this.#window.missing()
 		if (missing <= 0) return
-		const rows = await this.#after(missing + 1, loader)
+		const { model } = this.#spec
+		const last = this.#window.last()
+		const rows = await rowsAfter(model, this.#plan, last, missing + 1, loader)
 		const entries = rows.slice(0, missing).map((row) => this.#entry(row))
 		this.#window.fill(entries, rows.length > missing)
 	}
@@ -203,16 +198,16 @@ export class Live {
 		if (ids.length === 0) return []
 		const { model, shape } = this.#spec
 		const rows = loader && (await loader.load(model, ids))
+		const shared = loader?.reads
+		const judge = rows && shared && judgeOf(model, rows, loader)
 		this.#reader ??= await liveReader(model, shape, this.caller)
 		const reader = this.#reader
 		const { result: found, reads } = await recordingVirtuals(() =>
-			reader(ids, rows),
+			inParts(ids, (part) => reader(part, rows, shared, judge)),
 		)
 		this.#virtuals.keep(found, reads)
-		for (const node of found) {
-			nodes.set(node.id, node)
-			this.#tracking.track(node, this.#plan.include)
-		}
+		this.#spec.readers.always(this, !this.#closed && this.#virtuals.holding)
+		for (const node of found) nodes.set(node.id, node)
 		return ids.filter((id) => !nodes.has(id))
 	}
 
@@ -251,11 +246,16 @@ export class Live {
 	}
 
 	async #reset(): Promise<void> {
+		return inTurn(this.#window.first, async () =>
+			this.#closed ? undefined : this.#readWhole(),
+		)
+	}
+
+	async #readWhole(): Promise<void> {
 		const { model, row, send, totalCount } = this.#spec
 		const { where, orderBy } = this.#plan
 		const { first } = this.#window
 		this.#window = new Window(orderBy, first)
-		this.#tracking.clear()
 		this.#virtuals.clear()
 		// One query, of the fields that place and show a row, given to the reader.
 		const { placing: place, showing: show } = this.#reach
@@ -271,8 +271,10 @@ export class Live {
 		this.#window.fill(entries, rows.length > first + 1)
 		const { nodes } = await this.#settle(new Set(), new Set(), loader)
 		this.#count = totalCount ? await this.#counted() : undefined
-		this.#hasMore = this.#window.hasMore()
+		this.#hasMore = this.#hasNext()
+		this.#window.endsMoved()
 		const shown = this.#window.shown().flatMap((id) => nodes.get(id) ?? [])
+		for (const node of shown) this.#window.sent(node.id, node)
 		if (this.#closed) return
 		if (row) {
 			send({ kind: 'row', revision: this.#next(), row: shown[0] ?? null })
@@ -295,14 +297,13 @@ export class Live {
 				model,
 				reach: this.#reach,
 				window: window.ids(),
-				tracked: this.#tracking.tracked,
-				find: this.#find,
+				find: finderOf(model, loader),
 				judge: async (level, changes, ids) =>
 					passing(modelsOf(liveSchema()), level, changes, ids, loader),
 			},
 			batch,
 		)
-		if (effect === 'resync') return this.#reset()
+		if (effect === 'resync') return this.#again()
 		// A row whose virtuals now read differently is sent again.
 		const again = await this.#virtuals.changed(batch, loader, async (ids) => {
 			const nodes = new Map<string, Row>()
@@ -313,13 +314,13 @@ export class Live {
 		const gone = new Set(effect.deleted)
 		const candidates = [...effect.candidates].filter((id) => !gone.has(id))
 		const rows = await loader.load(model, candidates)
-		const kept = await pass(model, rows, this.#plan.where)
+		const kept = await pass(model, rows, this.#plan.where, loader)
 		const inside = window.ids()
 		const leaving = candidates.filter((id) => inside.has(id) && !kept.has(id))
 		const left = new Map(
 			leaving.flatMap((id) => rows.get(id) ?? []).map((row) => [row.id, row]),
 		)
-		const readable = await pass(model, left, this.#plan.rights)
+		const readable = await pass(model, left, this.#plan.rights, loader)
 		const recount =
 			totalCount &&
 			(candidates.length > 0 || effect.deleted.size > 0 || effect.beyond)
@@ -350,19 +351,27 @@ export class Live {
 	): Promise<void> {
 		const { row, send } = this.#spec
 		const { moves, nodes } = await this.#settle(again, gone, loader)
-		for (const id of moves.removed) {
-			this.#tracking.untrack(id)
-			this.#virtuals.forget(id)
-		}
+		for (const id of moves.removed) this.#virtuals.forget(id)
 		let totalCount: number | undefined
 		if (recount) {
-			const count = await this.#counted()
+			const { model } = this.#spec
+			const count = await (loader === undefined
+				? this.#counted()
+				: loader.counted(model, this.#plan.where, async () => this.#counted()))
 			if (count !== this.#count) totalCount = count
 			this.#count = count
 		}
+		// A row read again as it was sent, and in its place, is not sent (D-252).
+		const placed = moves.placed.flatMap(({ id, after, moved }) => {
+			const node = nodes.get(id)
+			if (node === undefined) return []
+			return this.#window.sent(id, node) || moved
+				? [{ upsert: node, after }]
+				: []
+		})
 		if (this.#closed) return
 		if (row) {
-			if (moves.removed.length + moves.placed.length === 0) return
+			if (moves.removed.length + placed.length === 0) return
 			const [id] = this.#window.shown()
 			const shown = id === undefined ? null : (nodes.get(id) ?? null)
 			send({ kind: 'row', revision: this.#next(), row: shown })
@@ -370,23 +379,22 @@ export class Live {
 		}
 		const changes = [
 			...moves.removed.map((id) => ({ remove: id, gone: gone.has(id) })),
-			...moves.placed.flatMap(({ id, after }) => {
-				const node = nodes.get(id)
-				return node === undefined ? [] : [{ upsert: node, after }]
-			}),
+			...placed,
 		]
-		const hasMore = this.#window.hasMore()
+		const hasMore = this.#hasNext()
 		const more = hasMore !== this.#hasMore
 		this.#hasMore = hasMore
 		if (changes.length === 0 && !more && totalCount === undefined && !always) {
 			return
 		}
+		const ends = this.#window.endsMoved()
 		send({
 			kind: 'changes',
 			revision: this.#next(),
 			changes,
 			...(more && { hasMore }),
 			...(totalCount !== undefined && { totalCount }),
+			...(ends && { ends }),
 		})
 	}
 }

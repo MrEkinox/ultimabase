@@ -129,7 +129,339 @@ fit the server's 4 GB data volume.
   change, one team's member row deleted costs 9998–10002 statements and
   a last statement at 3.7 s.
 
+## Live lists
+
+```sh
+node --expose-gc --max-old-space-size=24576 bench/realtime/lists.ts \
+  [--cases 25x100,25x1000,2000x10,10000x5,50000x5] [--total 55000] [--url <url>]
+node --expose-gc --max-old-space-size=24576 bench/realtime/rooms.ts \
+  [--rooms 200] [--viewers 5] [--window 25] [--open-parts] [--url <url>]
+node --max-old-space-size=8192 bench/realtime/hook.ts
+node --expose-gc --max-old-space-size=24576 bench/realtime/wire.ts \
+  [--cases 25x1000,2000x100,10000x20,50000x20] [--total 55000] [--plain] \
+  [--busy] [--url <url>]
+NODE_ENV=production node --max-old-space-size=16384 bench/realtime/render.ts
+node bench/realtime/pages.ts [--target 50000] [--url <url>]
+node --expose-gc --max-old-space-size=24576 bench/realtime/platform.ts \
+  [--scenario chat|campaign|presence] [--users 10000] [--rates 5,10,20,50,100] \
+  [--seconds 15] [--follow 20] [--no-badges] [--url <url>]
+```
+
+The gate of D-252: what a live list costs, whatever its size. The tables are
+analyzed before anything is timed: without planner statistics a nested read
+costs about 1 ms a row, and a production table has them.
+
+- `lists.ts`: each row has an author and 8 attachments, which every subscriber
+  reads, under a read rule that does not name the viewer. A case is
+  `<rows>x<subscribers>` on one list. Subscribe each is the first read of one
+  list; KiB a subscriber and Bytes a row, the heap they hold after a full
+  garbage collection; Grow, the time for 25 more rows. Each write runs three
+  times: its statements and the last subscriber's message, as medians.
+- `rooms.ts`: a chat. Only a room's members may read its messages and their
+  attachments, a rule naming the viewer through a relation. Each write goes to
+  one room; Other rooms told counts the messages sent past it. `--open-parts`
+  drops the rule on attachments.
+- `hook.ts`: the client alone, without a database. It sends a list through
+  `ultimabaseLive` read as `useLiveSubscription` does (hook), and as a plain
+  subscription (plain), then an update and a row gone. React's rendering is not
+  counted.
+- `wire.ts`: the lists of `lists.ts` from the write to the socket's far end, read
+  by real clients over GraphQL over WebSocket from a thread of their own, so
+  JSON, compression and the sockets count; clients do not parse. All at once
+  opens every subscriber together, and Others wait is what another client's
+  write waits meanwhile, median and last; Caught up, how long messages kept
+  arriving after that. `--busy` makes that write change an author the list shows,
+  so the opening list is told too. `--plain` turns compression off.
+- `render.ts`: the client alone, with React: the list through
+  `useLiveSubscription`, up to the commit, every row rendered, or `memo` rows, or
+  only the rows a virtual list keeps mounted. On happy-dom: a browser's layout
+  and paint do not count.
+- `pages.ts`: a list read page after page, 25 rows at a time, from `fetchMore` to
+  the commit, by a real client over a real socket: without React (link), then
+  through `useLiveSubscription` as `render.ts` renders it. Rows on screen is the
+  commit that shows the page; All settled, the one where `fetchingMore` is false;
+  both medians of the pages in the 500 rows before each size, and Worst the
+  slowest of them. `applyLive` alone is timed on the list as it stands, for a page
+  and for one row in 50 told again where it stands. On happy-dom, and no
+  network latency.
+- `platform.ts`: a whole platform on one process, in the engine, without sockets
+  or serialization. Every user is connected with what each screen holds: a count
+  of badges, their campaigns, the users they follow, and their chats, the messages
+  of a private chat or the NPCs of a campaign of five. `--scenario` picks the write:
+  a message, an NPC, a user going online. A lone write is told to the viewers the
+  walk reaches last. Then the rate climbs: Told is how long after its due time a
+  write reaches its readers, and a rate holds when the writes keep up and Told p95
+  stays under 1 s. Writes to one row closing up in a flush tell its readers once,
+  so Told can come out short, and Drain then shows the bench's patience of 30 s.
+
 ## Runs
+
+### 2026-11-06: a storm of connections
+
+`node --expose-gc --max-old-space-size=24576 bench/realtime/platform-wire.ts --scenario chat --storm <seconds>`:
+10 000 users of the chat scenario, each with its 5 subscriptions. 1000 connect calmly and write 20
+messages a second among them. The 9000 others arrive at random within the given seconds, retrying a
+lost connection the way `graphql-ws` does, and a new visitor opens a connection of its own for one
+request every 100 ms. The figures are in ms, p50 / p95 / max, one run each.
+
+| Arriving within | A second |  All in |             First state |              All states |         New visitor | Visitors failed |    Told, connected | Attempts lost                          |
+| --------------: | -------: | ------: | ----------------------: | ----------------------: | ------------------: | --------------: | -----------------: | -------------------------------------- |
+|           120 s |       75 | 120.2 s |            4 / 18 / 670 |            8 / 32 / 699 |        4 / 15 / 609 |       0 of 1214 |      41 / 62 / 682 | none                                   |
+|            60 s |      150 |  60.2 s |           9 / 289 / 535 |          18 / 317 / 569 |       7 / 269 / 514 |        0 of 618 |     43 / 146 / 505 | none                                   |
+|            30 s |      300 |  91.8 s |    5128 / 46264 / 78978 |    5224 / 46289 / 78989 | 632 / 24215 / 47072 |       39 of 930 |   59 / 5276 / 8514 | 1290 `ETIMEDOUT`                       |
+|             5 s |     1800 | 104.0 s |  27560 / 94353 / 102712 |  28841 / 94378 / 102720 |   74 / 9357 / 68234 |     107 of 1048 | 64 / 24154 / 29370 | 3332 `ETIMEDOUT`, 8051 `EADDRNOTAVAIL` |
+|             0 s |      all | 120.2 s | 50619 / 117251 / 120096 | 50642 / 117277 / 120110 |    5 / 4048 / 28471 |      23 of 1213 |  57 / 5610 / 11473 | 10124 `ETIMEDOUT`                      |
+|      0 s, again |      all |  76.1 s |   35105 / 68712 / 75955 |   35138 / 68742 / 75957 |   965 / 4814 / 8077 |      203 of 775 |   97 / 6847 / 9585 | 26483 `ETIMEDOUT`                      |
+
+Below what a process connects, about 200 users a second, nobody notices: at 150 a second a client
+has all its states in 18 ms, the new visitor answers in 7 ms and the connected are told in 43 ms. Far
+above it, a same-instant arrival is not 50 s of work but 76 to 120 s, and the longest stall of the
+server's loop is still about a second at most.
+
+Most of the difference is spent before the server hears of a client. A traced run of 3500 arriving
+at once lost 2412 attempts, all still connecting after about 10 s. A bare Node `http` server with no
+UltimaBase does the same on this machine, for 3500 connections opened at once:
+
+| Work per connection | Connected | `ETIMEDOUT` | p50 ms | Max ms |
+| ------------------: | --------: | ----------: | -----: | -----: |
+|                   0 |      3500 |           0 |    198 |    272 |
+|                1 ms |      1835 |        1665 |   1349 |  13215 |
+|                4 ms |      1056 |        2444 |   2429 |  13228 |
+
+The limits of this reading:
+
+- One Mac, clients on the same machine, one server process, fsync off.
+- `kern.ipc.somaxconn` is 128 here and caps the listen backlog, where Linux allows Node's 511 by
+  default. The overflow is inferred: `netstat -s` shows 0 listen queue overflows and did not move.
+- `EADDRNOTAVAIL` is the clients running out of ports on one address: real clients have their own.
+- Several processes are not measured.
+
+D-275 spreads `liveFetch`'s reconnections over the wait, 5 s at most. The row at 5 s shows what such
+a spread gives: it stops clients in lockstep, it does not absorb 9000 at once on one process.
+
+The same series under Linux, in a `node:24` container of Docker on the same Mac, with `somaxconn` at
+4096, clients and Postgres sharing its 12 CPUs, Postgres reached directly, Node v24.22.2, one run per
+cell. First as it was, with Node's backlog of 511, or 4096 in a preloaded copy:
+
+| Arriving within | Backlog |  All in |             All states |           New visitor | Visitors failed | Told, connected | Attempts lost                          |     Writes failed |
+| --------------: | ------: | ------: | ---------------------: | --------------------: | --------------: | --------------: | -------------------------------------- | ----------------: |
+|           120 s |     511 | 120.2 s |         10 / 201 / 773 |         4 / 150 / 693 |       0 of 1215 |   31 / 77 / 757 | none                                   |              none |
+|            60 s |     511 |  61.3 s |      334 / 1209 / 1696 |     289 / 1174 / 1626 |        0 of 628 |  65 / 208 / 769 | none                                   |              none |
+|            30 s |     511 |  79.9 s |   6876 / 43598 / 70726 |  2918 / 38866 / 68494 |       15 of 814 |  62 / 209 / 757 | 958 `ECONNRESET`                       |              none |
+|             5 s |     511 | 139.7 s | 30048 / 73728 / 137847 |      4 / 4064 / 71689 |       6 of 1410 |  49 / 136 / 682 | 798 `ECONNRESET`, 4 `ETIMEDOUT`        |              none |
+|            30 s |    4096 |  62.9 s |  16728 / 31400 / 37945 | 15967 / 28094 / 36842 |        0 of 645 |  70 / 226 / 968 | none                                   |              none |
+|             5 s |    4096 |  61.9 s |  26699 / 55351 / 57167 | 22310 / 28179 / 56992 |        0 of 636 |  72 / 246 / 858 | none                                   |              none |
+|             0 s |    4096 |  73.9 s |  45464 / 71753 / 73634 | 32022 / 46774 / 51939 |        0 of 754 | 313 / 685 / 736 | 1226 closed `4403`, 1820 closed `1006` | 207 of about 1500 |
+
+The run at 0 s also logged 10 607 failed first reads, all waiting more than 10 s for one of the 10
+PostgreSQL connections. With D-276 to D-278, from commit `d34deba73`, nothing fails at any pace: no
+answer in error, no write failed, no socket closed once ready, no `A live viewer failed`:
+
+| Arriving within |  All in |           First state |            All states |           New visitor | Visitors failed | Told, connected | Longest stall, ms | Writes failed |
+| --------------: | ------: | --------------------: | --------------------: | --------------------: | --------------: | --------------: | ----------------: | ------------: |
+|           120 s | 120.1 s |         3 / 107 / 737 |         9 / 134 / 771 |          4 / 80 / 658 |       0 of 1215 |   34 / 67 / 758 |               393 |     0 of 2444 |
+|            60 s |  61.8 s |     723 / 1524 / 1760 |     747 / 1547 / 1791 |     697 / 1483 / 1707 |        0 of 634 |  65 / 208 / 694 |               308 |     0 of 1277 |
+|            30 s |  61.5 s | 15847 / 30080 / 35800 | 15870 / 30104 / 35822 | 15012 / 27091 / 34571 |        0 of 631 |  65 / 186 / 686 |               456 |     0 of 1272 |
+|             5 s |  59.5 s | 25982 / 53315 / 54630 | 26004 / 53351 / 54648 | 20197 / 28553 / 54383 |        0 of 611 |  65 / 157 / 617 |               363 |     0 of 1232 |
+|             0 s |  59.3 s | 20425 / 55460 / 58196 | 34830 / 57596 / 59106 |   686 / 25775 / 28468 |        0 of 609 | 68 / 472 / 1712 |              1532 |     0 of 1228 |
+|      0 s, again |  59.5 s | 33336 / 56671 / 59238 | 33736 / 57415 / 59260 | 10330 / 28598 / 30523 |        0 of 611 | 69 / 392 / 1308 |              1191 |     0 of 1231 |
+
+One process still opens about 150 clients a second, whatever the pace: 9000 take about 60 s. That
+ceiling did not move. What it removed is the failures, and the time they cost. The new visitor did
+not get ahead of the storm: past the ceiling it waits behind the queue, up to about 28 s, which is
+4096 connections at 145 a second. Why accepting is that slow is not established. The 60 s row is
+slower than with the backlog of 511, in one run each.
+
+### 2026-11-06: over the wire, D-266 to D-273
+
+`platform-wire.ts`, 10 000 users on real sockets, Postgres with `fsync` off, one run each, from
+commit `96479ac76` (the first bench of this kind) to `85d8d2c2b`. Told p95 in ms.
+
+|                   | Chat before | Chat after | Campaign before | Campaign after | Presence before | Presence after |
+| ----------------- | ----------: | ---------: | --------------: | -------------: | --------------: | -------------: |
+| All connected, s  |        84.0 |       46.7 |            83.3 |           49.8 |            65.7 |           38.2 |
+| Heap, GiB         |        1.93 |       1.38 |            1.74 |           1.29 |            1.53 |           1.09 |
+| A lone write, ms  |          89 |         29 |              83 |             35 |              78 |             33 |
+| Statements of one |          10 |         13 |               4 |              4 |               6 |              6 |
+
+| Scenario | Asked /s | Done /s before | Done /s after | p95 before | p95 after | Holds before | Holds after |
+| -------- | -------: | -------------: | ------------: | ---------: | --------: | ------------ | ----------- |
+| Chat     |      400 |            400 |           400 |        374 |       209 | yes          | yes         |
+| Campaign |     1000 |            966 |           998 |       4556 |       384 | no           | yes         |
+| Presence |      500 |            499 |           486 |       9659 |       401 | no           | yes         |
+| Presence |     1000 |            861 |           958 |      14201 |      4848 | no           | no          |
+
+Past what holds, the main thread is full: chat 478 written a second at 600 asked, campaign 1 201 at
+1 500 asked. Presence at 1 000 asked varies from 901 to 988 from one run to the next.
+
+`wire.ts`, 55 000 rows, compression on, nobody writing to the list, against the table of D-254
+below:
+
+|  Rows | Subscribers | One alone | All at once | Longest stall | Others wait | Update        | Author of 1 row in 50      | New first row |
+| ----: | ----------: | --------: | ----------: | ------------: | ----------: | ------------- | -------------------------- | ------------- |
+|    25 |        1000 |        64 |        2723 |           172 |           - | 3 stmts, 87.6 | 5 stmts, 123.1, 1.6 KiB    | 3 stmts, 65.0 |
+|  2000 |         100 |       296 |       11695 |           396 |  825 / 1041 | 3 stmts, 14.6 | 5 stmts, 144.1, 61.6 KiB   | 3 stmts, 10.8 |
+| 10000 |          20 |       993 |       11886 |           236 |  323 / 1336 | 3 stmts, 6.5  | 5 stmts, 169.9, 308.0 KiB  | 3 stmts, 6.4  |
+| 50000 |          20 |      4389 |       67747 |           634 |  151 / 1027 | 3 stmts, 6.7  | 5 stmts, 832.6, 1541.7 KiB | 3 stmts, 7.3  |
+
+Others wait more at the middle now that a big window gives them turns between its parts: at 50 000
+rows and 20 subscribers the median goes from 56 to 151 ms, and the longest from 1 960 to 1 027.
+
+### 2026-11-05: a write costs its readers (D-255)
+
+Same machine; Node 24.20.0; `platform.ts`, 10 000 users, 50 000 live reads, Postgres
+on the same machine; times in ms. These runs predate the split of the bench into
+three files and the rewrite of `bounded` that keeps its logic; a chat at 5 writes a
+second after them: Told p50 394, p95 654.
+
+A lone write, before and after D-255:
+
+| Write             | Statements before | After | Told before | After |
+| ----------------- | ----------------: | ----: | ----------: | ----: |
+| A private message |             20013 |    18 |        6144 |   389 |
+| An NPC            |             10007 |    14 |        4943 |   178 |
+| A user online     |                 6 |     6 |         281 |   293 |
+
+A steady load, after:
+
+| Write             |  /s | Commit p50 | Told p50 | Told p95 | Told max | Drain s | SQL /s | CPU % | Longest stall | Holds |
+| ----------------- | --: | ---------: | -------: | -------: | -------: | ------: | -----: | ----: | ------------: | ----- |
+| A private message |   5 |         40 |      386 |      673 |      772 |     0.3 |     78 |   113 |            92 | yes   |
+| A private message |  10 |         41 |      494 |      773 |      884 |     0.6 |    132 |   102 |            20 | yes   |
+| A private message |  20 |         42 |      931 |     1518 |     1830 |     1.0 |    234 |   112 |            87 | no    |
+| A private message |  50 |         50 |     6542 |    15579 |    18775 |    12.2 |    328 |   107 |            55 | no    |
+| An NPC            |  20 |         13 |      154 |      231 |      417 |     0.2 |    266 |   110 |            73 | yes   |
+| An NPC            |  50 |         11 |      249 |      416 |      693 |     0.3 |    643 |   105 |            73 | yes   |
+| An NPC            | 100 |          8 |     1950 |     4469 |     5788 |     3.4 |   1015 |   101 |            68 | no    |
+| A user online     |  50 |         13 |      310 |      496 |      726 |    30.4 |     84 |    39 |            41 | yes   |
+| A user online     | 100 |         11 |      409 |      688 |      931 |    30.4 |    165 |    44 |            53 | yes   |
+| A user online     | 200 |          7 |      850 |     1508 |     1917 |    31.0 |    322 |    39 |            35 | no    |
+
+- Past the rate that holds, Told grows with the run: the flushes fall behind.
+- Not measured: sockets, serialization, several instances.
+
+### 2026-11-05: a message costs what it changes
+
+Same machine; Node 24.20.0; times in ms. `pages.ts`, 55 000 rows, Rows on screen,
+before and after `applyLive` stopped scanning the list for each row of a message:
+
+|  Rows | Link before | Link after | Virtual before | Virtual after | Memo before | Memo after | Every row before | Every row after |
+| ----: | ----------: | ---------: | -------------: | ------------: | ----------: | ---------: | ---------------: | --------------: |
+|   500 |        15.2 |       14.8 |           14.3 |          13.8 |        14.1 |       14.1 |             14.8 |            14.7 |
+|  1000 |        14.2 |       13.3 |           14.3 |          13.4 |        14.6 |       13.5 |             15.7 |            15.4 |
+|  2000 |        15.4 |       13.2 |           15.0 |          13.3 |        17.0 |       14.8 |             20.6 |            19.2 |
+|  5000 |        19.2 |       14.0 |           19.3 |          14.5 |        23.8 |       18.2 |             36.7 |            32.8 |
+| 10000 |        28.1 |       17.1 |           27.4 |          17.6 |        39.6 |       27.8 |             72.4 |            58.3 |
+| 20000 |        39.0 |       22.7 |           39.7 |          23.8 |        62.6 |       46.7 |            146.4 |           125.9 |
+| 50000 |       152.6 |       39.9 |          144.2 |          41.4 |       223.9 |      118.8 |            453.0 |           327.2 |
+
+- At 50 000 rows `applyLive` takes 81.8 ms for a page before, 12.5 after, in the
+  same run as the times above. The rest of the gain is not attributed.
+- Before and after are two runs, not one process.
+- Not measured: a browser's layout and paint, network latency, several clients.
+
+### 2026-11-05: a big live list makes nobody wait (D-254)
+
+Same machine; Node 24.20.0; times in ms. Caught up is how long messages kept
+arriving after the last client opened.
+
+`wire.ts`, 55 000 rows, compression on, nobody writing to the list:
+
+|  Rows | Subscribers | One alone | All at once | Longest stall | Others wait | Update         | Author of 1 row in 50       | New first row  |
+| ----: | ----------: | --------: | ----------: | ------------: | ----------: | -------------- | --------------------------- | -------------- |
+|    25 |        1000 |        58 |        3490 |            87 |           - | 3 stmts, 223.6 | 5 stmts, 248.5, 1.6 KiB     | 3 stmts, 172.0 |
+|  2000 |         100 |       297 |       12313 |           443 |  636 / 1323 | 3 stmts, 76.5  | 5 stmts, 281.7, 61.6 KiB    | 3 stmts, 67.4  |
+| 10000 |          20 |      1371 |       16472 |           371 |    68 / 475 | 3 stmts, 61.9  | 5 stmts, 279.9, 308.0 KiB   | 3 stmts, 59.9  |
+| 50000 |          20 |      6863 |      126272 |          1929 |   56 / 1960 | 3 stmts, 62.5  | 5 stmts, 1126.0, 1541.7 KiB | 3 stmts, 59.9  |
+
+The same with `--busy`, an author the list shows written all along the opening:
+
+|  Rows | Subscribers | All at once | Longest stall | Others wait | Caught up | Update        |
+| ----: | ----------: | ----------: | ------------: | ----------: | --------: | ------------- |
+|  2000 |         100 |       15613 |           557 |   57 / 1390 |       809 | 3 stmts, 75.1 |
+| 10000 |          20 |       23647 |           774 |   61 / 1534 |       374 | 3 stmts, 62.6 |
+| 50000 |          20 |      208198 |          6992 |   58 / 6996 |    227883 | 3 stmts, 61.9 |
+
+Before this decision, 10 000 rows and 20 subscribers with `--busy`: Others wait
+773 / 11659, and an update's message 14 514 KiB, the whole window, against 1.6.
+50 000 rows and 20 subscribers failed, Postgres killed for lack of memory.
+
+`render.ts`, on happy-dom, so no layout and no paint:
+
+|  Rows | Rendered  | First message | Update p50 | Row gone | Rows rendered by an update |
+| ----: | --------- | ------------: | ---------: | -------: | -------------------------: |
+|    25 | every row |          12.2 |       0.28 |      1.5 |                         25 |
+|    25 | memo      |           4.8 |       0.16 |      0.2 |                          1 |
+|    25 | virtual   |           4.1 |       0.17 |      0.3 |                         25 |
+|  2000 | every row |         128.6 |       3.14 |      3.7 |                       2000 |
+|  2000 | memo      |         105.3 |       0.68 |      1.0 |                          1 |
+|  2000 | virtual   |          61.1 |       0.16 |      0.7 |                         30 |
+| 10000 | every row |         840.9 |      27.08 |     19.2 |                      10000 |
+| 10000 | memo      |         839.4 |       4.02 |      5.8 |                          1 |
+| 10000 | virtual   |         245.0 |       0.31 |      0.9 |                         30 |
+| 50000 | every row |       10665.7 |     102.23 |    119.4 |                      50000 |
+| 50000 | memo      |       10649.4 |      21.77 |     27.4 |                          1 |
+| 50000 | virtual   |        1387.7 |       2.01 |      3.8 |                         30 |
+
+`hook.ts`, a row gone from 50 000 rows: 125.3 ms before, 3.5 ms after.
+
+### 2026-11-05: a live list costs what its readers see (D-252)
+
+Same machine; Node 24.20.0; times in ms.
+
+`lists.ts`, 55 000 rows, each with an author and 8 attachments:
+
+|  Rows | Subscribers | Subscribe each | KiB a subscriber | Bytes a row | First message MiB | Grow | Update        | Author of 1 row in 50 | New first row |
+| ----: | ----------: | -------------: | ---------------: | ----------: | ----------------: | ---: | ------------- | --------------------- | ------------- |
+|    25 |         100 |            5.0 |               16 |         669 |              0.03 |  7.0 | 3 stmts, 58.5 | 4 stmts, 66.2         | 3 stmts, 58.2 |
+|    25 |        1000 |            4.7 |               16 |         653 |              0.03 |  6.8 | 3 stmts, 80.2 | 4 stmts, 120.2        | 3 stmts, 74.6 |
+|  2000 |          10 |          190.8 |              314 |         161 |              2.16 |  8.2 | 3 stmts, 55.8 | 4 stmts, 69.1         | 3 stmts, 56.0 |
+| 10000 |           5 |          947.8 |             2025 |         207 |             10.82 | 10.0 | 3 stmts, 55.1 | 4 stmts, 91.2         | 3 stmts, 55.8 |
+| 50000 |           5 |         4799.5 |             9396 |         192 |             54.17 | 20.9 | 3 stmts, 55.5 | 4 stmts, 213.9        | 3 stmts, 55.9 |
+
+`rooms.ts`, 1000 viewers in 200 rooms of 5, 25 rows, subscribing in 5.8 ms each:
+
+| Write          | Statements | Last message | Other rooms told |
+| -------------- | ---------: | -----------: | ---------------: |
+| update text    |          7 |         67.5 |                0 |
+| update author  |          8 |         74.0 |                0 |
+| new attachment |          8 |         69.6 |                0 |
+| new first row  |         12 |         71.4 |                0 |
+
+`hook.ts`:
+
+|  Rows | Read  | First message | Update p50 | Row gone |
+| ----: | ----- | ------------: | ---------: | -------: |
+|    25 | hook  |           6.6 |       0.09 |      0.9 |
+|    25 | plain |           6.1 |       1.30 |      2.0 |
+|  1000 | hook  |          37.8 |       0.08 |      2.5 |
+|  1000 | plain |          56.7 |      25.63 |     36.9 |
+| 10000 | hook  |         289.0 |       0.23 |     17.4 |
+| 10000 | plain |         561.2 |     251.54 |    358.2 |
+| 50000 | hook  |        1442.1 |       1.18 |    125.3 |
+| 50000 | plain |        2943.6 |    2306.37 |   3170.8 |
+
+- The gate holds: a write costs the same from 25 to 50 000 rows, 80 ms at 1000
+  subscribers against the 160 ms objective, and a room of 5 takes about ten
+  statements whoever else is connected.
+- About 50 ms of each last message is the engine's flush delay, not work.
+- What still grows with the list is its first read, its first message and its
+  memory: 4.8 s, 54 MiB and 9.4 MiB a subscriber at 50 000 rows. A list that
+  long is for few readers; 1000 of them would hold about 9 GB, extrapolated.
+- An author shown on 1 row in 50 takes 214 ms at 50 000 rows with 5 subscribers,
+  399 ms with 20, where 1000 rows show it. Where that time goes is not
+  investigated.
+- At 20 subscribers a window holds 201 bytes a row at 10 000 rows, 190 at 50 000.
+  At 5 or 10 subscribers the heap's noise moves this figure by tens of bytes.
+- A rule naming the viewer keeps one read per viewer of one list:
+  `--rooms 1 --viewers 1000` costs 1002 statements and 536 ms for an update,
+  2002 and 737 ms for a new first row, 1003 and 1190 ms for an author (D-252).
+- `totalCount`, by a one-off script not in this folder, 100 subscribers on a
+  window of 10 000: an insert past the window costs 2 statements and 63 ms under
+  a rule not naming the viewer, 101 statements and 304 ms under one naming them.
+- Not measured: React's rendering at scale, a table past 60 000 rows, 1000
+  subscribers on a list of 50 000, `pg_notify` under concurrent writers, several
+  instances.
 
 ### 2026-11-01: live reads planned once per caller, commit `7a2b89ce`
 

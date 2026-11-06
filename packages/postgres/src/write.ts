@@ -4,21 +4,21 @@
 // takes the rows its model's delete removed from that delete's RETURNING
 // (D-102, D-104), or, with no such delete, those its update changed (D-133). A read of the one row a change writes takes it from that
 // change's RETURNING (D-103).
-import type { RawBuilder } from 'kysely'
-import { sql } from 'kysely'
+import { sql } from './text.ts'
 import type { Change, Check, Filter, Read, Row, Write } from 'ultimabase'
 import type { Sql } from './filter.ts'
 import { Filters, uuid, value } from './filter.ts'
 import type { Catalog, Join, Table } from './names.ts'
 import { computed } from './numbers.ts'
 import type { Part } from './parts.ts'
-import { fieldsOf, grouped, inserted, sizeOf } from './parts.ts'
+import { fieldsOf, grouped, inserted } from './parts.ts'
+import { sizeOf } from './text.ts'
 import { notifying, pairs as linked, rows as noted } from './notify.ts'
 import { compileRows } from './read.ts'
 
 /** A statement of a write: how many checks its result carries, `c0`… */
 export type Statement = {
-	readonly sql: RawBuilder<{ readonly [column: string]: unknown }>
+	readonly sql: Sql
 	readonly checks: number
 }
 
@@ -266,13 +266,17 @@ export function compileWrite(
 ): Statement[] {
 	const checks = write.checks ?? []
 	// Each statement stays within PostgreSQL's 65,535 parameters, its checks
-	// and its read's aside.
-	const room =
-		65_535 -
-		sizeOf(checking(catalog, checks)) -
-		(write.read === undefined
-			? 0
-			: sizeOf(compileRows(catalog, write.read, undefined).rows))
+	// and its read's aside: composed only for a write with rows to fit.
+	let left: number | undefined
+	const room = (): number => {
+		left ??=
+			65_535 -
+			sizeOf(checking(catalog, checks)) -
+			(write.read === undefined
+				? 0
+				: sizeOf(compileRows(catalog, write.read, undefined).rows))
+		return left
+	}
 	const parts: Part[] = []
 	const removed = new Map<number, string>()
 	const rows = new Map(
@@ -298,7 +302,7 @@ export function compileWrite(
 				fieldsOf(batch.rows[0] ?? {})
 					.toSorted()
 					.join() === fields.toSorted().join() &&
-				(batch.rows.length + 1) * fields.length <= room
+				(batch.rows.length + 1) * fields.length <= room()
 			if (!joins) {
 				flush()
 				batch = { model: change.model, rows: [] }

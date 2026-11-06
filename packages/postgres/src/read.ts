@@ -1,7 +1,7 @@
 // A read as one statement (D-46): every list, the root's and each included
 // `many`, is a jsonb array the database builds, so relations at any depth
 // cost no extra round trip.
-import { sql } from 'kysely'
+import { sql } from './text.ts'
 import type {
 	CountRead,
 	Filter,

@@ -1,6 +1,8 @@
 // A live read's stream (D-154): changes a full socket cannot take are dropped
 // until its window is sent again, and its end closes the read, or the socket
 // when the viewer ended. A completed list is kept for a resume.
+import type { ExecutionResult } from 'graphql'
+import { getOperationAST, parse } from 'graphql'
 import type { LiveHandle, LiveMessage, Viewer } from '@ultimabase/realtime'
 import { realtimePlugin } from '@ultimabase/realtime'
 import type { RealtimeApi, Realtime } from '@ultimabase/realtime'
@@ -8,7 +10,14 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { PluginTypes } from 'ultimabase'
 import { defineApp, definePlugin, memory } from 'ultimabase'
 import type { Channel, Keep } from './live-stream.ts'
-import { LiveEvent, liveStream, resumed } from './live-stream.ts'
+import {
+	LiveEvent,
+	liveStream,
+	released,
+	resumed,
+	SharedResults,
+	variablesBelowRoot,
+} from './live-stream.ts'
 
 interface Keeping extends PluginTypes {
 	readonly name: 'keeping'
@@ -66,7 +75,7 @@ function fake(seen: Viewer): Fake {
 			drained: (then) => {
 				state.drains.push(then)
 			},
-			forbid: () => {
+			shut: () => {
 				state.forbidden += 1
 			},
 			kept: new Map(),
@@ -174,6 +183,36 @@ describe('a live stream', () => {
 		send(changed(6))
 		// What was queued is dropped too: the window it changed comes again.
 		expect(await rootsOf(stream)).toEqual([reset(4), changed(5), 'closed'])
+	})
+
+	it("sends a big window's changes through a full socket, no window again", async () => {
+		const channel = fake(await viewer())
+		const read = handled()
+		const stream = await liveStream(
+			channel.channel,
+			read.open,
+			eventOf,
+			closedEvent,
+		)
+		const { send, resent } = read.opened()
+		const opening: LiveMessage = {
+			kind: 'reset',
+			revision: 1,
+			rows: Array.from({ length: 10 }, (_, index) => ({ id: `${index}` })),
+			hasMore: false,
+		}
+		send(opening)
+		channel.full = true
+		const change: LiveMessage = {
+			kind: 'changes',
+			revision: 2,
+			changes: [{ remove: '1', gone: true }],
+		}
+		send(change)
+		expect(channel.drains).toHaveLength(0)
+		expect(resent()).toBe(0)
+		send({ kind: 'closed' })
+		expect(await rootsOf(stream)).toEqual([opening, change, 'closed'])
 	})
 
 	it('drops rows and values too while the socket is full, and waits once', async () => {
@@ -362,5 +401,103 @@ describe('a completed live list', () => {
 		await ended.return?.()
 		expect(channel.channel.kept.size).toBe(0)
 		expect(other.opened().closed()).toBe(1)
+	})
+})
+
+describe('a sent message', () => {
+	it('lets go of its rows, which graphql-js keeps until the next (D-253)', () => {
+		const event = new LiveEvent({ rows: [1] }, (result) => ({
+			...result,
+			extensions: { revision: 1 },
+		}))
+		expect(event.finish({ data: {} })).toEqual({
+			data: {},
+			extensions: { revision: 1 },
+		})
+		expect(event.root).toBeUndefined()
+		expect(event.finish({ data: {} })).toEqual({ data: {} })
+	})
+
+	it('sends a result whole and leaves it no data (D-253)', () => {
+		const result = { data: { a: 1 }, extensions: { b: 2 } }
+		expect(released(result)).toEqual({ data: { a: 1 }, extensions: { b: 2 } })
+		expect(result).toEqual({ data: null, extensions: { b: 2 } })
+	})
+})
+
+const running = () => ({
+	execute: vi.fn<() => ExecutionResult>(() => ({ data: { a: 1 } })),
+	together: new SharedResults(),
+})
+
+const below = (source: string, values?: Record<string, unknown>) => {
+	const document = parse(source)
+	const operation = getOperationAST(document)
+	if (!operation) throw new Error('No operation.')
+	return variablesBelowRoot(document, operation, values)
+}
+
+describe('the variables below the root (D-267)', () => {
+	it('leaves out what only chose the rows', () => {
+		expect(
+			below('subscription ($w: W) { tasks(where: $w) { id } }', { w: 1 }),
+		).toEqual([])
+	})
+
+	it('names what a selection, a directive or a fragment reads', () => {
+		expect(
+			below(
+				`subscription ($a: A, $b: B, $c: C, $d: D) {
+					tasks(where: $a) @include(if: $b) { id @skip(if: $c) ...Part }
+				}
+				fragment Part on Task { name(as: $d) }`,
+				{ a: 1, b: 2, c: 3, d: 4 },
+			),
+		).toEqual([
+			['b', 2],
+			['c', 3],
+			['d', 4],
+		])
+	})
+
+	it('reads a root selection that is no field whole', () => {
+		expect(
+			below('subscription ($a: A) { ... @include(if: $a) { tasks { id } } }'),
+		).toEqual([['a', undefined]])
+	})
+})
+
+describe('the results subscriptions run alike (D-265)', () => {
+	it('runs one row once for one selection', async () => {
+		const { execute, together } = running()
+		const [first, second] = await Promise.all([
+			together.run('shape', { id: 'a' }, execute),
+			together.run('shape', { id: 'a' }, execute),
+		])
+		expect(execute).toHaveBeenCalledOnce()
+		expect(second).toBe(first)
+	})
+
+	it('runs again for another row or another selection', async () => {
+		const { execute, together } = running()
+		await together.run('shape', { id: 'a' }, execute)
+		await together.run('shape', { id: 'b' }, execute)
+		await together.run('other', { id: 'a' }, execute)
+		expect(execute).toHaveBeenCalledTimes(3)
+	})
+
+	it('forgets its results as the loop turns', async () => {
+		const { execute, together } = running()
+		await together.run('shape', { id: 'a' }, execute)
+		await new Promise((resolve) => setImmediate(resolve))
+		await together.run('shape', { id: 'a' }, execute)
+		expect(execute).toHaveBeenCalledTimes(2)
+	})
+
+	it('runs a root with no JSON once too', async () => {
+		const { execute, together } = running()
+		await together.run('shape', undefined, execute)
+		await together.run('shape', undefined, execute)
+		expect(execute).toHaveBeenCalledOnce()
 	})
 })

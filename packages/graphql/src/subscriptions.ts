@@ -8,6 +8,7 @@ import {
 	applied,
 	badInput,
 	connection,
+	endsOf,
 	pageOf,
 	run,
 } from '@ultimabase/http/internal'
@@ -24,6 +25,8 @@ import type { Keep, Live } from './live-stream.ts'
 import { LiveEvent, liveStream, lives, resumed } from './live-stream.ts'
 import { connectionType, isMaster, listArgs, objectType } from './outputs.ts'
 import { whereOf } from './pages.ts'
+import type { Pieces } from './pieces.ts'
+import { cut, joined, rowsAtOnce } from './pieces.ts'
 import type { Args, Context, Entry, Registry } from './registry.ts'
 import type { Key } from './select.ts'
 import { countsOnly, grouped, rowNodes, selectOf } from './select.ts'
@@ -57,6 +60,9 @@ function connectionOf(
 	const { edges, pageInfo } = connection(rows, fromTop, (row) => row)
 	return { edges, pageInfo: { ...pageInfo, hasNextPage: hasMore }, totalCount }
 }
+
+/** A page info no message shows, so that it keeps windows from running apart. */
+const unmoved = connectionOf([], false, undefined).pageInfo
 
 const revised = (
 	result: ExecutionResult,
@@ -95,46 +101,93 @@ function follower(
 ): (message: Message) => LiveEvent {
 	const [key, edgesKey, pageInfoKey, totalCountKey] = keysOf(info, connected)
 	let token = resume
+	// Page mode resends its window, bounded by maxTake; else its ends do (D-253).
 	let window: readonly Row[] = []
+	let ends: readonly Row[] = []
 	let hasMore = false
 	let count: number | undefined
 	let pageInfo = ''
+	// The page info its last result ran with, whichever of it the query selects.
+	let ran = ''
 	const rootOf = (rows: readonly Row[]) =>
 		connected ? connectionOf(rows, hasMore, count) : rows
+	/** A big window in parts, whose lists make the window's (D-272). */
+	const piecesOf = (rows: readonly Row[]): Pieces | undefined => {
+		if (rows.length <= rowsAtOnce) return undefined
+		if (!connected) {
+			return {
+				roots: cut(rows),
+				merged: (results) => joined(results, ({ data }) => data, key),
+			}
+		}
+		if (edgesKey === undefined) return undefined
+		const whole = connectionOf(rows, hasMore, count)
+		return {
+			roots: cut(whole.edges).map((edges) => ({ ...whole, edges })),
+			merged: (results) =>
+				joined(results, ({ data }) => valueAt(data, key), edgesKey),
+		}
+	}
 	const sent = (result: ExecutionResult): ExecutionResult => {
 		const at = valueAt(result.data, key)
 		pageInfo = JSON.stringify(valueAt(at, pageInfoKey)) ?? ''
 		return result
 	}
+	/** The window's page info where the query reads it and it moved. */
+	const moved = () => {
+		if (pageInfoKey === undefined) return undefined
+		const current = connectionOf(ends, hasMore, count).pageInfo
+		const json = JSON.stringify(current)
+		if (json === ran) return undefined
+		ran = json
+		return current
+	}
 	return (message) => {
 		if (message.kind === 'row' || message.kind === 'value') {
 			const { revision } = message
-			const root = message.kind === 'row' ? message.row : message.value
-			return new LiveEvent(root, (result) => revised(result, revision))
+			// A live function's value may be anything its field's resolvers read.
+			const row = message.kind === 'row'
+			return new LiveEvent(
+				row ? message.row : message.value,
+				(result) => revised(result, revision),
+				row,
+			)
 		}
 		const { revision } = message
 		hasMore = message.hasMore ?? hasMore
 		count = message.totalCount ?? count
 		if (message.kind === 'reset' || page) {
-			window =
+			const rows =
 				message.kind === 'reset'
 					? message.rows
 					: applied(window, message.changes, (row) => row)
+			if (page) window = rows
+			ends = endsOf(
+				[rows[0], rows.at(-1)].flatMap((row) => (row ? [row.id] : [])),
+			)
+			moved()
 			const shown = token
 			token = undefined
-			return new LiveEvent(rootOf(window), (result) =>
-				revised(sent(result), revision, shown),
+			// A whole window is costly to compare, and rarely sent to many at once.
+			return new LiveEvent(
+				rootOf(rows),
+				(result) => revised(sent(result), revision, shown),
+				false,
+				piecesOf(rows),
 			)
 		}
 		const { changes } = message
-		window = applied(window, changes, ({ id }) => ({ id }))
+		if (message.ends !== undefined) ends = endsOf(message.ends)
 		const upserts = changes.flatMap((change) =>
 			'upsert' in change ? [change.upsert] : [],
 		)
+		// Only what this message sends may differ between windows (D-267).
+		const movedTo = moved()
 		const root = connected
 			? {
-					...connectionOf(window, hasMore, count),
 					edges: connectionOf(upserts, false, undefined).edges,
+					pageInfo: movedTo ?? unmoved,
+					totalCount: message.totalCount ?? 0,
 				}
 			: upserts
 		return new LiveEvent(root, (result) => {
@@ -153,10 +206,10 @@ function follower(
 			if (message.totalCount !== undefined && totalCountKey !== undefined) {
 				live['totalCount'] = valueAt(at, totalCountKey)
 			}
-			const before = pageInfo
-			sent(result)
-			if (pageInfoKey !== undefined && pageInfo !== before) {
-				live['pageInfo'] = valueAt(at, pageInfoKey)
+			if (movedTo !== undefined) {
+				const before = pageInfo
+				sent(result)
+				if (pageInfo !== before) live['pageInfo'] = valueAt(at, pageInfoKey)
 			}
 			return {
 				...(result.errors && { errors: result.errors }),
@@ -280,10 +333,12 @@ function liveFields(registry: Registry, entry: Entry): Fields {
 							: await resumed(channel, resume, signature, rows)
 					if (taken !== undefined) return taken
 					const keep: Keep = { token: randomUUID(), signature, first: rows }
+					// A kept list that grew to the limit opens again at it (D-252).
+					const first =
+						resume === undefined ? rows : channel.viewer.capped(name, rows)
 					return liveStream(
 						channel,
-						async (send) =>
-							channel.viewer.list(name, { ...read, first: rows }, send),
+						async (send) => channel.viewer.list(name, { ...read, first }, send),
 						follower(info, connected, page, keep.token),
 						closedEvent,
 						keep,

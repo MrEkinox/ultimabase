@@ -1,8 +1,7 @@
 // What a live read may ask (D-154): its order sorts by the model's own
 // fields, and its selection reaches only live models, each nested list with a
-// take, counted up to its size (D-242). A refusal names the argument it comes
-// from.
-import type { ExposedModel } from 'ultimabase'
+// take. A refusal names the argument it comes from.
+import type { Caller, ExposedModel } from 'ultimabase'
 import { PublicError } from 'ultimabase'
 import type { LivePlan } from 'ultimabase/internal'
 import { liveSchema } from 'ultimabase/internal'
@@ -13,10 +12,34 @@ export const invalid = (path: string, message: string): PublicError =>
 		details: { issues: [{ path: [path], message }] },
 	})
 
+/** Who `caller` is, which a rebuilt caller must keep. */
+export const whoOf = (caller: Caller): string => {
+	if (caller.kind !== 'user') return JSON.stringify(caller)
+	const id: unknown = Reflect.get(caller.user, 'id')
+	return JSON.stringify(['user', id])
+}
+
+/** Refuses one more live read past what a connection holds. */
+export function holds(reads: number, maxSubscriptions: number): void {
+	if (reads < maxSubscriptions) return
+	throw invalid(
+		'subscriptions',
+		`A connection holds at most ${maxSubscriptions} live reads.`,
+	)
+}
+
+/** Refuses `rows` past what a connection follows in all. */
+export function fits(rows: number, maxConnectionRows: number): void {
+	if (rows <= maxConnectionRows) return
+	throw invalid(
+		'first',
+		`A connection follows at most ${maxConnectionRows} rows.`,
+	)
+}
+
 /**
- * Refuses a live list that would follow `rows`, nested rows included, past
- * `limit` (D-154); its details give both, so a client can stop growing it
- * (D-186).
+ * Refuses a live list opened with `rows` past `limit` (D-252); its details
+ * give both (D-186).
  */
 export function within(rows: number, limit: number): void {
 	if (rows <= limit) return
@@ -27,14 +50,14 @@ export function within(rows: number, limit: number): void {
 
 /**
  * Refuses an order that reads another row and a selection that reaches a
- * model which is not live; returns the nested rows each root row follows.
+ * model which is not live.
  */
 export function checked(
 	exposed: readonly ExposedModel[],
 	model: string,
 	plan: Omit<LivePlan, 'where' | 'filter' | 'rights'>,
 	path: string,
-): number {
+): void {
 	for (const order of plan.orderBy) {
 		if (order.through ?? order.count ?? order.relevance) {
 			throw invalid(
@@ -48,28 +71,18 @@ export function checked(
 		const used = exposed.find(({ schema }) => schema.name === target)
 		if (!used?.used) throw invalid(at, `${target} is not live.`)
 	}
-	const own = exposed.find(({ schema }) => schema.name === model)
-	let rows = 0
 	for (const [name, inner] of Object.entries(plan.include ?? {})) {
 		const step = stepOf(models, model, name)
 		if (step === undefined) continue
 		const at = `${path}.${name}`
 		live(step.target, at)
-		const below = checked(exposed, step.target, { ...inner, orderBy: [] }, at)
-		if (!step.many) {
-			rows += below
-			continue
-		}
-		if (inner.take === undefined) {
+		checked(exposed, step.target, { ...inner, orderBy: [] }, at)
+		if (step.many && inner.take === undefined) {
 			throw invalid(at, `A live ${name} list needs a take.`)
 		}
-		// A bounded many holds no more than its size (D-242).
-		const max = own?.sizes[name]?.max ?? Infinity
-		rows += Math.min(Math.abs(inner.take), max) * (1 + below)
 	}
 	for (const name of Object.keys(plan.count ?? {})) {
 		const step = stepOf(models, model, name)
 		if (step !== undefined) live(step.target, `${path}._count.${name}`)
 	}
-	return rows
 }

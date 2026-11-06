@@ -22,6 +22,9 @@ const app = defineApp({
 		url: process.env['DATABASE_URL'],
 		// At most 20 queries at once; the next waits up to 10 s for one.
 		connections: 20,
+		// Each statement planned once per connection: `false` behind a pooler
+		// that cannot keep them.
+		prepared: true,
 		// Words stemmed as English: "running" finds "runs".
 		searchLanguage: 'english',
 	}),

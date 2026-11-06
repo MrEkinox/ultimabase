@@ -6,7 +6,7 @@ import { OutOfRange } from 'ultimabase'
 import type { Sql } from './filter.ts'
 import { value } from './filter.ts'
 import type { Catalog, Kind, Table } from './names.ts'
-import { sql } from 'kysely'
+import { sql } from './text.ts'
 
 // An integer divided by an integer truncates toward zero, as D-132 says.
 const operators = { increment: '+', decrement: '-', multiply: '*', divide: '/' }

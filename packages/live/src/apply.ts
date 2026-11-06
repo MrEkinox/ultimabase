@@ -42,20 +42,58 @@ function placed(
 	connected: boolean,
 ): unknown[] | undefined {
 	const next = [...rows]
-	const at = (id: string) =>
-		next.findIndex((row) => idOf(row, connected) === id)
+	const holds = (index: number, id: string) =>
+		index >= 0 && index < next.length && idOf(next[index], connected) === id
+	// One change scans. More read the list once: a message of many then costs
+	// what it changes, and a row stands within one place of where it stood for
+	// each splice since.
+	const places =
+		changes.length > 1
+			? new Map(next.map((row, i) => [idOf(row, connected), i] as const))
+			: undefined
+	let shifts = 0
+	const at = (id: string) => {
+		if (places === undefined) {
+			return next.findIndex((row) => idOf(row, connected) === id)
+		}
+		const place = places.get(id)
+		if (place !== undefined) {
+			for (let distance = 0; distance <= shifts; distance += 1) {
+				if (holds(place - distance, id)) return place - distance
+				if (holds(place + distance, id)) return place + distance
+			}
+		}
+		return -1
+	}
 	for (const change of changes) {
 		if ('remove' in change) {
 			const index = at(change.remove)
 			if (index < 0) return undefined
 			next.splice(index, 1)
+			places?.delete(change.remove)
+			shifts += 1
 			continue
 		}
-		const index = at(idOf(change.upsert, connected))
-		if (index >= 0) next.splice(index, 1)
+		const id = idOf(change.upsert, connected)
+		const index = at(id)
+		if (index >= 0) {
+			// Where it stands already: nothing moves.
+			if (
+				change.after === null
+					? index === 0
+					: index > 0 && holds(index - 1, change.after)
+			) {
+				next[index] = change.upsert
+				continue
+			}
+			next.splice(index, 1)
+			shifts += 1
+		}
 		const after = change.after === null ? -1 : at(change.after)
 		if (change.after !== null && after < 0) return undefined
 		next.splice(after + 1, 0, change.upsert)
+		places?.set(id, after + 1)
+		shifts += 1
 	}
 	return next
 }

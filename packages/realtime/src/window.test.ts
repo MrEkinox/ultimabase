@@ -35,3 +35,35 @@ it('finds each row by the id its keys hold, wherever the order puts it', () => {
 		'A live order holds the id.',
 	)
 })
+
+it('tells a row sent as it was, past a move, and a row it does not hold', () => {
+	const window = new Window([{ field: 'id', direction: 'asc' }], 2)
+	window.place(['a'])
+	expect(window.sent('a', { text: 'x' })).toBe(true)
+	expect(window.sent('a', { text: 'x' })).toBe(false)
+	window.place(['a'])
+	expect(window.sent('a', { text: 'x' })).toBe(false)
+	expect(window.sent('a', { text: 'y' })).toBe(true)
+	expect(window.sent('absent', { text: 'x' })).toBe(true)
+})
+
+it('tells its first and last rows when they moved, without the row it hides', () => {
+	const window = new Window([{ field: 'id', direction: 'asc' }], 2)
+	expect(window.endsMoved()).toBeUndefined()
+	window.place(['b'])
+	expect(window.endsMoved()).toEqual(['b', 'b'])
+	window.place(['c'])
+	window.place(['d'])
+	expect(window.endsMoved()).toEqual(['b', 'c'])
+	expect(window.endsMoved()).toBeUndefined()
+	window.place(['a'])
+	expect(window.endsMoved()).toEqual(['a', 'b'])
+	window.remove('a')
+	window.remove('b')
+	window.remove('c')
+	window.remove('d')
+	expect(window.endsMoved()).toEqual([])
+	expect(
+		new Window([{ field: 'id', direction: 'asc' }], 0).endsMoved(),
+	).toBeUndefined()
+})

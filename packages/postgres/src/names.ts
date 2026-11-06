@@ -70,11 +70,18 @@ const system: ReadonlyMap<string, readonly [string, Kind]> = new Map([
 	['updatedAt', ['updated_at', 'dateTime']],
 ])
 
+/** A schema's few names, each asked of every statement. */
+const snakes = new Map<string, string>()
+
 export function snake(name: string): string {
-	return name
+	const known = snakes.get(name)
+	if (known !== undefined) return known
+	const made = name
 		.replaceAll(/([a-z0-9])([A-Z])/g, '$1_$2')
 		.replaceAll(/([A-Z])([A-Z][a-z])/g, '$1_$2')
 		.toLowerCase()
+	snakes.set(name, made)
+	return made
 }
 
 const hash = (text: string): string =>

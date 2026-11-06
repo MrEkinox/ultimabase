@@ -11,6 +11,7 @@ export type {
 } from './pages.ts'
 export {
 	applied,
+	endsOf,
 	connection,
 	countedPage,
 	pageArgs,
@@ -19,6 +20,7 @@ export {
 	rowOf,
 	rowsOf,
 } from './pages.ts'
+export { Backlog } from './backlog.ts'
 export type { Node, Served, ServedOneOf } from './transport.ts'
 export {
 	badInput,

@@ -35,14 +35,19 @@ export type Level = {
 
 /** A relation the selection shows, or counts. */
 export type Shown = {
-	/** The relations from the root, joined by dots. */
-	readonly path: string
 	readonly steps: readonly Step[]
 	readonly model: string
 	/** The fields of its rows that show, or decide which rows show. */
 	readonly fields: Fields
-	/** A `_count`: its rows are not in the result to track. */
-	readonly counted: boolean
+}
+
+/** A level of a shown relation's filter or order, past its own rows. */
+export type Deep = {
+	readonly level: Level
+	/** The relations from the root to its rows, none for a step back to a parent. */
+	readonly path: readonly Step[]
+	/** Its rows are the parents of the rows it filters, which their delete tells. */
+	readonly parent: boolean
 }
 
 export type Reach = {
@@ -53,8 +58,10 @@ export type Reach = {
 	/** The root fields that show. */
 	readonly showing: Fields
 	readonly shown: readonly Shown[]
-	/** Models a nested filter or order reaches further: any change resends all. */
-	readonly deep: ReadonlySet<string>
+	/** The levels a nested filter or order reaches further (D-252). */
+	readonly deep: readonly Deep[]
+	/** Every model above: a write to any other leaves the read as it was (D-255). */
+	readonly models: ReadonlySet<string>
 }
 
 export type Models = ReadonlyMap<string, ReadonlyMap<string, SchemaField>>
@@ -110,7 +117,7 @@ const relationKeys = ['is', 'isNot', 'some', 'every', 'none'] as const
 /** What a nested read selects. */
 type Read = Pick<Nested, 'include' | 'count' | 'fields'>
 
-const isList = (
+export const isList = (
 	value: Condition | readonly Filter[],
 ): value is readonly Filter[] => Array.isArray(value)
 
@@ -178,83 +185,118 @@ function showing(nested: Read, also: readonly string[] = []): Fields {
 	])
 }
 
-const union = (a: Fields, b: Fields): Fields =>
+export const union = (a: Fields, b: Fields): Fields =>
 	a === 'all' || b === 'all' ? 'all' : new Set([...a, ...b])
 
-/** The models a nested filter or order reaches beyond `model`. */
+/**
+ * `steps` without a step back: a row's key to the row that shows it reaches
+ * that row and no other.
+ */
+function deepOf(level: Level, steps: readonly Step[]): Deep {
+	const path: Step[] = []
+	let parent = false
+	for (const step of steps) {
+		const last = path.at(-1)
+		parent = last?.keyOnTarget === true && last.inverse === step.relation
+		if (parent) path.pop()
+		else path.push(step)
+	}
+	return { level, path, parent }
+}
+
+/** A level no filter names: `fields` decide what its rows show. */
+const plainLevel = (
+	model: string,
+	steps: readonly Step[],
+	fields: readonly string[],
+): Level => ({
+	steps,
+	model,
+	fields: new Set(fields),
+	negative: false,
+	filter: {},
+})
+
+/** The levels `orderBy`, read on `model`'s rows, reaches beyond them. */
+function orderLevels(
+	models: Models,
+	model: string,
+	order: NonNullable<Nested['orderBy']>[number],
+): Level[] {
+	const levels: Level[] = []
+	const steps: Step[] = []
+	let on = model
+	const through = order.through ?? []
+	for (const [at, { relation }] of through.entries()) {
+		const step = stepOf(models, on, relation)
+		if (step === undefined) break
+		steps.push(step)
+		on = step.target
+		const next = through[at + 1]?.relation ?? order.field
+		levels.push(plainLevel(on, [...steps], [next, ...facingOf(step)]))
+	}
+	const counted = order.count && stepOf(models, on, order.field)
+	if (counted) {
+		const facing = facingOf(counted)
+		levels.push(plainLevel(counted.target, [...steps, counted], facing))
+	}
+	return levels
+}
+
+/** Adds the levels a nested filter or order reaches beyond `model`. */
 function further(
 	models: Models,
 	model: string,
 	where: Filter | undefined,
 	orderBy: Nested['orderBy'],
-	deep: Set<string>,
+	to: readonly Step[],
+	deep: Deep[],
 ): Fields {
 	const levels: Level[] = []
 	const fields = walk(models, model, where, [], false, levels)
-	for (const level of levels) {
-		if (level.steps.length > 0) deep.add(level.model)
-	}
 	for (const order of orderBy ?? []) {
-		let on = model
-		for (const { relation } of order.through ?? []) {
-			on = stepOf(models, on, relation)?.target ?? on
-			deep.add(on)
+		levels.push(...orderLevels(models, model, order))
+	}
+	for (const level of levels) {
+		if (level.steps.length > 0) {
+			deep.push(deepOf(level, [...to, ...level.steps]))
 		}
-		const counted = order.count && stepOf(models, on, order.field)
-		if (counted) deep.add(counted.target)
 	}
 	return fields
 }
 
-/** Adds what `nested`, read on `model`'s rows at `path`, shows. */
+/** Adds what `nested`, read on `model`'s rows through `at`, shows. */
 function walkShown(
 	models: Models,
 	model: string,
 	nested: Read,
-	at: { readonly path: string; readonly steps: readonly Step[] },
+	at: readonly Step[],
 	shown: Shown[],
-	deep: Set<string>,
+	deep: Deep[],
 ): void {
-	const named = (name: string) => (at.path ? `${at.path}.${name}` : name)
 	for (const [name, inner] of Object.entries(nested.include ?? {})) {
 		const step = stepOf(models, model, name)
 		if (step === undefined) continue
-		const steps = [...at.steps, step]
+		const steps = [...at, step]
 		const filtered = further(
 			models,
 			step.target,
 			inner.where,
 			inner.orderBy,
+			steps,
 			deep,
 		)
 		const fields = union(showing(inner, facingOf(step)), filtered)
-		shown.push({
-			path: named(name),
-			steps,
-			model: step.target,
-			fields,
-			counted: false,
-		})
-		walkShown(
-			models,
-			step.target,
-			inner,
-			{ path: named(name), steps },
-			shown,
-			deep,
-		)
+		shown.push({ steps, model: step.target, fields })
+		walkShown(models, step.target, inner, steps, shown, deep)
 	}
 	for (const [name, where] of Object.entries(nested.count ?? {})) {
 		const step = stepOf(models, model, name)
 		if (step === undefined) continue
-		const filtered = further(models, step.target, where, undefined, deep)
-		shown.push({
-			path: named(`_count.${name}`),
-			steps: [...at.steps, step],
-			model: step.target,
-			fields: union(new Set(facingOf(step)), filtered),
-			counted: true,
-		})
+		const steps = [...at, step]
+		const filtered = further(models, step.target, where, undefined, steps, deep)
+		const fields = union(new Set(facingOf(step)), filtered)
+		shown.push({ steps, model: step.target, fields })
 	}
 }
 
@@ -266,13 +308,18 @@ export function reachOf(schema: Schema, model: string, plan: LivePlan): Reach {
 	levels.reverse()
 	const order = new Set(plan.orderBy.map(({ field }) => field))
 	const shown: Shown[] = []
-	const deep = new Set<string>()
-	walkShown(models, model, plan, { path: '', steps: [] }, shown, deep)
+	const deep: Deep[] = []
+	walkShown(models, model, plan, [], shown, deep)
 	return {
 		levels,
 		placing: union(root, order),
 		showing: showing(plan),
 		shown,
 		deep,
+		models: new Set([
+			...levels.map((level) => level.model),
+			...shown.map((relation) => relation.model),
+			...deep.map(({ level }) => level.model),
+		]),
 	}
 }

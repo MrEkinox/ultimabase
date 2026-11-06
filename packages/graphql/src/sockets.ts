@@ -27,12 +27,22 @@ import type { Caller, Client, Logger } from 'ultimabase'
 import { PublicError } from 'ultimabase'
 import type { formatter } from './errors.ts'
 import type { Channel } from './live-stream.ts'
-import { LiveEvent, lives } from './live-stream.ts'
+import {
+	LiveEvent,
+	lives,
+	released,
+	SharedResults,
+	variablesBelowRoot,
+} from './live-stream.ts'
+import { inParts } from './parts.ts'
+import { ranInPieces } from './pieces.ts'
 import type { Context } from './registry.ts'
 
 /** How the GraphQL plugin runs a document, over HTTP as over WebSocket. */
 export type Operations = {
 	readonly schema: GraphQLSchema
+	/** Whether a generated resolver runs every field: `extend` changed none. */
+	readonly pure: boolean
 	readonly parse: (source: string | Source) => DocumentNode
 	readonly rules: (master: boolean) => readonly ValidationRule[]
 	readonly validate: (
@@ -84,8 +94,23 @@ function cookiesOf(request: Request): Client['cookies'] {
 	return { get: (name) => cookies.get(name), set: unset, clear: unset }
 }
 
+// What makes two subscriptions run an event alike, by their contexts: their
+// documents may be one (D-268).
+const shapes = new WeakMap<object, string>()
+
 // How each socket sends, counted by its channel once it has one.
 const sends = new WeakMap<WebSocket, (data: string) => void>()
+
+/** The server failed, which says nothing of the caller: its client tries again. */
+const tryAgain = (socket: WebSocket) => {
+	socket.close(1013, 'Try again later')
+}
+
+/** Closes a socket whose viewer ended, or that never had one (D-278). */
+const shut = (socket: WebSocket, viewer: Viewer | undefined) => {
+	if (viewer?.failed === true) tryAgain(socket)
+	else socket.close(CloseCode.Forbidden, 'Forbidden')
+}
 
 /** The socket's channel: what it holds unsent, and when that is written. */
 function channelOf(viewer: Viewer, socket: WebSocket): Channel {
@@ -96,18 +121,21 @@ function channelOf(viewer: Viewer, socket: WebSocket): Channel {
 		if (pending > 0) return
 		for (const then of waiters.splice(0)) then()
 	}
+	const parts = inParts(socket)
 	sends.set(socket, (data) => {
 		pending += 1
-		socket.send(data, written)
+		parts.send(data, written)
 	})
 	return {
 		viewer,
-		full: () => socket.bufferedAmount > maxBuffer,
+		full: () => socket.bufferedAmount + parts.unsent() > maxBuffer,
 		drained: (then) => {
 			if (pending === 0) then()
 			else waiters.push(then)
 		},
-		forbid: () => socket.close(CloseCode.Forbidden, 'Forbidden'),
+		shut: () => {
+			shut(socket, viewer)
+		},
 		kept: new Map(),
 	}
 }
@@ -144,6 +172,7 @@ export function serveSockets(
 	operations: Operations,
 ): () => Promise<void> {
 	const { schema, logger, format, hideSuggestions } = operations
+	const together = new SharedResults()
 	const formatted = (errors: readonly GraphQLError[]) =>
 		errors.map((error) => {
 			const shown = format(error)
@@ -168,6 +197,7 @@ export function serveSockets(
 			} catch (error) {
 				if (!(error instanceof PublicError)) {
 					logger.error({ err: error }, 'A WebSocket caller was not read.')
+					tryAgain(socket)
 				}
 				return false
 			}
@@ -175,7 +205,7 @@ export function serveSockets(
 		onSubscribe: async (ctx, _, payload) => {
 			const { viewer, channel, upgrade, socket } = ctx.extra
 			const forbidden = () => {
-				socket.close(CloseCode.Forbidden, 'Forbidden')
+				shut(socket, viewer)
 				return [new GraphQLError('Forbidden')]
 			}
 			if (viewer === undefined || channel === undefined || viewer.closed) {
@@ -213,6 +243,17 @@ export function serveSockets(
 				cookies: cookiesOf(upgrade.request),
 			}
 			const contextValue = operations.context(caller, client)
+			if (operation?.operation === 'subscription') {
+				shapes.set(
+					contextValue,
+					JSON.stringify([
+						master,
+						payload.operationName,
+						payload.query,
+						variablesBelowRoot(document, operation, payload.variables),
+					]),
+				)
+			}
 			const live: unknown = payload.extensions?.['live']
 			const page = isLive(live) && live.mode === 'page'
 			const resume = isLive(live) ? live.resume : undefined
@@ -238,25 +279,56 @@ export function serveSockets(
 			if (refused !== undefined) return { errors: [refused] }
 			const source = await createSourceEventStream(validated)
 			if (!(Symbol.asyncIterator in source)) return source
+			const { contextValue } = args
+			const shape = String(
+				isLive(contextValue) ? shapes.get(contextValue) : undefined,
+			)
 			return mapSourceToResponseEvent(validated, source, async (event) => {
-				const result = await executeSubscriptionEvent(event)
 				const { rootValue } = event
-				return rootValue instanceof LiveEvent
-					? rootValue.finish(result)
-					: result
+				const execute = () => executeSubscriptionEvent(event)
+				if (!(rootValue instanceof LiveEvent)) return execute()
+				const { pieces, root, shared } = rootValue
+				if (!operations.pure) return rootValue.finish(await execute())
+				return rootValue.finish(
+					await (pieces !== undefined
+						? ranInPieces(
+								pieces,
+								(part) =>
+									executeSubscriptionEvent({
+										...event,
+										rootValue: { root: part },
+									}),
+								execute,
+							)
+						: shared
+							? together.run(shape, root, execute)
+							: execute()),
+				)
 			})
 		},
-		onNext: (_ctx, _id, _payload, _args, { data, errors, extensions }) => ({
-			...(data === undefined ? {} : { data }),
-			...(errors === undefined ? {} : { errors: formatted(errors) }),
-			...(extensions === undefined ? {} : { extensions }),
-		}),
+		onNext: (_ctx, _id, _payload, _args, result) => {
+			const { data, errors, extensions } = released(result)
+			return {
+				...(data === undefined ? {} : { data }),
+				...(errors === undefined ? {} : { errors: formatted(errors) }),
+				...(extensions === undefined ? {} : { extensions }),
+			}
+		},
 		onError: (_ctx, _id, _payload, errors) => formatted(errors),
 	})
 	const sockets = new WebSocketServer({
 		noServer: true,
 		maxPayload: maxBuffer,
-		perMessageDeflate: { threshold: 1024 },
+		// `ws` honours the threshold only without context takeover (D-266), and
+		// a row's change to its many followers is not worth zlib (D-273).
+		perMessageDeflate: {
+			threshold: 2048,
+			serverNoContextTakeover: true,
+			clientNoContextTakeover: true,
+			// Each socket keeps its compressor: a small one (D-269).
+			serverMaxWindowBits: 12,
+			zlibDeflateOptions: { memLevel: 5 },
+		},
 		handleProtocols,
 	})
 	const beats = new WeakMap<WebSocket, () => void>()

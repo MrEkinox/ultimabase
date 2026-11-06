@@ -19,7 +19,12 @@ import {
 import type { HttpApi, HttpEnv, Routes } from './index.ts'
 import { clientOf, httpPlugin, routes } from './index.ts'
 import { addresses } from './address.ts'
-import { bodyLimitOf, drainOf, portOf } from './server.ts'
+import {
+	bodyLimitOf,
+	drainOf,
+	listening as listeningOn,
+	portOf,
+} from './server.ts'
 
 const Note = defineModel({
 	name: 'Note',
@@ -636,6 +641,15 @@ describe('the port', () => {
 		expect(() => portOf(70_000)).toThrow(
 			'port is 70000, not a port between 0 and 65535.',
 		)
+	})
+
+	it('queues more connections than Node does by default (D-276)', async () => {
+		const queued = createServer()
+		const listen = vi.spyOn(queued, 'listen')
+		const port = await listeningOn(queued, 0)
+		expect(port).toBeGreaterThan(0)
+		expect(listen.mock.calls[0]?.[0]).toEqual({ port: 0, backlog: 4096 })
+		await new Promise((done) => queued.close(done))
 	})
 
 	it('names a port in use', async () => {

@@ -267,6 +267,32 @@ for production yet, and fixes ship as 0.1.x or 0.2.
       on 25 rows), 305 KiB per subscription to 1000 rows, a subscription
       reading its window alone, and a lost link or role passing over the
       whole window (`bench/realtime/README.md`).
+- [x] A live list costs what its readers see, whatever its size (D-252).
+- [x] A big live list makes nobody wait, not even a slow client (D-254).
+- [x] A write costs its readers, whoever else is connected (D-255).
+- [x] A write visits the reads it can concern (D-256).
+- [x] The adapter writes its SQL itself, Kysely runs it (D-257).
+- [x] A read sees only the rows that lead to it (D-258).
+- [x] A rule the rows of a flush answer needs no query (D-259).
+- [x] A live function is given only the rows that lead to its reads (D-260).
+- [x] A flush reads the rows it expects together (D-261).
+- [x] A live read names its viewer only where a rule says more (D-262).
+- [x] A flush reads the rows related to its rows together (D-263).
+- [x] A composed statement is prepared once per connection (D-264).
+- [x] Subscribers of one row share its execution (D-265).
+- [x] Only messages above 1 KB are compressed (D-266).
+- [x] Subscribers of one row share it whatever window they follow (D-267).
+- [x] A document is read and validated once (D-268).
+- [x] A socket keeps a small compressor (D-269).
+- [x] A big list reads a few parts at once (D-270).
+- [x] A change after a quiet goes at once (D-271).
+- [x] A big live window runs in parts, so that the others wait for a part (D-272).
+- [x] Only messages above 2 KB are compressed (D-273).
+- [x] `postgres({ prepared: false })` runs every statement unnamed (D-274).
+- [x] `liveFetch` reconnects at a random moment of its wait (D-275).
+- [x] The server's connection queue holds 4096 (D-276).
+- [x] A few connections open at once (D-277).
+- [x] A failure of the server closes a socket with `1013`, not `4403` (D-278).
 - [x] Refuse breached and common passwords (NIST SP 800-63B §5.1.1.2):
       `passwordPlugin({ breached: true })`, and never the email (D-209).
 

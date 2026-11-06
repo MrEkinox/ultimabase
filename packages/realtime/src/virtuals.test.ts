@@ -16,6 +16,8 @@ import { realtime, realtimePlugin } from './index.ts'
 
 const M = { as: master }
 let runs = 0
+/** What a run waits for once it read, when a test holds it. */
+let gate: Promise<void> | undefined
 
 const Project = defineModel({
 	name: 'Project',
@@ -44,6 +46,7 @@ const Project = defineModel({
 				const counts = new Map(
 					groups.map((group) => [group.project?.id, group._count]),
 				)
+				await gate
 				return ids.map((id) => counts.get(id) ?? 0)
 			},
 		},
@@ -134,6 +137,30 @@ describe('a virtual that reads another model', () => {
 		await Task.update({ where: { id: created.id }, data: { done: true } }, M)
 		await vi.waitFor(() => expect(seen).toHaveLength(3))
 		expect(seen[2]).toMatchObject({ row: { name: 'A', openTasks: 0 } })
+	})
+
+	it('follows a write made during its first read, out of its reach', async () => {
+		if (api === undefined) throw new Error('No realtime API.')
+		const viewer = await api.connect(new Request('http://localhost/'))
+		const seen: LiveMessage[] = []
+		const { promise, resolve: release } = Promise.withResolvers<void>()
+		gate = promise
+		runs = 0
+		const opening = viewer.row(
+			'Project',
+			{ where: { id: a }, select: { name: true, openTasks: true } },
+			(message) => seen.push(message),
+		)
+		await vi.waitFor(() => expect(runs).toBe(1))
+		await new Promise((done) => setTimeout(done, 20))
+		await task(a)
+		await quiet()
+		gate = undefined
+		release()
+		await opening
+		await vi.waitFor(() =>
+			expect(seen.at(-1)).toMatchObject({ row: { openTasks: 1 } }),
+		)
 	})
 
 	it('sends again only the rows of a live list whose value changed', async () => {
