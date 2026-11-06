@@ -12,8 +12,9 @@ sends its rows once, then only what changed.
 - `src/history.ts`: a list longer than a live list should be, the first tasks
   live and the others read once.
 - `src/TaskList.tsx`: a React component that follows the tasks through Apollo.
-- `src/results.ts`: what the tests do around a subscription, so that their
-  regions hold what a developer writes.
+- `src/follow.ts`: a client that keeps a live list up to date with `applyLive`.
+- `src/requests/`: the subscriptions and the messages the page shows.
+- `src/results.ts`: what the tests do around a subscription.
 - `src/app.test.ts`: a live list over GraphQL and over Server-Sent Events,
   a live row, page mode, the live function and the limits.
 - `src/react.test.ts`: a React component following the list through Apollo.

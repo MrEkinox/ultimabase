@@ -18514,13 +18514,16 @@ Everything shown stays executed; what changes is which code is shown. It held fi
    with its HTTP grammar `requests/<name>.http`, and a response `requests/<name>.json`, each included
    whole. The example's test sends the file and compares the response with the JSON file, parsed.
    `scripts/requests.ts` does this for the tests. It is no public API, and no package holds it. A
-   `.graphql` file starts with `query` or `mutation`, even where GraphQL lets a query omit it.
+   `.graphql` file starts with `query`, `mutation` or `subscription`, even where GraphQL lets a query
+   omit it. Each message a subscription receives is a response file too: the test compares it as it
+   arrives.
    What a command prints is `requests/<name>.console`: each `$ npx ultimabase …` line and its output,
    with the variables it sets, as a developer sees them in a terminal. The test runs each line and
    compares the output. A `bash` block in a page holds commands only. A migration a page shows is its
    real `.sql` file, included whole.
 3. **What changes at each run reads `…`** in a response file. The test replaces the values of `id`,
-   `cursor`, `startCursor`, `endCursor`, `createdAt`, `updatedAt` and `correlationId` before comparing.
+   `cursor`, `startCursor`, `endCursor`, `createdAt`, `updatedAt`, `correlationId`, `resume` and `remove`
+   before comparing.
    A value the file must name, as an id in a REST path, is written `$id` in an `.http` file, as in
    GraphQL, and the test passes it.
 4. **A long model is shown in pieces.** A region may be a fragment, as one hook of a `hooks` object. A

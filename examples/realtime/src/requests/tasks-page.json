@@ -1,0 +1,11 @@
+{
+	"data": {
+		"tasks": {
+			"edges": [
+				{ "node": { "id": "…", "title": "a" } },
+				{ "node": { "id": "…", "title": "b" } }
+			]
+		}
+	},
+	"extensions": { "live": { "revision": 1, "resume": "…" } }
+}

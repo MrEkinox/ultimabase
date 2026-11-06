@@ -49,32 +49,32 @@ query it follows: replace `query` by `subscription`. GraphQL subscriptions go
 over WebSocket, on the GraphQL path, with
 [graphql-ws](https://the-guild.dev/graphql/ws).
 
-The tests hold tasks `a`, `b` and `c`, ranked 1 to 3, and write `M` for
-`{ as: master }`. `wsUrl` is `running.url.replace(/^http/, 'ws')`, the server's
-address with the `ws` scheme, and `next(results)` reads the next result. The client:
+With tasks `a`, `b` and `c`, ranked 1 to 3:
 
-<include cwd meta='title="src/app.test.ts"'>
-	../examples/realtime/src/app.test.ts#client
+<include cwd meta='title="Request"'>
+	../examples/realtime/src/requests/tasks.graphql
 </include>
 
-The first result is the list, `{ data }`, and `titles(tasks)` reads its
-titles:
+The first result is the list, `data`, with its `revision` and the `resume`
+token under `extensions.live`:
 
-<include cwd meta='title="src/app.test.ts"'>
-	../examples/realtime/src/app.test.ts#list
+<include cwd meta='title="Response"'>
+	../examples/realtime/src/requests/tasks.json
 </include>
 
 Each later result holds only what changed, under `extensions.live`. Here a task
-ranked 0 enters first, and `b` leaves the window of two, as `remove: b`:
+`new`, ranked 0, enters first, and `b` leaves the window of two, as `remove`:
 
-<include cwd meta='title="src/app.test.ts"'>
-	../examples/realtime/src/app.test.ts#changes
+<include cwd meta='title="Response"'>
+	../examples/realtime/src/requests/tasks-change.json
 </include>
 
-`applyLive`, from `@ultimabase/live`, applies the changes to the list:
+A client connects with `createClient({ url: 'ws://localhost:3000/graphql' })`,
+from graphql-ws. `applyLive`, from `@ultimabase/live`, applies each change to
+the list it holds, here to `new` and `a`:
 
-<include cwd meta='title="src/app.test.ts"'>
-	../examples/realtime/src/app.test.ts#apply
+<include cwd meta='title="src/follow.ts"'>
+	../examples/realtime/src/follow.ts#follow
 </include>
 
 - A list follows a window from the top of its order: `first` rows, grown
@@ -84,25 +84,45 @@ ranked 0 enters first, and `b` leaves the window of two, as `remove: b`:
 ## A live row
 
 A row subscription takes `where: { id }`, as its query, and sends the whole
-row again on each change:
+row again on each change. `$id` is the id of `a`:
 
-<include cwd meta='title="src/app.test.ts"'>
-	../examples/realtime/src/app.test.ts#row
+<include cwd meta='title="Request"'>
+	../examples/realtime/src/requests/task.graphql
+</include>
+
+<include cwd meta='title="Response"'>
+	../examples/realtime/src/requests/task.json
+</include>
+
+Once `a` is done:
+
+<include cwd meta='title="Response"'>
+	../examples/realtime/src/requests/task-done.json
 </include>
 
 It sends `null` once the row is deleted or the caller can no longer read it:
 
-<include cwd meta='title="src/app.test.ts"'>
-	../examples/realtime/src/app.test.ts#row-change
+<include cwd meta='title="Response"'>
+	../examples/realtime/src/requests/task-deleted.json
 </include>
 
 ## Page mode
 
-A client without `@ultimabase/live` asks for page mode, and gets the whole
-window, `{ data }`, on each change:
+A client without `@ultimabase/live` asks for page mode, with the `query` above,
+and gets the whole window on each change:
 
 <include cwd meta='title="src/app.test.ts"'>
 	../examples/realtime/src/app.test.ts#page
+</include>
+
+<include cwd meta='title="Response"'>
+	../examples/realtime/src/requests/tasks-page.json
+</include>
+
+Once `new` is created:
+
+<include cwd meta='title="Response"'>
+	../examples/realtime/src/requests/tasks-page-change.json
 </include>
 
 Its `first` is at most the model's `maxTake`, 100 by default, since each change
@@ -149,14 +169,16 @@ rows to the list on the same socket, and `fetchingMore`, true while it runs:
 
 A REST list or row URL with `Accept: text/event-stream` is live too.
 `liveFetch(url, { headers })` sets the header, applies the changes, and hands
-each listener the whole result:
+each listener the whole result, here `a` and `b`. `running.url` is the server's
+address:
 
 <include cwd meta='title="src/app.test.ts"'>
 	../examples/realtime/src/app.test.ts#sse
 </include>
 
 It reads over `fetch`, so it sends an `Authorization` header, which
-`EventSource` cannot. `fetchMore` grows the list, as in React:
+`EventSource` cannot. `fetchMore` grows the list, as in React, here to `a`, `b`
+and `c`:
 
 <include cwd meta='title="src/app.test.ts"'>
 	../examples/realtime/src/app.test.ts#sse-more
@@ -180,8 +202,18 @@ same.
 GraphQL adds a `Subscription` field of its name; REST serves its `GET` route
 as a stream:
 
-<include cwd meta='title="src/app.test.ts"'>
-	../examples/realtime/src/app.test.ts#function
+<include cwd meta='title="Request"'>
+	../examples/realtime/src/requests/tasks-left.graphql
+</include>
+
+<include cwd meta='title="Response"'>
+	../examples/realtime/src/requests/tasks-left.json
+</include>
+
+Once a task is done:
+
+<include cwd meta='title="Response"'>
+	../examples/realtime/src/requests/tasks-left-change.json
 </include>
 
 - A run waits for 50 ms of quiet after a write, and at most a second.
@@ -257,7 +289,7 @@ switch of the application:
 </include>
 
 The sockets open close with 1012, and a new one meets the 503. `wsUrl` is the
-server's address with the `ws` scheme, as above:
+server's address with the `ws` scheme, and `query` a subscription:
 
 <include cwd meta='title="src/maintenance.test.ts"'>
 	../examples/realtime/src/maintenance.test.ts#closes
@@ -293,8 +325,12 @@ own `.with({ realtime: { maxLive } })`. Nested rows do not count: a nested list
 is bounded by its `take`. The `Task` model here sets 50. A `first` past it at
 subscribe is refused:
 
-<include cwd meta='title="src/app.test.ts"'>
-	../examples/realtime/src/app.test.ts#limits
+<include cwd meta='title="Request"'>
+	../examples/realtime/src/requests/too-many.graphql
+</include>
+
+<include cwd meta='title="Response"'>
+	../examples/realtime/src/requests/too-many.json
 </include>
 
 Over Server-Sent Events, `subscribe`'s second function gets the refusal, a

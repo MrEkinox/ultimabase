@@ -558,8 +558,8 @@ it('names the operation of every GraphQL request a page shows (D-282)', () => {
 			const [file, content = ''] = read(include.file)
 			return file.endsWith('.graphql') &&
 				requestFile.test(file) &&
-				!/^(?:query|mutation)\b/u.test(content)
-				? [`${page}: ${file} starts with neither query nor mutation.`]
+				!/^(?:query|mutation|subscription)\b/u.test(content)
+				? [`${page}: ${file} starts with no operation.`]
 				: []
 		}),
 	)

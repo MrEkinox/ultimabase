@@ -13,6 +13,8 @@ const changing = new Set([
 	'createdAt',
 	'updatedAt',
 	'correlationId',
+	'resume',
+	'remove',
 ])
 
 const steady = (body: unknown): unknown =>
@@ -102,6 +104,14 @@ export function requestFiles(directory: URL, server: { readonly url: string }) {
 			? send(read(`${name}.graphql`), variables, sending)
 			: sendHttp(read(`${name}.http`), variables, sending)
 
+	/** Expects a body to be `requests/<name>.json`, or empty without that file. */
+	const matches = (name: string, body: unknown): void => {
+		const expected: unknown = existsSync(path(`${name}.json`))
+			? JSON.parse(read(`${name}.json`))
+			: undefined
+		expect(steady(body)).toEqual(expected)
+	}
+
 	/**
 	 * Sends a request file, and expects its `.json`, or an empty body without
 	 * one; returns the body as sent.
@@ -112,12 +122,12 @@ export function requestFiles(directory: URL, server: { readonly url: string }) {
 		sending: Sending = {},
 	): Promise<unknown> => {
 		const body = await file(name, variables, sending)
-		const expected: unknown = existsSync(path(`${name}.json`))
-			? JSON.parse(read(`${name}.json`))
-			: undefined
-		expect(steady(body)).toEqual(expected)
+		matches(name, body)
 		return body
 	}
 
-	return { send, file, check }
+	/** The text of `requests/<name>.graphql`, for a client of its own. */
+	const document = (name: string): string => read(`${name}.graphql`)
+
+	return { send, file, check, matches, document }
 }

@@ -70,7 +70,7 @@
 			"rules": {
 				"vitest/expect-expect": [
 					"error",
-					{ "assertFunctionNames": ["expect", "check", "play"] }
+					{ "assertFunctionNames": ["expect", "check", "matches", "play"] }
 				]
 			}
 		}

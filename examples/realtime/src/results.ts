@@ -1,19 +1,10 @@
-// What the tests do around a subscription, so that their short regions, shown
-// on the page, hold only what a developer writes (D-282).
+// What the tests do around a subscription (D-282).
 import { master } from 'ultimabase'
+import type { Tasks } from './follow.ts'
 import { Task } from './models.ts'
 
 /** What a test writes with, with no access rule in its way. */
 export const M = { as: master } as const
-
-/** The `tasks` list a subscription of `tasks` selects. */
-export type Tasks = {
-	readonly tasks: {
-		readonly edges: readonly {
-			readonly node: { readonly id: string; readonly title: string }
-		}[]
-	}
-}
 
 /** The next result of a subscription. */
 export async function next<T>(results: AsyncIterator<T>): Promise<T> {
