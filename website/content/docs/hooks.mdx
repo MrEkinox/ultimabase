@@ -21,7 +21,8 @@ makes passes its own `{ as }`: `{ as: caller }` for the caller's rules,
 
 `beforeCreate` receives the `data` of the create; `beforeUpdate` the stored
 `record` and the `data` of the update. Each changes `data` in place, after
-the access rules and before the write:
+the access rules and before the write. `beforeCreate` runs after the defaults,
+so a field with a default is already set, in its value and in its type:
 
 <include cwd meta='title="src/app.test.ts"'>
 	../examples/hooks/src/app.test.ts#before

@@ -18333,3 +18333,50 @@ createClient({
 
 After: the same code runs only for a real refusal. A busy pool closes with `1013`, and `graphql-ws`
 reconnects by itself.
+
+## D-279: `beforeCreate` sees the defaults in its types
+
+Choice: in the `data` of `beforeCreate`, a field set by a default is not `undefined` in its type,
+because `beforeCreate` runs after the defaults (D-67).
+
+1. This holds for a fixed default, and for a function default that cannot return `undefined`.
+2. A function default that may return `undefined` keeps its field possibly `undefined`
+   (`DefaultFunction` allows it), so the type never claims what the run does not give.
+3. An optional field with a default may still be `null`: a caller may write `null`, and the default
+   takes only an absent value.
+4. A list without a default stays possibly `undefined`: the implicit `[]` of a list is written after
+   the hooks, so that a hook can tell that nothing was given.
+5. Nothing changes at run time, and nothing changes for `beforeUpdate`, where no default runs.
+
+Why: an application wrote `data.status ?? 'inProgress'` in a hook, repeating the model's default to
+satisfy a type that was wrong about the order D-67 fixes. A repeated default drifts from the model.
+
+Rejected:
+
+- Typing every field of the draft as set: a required field without a default is left to a hook
+  (D-67), and a list is only filled after it.
+- A separate draft type per default kind in the public API: one conditional type states the rule, and
+  applications never name it.
+
+Example, before: the default is repeated.
+
+```ts
+const Quest = defineModel('Quest', {
+	status: f.enumOf(['inProgress', 'done'], { default: 'inProgress' }),
+	rank: f.number(),
+}).with({
+	hooks: {
+		beforeCreate: ({ data }) => {
+			data.rank = ranks[data.status ?? 'inProgress']
+		},
+	},
+})
+```
+
+After: the model says it once.
+
+```ts
+beforeCreate: ({ data }) => {
+	data.rank = ranks[data.status]
+},
+```
