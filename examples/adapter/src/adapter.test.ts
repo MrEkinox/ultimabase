@@ -38,7 +38,6 @@ const log = (message: unknown) => {
 }
 const logger: Logger = { info: log, warn: log, error: log, child: () => logger }
 
-//#region schema
 /** What `start` receives for `Author` and `Post`. */
 const schema: Schema = {
 	models: [
@@ -53,6 +52,7 @@ const schema: Schema = {
 					optional: false,
 					unique: false,
 				},
+				//#region schema-many
 				{
 					kind: 'many',
 					name: 'posts',
@@ -60,6 +60,7 @@ const schema: Schema = {
 					inverse: 'author',
 					join: false,
 				},
+				//#endregion
 			],
 			indexes: [],
 		},
@@ -74,6 +75,7 @@ const schema: Schema = {
 					optional: false,
 					unique: true,
 				},
+				//#region schema-scalar
 				{
 					kind: 'scalar',
 					name: 'views',
@@ -84,6 +86,8 @@ const schema: Schema = {
 					unique: false,
 					default: 0,
 				},
+				//#endregion
+				//#region schema-one
 				{
 					kind: 'one',
 					name: 'author',
@@ -95,12 +99,12 @@ const schema: Schema = {
 					optional: false,
 					onDelete: 'restrict',
 				},
+				//#endregion
 			],
 			indexes: [],
 		},
 	],
 }
-//#endregion
 
 /** memory(), recording the schema, reads and writes the kernel sends. */
 function recorded() {
@@ -132,20 +136,22 @@ it('receives the models, the reads and the writes, prepared', async () => {
 	const app = defineApp({ database: adapter, logger, models: [Author, Post] })
 	await app.start()
 	expect(sent.schema).toEqual(schema)
-	//#region write
 	const ada = await Author.create({ data: { name: 'Ada' } }, M)
 	await Post.create(
 		{ data: { slug: 'hello', author: { connect: { id: ada.id } } } },
 		M,
 	)
 	expect(sent.writes[1]).toEqual({
+		//#region write-checks
 		// Written only when the author exists: one row, counted first.
 		checks: [{ model: 'Author', where: { id: { in: [ada.id] } }, count: 1 }],
-		// The id, the dates and the defaults are set; the key is the author's id.
+		//#endregion
 		changes: [
 			{
 				kind: 'insert',
 				model: 'Post',
+				//#region write-row
+				// The id, the dates and the defaults are set; the key is the author's id.
 				row: {
 					id: anId,
 					createdAt: aDate,
@@ -154,21 +160,23 @@ it('receives the models, the reads and the writes, prepared', async () => {
 					views: 0,
 					author: ada.id,
 				},
+				//#endregion
 			},
 		],
+		//#region write-read
 		// The rows the write returns, read in the same write.
 		read: {
 			model: 'Post',
 			where: { id: { equals: anId } },
 			fields: ['id', 'createdAt', 'updatedAt', 'slug', 'views'],
 		},
+		//#endregion
 	})
-	//#endregion
-	//#region read
 	await Post.findMany(
 		{ where: { slug: 'hello' }, include: { author: true } },
 		M,
 	)
+	//#region read
 	expect(sent.reads.at(-1)).toEqual({
 		model: 'Post',
 		// `{ slug: 'hello' }`, normalized.
@@ -201,6 +209,9 @@ const post = (id: string, slug: string, views = 0) => ({
 	author: 'a1',
 })
 
+const hello = post('p1', 'hello')
+const other = post('p3', 'other')
+
 it('throws the errors the kernel reports', async () => {
 	const adapter = await started()
 	await adapter.write({
@@ -210,10 +221,11 @@ it('throws the errors the kernel reports', async () => {
 	})
 	//#region unique-violation
 	await adapter.write({
-		changes: [{ kind: 'insert', model: 'Post', row: post('p1', 'hello') }],
+		changes: [{ kind: 'insert', model: 'Post', row: hello }],
 	})
+	// The same slug under another id.
 	const again = adapter.write({
-		changes: [{ kind: 'insert', model: 'Post', row: post('p2', 'hello') }],
+		changes: [{ kind: 'insert', model: 'Post', row: { ...hello, id: 'p2' } }],
 	})
 	await expect(again).rejects.toBeInstanceOf(UniqueViolation)
 	await expect(again).rejects.toMatchObject({
@@ -225,7 +237,7 @@ it('throws the errors the kernel reports', async () => {
 	// A connected author that is gone: the first check counts 0, not 1.
 	const connected = adapter.write({
 		checks: [{ model: 'Author', where: { id: { in: ['gone'] } }, count: 1 }],
-		changes: [{ kind: 'insert', model: 'Post', row: post('p3', 'other') }],
+		changes: [{ kind: 'insert', model: 'Post', row: other }],
 	})
 	await expect(connected).rejects.toBeInstanceOf(CheckFailed)
 	await expect(connected).rejects.toMatchObject({ index: 0 })
@@ -233,6 +245,7 @@ it('throws the errors the kernel reports', async () => {
 	expect(await adapter.count({ model: 'Post' })).toBe(1)
 	//#endregion
 	//#region out-of-range
+	// Past the largest integer, 2 ** 31 - 1.
 	const increment = adapter.write({
 		changes: [
 			{
@@ -244,6 +257,8 @@ it('throws the errors the kernel reports', async () => {
 			},
 		],
 	})
+	//#endregion
+	//#region out-of-range-thrown
 	await expect(increment).rejects.toBeInstanceOf(OutOfRange)
 	await expect(increment).rejects.toMatchObject({
 		model: 'Post',
@@ -262,8 +277,10 @@ it('reports a relation refused by a race', async () => {
 			throw new RelationViolation('Post', 'author', 'Author', false)
 		},
 	}
+	//#endregion
 	const app = defineApp({ database: racing, logger, models: [Author, Post] })
 	await app.start()
+	//#region relation-refused
 	const connect = { id: 'a1' }
 	await expect(
 		Post.create({ data: { slug: 'hello', author: { connect } } }, M),
@@ -276,7 +293,6 @@ it('reports a relation refused by a race', async () => {
 })
 
 it('runs a serializable transaction again on a conflict', async () => {
-	//#region conflict
 	const inner = memory()
 	// The database aborts the first commit for a conflict with another.
 	let conflicts = 1
@@ -286,12 +302,14 @@ it('runs a serializable transaction again on a conflict', async () => {
 			const tx = await inner.begin(asked)
 			return {
 				...tx,
+				//#region conflict
 				commit: async () => {
 					if (conflicts === 0) return tx.commit()
 					conflicts -= 1
 					await tx.rollback()
 					throw new Conflict()
 				},
+				//#endregion
 			}
 		},
 	}
@@ -301,6 +319,7 @@ it('runs a serializable transaction again on a conflict', async () => {
 		models: [Author, Post],
 	})
 	await app.start()
+	//#region conflict-retry
 	let attempts = 0
 	await transaction(
 		async () => {
@@ -316,7 +335,6 @@ it('runs a serializable transaction again on a conflict', async () => {
 })
 
 it('reports a statement the database refused', async () => {
-	//#region migration-failed
 	const sql = 'CREATE TABLE "Post" ()'
 	const refusing: Adapter = {
 		...memory(),
@@ -324,13 +342,16 @@ it('reports a statement the database refused', async () => {
 			snapshot: () => ({}),
 			plan: () => [{ sql, model: 'Post', does: 'created' }],
 			stored: async () => undefined,
+			//#region migration-apply
 			apply: async () => {
 				throw new MigrationFailed(sql, 'permission denied for schema public')
 			},
+			//#endregion
 			reset: async () => [],
 		},
 	}
 	const app = defineApp({ database: refusing, logger, models: [Author, Post] })
+	//#region migration-failed
 	await expect(app.start()).rejects.toThrow(
 		[
 			'UltimaBase did not sync Post: the database refused it.',
@@ -342,9 +363,9 @@ it('reports a statement the database refused', async () => {
 })
 
 it('sends each commit to the feed', async () => {
-	//#region feed
 	const fed: (readonly Changed[])[] = []
 	const adapter = await started({ changed: (changes) => fed.push(changes) })
+	//#region feed
 	await adapter.write({
 		changes: [
 			{ kind: 'insert', model: 'Author', row: { ...author, name: 'Ada' } },
@@ -358,9 +379,9 @@ it('sends each commit to the feed', async () => {
 })
 
 it('leaves out the lists past their limits', async () => {
-	//#region feed-limits
 	const fed: (readonly Changed[])[] = []
 	const adapter = await started({ changed: (changes) => fed.push(changes) })
+	//#region feed-limits
 	const rows = Array.from({ length: feedIds + 1 }, (_, index) => ({
 		...author,
 		id: `a${String(index)}`,
@@ -375,9 +396,10 @@ it('leaves out the lists past their limits', async () => {
 })
 
 it('leaves out the fields past their limit', async () => {
-	//#region feed-fields
-	// An update's fields, as JSON, longer than `feedFields`: the change lists none.
+	//#region feed-long
+	// A field name as long as `feedFields`: the list of fields, as JSON, is longer.
 	const long = 'x'.repeat(feedFields)
+	//#endregion
 	const wide: SchemaModel = {
 		name: 'Wide',
 		fields: [
@@ -393,17 +415,18 @@ it('leaves out the fields past their limit', async () => {
 		indexes: [],
 	}
 	const feed: (readonly Changed[])[] = []
-	const other = memory()
-	await other.start({ models: [wide] }, logger, {
+	const watched = memory()
+	await watched.start({ models: [wide] }, logger, {
 		changed: (changes) => feed.push(changes),
 		missed: () => {},
 	})
-	await other.write({
+	await watched.write({
 		changes: [
 			{ kind: 'insert', model: 'Wide', row: { ...author, [long]: null } },
 		],
 	})
-	await other.write({
+	//#region feed-fields
+	await watched.write({
 		changes: [
 			{
 				kind: 'update',
@@ -413,6 +436,8 @@ it('leaves out the fields past their limit', async () => {
 			},
 		],
 	})
+	//#endregion
+	//#region feed-fields-result
 	await expect
 		.poll(() => feed[1])
 		.toEqual([{ kind: 'update', model: 'Wide', ids: ['a1'] }])
@@ -420,12 +445,12 @@ it('leaves out the fields past their limit', async () => {
 })
 
 it('logs a slow call', async () => {
-	//#region slow
 	const warnings: unknown[] = []
 	const warn = (message: unknown) => {
 		warnings.push(message)
 	}
 	const capturing: Logger = { ...logger, warn, child: () => capturing }
+	//#region slow
 	// From 0 ms, every call is slow.
 	const app = defineApp({
 		database: timed(memory(), { slow: 0 }),

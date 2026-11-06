@@ -8,6 +8,8 @@ models.
 
 - `src/models.ts`: the `Project` and `Task` models.
 - `src/app.ts`: the application, on `DATABASE_URL`.
+- `src/requests/`: the requests and responses the page shows.
+- `src/open-tasks.ts`: a plugin that counts the open tasks again in `missed`.
 - `ultimabase.config.ts`: what the `ultimabase` commands run.
 - `migrations/`: the first migration, which creates both tables; one that
   adds `Task.priority`; one of SQL written by hand, for the rows; one that

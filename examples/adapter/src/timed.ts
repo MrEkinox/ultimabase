@@ -47,9 +47,9 @@ export function timed(adapter: Adapter, options: TimedOptions = {}): Timed {
 		}
 	//#endregion
 
-	//#region transaction
 	/** A transaction's calls, each a round trip, its commit included. */
 	const timedTransaction = (tx: Transaction): Transaction => ({
+		//#region transaction
 		find: trip(
 			(read) => `find ${read.model}`,
 			async (read) => tx.find(read),
@@ -74,8 +74,8 @@ export function timed(adapter: Adapter, options: TimedOptions = {}): Timed {
 			() => 'rollback',
 			async () => tx.rollback(),
 		),
+		//#endregion
 	})
-	//#endregion
 
 	return {
 		//#region start

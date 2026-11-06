@@ -1,0 +1,5 @@
+mutation ($id: ID!) {
+	updatePost(where: { id: $id }, data: { published: true }) {
+		published
+	}
+}

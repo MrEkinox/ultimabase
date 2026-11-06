@@ -79,21 +79,38 @@ export const app = defineApp({
 })
 ```
 
-A client gets the published post, and never the draft:
+Your server code, acting as `master`, past every rule, writes a published post
+and a draft:
 
-<!-- examples/introduction/src/app.test.ts#read -->
+<!-- examples/introduction/src/app.test.ts#seed -->
 
 ```ts
-// `{ as: master }` is your server code, past every rule: it writes a
-// published post and a draft.
 await Post.createMany(
 	{ data: [{ title: 'Hello', published: true }, { title: 'Draft' }] },
 	{ as: master },
 )
-// `request` sends a GraphQL query as an anonymous client would.
-expect(await request('{ posts { edges { node { title } } } }')).toEqual({
-	data: { posts: { edges: [{ node: { title: 'Hello' } }] } },
-})
+```
+
+A client asks over GraphQL, and gets the published post, never the draft:
+
+<!-- examples/introduction/src/requests/read-posts.graphql -->
+
+```graphql
+query {
+	posts {
+		edges {
+			node {
+				title
+			}
+		}
+	}
+}
+```
+
+<!-- examples/introduction/src/requests/read-posts.json -->
+
+```json
+{ "data": { "posts": { "edges": [{ "node": { "title": "Hello" } }] } } }
 ```
 
 Your own server code is held to the same rule, and its results are typed

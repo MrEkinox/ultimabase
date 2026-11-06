@@ -1,0 +1,1 @@
+GET /api/posts?where={"likes":{"gt":10}}&select={"title":true,"author":{"select":{"name":true}}}

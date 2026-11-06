@@ -1,0 +1,9 @@
+POST /api/posts
+content-type: application/json
+
+{
+	"title": "Launch",
+	"slug": "launch",
+	"publishedAt": "2026-07-31T09:00:00.000Z",
+	"author": { "connect": { "id": "$id" } }
+}

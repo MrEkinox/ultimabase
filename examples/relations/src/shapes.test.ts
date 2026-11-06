@@ -1,5 +1,6 @@
 // The other shapes of a relation, written and read from server code as
-// Master, each test on a new in-memory database.
+// Master, each test on a new in-memory database. Its short regions are shown
+// on the page (D-282).
 import { testApplication } from '@ultimabase/testing'
 import { master } from 'ultimabase'
 import { expect, it } from 'vitest'
@@ -29,33 +30,37 @@ import {
 
 testApplication(app)
 
+const as = { as: master }
+
 it('creates, reads and deletes the card of a member', async () => {
 	//#region one-to-one-write
 	const ada = await Member.create(
 		{ data: { name: 'Ada', card: { create: { number: 'C-1' } } } },
-		{ as: master },
+		as,
 	)
 	const card = await Card.findUniqueOrThrow(
 		{ where: { number: 'C-1' }, include: { member: true } },
-		{ as: master },
+		as,
 	)
 	expect(card.member?.name).toBe('Ada')
+	//#endregion
+	//#region one-to-one-update
 	await Member.update(
 		{ where: { id: ada.id }, data: { card: { update: { number: 'C-2' } } } },
-		{ as: master },
+		as,
 	)
 	// `delete: true` on the optional side deletes the linked card.
 	await Member.update(
 		{ where: { id: ada.id }, data: { card: { delete: true } } },
-		{ as: master },
+		as,
 	)
 	//#endregion
 	const read = await Member.findUniqueOrThrow(
 		{ where: { id: ada.id }, include: { card: true } },
-		{ as: master },
+		as,
 	)
 	expect(read.card).toBeNull()
-	expect(await Card.count({}, { as: master })).toBe(0)
+	expect(await Card.count({}, as)).toBe(0)
 })
 
 it('nests categories, and empties a parent that is deleted', async () => {
@@ -64,21 +69,21 @@ it('nests categories, and empties a parent that is deleted', async () => {
 		{
 			data: {
 				name: 'Fiction',
-				children: {
-					create: [{ name: 'Fantasy' }, { name: 'Science fiction' }],
-				},
+				children: { create: [{ name: 'Fantasy' }, { name: 'Horror' }] },
 			},
 		},
-		{ as: master },
+		as,
 	)
-	await Category.delete({ where: { id: fiction.id } }, { as: master })
+	//#endregion
+	//#region self-delete
+	await Category.delete({ where: { id: fiction.id } }, as)
 	const left = await Category.findMany(
 		{ orderBy: { name: 'asc' }, include: { parent: true } },
-		{ as: master },
+		as,
 	)
 	expect(left.map(({ name, parent }) => [name, parent])).toEqual([
 		['Fantasy', null],
-		['Science fiction', null],
+		['Horror', null],
 	])
 	//#endregion
 })
@@ -86,80 +91,72 @@ it('nests categories, and empties a parent that is deleted', async () => {
 it('unlinks an optional relation', async () => {
 	const fiction = await Category.create(
 		{ data: { name: 'Fiction', children: { create: [{ name: 'Fantasy' }] } } },
-		{ as: master },
+		as,
 	)
 	const fantasy = await Category.findFirstOrThrow(
 		{ where: { name: 'Fantasy' } },
-		{ as: master },
+		as,
 	)
 	//#region disconnect-one
 	await Category.update(
 		{ where: { id: fantasy.id }, data: { parent: { disconnect: true } } },
-		{ as: master },
+		as,
 	)
 	//#endregion
 	const read = await Category.findUniqueOrThrow(
 		{ where: { id: fiction.id }, include: { children: true } },
-		{ as: master },
+		as,
 	)
 	expect(read.children).toEqual([])
 })
 
 it('reads the two relations between branches', async () => {
-	//#region inverse-read
-	const paris = await Branch.create({ data: { city: 'Paris' } }, { as: master })
+	//#region inverse-write
+	const paris = await Branch.create({ data: { city: 'Paris' } }, as)
+	const transfer = { copies: 12, from: { connect: { id: paris.id } } }
 	await Branch.create(
-		{
-			data: {
-				city: 'Lyon',
-				incoming: {
-					create: [{ copies: 12, from: { connect: { id: paris.id } } }],
-				},
-			},
-		},
-		{ as: master },
+		{ data: { city: 'Lyon', incoming: { create: [transfer] } } },
+		as,
 	)
+	//#endregion
+	//#region inverse-read
 	const read = await Branch.findUniqueOrThrow(
 		{
 			where: { id: paris.id },
 			include: { outgoing: { include: { to: true } }, incoming: true },
 		},
-		{ as: master },
+		as,
 	)
-	expect(read.outgoing.map((transfer) => transfer.to?.city)).toEqual(['Lyon'])
+	expect(read.outgoing.map((sent) => sent.to?.city)).toEqual(['Lyon'])
 	expect(read.incoming).toEqual([])
 	//#endregion
 })
 
 it('links a notice to a branch that has no field for it', async () => {
+	const paris = await Branch.create({ data: { city: 'Paris' } }, as)
 	//#region one-sided-write
-	const paris = await Branch.create({ data: { city: 'Paris' } }, { as: master })
 	await Notice.create(
 		{
 			data: { text: 'Closed on Monday', branch: { connect: { id: paris.id } } },
 		},
-		{ as: master },
+		as,
 	)
+	//#endregion
+	//#region one-sided-read
 	const found = await Notice.findMany(
 		{ where: { branch: { is: { city: 'Paris' } } }, include: { branch: true } },
-		{ as: master },
+		as,
 	)
 	expect(found.map((notice) => notice.branch?.city)).toEqual(['Paris'])
 	//#endregion
 	// `onDelete: 'cascade'` deletes the notices with their branch.
-	await Branch.delete({ where: { id: paris.id } }, { as: master })
-	expect(await Notice.count({}, { as: master })).toBe(0)
+	await Branch.delete({ where: { id: paris.id } }, as)
+	expect(await Notice.count({}, as)).toBe(0)
 })
 
 it('lists books on a reading list that they have no field for', async () => {
-	const author = await Author.create(
-		{ data: { name: 'Le Guin' } },
-		{ as: master },
-	)
-	const publisher = await Publisher.create(
-		{ data: { name: 'Ace' } },
-		{ as: master },
-	)
+	const author = await Author.create({ data: { name: 'Le Guin' } }, as)
+	const publisher = await Publisher.create({ data: { name: 'Ace' } }, as)
 	const book = (title: string) =>
 		Book.create(
 			{
@@ -169,86 +166,80 @@ it('lists books on a reading list that they have no field for', async () => {
 					publisher: { connect: { id: publisher.id } },
 				},
 			},
-			{ as: master },
+			as,
 		)
 	const earthsea = await book('A Wizard of Earthsea')
 	//#region one-sided-many-write
 	const list = await ReadingList.create(
 		{
-			data: {
-				title: 'Winter',
-				books: { connect: [{ id: earthsea.id }] },
-			},
+			data: { title: 'Winter', books: { connect: [{ id: earthsea.id }] } },
 		},
-		{ as: master },
+		as,
 	)
+	//#endregion
+	//#region one-sided-many-read
 	const found = await ReadingList.findMany(
 		{
 			where: { books: { some: { title: { contains: 'Earthsea' } } } },
 			select: { title: true, books: { select: { title: true } } },
 		},
-		{ as: master },
+		as,
 	)
 	expect(found).toEqual([
 		{ title: 'Winter', books: [{ title: 'A Wizard of Earthsea' }] },
 	])
 	//#endregion
 	// Deleting a book removes it from the lists.
-	await Book.delete({ where: { id: earthsea.id } }, { as: master })
+	await Book.delete({ where: { id: earthsea.id } }, as)
 	const read = await ReadingList.findUniqueOrThrow(
 		{ where: { id: list.id }, include: { books: true } },
-		{ as: master },
+		as,
 	)
 	expect(read.books).toEqual([])
 })
 
 it('reads the members of a club through their memberships', async () => {
+	const club = await Club.create({ data: { name: 'Thursday readers' } }, as)
 	//#region join-model-write
-	const club = await Club.create(
-		{ data: { name: 'Thursday readers' } },
-		{ as: master },
-	)
+	const membership = {
+		role: 'host' as const,
+		club: { connect: { id: club.id } },
+	}
 	await Reader.create(
-		{
-			data: {
-				name: 'Grace',
-				memberships: {
-					create: [{ role: 'host', club: { connect: { id: club.id } } }],
-				},
-			},
-		},
-		{ as: master },
+		{ data: { name: 'Grace', memberships: { create: [membership] } } },
+		as,
 	)
+	//#endregion
+	//#region join-model-read
 	const read = await Club.findUniqueOrThrow(
 		{
 			where: { id: club.id },
 			include: { memberships: { include: { reader: true } } },
 		},
-		{ as: master },
+		as,
 	)
 	expect(
 		read.memberships.map(({ role, reader }) => [reader?.name, role]),
 	).toEqual([['Grace', 'host']])
 	//#endregion
-	expect(await Membership.count({}, { as: master })).toBe(1)
+	expect(await Membership.count({}, as)).toBe(1)
 })
 
 it('reads only the released volumes of a series through its view', async () => {
-	//#region view-read
+	//#region view-write
 	const series = await Series.create(
 		{
 			data: {
 				title: 'Earthsea',
 				volumes: {
-					create: [
-						{ title: 'A Wizard of Earthsea', released: true },
-						{ title: 'The Other Wind' },
-					],
+					create: [{ title: 'Wizard', released: true }, { title: 'Wind' }],
 				},
 			},
 		},
-		{ as: master },
+		as,
 	)
+	//#endregion
+	//#region view-read
 	const read = await Series.findUniqueOrThrow(
 		{
 			where: { id: series.id },
@@ -257,11 +248,9 @@ it('reads only the released volumes of a series through its view', async () => {
 				_count: { select: { volumes: true, released: true } },
 			},
 		},
-		{ as: master },
+		as,
 	)
-	expect(read.released.map((volume) => volume.title)).toEqual([
-		'A Wizard of Earthsea',
-	])
+	expect(read.released.map((volume) => volume.title)).toEqual(['Wizard'])
 	expect(read._count).toEqual({ volumes: 2, released: 1 })
 	//#endregion
 
@@ -271,35 +260,26 @@ it('reads only the released volumes of a series through its view', async () => {
 			where: { id: series.id },
 			select: { upcoming: { select: { title: true } } },
 		},
-		{ as: master },
+		as,
 	)
-	expect(next.upcoming).toEqual({ title: 'The Other Wind' })
+	expect(next.upcoming).toEqual({ title: 'Wind' })
+	//#endregion
+	//#region one-view-filter
 	// Filtered like a `one`.
 	const writing = await Series.findMany(
 		{ where: { upcoming: { isNot: null } } },
-		{ as: master },
+		as,
 	)
 	expect(writing.map((each) => each.title)).toEqual(['Earthsea'])
 	//#endregion
 })
 
 it('keeps a task within the project of its milestone', async () => {
-	//#region within-write
-	const site = await Project.create({ data: { name: 'Site' } }, { as: master })
-	const shop = await Project.create({ data: { name: 'Shop' } }, { as: master })
+	const site = await Project.create({ data: { name: 'Site' } }, as)
+	const shop = await Project.create({ data: { name: 'Shop' } }, as)
 	const beta = await Milestone.create(
 		{ data: { name: 'Beta', project: { connect: { id: site.id } } } },
-		{ as: master },
-	)
-	await Task.create(
-		{
-			data: {
-				title: 'Write the docs',
-				project: { connect: { id: site.id } },
-				milestone: { connect: { id: beta.id } },
-			},
-		},
-		{ as: master },
+		as,
 	)
 	const refused = {
 		code: 'VALIDATION_FAILED',
@@ -312,53 +292,42 @@ it('keeps a task within the project of its milestone', async () => {
 			],
 		},
 	}
+	//#region within-write
+	await Task.create(
+		{
+			data: {
+				title: 'Write the docs',
+				project: { connect: { id: site.id } },
+				milestone: { connect: { id: beta.id } },
+			},
+		},
+		as,
+	)
+	//#endregion
+	//#region within-task
 	// A task of another project cannot link the milestone.
-	await expect(
-		Task.create(
-			{
-				data: {
-					title: 'Ship',
-					project: { connect: { id: shop.id } },
-					milestone: { connect: { id: beta.id } },
-				},
-			},
-			{ as: master },
-		),
-	).rejects.toMatchObject(refused)
+	const data = {
+		title: 'Ship',
+		project: { connect: { id: shop.id } },
+		milestone: { connect: { id: beta.id } },
+	}
+	await expect(Task.create({ data }, as)).rejects.toMatchObject(refused)
+	//#endregion
+	//#region within-milestone
 	// Nor can the milestone leave its project while a task links it.
+	const move = { project: { connect: { id: shop.id } } }
 	await expect(
-		Milestone.update(
-			{
-				where: { id: beta.id },
-				data: { project: { connect: { id: shop.id } } },
-			},
-			{ as: master },
-		),
+		Milestone.update({ where: { id: beta.id }, data: move }, as),
 	).rejects.toMatchObject({ code: 'VALIDATION_FAILED' })
 	//#endregion
 })
 
 it('keeps the tasks a note links within its project', async () => {
-	//#region within-many-write
-	const site = await Project.create({ data: { name: 'Site' } }, { as: master })
-	const shop = await Project.create({ data: { name: 'Shop' } }, { as: master })
+	const site = await Project.create({ data: { name: 'Site' } }, as)
+	const shop = await Project.create({ data: { name: 'Shop' } }, as)
 	const task = await Task.create(
 		{ data: { title: 'Ship', project: { connect: { id: shop.id } } } },
-		{ as: master },
-	)
-	const note = await Note.create(
-		{
-			data: {
-				text: 'Release plan',
-				project: { connect: { id: site.id } },
-				tasks: {
-					create: [
-						{ title: 'Write the docs', project: { connect: { id: site.id } } },
-					],
-				},
-			},
-		},
-		{ as: master },
+		as,
 	)
 	const refused = {
 		code: 'VALIDATION_FAILED',
@@ -371,24 +340,31 @@ it('keeps the tasks a note links within its project', async () => {
 			],
 		},
 	}
-	// A task of another project cannot be linked, from either side.
-	await expect(
-		Note.update(
-			{
-				where: { id: note.id },
-				data: { tasks: { connect: [{ id: task.id }] } },
+	//#region within-many-write
+	const here = { connect: { id: site.id } }
+	const note = await Note.create(
+		{
+			data: {
+				text: 'Release plan',
+				project: here,
+				tasks: { create: [{ title: 'Write the docs', project: here }] },
 			},
-			{ as: master },
-		),
+		},
+		as,
+	)
+	//#endregion
+	//#region within-many-note
+	// A task of another project cannot be linked, from the note...
+	const link = { tasks: { connect: [{ id: task.id }] } }
+	await expect(
+		Note.update({ where: { id: note.id }, data: link }, as),
 	).rejects.toMatchObject(refused)
+	//#endregion
+	//#region within-many-task
+	// ...nor from the task.
+	const back = { notes: { connect: [{ id: note.id }] } }
 	await expect(
-		Task.update(
-			{
-				where: { id: task.id },
-				data: { notes: { connect: [{ id: note.id }] } },
-			},
-			{ as: master },
-		),
+		Task.update({ where: { id: task.id }, data: back }, as),
 	).rejects.toMatchObject({ code: 'VALIDATION_FAILED' })
 	//#endregion
 })
@@ -403,36 +379,35 @@ it('keeps a poll between 2 and 4 choices', async () => {
 			},
 			include: { choices: true },
 		},
-		{ as: master },
+		as,
 	)
+	//#endregion
+	//#region size-refused
 	// A poll with one choice cannot be created.
-	await expect(
-		Poll.create(
-			{ data: { question: 'Yes?', choices: { create: [{ label: 'Yes' }] } } },
-			{ as: master },
-		),
-	).rejects.toMatchObject({
+	const one = { question: 'Yes?', choices: { create: [{ label: 'Yes' }] } }
+	await expect(Poll.create({ data: one }, as)).rejects.toMatchObject({
 		code: 'RELATION_SIZE',
 		message: 'Poll.choices holds 2 to 4 rows: this write leaves 1.',
 		details: { model: 'Poll', field: 'choices', min: 2, max: 4, size: 1 },
 	})
+	//#endregion
+	//#region size-other-side
 	// Nor can a write from the other side leave it with one.
 	const [pizza] = poll.choices
 	await expect(
-		Choice.delete({ where: { id: pizza?.id ?? '' } }, { as: master }),
+		Choice.delete({ where: { id: pizza?.id ?? '' } }, as),
 	).rejects.toMatchObject({ code: 'RELATION_SIZE' })
+	//#endregion
+	//#region size-delete
 	// Deleting the poll deletes its choices with it.
-	await Poll.delete({ where: { id: poll.id } }, { as: master })
-	expect(await Choice.count({}, { as: master })).toBe(0)
+	await Poll.delete({ where: { id: poll.id } }, as)
+	expect(await Choice.count({}, as)).toBe(0)
 	//#endregion
 })
 
 it('relates a remark to an article or a video', async () => {
-	//#region one-of-write
-	const article = await Article.create(
-		{ data: { title: 'Looms' } },
-		{ as: master },
-	)
+	const article = await Article.create({ data: { title: 'Looms' } }, as)
+	//#region one-of-connect
 	// A write names the kind it links or creates.
 	const clear = await Remark.create(
 		{
@@ -441,66 +416,77 @@ it('relates a remark to an article or a video', async () => {
 				subject: { connect: { article: { id: article.id } } },
 			},
 		},
-		{ as: master },
+		as,
 	)
+	//#endregion
+	//#region one-of-create
+	const video = { title: 'Intro', url: 'intro.mp4' }
 	const short = await Remark.create(
 		{
 			include: { subject: true },
-			data: {
-				text: 'Short',
-				subject: { create: { video: { title: 'Intro', url: 'intro.mp4' } } },
-			},
+			data: { text: 'Short', subject: { create: { video } } },
 		},
-		{ as: master },
+		as,
 	)
+	//#endregion
+	//#region one-of-read
 	// A read gives the kind, and the row of each kind it asks for.
 	const remarks = await Remark.findMany(
 		{
 			orderBy: { text: 'asc' },
 			select: { text: true, subject: { video: { select: { url: true } } } },
 		},
-		{ as: master },
+		as,
 	)
 	expect(remarks).toEqual([
 		{ text: 'Clear', subject: { kind: 'article' } },
 		{ text: 'Short', subject: { kind: 'video', video: { url: 'intro.mp4' } } },
 	])
+	//#endregion
+	//#region one-of-narrow
 	// TypeScript narrows the value on its kind.
 	const { subject } = short
-	const video = subject?.kind === 'video' ? subject.video.id : ''
+	const id = subject?.kind === 'video' ? subject.video.id : ''
 	expect(subject).toMatchObject({ kind: 'video', video: { title: 'Intro' } })
+	//#endregion
+	//#region one-of-relink
 	// Linking another kind empties the former.
 	await Remark.update(
 		{
 			where: { id: clear.id },
-			data: { subject: { connect: { video: { id: video } } } },
+			data: { subject: { connect: { video: { id } } } },
 		},
-		{ as: master },
+		as,
 	)
-	expect(
-		await Article.findUnique(
-			{ where: { id: article.id }, include: { remarks: true } },
-			{ as: master },
-		),
-	).toMatchObject({ remarks: [] })
+	//#endregion
+	//#region one-of-relinked
+	const articles = await Article.findUnique(
+		{ where: { id: article.id }, include: { remarks: true } },
+		as,
+	)
+	expect(articles).toMatchObject({ remarks: [] })
 	//#endregion
 	//#region one-of-filter
-	// Through one kind, through the fields every kind shares, or by kind.
+	// Through one kind, or through the fields every kind shares.
 	const onIntro = await Remark.count(
 		{ where: { subject: { video: { is: { url: { equals: 'intro.mp4' } } } } } },
-		{ as: master },
+		as,
 	)
 	const startingWithI = await Remark.count(
 		{ where: { subject: { is: { title: { startsWith: 'I' } } } } },
-		{ as: master },
+		as,
 	)
+	expect([onIntro, startingWithI]).toEqual([2, 2])
+	//#endregion
+	//#region one-of-kind
+	// By kind.
 	const onArticles = await Remark.count(
 		{ where: { subject: { kind: 'article' } } },
-		{ as: master },
+		as,
 	)
-	expect([onIntro, startingWithI, onArticles]).toEqual([2, 2, 0])
+	expect(onArticles).toBe(0)
 	//#endregion
 	// Deleting the video deletes its remarks with it.
-	await Video.deleteMany({ where: {} }, { as: master })
-	expect(await Remark.count({}, { as: master })).toBe(0)
+	await Video.deleteMany({ where: {} }, as)
+	expect(await Remark.count({}, as)).toBe(0)
 })

@@ -1,0 +1,8 @@
+{
+	"data": {
+		"createAuthor": {
+			"name": "Ursula",
+			"books": { "edges": [{ "node": { "title": "The Dispossessed" } }] }
+		}
+	}
+}

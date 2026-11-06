@@ -1,0 +1,8 @@
+POST /api/posts
+content-type: application/json
+
+{
+	"title": "Notes again",
+	"slug": "notes",
+	"author": { "connect": { "id": "$id" } }
+}

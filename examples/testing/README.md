@@ -7,6 +7,7 @@ in-memory database; `asUser` acts as a signed-in user.
 - `src/models.ts`: the `Note` model.
 - `src/app.ts`: the application.
 - `src/app.test.ts`: the tests.
+- `src/requests.test.ts`: the request files its page shows.
 
 `yarn start` serves it on http://localhost:3000/graphql; `yarn vitest
 examples/testing` runs its tests.

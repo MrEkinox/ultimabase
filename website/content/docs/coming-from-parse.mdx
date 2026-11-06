@@ -25,20 +25,36 @@ from the code around a write to one line on the model.
 
 Parse keeps a right on each row: `acl.setRoleReadAccess('Project-42-Member', true)`
 on every task, and hooks that keep the role's users in step with the project. A
-right that follows from the data needs neither. Here the members of a project
-read its tasks, and a member who leaves reads none of them from the next query
-on:
+right that follows from the data needs neither. Here a task belongs to a project,
+which lists its `members`:
 
 <include cwd meta='title="src/projects.ts"'>
-	../examples/access-rules/src/projects.ts#projects
+	../examples/access-rules/src/projects.ts#imports
+</include>
+
+<include cwd meta='title="src/projects.ts"'>
+	../examples/access-rules/src/projects.ts#task-fields
+</include>
+
+The members of the project read its tasks, and a member who leaves reads none of
+them from the next query on:
+
+<include cwd meta='title="src/projects.ts"'>
+	../examples/access-rules/src/projects.ts#task-read
 </include>
 
 The full example, with its tests: [`examples/access-rules`](https://github.com/MrEkinox/ultimabase/tree/main/examples/access-rules).
 
-The filter joins every query on the model, so pages and counts stay exact. A
-right that does not follow from the data keeps its Parse form:
-[`hasRole('admin')`](/docs/next/roles) for a right given to a person across the
-application, and an [`ACL`](/docs/next/acl) for one a user chooses row by row.
+The filter joins every query on the model, so pages and counts stay exact.
+[Rights from a relation](/docs/next/access#rights-from-a-relation) covers the
+rest of this example, as who may write a task.
+
+A right that does not follow from the data keeps its Parse form:
+
+- [`hasRole('admin')`](/docs/next/roles), for a right given to a person across
+  the application.
+- An [`ACL`](/docs/next/acl), for one a user chooses row by row.
+
 Both match Parse's, so a migration may start with them and move a group's rights
 to a filter later. [Rules, roles or ACL](/docs/next/access#rules-roles-or-acl)
 says which fits.
@@ -52,10 +68,18 @@ that work by hand.
 
 Here `realtime()` in the model's `use` makes its reads live: a client subscribes
 to the query it would run, and gets the list once, then only what changed, under
-its read rules. A row that leaves the caller's rights leaves the list:
+its read rules. A row that leaves the caller's rights leaves the list.
+
+The query, written as a `subscription`:
 
 <include cwd meta='title="src/TaskList.tsx"'>
-	../examples/realtime/src/TaskList.tsx#component
+	../examples/realtime/src/TaskList.tsx#document
+</include>
+
+A component reads it with `useLiveSubscription`, from `@ultimabase/live/react`:
+
+<include cwd meta='title="src/TaskList.tsx"'>
+	../examples/realtime/src/TaskList.tsx#list
 </include>
 
 [Realtime](/docs/next/realtime) covers the Apollo link, a list's window and the
@@ -65,9 +89,12 @@ limits.
 
 In Parse, `Parse.Cloud.afterDelete('Author', …)` finds the author's books and
 calls `Parse.Object.destroyAll(books, { useMasterKey: true })`, and a failure
-halfway leaves the rest behind. Here the relation says it, as `Task.project` does
-above, with `f.one(() => Author, { onDelete: 'cascade' })`, and the delete is one
-transaction:
+halfway leaves the rest behind.
+
+Here the relation says it, as `Task.project` does above, with
+`f.one(() => Author, { onDelete: 'cascade' })`, and the delete is one
+transaction. Deleting the author `ursula` deletes her two books of the three, and
+their links to tags; the tags stay. The test writes `as` for `{ as: master }`:
 
 <include cwd meta='title="src/queries.test.ts"'>
 	../examples/relations/src/queries.test.ts#cascade
@@ -83,11 +110,21 @@ runs once the transaction commits.
 
 In Parse, `new Parse.File('cover.png', input.files[0])` is saved, then set on the
 row: `post.set('cover', file)`. Here the field states what it accepts,
-`file({ accept: ['image/png'], maxSize: 5_000_000 })`, and the client uploads,
-then writes the id the upload returned:
+`file({ accept: ['image/png'], maxSize: 5_000_000 })`, and the client uploads.
+Here `running` is the server a test starts, and `png` the image's bytes:
 
 <include cwd meta='title="src/app.test.ts"'>
 	../examples/files/src/app.test.ts#upload
+</include>
+
+Then it writes the id the upload returned, as `$cover`, and reads the file back:
+
+<include cwd meta='title="Request"'>
+	../examples/files/src/requests/create-post.graphql
+</include>
+
+<include cwd meta='title="Response"'>
+	../examples/files/src/requests/create-post.json
 </include>
 
 There is no GridFS: [storage](/docs/next/files#storage) is S3 or any compatible
@@ -99,8 +136,12 @@ there, and an upload written in no row within the hour is deleted.
 A client tests a string, which `ErrorCodeOf<typeof app>` types. GraphQL puts it
 in the error's `extensions`, and REST in its body:
 
-<include cwd meta='title="src/app.test.ts"'>
-	../examples/errors/src/app.test.ts#graphql
+<include cwd meta='title="Request"'>
+	../examples/errors/src/requests/order-graphql.graphql
+</include>
+
+<include cwd meta='title="Response"'>
+	../examples/errors/src/requests/order-graphql.json
 </include>
 
 | Parse                          | UltimaBase                                       |
@@ -118,11 +159,26 @@ A row the caller cannot read answers `NOT_FOUND`, as one that does not exist.
 ## Session token
 
 `X-Parse-Application-Id` and `X-Parse-Session-Token` go. A session token goes in
-the standard header, and no application id goes anywhere. A web application may
-send nothing: a sign-in over HTTP also sets an `HttpOnly` cookie.
+the standard header, as `Authorization: Bearer <token>`, and no application id
+goes anywhere. A web application may send nothing: a sign-in over HTTP also sets
+an `HttpOnly` cookie.
 
-<include cwd meta='title="src/sessions.test.ts"'>
-	../examples/password-sign-in/src/sessions.test.ts#bearer
+`signUp` and `signIn` return the token. Here `$input` is
+`{ email: 'ada@example.com', password: 'correct horse', name: 'Ada' }`:
+
+<include cwd meta='title="Request"'>
+	../examples/password-sign-in/src/requests/sign-up.graphql
+</include>
+
+Sent with `Authorization: Bearer <token>`, `viewer` reads Ada; without the
+header, `viewer` is `null`:
+
+<include cwd meta='title="Request"'>
+	../examples/password-sign-in/src/requests/viewer.graphql
+</include>
+
+<include cwd meta='title="Response"'>
+	../examples/password-sign-in/src/requests/viewer.json
 </include>
 
 [Sessions](/docs/next/auth#sessions) has the details.

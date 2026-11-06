@@ -1,0 +1,5 @@
+{
+	"code": "MAINTENANCE",
+	"message": "The application is under maintenance.",
+	"details": { "retryAfter": 120 }
+}

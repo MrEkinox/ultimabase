@@ -16,6 +16,13 @@ The full example, with its tests: [`examples/memory`](https://github.com/MrEkino
 For data that must outlive the process, use [PostgreSQL](/docs/next/postgres):
 the models, the queries and the errors stay the same.
 
+| To                                          | See                                                               |
+| ------------------------------------------- | ----------------------------------------------------------------- |
+| start each test without rows                | [Empty at each start](#empty-at-each-start)                       |
+| rely on a write that fails changing nothing | [Whole or not at all](#a-write-is-whole-or-not-at-all)            |
+| sort and search as PostgreSQL does          | [What it shares with PostgreSQL](#what-it-shares-with-postgresql) |
+| know what to test on PostgreSQL             | [What it does not do](#what-it-does-not-do)                       |
+
 ## Empty at each start
 
 Each `start` begins on an empty database. `testApplication` starts the
@@ -37,30 +44,39 @@ A write that fails changes nothing, as a PostgreSQL statement does:
 	../examples/memory/src/app.test.ts#whole
 </include>
 
-Writes run one at a time; an open [transaction](/docs/next/transactions)
-holds the others until it ends. A query that fails inside a transaction
-rolls it back, as on PostgreSQL.
+- Writes run one at a time; an open [transaction](/docs/next/transactions)
+  holds the others until it ends.
+- A query that fails inside a transaction rolls it back, as on PostgreSQL.
 
 ## What it shares with PostgreSQL
 
 A test on `memory()` passes on PostgreSQL: both adapters run the same suite
-of tests. Strings sort by their bytes, as PostgreSQL's `"C"` collation
-does:
+of tests.
+
+### Sort order
+
+Strings sort by their bytes, as PostgreSQL's `"C"` collation does:
 
 <include cwd meta='title="src/app.test.ts"'>
 	../examples/memory/src/app.test.ts#order
 </include>
 
-`_search` reads words as PostgreSQL's `'simple'` configuration does: a word
-is a run of letters and digits, in any case, without stems or stop words.
-Relevance follows PostgreSQL's `ts_rank`.
+### Search
+
+`_search` reads words as PostgreSQL's `'simple'` configuration does:
+
+- a word is a run of letters and digits, in any case;
+- there are no stems and no stop words;
+- relevance follows PostgreSQL's `ts_rank`.
 
 <include cwd meta='title="src/app.test.ts"'>
 	../examples/memory/src/app.test.ts#words
 </include>
 
-Realtime changes reach the clients after the write, as PostgreSQL's
-notifications do (see [Realtime](/docs/next/realtime)).
+### Realtime
+
+Changes reach the clients after the write, as PostgreSQL's notifications
+do (see [Realtime](/docs/next/realtime)).
 
 ## What it does not do
 

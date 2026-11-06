@@ -3,9 +3,8 @@ title: Errors
 description: Refuse with an error the client can read, and keep every other error on the server.
 ---
 
-A `PublicError` is an error the client is meant to read: its code, its
-message and its details reach it, from server code and over every transport.
-Throw one from a function, a hook or a plugin to refuse:
+A `PublicError` is an error the client is meant to read. Throw one from a
+function, a hook or a plugin to refuse:
 
 <include cwd meta='title="src/functions.ts"'>
 	../examples/errors/src/functions.ts#public
@@ -13,77 +12,165 @@ Throw one from a function, a hook or a plugin to refuse:
 
 The full example, with its tests: [`examples/errors`](https://github.com/MrEkinox/ultimabase/tree/main/examples/errors).
 
-The code is in capitals: `OUT_OF_STOCK`, or one of the kernel's codes, which
-keep their meaning. The details are any JSON value.
+The code, the message and the details reach the client, from server code and
+over every transport.
 
-## In server code
+The examples sell products. The tests write one, `{ sku: 'MUG-1', name: 'Mug',
+stock: 2 }`, and its `sku` is `unique`: so `Only 2 left.`, `left: 2` and
+`UNIQUE_VIOLATION` below.
 
-A caller in server code catches it, and branches on its `code`. The kernel's
-own errors are `PublicError`s too, with the codes listed below:
+| To                                         | Use                                                            |
+| ------------------------------------------ | -------------------------------------------------------------- |
+| refuse with a reason the client can act on | [`new PublicError(code, message, options)`](#refuse-a-request) |
+| branch on an error in server code          | [`error.code`](#catch-it-in-server-code)                       |
+| see what a REST client receives            | [the answer](#what-a-rest-client-receives)                     |
+| see what a GraphQL client receives         | [`extensions`](#what-a-graphql-client-receives)                |
+| keep a bug or a failed service private     | [`INTERNAL`](#every-other-error)                               |
+| show a message for each code               | [`ErrorCodeOf`](#type-the-codes-in-a-client)                   |
+
+## Refuse a request
+
+`new PublicError(code, message, { details })` takes three things:
+
+- `code` is in capitals: `OUT_OF_STOCK`, or one of the kernel's
+  [codes](#codes), which keep their meaning.
+- `message` is shown to the client as it is, so write it for the client.
+- `details` is any JSON value, sent with the error.
+
+`options.cause` keeps the error this one comes from, on the server.
+
+## Catch it in server code
+
+A caller in server code catches it, and branches on its `code`:
 
 <include cwd meta='title="src/app.test.ts"'>
 	../examples/errors/src/app.test.ts#catch
 </include>
 
-## Over the transports
-
-REST answers with the error as its body, and a status from its code: an
-application's own code is a `400`.
+The details are on the error too:
 
 <include cwd meta='title="src/app.test.ts"'>
-	../examples/errors/src/app.test.ts#rest
+	../examples/errors/src/app.test.ts#details
 </include>
 
-GraphQL puts the code and the details in the error's `extensions`, with the
-`path` of the field that failed:
+The kernel's own errors are `PublicError`s too, with the codes listed in
+[Codes](#codes):
 
 <include cwd meta='title="src/app.test.ts"'>
-	../examples/errors/src/app.test.ts#graphql
+	../examples/errors/src/app.test.ts#kernel
+</include>
+
+## What a REST client receives
+
+REST answers with the error as its body, and a status from its code. An
+application's own code is a `400`:
+
+<include cwd meta='title="Request"'>
+	../examples/errors/src/requests/order-rest.http
+</include>
+
+<include cwd meta='title="Response"'>
+	../examples/errors/src/requests/order-rest.json
+</include>
+
+## What a GraphQL client receives
+
+GraphQL puts the code and the details in the error's `extensions`, with the
+`path` of the field that failed. Its requests go to `POST /graphql`:
+
+<include cwd meta='title="Request"'>
+	../examples/errors/src/requests/order-graphql.graphql
+</include>
+
+<include cwd meta='title="Response"'>
+	../examples/errors/src/requests/order-graphql.json
 </include>
 
 ## Every other error
 
 An error that is not a `PublicError`, a bug or a service that failed, never
-reaches the client: its message could hold a secret. Its request answers
-`INTERNAL`, and the server logs the error with a correlation id the answer
-holds too:
+reaches the client: its message could hold a secret.
 
 <include cwd meta='title="src/functions.ts"'>
 	../examples/errors/src/functions.ts#internal
 </include>
 
-<include cwd meta='title="src/app.test.ts"'>
-	../examples/errors/src/app.test.ts#masked
+Its request answers `INTERNAL` with a `500` and a correlation id, which the
+response file shows as `…`: it changes at each run. The server logs the error
+with the same id:
+
+<include cwd meta='title="Request"'>
+	../examples/errors/src/requests/subscribe.http
 </include>
 
-The log line is `A request failed.` over REST and `A GraphQL field failed.`
-over GraphQL, at error level, with `correlationId` and `err`. `defineApp({
-logger })` takes a [pino](https://getpino.io) logger, or any logger with its
-`info`, `warn`, `error` and `child`; without one, the kernel writes a
-readable line in a terminal and a JSON line everywhere else.
+<include cwd meta='title="Response"'>
+	../examples/errors/src/requests/subscribe.json
+</include>
 
-## In the client
+The test reads that id from the response, and the line the server logs:
 
-`ErrorCodeOf<typeof app>` is every code the application's server may send:
-the kernel's, and those of each plugin it lists, as HTTP's
-`PAYLOAD_TOO_LARGE`. A client types its messages against it, with the
-application's own codes; a code a new plugin adds, or one a plugin drops,
-fails its typing:
+<include cwd meta='title="src/app.test.ts"'>
+	../examples/errors/src/app.test.ts#logged
+</include>
+
+- The log line is `A request failed.` over REST and `A GraphQL field failed.`
+  over GraphQL, at error level, with `correlationId` and `err`.
+- `defineApp({ logger })` takes a [pino](https://getpino.io) logger, or any
+  logger with its `info`, `warn`, `error` and `child`.
+- Without a logger, the kernel writes a readable line in a terminal and a JSON
+  line everywhere else.
+
+## Type the codes in a client
+
+`ErrorCodeOf<typeof app>` is every code the application's server may send: the
+kernel's, and those of each plugin it lists, as HTTP's `PAYLOAD_TOO_LARGE`.
+Add the application's own codes to it:
+
+<include cwd meta='title="src/messages.ts"'>
+	../examples/errors/src/messages.ts#messages-type
+</include>
+
+A client types its messages against it. A code a new plugin adds, or one a
+plugin drops, fails its typing:
 
 <include cwd meta='title="src/messages.ts"'>
 	../examples/errors/src/messages.ts#messages
+</include>
+
+<include cwd meta='title="src/messages.ts"'>
+	../examples/errors/src/messages.ts#message-of
 </include>
 
 <include cwd meta='title="src/app.test.ts"'>
 	../examples/errors/src/app.test.ts#shown
 </include>
 
-`IssueCodeOf<typeof app>` is, the same way, every code its plugins give
-an issue of `VALIDATION_FAILED`, as the password's `PASSWORD_BREACHED`: a
-client types its issue messages as `Record<IssueCodeOf<typeof app>, string>`.
+`IssueCodeOf<typeof app>` is, the same way, every code its plugins give an
+issue of `VALIDATION_FAILED`, as the password's `PASSWORD_BREACHED`. A client
+types its issue messages as `Record<IssueCodeOf<typeof app>, string>`.
 
 A plugin declares its codes beside its name, in its
 [types](/docs/next/plugins).
+
+A query the kernel refuses throws an `InvalidQuery`:
+
+<include cwd meta='title="src/app.test.ts"'>
+	../examples/errors/src/app.test.ts#invalid-query
+</include>
+
+## Details
+
+- A code not in capitals is a type error.
+- A query the kernel refuses, such as an unknown field, throws an
+  `InvalidQuery` in server code, with the code `INVALID_QUERY` and its `path`.
+- Sent by a client, it answers `BAD_USER_INPUT` with the same message.
+- Thrown by server code and left uncaught, it is a bug, masked as `INTERNAL`.
+- HTTP refuses some requests before any code runs, with the status's name as
+  the code: a body over `bodyLimit` is `413` `PAYLOAD_TOO_LARGE`. See
+  [HTTP](/docs/next/http).
+- An `HTTPException` a route throws takes its status's name too, as
+  `UNAUTHORIZED`, or `HTTP_<status>` for a status with none: it is not in
+  `ErrorCodeOf`.
 
 ## Reference
 
@@ -143,18 +230,3 @@ value, as `['days']`, and `code`, in capitals, is the one a client tests: a
 | --------- | -------------------------------------------------------------------- |
 | REST      | `{ code, message, details? }`, or `{ code, message, correlationId }` |
 | GraphQL   | `errors: [{ message, path, extensions: { code, details? } }]`        |
-
-HTTP refuses some requests before any code runs, with the status's name as
-the code: a body over `bodyLimit` is `413` `PAYLOAD_TOO_LARGE`. See
-[HTTP](/docs/next/http). An `HTTPException` a route throws takes its
-status's name too, as `UNAUTHORIZED`, or `HTTP_<status>` for a status with
-none: it is not in `ErrorCodeOf`.
-
-### Limits
-
-- A code not in capitals is a type error.
-- A query the kernel refuses, such as an unknown field, throws an
-  `InvalidQuery` in server code, with the code `INVALID_QUERY` and its
-  `path`. Sent by a client, it answers `BAD_USER_INPUT` with the same
-  message; thrown by server code and left uncaught, it is a bug, masked as
-  `INTERNAL`.

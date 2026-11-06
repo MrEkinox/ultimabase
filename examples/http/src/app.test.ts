@@ -2,22 +2,23 @@
 import { testApplication } from '@ultimabase/testing'
 import { master } from 'ultimabase'
 import { expect, it } from 'vitest'
+import { requestFiles } from '../../../scripts/requests.ts'
 import { app } from './app.ts'
 import { Order } from './models.ts'
 import { shop } from './routes.ts'
 
+//#region running
 const running = testApplication(app)
+//#endregion
+const { check } = requestFiles(new URL('requests/', import.meta.url), running)
 const M = { as: master }
 
-//#region pay
-/** What the payment provider sends. */
-const pay = (secret: string, body: string) =>
+/** A browser's preflight request from `origin`. */
+const preflight = (origin: string) =>
 	fetch(`${running.url}/webhooks/payment`, {
-		method: 'POST',
-		headers: { 'content-type': 'application/json', 'x-secret': secret },
-		body,
+		method: 'OPTIONS',
+		headers: { origin, 'access-control-request-method': 'POST' },
 	})
-//#endregion
 
 it('tests a route without the server', async () => {
 	//#region request
@@ -30,7 +31,7 @@ it('tests a route without the server', async () => {
 it('reads a receipt as the caller', async () => {
 	//#region receipt
 	const order = await Order.create({ data: { total: 30 } }, M)
-	const response = await fetch(`${running.url}/orders/${order.id}/receipt`)
+	const response = await shop.request(`/orders/${order.id}/receipt`)
 	expect(await response.text()).toBe(`Order ${order.id}: 30 EUR, due.`)
 	//#endregion
 })
@@ -38,74 +39,40 @@ it('reads a receipt as the caller', async () => {
 it('takes a payment webhook', async () => {
 	//#region webhook
 	const order = await Order.create({ data: { total: 30 } }, M)
-	const paid = await pay(
-		'dev-secret',
-		JSON.stringify({ order: order.id, amount: 30 }),
-	)
+	const paid = await shop.request('/webhooks/payment', {
+		method: 'POST',
+		headers: { 'content-type': 'application/json', 'x-secret': 'dev-secret' },
+		body: JSON.stringify({ order: order.id, amount: 30 }),
+	})
 	expect(await paid.json()).toEqual({ order: order.id, amount: 30, paid: true })
-	const wrong = await pay(
-		'guess',
-		JSON.stringify({ order: order.id, amount: 30 }),
-	)
-	expect(wrong.status).toBe(401)
-	expect(await wrong.json()).toEqual({
-		code: 'UNAUTHORIZED',
-		message: 'Wrong secret.',
-	})
 	//#endregion
-	//#region invalid
-	const invalid = await pay('dev-secret', JSON.stringify({ order: order.id }))
-	expect(invalid.status).toBe(400)
-	expect(await invalid.json()).toEqual({
-		code: 'VALIDATION_FAILED',
-		message: 'Invalid data.',
-		details: {
-			issues: [
-				{
-					path: ['amount'],
-					message: 'Invalid input: expected number, received undefined',
-				},
-			],
-		},
-	})
-	const malformed = await pay('dev-secret', '{')
-	expect(await malformed.json()).toEqual({
-		code: 'BAD_REQUEST',
-		message: 'Malformed JSON in request body',
-	})
-	//#endregion
+	await check('wrong-secret', {}, { status: 401 })
+})
+
+it('refuses a webhook whose body is not valid', async () => {
+	await check('invalid', {}, { status: 400 })
+	await check('malformed', {}, { status: 400 })
 })
 
 it('reads a validated query', async () => {
-	//#region query
 	await Order.createMany({ data: [{ total: 10 }, { total: 50 }] }, M)
 	const all = await fetch(`${running.url}/orders`)
 	expect(await all.json()).toBe(2)
-	const large = await fetch(`${running.url}/orders?min=20`)
-	expect(await large.json()).toBe(1)
-	//#endregion
+	await check('orders', {}, { status: 200 })
 })
 
 it("reads the client's address behind a proxy", async () => {
-	//#region address
-	const response = await fetch(`${running.url}/whoami`, {
-		// What the proxy in front of the server adds.
-		headers: { 'x-forwarded-for': '203.0.113.7' },
-	})
-	expect(await response.json()).toEqual({
-		caller: 'anonymous',
-		address: '203.0.113.7',
-	})
-	//#endregion
+	await check('whoami', {}, { status: 200 })
 })
 
 it('refuses an address over the rate limit', async () => {
-	//#region limit
 	const address = '198.51.100.4'
 	const whoami = () =>
 		fetch(`${running.url}/whoami`, { headers: { 'x-forwarded-for': address } })
 	for (let sent = 0; sent < 100; sent += 1) await whoami()
+	// The 101st request of the address within the minute.
 	const refused = await whoami()
+	//#region limit
 	expect(refused.status).toBe(429)
 	// The seconds until the minute ends, also in details.retryAfter.
 	expect(Number(refused.headers.get('retry-after'))).toBeGreaterThan(0)
@@ -114,49 +81,32 @@ it('refuses an address over the rate limit', async () => {
 })
 
 it('sends no-store unless a route sets its cache', async () => {
-	//#region cache
 	const prices = await fetch(`${running.url}/prices`)
-	expect(prices.headers.get('cache-control')).toBe('public, max-age=60')
 	const whoami = await fetch(`${running.url}/whoami`)
+	//#region cache
+	expect(prices.headers.get('cache-control')).toBe('public, max-age=60')
 	expect(whoami.headers.get('cache-control')).toBe('no-store')
 	//#endregion
 })
 
 it('lets the listed origins call from a browser', async () => {
-	//#region cors
-	const preflight = (origin: string) =>
-		fetch(`${running.url}/webhooks/payment`, {
-			method: 'OPTIONS',
-			headers: { origin, 'access-control-request-method': 'POST' },
-		})
+	await check('preflight', {}, { status: 204 })
 	const listed = await preflight('https://shop.example.com')
+	const other = await preflight('https://elsewhere.example')
+	//#region cors
 	expect(listed.headers.get('access-control-allow-origin')).toBe(
 		'https://shop.example.com',
 	)
 	expect(listed.headers.get('access-control-allow-credentials')).toBe('true')
-	const other = await preflight('https://elsewhere.example')
 	expect(other.headers.get('access-control-allow-origin')).toBeNull()
-	//#endregion
-	//#region form
-	// A form another site posts, which CORS never stops.
-	const form = await fetch(`${running.url}/webhooks/payment`, {
-		method: 'POST',
-		headers: {
-			origin: 'https://elsewhere.example',
-			'content-type': 'text/plain',
-		},
-		body: '{}',
-	})
-	expect(form.status).toBe(403)
-	expect(await form.json()).toEqual({
-		code: 'ACCESS_DENIED',
-		message: 'A form from another origin is refused.',
-	})
 	//#endregion
 })
 
+it('refuses a form from another origin', async () => {
+	await check('form', {}, { status: 403 })
+})
+
 it('refuses a large body, a body that is not JSON and an unknown route', async () => {
-	//#region refused
 	const post = (type: string, body: string) =>
 		fetch(`${running.url}/webhooks/payment`, {
 			method: 'POST',
@@ -181,17 +131,10 @@ it('refuses a large body, a body that is not JSON and an unknown route', async (
 		code: 'NOT_FOUND',
 		message: 'No route matches GET /nowhere.',
 	})
-	//#endregion
 })
 
 it("answers the platform's health and readiness checks", async () => {
-	//#region probes
-	const health = await fetch(`${running.url}/health`)
-	expect(health.status).toBe(200)
-	expect(await health.json()).toEqual({ status: 'ok' })
+	await check('health', {}, { status: 200 })
 	// 503 while the application starts, stops, or a plugin's check fails.
-	const ready = await fetch(`${running.url}/ready`)
-	expect(ready.status).toBe(200)
-	expect(await ready.json()).toEqual({ status: 'ok' })
-	//#endregion
+	await check('ready', {}, { status: 200 })
 })

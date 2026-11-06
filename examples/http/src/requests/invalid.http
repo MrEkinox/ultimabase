@@ -1,0 +1,5 @@
+POST /webhooks/payment
+content-type: application/json
+x-secret: dev-secret
+
+{ "order": "any" }

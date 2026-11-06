@@ -1,0 +1,5 @@
+{
+	"code": "OUT_OF_STOCK",
+	"message": "Only 2 left.",
+	"details": { "sku": "MUG-1", "left": 2 }
+}

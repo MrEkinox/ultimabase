@@ -4,8 +4,9 @@ import { graphqlPlugin } from '@ultimabase/graphql'
 import { httpPlugin } from '@ultimabase/http'
 import { restPlugin } from '@ultimabase/rest'
 import { defineApp, memory } from 'ultimabase'
-import { borrowBook, returnBooks, searchBooks, shelf } from './functions.ts'
+import { borrowBook, returnBooks, shelf } from './functions.ts'
 import { Book } from './models.ts'
+import { searchBooks } from './search.ts'
 
 export const app = defineApp({
 	// Kept in memory, so the example needs no database.

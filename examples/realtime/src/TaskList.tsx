@@ -17,7 +17,7 @@ export function apolloClient(socket: Client): ApolloClient {
 }
 //#endregion
 
-//#region component
+//#region document
 type Tasks = {
 	readonly tasks: {
 		readonly edges: readonly {
@@ -42,7 +42,9 @@ const TasksDocument = gql`
 		}
 	}
 `
+//#endregion
 
+//#region list
 export function TaskList() {
 	const { data, fetchMore, fetchingMore } = useLiveSubscription<Tasks>(
 		TasksDocument,

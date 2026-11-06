@@ -8,22 +8,18 @@ import { Product } from './models.ts'
 export const order = defineFunction({
 	name: 'order',
 	input: z.object({ sku: z.string(), quantity: z.int().min(1) }),
-	run: async ({ input }) => {
+	run: async ({ input: { sku, quantity } }) => {
 		const product = await Product.findUniqueOrThrow(
-			{ where: { sku: input.sku } },
+			{ where: { sku } },
 			{ as: master },
 		)
-		if (product.stock < input.quantity) {
-			// The code, the message and the details reach the client.
+		if (product.stock < quantity) {
 			throw new PublicError('OUT_OF_STOCK', `Only ${product.stock} left.`, {
 				details: { sku: product.sku, left: product.stock },
 			})
 		}
 		await Product.update(
-			{
-				where: { id: product.id },
-				data: { stock: { decrement: input.quantity } },
-			},
+			{ where: { id: product.id }, data: { stock: { decrement: quantity } } },
 			{ as: master },
 		)
 	},

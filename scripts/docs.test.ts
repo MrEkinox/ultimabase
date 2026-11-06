@@ -72,7 +72,8 @@ function read(file: string): [string, string | undefined] {
 
 const starter = 'packages/create-ultimabase/template/'
 const requestFile =
-	/^examples\/[^/]+\/src\/requests\/[^/]+\.(?:graphql|http|json)$/u
+	/^examples\/[^/]+\/src\/requests\/[^/]+\.(?:console|graphql|http|json)$/u
+const migrationFile = /^examples\/[^/]+\/migrations\/[^/]+\.sql$/u
 
 it('writes no code in a page, and includes only regions that exist', () => {
 	const problems = pages.flatMap(([page, text]) => [
@@ -83,11 +84,21 @@ it('writes no code in a page, and includes only regions that exist', () => {
 				(language) =>
 					`${page}: a \`${language}\` block is written in the page; include it from an example.`,
 			),
+		// What a command prints is a request file too, which a test runs.
+		...[...text.matchAll(/^```bash\n(.*?)^```$/gmsu)]
+			.filter(([, block = '']) => /^\$ /mu.test(block))
+			.map(
+				([, block = '']) =>
+					`${page}: a \`bash\` block shows what a command prints; include requests/<name>.console: ${block.slice(0, 40)}`,
+			),
 		...includesOf(text).flatMap((include) => {
 			const [file, content] = read(include.file)
-			// The starter's template and a request file are included whole:
-			// they are the developer's, without region markers.
-			const whole = file.startsWith(starter) || requestFile.test(file)
+			// The starter's template, a request file and a migration are included
+			// whole: they are the developer's, without region markers.
+			const whole =
+				file.startsWith(starter) ||
+				requestFile.test(file) ||
+				migrationFile.test(file)
 			if (
 				!fromWebsite(include) ||
 				(whole
@@ -95,7 +106,7 @@ it('writes no code in a page, and includes only regions that exist', () => {
 					: !file.startsWith('examples/') || include.region === undefined)
 			) {
 				return [
-					`${page}: ${include.tag} is not <include cwd>../examples/<file>#<region></include>, a whole file of ${starter}, or a whole request file.`,
+					`${page}: ${include.tag} is not <include cwd>../examples/<file>#<region></include>, a whole file of ${starter}, or a whole request or migration file.`,
 				]
 			}
 			if (content === undefined) return [`${page}: ${file} does not exist.`]
@@ -166,7 +177,8 @@ it('shows on the landing page only regions that exist', () => {
 				const path = join('examples', file)
 				return (
 					!existsSync(path) ||
-					region(readFileSync(path, 'utf8'), name) === undefined
+					(name !== '' &&
+						region(readFileSync(path, 'utf8'), name) === undefined)
 				)
 			})
 			.map(
@@ -367,7 +379,7 @@ it('gives each package a README, without code, linking to its page', () => {
 
 /**
  * Each fenced block of a Markdown file: its language, its code, and the
- * region the HTML comment above it names, if any.
+ * region or the file the HTML comment above it names, if any.
  */
 function blocksOf(markdown: string) {
 	const lines = markdown.split('\n')
@@ -386,7 +398,7 @@ function blocksOf(markdown: string) {
 			language: fence['language'] ?? '',
 			code: lines.slice(at + 1, end).join('\n'),
 			source:
-				/^<!-- (?<source>\S+#\S+) -->$/u.exec(above)?.groups?.['source'] ?? '',
+				/^<!-- (?<source>\S+) -->$/u.exec(above)?.groups?.['source'] ?? '',
 		})
 		above = ''
 		at = end
@@ -394,7 +406,7 @@ function blocksOf(markdown: string) {
 	return blocks
 }
 
-it('reads the blocks of a Markdown file and the region above each', () => {
+it('reads the blocks of a Markdown file and the source above each', () => {
 	const markdown = [
 		'```bash',
 		'yarn',
@@ -404,19 +416,24 @@ it('reads the blocks of a Markdown file and the region above each', () => {
 		'```ts',
 		'const a = 1',
 		'```',
+		'<!-- examples/a/d.json -->',
+		'```json',
+		'{}',
+		'```',
 		'Text.',
 		'```ts',
 	].join('\n')
 	expect(blocksOf(markdown)).toEqual([
 		{ language: 'bash', code: 'yarn', source: '' },
 		{ language: 'ts', code: 'const a = 1', source: 'examples/a/b.ts#c' },
+		{ language: 'json', code: '{}', source: 'examples/a/d.json' },
 		{ language: 'ts', code: '', source: '' },
 	])
 })
 
 it("copies each of the README's code blocks from a region of an example", () => {
 	// GitHub includes no file (D-158): the comment above a block names the
-	// region it copies, and the copy is checked here.
+	// region or the file it copies, and the copy is checked here.
 	const problems = blocksOf(readFileSync('README.md', 'utf8'))
 		.filter(({ language }) => language !== 'bash')
 		.flatMap(({ code, source }) => {
@@ -426,20 +443,14 @@ it("copies each of the README's code blocks from a region of an example", () => 
 					`README.md: a block names no region of an example: ${code.split('\n')[0] ?? ''}`,
 				]
 			}
-			return region(readFileSync(file, 'utf8'), name) === code
+			const content = readFileSync(file, 'utf8')
+			// A block that names no region copies its whole file (D-282).
+			return (name === '' ? content.trimEnd() : region(content, name)) === code
 				? []
 				: [`README.md: the block under ${source} differs from its region`]
 		})
 	expect(problems).toEqual([])
 })
-
-/** The pages not yet written to be scanned (D-282); this list only shrinks. */
-const unwritten = new Set(
-	'access acl adapters application auth coming-from-parse deploy errors files functions http index jobs maintenance memory models password plugins postgres queries quickstart realtime relations rest roadmap roles soft-delete testing transactions'.split(
-		' ',
-	),
-)
-const written = pages.filter(([page]) => !unwritten.has(basename(page, '.mdx')))
 
 /** The paragraphs of a page: what is neither a heading, a list nor a table. */
 function paragraphsOf(page: string): string[] {
@@ -458,7 +469,13 @@ function harnessIn(test: string, shown: string): string[] {
 		...test.matchAll(
 			/^(?:async )?function (\w+)|^const (\w+) = (?:async )?\(/gmu,
 		),
-	].map((match) => match[1] ?? match[2] ?? '')
+	]
+		.map((match) => match[1] ?? match[2] ?? '')
+		.concat(
+			[...test.matchAll(/^const \{([^}]+)\} = requestFiles\(/gmu)].flatMap(
+				(match) => (match[1] ?? '').split(',').map((name) => name.trim()),
+			),
+		)
 	return [
 		...(lines > 12 ? [`${String(lines)} lines, 12 at most`] : []),
 		...(shown.includes('fetch(') ? ['it calls fetch'] : []),
@@ -477,16 +494,16 @@ it('reads what keeps a region of a test off a page', () => {
 		'it calls at, which its test file declares',
 	])
 	expect(harnessIn(test, 'a\n'.repeat(13))).toEqual(['13 lines, 12 at most'])
+	expect(
+		harnessIn(
+			'const { file } = requestFiles(here, server)\n',
+			"await file('order')",
+		),
+	).toEqual(['it calls file, which its test file declares'])
 })
 
-it('lists as unwritten only pages that exist, and leaves some written', () => {
-	const names = pages.map(([page]) => basename(page, '.mdx'))
-	expect([...unwritten].filter((name) => !names.includes(name))).toEqual([])
-	expect(written.length).toBeGreaterThan(0)
-})
-
-it('keeps a written page easy to scan (D-282)', () => {
-	const problems = written.flatMap(([page, text]) => [
+it('keeps a page easy to scan (D-282)', () => {
+	const problems = pages.flatMap(([page, text]) => [
 		...paragraphsOf(text)
 			.filter((paragraph) => paragraph.split(/\s+/u).length > 60)
 			.map(
@@ -505,7 +522,7 @@ it('keeps a written page easy to scan (D-282)', () => {
 				...(lines > 25
 					? [`${page}: ${name} is ${String(lines)} lines, 25 at most.`]
 					: []),
-				...(file.includes('.test.')
+				...(file.includes('.test.') && !file.startsWith(starter)
 					? harnessIn(content, shown).map(
 							(problem) => `${page}: ${name}: ${problem}.`,
 						)

@@ -22,8 +22,6 @@ it('makes one round trip per query', async () => {
 		{ data: { slug: 'hello', author: { connect: { id: ada.id } } } },
 		M,
 	)
-	// Each query is one round trip, a read and its relations at any depth
-	// included: two writes and a read make three.
 	await Author.findMany(
 		{ include: { posts: { include: { author: true } } } },
 		M,
@@ -59,7 +57,6 @@ it('reports a failed check', async () => {
 })
 
 it('reports a result out of range', async () => {
-	//#region out-of-range
 	const ada = await Author.create({ data: { name: 'Ada' } }, M)
 	await Post.create(
 		{
@@ -71,13 +68,16 @@ it('reports a result out of range', async () => {
 		},
 		M,
 	)
-	await expect(
-		Post.update(
-			{ where: { slug: 'hello' }, data: { views: { increment: 1 } } },
-			M,
-		),
-	).rejects.toMatchObject({
-		code: 'VALIDATION_FAILED',
+	//#region out-of-range
+	// `hello` holds 2_147_483_647 views, the largest integer.
+	const refused = Post.update(
+		{ where: { slug: 'hello' }, data: { views: { increment: 1 } } },
+		M,
+	)
+	await expect(refused).rejects.toMatchObject({ code: 'VALIDATION_FAILED' })
+	//#endregion
+	//#region out-of-range-issues
+	await expect(refused).rejects.toMatchObject({
 		details: {
 			issues: [
 				{

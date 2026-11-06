@@ -1,0 +1,5 @@
+mutation ($id: JSON) {
+	createPost(data: { title: "Hi", cover: $id }) {
+		id
+	}
+}

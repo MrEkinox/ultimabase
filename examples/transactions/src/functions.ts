@@ -1,6 +1,7 @@
 // Moves money between two accounts: both writes, or neither. Likes a user,
 // and matches the two when the other's like is there.
 //#region transfer
+//#region transfer-input
 import { PublicError, defineFunction, master, transaction } from 'ultimabase'
 import { z } from 'zod'
 import { Account, Like } from './models.ts'
@@ -9,11 +10,15 @@ export const transfer = defineFunction({
 	name: 'transfer',
 	input: z.object({ from: z.string(), to: z.string(), amount: z.int().min(1) }),
 	run: async ({ input, caller }) => {
+		//#endregion
+		//#region transfer-owner
 		// NOT_FOUND unless the caller owns the account.
 		await Account.findUniqueOrThrow(
 			{ where: { id: input.from } },
 			{ as: caller },
 		)
+		//#endregion
+		//#region transfer-write
 		const as = { as: master }
 		await transaction(async () => {
 			// The update locks the row: a second transfer waits for this one.
@@ -36,11 +41,13 @@ export const transfer = defineFunction({
 				as,
 			)
 		})
+		//#endregion
 	},
 }).with({ access: ({ caller }) => caller.kind === 'user' })
 //#endregion
 
 //#region like
+//#region like-head
 export const like = defineFunction({
 	name: 'like',
 	input: z.object({ user: z.string() }),
@@ -48,6 +55,8 @@ export const like = defineFunction({
 	run: async ({ input, caller }) => {
 		const me = caller.kind === 'user' ? caller.user.id : ''
 		const as = { as: master }
+		//#endregion
+		//#region like-write
 		// Two likes at once: one commits, the other runs again and matches.
 		return transaction(
 			async () => {
@@ -71,6 +80,7 @@ export const like = defineFunction({
 			},
 			{ isolation: 'serializable' },
 		)
+		//#endregion
 	},
 }).with({ access: ({ caller }) => caller.kind === 'user' })
 //#endregion

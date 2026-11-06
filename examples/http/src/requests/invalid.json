@@ -1,0 +1,12 @@
+{
+	"code": "VALIDATION_FAILED",
+	"message": "Invalid data.",
+	"details": {
+		"issues": [
+			{
+				"path": ["amount"],
+				"message": "Invalid input: expected number, received undefined"
+			}
+		]
+	}
+}

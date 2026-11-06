@@ -1,0 +1,2 @@
+POST /_ultimabase/reset
+x-ultimabase-master-key: dev-master-key

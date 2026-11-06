@@ -1,0 +1,11 @@
+{
+	"id": "…",
+	"createdAt": "…",
+	"updatedAt": "…",
+	"title": "Notes",
+	"slug": "notes",
+	"status": "published",
+	"likes": 12,
+	"publishedAt": null,
+	"author": { "id": "…", "createdAt": "…", "updatedAt": "…", "name": "Ada" }
+}

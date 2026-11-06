@@ -1,0 +1,2 @@
+GET /whoami
+x-forwarded-for: 203.0.113.7

@@ -1,0 +1,25 @@
+mutation {
+	createProduct(
+		data: {
+			name: "Desk lamp"
+			sku: "LMP-001"
+			price: "39.90"
+			status: published
+			releasedOn: "2026-03-01"
+			sizes: [S, M]
+			specs: { color: "black", materials: ["steel"] }
+		}
+	) {
+		price
+		status
+		specs {
+			color
+			materials
+		}
+		label
+		priceIn(currency: USD) {
+			amount
+			currency
+		}
+	}
+}

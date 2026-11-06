@@ -80,7 +80,7 @@ export const ReadingList = defineModel({
 })
 //#endregion
 
-//#region join-model
+//#region join-model-sides
 export const Reader = defineModel({
 	name: 'Reader',
 	fields: (f) => ({
@@ -96,7 +96,9 @@ export const Club = defineModel({
 		memberships: f.many(() => Membership, { inverse: 'club' }),
 	}),
 })
+//#endregion
 
+//#region join-model
 // A many-to-many with fields of its own: a model with two `one` relations.
 export const Membership = defineModel({
 	name: 'Membership',
@@ -126,6 +128,9 @@ export const Series = defineModel({
 	},
 })
 
+//#endregion
+
+//#region volume
 export const Volume = defineModel({
 	name: 'Volume',
 	fields: (f) => ({
@@ -138,7 +143,7 @@ export const Volume = defineModel({
 })
 //#endregion
 
-//#region within
+//#region project
 export const Project = defineModel({
 	name: 'Project',
 	fields: (f) => ({
@@ -148,7 +153,9 @@ export const Project = defineModel({
 		notes: f.many(() => Note, { inverse: 'project' }),
 	}),
 })
+//#endregion
 
+//#region within
 export const Milestone = defineModel({
 	name: 'Milestone',
 	fields: (f) => ({
@@ -204,7 +211,7 @@ export const Choice = defineModel({
 })
 //#endregion
 
-//#region one-of
+//#region article
 export const Article = defineModel({
 	name: 'Article',
 	fields: (f) => ({
@@ -212,7 +219,9 @@ export const Article = defineModel({
 		remarks: f.many(() => Remark, { inverse: 'subject' }),
 	}),
 })
+//#endregion
 
+//#region one-of
 export const Video = defineModel({
 	name: 'Video',
 	fields: (f) => ({

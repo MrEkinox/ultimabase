@@ -1,20 +1,33 @@
 // The rules at work from server code, each test on a new in-memory database:
-// `asUser` acts as a signed-in user, as a session would.
+// `asUser` acts as a signed-in user, as a session would. Its short regions and
+// the request file beside it are shown on the page (D-282).
 import { asUser, testApplication } from '@ultimabase/testing'
 import { master } from 'ultimabase'
 import { expect, it } from 'vitest'
+import { requestFiles } from '../../../scripts/requests.ts'
 import { app } from './app.ts'
-import { Article } from './models.ts'
+import { Article, Comment } from './models.ts'
 
-const running = testApplication(app)
+const { check } = requestFiles(
+	new URL('requests/', import.meta.url),
+	testApplication(app),
+)
 
 const ada = { as: asUser({ id: 'ada' }) }
 const grace = { as: asUser({ id: 'grace' }) }
-const titles = (rows: readonly { readonly title: string }[]): string[] =>
-	rows.map((row) => row.title)
+
+it('lets a signed-in user write a comment, and no one else', async () => {
+	//#region comment
+	await Comment.create({ data: { body: 'Well said' } }, ada)
+	await expect(
+		Comment.create({ data: { body: 'Spam' } }),
+	).rejects.toMatchObject({ code: 'ACCESS_DENIED' })
+	//#endregion
+	expect(await Comment.count({})).toBe(1)
+})
 
 it('shows each caller the rows its read rule lets through', async () => {
-	//#region read
+	//#region read-create
 	await Article.create(
 		{ data: { title: 'Draft', notes: 'Check the dates.' } },
 		ada,
@@ -23,13 +36,25 @@ it('shows each caller the rows its read rule lets through', async () => {
 		{ data: { title: 'Launch', status: 'published', notes: 'Embargo.' } },
 		ada,
 	)
+	//#endregion
+	//#region read-rows
 	// The filter joins the query: pages and counts stay exact.
-	expect(titles(await Article.findMany({}, ada))).toEqual(['Draft', 'Launch'])
-	expect(titles(await Article.findMany({}, grace))).toEqual(['Launch'])
+	const select = { title: true }
+	expect(await Article.findMany({ select }, ada)).toEqual([
+		{ title: 'Draft' },
+		{ title: 'Launch' },
+	])
+	expect(await Article.findMany({ select }, grace)).toEqual([
+		{ title: 'Launch' },
+	])
 	expect(await Article.count({}, grace)).toBe(1)
+	//#endregion
+	//#region read-field
 	// A field read rule hides the value, row by row.
 	const [launch] = await Article.findMany({}, grace)
 	expect(launch).not.toHaveProperty('notes')
+	//#endregion
+	//#region read-filter
 	// Nor can a filter guess it.
 	await expect(
 		Article.findMany({ where: { notes: { contains: 'E' } } }, grace),
@@ -42,7 +67,7 @@ it('shows each caller the rows its read rule lets through', async () => {
 })
 
 it('refuses a write its rule does not allow', async () => {
-	//#region write
+	//#region write-owner
 	const draft = await Article.create({ data: { title: 'Draft' } }, ada)
 	expect(draft.authorId).toBe('ada')
 
@@ -50,7 +75,9 @@ it('refuses a write its rule does not allow', async () => {
 	await expect(
 		Article.update({ where: { id: draft.id }, data: { title: 'Mine' } }, grace),
 	).rejects.toMatchObject({ code: 'NOT_FOUND' })
+	//#endregion
 
+	//#region write-field
 	// A field rule: nobody signs an article for someone else.
 	await expect(
 		Article.create({ data: { title: 'Fake', authorId: 'grace' } }, ada),
@@ -59,12 +86,14 @@ it('refuses a write its rule does not allow', async () => {
 		message: 'Article create refused.',
 		details: { model: 'Article', operation: 'create', field: 'authorId' },
 	})
+	//#endregion
 
-	// Published, the article can no longer be deleted by its author.
+	//#region write-delete
 	await Article.update(
 		{ where: { id: draft.id }, data: { status: 'published' } },
 		ada,
 	)
+	// Published, the article can no longer be deleted by its author.
 	await expect(
 		Article.delete({ where: { id: draft.id } }, ada),
 	).rejects.toMatchObject({
@@ -85,6 +114,8 @@ it('lets Master skip every rule', async () => {
 		{ as: master },
 	)
 	expect(featured.featured).toBe(true)
+	//#endregion
+	//#region master-filter
 	// allow.readOnly is no read rule: the author filters on the field.
 	const listed = await Article.findMany(
 		{ where: { featured: { equals: true } } },
@@ -95,21 +126,5 @@ it('lets Master skip every rule', async () => {
 })
 
 it('refuses an anonymous caller over GraphQL', async () => {
-	//#region graphql
-	const response = await fetch(`${running.url}/graphql`, {
-		method: 'POST',
-		headers: { 'content-type': 'application/json' },
-		body: JSON.stringify({
-			query: 'mutation { createArticle(data: { title: "Hi" }) { id } }',
-		}),
-	})
-	expect(await response.json()).toMatchObject({
-		errors: [
-			{
-				message: 'Article create refused.',
-				extensions: { code: 'ACCESS_DENIED' },
-			},
-		],
-	})
-	//#endregion
+	await check('create-anonymous')
 })

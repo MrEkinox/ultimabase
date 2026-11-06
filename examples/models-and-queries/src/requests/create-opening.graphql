@@ -1,0 +1,10 @@
+mutation {
+	createOpening(
+		data: { availableOn: [monday], searchFilters: { availableOn: [tuesday] } }
+	) {
+		availableOn
+		searchFilters {
+			availableOn
+		}
+	}
+}

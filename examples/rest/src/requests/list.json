@@ -1,0 +1,9 @@
+[
+	{
+		"title": "Plans",
+		"author": {
+			"name": "Ada",
+			"posts": [{ "slug": "notes" }, { "slug": "plans" }]
+		}
+	}
+]

@@ -1,0 +1,5 @@
+{
+	"code": "ACCESS_DENIED",
+	"message": "createApiKey refused.",
+	"details": { "function": "createApiKey" }
+}

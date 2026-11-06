@@ -8,6 +8,7 @@ and `restorePost` functions give clients the plugin's `Post.trash` and
 - `src/models.ts`: the `Post` model.
 - `src/functions.ts`: the `trash` and `restorePost` functions.
 - `src/app.ts`: the application.
+- `src/requests/`: the requests and responses the page shows.
 - `src/app.test.ts`: a post deleted, read in the trash and restored over
   GraphQL and from server code.
 

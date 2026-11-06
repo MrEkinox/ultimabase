@@ -1,9 +1,11 @@
 // Transfers between Ada's and Grace's accounts, each test on a new
 // in-memory database: Ada holds 100, Grace 0.
 import { asUser, testApplication } from '@ultimabase/testing'
+import { randomUUID } from 'node:crypto'
 import { master, transaction } from 'ultimabase'
 import { beforeEach, expect, it } from 'vitest'
 import { app } from './app.ts'
+import { closeAccount } from './close.ts'
 import { like, transfer } from './functions.ts'
 import { Account, Like } from './models.ts'
 
@@ -30,7 +32,33 @@ async function balances(): Promise<number[]> {
 it('commits every write', async () => {
 	//#region commit
 	await transfer.run({ from, to, amount: 30 }, ada)
-	expect(await balances()).toEqual([70, 30])
+	const rows = await Account.findMany(
+		{ orderBy: { number: 'asc' }, select: { balance: true } },
+		as,
+	)
+	expect(rows).toEqual([{ balance: 70 }, { balance: 30 }])
+	//#endregion
+})
+
+it('closes an account and moves its balance', async () => {
+	//#region closed
+	await closeAccount(from, to)
+	const rows = await Account.findMany({ select: { balance: true } }, as)
+	expect(rows).toEqual([{ balance: 100 }])
+	//#endregion
+})
+
+it('keeps the account when the credit fails', async () => {
+	//#region close-failed
+	// No account holds a random id: the credit fails, the delete is undone.
+	await expect(closeAccount(from, randomUUID())).rejects.toMatchObject({
+		code: 'NOT_FOUND',
+	})
+	const rows = await Account.findMany(
+		{ orderBy: { number: 'asc' }, select: { balance: true } },
+		as,
+	)
+	expect(rows).toEqual([{ balance: 100 }, { balance: 0 }])
 	//#endregion
 })
 
@@ -40,7 +68,11 @@ it('rolls every write back when the callback throws', async () => {
 		transfer.run({ from, to, amount: 130 }, ada),
 	).rejects.toMatchObject({ code: 'INSUFFICIENT_FUNDS' })
 	// The decrement was undone.
-	expect(await balances()).toEqual([100, 0])
+	const rows = await Account.findMany(
+		{ orderBy: { number: 'asc' }, select: { balance: true } },
+		as,
+	)
+	expect(rows).toEqual([{ balance: 100 }, { balance: 0 }])
 	//#endregion
 })
 
@@ -53,8 +85,8 @@ it('joins the transaction it runs in', async () => {
 			await transfer.run({ from, to, amount: 60 }, ada)
 		}),
 	).rejects.toMatchObject({ code: 'INSUFFICIENT_FUNDS' })
-	expect(await balances()).toEqual([100, 0])
 	//#endregion
+	expect(await balances()).toEqual([100, 0])
 })
 
 it('rolls back after a failed query, even caught', async () => {
@@ -66,8 +98,8 @@ it('rolls back after a failed query, even caught', async () => {
 			await Account.create(duplicate, as).catch(() => undefined)
 		}),
 	).rejects.toMatchObject({ code: 'UNIQUE_VIOLATION' })
-	expect(await balances()).toEqual([100, 0])
 	//#endregion
+	expect(await balances()).toEqual([100, 0])
 })
 
 it('matches two users liking each other at once', async () => {

@@ -50,12 +50,14 @@ it('refuses a function the transport cannot serve', async () => {
 		output: Note,
 		run: () => Note.create({ data: { text: 'Hello' } }, { as: master }),
 	})
+	//#endregion
 	const app = defineApp({
 		database: memory(),
 		plugins: [httpPlugin({ port: 0 }), rpcPlugin()],
 		models: [Note],
 		functions: [latest],
 	})
+	//#region model-refused
 	await expect(app.start()).rejects.toThrow(
 		'rpc answers JSON, and latest returns a model: give it a schema output, or .with({ rpc: false }).',
 	)
@@ -87,7 +89,6 @@ it('refuses an empty header name', async () => {
 })
 
 it('uses an optional plugin when the application installs it', async () => {
-	//#region optional
 	const logged: unknown[] = []
 	const log = (message: unknown) => {
 		logged.push(message)
@@ -100,11 +101,12 @@ it('uses an optional plugin when the application installs it', async () => {
 		models: [],
 	})
 	await app.start()
+	//#region optional
 	expect(logged).toContainEqual(
 		expect.stringMatching(
 			/^Create an API key: POST http:\/\/localhost:\d+\/rpc\/apiKeys\.createApiKey with the master key\.$/,
 		),
 	)
-	await app.stop()
 	//#endregion
+	await app.stop()
 })

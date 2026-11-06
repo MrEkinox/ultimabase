@@ -1,0 +1,21 @@
+{
+	"edges": [
+		{
+			"cursor": "…",
+			"node": {
+				"id": "…",
+				"createdAt": "…",
+				"updatedAt": "…",
+				"title": "Dune",
+				"borrowedBy": null
+			}
+		}
+	],
+	"pageInfo": {
+		"hasNextPage": true,
+		"hasPreviousPage": false,
+		"startCursor": "…",
+		"endCursor": "…"
+	},
+	"totalCount": 2
+}

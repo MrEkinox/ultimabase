@@ -1,6 +1,5 @@
 // A model plugin: the models that use it get a `publishedAt` date, and
 // their unpublished rows are drafts, which only editors read.
-//#region types
 import type {
 	Caller,
 	Field,
@@ -12,6 +11,7 @@ import type {
 } from 'ultimabase'
 import { defineModel, definePlugin, isMaster, master } from 'ultimabase'
 
+//#region command-types
 type Unique<F> = Parameters<Queries<F>['findUnique']>[0]['where']
 
 /** What `publishing()` adds to a model: `Article.drafts`, `Article.publish`. */
@@ -26,6 +26,9 @@ export interface PublishingCommands<F> {
 	) => Promise<Payload<F, {}>>
 }
 
+//#endregion
+
+//#region types
 export interface Publishing extends PluginTypes {
 	readonly name: 'publishing'
 	/** `publishing({ publishOnCreate: true })`, in a model's `use`. */

@@ -5,7 +5,8 @@ import { httpPlugin } from '@ultimabase/http'
 import { passwordPlugin } from '@ultimabase/password'
 import { defineApp, memory } from 'ultimabase'
 import { sendEmail } from './mail.ts'
-import { Poll, Post, User, Vote } from './models.ts'
+import { Poll, Post, Vote } from './models.ts'
+import { User } from './user.ts'
 
 export const app = defineApp({
 	// Kept in memory, so the example needs no database.

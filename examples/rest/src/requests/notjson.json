@@ -1,0 +1,4 @@
+{
+	"code": "BAD_USER_INPUT",
+	"message": "The query parameter first is not JSON."
+}

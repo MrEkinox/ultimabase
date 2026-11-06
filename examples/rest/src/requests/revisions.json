@@ -1,0 +1,11 @@
+{
+	"revisions": {
+		"edges": [{ "cursor": "…", "node": { "text": "First draft" } }],
+		"pageInfo": {
+			"hasNextPage": false,
+			"hasPreviousPage": false,
+			"startCursor": "…",
+			"endCursor": "…"
+		}
+	}
+}

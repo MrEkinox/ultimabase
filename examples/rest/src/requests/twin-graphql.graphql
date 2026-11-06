@@ -1,0 +1,19 @@
+query {
+	posts(where: { likes: { gt: 10 } }) {
+		edges {
+			cursor
+			node {
+				title
+				author {
+					name
+				}
+			}
+		}
+		pageInfo {
+			hasNextPage
+			hasPreviousPage
+			startCursor
+			endCursor
+		}
+	}
+}

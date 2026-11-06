@@ -1,0 +1,9 @@
+query {
+	notes {
+		edges {
+			node {
+				text
+			}
+		}
+	}
+}

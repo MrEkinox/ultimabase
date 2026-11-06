@@ -12,7 +12,8 @@ relation restricts by default).
   one-to-one, a model related to itself, two relations between the same
   models, a join model and a view.
 - `src/app.ts`: the application.
-- `src/app.test.ts`: the relations written and read over GraphQL.
+- `src/app.test.ts`: the relations written and read over GraphQL, with the
+  request files of `src/requests/`.
 - `src/queries.test.ts`: every nested write, read and filter from server
   code.
 - `src/shapes.test.ts`: the other shapes, written and read.

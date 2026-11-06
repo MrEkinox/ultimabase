@@ -1,0 +1,1 @@
+GET /api/people/$id?select={"name":true,"posts":{"first":1,"orderBy":{"likes":"asc"},"select":{"slug":true}}}

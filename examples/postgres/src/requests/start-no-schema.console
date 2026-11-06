@@ -1,0 +1,2 @@
+$ npx ultimabase start
+The database has no UltimaBase schema: run `npx ultimabase migrate deploy`, then start again.

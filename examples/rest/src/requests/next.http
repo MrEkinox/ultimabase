@@ -1,0 +1,1 @@
+GET /api/posts?first=2&after=$after&orderBy={"likes":"desc"}&select={"title":true}

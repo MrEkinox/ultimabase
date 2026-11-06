@@ -1,0 +1,9 @@
+{
+	"edges": [{ "cursor": "…", "node": { "title": "Notes" } }],
+	"pageInfo": {
+		"hasNextPage": false,
+		"hasPreviousPage": false,
+		"startCursor": "…",
+		"endCursor": "…"
+	}
+}

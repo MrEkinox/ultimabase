@@ -1,0 +1,20 @@
+{
+	"data": {
+		"author": {
+			"books": {
+				"totalCount": 2,
+				"edges": [
+					{
+						"node": { "title": "The Dispossessed", "tags": { "totalCount": 2 } }
+					},
+					{
+						"node": {
+							"title": "The Lathe of Heaven",
+							"tags": { "totalCount": 0 }
+						}
+					}
+				]
+			}
+		}
+	}
+}

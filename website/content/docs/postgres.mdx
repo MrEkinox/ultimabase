@@ -18,6 +18,19 @@ npm install @ultimabase/postgres
 
 The full example, with its tests: [`examples/postgres`](https://github.com/MrEkinox/ultimabase/tree/main/examples/postgres).
 
+| To                                    | Use                                               |
+| ------------------------------------- | ------------------------------------------------- |
+| connect to a database                 | [`postgres({ url })`](#connect)                   |
+| develop on it                         | [`ultimabase dev`, `sync`](#development)          |
+| know the tables and columns           | [The tables](#the-tables)                         |
+| change a table in production          | [`migrate create`, `migrate deploy`](#migrations) |
+| write a migration of your own         | [Your own SQL](#your-own-sql)                     |
+| test a migration                      | [`reset`](#test-a-migration)                      |
+| test the application on PostgreSQL    | [`{ database: 'declared' }`](#tests)              |
+| search in a language, or use a pooler | [Options](#options)                               |
+
+## Connect
+
 `url` is a connection string such as
 `postgres://user:password@localhost:5432/app`. The `ultimabase` commands
 run the application that `ultimabase.config.ts` exports. They look for the
@@ -37,34 +50,28 @@ npx ultimabase dev
 
 `dev` sets `NODE_ENV` to `development` and starts the application. When a
 file changes, it restarts it, and syncs the tables again. `sync` does the
-same without starting the application:
+same without starting the application. The first one logs `Created the
+database's tables.`, and the next:
 
-<include cwd meta='title="src/app.postgres.test.ts"'>
-	../examples/postgres/src/app.postgres.test.ts#sync
+<include cwd meta='title="Terminal"'>
+	../examples/postgres/src/requests/sync.console
 </include>
 
-Each change logs a line, such as `Synced Task: added priority, 0 in the rows
-it held.` A sync applies a change only when it keeps the rows. It refuses a
-change that deletes data, prints the SQL it would run, and says what to do:
+Each change logs a line, such as `Synced Task: added priority, 0 in the
+rows it held.` A sync applies a change only when it keeps the rows.
+
+### A change that deletes data
+
+A sync refuses a change that deletes data, prints the SQL it would run, and
+says what to do:
 
 ```bash
 npx ultimabase sync --force
 ```
 
-`--force` applies the change to this development database. Or write it as
-a migration, whose SQL you can edit (see [Migrations](#migrations)). When a
-removed field looks renamed, the refusal says so: `-- a rename? keep its
-data: give Locker.title dbName: 'label'.` That `dbName` keeps the old
-column, with its data, under the new field. When several added fields may be
-the removed one, it lists them, `give one of Locker.title, Locker.code
-dbName: 'label'.`, and a migration file lists one `rename column` line for
-each: replace the drop, and the line adding the field you keep, with the
-right one. An added field that two removed ones may be is
-named for neither. A removed table that looks renamed, a model's or a
-join's, gets the same hint in a migration file, one statement per line: it
-renames the table, then its keys and indexes. Replace the drop, and the line
-creating the new table, with them. A `oneOf`'s keys take no `dbName`: when the removed field
-may be one, the refusal says `--force` loses its data and a migration keeps it.
+- `--force` applies the change to this development database.
+- Or write it as a migration, whose SQL you can edit (see
+  [Migrations](#migrations)).
 
 A sync also refuses a change the rows cannot take, such as a required field
 without a default on a table that holds rows. Make the field optional, give
@@ -73,7 +80,8 @@ it a default, or rebuild the database with `npx ultimabase reset`.
 ## The tables
 
 Each model is a table, each field a column, named in snake case: `Task` is
-`task`, `createdAt` is `created_at`.
+`task`, `createdAt` is `created_at`. `dbName` names a table or a column
+yourself (see [Models and fields](/docs/next/models)).
 
 <include cwd meta='title="src/models.ts"'>
 	../examples/postgres/src/models.ts#models
@@ -98,31 +106,10 @@ Each model is a table, each field a column, named in snake case: `Task` is
 | `within`                   | a foreign key over the key and the parent's column, `_within_fkey`, to a unique key on the target's `(id, <parent>_id)`         |
 | `within` on a `many`       | a `<parent>_id` column on the join table, and per side a `_within_fkey` to that side's `(id, <parent>_id)`, `on update cascade` |
 
-A required field is `not null`; an optional one is nullable. A unique field
-or index is a unique constraint; a case-insensitive one is a unique index
-over `lower()` of its text columns, named `_lower_key`, which also serves an
-insensitive `equals`. A unique index with a `where` is a partial unique
-index, `create unique index … where …`, its name ending in a hash of its
-predicate; a new `where` drops it and creates it again, and rows that
-already share a value fail the migration. The foreign keys have no `on delete`:
-UltimaBase runs `onDelete` itself, with the hooks and access rules. A
-relation's `within` key is checked at commit too: a concurrent write or SQL of
-your own that parts a row from its target's parent fails the transaction with
-the kernel's `VALIDATION_FAILED`, its issue on the row's relation. With an
-optional parent, a check `_within_check` keeps the key `null` while the
-parent's is, and fails the statement with the same issue.
-A many-to-many's join table stores each link's parent: a row moved to
-another parent carries its links, and the other side's key refuses at
-commit a link left across two parents. `migrate create` fills the column
-from the rows each link holds, then adds the keys, which fail while a link
-crosses two parents.
-Constraint names end in `_pkey`, `_key`, `_lower_key`, `_fkey`, `_within_fkey`, `_check`, `_within_check` and `_idx`. A
-name longer than PostgreSQL's 63 bytes keeps its first 54 bytes plus an
-8-character hash. `dbName` names a table or a column yourself (see
-[Models and fields](/docs/next/models)).
-
-An index with `contains: true` installs the `pg_trgm` extension, which
-needs the right to create it.
+- A required field is `not null`; an optional one is nullable.
+- A unique field or index is a unique constraint.
+- An index with `contains: true` installs the `pg_trgm` extension, which
+  needs the right to create it.
 
 ## Migrations
 
@@ -137,45 +124,41 @@ Here, `priority` was added to `Task`. The command wrote
 and updated `migrations/schema.json`, the models the migrations lead to.
 Commit both:
 
-<include cwd meta='title="src/migrations.test.ts"'>
-	../examples/postgres/src/migrations.test.ts#add-priority
+<include cwd meta='title="migrations/20261029230454_add_priority.sql"'>
+	../examples/postgres/migrations/20261029230454_add_priority.sql
 </include>
 
-The first line is the hash of the models after the file. A deploy uses it
-to check that the files match the models. A statement that deletes data or
-may fail on the rows gets a comment above it, such as `-- removing
-"Locker.label" deletes data.`. Read the file, and edit it before you commit
-it.
-
-A required field added with a fixed default takes it in the stored rows, and
-its column keeps it, so that code still running without the field can still
-insert during a deploy. A change of the column's type drops it. A list without
-a default is empty in the stored rows: a comment below its statement says so,
-and that is where to write the values the rows need.
+- The first line is the hash of the models after the file. A deploy uses it
+  to check that the files match the models.
+- A statement that deletes data or may fail on the rows gets a comment
+  above it, such as `-- removing "Locker.label" deletes data.`
+- Read the file, and edit it before you commit it.
 
 ### Your own SQL
 
 When no model changed, `migrate create` writes a file for your SQL: a data
 change, a view, an index of your own. It prints `Wrote
 migrations/20261029230505_first_tasks_urgent.sql: no model changed, write
-your SQL in it.`
+your SQL in it.` Here, the update is written in it:
 
-<include cwd meta='title="src/migrations.test.ts"'>
-	../examples/postgres/src/migrations.test.ts#data
+<include cwd meta='title="migrations/20261029230505_first_tasks_urgent.sql"'>
+	../examples/postgres/migrations/20261029230505_first_tasks_urgent.sql
 </include>
 
-A `check` constraint of your own refuses a row with `VALIDATION_FAILED`, one
-issue naming it: `The row breaks the check visit_ended.` A rule a hook can
-hold instead stays in TypeScript, and chooses the writes it checks
+A `check` constraint of your own refuses a row with `VALIDATION_FAILED`,
+one issue naming it: `The row breaks the check visit_ended.` A rule a hook
+can hold instead stays in TypeScript, and chooses the writes it checks
 ([hooks](/docs/next/hooks#a-rule-across-a-rows-fields)).
+
+### A statement outside a transaction
 
 Each file runs in a transaction: if a statement fails, the file is rolled
 back. Some statements cannot run in a transaction, such as
 `create index concurrently`. Put such a statement alone in its file, with
 `-- ultimabase no transaction` as the second line:
 
-<include cwd meta='title="src/migrations.test.ts"'>
-	../examples/postgres/src/migrations.test.ts#no-transaction
+<include cwd meta='title="migrations/20261029230507_open_tasks_index.sql"'>
+	../examples/postgres/migrations/20261029230507_open_tasks_index.sql
 </include>
 
 ### Deploy
@@ -184,16 +167,12 @@ back. Some statements cannot run in a transaction, such as
 something to do. `migrate deploy` applies the files the database lacks, in
 order:
 
-```bash
-npx ultimabase migrate deploy
-```
-
-<include cwd meta='title="src/app.postgres.test.ts"'>
-	../examples/postgres/src/app.postgres.test.ts#status
+<include cwd meta='title="Terminal"'>
+	../examples/postgres/src/requests/migrate-status.console
 </include>
 
-<include cwd meta='title="src/app.postgres.test.ts"'>
-	../examples/postgres/src/app.postgres.test.ts#deploy
+<include cwd meta='title="Terminal"'>
+	../examples/postgres/src/requests/migrate-deploy.console
 </include>
 
 Running it, its stops and its refusals in production are on
@@ -202,19 +181,17 @@ Running it, its stops and its refusals in production are on
 ### Test a migration
 
 Deploy applies migrations only to a database they built. After a sync, it
-is refused. `reset` drops every table, then applies the migrations. It
-gives you the database production will have:
+is refused:
 
-```bash
-npx ultimabase reset
-```
-
-<include cwd meta='title="src/app.postgres.test.ts"'>
-	../examples/postgres/src/app.postgres.test.ts#synced-deploy
+<include cwd meta='title="Terminal"'>
+	../examples/postgres/src/requests/deploy-after-sync.console
 </include>
 
-<include cwd meta='title="src/app.postgres.test.ts"'>
-	../examples/postgres/src/app.postgres.test.ts#reset
+`reset` drops every table, then applies the migrations. It gives you the
+database production will have:
+
+<include cwd meta='title="Terminal"'>
+	../examples/postgres/src/requests/reset.console
 </include>
 
 To test a data migration on real rows, restore a dump of production in
@@ -235,6 +212,10 @@ Name these files `*.postgres.test.ts`, and keep the other tests on
 
 ## Options
 
+`connections` sets the pool's size, `prepared` whether a composed
+statement is planned once per connection, and `searchLanguage` the
+language of the search:
+
 <include cwd meta='title="src/search.postgres.test.ts"'>
 	../examples/postgres/src/search.postgres.test.ts#options
 </include>
@@ -246,12 +227,73 @@ Name these files `*.postgres.test.ts`, and keep the other tests on
 	../examples/postgres/src/search.postgres.test.ts#stems
 </include>
 
-The adapter plans a statement it composes once per connection, which PostgreSQL
-would otherwise do on every run. A pooler that shares server connections between
-clients may then find a statement unknown: PgBouncer in transaction mode needs
-version 1.21 or later and `max_prepared_statements` above 0. Where it cannot,
-`postgres({ url, prepared: false })` plans each statement every time, at the cost
-of that planning under load.
+### Behind a pooler
+
+The adapter plans a statement it composes once per connection, which
+PostgreSQL would otherwise do on every run. A pooler that shares server
+connections between clients may then find a statement unknown.
+
+- PgBouncer in transaction mode needs version 1.21 or later and
+  `max_prepared_statements` above 0.
+- Where it cannot, `postgres({ url, prepared: false })` plans each
+  statement every time, at the cost of that planning under load.
+
+## Details
+
+### Renames
+
+When a sync or a migration drops a field or a table that looks renamed, it
+says so:
+
+- A removed field that looks renamed: the refusal says `-- a rename? keep
+its data: give Locker.title dbName: 'label'.` That `dbName` keeps the old
+  column, with its data, under the new field.
+- Several added fields may be the removed one: the refusal lists them,
+  `give one of Locker.title, Locker.code dbName: 'label'.`, and a migration
+  file lists one `rename column` line for each. Replace the drop, and the
+  line adding the field you keep, with the right one.
+- An added field that two removed ones may be is named for neither.
+- A removed table that looks renamed, a model's or a join's, gets the same
+  hint in a migration file, one statement per line: it renames the table,
+  then its keys and indexes. Replace the drop, and the line creating the
+  new table, with them.
+- A `oneOf`'s keys take no `dbName`: when the removed field may be one, the
+  refusal says `--force` loses its data and a migration keeps it.
+
+### Defaults in a migration
+
+- A required field added with a fixed default takes it in the stored rows,
+  and its column keeps it, so that code still running without the field can
+  still insert during a deploy.
+- A change of the column's type drops the default.
+- A list without a default is empty in the stored rows: a comment below its
+  statement says so, and that is where to write the values the rows need.
+
+### Constraints
+
+- A case-insensitive unique field or index is a unique index over `lower()`
+  of its text columns, named `_lower_key`, which also serves an insensitive
+  `equals`.
+- A unique index with a `where` is a partial unique index,
+  `create unique index … where …`, its name ending in a hash of its
+  predicate. A new `where` drops it and creates it again, and rows that
+  already share a value fail the migration.
+- The foreign keys have no `on delete`: UltimaBase runs `onDelete` itself,
+  with the hooks and access rules.
+- A relation's `within` key is checked at commit too: a concurrent write or
+  SQL of your own that parts a row from its target's parent fails the
+  transaction with the kernel's `VALIDATION_FAILED`, its issue on the row's
+  relation.
+- With an optional parent, a check `_within_check` keeps the key `null`
+  while the parent's is, and fails the statement with the same issue.
+- A many-to-many's join table stores each link's parent: a row moved to
+  another parent carries its links, and the other side's key refuses at
+  commit a link left across two parents.
+- `migrate create` fills that column from the rows each link holds, then
+  adds the keys, which fail while a link crosses two parents.
+- Constraint names end in `_pkey`, `_key`, `_lower_key`, `_fkey`,
+  `_within_fkey`, `_check`, `_within_check` and `_idx`. A name longer than
+  PostgreSQL's 63 bytes keeps its first 54 bytes plus an 8-character hash.
 
 ## Reference
 

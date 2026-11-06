@@ -3,13 +3,8 @@ title: Write a plugin
 description: Add fields, hooks, commands, field types, identities, functions or a transport, in a plugin of your own.
 ---
 
-A plugin is one interface of types and one `definePlugin`. Everything
-UltimaBase does beyond models and queries is a plugin: auth, roles, files,
-GraphQL and REST are written as the ones on this page. A plugin can add
-fields, indexes, hooks and commands to the models that use it, a field type,
-its own models and functions, who a request comes from, and routes.
-
-The smallest plugin has a name:
+A plugin is one interface of types and one `definePlugin`. The smallest has a
+name:
 
 <include cwd meta='title="src/plugins/color.ts"'>
 	../examples/plugins/src/plugins/color.ts#plugin
@@ -17,38 +12,81 @@ The smallest plugin has a name:
 
 The full example, with its tests: [`examples/plugins`](https://github.com/MrEkinox/ultimabase/tree/main/examples/plugins).
 
+Everything UltimaBase does beyond models and queries is a plugin: auth, roles,
+files, GraphQL and REST are written as the ones on this page. A plugin can add
+fields, indexes, hooks and commands to the models that use it, a field type,
+its own models and functions, who a request comes from, and routes.
+
+The example holds six plugins, one of each kind:
+
+- `publishing`, a model plugin.
+- `color`, a field type.
+- `apiKeys`, an identity.
+- `members`, a user model.
+- `rpc`, a transport.
+- `broker`, a plugin that waits for traffic and leaves before the others.
+
+Every import on this page comes from `ultimabase`, but for
+`@ultimabase/http`, `zod` for a schema and, in tests, `@ultimabase/testing` and
+Vitest.
+
+| To                                   | Use                                                     |
+| ------------------------------------ | ------------------------------------------------------- |
+| list the plugin in the application   | [`plugin` and `use`](#the-plugin-and-its-entry)         |
+| check versions at start              | [`manifest`](#the-manifest)                             |
+| add fields and indexes to models     | [`addedFields`, `addedIndexes`](#add-fields-to-models)  |
+| run code on every model that uses it | [`hooks`, `redirect`](#hooks)                           |
+| add functions to models              | [`commands`](#commands)                                 |
+| give the plugin models of its own    | [`models`](#its-own-models)                             |
+| add keys to the caller               | [`caller`](#keys-of-the-caller)                         |
+| add a field builder                  | [`defineFieldType`](#a-field-type)                      |
+| say who sends a request              | [`identify`](#who-sends-a-request)                      |
+| make a model the user model          | [`userModel`](#the-user-model)                          |
+| serve functions                      | [`functions`](#functions)                               |
+| follow what commits change           | [`changed`, `missed`, `stop`](#follow-the-changes)      |
+| take options, refuse a wrong setup   | [`appOptions`, `start`](#application-options-and-start) |
+| wait for traffic, then leave it      | [`started`, `stopping`](#started-and-stopping)          |
+| write files for a client             | [`generate`](#generated-files)                          |
+| use another plugin                   | [`requires`, `optional`, `api`](#use-other-plugins)     |
+| serve the models and functions       | [a transport](#a-transport)                             |
+
+## The plugin and its entry
+
 `definePlugin` returns two functions: `plugin`, the value the application's
-`plugins` lists, and `use`, the entry a model's `use` lists. Export each
-with its type, `PluginOf<T>` and `UseOf<T>`, so their types travel with
-them:
+`plugins` lists, and `use`, the entry a model's `use` lists. Export each with
+its type, `PluginOf<T>` and `UseOf<T>`, so their types travel with them:
+
+<include cwd meta='title="src/plugins/publishing.ts"'>
+	../examples/plugins/src/plugins/publishing.ts#exports
+</include>
+
+The application lists the plugins of its models, in the order that matters
+for [`caller`](#keys-of-the-caller) and [hooks](#hooks):
 
 <include cwd meta='title="src/app.ts"'>
 	../examples/plugins/src/app.ts#app
 </include>
 
-The [example](https://github.com/MrEkinox/ultimabase/tree/main/examples/plugins)
-holds five plugins, one of each kind: a model plugin, a field type, an
-identity, a user model and a transport.
-
 ## The manifest
 
 `manifest` is optional. A plugin written in the application, as `color` or
-`publishing` below, leaves it out: it runs on the `ultimabase` the
-application installs, and nothing is checked.
+`publishing`, leaves it out: it runs on the `ultimabase` the application
+installs, and nothing is checked.
 
-A published plugin should always pass one, its imported `package.json`:
-`import manifest from '../package.json' with { type: 'json' }`. Without it,
-an application that installs the plugin beside another version of
-`ultimabase`, or of a plugin it needs, starts anyway, and fails later in a
-hook. With it, its `name`, its `version`, and in `peerDependencies` the
-ranges of `ultimabase` and of the plugins it needs are checked at start: a
-range that excludes the running `ultimabase`, or an installed plugin, stops
-the application with
-`ultimabase-rpc 1.0.0 needs @ultimabase/http ^2.0.0; this is @ultimabase/http 1.4.0.`
-A manifest that gives no `ultimabase` range starts with a warning.
+A published plugin passes its imported `package.json`, written
+`import manifest from '../package.json' with { type: 'json' }`:
 
-The `rpc` plugin below is written to be published, and writes its manifest
-by hand:
+- Without a manifest, an application that installs the plugin beside another
+  version of `ultimabase`, or of a plugin it needs, starts anyway and fails
+  later in a hook.
+- With one, its `name`, its `version`, and in `peerDependencies` the ranges of
+  `ultimabase` and of the plugins it needs are checked at start.
+- A range that excludes the running `ultimabase`, or an installed plugin,
+  stops the application with
+  `ultimabase-rpc 1.0.0 needs @ultimabase/http ^2.0.0; this is @ultimabase/http 1.4.0.`
+- A manifest that gives no `ultimabase` range starts with a warning.
+
+The `rpc` plugin is written to be published, and writes its manifest by hand:
 
 <include cwd meta='title="src/plugins/rpc.ts"'>
 	../examples/plugins/src/plugins/rpc.ts#definition
@@ -56,26 +94,28 @@ by hand:
 
 ## Add fields to models
 
-A model plugin adds to each model that lists its entry in `use`. Its types
-say what it adds; `this['fields']` is the fields of that model:
+A model plugin adds to each model that lists its entry in `use`. Its types say
+what it adds; `this['fields']` is the fields of that model:
 
 <include cwd meta='title="src/plugins/publishing.ts"'>
 	../examples/plugins/src/plugins/publishing.ts#types
 </include>
 
-`addedFields` builds the fields, with the same builders as a model, and
-their rules. `addedIndexes` indexes them on each model:
+`addedFields` builds the fields, with the same builders as a model, and their
+rules. `addedIndexes` indexes them on each model:
 
 <include cwd meta='title="src/plugins/publishing.ts"'>
 	../examples/plugins/src/plugins/publishing.ts#added-fields
 </include>
 
-The entry takes the `options` of the types, here `publishOnCreate`; each
-model reads its own:
+The entry takes the `options` of the types, here `publishOnCreate`. Each model
+reads its own:
 
 <include cwd meta='title="src/models.ts"'>
 	../examples/plugins/src/models.ts#news
 </include>
+
+`News` is published as soon as it is created:
 
 <include cwd meta='title="src/app.test.ts"'>
 	../examples/plugins/src/app.test.ts#publish-on-create
@@ -84,28 +124,48 @@ model reads its own:
 ## Hooks
 
 `hooks` run on every model that uses the plugin, as a model's own
-[hooks](/docs/next/hooks) do, with the same facts. Each also receives the
-model's `name` and `queries`, the entry's `options`, the `plugins` it needs,
-and `command`, the plugin's command the operation came through:
+[hooks](/docs/next/hooks) do, with the same facts. Each also receives:
+
+- the model's `name` and `queries`;
+- the entry's `options`;
+- the `plugins` it needs;
+- `command`, the plugin's command the operation came through.
 
 <include cwd meta='title="src/plugins/publishing.ts"'>
 	../examples/plugins/src/plugins/publishing.ts#hooks
 </include>
 
 `beforeFind` narrows every read, Master's included: an article without
-`publishedAt` is a draft, which only an editor reads.
+`publishedAt` is a draft, which only an editor reads. An editor is a caller
+with the `editor` key, [added below](#keys-of-the-caller). Here Ada, who is
+not an editor, creates a draft and does not read it:
 
 <include cwd meta='title="src/app.test.ts"'>
 	../examples/plugins/src/app.test.ts#drafts
 </include>
 
-`redirect` replaces an operation: here, a delete unpublishes the row. One
-plugin at most redirects a model's delete, and a redirected row cascades
-nothing:
+Nor does an anonymous caller. The `titles` function lists the titles its
+caller reads, and answers none:
+
+<include cwd meta='title="Request"'>
+	../examples/plugins/src/requests/titles-draft.http
+</include>
+
+<include cwd meta='title="Response"'>
+	../examples/plugins/src/requests/titles-draft.json
+</include>
+
+### Replace a delete
+
+`redirect` replaces an operation: here, a delete unpublishes the row. It runs
+after the `delete` rule and the `beforeDelete` hooks, so as Master.
 
 <include cwd meta='title="src/plugins/publishing.ts"'>
 	../examples/plugins/src/plugins/publishing.ts#redirect
 </include>
+
+The row stays, as a draft. A news item that was deleted is read by editors
+alone, and is found by `drafts`:
 
 <include cwd meta='title="src/app.test.ts"'>
 	../examples/plugins/src/app.test.ts#unpublish
@@ -113,20 +173,38 @@ nothing:
 
 ## Commands
 
-`commands` adds functions to each model, as `Article.publish`. They are built
-from the model's `queries`, so the caller's rules and the plugin's hooks
-apply to them:
+`commands` adds functions to each model, as `Article.drafts` and
+`Article.publish`. They are built from the model's `queries`, so the caller's
+rules and the plugin's hooks apply to them. Their types:
+
+<include cwd meta='title="src/plugins/publishing.ts"'>
+	../examples/plugins/src/plugins/publishing.ts#command-types
+</include>
+
+And what the plugin builds:
 
 <include cwd meta='title="src/plugins/publishing.ts"'>
 	../examples/plugins/src/plugins/publishing.ts#commands
 </include>
 
+A draft is counted, published, and no longer a draft:
+
 <include cwd meta='title="src/app.test.ts"'>
 	../examples/plugins/src/app.test.ts#publish
 </include>
 
-A caller who does not read the draft does not find it, and only an editor
-sets `publishedAt` itself:
+The `titles` function then lists it:
+
+<include cwd meta='title="Request"'>
+	../examples/plugins/src/requests/titles-published.http
+</include>
+
+<include cwd meta='title="Response"'>
+	../examples/plugins/src/requests/titles-published.json
+</include>
+
+A caller who does not read the draft does not find it, and only an editor sets
+`publishedAt` itself. Here Bob is a user who is not an editor:
 
 <include cwd meta='title="src/app.test.ts"'>
 	../examples/plugins/src/app.test.ts#not-editor
@@ -135,8 +213,8 @@ sets `publishedAt` itself:
 ## Its own models
 
 `models` lists models of the plugin's own, created with the application's.
-They take no entry and no transport lists them. Here, the users who are
-editors:
+They take no entry and no transport lists them. Here, `models: [Editor]`, the
+users who are editors:
 
 <include cwd meta='title="src/plugins/publishing.ts"'>
 	../examples/plugins/src/plugins/publishing.ts#caller-keys
@@ -145,12 +223,14 @@ editors:
 ## Keys of the caller
 
 `caller` adds keys to every user caller, which rules, hooks and functions
-read. It runs once for each caller the kernel receives, each plugin's in the
-order of `plugins`. Declare the keys in `UserCallerKeys`, as above:
+read. Declare the keys in `UserCallerKeys`, as above. It runs once for each
+caller the kernel receives, each plugin's in the order of `plugins`:
 
 <include cwd meta='title="src/plugins/publishing.ts"'>
 	../examples/plugins/src/plugins/publishing.ts#caller
 </include>
+
+Once Ada is an editor, she reads the draft:
 
 <include cwd meta='title="src/app.test.ts"'>
 	../examples/plugins/src/app.test.ts#editor
@@ -162,23 +242,37 @@ written `{ kind: 'master' }` is not one.
 ## A field type
 
 `defineFieldType` gives a field builder, as `color()`. The value is stored
-through a kernel field, and code reads what `decode` gives:
+through a kernel field, and code reads what `decode` gives. First what the
+type converts, a color between `#rrggbb` and its channels:
+
+<include cwd meta='title="src/plugins/color.ts"'>
+	../examples/plugins/src/plugins/color.ts#color-values
+</include>
+
+Then the field type:
 
 <include cwd meta='title="src/plugins/color.ts"'>
 	../examples/plugins/src/plugins/color.ts#field-type
 </include>
 
+A model uses it as a builder, with the options its type declares:
+
 <include cwd meta='title="src/models.ts"'>
 	../examples/plugins/src/models.ts#article
 </include>
 
-A write takes what `schema` accepts, here `{ red, green, blue }` or its
-`#rrggbb`; filters, indexes and `unique` work on the stored value. Clients
-read what `toJSON` gives.
+- A write takes what `schema` accepts, here `{ red, green, blue }` or its
+  `#rrggbb`.
+- Filters, indexes and `unique` work on the stored value.
+- Clients read what `toJSON` gives.
+
+Code reads the channels, a field's default included:
 
 <include cwd meta='title="src/app.test.ts"'>
 	../examples/plugins/src/app.test.ts#color
 </include>
+
+A color outside the palette is refused:
 
 <include cwd meta='title="src/app.test.ts"'>
 	../examples/plugins/src/app.test.ts#palette
@@ -190,31 +284,53 @@ The plugin it names must be in `plugins`; otherwise the application stops:
 ## Who sends a request
 
 `identify` reads a request and says who sends it: a user, Master, or
-`undefined` when the request is not the plugin's. The master key comes
-first, then the first plugin that knows the caller; a request no plugin knows
-is anonymous. Throw a `PublicError` to refuse it:
+`undefined` when the request is not the plugin's. Throw a `PublicError` to
+refuse it. `ApiKey` is the plugin's model of keys, and `hashOf` hashes a key
+with SHA-256:
 
 <include cwd meta='title="src/plugins/api-keys.ts"'>
 	../examples/plugins/src/plugins/api-keys.ts#identify
 </include>
 
+- The master key comes first, then the first plugin that knows the caller.
+- A request no plugin knows is anonymous.
+- Every transport identifies its requests this way: GraphQL, REST, realtime
+  and the routes of [HTTP](/docs/next/http) all see the key's owner.
+
+Master creates a key for Ada, who owns it. `M` stands for `{ as: master }`,
+and the key is shown only here:
+
 <include cwd meta='title="src/app.test.ts"'>
 	../examples/plugins/src/app.test.ts#api-key
 </include>
 
-<include cwd meta='title="src/app.test.ts"'>
-	../examples/plugins/src/app.test.ts#unknown-key
+A request that sends it runs as Ada. `$key` is the key just created, and
+`whoami` answers its caller (see [A transport](#a-transport)):
+
+<include cwd meta='title="Request"'>
+	../examples/plugins/src/requests/whoami-key.http
 </include>
 
-Every transport identifies its requests this way: GraphQL, REST, realtime
-and the routes of [HTTP](/docs/next/http) all see the key's owner.
+<include cwd meta='title="Response"'>
+	../examples/plugins/src/requests/whoami-key.json
+</include>
+
+A key the plugin does not know is refused with HTTP 401:
+
+<include cwd meta='title="Request"'>
+	../examples/plugins/src/requests/unknown-key.http
+</include>
+
+<include cwd meta='title="Response"'>
+	../examples/plugins/src/requests/unknown-key.json
+</include>
 
 ## The user model
 
-`userModel: true` makes the model that uses the plugin the application's
-user model. A `viewer` filter on a relation to it is the signed-in user, as
-[Authentication](/docs/next/auth) shows; the auth plugin's `defineUser` is
-such a model. Two models that use one stop the start.
+`userModel: true` makes the model that uses the plugin the application's user
+model. A `viewer` filter on a relation to it is the signed-in user, as
+[Authentication](/docs/next/auth) shows; the auth plugin's `defineUser` is such
+a model. Two models that use one stop the start.
 
 <include cwd meta='title="src/plugins/members.ts"'>
 	../examples/plugins/src/plugins/members.ts#members
@@ -226,23 +342,37 @@ such a model. Two models that use one stop the start.
 
 ## Functions
 
-`functions` returns `defineFunction` values, served as the application's
-are, under the plugin's name: `apiKeys.createApiKey`. A function without an
-access rule is Master's only:
+`functions` returns `defineFunction` values, served as the application's are,
+under the plugin's name: `apiKeys.createApiKey`. A function without an access
+rule is Master's only:
 
 <include cwd meta='title="src/plugins/api-keys.ts"'>
 	../examples/plugins/src/plugins/api-keys.ts#function
 </include>
 
-<include cwd meta='title="src/app.test.ts"'>
-	../examples/plugins/src/app.test.ts#plugin-function
+Master calls it over the transport of [A transport](#a-transport), with the
+master key. It answers HTTP 200 with `{ "output": { "key": … } }`, the key
+itself:
+
+<include cwd meta='title="Request"'>
+	../examples/plugins/src/requests/create-key.http
+</include>
+
+Without the header, the caller is anonymous and is refused with HTTP 403:
+
+<include cwd meta='title="Response"'>
+	../examples/plugins/src/requests/create-key-refused.json
 </include>
 
 ## Follow the changes
 
-`changed` receives what each commit changed, on this server or another one
-on the same database. `missed` says changes may have been lost, after a lost
-connection; `stop` runs once the application stops. A cache uses all three:
+`changed` receives what each commit changed, on this server or another one on
+the same database. Two more hooks keep what it learns right:
+
+- `missed` says changes may have been lost, after a lost connection.
+- `stop` runs once the application stops.
+
+A cache uses all three. Each running application has its own:
 
 <include cwd meta='title="src/plugins/api-keys.ts"'>
 	../examples/plugins/src/plugins/api-keys.ts#cache
@@ -252,20 +382,25 @@ connection; `stop` runs once the application stops. A cache uses all three:
 	../examples/plugins/src/plugins/api-keys.ts#changed
 </include>
 
+Ada's key is deleted, and the cache forgets it:
+
 <include cwd meta='title="src/app.test.ts"'>
 	../examples/plugins/src/app.test.ts#revoked
 </include>
 
+The request that worked answers HTTP 401 again, as for an unknown key.
+
 ## Application options and start
 
 `appOptions` types the options of `plugin()`, as `apiKeysPlugin({ header })`.
-`start` and `stop` read them in `options`. Throw a `Refused` from `start`
-for a wrong setup: the application stops and prints the message, without a
-stack.
+`start` and `stop` read them in `options`. Throw a `Refused` from `start` for a
+wrong setup: the application stops and prints the message, without a stack.
 
 <include cwd meta='title="src/plugins/api-keys.ts"'>
 	../examples/plugins/src/plugins/api-keys.ts#definition
 </include>
+
+An empty header name stops the application:
 
 <include cwd meta='title="src/start.test.ts"'>
 	../examples/plugins/src/start.test.ts#header
@@ -273,39 +408,65 @@ stack.
 
 ## Started and stopping
 
-`started` runs once every plugin's `start` ran: a plugin that takes work
-from outside, as a message broker's, waits for it. `stopping` runs when the
-stop begins, every plugin's at once, before any `stop`: the plugin takes no
-more work while the HTTP server drains. A plugin that requires the HTTP
-plugin adds a check to `GET /ready` with `plugins.http.ready(check)`:
+Two hooks bound the time a plugin takes traffic:
+
+- `started` runs once every plugin's `start` ran: a plugin that takes work
+  from outside, as a message broker's, waits for it.
+- `stopping` runs when the stop begins, every plugin's at once, before any
+  `stop`: the plugin takes no more work while the HTTP server drains.
+
+A plugin that requires the HTTP plugin adds a check to `GET /ready` with
+`plugins.http.ready(check)`. Here `broker` stands for a message broker's
+client:
 
 <include cwd meta='title="src/plugins/broker.ts"'>
 	../examples/plugins/src/plugins/broker.ts#definition
 </include>
 
-<include cwd meta='title="src/broker.test.ts"'>
-	../examples/plugins/src/broker.test.ts#ready
+While the broker is connected, `GET /ready` answers HTTP 200:
+
+<include cwd meta='title="Request"'>
+	../examples/plugins/src/requests/ready.http
 </include>
+
+<include cwd meta='title="Response"'>
+	../examples/plugins/src/requests/ready.json
+</include>
+
+When it is not, it answers HTTP 503:
+
+<include cwd meta='title="Response"'>
+	../examples/plugins/src/requests/ready-refused.json
+</include>
+
+The HTTP plugin serves for `drain` ms more once `/ready` answers 503: 100 ms
+here, 5000 by default in production. The broker takes messages once started.
+It takes no more once the stop begins, during the drain and before any plugin
+stops:
 
 <include cwd meta='title="src/broker.test.ts"'>
 	../examples/plugins/src/broker.test.ts#stopping
 </include>
 
-A `stopping` that throws is logged, the stop goes on, and `stop` rejects
-with its error, as a failing `stop`.
+A `stopping` that throws is logged, the stop goes on, and `stop` rejects with
+its error, as a failing `stop`.
 
 ## Generated files
 
-`generate` returns files for a client, as `{ path, content }[]`, the path
-read from the directory the command runs in. `npx ultimabase generate`
-builds every `api` and writes the files whose content changed, without
-starting the database or running any `start`; `ultimabase dev` writes them
-as it starts. Two files at one path stop both. The `rpc` plugin writes the
-names of the functions it serves:
+`generate` returns files for a client, as `{ path, content }[]`, the path read
+from the directory the command runs in. The `rpc` plugin writes the names of
+the functions it serves:
 
 <include cwd meta='title="src/plugins/rpc.ts"'>
 	../examples/plugins/src/plugins/rpc.ts#generate
 </include>
+
+- `npx ultimabase generate` builds every `api` and writes the files whose
+  content changed, without starting the database or running any `start`.
+- `ultimabase dev` writes them as it starts.
+- Two files at one path stop both.
+
+The application sets the path, and reads what was written:
 
 <include cwd meta='title="src/start.test.ts"'>
 	../examples/plugins/src/start.test.ts#generated
@@ -314,14 +475,19 @@ names of the functions it serves:
 ## Use other plugins
 
 `requires` names the plugins the plugin needs, by their types and their
-`plugin` function; `optional`, the ones it uses when installed. `plugins`
-in each function of the definition holds their APIs, `undefined` for an
-optional one the application does not install. A plugin offers its API from
-`api`, built once before any `start`:
+`plugin` function; `optional`, the ones it uses when installed. `plugins` in
+each function of the definition holds their APIs, `undefined` for an optional
+one the application does not install. A plugin offers its API from `api`, built
+once before any `start`:
 
 <include cwd meta='title="src/plugins/rpc.ts"'>
 	../examples/plugins/src/plugins/rpc.ts#types
 </include>
+
+`apiKeys` uses `rpc` when it is installed, in the `definition` shown in
+[Application options and start](#application-options-and-start). An
+application that lists `httpPlugin()`, `rpcPlugin()` and `apiKeysPlugin()`
+logs, once started (`logged` is what its logger received):
 
 <include cwd meta='title="src/start.test.ts"'>
 	../examples/plugins/src/start.test.ts#optional
@@ -332,38 +498,91 @@ A missing required plugin stops the application:
 
 ## A transport
 
-A transport reads `models` and `functions` in `api`, and serves them. This
-one mounts a route on the HTTP plugin for each function, which runs it as
-the request's caller:
+A transport reads `models` and `functions` in `api`, and serves them. This one
+mounts a route on the HTTP plugin for each function, which runs it as the
+request's caller:
 
 <include cwd meta='title="src/plugins/rpc.ts"'>
 	../examples/plugins/src/plugins/rpc.ts#api
 </include>
 
-<include cwd meta='title="src/app.test.ts"'>
-	../examples/plugins/src/app.test.ts#call
+- `clientOf(c)` gives the function its `client`, the request's cookies and
+  address, and `sent` writes the cookies it set.
+- `fn.with === false` keeps a function out of the transport.
+- A function that returns a model is refused at start, as shown below.
+
+`isLocalHost(hostname)` is true for this machine only, so the list of
+functions stays a developer's:
+
+<include cwd meta='title="src/plugins/rpc.ts"'>
+	../examples/plugins/src/plugins/rpc.ts#api-list
 </include>
 
-`clientOf(c)` gives the function its `client`, the request's cookies and
-address, and `sent` writes the cookies it set. `isLocalHost(hostname)` is
-true for this machine only, so the list of functions stays a developer's:
+A client calls a function with `POST /rpc/<name>`, here `whoami`, which
+answers who calls. Without a key, the caller is anonymous:
+
+<include cwd meta='title="Request"'>
+	../examples/plugins/src/requests/whoami.http
+</include>
+
+<include cwd meta='title="Response"'>
+	../examples/plugins/src/requests/whoami.json
+</include>
+
+On this machine, `GET /rpc` lists the functions:
+
+<include cwd meta='title="Request"'>
+	../examples/plugins/src/requests/list.http
+</include>
+
+<include cwd meta='title="Response"'>
+	../examples/plugins/src/requests/list.json
+</include>
+
+Under another host name, the same request answers HTTP 404:
 
 <include cwd meta='title="src/app.test.ts"'>
 	../examples/plugins/src/app.test.ts#list
 </include>
 
+### Refuse what it cannot serve
+
+A transport refuses at start what it cannot serve. This function returns a
+model, `Note`, which `rpc` cannot answer as JSON:
+
+<include cwd meta='title="src/start.test.ts"'>
+	../examples/plugins/src/start.test.ts#model-output
+</include>
+
+Starting an application that lists it stops with that message:
+
+<include cwd meta='title="src/start.test.ts"'>
+	../examples/plugins/src/start.test.ts#model-refused
+</include>
+
+### Keep a function out
+
 `functionWith` types the plugin's key of a function's `.with`; `false` keeps
-the function out of it. The function lists the plugin's entry in `use`:
+the function out of it. `latest`, above, then starts and runs from server code
+only:
 
 <include cwd meta='title="src/start.test.ts"'>
 	../examples/plugins/src/start.test.ts#opted-out
 </include>
 
-A transport refuses at start what it cannot serve:
+## Details
 
-<include cwd meta='title="src/start.test.ts"'>
-	../examples/plugins/src/start.test.ts#model-output
-</include>
+### Order and limits
+
+- `plugins` runs each plugin's `caller` in its order, and the plugins' hooks
+  before a model's own.
+- At most one plugin redirects a model's delete, and a redirected row cascades
+  nothing.
+- A plugin adds to a model only through its entry in `use`.
+- `api` runs before any `start`: an API reads the others only when called, as
+  `url` reads the server's address.
+- Reading `plugins.http` before the application starts throws
+  `rpc: plugins.http is read once the application starts.`
 
 ## Reference
 

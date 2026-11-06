@@ -12,7 +12,9 @@ it('lists the posts over GraphQL', async () => {
 	const response = await fetch(`${running.url}/graphql`, {
 		method: 'POST',
 		headers: { 'content-type': 'application/json' },
-		body: JSON.stringify({ query: '{ posts { edges { node { title } } } }' }),
+		body: JSON.stringify({
+			query: 'query { posts { edges { node { title } } } }',
+		}),
 	})
 	expect(await response.json()).toEqual({
 		data: { posts: { edges: [{ node: { title: 'Hello' } }] } },

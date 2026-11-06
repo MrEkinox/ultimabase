@@ -1,0 +1,25 @@
+mutation ($publisher: ID!) {
+	createAuthor(
+		data: {
+			name: "Ursula"
+			books: {
+				create: [
+					{
+						title: "The Dispossessed"
+						publisher: { connect: { id: $publisher } }
+						tags: { create: [{ label: "utopia" }, { label: "classic" }] }
+					}
+				]
+			}
+		}
+	) {
+		name
+		books {
+			edges {
+				node {
+					title
+				}
+			}
+		}
+	}
+}

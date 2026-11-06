@@ -1,16 +1,18 @@
 // The model: a post with a cover image, public, and private text
 // attachments.
-//#region post
+//#region imports
 import { file } from '@ultimabase/files'
 import { graphql } from '@ultimabase/graphql'
 import { allow, defineModel } from 'ultimabase'
 import { z } from 'zod'
+//#endregion
 
 export const Post = defineModel({
 	name: 'Post',
 	use: [graphql()],
 	fields: (f) => ({
 		title: f.string(),
+		//#region cover
 		cover: file({
 			optional: true,
 			accept: ['image/png'],
@@ -25,6 +27,8 @@ export const Post = defineModel({
 				},
 			},
 		}),
+		//#endregion
+		//#region attachments
 		attachments: file({
 			list: true,
 			// Text is not detected from its bytes: these types are taken as
@@ -39,10 +43,10 @@ export const Post = defineModel({
 				}),
 			},
 		}),
+		//#endregion
 	}),
 	// Open to every client, to keep the example on files.
 }).with({ access: allow.public })
-//#endregion
 
 //#region png-size
 const signature = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]

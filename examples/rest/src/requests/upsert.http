@@ -1,0 +1,12 @@
+PUT /api/posts?select={"slug":true,"likes":true}
+content-type: application/json
+
+{
+	"where": { "slug": "ideas" },
+	"create": {
+		"title": "Ideas",
+		"slug": "ideas",
+		"author": { "connect": { "id": "$id" } }
+	},
+	"update": { "likes": 1 }
+}

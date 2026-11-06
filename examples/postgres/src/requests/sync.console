@@ -1,0 +1,2 @@
+$ npx ultimabase sync
+The database already matches the models.

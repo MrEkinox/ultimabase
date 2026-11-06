@@ -1,0 +1,10 @@
+query {
+	shelf(first: 1) {
+		edges {
+			node {
+				title
+			}
+		}
+		totalCount
+	}
+}

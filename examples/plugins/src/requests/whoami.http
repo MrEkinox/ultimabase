@@ -1,0 +1,4 @@
+POST /rpc/whoami
+content-type: application/json
+
+{}

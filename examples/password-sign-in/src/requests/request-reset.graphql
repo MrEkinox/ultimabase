@@ -1,0 +1,3 @@
+mutation ($input: RequestPasswordResetInput!) {
+	requestPasswordReset(input: $input)
+}

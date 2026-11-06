@@ -17,72 +17,156 @@ npm install @ultimabase/soft-delete
 
 The full example, with its tests: [`examples/soft-delete`](https://github.com/MrEkinox/ultimabase/tree/main/examples/soft-delete).
 
-and `softDeletePlugin()` in the application's plugins:
+| To                                      | Use                                               |
+| --------------------------------------- | ------------------------------------------------- |
+| turn on the trash                       | [`softDeletePlugin()`](#set-it-up)                |
+| delete a row and keep it                | [`deletePost`, or `delete`](#delete-a-row)        |
+| let clients read the trash and restore  | [a function](#over-graphql)                       |
+| read the trash, restore, from your code | [`Post.trash`, `Post.restore`](#from-server-code) |
+| reuse the value of a deleted row        | [an index with `where`](#unique-values)           |
+| know which rules and hooks run          | [Rules](#rules)                                   |
+
+## Set it up
+
+`softDeletePlugin()` goes in the application's plugins:
 
 <include cwd meta='title="src/app.ts"'>
 	../examples/soft-delete/src/app.ts#plugins
 </include>
 
-A client deletes a post as usual, with `deletePost`; the post leaves
-`posts`, and the trash has it with its date:
+## Delete a row
 
-<include cwd meta='title="src/app.test.ts"'>
-	../examples/soft-delete/src/app.test.ts#trash
+The server holds two posts, `Kept` and `Draft`. A client deletes `Draft` as
+usual, with `deletePost`; `$id` is its id:
+
+<include cwd meta='title="Request"'>
+	../examples/soft-delete/src/requests/delete.graphql
 </include>
 
-## From server code
-
-The model gets two commands: `Post.trash`, which reads the deleted rows with
-`findMany`, `findFirst`, `findUnique` and `count`, and `Post.restore`, which
-brings one back. A deleted row is gone for every other read, Master's
-included, and `deleteMany` keeps its rows too:
-
-<include cwd meta='title="src/app.test.ts"'>
-	../examples/soft-delete/src/app.test.ts#commands
+<include cwd meta='title="Response"'>
+	../examples/soft-delete/src/requests/delete.json
 </include>
 
-## Unique values
+`Draft` leaves `posts`, and `Kept` stays:
 
-A deleted row keeps its values, unique ones included. An index whose
-`where` keeps only the rows not deleted, `where: { deletedAt: null }`, as
-`Post` has on its title, lets a new row take the value a deleted one held;
-restoring that row is then a `UNIQUE_VIOLATION`:
-
-<include cwd meta='title="src/app.test.ts"'>
-	../examples/soft-delete/src/app.test.ts#unique
+<include cwd meta='title="Request"'>
+	../examples/soft-delete/src/requests/posts.graphql
 </include>
 
-## Over a transport
+<include cwd meta='title="Response"'>
+	../examples/soft-delete/src/requests/posts.json
+</include>
 
-No transport exposes the commands by themselves: a function gives them to
-clients, with the rules it chooses. Each command runs as the caller, so the
-model's rules apply:
+## Over GraphQL
+
+No transport exposes the trash or `restore` by themselves: a function gives
+them to clients, with the rules it chooses. Each command runs as the caller,
+so the model's rules apply:
 
 <include cwd meta='title="src/functions.ts"'>
 	../examples/soft-delete/src/functions.ts#functions
 </include>
 
+The trash has `Draft`, the deleted post:
+
+<include cwd meta='title="Request"'>
+	../examples/soft-delete/src/requests/trash.graphql
+</include>
+
+<include cwd meta='title="Response"'>
+	../examples/soft-delete/src/requests/trash.json
+</include>
+
+`restorePost` brings `Draft` back, by its id, with `deletedAt` set to `null`:
+
+<include cwd meta='title="Request"'>
+	../examples/soft-delete/src/requests/restore.graphql
+</include>
+
+<include cwd meta='title="Response"'>
+	../examples/soft-delete/src/requests/restore.json
+</include>
+
+Restoring a post that is not deleted fails with `NOT_FOUND`.
+
+## From server code
+
+The model gets two commands. The tests below write `as` for `{ as: master }`.
+`Post.trash` reads the deleted rows with `findMany`, `findFirst`,
+`findUnique` and `count`:
+
 <include cwd meta='title="src/app.test.ts"'>
-	../examples/soft-delete/src/app.test.ts#restore
+	../examples/soft-delete/src/app.test.ts#commands
+</include>
+
+<include cwd meta='title="src/app.test.ts"'>
+	../examples/soft-delete/src/app.test.ts#trash-find
+</include>
+
+A deleted row is gone for every other read, Master's included. `deleteMany`
+keeps its rows too:
+
+<include cwd meta='title="src/app.test.ts"'>
+	../examples/soft-delete/src/app.test.ts#delete-many
+</include>
+
+`Post.restore` brings one back and returns it:
+
+<include cwd meta='title="src/app.test.ts"'>
+	../examples/soft-delete/src/app.test.ts#restore-row
+</include>
+
+## Unique values
+
+A deleted row keeps its values, unique ones included, so a new row cannot
+take them. `Tag` has a plain unique `name`:
+
+<include cwd meta='title="src/models.ts"'>
+	../examples/soft-delete/src/models.ts#tag
+</include>
+
+Deleting the tag `news` does not free its name:
+
+<include cwd meta='title="src/app.test.ts"'>
+	../examples/soft-delete/src/app.test.ts#unique
+</include>
+
+An index whose `where` keeps only the rows not deleted, as `Post` has on its
+title (`where: { deletedAt: null }`), frees the value of a deleted row.
+Restoring that row is then a `UNIQUE_VIOLATION`:
+
+<include cwd meta='title="src/app.test.ts"'>
+	../examples/soft-delete/src/app.test.ts#unique-free
 </include>
 
 ## Rules
 
-A delete still needs the model's `delete` rule, and its `beforeDelete` and
-`afterDelete` [hooks](/docs/next/hooks) run as for any delete. `trash` reads
-under the `read` rule and `restore` writes under the `update` rule.
+- A delete still needs the model's `delete` rule.
+- `beforeDelete` and `afterDelete` [hooks](/docs/next/hooks) run as for any
+  delete.
+- `trash` reads under the `read` rule, and `restore` writes under the
+  `update` rule.
 
-The date is an update, written as Master: a delete also runs the model's
-`beforeUpdate`, `afterUpdate` and `afterUpdateCommit` hooks, their `caller`
-Master's. A hook tells it from an edit by its `data.deletedAt`, a date for
-a delete and `null` for a `restore`.
+Only Master writes `deletedAt`: a client deletes through the `delete` rule and
+never dates a row itself. The request is refused with `ACCESS_DENIED`:
 
-Only Master writes `deletedAt`, so a client deletes through the `delete`
-rule and never dates a row itself:
-
-<include cwd meta='title="src/app.test.ts"'>
-	../examples/soft-delete/src/app.test.ts#deleted-at
+<include cwd meta='title="Request"'>
+	../examples/soft-delete/src/requests/date.graphql
 </include>
+
+<include cwd meta='title="Response"'>
+	../examples/soft-delete/src/requests/date.json
+</include>
+
+## Details
+
+- A deleted row's date is its `deletedAt`: `trash { title deletedAt }` reads it,
+  and `Post.delete` returns it as a `Date`.
+- The date is an update, written as Master. A delete also runs the model's
+  `beforeUpdate`, `afterUpdate` and `afterUpdateCommit` hooks, and their
+  `caller` is Master.
+- A hook tells it from an edit by its `data.deletedAt`: a date for a delete,
+  `null` for a `restore`.
 
 ## Reference
 

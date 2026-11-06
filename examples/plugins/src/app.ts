@@ -1,5 +1,4 @@
 // The application: its plugins, beside the models and functions.
-//#region app
 import { httpPlugin } from '@ultimabase/http'
 import { defineApp, memory } from 'ultimabase'
 import { titles, whoami } from './functions.ts'
@@ -12,6 +11,7 @@ import { membersPlugin } from './plugins/members.ts'
 import { publishingPlugin } from './plugins/publishing.ts'
 import { rpcPlugin } from './plugins/rpc.ts'
 
+//#region app
 export const app = defineApp({
 	database: memory(),
 	masterKey: 'dev-master-key',

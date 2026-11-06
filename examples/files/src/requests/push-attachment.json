@@ -1,0 +1,16 @@
+{
+	"data": {
+		"updatePost": {
+			"attachments": [
+				{
+					"name": "notes.txt",
+					"variants": { "preview": { "type": "text/plain", "size": 17 } }
+				},
+				{
+					"name": "prices.txt",
+					"variants": { "preview": { "type": "text/plain", "size": 18 } }
+				}
+			]
+		}
+	}
+}

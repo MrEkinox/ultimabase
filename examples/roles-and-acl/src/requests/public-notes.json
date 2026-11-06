@@ -1,0 +1,9 @@
+{
+	"data": {
+		"notes": {
+			"edges": [
+				{ "node": { "title": "News", "acl": { "read": ["*"], "write": [] } } }
+			]
+		}
+	}
+}

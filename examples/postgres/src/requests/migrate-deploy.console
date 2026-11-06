@@ -1,0 +1,7 @@
+$ npx ultimabase migrate deploy
+Applied 20261026200257_init.sql.
+Applied 20261029230454_add_priority.sql.
+Applied 20261029230505_first_tasks_urgent.sql.
+Applied 20261029230507_open_tasks_index.sql.
+$ npx ultimabase migrate status
+The database is up to date.

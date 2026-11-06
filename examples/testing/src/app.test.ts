@@ -33,22 +33,8 @@ it('acts as a signed-in user', async () => {
 	//#endregion
 })
 
-it('calls the API over HTTP', async () => {
-	//#region http
-	await Note.create({ data: { text: 'Milk', ownerId: 'ada' } }, { as: master })
-	// `running.url` is the server's address during the test.
-	const response = await fetch(`${running.url}/graphql`, {
-		method: 'POST',
-		headers: { 'content-type': 'application/json' },
-		body: JSON.stringify({ query: '{ notes { edges { node { text } } } }' }),
-	})
-	// Without a session, the caller is anonymous: no note is its own.
-	expect(await response.json()).toEqual({ data: { notes: { edges: [] } } })
-	//#endregion
-})
-
 it('refuses an anonymous note before any query', async () => {
-	//#region queries
+	//#region no-queries
 	// The queries the callback sends to the database, in their order.
 	const refused = await running.queries(async () => {
 		await expect(Note.create({ data: { text: 'Milk' } })).rejects.toMatchObject(
@@ -56,7 +42,11 @@ it('refuses an anonymous note before any query', async () => {
 		)
 	})
 	expect(refused).toEqual([])
+	//#endregion
+})
 
+it('lists the queries of a write and a read', async () => {
+	//#region queries
 	const ada = { as: asUser({ id: 'ada' }) }
 	const written = await running.queries(async () => {
 		await Note.create({ data: { text: 'Milk' } }, ada)
@@ -64,17 +54,4 @@ it('refuses an anonymous note before any query', async () => {
 	})
 	expect(written).toEqual(['write Note', 'find Note'])
 	//#endregion
-})
-
-it('empties the database between end-to-end tests', async () => {
-	await Note.create({ data: { text: 'Milk', ownerId: 'ada' } }, { as: master })
-	//#region reset
-	// What an end-to-end test sends first, to `ultimabase dev`.
-	const reset = await fetch(`${running.url}/_ultimabase/reset`, {
-		method: 'POST',
-		headers: { 'x-ultimabase-master-key': 'dev-master-key' },
-	})
-	expect(reset.status).toBe(204)
-	//#endregion
-	expect(await Note.count({}, { as: master })).toBe(0)
 })

@@ -1,5 +1,6 @@
 // Rights that follow from the data: a project's members read its tasks, its
-// owner writes them. The server sets the projects up as Master.
+// owner writes them. The server sets the projects up as Master. Its short
+// regions are shown on the page (D-282).
 import { asUser, testApplication } from '@ultimabase/testing'
 import { master } from 'ultimabase'
 import { expect, it } from 'vitest'
@@ -41,7 +42,7 @@ async function team() {
 
 it('shows a task to the members of its project only', async () => {
 	const { project, ada, grace, graceId, alan } = await team()
-	//#region relation-read
+	//#region member-reads
 	await Task.create(
 		{ data: { title: 'Parse', project: { connect: { id: project.id } } } },
 		ada,
@@ -49,6 +50,8 @@ it('shows a task to the members of its project only', async () => {
 	// Grace is a member: she reads the task; Alan is not.
 	expect(await Task.count({}, grace)).toBe(1)
 	expect(await Task.count({}, alan)).toBe(0)
+	//#endregion
+	//#region member-leaves
 	// Out of the project, Grace reads nothing from her next query on.
 	await Project.update(
 		{
@@ -63,11 +66,11 @@ it('shows a task to the members of its project only', async () => {
 
 it('lets only the project’s owner write its tasks', async () => {
 	const { project, ada, grace } = await team()
-	//#region group-write
 	const task = await Task.create(
 		{ data: { title: 'Parse', project: { connect: { id: project.id } } } },
 		ada,
 	)
+	//#region refused-update
 	// Grace reads the task, but the rule refuses her writes.
 	const refused = {
 		code: 'NOT_PROJECT_OWNER',
@@ -76,15 +79,21 @@ it('lets only the project’s owner write its tasks', async () => {
 	await expect(
 		Task.update({ where: { id: task.id }, data: { done: true } }, grace),
 	).rejects.toMatchObject(refused)
+	//#endregion
+	//#region refused-delete
 	await expect(
 		Task.delete({ where: { id: task.id } }, grace),
 	).rejects.toMatchObject(refused)
+	//#endregion
+	//#region refused-create
 	await expect(
 		Task.create(
 			{ data: { title: 'Lex', project: { connect: { id: project.id } } } },
 			grace,
 		),
 	).rejects.toMatchObject(refused)
+	//#endregion
+	//#region owner-writes
 	// Ada, the owner, does both.
 	const done = await Task.update(
 		{ where: { id: task.id }, data: { done: true } },

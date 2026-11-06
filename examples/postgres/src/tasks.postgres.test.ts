@@ -18,6 +18,11 @@ vi.hoisted(() => {
 // emptied before each test, dropped after the last.
 testApplication(app, { database: 'declared' })
 
+it('starts with empty tables', async () => {
+	expect(await Project.count({}, { as: master })).toBe(0)
+})
+//#endregion
+
 it('deletes the tasks with their project', async () => {
 	const project = await Project.create(
 		{ data: { name: 'Launch', tasks: { create: [{ title: 'Write' }] } } },
@@ -26,8 +31,3 @@ it('deletes the tasks with their project', async () => {
 	await Project.delete({ where: { id: project.id } }, { as: master })
 	expect(await Task.count({}, { as: master })).toBe(0)
 })
-
-it('starts with empty tables', async () => {
-	expect(await Project.count({}, { as: master })).toBe(0)
-})
-//#endregion

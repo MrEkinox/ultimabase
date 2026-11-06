@@ -1,0 +1,9 @@
+query {
+	products {
+		edges {
+			node {
+				cost
+			}
+		}
+	}
+}

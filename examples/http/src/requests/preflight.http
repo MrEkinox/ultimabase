@@ -1,0 +1,3 @@
+OPTIONS /webhooks/payment
+origin: https://shop.example.com
+access-control-request-method: POST

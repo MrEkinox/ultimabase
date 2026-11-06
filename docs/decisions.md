@@ -18503,34 +18503,38 @@ alter table "account" add constraint "account_languages_size_check" check (cardi
 
 Choice: amends D-155. Readers find the documentation's facts, but its code shows too much: 240 of its 397 blocks
 hold a line of test or harness, and a GraphQL request sits in a `graphql()` function no developer has.
-Everything shown stays executed; what changes is which code is shown. This holds first for the pages
-listed as rewritten, as a pilot on `graphql` and `hooks`; the others follow only if the pilot works
-for its readers.
+Everything shown stays executed; what changes is which code is shown. It held first for a pilot on
+`graphql` and `hooks`; its readers approved it on 2026-11-06, and it now holds for every page.
 
 1. **A short test stays.** A region of a test is shown when it is 12 lines at most and calls neither
    `fetch` nor a function its test file declares. Its `expect` shows the result, and unlike a comment
-   it is executed.
+   it is executed. A file of the starter is shown whole, whatever its length: a developer's project
+   holds it as it is.
 2. **A request and its response are files.** A GraphQL document is `requests/<name>.graphql`, a request
    with its HTTP grammar `requests/<name>.http`, and a response `requests/<name>.json`, each included
    whole. The example's test sends the file and compares the response with the JSON file, parsed.
    `scripts/requests.ts` does this for the tests. It is no public API, and no package holds it. A
    `.graphql` file starts with `query` or `mutation`, even where GraphQL lets a query omit it.
+   What a command prints is `requests/<name>.console`: each `$ npx ultimabase …` line and its output,
+   with the variables it sets, as a developer sees them in a terminal. The test runs each line and
+   compares the output. A `bash` block in a page holds commands only. A migration a page shows is its
+   real `.sql` file, included whole.
 3. **What changes at each run reads `…`** in a response file. The test replaces the values of `id`,
-   `cursor`, `startCursor`, `endCursor`, `createdAt` and `updatedAt` before comparing. A value the file
-   must name, as an id in a REST path, is written `$id` in an `.http` file, as in GraphQL, and the test
-   passes it.
+   `cursor`, `startCursor`, `endCursor`, `createdAt`, `updatedAt` and `correlationId` before comparing.
+   A value the file must name, as an id in a REST path, is written `$id` in an `.http` file, as in
+   GraphQL, and the test passes it.
 4. **A long model is shown in pieces.** A region may be a fragment, as one hook of a `hooks` object. A
    page's first include still shows its file's imports, so a page may open with a small model of its
    own file.
 5. **A page is written to be scanned.** It opens with one sentence and its shortest example, gives a
    section to each thing a developer wants to do, and moves edge cases into a `Details` part of lists
    and tables, above the reference. Nothing is folded away: search and reading stay whole.
-6. **Tools hold it.** `scripts/docs.test.ts` holds, for each rewritten page: 60 words per paragraph, 25
-   lines per block, rule 1, and a sibling test naming each request file it includes. A page not yet
-   rewritten is on a list that only shrinks.
+6. **Tools hold it.** `scripts/docs.test.ts` holds, for each page: 60 words per paragraph, 25 lines per
+   block, rule 1, and a sibling test naming each request file it includes.
 
 The reference of each page and D-155's checks stay as they are: every exported value and option still
-appears in an included region. Frozen versions are untouched.
+appears in an included region. Frozen versions are untouched. The landing page and the README (D-158)
+show the same request files: an example or a copied block that names no region is its whole file.
 
 Rejected:
 

@@ -5,8 +5,7 @@ description: Serve the application over HTTP, and add routes of your own beside 
 
 `@ultimabase/http` starts the application's HTTP server. GraphQL, REST,
 auth and files mount their routes on it; the application adds its own,
-such as a webhook, with [Hono](https://hono.dev). Each route reads its
-caller, as GraphQL and REST do, and acts as it.
+such as a webhook, with [Hono](https://hono.dev).
 
 ```npm
 npm install @ultimabase/http
@@ -18,31 +17,52 @@ npm install @ultimabase/http
 
 The full example, with its tests: [`examples/http`](https://github.com/MrEkinox/ultimabase/tree/main/examples/http).
 
-`httpPlugin({ routes })` serves them, at the root, before the routes other
-plugins mount:
+| To                                       | Use                                               |
+| ---------------------------------------- | ------------------------------------------------- |
+| serve routes of your own                 | [`httpPlugin({ routes })`](#serve-your-routes)    |
+| act as the request's caller              | [`c.var.caller`](#the-caller)                     |
+| read the client's address behind a proxy | [`proxies`](#the-caller)                          |
+| limit the requests of an address         | [`rateLimit`](#rate-limit)                        |
+| check a body, a query or a header        | [`validate(target, schema)`](#validate-a-request) |
+| refuse a request                         | [`throw`](#errors)                                |
+| call the API from a browser              | [`cors`](#browsers)                               |
+| set a response's cache                   | [`cache-control`](#caching)                       |
+| tell a platform the server is alive      | [`/health` and `/ready`](#health-and-readiness)   |
+| test a route                             | [`routes().request(path)`](#testing-a-route)      |
+
+## Serve your routes
+
+`httpPlugin({ routes })` serves them at the root, before the routes other
+plugins mount. The other options are on the same call:
 
 <include cwd meta='title="src/app.ts"'>
 	../examples/http/src/app.ts#plugins
 </include>
 
+The server listens on the `port` option, then the `PORT` environment
+variable, then 3000, and logs `Listening on http://localhost:3000.`
+
+A route reads its caller, as GraphQL and REST do, and acts as it. This
+route reads an order as the client who calls it, and throws `NOT_FOUND` for
+an order that is not there.
+
+The test writes an order of 30, as Master (`M` is `{ as: master }`), then
+calls the route without the server, inside the application
+[`testApplication`](#testing-a-route) starts:
+
 <include cwd meta='title="src/app.test.ts"'>
 	../examples/http/src/app.test.ts#receipt
 </include>
 
-The server listens on the `port` option, then the `PORT` environment
-variable, then 3000, and logs `Listening on http://localhost:3000.`
-
 ## The caller
 
-`c.var.caller` is the request's caller: Master with the master key, the
-signed-in user with [auth](/docs/next/auth), anonymous otherwise. Pass it as
-`{ as: c.var.caller }`, so the model's rules apply to the route as to any
-client. The caller is known before any route runs, the application's and the
-mounted ones alike: with auth, `Authorization: Bearer` carries a session on
-every route, and an unknown token there is refused with `UNAUTHENTICATED`
-(401) before the route runs. A route that checks a token of its own reads
-another header, as `X-Maintenance-Token`; a request with neither a Bearer
-header nor a session cookie looks up no session.
+`c.var.caller` is the request's caller. Pass it as `{ as: c.var.caller }`,
+so the model's rules apply to the route as to any client:
+
+- Master, with the master key;
+- the signed-in user, with [auth](/docs/next/auth);
+- anonymous, otherwise.
+
 `c.var.address` is the client's address, `''` when unknown:
 
 <include cwd meta='title="src/routes.ts"'>
@@ -50,84 +70,116 @@ header nor a session cookie looks up no session.
 </include>
 
 Behind a proxy, as a load balancer, every connection comes from the proxy.
-`proxies` is the number of proxies in front of the server: the client's
-address is then read from `X-Forwarded-For`, the entry that many from the
-right, which a client cannot forge.
+`proxies` is the number of proxies in front of the server. The client's
+address is then the entry of `X-Forwarded-For` that many from the right,
+which a client cannot forge. With `proxies: 1`, as in the application above:
 
-<include cwd meta='title="src/app.test.ts"'>
-	../examples/http/src/app.test.ts#address
+<include cwd meta='title="Request"'>
+	../examples/http/src/requests/whoami.http
 </include>
 
-Without `proxies`, a request with `X-Forwarded-For` from a local network
-logs a warning once: every client would count as the proxy, and
-[password](/docs/next/password)'s limits would block them all at once.
+<include cwd meta='title="Response"'>
+	../examples/http/src/requests/whoami.json
+</include>
 
 ## Rate limit
 
-Each client address may send 600 requests a minute, WebSocket upgrades and
-each operation sent over a socket included; past that, the server answers 429 `TOO_MANY_ATTEMPTS` with
-`Retry-After`, the seconds until the minute ends, before it reads any
-session. `rateLimit` changes the limit, or turns it off with `false` when a
-proxy limits in front:
+Each client address may send 600 requests a minute. `rateLimit` changes
+the limit, or turns it off with `false` when a proxy limits in front. Past
+the limit, before any session is read, the server answers:
+
+| Part                 | Value                             |
+| -------------------- | --------------------------------- |
+| status               | 429                               |
+| code                 | `TOO_MANY_ATTEMPTS`               |
+| `Retry-After` header | the seconds until the minute ends |
+| `details.retryAfter` | the same seconds                  |
+
+The tests set `rateLimit` to 100 requests and send 100 from
+`x-forwarded-for: 198.51.100.4`, so the 101st is refused:
 
 <include cwd meta='title="src/app.test.ts"'>
 	../examples/http/src/app.test.ts#limit
 </include>
 
-The address is the one `proxies` reads; an IPv6 address counts by its /64,
-and a local or private one is never counted. The master key passes over
-the limit. Each instance counts in its own memory, so behind a load
-balancer the limit is per instance. An operation over the limit on a
-GraphQL socket fails with the same `TOO_MANY_ATTEMPTS` and
-`details.retryAfter`, and the socket stays open. A limit per person on a
-write is a [hook](/docs/next/hooks#limit-a-persons-writes).
+`refused` is the response to that 101st request.
+
+- WebSocket upgrades and each operation sent over a socket count too.
+- An operation over the limit on a GraphQL socket fails with the same
+  `TOO_MANY_ATTEMPTS` and `details.retryAfter`; the socket stays open.
+- The address is the one `proxies` reads. An IPv6 address counts by its
+  /64, and a local or private address is never counted.
+- The master key passes over the limit.
+- Each instance counts in its own memory: behind a load balancer, the limit
+  is per instance.
+- A limit per person on a write is a
+  [hook](/docs/next/hooks#limit-a-persons-writes).
 
 ## Validate a request
 
 `validate(target, schema)` checks a part of the request with any
-[Standard Schema](https://standardschema.dev), as Zod, Valibot or ArkType;
-the route reads the value, typed, with `c.req.valid(target)`. A webhook
-here checks its secret header and its JSON body, then writes as Master,
-since a provider sends no session:
+[Standard Schema](https://standardschema.dev), as Zod, Valibot or ArkType.
+The route reads the value, typed, with `c.req.valid(target)`. This webhook
+checks its secret header and its JSON body, then writes as Master, since a
+provider sends no session:
 
 <include cwd meta='title="src/routes.ts"'>
 	../examples/http/src/routes.ts#webhook
 </include>
 
-The provider calls it as this function does:
-
-<include cwd meta='title="src/app.test.ts"'>
-	../examples/http/src/app.test.ts#pay
-</include>
+The provider calls it, and the route answers:
 
 <include cwd meta='title="src/app.test.ts"'>
 	../examples/http/src/app.test.ts#webhook
 </include>
 
-A value the schema refuses is `VALIDATION_FAILED`, with the same `issues`
-as the kernel's errors, their `path` inside the value; a body that is not
-JSON at all is `BAD_REQUEST`:
+A wrong secret is the `HTTPException` the route throws:
 
-<include cwd meta='title="src/app.test.ts"'>
-	../examples/http/src/app.test.ts#invalid
+<include cwd meta='title="Request"'>
+	../examples/http/src/requests/wrong-secret.http
 </include>
 
+<include cwd meta='title="Response"'>
+	../examples/http/src/requests/wrong-secret.json
+</include>
+
+A value the schema refuses is `VALIDATION_FAILED` (400), with the same
+`issues` as the kernel's errors, their `path` inside the value:
+
+<include cwd meta='title="Request"'>
+	../examples/http/src/requests/invalid.http
+</include>
+
+<include cwd meta='title="Response"'>
+	../examples/http/src/requests/invalid.json
+</include>
+
+A body that is not JSON at all is `BAD_REQUEST` (400), `Malformed JSON in
+request body`.
+
+### Coerce a query parameter
+
 A query parameter, a header or a route parameter is text: a schema that
-coerces it gives the route a number.
+coerces it gives the route a number. The tests hold two orders, of 10 and 50. Without `min`, the default of 0 counts both: the route answers `2`.
+With `min=20`, it counts one:
 
 <include cwd meta='title="src/routes.ts"'>
 	../examples/http/src/routes.ts#query
 </include>
 
-<include cwd meta='title="src/app.test.ts"'>
-	../examples/http/src/app.test.ts#query
+<include cwd meta='title="Request"'>
+	../examples/http/src/requests/orders.http
+</include>
+
+<include cwd meta='title="Response"'>
+	../examples/http/src/requests/orders.json
 </include>
 
 ## Errors
 
 A route throws to refuse a request:
 
-- a `PublicError`, as in the receipt above, is sent as
+- a `PublicError`, as `NOT_FOUND` in the receipt above, is sent as
   `{ code, message, details }` with its code's status, as
   [Errors](/docs/next/errors) lists them; an application's own code is a
   `400`;
@@ -138,28 +190,49 @@ A route throws to refuse a request:
 
 The server answers some requests itself, before any route:
 
-<include cwd meta='title="src/app.test.ts"'>
-	../examples/http/src/app.test.ts#refused
-</include>
+| Request                              | Status | Code                |
+| ------------------------------------ | ------ | ------------------- |
+| a body over `bodyLimit` (64 KB here) | 413    | `PAYLOAD_TOO_LARGE` |
+| a path no route matches              | 404    | `NOT_FOUND`         |
+| a form from another origin           | 403    | `ACCESS_DENIED`     |
+
+A route with `validate('json')` also answers 415
+`UNSUPPORTED_MEDIA_TYPE` to a body whose content type is not JSON
+(`application/json`, or `application/*+json`). Their messages are in the
+Errors table of the Reference.
 
 ## Browsers
 
 A browser calls the API from another origin only when `cors` lists it, and
-then sends its cookies, as auth's session. Outside production
-(`NODE_ENV=production`), local origins are allowed too, as
-`http://localhost:5173`. The API's own host passes over `http:` and
-`https:` alike, as a proxy serving HTTPS forwards it:
+then sends its cookies, as auth's session. A preflight from a listed origin:
+
+<include cwd meta='title="Request"'>
+	../examples/http/src/requests/preflight.http
+</include>
+
+The server answers it with these headers. `listed` is the answer to a
+preflight from `https://shop.example.com`, `other` the answer to one from
+`https://elsewhere.example`, which `cors` does not list:
 
 <include cwd meta='title="src/app.test.ts"'>
 	../examples/http/src/app.test.ts#cors
 </include>
 
+- Outside production (`NODE_ENV=production`), local origins are allowed
+  too, as `http://localhost:5173`.
+- The API's own host passes over `http:` and `https:` alike, as a proxy
+  serving HTTPS forwards it.
+
 An HTML form posts to any site with that site's cookies, and CORS never
-stops it. A form from another origin is refused; a webhook sends no
+stops it. A form from another origin is refused with 403; a webhook sends no
 `Origin` and no cookies, and passes:
 
-<include cwd meta='title="src/app.test.ts"'>
-	../examples/http/src/app.test.ts#form
+<include cwd meta='title="Request"'>
+	../examples/http/src/requests/form.http
+</include>
+
+<include cwd meta='title="Response"'>
+	../examples/http/src/requests/form.json
 </include>
 
 ## Caching
@@ -171,27 +244,30 @@ A response may hold the caller's data, so every response is sent with
 	../examples/http/src/routes.ts#cache
 </include>
 
+`prices` and `whoami` are the responses to `GET /prices` and `GET /whoami`:
+
 <include cwd meta='title="src/app.test.ts"'>
 	../examples/http/src/app.test.ts#cache
 </include>
 
 ## Health and readiness
 
-`GET /health` answers 200 `{ "status": "ok" }` as long as the server
-answers: a platform restarts the instance when it does not. `GET /ready`
-answers 200 once every plugin started, and 503 `UNAVAILABLE` while the
-application starts, once its stop began, or while a plugin's check fails: a
-load balancer sends traffic only to an instance that is ready.
+| Path          | Answers                                                                                                                              |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `GET /health` | 200 as long as the server answers: a platform restarts the instance when it does not.                                                |
+| `GET /ready`  | 200 once every plugin started; 503 `UNAVAILABLE` while the application starts, once its stop began, or while a plugin's check fails. |
 
-<include cwd meta='title="src/app.test.ts"'>
-	../examples/http/src/app.test.ts#probes
+A load balancer sends traffic only to an instance that is ready.
+
+<include cwd meta='title="Request"'>
+	../examples/http/src/requests/health.http
 </include>
 
-Both come before every route, the application's included: they read no
-caller, and no CORS applies. Until every plugin started, every other
-request and WebSocket upgrade answers 503 `UNAVAILABLE`, `The application is
-starting.`, Master's too: a plugin that has not started serves no request. `/ready` checks no database: when it fails,
-every instance would leave the load balancer at once.
+<include cwd meta='title="Response"'>
+	../examples/http/src/requests/health.json
+</include>
+
+`GET /ready` answers the same body, `{ "status": "ok" }`, with status 200.
 
 On `stop`, `/ready` answers 503 first, and the server serves as before for
 `drain` milliseconds, 5000 in production: the load balancer has the time to
@@ -201,12 +277,37 @@ see it and send no more traffic. Then the plugins stop.
 
 `routes().request(path)` calls a route without the server, as an anonymous
 request. A test that needs another caller, or the database, starts the
-application with [`testApplication`](/docs/next/testing), as the tests
-above do:
+application with [`testApplication`](/docs/next/testing), as in the test
+above:
+
+<include cwd meta='title="src/app.test.ts"'>
+	../examples/http/src/app.test.ts#running
+</include>
+
+A route that needs no database is called directly:
 
 <include cwd meta='title="src/app.test.ts"'>
 	../examples/http/src/app.test.ts#request
 </include>
+
+## Details
+
+- With auth, `Authorization: Bearer` carries a session on every route, the
+  application's and the mounted ones alike. An unknown token there is
+  refused with `UNAUTHENTICATED` (401) before the route runs.
+- The caller is known before any route runs. A route that checks a token of
+  its own reads another header, as `X-Maintenance-Token`; a request with
+  neither a Bearer header nor a session cookie looks up no session.
+- Without `proxies`, a request with `X-Forwarded-For` from a local network
+  logs a warning once: every client would count as the proxy, and
+  [password](/docs/next/password)'s limits would block them all at once.
+- `/health` and `/ready` come before every route, the application's
+  included: they read no caller, and no CORS applies.
+- Until every plugin started, every other request and WebSocket upgrade
+  answers 503 `UNAVAILABLE`, `The application is starting.`, Master's too: a
+  plugin that has not started serves no request.
+- `/ready` checks no database: when it fails, every instance would leave
+  the load balancer at once.
 
 ## Reference
 

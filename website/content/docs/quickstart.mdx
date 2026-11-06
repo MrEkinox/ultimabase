@@ -33,7 +33,7 @@ and list the posts from a terminal:
 curl http://localhost:3000/graphql -H 'content-type: application/json' \
   -d '{"query":"mutation { createPost(data: { title: \"Hello\" }) { id title } }"}'
 curl http://localhost:3000/graphql -H 'content-type: application/json' \
-  -d '{"query":"{ posts { edges { node { title } } } }"}'
+  -d '{"query":"query { posts { edges { node { title } } } }"}'
 ```
 
 The database is `memory()`: it starts empty at each start. `npm start`
@@ -63,18 +63,6 @@ The file the `dev` and `start` scripts read, which names the application:
 	../packages/create-ultimabase/template/ultimabase.config.ts
 </include>
 
-Node strips the types and runs what is left, so the code is erasable
-TypeScript, which the starter's `tsconfig.json` checks with
-`erasableSyntaxOnly`. `tsc` and Node both refuse `enum` and `const enum`, a
-`namespace` that holds values, a constructor's parameter properties and
-`import x = require()`. Instead of an enum, a field takes `f.enumOf([...])`,
-or `defineEnum` when several fields share the values; a function's input or
-output takes its schema's enum, as Zod's `z.enum([...])`, whose `.enum`
-gives each value by key; other code takes an object `as const`, as
-`const Status = { Draft: 'draft', Published: 'published' } as const`, whose
-`Status.Draft` is typed `'draft'`. See Node's
-[type stripping](https://nodejs.org/api/typescript.html#type-stripping).
-
 ## Test it
 
 ```npm
@@ -87,6 +75,28 @@ port:
 <include cwd meta='title="src/app.test.ts"'>
 	../packages/create-ultimabase/template/src/app.test.ts
 </include>
+
+## Details
+
+### Erasable TypeScript
+
+Node strips the types and runs what is left, so the code is erasable
+TypeScript, which the starter's `tsconfig.json` checks with
+`erasableSyntaxOnly`. See Node's
+[type stripping](https://nodejs.org/api/typescript.html#type-stripping).
+
+`tsc` and Node both refuse `enum` and `const enum`, a `namespace` that holds
+values, a constructor's parameter properties and `import x = require()`.
+
+Instead of an enum:
+
+- A field takes `f.enumOf([...])`, or `defineEnum` when several fields share
+  the values.
+- A function's input or output takes its schema's enum, as Zod's
+  `z.enum([...])`, whose `.enum` gives each value by key.
+- Other code takes an object `as const`, as
+  `const Status = { Draft: 'draft', Published: 'published' } as const`, whose
+  `Status.Draft` is typed `'draft'`.
 
 ## Next
 

@@ -1,0 +1,9 @@
+{
+	"errors": [
+		{
+			"message": "Cannot query field \"cost\" on type \"Product\".",
+			"locations": [{ "line": 5, "column": 5 }],
+			"extensions": { "code": "BAD_USER_INPUT" }
+		}
+	]
+}

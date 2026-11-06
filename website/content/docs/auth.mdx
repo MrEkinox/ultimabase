@@ -12,17 +12,38 @@ and a password.
 npm install @ultimabase/auth @ultimabase/password
 ```
 
-The user model is declared with `defineUser`, and the `Register` declaration
-types `caller.user` as its row in every rule, hook and function:
+The user model is declared with `defineUser`:
 
-<include cwd meta='title="src/models.ts"'>
-	../examples/password-sign-in/src/models.ts#user
+<include cwd meta='title="src/user.ts"'>
+	../examples/password-sign-in/src/user.ts#user
 </include>
 
 The full example, with its tests: [`examples/password-sign-in`](https://github.com/MrEkinox/ultimabase/tree/main/examples/password-sign-in).
 
-`authPlugin()` goes in the application's plugins, after `httpPlugin()`,
-which it requires:
+| To                                   | Use                                                                    |
+| ------------------------------------ | ---------------------------------------------------------------------- |
+| declare the user model               | [`defineUser`, `authPlugin()`](#declare-the-user-model)                |
+| keep a user signed in                | [a Bearer token](#send-the-token), [a cookie](#a-cookie-for-a-browser) |
+| sign out                             | [`signOut`](#a-cookie-for-a-browser)                                   |
+| set how long a session lasts         | [`sessions`](#how-long-a-session-lasts)                                |
+| end every session of a user          | [`User.revokeSessions`](#from-server-code)                             |
+| close an account                     | [`User.delete`](#from-server-code)                                     |
+| let signed-in users through          | [`isAuthenticated`, `isSelf`](#let-signed-in-users-through)            |
+| write a row in the caller's name     | [`currentUser`, `isOwner`](#write-a-row-in-the-callers-name)           |
+| use the user's row in a rule         | [`signedIn`](#use-the-users-row)                                       |
+| match the rows of the signed-in user | [`viewer`](#match-the-rows-of-the-signed-in-user)                      |
+
+## Declare the user model
+
+The `Register` declaration types `caller.user` as its row in every rule, hook
+and function:
+
+<include cwd meta='title="src/user.ts"'>
+	../examples/password-sign-in/src/user.ts#register
+</include>
+
+`authPlugin()` goes in the application's plugins, after `httpPlugin()`, which
+it requires:
 
 <include cwd meta='title="src/app.ts"'>
 	../examples/password-sign-in/src/app.ts#plugins
@@ -30,105 +51,229 @@ which it requires:
 
 ## Sessions
 
-A sign-up or a sign-in opens a session and returns its token. A client sends
-it back in the `Authorization` header:
+### Send the token
 
-<include cwd meta='title="src/sessions.test.ts"'>
-	../examples/password-sign-in/src/sessions.test.ts#bearer
+A sign-up or a sign-in opens a session and returns its token, with its
+`expiresAt` and the `user`. Here is the sign-up, where `$input` is
+`{ email: 'ada@example.com', password: 'correct horse', name: 'Ada' }`:
+
+<include cwd meta='title="Request"'>
+	../examples/password-sign-in/src/requests/sign-up.graphql
 </include>
 
-The requests above go through this helper:
+A client sends the token back in the `Authorization` header, as `Authorization: Bearer <token>`. With the token of Ada, who just signed up, the `viewer` query reads the signed-in user, and without it `viewer` is `null`:
 
-<include cwd meta='title="src/sessions.test.ts"'>
-	../examples/password-sign-in/src/sessions.test.ts#request
+<include cwd meta='title="Request"'>
+	../examples/password-sign-in/src/requests/viewer.graphql
 </include>
 
-A sign-in over HTTP also sets a session cookie, `HttpOnly` and
-`SameSite=Lax`, which a browser sends back by itself: a web application
-needs no code to keep the token. `signOut` ends the session and clears the
-cookie:
+<include cwd meta='title="Response"'>
+	../examples/password-sign-in/src/requests/viewer.json
+</include>
+
+### A cookie for a browser
+
+A sign-in over HTTP also sets a session cookie, which a browser sends back by
+itself: a web application needs no code to keep the token. The response sets
+`ultimabase_session=<token>; Max-Age=…; Path=/; HttpOnly; SameSite=Lax`.
+Here `$input` is `{ email: 'ada@example.com', password: 'correct horse' }`:
+
+<include cwd meta='title="Request"'>
+	../examples/password-sign-in/src/requests/sign-in.graphql
+</include>
+
+<include cwd meta='title="Response"'>
+	../examples/password-sign-in/src/requests/sign-in.json
+</include>
+
+`signOut` ends the session and clears the cookie, which it sets with
+`Max-Age=0`. The cookie holds the session's token. In the next block,
+`credentials` is `{ email: 'ada@example.com', password: 'correct horse' }`, and
+the tests' request helper takes the `headers` to send. They build the cookie
+from a sign-in, and send it with `viewer` and `signOut`:
 
 <include cwd meta='title="src/sessions.test.ts"'>
-	../examples/password-sign-in/src/sessions.test.ts#cookie
+	../examples/password-sign-in/src/sessions.test.ts#session-cookie
 </include>
+
+<include cwd meta='title="Request"'>
+	../examples/password-sign-in/src/requests/sign-out.graphql
+</include>
+
+<include cwd meta='title="Response"'>
+	../examples/password-sign-in/src/requests/sign-out.json
+</include>
+
+Sent again, the ended session's cookie reads `viewer` as `null`: a stale cookie is anonymous, so a browser can still reach the sign-in page.
+
+### How long a session lasts
 
 A session lasts 30 days after its last use and at most one year after the
-sign-in; the user then signs in again. A Bearer token that has ended refuses
-the request with `UNAUTHENTICATED`, so the client knows to sign in again; a
-cookie that has ended is anonymous, so a browser can still reach the sign-in
-page.
-
-An application sets both durations, in milliseconds, as a back office that
-wants shorter sessions:
+sign-in; the user then signs in again. An application sets both durations,
+in milliseconds, as a back office that wants shorter sessions:
 
 <include cwd meta='title="src/back-office.test.ts"'>
 	../examples/password-sign-in/src/back-office.test.ts#sessions
 </include>
 
-A session used with less than half its lifetime left gets it again, never
-past the longest after the sign-in, and the cookie lives that longest. New
-durations apply to the sessions opened or renewed after the start: to end
-the others at once, `User.revokeSessions` each user.
-
-In production (`NODE_ENV=production`), the cookie is `Secure` and named
-`__Host-ultimabase_session`. Outside it, it works on `http://localhost`; a
-request from another host logs a warning once: `auth serves example.com a
+- A Bearer token that has ended refuses the request with `UNAUTHENTICATED`, so
+  the client knows to sign in again.
+- A session used with less than half its lifetime left gets it again, never
+  past the longest after the sign-in, and the cookie lives that longest.
+- New durations apply to the sessions opened or renewed after the start: to
+  end the others at once, `User.revokeSessions` each user.
+- In production (`NODE_ENV=production`), the cookie is `Secure` and named
+  `__Host-ultimabase_session`. Outside it, it works on `http://localhost`; a
+  request from another host logs a warning once: `auth serves example.com a
 session cookie without Secure: set NODE_ENV=production.`
 
 ## From server code
 
-The user model gets commands: `User.revokeSessions` ends every session of a
-user, on every device, as when an account is stolen. The sign-in plugin adds
-its own, as password's `User.signUp` and `User.signIn`:
+The user model gets commands. The sign-in plugin adds its own, as password's
+`User.signUp` and `User.signIn`. The tests write `as` for `{ as: master }`:
 
 <include cwd meta='title="src/sessions.test.ts"'>
 	../examples/password-sign-in/src/sessions.test.ts#commands
 </include>
 
+`User.revokeSessions` ends every session of a user, on every device, as when
+an account is stolen. A request that carries one of them is refused with
+`401` before it runs, whatever it asks:
+
+<include cwd meta='title="src/sessions.test.ts"'>
+	../examples/password-sign-in/src/sessions.test.ts#revoke
+</include>
+
+<include cwd meta='title="Request"'>
+	../examples/password-sign-in/src/requests/ended.graphql
+</include>
+
+<include cwd meta='title="Response"'>
+	../examples/password-sign-in/src/requests/ended.json
+</include>
+
 Deleting a user ends its sessions and deletes its linked accounts; the
-sign-in method deletes what it keeps, such as the password, and the email
-signs up again:
+sign-in method deletes what it keeps, such as the password:
 
 <include cwd meta='title="src/sessions.test.ts"'>
 	../examples/password-sign-in/src/sessions.test.ts#delete
 </include>
 
+The email signs up again:
+
+<include cwd meta='title="src/sessions.test.ts"'>
+	../examples/password-sign-in/src/sessions.test.ts#delete-again
+</include>
+
 ## Rules on the signed-in user
 
 auth adds rules to those of [Access rules](/docs/next/access).
-`isAuthenticated` lets every signed-in user through; `isSelf`, on the user
-model, lets each user write their own row. Above, a visitor sees no names:
 
-<include cwd meta='title="src/app.test.ts"'>
-	../examples/password-sign-in/src/app.test.ts#names
+### Let signed-in users through
+
+`isAuthenticated` lets every signed-in user through; `isSelf`, on the user
+model, lets each user write their own row. Signed-in users read each other's
+names (see the model above), and a visitor sees none. With Ada's token, the request reads her; with no token, the same request reads `users` as an empty list:
+
+<include cwd meta='title="Request"'>
+	../examples/password-sign-in/src/requests/names.graphql
 </include>
+
+<include cwd meta='title="Response"'>
+	../examples/password-sign-in/src/requests/names.json
+</include>
+
+### Write a row in the caller's name
 
 `currentUser` is a default: the `author` of a new post is the user who
-creates it. `isOwner('author')` lets through the user the `one` relation
-points to, before and after the write, so no one writes a post in another's
-name. In a model read rule, `isOwner('author')` is a filter: it keeps the
-posts whose `author` is the caller, and none for a visitor. `signedIn`
-receives the `user` row, here to let an editor delete any post:
+creates it. `Post` is declared with
+`defineModel({ name: 'Post', use: [graphql()] })`, and `use: [graphql()]` is
+what makes `createPost` exist.
 
 <include cwd meta='title="src/models.ts"'>
-	../examples/password-sign-in/src/models.ts#post
+	../examples/password-sign-in/src/models.ts#post-fields
 </include>
+
+`isOwner('author')` lets through the user the `one` relation points to, before
+and after the write, so no one writes a post in another's name (the `create`
+rule below).
+
+A visitor who sends `createPost` is refused with `ACCESS_DENIED`. With Ada's
+token, the post is hers:
+
+<include cwd meta='title="Request"'>
+	../examples/password-sign-in/src/requests/create-post.graphql
+</include>
+
+<include cwd meta='title="Response"'>
+	../examples/password-sign-in/src/requests/create-post.json
+</include>
+
+### Use the user's row
+
+`signedIn` receives the `user` row, here to let an editor delete any post. In
+a model read rule, `isOwner('author')` is a filter: it keeps the posts whose
+`author` is the caller, and none for a visitor.
+
+<include cwd meta='title="src/models.ts"'>
+	../examples/password-sign-in/src/models.ts#post-access
+</include>
+
+### Match the rows of the signed-in user
 
 In a filter, `viewer` on a relation to the user model is the signed-in
 user: `{ author: { viewer: true } }` matches the posts they wrote,
 `viewer: false` those they did not. A visitor and Master are no user, so
-`viewer: true` matches no row for them. A visitor sees the published posts,
-an author their drafts too, and only the author publishes one:
+`viewer: true` matches no row for them.
 
-<include cwd meta='title="src/app.test.ts"'>
-	../examples/password-sign-in/src/app.test.ts#drafts
+The `read` rule above shows a visitor the published posts, and an author
+their drafts too.
+
+Ada wrote a draft. A visitor and Grace, who signed up too, read `posts` as an
+empty list; Ada, with her token, reads it:
+
+<include cwd meta='title="Request"'>
+	../examples/password-sign-in/src/requests/posts.graphql
 </include>
 
-A client filters the same way, with no user id to send:
-
-<include cwd meta='title="src/app.test.ts"'>
-	../examples/password-sign-in/src/app.test.ts#viewer
+<include cwd meta='title="Response"'>
+	../examples/password-sign-in/src/requests/posts.json
 </include>
+
+Only the author publishes a draft. For Grace the draft does not exist, so
+`publish` answers `NOT_FOUND`; for Ada, with `$id` the id of her draft:
+
+<include cwd meta='title="Request"'>
+	../examples/password-sign-in/src/requests/publish.graphql
+</include>
+
+<include cwd meta='title="Response"'>
+	../examples/password-sign-in/src/requests/publish.json
+</include>
+
+Everyone reads it now, but only its author changes it: `publish` with Grace's
+token answers `ACCESS_DENIED`.
+
+A client filters the same way, with no user id to send: the server reads the
+caller. A visitor is no user, so `viewer: true` holds for no post. With Ada's
+token:
+
+<include cwd meta='title="Request"'>
+	../examples/password-sign-in/src/requests/mine.graphql
+</include>
+
+<include cwd meta='title="Response"'>
+	../examples/password-sign-in/src/requests/mine.json
+</include>
+
+## Details
+
+- `viewer` is on the relations to the user model only: a filter that uses it
+  on another relation is refused, by the types and by the server with
+  `INVALID_QUERY`.
+- An update of a draft the caller cannot read answers `NOT_FOUND`, as a row
+  that does not exist; once the post is readable, one that is not theirs
+  answers `ACCESS_DENIED`.
 
 ## Reference
 

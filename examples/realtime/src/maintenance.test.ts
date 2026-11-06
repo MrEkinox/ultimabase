@@ -7,15 +7,15 @@ import { app } from './app.ts'
 import { setMaintenance } from './maintenance.ts'
 
 const running = testApplication(app)
-const ws = () => running.url.replace(/^http/, 'ws')
 
 afterEach(() => setMaintenance(false))
 
 it('closes the sockets open, then refuses new ones', async () => {
-	//#region maintenance
+	const wsUrl = running.url.replace(/^http/, 'ws')
+	//#region closes
 	const closes: unknown[] = []
 	const client = createClient({
-		url: `${ws()}/graphql`,
+		url: `${wsUrl}/graphql`,
 		retryAttempts: 0,
 		on: { closed: (event) => closes.push(Reflect.get(Object(event), 'code')) },
 	})
@@ -23,14 +23,18 @@ it('closes the sockets open, then refuses new ones', async () => {
 		query: `subscription { tasks(first: 10) { edges { node { title } } } }`,
 	})
 	await results.next()
-	const feed = new WebSocket(`${ws()}/tasks`)
+	//#endregion
+	//#region closes-feed
+	const feed = new WebSocket(`${wsUrl}/tasks`)
 	await new Promise((done) => feed.once('open', done))
 	const feedClosed = new Promise((done) => feed.once('close', done))
 
 	setMaintenance(true)
 	expect(await feedClosed).toBe(1012)
+	//#endregion
 
-	const refused = new WebSocket(`${ws()}/graphql`, 'graphql-transport-ws')
+	//#region refused
+	const refused = new WebSocket(`${wsUrl}/graphql`, 'graphql-transport-ws')
 	const status = await new Promise((done) => {
 		refused.once('unexpected-response', (_request, response) => {
 			response.resume()

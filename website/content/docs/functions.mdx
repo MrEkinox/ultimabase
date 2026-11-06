@@ -3,48 +3,99 @@ title: Functions
 description: Declare a server operation with a validated input, a typed output and an access rule, served by every transport.
 ---
 
-A function is an operation the server runs: borrow a book, place an order,
-merge two accounts. `defineFunction` names it, validates its input with a
-Standard Schema (Zod, Valibot, ArkType…), types its output, and every
-transport serves it: GraphQL as a mutation, REST as `POST
-/api/functions/borrowBook`.
+A function is an operation the server runs: search the books, borrow one,
+merge two accounts. `defineFunction` names it, validates its input, types its
+output, and every transport serves it:
 
-The examples write their schemas with Zod, a package of its own:
+<include cwd meta='title="src/search.ts"'>
+	../examples/functions/src/search.ts#search
+</include>
+
+The full example, with its tests: [`examples/functions`](https://github.com/MrEkinox/ultimabase/tree/main/examples/functions).
+
+- GraphQL serves it as a query, on `POST /graphql`, and REST as
+  `GET /api/functions/searchBooks`.
+- `input` is a Standard Schema (Zod, Valibot, ArkType…). The examples use Zod,
+  a package of its own.
+- `output` types the answer: here a list of `Book`.
+- `run` receives the validated `input` and the `caller`.
 
 ```npm
 npm install zod
 ```
 
-<include cwd meta='title="src/functions.ts"'>
-	../examples/functions/src/functions.ts#borrow
+The functions read and write `Book`, a model with a searchable `title` and
+an optional `borrowedBy`. Clients may only read it:
+
+<include cwd meta='title="src/models.ts"'>
+	../examples/functions/src/models.ts#book
 </include>
 
-The full example, with its tests: [`examples/functions`](https://github.com/MrEkinox/ultimabase/tree/main/examples/functions).
+The tests write two books, Emma and Dune, as Master.
 
-`defineApp({ functions: [...] })` adds it to the application:
+| To                             | Use                                                      |
+| ------------------------------ | -------------------------------------------------------- |
+| serve it                       | [`defineApp({ functions })`](#add-it-to-the-application) |
+| write rows no client may write | [`{ as: master }`](#write-as-the-server)                 |
+| call it from server code       | [`fn.run`](#call-it-from-server-code)                    |
+| refuse a caller                | [`.with({ access })`](#access-and-validation)            |
+| read data, over GET too        | [`query: true`](#queries-and-outputs)                    |
+| return nothing, or a shape     | [`output`](#queries-and-outputs)                         |
+| rename it in a transport       | [`.with({ graphql: { name } })`](#queries-and-outputs)   |
+| return a page of rows          | [`Book.paginated()`](#pages)                             |
+
+## Add it to the application
+
+`defineApp({ functions: [...] })` lists every function:
 
 <include cwd meta='title="src/app.ts"'>
 	../examples/functions/src/app.ts#app
 </include>
 
-`run` receives the validated `input` and the `caller`. A function is trusted
-server code: its queries pass `{ as: caller }` to keep the caller's rules,
-or `{ as: master }` to write what no client writes, as `Book` here.
+## Write as the server
 
-`signedInRun`, from [`@ultimabase/auth`](/docs/next/auth), wraps a `run`
-for signed-in users: it adds `user`, the caller's record, typed. The rule
-`isAuthenticated` refuses a visitor with `ACCESS_DENIED` before `run`;
-Master passes every rule, so the wrapper refuses Master, and anyone a wider
-rule lets in, with `UNAUTHENTICATED`.
+A function is trusted server code. Its queries pass `{ as: caller }` to keep
+the caller's rules, or `{ as: master }` to write what no client writes, as
+`Book` here. The function below returns a `Loan`, a named object that holds a
+model and data:
+
+<include cwd meta='title="src/functions.ts"'>
+	../examples/functions/src/functions.ts#loan
+</include>
+
+<include cwd meta='title="src/functions.ts"'>
+	../examples/functions/src/functions.ts#borrow
+</include>
+
+- `signedInRun`, from [`@ultimabase/auth`](/docs/next/auth), wraps a `run` for
+  signed-in users and adds `user`, the caller's record, typed.
+- The rule `isAuthenticated`, from `@ultimabase/auth` too, refuses a visitor with `ACCESS_DENIED` before
+  `run`.
+- Master passes every rule, so the wrapper refuses Master, and anyone a wider
+  rule lets in, with `UNAUTHENTICATED`.
+- A check that needs the input, or another row, throws from `run`. A
+  `PublicError` reaches the client with its code, message and details: see
+  [Errors](/docs/next/errors).
 
 ## Call it from server code
 
-`fn.run(input, { as })` does what a transport does: it checks the access
-rule, validates the input, then runs the function and returns its output,
-typed. A function without an input takes only `{ as }`:
+`fn.run(input, { as })` does what a transport does: it checks the access rule,
+validates the input, then runs the function and returns its output, typed.
+In the tests, `ada` and `grace` stand for `{ as: asUser({ id: 'ada' }) }` and
+`{ as: asUser({ id: 'grace' }) }`, and `dune` for the id of the book Dune:
 
 <include cwd meta='title="src/app.test.ts"'>
 	../examples/functions/src/app.test.ts#run
+</include>
+
+<include cwd meta='title="src/app.test.ts"'>
+	../examples/functions/src/app.test.ts#run-error
+</include>
+
+A function without an input takes only `{ as }`:
+
+<include cwd meta='title="src/app.test.ts"'>
+	../examples/functions/src/app.test.ts#run-no-input
 </include>
 
 A function that calls another uses `run` too, so the other's rule and
@@ -61,79 +112,149 @@ should be:
 	../examples/functions/src/app.test.ts#refused
 </include>
 
-A check that needs the input, or another row, throws from `run`: a
-`PublicError` reaches the client with its code, message and details. See
-[Errors](/docs/next/errors).
+An input that does not match is refused after the rule:
+
+<include cwd meta='title="src/app.test.ts"'>
+	../examples/functions/src/app.test.ts#invalid
+</include>
 
 ## Queries and outputs
 
-`query: true` makes a function a query: GraphQL serves it under `Query`,
-over GET and POST, and REST over GET. A function is a mutation otherwise.
+`query: true` makes a function a query: GraphQL serves it under `Query`, over
+GET and POST, and REST over GET. A function is a mutation otherwise.
 
-<include cwd meta='title="src/functions.ts"'>
-	../examples/functions/src/functions.ts#search
-</include>
+The output is one of:
 
-The output is a model (`Book`), a list (`[Book]`), a model or `null`
-(`Book.nullable()`), a [`defineType`](/docs/next/models) holding models and
-data (`Loan` above), or a Standard Schema for data alone. Without an output,
-`run` returns nothing and GraphQL answers `true`:
+- a model (`Book`), a list (`[Book]`), or a model or `null` (`Book.nullable()`);
+- a [`defineType`](/docs/next/models#object-types) holding models and data
+  (`Loan` above);
+- a Standard Schema, for data alone.
+
+Without an output, `run` returns nothing and GraphQL answers `true`.
+`use` names the transports whose key `.with` sets (`graphql` comes from
+`@ultimabase/graphql`), and a function takes `{ name }` there, to rename it in
+that transport:
 
 <include cwd meta='title="src/functions.ts"'>
 	../examples/functions/src/functions.ts#return
 </include>
 
-The output is typed, not validated: `run` must return what it declares.
-A string returned for an enum takes `as const`, as in
-`{ result: 'passed' as const }`: TypeScript reads the literal as a `string`
+The output is typed, not validated: `run` must return what it declares. A
+string returned for an enum takes `as const`, as in
+`{ result: 'passed' as const }`. TypeScript reads the literal as a `string`
 otherwise, since it checks `run` before it knows the output's type.
 
 ## Over the transports
 
-An object input gives GraphQL one argument per property, and REST one query
-parameter per property on a GET, or a JSON body on a POST. Both answer with
-the same output:
+An object input gives GraphQL one argument per property. REST gives one query
+parameter per property on a GET, or a JSON body on a POST. Both answer with the
+same output.
 
-<include cwd meta='title="src/app.test.ts"'>
-	../examples/functions/src/app.test.ts#request
+GraphQL:
+
+<include cwd meta='title="Request"'>
+	../examples/functions/src/requests/search.graphql
 </include>
 
-<include cwd meta='title="src/app.test.ts"'>
-	../examples/functions/src/app.test.ts#graphql
+<include cwd meta='title="Response"'>
+	../examples/functions/src/requests/search.json
 </include>
 
-<include cwd meta='title="src/app.test.ts"'>
-	../examples/functions/src/app.test.ts#rest
+REST, a GET with the input in the query string:
+
+<include cwd meta='title="Request"'>
+	../examples/functions/src/requests/search-rest.http
 </include>
 
-A client selecting a relation under a returned row gets it read again as the
-caller, with its rules. The row's fields and
-[virtual fields](/docs/next/models#virtual-fields) are those `run` returned,
-over REST and GraphQL as from server code. A function opens no transaction: see
-[Transactions](/docs/next/transactions) to write all or nothing.
+<include cwd meta='title="Response"'>
+	../examples/functions/src/requests/search-rest.json
+</include>
+
+A mutation is a POST with its input in the body. `$id` stands for the id of
+Dune, which the test fills in. This request has no session, so the rule refuses
+it with a `403`:
+
+<include cwd meta='title="Request"'>
+	../examples/functions/src/requests/borrow.http
+</include>
+
+<include cwd meta='title="Response"'>
+	../examples/functions/src/requests/borrow.json
+</include>
+
+`returnBooks` above is named `giveBack` in GraphQL, and keeps `returnBooks` in
+REST. Called without a session on `POST /graphql`, it answers `ACCESS_DENIED`:
+
+<include cwd meta='title="Request"'>
+	../examples/functions/src/requests/give-back.graphql
+</include>
+
+<include cwd meta='title="Response"'>
+	../examples/functions/src/requests/give-back.json
+</include>
+
+- A client selecting a relation under a returned row gets it read again as the
+  caller, with its rules.
+- The row's fields and [virtual fields](/docs/next/models#virtual-fields) are
+  those `run` returned, over REST and GraphQL as from server code.
+- A function opens no transaction: see
+  [Transactions](/docs/next/transactions) to write all or nothing.
 
 ## Pages
 
-A query whose output is `Book.paginated()` returns `Book.paginate(...)`:
-the rows its `where` and `orderBy` keep, read as the caller. Nothing is read
-until a transport, or server code, asks for the rows or the count:
+A query whose output is `Book.paginated()` returns `Book.paginate(...)`: the
+rows its `where` and `orderBy` keep, read as the caller. Nothing is read until
+a transport, or server code, asks for the rows or the count:
 
 <include cwd meta='title="src/functions.ts"'>
 	../examples/functions/src/functions.ts#page
 </include>
 
-Each transport pages it as the model's generated list: the same arguments
-(`first`, `after`, `last`, `before`, or `take` and `skip` with
-`pagination: 'list'`), the same `maxTake`, the same answer, and
-`totalCount` counted only when a client asks for it:
+From server code, `run` returns the page:
 
 <include cwd meta='title="src/app.test.ts"'>
 	../examples/functions/src/app.test.ts#paged
 </include>
 
-A `defineType` field can be a page too, at any depth. In GraphQL that field
-takes the page arguments; in REST one JSON parameter named by the field's
-path takes them, as `profile.posts={"first":20,"totalCount":true}`.
+Each transport pages it as the model's generated list: the same arguments, the
+same `maxTake`, the same answer. `totalCount` is counted only when a client
+asks for it.
+
+- The arguments are `first`, `after`, `last`, `before`, or `take` and `skip`
+  with `pagination: 'list'`.
+
+Both books are on the shelf. A page of one holds Dune, and `totalCount` is 2:
+
+<include cwd meta='title="Request"'>
+	../examples/functions/src/requests/shelf.graphql
+</include>
+
+<include cwd meta='title="Response"'>
+	../examples/functions/src/requests/shelf.json
+</include>
+
+REST answers as `GET /api/books` does, with the same parameters. With one book
+asked, `hasNextPage` is `true`:
+
+<include cwd meta='title="Request"'>
+	../examples/functions/src/requests/shelf-rest.http
+</include>
+
+<include cwd meta='title="Response"'>
+	../examples/functions/src/requests/shelf-rest.json
+</include>
+
+## Details
+
+- A `defineType` field can be a page too, at any depth. In GraphQL that field
+  takes the page arguments.
+- In REST, one JSON parameter named by the field's path takes them, as
+  `profile.posts={"first":20,"totalCount":true}`.
+- A schema given `.meta({ id: 'Line' })` is the shared GraphQL type `Line`,
+  and `LineInput` as an input.
+- `z.uuid()` is an `ID` in GraphQL, as a row's `id`, and a `string` of format
+  `uuid` in OpenAPI. A client passes a row's `id` to a function with the
+  variable type it reads it with, `$id: ID!`.
 
 ## Reference
 
@@ -175,13 +296,6 @@ path takes them, as `profile.posts={"first":20,"totalCount":true}`.
 | `Book.paginated()` | `Book.paginate(...)`    | `BookConnection!`    |
 | a `defineType`     | an object of its fields | the type             |
 | a Standard Schema  | the schema's type       | from its JSON Schema |
-
-A schema given `.meta({ id: 'Line' })` is the shared GraphQL type `Line`,
-and `LineInput` as an input.
-
-`z.uuid()` is an `ID` in GraphQL, as a row's `id`, and a `string` of
-format `uuid` in OpenAPI: a client passes a row's `id` to a function with
-the variable type it reads it with, `$id: ID!`.
 
 ### Errors
 

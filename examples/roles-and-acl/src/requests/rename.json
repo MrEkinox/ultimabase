@@ -1,0 +1,11 @@
+{
+	"errors": [
+		{
+			"message": "No Note matches.",
+			"locations": [{ "line": 2, "column": 2 }],
+			"path": ["updateNote"],
+			"extensions": { "code": "NOT_FOUND" }
+		}
+	],
+	"data": null
+}

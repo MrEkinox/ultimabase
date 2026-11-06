@@ -8,7 +8,8 @@ import { testApplication } from '@ultimabase/testing'
 import { defineApp, master, memory } from 'ultimabase'
 import { afterEach, expect, it, vi } from 'vitest'
 import { z } from 'zod'
-import { Post, User } from './models.ts'
+import { Post } from './models.ts'
+import { User } from './user.ts'
 
 //#region sessions
 const hour = 60 * 60 * 1000

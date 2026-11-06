@@ -1,0 +1,5 @@
+mutation ($id: ID!) {
+	deletePost(where: { id: $id }) {
+		id
+	}
+}

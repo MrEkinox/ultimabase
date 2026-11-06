@@ -1,0 +1,1 @@
+GET /api/people?where={"posts":{"some":{"likes":{"lt":5}}}}&select={"name":true}

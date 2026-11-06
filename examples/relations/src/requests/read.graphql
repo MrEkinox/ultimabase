@@ -1,0 +1,15 @@
+query ($id: ID!) {
+	author(where: { id: $id }) {
+		books(orderBy: [{ title: asc }]) {
+			totalCount
+			edges {
+				node {
+					title
+					tags {
+						totalCount
+					}
+				}
+			}
+		}
+	}
+}

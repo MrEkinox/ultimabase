@@ -1,0 +1,4 @@
+POST /rpc/apiKeys.createApiKey
+content-type: application/json
+
+{ "owner": "ada", "name": "CI" }

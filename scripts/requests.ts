@@ -12,6 +12,7 @@ const changing = new Set([
 	'endCursor',
 	'createdAt',
 	'updatedAt',
+	'correlationId',
 ])
 
 const steady = (body: unknown): unknown =>

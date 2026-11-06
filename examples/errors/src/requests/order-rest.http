@@ -1,0 +1,4 @@
+POST /api/functions/order
+content-type: application/json
+
+{ "sku": "MUG-1", "quantity": 5 }

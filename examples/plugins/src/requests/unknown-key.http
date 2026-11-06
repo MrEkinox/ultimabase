@@ -1,0 +1,5 @@
+POST /rpc/whoami
+content-type: application/json
+x-api-key: guess
+
+{}
