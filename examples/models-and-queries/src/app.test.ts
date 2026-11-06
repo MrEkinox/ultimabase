@@ -58,3 +58,22 @@ it('creates and reads a product over GraphQL', async () => {
 	})
 	//#endregion
 })
+
+it('gives a JSON field and a list one type for a shared enum', async () => {
+	const body = await request(`mutation {
+		createOpening(data: {
+			availableOn: [monday]
+			searchFilters: { availableOn: [tuesday] }
+		}) {
+			availableOn searchFilters { availableOn }
+		}
+	}`)
+	expect(body).toEqual({
+		data: {
+			createOpening: {
+				availableOn: ['monday'],
+				searchFilters: { availableOn: ['tuesday'] },
+			},
+		},
+	})
+})

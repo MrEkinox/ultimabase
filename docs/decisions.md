@@ -4076,7 +4076,7 @@ await Ticket.update({ where: { id }, data: { label: 'x' } }, { as: master })
 
 ## D-105: `ultimabase.config.ts`, the `ultimabase` commands and a schema snapshot
 
-Amended by D-171 and D-232.
+Amended by D-171, D-232 and D-280.
 
 Choice: amends D-26, D-73 and D-98 point 1.
 
@@ -5990,7 +5990,7 @@ postgres() was given no url: is the variable it reads set?
 
 ## D-120: String lists, their filters and their index
 
-Amended by D-127 and D-149.
+Amended by D-127, D-149, D-280 and D-281.
 
 Choice: completes D-09 and D-52.
 
@@ -18333,3 +18333,167 @@ createClient({
 
 After: the same code runs only for a real refusal. A busy pool closes with `1013`, and `graphql-ws`
 reconnects by itself.
+
+## D-279: `beforeCreate` sees the defaults in its types
+
+Choice: in the `data` of `beforeCreate`, a field set by a default is not `undefined` in its type,
+because `beforeCreate` runs after the defaults (D-67).
+
+1. This holds for a fixed default, and for a function default that cannot return `undefined`.
+2. A function default that may return `undefined` keeps its field possibly `undefined`
+   (`DefaultFunction` allows it), so the type never claims what the run does not give.
+3. An optional field with a default may still be `null`: a caller may write `null`, and the default
+   takes only an absent value.
+4. A list without a default stays possibly `undefined`: the implicit `[]` of a list is written after
+   the hooks, so that a hook can tell that nothing was given.
+5. Nothing changes at run time, and nothing changes for `beforeUpdate`, where no default runs.
+
+Why: an application wrote `data.status ?? 'inProgress'` in a hook, repeating the model's default to
+satisfy a type that was wrong about the order D-67 fixes. A repeated default drifts from the model.
+
+Rejected:
+
+- Typing every field of the draft as set: a required field without a default is left to a hook
+  (D-67), and a list is only filled after it.
+- A separate draft type per default kind in the public API: one conditional type states the rule, and
+  applications never name it.
+
+Example, before: the default is repeated.
+
+```ts
+const Quest = defineModel('Quest', {
+	status: f.enumOf(['inProgress', 'done'], { default: 'inProgress' }),
+	rank: f.number(),
+}).with({
+	hooks: {
+		beforeCreate: ({ data }) => {
+			data.rank = ranks[data.status ?? 'inProgress']
+		},
+	},
+})
+```
+
+After: the model says it once.
+
+```ts
+beforeCreate: ({ data }) => {
+	data.rank = ranks[data.status]
+},
+```
+
+## D-280: A column added with a fixed default keeps it
+
+Choice: amends D-105 and D-120 point 3. A required field added with a fixed default takes it in the
+rows the table held, and the column keeps it as its default.
+
+1. No option: `sync` and `migrate create` both write one statement, with no `drop default` after it.
+   The kernel still writes the value it validated (D-67), so the column's default serves only an
+   insert that does not name the field, which is code still running without it.
+2. A list without a default keeps `'{}'` in the same way.
+3. A default the model later changes or removes stays as it was in the column: the snapshot does not
+   hold column defaults, and only that same old code can reach it.
+4. A change of the column's type drops its default in the same statement, since PostgreSQL may not
+   convert it (`default for column cannot be cast automatically`). A type's change is therefore
+   the moment a column stops keeping one.
+5. A required field without a fixed default gets no column default, as it has no value to give: old
+   code cannot insert during a deploy, and a migration says so with `tries` as before.
+6. A list that takes an empty value only because the model gives it no default gets a comment in the
+   `migrate create` file, below its statement, where the fill belongs. A `Statement`'s new `note`
+   carries it; `sync` does not show it, since it says what to write in a file.
+
+Why: dropping the default in the same transaction meant that during a rolling deploy, the old code's
+creates failed with `not null` from the moment the migration ran. An application hand-wrote its
+migration to work around that, and only the file's reader could know that the empty list of a new
+field was a decision to take.
+
+Rejected:
+
+- An option on the field or the config to keep the default: the kept default costs nothing, and an
+  option would ask every author a question that has one sensible answer.
+- A second statement to drop the default before a retype: PostgreSQL takes both in one `alter`, and a
+  plan reads better with one statement per change.
+- Recording column defaults in the snapshot, to follow a changed default: every stored snapshot would
+  change for a value only old code can reach.
+- The comment above the statement: a fill written there would run before the column exists.
+
+Example, before: `migrate create` wrote two statements, and old code failed on `not null`.
+
+```sql
+alter table "account" add column "languages" text[] not null default '{}'::text[];
+alter table "account" alter column "languages" drop default;
+```
+
+After: old code still inserts, and the file says what to decide.
+
+```sql
+alter table "account" add column "languages" text[] not null default '{}'::text[];
+-- The stored rows hold an empty "Account.languages": fill them here if the model needs a value.
+```
+
+## D-281: A list holds a minimum and a maximum of values
+
+Choice: completes D-120, D-127, D-242 and D-280.
+
+1. A list takes `size: { min, max }`, as a `many` does:
+   `languages: f.enumOf(Language, { list: true, size: { min: 1 } })`. Either bound may be left out;
+   `min` defaults to 0, and `{}` or `{ min: 0 }` bounds nothing. Startup stops on the bounds D-242
+   refuses, and on a `size` on a field that is no list (`Account.name: size bounds a list only.`).
+2. The bound holds after the hooks, where a required field's check runs (D-67, D-88): a `before*` hook
+   may fill or trim a list. A create that leaves a list out with `min` of 1 therefore passes
+   validation and may be filled by `beforeCreate`, so the create input keeps the list optional.
+3. The refusal is `VALIDATION_FAILED` on the field, for every caller, Master too:
+   `{ path: ['languages'], message: 'Expected at least 1 value.' }`, or `Expected 1 to 10 values.`,
+   `Expected at most 10 values.`, `Expected exactly 2 values.`. It is not `RELATION_SIZE`, as no other
+   row's state decides it, and it is not the `TypeError` of a hook's bad element (D-88): a hook that
+   leaves a list empty may be leaving what the caller sent.
+4. It holds on what a write leaves, `push`, `pushUnique` and `remove` included (D-149): an update of
+   a bounded list by an operation reads its row under its lock, as one of a field with a `validate`
+   does, so that the kernel sees the result. An update that does not write the list checks nothing.
+5. PostgreSQL enforces it as well, with a check of its own:
+   `constraint "account_languages_size_check" check (cardinality("languages") >= 1)`, or
+   `between 1 and 10`, or `<= 10`. It runs in the keys' phase, after any column it bounds and a fill
+   written by hand. Adding it fails when a stored row holds another number of values, which the plan
+   says with `tries`. The memory adapter holds no check: the kernel is its only guard.
+6. D-280's kept `'{}'` default then fails that check, which is what is wanted: code still running
+   without the field cannot insert a row breaking the bound, and fails on the check. A migration that
+   needs old code to keep inserting adds the bound in a later deploy.
+7. The GraphQL schema and the OpenAPI document state the bound in the field's description, after its
+   own, as D-242 does: `Holds 1 to 10 values.`
+8. A fixed `default` outside the bounds is not checked at startup: a create fails on it, with the
+   message of point 3.
+
+Why: a list that needs at least one value was a Zod `validate` on the field, which a hook's value
+skips (D-67) and which only the kernel's writes run, with nothing in the database behind it. An
+application that filled the list in a hook had to choose between validating the caller's value and
+letting the hook fill it, and could not state the rule to its database without a hand-written check
+that the next `migrate create` knew nothing of. `validate` still takes anything else about the values.
+
+Rejected:
+
+- A bound in `validate`, read from the Zod schema: Zod's own `.min(1)` lives inside a function the
+  kernel cannot read, and it runs before the hooks.
+- Refusing a list left out with `Required.`: it would need a second branch and a second wording for
+  one rule. The message says what the list must hold.
+- `minItems` and `maxItems` in OpenAPI: a `many` states its bound only in its description, and D-129
+  keeps the transports equal. A client that needs them can ask.
+- `size` on a field type's stored list: no use asks for it, and a field type's options are its own
+  (D-122).
+
+Example, before: a Zod rule the hook's value skips, and no check in the database.
+
+```ts
+languages: f.enumOf(Language, {
+	list: true,
+	validate: z.array(z.enum(Language.values)).min(1).readonly(),
+}),
+```
+
+After: one rule, which holds for what the hooks leave, and in the database.
+
+```ts
+languages: f.enumOf(Language, { list: true, size: { min: 1 } }),
+```
+
+```sql
+alter table "account" add constraint "account_languages_size_check" check (cardinality("languages") >= 1);
+```

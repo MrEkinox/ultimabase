@@ -2,6 +2,7 @@
 // columns, keys, checks, indexes and foreign keys, as JSON that `plan`
 // compares and that a database or `migrations/schema.json` keeps.
 import type { ScalarType, SchemaField } from 'ultimabase'
+import type { Check } from './check.ts'
 import type { Catalog, Table } from './names.ts'
 import { constraint } from './names.ts'
 import { kindChecks } from './snapshot-kinds.ts'
@@ -25,25 +26,6 @@ export type ForeignKey = {
 	readonly within?: { readonly column: string; readonly target: string }
 	readonly follows?: true
 }
-
-/**
- * A column among `values`, each element of a list's (D-127); a `within`
- * relation's column, empty while its `parent` column is (D-235); or a
- * `oneOf`'s `kinds` columns, one of them set, at most one when `optional`
- * (D-247).
- */
-export type Check =
-	| {
-			readonly column: string
-			readonly values: string[]
-			readonly list?: true
-	  }
-	| { readonly column: string; readonly parent: string }
-	| {
-			readonly field: string
-			readonly kinds: string[]
-			readonly optional?: true
-	  }
 
 /**
  * `model` is the model's name, or `Book.tags` for a join table. Constraints
@@ -196,6 +178,15 @@ function field(
 			column,
 			values: [...(given.values ?? [])],
 			...(given.list ? { list: true as const } : {}),
+		}
+	}
+	if (given.kind === 'scalar' && given.size !== undefined) {
+		const { min, max } = given.size
+		const name = constraint(`${table.name}_${column}_size_check`)
+		building.checks[claims.schema(name, `the size check on ${what}`)] = {
+			column,
+			min,
+			...(max === undefined ? {} : { max }),
 		}
 	}
 	if (given.kind !== 'one') return

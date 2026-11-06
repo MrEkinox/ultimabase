@@ -3,8 +3,10 @@
 import type { Many, Resolving } from './nested-write.ts'
 import { storedValue } from './decimal.ts'
 import { declaredName } from './one-of-schema.ts'
+import type { Scalar } from './query-values.ts'
 import type { FieldInfo, ModelInfo } from './schema.ts'
 import type { QueryScope } from './scope.ts'
+import { listIssue } from './sizes.ts'
 import type { Draft } from './write-data.ts'
 import { issueOf } from './write-data.ts'
 import type { Plan, Reads, Step } from './write-plan.ts'
@@ -85,7 +87,18 @@ export function scalar(
 				: `${where}: the ${codec.plugin} field type encoded a value its stored field refuses: ${issue}`,
 		)
 	}
+	checkSize(context, field, stored)
 	context.set[field.name] = storedValue(stored, field)
+}
+
+/** A list holds its `size` once the hooks wrote it, as they may (D-281). */
+export function checkSize(
+	context: Context,
+	field: Scalar,
+	list: unknown,
+): void {
+	const issue = listIssue(field.size, list)
+	if (issue !== undefined) fail(context, [field.name], issue)
 }
 
 /** Whether a row of the other side, but `kept`, holds this one's key. */

@@ -16,9 +16,10 @@ import { filtered, given, shapedRows } from './query-context.ts'
 import { byIds, entries } from './query-where.ts'
 import { updatePlan } from './query-write.ts'
 import type { ModelInfo } from './schema.ts'
+import { listIssue } from './sizes.ts'
 import type { Commit, Store } from './transaction.ts'
 import type { Draft } from './write-data.ts'
-import { prepared, readData } from './write-data.ts'
+import { invalid, prepared, readData } from './write-data.ts'
 import type { Plan } from './write-plan.ts'
 import { updated } from './write-plan.ts'
 import { checkedWrite, guarded } from './write-target.ts'
@@ -114,6 +115,24 @@ function grouped(
 }
 
 /**
+ * A list its operation left is computed by the write, so that `settled` takes
+ * it out of what the plan checks: its `size` is checked here (D-281).
+ */
+function checkSizes(
+	model: ModelInfo,
+	draft: Draft,
+	operations: Operations,
+): void {
+	const issues = [...operations.keys()].flatMap((name) => {
+		const field = model.fields.get(name)
+		const message =
+			field?.kind === 'scalar' ? listIssue(field.size, draft[name]) : undefined
+		return message === undefined ? [] : [{ path: [name], message }]
+	})
+	if (issues.length > 0) throw invalid(issues)
+}
+
+/**
  * Each row through the update rule and hooks, then their writes (D-133):
  * the rows changed, or with `at` as it shapes them.
  */
@@ -147,6 +166,7 @@ async function lockedRows(
 		await prepared(model, draft, caller, false)
 		const record = recordOf(model, row)
 		await runHook(model, 'beforeUpdate', { caller, record, data: draft })
+		checkSizes(model, draft, operations)
 	}
 	const events: Event[] = items.map(({ row }) => ({
 		model,

@@ -31,7 +31,7 @@ function create(name: string, table: TableSnapshot): string {
 	return `create table ${id(name)} (\n\t${parts.join(',\n\t')}\n)`
 }
 
-/** Adds a column; a required one takes its fixed default in the rows. */
+/** Adds a column; a required one takes its fixed default in the rows, and keeps it. */
 function addColumn(
 	table: string,
 	key: string,
@@ -57,11 +57,16 @@ function addColumn(
 		)
 		return
 	}
-	// The rows take the default; the column keeps none, as the models say.
-	emit(`${add} default ${fill.sql}`, `added ${now.field}`)
+	// The rows take the default, and the column keeps it: code still running
+	// without this field can still insert while a deploy rolls out (D-280).
 	emit(
-		`${table} alter column ${id(key)} drop default`,
-		`${fill.shown} in the rows it held`,
+		`${add} default ${fill.sql}`,
+		`added ${now.field}, ${fill.shown} in the rows it held`,
+		fill.implicit === true
+			? {
+					note: `The stored rows hold an empty "${model}.${now.field}": fill them here if the model needs a value`,
+				}
+			: {},
 	)
 }
 
@@ -149,7 +154,8 @@ function retype(
 	emit: Emit,
 ): void {
 	const change = `changing "${model}.${now.field}" from ${shown(was)} to ${shown(now.type)}`
-	const alter = `${table} alter column ${id(key)} type ${now.type}`
+	// A default the column kept may not convert to the new type (D-280).
+	const alter = `${table} alter column ${id(key)} drop default, alter column ${id(key)} type ${now.type}`
 	const does = `changed ${now.field} to ${shown(now.type)}`
 	if (!unconvertible[family(was)]?.includes(family(now.type))) {
 		return emit(`${alter} using ${converted(id(key), was, now.type)}`, does, {

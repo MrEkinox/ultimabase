@@ -64,6 +64,27 @@ row with a unique value returns `UNIQUE_VIOLATION`. With
 	../examples/models-and-queries/src/models.test.ts#refused
 </include>
 
+## Bounding a list
+
+`size` sets the fewest and the most values a list holds. Either bound may be
+left out:
+
+<include cwd meta='title="src/schedule.ts"'>
+	../examples/models-and-queries/src/schedule.ts#list-size
+</include>
+
+<include cwd meta='title="src/models.test.ts"'>
+	../examples/models-and-queries/src/models.test.ts#list-size-refused
+</include>
+
+The bound holds after the [hooks](/docs/next/hooks), so a `beforeCreate` may
+fill the list, and on what `push` or `remove` leaves. A write outside it fails
+with `VALIDATION_FAILED`, for every caller.
+PostgreSQL enforces it too, with a check that a
+[migration](/docs/next/postgres) adds; rows it would refuse must be filled
+first. The GraphQL schema and the OpenAPI document state it in the field's
+description.
+
 ## Field presets
 
 A rule several fields share, a text that is trimmed and never blank, is a
@@ -128,6 +149,19 @@ enum that several fields, of several models, share:
 TypeScript `enum`, which Node does not run (see the
 [Quickstart](/docs/next/quickstart)). `Status.values` lists the values, and
 `(typeof Status.values)[number]` is their type.
+
+A Zod enum with the same values and the same name is the same type. That is
+how a JSON field or a function's schema uses a shared enum, with
+`.meta({ id })`:
+
+<include cwd meta='title="src/schedule.ts"'>
+	../examples/models-and-queries/src/schedule.ts#shared-enum
+</include>
+
+GraphQL gives `SearchFilters.availableOn` the type `[Weekday!]!`, and OpenAPI
+references the one `Weekday` schema. The same name with other values stops the
+start, so a typo in the values cannot make a second type; one in the `id` makes
+a type of that name.
 
 ## Object types
 
@@ -250,6 +284,7 @@ Plugins add their own types: `password()` and `file()`. See
 | `default`     | a value, or `({ caller }) => value`       | none          | Written when a create leaves the field out; a function returning `undefined` gives none.                                                                                                             |
 | `validate`    | Standard Schema, or `(value) => value`    | none          | Refuses a value, or returns the value to store.                                                                                                                                                      |
 | `list`        | `true`                                    | `false`       | Strings, numbers and enums: a list, `[]` when empty; never optional nor unique.                                                                                                                      |
+| `size`        | `{ min?, max? }`                          | none          | With `list: true`: how many values the list holds. See [Bounding a list](#bounding-a-list).                                                                                                          |
 | `description` | `string`                                  | none          | Shown in the GraphQL schema and the OpenAPI document.                                                                                                                                                |
 | `deprecated`  | `string`                                  | none          | Why clients should stop using the field, and what replaces it: `@deprecated` in GraphQL, `deprecated: true` in OpenAPI. Only on a field a create may leave out: optional, with a default, or a list. |
 | `dbName`      | `string`                                  | the adapter's | The stored column's name.                                                                                                                                                                            |

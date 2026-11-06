@@ -12,6 +12,7 @@ import {
 import type { FieldBuilders, RecordOf, WhereOf } from './index.ts'
 import { defineApp, defineModel, master, memory } from './index.ts'
 import { resolve } from './schema.ts'
+import { listIssue } from './sizes.ts'
 
 const M = { as: master }
 
@@ -119,6 +120,241 @@ describe('a list definition', () => {
 		expect(() =>
 			resolve([indexed({ fields: ['tags'], unique: true })]),
 		).toThrow("Indexed: the list 'tags' cannot be unique.")
+	})
+})
+
+const Account = defineModel({
+	name: 'Account',
+	fields: (f) => ({
+		name: f.string(),
+		languages: f.enumOf(['fr', 'en', 'de'], {
+			list: true,
+			size: { min: 1 },
+		}),
+		tags: f.string({ list: true, size: { max: 2 } }),
+	}),
+}).with({
+	hooks: {
+		beforeCreate: ({ data }) => {
+			if (data.name === 'filled') data.languages = ['fr']
+			if (data.name === 'long') data.tags = ['a', 'b', 'c']
+		},
+		beforeUpdate: ({ data }) => {
+			if (data.name === 'trimmed') data.languages = []
+		},
+	},
+})
+
+const Tagged = defineModel({
+	name: 'Tagged',
+	fields: (f) => ({
+		tags: f.string({ list: true, size: { min: 1, max: 2 } }),
+		shelf: f.one(() => Shelf, { optional: true }),
+	}),
+})
+
+const Shelf = defineModel({
+	name: 'Shelf',
+	fields: (f) => ({ tagged: f.many(() => Tagged, { inverse: 'shelf' }) }),
+})
+
+const sized = (size: unknown, list = true) =>
+	resolve([
+		defineModel({
+			name: 'Sized',
+			fields: (f) => ({
+				// oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the test sends what the types may refuse.
+				tags: f.string({ list, size } as { list: true }),
+			}),
+		}),
+	])
+
+const refused = (path: string, message: string) => ({
+	code: 'VALIDATION_FAILED',
+	details: { issues: [{ path: [path], message }] },
+})
+
+describe('a list with a size', () => {
+	let app: ReturnType<typeof defineApp>
+
+	beforeEach(async () => {
+		app = defineApp({ database: memory(), models: [Account, Tagged, Shelf] })
+		await app.start()
+	})
+
+	afterEach(async () => {
+		await app.stop()
+	})
+
+	it('refuses too few and too many values, for every caller', async () => {
+		const least = refused('languages', 'Expected at least 1 value.')
+		await expect(
+			Account.create({ data: { name: 'a' } }, M),
+		).rejects.toMatchObject(least)
+		await expect(
+			Account.create({ data: { name: 'a', languages: [] } }, M),
+		).rejects.toMatchObject(least)
+		await expect(
+			Account.create(
+				{ data: { name: 'a', languages: ['fr'], tags: ['a', 'b', 'c'] } },
+				M,
+			),
+		).rejects.toMatchObject(refused('tags', 'Expected at most 2 values.'))
+		expect(
+			await Account.create(
+				{ data: { name: 'a', languages: ['fr', 'en'], tags: ['a', 'b'] } },
+				M,
+			),
+		).toMatchObject({ languages: ['fr', 'en'], tags: ['a', 'b'] })
+	})
+
+	it('is checked on the list a hook leaves', async () => {
+		expect(await Account.create({ data: { name: 'filled' } }, M)).toMatchObject(
+			{ languages: ['fr'] },
+		)
+		await expect(
+			Account.create({ data: { name: 'long', languages: ['fr'] } }, M),
+		).rejects.toMatchObject(refused('tags', 'Expected at most 2 values.'))
+		const { id } = await Account.create(
+			{ data: { name: 'a', languages: ['fr'] } },
+			M,
+		)
+		await expect(
+			Account.update({ where: { id }, data: { name: 'trimmed' } }, M),
+		).rejects.toMatchObject(refused('languages', 'Expected at least 1 value.'))
+	})
+
+	it('holds on every write that gives the list, and only those', async () => {
+		const least = refused('languages', 'Expected at least 1 value.')
+		const { id } = await Account.create(
+			{ data: { name: 'a', languages: ['fr'] } },
+			M,
+		)
+		expect(
+			await Account.update({ where: { id }, data: { name: 'b' } }, M),
+		).toMatchObject({ name: 'b', languages: ['fr'] })
+		await expect(
+			Account.update({ where: { id }, data: { languages: [] } }, M),
+		).rejects.toMatchObject(least)
+		await expect(
+			Account.updateMany({ where: { id }, data: { languages: [] } }, M),
+		).rejects.toMatchObject(least)
+		await expect(
+			Account.createMany({ data: [{ name: 'c' }] }, M),
+		).rejects.toMatchObject({ code: 'VALIDATION_FAILED' })
+		await expect(
+			Account.upsert(
+				{
+					where: { id: 'missing' },
+					create: { name: 'd', languages: [] },
+					update: {},
+				},
+				M,
+			),
+		).rejects.toMatchObject(least)
+	})
+
+	it('holds on what a nested list operation leaves', async () => {
+		const shelf = await Shelf.create({ data: {} }, M)
+		const { id } = await Tagged.create(
+			{ data: { tags: ['a'], shelf: { connect: { id: shelf.id } } } },
+			M,
+		)
+		await expect(
+			Shelf.update(
+				{
+					where: { id: shelf.id },
+					data: {
+						tagged: {
+							update: [{ where: { id }, data: { tags: { remove: 'a' } } }],
+						},
+					},
+				},
+				M,
+			),
+		).rejects.toMatchObject({ code: 'VALIDATION_FAILED' })
+		expect(await Tagged.findUnique({ where: { id } }, M)).toMatchObject({
+			tags: ['a'],
+		})
+	})
+
+	it('holds on what a list operation leaves, with no hook to read the row', async () => {
+		const { id } = await Tagged.create({ data: { tags: ['a'] } }, M)
+		const issue = refused('tags', 'Expected 1 to 2 values.')
+		await expect(
+			Tagged.update({ where: { id }, data: { tags: { remove: 'a' } } }, M),
+		).rejects.toMatchObject(issue)
+		await expect(
+			Tagged.update({ where: { id }, data: { tags: { push: ['b', 'c'] } } }, M),
+		).rejects.toMatchObject(issue)
+		await expect(
+			Tagged.updateMany({ where: { id }, data: { tags: { remove: 'a' } } }, M),
+		).rejects.toMatchObject(issue)
+		await expect(
+			Tagged.updateManyAndReturn(
+				{ where: { id }, data: { tags: { remove: 'a' } } },
+				M,
+			),
+		).rejects.toMatchObject(issue)
+		expect(await Tagged.findUnique({ where: { id } }, M)).toMatchObject({
+			tags: ['a'],
+		})
+		expect(
+			await Tagged.update({ where: { id }, data: { tags: { push: 'b' } } }, M),
+		).toMatchObject({ tags: ['a', 'b'] })
+	})
+
+	it('says its bounds', () => {
+		expect(listIssue({ min: 1, max: 10 }, [])).toBe('Expected 1 to 10 values.')
+		expect(listIssue({ min: 2, max: 2 }, ['a'])).toBe(
+			'Expected exactly 2 values.',
+		)
+		expect(listIssue({ min: 1, max: 1 }, ['a', 'b'])).toBe(
+			'Expected exactly 1 value.',
+		)
+		expect(listIssue({ min: 1, max: 10 }, ['a'])).toBeUndefined()
+	})
+
+	it('types what it takes', () => {
+		expectTypeOf<RecordOf<typeof Account>['languages']>().toEqualTypeOf<
+			readonly ('fr' | 'en' | 'de')[]
+		>()
+		defineModel({
+			name: 'Typed',
+			fields: (f) => ({
+				// @ts-expect-error: a list only.
+				title: f.string({ size: { min: 1 } }),
+			}),
+		})
+	})
+
+	it('stops startup on a size out of order, or on no list', () => {
+		const bad =
+			'Sized.tags: size takes whole numbers, min from 0 and max from 1, as { min: 1, max: 10 }.'
+		for (const size of [
+			{ min: -1 },
+			{ max: 0 },
+			{ min: 3, max: 2 },
+			{ min: 1.5 },
+			{ least: 1 },
+			1,
+		]) {
+			expect(() => sized(size)).toThrow(bad)
+		}
+		expect(() => sized({ min: 1 }, false)).toThrow(
+			'Sized.tags: size bounds a list only.',
+		)
+	})
+
+	it('bounds nothing with no bound, and shows its bound to the adapter', () => {
+		for (const size of [{}, { min: 0 }]) {
+			const { models } = sized(size)
+			expect(models.get('Sized')?.fields.get('tags')).not.toHaveProperty('size')
+		}
+		const { models } = sized({ min: 1, max: 3 })
+		expect(models.get('Sized')?.fields.get('tags')).toMatchObject({
+			size: { min: 1, max: 3 },
+		})
 	})
 })
 

@@ -16,7 +16,7 @@ export type Named<T> = { readonly [name: string]: T }
 export type Emit = (
 	sql: string,
 	does: string,
-	more?: Pick<Statement, 'loses' | 'tries' | 'rename'>,
+	more?: Pick<Statement, 'loses' | 'tries' | 'rename' | 'note'>,
 ) => void
 
 /** The entries of `from` that `to` lacks or defines otherwise. */

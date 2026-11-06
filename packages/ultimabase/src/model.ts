@@ -89,6 +89,24 @@ type UpdatedHook<F> = Hook<{
 }>
 /** The data a `before*` hook changes in place (D-71). */
 type Draft<D> = { -readonly [K in keyof D]: D[K] }
+/** Whether a default sets the field; its function may return nothing. */
+type SetByDefault<X> = X extends {
+	readonly [fieldType]: { readonly options: { readonly default: infer D } }
+}
+	? D extends (...args: never[]) => infer R
+		? undefined extends R
+			? false
+			: true
+		: true
+	: false
+/** `beforeCreate` runs after the defaults, so their fields are set (D-67, D-279). */
+type CreateDraft<F, N, D = CreateData<F, N>> = Draft<
+	D & {
+		readonly [
+			K in keyof D & keyof F as SetByDefault<F[K]> extends true ? K : never
+		]: Exclude<D[K], undefined>
+	}
+>
 
 /**
  * What the rows a `beforeFind` narrows are for: an update or a delete of the
@@ -107,7 +125,7 @@ export type ModelHooks<F, N extends string = string> = {
 		readonly operation: FindOperation
 		readonly where: (filter: FindWhere<F>) => ReadFilter
 	}) => ReadFilter | void | Promise<ReadFilter | void>
-	readonly beforeCreate?: Hook<{ readonly data: Draft<CreateData<F, N>> }>
+	readonly beforeCreate?: Hook<{ readonly data: CreateDraft<F, N> }>
 	readonly beforeUpdate?: Hook<{
 		readonly record: StoredRecord<F>
 		readonly data: Draft<UpdateData<F, N, false>>

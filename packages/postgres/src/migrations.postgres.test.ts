@@ -345,6 +345,22 @@ const insertSizes = (row: string) =>
 		`insert into post values (gen_random_uuid(), now(), now(), '${row}')`,
 	)
 
+/** A post whose `tags` hold what `size` says (D-281). */
+const tagged = (size?: { min: number; max: number | undefined }): Schema => ({
+	models: [
+		{
+			name: 'Post',
+			fields: [
+				scalar('tags', 'string', {
+					list: true,
+					...(size === undefined ? {} : { size }),
+				}),
+			],
+			indexes: [],
+		},
+	],
+})
+
 /** An article whose `searched` fields are in its search (D-148). */
 const article = (searched: readonly string[]): Schema => ({
 	models: [
@@ -778,14 +794,14 @@ describe('a sync on postgres()', () => {
 		)
 		const statements = await sync(cellOf(0), cellOf(1))
 		expect(statements[1]).toStrictEqual({
-			sql: 'alter table "cell" alter column "r0" type boolean using false',
+			sql: 'alter table "cell" alter column "r0" drop default, alter column "r0" type boolean using false',
 			model: 'Cell',
 			does: 'changed r0 to boolean, false in the rows it held',
 			loses:
 				'changing "Cell.r0" from double precision to boolean deletes its data: PostgreSQL converts no double precision to boolean',
 		})
 		expect(statements[0]?.sql).toBe(
-			'alter table "cell" alter column "o0" type boolean using null',
+			'alter table "cell" alter column "o0" drop default, alter column "o0" type boolean using null',
 		)
 		const [cells] = await query(inSchema(schema), 'select * from cell')
 		expect(cells).toMatchObject(
@@ -811,7 +827,7 @@ describe('a sync on postgres()', () => {
 		)
 		await expect(sync(cellOf(1), cellOf(0))).rejects.toMatchObject({
 			name: 'MigrationFailed',
-			at: 'alter table "cell" alter column "r0" type double precision using null',
+			at: 'alter table "cell" alter column "r0" drop default, alter column "r0" type double precision using null',
 		})
 	}, 20_000)
 
@@ -872,7 +888,7 @@ describe('a sync on postgres()', () => {
 		expect(statements.map(({ sql, tries }) => [sql, tries])).toStrictEqual([
 			['alter table "shelf" alter column "size" drop not null', undefined],
 			[
-				'alter table "shelf" alter column "size" type boolean using "size"::boolean',
+				'alter table "shelf" alter column "size" drop default, alter column "size" type boolean using "size"::boolean',
 				'changing "Shelf.size" from text to boolean fails when a row holds a value it cannot convert',
 			],
 		])
@@ -896,7 +912,7 @@ describe('a sync on postgres()', () => {
 		)
 		expect(statements.map(({ sql, tries }) => [sql, tries])).toStrictEqual([
 			[
-				'alter table "shelf" alter column "size" type integer using "size"::text::integer',
+				'alter table "shelf" alter column "size" drop default, alter column "size" type integer using "size"::text::integer',
 				'changing "Shelf.size" from double precision to integer fails when a row holds a value it cannot convert',
 			],
 		])
@@ -918,7 +934,7 @@ describe('a sync on postgres()', () => {
 			whole('number'),
 		)
 		expect([back?.sql, back?.tries]).toStrictEqual([
-			'alter table "shelf" alter column "size" type double precision using "size"::double precision',
+			'alter table "shelf" alter column "size" drop default, alter column "size" type double precision using "size"::double precision',
 			undefined,
 		])
 	})
@@ -934,7 +950,7 @@ describe('a sync on postgres()', () => {
 			money(6, 1),
 		)
 		expect([rounded?.sql, rounded?.tries]).toStrictEqual([
-			'alter table "shelf" alter column "size" type numeric(6,1) using "size"::numeric(6,1)',
+			'alter table "shelf" alter column "size" drop default, alter column "size" type numeric(6,1) using "size"::numeric(6,1)',
 			'changing "Shelf.size" from numeric(6,2) to numeric(6,1) fails when a row holds a value it cannot convert',
 		])
 		await sync(money(6, 2), money(6, 1))
@@ -953,7 +969,7 @@ describe('a sync on postgres()', () => {
 			whole('number', true),
 		)
 		expect(integer?.sql).toBe(
-			'alter table "shelf" alter column "size" type integer using "size"::float8::text::integer',
+			'alter table "shelf" alter column "size" drop default, alter column "size" type integer using "size"::float8::text::integer',
 		)
 		// One row a cast would round, so the failure names it.
 		await query(inSchema(schema), 'update shelf set size = 2 where size > 2')
@@ -972,7 +988,7 @@ describe('a sync on postgres()', () => {
 			money(6, 2),
 		)
 		expect(lost?.sql).toBe(
-			'alter table "shelf" alter column "size" type numeric(6,2) using null',
+			'alter table "shelf" alter column "size" drop default, alter column "size" type numeric(6,2) using null',
 		)
 	})
 
@@ -1018,9 +1034,7 @@ describe('a sync on postgres()', () => {
 			(await sync(post(undefined), post('strings'))).map(({ sql }) => sql),
 		).toStrictEqual([
 			`alter table "post" add column "tags" text[] not null default '{}'::text[]`,
-			'alter table "post" alter column "tags" drop default',
 			`alter table "post" add column "labels" text[] not null default ${fill}::text[]`,
-			'alter table "post" alter column "labels" drop default',
 			gin,
 		])
 		expect(await rows()).toStrictEqual([
@@ -1043,7 +1057,7 @@ describe('a sync on postgres()', () => {
 		expect(text.map(({ sql }) => sql)).toStrictEqual([
 			'drop index "post_tags_idx"',
 			'alter table "post" drop column "labels"',
-			'alter table "post" alter column "tags" type text collate "C" using "tags"::text collate "C"',
+			'alter table "post" alter column "tags" drop default, alter column "tags" type text collate "C" using "tags"::text collate "C"',
 			'create index "post_tags_idx" on "post" ("tags")',
 		])
 		const back = await sync(post('string'), post('strings'))
@@ -1060,7 +1074,7 @@ describe('a sync on postgres()', () => {
 		const numbers = await sync(post('strings'), post('numbers'))
 		expect(numbers.map(({ sql }) => sql)).toStrictEqual([
 			'alter table "post" drop column "labels"',
-			'alter table "post" alter column "tags" type double precision[] using "tags"::double precision[]',
+			'alter table "post" alter column "tags" drop default, alter column "tags" type double precision[] using "tags"::double precision[]',
 		])
 		expect(numbers[1]?.tries).toBe(
 			'changing "Post.tags" from text[] to double precision[] fails when a row holds a value it cannot convert',
@@ -1075,14 +1089,14 @@ describe('a sync on postgres()', () => {
 			post('strings'),
 		)
 		expect(number[1]).toMatchObject({
-			sql: `alter table "post" alter column "tags" type text[] using '{}'::text[]`,
+			sql: `alter table "post" alter column "tags" drop default, alter column "tags" type text[] using '{}'::text[]`,
 			loses:
 				'changing "Post.tags" from double precision to text[] deletes its data: PostgreSQL converts no double precision to text[]',
 		})
 		expect(
 			migrations.plan(migrations.snapshot(post('number')), post('numbers'))[1],
 		).toMatchObject({
-			sql: `alter table "post" alter column "tags" type double precision[] using '{}'::double precision[]`,
+			sql: `alter table "post" alter column "tags" drop default, alter column "tags" type double precision[] using '{}'::double precision[]`,
 		})
 	})
 
@@ -1414,27 +1428,18 @@ describe('a sync on postgres()', () => {
 		const made = await sync(note([]), filled)
 		expect(made.map(({ sql }) => sql)).toStrictEqual([
 			`alter table "note" add column "title" text collate "C" not null default 'it''s'`,
-			'alter table "note" alter column "title" drop default',
 			'alter table "note" add column "rank" double precision not null default -1.5',
-			'alter table "note" alter column "rank" drop default',
 			'alter table "note" add column "done" boolean not null default false',
-			'alter table "note" alter column "done" drop default',
 			`alter table "note" add column "due" timestamptz not null default '2026-10-25T09:00:00.000Z'::timestamptz`,
-			'alter table "note" alter column "due" drop default',
 			`alter table "note" add column "meta" jsonb not null default '{"tags":["a"]}'::jsonb`,
-			'alter table "note" alter column "meta" drop default',
 			`alter table "note" add column "items" jsonb not null default '["a"]'::jsonb`,
-			'alter table "note" alter column "items" drop default',
 			`alter table "note" add column "level" text collate "C" not null default 'low'`,
-			'alter table "note" alter column "level" drop default',
 			'alter table "note" add column "later" double precision',
 			`alter table "note" add constraint "note_level_check" check ("level" in ('low', 'high'))`,
 		])
-		expect(made.map(({ does }) => does).slice(0, 4)).toStrictEqual([
-			'added title',
-			"'it''s' in the rows it held",
-			'added rank',
-			'-1.5 in the rows it held',
+		expect(made.map(({ does }) => does).slice(0, 2)).toStrictEqual([
+			"added title, 'it''s' in the rows it held",
+			'added rank, -1.5 in the rows it held',
 		])
 		expect(made.filter(({ tries }) => tries !== undefined)).toHaveLength(1)
 		expect(
@@ -1457,9 +1462,119 @@ describe('a sync on postgres()', () => {
 			await query(
 				inSchema(schema),
 				`select column_name from information_schema.columns
-				where table_schema = '${schema}' and column_default is not null`,
+				where table_schema = '${schema}' and column_default is not null
+				order by column_name`,
 			),
-		).toStrictEqual([])
+		).toStrictEqual(
+			['done', 'due', 'items', 'level', 'meta', 'rank', 'title'].map(
+				(column_name) => ({ column_name }),
+			),
+		)
+		// Code still running without these fields can still insert (D-280).
+		await query(
+			inSchema(schema),
+			`insert into note (id, created_at, updated_at, text)
+			values (gen_random_uuid(), now(), now(), 'old')`,
+		)
+		expect(
+			await query(
+				inSchema(schema),
+				`select title, done from note where text = 'old'`,
+			),
+		).toStrictEqual([{ title: "it's", done: false }])
+	})
+
+	it('drops a kept default before changing the column type', async () => {
+		const note = (...fields: readonly SchemaField[]): Schema => ({
+			models: [
+				{
+					name: 'Note',
+					fields: [scalar('text', 'string'), ...fields],
+					indexes: [],
+				},
+			],
+		})
+		const flag = scalar('flag', 'boolean', { default: true })
+		const number = scalar('flag', 'number', { default: 1 })
+		await sync(undefined, note())
+		await query(
+			inSchema(schema),
+			`insert into note values (gen_random_uuid(), now(), now(), 'Hi')`,
+		)
+		await sync(note(), note(flag))
+		const [statement] = await sync(note(flag), note(number))
+		expect(statement?.sql).toContain('drop default, alter column "flag" type')
+		expect(
+			await query(
+				inSchema(schema),
+				`select column_default from information_schema.columns
+				where table_schema = '${schema}' and column_name = 'flag'`,
+			),
+		).toStrictEqual([{ column_default: null }])
+	})
+
+	it('bounds the number of values a list holds (D-281)', async () => {
+		const between = tagged({ min: 1, max: 3 })
+		const [created] = await sync(undefined, between)
+		expect(created?.sql).toContain(
+			'constraint "post_tags_size_check" check (cardinality("tags") between 1 and 3)',
+		)
+		await insertSizes('{a}')
+		await expect(insertSizes('{}')).rejects.toThrow('post_tags_size_check')
+		await expect(insertSizes('{a,b,c,d}')).rejects.toThrow(
+			'post_tags_size_check',
+		)
+		// The stored snapshot holds the bounds, as a plan reads them back.
+		const stored = await migrations.stored()
+		expect(migrations.plan(stored?.snapshot, between)).toStrictEqual([])
+		const least = await sync(between, tagged({ min: 1, max: undefined }))
+		expect(least).toMatchObject([
+			{
+				sql: 'alter table "post" drop constraint "post_tags_size_check"',
+				does: 'dropped the size of tags',
+			},
+			{
+				sql: 'alter table "post" add constraint "post_tags_size_check" check (cardinality("tags") >= 1)',
+				does: 'bounded the size of tags',
+				tries:
+					'bounding the size of "Post.tags" fails when a row holds another number of values',
+			},
+		])
+		const most = await sync(
+			tagged({ min: 1, max: undefined }),
+			tagged({ min: 0, max: 3 }),
+		)
+		expect(most[1]?.sql).toContain('(cardinality("tags") <= 3)')
+		await insertSizes('{}')
+		const none = await sync(tagged({ min: 0, max: 3 }), tagged())
+		expect(none.map(({ sql }) => sql)).toStrictEqual([
+			'alter table "post" drop constraint "post_tags_size_check"',
+		])
+	})
+
+	it('adds a bound after the column it bounds, for a fill to run first (D-281)', () => {
+		const post = (...fields: readonly SchemaField[]): Schema => ({
+			models: [
+				{
+					name: 'Post',
+					fields: [scalar('title', 'string'), ...fields],
+					indexes: [],
+				},
+			],
+		})
+		const added = migrations.plan(
+			migrations.snapshot(post()),
+			post(
+				scalar('tags', 'string', {
+					list: true,
+					size: { min: 1, max: undefined },
+				}),
+			),
+		)
+		expect(added.map(({ sql }) => sql)).toStrictEqual([
+			`alter table "post" add column "tags" text[] not null default '{}'::text[]`,
+			'alter table "post" add constraint "post_tags_size_check" check (cardinality("tags") >= 1)',
+		])
 	})
 
 	it('tries a required field added without a fixed default', () => {
@@ -2505,7 +2620,23 @@ describe('the commands on postgres()', () => {
 		).toStrictEqual([
 			'alter table "locker" add column "done" boolean not null default false;',
 			'',
-			'alter table "locker" alter column "done" drop default;',
+		])
+
+		await config(
+			"label: f.string(), done: f.boolean({ default: false }), tags: f.string({ list: true }), kept: f.string({ list: true, default: ['a'] })",
+		)
+		await ultimabase(dir, ['migrate', 'create', 'lists'], {})
+		const named = await readdir(joinPath(dir, 'migrations'))
+		const lists = named.find((name) => name.endsWith('_lists.sql')) ?? ''
+		expect(
+			(await readFile(joinPath(dir, 'migrations', lists), 'utf8'))
+				.split('\n')
+				.slice(2),
+		).toStrictEqual([
+			`alter table "locker" add column "tags" text[] not null default '{}'::text[];`,
+			'-- The stored rows hold an empty "Locker.tags": fill them here if the model needs a value.',
+			'',
+			`alter table "locker" add column "kept" text[] not null default '{"a"}'::text[];`,
 			'',
 		])
 	}, 30_000)
