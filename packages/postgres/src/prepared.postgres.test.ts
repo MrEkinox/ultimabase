@@ -4,7 +4,7 @@ import { testApplication } from '@ultimabase/testing'
 import { defineApp, defineModel, master, transaction } from 'ultimabase'
 import { expect, it } from 'vitest'
 import { postgres } from './index.ts'
-import { prepare, preparedStatements } from './prepared.ts'
+import { preparedStatements } from './prepared.ts'
 
 const servers =
 	'postgres://postgres:postgres@localhost:54315/postgres postgres://postgres:postgres@localhost:54318/postgres'
@@ -74,13 +74,124 @@ it('reads on under a statement it prepared, the table changed', async () => {
 	expect(await read()).toBe(1)
 })
 
-it('leaves unprepared what has no room', async () => {
-	const statements = (await held()).length
+it('leaves a long list of ids unprepared', async () => {
+	const before = await held()
 	const id = Array.from({ length: 65 }, () => randomUUID())
-	expect(await Note.findMany({ where: { id: { in: id } } }, M)).toEqual([])
-	expect(await held()).toHaveLength(statements)
-	for (let at = 0; at < preparedStatements; at++) prepare(`select ${at}`, 0)
-	const where = { text: { in: ['none', 'nor this'] } }
-	expect(await Note.findMany({ where }, M)).toEqual([])
-	expect(await held()).toHaveLength(statements)
+	await Note.findMany({ where: { id: { in: id } } }, M)
+	await Note.findMany({ where: { id: { in: id } } }, M)
+	expect(await held()).toEqual(before)
+})
+
+it('prepares a statement once asked again', async () => {
+	const where = { text: { not: 'asked' } }
+	const before = await held()
+	await Note.findMany({ where }, M)
+	expect(await held()).toEqual(before)
+	await Note.findMany({ where }, M)
+	expect(await held()).toHaveLength(before.length + 1)
+})
+
+/** A read no other `at` under 960 makes the same statement of. */
+function shape(at: number): {
+	where: { text: { in: string[] } } | { id: { in: string[] } }
+	orderBy: Record<string, 'asc' | 'desc'>
+} {
+	const list = Array.from({ length: (at % 60) + 1 }, () => randomUUID())
+	const fields = ['text', 'id', 'createdAt', 'updatedAt']
+	const field = fields[Math.floor(at / 60) % fields.length] ?? 'text'
+	return {
+		where: at < 480 ? { text: { in: list } } : { id: { in: list } },
+		orderBy: { [field]: Math.floor(at / 240) % 2 === 0 ? 'asc' : 'desc' },
+	}
+}
+
+/** Asks `count` statements from `from` on, `times` times each. */
+async function shapes(from: number, count: number, times = 2): Promise<void> {
+	for (let at = from; at < from + count; at++) {
+		const read = shape(at)
+		for (let turn = 0; turn < times; turn++) {
+			await Note.findMany(read, M)
+		}
+	}
+}
+
+const room = preparedStatements + 20
+
+it('keeps the statements used last, however many others come', async () => {
+	const where = { OR: [{ text: 'used' }, { text: 'often' }] }
+	const read = async (): Promise<unknown> => Note.findMany({ where }, M)
+	const before = await held()
+	await read()
+	await read()
+	const hot = (await held()).filter((text) => !before.includes(text))
+	expect(hot).toHaveLength(1)
+	await shapes(0, 50)
+	const first = (await held()).filter(
+		(text) => !before.includes(text) && !hot.includes(text),
+	)
+	for (let from = 50; from < room; from += 50) {
+		await read()
+		await shapes(from, 50)
+	}
+	const flooded = await held()
+	expect(flooded).toHaveLength(preparedStatements)
+	expect(flooded).toEqual(expect.arrayContaining(hot))
+	expect(first.filter((text) => flooded.includes(text))).toEqual([])
+
+	const fresh = { OR: [{ text: 'a' }, { text: 'new' }, { text: 'one' }] }
+	await Note.findMany({ where: fresh }, M)
+	await Note.findMany({ where: fresh }, M)
+	const after = await held()
+	expect(after).toHaveLength(preparedStatements)
+	expect(after.filter((text) => !flooded.includes(text))).toHaveLength(1)
+})
+
+it('takes no room for what is asked once, however many', async () => {
+	const before = await held()
+	await shapes(600, 200, 1)
+	expect(await held()).toEqual(before)
+})
+
+it('makes room inside a transaction', async () => {
+	await transaction(async () => {
+		await Note.create({ data: { text: 'in the room' } }, M)
+		await shapes(0, room)
+	})
+	const where = { text: 'in the room' }
+	expect(await Note.findMany({ where }, M)).toHaveLength(1)
+})
+
+/** Reaches the connection twice with `read`, its transaction aborted. */
+async function abortedTwice(read: () => Promise<unknown>): Promise<void> {
+	const failed = transaction(async () => {
+		const asked = await Promise.allSettled([
+			database.sql`select 1 / 0`,
+			read(),
+			read(),
+		])
+		const refused = asked.map(({ status }) => status === 'rejected')
+		expect(refused).toEqual([true, true, true])
+		throw new Error('Undo.')
+	})
+	await expect(failed).rejects.toThrow('Undo.')
+}
+
+it('forgets no statement an aborted transaction left unparsed', async () => {
+	const where = { text: { contains: 'unparsed' }, id: { not: randomUUID() } }
+	await abortedTwice(async () => Note.findMany({ where }, M))
+	await transaction(async () => {
+		await shapes(0, room)
+		await Note.create({ data: { text: 'after' } }, M)
+	})
+	expect(await Note.findMany({ where: { text: 'after' } }, M)).toHaveLength(1)
+})
+
+it('runs on when an aborted transaction refuses to make room', async () => {
+	await shapes(0, preparedStatements)
+	const read = shape(820)
+	await abortedTwice(async () => Note.findMany(read, M))
+	expect(await held()).toHaveLength(preparedStatements)
+	await Note.create({ data: { text: 'still there' } }, M)
+	const where = { text: 'still there' }
+	expect(await Note.findMany({ where }, M)).toHaveLength(1)
 })
