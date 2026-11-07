@@ -278,6 +278,52 @@ it('a condition that is no plain id visits every list of its shape', async () =>
 	await vi.waitFor(() => expect(seenIn(hers)).toContain('ada2'))
 })
 
+const inRoom = (name: string) => ({
+	first: 10,
+	select: { name: true },
+	where: { room: name },
+})
+
+it('a text a read requires names the lists a row visits', async () => {
+	const row = await User.create({ data: { name: 'ada', room: 'a' } }, M)
+	const inA = await follow('User', 'one', inRoom('a'))
+	const inB = await follow('User', 'two', inRoom('b'))
+	const rename = async () =>
+		User.update({ where: { id: row.id }, data: { name: 'ada2' } }, M)
+	expect(await visitsOf(rename)).toBe(1)
+	expect(seenIn(inA)).toContain('ada2')
+	expect(seenIn(inB)).not.toContain('ada2')
+	const joins = async () => User.create({ data: { name: 'bob', room: 'b' } }, M)
+	expect(await visitsOf(joins)).toBe(1)
+	expect(seenIn(inB)).toContain('bob')
+	expect(seenIn(inA)).not.toContain('bob')
+	const nowhere = async () => User.create({ data: { name: 'cy' } }, M)
+	expect(await visitsOf(nowhere)).toBe(0)
+})
+
+it('a row whose text moves leaves one list and joins the other', async () => {
+	const row = await User.create({ data: { name: 'ada', room: 'a' } }, M)
+	const inA = await follow('User', 'one', inRoom('a'))
+	const inB = await follow('User', 'two', inRoom('b'))
+	await User.update({ where: { id: row.id }, data: { room: 'b' } }, M)
+	await vi.waitFor(() => expect(seenIn(inA)).toContain(`"remove":"${row.id}"`))
+	await vi.waitFor(() => expect(seenIn(inB)).toContain('ada'))
+	await User.delete({ where: { id: row.id } }, M)
+	await vi.waitFor(() => expect(seenIn(inB)).toContain(`"remove":"${row.id}"`))
+	expect(seenIn(inA).split('remove')).toHaveLength(2)
+})
+
+it('a condition ignoring case names no list: it can match another spelling', async () => {
+	const row = await User.create({ data: { name: 'ada', room: 'lobby' } }, M)
+	const seen = await follow('User', 'one', {
+		first: 10,
+		select: { name: true },
+		where: { room: { equals: 'LOBBY', mode: 'insensitive' } },
+	})
+	await User.update({ where: { id: row.id }, data: { name: 'ada2' } }, M)
+	await vi.waitFor(() => expect(seenIn(seen)).toContain('ada2'))
+})
+
 it('a row visits the lists of the key it holds, its rules merged in', async () => {
 	const first = await chatOf('ada')
 	const second = await chatOf('bob')

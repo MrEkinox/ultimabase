@@ -17702,7 +17702,7 @@ Rejected:
 
 ## D-256: A write visits the reads it can concern
 
-Amended by D-258.
+Amended by D-258, D-294.
 
 Choice: amends D-255's known limits. Nothing changes for a developer: no option, no
 new message, the same rows told.
@@ -18977,3 +18977,29 @@ that room is the oldest. The statements in real use are used last, so they stay.
 While 5 callers did that, a read by id took 1.20 ms against 1.22 ms before this,
 and the attacker's own rate fell from 1300 to 1090 shapes a second for the extra
 trip. The ordinary case does not move: read by id 0.72 ms, update 0.82 ms.
+
+## D-294: A required text pins a live read
+
+Choice: amends D-256's pins. Nothing changes for a developer: no option, no new
+message, the same rows told.
+
+A read with no id to lead to, whose filter requires a string or enum field to equal
+a value or one of several (`where: { channel: 'x' }`, `{ owner: { in: [...] } }`), is
+now pinned on that field. A write visits the reads of the value its row holds, not
+every read of the model. The rules of D-256 apply as they stand: a write that moves
+the field visits the whole shape, and so does a delete, whose row is gone.
+
+An id or a relation still comes first, however far it is, since it names fewer rows.
+Only the root's own fields pin: a text through a relation would make a write walk it
+for little. `mode: 'insensitive'` pins nothing, since another spelling matches it, and
+neither do numbers, dates and decimals, whose values are not compared as written.
+
+Measured with 10 000 live reads held over SSE on one process, each on its own value,
+median of 15 writes on a row none of them holds: told 65.9 to 74.5 ms before, 10.7 ms
+after, against 10.7 ms with no read at all and 11.4 ms for reads pinned on a relation.
+
+Costs: an update that does not move the field, of a row no list holds, now reads that
+row, one statement a flush where there were none. A value that most reads share
+visits them all, as before.
+
+Known limit: a filter on several values through `OR` still pins nothing.
