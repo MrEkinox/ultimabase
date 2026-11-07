@@ -13,6 +13,7 @@ import {
 import type { LiveMessage, Realtime, RealtimeApi } from './index.ts'
 import { realtime, realtimePlugin } from './index.ts'
 import { Live } from './live.ts'
+import { Readers } from './readers.ts'
 import { Viewer } from './viewer.ts'
 
 const M = { as: master }
@@ -428,25 +429,34 @@ it('a change after a quiet flushes at once, the next ones 50 ms later', async ()
 	await quiet()
 	const rename = async (name: string) =>
 		Chat.update({ where: { id: chat.id }, data: { name } }, M)
+	// A flush starts by finding its readers: the gather is timed from there,
+	// not from its viewers, which a slow first search would bring closer. The
+	// second change comes during the first flush, for the gather alone to
+	// space them, not the test's own waits.
 	const flushed: number[] = []
-	// oxlint-disable-next-line typescript/unbound-method -- Called on its viewer.
-	const flush = Viewer.prototype.flush
+	let second: Promise<unknown> | undefined
+	// oxlint-disable-next-line typescript/unbound-method -- Called on its readers.
+	const concerned = Readers.prototype.concerned
 	const flushes = vi
-		.spyOn(Viewer.prototype, 'flush')
-		.mockImplementation(async function flushing(
-			this: Viewer,
-			...args: Parameters<Viewer['flush']>
+		.spyOn(Readers.prototype, 'concerned')
+		.mockImplementation(async function finding(
+			this: Readers,
+			...args: Parameters<Readers['concerned']>
 		) {
 			flushed.push(performance.now())
-			return flush.apply(this, args)
+			if (flushed.length === 1) {
+				second = rename('two')
+				await new Promise((done) => setTimeout(done, 10))
+			}
+			return concerned.apply(this, args)
 		})
 	const timers = vi.spyOn(globalThis, 'setTimeout')
 	await rename('one')
 	await vi.waitFor(() => expect(flushes).toHaveBeenCalledOnce())
 	expect(timers.mock.calls.map(([, delay]) => delay)).toContain(0)
-	await rename('two')
+	await second
+	await vi.waitFor(() => expect(flushes).toHaveBeenCalledTimes(2))
 	await vi.waitFor(() => expect(seenIn(seen)).toContain('"name":"two"'))
-	expect(flushed).toHaveLength(2)
 	expect((flushed[1] ?? 0) - (flushed[0] ?? 0)).toBeGreaterThanOrEqual(49)
 	flushes.mockRestore()
 	timers.mockRestore()
