@@ -66,13 +66,8 @@ export class Live {
 	 */
 	apply(batch: Batch, loader: Loader, missed: boolean): Waited {
 		if (missed) return this.#waited(this.#reread())
-		if (
-			this.#tasks.resting &&
-			!wrote(batch, this.#reach.models) &&
-			!this.#virtuals.mayChange(batch)
-		) {
-			return undefined
-		}
+		const unseen = this.#tasks.resting && !wrote(batch, this.#reach.models)
+		if (unseen && !this.#virtuals.mayChange(batch)) return undefined
 		const [, settled] = this.#enqueue(() => this.#apply(batch, loader))
 		return this.#waited(settled)
 	}
@@ -229,7 +224,9 @@ export class Live {
 			const unread = moves.placed.flatMap(({ id }) =>
 				nodes.has(id) ? [] : [id],
 			)
-			const missing = await this.#read(unread, nodes, loader)
+			let missing = await this.#read(unread, nodes, loader)
+			// The flush's related rows may be older than the refill's (D-300).
+			if (loader?.reads) missing = await this.#read(missing, nodes)
 			if (missing.length === 0) return { moves, nodes }
 			for (const id of missing) {
 				this.#window.remove(id)
