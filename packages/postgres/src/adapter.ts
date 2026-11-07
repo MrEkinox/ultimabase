@@ -237,6 +237,14 @@ export function createAdapter(options: Options): Postgres {
 				dialect,
 				...(options.log === undefined ? {} : { log: options.log }),
 			})
+			// A test file's channel is known before the server answers: its
+			// listener connects with the pool, not after it (D-308).
+			const known = scratch === undefined ? undefined : channelOf(scratch.name)
+			const early =
+				feed === undefined || known === undefined
+					? undefined
+					: listening(config, known, feed, logger, () => [...open])
+			early?.catch(() => undefined)
 			try {
 				const { rows } = await sql<{
 					version: string
@@ -264,7 +272,7 @@ export function createAdapter(options: Options): Postgres {
 					scratch.made = true
 					await emptied(db, scratch.name, server?.schema)
 				}
-				const channel = channelOf(scratch?.name ?? server?.schema ?? '')
+				const channel = known ?? channelOf(server?.schema ?? '')
 				state =
 					feed === undefined
 						? { db, catalog }
@@ -272,11 +280,11 @@ export function createAdapter(options: Options): Postgres {
 								db,
 								catalog,
 								channel,
-								listener: await listening(config, channel, feed, logger, () => [
-									...open,
-								]),
+								listener: await (early ??
+									listening(config, channel, feed, logger, () => [...open])),
 							}
 			} catch (error) {
+				await early?.then((listener) => listener.stop()).catch(() => undefined)
 				await db.destroy()
 				throw error
 			}
