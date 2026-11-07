@@ -1515,6 +1515,26 @@ describe('a connection', () => {
 		})
 	})
 
+	it('closes on an id used twice, however long the id', async () => {
+		const socket = new WebSocket(await started(), 'graphql-transport-ws')
+		await new Promise((done) => socket.once('open', done))
+		const closed = new Promise<number>((done) => {
+			socket.once('close', done)
+		})
+		const acknowledged = new Promise((done) => socket.once('message', done))
+		socket.send(JSON.stringify({ type: 'connection_init' }))
+		await acknowledged
+		const twice = JSON.stringify({
+			id: 'x'.repeat(200),
+			type: 'subscribe',
+			payload: { query: 'subscription { tasks { edges { node { id } } } }' },
+		})
+		socket.send(twice)
+		socket.send(twice)
+		expect(await closed).toBe(4409)
+		expect(errors).toEqual([])
+	})
+
 	it('keeps a small compressor, and a big message crosses it whole (D-269)', async () => {
 		const socket = new WebSocket(await started(), 'graphql-transport-ws')
 		let negotiated: unknown

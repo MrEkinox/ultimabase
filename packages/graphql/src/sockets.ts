@@ -335,7 +335,9 @@ export function serveSockets(
 					if (send === undefined) socket.send(data)
 					else send(data)
 				},
-				close: (code, reason) => socket.close(code, reason),
+				// A reason can name the client's id, and a frame holds 123 bytes of it.
+				close: (code, reason = '') =>
+					socket.close(code, Buffer.byteLength(reason) > 123 ? '' : reason),
 				onMessage: (received) => {
 					socket.on('message', (data: RawData) => {
 						received(text(data)).catch((error: unknown) => {
