@@ -28,26 +28,36 @@ export function prepare(text: string, size: number): void {
 	}
 }
 
-/** Has PostgreSQL and `pg` forget `name`, if `client` got as far as parsing it. */
-function forget(
-	client: ClientBase,
-	name: string,
+/**
+ * Has PostgreSQL deallocate `names`: an aborted transaction refuses, so those
+ * it refused go back to `names`, for the next query to try again.
+ */
+function deallocated(
+	names: string[],
 	query: (text: string) => Promise<unknown>,
 ): void {
+	for (const name of names.splice(0)) {
+		query(`deallocate ${name}`).catch(() => names.push(name))
+	}
+}
+
+/** Has `pg` forget `name`, and answers whether `client` got as far as parsing it. */
+function forgotten(client: ClientBase, name: string): boolean {
 	const connection: unknown = Reflect.get(client, 'connection')
 	const parsed: unknown = Reflect.get(Object(connection), 'parsedStatements')
-	if (!(parsed instanceof Object) || !Reflect.has(parsed, name)) return
+	if (!(parsed instanceof Object) || !Reflect.has(parsed, name)) return false
 	Reflect.deleteProperty(parsed, name)
-	// An aborted transaction refuses it, leaving one statement until the end.
-	query(`deallocate ${name}`).catch(() => undefined)
+	return true
 }
 
 /** Has `client` run prepared what `prepare` let, the last used kept. */
 export function preparing(client: ClientBase): void {
 	const query = client.query.bind(client)
 	const held = new Map<unknown, string>()
+	const dropped: string[] = []
 	let named = 0
 	Reflect.set(client, 'query', (text: unknown, values: unknown[]): unknown => {
+		if (dropped.length > 0) deallocated(dropped, query)
 		const name = held.get(text)
 		if (name === undefined && composed.get(text) !== true) {
 			const plain: unknown = Reflect.apply(query, undefined, [text, values])
@@ -57,8 +67,9 @@ export function preparing(client: ClientBase): void {
 		for (const [oldest, gone] of held) {
 			if (held.size < preparedStatements) break
 			held.delete(oldest)
-			forget(client, gone, query)
+			if (forgotten(client, gone)) dropped.push(gone)
 		}
+		deallocated(dropped, query)
 		const kept = name ?? `ultimabase_${named++}`
 		held.set(text, kept)
 		const result: unknown = Reflect.apply(query, undefined, [
