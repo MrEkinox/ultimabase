@@ -123,10 +123,15 @@ export class Filters {
 				on: sql`${sql.id(link, join.self)} = ${sql.id(alias, 'id')}`,
 			}
 		}
-		return {
-			from,
-			on: sql`${this.column(target, to, field.inverse)} = ${sql.id(alias, 'id')}`,
-		}
+		const key = this.column(target, to, field.inverse)
+		const inverse = target.fields.get(field.inverse)
+		// An `exists` in an `or` reads every key of a hashed subquery: a null
+		// one reaches no row, and its index reads only the others (D-319).
+		const set =
+			inverse?.kind === 'one' && inverse.optional
+				? sql` and ${key} is not null`
+				: sql``
+		return { from, on: sql`${key} = ${sql.id(alias, 'id')}${set}` }
 	}
 
 	private exists(
