@@ -19857,3 +19857,36 @@ Rejected:
   leaves the tests running.
 - Every output kept until its command ends: a long check shows nothing while
   it runs.
+
+## D-322: A long PostgreSQL test file is split for the files to run side by side
+
+Choice: `yarn test:postgres` runs its files side by side, and its run lasted as
+long as its longest file. Such a file is split by what its tests check, and
+what the parts share moves into a helper under `test/`:
+
+- the migration tests in `packages/postgres`: the syncs, the bookkeeping, a
+  deploy and a reset; the commands end to end; and the tests that wait for a
+  lock, in one file with the deploys that build an index concurrently;
+- the adapter contract on the first server in `conformance.postgres.test.ts`,
+  the other servers' beside the adapter's own tests;
+- the example on PostgreSQL: a deploy then a production start, the refused
+  starts, and a development sync then a reset, one file each.
+
+Each test keeps its schema of its own. Nothing changes for a developer of an
+application.
+
+Why: `create index concurrently` waits for every transaction of the database
+that holds a snapshot, in every schema. A test that holds a lock on purpose
+makes such a deploy wait, so the two stay in one file, which runs its tests one
+after another. Interleaved over four rounds, `yarn test:postgres` took 44.9 to
+47.2 s before and 38.6 to 38.9 s after; every run passed its 797 tests.
+
+What it costs: the suite uses every core; on a runner with fewer, the gain is
+smaller. A new test that holds a transaction open goes in the file of the lock
+tests.
+
+Rejected:
+
+- `describe.concurrent` within a file: the tests of a file share one adapter
+  and one schema.
+- The commands' tests in two files: 37.9 s against 38.7 s, within the noise.

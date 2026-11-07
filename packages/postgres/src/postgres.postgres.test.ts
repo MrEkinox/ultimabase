@@ -1,9 +1,10 @@
-// The contract on PostgreSQL (D-98): each test in its own schema, on every
-// server `TEST_DATABASE_URL` lists.
+// PostgreSQL behind the contract (D-98), on every server `TEST_DATABASE_URL`
+// lists, each test in its own schema. The first server passes the contract
+// in conformance.postgres.test.ts, beside this file; the others pass it here.
 import { randomUUID } from 'node:crypto'
 import type { Socket } from 'node:net'
 import { createServer } from 'node:net'
-import { asUser, testAdapter } from '@ultimabase/testing'
+import { asUser } from '@ultimabase/testing'
 import { Client } from 'pg'
 import type {
 	Adapter,
@@ -29,6 +30,7 @@ import { postgres } from './index.ts'
 import { Catalog, constraint } from './names.ts'
 import { snapshotOf } from './snapshot.ts'
 import { translate } from './translate.ts'
+import { conformance, inSchema, run, urls } from './test/servers.ts'
 
 /** The adapter's warnings: none on a database that folds every letter. */
 const warnings: unknown[] = []
@@ -41,57 +43,8 @@ const logger: Logger = {
 	child: () => logger,
 }
 
-const servers =
-	'postgres://postgres:postgres@localhost:54315/postgres postgres://postgres:postgres@localhost:54318/postgres'
-const urls = (process.env['TEST_DATABASE_URL'] ?? servers)
-	.split(' ')
-	.filter((url) => url !== '')
-
-async function run(url: string, statement: string): Promise<void> {
-	const client = new Client({ connectionString: url })
-	await client.connect()
-	try {
-		await client.query(statement)
-	} finally {
-		await client.end()
-	}
-}
-
-/**
- * `url` on `schema`, in a session whose time zone gives old dates an offset
- * in seconds, which a date read in it loses.
- */
-function inSchema(url: string, schema: string): string {
-	const separator = url.includes('?') ? '&' : '?'
-	const options = `-c search_path=${schema} -c TimeZone=Europe/Paris`
-	return `${url}${separator}options=${encodeURIComponent(options)}`
-}
-
-for (const url of urls) {
-	let trips = 0
-	const create = (): Adapter => {
-		const schema = `t_${randomUUID().replaceAll('-', '')}`
-		const adapter = createAdapter({
-			url: inSchema(url, schema),
-			log: () => {
-				trips += 1
-			},
-		})
-		return {
-			...adapter,
-			start: async (given, _logger, feed) => {
-				await run(url, `create schema "${schema}"`)
-				await adapter.start(given, logger, feed)
-			},
-			stop: async () => {
-				await adapter.stop()
-				await run(url, `drop schema "${schema}" cascade`)
-			},
-		}
-	}
-	testAdapter(`postgres at ${new URL(url).host}`, create, {
-		roundTrips: () => trips,
-	})
+for (const url of urls.slice(1)) {
+	conformance(url)
 }
 
 const thing: Schema = {
