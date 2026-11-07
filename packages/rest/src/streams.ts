@@ -84,6 +84,13 @@ export type Kept = {
 
 /** How long a list whose client left waits for a resume. */
 const keptFor = 10_000
+
+/**
+ * What a viewer reads its caller from: `request` without its connection,
+ * which a kept list would hold, closed, with its response (D-311).
+ */
+const detached = (request: Request): Request =>
+	new Request(request.url, { headers: request.headers })
 const nothing = (): void => undefined
 
 function relayOf(): Relay {
@@ -248,7 +255,7 @@ async function resumed(
 	// Out first, so that neither its time nor another request takes it.
 	kept.take()
 	// The kept read follows this request's caller; another user ends it.
-	if (!(await stream.viewer.adopt(request))) {
+	if (!(await stream.viewer.adopt(detached(request)))) {
 		kept.discard()
 		return undefined
 	}
@@ -280,7 +287,7 @@ export async function streamed(
 		const taken = await resumed(live, request, list)
 		if (taken !== undefined) return taken
 	}
-	const viewer = await live.realtime.connect(request)
+	const viewer = await live.realtime.connect(detached(request))
 	const stream: Stream = {
 		viewer,
 		relay: relayOf(),

@@ -129,6 +129,8 @@ const logger: Logger = {
 }
 
 const revoked = new Set<string>()
+/** The requests a caller was read from, in order. */
+const identifiedFrom: Request[] = []
 interface Sessions extends PluginTypes {
 	readonly name: 'sessions'
 }
@@ -141,6 +143,7 @@ const sessions = definePlugin<Sessions>({
 		peerDependencies: { ultimabase: '*' },
 	},
 	identify: async (request): Promise<Identity | undefined> => {
+		identifiedFrom.push(request)
 		const id = request.headers.get('authorization')
 		if (id === null || revoked.has(id)) return undefined
 		return { kind: 'user', user: { id } }
@@ -155,6 +158,7 @@ afterEach(async () => {
 	stop = undefined
 	errors.length = 0
 	revoked.clear()
+	identifiedFrom.length = 0
 	failing = false
 	breaking = undefined
 	held = undefined
@@ -558,6 +562,18 @@ async function begun(url: string, headers: Record<string, string> = {}) {
 }
 
 describe('a resumed live list', () => {
+	it('reads its caller from a request that its closed connection left', async () => {
+		const api = await started({ realtime: { refresh: 20 } })
+		await seeded()
+		await left(api)
+		identifiedFrom.length = 0
+		// The kept list reads its caller again every 20 ms.
+		await waited(60)
+		expect(identifiedFrom.length).toBeGreaterThan(0)
+		// The client's own request holds its connection, closed (D-311).
+		expect(identifiedFrom.filter(({ signal }) => signal.aborted)).toEqual([])
+	})
+
 	it('sends what changed since its client left, then only its new rows', async () => {
 		const api = await started()
 		const [a = '', b = '', c = ''] = await seeded()
