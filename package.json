@@ -20,7 +20,7 @@
 		"lint": "oxlint",
 		"postinstall": "husky",
 		"release:version": "changeset version && yarn install --mode=update-lockfile && yarn website:freeze && yarn format",
-		"test": "vitest run --project unit --coverage --passWithNoTests",
+		"test": "vitest run --project unit --project unit-mocking --coverage --passWithNoTests",
 		"test:packed": "node scripts/test-packed.ts",
 		"test:postgres": "COVERAGE=postgres vitest run --project postgres --coverage --passWithNoTests",
 		"test:s3": "vitest run --project s3",
