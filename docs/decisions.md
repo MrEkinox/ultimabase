@@ -9416,7 +9416,7 @@ api: ({ plugins }) => plugins.http.mount(uploads, { bodyLimit: false })
 
 Amended by D-163, D-166, D-178, D-186, D-187, D-195, D-196, D-223, D-226,
 D-229, D-230, D-252, D-254, D-266, D-271, D-272, D-273, D-310,
-D-311, D-312 and D-315.
+D-311, D-312, D-315 and D-317.
 
 Choice: completes D-25; amends D-106 (WebSocket upgrades), D-107 (the
 `Subscription` type), D-109 (live functions) and D-129 (live reads over
@@ -19717,3 +19717,31 @@ Rejected:
   the sign-ins took a fifth longer and more were refused.
 - Setting `UV_THREADPOOL_SIZE` from the plugin: libuv reads it once, when
   the first task needs a thread, which may already have happened.
+
+## D-317: An SSE stream keeps a small compressor
+
+Choice: amends D-154's compression point. A Server-Sent Events stream
+gzips with a window of 14 bits and `memLevel` 5 instead of zlib's 15 and 8.
+Nothing changes for a developer: a client still reads gzip.
+
+Why: each gzipped stream keeps its compressor for as long as it is open,
+outside the heap. Unlike a socket's message (D-266, D-269), an event is
+compressed with the stream's earlier events, so the window must hold the
+list the stream opened with: a 4 KB one, as D-269 chose, sends a quarter to
+a half more bytes an event. Measured with a scratch bench, the server and
+its clients in separate processes, two interleaved runs each:
+
+- 2 000 streams of a 25-row list, 400 writes each: resident memory a stream
+  430 to 286 KiB (no gzip: 162), 98 to 100 bytes an event, the server's
+  CPU 52 to 44 s.
+- 500 streams of a 100-row list of about 1 KB a row, 300 writes each: 699
+  to 522 KiB a stream, 408 to 412 bytes an event, first lists 0.9 % larger,
+  CPU 29.1 to 21.8 s.
+
+The delay to a reader did not move.
+
+Rejected:
+
+- Window 15 and `memLevel` 5: the same bytes, but 16 to 20 % less memory
+  rather than 25 to 33 %, and no CPU saved.
+- Window 12: about 200 KiB a stream, but 55 % more bytes an event.
