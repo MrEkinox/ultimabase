@@ -19044,3 +19044,17 @@ list, 10 writes creating a `Task`, statements and median to the last message:
 Cost: a rule naming its viewer gains nothing and pays the key and the copy, within
 the noise: 423.1 to 439.7 ms at window 25, 6023 to 6200 ms at window 1000. What is
 left at window 1000 is computing and comparing a million rows in JavaScript.
+
+## D-296: An id's random part comes from `crypto.randomUUID`
+
+Choice: `uuidv7` keeps its time and its counter (D-22) and takes its last 62
+random bits from `crypto.randomUUID()`, which puts the same 62 bits at the same
+place. Asking for 16 bytes per id, as it did, is a native call each time, where
+Node draws a UUID from a block it keeps; and the text is written in one go. An
+id takes 0.83 µs against 6 µs.
+`createMany` of 5000 rows of six fields on PostgreSQL 18 takes 159 ms against
+181 ms, median over three interleaved runs of each. A single `create` does not
+notice: 5 µs of about 900.
+Rejected: a block of random bytes of our own, the same thing with more code; a
+faster, non-cryptographic source, since an id is not a secret but is hard to
+guess today and a developer may have come to rely on it.

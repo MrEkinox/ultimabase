@@ -31,6 +31,16 @@ node bench/writes/bench.ts [--runs 200] [--url postgres://…]
 
 ## Runs
 
+### 2026-11-07: an id's random part from `crypto.randomUUID` (D-296), 100 runs
+
+`createMany` of 1000 rows of one field, on PostgreSQL 18, two runs of each,
+interleaved. The case is new, so this is the only line compared.
+
+| Id              |   Median, ms |      p95, ms |
+| --------------- | -----------: | -----------: |
+| 16 random bytes | 22.44, 22.63 | 23.81, 24.40 |
+| `randomUUID`    | 18.42, 18.42 | 20.20, 20.16 |
+
 ### 2026-10-22: the reference, 200 runs
 
 Commit `7d29c8b9`. Node 24.20, PostgreSQL 18.6 in Docker on the same machine,
