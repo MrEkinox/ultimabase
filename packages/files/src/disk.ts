@@ -73,8 +73,11 @@ export function diskFiles(options: DiskOptions): FileStorage {
 				}
 			}
 			try {
-				const source = Readable.from(body instanceof Uint8Array ? [body] : body)
-				await pipeline(source, counted, createWriteStream(temporary))
+				// 16 chunks, about 1 MiB, read ahead and written at once (D-303).
+				const chunks = body instanceof Uint8Array ? [body] : body
+				const source = Readable.from(chunks, { highWaterMark: 16 })
+				const sink = createWriteStream(temporary, { highWaterMark: 1 << 20 })
+				await pipeline(source, counted, sink)
 				if (total !== size) {
 					throw new Error(`diskFiles: ${key} has ${total} bytes, not ${size}.`)
 				}
