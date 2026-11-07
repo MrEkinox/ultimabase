@@ -9416,7 +9416,7 @@ api: ({ plugins }) => plugins.http.mount(uploads, { bodyLimit: false })
 
 Amended by D-163, D-166, D-178, D-186, D-187, D-195, D-196, D-223, D-226,
 D-229, D-230, D-252, D-254, D-266, D-271, D-272, D-273, D-310,
-D-311 and D-312.
+D-311, D-312 and D-315.
 
 Choice: completes D-25; amends D-106 (WebSocket upgrades), D-107 (the
 `Subscription` type), D-109 (live functions) and D-129 (live reads over
@@ -9754,7 +9754,7 @@ maxConnectionRows })`; a subscribe past either fails with
       session that expires closes its subscriptions at its hour.
     - Every caller is rebuilt every 5 minutes, which catches what a hook
       reads outside the database. `realtimePlugin({ refresh })` sets the
-      delay.
+      delay. Each caller's delay runs from its own connection (D-315).
     - A flush and a rebuild reach the viewers 8 at a time, so a change of
       the role tree does not read every window at once.
     - A row removed for rights is `gone`; the link evicts it from Apollo's
@@ -19661,3 +19661,33 @@ Rejected:
   contract, and a text can be long.
 - An index of the lists holding each row: every move of a window would write
   it, for deletes that are rarer than moves.
+
+## D-315: Each caller's refresh runs from its own connection
+
+Choice: amends D-154 point 10. The engine rebuilt every caller on one timer,
+all in one turn of the chain that flushes and rebuilds, so no write was told
+until every caller was built again. Each viewer now has its own `refresh`
+timer, started when it connects. A viewer whose timer fires or whose caller
+expires joins a queue of the viewers due; one turn of the chain builds the
+first 32 again, 8 at a time, and the rest wait for a later turn, behind any
+flush queued meanwhile. Each caller is still built again every `refresh`,
+and `refresh` keeps its meaning and its default. Nothing changes for a
+developer.
+
+Why: with 10 000 connected callers, the one timer stopped every live read for
+about 10 s every 5 minutes. Measured with `bench/realtime/platform.ts
+--scenario chat --seconds 30` at 300 chat messages a second for twelve
+steps, the ninth of which holds the refresh:
+
+- Before, twice: that step told its messages at p95 9785 and 8292 ms, at
+  most 11 574 and 10 047 ms, and did not hold; the other steps told at p95
+  55 to 140 ms.
+- After, twice: the rebuilds spread over that step and the next, which told
+  at p95 140 and 58 ms, at most 582 and 693 ms, and held.
+
+Rejected:
+
+- A random delay before each caller's refresh: connections already come at
+  different moments, and a burst of callers due together is cut in turns.
+- Rebuilding the due callers in a turn of their own each: a rebuild waits
+  for the database, so one at a time could not keep up with 10 000 callers.
