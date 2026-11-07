@@ -28,13 +28,15 @@ import { apply, remoteOf, reset, stored } from './migrations.ts'
 import { Catalog } from './names.ts'
 import { overflowed } from './numbers.ts'
 import { fillsOf } from './fills.ts'
-import type { Listener } from './listen.ts'
+import type { Opened } from './kept.ts'
+import { released, reused } from './kept.ts'
 import { channelOf, listening } from './listen.ts'
 import { plan } from './plan.ts'
 import { BeginSent } from './begin.ts'
 import { pooled } from './pool.ts'
 import { preparing } from './prepared.ts'
 import { compileCount, compileFind } from './read.ts'
+import { schemaOf } from './server.ts'
 import {
 	connecting,
 	dropped,
@@ -148,32 +150,14 @@ async function write(
 	return run(catalog, db, given, compileWrite(catalog, given, channel))
 }
 
-/** Refuses a server below PostgreSQL 15 (D-50). */
-export function requireVersion(version: string | undefined): void {
-	if (!(Number(version) >= 150000)) {
-		throw new Refused(`UltimaBase needs PostgreSQL 15 or later.`)
-	}
-}
-
-/** What a case-insensitive filter misses when `lower('É') <> 'é'` (D-140). */
-export function foldWarning(ctype: string): string {
-	return `PostgreSQL folds case under its ${ctype} locale for ASCII only: a case-insensitive filter matches É and é in memory() but not here. Create the database with a UTF-8 locale, such as en_US.UTF-8.`
-}
-
 export function createAdapter(options: Options): Postgres {
 	const { url, connections = 10, wait = 10_000, searchLanguage } = options
 	const remote = url ? remoteOf(url) : undefined
-	let state:
-		| {
-				db: Kysely<object>
-				catalog: Catalog
-				/** The feed's channel and listener, when it has a taker (D-154). */
-				channel?: string
-				listener?: Listener
-		  }
+	let state: (Opened & { readonly catalog: Catalog }) | undefined
+	/** A test file's schema, whether a start created it, and what it keeps. */
+	let scratch:
+		| { readonly name: string; made: boolean; kept?: Opened | undefined }
 		| undefined
-	/** A test file's schema, and whether a start created it. */
-	let scratch: { readonly name: string; made: boolean } | undefined
 	/** Each open transaction's own, for `sql` to join. */
 	const opens = new WeakMap<Transaction, Open<object>>()
 	const started = () => {
@@ -194,7 +178,23 @@ export function createAdapter(options: Options): Postgres {
 			}
 			const catalog = new Catalog(schema, searchLanguage)
 			// Refuses two things stored under one name before it connects.
-			const { tables } = snapshotOf(catalog)
+			const snapshot = snapshotOf(catalog)
+			const { tables } = snapshot
+			const shape = JSON.stringify(snapshot)
+			if (scratch !== undefined) {
+				const again = await reused(
+					scratch.kept,
+					shape,
+					scratch.name,
+					feed,
+					logger,
+				)
+				scratch.kept = undefined
+				if (again !== undefined) {
+					state = { ...again, catalog }
+					return
+				}
+			}
 			const trigram = Object.values(tables).some(
 				(table) => Object.keys(table.trigrams).length > 0,
 			)
@@ -246,39 +246,20 @@ export function createAdapter(options: Options): Postgres {
 					: listening(config, known, feed, logger, () => [...open])
 			early?.catch(() => undefined)
 			try {
-				const { rows } = await sql<{
-					version: string
-					folds: boolean
-					ctype: string
-					language: boolean
-					schema: string
-				}>`select current_setting('server_version_num') as version, current_schema() as schema,
-					lower('É') = 'é' as folds,
-					(select datctype from pg_database where datname = current_database()) as ctype,
-					exists (select from pg_ts_config as c join pg_namespace as n on n.oid = c.cfgnamespace where (c.cfgname = ${catalog.language} and pg_ts_config_is_visible(c.oid)) or n.nspname || '.' || c.cfgname = ${catalog.language}) as language`.execute(
-					db,
-				)
-				const [server] = rows
-				requireVersion(server?.version)
-				if (server?.language === false) {
-					throw new Refused(
-						`postgres() searches in '${catalog.language}', a text search configuration this server does not have.`,
-					)
-				}
-				if (server !== undefined && !server.folds) {
-					logger.warn(foldWarning(server.ctype))
-				}
+				const current = await schemaOf(db, catalog, logger)
 				if (scratch !== undefined) {
 					scratch.made = true
-					await emptied(db, scratch.name, server?.schema)
+					await emptied(db, scratch.name, current)
 				}
-				const channel = known ?? channelOf(server?.schema ?? '')
+				const channel = known ?? channelOf(current ?? '')
+				const quiet = () =>
+					pool.idleCount === pool.totalCount && pool.waitingCount === 0
+				const opened = { db, catalog, quiet, shape }
 				state =
 					feed === undefined
-						? { db, catalog }
+						? opened
 						: {
-								db,
-								catalog,
+								...opened,
 								channel,
 								listener: await (early ??
 									listening(config, channel, feed, logger, () => [...open])),
@@ -292,8 +273,14 @@ export function createAdapter(options: Options): Postgres {
 		stop: async () => {
 			const stopping = state
 			state = undefined
-			await stopping?.listener?.stop()
-			await stopping?.db.destroy()
+			if (stopping === undefined) return
+			// The file's next start takes them back, unless a query still runs.
+			if (scratch !== undefined && stopping.quiet()) {
+				stopping.listener?.paused()
+				scratch.kept = stopping
+				return
+			}
+			await released(stopping)
 		},
 		empty: async () => {
 			const { catalog, db } = started()
@@ -391,6 +378,9 @@ export function createAdapter(options: Options): Postgres {
 		return {
 			drop: async () => {
 				scratch = undefined
+				const { kept } = own
+				own.kept = undefined
+				if (kept !== undefined) await released(kept)
 				if (own.made && url) await dropped(url, own.name)
 			},
 		}

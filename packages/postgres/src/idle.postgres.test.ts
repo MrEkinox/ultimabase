@@ -68,7 +68,9 @@ it(
 )
 
 it('asks the system to watch a quiet connection', async () => {
-	await Note.findMany({}, M)
+	// A file keeps its connections from one test to the next (D-309): two
+	// reads at once open one more.
+	await Promise.all([Note.findMany({}, M), Note.findMany({}, M)])
 	expect(watched).toHaveBeenCalledWith(true, 1000)
 })
 

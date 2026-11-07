@@ -23,7 +23,8 @@ import {
 	UniqueViolation,
 } from 'ultimabase'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { createAdapter, requireVersion } from './adapter.ts'
+import { createAdapter } from './adapter.ts'
+import { requireVersion } from './server.ts'
 import { postgres } from './index.ts'
 import { Catalog, constraint } from './names.ts'
 import { snapshotOf } from './snapshot.ts'
