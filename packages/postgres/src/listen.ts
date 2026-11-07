@@ -16,7 +16,16 @@ export function channelOf(schema: string): string {
 	return `ultimabase:${hash.slice(0, 52)}`
 }
 
-export type Listener = { readonly stop: () => Promise<void> }
+export type Listener = {
+	readonly stop: () => Promise<void>
+	/** Gives the feed nothing until `resumed` (D-309). */
+	readonly paused: () => void
+	/**
+	 * Drops what was committed before, then gives `feed` what comes: the
+	 * server sends a notification before the answer to a later query.
+	 */
+	readonly resumed: (feed: Feed, logger: Logger) => Promise<void>
+}
 
 /** Milliseconds between two attempts to listen again, doubling. */
 const first = 100
@@ -47,18 +56,21 @@ async function silent(silence: number): Promise<false> {
 export async function listening(
 	config: ClientConfig,
 	channel: string,
-	feed: Feed,
-	logger: Logger,
+	given: Feed,
+	told: Logger,
 	suspects: () => readonly Client[],
 ): Promise<Listener> {
+	let logger = told
 	let client: Client | undefined
 	let stopped = false
 	let timer: NodeJS.Timeout | undefined
 	let heard: Changed[] = []
+	let feed: Feed | undefined = given
+	const listen = `listen "${channel.replaceAll('"', '""')}"`
 	const flush = (): void => {
 		const changes = heard
 		heard = []
-		if (changes.length > 0) feed.changed(changes)
+		if (changes.length > 0) feed?.changed(changes)
 	}
 	const connect = async (): Promise<Client> => {
 		const own = new Client({ ...config, application_name: 'ultimabase-feed' })
@@ -73,7 +85,7 @@ export async function listening(
 		const deadline = setTimeout(() => severed(own), pulse.silence)
 		try {
 			await own.connect()
-			await own.query(`listen "${channel.replaceAll('"', '""')}"`)
+			await own.query(listen)
 		} catch (error) {
 			own.removeAllListeners('end')
 			await own.end().catch(() => undefined)
@@ -123,7 +135,7 @@ export async function listening(
 		beat(own)
 		logger.info('The change feed listens again.')
 		// What was committed while no one listened is unknown.
-		feed.missed()
+		feed?.missed()
 	}
 	const lost = (own: Client): void => {
 		if (stopped || client !== own) return
@@ -142,6 +154,17 @@ export async function listening(
 			const own = client
 			client = undefined
 			await own?.end()
+		},
+		paused: () => {
+			feed = undefined
+		},
+		resumed: async (next, nextLogger) => {
+			// Listening again is the round trip, and changes nothing.
+			await client?.query(listen).catch(() => undefined)
+			// What it heard reaches the feed a turn later: nowhere.
+			await turn()
+			feed = next
+			logger = nextLogger
 		},
 	}
 }

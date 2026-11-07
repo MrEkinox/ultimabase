@@ -19490,3 +19490,43 @@ Rejected:
   listens would be lost to the feed.
 - Asking the server for the schema on the listener's own connection, for any
   database: one query more on that connection, for a start a server pays once.
+
+## D-309: A test file keeps its connections from one test to the next
+
+Choice: on a test file's own schema (D-137), `stop` keeps the pool and the
+feed's listener (D-154) instead of ending them, when no query runs and none
+waits for a connection. The next start takes them back when it follows the
+same models, as a JSON snapshot, and has a feed when the last had one, or
+none when the last had none: it empties the tables, then listens again on
+the same connection. Any other start ends the kept connections and opens its
+own, as `drop` does. Between two starts the listener gives no feed what it
+hears: on resume it sends `listen` once more, as a round trip after which
+what was committed before has arrived, and gives what comes to the new
+feed. A start on any other database is unchanged. Nothing changes for a
+developer.
+
+Why: a test on the declared database starts and stops the application around
+each test (D-137), and opening the pool and the listener cost more than the
+test's own queries. Measured with a script that starts and stops a 22-model
+application with HTTP, GraphQL, REST, realtime, auth and password, filling 3
+tables each time, medians of 6 interleaved runs of 55 cycles: 40.2 to 48.0 ms
+before, 22.0 to 23.3 ms after, 44 % less. A file's first start is unchanged,
+about 165 ms.
+
+Edges:
+
+- A table a test changes with its own statements between two tests keeps
+  its change: the next start sees the same models, so it syncs nothing.
+  Raw DDL in a test file was already the test's own business.
+- A notification committed between the stop and the `listen` round trip is
+  dropped; one that the server sends late, past that round trip, is not
+  tested, as no test can order the server's sends.
+
+Rejected:
+
+- Reusing the connections for other models: a prepared statement would
+  read a table that changed under it, and the sync would run anyway.
+- Keeping the connections while a query still runs: it would end on the
+  next test's tables.
+- Keeping the listener's feed attached between two tests: a change of the
+  last test would reach the next one.
