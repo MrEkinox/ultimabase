@@ -1,7 +1,6 @@
-// A live list or row (D-154): its window follows each flush's changes, a
-// row placed or removed at a time, and sends only what changed. Its tasks
-// run one after another; one that fails reads the window again, and a
-// second failure closes it.
+// A live list or row (D-154): its window follows each flush's changes, a row
+// placed or removed at a time, and sends only what changed. Its tasks run one
+// after another; one that fails reads again, and a second failure closes it.
 import type { Caller, Row } from 'ultimabase'
 import type { LivePlan, LiveReader } from 'ultimabase/internal'
 import {
@@ -22,7 +21,7 @@ import { finderOf, judgeOf, pass, rowsAfter } from './reads.ts'
 import type { Spec } from './messages.ts'
 import type { Waited } from './tasks.ts'
 import { Tasks } from './tasks.ts'
-import { bigRead, inParts, inTurn } from './turns.ts'
+import { bigRead, inParts, inTurn, paced } from './turns.ts'
 import type { Keys } from './window.ts'
 import { Window } from './window.ts'
 import { VirtualReads } from './virtuals.ts'
@@ -265,6 +264,7 @@ export class Live {
 			take: first + 2,
 			...(place !== 'all' && show !== 'all' && { fields: [...place, ...show] }),
 		})
+		await paced()
 		const loader = new Loader()
 		loader.keep(model, rows)
 		const entries = rows.slice(0, first + 1).map((each) => this.#entry(each))

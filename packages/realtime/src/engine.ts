@@ -76,7 +76,7 @@ export class Engine {
 	/** A viewer for `request`'s caller, kept until it closes. */
 	async connect(request: Request): Promise<Viewer> {
 		const { identify, opens } = this.#settings
-		const identified = await opens.run(async () =>
+		const identified = await opens.arrive(async () =>
 			recording(async () => identify(request)),
 		)
 		const viewer = new Viewer(this.#settings, request, identified, {

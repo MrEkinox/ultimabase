@@ -1,4 +1,5 @@
-// The openings run a few at a time, in the order they came (D-277).
+// The openings run a few at a time, in the order they came (D-277), in short
+// turns of the event loop, those connected before those arriving (D-286).
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { Gate } from './gate.ts'
 
@@ -107,5 +108,55 @@ describe('a gate', () => {
 		expect(last.began()).toBe(true)
 		last.done()
 		await last.ran
+	})
+
+	it('serves those connected before those arriving', async () => {
+		const gate = new Gate(1)
+		const order: string[] = []
+		const named = (name: string) => async () => {
+			order.push(name)
+			await settled()
+		}
+		const all = [
+			gate.arrive(named('first')),
+			gate.arrive(named('arriving')),
+			gate.run(named('connected')),
+		]
+		await Promise.all(all)
+		expect(order).toEqual(['first', 'connected', 'arriving'])
+	})
+
+	it('gives those arriving one turn in 8, whatever else waits', async () => {
+		const gate = new Gate(1)
+		const order: string[] = []
+		const named = (name: string) => async () => {
+			order.push(name)
+			await settled()
+		}
+		const all = [
+			gate.run(named('first')),
+			gate.arrive(named('arriving')),
+			...Array.from({ length: 9 }, () => gate.run(named('connected'))),
+		]
+		await Promise.all(all)
+		expect(order).toEqual([
+			'first',
+			...Array.from({ length: 7 }, () => 'connected'),
+			'arriving',
+			'connected',
+			'connected',
+		])
+	})
+
+	it('serves those connected when no one arrives on their turn', async () => {
+		const gate = new Gate(1)
+		const order: number[] = []
+		const numbered = (number: number) => async () => {
+			order.push(number)
+			await settled()
+		}
+		const numbers = Array.from({ length: 10 }, (_, index) => index)
+		await Promise.all(numbers.map((each) => gate.run(numbered(each))))
+		expect(order).toEqual(numbers)
 	})
 })

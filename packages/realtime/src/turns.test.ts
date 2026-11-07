@@ -1,6 +1,6 @@
 // A big live read takes its turn and reads a part at a time (D-254).
 import { describe, expect, it } from 'vitest'
-import { inParts, inTurn } from './turns.ts'
+import { inParts, inTurn, paced } from './turns.ts'
 
 const opened = () => {
 	const { promise: gate, resolve: open } = Promise.withResolvers<void>()
@@ -163,5 +163,50 @@ describe('inParts', () => {
 		expect(started).toBe(6)
 		// Nothing stays counted: a later read runs at once.
 		expect(await inParts(ids(4000), async (part) => part)).toHaveLength(4000)
+	})
+})
+
+const nextTurn = async () => new Promise(setImmediate)
+
+const spin = (ms: number) => {
+	const end = performance.now() + ms
+	while (performance.now() < end);
+}
+
+describe('pacing', () => {
+	it('goes on at once while the turn has time left', async () => {
+		await nextTurn()
+		let turns = 0
+		setImmediate(() => {
+			turns += 1
+		})
+		await paced()
+		await paced()
+		expect(turns).toBe(0)
+		await nextTurn()
+	})
+
+	it('runs one a turn once a turn spent its time', async () => {
+		await nextTurn()
+		// Each turn of the event loop that ran is one a connection can be accepted in.
+		const log: string[] = []
+		let turn = 0
+		const counting = () => {
+			turn += 1
+			if (log.length < 4) setImmediate(counting)
+		}
+		setImmediate(counting)
+		await paced()
+		spin(2)
+		await Promise.all(
+			['a', 'b', 'c', 'd'].map(async (name) => {
+				await paced()
+				log.push(`${name}@${String(turn)}`)
+			}),
+		)
+		const turns = log.map((each) => Number(each.split('@')[1]))
+		expect(log.map((each) => each[0])).toEqual(['a', 'b', 'c', 'd'])
+		expect(new Set(turns).size).toBe(4)
+		await nextTurn()
 	})
 })
