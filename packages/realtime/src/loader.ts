@@ -1,6 +1,6 @@
 // What a flush reads once for every live read that asks (D-154, D-252, D-255):
 // each changed row, the rows related to it, the pages after a window's last.
-import type { Filter, Nested, Order, Row } from 'ultimabase'
+import type { Filter, Row } from 'ultimabase'
 import type { LivePlan, SharedReads } from 'ultimabase/internal'
 import { storedRows } from 'ultimabase/internal'
 import { Held, keyOf } from './needs.ts'
@@ -20,16 +20,11 @@ export const among = (ids: readonly string[]): Filter => ({
 	id: { in: [...ids] },
 })
 
-/** The rows after `last` in `orderBy`, `take` of them. */
-export const page = (
-	orderBy: readonly Order[],
-	last: string | undefined,
-	take: number,
-): Nested => ({
-	orderBy,
-	...(last !== undefined && { cursor: { id: { equals: last } }, skip: 1 }),
-	take,
-})
+/** Both filters, either of which may be absent. */
+export const both = (
+	a: Filter | undefined,
+	b: Filter | undefined,
+): Filter | undefined => (a && b ? { AND: [a, b] } : (a ?? b))
 
 const named = (steps: readonly Step[]): string =>
 	steps.map(({ relation }) => relation).join('.')
@@ -90,24 +85,26 @@ export class Loader {
 	}
 
 	/**
-	 * The stored rows of `plan`'s own filter after `last`, whose rows `load`
-	 * then gives.
+	 * The first stored rows of `plan`'s own filter that pass `after`, whose rows
+	 * `load` then gives.
 	 */
 	async after(
 		model: string,
 		plan: LivePlan,
-		last: string | undefined,
+		after: Filter | undefined,
 		take: number,
 	): Promise<readonly Row[]> {
 		const { filter, orderBy } = plan
 		const base = pages.get(plan) ?? JSON.stringify([model, filter, orderBy])
 		pages.set(plan, base)
-		const key = `${base} ${last} ${take}`
+		const key = `${base} ${JSON.stringify(after)} ${take}`
 		let found = this.#pages.get(key)
 		if (found === undefined) {
+			const where = both(filter, after)
 			found = storedRows(model, {
-				...(filter && { where: filter }),
-				...page(orderBy, last, take),
+				...(where && { where }),
+				orderBy,
+				take,
 			})
 			this.#pages.set(key, found)
 			this.keep(model, await found)
