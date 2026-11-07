@@ -2,7 +2,7 @@
 // account and address ceilings, the hashing queue and the hourly limits.
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { PublicError } from 'ultimabase'
-import { hashPassword, lanes, waiting } from './hash.ts'
+import { hashPassword, lanes, threads, waiting } from './hash.ts'
 import {
 	hourly,
 	limited,
@@ -151,6 +151,20 @@ describe('the sign-in limit', () => {
 })
 
 describe('the hashing queue', () => {
+	it('leaves no computation waiting for a thread of libuv (D-316)', () => {
+		expect(lanes).toBeLessThanOrEqual(
+			threads(process.env['UV_THREADPOOL_SIZE']),
+		)
+	})
+
+	it("reads libuv's thread count as libuv does", () => {
+		expect(threads(undefined)).toBe(4)
+		expect(threads('16')).toBe(16)
+		expect(threads('0')).toBe(1)
+		expect(threads('-3')).toBe(1)
+		expect(threads('many')).toBe(1)
+	})
+
 	it(`runs ${lanes} at once, queues ${waiting} and refuses one more`, async () => {
 		const results = await Promise.allSettled(
 			Array.from({ length: lanes + waiting + 1 }, async () =>

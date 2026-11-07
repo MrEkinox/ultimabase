@@ -19,8 +19,15 @@ const phc =
 const unpadded = (bytes: Buffer): string =>
 	bytes.toString('base64').replace(/=+$/, '')
 
+/** libuv's threads, which Argon2 shares with files, DNS and zlib (D-316). */
+export const threads = (size: string | undefined): number =>
+	Math.max(1, Number.parseInt(size ?? '4', 10) || 1)
+
 /** The computations that run at once, and how many more may wait (D-114). */
-export const lanes: number = availableParallelism()
+export const lanes: number = Math.min(
+	availableParallelism(),
+	threads(process.env['UV_THREADPOOL_SIZE']),
+)
 export const waiting = 64
 let running = 0
 const queue: (() => void)[] = []
