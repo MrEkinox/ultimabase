@@ -3,7 +3,7 @@
 // the port, the client's address behind proxies (D-116), a stop that waits,
 // 10 s at most, and the reset route outside production (D-188).
 import { createServer, IncomingMessage } from 'node:http'
-import { Socket } from 'node:net'
+import { connect, Socket } from 'node:net'
 import type { Context } from 'hono'
 import { streamSSE } from 'hono/streaming'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -21,6 +21,7 @@ import { clientOf, httpPlugin, routes } from './index.ts'
 import { addresses } from './address.ts'
 import {
 	bodyLimitOf,
+	closed,
 	drainOf,
 	listening as listeningOn,
 	portOf,
@@ -710,7 +711,10 @@ describe('the port', () => {
 		const listen = vi.spyOn(queued, 'listen')
 		const port = await listeningOn(queued, 0)
 		expect(port).toBeGreaterThan(0)
-		expect(listen.mock.calls[0]?.[0]).toEqual({ port: 0, backlog: 4096 })
+		expect(listen.mock.calls[0]?.[0]).toMatchObject({
+			port: 0,
+			backlog: 4096,
+		})
 		await new Promise((done) => queued.close(done))
 	})
 
@@ -734,9 +738,77 @@ describe('the port', () => {
 			holder.close()
 		}
 	})
+
+	it('names a port a server listens on the same way', async () => {
+		const holder = createServer()
+		const port = await listeningOn(holder, 0)
+		await expect(listeningOn(createServer(), port)).rejects.toThrow(
+			`Port ${port} is in use: stop the process that holds it, or set PORT.`,
+		)
+		// The first one still answers, alone on its port.
+		holder.on('request', (_, response) => response.end('held'))
+		expect(await (await fetch(`http://127.0.0.1:${port}`)).text()).toBe('held')
+		await closed(holder, recorder([]), new Map())
+	})
+
+	it.runIf(process.platform === 'linux')(
+		'accepts several connections in a turn of the event loop',
+		async () => {
+			const queued = createServer()
+			const port = await listeningOn(queued, 0)
+			let turn = 0
+			const accepted = new Map<number, number>()
+			queued.on('connection', () => {
+				accepted.set(turn, (accepted.get(turn) ?? 0) + 1)
+			})
+			let turning = setImmediate(function next() {
+				turn += 1
+				turning = setImmediate(next)
+			})
+			const clients = Array.from({ length: 64 }, () =>
+				connect(port, '127.0.0.1'),
+			)
+			const total = () => [...accepted.values()].reduce((a, b) => a + b, 0)
+			await expect.poll(total).toBe(64)
+			clearImmediate(turning)
+			expect(Math.max(...accepted.values())).toBeGreaterThan(1)
+			for (const client of clients) client.destroy()
+			await closed(queued, recorder([]), new Map())
+		},
+	)
 })
 
 describe('stop', () => {
+	it('waits for the requests running on every connection', async () => {
+		let running = 0
+		let release: (() => void) | undefined
+		const released = new Promise<void>((done) => {
+			release = done
+		})
+		const slow = routes()
+		slow.get('/slow', async (c) => {
+			running += 1
+			await released
+			return c.text('done')
+		})
+		const { app, url } = await started({ port: 0, routes: [slow] })
+		const requests = Array.from({ length: 64 }, async () => {
+			const response = await fetch(`${url}/slow`)
+			return response.text()
+		})
+		await expect.poll(() => running).toBe(64)
+		let stopped = false
+		const stopping = (async () => {
+			await app.stop()
+			stopped = true
+		})()
+		await new Promise((done) => setTimeout(done, 50))
+		expect(stopped).toBe(false)
+		release?.()
+		expect(new Set(await Promise.all(requests))).toEqual(new Set(['done']))
+		await stopping
+	})
+
 	it('waits for a running request, then refuses new connections', async () => {
 		let release: (() => void) | undefined
 		const slow = routes()

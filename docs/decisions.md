@@ -18702,6 +18702,8 @@ write's CTE, stays rejected: there is still one way to compile a read.
 
 ## D-286: Openings leave the event loop its turns
 
+Amended by D-292.
+
 Choice: amends D-277. No developer's code changes, and no option. A connection arriving during a
 storm is accepted in a few seconds at most, and a new visitor or a health probe no longer waits
 behind it, at the same pace of openings.
@@ -18886,3 +18888,46 @@ Why:
   deadlock check: it stayed invalid, every deploy failed, and it took a
   `drop index` by hand. Between two tries a waiting transaction holds no
   snapshot, so the index no longer waits for it.
+
+## D-292: A server on Linux listens on 16 sockets
+
+Choice: internal, no option, nothing changes for a developer; amends D-286,
+which turned this down, and D-276, whose queue each socket now has.
+
+1. On Linux, outside a worker of `node:cluster`, a server opens 16 sockets on its
+   port with `reusePort`, and hands what the 15 others accept to its one
+   `node:http` server. Elsewhere it keeps one socket: `reusePort` is refused on
+   macOS.
+2. A port is first bound once without `reusePort`, then closed, so a port held
+   by anything still gives `Port N is in use`.
+3. A stop closes all 16 and waits for each, for the connections a socket accepted
+   count on it alone.
+
+Why:
+
+- Node accepts one connection per turn of its event loop and per socket. A busy
+  turn takes about 13 ms, so one socket lets in about 75 connections a second
+  whatever the machine could serve, and clients with a connection go round again
+  ahead of those without one.
+- 2000 clients reading 100 rows, in Linux containers, for 20 s: at the end, the
+  slowest wait 18 653 ms with one socket, 2337 and 2396 ms with 16, for the same
+  throughput. The median rises from 107 ms to 2.3 s, since everyone now waits the
+  same: with one socket, those let in went round quickly while about 500 others
+  got nothing, past the patience of most clients. The worst `/health` goes from
+  over 5000 ms to 422 and 913 ms.
+- A storm of 9000 arrivals (D-286): a new visitor's p95 3621 and 1951 ms to 358
+  and 325 ms, its worst 6028 and 4724 ms to 2370 and 2447 ms. All in 58.4 s to
+  57.6 and 58.1 s. D-286 feared the first state's median would rise by 30 %, but
+  the gate paces openings now: 30.7 s to 30.3 and 29.8 s.
+- It costs nothing outside overload: 3094 against 3131 requests a second on the
+  floor of the HTTP bench, median of 3.
+
+What it does not do: past what the server can serve, requests that were queued
+in the system now queue in the application. With 8000 new requests a second both
+reach the 10 s wait for a PostgreSQL connection and answer 500, and the longest
+stall of a turn is about the same (1296 ms, against 1406 and 1834 ms).
+
+The check of a free port leaves a moment between it and the listening, so two
+processes starting that same instant could share a port. Rejected: asking the
+system whether anything holds the port, which is no less of a race and much more
+code.

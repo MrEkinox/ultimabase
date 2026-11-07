@@ -302,6 +302,9 @@ two runs each, before then D-286: 4000 users connect in 20.5 and 20.5 s, then 21
 subscribers of 25 rows arrive together in 2678 and 2622 ms, then 2867 and 2794 ms; 100 subscribers of
 2000 rows make others wait 687 / 1985 and 660 / 1781 ms, then 210 / 907 and 276 / 714 ms.
 
+With 16 listening sockets (D-292), two runs at 0 s: a new visitor 3 / 325 / 2447 and 4 / 358 / 2370, all
+in 57.6 and 58.1 s, a client's first state 29.8 and 30.3 s at the median.
+
 ### 2026-11-06: over the wire, D-266 to D-273
 
 `platform-wire.ts`, 10 000 users on real sockets, Postgres with `fsync` off, one run each, from

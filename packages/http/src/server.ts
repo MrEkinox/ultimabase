@@ -1,7 +1,13 @@
 // The port the server listens on, and its listening (D-106); the body
-// limit and the drain (D-223); its connection queue (D-276).
+// limit and the drain (D-223); its connection queue (D-276); its listeners
+// (D-292).
+import cluster from 'node:cluster'
 import type { Server } from 'node:http'
 import { createServer } from 'node:http'
+import {
+	createServer as createListener,
+	type Server as Listener,
+} from 'node:net'
 import type { Duplex } from 'node:stream'
 import { getRequestListener } from '@hono/node-server'
 import type { Logger } from 'ultimabase'
@@ -40,7 +46,23 @@ export function drainOf(option: number | undefined): number {
 /** The connections waiting to be accepted; the system caps it at its own. */
 const backlog = 4096
 
-export async function listening(server: Server, port: number): Promise<number> {
+/**
+ * The sockets listening on the port. Node accepts one connection per turn of
+ * its event loop and per socket, so a busy server takes connections this many
+ * times faster (D-292). The system shares them out, on Linux only; workers of
+ * a cluster already share theirs.
+ */
+const listeners = process.platform === 'linux' && cluster.isPrimary ? 16 : 1
+
+/** The listeners of each server beside itself. */
+const others = new WeakMap<Server, readonly Listener[]>()
+
+/** `listener` on `port`, refused in words when another process holds it. */
+async function bound(
+	listener: Listener,
+	port: number,
+	reusePort: boolean,
+): Promise<void> {
 	await new Promise<void>((done, fail) => {
 		const refused = (error: Error) => {
 			const code: unknown = Reflect.get(error, 'code')
@@ -53,14 +75,51 @@ export async function listening(server: Server, port: number): Promise<number> {
 					: error,
 			)
 		}
-		server.once('error', refused)
-		server.listen({ port, backlog }, () => {
-			server.off('error', refused)
+		listener.once('error', refused)
+		listener.listen({ port, backlog, reusePort }, () => {
+			listener.off('error', refused)
 			done()
 		})
 	})
-	const address = server.address()
+}
+
+/** Closed, once its connections have ended. */
+async function shut(listener: Listener): Promise<void> {
+	await new Promise<void>((done, fail) => {
+		listener.close((error) => {
+			if (error === undefined) done()
+			else fail(error)
+		})
+	})
+}
+
+const boundPort = (listener: Listener, port: number) => {
+	const address = listener.address()
 	return typeof address === 'object' && address !== null ? address.port : port
+}
+
+export async function listening(server: Server, port: number): Promise<number> {
+	if (listeners === 1) {
+		await bound(server, port, false)
+		return boundPort(server, port)
+	}
+	// Sharing the port lets a second process in, so it must be free first.
+	if (port !== 0) {
+		const alone = createListener()
+		await bound(alone, port, false)
+		await shut(alone)
+	}
+	await bound(server, port, true)
+	const at = boundPort(server, port)
+	const rest = Array.from({ length: listeners - 1 }, () =>
+		// As `node:http` makes its own, whose connections it then takes.
+		createListener({ allowHalfOpen: true, noDelay: true }, (socket) => {
+			server.emit('connection', socket)
+		}),
+	)
+	others.set(server, rest)
+	await Promise.all(rest.map((listener) => bound(listener, at, true)))
+	return at
 }
 
 /** A Node server for `fetch`, Hono's handler. */
@@ -91,20 +150,18 @@ export async function closed(
 	logger: Logger,
 	taken: ReadonlyMap<Duplex, string>,
 ): Promise<void> {
-	let cutting: NodeJS.Timeout | undefined
-	await new Promise<void>((done, fail) => {
-		server.close((error) => {
-			clearTimeout(cutting)
-			if (error === undefined) done()
-			else fail(error)
-		})
+	const cutting = setTimeout(() => {
+		logger.warn(
+			`Stopped ${grace / 1000} s after stop began: closed the requests still running.`,
+		)
+		server.closeAllConnections()
+		for (const socket of taken.keys()) socket.destroy()
+	}, grace)
+	try {
+		const closing = [server, ...(others.get(server) ?? [])].map(shut)
 		server.closeIdleConnections()
-		cutting = setTimeout(() => {
-			logger.warn(
-				`Stopped ${grace / 1000} s after stop began: closed the requests still running.`,
-			)
-			server.closeAllConnections()
-			for (const socket of taken.keys()) socket.destroy()
-		}, grace)
-	})
+		await Promise.all(closing)
+	} finally {
+		clearTimeout(cutting)
+	}
 }
