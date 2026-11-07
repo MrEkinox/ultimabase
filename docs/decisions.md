@@ -9415,7 +9415,7 @@ api: ({ plugins }) => plugins.http.mount(uploads, { bodyLimit: false })
 ## D-154: Realtime: live lists and live rows
 
 Amended by D-163, D-166, D-178, D-186, D-187, D-195, D-196, D-223, D-226,
-D-229, D-230, D-252, D-254, D-266, D-271, D-272 and D-273.
+D-229, D-230, D-252, D-254, D-266, D-271, D-272, D-273 and D-310.
 
 Choice: completes D-25; amends D-106 (WebSocket upgrades), D-107 (the
 `Subscription` type), D-109 (live functions) and D-129 (live reads over
@@ -19530,3 +19530,25 @@ Rejected:
   next test's tables.
 - Keeping the listener's feed attached between two tests: a change of the
   last test would reach the next one.
+
+## D-310: A closed socket ends the live lists it kept
+
+Choice: amends D-154. When a WebSocket closes, the transport ends at once
+every live list it kept for a resume, completed earlier or by the close:
+a resume comes over the same connection, so none can reach them.
+A list completed while the socket is open is still kept 10 seconds. Nothing
+changes for a developer.
+
+Why: closing a socket completes its subscriptions, and each completed list
+was kept 10 seconds with the closed socket, its compressor and the read's
+state. Measured with a script that opens 500 sockets a round, each reading a
+10-row live list then closing, 3 rounds: the server's heap after a
+collection grew from 24.3 to 64.2 MiB before, and stayed at 28.6 MiB after,
+which it also reaches before once the 10 seconds are over. A reconnect storm
+held that memory for 10 seconds at each wave.
+
+Rejected:
+
+- Closing the viewer before graphql-ws completes the subscriptions, so that
+  none is kept: it relies on the order of a dependency's calls, which a
+  minor version could change.

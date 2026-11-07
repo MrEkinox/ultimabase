@@ -29,6 +29,7 @@ import { cookiesOf } from './upgrade-cookies.ts'
 import type { formatter } from './errors.ts'
 import type { Channel } from './live-stream.ts'
 import {
+	forgotten,
 	LiveEvent,
 	lives,
 	released,
@@ -350,8 +351,11 @@ export function serveSockets(
 			extra,
 		)
 		socket.once('close', (code, reason) => {
+			// Completing its subscriptions keeps their lists, which no resume can
+			// reach once the socket is gone: they would hold it 10 s more.
 			void closed(code, String(reason))
 			extra.viewer?.close()
+			if (extra.channel !== undefined) forgotten(extra.channel)
 		})
 	}
 	const beating = setInterval(() => {
