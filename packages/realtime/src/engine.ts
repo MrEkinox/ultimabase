@@ -15,8 +15,11 @@ import { Viewer } from './viewer.ts'
 const gather = 50
 /** How many viewers follow a flush at once. */
 const concurrency = 8
-/** How many due viewers one turn of the chain builds again (D-315). */
-const rebuilds = 32
+/** How many viewers one turn of the chain builds or reads again (D-315). */
+const perTurn = 32
+
+/** What a turn of the chain does to the viewers it takes. */
+type Task = (taken: readonly Viewer[]) => Promise<void>
 
 /** The longest a flush holds the event loop, in milliseconds (D-255). */
 const slice = 8
@@ -62,8 +65,9 @@ export class Engine {
 	readonly #refresh: number
 	/** The viewers to build again, in the order they came due. */
 	readonly #due = new Set<Viewer>()
+	/** The viewers to read again whole, as changes were missed (D-318). */
+	readonly #owed = new Set<Viewer>()
 	#changes: Changed[] = []
-	#missed = false
 	#stopped = false
 	#timer: NodeJS.Timeout | undefined
 	#flushed = 0
@@ -97,9 +101,11 @@ export class Engine {
 		this.#schedule()
 	}
 
+	/** Reads every viewer again, a few at a time between flushes (D-318). */
 	missed(): void {
-		this.#missed = true
-		this.#schedule()
+		this.#inTurns(this.#owed, [...this.#viewers], async (viewers) =>
+			this.#reread(viewers),
+		)
 	}
 
 	async stop(): Promise<void> {
@@ -124,22 +130,14 @@ export class Engine {
 
 	async #flush(): Promise<void> {
 		const changes = this.#changes
-		const missed = this.#missed
 		this.#changes = []
-		this.#missed = false
 		// A flush that outlasted the gather took these with its own: the walk of
 		// every viewer would cost as much for nothing, and hold the loop (D-255).
-		if (changes.length === 0 && !missed) return
+		if (changes.length === 0) return
 		const batch = batchOf(changes, liveSchema())
 		const shared = new SharedReads()
 		const loader = new Loader(shared)
 		try {
-			if (missed) {
-				await bounded([...this.#viewers], concurrency, (viewer) =>
-					this.#guarded(viewer, () => viewer.flush(batch, loader, 'all')),
-				)
-				return
-			}
 			const concerned = await this.#readers.concerned(batch, loader)
 			// No async wrappers: a flush makes these calls for each viewer.
 			await bounded([...concerned], concurrency, ([viewer, reads]) =>
@@ -153,25 +151,52 @@ export class Engine {
 
 	/** Builds `viewer` again in a coming turn of the chain (D-315). */
 	#rebuildSoon(viewer: Viewer): void {
-		if (this.#due.size === 0) {
-			this.#chain = this.#chain.then(async () => this.#rebuild())
-		}
-		this.#due.add(viewer)
+		this.#inTurns(this.#due, [viewer], async (viewers) =>
+			bounded(viewers, concurrency, async (due) =>
+				this.#guarded(due, async () => due.rebuild()),
+			),
+		)
 	}
 
-	/** The first viewers due built again; the rest wait behind flushes. */
-	async #rebuild(): Promise<void> {
+	/** Reads `viewers` again whole: changes may have gone unheard (D-318). */
+	async #reread(viewers: readonly Viewer[]): Promise<void> {
+		const batch = batchOf([], liveSchema())
+		const shared = new SharedReads()
+		const loader = new Loader(shared)
+		try {
+			await bounded(viewers, concurrency, (viewer) =>
+				this.#guarded(viewer, () => viewer.flush(batch, loader, 'all')),
+			)
+		} finally {
+			shared.stop()
+		}
+	}
+
+	/**
+	 * Adds `viewers` to `queue`, which coming turns of the chain take
+	 * `perTurn` at a time: flushes go in between (D-315).
+	 */
+	#inTurns(queue: Set<Viewer>, viewers: readonly Viewer[], task: Task): void {
+		const idle = queue.size === 0
+		for (const viewer of viewers) queue.add(viewer)
+		if (idle && queue.size > 0) this.#turn(queue, task)
+	}
+
+	/** Takes the first viewers of `queue` in a coming turn of the chain. */
+	#turn(queue: Set<Viewer>, task: Task): void {
+		this.#chain = this.#chain.then(async () => this.#took(queue, task))
+	}
+
+	/** The first viewers of `queue`, the others left for a later turn. */
+	async #took(queue: Set<Viewer>, task: Task): Promise<void> {
 		const taken: Viewer[] = []
-		for (const viewer of this.#due) {
-			if (taken.push(viewer) === rebuilds) break
+		for (const viewer of queue) {
+			if (taken.push(viewer) === perTurn && !this.#stopped) break
 		}
-		for (const viewer of taken) this.#due.delete(viewer)
-		await bounded(taken, concurrency, async (viewer) =>
-			this.#guarded(viewer, async () => viewer.rebuild()),
-		)
-		if (this.#due.size > 0) {
-			this.#chain = this.#chain.then(async () => this.#rebuild())
-		}
+		for (const viewer of taken) queue.delete(viewer)
+		// Once the application stopped, its viewers are closed.
+		if (!this.#stopped) await task(taken)
+		if (queue.size > 0) this.#turn(queue, task)
 	}
 
 	/** A viewer that fails is logged and ended as failed; the others go on. */

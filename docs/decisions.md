@@ -19745,3 +19745,31 @@ Rejected:
 - Window 15 and `memLevel` 5: the same bytes, but 16 to 20 % less memory
   rather than 25 to 33 %, and no CPU saved.
 - Window 12: about 200 KiB a stream, but 55 % more bytes an event.
+
+## D-318: Missed changes are read again a few viewers at a time
+
+Choice: amends D-154 point 8. When the feed calls `missed`, the engine read
+every viewer's live reads again in one flush, and no later flush ran until
+the last was read. Every viewer connected then now joins a queue of the
+viewers owed a read; one turn of the chain reads the first 32 again, 8 at a
+time, and the rest wait for a later turn, behind any flush queued meanwhile,
+as the refresh does (D-315). A viewer still owed its read follows the writes
+it is told meanwhile, then sends its whole window again when its turn comes.
+Nothing changes for a developer.
+
+Why: with 10 000 connected callers, a dropped listening connection stopped
+every live read until the 50 000 were read again. Measured with a copy of
+`bench/realtime/platform.ts --scenario chat` at 300 chat messages a second
+for four steps, which ends the feed's connection with
+`pg_terminate_backend` 22 s in, in the second step, twice each:
+
+- Before: the second and third steps told about 2410 and 0 of their 9000
+  messages and did not hold; the fourth told at p95 30 129 and 23 690 ms, at
+  most 40 569 and 39 201 ms.
+- After: the three steps after the cut told 8920 to 8994 messages each, at
+  p95 401 to 532 ms, at most 813 ms, and held.
+
+Rejected:
+
+- Holding a viewer's writes until it was read again: its messages would wait
+  for its turn, up to the 30 s the reads take, for nothing the read changes.
