@@ -69,9 +69,9 @@ export class Compiler {
 	readonly filters: Filters
 	readonly catalog: Catalog
 
-	constructor(catalog: Catalog) {
+	constructor(catalog: Catalog, committed = false) {
 		this.catalog = catalog
-		this.filters = new Filters(catalog)
+		this.filters = new Filters(catalog, { committed })
 	}
 
 	/** The rows `nested` selects among those `reach` gives, as a JSON array. */
@@ -300,8 +300,9 @@ export function compileRows(
 	catalog: Catalog,
 	read: Read,
 	source?: Sql,
+	committed = false,
 ): { readonly rows: Sql; readonly tables: ReadonlySet<string> } {
-	const compiler = new Compiler(catalog)
+	const compiler = new Compiler(catalog, committed)
 	const alias = compiler.filters.alias()
 	const name = source ?? sql.id(catalog.table(read.model).name)
 	const as = sql.id(alias)
@@ -319,12 +320,20 @@ export function compileRows(
 }
 
 /** The statement that returns `read`'s rows as one JSON array, `rows`. */
-export function compileFind(catalog: Catalog, read: Read): Sql {
-	return sql`select ${compileRows(catalog, read).rows} as "rows"`
+export function compileFind(
+	catalog: Catalog,
+	read: Read,
+	committed = false,
+): Sql {
+	return sql`select ${compileRows(catalog, read, undefined, committed).rows} as "rows"`
 }
 
-export function compileCount(catalog: Catalog, read: CountRead): Sql {
-	const filters = new Filters(catalog)
+export function compileCount(
+	catalog: Catalog,
+	read: CountRead,
+	committed = false,
+): Sql {
+	const filters = new Filters(catalog, { committed })
 	const alias = filters.alias()
 	const table = catalog.table(read.model)
 	const where = filters.where(read.model, alias, read.where)

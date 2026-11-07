@@ -91,8 +91,9 @@ async function find(
 	catalog: Catalog,
 	db: QueryExecutorProvider,
 	read: Read,
+	committed = false,
 ): Promise<Row[]> {
-	const { rows } = await compileFind(catalog, read).execute(db)
+	const { rows } = await compileFind(catalog, read, committed).execute(db)
 	return decodeRows(catalog, read.model, firstOf(rows, 'rows'), read)
 }
 
@@ -100,8 +101,9 @@ async function count(
 	catalog: Catalog,
 	db: QueryExecutorProvider,
 	read: CountRead,
+	committed = false,
 ): Promise<number> {
-	const { rows } = await compileCount(catalog, read).execute(db)
+	const { rows } = await compileCount(catalog, read, committed).execute(db)
 	const value = firstOf(rows, 'count')
 	if (typeof value !== 'number') throw new Error('The count is not a number.')
 	return value
@@ -286,8 +288,9 @@ export function createAdapter(options: Options): Postgres {
 			const { catalog, db } = started()
 			await truncated(db, Object.keys(snapshotOf(catalog).tables))
 		},
-		find: async (read) => find(started().catalog, started().db, read),
-		count: async (read) => count(started().catalog, started().db, read),
+		// Outside a transaction, a statement reads committed rows (D-320).
+		find: async (read) => find(started().catalog, started().db, read, true),
+		count: async (read) => count(started().catalog, started().db, read, true),
 		aggregate: async (read) => aggregate(started().catalog, started().db, read),
 		write: async (given) => {
 			const { catalog, db, channel } = started()
