@@ -1,6 +1,7 @@
 // The reads of a big live list's window (D-254): many at once fill the memory of
 // the process and of the database, and hold the pool others write with. They
-// take turns, and read a part at a time, a few parts at once (D-270).
+// take turns, and read a part at a time, a few parts at once (D-270). Openings
+// leave the event loop its turns, for a server to accept connections (D-286).
 
 /** The rows from which a live read is big: smaller ones never wait. */
 export const bigRead = 1000
@@ -80,4 +81,37 @@ export async function inParts<T>(
 		reads.push(inPartTurn(async () => read(some)))
 	}
 	return (await Promise.all(reads)).flat()
+}
+
+/** The ms of openings a turn of the event loop runs before it passes them on. */
+const budget = 1
+
+let armed = false
+let since = 0
+const later: (() => void)[] = []
+
+function arm(): void {
+	armed = true
+	setImmediate(() => {
+		armed = false
+		since = performance.now()
+		later.shift()?.()
+		if (later.length > 0) arm()
+	})
+}
+
+/**
+ * Goes on in this turn of the event loop, or in a later one once this one spent
+ * `budget`, each later turn running one: a server accepts one connection a turn.
+ */
+export async function paced(): Promise<void> {
+	if (!armed) {
+		since = performance.now()
+		arm()
+		return
+	}
+	if (later.length === 0 && performance.now() - since < budget) return
+	await new Promise<void>((go) => {
+		later.push(go)
+	})
 }

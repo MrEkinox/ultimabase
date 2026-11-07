@@ -18266,6 +18266,8 @@ Rejected:
 
 ## D-277: A few connections open at once
 
+Amended by D-286.
+
 Choice: no developer's code changes, and no option. Under a storm, those arriving wait their turn
 in the server, and the writes of those already there go on.
 
@@ -18697,6 +18699,51 @@ noise.
 Rejected: keeping `jsonb` and only dropping the numbering, 7 to 10 % against 46 %
 at 50 000 nested rows. The idea D-103 rejected, building a row straight from a
 write's CTE, stays rejected: there is still one way to compile a read.
+
+## D-286: Openings leave the event loop its turns
+
+Choice: amends D-277. No developer's code changes, and no option. A connection arriving during a
+storm is accepted in a few seconds at most, and a new visitor or a health probe no longer waits
+behind it, at the same pace of openings.
+
+1. Node accepts one connection per turn of its event loop, so what makes a turn long makes every
+   connection wait, in the kernel's queue. Openings now spend about 1 ms of a turn: past that they
+   go on one a turn. A lone opening goes straight through.
+2. They pass this point at the start of their task, and again once a list's first read is back,
+   where its work begins.
+3. Of the 8 opening tasks of D-277, a subscription of a connected client goes before reading the
+   caller of a connection arriving, so that those there have all they asked before others begin.
+   One turn of the gate in 8 goes to those arriving first: a flow of subscriptions cannot stop
+   them. Among themselves each keeps the order it came in.
+
+D-277's sentence "about 145 a second whichever queue holds them" holds for what an opening costs,
+not for where it waits: in the kernel's queue it also holds up everything that is not an opening.
+A bare `node:http` server doing 1 ms of work a request accepts 978 connections a second under
+macOS, 961 under Linux, with 0.97 a turn, 200 and 198 at 5 ms. With 8 tasks a turn lasted about 7 ms,
+hence the 145. Up to 4096 connections queued at that pace, about 28 s, with `/ready` behind them.
+
+Measured with `bench/realtime/platform-wire.ts --storm`, 10 000 users, 9000 arriving, Linux, against
+the commit before, in ms, p50 / p95 / max, in `bench/realtime/README.md`. All arriving at once: the
+new visitor falls from 6827 / 26312 / 27903 to 4 / 3621 / 6028 and 4 / 1951 / 4724, all in stays at
+58 s, and nothing fails. With PostgreSQL 2 ms away: 29 / 18106 / 20524 to 7 / 3168 / 5942, and from
+61.7 s to 58.7 s. When arriving within 30 s: 14760 / 27489 / 33513 to 4 / 127 / 503.
+
+What it costs. Within 30 s, the median of all a client's states rises from 15.3 to 18.3 s while the
+longest falls from 34.1 to 31.8 s. Without a storm, 4000 users connect in 21.2 s instead of 20.5 s
+and 1000 subscribers on one list in 2.8 s instead of 2.65 s: one turn more for each. In return, those
+waiting while 100 clients open a list of 2000 rows wait 276 / 714 ms instead of 660 / 1781.
+
+Rejected:
+
+- Fewer openings at once. It looks free with PostgreSQL next to the process and is not: 2 at a time
+  takes 136.5 s instead of 61.7 s with a database 2 ms away, 4 at a time 74.4 s, since a task spends
+  its time waiting for the database, not working.
+- A turn spending its budget of 2 ms, or running several at once: the new visitor's longest wait
+  is 8.7 s against about 5 s, with no gain in the time all take.
+- Pacing without the priority: accepting sooner mixes all clients' subscriptions in one queue, and
+  the median of the first state rises by 30 %.
+- Several listeners with `reusePort`: Linux only, and it hides `EADDRINUSE`. Threads cannot receive
+  sockets in Node.
 
 ## D-290: A client's bad frame closes its socket, not the server
 

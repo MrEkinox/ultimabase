@@ -269,8 +269,38 @@ answer in error, no write failed, no socket closed once ready, no `A live viewer
 One process still opens about 150 clients a second, whatever the pace: 9000 take about 60 s. That
 ceiling did not move. What it removed is the failures, and the time they cost. The new visitor did
 not get ahead of the storm: past the ceiling it waits behind the queue, up to about 28 s, which is
-4096 connections at 145 a second. Why accepting is that slow is not established. The 60 s row is
-slower than with the backlog of 511, in one run each.
+4096 connections at 145 a second. The 60 s row is slower than with the backlog of 511, in one run
+each.
+
+Accepting is that slow because Node accepts one connection per turn of its event loop: a bare
+`node:http` server doing 1 ms of work a request accepts 961 a second under Linux, 0.97 a turn, and
+198 at 5 ms. With 8 opening tasks a turn lasted about 7 ms. D-286 spends about 1 ms of a turn on
+openings, and serves the subscriptions of those connected before those arriving. Same series, the
+commit before and then D-286, `--profile <file>` giving the server's CPU while all connect:
+
+|  Arriving within | Commit |  All in |            All states |           New visitor | Told, connected | Longest stall, ms |
+| ---------------: | -----: | ------: | --------------------: | --------------------: | --------------: | ----------------: |
+|            120 s |  D-286 | 120.2 s |        10 / 117 / 632 |          3 / 11 / 491 |   35 / 60 / 573 |               351 |
+|             60 s | before |  61.7 s |     232 / 1995 / 2220 |     184 / 1931 / 2173 |  57 / 135 / 702 |               406 |
+|             60 s |  D-286 |  62.1 s |     916 / 2139 / 2584 |          4 / 83 / 604 |  33 / 107 / 607 |               320 |
+|             60 s |  D-286 |  60.2 s |       274 / 800 / 929 |         4 / 109 / 515 |  26 / 117 / 600 |               325 |
+|             30 s | before |  60.4 s | 15311 / 28763 / 34114 | 14760 / 27489 / 33513 |  64 / 177 / 662 |               390 |
+|             30 s |  D-286 |  61.9 s | 18346 / 30875 / 31795 |         4 / 127 / 503 |  27 / 165 / 612 |               338 |
+|              5 s |  D-286 |  62.3 s | 30529 / 55194 / 58300 |       4 / 4042 / 6282 |  35 / 169 / 701 |               302 |
+|              0 s | before |  57.6 s | 31333 / 55554 / 57384 |  6827 / 26312 / 27903 | 66 / 365 / 1148 |               984 |
+|              0 s |  D-286 |  58.4 s | 30699 / 55758 / 58159 |       4 / 3621 / 6028 |  28 / 197 / 904 |               578 |
+|              0 s |  D-286 |  58.5 s | 30620 / 55858 / 58269 |       4 / 1951 / 4724 | 34 / 256 / 1131 |               988 |
+| 0 s, RTT of 2 ms | before |  61.7 s | 35283 / 59924 / 61481 |    29 / 18106 / 20524 | 64 / 453 / 1547 |              1311 |
+| 0 s, RTT of 2 ms |  D-286 |  58.7 s | 30947 / 56044 / 58519 |       7 / 3168 / 5942 |  49 / 206 / 935 |               584 |
+
+No visitor, write or answer failed in any of them. The round trip is `select 1` through a proxy that
+delays each way by 1 ms. Fewer openings at once are not the way, with that database: 8 take 61.7 s,
+4 take 74.4 s, 2 take 136.5 s, against 57.6, 57.7 and 57.8 s with no delay.
+
+Near the ceiling, at 60 s, the time of a client's states moves a lot between runs. Without a storm,
+two runs each, before then D-286: 4000 users connect in 20.5 and 20.5 s, then 21.1 and 21.3 s; 1000
+subscribers of 25 rows arrive together in 2678 and 2622 ms, then 2867 and 2794 ms; 100 subscribers of
+2000 rows make others wait 687 / 1985 and 660 / 1781 ms, then 210 / 907 and 276 / 714 ms.
 
 ### 2026-11-06: over the wire, D-266 to D-273
 

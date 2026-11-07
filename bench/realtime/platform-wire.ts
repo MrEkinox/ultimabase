@@ -2,6 +2,8 @@
 // over WebSocket with what each screen holds, from threads of their own, and
 // told when the message reaches the socket's far end.
 // `node --max-old-space-size=24576 bench/realtime/platform-wire.ts --scenario chat`
+import { writeFileSync } from 'node:fs'
+import { Session } from 'node:inspector/promises'
 import { parseArgs } from 'node:util'
 import { Worker } from 'node:worker_threads'
 import { graphqlPlugin } from '@ultimabase/graphql'
@@ -39,6 +41,8 @@ const { values } = parseArgs({
 		connected: { type: 'string', default: '1000' },
 		writes: { type: 'string', default: '20' },
 		url: { type: 'string' },
+		// A CPU profile of the server's thread while every user connects, and no climb.
+		profile: { type: 'string' },
 	},
 })
 const scenario = values.scenario
@@ -282,6 +286,13 @@ try {
 				await waited(500)
 				return
 			}
+			const session = new Session()
+			if (values.profile !== undefined) {
+				session.connect()
+				await session.post('Profiler.enable')
+				await session.post('Profiler.setSamplingInterval', { interval: 200 })
+				await session.post('Profiler.start')
+			}
 			const started = performance.now()
 			await all((thread) => ({
 				kind: 'open',
@@ -290,6 +301,15 @@ try {
 				clients: clientsOf(thread, 0, userCount),
 			}))
 			const opened = (performance.now() - started) / 1000
+			if (values.profile !== undefined) {
+				const { profile } = await session.post('Profiler.stop')
+				writeFileSync(values.profile, JSON.stringify(profile))
+				session.disconnect()
+				console.log(`All connected in ${opened.toFixed(1)} s.`)
+				await all(() => ({ kind: 'close' }))
+				await waited(500)
+				return
+			}
 			await bench.quiet()
 			globalThis.gc?.()
 			const { heapUsed, rss } = process.memoryUsage()
