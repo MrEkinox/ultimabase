@@ -19175,3 +19175,35 @@ What this costs, and to whom:
 Rejected: a ping from the application when there is no realtime. It would cover
 the proxy case by adding the timer D-287 keeps to the listener, for a limit a
 public statement timeout would close more directly.
+
+## D-299: Rows sharing a related row share its answer
+
+Choice: when a flush asks which rows may pass a filter through a relation
+(D-255, D-263), the rows that lead to the same related row get one answer. A
+team's posts ask once whether the viewer is a member, not once per post.
+
+Before, each row walked its related rows again: a write of 1000 documents across
+50 teams asked each of 1000 lists the same 50 questions 20 times each. The
+answer depends on the related row alone, so it is kept in a map for the pass,
+keyed by the rows a relation holds for it; a many-to-one relation now gives the
+same holding to the rows that name the same target.
+
+Measured on `bench/realtime/teams.ts`: 1000 subscribers, 50 teams, 3 teams each,
+50 000 documents, a window of 25; two passes of 12 writes, median in ms, from the
+write's return.
+
+| Rows written | Last message before | Last message after | Last statement before | Last statement after |
+| -----------: | ------------------: | -----------------: | --------------------: | -------------------: |
+|            1 |            8.9, 8.9 |           8.3, 8.8 |              5.2, 5.1 |             5.0, 5.5 |
+|          100 |        112.9, 110.9 |       105.6, 103.3 |            45.6, 42.2 |           44.9, 45.0 |
+|         1000 |        461.0, 456.5 |       281.8, 277.8 |          150.4, 191.7 |           87.3, 84.1 |
+
+At 1000 rows the old pass ran long enough to split a flush: 1208 to 1242 messages
+for 1000 lists, 1000 now. The statements are the same, 4 a write.
+
+Two processes writing to one another's live lists through a membership rule,
+12 rounds of 5 s, wrote 11 to 13 % more in all without a bulk update, 6 to 8 %
+with one, which waits on its locks.
+
+What this costs: one map per relation a pass walks, as many entries as related
+rows. A row that leads to nothing shares an empty holding with the others.
