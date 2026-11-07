@@ -7507,6 +7507,8 @@ await Post.findMany({ omit: { body: true } }, { as: master })
 
 ## D-137: Raw SQL on `postgres()`, and tests on the declared database
 
+Amended by D-306.
+
 Choice: amends D-130 points 1 and 4.
 
 1. `postgres()` returns a `Postgres`: an `Adapter` with `sql`, a tagged
@@ -19407,3 +19409,32 @@ Rejected:
 - Putting a deleted row back at the end of its table: reads sort by id, but a
   view that keeps one row reads its first, and a failed write would no
   longer change nothing.
+
+## D-306: A test on `postgres()` starts with one `delete`
+
+Choice: amends D-137 point 3. Before each test but the first, the test
+file's schema is emptied by one `delete` statement over all its tables
+instead of a `truncate`; the foreign keys, deferred (D-99), check at its end.
+A start that finds its connections already in the schema neither creates it
+nor reads `current_schema()` again: the start's first query read it. The
+route of D-188 keeps its `truncate`. Nothing changes for a developer of an
+application: the tables, their rows and the schema's name are the same.
+
+Why: a `truncate` gives each table a new file and takes its lock, about 13
+ms for the few tables a test fills, where a `delete` of their rows takes
+1.2. A test on the declared database starts and stops the application
+around each test, so it paid this every test. Measured with a script that
+starts and stops a 22-model application with HTTP, GraphQL, REST, realtime,
+auth and password, filling 3 tables each time, medians of 6 interleaved runs
+of 55 cycles: 60.1 ms before, 44.0 ms after, 27 % less.
+
+What it costs: a `delete` leaves dead rows to the autovacuum, and its time
+grows with the rows: a test that fills a table with many thousands of rows
+starts the next one slower than a `truncate` would.
+
+Rejected:
+
+- Truncating only the tables that hold rows: a `truncate` of three filled
+  tables still costs 13 ms.
+- A `delete` for the D-188 route: it may run on a development database with
+  many rows, where a `truncate` stays fast.

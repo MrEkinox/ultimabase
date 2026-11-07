@@ -262,7 +262,7 @@ export function createAdapter(options: Options): Postgres {
 				}
 				if (scratch !== undefined) {
 					scratch.made = true
-					await emptied(db, scratch.name)
+					await emptied(db, scratch.name, server?.schema)
 				}
 				const channel = channelOf(scratch?.name ?? server?.schema ?? '')
 				state =

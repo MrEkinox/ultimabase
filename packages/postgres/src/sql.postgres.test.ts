@@ -90,6 +90,22 @@ describe("a test file on { database: 'declared' }", () => {
 		expect(await database.sql`select text from audit`).toEqual([])
 	})
 
+	// One delete empties the tables (D-306): the keys check at its end, once
+	// the rows that link are gone too, even a key that restricts.
+	it('empties a table a restricting key links, written in raw SQL', async () => {
+		const entry = await Entry.create({ data: { text: 'pinned' } }, M)
+		await database.sql`create table pin (entry uuid references entry (id) on delete restrict)`
+		await database.sql`insert into pin values (${entry.id})`
+		expect(await database.sql`select entry from pin`).toEqual([
+			{ entry: entry.id },
+		])
+	})
+
+	it('starts the next test without its rows', async () => {
+		expect(await database.sql`select text from entry`).toEqual([])
+		expect(await database.sql`select entry from pin`).toEqual([])
+	})
+
 	it('joins the open transaction, which a rollback undoes', async () => {
 		const undone = transaction(async () => {
 			await Entry.create({ data: { text: 'one' } }, M)
@@ -157,7 +173,7 @@ it('refuses connections that do not take the schema', async () => {
 		}),
 	})
 	try {
-		await expect(emptied(db, name)).rejects.toThrow(
+		await expect(emptied(db, name, null)).rejects.toThrow(
 			'does a pooler drop their startup options?',
 		)
 	} finally {
