@@ -313,6 +313,38 @@ it('a row whose text moves leaves one list and joins the other', async () => {
 	expect(seenIn(inA).split('remove')).toHaveLength(2)
 })
 
+it('a deleted row whose text is unknown visits the lists holding it or counting (D-314)', async () => {
+	const row = await User.create({ data: { name: 'ada', room: 'a' } }, M)
+	const away = await User.create({ data: { name: 'bob', room: 'z' } }, M)
+	const inA = await follow('User', 'one', inRoom('a'))
+	await follow('User', 'two', inRoom('b'))
+	const counted = await follow('User', 'three', {
+		...inRoom('z'),
+		first: 0,
+		totalCount: true,
+	})
+	const gone = (id: string) => async () => User.delete({ where: { id } }, M)
+	expect(await visitsOf(gone(row.id))).toBe(2)
+	expect(seenIn(inA)).toContain(`"remove":"${row.id}"`)
+	expect(await visitsOf(gone(away.id))).toBe(1)
+	expect(seenIn(counted)).toContain('"totalCount":0')
+})
+
+it('rows deleted together each visit the lists holding them (D-314)', async () => {
+	const inRowA = await User.create({ data: { name: 'ada', room: 'a' } }, M)
+	const inRowB = await User.create({ data: { name: 'bob', room: 'b' } }, M)
+	const inA = await follow('User', 'one', inRoom('a'))
+	const inB = await follow('User', 'two', inRoom('b'))
+	await follow('User', 'three', inRoom('c'))
+	const both = async () =>
+		User.deleteMany({ where: { id: { in: [inRowA.id, inRowB.id] } } }, M)
+	expect(await visitsOf(both)).toBe(2)
+	expect(seenIn(inA)).toContain(`"remove":"${inRowA.id}"`)
+	expect(seenIn(inA)).not.toContain(inRowB.id)
+	expect(seenIn(inB)).toContain(`"remove":"${inRowB.id}"`)
+	expect(seenIn(inB)).not.toContain(inRowA.id)
+})
+
 it('a condition ignoring case names no list: it can match another spelling', async () => {
 	const row = await User.create({ data: { name: 'ada', room: 'lobby' } }, M)
 	const seen = await follow('User', 'one', {
