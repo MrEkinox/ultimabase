@@ -176,17 +176,23 @@ async function keepRelated(
 	doubt: Doubt,
 ): Promise<readonly Row[]> {
 	const related = await relatedOf(model, step, rows, loader)
+	// Rows sharing a related row share its answer: a team's posts ask once.
+	const answers = new Map<Held, boolean>()
 	const kept: Row[] = []
 	for (const row of rows) {
 		const held = related(row)
-		// Too many to hold at once: the query decides.
-		if (held === undefined) doubt.held = true
-		if (
-			held === undefined ||
-			(await keep(need, held, loader, doubt)).length > 0
-		) {
+		if (held === undefined) {
+			// Too many to hold at once: the query decides.
+			doubt.held = true
 			kept.push(row)
+			continue
 		}
+		let answer = answers.get(held)
+		if (answer === undefined) {
+			answer = (await keep(need, held, loader, doubt)).length > 0
+			answers.set(held, answer)
+		}
+		if (answer) kept.push(row)
 	}
 	return kept
 }
@@ -208,10 +214,16 @@ async function relatedOf(
 		model,
 		relation: step.relation,
 	})
+	const helds = new Map<string | undefined, Held>()
 	return (row) => {
 		const key = keyOf(row, step.relation)
-		const target = key === undefined ? undefined : targets.get(key)
-		return new Held(target === undefined ? [] : [target])
+		let held = helds.get(key)
+		if (held === undefined) {
+			const target = key === undefined ? undefined : targets.get(key)
+			held = new Held(target === undefined ? [] : [target])
+			helds.set(key, held)
+		}
+		return held
 	}
 }
 

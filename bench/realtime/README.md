@@ -196,7 +196,34 @@ costs about 1 ms a row, and a production table has them.
   stays under 1 s. Writes to one row closing up in a flush tell its readers once,
   so Told can come out short, and Drain then shows the bench's patience of 30 s.
 
+## Rights through a relation
+
+```sh
+node --expose-gc --max-old-space-size=24576 bench/realtime/teams.ts \
+  [--subscribers 1000] [--teams 50] [--joined 3] [--documents 50000] \
+  [--window 25] [--batches 1,100,1000] [--writes 5] [--url <url>]
+```
+
+Measures what a write costs live lists whose rule goes through a relation: a
+user reads the `Doc` rows of the teams they are a `Member` of. Each user joins
+`--joined` teams; each lists `Doc` latest revision first, showing `--window`
+rows. A write gives a batch of documents, spread across the teams, a new
+revision, so it climbs to the top of every list. Statements counts those from
+the write's return until the engine is quiet; Messages, the messages sent;
+Last message and Last statement, the median time from the write's return.
+
 ## Runs
+
+### 2026-11-07: rows sharing a related row share its answer (D-299)
+
+`teams.ts --batches 100,1000 --writes 12`, two passes; times in ms. Statements stay at 4.
+
+| Rows written | Messages before | Messages after | Last message before | Last message after |
+| -----------: | --------------: | -------------: | ------------------: | -----------------: |
+|          100 |      1000, 1000 |     1000, 1000 |        112.9, 110.9 |       105.6, 103.3 |
+|         1000 |      1242, 1208 |     1000, 1000 |        461.0, 456.5 |       281.8, 277.8 |
+
+One row, `--writes 5`, two passes: 8.9 and 8.9 ms before, 8.3 and 8.8 ms after.
 
 ### 2026-11-07: a virtual field's row costs less to keep
 
