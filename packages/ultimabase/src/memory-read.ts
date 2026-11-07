@@ -33,21 +33,28 @@ export type Store = {
 	readonly tables: Map<string, Map<string, StoredRow>>
 	/** `Model.field` → id → the linked ids, kept on both sides (D-64). */
 	readonly joins: Map<string, Map<string, Set<string>>>
+	/**
+	 * A transaction's store: the tables and joins it copied, the others shared
+	 * with the store it began from (D-305). Without it, writes change in place.
+	 */
+	readonly copied?: Set<string>
 }
 
-/** A copy of the store, which a write changes and keeps once whole. */
-export function clone(store: Store): Store {
-	return {
-		tables: new Map(
-			[...store.tables].map(([name, table]) => [name, new Map(table)]),
-		),
-		joins: new Map(
-			[...store.joins].map(([key, side]) => [
-				key,
-				new Map([...side].map(([id, ids]) => [id, new Set(ids)])),
-			]),
-		),
+/** The ids `where` keeps its rows among, when it names them alone. */
+function pinned(where: Filter): readonly string[] | undefined {
+	const id = where['id']
+	if (id !== undefined && !isFilters(id)) {
+		const [key, ...more] = Object.keys(id)
+		const ids = key === 'equals' ? [id.equals] : key === 'in' ? id.in : []
+		const named = more.length === 0 && ids !== undefined && ids.length > 0
+		if (named && ids.every((each): each is string => typeof each === 'string'))
+			return ids
 	}
+	for (const part of where.AND ?? []) {
+		const ids = pinned(part)
+		if (ids !== undefined) return ids
+	}
+	return undefined
 }
 
 /** Each model's fields by name. */
@@ -70,6 +77,17 @@ export class Reader {
 
 	table(model: string): Map<string, StoredRow> {
 		return modelOf(this.store.tables, model)
+	}
+
+	/**
+	 * The rows of `model` that `where` may select: the ones it names when it
+	 * pins the id, else all (D-305). The caller still tests each.
+	 */
+	candidates(model: string, where: Filter | undefined): StoredRow[] {
+		const table = this.table(model)
+		const ids = where === undefined ? undefined : pinned(where)
+		if (ids === undefined) return [...table.values()]
+		return [...new Set(ids)].flatMap((id) => table.get(id) ?? [])
 	}
 
 	field(model: string, name: string): SchemaField | undefined {
@@ -259,7 +277,7 @@ export class Reader {
 		let start = 0
 		let end = found.length
 		if (read.cursor !== undefined) {
-			const row = [...this.table(model).values()].find(
+			const row = this.candidates(model, read.cursor).find(
 				(each) => this.matches(model, each, read.cursor) === true,
 			)
 			if (row === undefined) return []

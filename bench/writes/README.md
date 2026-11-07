@@ -33,6 +33,24 @@ node bench/writes/bench.ts [--runs 200] [--url postgres://…]
 
 ## Runs
 
+### 2026-11-07: a `memory()` write changes the rows in place (D-305), 200 runs
+
+`memory()` medians in ms, two runs of each, interleaved. The rows add up
+over the run, to about 200 000 in the table `createMany` fills: before, each
+write copied them all; after, a transaction still copies the table it
+writes once.
+
+| Case                                       |       Before |      After |
+| ------------------------------------------ | -----------: | ---------: |
+| create                                     |   0.13, 0.14 | 0.06, 0.07 |
+| update by id, a user under access rules    |   0.39, 0.39 | 0.14, 0.15 |
+| update, a many disconnected and connected  |   0.36, 0.35 | 0.07, 0.07 |
+| createMany, 1000 rows                      | 31.30, 31.68 | 6.68, 6.74 |
+| create, an afterCreate hook                | 81.74, 84.88 | 0.07, 0.07 |
+| create, two rows created in a many, deeper | 100.9, 102.8 | 1.56, 1.56 |
+| transaction(), the same rows one by one    | 327.8, 340.0 | 50.9, 49.3 |
+| transaction(), two creates                 | 241.9, 246.5 | 50.6, 49.7 |
+
 ### 2026-11-07: BEGIN sent with the first statement (D-297), 100 runs
 
 PostgreSQL 18 next door, medians in ms. Before is the mean of two runs with BEGIN

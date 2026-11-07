@@ -37,8 +37,8 @@ written before are gone.
 
 ## A write is whole or not at all
 
-A write runs on a copy of the rows, which replaces them once it succeeded.
-A write that fails changes nothing, as a PostgreSQL statement does:
+A write that fails puts back every row it changed, so it changes nothing, as
+a PostgreSQL statement does:
 
 <include cwd meta='title="src/app.test.ts"'>
 	../examples/memory/src/app.test.ts#whole
