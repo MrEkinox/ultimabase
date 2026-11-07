@@ -16,8 +16,10 @@ import { decoded, isRow } from './field-codec.ts'
 import { Reader } from './memory-read.ts'
 import { sortable } from './memory-values.ts'
 import type { SharedReads } from './live-shared.ts'
+import { sharing } from './live-shared.ts'
 import { namesNobody, spared } from './live-shared.ts'
 import { isFilters } from './memory-conditions.ts'
+import type { Shape } from './query-args.ts'
 import { plan, uniqueWhere } from './query-args.ts'
 import { shapedRows } from './query-context.ts'
 import { modelOf } from './query-where.ts'
@@ -162,6 +164,11 @@ export function matches(
 	return readerOf(started()).matches(model, row, filter) === true
 }
 
+/** Whether a shape computes a virtual field, at any depth. */
+const withVirtuals = (shape: Shape): boolean =>
+	shape.virtuals.size > 0 ||
+	[...shape.relations.values()].some((nested) => withVirtuals(nested))
+
 /** Reads a live read's rows by id, as its caller (D-195). */
 export type LiveReader = (
 	ids: readonly string[],
@@ -232,6 +239,7 @@ export async function liveReader(
 			return app.adapter.find({ ...read, model, where })
 		})
 	}
+	const computes = withVirtuals(shaped)
 	return async (ids, rows, reads, judge) => {
 		if (ids.length === 0) return []
 		const root = {
@@ -240,7 +248,7 @@ export async function liveReader(
 			where: and({ id: { in: [...ids] } }, rights),
 		}
 		// No async wrapper: a flush makes this call for each subscriber.
-		return app.work.run(() =>
+		const run = async () =>
 			reading(app, async (store) => {
 				const may = await allowed(ids, rows, judge)
 				const found =
@@ -272,7 +280,9 @@ export async function liveReader(
 					scope.access,
 				)
 				return shown.filter(isRow)
-			}),
+			})
+		return app.work.run(() =>
+			computes && reads !== undefined ? sharing(reads, run) : run(),
 		)
 	}
 }

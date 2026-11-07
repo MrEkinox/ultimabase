@@ -20,6 +20,7 @@ import { current } from './running.ts'
 import type { Touched } from './sizes.ts'
 import { bounded, checkSizes, touch } from './sizes.ts'
 import { refused } from './write-target.ts'
+import { readsOver, stopSharing } from './live-shared.ts'
 
 /** What a query reads and writes through. */
 export type Store = Pick<
@@ -183,6 +184,7 @@ async function atomic<R>(
 	run: (open: Open) => Promise<R>,
 	serializable = false,
 ): Promise<R> {
+	stopSharing()
 	const open: Open = {
 		app,
 		tx: undefined,
@@ -234,11 +236,12 @@ export async function reading<R>(
 	const open = opened.getStore()
 	if (open === undefined) {
 		const { adapter } = app
+		const reads = readsOver(adapter)
 		return run(
 			decoding(app, {
-				find: async (read) => adapter.find(read),
-				count: async (read) => adapter.count(read),
-				aggregate: async (read) => adapter.aggregate(read),
+				find: async (read) => reads.find(read),
+				count: async (read) => reads.count(read),
+				aggregate: async (read) => reads.aggregate(read),
 				write: async (write) => adapter.write(write),
 				last: async (write) => adapter.write(write),
 			}),

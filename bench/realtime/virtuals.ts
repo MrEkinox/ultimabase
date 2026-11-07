@@ -1,6 +1,8 @@
 // What a write costs live lists that show a virtual reading another model:
 // subscribers list Project with openTasks, a count of Task; a Task is
 // created on a shown project. `node --expose-gc bench/realtime/virtuals.ts`.
+// `--rule-names-nobody`: Project's read rule does not name its viewer, so the
+// count does not either, and the subscribers share its statement (D-295).
 import { randomUUID } from 'node:crypto'
 import { parseArgs } from 'node:util'
 import { Client } from 'pg'
@@ -12,6 +14,16 @@ import { defineApp, defineModel, definePlugin, master } from 'ultimabase'
 import { createAdapter } from '../../packages/postgres/src/adapter.ts'
 import { asUser } from '../../packages/testing/src/as-user.ts'
 import { silent } from '../../packages/testing/src/silent.ts'
+
+const { values: flags } = parseArgs({
+	options: {
+		subscribers: { type: 'string', default: '1000' },
+		windows: { type: 'string', default: '25,1000' },
+		writes: { type: 'string', default: '10' },
+		'rule-names-nobody': { type: 'boolean', default: false },
+		url: { type: 'string' },
+	},
+})
 
 const M = { as: master }
 const idOf = (caller: Caller): string =>
@@ -31,7 +43,11 @@ const Project = defineModel({
 	access: {
 		read: ({ caller, where }) =>
 			caller.kind === 'master' ||
-			where({ owner: { in: [idOf(caller), 'all'] } }),
+			where(
+				flags['rule-names-nobody']
+					? { owner: { not: 'nobody' } }
+					: { owner: { in: [idOf(caller), 'all'] } },
+			),
 	},
 	virtuals: {
 		openTasks: {
@@ -230,25 +246,17 @@ async function run(
 	}
 }
 
-const { values } = parseArgs({
-	options: {
-		subscribers: { type: 'string', default: '1000' },
-		windows: { type: 'string', default: '25,1000' },
-		writes: { type: 'string', default: '10' },
-		url: { type: 'string' },
-	},
-})
 const url =
-	values.url ??
+	flags.url ??
 	process.env['BENCH_DATABASE_URL'] ??
 	'postgres://postgres:postgres@localhost:54318/postgres'
 const numbers = (text: string) => text.split(',').map(Number)
 console.log(
 	'| Subscribers | Lists | Window | Virtual selected | Statements | Messages | p50 | p99 | Last message p50 |\n| --: | --- | --: | --- | --: | --: | --: | --: | --: |',
 )
-for (const subscribers of numbers(values.subscribers)) {
+for (const subscribers of numbers(flags.subscribers)) {
 	for (const shape of ['one list', 'a list each'] as const) {
-		for (const window of numbers(values.windows)) {
+		for (const window of numbers(flags.windows)) {
 			for (const virtual of [false, true]) {
 				console.log(
 					await run(
@@ -257,7 +265,7 @@ for (const subscribers of numbers(values.subscribers)) {
 						subscribers,
 						window,
 						virtual,
-						Number(values.writes),
+						Number(flags.writes),
 					),
 				)
 			}

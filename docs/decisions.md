@@ -12366,6 +12366,8 @@ try {
 
 ## D-187: A live read follows its virtual fields' reads
 
+Amended by D-295.
+
 Choice: amends D-154, points 10 and 12, and completes D-151.
 
 1. A live row or list that selects a virtual field records the reads its
@@ -19003,3 +19005,42 @@ row, one statement a flush where there were none. A value that most reads share
 visits them all, as before.
 
 Known limit: a filter on several values through `OR` still pins nothing.
+
+## D-295: The reads virtual fields make in one flush are shared
+
+Choice: amends D-187. Nothing changes for a developer: `runMany` still runs once for
+each subscriber, with its caller, and returns what it returns.
+
+D-187 keeps each subscriber's value apart, since a rule may read the caller. That
+stands. What is shared is the statement under it: during a flush, two reads asking
+the same model with the same `where`, the rules already merged in, the same
+selection and the same limits are one statement. A rule naming its viewer makes
+another statement, so it never reaches another viewer. A read through a relation
+carries the rule of the model it crosses, so that model's rule counts too.
+
+1. It is safe in time: each read of a flush starts after the batch it follows
+   committed, and flushes run one at a time. A write made after a shared read reaches
+   a later batch, a later flush, and new shared reads.
+2. Every reader gets its own copy of the rows and values, the first one included, so
+   code changing what it read reaches nobody else.
+3. A transaction or a write begun during a flush ends the sharing for that flush, so
+   code reads what it wrote. A raw `database.sql` statement does not: code writing
+   that way from a virtual field reads what was shared.
+4. The flush's end ends it too: a promise a virtual field left running reads what is
+   stored by then.
+5. A failed read is sent again by the next one to ask.
+6. It covers the reads of a live read that selects a virtual field, at any depth, and
+   only within a flush: not the first read of a subscription, not a live function.
+   Other live reads pay nothing; every other read pays one `AsyncLocalStorage` lookup.
+
+Measured with `bench/realtime/virtuals.ts --rule-names-nobody`, 1000 subscribers on one
+list, 10 writes creating a `Task`, statements and median to the last message:
+
+| Window | Before               | After             |
+| -----: | -------------------- | ----------------- |
+|     25 | 1002 stmts, 422.8 ms | 3 stmts, 197.8 ms |
+|   1000 | 1002 stmts, 6034 ms  | 3 stmts, 5130 ms  |
+
+Cost: a rule naming its viewer gains nothing and pays the key and the copy, within
+the noise: 423.1 to 439.7 ms at window 25, 6023 to 6200 ms at window 1000. What is
+left at window 1000 is computing and comparing a million rows in JavaScript.
