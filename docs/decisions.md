@@ -9415,7 +9415,8 @@ api: ({ plugins }) => plugins.http.mount(uploads, { bodyLimit: false })
 ## D-154: Realtime: live lists and live rows
 
 Amended by D-163, D-166, D-178, D-186, D-187, D-195, D-196, D-223, D-226,
-D-229, D-230, D-252, D-254, D-266, D-271, D-272, D-273 and D-310.
+D-229, D-230, D-252, D-254, D-266, D-271, D-272, D-273, D-310 and
+D-311.
 
 Choice: completes D-25; amends D-106 (WebSocket upgrades), D-107 (the
 `Subscription` type), D-109 (live functions) and D-129 (live reads over
@@ -19552,3 +19553,25 @@ Rejected:
 - Closing the viewer before graphql-ws completes the subscriptions, so that
   none is kept: it relies on the order of a dependency's calls, which a
   minor version could change.
+
+## D-311: A kept SSE list holds a copy of its request
+
+Choice: amends D-154. A live read over Server-Sent Events reads its caller
+from a copy of its request, with the URL and headers only, rather than from
+the request itself. Identifying reads nothing else, and the WebSocket
+transport already gives a viewer a request it builds. Nothing changes for a
+developer.
+
+Why: a list whose client left is kept 10 seconds for a resume, and its viewer
+held the client's request, which holds its connection, closed, with the
+response and its gzip stream. Measured with a script that opens 500 live
+lists a round over SSE, each reading a 10-row list then leaving, 3 rounds,
+over interleaved runs: one second after the last client left, the server's
+memory outside the heap fell from 75.4 to 11.2 MiB, its baseline being
+10.9, its heap from 63.7 to 47.5 MiB and its resident memory from about 348
+to 308 MiB. Both reach their baseline once the 10 seconds are over.
+
+Rejected:
+
+- Keeping a list no longer once its client leaves: a resume comes in a new
+  request, after the client left, by design.
