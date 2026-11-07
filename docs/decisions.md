@@ -11256,7 +11256,7 @@ export const { plugin: archivePlugin, use: archive } = definePlugin<Archive>({
 
 ## D-173: `yarn validate` runs in 90 seconds at most
 
-Amended by D-210 and D-304.
+Amended by D-210, D-304 and D-321.
 
 Choice: amends D-06. `yarn validate` stays under 90 seconds locally, instead
 of one minute. The other budgets of D-06 are unchanged: PostgreSQL tests in a
@@ -19832,3 +19832,28 @@ Rejected:
   picks it from its estimates; forced on every statement, a plan made
   without the values can be that slow on others.
 - The test on every read: a dangling key in a transaction would match.
+
+## D-321: `yarn validate` runs the tests beside the other checks
+
+Choice: amends D-173. `yarn validate` runs `scripts/validate.ts`: `yarn test`
+starts at once, beside the format, types, lint and budgets checks, which still
+run one after another. The checks print as they go; the tests print once they
+end, so that the two outputs never mix. A check that fails stops the tests and
+gives its exit code; otherwise the tests give theirs. Nothing changes for a
+developer of an application.
+
+Why: the checks read files and the tests do not write them, and the machine
+had cores the checks left idle. A warm `yarn validate` took 53.1 to 55.1 s
+over three runs, 45.7 to 45.9 s with the tests beside the checks, interleaved
+with them; again 52.7 and 52.9 s, then 46.8 and 47.2 s. Every run passed.
+
+What it costs: the tests run beside `tsc` and Oxlint, on fewer cores than
+alone. A test that times its code has less room; on a runner with few cores,
+such a test may need more.
+
+Rejected:
+
+- `&` and `wait` in `package.json`: both outputs mix, and a failed check
+  leaves the tests running.
+- Every output kept until its command ends: a long check shows nothing while
+  it runs.
