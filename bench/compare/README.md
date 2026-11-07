@@ -168,3 +168,35 @@ What it shows:
 - A single-row create or update still costs 0.2 ms more than Drizzle, and
   the nested read 0.85 ms more than Drizzle: time in the kernel or the SQL
   it builds, the next place to look.
+
+### 2026-11-07: after the weekend's work, 200 runs
+
+Commit `5093b969e` (D-296 to D-305). Node 24.20, PostgreSQL 18.6 in Docker
+on the same machine, load average 1.7 to 2.6. Prisma 7.10.1, Drizzle 0.45.4,
+pg 8.23.1. Two runs; every contender is slower than on 2026-10-22, pg
+included, so compare the contenders of this run rather than across runs.
+
+Round trips are those of the run before.
+
+Median, ms, of each run:
+
+| Case                                      | UltimaBase |     Prisma |    Drizzle |         pg |
+| ----------------------------------------- | ---------: | ---------: | ---------: | ---------: |
+| read by id                                | 0.80, 0.79 | 0.92, 0.90 | 0.83, 0.84 | 0.71, 0.71 |
+| read 10 writers, their novels and genres  | 1.97, 1.95 | 3.31, 3.34 | 2.33, 2.35 | 2.16, 2.17 |
+| create                                    | 0.85, 0.84 | 0.91, 0.91 | 0.81, 0.83 | 0.72, 0.71 |
+| create, a one and a many connected        | 1.07, 1.09 | 5.38, 5.40 | 2.89, 2.90 | 0.87, 0.85 |
+| update by id                              | 0.89, 0.88 | 0.95, 0.94 | 0.86, 0.85 | 0.74, 0.74 |
+| update, a many disconnected and connected | 1.07, 1.08 | 6.09, 6.08 | 3.60, 3.57 | 0.83, 0.82 |
+| delete by id, one novel cascaded          | 0.98, 0.98 | 0.94, 0.94 | 0.83, 0.83 | 0.76, 0.77 |
+| a transaction, two creates                | 2.38, 2.44 | 3.18, 3.18 | 2.83, 2.86 | 0.74, 0.72 |
+
+What it shows:
+
+- The nested read is the fastest of all, pg's hand-written query included:
+  1.96 ms against Drizzle's 2.34.
+- A single-row create or update is within 0.05 ms of Drizzle.
+- The cascade stays 0.15 ms above Drizzle. In raw SQL, over 400 interleaved
+  runs, its statement takes 0.80 ms and Drizzle's 0.69; without the locked
+  count of the row, 0.77. The rest is the cascade the statement runs itself
+  (D-54, D-102), where Drizzle leaves it to the database's foreign key.
