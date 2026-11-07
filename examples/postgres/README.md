@@ -15,8 +15,11 @@ models.
   adds `Task.priority`; one of SQL written by hand, for the rows; one that
   builds an index without a transaction.
 - `src/migrations.test.ts`: what those migration files hold.
-- `src/app.postgres.test.ts`: the commands on a schema of its own: sync,
-  status, deploy, reset, and a production start with its refusals.
+- `src/app.postgres.test.ts`: the migrations deployed on a schema of its
+  own, then a production start.
+- `src/start.postgres.test.ts`: the production starts that are refused.
+- `src/sync.postgres.test.ts`: a development sync, then a reset.
+- `src/test/commands.ts`: how those three run the `ultimabase` commands.
 - `src/tasks.postgres.test.ts`: the application's queries on PostgreSQL.
 - `src/search.postgres.test.ts`: `postgres()`'s options, and a search in
   English.

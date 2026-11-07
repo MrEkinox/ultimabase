@@ -1,155 +1,74 @@
 // How a PostgreSQL database follows the models (D-105): every kind of
-// change on a real server, the bookkeeping, and the commands end to end.
-import { spawn } from 'node:child_process'
+// change a sync makes on a real server, the bookkeeping, a deploy and a reset.
 import { randomUUID } from 'node:crypto'
-import { mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises'
-import { tmpdir } from 'node:os'
-import { join as joinPath } from 'node:path'
-import { pathToFileURL } from 'node:url'
-import { Client } from 'pg'
-import type {
-	Adapter,
-	IndexWhere,
-	Logger,
-	Migrations,
-	Schema,
-	SchemaField,
-	Statement,
-} from 'ultimabase'
-import { MigrationFailed } from 'ultimabase'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import type { IndexWhere, Schema, SchemaField, Statement } from 'ultimabase'
+import { describe, expect, it, vi } from 'vitest'
 import { postgres } from './index.ts'
 import { parseSnapshot } from './snapshot-parse.ts'
+import {
+	after,
+	before,
+	eachInSchema,
+	file,
+	inSchema,
+	logger,
+	many,
+	migrations,
+	one,
+	query,
+	restart,
+	scalar,
+	schema,
+	sync,
+	url,
+	type Scalar,
+} from './test/migrations.ts'
 
-const logger: Logger = {
-	info: () => undefined,
-	warn: () => undefined,
-	error: () => undefined,
-	child: () => logger,
-}
+eachInSchema()
 
-const url =
-	(
-		process.env['TEST_DATABASE_URL'] ??
-		'postgres://postgres:postgres@localhost:54315/postgres'
+/** The sizes the shelves hold, as text. */
+const shelfSizes = () =>
+	query(
+		inSchema(schema),
+		'select cast(size as text) from shelf order by shelf.size',
 	)
-		.split(' ')
-		.find((given) => given !== '') ?? ''
 
-async function query(target: string, statement: string): Promise<unknown[]> {
-	const client = new Client({ connectionString: target })
-	await client.connect()
-	try {
-		const { rows }: { rows: unknown[] } = await client.query(statement)
-		return rows
-	} finally {
-		await client.end()
-	}
-}
+/** The lists the posts hold. */
+const postLists = async () =>
+	query(inSchema(schema), 'select tags, labels from post')
 
-const inSchema = (schema: string): string =>
-	`${url}${url.includes('?') ? '&' : '?'}options=${encodeURIComponent(`-c search_path=${schema}`)}`
-
-type Scalar = Extract<SchemaField, { kind: 'scalar' }>
-
-const scalar = (
-	name: string,
-	type: Scalar['type'],
-	more: Partial<Scalar> = {},
-): Scalar => ({
-	kind: 'scalar',
-	name,
-	type,
-	list: false,
-	optional: false,
-	unique: false,
-	...more,
-})
-
-const one = (
-	name: string,
-	target: string,
-	inverse: string,
-): Extract<SchemaField, { kind: 'one' }> => ({
-	kind: 'one',
-	name,
-	target,
-	inverse,
-	stored: true,
-	unique: false,
-	optional: false,
-	onDelete: 'restrict',
-})
-
-const many = (
-	name: string,
-	target: string,
-	inverse: string,
-	join = false,
-): SchemaField => ({ kind: 'many', name, target, inverse, join })
-
-/** Shelves holding boxes, and an `Old` model `after` replaces by `New`. */
-const before: Schema = {
+/** A note with `fields` beside its text. */
+const noteOf = (fields: readonly SchemaField[]): Schema => ({
 	models: [
 		{
-			name: 'Shelf',
-			fields: [
-				scalar('name', 'string', { unique: true }),
-				scalar('size', 'number', { optional: true }),
-				scalar('kind', 'enum', { values: ['wood', 'metal'] }),
-				scalar('depth', 'number', { optional: true }),
-				scalar('note', 'string', { optional: true }),
-				many('boxes', 'Box', 'shelf'),
-			],
-			indexes: [{ fields: ['size'], unique: false, contains: false }],
-		},
-		{
-			name: 'Box',
-			fields: [scalar('label', 'string'), one('shelf', 'Shelf', 'boxes')],
-			indexes: [],
-		},
-		{
-			name: 'Old',
-			fields: [scalar('title', 'string')],
+			name: 'Note',
+			fields: [scalar('text', 'string'), ...fields],
 			indexes: [],
 		},
 	],
-}
+})
 
-const after: Schema = {
+/** A note with `fields` beside its text. */
+const noteWith = (...fields: readonly SchemaField[]): Schema => ({
 	models: [
 		{
-			name: 'Shelf',
-			fields: [
-				scalar('name', 'string'),
-				scalar('size', 'string', { optional: true }),
-				scalar('kind', 'enum', { values: ['wood', 'metal', 'glass'] }),
-				scalar('depth', 'number'),
-				scalar('remark', 'string', { optional: true }),
-				many('boxes', 'Box', 'shelf'),
-			],
-			indexes: [
-				{ fields: ['name'], unique: false, contains: false },
-				{ fields: ['name', 'kind'], unique: true, contains: false },
-			],
-		},
-		{
-			name: 'Box',
-			fields: [
-				scalar('label', 'string'),
-				one('shelf', 'Shelf', 'boxes'),
-				many('tags', 'Tag', 'boxes', true),
-			],
+			name: 'Note',
+			fields: [scalar('text', 'string'), ...fields],
 			indexes: [],
 		},
-		{
-			name: 'Tag',
-			fields: [scalar('label', 'string'), many('boxes', 'Box', 'tags', true)],
-			indexes: [],
-		},
-		{ name: 'New', fields: [scalar('title', 'string')], indexes: [] },
 	],
-}
+})
+
+/** A post with `fields` beside its title. */
+const titled = (...fields: readonly SchemaField[]): Schema => ({
+	models: [
+		{
+			name: 'Post',
+			fields: [scalar('title', 'string'), ...fields],
+			indexes: [],
+		},
+	],
+})
 
 /** A shelf whose size is `type`. */
 const sized = (type: Scalar['type'], optional: boolean): Schema => ({
@@ -219,34 +138,6 @@ const posts = (tag: string): Schema => ({
 		},
 	],
 })
-
-let schema = ''
-let adapter: Adapter
-let migrations: Migrations
-
-beforeEach(async () => {
-	schema = `t_${randomUUID().replaceAll('-', '')}`
-	await query(url, `create schema "${schema}"`)
-	adapter = postgres({ url: inSchema(schema) })
-	await adapter.start({ models: [] }, logger)
-	const given = adapter.migrations
-	if (given === undefined) throw new Error('postgres() migrates.')
-	migrations = given
-})
-
-afterEach(async () => {
-	await adapter.stop()
-	await query(url, `drop schema "${schema}" cascade`)
-})
-
-/** Syncs the database from `from` to `to`, and returns the plan. */
-async function sync(from: Schema | undefined, to: Schema) {
-	const was = from === undefined ? undefined : migrations.snapshot(from)
-	const now = migrations.snapshot(to)
-	const statements = migrations.plan(was, to)
-	await migrations.apply({ kind: 'sync', from: was, statements, to: now })
-	return statements
-}
 
 /** A book whose title has a contains index or none (D-141). */
 const book = (contains: boolean): Schema => ({
@@ -954,12 +845,10 @@ describe('a sync on postgres()', () => {
 			'changing "Shelf.size" from numeric(6,2) to numeric(6,1) fails when a row holds a value it cannot convert',
 		])
 		await sync(money(6, 2), money(6, 1))
-		const stored = () =>
-			query(
-				inSchema(schema),
-				'select cast(size as text) from shelf order by shelf.size',
-			)
-		expect(await stored()).toStrictEqual([{ size: '1.5' }, { size: '1234.6' }])
+		expect(await shelfSizes()).toStrictEqual([
+			{ size: '1.5' },
+			{ size: '1234.6' },
+		])
 		await expect(sync(money(6, 1), money(4, 1))).rejects.toMatchObject({
 			name: 'MigrationFailed',
 			reason: 'numeric field overflow',
@@ -982,7 +871,10 @@ describe('a sync on postgres()', () => {
 		await query(inSchema(schema), 'update shelf set size = 3')
 		await sync(money(6, 1), whole('number', true))
 		await sync(whole('number', true), money(6, 2))
-		expect(await stored()).toStrictEqual([{ size: '3.00' }, { size: '3.00' }])
+		expect(await shelfSizes()).toStrictEqual([
+			{ size: '3.00' },
+			{ size: '3.00' },
+		])
 		const [lost] = migrations.plan(
 			migrations.snapshot(whole('boolean')),
 			money(6, 2),
@@ -1021,8 +913,6 @@ describe('a sync on postgres()', () => {
 				},
 			],
 		})
-		const rows = async () =>
-			query(inSchema(schema), 'select tags, labels from post')
 		const fill = `'{"a \\"b\\"","c\\\\d,{}"}'`
 		const gin = 'create index "post_tags_idx" on "post" using gin ("tags")'
 		await sync(undefined, post(undefined))
@@ -1037,7 +927,7 @@ describe('a sync on postgres()', () => {
 			`alter table "post" add column "labels" text[] not null default ${fill}::text[]`,
 			gin,
 		])
-		expect(await rows()).toStrictEqual([
+		expect(await postLists()).toStrictEqual([
 			{ tags: [], labels: ['a "b"', 'c\\d,{}'] },
 		])
 		expect(
@@ -1065,7 +955,7 @@ describe('a sync on postgres()', () => {
 			'changing "Post.tags" from text to text[] fails when a row holds a value it cannot convert',
 		)
 		expect(back.at(-1)?.sql).toBe(gin)
-		expect(await rows()).toStrictEqual([
+		expect(await postLists()).toStrictEqual([
 			{ tags: [], labels: ['a "b"', 'c\\d,{}'] },
 		])
 
@@ -1103,12 +993,7 @@ describe('a sync on postgres()', () => {
 	it('installs pg_trgm and indexes a contains field by trigram (D-141)', async () => {
 		// The extension's schema is on the search_path, as public is by default.
 		await query(url, 'create extension if not exists pg_trgm')
-		await adapter.stop()
-		adapter = postgres({ url: inSchema(`${schema},public`) })
-		await adapter.start({ models: [] }, logger)
-		const given = adapter.migrations
-		if (given === undefined) throw new Error('postgres() migrates.')
-		migrations = given
+		await restart(inSchema(`${schema},public`))
 		await sync(undefined, book(false))
 		const added = await sync(book(false), book(true))
 		expect(added.map(({ sql }) => sql)).toStrictEqual([
@@ -1336,10 +1221,10 @@ describe('a sync on postgres()', () => {
 	it('searches in the language it is given, which the server must have (D-148)', async () => {
 		await sync(undefined, article(['title']))
 		const { snapshot } = (await migrations.stored()) ?? {}
-		await adapter.stop()
-		adapter = postgres({ url: inSchema(schema), searchLanguage: 'english' })
-		await adapter.start({ models: [] }, logger)
-		const english = adapter.migrations?.plan(snapshot, article(['title']))
+		const other = postgres({ url: inSchema(schema), searchLanguage: 'english' })
+		await other.start({ models: [] }, logger)
+		const english = other.migrations?.plan(snapshot, article(['title']))
+		await other.stop()
 		expect(english?.map(({ sql }) => sql)).toStrictEqual([
 			'alter table "article" drop column "_search"',
 			`alter table "article" add column "_search" tsvector generated always as (to_tsvector('english'::regconfig, coalesce("title", ''))) stored`,
@@ -1382,24 +1267,15 @@ describe('a sync on postgres()', () => {
 	})
 
 	it('fills the rows with a fixed default when it adds a required field', async () => {
-		const note = (fields: readonly SchemaField[]): Schema => ({
-			models: [
-				{
-					name: 'Note',
-					fields: [scalar('text', 'string'), ...fields],
-					indexes: [],
-				},
-			],
-		})
-		await sync(undefined, note([]))
+		await sync(undefined, noteOf([]))
 		await query(
 			inSchema(schema),
 			`insert into note values (gen_random_uuid(), now(), now(), 'Hi')`,
 		)
 		const due = new Date('2026-10-25T09:00:00.000Z')
 		const statements = await sync(
-			note([]),
-			note([
+			noteOf([]),
+			noteOf([
 				scalar('title', 'string', { default: "it's" }),
 				scalar('rank', 'number', { default: -1.5 }),
 				scalar('done', 'boolean', { default: false }),
@@ -1414,7 +1290,7 @@ describe('a sync on postgres()', () => {
 			name: 'MigrationFailed',
 			at: 'alter table "note" add column "owner" text collate "C" not null',
 		})
-		const filled = note([
+		const filled = noteOf([
 			scalar('title', 'string', { default: "it's" }),
 			scalar('rank', 'number', { default: -1.5 }),
 			scalar('done', 'boolean', { default: false }),
@@ -1425,7 +1301,7 @@ describe('a sync on postgres()', () => {
 			scalar('level', 'enum', { values: ['low', 'high'], default: 'low' }),
 			scalar('later', 'number', { optional: true, default: 3 }),
 		])
-		const made = await sync(note([]), filled)
+		const made = await sync(noteOf([]), filled)
 		expect(made.map(({ sql }) => sql)).toStrictEqual([
 			`alter table "note" add column "title" text collate "C" not null default 'it''s'`,
 			'alter table "note" add column "rank" double precision not null default -1.5',
@@ -1485,24 +1361,15 @@ describe('a sync on postgres()', () => {
 	})
 
 	it('drops a kept default before changing the column type', async () => {
-		const note = (...fields: readonly SchemaField[]): Schema => ({
-			models: [
-				{
-					name: 'Note',
-					fields: [scalar('text', 'string'), ...fields],
-					indexes: [],
-				},
-			],
-		})
 		const flag = scalar('flag', 'boolean', { default: true })
 		const number = scalar('flag', 'number', { default: 1 })
-		await sync(undefined, note())
+		await sync(undefined, noteWith())
 		await query(
 			inSchema(schema),
 			`insert into note values (gen_random_uuid(), now(), now(), 'Hi')`,
 		)
-		await sync(note(), note(flag))
-		const [statement] = await sync(note(flag), note(number))
+		await sync(noteWith(), noteWith(flag))
+		const [statement] = await sync(noteWith(flag), noteWith(number))
 		expect(statement?.sql).toContain('drop default, alter column "flag" type')
 		expect(
 			await query(
@@ -1553,18 +1420,9 @@ describe('a sync on postgres()', () => {
 	})
 
 	it('adds a bound after the column it bounds, for a fill to run first (D-281)', () => {
-		const post = (...fields: readonly SchemaField[]): Schema => ({
-			models: [
-				{
-					name: 'Post',
-					fields: [scalar('title', 'string'), ...fields],
-					indexes: [],
-				},
-			],
-		})
 		const added = migrations.plan(
-			migrations.snapshot(post()),
-			post(
+			migrations.snapshot(titled()),
+			titled(
 				scalar('tags', 'string', {
 					list: true,
 					size: { min: 1, max: undefined },
@@ -2133,13 +1991,6 @@ describe('the bookkeeping on postgres()', () => {
 	})
 })
 
-const file = (name: string, sql: string, transaction = true) => ({
-	name,
-	sql,
-	checksum: name,
-	transaction,
-})
-
 describe('a deploy on postgres()', () => {
 	it('applies each file once, statements together, then stores the snapshot', async () => {
 		const to = migrations.snapshot(before)
@@ -2179,265 +2030,6 @@ describe('a deploy on postgres()', () => {
 		await expect(query(inSchema(schema), 'select * from b')).rejects.toThrow(
 			'relation "b" does not exist',
 		)
-	})
-})
-
-/** A session that read Shelf, in a transaction it keeps open. */
-async function holding(): Promise<Client> {
-	const holder = new Client({ connectionString: inSchema(schema) })
-	await holder.connect()
-	await holder.query('begin')
-	await holder.query('select count(*) from shelf')
-	return holder
-}
-
-/** A raw statement of Shelf, for a sync to apply. */
-const statement = (sql: string) => ({ sql, model: 'Shelf', does: sql })
-
-describe('a sync or a reset waiting for a lock', () => {
-	it('waits 5s at most for a table another session holds, and says so', async () => {
-		await sync(undefined, before)
-		const [was, now] = [migrations.snapshot(before), migrations.snapshot(after)]
-		await migrations.apply({
-			kind: 'sync',
-			from: was,
-			statements: [
-				statement(
-					"create table waits as select current_setting('lock_timeout') as waits",
-				),
-			],
-			to: now,
-		})
-		expect(
-			await query(inSchema(schema), 'select waits from waits'),
-		).toStrictEqual([{ waits: '5s' }])
-		const holder = await holding()
-		try {
-			const alter = 'alter table shelf add column late integer'
-			await expect(
-				migrations.apply({
-					kind: 'sync',
-					from: now,
-					statements: [
-						statement("set local lock_timeout = '50ms'"),
-						statement(alter),
-					],
-					to: was,
-				}),
-			).rejects.toMatchObject({
-				name: 'MigrationFailed',
-				at: alter,
-				reason:
-					'canceling statement due to lock timeout: another query held a table it changes past lock_timeout',
-				locked: true,
-			})
-			expect(
-				await query(inSchema(schema), 'select count(*) from shelf'),
-			).toStrictEqual([{ count: '0' }])
-		} finally {
-			await holder.end()
-		}
-	})
-
-	// Its statements run together, then one at a time to name the one that
-	// waited (D-307): that second run must not wait 5s again.
-	it('syncs nothing when another session holds a table past 5s, and names the statement', async () => {
-		await sync(undefined, before)
-		const [was, now] = [migrations.snapshot(before), migrations.snapshot(after)]
-		const alter = 'alter table shelf add column late integer'
-		const holder = await holding()
-		try {
-			const started = Date.now()
-			const failed: unknown = await migrations
-				.apply({
-					kind: 'sync',
-					from: was,
-					statements: [statement(alter)],
-					to: now,
-				})
-				.catch((error: unknown) => error)
-			const waited = Date.now() - started
-			expect(waited).toBeGreaterThanOrEqual(4500)
-			expect(waited).toBeLessThan(7500)
-			expect(failed).toMatchObject({
-				name: 'MigrationFailed',
-				at: alter,
-				locked: true,
-			})
-		} finally {
-			await holder.end()
-		}
-	}, 15_000)
-
-	it('resets nothing when another session holds a table past 5s', async () => {
-		await sync(undefined, before)
-		const holder = await holding()
-		try {
-			const started = Date.now()
-			const failed: unknown = await migrations
-				.reset()
-				.catch((error: unknown) => error)
-			// The 5s wait is timed by the database, whose clock can drift from
-			// Node's when it runs in a VM, so the margin only proves it waited.
-			expect(Date.now() - started).toBeGreaterThanOrEqual(4500)
-			expect(failed).toBeInstanceOf(MigrationFailed)
-			expect(failed).toMatchObject({ locked: true })
-			expect(String(failed)).toMatch(
-				/refused drop table .*"shelf".* cascade: canceling statement due to lock timeout/,
-			)
-		} finally {
-			await holder.end()
-		}
-		expect(
-			await query(inSchema(schema), 'select count(*) from shelf'),
-		).toStrictEqual([{ count: '0' }])
-	}, 15_000)
-})
-
-describe('a deploy waiting for a lock', () => {
-	it('waits 5s at most, unless a file sets its own', async () => {
-		const to = migrations.snapshot(before)
-		await migrations.apply({
-			kind: 'deploy',
-			files: [
-				file(
-					'1_a.sql',
-					"create table a as select current_setting('lock_timeout') as waits;",
-				),
-			],
-			to,
-		})
-		expect(await query(inSchema(schema), 'select waits from a')).toStrictEqual([
-			{ waits: '5s' },
-		])
-		const holder = new Client({ connectionString: inSchema(schema) })
-		await holder.connect()
-		try {
-			await holder.query('begin')
-			await holder.query('lock table a in access share mode')
-			await expect(
-				migrations.apply({
-					kind: 'deploy',
-					files: [
-						file(
-							'2_b.sql',
-							"set local lock_timeout = '50ms'; alter table a add column b integer;",
-						),
-					],
-					to,
-				}),
-			).rejects.toMatchObject({
-				name: 'MigrationFailed',
-				at: '2_b.sql',
-				reason:
-					'canceling statement due to lock timeout: another query held a table it changes past lock_timeout',
-			})
-		} finally {
-			await holder.end()
-		}
-	})
-})
-
-describe('a deploy of a file without a transaction', () => {
-	it('creates an index concurrently, once', async () => {
-		const to = migrations.snapshot(before)
-		const files = [
-			file('1_a.sql', 'create table a (b integer);'),
-			file(
-				'2_index.sql',
-				'-- ultimabase schema abc\n-- ultimabase no transaction\ncreate index concurrently a_b on a (b);\n',
-				false,
-			),
-		]
-		await migrations.apply({ kind: 'deploy', files, to })
-		await migrations.apply({ kind: 'deploy', files, to })
-		expect(
-			await query(
-				inSchema(schema),
-				"select indexname from pg_indexes where tablename = 'a'",
-			),
-		).toStrictEqual([{ indexname: 'a_b' }])
-		expect(
-			(await migrations.stored())?.applied.map(({ name }) => name),
-		).toStrictEqual(['1_a.sql', '2_index.sql'])
-	})
-
-	it('lets deploys wait while another creates an index concurrently', async () => {
-		const to = migrations.snapshot(before)
-		const files = [
-			file('1_a.sql', 'select pg_sleep(0.2); create table a (b integer);'),
-			file(
-				'2_index.sql',
-				'-- ultimabase schema abc\n-- ultimabase no transaction\ncreate index concurrently a_b on a (b);\n',
-				false,
-			),
-		]
-		const deploys = Array.from({ length: 4 }, async () =>
-			migrations.apply({ kind: 'deploy', files, to }),
-		)
-		const ends = await Promise.allSettled(deploys)
-		expect(ends.map(({ status }) => status)).toStrictEqual(
-			deploys.map(() => 'fulfilled'),
-		)
-		expect(
-			await query(
-				inSchema(schema),
-				"select indisvalid from pg_index where indexrelid = 'a_b'::regclass",
-			),
-		).toStrictEqual([{ indisvalid: true }])
-		expect(
-			(await migrations.stored())?.applied.map(({ name }) => name),
-		).toStrictEqual(['1_a.sql', '2_index.sql'])
-	})
-
-	it('refuses two statements, and concurrently in a transaction', async () => {
-		const to = migrations.snapshot(before)
-		await migrations.apply({
-			kind: 'deploy',
-			files: [file('1_a.sql', 'create table a (b integer);')],
-			to,
-		})
-		await expect(
-			migrations.apply({
-				kind: 'deploy',
-				files: [
-					file(
-						'2_index.sql',
-						'create index concurrently a_b on a (b); create index concurrently a_bb on a (b);',
-						false,
-					),
-				],
-				to,
-			}),
-		).rejects.toMatchObject({
-			at: '2_index.sql',
-			reason:
-				'CREATE INDEX CONCURRENTLY cannot run inside a transaction block: a file without a transaction holds one statement: put each in its own file',
-		})
-		await expect(
-			migrations.apply({
-				kind: 'deploy',
-				files: [file('2_index.sql', 'create index concurrently a_b on a (b);')],
-				to,
-			}),
-		).rejects.toMatchObject({
-			at: '2_index.sql',
-			reason:
-				'CREATE INDEX CONCURRENTLY cannot run inside a transaction block: put it in its own file, whose second line is `-- ultimabase no transaction`',
-		})
-		await migrations.apply({
-			kind: 'deploy',
-			files: [
-				file('2_index.sql', 'create index concurrently a_b on a (b);', false),
-			],
-			to,
-		})
-		expect(
-			await query(
-				inSchema(schema),
-				"select indexname from pg_indexes where tablename = 'a'",
-			),
-		).toStrictEqual([{ indexname: 'a_b' }])
 	})
 })
 
@@ -2495,308 +2087,4 @@ describe('a reset on postgres()', () => {
 		expect(remote('postgres:///app')).toBe('db.example.com')
 		vi.unstubAllEnvs()
 	})
-})
-
-const bin = joinPath(import.meta.dirname, '../../ultimabase/src/cli.ts')
-const kernel = pathToFileURL(
-	joinPath(import.meta.dirname, '../../ultimabase/src/index.ts'),
-).href
-const adapterUrl = pathToFileURL(joinPath(import.meta.dirname, 'index.ts')).href
-
-type Ran = { readonly code: number | null; readonly output: string }
-
-/** Runs `ultimabase` in `cwd` until it prints `until` or exits. */
-function ultimabase(
-	cwd: string,
-	args: readonly string[],
-	env: Record<string, string>,
-	until?: string,
-): Promise<Ran> {
-	return new Promise((done, fail) => {
-		const child = spawn(process.execPath, [bin, ...args], {
-			cwd,
-			env: { ...process.env, NO_COLOR: '1', ...env },
-		})
-		let output = ''
-		const read = (chunk: Buffer) => {
-			output += chunk.toString()
-			if (until !== undefined && output.includes(until)) child.kill('SIGTERM')
-		}
-		child.stdout.on('data', read)
-		child.stderr.on('data', read)
-		child.on('error', fail)
-		child.on('exit', (code) => {
-			done({ code, output })
-		})
-	})
-}
-
-const development = () => ({
-	DATABASE_URL: inSchema(schema),
-	NODE_ENV: 'development',
-})
-
-describe('the commands on postgres()', () => {
-	let dir = ''
-	let production = ''
-	beforeEach(async () => {
-		dir = await mkdtemp(joinPath(tmpdir(), 'ultimabase-pg-'))
-		production = `t_${randomUUID().replaceAll('-', '')}`
-		await query(url, `create schema "${production}"`)
-	})
-	afterEach(async () => {
-		await rm(dir, { recursive: true })
-		await query(url, `drop schema "${production}" cascade`)
-	})
-
-	/** Writes `ultimabase.config.ts` with a Locker of `fields`. */
-	const config = async (fields: string) =>
-		writeFile(
-			joinPath(dir, 'ultimabase.config.ts'),
-			[
-				`import { defineApp, defineModel } from '${kernel}'`,
-				`import { postgres } from '${adapterUrl}'`,
-				`const Locker = defineModel({ name: 'Locker', fields: (f) => ({ ${fields} }) })`,
-				`export default defineApp({ database: postgres({ url: process.env.DATABASE_URL ?? '' }), models: [Locker] })`,
-			].join('\n'),
-		)
-	const deployed = () => ({
-		DATABASE_URL: inSchema(production),
-		NODE_ENV: 'production',
-	})
-
-	it('syncs development, refuses what loses data, and writes and deploys migrations', async () => {
-		await config('label: f.string()')
-		const synced = await ultimabase(dir, ['sync'], development())
-		expect(synced).toMatchObject({ code: 0 })
-		expect(synced.output).toContain("Created the database's tables.")
-
-		const unready = await ultimabase(dir, ['start'], deployed())
-		expect(unready.code).toBe(1)
-		expect(unready.output).toBe(
-			'The database has no UltimaBase schema: run `npx ultimabase migrate deploy`, then start again.\n',
-		)
-
-		expect(
-			await ultimabase(dir, ['migrate', 'create', 'init'], {}),
-		).toMatchObject({ code: 0 })
-		const [init = ''] = (await readdir(joinPath(dir, 'migrations'))).toSorted()
-		expect(
-			(await readFile(joinPath(dir, 'migrations', init), 'utf8'))
-				.split('\n')
-				.slice(2),
-		).toStrictEqual([
-			'create table "locker" (',
-			'\t"id" uuid not null,',
-			'\t"created_at" timestamptz not null,',
-			'\t"updated_at" timestamptz not null,',
-			'\t"label" text collate "C" not null,',
-			'\tconstraint "locker_pkey" primary key ("id")',
-			');',
-			'',
-		])
-		const deploy = await ultimabase(dir, ['migrate', 'deploy'], deployed())
-		expect(deploy.code).toBe(0)
-		expect(deploy.output).toMatch(/^Applied \d{14}_init\.sql\.\n$/)
-		const started = await ultimabase(
-			dir,
-			['start'],
-			deployed(),
-			'Application stopped.',
-		)
-		expect(started.output).toContain('Application started.')
-
-		await config('size: f.number({ optional: true })')
-		const stale = await ultimabase(dir, ['migrate', 'deploy'], deployed())
-		expect(stale.code).toBe(1)
-		expect(stale.output).toContain('The models changed after')
-		const behind = await ultimabase(dir, ['start'], deployed())
-		expect(behind.output).toBe(
-			"The database's tables are not the models': run `npx ultimabase migrate deploy`, then start again.\n",
-		)
-		const refused = await ultimabase(dir, ['sync'], development())
-		expect(refused.code).toBe(1)
-		expect(refused.output).toBe(
-			[
-				'UltimaBase did not sync Locker: removing "Locker.label" deletes data.',
-				'  alter table "locker" drop column "label";',
-				'Run `npx ultimabase sync --force` to apply it to this development database,',
-				'or `npx ultimabase migrate create <name>` to write it as a migration.',
-				'',
-			].join('\n'),
-		)
-
-		expect(
-			await ultimabase(dir, ['migrate', 'create', 'size'], {}),
-		).toMatchObject({ code: 0 })
-		const files = (await readdir(joinPath(dir, 'migrations'))).toSorted()
-		const size = files.find((name) => name.endsWith('_size.sql')) ?? ''
-		expect(
-			(await readFile(joinPath(dir, 'migrations', size), 'utf8'))
-				.split('\n')
-				.slice(2),
-		).toStrictEqual([
-			'-- removing "Locker.label" deletes data.',
-			'alter table "locker" drop column "label";',
-			'',
-			'alter table "locker" add column "size" double precision;',
-			'',
-		])
-		const next = await ultimabase(dir, ['migrate', 'deploy'], deployed())
-		expect(next.output).toBe(`Applied ${size}.\n`)
-		const synced2 = await ultimabase(dir, ['migrate', 'deploy'], development())
-		expect(synced2.output).toContain(
-			'Development sync changed this database since its last deploy',
-		)
-	}, 60_000)
-
-	it('fills the rows with a fixed default, in a sync and in a migration', async () => {
-		await config('label: f.string()')
-		await ultimabase(dir, ['sync'], development())
-		await ultimabase(dir, ['migrate', 'create', 'init'], {})
-		await query(
-			inSchema(schema),
-			`insert into locker values (gen_random_uuid(), now(), now(), 'a')`,
-		)
-		await config('label: f.string(), done: f.boolean({ default: false })')
-		const synced = await ultimabase(dir, ['sync'], development())
-		expect(synced.code).toBe(0)
-		expect(synced.output).toContain(
-			'Synced Locker: added done, false in the rows it held.',
-		)
-		expect(
-			await query(inSchema(schema), 'select label, done from locker'),
-		).toStrictEqual([{ label: 'a', done: false }])
-
-		await ultimabase(dir, ['migrate', 'create', 'done'], {})
-		const files = await readdir(joinPath(dir, 'migrations'))
-		const done = files.find((name) => name.endsWith('_done.sql')) ?? ''
-		expect(
-			(await readFile(joinPath(dir, 'migrations', done), 'utf8'))
-				.split('\n')
-				.slice(2),
-		).toStrictEqual([
-			'alter table "locker" add column "done" boolean not null default false;',
-			'',
-		])
-
-		await config(
-			"label: f.string(), done: f.boolean({ default: false }), tags: f.string({ list: true }), kept: f.string({ list: true, default: ['a'] })",
-		)
-		await ultimabase(dir, ['migrate', 'create', 'lists'], {})
-		const named = await readdir(joinPath(dir, 'migrations'))
-		const lists = named.find((name) => name.endsWith('_lists.sql')) ?? ''
-		expect(
-			(await readFile(joinPath(dir, 'migrations', lists), 'utf8'))
-				.split('\n')
-				.slice(2),
-		).toStrictEqual([
-			`alter table "locker" add column "tags" text[] not null default '{}'::text[];`,
-			'-- The stored rows hold an empty "Locker.tags": fill them here if the model needs a value.',
-			'',
-			`alter table "locker" add column "kept" text[] not null default '{"a"}'::text[];`,
-			'',
-		])
-	}, 30_000)
-
-	it('refuses a reset of a database on another machine without --force', async () => {
-		await config('label: f.string()')
-		const refused = await ultimabase(dir, ['reset'], {
-			...development(),
-			DATABASE_URL: 'postgres://u@db.example.com/app',
-		})
-		expect(refused).toStrictEqual({
-			code: 1,
-			output:
-				'reset drops every table, and db.example.com is not this machine: pass --force if it holds a development database.\n',
-		})
-	})
-
-	it('tests a data migration on a copy of production, then deploys it', async () => {
-		await config('label: f.string()')
-		await ultimabase(dir, ['migrate', 'create', 'init'], {})
-		const [init = ''] = (await readdir(joinPath(dir, 'migrations'))).toSorted()
-		const row = `insert into locker (id, created_at, updated_at, label) values (gen_random_uuid(), now(), now(), 'prod row')`
-		await ultimabase(dir, ['migrate', 'deploy'], deployed())
-		await query(inSchema(production), row)
-		// The development schema stands for a restored dump of production.
-		await ultimabase(dir, ['migrate', 'deploy'], development())
-		await query(inSchema(schema), row)
-
-		await config("label: f.string(), kind: f.enumOf(['wood', 'glass'])")
-		const tried = await ultimabase(dir, ['sync'], development())
-		expect(tried).toStrictEqual({
-			code: 1,
-			output: [
-				'UltimaBase did not sync Locker: adding the required "Locker.kind" fails when Locker holds rows: make it optional, or give it a value as its default, not a function.',
-				'  alter table "locker" add column "kind" text collate "C" not null;',
-				'  -- column "kind" of relation "locker" contains null values',
-				'Fix those rows in this development database, or rebuild it from the migrations with `npx ultimabase reset`.',
-				'In production, a migration fixes them: write it with `npx ultimabase migrate create <name>`.',
-				'',
-			].join('\n'),
-		})
-
-		await ultimabase(dir, ['migrate', 'create', 'add_kind'], {})
-		const files = (await readdir(joinPath(dir, 'migrations'))).toSorted()
-		const kind = files.find((name) => name.endsWith('_add_kind.sql')) ?? ''
-		const path = joinPath(dir, 'migrations', kind)
-		const [header = '', ...generated] = (await readFile(path, 'utf8')).split(
-			'\n',
-		)
-		expect(generated.slice(1)).toStrictEqual([
-			'-- adding the required "Locker.kind" fails when Locker holds rows: make it optional, or give it a value as its default, not a function.',
-			'alter table "locker" add column "kind" text collate "C" not null;',
-			'',
-			'-- limiting "Locker.kind" to wood, glass fails when a row holds another value.',
-			`alter table "locker" add constraint "locker_kind_check" check ("kind" in ('wood', 'glass'));`,
-			'',
-		])
-		expect(
-			await ultimabase(dir, ['migrate', 'status'], development()),
-		).toStrictEqual({ code: 1, output: `${kind} is pending.\n` })
-		expect(
-			await ultimabase(dir, ['migrate', 'deploy'], development()),
-		).toStrictEqual({
-			code: 1,
-			output: `${kind} was not applied: column "kind" of relation "locker" contains null values\nThe database rolled it back: fix it, then deploy again.\n`,
-		})
-
-		await writeFile(
-			path,
-			[
-				header,
-				'alter table "locker" add column "kind" text collate "C";',
-				`update "locker" set "kind" = 'glass' where "label" like 'prod%';`,
-				'alter table "locker" alter column "kind" set not null;',
-				`alter table "locker" add constraint "locker_kind_check" check ("kind" in ('wood', 'glass'));`,
-				'',
-			].join('\n'),
-		)
-		expect(
-			await ultimabase(dir, ['migrate', 'deploy'], development()),
-		).toStrictEqual({ code: 0, output: `Applied ${kind}.\n` })
-		expect(
-			await ultimabase(dir, ['migrate', 'status'], development()),
-		).toStrictEqual({ code: 0, output: 'The database is up to date.\n' })
-		const migrated = [{ label: 'prod row', kind: 'glass' }]
-		expect(
-			await query(inSchema(schema), 'select label, kind from locker'),
-		).toStrictEqual(migrated)
-
-		expect(
-			await ultimabase(dir, ['migrate', 'deploy'], deployed()),
-		).toStrictEqual({ code: 0, output: `Applied ${kind}.\n` })
-		expect(
-			await query(inSchema(production), 'select label, kind from locker'),
-		).toStrictEqual(migrated)
-
-		expect(await ultimabase(dir, ['reset'], development())).toStrictEqual({
-			code: 0,
-			output: `Dropped locker.\nApplied ${init}.\nApplied ${kind}.\n`,
-		})
-		expect(
-			await query(inSchema(schema), 'select label from locker'),
-		).toStrictEqual([])
-	}, 60_000)
 })
