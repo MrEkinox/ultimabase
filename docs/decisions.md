@@ -19773,3 +19773,31 @@ Rejected:
 
 - Holding a viewer's writes until it was read again: its messages would wait
   for its turn, up to the 30 s the reads take, for nothing the read changes.
+
+## D-319: A filter on an optional inverse key reads only the set keys
+
+Choice: amends D-73. The `exists` of a relation reached through the key of
+another table, as `featuredBy: { isNot: null }` over `featuredCampaign`, also
+says that key `is not null` when the key is optional. A null key reaches no
+row, so nothing a read returns changes. Inside an `or`, PostgreSQL runs such
+an `exists` once as a hashed subquery that reads the key of every row of the
+other table; with the condition, the key's index reads only the rows that set
+it. Nothing changes for a developer.
+
+Why: measured with a scratch copy of an application's campaign rules, 20 000
+users of whom 200 feature a campaign, 5000 campaigns and 20 000 members, as
+one user reading 25 campaigns and their players, three times each, interleaved:
+
+- The statement: 2.29 to 2.45 ms before, 1.00 to 1.03 ms after, as
+  `explain analyze` reports it, median of 40.
+- The read: p50 4.53, 4.62 and 4.61 ms before, 3.39, 3.51 and 3.45 ms after,
+  of 400 reads each.
+
+The same with 100 000 users: p50 12.38 to 12.49 ms before, 3.44 to 3.54 ms
+after. The cost before grows with the other table's rows; after, with the
+rows that set the key.
+
+Rejected:
+
+- The condition on every inverse key: a required key is never null, and the
+  condition would only lengthen the statement.

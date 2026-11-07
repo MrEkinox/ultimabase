@@ -1,7 +1,8 @@
 // The indexes that serve reads on postgres(), in a test file's own schema,
 // with the results unchanged: a `contains` index's trigrams (D-141), a
 // case-insensitive unique key's lowered column (D-170), and an index over
-// the kernel's `createdAt` (D-174).
+// the kernel's `createdAt` (D-174), and an optional key's index in an `or`
+// (D-319).
 import { testApplication } from '@ultimabase/testing'
 import { Client } from 'pg'
 import { defineApp, defineModel, master } from 'ultimabase'
@@ -24,8 +25,19 @@ const database = createAdapter({
 
 const Book = defineModel({
 	name: 'Book',
-	fields: (f) => ({ title: f.string() }),
+	fields: (f) => ({
+		title: f.string(),
+		featuredBy: f.one(() => Reader, { optional: true, inverse: 'featured' }),
+	}),
 	indexes: [{ fields: ['title'], contains: true }],
+})
+
+const Reader = defineModel({
+	name: 'Reader',
+	fields: (f) => ({
+		name: f.string(),
+		featured: f.one(() => Book, { optional: true, unique: true }),
+	}),
 })
 
 const Account = defineModel({
@@ -71,9 +83,12 @@ async function plan(
 }
 
 describe('the indexes in a test schema', () => {
-	testApplication(defineApp({ database, models: [Book, Account, Message] }), {
-		database: 'declared',
-	})
+	testApplication(
+		defineApp({ database, models: [Book, Reader, Account, Message] }),
+		{
+			database: 'declared',
+		},
+	)
 
 	it("puts pg_trgm's schema after the test schema", async () => {
 		const [row] = await database.sql<{
@@ -161,5 +176,35 @@ describe('the indexes in a test schema', () => {
 			'Index Scan Backward using message_room_created_at_id_idx',
 		)
 		expect(read).not.toContain('Sort')
+	})
+
+	it('reads only the set keys of an optional inverse in an or', async () => {
+		await Book.createMany({ data: [{ title: 'Dune' }, { title: 'Emma' }] }, M)
+		const [dune] = await Book.findMany({ where: { title: 'Dune' } }, M)
+		if (dune === undefined) throw new Error('No book.')
+		await Reader.createMany(
+			{
+				data: [
+					{ name: 'Ann', featured: { connect: { id: dune.id } } },
+					{ name: 'Ben' },
+				],
+			},
+			M,
+		)
+		const featured = async () =>
+			Book.findMany(
+				{
+					where: {
+						OR: [{ featuredBy: { isNot: null } }, { title: 'none' }],
+					},
+					select: { title: true },
+				},
+				M,
+			)
+		expect(await featured()).toStrictEqual([{ title: 'Dune' }])
+		// Without it, the hashed subquery reads every reader's key.
+		expect(await plan(featured)).toContain(
+			'Index Cond: (featured_id IS NOT NULL)',
+		)
 	})
 })
