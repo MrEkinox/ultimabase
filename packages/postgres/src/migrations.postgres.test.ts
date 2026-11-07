@@ -2239,6 +2239,36 @@ describe('a sync or a reset waiting for a lock', () => {
 		}
 	})
 
+	// Its statements run together, then one at a time to name the one that
+	// waited (D-307): that second run must not wait 5s again.
+	it('syncs nothing when another session holds a table past 5s, and names the statement', async () => {
+		await sync(undefined, before)
+		const [was, now] = [migrations.snapshot(before), migrations.snapshot(after)]
+		const alter = 'alter table shelf add column late integer'
+		const holder = await holding()
+		try {
+			const started = Date.now()
+			const failed: unknown = await migrations
+				.apply({
+					kind: 'sync',
+					from: was,
+					statements: [statement(alter)],
+					to: now,
+				})
+				.catch((error: unknown) => error)
+			const waited = Date.now() - started
+			expect(waited).toBeGreaterThanOrEqual(4500)
+			expect(waited).toBeLessThan(7500)
+			expect(failed).toMatchObject({
+				name: 'MigrationFailed',
+				at: alter,
+				locked: true,
+			})
+		} finally {
+			await holder.end()
+		}
+	}, 15_000)
+
 	it('resets nothing when another session holds a table past 5s', async () => {
 		await sync(undefined, before)
 		const holder = await holding()
