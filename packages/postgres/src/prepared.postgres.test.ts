@@ -190,6 +190,8 @@ it('runs on when an aborted transaction refuses to make room', async () => {
 	await shapes(0, preparedStatements)
 	const read = shape(820)
 	await abortedTwice(async () => Note.findMany(read, M))
+	// What it refused to forget goes once the transaction is over.
+	await Note.findMany(read, M)
 	expect(await held()).toHaveLength(preparedStatements)
 	await Note.create({ data: { text: 'still there' } }, M)
 	const where = { text: 'still there' }
