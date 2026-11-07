@@ -58,6 +58,8 @@ type Relay = Sink & {
 	readonly to: (sink: Sink) => void
 	/** Holds what it is sent from now on; `ended` runs if it ends. */
 	readonly park: (ended: () => void) => void
+	/** A resume takes it: what it holds from now on is for its client. */
+	readonly taken: () => void
 }
 
 type Stream = {
@@ -93,19 +95,29 @@ const detached = (request: Request): Request =>
 	new Request(request.url, { headers: request.headers })
 const nothing = (): void => undefined
 
+/**
+ * A list's sink, which holds what is sent while no client takes it. It is
+ * full while parked, so that what it holds costs no more than the window
+ * (D-312).
+ */
 function relayOf(): Relay {
 	let current: Sink | undefined
+	let parked = false
 	let ended = nothing
 	const held: (readonly [string, unknown, number | undefined])[] = []
+	let behind: (() => void) | undefined
 	return {
 		send: (event, data, id) => {
 			if (current === undefined) held.push([event, data, id])
 			else current.send(event, data, id)
 		},
-		full: () => current?.full() ?? false,
+		full: () => current?.full() ?? parked,
 		drained: (then) => {
-			if (current === undefined) then()
-			else current.drained(then)
+			if (current === undefined) {
+				// The window comes whole to the next client, after what was held.
+				held.length = 0
+				behind = then
+			} else current.drained(then)
 		},
 		end: () => {
 			if (current === undefined) ended()
@@ -114,10 +126,17 @@ function relayOf(): Relay {
 		to: (sink) => {
 			current = sink
 			for (const [event, data, id] of held.splice(0)) sink.send(event, data, id)
+			const then = behind
+			behind = undefined
+			if (then !== undefined) sink.drained(then)
 		},
 		park: (then) => {
 			current = undefined
+			parked = true
 			ended = then
+		},
+		taken: () => {
+			parked = false
 		},
 	}
 }
@@ -179,6 +198,7 @@ export async function follow(
 /** Keeps `stream`'s list once its client left, until a resume takes it. */
 function park(live: Live, stream: Stream, handle: LiveHandle, keep: Keep) {
 	const take = () => {
+		stream.relay.taken()
 		clearTimeout(timer)
 		live.kept.delete(keep.token)
 		live.streams.delete(discard)

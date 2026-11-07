@@ -235,10 +235,21 @@ export async function liveStream(
 	let ending = false
 	let done = false
 	// Past what a full buffer takes, messages drop until the window comes whole.
+	// A kept list is full: it holds no more than the window costs (D-312).
 	const backlog = new Backlog()
 	let dropping = false
 	let owed = false
+	let behind = false
 	let handle: LiveHandle | undefined
+	let stream: AsyncIterableIterator<LiveEvent> | undefined
+	const parked = () =>
+		stream !== undefined &&
+		channel.kept.get(keep?.token ?? '')?.stream === stream
+	const resent = () => {
+		dropping = false
+		if (handle === undefined) owed = true
+		else void handle.resend()
+	}
 	const push = (value: LiveEvent) => {
 		const taker = waiting
 		waiting = undefined
@@ -266,14 +277,12 @@ export async function liveStream(
 		// Past that, every message is dropped until the client drains: one resend
 		// then brings it the current state.
 		if (dropping) return
-		if (!backlog.takes(channel.full(), message)) {
+		if (!backlog.takes(parked() || channel.full(), message)) {
 			queue.length = 0
 			dropping = true
-			channel.drained(() => {
-				dropping = false
-				if (handle === undefined) owed = true
-				else void handle.resend()
-			})
+			// The window comes whole to the resume, after what was held.
+			if (parked()) behind = true
+			else channel.drained(resent)
 			return
 		}
 		push(event(message))
@@ -281,8 +290,12 @@ export async function liveStream(
 	const opened = await open(send)
 	handle = opened
 	if (owed) void opened.resend()
-	const stream: AsyncIterableIterator<LiveEvent> = {
+	const own: AsyncIterableIterator<LiveEvent> = {
 		next: async () => {
+			if (behind && !parked()) {
+				behind = false
+				channel.drained(resent)
+			}
 			const value = queue.shift()
 			if (value !== undefined) return { done: false, value }
 			if (done || ending) {
@@ -294,9 +307,7 @@ export async function liveStream(
 			})
 		},
 		return: async () => {
-			if (channel.kept.get(keep?.token ?? '')?.stream === stream) {
-				return finished()
-			}
+			if (parked()) return finished()
 			if (keep === undefined || done || ending || channel.viewer.closed) {
 				end()
 				return finished()
@@ -304,10 +315,11 @@ export async function liveStream(
 			const taker = waiting
 			waiting = undefined
 			taker?.(finished())
-			keepFor(channel, { keep, stream, handle: opened, end })
+			keepFor(channel, { keep, stream: own, handle: opened, end })
 			return finished()
 		},
-		[Symbol.asyncIterator]: () => stream,
+		[Symbol.asyncIterator]: () => own,
 	}
-	return stream
+	stream = own
+	return own
 }
