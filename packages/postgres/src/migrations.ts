@@ -1,8 +1,14 @@
 // How a PostgreSQL database follows the models (D-105): the snapshot its
 // tables match in `ultimabase_schema`, the files `migrate deploy` applied in
 // `ultimabase_migrations`, and every change under one advisory lock.
-import type { Kysely, QueryExecutorProvider, Transaction } from 'kysely'
+import type {
+	Kysely,
+	QueryExecutorProvider,
+	RawBuilder,
+	Transaction,
+} from 'kysely'
 import { sql } from 'kysely'
+import { setTimeout as pause } from 'node:timers/promises'
 import { parse } from 'pg-connection-string'
 import type { Migration, Run, Stored } from 'ultimabase'
 import { isLocalHost, MigrationFailed, Refused } from 'ultimabase'
@@ -26,17 +32,34 @@ const bookkeeping = [
  */
 const lockTimeout = '5s'
 
+/** How long a sync or deploy that waits leaves between two tries of the lock. */
+const tryEvery = 100
+
 /**
- * Runs `run` in a transaction that holds the schema's lock, which it waits
- * for as long as another sync or deploy holds it.
+ * Waits for the schema's lock, as long as another sync or deploy holds it, a
+ * try at a time (D-291): a statement waiting for it would hold a snapshot, and
+ * `create index concurrently` waits for older snapshots while holding the lock.
  */
+async function acquired(
+	db: QueryExecutorProvider,
+	attempt: RawBuilder<{ got: boolean }>,
+): Promise<void> {
+	const got = async () => {
+		const { rows } = await attempt.execute(db)
+		return rows.some((row) => row.got)
+	}
+	while (!(await got())) await pause(tryEvery)
+}
+
+/** Runs `run` in a transaction that holds the schema's lock. */
 async function locked(
 	db: Kysely<object>,
 	run: (trx: Transaction<object>) => Promise<void>,
 ): Promise<void> {
 	await db.transaction().execute(async (trx) => {
-		await sql`select pg_advisory_xact_lock(hashtext(current_schema()))`.execute(
+		await acquired(
 			trx,
+			sql`select pg_try_advisory_xact_lock(hashtext(current_schema())) as got`,
 		)
 		// A file may set its own, with `set local lock_timeout`.
 		await sql.raw(`set local lock_timeout = '${lockTimeout}'`).execute(trx)
@@ -196,8 +219,9 @@ const done = (db: Kysely<object>, file: Migration) =>
  */
 async function outside(db: Kysely<object>, file: Migration): Promise<void> {
 	await db.connection().execute(async (session) => {
-		await sql`select pg_advisory_lock(hashtext(current_schema()))`.execute(
+		await acquired(
 			session,
+			sql`select pg_try_advisory_lock(hashtext(current_schema())) as got`,
 		)
 		try {
 			for (const statement of bookkeeping) await statement.execute(session)
