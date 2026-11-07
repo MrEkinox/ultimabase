@@ -87,8 +87,11 @@ async function started(example: string): Promise<{
 }
 
 describe.concurrent('starting', () => {
+	// Each one starts Node, which `yarn validate`'s parallel runs slow past the
+	// default five seconds.
 	it.each(examples.filter((example) => !onPostgres(example)))(
 		'%s starts, then stops on SIGTERM',
+		{ timeout: 30_000 },
 		async (example) => {
 			const { output, code, signal } = await started(example)
 			expect(output).toContain('Listening on')
