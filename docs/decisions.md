@@ -17981,7 +17981,7 @@ Campaign at 1 000 writes a second: told p50 from 2 017 to 47 ms, and it holds; 1
 
 ## D-264: A composed statement is prepared once per connection
 
-Amended by D-274.
+Amended by D-274, D-293.
 
 Choice: amends D-47. Nothing changes in a developer's code.
 
@@ -18931,3 +18931,49 @@ The check of a free port leaves a moment between it and the listening, so two
 processes starting that same instant could share a port. Rejected: asking the
 system whether anything holds the port, which is no less of a race and much more
 code.
+
+## D-293: A connection keeps the statements used last
+
+Choice: a connection keeps prepared the 500 statements it used last, and a
+statement takes room only once asked again. Before, the first 500 kept their
+room until a restart, and anything after them ran unprepared. This amends point
+3 of D-264 and changes nothing in a developer's code.
+
+One visitor could use that up in 1.6 seconds with 500 public requests, each
+filtering on another set of fields, and every later statement of the same
+server then cost a planning. Medians in ms, PostgreSQL 18, one process, fresh
+against after those 500 requests:
+
+|                    | Fresh | After, before this | After, now |
+| ------------------ | ----: | -----------------: | ---------: |
+| Read by id         | 0.715 |              0.904 |      0.729 |
+| List of 25, nested | 0.896 |              1.055 |      0.911 |
+| Create             | 0.806 |              1.046 |      0.826 |
+| Update             | 0.813 |              1.122 |      0.830 |
+
+An application with more than 500 statements in real use met the same wall
+without any visitor: whichever came first stayed.
+
+1. Each connection keeps its own list, oldest first. Past 500 it has PostgreSQL
+   forget the oldest with `deallocate`, and `pg` too, as `pg` otherwise keeps the
+   text. A name is never reused: `pg` refuses a name with another text.
+2. A statement runs prepared once it is asked again among the last 500 composed,
+   counted for the process. Taking room at the first ask alone lost 15 % on a
+   loop over 800 statements (4053 down to 3439 requests a second), as every ask
+   then planned and spent a `deallocate`. With the second ask it holds 4058.
+   Long lists past 64 parameters still stay unprepared.
+3. Only what `pg` saw parsed is forgotten. A statement whose parsing failed in an
+   aborted transaction does not exist, and forgetting it would abort the healthy
+   transaction it happens in.
+4. An aborted transaction refuses the `deallocate`. That statement then stays
+   until the connection ends, which takes a transaction that has failed and has
+   queries still running in it.
+5. This reads the internal `connection.parsedStatements` of `pg`. Should `pg`
+   rename it, statements stop being forgotten and the backend holds more, with
+   nothing failing. The tests would catch it: they count the backend's list.
+
+An attacker who sends each shape twice still takes room, but only for as long as
+that room is the oldest. The statements in real use are used last, so they stay.
+While 5 callers did that, a read by id took 1.20 ms against 1.22 ms before this,
+and the attacker's own rate fell from 1300 to 1090 shapes a second for the extra
+trip. The ordinary case does not move: read by id 0.72 ms, update 0.82 ms.
