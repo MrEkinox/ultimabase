@@ -198,6 +198,19 @@ costs about 1 ms a row, and a production table has them.
 
 ## Runs
 
+### 2026-11-07: a virtual field's row costs less to keep
+
+`virtuals.ts --rule-names-nobody --subscribers 1000 --windows 1000 --writes 10`, one list, two
+passes where given; times in ms. One-shot `hash` for a row's print, and no sets or lists a row
+when no rule hides anything.
+
+| Change      |        p50 |        p99 | Last message |
+| ----------- | ---------: | ---------: | -----------: |
+| Neither     | 2571, 2592 | 5048, 5129 |   5048, 5104 |
+| Hash only   |       2192 |       4323 |         4284 |
+| Hidden only |       2172 |       4280 |         4263 |
+| Both        | 1798, 1795 | 3532, 3545 |   3513, 3510 |
+
 ### 2026-11-07: the reads of virtual fields shared in a flush (D-295)
 
 `node --expose-gc --max-old-space-size=24576 bench/realtime/virtuals.ts --rule-names-nobody`,
