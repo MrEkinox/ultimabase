@@ -78,6 +78,8 @@ type Case = {
 	readonly run: (prepared: string) => Promise<unknown>
 }
 
+const thousand = Array.from({ length: 1000 }, () => ({ label: 'genre' }))
+
 function cases(seed: Seed): Case[] {
 	let linked = 0
 	return [
@@ -159,6 +161,10 @@ function cases(seed: Seed): Case[] {
 					},
 					M,
 				),
+		},
+		{
+			name: 'createMany, 1000 rows',
+			run: async () => Genre.createMany({ data: thousand }, M),
 		},
 		{
 			name: 'create, an afterCreate hook',

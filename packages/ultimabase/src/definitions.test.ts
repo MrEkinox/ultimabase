@@ -612,4 +612,18 @@ describe('uuidv7 (D-22)', () => {
 		expect(ids.toSorted()).toEqual(ids)
 		expect(new Set(ids).size).toBe(ids.length)
 	})
+
+	it('writes the time, the version, the counter and the variant', () => {
+		const time = Date.UTC(2101, 0, 1)
+		vi.spyOn(Date, 'now').mockReturnValue(time)
+		const first = uuidv7()
+		const second = uuidv7()
+		const form =
+			/^([0-9a-f]{8})-([0-9a-f]{4})-7([0-9a-f]{3})-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/
+		const [, high = '', low = '', counter] = form.exec(first) ?? []
+		expect(Number.parseInt(high + low, 16)).toBe(time)
+		expect(counter).toBe('000')
+		expect(form.exec(second)?.[3]).toBe('001')
+		expect(second.slice(19)).not.toBe(first.slice(19))
+	})
 })

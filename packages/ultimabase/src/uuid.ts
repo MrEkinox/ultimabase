@@ -17,25 +17,11 @@ export function uuidv7(): string {
 		}
 		time = lastTime
 	}
-	const bytes = new Uint8Array(16)
-	crypto.getRandomValues(bytes)
-	for (let index = 5; index >= 0; index -= 1) {
-		bytes[index] = time % 256
-		time = Math.floor(time / 256)
-	}
-	bytes[6] = 0x70 | (counter >> 8)
-	bytes[7] = counter & 0xff
-	bytes[8] = 0x80 | ((bytes[8] ?? 0) & 0x3f)
-	const hex = Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0'))
-	return [
-		hex.slice(0, 4),
-		hex.slice(4, 6),
-		hex.slice(6, 8),
-		hex.slice(8, 10),
-		hex.slice(10, 16),
-	]
-		.map((part) => part.join(''))
-		.join('-')
+	const stamp = time.toString(16).padStart(12, '0')
+	const count = counter.toString(16).padStart(3, '0')
+	// A v4's last 62 bits are random as a v7's are, and Node draws them from a
+	// block of entropy it keeps, where 16 bytes of our own each cost a native call.
+	return `${stamp.slice(0, 8)}-${stamp.slice(8)}-7${count}${crypto.randomUUID().slice(18)}`
 }
 
 const made = new WeakMap<object, string>()
