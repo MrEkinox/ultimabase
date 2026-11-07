@@ -86,7 +86,9 @@ export async function following(
 	let keys = window.lastKeys()
 	for (;;) {
 		const take = missing - entries.length + 1
-		const after = keys && afterKeys(model, keys, plan.orderBy)
+		const after =
+			keys &&
+			(loader?.past(model, plan, keys) ?? afterKeys(model, keys, plan.orderBy))
 		const rows = await rowsAfter(model, plan, after, take, loader)
 		for (const row of rows) {
 			if (held.has(row.id) || gone.has(row.id) || seen.has(row.id)) continue

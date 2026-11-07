@@ -2,7 +2,7 @@
 // each changed row, the rows related to it, the pages after a window's last.
 import type { Filter, Row } from 'ultimabase'
 import type { LivePlan, SharedReads } from 'ultimabase/internal'
-import { storedRows } from 'ultimabase/internal'
+import { afterKeys, storedRows } from 'ultimabase/internal'
 import { Held, keyOf } from './needs.ts'
 import type { Step } from './reach.ts'
 
@@ -47,6 +47,16 @@ type Holding = Promise<ReadonlyMap<string, Held> | undefined>
 /** Each plan's pages, keyed once rather than on each read. */
 const pages = new WeakMap<LivePlan, string>()
 
+const baseOf = (model: string, plan: LivePlan): string => {
+	const base =
+		pages.get(plan) ?? JSON.stringify([model, plan.filter, plan.orderBy])
+	pages.set(plan, base)
+	return base
+}
+
+/** The filters past some sort keys, by the keys' values one after another. */
+type Past = { readonly by: Map<unknown, Past>; filter?: Filter }
+
 /**
  * Each changed row, read once per flush whatever reads it, and each page
  * of rows after a window's last, once for the live reads that share it.
@@ -54,7 +64,12 @@ const pages = new WeakMap<LivePlan, string>()
 export class Loader {
 	/** Each row by id: kept whole, or the one read that brings it. */
 	readonly #rows = new Map<string, Map<string, Row | Reading>>()
-	readonly #pages = new Map<string, Promise<readonly Row[]>>()
+	/** Each page by the filter it follows, or its plan's key, then its size. */
+	readonly #pages = new Map<
+		Filter | string,
+		Map<number, Promise<readonly Row[]>>
+	>()
+	readonly #past = new Map<string, Past>()
 	readonly #reaching = new Map<string, Promise<readonly string[] | undefined>>()
 	/** The root rows each written row leads to, walked for every read (D-258). */
 	readonly #led = new Map<string, ReadonlyMap<string, readonly string[]>>()
@@ -85,8 +100,27 @@ export class Loader {
 	}
 
 	/**
-	 * The first stored rows of `plan`'s own filter that pass `after`, whose rows
-	 * `load` then gives.
+	 * The filter of the rows past `keys` in `plan`'s order, built once a flush
+	 * for the live reads whose windows end at the same keys (D-288).
+	 */
+	past(model: string, plan: LivePlan, keys: readonly unknown[]): Filter {
+		const base = baseOf(model, plan)
+		let node = this.#past.get(base) ?? { by: new Map<unknown, Past>() }
+		this.#past.set(base, node)
+		for (let at = 0; at < plan.orderBy.length; at += 1) {
+			const key = keys[at]
+			const value = key instanceof Date ? key.getTime() : key
+			const next = node.by.get(value) ?? { by: new Map<unknown, Past>() }
+			node.by.set(value, next)
+			node = next
+		}
+		node.filter ??= afterKeys(model, keys, plan.orderBy)
+		return node.filter
+	}
+
+	/**
+	 * The first stored rows of `plan`'s own filter that pass `after`, from
+	 * `past` when there is one, whose rows `load` then gives.
 	 */
 	async after(
 		model: string,
@@ -95,10 +129,11 @@ export class Loader {
 		take: number,
 	): Promise<readonly Row[]> {
 		const { filter, orderBy } = plan
-		const base = pages.get(plan) ?? JSON.stringify([model, filter, orderBy])
-		pages.set(plan, base)
-		const key = `${base} ${JSON.stringify(after)} ${take}`
-		let found = this.#pages.get(key)
+		const at = after ?? baseOf(model, plan)
+		const sizes =
+			this.#pages.get(at) ?? new Map<number, Promise<readonly Row[]>>()
+		this.#pages.set(at, sizes)
+		let found = sizes.get(take)
 		if (found === undefined) {
 			const where = both(filter, after)
 			found = storedRows(model, {
@@ -106,7 +141,7 @@ export class Loader {
 				orderBy,
 				take,
 			})
-			this.#pages.set(key, found)
+			sizes.set(take, found)
 			this.keep(model, await found)
 		}
 		return found
