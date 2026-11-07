@@ -69,6 +69,8 @@ function disable(copy: string): Expected[] {
 	return expected
 }
 
+// It runs the compiler, which `yarn validate`'s parallel runs slow past the
+// default five seconds.
 test('every refusal of the prototype fails with its recorded message', async () => {
 	const copy = mkdtempSync(join(root, 'node_modules/.type-errors-'))
 	try {
@@ -104,4 +106,4 @@ test('every refusal of the prototype fails with its recorded message', async () 
 	} finally {
 		rmSync(copy, { recursive: true })
 	}
-})
+}, 30_000)
