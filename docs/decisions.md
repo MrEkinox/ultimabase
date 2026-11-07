@@ -18594,3 +18594,17 @@ A short test stays as it is:
 const ticket = await Ticket.create({ data: { title: '  Printer jam ' } }, as)
 expect(ticket.title).toBe('Printer jam')
 ```
+
+## D-290: A client's bad frame closes its socket, not the server
+
+Choice: internal, nothing changes for a developer. A WebSocket that receives an invalid frame, or one past `maxPayload`, emits
+`error`. `sockets.ts` listened to nothing on it, so the error went uncaught and
+stopped the process: a client needed no account, only the origin check, and two
+bytes, to stop a server with a realtime model. Every release since 0.1.0 has it.
+
+The server's socket now listens to `error` and does nothing more. `ws` has
+already closed that socket with the code for it (1002, 1007, 1009), and `close`
+ends its subscriptions as for any other client.
+
+Nothing is logged: the frame is the client's fault, it says nothing of the
+server, and a log line would hand a stranger a way to fill the logs.

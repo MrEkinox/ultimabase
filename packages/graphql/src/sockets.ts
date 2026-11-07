@@ -25,6 +25,7 @@ import type { RawData, WebSocket } from 'ws'
 import { WebSocketServer } from 'ws'
 import type { Caller, Client, Logger } from 'ultimabase'
 import { PublicError } from 'ultimabase'
+import { cookiesOf } from './upgrade-cookies.ts'
 import type { formatter } from './errors.ts'
 import type { Channel } from './live-stream.ts'
 import {
@@ -72,27 +73,6 @@ type Extra = {
 const maxBuffer = 1024 * 1024
 /** Between pings; a socket that has not answered the last one is cut. */
 const keepAlive = 12_000
-
-const unset = () => {
-	throw new Error('A cookie is set over HTTP: a WebSocket cannot set one.')
-}
-
-/** The upgrade request's cookies, which a WebSocket cannot set. */
-function cookiesOf(request: Request): Client['cookies'] {
-	const cookies = new Map<string, string>()
-	for (const part of (request.headers.get('cookie') ?? '').split(';')) {
-		const at = part.indexOf('=')
-		if (at <= 0) continue
-		const name = part.slice(0, at).trim()
-		if (cookies.has(name)) continue
-		try {
-			cookies.set(name, decodeURIComponent(part.slice(at + 1).trim()))
-		} catch {
-			// A value that is no URI component is no cookie this API wrote.
-		}
-	}
-	return { get: (name) => cookies.get(name), set: unset, clear: unset }
-}
 
 // What makes two subscriptions run an event alike, by their contexts: their
 // documents may be one (D-268).
@@ -334,6 +314,9 @@ export function serveSockets(
 	const beats = new WeakMap<WebSocket, () => void>()
 	const opened = (socket: WebSocket, upgrade: Upgrade) => {
 		const extra: Extra = { upgrade, socket }
+		// A client's bad frame (D-290): `ws` has closed its socket with the right
+		// code, and an `error` nobody listens to would stop the whole server.
+		socket.on('error', () => undefined)
 		let alive = true
 		socket.on('pong', () => {
 			alive = true
