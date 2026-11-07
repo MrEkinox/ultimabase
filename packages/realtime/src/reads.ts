@@ -3,6 +3,7 @@
 import type { Filter, Row } from 'ultimabase'
 import type { Judge, LivePlan } from 'ultimabase/internal'
 import {
+	afterKeys,
 	inMemory,
 	liveSchema,
 	matches,
@@ -12,9 +13,10 @@ import {
 import type { Finder } from './affected.ts'
 import { loosened } from './levels.ts'
 import type { Loader } from './loader.ts'
-import { among, page, through } from './loader.ts'
+import { among, both, through } from './loader.ts'
 import { modelsOf } from './reach.ts'
 import { possible } from './needs.ts'
+import type { Keys, Window } from './window.ts'
 
 /**
  * Finds root rows of `model`, read once per flush for every live read that
@@ -37,28 +39,67 @@ export const finderOf =
 	}
 
 /**
- * The stored rows after `last`, from the plan's `where` and in order: from the
- * flush's read of the read's own filter when its rights, checked in memory,
- * leave enough.
+ * The stored rows that pass `after`, from the plan's `where` and in order: from
+ * the flush's read of the read's own filter when its rights, checked in memory,
+ * leave enough. Fewer than `take` are all there are.
  */
-export async function rowsAfter(
+async function rowsAfter(
 	model: string,
 	plan: LivePlan,
-	last: string | undefined,
+	after: Filter | undefined,
 	take: number,
 	loader?: Loader,
 ): Promise<readonly Row[]> {
 	const { where, rights, orderBy } = plan
 	if (loader !== undefined && inMemory(model, rights)) {
-		const rows = await loader.after(model, plan, last, take)
+		const rows = await loader.after(model, plan, after, take)
 		const kept = rows.filter((row) => matches(model, row, rights))
 		if (kept.length >= take || rows.length < take) return kept.slice(0, take)
 	}
+	const filter = both(where, after)
 	return storedRows(model, {
-		...(where && { where }),
-		...page(orderBy, last, take),
+		...(filter && { where: filter }),
+		orderBy,
+		take,
 		fields: orderBy.map(({ field }) => field),
 	})
+}
+
+/**
+ * The rows that follow a window, from the keys it holds rather than from what
+ * its last row has become, which a flush has yet to tell (D-288), and whether
+ * more follow. A row it holds elsewhere is one that flush will place; a row
+ * `gone` is one this flush just refused, which its page may still bring.
+ */
+export async function following(
+	model: string,
+	plan: LivePlan,
+	window: Window,
+	gone: ReadonlySet<string>,
+	entry: (row: Row) => Keys,
+	loader?: Loader,
+): Promise<{ readonly entries: readonly Keys[]; readonly rest: boolean }> {
+	const missing = window.missing()
+	const held = window.ids()
+	const seen = new Set<string>()
+	const entries: Keys[] = []
+	let keys = window.lastKeys()
+	for (;;) {
+		const take = missing - entries.length + 1
+		const after = keys && afterKeys(model, keys, plan.orderBy)
+		const rows = await rowsAfter(model, plan, after, take, loader)
+		for (const row of rows) {
+			if (held.has(row.id) || gone.has(row.id) || seen.has(row.id)) continue
+			if (entries.length === missing) return { entries, rest: true }
+			seen.add(row.id)
+			entries.push(entry(row))
+		}
+		const last = rows.at(-1)
+		if (last === undefined || rows.length < take) {
+			return { entries, rest: false }
+		}
+		keys = entry(last)
+	}
 }
 
 /** What a row answers alone of a filter, and the conditions it can't. */

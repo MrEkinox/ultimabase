@@ -29,6 +29,7 @@ export { recording, recordingVirtuals } from './recorder.ts'
 export { required, SharedReads } from './live-shared.ts'
 export type { Judge, LivePlan, LiveReader } from './live.ts'
 export {
+	afterKeys,
 	inMemory,
 	liveSchema,
 	livePlan,

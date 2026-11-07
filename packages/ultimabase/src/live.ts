@@ -10,6 +10,7 @@ import type {
 	Row,
 	Schema,
 } from './adapter.ts'
+import { decimalOf } from './decimal.ts'
 import { contextOf } from './engine.ts'
 import { decoded, isRow } from './field-codec.ts'
 import { Reader } from './memory-read.ts'
@@ -289,4 +290,42 @@ export function sortKeys(
 		}
 		return sortable(row[order.field] ?? null, reader.field(model, order.field))
 	})
+}
+
+/**
+ * The rows after `keys`, which `sortKeys` gave, in `orderBy`, whatever became
+ * of the row they were read from: past the key, or at it with the next key
+ * deciding, `null` where it sorts, as `compareKeys` (D-288).
+ */
+export function afterKeys(
+	model: string,
+	keys: readonly unknown[],
+	orderBy: readonly Order[],
+): Filter {
+	const reader = readerOf(started())
+	let after: Filter | undefined
+	for (const [at, order] of [...orderBy.entries()].toReversed()) {
+		const { field, direction } = order
+		const key = keys[at] ?? null
+		const known = reader.field(model, field)
+		const value =
+			typeof key === 'bigint' && known?.kind === 'scalar'
+				? decimalOf(key, known.scale ?? 0)
+				: key
+		const nullsLast =
+			(order.nulls ?? (direction === 'asc' ? 'last' : 'first')) === 'last'
+		const past: Filter[] =
+			value === null
+				? nullsLast
+					? []
+					: [{ [field]: { not: null } }]
+				: [
+						{ [field]: direction === 'asc' ? { gt: value } : { lt: value } },
+						...(nullsLast ? [{ [field]: { equals: null } }] : []),
+					]
+		const same: Filter = { [field]: { equals: value } }
+		const tie = after && { AND: [same, after] }
+		after = { OR: [...past, ...(tie ? [tie] : [])] }
+	}
+	return after ?? {}
 }

@@ -17,7 +17,7 @@ import { passing } from './levels.ts'
 import type { Reach } from './reach.ts'
 import { modelsOf } from './reach.ts'
 import { Loader } from './loader.ts'
-import { finderOf, judgeOf, pass, rowsAfter } from './reads.ts'
+import { finderOf, judgeOf, pass, following } from './reads.ts'
 import type { Spec } from './messages.ts'
 import type { Waited } from './tasks.ts'
 import { Tasks } from './tasks.ts'
@@ -169,14 +169,14 @@ export class Live {
 		return sortKeys(this.#spec.model, row, this.#plan.orderBy).concat(undefined)
 	}
 
-	async #refill(loader?: Loader): Promise<void> {
-		const missing = this.#window.missing()
-		if (missing <= 0) return
+	async #refill(gone: ReadonlySet<string>, loader?: Loader): Promise<void> {
+		const window = this.#window
+		if (window.missing() <= 0) return
+		const plan = this.#plan
+		const entry = (row: Row) => this.#entry(row)
 		const { model } = this.#spec
-		const last = this.#window.last()
-		const rows = await rowsAfter(model, this.#plan, last, missing + 1, loader)
-		const entries = rows.slice(0, missing).map((row) => this.#entry(row))
-		this.#window.fill(entries, rows.length > missing)
+		const next = await following(model, plan, window, gone, entry, loader)
+		window.fill(next.entries, next.rest)
 	}
 
 	async #counted(): Promise<number> {
@@ -224,7 +224,7 @@ export class Live {
 	}> {
 		const nodes = this.#virtuals.taken()
 		for (let round = 0; round < 3; round += 1) {
-			await this.#refill(loader)
+			await this.#refill(gone, loader)
 			const moves = this.#window.moves(again)
 			const unread = moves.placed.flatMap(({ id }) =>
 				nodes.has(id) ? [] : [id],

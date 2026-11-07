@@ -18787,6 +18787,41 @@ Rejected:
   say which of ours are alive.
 - A default statement timeout: it would end long queries that work today, a change of behaviour.
 
+## D-288: A live list refills from the keys it holds
+
+Choice: no developer's code changes. A live list's copy could stay wrong for good after concurrent
+writes, with rows missing, out of order or `hasMore` false; it now always ends equal to a fresh read.
+
+The window refilled with `cursor: { id: last }, skip: 1`. An adapter finds a cursor row's place from
+what the database says now, and a database runs ahead of the flush that reads it: a write of another
+process, or a `grow` during a burst, has not been told yet. So a window whose last row had moved read
+from that row's new place and skipped what lay between, and one whose last row was deleted read
+nothing and believed the list had ended. No later change repaired it.
+
+1. A refill reads strictly after the sort keys the window holds for its last row, a filter of
+   `afterKeys` in the adapter's own terms: past the key, or at it with the next key deciding, `null`
+   where it sorts. Every adapter runs it, unchanged.
+2. A row the window holds elsewhere is skipped, as the flush to come places it. So is a row this
+   flush has just refused. When a page brings only such rows, the read goes on after it.
+3. Each read is right but for writes after it, and each of those writes brings a later flush that
+   reads the row again, so the window ends right.
+
+The public `cursor` keeps its meaning: it names a row, and starts from where that row is.
+
+Measured with an uncommitted script, on PostgreSQL 18: 2 processes, 4 writers each, lists opening,
+growing and closing during the writes, 22 kinds of write under rules through relations, then 30 s
+of quiet and a comparison of every copy with a fresh read as its caller. Before: 2 to 4 wrong copies
+within the first three rounds of 5 s. After: none over 6 rounds on each seed.
+
+Left as it is: under a script writing 700 times a second on a handful of rows, a flush can judge a
+row refused while a page it just read brings it, because the flush's shared reads are older or the
+right really changed. The list logs `it reads again`, reads whole and stays right.
+
+Rejected:
+
+- Having adapters resolve a vanished cursor: it fixes the deletion only, not the moved row.
+- Reading the refused rows again without the flush's shared reads: the logs above stayed.
+
 ## D-290: A client's bad frame closes its socket, not the server
 
 Choice: internal, nothing changes for a developer. A WebSocket that receives an invalid frame, or one past `maxPayload`, emits

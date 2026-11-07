@@ -67,6 +67,10 @@ export const storedValue = (value: unknown, field: Digited): unknown =>
 export const unitsOf = (value: string, scale: number): bigint =>
 	scaled(exact(value), scale)
 
+/** The decimal string of `units` at `scale`, as `unitsOf` read it. */
+export const decimalOf = (units: bigint, scale: number): string =>
+	text(units, scale)
+
 /** The exact sum of decimal strings, at `scale`. */
 export function sumDecimals(values: readonly string[], scale: number): string {
 	const total = values.reduce((sum, value) => sum + unitsOf(value, scale), 0n)

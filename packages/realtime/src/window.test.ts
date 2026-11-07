@@ -5,10 +5,10 @@ import { Window } from './window.ts'
 it('keeps one row more than it shows, then says rows follow', () => {
 	const window = new Window([{ field: 'id', direction: 'asc' }], 1)
 	for (const id of ['c', 'a', 'b']) window.place([id])
-	expect([window.shown(), window.last()]).toEqual([['a'], 'b'])
+	expect([window.shown(), window.lastKeys()]).toEqual([['a'], ['b']])
 	expect(window.rest).toBe(true)
 	window.place(['d'])
-	expect([window.shown(), window.last()]).toEqual([['a'], 'b'])
+	expect([window.shown(), window.lastKeys()]).toEqual([['a'], ['b']])
 })
 
 it('keeps its ids as rows are placed, pushed out and removed', () => {

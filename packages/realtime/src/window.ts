@@ -99,9 +99,9 @@ export class Window {
 		return changed
 	}
 
-	/** The id of the last entry, the one past those shown if any. */
-	last(): string | undefined {
-		return this.#idAt(-1)
+	/** The keys of the last entry, the one past those shown if any. */
+	lastKeys(): Keys | undefined {
+		return this.#entries.at(-1)
 	}
 
 	/** The ids of the rows a client shows. */
