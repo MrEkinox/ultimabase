@@ -207,6 +207,12 @@ export function createAdapter(options: Options): Postgres {
 				connectionTimeoutMillis: wait,
 				// A pooler may share connections: nothing there is sent ahead (D-297).
 				pipeline: options.prepared !== false,
+				// Opening a connection costs ten reads: a quiet server keeps its
+				// own, watched by the system, and a script ends without them (D-298).
+				idleTimeoutMillis: 300_000,
+				keepAlive: true,
+				keepAliveInitialDelayMillis: 1000,
+				allowExitOnIdle: true,
 			})
 			// A connection the server ends would crash the process unheard. An
 			// idle one the pool drops, and the next query opens another; one a

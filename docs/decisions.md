@@ -18751,6 +18751,8 @@ Rejected:
 
 ## D-287: A silent database is noticed
 
+Amended by D-298.
+
 Choice: no developer's code changes, and no option. When a network fails with no one told, such as
 a failover moving the database's address or a firewall dropping a connection, realtime comes back
 and waiting requests fail within about 20 s, instead of freezing with no sign until a restart.
@@ -19116,3 +19118,60 @@ in flight, a stop under 30 ms. A soak of 5 minutes kept its heap flat at 99 MB.
 Rejected for now: sending COMMIT with the last write as well. It saves another
 round trip, but what runs after that write, a selected virtual field for one,
 could no longer undo it.
+
+## D-298: A quiet server keeps its connections
+
+Choice: the pool keeps an idle connection for 5 minutes instead of the driver's
+10 s, asks the system to probe it from 1 s of silence on, and does not hold the
+process open for it. This reverses a reason D-287 gave for rejecting `keepAlive`:
+that the pool closes idle connections within 10 s.
+
+Opening a connection costs about ten reads: TCP, SCRAM, `set jit = off`, and the
+statements prepared again. A server that gets a request every 15 s paid that on
+every one of them, and every connection paid it after a pause.
+
+1. `idleTimeoutMillis: 300_000`. Five minutes, not one: a pause of a few minutes
+   is an ordinary pause on a small application. A longer one changes little for
+   the server and holds the connections longer.
+2. `keepAlive: true`, `keepAliveInitialDelayMillis: 1000`. Under Linux a socket
+   whose peer vanished then fails by itself, and the pool drops it. A delay of
+   10 s measured a window above 17 s.
+3. `allowExitOnIdle: true`. Nothing else in the pool holds a script open now:
+   without it, a script that forgets `stop()` would wait 5 minutes.
+
+Measured, 4 runs of 11 s pauses, median in ms, no TLS:
+
+| Case                              | Before | After |
+| --------------------------------- | ------ | ----- |
+| Next door, warm read              | 0.76   | 0.78  |
+| Next door, first read after pause | 11.51  | 2.52  |
+| Next door, 16 reads after pause   | 22.71  | 6.28  |
+| 2 ms away, warm read              | 3.48   | 3.48  |
+| 2 ms away, first read after pause | 22.00  | 5.11  |
+| 2 ms away, 16 reads after pause   | 35.74  | 11.50 |
+
+A script that forgets `stop()` ended 10.00 s after its last read, and now 0.00 s.
+
+The database moving to another address without a word, no realtime, a read some
+seconds after the connection's last use: it hangs until 8 s and answers from 12 s
+before, it hangs until 12 s and answers from 14 s now. The read answers in 11 to
+13 ms from there on, up to 62 s measured. So the blind window goes from about 10 s
+to about 13 s. A statement sent inside it waits for the operating system, as it
+did (D-287). A database restarted answers in 17 ms either way.
+
+What this costs, and to whom:
+
+- The server holds up to `connections` idle backends for 5 minutes, 1.5 MB each
+  when fresh and 6 MB after 50 prepared statements. Several processes sharing a
+  small `max_connections` overlap more than they did.
+- A database that suspends when nobody is connected suspends up to 5 minutes later.
+- A proxy that answers probes for a database gone silently hides it, which is why
+  D-287 rejected this. An idle connection may then stay stale for 5 minutes and a
+  statement sent on it hangs. Not tested through a proxy. With realtime, the
+  listener still cuts it within about 30 s.
+- A probe a second on each idle connection, about 114 MB a day at most for 10 of
+  them, computed and not measured.
+
+Rejected: a ping from the application when there is no realtime. It would cover
+the proxy case by adding the timer D-287 keeps to the listener, for a limit a
+public statement timeout would close more directly.
