@@ -19313,3 +19313,32 @@ Rejected:
   job may make no read at all.
 - Running the waiting runs before the instance stops: 2000 waiting runs
   would hold the stop for as long as they take.
+
+## D-303: `diskFiles()` writes an upload 1 MiB at a time
+
+Choice: `diskFiles()` reads 16 chunks of an upload ahead, about 1 MiB as a
+socket gives 64 KiB chunks, and writes its file through a 1 MiB buffer.
+`s3()`, `memoryFiles()` and the upload route do not change. Nothing changes
+for a developer of an application.
+
+Why: it read one chunk ahead and wrote through Node's 16 KiB buffer, so the
+socket waited on each write, and an upload reached half to two thirds of
+what a bare `node:http` server writing the same body to disk reaches.
+
+Measured with curl uploading to the HTTP plugin on the memory adapter,
+`time_total` against a bare `node:http` server, three interleaved runs of
+each, before and after: a 5 MB file 391 to 444 MB/s before, 525 to 560 MB/s
+after; a 200 MB file 771 to 856 MB/s before, 1045 to 1100 MB/s after, the
+bare server 1180 to 1330 MB/s. The download is unchanged, as near the bare
+server as before.
+
+What it costs: an upload holds up to about 2 MiB, read ahead and buffered,
+only while the disk is slower than its client.
+
+Rejected:
+
+- Reading ahead in the upload route, for every storage: `s3()` gained
+  nothing on SeaweedFS, which it sends to near its own rate, and would hold
+  1 MiB more for each upload.
+- Buffers of 64 KiB or 256 KiB: 384 to 452 and 443 to 465 MB/s on 5 MB,
+  against 516 to 535 MB/s at 1 MiB.
