@@ -16,6 +16,8 @@ import { realtime, realtimePlugin } from './index.ts'
 const M = { as: master }
 /** While set, reading a big list's rows waits for it. */
 let held: Promise<void> | undefined
+/** Whether a big list has read its rows, and waits on `held`. */
+let reading = false
 const Item = defineModel({
 	name: 'Item',
 	fields: (f) => ({
@@ -28,7 +30,10 @@ const Item = defineModel({
 	virtuals: {
 		slow: {
 			run: async ({ caller }) => {
-				if (caller.kind !== 'master') await held
+				if (caller.kind !== 'master') {
+					reading = held !== undefined
+					await held
+				}
 				return 1
 			},
 		},
@@ -73,6 +78,7 @@ const viewer = async () => {
 
 beforeEach(async () => {
 	held = undefined
+	reading = false
 	await app.start()
 	await Item.createMany(
 		{ data: Array.from({ length: 1000 }, (_, rank) => ({ rank })) },
@@ -114,8 +120,9 @@ describe('a big live list reading its window', () => {
 				big.push(message)
 			},
 		)
+		// Its rows are read: a write from now on is one it missed.
 		await vi.waitFor(() => {
-			expect(held).toBeDefined()
+			expect(reading).toBe(true)
 		})
 
 		quiet.length = 0
