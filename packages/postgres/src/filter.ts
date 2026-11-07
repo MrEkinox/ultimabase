@@ -45,14 +45,20 @@ export class Filters {
 	readonly tables: Set<string> = new Set()
 	/** A write's change index → the CTE of its delete, for `removedBy`. */
 	readonly removed: ReadonlyMap<number, string>
+	/** The statement reads committed rows alone, outside a transaction (D-320). */
+	readonly committed: boolean
 	private next = 0
 
 	constructor(
 		catalog: Catalog,
-		removed: ReadonlyMap<number, string> = new Map(),
+		options: {
+			readonly removed?: ReadonlyMap<number, string>
+			readonly committed?: boolean
+		} = {},
 	) {
 		this.catalog = catalog
-		this.removed = removed
+		this.removed = options.removed ?? new Map()
+		this.committed = options.committed ?? false
 	}
 
 	/** A table alias no other part of the statement uses. */
@@ -147,6 +153,31 @@ export class Filters {
 		return sql`exists (select from ${from} where ${on} and ${test(inner)})`
 	}
 
+	/**
+	 * A committed key names a row (D-99): outside a transaction, a stored
+	 * key's target with one id is the key's own test, planned faster (D-320).
+	 */
+	private keyed(
+		table: Table,
+		alias: string,
+		field: Relation,
+		filter: Filter,
+	): Sql | undefined {
+		if (!this.committed || field.kind !== 'one' || !field.stored)
+			return undefined
+		const { id, ...others } = filter
+		if (id === undefined || isFilters(id) || Object.keys(others).length > 0) {
+			return undefined
+		}
+		const { equals, ...rest } = id
+		if (typeof equals !== 'string' || Object.keys(rest).length > 0)
+			return undefined
+		this.tables.add(this.catalog.table(field.target).name)
+		const key = this.column(table, alias, field.name)
+		const equal = this.equal(key, 'id', equals)
+		return field.optional ? sql`(${equal} and ${key} is not null)` : equal
+	}
+
 	private relation(
 		table: Table,
 		alias: string,
@@ -154,7 +185,9 @@ export class Filters {
 		condition: Condition,
 	): Sql {
 		const parts: Sql[] = []
-		const exists = (filter: Filter) => this.exists(table, alias, field, filter)
+		const exists = (filter: Filter) =>
+			this.keyed(table, alias, field, filter) ??
+			this.exists(table, alias, field, filter)
 		if (condition.is !== undefined) {
 			parts.push(
 				condition.is === null ? sql`(not ${exists({})})` : exists(condition.is),

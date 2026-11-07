@@ -19801,3 +19801,34 @@ Rejected:
 
 - The condition on every inverse key: a required key is never null, and the
   condition would only lengthen the statement.
+
+## D-320: Outside a transaction, a stored key's target with one id is the key's test
+
+Choice: amends D-73. A read that runs outside a transaction tests a stored
+`one` relation whose filter is one id, as the `{ id: { equals: viewer } }`
+that `viewer: true` stands for (D-189), on the key itself: `author_id = $1`,
+and `author_id = $1 and author_id is not null` when the key is optional, so
+that a null key stays no match under a `NOT`. The `exists` that read the
+target's row is left out. Such a read sees committed rows alone, and a
+committed key always names a row (D-99), so the rows it returns do not change.
+A read in a transaction, and the filters of a write, keep the `exists`: a
+deferred foreign key may dangle until the COMMIT. Nothing changes for a
+developer.
+
+Why: PostgreSQL plans a statement with rules again on each run, its generic
+plan being far slower, and each `exists` costs it planning time. Measured with
+a scratch copy of an application's campaign rules, 20 000 users, 5000
+campaigns and 20 000 members, as one user reading 25 campaigns and their
+players, whose rules hold seven such relations: planning went from 1.05 to
+0.58 ms, and the read's p50 from 3.50, 3.48 and 3.45 ms to 2.93, 2.98 and
+2.92 ms, of 300 reads each, interleaved.
+
+Rejected:
+
+- The key's test beside an `exists` of the id alone, true in a transaction
+  too: planning 0.88 ms, about 5 % of the read.
+- A generic plan, planned once (`plan_cache_mode`): on this read, each run took
+  55 ms before the change, and 1.7 ms instead of 2.3 after it. PostgreSQL
+  picks it from its estimates; forced on every statement, a plan made
+  without the values can be that slow on others.
+- The test on every read: a dangling key in a transaction would match.

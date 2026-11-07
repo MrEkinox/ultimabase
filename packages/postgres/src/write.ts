@@ -66,7 +66,7 @@ function part(
 	const table = catalog.table(change.model)
 	const name = sql.id(table.name)
 	const base = { table: table.name, key: ['id'] }
-	const filters = new Filters(catalog, removed)
+	const filters = new Filters(catalog, { removed })
 	const named = filters.alias()
 	const alias = sql.id(named)
 	const where = filters.where(change.model, named, change.where)
