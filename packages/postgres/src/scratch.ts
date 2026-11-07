@@ -34,23 +34,31 @@ export function connecting(
 
 /**
  * Creates `schema`, or empties the tables in it, once the connections are
- * known to use it and nothing else.
+ * known to use it and nothing else. `current` is the schema the connections
+ * already found: when it is `schema`, the schema exists. One `delete` empties
+ * every table, its foreign keys checked at its end: a test leaves a few rows,
+ * which a `delete` removes ten times faster than a `truncate` (D-306).
  */
 export async function emptied(
 	db: Kysely<object>,
 	schema: string,
+	current: string | null | undefined,
 ): Promise<void> {
-	await sql`create schema if not exists ${sql.id(schema)}`.execute(db)
-	const { rows } = await sql<{
-		current: string | null
-	}>`select current_schema() as current`.execute(db)
-	if (rows[0]?.current !== schema) {
-		throw new Error(
-			`The connections did not take ${schema} as their search_path: does a pooler drop their startup options?`,
-		)
+	if (current !== schema) {
+		await sql`create schema if not exists ${sql.id(schema)}`.execute(db)
+		const { rows } = await sql<{
+			current: string | null
+		}>`select current_schema() as current`.execute(db)
+		if (rows[0]?.current !== schema) {
+			throw new Error(
+				`The connections did not take ${schema} as their search_path: does a pooler drop their startup options?`,
+			)
+		}
 	}
 	const names = (await tablesOf(db)).filter((name) => !tables.includes(name))
-	await truncated(db, names)
+	if (names.length === 0) return
+	const deletes = names.map((name, at) => `d${at} as (delete from ${id(name)})`)
+	await sql.raw(`with ${deletes.join(', ')} select`).execute(db)
 }
 
 /** Empties `names` in one statement, whatever references them (D-188). */
