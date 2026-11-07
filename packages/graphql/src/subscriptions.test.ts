@@ -1570,8 +1570,11 @@ describe('a connection', () => {
 					async (socket) => new Promise((done) => socket.once('open', done)),
 				),
 			)
+			// The client answers the ping as it reads it: once it has, its pong is
+			// on the wire before the next message, and the server reads it first.
+			const pinged = new Promise((done) => answering.once('ping', done))
 			vi.advanceTimersByTime(12_000)
-			// The server reads the pong the client sent before this message.
+			await pinged
 			const acked = new Promise((done) => answering.once('message', done))
 			answering.send(JSON.stringify({ type: 'connection_init' }))
 			await acked
