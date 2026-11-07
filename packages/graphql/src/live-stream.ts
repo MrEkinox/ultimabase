@@ -183,6 +183,15 @@ function keepFor(channel: Channel, list: Omit<Kept, 'timer'>): void {
 	channel.kept.set(list.keep.token, { ...list, timer })
 }
 
+/** Ends the lists `channel` keeps: its socket closed, so no resume comes. */
+export function forgotten(channel: Channel): void {
+	for (const kept of channel.kept.values()) {
+		clearTimeout(kept.timer)
+		kept.end()
+	}
+	channel.kept.clear()
+}
+
 /**
  * The list `token` keeps, taken back when it is the same read and grown to
  * `first` rows; a growth refused past a limit keeps it as it was (D-186).

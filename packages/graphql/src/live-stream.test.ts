@@ -11,6 +11,7 @@ import type { PluginTypes } from 'ultimabase'
 import { defineApp, definePlugin, memory } from 'ultimabase'
 import type { Channel, Keep } from './live-stream.ts'
 import {
+	forgotten,
 	LiveEvent,
 	liveStream,
 	released,
@@ -370,6 +371,19 @@ describe('a completed live list', () => {
 			vi.advanceTimersByTime(1)
 			expect(read.closed()).toBe(1)
 			expect(channel.channel.kept.size).toBe(0)
+		} finally {
+			vi.useRealTimers()
+		}
+	})
+
+	it('ends at once when its socket closes, as no resume can reach it', async () => {
+		vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+		try {
+			const { channel, read } = await kept()
+			forgotten(channel.channel)
+			expect(read.closed()).toBe(1)
+			expect(channel.channel.kept.size).toBe(0)
+			expect(vi.getTimerCount()).toBe(0)
 		} finally {
 			vi.useRealTimers()
 		}
