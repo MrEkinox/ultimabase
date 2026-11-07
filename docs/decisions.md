@@ -19467,3 +19467,26 @@ Rejected:
   does not say which statement of a multi-statement query failed.
 - Sending a deploy's files together: each file already runs as one text, and
   a file is the unit its errors name.
+
+## D-308: A test file's listener connects with the pool
+
+Choice: on a test file's own schema (D-137), the change feed's listener
+(D-154) opens its connection while the pool opens its first, instead of
+after the start's first queries: its channel is the schema's name, known
+before the server answers. A start that fails ends the listener once it
+listens. A start on any other database is unchanged: its channel waits for
+the server to name the schema. Nothing changes for a developer.
+
+Why: a test on the declared database starts and stops the application around
+each test (D-137), and each start opened its two connections one after the
+other, about 7 ms each on a local server. Measured with a script that starts
+and stops a 22-model application with HTTP, GraphQL, REST, realtime, auth and
+password, filling 3 tables each time, medians of 6 interleaved runs of 55
+cycles: 46.9 ms before, 38.8 ms after, 17 % less.
+
+Rejected:
+
+- Not waiting for the listener in `start`: a change committed before it
+  listens would be lost to the feed.
+- Asking the server for the schema on the listener's own connection, for any
+  database: one query more on that connection, for a start a server pays once.

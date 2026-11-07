@@ -1,8 +1,10 @@
 // The change feed on postgres() (D-154): notifications cut to fit 8000 bytes,
 // another's ignored, and `missed` once a lost listener is back.
 import { testApplication } from '@ultimabase/testing'
-import type { Changed } from 'ultimabase'
+import { Client } from 'pg'
+import type { Changed, Logger } from 'ultimabase'
 import { defineApp, defineModel, definePlugin, master } from 'ultimabase'
+import { scratchOf } from 'ultimabase/internal'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createAdapter } from './adapter.ts'
 import { channelOf } from './listen.ts'
@@ -121,6 +123,38 @@ describe('the change feed on postgres()', () => {
 		expect(ended).toBe(true)
 		await vi.waitFor(() => expect(missed).toBe(1), { timeout: 5000 })
 		await settled()
+	})
+})
+
+describe('a start postgres() refuses', () => {
+	// A test file's listener connects with the pool (D-308): a start refused
+	// while it connects ends it once it listens.
+	it('ends the listener it opened', async () => {
+		const queries = vi.spyOn(Client.prototype, 'query')
+		const ends = vi.spyOn(Client.prototype, 'end')
+		const quiet: Logger = {
+			info: () => undefined,
+			warn: () => undefined,
+			error: () => undefined,
+			child: () => quiet,
+		}
+		const refused = createAdapter({ url: server, searchLanguage: 'nope' })
+		const scratch = scratchOf(refused)?.()
+		try {
+			const feed = { changed: () => undefined, missed: () => undefined }
+			await expect(refused.start({ models: [] }, quiet, feed)).rejects.toThrow(
+				"postgres() searches in 'nope'",
+			)
+			const listeners = queries.mock.contexts.filter((_, at) =>
+				String(queries.mock.calls[at]?.[0]).startsWith('listen '),
+			)
+			expect(listeners).toHaveLength(1)
+			expect(ends.mock.contexts).toContain(listeners[0])
+		} finally {
+			queries.mockRestore()
+			ends.mockRestore()
+			await scratch?.drop()
+		}
 	})
 })
 
