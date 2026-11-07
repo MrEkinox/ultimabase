@@ -1,7 +1,7 @@
 // The reads a live read's virtual fields made: the rows read together share
 // theirs, and a write that may change one reads those rows again; only the
 // rows that read differently are sent again.
-import { createHash } from 'node:crypto'
+import { hash } from 'node:crypto'
 import type { Row } from 'ultimabase'
 import type { Recorded } from 'ultimabase/internal'
 import type { Batch } from './changes.ts'
@@ -11,7 +11,7 @@ import { anyStale, mayBeStale } from './stale.ts'
 type Group = { readonly reads: readonly Recorded[]; readonly ids: Set<string> }
 
 const printOf = (node: Row): string =>
-	createHash('sha1').update(JSON.stringify(node)).digest('base64')
+	hash('sha1', JSON.stringify(node), 'base64')
 
 export class VirtualReads {
 	readonly #groups = new Set<Group>()

@@ -17,20 +17,28 @@ export type Hidden = (
 /** The values of each row's virtuals, as a read computed them (D-151). */
 export type Computed = WeakMap<object, Map<string, unknown>>
 
+const nothing: ReadonlySet<string> = new Set()
+
 /** The virtuals of `shape` a field read rule hides, its own or a need's. */
 export function unseenVirtuals(
 	shape: Shape,
 	row: { readonly [field: string]: unknown },
 	hidden: Hidden | undefined,
 ): ReadonlySet<string> {
-	const reads = [...shape.virtuals.values()].map(({ info }) => info)
-	const names = reads.flatMap((info) => [info.name, ...info.needs])
-	const unseen = hidden?.(shape.model, row, names)
-	return new Set(
-		reads
-			.filter((info) => [info.name, ...info.needs].some((n) => unseen?.has(n)))
-			.map((info) => info.name),
-	)
+	if (hidden === undefined) return nothing
+	const names: string[] = []
+	for (const { info } of shape.virtuals.values()) {
+		names.push(info.name, ...info.needs)
+	}
+	const unseen = hidden(shape.model, row, names)
+	if (unseen.size === 0) return nothing
+	const hiding = new Set<string>()
+	for (const { info } of shape.virtuals.values()) {
+		if ([info.name, ...info.needs].some((name) => unseen.has(name))) {
+			hiding.add(info.name)
+		}
+	}
+	return hiding
 }
 
 /** A row as the query returns it, through the shape, without hidden fields. */
@@ -76,7 +84,7 @@ export function project(
 	}
 	const values = computed?.get(row)
 	const unseenVirtual =
-		shape.virtuals.size > 0 ? unseenVirtuals(shape, row, hidden) : new Set()
+		shape.virtuals.size > 0 ? unseenVirtuals(shape, row, hidden) : nothing
 	for (const name of shape.virtuals.keys()) {
 		if (!unseenVirtual.has(name)) result[name] = values?.get(name) ?? null
 	}
