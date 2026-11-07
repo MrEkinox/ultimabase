@@ -1,10 +1,16 @@
-import { readdirSync } from 'node:fs'
+import { globSync, readFileSync, readdirSync } from 'node:fs'
 import { defineConfig } from 'vitest/config'
 
 // PostgreSQL tests run in their own command so `yarn validate` stays fast (D-06).
 const postgresTests = '**/*.postgres.test.ts'
 // S3 tests need SeaweedFS from `compose.yaml` (D-152).
 const s3Tests = '**/*.s3.test.ts'
+// Unit tests share their modules within a worker (D-304), except those that
+// replace a module: they need their own copy of it.
+const unitExcluded = ['**/node_modules/**', postgresTests, s3Tests]
+const mocking = globSync('**/*.test.ts', { exclude: unitExcluded }).filter(
+	(file) => /\bvi\.(?:do)?[mM]ock\(/.test(readFileSync(file, 'utf8')),
+)
 
 // Each package covers at least 90 % of its production code on every
 // measure, on its own (D-85).
@@ -37,8 +43,13 @@ export default defineConfig({
 				test: {
 					name: 'unit',
 					include: ['**/*.test.ts'],
-					exclude: ['**/node_modules/**', postgresTests, s3Tests],
+					exclude: [...unitExcluded, ...mocking],
+					isolate: false,
+					setupFiles: ['scripts/test-shared.ts'],
 				},
+			},
+			{
+				test: { name: 'unit-mocking', include: mocking },
 			},
 			{
 				test: {

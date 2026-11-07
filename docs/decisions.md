@@ -11253,7 +11253,7 @@ export const { plugin: archivePlugin, use: archive } = definePlugin<Archive>({
 
 ## D-173: `yarn validate` runs in 90 seconds at most
 
-Amended by D-210.
+Amended by D-210 and D-304.
 
 Choice: amends D-06. `yarn validate` stays under 90 seconds locally, instead
 of one minute. The other budgets of D-06 are unchanged: PostgreSQL tests in a
@@ -19342,3 +19342,30 @@ Rejected:
   1 MiB more for each upload.
 - Buffers of 64 KiB or 256 KiB: 384 to 452 and 443 to 465 MB/s on 5 MB,
   against 516 to 535 MB/s at 1 MiB.
+
+## D-304: Unit tests share their modules within a worker
+
+Choice: amends D-173. The `unit` project runs with `isolate: false`: a
+worker loads each module once for all the test files it runs. A test file
+that replaces a module with `vi.mock` or `vi.doMock` runs in its own
+project, `unit-mocking`, isolated as before; `vitest.config.ts` finds these
+files when it loads. After each shared file, `scripts/test-shared.ts`
+restores its spies, environment variables, globals and timers. `yarn test`
+runs both projects. Nothing changes for a developer of an application.
+
+Why: isolated, each of the 270 files imported its modules again, and import
+took 44 % of the run. `yarn test` took 48.1 to 49.5 s over three
+interleaved runs, 23.0 to 23.4 s after, and a warm `yarn validate` 77.6 s
+before, 52.7 to 53.3 s after. Five shuffled file orders pass, and
+coverage keeps its floors; the few branches that differ between two runs
+differ in both directions, under either setting.
+
+What it costs: a test file that changes a shared module's state, outside
+what the setup file restores, can reach the next file of its worker.
+
+Rejected:
+
+- Isolating no file: a module `vi.mock` replaces is already loaded, so the
+  mock does not apply and its test fails.
+- `restoreMocks` and `unstubEnvs` in the config: they reset before each
+  test, which undoes the spies a file sets once at its top.
