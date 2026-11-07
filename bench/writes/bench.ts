@@ -1,4 +1,4 @@
-// The write benchmark (D-48, D-99): the round trips and the time of each
+// The write benchmark (D-48, D-99): the statements and the time of each
 // write case, on `memory()` and PostgreSQL, so that an optimization can be
 // compared with the run before it. `node bench/writes/bench.ts --help`.
 import { randomUUID } from 'node:crypto'
@@ -225,7 +225,7 @@ function cases(seed: Seed): Case[] {
 }
 
 type Result = {
-	readonly trips: readonly [number, number]
+	readonly sent: readonly [number, number]
 	readonly median: number
 	readonly p95: number
 }
@@ -248,13 +248,13 @@ async function measure(
 		const start = performance.now()
 		await each.run(prepared)
 		const time = performance.now() - start
-		const trips = counted() - before
-		fewest = Math.min(fewest, trips)
-		most = Math.max(most, trips)
+		const count = counted() - before
+		fewest = Math.min(fewest, count)
+		most = Math.max(most, count)
 		if (index >= 0) times.push(time)
 	}
 	times.sort((a, b) => a - b)
-	return { trips: [fewest, most], median: at(times, 0.5), p95: at(times, 0.95) }
+	return { sent: [fewest, most], median: at(times, 0.5), p95: at(times, 0.95) }
 }
 
 async function bench(
@@ -285,10 +285,10 @@ async function bench(
 	}
 }
 
-/** `memory()`, each call it receives counted as one round trip. */
+/** `memory()`, each call it receives counted as one. */
 function countedMemory(): { adapter: Adapter; counted: () => number } {
 	let calls = 0
-	const trip =
+	const call =
 		<A extends unknown[], R>(run: (...given: A) => Promise<R>) =>
 		async (...given: A): Promise<R> => {
 			calls += 1
@@ -297,19 +297,19 @@ function countedMemory(): { adapter: Adapter; counted: () => number } {
 	const adapter = memory()
 	const counting: Adapter = {
 		...adapter,
-		find: trip(async (read) => adapter.find(read)),
-		count: trip(async (read) => adapter.count(read)),
-		aggregate: trip(async (read) => adapter.aggregate(read)),
-		write: trip(async (write) => adapter.write(write)),
-		begin: trip(async (): Promise<Transaction> => {
+		find: call(async (read) => adapter.find(read)),
+		count: call(async (read) => adapter.count(read)),
+		aggregate: call(async (read) => adapter.aggregate(read)),
+		write: call(async (write) => adapter.write(write)),
+		begin: call(async (): Promise<Transaction> => {
 			const tx = await adapter.begin()
 			return {
-				find: trip(async (read) => tx.find(read)),
-				count: trip(async (read) => tx.count(read)),
-				aggregate: trip(async (read) => tx.aggregate(read)),
-				write: trip(async (write) => tx.write(write)),
-				commit: trip(async () => tx.commit()),
-				rollback: trip(async () => tx.rollback()),
+				find: call(async (read) => tx.find(read)),
+				count: call(async (read) => tx.count(read)),
+				aggregate: call(async (read) => tx.aggregate(read)),
+				write: call(async (write) => tx.write(write)),
+				commit: call(async () => tx.commit()),
+				rollback: call(async () => tx.rollback()),
 			}
 		}),
 	}
@@ -356,7 +356,7 @@ async function onPostgres(
 	}
 }
 
-const trips = ({ trips: [fewest, most] }: Result): string =>
+const sent = ({ sent: [fewest, most] }: Result): string =>
 	fewest === most ? String(fewest) : `${fewest}–${most}`
 const ms = (value: number): string => value.toFixed(2)
 
@@ -387,13 +387,13 @@ console.log(
 	`${new Date().toISOString().slice(0, 10)}, Node ${process.version}, PostgreSQL ${remote.version} at ${host}, ${runs} runs a case; times in ms.\n`,
 )
 console.log(
-	'| Case | memory trips | memory median | PostgreSQL trips | PostgreSQL median | PostgreSQL p95 |',
+	'| Case | memory calls | memory median | PostgreSQL statements | PostgreSQL median | PostgreSQL p95 |',
 )
 console.log('| --- | --: | --: | --: | --: | --: |')
 for (const [name, result] of local) {
 	const other = remote.results.get(name)
 	if (other === undefined) continue
 	console.log(
-		`| ${name} | ${trips(result)} | ${ms(result.median)} | ${trips(other)} | ${ms(other.median)} | ${ms(other.p95)} |`,
+		`| ${name} | ${sent(result)} | ${ms(result.median)} | ${sent(other)} | ${ms(other.median)} | ${ms(other.p95)} |`,
 	)
 }
