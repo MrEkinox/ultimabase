@@ -37,6 +37,27 @@ node bench/http/bench.ts [--seconds 6] [--concurrency 16] [--cases <text>] [--pr
 
 ## Runs
 
+### 2026-11-07: the weekend's changes, D-284 to D-300
+
+`412f269a3` against `b9331d074`, the same benchmark on both, 6 s a case, three runs each
+in turn; medians. Same machine and clients as below.
+
+| Case                                     | Requests /s before | Requests /s after | p50 before | p50 after | CPU, µs before | CPU, µs after |
+| :--------------------------------------- | -----------------: | ----------------: | ---------: | --------: | -------------: | ------------: |
+| REST, read by id, a visitor              |               2995 |       3393, +13 % |       5.44 |      4.68 |            350 |    302, −14 % |
+| REST, read by id, signed in              |               1443 |        1571, +9 % |      10.71 |      9.82 |            731 |    634, −13 % |
+| REST, a list of 25, nested, signed in    |                877 |       1055, +20 % |      17.29 |     14.68 |           1216 |    984, −19 % |
+| REST, create, signed in                  |               1146 |       1431, +25 % |      13.72 |     10.78 |            950 |    762, −20 % |
+| REST, update, signed in                  |                875 |        999, +14 % |      17.86 |     15.39 |           1187 |    984, −17 % |
+| GraphQL, read by id, signed in           |               1203 |       1500, +25 % |      12.61 |     10.08 |            965 |    744, −23 % |
+| GraphQL, a list of 25, nested, signed in |                502 |        713, +42 % |      31.54 |     21.96 |           1696 |   1243, −27 % |
+| GraphQL, create, signed in               |               1147 |       1383, +21 % |      13.34 |     11.09 |            966 |    792, −18 % |
+| GraphQL, update, signed in               |                840 |        964, +15 % |      18.28 |     15.90 |           1212 |   1051, −13 % |
+| Floor: `node:http` and `pg`, read by id  |               5148 |        5211, +1 % |       2.98 |      2.95 |            148 |      148, 0 % |
+
+The floor moves 1 %: the machine was the same for both. The run below took its first case
+cold; this one warms the server first, so it reads 2995 for a visitor where it read 2714.
+
 ### 2026-11-06: the reference, 5 s a case
 
 Commit `412f269a3`, median of two runs. Node 24.20, PostgreSQL 18.6 in Docker on
