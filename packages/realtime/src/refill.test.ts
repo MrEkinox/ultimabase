@@ -23,7 +23,10 @@ import { realtime, realtimePlugin } from './index.ts'
 const M = { as: master }
 const Item = defineModel({
 	name: 'Item',
-	fields: (f) => ({ rank: f.number({ integer: true }) }),
+	fields: (f) => ({
+		rank: f.number({ integer: true }),
+		at: f.dateTime({ optional: true }),
+	}),
 	use: [realtime()],
 }).with({ access: { read: () => true } })
 
@@ -110,8 +113,11 @@ const quiet = async (): Promise<void> =>
 		setTimeout(resolve, 120)
 	})
 
-/** A client's copy of a list of the ranks ascending, its first `first` rows. */
-async function followed(first: number): Promise<{
+/** A client's copy of a list in `orderBy`, its first `first` rows. */
+async function followed(
+	first: number,
+	orderBy: readonly object[] = [{ rank: 'asc' }],
+): Promise<{
 	readonly handle: LiveHandle
 	readonly copy: { rows: Row[]; hasMore: boolean }
 }> {
@@ -139,7 +145,7 @@ async function followed(first: number): Promise<{
 	}
 	const args = {
 		select: { id: true, rank: true },
-		orderBy: [{ rank: 'asc' }],
+		orderBy,
 		first,
 	}
 	const handle = await viewer.list('Item', args, take)
@@ -222,5 +228,40 @@ it('reads on past the rows it holds when a page brings only those', async () => 
 	await quiet()
 	expect(ranks(copy.rows)).toEqual([30, 40, 41, 42])
 	expect(copy.hasMore).toBe(true)
+	expect(errors).toEqual([])
+})
+
+it('refills each window from its own keys when lists share a plan', async () => {
+	const rows: Row[] = []
+	for (const rank of [10, 20, 30, 40, 50, 60]) {
+		// Each list holds its own copy of a date: equal ones share a page.
+		const at = new Date(Date.UTC(2026, 0, rank))
+		rows.push(await Item.create({ data: { rank, at } }, M))
+	}
+	await quiet()
+	const byDate = [{ at: 'asc' }]
+	const lists = [
+		await followed(2, byDate),
+		await followed(2, byDate),
+		await followed(3, byDate),
+	]
+	await Item.delete({ where: row(rows, 0) }, M)
+	const shown = [
+		[20, 30],
+		[20, 30],
+		[20, 30, 40],
+	]
+	await vi.waitFor(() =>
+		expect(lists.map(({ copy }) => ranks(copy.rows))).toEqual(shown),
+	)
+	await Item.delete({ where: row(rows, 1) }, M)
+	await vi.waitFor(() =>
+		expect(lists.map(({ copy }) => ranks(copy.rows))).toEqual([
+			[30, 40],
+			[30, 40],
+			[30, 40, 50],
+		]),
+	)
+	expect(lists.map(({ copy }) => copy.hasMore)).toEqual([true, true, true])
 	expect(errors).toEqual([])
 })

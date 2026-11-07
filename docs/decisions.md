@@ -19603,3 +19603,27 @@ Rejected:
 - Holding nothing and always sending the window whole at a resume: a resume
   after a few changes would then carry the whole window, where D-254 sends
   only those changes.
+
+## D-313: A flush builds a refill's filter once for the lists that share it
+
+Choice: builds on D-252 and D-288. A refill reads past the sort keys its
+window holds. Within a flush, the filter past some keys is built once for the
+live lists of the same plan whose windows end at the same keys, and their page
+is found by that filter rather than by its text. Nothing changes for a
+developer.
+
+Why: each of the many lists that share a plan built the same filter, then
+wrote it as text to find the flush's page. With 1000 subscribers on one list
+of 25 rows, a delete spent about 5 µs per list there, which D-288 added.
+Measured over three interleaved pairs of `bench/realtime/bench.ts
+--subscribers 1000 --windows 25 --writes 10`:
+
+- One list, delete: p50 from 16.0, 15.8 and 16.0 ms to 13.5, 14.2 and 13.8;
+  the last message from 27.4, 28.3 and 27.6 ms to 21.7, 22.8 and 22.2, the
+  level before D-288.
+- The other cases moved within their noise.
+
+Rejected:
+
+- Keying the filters by each list's window: no two lists share an entry, so
+  nothing would be built once.
