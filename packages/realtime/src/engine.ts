@@ -132,18 +132,24 @@ export class Engine {
 		// every viewer would cost as much for nothing, and hold the loop (D-255).
 		if (changes.length === 0 && !missed) return
 		const batch = batchOf(changes, liveSchema())
-		const loader = new Loader(new SharedReads())
-		if (missed) {
-			await bounded([...this.#viewers], concurrency, (viewer) =>
-				this.#guarded(viewer, () => viewer.flush(batch, loader, 'all')),
+		const shared = new SharedReads()
+		const loader = new Loader(shared)
+		try {
+			if (missed) {
+				await bounded([...this.#viewers], concurrency, (viewer) =>
+					this.#guarded(viewer, () => viewer.flush(batch, loader, 'all')),
+				)
+				return
+			}
+			const concerned = await this.#readers.concerned(batch, loader)
+			// No async wrappers: a flush makes these calls for each viewer.
+			await bounded([...concerned], concurrency, ([viewer, reads]) =>
+				this.#guarded(viewer, () => viewer.flush(batch, loader, reads)),
 			)
-			return
+		} finally {
+			// Code that outlives the flush reads what is stored by then (D-295).
+			shared.stop()
 		}
-		const concerned = await this.#readers.concerned(batch, loader)
-		// No async wrappers: a flush makes these calls for each viewer.
-		await bounded([...concerned], concurrency, ([viewer, reads]) =>
-			this.#guarded(viewer, () => viewer.flush(batch, loader, reads)),
-		)
 	}
 
 	async #rebuild(): Promise<void> {

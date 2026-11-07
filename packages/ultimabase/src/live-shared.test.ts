@@ -1,7 +1,15 @@
 // What the live reads of one flush share (D-262): a relation's rule that only
 // repeats its parent's leaves the read, and those asking the same read together.
 import { asUser } from '@ultimabase/testing'
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
+import {
+	afterAll,
+	beforeAll,
+	beforeEach,
+	describe,
+	expect,
+	it,
+	vi,
+} from 'vitest'
 import type { Nested, Read } from './adapter.ts'
 import type { Adapter, Caller, Row } from './index.ts'
 import { defineApp, defineModel, master, memory } from './index.ts'
@@ -356,5 +364,96 @@ describe('the reads of one flush', () => {
 		await expect(reads.rows('k', 'Room', ['a'], true, failing)).rejects.toThrow(
 			'down',
 		)
+	})
+})
+
+describe('the same read in one statement', () => {
+	const read: Read = { model: 'Thing' }
+	const when = new Date('2026-11-07T00:00:00Z')
+	const stored = {
+		id: 'a',
+		name: 'A',
+		when,
+		list: [{ deep: when }],
+		bytes: new Uint8Array([1]),
+		none: null,
+	}
+	const reads = (
+		find: Adapter['find'] = async () => [stored],
+		aggregate: Adapter['aggregate'] = async () => [[when, 1]],
+		count: Adapter['count'] = async () => 1,
+	) => ({ find, aggregate, count })
+
+	it('sends one statement for reads asked at once or later', async () => {
+		const find = vi.fn<Adapter['find']>(async () => [stored])
+		const over = new SharedReads().over(reads(find))
+		await Promise.all([over.find(read), over.find({ ...read })])
+		await over.find(read)
+		expect(find).toHaveBeenCalledTimes(1)
+		await over.find({ ...read, take: 1 })
+		expect(find).toHaveBeenCalledTimes(2)
+	})
+
+	it('tells values JSON would confuse apart', async () => {
+		const find = vi.fn<Adapter['find']>(async () => [])
+		const over = new SharedReads().over(reads(find))
+		for (const value of [null, Infinity, -Infinity, Number.NaN, 1n, '1']) {
+			await over.find({ ...read, where: { value: { equals: value } } })
+		}
+		expect(find).toHaveBeenCalledTimes(6)
+	})
+
+	it('gives each reader a copy of its own', async () => {
+		const over = new SharedReads().over(reads())
+		const [one, two] = await Promise.all([over.find(read), over.find(read)])
+		expect(one).toEqual([stored])
+		expect(two).toEqual([stored])
+		const mine = one[0]
+		expect(mine).not.toBe(two[0])
+		expect(mine?.['when']).not.toBe(stored.when)
+		expect(mine?.['list']).not.toBe(stored.list)
+		expect(mine?.['bytes']).not.toBe(stored.bytes)
+		const groups = await over.aggregate({ model: 'Thing', aggregates: [] })
+		const first = groups[0]?.[0]
+		expect(first).toEqual(when)
+		expect(first).not.toBe(when)
+	})
+
+	it('shares a count and an aggregate', async () => {
+		const count = vi.fn<Adapter['count']>(async () => 3)
+		const aggregate = vi.fn<Adapter['aggregate']>(async () => [[1]])
+		const over = new SharedReads().over(reads(undefined, aggregate, count))
+		await over.count({ model: 'Thing' })
+		await over.count({ model: 'Thing' })
+		expect(count).toHaveBeenCalledTimes(1)
+		await over.aggregate({ model: 'Thing', aggregates: [] })
+		await over.aggregate({ model: 'Thing', aggregates: [] })
+		expect(aggregate).toHaveBeenCalledTimes(1)
+	})
+
+	it('sends a failed read again', async () => {
+		const find = vi
+			.fn<Adapter['find']>(async () => [stored])
+			.mockRejectedValueOnce(new Error('Broken.'))
+		const over = new SharedReads().over(reads(find))
+		const [one, two] = await Promise.allSettled([
+			over.find(read),
+			over.find(read),
+		])
+		expect(one.status).toBe('rejected')
+		expect(two.status).toBe('rejected')
+		await expect(over.find(read)).resolves.toEqual([stored])
+		expect(find).toHaveBeenCalledTimes(2)
+	})
+
+	it('reads what is stored once stopped', async () => {
+		const find = vi.fn<Adapter['find']>(async () => [stored])
+		const shared = new SharedReads()
+		const over = shared.over(reads(find))
+		await over.find(read)
+		shared.stop()
+		await over.find(read)
+		await over.find(read)
+		expect(find).toHaveBeenCalledTimes(3)
 	})
 })

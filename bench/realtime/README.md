@@ -52,7 +52,9 @@ virtual `openTasks`, a `runMany` counting its open `Task` rows with a
 `groupBy` as the caller. Subscribers list `Project` as above, one list or a
 list each, with and without `openTasks` selected; each write creates a
 `Task` on a shown project. Statements and times are counted as above;
-Messages is the most subscribers that heard of one write.
+Messages is the most subscribers that heard of one write. With
+`--rule-names-nobody`, `Project`'s rule does not name its viewer, so subscribers
+share the count's statement (D-295).
 
 ### 2026-11-01: virtuals followed (D-187)
 
@@ -195,6 +197,21 @@ costs about 1 ms a row, and a production table has them.
   so Told can come out short, and Drain then shows the bench's patience of 30 s.
 
 ## Runs
+
+### 2026-11-07: the reads of virtual fields shared in a flush (D-295)
+
+`node --expose-gc --max-old-space-size=24576 bench/realtime/virtuals.ts --rule-names-nobody`,
+then the same without the flag: 1000 subscribers on one list, 10 writes a case; times in ms.
+
+| Rule             | Window | Statements | p50 before | p50 after | Last message before | Last message after |
+| ---------------- | -----: | ---------- | ---------: | --------: | ------------------: | -----------------: |
+| names nobody     |     25 | 1002 → 3   |      215.0 |     102.2 |               422.8 |              197.8 |
+| names nobody     |   1000 | 1002 → 3   |     3063.5 |    2605.2 |              6034.1 |             5130.2 |
+| names its viewer |     25 | 1002       |      215.9 |     220.3 |               423.1 |              439.7 |
+| names its viewer |   1000 | 1002       |     3047.9 |    3113.0 |              6022.9 |             6199.7 |
+
+The 2026-11-01 run below is older and slower: 319.4 ms is now 215.9 ms and 10 314.5 ms is now
+3047.9 ms with a rule naming the viewer, the same case, before this change.
 
 ### 2026-11-06: a storm of connections
 

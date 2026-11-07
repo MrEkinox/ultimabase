@@ -1,7 +1,9 @@
 // What the live reads of one flush share (D-262): a relation's rule that only
 // repeats its parent's says nothing more, so the read stops naming its viewer,
-// and the viewers who ask the same read it in one statement.
-import type { Filter, Nested, Row } from './adapter.ts'
+// and the viewers who ask the same read it in one statement. So do the reads
+// their virtual fields make (D-295).
+import { AsyncLocalStorage } from 'node:async_hooks'
+import type { Adapter, Filter, Nested, Row } from './adapter.ts'
 import { isFilters } from './memory-conditions.ts'
 import type { Models } from './query-where.ts'
 import type { ModelInfo } from './schema.ts'
@@ -89,10 +91,92 @@ export function namesNobody(read: Nested): boolean {
 /** One statement's rows, by id. */
 type Reading = Promise<ReadonlyMap<string, Row>>
 
+type Reads = Pick<Adapter, 'find' | 'count' | 'aggregate'>
+
+/** A read as text: the same text is the same statement with the same values. */
+const keyOf = (read: unknown): string =>
+	JSON.stringify(read, (_, value: unknown) =>
+		typeof value === 'bigint' ||
+		(typeof value === 'number' && !Number.isFinite(value))
+			? `${typeof value} ${String(value)}`
+			: value,
+	)
+
+/** A copy no other reader holds: code may change what it read. */
+function copied(value: unknown): unknown {
+	if (typeof value !== 'object' || value === null) return value
+	if (value instanceof Date) return new Date(value)
+	if (Array.isArray(value)) return value.map((each: unknown) => copied(each))
+	if (Object.getPrototypeOf(value) !== Object.prototype) {
+		return structuredClone(value)
+	}
+	return Object.fromEntries(
+		Object.entries(value).map(([name, each]) => [name, copied(each)]),
+	)
+}
+
+function copiedRow(row: Row): Row {
+	const copy: { id: string; [field: string]: unknown } = { ...row }
+	for (const [name, value] of Object.entries(row)) {
+		if (typeof value === 'object') copy[name] = copied(value)
+	}
+	return copy
+}
+
 /** The reads of one flush, for the live reads that ask the same. */
 export class SharedReads {
 	readonly #expected = new Map<string, Set<string>>()
 	readonly #reads = new Map<string, Map<string, Reading>>()
+	readonly #finds = new Map<string, Promise<Row[]>>()
+	readonly #counts = new Map<string, Promise<number>>()
+	readonly #aggregates = new Map<string, Promise<unknown[][]>>()
+	#stopped = false
+
+	/** The flush ended, or wrote: what it read may no longer hold. */
+	stop(): void {
+		this.#stopped = true
+	}
+
+	/** One statement for those asking at once; a failed one is sent again. */
+	async #once<T>(
+		known: Map<string, Promise<T>>,
+		key: string,
+		read: () => Promise<T>,
+	): Promise<T> {
+		if (this.#stopped) return read()
+		const found = known.get(key)
+		if (found !== undefined) return found
+		const asked = read()
+		known.set(key, asked)
+		try {
+			return await asked
+		} catch (error) {
+			known.delete(key)
+			throw error
+		}
+	}
+
+	/** `adapter`'s reads, one statement for those who ask the same (D-295). */
+	over(adapter: Reads): Reads {
+		return {
+			find: async (read) => {
+				const rows = await this.#once(this.#finds, keyOf(read), async () =>
+					adapter.find(read),
+				)
+				return rows.map((row) => copiedRow(row))
+			},
+			count: async (read) =>
+				this.#once(this.#counts, keyOf(read), async () => adapter.count(read)),
+			aggregate: async (read) => {
+				const groups = await this.#once(
+					this.#aggregates,
+					keyOf(read),
+					async () => adapter.aggregate(read),
+				)
+				return groups.map((values) => values.map((value) => copied(value)))
+			},
+		}
+	}
 
 	/** A flush will likely ask for `ids`, rows of `model`. */
 	expect(model: string, ids: Iterable<string>): void {
@@ -132,4 +216,19 @@ export class SharedReads {
 		}
 		return rows
 	}
+}
+
+const flushing = new AsyncLocalStorage<SharedReads>()
+
+/** Runs `run` with its reads shared with the rest of the flush (D-295). */
+export const sharing = <R>(reads: SharedReads, run: () => R): R =>
+	flushing.run(reads, run)
+
+/** `adapter`'s reads as the code running now makes them. */
+export const readsOver = (adapter: Reads): Reads =>
+	flushing.getStore()?.over(adapter) ?? adapter
+
+/** A write: a read made after it must see it. */
+export const stopSharing = (): void => {
+	flushing.getStore()?.stop()
 }
