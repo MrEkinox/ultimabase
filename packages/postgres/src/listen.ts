@@ -1,6 +1,8 @@
 // The connection that hears the feed's notifications (D-154): it gives the
-// feed what a tick brought, and once a lost connection is back, `missed`.
+// feed what a tick brought, and once a lost connection is back, `missed`. It
+// also asks the database, as a network can fail with no one told (D-287).
 import { createHash } from 'node:crypto'
+import { setImmediate as turn, setTimeout as after } from 'node:timers/promises'
 import type { ClientConfig } from 'pg'
 import { Client } from 'pg'
 import type { Changed, Feed, Logger } from 'ultimabase'
@@ -20,12 +22,34 @@ export type Listener = { readonly stop: () => Promise<void> }
 const first = 100
 const most = 5000
 
-/** Listens on `channel` until stopped; a first connection that fails throws. */
+/** How often the database is asked, and how long it has to answer, in ms. */
+export const pulse = { every: 10_000, silence: 10_000 }
+
+/** Fails all a connection holds, as a network that says so would: at once. */
+function severed(client: Client): void {
+	client.connection.stream.destroy(new Error('PostgreSQL stopped answering.'))
+}
+
+/**
+ * False once `silence` is over, after the sockets were read: a long turn of
+ * the event loop would otherwise pass for the database's silence.
+ */
+async function silent(silence: number): Promise<false> {
+	await after(silence, undefined, { ref: false })
+	await turn(undefined, { ref: false })
+	return false
+}
+
+/**
+ * Listens on `channel` until stopped; a first connection that fails throws.
+ * When the database stays silent, `suspects` are given up with this listener.
+ */
 export async function listening(
 	config: ClientConfig,
 	channel: string,
 	feed: Feed,
 	logger: Logger,
+	suspects: () => readonly Client[],
 ): Promise<Listener> {
 	let client: Client | undefined
 	let stopped = false
@@ -46,6 +70,7 @@ export async function listening(
 		})
 		own.on('error', () => lost(own))
 		own.on('end', () => lost(own))
+		const deadline = setTimeout(() => severed(own), pulse.silence)
 		try {
 			await own.connect()
 			await own.query(`listen "${channel.replaceAll('"', '""')}"`)
@@ -53,8 +78,31 @@ export async function listening(
 			own.removeAllListeners('end')
 			await own.end().catch(() => undefined)
 			throw error
+		} finally {
+			clearTimeout(deadline)
 		}
 		return own
+	}
+	const beat = (own: Client): void => {
+		setTimeout(() => void ask(own), pulse.every).unref()
+	}
+	const ask = async (own: Client): Promise<void> => {
+		if (client !== own) return
+		// A connection opened during the silence is not in doubt.
+		const doubted = suspects()
+		const answer = own.query('select 1').then(
+			() => true,
+			() => true,
+		)
+		if (await Promise.race([answer, silent(pulse.silence)])) {
+			beat(own)
+			return
+		}
+		if (client !== own) return
+		logger.warn(
+			`PostgreSQL did not answer for ${pulse.silence / 1000}s: its connections are given up.`,
+		)
+		for (const each of [own, ...doubted]) severed(each)
 	}
 	const retry = (wait: number): void => {
 		timer = setTimeout(() => void again(wait), wait)
@@ -72,6 +120,7 @@ export async function listening(
 			return
 		}
 		client = own
+		beat(own)
 		logger.info('The change feed listens again.')
 		// What was committed while no one listened is unknown.
 		feed.missed()
@@ -85,6 +134,7 @@ export async function listening(
 		retry(first)
 	}
 	client = await connect()
+	beat(client)
 	return {
 		stop: async () => {
 			stopped = true

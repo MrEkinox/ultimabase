@@ -18745,6 +18745,48 @@ Rejected:
 - Several listeners with `reusePort`: Linux only, and it hides `EADDRINUSE`. Threads cannot receive
   sockets in Node.
 
+## D-287: A silent database is noticed
+
+Choice: no developer's code changes, and no option. When a network fails with no one told, such as
+a failover moving the database's address or a firewall dropping a connection, realtime comes back
+and waiting requests fail within about 20 s, instead of freezing with no sign until a restart.
+
+1. The connection listening to the feed asks `select 1` every 10 s, and the answer has 10 s to
+   come. Connecting and listening have the same 10 s.
+2. Without an answer, the listener and every connection of the pool open before the question are
+   cut, as a reset would. What they were running fails at once, with `PostgreSQL stopped answering.`,
+   idle ones leave the pool, one held by a transaction goes when released. A warning says so.
+3. The listener then connects again as after any loss, and the feed's `missed` tells what may have
+   been lost.
+4. The silence is judged after the sockets were read, one turn of the event loop after the deadline:
+   a long turn delays the reading of an answer, and is not the database's silence.
+
+A slow statement is left alone: the question goes through its own connection. A network gap of more
+than 10 s now fails what was in flight, where it could have resumed; a shorter one changes nothing.
+Cost: one `select 1` per process per 10 s.
+
+Measured with an uncommitted fault bench, Linux, 8 readers, 2 writers and 50 subscribers, moving the
+database to a new address at 15 s so that the old one goes silent. Before: reads stuck until the
+bench's own limit of 120 s, no realtime message for the 225 s left, no warning, and a stop still
+stuck after 20 s. After: all back 15 s after the fault, and a stop in 21 ms. PostgreSQL killed, its
+connections terminated and a network cut of 20 s all recover too. A storm of 9000 arriving and an
+overload of 2000 writes a second, with turns up to 529 ms, give no warning, and the storm's figures
+are those of D-286.
+
+The limit: the listener exists only when a plugin takes the feed. Without realtime, a statement in
+flight on a vanished address waits for the operating system, about 15 minutes under Linux. Covering
+it is a statement timeout on `postgres()`, a public option, which this decision does not add.
+
+Rejected:
+
+- `keepAlive` on the connections: it stays quiet while data awaits an acknowledgement, the pool
+  already closes idle connections within 10 s, and a proxy answers it for a database that is gone.
+- `query_timeout` of `pg`: its timer can fire before the socket was read, so a long turn would pass
+  for silence, and the connection stays.
+- Looking through `pg_stat_activity` on a new connection: heavier, and through a proxy it does not
+  say which of ours are alive.
+- A default statement timeout: it would end long queries that work today, a change of behaviour.
+
 ## D-290: A client's bad frame closes its socket, not the server
 
 Choice: internal, nothing changes for a developer. A WebSocket that receives an invalid frame, or one past `maxPayload`, emits

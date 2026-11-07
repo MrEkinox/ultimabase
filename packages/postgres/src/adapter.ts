@@ -7,6 +7,7 @@ import type {
 	Transaction as Open,
 } from 'kysely'
 import { Kysely, PostgresDialect, sql } from 'kysely'
+import type { PoolClient } from 'pg'
 import { Pool } from 'pg'
 import { CheckFailed, Refused } from 'ultimabase'
 import { joining, scratchable } from 'ultimabase/internal'
@@ -209,7 +210,11 @@ export function createAdapter(options: Options): Postgres {
 			// transaction holds fails its next statement, and the pool drops it
 			// once given back.
 			pool.on('error', () => undefined)
+			// What the listener gives up when the database goes silent (D-287).
+			const open = new Set<PoolClient>()
+			pool.on('remove', (client) => open.delete(client))
 			pool.on('connect', (client) => {
+				open.add(client)
 				client.on('error', () => undefined)
 				if (options.prepared !== false) preparing(client)
 				// Compiling a nested read costs a hundred times more than running
@@ -258,7 +263,9 @@ export function createAdapter(options: Options): Postgres {
 								db,
 								catalog,
 								channel,
-								listener: await listening(config, channel, feed, logger),
+								listener: await listening(config, channel, feed, logger, () => [
+									...open,
+								]),
 							}
 			} catch (error) {
 				await db.destroy()
