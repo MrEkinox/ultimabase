@@ -4076,7 +4076,7 @@ await Ticket.update({ where: { id }, data: { label: 'x' } }, { as: master })
 
 ## D-105: `ultimabase.config.ts`, the `ultimabase` commands and a schema snapshot
 
-Amended by D-171, D-232 and D-280.
+Amended by D-171, D-232, D-280 and D-307.
 
 Choice: amends D-26, D-73 and D-98 point 1.
 
@@ -19438,3 +19438,32 @@ Rejected:
   tables still costs 13 ms.
 - A `delete` for the D-188 route: it may run on a development database with
   many rows, where a `truncate` stays fast.
+
+## D-307: A sync sends its statements in one round trip
+
+Choice: amends D-105 point 3. A sync sends all its statements to PostgreSQL
+as one text, after a savepoint, instead of one query each. When the database
+refuses them, the sync rolls back to the savepoint and runs them again one at
+a time, so that the error still names the statement it refused. After a lock
+timeout the 5 seconds are spent: the statements run again with a lock
+timeout of 100 ms, so a sync that waits fails after about 5 seconds, not 10,
+and names the statement that waited. Nothing changes for a developer: the
+tables, the stored snapshot and the errors are the same.
+
+Why: a first start on an empty database, which every test file and every
+fresh development database pays, sent each `create table`, `alter table` and
+`create index` on its own, one round trip each. A 22-model application with
+HTTP, GraphQL, REST, realtime, auth and password sends 89 queries on its first
+start, 16 after. Medians of 8 interleaved runs: 212.6 ms before, 158.0 ms
+after, 26 % less. The PostgreSQL suite of UltimaBase, 3 interleaved runs:
+44.0 s before, 41.6 s after.
+
+What it costs: a sync the database refuses runs its statements twice, the
+second time one by one; that path is rare and ends in an error.
+
+Rejected:
+
+- Naming the refused statement from the error of the whole text: PostgreSQL
+  does not say which statement of a multi-statement query failed.
+- Sending a deploy's files together: each file already runs as one text, and
+  a file is the unit its errors name.

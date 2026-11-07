@@ -32,6 +32,9 @@ const bookkeeping = [
  */
 const lockTimeout = '5s'
 
+/** How long statements run again after a lock timeout wait (D-307). */
+const retryTimeout = '100ms'
+
 /** How long a sync or deploy that waits leaves between two tries of the lock. */
 const tryEvery = 100
 
@@ -173,6 +176,33 @@ async function executed(
 	}
 }
 
+/**
+ * Runs `list` in one round trip (D-307). When the database refuses, it undoes
+ * them and runs them one at a time, so that the error names the statement.
+ * After a lock timeout the wait is spent: the statement that waited fails
+ * again at once if the other session still holds its table.
+ */
+async function statements(
+	trx: Transaction<object>,
+	list: readonly { readonly sql: string }[],
+): Promise<void> {
+	if (list.length === 0) return
+	await sql.raw('savepoint statements').execute(trx)
+	try {
+		await sql
+			.raw(list.map((statement) => statement.sql).join(';\n'))
+			.execute(trx)
+	} catch (error) {
+		await sql.raw('rollback to savepoint statements').execute(trx)
+		if (error instanceof Error && Reflect.get(error, 'code') === '55P03') {
+			await sql.raw(`set local lock_timeout = '${retryTimeout}'`).execute(trx)
+		}
+		for (const statement of list) {
+			await executed(trx, statement.sql, statement.sql)
+		}
+	}
+}
+
 async function sync(
 	db: Kysely<object>,
 	run: Extract<Run, { kind: 'sync' }>,
@@ -191,9 +221,7 @@ async function sync(
 			)
 		}
 		if (row === undefined) await refuseTables(trx, run.to)
-		for (const statement of run.statements) {
-			await executed(trx, statement.sql, statement.sql)
-		}
+		await statements(trx, run.statements)
 		await store(trx, run.to, 'sync')
 	})
 }
