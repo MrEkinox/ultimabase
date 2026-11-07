@@ -1,7 +1,8 @@
 // `prepared: false` plans every statement each time (D-274).
 import { testApplication } from '@ultimabase/testing'
+import { Client } from 'pg'
 import { defineApp, defineModel, master } from 'ultimabase'
-import { expect, it } from 'vitest'
+import { expect, it, vi } from 'vitest'
 import { postgres } from './index.ts'
 
 const servers =
@@ -30,4 +31,12 @@ it('holds no statement prepared, and reads and writes as ever', async () => {
 	expect(await database.sql`select name from pg_prepared_statements`).toEqual(
 		[],
 	)
+})
+
+it('sends nothing ahead of an answer, behind a pooler (D-297)', async () => {
+	const query = vi.spyOn(Client.prototype, 'query')
+	await database.sql`select 1`
+	const [client] = query.mock.contexts
+	query.mockRestore()
+	expect(Reflect.get(Object(client), 'pipeline')).toBe(false)
 })

@@ -1,6 +1,6 @@
 # Write benchmark
 
-Measures what a write costs (D-48, D-99): its round trips, BEGIN and COMMIT
+Measures what a write costs (D-48, D-99): its statements, BEGIN and COMMIT
 included, and its time, for each write case, on `memory()` and PostgreSQL. A
 change that claims to make writes cheaper is compared with the last run below.
 
@@ -20,7 +20,9 @@ node bench/writes/bench.ts [--runs 200] [--url postgres://…]
 ## What it counts
 
 - PostgreSQL: every statement the adapter sends, BEGIN and COMMIT included,
-  through its `log` option, as `yarn test:postgres` counts them (D-98).
+  through its `log` option, as `yarn test:postgres` counts them (D-98). Runs
+  before D-297 call them trips; since D-297 BEGIN shares a round trip with the
+  statement after it, so a count is no longer a number of round trips.
 - `memory()`: every call the kernel makes to the adapter. A write is one call
   whatever its statements, so a write PostgreSQL splits counts more there: a
   join table's pair unlinked and linked again in one write is 1 on `memory()`
@@ -30,6 +32,22 @@ node bench/writes/bench.ts [--runs 200] [--url postgres://…]
   milliseconds. Rows add up across runs; the rows a case reads stay few.
 
 ## Runs
+
+### 2026-11-07: BEGIN sent with the first statement (D-297), 100 runs
+
+PostgreSQL 18 next door, medians in ms. Before is the mean of two runs with BEGIN
+awaited, on the same day; after is one final run. The statements are the same.
+
+| Case                                    | Statements | Before | After |
+| --------------------------------------- | ---------: | -----: | ----: |
+| create                                  |          1 |   0.89 |  0.89 |
+| update by id, Master                    |          1 |   0.91 |  0.90 |
+| update by id, a user under access rules |          4 |   2.80 |  2.24 |
+| delete by id, a user under access rules |          4 |   2.64 |  2.09 |
+| create, an afterCreate hook             |          5 |   3.30 |  2.72 |
+| create, an afterCreateCommit hook       |          4 |   2.67 |  2.09 |
+| transaction(), the same rows one by one |          6 |   4.77 |  4.11 |
+| transaction(), two creates              |          4 |   2.73 |  2.15 |
 
 ### 2026-11-07: an id's random part from `crypto.randomUUID` (D-296), 100 runs
 

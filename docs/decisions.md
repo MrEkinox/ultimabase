@@ -19058,3 +19058,61 @@ notice: 5 µs of about 900.
 Rejected: a block of random bytes of our own, the same thing with more code; a
 faster, non-cryptographic source, since an id is not a secret but is hard to
 guess today and a developer may have come to rely on it.
+
+## D-297: A transaction's BEGIN does not wait for its answer
+
+Choice: a transaction sends its first statement right behind `BEGIN`, in one
+round trip. The pool opens its connections with `pg`'s `pipeline` option, and a
+small dialect (`packages/postgres/src/begin.ts`) has `beginTransaction` return
+once `BEGIN` is sent, keeping its answer for the COMMIT. PostgreSQL runs what it
+receives in the order it came, so nothing changes for what a transaction sees or
+writes, and each further statement still waits for the one before it.
+
+1. A failing first statement behaves as before: the ROLLBACK follows, and the
+   connection goes back clean. PostgreSQL answers each statement sent ahead,
+   and `pg` knows which named statements it never parsed.
+2. A `BEGIN` that fails is told at the COMMIT, or not at all when a statement
+   failed first, since that statement's error is the cause worth telling. What
+   can fail a `BEGIN` is a lost connection, which fails the statement behind it
+   too.
+3. A lost connection now fails the first statement rather than the `begin`.
+   `pg` answers every statement it holds when its connection dies, so none
+   waits forever.
+4. `prepared: false` (D-274) keeps waiting for `BEGIN`, since a pooler may share
+   connections, and nothing here was tried behind one.
+5. The feed's listener keeps its plain connection: it runs no transaction.
+
+`pg`'s `pipeline` is three months old as of this choice; it is pinned exactly,
+and the first test of `begin.postgres.test.ts` fails if a new version of `pg` or
+kysely sends in another order. A write under rules, an after hook or
+`transaction()` gains a round trip; one statement alone never had a `BEGIN`.
+
+Measured with `bench/writes`, statements unchanged, median in ms, two runs of each
+on PostgreSQL next door (a 0.57 ms round trip) and one through a 2 ms proxy:
+
+| Case                             | Next door, before |      After | 2 ms, before | After |
+| -------------------------------- | ----------------: | ---------: | -----------: | ----: |
+| update by id, a user under rules |        2.80, 2.79 | 2.41, 2.30 |        13.93 | 10.34 |
+| delete by id, a user under rules |        2.63, 2.64 | 2.11, 2.11 |        13.60 | 10.14 |
+| create, an afterCreate hook      |        3.29, 3.30 | 2.78, 2.68 |        16.95 | 13.32 |
+| transaction(), two creates       |        2.72, 2.74 | 2.17, 2.14 |        13.46 | 10.22 |
+| create, no transaction           |        0.89, 0.89 | 0.89, 0.89 |         3.85 |  3.81 |
+
+The same over real HTTP, 16 clients, 6 s a case, two runs of each, requests a
+second. Next door the gain is smaller: a request takes the server about 1.2 ms
+of CPU, against a 0.57 ms round trip saved.
+
+| Case           | Next door, before |      After | 2 ms, before |    After |
+| -------------- | ----------------: | ---------: | -----------: | -------: |
+| REST update    |          845, 917 |   955, 930 |     488, 493 | 573, 590 |
+| GraphQL update |          857, 857 |   930, 890 |     487, 471 | 548, 593 |
+| REST create    |        1431, 1404 | 1468, 1343 |      not run |  not run |
+
+A create alone has no transaction, so it has nothing to gain. Faults on the new
+code (a killed server, a terminated connection, a cut network, a failover, an
+address that vanishes) end as before: back within the same seconds, nothing left
+in flight, a stop under 30 ms. A soak of 5 minutes kept its heap flat at 99 MB.
+
+Rejected for now: sending COMMIT with the last write as well. It saves another
+round trip, but what runs after that write, a selected virtual field for one,
+could no longer undo it.

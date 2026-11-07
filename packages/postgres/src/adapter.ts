@@ -6,7 +6,7 @@ import type {
 	QueryExecutorProvider,
 	Transaction as Open,
 } from 'kysely'
-import { Kysely, PostgresDialect, sql } from 'kysely'
+import { Kysely, sql } from 'kysely'
 import type { PoolClient } from 'pg'
 import { Pool } from 'pg'
 import { CheckFailed, Refused } from 'ultimabase'
@@ -31,6 +31,7 @@ import { fillsOf } from './fills.ts'
 import type { Listener } from './listen.ts'
 import { channelOf, listening } from './listen.ts'
 import { plan } from './plan.ts'
+import { BeginSent } from './begin.ts'
 import { pooled } from './pool.ts'
 import { preparing } from './prepared.ts'
 import { compileCount, compileFind } from './read.ts'
@@ -204,6 +205,8 @@ export function createAdapter(options: Options): Postgres {
 				...config,
 				max: connections,
 				connectionTimeoutMillis: wait,
+				// A pooler may share connections: nothing there is sent ahead (D-297).
+				pipeline: options.prepared !== false,
 			})
 			// A connection the server ends would crash the process unheard. An
 			// idle one the pool drops, and the next query opens another; one a
@@ -221,7 +224,7 @@ export function createAdapter(options: Options): Postgres {
 				// it; queued, this runs before the client's first query (D-47).
 				client.query('set jit = off').catch(() => undefined)
 			})
-			const dialect = new PostgresDialect({
+			const dialect = new BeginSent({
 				pool: pooled(url, pool, connections, wait),
 			})
 			const db = new Kysely<object>({
