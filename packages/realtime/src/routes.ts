@@ -11,7 +11,7 @@ import { judgedOf } from './stale.ts'
 /** The ids a read's rows must lead to, along `path`, by `key` there. */
 export type Pin = {
 	readonly path: readonly Step[]
-	/** `id`, or a key the rows `path` leads to store. */
+	/** `id`, a key the rows `path` leads to store, or a text of the root's. */
 	readonly key: string
 	readonly ids: readonly string[]
 }
@@ -44,7 +44,9 @@ export type Shape = {
 function idsOf(
 	condition: Condition | readonly Filter[] | undefined,
 ): readonly string[] | undefined {
-	if (condition === undefined || isList(condition)) return undefined
+	if (condition === undefined || isList(condition) || condition.mode) {
+		return undefined
+	}
 	const { equals, in: some } = condition
 	if (typeof equals === 'string') return [equals]
 	const strings = some?.filter((id): id is string => typeof id === 'string')
@@ -97,6 +99,33 @@ function pinOf(
 	return shortest
 }
 
+/** The texts `filter` requires of a field of `model`'s rows, whole and exact. */
+function textPinOf(
+	models: Models,
+	model: string,
+	filter: Filter | undefined,
+): Pin | undefined {
+	if (filter === undefined) return undefined
+	for (const part of required(filter)) {
+		for (const [key, value] of Object.entries(part)) {
+			const field = models.get(model)?.get(key)
+			if (field?.kind !== 'scalar' || field.list) continue
+			if (field.type !== 'string' && field.type !== 'enum') continue
+			const ids = idsOf(value)
+			if (ids !== undefined) return { path: [], key, ids }
+		}
+	}
+	return undefined
+}
+
+/** What the rows of a read of `model` must lead to, an id above all. */
+const rootPinOf = (
+	models: Models,
+	model: string,
+	filter: Filter | undefined,
+): Pin | undefined =>
+	pinOf(models, model, filter, []) ?? textPinOf(models, model, filter)
+
 /** What a write can concern in `plan`, a live read of `model`. */
 export function interestOfPlan(
 	models: Models,
@@ -106,7 +135,7 @@ export function interestOfPlan(
 ): Interest {
 	return {
 		root: model,
-		pin: pinOf(models, model, plan.where, []),
+		pin: rootPinOf(models, model, plan.where),
 		routes: [
 			{ steps: [], model, fields: union(reach.placing, reach.showing) },
 			...reach.levels.filter(({ steps }) => steps.length > 0),
@@ -138,7 +167,7 @@ export function interestOfRead(models: Models, read: Recorded): Interest {
 			: new Set([...read.fields, ...filters])
 	return {
 		root: model,
-		pin: pinOf(models, model, where, []),
+		pin: rootPinOf(models, model, where),
 		routes: [{ steps: [], model, fields }, ...further],
 	}
 }

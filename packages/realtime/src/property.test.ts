@@ -125,11 +125,22 @@ type Args = {
 	readonly totalCount?: boolean
 }
 const shown = { select: { id: true, title: true, rank: true } }
+const someTitles = Array.from({ length: 30 }, (_, at) =>
+	'aei'.charAt(at % 3).concat(String(at % 10)),
+)
 const lists: readonly (readonly ['Post' | 'Item', Args])[] = [
 	['Item', { orderBy: [{ rank: 'asc' }], first: 3, totalCount: true }],
 	[
 		'Item',
 		{ where: { rank: { gte: 4 } }, orderBy: [{ title: 'desc' }], first: 2 },
+	],
+	[
+		'Item',
+		{
+			where: { title: { in: someTitles } },
+			orderBy: [{ rank: 'asc' }],
+			first: 3,
+		},
 	],
 	['Post', { orderBy: [{ rank: 'asc' }], first: 3, totalCount: true }],
 	[
