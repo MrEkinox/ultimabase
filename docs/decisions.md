@@ -5603,7 +5603,7 @@ mutation {
 
 ## D-114: `passwordPlugin()`'s limits against many addresses
 
-Amended by D-115 and D-161.
+Amended by D-115, D-161 and D-316.
 
 Choice: completes D-113.
 
@@ -19691,3 +19691,29 @@ Rejected:
   different moments, and a burst of callers due together is cut in turns.
 - Rebuilding the due callers in a turn of their own each: a rebuild waits
   for the database, so one at a time could not keep up with 10 000 callers.
+
+## D-316: No more Argon2 computations at once than libuv has threads
+
+Choice: amends D-114 point 3. At most as many Argon2 computations run at once
+as the smaller of `os.availableParallelism()` and libuv's threads, which are
+`UV_THREADPOOL_SIZE`, read as libuv reads it, or 4. Sixty-four more still
+wait, and one more is still refused with `TOO_MANY_ATTEMPTS`. Nothing changes
+for a developer.
+
+Why: Argon2 runs on libuv's threads, which also compress the realtime
+messages (D-266) and the SSE streams, read files and look up names. With 12
+computations queued on 4 threads, each of those waited behind up to 8 hashes.
+Measured with a scratch bench: one GraphQL subscriber of a list written every
+20 ms, while 400 sign-ins arrive 48 at a time, twice each:
+
+- Before, 12 at once: the subscriber was told at p50 1358 and 1349 ms, p95
+  2505 and 2551 ms; the 400 sign-ins took 3.41 and 3.43 s.
+- After, 4 at once: p50 53 and 54 ms, p95 66 ms; the sign-ins took 3.53 and
+  3.56 s, with as few refused.
+
+Rejected:
+
+- One thread fewer than libuv's, which kept a thread free: p50 13 ms, but
+  the sign-ins took a fifth longer and more were refused.
+- Setting `UV_THREADPOOL_SIZE` from the plugin: libuv reads it once, when
+  the first task needs a thread, which may already have happened.
