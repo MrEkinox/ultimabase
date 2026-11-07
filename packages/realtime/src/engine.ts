@@ -1,7 +1,7 @@
 // The realtime engine (D-154, D-271): at most one flush each 50 ms reads each
 // changed row once and hands the batch to the viewers holding a read it may
 // concern (D-256), a few at a time.
-// Every viewer's caller is built again on a timer, and when it expires.
+// Each viewer's caller is built again on its own timer, and when it expires.
 import type { Changed } from 'ultimabase'
 import { liveSchema, recording, SharedReads } from 'ultimabase/internal'
 import { batchOf } from './changes.ts'
@@ -15,6 +15,8 @@ import { Viewer } from './viewer.ts'
 const gather = 50
 /** How many viewers follow a flush at once. */
 const concurrency = 8
+/** How many due viewers one turn of the chain builds again (D-315). */
+const rebuilds = 32
 
 /** The longest a flush holds the event loop, in milliseconds (D-255). */
 const slice = 8
@@ -57,7 +59,9 @@ export class Engine {
 	readonly #settings: Settings
 	readonly #viewers = new Set<Viewer>()
 	readonly #readers = new Readers()
-	readonly #refresh: NodeJS.Timeout
+	readonly #refresh: number
+	/** The viewers to build again, in the order they came due. */
+	readonly #due = new Set<Viewer>()
 	#changes: Changed[] = []
 	#missed = false
 	#stopped = false
@@ -67,10 +71,7 @@ export class Engine {
 
 	constructor(settings: Settings, refresh: number) {
 		this.#settings = settings
-		this.#refresh = setInterval(() => {
-			this.#chain = this.#chain.then(async () => this.#rebuild())
-		}, refresh)
-		this.#refresh.unref()
+		this.#refresh = refresh
 	}
 
 	/** A viewer for `request`'s caller, kept until it closes. */
@@ -82,13 +83,12 @@ export class Engine {
 		const viewer = new Viewer(this.#settings, request, identified, {
 			readers: this.#readers,
 			onClose: () => this.#viewers.delete(viewer),
-			onDue: () => {
-				this.#chain = this.#chain.then(async () =>
-					this.#guarded(viewer, async () => viewer.rebuild()),
-				)
-			},
+			onDue: () => this.#rebuildSoon(viewer),
 		})
 		this.#viewers.add(viewer)
+		const refresh = setInterval(() => this.#rebuildSoon(viewer), this.#refresh)
+		refresh.unref()
+		viewer.onClose(() => clearInterval(refresh))
 		return viewer
 	}
 
@@ -104,7 +104,6 @@ export class Engine {
 
 	async stop(): Promise<void> {
 		this.#stopped = true
-		clearInterval(this.#refresh)
 		clearTimeout(this.#timer)
 		this.#timer = undefined
 		for (const viewer of this.#viewers) viewer.close()
@@ -152,10 +151,27 @@ export class Engine {
 		}
 	}
 
+	/** Builds `viewer` again in a coming turn of the chain (D-315). */
+	#rebuildSoon(viewer: Viewer): void {
+		if (this.#due.size === 0) {
+			this.#chain = this.#chain.then(async () => this.#rebuild())
+		}
+		this.#due.add(viewer)
+	}
+
+	/** The first viewers due built again; the rest wait behind flushes. */
 	async #rebuild(): Promise<void> {
-		await bounded([...this.#viewers], concurrency, async (viewer) =>
+		const taken: Viewer[] = []
+		for (const viewer of this.#due) {
+			if (taken.push(viewer) === rebuilds) break
+		}
+		for (const viewer of taken) this.#due.delete(viewer)
+		await bounded(taken, concurrency, async (viewer) =>
 			this.#guarded(viewer, async () => viewer.rebuild()),
 		)
+		if (this.#due.size > 0) {
+			this.#chain = this.#chain.then(async () => this.#rebuild())
+		}
 	}
 
 	/** A viewer that fails is logged and ended as failed; the others go on. */
