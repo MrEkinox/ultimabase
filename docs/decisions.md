@@ -14708,6 +14708,8 @@ cycle of models such as `Task` and `Milestone`, makes the types circular).
 
 ## D-221: Jobs: an outbox and scheduled jobs, a plugin
 
+Amended by D-302.
+
 Choice: the plugin `@ultimabase/jobs` runs work after a write commits, later,
 or on a schedule, with no kernel change (D-25):
 
@@ -19264,3 +19266,50 @@ Rejected:
 - More builders with `--builders`: the same 13.5 to 14.5 s.
 - Merging the examples into one program: each declares its own models, as an
   application does.
+
+## D-302: An instance runs 20 runs at once
+
+Choice: amends D-221, point 10. An instance runs at most 20 runs at once, the
+runs its commits start and those its poll finds alike. A run waits for a place
+in the order it started, and takes the place a run frees at once. The poll
+reads the due rows 20 at a time, only once every run before them has a place,
+and does not wait for them to end. When the instance stops, the runs still
+waiting for a place are dropped: their rows stay due for the next instance.
+A run that fails outside its job, as when the database is down, ends the
+poll until the next one, and fails `runJobs()` with "runJobs could not run a
+job.", the error as its cause. Nothing changes for a developer of an
+application.
+
+Why: a commit started its run at once, with no limit. 2000 runs enqueued at
+once ran 2000 at once and held the pool's 10 connections: a read of the
+application waited about half a second. The poll ran 20 rows and waited for
+the slowest before it read the next 20, so one slow run held 19 places.
+
+Measured on postgres, three interleaved runs of each, before and after:
+
+- 2000 runs enqueued at once, each one read and 5 ms: at most 2000 runs at
+  once before, 20 after. A read made meanwhile took 408 to 448 ms at the
+  median before, 2.4 to 3.0 ms after; 1475 to 1654 ms at the 95th
+  percentile before, 4.5 to 7.1 ms after. All 2000 ended in 2.9 to 3.2 s
+  before, 3.05 to 3.5 s after.
+- 1000 due rows, 20 of them 500 ms and the others 5 ms: 10.35 to 10.40 s
+  through `runJobs()` before, 2.16 to 2.39 s after; 5.84 to 5.87 s through
+  the poll before, 1.38 to 1.40 s after.
+
+What it costs: work that only waits, as a slow call to another service, runs
+20 at a time in each instance where it ran without a limit. A queue that
+needs more runs on more instances.
+
+Before, a failure outside a job was logged, and `runJobs()` passed with
+nothing run: a test of a job then failed on what the job did, not on why.
+The poll now reads the next rows without waiting for the runs before, so it
+must stop on that failure, or it would read the same due rows again at once.
+
+Rejected:
+
+- An option for the number of places: nothing tells a developer what to set
+  it to, as the poll's five seconds (D-221).
+- A place for each connection of the pool: the pool is the adapter's, and a
+  job may make no read at all.
+- Running the waiting runs before the instance stops: 2000 waiting runs
+  would hold the stop for as long as they take.
