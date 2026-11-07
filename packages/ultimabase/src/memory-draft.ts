@@ -1,5 +1,5 @@
-// The draft a memory() write changes: a copy of the store, and what the
-// write changed for the feed (D-154).
+// The draft a memory() write changes: the store, changed in place and put
+// back if the write fails (D-305), and what it changed for the feed (D-154).
 import type {
 	AggregateRead,
 	Arithmetic,
@@ -18,6 +18,7 @@ import type {
 import { CheckFailed, OutOfRange, UniqueViolation } from './adapter.ts'
 import type { Fields, Store, StoredRow } from './memory-read.ts'
 import { Reader } from './memory-read.ts'
+import { Journal } from './memory-journal.ts'
 import { distinct, grouped } from './memory-aggregate.ts'
 import { copy } from './memory-values.ts'
 import { listed } from './list-update.ts'
@@ -50,14 +51,16 @@ export class Draft {
 	readonly schema: Schema
 	/** What the write changed, in order, for the feed (D-154). */
 	readonly changed: Changed[] = []
+	readonly journal: Journal
 
 	constructor(store: Store, fields: Fields, schema: Schema) {
 		this.reader = new Reader(store, fields)
 		this.schema = schema
+		this.journal = new Journal(store)
 	}
 
 	find(read: Read): Row[] {
-		const stored = [...this.reader.table(read.model).values()]
+		const stored = this.reader.candidates(read.model, read.where)
 		const rows = read.distinct ? distinct(this.reader, read, stored) : stored
 		return this.reader
 			.select(read.model, rows, read)
@@ -73,13 +76,23 @@ export class Draft {
 	}
 
 	private selected(read: CountRead): StoredRow[] {
-		const rows = [...this.reader.table(read.model).values()]
+		const rows = this.reader.candidates(read.model, read.where)
 		return rows.filter(
 			(row) => this.reader.matches(read.model, row, read.where) === true,
 		)
 	}
 
+	/** Runs `write` whole, or leaves the store as it was and throws. */
 	write(write: Write): Row[] {
+		try {
+			return this.written(write)
+		} catch (error) {
+			this.journal.undo()
+			throw error
+		}
+	}
+
+	private written(write: Write): Row[] {
 		for (const [index, check] of (write.checks ?? []).entries()) {
 			if (this.count(check) !== check.count) throw new CheckFailed(index)
 		}
@@ -130,9 +143,9 @@ export class Draft {
 
 	private matching(model: string, change: Change): StoredRow[] {
 		if (change.kind !== 'update' && change.kind !== 'delete') return []
-		return [...this.reader.table(model).values()].filter(
-			(row) => this.reader.matches(model, row, change.where) === true,
-		)
+		return this.reader
+			.candidates(model, change.where)
+			.filter((row) => this.reader.matches(model, row, change.where) === true)
 	}
 
 	private stored(
@@ -186,11 +199,11 @@ export class Draft {
 
 	/** Applies `delete`; returns the rows it removed. */
 	private remove(change: Extract<Change, { kind: 'delete' }>): StoredRow[] {
-		const table = this.reader.table(change.model)
+		const table = this.journal.table(change.model)
 		const removed: StoredRow[] = []
 		for (const row of this.matching(change.model, change)) {
 			removed.push(row)
-			table.delete(row.id)
+			this.journal.delete(table, row.id)
 			for (const field of this.joinFields(change.model)) {
 				this.unlink(change.model, field, row.id, [
 					...(this.side(change.model, field.name).get(row.id) ?? []),
@@ -201,13 +214,13 @@ export class Draft {
 	}
 
 	private apply(change: Exclude<Change, { kind: 'delete' }>): void {
-		const table = this.reader.table(change.model)
+		const table = this.journal.table(change.model)
 		switch (change.kind) {
 			case 'insert': {
 				if (table.has(change.row.id)) {
 					throw new UniqueViolation(change.model, ['id'])
 				}
-				table.set(change.row.id, {
+				this.journal.set(table, {
 					...this.stored(change.model, change.row),
 					id: change.row.id,
 				})
@@ -221,7 +234,7 @@ export class Draft {
 						...change.set,
 						...this.computed(change.model, row, change.compute),
 					}
-					table.set(row.id, {
+					this.journal.set(table, {
 						...row,
 						...this.stored(change.model, set),
 						id: row.id,
@@ -263,13 +276,7 @@ export class Draft {
 	}
 
 	private side(model: string, field: string): Map<string, Set<string>> {
-		const name = `${model}.${field}`
-		let side = this.reader.store.joins.get(name)
-		if (side === undefined) {
-			side = new Map()
-			this.reader.store.joins.set(name, side)
-		}
-		return side
+		return this.journal.side(`${model}.${field}`)
 	}
 
 	private ids(model: string, field: string, id: string): Set<string> {
@@ -291,8 +298,8 @@ export class Draft {
 	): boolean {
 		const ids = this.ids(model, field.name, id)
 		if (ids.has(target)) return false
-		ids.add(target)
-		this.ids(field.target, field.inverse, target).add(id)
+		this.journal.add(ids, target)
+		this.journal.add(this.ids(field.target, field.inverse, target), id)
 		return true
 	}
 
@@ -305,9 +312,11 @@ export class Draft {
 	): string[] {
 		if (field.kind !== 'many') return []
 		return targets.filter((target) => {
-			const removed = this.side(model, field.name).get(id)?.delete(target)
-			this.side(field.target, field.inverse).get(target)?.delete(id)
-			return removed === true
+			const ids = this.side(model, field.name).get(id)
+			const removed = ids !== undefined && this.journal.remove(ids, target)
+			const other = this.side(field.target, field.inverse).get(target)
+			if (other !== undefined) this.journal.remove(other, id)
+			return removed
 		})
 	}
 

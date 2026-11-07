@@ -19369,3 +19369,41 @@ Rejected:
   mock does not apply and its test fails.
 - `restoreMocks` and `unstubEnvs` in the config: they reset before each
   test, which undoes the spies a file sets once at its top.
+
+## D-305: A `memory()` write changes the rows in place
+
+Choice: a write outside a transaction changes the stored rows and links in
+place, and records how to put each change back. If the write fails, it puts
+them back in reverse order; the first removal from a table or a link set
+saves it whole, so that the rows come back in their order. A transaction
+starts from a shallow copy of the store, and copies a table or a link side
+the first time it changes it, once per transaction; its commit makes that
+store the store. A read, an update or a delete whose filter names the ids
+with `equals` or `in` alone, at the top or inside `AND`, tests only those
+rows. A failed write still changes nothing, and a transaction's writes stay
+hidden until it commits. Nothing changes for a developer of an application.
+
+Why: each write copied the whole store, every table and every link, so its
+cost grew with every row stored, and a seed of single creates was
+quadratic. Measured with a script on `memory()`, medians against `main`: one
+create with 100 000 rows in another table, 13.5 to 15.9 ms before, 0.24 ms
+after; a seed of 10 000 single creates, 16.8 s before, 0.44 s after; a seed
+of 5 000 then 200 updates by id, 4.2 s and 0.80 s before, 0.25 s and 0.02 s
+after. `memory()` is the default of the tests, the starter template and
+`ultimabase dev`.
+
+What it costs: a write that deletes copies its table's entries once, and a
+transaction copies each table it changes once. A unique field still makes
+each write scan its table: a seed of 5 000 with one unique field takes 3.4 s,
+7.3 s before.
+
+Rejected:
+
+- An index of each unique field: it would remove the last scan, but adds a
+  structure to keep right on every write and undo; it waits for a case that
+  needs it.
+- Persistent maps from a package: the journal is about a hundred lines, and
+  a dependency would not remove the order and undo rules.
+- Putting a deleted row back at the end of its table: reads sort by id, but a
+  view that keeps one row reads its first, and a failed write would no
+  longer change nothing.

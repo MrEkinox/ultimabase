@@ -1,11 +1,12 @@
-// `memory()`: the in-memory adapter, for tests and examples (D-02). Each write
-// runs on a copy of the store that replaces it once whole, so a failed write
-// changes nothing; a transaction holds the write lock until it ends.
+// `memory()`: the in-memory adapter, for tests and examples (D-02). A write
+// changes the rows in place and puts them back if it fails, so a failed write
+// changes nothing; a transaction changes copies of the tables it writes, and
+// holds the write lock until it ends (D-305).
 import type { Adapter, Changed, Feed, Schema, Transaction } from './adapter.ts'
 import { feedFields, feedIds } from './adapter.ts'
 import { Draft } from './memory-draft.ts'
 import type { Fields, Store, StoredRow } from './memory-read.ts'
-import { clone } from './memory-read.ts'
+import { layer } from './memory-journal.ts'
 
 /** The reads of the draft `get` gives, each a tick later, as a database's. */
 function readsOf(
@@ -147,10 +148,8 @@ export function memory(): Adapter {
 		write: async (write) => {
 			const release = await acquire()
 			try {
-				const next = clone(store)
-				const writing = draft(next)
+				const writing = draft(store)
 				const rows = writing.write(write)
-				store = next
 				deliver(writing.changed)
 				return rows
 			} finally {
@@ -159,7 +158,7 @@ export function memory(): Adapter {
 		},
 		begin: async (): Promise<Transaction> => {
 			const release = await acquire()
-			const next = clone(store)
+			const next = layer(store)
 			const changed: Changed[] = []
 			let open = true
 			const active = (): Draft => {
@@ -174,22 +173,16 @@ export function memory(): Adapter {
 				...readsOf(active),
 				write: async (write) => {
 					await Promise.resolve()
-					active()
 					// A failed write leaves the transaction as it was.
-					const attempt = clone(next)
-					const writing = draft(attempt)
+					const writing = active()
 					const rows = writing.write(write)
 					changed.push(...writing.changed)
-					next.tables.clear()
-					next.joins.clear()
-					for (const [name, table] of attempt.tables)
-						next.tables.set(name, table)
-					for (const [name, side] of attempt.joins) next.joins.set(name, side)
 					return rows
 				},
 				commit: async () => {
 					active()
-					store = next
+					// Now the store, changed in place by the writes after it.
+					store = { tables: next.tables, joins: next.joins }
 					end()
 					deliver(changed)
 					await Promise.resolve()

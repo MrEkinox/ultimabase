@@ -136,6 +136,29 @@ describe('reads', () => {
 		).toEqual([])
 	})
 
+	it('reads by id as by any filter (D-305)', async () => {
+		expect(await books({ id: { equals: 'b2' } })).toEqual(['b2'])
+		expect(await books({ id: { in: ['b2', 'b9', 'b2', 'b1'] } })).toEqual([
+			'b1',
+			'b2',
+		])
+		expect(await books({ id: { in: [] } })).toEqual([])
+		expect(
+			await books({
+				AND: [{ title: { equals: 'Engines' } }, { id: { in: ['b2'] } }],
+			}),
+		).toEqual(['b2'])
+		// The id pins nothing with another operator, or a value not an id.
+		expect(await books({ id: { equals: 'B1', mode: 'insensitive' } })).toEqual([
+			'b1',
+		])
+		expect(await books({ id: { in: [null] } })).toEqual([])
+		expect(await books({ id: { not: 'b1' } })).toEqual(['b2'])
+		expect(
+			await ids('Book', { cursor: { id: { equals: 'b1' } }, take: 1, skip: 1 }),
+		).toEqual(['b2'])
+	})
+
 	it('includes relations, null when the nested filter refuses', async () => {
 		const [ada] = await adapter.find({
 			model: 'Author',
@@ -168,6 +191,59 @@ describe('writes', () => {
 		await expect(failed).rejects.toBeInstanceOf(UniqueViolation)
 		await expect(failed).rejects.toMatchObject({ fields: ['id'] })
 		expect(await ids('Tag')).toEqual(['t1'])
+	})
+
+	it('puts back what a failed write deleted, updated and linked', async () => {
+		const failed = adapter.write({
+			changes: [
+				{ kind: 'delete', model: 'Book', where: { id: { equals: 'b1' } } },
+				{
+					kind: 'update',
+					model: 'Book',
+					where: { id: { equals: 'b2' } },
+					set: { title: 'Changed' },
+				},
+				{
+					kind: 'link',
+					model: 'Book',
+					field: 'tags',
+					id: 'b2',
+					targets: ['t1'],
+				},
+				insert('Tag', { id: 't1' }),
+			],
+		})
+		await expect(failed).rejects.toBeInstanceOf(UniqueViolation)
+		const rows = await adapter.find({
+			model: 'Book',
+			fields: ['title'],
+			include: { tags: { fields: [] } },
+		})
+		expect(rows).toEqual([
+			{ id: 'b1', title: 'Analysis', tags: [{ id: 't1' }] },
+			{ id: 'b2', title: 'Engines', tags: [] },
+		])
+	})
+
+	it('puts back the links a failed unlink removed', async () => {
+		const failed = adapter.write({
+			changes: [
+				{
+					kind: 'unlink',
+					model: 'Book',
+					field: 'tags',
+					id: 'b1',
+					targets: ['t1'],
+				},
+				insert('Tag', { id: 't1' }),
+			],
+		})
+		await expect(failed).rejects.toBeInstanceOf(UniqueViolation)
+		const [math] = await adapter.find({
+			model: 'Tag',
+			include: { books: { fields: [] } },
+		})
+		expect(math?.['books']).toEqual([{ id: 'b1' }])
 	})
 
 	it('links only through a join', async () => {
@@ -249,6 +325,34 @@ describe('transactions', () => {
 			't2',
 		])
 		await tx.rollback()
+	})
+
+	it('hides its deletes and links from others until it commits', async () => {
+		const tx = await adapter.begin()
+		await tx.write({
+			changes: [
+				{ kind: 'delete', model: 'Book', where: { id: { equals: 'b1' } } },
+				{
+					kind: 'link',
+					model: 'Book',
+					field: 'tags',
+					id: 'b2',
+					targets: ['t1'],
+				},
+			],
+		})
+		const tags = async (): Promise<unknown> =>
+			(
+				await adapter.find({ model: 'Tag', include: { books: { fields: [] } } })
+			)[0]?.['books']
+		expect(await ids('Book')).toEqual(['b1', 'b2'])
+		expect(await tags()).toEqual([{ id: 'b1' }])
+		await tx.commit()
+		expect(await ids('Book')).toEqual(['b2'])
+		expect(await tags()).toEqual([{ id: 'b2' }])
+		// After the commit, writes change the committed rows.
+		await adapter.write({ changes: [insert('Tag', { id: 't2' })] })
+		expect(await ids('Tag')).toEqual(['t1', 't2'])
 	})
 
 	it('makes other writes and stop wait until it ends', async () => {
