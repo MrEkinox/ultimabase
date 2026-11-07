@@ -2332,6 +2332,34 @@ describe('a deploy of a file without a transaction', () => {
 		).toStrictEqual(['1_a.sql', '2_index.sql'])
 	})
 
+	it('lets deploys wait while another creates an index concurrently', async () => {
+		const to = migrations.snapshot(before)
+		const files = [
+			file('1_a.sql', 'select pg_sleep(0.2); create table a (b integer);'),
+			file(
+				'2_index.sql',
+				'-- ultimabase schema abc\n-- ultimabase no transaction\ncreate index concurrently a_b on a (b);\n',
+				false,
+			),
+		]
+		const deploys = Array.from({ length: 4 }, async () =>
+			migrations.apply({ kind: 'deploy', files, to }),
+		)
+		const ends = await Promise.allSettled(deploys)
+		expect(ends.map(({ status }) => status)).toStrictEqual(
+			deploys.map(() => 'fulfilled'),
+		)
+		expect(
+			await query(
+				inSchema(schema),
+				"select indisvalid from pg_index where indexrelid = 'a_b'::regclass",
+			),
+		).toStrictEqual([{ indisvalid: true }])
+		expect(
+			(await migrations.stored())?.applied.map(({ name }) => name),
+		).toStrictEqual(['1_a.sql', '2_index.sql'])
+	})
+
 	it('refuses two statements, and concurrently in a transaction', async () => {
 		const to = migrations.snapshot(before)
 		await migrations.apply({

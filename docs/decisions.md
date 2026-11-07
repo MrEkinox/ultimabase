@@ -18865,3 +18865,24 @@ ends its subscriptions as for any other client.
 
 Nothing is logged: the frame is the client's fault, it says nothing of the
 server, and a log line would hand a stranger a way to fill the logs.
+
+## D-291: A deploy waits for the schema's lock a try at a time
+
+Choice: internal, nothing changes for a developer; amends how D-105 waits, not
+how long, which still has no limit.
+
+1. A sync or deploy takes the schema's advisory lock with
+   `pg_try_advisory_xact_lock` or `pg_try_advisory_lock`, and tries again every
+   100 ms, instead of one statement waiting for it.
+
+Why:
+
+- `create index concurrently` waits for every older snapshot to end, and it
+  runs holding that lock. A statement waiting for the lock holds a snapshot: a
+  cycle, which PostgreSQL ends by failing one of them.
+- Several instances each running `migrate deploy` as they start is ordinary. 8
+  at once with such a file: 7 failed with `deadlock detected`, each time. On 3
+  million rows the index itself failed, for it builds past the others' only
+  deadlock check: it stayed invalid, every deploy failed, and it took a
+  `drop index` by hand. Between two tries a waiting transaction holds no
+  snapshot, so the index no longer waits for it.
