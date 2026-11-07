@@ -168,6 +168,17 @@ class Narrowed {
 	}
 }
 
+/** What a flush concerns in the reads of one shape. */
+export type Concern = {
+	/** The rows each pin can see. */
+	readonly pins: ReadonlyMap<string, Batch>
+	/**
+	 * Root rows deleted with no pin they held, by id: each concerns the reads
+	 * that hold it, or that cannot tell (D-314).
+	 */
+	readonly loose: ReadonlyMap<string, Batch>
+}
+
 /**
  * The rows of `batch` each pin of `shape` can see; `'all'` when no answer is
  * sure, which a read that fails also means to the caller.
@@ -176,13 +187,14 @@ export async function concernOf(
 	shape: Shape,
 	batch: Batch,
 	loader: Loader,
-): Promise<ReadonlyMap<string, Batch> | 'all'> {
+): Promise<Concern | 'all'> {
 	const { root, pin, routes, links } = shape
 	for (const [model, fields] of links) {
 		const changes = batch.get(model)
 		if (unlisted(changes) || touched(changes, fields)) return 'all'
 	}
 	const narrowed = new Narrowed()
+	const loose = new Narrowed()
 	const forward = pin && forwardOf(root, pin, loader)
 	for (const { steps, model, fields } of routes) {
 		const changes = batch.get(model)
@@ -198,8 +210,9 @@ export async function concernOf(
 		if (steps.length > 0 && deletes.length > 0) return 'all'
 		for (const id of deletes) {
 			const held = deletedPins(pin, id, changes)
-			if (held === 'all') return 'all'
-			for (const at of held) narrowed.add(at, model, changes, 'deletes', id)
+			if (held === 'all') loose.add(id, model, changes, 'deletes', id)
+			else
+				for (const at of held) narrowed.add(at, model, changes, 'deletes', id)
 		}
 		const written = [...inserts, ...updates]
 		if (written.length === 0) continue
@@ -223,5 +236,5 @@ export async function concernOf(
 		pick(inserts, 'inserts')
 		pick(updates, 'updates')
 	}
-	return narrowed.pins
+	return { pins: narrowed.pins, loose: loose.pins }
 }

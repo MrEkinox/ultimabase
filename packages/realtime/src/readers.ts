@@ -30,9 +30,14 @@ export interface Owner {
 	end(failed?: boolean): void
 }
 
+/** Whether a root row deleted may change what a read sends (D-314). */
+export type Holds = (id: string) => boolean
+
 type Entry = {
 	readonly reader: object
 	readonly owner: Owner
+	/** A read that cannot tell is given every row deleted. */
+	readonly holds: Holds | undefined
 	within: readonly Membership[]
 }
 
@@ -52,13 +57,13 @@ export class Readers {
 	/** Follows `plan`, a live read of `spec.model`; returns where it reaches. */
 	followPlan(
 		spec: { readonly owner: Owner; readonly model: string },
-		reader: object,
+		reader: { readonly holds: Holds },
 		plan: LivePlan,
 	): Reach {
 		const schema = liveSchema()
 		const reach = reachOf(schema, spec.model, plan)
 		const interest = interestOfPlan(modelsOf(schema), spec.model, plan, reach)
-		this.#follow(spec.owner, reader, [interest])
+		this.#follow(spec.owner, reader, [interest], reader.holds)
 		return reach
 	}
 
@@ -69,9 +74,14 @@ export class Readers {
 		this.#follow(owner, reader, interests)
 	}
 
-	#follow(owner: Owner, reader: object, interests: readonly Interest[]): void {
+	#follow(
+		owner: Owner,
+		reader: object,
+		interests: readonly Interest[],
+		holds?: Holds,
+	): void {
 		this.#leave(reader)
-		const entry: Entry = { reader, owner, within: [] }
+		const entry: Entry = { reader, owner, holds, within: [] }
 		entry.within = interests.map((interest) => {
 			const made = shapeOf(interest)
 			const shape = this.#shapes.get(made.key) ?? {
@@ -164,16 +174,17 @@ export class Readers {
 			),
 		)
 		for (const [at, shape] of shapes.entries()) {
-			const pins = answers[at] ?? 'all'
-			if (pins === 'all') {
+			const answer = answers[at] ?? 'all'
+			if (answer === 'all') {
 				for (const held of shape.readers.values()) {
 					for (const entry of held) add(entry)
 				}
 				continue
 			}
-			for (const [pin, seen] of pins) {
+			for (const [pin, seen] of answer.pins) {
 				for (const entry of shape.readers.get(pin) ?? []) add(entry, seen)
 			}
+			if (answer.loose.size > 0) holding(shape, answer.loose, add)
 		}
 		const concerned = new Map<Owner, Map<object, Batch | undefined>>()
 		for (const [owner, reads] of found) {
@@ -185,5 +196,32 @@ export class Readers {
 			concerned.set(owner, seen)
 		}
 		return concerned
+	}
+}
+
+/**
+ * Gives each read of `shape` the rows of `loose` it holds. One that holds them
+ * all, or cannot tell, is given the whole batch, as before D-314: a list many
+ * share costs no more than it did.
+ */
+function holding(
+	shape: Held,
+	loose: ReadonlyMap<string, Batch>,
+	add: (entry: Entry, seen?: Batch) => void,
+): void {
+	const ids = [...loose.keys()]
+	// A read under several pins is given its rows once.
+	const given = new Set<Entry>()
+	for (const held of shape.readers.values()) {
+		for (const entry of held) {
+			const { holds } = entry
+			let count = 0
+			if (holds !== undefined) for (const id of ids) if (holds(id)) count += 1
+			if (holds === undefined || count === ids.length) add(entry)
+			else if (count > 0 && !given.has(entry)) {
+				given.add(entry)
+				for (const [id, batch] of loose) if (holds(id)) add(entry, batch)
+			}
+		}
 	}
 }

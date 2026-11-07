@@ -40,6 +40,9 @@ export class Live {
 	#revision = 0
 	readonly #tasks: Tasks
 	#closed = false
+	/** A row deleted past its window changes nothing but a count (D-314). */
+	readonly holds = (id: string): boolean =>
+		this.#spec.totalCount || this.#window.ids().has(id)
 
 	constructor(spec: Spec, caller: Caller, plan: LivePlan, first: number) {
 		this.#spec = spec

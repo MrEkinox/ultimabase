@@ -17711,7 +17711,7 @@ Rejected:
 
 ## D-256: A write visits the reads it can concern
 
-Amended by D-258, D-294.
+Amended by D-258, D-294, D-314.
 
 Choice: amends D-255's known limits. Nothing changes for a developer: no option, no
 new message, the same rows told.
@@ -17811,7 +17811,7 @@ builder, as the choice of Kysely to run statements and migrations still stands.
 
 ## D-258: A read sees only the rows that lead to it
 
-Amended by D-260, D-261.
+Amended by D-260, D-261, D-314.
 
 Choice: amends D-256. Nothing changes for a developer: no option, no new message, the
 same rows told.
@@ -19627,3 +19627,37 @@ Rejected:
 
 - Keying the filters by each list's window: no two lists share an entry, so
   nothing would be built once.
+
+## D-314: A deleted row visits only the lists that hold it
+
+Choice: builds on D-256 and D-258. A delete names only the stored keys of a
+row's `one` relations (D-196), so a shape pinned by a text or by a path cannot
+tell which pin the row held, and every read of the shape was visited. Such a
+delete of a shape's own rows now visits the live lists whose window holds the
+row, those that count their rows, and the reads that are not live lists. A
+read that holds every row deleted is given the whole batch, as before; one
+busy with a task is given it before any wait, as D-256 says. A row deleted
+past a list's window changes only its count, which a list that counts is
+still visited for. The window's ids are already kept, so no list holds more.
+Nothing changes for a developer.
+
+Why: with one list for each subscriber, a delete visited all of them to send
+one message. Measured over three interleaved pairs of
+`bench/realtime/bench.ts --subscribers 1000 --windows 25 --writes 30`:
+
+- A list each, delete: p50 from 9.4, 8.7 and 9.0 ms to 5.0, 4.8 and 4.9; p99
+  from 10.8, 11.3 and 10.2 ms to 6.1, 6.3 and 6.5.
+- One list, delete: p50 from 13.0, 12.7 and 13.0 ms to 13.5, 13.4 and 13.3.
+  Every one of the 2000 reads holds the row, and asking each window costs
+  about 0.5 ms of cache misses before the flush.
+- The other cases moved within their noise.
+
+With a list each and deletes only, p50 went from 8.55 and 8.59 ms to 4.56 and
+4.88 at 1000 subscribers, and from 25.79 and 26.34 ms to 7.92 and 7.72 at 5000.
+
+Rejected:
+
+- Carrying a deleted row's text fields in the change: the change is D-196's
+  contract, and a text can be long.
+- An index of the lists holding each row: every move of a window would write
+  it, for deletes that are rarer than moves.

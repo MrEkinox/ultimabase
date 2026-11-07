@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from 'vitest'
 import type { Row } from 'ultimabase'
 import type { Batch, ModelChanges } from './changes.ts'
 import { joined } from './changes.ts'
+import type { Concern } from './concern.ts'
 import { concernOf } from './concern.ts'
 import { Held } from './needs.ts'
 import type { Step } from './reach.ts'
@@ -61,7 +62,8 @@ const pinned = async (
 ): Promise<ReadonlyMap<string, Batch>> => {
 	const found = await concernOf(shape, batch, loader)
 	if (found === 'all') throw new Error('Expected pins.')
-	return found
+	expect(found.loose).toEqual(new Map())
+	return found.pins
 }
 
 /** What `shape` answers of `batch`, on rows that nothing else may read. */
@@ -69,8 +71,9 @@ const answer = async (
 	shape: Shape,
 	batch: Batch,
 	loader = loaderOf({}),
-): Promise<ReadonlyMap<string, Batch> | 'all'> =>
-	concernOf(shape, batch, loader)
+): Promise<Concern | 'all'> => concernOf(shape, batch, loader)
+
+const none = { pins: new Map(), loose: new Map() }
 
 describe('the rows a pin sees', () => {
 	it('of its own model, each row for the id it is', async () => {
@@ -228,6 +231,25 @@ describe('the rows a pin sees', () => {
 		expect([...byOwn.keys()]).toEqual(['a'])
 	})
 
+	it('of a deleted row that does not say what it held, the row alone (D-314)', async () => {
+		const keys = new Map([['b', { room: 'r' }]])
+		const batch = batchOf('Chat', { deletes: set('a', 'b'), keys })
+		expect(
+			await answer(shapeOf([own], { path: [], key: 'room' }), batch),
+		).toEqual({
+			pins: new Map([['r', new Map([['Chat', { deletes: set('b'), keys }]])]]),
+			loose: new Map([['a', new Map([['Chat', { deletes: set('a'), keys }]])]]),
+		})
+		const along = await answer(
+			shapeOf([own], { path: [toChat], key: 'id' }),
+			batchOf('Chat', { deletes: set('a') }),
+		)
+		expect(along).toEqual({
+			pins: new Map(),
+			loose: new Map([['a', new Map([['Chat', { deletes: set('a') }]])]]),
+		})
+	})
+
 	it('nothing of a model the shape does not read', async () => {
 		const found = await pinned(
 			shapeOf([own], byId),
@@ -263,14 +285,14 @@ describe('every row, when no answer is sure', () => {
 		)
 		await expect(
 			concernOf(shape, batchOf('Other', { inserts: set('a') }), loaderOf({})),
-		).resolves.toEqual(new Map())
+		).resolves.toEqual(none)
 		await expect(
 			concernOf(
 				shapeOf([{ ...own, fields: set('name') }], undefined),
 				batchOf('Chat', { updates: set('a'), fields: set('other') }),
 				loaderOf({}),
 			),
-		).resolves.toEqual(new Map())
+		).resolves.toEqual(none)
 	})
 
 	it('a row deleted past the root', async () => {
@@ -278,21 +300,6 @@ describe('every row, when no answer is sure', () => {
 			await answer(
 				shapeOf([notes], byId),
 				batchOf('Note', { deletes: set('n') }),
-			),
-		).toBe('all')
-	})
-
-	it('a deleted row that does not say what it held', async () => {
-		expect(
-			await answer(
-				shapeOf([own], { path: [], key: 'room' }),
-				batchOf('Chat', { deletes: set('a') }),
-			),
-		).toBe('all')
-		expect(
-			await answer(
-				shapeOf([own], { path: [toChat], key: 'id' }),
-				batchOf('Chat', { deletes: set('a') }),
 			),
 		).toBe('all')
 	})
