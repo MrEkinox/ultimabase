@@ -18,6 +18,8 @@ const field = (value: unknown, ...path: string[]): unknown =>
 const onPostgres = (example: string) =>
 	field(manifest(example), 'dependencies', '@ultimabase/postgres') !== undefined
 
+// The programs `yarn typecheck` checks: one per `tsc --project`, and each one
+// a `tsc --build` names (D-301).
 const typecheck = String(
 	field(
 		JSON.parse(readFileSync('package.json', 'utf8')),
@@ -26,7 +28,13 @@ const typecheck = String(
 	),
 )
 	.split('&&')
-	.map((command) => command.trim())
+	.flatMap((command) => {
+		const [tool, mode, ...rest] = command.trim().split(/\s+/)
+		if (tool !== 'tsc') return []
+		if (mode === '--project') return rest
+		if (mode === '--build') return rest.filter((word) => !word.startsWith('-'))
+		return []
+	})
 
 it.each(examples)('%s is a complete application', (example) => {
 	const has = (file: string) => existsSync(join('examples', example, file))
@@ -34,7 +42,7 @@ it.each(examples)('%s is a complete application', (example) => {
 		start: field(manifest(example), 'scripts', 'start'),
 		readme: has('README.md'),
 		test: has('src/app.test.ts') || has('src/app.postgres.test.ts'),
-		typechecked: typecheck.includes(`tsc --project examples/${example}`),
+		typechecked: typecheck.includes(`examples/${example}`),
 	}).toEqual({
 		start: 'node src/server.ts',
 		readme: true,

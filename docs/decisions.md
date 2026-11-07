@@ -19228,3 +19228,39 @@ whole read outside a flush, a race of its own.
 
 What this costs: one more read of the refused rows, only in a flush that holds
 related rows and only when it refuses some.
+
+## D-301: The type check builds the separate programs in one process
+
+Choice: amends D-173. `yarn typecheck` checks the root project, then the
+starter's template, each with its own `tsc --project`, then generates the
+website's sources, and builds every other program in one
+`tsc --build --force`. Each example stays its own program, as an application
+is. Nothing changes for a developer of an application.
+
+Why: the 32 programs ran one after another, at about 1.4 s each, mostly a
+start. One `tsc --build` runs them side by side in one process.
+
+- `yarn typecheck`, three interleaved runs of each: 26.3, 26.7 and 26.6 s
+  before, 15.9, 16.0 and 15.8 s after. That is about 11 of the 89 s of a warm
+  `yarn validate`.
+- `--build` checks the same programs. A wrong type in an example or a package
+  still fails the run.
+- `--force` builds every program on every run. These programs emit nothing,
+  so `--build` has no output to compare, and a build info file must never be
+  allowed to skip one.
+
+The root project goes first and alone: an error in a package then shows once,
+where `--build` would print it once for each program that reads the package.
+
+The template stays out of `--build`, since `--build` writes a
+`tsconfig.tsbuildinfo` beside each tsconfig. Git ignores that file, but
+`yarn pack` would put the template's in the starter package, and the starter
+copies the template as it is into every new application.
+
+Rejected:
+
+- Running the `tsc` commands 4 to 12 at a time with `xargs -P`: 17 s, since
+  TypeScript 7 already uses several cores for each program.
+- More builders with `--builders`: the same 13.5 to 14.5 s.
+- Merging the examples into one program: each declares its own models, as an
+  application does.
