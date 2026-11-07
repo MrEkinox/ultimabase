@@ -7,7 +7,15 @@ import manifest from '../package.json' with { type: 'json' }
 import type { JobRecord, Job, RecurringJob } from './define-job.ts'
 import { recordOf } from './define-job.ts'
 import { JobsRun } from './model.ts'
-import { drain, pass, schedule, settled, start } from './runner.ts'
+import {
+	close,
+	drain,
+	open,
+	passes,
+	schedule,
+	settled,
+	start,
+} from './runner.ts'
 import type { Running } from './state.ts'
 import { runningOf, useRunning } from './state.ts'
 
@@ -60,7 +68,7 @@ async function poll(app: Running): Promise<void> {
 	if (polling) return
 	polling = true
 	try {
-		while ((await pass(app)) > 0);
+		await passes(app)
 	} catch (error) {
 		app.logger.warn({ err: error }, 'The jobs could not be read.')
 	} finally {
@@ -80,6 +88,7 @@ const definition = definePlugin<Jobs>({
 			kick: (id) => void start(app, id),
 		}
 		useRunning(app)
+		open()
 		await schedule(app)
 	},
 	// What was due while no instance ran runs once now.
@@ -92,6 +101,7 @@ const definition = definePlugin<Jobs>({
 	stopping: async () => {
 		clearInterval(timer)
 		timer = undefined
+		close()
 		await settled()
 	},
 	stop: () => {

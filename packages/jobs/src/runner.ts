@@ -12,8 +12,8 @@ export const lease: number = 5 * 60 * 1000
 export const attempts = 10
 /** Ten seconds, the wait after a first failure. */
 export const backoff: number = 10 * 1000
-/** The rows a pass runs at once. */
-const batch = 20
+/** The runs an instance runs at once, started at a commit or found (D-302). */
+const atOnce = 20
 
 type Row = RecordOf<typeof JobsRun>
 
@@ -119,30 +119,102 @@ async function runRow(app: Running, id: string): Promise<boolean> {
 /** The runs this instance has started and not finished. */
 const running = new Set<Promise<unknown>>()
 
-/** Starts the row's run; a failure outside the job is logged. */
+// The runs that hold one of the `atOnce` places (D-302), those waiting for
+// one in the order they started, and the passes waiting for room.
+let active = 0
+let closed = false
+const waiting: ((admitted: boolean) => void)[] = []
+const roomy: (() => void)[] = []
+
+/** A place for a run, or false once the instance stops. */
+function admit(): Promise<boolean> {
+	if (closed) return Promise.resolve(false)
+	if (active < atOnce && waiting.length === 0) {
+		active += 1
+		return Promise.resolve(true)
+	}
+	return new Promise((resolve) => waiting.push(resolve))
+}
+
+/** Gives a run's place to the oldest waiting one, or makes room. */
+function free(): void {
+	const next = waiting.shift()
+	if (next !== undefined) {
+		next(true)
+		return
+	}
+	active -= 1
+	for (const resolve of roomy.splice(0)) resolve()
+}
+
+/** Once no run waits for a place and one is free, or the instance stops. */
+function room(): Promise<void> {
+	if (closed || (active < atOnce && waiting.length === 0)) {
+		return Promise.resolve()
+	}
+	return new Promise((resolve) => roomy.push(resolve))
+}
+
+/** Lets runs start again, when the plugin starts. */
+export function open(): void {
+	closed = false
+}
+
+/** Drops the runs waiting for a place: their rows stay due for any instance. */
+export function close(): void {
+	closed = true
+	for (const resolve of waiting.splice(0)) resolve(false)
+	for (const resolve of roomy.splice(0)) resolve()
+}
+
+/** Starts the row's run once it has a place; a failure outside the job is logged. */
 export function start(app: Running, id: string): Promise<boolean> {
-	const run = runRow(app, id).catch((error: unknown) => {
-		app.logger.error({ err: error, run: id }, 'A job could not run.')
-		return false
-	})
+	const run = admit()
+		.then(async (admitted) => {
+			if (!admitted) return false
+			try {
+				return await runRow(app, id)
+			} finally {
+				free()
+			}
+		})
+		.catch((error: unknown) => {
+			failure ??= { error }
+			app.logger.error({ err: error, run: id }, 'A job could not run.')
+			return false
+		})
 	running.add(run)
 	void run.finally(() => running.delete(run))
 	return run
 }
 
-/** Runs the rows due now, a batch at a time; how many it ran. */
-export async function pass(app: Running): Promise<number> {
+/** The first failure of a run outside its job, as when the database is down. */
+let failure: { readonly error: unknown } | undefined
+
+/**
+ * Starts the rows due now once the runs before them all have a place, so
+ * that a slow run holds only its own; whether it found any.
+ */
+async function pass(app: Running): Promise<boolean> {
+	await room()
+	if (closed || failure !== undefined) return false
 	const rows = await JobsRun.findMany(
 		{
 			where: due(new Date()),
 			orderBy: [{ dueAt: 'asc' }],
-			take: batch,
+			take: atOnce,
 			select: { id: true },
 		},
 		M,
 	)
-	const ran = await Promise.all(rows.map((row) => start(app, row.id)))
-	return ran.filter(Boolean).length
+	for (const row of rows) void start(app, row.id)
+	return rows.length > 0
+}
+
+/** Starts the due rows until none is, or until a run fails outside its job. */
+export async function passes(app: Running): Promise<void> {
+	failure = undefined
+	while (await pass(app));
 }
 
 /** Waits for the runs this instance started. */
@@ -155,9 +227,15 @@ export async function settled(): Promise<void> {
  * what `runJobs()` does.
  */
 export async function drain(app: Running): Promise<void> {
-	for (let passes = 0; passes < 100; passes++) {
+	failure = undefined
+	for (let rounds = 0; rounds < 100; rounds++) {
 		await settled()
-		if ((await pass(app)) === 0 && running.size === 0) return
+		const found = await pass(app)
+		if (failure !== undefined) {
+			const { error } = failure
+			throw new Error('runJobs could not run a job.', { cause: error })
+		}
+		if (!found && running.size === 0) return
 	}
 	throw new Error(
 		'runJobs stopped after 100 passes: a job enqueues a run due at once each time it runs.',

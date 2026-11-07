@@ -11,12 +11,13 @@ import {
 	vi,
 } from 'vitest'
 import { runJobs, testApplication } from '@ultimabase/testing'
-import type { Adapter, Feed, Logger } from 'ultimabase'
+import type { Logger } from 'ultimabase'
 import { defineApp, memory } from 'ultimabase'
 import { quietRuns } from 'ultimabase/internal'
 import type { JobsOptions } from './index.ts'
 import { defineJob, jobsPlugin } from './index.ts'
 import { JobsRun, M } from './model.ts'
+import { kept } from './test/kept.ts'
 
 const lines: { level: string; message: string }[] = []
 const logger: Logger = {
@@ -176,25 +177,6 @@ describe('a cron pattern across daylight saving', () => {
 		})
 	})
 })
-
-/** `memory()`, whose rows outlive a restart. */
-function kept(): Adapter {
-	const base = memory()
-	let feed: Feed | undefined
-	let once = false
-	return {
-		...base,
-		start: async (schema, given, next) => {
-			feed = next
-			if (once) return
-			once = true
-			await base.start(schema, given, {
-				changed: (changes) => feed?.changed(changes),
-				missed: () => feed?.missed(),
-			})
-		},
-	}
-}
 
 describe('the recurring rows at startup', () => {
 	it('are created, re-timed when their schedule changed, and deleted when undeclared', async () => {
