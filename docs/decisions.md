@@ -19207,3 +19207,24 @@ with one, which waits on its locks.
 
 What this costs: one map per relation a pass walks, as many entries as related
 rows. A row that leads to nothing shares an empty holding with the others.
+
+## D-300: A row the flush's related rows refuse is read again from the store
+
+Choice: when a flush refills a live list (D-288), a row it places that the
+related rows the flush holds refuse (D-255, D-259) is read once more from the
+store, without them, before it is counted as gone.
+
+The flush reads the related rows when it starts; the refill reads the store
+later, and may find a row that a write in between made readable, a membership
+created since. Judged by the older related rows, that row was refused: it left
+the window as gone, and after three refills the read failed with "The rows the
+live plan finds are not readable" and read the whole list again.
+
+Measured with two processes writing to one another's live lists through a
+membership rule, 12 rounds of 5 s, two passes: the error fell from 6 and 5 a
+run to 1 and 1, and the writes rose 5 % and 1 % in all, 14 % and 15 % over the
+last three rounds, where the lists are longest. The error left comes from a
+whole read outside a flush, a race of its own.
+
+What this costs: one more read of the refused rows, only in a flush that holds
+related rows and only when it refuses some.
