@@ -233,7 +233,9 @@ describe.each(urls)('a cursor on %s', (server) => {
 			for (const off of ['seqscan', 'bitmapscan', 'sort']) {
 				await client.query(`set enable_${off} = off`)
 			}
-			await client.query('analyze')
+			// Its own table only: the whole database waits on the locks of the files
+			// running beside it, up to 5 s, the test's own limit.
+			await client.query('analyze item')
 			const { rows } = await client.query<{ 'QUERY PLAN': string }>(
 				`explain ${read.sql}`,
 				[...read.parameters],
