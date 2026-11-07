@@ -37,7 +37,7 @@ export function acceptsGzip(header: string | null): boolean {
 /** A stream of events to `request`'s client; `closed` runs once it ends. */
 export function eventsTo(request: Request, closed: () => void): Events {
 	const gzip = acceptsGzip(request.headers.get('accept-encoding'))
-	const zipped = gzip ? createGzip() : undefined
+	const zipped = gzip ? createGzip({ windowBits: 14, memLevel: 5 }) : undefined // D-317
 	const stream: Transform = zipped ?? new PassThrough()
 	const write = (text: string) => {
 		if (stream.writableEnded || stream.destroyed) return
