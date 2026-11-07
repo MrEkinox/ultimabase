@@ -49,6 +49,22 @@ const nullsLast = ({ direction, nulls }: Sort) =>
 export const sorted = (key: Sql, { direction, nulls }: Sort): Sql =>
 	sql`${key} ${sql.raw(direction)}${nulls ? sql.raw(` nulls ${nulls}`) : sql``}`
 
+/** Whether a sort key is a plain column that no row leaves `null`. */
+const filled = (table: Table, order: Order): boolean => {
+	if (order.count !== undefined || order.relevance !== undefined) return false
+	if (order.through !== undefined && order.through.length > 0) return false
+	const field = table.fields.get(order.field)
+	return field === undefined || (field.kind === 'scalar' && !field.optional)
+}
+
+/** The first sort keys one row comparison can stand for: filled, one way. */
+const leading = (table: Table, order: readonly Order[]): readonly Order[] => {
+	const end = order.findIndex(
+		(each) => each.direction !== order[0]?.direction || !filled(table, each),
+	)
+	return end === -1 ? order : order.slice(0, end)
+}
+
 export class Compiler {
 	readonly filters: Filters
 	readonly catalog: Catalog
@@ -85,6 +101,19 @@ export class Compiler {
 			const where = this.filters.where(model, found, nested.cursor)
 			from = sql`${from} cross join (select ${sql.join(keys)} from ${sql.id(table.name)} as ${sql.id(found)} where ${where} limit 1) as ${sql.id(cursor)}`
 			conditions.push(this.keyset(table, alias, cursor, order))
+			// `keyset` already implies this; PostgreSQL can only start its index
+			// walk here, where a row's place in the table no longer costs (D-289).
+			const steady = leading(table, order)
+			if (steady.length > 0) {
+				const keysOf = (of: string) =>
+					sql.join(steady.map((each) => this.key(table, of, each)))
+				const start = sql`(select ${keysOf(found)} from ${sql.id(table.name)} as ${sql.id(found)} where ${where} limit 1)`
+				conditions.push(
+					steady[0]?.direction === 'asc'
+						? sql`(${keysOf(alias)}) >= ${start}`
+						: sql`(${keysOf(alias)}) <= ${start}`,
+				)
+			}
 		}
 		const limit = take === undefined ? sql`` : sql` limit ${Math.abs(take)}`
 		const skip = nested.skip ?? 0

@@ -18822,6 +18822,36 @@ Rejected:
 - Having adapters resolve a vanished cursor: it fixes the deletion only, not the moved row.
 - Reading the refused rows again without the flush's shared reads: the logs above stayed.
 
+## D-289: A read from a cursor starts at its row
+
+Choice: no developer's code changes. A page after a cursor no longer costs in proportion to its
+place in the table, when an index serves its order.
+
+`keyset` is an `or` over the sort keys, which PostgreSQL can only filter with: to read 100 rows at
+99 % of 100 000, it walked the index from its start and threw away 99 000 rows. Paging through a
+whole table was quadratic.
+
+1. A read from a cursor adds `(a, b) >= (select a, b from t where <cursor> limit 1)`, `<=` for
+   descending keys, which `keyset` already implies, so no result can change. A row gone gives
+   `null`, so no rows, as today.
+2. It takes the first sort keys that are plain required columns going one way, and stops at the
+   first that is not. A first key that may be `null` gets no bound: `null`s sort outside any
+   comparison, and an `or` for them would lose the index.
+3. It is an uncorrelated subquery rather than the value `keyset` joins: PostgreSQL computes it once,
+   as a constant for the index condition, and the walk keeps its order, in a nested list too.
+4. `afterKeys` (D-288) gets no bound: a live list stays within its limit of 1000 rows by default.
+
+Measured on PostgreSQL 18, 100 000 rows, pages of 100, `node` over the adapter, through every row:
+order by `id` 25.8 s to 1.7 s, an indexed key and `id` 15.3 s to 1.7 s, descending 14.3 s to 1.7 s,
+backwards 14.4 s to 1.7 s, under a filter 1.0 s to 0.18 s. A page at 99 % goes from 48 to 1.5 ms by
+`id`. With no index, or an optional first key: unchanged, 206 ms a page. A first key of two values
+with an index on all the keys: 38.4 to 0.23 ms for the statement. Filters rare, common, not indexed
+or matching nothing, at 3 places in the table: no plan got worse, and the same rows.
+
+Tests: every kind of key, ties, `null`s, a filter, forwards and backwards, nested, a row gone or
+outside the filter, and the plan's index condition, on PostgreSQL 15 and 18. Without the bound, only
+the 10 tests of the plan fail.
+
 ## D-290: A client's bad frame closes its socket, not the server
 
 Choice: internal, nothing changes for a developer. A WebSocket that receives an invalid frame, or one past `maxPayload`, emits
