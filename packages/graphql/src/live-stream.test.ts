@@ -305,6 +305,15 @@ const rootOf = async (stream: AsyncIterableIterator<LiveEvent>) => {
 	return next.done === true ? undefined : next.value.root
 }
 
+/** A window of two rows, which two changes cost. */
+const shownAt = (revision: number): LiveMessage => ({
+	kind: 'reset',
+	revision,
+	rows: [{ id: 'a' }, { id: 'b' }],
+	hasMore: false,
+})
+const shown = shownAt(1)
+
 /** A kept list's channel, its stream, read and keep, completed once. */
 async function kept() {
 	const channel = fake(await viewer())
@@ -318,8 +327,8 @@ async function kept() {
 		keep,
 	)
 	const { send } = read.opened()
-	send(reset(1))
-	expect(await rootOf(stream)).toEqual(reset(1))
+	send(shown)
+	expect(await rootOf(stream)).toEqual(shown)
 	const waiting = stream.next()
 	await stream.return?.()
 	expect(await waiting).toEqual({ done: true, value: undefined })
@@ -341,6 +350,27 @@ describe('a completed live list', () => {
 		await stream.return?.()
 		expect(await resumed(channel.channel, 't', 's', 5)).toBe(stream)
 		expect(read.grown).toEqual([3])
+	})
+
+	it('holds no more than its window costs, then gets it whole at its resume', async () => {
+		const { channel, read, stream } = await kept()
+		read.send(changed(2))
+		read.send(changed(3))
+		read.send(changed(4))
+		// Kept, it waits for no drain: no one takes what it holds (D-312).
+		expect(channel.drains).toHaveLength(0)
+		read.send(shown)
+		expect(await resumed(channel.channel, 't', 's', 2)).toBe(stream)
+		const next = stream.next()
+		expect(channel.drains).toHaveLength(1)
+		expect(read.resent()).toBe(0)
+		for (const then of channel.drains) then()
+		expect(read.resent()).toBe(1)
+		read.send(shownAt(5))
+		const event = await next
+		expect(event.done === true ? undefined : event.value.root).toEqual(
+			shownAt(5),
+		)
 	})
 
 	it('is not taken by another read, fewer rows or another token', async () => {

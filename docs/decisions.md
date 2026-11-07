@@ -9415,8 +9415,8 @@ api: ({ plugins }) => plugins.http.mount(uploads, { bodyLimit: false })
 ## D-154: Realtime: live lists and live rows
 
 Amended by D-163, D-166, D-178, D-186, D-187, D-195, D-196, D-223, D-226,
-D-229, D-230, D-252, D-254, D-266, D-271, D-272, D-273, D-310 and
-D-311.
+D-229, D-230, D-252, D-254, D-266, D-271, D-272, D-273, D-310,
+D-311 and D-312.
 
 Choice: completes D-25; amends D-106 (WebSocket upgrades), D-107 (the
 `Subscription` type), D-109 (live functions) and D-129 (live reads over
@@ -17564,6 +17564,8 @@ Rejected:
 
 ## D-254: A big live list makes nobody wait
 
+Amended by D-312.
+
 Choice: amends D-154's rule on a full socket buffer, and D-252.
 
 1. A flush does not wait for a big whole read. A list of at least 1000 rows that
@@ -19575,3 +19577,29 @@ Rejected:
 
 - Keeping a list no longer once its client leaves: a resume comes in a new
   request, after the client left, by design.
+
+## D-312: A kept list holds no more than its window costs
+
+Choice: amends D-154 and D-254 point 4. A list kept for a resume counts as a
+client whose buffer is full, over SSE and over GraphQL. It holds the changes
+of its window as long as they cost no more than the rows it last showed,
+counted as in D-254. Past that, what it held is dropped, and its resume gets
+the window whole, after anything it still holds. Nothing changes for a
+developer: a resume already gets the window whole after a drop.
+
+Why: a kept list held every change sent during its 10 seconds, with no bound,
+so many lists left under writes held many messages each. Measured over
+interleaved runs, with a script that leaves 1500 lists of 10 rows, then
+writes 100 times a second for 7 seconds:
+
+- Over SSE, the server's heap one second after the writes fell from 81.4 to
+  29.3 MiB, and its resident memory from about 411 to 320 MiB. It wrote about
+  9 % more in the 7 seconds, 360 times rather than 330.
+- Over GraphQL, the heap during the writes fell from 48.7 to 29.8 MiB, its
+  level before the writes being 29.0.
+
+Rejected:
+
+- Holding nothing and always sending the window whole at a resume: a resume
+  after a few changes would then carry the whole window, where D-254 sends
+  only those changes.

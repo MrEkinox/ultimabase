@@ -614,6 +614,35 @@ describe('a resumed live list', () => {
 		})
 	})
 
+	it('holds no more than its window costs, then sends it whole (D-312)', async () => {
+		const api = await started()
+		const [a = '', b = ''] = await seeded()
+		const token = await left(api)
+		for (const [id, title] of [
+			[a, 'A1'],
+			[b, 'B1'],
+			[a, 'A2'],
+		] as const) {
+			await Task.update({ where: { id }, data: { title } }, M)
+			// Each change reaches the kept list after the engine's 50 ms.
+			await waited(120)
+		}
+		const stream = await streaming(
+			`${api}/tasks${qs({ ...ranked, first: 2, resume: token })}`,
+		)
+		// Past one change, the window comes whole, not what it held.
+		expect(await stream.next()).toMatchObject({
+			event: 'data',
+			data: {
+				edges: [
+					{ node: { id: a, title: 'A2' } },
+					{ node: { id: b, title: 'B1' } },
+				],
+			},
+		})
+		expect(stream.token()).toBe(token)
+	})
+
 	it('moves its cursors as its first and last rows go, holding no rows (D-253)', async () => {
 		const api = await started()
 		const [a = '', b = '', c = ''] = await seeded()
