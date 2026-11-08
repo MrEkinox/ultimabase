@@ -1,5 +1,5 @@
 ---
-'@ultimabase/ultimabase': patch
+'ultimabase': patch
 '@ultimabase/testing': patch
 ---
 
