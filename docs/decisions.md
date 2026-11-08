@@ -19238,6 +19238,8 @@ related rows and only when it refuses some.
 
 ## D-301: The type check builds the separate programs in one process
 
+Amended by D-323.
+
 Choice: amends D-173. `yarn typecheck` checks the root project, then the
 starter's template, each with its own `tsc --project`, then generates the
 website's sources, and builds every other program in one
@@ -19890,3 +19892,43 @@ Rejected:
 - `describe.concurrent` within a file: the tests of a file share one adapter
   and one schema.
 - The commands' tests in two files: 37.9 s against 38.7 s, within the noise.
+
+## D-323: The examples are type checked on the packages' declarations
+
+Choice: amends D-301. After the root project, the starter's template and the
+website's sources, `yarn typecheck` runs `scripts/typecheck.ts`. It checks the
+packages' production code with `tsc --project packages/tsconfig.json`, which
+also writes their declarations to `node_modules/.cache/typecheck`. It then
+builds every example on those declarations, beside the other programs, in one
+`tsc --build --force`. An example reads the declarations through `paths` in a
+tsconfig the script writes for it, which extends the example's own tsconfig:
+an editor still opens an example on the packages' sources. Every directory in
+`examples` is checked, so the command no longer lists them.
+
+Why: each example read the sources of every package it imports and checked
+them again, 24 times over. A declaration is read, not checked
+(`skipLibCheck`).
+
+- `yarn typecheck`, three interleaved runs of each: 16.6, 16.8 and 16.7 s
+  before, 9.6, 9.6 and 9.5 s after; 133 to 136 s of CPU before, 53 to 54 s
+  after.
+- `yarn validate`, three interleaved runs of each: 47.0, 47.2 and 46.8 s
+  before, 38.9, 39.0 and 38.9 s after, since the tests beside the type check
+  (D-321) get the cores back.
+- A wrong type in an example, and a wrong use of the API (`title: 5`, a field
+  name misspelled in `where`), fail the run with the same messages as before.
+- An example is now checked as an application is: on the declarations it
+  would install, so a type that a declaration loses fails there too.
+- The declarations are written on every run, before the build, so no stale
+  one can be read; `--force` still builds every program (D-301).
+
+Cost: 1.5 MB of declarations under `node_modules`, written on each run.
+The packages' sources are checked by the root project and the packages'
+program, no longer once more by each example.
+
+Rejected:
+
+- Exports conditions in each package's `package.json` pointing at the
+  declarations: 17 manifests changed for what one script does.
+- Writing the declarations from the root project: it holds the tests and
+  scripts, which have no written types (D-70).
