@@ -26,6 +26,7 @@ import { projection } from './projection.ts'
 import { reads } from './reads.ts'
 import { relationFilters } from './relation-filters.ts'
 import { roundTrips } from './round-trips.ts'
+import { ruleRoundTrips } from './rule-round-trips.ts'
 import { searches } from './searches.ts'
 import { sorts } from './sorts.ts'
 import { transactions } from './transactions.ts'
@@ -78,5 +79,6 @@ export function testAdapter(
 		feeds(create)
 		empties(create)
 		roundTrips(create, options.roundTrips)
+		ruleRoundTrips(create, options.roundTrips)
 	})
 }

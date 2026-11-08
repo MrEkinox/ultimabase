@@ -57,7 +57,8 @@ export async function upsert(
 	const data = { draft, operations }
 	const by = unloadedBy(model, found.get('where'), unique, draft)
 	// A missing row costs a failed check, then the create.
-	if (by !== undefined && unloads(context, data) && !checks(model, draft)) {
+	// The rules run last: they record the checks the write then runs.
+	if (by !== undefined && !checks(model, draft) && unloads(context, data, by)) {
 		const absent = new PublicError('NOT_FOUND', missing(model.name))
 		const at = { by, where, ...returnedAt }
 		const changed = await unloaded(context, store, commits, data, at, absent)

@@ -4,6 +4,7 @@
 // `*Commit` hooks once it commits (D-71, D-88). The row a write decides from
 // is locked; a write that loads none answers from the rows it changed (D-99,
 // D-104).
+import type { Access } from './access.ts'
 import { recordOf } from './access.ts'
 import type { Check, Filter, Lock, Nested, Row } from './adapter.ts'
 import { cascadeWhere } from './cascade.ts'
@@ -70,7 +71,7 @@ async function written(
 	events.push(...steps.events)
 	await steps.check(writing)
 	const changes = await steps.changes(writing)
-	const ruled = rowChecks(scope.access)
+	const ruled = rowChecks(scope.access, changes)
 	const within = await withinChecks(context.models, store, changes, events)
 	checks.push(...ruled.before, ...within)
 	const read = { model: model.name, ...at.read, where: at.where }
@@ -168,18 +169,30 @@ export async function updating(
 	return written(context, store, commits, steps, events, to)
 }
 
-/** Whether an update needs no stored row: a check stands for its read (D-99). */
-export const unloads = (
+/**
+ * Whether an update needs no stored row: a check stands for its read (D-99).
+ * The rules run first, on its scalar data, without the row (D-342).
+ */
+export function unloads(
 	{ model, scope }: Context,
-	{
-		draft,
-		operations,
-	}: { readonly draft: Draft; readonly operations: Operations },
-): boolean =>
-	scope.access === undefined &&
-	!updated(model) &&
-	!nests(model, draft) &&
-	!validates(model, operations)
+	data: { readonly draft: Draft; readonly operations: Operations },
+	by: string | Filter,
+): boolean {
+	const { draft, operations } = data
+	if (updated(model) || nests(model, draft) || validates(model, operations)) {
+		return false
+	}
+	const { access } = scope
+	if (access === undefined) return true
+	// The rules see relations resolved, and numbers computed on the row.
+	const scalar = (name: string) => model.fields.get(name)?.kind === 'scalar'
+	if (operations.size > 0 || !Object.keys(draft).every(scalar)) return false
+	const where = typeof by === 'string' ? byId(by) : by
+	return access.allowsUnloaded(model, 'update', {
+		data: { ...draft },
+		by: where,
+	})
+}
 
 /**
  * Updates the row `by` finds, a locked check standing for its read, and
@@ -264,7 +277,7 @@ export async function update(
 	const { unique, where } = await targets(context, found, 'update')
 	const by = unloadedBy(model, found.get('where'), unique, draft)
 	const data = { draft, operations }
-	if (by !== undefined && unloads(context, data)) {
+	if (by !== undefined && unloads(context, data, by)) {
 		const result = await unloaded(context, store, commits, data, {
 			by,
 			where,
@@ -288,7 +301,7 @@ export async function remove(
 	const { models, model, scope } = context
 	const found = given(args, model.name, ['where', ...oneKeys], ['where'])
 	const { read, shape } = await returned(context, found)
-	const { where } = await targets(context, found, 'delete')
+	const { unique, where } = await targets(context, found, 'delete')
 	// Its relations, counts and virtuals, as the caller reads them, before
 	// the delete removes any: one read in its transaction (D-135, D-151).
 	const reaches =
@@ -307,20 +320,26 @@ export async function remove(
 		return rows[0]
 	}
 	const reach = cascadeWhere(models, model, where)
-	if (reach !== undefined && scope.access === undefined) {
+	const hidden = hiddenBy(scope.access)
+	const by = { by: unique }
+	const allows = (access: Access) => access.allowsUnloaded(model, 'delete', by)
+	if (
+		reach !== undefined &&
+		(scope.access === undefined || allows(scope.access))
+	) {
 		const kept = await shaped(where, 'delete')
 		const computed = await computeVirtuals(
 			context,
 			store,
 			kept === undefined ? [] : [kept],
 			shape,
-			undefined,
+			hidden,
 		)
 		// Nothing needs the stored row: a check stands for its read, and the
-		// write returns it as its delete removed it (D-102, D-104).
+		// write returns it as its delete removed it (D-102, D-104, D-342).
 		const check: Check = { model: model.name, where, count: 1, lock: 'delete' }
 		const checks: Checked[] = [{ check, message: missing(model.name) }]
-		checks.push(...reach.checks)
+		checks.push(...reach.checks, ...rowChecks(scope.access).before)
 		const rows = await guarded(
 			store.last({
 				checks: checks.map((each) => each.check),
@@ -333,14 +352,13 @@ export async function remove(
 		// Another transaction removed it meanwhile (D-104).
 		if (rows.length === 0)
 			throw new PublicError('NOT_FOUND', missing(model.name))
-		return project(kept ?? rows[0], shape, undefined, computed)
+		return project(kept ?? rows[0], shape, hidden, computed)
 	}
 	const row = await target(context, store, where, 'delete')
 	scope.access?.allow(model, 'delete', { record: row })
 	const redirected = redirectOf(model) !== undefined
 	// A redirected row stays: it is read as the redirect left it (D-89).
 	const kept = redirected ? undefined : await shaped(byId(row.id), undefined)
-	const hidden = hiddenBy(scope.access)
 	const before = redirected
 		? undefined
 		: await computeVirtuals(context, store, [kept ?? row], shape, hidden)

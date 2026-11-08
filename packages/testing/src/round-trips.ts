@@ -39,7 +39,7 @@ const Genre = defineModel({
 })
 
 const open = () => true
-/** A model with rules: a user's update loads the row they decide from. */
+/** A model with rules that need no row: a user's write loads none. */
 const Shelf = defineModel({
 	name: 'Shelf',
 	fields: (f) => ({ label: f.string({ unique: true }) }),
@@ -343,14 +343,14 @@ export function roundTrips(create: () => Adapter, counted: () => number): void {
 			const shelf = await once(async () =>
 				Shelf.create({ data: { label: 'top' } }, { as: user }),
 			)
-			// BEGIN, the locked row, the write, COMMIT (D-104).
-			await trips(4, async () =>
+			// The rules need no row: a locked check stands for its read (D-342).
+			await once(async () =>
 				Shelf.update(
 					{ where: { id: shelf.id }, data: { label: 'high' } },
 					{ as: user },
 				),
 			)
-			await trips(4, async () =>
+			await once(async () =>
 				Shelf.delete({ where: { id: shelf.id } }, { as: user }),
 			)
 			expect(await Shelf.count({}, M)).toBe(0)

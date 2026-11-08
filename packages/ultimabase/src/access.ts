@@ -141,7 +141,24 @@ export type Write = {
 	readonly data?: unknown
 	readonly via?: string
 	readonly id?: string
+	/** The row of a write that loads none, by its unique filter (D-342). */
+	readonly by?: Filter
 }
+
+const unreadable = (): never => {
+	throw new Error('A rule read the record of a write that loads no row.')
+}
+
+/** The record a rule sees when the write loads no row: reading it fails. */
+const unloadedRecord: Values = new Proxy(
+	{},
+	{
+		get: unreadable,
+		has: unreadable,
+		ownKeys: unreadable,
+		getOwnPropertyDescriptor: unreadable,
+	},
+)
 
 /** The access rules of one query, for a caller other than Master. */
 export class Access {
@@ -235,6 +252,36 @@ export class Access {
 		operation: Exclude<Operation, 'read'>,
 		write: Write,
 	): void {
+		const { record } = write
+		const stored = record === undefined ? undefined : recordOf(model, record)
+		this.judge(model, operation, write, stored, false)
+	}
+
+	/**
+	 * Runs the rules of a write that loads no row (D-342): true once they
+	 * allow it without its stored row; false when one reads the row, refuses
+	 * or throws, and the write then loads the row to run them again.
+	 */
+	allowsUnloaded(
+		model: ModelInfo,
+		operation: 'update' | 'delete',
+		write: { readonly data?: unknown; readonly by: Filter },
+	): boolean {
+		try {
+			return this.judge(model, operation, write, unloadedRecord, true)
+		} catch {
+			return false
+		}
+	}
+
+	/** Whether the rules allow the write; a refusal throws unless `probing`. */
+	private judge(
+		model: ModelInfo,
+		operation: Exclude<Operation, 'read'>,
+		write: Write,
+		record: Values | undefined,
+		probing: boolean,
+	): boolean {
 		const value =
 			write.data === undefined
 				? undefined
@@ -242,9 +289,7 @@ export class Access {
 		const facts = {
 			caller: this.caller,
 			operation,
-			...(write.record === undefined
-				? {}
-				: { record: recordOf(model, write.record) }),
+			...(record === undefined ? {} : { record }),
 			...(value === undefined ? {} : { value }),
 		}
 		const refusal = {
@@ -255,13 +300,15 @@ export class Access {
 		const rule = ruleOf(accessOf(model.definition.rules), operation)
 		const result =
 			rule === undefined ? false : run(rule, { ...facts, where: writeFilter })
-		if (result === false) throw denied(refusal, this.caller, this.logger)
-		if (result !== true) {
-			const refuse = () => denied(refusal, this.caller, this.logger)
-			const ruled = { result, operation, refuse }
-			const { models, relations } = this
-			this.written.push(...rowRules(models, relations, model, write, ruled))
+		if (result === false) {
+			if (probing) return false
+			throw denied(refusal, this.caller, this.logger)
 		}
+		const refuse = () => denied(refusal, this.caller, this.logger)
+		const ruled = { result, operation, refuse }
+		const { models, relations } = this
+		const rows =
+			result === true ? [] : rowRules(models, relations, model, write, ruled)
 		for (const [field, given] of Object.entries(value ?? {})) {
 			const check = fieldRule(model, field, operation)
 			if (check === undefined || updatesOnly(model, field, given)) continue
@@ -269,11 +316,14 @@ export class Access {
 				...facts,
 				value: fieldValue(model, field, given),
 			})
-			if (!allowed) {
-				throw denied({ ...refusal, field }, this.caller, this.logger)
-			}
+			if (allowed) continue
+			if (probing) return false
+			throw denied({ ...refusal, field }, this.caller, this.logger)
 		}
+		this.written.push(...rows)
+		return true
 	}
+
 	/** The rows the write rules' filters must match, taken once (D-214). */
 	rowRules(): RowRule[] {
 		return this.written.splice(0)
