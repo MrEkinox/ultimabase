@@ -67,3 +67,15 @@ it('tells its first and last rows when they moved, without the row it hides', ()
 		new Window([{ field: 'id', direction: 'asc' }], 0).endsMoved(),
 	).toBeUndefined()
 })
+
+it('fills with more rows than a call takes arguments', () => {
+	// A spread of this many items into a call overflows the stack.
+	const many = 200_000
+	const window = new Window([{ field: 'id', direction: 'asc' }], many)
+	const ids = Array.from({ length: many }, (_, at) => `${at}`.padStart(6, '0'))
+	window.fill(
+		ids.map((id) => [id]),
+		false,
+	)
+	expect(window.shown()).toHaveLength(many)
+})
