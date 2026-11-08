@@ -33,6 +33,14 @@ export function value(kind: Kind, item: unknown): Sql {
 	return item instanceof Date ? sql`${item.toISOString()}` : sql`${item}`
 }
 
+/** Values as one parameter, however many: one text, planned once (D-325). */
+function array(kind: Kind, items: readonly unknown[]): Sql {
+	if (kind === 'json') {
+		return sql`cast(${items.map((item) => JSON.stringify(item))} as jsonb[])`
+	}
+	return sql`${items.map((item) => (item instanceof Date ? item.toISOString() : item))}`
+}
+
 export function isFilters(
 	item: Condition | readonly Filter[],
 ): item is readonly Filter[] {
@@ -340,17 +348,14 @@ export class Filters {
 		if (items.length === 0) {
 			return sql`(case when ${column} is null then null else false end)`
 		}
-		const values = items.map((item) => value(kind, item))
-		return sql`${column} in (${sql.join(values)})`
+		return sql`${column} = any(${array(kind, items)})`
 	}
 
-	/** `in` ignoring case: one `ilike` per item (D-140). */
+	/** `in` ignoring case: one `ilike` of any item (D-140, D-325). */
 	private like(text: Sql, operand: unknown): Sql {
 		const list: readonly unknown[] = Array.isArray(operand) ? operand : []
 		if (list.length === 0) return sql`false`
-		const likes = list.map(
-			(item) => sql`${text} ilike ${pattern(item, '', '')}`,
-		)
-		return sql`(${sql.join(likes, sql` or `)})`
+		const patterns = list.map((item) => pattern(item, '', ''))
+		return sql`${text} ilike any(cast(${patterns} as text[]))`
 	}
 }

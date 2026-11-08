@@ -158,11 +158,12 @@ function links(
 	if (change.kind === 'unlink') {
 		const targets = change.targets.filter((target) => uuid.test(target))
 		if (targets.length === 0) return undefined
-		const list = sql.join(targets.map((target) => sql`cast(${target} as uuid)`))
+		// One parameter for any number of targets (D-325).
+		const list = sql`cast(${targets} as uuid[])`
 		return {
 			...pairs(targets),
 			build: (gate) =>
-				sql`delete from ${name} where ${self} = ${id} and ${other} in (${list})${and(gate)} returning *`,
+				sql`delete from ${name} where ${self} = ${id} and ${other} = any(${list})${and(gate)} returning *`,
 			inserts: false,
 			removes: true,
 			adds: false,
@@ -170,12 +171,8 @@ function links(
 	}
 	if (change.targets.length === 0) return undefined
 	const parent = parentOf(join, change, fresh)
-	const rows = sql.join(
-		change.targets.map(
-			(target) =>
-				sql`(${sql.join([id, sql`cast(${target} as uuid)`, ...parent])})`,
-		),
-	)
+	const targets = sql`unnest(cast(${change.targets} as uuid[]))`
+	const rows = sql`select ${sql.join([id, targets, ...parent])}`
 	const columns = sql.join(
 		[join.self, join.other, ...(join.within ? [join.within.column] : [])].map(
 			(column) => sql.id(column),
@@ -184,10 +181,7 @@ function links(
 	return {
 		...pairs(change.targets),
 		build: (gate) => {
-			const source =
-				gate === undefined
-					? sql`values ${rows}`
-					: sql`select * from (values ${rows}) as "v" where ${gate}`
+			const source = gate === undefined ? rows : sql`${rows} where ${gate}`
 			return sql`insert into ${name} (${columns}) ${source} on conflict do nothing returning *`
 		},
 		inserts: true,
