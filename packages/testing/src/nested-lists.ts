@@ -211,7 +211,8 @@ export function nestedLists(
 		})
 
 		// The round trips: an item costs at most its own write, and the rows
-		// are read 1000 at most at once.
+		// are read 1000 at most at once. Its 1001 items take seconds under
+		// coverage beside the other suites, past the 5 s default.
 		it('reads the rows a list names at once', async () => {
 			const { id } = await Rack.create({ data: {} }, M)
 			const data = Array.from({ length: 1003 }, (_, index) => ({
@@ -234,6 +235,6 @@ export function nestedLists(
 			expect(await cost(1001, 'update')).toBeLessThanOrEqual(one + 1000 + 1)
 			const removed = await cost(1, 'delete')
 			expect(await cost(3, 'delete')).toBeLessThanOrEqual(removed + 2)
-		})
+		}, 30_000)
 	})
 }
