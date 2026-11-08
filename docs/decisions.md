@@ -19987,3 +19987,22 @@ Rejected:
   longer be one statement, and its rows no longer one snapshot.
 - Refusing a list past a length: a list the database can run is the
   developer's to send.
+
+## D-326: A statement past 65535 values fails saying so
+
+Choice: `postgres()` refuses, before sending it, a statement that binds more
+than 65535 values. Its error names both counts, and says that an `in` binds
+its list as one value (D-325) or that the query can be split.
+
+Why: PostgreSQL counts a statement's parameters on 16 bits. Past 65535, it
+answers with the count that wrapped around, an `OR` of 70000 conditions
+with `bind message has 4465 parameter formats but 0 parameters`, which says
+neither the cause nor the way out. An `OR` of 40000 conditions still runs,
+in 480 ms.
+
+Rejected:
+
+- Putting the values past the limit in the statement's text: each type
+  would need its own quoting, a risk of injection for a rare query.
+- Cutting the statement in several: a read would no longer be one
+  snapshot (D-325).

@@ -7,6 +7,9 @@ import { prepare } from './prepared.ts'
 
 type Rows = { readonly rows: readonly { readonly [column: string]: unknown }[] }
 
+/** What PostgreSQL binds in one statement at most (D-326). */
+const most = 65_535
+
 export class Sql {
 	readonly strings: readonly string[]
 	/** A fragment goes in as it is, anything else as a parameter. */
@@ -20,6 +23,12 @@ export class Sql {
 	/** Runs the statement, in the transaction `db` may be. */
 	async execute(db: QueryExecutorProvider): Promise<Rows> {
 		const { text, parameters } = compiled(this)
+		if (parameters.length > most) {
+			// Past it, PostgreSQL answers with a count that wrapped around.
+			throw new Error(
+				`A statement binds ${most} values at most, and this one binds ${parameters.length}: an \`in\` binds its list as one value, so write such conditions as an \`in\`, or split the query.`,
+			)
+		}
 		prepare(text, parameters.length)
 		return db.getExecutor().executeQuery(CompiledQuery.raw(text, parameters))
 	}
