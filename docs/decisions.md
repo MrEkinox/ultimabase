@@ -20598,3 +20598,55 @@ After:  error  The change feed does not hear its own notifications: realtime and
                cache's invalidation stop. Is the url behind a pooler in transaction mode, such
                as PgBouncer? LISTEN needs a direct connection to PostgreSQL.
 ```
+
+## D-338: A nested list reads the rows it names at once
+
+Choice: builds on D-52, D-99 and D-138; no developer code changes.
+
+1. The rows the items of a nested `update`, `delete` or `connectOrCreate`
+   name are read in one locked read, the items' unique targets joined by
+   `OR`, 1000 items at most per read. One item is read as before.
+2. Items naming the same fields are read together, and each finds its row
+   among those its own read returns only: a target through a relation
+   filters the rows the caller may read (D-86), which an item naming `id`
+   does not.
+3. Each item's target is matched by its values as stored: a decimal given
+   with other digits, as `'012.5'` for `12.50`, and a date find their row.
+4. Every `update` item's target is read before any item's data is checked,
+   then every `delete` item's. An invalid target or a missing row of a later
+   item may answer before invalid data of an earlier one.
+5. A unique index types as a target in a nested `update`, `delete`,
+   `connectOrCreate` and an include's `cursor`, as it does at the root
+   (D-52). The runtime accepted it already.
+
+Why: each item of a list cost a read of its own. On PostgreSQL 18, 500
+items, median of 7 runs: a nested `update` went from 760 to 526 ms, a
+`connectOrCreate` from 355 to 137 ms, a `delete` from 706 to 498 ms. One
+item costs the same, 3.1 to 3.3 ms. The rows are locked in one read, in the
+database's order, where each item locked its own in the list's order.
+
+Rejected:
+
+- One read for every item whatever its fields: a row an item reaches by `id`
+  would answer an item whose target through a relation the caller may not
+  read.
+- One write for the rows' updates: each item has its own data and hooks
+  (D-128); the per-row statements are what is left of the time.
+
+Example, the same code before and after:
+
+```ts
+await Order.update({
+	where: { id },
+	data: {
+		lines: {
+			update: lines.map((line) => ({
+				where: { label: line.label },
+				data: { qty: line.qty },
+			})),
+		},
+	},
+})
+// Before: 500 lines, 500 reads and 500 writes.
+// After:  500 lines, 1 read and 500 writes.
+```

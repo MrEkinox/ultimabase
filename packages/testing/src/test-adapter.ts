@@ -17,6 +17,7 @@ import { groups } from './groups.ts'
 import { jsonPaths } from './json-paths.ts'
 import { lists } from './lists.ts'
 import { nested } from './nested.ts'
+import { nestedLists } from './nested-lists.ts'
 import { numbers } from './numbers.ts'
 import { oneOfs } from './one-ofs.ts'
 import { oneViews } from './one-views.ts'
@@ -56,6 +57,7 @@ export function testAdapter(
 		lists(create)
 		jsonPaths(create)
 		nested(create)
+		nestedLists(create, options.roundTrips)
 		numbers(create)
 		bulkReturns(create)
 		decimals(create)
