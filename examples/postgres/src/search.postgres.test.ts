@@ -1,4 +1,5 @@
-// postgres()'s options: its connections, and the language `_search` reads.
+// postgres()'s options: its connections, the language `_search` reads, and
+// how long a statement may run.
 import { testApplication } from '@ultimabase/testing'
 import { postgres } from '@ultimabase/postgres'
 import { allow, defineApp, defineModel, master } from 'ultimabase'
@@ -27,6 +28,8 @@ const app = defineApp({
 		prepared: true,
 		// Words stemmed as English: "running" finds "runs".
 		searchLanguage: 'english',
+		// A statement that runs past 10 s is ended; a migration is not.
+		statementTimeout: 10_000,
 	}),
 	//#endregion
 	models: [Article],

@@ -35,7 +35,7 @@ const most = 5000
 export const pulse = { every: 10_000, silence: 10_000 }
 
 /** Fails all a connection holds, as a network that says so would: at once. */
-function severed(client: Client): void {
+export function severed(client: Client): void {
 	client.connection.stream.destroy(new Error('PostgreSQL stopped answering.'))
 }
 

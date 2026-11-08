@@ -213,8 +213,8 @@ Name these files `*.postgres.test.ts`, and keep the other tests on
 ## Options
 
 `connections` sets the pool's size, `prepared` whether a composed
-statement is planned once per connection, and `searchLanguage` the
-language of the search:
+statement is planned once per connection, `searchLanguage` the language of
+the search, and `statementTimeout` how long a statement may run:
 
 <include cwd meta='title="src/search.postgres.test.ts"'>
 	../examples/postgres/src/search.postgres.test.ts#options
@@ -237,6 +237,16 @@ connections between clients may then find a statement unknown.
   `max_prepared_statements` above 0.
 - Where it cannot, `postgres({ url, prepared: false })` plans each
   statement every time, at the cost of that planning under load.
+
+### A statement timeout
+
+With `statementTimeout: 10_000`, PostgreSQL ends a statement that runs
+longer than 10 s, a wait for a lock included. The request fails with a
+`500`, and the connection serves on. A migration is never ended.
+
+A connection whose statement has no answer 10 s past the timeout, as when
+the database moved to another address, is given up. Unset, a statement
+runs as long as it takes.
 
 ## Details
 
@@ -299,12 +309,13 @@ its data: give Locker.title dbName: 'label'.` That `dbName` keeps the old
 
 ### `postgres(options)`
 
-| Option           | Type                    | Default    | Effect                                                                   |
-| ---------------- | ----------------------- | ---------- | ------------------------------------------------------------------------ |
-| `url`            | `string \| undefined`   | required   | The connection string. Unset or empty, the start is refused.             |
-| `connections`    | whole number, 1 or more | `10`       | The connections opened at most; a query waits up to 10 s for a free one. |
-| `searchLanguage` | `string`                | `'simple'` | The text search configuration `_search` reads words in.                  |
-| `prepared`       | `boolean`               | `true`     | Plans a composed statement once per connection; `false` plans every run. |
+| Option             | Type                          | Default    | Effect                                                                   |
+| ------------------ | ----------------------------- | ---------- | ------------------------------------------------------------------------ |
+| `url`              | `string \| undefined`         | required   | The connection string. Unset or empty, the start is refused.             |
+| `connections`      | whole number, 1 or more       | `10`       | The connections opened at most; a query waits up to 10 s for a free one. |
+| `searchLanguage`   | `string`                      | `'simple'` | The text search configuration `_search` reads words in.                  |
+| `prepared`         | `boolean`                     | `true`     | Plans a composed statement once per connection; `false` plans every run. |
+| `statementTimeout` | whole number of ms, 1 or more | none       | Ends a statement that runs longer; a migration runs unbounded.           |
 
 ### Commands
 
@@ -354,6 +365,8 @@ the `.env` file beside the config, without changing a variable already set;
 | `UltimaBase needs PostgreSQL 15 or later.`                                                                               | An older server.                                                |
 | `postgres() searches in 'klingon', a text search configuration this server does not have.`                               | An unknown `searchLanguage`.                                    |
 | `Every one of the 10 PostgreSQL connections stayed busy for 10s: a transaction may wait on something slow or never end.` | No connection came free in 10 s.                                |
+| `canceling statement due to statement timeout`, from PostgreSQL                                                          | A statement ran past `statementTimeout`.                        |
+| `PostgreSQL did not answer a statement for 20s: its connection is given up.`                                             | A statement had no answer 10 s past `statementTimeout`.         |
 
 A warning at start says when the database's locale folds case for ASCII
 only: `mode: 'insensitive'` then misses `É` and `é`, and a case-insensitive
