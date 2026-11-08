@@ -176,7 +176,8 @@ async function committed(logger: Logger, commits: Commit[]): Promise<void> {
 async function rollback(open: Open): Promise<void> {
 	await settled(open)
 	const tx = await open.tx?.catch(() => undefined)
-	await tx?.rollback()
+	// A lost connection refuses it: its error would hide the failure (D-36).
+	await tx?.rollback().catch(() => undefined)
 }
 
 async function atomic<R>(

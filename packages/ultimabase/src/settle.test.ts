@@ -10,6 +10,7 @@ import {
 	defineModel,
 	master,
 	memory,
+	PublicError,
 	transaction,
 } from './index.ts'
 
@@ -28,7 +29,7 @@ const silent: Logger = {
 }
 
 /** What each find in a transaction does, in order; then it reads. */
-const plan: ('slow' | 'fail' | 'conflict')[] = []
+const plan: ('slow' | 'fail' | 'conflict' | 'lost')[] = []
 /** How each transaction ended, and how many of its queries still ran. */
 const ends: { end: 'commit' | 'rollback'; busy: number }[] = []
 
@@ -40,6 +41,7 @@ function tracking(): Adapter {
 		begin: async (options) => {
 			const tx = await base.begin(options)
 			let busy = 0
+			let lost = false
 			return {
 				...tx,
 				find: async (read) => {
@@ -49,6 +51,10 @@ function tracking(): Adapter {
 						if (step === 'slow') await setTimeout(20)
 						if (step === 'fail') throw new Error('The server went away.')
 						if (step === 'conflict') throw new Conflict()
+						if (step === 'lost') {
+							lost = true
+							throw new Error('Connection terminated unexpectedly')
+						}
 						return await tx.find(read)
 					} finally {
 						busy -= 1
@@ -61,6 +67,8 @@ function tracking(): Adapter {
 				rollback: async () => {
 					ends.push({ end: 'rollback', busy })
 					await tx.rollback()
+					// As `pg` refuses a query on a connection the server ended.
+					if (lost) throw new Error('The client is not queryable.')
 				},
 			}
 		},
@@ -125,5 +133,35 @@ describe('a transaction (D-208)', () => {
 			{ end: 'rollback', busy: 0 },
 			{ end: 'commit', busy: 0 },
 		])
+	})
+})
+
+describe('a transaction whose connection is lost (D-36)', () => {
+	it('rejects with the failure, not with the ROLLBACK it refuses', async () => {
+		plan.push('lost')
+		await expect(transaction(read)).rejects.toThrow(
+			'Connection terminated unexpectedly',
+		)
+	})
+
+	it('rejects with the error the callback throws', async () => {
+		plan.push('lost')
+		const refused = new PublicError('ACCESS_DENIED', 'Not yours.')
+		await expect(
+			transaction(async () => {
+				await read().catch(() => undefined)
+				throw refused
+			}),
+		).rejects.toBe(refused)
+	})
+
+	it('rejects with a failure the callback caught', async () => {
+		plan.push('lost')
+		await expect(
+			transaction(async () => {
+				await read().catch(() => undefined)
+			}),
+		).rejects.toThrow('Connection terminated unexpectedly')
+		expect(ends).toEqual([{ end: 'rollback', busy: 0 }])
 	})
 })
