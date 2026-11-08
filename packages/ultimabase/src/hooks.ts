@@ -12,8 +12,9 @@ import { trusted } from './relations.ts'
 import { filterOf, isReadFilter, readFilter } from './rules.ts'
 import type { ModelInfo } from './schema.ts'
 import type { Models } from './query-where.ts'
-import { isObject, normalizeWhere } from './query-where.ts'
+import { byIds, isObject, normalizeWhere } from './query-where.ts'
 import type { Commit, Store } from './transaction.ts'
+import { writesSoFar } from './transaction.ts'
 
 type HookName = (typeof hookNames)[number]
 
@@ -166,21 +167,58 @@ export function settles(events: readonly Event[]): boolean {
 	)
 }
 
-async function factsOf(
-	store: Store,
-	caller: Caller,
-	event: Event,
-): Promise<object> {
+/** The row of an event, as written, `undefined` once deleted. */
+type RowOf = (event: Event, at: number) => Promise<Row | undefined>
+
+/** The most rows read at once for the `after*` hooks (D-329). */
+const most = 1000
+
+/**
+ * The rows the hooks of `events` get, read a few at a time and twice as many
+ * each time while no hook writes; after a write, which may change them, the
+ * next row is read alone (D-329).
+ */
+function rowsOf(store: Store, events: readonly Event[]): RowOf {
+	let model: ModelInfo | undefined
+	let rows = new Map<string, Row | undefined>()
+	let stamp: number | undefined
+	let size = 1
+	return async (event, at) => {
+		const now = writesSoFar()
+		const fresh = now !== undefined && now === stamp
+		if (fresh && model === event.model && rows.has(event.id)) {
+			return rows.get(event.id)
+		}
+		if (!fresh) size = 1
+		const ids = new Set([event.id])
+		for (const other of events.slice(at + 1, at + size)) {
+			if (other.model === event.model && other.operation !== 'delete') {
+				ids.add(other.id)
+			}
+		}
+		// One shape of read: a row alone is read as it was before (D-329).
+		const where =
+			ids.size === 1 ? { id: { equals: event.id } } : byIds([...ids])
+		const found = await store.find({
+			model: event.model.name,
+			where,
+			take: ids.size,
+		})
+		model = event.model
+		rows = new Map([...ids].map((id) => [id, undefined]))
+		for (const row of found) rows.set(row.id, row)
+		stamp = now
+		size = Math.min(size * 2, most)
+		return rows.get(event.id)
+	}
+}
+
+/** A hook's facts; `row` is the event's row as written, unless it deletes. */
+function factsOf(caller: Caller, event: Event, row: Row | undefined): object {
 	const { model, id } = event
 	if (event.operation === 'delete') {
 		return { caller, record: recordOf(model, event.before) }
 	}
-	// As written, whatever `beforeFind` hides (D-88).
-	const [row] = await store.find({
-		model: model.name,
-		where: { id: { equals: id } },
-		take: 1,
-	})
 	if (row === undefined) {
 		throw new Error(`${model.name} ${id} was deleted before its after hooks.`)
 	}
@@ -199,12 +237,16 @@ export async function settle(
 	events: readonly Event[],
 	commits: Commit[],
 ): Promise<void> {
-	for (const event of events) {
+	const rowOf = rowsOf(store, events)
+	for (const [at, event] of events.entries()) {
 		const [now, later] = names[event.operation]
 		const afters = hooksOf(event.model, now)
 		const laters = hooksOf(event.model, later)
 		if (afters.length === 0 && laters.length === 0) continue
-		const facts = await factsOf(store, caller, event)
+		// As written, whatever `beforeFind` hides (D-88).
+		const row =
+			event.operation === 'delete' ? undefined : await rowOf(event, at)
+		const facts = factsOf(caller, event, row)
 		for (const hook of afters) await hook.run(facts)
 		for (const hook of laters) {
 			commits.push(async () => {

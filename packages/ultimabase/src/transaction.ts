@@ -50,6 +50,8 @@ type Open = {
 	readonly pending: Set<Promise<unknown>>
 	/** The parents of a bounded `many` its writes touched (D-242). */
 	readonly touched: Touched
+	/** Its writes and own statements so far: rows read before may be stale (D-329). */
+	writes: number
 }
 
 /** A serializable transaction's attempts before `CONFLICT` (D-183). */
@@ -96,6 +98,7 @@ function decoding(app: Running, store: Store): Store {
 
 /** A write in the transaction, after it locks the bounded parents (D-242). */
 async function written(open: Open, write: Write): Promise<Row[]> {
+	open.writes += 1
 	const tx = await begun(open)
 	await touch(open.app.resolved.models, tx, write, open.touched)
 	return tx.write(write)
@@ -112,10 +115,13 @@ function storeOf(open: Open, owner: boolean): Store {
 		count: async (read) => (await begun(open)).count(read),
 		aggregate: async (read) => (await begun(open)).aggregate(read),
 		write: async (write) => written(open, write),
-		last: async (write) =>
-			owner && open.tx === undefined && !bounded(resolved.models, write)
-				? adapter.write(write)
-				: written(open, write),
+		last: async (write) => {
+			if (!owner || open.tx !== undefined || bounded(resolved.models, write)) {
+				return written(open, write)
+			}
+			open.writes += 1
+			return adapter.write(write)
+		},
 	})
 }
 
@@ -194,6 +200,7 @@ async function atomic<R>(
 		serializable,
 		pending: new Set(),
 		touched: new Map(),
+		writes: 0,
 	}
 	let result: R
 	try {
@@ -227,6 +234,14 @@ async function atomic<R>(
 	// Outside the transaction: a commit hook's queries open their own.
 	await committed(app.logger, open.commits)
 	return result
+}
+
+/**
+ * The writes and own statements of the open transaction so far, none
+ * outside one: a row read before the count changed may be stale (D-329).
+ */
+export function writesSoFar(): number | undefined {
+	return opened.getStore()?.writes
 }
 
 /** A read: in the open transaction, else straight on the adapter. */
@@ -325,6 +340,8 @@ export async function joining<R>(
 ): Promise<R> {
 	const open = opened.getStore()
 	if (open?.app.adapter === adapter) {
+		// It may write: the count changes as a write's does.
+		open.writes += 1
 		return joined(open, async () => run(await begun(open)))
 	}
 	const app = current()
