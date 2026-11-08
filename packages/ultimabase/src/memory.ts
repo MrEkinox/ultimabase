@@ -47,8 +47,12 @@ function fed(changes: readonly Changed[]): Changed[] {
 			pairs: [],
 			keys: new Map(),
 		}
-		if ('field' in change) entry.pairs.push(...(change.pairs ?? []))
-		else entry.ids.push(...(change.ids ?? []))
+		// A spread of 120000 items or more into a call overflows the stack.
+		if ('field' in change) {
+			for (const pair of change.pairs ?? []) entry.pairs.push(pair)
+		} else {
+			for (const id of change.ids ?? []) entry.ids.push(id)
+		}
 		if (change.kind === 'delete') {
 			for (const [field, values] of Object.entries(change.keys ?? {})) {
 				entry.keys.set(field, [...(entry.keys.get(field) ?? []), ...values])
@@ -176,7 +180,7 @@ export function memory(): Adapter {
 					// A failed write leaves the transaction as it was.
 					const writing = active()
 					const rows = writing.write(write)
-					changed.push(...writing.changed)
+					for (const each of writing.changed) changed.push(each)
 					return rows
 				},
 				commit: async () => {

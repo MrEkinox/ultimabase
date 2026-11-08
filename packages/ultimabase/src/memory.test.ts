@@ -1,7 +1,14 @@
 // `memory()` driven directly, as the kernel drives an adapter (D-73): reads,
 // writes and transactions on prepared input.
-import { beforeEach, describe, expect, it } from 'vitest'
-import type { Adapter, Change, Filter, Nested, Row } from './adapter.ts'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import type {
+	Adapter,
+	Change,
+	Changed,
+	Filter,
+	Nested,
+	Row,
+} from './adapter.ts'
 import type { Logger } from './app-options.ts'
 import { UniqueViolation } from './adapter.ts'
 import { memory } from './memory.ts'
@@ -388,4 +395,36 @@ describe('transactions', () => {
 		expect(order).toEqual(['commit', 'write', 'stop'])
 		expect(await ids('Tag')).toEqual(['t1', 't2', 't3'])
 	})
+})
+
+describe('the feed', () => {
+	it('tells a write of more rows than a call takes arguments', async () => {
+		// A spread of this many items into a call overflows the stack.
+		const many = 200_000
+		const fed: (readonly Changed[])[] = []
+		const watched = memory()
+		await watched.start(schema, logger, {
+			changed: (changes) => fed.push(changes),
+			missed: () => undefined,
+		})
+		const author = insert('Author', { id: 'a1', name: 'Ada' })
+		const shelf = Array.from({ length: many }, (_, at) =>
+			insert('Book', { id: `b${at}`, title: `${at}`, author: 'a1' }),
+		)
+		const tx = await watched.begin()
+		await tx.write({ changes: [author, ...shelf] })
+		await tx.commit()
+		const set = { pages: 300 }
+		await watched.write({
+			changes: [{ kind: 'update', model: 'Book', where: {}, set }],
+		})
+		await vi.waitFor(() => expect(fed).toHaveLength(2))
+		expect(fed).toEqual([
+			[
+				{ kind: 'insert', model: 'Author', ids: ['a1'] },
+				{ kind: 'insert', model: 'Book' },
+			],
+			[{ kind: 'update', model: 'Book', fields: ['pages'] }],
+		])
+	}, 30_000)
 })
