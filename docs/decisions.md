@@ -18760,7 +18760,7 @@ Rejected:
 
 ## D-287: A silent database is noticed
 
-Amended by D-298.
+Amended by D-298, D-331.
 
 Choice: no developer's code changes, and no option. When a network fails with no one told, such as
 a failover moving the database's address or a firewall dropping a connection, realtime comes back
@@ -20118,4 +20118,70 @@ await Note.create({ data: { title: 'x', data: deep(1001) } })
 // Expected JSON data nested at most 1000 levels deep.
 await Note.findMany({ where: { data: deep(1001) } })
 // InvalidQuery: where.data: the json value is nested more than 1000 levels deep.
+```
+
+## D-331: A statement timeout on postgres()
+
+Choice: amends D-287. A new option of `postgres()`, `statementTimeout`, in
+milliseconds (D-221). Without it nothing changes.
+
+1. PostgreSQL ends a statement of the pool's connections that runs longer,
+   a wait for a lock included, with its own error,
+   `canceling statement due to statement timeout`, which answers `500`.
+   The connection serves on.
+2. A connection whose statement has had no answer for the timeout and 10 s
+   more is cut, as D-287 cuts them, with or without realtime: what it was
+   running fails with `PostgreSQL stopped answering.`, and a warning says
+   `PostgreSQL did not answer a statement for 20s: its connection is given up.`
+   The silence is judged one turn after the deadline, as in D-287.
+3. A migration runs with no statement timeout and is not cut: a sync or a
+   deploy in a transaction sets `statement_timeout = 0` locally, a file
+   outside a transaction sets it then resets it. Their `lock_timeout` of
+   5 s stays.
+4. The timeout is a whole number from 1 to 2147483647. Another value
+   refuses the start: `postgres() takes statementTimeout as a whole number
+of milliseconds, from 1 to 2147483647, not 0.`
+
+Why:
+
+- Without realtime, a statement in flight on a vanished address waited for
+  the operating system, about 15 minutes under Linux: the limit D-287
+  left.
+- A runaway statement, or one waiting on a lock, held a connection of the
+  pool for as long as it ran, and the pool is small.
+
+Cost: none measured. 20 000 `select 1` on PostgreSQL 18, median of 5
+rounds: 11 878 ms without the option and 11 870 ms with it one at a time,
+2 824 and 2 894 ms 16 at a time, within the rounds' spread.
+
+Rejected:
+
+- A default: it would end long queries that work today (D-287).
+- `query_timeout` of `pg`: its timer can fire before the socket was read
+  (D-287).
+- A `set statement_timeout` sent on each new connection: one more
+  statement, and a migration's `reset` would go back to the server's value
+  instead of the option's. The option goes in the connection's startup
+  parameters.
+- A timeout per query: no caller asks for one, and a transaction or a
+  plugin's `sql` can set its own with `set local`.
+- A duration written `'30s'`: durations are numbers of milliseconds
+  (D-221).
+
+Example, before:
+
+```ts
+const database = postgres({ url: process.env['DATABASE_URL'] })
+await database.sql`select pg_sleep(3600)` // holds a connection for an hour
+```
+
+After:
+
+```ts
+const database = postgres({
+	url: process.env['DATABASE_URL'],
+	statementTimeout: 10_000,
+})
+await database.sql`select pg_sleep(3600)`
+// error: canceling statement due to statement timeout, after 10 s
 ```

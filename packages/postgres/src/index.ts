@@ -11,12 +11,16 @@ export type { Postgres }
  * `_search` reads its words in `searchLanguage`, a text search configuration
  * of the server, `'simple'` by default. `prepared: false` plans every statement
  * each time, for a pooler that cannot keep a statement on a connection.
+ * `statementTimeout` ends a statement that runs longer, in milliseconds,
+ * migrations aside, and gives up a connection that stays silent 10 seconds
+ * past it.
  */
 export function postgres(options: {
 	readonly url: string | undefined
 	readonly connections?: number
 	readonly searchLanguage?: string
 	readonly prepared?: boolean
+	readonly statementTimeout?: number
 }): Postgres {
 	return createAdapter(options)
 }

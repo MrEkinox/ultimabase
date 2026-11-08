@@ -7,8 +7,6 @@ import type {
 	Transaction as Open,
 } from 'kysely'
 import { Kysely, sql } from 'kysely'
-import type { PoolClient } from 'pg'
-import { Pool } from 'pg'
 import { CheckFailed, Refused } from 'ultimabase'
 import { joining, scratchable } from 'ultimabase/internal'
 import type {
@@ -30,11 +28,11 @@ import { overflowed } from './numbers.ts'
 import { fillsOf } from './fills.ts'
 import type { Opened } from './kept.ts'
 import { released, reused } from './kept.ts'
+import { timeoutOf } from './deadline.ts'
 import { channelOf, listening } from './listen.ts'
 import { plan } from './plan.ts'
 import { BeginSent } from './begin.ts'
-import { pooled } from './pool.ts'
-import { preparing } from './prepared.ts'
+import { pooled, poolOf } from './pool.ts'
 import { compileCount, compileFind } from './read.ts'
 import { schemaOf } from './server.ts'
 import {
@@ -62,6 +60,8 @@ export type Options = {
 	readonly searchLanguage?: string
 	/** Plans a composed statement once per connection; `true` by default (D-264, D-274). */
 	readonly prepared?: boolean
+	/** The milliseconds a statement may run, unbounded by default (D-331). */
+	readonly statementTimeout?: number
 }
 
 /** What `postgres()` returns: an adapter that also runs raw SQL (D-137). */
@@ -155,6 +155,8 @@ async function write(
 export function createAdapter(options: Options): Postgres {
 	const { url, connections = 10, wait = 10_000, searchLanguage } = options
 	const remote = url ? remoteOf(url) : undefined
+	/** Whether a migration lifts the statement timeout for its own (D-331). */
+	const free = options.statementTimeout !== undefined
 	let state: (Opened & { readonly catalog: Catalog }) | undefined
 	/** A test file's schema, whether a start created it, and what it keeps. */
 	let scratch:
@@ -162,6 +164,16 @@ export function createAdapter(options: Options): Postgres {
 		| undefined
 	/** Each open transaction's own, for `sql` to join. */
 	const opens = new WeakMap<Transaction, Open<object>>()
+	/** Migrations running, which no statement timeout ends (D-331). */
+	let migrating = 0
+	const migrated = async <T>(migration: () => Promise<T>): Promise<T> => {
+		migrating += 1
+		try {
+			return await migration()
+		} finally {
+			migrating -= 1
+		}
+	}
 	const started = () => {
 		if (state === undefined) throw new Error('postgres() is not started.')
 		return state
@@ -178,6 +190,7 @@ export function createAdapter(options: Options): Postgres {
 					`postgres() takes connections as a whole number, 1 or more, not ${connections}.`,
 				)
 			}
+			const timeout = timeoutOf(options.statementTimeout)
 			const catalog = new Catalog(schema, searchLanguage)
 			// Refuses two things stored under one name before it connects.
 			const snapshot = snapshotOf(catalog)
@@ -203,34 +216,14 @@ export function createAdapter(options: Options): Postgres {
 			const extensions =
 				scratch !== undefined && trigram ? [await trigrams(url)] : []
 			const config = connecting(url, scratch?.name, extensions)
-			const pool = new Pool({
-				...config,
-				max: connections,
-				connectionTimeoutMillis: wait,
-				// A pooler may share connections: nothing there is sent ahead (D-297).
-				pipeline: options.prepared !== false,
-				// Opening a connection costs ten reads: a quiet server keeps its
-				// own, watched by the system, and a script ends without them (D-298).
-				idleTimeoutMillis: 300_000,
-				keepAlive: true,
-				keepAliveInitialDelayMillis: 1000,
-				allowExitOnIdle: true,
-			})
-			// A connection the server ends would crash the process unheard. An
-			// idle one the pool drops, and the next query opens another; one a
-			// transaction holds fails its next statement, and the pool drops it
-			// once given back.
-			pool.on('error', () => undefined)
-			// What the listener gives up when the database goes silent (D-287).
-			const open = new Set<PoolClient>()
-			pool.on('remove', (client) => open.delete(client))
-			pool.on('connect', (client) => {
-				open.add(client)
-				client.on('error', () => undefined)
-				if (options.prepared !== false) preparing(client)
-				// Compiling a nested read costs a hundred times more than running
-				// it; queued, this runs before the client's first query (D-47).
-				client.query('set jit = off').catch(() => undefined)
+			const { pool, open } = poolOf({
+				config,
+				connections,
+				wait,
+				prepared: options.prepared !== false,
+				timeout,
+				spared: () => migrating > 0,
+				logger,
 			})
 			const dialect = new BeginSent({
 				pool: pooled(url, pool, connections, wait),
@@ -317,8 +310,9 @@ export function createAdapter(options: Options): Postgres {
 				)
 			},
 			stored: async () => stored(started().db),
-			apply: async (given) => apply(started().db, given),
-			reset: async () => reset(started().db),
+			apply: async (given) =>
+				migrated(async () => apply(started().db, given, free)),
+			reset: async () => migrated(async () => reset(started().db, free)),
 			...(remote === undefined ? {} : { remote }),
 		},
 		begin: async (asked): Promise<Transaction> => {

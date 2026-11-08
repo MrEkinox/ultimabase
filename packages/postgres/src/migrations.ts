@@ -54,9 +54,13 @@ async function acquired(
 	while (!(await got())) await pause(tryEvery)
 }
 
-/** Runs `run` in a transaction that holds the schema's lock. */
+/**
+ * Runs `run` in a transaction that holds the schema's lock; when `free`, no
+ * statement timeout of the connection ends it (D-331).
+ */
 async function locked(
 	db: Kysely<object>,
+	free: boolean,
 	run: (trx: Transaction<object>) => Promise<void>,
 ): Promise<void> {
 	await db.transaction().execute(async (trx) => {
@@ -66,6 +70,7 @@ async function locked(
 		)
 		// A file may set its own, with `set local lock_timeout`.
 		await sql.raw(`set local lock_timeout = '${lockTimeout}'`).execute(trx)
+		if (free) await sql`set local statement_timeout = 0`.execute(trx)
 		for (const statement of bookkeeping) await statement.execute(trx)
 		await run(trx)
 	})
@@ -206,8 +211,9 @@ async function statements(
 async function sync(
 	db: Kysely<object>,
 	run: Extract<Run, { kind: 'sync' }>,
+	free: boolean,
 ): Promise<void> {
-	await locked(db, async (trx) => {
+	await locked(db, free, async (trx) => {
 		const { rows } = await sql<{ done: boolean; same: boolean | null }>`
 			select snapshot = ${JSON.stringify(run.to)}::jsonb as done,
 			snapshot = ${run.from === undefined ? null : JSON.stringify(run.from)}::jsonb as same
@@ -245,8 +251,14 @@ const done = (db: Kysely<object>, file: Migration) =>
  * concurrently` waits for running transactions without blocking any, and
  * one that fails leaves an invalid index.
  */
-async function outside(db: Kysely<object>, file: Migration): Promise<void> {
+async function outside(
+	db: Kysely<object>,
+	file: Migration,
+	free: boolean,
+): Promise<void> {
 	await db.connection().execute(async (session) => {
+		// The connection goes back with the timeout it opened with (D-331).
+		if (free) await sql`set statement_timeout = 0`.execute(session)
 		await acquired(
 			session,
 			sql`select pg_try_advisory_lock(hashtext(current_schema())) as got`,
@@ -260,6 +272,7 @@ async function outside(db: Kysely<object>, file: Migration): Promise<void> {
 			await sql`select pg_advisory_unlock(hashtext(current_schema()))`.execute(
 				session,
 			)
+			if (free) await sql`reset statement_timeout`.execute(session)
 		}
 	})
 }
@@ -267,23 +280,29 @@ async function outside(db: Kysely<object>, file: Migration): Promise<void> {
 async function deploy(
 	db: Kysely<object>,
 	run: Extract<Run, { kind: 'deploy' }>,
+	free: boolean,
 ): Promise<void> {
 	for (const file of run.files) {
 		if (!file.transaction) {
-			await outside(db, file)
+			await outside(db, file, free)
 			continue
 		}
-		await locked(db, async (trx) => {
+		await locked(db, free, async (trx) => {
 			if (await isDone(trx, file)) return
 			await executed(trx, file.sql, file.name)
 			await done(trx, file)
 		})
 	}
-	await locked(db, async (trx) => store(trx, run.to, 'deploy'))
+	await locked(db, free, async (trx) => store(trx, run.to, 'deploy'))
 }
 
-export async function apply(db: Kysely<object>, run: Run): Promise<void> {
-	await (run.kind === 'sync' ? sync(db, run) : deploy(db, run))
+/** Applies `run`; when `free`, no statement timeout ends it (D-331). */
+export async function apply(
+	db: Kysely<object>,
+	run: Run,
+	free: boolean,
+): Promise<void> {
+	await (run.kind === 'sync' ? sync(db, run, free) : deploy(db, run, free))
 }
 
 /** The current schema's tables but an extension's, in name order. */
@@ -302,9 +321,12 @@ export async function tablesOf(db: QueryExecutorProvider): Promise<string[]> {
  * Drops every table of the current schema but an extension's, such as
  * PostGIS's `spatial_ref_sys`; returns the models' tables.
  */
-export async function reset(db: Kysely<object>): Promise<readonly string[]> {
+export async function reset(
+	db: Kysely<object>,
+	free: boolean,
+): Promise<readonly string[]> {
 	const dropped: string[] = []
-	await locked(db, async (trx) => {
+	await locked(db, free, async (trx) => {
 		const names = await tablesOf(trx)
 		const drop = `drop table ${names.map(id).join(', ')} cascade`
 		await executed(trx, drop, drop)
