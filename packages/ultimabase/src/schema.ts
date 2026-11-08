@@ -2,6 +2,7 @@
 // gets the other side it names or is named by, and the side that stores its
 // key (D-37, D-54, D-64, D-237, D-248).
 import type { Schema, SchemaField, SchemaModel } from './adapter.ts'
+import { targetsOf } from './app-user.ts'
 import type {
 	Codec,
 	FieldDefinition,
@@ -235,26 +236,13 @@ export function resolve(
 	plugins: readonly PluginCode[] = [],
 ): Resolved {
 	const { definitions, names, owners } = definitionsOf(values, plugins)
+	const targets = targetsOf(definitions, names, owners)
 	const links: Linked[] = []
 	const views: Linked[] = []
 	const oneOfs = new Map<string, Map<string, OneOfInfo>>()
 	for (const [model, definition] of definitions) {
-		const targetOf = (name: string, thunk: () => unknown): string => {
-			const value = thunk()
-			const target =
-				typeof value === 'object' && value !== null
-					? names.get(value)
-					: undefined
-			if (target === undefined) {
-				throw new Refused(`${model}.${name}: its target is not in models.`)
-			}
-			if (owners.get(model) !== owners.get(target)) {
-				throw new Refused(
-					`${model}.${name}: a plugin's model relates only to models of the same plugin; keep the id as a scalar.`,
-				)
-			}
-			return target
-		}
+		const targetOf = (name: string, thunk: () => unknown): string =>
+			targets(model, name, thunk())
 		const mine = new Map<string, OneOfInfo>()
 		oneOfs.set(model, mine)
 		for (const [name, field] of definition.fields) {

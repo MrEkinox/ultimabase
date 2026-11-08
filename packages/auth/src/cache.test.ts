@@ -146,7 +146,13 @@ describe('a kept caller', () => {
 		const users = read('User')
 		await User.create({ data: { email: 'grace@example.com' } }, M)
 		await AuthSession.create(
-			{ data: { tokenHash: 'h', userId: ada.id, expiresAt: new Date() } },
+			{
+				data: {
+					tokenHash: 'h',
+					user: { connect: { id: ada.id } },
+					expiresAt: new Date(),
+				},
+			},
 			M,
 		)
 		await delivered()

@@ -354,7 +354,7 @@ describe('signing in', () => {
 		const [stored] = await PasswordHash.findMany({}, M)
 		const hash = staleHash()
 		await PasswordHash.update(
-			{ where: { userId: stored?.userId ?? '' }, data: { hash } },
+			{ where: { stamp: stored?.stamp ?? '' }, data: { hash } },
 			M,
 		)
 		expect((await signIn(url)).status).toBe(200)
@@ -370,7 +370,7 @@ describe('signing in', () => {
 		await signUp(url)
 		await PasswordHash.update(
 			{
-				where: { userId: (await User.findMany({}, M))[0]?.id ?? '' },
+				where: { user: (await User.findMany({}, M))[0]?.id ?? '' },
 				data: { hash: 'plain' },
 			},
 			M,
@@ -393,7 +393,7 @@ describe('signing in', () => {
 		const { url } = await server(undefined, database)
 		await signUp(url)
 		const [stored] = await PasswordHash.findMany({}, M)
-		const where = { userId: stored?.userId ?? '' }
+		const where = { stamp: stored?.stamp ?? '' }
 		await PasswordHash.update({ where, data: { hash: staleHash() } }, M)
 		const newer = await hashPassword('battery staple')
 		database.set({ hash: newer, stamp: 'set since' })
@@ -419,7 +419,7 @@ describe('signing in', () => {
 		const { url } = await server()
 		await signUp(url)
 		const [stored] = await PasswordHash.findMany({}, M)
-		const where = { userId: stored?.userId ?? '' }
+		const where = { stamp: stored?.stamp ?? '' }
 		const valid = stored?.hash ?? ''
 		const tampered = [
 			valid.replace('m=19456', 'm=4194304'),

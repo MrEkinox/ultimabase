@@ -1,8 +1,8 @@
 // password's own models (D-110, D-113, D-114, D-117): each user's hash, and
 // what the sign-in limit and the hourly limits count.
 import ipaddr from 'ipaddr.js'
-import type { Field, ModelOf, ScalarOptions } from 'ultimabase'
-import { defineModel, master, PublicError } from 'ultimabase'
+import type { Field, ModelOf, One, ScalarOptions } from 'ultimabase'
+import { AppUser, defineModel, master, PublicError } from 'ultimabase'
 
 const M = { as: master }
 const limit = 10
@@ -12,21 +12,27 @@ const requests = 10
 export const hour: number = 60 * 60 * 1000
 
 type HashFields = {
-	readonly userId: Field<string, { readonly unique: true }>
+	readonly user: One<() => typeof AppUser, { readonly onDelete: 'cascade' }>
 	readonly hash: Field<string, ScalarOptions<string>>
 	/** New each time the password is set, kept when it is rehashed. */
 	readonly stamp: Field<string, { readonly unique: true }>
 }
 
-export const PasswordHash: ModelOf<'PasswordHash', HashFields, []> =
-	defineModel({
-		name: 'PasswordHash',
-		fields: (f) => ({
-			userId: f.string({ unique: true }),
-			hash: f.string(),
-			stamp: f.string({ unique: true }),
-		}),
-	})
+/** Each user's one hash, which goes with its user (D-333). */
+export const PasswordHash: ModelOf<
+	'PasswordHash',
+	HashFields,
+	[],
+	[{ readonly fields: ['user']; readonly unique: true }]
+> = defineModel({
+	name: 'PasswordHash',
+	fields: (f) => ({
+		user: f.one(() => AppUser, { onDelete: 'cascade' }),
+		hash: f.string(),
+		stamp: f.string({ unique: true }),
+	}),
+	indexes: [{ fields: ['user'], unique: true }],
+})
 
 type AttemptFields = {
 	readonly subject: Field<string, ScalarOptions<string>>

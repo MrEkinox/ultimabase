@@ -2,8 +2,8 @@
 // SHA-256 digest, ending a lifetime after its last use and at the longest
 // after its sign-in (D-115), both the application's (D-165).
 import { createHash, randomBytes } from 'node:crypto'
-import type { Field, ModelOf, ScalarOptions } from 'ultimabase'
-import { defineModel, master, PublicError, Refused } from 'ultimabase'
+import type { Field, ModelOf, One, ScalarOptions } from 'ultimabase'
+import { AppUser, defineModel, master, PublicError, Refused } from 'ultimabase'
 import { droppedToken, droppedUser } from './cache.ts'
 
 const M = { as: master }
@@ -35,20 +35,20 @@ export function durationsOf(sessions: Partial<Durations> = {}): Durations {
 
 type SessionFields = {
 	readonly tokenHash: Field<string, { readonly unique: true }>
-	readonly userId: Field<string, ScalarOptions<string>>
+	readonly user: One<() => typeof AppUser, { readonly onDelete: 'cascade' }>
 	readonly expiresAt: Field<Date, ScalarOptions<Date>>
 }
 
-/** auth's own model (D-110). */
+/** auth's own model (D-110), which goes with its user (D-333). */
 export const AuthSession: ModelOf<'AuthSession', SessionFields, []> =
 	defineModel({
 		name: 'AuthSession',
 		fields: (f) => ({
 			tokenHash: f.string({ unique: true }),
-			userId: f.string(),
+			user: f.one(() => AppUser, { onDelete: 'cascade' }),
 			expiresAt: f.dateTime(),
 		}),
-		indexes: [{ fields: ['userId'] }, { fields: ['expiresAt'] }],
+		indexes: [{ fields: ['user'] }, { fields: ['expiresAt'] }],
 	})
 
 const digest = (token: string): string =>
@@ -73,7 +73,13 @@ export async function openSession(
 	const token = randomBytes(32).toString('base64url')
 	const expiresAt = new Date(now + lifetime)
 	await AuthSession.create(
-		{ data: { tokenHash: digest(token), userId, expiresAt } },
+		{
+			data: {
+				tokenHash: digest(token),
+				user: { connect: { id: userId } },
+				expiresAt,
+			},
+		},
 		M,
 	)
 	return { token, expiresAt }
@@ -98,8 +104,13 @@ export async function sessionOf(
 	{ lifetime, longest }: Durations,
 ): Promise<Found | undefined> {
 	const tokenHash = digest(token)
-	const session = await AuthSession.findUnique({ where: { tokenHash } }, M)
-	if (session === null) return undefined
+	const session = await AuthSession.findUnique(
+		{ where: { tokenHash }, include: { user: { select: { id: true } } } },
+		M,
+	)
+	// A user in the trash has its sessions back once restored (D-333).
+	if (session === null || session.user === null) return undefined
+	const userId = session.user.id
 	const now = Date.now()
 	const left = session.expiresAt.getTime() - now
 	if (left <= 0) {
@@ -109,7 +120,7 @@ export async function sessionOf(
 	const last = session.createdAt.getTime() + longest
 	const found = (expiresAt: Date): Found => ({
 		id: session.id,
-		userId: session.userId,
+		userId,
 		expiresAt,
 		// Renewed with less than half its lifetime left, unless at its longest.
 		renewAt:
@@ -145,6 +156,6 @@ export async function closeSession(token: string): Promise<void> {
 
 /** Ends every session of a user. */
 export async function revokeSessions(userId: string): Promise<void> {
-	await AuthSession.deleteMany({ where: { userId } }, M)
+	await AuthSession.deleteMany({ where: { user: { is: { id: userId } } } }, M)
 	droppedUser(userId)
 }

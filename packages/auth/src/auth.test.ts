@@ -6,7 +6,7 @@ import { get } from 'node:http'
 import { httpPlugin } from '@ultimabase/http'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { Adapter, Caller, PluginTypes } from 'ultimabase'
-import { defineApp, definePlugin, memory } from 'ultimabase'
+import { defineApp, defineModel, definePlugin, memory } from 'ultimabase'
 import { recording } from 'ultimabase/internal'
 import { AuthAccount } from './accounts.ts'
 import { authPlugin, defineUser } from './index.ts'
@@ -136,8 +136,11 @@ describe('a session', () => {
 	it('stores the token’s digest only', async () => {
 		const { url, ada } = await server()
 		const { token } = await signIn(url, ada.id)
-		const [session] = await AuthSession.findMany({}, M)
-		expect(session?.userId).toBe(ada.id)
+		const [session] = await AuthSession.findMany(
+			{ include: { user: { select: { id: true } } } },
+			M,
+		)
+		expect(session?.user?.id).toBe(ada.id)
 		expect(session?.tokenHash).not.toBe(token)
 		expect(session?.tokenHash).toMatch(/^[\w-]{43}$/)
 	})
@@ -537,8 +540,11 @@ describe('linked accounts', () => {
 		await given.auth?.linkAccount(ada.id, 'password', 'ada@example.com')
 		await given.auth?.linkAccount(grace.id, 'password', 'grace@example.com')
 		await User.delete({ where: { id: ada.id } }, M)
-		const left = await AuthAccount.findMany({}, M)
-		expect(left.map(({ userId }) => userId)).toStrictEqual([grace.id])
+		const left = await AuthAccount.findMany(
+			{ include: { user: { select: { id: true } } } },
+			M,
+		)
+		expect(left.map(({ user }) => user?.id)).toStrictEqual([grace.id])
 	})
 })
 
@@ -554,6 +560,24 @@ describe('the user model', () => {
 			database: memory(),
 			plugins: [httpPlugin({ port: 0 }), authPlugin()],
 			models: [],
+			logger: listening([]),
+		})
+		await expect(app.start()).rejects.toThrow(
+			"AuthSession.user: the auth plugin needs the application's user model, and none is declared.",
+		)
+	})
+
+	it('is declared with defineUser', async () => {
+		const users = definePlugin({ name: 'users', userModel: true })
+		const Account = defineModel({
+			name: 'Account',
+			use: [users.use()],
+			fields: (f) => ({ name: f.string() }),
+		})
+		const app = defineApp({
+			database: memory(),
+			plugins: [httpPlugin({ port: 0 }), users.plugin(), authPlugin()],
+			models: [Account],
 			logger: listening([]),
 		})
 		await expect(app.start()).rejects.toThrow(

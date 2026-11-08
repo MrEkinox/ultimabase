@@ -3,7 +3,7 @@
 import { randomUUID } from 'node:crypto'
 import { Client } from 'pg'
 import { expect, it } from 'vitest'
-import { M, started } from './test/app.ts'
+import { M, started, User } from './test/app.ts'
 import { database, urls } from './test/postgres.ts'
 import { issueToken, PasswordToken, redeemToken } from './tokens.ts'
 
@@ -29,7 +29,7 @@ for (const url of urls) {
 		await other.connect()
 		await watcher.connect()
 		try {
-			const userId = randomUUID()
+			const { id: userId } = await User.create({ data: { name: 'Ada' } }, M)
 			const token = await issueToken(userId, 'reset', 'ada@example.com')
 			await other.query('begin')
 			await other.query(
@@ -55,13 +55,18 @@ for (const url of urls) {
 		const schema = `t_${randomUUID().replaceAll('-', '')}`
 		const running = await started(undefined, database(url, schema))
 		try {
-			const userId = randomUUID()
+			const { id: userId } = await User.create({ data: { name: 'Ada' } }, M)
 			await Promise.all(
 				Array.from({ length: 5 }, async () =>
 					issueToken(userId, 'reset', 'ada@example.com'),
 				),
 			)
-			expect(await PasswordToken.count({ where: { userId } }, M)).toBe(1)
+			expect(
+				await PasswordToken.count(
+					{ where: { user: { is: { id: userId } } } },
+					M,
+				),
+			).toBe(1)
 		} finally {
 			await running.app.stop()
 		}

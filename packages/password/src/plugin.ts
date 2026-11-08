@@ -147,15 +147,6 @@ function stateOf(auth: AuthApi): State {
 	return state
 }
 
-/** Deletes the user's hash, links and email requests (D-113, D-117). */
-async function forget(userId: string): Promise<void> {
-	const where = { userId }
-	await PasswordHash.deleteMany({ where }, M)
-	await PasswordToken.deleteMany({ where }, M)
-	const emails = { kind: 'email', subject: userId }
-	await PasswordRequest.deleteMany({ where: emails }, M)
-}
-
 /** The one model whose `use` lists `password()`. */
 function usersOf(models: readonly ExposedModel[]): ExposedModel {
 	// oxlint-disable-next-line typescript/unbound-method -- compared by identity, never called.
@@ -224,9 +215,11 @@ const definition = definePlugin<Password>({
 		afterUpdateCommit: async ({ record, previous, plugins }) => {
 			await committed(stateOf(plugins.auth), record, previous)
 		},
-		// The user's hash and tokens go with them (D-113, D-117).
+		// The user's hash and tokens cascade (D-333); the emails it was
+		// sent are counted by its id (D-117).
 		afterDelete: async ({ record }) => {
-			await forget(record.id)
+			const where = { kind: 'email', subject: record.id }
+			await PasswordRequest.deleteMany({ where }, M)
 		},
 	},
 	commands: ({ queries, plugins }) => {

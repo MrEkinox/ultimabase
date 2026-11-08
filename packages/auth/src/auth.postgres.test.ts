@@ -2,6 +2,7 @@
 // by the database, the sessions a deleted user leaves, and the kept callers
 // another server's writes reach through the feed (D-332).
 import { expect, it, vi } from 'vitest'
+import { AuthAccount, linkAccount } from './accounts.ts'
 import { AuthSession } from './sessions.ts'
 import { bearer, callerOf, day, M, signIn, started, User } from './test/app.ts'
 import { database, urls } from './test/postgres.ts'
@@ -27,9 +28,12 @@ for (const url of urls) {
 			expect(await AuthSession.count({}, M)).toBe(1)
 			expect((await callerOf(running.url, bearer(token))).status).toBe(401)
 
+			// A deleted user's sessions and accounts go with it (D-333).
 			await signIn(running.url, ada.id)
+			await linkAccount(ada.id, 'google', '1234')
 			await User.delete({ where: { id: ada.id } }, M)
 			expect(await AuthSession.count({}, M)).toBe(0)
+			expect(await AuthAccount.count({}, M)).toBe(0)
 			expect((await callerOf(running.url, bearer(next.token))).status).toBe(401)
 		} finally {
 			vi.restoreAllMocks()
@@ -53,7 +57,10 @@ for (const url of urls) {
 					{ user: { email: 'ada@lovelace.dev' } },
 				),
 			)
-			await AuthSession.deleteMany({ where: { userId: ada.id } }, M)
+			await AuthSession.deleteMany(
+				{ where: { user: { is: { id: ada.id } } } },
+				M,
+			)
 			await vi.waitFor(async () =>
 				expect((await callerOf(running.url, bearer(token))).status).toBe(401),
 			)

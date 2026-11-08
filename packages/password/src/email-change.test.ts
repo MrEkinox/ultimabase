@@ -160,7 +160,7 @@ describe('User.email', () => {
 		expect(signedIn((await signIn(url, ada.email)).body)).toBe(false)
 		expect(reset).not.toBe('')
 		await expect(
-			PasswordToken.count({ where: { userId: user.id } }, M),
+			PasswordToken.count({ where: { user: { is: { id: user.id } } } }, M),
 		).resolves.toBe(0)
 		// The old email is free again.
 		await User.signUp({ ...ada, data: { name: 'Ada again' } })

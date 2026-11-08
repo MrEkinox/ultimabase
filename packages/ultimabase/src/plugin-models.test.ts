@@ -201,7 +201,7 @@ describe('a plugin’s own models are refused', () => {
 		})
 		const badges = owning('badges', [Badge])
 		expect(await refusal({ plugins: [badges], models: [Owner] })).toBe(
-			"Owner.badges: a plugin's model relates only to models of the same plugin; keep the id as a scalar.",
+			"Owner.badges: a plugin's model relates only to models of the same plugin, and to AppUser.",
 		)
 	})
 

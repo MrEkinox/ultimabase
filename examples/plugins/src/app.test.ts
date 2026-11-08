@@ -9,6 +9,7 @@ import { master } from 'ultimabase'
 import { expect, it } from 'vitest'
 import { requestFiles } from '../../../scripts/requests.ts'
 import { app } from './app.ts'
+import { Member } from './member.ts'
 import { Article, News } from './models.ts'
 import { ApiKey, createApiKey } from './plugins/api-keys.ts'
 import { Editor } from './plugins/publishing.ts'
@@ -57,8 +58,9 @@ it('lists the functions for a developer on this machine only', async () => {
 })
 
 it('keeps drafts for editors', async () => {
+	const { id } = await Member.create({ data: { name: 'Ada' } }, M)
 	//#region drafts
-	const ada = asUser({ id: 'ada' })
+	const ada = asUser({ id })
 	await Article.create({ data: { title: 'Draft' } }, { as: ada })
 	// A user who is not an editor reads no draft.
 	expect(await Article.count({}, { as: ada })).toBe(0)
@@ -66,8 +68,8 @@ it('keeps drafts for editors', async () => {
 	// Nor does an anonymous caller.
 	await check('titles-draft', {}, { status: 200 })
 	//#region editor
-	await Editor.create({ data: { userId: 'ada' } }, M)
-	expect(await Article.count({}, { as: asUser({ id: 'ada' }) })).toBe(1)
+	await Editor.create({ data: { user: { connect: { id } } } }, M)
+	expect(await Article.count({}, { as: asUser({ id }) })).toBe(1)
 	//#endregion
 })
 
