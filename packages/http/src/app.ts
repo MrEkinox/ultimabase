@@ -82,6 +82,7 @@ const statuses: ReadonlyMap<string, ContentfulStatusCode> = new Map<
 	['INVALID_CREDENTIALS', 401],
 	['TOO_MANY_ATTEMPTS', 429],
 	['CONFLICT', 409],
+	['UNAVAILABLE', 503],
 	['INTERNAL', 500],
 ])
 
@@ -106,9 +107,9 @@ function failed(error: unknown, c: Context, logger: Logger): Response {
 		const { code, message, details } = error
 		// An application's own code is a client error (D-72).
 		const status = statuses.get(code) ?? 400
-		// Its details say when to retry, in seconds (D-113).
+		// Its details say when to retry, in seconds (D-113, D-335).
 		if (
-			code === 'TOO_MANY_ATTEMPTS' &&
+			(code === 'TOO_MANY_ATTEMPTS' || code === 'UNAVAILABLE') &&
 			typeof details === 'object' &&
 			details !== null
 		) {

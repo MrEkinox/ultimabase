@@ -273,6 +273,26 @@ describe('an error', () => {
 		})
 	})
 
+	failing.get('/down', () => {
+		throw new PublicError(
+			'UNAVAILABLE',
+			'The database is busy: try again shortly.',
+			{ details: { retryAfter: 1 } },
+		)
+	})
+
+	it('sends a database it cannot use as 503, with when to retry (D-335)', async () => {
+		const { url } = await server({ port: 0, routes: [failing] })
+		const down = await fetch(`${url}/down`)
+		expect(down.status).toBe(503)
+		expect(down.headers.get('retry-after')).toBe('1')
+		expect(await down.json()).toStrictEqual({
+			code: 'UNAVAILABLE',
+			message: 'The database is busy: try again shortly.',
+			details: { retryAfter: 1 },
+		})
+	})
+
 	it('sends too many attempts as 429, with when to retry', async () => {
 		const { url } = await server({ port: 0, routes: [failing] })
 		const busy = await fetch(`${url}/busy`)

@@ -226,7 +226,13 @@ export function createAdapter(options: Options): Postgres {
 				logger,
 			})
 			const dialect = new BeginSent({
-				pool: pooled(url, pool, connections, wait),
+				pool: pooled(pool, {
+					url,
+					connections,
+					wait,
+					logger,
+					serving: () => state !== undefined,
+				}),
 			})
 			const db = new Kysely<object>({
 				dialect,

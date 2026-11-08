@@ -368,6 +368,11 @@ the `.env` file beside the config, without changing a variable already set;
 | `canceling statement due to statement timeout`, from PostgreSQL                                                          | A statement ran past `statementTimeout`.                        |
 | `PostgreSQL did not answer a statement for 20s: its connection is given up.`                                             | A statement had no answer 10 s past `statementTimeout`.         |
 
+Once the application serves, a pool that stays full or a server it cannot
+reach answers the client 503 `UNAVAILABLE`, with `Retry-After: 1` and
+`The database is busy: try again shortly.` or `The database cannot be
+reached: try again shortly.`; the message above is logged, at `error`.
+
 A warning at start says when the database's locale folds case for ASCII
 only: `mode: 'insensitive'` then misses `É` and `é`, and a case-insensitive
 unique key lets both in. Create the database

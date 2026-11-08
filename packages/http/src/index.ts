@@ -71,7 +71,6 @@ export interface Http extends PluginTypes {
 		| 'BAD_REQUEST'
 		| 'BAD_USER_INPUT'
 		| 'PAYLOAD_TOO_LARGE'
-		| 'UNAVAILABLE'
 		| 'UNSUPPORTED_MEDIA_TYPE'
 }
 
