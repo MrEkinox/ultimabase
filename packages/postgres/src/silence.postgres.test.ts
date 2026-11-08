@@ -129,7 +129,9 @@ describe('a database that goes silent', () => {
 		await expect(database.sql`select pg_sleep(60)`).rejects.toThrow(
 			'PostgreSQL stopped answering.',
 		)
-		expect(Date.now() - started).toBeLessThan(5000)
+		// The silence and a pulse, no more: an unreferenced immediate waited
+		// for the next event, 3.5s here.
+		expect(Date.now() - started).toBeLessThan(2000)
 		await vi.waitFor(() => expect(missed).toBe(1), { timeout: 5000 })
 		const { id } = await Card.create({ data: { title: 'back' } }, M)
 		await vi.waitFor(() => expect(seen).toContain(id))
