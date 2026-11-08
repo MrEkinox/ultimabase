@@ -256,6 +256,19 @@ async function started(options: Options = {}): Promise<string> {
 	return `${listening.replace(/^http/, 'ws')}${options.graphql?.path ?? '/graphql'}`
 }
 
+/** Whether the application still answers a new client. */
+async function answers(url: string): Promise<void> {
+	const socket = new WebSocket(url, 'graphql-transport-ws')
+	await new Promise((done) => socket.once('open', done))
+	const answer = new Promise<RawData>((done) => {
+		socket.once('message', done)
+	})
+	socket.send(JSON.stringify({ type: 'connection_init' }))
+	const parts = [await answer].flat().map((part) => new Uint8Array(part))
+	expect(Buffer.concat(parts).toString()).toContain('connection_ack')
+	socket.close()
+}
+
 /** Ada's three tasks and Bob's one. */
 async function seeded(): Promise<readonly string[]> {
 	const ids: string[] = []
@@ -1439,6 +1452,67 @@ describe('a connection', () => {
 			expect(compressed()).toEqual([false, false, true])
 		})
 		socket.destroy()
+	})
+
+	// One client's bad frame closes its socket, and nothing else (D-290): with no
+	// listener, the `error` of `ws` would be uncaught, and stop the whole server.
+	describe('sent a bad frame', () => {
+		it.each([
+			['reserved bits', [0xff, 0x00], 1002],
+			['no mask', [0x81, 0x01, 0x61], 1002],
+			['text that is no UTF-8', [0x81, 0x82, 0, 0, 0, 0, 0xff, 0xff], 1007],
+			// Refused on its size alone, before any of it arrives.
+			['2 MB announced', [0x82, 0xff, 0, 0, 0, 0, 0, 0x20, 0, 0], 1009],
+		])('of %s, closes only that socket', async (_name, frame, code) => {
+			const url = await started()
+			const { hostname, pathname, port } = new URL(url)
+			const socket = createConnection(Number(port), hostname)
+			let received = Buffer.alloc(0)
+			socket.on('data', (chunk) => {
+				received = Buffer.concat([received, chunk])
+			})
+			socket.write(
+				[
+					`GET ${pathname} HTTP/1.1`,
+					`Host: ${hostname}:${port}`,
+					'Upgrade: websocket',
+					'Connection: Upgrade',
+					'Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==',
+					'Sec-WebSocket-Version: 13',
+					'Sec-WebSocket-Protocol: graphql-transport-ws',
+					'\r\n',
+				].join('\r\n'),
+			)
+			await vi.waitFor(() => {
+				expect(received.toString()).toContain('\r\n\r\n')
+			})
+			const answered = received.length
+			socket.write(Buffer.from(frame))
+			await new Promise((done) => socket.once('close', done))
+			// A close frame: its header, and then the code.
+			expect(received.readUInt8(answered)).toBe(0x88)
+			expect(received.readUInt16BE(answered + 2)).toBe(code)
+			await answers(url)
+			expect(errors).toEqual([])
+		})
+
+		it.each([
+			['as it is', false],
+			['compressed', true],
+		])('too big, %s, closes only that socket', async (_name, compressed) => {
+			const url = await started()
+			const socket = new WebSocket(url, 'graphql-transport-ws', {
+				perMessageDeflate: compressed,
+			})
+			await new Promise((done) => socket.once('open', done))
+			const closed = new Promise<number>((done) => {
+				socket.once('close', done)
+			})
+			socket.send(Buffer.alloc(2 * 1024 * 1024, 0x61))
+			expect(await closed).toBe(1009)
+			await answers(url)
+			expect(errors).toEqual([])
+		})
 	})
 
 	it('keeps a small compressor, and a big message crosses it whole (D-269)', async () => {
