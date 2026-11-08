@@ -1,5 +1,6 @@
 // A list of values is one parameter (D-325): a statement holds 65535
-// parameters at most, and a list may be longer.
+// parameters at most, and a list may be longer; past them, a statement fails
+// saying so (D-326).
 import { randomUUID } from 'node:crypto'
 import { testApplication } from '@ultimabase/testing'
 import { defineApp, defineModel, master } from 'ultimabase'
@@ -108,3 +109,12 @@ it('connects and disconnects more targets than a statement holds', async () => {
 	)
 	expect(await Tag.count({ where: { cards: { some: {} } } }, M)).toBe(0)
 }, 30_000)
+
+it('refuses more conditions than a statement holds, saying why', async () => {
+	const card = await Card.create({ data: { title: 'kept' } }, M)
+	const OR = [...strangers(), card.id].map((id) => ({ id: { equals: id } }))
+	await expect(Card.findMany({ where: { OR } }, M)).rejects.toThrow(
+		'A statement binds 65535 values at most, and this one binds 70001',
+	)
+	expect(await titles({ OR: OR.slice(-40_000) })).toEqual(['kept'])
+})
