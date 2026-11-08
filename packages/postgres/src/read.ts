@@ -14,6 +14,7 @@ import type {
 } from 'ultimabase'
 import type { Reach, Sql } from './filter.ts'
 import { all, Filters } from './filter.ts'
+import { idsAlone, linked } from './ids.ts'
 import type { Catalog, Table } from './names.ts'
 
 const empty = sql`cast('[]' as json)`
@@ -222,6 +223,12 @@ export class Compiler {
 			: column
 	}
 
+	/** A stored `one` as `{ id }`, from its key. */
+	private keyed(table: Table, alias: string, name: string): Sql {
+		const key = this.filters.column(table, alias, name)
+		return sql`case when ${key} is null then null else json_build_object('id', ${key}) end`
+	}
+
 	/** A row as JSON: its fields, each `one` as `{ id }`, then its includes. */
 	row(model: string, alias: string, nested: Nested): Sql {
 		const table = this.catalog.table(model)
@@ -236,11 +243,7 @@ export class Compiler {
 			if (field.kind === 'scalar') {
 				pairs.set(field.name, this.scalar(table, alias, field.name))
 			} else if (field.kind === 'one' && field.stored) {
-				const key = this.filters.column(table, alias, field.name)
-				pairs.set(
-					field.name,
-					sql`case when ${key} is null then null else json_build_object('id', ${key}) end`,
-				)
+				pairs.set(field.name, this.keyed(table, alias, field.name))
 			} else if (field.kind === 'one' && field.from === undefined) {
 				// A view's row is the one its filter keeps, read by `include` (D-240).
 				const to = this.filters.alias()
@@ -254,12 +257,23 @@ export class Compiler {
 		for (const [name, inner] of Object.entries(nested.include ?? {})) {
 			const field = table.fields.get(name)
 			if (field === undefined || field.kind === 'scalar') continue
+			if (
+				field.kind === 'one' &&
+				field.stored &&
+				idsAlone(this.filters, inner)
+			) {
+				pairs.set(name, this.keyed(table, alias, name))
+				continue
+			}
 			const to = this.filters.alias()
-			const reach = this.filters.reach(table, alias, field, to)
 			if (field.kind === 'many') {
+				const reach =
+					linked(this.filters, this.catalog, table, alias, field, to, inner) ??
+					this.filters.reach(table, alias, field, to)
 				pairs.set(name, this.list(field.target, inner, reach, to))
 				continue
 			}
+			const reach = this.filters.reach(table, alias, field, to)
 			const where = this.filters.where(field.target, to, inner.where)
 			const row = this.row(field.target, to, inner)
 			// No limit: a view keeping two rows fails the read (D-249).

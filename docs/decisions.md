@@ -20448,3 +20448,64 @@ const updating = transaction(async () => {
 // Before: waited for `updating` to end. After: created at once.
 await Book.create({ data: { shelf: { connect: { id } } } }, M)
 ```
+
+## D-336: An include of ids alone reads the keys
+
+Choice: builds on D-320; no developer code changes.
+
+1. A read outside a transaction that includes a stored `one` and selects its
+   `id` alone reads the key: `case when author_id is null then null else
+json_build_object('id', author_id) end`, as a row's own `one` already is.
+   The target's table is not read.
+2. Likewise a plain `many` through a join (D-64): its ids are the join's,
+   read from the join alone, in `id` order with `take` and `skip`.
+3. Only when the target has nothing else to test or return: no `where`,
+   which a read rule or the trash (D-96) puts there, no nested `include` or
+   `_count`, and for a `many` no `cursor`, no order but by `id`, and not a
+   view (D-151). Otherwise the target is read as before.
+4. A read in a transaction still reads the target: a deferred foreign key
+   may dangle until the COMMIT (D-99, D-320).
+5. A write's filter keeps its `exists` (D-320), and `connect` keeps its check
+   of the target: the foreign key would make the same check, under a message
+   the kernel does not give.
+
+Why: an include of ids is how a list shows who wrote each row, or which
+tags it carries, and each of its rows read the target's row through its
+primary key for the id it already held. Measured on the adapter, 100 notes
+of 50 authors and 20 tags, three per note, 3 runs of 500 reads each:
+
+| include                       | before (µs)    | after (µs)     |
+| ----------------------------- | -------------- | -------------- |
+| `author: { id }`              | 1664/1675/1567 | 1527/1512/1466 |
+| `tags: { id }`                | 2774/2781/2748 | 2365/2372/2347 |
+| both                          | 3340/3350/3328 | 2644/2667/2612 |
+| `findFirst`, `author: { id }` | 738/714/719    | 729/708/732    |
+
+Rejected:
+
+- The key in a transaction too: a dangling key would read a row that is
+  gone.
+- The key under a filter of the target: a user in the trash, or a row the
+  caller cannot read, would read as its id instead of `null`.
+
+Example, an application's read, the same code before and after:
+
+```ts
+const notes = await Note.findMany(
+	{
+		take: 100,
+		include: {
+			author: { select: { id: true } },
+			tags: { select: { id: true } },
+		},
+	},
+	{ as: viewer },
+)
+```
+
+```sql
+-- Before
+'author', (select json_build_object('id', t2.id) from author as t2 where t2.id = t1.author_id and true)
+-- After, outside a transaction, with no rule or trash on Author
+'author', case when t1.author_id is null then null else json_build_object('id', t1.author_id) end
+```
