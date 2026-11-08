@@ -181,4 +181,39 @@ describe('updates sharing a statement', () => {
 		)
 		expect(marked).toHaveLength(2)
 	})
+
+	it('deletes rows by id in one statement', async () => {
+		const codes = Array.from({ length: 20 }, (_, index) => `d${index}`)
+		const { shelf, ids } = await filled(codes)
+		sent.length = 0
+		await Shelf.update(
+			{
+				where: { id: shelf },
+				data: { cells: { delete: ids.map((id) => ({ id })) } },
+			},
+			M,
+		)
+		const deletes = sent.filter((statement) =>
+			statement.includes('delete from "cell"'),
+		)
+		expect(deletes).toHaveLength(1)
+		expect(
+			await Cell.count({ where: { shelf: { is: { id: shelf } } } }, M),
+		).toBe(0)
+	})
+
+	it('inserts apart from a delete that frees its unique value', async () => {
+		const { shelf, ids } = await filled(['a', 'b'])
+		const [a = ''] = ids
+		const create = { label: 'new', code: 'a', open: false, pin: 'z' }
+		await Shelf.update(
+			{
+				where: { id: shelf },
+				data: { cells: { delete: [{ id: a }], create: [create] } },
+			},
+			M,
+		)
+		const cells = await Cell.findMany({ orderBy: { code: 'asc' } }, M)
+		expect(cells.map(({ label }) => label)).toStrictEqual(['new', 'b'])
+	})
 })

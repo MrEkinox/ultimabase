@@ -3617,7 +3617,7 @@ await app.start()
 
 ## D-99: A write in one statement, checked inside it, in a transaction only when one serves
 
-Amended by D-104, D-334 and D-339.
+Amended by D-104, D-334, D-339 and D-340.
 
 Choice:
 
@@ -20696,4 +20696,39 @@ await Order.update({
 })
 // Before: 500 lines, 1 read and 500 statements for their updates.
 // After:  500 lines, 1 read and 1 statement for their updates.
+```
+
+## D-340: Deletes of distinct rows share a statement
+
+Choice: amends D-99 point 3 and D-339; no developer code changes.
+
+1. On PostgreSQL, a delete whose filter is `id` alone, `{ id: { in } }` or
+   `{ id: { equals } }`, knows the rows it deletes, as an update by `id`
+   does (D-339): deletes and updates of distinct rows of one table share a
+   statement.
+2. An insert never joins a statement that deletes rows of its table. The
+   delete may free a unique value the insert takes, and the parts of one
+   statement run in no set order: a nested `delete` of the cell coded `a`
+   and a `create` of a new cell coded `a` still run one after the other.
+3. A delete by any other filter knows no rows and starts a new statement as
+   before.
+
+Why: each item of a nested `delete` was a statement of its own. On
+PostgreSQL 18, 500 items, median of 7 runs, two runs: a nested `delete` went
+from 500 and 517 ms to 180 and 181 ms (-64 %).
+
+Rejected:
+
+- One `delete ... where id = any(...)` for the items: each item has its own
+  rules and hooks (D-128) and its own RETURNING for the change feed.
+
+Example, the same code before and after:
+
+```ts
+await Order.update({
+	where: { id },
+	data: { lines: { delete: lines.map((line) => ({ label: line.label })) } },
+})
+// Before: 500 lines, 1 read and 500 statements for their deletes.
+// After:  500 lines, 1 read and 1 statement for their deletes.
 ```
