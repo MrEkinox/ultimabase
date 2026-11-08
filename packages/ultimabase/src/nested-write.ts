@@ -2,14 +2,19 @@
 // resolved before the rules see it (D-138): the linked rows each one reaches,
 // read locked, and `set` and `connectOrCreate` as the links they stand for.
 import { and } from './access.ts'
-import type { Filter, Row } from './adapter.ts'
-import { PublicError } from './errors.ts'
+import type { Row } from './adapter.ts'
+import {
+	found,
+	foundIds,
+	linked,
+	missing,
+	reached,
+	reachedAll,
+} from './nested-rows.ts'
 import { computeOn, operationsOf } from './number-update.ts'
-import { uniqueWhere } from './query-args.ts'
 import { isObject, modelOf } from './query-where.ts'
 import type { FieldInfo, ModelInfo } from './schema.ts'
 import type { QueryScope } from './scope.ts'
-import { planned } from './scope.ts'
 import type { Updating } from './relation-write.ts'
 import type { OneOfInfo } from './one-of-schema.ts'
 import { declaredName } from './one-of-schema.ts'
@@ -50,61 +55,6 @@ export const nests = (model: ModelInfo, draft: Draft): boolean =>
 		)
 	})
 
-/** The rows of the other side linked to the row written. */
-async function linked(
-	r: Resolving,
-	field: Relation,
-	target: ModelInfo,
-): Promise<Filter> {
-	const parent = { id: { equals: r.id } }
-	if (field.inverse === undefined) {
-		// No other side (D-237): the key the row stores names the linked row.
-		const read = { model: r.model.name, where: parent, fields: [field.name] }
-		const key = (await r.reads.find({ ...read, take: 1 }))[0]?.[field.name]
-		return { id: { in: isObject(key) ? [key['id']] : [] } }
-	}
-	const inverse = target.fields.get(field.inverse)
-	return {
-		[field.inverse]:
-			inverse?.kind === 'many' ? { some: parent } : { is: parent },
-	}
-}
-
-/** The linked row `where` names, as the caller may `operation` it. */
-async function reached(
-	r: Resolving,
-	field: Relation,
-	where: Filter | undefined,
-	path: string,
-	operation: 'update' | 'delete',
-): Promise<Row> {
-	const target = modelOf(r.scope.models, field.target)
-	const filter = await r.scope.filter(target.name, r.trusted, operation)
-	const [row] = await r.reads.find({
-		model: target.name,
-		where: and(and(await linked(r, field, target), where), filter),
-		take: 1,
-		lock: operation,
-	})
-	if (row === undefined) {
-		throw new PublicError('NOT_FOUND', `No ${target.name} matches ${path}.`)
-	}
-	return row
-}
-
-/** A unique `where`, its fields' rules applied unless the value is trusted. */
-async function unique(
-	r: Resolving,
-	target: ModelInfo,
-	where: unknown,
-	path: string,
-): Promise<Filter> {
-	const scope = r.trusted ? undefined : r.scope
-	return planned(r.scope, () =>
-		uniqueWhere(r.scope.models, target, where, path, scope),
-	)
-}
-
 /**
  * A nested update's data on its locked row: its shape checked again, as a
  * hook may have written it, and its number updates computed (D-132).
@@ -129,23 +79,6 @@ function updated(
 	computeOn(target, row, draft, operationsOf(target, draft, at))
 	rows.set(draft, row)
 	return draft
-}
-
-/** The row a `connectOrCreate` finds as stored, without rules (D-138). */
-async function found(
-	r: Resolving,
-	target: ModelInfo,
-	where: unknown,
-	path: string,
-): Promise<string | undefined> {
-	const filter = uniqueWhere(r.scope.models, target, where, path)
-	const [row] = await r.reads.find({
-		model: target.name,
-		where: filter,
-		take: 1,
-		lock: 'update',
-	})
-	return row?.id
 }
 
 export async function resolveOne(
@@ -189,7 +122,7 @@ export async function resolveOne(
 	if (field.stored && !field.optional) {
 		throw invalid([{ path: [...r.at, name], message: 'Required.' }])
 	}
-	const known = isObject(value) ? rows.get(value) : undefined
+	const known = held(value)
 	if (known !== undefined) return { kind: 'delete', row: known }
 	const row = await reached(r, field, undefined, `${path}.delete`, 'delete')
 	return { kind: 'delete', row }
@@ -235,6 +168,10 @@ export async function resolveOneOf(
 	return { kind, field, operation: 'create', operand: write.create }
 }
 
+/** The row a hook's `delete` item already holds (D-128). */
+const held = (where: unknown): Row | undefined =>
+	isObject(where) ? rows.get(where) : undefined
+
 /** The linked rows `update` and `delete` name, each once (D-138). */
 async function changing(
 	r: Resolving,
@@ -246,39 +183,38 @@ async function changing(
 	},
 	path: string,
 ): Promise<Pick<Many, 'update' | 'delete'>> {
-	const update: { data: Draft; row: Row }[] = []
-	for (const [index, { where, data }] of given.update.entries()) {
-		const at = `${path}.update.${index}`
+	const at = (index: number): string => `${path}.update.${index}.where`
+	const updating = await reachedAll(
+		r,
+		field,
+		target,
+		given.update.map(({ where, data }, index) =>
+			rows.has(data) ? undefined : { where, path: at(index) },
+		),
+		'update',
+	)
+	const update = given.update.map(({ data }, index) => {
 		const known = rows.get(data)
-		if (known !== undefined) {
-			update.push({ data, row: known })
-			continue
-		}
-		const filter = await unique(r, target, where, `${at}.where`)
-		const row = await reached(r, field, filter, `${at}.where`, 'update')
-		const draft = updated(r, field, target, data, row, [
-			...r.at,
-			field.name,
-			'update',
-			index,
-			'data',
-		])
-		update.push({ data: draft, row })
-	}
-	const deleted: { row: Row; path: string }[] = []
-	for (const [index, where] of given.delete.entries()) {
-		const at = `${path}.delete.${index}`
-		const known = isObject(where) ? rows.get(where) : undefined
-		if (known !== undefined) {
-			deleted.push({ row: known, path: at })
-			continue
-		}
-		const filter = await unique(r, target, where, at)
-		deleted.push({
-			row: await reached(r, field, filter, at, 'delete'),
-			path: at,
-		})
-	}
+		if (known !== undefined) return { data, row: known }
+		const row = updating[index]
+		if (row === undefined) throw missing(target, at(index))
+		const to = [...r.at, field.name, 'update', index, 'data']
+		return { data: updated(r, field, target, data, row, to), row }
+	})
+	const deleting = await reachedAll(
+		r,
+		field,
+		target,
+		given.delete.map((where, index) =>
+			held(where) ? undefined : { where, path: `${path}.delete.${index}` },
+		),
+		'delete',
+	)
+	const deleted = given.delete.map((where, index) => {
+		const row = held(where) ?? deleting[index]
+		if (row === undefined) throw missing(target, `${path}.delete.${index}`)
+		return { row, path: `${path}.delete.${index}` }
+	})
 	return { update, delete: deleted }
 }
 
@@ -341,9 +277,17 @@ export async function resolveMany(
 		data,
 		at: origins.get(data) ?? [...r.at, field.name, 'create', index],
 	}))
+	const existing = await foundIds(
+		r.scope.models,
+		r.reads,
+		target,
+		write.connectOrCreate.map(({ where }, index) => ({
+			where,
+			path: `${path}.connectOrCreate.${index}.where`,
+		})),
+	)
 	for (const [index, item] of write.connectOrCreate.entries()) {
-		const at = `${path}.connectOrCreate.${index}`
-		const id = await found(r, target, item.where, `${at}.where`)
+		const id = existing[index]
 		if (id !== undefined) {
 			connect.push(id)
 			continue

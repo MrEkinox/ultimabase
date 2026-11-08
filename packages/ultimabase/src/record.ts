@@ -5,6 +5,7 @@ import type {
 	OneOfShape,
 	OneOfStored,
 } from './one-of-types.ts'
+import type { Model } from './model.ts'
 import type { UniqueWhere } from './query.ts'
 import type { fieldType, modelFields } from './symbols.ts'
 import type { VirtualKeys } from './virtual.ts'
@@ -29,6 +30,13 @@ type IsOptional<O> = O extends { readonly optional: true } ? true : false
 export type TargetFields<T> = T extends () => infer M
 	? M extends { readonly [modelFields]: infer F }
 		? F
+		: never
+	: never
+
+/** The fields of each unique index of the model a relation's thunk returns. */
+export type TargetIndexes<T> = T extends () => infer M
+	? M extends Model<string, unknown, unknown, unknown, infer X>
+		? X
 		: never
 	: never
 
@@ -155,7 +163,7 @@ type Created<N, K, X> =
 /** A unique target of the relation's model, as stored (D-52, D-138). */
 type Target<X> =
 	X extends Relation<'one' | 'many', infer T>
-		? UniqueWhere<TargetFields<T>>
+		? UniqueWhere<TargetFields<T>, TargetIndexes<T>>
 		: never
 type OrCreate<N, K, X> = {
 	readonly where: Target<X>

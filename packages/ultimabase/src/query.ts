@@ -7,6 +7,7 @@ import type {
 	StoredValue,
 	SystemFields,
 	TargetFields,
+	TargetIndexes,
 	UniqueKeys,
 	UpdateData,
 	ViewKeys,
@@ -198,7 +199,11 @@ export type RelationArgs<X> =
 								readonly take?: number | undefined
 								readonly skip?: number | undefined
 								readonly cursor?:
-									UniqueWhere<TargetFields<TargetOf<X>>> | undefined
+									| UniqueWhere<
+											TargetFields<TargetOf<X>>,
+											TargetIndexes<TargetOf<X>>
+									  >
+									| undefined
 							}
 						: unknown)
 
