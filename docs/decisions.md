@@ -20449,6 +20449,48 @@ const updating = transaction(async () => {
 await Book.create({ data: { shelf: { connect: { id } } } }, M)
 ```
 
+## D-335: A database the server cannot use answers 503
+
+Choice: amends D-47, D-72 and D-105.
+
+1. `UNAVAILABLE` is a kernel code, no longer the `http` plugin's: REST
+   sends it with 503, GraphQL and the realtime with its code, as every
+   `PublicError`. `/ready`'s 503 keeps it.
+2. Once the application serves, a connection the pool cannot give throws
+   `PublicError('UNAVAILABLE', …, { details: { retryAfter: 1 } })`: every
+   connection stayed busy past `wait`, or the server cannot be reached. Its
+   message is `The database is busy: try again shortly.` or `The database
+cannot be reached: try again shortly.`
+3. REST sends `Retry-After` from `details.retryAfter`, as for
+   `TOO_MANY_ATTEMPTS` (D-113). One second: the server already waited
+   `wait`, and a client or a load balancer may retry on another server.
+4. The developer's message (D-105) is the error's `cause`, logged at
+   `error`. At start nothing changes: the start fails with that message.
+5. Any other database error stays the developer's, masked as 500
+   `INTERNAL`.
+
+Why: a full pool answered 500 `INTERNAL`, which says the server has a bug
+and asks nobody to try again. A database that is busy or down is a moment,
+not a bug: a client, a load balancer and a monitor each read 503 and
+`Retry-After` as one.
+
+Rejected:
+
+- `Retry-After` from `wait`: a client would wait ten seconds that another
+  server may not need.
+- 503 for any database error: a refused statement is a bug, which a retry
+  repeats.
+
+Example, a client of a server whose pool is full:
+
+```ts
+const response = await fetch(`${url}/api/posts`)
+// Before: 500 { code: 'INTERNAL', message: 'Internal error.', correlationId }
+// After: 503, Retry-After: 1
+//   { code: 'UNAVAILABLE', message: 'The database is busy: try again shortly.',
+//     details: { retryAfter: 1 } }
+```
+
 ## D-336: An include of ids alone reads the keys
 
 Choice: builds on D-320; no developer code changes.

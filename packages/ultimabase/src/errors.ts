@@ -15,6 +15,7 @@ export type ErrorCode =
 	| 'INVALID_CREDENTIALS'
 	| 'TOO_MANY_ATTEMPTS'
 	| 'CONFLICT'
+	| 'UNAVAILABLE'
 	| 'INTERNAL'
 
 /** The codes of a plugin's errors and of its issues (D-206, D-231). */
@@ -50,8 +51,8 @@ export type Issue = {
 
 type Details<C> = C extends 'VALIDATION_FAILED'
 	? { readonly issues: readonly Issue[] }
-	: C extends 'TOO_MANY_ATTEMPTS'
-		? { /** In seconds (D-113). */ readonly retryAfter: number }
+	: C extends 'TOO_MANY_ATTEMPTS' | 'UNAVAILABLE'
+		? { /** In seconds (D-113, D-335). */ readonly retryAfter: number }
 		: JsonValue
 
 /** An error whose code, message and details reach the client. */

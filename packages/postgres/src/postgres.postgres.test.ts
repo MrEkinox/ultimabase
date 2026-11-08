@@ -18,6 +18,7 @@ import {
 	defineApp,
 	defineModel,
 	master,
+	PublicError,
 	Refused,
 	RelationViolation,
 	transaction,
@@ -182,9 +183,20 @@ describe('postgres()', () => {
 		await started(adapter, thing)
 		try {
 			const open = [await adapter.begin(), await adapter.begin()]
-			await expect(adapter.find({ model: 'Thing' })).rejects.toThrow(
-				'Every one of the 2 PostgreSQL connections stayed busy for 0.2s: a transaction may wait on something slow or never end.',
-			)
+			// The client is told to come back; the developer reads why (D-335).
+			const busy: unknown = await adapter
+				.find({ model: 'Thing' })
+				.catch((e: unknown) => e)
+			expect(busy).toBeInstanceOf(PublicError)
+			expect(busy).toMatchObject({
+				code: 'UNAVAILABLE',
+				message: 'The database is busy: try again shortly.',
+				details: { retryAfter: 1 },
+				cause: {
+					message:
+						'Every one of the 2 PostgreSQL connections stayed busy for 0.2s: a transaction may wait on something slow or never end.',
+				},
+			})
 			for (const each of open) await each.rollback()
 			expect(await adapter.find({ model: 'Thing' })).toEqual([])
 		} finally {
