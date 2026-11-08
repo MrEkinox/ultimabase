@@ -92,11 +92,8 @@ export async function cascadeOf(
 	let level: readonly Doomed[] = roots
 	while (level.length > 0) {
 		const next: Doomed[] = []
-		const ids = new Map<ModelInfo, string[]>()
-		for (const doomed of level) {
-			ids.set(doomed.model, [...(ids.get(doomed.model) ?? []), doomed.row.id])
-		}
-		for (const [target, targets] of ids) {
+		for (const [target, ofTarget] of Map.groupBy(level, (each) => each.model)) {
+			const targets = ofTarget.map(({ row }) => row.id)
 			for (const reference of referencesTo(models, target.name)) {
 				const { model: from, field, onDelete } = reference
 				const rows = await store.find({
