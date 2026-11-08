@@ -123,6 +123,11 @@ export class Engine {
 		const wait = Math.max(this.#flushed + gather - performance.now(), 0)
 		this.#timer = setTimeout(() => {
 			this.#timer = undefined
+			// The event loop's clock lags behind: a timer may ring early (D-271).
+			if (performance.now() < this.#flushed + gather) {
+				this.#schedule()
+				return
+			}
 			this.#flushed = performance.now()
 			this.#chain = this.#chain.then(async () => this.#flush())
 		}, wait)
