@@ -20021,3 +20021,26 @@ Rejected:
 
 - A write that returns a count instead of rows: a new adapter contract for
   what `fields` already says.
+
+## D-328: `memory()` looks a value up in an `in` list
+
+Choice: `memory()` tests `in` and `notIn` on a text, a number or a boolean
+with a set of the list's items, built once per list, and once more with the
+items lowered for `mode: 'insensitive'`. A JSON value, a date or a list
+still compares item by item. The filters the kernel hands an adapter are
+its own copies (D-73), so a list never changes once a set is built.
+
+Why: a hook on `beforeUpdate` or `beforeDelete` makes `updateMany` and
+`deleteMany` pass every row's id in one list, and each row was then
+compared with every id: the cost grew with the square of the rows. With a
+model holding those hooks on `memory()`, medians of three runs: on 20000
+rows, `updateMany` took 3.07 s and `deleteMany` 2.84 s, 0.16 s and 0.09 s
+after; on 5000 rows, 0.30 s and 0.21 s, 0.04 s and 0.03 s after. A live
+query's `in` filter tests each changed row with the same lookup.
+
+Rejected:
+
+- A set built per comparison: it costs the list's length each time, the
+  cost it removes.
+- Comparing JSON values through a set of their text: two objects with the
+  same keys in another order are equal, their texts are not.

@@ -34,6 +34,31 @@ export function isFilters(
 	return Array.isArray(value)
 }
 
+/** Each `in` list as a set, once per list and case (D-328). */
+const exact = new WeakMap<object, Set<unknown>>()
+const lowered = new WeakMap<object, Set<unknown>>()
+
+/**
+ * Whether `value` is in `raw`: a write or a live flush tests many rows
+ * against one list, so a text, a number or a boolean, finite as the kernel
+ * keeps it, looks it up (D-328).
+ */
+function among(value: unknown, raw: unknown, insensitive: boolean): Truth {
+	const list: readonly unknown[] = Array.isArray(raw) ? raw : []
+	if (list.length === 0) return false
+	if (value === null) return null
+	if (typeof value === 'object') {
+		return list.some((item) => same(value, insensitive ? lower(item) : item))
+	}
+	const cache = insensitive ? lowered : exact
+	let items = cache.get(list)
+	if (items === undefined) {
+		items = new Set(insensitive ? list.map(lower) : list)
+		cache.set(list, items)
+	}
+	return items.has(value)
+}
+
 export function scalar(
 	stored: unknown,
 	condition: Condition,
@@ -49,6 +74,11 @@ export function scalar(
 	const value = insensitive ? lower(stored) : stored
 	for (const [operator, raw] of Object.entries(condition)) {
 		if (raw === undefined || operator === 'mode') continue
+		if (operator === 'in' || operator === 'notIn') {
+			const found = among(value, raw, insensitive)
+			push(operator === 'in' ? found : not(found))
+			continue
+		}
 		const operand: unknown = !insensitive
 			? raw
 			: Array.isArray(raw)
@@ -58,15 +88,6 @@ export function scalar(
 			const equal =
 				operand === null ? !known : known ? same(value, operand) : null
 			push(operator === 'equals' ? equal : not(equal))
-		} else if (operator === 'in' || operator === 'notIn') {
-			const list: readonly unknown[] = Array.isArray(operand) ? operand : []
-			const found =
-				list.length === 0
-					? false
-					: known
-						? list.some((item) => same(value, item))
-						: null
-			push(operator === 'in' ? found : not(found))
 		} else if (!known) {
 			push(null)
 		} else if (operator.startsWith('has') || operator === 'isEmpty') {
