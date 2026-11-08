@@ -24,7 +24,7 @@
 		"test:packed": "node scripts/test-packed.ts",
 		"test:postgres": "COVERAGE=postgres vitest run --project postgres --coverage --passWithNoTests",
 		"test:s3": "vitest run --project s3",
-		"typecheck": "tsc --project tsconfig.json && tsc --project packages/create-ultimabase/template && yarn workspace website generate && tsc --build --force tsconfig.declarations.json bench/http bench/typing bench/typing/tsconfig.loose.json packages examples/password-sign-in examples/relations examples/models-and-queries examples/access-rules examples/hooks examples/functions-and-hooks examples/functions examples/transactions examples/errors examples/testing examples/roles-and-acl examples/soft-delete examples/maintenance examples/jobs examples/realtime examples/files examples/rest examples/http examples/graphql examples/postgres examples/memory examples/plugins examples/adapter examples/introduction website",
+		"typecheck": "tsc --project tsconfig.json && tsc --project packages/create-ultimabase/template && yarn workspace website generate && node scripts/typecheck.ts",
 		"validate": "node scripts/validate.ts",
 		"website:build": "yarn workspace website build",
 		"website:dev": "yarn workspace website dev",
