@@ -74,7 +74,8 @@ export class VirtualReads {
 	): Promise<ReadonlySet<string>> {
 		const stale: string[] = []
 		for (const group of this.#groups) {
-			if (await anyStale(group.reads, batch, loader)) stale.push(...group.ids)
+			if (!(await anyStale(group.reads, batch, loader))) continue
+			for (const id of group.ids) stale.push(id)
 		}
 		if (stale.length === 0) return new Set()
 		const before = new Map(stale.map((id) => [id, this.#prints.get(id)]))

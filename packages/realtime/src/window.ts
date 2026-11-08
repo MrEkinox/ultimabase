@@ -154,8 +154,9 @@ export class Window {
 
 	/** Adds the rows read after the last entry. */
 	fill(entries: readonly Keys[], rest: boolean): void {
-		this.#entries.push(...entries)
 		for (const keys of entries) {
+			// A spread of 120000 items or more into a call overflows the stack.
+			this.#entries.push(keys)
 			const id = this.#id(keys)
 			this.#note(id, undefined)
 			this.#keys.set(id, keys)

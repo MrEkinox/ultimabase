@@ -13,6 +13,8 @@ import {
 } from 'ultimabase'
 import type { LiveMessage, Realtime, RealtimeApi } from './index.ts'
 import { realtime, realtimePlugin } from './index.ts'
+import { Loader } from './loader.ts'
+import { VirtualReads } from './virtuals.ts'
 
 const M = { as: master }
 let runs = 0
@@ -187,4 +189,21 @@ describe('a virtual that reads another model', () => {
 		await vi.waitFor(() => expect(seen).toHaveLength(2))
 		expect(seen[1]).toMatchObject({ row: { name: 'A', openTasks: 1 } })
 	})
+})
+
+describe('the reads of many rows', () => {
+	it('reads again more rows than a call takes arguments', async () => {
+		// A spread of this many items into a call overflows the stack.
+		const many = 200_000
+		const reads = new VirtualReads()
+		const nodes = Array.from({ length: many }, (_, at) => ({ id: `${at}` }))
+		reads.keep(nodes, [{ model: 'Note' }])
+		const batch = new Map([['Note', { inserts: 'all' as const }]])
+		const changed = await reads.changed(batch, new Loader(), async (ids) => {
+			const read = ids.map((id) => ({ id, body: 'new' }))
+			reads.keep(read, [{ model: 'Note' }])
+			return Promise.resolve(new Map(read.map((node) => [node.id, node])))
+		})
+		expect(changed.size).toBe(many)
+	}, 30_000)
 })
