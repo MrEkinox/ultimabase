@@ -74,12 +74,21 @@ it('reads on under a statement it prepared, the table changed', async () => {
 	expect(await read()).toBe(1)
 })
 
-it('leaves a long list of ids unprepared', async () => {
+it('leaves a statement of many parameters unprepared', async () => {
 	const before = await held()
-	const id = Array.from({ length: 65 }, () => randomUUID())
-	await Note.findMany({ where: { id: { in: id } } }, M)
-	await Note.findMany({ where: { id: { in: id } } }, M)
+	const OR = Array.from({ length: 65 }, () => ({ id: randomUUID() }))
+	await Note.findMany({ where: { OR } }, M)
+	await Note.findMany({ where: { OR } }, M)
 	expect(await held()).toEqual(before)
+})
+
+it('prepares one statement for a list of ids, however long (D-325)', async () => {
+	const before = await held()
+	for (const length of [1, 2, 65, 200, 70_000]) {
+		const id = Array.from({ length }, () => randomUUID())
+		await Note.findMany({ where: { id: { in: id } } }, M)
+	}
+	expect(await held()).toHaveLength(before.length + 1)
 })
 
 it('prepares a statement once asked again', async () => {
@@ -93,14 +102,16 @@ it('prepares a statement once asked again', async () => {
 
 /** A read no other `at` under 960 makes the same statement of. */
 function shape(at: number): {
-	where: { text: { in: string[] } } | { id: { in: string[] } }
+	where: { OR: ({ text: string } | { id: string })[] }
 	orderBy: Record<string, 'asc' | 'desc'>
 } {
 	const list = Array.from({ length: (at % 60) + 1 }, () => randomUUID())
 	const fields = ['text', 'id', 'createdAt', 'updatedAt']
 	const field = fields[Math.floor(at / 60) % fields.length] ?? 'text'
 	return {
-		where: at < 480 ? { text: { in: list } } : { id: { in: list } },
+		where: {
+			OR: list.map((value) => (at < 480 ? { text: value } : { id: value })),
+		},
 		orderBy: { [field]: Math.floor(at / 240) % 2 === 0 ? 'asc' : 'desc' },
 	}
 }
@@ -118,7 +129,7 @@ async function shapes(from: number, count: number, times = 2): Promise<void> {
 const room = preparedStatements + 20
 
 it('keeps the statements used last, however many others come', async () => {
-	const where = { OR: [{ text: 'used' }, { text: 'often' }] }
+	const where = { text: { in: ['used', 'often'] } }
 	const read = async (): Promise<unknown> => Note.findMany({ where }, M)
 	const before = await held()
 	await read()
@@ -138,7 +149,7 @@ it('keeps the statements used last, however many others come', async () => {
 	expect(flooded).toEqual(expect.arrayContaining(hot))
 	expect(first.filter((text) => flooded.includes(text))).toEqual([])
 
-	const fresh = { OR: [{ text: 'a' }, { text: 'new' }, { text: 'one' }] }
+	const fresh = { text: { in: ['a', 'new'] }, id: { not: randomUUID() } }
 	await Note.findMany({ where: fresh }, M)
 	await Note.findMany({ where: fresh }, M)
 	const after = await held()

@@ -7,7 +7,7 @@ import type { ClientBase } from 'pg'
 /** What a connection keeps stays small: 22 KB or so per statement measured. */
 export const preparedStatements = 500
 
-/** Past this, a statement is a long list of ids, rarely asked twice alike. */
+/** Past this, a statement is a long composition, rarely asked twice alike. */
 const parameters = 64
 
 /**

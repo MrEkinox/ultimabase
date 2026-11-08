@@ -17990,7 +17990,7 @@ Campaign at 1 000 writes a second: told p50 from 2 017 to 47 ms, and it holds; 1
 
 ## D-264: A composed statement is prepared once per connection
 
-Amended by D-274, D-293.
+Amended by D-274, D-293, D-325.
 
 Choice: amends D-47. Nothing changes in a developer's code.
 
@@ -19961,3 +19961,29 @@ Rejected:
   was written just before.
 - The revision as a query parameter: `Last-Event-ID` is the header Server-Sent
   Events defines for it.
+
+## D-325: A list of values is one parameter
+
+Choice: amends D-140 and D-264 point 3. `postgres()` sends the values of an
+`in` or a `notIn` as one array parameter, `column = any($1)`, and those of an
+insensitive `in` as one array of patterns, `ilike any($1)`. A many-to-many
+`connect` and `disconnect` send their targets as one array of ids the same
+way. A json value goes as its text, cast to `jsonb[]`; a date goes in UTC, as
+before. Nothing changes for a developer.
+
+Why: PostgreSQL takes 65535 parameters in one statement. An `in` of 70000 ids
+failed with `bind message has 4464 parameter formats but 0 parameters`, and a
+`connect` of 33000 targets, two parameters each, failed alike. An array is
+one parameter at any length. And a list of any length now makes one statement
+text, prepared once (D-264): the realtime engine reads the rows of a flush by
+their ids, a list whose length changes at each flush, so each length was a
+statement planned anew. Reads by id lists of 1 to 300 ids took 1910 µs
+instead of 2175 µs (−12 %), lists of 1 to 1000 ids 4520 µs instead of
+5280 µs (−14 %), lists of 1 to 30 ids 865 µs instead of 890 µs (−3 %).
+
+Rejected:
+
+- Cutting a long list into statements of 65535 parameters: a read would no
+  longer be one statement, and its rows no longer one snapshot.
+- Refusing a list past a length: a list the database can run is the
+  developer's to send.
