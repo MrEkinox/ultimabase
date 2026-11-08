@@ -693,6 +693,53 @@ describe('a resumed live list', () => {
 		expect(stream.token()).toBe(token)
 	})
 
+	it('sends its window whole when its client missed what its cut connection took (D-324)', async () => {
+		const api = await started()
+		const [a = '', b = ''] = await seeded()
+		const before = await streaming(`${api}/tasks${qs({ ...ranked, first: 2 })}`)
+		const shown = await before.next()
+		const token = before.token() ?? ''
+		await Task.update({ where: { id: a }, data: { title: 'A' } }, M)
+		// Written to the connection, which its client cut before reading it.
+		expect(await before.next()).toMatchObject({ event: 'live' })
+		const stream = await streaming(
+			`${api}/tasks${qs({ ...ranked, first: 2, resume: token })}`,
+			{ 'last-event-id': String(shown?.id) },
+		)
+		expect(await before.next()).toBeUndefined()
+		expect(await stream.next()).toMatchObject({
+			event: 'data',
+			data: {
+				edges: [
+					{ node: { id: a, title: 'A' } },
+					{ node: { id: b, title: 'b' } },
+				],
+			},
+		})
+		expect(stream.token()).toBe(token)
+	})
+
+	it('sends only what changed when its client saw what it was sent', async () => {
+		const api = await started()
+		const [a = '', b = ''] = await seeded()
+		const before = await streaming(`${api}/tasks${qs({ ...ranked, first: 2 })}`)
+		await before.next()
+		const token = before.token() ?? ''
+		await Task.update({ where: { id: a }, data: { title: 'A' } }, M)
+		const seen = await before.next()
+		const stream = await streaming(
+			`${api}/tasks${qs({ ...ranked, first: 2, resume: token })}`,
+			{ 'last-event-id': String(seen?.id) },
+		)
+		expect(await before.next()).toBeUndefined()
+		await Task.update({ where: { id: b }, data: { title: 'B' } }, M)
+		expect(await stream.next()).toMatchObject({
+			event: 'live',
+			id: (seen?.id ?? 0) + 1,
+			data: { changes: [{ upsert: { node: { id: b, title: 'B' } } }] },
+		})
+	})
+
 	it('starts afresh as another read, token or user', async () => {
 		const api = await started()
 		const [a = ''] = await seeded()

@@ -87,8 +87,13 @@ export function liveFetch<T = unknown>(
 		const controller = new AbortController()
 		request = controller
 		const asked = new URLSearchParams(params)
-		if (token !== undefined) asked.set('resume', token)
-		void read(controller, `${path}?${asked.toString()}`)
+		const sent = new Headers(headers)
+		if (token !== undefined) {
+			asked.set('resume', token)
+			// What it last saw: what the cut connection lost comes whole (D-324).
+			sent.set('last-event-id', String(revision))
+		}
+		void read(controller, `${path}?${asked.toString()}`, sent)
 	}
 	const afresh = () => {
 		token = undefined
@@ -121,10 +126,14 @@ export function liveFetch<T = unknown>(
 		emit(next)
 		return true
 	}
-	async function read(controller: AbortController, href: string) {
+	async function read(
+		controller: AbortController,
+		href: string,
+		sent: Headers,
+	) {
 		try {
 			const { signal } = controller
-			const response = await fetch(href, { headers, signal })
+			const response = await fetch(href, { headers: sent, signal })
 			if (!response.ok && response.status < 500) {
 				const body: unknown = await response.json().catch(() => undefined)
 				// A growth refused, past maxLive: the list goes on as it was (D-186).
