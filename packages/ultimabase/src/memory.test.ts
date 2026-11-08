@@ -94,6 +94,25 @@ describe('reads', () => {
 		expect(await books({ NOT: [{ pages: { contains: '' } }] })).toEqual(['b1'])
 	})
 
+	it('finds a value in a list as PostgreSQL does (D-328)', async () => {
+		const titles = ['ENGINES', 'nothing']
+		expect(await books({ title: { in: titles } })).toEqual([])
+		expect(await books({ title: { in: titles, mode: 'insensitive' } })).toEqual(
+			['b2'],
+		)
+		expect(
+			await books({ title: { notIn: titles, mode: 'insensitive' } }),
+		).toEqual(['b1'])
+		// The same list again finds the same rows.
+		expect(await books({ title: { in: titles } })).toEqual([])
+		expect(await books({ published: { in: [false, 'false'] } })).toEqual(['b2'])
+		expect(await books({ pages: { notIn: [300, '300'] } })).toEqual([])
+		expect(await books({ meta: { in: [{ rank: 1 }, 'b1'] } })).toEqual(['b2'])
+		expect(
+			await books({ meta: { in: [{ rank: 2 }], mode: 'insensitive' } }),
+		).toEqual(['b1'])
+	})
+
 	it('filters on a relation being set or not', async () => {
 		expect(await ids('Author', { where: { profile: { is: null } } })).toEqual([
 			'a2',
