@@ -20006,3 +20006,18 @@ Rejected:
   would need its own quoting, a risk of injection for a rare query.
 - Cutting the statement in several: a read would no longer be one
   snapshot (D-325).
+
+## D-327: A write that only counts its rows reads back their ids
+
+Choice: when `updateMany` or `deleteMany` runs as one write (D-102, D-104),
+the rows it reads back to count them carry their `id` only, unordered.
+`updateManyAndReturn` still reads the rows it returns, in `id` order.
+
+Why: the count needs nothing else. Reading every field turned each changed
+row into JSON for a number: on 200000 rows, `updateMany` took 3.2 s and
+`deleteMany` 2.3 s; with the ids only, 1.56 s and 0.71 s.
+
+Rejected:
+
+- A write that returns a count instead of rows: a new adapter contract for
+  what `fields` already says.

@@ -23,8 +23,8 @@ export async function removeMany(
 	const where: Filter = (await filtered(context, found, 'delete')) ?? {}
 	const reach = cascadeWhere(models, model, where)
 	if (reach !== undefined && scope.access === undefined) {
-		// The write reads its rows as they were, to count them (D-102).
-		const read = { model: model.name, where }
+		// The write reads their ids as they were, to count them (D-102, D-327).
+		const read = { model: model.name, where, fields: ['id'] }
 		const { checks } = reach
 		const rows = await guarded(
 			store.last({
