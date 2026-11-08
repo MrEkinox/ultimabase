@@ -1,5 +1,5 @@
 // The changes of a write as CTEs, and how they split into statements (D-99).
-import type { Row } from 'ultimabase'
+import type { Filter, Row } from 'ultimabase'
 import type { Sql } from './filter.ts'
 import { value } from './filter.ts'
 import type { Catalog, Kind, Table } from './names.ts'
@@ -23,9 +23,10 @@ export type Part = {
 	readonly row?: string
 	/**
 	 * The rows it writes, by id, when it writes no others and sets no key a
-	 * row of its table could take in its stead: an insert's, or an update by
-	 * id of no key column. Such parts of a table share a statement when their
-	 * rows differ, as their order cannot change what they do.
+	 * row of its table could take in its stead: an insert's, an update by id
+	 * of no key column, or a delete by ids. Such parts of a table share a
+	 * statement when their rows differ, as their order cannot change what
+	 * they do, but an insert after a delete, which may free its key.
 	 */
 	readonly rows?: ReadonlySet<string>
 	/** What the feed says of its rows (D-154). */
@@ -129,9 +130,31 @@ export function freeRow(
 	return fields.some((field) => taken.has(field)) ? undefined : new Set([id])
 }
 
+/** The ids a delete by `{ id: { in } }` or `{ id: { equals } }` alone takes. */
+export function deletedRows(
+	where: Filter | undefined,
+): ReadonlySet<string> | undefined {
+	const id = where?.['id']
+	if (Object.keys(where ?? {}).length !== 1 || !isFilter(id)) return undefined
+	const [operator, ...others] = Object.keys(id)
+	const given: unknown = operator === 'in' ? id['in'] : [id['equals']]
+	const known =
+		others.length === 0 &&
+		Array.isArray(given) &&
+		given.every((each) => typeof each === 'string')
+	return known ? new Set(given) : undefined
+}
+
+const isFilter = (
+	given: unknown,
+): given is { readonly [key: string]: unknown } =>
+	typeof given === 'object' && given !== null && !Array.isArray(given)
+
 /** What the current statement writes to a table. */
 type Written = {
 	readonly inserts: boolean
+	/** Whether it deletes rows of it, whose keys an insert may take. */
+	readonly deletes: boolean
 	readonly pairs: Set<string>
 	/** The rows its parts write, when each part knows them (`Part.rows`). */
 	rows: Set<string> | undefined
@@ -145,6 +168,7 @@ function fits(prior: Written | undefined, each: Part): boolean {
 		return [...each.pairs].every((pair) => !prior.pairs.has(pair))
 	}
 	if (prior.inserts && each.inserts) return true
+	if (prior.deletes && each.inserts) return false
 	const { rows } = prior
 	return (
 		rows !== undefined &&
@@ -189,6 +213,7 @@ export function grouped(parts: readonly Part[], room: () => number): Part[][] {
 		}
 		written.set(each.table, {
 			inserts: (kept?.inserts ?? true) && each.inserts,
+			deletes: (kept?.deletes ?? false) || (each.removes && !each.adds),
 			pairs: new Set([...(kept?.pairs ?? []), ...(each.pairs ?? [])]),
 			rows,
 		})

@@ -11,7 +11,7 @@ import { Filters, uuid, value } from './filter.ts'
 import type { Catalog, Join, Table } from './names.ts'
 import { computed } from './numbers.ts'
 import type { Part } from './parts.ts'
-import { fieldsOf, freeRow, grouped, inserted } from './parts.ts'
+import { deletedRows, fieldsOf, freeRow, grouped, inserted } from './parts.ts'
 import { sizeOf } from './text.ts'
 import { notifying, pairs as linked, rows as noted } from './notify.ts'
 import { compileRows, locking } from './read.ts'
@@ -102,8 +102,10 @@ function part(
 			? [[field.name, catalog.column(table, field.name)] as const]
 			: [],
 	)
+	const rows = deletedRows(change.where)
 	return {
 		...base,
+		...(rows === undefined ? {} : { rows }),
 		build: (gate) =>
 			sql`delete from ${name} as ${alias} where ${where}${and(gate)} returning ${alias}.*`,
 		inserts: false,
