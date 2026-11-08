@@ -11,7 +11,7 @@ import { Filters, uuid, value } from './filter.ts'
 import type { Catalog, Join, Table } from './names.ts'
 import { computed } from './numbers.ts'
 import type { Part } from './parts.ts'
-import { fieldsOf, grouped, inserted } from './parts.ts'
+import { fieldsOf, freeRow, grouped, inserted } from './parts.ts'
 import { sizeOf } from './text.ts'
 import { notifying, pairs as linked, rows as noted } from './notify.ts'
 import { compileRows, locking } from './read.ts'
@@ -83,9 +83,11 @@ function part(
 			...computed(catalog, table, change.compute),
 		])
 		const row = idOf(change.where)
+		const rows = freeRow(table, row, fields)
 		return {
 			...base,
 			...(row === undefined ? {} : { row }),
+			...(rows === undefined ? {} : { rows }),
 			build: (gate) =>
 				sql`update ${name} as ${alias} set ${set} where ${where}${and(gate)} returning ${alias}.*`,
 			inserts: false,

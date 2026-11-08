@@ -3617,7 +3617,7 @@ await app.start()
 
 ## D-99: A write in one statement, checked inside it, in a transaction only when one serves
 
-Amended by D-104 and D-334.
+Amended by D-104, D-334 and D-339.
 
 Choice:
 
@@ -20649,4 +20649,51 @@ await Order.update({
 })
 // Before: 500 lines, 500 reads and 500 writes.
 // After:  500 lines, 1 read and 500 writes.
+```
+
+## D-339: Updates of distinct rows share a statement
+
+Choice: amends D-99 point 3; no developer code changes.
+
+1. On PostgreSQL, updates of one table share a statement when each updates
+   one row by `id`, their rows differ, and none sets a key: a field of a
+   unique index, a field of a partial index's `where`, or a `one` relation.
+   Inserts join them on the same terms: an insert and an update of distinct
+   rows share a statement.
+2. An update that sets a key, or that writes a row the statement already
+   writes, starts a new statement as before. A unique value moved from one
+   row to another, `a` to `x` then `b` to `a`, still runs in order: the
+   parts of one statement run in no set order and PostgreSQL checks a
+   unique index row by row.
+3. A part that knows its rows reads its own table only at those rows, so it
+   shares the statement with parts that wrote other rows of it.
+
+Why: each item of a nested `update` was a statement of its own. On
+PostgreSQL 18, 500 items, median of 7 runs, two runs: a nested `update` went
+from 525 and 530 ms to 206 and 226 ms (-59 %). One item costs the same, 3.8
+to 4.5 ms.
+
+Rejected:
+
+- One `update ... from (values ...)` for the rows: each item has its own
+  data and hooks (D-128), so its own set of columns.
+- Sharing a statement for updates that set a key: their order decides
+  whether a unique index accepts them.
+
+Example, the same code before and after:
+
+```ts
+await Order.update({
+	where: { id },
+	data: {
+		lines: {
+			update: lines.map((line) => ({
+				where: { label: line.label },
+				data: { qty: line.qty },
+			})),
+		},
+	},
+})
+// Before: 500 lines, 1 read and 500 statements for their updates.
+// After:  500 lines, 1 read and 1 statement for their updates.
 ```
