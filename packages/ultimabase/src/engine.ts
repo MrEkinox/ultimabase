@@ -21,7 +21,8 @@ import { distinctOf, groupBy } from './group-by.ts'
 import { removeMany } from './delete-many.ts'
 import { updateMany, updateManyAndReturn } from './update-many.ts'
 import { createMany, createManyAndReturn } from './create-many.ts'
-import { create, remove, update, upsert } from './writes.ts'
+import { upsert } from './upsert.ts'
+import { create, remove, update } from './writes.ts'
 
 export type Operation =
 	| 'findMany'

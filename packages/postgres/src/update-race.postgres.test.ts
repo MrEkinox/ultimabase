@@ -42,6 +42,7 @@ const Doc = defineModel({
 	name: 'Doc',
 	fields: (f) => ({
 		label: f.string(),
+		code: f.string({ unique: true, optional: true }),
 		archived: f.boolean({ default: false }),
 		notes: f.many(() => Note, { inverse: 'doc' }),
 	}),
@@ -128,6 +129,31 @@ for (const url of urls) {
 			expect(outcome).toMatchObject({ code: 'NOT_FOUND' })
 			const { rows } = await other.query(`select "doc_id" from "note"`)
 			expect(rows).toEqual([{ doc_id: null }])
+		})
+
+		it('refuses a row whose unique field changed while it waited (D-341)', async () => {
+			await Doc.create({ data: { label: 'a', code: 'x' } }, M)
+			await other.query('begin')
+			await other.query(`update "doc" set "code" = 'y'`)
+			const pending = Doc.update(
+				{ where: { code: 'x' }, data: { label: 'b' } },
+				M,
+			).catch((error: unknown) => error)
+			await waitingOnLock(watcher, 'doc')
+			await other.query('commit')
+			expect(await pending).toMatchObject({ code: 'NOT_FOUND' })
+			const { rows } = await other.query(`select "label" from "doc"`)
+			expect(rows).toEqual([{ label: 'a' }])
+		})
+
+		it('refuses a row found by a unique field and hidden meanwhile', async () => {
+			await Doc.create({ data: { label: 'a', code: 'x' } }, M)
+			const outcome = await hidden(async () =>
+				Doc.update({ where: { code: 'x' }, data: { label: 'b' } }, M),
+			)
+			expect(outcome).toMatchObject({ code: 'NOT_FOUND' })
+			const { rows } = await other.query(`select "label" from "doc"`)
+			expect(rows).toEqual([{ label: 'a' }])
 		})
 
 		it('updates a row changed but still visible after the wait', async () => {

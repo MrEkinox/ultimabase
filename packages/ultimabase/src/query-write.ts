@@ -4,7 +4,7 @@
 // The caller's data was checked before the hooks (write-data.ts): what fails
 // here is a hook's or a default's value (D-88).
 import { recordOf } from './access.ts'
-import type { Row } from './adapter.ts'
+import type { Filter, Row } from './adapter.ts'
 import { InvalidQuery } from './errors.ts'
 import { runHook } from './hooks.ts'
 import { resolveData, resolveMany, resolveOne } from './nested-write.ts'
@@ -97,7 +97,8 @@ async function changed(
 	const record = recordOf(model, row)
 	await runHook(model, 'beforeUpdate', { caller: scope.caller, record, data })
 	plan.events.push({ model, operation: 'update', id: row.id, before: row })
-	return updateSteps({ ...child, sent, before: [], after: [] }, data)
+	const nested = { ...child, sent, before: [], after: [] }
+	return updateSteps(nested, data, new Map(), byId(row.id))
 }
 
 /** A linked row a relation write deletes, as `Target.delete` (D-138). */
@@ -343,7 +344,8 @@ async function inserted(context: Context, draft: Draft): Promise<Step[]> {
 async function updateSteps(
 	context: Context,
 	draft: Draft,
-	operations: Operations = new Map(),
+	operations: Operations,
+	where: Filter,
 ): Promise<Step[]> {
 	const { model, id, plan } = context
 	plan.written.add(`${model.name}:${id}`)
@@ -353,7 +355,7 @@ async function updateSteps(
 		{
 			kind: 'update',
 			model: model.name,
-			where: byId(id),
+			where,
 			set: { ...context.set, updatedAt: new Date(Date.now()) },
 			...(operations.size === 0
 				? {}
@@ -377,17 +379,20 @@ export async function createPlan(
 	return { id: context.id, plan: context.plan }
 }
 
-/** `update`'s changes on the stored row. */
+/** `update`'s changes on the row of `by`: its id, or its unique (D-341). */
 export async function updatePlan(
 	scope: QueryScope,
 	model: ModelInfo,
-	id: string,
+	by: string | Filter,
 	draft: Draft,
 	sent: Readonly<Draft>,
 	reads: Reads,
 	operations: Operations = new Map(),
 ): Promise<Plan> {
+	const id = typeof by === 'string' ? by : ''
 	const context = contextOf(scope, model, id, sent, reads)
-	context.plan.steps.push(...(await updateSteps(context, draft, operations)))
+	const where = typeof by === 'string' ? byId(by) : by
+	const steps = await updateSteps(context, draft, operations, where)
+	context.plan.steps.push(...steps)
 	return context.plan
 }
