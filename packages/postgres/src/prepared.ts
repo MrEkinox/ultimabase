@@ -29,15 +29,18 @@ export function prepare(text: string, size: number): void {
 }
 
 /**
- * Has PostgreSQL deallocate `names`: an aborted transaction refuses, so those
- * it refused go back to `names`, for the next query to try again.
+ * Has PostgreSQL deallocate `names`. One it refused goes back to `names`, for
+ * the next query to try again, unless it knows no statement of that name.
  */
 function deallocated(
 	names: string[],
 	query: (text: string) => Promise<unknown>,
 ): void {
 	for (const name of names.splice(0)) {
-		query(`deallocate ${name}`).catch(() => names.push(name))
+		query(`deallocate ${name}`).catch((error: unknown) => {
+			const code: unknown = Reflect.get(Object(error), 'code')
+			if (code !== '26000') names.push(name)
+		})
 	}
 }
 
@@ -56,25 +59,33 @@ export function preparing(client: ClientBase): void {
 	const held = new Map<unknown, string>()
 	const dropped: string[] = []
 	let named = 0
-	Reflect.set(client, 'query', (text: unknown, values: unknown[]): unknown => {
-		if (dropped.length > 0) deallocated(dropped, query)
+	/**
+	 * Between a BEGIN sent and its end, as Kysely words them: a deallocate
+	 * waits, since behind a pooler that renames the statements it fails, and
+	 * its failure would undo the transaction.
+	 */
+	let open = false
+	/** What runs `text`: prepared when `prepare` let it. */
+	function sent(text: unknown, values: unknown[]): unknown[] {
 		const name = held.get(text)
-		if (name === undefined && composed.get(text) !== true) {
-			const plain: unknown = Reflect.apply(query, undefined, [text, values])
-			return plain
-		}
+		if (name === undefined && composed.get(text) !== true) return [text, values]
 		held.delete(text)
 		for (const [oldest, gone] of held) {
 			if (held.size < preparedStatements) break
 			held.delete(oldest)
 			if (forgotten(client, gone)) dropped.push(gone)
 		}
-		deallocated(dropped, query)
 		const kept = name ?? `ultimabase_${named++}`
 		held.set(text, kept)
-		const result: unknown = Reflect.apply(query, undefined, [
-			{ name: kept, text, values },
-		])
+		return [{ name: kept, text, values }]
+	}
+	Reflect.set(client, 'query', (text: unknown, values: unknown[]): unknown => {
+		if (text === 'begin' || String(text).startsWith('start transaction'))
+			open = true
+		if (text === 'commit' || text === 'rollback') open = false
+		const result: unknown = Reflect.apply(query, undefined, sent(text, values))
+		// After the COMMIT, never ahead of it.
+		if (!open) deallocated(dropped, query)
 		return result
 	})
 }
