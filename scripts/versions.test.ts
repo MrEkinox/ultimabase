@@ -60,6 +60,26 @@ const importsKernel = (directory: string): boolean =>
 			),
 		)
 
+// A changeset naming a package outside the workspace fails the release on
+// `main` only, once merged, so a pull request checks the names.
+it('names a package of the repository in every changeset', () => {
+	const names = new Set(packages.map(({ name }) => name))
+	const unknown = readdirSync('.changeset')
+		.filter((file) => file.endsWith('.md') && file !== 'README.md')
+		.flatMap((file) => {
+			const [, header = ''] = readFileSync(
+				join('.changeset', file),
+				'utf8',
+			).split('---\n')
+			return header
+				.split('\n')
+				.map((line) => /^['"]?([^'":]+)['"]?:/.exec(line)?.[1])
+				.filter((name) => name !== undefined && !names.has(name))
+				.map((name) => `${file}: ${name}`)
+		})
+	expect(unknown).toEqual([])
+})
+
 // A bin, such as create-ultimabase, or a browser client, such as
 // @ultimabase/live, imports no kernel.
 it('makes the kernel a peer of every package that imports it, never a dependency', () => {
