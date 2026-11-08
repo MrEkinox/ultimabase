@@ -45,7 +45,7 @@ function severed(client: Client): void {
  */
 async function silent(silence: number): Promise<false> {
 	await after(silence, undefined, { ref: false })
-	await turn(undefined, { ref: false })
+	await turn()
 	return false
 }
 
