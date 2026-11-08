@@ -64,19 +64,48 @@ export function isDay(value: unknown): boolean {
 	return year >= 1 && month >= 1 && month <= 12 && day >= 1 && day <= days
 }
 
-/** JSON data whose strings and keys are clean (D-94). */
-export function isJson(value: unknown): boolean {
-	if (value === null || typeof value === 'boolean') return true
-	if (typeof value === 'string') return clean(value)
-	if (typeof value === 'number') return Number.isFinite(value)
-	if (Array.isArray(value)) return value.every(isJson)
-	if (!isObject(value) || Object.getPrototypeOf(value) !== Object.prototype) {
-		return false
+/** The most levels a json value nests, well within the stack (D-330). */
+export const maxJsonDepth = 1000
+
+/**
+ * Whether `value` is JSON data whose strings and keys are clean (D-94), or
+ * `'deep'` when it nests more than `maxJsonDepth` arrays and objects: read
+ * without recursion, and no further than that level (D-330).
+ */
+export function jsonFit(value: unknown): boolean | 'deep' {
+	const values: unknown[] = [value]
+	const depths: number[] = [0]
+	for (let depth = depths.pop(); depth !== undefined; depth = depths.pop()) {
+		const item = values.pop()
+		if (typeof item === 'string' && clean(item)) continue
+		if (typeof item === 'number' && Number.isFinite(item)) continue
+		if (item === null || typeof item === 'boolean') continue
+		const children: readonly unknown[] | undefined = Array.isArray(item)
+			? item
+			: isObject(item) &&
+				  Object.getPrototypeOf(item) === Object.prototype &&
+				  Object.keys(item).every(clean)
+				? Object.values(item)
+				: undefined
+		if (children === undefined) return false
+		if (depth === maxJsonDepth) return 'deep'
+		for (const child of children) {
+			values.push(child)
+			depths.push(depth + 1)
+		}
 	}
-	return Object.entries(value).every(
-		([key, item]) => clean(key) && isJson(item),
-	)
+	return true
 }
+
+/** JSON data whose strings and keys are clean (D-94). */
+export const isJson = (value: unknown): boolean => jsonFit(value) === true
+
+/** The refusal of a filter's json value nested too deep (D-330). */
+export const deepJson = (at: string): InvalidQuery =>
+	new InvalidQuery(
+		at,
+		`${at}: the json value is nested more than ${maxJsonDepth} levels deep.`,
+	)
 
 export function unknownKey(path: string, model: string): InvalidQuery {
 	return new InvalidQuery(path, `Unknown key '${path}' on ${model}.`)
@@ -114,10 +143,13 @@ const misfits: {
 		storedDate(value) ? undefined : 'Expected a Date of years 1 to 9999.',
 	date: (value) =>
 		isDay(value) ? undefined : "Expected a day written '2026-07-31'.",
-	json: (value) =>
-		isJson(value)
-			? undefined
-			: 'Expected JSON data, its strings without a NUL or a lone surrogate.',
+	json: (value) => {
+		const fit = jsonFit(value)
+		if (fit === true) return undefined
+		return fit === 'deep'
+			? `Expected JSON data nested at most ${maxJsonDepth} levels deep.`
+			: 'Expected JSON data, its strings without a NUL or a lone surrogate.'
+	},
 	enum: (value, field) =>
 		typeof value === 'string' && (field.values ?? []).includes(value)
 			? undefined
