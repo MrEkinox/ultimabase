@@ -20879,14 +20879,16 @@ await Note.update({ where: { id }, data: { text: 'hi' } }, { as: user })
 
 Choice: amends D-332 points 1 and 3; no developer code changes.
 
-1. Inside a recording (D-154), as when realtime builds or rebuilds a
-   viewer's caller, `authPlugin()` reads the session and the user of a token
-   it keeps, and the kernel runs each plugin's `caller` on a caller it
-   completed. What they read is recorded, so a revocation, a sign-out, a
-   user updated or deleted and a role taken away rebuild or end the viewer,
-   as before D-332.
-2. Such a read fills auth's cache as any other does; outside a recording,
-   nothing changes.
+1. A caller identified inside a recording (D-154), as when realtime builds
+   or rebuilds a viewer's caller, is read again: `authPlugin()` reads the
+   session and the user of a token it keeps, and the kernel runs each
+   plugin's `caller` on a caller it completed. What they read is recorded,
+   so a revocation, a sign-out, a user updated or deleted and a role taken
+   away rebuild or end the viewer, as before D-332.
+2. Such a read fills both caches as any other does. The queries of a
+   recording, a live read's plan or its refill, complete their caller from
+   the kernel's cache, and a request reads none: only identifying a viewer
+   pays the reads.
 
 Why: a kept caller reads nothing, so a viewer built on one recorded no read
 and outlived its revoked session or its deleted user until its refresh,

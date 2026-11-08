@@ -4,6 +4,7 @@ import { createHash, timingSafeEqual } from 'node:crypto'
 import type { Logger, MasterKey } from './app-options.ts'
 import { PublicError, Refused } from './errors.ts'
 import type { Complete } from './complete.ts'
+import { recordingRuns } from './recorder.ts'
 import type { Caller, Identity } from './rules.ts'
 import { createMaster } from './rules.ts'
 
@@ -76,7 +77,8 @@ export function identifier(
 		if (sent === null) {
 			for (const identify of plugins) {
 				const caller = await identify(request)
-				if (caller !== undefined) return complete(caller)
+				// A live caller follows what its plugins read (D-343).
+				if (caller !== undefined) return complete(caller, recordingRuns())
 			}
 			return anonymous
 		}
