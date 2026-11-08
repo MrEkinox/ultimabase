@@ -20551,3 +20551,50 @@ const notes = await Note.findMany(
 -- After, outside a transaction, with no rule or trash on Author
 'author', case when t1.author_id is null then null else json_build_object('id', t1.author_id) end
 ```
+
+## D-337: The change feed checks that it hears
+
+Choice: builds on D-287 and D-332; no developer code changes.
+
+1. The listener's pulse (D-287) notifies its own channel with an id of its
+   own, `select pg_notify(channel, 'pulse:<id>')`, in place of `select 1`. A
+   session hears its own notification before the answer to the query that
+   sent it: 2000 pulses out of 2000 on PostgreSQL 15 and 18.
+2. Answered without its notification, the listener is deaf: it logs once at
+   `error` that the feed hears nothing and why it may be, and tells the feed
+   `lost` (D-332): the caller cache is bypassed.
+3. A deaf listener stays deaf until the application starts again: a pulse
+   heard later, or a connection that comes back, does not tell `missed`.
+   Behind a pooler, a pulse sometimes lands on the server connection that
+   listens, and says nothing of the changes, which land elsewhere.
+4. A pulse whose query fails says nothing of hearing: the connection's loss
+   is told as before.
+5. Another instance's pulse on the channel is not a change: `changedOf`
+   ignores it. Each instance adds one notification every 10 seconds.
+
+Why: behind PgBouncer in transaction mode, measured with 1.26.1, LISTEN runs
+on a server connection the pooler gives back to its pool. Notifications
+reach no one, `select 1` still answers, and nothing was logged: realtime
+stopped, and the caller cache kept a revoked session on every other
+instance.
+
+Rejected:
+
+- A `directUrl` option for LISTEN and migrations, as Prisma has: no
+  application is behind a pooler yet, and the error names the cause the
+  day one is.
+- Hearing again after a pulse heard: behind PgBouncer, measured, the
+  listener went deaf and back 7 times in 5 seconds, and the cache trusted
+  the feed in between.
+- A check when the listener connects: a round trip more at each start and
+  each return, while the first pulse comes 10 seconds later.
+
+Example, an application whose url goes through PgBouncer in transaction
+mode, the same code before and after:
+
+```text
+Before: nothing is logged; realtime and the cache's invalidations stop.
+After:  error  The change feed does not hear its own notifications: realtime and the caller
+               cache's invalidation stop. Is the url behind a pooler in transaction mode, such
+               as PgBouncer? LISTEN needs a direct connection to PostgreSQL.
+```

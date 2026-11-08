@@ -1,8 +1,9 @@
 // The connection that hears the feed's notifications (D-154): it gives the
 // feed what a tick brought, `lost` when it loses its connection (D-332),
 // and once it is back, `missed`. It
-// also asks the database, as a network can fail with no one told (D-287).
-import { createHash } from 'node:crypto'
+// also asks the database, as a network can fail with no one told (D-287),
+// and checks that it hears its own notifications (D-337).
+import { createHash, randomUUID } from 'node:crypto'
 import { setImmediate as turn, setTimeout as after } from 'node:timers/promises'
 import type { ClientConfig } from 'pg'
 import { Client } from 'pg'
@@ -67,6 +68,10 @@ export async function listening(
 	let timer: NodeJS.Timeout | undefined
 	let heard: Changed[] = []
 	let feed: Feed | undefined = given
+	/** What the pulse notifies, and whether it was heard; deaf for good (D-337). */
+	const echo = `pulse:${randomUUID()}`
+	let echoed = false
+	let deaf = false
 	const listen = `listen "${channel.replaceAll('"', '""')}"`
 	const flush = (): void => {
 		const changes = heard
@@ -76,6 +81,7 @@ export async function listening(
 	const connect = async (): Promise<Client> => {
 		const own = new Client({ ...config, application_name: 'ultimabase-feed' })
 		own.on('notification', ({ channel: to, payload }) => {
+			if (payload === echo) echoed = true
 			const change = to === channel ? changedOf(payload) : undefined
 			if (change === undefined) return
 			if (heard.length === 0) setImmediate(flush)
@@ -103,11 +109,14 @@ export async function listening(
 		if (client !== own) return
 		// A connection opened during the silence is not in doubt.
 		const doubted = suspects()
-		const answer = own.query('select 1').then(
+		echoed = false
+		const answer = own.query('select pg_notify($1, $2)', [channel, echo]).then(
 			() => true,
-			() => true,
+			() => undefined,
 		)
-		if (await Promise.race([answer, silent(pulse.silence)])) {
+		const answered = await Promise.race([answer, silent(pulse.silence)])
+		if (answered !== false) {
+			if (answered && !echoed && !deaf && client === own) deafened()
 			beat(own)
 			return
 		}
@@ -116,6 +125,14 @@ export async function listening(
 			`PostgreSQL did not answer for ${pulse.silence / 1000}s: its connections are given up.`,
 		)
 		for (const each of [own, ...doubted]) severed(each)
+	}
+	/** Behind a pooler, a pulse heard later says nothing of the changes. */
+	const deafened = (): void => {
+		deaf = true
+		logger.error(
+			"The change feed does not hear its own notifications: realtime and the caller cache's invalidation stop. Is the url behind a pooler in transaction mode, such as PgBouncer? LISTEN needs a direct connection to PostgreSQL.",
+		)
+		feed?.lost()
 	}
 	const retry = (wait: number): void => {
 		timer = setTimeout(() => void again(wait), wait)
@@ -135,8 +152,9 @@ export async function listening(
 		client = own
 		beat(own)
 		logger.info('The change feed listens again.')
-		// What was committed while no one listened is unknown.
-		feed?.missed()
+		// What was committed while no one listened is unknown; a deaf listener
+		// stays lost.
+		if (!deaf) feed?.missed()
 	}
 	const lost = (own: Client): void => {
 		if (stopped || client !== own) return
@@ -168,6 +186,7 @@ export async function listening(
 			await turn()
 			feed = next
 			logger = nextLogger
+			if (deaf) next.lost()
 		},
 	}
 }
