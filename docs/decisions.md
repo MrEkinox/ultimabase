@@ -20194,6 +20194,8 @@ await database.sql`select pg_sleep(3600)`
 
 ## D-332: A signed-in caller is kept until something changes it
 
+Amended by D-343.
+
 Choice: amends D-121 (point 4) and D-154 (the feed's signals).
 
 1. `authPlugin()` keeps, in each process, the caller of each session token
@@ -20872,3 +20874,26 @@ await Note.update({ where: { id }, data: { text: 'hi' } }, { as: user })
 // After:  one statement: the locked checks of the row and its filter, the
 //         update and the read.
 ```
+
+## D-343: A live caller is read, not kept
+
+Choice: amends D-332 points 1 and 3; no developer code changes.
+
+1. Inside a recording (D-154), as when realtime builds or rebuilds a
+   viewer's caller, `authPlugin()` reads the session and the user of a token
+   it keeps, and the kernel runs each plugin's `caller` on a caller it
+   completed. What they read is recorded, so a revocation, a sign-out, a
+   user updated or deleted and a role taken away rebuild or end the viewer,
+   as before D-332.
+2. Such a read fills auth's cache as any other does; outside a recording,
+   nothing changes.
+
+Why: a kept caller reads nothing, so a viewer built on one recorded no read
+and outlived its revoked session or its deleted user until its refresh,
+300 s by default. A browser sends a request before it opens its socket, so
+it was the usual case. Building a viewer's caller is rare beside requests,
+so it pays the reads D-332 saves for requests.
+
+Rejected: replaying the reads a kept caller was built from into the current
+recording. It keeps the reads of each of 10 000 tokens and needs a kernel
+export for it, to save the reads of a rare build.

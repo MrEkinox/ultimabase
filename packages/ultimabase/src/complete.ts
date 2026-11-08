@@ -4,6 +4,7 @@
 // as a string one (D-126).
 import type { Changed, Feed } from './adapter-feed.ts'
 import type { PluginCode } from './definition.ts'
+import { recordingRuns } from './recorder.ts'
 import { isObject } from './query-where.ts'
 import type { Caller, Identity } from './rules.ts'
 import type { Resolved } from './schema.ts'
@@ -90,8 +91,8 @@ export type Completer = {
 /**
  * Completes a user caller the first time the kernel receives it, until a
  * change `concerns` forgets every completed one; from `lost` to `missed`, it
- * keeps none (D-332). `plugins` is read on each call, filled once their
- * contexts exist.
+ * keeps none (D-332), nor serves one inside a recording (D-343). `plugins`
+ * is read on each call, filled once their contexts exist.
  */
 export function completer(
 	plugins: readonly PluginCaller[],
@@ -110,7 +111,12 @@ export function completer(
 	const kept = (identity: Identity): identity is Caller & Identity =>
 		plugins.length === 0 || done.has(identity)
 	const complete: Complete = async (identity) => {
-		if (identity.kind !== 'user' || kept(identity)) return identity
+		if (identity.kind !== 'user') return identity
+		// A live caller follows what its plugins read (D-343).
+		if (plugins.length > 0 && recordingRuns()) {
+			return completed(identity, plugins)
+		}
+		if (kept(identity)) return identity
 		const known = pending.get(identity)
 		if (known !== undefined) return known
 		const at = generation

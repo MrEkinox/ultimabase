@@ -214,6 +214,24 @@ describe('a session’s lifetime', () => {
 		expect((await identified()).expires).toStrictEqual(new Date(now + 50 * day))
 	})
 
+	// A kept caller reads nothing: a live viewer built on it would not end
+	// with its session or its user (D-343).
+	it('reads its session and its user for a recording, though kept', async () => {
+		const { url, ada } = await server()
+		const { token } = await signIn(url, ada.id)
+		expect((await callerOf(url, bearer(token))).status).toBe(200)
+		const { reads } = await recording(async () =>
+			given.identify?.(new Request(url, { headers: bearer(token) })),
+		)
+		const [session] = await AuthSession.findMany({}, M)
+		expect(reads.map(({ model, ids }) => ({ model, ids }))).toEqual(
+			expect.arrayContaining([
+				{ model: 'AuthSession', ids: [session?.id] },
+				{ model: 'User', ids: [ada.id] },
+			]),
+		)
+	})
+
 	it('keeps its end when used with more than 15 days left', async () => {
 		const { url, ada } = await server()
 		const { token } = await signIn(url, ada.id)

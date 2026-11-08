@@ -11,6 +11,7 @@ import {
 	memory,
 } from './index.ts'
 import { completer } from './complete.ts'
+import { recording } from './recorder.ts'
 import type { PluginValue } from './plugin.ts'
 
 const calls: string[] = []
@@ -246,6 +247,28 @@ describe('a user caller', () => {
 		await expect(twice(userOf('ada'))).rejects.toThrow(
 			'copy.caller gives the caller Symbol(hidden), which secret gives; a key has one plugin.',
 		)
+	})
+
+	// A live caller follows what its plugins read (D-343): a kept one would
+	// record nothing, so a role taken away would not rebuild it.
+	it('is completed again inside a recording', async () => {
+		const read: string[] = []
+		const { complete } = completer([
+			{
+				plugin: 'roles',
+				caller: async (identity) => {
+					read.push(identity.kind === 'user' ? identity.user.id : '')
+					return { roles: [] }
+				},
+			},
+		])
+		const ada = userOf('ada')
+		await complete(ada)
+		await complete(ada)
+		await recording(async () => complete(ada))
+		expect(read).toStrictEqual(['ada', 'ada'])
+		await complete(ada)
+		expect(read).toHaveLength(2)
 	})
 
 	it('is tried again after a plugin fails', async () => {
