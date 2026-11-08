@@ -333,8 +333,9 @@ export async function resolveMany(
 	if (write.set !== undefined) {
 		const leaving = new Set(deleted.map(({ row }) => row.id))
 		const links = await setting(r, field, target, write.set, leaving)
-		connect.push(...links.connect)
-		disconnect.push(...links.disconnect)
+		// A spread of 120000 items or more into a call overflows the stack.
+		for (const id of links.connect) connect.push(id)
+		for (const id of links.disconnect) disconnect.push(id)
 	}
 	const create = write.create.map((data, index) => ({
 		data,
