@@ -36,6 +36,15 @@ afterEach(async () => {
 /** A database where a session's renewal meets its sign-out. */
 function signingOutOnRenewal(): Adapter {
 	const database = memory()
+	type Write = Parameters<Adapter['write']>[0]
+	const signOut: Write = {
+		changes: [{ kind: 'delete', model: 'AuthSession', where: {} }],
+	}
+	// The renewal loads no row: its locked check stands for it (D-341).
+	const renews = (write: Write): boolean =>
+		write.checks?.some(
+			(check) => check.model === 'AuthSession' && check.lock === 'update',
+		) ?? false
 	return {
 		start: async (schema, logger) => database.start(schema, logger),
 		stop: async () => database.stop(),
@@ -45,20 +54,19 @@ function signingOutOnRenewal(): Adapter {
 			return {
 				...tx,
 				// Signed out just before the renewal locks its row (D-104).
-				find: async (read) => {
-					if (read.lock === 'update' && read.model === 'AuthSession') {
-						await tx.write({
-							changes: [{ kind: 'delete', model: 'AuthSession', where: {} }],
-						})
-					}
-					return tx.find(read)
+				write: async (write) => {
+					if (renews(write)) await tx.write(signOut)
+					return tx.write(write)
 				},
 			}
 		},
 		find: async (read) => database.find(read),
 		count: async (read) => database.count(read),
 		aggregate: async (read) => database.aggregate(read),
-		write: async (write) => database.write(write),
+		write: async (write) => {
+			if (renews(write)) await database.write(signOut)
+			return database.write(write)
+		},
 	}
 }
 

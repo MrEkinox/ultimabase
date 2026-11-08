@@ -3617,7 +3617,7 @@ await app.start()
 
 ## D-99: A write in one statement, checked inside it, in a transaction only when one serves
 
-Amended by D-104, D-334, D-339 and D-340.
+Amended by D-104, D-334, D-339, D-340 and D-341.
 
 Choice:
 
@@ -7948,7 +7948,7 @@ create index "book_title_trgm" on "book" using gin (("title" collate "default") 
 
 ## D-142: `upsert`
 
-Amended by D-227.
+Amended by D-227 and D-341.
 
 Choice: amends D-20 and D-129.
 
@@ -20731,4 +20731,66 @@ await Order.update({
 })
 // Before: 500 lines, 1 read and 500 statements for their deletes.
 // After:  500 lines, 1 read and 1 statement for their deletes.
+```
+
+## D-341: An update by a unique field loads no row
+
+Choice: amends D-99 point 5, and its rejected "Skipping the read of an
+update by a unique field other than `id`", and D-142 point 2; no developer
+code changes.
+
+1. Master's `update` by a unique field other than `id` loads no row when it
+   meets the terms of D-99 point 5 (no access rules, no update hooks, no
+   nested write, no number or list update with bounds to check) and its data
+   sets scalar fields only, none of them a field of its `where`. The locked
+   check `{ where: and(where, readable), count: 1 }` stands for the read, and
+   the read after the change follows the row by its `where`, which the data
+   leaves as it was: one round trip, as by `id`.
+2. A row whose unique value another transaction changed, or that it hid,
+   while the update waited on its lock counts 0 in the check: `NOT_FOUND`,
+   and nothing is written (D-99 point 9).
+3. `upsert` on the same terms runs its update branch first, as that check
+   and that change. When the check counts 0, the create runs as before: an
+   absent row costs 2 round trips instead of 4 (BEGIN, the locked read, the
+   insert, COMMIT). Its update data is checked only once the row is found
+   (D-142 point 3): an update data whose check could fail or run code, a
+   value that does not fit its field, a `validate` or a plugin's codec,
+   reads the row first, as before.
+4. As by `id`, the update's `VALIDATION_FAILED` now comes before its
+   `NOT_FOUND`: a Master update by `slug` of a missing row with invalid data
+   fails with `VALIDATION_FAILED`.
+
+Why: an update by a natural key, `slug`, `email`, `externalId`, is the
+common write of an import or a sync, and every upsert updates by one. Each
+cost a locked read, then the update, in a transaction. On PostgreSQL 18,
+300 writes, median of 7 runs, three runs each, old and new interleaved:
+an update by `slug` went from 685 to 727 ms to 268 to 277 ms (-61 %); an
+upsert that finds its row from 671 to 705 ms to 273 to 278 ms (-60 %); an
+upsert that creates from 647 to 677 ms to 520 to 535 ms (-20 %). An update
+by `id` costs the same, 268 to 278 ms.
+
+Rejected:
+
+- Loading no row when the data changes a field of the `where`: the read
+  after the change would no longer find the row by it.
+- `insert … on conflict do update` for `upsert`: D-142 keeps its reasons.
+
+Example, the same code before and after:
+
+```ts
+await Badge.update({
+	where: { slug: 'news' },
+	data: { uses: { increment: 1 } },
+})
+// Before: BEGIN, a locked read, the update, COMMIT.
+// After:  one statement, its locked check, the update and the read.
+
+await Badge.upsert({
+	where: { slug: 'news' },
+	create: { slug: 'news', uses: 1 },
+	update: { uses: { increment: 1 } },
+})
+// Before: BEGIN, a locked read, the update or the insert, COMMIT.
+// After:  one statement when the row is there; when it is not, the
+//         statement finds none, then the insert.
 ```

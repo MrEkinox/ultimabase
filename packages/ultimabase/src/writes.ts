@@ -4,7 +4,7 @@
 // `*Commit` hooks once it commits (D-71, D-88). The row a write decides from
 // is locked; a write that loads none answers from the rows it changed (D-99,
 // D-104).
-import { and, recordOf } from './access.ts'
+import { recordOf } from './access.ts'
 import type { Check, Filter, Lock, Nested, Row } from './adapter.ts'
 import { cascadeWhere } from './cascade.ts'
 import { deleted } from './delete-many.ts'
@@ -16,7 +16,7 @@ import { first, given, hiddenBy, picked } from './query-context.ts'
 import { project } from './query-project.ts'
 import { computeVirtuals } from './virtual-read.ts'
 import type { Shape } from './query-args.ts'
-import { oneKeys, plan, uniqueWhere } from './query-args.ts'
+import { oneKeys, plan } from './query-args.ts'
 import type { Operations } from './number-update.ts'
 import { computeOn, operationsOf, inRange, validates } from './number-update.ts'
 import { nests, resolveData } from './nested-write.ts'
@@ -28,7 +28,13 @@ import { prepared, readData } from './write-data.ts'
 import type { Checked, Plan } from './write-plan.ts'
 import { updated } from './write-plan.ts'
 import { uuidv7 } from './uuid.ts'
-import { guarded, target } from './write-target.ts'
+import {
+	guarded,
+	missing,
+	target,
+	targets,
+	unloadedBy,
+} from './write-target.ts'
 import { writingOf } from './writing.ts'
 import { withinChecks } from './within.ts'
 import { rowChecks } from './write-filter.ts'
@@ -55,7 +61,7 @@ async function written(
 	commits: Commit[],
 	steps: Plan,
 	events: Event[],
-	at: { readonly id: string; readonly read: Nested; readonly shape: Shape },
+	at: { readonly where: Filter; readonly read: Nested; readonly shape: Shape },
 	checks: Checked[] = [],
 ): Promise<unknown> {
 	const { model, scope } = context
@@ -67,7 +73,7 @@ async function written(
 	const ruled = rowChecks(scope.access)
 	const within = await withinChecks(context.models, store, changes, events)
 	checks.push(...ruled.before, ...within)
-	const read = { model: model.name, ...at.read, where: byId(at.id) }
+	const read = { model: model.name, ...at.read, where: at.where }
 	const again = rereads(events)
 	const write = {
 		checks: checks.map(({ check }) => check),
@@ -89,7 +95,7 @@ async function written(
 }
 
 /** Creates the row of `draft` as the rules allow. */
-async function creating(
+export async function creating(
 	context: Context,
 	store: Store,
 	commits: Commit[],
@@ -114,7 +120,8 @@ async function creating(
 		made,
 	)
 	const events: Event[] = [{ model, operation: 'create', id }]
-	return written(context, store, commits, steps, events, { id, read, shape })
+	const to = { where: byId(id), read, shape }
+	return written(context, store, commits, steps, events, to)
 }
 
 export async function create(
@@ -131,39 +138,11 @@ export async function create(
 }
 
 /**
- * The rows a single-row write may target: the caller reads them (D-72), and
- * the `beforeFind` hooks let it `operation` them (D-124).
- */
-async function targets(
-	context: Context,
-	found: ReadonlyMap<string, unknown>,
-	operation: 'update' | 'delete',
-): Promise<Filter> {
-	const { models, model, scope } = context
-	return planned(scope, () =>
-		and(
-			uniqueWhere(models, model, found.get('where'), 'where', scope),
-			scope.readable(model.name, operation),
-		),
-	)
-}
-
-const missing = (model: string): string => `No ${model} matches.`
-
-/** The `id` a unique `where` gives, if any. */
-function idOf(where: unknown): string | undefined {
-	if (typeof where !== 'object' || where === null || !('id' in where)) {
-		return undefined
-	}
-	return typeof where.id === 'string' ? where.id : undefined
-}
-
-/**
  * Updates the locked `row` as the rules allow; its number and list updates
  * are computed on it first, so the rules and hooks see the results (D-132,
  * D-149).
  */
-async function updating(
+export async function updating(
 	context: Context,
 	store: Store,
 	commits: Commit[],
@@ -185,8 +164,84 @@ async function updating(
 	const events: Event[] = [
 		{ model, operation: 'update', id: row.id, before: row },
 	]
-	const to = { id: row.id, read, shape }
+	const to = { where: byId(row.id), read, shape }
 	return written(context, store, commits, steps, events, to)
+}
+
+/** Whether an update needs no stored row: a check stands for its read (D-99). */
+export const unloads = (
+	{ model, scope }: Context,
+	{
+		draft,
+		operations,
+	}: { readonly draft: Draft; readonly operations: Operations },
+): boolean =>
+	scope.access === undefined &&
+	!updated(model) &&
+	!nests(model, draft) &&
+	!validates(model, operations)
+
+/**
+ * Updates the row `by` finds, a locked check standing for its read, and
+ * computes its numbers and lists in the write (D-99, D-132, D-149, D-341):
+ * null when the row went between the check and the change (D-104), or
+ * `absent` thrown when the check finds no row, and returned.
+ */
+export async function unloaded(
+	context: Context,
+	store: Store,
+	commits: Commit[],
+	data: { readonly draft: Draft; readonly operations: Operations },
+	at: {
+		readonly by: string | Filter
+		readonly where: Filter
+		readonly read: Nested
+		readonly shape: Shape
+	},
+	absent?: PublicError,
+): Promise<unknown> {
+	const { model, caller, scope } = context
+	const { draft, operations } = data
+	const sent: Readonly<Draft> = { ...draft }
+	await prepared(model, draft, caller, false)
+	const { by } = at
+	const steps = await updatePlan(
+		scope,
+		model,
+		by,
+		draft,
+		sent,
+		store,
+		operations,
+	)
+	const check: Check = {
+		model: model.name,
+		where: at.where,
+		count: 1,
+		lock: 'update',
+	}
+	const message = missing(model.name)
+	const checks: Checked[] = [
+		{
+			check,
+			message,
+			...(absent === undefined ? {} : { refuse: () => absent }),
+		},
+	]
+	const to = {
+		where: typeof by === 'string' ? byId(by) : by,
+		read: at.read,
+		shape: at.shape,
+	}
+	try {
+		return await inRange(
+			model,
+			written(context, store, commits, steps, [], to, checks),
+		)
+	} catch (error) {
+		if (absent !== undefined && error === absent) return absent
+		throw error
+	}
 }
 
 export async function update(
@@ -195,7 +250,7 @@ export async function update(
 	commits: Commit[],
 	args: unknown,
 ): Promise<unknown> {
-	const { models, model, caller, scope } = context
+	const { models, model } = context
 	const found = given(
 		args,
 		model.name,
@@ -206,42 +261,21 @@ export async function update(
 	// The data's shape is checked whether or not the row is found.
 	const draft = readData(models, model, found.get('data'), false)
 	const operations = operationsOf(model, draft)
-	const id = idOf(found.get('where'))
-	const where = await targets(context, found, 'update')
-	if (
-		scope.access === undefined &&
-		id !== undefined &&
-		!updated(model) &&
-		!nests(model, draft) &&
-		!validates(model, operations)
-	) {
-		// Nothing needs the stored row: a check stands for its read (D-99),
-		// and the write computes its numbers and lists (D-132, D-149).
-		const sent: Readonly<Draft> = { ...draft }
-		await prepared(model, draft, caller, false)
-		const steps = await updatePlan(
-			scope,
-			model,
-			id,
-			draft,
-			sent,
-			store,
-			operations,
-		)
-		const check: Check = { model: model.name, where, count: 1, lock: 'update' }
-		const message = missing(model.name)
-		const at = { id, read, shape }
-		const checks = [{ check, message }]
-		const result = await inRange(
-			model,
-			written(context, store, commits, steps, [], at, checks),
-		)
+	const { unique, where } = await targets(context, found, 'update')
+	const by = unloadedBy(model, found.get('where'), unique, draft)
+	const data = { draft, operations }
+	if (by !== undefined && unloads(context, data)) {
+		const result = await unloaded(context, store, commits, data, {
+			by,
+			where,
+			read,
+			shape,
+		})
 		// The row went between the write's check and its change (D-104).
-		if (result === null) throw new PublicError('NOT_FOUND', message)
+		if (result === null) throw new PublicError('NOT_FOUND', missing(model.name))
 		return result
 	}
 	const row = await target(context, store, where, 'update')
-	const data = { draft, operations }
 	return updating(context, store, commits, data, { row, read, shape })
 }
 
@@ -254,7 +288,7 @@ export async function remove(
 	const { models, model, scope } = context
 	const found = given(args, model.name, ['where', ...oneKeys], ['where'])
 	const { read, shape } = await returned(context, found)
-	const where = await targets(context, found, 'delete')
+	const { where } = await targets(context, found, 'delete')
 	// Its relations, counts and virtuals, as the caller reads them, before
 	// the delete removes any: one read in its transaction (D-135, D-151).
 	const reaches =
@@ -324,48 +358,4 @@ export async function remove(
 	const computed =
 		before ?? (await computeVirtuals(context, store, [result], shape, hidden))
 	return project(result, shape, hidden, computed)
-}
-
-/** The row an upsert returns, and whether it created it (D-142). */
-export type Upserted = { readonly row: unknown; readonly created: boolean }
-
-/**
- * Updates the row `where` targets, or creates it when the caller finds
- * none: the branch that runs is a plain update or create (D-142).
- */
-export async function upsert(
-	context: Context,
-	store: Store,
-	commits: Commit[],
-	args: unknown,
-): Promise<Upserted> {
-	const { models, model } = context
-	const found = given(
-		args,
-		model.name,
-		['where', 'create', 'update', ...oneKeys],
-		['where', 'create', 'update'],
-	)
-	const at = await returned(context, found)
-	// Both data are checked, whichever runs.
-	const creation = readData(models, model, found.get('create'), true)
-	const draft = readData(models, model, found.get('update'), false)
-	const operations = operationsOf(model, draft)
-	const where = await targets(context, found, 'update')
-	const [row] = await store.find({
-		model: model.name,
-		where,
-		take: 1,
-		lock: 'update',
-	})
-	// Another create of the row meanwhile fails on its unique index.
-	if (row === undefined) {
-		return {
-			row: await creating(context, store, commits, creation, at),
-			created: true,
-		}
-	}
-	const data = { draft, operations }
-	const changed = await updating(context, store, commits, data, { row, ...at })
-	return { row: changed, created: false }
 }
