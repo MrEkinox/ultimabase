@@ -1,5 +1,6 @@
 // The connection that hears the feed's notifications (D-154): it gives the
-// feed what a tick brought, and once a lost connection is back, `missed`. It
+// feed what a tick brought, `lost` when it loses its connection (D-332),
+// and once it is back, `missed`. It
 // also asks the database, as a network can fail with no one told (D-287).
 import { createHash } from 'node:crypto'
 import { setImmediate as turn, setTimeout as after } from 'node:timers/promises'
@@ -143,6 +144,8 @@ export async function listening(
 		own.removeAllListeners('end')
 		own.end().catch(() => undefined)
 		logger.warn('The change feed lost its connection: it listens again soon.')
+		// Until it listens again, changes go unheard (D-332).
+		feed?.lost()
 		retry(first)
 	}
 	client = await connect()

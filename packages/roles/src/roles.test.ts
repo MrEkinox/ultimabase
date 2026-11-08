@@ -1,7 +1,7 @@
 // Roles (D-123, D-126): a role model, roles inside roles, and `hasRole`,
 // asked in a rule or with the caller.
 import { asUser } from '@ultimabase/testing'
-import type { Caller } from 'ultimabase'
+import type { Caller, Identity } from 'ultimabase'
 import {
 	allow,
 	anyOf,
@@ -184,6 +184,66 @@ describe('a role model', () => {
 		await expect(
 			Post.create({ data: { title: 'c' } }, { as: { kind: 'anonymous' } }),
 		).rejects.toMatchObject({ code: 'ACCESS_DENIED' })
+	})
+})
+
+/** The caller completed for `identity`, once the feed has delivered. */
+async function completed(identity: Identity): Promise<Caller> {
+	await new Promise((resolve) => setImmediate(resolve))
+	seen.length = 0
+	await Post.findMany({}, { as: identity })
+	const [caller] = seen
+	if (caller === undefined) throw new Error('No caller was read.')
+	return caller
+}
+
+describe("a caller's roles", () => {
+	let app: ReturnType<typeof started>
+	beforeEach(async () => {
+		app = started()
+		await app.start()
+	})
+	afterEach(async () => app.stop())
+
+	it('are read once while no role changes (D-332)', async () => {
+		const ada = asUser(await member('ada@example.com', [await role('Editor')]))
+		const first = await completed(ada)
+		await Post.create({ data: { title: 'kept' } }, M)
+		expect(await completed(ada)).toBe(first)
+	})
+
+	it('are read again once a role is given, taken or inherited (D-332)', async () => {
+		const editor = await role('Editor')
+		const admin = await role('Admin')
+		const reviewer = await role('Reviewer')
+		const row = await member('ada@example.com', [editor])
+		const ada = asUser(row)
+		expect(names(await completed(ada))).toEqual(['Editor'])
+		// Given from the role's side, taken from the user's.
+		await Role.update(
+			{
+				where: { id: admin.id },
+				data: { members: { connect: [{ id: row.id }] } },
+			},
+			M,
+		)
+		expect(names(await completed(ada))).toEqual(['Admin', 'Editor'])
+		await User.update(
+			{
+				where: { id: row.id },
+				data: { roles: { disconnect: [{ id: editor.id }] } },
+			},
+			M,
+		)
+		expect(names(await completed(ada))).toEqual(['Admin'])
+		await Role.update(
+			{
+				where: { id: admin.id },
+				data: { inherits: { connect: [{ id: reviewer.id }] } },
+			},
+			M,
+		)
+		expect(names(await completed(ada))).toEqual(['Admin', 'Reviewer'])
 	})
 })
 

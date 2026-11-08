@@ -221,7 +221,7 @@ describe('a user caller', () => {
 
 	it('refuses the keys the kernel gives, and keys not in an object', async () => {
 		// A plugin written in JavaScript can return anything.
-		const complete = completer([
+		const { complete } = completer([
 			{ plugin: 'broken', caller: async () => 'admin' },
 		])
 		await expect(complete(userOf('ada'))).rejects.toThrow(
@@ -239,7 +239,7 @@ describe('a user caller', () => {
 			await Note.findMany({}, { as: userOf('ada') })
 		})
 		expect(Reflect.get(seen[0] ?? {}, hidden)).toBe('kept')
-		const twice = completer([
+		const { complete: twice } = completer([
 			{ plugin: 'secret', caller: async () => ({ [hidden]: 1 }) },
 			{ plugin: 'copy', caller: async () => ({ [hidden]: 2 }) },
 		])

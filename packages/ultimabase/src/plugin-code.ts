@@ -132,6 +132,7 @@ export function pluginCode(definition: unknown): PluginCode {
 		identify: part('identify'),
 		caller: part('caller'),
 		changed: part('changed'),
+		lost: part('lost'),
 		missed: part('missed'),
 		functions: part('functions'),
 		models: Object.freeze([...models]),

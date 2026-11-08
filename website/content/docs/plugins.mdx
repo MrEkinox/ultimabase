@@ -43,7 +43,7 @@ Vitest.
 | say who sends a request              | [`identify`](#who-sends-a-request)                      |
 | make a model the user model          | [`userModel`](#the-user-model)                          |
 | serve functions                      | [`functions`](#functions)                               |
-| follow what commits change           | [`changed`, `missed`, `stop`](#follow-the-changes)      |
+| follow what commits change           | [`changed`, `lost`, `missed`](#follow-the-changes)      |
 | take options, refuse a wrong setup   | [`appOptions`, `start`](#application-options-and-start) |
 | wait for traffic, then leave it      | [`started`, `stopping`](#started-and-stopping)          |
 | write files for a client             | [`generate`](#generated-files)                          |
@@ -230,7 +230,9 @@ caller the kernel receives, each plugin's in the order of `plugins`:
 	../examples/plugins/src/plugins/publishing.ts#caller
 </include>
 
-Once Ada is an editor, she reads the draft:
+It runs again once a model the plugin owns or a model that uses it changes,
+as the `Editor` rows here. What it reads elsewhere is read again only when
+auth gives the caller up. Once Ada is an editor, she reads the draft:
 
 <include cwd meta='title="src/app.test.ts"'>
 	../examples/plugins/src/app.test.ts#editor
@@ -367,12 +369,14 @@ Without the header, the caller is anonymous and is refused with HTTP 403:
 ## Follow the changes
 
 `changed` receives what each commit changed, on this server or another one on
-the same database. Two more hooks keep what it learns right:
+the same database. More hooks keep what it learns right:
 
-- `missed` says changes may have been lost, after a lost connection.
+- `lost` says changes may stop coming, as when a connection is lost: until
+  `missed`, what `changed` follows may be stale.
+- `missed` says changes may have been lost, once they come again.
 - `stop` runs once the application stops.
 
-A cache uses all three. Each running application has its own:
+A cache uses them all. Each running application has its own:
 
 <include cwd meta='title="src/plugins/api-keys.ts"'>
 	../examples/plugins/src/plugins/api-keys.ts#cache
@@ -633,6 +637,7 @@ definition required, as `addedFields` or `api`.
 | `stop`         | `(context) => void`                           | Runs once when it stops: close, flush.                                                      |
 | `generate`     | `(context) => { path, content }[]`            | Files for `ultimabase generate` and `dev` to write, after every `api`.                      |
 | `changed`      | `(changes, context) => void`                  | What each commit changed, on any server.                                                    |
+| `lost`         | `(context) => void`                           | Changes may stop coming, until `missed`.                                                    |
 | `missed`       | `(context) => void`                           | Changes may have been lost.                                                                 |
 | `requires`     | `{ [name]: plugin function }`                 | The `plugin` functions of the plugins in `requires`.                                        |
 | `optional`     | `{ [name]: plugin function }`                 | The `plugin` functions of the plugins in `optional`.                                        |
@@ -647,8 +652,8 @@ A change is `{ kind, model, ids?, fields? }` for `insert`, `update` and
 
 ### The context
 
-What `start`, `stop`, `api`, `generate`, `identify`, `caller`, `changed` and
-`missed` receive; `functions` receives it without `functions`.
+What `start`, `stop`, `api`, `generate`, `identify`, `caller`, `changed`,
+`lost` and `missed` receive; `functions` receives it without `functions`.
 `PluginContext<T>` is its type, for a helper they share, as `cacheOf` in
 [Follow the changes](#follow-the-changes).
 
