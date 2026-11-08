@@ -5179,6 +5179,8 @@ mutation {
 
 ## D-110: A plugin's own models stay out of every other plugin
 
+Amended by D-333.
+
 Choice: `definePlugin({ models: [AuthSession] })` gives a plugin models of its
 own, each an ordinary `defineModel` value the plugin does not have to export.
 The application does not list them. The kernel resolves them with the
@@ -20292,6 +20294,104 @@ definePlugin({
 	missed: () => startAgain(),
 })
 ```
+
+## D-333: A plugin's model relates to the application's user
+
+Choice: amends D-110 (point 1).
+
+1. `ultimabase` exports `AppUser`, which stands for the application's user
+   model: the model that uses a plugin declared with `userModel: true`
+   (D-189). A plugin's own model relates to it with a `one` without
+   `inverse` (D-237), which stores its key, foreign key and `onDelete`:
+   `user: f.one(() => AppUser, { onDelete: 'cascade' })`.
+2. Startup resolves `AppUser` to the user model. With none, it stops:
+   `AuthSession.user: the auth plugin needs the application's user model, and none is declared.`
+3. Only a plugin's model takes `AppUser`. An application's model relates to
+   its own user model, and startup stops otherwise:
+   `Post.author: relate to User itself, not to AppUser.` `models` does not
+   list it:
+   `models lists AppUser, which stands for the user model; list the user model instead.`
+   A plugin's model still relates to no other model of the application:
+   `Post.author: a plugin's model relates only to models of the same plugin, and to AppUser.`
+4. The user model gains no field, and no transport shows the relation: the
+   plugin's model is hidden (D-110).
+5. Each model that kept an application user's id as a string now relates to
+   `AppUser` with `onDelete: 'cascade'`:
+   - auth's `AuthSession` and `AuthAccount`;
+   - password's `PasswordHash` and `PasswordToken`;
+   - the publishing example's `Editor`.
+
+   Their hand-written deletes after a user's go. auth keeps its hook only to
+   give up the user's kept callers at once in its process (D-332).
+
+6. A user moved to the trash (D-96) cascades nothing, as any soft delete.
+   Its rows stay but serve nothing: a session or a token whose user reads
+   null is refused, as one whose user is gone. `restore` brings them back
+   with the user.
+
+Why: D-110 kept the id as a scalar for two reasons. A relation needed its
+other side on the user model (D-37), and auth's code cannot name the user
+model before `defineUser`. D-237 removed the first reason. `AppUser`
+removes the second one. Every id that a plugin keeps of an application row
+is a user's id. With a relation:
+
+- the database holds a foreign key, so no session or password outlives its
+  user, raw SQL included;
+- the kernel's cascade (D-54) deletes, in the delete's transaction, what
+  each plugin deleted by hand.
+
+Rejected:
+
+- A user model passed to each plugin's options: the application would name
+  it once per plugin.
+- Models built by `defineUser`: auth queries its own models through values
+  it imports.
+- Any application model as a target: no plugin needs one yet.
+
+Example:
+
+```ts
+// Before, in @ultimabase/auth
+const AuthSession = defineModel({
+	name: 'AuthSession',
+	fields: (f) => ({
+		tokenHash: f.string({ unique: true }),
+		userId: f.string(),
+		expiresAt: f.dateTime(),
+	}),
+	indexes: [{ fields: ['userId'] }, { fields: ['expiresAt'] }],
+})
+definePlugin({
+	models: [AuthSession, AuthAccount],
+	hooks: {
+		afterDelete: async ({ record }) => {
+			await revokeSessions(record.id)
+			await unlinkAccounts(record.id)
+		},
+	},
+})
+
+// After
+import { AppUser, defineModel } from 'ultimabase'
+const AuthSession = defineModel({
+	name: 'AuthSession',
+	fields: (f) => ({
+		tokenHash: f.string({ unique: true }),
+		user: f.one(() => AppUser, { onDelete: 'cascade' }),
+		expiresAt: f.dateTime(),
+	}),
+	indexes: [{ fields: ['user'] }, { fields: ['expiresAt'] }],
+})
+definePlugin({
+	models: [AuthSession, AuthAccount],
+	hooks: {
+		// The database deletes the sessions; the kept callers go at once.
+		afterDelete: ({ record }) => droppedUser(record.id),
+	},
+})
+```
+
+The application's code does not change.
 
 ## D-334: An update's row lock lets new references in
 

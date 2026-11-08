@@ -9,7 +9,13 @@ import type {
 	Queries,
 	UseOf,
 } from 'ultimabase'
-import { defineModel, definePlugin, isMaster, master } from 'ultimabase'
+import {
+	AppUser,
+	defineModel,
+	definePlugin,
+	isMaster,
+	master,
+} from 'ultimabase'
 
 //#region command-types
 type Unique<F> = Parameters<Queries<F>['findUnique']>[0]['where']
@@ -48,10 +54,15 @@ declare module 'ultimabase' {
 	}
 }
 
-/** The users who read drafts and publish them: the plugin's own model. */
+/**
+ * The users who read drafts and publish them: the plugin's own model. Its
+ * `AppUser` is the application's user model, and a deleted user's row goes
+ * with it.
+ */
 export const Editor = defineModel({
 	name: 'Editor',
-	fields: (f) => ({ userId: f.string({ unique: true }) }),
+	fields: (f) => ({ user: f.one(() => AppUser, { onDelete: 'cascade' }) }),
+	indexes: [{ fields: ['user'], unique: true }],
 })
 
 const isEditor = (caller: Caller) =>
@@ -78,7 +89,10 @@ const definition = definePlugin<Publishing>({
 	//#region caller
 	caller: async ({ user }) => ({
 		editor:
-			(await Editor.count({ where: { userId: user.id } }, { as: master })) > 0,
+			(await Editor.count(
+				{ where: { user: { is: { id: user.id } } } },
+				{ as: master },
+			)) > 0,
 	}),
 	//#endregion
 	//#region hooks

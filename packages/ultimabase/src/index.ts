@@ -52,6 +52,7 @@ export type {
 	ModelIndexes,
 	ModelOf,
 } from './define-model.ts'
+export { AppUser } from './app-user.ts'
 export { defineModel } from './define-model.ts'
 export type {
 	Codes,

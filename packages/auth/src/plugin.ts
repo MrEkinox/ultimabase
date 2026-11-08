@@ -29,10 +29,9 @@ import {
 	linkAccount,
 	subjectOf,
 	unlinkAccount,
-	unlinkAccounts,
 } from './accounts.ts'
 import type { Cache, Read } from './cache.ts'
-import { cacheOf, live } from './cache.ts'
+import { cacheOf, droppedUser, live } from './cache.ts'
 import type { Users } from './functions.ts'
 import { authFunctions, callerTokens } from './functions.ts'
 import type { Durations, Opened } from './sessions.ts'
@@ -202,10 +201,10 @@ const auth = definePlugin<Auth>({
 	requires: { http: httpPlugin },
 	models: [AuthSession, AuthAccount],
 	hooks: {
-		// The user's sessions and accounts go with them (D-111, D-113).
-		afterDelete: async ({ record }) => {
-			await revokeSessions(record.id)
-			await unlinkAccounts(record.id)
+		// Its sessions and accounts cascade (D-333); this process's callers
+		// of the user go at once, the others' when the feed tells them.
+		afterDelete: ({ record }) => {
+			droppedUser(record.id)
 		},
 	},
 	commands: () => ({

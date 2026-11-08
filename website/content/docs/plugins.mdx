@@ -213,8 +213,12 @@ A caller who does not read the draft does not find it, and only an editor sets
 ## Its own models
 
 `models` lists models of the plugin's own, created with the application's.
-They take no entry and no transport lists them. Here, `models: [Editor]`, the
-users who are editors:
+They take no entry and no transport lists them.
+
+A plugin's model relates to models of the same plugin, and to the
+application's user model, which it names `AppUser`: startup resolves it to the
+model `defineUser` declares. Here, `models: [Editor]`, the users who are
+editors, each row going with its user:
 
 <include cwd meta='title="src/plugins/publishing.ts"'>
 	../examples/plugins/src/plugins/publishing.ts#caller-keys

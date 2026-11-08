@@ -93,7 +93,8 @@ export async function createUser(
 			{ data: { ...data, email, passwordSetAt: new Date() } },
 			M,
 		)
-		await PasswordHash.create({ data: { userId: user.id, hash, stamp } }, M)
+		const owner = { connect: { id: user.id } }
+		await PasswordHash.create({ data: { user: owner, hash, stamp } }, M)
 		return { user, stamp }
 	})
 }
@@ -126,7 +127,7 @@ async function matches(
 	const stored =
 		userId === undefined
 			? null
-			: await PasswordHash.findUnique({ where: { userId } }, M)
+			: await PasswordHash.findUnique({ where: { user: userId } }, M)
 	// An unknown user costs a hash too, so the time tells nothing (D-113).
 	const { valid, stale } = await verifyPassword(
 		password,
@@ -190,7 +191,7 @@ export async function setPassword(
 	userId: string,
 	password: string,
 ): Promise<string> {
-	const stored = await PasswordHash.findUnique({ where: { userId } }, M)
+	const stored = await PasswordHash.findUnique({ where: { user: userId } }, M)
 	const linked =
 		stored !== null ||
 		(await state.auth.subjectOf(userId, method)) !== undefined
@@ -205,11 +206,15 @@ export async function setPassword(
 	await transaction(async () => {
 		const data = { hash, stamp }
 		await (stored === null
-			? PasswordHash.create({ data: { userId, ...data } }, M)
-			: PasswordHash.update({ where: { userId }, data }, M))
+			? PasswordHash.create(
+					{ data: { user: { connect: { id: userId } }, ...data } },
+					M,
+				)
+			: PasswordHash.update({ where: { user: userId }, data }, M))
 		// A link asked for with the old password dies with it (D-212).
 		const kind = { in: ['reset', 'emailChange'] }
-		await PasswordToken.deleteMany({ where: { userId, kind } }, M)
+		const user = { is: { id: userId } }
+		await PasswordToken.deleteMany({ where: { user, kind } }, M)
 		await state.auth.revokeSessions(userId)
 		// Through the user's queries, so the application's hooks see it; password's
 		// own end the sessions again and tell the account once it commits (D-212).
@@ -245,7 +250,7 @@ export async function signedIn(
 	client: Client | undefined,
 ): Promise<SignedIn> {
 	const { token, expiresAt } = await state.auth.signIn(userId, client)
-	const stored = await PasswordHash.findUnique({ where: { userId } }, M)
+	const stored = await PasswordHash.findUnique({ where: { user: userId } }, M)
 	if (stored?.stamp !== stamp) {
 		await state.auth.revokeSessions(userId)
 		throw invalid()

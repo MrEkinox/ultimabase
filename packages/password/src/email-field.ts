@@ -78,7 +78,8 @@ export async function updated(
 	if (subject === record.email) return
 	if (subject !== undefined) await auth.unlinkAccount(record.id, method)
 	await auth.linkAccount(record.id, method, record.email)
-	const where = { userId: record.id, kind: { in: ['reset', 'verify'] } }
+	const user = { is: { id: record.id } }
+	const where = { user, kind: { in: ['reset', 'verify'] } }
 	await PasswordToken.deleteMany({ where }, M)
 }
 

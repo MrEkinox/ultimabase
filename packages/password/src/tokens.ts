@@ -1,8 +1,8 @@
 // password's emails (D-117): the tokens their links carry, used once, and
 // the emails each account receives within one hour.
 import { createHash, randomBytes } from 'node:crypto'
-import type { Field, ModelOf, ScalarOptions } from 'ultimabase'
-import { defineModel, master, PublicError } from 'ultimabase'
+import type { Field, ModelOf, One, ScalarOptions } from 'ultimabase'
+import { AppUser, defineModel, master, PublicError } from 'ultimabase'
 import { hour, hourly } from './models.ts'
 
 const M = { as: master }
@@ -47,7 +47,7 @@ const lifetimes: Readonly<Record<EmailKind, number>> = {
 }
 
 type TokenFields = {
-	readonly userId: Field<string, ScalarOptions<string>>
+	readonly user: One<() => typeof AppUser, { readonly onDelete: 'cascade' }>
 	readonly kind: Field<string, ScalarOptions<string>>
 	/** The token's SHA-256: a leaked database gives no working link. */
 	readonly hash: Field<string, { readonly unique: true }>
@@ -56,11 +56,12 @@ type TokenFields = {
 	readonly email: Field<string | null, { readonly optional: true }>
 }
 
+/** An email's token, which goes with its user (D-333). */
 export const PasswordToken: ModelOf<'PasswordToken', TokenFields, []> =
 	defineModel({
 		name: 'PasswordToken',
 		fields: (f) => ({
-			userId: f.string(),
+			user: f.one(() => AppUser, { onDelete: 'cascade' }),
 			kind: f.string(),
 			hash: f.string({ unique: true }),
 			expiresAt: f.dateTime(),
@@ -68,7 +69,7 @@ export const PasswordToken: ModelOf<'PasswordToken', TokenFields, []> =
 		}),
 		// One pending token of each kind per user: requests at once cannot keep two.
 		indexes: [
-			{ fields: ['userId', 'kind'], unique: true },
+			{ fields: ['user', 'kind'], unique: true },
 			{ fields: ['expiresAt'] },
 		],
 	})
@@ -89,11 +90,15 @@ export async function issueToken(
 	)
 	const expiresAt = new Date(now + lifetimes[kind])
 	for (;;) {
-		await PasswordToken.deleteMany({ where: { userId, kind } }, M)
+		await PasswordToken.deleteMany(
+			{ where: { user: { is: { id: userId } }, kind } },
+			M,
+		)
 		const token = randomBytes(32).toString('base64url')
+		const user = { connect: { id: userId } }
 		try {
 			await PasswordToken.create(
-				{ data: { userId, kind, hash: hashOf(token), expiresAt, email } },
+				{ data: { user, kind, hash: hashOf(token), expiresAt, email } },
 				M,
 			)
 			return token
@@ -122,15 +127,20 @@ export async function redeemToken(
 	accept?: (userId: string) => Promise<void>,
 ): Promise<{ readonly userId: string; readonly email: string | null }> {
 	const hash = hashOf(token)
-	const stored = await PasswordToken.findUnique({ where: { hash } }, M)
-	if (stored?.kind !== kind) throw invalidLink()
-	if (stored.expiresAt.getTime() > Date.now()) await accept?.(stored.userId)
+	const stored = await PasswordToken.findUnique(
+		{ where: { hash }, include: { user: { select: { id: true } } } },
+		M,
+	)
+	// A user in the trash has its links back once restored (D-333).
+	if (stored?.kind !== kind || stored.user === null) throw invalidLink()
+	const userId = stored.user.id
+	if (stored.expiresAt.getTime() > Date.now()) await accept?.(userId)
 	// One delete wins, so a token used twice at once works once.
 	const { count } = await PasswordToken.deleteMany({ where: { hash } }, M)
 	if (count === 0 || stored.expiresAt.getTime() <= Date.now()) {
 		throw invalidLink()
 	}
-	return { userId: stored.userId, email: stored.email }
+	return { userId, email: stored.email }
 }
 
 /**

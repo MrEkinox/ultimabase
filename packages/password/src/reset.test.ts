@@ -85,9 +85,12 @@ describe('requesting a reset', () => {
 			userId: user.id,
 		})
 		expect(tokenAt(0)).toMatch(/^[\w-]{43}$/)
-		const [stored] = await PasswordToken.findMany({}, M)
+		const [stored] = await PasswordToken.findMany(
+			{ include: { user: { select: { id: true } } } },
+			M,
+		)
 		const hash = createHash('sha256').update(tokenAt(0)).digest('base64url')
-		expect(stored).toMatchObject({ userId: user.id, kind: 'reset', hash })
+		expect(stored).toMatchObject({ user: { id: user.id }, kind: 'reset', hash })
 	})
 
 	it('answers an unknown email alike, and sends it nothing', async () => {
