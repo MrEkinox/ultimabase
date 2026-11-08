@@ -4,6 +4,7 @@
 import { createHash, randomBytes } from 'node:crypto'
 import type { Field, ModelOf, ScalarOptions } from 'ultimabase'
 import { defineModel, master, PublicError, Refused } from 'ultimabase'
+import { droppedToken, droppedUser } from './cache.ts'
 
 const M = { as: master }
 const day = 24 * 60 * 60 * 1000
@@ -78,6 +79,15 @@ export async function openSession(
 	return { token, expiresAt }
 }
 
+/** A session as a request finds it. */
+export interface Found {
+	readonly id: string
+	readonly userId: string
+	readonly expiresAt: Date
+	/** When it is next renewed, or else ends (D-332). */
+	readonly renewAt: number
+}
+
 /**
  * The session `token` opened, renewed when it has less than half its lifetime
  * left, up to the longest after its sign-in; `undefined` for an unknown one,
@@ -86,7 +96,7 @@ export async function openSession(
 export async function sessionOf(
 	token: string,
 	{ lifetime, longest }: Durations,
-): Promise<{ readonly userId: string; readonly expiresAt: Date } | undefined> {
+): Promise<Found | undefined> {
 	const tokenHash = digest(token)
 	const session = await AuthSession.findUnique({ where: { tokenHash } }, M)
 	if (session === null) return undefined
@@ -96,7 +106,18 @@ export async function sessionOf(
 		await AuthSession.deleteMany({ where: { tokenHash } }, M)
 		return undefined
 	}
-	const end = Math.min(now + lifetime, session.createdAt.getTime() + longest)
+	const last = session.createdAt.getTime() + longest
+	const found = (expiresAt: Date): Found => ({
+		id: session.id,
+		userId: session.userId,
+		expiresAt,
+		// Renewed with less than half its lifetime left, unless at its longest.
+		renewAt:
+			last > expiresAt.getTime()
+				? expiresAt.getTime() - lifetime / 2
+				: expiresAt.getTime(),
+	})
+	const end = Math.min(now + lifetime, last)
 	if (left < lifetime / 2 && end > session.expiresAt.getTime()) {
 		try {
 			await AuthSession.update(
@@ -110,17 +131,20 @@ export async function sessionOf(
 			}
 			throw error
 		}
-		return { userId: session.userId, expiresAt: new Date(end) }
+		return found(new Date(end))
 	}
-	return session
+	return found(session.expiresAt)
 }
 
 /** Ends the session `token` opened, if any. */
 export async function closeSession(token: string): Promise<void> {
 	await AuthSession.deleteMany({ where: { tokenHash: digest(token) } }, M)
+	// This process sees it at once; the others, when the feed tells them.
+	droppedToken(token)
 }
 
 /** Ends every session of a user. */
 export async function revokeSessions(userId: string): Promise<void> {
 	await AuthSession.deleteMany({ where: { userId } }, M)
+	droppedUser(userId)
 }

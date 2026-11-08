@@ -332,14 +332,15 @@ In development the start stops with:
 
 With realtime on, `start` receives a `Feed`. Once a write commits, the adapter
 calls `changed` with what it changed, on every server: PostgreSQL sends it
-through its notifications. It calls `missed` when changes may have been lost,
-as when its listener reconnects.
+through its notifications. It calls `lost` when changes may stop coming, as
+when its listener loses its connection, and `missed` when changes may have
+been lost, as once it listens again.
 
 - A rollback, a failed write and an update that changes nothing send nothing.
 - How changes group into entries and calls is the adapter's.
 
 The feed is the third argument of `start`:
-`start({ models }, logger, { changed, missed })`. Here `adapter` is a `memory()`
+`start({ models }, logger, { changed, lost, missed })`. Here `adapter` is a `memory()`
 started with a `changed` that pushes to `fed`, and `author` stands for a row
 with the id `a1` and its dates. An insert is fed once it commits:
 
@@ -469,7 +470,7 @@ In a change, a stored `one` key is the target's id or `null`.
 
 | Name         | Value or shape                                                                                       |
 | ------------ | ---------------------------------------------------------------------------------------------------- |
-| `Feed`       | `changed(changes)`, `missed()`                                                                       |
+| `Feed`       | `changed(changes)`, `lost()`, `missed()`                                                             |
 | `Changed`    | `insert`, `update`, `delete` `{ model, ids?, fields? }`; `link`, `unlink` `{ model, field, pairs? }` |
 | `feedIds`    | `1000`: the most ids or pairs a change lists.                                                        |
 | `feedFields` | `1500`: the longest list of fields, as JSON, an update lists.                                        |

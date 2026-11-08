@@ -195,7 +195,11 @@ it('receives the models, the reads and the writes, prepared', async () => {
 /** memory(), started on `schema` as the kernel starts it. */
 async function started(feed?: Pick<Feed, 'changed'>) {
 	const adapter = memory()
-	await adapter.start(schema, logger, feed && { ...feed, missed: () => {} })
+	await adapter.start(
+		schema,
+		logger,
+		feed && { ...feed, lost: () => {}, missed: () => {} },
+	)
 	return adapter
 }
 
@@ -418,6 +422,7 @@ it('leaves out the fields past their limit', async () => {
 	const watched = memory()
 	await watched.start({ models: [wide] }, logger, {
 		changed: (changes) => feed.push(changes),
+		lost: () => {},
 		missed: () => {},
 	})
 	await watched.write({

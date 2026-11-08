@@ -15,6 +15,7 @@ export function kept(): Adapter {
 			once = true
 			await base.start(schema, given, {
 				changed: (changes) => feed?.changed(changes),
+				lost: () => feed?.lost(),
 				missed: () => feed?.missed(),
 			})
 		},

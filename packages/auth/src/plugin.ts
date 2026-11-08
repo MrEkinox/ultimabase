@@ -31,6 +31,8 @@ import {
 	unlinkAccount,
 	unlinkAccounts,
 } from './accounts.ts'
+import type { Cache, Read } from './cache.ts'
+import { cacheOf, live } from './cache.ts'
 import type { Users } from './functions.ts'
 import { authFunctions, callerTokens } from './functions.ts'
 import type { Durations, Opened } from './sessions.ts'
@@ -101,6 +103,8 @@ interface State {
 	readonly cookie: Cookie
 	readonly users: Users
 	readonly durations: Durations
+	/** The callers by token, while nothing changes them (D-332). */
+	readonly cache: Cache
 }
 const states = new WeakMap<object, State>()
 /** The contexts whose insecure cookie was warned about (D-115). */
@@ -131,12 +135,15 @@ function selfOrMaster(
 
 /** The one user model among the application's models (D-62). */
 function usersOf(
-	models: readonly { readonly queries: Users['queries'] }[],
-): Users {
+	models: readonly {
+		readonly schema: { readonly name: string }
+		readonly queries: Users['queries']
+	}[],
+): Users & { readonly name: string } {
 	// The kernel refuses two user models (D-189).
-	const [first] = models.flatMap(({ queries }) => {
+	const [first] = models.flatMap(({ schema, queries }) => {
 		const output = userModels.get(queries)
-		return output === undefined ? [] : [{ queries, output }]
+		return output === undefined ? [] : [{ name: schema.name, queries, output }]
 	})
 	if (first === undefined) {
 		throw new Refused(
@@ -146,12 +153,11 @@ function usersOf(
 	return first
 }
 
-/** A session token's caller, until it ends; `undefined` for an unknown one. */
-async function callerOf(
+/** A session token's caller, read; `undefined` for an unknown one. */
+async function readCaller(
 	token: string,
 	{ users, durations }: State,
-	expires: (at: Date) => void,
-): Promise<Identity | undefined> {
+): Promise<Read | undefined> {
 	const session = await sessionOf(token, durations)
 	if (session === undefined) return undefined
 	// A transport's queries are untyped; this is the user model's row.
@@ -159,13 +165,33 @@ async function callerOf(
 		{ where: { id: session.userId } },
 		M,
 	)
-	if (user === null) return undefined
-	expires(session.expiresAt)
+	if (user === null || typeof user !== 'object') return undefined
+	// Every request the cache gives it to reads the same row (D-332).
+	Object.freeze(user)
 	// oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the user model is the one the application registers (D-62, D-80).
 	const caller: Identity = { kind: 'user', user: user as UserOf<Register> }
 	// The completed caller keeps this row (D-121).
 	callerTokens.set(caller.user, token)
-	return caller
+	const { id, userId, expiresAt, renewAt } = session
+	return { caller, sessionId: id, userId, expiresAt, renewAt }
+}
+
+/**
+ * A session token's caller, until it ends; `undefined` for an unknown one.
+ * The same caller serves again while its session and user are unchanged
+ * and no renewal is due (D-332).
+ */
+async function callerOf(
+	token: string,
+	state: State,
+	expires: (at: Date) => void,
+): Promise<Identity | undefined> {
+	const found =
+		state.cache.hit(token) ??
+		(await state.cache.through(token, async () => readCaller(token, state)))
+	if (found === undefined) return undefined
+	expires(found.expiresAt)
+	return found.caller
 }
 
 const auth = definePlugin<Auth>({
@@ -195,7 +221,8 @@ const auth = definePlugin<Auth>({
 		const cookie = cookieOf()
 		const durations = durationsOf(context.options.sessions)
 		const users = usersOf(context.models)
-		states.set(context, { cookie, users, durations })
+		const cache = cacheOf(users.name)
+		states.set(context, { cookie, users, durations, cache })
 		// The cookie goes when its session can live no longer.
 		const maxAge = Math.min(Math.ceil(durations.longest / 1000), cookieAge)
 		return {
@@ -218,12 +245,21 @@ const auth = definePlugin<Auth>({
 		}
 	},
 	// A sign-in method requires auth: without one, nobody signs in (D-164).
-	start: ({ dependents, logger }) => {
+	start: (context) => {
+		live.add(stateOf(context).cache)
+		const { dependents, logger } = context
 		if (dependents.length > 0) return
 		logger.warn(
 			'authPlugin() has no sign-in method: add one, as passwordPlugin().',
 		)
 	},
+	stop: (context) => {
+		live.delete(stateOf(context).cache)
+	},
+	// What a commit changed, on this server or another, as the feed tells it.
+	changed: (changes, context) => states.get(context)?.cache.changed(changes),
+	lost: (context) => states.get(context)?.cache.lost(),
+	missed: (context) => states.get(context)?.cache.missed(),
 	identify: async (request, context) => {
 		const state = stateOf(context)
 		const { cookie } = state

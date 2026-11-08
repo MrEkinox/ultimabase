@@ -6041,7 +6041,7 @@ await Post.findMany({ where: { tags: { hasSome: ['ts', 'node'] } } })
 
 ## D-121: Plugins complete a user caller
 
-Amended by D-126.
+Amended by D-126 and D-332.
 
 Choice: completes D-15 and D-19, which promise plugin keys on the caller.
 
@@ -9416,7 +9416,7 @@ api: ({ plugins }) => plugins.http.mount(uploads, { bodyLimit: false })
 
 Amended by D-163, D-166, D-178, D-186, D-187, D-195, D-196, D-223, D-226,
 D-229, D-230, D-252, D-254, D-266, D-271, D-272, D-273, D-310,
-D-311, D-312, D-315 and D-317.
+D-311, D-312, D-315, D-317 and D-332.
 
 Choice: completes D-25; amends D-106 (WebSocket upgrades), D-107 (the
 `Subscription` type), D-109 (live functions) and D-129 (live reads over
@@ -20184,4 +20184,111 @@ const database = postgres({
 })
 await database.sql`select pg_sleep(3600)`
 // error: canceling statement due to statement timeout, after 10 s
+```
+
+## D-332: A signed-in caller is kept until something changes it
+
+Choice: amends D-121 (point 4) and D-154 (the feed's signals).
+
+1. `authPlugin()` keeps, in each process, the caller of each session token
+   it identified: the same object, its user row frozen. A request with that
+   token reads neither its session nor its user, and the kernel, receiving
+   the same object, runs no plugin's `caller` again. A kept caller is read
+   again once its session expires or is due for renewal (D-115). At most
+   10 000 tokens are kept, the oldest given up first.
+2. auth takes the change feed (D-154): a session updated or deleted, and a
+   user updated or deleted, are no longer kept, on every server. A change
+   that lists no ids gives up every kept caller of its model. `closeSession`
+   and `revokeSessions` give up theirs at once in the process that ran them.
+3. The kernel forgets every completed caller when a model that a plugin
+   with `caller` owns or is used by changes: a row of it, or a link from or
+   to it. The role model uses `@ultimabase/roles`, so a role given, taken
+   away or renamed counts from the next request, as before.
+4. The feed gains a third signal, `lost`: an adapter calls it when its
+   changes may stop coming, as postgres does when its listener's connection
+   is lost, before `missed` once it listens again. A plugin takes it with a
+   `lost(context)` part, as it takes `missed`. From `lost` to `missed`, auth
+   keeps no caller and the kernel completes each one again.
+5. A slow read during which a change gave callers up keeps nothing: it may
+   have read what the change replaced.
+
+Why: a signed-in request read its session, its user and its roles before
+any work, three to seven queries, and served half the requests a visitor's
+did. A prototype that kept the caller with no invalidation doubled the
+signed-in requests a second (1619 to 3183 REST reads by id); the feed
+already tells every server what each commit changed, so revocation keeps
+the delay of a notification, a few milliseconds.
+
+Measured with `node bench/http/bench.ts --seconds 6 --cases 'signed in'`
+on PostgreSQL 18, requests a second, before and after, the writes paying
+their notification:
+
+| Case                 | REST before | REST after | GraphQL before | GraphQL after |
+| -------------------- | ----------: | ---------: | -------------: | ------------: |
+| read by id           |        1565 |       3203 |           1453 |          2802 |
+| a list of 25, nested |        1026 |       1548 |            706 |           714 |
+| create               |        1408 |       2396 |           1336 |          2220 |
+| update               |         979 |       1410 |            949 |          1353 |
+
+The GraphQL list spends its time on the list itself, not on the caller.
+
+Cost and limits:
+
+- Every application with auth takes the feed: with postgres, one more
+  connection per process, the listener's, and each write notifies.
+- A write that bypasses the kernel, raw SQL included, is not in the feed:
+  a session deleted that way is still honoured until it expires, its
+  renewal or a restart.
+- A listener that goes silent without losing its connection is noticed
+  after `pulse.silence` (D-287); until then its changes wait.
+- A plugin whose `caller` reads models it neither owns nor is used by sees
+  their changes when its user's kept caller is given up.
+- A request already running keeps the caller it had, as before.
+
+Rejected:
+
+- A time to live: either it is short and the cache barely serves, or a
+  revocation waits for it.
+- An option to turn the cache off: what it would fix, a raw SQL write, is
+  outside the kernel's contract. It is added when an application needs it.
+- Keeping every token: memory would grow with every session ever used in
+  a process.
+- Forgetting completed callers on every change: a write-heavy application
+  would read the roles at almost every request.
+
+Example, before and after, the same code:
+
+```ts
+// Each request with the token read the session, the user and the roles;
+// now only the first, and the first after something changed them.
+await fetch(`${url}/api/posts/${id}`, {
+	headers: { authorization: `Bearer ${token}` },
+})
+
+await User.revokeSessions({ id: user.id }, { as: master })
+await fetch(`${url}/api/posts/${id}`, {
+	headers: { authorization: `Bearer ${token}` },
+})
+// 401 UNAUTHENTICATED, on this server and every other one
+
+await Role.update(
+	{
+		where: { name: 'Admin' },
+		data: { members: { connect: [{ id: user.id }] } },
+	},
+	{ as: master },
+)
+// the next request's caller has the Admin role
+```
+
+A plugin that keeps its own state about callers takes the new signal:
+
+```ts
+definePlugin({
+	name: 'presence',
+	manifest,
+	changed: (changes, context) => forgetChanged(changes),
+	lost: () => stopTrusting(),
+	missed: () => startAgain(),
+})
 ```

@@ -3,7 +3,7 @@
 import type { Adapter, Schema } from './adapter.ts'
 import type { Logger, MasterKey } from './app-options.ts'
 import type { PluginCaller } from './complete.ts'
-import { completer } from './complete.ts'
+import { completer, concerning } from './complete.ts'
 import { consoleLogger } from './console-logger.ts'
 import { feedOf } from './feed.ts'
 import type { Generated } from './generate.ts'
@@ -126,7 +126,13 @@ function prepared(options: LifecycleOptions) {
 	// Plugins identify with their contexts, which hold identify.
 	const identifiers: PluginIdentify[] = []
 	const callers: PluginCaller[] = []
-	const complete = completer(callers)
+	const { complete, feed } = completer(
+		callers,
+		concerning(
+			resolved,
+			records.map(({ code }) => code),
+		),
+	)
 	const identify = identifier(options.masterKey, logger, identifiers, complete)
 	const { plugins, functions } = withContexts(
 		apiOrder,
@@ -141,7 +147,7 @@ function prepared(options: LifecycleOptions) {
 	const app: Running = {
 		resolved,
 		adapter: options.database,
-		feed: feedOf(records, plugins),
+		feed: feedOf(records, plugins, feed),
 		logger,
 		apis,
 		functions: functions.definitions,

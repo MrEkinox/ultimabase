@@ -82,6 +82,7 @@ function kept(): Adapter & { readonly missed: () => void } {
 			once = true
 			await base.start(schema, given, {
 				changed: (changes) => feed?.changed(changes),
+				lost: () => feed?.lost(),
 				missed: () => feed?.missed(),
 			})
 		},
@@ -420,6 +421,7 @@ function lagging(): Adapter & { readonly lagNext: () => void } {
 					lag = false
 					feed?.changed(changes)
 				},
+				lost: () => feed?.lost(),
 				missed: () => feed?.missed(),
 			}),
 		find: async (read) => {

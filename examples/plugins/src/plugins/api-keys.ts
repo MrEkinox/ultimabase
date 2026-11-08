@@ -60,6 +60,8 @@ const cacheOf = (context: PluginContext<ApiKeys>) => {
 	caches.set(context, cache)
 	return cache
 }
+// The applications whose changes may not come: they keep no key.
+const blind = new WeakSet<object>()
 //#endregion
 
 //#region definition
@@ -89,7 +91,7 @@ const definition = definePlugin<ApiKeys>({
 		if (owner === undefined) {
 			const found = await ApiKey.findUnique({ where: { hash } }, { as: master })
 			owner = found?.owner ?? null
-			cache.set(hash, owner)
+			if (!blind.has(context)) cache.set(hash, owner)
 		}
 		if (owner === null) {
 			throw new PublicError('UNAUTHENTICATED', 'This API key is unknown.')
@@ -104,8 +106,14 @@ const definition = definePlugin<ApiKeys>({
 			cacheOf(context).clear()
 		}
 	},
+	// Changes may stop coming: keep nothing until they come again.
+	lost: (context) => {
+		blind.add(context)
+		cacheOf(context).clear()
+	},
 	// Changes may have been lost: what the cache holds is unknown.
 	missed: (context) => {
+		blind.delete(context)
 		cacheOf(context).clear()
 	},
 	stop: (context) => {

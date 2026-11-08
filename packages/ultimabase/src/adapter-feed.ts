@@ -41,6 +41,8 @@ export const feedFields = 1500
 /** Where an adapter sends the changes each commit makes, on any server. */
 export type Feed = {
 	readonly changed: (changes: readonly Changed[]) => void
+	/** Changes may stop coming, as when a listener loses its connection (D-332). */
+	readonly lost: () => void
 	/** Changes may have been lost, as when a listener reconnects. */
 	readonly missed: () => void
 }

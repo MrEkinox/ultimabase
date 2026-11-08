@@ -245,7 +245,8 @@ export type PluginDefinition<T extends PluginTypes> = {
 	) => Promise<Identity | undefined>
 	/**
 	 * The plugin's keys of a user caller, given once per caller the kernel
-	 * receives, each plugin's in the order of `plugins` (D-121).
+	 * receives, each plugin's in the order of `plugins` (D-121), and again
+	 * once a model the plugin owns or is used by changes (D-332).
 	 */
 	readonly caller?: (
 		identity: { readonly kind: 'user'; readonly user: UserOf<Register> },
@@ -259,6 +260,11 @@ export type PluginDefinition<T extends PluginTypes> = {
 		changes: readonly Changed[],
 		context: PluginContext<T>,
 	) => void
+	/**
+	 * Changes may stop coming, until `missed`: what the plugin keeps from
+	 * them can no longer be trusted (D-332).
+	 */
+	readonly lost?: (context: PluginContext<T>) => void
 	/** Changes may have been lost: what `changed` follows is unknown. */
 	readonly missed?: (context: PluginContext<T>) => void
 	/** Its own models, which no plugin is given (D-110). */

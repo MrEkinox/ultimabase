@@ -405,6 +405,7 @@ describe('the feed', () => {
 		const watched = memory()
 		await watched.start(schema, logger, {
 			changed: (changes) => fed.push(changes),
+			lost: () => undefined,
 			missed: () => undefined,
 		})
 		const author = insert('Author', { id: 'a1', name: 'Ada' })

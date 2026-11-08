@@ -141,7 +141,11 @@ describe('a start postgres() refuses', () => {
 		const refused = createAdapter({ url: server, searchLanguage: 'nope' })
 		const scratch = scratchOf(refused)?.()
 		try {
-			const feed = { changed: () => undefined, missed: () => undefined }
+			const feed = {
+				changed: () => undefined,
+				lost: () => undefined,
+				missed: () => undefined,
+			}
 			await expect(refused.start({ models: [] }, quiet, feed)).rejects.toThrow(
 				"postgres() searches in 'nope'",
 			)

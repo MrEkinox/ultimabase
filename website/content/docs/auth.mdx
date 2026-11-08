@@ -351,6 +351,12 @@ password does, starts, but nobody signs in: auth logs the warning
 ### Limits
 
 - A request carries one session: a Bearer header wins over the cookie.
+- Each process keeps the caller of up to 10 000 tokens, so a request with a
+  known token reads neither its session nor its user. A revocation, a
+  sign-out, a user updated or deleted and a role changed count from the next
+  request, on another server once the change feed tells it. A write that
+  bypasses the application, as raw SQL, is not seen: the caller is kept until
+  its session is due for renewal.
 - `Authorization: Bearer` belongs to sessions on every route, the
   application's own [HTTP routes](/docs/next/http#the-caller) included: a
   route that checks a token of its own reads another header.

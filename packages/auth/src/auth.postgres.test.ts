@@ -1,5 +1,6 @@
 // Sessions on PostgreSQL (D-110, D-112): auth's own table, its dates compared
-// by the database, and the sessions a deleted user leaves.
+// by the database, the sessions a deleted user leaves, and the kept callers
+// another server's writes reach through the feed (D-332).
 import { expect, it, vi } from 'vitest'
 import { AuthSession } from './sessions.ts'
 import { bearer, callerOf, day, M, signIn, started, User } from './test/app.ts'
@@ -32,6 +33,31 @@ for (const url of urls) {
 			expect((await callerOf(running.url, bearer(next.token))).status).toBe(401)
 		} finally {
 			vi.restoreAllMocks()
+			await running.app.stop()
+		}
+	})
+
+	it(`gives up a kept caller another server changed on ${new URL(url).host}`, async () => {
+		const running = await started(database(url))
+		try {
+			const { ada } = running
+			const { token } = await signIn(running.url, ada.id)
+			expect((await callerOf(running.url, bearer(token))).status).toBe(200)
+			// Written as another server writes: only the feed tells this one.
+			await User.update(
+				{ where: { id: ada.id }, data: { email: 'ada@lovelace.dev' } },
+				M,
+			)
+			await vi.waitFor(async () =>
+				expect((await callerOf(running.url, bearer(token))).body).toMatchObject(
+					{ user: { email: 'ada@lovelace.dev' } },
+				),
+			)
+			await AuthSession.deleteMany({ where: { userId: ada.id } }, M)
+			await vi.waitFor(async () =>
+				expect((await callerOf(running.url, bearer(token))).status).toBe(401),
+			)
+		} finally {
 			await running.app.stop()
 		}
 	})

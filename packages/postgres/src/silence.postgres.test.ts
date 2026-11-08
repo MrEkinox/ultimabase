@@ -68,6 +68,7 @@ const Card = defineModel({
 
 let seen: string[] = []
 let missed = 0
+let lost = 0
 const watcher = definePlugin({
 	name: 'watcher',
 	manifest: {
@@ -79,6 +80,9 @@ const watcher = definePlugin({
 		for (const change of changes) {
 			if ('ids' in change) seen.push(...(change.ids ?? []))
 		}
+	},
+	lost: () => {
+		lost += 1
 	},
 	missed: () => {
 		missed += 1
@@ -112,13 +116,14 @@ describe('a database that goes silent', () => {
 	beforeEach(() => {
 		seen = []
 		missed = 0
+		lost = 0
 	})
 
 	it('leaves a slow statement alone while the database answers', async () => {
 		// A slow statement is not a silent database: the answer to the question
 		// comes on the listener's own connection.
 		await database.sql`select pg_sleep(1.5)`
-		expect(missed).toBe(0)
+		expect([lost, missed]).toEqual([0, 0])
 		expect(warned).toEqual([])
 	})
 
@@ -132,7 +137,10 @@ describe('a database that goes silent', () => {
 		// The silence and a pulse, no more: an unreferenced immediate waited
 		// for the next event, 3.5s here.
 		expect(Date.now() - started).toBeLessThan(2000)
-		await vi.waitFor(() => expect(missed).toBe(1), { timeout: 5000 })
+		// Told lost, then missed once back: a cache keeps nothing meanwhile (D-332).
+		await vi.waitFor(() => expect([lost, missed]).toEqual([1, 1]), {
+			timeout: 5000,
+		})
 		const { id } = await Card.create({ data: { title: 'back' } }, M)
 		await vi.waitFor(() => expect(seen).toContain(id))
 		expect(warned).toContain(

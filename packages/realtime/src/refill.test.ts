@@ -77,6 +77,7 @@ function delayed(): {
 						if (held === undefined) given.changed(changes)
 						else held.push(changes)
 					},
+					lost: () => given.lost(),
 					missed: () => given.missed(),
 				}
 				return database.start(schema, log, holding)
