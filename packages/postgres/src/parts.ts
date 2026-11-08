@@ -2,7 +2,7 @@
 import type { Row } from 'ultimabase'
 import type { Sql } from './filter.ts'
 import { value } from './filter.ts'
-import type { Catalog, Kind } from './names.ts'
+import type { Catalog, Kind, Table } from './names.ts'
 import type { Noted } from './notify.ts'
 import { rows as noted } from './notify.ts'
 import { sizeOf, sql } from './text.ts'
@@ -21,6 +21,13 @@ export type Part = {
 	readonly pairs?: ReadonlySet<string>
 	/** The one row it writes, by id, when its RETURNING holds only that row. */
 	readonly row?: string
+	/**
+	 * The rows it writes, by id, when it writes no others and sets no key a
+	 * row of its table could take in its stead: an insert's, or an update by
+	 * id of no key column. Such parts of a table share a statement when their
+	 * rows differ, as their order cannot change what they do.
+	 */
+	readonly rows?: ReadonlySet<string>
 	/** What the feed says of its rows (D-154). */
 	readonly noted: Noted
 }
@@ -77,6 +84,7 @@ export function inserted(
 		table: table.name,
 		key: ['id'],
 		...(rows.length === 1 && only !== undefined ? { row: only.id } : {}),
+		rows: new Set(rows.map((row) => row.id)),
 		build: (gate) =>
 			gate === undefined
 				? sql`insert into ${name} (${columns}) values ${tuples(false)} returning *`
@@ -89,8 +97,45 @@ export function inserted(
 	}
 }
 
+const keys = new WeakMap<Table, ReadonlySet<string>>()
+
+/**
+ * The fields of a table whose value one row could take in another's stead,
+ * so that the order of two updates matters: those of a unique key or of a
+ * partial key's predicate, and the relation keys.
+ */
+function keyed(table: Table): ReadonlySet<string> {
+	const known = keys.get(table)
+	if (known !== undefined) return known
+	const made = new Set(table.uniques.flatMap(({ fields }) => fields))
+	for (const { where } of table.model.indexes) {
+		for (const field of Object.keys(where ?? {})) made.add(field)
+	}
+	for (const field of table.model.fields) {
+		if (field.kind === 'one') made.add(field.name)
+	}
+	keys.set(table, made)
+	return made
+}
+
+/** The row an update by `id` writes, unless it sets one of `fields`' keys. */
+export function freeRow(
+	table: Table,
+	id: string | undefined,
+	fields: readonly string[],
+): ReadonlySet<string> | undefined {
+	if (id === undefined) return undefined
+	const taken = keyed(table)
+	return fields.some((field) => taken.has(field)) ? undefined : new Set([id])
+}
+
 /** What the current statement writes to a table. */
-type Written = { readonly inserts: boolean; readonly pairs: Set<string> }
+type Written = {
+	readonly inserts: boolean
+	readonly pairs: Set<string>
+	/** The rows its parts write, when each part knows them (`Part.rows`). */
+	rows: Set<string> | undefined
+}
 
 /** Whether `each` may join a statement that already wrote `prior`. */
 function fits(prior: Written | undefined, each: Part): boolean {
@@ -99,7 +144,13 @@ function fits(prior: Written | undefined, each: Part): boolean {
 	if (each.pairs !== undefined) {
 		return [...each.pairs].every((pair) => !prior.pairs.has(pair))
 	}
-	return prior.inserts && each.inserts
+	if (prior.inserts && each.inserts) return true
+	const { rows } = prior
+	return (
+		rows !== undefined &&
+		each.rows !== undefined &&
+		[...each.rows].every((id) => !rows.has(id))
+	)
 }
 
 /**
@@ -116,9 +167,12 @@ export function grouped(parts: readonly Part[], room: () => number): Part[][] {
 	let used = 0
 	for (const each of parts) {
 		const size = sizeOf(each.build(undefined))
+		const prior = written.get(each.table)
+		// A part that knows its rows reads its table only there.
+		const own = each.rows === undefined ? undefined : each.table
 		const clash =
-			!fits(written.get(each.table), each) ||
-			[...each.reads].some((table) => written.has(table)) ||
+			!fits(prior, each) ||
+			[...each.reads].some((table) => table !== own && written.has(table)) ||
 			(used > 0 && used + size > room())
 		if (clash) {
 			groups.push([])
@@ -127,10 +181,16 @@ export function grouped(parts: readonly Part[], room: () => number): Part[][] {
 		}
 		used += size
 		groups.at(-1)?.push(each)
-		const prior = written.get(each.table)
+		const kept = clash ? undefined : prior
+		let rows: Set<string> | undefined
+		if (each.rows !== undefined) {
+			rows = kept === undefined ? new Set() : kept.rows
+			for (const id of each.rows) rows?.add(id)
+		}
 		written.set(each.table, {
-			inserts: (prior?.inserts ?? true) && each.inserts,
-			pairs: new Set([...(prior?.pairs ?? []), ...(each.pairs ?? [])]),
+			inserts: (kept?.inserts ?? true) && each.inserts,
+			pairs: new Set([...(kept?.pairs ?? []), ...(each.pairs ?? [])]),
+			rows,
 		})
 	}
 	return groups
