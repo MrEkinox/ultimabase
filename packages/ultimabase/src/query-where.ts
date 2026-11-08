@@ -13,8 +13,10 @@ import { searchedFields } from './query-search.ts'
 import {
 	clean,
 	cleanText,
+	deepJson,
 	entries,
 	isObject,
+	jsonFit,
 	misfit,
 	storedDate,
 	unknownKey,
@@ -133,6 +135,7 @@ function scalarCondition(
 	const field = model.fields.get(name)
 	const fit = (item: unknown, at: string): unknown => {
 		if (!fits(type, item, field)) {
+			if (type === 'json' && jsonFit(item) === 'deep') throw deepJson(at)
 			throw new InvalidQuery(at, `${at} does not fit ${model.name}.${name}.`)
 		}
 		return field?.kind === 'scalar' ? storedValue(item, field) : item

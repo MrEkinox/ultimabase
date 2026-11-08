@@ -5,15 +5,19 @@ import { InvalidQuery } from './errors.ts'
 import {
 	clean,
 	cleanText,
+	deepJson,
 	entries,
-	isJson,
 	isObject,
+	jsonFit,
 	unknownKey,
 } from './query-values.ts'
 
 const json = (operand: unknown, at: string): unknown => {
-	if (isJson(operand)) return operand
-	throw new InvalidQuery(at, `${at} must be a JSON value.`)
+	const fit = jsonFit(operand)
+	if (fit === true) return operand
+	throw fit === 'deep'
+		? deepJson(at)
+		: new InvalidQuery(at, `${at} must be a JSON value.`)
 }
 
 const operands: {

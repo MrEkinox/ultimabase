@@ -490,3 +490,57 @@ describe('pagination: list', () => {
 		)
 	})
 })
+
+/** A json value `levels` arrays deep, around a number. */
+const arrays = (levels: number): unknown =>
+	Array.from({ length: levels }).reduce<unknown>((value) => [value], 1)
+
+describe('a json value nested too deep (D-330)', () => {
+	it('is written 1000 levels deep, and refused at the 1001st', async () => {
+		const { url, app } = await started()
+		stop = async () => app.stop()
+		const { ada } = await seeded()
+		const post = (meta: unknown) =>
+			call(url, 'POST', `/api/posts${qs({ select: { meta: true } })}`, {
+				body: {
+					title: 'deep',
+					slug: `deep-${String(Math.random())}`,
+					status: 'draft',
+					meta,
+					author: { connect: { id: ada } },
+				},
+				headers: asMaster,
+			})
+		expect(await post(arrays(1000))).toStrictEqual({
+			status: 201,
+			body: { meta: arrays(1000) },
+		})
+		expect(await post(arrays(1001))).toStrictEqual({
+			status: 400,
+			body: {
+				code: 'VALIDATION_FAILED',
+				message: 'Invalid data.',
+				details: {
+					issues: [
+						{
+							path: ['meta'],
+							message: 'Expected JSON data nested at most 1000 levels deep.',
+						},
+					],
+				},
+			},
+		})
+	})
+
+	it('is refused in a filter at the 1001st level', async () => {
+		const { url } = await serving()
+		expect(
+			await get(url, '/api/posts', { where: { meta: arrays(1001) } }),
+		).toEqual(
+			refused(
+				'where.meta: the json value is nested more than 1000 levels deep.',
+				'where.meta',
+			),
+		)
+	})
+})

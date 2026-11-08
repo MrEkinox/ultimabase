@@ -15311,6 +15311,8 @@ graphqlPlugin({ extend: () => brokenSchema })
 
 ## D-228: A filter nests at most 32 levels
 
+Amended by D-330.
+
 Choice: amends D-20, D-55 and D-149.
 
 1. A `where` nests at most 32 levels. The filter is level 1; each item of
@@ -20068,3 +20070,52 @@ Rejected:
   deletes a later row would hand the next hook a row that is no longer so.
 - Keeping the rows a write does not touch: a raw statement or a database
   cascade may change any row, and the kernel does not know which.
+
+## D-330: A json value nests at most 1000 levels
+
+Choice: amends D-228.
+
+1. A json value nests at most 1000 arrays and objects. The kernel reads it
+   without recursion and stops at the 1001st level, for every caller,
+   Master and server code included, as D-228 does for filters.
+2. A write answers `VALIDATION_FAILED`, its issue on the field:
+   `Expected JSON data nested at most 1000 levels deep.`
+3. A filter's json value, `equals`, `not`, `in`, `notIn` and a path
+   filter's, answers `INVALID_QUERY`, a `400`:
+   `where.meta: the json value is nested more than 1000 levels deep.`
+
+Why:
+
+- The check of a json value was recursive: a value about 4000 levels deep,
+  in a write or a filter, ran out of stack, which answered `500 INTERNAL`
+  and logged an error, for one request a client can send again and again.
+  D-228 rejected a bound because it would refuse a deep json value; such a
+  value was refused anyway, by a crash.
+- 1000 levels is far more than data nests, and far less than the stack
+  holds: `JSON.stringify`, graphql-js and PostgreSQL, which stay recursive,
+  read it whole. A test stores, returns and finds one on PostgreSQL.
+
+Rejected:
+
+- 64 levels: a generated tree may nest deeper, and the stack is not the
+  limit there.
+- No bound, every walker without recursion: `JSON.stringify`, graphql-js
+  and PostgreSQL would still run out of stack, further on.
+
+Example, before:
+
+```ts
+await Note.create({ data: { title: 'x', data: deep(5000) } })
+// RangeError: Maximum call stack size exceeded, answered 500 INTERNAL
+```
+
+After:
+
+```ts
+await Note.create({ data: { title: 'x', data: deep(1000) } }) // stored
+await Note.create({ data: { title: 'x', data: deep(1001) } })
+// PublicError VALIDATION_FAILED, issue on ['data']:
+// Expected JSON data nested at most 1000 levels deep.
+await Note.findMany({ where: { data: deep(1001) } })
+// InvalidQuery: where.data: the json value is nested more than 1000 levels deep.
+```
