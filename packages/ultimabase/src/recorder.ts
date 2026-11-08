@@ -54,6 +54,12 @@ export async function recording<R>(run: () => Promise<R>): Promise<{
 	}
 }
 
+/**
+ * Whether a recording runs: a caller built inside one reads what it is
+ * built from, rather than keeping it, so its reads are kept (D-343).
+ */
+export const recordingRuns = (): boolean => recorder.getStore() !== undefined
+
 /** The reads of the virtual fields computed inside `recordingVirtuals`. */
 const virtualReads = new AsyncLocalStorage<Recorded[]>()
 

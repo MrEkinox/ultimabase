@@ -22,6 +22,7 @@ import {
 	PublicError,
 	Refused,
 } from 'ultimabase'
+import { recordingRuns } from 'ultimabase/internal'
 import manifest from '../package.json' with { type: 'json' }
 import {
 	accountOf,
@@ -178,7 +179,8 @@ async function readCaller(
 /**
  * A session token's caller, until it ends; `undefined` for an unknown one.
  * The same caller serves again while its session and user are unchanged
- * and no renewal is due (D-332).
+ * and no renewal is due (D-332), except to a recording, which keeps what
+ * the caller is read from (D-343).
  */
 async function callerOf(
 	token: string,
@@ -186,7 +188,7 @@ async function callerOf(
 	expires: (at: Date) => void,
 ): Promise<Identity | undefined> {
 	const found =
-		state.cache.hit(token) ??
+		(recordingRuns() ? undefined : state.cache.hit(token)) ??
 		(await state.cache.through(token, async () => readCaller(token, state)))
 	if (found === undefined) return undefined
 	expires(found.expiresAt)

@@ -11,6 +11,7 @@ import {
 	memory,
 } from './index.ts'
 import { completer } from './complete.ts'
+import { recording } from './recorder.ts'
 import type { PluginValue } from './plugin.ts'
 
 const calls: string[] = []
@@ -91,16 +92,20 @@ const flaky = definePlugin<Flaky>({
 })
 
 let identify: ((request: Request) => Promise<Caller>) | undefined
+/** One object for every request, as a caller a plugin keeps (D-332). */
+const keptAda: Identity = { kind: 'user', user: { id: 'ada' } }
 interface Transport extends PluginTypes {
 	readonly name: 'transport'
 }
 const transport = definePlugin<Transport>({
 	name: 'transport',
 	manifest: { name: 'transport', version: '1.0.0' },
-	identify: async (request) =>
-		request.headers.has('x-who')
+	identify: async (request) => {
+		if (request.headers.has('x-kept')) return keptAda
+		return request.headers.has('x-who')
 			? { kind: 'user', user: { id: 'ada' } }
-			: undefined,
+			: undefined
+	},
 	start: (context) => {
 		identify = context.identify
 	},
@@ -211,6 +216,24 @@ describe('a user caller', () => {
 		expect(calls).toStrictEqual(['roles ada'])
 	})
 
+	// A live caller is identified inside a recording (D-343): its plugins
+	// are read again, though a request completed the same caller, and the
+	// queries it then makes complete nothing.
+	it('is completed again when identified inside a recording', async () => {
+		await using([transport.plugin(), roles.plugin()], async () => {
+			const request = new Request('http://localhost/', {
+				headers: { 'x-kept': 'ada' },
+			})
+			await identify?.(request)
+			await identify?.(request)
+			await recording(async () => {
+				const caller = await identify?.(request)
+				if (caller !== undefined) await Note.findMany({}, { as: caller })
+			})
+		})
+		expect(calls).toStrictEqual(['roles ada', 'roles ada'])
+	})
+
 	it('stops the request when two plugins give one key, naming both', async () => {
 		await using([roles.plugin(), rival.plugin()], async () => {
 			await expect(Note.findMany({}, { as: userOf('ada') })).rejects.toThrow(
@@ -246,6 +269,49 @@ describe('a user caller', () => {
 		await expect(twice(userOf('ada'))).rejects.toThrow(
 			'copy.caller gives the caller Symbol(hidden), which secret gives; a key has one plugin.',
 		)
+	})
+
+	// A live caller follows what its plugins read (D-343): a kept one would
+	// record nothing, so a role taken away would not rebuild it.
+	it('is completed again when asked fresh', async () => {
+		const read: string[] = []
+		const { complete } = completer([
+			{
+				plugin: 'roles',
+				caller: async (identity) => {
+					read.push(identity.kind === 'user' ? identity.user.id : '')
+					return { roles: [] }
+				},
+			},
+		])
+		const ada = userOf('ada')
+		await complete(ada)
+		await complete(ada)
+		await complete(ada, true)
+		expect(read).toStrictEqual(['ada', 'ada'])
+		await complete(ada)
+		expect(read).toHaveLength(2)
+	})
+
+	// Each query of a live read runs inside a recording with the caller
+	// already completed: only identifying one reads it again.
+	it('is not completed again by the queries of a recording', async () => {
+		const read: string[] = []
+		const { complete } = completer([
+			{
+				plugin: 'roles',
+				caller: async () => {
+					read.push('roles')
+					return { roles: [] }
+				},
+			},
+		])
+		const caller = await complete(userOf('ada'))
+		await recording(async () => {
+			await complete(caller)
+			await complete(caller)
+		})
+		expect(read).toHaveLength(1)
 	})
 
 	it('is tried again after a plugin fails', async () => {

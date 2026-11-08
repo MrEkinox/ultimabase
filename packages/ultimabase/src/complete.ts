@@ -14,7 +14,8 @@ export type PluginCaller = {
 	readonly caller: (identity: Identity) => Promise<unknown>
 }
 
-export type Complete = (identity: Identity) => Promise<Caller>
+/** `fresh` completes it again, kept or not: a live caller identified (D-343). */
+export type Complete = (identity: Identity, fresh?: boolean) => Promise<Caller>
 
 // The keys every caller holds, which no plugin gives.
 const own = new Set<PropertyKey>(['kind', 'user'])
@@ -90,8 +91,8 @@ export type Completer = {
 /**
  * Completes a user caller the first time the kernel receives it, until a
  * change `concerns` forgets every completed one; from `lost` to `missed`, it
- * keeps none (D-332). `plugins` is read on each call, filled once their
- * contexts exist.
+ * keeps none (D-332), nor serves one asked `fresh` (D-343). `plugins`
+ * is read on each call, filled once their contexts exist.
  */
 export function completer(
 	plugins: readonly PluginCaller[],
@@ -109,9 +110,12 @@ export function completer(
 	// A completed caller, or a user one when no plugin gives a key.
 	const kept = (identity: Identity): identity is Caller & Identity =>
 		plugins.length === 0 || done.has(identity)
-	const complete: Complete = async (identity) => {
-		if (identity.kind !== 'user' || kept(identity)) return identity
-		const known = pending.get(identity)
+	const complete: Complete = async (identity, fresh) => {
+		if (identity.kind !== 'user') return identity
+		// A live caller follows what its plugins read (D-343).
+		const anew = fresh === true && plugins.length > 0
+		if (!anew && kept(identity)) return identity
+		const known = anew ? undefined : pending.get(identity)
 		if (known !== undefined) return known
 		const at = generation
 		const caller = completed(identity, plugins).then((result) => {
