@@ -8,6 +8,7 @@ export type {
 	Change,
 	Changed,
 	Check,
+	Lock,
 	Condition,
 	CountRead,
 	Feed,

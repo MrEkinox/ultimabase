@@ -219,10 +219,16 @@ export type Nested = {
 	readonly count?: { readonly [field: string]: Filter }
 }
 
+/**
+ * What a locked row is read for (D-334). A row to update still takes new
+ * references to it, which a row to delete waits out.
+ */
+export type Lock = 'update' | 'delete'
+
 export type Read = Nested & {
 	readonly model: string
 	/** Locks the root rows, in `id` order, until the transaction ends (D-99, D-133). */
-	readonly lock?: boolean
+	readonly lock?: Lock
 	/**
 	 * Keeps, of the rows with the same keys, the first in `orderBy`'s order,
 	 * before `skip` and `take` (D-147).
@@ -313,7 +319,7 @@ export type Check = {
 	readonly where: Filter
 	readonly count: number
 	/** Locks the rows it counts until the transaction ends, as `Read.lock` (D-99). */
-	readonly lock?: boolean
+	readonly lock?: Lock
 }
 
 /**

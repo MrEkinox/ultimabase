@@ -619,12 +619,14 @@ describe('a write on postgres()', () => {
 		expect(sent[0]).toContain('"tag" as not materialized')
 	})
 
-	it('locks the rows it reads', async () => {
+	it('locks the rows it reads, an update weaker than a delete', async () => {
 		const tx = await adapter.begin()
-		const [found] = await tx.find({ ...tags(book.id), lock: true })
+		const [found] = await tx.find({ ...tags(book.id), lock: 'update' })
+		await tx.find({ ...tags(book.id), lock: 'delete' })
 		await tx.commit()
 		expect(found?.['id']).toBe(book.id)
-		expect(sent[1]).toContain('for update')
+		expect(sent[1]).toContain('for no key update')
+		expect(sent[2]).toMatch(/order by .* for update\)/)
 	})
 
 	it('gives back its connection when a commit fails', async () => {

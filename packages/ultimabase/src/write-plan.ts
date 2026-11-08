@@ -166,7 +166,7 @@ async function move(step: Move, writing: Writing): Promise<Change[]> {
 	const rows = await store.find({
 		model,
 		where: and(where, filter),
-		lock: true,
+		lock: 'update',
 	})
 	for (const record of rows)
 		access?.allow(target, 'update', { record, data, via })
@@ -204,7 +204,7 @@ async function detach(step: Detach, writing: Writing): Promise<Change[]> {
 					await writing.store.find({
 						model: target,
 						where: and(byIds(targets), filter),
-						lock: true,
+						lock: 'update',
 					})
 				).map((row) => row.id)
 	if (kept.length === 0) return []

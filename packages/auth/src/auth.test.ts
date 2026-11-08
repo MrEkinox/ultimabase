@@ -46,7 +46,7 @@ function signingOutOnRenewal(): Adapter {
 				...tx,
 				// Signed out just before the renewal locks its row (D-104).
 				find: async (read) => {
-					if (read.lock === true && read.model === 'AuthSession') {
+					if (read.lock === 'update' && read.model === 'AuthSession') {
 						await tx.write({
 							changes: [{ kind: 'delete', model: 'AuthSession', where: {} }],
 						})

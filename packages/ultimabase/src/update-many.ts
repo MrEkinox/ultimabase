@@ -150,7 +150,7 @@ async function lockedRows(
 		model: model.name,
 		where,
 		orderBy,
-		lock: true,
+		lock: 'update',
 	})
 	const items = rows.map((row): Item => {
 		const draft: Draft = { ...data.draft }

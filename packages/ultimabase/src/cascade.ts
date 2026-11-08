@@ -99,7 +99,7 @@ export async function cascadeOf(
 				const rows = await store.find({
 					model: from.name,
 					where: { [field]: { is: { id: { in: targets } } } },
-					lock: true,
+					lock: onDelete === 'cascade' ? 'delete' : 'update',
 				})
 				for (const found of rows) {
 					const left =
