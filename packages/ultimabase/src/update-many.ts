@@ -258,11 +258,12 @@ async function updating(
 		store,
 		operations,
 	)
-	const write = {
-		changes: spread(plan, where),
-		read: { model: model.name, ...at?.read, orderBy },
-		before: true,
-	}
+	// A count reads back the ids only (D-327).
+	const read =
+		at === undefined
+			? { model: model.name, fields: ['id'] }
+			: { model: model.name, ...at.read, orderBy }
+	const write = { changes: spread(plan, where), read, before: true }
 	const rows = await inRange(model, guarded(store.last(write), []))
 	if (at === undefined) return rows.map((row) => row.id)
 	return shapedRows(context, store, rows, at.shape, scope.access)
