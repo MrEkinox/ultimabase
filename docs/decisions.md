@@ -3617,7 +3617,7 @@ await app.start()
 
 ## D-99: A write in one statement, checked inside it, in a transaction only when one serves
 
-Amended by D-104, D-334, D-339, D-340 and D-341.
+Amended by D-104, D-334, D-339, D-340, D-341 and D-342.
 
 Choice:
 
@@ -3999,6 +3999,8 @@ await Genre.create({ data: { label: 'myth' } }, { as: master })
 ```
 
 ## D-104: A write answers from the rows it changed; a user's write locks its row
+
+Amended by D-342.
 
 Choice: amends D-99 point 5 and D-102 point 3 (amended 2026-10-25: the
 first D-104 read a user's row without a lock and checked it unchanged in the
@@ -14136,6 +14138,8 @@ await Role.update(
 
 ## D-214: A write rule may return `where()`
 
+Amended by D-342.
+
 Choice: amends D-76 and D-81; as PostgreSQL's row security, `USING` and
 `WITH CHECK`.
 
@@ -20735,6 +20739,8 @@ await Order.update({
 
 ## D-341: An update by a unique field loads no row
 
+Amended by D-342.
+
 Choice: amends D-99 point 5, and its rejected "Skipping the read of an
 update by a unique field other than `id`", and D-142 point 2; no developer
 code changes.
@@ -20793,4 +20799,76 @@ await Badge.upsert({
 // Before: BEGIN, a locked read, the update or the insert, COMMIT.
 // After:  one statement when the row is there; when it is not, the
 //         statement finds none, then the insert.
+```
+
+## D-342: A user's write under rules that need no row loads none
+
+Choice: amends D-99 point 5, D-104 point 1 and its rejected "Locking inside
+the check", D-214 point 6 and D-341 point 1; no developer code changes.
+
+1. A user's `update` or `delete` by a unique field, and the update branch of
+   an `upsert` (D-341), loads no row when its rules decide without it, on the
+   other terms of D-99 point 5, D-102 and D-341 (no hooks on the write, no
+   nested write, for an update scalar data only, without number or list
+   operations). The
+   kernel first runs the model's rule and the written fields' rules with a
+   `record` that throws when read. When they allow the write, its checks
+   stand for the read: the locked check of the row, `NOT_FOUND` when it
+   counts 0, then the locked count of each filter the rule returned, with
+   its error or `ACCESS_DENIED`. One round trip, as Master's.
+2. A rule that reads `record`, refuses, or throws runs again on the loaded
+   row, as before: its error and its log do not change. Such a rule runs
+   twice, so a rule stays a function of its facts, as it already is.
+3. A filter's check locks its row as the row check does (D-99 point 9): a
+   row another transaction moves out of the filter while the write waits on
+   its lock is counted as that transaction left it, its own fields and the
+   relations its keys point to, so the write is refused. Without the lock,
+   the count runs on the statement's snapshot and the write goes through.
+4. The check after an update (D-214 point 6) is skipped when the update is
+   one change of the filter's model that sets none of the fields the filter
+   reads, through `AND`, `OR` and `NOT`, a relation's key and `updatedAt`
+   included: the row matched before the write, so it still does. A filter
+   that searches (`_search`) keeps its check after. This holds for a loaded
+   write too, and a field a `beforeUpdate` hook adds counts as set.
+5. `updateMany` and `deleteMany` do not change: they lock and read their
+   rows first (D-111, D-133).
+
+Why: a model under a `where` rule is the common case of an app moving from
+Parse ("a user edits their own rows"), and each of its writes cost 5 round
+trips: BEGIN, the locked read, the write with its check before, the count
+after, COMMIT. D-104 rejected the lock in the check while every write under
+rules loaded its row; since then D-99 point 9 and D-341 rest Master's writes
+on it, and the rules that read `record` keep the loaded path. On PostgreSQL
+18, 300 updates by `id`, median of 7 runs, three runs: under a `where` rule
+from 892 to 902 ms to 257 to 294 ms (-70 %), Master's 241 to 252 ms; under
+a rule that reads `record`, 655 to 671 ms before and 654 to 684 ms after.
+An update that sets a field its filter reads costs 4 round trips instead
+of 5.
+
+Rejected:
+
+- Reading which fields a rule reads from its source: a rule may call any
+  code; running it with a `record` that throws is exact.
+- Requiring a rule to declare that it reads no `record`: a new option for
+  what the kernel finds by itself.
+- The same path for `updateMany` and `deleteMany`: their rules see each
+  row, and they already take one read for all.
+
+Example, the same code before and after:
+
+```ts
+const Note = defineModel({
+	name: 'Note',
+	fields: (f) => ({ owner: f.string(), text: f.string() }),
+}).with({
+	access: {
+		update: ({ caller, where }) =>
+			caller.kind === 'user' && where({ owner: { equals: caller.user.id } }),
+	},
+})
+
+await Note.update({ where: { id }, data: { text: 'hi' } }, { as: user })
+// Before: BEGIN, a locked read, the update and its check, a count, COMMIT.
+// After:  one statement: the locked checks of the row and its filter, the
+//         update and the read.
 ```
