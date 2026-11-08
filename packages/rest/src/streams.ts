@@ -60,6 +60,13 @@ type Relay = Sink & {
 	readonly park: (ended: () => void) => void
 	/** A resume takes it: what it holds from now on is for its client. */
 	readonly taken: () => void
+	/** The revision of the last message written to a client. */
+	readonly sent: () => number
+	/**
+	 * Drops what it holds: the window comes whole to its next client, by
+	 * `again` unless a drop already waits for it.
+	 */
+	readonly stale: (again: () => void) => void
 }
 
 type Stream = {
@@ -106,10 +113,15 @@ function relayOf(): Relay {
 	let ended = nothing
 	const held: (readonly [string, unknown, number | undefined])[] = []
 	let behind: (() => void) | undefined
+	let sent = 0
+	const write = (sink: Sink, event: string, data: unknown, id?: number) => {
+		sink.send(event, data, id)
+		sent = id ?? sent
+	}
 	return {
 		send: (event, data, id) => {
 			if (current === undefined) held.push([event, data, id])
-			else current.send(event, data, id)
+			else write(current, event, data, id)
 		},
 		full: () => current?.full() ?? parked,
 		drained: (then) => {
@@ -125,7 +137,9 @@ function relayOf(): Relay {
 		},
 		to: (sink) => {
 			current = sink
-			for (const [event, data, id] of held.splice(0)) sink.send(event, data, id)
+			for (const [event, data, id] of held.splice(0)) {
+				write(sink, event, data, id)
+			}
 			const then = behind
 			behind = undefined
 			if (then !== undefined) sink.drained(then)
@@ -137,6 +151,11 @@ function relayOf(): Relay {
 		},
 		taken: () => {
 			parked = false
+		},
+		sent: () => sent,
+		stale: (again) => {
+			held.length = 0
+			behind ??= again
 		},
 	}
 }
@@ -289,6 +308,12 @@ async function resumed(
 		throw error
 	}
 	keep.first = list.first
+	// What its client last saw: short of what was written to it, as when the
+	// server wrote to a connection already cut, it gets the window whole (D-324).
+	const seen = request.headers.get('last-event-id')
+	if (seen !== null && Number(seen) !== stream.relay.sent()) {
+		stream.relay.stale(() => void handle.resend())
+	}
 	return eventsFor(live, request, stream).response
 }
 

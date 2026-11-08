@@ -19582,6 +19582,8 @@ Rejected:
 
 ## D-312: A kept list holds no more than its window costs
 
+Amended by D-324.
+
 Choice: amends D-154 and D-254 point 4. A list kept for a resume counts as a
 client whose buffer is full, over SSE and over GraphQL. It holds the changes
 of its window as long as they cost no more than the rows it last showed,
@@ -19932,3 +19934,30 @@ Rejected:
   declarations: 17 manifests changed for what one script does.
 - Writing the declarations from the root project: it holds the tests and
   scripts, which have no written types (D-70).
+
+## D-324: An SSE resume says the revision its client last saw
+
+Choice: amends D-154 point 7 and D-312. Over SSE, `liveFetch` resumes a list
+with the `Last-Event-ID` header, the revision it last saw, beside its token.
+When the server wrote a later revision to the connection it left, the resume
+gets the window whole, as after a drop, and not what the kept list held. A
+resume without the header, or that saw all it was sent, gets what changed, as
+before. GraphQL is unchanged: its resume comes on the same socket, after what
+that socket was sent. Nothing changes for a developer.
+
+Why: a client that is cut does not know it at once, and the server sees it
+leave even later. What the server writes in between goes to a dead connection;
+the resume then held nothing, and its list stayed wrong until its next
+change, which found the gap and read the list again. The test that cuts a
+`liveFetch` stream and writes at once failed 3 times in 30; with the header,
+0 times in 40. The server cannot tell alone what a closed connection took,
+and only its client can say what it read.
+
+Rejected:
+
+- Sending the window whole at every resume: D-312 rejected it for its cost.
+- Sending the window whole whenever the resume ends a request the server has
+  not seen leave: a connection the server saw leave may also have lost what
+  was written just before.
+- The revision as a query parameter: `Last-Event-ID` is the header Server-Sent
+  Events defines for it.

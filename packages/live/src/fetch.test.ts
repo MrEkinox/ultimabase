@@ -158,13 +158,15 @@ describe('liveFetch', () => {
 		)
 	})
 
-	it('reconnects with its token when the stream is cut', async () => {
+	it('reconnects with its token and what it last saw when the stream is cut', async () => {
 		const url = await tasks()
 		const urls: string[] = []
+		const last: (string | null)[] = []
 		const cuts: AbortController[] = []
 		const real = globalThis.fetch
 		vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
 			urls.push(hrefOf(input))
+			last.push(new Headers(init?.headers).get('last-event-id'))
 			const cut = new AbortController()
 			cuts.push(cut)
 			const signal = AbortSignal.any([cut.signal, init?.signal ?? cut.signal])
@@ -176,6 +178,8 @@ describe('liveFetch', () => {
 		await Task.create({ data: { title: 'z', rank: 0, owner: 'ada' } }, M)
 		expect(titles(await watched.at(2))).toEqual(['z', 'a', 'b'])
 		expect(urls[1]).toContain('resume=')
+		// The revision of the window it was shown (D-324).
+		expect(last.slice(0, 2)).toEqual([null, '1'])
 	})
 
 	it('resumes once a listener comes back, and grows while none listens', async () => {

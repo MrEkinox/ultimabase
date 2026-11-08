@@ -435,10 +435,10 @@ each change sends the new `totalCount` and no row.
 
 ### Transports
 
-| Transport | How                                                                                                                       |
-| --------- | ------------------------------------------------------------------------------------------------------------------------- |
-| GraphQL   | WebSocket on the GraphQL path, protocol `graphql-transport-ws`; page mode as `extensions: { live: { mode: 'page' } }`.    |
-| REST      | `GET` with `Accept: text/event-stream`; events `resume`, `data`, `live` and `error`, each `id` its revision; `mode=page`. |
+| Transport | How                                                                                                                                                                                                        |
+| --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| GraphQL   | WebSocket on the GraphQL path, protocol `graphql-transport-ws`; page mode as `extensions: { live: { mode: 'page' } }`.                                                                                     |
+| REST      | `GET` with `Accept: text/event-stream`; events `resume`, `data`, `live` and `error`, each `id` its revision; `mode=page`; a resume sends `resume=` its token and `Last-Event-ID` the revision it last saw. |
 
 The caller is the upgrade request's, by cookie or `Authorization`, or
 `connection_init`'s `{ authorization: 'Bearer …' }`.
