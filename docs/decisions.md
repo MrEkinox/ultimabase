@@ -20044,3 +20044,27 @@ Rejected:
   cost it removes.
 - Comparing JSON values through a set of their text: two objects with the
   same keys in another order are equal, their texts are not.
+
+## D-329: The rows of many `after*` hooks are read a few at a time
+
+Choice: `createMany`, `updateMany` and a nested write read the rows their
+`after*` and `*Commit` hooks get (D-88) a few at a time: one row, then
+twice as many each time, 1000 at most, the later rows of the same model in
+one read by their ids. The open transaction counts its writes and its own
+statements (`database.sql`, D-137); a row read before the count changed is
+stale, and the next row is read alone, as each one was before. A hook
+therefore sees the rows as an earlier hook left them.
+
+Why: each row was read alone, one round trip per row. On PostgreSQL,
+medians of five interleaved runs: `createMany` of 5000 rows with an
+`afterCreate` hook took 3.53 s, 0.19 s after; `updateMany` of 5000 rows
+with an `afterUpdate` hook 3.45 s, 0.15 s after; on 50000 rows, 35.0 s and
+34.4 s, 1.8 s and 1.2 s after. A hook that writes reads each row alone, as
+before: it costs the same reads.
+
+Rejected:
+
+- Reading every row once, before the first hook: a hook that changes or
+  deletes a later row would hand the next hook a row that is no longer so.
+- Keeping the rows a write does not touch: a raw statement or a database
+  cascade may change any row, and the kernel does not know which.
