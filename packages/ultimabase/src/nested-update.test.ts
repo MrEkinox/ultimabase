@@ -628,6 +628,20 @@ describe('a nested set', () => {
 		expect(tags?.tags).toEqual([])
 	})
 
+	it('links and unlinks more rows than a call takes arguments', async () => {
+		// A spread of this many items into a call overflows the stack.
+		const many = 200_000
+		const names = Array.from({ length: many }, (_, at) => ({ name: `${at}` }))
+		const tags = await Tag.createManyAndReturn({ data: names }, M)
+		const set = tags.map(({ id }) => ({ id }))
+		const post = await Post.create({ data: { title: 'p' } }, M)
+		const where = { id: post.id }
+		await Post.update({ where, data: { tags: { set } } }, M)
+		expect(await Tag.count({ where: { posts: { some: {} } } }, M)).toBe(many)
+		await Post.update({ where, data: { tags: { set: [] } } }, M)
+		expect(await Tag.count({ where: { posts: { some: {} } } }, M)).toBe(0)
+	}, 30_000)
+
 	it('is refused when the other side needs its key', async () => {
 		const post = await Post.create({ data: { title: 'p' } }, M)
 		await expect(
