@@ -14,7 +14,7 @@ import type { Part } from './parts.ts'
 import { fieldsOf, grouped, inserted } from './parts.ts'
 import { sizeOf } from './text.ts'
 import { notifying, pairs as linked, rows as noted } from './notify.ts'
-import { compileRows } from './read.ts'
+import { compileRows, locking } from './read.ts'
 
 /** A statement of a write: how many checks its result carries, `c0`… */
 export type Statement = {
@@ -198,7 +198,9 @@ function checking(catalog: Catalog, checks: readonly Check[]): Sql {
 		const where = filters.where(check.model, alias, check.where)
 		// A locked row is counted as it is after any wait for its lock.
 		const rows = sql`${table} as ${sql.id(alias)} where ${where}`
-		const from = check.lock ? sql`(select from ${rows} for update) as t` : rows
+		const from = check.lock
+			? sql`(select from ${rows} ${locking(check.lock)}) as t`
+			: rows
 		return sql`(select count(*) from ${from}) = ${check.count} as ${sql.id(`c${at}`)}`
 	})
 	return sql`select ${sql.join(columns)}`

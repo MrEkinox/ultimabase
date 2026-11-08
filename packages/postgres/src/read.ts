@@ -6,6 +6,7 @@ import type {
 	CountRead,
 	Filter,
 	GroupKey,
+	Lock,
 	Nested,
 	Order,
 	Read,
@@ -16,6 +17,14 @@ import { all, Filters } from './filter.ts'
 import type { Catalog, Table } from './names.ts'
 
 const empty = sql`cast('[]' as json)`
+
+/**
+ * The row lock a write takes (D-334): an update's lets a new reference to
+ * the row in, as PostgreSQL's own update does; a delete's keeps it out.
+ */
+export function locking(lock: Lock): Sql {
+	return lock === 'delete' ? sql`for update` : sql`for no key update`
+}
 
 /**
  * PostgreSQL takes at most 100 arguments: 50 pairs per call. Only jsonb joins
@@ -310,7 +319,7 @@ export function compileRows(
 	const id = compiler.filters.column(table, alias, 'id')
 	// In `id` order, so two reads of the same rows wait instead of deadlocking (D-133).
 	let from = read.lock
-		? sql`(select * from ${name} as ${as} where ${compiler.filters.where(read.model, alias, read.where)} order by ${id} for update) as ${as}`
+		? sql`(select * from ${name} as ${as} where ${compiler.filters.where(read.model, alias, read.where)} order by ${id} ${locking(read.lock)}) as ${as}`
 		: sql`${name} as ${as}`
 	if (read.distinct !== undefined) {
 		from = sql`(select * from ${name} as ${as} where ${id} in (${kept(compiler, read, read.distinct)})) as ${as}`

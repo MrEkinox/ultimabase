@@ -200,7 +200,7 @@ async function parentsOf(
 		model,
 		where: await read(change.where),
 		fields: moved.map((bound) => bound.key),
-		lock: true,
+		lock: change.kind,
 	})
 	return keysOf(moved, [...rows, ...added])
 }
@@ -245,7 +245,7 @@ export async function touch(
 			model: parent,
 			where: { id: { in: [...ids] } },
 			fields: ['id'],
-			lock: true,
+			lock: 'update',
 		})
 	}
 }

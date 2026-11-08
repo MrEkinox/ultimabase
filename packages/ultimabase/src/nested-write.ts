@@ -84,7 +84,7 @@ async function reached(
 		model: target.name,
 		where: and(and(await linked(r, field, target), where), filter),
 		take: 1,
-		lock: true,
+		lock: operation,
 	})
 	if (row === undefined) {
 		throw new PublicError('NOT_FOUND', `No ${target.name} matches ${path}.`)
@@ -143,7 +143,7 @@ async function found(
 		model: target.name,
 		where: filter,
 		take: 1,
-		lock: true,
+		lock: 'update',
 	})
 	return row?.id
 }
@@ -303,7 +303,7 @@ async function setting(
 	const current = await r.reads.find({
 		model: target.name,
 		where: and(await linked(r, field, target), filter),
-		lock: true,
+		lock: 'update',
 	})
 	const kept = new Set(set)
 	const ids = new Set(current.map((row) => row.id))

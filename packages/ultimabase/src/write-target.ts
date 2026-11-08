@@ -1,6 +1,6 @@
 // The row a single-row write targets, read locked in the write's
 // transaction, and the checks of its write (D-99, D-104).
-import type { Change, Filter, Read, Row } from './adapter.ts'
+import type { Change, Filter, Lock, Read, Row } from './adapter.ts'
 import { CheckFailed, RelationViolation, UniqueViolation } from './adapter.ts'
 import { PublicError } from './errors.ts'
 import type { Context } from './query-context.ts'
@@ -77,13 +77,14 @@ export async function target(
 	context: Context,
 	store: Store,
 	where: Filter,
+	lock: Lock,
 ): Promise<Row> {
 	const { model } = context
 	const [row] = await store.find({
 		model: model.name,
 		where,
 		take: 1,
-		lock: true,
+		lock,
 	})
 	// A row the caller cannot read is not found (D-72).
 	if (row === undefined) {

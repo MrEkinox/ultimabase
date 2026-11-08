@@ -3617,7 +3617,7 @@ await app.start()
 
 ## D-99: A write in one statement, checked inside it, in a transaction only when one serves
 
-Amended by D-104.
+Amended by D-104 and D-334.
 
 Choice:
 
@@ -7159,7 +7159,7 @@ await Post.update({
 
 ## D-133: `updateMany` runs an update's rules and hooks on each row
 
-Amended by D-149.
+Amended by D-149 and D-334.
 
 Choice: completes D-20 and D-48; amends D-111.
 
@@ -20291,4 +20291,60 @@ definePlugin({
 	lost: () => stopTrusting(),
 	missed: () => startAgain(),
 })
+```
+
+## D-334: An update's row lock lets new references in
+
+Choice: amends D-99 and D-133 (the row lock).
+
+1. `Read.lock` and `Check.lock` say what the row is locked for: `'update'`
+   or `'delete'`, the type `Lock`, in place of `true`.
+2. A row locked for an update takes PostgreSQL's `FOR NO KEY UPDATE`, the
+   lock its own `update` takes; a row locked for a delete keeps `FOR UPDATE`.
+3. A create or an update that sets a reference to a row another transaction
+   updates no longer waits for that transaction: the foreign key's check
+   takes `FOR KEY SHARE`, which `FOR NO KEY UPDATE` lets in. A reference to
+   a row being deleted still waits, then fails as before.
+4. Each lock is named for what its write does to the row: an update, a
+   move, a link, a nested update and a size bound's parent lock for an
+   update; a delete, and a cascade's rows that it deletes, for a delete.
+   A cascade's `setNull` and `restrict` rows lock for an update.
+5. `memory()` keeps its one write lock (D-305) and reads no kind.
+
+Why: a transaction that updated a user and then waited, as a sign-in that
+races `setPassword` does, held every create of a session or a token for
+that user until it ended: the reference waited on a lock that no change of
+an `id` justifies, since every reference names `id` and `id` never
+changes. With D-333 the plugins' rows reference their user, so the wait
+reached every sign-in. Two concurrent writes of the same row still wait for
+each other: `FOR NO KEY UPDATE` conflicts with itself.
+
+Rejected:
+
+- `FOR NO KEY UPDATE` for every lock: a create could then reference a row
+  its delete has read but not yet removed; the delete would fail on the
+  foreign key, or miss the new row in its cascade.
+- A third kind for a read that only checks a row exists: no write of the
+  kernel reads a row without changing it, or a row it links.
+
+Example, before and after, an adapter's test or a plugin's raw read:
+
+```ts
+// Before
+await tx.find({ model: 'Shelf', where: { id }, lock: true })
+
+// After
+await tx.find({ model: 'Shelf', where: { id }, lock: 'update' })
+await tx.find({ model: 'Shelf', where: { id }, lock: 'delete' })
+```
+
+And an application, the same code, which no longer waits:
+
+```ts
+const updating = transaction(async () => {
+	await Shelf.update({ where: { id }, data: { label: 'b' } }, M)
+	await somethingSlow()
+})
+// Before: waited for `updating` to end. After: created at once.
+await Book.create({ data: { shelf: { connect: { id } } } }, M)
 ```

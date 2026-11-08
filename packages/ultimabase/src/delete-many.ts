@@ -43,7 +43,7 @@ export async function removeMany(
 		model: model.name,
 		where,
 		orderBy,
-		lock: true,
+		lock: 'delete',
 	})
 	// One row refused, none deleted (D-111).
 	for (const row of rows) scope.access?.allow(model, 'delete', { record: row })
