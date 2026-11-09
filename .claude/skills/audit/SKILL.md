@@ -4,7 +4,8 @@ description: >
   Audit one UltimaBase package for three things: security holes, code that can
   go, and performance (gains still available, and regressions since the last
   release). An agent writes a read-only report, the main session verifies each
-  finding and runs the benchmarks, then the user picks the fixes. Use for
+  finding and runs the benchmarks, fixes what is internal, and the user picks
+  the fixes that change the public API. Use for
   "audit <package>", "/audit <package>".
 ---
 
@@ -40,6 +41,11 @@ on style, naming or structure are not findings.
   repository, `examples/` and `website/` included.
 - Agents never run benchmarks, never edit the repository and never write
   files: the report comes back as text. The main session runs the benchmarks.
+- A verified finding whose fix stays internal, and makes neither security
+  nor performance worse, is fixed without asking (`AGENTS.md`, Working,
+  point 4). One that changes the public API, what a developer writes or
+  sees, waits for the user's choice. A trade-off between security and
+  performance goes to the user, with its numbers.
 - Nothing is pushed and no pull request is opened without the user's
   confirmation.
 
@@ -147,20 +153,36 @@ machine, three times each, and compares the medians:
 - A package no benchmark covers: say so, and propose a case only when a
   performance lead needs one.
 
-## 5. Report to the user
+## 5. Sort
+
+Split the real findings in two:
+
+- **Internal:** the fix changes nothing a developer writes or sees, and the
+  benchmark shows no slowdown. Fix it now, as in step 7, and choose the best
+  fix yourself; a choice no decision covers is recorded as one.
+- **Public:** the fix changes an export, a type, an option, a default, a
+  route, a shape, an error or documented behaviour, or trades security
+  against performance. Keep it for the user, with real before/after code.
+
+A bug fix that brings the code back to what the documentation already says
+is internal.
+
+## 6. Report to the user
 
 In French (`CLAUDE.md`), short, the result first:
 
 - the findings, one line each, with their verdict and proof;
+- the internal fixes made, with their commits;
+- the public choices, each with before/after code and a recommendation;
 - the benchmark table: case, reference, now, change;
-- the lines that could go;
-- the fixes recommended, in order, and those not worth doing, with why.
+- the lines that could go, and the fixes not worth doing, with why.
 
-Then wait for the user's choice.
+Then wait for the user's choice on the public ones.
 
-## 6. Fix
+## 7. Fix
 
-On a branch of its own, for the fixes the user chose:
+On a branch of its own, for the internal fixes and the public ones the user
+chose:
 
 - each bug fix with a regression test that fails without it;
 - a new or amended decision before the code it governs;
