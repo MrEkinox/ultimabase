@@ -31,6 +31,11 @@ function create(name: string, table: TableSnapshot): string {
 	return `create table ${id(name)} (\n\t${parts.join(',\n\t')}\n)`
 }
 
+/** What a required column without a default does to code still running without it (D-358). */
+const unready = (model: string, field: string) => ({
+	note: `Code still running without "${model}.${field}" fails to insert once this runs: with a rolling deploy, make it required in a later deploy`,
+})
+
 /** Adds a column; a required one takes its fixed default in the rows, and keeps it. */
 function addColumn(
 	table: string,
@@ -45,6 +50,7 @@ function addColumn(
 	if (fill === undefined) {
 		return emit(add, `added ${now.field}`, {
 			tries: `adding the required "${model}.${now.field}" fails when ${model} holds rows: make it optional, or give it a value as its default, not a function`,
+			...unready(model, now.field),
 		})
 	}
 	if (fill.rows) {
@@ -54,6 +60,7 @@ function addColumn(
 		emit(
 			`${table} alter column ${id(key)} set not null`,
 			`made ${now.field} required`,
+			unready(model, now.field),
 		)
 		return
 	}
@@ -274,7 +281,7 @@ export function plan(
 		if (now !== undefined) {
 			dropKeys(name, table, now, emit(1, now.model))
 			alterColumns(name, table, now, fills[name] ?? {}, emit(3, now.model))
-			addKeys(name, table, now, emit(5, now.model))
+			addKeys(name, [table, now], fills[name] ?? {}, emit(5, now.model))
 			continue
 		}
 		emit(2, table.model)(`drop table ${id(name)}`, 'removed', {

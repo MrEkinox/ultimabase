@@ -18440,6 +18440,8 @@ beforeCreate: ({ data }) => {
 
 ## D-280: A column added with a fixed default keeps it
 
+Amended by D-358.
+
 Choice: amends D-105 and D-120 point 3. A required field added with a fixed default takes it in the
 rows the table held, and the column keeps it as its default.
 
@@ -18488,6 +18490,8 @@ alter table "account" add column "languages" text[] not null default '{}'::text[
 ```
 
 ## D-281: A list holds a minimum and a maximum of values
+
+Amended by D-358.
 
 Choice: completes D-120, D-127, D-242 and D-280.
 
@@ -21695,4 +21699,57 @@ sendEmail: async (email) => {
 sendEmail: async (email) => {
 	await mailer.send(email.to, textFor(email, email.user.lang))
 }
+```
+
+## D-358: A migration file says what breaks code still running
+
+Choice: amends D-280, point 6, and completes D-281, point 6.
+
+1. `migrate create` writes a `note` below a statement after which code
+   still running without a new field cannot insert, in two cases:
+   - the `set not null` of a required field added without a fixed default,
+     or its `add column … not null` when nothing fills the rows:
+     `-- Code still running without "Locker.kind" fails to insert once this
+runs: with a rolling deploy, make it required in a later deploy.`
+   - the size check of a list added in the same plan, whose kept `'{}'`
+     (D-280) breaks a `min` of 1 or more: `-- Code still running without
+"Account.languages" inserts it empty, which this refuses: with a
+rolling deploy, bound its size in a later deploy.`
+2. Nothing else changes: the statements, their order and their `tries` are
+   the same, and `sync` shows no note (D-280, point 6).
+3. Making an existing optional field required, or adding a check to an
+   existing column, gets no note: the code still running knows the field,
+   and a tighter rule refuses its writes as it would refuse anyone's.
+4. The deploy page says which changes code still running survives, and
+   which take two deploys.
+
+Why: D-280 kept a new column's default so that old code still inserts
+during a rolling deploy, and D-281 lets a bound refuse that default on
+purpose. The file showed neither: an application found, reading the SQL,
+that a list with `size: { min: 1 }` would fail its old instances' creates,
+and a required field without a default does the same with nothing in the
+file to say so.
+
+Rejected:
+
+- An option that splits the migration into two files: the second must wait
+  for the deploy to end, which only the developer knows.
+- A note above the statement, beside `tries`: D-280 puts what to do after a
+  statement below it, and `tries` speaks of stored rows, not of running code.
+- Covering only the list's bound, as asked: a required field without a
+  default is the more common case of the same break.
+
+Example, before: the file says nothing of old code.
+
+```sql
+-- adding the required "Locker.kind" fails when Locker holds rows: make it optional, or give it a value as its default, not a function.
+alter table "locker" add column "kind" text collate "C" not null;
+```
+
+After:
+
+```sql
+-- adding the required "Locker.kind" fails when Locker holds rows: make it optional, or give it a value as its default, not a function.
+alter table "locker" add column "kind" text collate "C" not null;
+-- Code still running without "Locker.kind" fails to insert once this runs: with a rolling deploy, make it required in a later deploy.
 ```

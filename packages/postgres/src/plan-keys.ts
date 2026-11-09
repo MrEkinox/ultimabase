@@ -1,8 +1,9 @@
 // The keys and checks of a table a plan drops and adds (D-105), around the
 // columns' changes.
+import type { Fill } from './fills.ts'
 import { literal } from './fills.ts'
 import { dropIndexes } from './plan-indexes.ts'
-import type { Emit } from './plan-parts.ts'
+import type { Emit, Named } from './plan-parts.ts'
 import { added, changed, fields, id, keyOf, list, same } from './plan-parts.ts'
 import type { Check } from './check.ts'
 import type { TableSnapshot } from './snapshot.ts'
@@ -69,11 +70,14 @@ export function dropKeys(
 	dropIndexes(name, from, to, emit)
 }
 
-/** Adds the keys and checks of `to` that `from` lacks or changed. */
+/**
+ * Adds the keys and checks of `to` that `from` lacks or changed; `fills`
+ * are the defaults of `to`'s columns.
+ */
 export function addKeys(
 	name: string,
-	from: TableSnapshot,
-	to: TableSnapshot,
+	[from, to]: readonly [TableSnapshot, TableSnapshot],
+	fills: Named<Fill>,
 	emit: Emit,
 ): void {
 	const add = (part: string) => `alter table ${id(name)} add ${part}`
@@ -117,8 +121,18 @@ export function addKeys(
 			continue
 		}
 		if ('min' in given) {
+			// The empty list a new column keeps (D-280) breaks a minimum.
+			const kept =
+				given.min > 0 &&
+				from.columns[given.column] === undefined &&
+				fills[given.column]?.implicit === true
 			emit(add(checked(key, given)), `bounded the size of ${field}`, {
 				tries: `bounding the size of "${to.model}.${field}" fails when a row holds another number of values`,
+				...(kept
+					? {
+							note: `Code still running without "${to.model}.${field}" inserts it empty, which this refuses: with a rolling deploy, bound its size in a later deploy`,
+						}
+					: {}),
 			})
 			continue
 		}

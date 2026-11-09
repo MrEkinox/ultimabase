@@ -99,7 +99,7 @@ function renameTable(
 		search: null,
 	}
 	dropKeys(renamed, was, unindexed, emit)
-	addKeys(renamed, was, created, emit)
+	addKeys(renamed, [was, created], {}, emit)
 	return sql
 }
 

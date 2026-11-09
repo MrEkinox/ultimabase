@@ -30,6 +30,7 @@ The full example, with its tests: [`examples/postgres`](https://github.com/MrEki
 | set `DATABASE_URL`, `PORT`, `MASTER_KEY` | [The environment](#the-environment)                 |
 | start the application                    | [Start](#start)                                     |
 | know what a deploy will do               | [Check before a deploy](#check-before-a-deploy)     |
+| replace instances one by one             | [A rolling deploy](#a-rolling-deploy)               |
 | go back to an earlier release            | [Roll back the code](#roll-back-the-code)           |
 | stop without cutting requests            | [Stop](#stop)                                       |
 | serve HTTPS                              | [Behind a proxy](#behind-a-proxy)                   |
@@ -119,6 +120,27 @@ stops on it:
 - `<file> was not applied: <reason>`;
 - then `The database rolled it back: fix it, then deploy again.`
 - The migrations before it stay applied.
+
+## A rolling deploy
+
+When the platform replaces the instances one by one, the migrations run
+first, and the older code serves on the newer tables until its last
+instance stops. It still inserts when a migration adds an optional field,
+a field with a fixed default, or a list: the column keeps the default, and
+the older code's insert takes it.
+
+It fails to insert, until it stops, when a migration:
+
+- adds a required field without a fixed default;
+- adds a list with `size: { min: 1 }`, whose kept default is empty.
+
+`migrate create` writes a comment below the statement: `-- Code still
+running without "Locker.kind" fails to insert once this runs: with a
+rolling deploy, make it required in a later deploy.`
+
+Make such a change in two deploys. The first adds the field optional, or
+the list without its bound. The second, once no older instance runs, makes
+it required or bounds it.
 
 ## Roll back the code
 
