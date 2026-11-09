@@ -33,7 +33,7 @@ import {
 import type { Cache, Read } from './cache.ts'
 import { cacheOf, droppedUser, live } from './cache.ts'
 import type { Users } from './functions.ts'
-import { authFunctions, callerTokens } from './functions.ts'
+import { authFunctions, callerTokens, needsCookies } from './functions.ts'
 import { selfOrMaster } from './rules.ts'
 import type { Durations, Opened } from './sessions.ts'
 import {
@@ -60,6 +60,8 @@ export interface AuthApi {
 	revokeSessions(userId: string): Promise<void>
 	/** Refuses a user command unless `caller` is Master or the user `id`. */
 	selfOrMaster: typeof selfOrMaster
+	/** Refuses a WebSocket's `client`, which sets no cookie (D-354). */
+	needsCookies: typeof needsCookies
 	/** Links `userId` to `subject` of `method`; a taken pair is a `UNIQUE_VIOLATION`. */
 	linkAccount(userId: string, method: string, subject: string): Promise<void>
 	/** The user `subject` of `method` signs in as, if any. */
@@ -215,24 +217,20 @@ const auth = definePlugin<Auth>({
 		const maxAge = Math.min(Math.ceil(durations.longest / 1000), cookieAge)
 		return {
 			signIn: async (userId, client) => {
+				needsCookies(client)
 				const replaced = client?.cookies.get(cookie.name)
 				const opened = await openSession(userId, durations)
-				// A WebSocket sets no cookie: its sign-in fails and changes nothing.
-				try {
-					client?.cookies.set(cookie.name, opened.token, {
-						...cookie.options,
-						maxAge,
-					})
-				} catch (error) {
-					await closeSession(opened.token)
-					throw error
-				}
+				client?.cookies.set(cookie.name, opened.token, {
+					...cookie.options,
+					maxAge,
+				})
 				// The cookie it replaces would leave a session nobody can end (D-115).
 				if (replaced !== undefined) await closeSession(replaced)
 				return opened
 			},
 			revokeSessions,
 			selfOrMaster,
+			needsCookies,
 			linkAccount,
 			accountOf,
 			subjectOf,

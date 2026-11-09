@@ -450,6 +450,7 @@ describe('signing in', () => {
 		const client: Client = {
 			address: '203.0.113.7',
 			cookies: {
+				settable: true,
 				get: () => undefined,
 				set: (name) => set.push(name),
 				clear: () => undefined,

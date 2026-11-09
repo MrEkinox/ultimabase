@@ -1356,16 +1356,15 @@ describe('a connection', () => {
 		const mutation = ws.iterate({ query: 'mutation { remember }' })
 		expect(await next(mutation)).toEqual({
 			data: null,
-			errors: [containing({ message: 'Internal error.' })],
+			errors: [
+				containing({
+					message: 'A WebSocket cannot set a cookie.',
+					extensions: { code: 'BAD_REQUEST' },
+				}),
+			],
 		})
-		expect(errors).toEqual(['A GraphQL field failed.'])
-		expect(failures).toEqual([
-			containing({
-				err: new Error(
-					'A cookie is set over HTTP: a WebSocket cannot set one.',
-				),
-			}),
-		])
+		expect(errors).toEqual([])
+		expect(failures).toEqual([])
 	})
 
 	it('runs each query and mutation as its caller read again', async () => {

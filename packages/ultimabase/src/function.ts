@@ -119,6 +119,8 @@ export interface Client {
 	readonly address: string
 	/** Read from the request, written on the transport's HTTP response. */
 	readonly cookies: {
+		/** `false` over a WebSocket, whose `set` and `clear` fail (D-354). */
+		readonly settable: boolean
 		/** The request's cookie `name`, `undefined` when it sent none. */
 		get(name: string): string | undefined
 		set(name: string, value: string, options?: CookieOptions): void

@@ -2996,6 +2996,7 @@ __metadata:
     "@ultimabase/graphql": "workspace:*"
     "@ultimabase/http": "workspace:*"
     "@ultimabase/postgres": "workspace:*"
+    "@ultimabase/realtime": "workspace:*"
     graphql: "npm:17.0.2"
     ipaddr.js: "npm:2.5.0"
     pg: "npm:8.23.1"

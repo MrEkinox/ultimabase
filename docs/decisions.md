@@ -5412,7 +5412,7 @@ curl localhost:3000/graphql -H 'authorization: Bearer expired…' -d '…'
 
 ## D-113: `passwordPlugin()`, linked accounts, plugin functions and `viewer`
 
-Amended by D-115, D-125, D-160, D-161, D-162, D-198, D-209 and D-212.
+Amended by D-115, D-125, D-160, D-161, D-162, D-198, D-209, D-212 and D-354.
 
 Choice: completes D-33, D-56, D-109 and D-112, and amends D-56, D-109 and
 D-112.
@@ -11552,7 +11552,7 @@ it('invites with one read and one write', async () => {
 ## D-178: A socket's query reads its caller again
 
 Choice: amends D-154, point 5.
-Amended by D-278.
+Amended by D-278 and D-354.
 
 1. A query or a mutation sent over the GraphQL socket reads its caller again
    before it runs, with the request the viewer holds, as HTTP reads one per
@@ -13673,7 +13673,7 @@ await plugins.maintenance.lock()
 
 ## D-206: Each plugin declares its codes, and `ErrorCodeOf<typeof app>`
 
-Amended by D-231.
+Amended by D-231 and D-354.
 
 Choice: amends D-72 and D-107.
 
@@ -21046,6 +21046,8 @@ website/content/docs                 /docs/next     (main)
 
 ## D-346: auth after its second audit
 
+Amended by D-354.
+
 Choice: amends D-115, point 1, and D-178.
 
 1. A sign-in or a sign-out sets or clears its cookie before it ends a
@@ -21509,3 +21511,48 @@ await graphql(
      answers faster until its next sign-in rehashes it. Hashing the dummy with
      each stored parameter set would cost a hash per set for every unknown
      email.
+
+## D-354: Signing in over a WebSocket
+
+Choice: amends D-113, D-178, D-206, point 3, and D-346, point 1.
+
+1. `Client.cookies` gains `settable`: `true` over HTTP, `false` over a
+   GraphQL WebSocket, whose `set` and `clear` fail with `BAD_REQUEST`, "A
+   WebSocket cannot set a cookie.", instead of an internal error. `get` still
+   reads the cookies of the upgrade request (D-178).
+2. auth's API gives `needsCookies(client)`, which refuses a client whose
+   cookies are not settable with `BAD_REQUEST`, "Signing in or out needs
+   HTTP.". `signIn` and `signOut` call it before they open or end a session.
+   auth and graphql send `BAD_REQUEST`, http's code, as both peer-depend on
+   http.
+3. password's `signUp`, `signIn` and `changePassword` call it first, before
+   their rate limits, their hashes and their writes.
+
+Why: over a socket, `signUp` created the user then failed at its cookie, so
+the same email could not sign up again; `changePassword` changed the password
+and ended the other sessions, then answered an error; `signIn` checked the
+password before failing, so a socket was a sign-in oracle with no session to
+show for it. A refusal before any work leaves every row as it was and names
+the cause.
+
+Example, over the GraphQL WebSocket:
+
+```graphql
+mutation {
+	signUp(input: { email: "ada@example.com", password: "correct horse" }) {
+		token
+	}
+}
+```
+
+Before: an internal error, and a user `ada@example.com` exists. After:
+`BAD_REQUEST`, "Signing in or out needs HTTP.", and no user exists. A plugin
+that signs in its own way refuses first, with the auth API it holds:
+
+```ts
+// Before: the code was spent, then signIn failed at the cookie.
+// After:
+plugins.auth.needsCookies(client)
+const userId = await spendCode(input.code)
+await plugins.auth.signIn(userId, client)
+```

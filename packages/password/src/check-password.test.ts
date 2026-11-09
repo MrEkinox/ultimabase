@@ -69,6 +69,7 @@ async function signedUp(database?: Adapter) {
 const clientAt = (address: string): Client => ({
 	address,
 	cookies: {
+		settable: true,
 		get: () => undefined,
 		set: () => undefined,
 		clear: () => undefined,
