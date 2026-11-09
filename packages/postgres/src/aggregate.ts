@@ -59,8 +59,12 @@ function kinds(
 	)
 }
 
-export function compileAggregate(catalog: Catalog, read: AggregateRead): Sql {
-	const compiler = new Compiler(catalog)
+export function compileAggregate(
+	catalog: Catalog,
+	read: AggregateRead,
+	committed = false,
+): Sql {
+	const compiler = new Compiler(catalog, committed)
 	const { filters } = compiler
 	const alias = filters.alias()
 	const grouped = filters.alias()
@@ -144,8 +148,9 @@ export async function aggregate(
 	catalog: Catalog,
 	db: QueryExecutorProvider,
 	read: AggregateRead,
+	committed = false,
 ): Promise<unknown[][]> {
-	const { rows } = await compileAggregate(catalog, read).execute(db)
+	const { rows } = await compileAggregate(catalog, read, committed).execute(db)
 	const table = catalog.table(read.model)
 	const by = read.by ?? []
 	const types = [

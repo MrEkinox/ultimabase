@@ -290,7 +290,8 @@ export function createAdapter(options: Options): Postgres {
 		// Outside a transaction, a statement reads committed rows (D-320).
 		find: async (read) => find(started().catalog, started().db, read, true),
 		count: async (read) => count(started().catalog, started().db, read, true),
-		aggregate: async (read) => aggregate(started().catalog, started().db, read),
+		aggregate: async (read) =>
+			aggregate(started().catalog, started().db, read, true),
 		write: async (given) => {
 			const { catalog, db, channel } = started()
 			const statements = compileWrite(catalog, given, channel)

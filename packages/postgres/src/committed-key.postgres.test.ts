@@ -90,6 +90,36 @@ describe("a stored key's target with one id", () => {
 		}
 	})
 
+	it('tests the key alone in an aggregate outside a transaction', async () => {
+		const ann = await Author.create({ data: { name: 'Ann' } }, M)
+		const ben = await Author.create({ data: { name: 'Ben' } }, M)
+		await Note.createMany(
+			{
+				data: [
+					{ text: 'a', author: { connect: { id: ann.id } } },
+					{ text: 'b', author: { connect: { id: ben.id } } },
+				],
+			},
+			M,
+		)
+		/** The greatest text of Ann's notes, and whether her row was read. */
+		const counted = async (): Promise<[unknown, boolean]> => {
+			sent.length = 0
+			const { _max } = await Note.aggregate(
+				{ where: { author: { is: { id: ann.id } } }, _max: { text: true } },
+				M,
+			)
+			return [_max.text, (sent.at(-1) ?? '').includes('exists')]
+		}
+		expect(await counted()).toStrictEqual(['a', false])
+		const undone = new Error('undone')
+		const read = transaction(async () => {
+			expect(await counted()).toStrictEqual(['a', true])
+			throw undone
+		})
+		await expect(read).rejects.toBe(undone)
+	})
+
 	it('reads the row in a transaction, where a key may dangle until COMMIT', async () => {
 		const ann = await Author.create({ data: { name: 'Ann' } }, M)
 		await Note.create(
