@@ -228,3 +228,9 @@ a step that cost more than it found. The skill improves one audit at a time.
   `node_modules`, so its benchmark imported an older `ultimabase` from a
   parent folder and showed gains no commit made. A gain or a loss no commit
   explains is checked before it is reported.
+- `postgres` (2026-11-09): a "nice to have" (a delete's notification past
+  150 keys) hid a failing delete from 100 keys on, which only its probe
+  showed: probe a finding before ranking it. In the benchmark, the side run
+  first in each pair was faster by 0.7 % on `createMany`, ranges apart; run
+  in the other order, the gap was gone. Rerun a gap in the reverse order
+  before calling it a slowdown.
