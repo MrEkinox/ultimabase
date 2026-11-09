@@ -21335,6 +21335,8 @@ attachment`: SVG and XHTML that `file-type` detects as
    it inserts its row with its inline values, then its variants' rows in
    one `createMany`. A buffered upload of the wrong size, or whose variant
    or inline value fails, writes no row.
+8. `diskFiles()` deletes at start the temporary files a crash left: those
+   no put has written for an hour.
 
 Why: D-152 named SVG as the type a browser runs, and `file-type` never
 detects SVG. An SVG that opens with an XML prolog, or an XHTML document, is
@@ -21359,6 +21361,8 @@ of 100 private files spent 9 ms on it. Cached, a signature takes 55 µs, not
 165 µs.
 An upload wrote its row, each variant's row, then its inline values: N + 2
 writes for N variants, and a failing variant left rows to delete.
+A crash during a put left its temporary files in `dir`: neither `keys()`
+nor `check()` listed them, so nothing ever deleted them.
 Rejected: adding `application/xml` to the dangerous types, which leaves
 the next detected markup type inline; sniffing the XML for `<svg` or
 `<html`, which an attacker's namespace or comment defeats.

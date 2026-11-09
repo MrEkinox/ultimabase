@@ -1,6 +1,13 @@
 // `diskFiles({ dir, secret })` (D-202): objects in a directory, their type
 // beside them, a body of the wrong size never stored.
-import { mkdtemp, readdir, rm, writeFile } from 'node:fs/promises'
+import {
+	mkdir,
+	mkdtemp,
+	readdir,
+	rm,
+	utimes,
+	writeFile,
+} from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
@@ -56,6 +63,21 @@ describe('diskFiles()', () => {
 		expect(await storage.keys()).toStrictEqual([a])
 		const gone = await storage.serve?.(b, url)
 		expect(gone?.status).toBe(404)
+	})
+
+	it('deletes the temporary files a crash left an hour ago (D-351)', async () => {
+		await mkdir(join(dir, 'public'))
+		const old = `${a}.0.tmp`
+		const names = [old, `${old}.json`, `${a}.1.tmp`, `${a}.1.tmp.json`, a]
+		for (const name of names) await writeFile(join(dir, name), '')
+		const hourAgo = new Date(Date.now() - 60 * 60 * 1000 - 1000)
+		for (const name of [old, `${old}.json`, a]) {
+			await utimes(join(dir, name), hourAgo, hourAgo)
+		}
+		started()
+		expect((await readdir(join(dir, 'public'))).toSorted()).toStrictEqual(
+			[a, `${a}.1.tmp`, `${a}.1.tmp.json`].map((key) => key.slice(7)),
+		)
 	})
 
 	it('stores no body of another size than given', async () => {
