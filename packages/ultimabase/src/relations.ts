@@ -82,6 +82,11 @@ export function viewField(
 		throw new Refused(`${at} is a view and takes no inverse.`)
 	}
 	sizeOf(at, options, false)
+	if (!exists && options['readRule'] !== undefined) {
+		throw new Refused(
+			`${at}: readRule is an exists' option; a view returns rows.`,
+		)
+	}
 	if (source === 'view') {
 		throw new Refused(`${at}: from '${from}' is a view; name its relation.`)
 	}

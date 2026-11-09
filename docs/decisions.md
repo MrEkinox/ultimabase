@@ -16794,6 +16794,8 @@ const myLike = post?.myLike ?? null
 
 ## D-246: `f.exists` reads whether a view keeps a row
 
+Amended by D-359.
+
 Choice: completes D-151 and D-244.
 
 1. `isLiked: f.exists(() => Like, { from: 'likes' })` declares a view
@@ -21752,4 +21754,88 @@ After:
 -- adding the required "Locker.kind" fails when Locker holds rows: make it optional, or give it a value as its default, not a function.
 alter table "locker" add column "kind" text collate "C" not null;
 -- Code still running without "Locker.kind" fails to insert once this runs: with a rolling deploy, make it required in a later deploy.
+```
+
+## D-359: An exists may look past the target's read rule
+
+Choice: amends D-246, point 4.
+
+1. `f.exists(() => Block, { from: 'sentBlocks', readRule: false })` reads
+   whether its view keeps a row, the rows the caller cannot read included.
+   Only the target's `read` rule is skipped: its `beforeFind` hooks still
+   narrow, so a row in the trash is no row (D-17, D-96). The view's own
+   filter is trusted server code already, and reads no rule (D-86).
+2. Nothing else sees those rows. The exists reads `true` or `false` in
+   `select` and `include`, and filters in `where` as `{ hasBlockedMe: false }`
+   (D-246, points 2 and 3); the rows themselves stay out of every read.
+   `readRule` is an option of `f.exists` alone: a `many` or `one` view,
+   which returns rows, does not take it.
+3. A live query follows the exists as before (D-246, point 6): a write to a
+   row the caller cannot read changes the boolean, and only the boolean.
+4. Master reads past every rule already: the option changes nothing for it.
+5. The relations docs name the exception beside "A filter never reveals a
+   row the caller cannot read".
+
+Why: a user blocks another, and the block is read by its blocker only, so
+the blocked user never lists who blocked them. The client still needs
+whether this user blocked the caller, to hide the reply box, and a search
+must leave out the users who did. D-246 point 4 makes such an exists read
+`false` always. An application wrote it as a virtual reading the blocks as
+Master, which tells the caller the same one bit, but is neither filterable
+nor live, and its search read every blocker's id first. Declared on the
+field, the exception is where the model is read, and a search finds it.
+
+Rejected:
+
+- A filter run as Master, `where(filter, { as: master })`, as the issue
+  asked: the filter reads `viewer: true`, which is still the caller, and a
+  `many` view would then return rows the caller cannot read.
+- Opening the block's read rule to `toUser`: the blocked user would list
+  who blocked them.
+- A sentence in the docs naming the virtual and Master pattern: it keeps the
+  extra query, and the boolean filters nothing.
+
+Example, before and after the same field:
+
+```ts
+// Before
+const User = defineModel({
+	name: 'User',
+	fields: (f) => ({
+		sentBlocks: f.many(() => Block, { inverse: 'fromUser' }),
+		hasBlockedMe: f.virtual(z.boolean(), { needs: [] }),
+	}),
+}).with({
+	virtuals: {
+		hasBlockedMe: { run: ({ record, caller }) => blocked(record.id, caller) },
+	},
+})
+const blockers = await Block.findMany(
+	{ where: { toUser: { is: { id: me } } }, select: { fromUser: true } },
+	{ as: master },
+)
+const users = await User.findMany(
+	{ where: { NOT: { id: { in: blockers.map((row) => row.fromUser.id) } } } },
+	{ as: caller },
+)
+
+// After
+const User = defineModel({
+	name: 'User',
+	fields: (f) => ({
+		sentBlocks: f.many(() => Block, { inverse: 'fromUser' }),
+		hasBlockedMe: f.exists(() => Block, {
+			from: 'sentBlocks',
+			readRule: false,
+		}),
+	}),
+}).with({
+	relations: {
+		hasBlockedMe: { where: ({ where }) => where({ toUser: { viewer: true } }) },
+	},
+})
+const users = await User.findMany(
+	{ where: { hasBlockedMe: false } },
+	{ as: caller },
+)
 ```
