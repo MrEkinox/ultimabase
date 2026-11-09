@@ -55,6 +55,13 @@ const forever: Job<'forever', never> = defineJob({
 	name: 'forever',
 	run: () => forever.enqueue(),
 })
+let thrown: unknown
+const throwing = defineJob({
+	name: 'throwing',
+	run: () => {
+		throw thrown
+	},
+})
 const outside = defineJob({ name: 'outside', run: () => undefined })
 const inputs: unknown[] = []
 const dated = defineJob({
@@ -68,7 +75,9 @@ const dated = defineJob({
 const app = defineApp({
 	database: memory(),
 	models: [],
-	plugins: [jobsPlugin({ jobs: [closeRoom, flaky, chain, forever, dated] })],
+	plugins: [
+		jobsPlugin({ jobs: [closeRoom, flaky, chain, forever, dated, throwing] }),
+	],
 	logger,
 })
 
@@ -226,6 +235,23 @@ describe('a run that fails', () => {
 		})
 		// About 2 h 50: 10 s, then twice as long each time, nine times.
 		expect(Date.now() - start.getTime()).toBe(10_000 * (2 ** 9 - 1))
+	})
+
+	it('stores a message the database cannot store, made storable (D-352)', async () => {
+		thrown = new Error('a\0b\uD800c')
+		await throwing.enqueue()
+		await runJobs()
+		expect(await rows()).toMatchObject([
+			{ state: 'pending', attempts: 1, error: 'ab\uFFFDc' },
+		])
+		await JobsRun.deleteMany({}, M)
+		// A value String() cannot print.
+		thrown = Object.create(null)
+		await throwing.enqueue()
+		await runJobs()
+		expect(await rows()).toMatchObject([
+			{ state: 'pending', attempts: 1, error: 'An unprintable value.' },
+		])
 	})
 
 	it('turns failed at once when its job is not declared', async () => {

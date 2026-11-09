@@ -47,8 +47,14 @@ function following(job: JobRecord, row: Row, now: number): Date {
 	return new Date(next)
 }
 
+/** An error's message as the database stores it: no NUL, no lone surrogate. */
 function messageOf(error: unknown): string {
-	return error instanceof Error ? error.message : String(error)
+	try {
+		const message = error instanceof Error ? error.message : String(error)
+		return message.replaceAll('\0', '').toWellFormed()
+	} catch {
+		return 'An unprintable value.'
+	}
 }
 
 async function failed(
