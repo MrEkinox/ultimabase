@@ -260,3 +260,10 @@ a step that cost more than it found. The skill improves one audit at a time.
   narrowest layer's limit before proposing a bound, and say so when the fix
   differs from the proposal. A test that computes a bound from `Date.now()`
   failed by one millisecond: freeze the clock around it.
+- `password` (2026-11-09): a test of a full hash queue over HTTP never
+  filled it, because each round trip let the queue drain: drive a busy-queue
+  test through the commands, in one process turn. A `hashed ?? hash()`
+  parameter left a mutant no test could kill, since a double hash is
+  invisible: prefer a signature where each caller does the work it needs. A
+  mutant replaced the first of two identical guards in the file and survived
+  for the wrong reason: mutate a string that occurs once.
