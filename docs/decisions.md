@@ -21403,6 +21403,9 @@ Choice: amends D-221 points 3 and 11.
 3. A failed run stores its error's message without its NULs and with each
    lone surrogate replaced, as the database stores strings (D-94); a thrown
    value `String()` cannot print is stored as `An unprintable value.`
+4. A run writes its end only while its instance holds the row's lease. A
+   run that outlived its lease leaves the row to the instance that took it
+   over, and logs a warning.
 
 Why: `enqueue` stored the schema's output as it came. A `Date` or a key set
 to `undefined` is no JSON value, so the write was refused as 400
@@ -21412,7 +21415,9 @@ new recurring job's row: the second start failed with `UNIQUE_VIOLATION`,
 and on PostgreSQL 39 of 40 concurrent starts failed. Deleting an undeclared
 job's row failed the same way with `NOT_FOUND`. A run that threw a message
 holding a NUL could not store it: the run ran again after each lease, its
-attempts never counted, for ever.
+attempts never counted, for ever. A run that outlived its lease and the
+instance that took it over both wrote its end: the second write found no
+row, and `runJobs()` failed with "runJobs could not run a job."
 
 Example:
 

@@ -27,12 +27,12 @@ function due(now: Date) {
 	}
 }
 
-/** Whether this instance now holds the row: one update counts it. */
-async function claim(id: string, now: number): Promise<boolean> {
+/** Whether this instance now holds the row until `held`: one update counts it. */
+async function claim(id: string, now: number, held: Date): Promise<boolean> {
 	const { count } = await JobsRun.updateMany(
 		{
 			where: { AND: [{ id }, due(new Date(now))] },
-			data: { lockedUntil: new Date(now + lease) },
+			data: { lockedUntil: held },
 		},
 		M,
 	)
@@ -57,21 +57,20 @@ function messageOf(error: unknown): string {
 	}
 }
 
-async function failed(
+/** What a failed run writes to its row. */
+function failed(
 	app: Running,
 	row: Row,
 	job: JobRecord | undefined,
 	error: unknown,
 	now: number,
-): Promise<void> {
+) {
 	const message = messageOf(error)
 	const facts = { err: error, job: row.job, run: row.id }
 	if (job?.schedule !== undefined && row.recurring !== null) {
 		app.logger.error(facts, `The job ${row.job} failed.`)
 		const dueAt = following(job, row, now)
-		const data = { dueAt, lockedUntil: null, error: message }
-		await JobsRun.update({ where: { id: row.id }, data }, M)
-		return
+		return { dueAt, lockedUntil: null, error: message }
 	}
 	const tried = row.attempts + 1
 	const last = job === undefined || tried >= attempts
@@ -80,7 +79,7 @@ async function failed(
 	} else {
 		app.logger.warn(facts, `The job ${row.job} failed: it runs again.`)
 	}
-	const data = {
+	return {
 		attempts: tried,
 		lockedUntil: null,
 		error: message,
@@ -88,37 +87,44 @@ async function failed(
 			? { state: 'failed' }
 			: { dueAt: new Date(now + backoff * 2 ** (tried - 1)) }),
 	}
-	await JobsRun.update({ where: { id: row.id }, data }, M)
+}
+
+/** What a run writes to its row: its failure, its next time, or none. */
+async function ran(app: Running, row: Row, now: number) {
+	const job = app.jobs.get(row.job)
+	if (job === undefined) {
+		const error = new Error(`The job ${row.job} is not in jobsPlugin's jobs.`)
+		return failed(app, row, job, error, now)
+	}
+	const { id, input } = row
+	try {
+		await job.run(job.input === undefined ? { id } : { id, input })
+	} catch (error) {
+		return failed(app, row, job, error, now)
+	}
+	if (row.recurring === null) return undefined
+	const dueAt = following(job, row, now)
+	return { dueAt, attempts: 0, lockedUntil: null, error: null }
 }
 
 /** Runs the row once this instance holds it; whether it did. */
 async function runRow(app: Running, id: string): Promise<boolean> {
 	const now = Date.now()
-	if (!(await claim(id, now))) return false
+	const held = new Date(now + lease)
+	if (!(await claim(id, now, held))) return false
 	const row = await JobsRun.findUnique({ where: { id } }, M)
 	if (row === null) return false
-	const job = app.jobs.get(row.job)
-	if (job === undefined) {
-		const error = new Error(`The job ${row.job} is not in jobsPlugin's jobs.`)
-		await failed(app, row, job, error, now)
-		return true
-	}
-	try {
-		await job.run(job.input === undefined ? { id } : { id, input: row.input })
-	} catch (error) {
-		await failed(app, row, job, error, now)
-		return true
-	}
-	if (row.recurring === null) {
-		await JobsRun.delete({ where: { id } }, M)
-	} else {
-		const data = {
-			dueAt: following(job, row, now),
-			attempts: 0,
-			lockedUntil: null,
-			error: null,
-		}
-		await JobsRun.update({ where: { id }, data }, M)
+	const data = await ran(app, row, now)
+	// Only while this instance holds the row: another took it over after.
+	const where = { id, lockedUntil: held }
+	const { count } =
+		data === undefined
+			? await JobsRun.deleteMany({ where }, M)
+			: await JobsRun.updateMany({ where, data }, M)
+	if (count === 0) {
+		const facts = { job: row.job, run: id }
+		const message = `The job ${row.job} outlived its lease: another instance took it over.`
+		app.logger.warn(facts, message)
 	}
 	return true
 }
