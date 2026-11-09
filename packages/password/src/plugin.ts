@@ -21,7 +21,6 @@ import manifest from '../package.json' with { type: 'json' }
 import type { SignedIn, State } from './core.ts'
 import {
 	attemptOf,
-	callerOf,
 	checkCurrent,
 	checkNewFor,
 	createUser,
@@ -41,6 +40,7 @@ import type { EmailCommands } from './email-commands.ts'
 import { emailCommands } from './email-commands.ts'
 import type { SendEmail } from './email-flows.ts'
 import { mailerOf } from './email-flows.ts'
+import { hashPassword } from './hash.ts'
 import { emailFunctions } from './email-functions.ts'
 import { passwordFunctions } from './functions.ts'
 import type { Credentials, Property } from './input.ts'
@@ -226,7 +226,7 @@ const definition = definePlugin<Password>({
 		return {
 			signUp: async ({ email, password, data }, options) => {
 				const state = stateOf(plugins.auth)
-				const checked = signUpData(state, data, callerOf(options))
+				const checked = signUpData(state, data, options?.as)
 				const { user } = await createUser(
 					state,
 					valid(emailOf, email, 'email'),
@@ -251,7 +251,7 @@ const definition = definePlugin<Password>({
 				const state = stateOf(plugins.auth)
 				const checked = valid(passwordOf, password, 'password')
 				await checkNewFor(state, id, checked)
-				await setPassword(state, id, checked)
+				await setPassword(state, id, await hashPassword(checked))
 			},
 			checkPassword: async ({ id, password }, options) => {
 				plugins.auth.selfOrMaster(options?.as, id, 'checkPassword')

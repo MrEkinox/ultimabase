@@ -14,6 +14,7 @@ import {
 	verified,
 } from './core.ts'
 import type { Mailer } from './email-flows.ts'
+import { hashPassword } from './hash.ts'
 import { later } from './email-flows.ts'
 import type { Property } from './input.ts'
 import { requestLimited } from './models.ts'
@@ -92,7 +93,8 @@ export function passwordFunctions(
 			const { id } = user
 			await checkCurrent(id, input.currentPassword, attemptOf(id, client))
 			await checkNewFor(state, id, input.newPassword, ['input', 'newPassword'])
-			const stamp = await setPassword(state, id, input.newPassword)
+			const hash = await hashPassword(input.newPassword)
+			const stamp = await setPassword(state, id, hash)
 			return signedIn(state, { userId: id, stamp }, client)
 		}),
 	}).with({ access: allow.public })

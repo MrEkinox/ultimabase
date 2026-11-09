@@ -13905,7 +13905,7 @@ settled, then rolls back; `pg` warns of nothing.
 
 ## D-209: Breached passwords, and a password that is the email
 
-Amended by D-224.
+Amended by D-224 and D-353.
 
 Choice: amends D-113.
 
@@ -21451,7 +21451,7 @@ await remind.enqueue({ at: new Date(), note: undefined })
 
 ## D-353: password after its audit
 
-Choice: amends D-115.
+Choice: amends D-115 and D-209.
 
 1. A password longer than 1,024 UTF-16 units, four a character, is refused
    before NFKC reads it, as one over 256 characters; an email longer than
@@ -21470,3 +21470,11 @@ await User.resetPassword({ token, password: 'ﷺ'.repeat(300_000) })
 // Before: PASSWORD_LENGTH after 265 ms of a blocked process.
 // After: PASSWORD_LENGTH at once.
 ```
+
+2. A reset hashes the new password before it uses the link, as it checks it
+   (D-209 point 6): a busy server's `TOO_MANY_ATTEMPTS` leaves the link valid
+   for another try.
+
+Why: the link was deleted, then the hash refused. The user got
+`TOO_MANY_ATTEMPTS`, then "This link is invalid or has expired." on the retry,
+while the old password still held, and had to ask for a new email.

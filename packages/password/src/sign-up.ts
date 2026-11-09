@@ -54,7 +54,7 @@ export function signUpFields(
 export function signUpData(
 	state: State,
 	data: object,
-	caller: Identity,
+	caller: Identity = { kind: 'anonymous' },
 ): object {
 	if (isMaster(caller)) return data
 	if (state.signUp === false) {
