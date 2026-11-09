@@ -119,3 +119,31 @@ it("runs a plugin's hooks outside the write that made the changes", async () => 
 	// Inside the write's transaction, the count would hold it open.
 	await app.stop()
 })
+
+it("logs an async hook's rejection, which nothing awaits", async () => {
+	errors.length = 0
+	// Their types return void, yet TypeScript lets an application pass these.
+	const hooks = {
+		changed: async () => {
+			throw new Error('Broken changed.')
+		},
+		started: async () => {
+			throw new Error('Broken started.')
+		},
+	}
+	const broken = definePlugin({ name: 'broken', manifest, ...hooks })
+	const app = defineApp({
+		database: memory(),
+		models: [Note],
+		plugins: [broken.plugin()],
+		logger,
+	})
+	await app.start()
+	await Note.create({ data: { text: 'a' } }, { as: master })
+	await vi.waitFor(() => expect(errors).toHaveLength(2))
+	expect(errors).toEqual([
+		[{ err: new Error('Broken started.') }, "The plugin's started failed."],
+		[{ err: new Error('Broken changed.') }, "The plugin's changed failed."],
+	])
+	await app.stop()
+})

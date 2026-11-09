@@ -5,7 +5,7 @@ import type { Logger, MasterKey } from './app-options.ts'
 import type { PluginCaller } from './complete.ts'
 import { completer, concerning } from './complete.ts'
 import { consoleLogger } from './console-logger.ts'
-import { feedOf } from './feed.ts'
+import { feedOf, guarded } from './feed.ts'
 import type { Generated } from './generate.ts'
 import { generatedOf, written as wrote } from './generate.ts'
 import type { PluginIdentify } from './identify.ts'
@@ -229,9 +229,8 @@ export function lifecycle(options: LifecycleOptions): Lifecycle {
 				ran.push(plugin)
 			}
 			for (const { code, context } of plugins) {
-				if (code.started !== undefined) {
-					Reflect.apply(code.started, undefined, [context])
-				}
+				const result: unknown = code.started?.(context)
+				if (result instanceof Promise) result.catch(guarded(context, 'started'))
 			}
 			if (process.env['NODE_ENV'] === 'development') {
 				const files = generatedOf(plugins)
