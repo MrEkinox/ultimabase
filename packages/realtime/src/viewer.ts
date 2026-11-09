@@ -25,7 +25,7 @@ type Subscription = {
 	readonly args: unknown
 	readonly row: boolean
 	readonly send: (message: LiveMessage) => void
-	/** The rows it follows, nested rows included. */
+	/** The list rows it follows, nested rows apart (D-252). */
 	rows: number
 	reads: readonly Recorded[]
 	expires: Date | undefined

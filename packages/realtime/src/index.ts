@@ -14,11 +14,11 @@ export type { LiveHandle, LiveMessage, Removal, Upsert } from './messages.ts'
 export type { Viewer } from './viewer.ts'
 
 export type RealtimeOptions = {
-	/** The most rows a live list follows, nested rows included; 1000. */
+	/** The most rows a live list follows, nested rows apart; 50 000. */
 	readonly maxLive?: number
 	/** The most live reads one connection holds; 100. */
 	readonly maxSubscriptions?: number
-	/** The most rows one connection follows in all, nested rows included; 10 000. */
+	/** The most list rows one connection follows in all; 100 000. */
 	readonly maxConnectionRows?: number
 	/** How often, in milliseconds, each caller is built again; 5 minutes. */
 	readonly refresh?: number
