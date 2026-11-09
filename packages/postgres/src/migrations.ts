@@ -240,25 +240,24 @@ async function sync(
 	})
 }
 
-/**
- * Refuses when the database applied a file `known` does not name: another
- * deploy, of other code, ran since this one read the database (D-347).
- */
+/** Another deploy, of other code, ran since this one read the database. */
+const stale = () =>
+	new Refused('Another deploy changed the database meanwhile: deploy again.')
+
+/** Refuses when the database applied a file `known` does not name (D-347). */
 async function ours(db: Kysely<object>, known: readonly string[]) {
 	const { rows } = await sql`select 1 from ultimabase_migrations
 		where name <> all(${known}::text[]) limit 1`.execute(db)
-	if (rows.length > 0) {
-		throw new Refused(
-			'Another deploy changed the database meanwhile: deploy again.',
-		)
-	}
+	if (rows.length > 0) throw stale()
 }
 
-/** Whether another deploy applied `file` first. */
+/** Whether another deploy applied `file` first; refused if of other content. */
 async function isDone(db: Kysely<object>, file: Migration): Promise<boolean> {
-	const { rows } = await sql`
-		select 1 from ultimabase_migrations where name = ${file.name}`.execute(db)
-	return rows.length > 0
+	const { rows } = await sql<{ checksum: string }>`select checksum
+		from ultimabase_migrations where name = ${file.name}`.execute(db)
+	const [row] = rows
+	if (row !== undefined && row.checksum !== file.checksum) throw stale()
+	return row !== undefined
 }
 
 const done = (db: Kysely<object>, file: Migration) =>

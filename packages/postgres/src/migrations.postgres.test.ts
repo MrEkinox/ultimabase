@@ -2065,6 +2065,27 @@ describe('a deploy on postgres()', () => {
 			},
 		)
 
+		it.each([true, false])(
+			'refuses its file of the same name and other content, with a transaction: %s',
+			async (transaction) => {
+				const { older, newer } = await raced()
+				// Code that names the same files, its 2_b.sql of other content.
+				const own = {
+					...file('2_b.sql', 'create table e (f integer);', transaction),
+					checksum: 'other',
+				}
+				await expect(
+					migrations.apply({
+						kind: 'deploy',
+						files: [own],
+						known: names([first, second, third]),
+						to: older,
+					}),
+				).rejects.toThrow(stale)
+				expect(await migrations.stored()).toStrictEqual(newer)
+			},
+		)
+
 		it('refuses to store its older snapshot', async () => {
 			const { older, newer } = await raced()
 			await expect(

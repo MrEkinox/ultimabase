@@ -21100,7 +21100,9 @@ refused a filter on such a field.
    Under the lock of each file, and under the one that stores the snapshot,
    the adapter refuses the deploy when the database applied a file `known`
    does not name: `Another deploy changed the database meanwhile: deploy
-again.` Identical deploys, as replicas deploying at start, still pass.
+again.` It refuses as well a file whose name the database applied with
+   another checksum: other code applied it first. Identical deploys, as
+   replicas deploying at start, still pass.
 
 Why, for point 7: a deploy plans outside the lock. When older code planned,
 then newer code applied its files, the older one applied a file of its own
