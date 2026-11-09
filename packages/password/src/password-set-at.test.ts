@@ -16,6 +16,7 @@ import {
 	signInQuery,
 	tokenIn,
 	tokenOf,
+	rowOf,
 } from './test/app.ts'
 
 const outbox: Email[] = []
@@ -86,10 +87,10 @@ async function server(
 	return { url, user, app }
 }
 
-const notice = (userId: string): Email => ({
+const notice = (id: string) => ({
 	kind: 'passwordChanged',
 	to: ada.email,
-	userId,
+	user: rowOf(id),
 })
 /** Waits for the `count`th password notice. */
 const told = async (count: number) =>

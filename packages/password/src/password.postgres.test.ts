@@ -20,6 +20,7 @@ import {
 	started,
 	User,
 	tokenIn,
+	rowOf,
 } from './test/app.ts'
 import { database, urls } from './test/postgres.ts'
 import { PasswordToken } from './tokens.ts'
@@ -127,7 +128,7 @@ for (const url of urls) {
 				expect(outbox.at(-1)).toEqual({
 					kind: 'passwordChanged',
 					to: ada.email,
-					userId: user?.id,
+					user: rowOf(user?.id),
 				})
 			})
 			// Past one hour, the counts are purged and another email goes.

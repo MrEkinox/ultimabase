@@ -5796,7 +5796,7 @@ before.
 
 ## D-117: Password reset and email verification
 
-Amended by D-162 and D-212.
+Amended by D-162, D-212 and D-357.
 
 Choice: completes D-113 point 12 and D-115.
 
@@ -10512,7 +10512,7 @@ const deleteAccount = defineFunction({
 
 ## D-162: The stored email and the email change
 
-Amended by D-211 and D-353.
+Amended by D-211, D-353 and D-357.
 
 Choice: completes D-113 and D-117, and amends D-113 point 5, D-117 points 1
 and 5, and D-160.
@@ -10955,7 +10955,7 @@ it('reads the lock again after lost changes', async () => {
 
 ## D-169: When the password was set
 
-Amended by D-211.
+Amended by D-211 and D-357.
 
 Choice: completes D-113, D-117, D-160 and D-162.
 
@@ -21651,4 +21651,48 @@ CI=1 npx ultimabase dev
 # Before: the refusal, then "Waiting for file changes before restarting",
 #   until the runner gives up.
 # After: the refusal, then exit code 1.
+```
+
+## D-357: `sendEmail` receives the user's row
+
+Choice: amends D-117, point 1, D-162, point 5, and D-169, point 5.
+
+1. Every email `sendEmail` receives carries `user`, the user's row with
+   every field, as `caller.user` has it (`UserOf<Register>`), in place of
+   `userId`. `email.user.id` is the id.
+2. password reads the row as Master just before it calls `sendEmail`, so
+   the row holds the write that sent the email: the new email of an
+   `'emailChanged'`, the new `passwordSetAt` of a `'passwordChanged'`.
+3. A user deleted before its email goes receives none.
+4. The row's fields guarded by a read rule are there too: `sendEmail` runs
+   on the server, and decides what the text shows.
+
+Why: an issue asked to type a field with a read rule as required in a
+read as Master, so that `sendEmail` reads the user's language without a
+fallback; D-199 keeps it optional. The need was the row: every
+`sendEmail` that writes more than a link reads it again with `findUnique`
+by `userId`, as Master, to greet the user, pick their language or skip a
+closed account. password already has the user model's queries; reading
+it once there removes that code from every application.
+
+Rejected: `user` beside `userId` (two names for one id, before the first
+1.0 there is no one to keep compatible); the record of the hook that sent
+the email (only the hook emails have one, and a write reads fields its
+rules hide); reading the row when the email is planned (a notice sent after a
+write would miss it).
+
+Example, before and after the same `sendEmail`:
+
+```ts
+// Before
+sendEmail: async (email) => {
+	const user = await User.findUnique({ where: { id: email.userId } }, M)
+	if (user === null) return
+	await mailer.send(email.to, textFor(email, user.lang))
+}
+
+// After
+sendEmail: async (email) => {
+	await mailer.send(email.to, textFor(email, email.user.lang))
+}
 ```

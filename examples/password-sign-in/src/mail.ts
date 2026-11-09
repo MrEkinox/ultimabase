@@ -14,14 +14,15 @@ const pages = {
 }
 
 export async function sendEmail(email: Email): Promise<void> {
+	const hello = `Hello ${email.user.name},`
 	if (email.kind === 'emailChanged') {
 		// To the old address, which may not have asked for the change.
-		const text = `Your email is now ${email.newEmail}. Not you? Contact us.`
+		const text = `${hello} your email is now ${email.newEmail}. Not you? Contact us.`
 		outbox.push({ ...email, text })
 		return
 	}
 	if (email.kind === 'passwordChanged') {
-		const text = 'Your password was changed. Not you? Reset it.'
+		const text = `${hello} your password was changed. Not you? Reset it.`
 		outbox.push({ ...email, text })
 		return
 	}
@@ -29,7 +30,7 @@ export async function sendEmail(email: Email): Promise<void> {
 	// resetPassword, verifyEmail or confirmEmailChange.
 	const link = `https://example.com/${pages[email.kind]}?token=${email.token}`
 	// An application sends the text to `email.to` with its email provider.
-	outbox.push({ ...email, text: `Open ${link}` })
+	outbox.push({ ...email, text: `${hello} open ${link}` })
 }
 //#endregion
 

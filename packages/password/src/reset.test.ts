@@ -16,6 +16,7 @@ import {
 	tokenOf,
 	User,
 	tokenIn,
+	rowOf,
 } from './test/app.ts'
 import { issueToken, PasswordToken } from './tokens.ts'
 
@@ -83,7 +84,7 @@ describe('requesting a reset', () => {
 			kind: 'reset',
 			to: 'ada@example.com',
 			token: tokenAt(0),
-			userId: user.id,
+			user: rowOf(user.id),
 		})
 		expect(tokenAt(0)).toMatch(/^[\w-]{43}$/)
 		const [stored] = await PasswordToken.findMany(

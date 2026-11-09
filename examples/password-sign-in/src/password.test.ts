@@ -100,6 +100,7 @@ it('changes the password of the signed-in user', async () => {
 		expect(outbox.at(-1)).toMatchObject({
 			kind: 'passwordChanged',
 			to: 'ada@example.com',
+			text: 'Hello Ada, your password was changed. Not you? Reset it.',
 		})
 	})
 	//#endregion
