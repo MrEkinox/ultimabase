@@ -522,6 +522,12 @@ describe('a value the schema refuses', () => {
 			expect(messages(await post(url, query, { w: list }))).toStrictEqual([
 				'Variable "$w" has invalid value at .title.equals: String cannot represent a non string value.',
 			])
+			const status = `query ($s: PostStatus) { posts(where: { status: { equals: $s } }) { totalCount } }`
+			expect(
+				messages(await post(url, status, { s: 'secret"5' })),
+			).toStrictEqual([
+				'Variable "$s" has invalid value: The value does not exist in "PostStatus" enum.',
+			])
 			const literal = `{ posts(where: { titl: "secret-4" }) { totalCount } }`
 			expect(messages(await post(url, literal))).toStrictEqual([
 				'Expected value of type "PostWhereInput" not to include unknown field "titl". Did you mean "title"?',

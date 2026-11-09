@@ -16,8 +16,8 @@ type Format = (error: Readonly<GraphQLError | Error>) => GraphQLError | Error
 function unvalued(error: Readonly<GraphQLError>): GraphQLError {
 	const { message, nodes, path, extensions } = error
 	const reason = message.replace(
-		/[,;]? [Ff]ound: [\s\S]*$|(?<= cannot represent [^:]*): [\s\S]*$/,
-		'',
+		/[,;]? [Ff]ound: [\s\S]*$|(?<= cannot represent [^:]*): [\s\S]*$|Value "[\s\S]*" (?=does not exist in "\w+" enum\.$)/,
+		(cut) => (cut.startsWith('Value') ? 'The value ' : ''),
 	)
 	const ended =
 		reason === message || /[.?]$/.test(reason) ? reason : `${reason}.`
