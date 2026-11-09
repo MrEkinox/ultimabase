@@ -21394,7 +21394,7 @@ await files.check({ delete: true })
 
 ## D-352: jobs after its audit
 
-Choice: amends D-221 points 3 and 11.
+Choice: amends D-221 points 3, 6 and 11.
 
 1. `enqueue` stores its input's validated value as JSON, as the
    documentation says: a date as its ISO string, an undefined key left out.
@@ -21414,6 +21414,10 @@ Choice: amends D-221 points 3 and 11.
    deploy an older instance that starts still deletes the recurring rows of
    the jobs it does not declare; the next instance of the newer version to
    start creates them again.
+6. `every` and `after` are refused at import and at `enqueue` unless the
+   run they time is due before the year 10000, the last a stored date
+   holds (D-94). A cron pattern no date matches, as `0 0 30 2 *`, is
+   refused at import: `cron "0 0 30 2 *" never runs.`
 
 Why: `enqueue` stored the schema's output as it came. A `Date` or a key set
 to `undefined` is no JSON value, so the write was refused as 400
@@ -21428,7 +21432,9 @@ instance that took it over both wrote its end: the second write found no
 row, and `runJobs()` failed with "runJobs could not run a job." During a
 rolling deploy, an older instance turned a run of a job the newer version
 added `failed` for good, a recurring job's row included: that job never ran
-again.
+again. A delay past the year 9999, as `after: 1e20`, passed the check, then
+its row's date was refused; `every: 1e300` and a cron pattern that never
+runs passed import and failed the start, after the database was opened.
 
 Example:
 

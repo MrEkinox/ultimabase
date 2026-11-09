@@ -186,13 +186,14 @@ resolves.
 | `closeRoom: run is a function.`                                                         | At import.                                                 |
 | `closeRoom: a job takes one of input, every and cron.`                                  | At import.                                                 |
 | `closeRoom: input is a Standard Schema.`                                                | At import.                                                 |
-| `closeRoom: every is a positive number of milliseconds.`                                | At import.                                                 |
+| `closeRoom: every is a positive number of milliseconds, ending before the year 10000.`  | At import.                                                 |
 | `closeRoom: cron is a pattern of five fields.`                                          | At import; a pattern croner refuses gives its own message. |
+| `closeRoom: cron "0 0 30 2 *" never runs.`                                              | At import: no date matches the pattern, as 30 February.    |
 | `closeRoom: timeZone goes with cron.`                                                   | At import.                                                 |
 | `closeRoom: timeZone is an IANA time zone.`                                             | At import.                                                 |
 | `jobsPlugin’s jobs is an array of defineJob values.`                                    | At start.                                                  |
 | `jobsPlugin’s jobs name closeRoom twice.`                                               | At start.                                                  |
-| `closeRoom: after is a positive number of milliseconds.`                                | `enqueue`.                                                 |
+| `closeRoom: after is a positive number of milliseconds, ending before the year 10000.`  | `enqueue`.                                                 |
 | `closeRoom is not in jobsPlugin's jobs.`                                                | `enqueue` of a job the plugin was not given.               |
 | `closeRoom.enqueue needs an application with jobsPlugin() started.`                     | `enqueue` before the start, or after the stop.             |
 | `runJobs() runs during a test of an application with jobsPlugin().`                     | `runJobs()` outside such a test.                           |

@@ -163,12 +163,19 @@ describe('a job enqueued', () => {
 	})
 
 	it('refuses a delay that is no positive number of milliseconds', async () => {
-		for (const after of [0, -1, Number.NaN, '10 minutes']) {
+		// 1e20 and the year 10000 are past what a date stores (D-352).
+		const last = Date.UTC(10_000, 0, 1) - start.getTime()
+		for (const after of [0, -1, Number.NaN, '10 minutes', 1e20, last]) {
 			await expect(
 				// @ts-expect-error: after is a number.
 				flaky.enqueue({ after }),
-			).rejects.toThrow('flaky: after is a positive number of milliseconds.')
+			).rejects.toThrow(
+				'flaky: after is a positive number of milliseconds, ending before the year 10000.',
+			)
 		}
+		await flaky.enqueue({ after: last - 1 })
+		const dueAt = new Date('9999-12-31T23:59:59.999Z')
+		expect(await rows()).toMatchObject([{ dueAt }])
 	})
 
 	it('refuses a job that is not in jobsPlugin’s jobs', async () => {

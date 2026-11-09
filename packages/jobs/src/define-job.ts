@@ -111,10 +111,14 @@ export function recordOf(job: unknown): JobRecord | undefined {
 	return typeof job === 'object' && job !== null ? records.get(job) : undefined
 }
 
-/** A positive number of milliseconds. */
-function isDuration(value: unknown): value is number {
-	return typeof value === 'number' && Number.isFinite(value) && value > 0
-}
+/** A positive number of milliseconds ending before the year 10000 (D-94). */
+const isDuration = (value: unknown): value is number =>
+	typeof value === 'number' &&
+	value > 0 &&
+	value < Date.UTC(10_000, 0, 1) - Date.now()
+
+const notDuration = (name: string, key: string): string =>
+	`${name}: ${key} is a positive number of milliseconds, ending before the year 10000.`
 
 /** The next due time of a pattern croner accepts; refuses one it does not. */
 function cronNext(
@@ -129,11 +133,15 @@ function cronNext(
 		throw new Refused(`${name}: timeZone is an IANA time zone.`)
 	}
 	let cron: Cron
+	let first: Date | null
 	try {
 		cron = new Cron(pattern, { timezone: zone ?? 'UTC', mode: '5-part' })
-		cron.nextRun()
+		first = cron.nextRun()
 	} catch (error) {
 		throw new Refused(`${name}: ${String(error)}`, { cause: error })
+	}
+	if (first === null) {
+		throw new Refused(`${name}: cron ${JSON.stringify(pattern)} never runs.`)
 	}
 	return (from) => {
 		const next = cron.nextRun(new Date(from))
@@ -170,7 +178,7 @@ function recordFor(definition: object): JobRecord {
 		throw new Refused(`${name}: input is a Standard Schema.`)
 	}
 	if (every !== undefined && !isDuration(every)) {
-		throw new Refused(`${name}: every is a positive number of milliseconds.`)
+		throw new Refused(notDuration(name, 'every'))
 	}
 	const next =
 		cron !== undefined
@@ -208,7 +216,7 @@ async function enqueue(record: JobRecord, args: readonly unknown[]) {
 			? Reflect.get(options, 'after')
 			: undefined
 	if (after !== undefined && !isDuration(after)) {
-		throw new TypeError(`${name}: after is a positive number of milliseconds.`)
+		throw new TypeError(notDuration(name, 'after'))
 	}
 	if (runningOf(`${name}.enqueue`).jobs.get(name) !== record) {
 		throw new Error(`${name} is not in jobsPlugin's jobs.`)

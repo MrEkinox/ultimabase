@@ -1,6 +1,6 @@
 // `defineJob` and `jobsPlugin` (D-221): one form per job, checked at import,
 // and each job once in the plugin's jobs; their types follow the form.
-import { describe, expect, expectTypeOf, it } from 'vitest'
+import { describe, expect, expectTypeOf, it, vi } from 'vitest'
 import { z } from 'zod'
 import { defineApp, memory } from 'ultimabase'
 import { quietRuns } from 'ultimabase/internal'
@@ -75,11 +75,16 @@ describe('defineJob', () => {
 		expect(refused({ name: 'schema', input: {}, run })).toThrow(
 			'schema: input is a Standard Schema.',
 		)
-		for (const every of [0, -1, Number.POSITIVE_INFINITY, '1 hour']) {
+		// 1e300 and the year 10000 are past what a date stores (D-352).
+		vi.useFakeTimers({ toFake: ['Date'] })
+		const last = Date.UTC(10_000, 0, 1) - Date.now()
+		for (const every of [0, -1, Number.NaN, '1 hour', '1000', 1e300, last]) {
 			expect(refused({ name: 'every', every, run })).toThrow(
-				'every: every is a positive number of milliseconds.',
+				'every: every is a positive number of milliseconds, ending before the year 10000.',
 			)
 		}
+		expect(refused({ name: 'every', every: last - 1, run })).not.toThrow()
+		vi.useRealTimers()
 		expect(refused({ name: 'cron', cron: 5, run })).toThrow(
 			'cron: cron is a pattern of five fields.',
 		)
@@ -93,6 +98,11 @@ describe('defineJob', () => {
 		expect(refused({ name: 'cron', cron: '61 * * * *', run })).toThrow(
 			/^cron: /,
 		)
+		// 30 February (D-352); 29 February runs every four years.
+		expect(refused({ name: 'cron', cron: '0 0 30 2 *', run })).toThrow(
+			'cron: cron "0 0 30 2 *" never runs.',
+		)
+		expect(refused({ name: 'cron', cron: '0 0 29 2 *', run })).not.toThrow()
 		expect(
 			refused({
 				name: 'cron',
