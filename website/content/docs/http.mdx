@@ -82,6 +82,9 @@ which a client cannot forge. With `proxies: 1`, as in the application above:
 	../examples/http/src/requests/whoami.json
 </include>
 
+An entry with the port a proxy appended counts as its address:
+`203.0.113.7:5678` is `203.0.113.7`, `[2001:db8::1]:443` is `2001:db8::1`.
+
 ## Rate limit
 
 Each client address may send 600 requests a minute. `rateLimit` changes
