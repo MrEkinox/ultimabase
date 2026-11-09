@@ -12774,6 +12774,8 @@ graphqlPlugin({ generated: 'src/generated/schema.graphql' })
 
 ## D-192: The website shows a roadmap
 
+Amended 2026-11-09: each version serves the roadmap of `main`.
+
 Choice: completes D-155.
 
 1. A page of `main`, `website/content/docs/roadmap.mdx`, served at
@@ -12785,7 +12787,11 @@ Choice: completes D-155.
 3. A commit that adds, ticks or removes an item of `docs/roadmap.md` a
    user would notice updates the page too.
 4. `yarn freeze` leaves the page out of a frozen version: a version's pages
-   describe what it does, and the roadmap moves on after it.
+   describe what it does, and the roadmap moves on after it. The version's
+   menu keeps the page's place, and the site serves the page of `main` there
+   too, at `/docs/roadmap` for the latest version and `/docs/<version>/roadmap`
+   for the others: a reader on a version finds the roadmap without leaving its
+   menu, and every copy reads the same (amended 2026-11-09).
 
 Why:
 

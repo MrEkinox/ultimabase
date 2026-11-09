@@ -24,7 +24,8 @@ if (minor === undefined) throw new Error(`Not a version: ${String(version)}`)
 const target = join('content', 'versions', minor)
 rmSync(target, { recursive: true, force: true })
 cpSync(join('content', 'docs'), target, { recursive: true })
-// The roadmap follows `main`, not a version (D-192).
+// The roadmap follows `main`, not a version: the site serves main's page in
+// each version, at the place the menu keeps for it (D-192).
 rmSync(join(target, 'roadmap.mdx'))
 
 function inline(directory: string): void {
@@ -48,12 +49,8 @@ inline(target)
 // The version names its tab in the sidebar.
 const meta = join(target, 'meta.json')
 const root: unknown = JSON.parse(readFileSync(meta, 'utf8'))
-const pages: unknown = Reflect.get(Object(root), 'pages')
-const kept = Array.isArray(pages)
-	? pages.filter((page: unknown) => page !== 'roadmap')
-	: pages
 writeFileSync(
 	meta,
-	`${JSON.stringify({ ...Object(root), title: minor, description: `Version ${minor}`, pages: kept }, undefined, '\t')}\n`,
+	`${JSON.stringify({ ...Object(root), title: minor, description: `Version ${minor}` }, undefined, '\t')}\n`,
 )
 console.log(`Froze the pages of main as ${target}`)
