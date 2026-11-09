@@ -17,7 +17,6 @@ import type {
 import {
 	definePlugin,
 	isLocalHost,
-	isMaster,
 	master,
 	PublicError,
 	Refused,
@@ -35,6 +34,7 @@ import type { Cache, Read } from './cache.ts'
 import { cacheOf, droppedUser, live } from './cache.ts'
 import type { Users } from './functions.ts'
 import { authFunctions, callerTokens } from './functions.ts'
+import { selfOrMaster } from './rules.ts'
 import type { Durations, Opened } from './sessions.ts'
 import {
 	AuthSession,
@@ -58,6 +58,8 @@ export interface AuthApi {
 	signIn(userId: string, client?: Client): Promise<Opened>
 	/** Ends every session of a user. */
 	revokeSessions(userId: string): Promise<void>
+	/** Refuses a user command unless `caller` is Master or the user `id`. */
+	selfOrMaster: typeof selfOrMaster
 	/** Links `userId` to `subject` of `method`; a taken pair is a `UNIQUE_VIOLATION`. */
 	linkAccount(userId: string, method: string, subject: string): Promise<void>
 	/** The user `subject` of `method` signs in as, if any. */
@@ -116,21 +118,6 @@ function stateOf(context: object): State {
 	const state = states.get(context)
 	if (state === undefined) throw new Error('auth has not started.')
 	return state
-}
-
-/** Refuses a caller that is neither Master nor the user `id`. */
-function selfOrMaster(
-	caller: Identity | undefined,
-	id: string,
-	command: string,
-): void {
-	const self = caller?.kind === 'user' && caller.user.id === id
-	if (!self && (caller === undefined || !isMaster(caller))) {
-		throw new PublicError(
-			'ACCESS_DENIED',
-			`User.${command} runs as Master or as the user.`,
-		)
-	}
 }
 
 /** The one user model among the application's models (D-62). */
@@ -228,17 +215,24 @@ const auth = definePlugin<Auth>({
 		const maxAge = Math.min(Math.ceil(durations.longest / 1000), cookieAge)
 		return {
 			signIn: async (userId, client) => {
-				// The cookie it replaces would leave a session nobody can end (D-115).
 				const replaced = client?.cookies.get(cookie.name)
-				if (replaced !== undefined) await closeSession(replaced)
 				const opened = await openSession(userId, durations)
-				client?.cookies.set(cookie.name, opened.token, {
-					...cookie.options,
-					maxAge,
-				})
+				// A WebSocket sets no cookie: its sign-in fails and changes nothing.
+				try {
+					client?.cookies.set(cookie.name, opened.token, {
+						...cookie.options,
+						maxAge,
+					})
+				} catch (error) {
+					await closeSession(opened.token)
+					throw error
+				}
+				// The cookie it replaces would leave a session nobody can end (D-115).
+				if (replaced !== undefined) await closeSession(replaced)
 				return opened
 			},
 			revokeSessions,
+			selfOrMaster,
 			linkAccount,
 			accountOf,
 			subjectOf,

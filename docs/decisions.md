@@ -5664,14 +5664,15 @@ The application's code does not change.
 
 ## D-115: auth and password after their audit
 
-Amended by D-116 and D-165.
+Amended by D-116, D-165 and D-346.
 
 Choice: amends D-112, D-113 and D-114.
 
 1. A function's `client` reads the request's cookies:
    `client.cookies.get(name)`, `undefined` when the request has none. When
-   auth's `signIn(userId, client)` sets the session's cookie, it first ends
-   the session the request's cookie held, whoever's it was.
+   auth's `signIn(userId, client)` sets the session's cookie, it also ends
+   the session the request's cookie held, whoever's it was, once the new
+   cookie is set (amended 2026-11-09, D-346).
 2. Outside production the cookie is neither `Secure` nor `__Host-`
    (D-112). auth logs one warning per running application the first time
    it identifies a request for a host that is not local (`localhost`,
@@ -21020,3 +21021,28 @@ website/content/docs                 /docs/next     (main)
 website/content/versions/0.6         /docs          (latest)
 website/content/docs                 /docs/next     (main)
 ```
+
+## D-346: auth after its second audit
+
+Choice: amends D-115, point 1, and D-178.
+
+1. A sign-in or a sign-out sets or clears its cookie before it ends a
+   session. `signIn(userId, client)` opens the new session, sets its cookie,
+   then ends the session the replaced cookie held; if the cookie cannot be
+   set, it ends the new session and fails. `signOut` clears the cookie
+   first. Over a GraphQL WebSocket, whose client sets no cookie (D-178),
+   both fail and every session stays as it was.
+2. auth's API gives its sign-in methods `selfOrMaster(caller, id, command)`,
+   which refuses a user command with `ACCESS_DENIED` unless the caller is
+   Master or the user `id`. auth's `revokeSessions` and password's user
+   commands use it: the check exists once. It is not a package export, so a
+   plugin reaches it as `plugins.auth.selfOrMaster`, beside `signIn`.
+3. A test pins that the session cookie is found among other cookies.
+
+Why: over a socket, a sign-out deleted the session then answered an error,
+and a sign-in ended the browser's session and left a new one nobody held,
+valid for 30 days, before failing. Over HTTP nothing changes, since the
+cookie headers are written after the function returns. A security check kept
+in two plugins drifts when only one is fixed. Every test sent the session
+cookie alone, so a broken cookie parser would have signed every browser out
+with the suite green.

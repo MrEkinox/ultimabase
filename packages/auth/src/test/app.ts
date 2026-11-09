@@ -6,6 +6,7 @@ import { clientOf, httpPlugin, routes } from '@ultimabase/http'
 import type {
 	Adapter,
 	Caller,
+	Client,
 	ExposedFunction,
 	Logger,
 	PluginTypes,
@@ -133,6 +134,21 @@ export async function signIn(
 }
 
 export const bearer = (token: string) => ({ authorization: `Bearer ${token}` })
+
+export const cannotSet =
+	'A cookie is set over HTTP: a WebSocket cannot set one.'
+const unset = () => {
+	throw new Error(cannotSet)
+}
+/** A GraphQL socket's client: it reads the cookie `token`, sets none. */
+export const socket = (token: string): Client => ({
+	address: '',
+	cookies: {
+		get: (name) => (name === 'ultimabase_session' ? token : undefined),
+		set: unset,
+		clear: unset,
+	},
+})
 export const cookie = (token: string) => ({
 	cookie: `ultimabase_session=${token}`,
 })

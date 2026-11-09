@@ -4,7 +4,6 @@
 import type { QueryOptions } from 'ultimabase'
 import { master } from 'ultimabase'
 import type { State } from './core.ts'
-import { selfOrMaster } from './core.ts'
 import type { Mailer } from './email-flows.ts'
 import {
 	confirmChange,
@@ -76,16 +75,16 @@ export const emailCommands = (stateOf: () => State): EmailCommands => ({
 		await verifyWith(stateOf(), token)
 	},
 	sendVerificationEmail: async ({ id }, options) => {
-		selfOrMaster(options, id, 'sendVerificationEmail')
 		const state = stateOf()
+		state.auth.selfOrMaster(options?.as, id, 'sendVerificationEmail')
 		const mail = mailerIn(state, 'sendVerificationEmail')
 		const user = await state.users.queries.findUnique({ where: { id } }, M)
 		const verified = user?.emailVerified === true
 		await sendVerification(state, mail, id, verified)
 	},
 	requestEmailChange: async ({ id, newEmail }, options) => {
-		selfOrMaster(options, id, 'requestEmailChange')
 		const state = stateOf()
+		state.auth.selfOrMaster(options?.as, id, 'requestEmailChange')
 		const mail = mailerIn(state, 'requestEmailChange')
 		const to = valid(emailOf, newEmail, 'newEmail')
 		await requestChange(state, mail, id, to)

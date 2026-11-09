@@ -25,7 +25,6 @@ import {
 	checkCurrent,
 	checkNewFor,
 	createUser,
-	selfOrMaster,
 	setPassword,
 	signedIn,
 	verified,
@@ -248,14 +247,14 @@ const definition = definePlugin<Password>({
 				return opened as SignedIn<UserRow<Password['addedFields']>>
 			},
 			setPassword: async ({ id, password }, options) => {
-				selfOrMaster(options, id, 'setPassword')
+				plugins.auth.selfOrMaster(options?.as, id, 'setPassword')
 				const state = stateOf(plugins.auth)
 				const checked = valid(passwordOf, password, 'password')
 				await checkNewFor(state, id, checked)
 				await setPassword(state, id, checked)
 			},
 			checkPassword: async ({ id, password }, options) => {
-				selfOrMaster(options, id, 'checkPassword')
+				plugins.auth.selfOrMaster(options?.as, id, 'checkPassword')
 				const client = options?.client
 				// Counted without a client too: the check guards an action (D-161).
 				await checkCurrent(

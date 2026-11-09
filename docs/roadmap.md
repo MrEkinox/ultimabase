@@ -258,10 +258,12 @@ for production yet, and fixes ship as 0.1.x or 0.2.
 - [x] Decide releases from CI: D-156.
 - [x] Releases from CI (D-156, D-157), proved by a canary and a release.
 - [x] A roadmap on the website (D-192).
-- [ ] A full audit of every package, its fixes merged: a read-only report
-      per package in the manner of Ponytail's `/ponytail-audit` (bugs, risks,
-      load, missing tests, speed, code to delete), a recorded decision never
-      a finding; `packages/rest` first, a project skill if it pays off.
+- [ ] A full audit of every package, its fixes merged, with the project
+      skill `/audit` (`.claude/skills/audit`): security, code that can go,
+      and performance against the last release, each finding verified; a
+      recorded decision never a finding. In order of risk: the kernel,
+      `postgres`, `realtime` and `live`, `auth`, then the others; `auth` is
+      done (D-346).
 - [x] Realtime faster on many subscribers (D-154, D-195, D-196, D-197): the
       find pipeline run once per subscriber on one list (230 ms for 10 000
       on 25 rows), 305 KiB per subscription to 1000 rows, a subscription

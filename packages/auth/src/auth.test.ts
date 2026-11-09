@@ -14,6 +14,7 @@ import { AuthSession } from './sessions.ts'
 import {
 	bearer,
 	callerOf,
+	cannotSet,
 	cookie,
 	day,
 	functionNamed,
@@ -22,6 +23,7 @@ import {
 	listening,
 	M,
 	signIn,
+	socket,
 	started,
 	User,
 } from './test/app.ts'
@@ -88,6 +90,14 @@ describe('a session', () => {
 		expect(byBearer).toMatchObject({ status: 200, body: user })
 		const byCookie = await callerOf(url, cookie(signed.token))
 		expect(byCookie).toMatchObject({ status: 200, body: user })
+	})
+
+	it('finds its cookie among the others a browser sends', async () => {
+		const { url, ada } = await server()
+		const { token } = await signIn(url, ada.id)
+		const cookies = `theme=dark; ultimabase_session=${token}; other=1`
+		const read = await callerOf(url, { cookie: cookies })
+		expect(read).toMatchObject({ status: 200, body: { user: { id: ada.id } } })
 	})
 
 	it('reads the Bearer before the cookie', async () => {
@@ -251,6 +261,16 @@ describe('a session’s lifetime', () => {
 		expect((await callerOf(url, bearer(replaced.token))).status).toBe(401)
 		expect((await callerOf(url, bearer(kept.token))).status).toBe(200)
 		expect((await callerOf(url, bearer(again.token))).status).toBe(200)
+	})
+
+	it('over a WebSocket, fails and leaves the sessions as they were', async () => {
+		const { url, ada } = await server()
+		const { token } = await signIn(url, ada.id)
+		const [held] = await AuthSession.findMany({}, M)
+		const signing = given.auth?.signIn(ada.id, socket(token))
+		await expect(signing).rejects.toThrow(cannotSet)
+		expect(await AuthSession.findMany({}, M)).toStrictEqual([held])
+		expect((await callerOf(url, bearer(token))).status).toBe(200)
 	})
 
 	it('signing in ends every expired session, whoever’s it was', async () => {
@@ -425,6 +445,14 @@ describe('signing out', () => {
 		const { url } = await server()
 		const response = await fetch(`${url}/auth/sign-out`, { method: 'POST' })
 		expect(response.status).toBe(404)
+	})
+
+	it('over a WebSocket, fails before it ends a session', async () => {
+		const { url, ada } = await server()
+		const { token } = await signIn(url, ada.id)
+		const ending = functionNamed('signOut').run(undefined, M, socket(token))
+		await expect(ending).rejects.toThrow(cannotSet)
+		expect((await callerOf(url, bearer(token))).status).toBe(200)
 	})
 
 	it('from server code, ends no session and sets no cookie', async () => {

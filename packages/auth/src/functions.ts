@@ -22,13 +22,14 @@ export function authFunctions(
 	const signOut = defineFunction({
 		name: 'signOut',
 		run: async ({ caller, client }) => {
+			// First: a WebSocket clears no cookie, so its sign-out ends nothing.
+			client?.cookies.clear(cookie.name, cookie.options)
 			const token =
 				caller.kind === 'user' ? callerTokens.get(caller.user) : undefined
 			if (token !== undefined) await closeSession(token)
 			// A Bearer's request may carry another session's cookie: it ends too.
 			const held = client?.cookies.get(cookie.name)
 			if (held !== undefined && held !== token) await closeSession(held)
-			client?.cookies.clear(cookie.name, cookie.options)
 		},
 	}).with({ access: allow.public })
 	const viewer = defineFunction({

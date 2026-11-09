@@ -17,7 +17,13 @@ change cites, and the entries named in their `Amended by` line.
 2. Work on a focused branch; isolate parallel work in its own `git worktree`.
 3. Implement only what a recorded decision, a failing test or the maintainer
    asks for. No speculative APIs, options, packages or infrastructure.
-4. Stop and ask before a choice that is not covered by a recorded decision.
+4. Stop and ask before a choice that is not covered by a recorded decision
+   and that changes the public API: what a developer writes or sees, such as
+   the packages' exports, their types, options and defaults, the transports'
+   routes, shapes and errors, and the behaviour the documentation describes.
+   An internal choice is the agent's to make and record as a decision, as
+   long as it makes neither security nor performance worse; a trade-off
+   between the two goes to the maintainer, with its numbers.
 
 Tick a roadmap item in the commit that completes it.
 
