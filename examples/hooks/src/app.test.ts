@@ -5,6 +5,7 @@ import { master, transaction } from 'ultimabase'
 import { beforeEach, expect, it } from 'vitest'
 import { requestFiles } from '../../../scripts/requests.ts'
 import { app } from './app.ts'
+import { Board, Card } from './cards.ts'
 import { Activity, Call, Comment, Ticket } from './models.ts'
 import { outbox } from './outbox.ts'
 import { Tag } from './tag.ts'
@@ -153,5 +154,21 @@ it('accepts a row whose fields agree', async () => {
 		as,
 	)
 	expect(ended.endReason).toBe('done')
+	//#endregion
+})
+
+it('numbers the cards created together', async () => {
+	const board = await Board.create({ data: { name: 'Sprint' } }, as)
+	//#region cards
+	const where = { id: board.id }
+	const create = [{ title: 'a' }, { title: 'b' }]
+	await Board.update({ where, data: { cards: { create } } }, as)
+	await Card.create({ data: { board: { connect: where }, title: 'c' } }, as)
+	const cards = await Card.findMany({ orderBy: { position: 'asc' } }, as)
+	expect(cards.map((card) => [card.title, card.position])).toEqual([
+		['a', 0],
+		['b', 1],
+		['c', 2],
+	])
 	//#endregion
 })

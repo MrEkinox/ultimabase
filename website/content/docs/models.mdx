@@ -87,7 +87,9 @@ function computes the default:
 </include>
 
 - An optional field reads `null` when it is left out.
-- A function that returns `undefined` gives no default.
+- A function that returns `undefined` gives no default. A field whose
+  default is `() => undefined` stays required, but a create may leave it out
+  for a [hook](/docs/next/hooks#number-rows-in-order) to fill.
 - A list is never optional nor unique.
 
 ## Write and read the fields
