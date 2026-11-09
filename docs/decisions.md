@@ -9899,6 +9899,8 @@ each linking to its file.
 Amended 2026-10-30: Cloudflare serves the site at ultimabase.dev.
 Amended 2026-11-06: a page shows what a developer writes (D-282).
 Amended 2026-11-09: the versions npm deprecates leave the site (D-345).
+Amended 2026-11-09: each page offers its Markdown to copy or to open in an
+AI app.
 
 Choice: completes D-31; the examples stay its source of truth.
 
@@ -9962,7 +9964,10 @@ Choice: completes D-31; the examples stay its source of truth.
 
 5. For agents: `/llms.txt` lists the pages, `/llms-full.txt` holds them all,
    and each page is also served as Markdown at `/docs/<page>.md`, built by
-   Fumadocs from the same pages.
+   Fumadocs from the same pages. Under its title, each page shows Fumadocs'
+   page actions: a button that copies that Markdown, and a menu that opens
+   it or hands the page to an AI app (ChatGPT, Claude, Cursor, Scira), with
+   no link to the page's source file (amended 2026-11-09).
 6. The landing page is written in TSX: `website/app/page.tsx` assembles
    its sections from `website/components/landing/`; the documentation
    stays in MDX. Its code blocks are regions of the examples, read when the
