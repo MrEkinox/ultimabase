@@ -35,6 +35,11 @@ export interface RestOptions {
 	 * list times the lists above it; 20 000 by default.
 	 */
 	readonly maxRows?: number
+	/**
+	 * `{path}/openapi.json`: served in development, not in production,
+	 * unless set, as GraphQL's introspection (D-350).
+	 */
+	readonly openapi?: boolean
 }
 
 /** The REST plugin's types (D-57). */
@@ -85,7 +90,10 @@ const plugin = definePlugin<Rest>({
 		}
 		// Built at startup, so a name clash refuses to start (D-144).
 		const document = openapiOf(api, routed, base, manifest.version)
-		app.get(`${base}/openapi.json`, (c) => c.json(document))
+		const production = process.env['NODE_ENV'] === 'production'
+		if (options.openapi ?? !production) {
+			app.get(`${base}/openapi.json`, (c) => c.json(document))
+		}
 		plugins.http.mount(app)
 	},
 	start: ({ plugins, options, logger }) => {

@@ -462,6 +462,8 @@ generator or a tool such as Swagger UI reads it:
   `upsertPost`, `updatePost`, `deletePost`, and a function's name.
 - Its schemas are named as GraphQL's types, as `Post` and `PostWhereInput`, with
   `PostSelect`, `PostInclude` and `Error`.
+- It answers `404` in production, as GraphQL refuses its introspection there.
+  `restPlugin({ openapi: true })` serves it anyway, for a gateway that reads it.
 
 ## Limits
 
@@ -499,14 +501,15 @@ of a live model answers a stream of Server-Sent Events when the request sends
 
 ### `restPlugin(options)`
 
-| Option       | Type                       | Default        | Effect                                                              |
-| ------------ | -------------------------- | -------------- | ------------------------------------------------------------------- |
-| `path`       | string                     | `'/api'`       | Where the routes and the OpenAPI document are served.               |
-| `pagination` | `'connection'` or `'list'` | `'connection'` | Relay connections, or arrays with `take` and `skip`.                |
-| `take`       | number                     | 100            | The rows a list returns without `first`, `last` or `take`.          |
-| `maxTake`    | number                     | 100            | The most rows a list returns, unless the model sets its own.        |
-| `maxDepth`   | number                     | 10             | The deepest a request nests, its fields and its `orderBy` counted.  |
-| `maxRows`    | number                     | 20 000         | The most rows a request may return, each list times those above it. |
+| Option       | Type                       | Default           | Effect                                                              |
+| ------------ | -------------------------- | ----------------- | ------------------------------------------------------------------- |
+| `path`       | string                     | `'/api'`          | Where the routes and the OpenAPI document are served.               |
+| `pagination` | `'connection'` or `'list'` | `'connection'`    | Relay connections, or arrays with `take` and `skip`.                |
+| `take`       | number                     | 100               | The rows a list returns without `first`, `last` or `take`.          |
+| `maxTake`    | number                     | 100               | The most rows a list returns, unless the model sets its own.        |
+| `maxDepth`   | number                     | 10                | The deepest a request nests, its fields and its `orderBy` counted.  |
+| `maxRows`    | number                     | 20 000            | The most rows a request may return, each list times those above it. |
+| `openapi`    | boolean                    | off in production | Serves `{path}/openapi.json`.                                       |
 
 It requires `httpPlugin()`. With [`realtimePlugin()`](/docs/next/realtime),
 it serves live reads over Server-Sent Events. Master is limited by neither

@@ -21,6 +21,9 @@ export const app = defineApp({
 			// It returns 2 000 rows at most, each list times the lists above
 			// it; 20 000 by default.
 			maxRows: 2000,
+			// /api/openapi.json kept in production too, for a gateway; off
+			// there by default.
+			openapi: true,
 		}),
 		graphqlPlugin(),
 	],

@@ -8127,6 +8127,8 @@ const stats = await Order.aggregate(
 
 ## D-144: An OpenAPI document
 
+Amended by D-350.
+
 Choice: completes D-129 and D-125's point 8.
 
 1. `rest` serves an OpenAPI 3.1 document at `GET {path}/openapi.json`,
@@ -21241,7 +21243,7 @@ query {
 
 ## D-350: rest after its audit
 
-Choice: amends D-128 point 4.
+Choice: amends D-128 point 4 and D-144 point 1.
 
 1. A write nests at most 32 levels, for every caller, Master included, as a
    filter does (D-228). The written row is level 1; each row a
@@ -21260,6 +21262,10 @@ Choice: amends D-128 point 4.
    API transports use gains `sameUser(viewer, request)`, which reads the
    request's caller without following it; a resume reads its caller once
    more.
+4. `restPlugin` takes `openapi`, as `graphqlPlugin` takes `introspection`:
+   `GET {path}/openapi.json` answers in development and 404 in production
+   (`NODE_ENV=production`), unless set. The document is still built at
+   startup, so a name clash stops every start alike.
 
 Why: D-128 left the depth unbounded, trusting the GraphQL depth limit and
 the request size. The depth limit counts the selection, not the variables,
@@ -21271,6 +21277,9 @@ form or an import writes, and the refusal comes in a few milliseconds.
 A resume ended the open request before any check, so anyone holding a
 token, which travels in a query string and so in access logs, ended its
 user's live list, and with the same read threw away its kept window.
+D-144 served its document always, as GraphQL answered its introspection;
+GraphQL closes introspection in production (D-107), so REST described a
+production API to anyone while GraphQL did not (D-129).
 Rejected: `maxDepth`, which an application sets and Master skips: a write
 too deep fails the same way for Master; a budget on the rows a write
 creates, until an application needs one: 20,000 rows in one `create` take
@@ -21286,4 +21295,10 @@ await Node.create({ data }, { as: master })
 // Before: RangeError over REST (500), seconds of work in the kernel.
 // After: INVALID_QUERY data.parent.create.….parent.create: the write is
 // nested more than 32 levels deep.
+```
+
+```ts
+restPlugin() // NODE_ENV=production
+// Before: GET /api/openapi.json answers 200.
+// After: 404; restPlugin({ openapi: true }) serves it, for a gateway.
 ```
