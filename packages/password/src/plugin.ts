@@ -272,17 +272,14 @@ const definition = definePlugin<Password>({
 		const { users, fields } = configOf(options, models)
 		const signUp = fields === false ? false : new Set(fields.keys())
 		const { auth } = plugins
-		const { sendEmail } = options
-		const sending = new Set<Promise<void>>()
-		const breached = options.breached === true
 		states.set(auth, {
 			auth,
 			users,
 			signUp,
 			logger,
-			sending,
-			sendEmail,
-			breached,
+			sending: new Set(),
+			sendEmail: options.sendEmail,
+			breached: options.breached === true,
 		})
 		warnUnchosen(options.breached, logger)
 	},

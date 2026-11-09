@@ -10512,7 +10512,7 @@ const deleteAccount = defineFunction({
 
 ## D-162: The stored email and the email change
 
-Amended by D-211.
+Amended by D-211 and D-353.
 
 Choice: completes D-113 and D-117, and amends D-113 point 5, D-117 points 1
 and 5, and D-160.
@@ -21451,7 +21451,7 @@ await remind.enqueue({ at: new Date(), note: undefined })
 
 ## D-353: password after its audit
 
-Choice: amends D-115 and D-209.
+Choice: amends D-115, D-162 and D-209.
 
 1. A password longer than 1,024 UTF-16 units, four a character, is refused
    before NFKC reads it, as one over 256 characters; an email longer than
@@ -21478,3 +21478,22 @@ await User.resetPassword({ token, password: 'ﷺ'.repeat(300_000) })
 Why: the link was deleted, then the hash refused. The user got
 `TOO_MANY_ATTEMPTS`, then "This link is invalid or has expired." on the retry,
 while the old password still held, and had to ask for a new email.
+
+3. `requestEmailChange` is refused past 10 requests per address and hour, as
+   `signUp` is, counted apart from the other requests. It still tells a taken
+   email with `UNIQUE_VIOLATION`.
+
+Why: a taken email sends nothing, so the three emails per account and hour
+never counted it. One signed-in account told whether 30 emails had an account
+in a row, where `signUp` tells 10 an hour.
+
+Example:
+
+```ts
+// The eleventh request within the hour, from one address.
+await graphql(
+	'mutation { requestEmailChange(input: { newEmail: "grace@example.com", currentPassword }) }',
+)
+// Before: UNIQUE_VIOLATION, as many times as asked.
+// After: TOO_MANY_ATTEMPTS, retryAfter in its details.
+```

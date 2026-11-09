@@ -84,9 +84,10 @@ export function emailFunctions(
 		output: done,
 		run: signedInRun(async ({ input: { input }, user, client }) => {
 			const { id } = user
+			// A taken email is told, as at sign-up, and as often (D-353).
+			if (client !== undefined)
+				await requestLimited('emailChange', client.address)
 			await checkCurrent(id, input.currentPassword, attemptOf(id, client))
-			// The caller proved the password: telling a taken email is no
-			// enumeration.
 			await requestChange(stateOf(), mail, id, input.newEmail)
 			return true
 		}),

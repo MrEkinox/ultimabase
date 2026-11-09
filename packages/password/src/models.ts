@@ -177,7 +177,8 @@ export async function limited<T>(
 }
 
 /** What the hourly limits count (D-114, D-117). */
-export type RequestKind = 'signUp' | 'reset' | 'verify' | 'email'
+export type RequestKind =
+	'signUp' | 'reset' | 'verify' | 'email' | 'emailChange'
 
 /**
  * Counts a request of `kind` from `subject`; past `most` within one hour,

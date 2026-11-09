@@ -13,6 +13,7 @@ import {
 	graphqlOf,
 	M,
 	signInQuery,
+	signUpQuery,
 	started,
 	tokenIn,
 	tokenOf,
@@ -396,5 +397,31 @@ describe('requestEmailChange and confirmEmailChange', () => {
 			(await request(url, session, 'ada4@new.example')).body,
 		).toMatchObject(failed('TOO_MANY_ATTEMPTS'))
 		expect(outbox).toHaveLength(3)
+	})
+
+	it('refuse the eleventh request from one address within one hour', async () => {
+		const { url, session } = await signedInAda()
+		await User.signUp({
+			...ada,
+			email: 'grace@example.com',
+			data: { name: 'Grace' },
+		})
+		// A taken email sends nothing, so only the address limit stops a probe.
+		for (let index = 0; index < 10; index += 1) {
+			expect(
+				(await request(url, session, 'grace@example.com')).body,
+			).toMatchObject(failed('UNIQUE_VIOLATION'))
+		}
+		expect(
+			(await request(url, session, 'grace@example.com')).body,
+		).toMatchObject(failed('TOO_MANY_ATTEMPTS'))
+		// Sign-ups and verifications are counted apart.
+		const input = { ...ada, email: 'alan@example.com', name: 'Alan' }
+		const signUp = await graphqlOf(url, signUpQuery, { input })
+		expect(signUp.body).not.toHaveProperty('errors')
+		const verify = 'mutation { sendVerificationEmail }'
+		expect((await graphqlOf(url, verify, {}, bearer(session))).body).toEqual({
+			data: { sendVerificationEmail: true },
+		})
 	})
 })
