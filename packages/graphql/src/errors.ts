@@ -28,6 +28,21 @@ function unvalued(error: Readonly<GraphQLError>): GraphQLError {
 	})
 }
 
+/**
+ * graphql-js's refusal of the variables. It coerces them recursively: nested
+ * deeper than the stack, they are refused, over HTTP and WebSocket (D-228).
+ */
+export function shallow(
+	errors: readonly GraphQLError[],
+): readonly GraphQLError[] {
+	const deep = errors.some(
+		({ originalError }) => originalError instanceof RangeError,
+	)
+	return deep
+		? [new GraphQLError('The variables are nested too deep.')]
+		: errors
+}
+
 /** `graphql-http`'s `formatError`: what a client sees of each error. */
 export function formatter(logger: Logger): Format {
 	return (error) => {

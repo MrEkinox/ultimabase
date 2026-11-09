@@ -27,6 +27,7 @@ import type { Caller, Client, Logger } from 'ultimabase'
 import { PublicError } from 'ultimabase'
 import { cookiesOf } from './upgrade-cookies.ts'
 import type { formatter } from './errors.ts'
+import { shallow } from './errors.ts'
 import type { Channel } from './live-stream.ts'
 import {
 	forgotten,
@@ -254,7 +255,7 @@ export function serveSockets(
 		execute: async (args) => operations.execute(args),
 		subscribe: async (args) => {
 			const validated = validateSubscriptionArgs({ ...args, hideSuggestions })
-			if (!('schema' in validated)) return { errors: validated }
+			if (!('schema' in validated)) return { errors: shallow(validated) }
 			// A live function's rows count as its query's (D-229).
 			const refused = operations.budget(validated)
 			if (refused !== undefined) return { errors: [refused] }

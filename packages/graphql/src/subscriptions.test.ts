@@ -1129,6 +1129,42 @@ describe('the subscriptions', () => {
 		})
 	})
 
+	it('refuse variables nested too deep, as a query (D-228)', async () => {
+		const url = await started()
+		const socket = new WebSocket(url, 'graphql-transport-ws')
+		const frames: unknown[] = []
+		const answered = new Promise((done) => {
+			socket.on('message', (data: RawData) => {
+				const parts = [data].flat().map((part) => new Uint8Array(part))
+				frames.push(JSON.parse(Buffer.concat(parts).toString()))
+				if (frames.length === 2) done(undefined)
+			})
+		})
+		await new Promise((done) => socket.once('open', done))
+		socket.send(JSON.stringify({ type: 'connection_init' }))
+		// As text: JSON.stringify runs out of stack.
+		const where = `${'{"NOT":'.repeat(19_999)}{"title":{"equals":"a"}}${'}'.repeat(19_999)}`
+		const query = `subscription ($where: TaskWhereInput) { tasks(where: $where) { totalCount } }`
+		socket.send(
+			`{"id":"1","type":"subscribe","payload":{"query":${JSON.stringify(query)},"variables":{"where":${where}}}}`,
+		)
+		await answered
+		socket.close()
+		expect(frames[1]).toEqual({
+			id: '1',
+			type: 'next',
+			payload: {
+				errors: [
+					{
+						message: 'The variables are nested too deep.',
+						extensions: { code: 'BAD_USER_INPUT' },
+					},
+				],
+			},
+		})
+		expect(errors).toEqual([])
+	})
+
 	it('hold at most maxSubscriptions per connection', async () => {
 		const url = await started({ realtime: { maxSubscriptions: 1 } })
 		const { ws } = opening(url)
