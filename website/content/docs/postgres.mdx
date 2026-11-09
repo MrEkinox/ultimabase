@@ -350,6 +350,7 @@ the `.env` file beside the config, without changing a variable already set;
 | `migrations/ holds SQL files but no schema.json: restore it from version control.`                                       | `schema.json` is missing.                                       |
 | `<file> is pending.`                                                                                                     | `migrate status`, for each file to apply.                       |
 | `Applied <file>.`                                                                                                        | `migrate deploy` or `reset` applied a file.                     |
+| `  delete from session where expires < now(): DELETE 3`, under it                                                        | A statement of the file changed rows, `0` included (D-344).     |
 | `The database is up to date.`                                                                                            | Nothing to deploy.                                              |
 | ``migrations/ holds no migration: run `npx ultimabase migrate create <name>` first.``                                    | A deploy without migrations.                                    |
 | ``The models changed after <file> was written: run `npx ultimabase migrate create <name>`, then deploy again.``          | The models differ from the last migration.                      |

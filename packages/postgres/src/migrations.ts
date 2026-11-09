@@ -10,8 +10,10 @@ import type {
 import { sql } from 'kysely'
 import { setTimeout as pause } from 'node:timers/promises'
 import { parse } from 'pg-connection-string'
-import type { Migration, Run, Stored } from 'ultimabase'
+import type { Counted, Migration, Run, Stored } from 'ultimabase'
 import { isLocalHost, MigrationFailed, Refused } from 'ultimabase'
+import type { Answer } from './counted.ts'
+import { counting, countsOf } from './counted.ts'
 import { id } from './plan-parts.ts'
 import { parseSnapshot } from './snapshot-parse.ts'
 
@@ -160,15 +162,21 @@ function hint(code: unknown, transaction: boolean): string {
 		: ': a file without a transaction holds one statement: put each in its own file'
 }
 
-/** Runs `text`, and names `at` when the database refuses it. */
+/**
+ * Runs `text`, and names `at` when the database refuses it; returns each
+ * statement's answer (D-344).
+ */
 async function executed(
 	db: Kysely<object>,
 	text: string,
 	at: string,
 	transaction = true,
-): Promise<void> {
+): Promise<readonly Answer[]> {
 	try {
-		await sql.raw(text).execute(db)
+		const { rows } = await counting(text, async () =>
+			sql.raw<Answer>(text).execute(db),
+		)
+		return rows
 	} catch (error) {
 		const reason = error instanceof Error ? error.message : String(error)
 		const code: unknown =
@@ -255,8 +263,8 @@ async function outside(
 	db: Kysely<object>,
 	file: Migration,
 	free: boolean,
-): Promise<void> {
-	await db.connection().execute(async (session) => {
+): Promise<readonly Answer[]> {
+	return db.connection().execute(async (session) => {
 		// The connection goes back with the timeout it opened with (D-331).
 		if (free) await sql`set statement_timeout = 0`.execute(session)
 		await acquired(
@@ -265,9 +273,10 @@ async function outside(
 		)
 		try {
 			for (const statement of bookkeeping) await statement.execute(session)
-			if (await isDone(session, file)) return
-			await executed(session, file.sql, file.name, false)
+			if (await isDone(session, file)) return []
+			const answers = await executed(session, file.sql, file.name, false)
 			await done(session, file)
+			return answers
 		} finally {
 			await sql`select pg_advisory_unlock(hashtext(current_schema()))`.execute(
 				session,
@@ -277,32 +286,47 @@ async function outside(
 	})
 }
 
+/** Runs a file in a transaction; returns its statements' answers. */
+async function inside(
+	db: Kysely<object>,
+	file: Migration,
+	free: boolean,
+): Promise<readonly Answer[]> {
+	let answers: readonly Answer[] = []
+	await locked(db, free, async (trx) => {
+		if (await isDone(trx, file)) return
+		answers = await executed(trx, file.sql, file.name)
+		await done(trx, file)
+	})
+	return answers
+}
+
 async function deploy(
 	db: Kysely<object>,
 	run: Extract<Run, { kind: 'deploy' }>,
 	free: boolean,
+	counted: (statement: Counted) => void,
 ): Promise<void> {
 	for (const file of run.files) {
-		if (!file.transaction) {
-			await outside(db, file, free)
-			continue
-		}
-		await locked(db, free, async (trx) => {
-			if (await isDone(trx, file)) return
-			await executed(trx, file.sql, file.name)
-			await done(trx, file)
-		})
+		const answers = await (file.transaction ? inside : outside)(db, file, free)
+		for (const statement of countsOf(file, answers)) counted(statement)
 	}
 	await locked(db, free, async (trx) => store(trx, run.to, 'deploy'))
 }
 
-/** Applies `run`; when `free`, no statement timeout ends it (D-331). */
+/**
+ * Applies `run`; when `free`, no statement timeout ends it (D-331).
+ * `counted` hears what each statement of a deployed file changed (D-344).
+ */
 export async function apply(
 	db: Kysely<object>,
 	run: Run,
 	free: boolean,
+	counted: (statement: Counted) => void = () => undefined,
 ): Promise<void> {
-	await (run.kind === 'sync' ? sync(db, run, free) : deploy(db, run, free))
+	await (run.kind === 'sync'
+		? sync(db, run, free)
+		: deploy(db, run, free, counted))
 }
 
 /** The current schema's tables but an extension's, in name order. */

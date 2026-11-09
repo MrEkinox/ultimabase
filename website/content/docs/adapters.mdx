@@ -480,14 +480,14 @@ and calls is the adapter's.
 
 ### `Migrations`
 
-| Member               | Does                                                                         |
-| -------------------- | ---------------------------------------------------------------------------- |
-| `snapshot(schema)`   | What the database makes of the models, as JSON.                              |
-| `plan(from, schema)` | The statements from a snapshot, or `undefined` for an empty database.        |
-| `stored()`           | The database's snapshot and the migrations applied, if any.                  |
-| `apply(run)`         | Runs a `sync` (statements) or a `deploy` (files) under a lock.               |
-| `reset()`            | Drops every table, for `ultimabase reset`; returns the models' tables.       |
-| `remote?`            | The database's host when it is not on this machine: `reset` needs `--force`. |
+| Member                 | Does                                                                                                                                |
+| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `snapshot(schema)`     | What the database makes of the models, as JSON.                                                                                     |
+| `plan(from, schema)`   | The statements from a snapshot, or `undefined` for an empty database.                                                               |
+| `stored()`             | The database's snapshot and the migrations applied, if any.                                                                         |
+| `apply(run, counted?)` | Runs a `sync` (statements) or a `deploy` (files) under a lock; `counted` hears the rows each statement of a committed file changed. |
+| `reset()`              | Drops every table, for `ultimabase reset`; returns the models' tables.                                                              |
+| `remote?`              | The database's host when it is not on this machine: `reset` needs `--force`.                                                        |
 
 A `Statement` is `{ sql, model, does, loses?, tries?, rename? }`.
 

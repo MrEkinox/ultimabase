@@ -1,7 +1,13 @@
 // How a PostgreSQL database follows the models (D-105): every kind of
 // change a sync makes on a real server, the bookkeeping, a deploy and a reset.
 import { randomUUID } from 'node:crypto'
-import type { IndexWhere, Schema, SchemaField, Statement } from 'ultimabase'
+import type {
+	Counted,
+	IndexWhere,
+	Schema,
+	SchemaField,
+	Statement,
+} from 'ultimabase'
 import { describe, expect, it, vi } from 'vitest'
 import { postgres } from './index.ts'
 import { parseSnapshot } from './snapshot-parse.ts'
@@ -2030,6 +2036,88 @@ describe('a deploy on postgres()', () => {
 		await expect(query(inSchema(schema), 'select * from b')).rejects.toThrow(
 			'relation "b" does not exist',
 		)
+	})
+
+	it('hears the rows each statement changed, as PostgreSQL splits them (D-344)', async () => {
+		const to = migrations.snapshot(before)
+		const rows = [
+			'-- the rows; with a semicolon',
+			'create table t (id integer, note text);',
+			"insert into t values (1, 'a;b'), (2, E'c\\';d'), (3, $$e;f$$);",
+			'/* a /* nested; */ comment */ update t',
+			'  set note = $tag$g;$tag$ where id > 1;',
+			'delete from t where id = 9;;',
+			'create function f() returns integer language sql as $$ select 1; $$;',
+			'merge into t using (select 1 as id) as s on t.id = s.id',
+			'  when matched then delete;',
+			'select 1 / 1 as "a;b"',
+		].join('\n')
+		const files = [
+			file('1_rows.sql', rows),
+			file('2_alone.sql', 'update t set note = null', false),
+			file(
+				'3_atomic.sql',
+				'create function g() returns integer language sql begin atomic select 1; end; delete from t;',
+			),
+			file('4_fails.sql', 'delete from t; select 1 / 0;'),
+		]
+		const heard: Counted[] = []
+		await expect(
+			migrations.apply({ kind: 'deploy', files, to }, (statement) => {
+				heard.push(statement)
+			}),
+		).rejects.toMatchObject({ at: '4_fails.sql' })
+		expect(heard).toStrictEqual([
+			{
+				at: '1_rows.sql',
+				statement:
+					"insert into t values (1, 'a;b'), (2, E'c\\';d'), (3, $$e;f$$)",
+				command: 'INSERT',
+				rows: 3,
+			},
+			{
+				at: '1_rows.sql',
+				statement: 'update t\n  set note = $tag$g;$tag$ where id > 1',
+				command: 'UPDATE',
+				rows: 2,
+			},
+			{
+				at: '1_rows.sql',
+				statement: 'delete from t where id = 9',
+				command: 'DELETE',
+				rows: 0,
+			},
+			{
+				at: '1_rows.sql',
+				statement:
+					'merge into t using (select 1 as id) as s on t.id = s.id\n  when matched then delete',
+				command: 'MERGE',
+				rows: 1,
+			},
+			{
+				at: '2_alone.sql',
+				statement: 'update t set note = null',
+				command: 'UPDATE',
+				rows: 2,
+			},
+			// The split cuts `begin atomic` at its semicolons: ranks name them.
+			{
+				at: '3_atomic.sql',
+				statement: 'statement 2',
+				command: 'DELETE',
+				rows: 2,
+			},
+		])
+		heard.length = 0
+		await expect(
+			migrations.apply(
+				{ kind: 'deploy', files: files.slice(0, 3), to },
+				(statement) => {
+					heard.push(statement)
+				},
+			),
+		).resolves.toBeUndefined()
+		expect(heard).toStrictEqual([])
 	})
 })
 

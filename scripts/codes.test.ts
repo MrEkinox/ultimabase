@@ -35,6 +35,10 @@ const notCodes = new Set([
 	'HEAD',
 	'OPTIONS',
 	'NULL',
+	// postgres: the command tags a deploy counts (D-344).
+	'INSERT',
+	'UPDATE',
+	'MERGE',
 	'NFKC',
 	'JSON',
 	'REST',

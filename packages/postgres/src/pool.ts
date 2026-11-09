@@ -5,6 +5,7 @@ import { Pool } from 'pg'
 import { parse } from 'pg-connection-string'
 import type { Logger } from 'ultimabase'
 import { PublicError } from 'ultimabase'
+import { counted } from './counted.ts'
 import { watched } from './deadline.ts'
 import { preparing } from './prepared.ts'
 
@@ -137,6 +138,7 @@ export function poolOf(opening: Opening): {
 			watched(client, timeout, opening.spared, opening.logger)
 		}
 		if (prepared) preparing(client)
+		counted(client)
 		// Compiling a nested read costs a hundred times more than running
 		// it; queued, this runs before the client's first query (D-47).
 		client.query('set jit = off').catch(() => undefined)

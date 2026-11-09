@@ -1,6 +1,6 @@
 // `migrate deploy`, `migrate status` and `reset` (D-105): the migration
 // files against those the database applied.
-import type { Migration, Migrations, Stored } from './adapter.ts'
+import type { Counted, Migration, Migrations, Stored } from './adapter.ts'
 import { MigrationFailed } from './adapter.ts'
 import type { Internals } from './app-internals.ts'
 import { create, read } from './cli-migrate.ts'
@@ -75,22 +75,45 @@ const syncedSince = (): Refused =>
 		'Development sync changed this database since its last deploy: deploy applies migrations only to a database they built.',
 	)
 
-/** Applies `files`; a refused one names those applied before it. */
+/** A statement's first line, cut to about 80 characters. */
+function shown(statement: string): string {
+	const [line = ''] = statement.split('\n', 1)
+	return line.length > 80 || line !== statement
+		? `${line.slice(0, 80).trimEnd()}…`
+		: line
+}
+
+/**
+ * Applies `files`; a refused one names those applied before it. Under each
+ * file, what its statements inserted, updated, deleted or merged (D-344).
+ */
 async function deployed(
 	migrations: Migrations,
 	files: readonly Migration[],
 	to: unknown,
 	again: string,
 ): Promise<readonly string[]> {
-	const lines = files.map((file) => `Applied ${file.name}.`)
+	const counts: Counted[] = []
+	const linesOf = (applied: readonly Migration[]) =>
+		applied.flatMap((file) => [
+			`Applied ${file.name}.`,
+			...counts
+				.filter((count) => count.at === file.name)
+				.map(
+					(count) =>
+						`  ${shown(count.statement)}: ${count.command} ${count.rows}`,
+				),
+		])
 	try {
-		await migrations.apply({ kind: 'deploy', files, to })
+		await migrations.apply({ kind: 'deploy', files, to }, (count) =>
+			counts.push(count),
+		)
 	} catch (error) {
 		if (!(error instanceof MigrationFailed)) throw error
 		const done = files.findIndex((file) => file.name === error.at)
 		throw new Refused(
 			[
-				...lines.slice(0, done),
+				...linesOf(files.slice(0, done)),
 				`${error.at} was not applied: ${error.reason}`,
 				files[done]?.transaction === false
 					? `It ran without a transaction, so nothing was rolled back: undo what it left, such as an invalid index, then ${again}.`
@@ -98,7 +121,7 @@ async function deployed(
 			].join('\n'),
 		)
 	}
-	return lines
+	return linesOf(files)
 }
 
 /** Applies the pending migrations, then stores the models' snapshot. */
