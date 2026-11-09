@@ -56,11 +56,19 @@ const forever: Job<'forever', never> = defineJob({
 	run: () => forever.enqueue(),
 })
 const outside = defineJob({ name: 'outside', run: () => undefined })
+const inputs: unknown[] = []
+const dated = defineJob({
+	name: 'dated',
+	input: z.object({ at: z.date(), note: z.string().optional() }).optional(),
+	run: ({ input }) => {
+		inputs.push(input)
+	},
+})
 
 const app = defineApp({
 	database: memory(),
 	models: [],
-	plugins: [jobsPlugin({ jobs: [closeRoom, flaky, chain, forever] })],
+	plugins: [jobsPlugin({ jobs: [closeRoom, flaky, chain, forever, dated] })],
 	logger,
 })
 
@@ -74,6 +82,7 @@ beforeEach(() => {
 	vi.useFakeTimers({ toFake: ['Date'] })
 	vi.setSystemTime(start)
 	closed.length = 0
+	inputs.length = 0
 	lines.length = 0
 	failures = 0
 	chained = 0
@@ -120,6 +129,15 @@ describe('a job enqueued', () => {
 			details: { issues: [{ path: ['room'] }] },
 		})
 		expect(await rows()).toStrictEqual([])
+	})
+
+	it('stores its input as JSON: a date as its ISO string, an undefined key left out (D-352)', async () => {
+		await dated.enqueue({ at: start, note: undefined })
+		await runJobs()
+		expect(inputs).toStrictEqual([{ at: start.toISOString() }])
+		await dated.enqueue(undefined)
+		await runJobs()
+		expect(inputs).toStrictEqual([{ at: start.toISOString() }, null])
 	})
 
 	it('waits for its delay', async () => {

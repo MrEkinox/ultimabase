@@ -21391,3 +21391,28 @@ await files.upload(svgWithXmlProlog, { for: 'Post.attachments', name: 'a.svg' })
 await files.check({ delete: true })
 // Before: backups/db.sql deleted. After: left, and never listed.
 ```
+
+## D-352: jobs after its audit
+
+Choice: amends D-221 point 3.
+
+1. `enqueue` stores its input's validated value as JSON, as the
+   documentation says: a date as its ISO string, an undefined key left out.
+
+Why: `enqueue` stored the schema's output as it came. A `Date` or a key set
+to `undefined` is no JSON value, so the write was refused as 400
+`VALIDATION_FAILED` "Invalid data." on `input`, and the caller's whole
+transaction rolled back.
+
+Example:
+
+```ts
+const remind = defineJob({
+	name: 'remind',
+	input: z.object({ at: z.date(), note: z.string().optional() }),
+	run: ({ input }) => send(input),
+})
+await remind.enqueue({ at: new Date(), note: undefined })
+// Before: 400 "Invalid data.", the transaction rolled back.
+// After: stored; run receives { at: '2027-01-04T08:00:00.000Z' }.
+```

@@ -215,9 +215,11 @@ async function enqueue(record: JobRecord, args: readonly unknown[]) {
 	}
 	const value =
 		schema === undefined ? null : await validated(name, schema, input)
+	// Stored as JSON: a date as its ISO string, an undefined key left out.
+	const json: unknown = JSON.parse(JSON.stringify(value ?? null))
 	const data = {
 		job: name,
-		input: value ?? null,
+		input: json,
 		state: 'pending',
 		dueAt: new Date(Date.now() + (after ?? 0)),
 		attempts: 0,
