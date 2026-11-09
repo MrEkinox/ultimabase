@@ -1,12 +1,15 @@
 // The inputs' checks and JSON Schemas (D-113), each user field type a
 // sign-up may take.
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { z } from 'zod'
 import type { SchemaField } from 'ultimabase'
 import type { Property } from './input.ts'
 import {
+	emailOf,
 	fieldProperty,
+	normalized,
 	outputSchema,
+	passwordOf,
 	signInInput,
 	signUpInput,
 } from './input.ts'
@@ -326,4 +329,32 @@ it('an output schema passes its value through', () => {
 	const output = outputSchema<string>({ type: 'string' })['~standard']
 	expect(output.validate('x')).toStrictEqual({ value: 'x' })
 	expect(output.jsonSchema.output()).toStrictEqual({ type: 'string' })
+})
+
+describe('a password or an email too long to hold its characters', () => {
+	// Four units, one character in NFKC: an alpha with three marks.
+	const alpha = '\u03B1\u0314\u0342\u0345'
+
+	it('is refused before NFKC or NFC reads it (D-353)', () => {
+		const normalize = vi.spyOn(String.prototype, 'normalize')
+		const longest = alpha.repeat(256)
+		expect(passwordOf(longest)).toStrictEqual({ value: 'ᾇ'.repeat(256) })
+		expect(normalize).toHaveBeenCalledTimes(1)
+		const hostile = `${longest}a`
+		expect(normalized(hostile)).toBeUndefined()
+		expect(passwordOf(hostile)).toStrictEqual({
+			message: 'A password has 8 to 256 characters.',
+			code: 'PASSWORD_LENGTH',
+		})
+		const email = `${'a'.repeat(1004)}@example.com`
+		expect(emailOf(` ${email} `)).toStrictEqual({
+			message: 'Expected an email address.',
+		})
+		expect(normalize).toHaveBeenCalledTimes(2)
+		expect(emailOf(`${email}m`)).toStrictEqual({
+			message: 'Expected an email address.',
+		})
+		expect(normalize).toHaveBeenCalledTimes(2)
+		normalize.mockRestore()
+	})
 })

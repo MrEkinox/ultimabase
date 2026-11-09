@@ -5667,7 +5667,7 @@ The application's code does not change.
 
 ## D-115: auth and password after their audit
 
-Amended by D-116, D-165 and D-346.
+Amended by D-116, D-165, D-346 and D-353.
 
 Choice: amends D-112, D-113 and D-114.
 
@@ -21447,4 +21447,26 @@ const remind = defineJob({
 await remind.enqueue({ at: new Date(), note: undefined })
 // Before: 400 "Invalid data.", the transaction rolled back.
 // After: stored; run receives { at: '2027-01-04T08:00:00.000Z' }.
+```
+
+## D-353: password after its audit
+
+Choice: amends D-115.
+
+1. A password longer than 1,024 UTF-16 units, four a character, is refused
+   before NFKC reads it, as one over 256 characters; an email longer than
+   1,016 once trimmed, before NFC. A valid input is unchanged: an alpha
+   with three marks, four units, is one character in NFKC.
+
+Why: NFKC makes 18 characters of U+FDFA. A body of 900 KB, under the HTTP
+limit, became 5.4 million characters before the 256 check: 265 ms of a
+blocked event loop for one anonymous `resetPassword`, where the same size of
+`a` took 10 ms. Four such requests a second held a process.
+
+Example:
+
+```ts
+await User.resetPassword({ token, password: 'ﷺ'.repeat(300_000) })
+// Before: PASSWORD_LENGTH after 265 ms of a blocked process.
+// After: PASSWORD_LENGTH at once.
 ```

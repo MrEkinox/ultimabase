@@ -123,7 +123,9 @@ async function matches(
 	typed: string,
 ): Promise<string | undefined> {
 	const password = normalized(typed)
-	if (Array.from(password).length > longest) return undefined
+	if (password === undefined || Array.from(password).length > longest) {
+		return undefined
+	}
 	const stored =
 		userId === undefined
 			? null
