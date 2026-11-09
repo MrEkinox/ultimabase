@@ -47,21 +47,37 @@ const scalar = (entry: Entry, name: string): Out => ({
  * `id`, the dates, each scalar field a caller other than Master reads, and
  * each virtual of a scalar without an input (D-151).
  */
-export const defaultShape = (entry: Entry): Shape => ({
-	fields: [
-		...system.map((name) => scalar(entry, name)),
-		...readable(entry)
-			.filter((field) => field.kind === 'scalar')
-			.map((field) => scalar(entry, field.name)),
-		...defaultVirtuals(entry).map((name) => scalar(entry, name)),
-	],
-})
+export const defaultShape = (entry: Entry): Shape => defaultsOf(entry).shape
 
 /** The virtuals a row holds without `select` (D-151). */
 export const defaultVirtuals = (entry: Entry): readonly string[] =>
-	readableVirtuals(entry)
+	defaultsOf(entry).virtuals
+
+type Defaults = { readonly shape: Shape; readonly virtuals: readonly string[] }
+
+/** Each entry's defaults, built once: a function's rows read them each. */
+const defaults = new WeakMap<Entry, Defaults>()
+
+function defaultsOf(entry: Entry): Defaults {
+	const known = defaults.get(entry)
+	if (known !== undefined) return known
+	const virtuals = readableVirtuals(entry)
 		.filter((virtual) => virtual.default)
 		.map((virtual) => virtual.name)
+	const fields = [
+		...system,
+		...readable(entry)
+			.filter((field) => field.kind === 'scalar')
+			.map((field) => field.name),
+		...virtuals,
+	]
+	const built = {
+		shape: { fields: fields.map((name) => scalar(entry, name)) },
+		virtuals,
+	}
+	defaults.set(entry, built)
+	return built
+}
 
 // `take` for none or a negative number; above `maxTake`, the list refuses.
 export const sizeOf = (entry: Entry, asked: unknown): number =>

@@ -85,10 +85,10 @@ function rowOut(reading: Reading, model: string, value: unknown): unknown {
 	const names = defaultVirtuals(entry).filter(
 		(name) => !Object.hasOwn(row, name),
 	)
+	if (names.length === 0) return copy
 	const rows = reading.pending.get(entry) ?? []
-	if (names.length > 0) {
-		reading.pending.set(entry, [...rows, { id: row.id, copy, names }])
-	}
+	rows.push({ id: row.id, copy, names })
+	reading.pending.set(entry, rows)
 	return copy
 }
 
