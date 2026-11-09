@@ -122,7 +122,7 @@ function whereOf(
 }
 
 /**
- * Refuses an index over a field that is not one of the model's columns;
+ * Refuses an index over no field, or over one that is not a column;
  * returns the indexes as the adapter reads them.
  */
 export function checkIndexes(
@@ -131,6 +131,9 @@ export function checkIndexes(
 	indexes: readonly IndexDefinition[],
 ): SchemaModel['indexes'] {
 	return indexes.map((index) => {
+		if (index.fields.length === 0) {
+			throw new Refused(`${model}: an index names at least one field.`)
+		}
 		for (const name of index.fields) {
 			if (implicit.has(name)) {
 				if (index.unique !== true) continue

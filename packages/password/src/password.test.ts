@@ -413,6 +413,11 @@ describe('signing in', () => {
 		const longer = await signIn(url, { password: `${longest}x` })
 		expect(errorOf(longer.body)).toStrictEqual(wrong)
 		expect(database.reads).toBe(before)
+		// Unread too: NFKC makes 18 characters of each (D-353).
+		const normalize = vi.spyOn(String.prototype, 'normalize')
+		const hostile = await signIn(url, { password: 'ﷺ'.repeat(1025) })
+		expect(errorOf(hostile.body)).toStrictEqual(wrong)
+		expect(normalize.mock.calls).not.toContainEqual(['NFKC'])
 	})
 
 	it('stops on a stored hash with out-of-bounds parameters', async () => {
@@ -445,6 +450,7 @@ describe('signing in', () => {
 		const client: Client = {
 			address: '203.0.113.7',
 			cookies: {
+				settable: true,
 				get: () => undefined,
 				set: (name) => set.push(name),
 				clear: () => undefined,

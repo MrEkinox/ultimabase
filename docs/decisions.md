@@ -4078,7 +4078,7 @@ await Ticket.update({ where: { id }, data: { label: 'x' } }, { as: master })
 
 ## D-105: `ultimabase.config.ts`, the `ultimabase` commands and a schema snapshot
 
-Amended by D-171, D-232, D-280 and D-307.
+Amended by D-171, D-232, D-280, D-307 and D-347.
 
 Choice: amends D-26, D-73 and D-98 point 1.
 
@@ -4536,7 +4536,7 @@ npx ultimabase reset --force
 
 ## D-106: `httpPlugin()`, its Hono routes and the caller they read
 
-Amended by D-153, D-166, D-204, D-205 and D-223.
+Amended by D-153, D-166, D-204, D-205, D-223 and D-348.
 
 Choice: completes D-27, D-49, D-59 and D-66.
 
@@ -4666,7 +4666,7 @@ curl -X POST localhost:3000/webhooks/stripe -d '{"id":"…"}' \
 
 ## D-107: `graphqlPlugin()`, the schema it generates and how it mounts
 
-Amended by D-125, D-128, D-132, D-153, D-185, D-206 and D-227.
+Amended by D-125, D-128, D-132, D-153, D-185, D-206, D-227 and D-349.
 
 Choice: completes D-16, D-34, D-41, D-45 and D-55.
 
@@ -4731,7 +4731,10 @@ startsWith, endsWith }`, `is`/`isNot`, `some`/`every`/`none`,
    most, and `take` at least when it selects `totalCount`, since a count
    reads the rows it counts. A single row, a `one` relation and a mutation
    count one row each. Each alias counts apart; a fragment spread twice
-   counts once (amended 2026-10-23) A document of more than 2,000 tokens,
+   counts once (amended 2026-10-23). A document that returns more than 50
+   values a row of `maxRows` (1,000,000) is refused too, Master's excepted:
+   each field counts one value per row above it (amended 2026-11-09, D-349).
+   A document of more than 2,000 tokens,
    about ten times the standard introspection query, is refused before it is
    validated, Master's included: graphql-js validates a field repeated under
    one key in quadratic time, and 12,000 copies took 6 seconds (amended
@@ -5409,7 +5412,7 @@ curl localhost:3000/graphql -H 'authorization: Bearer expired…' -d '…'
 
 ## D-113: `passwordPlugin()`, linked accounts, plugin functions and `viewer`
 
-Amended by D-115, D-125, D-160, D-161, D-162, D-198, D-209 and D-212.
+Amended by D-115, D-125, D-160, D-161, D-162, D-198, D-209, D-212 and D-354.
 
 Choice: completes D-33, D-56, D-109 and D-112, and amends D-56, D-109 and
 D-112.
@@ -5664,7 +5667,7 @@ The application's code does not change.
 
 ## D-115: auth and password after their audit
 
-Amended by D-116, D-165 and D-346.
+Amended by D-116, D-165, D-346 and D-353.
 
 Choice: amends D-112, D-113 and D-114.
 
@@ -5731,6 +5734,8 @@ routes().post('/login', async (c) => {
 
 ## D-116: The client's address behind proxies
 
+Amended by D-348.
+
 Choice: completes D-113; replaces D-115's reason for not deriving `Secure`
 from the request.
 
@@ -5740,7 +5745,8 @@ from the request.
    `X-Forwarded-For` from the right, each proxy having appended the address
    it saw. With fewer entries, or none, it is the connection's (amended
    2026-10-24).
-3. When that entry is not an IP address, the address is the connection's.
+3. When that entry is not an IP address, the address is the connection's;
+   an entry with a port counts as its address (amended 2026-11-09, D-348).
 4. Only `X-Forwarded-For` is read: neither `Forwarded`, nor a host's own
    header, nor the forwarded protocol or host. The cookie's `Secure` still
    follows `NODE_ENV` (D-112).
@@ -6173,7 +6179,7 @@ await Note.update(
 
 ## D-123: `rolesPlugin()`, `defineRole` and roles inside roles
 
-Amended by D-126, D-213 and D-237.
+Amended by D-126, D-213, D-237 and D-355.
 
 Choice: amends D-13; Parse's roles.
 
@@ -6613,7 +6619,7 @@ await Shop.findMany({ where: { sizes: { has: 42 } } })
 
 ## D-128: Nested creation, `create` in a relation write
 
-Amended by D-227.
+Amended by D-227, D-350.
 
 Choice: a relation write takes `create` beside `connect`, in `create` and
 `update`, with Prisma's spelling (D-20).
@@ -6646,7 +6652,8 @@ Choice: a relation write takes `create` beside `connect`, in `create` and
    class whose create mutation is off. Hiding a model closes every GraphQL
    path that creates it; server code still creates it nested (amended
    2026-10-26).
-4. A created row may create rows in turn, at any depth.
+4. A created row may create rows in turn, up to 32 levels deep (amended
+   2026-11-09 by D-350).
 5. Rules and hooks run depth first, in written order: the written row's
    first, so its `beforeCreate` or `beforeUpdate` may change or add the rows
    it creates, then each created row's. The rows are then written at once,
@@ -7593,7 +7600,7 @@ const running = testApplication(app, { database: 'declared' })
 
 ## D-138: Nested `set`, `update`, `delete` and `connectOrCreate`
 
-Amended by D-227.
+Amended by D-227 and D-347.
 
 Choice: a relation write takes Prisma's `set`, `update` and `delete` in
 `update`, and `connectOrCreate` in `create` and `update` (D-20). It amends
@@ -7630,6 +7637,9 @@ D-20, D-86 and D-128.
    `connect`, which the `connect` check then holds to the caller's rules
    (D-86); none becomes a nested `create` (D-128). Two concurrent writes that
    create the same row: the second gets `UNIQUE_VIOLATION`, without a retry.
+   The row rules are skipped, not the field rules: a `where` on a field the
+   caller may not read is refused, as a find's is (amended 2026-11-09,
+   D-347).
 6. A relation's field rule (D-86) judges the links only. A `many` value is
    `{ connect, disconnect, create, delete }`; on a `one`, `delete: true`
    reads as `null`, as `disconnect` does. A relation write that only updates
@@ -8116,6 +8126,8 @@ const stats = await Order.aggregate(
 ```
 
 ## D-144: An OpenAPI document
+
+Amended by D-350.
 
 Choice: completes D-129 and D-125's point 8.
 
@@ -9175,7 +9187,7 @@ type Stage {
 
 ## D-152: Files
 
-Amended by D-200, D-202 and D-250.
+Amended by D-200, D-202, D-250 and D-351.
 
 Choice: completes D-32 and D-122; amends D-32 (no `local()`), D-89 (a
 plugin model knows its name) and D-122 points 2 and 5.
@@ -10500,7 +10512,7 @@ const deleteAccount = defineFunction({
 
 ## D-162: The stored email and the email change
 
-Amended by D-211.
+Amended by D-211 and D-353.
 
 Choice: completes D-113 and D-117, and amends D-113 point 5, D-117 points 1
 and 5, and D-160.
@@ -11540,7 +11552,7 @@ it('invites with one read and one write', async () => {
 ## D-178: A socket's query reads its caller again
 
 Choice: amends D-154, point 5.
-Amended by D-278.
+Amended by D-278 and D-354.
 
 1. A query or a mutation sent over the GraphQL socket reads its caller again
    before it runs, with the request the viewer holds, as HTTP reads one per
@@ -12962,7 +12974,11 @@ Choice: amends D-154 points 8, 9 and 10.
 
    `keys` lists each key's values in the order of `ids`, `null` for a
    row without a target, and is absent when `ids` is. On PostgreSQL a
-   notification of a delete then holds `150 / (1 + keys)` rows.
+   notification of a delete then holds `150 / (1 + keys)` rows. A model
+   whose keys would not fit one, more than 99 of them (`json_build_array`
+   takes 100 arguments) or their names longer than 1,500 bytes as JSON,
+   tells its ids alone there: a subscription judges a key it is not told as
+   one that may have changed.
 
 2. A row written at a level of a filter, the rows a relation reaches, is
    judged by that level's own conditions, those its stored fields answer:
@@ -13657,7 +13673,7 @@ await plugins.maintenance.lock()
 
 ## D-206: Each plugin declares its codes, and `ErrorCodeOf<typeof app>`
 
-Amended by D-231.
+Amended by D-231 and D-354.
 
 Choice: amends D-72 and D-107.
 
@@ -13889,7 +13905,7 @@ settled, then rolls back; `pg` warns of nothing.
 
 ## D-209: Breached passwords, and a password that is the email
 
-Amended by D-224.
+Amended by D-224 and D-353.
 
 Choice: amends D-113.
 
@@ -14090,6 +14106,8 @@ await transaction(async () => {
 ```
 
 ## D-213: Only Master gives a role, from either side of the link
+
+Amended by D-355.
 
 Choice: amends D-86 point 1 and D-123 point 2.
 
@@ -14470,7 +14488,7 @@ await Match.end(match.id)
 
 ## D-218: `httpPlugin()` limits each address's requests
 
-Amended by D-230.
+Amended by D-230 and D-348.
 
 Choice: amends D-56; D-113 is unchanged.
 
@@ -14487,7 +14505,9 @@ Choice: amends D-56; D-113 is unchanged.
    `details: { retryAfter }` and `Retry-After`, the seconds until the
    window ends, before the gates, the caller and the routes, so a flood
    reads no session. Master's key passes over the limit; a wrong key does
-   not. The first refusal of an address in a window logs a warning.
+   not. The first refusal of an address in a window logs a warning. A wrong
+   key ends that address's master-key tries for the window (amended
+   2026-11-09, D-348).
 4. Each instance counts its own requests: behind a load balancer the limit
    is per instance. A shared store is decided when an application needs it.
 5. A limit per person on a write is the model's `beforeCreate` hook: it
@@ -14730,7 +14750,7 @@ cycle of models such as `Task` and `Milestone`, makes the types circular).
 
 ## D-221: Jobs: an outbox and scheduled jobs, a plugin
 
-Amended by D-302.
+Amended by D-302 and D-352.
 
 Choice: the plugin `@ultimabase/jobs` runs work after a write commits, later,
 or on a schedule, with no kernel change (D-25):
@@ -15413,6 +15433,8 @@ query ($where: PostWhereInput) {
 
 ## D-229: A live function's rows count in `maxRows` over a WebSocket
 
+Amended by D-349.
+
 Choice: amends D-154 point 12; D-107's row budget is unchanged.
 
 1. A live function's subscription over a WebSocket is counted by the row
@@ -15424,7 +15446,9 @@ Choice: amends D-154 point 12; D-107's row budget is unchanged.
 3. A model's live list and live row stay out of `maxRows`: `maxLive`,
    `maxTake` in page mode and `maxConnectionRows` bound them (D-154), and
    the rows of the relations they select count in `maxLive` instead. REST's
-   live lists check their depth only.
+   live lists check their depth only. A live row's values count in the value
+   budget; a live list returns at most 50 values a row it reads (amended
+   2026-11-09, D-349).
 
 Why: `{ ranked(above: 0) { id } }` over HTTP was refused past `maxRows`, but
 `subscription { ranked(above: 0) { id } }` ran in full, then again at each
@@ -21024,6 +21048,8 @@ website/content/docs                 /docs/next     (main)
 
 ## D-346: auth after its second audit
 
+Amended by D-354.
+
 Choice: amends D-115, point 1, and D-178.
 
 1. A sign-in or a sign-out sets or clears its cookie before it ends a
@@ -21046,3 +21072,541 @@ cookie headers are written after the function returns. A security check kept
 in two plugins drifts when only one is fixed. Every test sent the session
 cookie alone, so a broken cookie parser would have signed every browser out
 with the suite green.
+
+## D-347: The kernel after its audit
+
+Choice: amends D-138, point 5, and D-105, point 6.
+
+1. A `connectOrCreate`'s `where` obeys the fields' read rules, as a find's
+   does: on a field the caller may not read, it is refused with
+   `INVALID_QUERY`, unless the value is trusted (D-67). The row it names is
+   still found without the row rules.
+
+2. `updateMany` finds the rows whose data came out the same by a key, not by
+   comparing each row with every group: a date counts by its time, another
+   object by its reference, as before. A hook that stamps each row with
+   `new Date()` made the grouping quadratic: 8,000 rows took 2,948 ms on the
+   memory adapter, against 60 ms without the hook; now 62 ms. Rows stamped
+   with equal dates share one change, as equal strings did.
+
+3. A json path filter takes as operators its own keys only. `constructor`,
+   `toString` or `__proto__`, which every object inherits, are refused with
+   `INVALID_QUERY`, as an unknown operator is: any caller who may filter
+   could return rows a filter never selected, or fail the request with a
+   `TypeError`.
+
+4. `memory()`'s search keeps a word's first 255 positions, and counts a
+   position past 16,383 as 16,383, once, as a `tsvector` does (D-148). It
+   copied each word's positions at each occurrence, and ranked every pair of
+   them: a row of 80,000 words took 15.6 s to filter and 42 s to rank; now 5
+   and 10 ms. A phrase PostgreSQL does not find past these limits, `memory()`
+   no longer finds either, and long rows rank as they do there.
+
+5. `memory()` finds the rows of a one-to-many relation through an index of
+   the target's keys, built once per read and dropped after each change of a
+   write. It scanned the whole target for each row: an `include`, a `_count`
+   or a `some` on 1,000 authors of 10,000 books took 180 ms; now 23, 3 and
+   4 ms.
+
+6. `memory()` checks its unique keys on the rows a write inserted or
+   updated, against the others, instead of every row of each table the write
+   touched: a create on a table of 40,000 rows with a unique field took
+   13 ms, now 1.5. A table with none is no longer copied at each write.
+
+Why, for point 1: the lookup skipped every rule, so a caller who could create
+a row linked to a model learned who held a value it may not read, one request
+at a time: an email it cannot see linked the note to its holder, whose id
+came back, and a missing one tried a create. The documentation already
+refused a filter on such a field.
+
+7. A deploy's `Run` holds `known`, the name of every file the code holds.
+   Under the lock of each file, and under the one that stores the snapshot,
+   the adapter refuses the deploy when the database applied a file `known`
+   does not name: `Another deploy changed the database meanwhile: deploy
+again.` It refuses as well a file whose name the database applied with
+   another checksum: other code applied it first. Identical deploys, as
+   replicas deploying at start, still pass.
+
+Why, for point 7: a deploy plans outside the lock. When older code planned,
+then newer code applied its files, the older one applied a file of its own
+after them and stored its snapshot over the newer one: every production
+start then refused, the models' hash no longer matching. `from`, the files
+the plan read, as a sync's, would refuse two replicas deploying at start;
+`known` refuses only other code.
+
+## D-348: http after its audit
+
+Choice: amends D-106, D-116 point 3 and D-218 point 3.
+
+1. The server waits at most 10 s for a request's headers (Node's
+   `headersTimeout`, 60 s by default), then closes the connection. Node
+   checks every second, not every 30 s. It caps
+   no connections per address: clients behind one NAT share an address, and
+   a proxy in front caps connections better.
+2. Over the limit, once an address sent a wrong master key, its next
+   master-key requests are refused until the window ends, without checking
+   the key and without logging it. Master's key still passes over the limit
+   when it is the first one the address sent past the limit.
+3. An `X-Forwarded-For` entry that carries a port counts as its address:
+   `203.0.113.7:5678` is `203.0.113.7`, `[2001:db8::1]:443` is
+   `2001:db8::1`. Another entry that is not an address is still the
+   connection's (D-116 point 3).
+4. A preflight answers `Access-Control-Max-Age: 600`, so a browser asks
+   once per ten minutes for each route and method, not before each request.
+   It is no option.
+
+Why: 1,000 connections that each sent half a header held 1,000 sockets for
+60 s, Node's default; 10 s still lets a slow mobile client send its
+headers. Over the limit, each wrong master key was checked and logged: 50
+guesses past a limit of 2 wrote 51 warnings, so a flood of guesses was a
+flood of log lines; one wrong key now ends the tries of that address for
+the window. A proxy that appends the port, as some load balancers do, made
+every entry not an address: the address fell back to the proxy's, a private
+one the limit never counts, and 50 requests past a limit of 2 were all let
+through. Browsers cache a preflight 5 s without `Access-Control-Max-Age`
+(Chrome), so a page on another origin paid one more round trip on almost
+every write. Ten minutes bounds how long a browser keeps an answer after
+`cors` drops its origin.
+Rejected: a cap of connections per address; an option for the preflight's
+age, until an application needs one; refusing a master key over the limit
+altogether, which would stop Master's scripts behind a busy address.
+Example:
+
+```ts
+// Before: behind a proxy that writes X-Forwarded-For: 203.0.113.7:5678
+httpPlugin({ proxies: 1 }) // clientOf(c).client.address === '10.0.0.5'
+
+// After
+httpPlugin({ proxies: 1 }) // clientOf(c).client.address === '203.0.113.7'
+```
+
+```http
+OPTIONS /webhooks/payment
+origin: https://shop.example.com
+access-control-request-method: POST
+
+# Before: no access-control-max-age; after:
+access-control-max-age: 600
+```
+
+## D-349: graphql after its audit
+
+Choice: amends D-107 point 6 and D-229 point 3.
+
+1. A document that returns more than 50 values a row of `maxRows`, 1,000,000
+   by default, is refused before it runs with `BAD_USER_INPUT`: "The document
+   returns more than 1,000,000 values. Select fewer fields, aliases or rows."
+   Each field counts one value per row above it, a connection's `edges` and
+   `node`, a scalar and `__typename` included; each alias counts apart.
+   Master's documents are not counted, as for the row budget. It is no
+   option: `maxRows` sets both.
+2. Past both budgets, the row budget's error is the one sent: it names the
+   argument to lower.
+3. Over a WebSocket, a live function's values count as over HTTP; a model's
+   live row counts its values, while the rows of its relations stay bounded
+   by `maxLive` (D-229 point 3). A model's live list returns at most 50
+   values a row it reads, the rows it nests included, whatever its window:
+   one row it follows and its nested rows are counted, as a query counts
+   them, and never past 1,000,000 values. Over, it is refused with "The
+   document returns more than 50 values a row. Select fewer fields or
+   aliases."
+4. A subscription's variables nested too deep are refused as a query's
+   (D-228), and an enum value graphql-js refuses is not sent back in the
+   error (D-107 point 8).
+
+Why: the row budget bounds rows, not what each row returns. Under
+`maxRows: 20000`, `{ posts(first: 100) { …E } }` with fragments that fan out
+to 120,000 aliases of `title` is 100 rows, but 12,000,000 values: the server
+read and serialized them for one request. A live list was not counted at
+all, and ran such a document again at each write. Fifty values a row leaves
+room for a wide model at the full row budget. The count stops once past the
+budget, so a document built to be counted slowly is refused in under a
+second. A live list grows with fetchMore up to `maxLive` rows: a bound a row
+holds at any window, while a bound on its `first` would not.
+Rejected: a `maxValues` option, until an application needs one; counting a
+model's live list by its `first` under 1,000,000 values, which would refuse
+a live list of 50,000 rows of 21 fields that `maxLive` serves today.
+Example:
+
+```graphql
+# graphqlPlugin({ maxRows: 2 })
+query {
+	posts(first: 2) {
+		edges {
+			node {
+				t0: title
+				t1: title
+				# … 60 aliases
+			}
+		}
+	}
+}
+# Before: served. After: The document returns more than 100 values. Select
+# fewer fields, aliases or rows.
+```
+
+## D-350: rest after its audit
+
+Choice: amends D-128 point 4 and D-144 point 1.
+
+1. A write nests at most 32 levels, for every caller, Master included, as a
+   filter does (D-228). The written row is level 1; each row a
+   relation or a `oneOf` writes by `create`, `connectOrCreate` or `update` is
+   one level deeper. The 33rd level is refused with `INVALID_QUERY`, a 400
+   `BAD_USER_INPUT` over REST and GraphQL, at its path:
+   "data.parent.create.….parent.create: the write is nested more than 32
+   levels deep." It is no option; `maxWriteDepth` is exported from
+   `ultimabase/internal`.
+2. REST reads a write's dates 32 levels deep, and leaves deeper rows as
+   they are for the kernel to refuse. GraphQL variables too deep for
+   graphql-js are refused as a filter's (D-228 point 5).
+3. An SSE resume checks its read and its user before it ends the request
+   still open for its token, as D-154 point 7 says: another user's token,
+   or another read, leaves that list streaming and kept. The realtime
+   API transports use gains `sameUser(viewer, request)`, which reads the
+   request's caller without following it; a resume reads its caller once
+   more.
+4. `restPlugin` takes `openapi`, as `graphqlPlugin` takes `introspection`:
+   `GET {path}/openapi.json` answers in development and 404 in production
+   (`NODE_ENV=production`), unless set. The document is still built at
+   startup, so a name clash stops every start alike.
+
+Why: D-128 left the depth unbounded, trusting the GraphQL depth limit and
+the request size. The depth limit counts the selection, not the variables,
+and a 1 MiB body holds tens of thousands of levels. A write 1,500 levels
+deep ran the REST transport out of stack, a 500; 3,000 did the same over
+GraphQL; as Master, the kernel took 6 to 10 seconds at 3,000 levels, its
+time growing with the square of the depth. Thirty-two levels hold any tree a
+form or an import writes, and the refusal comes in a few milliseconds.
+A resume ended the open request before any check, so anyone holding a
+token, which travels in a query string and so in access logs, ended its
+user's live list, and with the same read threw away its kept window.
+D-144 served its document always, as GraphQL answered its introspection;
+GraphQL closes introspection in production (D-107), so REST described a
+production API to anyone while GraphQL did not (D-129).
+Rejected: `maxDepth`, which an application sets and Master skips: a write
+too deep fails the same way for Master; a budget on the rows a write
+creates, until an application needs one: 20,000 rows in one `create` take
+under half a second.
+Example:
+
+```ts
+let data = { label: 'top' }
+for (let level = 1; level < 1500; level += 1) {
+	data = { label: `${level}`, parent: { create: data } }
+}
+await Node.create({ data }, { as: master })
+// Before: RangeError over REST (500), seconds of work in the kernel.
+// After: INVALID_QUERY data.parent.create.….parent.create: the write is
+// nested more than 32 levels deep.
+```
+
+```ts
+restPlugin() // NODE_ENV=production
+// Before: GET /api/openapi.json answers 200.
+// After: 404; restPlugin({ openapi: true }) serves it, for a gateway.
+```
+
+## D-351: files after its audit
+
+Choice: amends D-152 point 5.
+
+1. Only a detected image other than SVG, audio, video or PDF is served
+   inline. Every other type is served with `Content-Disposition:
+attachment`: SVG and XHTML that `file-type` detects as
+   `application/xml`, any XML, and undetected types. A variant is served
+   inline only when its bytes are detected as its type and that type is
+   one of these.
+2. An upload checks `access.upload` first, before its field, its size or a
+   byte of its body: a refused caller gets 403 `ACCESS_DENIED` "The upload
+   is refused.", logged with its id (D-88), whatever field it names. The
+   rule receives the caller its plugins complete (D-121), through
+   `completedCaller` in `ultimabase/internal`. `FilesBlob`'s `create` rule
+   stays as a second guard.
+3. A storage's `keys` lists only keys of its own, `public/<uuid>` and
+   `private/<uuid>`: `s3()` lists the prefixes `public/` and `private/`
+   and keeps the keys `keyPattern` matches, as `diskFiles()` does. A
+   bucket may hold other objects, which `files.check({ delete: true })`
+   leaves.
+4. The sweep and the deletions after a commit read released rows 500 at a
+   time, delete 16 objects at a time, and delete the rows of the objects
+   deleted only. A refused deletion keeps its row, ends the run and is
+   logged once; the next sweep runs it again. `files.check({ delete: true })`
+   deletes 16 objects at a time too.
+5. Deleting a row that holds no file reads and writes no `FilesBlob` row.
+6. A signer derives its SigV4 signing key once a day, not once a signature.
+7. An upload makes its inline values and its variants before it writes:
+   it inserts its row with its inline values, then its variants' rows in
+   one `createMany`. A buffered upload of the wrong size, or whose variant
+   or inline value fails, writes no row.
+8. `diskFiles()` deletes at start the temporary files a crash left: those
+   no put has written for an hour.
+9. A declared type is kept only when it is a media type, RFC 6838's two
+   names of 127 characters at most; any other is no type: stored as
+   `application/octet-stream`, or refused by `accept`.
+
+Why: D-152 named SVG as the type a browser runs, and `file-type` never
+detects SVG. An SVG that opens with an XML prolog, or an XHTML document, is
+detected as `application/xml`, which D-152 served inline; on S3, which
+sends no `Content-Security-Policy`, its script ran on the storage's origin.
+A list of types a browser shows without running anything stays closed as
+`file-type` learns new types; a list of dangerous types does not.
+D-152 left the check to `FilesBlob`'s `create`, after the body: a refused
+caller had the server buffer up to `maxSize` of a field with variants, its
+400 and 415 answers told which `Model.field` pairs exist, and its 403 named
+the `FilesBlob` model, which D-110 hides.
+`s3().keys()` listed the whole bucket, so `check({ delete: true })` deleted
+every object files did not write, a backup next to the uploads included.
+The sweep read every released row at once and deleted all their objects at
+once: after a mass delete, tens of thousands of requests left together, and
+one refusal kept every row, so the next sweep deleted the same objects
+again.
+Deleting a row without a file still ran two `FilesBlob` queries, one in its
+transaction.
+The signing key, four HMACs, was half the time of each private URL: a page
+of 100 private files spent 9 ms on it. Cached, a signature takes 55 µs, not
+165 µs.
+An upload wrote its row, each variant's row, then its inline values: N + 2
+writes for N variants, and a failing variant left rows to delete.
+A crash during a put left its temporary files in `dir`: neither `keys()`
+nor `check()` listed them, so nothing ever deleted them.
+A declared type was stored as sent, of any length and grammar, then sent
+back as `Content-Type` by S3 and `diskFiles()`.
+Rejected: adding `application/xml` to the dangerous types, which leaves
+the next detected markup type inline; sniffing the XML for `<svg` or
+`<html`, which an attacker's namespace or comment defeats.
+Example:
+
+```ts
+await files.upload(svgWithXmlProlog, { for: 'Post.attachments', name: 'a.svg' })
+// Before: stored as application/xml, opened inline, its <script> ran.
+// After: stored as application/xml with Content-Disposition: attachment.
+```
+
+```ts
+// An anonymous caller, 50 MB to Post.gallery, which has variants.
+// Before: 50 MB read, then 403 "FilesBlob create refused."
+// After: nothing read, 403 "The upload is refused."; for Post.nothing
+// too, which answered 400 "Post.nothing is not a file field."
+```
+
+```ts
+// A bucket holding backups/db.sql next to the uploads.
+await files.check({ delete: true })
+// Before: backups/db.sql deleted. After: left, and never listed.
+```
+
+## D-352: jobs after its audit
+
+Choice: amends D-221 points 3, 6 and 11.
+
+1. `enqueue` stores its input's validated value as JSON, as the
+   documentation says: a date as its ISO string, an undefined key left out.
+2. Instances that start at once sync the recurring rows without failing: a
+   row another instance created or deleted first is left as it is.
+3. A failed run stores its error's message without its NULs and with each
+   lone surrogate replaced, as the database stores strings (D-94); a thrown
+   value `String()` cannot print is stored as `An unprintable value.`
+4. A run writes its end only while its instance holds the row's lease. A
+   run that outlived its lease leaves the row to the instance that took it
+   over, and logs a warning.
+5. An instance runs only the rows of the jobs it declares: another
+   version's are left pending, for the instances that declare them, where
+   they turned `failed` (D-221 point 11). At startup, a recurring job's row
+   that is not pending, as one an older version turned `failed`, is set
+   pending again, its attempts at 0, due at its next time. During a rolling
+   deploy an older instance that starts still deletes the recurring rows of
+   the jobs it does not declare; the next instance of the newer version to
+   start creates them again.
+6. `every` and `after` are refused at import and at `enqueue` unless the
+   run they time is due before the year 10000, the last a stored date
+   holds (D-94). A cron pattern no date matches, as `0 0 30 2 *`, is
+   refused at import: `cron "0 0 30 2 *" never runs.`
+
+Why: `enqueue` stored the schema's output as it came. A `Date` or a key set
+to `undefined` is no JSON value, so the write was refused as 400
+`VALIDATION_FAILED` "Invalid data." on `input`, and the caller's whole
+transaction rolled back. Two instances that started at once both created a
+new recurring job's row: the second start failed with `UNIQUE_VIOLATION`,
+and on PostgreSQL 39 of 40 concurrent starts failed. Deleting an undeclared
+job's row failed the same way with `NOT_FOUND`. A run that threw a message
+holding a NUL could not store it: the run ran again after each lease, its
+attempts never counted, for ever. A run that outlived its lease and the
+instance that took it over both wrote its end: the second write found no
+row, and `runJobs()` failed with "runJobs could not run a job." During a
+rolling deploy, an older instance turned a run of a job the newer version
+added `failed` for good, a recurring job's row included: that job never ran
+again. A delay past the year 9999, as `after: 1e20`, passed the check, then
+its row's date was refused; `every: 1e300` and a cron pattern that never
+runs passed import and failed the start, after the database was opened.
+
+Example:
+
+```ts
+const remind = defineJob({
+	name: 'remind',
+	input: z.object({ at: z.date(), note: z.string().optional() }),
+	run: ({ input }) => send(input),
+})
+await remind.enqueue({ at: new Date(), note: undefined })
+// Before: 400 "Invalid data.", the transaction rolled back.
+// After: stored; run receives { at: '2027-01-04T08:00:00.000Z' }.
+```
+
+## D-353: password after its audit
+
+Choice: amends D-115, D-162 and D-209.
+
+1. A password longer than 1,024 UTF-16 units, four a character, is refused
+   before NFKC reads it, as one over 256 characters; an email longer than
+   1,016 once trimmed, before NFC. A valid input is unchanged: an alpha
+   with three marks, four units, is one character in NFKC.
+
+Why: NFKC makes 18 characters of U+FDFA. A body of 900 KB, under the HTTP
+limit, became 5.4 million characters before the 256 check: 265 ms of a
+blocked event loop for one anonymous `resetPassword`, where the same size of
+`a` took 10 ms. Four such requests a second held a process.
+
+Example:
+
+```ts
+await User.resetPassword({ token, password: 'ﷺ'.repeat(300_000) })
+// Before: PASSWORD_LENGTH after 265 ms of a blocked process.
+// After: PASSWORD_LENGTH at once.
+```
+
+2. A reset hashes the new password before it uses the link, as it checks it
+   (D-209 point 6): a busy server's `TOO_MANY_ATTEMPTS` leaves the link valid
+   for another try.
+
+Why: the link was deleted, then the hash refused. The user got
+`TOO_MANY_ATTEMPTS`, then "This link is invalid or has expired." on the retry,
+while the old password still held, and had to ask for a new email.
+
+3. `requestEmailChange` is refused past 10 requests per address and hour, as
+   `signUp` is, counted apart from the other requests. It still tells a taken
+   email with `UNIQUE_VIOLATION`.
+
+Why: a taken email sends nothing, so the three emails per account and hour
+never counted it. One signed-in account told whether 30 emails had an account
+in a row, where `signUp` tells 10 an hour.
+
+Example:
+
+```ts
+// The eleventh request within the hour, from one address.
+await graphql(
+	'mutation { requestEmailChange(input: { newEmail: "grace@example.com", currentPassword }) }',
+)
+// Before: UNIQUE_VIOLATION, as many times as asked.
+// After: TOO_MANY_ATTEMPTS, retryAfter in its details.
+```
+
+4. Known and kept:
+   - A `setPassword` whose transaction rolls back leaves its key in the
+     process's set of passwords being set, about 60 bytes. Only the
+     application rolls one back, by a hook that refuses or a transaction of
+     its own; a client cannot. Pruning the set costs lines for no measured
+     gain.
+   - An unknown email checks against a hash of the current parameters. After
+     the application raises them, an account still hashed with the old ones
+     answers faster until its next sign-in rehashes it. Hashing the dummy with
+     each stored parameter set would cost a hash per set for every unknown
+     email.
+
+## D-354: Signing in over a WebSocket
+
+Choice: amends D-113, D-178, D-206, point 3, and D-346, point 1.
+
+1. `Client.cookies` gains `settable`: `true` over HTTP, `false` over a
+   GraphQL WebSocket, whose `set` and `clear` fail with `BAD_REQUEST`, "A
+   WebSocket cannot set a cookie.", instead of an internal error. `get` still
+   reads the cookies of the upgrade request (D-178).
+2. auth's API gives `needsCookies(client)`, which refuses a client whose
+   cookies are not settable with `BAD_REQUEST`, "Signing in or out needs
+   HTTP.". `signIn` and `signOut` call it before they open or end a session.
+   auth and graphql send `BAD_REQUEST`, http's code, as both peer-depend on
+   http.
+3. password's `signUp`, `signIn` and `changePassword` call it first, before
+   their rate limits, their hashes and their writes.
+
+Why: over a socket, `signUp` created the user then failed at its cookie, so
+the same email could not sign up again; `changePassword` changed the password
+and ended the other sessions, then answered an error; `signIn` checked the
+password before failing, so a socket was a sign-in oracle with no session to
+show for it. A refusal before any work leaves every row as it was and names
+the cause.
+
+Example, over the GraphQL WebSocket:
+
+```graphql
+mutation {
+	signUp(input: { email: "ada@example.com", password: "correct horse" }) {
+		token
+	}
+}
+```
+
+Before: an internal error, and a user `ada@example.com` exists. After:
+`BAD_REQUEST`, "Signing in or out needs HTTP.", and no user exists. A plugin
+that signs in its own way refuses first, with the auth API it holds:
+
+```ts
+// Before: the code was spent, then signIn failed at the cookie.
+// After:
+plugins.auth.needsCookies(client)
+const userId = await spendCode(input.code)
+await plugins.auth.signIn(userId, client)
+```
+
+## D-355: Only Master writes a role
+
+Choice: amends D-123, point 2, and D-213, point 2.
+
+1. The roles plugin runs `beforeCreate`, `beforeUpdate` and `beforeDelete`
+   on the role model: any caller but Master is refused with
+   `ACCESS_DENIED`, `details: { model, operation }`, and logged with its
+   `callerId`, as an access rule's refusal is (D-82, D-88). It covers every
+   write: `createMany`, `updateMany`, `deleteMany`, `upsert`, and a role
+   updated or deleted through the user's `roles`.
+2. The role model's `access` decides who reads a role. Its write rules still
+   run first, but a write they allow is refused all the same.
+3. An application that lets an admin manage roles writes a function that
+   checks the caller, then writes as Master, as D-213 already asked for
+   members.
+
+Why: a role is matched by its name (D-126). The audit of roles found that a
+client allowed to update roles, `allow.public` or any rule written for
+another field, renamed `Admin` away, then renamed its own `Team` to
+`Admin`, and `hasRole(caller, 'Admin')` held. D-213 closed the links, not
+the name. A role is the root of every rule that asks for one, so no rule
+the developer writes should open it.
+
+Rejected: `write: allow.private` on `name` (fields the developer adds stay
+open, and a client still creates or deletes a role); refusing at startup a
+role model whose `access` allows a write (it reads the shape of every rule
+for a case the hook already refuses); leaving it to the role model's
+`access` (one loose rule makes anyone an Admin).
+
+Example, before and after the same code:
+
+```ts
+export const Role = defineRole({
+	name: 'Role',
+	members: () => User,
+}).with({ access: allow.public })
+
+await Role.update(
+	{ where: { name: 'Team' }, data: { name: 'Admin' } },
+	{ as: asUser(eve) },
+)
+// Before: Team is now Admin, and so is every member of it.
+// After: ACCESS_DENIED, "Role update refused.".
+
+// A function renames it, after its own check:
+if (!hasRole(caller, 'Admin')) throw new PublicError('ACCESS_DENIED', '…')
+await Role.update(
+	{ where: { id: input.id }, data: { name: input.name } },
+	{ as: master },
+)
+```

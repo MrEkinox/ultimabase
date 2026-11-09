@@ -133,3 +133,19 @@ export function jsonSchemaOf(
 	}
 	throw new Refused(`${where}'s JSON Schema is not an object.`)
 }
+
+/** A DateTime as both transports read it: ISO 8601 text with its offset. */
+export const iso: RegExp =
+	/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:\d{2})$/
+
+/** The relations an `orderBy` goes through, the deepest path's. */
+export function sortDepth(orderBy: unknown): number {
+	if (Array.isArray(orderBy)) return Math.max(0, ...orderBy.map(sortDepth))
+	if (typeof orderBy !== 'object' || orderBy === null) return 0
+	return Math.max(
+		0,
+		...Object.values(orderBy).map((value: unknown) =>
+			typeof value === 'object' && value !== null ? 1 + sortDepth(value) : 0,
+		),
+	)
+}

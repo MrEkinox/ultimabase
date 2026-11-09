@@ -9,6 +9,8 @@ import { defineApp, memory, PublicError, transaction } from 'ultimabase'
 import type { Job } from './index.ts'
 import { defineJob, jobsPlugin } from './index.ts'
 import { JobsRun, M } from './model.ts'
+import { start as startRun } from './runner.ts'
+import { runningOf } from './state.ts'
 
 const lines: { level: string; message: string }[] = []
 const logger: Logger = {
@@ -55,12 +57,29 @@ const forever: Job<'forever', never> = defineJob({
 	name: 'forever',
 	run: () => forever.enqueue(),
 })
+let thrown: unknown
+const throwing = defineJob({
+	name: 'throwing',
+	run: () => {
+		throw thrown
+	},
+})
 const outside = defineJob({ name: 'outside', run: () => undefined })
+const inputs: unknown[] = []
+const dated = defineJob({
+	name: 'dated',
+	input: z.object({ at: z.date(), note: z.string().optional() }).optional(),
+	run: ({ input }) => {
+		inputs.push(input)
+	},
+})
 
 const app = defineApp({
 	database: memory(),
 	models: [],
-	plugins: [jobsPlugin({ jobs: [closeRoom, flaky, chain, forever] })],
+	plugins: [
+		jobsPlugin({ jobs: [closeRoom, flaky, chain, forever, dated, throwing] }),
+	],
 	logger,
 })
 
@@ -74,6 +93,7 @@ beforeEach(() => {
 	vi.useFakeTimers({ toFake: ['Date'] })
 	vi.setSystemTime(start)
 	closed.length = 0
+	inputs.length = 0
 	lines.length = 0
 	failures = 0
 	chained = 0
@@ -122,6 +142,15 @@ describe('a job enqueued', () => {
 		expect(await rows()).toStrictEqual([])
 	})
 
+	it('stores its input as JSON: a date as its ISO string, an undefined key left out (D-352)', async () => {
+		await dated.enqueue({ at: start, note: undefined })
+		await runJobs()
+		expect(inputs).toStrictEqual([{ at: start.toISOString() }])
+		await dated.enqueue(undefined)
+		await runJobs()
+		expect(inputs).toStrictEqual([{ at: start.toISOString() }, null])
+	})
+
 	it('waits for its delay', async () => {
 		await closeRoom.enqueue({ room: 'r1' }, { after: 10 * minute })
 		await runJobs()
@@ -134,12 +163,19 @@ describe('a job enqueued', () => {
 	})
 
 	it('refuses a delay that is no positive number of milliseconds', async () => {
-		for (const after of [0, -1, Number.NaN, '10 minutes']) {
+		// 1e20 and the year 10000 are past what a date stores (D-352).
+		const last = Date.UTC(10_000, 0, 1) - start.getTime()
+		for (const after of [0, -1, Number.NaN, '10 minutes', 1e20, last]) {
 			await expect(
 				// @ts-expect-error: after is a number.
 				flaky.enqueue({ after }),
-			).rejects.toThrow('flaky: after is a positive number of milliseconds.')
+			).rejects.toThrow(
+				'flaky: after is a positive number of milliseconds, ending before the year 10000.',
+			)
 		}
+		await flaky.enqueue({ after: last - 1 })
+		const dueAt = new Date('9999-12-31T23:59:59.999Z')
+		expect(await rows()).toMatchObject([{ dueAt }])
 	})
 
 	it('refuses a job that is not in jobsPlugin’s jobs', async () => {
@@ -210,26 +246,35 @@ describe('a run that fails', () => {
 		expect(Date.now() - start.getTime()).toBe(10_000 * (2 ** 9 - 1))
 	})
 
-	it('turns failed at once when its job is not declared', async () => {
-		await JobsRun.create(
-			{
-				data: {
-					job: 'gone',
-					state: 'pending',
-					dueAt: new Date(),
-					attempts: 0,
-				},
-			},
+	it('stores a message the database cannot store, made storable (D-352)', async () => {
+		thrown = new Error('a\0b\uD800c')
+		await throwing.enqueue()
+		await runJobs()
+		expect(await rows()).toMatchObject([
+			{ state: 'pending', attempts: 1, error: 'ab\uFFFDc' },
+		])
+		await JobsRun.deleteMany({}, M)
+		// A value String() cannot print.
+		thrown = Object.create(null)
+		await throwing.enqueue()
+		await runJobs()
+		expect(await rows()).toMatchObject([
+			{ state: 'pending', attempts: 1, error: 'An unprintable value.' },
+		])
+	})
+
+	it('leaves a run of a job it does not declare to the instances that do (D-352)', async () => {
+		const data = { job: 'newer', state: 'pending', attempts: 0 }
+		const row = await JobsRun.create(
+			{ data: { ...data, dueAt: new Date() } },
 			M,
 		)
 		await runJobs()
+		expect(await startRun(runningOf('the test'), row.id)).toBe(false)
 		expect(await rows()).toMatchObject([
-			{
-				state: 'failed',
-				attempts: 1,
-				error: "The job gone is not in jobsPlugin's jobs.",
-			},
+			{ ...data, lockedUntil: null, error: null },
 		])
+		expect(lines).toStrictEqual([])
 	})
 
 	it('is not run by an instance while another holds it', async () => {

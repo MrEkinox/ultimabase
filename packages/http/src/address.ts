@@ -44,6 +44,9 @@ export function proxiesOf(option: number | undefined): number {
 	)
 }
 
+// An entry with the port a proxy may append: `1.2.3.4:5`, `[::1]:5` (D-348).
+const withPort = /^\[(.+)\](?::\d+)?$|^([\d.]+):\d+$/
+
 /**
  * Reads the address of the Node connection a request's `env` holds, `''`
  * without one, or the one `proxies` proxies forwarded.
@@ -75,7 +78,7 @@ export function addresses(
 		// right. With fewer, the client went around a proxy and wrote them.
 		const entries = forwarded
 			.flatMap((header) => header.split(','))
-			.map((entry) => entry.trim())
+			.map((entry) => entry.trim().replace(withPort, '$1$2'))
 		const entry = entries.at(-proxies) ?? ''
 		return entries.length < proxies || isIP(entry) === 0 ? connection : entry
 	}

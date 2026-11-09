@@ -137,7 +137,7 @@ export function copyOf(value: unknown, where: string): StoredFile {
 	return copy
 }
 
-const isRecord = (value: unknown): value is { [key: string]: unknown } =>
+export const isRecord = (value: unknown): value is { [key: string]: unknown } =>
 	typeof value === 'object' && value !== null && !Array.isArray(value)
 
 const isString = (value: unknown): value is string => typeof value === 'string'

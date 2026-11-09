@@ -15,6 +15,7 @@ export function clientOf(c: Context<HttpEnv>): {
 		client: {
 			address: c.var.address,
 			cookies: {
+				settable: true,
 				get: (name) => getCookie(c, name),
 				set: (name, value, options) => {
 					cookies.push(generateCookie(name, value, options))

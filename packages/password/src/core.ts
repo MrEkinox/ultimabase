@@ -7,7 +7,6 @@ import type {
 	Identity,
 	ExposedModel,
 	Logger,
-	QueryOptions,
 	Register,
 	Row,
 	UserOf,
@@ -123,7 +122,9 @@ async function matches(
 	typed: string,
 ): Promise<string | undefined> {
 	const password = normalized(typed)
-	if (Array.from(password).length > longest) return undefined
+	if (password === undefined || Array.from(password).length > longest) {
+		return undefined
+	}
 	const stored =
 		userId === undefined
 			? null
@@ -182,14 +183,14 @@ export async function checkNewFor(
 }
 
 /**
- * Replaces `userId`'s hash, or gives one to an email without (D-162), ends
+ * Stores `hash` as `userId`'s, or gives one to an email without (D-162), ends
  * every session of the user, deletes its pending reset and email-change
  * links (D-117, D-212) and sets `passwordSetAt` (D-169); the new stamp.
  */
 export async function setPassword(
 	state: State,
 	userId: string,
-	password: string,
+	hash: string,
 ): Promise<string> {
 	const stored = await PasswordHash.findUnique({ where: { user: userId } }, M)
 	const linked =
@@ -201,7 +202,6 @@ export async function setPassword(
 			`User ${userId} has no password: sign it up with signUp.`,
 		)
 	}
-	const hash = await hashPassword(password)
 	const stamp = randomUUID()
 	await transaction(async () => {
 		const data = { hash, stamp }
@@ -257,6 +257,3 @@ export async function signedIn(
 	}
 	return { token, expiresAt, user: await asItself(state, userId) }
 }
-
-export const callerOf = (options: QueryOptions | undefined): Identity =>
-	options?.as ?? { kind: 'anonymous' }

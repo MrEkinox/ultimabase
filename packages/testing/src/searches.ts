@@ -78,5 +78,17 @@ export function searches(create: () => Adapter): void {
 			)
 			expect(rows.map((row) => row.order)).toStrictEqual([1, 5, 6])
 		})
+
+		it('keeps 255 positions of a word, none past 16,383, as a tsvector does', async () => {
+			const far = `late ${'x '.repeat(17_000)}end late`
+			const data = [
+				{ title: 'Late', body: `${'late '.repeat(300)}end`, order: 7 },
+				{ title: 'Far', body: far, order: 8 },
+			]
+			await Note.createMany({ data }, M)
+			expect(await found('late')).toStrictEqual([7, 8])
+			expect(await found('"late end"')).toStrictEqual([])
+			expect(await found('"end late"')).toStrictEqual([])
+		})
 	})
 }

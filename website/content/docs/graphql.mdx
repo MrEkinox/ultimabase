@@ -330,16 +330,17 @@ See [Starting it](/docs/next/application#starting-it).
 
 ## Limits
 
-A caller other than Master meets four limits. A document over `maxDepth`,
-`maxRows` or the root fields' limit is refused before it runs; a list over its `maxTake` is refused as it
+A caller other than Master meets five limits. A document over `maxDepth`,
+`maxRows`, its values or the root fields' limit is refused before it runs; a list over its `maxTake` is refused as it
 runs. With the application above:
 
-| Over            | Asking for                                                 | Message                                                                                                     |
-| --------------- | ---------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
-| `maxTake: 20`   | `posts(first: 21)`                                         | `first is at most 20 on Post.`                                                                              |
-| `maxDepth: 4`   | people, their posts, their author, their posts, each title | `The document is nested 5 levels deep; the most is 4.`                                                      |
-| `maxRows: 2000` | `people(first: 100)`, each with `posts(first: 20)`         | `The document asks for more than 2,000 rows. Ask for fewer with first or last.`                             |
-| 20 root fields  | 21 root fields, a `totalCount` counted as one more         | `The document asks for more than 20 root fields, a totalCount counted as one more. Send several documents.` |
+| Over            | Asking for                                                      | Message                                                                                                     |
+| --------------- | --------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| `maxTake: 20`   | `posts(first: 21)`                                              | `first is at most 20 on Post.`                                                                              |
+| `maxDepth: 4`   | people, their posts, their author, their posts, each title      | `The document is nested 5 levels deep; the most is 4.`                                                      |
+| `maxRows: 2000` | `people(first: 100)`, each with `posts(first: 20)`              | `The document asks for more than 2,000 rows. Ask for fewer with first or last.`                             |
+| `maxRows: 2000` | `people(first: 50)`, each with `posts(first: 20)` of 100 fields | `The document returns more than 100,000 values. Select fewer fields, aliases or rows.`                      |
+| 20 root fields  | 21 root fields, a `totalCount` counted as one more              | `The document asks for more than 20 root fields, a totalCount counted as one more. Send several documents.` |
 
 Master, as a request with the `x-ultimabase-master-key` header, is not limited.
 [Details](#what-counts-toward-the-limits) says what each one counts.
@@ -391,6 +392,8 @@ GraphQL has no empty input, so what would take one is left out:
 ### What counts toward the limits
 
 - `maxRows` counts each list's `first` times the lists above it.
+- A document returns at most 50 values a row of `maxRows`: each field, `edges`,
+  `node` and `__typename` included, counts one value per row above it.
 - A level of `maxDepth` is a field, root fields included, and each relation an
   `orderBy` goes through.
 - The fields of a connection and of an edge, `edges`, `node`, `cursor`, `pageInfo`
@@ -399,7 +402,8 @@ GraphQL has no empty input, so what would take one is left out:
 - A model's own field named `node` or `edges` counts, and with
   `pagination: 'list'` every field does.
 - A live function's subscription counts as its query; a live list counts in its
-  [`maxLive`](/docs/next/realtime#reference) instead.
+  [`maxLive`](/docs/next/realtime#reference) instead, and returns at most 50
+  values a row it reads, the rows it nests included.
 - Each document is also bounded for every caller, Master included: 2 000 tokens,
   and 1 000 pairs of fields sharing one name. The first is ten times the standard
   introspection query.
@@ -408,21 +412,21 @@ GraphQL has no empty input, so what would take one is left out:
 
 ### `graphqlPlugin(options)`
 
-| Option          | Type                       | Default           | Effect                                                                          |
-| --------------- | -------------------------- | ----------------- | ------------------------------------------------------------------------------- |
-| `path`          | string                     | `'/graphql'`      | Where the API, GraphiQL and subscriptions are served.                           |
-| `pagination`    | `'connection'` or `'list'` | `'connection'`    | Relay connections, or lists with `take` and `skip`.                             |
-| `take`          | number                     | 100               | The rows a list returns without `first` or `take`.                              |
-| `maxTake`       | number                     | 100               | The most rows a list returns, unless the model sets its own.                    |
-| `maxDepth`      | number                     | 10                | The deepest a document nests; a connection's and an edge's fields are no level. |
-| `maxRows`       | number                     | 20 000            | The most rows a document may return, each list times those above it.            |
-| `introspection` | boolean                    | off in production | Introspection, and the "Did you mean" suggestions of refused fields.            |
-| `extend`        | `(schema) => schema`       | none              | The schema to serve, built from the generated one.                              |
-| `generated`     | string                     | none              | The file `ultimabase generate` and `dev` write the served schema to, as SDL.    |
+| Option          | Type                       | Default           | Effect                                                                                      |
+| --------------- | -------------------------- | ----------------- | ------------------------------------------------------------------------------------------- |
+| `path`          | string                     | `'/graphql'`      | Where the API, GraphiQL and subscriptions are served.                                       |
+| `pagination`    | `'connection'` or `'list'` | `'connection'`    | Relay connections, or lists with `take` and `skip`.                                         |
+| `take`          | number                     | 100               | The rows a list returns without `first` or `take`.                                          |
+| `maxTake`       | number                     | 100               | The most rows a list returns, unless the model sets its own.                                |
+| `maxDepth`      | number                     | 10                | The deepest a document nests; a connection's and an edge's fields are no level.             |
+| `maxRows`       | number                     | 20 000            | The most rows a document may return, each list times those above it; 50 values a row of it. |
+| `introspection` | boolean                    | off in production | Introspection, and the "Did you mean" suggestions of refused fields.                        |
+| `extend`        | `(schema) => schema`       | none              | The schema to serve, built from the generated one.                                          |
+| `generated`     | string                     | none              | The file `ultimabase generate` and `dev` write the served schema to, as SDL.                |
 
 It requires `httpPlugin()`. With [`realtimePlugin()`](/docs/next/realtime),
 it serves subscriptions over WebSocket on `path`. Master is limited by
-neither `maxTake`, `maxDepth`, `maxRows`, nor the 20 root fields.
+neither `maxTake`, `maxDepth`, `maxRows`, its values, nor the 20 root fields.
 
 ### `.with({ graphql })`
 

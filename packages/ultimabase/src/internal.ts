@@ -12,6 +12,7 @@ import { consoleLogger } from './console-logger.ts'
 import type { Lifecycle } from './lifecycle.ts'
 import { lifecycle } from './lifecycle.ts'
 import { current } from './running.ts'
+import type { Caller, Identity } from './rules.ts'
 
 export type { Lifecycle }
 export type { Scratch } from './scratch.ts'
@@ -40,6 +41,7 @@ export {
 } from './live.ts'
 export { compareKeys } from './memory-values.ts'
 export { maxFilterDepth } from './query-where.ts'
+export { maxWriteDepth } from './write-data.ts'
 
 /** `logger` without its info lines. */
 function quieted(logger: Logger): Logger {
@@ -80,6 +82,16 @@ export function runningFeed(): Feed | undefined {
 /** The running application's plugin API named `name`, if any. */
 export function runningApi(name: string): unknown {
 	return current()?.apis.get(name)
+}
+
+/**
+ * `identity` completed with its plugins' keys, as a rule receives it
+ * (D-121): a plugin that checks a rule before its own operation (D-351).
+ */
+export async function completedCaller(identity: Identity): Promise<Caller> {
+	const app = current()
+	if (app === undefined) throw new Error('No application is running.')
+	return app.complete(identity)
 }
 
 /**

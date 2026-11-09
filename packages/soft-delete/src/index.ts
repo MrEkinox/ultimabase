@@ -36,13 +36,17 @@ export interface SoftDelete extends PluginTypes {
 	readonly commands: SoftDeleteCommands<this['fields']>
 }
 
+/** A caller writes `deletedAt` only as `null`, which dates nothing (D-96). */
+const notDated = ({ value }: { readonly value: unknown }): boolean =>
+	value === null
+
 const softDeleteDefinition = definePlugin<SoftDelete>({
 	name: 'softDelete',
 	manifest,
 	addedFields: (f) => ({
 		// Only Master dates a row: a caller deletes through the delete rule.
 		deletedAt: f.dateTime({ optional: true }).with({
-			access: { create: () => false, update: ({ value }) => value === null },
+			access: { create: notDated, update: notDated },
 		}),
 	}),
 	hooks: {

@@ -11,6 +11,7 @@ import {
 	file,
 	inSchema,
 	migrations,
+	names,
 	query,
 	schema,
 	sync,
@@ -135,6 +136,7 @@ describe('a deploy waiting for a lock', () => {
 		const to = migrations.snapshot(before)
 		await migrations.apply({
 			kind: 'deploy',
+			known: ['1_a.sql'],
 			files: [
 				file(
 					'1_a.sql',
@@ -154,6 +156,7 @@ describe('a deploy waiting for a lock', () => {
 			await expect(
 				migrations.apply({
 					kind: 'deploy',
+					known: ['1_a.sql', '2_b.sql'],
 					files: [
 						file(
 							'2_b.sql',
@@ -185,8 +188,8 @@ describe('a deploy of a file without a transaction', () => {
 				false,
 			),
 		]
-		await migrations.apply({ kind: 'deploy', files, to })
-		await migrations.apply({ kind: 'deploy', files, to })
+		await migrations.apply({ kind: 'deploy', files, known: names(files), to })
+		await migrations.apply({ kind: 'deploy', files, known: names(files), to })
 		expect(
 			await query(
 				inSchema(schema),
@@ -209,7 +212,7 @@ describe('a deploy of a file without a transaction', () => {
 			),
 		]
 		const deploys = Array.from({ length: 4 }, async () =>
-			migrations.apply({ kind: 'deploy', files, to }),
+			migrations.apply({ kind: 'deploy', files, known: names(files), to }),
 		)
 		const ends = await Promise.allSettled(deploys)
 		expect(ends.map(({ status }) => status)).toStrictEqual(
@@ -230,12 +233,14 @@ describe('a deploy of a file without a transaction', () => {
 		const to = migrations.snapshot(before)
 		await migrations.apply({
 			kind: 'deploy',
+			known: ['1_a.sql'],
 			files: [file('1_a.sql', 'create table a (b integer);')],
 			to,
 		})
 		await expect(
 			migrations.apply({
 				kind: 'deploy',
+				known: ['1_a.sql', '2_index.sql'],
 				files: [
 					file(
 						'2_index.sql',
@@ -253,6 +258,7 @@ describe('a deploy of a file without a transaction', () => {
 		await expect(
 			migrations.apply({
 				kind: 'deploy',
+				known: ['1_a.sql', '2_index.sql'],
 				files: [file('2_index.sql', 'create index concurrently a_b on a (b);')],
 				to,
 			}),
@@ -263,6 +269,7 @@ describe('a deploy of a file without a transaction', () => {
 		})
 		await migrations.apply({
 			kind: 'deploy',
+			known: ['1_a.sql', '2_index.sql'],
 			files: [
 				file('2_index.sql', 'create index concurrently a_b on a (b);', false),
 			],

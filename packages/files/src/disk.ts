@@ -1,7 +1,14 @@
 // `diskFiles({ dir, secret })` (D-202): a storage in a directory, which the
 // application serves; for one server whose directory is a persistent volume.
 import { randomUUID } from 'node:crypto'
-import { createReadStream, createWriteStream, mkdirSync } from 'node:fs'
+import {
+	createReadStream,
+	createWriteStream,
+	mkdirSync,
+	readdirSync,
+	rmSync,
+	statSync,
+} from 'node:fs'
 import {
 	readdir,
 	readFile,
@@ -41,6 +48,29 @@ const isMeta = (
 	typeof Reflect.get(value, 'type') === 'string' &&
 	typeof Reflect.get(value, 'attachment') === 'boolean'
 
+/** How old a temporary file is when no put writes it any more: an upload's life. */
+const leftoverAge = 60 * 60 * 1000
+
+/**
+ * Makes `dir/public` and `dir/private`, and deletes the temporary files a
+ * crash left there (D-351); a put under way writes to its own, which is
+ * newer.
+ */
+function prepared(dir: string): void {
+	const before = Date.now() - leftoverAge
+	for (const prefix of ['public', 'private']) {
+		const folder = join(dir, prefix)
+		mkdirSync(folder, { recursive: true })
+		for (const name of readdirSync(folder)) {
+			if (!name.includes('.tmp')) continue
+			const path = join(folder, name)
+			// A put may rename it away since: then it holds nothing to delete.
+			const modified = statSync(path, { throwIfNoEntry: false })?.mtimeMs
+			if ((modified ?? before) < before) rmSync(path, { force: true })
+		}
+	}
+}
+
 /** A storage in `dir`, its files served at `GET /files/<key>`. */
 export function diskFiles(options: DiskOptions): FileStorage {
 	const { secret } = options
@@ -54,9 +84,7 @@ export function diskFiles(options: DiskOptions): FileStorage {
 			if (secret === undefined || secret.length < 32) {
 				throw new Error('diskFiles() needs a secret of 32 characters at least.')
 			}
-			for (const prefix of ['public', 'private']) {
-				mkdirSync(join(dir, prefix), { recursive: true })
-			}
+			prepared(dir)
 			served.start(server)
 		},
 		put: async (key, body, { type, size, attachment }) => {

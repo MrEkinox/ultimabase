@@ -13,7 +13,7 @@ import type { ContentfulStatusCode } from 'hono/utils/http-status'
 import { getPath } from 'hono/utils/url'
 import type { Caller, ErrorCode, Logger } from 'ultimabase'
 import { isLocalHost, PublicError } from 'ultimabase'
-import { addresses, isOwnOrigin, proxiesOf } from './address.ts'
+import { isOwnOrigin } from './address.ts'
 import type { Limiter, RateLimit } from './limit.ts'
 import { tooMany } from './limit.ts'
 import type { Probes } from './probes.ts'
@@ -185,10 +185,12 @@ export function appOf(
 		probes,
 		gates,
 		rateLimit,
+		addressOf,
 	}: {
 		readonly probes: Probes
 		readonly gates: readonly Gate[]
 		readonly rateLimit: Limiter
+		readonly addressOf: (env: unknown) => string
 	},
 	identify: (request: Request) => Promise<Caller>,
 	logger: Logger,
@@ -196,7 +198,6 @@ export function appOf(
 	const local = process.env['NODE_ENV'] !== 'production'
 	const allows = allowing(options)
 	const maxSize = bodyLimitOf(options.bodyLimit)
-	const addressOf = addresses(proxiesOf(options.proxies), logger)
 	const app = new Hono<HttpEnv>({ getPath: pathOf })
 	// A response may hold the caller's data: no cache keeps one, errors
 	// included, unless its route says otherwise (D-106).
@@ -226,8 +227,8 @@ export function appOf(
 	// Before CORS and the caller: a probe reads neither (D-204).
 	app.route('/', probeRoutes(probes, logger))
 	const allowed = (origin: string) => (allows(origin) ? origin : null)
-	// An allowed origin sends its cookies, as auth's session (D-112).
-	const preflight = cors({ origin: allowed, credentials: true })
+	// Allowed origins send cookies (D-112); a browser keeps a preflight 10 min (D-348).
+	const preflight = cors({ origin: allowed, credentials: true, maxAge: 600 })
 	app.use(async (c, next) => {
 		// Hono's `cors` answers every OPTIONS: a route's own runs, unless the
 		// request is a preflight.

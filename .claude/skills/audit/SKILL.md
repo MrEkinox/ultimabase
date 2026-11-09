@@ -26,8 +26,11 @@ on style, naming or structure are not findings.
 
 ## Rules
 
-- One package per run. The next one starts only once the user has validated
-  this one's report and fixes.
+- One package at a time. When its report holds no public choice, the next
+  package starts at once; when it holds one, the user decides before the
+  next starts, while the context is fresh, and the chosen fix is made then.
+- A package of more than about 8,000 lines of production code is audited in
+  slices of related files, one agent per slice, one after the other.
 - Order, by risk: `ultimabase` (the kernel), `postgres`, `realtime` and
   `live`, `auth`, then `http`, `graphql`, `rest`, `files`, `jobs`,
   `password`, then the small ones: `acl`, `roles`, `soft-delete`,
@@ -46,8 +49,11 @@ on style, naming or structure are not findings.
   point 4). One that changes the public API, what a developer writes or
   sees, waits for the user's choice. A trade-off between security and
   performance goes to the user, with its numbers.
-- Nothing is pushed and no pull request is opened without the user's
-  confirmation.
+- Every package's fixes go on one audit branch, one commit per fix, so that
+  each audit reads the code the previous ones fixed. It becomes one pull
+  request at the end, security fixes included: while one application runs
+  UltimaBase, a hole waits for it like any other fix. Nothing is pushed and
+  no pull request is opened without the user's confirmation.
 
 ## 1. Prepare
 
@@ -55,13 +61,14 @@ on style, naming or structure are not findings.
   benchmark compared with the reference, and the user's choice of fixes.
 - Advise the model and effort: the agent on Opus at high effort; the main
   session as it is.
-- Create a checkout the agent can run tests in, in the scratchpad, never in
-  the user's checkout:
+- Audit in a checkout of the audit branch, in the scratchpad, never in the
+  user's checkout; the agent runs its tests there and edits nothing. The
+  first audit creates it:
 
   ```sh
   git fetch origin
-  git worktree add --detach "$SCRATCHPAD/audit-<package>" origin/main
-  cd "$SCRATCHPAD/audit-<package>" && yarn install --immutable
+  git worktree add -b audit/packages "$SCRATCHPAD/audit" origin/main
+  cd "$SCRATCHPAD/audit" && yarn install --immutable
   ```
 
 - The reference is the last release tag (`git tag --sort=-creatordate`,
@@ -143,6 +150,9 @@ machine, three times each, and compares the medians:
 | `realtime`, `live`                | `bench/realtime` (chosen cases) |
 | types of `ultimabase`             | `bench/typing`                  |
 
+- The reference runs in a checkout of its own, installed there
+  (`yarn install --immutable`): `node_modules/ultimabase` must link to its
+  own `packages/ultimabase`, or Node finds another one higher up.
 - Each bench's `README.md` says how to run it; PostgreSQL is on
   `localhost:54318` unless `BENCH_DATABASE_URL` says otherwise.
 - Every run has a hard limit (`perl -e 'alarm shift; exec @ARGV' <s> ...`)
@@ -177,11 +187,12 @@ In French (`CLAUDE.md`), short, the result first:
 - the benchmark table: case, reference, now, change;
 - the lines that could go, and the fixes not worth doing, with why.
 
-Then wait for the user's choice on the public ones.
+With public choices, wait for the user's answer and make the chosen fixes;
+without, start the next package.
 
 ## 7. Fix
 
-On a branch of its own, for the internal fixes and the public ones the user
+On the audit branch, for the internal fixes and the public ones the user
 chose:
 
 - each bug fix with a regression test that fails without it;
@@ -191,8 +202,8 @@ chose:
 - `yarn validate` passing, its result quoted;
 - the benchmark run again when a fix touches a hot path.
 
-Remove the audit worktree with `git worktree remove` once the package is
-done. Tick the roadmap's audit item only when every package is audited.
+Remove the audit worktree with `git worktree remove` once the pull request
+is merged. Tick the roadmap's audit item only when every package is audited.
 
 ## Lessons
 
@@ -204,3 +215,55 @@ a step that cost more than it found. The skill improves one audit at a time.
   dependencies it cannot run a probe: hence the checkout of step 1 and the
   report as text. A new public export needs a documented example
   (`scripts/docs.test.ts`): weigh that before proposing one.
+- `ultimabase`, slices 1 and 2 (2026-11-09): a passing suite does not guard a
+  fix. A cache's reset and a value's normalisation in two `memory()` fixes
+  survived their mutation until a test was added for each: mutate every line
+  a fix adds, and keep the line only if a test then fails.
+- `ultimabase`, slice 3 (2026-11-09): `tsc -p .` misses what `yarn typecheck`
+  and `yarn lint` catch (isolated declarations, a value of type `any`
+  returned): check each fix with those, not with `tsc` alone. A commit message
+  or changeset states only what a probe showed: one said that `update` picked
+  any row, the probe showed it refused.
+- `ultimabase`, benchmark (2026-11-09): the reference checkout had no
+  `node_modules`, so its benchmark imported an older `ultimabase` from a
+  parent folder and showed gains no commit made. A gain or a loss no commit
+  explains is checked before it is reported.
+- `postgres` (2026-11-09): a "nice to have" (a delete's notification past
+  150 keys) hid a failing delete from 100 keys on, which only its probe
+  showed: probe a finding before ranking it. In the benchmark, the side run
+  first in each pair was faster by 0.7 % on `createMany`, ranges apart; run
+  in the other order, the gap was gone. Rerun a gap in the reverse order
+  before calling it a slowdown.
+- `realtime` (2026-11-09): the first probe of a race passed, because
+  `memory()` resolves in microtasks and nothing interleaved; a `beforeFind`
+  that waits on a `setTimeout` showed 5 reads opened at a limit of 2. A
+  concurrency probe needs a real wait. Vitest hides a passing test's logs:
+  to read a probe's value, make its assertion fail. A depth finding in a
+  package behind the transports is weighed against their `maxDepth` first.
+- `http` (2026-11-09): 17 findings, 1 false positive (a "duplicate" status
+  map that holds other codes). A fix at the line budget's edge paid for
+  itself by removing a check its new `try` already covered, and dead exports
+  freed room: look for lines to drop before raising a budget. A fix that
+  looks internal can contradict a decision's point (D-218's Master over the
+  limit, D-116's entry that is not an address): read the decision before
+  sorting the finding. Socket-level probes (`node:net`) prove what `fetch`
+  cannot send, as an upgrade's raw `Host`.
+- `rest` (2026-11-09): two performance commits passed their package's tests
+  but broke the line budget, unseen until the next `yarn validate`, and the
+  budget had to be amended into each. Run `yarn budgets` before each commit,
+  not only `yarn validate` once per batch. A choice a decision makes "as
+  GraphQL does" (D-144's document, served always) is checked against what
+  GraphQL does now: its introspection had closed in production since.
+- `jobs` (2026-11-09): a bound proposed to the user came from JavaScript's
+  date range (8.64e15 ms), but the kernel stores only years 1 to 9999
+  (D-94): a delay the proposal accepted still failed on the row. Find the
+  narrowest layer's limit before proposing a bound, and say so when the fix
+  differs from the proposal. A test that computes a bound from `Date.now()`
+  failed by one millisecond: freeze the clock around it.
+- `password` (2026-11-09): a test of a full hash queue over HTTP never
+  filled it, because each round trip let the queue drain: drive a busy-queue
+  test through the commands, in one process turn. A `hashed ?? hash()`
+  parameter left a mutant no test could kill, since a double hash is
+  invisible: prefer a signature where each caller does the work it needs. A
+  mutant replaced the first of two identical guards in the file and survived
+  for the wrong reason: mutate a string that occurs once.

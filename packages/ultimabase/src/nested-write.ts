@@ -278,8 +278,7 @@ export async function resolveMany(
 		at: origins.get(data) ?? [...r.at, field.name, 'create', index],
 	}))
 	const existing = await foundIds(
-		r.scope.models,
-		r.reads,
+		r,
 		target,
 		write.connectOrCreate.map(({ where }, index) => ({
 			where,

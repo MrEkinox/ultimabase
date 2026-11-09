@@ -3,10 +3,8 @@
 // `Decimal` (D-145), an exact number, and `Date` (D-150), a day, as strings,
 // which the kernel checks.
 import type { ConstValueNode } from 'graphql'
+import { iso } from '@ultimabase/http/internal'
 import { GraphQLError, GraphQLScalarType, Kind } from 'graphql'
-
-const iso =
-	/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:\d{2})$/
 
 /** A date a client sent, which keeps its text for a function (D-109). */
 export class SentDate extends Date {

@@ -1,7 +1,7 @@
 // The logger the kernel writes to when the application gives none (D-58,
 // D-88, D-93): a readable line in a terminal, one JSON line with pino's
 // fields everywhere else.
-import { styleText } from 'node:util'
+import { inspect, styleText } from 'node:util'
 import type { Logger } from './app-options.ts'
 
 type Level = 'info' | 'warn' | 'error'
@@ -14,21 +14,38 @@ function serialized(value: unknown): unknown {
 	return { type: value.name, message: value.message, stack: value.stack }
 }
 
+/** A value JSON cannot hold, such as a BigInt or a cycle, as `inspect` shows it. */
+function safe(value: unknown): unknown {
+	try {
+		JSON.stringify(value)
+		return value
+	} catch {
+		return inspect(value, { breakLength: Infinity })
+	}
+}
+
 function json(level: Level, fields: object, msg: string | undefined): string {
-	return JSON.stringify({
+	const entry = {
 		level,
 		time: Date.now(),
 		...Object.fromEntries(
 			Object.entries(fields).map(([key, value]) => [key, serialized(value)]),
 		),
 		...(msg === undefined ? {} : { msg }),
-	})
+	}
+	try {
+		return JSON.stringify(entry)
+	} catch {
+		return JSON.stringify(entry, (key, value: unknown) =>
+			key === '' ? value : safe(value),
+		)
+	}
 }
 
 /** A value as `key=value` shows it: quoted when it would read ambiguously. */
 function shown(value: unknown): string {
 	if (typeof value === 'string' && /^[^\s"=]+$/u.test(value)) return value
-	return JSON.stringify(value) ?? String(value)
+	return JSON.stringify(safe(value)) ?? String(value)
 }
 
 /** `10:42:07 INFO  [cache] Warm. size=2`, then each error's stack, indented. */

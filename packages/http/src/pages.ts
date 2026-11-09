@@ -202,10 +202,9 @@ export type Change<R> =
 	| { readonly upsert: R; readonly after: string | null }
 
 /** `window` once a live read's `changes` are applied, in their order. */
-export function applied<T extends { readonly id: string }, R>(
+export function applied<T extends { readonly id: string }>(
 	window: readonly T[],
-	changes: readonly Change<R>[],
-	kept: (upsert: R) => T,
+	changes: readonly Change<T>[],
 ): T[] {
 	let rows = [...window]
 	for (const change of changes) {
@@ -213,7 +212,7 @@ export function applied<T extends { readonly id: string }, R>(
 			rows = rows.filter(({ id }) => id !== change.remove)
 			continue
 		}
-		const row = kept(change.upsert)
+		const row = change.upsert
 		rows = rows.filter(({ id }) => id !== row.id)
 		const at =
 			change.after === null

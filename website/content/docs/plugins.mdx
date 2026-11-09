@@ -380,6 +380,9 @@ the same database. More hooks keep what it learns right:
 - `missed` says changes may have been lost, once they come again.
 - `stop` runs once the application stops.
 
+Each hook's failure, thrown or rejected, is logged at `error`: the other
+plugins still get the changes, and the commit stands.
+
 A cache uses them all. Each running application has its own:
 
 <include cwd meta='title="src/plugins/api-keys.ts"'>
@@ -422,6 +425,9 @@ Two hooks bound the time a plugin takes traffic:
   from outside, as a message broker's, waits for it.
 - `stopping` runs when the stop begins, every plugin's at once, before any
   `stop`: the plugin takes no more work while the HTTP server drains.
+
+A `started` that throws stops the start; one that returns a promise is not
+waited for, and its rejection is logged at `error`.
 
 A plugin that requires the HTTP plugin adds a check to `GET /ready` with
 `plugins.http.ready(check)`. Here `broker` stands for a message broker's

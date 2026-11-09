@@ -4,7 +4,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { memoryFiles } from './memory.ts'
 import { s3 } from './s3.ts'
-import { presign } from './sigv4.ts'
+import { keyOf, presign } from './sigv4.ts'
 
 const signer = {
 	region: 'us-east-1',
@@ -21,6 +21,10 @@ const options = {
 }
 
 type Sent = { readonly url: URL; readonly init: RequestInit | undefined }
+
+// An S3 listing page; a token says another follows.
+const listing = (keys: readonly string[], token?: string): string =>
+	`<ListBucketResult><IsTruncated>${token !== undefined}</IsTruncated>${keys.map((key) => `<Contents><Key>${key}</Key></Contents>`).join('')}${token === undefined ? '' : `<NextContinuationToken>${token}</NextContinuationToken>`}</ListBucketResult>`
 
 describe('SigV4', () => {
 	beforeEach(() => {
@@ -40,6 +44,24 @@ describe('SigV4', () => {
 		expect(url).toBe(
 			'https://examplebucket.s3.amazonaws.com/test.txt?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=AKIAIOSFODNN7EXAMPLE%2F20130524%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Date=20130524T000000Z&X-Amz-Expires=86400&X-Amz-SignedHeaders=host&X-Amz-Signature=aeeed9bbccd4d02ee5c0109b86d86835f995330da4c265957d157751f604d404',
 		)
+	})
+
+	it('signs each day with that day’s key (D-351)', () => {
+		const request = {
+			method: 'GET',
+			url: new URL('https://s3.example.com/b/a'),
+			headers: {},
+			expires: 900,
+		}
+		const kept = { ...signer }
+		for (const at of ['2026-11-09T23:59:59Z', '2026-11-10T00:00:00Z']) {
+			const date = new Date(at)
+			// A fresh signer derives its key anew.
+			expect(presign(kept, request, date)).toBe(
+				presign({ ...signer }, request, date),
+			)
+		}
+		expect(keyOf(kept, '20261110')).toBe(keyOf(kept, '20261110'))
 	})
 
 	it('signs the headers sent and keeps the query', () => {
@@ -146,19 +168,32 @@ describe('s3()', () => {
 		)
 	})
 
-	it('lists every key, page after page', async () => {
-		answer = ({ url }) =>
-			new Response(
-				url.searchParams.get('continuation-token') === 'n&1'
-					? '<ListBucketResult><IsTruncated>false</IsTruncated><Contents><Key>private/c</Key></Contents></ListBucketResult>'
-					: '<ListBucketResult><IsTruncated>true</IsTruncated><Contents><Key>public/a&amp;b</Key></Contents><Contents><Key>private/b</Key></Contents><NextContinuationToken>n&amp;1</NextContinuationToken></ListBucketResult>',
+	it('lists its own keys only, page after page (D-351)', async () => {
+		const [a, b, c] = ['a', 'b', 'c'].map((n) => n.repeat(8).padEnd(36, '-0'))
+		answer = ({ url }) => {
+			const prefix = url.searchParams.get('prefix')
+			const token = url.searchParams.get('continuation-token')
+			if (prefix === 'private/') {
+				return new Response(listing([`private/${c}`, 'private/notes.txt']))
+			}
+			// A storage that ignores the prefix lists a foreign key.
+			return new Response(
+				token === 'n&1'
+					? listing([`public/${b}`, 'backups/db.sql'])
+					: listing([`public/${a}`], 'n&amp;1'),
 			)
+		}
 		expect(await s3(options).keys()).toStrictEqual([
-			'public/a&b',
-			'private/b',
-			'private/c',
+			`public/${a}`,
+			`public/${b}`,
+			`private/${c}`,
 		])
 		expect(sent[0]?.url.searchParams.get('list-type')).toBe('2')
+		expect(
+			sent
+				.map(({ url }) => url.searchParams.get('prefix'))
+				.toSorted((x, y) => String(x).localeCompare(String(y))),
+		).toStrictEqual(['private/', 'public/', 'public/'])
 	})
 
 	it('gives a public file a stable URL, a private one a presigned URL', () => {

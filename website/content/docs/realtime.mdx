@@ -350,6 +350,8 @@ Over Server-Sent Events, `subscribe`'s second function gets the refusal, a
 - A connection following more than `maxConnectionRows` rows in all refuses the
   growth: `liveFetch`'s `fetchMore` rejects, the hook's goes to `error`, and
   the list goes on following its window as it was.
+- Over GraphQL, a live list returns at most 50 values a row it reads, the rows
+  it nests included; past them, it is refused at subscribe.
 - A failed live read does not reconnect. Over GraphQL, the subscription gets
   `errors`, as a query does.
 

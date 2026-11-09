@@ -6,7 +6,6 @@ import type {
 	Change,
 	Changed,
 	CountRead,
-	Filter,
 	ListUpdate,
 	Read,
 	Row,
@@ -38,12 +37,11 @@ function storedAs(type: ScalarType | undefined, value: unknown): unknown {
 	return copy(value)
 }
 
-function keyOf(values: readonly unknown[]): string {
-	return JSON.stringify(
-		values.map((value) =>
-			value instanceof Date ? `date:${value.getTime()}` : value,
-		),
-	)
+/** A value as a unique key compares it: an object, a date too, as JSON. */
+function normal(value: unknown, mode: string | undefined): unknown {
+	if (value instanceof Object) return JSON.stringify(value)
+	const lower = mode === 'insensitive' && typeof value === 'string'
+	return lower ? value.toLowerCase() : value
 }
 
 export class Draft {
@@ -123,17 +121,22 @@ export class Draft {
 	}
 
 	private change(changes: readonly Change[]): void {
-		const touched = new Set<string>()
+		const from = this.changed.length
 		this.reader.removed.clear()
 		for (const [index, change] of changes.entries()) {
-			touched.add(change.model)
 			if (change.kind === 'delete') {
 				const removed = this.remove(change)
 				this.reader.removed.set(index, new Set(removed.map(({ id }) => id)))
 				this.note(this.deleted(change.model, removed))
 			} else this.apply(change)
+			this.reader.inverses.clear()
 		}
-		for (const model of touched) this.checkUnique(model)
+		// The rows a write inserted or updated meet the others (D-347).
+		const notes = Map.groupBy(this.changed.slice(from), ({ model }) => model)
+		for (const [model, each] of notes) {
+			const ids = each.flatMap((note) => ('ids' in note && note.ids) || [])
+			this.checkUnique(model, new Set(ids))
+		}
 	}
 
 	private note(change: Changed): void {
@@ -321,47 +324,45 @@ export class Draft {
 	}
 
 	/**
-	 * Unique fields, unique indexes and one-to-one keys; `null` never clashes.
-	 * A case-insensitive index compares its strings lowered (D-170); a
-	 * partial one, the rows its `where` selects (D-215).
+	 * The unique fields, indexes and one-to-one keys of the rows `ids` names,
+	 * against the others; `null` never clashes. A case-insensitive index
+	 * lowers its strings (D-170); a partial one keeps the rows it selects (D-215).
 	 */
-	private checkUnique(model: string): void {
+	private checkUnique(model: string, ids: ReadonlySet<string>): void {
 		const definition = this.schema.models.find((each) => each.name === model)
 		if (definition === undefined) return
-		const sets: {
-			fields: readonly string[]
-			lower: boolean
-			where?: Filter
-		}[] = definition.indexes
-			.filter((index) => index.unique)
-			.map(({ fields, mode, where }) => ({
-				fields,
-				lower: mode === 'insensitive',
-				...(where === undefined ? {} : { where }),
-			}))
-		for (const field of definition.fields) {
-			if (field.kind !== 'many' && field.unique) {
-				sets.push({ fields: [field.name], lower: false })
+		const sets = [
+			...definition.indexes.filter((index) => index.unique),
+			...definition.fields.flatMap((field) =>
+				field.kind !== 'many' && field.unique
+					? [{ fields: [field.name], mode: undefined, where: undefined }]
+					: [],
+			),
+		]
+		const table = this.reader.table(model)
+		const written = [...ids].flatMap((id) => table.get(id) ?? [])
+		for (const { fields, mode, where } of sets) {
+			const kept = (row: StoredRow) =>
+				where === undefined || this.reader.matches(model, row, where) === true
+			const values = (row: StoredRow) =>
+				fields.map((field) => normal(row[field] ?? null, mode))
+			const keys = new Set<string>()
+			const firsts = new Set<unknown>()
+			for (const row of written.filter(kept)) {
+				const found = values(row)
+				if (found.includes(null)) continue
+				const key = JSON.stringify(found)
+				if (keys.has(key)) throw new UniqueViolation(model, fields)
+				keys.add(key)
+				firsts.add(found[0])
 			}
-		}
-		const all = [...this.reader.table(model).values()]
-		for (const { fields, lower, where } of sets) {
-			const seen = new Set<string>()
-			const rows =
-				where === undefined
-					? all
-					: all.filter((row) => this.reader.matches(model, row, where) === true)
-			for (const row of rows) {
-				const values = fields.map((field) => {
-					const value = row[field] ?? null
-					return lower && typeof value === 'string'
-						? value.toLowerCase()
-						: value
-				})
-				if (values.includes(null)) continue
-				const found = keyOf(values)
-				if (seen.has(found)) throw new UniqueViolation(model, fields)
-				seen.add(found)
+			const [first = 'id'] = fields
+			for (const row of firsts.size === 0 ? [] : table.values()) {
+				if (ids.has(row.id) || !firsts.has(normal(row[first] ?? null, mode)))
+					continue
+				if (kept(row) && keys.has(JSON.stringify(values(row)))) {
+					throw new UniqueViolation(model, fields)
+				}
 			}
 		}
 	}

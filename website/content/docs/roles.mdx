@@ -59,10 +59,11 @@ and Ada and Grace the `team` role:
 	../examples/roles-and-acl/src/app.test.ts#give-team
 </include>
 
-- Only Master gives or takes a role: `members`, `inherits` and `inheritedBy`
-  refuse every client write, from the role or from the user's `roles`.
-- The role model's own `access` decides who writes its other fields.
-- To let an admin give roles, write a function that checks `hasRole` and
+- Only Master creates, updates, deletes, gives or takes a role: every
+  client write is refused with `ACCESS_DENIED`, from the role or from the
+  user's `roles`, whatever the role model's `access` says.
+- The role model's own `access` decides who reads a role.
+- To let an admin manage roles, write a function that checks `hasRole` and
   writes as Master.
 
 ## Ask for a role

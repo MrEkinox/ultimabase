@@ -91,10 +91,12 @@ export interface RecurringJob<N extends string> {
 	readonly name: N
 }
 
+type Standard = NonNullable<ReturnType<typeof standardOf>>
+
 /** What the plugin reads of a job. */
 export interface JobRecord {
 	readonly name: string
-	readonly input: StandardSchema | undefined
+	readonly input: Standard | undefined
 	/** `every <ms>` or `cron <pattern> <zone>`, for a recurring job. */
 	readonly schedule: string | undefined
 	/** The first due time after `from`, for a recurring job. */
@@ -109,10 +111,14 @@ export function recordOf(job: unknown): JobRecord | undefined {
 	return typeof job === 'object' && job !== null ? records.get(job) : undefined
 }
 
-/** A positive number of milliseconds. */
-function isDuration(value: unknown): value is number {
-	return typeof value === 'number' && Number.isFinite(value) && value > 0
-}
+/** A positive number of milliseconds ending before the year 10000 (D-94). */
+const isDuration = (value: unknown): value is number =>
+	typeof value === 'number' &&
+	value > 0 &&
+	value < Date.UTC(10_000, 0, 1) - Date.now()
+
+const notDuration = (name: string, key: string): string =>
+	`${name}: ${key} is a positive number of milliseconds, ending before the year 10000.`
 
 /** The next due time of a pattern croner accepts; refuses one it does not. */
 function cronNext(
@@ -127,11 +133,15 @@ function cronNext(
 		throw new Refused(`${name}: timeZone is an IANA time zone.`)
 	}
 	let cron: Cron
+	let first: Date | null
 	try {
 		cron = new Cron(pattern, { timezone: zone ?? 'UTC', mode: '5-part' })
-		cron.nextRun()
+		first = cron.nextRun()
 	} catch (error) {
 		throw new Refused(`${name}: ${String(error)}`, { cause: error })
+	}
+	if (first === null) {
+		throw new Refused(`${name}: cron ${JSON.stringify(pattern)} never runs.`)
 	}
 	return (from) => {
 		const next = cron.nextRun(new Date(from))
@@ -163,11 +173,12 @@ function recordFor(definition: object): JobRecord {
 	if (timeZone !== undefined && cron === undefined) {
 		throw new Refused(`${name}: timeZone goes with cron.`)
 	}
-	if (input !== undefined && standardOf(input) === undefined) {
+	const standard = standardOf(input)
+	if (input !== undefined && standard === undefined) {
 		throw new Refused(`${name}: input is a Standard Schema.`)
 	}
 	if (every !== undefined && !isDuration(every)) {
-		throw new Refused(`${name}: every is a positive number of milliseconds.`)
+		throw new Refused(notDuration(name, 'every'))
 	}
 	const next =
 		cron !== undefined
@@ -182,14 +193,11 @@ function recordFor(definition: object): JobRecord {
 				: `every ${every}`
 	const runs = (facts: Facts & { readonly input?: unknown }): Done =>
 		Reflect.apply(run, undefined, [facts])
-	const schema = standardOf(input)?.schema
-	return { name, input: schema, schedule, next, run: runs }
+	return { name, input: standard, schedule, next, run: runs }
 }
 
 /** The input's validated value; refuses it as `VALIDATION_FAILED`. */
-async function validated(name: string, schema: StandardSchema, input: unknown) {
-	const standard = standardOf(schema)
-	if (standard === undefined) return input
+async function validated(name: string, standard: Standard, input: unknown) {
 	const result = await checked(standard, input, [], name)
 	if ('issues' in result) {
 		throw new PublicError('VALIDATION_FAILED', 'Invalid input.', {
@@ -208,16 +216,18 @@ async function enqueue(record: JobRecord, args: readonly unknown[]) {
 			? Reflect.get(options, 'after')
 			: undefined
 	if (after !== undefined && !isDuration(after)) {
-		throw new TypeError(`${name}: after is a positive number of milliseconds.`)
+		throw new TypeError(notDuration(name, 'after'))
 	}
 	if (runningOf(`${name}.enqueue`).jobs.get(name) !== record) {
 		throw new Error(`${name} is not in jobsPlugin's jobs.`)
 	}
 	const value =
 		schema === undefined ? null : await validated(name, schema, input)
+	// Stored as JSON: a date as its ISO string, an undefined key left out.
+	const json: unknown = JSON.parse(JSON.stringify(value ?? null))
 	const data = {
 		job: name,
-		input: value ?? null,
+		input: json,
 		state: 'pending',
 		dueAt: new Date(Date.now() + (after ?? 0)),
 		attempts: 0,

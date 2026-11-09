@@ -1,7 +1,8 @@
-// Only Master gives a role (D-213): a client links no member and no
-// inherited role, from either side, whatever the models' rules allow.
+// Only Master gives a role (D-213) and writes one (D-355): a client links no
+// member and no inherited role, from either side, and creates, renames or
+// deletes no role, whatever the models' rules allow.
 import { asUser } from '@ultimabase/testing'
-import type { Caller } from 'ultimabase'
+import type { Caller, Logger } from 'ultimabase'
 import {
 	allow,
 	defineApp,
@@ -15,7 +16,7 @@ import { defineRole, hasRole, rolesPlugin } from './index.ts'
 
 const M = { as: master }
 
-// The models let a client write: only the role fields stop it.
+// The models let a client write: only the roles plugin stops it.
 const Role = defineRole({
 	name: 'Role',
 	members: () => User,
@@ -49,11 +50,23 @@ const Post = defineModel({
 	},
 })
 
+// The refusals logged: the bindings and the message of each warning.
+const warnings: unknown[] = []
+const logger: Logger = {
+	info: () => undefined,
+	warn: (...said) => {
+		warnings.push(said)
+	},
+	error: () => undefined,
+	child: () => logger,
+}
+
 let app: ReturnType<typeof defineApp>
 let ids: { admin: string; team: string; eve: string }
 beforeEach(async () => {
 	app = defineApp({
 		database: memory(),
+		logger,
 		plugins: [rolesPlugin()],
 		models: [Role, User, Post],
 	})
@@ -65,6 +78,7 @@ beforeEach(async () => {
 		M,
 	)
 	ids = { admin: admin.id, team: team.id, eve: eve.id }
+	warnings.length = 0
 })
 afterEach(async () => app.stop())
 
@@ -123,10 +137,12 @@ it('refuses a user who leaves a role or creates one to join', async () => {
 			eve(),
 		),
 	)
+	// The role's own create is refused before its members' rule (D-355).
 	expect(await made).toMatchObject({
 		code: 'ACCESS_DENIED',
-		details: { model: 'Role', operation: 'create', field: 'members' },
+		details: { model: 'Role', operation: 'create' },
 	})
+	expect(await Role.count({ where: { name: 'Root' } }, M)).toBe(0)
 })
 
 it("refuses a client who writes a role's members or inheritance", async () => {
@@ -169,8 +185,62 @@ it("refuses a client who writes a role's members or inheritance", async () => {
 	expect(await isAdmin()).toBe(false)
 })
 
-it("lets a client write a role's own fields, and Master give it", async () => {
-	await Role.update({ where: { id: ids.team }, data: { name: 'Crew' } }, eve())
+it('refuses a client who renames a role into one it lacks', async () => {
+	// Before D-355: Admin renamed away, then Team renamed Admin.
+	const renamed = refusal(async () =>
+		Role.update({ where: { id: ids.team }, data: { name: 'Admin' } }, eve()),
+	)
+	expect(await renamed).toStrictEqual({
+		code: 'ACCESS_DENIED',
+		details: { model: 'Role', operation: 'update' },
+	})
+	// Logged as an access rule's refusal is, with the caller (D-88).
+	expect(warnings).toStrictEqual([
+		[
+			{ model: 'Role', operation: 'update', callerId: ids.eve },
+			'Role update refused.',
+		],
+	])
+	const many = refusal(async () =>
+		Role.updateMany({ where: {}, data: { name: 'Old' } }, eve()),
+	)
+	expect(await many).toMatchObject({ code: 'ACCESS_DENIED' })
+	const names = await Role.findMany({ select: { name: true } }, M)
+	expect(names.map(({ name }) => name).toSorted()).toStrictEqual([
+		'Admin',
+		'Team',
+	])
+	expect(await isAdmin()).toBe(false)
+})
+
+it('refuses a client who creates or deletes a role', async () => {
+	const made = refusal(async () =>
+		Role.create({ data: { name: 'Root' } }, eve()),
+	)
+	expect(await made).toStrictEqual({
+		code: 'ACCESS_DENIED',
+		details: { model: 'Role', operation: 'create' },
+	})
+	const gone = refusal(async () =>
+		Role.delete({ where: { id: ids.admin } }, eve()),
+	)
+	expect(await gone).toStrictEqual({
+		code: 'ACCESS_DENIED',
+		details: { model: 'Role', operation: 'delete' },
+	})
+	const anonymous = refusal(async () =>
+		Role.deleteMany({ where: {} }, { as: { kind: 'anonymous' } }),
+	)
+	expect(await anonymous).toMatchObject({ code: 'ACCESS_DENIED' })
+	expect(warnings.at(-1)).toStrictEqual([
+		{ model: 'Role', operation: 'delete', callerId: null },
+		'Role delete refused.',
+	])
+	expect(await Role.count({}, M)).toBe(2)
+})
+
+it('lets Master write a role and give it', async () => {
+	await Role.update({ where: { id: ids.team }, data: { name: 'Crew' } }, M)
 	await User.update(
 		{
 			where: { id: ids.eve },
@@ -179,4 +249,7 @@ it("lets a client write a role's own fields, and Master give it", async () => {
 		M,
 	)
 	expect(await isAdmin()).toBe(true)
+	await Role.delete({ where: { id: ids.team } }, M)
+	expect(await Role.count({}, M)).toBe(1)
+	expect(warnings).toStrictEqual([])
 })

@@ -1,8 +1,10 @@
 import type { Client } from 'ultimabase'
+import { PublicError } from 'ultimabase'
 
 const unset = () => {
-	throw new Error('A cookie is set over HTTP: a WebSocket cannot set one.')
+	throw new PublicError('BAD_REQUEST', 'A WebSocket cannot set a cookie.')
 }
+const unsettable = { settable: false, set: unset, clear: unset }
 
 /** The upgrade request's cookies, which a WebSocket cannot set. */
 export function cookiesOf(request: Request): Client['cookies'] {
@@ -18,5 +20,5 @@ export function cookiesOf(request: Request): Client['cookies'] {
 			// A value that is no URI component is no cookie this API wrote.
 		}
 	}
-	return { get: (name) => cookies.get(name), set: unset, clear: unset }
+	return { ...unsettable, get: (name) => cookies.get(name) }
 }

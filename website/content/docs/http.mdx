@@ -82,6 +82,9 @@ which a client cannot forge. With `proxies: 1`, as in the application above:
 	../examples/http/src/requests/whoami.json
 </include>
 
+An entry with the port a proxy appended counts as its address:
+`203.0.113.7:5678` is `203.0.113.7`, `[2001:db8::1]:443` is `2001:db8::1`.
+
 ## Rate limit
 
 Each client address may send 600 requests a minute. `rateLimit` changes
@@ -109,7 +112,8 @@ The tests set `rateLimit` to 100 requests and send 100 from
   `TOO_MANY_ATTEMPTS` and `details.retryAfter`; the socket stays open.
 - The address is the one `proxies` reads. An IPv6 address counts by its
   /64, and a local or private address is never counted.
-- The master key passes over the limit.
+- The master key passes over the limit. Once an address sent a wrong one
+  there, its master-key requests are refused until the window ends.
 - Each instance counts in its own memory: behind a load balancer, the limit
   is per instance.
 - A limit per person on a write is a
@@ -222,6 +226,9 @@ preflight from `https://shop.example.com`, `other` the answer to one from
   too, as `http://localhost:5173`.
 - The API's own host passes over `http:` and `https:` alike, as a proxy
   serving HTTPS forwards it.
+- A browser keeps a preflight's answer 10 minutes
+  (`access-control-max-age: 600`), not 5 seconds, so it does not send one
+  before each call.
 
 An HTML form posts to any site with that site's cookies, and CORS never
 stops it. A form from another origin is refused with 403; a webhook sends no
@@ -308,6 +315,8 @@ A route that needs no database is called directly:
   plugin that has not started serves no request.
 - `/ready` checks no database: when it fails, every instance would leave
   the load balancer at once.
+- A client that has not sent all its headers 10 s after it connected is
+  disconnected, so slow clients cannot hold every socket.
 
 ## Reference
 

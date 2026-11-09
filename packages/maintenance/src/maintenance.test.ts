@@ -261,6 +261,13 @@ describe('the maintenance', () => {
 		await vi.waitFor(() => expect(maintenance().locked()).toBe(true))
 	})
 
+	it('is locked once lock() ends, though a read began meanwhile', async () => {
+		const lock = maintenance().lock()
+		running.feed.missed()
+		await lock
+		expect(maintenance().locked()).toBe(true)
+	})
+
 	it('reads the row again after lost changes', async () => {
 		await maintenance().lock()
 		running.feed.missed()
@@ -440,7 +447,59 @@ function lagging(): Adapter & { readonly lagNext: () => void } {
 	}
 }
 
+/**
+ * `memory()` that tells no change, whose read after `holdNext()` reads at
+ * once and answers once `release` is called, and whose `missed()` tells the
+ * running application changes were lost.
+ */
+function holding(): Adapter & {
+	readonly holdNext: () => void
+	readonly missed: () => void
+} {
+	const base = memory()
+	let feed: Feed | undefined
+	let hold = false
+	return {
+		...base,
+		start: async (schema, given, next) => {
+			feed = next
+			await base.start(schema, given)
+		},
+		find: async (read) => {
+			const rows = await base.find(read)
+			if (hold) {
+				hold = false
+				const { promise, resolve } = Promise.withResolvers<void>()
+				release = resolve
+				await promise
+			}
+			return rows
+		},
+		holdNext: () => {
+			hold = true
+		},
+		missed: () => feed?.missed(),
+	}
+}
+
 describe('its reads', () => {
+	it('leave a lock stored after they began as it is', async () => {
+		const database = holding()
+		const application = await started(database)
+		try {
+			database.holdNext()
+			database.missed()
+			await vi.waitFor(() => expect(release).toBeDefined())
+			await maintenance().lock()
+			release?.()
+			await turn()
+			expect(maintenance().locked()).toBe(true)
+		} finally {
+			release = undefined
+			await application.stop()
+		}
+	})
+
 	// Two servers switch it: the read of the first switch answers last.
 	it('keep the latest state when an older read answers late', async () => {
 		const database = lagging()

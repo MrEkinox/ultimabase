@@ -2,6 +2,7 @@
 // by an update that only one instance counts; a run that fails waits twice as
 // long each time, up to ten attempts.
 import type { RecordOf } from 'ultimabase'
+import { PublicError } from 'ultimabase'
 import type { JobRecord } from './define-job.ts'
 import { JobsRun, M } from './model.ts'
 import type { Running } from './state.ts'
@@ -17,25 +18,26 @@ const atOnce = 20
 
 type Row = RecordOf<typeof JobsRun>
 
-/** The rows due at `now` that no instance holds. */
-function due(now: Date) {
+/** The rows due at `now` that no instance holds, of the jobs it declares. */
+function due(app: Running, now: Date) {
 	return {
+		job: { in: [...app.jobs.keys()] },
 		state: 'pending',
 		dueAt: { lte: now },
 		OR: [{ lockedUntil: null }, { lockedUntil: { lt: now } }],
 	}
 }
 
-/** Whether this instance now holds the row: one update counts it. */
-async function claim(id: string, now: number): Promise<boolean> {
-	const { count } = await JobsRun.updateMany(
+/** The row, once this instance holds it until `held`: one update returns it. */
+async function claim(app: Running, id: string, now: number, held: Date) {
+	const [row] = await JobsRun.updateManyAndReturn(
 		{
-			where: { AND: [{ id }, due(new Date(now))] },
-			data: { lockedUntil: new Date(now + lease) },
+			where: { AND: [{ id }, due(app, new Date(now))] },
+			data: { lockedUntil: held },
 		},
 		M,
 	)
-	return count === 1
+	return row
 }
 
 /** The first due time of a recurring job after `now`, on its cadence. */
@@ -46,34 +48,39 @@ function following(job: JobRecord, row: Row, now: number): Date {
 	return new Date(next)
 }
 
+/** An error's message as the database stores it: no NUL, no lone surrogate. */
 function messageOf(error: unknown): string {
-	return error instanceof Error ? error.message : String(error)
+	try {
+		const message = error instanceof Error ? error.message : String(error)
+		return message.replaceAll('\0', '').toWellFormed()
+	} catch {
+		return 'An unprintable value.'
+	}
 }
 
-async function failed(
+/** What a failed run writes to its row. */
+function failed(
 	app: Running,
 	row: Row,
-	job: JobRecord | undefined,
+	job: JobRecord,
 	error: unknown,
 	now: number,
-): Promise<void> {
+) {
 	const message = messageOf(error)
 	const facts = { err: error, job: row.job, run: row.id }
-	if (job?.schedule !== undefined && row.recurring !== null) {
+	if (job.schedule !== undefined && row.recurring !== null) {
 		app.logger.error(facts, `The job ${row.job} failed.`)
 		const dueAt = following(job, row, now)
-		const data = { dueAt, lockedUntil: null, error: message }
-		await JobsRun.update({ where: { id: row.id }, data }, M)
-		return
+		return { dueAt, lockedUntil: null, error: message }
 	}
 	const tried = row.attempts + 1
-	const last = job === undefined || tried >= attempts
+	const last = tried >= attempts
 	if (last) {
 		app.logger.error(facts, `The job ${row.job} failed: its run is kept.`)
 	} else {
 		app.logger.warn(facts, `The job ${row.job} failed: it runs again.`)
 	}
-	const data = {
+	return {
 		attempts: tried,
 		lockedUntil: null,
 		error: message,
@@ -81,37 +88,40 @@ async function failed(
 			? { state: 'failed' }
 			: { dueAt: new Date(now + backoff * 2 ** (tried - 1)) }),
 	}
-	await JobsRun.update({ where: { id: row.id }, data }, M)
+}
+
+/** What a run writes to its row: its failure, its next time, or none. */
+async function ran(app: Running, row: Row, job: JobRecord, now: number) {
+	const { id, input } = row
+	try {
+		await job.run(job.input === undefined ? { id } : { id, input })
+	} catch (error) {
+		return failed(app, row, job, error, now)
+	}
+	if (row.recurring === null) return undefined
+	const dueAt = following(job, row, now)
+	return { dueAt, attempts: 0, lockedUntil: null, error: null }
 }
 
 /** Runs the row once this instance holds it; whether it did. */
 async function runRow(app: Running, id: string): Promise<boolean> {
 	const now = Date.now()
-	if (!(await claim(id, now))) return false
-	const row = await JobsRun.findUnique({ where: { id } }, M)
-	if (row === null) return false
-	const job = app.jobs.get(row.job)
-	if (job === undefined) {
-		const error = new Error(`The job ${row.job} is not in jobsPlugin's jobs.`)
-		await failed(app, row, job, error, now)
-		return true
-	}
-	try {
-		await job.run(job.input === undefined ? { id } : { id, input: row.input })
-	} catch (error) {
-		await failed(app, row, job, error, now)
-		return true
-	}
-	if (row.recurring === null) {
-		await JobsRun.delete({ where: { id } }, M)
-	} else {
-		const data = {
-			dueAt: following(job, row, now),
-			attempts: 0,
-			lockedUntil: null,
-			error: null,
-		}
-		await JobsRun.update({ where: { id }, data }, M)
+	const held = new Date(now + lease)
+	const row = await claim(app, id, now, held)
+	// A claimed row's job is one this instance declares.
+	const job = app.jobs.get(row?.job ?? '')
+	if (row === undefined || job === undefined) return false
+	const data = await ran(app, row, job, now)
+	// Only while this instance holds the row: another took it over after.
+	const where = { id, lockedUntil: held }
+	const { count } =
+		data === undefined
+			? await JobsRun.deleteMany({ where }, M)
+			: await JobsRun.updateMany({ where, data }, M)
+	if (count === 0) {
+		const facts = { job: row.job, run: id }
+		const message = `The job ${row.job} outlived its lease: another instance took it over.`
+		app.logger.warn(facts, message)
 	}
 	return true
 }
@@ -200,7 +210,7 @@ async function pass(app: Running): Promise<boolean> {
 	if (closed || failure !== undefined) return false
 	const rows = await JobsRun.findMany(
 		{
-			where: due(new Date()),
+			where: due(app, new Date()),
 			orderBy: [{ dueAt: 'asc' }],
 			take: atOnce,
 			select: { id: true },
@@ -242,7 +252,7 @@ export async function drain(app: Running): Promise<void> {
 	)
 }
 
-/** Creates the rows of new recurring jobs, and deletes those of old ones. */
+/** Creates, re-times, sets pending again and deletes the recurring rows. */
 export async function schedule(app: Running): Promise<void> {
 	const now = Date.now()
 	const rows = await JobsRun.findMany(
@@ -252,9 +262,12 @@ export async function schedule(app: Running): Promise<void> {
 	for (const row of rows) {
 		const job = app.jobs.get(row.recurring ?? '')
 		if (job?.schedule === undefined) {
-			await JobsRun.delete({ where: { id: row.id } }, M)
-		} else if (job.schedule !== row.schedule) {
-			const data = { schedule: job.schedule, dueAt: new Date(job.next(now)) }
+			// Another instance starting at once may have deleted it.
+			await JobsRun.deleteMany({ where: { id: row.id } }, M)
+		} else if (job.schedule !== row.schedule || row.state !== 'pending') {
+			const { schedule: given } = job
+			const dueAt = new Date(job.next(now))
+			const data = { schedule: given, state: 'pending', attempts: 0, dueAt }
 			await JobsRun.update({ where: { id: row.id }, data }, M)
 		}
 	}
@@ -269,10 +282,11 @@ export async function schedule(app: Running): Promise<void> {
 			dueAt: new Date(job.next(now)),
 			attempts: 0,
 		}
-		// Another instance starting at once may have created it.
-		await JobsRun.upsert(
-			{ where: { recurring: job.name }, create, update: {} },
-			M,
-		)
+		await JobsRun.create({ data: create }, M).catch((error: unknown) => {
+			// Another instance starting at once may have created it.
+			const taken =
+				error instanceof PublicError && error.code === 'UNIQUE_VIOLATION'
+			if (!taken) throw error
+		})
 	}
 }

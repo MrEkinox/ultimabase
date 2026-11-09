@@ -3,6 +3,7 @@
 import { authPlugin, defineUser, signedIn } from '@ultimabase/auth'
 import { graphql, graphqlPlugin } from '@ultimabase/graphql'
 import { httpPlugin } from '@ultimabase/http'
+import { realtimePlugin } from '@ultimabase/realtime'
 import type { Adapter, Logger } from 'ultimabase'
 import { allow, defineApp, master, memory } from 'ultimabase'
 import type { Email, PasswordOptions } from '../index.ts'
@@ -64,6 +65,7 @@ function listening(
 export async function started(
 	options: PasswordOptions = { signUp: ['name', 'born', 'tags'] },
 	database: Adapter = memory(),
+	sockets = false,
 ) {
 	const lines: string[] = []
 	const errors: string[] = []
@@ -72,6 +74,7 @@ export async function started(
 		database,
 		plugins: [
 			httpPlugin({ port: 0 }),
+			...(sockets ? [realtimePlugin()] : []),
 			graphqlPlugin(),
 			authPlugin(),
 			passwordPlugin(options),
@@ -122,3 +125,35 @@ export function tokenOf(body: unknown, field: string): string {
 /** The token an email's link carries, `''` for one without. */
 export const tokenIn = (email: Email | undefined): string =>
 	email !== undefined && 'token' in email ? email.token : ''
+
+/** One GraphQL operation's result over a WebSocket, as `authorization`. */
+export async function socketOf(
+	url: string,
+	query: string,
+	variables: Record<string, unknown>,
+	authorization?: string,
+): Promise<unknown> {
+	const at = `${url.replace(/^http/, 'ws')}/graphql`
+	const ws = new WebSocket(at, 'graphql-transport-ws')
+	const send = (message: object) => ws.send(JSON.stringify(message))
+	try {
+		return await new Promise((resolve, reject) => {
+			ws.addEventListener('error', reject)
+			ws.addEventListener('open', () => {
+				const payload = authorization === undefined ? {} : { authorization }
+				send({ type: 'connection_init', payload })
+			})
+			ws.addEventListener('message', ({ data }) => {
+				const message: unknown = JSON.parse(String(data))
+				const type: unknown = Reflect.get(Object(message), 'type')
+				if (type === 'connection_ack') {
+					send({ id: '1', type: 'subscribe', payload: { query, variables } })
+				} else if (type === 'next') {
+					resolve(Reflect.get(Object(message), 'payload'))
+				} else reject(new Error(String(data)))
+			})
+		})
+	} finally {
+		ws.close()
+	}
+}

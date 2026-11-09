@@ -6,7 +6,6 @@ import { normalized } from './decimal.ts'
 import { PublicError } from './errors.ts'
 import type { Resolving } from './nested-write.ts'
 import { uniqueWhere } from './query-args.ts'
-import type { Models } from './query-where.ts'
 import { isObject, modelOf } from './query-where.ts'
 import type { FieldInfo, ModelInfo } from './schema.ts'
 import { planned } from './scope.ts'
@@ -87,20 +86,23 @@ export async function namedRows(
 }
 
 /**
- * The ids of the rows `connectOrCreate` items find as stored, without rules
- * (D-138), locked: `undefined` for one that finds none.
+ * The ids of the rows `connectOrCreate` items find as stored, without row
+ * rules (D-138), locked: `undefined` for one that finds none. Their fields'
+ * rules apply unless the value is trusted, as a find's do (D-347).
  */
 export async function foundIds(
-	models: Models,
-	reads: Reads,
+	r: Resolving,
 	target: ModelInfo,
 	items: readonly { readonly where: unknown; readonly path: string }[],
 ): Promise<(string | undefined)[]> {
-	const named = items.map(({ where, path }) => ({
-		where,
-		filter: uniqueWhere(models, target, where, path),
-	}))
-	const rows = await namedRows(reads, target, undefined, named, 'update')
+	const scope = r.trusted ? undefined : r.scope
+	const named = await planned(r.scope, () =>
+		items.map(({ where, path }) => ({
+			where,
+			filter: uniqueWhere(r.scope.models, target, where, path, scope),
+		})),
+	)
+	const rows = await namedRows(r.reads, target, undefined, named, 'update')
 	return rows.map((row) => row?.id)
 }
 
@@ -167,7 +169,7 @@ export const found = async (
 	where: unknown,
 	path: string,
 ): Promise<string | undefined> =>
-	(await foundIds(r.scope.models, r.reads, target, [{ where, path }]))[0]
+	(await foundIds(r, target, [{ where, path }]))[0]
 
 /**
  * The linked rows the `where` of `items` name, read at once (D-338), as the

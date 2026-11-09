@@ -25,7 +25,7 @@ type Subscription = {
 	readonly args: unknown
 	readonly row: boolean
 	readonly send: (message: LiveMessage) => void
-	/** The rows it follows, nested rows included. */
+	/** The list rows it follows, nested rows apart (D-252). */
 	rows: number
 	reads: readonly Recorded[]
 	expires: Date | undefined
@@ -332,8 +332,9 @@ export class Viewer implements Owner {
 		const planned = await this.#readers.during(this, async () =>
 			recording(async () => livePlan(model, liveArgs(args, row), caller, row)),
 		)
-		// What a closed viewer registers would stay in the index for good.
+		// It may have closed, keeping its reads indexed, or opened others.
 		if (this.#closed) throw new Error('The viewer is closed.')
+		this.#holds()
 		const limit = limitOf(this.#settings, model)
 		checked(this.#settings.models, model, planned.result, 'include')
 		within(first, limit)
@@ -387,8 +388,7 @@ export class Viewer implements Owner {
 
 	/** Refuses one more live read past what the connection holds. */
 	#holds(): void {
-		const reads = this.#live.size + this.#computed.size
-		holds(reads, this.#settings.maxSubscriptions)
+		holds(this.#live.size + this.#computed.size, this.#settings)
 	}
 
 	/** Refuses `more` rows past what the connection follows in all. */

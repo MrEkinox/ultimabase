@@ -358,6 +358,7 @@ the `.env` file beside the config, without changing a variable already set;
 | `<file> was applied to the database, and migrations/ no longer holds it: restore it from version control.`               | An applied file is missing.                                     |
 | `Development sync changed this database since its last deploy: deploy applies migrations only to a database they built.` | A deploy after a sync: run `reset`.                             |
 | `<file> was not applied: <reason>`, then `The database rolled it back: fix it, then deploy again.`                       | A statement failed.                                             |
+| `Another deploy changed the database meanwhile: deploy again.`                                                           | A deploy of other code applied files since this one read.       |
 | `Dropped project, task.`                                                                                                 | `reset` dropped those tables.                                   |
 | `reset rebuilds only a development database: it is refused in production.`                                               | `reset` in production.                                          |
 | `reset drops every table, and db.example.com is not this machine: pass --force if it holds a development database.`      | `reset` on a database on another machine.                       |

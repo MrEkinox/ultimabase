@@ -6,9 +6,6 @@ import { runningOf } from './state.ts'
 
 export const M: { readonly as: typeof master } = { as: master }
 
-/** A run's state: waiting for its due time, or out of attempts. */
-export type RunState = 'pending' | 'failed'
-
 type Optional<V> = Field<V | null, { readonly optional: true }>
 
 type RunFields = {

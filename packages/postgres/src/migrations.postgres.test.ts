@@ -20,6 +20,7 @@ import {
 	logger,
 	many,
 	migrations,
+	names,
 	one,
 	query,
 	restart,
@@ -422,8 +423,8 @@ const accountWith = (...given: [string, Scalar['type']][]): Schema => ({
 		},
 	],
 })
-const modelsNamed = (...names: string[]): Schema => ({
-	models: names.map((name) => ({
+const modelsNamed = (...labels: string[]): Schema => ({
+	models: labels.map((name) => ({
 		name,
 		fields: [scalar('label', 'string')],
 		indexes: [],
@@ -2005,14 +2006,98 @@ describe('a deploy on postgres()', () => {
 			.map((statement) => `${statement.sql};`)
 			.join('\n')
 		const files = [{ ...file('1_init.sql', sql), schema: 'abc' }]
-		await migrations.apply({ kind: 'deploy', files, to })
-		await migrations.apply({ kind: 'deploy', files, to })
+		await migrations.apply({ kind: 'deploy', files, known: names(files), to })
+		await migrations.apply({ kind: 'deploy', files, known: names(files), to })
 		expect(await migrations.stored()).toStrictEqual({
 			snapshot: to,
 			by: 'deploy',
 			applied: [{ name: '1_init.sql', checksum: '1_init.sql', schema: 'abc' }],
 		})
 		expect(await query(inSchema(schema), 'select * from box')).toStrictEqual([])
+	})
+
+	describe('after another deploy, of other code, ran', () => {
+		const first = file('1_a.sql', 'create table a (b integer);')
+		const second = file('2_b.sql', 'create table b (c integer);')
+		const third = file('3_c.sql', 'create table c (d integer);')
+		const stale = 'Another deploy changed the database meanwhile: deploy again.'
+		/** The older code read the database; the newer deployed 2 and 3. */
+		async function raced() {
+			const [older, newer] = [
+				migrations.snapshot(before),
+				migrations.snapshot(after),
+			]
+			await migrations.apply({
+				kind: 'deploy',
+				files: [first],
+				known: ['1_a.sql'],
+				to: older,
+			})
+			const known = names([first, second, third])
+			await migrations.apply({
+				kind: 'deploy',
+				files: [second, third],
+				known,
+				to: newer,
+			})
+			return { older, newer: await migrations.stored() }
+		}
+
+		it.each([true, false])(
+			'applies no file of its own after them, with a transaction: %s',
+			async (transaction) => {
+				const { older, newer } = await raced()
+				// A hotfix the newer code does not hold.
+				const late = file(
+					'2_fix.sql',
+					'create table f (g integer);',
+					transaction,
+				)
+				await expect(
+					migrations.apply({
+						kind: 'deploy',
+						files: [late],
+						known: ['1_a.sql', '2_fix.sql'],
+						to: older,
+					}),
+				).rejects.toThrow(stale)
+				expect(await migrations.stored()).toStrictEqual(newer)
+			},
+		)
+
+		it.each([true, false])(
+			'refuses its file of the same name and other content, with a transaction: %s',
+			async (transaction) => {
+				const { older, newer } = await raced()
+				// Code that names the same files, its 2_b.sql of other content.
+				const own = {
+					...file('2_b.sql', 'create table e (f integer);', transaction),
+					checksum: 'other',
+				}
+				await expect(
+					migrations.apply({
+						kind: 'deploy',
+						files: [own],
+						known: names([first, second, third]),
+						to: older,
+					}),
+				).rejects.toThrow(stale)
+				expect(await migrations.stored()).toStrictEqual(newer)
+			},
+		)
+
+		it('refuses to store its older snapshot', async () => {
+			const { older, newer } = await raced()
+			await expect(
+				migrations.apply({
+					kind: 'deploy',
+					files: [],
+					known: ['1_a.sql', '2_b.sql'],
+					to: older,
+				}),
+			).rejects.toThrow(stale)
+			expect(await migrations.stored()).toStrictEqual(newer)
+		})
 	})
 
 	it('rolls a file back when it fails, and names it', async () => {
@@ -2022,7 +2107,7 @@ describe('a deploy on postgres()', () => {
 			file('2_b.sql', 'create table b (id integer); select 1 / 0;'),
 		]
 		await expect(
-			migrations.apply({ kind: 'deploy', files, to }),
+			migrations.apply({ kind: 'deploy', files, known: names(files), to }),
 		).rejects.toMatchObject({
 			name: 'MigrationFailed',
 			at: '2_b.sql',
@@ -2063,9 +2148,12 @@ describe('a deploy on postgres()', () => {
 		]
 		const heard: Counted[] = []
 		await expect(
-			migrations.apply({ kind: 'deploy', files, to }, (statement) => {
-				heard.push(statement)
-			}),
+			migrations.apply(
+				{ kind: 'deploy', files, known: names(files), to },
+				(statement) => {
+					heard.push(statement)
+				},
+			),
 		).rejects.toMatchObject({ at: '4_fails.sql' })
 		expect(heard).toStrictEqual([
 			{
@@ -2111,7 +2199,7 @@ describe('a deploy on postgres()', () => {
 		heard.length = 0
 		await expect(
 			migrations.apply(
-				{ kind: 'deploy', files: files.slice(0, 3), to },
+				{ kind: 'deploy', files: files.slice(0, 3), known: names(files), to },
 				(statement) => {
 					heard.push(statement)
 				},

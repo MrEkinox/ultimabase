@@ -1,10 +1,22 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { allow } from 'ultimabase'
-import { files } from './index.ts'
+import { httpPlugin } from '@ultimabase/http'
+import type { Adapter, Transaction } from 'ultimabase'
+import { allow, defineApp, definePlugin, memory } from 'ultimabase'
+import { files, filesPlugin, memoryFiles } from './index.ts'
 import { sweep } from './lifecycle.ts'
 import { FilesBlob } from './model.ts'
-import { alice, bob, M, pdf, png, Post, started, text } from './test/app.ts'
-import { upload } from './upload.ts'
+import {
+	alice,
+	bob,
+	logging,
+	M,
+	pdf,
+	png,
+	Post,
+	started,
+	text,
+} from './test/app.ts'
+import { shown, upload } from './upload.ts'
 
 type Started = Awaited<ReturnType<typeof started>>
 let running: Started | undefined
@@ -78,6 +90,50 @@ describe('an upload', () => {
 		expect(storage.objects.get(row?.key ?? '')?.attachment).toBe(true)
 	})
 
+	it('stores a declared type that is no media type as bytes (D-351)', async () => {
+		await start()
+		for (const type of [
+			'text/plain\u0000',
+			'text/plain/x',
+			'text',
+			'/plain',
+			'text /plain',
+			`text/${'x'.repeat(128)}`,
+			`${'x'.repeat(128)}/plain`,
+			'text/<b>',
+			'.x/plain',
+			'text/-x',
+		]) {
+			await files.upload(new Blob([text], { type }), {
+				for: 'Post.attachments',
+				name: 'a.bin',
+				as: alice,
+			})
+		}
+		const long = `x/${'y'.repeat(127)}`
+		for (const type of [long, 'Application/VND.A+json; q=1']) {
+			await files.upload(new Blob([text], { type }), {
+				for: 'Post.attachments',
+				name: 'b.bin',
+				as: alice,
+			})
+		}
+		const types = (await blobs()).map(({ type }) => type)
+		expect(types.toSorted()).toStrictEqual([
+			...Array.from({ length: 10 }, () => 'application/octet-stream'),
+			'application/vnd.a+json',
+			long,
+		])
+		// Accept never matches one.
+		await expect(
+			files.upload(new Blob([text], { type: 'text/' }), {
+				for: 'Post.doc',
+				name: 'a.txt',
+				as: alice,
+			}),
+		).rejects.toThrow('An undetected type is not accepted.')
+	})
+
 	it('streams a body without inline values or variants, its first bytes read once', async () => {
 		const { storage } = await start()
 		const bytes = new Uint8Array(10_000)
@@ -116,6 +172,71 @@ describe('an upload', () => {
 			files.upload(png, { for: 'Post.cover', name: 'a.png' }),
 		).rejects.toMatchObject({ code: 'ACCESS_DENIED' })
 		expect(await blobs()).toStrictEqual([])
+	})
+
+	it('refuses before it reads a byte or names a field (D-351)', async () => {
+		const { warnings } = await start()
+		let pulled = 0
+		const body = new ReadableStream<Uint8Array>(
+			{
+				pull: () => {
+					pulled += 1
+					throw new Error('Read.')
+				},
+			},
+			{ highWaterMark: 0 },
+		)
+		const refused = { code: 'ACCESS_DENIED', message: 'The upload is refused.' }
+		for (const target of ['Post.cover', 'Post.nothing']) {
+			await expect(
+				upload(body, 1 << 20, { for: target, name: 'a.png' }),
+			).rejects.toMatchObject(refused)
+		}
+		expect(pulled).toBe(0)
+		expect(warnings).toStrictEqual([{ callerId: null }, { callerId: null }])
+	})
+
+	it('gives access.upload the caller its plugins complete (D-351)', async () => {
+		const badging = definePlugin({
+			name: 'badging',
+			manifest: {
+				name: 'badging',
+				version: '1.0.0',
+				peerDependencies: { ultimabase: '*' },
+			},
+			caller: ({ user }) => ({ badged: user.id === 'alice' }),
+		})
+		const warnings: unknown[] = []
+		const app = defineApp({
+			database: memory(),
+			plugins: [
+				httpPlugin({ port: 0 }),
+				badging.plugin(),
+				filesPlugin({
+					storage: memoryFiles(),
+					access: {
+						upload: ({ caller }) =>
+							'badged' in caller && caller.badged === true,
+					},
+				}),
+			],
+			models: [Post],
+			logger: logging(warnings),
+		})
+		await app.start()
+		try {
+			await files.upload(text, {
+				for: 'Post.attachments',
+				name: 'a',
+				as: alice,
+			})
+			await expect(
+				files.upload(text, { for: 'Post.attachments', name: 'b', as: bob }),
+			).rejects.toMatchObject({ code: 'ACCESS_DENIED' })
+			expect(warnings).toStrictEqual([{ callerId: 'bob' }])
+		} finally {
+			await app.stop()
+		}
 	})
 
 	it('lets Master upload, and anyone with allow.public', async () => {
@@ -208,6 +329,41 @@ describe('an upload', () => {
 		expect(types).toStrictEqual(['application/octet-stream', 'application/pdf'])
 	})
 
+	it('serves only images, audio, video and PDF inline (D-351)', async () => {
+		const { storage } = await start()
+		// Detected as application/xml; a browser runs their scripts.
+		const svg = new TextEncoder().encode(
+			'<?xml version="1.0"?>\n<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>',
+		)
+		const xhtml = new TextEncoder().encode(
+			'<?xml version="1.0"?>\n<html xmlns="http://www.w3.org/1999/xhtml"><script>alert(1)</script></html>',
+		)
+		for (const [body, name] of [
+			[svg, 'a.svg'],
+			[xhtml, 'a.xhtml'],
+			[pdf, 'a.pdf'],
+		] as const) {
+			await files.upload(body, { for: 'Post.attachments', name, as: alice })
+		}
+		// Its variant's bytes are application/xml too.
+		await files.upload(svg, { for: 'Page.markup', name: 'b.svg', as: alice })
+		const served = (await blobs()).map(({ key, name, type }) => [
+			name,
+			type,
+			storage.objects.get(key)?.attachment,
+		])
+		expect(served).toStrictEqual([
+			['a.pdf', 'application/pdf', false],
+			['a.svg', 'application/xml', true],
+			['a.xhtml', 'application/xml', true],
+			['b.svg', 'application/xml', true],
+			['copy', 'application/xml', true],
+		])
+		expect(
+			['image/png', 'video/mp4', 'image/svg+xml', 'text/html'].map(shown),
+		).toStrictEqual([true, true, false, false])
+	})
+
 	it('deletes its objects and its rows when a variant fails', async () => {
 		const { storage } = await start()
 		await expect(
@@ -215,6 +371,32 @@ describe('an upload', () => {
 		).rejects.toThrow('No thumbnail.')
 		expect(storage.objects.size).toBe(0)
 		expect(await blobs()).toStrictEqual([])
+	})
+
+	it('deletes its objects and its rows when one is not stored', async () => {
+		const { storage } = await start()
+		const put = storage.put.bind(storage)
+		// The file's object, then its variant's, refused.
+		for (const refused of ['image/png', 'image/webp']) {
+			vi.spyOn(storage, 'put').mockImplementation(
+				async (key, body, options) => {
+					if (options.type === refused) throw new Error('Storage down.')
+					await put(key, body, options)
+				},
+			)
+			await expect(cover()).rejects.toThrow('Storage down.')
+			expect(storage.objects.size).toBe(0)
+			expect(await blobs()).toStrictEqual([])
+		}
+	})
+
+	it('writes its row, then its variants’ rows at once (D-351)', async () => {
+		const touched: string[] = []
+		await start({}, watched(touched))
+		// The sweep at startup writes too.
+		touched.length = 0
+		await cover()
+		expect(touched.filter((kind) => kind === 'write')).toHaveLength(2)
 	})
 
 	it('refuses an inline value that is not JSON of 2 KB, or not its schema', async () => {
@@ -228,6 +410,43 @@ describe('an upload', () => {
 		expect(await blobs()).toStrictEqual([])
 	})
 })
+
+/** `memory()`, recording each read and write that names `FilesBlob`. */
+function watched(touched: string[]): Adapter {
+	const database = memory()
+	const note = (kind: string, given: unknown): void => {
+		if (JSON.stringify(given).includes('"FilesBlob"')) touched.push(kind)
+	}
+	const watch = (transaction: Transaction): Transaction => ({
+		find: async (read) => {
+			note('find', read)
+			return transaction.find(read)
+		},
+		count: async (read) => transaction.count(read),
+		aggregate: async (read) => transaction.aggregate(read),
+		write: async (write) => {
+			note('write', write)
+			return transaction.write(write)
+		},
+		commit: async () => transaction.commit(),
+		rollback: async () => transaction.rollback(),
+	})
+	const find = database.find.bind(database)
+	const write = database.write.bind(database)
+	const begin = database.begin.bind(database)
+	vi.spyOn(database, 'find').mockImplementation(async (read) => {
+		note('find', read)
+		return find(read)
+	})
+	vi.spyOn(database, 'write').mockImplementation(async (given) => {
+		note('write', given)
+		return write(given)
+	})
+	vi.spyOn(database, 'begin').mockImplementation(async (options) =>
+		watch(await begin(options)),
+	)
+	return database
+}
 
 describe('a write', () => {
 	it('attaches the uploaded file, which reads with its URLs', async () => {
@@ -377,9 +596,25 @@ describe('a write', () => {
 			{ data: { title: 'a', cover: id, attachments: [a] } },
 			{ as: alice },
 		)
-		await Post.delete({ where: { id: post.id } }, { as: alice })
+		// The hooks read the whole row, whatever the delete selects.
+		await Post.delete(
+			{ where: { id: post.id }, select: { id: true } },
+			{ as: alice },
+		)
 		expect(await blobs()).toStrictEqual([])
 		expect(storage.objects.size).toBe(0)
+	})
+
+	it('reads no blob when a deleted row holds no file (D-351)', async () => {
+		const touched: string[] = []
+		await start({}, watched(touched))
+		const post = await Post.create(
+			{ data: { title: 'a', attachments: [] } },
+			{ as: alice },
+		)
+		touched.length = 0
+		await Post.delete({ where: { id: post.id } }, { as: alice })
+		expect(touched).toStrictEqual([])
 	})
 
 	it('keeps the files when the write rolls back', async () => {
@@ -456,6 +691,18 @@ describe('a list', () => {
 	})
 })
 
+// A released row, which the sweep deletes.
+const releasedRow = (at: number) => ({
+	key: `private/${String(at).padStart(36, '0')}`,
+	name: String(at),
+	type: 'text/plain',
+	size: 1,
+	field: 'Post.doc',
+	uploadedBy: null,
+	state: 'released',
+	deleteAfter: null,
+})
+
 describe('the sweep', () => {
 	it('deletes the expired pending files, and the released ones a crash left', async () => {
 		const { storage } = await start()
@@ -502,6 +749,48 @@ describe('the sweep', () => {
 		expect(await blobs()).toHaveLength(2)
 		expect(warnings).toHaveLength(1)
 	})
+
+	it('deletes page after page, 16 objects at a time (D-351)', async () => {
+		const { storage } = await start()
+		await FilesBlob.createMany(
+			{ data: Array.from({ length: 1001 }, (_, at) => releasedRow(at)) },
+			M,
+		)
+		let busy = 0
+		let most = 0
+		const deleted: string[] = []
+		vi.spyOn(storage, 'delete').mockImplementation(async (key) => {
+			busy += 1
+			most = Math.max(most, busy)
+			await new Promise((resolve) => setTimeout(resolve, 0))
+			deleted.push(key)
+			busy -= 1
+		})
+		await sweep()
+		expect(most).toBe(16)
+		expect(new Set(deleted).size).toBe(1001)
+		expect(await blobs()).toStrictEqual([])
+	})
+
+	it('deletes the rows of the objects it deleted only (D-351)', async () => {
+		const { storage, warnings } = await start()
+		await cover()
+		await FilesBlob.updateMany(
+			{ where: {}, data: { deleteAfter: new Date(Date.now() - 1) } },
+			M,
+		)
+		const [, thumb] = await blobs()
+		const remove = storage.delete.bind(storage)
+		vi.spyOn(storage, 'delete').mockImplementation(async (key) => {
+			if (key === thumb?.key) throw new Error('Down.')
+			await remove(key)
+		})
+		await sweep()
+		expect((await blobs()).map(({ name }) => name)).toStrictEqual(['thumb'])
+		expect(storage.objects.has(thumb?.key ?? '')).toBe(true)
+		expect(storage.objects.size).toBe(1)
+		expect(warnings).toHaveLength(1)
+	})
 })
 
 describe('files.check', () => {
@@ -523,6 +812,24 @@ describe('files.check', () => {
 		await files.check({ delete: true })
 		expect(storage.objects.size).toBe(0)
 		expect(row?.id).toBe(id)
+	})
+
+	it('deletes every object it can, then fails with the first refusal (D-351)', async () => {
+		const { storage } = await start()
+		const put = (key: string) =>
+			storage.put(key, text, {
+				type: 'text/plain',
+				size: text.length,
+				attachment: true,
+			})
+		await Promise.all(['private/a', 'private/b', 'private/c'].map(put))
+		const remove = storage.delete.bind(storage)
+		vi.spyOn(storage, 'delete').mockImplementation(async (key) => {
+			if (key === 'private/b') throw new Error('Down.')
+			await remove(key)
+		})
+		await expect(files.check({ delete: true })).rejects.toThrow('Down.')
+		expect([...storage.objects.keys()]).toStrictEqual(['private/b'])
 	})
 
 	it('needs the plugin started', async () => {

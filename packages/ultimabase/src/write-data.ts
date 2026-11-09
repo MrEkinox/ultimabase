@@ -43,10 +43,14 @@ export function issueOf(
 	return `Expected a list of ${of}.`
 }
 
+/** The most levels a write nests, well within the stack (D-350). */
+export const maxWriteDepth = 32
+
 /**
  * The caller's data, its shape checked, as a draft the hooks may change: a
  * copy, down to the rows it creates and updates, which never write the
- * relation they are written through (D-128, D-138).
+ * relation they are written through (D-128, D-138). The written row is
+ * level 1, each row it creates or updates one level deeper (D-350).
  */
 export function readData(
 	models: Models,
@@ -55,7 +59,14 @@ export function readData(
 	creating: boolean,
 	at = 'data',
 	inverse?: string,
+	depth = 1,
 ): Draft {
+	if (depth > maxWriteDepth) {
+		throw new InvalidQuery(
+			at,
+			`${at}: the write is nested more than ${maxWriteDepth} levels deep.`,
+		)
+	}
 	const draft: Draft = {}
 	const back = inverse === undefined ? undefined : model.fields.get(inverse)
 	// A `oneOf` written through one of its kinds is that kind's (D-247).
@@ -71,7 +82,15 @@ export function readData(
 		}
 		const oneOf = model.oneOfs.get(name)
 		if (oneOf !== undefined) {
-			draft[name] = oneOfData(models, model, oneOf, value, path, creating)
+			draft[name] = oneOfData(
+				models,
+				model,
+				oneOf,
+				value,
+				path,
+				creating,
+				depth,
+			)
 			continue
 		}
 		// A view is read-only (D-151, D-240); a oneOf's keys are hidden.
@@ -89,7 +108,15 @@ export function readData(
 		const nested = (item: Draft, where: string, creates = true): Draft =>
 			target === undefined
 				? item
-				: readData(models, target, item, creates, where, field.inverse)
+				: readData(
+						models,
+						target,
+						item,
+						creates,
+						where,
+						field.inverse,
+						depth + 1,
+					)
 		const orCreated = (item: OrCreate, where: string): OrCreate => ({
 			where: item.where,
 			create: nested(item.create, `${where}.create`),
@@ -138,6 +165,7 @@ function oneOfData(
 	value: unknown,
 	path: string,
 	creating: boolean,
+	depth: number,
 ): Draft {
 	const named = oneOfWrite(value, path, info, creating)
 	if (named === undefined) return { disconnect: true }
@@ -148,7 +176,7 @@ function oneOfData(
 	const nested = (item: Draft, where: string): Draft =>
 		target === undefined || hidden?.kind !== 'one'
 			? item
-			: readData(models, target, item, true, where, hidden.inverse)
+			: readData(models, target, item, true, where, hidden.inverse, depth + 1)
 	const operand =
 		write.kind === 'connect'
 			? { id: write.id }

@@ -10,7 +10,11 @@ import { inOrder, type Installed } from './plugin-app.ts'
 // whose transaction and recording a hook's queries must not join.
 const outside = AsyncLocalStorage.snapshot()
 
-type Hook = 'changed' | 'lost' | 'missed'
+/** Logs a plugin's hook failing, thrown or rejected: nothing awaits it. */
+export const guarded =
+	({ logger }: Installed['context'], hook: string) =>
+	(err: unknown): void =>
+		logger.error({ err }, `The plugin's ${hook} failed.`)
 
 /**
  * Calls the kernel's `own` feed, then each plugin's `changed`, `lost` and
@@ -26,16 +30,17 @@ export function feedOf(
 	)
 	if (takers.length === 0 && own === undefined) return undefined
 	// A plugin failing on a change must not stop the others nor the write.
-	const each = (hook: Hook, args: readonly unknown[]): void => {
+	const each = (hook: keyof Feed, args: readonly unknown[]): void => {
 		for (const { code, context } of takers) {
 			const run = code[hook]
 			if (run === undefined) continue
 			try {
-				outside(() => {
-					Reflect.apply(run, undefined, [...args, context])
-				})
+				const result = outside((): unknown =>
+					Reflect.apply(run, undefined, [...args, context]),
+				)
+				if (result instanceof Promise) result.catch(guarded(context, hook))
 			} catch (error) {
-				context.logger.error({ err: error }, `The plugin's ${hook} failed.`)
+				guarded(context, hook)(error)
 			}
 		}
 	}

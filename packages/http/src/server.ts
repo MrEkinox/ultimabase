@@ -1,6 +1,6 @@
 // The port the server listens on, and its listening (D-106); the body
 // limit and the drain (D-223); its connection queue (D-276); its listeners
-// (D-292).
+// (D-292); how long it waits for headers (D-348).
 import cluster from 'node:cluster'
 import type { Server } from 'node:http'
 import { createServer } from 'node:http'
@@ -122,12 +122,18 @@ export async function listening(server: Server, port: number): Promise<number> {
 	return at
 }
 
+/**
+ * A client that never ends its headers holds a socket 10 s, not Node's 60;
+ * checked every second, not every 30.
+ */
+const waits = { headersTimeout: 10_000, connectionsCheckingInterval: 1000 }
+
 /** A Node server for `fetch`, Hono's handler. */
 export function serverOf(
 	fetch: Parameters<typeof getRequestListener>[0],
 ): Server {
 	const listener = getRequestListener(fetch)
-	const server = createServer((request, response) => {
+	const server = createServer(waits, (request, response) => {
 		// A request running when `stop` began leaves its connection idle after
 		// its response: close it, rather than wait for the client to.
 		response.once('finish', () => {

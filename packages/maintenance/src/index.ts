@@ -1,8 +1,8 @@
 // Maintenance (D-205): while it is on, every request and WebSocket upgrade but
 // Master's answers 503 `MAINTENANCE`, and the sockets open close with 1012.
 // Its state is a row: every server follows it through the change feed, and
-// starts from `initial` while there is none (D-207). Reads and writes are
-// numbered: one that ends after a later one has no effect.
+// starts from `initial` while there is none (D-207). A read is numbered as it
+// begins, a write once stored: one that ends after a later one has no effect.
 import type { Http } from '@ultimabase/http'
 import { httpPlugin, routes } from '@ultimabase/http'
 import type { Logger, PluginOf, PluginTypes } from 'ultimabase'
@@ -83,7 +83,6 @@ async function stored(state: State): Promise<boolean> {
 }
 
 async function store(state: State, locked: boolean): Promise<void> {
-	const n = ++state.begun
 	await MaintenanceState.upsert(
 		{
 			where: { key },
@@ -92,7 +91,8 @@ async function store(state: State, locked: boolean): Promise<void> {
 		},
 		{ as: master },
 	)
-	follow(state, n, locked)
+	// A read begun before the write was stored may hold the state it replaced.
+	follow(state, ++state.begun, locked)
 }
 
 /** Reads the state again; keeps the last one when it cannot. */

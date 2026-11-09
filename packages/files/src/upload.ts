@@ -1,10 +1,11 @@
-// An upload (D-152): its field, its size and its type checked, its pending
-// `FilesBlob` row inserted as its caller, then its object stored. When it
-// fails, its objects and its rows are deleted.
+// An upload (D-152): its caller, its field, its size and its type checked,
+// its pending `FilesBlob` row inserted as its caller, then its object
+// stored. When it fails, its objects and its rows are deleted.
 import { randomUUID } from 'node:crypto'
 import { fileTypeFromBuffer } from 'file-type'
 import type { Identity, JsonValue, QueryOptions } from 'ultimabase'
 import { isMaster, PublicError } from 'ultimabase'
+import { completedCaller } from 'ultimabase/internal'
 import type { FileInput, FileOptions, Inline } from './field.ts'
 import { bytesOf } from './memory.ts'
 import { FilesBlob, hour, M } from './model.ts'
@@ -93,6 +94,18 @@ const matches = (accept: readonly string[], type: string): boolean =>
 			: pattern === type,
 	)
 
+/**
+ * Whether a browser may show a detected type inline: an image, audio, video
+ * or a PDF. Anything else, XML that holds SVG or XHTML included, runs its
+ * scripts or does nothing inline, so it is a download (D-351). `file-type`
+ * detects no SVG today; one it detects later stays a download.
+ */
+export const shown = (type: string): boolean =>
+	/^(?:image\/(?!svg)|audio\/|video\/|application\/pdf$)/u.test(type)
+
+/** A media type: two names of 127 characters at most, RFC 6838's. */
+const mediaType = /^[a-z\d][\w!#$&^.+-]{0,126}\/[a-z\d][\w!#$&^.+-]{0,126}$/u
+
 /** The type a file is stored with, and whether it is served as a download. */
 async function typeOf(
 	sample: Uint8Array,
@@ -104,19 +117,15 @@ async function typeOf(
 		detected !== undefined &&
 		(accept === undefined || matches(accept, detected))
 	) {
-		return { type: detected, attachment: detected === 'image/svg+xml' }
+		return { type: detected, attachment: !shown(detected) }
 	}
-	const [media = ''] = (declared ?? '').split(';')
-	const type = media.trim().toLowerCase()
-	if (detected === undefined && accept === undefined) {
-		return {
-			type: type === '' ? 'application/octet-stream' : type,
-			attachment: true,
-		}
-	}
+	const media = (declared ?? '').split(';')[0]?.trim().toLowerCase() ?? ''
+	// RFC 6838's grammar: anything else is no type (D-351).
+	const type = mediaType.test(media) ? media : ''
 	// An undetected type is taken as declared only when accept lists it.
-	if (detected === undefined && accept?.includes(type) === true) {
-		return { type, attachment: true }
+	if (detected === undefined && (accept?.includes(type) ?? true)) {
+		const known = type === '' ? 'application/octet-stream' : type
+		return { type: known, attachment: true }
 	}
 	throw new PublicError(
 		'UNSUPPORTED_MEDIA_TYPE',
@@ -124,10 +133,10 @@ async function typeOf(
 	)
 }
 
-/** A variant's own type, served as a download unless its bytes say it. */
+/** A variant's own type, served as a download unless its bytes say it, shown. */
 async function attachmentOf(body: Uint8Array, type: string): Promise<boolean> {
 	const detected = (await fileTypeFromBuffer(body))?.mime
-	return detected !== type || type === 'image/svg+xml'
+	return detected !== type || !shown(type)
 }
 
 async function inlineValue(
@@ -153,6 +162,19 @@ async function inlineValue(
 	}
 	// oxlint-disable-next-line typescript/no-unsafe-type-assertion -- JSON.parse gives JSON.
 	return JSON.parse(json) as JsonValue
+}
+
+/**
+ * Refuses a caller `access.upload` refuses before a byte is read, and before
+ * its field is checked, so a refusal names no model or field (D-351).
+ */
+async function allowed(caller: Identity): Promise<void> {
+	if (isMaster(caller)) return
+	const { upload: rule, logger } = runningOf()
+	if (rule({ caller: await completedCaller(caller) })) return
+	const callerId = caller.kind === 'user' ? caller.user.id : null
+	logger.warn({ callerId }, 'An upload was refused.')
+	throw new PublicError('ACCESS_DENIED', 'The upload is refused.')
 }
 
 const uploaderOf = (caller: Identity): string | null =>
@@ -192,6 +214,7 @@ export async function upload(
 	options: UploadOptions,
 ): Promise<{ readonly id: string }> {
 	const { name, as: caller = { kind: 'anonymous' } } = options
+	await allowed(caller)
 	const field = fieldOf(options.for)
 	if (name === '') throw invalid('name', 'Expected a file name.')
 	const { storage, logger, maxSize: appMaxSize } = runningOf()
@@ -206,52 +229,52 @@ export async function upload(
 	const read = buffered
 		? { sample: await bytesOf(body), body: undefined }
 		: await sampled(body)
-	const { type, attachment } = await typeOf(
-		read.sample,
-		options.type,
-		field.accept,
-	)
+	const bytes = read.sample
+	const { type, attachment } = await typeOf(bytes, options.type, field.accept)
+	if (buffered && bytes.length !== size) {
+		throw invalid('size', `The file has ${bytes.length} bytes, not ${size}.`)
+	}
+	// Made before the rows, so an upload writes its row, then its variants'.
+	const made = buffered
+		? await madeOf(field, { body: bytes, type, name })
+		: undefined
 	const prefix = field.public === true ? 'public' : 'private'
 	const keyOf = () => `${prefix}/${randomUUID()}`
 	const uploadedBy = uploaderOf(caller)
 	const deleteAfter = new Date(Date.now() + hour)
 	const blob = { field: options.for, uploadedBy, state: 'pending', deleteAfter }
 	const main = await FilesBlob.create(
-		{ data: { ...blob, key: keyOf(), name, type, size } },
+		{
+			data: {
+				...blob,
+				key: keyOf(),
+				name,
+				type,
+				size,
+				inline: made?.inline ?? null,
+			},
+		},
 		{ as: caller },
 	)
-	const keys = [main.key]
-	const ids = [main.id]
+	const variants = (made?.variants ?? []).map(
+		([key, variantBody, variantType]) => ({
+			row: {
+				...blob,
+				key: keyOf(),
+				name: key,
+				type: variantType,
+				size: variantBody.length,
+				variantOf: main.id,
+			},
+			body: variantBody,
+		}),
+	)
 	try {
 		if (read.body !== undefined) {
 			await storage.put(main.key, read.body, { type, size, attachment })
 			return { id: main.id }
 		}
-		const bytes = read.sample
-		if (bytes.length !== size) {
-			throw invalid('size', `The file has ${bytes.length} bytes, not ${size}.`)
-		}
-		const made = await madeOf(field, { body: bytes, type, name })
-		const variants = await settled(
-			made.variants.map(async ([key, variantBody, variantType]) => {
-				const row = await FilesBlob.create(
-					{
-						data: {
-							...blob,
-							key: keyOf(),
-							name: key,
-							type: variantType,
-							size: variantBody.length,
-							variantOf: main.id,
-						},
-					},
-					M,
-				)
-				keys.push(row.key)
-				ids.push(row.id)
-				return { row, body: variantBody }
-			}),
-		)
+		await FilesBlob.createMany({ data: variants.map(({ row }) => row) }, M)
 		await settled([
 			storage.put(main.key, bytes, { type, size, attachment }),
 			...variants.map(async ({ row, body: variantBody }) =>
@@ -262,16 +285,14 @@ export async function upload(
 				}),
 			),
 		])
-		await FilesBlob.update(
-			{ where: { id: main.id }, data: { inline: made.inline } },
-			M,
-		)
 		return { id: main.id }
 	} catch (error) {
 		// The sweep deletes what this cannot: the rows expire within the hour.
 		try {
+			const keys = [main.key, ...variants.map(({ row }) => row.key)]
 			await Promise.all(keys.map((key) => storage.delete(key)))
-			await FilesBlob.deleteMany({ where: { id: { in: ids } } }, M)
+			const where = { OR: [{ id: main.id }, { variantOf: main.id }] }
+			await FilesBlob.deleteMany({ where }, M)
 		} catch (cleanup) {
 			logger.warn({ err: cleanup }, 'A failed upload was not cleaned up.')
 		}

@@ -705,6 +705,10 @@ nested input names are in the [details](#details).
 - The relation back to the row being written is not written again: a book
   created under a publisher cannot also `connect` its publisher. The types
   refuse it, and so does the server, for clients.
+- A write nests at most 32 levels, for every caller: each row written by
+  `create`, `connectOrCreate` or `update` under another is one level deeper.
+  The 33rd is refused: `data.parent.create.….parent.create: the write is
+nested more than 32 levels deep.`
 
 ### Deleting
 

@@ -139,6 +139,16 @@ async function serving(options: RestOptions = {}) {
 	return { url: running.url, document: body }
 }
 
+/** The status `/api/openapi.json` answers with `options`. */
+async function documentStatus(options: RestOptions): Promise<number> {
+	const running = await started(options, memory(), functions, models)
+	try {
+		return (await call(running.url, 'GET', '/api/openapi.json')).status
+	} finally {
+		await running.app.stop()
+	}
+}
+
 /** Whether `value` is of the schema at `path` of the document. */
 function checker(document: Node) {
 	const ajv = new Ajv2020({ strict: false, validateFormats: false })
@@ -184,6 +194,19 @@ describe('the document', () => {
 			expect(result).toEqual({ valid: true })
 			await stop?.()
 			stop = undefined
+		}
+	})
+
+	it('is not served in production, unless openapi is set (D-350)', async () => {
+		expect(await documentStatus({})).toBe(200)
+		expect(await documentStatus({ openapi: false })).toBe(404)
+		const before = process.env['NODE_ENV']
+		process.env['NODE_ENV'] = 'production'
+		try {
+			expect(await documentStatus({})).toBe(404)
+			expect(await documentStatus({ openapi: true })).toBe(200)
+		} finally {
+			process.env['NODE_ENV'] = before
 		}
 	})
 

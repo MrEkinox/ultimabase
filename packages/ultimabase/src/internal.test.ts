@@ -12,7 +12,13 @@ import {
 	memory,
 	transaction,
 } from './index.ts'
-import { emptyRunning, joining, quietRuns, runningApi } from './internal.ts'
+import {
+	completedCaller,
+	emptyRunning,
+	joining,
+	quietRuns,
+	runningApi,
+} from './internal.ts'
 
 const M = { as: master }
 const Note = defineModel({
@@ -227,4 +233,24 @@ it('fails when operations still run after 5 s, emptying nothing (D-188)', async 
 	} finally {
 		vi.useRealTimers()
 	}
+})
+
+it('completes a caller with its plugins keys, while running (D-351)', async () => {
+	const alice = { kind: 'user', user: { id: 'alice' } } as const
+	await expect(completedCaller(alice)).rejects.toThrow(
+		'No application is running.',
+	)
+	const badging = definePlugin({
+		name: 'badging',
+		manifest: { ...manifest, name: 'badging' },
+		caller: ({ user }) => ({ badge: `${user.id}'s` }),
+	})
+	const app = defineApp({
+		database: memory(),
+		models: [Note],
+		plugins: [badging.plugin()],
+	})
+	await app.start()
+	stop = async () => app.stop()
+	expect(await completedCaller(alice)).toMatchObject({ badge: "alice's" })
 })

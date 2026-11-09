@@ -25,7 +25,7 @@ export type Live = {
 	readonly realtime: RealtimeApi
 	readonly streams: Set<() => void>
 	readonly kept: Map<string, Kept>
-	readonly open: Map<string, () => void>
+	readonly open: Map<string, Opened>
 	readonly logger: Logger
 }
 
@@ -80,6 +80,9 @@ type Stream = {
 }
 
 type Keep = { readonly token: string; first: number }
+
+/** A list whose client is still there, and what ends its request. */
+type Opened = { readonly stream: Stream; readonly end: () => void }
 
 /** A list whose client left, until a resume takes it or its time is up. */
 export type Kept = {
@@ -266,10 +269,11 @@ function eventsFor(
 	live.streams.add(finish)
 	if (stream.keep !== undefined) {
 		// A resume may come before the server sees this client leave.
-		live.open.set(stream.keep.token, () => {
+		const end = () => {
 			leave()
 			events.end()
-		})
+		}
+		live.open.set(stream.keep.token, { stream, end })
 		// First, before what a kept list held.
 		events.send('resume', stream.keep.token)
 	}
@@ -284,13 +288,19 @@ async function resumed(
 	list: Listed,
 ): Promise<Response | undefined> {
 	const token = list.resume ?? ''
-	live.open.get(token)?.()
+	const found = (live.open.get(token) ?? live.kept.get(token))?.stream
+	// Another read, or another user's, leaves the list as it is (D-154).
+	if (
+		found?.signature !== list.signature ||
+		!(await live.realtime.sameUser(found.viewer, detached(request)))
+	) {
+		return undefined
+	}
+	live.open.get(token)?.end()
 	const kept = live.kept.get(token)
 	if (kept === undefined) return undefined
 	const { stream, handle, keep } = kept
-	if (stream.signature !== list.signature || list.first < keep.first) {
-		return undefined
-	}
+	if (list.first < keep.first) return undefined
 	// Out first, so that neither its time nor another request takes it.
 	kept.take()
 	// The kept read follows this request's caller; another user ends it.

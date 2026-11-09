@@ -272,6 +272,27 @@ describe('start', () => {
 		expect(listeners()).toBe(before + 1)
 	})
 
+	it('stops its database once when its tables cannot be read', async () => {
+		const unreadable = defineApp({
+			database: {
+				...tracked(),
+				migrations: {
+					snapshot: () => ({}),
+					plan: () => [],
+					stored: async () => {
+						throw new Error('Unreadable.')
+					},
+					apply: async () => undefined,
+					reset: async () => [],
+				},
+			},
+			models: [Note],
+			logger: recorder(),
+		})
+		await expect(unreadable.start()).rejects.toThrow('Unreadable.')
+		expect(log).toEqual(['database.stop'])
+	})
+
 	it('refuses a second start while the first runs', async () => {
 		const [first, second] = await Promise.allSettled([app.start(), app.start()])
 		expect(first.status).toBe('fulfilled')

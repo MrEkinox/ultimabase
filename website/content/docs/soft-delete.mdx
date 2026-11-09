@@ -147,8 +147,9 @@ Restoring that row is then a `UNIQUE_VIOLATION`:
 - `trash` reads under the `read` rule, and `restore` writes under the
   `update` rule.
 
-Only Master writes `deletedAt`: a client deletes through the `delete` rule and
-never dates a row itself. The request is refused with `ACCESS_DENIED`:
+Only Master dates a row: a client deletes through the `delete` rule, and a
+`deletedAt` it writes can only be `null`. A date is refused with
+`ACCESS_DENIED`:
 
 <include cwd meta='title="Request"'>
 	../examples/soft-delete/src/requests/date.graphql
@@ -183,20 +184,21 @@ model uses `softDelete()`. `softDelete()` adds:
 
 ### What a delete does
 
-| Case                    | Result                                                                             |
-| ----------------------- | ---------------------------------------------------------------------------------- |
-| `delete`, `deleteMany`  | Dates the rows and returns them, as a delete does; no row is removed.              |
-| the row's relations     | Stay: a soft-deleted row cascades nothing, and keeps its related rows.             |
-| the row's unique values | Stay taken, unless an index's `where` is `{ deletedAt: null }`: see Unique values. |
-| a read, a count         | Leaves the deleted rows out, for every caller.                                     |
-| a relation to the row   | A `one` to it reads `null`, for every caller.                                      |
+| Case                    | Result                                                                              |
+| ----------------------- | ----------------------------------------------------------------------------------- |
+| `delete`, `deleteMany`  | Dates the rows and returns them, as a delete does; no row is removed.               |
+| the row's relations     | Stay: a soft-deleted row cascades nothing, and keeps its related rows.              |
+| a cascade reaching it   | Removes it for good, a row in the trash included: it would reference a removed row. |
+| the row's unique values | Stay taken, unless an index's `where` is `{ deletedAt: null }`: see Unique values.  |
+| a read, a count         | Leaves the deleted rows out, for every caller.                                      |
+| a relation to the row   | A `one` to it reads `null`, for every caller.                                       |
 
 ### Errors
 
-| Code            | When                                                                                     |
-| --------------- | ---------------------------------------------------------------------------------------- |
-| `NOT_FOUND`     | `restore` of a row that is not deleted.                                                  |
-| `ACCESS_DENIED` | A caller other than Master writes `deletedAt`; a `delete` or `restore` the rules refuse. |
+| Code            | When                                                                                               |
+| --------------- | -------------------------------------------------------------------------------------------------- |
+| `NOT_FOUND`     | `restore` of a row that is not deleted.                                                            |
+| `ACCESS_DENIED` | A caller other than Master writes a date to `deletedAt`; a `delete` or `restore` the rules refuse. |
 
 ### Limits
 

@@ -16,8 +16,8 @@ type Format = (error: Readonly<GraphQLError | Error>) => GraphQLError | Error
 function unvalued(error: Readonly<GraphQLError>): GraphQLError {
 	const { message, nodes, path, extensions } = error
 	const reason = message.replace(
-		/[,;]? [Ff]ound: [\s\S]*$|(?<= cannot represent [^:]*): [\s\S]*$/,
-		'',
+		/[,;]? [Ff]ound: [\s\S]*$|(?<= cannot represent [^:]*): [\s\S]*$|Value "[\s\S]*" (?=does not exist in "\w+" enum\.$)/,
+		(cut) => (cut.startsWith('Value') ? 'The value ' : ''),
 	)
 	const ended =
 		reason === message || /[.?]$/.test(reason) ? reason : `${reason}.`
@@ -26,6 +26,21 @@ function unvalued(error: Readonly<GraphQLError>): GraphQLError {
 		path,
 		extensions: { code: 'BAD_USER_INPUT', ...extensions },
 	})
+}
+
+/**
+ * graphql-js's refusal of the variables. It coerces them recursively: nested
+ * deeper than the stack, they are refused, over HTTP and WebSocket (D-228).
+ */
+export function shallow(
+	errors: readonly GraphQLError[],
+): readonly GraphQLError[] {
+	const deep = errors.some(
+		({ originalError }) => originalError instanceof RangeError,
+	)
+	return deep
+		? [new GraphQLError('The variables are nested too deep.')]
+		: errors
 }
 
 /** `graphql-http`'s `formatError`: what a client sees of each error. */

@@ -52,7 +52,7 @@ function parse(text: string): Term[][] {
 	return groups.filter((group) => group.length > 0)
 }
 
-/** The searched fields of `row`, in declaration order, as one document. */
+/** The searched fields of `row` as one document, held as a `tsvector` (D-347). */
 function documentOf(
 	fields: Fields,
 	row: { readonly [field: string]: unknown },
@@ -60,8 +60,11 @@ function documentOf(
 	const texts = searchedFields(fields?.values() ?? []).map((name) => row[name])
 	const result = new Map<string, number[]>()
 	const all = texts.filter((text) => typeof text === 'string').join(' ')
-	for (const [at, word] of words(all).entries()) {
-		result.set(word, [...(result.get(word) ?? []), at + 1])
+	for (const [index, word] of words(all).entries()) {
+		const list = result.get(word) ?? []
+		const at = Math.min(index + 1, 16_383)
+		if (list.length < 255 && list.at(-1) !== at) list.push(at)
+		result.set(word, list)
 	}
 	return result
 }

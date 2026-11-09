@@ -3,6 +3,7 @@
 import { master, PublicError, transaction } from 'ultimabase'
 import type { State } from './core.ts'
 import { checkNewFor, method, setPassword } from './core.ts'
+import { hashPassword } from './hash.ts'
 import type { Email, EmailKind } from './tokens.ts'
 import { emailLimited, invalidLink, issueToken, redeemToken } from './tokens.ts'
 
@@ -84,11 +85,13 @@ export async function reset(
 	password: string,
 	path?: readonly string[],
 ): Promise<void> {
-	// Checked before the link is used: a refused password keeps it (D-209).
-	const userId = await redeemCurrent(state, token, 'reset', async (id) =>
-		checkNewFor(state, id, password, path),
-	)
-	await setPassword(state, userId, password)
+	// Checked and hashed first: any refusal keeps the link (D-209, D-353).
+	let hash = ''
+	const userId = await redeemCurrent(state, token, 'reset', async (id) => {
+		await checkNewFor(state, id, password, path)
+		hash = await hashPassword(password)
+	})
+	await setPassword(state, userId, hash)
 	await verify(state, userId)
 }
 

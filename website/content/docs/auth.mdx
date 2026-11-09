@@ -294,13 +294,13 @@ It requires `httpPlugin()` and takes:
 
 It adds:
 
-| What     | Name             | Effect                                                                                          |
-| -------- | ---------------- | ----------------------------------------------------------------------------------------------- |
-| function | `signOut`        | Clears the cookie, ends the caller's session and the cookie's; `true`. Fails over a WebSocket.  |
-| query    | `viewer`         | The signed-in user's row, read with their rules, or `null`.                                     |
-| command  | `revokeSessions` | `User.revokeSessions({ id }, { as })`, as Master or as the user.                                |
-| models   | `AuthSession`    | The sessions; each token is stored as its SHA-256, never in clear.                              |
-|          | `AuthAccount`    | The accounts a user signs in with: a method and its subject, such as an email, unique together. |
+| What     | Name             | Effect                                                                                                               |
+| -------- | ---------------- | -------------------------------------------------------------------------------------------------------------------- |
+| function | `signOut`        | Clears the cookie, ends the caller's session and the cookie's; `true`. Refused over a WebSocket, with `BAD_REQUEST`. |
+| query    | `viewer`         | The signed-in user's row, read with their rules, or `null`.                                                          |
+| command  | `revokeSessions` | `User.revokeSessions({ id }, { as })`, as Master or as the user.                                                     |
+| models   | `AuthSession`    | The sessions; each token is stored as its SHA-256, never in clear.                                                   |
+|          | `AuthAccount`    | The accounts a user signs in with: a method and its subject, such as an email, unique together.                      |
 
 Both functions are public. The models are Master's only: no transport
 exposes them.
@@ -361,4 +361,6 @@ password does, starts, but nobody signs in: auth logs the warning
   application's own [HTTP routes](/docs/next/http#the-caller) included: a
   route that checks a token of its own reads another header.
 - A function sets the cookie only over HTTP; from server code, `User.signIn`
-  returns the token alone.
+  returns the token alone. Over a WebSocket, a sign-in or a sign-out is
+  refused before it writes; a plugin's own sign-in calls
+  `plugins.auth.needsCookies(client)` first to refuse the same way.

@@ -115,6 +115,13 @@ describe('json path filters', () => {
 			if (!invalid) accepted.push(extra)
 		}
 		expect(accepted).toEqual([])
+		// An operator the prototype of an object holds is no operator (D-347).
+		for (const operator of ['__proto__', 'constructor', 'toString']) {
+			const extra: unknown = JSON.parse(`{"path":[],"${operator}":"x"}`)
+			await expect(
+				query('Profile', 'findMany', { where: { extra } }, M),
+			).rejects.toMatchObject({ code: 'INVALID_QUERY' })
+		}
 		await expect(
 			query(
 				'Profile',

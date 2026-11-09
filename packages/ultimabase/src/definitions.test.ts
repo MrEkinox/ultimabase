@@ -302,6 +302,17 @@ describe('schema resolution (D-37)', () => {
 		expect(index('parent')).not.toThrow()
 	})
 
+	it('refuses an index over no field', () => {
+		const Post = defineModel({
+			name: 'Post',
+			fields: (f) => ({ title: f.string() }),
+			indexes: [{ fields: [], unique: true }],
+		})
+		expect(() => resolve([Post])).toThrow(
+			'Post: an index names at least one field.',
+		)
+	})
+
 	it("indexes the kernel's fields, in a non-unique index only (D-174)", () => {
 		const Message = defineModel({
 			name: 'Message',

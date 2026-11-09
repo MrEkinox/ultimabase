@@ -178,6 +178,18 @@ describe('the hashing queue', () => {
 		})
 		expect(await hashPassword('correct horse')).toMatch(/^\$argon2id\$/)
 	})
+
+	it('keeps no dummy hash a busy server refused (D-113)', async () => {
+		vi.resetModules()
+		// A module of its own, so no other test computed its dummy first.
+		const fresh = await import('./hash.ts')
+		const busy = Array.from({ length: lanes + waiting }, async () =>
+			fresh.hashPassword('correct horse'),
+		)
+		await expect(fresh.dummyHash()).rejects.toMatchObject(tooMany)
+		await Promise.all(busy)
+		expect(await fresh.dummyHash()).toMatch(/^\$argon2id\$/)
+	})
 })
 
 describe('the sign-up limit', () => {

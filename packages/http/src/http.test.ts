@@ -25,6 +25,7 @@ import {
 	drainOf,
 	listening as listeningOn,
 	portOf,
+	serverOf,
 } from './server.ts'
 
 const Note = defineModel({
@@ -515,6 +516,7 @@ describe('CORS', () => {
 		expect(preflight.headers.get('access-control-allow-credentials')).toBe(
 			'true',
 		)
+		expect(preflight.headers.get('access-control-max-age')).toBe('600')
 	})
 
 	it('answers only a preflight itself, and lets a route answer OPTIONS', async () => {
@@ -736,6 +738,19 @@ describe('the port', () => {
 			backlog: 4096,
 		})
 		await new Promise((done) => queued.close(done))
+	})
+
+	it('waits 10 s for headers, checked every second (D-348)', async () => {
+		const slow = serverOf(() => new Response(null))
+		await listeningOn(slow, 0)
+		// Node keeps the timer of its checks under this symbol only.
+		const checks = Object.getOwnPropertySymbols(slow).find(
+			(key) => key.description === 'http.server.connectionsCheckingInterval',
+		)
+		const timer: unknown = checks && Reflect.get(slow, checks)
+		expect(slow.headersTimeout).toBe(10_000)
+		expect(timer).toMatchObject({ _repeat: 1000 })
+		await new Promise((done) => slow.close(done))
 	})
 
 	it('names a port in use', async () => {
@@ -977,9 +992,28 @@ describe('a client’s address behind proxies (D-116)', () => {
 	it('is the connection’s when the entry is not an address', async () => {
 		const { url } = await server({ port: 0, proxies: 2, routes: [reading] })
 		expect(loopback).toContain(await addressOf(url, 'unknown, 10.0.0.1'))
-		expect(loopback).toContain(
-			await addressOf(url, '203.0.113.7:4711, 10.0.0.1'),
-		)
+		expect(loopback).toContain(await addressOf(url, '[unknown]:1, 10.0.0.1'))
+		expect(loopback).toContain(await addressOf(url, '203.0.113.7:, 10.0.0.1'))
+	})
+
+	it('drops the port a proxy appended to the entry (D-348)', async () => {
+		const { url } = await server({ port: 0, proxies: 2, routes: [reading] })
+		const entries = [
+			'203.0.113.7:4711',
+			'[2001:db8::1]:443',
+			'[2001:db8::2]',
+			'::ffff:203.0.113.8',
+		]
+		const read = []
+		for (const entry of entries) {
+			read.push(await addressOf(url, `${entry}, 10.0.0.1`))
+		}
+		expect(read).toEqual([
+			'203.0.113.7',
+			'2001:db8::1',
+			'2001:db8::2',
+			'::ffff:203.0.113.8',
+		])
 	})
 
 	it('ignores the header without proxies, and warns once', async () => {

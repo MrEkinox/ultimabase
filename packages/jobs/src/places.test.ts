@@ -9,7 +9,7 @@ import { defineApp, memory } from 'ultimabase'
 import { quietRuns } from 'ultimabase/internal'
 import { defineJob, jobsPlugin } from './index.ts'
 import { JobsRun, M } from './model.ts'
-import { drain, passes } from './runner.ts'
+import { drain, lease, passes, start } from './runner.ts'
 import { runningOf } from './state.ts'
 import { kept } from './test/kept.ts'
 
@@ -36,6 +36,7 @@ function shut(): void {
 let inFlight = 0
 let peak = 0
 let held = 0
+let late = false
 const holding = defineJob({
 	name: 'holding',
 	run: async () => {
@@ -47,6 +48,7 @@ const holding = defineJob({
 			inFlight -= 1
 			held += 1
 		}
+		if (late) throw new Error('Late.')
 	},
 })
 let quick = 0
@@ -81,6 +83,7 @@ beforeEach(() => {
 	held = 0
 	quick = 0
 	down = false
+	late = false
 })
 afterEach(() => {
 	release()
@@ -128,6 +131,72 @@ describe('an instance', () => {
 		release()
 		await runJobs()
 		expect(held).toBe(1)
+	})
+})
+
+/**
+ * Runs the row twice: once, then again by another instance after the lease;
+ * the first ends first. Gives the rows left between their ends.
+ */
+async function twice(): Promise<number> {
+	shut()
+	await holding.enqueue({ after: hour })
+	vi.setSystemTime(Date.now() + hour)
+	const app = runningOf('the test')
+	const [row] = await JobsRun.findMany({}, M)
+	if (row === undefined) throw new Error('No row.')
+	const first = start(app, row.id)
+	await vi.waitFor(() => {
+		expect(inFlight).toBe(1)
+	})
+	const ending = release
+	shut()
+	vi.setSystemTime(Date.now() + lease + 1)
+	const second = start(app, row.id)
+	await vi.waitFor(() => {
+		expect(inFlight).toBe(2)
+	})
+	ending()
+	expect(await first).toBe(true)
+	const between = await JobsRun.count({}, M)
+	release()
+	expect(await second).toBe(true)
+	return between
+}
+const outlived = {
+	level: 'warn',
+	message: 'The job holding outlived its lease: another instance took it over.',
+}
+
+describe('a run that outlived its lease', () => {
+	testApplication(
+		defineApp({
+			database: memory(),
+			models: [],
+			plugins: [jobsPlugin({ jobs })],
+			logger,
+		}),
+	)
+
+	it('is ended by the instance that took it over (D-352)', async () => {
+		// The row stays while the other instance holds it.
+		expect(await twice()).toBe(1)
+		expect(await JobsRun.count({}, M)).toBe(0)
+		expect(lines).toStrictEqual([outlived])
+		await runJobs()
+	})
+
+	it('counts the attempt of the instance that took it over (D-352)', async () => {
+		late = true
+		await twice()
+		expect(await JobsRun.findMany({}, M)).toMatchObject([
+			{ state: 'pending', attempts: 1, error: 'Late.' },
+		])
+		const again = {
+			level: 'warn',
+			message: 'The job holding failed: it runs again.',
+		}
+		expect(lines).toStrictEqual([again, outlived, again])
 	})
 })
 

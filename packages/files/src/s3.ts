@@ -3,7 +3,7 @@
 import type { Signer } from './sigv4.ts'
 import { presign } from './sigv4.ts'
 import type { FileStorage } from './storage.ts'
-import { isPublic, windowOf } from './storage.ts'
+import { isPublic, keyPattern, windowOf } from './storage.ts'
 
 /** What `s3()` takes; the first five are required, read when the application starts. */
 export interface S3Options {
@@ -72,8 +72,9 @@ function pageOf(xml: string): {
 	readonly keys: readonly string[]
 	readonly next: string | undefined
 } {
-	const keys = [...xml.matchAll(/<Key>([^<]*)<\/Key>/g)].map(([, key = '']) =>
-		decoded(key),
+	// A key of its own, a UUID, holds no entity to decode.
+	const keys = [...xml.matchAll(/<Key>([^<]*)<\/Key>/g)].map(
+		([, key = '']) => key,
 	)
 	const truncated = xml.includes('<IsTruncated>true</IsTruncated>')
 	const token = /<NextContinuationToken>([^<]*)</.exec(xml)?.[1]
@@ -116,20 +117,28 @@ export function s3(options: S3Options): FileStorage {
 			const response = await fetch(url, { method: 'DELETE' })
 			await answered(response, `DELETE ${key}`, [200, 204, 404])
 		},
+		// Its own keys only: a bucket may hold others, which `check` would
+		// delete (D-351).
 		keys: async () => {
-			const keys: string[] = []
-			let next: string | undefined
-			do {
-				const list = new URL(configured().base)
-				list.searchParams.set('list-type', '2')
-				if (next !== undefined)
-					list.searchParams.set('continuation-token', next)
-				const response = await fetch(signed('GET', list, 900))
-				const page = pageOf(await (await answered(response, 'list')).text())
-				keys.push(...page.keys)
-				next = page.next
-			} while (next !== undefined)
-			return keys
+			const listed = ['public/', 'private/'].map(async (prefix) => {
+				const keys: string[] = []
+				let next: string | undefined
+				do {
+					const list = new URL(configured().base)
+					list.searchParams.set('list-type', '2')
+					list.searchParams.set('prefix', prefix)
+					if (next !== undefined)
+						list.searchParams.set('continuation-token', next)
+					const response = await fetch(signed('GET', list, 900))
+					const page = pageOf(await (await answered(response, 'list')).text())
+					keys.push(...page.keys)
+					next = page.next
+				} while (next !== undefined)
+				return keys
+			})
+			return (await Promise.all(listed))
+				.flat()
+				.filter((key) => keyPattern.test(key))
 		},
 		url: (key) => {
 			if (!isPublic(key)) {

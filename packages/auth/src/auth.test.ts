@@ -14,7 +14,6 @@ import { AuthSession } from './sessions.ts'
 import {
 	bearer,
 	callerOf,
-	cannotSet,
 	cookie,
 	day,
 	functionNamed,
@@ -22,6 +21,7 @@ import {
 	graphqlOf,
 	listening,
 	M,
+	overSocket,
 	signIn,
 	socket,
 	started,
@@ -268,7 +268,7 @@ describe('a session’s lifetime', () => {
 		const { token } = await signIn(url, ada.id)
 		const [held] = await AuthSession.findMany({}, M)
 		const signing = given.auth?.signIn(ada.id, socket(token))
-		await expect(signing).rejects.toThrow(cannotSet)
+		await expect(signing).rejects.toMatchObject(overSocket)
 		expect(await AuthSession.findMany({}, M)).toStrictEqual([held])
 		expect((await callerOf(url, bearer(token))).status).toBe(200)
 	})
@@ -451,7 +451,7 @@ describe('signing out', () => {
 		const { url, ada } = await server()
 		const { token } = await signIn(url, ada.id)
 		const ending = functionNamed('signOut').run(undefined, M, socket(token))
-		await expect(ending).rejects.toThrow(cannotSet)
+		await expect(ending).rejects.toMatchObject(overSocket)
 		expect((await callerOf(url, bearer(token))).status).toBe(200)
 	})
 

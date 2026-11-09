@@ -1,15 +1,12 @@
 // Values as GraphQL's JSON (D-129): a date is ISO 8601 text, read back to a
 // `Date` from its field's type, in filters and in data, as `DateTime` is.
 import type { ServedOneOf } from '@ultimabase/http/internal'
-import { oneOfsOf } from '@ultimabase/http/internal'
+import { iso, oneOfsOf } from '@ultimabase/http/internal'
 import type { SchemaField } from 'ultimabase'
 import { InvalidQuery } from 'ultimabase'
-import { maxFilterDepth } from 'ultimabase/internal'
+import { maxFilterDepth, maxWriteDepth } from 'ultimabase/internal'
 import type { Api, Args } from './entries.ts'
 import { entryOf } from './entries.ts'
-
-const iso =
-	/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:\d{2})$/
 
 export const unknownKey = (path: string, model: string): InvalidQuery =>
 	new InvalidQuery(path, `Unknown key '${path}' on ${model}.`)
@@ -174,10 +171,11 @@ function relationOf(
 	field: Exclude<SchemaField, { readonly kind: 'scalar' }>,
 	value: Args,
 	path: string,
+	depth: number,
 ): Args {
 	const { target } = field
 	const hidden = !entryOf(api, target).visible
-	const row: Read = (item, at) => dataOf(api, target, item, at)
+	const row: Read = (item, at) => dataOf(api, target, item, at, depth + 1)
 	const unique: Read = (item, at) => whereOf(api, target, item, at)
 	const read: { [key: string]: unknown } = { ...value }
 	for (const [key, operand] of Object.entries(value)) {
@@ -212,6 +210,7 @@ function oneOfData(
 	oneOf: ServedOneOf,
 	value: Args,
 	path: string,
+	depth: number,
 ): Args {
 	const read: { [key: string]: unknown } = { ...value }
 	for (const op of ['create', 'connectOrCreate']) {
@@ -223,7 +222,8 @@ function oneOfData(
 			const at = `${path}.${op}.${kind}`
 			if (item === undefined) continue
 			if (!entryOf(api, field.target).visible) throw unknownKey(at, model)
-			const row: Read = (inner, to) => dataOf(api, field.target, inner, to)
+			const row: Read = (inner, to) =>
+				dataOf(api, field.target, inner, to, depth + 1)
 			const unique: Read = (inner, to) => whereOf(api, field.target, inner, to)
 			kinds[kind] = !isArgs(item)
 				? item
@@ -236,13 +236,18 @@ function oneOfData(
 	return read
 }
 
-/** Data with its dates read, in the rows its relation writes reach too. */
+/**
+ * Data with its dates read, in the rows its relation writes reach too. Past
+ * the deepest level, it is left as is, for the kernel to refuse (D-350).
+ */
 export function dataOf(
 	api: Api,
 	model: string,
 	data: Args,
 	path: string,
+	depth = 1,
 ): Args {
+	if (depth > maxWriteDepth) return data
 	const read: { [field: string]: unknown } = { ...data }
 	for (const field of entryOf(api, model).model.fields) {
 		const value = data[field.name]
@@ -256,14 +261,14 @@ export function dataOf(
 				throw new InvalidQuery(at, `${at} must be a number.`)
 			}
 		} else if (isArgs(value)) {
-			read[field.name] = relationOf(api, model, field, value, at)
+			read[field.name] = relationOf(api, model, field, value, at, depth)
 		}
 	}
 	for (const oneOf of oneOfsOf(entryOf(api, model).model)) {
 		const value = data[oneOf.name]
 		const at = `${path}.${oneOf.name}`
 		if (isArgs(value))
-			read[oneOf.name] = oneOfData(api, model, oneOf, value, at)
+			read[oneOf.name] = oneOfData(api, model, oneOf, value, at, depth)
 	}
 	return read
 }

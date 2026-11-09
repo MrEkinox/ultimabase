@@ -4,6 +4,7 @@ import { createHash } from 'node:crypto'
 import type { Adapter } from 'ultimabase'
 import { memory } from 'ultimabase'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { hashPassword, lanes, waiting } from './hash.ts'
 import type { Email, PasswordOptions } from './index.ts'
 import { PasswordRequest } from './models.ts'
 import {
@@ -243,6 +244,22 @@ describe('resetting a password', () => {
 		expect((await reset(url, tokenAt(0))).body).toEqual({
 			data: { resetPassword: true },
 		})
+	})
+
+	it('keeps the token when a busy server refuses its hash (D-353)', async () => {
+		const { url } = await server()
+		await request(url)
+		await sent(1)
+		const busy = Array.from({ length: lanes + waiting }, async () =>
+			hashPassword('filler password'),
+		)
+		const input = { token: tokenAt(0), password: 'new secret!' }
+		await expect(User.resetPassword(input)).rejects.toMatchObject({
+			code: 'TOO_MANY_ATTEMPTS',
+		})
+		await Promise.all(busy)
+		await User.resetPassword(input)
+		await User.signIn({ ...ada, password: input.password })
 	})
 
 	it('takes the newest token only, and none once a password is set', async () => {

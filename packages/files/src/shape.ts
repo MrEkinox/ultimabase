@@ -3,6 +3,7 @@
 // value.
 import type { StandardSchema } from './standard.ts'
 import type { FileOptions } from './field.ts'
+import { isRecord } from './values.ts'
 
 type Node = { readonly [key: string]: unknown }
 type Exported = {
@@ -11,9 +12,6 @@ type Exported = {
 		readonly output: () => Node
 	}
 }
-
-const isNode = (value: unknown): value is Node =>
-	typeof value === 'object' && value !== null && !Array.isArray(value)
 
 const string = { type: 'string' }
 const size = { type: 'integer', minimum: 0 }
@@ -29,15 +27,15 @@ const closed = (properties: { readonly [key: string]: Node }): Node => ({
 
 /** An inline value's JSON Schema, from its schema's; any JSON without one. */
 function inlineOf(inline: unknown): Node {
-	if (!isNode(inline) || !isNode(inline['schema'])) return {}
+	if (!isRecord(inline) || !isRecord(inline['schema'])) return {}
 	const standard = inline['schema']['~standard']
-	const exporter = isNode(standard) ? standard['jsonSchema'] : undefined
-	const output = isNode(exporter) ? exporter['output'] : undefined
+	const exporter = isRecord(standard) ? standard['jsonSchema'] : undefined
+	const output = isRecord(exporter) ? exporter['output'] : undefined
 	if (typeof output !== 'function') return {}
 	const node: unknown = Reflect.apply(output, exporter, [
 		{ target: 'draft-2020-12' },
 	])
-	if (!isNode(node)) return {}
+	if (!isRecord(node)) return {}
 	const { $schema: _, ...rest } = node
 	return rest
 }

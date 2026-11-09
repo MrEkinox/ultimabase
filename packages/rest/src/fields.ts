@@ -5,6 +5,7 @@ import type { Relay } from '@ultimabase/http/internal'
 import {
 	pageArgs,
 	pageOf,
+	sortDepth,
 	readable,
 	readableOneOfs,
 	readableVirtuals,
@@ -24,18 +25,6 @@ export type Read = {
 	readonly shape: Shape
 }
 
-/** The relations an `orderBy` goes through, the deepest path's. */
-function sortDepth(orderBy: unknown): number {
-	if (Array.isArray(orderBy)) return Math.max(0, ...orderBy.map(sortDepth))
-	if (typeof orderBy !== 'object' || orderBy === null) return 0
-	return Math.max(
-		0,
-		...Object.values(orderBy).map((value: unknown) =>
-			typeof value === 'object' && value !== null ? 1 + sortDepth(value) : 0,
-		),
-	)
-}
-
 const scalar = (entry: Entry, name: string): Out => ({
 	kind: 'scalar',
 	name,
@@ -47,21 +36,37 @@ const scalar = (entry: Entry, name: string): Out => ({
  * `id`, the dates, each scalar field a caller other than Master reads, and
  * each virtual of a scalar without an input (D-151).
  */
-export const defaultShape = (entry: Entry): Shape => ({
-	fields: [
-		...system.map((name) => scalar(entry, name)),
-		...readable(entry)
-			.filter((field) => field.kind === 'scalar')
-			.map((field) => scalar(entry, field.name)),
-		...defaultVirtuals(entry).map((name) => scalar(entry, name)),
-	],
-})
+export const defaultShape = (entry: Entry): Shape => defaultsOf(entry).shape
 
 /** The virtuals a row holds without `select` (D-151). */
 export const defaultVirtuals = (entry: Entry): readonly string[] =>
-	readableVirtuals(entry)
+	defaultsOf(entry).virtuals
+
+type Defaults = { readonly shape: Shape; readonly virtuals: readonly string[] }
+
+/** Each entry's defaults, built once: a function's rows read them each. */
+const defaults = new WeakMap<Entry, Defaults>()
+
+function defaultsOf(entry: Entry): Defaults {
+	const known = defaults.get(entry)
+	if (known !== undefined) return known
+	const virtuals = readableVirtuals(entry)
 		.filter((virtual) => virtual.default)
 		.map((virtual) => virtual.name)
+	const fields = [
+		...system,
+		...readable(entry)
+			.filter((field) => field.kind === 'scalar')
+			.map((field) => field.name),
+		...virtuals,
+	]
+	const built = {
+		shape: { fields: fields.map((name) => scalar(entry, name)) },
+		virtuals,
+	}
+	defaults.set(entry, built)
+	return built
+}
 
 // `take` for none or a negative number; above `maxTake`, the list refuses.
 export const sizeOf = (entry: Entry, asked: unknown): number =>

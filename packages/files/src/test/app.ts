@@ -74,6 +74,17 @@ export const Failing = defineModel({
 	}),
 })
 
+// A variant whose bytes are its type, a type a browser runs.
+export const Page = defineModel({
+	name: 'Page',
+	fields: () => ({
+		markup: file({
+			optional: true,
+			variants: { copy: ({ body }) => ({ body, type: 'application/xml' }) },
+		}),
+	}),
+})
+
 /** Records the warnings, and the URL the HTTP plugin listens on. */
 export function logging(warnings: unknown[], urls: string[] = []): Logger {
 	const logger: Logger = {
@@ -102,7 +113,7 @@ export async function started(
 	const app = defineApp({
 		database,
 		plugins: [httpPlugin({ port: 0 }), filesPlugin({ storage, ...options })],
-		models: [Post, Failing],
+		models: [Post, Failing, Page],
 		masterKey,
 		logger: logging(warnings, urls),
 	})

@@ -283,7 +283,9 @@ asked, `hasNextPage` is `true`:
 | `client` | over a transport, `{ address, cookies }`; `undefined` from server code |
 
 `client.cookies` has `get(name)`, `set(name, value, options?)` and
-`clear(name, options?)`, written on the HTTP response.
+`clear(name, options?)`, written on the HTTP response. Over a GraphQL
+WebSocket, `settable` is `false` and `set` and `clear` fail with
+`BAD_REQUEST`: a cookie is set only over HTTP.
 
 ### Outputs
 

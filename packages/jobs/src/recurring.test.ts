@@ -17,6 +17,8 @@ import { quietRuns } from 'ultimabase/internal'
 import type { JobsOptions } from './index.ts'
 import { defineJob, jobsPlugin } from './index.ts'
 import { JobsRun, M } from './model.ts'
+import { schedule } from './runner.ts'
+import { runningOf } from './state.ts'
 import { kept } from './test/kept.ts'
 
 const lines: { level: string; message: string }[] = []
@@ -136,6 +138,26 @@ describe('a recurring job', () => {
 		await runJobs()
 		expect(await rows()).toMatchObject([{ error: null }, {}])
 	})
+
+	it('has its rows synced by instances starting at once (D-352)', async () => {
+		const app = runningOf('the test')
+		await JobsRun.deleteMany({ where: { job: 'hourly' } }, M)
+		const gone = { job: 'gone', recurring: 'gone', state: 'pending' }
+		await JobsRun.create(
+			{ data: { ...gone, dueAt: new Date(), attempts: 0 } },
+			M,
+		)
+		await Promise.all([schedule(app), schedule(app), schedule(app)])
+		expect(await rows()).toMatchObject([{ job: 'hourly' }, { job: 'nightly' }])
+		// Any other refusal stops the start.
+		const record = app.jobs.get('hourly')
+		if (record === undefined) throw new Error('No hourly.')
+		const broken = { ...record, name: 'broken', next: () => Number.NaN }
+		const jobs = new Map([['broken', broken]])
+		await expect(schedule({ ...app, jobs })).rejects.toMatchObject({
+			code: 'VALIDATION_FAILED',
+		})
+	})
 })
 
 describe('a cron pattern across daylight saving', () => {
@@ -231,7 +253,22 @@ describe('the recurring rows at startup', () => {
 		await third.start()
 		const [row] = await rows()
 		expect(row?.dueAt).toStrictEqual(new Date('2027-01-04T09:00:00Z'))
+		// One an older version turned failed is pending again (D-352).
+		const failed = { state: 'failed', attempts: 1 }
+		await JobsRun.updateMany({ where: { job: 'weekly' }, data: failed }, M)
 		await third.stop()
+		const fourth = runOf([everyHalfHour, weekly])
+		await fourth.start()
+		expect(await rows()).toMatchObject([
+			{ job: 'hourly', state: 'pending', attempts: 0 },
+			{
+				job: 'weekly',
+				state: 'pending',
+				attempts: 0,
+				dueAt: new Date('2027-01-04T09:00:00Z'),
+			},
+		])
+		await fourth.stop()
 	})
 })
 

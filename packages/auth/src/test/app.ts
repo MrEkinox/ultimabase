@@ -135,15 +135,19 @@ export async function signIn(
 
 export const bearer = (token: string) => ({ authorization: `Bearer ${token}` })
 
-export const cannotSet =
-	'A cookie is set over HTTP: a WebSocket cannot set one.'
+/** How auth refuses signing in or out over a WebSocket (D-354). */
+export const overSocket = {
+	code: 'BAD_REQUEST',
+	message: 'Signing in or out needs HTTP.',
+}
 const unset = () => {
-	throw new Error(cannotSet)
+	throw new Error('A WebSocket cannot set a cookie.')
 }
 /** A GraphQL socket's client: it reads the cookie `token`, sets none. */
 export const socket = (token: string): Client => ({
 	address: '',
 	cookies: {
+		settable: false,
 		get: (name) => (name === 'ultimabase_session' ? token : undefined),
 		set: unset,
 		clear: unset,

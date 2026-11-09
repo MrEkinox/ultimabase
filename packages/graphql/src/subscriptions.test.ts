@@ -80,6 +80,26 @@ const Card = defineModel({
 	use: [graphql(), realtime()],
 	fields: (f) => ({ board: f.one(() => Board) }),
 }).with({ access: allow.readOnly })
+/** `count` aliases of `field`, a row's id by default. */
+const aliases = (count: number, field = 'id') =>
+	Array.from({ length: count }, (_, i) => `a${i}: ${field}`).join(' ')
+/** A live list refused for its values a row (D-349). */
+const wideRefusal = {
+	errors: [
+		expect.objectContaining({
+			message:
+				'The document returns more than 50 values a row. Select fewer fields or aliases.',
+			extensions: { code: 'BAD_USER_INPUT' },
+		}),
+	],
+}
+/**
+ * Boards and their cards, each card with `count` aliases. A board and its
+ * 2 cards are 3 rows, which return 10 values, then 2 an alias.
+ */
+const listed = (count: number) =>
+	`subscription { boards(first: 2) { edges { node { id cards(first: 2) {
+		edges { node { id ${aliases(count)} } } } } } } }`
 
 const cookie = defineFunction({
 	name: 'cookie',
@@ -1103,6 +1123,29 @@ describe('a live row', () => {
 		})
 		await results.return?.()
 	})
+
+	it('counts its values, not the rows maxLive bounds (D-349)', async () => {
+		const url = await started({
+			graphql: { maxRows: 10 },
+			models: [Task, Note, Board, Card],
+		})
+		const { id } = await Board.create({ data: {} }, M)
+		// 100 cards: 2 values, then 3 for each card, past 10 rows.
+		const most = `subscription { board(where: { id: "${id}" }) { cards { edges { node { id } } } } }`
+		expect(await next(subscribed(url, most))).toMatchObject({
+			data: { board: { cards: { edges: [] } } },
+		})
+		const more = most.replace('node { id }', 'node { id a: id b: id }')
+		expect(await next(subscribed(url, more))).toEqual({
+			errors: [
+				containing({
+					message:
+						'The document returns more than 500 values. Select fewer fields, aliases or rows.',
+					extensions: { code: 'BAD_USER_INPUT' },
+				}),
+			],
+		})
+	})
 })
 
 describe('the subscriptions', () => {
@@ -1127,6 +1170,42 @@ describe('the subscriptions', () => {
 				}),
 			],
 		})
+	})
+
+	it('refuse variables nested too deep, as a query (D-228)', async () => {
+		const url = await started()
+		const socket = new WebSocket(url, 'graphql-transport-ws')
+		const frames: unknown[] = []
+		const answered = new Promise((done) => {
+			socket.on('message', (data: RawData) => {
+				const parts = [data].flat().map((part) => new Uint8Array(part))
+				frames.push(JSON.parse(Buffer.concat(parts).toString()))
+				if (frames.length === 2) done(undefined)
+			})
+		})
+		await new Promise((done) => socket.once('open', done))
+		socket.send(JSON.stringify({ type: 'connection_init' }))
+		// As text: JSON.stringify runs out of stack.
+		const where = `${'{"NOT":'.repeat(19_999)}{"title":{"equals":"a"}}${'}'.repeat(19_999)}`
+		const query = `subscription ($where: TaskWhereInput) { tasks(where: $where) { totalCount } }`
+		socket.send(
+			`{"id":"1","type":"subscribe","payload":{"query":${JSON.stringify(query)},"variables":{"where":${where}}}}`,
+		)
+		await answered
+		socket.close()
+		expect(frames[1]).toEqual({
+			id: '1',
+			type: 'next',
+			payload: {
+				errors: [
+					{
+						message: 'The variables are nested too deep.',
+						extensions: { code: 'BAD_USER_INPUT' },
+					},
+				],
+			},
+		})
+		expect(errors).toEqual([])
 	})
 
 	it('hold at most maxSubscriptions per connection', async () => {
@@ -1175,6 +1254,34 @@ describe('the subscriptions', () => {
 			data: { boards: { edges: [{ node: { cards: { edges: [anything] } } }] } },
 		})
 		await results.return?.()
+	})
+
+	it('refuse a live list returning more than 50 values a row it reads (D-349)', async () => {
+		const url = await started({ models: [Task, Board, Card] })
+		expect(await next(subscribed(url, listed(70)))).toMatchObject({
+			data: { boards: { edges: [] } },
+		})
+		expect(await next(subscribed(url, listed(71)))).toEqual(wideRefusal)
+	})
+
+	it('never count a live list past maxRows values (D-349)', async () => {
+		const url = await started({
+			graphql: { maxRows: 1 },
+			models: [Task, Board, Card],
+		})
+		// 50 values for maxRows 1, however many rows the list reads.
+		expect(await next(subscribed(url, listed(20)))).toMatchObject({
+			data: { boards: { edges: [] } },
+		})
+		expect(await next(subscribed(url, listed(21)))).toEqual(wideRefusal)
+		// 1,500,000 ids: counting them all took more than a second.
+		const fanned = `subscription { boards(first: 1) { ...E } }
+			fragment E on BoardConnection { ${aliases(100, 'edges { ...N }')} }
+			fragment N on BoardEdge { ${aliases(100, 'node { ...T }')} }
+			fragment T on Board { ${aliases(150)} }`
+		const begin = performance.now()
+		expect(await next(subscribed(url, fanned))).toEqual(wideRefusal)
+		expect(performance.now() - begin).toBeLessThan(1000)
 	})
 
 	it('count each operation as a request of the address (D-230)', async () => {
@@ -1249,16 +1356,15 @@ describe('a connection', () => {
 		const mutation = ws.iterate({ query: 'mutation { remember }' })
 		expect(await next(mutation)).toEqual({
 			data: null,
-			errors: [containing({ message: 'Internal error.' })],
+			errors: [
+				containing({
+					message: 'A WebSocket cannot set a cookie.',
+					extensions: { code: 'BAD_REQUEST' },
+				}),
+			],
 		})
-		expect(errors).toEqual(['A GraphQL field failed.'])
-		expect(failures).toEqual([
-			containing({
-				err: new Error(
-					'A cookie is set over HTTP: a WebSocket cannot set one.',
-				),
-			}),
-		])
+		expect(errors).toEqual([])
+		expect(failures).toEqual([])
 	})
 
 	it('runs each query and mutation as its caller read again', async () => {

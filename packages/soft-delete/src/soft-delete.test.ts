@@ -185,4 +185,11 @@ describe('deletedAt', () => {
 		).rejects.toMatchObject({ code: 'ACCESS_DENIED' })
 		expect(await titles()).toEqual(['Draft', 'Kept'])
 	})
+
+	it('takes null from a caller, which dates nothing', async () => {
+		const data = { title: 'Copy', deletedAt: null }
+		const post = await Post.create({ data }, user('grace'))
+		expect(post.deletedAt).toBeNull()
+		expect(await titles()).toEqual(['Draft', 'Kept', 'Copy'])
+	})
 })

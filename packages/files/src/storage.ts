@@ -10,7 +10,7 @@ export interface PutOptions {
 	readonly type: string
 	/** The body's length in bytes, which the storage checks. */
 	readonly size: number
-	/** Served as a download, so a browser never runs it: SVG, undetected types. */
+	/** Served as a download, so a browser never runs it: all but media (D-351). */
 	readonly attachment: boolean
 }
 
@@ -64,4 +64,25 @@ export async function settled<T>(
 	return results.flatMap((result) =>
 		result.status === 'fulfilled' ? [result.value] : [],
 	)
+}
+
+/**
+ * `task` run on each item, `width` at a time, and each outcome in the items'
+ * order: a sweep of thousands of files opens at most `width` requests.
+ */
+export async function pooled<T, R>(
+	items: readonly T[],
+	width: number,
+	task: (item: T) => Promise<R>,
+): Promise<PromiseSettledResult<R>[]> {
+	const results: PromiseSettledResult<R>[] = []
+	const entries = items.entries()
+	const worker = async (): Promise<void> => {
+		for (const [at, item] of entries) {
+			;[results[at]] = await Promise.allSettled([task(item)])
+		}
+	}
+	// A worker with no item left ends at once.
+	await Promise.all(Array.from({ length: width }, worker))
+	return results
 }

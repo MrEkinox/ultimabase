@@ -144,7 +144,11 @@ refused:
 - A type it does not detect, such as text, is taken as declared only when
   `accept` lists it as is, as `text/plain`, and the file is then served as a
   download.
-- An SVG is served as a download too, so a browser never runs it.
+- A declared type that is no media type, such as `text` or `a/b/c`, counts
+  as none: the file is stored as `application/octet-stream`.
+- Only images, audio, video and PDF are shown in a browser. Anything else,
+  an SVG or any XML included, is served as a download, so a browser never
+  runs it.
 
 `maxSize` limits each field before the body is read:
 
@@ -205,8 +209,11 @@ with the database:
 </include>
 
 - The plugin sweeps at start and every ten minutes, deleting the expired
-  uploads and any file a crash left released.
+  uploads and any file a crash left released, 500 rows and 16 objects at a
+  time.
 - `files.check({ delete: true })` also deletes the objects that have no row.
+  It sees only the keys files writes, `public/<uuid>` and `private/<uuid>`,
+  so a bucket can hold other objects.
 
 ## Storage
 
@@ -338,13 +345,13 @@ the process, as its files do.
 The body is the file; `Content-Length` is required and `Content-Type` is
 the declared type. The answer is `201` with `{ id }`.
 
-| Status | Code                     | When                                                                    |
-| ------ | ------------------------ | ----------------------------------------------------------------------- |
-| 400    | `VALIDATION_FAILED`      | `Invalid upload.`: no field or an unknown one, or no name.              |
-| 403    | `ACCESS_DENIED`          | A caller `access.upload` refuses.                                       |
-| 411    | `LENGTH_REQUIRED`        | `Content-Length is required.`                                           |
-| 413    | `PAYLOAD_TOO_LARGE`      | `The file is over 100000 bytes.`                                        |
-| 415    | `UNSUPPORTED_MEDIA_TYPE` | `text/plain is not accepted.`, or `An undetected type is not accepted.` |
+| Status | Code                     | When                                                                       |
+| ------ | ------------------------ | -------------------------------------------------------------------------- |
+| 400    | `VALIDATION_FAILED`      | `Invalid upload.`: no field or an unknown one, or no name.                 |
+| 403    | `ACCESS_DENIED`          | `The upload is refused.`: a caller `access.upload` refuses, checked first. |
+| 411    | `LENGTH_REQUIRED`        | `Content-Length is required.`                                              |
+| 413    | `PAYLOAD_TOO_LARGE`      | `The file is over 100000 bytes.`                                           |
+| 415    | `UNSUPPORTED_MEDIA_TYPE` | `text/plain is not accepted.`, or `An undetected type is not accepted.`    |
 
 ### `uploader(options)`
 

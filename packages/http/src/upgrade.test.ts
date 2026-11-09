@@ -11,9 +11,12 @@ import type { Accept, Gate, HttpApi, Upgrade } from './index.ts'
 import { httpPlugin } from './index.ts'
 
 const errors: unknown[] = []
+const warnings: unknown[] = []
 const logger: Logger = {
 	info: () => undefined,
-	warn: () => undefined,
+	warn: (first: string | object) => {
+		warnings.push(first)
+	},
 	error: (first: string | object) => {
 		errors.push(first)
 	},
@@ -73,6 +76,7 @@ afterEach(async () => {
 	taken.length = 0
 	closes.length = 0
 	errors.length = 0
+	warnings.length = 0
 	await stop?.()
 	stop = undefined
 })
@@ -131,12 +135,16 @@ async function upgraded(
 }
 
 /** The whole answer to an upgrade of `target`, as the server wrote it. */
-async function raw(url: string, target: string): Promise<string> {
+async function raw(
+	url: string,
+	target: string,
+	host = 'localhost',
+): Promise<string> {
 	const { port } = new URL(url)
 	return new Promise<string>((done) => {
 		const socket = connect(Number(port), 'localhost', () => {
 			socket.write(
-				`GET ${target} HTTP/1.1\r\nhost: localhost\r\nconnection: Upgrade\r\nupgrade: websocket\r\n\r\n`,
+				`GET ${target} HTTP/1.1\r\nhost: ${host}\r\nconnection: Upgrade\r\nupgrade: websocket\r\n\r\n`,
 			)
 		})
 		let text = ''
@@ -210,6 +218,30 @@ describe('an upgrade', () => {
 		const answer = await raw(url, 'http://localhost/live')
 		expect(answer).toMatch(/^HTTP\/1\.1 400 Bad Request\r\n/)
 		expect(answer).toContain('"code":"BAD_REQUEST"')
+	})
+
+	it('through a proxy warns once with the requests, without proxies', async () => {
+		const { url } = await started()
+		const forwarded = { 'x-forwarded-for': '203.0.113.7' }
+		await fetch(`${url}/nothing`, { headers: forwarded })
+		const answer = await upgraded(`${url}/live`, forwarded)
+		answer.socket?.destroy()
+		// One warning per running application (D-116).
+		expect(
+			warnings.map((each) => typeof each === 'string' && each.split(':')[0]),
+		).toStrictEqual([
+			'A request came through a proxy (X-Forwarded-For) but httpPlugin({ proxies }) is not set',
+		])
+	})
+
+	// A request refuses a URL with credentials: the server answers, and lives.
+	it('is refused with credentials in its host', async () => {
+		const { url } = await started()
+		const answer = await raw(url, '/live', 'a@localhost')
+		expect(answer).toMatch(/^HTTP\/1\.1 400 Bad Request\r\n/)
+		const after = await upgraded(`${url}/live`)
+		expect(after.status).toBe(101)
+		after.socket?.destroy()
 	})
 })
 
