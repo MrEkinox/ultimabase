@@ -216,3 +216,8 @@ a step that cost more than it found. The skill improves one audit at a time.
   fix. A cache's reset and a value's normalisation in two `memory()` fixes
   survived their mutation until a test was added for each: mutate every line
   a fix adds, and keep the line only if a test then fails.
+- `ultimabase`, slice 3 (2026-11-09): `tsc -p .` misses what `yarn typecheck`
+  and `yarn lint` catch (isolated declarations, a value of type `any`
+  returned): check each fix with those, not with `tsc` alone. A commit message
+  or changeset states only what a probe showed: one said that `update` picked
+  any row, the probe showed it refused.
