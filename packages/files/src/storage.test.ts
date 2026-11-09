@@ -22,6 +22,10 @@ const options = {
 
 type Sent = { readonly url: URL; readonly init: RequestInit | undefined }
 
+// An S3 listing page; a token says another follows.
+const listing = (keys: readonly string[], token?: string): string =>
+	`<ListBucketResult><IsTruncated>${token !== undefined}</IsTruncated>${keys.map((key) => `<Contents><Key>${key}</Key></Contents>`).join('')}${token === undefined ? '' : `<NextContinuationToken>${token}</NextContinuationToken>`}</ListBucketResult>`
+
 describe('SigV4', () => {
 	beforeEach(() => {
 		vi.useFakeTimers({ now: new Date('2013-05-24T00:00:00Z') })
@@ -146,19 +150,32 @@ describe('s3()', () => {
 		)
 	})
 
-	it('lists every key, page after page', async () => {
-		answer = ({ url }) =>
-			new Response(
-				url.searchParams.get('continuation-token') === 'n&1'
-					? '<ListBucketResult><IsTruncated>false</IsTruncated><Contents><Key>private/c</Key></Contents></ListBucketResult>'
-					: '<ListBucketResult><IsTruncated>true</IsTruncated><Contents><Key>public/a&amp;b</Key></Contents><Contents><Key>private/b</Key></Contents><NextContinuationToken>n&amp;1</NextContinuationToken></ListBucketResult>',
+	it('lists its own keys only, page after page (D-351)', async () => {
+		const [a, b, c] = ['a', 'b', 'c'].map((n) => n.repeat(8).padEnd(36, '-0'))
+		answer = ({ url }) => {
+			const prefix = url.searchParams.get('prefix')
+			const token = url.searchParams.get('continuation-token')
+			if (prefix === 'private/') {
+				return new Response(listing([`private/${c}`, 'private/notes.txt']))
+			}
+			// A storage that ignores the prefix lists a foreign key.
+			return new Response(
+				token === 'n&1'
+					? listing([`public/${b}`, 'backups/db.sql'])
+					: listing([`public/${a}`], 'n&amp;1'),
 			)
+		}
 		expect(await s3(options).keys()).toStrictEqual([
-			'public/a&b',
-			'private/b',
-			'private/c',
+			`public/${a}`,
+			`public/${b}`,
+			`private/${c}`,
 		])
 		expect(sent[0]?.url.searchParams.get('list-type')).toBe('2')
+		expect(
+			sent
+				.map(({ url }) => url.searchParams.get('prefix'))
+				.toSorted((x, y) => String(x).localeCompare(String(y))),
+		).toStrictEqual(['private/', 'public/', 'public/'])
 	})
 
 	it('gives a public file a stable URL, a private one a presigned URL', () => {

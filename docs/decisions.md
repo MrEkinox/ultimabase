@@ -21319,6 +21319,11 @@ attachment`: SVG and XHTML that `file-type` detects as
    rule receives the caller its plugins complete (D-121), through
    `completedCaller` in `ultimabase/internal`. `FilesBlob`'s `create` rule
    stays as a second guard.
+3. A storage's `keys` lists only keys of its own, `public/<uuid>` and
+   `private/<uuid>`: `s3()` lists the prefixes `public/` and `private/`
+   and keeps the keys `keyPattern` matches, as `diskFiles()` does. A
+   bucket may hold other objects, which `files.check({ delete: true })`
+   leaves.
 
 Why: D-152 named SVG as the type a browser runs, and `file-type` never
 detects SVG. An SVG that opens with an XML prolog, or an XHTML document, is
@@ -21330,6 +21335,8 @@ D-152 left the check to `FilesBlob`'s `create`, after the body: a refused
 caller had the server buffer up to `maxSize` of a field with variants, its
 400 and 415 answers told which `Model.field` pairs exist, and its 403 named
 the `FilesBlob` model, which D-110 hides.
+`s3().keys()` listed the whole bucket, so `check({ delete: true })` deleted
+every object files did not write, a backup next to the uploads included.
 Rejected: adding `application/xml` to the dangerous types, which leaves
 the next detected markup type inline; sniffing the XML for `<svg` or
 `<html`, which an attacker's namespace or comment defeats.
@@ -21346,4 +21353,10 @@ await files.upload(svgWithXmlProlog, { for: 'Post.attachments', name: 'a.svg' })
 // Before: 50 MB read, then 403 "FilesBlob create refused."
 // After: nothing read, 403 "The upload is refused."; for Post.nothing
 // too, which answered 400 "Post.nothing is not a file field."
+```
+
+```ts
+// A bucket holding backups/db.sql next to the uploads.
+await files.check({ delete: true })
+// Before: backups/db.sql deleted. After: left, and never listed.
 ```

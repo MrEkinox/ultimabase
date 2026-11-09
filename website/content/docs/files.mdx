@@ -209,6 +209,8 @@ with the database:
 - The plugin sweeps at start and every ten minutes, deleting the expired
   uploads and any file a crash left released.
 - `files.check({ delete: true })` also deletes the objects that have no row.
+  It sees only the keys files writes, `public/<uuid>` and `private/<uuid>`,
+  so a bucket can hold other objects.
 
 ## Storage
 
