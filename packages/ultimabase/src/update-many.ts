@@ -66,16 +66,17 @@ type Group = {
 	readonly items: [Item, ...Item[]]
 }
 
-const same = (a: Group, b: Omit<Group, 'items'>): boolean => {
-	const keys = Object.keys(a.draft)
-	return (
-		keys.length === Object.keys(b.draft).length &&
-		keys.every(
-			(key) =>
-				Object.hasOwn(b.draft, key) && Object.is(a.draft[key], b.draft[key]),
-		) &&
-		[...a.operations.keys()].join() === [...b.operations.keys()].join()
-	)
+/**
+ * A value as a key (D-347): a date by its time, another object by its
+ * reference, so that rows share a statement only when their values are.
+ */
+function valueKey(value: unknown, objects: Map<object, number>): unknown {
+	if (value instanceof Date) return ['d', value.getTime()]
+	if (typeof value !== 'object' || value === null) {
+		return [typeof value, Object.is(value, -0) ? '-0' : String(value)]
+	}
+	objects.set(value, objects.get(value) ?? objects.size)
+	return ['o', objects.get(value)]
 }
 
 /**
@@ -99,19 +100,21 @@ function grouped(
 	items: readonly Item[],
 	operations: Operations,
 ) {
-	const groups: Group[] = []
+	const groups = new Map<unknown, Group>()
+	const objects = new Map<object, number>()
 	for (const item of items) {
 		const each = settled(item, operations)
-		const scalars = Object.keys(each.draft).every(
-			(name) => model.fields.get(name)?.kind === 'scalar',
-		)
-		const found = scalars
-			? groups.find((group) => same(group, each))
-			: undefined
-		if (found === undefined) groups.push({ ...each, items: [item] })
+		const names = Object.keys(each.draft).toSorted()
+		const scalars = names.every((n) => model.fields.get(n)?.kind === 'scalar')
+		const values = names.map((n) => [n, valueKey(each.draft[n], objects)])
+		const key = scalars
+			? JSON.stringify([values, [...each.operations.keys()]])
+			: Symbol()
+		const found = groups.get(key)
+		if (found === undefined) groups.set(key, { ...each, items: [item] })
 		else found.items.push(item)
 	}
-	return groups
+	return groups.values()
 }
 
 /**

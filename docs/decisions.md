@@ -21059,8 +21059,15 @@ Choice: amends D-138, point 5.
    `INVALID_QUERY`, unless the value is trusted (D-67). The row it names is
    still found without the row rules.
 
-Why: the lookup skipped every rule, so a caller who could create a row
-linked to a model learned who held a value it may not read, one request at a
-time: an email it cannot see linked the note to its holder, whose id came
-back, and a missing one tried a create. The documentation already refused a
-filter on such a field.
+2. `updateMany` finds the rows whose data came out the same by a key, not by
+   comparing each row with every group: a date counts by its time, another
+   object by its reference, as before. A hook that stamps each row with
+   `new Date()` made the grouping quadratic: 8,000 rows took 2,948 ms on the
+   memory adapter, against 60 ms without the hook; now 62 ms. Rows stamped
+   with equal dates share one change, as equal strings did.
+
+Why, for point 1: the lookup skipped every rule, so a caller who could create
+a row linked to a model learned who held a value it may not read, one request
+at a time: an email it cannot see linked the note to its holder, whose id
+came back, and a missing one tried a create. The documentation already
+refused a filter on such a field.
