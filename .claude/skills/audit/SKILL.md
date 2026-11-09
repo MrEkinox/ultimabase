@@ -254,3 +254,9 @@ a step that cost more than it found. The skill improves one audit at a time.
   not only `yarn validate` once per batch. A choice a decision makes "as
   GraphQL does" (D-144's document, served always) is checked against what
   GraphQL does now: its introspection had closed in production since.
+- `jobs` (2026-11-09): a bound proposed to the user came from JavaScript's
+  date range (8.64e15 ms), but the kernel stores only years 1 to 9999
+  (D-94): a delay the proposal accepted still failed on the row. Find the
+  narrowest layer's limit before proposing a bound, and say so when the fix
+  differs from the proposal. A test that computes a bound from `Date.now()`
+  failed by one millisecond: freeze the clock around it.
