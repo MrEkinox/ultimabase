@@ -227,8 +227,8 @@ export function appOf(
 	// Before CORS and the caller: a probe reads neither (D-204).
 	app.route('/', probeRoutes(probes, logger))
 	const allowed = (origin: string) => (allows(origin) ? origin : null)
-	// An allowed origin sends its cookies, as auth's session (D-112).
-	const preflight = cors({ origin: allowed, credentials: true })
+	// Allowed origins send cookies (D-112); a browser keeps a preflight 10 min (D-348).
+	const preflight = cors({ origin: allowed, credentials: true, maxAge: 600 })
 	app.use(async (c, next) => {
 		// Hono's `cors` answers every OPTIONS: a route's own runs, unless the
 		// request is a preflight.

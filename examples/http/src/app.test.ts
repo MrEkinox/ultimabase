@@ -98,6 +98,7 @@ it('lets the listed origins call from a browser', async () => {
 		'https://shop.example.com',
 	)
 	expect(listed.headers.get('access-control-allow-credentials')).toBe('true')
+	expect(listed.headers.get('access-control-max-age')).toBe('600')
 	expect(other.headers.get('access-control-allow-origin')).toBeNull()
 	//#endregion
 })

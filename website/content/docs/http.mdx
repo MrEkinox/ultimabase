@@ -226,6 +226,9 @@ preflight from `https://shop.example.com`, `other` the answer to one from
   too, as `http://localhost:5173`.
 - The API's own host passes over `http:` and `https:` alike, as a proxy
   serving HTTPS forwards it.
+- A browser keeps a preflight's answer 10 minutes
+  (`access-control-max-age: 600`), not 5 seconds, so it does not send one
+  before each call.
 
 An HTML form posts to any site with that site's cookies, and CORS never
 stops it. A form from another origin is refused with 403; a webhook sends no

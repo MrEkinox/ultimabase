@@ -516,6 +516,7 @@ describe('CORS', () => {
 		expect(preflight.headers.get('access-control-allow-credentials')).toBe(
 			'true',
 		)
+		expect(preflight.headers.get('access-control-max-age')).toBe('600')
 	})
 
 	it('answers only a preflight itself, and lets a route answer OPTIONS', async () => {
