@@ -21072,6 +21072,13 @@ Choice: amends D-138, point 5.
    could return rows a filter never selected, or fail the request with a
    `TypeError`.
 
+4. `memory()`'s search keeps a word's first 255 positions, and counts a
+   position past 16,383 as 16,383, once, as a `tsvector` does (D-148). It
+   copied each word's positions at each occurrence, and ranked every pair of
+   them: a row of 80,000 words took 15.6 s to filter and 42 s to rank; now 5
+   and 10 ms. A phrase PostgreSQL does not find past these limits, `memory()`
+   no longer finds either, and long rows rank as they do there.
+
 Why, for point 1: the lookup skipped every rule, so a caller who could create
 a row linked to a model learned who held a value it may not read, one request
 at a time: an email it cannot see linked the note to its holder, whose id
