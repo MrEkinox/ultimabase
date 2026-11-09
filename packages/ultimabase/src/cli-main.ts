@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url'
 import { parseArgs } from 'node:util'
 import type { Internals } from './app-internals.ts'
 import { configPath, load } from './cli-config.ts'
+import { unattended } from './cli-dev.ts'
 import { migrateDeploy, migrateStatus, reset } from './cli-deploy.ts'
 import { migrateCreate, sync } from './cli-migrate.ts'
 import { Refused } from './errors.ts'
@@ -38,8 +39,21 @@ export type Io = {
 	readonly out: (text: string) => void
 	readonly err: (text: string) => void
 	readonly now: () => Date
-	/** Runs Node with `args` until it exits, and returns its exit code. */
-	readonly node: (args: readonly string[]) => Promise<number>
+	/** Whether a person watches: the output is a terminal, and `CI` unset. */
+	readonly interactive: boolean
+	/**
+	 * Runs Node with `args`, and `env` added to the environment, until it
+	 * exits or `signal` stops it, and returns its exit code.
+	 */
+	readonly node: (
+		args: readonly string[],
+		options?: NodeOptions,
+	) => Promise<number>
+}
+
+export type NodeOptions = {
+	readonly env: Readonly<Record<string, string>>
+	readonly signal: AbortSignal
 }
 
 /**
@@ -49,12 +63,22 @@ export type Io = {
 const here = fileURLToPath(import.meta.url)
 export const serveFile: string = join(dirname(here), `serve${extname(here)}`)
 
-function runNode(args: readonly string[]): Promise<number> {
+function runNode(
+	args: readonly string[],
+	options?: NodeOptions,
+): Promise<number> {
 	return new Promise((done, fail) => {
-		const child = spawn(process.execPath, args, { stdio: 'inherit' })
+		const child = spawn(process.execPath, args, {
+			stdio: 'inherit',
+			env: { ...process.env, ...options?.env },
+			signal: options?.signal,
+		})
 		const forward = () => child.kill('SIGTERM')
 		process.on('SIGTERM', forward)
-		child.on('error', fail)
+		// Stopped by `signal`, the child still exits with a code.
+		child.on('error', (error) => {
+			if (options?.signal.aborted !== true) fail(error)
+		})
 		child.on('exit', (code) => {
 			process.off('SIGTERM', forward)
 			done(code ?? 1)
@@ -67,6 +91,7 @@ export const processIo: Io = {
 	out: (text) => process.stdout.write(`${text}\n`),
 	err: (text) => process.stderr.write(`${text}\n`),
 	now: () => new Date(),
+	interactive: process.stdout.isTTY && process.env['CI'] === undefined,
 	node: runNode,
 }
 
@@ -137,7 +162,8 @@ async function run(args: readonly string[], io: Io): Promise<number> {
 	if (command === 'dev') {
 		process.env['NODE_ENV'] ??= 'development'
 		const file = local ? [`--env-file=${env}`] : []
-		return io.node(['--watch', ...file, serveFile, path])
+		const watch = ['--watch', ...file, serveFile, path]
+		return io.interactive ? io.node(watch) : unattended(watch, io.node)
 	}
 	if (local) process.loadEnvFile(env)
 	if (command === 'start') process.env['NODE_ENV'] ??= 'production'

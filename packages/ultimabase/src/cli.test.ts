@@ -33,6 +33,7 @@ const io = (): Io => ({
 	out: (text) => out.push(text),
 	err: (text) => err.push(text),
 	now: () => new Date(Date.UTC(2026, 9, 22, 12, 30, Number(`${id}`.slice(-2)))),
+	interactive: true,
 	node: async (args) => {
 		ran.push(args)
 		return 7
@@ -807,6 +808,18 @@ describe('start and dev', () => {
 		])
 		expect(process.env['ULTIMABASE_CLI_ENV']).toBeUndefined()
 	})
+
+	it('exits with the code of its first start when it fails and a program runs dev (D-356)', async () => {
+		await writeFile(join(dir, 'broken.config.ts'), 'export default 1\n')
+		const began = Date.now()
+		const code = await main(['dev', '--config', 'broken.config.ts'], {
+			...io(),
+			interactive: false,
+			node: processIo.node,
+		})
+		expect(code).toBe(1)
+		expect(Date.now() - began).toBeLessThan(15_000)
+	}, 30_000)
 })
 
 describe('the .env file (D-171)', () => {
