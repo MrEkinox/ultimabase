@@ -147,8 +147,9 @@ Restoring that row is then a `UNIQUE_VIOLATION`:
 - `trash` reads under the `read` rule, and `restore` writes under the
   `update` rule.
 
-Only Master writes `deletedAt`: a client deletes through the `delete` rule and
-never dates a row itself. The request is refused with `ACCESS_DENIED`:
+Only Master dates a row: a client deletes through the `delete` rule, and a
+`deletedAt` it writes can only be `null`. A date is refused with
+`ACCESS_DENIED`:
 
 <include cwd meta='title="Request"'>
 	../examples/soft-delete/src/requests/date.graphql
@@ -193,10 +194,10 @@ model uses `softDelete()`. `softDelete()` adds:
 
 ### Errors
 
-| Code            | When                                                                                     |
-| --------------- | ---------------------------------------------------------------------------------------- |
-| `NOT_FOUND`     | `restore` of a row that is not deleted.                                                  |
-| `ACCESS_DENIED` | A caller other than Master writes `deletedAt`; a `delete` or `restore` the rules refuse. |
+| Code            | When                                                                                               |
+| --------------- | -------------------------------------------------------------------------------------------------- |
+| `NOT_FOUND`     | `restore` of a row that is not deleted.                                                            |
+| `ACCESS_DENIED` | A caller other than Master writes a date to `deletedAt`; a `delete` or `restore` the rules refuse. |
 
 ### Limits
 
