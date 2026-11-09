@@ -248,3 +248,9 @@ a step that cost more than it found. The skill improves one audit at a time.
   limit, D-116's entry that is not an address): read the decision before
   sorting the finding. Socket-level probes (`node:net`) prove what `fetch`
   cannot send, as an upgrade's raw `Host`.
+- `rest` (2026-11-09): two performance commits passed their package's tests
+  but broke the line budget, unseen until the next `yarn validate`, and the
+  budget had to be amended into each. Run `yarn budgets` before each commit,
+  not only `yarn validate` once per batch. A choice a decision makes "as
+  GraphQL does" (D-144's document, served always) is checked against what
+  GraphQL does now: its introspection had closed in production since.
