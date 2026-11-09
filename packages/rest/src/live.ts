@@ -56,12 +56,15 @@ function listWriter(
 		return { ...info, hasNextPage: hasMore }
 	}
 	const data = (rows: readonly Row[], revision: number) => {
+		if (!connected) return events.send('data', rows.map(node), revision)
 		const info = infoOf()
 		pageInfo = JSON.stringify(info)
 		const { edges } = connection(rows, fromTop, node)
-		const body = connected
-			? { edges, pageInfo: info, ...(counted && { totalCount: count }) }
-			: rows.map(node)
+		const body = {
+			edges,
+			pageInfo: info,
+			...(counted && { totalCount: count }),
+		}
 		events.send('data', body, revision)
 	}
 	return (message) => {
@@ -85,18 +88,17 @@ function listWriter(
 			revision,
 			changes: changes.map((change) => {
 				if ('remove' in change) return change
-				const [edge] = connection([change.upsert], fromTop, node).edges
-				return {
-					upsert: connected ? edge : node(change.upsert),
-					after: change.after,
-				}
+				const upsert = connected
+					? connection([change.upsert], fromTop, node).edges[0]
+					: node(change.upsert)
+				return { upsert, after: change.after }
 			}),
 		}
 		if (counted && message.totalCount !== undefined) {
 			live['totalCount'] = message.totalCount
 		}
-		const info = infoOf()
-		if (connected && JSON.stringify(info) !== pageInfo) {
+		const info = connected ? infoOf() : undefined
+		if (info !== undefined && JSON.stringify(info) !== pageInfo) {
 			pageInfo = JSON.stringify(info)
 			live['pageInfo'] = info
 		}
