@@ -80,6 +80,26 @@ const Card = defineModel({
 	use: [graphql(), realtime()],
 	fields: (f) => ({ board: f.one(() => Board) }),
 }).with({ access: allow.readOnly })
+/** `count` aliases of `field`, a row's id by default. */
+const aliases = (count: number, field = 'id') =>
+	Array.from({ length: count }, (_, i) => `a${i}: ${field}`).join(' ')
+/** A live list refused for its values a row (D-349). */
+const wideRefusal = {
+	errors: [
+		expect.objectContaining({
+			message:
+				'The document returns more than 50 values a row. Select fewer fields or aliases.',
+			extensions: { code: 'BAD_USER_INPUT' },
+		}),
+	],
+}
+/**
+ * Boards and their cards, each card with `count` aliases. A board and its
+ * 2 cards are 3 rows, which return 10 values, then 2 an alias.
+ */
+const listed = (count: number) =>
+	`subscription { boards(first: 2) { edges { node { id cards(first: 2) {
+		edges { node { id ${aliases(count)} } } } } } } }`
 
 const cookie = defineFunction({
 	name: 'cookie',
@@ -1234,6 +1254,34 @@ describe('the subscriptions', () => {
 			data: { boards: { edges: [{ node: { cards: { edges: [anything] } } }] } },
 		})
 		await results.return?.()
+	})
+
+	it('refuse a live list returning more than 50 values a row it reads (D-349)', async () => {
+		const url = await started({ models: [Task, Board, Card] })
+		expect(await next(subscribed(url, listed(70)))).toMatchObject({
+			data: { boards: { edges: [] } },
+		})
+		expect(await next(subscribed(url, listed(71)))).toEqual(wideRefusal)
+	})
+
+	it('never count a live list past maxRows values (D-349)', async () => {
+		const url = await started({
+			graphql: { maxRows: 1 },
+			models: [Task, Board, Card],
+		})
+		// 50 values for maxRows 1, however many rows the list reads.
+		expect(await next(subscribed(url, listed(20)))).toMatchObject({
+			data: { boards: { edges: [] } },
+		})
+		expect(await next(subscribed(url, listed(21)))).toEqual(wideRefusal)
+		// 1,500,000 ids: counting them all took more than a second.
+		const fanned = `subscription { boards(first: 1) { ...E } }
+			fragment E on BoardConnection { ${aliases(100, 'edges { ...N }')} }
+			fragment N on BoardEdge { ${aliases(100, 'node { ...T }')} }
+			fragment T on Board { ${aliases(150)} }`
+		const begin = performance.now()
+		expect(await next(subscribed(url, fanned))).toEqual(wideRefusal)
+		expect(performance.now() - begin).toBeLessThan(1000)
 	})
 
 	it('count each operation as a request of the address (D-230)', async () => {

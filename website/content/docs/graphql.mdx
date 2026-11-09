@@ -402,7 +402,8 @@ GraphQL has no empty input, so what would take one is left out:
 - A model's own field named `node` or `edges` counts, and with
   `pagination: 'list'` every field does.
 - A live function's subscription counts as its query; a live list counts in its
-  [`maxLive`](/docs/next/realtime#reference) instead.
+  [`maxLive`](/docs/next/realtime#reference) instead, and returns at most 50
+  values a row it reads, the rows it nests included.
 - Each document is also bounded for every caller, Master included: 2 000 tokens,
   and 1 000 pairs of fields sharing one name. The first is ten times the standard
   introspection query.

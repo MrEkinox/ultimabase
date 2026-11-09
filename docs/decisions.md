@@ -15442,7 +15442,8 @@ Choice: amends D-154 point 12; D-107's row budget is unchanged.
    `maxTake` in page mode and `maxConnectionRows` bound them (D-154), and
    the rows of the relations they select count in `maxLive` instead. REST's
    live lists check their depth only. A live row's values count in the value
-   budget (amended 2026-11-09, D-349).
+   budget; a live list returns at most 50 values a row it reads (amended
+   2026-11-09, D-349).
 
 Why: `{ ranked(above: 0) { id } }` over HTTP was refused past `maxRows`, but
 `subscription { ranked(above: 0) { id } }` ran in full, then again at each
@@ -21196,21 +21197,28 @@ Choice: amends D-107 point 6 and D-229 point 3.
    argument to lower.
 3. Over a WebSocket, a live function's values count as over HTTP; a model's
    live row counts its values, while the rows of its relations stay bounded
-   by `maxLive` (D-229 point 3). A model's live list is not counted yet.
+   by `maxLive` (D-229 point 3). A model's live list returns at most 50
+   values a row it reads, the rows it nests included, whatever its window:
+   one row it follows and its nested rows are counted, as a query counts
+   them, and never past 1,000,000 values. Over, it is refused with "The
+   document returns more than 50 values a row. Select fewer fields or
+   aliases."
 4. A subscription's variables nested too deep are refused as a query's
    (D-228), and an enum value graphql-js refuses is not sent back in the
    error (D-107 point 8).
 
 Why: the row budget bounds rows, not what each row returns. Under
-`maxRows: 20000`, `{ posts(first: 100) { edges { node { t0: title … } } } }`
-with 120,000 aliases of `title` is 100 rows, but 12,000,000 values: the
-server read and serialized them for one request. Fifty values a row leaves
+`maxRows: 20000`, `{ posts(first: 100) { …E } }` with fragments that fan out
+to 120,000 aliases of `title` is 100 rows, but 12,000,000 values: the server
+read and serialized them for one request. A live list was not counted at
+all, and ran such a document again at each write. Fifty values a row leaves
 room for a wide model at the full row budget. The count stops once past the
 budget, so a document built to be counted slowly is refused in under a
-second.
+second. A live list grows with fetchMore up to `maxLive` rows: a bound a row
+holds at any window, while a bound on its `first` would not.
 Rejected: a `maxValues` option, until an application needs one; counting a
-model's live list by its `first`, which would refuse a live list of 50,000
-rows of 21 fields that `maxLive` serves today.
+model's live list by its `first` under 1,000,000 values, which would refuse
+a live list of 50,000 rows of 21 fields that `maxLive` serves today.
 Example:
 
 ```graphql
