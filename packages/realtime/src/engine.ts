@@ -5,10 +5,12 @@
 import type { Changed } from 'ultimabase'
 import { liveSchema, recording, SharedReads } from 'ultimabase/internal'
 import { batchOf } from './changes.ts'
+import { whoOf } from './checked.ts'
 import type { Owner } from './readers.ts'
 import { Readers } from './readers.ts'
 import { Loader } from './loader.ts'
 import type { Settings } from './settings.ts'
+import { builtAgain } from './settings.ts'
 import { Viewer } from './viewer.ts'
 
 /** The least between two flushes: the writes in between share one message. */
@@ -94,6 +96,15 @@ export class Engine {
 		refresh.unref()
 		viewer.onClose(() => clearInterval(refresh))
 		return viewer
+	}
+
+	/** Whether `request` is `viewer`'s user, read without following it. */
+	async sameUser(viewer: Viewer, request: Request): Promise<boolean> {
+		const { identified } = await builtAgain(this.#settings, request)
+		return (
+			identified !== undefined &&
+			whoOf(identified.result) === whoOf(viewer.caller)
+		)
 	}
 
 	changed(changes: readonly Changed[]): void {

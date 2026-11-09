@@ -28,6 +28,8 @@ export type RealtimeOptions = {
 export interface RealtimeApi {
 	/** Follows `request`'s caller; its live reads close with it. */
 	connect(this: void, request: Request): Promise<Viewer>
+	/** Whether `request` is `viewer`'s user, read without following it. */
+	sameUser(this: void, viewer: Viewer, request: Request): Promise<boolean>
 	/** Whether `model`'s `use` lists `realtime()`. */
 	live(this: void, model: string): boolean
 	/** Whether function `name`'s `use` lists `realtime()`, `plugin.name` for a plugin's. */
@@ -97,6 +99,7 @@ const realtimeDefinition = definePlugin<Realtime>({
 		const followed = new Set(functions.filter(({ used }) => used).map(ownerOf))
 		return {
 			connect: async (request) => engine.connect(request),
+			sameUser: async (viewer, request) => engine.sameUser(viewer, request),
 			live: (model) => live.has(model),
 			liveFunction: (name) => followed.has(name),
 		}

@@ -760,9 +760,34 @@ describe('a resumed live list', () => {
 			token: undefined,
 		})
 		const same = `${api}/tasks${qs({ ...ranked, first: 2, resume: token })}`
-		// Another user ends the kept list, which its own user no longer finds.
+		// Another user starts afresh, leaving the kept list to its own user.
 		expect(await begun(same, { authorization: 'bob' })).toEqual(fresh)
-		expect(await begun(same)).toEqual(fresh)
+		const resumed = await streaming(same)
+		await Task.update({ where: { id: a }, data: { title: 'A' } }, M)
+		expect(await resumed.next()).toMatchObject({ event: 'live' })
+		expect(resumed.token()).toBe(token)
+	})
+
+	it('leaves an open stream to its user, whoever else sends its token (D-350)', async () => {
+		const api = await started()
+		const [a = ''] = await seeded()
+		const open = await streaming(`${api}/tasks${qs({ ...ranked, first: 2 })}`)
+		await open.next()
+		const token = open.token() ?? ''
+		for (const first of [1, 2]) {
+			const url = `${api}/tasks${qs({ ...ranked, first, resume: token })}`
+			expect(await begun(url, { authorization: 'bob' })).toMatchObject({
+				event: 'data',
+			})
+		}
+		// Another read of its own user leaves it too.
+		const desc = { ...ranked, orderBy: [{ rank: 'desc' }], first: 2 }
+		await begun(`${api}/tasks${qs({ ...desc, resume: token })}`)
+		await Task.update({ where: { id: a }, data: { title: 'A' } }, M)
+		expect(await open.next()).toMatchObject({
+			event: 'live',
+			data: { changes: [{ upsert: { node: { id: a, title: 'A' } } }] },
+		})
 	})
 
 	it('grows past maxTake', async () => {

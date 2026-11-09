@@ -21254,6 +21254,12 @@ Choice: amends D-128 point 4.
 2. REST reads a write's dates 32 levels deep, and leaves deeper rows as
    they are for the kernel to refuse. GraphQL variables too deep for
    graphql-js are refused as a filter's (D-228 point 5).
+3. An SSE resume checks its read and its user before it ends the request
+   still open for its token, as D-154 point 7 says: another user's token,
+   or another read, leaves that list streaming and kept. The realtime
+   API transports use gains `sameUser(viewer, request)`, which reads the
+   request's caller without following it; a resume reads its caller once
+   more.
 
 Why: D-128 left the depth unbounded, trusting the GraphQL depth limit and
 the request size. The depth limit counts the selection, not the variables,
@@ -21262,6 +21268,9 @@ deep ran the REST transport out of stack, a 500; 3,000 did the same over
 GraphQL; as Master, the kernel took 6 to 10 seconds at 3,000 levels, its
 time growing with the square of the depth. Thirty-two levels hold any tree a
 form or an import writes, and the refusal comes in a few milliseconds.
+A resume ended the open request before any check, so anyone holding a
+token, which travels in a query string and so in access logs, ended its
+user's live list, and with the same read threw away its kept window.
 Rejected: `maxDepth`, which an application sets and Master skips: a write
 too deep fails the same way for Master; a budget on the rows a write
 creates, until an application needs one: 20,000 rows in one `create` take
