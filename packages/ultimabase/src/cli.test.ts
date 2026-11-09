@@ -314,6 +314,18 @@ describe('migrate create', () => {
 			'migrations/ holds SQL files but no schema.json: restore it from version control.',
 		)
 	})
+
+	it('refuses a schema.json a merge left conflicted', async () => {
+		const file = await config('conflicted', { Locker: ['label'] })
+		expect(await run('migrate', 'create', 'init', '--config', file)).toBe(0)
+		const json = join(dir, 'migrations', 'schema.json')
+		const text = await readFile(json, 'utf8')
+		await writeFile(json, `<<<<<<< HEAD\n${text}=======\n${text}>>>>>>> main\n`)
+		expect(await run('migrate', 'create', 'next', '--config', file)).toBe(1)
+		expect(err[0]).toBe(
+			"migrations/schema.json holds merge conflict markers: take the base branch's, delete your pending migration, then run `npx ultimabase migrate create <name>` again.",
+		)
+	})
 })
 
 describe('migrate deploy', () => {

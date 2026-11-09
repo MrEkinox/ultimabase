@@ -55,7 +55,14 @@ export async function read(dir: string): Promise<Folder> {
 		}
 		return { files, snapshot: undefined }
 	}
-	const snapshot: unknown = JSON.parse(await readFile(json, 'utf8'))
+	const text = await readFile(json, 'utf8')
+	// Left by merging a branch whose migration is not deployed yet.
+	if (/^<{7}(?: |$)/m.test(text)) {
+		throw new Refused(
+			`migrations/schema.json holds merge conflict markers: take the base branch's, delete your pending migration, then run ${create} again.`,
+		)
+	}
+	const snapshot: unknown = JSON.parse(text)
 	return { files, snapshot }
 }
 
