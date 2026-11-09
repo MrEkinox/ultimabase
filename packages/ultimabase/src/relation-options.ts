@@ -18,6 +18,8 @@ type OneView = {
 	readonly inverse?: undefined
 	readonly dbName?: undefined
 	readonly within?: undefined
+	/** An exists' option: a view returns rows (D-359). */
+	readonly readRule?: undefined
 }
 
 type StoredOne = {
@@ -81,6 +83,8 @@ export type ManyOptions = Described &
 				readonly from: string
 				readonly inverse?: undefined
 				readonly size?: undefined
+				/** An exists' option: a view returns rows (D-359). */
+				readonly readRule?: undefined
 		  }
 	)
 
@@ -88,4 +92,11 @@ export type ManyOptions = Described &
  * What shapes an `exists` view (D-246): `from` names this other `many` of
  * the model, whose rows its filter keeps.
  */
-export type ExistsOptions = Described & { readonly from: string }
+export type ExistsOptions = Described & {
+	readonly from: string
+	/**
+	 * `false` counts the rows the caller cannot read too: only the boolean
+	 * says they exist, and `beforeFind` still narrows (D-359).
+	 */
+	readonly readRule?: false
+}

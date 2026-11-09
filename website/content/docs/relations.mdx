@@ -226,7 +226,8 @@ relations.
 
 A filter through a `one` sees only the targets the caller can read, so a row
 whose target is hidden matches no condition on it, not even its key in a
-unique `where`. A filter never reveals a row the caller cannot read.
+unique `where`. A filter never reveals a row the caller cannot read, except
+through an exists with `readRule: false`.
 
 `is: null` finds the rows whose optional `one` is empty, `isNot: null` those
 where it is set. `every` is true for a row with no related row.
@@ -531,6 +532,14 @@ otherwise. Its filter is given in `.with({ relations })` as a `many` view's,
 `viewer` included. `where: { hasVoted: true }` keeps the rows whose view keeps
 a row, `false` those whose view keeps none.
 
+An exists counts only the rows the caller can read.
+`hasBlockedMe: f.exists(() => Block, { from: 'sentBlocks', readRule: false })`,
+with `where({ toUser: { viewer: true } })`, counts the others too: the blocked
+user reads `true`, though only the blocker reads the block.
+
+Only the boolean says so: no read returns the block. And `beforeFind`, as the
+trash's, still applies.
+
 ### A relation kept within a parent
 
 `within` keeps a `one`'s target in the row's parent: a task links only a
@@ -764,7 +773,8 @@ nested more than 32 levels deep.`
 - In `f.exists`, `select` and `include` take `true`, and the field reads `true`
   or `false`.
 - The target's read rule applies: a row the caller cannot read is not
-  counted.
+  counted, unless the exists takes `readRule: false`. A `many` or `one` view,
+  which returns rows, refuses `readRule`.
 - An exists is not written, sorts nothing and is not in `_count`. Over
   GraphQL it is a `Boolean!`, over REST a `boolean`. A query that sorts on it
   is refused with `INVALID_QUERY`:
@@ -865,6 +875,7 @@ video: () => Video }`. A kind is not named `is`, `isNot` or `kind`.
 | Option        | Type     | Default  | Effect                                                                      |
 | ------------- | -------- | -------- | --------------------------------------------------------------------------- |
 | `from`        | `string` | required | The `many` of the same model whose rows, filtered, the field says it keeps. |
+| `readRule`    | `false`  | applied  | Counts the rows the target's read rule hides from the caller too.           |
 | `description` | `string` | none     | Shown in GraphQL and REST schemas.                                          |
 
 `.with({ relations: { field: { where } } })` on the model filters a `many` or
@@ -956,6 +967,7 @@ is declared wrongly:
 | `Task.milestone: within names project, a required one relation of Milestone to Project.`                                                                                    | Make the target's field a required `one` to the row's parent.    |
 | `Series.released is a view; filter it in .with({ relations }).`                                                                                                             | Give the view its filter.                                        |
 | `Poll.hasVoted: an exists names its many with from.`                                                                                                                        | Name a `many` of the same model with `from`.                     |
+| `Feed.posts: readRule is an exists' option; a view returns rows.`                                                                                                           | Remove `readRule` from the `many` view, or make it an exists.    |
 | `Series.with.relations.title: title is not a many relation.`                                                                                                                | Filter only a `many`.                                            |
 | `Series.upcoming reads one Volume: give Volume a unique index on series whose where the filter keeps, as { fields: ['series'], unique: true, where: { released: false } }.` | Add the index the message shows.                                 |
 | `Poll.myVote reads one Vote: give Vote a unique index on poll and voter, as { fields: ['poll', 'voter'], unique: true }.`                                                   | Add the index the message shows.                                 |

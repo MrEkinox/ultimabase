@@ -62,7 +62,14 @@ export class QueryScope implements Scope {
 		model: ModelInfo,
 		field: Extract<FieldInfo, { readonly kind: 'one' | 'many' }>,
 	): Filter | undefined {
-		return and(this.relations.filter(model, field), this.readable(field.target))
+		// An exists may skip its target's read rule, not its hooks (D-359).
+		const rows =
+			field.kind === 'many' &&
+			field.exists &&
+			field.options['readRule'] === false
+				? this.narrowing(field.target, 'read')
+				: this.readable(field.target)
+		return and(this.relations.filter(model, field), rows)
 	}
 
 	/**
