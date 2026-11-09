@@ -1,5 +1,54 @@
 # ultimabase
 
+## 0.6.0
+
+### Minor Changes
+
+- 778bbbc: A plugin's own model relates to the application's user model through `AppUser`: `user: f.one(() => AppUser, { onDelete: 'cascade' })`. Startup resolves it to the model `defineUser` declares, and the user model gains no field. Auth's sessions and linked accounts, and password's hash and tokens, now hold their user this way, and the column `user_id` becomes a `uuid` with a foreign key to the user. Deleting a user through UltimaBase deletes them in its transaction. The foreign key does not cascade, since the kernel runs the cascades (D-54): a delete in raw SQL deletes them first, or fails at commit. Before `migrate deploy`, delete the rows whose user no longer exists, or the cast to `uuid` and the foreign key fail; with the user model stored in `"user"`:
+
+  ```sql
+  delete from "auth_session" as "row" where not exists (select from "user" where "user"."id"::text = "row"."user_id");
+  delete from "auth_account" as "row" where not exists (select from "user" where "user"."id"::text = "row"."user_id");
+  delete from "password_hash" as "row" where not exists (select from "user" where "user"."id"::text = "row"."user_id");
+  delete from "password_token" as "row" where not exists (select from "user" where "user"."id"::text = "row"."user_id");
+  ```
+
+- 2bccedd: A completed caller is kept for the same identity until a model that a plugin with `caller` owns or is used by changes, a link from or to it included, so a role given or taken counts from the next request without reading the roles at every one. The feed gains `lost`, which an adapter calls when its changes may stop coming, before `missed`; a plugin takes it with a `lost(context)` part.
+- 2f1baf1: A database the server cannot use answers `UNAVAILABLE`, not `INTERNAL` (D-335): every pool connection stayed busy, or the server cannot be reached. REST answers it with 503 and `Retry-After: 1`. GraphQL, as for every error, answers HTTP 200 with the code in `errors[].extensions.code` and `extensions.details.retryAfter`: a client that retries from the HTTP status reads the code instead. The reason is logged at `error`. `UNAVAILABLE` is now a kernel code.
+- 945b1b3: `migrate deploy` and `reset` show, under `Applied <file>.`, the rows each `insert`, `update`, `delete` or `merge` statement of the file changed, `0` included:
+
+  ```text
+  Applied 20261108_orphans.sql.
+    delete from "auth_session" as "row" where not exists (select from "user" where "…: DELETE 0
+  ```
+
+  An adapter's `migrations.apply(run, counted?)` takes a second parameter: `counted` hears `{ at, statement, command, rows }` for each such statement once its file is committed. An adapter that does not call it keeps working, and its deploys print no counts.
+
+- 41b5dca: A required field added with a fixed default now keeps it as its column's default, where the plan dropped it in the same transaction. Code still running without the field can then still insert during a rolling deploy. A list without a default keeps `'{}'`. A change of the column's type drops the default. `migrate create` writes a comment below an added list that no default fills, so that the file says the stored rows hold it empty: `-- The stored rows hold an empty "Account.languages": fill them here if the model needs a value.`
+- 41b5dca: A list takes `size: { min, max }`, as a `many` does: `f.enumOf(Language, { list: true, size: { min: 1 } })`. The bound holds after the hooks, so a `beforeCreate` may fill the list, and on what `push` and `remove` leave. A write outside it fails with `VALIDATION_FAILED`. PostgreSQL enforces it too, with a check of its own, and the schemas state it in the field's description.
+- 0699e37: A create or an update that references a row another transaction is updating no longer waits for that transaction: on PostgreSQL an update locks its rows with `FOR NO KEY UPDATE`, as PostgreSQL's own update does, and only a delete keeps `FOR UPDATE`. An adapter's `Read.lock` and `Check.lock` are now `'update'` or `'delete'`, the new type `Lock`, in place of `true`.
+
+### Patch Changes
+
+- e97378e: `createMany` and `updateMany` on a model with an `after*` hook no longer read each row alone: 5000 rows take 0.2 s instead of 3.5 s on PostgreSQL. A hook still sees what an earlier hook wrote.
+- f808da8: A delete that runs hooks or a cascade no longer slows down with the square of its rows: `deleteMany` of 20000 rows with a `beforeDelete` hook takes 0.3 s instead of 3.1 s.
+- 7c20553: `updateMany` and `deleteMany` read back only the ids of the rows they count: on 200000 rows, twice and three times as fast.
+- 4ff9d42: `memory()` tells realtime of a write of 120000 rows or more instead of crashing the process.
+- 41b5dca: In `beforeCreate`, a field with a default is no longer `undefined` in the type of `data`: the hook runs after the defaults, so `data.status ?? 'inProgress'` can become `data.status`. A function default that may return `undefined` keeps its field possibly `undefined`, and so does a list without a default.
+- 703ed93: Making an id is seven times cheaper, which takes 12 % off `createMany` of many rows.
+- 76509c3: `memory()` finds a value in a long `in` list without comparing it with every item, so `updateMany` and `deleteMany` on a model with hooks no longer slow down with the square of their rows.
+- a6394ba: A json value nested more than 1000 levels deep is refused, instead of running out of stack with a 500 (D-330): `VALIDATION_FAILED` in a write, `INVALID_QUERY` in a filter. REST answers them with a 400; GraphQL, as for every error, with its code in `errors[].extensions.code` and HTTP 200.
+- ce7e68f: A live viewer ends again when its session is revoked or its user is deleted, and is rebuilt when one of its roles is taken away, though a request with the same token came first (D-343). Since the caller cache, a viewer built on a kept caller recorded no read and stayed open until its refresh, 300 s by default.
+- d6ec5d4: A live list no longer stays wrong for good after concurrent writes, with rows missing or out of order or `hasMore` false: it refills from the sort keys it holds, not from where its last row has moved to.
+- 0a6de4d: A live read with a virtual field costs less for each row it holds: with 1000 subscribers on a list of 1000 rows, the last of them hears of a write 31 % sooner.
+- 1644bb1: Subscribers whose virtual fields read the same thing share one statement during a change: 1000 subscribers on one list went from 1002 statements a write to 3, and the last of them hears 53 % sooner.
+- 12edcfd: A `memory()` write costs what it changes, no longer every row stored: one create with 100 000 rows stored takes 0.24 ms, where it took 14 ms, and a seed of 10 000 single creates 0.4 s, where it took 17 s. A read, update or delete by id tests only the rows it names. A failed write still changes nothing.
+- a479bca: A nested `update`, `delete` or `connectOrCreate` on a list reads the rows its items name at once, where it read them one by one: 500 items take a third less time, and a `connectOrCreate` less than half. A unique index now types as the target of a nested write and of an include's `cursor`, as at the root.
+- 0102aa8: A transaction whose database connection is lost rejects with the error that failed it, no longer with the error of the ROLLBACK the dead connection refuses: an error the callback throws, such as a `PublicError`, keeps its code.
+- 7a8d0d8: A user's `update`, `delete` or `upsert` by a unique field, under rules that do not read `record`, no longer reads the row first: the rules' filters are checked in the write's own statement, one round trip instead of five, 70 % faster on PostgreSQL. A rule that reads `record` still gets the row, and the errors do not change. An update that sets none of the fields its rule's filter reads skips the count after the write.
+- e3d051f: A nested `set` of 120000 rows or more links and unlinks them instead of failing.
+- 6140b2b: An update by a unique field other than `id`, such as `slug`, and the update branch of an `upsert` load no row when nothing needs it: one round trip instead of four, 60 % less time. An `upsert` that creates takes two round trips instead of four.
+
 ## 0.5.0
 
 ### Minor Changes

@@ -1,0 +1,926 @@
+---
+title: REST
+description: The REST API generated from the models and the functions, its routes, its parameters, its OpenAPI document and its limits.
+---
+
+`@ultimabase/rest` serves a REST API generated from your models and functions,
+on the [HTTP](/docs/next/http) server. It is the [GraphQL](/docs/next/graphql)
+API in HTTP's grammar: the same names, operators and shapes, and the same default limits: each plugin
+sets its own. Each
+request runs as its caller, under the models' [access rules](/docs/next/access).
+
+```npm
+npm install @ultimabase/rest
+```
+
+Every model and every function of the application is served. Listing `rest()`
+in a model's `use` lets its `.with({ rest })` set its routes' name and its
+limits, or hide it:
+
+```ts
+import { graphql } from '@ultimabase/graphql'
+import { rest } from '@ultimabase/rest'
+import { allow, defineModel } from 'ultimabase'
+
+export const Post = defineModel({
+	name: 'Post',
+	use: [rest(), graphql()],
+	fields: (f) => ({
+		title: f.string(),
+		slug: f.string({ unique: true }),
+		status: f.enumOf(['draft', 'published'], { default: 'draft' }),
+		likes: f.number({ integer: true, default: 0 }),
+		publishedAt: f.dateTime({ optional: true }),
+		author: f.one(() => Person),
+		revisions: f.many(() => Revision, { inverse: 'post' }),
+	}),
+	// A client asks for 20 posts at most in one list.
+}).with({ access: allow.public, rest: { maxTake: 20 } })
+```
+
+The full example, with its tests: [`examples/rest`](https://github.com/MrEkinox/ultimabase/tree/main/examples/rest).
+
+`restPlugin()` goes in the application's plugins, after `httpPlugin()`, which
+it requires:
+
+```ts
+plugins: [
+	httpPlugin(),
+	restPlugin({
+		// A request nests 4 levels at most; 10 by default.
+		maxDepth: 4,
+		// It returns 2 000 rows at most, each list times the lists above
+		// it; 20 000 by default.
+		maxRows: 2000,
+	}),
+	graphqlPlugin(),
+],
+```
+
+The API is under `/api`, and the server logs `REST on
+http://localhost:3000/api.` outside production. The examples below start from
+one person, Ada, with three posts: the request that creates her is under [What
+a model gets](#what-a-model-gets). A client lists the people with a `GET`:
+
+```http
+GET /api/people?select={"name":true}
+```
+
+```json
+{
+	"edges": [{ "cursor": "…", "node": { "name": "Ada" } }],
+	"pageInfo": {
+		"hasNextPage": false,
+		"hasPreviousPage": false,
+		"startCursor": "…",
+		"endCursor": "…"
+	}
+}
+```
+
+The responses on this page write ids, dates and cursors as `…`, which change at
+each run. A request that writes, or reads a row by its id, writes `$id`: the
+text names the row it stands for.
+
+A query parameter holds JSON, unless it is a cursor. The requests on this page
+leave it as it is; a client that encodes it, as `URLSearchParams` does, sends
+the same request. A body is JSON, sent with `content-type: application/json`.
+
+| To                                         | Go to                                                      |
+| ------------------------------------------ | ---------------------------------------------------------- |
+| Create, update, upsert or delete a row     | [What a model gets](#what-a-model-gets), [Writes](#writes) |
+| Page through a list                        | [Pages](#pages)                                            |
+| Read one row                               | [One row](#one-row)                                        |
+| Choose the fields and the relations        | [Choose the fields](#choose-the-fields)                    |
+| Filter and sort                            | [Filters](#filters)                                        |
+| Send a date, a day or a decimal            | [Dates](#dates)                                            |
+| Handle an error                            | [Errors](#errors)                                          |
+| Rename a route, hide a model or a function | [Names](#names)                                            |
+| Compare with GraphQL                       | [REST and GraphQL](#rest-and-graphql)                      |
+| Generate a client                          | [OpenAPI](#openapi)                                        |
+| Bound what a client asks                   | [Limits](#limits)                                          |
+
+## What a model gets
+
+`Post` gets six routes, each the twin of a GraphQL field:
+
+| Route                   | Does                                           | Answers                      |
+| ----------------------- | ---------------------------------------------- | ---------------------------- |
+| `GET /api/posts`        | lists, as `posts`                              | `200`, a page                |
+| `GET /api/posts/:id`    | reads one row, as `post`                       | `200`, or `404` when absent  |
+| `POST /api/posts`       | creates, as `createPost`; the body is its data | `201`                        |
+| `PUT /api/posts`        | upserts, as `upsertPost`                       | `201` created, `200` updated |
+| `PATCH /api/posts/:id`  | updates, as `updatePost`; the body is its data | `200`                        |
+| `DELETE /api/posts/:id` | deletes, as `deletePost`                       | `200`, the row as it was     |
+
+A write nests its [relations](/docs/next/relations)' writes: `connect`, `create`
+and `connectOrCreate`, and in an update `update`, `disconnect`, `set` and
+`delete`. A write takes `select` or `include` as query parameters, to shape its
+answer. Here a person is created with three posts, and answers `201`:
+
+```http
+POST /api/people?include={"posts":{"select":{"slug":true}}}
+content-type: application/json
+
+{
+	"name": "Ada",
+	"posts": {
+		"create": [
+			{ "title": "Notes", "slug": "notes", "likes": 12, "status": "published" },
+			{ "title": "Sketch", "slug": "sketch", "likes": 3 },
+			{ "title": "Plans", "slug": "plans", "likes": 7, "status": "published" }
+		]
+	}
+}
+```
+
+```json
+{
+	"id": "…",
+	"createdAt": "…",
+	"updatedAt": "…",
+	"name": "Ada",
+	"posts": {
+		"edges": [
+			{ "cursor": "…", "node": { "slug": "notes" } },
+			{ "cursor": "…", "node": { "slug": "sketch" } },
+			{ "cursor": "…", "node": { "slug": "plans" } }
+		],
+		"pageInfo": {
+			"hasNextPage": false,
+			"hasPreviousPage": false,
+			"startCursor": "…",
+			"endCursor": "…"
+		}
+	}
+}
+```
+
+## Pages
+
+A list answers a [Relay](https://relay.dev/graphql/connections.htm) connection,
+as GraphQL does: `first` rows `after` a cursor, or `last` rows `before` one. It
+answers `200`:
+
+```http
+GET /api/posts?first=2&orderBy={"likes":"desc"}&select={"title":true}&totalCount=true
+```
+
+```json
+{
+	"edges": [
+		{ "cursor": "…", "node": { "title": "Notes" } },
+		{ "cursor": "…", "node": { "title": "Plans" } }
+	],
+	"pageInfo": {
+		"hasNextPage": true,
+		"hasPreviousPage": false,
+		"startCursor": "…",
+		"endCursor": "…"
+	},
+	"totalCount": 3
+}
+```
+
+- `totalCount=true` counts every row the `where` matches.
+- `pageInfo.endCursor` is where the next page starts.
+- `after` and `before` are cursors, sent as they are, without JSON.
+- Without `first` or `last`, a list returns `take` rows, 100 by default.
+- A client asks for `maxTake` at most, 100 by default, or the model's own:
+  `.with({ rest: { maxTake: 20 } })` above.
+- A relation's list is a connection too, with its own `first`, `orderBy`,
+  `where` and `totalCount`.
+
+The next page sends that cursor as `after`, here the last post, `Sketch`:
+
+```http
+GET /api/posts?first=2&after=$after&orderBy={"likes":"desc"}&select={"title":true}
+```
+
+```json
+{
+	"edges": [{ "cursor": "…", "node": { "title": "Sketch" } }],
+	"pageInfo": {
+		"hasNextPage": false,
+		"hasPreviousPage": false,
+		"startCursor": "…",
+		"endCursor": "…"
+	}
+}
+```
+
+`pagination: 'list'` serves arrays instead, paged with `take` and `skip`, at every
+depth, and without `totalCount`:
+
+```ts
+plugins: [httpPlugin(), restPlugin({ pagination: 'list' }), graphqlPlugin()],
+```
+
+With a person who has two posts:
+
+```http
+GET /api/posts?take=1&skip=1&orderBy={"title":"asc"}&select={"title":true,"author":{"select":{"name":true,"posts":{"take":5,"select":{"slug":true}}}}}
+```
+
+```json
+[
+	{
+		"title": "Plans",
+		"author": {
+			"name": "Ada",
+			"posts": [{ "slug": "notes" }, { "slug": "plans" }]
+		}
+	}
+]
+```
+
+## One row
+
+`GET /api/posts/:id` reads a row by its id, and answers `200`. Here `$id` is
+the id of Ada's post `Notes`:
+
+```http
+GET /api/posts/$id
+```
+
+```json
+{
+	"id": "…",
+	"createdAt": "…",
+	"updatedAt": "…",
+	"title": "Notes",
+	"slug": "notes",
+	"status": "published",
+	"likes": 12,
+	"publishedAt": null
+}
+```
+
+A row that does not exist, or that the caller may not read, is a `404`:
+
+```http
+GET /api/posts/nowhere
+```
+
+```json
+{ "code": "NOT_FOUND", "message": "No Post matches." }
+```
+
+- Without `select` or `include`, a row holds its `id`, `createdAt` and
+  `updatedAt`, each field the caller may read, and the virtuals read by
+  default; no relation.
+- A list's rows hold the same.
+
+## Choose the fields
+
+`select` names the fields a row holds; `include` adds relations to the default
+fields. A row takes one of the two, never both. Both nest: a relation's value
+is `true`, or what to read of it, with a many relation's own `where`,
+`orderBy`, `first` and `totalCount`. Here `$id` is Ada's id:
+
+```http
+GET /api/people/$id?select={"name":true,"posts":{"first":1,"orderBy":{"likes":"asc"},"select":{"slug":true}}}
+```
+
+```json
+{
+	"name": "Ada",
+	"posts": {
+		"edges": [{ "cursor": "…", "node": { "slug": "sketch" } }],
+		"pageInfo": {
+			"hasNextPage": true,
+			"hasPreviousPage": false,
+			"startCursor": "…",
+			"endCursor": "…"
+		}
+	}
+}
+```
+
+`include` keeps the default fields, and adds the author. `$id` is the id of
+`Notes`:
+
+```http
+GET /api/posts/$id?include={"author":true}
+```
+
+```json
+{
+	"id": "…",
+	"createdAt": "…",
+	"updatedAt": "…",
+	"title": "Notes",
+	"slug": "notes",
+	"status": "published",
+	"likes": 12,
+	"publishedAt": null,
+	"author": { "id": "…", "createdAt": "…", "updatedAt": "…", "name": "Ada" }
+}
+```
+
+## Filters
+
+`where` takes an object per field, and `orderBy` a field, or a list of them:
+
+| On                    | Operators                                                                  |
+| --------------------- | -------------------------------------------------------------------------- |
+| every field           | `equals`, `not`, `in`, `notIn`                                             |
+| numbers and dates     | `lt`, `lte`, `gt`, `gte`                                                   |
+| text                  | `contains`, `startsWith`, `endsWith`, `mode: "insensitive"` to ignore case |
+| a relation to one row | `is`, `isNot`                                                              |
+| a relation to many    | `some`, `every`, `none`                                                    |
+| filters               | `AND`, `OR`, `NOT` combine them                                            |
+
+This table is not complete. These are the operators of
+[queries](/docs/next/queries); a field also takes:
+
+- A list field: `has`, `hasSome`, `hasEvery` and `isEmpty`.
+- A JSON field: `path`, `stringContains`, `stringStartsWith`, `stringEndsWith`,
+  `arrayContains`, `arrayStartsWith` and `arrayEndsWith`, with the number
+  operators and `mode`.
+- An `id` or an enum: the text operators, without `mode`.
+
+Here a filter on two
+fields and on a relation to one row:
+
+```http
+GET /api/posts?where={"status":{"equals":"published"},"likes":{"gte":10},"author":{"is":{"name":{"startsWith":"A"}}}}&select={"title":true}
+```
+
+```json
+{
+	"edges": [{ "cursor": "…", "node": { "title": "Notes" } }],
+	"pageInfo": {
+		"hasNextPage": false,
+		"hasPreviousPage": false,
+		"startCursor": "…",
+		"endCursor": "…"
+	}
+}
+```
+
+And one on a relation to many:
+
+```http
+GET /api/people?where={"posts":{"some":{"likes":{"lt":5}}}}&select={"name":true}
+```
+
+```json
+{
+	"edges": [{ "cursor": "…", "node": { "name": "Ada" } }],
+	"pageInfo": {
+		"hasNextPage": false,
+		"hasPreviousPage": false,
+		"startCursor": "…",
+		"endCursor": "…"
+	}
+}
+```
+
+## Dates
+
+A `dateTime` is ISO 8601 text, in a response, a body or a filter. Here a post
+is created with a date, and answers `201`. `$id` is Ada's id:
+
+```http
+POST /api/posts
+content-type: application/json
+
+{
+	"title": "Launch",
+	"slug": "launch",
+	"publishedAt": "2026-07-31T09:00:00.000Z",
+	"author": { "connect": { "id": "$id" } }
+}
+```
+
+```json
+{
+	"id": "…",
+	"createdAt": "…",
+	"updatedAt": "…",
+	"title": "Launch",
+	"slug": "launch",
+	"status": "draft",
+	"likes": 0,
+	"publishedAt": "2026-07-31T09:00:00.000Z"
+}
+```
+
+A filter on it answers `200`:
+
+```http
+GET /api/posts?where={"publishedAt":{"gte":"2026-07-01T00:00:00.000Z"}}&select={"slug":true}
+```
+
+```json
+{
+	"edges": [{ "cursor": "…", "node": { "slug": "launch" } }],
+	"pageInfo": {
+		"hasNextPage": false,
+		"hasPreviousPage": false,
+		"startCursor": "…",
+		"endCursor": "…"
+	}
+}
+```
+
+A `date` is a day, as `'2026-07-31'`, and a `decimal` is text, as `'12.50'`.
+
+## Writes
+
+`PATCH` sets the fields its body holds, and leaves the others. `$id` is the id
+of `Sketch`. It answers `200`:
+
+```http
+PATCH /api/posts/$id?select={"likes":true,"status":true}
+content-type: application/json
+
+{ "likes": 4, "status": "published" }
+```
+
+```json
+{ "likes": 4, "status": "published" }
+```
+
+`PUT` on the list's route finds a row by a unique `where`: it updates it with
+`update`, or creates it from `create` when there is none. The status says which
+it did, `201` for a created row. `$id` is Ada's id:
+
+```http
+PUT /api/posts?select={"slug":true,"likes":true}
+content-type: application/json
+
+{
+	"where": { "slug": "ideas" },
+	"create": {
+		"title": "Ideas",
+		"slug": "ideas",
+		"author": { "connect": { "id": "$id" } }
+	},
+	"update": { "likes": 1 }
+}
+```
+
+```json
+{ "slug": "ideas", "likes": 0 }
+```
+
+Sent again, it finds the row and answers `200`, with `likes: 1`.
+
+`DELETE` answers `200` with the row as it was, as GraphQL's `DeletedPost`: `id`,
+the dates and its scalar fields, without its relations or its virtuals. The
+row is gone: reading it again is a `404`. `$id` is the id of `Plans`:
+
+```http
+DELETE /api/posts/$id
+```
+
+```json
+{
+	"id": "…",
+	"createdAt": "…",
+	"updatedAt": "…",
+	"title": "Plans",
+	"slug": "plans",
+	"status": "published",
+	"likes": 7,
+	"publishedAt": null
+}
+```
+
+A write sets values. The number operations of [queries](/docs/next/queries), as
+`{ "increment": 1 }`, are for server code, as a function's. Over REST, they are
+refused with `data.likes must be a number.`
+
+## Errors
+
+An error is a status and a body `{ code, message, details }`, with the status of
+its code, as [Errors](/docs/next/errors) lists them. Here a post takes a slug
+already used, a `409`. `$id` is Ada's id:
+
+```http
+POST /api/posts
+content-type: application/json
+
+{
+	"title": "Notes again",
+	"slug": "notes",
+	"author": { "connect": { "id": "$id" } }
+}
+```
+
+```json
+{
+	"code": "UNIQUE_VIOLATION",
+	"message": "Unique constraint failed on Post (slug).",
+	"details": { "model": "Post", "fields": ["slug"] }
+}
+```
+
+A wrong query parameter is a `400` `BAD_USER_INPUT`, before the request runs:
+
+```http
+GET /api/posts?first=two
+```
+
+```json
+{
+	"code": "BAD_USER_INPUT",
+	"message": "The query parameter first is not JSON."
+}
+```
+
+- A parameter given twice, an unknown parameter and a refused value are `400`
+  too: the Errors table of the reference lists each message.
+- A `UNIQUE_VIOLATION` is a `409`, a missing row a `404`.
+- A server error is `Internal error.`, with `INTERNAL` and a `correlationId`.
+
+## Names
+
+### A route's name
+
+A route's name is the model's plural, in lower case: `posts` for `Post`. A
+plural the default spells wrong takes `.with({ rest: { plural } })`; the
+`/api/people` request above uses it:
+
+```ts
+export const Person = defineModel({
+	name: 'Person',
+	use: [rest(), graphql()],
+	fields: (f) => ({
+		name: f.string(),
+		posts: f.many(() => Post, { inverse: 'author' }),
+	}),
+	// `persons` otherwise: the route is /api/people.
+}).with({
+	access: allow.public,
+	rest: { plural: 'people' },
+	graphql: { plural: 'people' },
+})
+```
+
+### A model served only through its relations
+
+`.with({ rest: false })` serves a model without routes of its own: it is read
+through its relations, and connected, never created. Server code creates its
+rows, as Master; the revision below was created that way:
+
+```ts
+export const Revision = defineModel({
+	name: 'Revision',
+	use: [rest(), graphql()],
+	fields: (f) => ({ text: f.string(), post: f.one(() => Post) }),
+	// No route: a client reads revisions through their post.
+}).with({ access: allow.readOnly, rest: false, graphql: false })
+```
+
+A post reads its revisions, and answers `200`. `$id` is the id of `Notes`, the
+post that revision belongs to:
+
+```http
+GET /api/posts/$id?select={"revisions":{"select":{"text":true}}}
+```
+
+```json
+{
+	"revisions": {
+		"edges": [{ "cursor": "…", "node": { "text": "First draft" } }],
+		"pageInfo": {
+			"hasNextPage": false,
+			"hasPreviousPage": false,
+			"startCursor": "…",
+			"endCursor": "…"
+		}
+	}
+}
+```
+
+At the root, `GET /api/revisions` is a `404`.
+
+### A function's name
+
+A function is served under `/api/functions/`, and `rest()` in its `use` lets
+`.with({ rest })` rename its route or hide it. A query function is a `GET`:
+
+```ts
+export const topPosts = defineFunction({
+	name: 'topPosts',
+	use: [rest()],
+	query: true,
+	input: z.object({ count: z.int().min(1).max(10) }),
+	output: [Post],
+	run: ({ input, caller }) =>
+		Post.findMany(
+			{ orderBy: { likes: 'desc' }, take: input.count },
+			{ as: caller },
+		),
+	// Served at GET /api/functions/trending.
+}).with({ access: allow.public, rest: { name: 'trending' } })
+```
+
+- Each input key is a query parameter, a string as it is and any other value as
+  JSON.
+- It answers `200`.
+- `.with({ rest: { name } })` renames its route: this one is served as
+  `trending`.
+
+```http
+GET /api/functions/trending?count=1
+```
+
+```json
+[
+	{
+		"id": "…",
+		"createdAt": "…",
+		"updatedAt": "…",
+		"title": "Notes",
+		"slug": "notes",
+		"status": "published",
+		"likes": 12,
+		"publishedAt": null
+	}
+]
+```
+
+Any other function is a `POST`, its body its input, and it answers `200`, not
+`201`:
+
+```ts
+export const like = defineFunction({
+	name: 'like',
+	use: [rest()],
+	input: z.object({ slug: z.string() }),
+	output: Post,
+	// A number operation is for server code: a client's write sets values.
+	run: ({ input, caller }) =>
+		Post.update(
+			{ where: { slug: input.slug }, data: { likes: { increment: 1 } } },
+			{ as: caller },
+		),
+}).with({ access: allow.public })
+```
+
+```http
+POST /api/functions/like
+content-type: application/json
+
+{ "slug": "sketch" }
+```
+
+```json
+{
+	"id": "…",
+	"createdAt": "…",
+	"updatedAt": "…",
+	"title": "Sketch",
+	"slug": "sketch",
+	"status": "draft",
+	"likes": 4,
+	"publishedAt": null
+}
+```
+
+`.with({ rest: false })` does not serve a function:
+
+```ts
+export const reindex = defineFunction({
+	name: 'reindex',
+	use: [rest()],
+	run: () => {},
+	// Server code calls it; REST does not serve it.
+}).with({ access: allow.public, rest: false })
+```
+
+`POST /api/functions/reindex` is a `404`.
+
+## REST and GraphQL
+
+Both APIs read the same arguments and answer the same JSON: a client moves from
+one to the other without changing its data.
+
+```http
+GET /api/posts?where={"likes":{"gt":10}}&select={"title":true,"author":{"select":{"name":true}}}
+```
+
+```json
+{
+	"edges": [
+		{ "cursor": "…", "node": { "title": "Notes", "author": { "name": "Ada" } } }
+	],
+	"pageInfo": {
+		"hasNextPage": false,
+		"hasPreviousPage": false,
+		"startCursor": "…",
+		"endCursor": "…"
+	}
+}
+```
+
+The same read in GraphQL:
+
+```graphql
+query {
+	posts(where: { likes: { gt: 10 } }) {
+		edges {
+			cursor
+			node {
+				title
+				author {
+					name
+				}
+			}
+		}
+		pageInfo {
+			hasNextPage
+			hasPreviousPage
+			startCursor
+			endCursor
+		}
+	}
+}
+```
+
+It answers the REST body, under `data.posts`:
+
+```json
+{
+	"data": {
+		"posts": {
+			"edges": [
+				{
+					"cursor": "…",
+					"node": { "title": "Notes", "author": { "name": "Ada" } }
+				}
+			],
+			"pageInfo": {
+				"hasNextPage": false,
+				"hasPreviousPage": false,
+				"startCursor": "…",
+				"endCursor": "…"
+			}
+		}
+	}
+}
+```
+
+## OpenAPI
+
+`GET /api/openapi.json` is the API's
+[OpenAPI 3.1](https://spec.openapis.org/oas/v3.1.0) document: each route, its
+parameters, its bodies, its answers and its errors, as JSON Schema. A client
+generator or a tool such as Swagger UI reads it:
+
+```http
+GET /api/openapi.json
+```
+
+- It answers `200`, with `openapi: "3.1.0"`, `info.title` `UltimaBase REST API`
+  and `servers: [{ "url": "/api" }]`.
+- Its `paths` are each route, as `/people`, `/people/{id}`, `/posts`,
+  `/posts/{id}`, and a function's `/functions/trending` and `/functions/like`.
+  `/revisions` and `/functions/reindex` are absent: their model and function
+  are not served.
+- Each operation is named as its GraphQL field: `posts`, `post`, `createPost`,
+  `upsertPost`, `updatePost`, `deletePost`, and a function's name.
+- Its schemas are named as GraphQL's types, as `Post` and `PostWhereInput`, with
+  `PostSelect`, `PostInclude` and `Error`.
+
+## Limits
+
+A caller other than Master meets three limits. A request over `maxDepth` or
+`maxRows` is refused before it runs, and a list over its `maxTake` as it runs,
+each as a `400`. With the application above:
+
+| Over            | Asking for                                                  | Message                                                                        |
+| --------------- | ----------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| `maxTake: 20`   | `posts?first=21`                                            | `first is at most 20 on Post.`                                                 |
+| `maxDepth: 4`   | people, their posts, their author, their posts, each author | `The request is nested 5 levels deep, its orderBy included; the most is 4.`    |
+| `maxRows: 2000` | `people?first=100`, each with `posts` of `first: 20`        | `The request asks for more than 2,000 rows. Ask for fewer with first or last.` |
+
+Here `restPlugin({ maxDepth: 4, maxRows: 2000 })` sets two of them; the
+defaults, 10 and 20 000, are GraphQL's. Master, as a request with the `x-ultimabase-master-key` header, is not limited.
+[Details](#what-counts-toward-the-limits) says what each one counts.
+
+## Live reads
+
+With [`realtimePlugin()`](/docs/next/realtime), a list, a row or a query function
+of a live model answers a stream of Server-Sent Events when the request sends
+`Accept: text/event-stream`. The [Realtime](/docs/next/realtime) page shows it.
+
+## Details
+
+### What counts toward the limits
+
+- `maxRows` counts each list's `first` or `last` times the lists above it, or
+  its `take` in list mode.
+- `maxDepth` counts the fields a request nests, and each relation its `orderBy`
+  goes through.
+- Master is bounded by none of them.
+
+## Reference
+
+### `restPlugin(options)`
+
+| Option       | Type                       | Default        | Effect                                                              |
+| ------------ | -------------------------- | -------------- | ------------------------------------------------------------------- |
+| `path`       | string                     | `'/api'`       | Where the routes and the OpenAPI document are served.               |
+| `pagination` | `'connection'` or `'list'` | `'connection'` | Relay connections, or arrays with `take` and `skip`.                |
+| `take`       | number                     | 100            | The rows a list returns without `first`, `last` or `take`.          |
+| `maxTake`    | number                     | 100            | The most rows a list returns, unless the model sets its own.        |
+| `maxDepth`   | number                     | 10             | The deepest a request nests, its fields and its `orderBy` counted.  |
+| `maxRows`    | number                     | 20 000         | The most rows a request may return, each list times those above it. |
+
+It requires `httpPlugin()`. With [`realtimePlugin()`](/docs/next/realtime),
+it serves live reads over Server-Sent Events. Master is limited by neither
+`maxTake`, `maxDepth` nor `maxRows`.
+
+### `.with({ rest })`
+
+It needs `rest()` in the model's or the function's `use`; without it, the
+model or the function is served with the defaults.
+
+| On         | Value         | Effect                                                          |
+| ---------- | ------------- | --------------------------------------------------------------- |
+| a model    | `{ plural }`  | The routes' name.                                               |
+| a model    | `{ maxTake }` | The most rows its lists return.                                 |
+| a model    | `false`       | No route; read through relations, and connected, never created. |
+| a function | `{ name }`    | The route's name, under `/api/functions/`.                      |
+| a function | `false`       | Not served over REST.                                           |
+
+### Query parameters
+
+| Parameter    | On                     | Value                                    |
+| ------------ | ---------------------- | ---------------------------------------- |
+| `where`      | a list                 | JSON, a filter                           |
+| `orderBy`    | a list                 | JSON, a field's order, or a list of them |
+| `first`      | a list, connection     | JSON, a number                           |
+| `last`       | a list, connection     | JSON, a number                           |
+| `after`      | a list, connection     | a cursor, as text                        |
+| `before`     | a list, connection     | a cursor, as text                        |
+| `totalCount` | a list, connection     | `true` or `false`                        |
+| `take`       | a list, list mode      | JSON, a number                           |
+| `skip`       | a list, list mode      | JSON, a number                           |
+| `select`     | any route but `DELETE` | JSON, the fields to read                 |
+| `include`    | any route but `DELETE` | JSON, the relations to add               |
+
+`totalCount` is also a key inside `select` and `include`, on a many
+relation, in connection mode. A query function takes its input's keys
+instead.
+
+`first=0` (or `last=0`) with `totalCount=true` and no cursor counts the rows
+and reads none, at the root, in an `include` and in a function's page:
+`edges` is `[]`, both cursors are null, and `hasNextPage` (or
+`hasPreviousPage`) says whether the count is above 0.
+
+### Types
+
+A field reads as in GraphQL's JSON: `f.dateTime()` is ISO 8601 text, as
+`'2026-07-31T09:00:00.000Z'`; `f.date()` a day, as `'2026-07-31'`;
+`f.decimal()` text, as `'12.50'`; an enum its value's name, as
+`'published'`; the id text.
+
+### Errors
+
+| Status | Code               | Message                                                                                                                      |
+| ------ | ------------------ | ---------------------------------------------------------------------------------------------------------------------------- |
+| 400    | `BAD_USER_INPUT`   | `The query parameter first is not JSON.`                                                                                     |
+| 400    | `BAD_USER_INPUT`   | `The query parameter first is given twice.`                                                                                  |
+| 400    | `BAD_USER_INPUT`   | `Unknown query parameter 'limit'; this route takes where, orderBy, select, include, first, last, totalCount, after, before.` |
+| 400    | `BAD_USER_INPUT`   | `select and include cannot be used together.`                                                                                |
+| 400    | `BAD_USER_INPUT`   | `select.title must be a boolean.`                                                                                            |
+| 400    | `BAD_USER_INPUT`   | `Unknown key 'data.revisions.create' on Post.`, a nested write to a `rest: false` model.                                     |
+| 400    | `BAD_USER_INPUT`   | `data.publishedAt must be an ISO 8601 DateTime, such as 2026-01-31T12:00:00.000Z.`                                           |
+| 400    | `BAD_USER_INPUT`   | `data.likes must be a number.`, for a number operation.                                                                      |
+| 400    | `BAD_USER_INPUT`   | `first is at most 20 on Post.`                                                                                               |
+| 400    | `BAD_USER_INPUT`   | `The request is nested 5 levels deep, its orderBy included; the most is 4.`                                                  |
+| 400    | `BAD_USER_INPUT`   | `The request asks for more than 2,000 rows. Ask for fewer with first or last.`, `take` in list mode.                         |
+| 404    | `NOT_FOUND`        | `No Post matches.`                                                                                                           |
+| 409    | `UNIQUE_VIOLATION` | `Unique constraint failed on Post (slug).`, with `details: { model, fields }`.                                               |
+| any    | any kernel code    | as [Errors](/docs/next/errors) lists them, with `details`.                                                                   |
+| 500    | `INTERNAL`         | `Internal error.`, with `correlationId`.                                                                                     |
+
+At start:
+
+- `Crate: the route boxes is Box's; set .with({ rest: { plural } }).`, and
+  `Job: the route functions is the functions's; …`, a plural taken.
+- `other: the route functions/twice is double's; set .with({ rest: { name } }).`,
+  for a function.
+- `books: the operation books is Book's; set .with({ rest: { name } }).`, an
+  OpenAPI operation named twice.
+- `Job: my-jobs is not a route name.`
+- `Club.status: REST names a schema Person; give yours another name.`
+- `Person.status and Club.status give the schema Status two shapes; name each once.`
+
+As it runs, a function that returns `undefined` is refused:
+`fn returned undefined; make its output .nullable() and return null.`
+
+### Limits
+
+- No batch route, no update or delete of many rows: a function does it.
+- A row is found by its `id` in the path; any other unique field goes
+  through `where` on the list, or `PUT`.
+- A read is a `GET`: there is no `POST` route for a long query.
+- The OpenAPI document declares no security scheme: the session cookie of
+  [auth](/docs/next/auth) and the master key header are not in it.

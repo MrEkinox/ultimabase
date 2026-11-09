@@ -1,0 +1,341 @@
+---
+title: Transactions
+description: Make several writes commit together or not at all.
+---
+
+One write is always atomic: its row, its nested writes, its cascades and the
+writes of its `after*` hooks commit together. To make several writes one,
+`transaction` runs them in a callback.
+
+```ts
+import { master, transaction } from 'ultimabase'
+import { Account } from './models.ts'
+
+export const closeAccount = (from: string, to: string) =>
+	transaction(async () => {
+		const as = { as: master }
+		const { balance } = await Account.delete({ where: { id: from } }, as)
+		await Account.update(
+			{ where: { id: to }, data: { balance: { increment: balance } } },
+			as,
+		)
+	})
+```
+
+The full example, with its tests: [`examples/transactions`](https://github.com/MrEkinox/ultimabase/tree/main/examples/transactions).
+
+- The writes all commit when the callback resolves, and none does when it
+  throws.
+- Every query inside the callback runs in the transaction, however deep it is
+  called: no `tx` argument to pass.
+- A function opens no transaction of its own, so the network calls it makes (a
+  payment, an email) never hold rows locked.
+
+| To                                       | Use                                                       |
+| ---------------------------------------- | --------------------------------------------------------- |
+| commit several writes together           | [`transaction`](#commit-or-roll-back)                     |
+| undo them                                | [throw in the callback](#commit-or-roll-back)             |
+| call a function that has its own         | [a nested `transaction`](#nested-transactions)            |
+| keep going after a query fails           | [run it outside](#a-failed-query)                         |
+| two calls decide from rows not there yet | [`isolation: 'serializable'`](#serializable-transactions) |
+| send an email once, after the commit     | [a `*Commit` hook](#after-the-commit)                     |
+
+## Commit or roll back
+
+The transaction commits when the callback resolves, and returns its value.
+Ada holds 100 in account `A-1`, and Grace 0 in `G-1`. In the tests, `from` and
+`to` are the ids of those accounts, `as` is `{ as: master }`, and `ada` is
+`{ as: asUser({ id: 'ada' }) }`.
+
+A `transfer` function takes the two ids and an amount, and only a signed-in
+user may call it: its rule is `({ caller }) => caller.kind === 'user'`.
+
+```ts
+import { PublicError, defineFunction, master, transaction } from 'ultimabase'
+import { z } from 'zod'
+import { Account, Like } from './models.ts'
+
+export const transfer = defineFunction({
+	name: 'transfer',
+	input: z.object({ from: z.string(), to: z.string(), amount: z.int().min(1) }),
+	run: async ({ input, caller }) => {
+```
+
+It checks the owner, then moves money between the two accounts:
+
+```ts
+// NOT_FOUND unless the caller owns the account.
+await Account.findUniqueOrThrow({ where: { id: input.from } }, { as: caller })
+```
+
+```ts
+const as = { as: master }
+await transaction(async () => {
+	// The update locks the row: a second transfer waits for this one.
+	const from = await Account.update(
+		{
+			where: { id: input.from },
+			data: { balance: { decrement: input.amount } },
+		},
+		as,
+	)
+	if (from.balance < 0) {
+		// Throwing rolls back the decrement.
+		throw new PublicError('INSUFFICIENT_FUNDS', 'The balance is too low.')
+	}
+	await Account.update(
+		{
+			where: { id: input.to },
+			data: { balance: { increment: input.amount } },
+		},
+		as,
+	)
+})
+```
+
+```ts
+await transfer.run({ from, to, amount: 30 }, ada)
+const rows = await Account.findMany(
+	{ orderBy: { number: 'asc' }, select: { balance: true } },
+	as,
+)
+expect(rows).toEqual([{ balance: 70 }, { balance: 30 }])
+```
+
+When the callback throws, every write made inside it is undone, its hooks'
+writes included, and `transaction` rejects with that error:
+
+```ts
+await expect(
+	transfer.run({ from, to, amount: 130 }, ada),
+).rejects.toMatchObject({ code: 'INSUFFICIENT_FUNDS' })
+// The decrement was undone.
+const rows = await Account.findMany(
+	{ orderBy: { number: 'asc' }, select: { balance: true } },
+	as,
+)
+expect(rows).toEqual([{ balance: 100 }, { balance: 0 }])
+```
+
+Closing an account moves its balance and deletes it, both or neither. Closing
+Ada's account into Grace's leaves one account holding 100:
+
+```ts
+await closeAccount(from, to)
+const rows = await Account.findMany({ select: { balance: true } }, as)
+expect(rows).toEqual([{ balance: 100 }])
+```
+
+When the credit fails, the account is kept:
+
+```ts
+// No account holds a random id: the credit fails, the delete is undone.
+await expect(closeAccount(from, randomUUID())).rejects.toMatchObject({
+	code: 'NOT_FOUND',
+})
+const rows = await Account.findMany(
+	{ orderBy: { number: 'asc' }, select: { balance: true } },
+	as,
+)
+expect(rows).toEqual([{ balance: 100 }, { balance: 0 }])
+```
+
+## Nested transactions
+
+A `transaction` called inside another joins it: no savepoint. Here both
+transfers commit together, and the second's failure undoes the first:
+
+```ts
+// The second transfer fails: the first is undone with it.
+await expect(
+	transaction(async () => {
+		await transfer.run({ from, to, amount: 60 }, ada)
+		await transfer.run({ from, to, amount: 60 }, ada)
+	}),
+).rejects.toMatchObject({ code: 'INSUFFICIENT_FUNDS' })
+```
+
+## A failed query
+
+A query that fails inside a transaction rolls it all back, even when the
+callback catches the error, as PostgreSQL does:
+
+```ts
+const duplicate = { data: { number: 'A-1', ownerId: 'ada' } }
+await expect(
+	transaction(async () => {
+		await Account.update({ where: { id: from }, data: { balance: 0 } }, as)
+		await Account.create(duplicate, as).catch(() => undefined)
+	}),
+).rejects.toMatchObject({ code: 'UNIQUE_VIOLATION' })
+```
+
+- The next query in it throws `A query failed in this transaction, which rolls
+back: no other query runs in it.`
+- `transaction` rejects with the first error.
+- The rollback waits for the queries still running in the transaction, those
+  of a `Promise.all` and those the callback started without waiting for them.
+  So does the commit.
+- To try a write and go on when it fails, run it outside the transaction.
+
+## Locks and concurrency
+
+An `update` or a `delete` locks the row it targets until the transaction ends.
+A second transfer from the same account waits for the first and reads its
+balance, so the check in `transfer` never sees a stale balance.
+
+- `updateMany` and `deleteMany` lock their rows in `id` order, so two calls on
+  the same rows wait for each other instead of deadlocking.
+- PostgreSQL runs transactions at its default isolation, `READ COMMITTED`.
+- `memory()` runs one transaction at a time.
+
+## Serializable transactions
+
+A lock holds a row that exists. When the row a callback decides from is not
+there yet, two calls at once each miss the other's: two users liking each
+other at the same moment both find no like to match. With
+`isolation: 'serializable'`, the transaction runs as if no other ran beside
+it.
+
+The `like` function takes the user to like, and answers whether the two now
+match. It reads the caller's id as `me`, and `as` is `{ as: master }`:
+
+```ts
+export const like = defineFunction({
+	name: 'like',
+	input: z.object({ user: z.string() }),
+	output: z.object({ matched: z.boolean() }),
+	run: async ({ input, caller }) => {
+		const me = caller.kind === 'user' ? caller.user.id : ''
+		const as = { as: master }
+```
+
+It saves the like, then looks for the other's:
+
+```ts
+// Two likes at once: one commits, the other runs again and matches.
+return transaction(
+	async () => {
+		const mine = await Like.create(
+			{ data: { userId: me, targetId: input.user } },
+			as,
+		)
+		const theirs = await Like.findFirst(
+			{ where: { userId: input.user, targetId: me } },
+			as,
+		)
+		if (theirs === null) return { matched: false }
+		await Like.updateMany(
+			{
+				where: { id: { in: [mine.id, theirs.id] } },
+				data: { matchedAt: new Date() },
+			},
+			as,
+		)
+		return { matched: true }
+	},
+	{ isolation: 'serializable' },
+)
+```
+
+When PostgreSQL aborts it for a conflict with another transaction, the
+callback runs again:
+
+- from the start, in a new transaction;
+- after a random wait that grows with each attempt;
+- 10 attempts at most: the tenth conflict fails with `CONFLICT`, status 409.
+
+Here the second like runs again, sees the first and makes the match. `ada` is
+as above and `grace` is `{ as: asUser({ id: 'grace' }) }`; each `result` is
+`{ matched }`:
+
+```ts
+const grace = { as: asUser({ id: 'grace' }) }
+const results = await Promise.all([
+	like.run({ user: 'grace' }, ada),
+	like.run({ user: 'ada' }, grace),
+])
+// Whichever runs second sees the first like.
+expect(results.filter((result) => result.matched)).toHaveLength(1)
+const matched = await Like.count({ where: { matchedAt: { not: null } } }, as)
+expect(matched).toBe(2)
+```
+
+- The callback must be safe to run again: an email or a payment belongs in a
+  `*Commit` hook, which runs once, for the attempt that commits.
+- A conflict the callback catches still fails its attempt.
+- Inside a serializable transaction, a `transaction` joins it, with or without
+  the option.
+- A transaction that began without it, a hook's included, cannot become
+  serializable: open the serializable one first.
+- `memory()` runs one transaction at a time, already serializable.
+
+### Index what the callback reads
+
+PostgreSQL tracks what a serializable transaction read by the index pages it
+went through, not by row. Without an index, it tracks the whole table, and
+every serializable transaction on it conflicts with the others: index the
+fields the callback reads by.
+
+```ts
+/** One user's like of another; two that face each other make a match. */
+export const Like = defineModel({
+	name: 'Like',
+	fields: (f) => ({
+		userId: f.string(),
+		targetId: f.string(),
+		matchedAt: f.dateTime({ optional: true }),
+	}),
+	// What `like` reads by: PostgreSQL tracks a serializable read by its index.
+	indexes: [{ fields: ['userId', 'targetId'] }],
+})
+```
+
+Transactions that share a page still conflict with each other, rows apart or
+not:
+
+- on a small table, whose index fits on one page;
+- on an index led by a time-ordered id, whose recent rows all end on its last
+  page.
+
+The random wait spreads them apart: in a test of 100 calls at once on fresh
+tables, none failed and few needed more than 7 attempts.
+
+## After the commit
+
+The `*Commit` hooks of the writes made inside run once the transaction
+commits, never after a rollback, and `transaction` resolves once they are
+done. See [Hooks](/docs/next/hooks).
+
+## Details
+
+- No savepoint: a nested `transaction` cannot roll back alone.
+- A query that never settles keeps its transaction, and its connection, open.
+- A transaction holds its locks while the callback runs: call external
+  services before it, or from a `*Commit` hook after it.
+- A serializable transaction runs 10 attempts, a number no option changes.
+
+## Reference
+
+### `transaction(run, options?)`
+
+| Argument            | Type               | Effect                                                              |
+| ------------------- | ------------------ | ------------------------------------------------------------------- |
+| `run`               | `() => Promise<R>` | The writes; every query inside runs in the transaction.             |
+| `options.isolation` | `'serializable'`   | Runs serializable, and runs `run` again on a conflict, 10 attempts. |
+
+It returns `run`'s value once the transaction commits and its `*Commit`
+hooks ran, or rejects with the error that rolled it back.
+
+### Errors
+
+| Error                                                                                              | When                                                                        |
+| -------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| the callback's error                                                                               | The callback threw; nothing was written.                                    |
+| the failed query's error                                                                           | A query failed, caught or not; nothing was written.                         |
+| `A query failed in this transaction, which rolls back: no other query runs in it.`                 | A query ran after one failed.                                               |
+| `transaction runs on a started application.`                                                       | No application is started.                                                  |
+| `RELATION_RESTRICTED`, `NOT_FOUND`                                                                 | PostgreSQL's foreign keys refused at the commit.                            |
+| `RELATION_SIZE`                                                                                    | A parent the transaction touched holds too few or too many rows at its end. |
+| `CONFLICT`                                                                                         | A serializable transaction conflicted 10 times.                             |
+| `A transaction cannot become serializable once it began; open the serializable transaction first.` | The option, inside a transaction that began without it.                     |

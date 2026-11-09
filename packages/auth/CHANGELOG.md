@@ -1,5 +1,54 @@
 # @ultimabase/auth
 
+## 0.6.0
+
+### Minor Changes
+
+- 778bbbc: A plugin's own model relates to the application's user model through `AppUser`: `user: f.one(() => AppUser, { onDelete: 'cascade' })`. Startup resolves it to the model `defineUser` declares, and the user model gains no field. Auth's sessions and linked accounts, and password's hash and tokens, now hold their user this way, and the column `user_id` becomes a `uuid` with a foreign key to the user. Deleting a user through UltimaBase deletes them in its transaction. The foreign key does not cascade, since the kernel runs the cascades (D-54): a delete in raw SQL deletes them first, or fails at commit. Before `migrate deploy`, delete the rows whose user no longer exists, or the cast to `uuid` and the foreign key fail; with the user model stored in `"user"`:
+
+  ```sql
+  delete from "auth_session" as "row" where not exists (select from "user" where "user"."id"::text = "row"."user_id");
+  delete from "auth_account" as "row" where not exists (select from "user" where "user"."id"::text = "row"."user_id");
+  delete from "password_hash" as "row" where not exists (select from "user" where "user"."id"::text = "row"."user_id");
+  delete from "password_token" as "row" where not exists (select from "user" where "user"."id"::text = "row"."user_id");
+  ```
+
+- 2bccedd: A request with a known session token reads neither its session nor its user: each process keeps the caller of up to 10 000 tokens. A revocation, a sign-out, a user updated or deleted count from the next request, on every server through the change feed, which every application with auth now takes. A write that bypasses the application, as raw SQL, is not seen until the session is due for renewal.
+
+### Patch Changes
+
+- ce7e68f: A live viewer ends again when its session is revoked or its user is deleted, and is rebuilt when one of its roles is taken away, though a request with the same token came first (D-343). Since the caller cache, a viewer built on a kept caller recorded no read and stayed open until its refresh, 300 s by default.
+- Updated dependencies [e97378e]
+- Updated dependencies [778bbbc]
+- Updated dependencies [2bccedd]
+- Updated dependencies [f808da8]
+- Updated dependencies [a47bbc4]
+- Updated dependencies [7c20553]
+- Updated dependencies [2f1baf1]
+- Updated dependencies [945b1b3]
+- Updated dependencies [4ff9d42]
+- Updated dependencies [41b5dca]
+- Updated dependencies [3d7f654]
+- Updated dependencies [703ed93]
+- Updated dependencies [76509c3]
+- Updated dependencies [a6394ba]
+- Updated dependencies [41b5dca]
+- Updated dependencies [41b5dca]
+- Updated dependencies [ce7e68f]
+- Updated dependencies [d6ec5d4]
+- Updated dependencies [0a6de4d]
+- Updated dependencies [1644bb1]
+- Updated dependencies [dfa430e]
+- Updated dependencies [12edcfd]
+- Updated dependencies [a479bca]
+- Updated dependencies [0102aa8]
+- Updated dependencies [7a8d0d8]
+- Updated dependencies [e3d051f]
+- Updated dependencies [6140b2b]
+- Updated dependencies [0699e37]
+  - ultimabase@0.6.0
+  - @ultimabase/http@0.6.0
+
 ## 0.5.0
 
 ### Patch Changes

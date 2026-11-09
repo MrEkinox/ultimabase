@@ -1,5 +1,37 @@
 # @ultimabase/acl
 
+## 0.6.0
+
+### Patch Changes
+
+- Updated dependencies [e97378e]
+- Updated dependencies [778bbbc]
+- Updated dependencies [2bccedd]
+- Updated dependencies [f808da8]
+- Updated dependencies [7c20553]
+- Updated dependencies [2f1baf1]
+- Updated dependencies [945b1b3]
+- Updated dependencies [4ff9d42]
+- Updated dependencies [41b5dca]
+- Updated dependencies [703ed93]
+- Updated dependencies [76509c3]
+- Updated dependencies [a6394ba]
+- Updated dependencies [41b5dca]
+- Updated dependencies [41b5dca]
+- Updated dependencies [ce7e68f]
+- Updated dependencies [d6ec5d4]
+- Updated dependencies [0a6de4d]
+- Updated dependencies [1644bb1]
+- Updated dependencies [12edcfd]
+- Updated dependencies [a479bca]
+- Updated dependencies [0102aa8]
+- Updated dependencies [7a8d0d8]
+- Updated dependencies [e3d051f]
+- Updated dependencies [6140b2b]
+- Updated dependencies [0699e37]
+  - ultimabase@0.6.0
+  - @ultimabase/roles@0.6.0
+
 ## 0.5.0
 
 ### Patch Changes

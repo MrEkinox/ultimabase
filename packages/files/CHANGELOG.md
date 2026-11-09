@@ -1,5 +1,42 @@
 # @ultimabase/files
 
+## 0.6.0
+
+### Patch Changes
+
+- a4e42fe: A file's `id` is an `ID` in GraphQL, as every id, and `{ type: 'string', format: 'uuid' }` in OpenAPI: it was a `String`. A client passing a file's id in a variable declares `$id: ID!`.
+- f2d695a: `diskFiles()` reads an upload 1 MiB ahead and writes it 1 MiB at a time, so a 5 MB upload runs at 525 to 560 MB/s instead of 391 to 444 MB/s, and a 200 MB one at 1045 to 1100 MB/s instead of 771 to 856 MB/s.
+- Updated dependencies [e97378e]
+- Updated dependencies [778bbbc]
+- Updated dependencies [2bccedd]
+- Updated dependencies [f808da8]
+- Updated dependencies [a47bbc4]
+- Updated dependencies [7c20553]
+- Updated dependencies [2f1baf1]
+- Updated dependencies [945b1b3]
+- Updated dependencies [4ff9d42]
+- Updated dependencies [41b5dca]
+- Updated dependencies [3d7f654]
+- Updated dependencies [703ed93]
+- Updated dependencies [76509c3]
+- Updated dependencies [a6394ba]
+- Updated dependencies [41b5dca]
+- Updated dependencies [41b5dca]
+- Updated dependencies [ce7e68f]
+- Updated dependencies [d6ec5d4]
+- Updated dependencies [0a6de4d]
+- Updated dependencies [1644bb1]
+- Updated dependencies [dfa430e]
+- Updated dependencies [12edcfd]
+- Updated dependencies [a479bca]
+- Updated dependencies [0102aa8]
+- Updated dependencies [7a8d0d8]
+- Updated dependencies [e3d051f]
+- Updated dependencies [6140b2b]
+- Updated dependencies [0699e37]
+  - ultimabase@0.6.0
+  - @ultimabase/http@0.6.0
+
 ## 0.5.0
 
 ### Minor Changes

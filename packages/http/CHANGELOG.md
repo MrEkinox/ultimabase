@@ -1,5 +1,44 @@
 # @ultimabase/http
 
+## 0.6.0
+
+### Minor Changes
+
+- 2f1baf1: A database the server cannot use answers `UNAVAILABLE`, not `INTERNAL` (D-335): every pool connection stayed busy, or the server cannot be reached. REST answers it with 503 and `Retry-After: 1`. GraphQL, as for every error, answers HTTP 200 with the code in `errors[].extensions.code` and `extensions.details.retryAfter`: a client that retries from the HTTP status reads the code instead. The reason is logged at `error`. `UNAVAILABLE` is now a kernel code.
+
+### Patch Changes
+
+- a47bbc4: A storm of connections no longer fails. The server's connection queue holds 4096, and at most 8 connections open at once. A socket closed by a failure of the server now gets `1013`, which `graphql-ws` retries, where it got `4403`: `4403` now means refused, and only that. `liveFetch` reconnects at a random moment of its wait, so that clients cut together do not come back together.
+- 3d7f654: A request costs up to 18 % less CPU: the server keeps its light response through CORS, the body limit and its headers. `Access-Control-Allow-Credentials` goes out only with an allowed origin, and a route's own `Vary` is kept.
+- dfa430e: On Linux, a server takes connections 16 times faster when it is busy: with 2000 clients, the slowest
+  one waits about 2.5 s instead of about 18 s, and a health probe under 1 s instead of over 5 s.
+- Updated dependencies [e97378e]
+- Updated dependencies [778bbbc]
+- Updated dependencies [2bccedd]
+- Updated dependencies [f808da8]
+- Updated dependencies [7c20553]
+- Updated dependencies [2f1baf1]
+- Updated dependencies [945b1b3]
+- Updated dependencies [4ff9d42]
+- Updated dependencies [41b5dca]
+- Updated dependencies [703ed93]
+- Updated dependencies [76509c3]
+- Updated dependencies [a6394ba]
+- Updated dependencies [41b5dca]
+- Updated dependencies [41b5dca]
+- Updated dependencies [ce7e68f]
+- Updated dependencies [d6ec5d4]
+- Updated dependencies [0a6de4d]
+- Updated dependencies [1644bb1]
+- Updated dependencies [12edcfd]
+- Updated dependencies [a479bca]
+- Updated dependencies [0102aa8]
+- Updated dependencies [7a8d0d8]
+- Updated dependencies [e3d051f]
+- Updated dependencies [6140b2b]
+- Updated dependencies [0699e37]
+  - ultimabase@0.6.0
+
 ## 0.5.0
 
 ### Patch Changes
