@@ -27,16 +27,16 @@ function due(now: Date) {
 	}
 }
 
-/** Whether this instance now holds the row until `held`: one update counts it. */
-async function claim(id: string, now: number, held: Date): Promise<boolean> {
-	const { count } = await JobsRun.updateMany(
+/** The row, once this instance holds it until `held`: one update returns it. */
+async function claim(id: string, now: number, held: Date) {
+	const [row] = await JobsRun.updateManyAndReturn(
 		{
 			where: { AND: [{ id }, due(new Date(now))] },
 			data: { lockedUntil: held },
 		},
 		M,
 	)
-	return count === 1
+	return row
 }
 
 /** The first due time of a recurring job after `now`, on its cadence. */
@@ -111,9 +111,8 @@ async function ran(app: Running, row: Row, now: number) {
 async function runRow(app: Running, id: string): Promise<boolean> {
 	const now = Date.now()
 	const held = new Date(now + lease)
-	if (!(await claim(id, now, held))) return false
-	const row = await JobsRun.findUnique({ where: { id } }, M)
-	if (row === null) return false
+	const row = await claim(id, now, held)
+	if (row === undefined) return false
 	const data = await ran(app, row, now)
 	// Only while this instance holds the row: another took it over after.
 	const where = { id, lockedUntil: held }
