@@ -19,6 +19,8 @@ export type FakeState = {
 	locked?: boolean
 	/** The host of a database on another machine. */
 	remote?: string
+	/** The rows each insert, update or delete of a deployed file changes. */
+	rows?: number
 }
 
 type Models = { readonly [model: string]: readonly string[] }
@@ -112,6 +114,19 @@ function plan(from: unknown, to: unknown): Statement[] {
 	return statements
 }
 
+/** The statements of a file, comment lines left out. */
+const statementsOf = (sql: string): string[] =>
+	sql
+		.split(';')
+		.map((part) =>
+			part
+				.split('\n')
+				.filter((line) => !line.startsWith('--'))
+				.join('\n')
+				.trim(),
+		)
+		.filter((part) => part !== '')
+
 /** The states configs share with the tests that write them, by name. */
 export const states = new Map<string, FakeState>()
 
@@ -130,7 +145,7 @@ export function migrating(state: FakeState = fakeState()): Adapter {
 			snapshot,
 			plan: (from, schema) => plan(from, snapshot(schema)),
 			stored: async () => state.stored,
-			apply: async (run) => {
+			apply: async (run, counted) => {
 				state.runs.push(run)
 				const applied = [...(state.stored?.applied ?? [])]
 				if (run.kind === 'sync') {
@@ -152,6 +167,17 @@ export function migrating(state: FakeState = fakeState()): Adapter {
 				for (const { name, sql, checksum, schema } of run.files) {
 					if (state.refuses !== undefined && sql.includes(state.refuses)) {
 						throw new MigrationFailed(name, 'a row breaks it')
+					}
+					for (const statement of statementsOf(sql)) {
+						const [command = ''] = statement.split(' ', 1)
+						if (state.rows === undefined) break
+						if (!/^(?:insert|update|delete)$/u.test(command)) continue
+						counted?.({
+							at: name,
+							statement,
+							command: command.toUpperCase(),
+							rows: state.rows,
+						})
 					}
 					applied.push({
 						name,

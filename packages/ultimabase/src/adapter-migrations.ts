@@ -78,6 +78,20 @@ export type Run =
 	  }
 
 /**
+ * A statement of a deployed file that inserted, updated, deleted or merged
+ * rows, and how many, zero included (D-344).
+ */
+export type Counted = {
+	/** The file's name. */
+	readonly at: string
+	/** The statement as the file wrote it, without its semicolon. */
+	readonly statement: string
+	/** `INSERT`, `UPDATE`, `DELETE` or `MERGE`. */
+	readonly command: string
+	readonly rows: number
+}
+
+/**
  * How a database follows the models (D-105). A snapshot is JSON in the
  * adapter's own format, which it validates when it reads one back.
  */
@@ -94,8 +108,10 @@ export interface Migrations {
 	/**
 	 * Applies `run` under a lock that one database holds at a time; a
 	 * statement or file the database refuses throws `MigrationFailed`.
+	 * `counted` hears what each statement of a deployed file changed, once
+	 * the file is committed (D-344).
 	 */
-	apply(run: Run): Promise<void>
+	apply(run: Run, counted?: (statement: Counted) => void): Promise<void>
 	/**
 	 * Drops every table, for `ultimabase reset`; returns the models' tables.
 	 * A table another session holds throws a locked `MigrationFailed`.

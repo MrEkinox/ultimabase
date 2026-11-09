@@ -8,6 +8,7 @@ import type { Logger } from './app-options.ts'
 import type { Feed } from './adapter-feed.ts'
 
 export type {
+	Counted,
 	Migration,
 	Migrations,
 	Run,

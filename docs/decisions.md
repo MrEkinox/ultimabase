@@ -684,7 +684,7 @@ Why: knowing them now keeps today's code from blocking them.
 
 ## D-26: Migrations are SQL files, safe changes sync in development
 
-Amended by D-105.
+Amended by D-105, D-344.
 
 Choice: in development, the PostgreSQL adapter applies safe changes at startup
 (new table, new optional field, new index) and refuses destructive or ambiguous
@@ -20899,3 +20899,65 @@ so it pays the reads D-332 saves for requests.
 Rejected: replaying the reads a kept caller was built from into the current
 recording. It keeps the reads of each of 10 000 tokens and needs a kernel
 export for it, to save the reads of a rare build.
+
+## D-344: A deploy shows the rows each statement changed
+
+Choice: adds to D-26; a developer's code does not change, an adapter's
+`migrations.apply` takes a second parameter.
+
+1. `migrate deploy` and `reset` print, under `Applied <file>.`, one line for
+   each `INSERT`, `UPDATE`, `DELETE` or `MERGE` statement of the file: its
+   first line, cut at 80 characters with `…` when longer or followed by
+   others, then its command and the rows it changed, `0` included. A file
+   that only changes tables prints as before; `sync` prints nothing more.
+2. `Migrations.apply(run, counted?)` calls `counted` with
+   `{ at, statement, command, rows }` for each such statement of a deployed
+   file, once the file is committed. A file that fails reports nothing,
+   since it was rolled back; the files committed before it still do.
+3. The PostgreSQL adapter reads the command tag PostgreSQL answers for each
+   statement of the file's query. It names each by splitting the file as
+   PostgreSQL does: quotes, `E''` strings, dollar quotes and nested comments
+   hold their semicolons, and empty statements are left out. When the split
+   and the answers do not count alike, as with a `begin atomic` body, a
+   statement is named by its rank: `statement 2`.
+4. The counts are not stored in `ultimabase_migrations`: the deploy's output
+   is their record.
+
+Why: a data migration (an orphan cleanup, a backfill) ran blind: an
+operator learned only that the file applied, not whether its `delete`
+removed 0 rows or 40 000. Prisma's `migrate deploy` and Rails's
+`db:migrate` do not print counts either; Rails prints each statement's
+time. PostgreSQL already answers each count, and `psql` prints it as
+`DELETE 3`: printing it costs no query.
+
+Implicit choices:
+
+- `INSERT 5` is printed, not PostgreSQL's `INSERT 0 5`, whose `0` is an
+  OID that is always zero.
+- Each query a connection runs passes a check, a map lookup that is skipped
+  while no deploy runs, so that Kysely hands the answers over as rows.
+
+Rejected:
+
+- A connection taken from `pg` outside Kysely: a second path to the pool for
+  the deploy alone.
+- A SQL parser package to name the statements: a dependency for a label,
+  where a 100-line split falls back to ranks.
+- A `changed` column in `ultimabase_migrations`: a schema change to store
+  what the output already shows.
+- Counts for `sync`: it runs the adapter's own statements, which change no
+  rows a developer wrote.
+- Returning the counts from `apply`: a failed deploy throws, and the counts
+  of the files it committed would be lost.
+
+Example, the output of a deploy:
+
+```text
+# Before
+Applied 20261108_orphans.sql.
+
+# After
+Applied 20261108_orphans.sql.
+  delete from "auth_session" as "row" where not exists (select from "user" where "…: DELETE 0
+  delete from "auth_account" as "row" where not exists (select from "user" where "…: DELETE 12
+```

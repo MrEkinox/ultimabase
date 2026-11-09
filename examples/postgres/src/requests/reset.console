@@ -3,4 +3,5 @@ Dropped project, task.
 Applied 20261026200257_init.sql.
 Applied 20261029230454_add_priority.sql.
 Applied 20261029230505_first_tasks_urgent.sql.
+  update "task" set "priority" = 1 where not "done": UPDATE 0
 Applied 20261029230507_open_tasks_index.sql.

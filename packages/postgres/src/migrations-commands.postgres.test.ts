@@ -55,6 +55,10 @@ const development = () => ({
 	NODE_ENV: 'development',
 })
 
+/** What a backfill's update printed, under its file (D-344). */
+const updated = (rows: number) =>
+	`  update "locker" set "kind" = 'glass' where "label" like 'prod%': UPDATE ${rows}\n`
+
 describe('the commands on postgres()', () => {
 	let dir = ''
 	let production = ''
@@ -294,7 +298,7 @@ describe('the commands on postgres()', () => {
 		)
 		expect(
 			await ultimabase(dir, ['migrate', 'deploy'], development()),
-		).toStrictEqual({ code: 0, output: `Applied ${kind}.\n` })
+		).toStrictEqual({ code: 0, output: `Applied ${kind}.\n${updated(1)}` })
 		expect(
 			await ultimabase(dir, ['migrate', 'status'], development()),
 		).toStrictEqual({ code: 0, output: 'The database is up to date.\n' })
@@ -305,14 +309,14 @@ describe('the commands on postgres()', () => {
 
 		expect(
 			await ultimabase(dir, ['migrate', 'deploy'], deployed()),
-		).toStrictEqual({ code: 0, output: `Applied ${kind}.\n` })
+		).toStrictEqual({ code: 0, output: `Applied ${kind}.\n${updated(1)}` })
 		expect(
 			await query(inSchema(production), 'select label, kind from locker'),
 		).toStrictEqual(migrated)
 
 		expect(await ultimabase(dir, ['reset'], development())).toStrictEqual({
 			code: 0,
-			output: `Dropped locker.\nApplied ${init}.\nApplied ${kind}.\n`,
+			output: `Dropped locker.\nApplied ${init}.\nApplied ${kind}.\n${updated(0)}`,
 		})
 		expect(
 			await query(inSchema(schema), 'select label from locker'),

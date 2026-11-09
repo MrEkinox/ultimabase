@@ -10,6 +10,7 @@ export type {
 	Check,
 	Lock,
 	Condition,
+	Counted,
 	CountRead,
 	Feed,
 	Filter,

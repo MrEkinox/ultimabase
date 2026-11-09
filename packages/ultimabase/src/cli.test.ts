@@ -447,6 +447,7 @@ describe('migrate deploy', () => {
 
 	it('applies a data migration, and stops at a file the database refuses', async () => {
 		const state = fakeState('data')
+		state.rows = 3
 		const file = await config('data', { Locker: ['label'] })
 		await run('migrate', 'create', 'init', '--config', file)
 		// Each config is written a second later, so the files keep this order.
@@ -469,6 +470,7 @@ describe('migrate deploy', () => {
 			[
 				`Applied ${init}.`,
 				`Applied ${backfill}.`,
+				"  update locker set label = 'x': UPDATE 3",
 				`${fix} was not applied: a row breaks it`,
 				'The database rolled it back: fix it, then deploy again.',
 			].join('\n'),
@@ -483,7 +485,30 @@ describe('migrate deploy', () => {
 		)
 		delete state.refuses
 		expect(await run('migrate', 'deploy', '--config', file)).toBe(0)
-		expect(out).toStrictEqual([`Applied ${fix}.`])
+		expect(out).toStrictEqual([
+			`Applied ${fix}.`,
+			'  update locker set label = null: UPDATE 3',
+		])
+	})
+
+	it('shows the first line of each statement that changed rows, zero included', async () => {
+		const state = fakeState('counts')
+		state.rows = 0
+		const file = await config('counts', { Locker: ['label'] })
+		await run('migrate', 'create', 'init', '--config', file)
+		const [init = ''] = await migrations()
+		const long = `delete from locker where label in (${"'a', ".repeat(20)}'b')`
+		await writeFile(
+			join(dir, 'migrations', init),
+			`${await read(init)}${long};\ninsert into locker (label)\nselect 'c';\n`,
+		)
+		out = []
+		expect(await run('migrate', 'deploy', '--config', file)).toBe(0)
+		expect(out).toStrictEqual([
+			`Applied ${init}.`,
+			`  ${long.slice(0, 80).trimEnd()}…: DELETE 0`,
+			'  insert into locker (label)…: INSERT 0',
+		])
 	})
 
 	it('says a file without a transaction rolled nothing back', async () => {

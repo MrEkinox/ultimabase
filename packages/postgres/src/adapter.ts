@@ -316,8 +316,8 @@ export function createAdapter(options: Options): Postgres {
 				)
 			},
 			stored: async () => stored(started().db),
-			apply: async (given) =>
-				migrated(async () => apply(started().db, given, free)),
+			apply: async (given, counted) =>
+				migrated(async () => apply(started().db, given, free, counted)),
 			reset: async () => migrated(async () => reset(started().db, free)),
 			...(remote === undefined ? {} : { remote }),
 		},
