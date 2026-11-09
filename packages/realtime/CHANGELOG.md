@@ -1,5 +1,29 @@
 # @ultimabase/realtime
 
+## 0.7.0
+
+### Patch Changes
+
+- 1f34e7a: The editor hints of `realtimePlugin`'s options give the real defaults:
+  `maxLive` 50 000 and `maxConnectionRows` 100 000, nested rows apart.
+- 1f34e7a: An SSE resume checks its read and its user before it ends the stream still open for its token (D-154): another user's request, or another read, carrying that token starts afresh and leaves the list streaming and kept. The realtime API gains `sameUser(viewer, request)` for the transports.
+- 1f34e7a: A connection that opens several live reads at once holds no more than
+  `maxSubscriptions`: each is counted again once planned.
+- Updated dependencies [1f34e7a]
+- Updated dependencies [1f34e7a]
+- Updated dependencies [1f34e7a]
+- Updated dependencies [1f34e7a]
+- Updated dependencies [1f34e7a]
+- Updated dependencies [1f34e7a]
+- Updated dependencies [1f34e7a]
+- Updated dependencies [1f34e7a]
+- Updated dependencies [1f34e7a]
+- Updated dependencies [1f34e7a]
+- Updated dependencies [1f34e7a]
+- Updated dependencies [1f34e7a]
+- Updated dependencies [1f34e7a]
+  - ultimabase@0.7.0
+
 ## 0.6.0
 
 ### Minor Changes

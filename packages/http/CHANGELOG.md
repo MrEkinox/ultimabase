@@ -1,5 +1,31 @@
 # @ultimabase/http
 
+## 0.7.0
+
+### Patch Changes
+
+- 1f34e7a: An `X-Forwarded-For` entry with the port a proxy appended counts as its address: `203.0.113.7:5678` is `203.0.113.7`, `[2001:db8::1]:443` is `2001:db8::1`. Such an entry counted as the proxy's connection, so every client behind it shared one rate limit: 50 requests from one client over a limit of 2 were refused 0 times, now 48.
+- 1f34e7a: A client that has not sent all its headers 10 s after it connected is disconnected, instead of 60 s: a slow client holds a socket for less time.
+- 1f34e7a: Over the rate limit, an address that sent a wrong master key has its next master-key requests refused until the window ends, without checking or logging each key: 50 guesses past the limit wrote 51 warnings, now 4.
+- 1f34e7a: A preflight's answer says `access-control-max-age: 600`: a browser keeps it 10 minutes instead of 5 seconds, its default, and stops sending a preflight before almost every call from another origin.
+- 1f34e7a: A request and an upgrade through a proxy, with `proxies` unset, warn once in all, as D-116 says; each warned once.
+- 1f34e7a: Over a GraphQL WebSocket, `signUp`, `signIn` and `changePassword` are refused with `BAD_REQUEST` before anything is written: a sign-up no longer creates its user, nor a password change its password, then fails at the cookie. `client.cookies.settable` says whether a cookie can be set, and auth's API gives `needsCookies(client)` to refuse the same way.
+- 1f34e7a: An upgrade whose host holds credentials, as `Host: a@b`, is refused with a 400; it ended the server process.
+- Updated dependencies [1f34e7a]
+- Updated dependencies [1f34e7a]
+- Updated dependencies [1f34e7a]
+- Updated dependencies [1f34e7a]
+- Updated dependencies [1f34e7a]
+- Updated dependencies [1f34e7a]
+- Updated dependencies [1f34e7a]
+- Updated dependencies [1f34e7a]
+- Updated dependencies [1f34e7a]
+- Updated dependencies [1f34e7a]
+- Updated dependencies [1f34e7a]
+- Updated dependencies [1f34e7a]
+- Updated dependencies [1f34e7a]
+  - ultimabase@0.7.0
+
 ## 0.6.0
 
 ### Minor Changes

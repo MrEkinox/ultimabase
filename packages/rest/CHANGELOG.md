@@ -1,5 +1,43 @@
 # @ultimabase/rest
 
+## 0.7.0
+
+### Minor Changes
+
+- 1f34e7a: `GET /api/openapi.json` answers 404 in production, as GraphQL's introspection is closed there. `restPlugin({ openapi: true })` serves it anyway; `openapi: false` hides it everywhere.
+
+### Patch Changes
+
+- 1f34e7a: A function returning many rows of a model with a default virtual answers in time linear in its rows: 20,000 rows took 1.5 s, now 0.12 s. Each model's default row shape is built once.
+- 1f34e7a: A live list paginated as a list shapes each row it sends once, not twice, and reads no page info it does not send.
+- 1f34e7a: An SSE resume checks its read and its user before it ends the stream still open for its token (D-154): another user's request, or another read, carrying that token starts afresh and leaves the list streaming and kept. The realtime API gains `sameUser(viewer, request)` for the transports.
+- 1f34e7a: A write nested more than 32 levels deep is refused with `INVALID_QUERY` at its 33rd level, for every caller, instead of running out of stack over REST and GraphQL (D-350).
+- Updated dependencies [1f34e7a]
+- Updated dependencies [1f34e7a]
+- Updated dependencies [1f34e7a]
+- Updated dependencies [1f34e7a]
+- Updated dependencies [1f34e7a]
+- Updated dependencies [1f34e7a]
+- Updated dependencies [1f34e7a]
+- Updated dependencies [1f34e7a]
+- Updated dependencies [1f34e7a]
+- Updated dependencies [1f34e7a]
+- Updated dependencies [1f34e7a]
+- Updated dependencies [1f34e7a]
+- Updated dependencies [1f34e7a]
+- Updated dependencies [1f34e7a]
+- Updated dependencies [1f34e7a]
+- Updated dependencies [1f34e7a]
+- Updated dependencies [1f34e7a]
+- Updated dependencies [1f34e7a]
+- Updated dependencies [1f34e7a]
+- Updated dependencies [1f34e7a]
+- Updated dependencies [1f34e7a]
+- Updated dependencies [1f34e7a]
+  - ultimabase@0.7.0
+  - @ultimabase/http@0.7.0
+  - @ultimabase/realtime@0.7.0
+
 ## 0.6.0
 
 ### Patch Changes

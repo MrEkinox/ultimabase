@@ -1,5 +1,25 @@
 # @ultimabase/soft-delete
 
+## 0.7.0
+
+### Patch Changes
+
+- 1f34e7a: A caller may create a row with `deletedAt: null`, as it may update one: only a date is refused.
+- Updated dependencies [1f34e7a]
+- Updated dependencies [1f34e7a]
+- Updated dependencies [1f34e7a]
+- Updated dependencies [1f34e7a]
+- Updated dependencies [1f34e7a]
+- Updated dependencies [1f34e7a]
+- Updated dependencies [1f34e7a]
+- Updated dependencies [1f34e7a]
+- Updated dependencies [1f34e7a]
+- Updated dependencies [1f34e7a]
+- Updated dependencies [1f34e7a]
+- Updated dependencies [1f34e7a]
+- Updated dependencies [1f34e7a]
+  - ultimabase@0.7.0
+
 ## 0.6.0
 
 ### Patch Changes

@@ -1,5 +1,24 @@
 # @ultimabase/testing
 
+## 0.7.0
+
+### Patch Changes
+
+- Updated dependencies [1f34e7a]
+- Updated dependencies [1f34e7a]
+- Updated dependencies [1f34e7a]
+- Updated dependencies [1f34e7a]
+- Updated dependencies [1f34e7a]
+- Updated dependencies [1f34e7a]
+- Updated dependencies [1f34e7a]
+- Updated dependencies [1f34e7a]
+- Updated dependencies [1f34e7a]
+- Updated dependencies [1f34e7a]
+- Updated dependencies [1f34e7a]
+- Updated dependencies [1f34e7a]
+- Updated dependencies [1f34e7a]
+  - ultimabase@0.7.0
+
 ## 0.6.0
 
 ### Patch Changes

@@ -1,5 +1,34 @@
 # ultimabase
 
+## 0.7.0
+
+### Minor Changes
+
+- 1f34e7a: Two `migrate deploy` of different code at the same time no longer leave the older snapshot stored,
+  which made every production start refuse: the deploy that read the database before the other ran
+  is refused with `Another deploy changed the database meanwhile: deploy again.`, and applies no file
+  of its own after the other's. Identical deploys, such as replicas deploying at start, still pass.
+
+  For adapter authors: a deploy `Run` holds `known`, every file name the code holds. `apply` refuses
+  the deploy, under its lock, when the database applied a file `known` does not name.
+
+### Patch Changes
+
+- 1f34e7a: A plugin's async `changed`, `lost`, `missed` or `started` that rejects is logged at `error`, as one that throws, instead of ending the process.
+- 1f34e7a: A `connectOrCreate`'s `where` on a field the caller may not read is refused with `INVALID_QUERY`, as
+  a find's is: it no longer tells who holds a value the caller cannot see.
+- 1f34e7a: An index over no field is refused at start, naming its model: PostgreSQL could not create it, and a unique one let `findUnique({ where: {} })` return the first row.
+- 1f34e7a: A json path filter refuses `constructor`, `toString` or `__proto__` as an operator with `INVALID_QUERY`, as any unknown operator; they used to select wrong rows or fail with a server error.
+- 1f34e7a: The default logger writes a field holding a BigInt or a cycle as `inspect` shows it, instead of throwing from the `catch` that logs it.
+- 1f34e7a: `memory()` reads a one-to-many relation through an index instead of scanning the whole related table for each row: an `include`, a `_count` or a `some` on 1,000 rows of 10,000 related ones took 180 ms; now under 25 ms.
+- 1f34e7a: `memory()` searches a long row in milliseconds, and finds and ranks it as PostgreSQL does: a word keeps its first 255 positions, none past 16,383. A row of 80,000 words took 15 s to filter and 42 s to rank.
+- 1f34e7a: `memory()` checks unique keys on the rows a write changed only: a create on a table of 40,000 rows with a unique field took 13 ms, now 1.5 ms.
+- 1f34e7a: Over a GraphQL WebSocket, `signUp`, `signIn` and `changePassword` are refused with `BAD_REQUEST` before anything is written: a sign-up no longer creates its user, nor a password change its password, then fails at the cookie. `client.cookies.settable` says whether a cookie can be set, and auth's API gives `needsCookies(client)` to refuse the same way.
+- 1f34e7a: A start that fails on the database's tables stops the database once, not twice.
+- 1f34e7a: An `updateMany` whose `beforeUpdate` hook stamps each row with a date stays linear: 8,000 rows went
+  from about 3 s to 60 ms.
+- 1f34e7a: A write nested more than 32 levels deep is refused with `INVALID_QUERY` at its 33rd level, for every caller, instead of running out of stack over REST and GraphQL (D-350).
+
 ## 0.6.0
 
 ### Minor Changes

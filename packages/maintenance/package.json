@@ -1,6 +1,6 @@
 {
 	"name": "@ultimabase/maintenance",
-	"version": "0.6.0",
+	"version": "0.7.0",
 	"description": "Maintenance for UltimaBase: every server answers 503 and closes its WebSockets until it ends, Master's requests aside.",
 	"type": "module",
 	"license": "Apache-2.0",
@@ -31,8 +31,8 @@
 		}
 	},
 	"peerDependencies": {
-		"@ultimabase/http": "^0.6.0",
-		"ultimabase": "^0.6.0"
+		"@ultimabase/http": "^0.7.0",
+		"ultimabase": "^0.7.0"
 	},
 	"devDependencies": {
 		"@ultimabase/http": "workspace:*",

@@ -1,5 +1,40 @@
 # @ultimabase/files
 
+## 0.7.0
+
+### Patch Changes
+
+- 1f34e7a: A declared `Content-Type` that is no media type is stored as `application/octet-stream`.
+- 1f34e7a: Deleting a row that holds no file no longer queries `FilesBlob`.
+- 1f34e7a: `diskFiles()` deletes at start the temporary files a crash left, an hour old.
+- 1f34e7a: Only images, audio, video and PDF are served inline. An SVG with an XML prolog, or an XHTML document, was detected as `application/xml` and served inline, so its script ran when the file was opened from S3; it is now served as a download, as every other type is.
+- 1f34e7a: `files.check({ delete: true })` on `s3()` deletes only objects files wrote. It listed the whole bucket, so it deleted every other object in it, a backup next to the uploads included; `s3()` now lists only `public/` and `private/` keys.
+- 1f34e7a: The sweep reads released files 500 at a time and deletes 16 objects at a time, so a sweep after a mass delete no longer sends every deletion at once. A refused deletion keeps only its own row: the rows of the objects deleted are deleted.
+- 1f34e7a: A private file's URL is signed three times faster: the SigV4 signing key is derived once a day.
+- 1f34e7a: An upload checks `access.upload` before anything else, and answers a refused caller 403 `The upload is refused.` whatever field it names. The rule ran once the body was read, so an anonymous caller had the server buffer up to `maxSize` of a field with variants, learned from 400 and 415 answers which fields exist, and got a 403 that named the internal `FilesBlob` model.
+- 1f34e7a: An upload with variants writes two `FilesBlob` rows at most, and none when a variant or an inline value fails.
+- Updated dependencies [1f34e7a]
+- Updated dependencies [1f34e7a]
+- Updated dependencies [1f34e7a]
+- Updated dependencies [1f34e7a]
+- Updated dependencies [1f34e7a]
+- Updated dependencies [1f34e7a]
+- Updated dependencies [1f34e7a]
+- Updated dependencies [1f34e7a]
+- Updated dependencies [1f34e7a]
+- Updated dependencies [1f34e7a]
+- Updated dependencies [1f34e7a]
+- Updated dependencies [1f34e7a]
+- Updated dependencies [1f34e7a]
+- Updated dependencies [1f34e7a]
+- Updated dependencies [1f34e7a]
+- Updated dependencies [1f34e7a]
+- Updated dependencies [1f34e7a]
+- Updated dependencies [1f34e7a]
+- Updated dependencies [1f34e7a]
+  - ultimabase@0.7.0
+  - @ultimabase/http@0.7.0
+
 ## 0.6.0
 
 ### Patch Changes

@@ -1,5 +1,30 @@
 # @ultimabase/jobs
 
+## 0.7.0
+
+### Patch Changes
+
+- 1f34e7a: `every` and `after` are refused unless the run is due before the year 10000, and a cron pattern no date matches, as `0 0 30 2 *`, is refused at import: `closeRoom: cron "0 0 30 2 *" never runs.`
+- 1f34e7a: Instances that start at once no longer fail on the rows of recurring jobs.
+- 1f34e7a: `enqueue` stores an input holding a date or an undefined key as JSON, where it refused it.
+- 1f34e7a: A run that outlives its five-minute lease no longer fails the instance that took it over: that instance ends it, and the first logs a warning.
+- 1f34e7a: A run that fails with a message holding a NUL now counts its attempt, where it ran again for ever.
+- 1f34e7a: A server no longer fails the runs of a job it does not declare, as a server of an older version during a deploy: it leaves them to the servers that declare the job. At start, a recurring job's row an older version turned `failed` is pending again.
+- Updated dependencies [1f34e7a]
+- Updated dependencies [1f34e7a]
+- Updated dependencies [1f34e7a]
+- Updated dependencies [1f34e7a]
+- Updated dependencies [1f34e7a]
+- Updated dependencies [1f34e7a]
+- Updated dependencies [1f34e7a]
+- Updated dependencies [1f34e7a]
+- Updated dependencies [1f34e7a]
+- Updated dependencies [1f34e7a]
+- Updated dependencies [1f34e7a]
+- Updated dependencies [1f34e7a]
+- Updated dependencies [1f34e7a]
+  - ultimabase@0.7.0
+
 ## 0.6.0
 
 ### Patch Changes
