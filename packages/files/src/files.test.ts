@@ -1,9 +1,20 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { allow } from 'ultimabase'
-import { files } from './index.ts'
+import { httpPlugin } from '@ultimabase/http'
+import { allow, defineApp, definePlugin, memory } from 'ultimabase'
+import { files, filesPlugin, memoryFiles } from './index.ts'
 import { sweep } from './lifecycle.ts'
 import { FilesBlob } from './model.ts'
-import { alice, bob, M, pdf, png, Post, started, text } from './test/app.ts'
+import {
+	alice,
+	bob,
+	logging,
+	M,
+	pdf,
+	png,
+	Post,
+	started,
+	text,
+} from './test/app.ts'
 import { shown, upload } from './upload.ts'
 
 type Started = Awaited<ReturnType<typeof started>>
@@ -116,6 +127,71 @@ describe('an upload', () => {
 			files.upload(png, { for: 'Post.cover', name: 'a.png' }),
 		).rejects.toMatchObject({ code: 'ACCESS_DENIED' })
 		expect(await blobs()).toStrictEqual([])
+	})
+
+	it('refuses before it reads a byte or names a field (D-351)', async () => {
+		const { warnings } = await start()
+		let pulled = 0
+		const body = new ReadableStream<Uint8Array>(
+			{
+				pull: () => {
+					pulled += 1
+					throw new Error('Read.')
+				},
+			},
+			{ highWaterMark: 0 },
+		)
+		const refused = { code: 'ACCESS_DENIED', message: 'The upload is refused.' }
+		for (const target of ['Post.cover', 'Post.nothing']) {
+			await expect(
+				upload(body, 1 << 20, { for: target, name: 'a.png' }),
+			).rejects.toMatchObject(refused)
+		}
+		expect(pulled).toBe(0)
+		expect(warnings).toStrictEqual([{ callerId: null }, { callerId: null }])
+	})
+
+	it('gives access.upload the caller its plugins complete (D-351)', async () => {
+		const badging = definePlugin({
+			name: 'badging',
+			manifest: {
+				name: 'badging',
+				version: '1.0.0',
+				peerDependencies: { ultimabase: '*' },
+			},
+			caller: ({ user }) => ({ badged: user.id === 'alice' }),
+		})
+		const warnings: unknown[] = []
+		const app = defineApp({
+			database: memory(),
+			plugins: [
+				httpPlugin({ port: 0 }),
+				badging.plugin(),
+				filesPlugin({
+					storage: memoryFiles(),
+					access: {
+						upload: ({ caller }) =>
+							'badged' in caller && caller.badged === true,
+					},
+				}),
+			],
+			models: [Post],
+			logger: logging(warnings),
+		})
+		await app.start()
+		try {
+			await files.upload(text, {
+				for: 'Post.attachments',
+				name: 'a',
+				as: alice,
+			})
+			await expect(
+				files.upload(text, { for: 'Post.attachments', name: 'b', as: bob }),
+			).rejects.toMatchObject({ code: 'ACCESS_DENIED' })
+			expect(warnings).toStrictEqual([{ callerId: 'bob' }])
+		} finally {
+			await app.stop()
+		}
 	})
 
 	it('lets Master upload, and anyone with allow.public', async () => {

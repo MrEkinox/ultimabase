@@ -340,13 +340,13 @@ the process, as its files do.
 The body is the file; `Content-Length` is required and `Content-Type` is
 the declared type. The answer is `201` with `{ id }`.
 
-| Status | Code                     | When                                                                    |
-| ------ | ------------------------ | ----------------------------------------------------------------------- |
-| 400    | `VALIDATION_FAILED`      | `Invalid upload.`: no field or an unknown one, or no name.              |
-| 403    | `ACCESS_DENIED`          | A caller `access.upload` refuses.                                       |
-| 411    | `LENGTH_REQUIRED`        | `Content-Length is required.`                                           |
-| 413    | `PAYLOAD_TOO_LARGE`      | `The file is over 100000 bytes.`                                        |
-| 415    | `UNSUPPORTED_MEDIA_TYPE` | `text/plain is not accepted.`, or `An undetected type is not accepted.` |
+| Status | Code                     | When                                                                       |
+| ------ | ------------------------ | -------------------------------------------------------------------------- |
+| 400    | `VALIDATION_FAILED`      | `Invalid upload.`: no field or an unknown one, or no name.                 |
+| 403    | `ACCESS_DENIED`          | `The upload is refused.`: a caller `access.upload` refuses, checked first. |
+| 411    | `LENGTH_REQUIRED`        | `Content-Length is required.`                                              |
+| 413    | `PAYLOAD_TOO_LARGE`      | `The file is over 100000 bytes.`                                           |
+| 415    | `UNSUPPORTED_MEDIA_TYPE` | `text/plain is not accepted.`, or `An undetected type is not accepted.`    |
 
 ### `uploader(options)`
 

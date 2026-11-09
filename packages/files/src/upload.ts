@@ -1,10 +1,11 @@
-// An upload (D-152): its field, its size and its type checked, its pending
-// `FilesBlob` row inserted as its caller, then its object stored. When it
-// fails, its objects and its rows are deleted.
+// An upload (D-152): its caller, its field, its size and its type checked,
+// its pending `FilesBlob` row inserted as its caller, then its object
+// stored. When it fails, its objects and its rows are deleted.
 import { randomUUID } from 'node:crypto'
 import { fileTypeFromBuffer } from 'file-type'
 import type { Identity, JsonValue, QueryOptions } from 'ultimabase'
 import { isMaster, PublicError } from 'ultimabase'
+import { completedCaller } from 'ultimabase/internal'
 import type { FileInput, FileOptions, Inline } from './field.ts'
 import { bytesOf } from './memory.ts'
 import { FilesBlob, hour, M } from './model.ts'
@@ -164,6 +165,19 @@ async function inlineValue(
 	return JSON.parse(json) as JsonValue
 }
 
+/**
+ * Refuses a caller `access.upload` refuses before a byte is read, and before
+ * its field is checked, so a refusal names no model or field (D-351).
+ */
+async function allowed(caller: Identity): Promise<void> {
+	if (isMaster(caller)) return
+	const { upload: rule, logger } = runningOf()
+	if (rule({ caller: await completedCaller(caller) })) return
+	const callerId = caller.kind === 'user' ? caller.user.id : null
+	logger.warn({ callerId }, 'An upload was refused.')
+	throw new PublicError('ACCESS_DENIED', 'The upload is refused.')
+}
+
 const uploaderOf = (caller: Identity): string | null =>
 	isMaster(caller) ? 'master' : caller.kind === 'user' ? caller.user.id : null
 
@@ -201,6 +215,7 @@ export async function upload(
 	options: UploadOptions,
 ): Promise<{ readonly id: string }> {
 	const { name, as: caller = { kind: 'anonymous' } } = options
+	await allowed(caller)
 	const field = fieldOf(options.for)
 	if (name === '') throw invalid('name', 'Expected a file name.')
 	const { storage, logger, maxSize: appMaxSize } = runningOf()

@@ -21313,6 +21313,12 @@ attachment`: SVG and XHTML that `file-type` detects as
    `application/xml`, any XML, and undetected types. A variant is served
    inline only when its bytes are detected as its type and that type is
    one of these.
+2. An upload checks `access.upload` first, before its field, its size or a
+   byte of its body: a refused caller gets 403 `ACCESS_DENIED` "The upload
+   is refused.", logged with its id (D-88), whatever field it names. The
+   rule receives the caller its plugins complete (D-121), through
+   `completedCaller` in `ultimabase/internal`. `FilesBlob`'s `create` rule
+   stays as a second guard.
 
 Why: D-152 named SVG as the type a browser runs, and `file-type` never
 detects SVG. An SVG that opens with an XML prolog, or an XHTML document, is
@@ -21320,6 +21326,10 @@ detected as `application/xml`, which D-152 served inline; on S3, which
 sends no `Content-Security-Policy`, its script ran on the storage's origin.
 A list of types a browser shows without running anything stays closed as
 `file-type` learns new types; a list of dangerous types does not.
+D-152 left the check to `FilesBlob`'s `create`, after the body: a refused
+caller had the server buffer up to `maxSize` of a field with variants, its
+400 and 415 answers told which `Model.field` pairs exist, and its 403 named
+the `FilesBlob` model, which D-110 hides.
 Rejected: adding `application/xml` to the dangerous types, which leaves
 the next detected markup type inline; sniffing the XML for `<svg` or
 `<html`, which an attacker's namespace or comment defeats.
@@ -21329,4 +21339,11 @@ Example:
 await files.upload(svgWithXmlProlog, { for: 'Post.attachments', name: 'a.svg' })
 // Before: stored as application/xml, opened inline, its <script> ran.
 // After: stored as application/xml with Content-Disposition: attachment.
+```
+
+```ts
+// An anonymous caller, 50 MB to Post.gallery, which has variants.
+// Before: 50 MB read, then 403 "FilesBlob create refused."
+// After: nothing read, 403 "The upload is refused."; for Post.nothing
+// too, which answered 400 "Post.nothing is not a file field."
 ```
