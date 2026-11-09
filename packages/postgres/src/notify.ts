@@ -15,10 +15,13 @@ export type Noted = {
 	readonly per: number
 }
 
+/** The most keys a delete tells: `json_build_array` takes 100 arguments. */
+const mostKeys = 99
+
 /**
  * A part of rows, told by their ids: 150 of 40 bytes fit beside a head. A
  * delete's rows come with the `keys` they stored, as `[field, column]`,
- * each row then an array of its id and keys (D-196).
+ * each row then an array of its id and keys, when they fit (D-196).
  */
 export function rows(
 	kind: 'insert' | 'update' | 'delete',
@@ -26,8 +29,13 @@ export function rows(
 	fields?: readonly string[],
 	keys: readonly (readonly [string, string])[] = [],
 ): Noted {
-	if (kind === 'delete' && keys.length > 0) {
-		const names = keys.map(([field]) => field)
+	const names = keys.map(([field]) => field)
+	if (
+		kind === 'delete' &&
+		keys.length > 0 &&
+		keys.length <= mostKeys &&
+		JSON.stringify(names).length <= feedFields
+	) {
 		const head = JSON.stringify([kind, model, names]).slice(0, -1)
 		const columns = [sql.id('id'), ...keys.map(([, column]) => sql.id(column))]
 		const item = sql`json_build_array(${sql.join(columns)})`

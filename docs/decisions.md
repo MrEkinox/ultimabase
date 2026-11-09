@@ -12965,7 +12965,11 @@ Choice: amends D-154 points 8, 9 and 10.
 
    `keys` lists each key's values in the order of `ids`, `null` for a
    row without a target, and is absent when `ids` is. On PostgreSQL a
-   notification of a delete then holds `150 / (1 + keys)` rows.
+   notification of a delete then holds `150 / (1 + keys)` rows. A model
+   whose keys would not fit one, more than 99 of them (`json_build_array`
+   takes 100 arguments) or their names longer than 1,500 bytes as JSON,
+   tells its ids alone there: a subscription judges a key it is not told as
+   one that may have changed.
 
 2. A row written at a level of a filter, the rows a relation reaches, is
    judged by that level's own conditions, those its stored fields answer:
