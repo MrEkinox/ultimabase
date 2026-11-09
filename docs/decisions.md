@@ -6619,7 +6619,7 @@ await Shop.findMany({ where: { sizes: { has: 42 } } })
 
 ## D-128: Nested creation, `create` in a relation write
 
-Amended by D-227.
+Amended by D-227, D-350.
 
 Choice: a relation write takes `create` beside `connect`, in `create` and
 `update`, with Prisma's spelling (D-20).
@@ -6652,7 +6652,8 @@ Choice: a relation write takes `create` beside `connect`, in `create` and
    class whose create mutation is off. Hiding a model closes every GraphQL
    path that creates it; server code still creates it nested (amended
    2026-10-26).
-4. A created row may create rows in turn, at any depth.
+4. A created row may create rows in turn, up to 32 levels deep (amended
+   2026-11-09 by D-350).
 5. Rules and hooks run depth first, in written order: the written row's
    first, so its `beforeCreate` or `beforeUpdate` may change or add the rows
    it creates, then each created row's. The rows are then written at once,
@@ -21236,4 +21237,44 @@ query {
 }
 # Before: served. After: The document returns more than 100 values. Select
 # fewer fields, aliases or rows.
+```
+
+## D-350: rest after its audit
+
+Choice: amends D-128 point 4.
+
+1. A write nests at most 32 levels, for every caller, Master included, as a
+   filter does (D-228). The written row is level 1; each row a
+   relation or a `oneOf` writes by `create`, `connectOrCreate` or `update` is
+   one level deeper. The 33rd level is refused with `INVALID_QUERY`, a 400
+   `BAD_USER_INPUT` over REST and GraphQL, at its path:
+   "data.parent.create.….parent.create: the write is nested more than 32
+   levels deep." It is no option; `maxWriteDepth` is exported from
+   `ultimabase/internal`.
+2. REST reads a write's dates 32 levels deep, and leaves deeper rows as
+   they are for the kernel to refuse. GraphQL variables too deep for
+   graphql-js are refused as a filter's (D-228 point 5).
+
+Why: D-128 left the depth unbounded, trusting the GraphQL depth limit and
+the request size. The depth limit counts the selection, not the variables,
+and a 1 MiB body holds tens of thousands of levels. A write 1,500 levels
+deep ran the REST transport out of stack, a 500; 3,000 did the same over
+GraphQL; as Master, the kernel took 6 to 10 seconds at 3,000 levels, its
+time growing with the square of the depth. Thirty-two levels hold any tree a
+form or an import writes, and the refusal comes in a few milliseconds.
+Rejected: `maxDepth`, which an application sets and Master skips: a write
+too deep fails the same way for Master; a budget on the rows a write
+creates, until an application needs one: 20,000 rows in one `create` take
+under half a second.
+Example:
+
+```ts
+let data = { label: 'top' }
+for (let level = 1; level < 1500; level += 1) {
+	data = { label: `${level}`, parent: { create: data } }
+}
+await Node.create({ data }, { as: master })
+// Before: RangeError over REST (500), seconds of work in the kernel.
+// After: INVALID_QUERY data.parent.create.….parent.create: the write is
+// nested more than 32 levels deep.
 ```

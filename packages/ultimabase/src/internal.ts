@@ -40,6 +40,7 @@ export {
 } from './live.ts'
 export { compareKeys } from './memory-values.ts'
 export { maxFilterDepth } from './query-where.ts'
+export { maxWriteDepth } from './write-data.ts'
 
 /** `logger` without its info lines. */
 function quieted(logger: Logger): Logger {
