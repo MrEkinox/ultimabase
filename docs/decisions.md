@@ -21497,3 +21497,15 @@ await graphql(
 // Before: UNIQUE_VIOLATION, as many times as asked.
 // After: TOO_MANY_ATTEMPTS, retryAfter in its details.
 ```
+
+4. Known and kept:
+   - A `setPassword` whose transaction rolls back leaves its key in the
+     process's set of passwords being set, about 60 bytes. Only the
+     application rolls one back, by a hook that refuses or a transaction of
+     its own; a client cannot. Pruning the set costs lines for no measured
+     gain.
+   - An unknown email checks against a hash of the current parameters. After
+     the application raises them, an account still hashed with the old ones
+     answers faster until its next sign-in rehashes it. Hashing the dummy with
+     each stored parameter set would cost a hash per set for every unknown
+     email.
