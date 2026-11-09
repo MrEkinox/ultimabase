@@ -184,13 +184,14 @@ model uses `softDelete()`. `softDelete()` adds:
 
 ### What a delete does
 
-| Case                    | Result                                                                             |
-| ----------------------- | ---------------------------------------------------------------------------------- |
-| `delete`, `deleteMany`  | Dates the rows and returns them, as a delete does; no row is removed.              |
-| the row's relations     | Stay: a soft-deleted row cascades nothing, and keeps its related rows.             |
-| the row's unique values | Stay taken, unless an index's `where` is `{ deletedAt: null }`: see Unique values. |
-| a read, a count         | Leaves the deleted rows out, for every caller.                                     |
-| a relation to the row   | A `one` to it reads `null`, for every caller.                                      |
+| Case                    | Result                                                                              |
+| ----------------------- | ----------------------------------------------------------------------------------- |
+| `delete`, `deleteMany`  | Dates the rows and returns them, as a delete does; no row is removed.               |
+| the row's relations     | Stay: a soft-deleted row cascades nothing, and keeps its related rows.              |
+| a cascade reaching it   | Removes it for good, a row in the trash included: it would reference a removed row. |
+| the row's unique values | Stay taken, unless an index's `where` is `{ deletedAt: null }`: see Unique values.  |
+| a read, a count         | Leaves the deleted rows out, for every caller.                                      |
+| a relation to the row   | A `one` to it reads `null`, for every caller.                                       |
 
 ### Errors
 
