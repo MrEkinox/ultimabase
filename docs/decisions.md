@@ -21085,6 +21085,11 @@ Choice: amends D-138, point 5.
    or a `some` on 1,000 authors of 10,000 books took 180 ms; now 23, 3 and
    4 ms.
 
+6. `memory()` checks its unique keys on the rows a write inserted or
+   updated, against the others, instead of every row of each table the write
+   touched: a create on a table of 40,000 rows with a unique field took
+   13 ms, now 1.5. A table with none is no longer copied at each write.
+
 Why, for point 1: the lookup skipped every rule, so a caller who could create
 a row linked to a model learned who held a value it may not read, one request
 at a time: an email it cannot see linked the note to its holder, whose id
