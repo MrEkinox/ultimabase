@@ -115,8 +115,7 @@ function requestOf(incoming: IncomingMessage): Request | undefined {
 	for (let index = 0; index + 1 < raw.length; index += 2) {
 		headers.append(raw[index] ?? '', raw[index + 1] ?? '')
 	}
-	// It runs outside any catch: a URL a request refuses, invalid or with
-	// credentials, would end the process.
+	// Outside any catch, a URL a request refuses would end the process.
 	try {
 		return new Request(url, { headers })
 	} catch {

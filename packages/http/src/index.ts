@@ -150,17 +150,17 @@ const http = definePlugin<Http>({
 		const starting = startingGate(probes)
 		const gates = gated.get(context) ?? []
 		const rateLimit = limiter(options.rateLimit, identify, logger)
+		const addressOf = addresses(proxiesOf(options.proxies), logger)
 		const app = appOf(
 			options,
 			mounted,
-			{ probes, gates: [starting, ...gates], rateLimit },
+			{ probes, gates: [starting, ...gates], rateLimit, addressOf },
 			identify,
 			logger,
 		)
 		mounts.delete(context)
 		const server = serverOf(app.fetch)
 		const takers = upgrades.get(context) ?? new Map<string, Taker>()
-		const addressOf = addresses(proxiesOf(options.proxies), logger)
 		taken.set(
 			context,
 			upgrading(server, {
