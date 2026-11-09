@@ -25,6 +25,7 @@ import {
 	drainOf,
 	listening as listeningOn,
 	portOf,
+	serverOf,
 } from './server.ts'
 
 const Note = defineModel({
@@ -736,6 +737,19 @@ describe('the port', () => {
 			backlog: 4096,
 		})
 		await new Promise((done) => queued.close(done))
+	})
+
+	it('waits 10 s for headers, checked every second (D-348)', async () => {
+		const slow = serverOf(() => new Response(null))
+		await listeningOn(slow, 0)
+		// Node keeps the timer of its checks under this symbol only.
+		const checks = Object.getOwnPropertySymbols(slow).find(
+			(key) => key.description === 'http.server.connectionsCheckingInterval',
+		)
+		const timer: unknown = checks && Reflect.get(slow, checks)
+		expect(slow.headersTimeout).toBe(10_000)
+		expect(timer).toMatchObject({ _repeat: 1000 })
+		await new Promise((done) => slow.close(done))
 	})
 
 	it('names a port in use', async () => {

@@ -308,6 +308,8 @@ A route that needs no database is called directly:
   plugin that has not started serves no request.
 - `/ready` checks no database: when it fails, every instance would leave
   the load balancer at once.
+- A client that has not sent all its headers 10 s after it connected is
+  disconnected, so slow clients cannot hold every socket.
 
 ## Reference
 

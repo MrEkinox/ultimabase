@@ -4536,7 +4536,7 @@ npx ultimabase reset --force
 
 ## D-106: `httpPlugin()`, its Hono routes and the caller they read
 
-Amended by D-153, D-166, D-204, D-205 and D-223.
+Amended by D-153, D-166, D-204, D-205, D-223 and D-348.
 
 Choice: completes D-27, D-49, D-59 and D-66.
 
@@ -5731,6 +5731,8 @@ routes().post('/login', async (c) => {
 
 ## D-116: The client's address behind proxies
 
+Amended by D-348.
+
 Choice: completes D-113; replaces D-115's reason for not deriving `Secure`
 from the request.
 
@@ -5740,7 +5742,8 @@ from the request.
    `X-Forwarded-For` from the right, each proxy having appended the address
    it saw. With fewer entries, or none, it is the connection's (amended
    2026-10-24).
-3. When that entry is not an IP address, the address is the connection's.
+3. When that entry is not an IP address, the address is the connection's;
+   an entry with a port counts as its address (amended 2026-11-09, D-348).
 4. Only `X-Forwarded-For` is read: neither `Forwarded`, nor a host's own
    header, nor the forwarded protocol or host. The cookie's `Secure` still
    follows `NODE_ENV` (D-112).
@@ -14477,7 +14480,7 @@ await Match.end(match.id)
 
 ## D-218: `httpPlugin()` limits each address's requests
 
-Amended by D-230.
+Amended by D-230 and D-348.
 
 Choice: amends D-56; D-113 is unchanged.
 
@@ -14494,7 +14497,9 @@ Choice: amends D-56; D-113 is unchanged.
    `details: { retryAfter }` and `Retry-After`, the seconds until the
    window ends, before the gates, the caller and the routes, so a flood
    reads no session. Master's key passes over the limit; a wrong key does
-   not. The first refusal of an address in a window logs a warning.
+   not. The first refusal of an address in a window logs a warning. A wrong
+   key ends that address's master-key tries for the window (amended
+   2026-11-09, D-348).
 4. Each instance counts its own requests: behind a load balancer the limit
    is per instance. A shared store is decided when an application needs it.
 5. A limit per person on a write is the model's `beforeCreate` hook: it
@@ -21114,3 +21119,58 @@ after them and stored its snapshot over the newer one: every production
 start then refused, the models' hash no longer matching. `from`, the files
 the plan read, as a sync's, would refuse two replicas deploying at start;
 `known` refuses only other code.
+
+## D-348: http after its audit
+
+Choice: amends D-106, D-116 point 3 and D-218 point 3.
+
+1. The server waits at most 10 s for a request's headers (Node's
+   `headersTimeout`, 60 s by default), then closes the connection. Node
+   checks every second, not every 30 s. It caps
+   no connections per address: clients behind one NAT share an address, and
+   a proxy in front caps connections better.
+2. Over the limit, once an address sent a wrong master key, its next
+   master-key requests are refused until the window ends, without checking
+   the key and without logging it. Master's key still passes over the limit
+   when it is the first one the address sent past the limit.
+3. An `X-Forwarded-For` entry that carries a port counts as its address:
+   `203.0.113.7:5678` is `203.0.113.7`, `[2001:db8::1]:443` is
+   `2001:db8::1`. Another entry that is not an address is still the
+   connection's (D-116 point 3).
+4. A preflight answers `Access-Control-Max-Age: 600`, so a browser asks
+   once per ten minutes for each route and method, not before each request.
+   It is no option.
+
+Why: 1,000 connections that each sent half a header held 1,000 sockets for
+60 s, Node's default; 10 s still lets a slow mobile client send its
+headers. Over the limit, each wrong master key was checked and logged: 50
+guesses past a limit of 2 wrote 51 warnings, so a flood of guesses was a
+flood of log lines; one wrong key now ends the tries of that address for
+the window. A proxy that appends the port, as some load balancers do, made
+every entry not an address: the address fell back to the proxy's, a private
+one the limit never counts, and 50 requests past a limit of 2 were all let
+through. Browsers cache a preflight 5 s without `Access-Control-Max-Age`
+(Chrome), so a page on another origin paid one more round trip on almost
+every write. Ten minutes bounds how long a browser keeps an answer after
+`cors` drops its origin.
+Rejected: a cap of connections per address; an option for the preflight's
+age, until an application needs one; refusing a master key over the limit
+altogether, which would stop Master's scripts behind a busy address.
+Example:
+
+```ts
+// Before: behind a proxy that writes X-Forwarded-For: 203.0.113.7:5678
+httpPlugin({ proxies: 1 }) // clientOf(c).client.address === '10.0.0.5'
+
+// After
+httpPlugin({ proxies: 1 }) // clientOf(c).client.address === '203.0.113.7'
+```
+
+```http
+OPTIONS /webhooks/payment
+origin: https://shop.example.com
+access-control-request-method: POST
+
+# Before: no access-control-max-age; after:
+access-control-max-age: 600
+```
