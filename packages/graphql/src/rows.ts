@@ -17,7 +17,7 @@ import {
 	GraphQLError,
 	isObjectType,
 } from 'graphql'
-import { oneOfsOf } from '@ultimabase/http/internal'
+import { oneOfsOf, sortDepth } from '@ultimabase/http/internal'
 import type { Info, Selecting } from './select.ts'
 import { grouped } from './select.ts'
 import type { Entry, Registry } from './registry.ts'
@@ -51,18 +51,6 @@ function rootReads(registry: Registry): ReadonlyMap<string, Read> {
 		reads.set(entry.list, { kind: 'many', entry })
 	}
 	return reads
-}
-
-/** The relations an `orderBy` goes through, the deepest path's. */
-function sortDepth(orderBy: unknown): number {
-	if (Array.isArray(orderBy)) return Math.max(0, ...orderBy.map(sortDepth))
-	if (typeof orderBy !== 'object' || orderBy === null) return 0
-	return Math.max(
-		0,
-		...Object.values(orderBy).map((value: unknown) =>
-			typeof value === 'object' && value !== null ? 1 + sortDepth(value) : 0,
-		),
-	)
 }
 
 /** What a document, or a live list in it, returns. */

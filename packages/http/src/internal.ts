@@ -18,6 +18,7 @@ export {
 	badInput,
 	backOf,
 	declared,
+	iso,
 	isNode,
 	jsonSchemaOf,
 	oneOfsOf,
@@ -26,4 +27,5 @@ export {
 	readableOneOfs,
 	readableVirtuals,
 	run,
+	sortDepth,
 } from './transport.ts'

@@ -5,6 +5,7 @@ import type { Relay } from '@ultimabase/http/internal'
 import {
 	pageArgs,
 	pageOf,
+	sortDepth,
 	readable,
 	readableOneOfs,
 	readableVirtuals,
@@ -22,18 +23,6 @@ import { isArgs, unknownKey, whereOf } from './values.ts'
 export type Read = {
 	readonly read: Args
 	readonly shape: Shape
-}
-
-/** The relations an `orderBy` goes through, the deepest path's. */
-function sortDepth(orderBy: unknown): number {
-	if (Array.isArray(orderBy)) return Math.max(0, ...orderBy.map(sortDepth))
-	if (typeof orderBy !== 'object' || orderBy === null) return 0
-	return Math.max(
-		0,
-		...Object.values(orderBy).map((value: unknown) =>
-			typeof value === 'object' && value !== null ? 1 + sortDepth(value) : 0,
-		),
-	)
 }
 
 const scalar = (entry: Entry, name: string): Out => ({

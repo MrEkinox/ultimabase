@@ -1,15 +1,12 @@
 // Values as GraphQL's JSON (D-129): a date is ISO 8601 text, read back to a
 // `Date` from its field's type, in filters and in data, as `DateTime` is.
 import type { ServedOneOf } from '@ultimabase/http/internal'
-import { oneOfsOf } from '@ultimabase/http/internal'
+import { iso, oneOfsOf } from '@ultimabase/http/internal'
 import type { SchemaField } from 'ultimabase'
 import { InvalidQuery } from 'ultimabase'
 import { maxFilterDepth, maxWriteDepth } from 'ultimabase/internal'
 import type { Api, Args } from './entries.ts'
 import { entryOf } from './entries.ts'
-
-const iso =
-	/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:\d{2})$/
 
 export const unknownKey = (path: string, model: string): InvalidQuery =>
 	new InvalidQuery(path, `Unknown key '${path}' on ${model}.`)
