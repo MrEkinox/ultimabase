@@ -146,6 +146,12 @@ export async function verifyPassword(
 let dummy: Promise<string> | undefined
 /** A hash no password matches, checked for an unknown email (D-113). */
 export async function dummyHash(): Promise<string> {
-	dummy ??= hashPassword(randomBytes(32).toString('base64'))
+	// A busy server's refusal is not kept: the next unknown email hashes again.
+	dummy ??= hashPassword(randomBytes(32).toString('base64')).catch(
+		(error: unknown) => {
+			dummy = undefined
+			throw error
+		},
+	)
 	return dummy
 }
