@@ -212,3 +212,7 @@ a step that cost more than it found. The skill improves one audit at a time.
   dependencies it cannot run a probe: hence the checkout of step 1 and the
   report as text. A new public export needs a documented example
   (`scripts/docs.test.ts`): weigh that before proposing one.
+- `ultimabase`, slices 1 and 2 (2026-11-09): a passing suite does not guard a
+  fix. A cache's reset and a value's normalisation in two `memory()` fixes
+  survived their mutation until a test was added for each: mutate every line
+  a fix adds, and keep the line only if a test then fails.
