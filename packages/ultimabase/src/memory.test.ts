@@ -31,6 +31,14 @@ const insert = (model: string, row: Row): Change => ({
 	row,
 })
 
+/** Names `name` each author without a book. */
+const alone = (name: string): Change => ({
+	kind: 'update',
+	model: 'Author',
+	where: { books: { none: {} } },
+	set: { name },
+})
+
 beforeEach(async () => {
 	adapter = memory()
 	await adapter.start(schema, logger)
@@ -208,6 +216,21 @@ describe('writes', () => {
 		expect(
 			await adapter.write({ changes: [insert('Tag', { id: 't2' })] }),
 		).toEqual([])
+	})
+
+	it('reads a relation as the earlier changes of its write left it', async () => {
+		const rows = await adapter.write({
+			changes: [
+				alone('Nobody'),
+				{ kind: 'delete', model: 'Book', where: { id: { equals: 'b1' } } },
+				alone('Alone'),
+			],
+			read: { model: 'Author', fields: ['name'] },
+		})
+		expect(rows).toEqual([
+			{ id: 'a1', name: 'Alone' },
+			{ id: 'a2', name: 'Grace' },
+		])
 	})
 
 	it('changes nothing when a write fails', async () => {

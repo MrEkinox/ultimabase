@@ -65,6 +65,8 @@ export class Reader {
 	readonly fields: Fields
 	/** A write's change index → the ids its delete removed, for `removedBy`. */
 	readonly removed: Map<number, ReadonlySet<string>> = new Map()
+	/** `Model.key` → each key's rows, built once; a write clears it (D-347). */
+	readonly inverses: Map<string, Map<unknown, StoredRow[]>> = new Map()
 
 	/** Whether a stored `one` reaches a row known by its key alone. */
 	readonly keys: boolean
@@ -114,9 +116,12 @@ export class Reader {
 			const ids = this.store.joins.get(name)?.get(row.id)
 			return [...(ids ?? [])].flatMap((id) => target.get(id) ?? [])
 		}
-		return [...target.values()].filter(
-			(other) => other[field.inverse] === row.id,
-		)
+		const name = `${field.target}.${field.inverse}`
+		const index =
+			this.inverses.get(name) ??
+			Map.groupBy(target.values(), (other) => other[field.inverse])
+		this.inverses.set(name, index)
+		return index.get(row.id) ?? []
 	}
 
 	matches(model: string, row: StoredRow, filter: Filter | undefined): Truth {

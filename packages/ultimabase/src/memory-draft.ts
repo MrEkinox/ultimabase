@@ -132,6 +132,7 @@ export class Draft {
 				this.reader.removed.set(index, new Set(removed.map(({ id }) => id)))
 				this.note(this.deleted(change.model, removed))
 			} else this.apply(change)
+			this.reader.inverses.clear()
 		}
 		for (const model of touched) this.checkUnique(model)
 	}

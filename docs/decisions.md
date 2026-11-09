@@ -21079,6 +21079,12 @@ Choice: amends D-138, point 5.
    and 10 ms. A phrase PostgreSQL does not find past these limits, `memory()`
    no longer finds either, and long rows rank as they do there.
 
+5. `memory()` finds the rows of a one-to-many relation through an index of
+   the target's keys, built once per read and dropped after each change of a
+   write. It scanned the whole target for each row: an `include`, a `_count`
+   or a `some` on 1,000 authors of 10,000 books took 180 ms; now 23, 3 and
+   4 ms.
+
 Why, for point 1: the lookup skipped every rule, so a caller who could create
 a row linked to a model learned who held a value it may not read, one request
 at a time: an email it cannot see linked the note to its holder, whose id
