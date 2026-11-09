@@ -26,6 +26,7 @@ The full example, with its tests: [`examples/postgres`](https://github.com/MrEki
 | change a table in production          | [`migrate create`, `migrate deploy`](#migrations) |
 | write a migration of your own         | [Your own SQL](#your-own-sql)                     |
 | test a migration                      | [`reset`](#test-a-migration)                      |
+| merge a branch that holds a migration | [Merge a branch](#merge-a-branch)                 |
 | test the application on PostgreSQL    | [`{ database: 'declared' }`](#tests)              |
 | search in a language, or use a pooler | [Options](#options)                               |
 
@@ -197,6 +198,19 @@ database production will have:
 To test a data migration on real rows, restore a dump of production in
 development, then run `npx ultimabase migrate deploy`.
 
+### Merge a branch
+
+A branch's migration is written from `schema.json` as the branch found it.
+When the base branch gained migrations meanwhile, merging it puts your file
+before them, and most often leaves `schema.json` in conflict. Until your
+migration is deployed, write it again:
+
+1. Copy any SQL you wrote in your pending file, then delete the file.
+2. Take the base branch's snapshot:
+   `git checkout main -- migrations/schema.json`.
+3. Run `npx ultimabase migrate create <name>`, then paste your SQL back.
+4. Run `npx ultimabase reset`: your database applied the old file.
+
 ## Tests
 
 `testApplication(app, { database: 'declared' })` runs a test file on the
@@ -352,6 +366,7 @@ the `.env` file beside the config, without changing a variable already set;
 | `Wrote migrations/<file>: no model changed, write your SQL in it.`                                                       | `migrate create` without a model change.                        |
 | `"<name>" is not a migration name: use lowercase letters, digits and _.`                                                 | A name with other characters.                                   |
 | `migrations/ holds SQL files but no schema.json: restore it from version control.`                                       | `schema.json` is missing.                                       |
+| `migrations/schema.json holds merge conflict markers: take the base branch's, …`                                         | A merge left it in conflict: [merge a branch](#merge-a-branch). |
 | `<file> is pending.`                                                                                                     | `migrate status`, for each file to apply.                       |
 | `Applied <file>.`                                                                                                        | `migrate deploy` or `reset` applied a file.                     |
 | `  delete from session where expires < now(): DELETE 3`, under it                                                        | A statement of the file changed rows, `0` included (D-344).     |
