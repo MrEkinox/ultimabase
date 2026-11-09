@@ -240,6 +240,20 @@ async function sync(
 	})
 }
 
+/**
+ * Refuses when the database applied a file `known` does not name: another
+ * deploy, of other code, ran since this one read the database (D-347).
+ */
+async function ours(db: Kysely<object>, known: readonly string[]) {
+	const { rows } = await sql`select 1 from ultimabase_migrations
+		where name <> all(${known}::text[]) limit 1`.execute(db)
+	if (rows.length > 0) {
+		throw new Refused(
+			'Another deploy changed the database meanwhile: deploy again.',
+		)
+	}
+}
+
 /** Whether another deploy applied `file` first. */
 async function isDone(db: Kysely<object>, file: Migration): Promise<boolean> {
 	const { rows } = await sql`
@@ -263,6 +277,7 @@ async function outside(
 	db: Kysely<object>,
 	file: Migration,
 	free: boolean,
+	known: readonly string[],
 ): Promise<readonly Answer[]> {
 	return db.connection().execute(async (session) => {
 		// The connection goes back with the timeout it opened with (D-331).
@@ -273,6 +288,7 @@ async function outside(
 		)
 		try {
 			for (const statement of bookkeeping) await statement.execute(session)
+			await ours(session, known)
 			if (await isDone(session, file)) return []
 			const answers = await executed(session, file.sql, file.name, false)
 			await done(session, file)
@@ -291,9 +307,11 @@ async function inside(
 	db: Kysely<object>,
 	file: Migration,
 	free: boolean,
+	known: readonly string[],
 ): Promise<readonly Answer[]> {
 	let answers: readonly Answer[] = []
 	await locked(db, free, async (trx) => {
+		await ours(trx, known)
 		if (await isDone(trx, file)) return
 		answers = await executed(trx, file.sql, file.name)
 		await done(trx, file)
@@ -308,10 +326,18 @@ async function deploy(
 	counted: (statement: Counted) => void,
 ): Promise<void> {
 	for (const file of run.files) {
-		const answers = await (file.transaction ? inside : outside)(db, file, free)
+		const answers = await (file.transaction ? inside : outside)(
+			db,
+			file,
+			free,
+			run.known,
+		)
 		for (const statement of countsOf(file, answers)) counted(statement)
 	}
-	await locked(db, free, async (trx) => store(trx, run.to, 'deploy'))
+	await locked(db, free, async (trx) => {
+		await ours(trx, run.known)
+		await store(trx, run.to, 'deploy')
+	})
 }
 
 /**

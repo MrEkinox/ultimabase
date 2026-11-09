@@ -1,6 +1,6 @@
 // `migrate deploy`, `migrate status` and `reset` (D-105): the migration
 // files against those the database applied.
-import type { Counted, Migration, Migrations, Stored } from './adapter.ts'
+import type { Counted, Migration, Migrations, Run, Stored } from './adapter.ts'
 import { MigrationFailed } from './adapter.ts'
 import type { Internals } from './app-internals.ts'
 import { create, read } from './cli-migrate.ts'
@@ -75,6 +75,9 @@ const syncedSince = (): Refused =>
 		'Development sync changed this database since its last deploy: deploy applies migrations only to a database they built.',
 	)
 
+const namesOf = (files: readonly Migration[]): readonly string[] =>
+	files.map((file) => file.name)
+
 /** A statement's first line, cut to about 80 characters. */
 function shown(statement: string): string {
 	const [line = ''] = statement.split('\n', 1)
@@ -89,10 +92,10 @@ function shown(statement: string): string {
  */
 async function deployed(
 	migrations: Migrations,
-	files: readonly Migration[],
-	to: unknown,
+	run: Extract<Run, { kind: 'deploy' }>,
 	again: string,
 ): Promise<readonly string[]> {
+	const { files } = run
 	const counts: Counted[] = []
 	const linesOf = (applied: readonly Migration[]) =>
 		applied.flatMap((file) => [
@@ -105,9 +108,7 @@ async function deployed(
 				),
 		])
 	try {
-		await migrations.apply({ kind: 'deploy', files, to }, (count) =>
-			counts.push(count),
-		)
+		await migrations.apply(run, (count) => counts.push(count))
 	} catch (error) {
 		if (!(error instanceof MigrationFailed)) throw error
 		const done = files.findIndex((file) => file.name === error.at)
@@ -147,7 +148,11 @@ export async function migrateDeploy(
 		const current =
 			stored?.snapshot !== undefined && hashOf(stored.snapshot) === hash
 		if (pending.length === 0 && current) return [upToDate]
-		const lines = await deployed(migrations, pending, to, 'deploy again')
+		const lines = await deployed(
+			migrations,
+			{ kind: 'deploy', files: pending, known: namesOf(files), to },
+			'deploy again',
+		)
 		return lines.length === 0 ? [upToDate] : lines
 	} finally {
 		await database.stop()
@@ -245,7 +250,13 @@ export async function reset(
 				'migrations/ holds no migration: the next start builds the tables.',
 			]
 		}
-		lines.push(...(await deployed(migrations, files, snapshot, 'reset again')))
+		lines.push(
+			...(await deployed(
+				migrations,
+				{ kind: 'deploy', files, known: namesOf(files), to: snapshot },
+				'reset again',
+			)),
+		)
 		if (behind(files, hashOf(migrations.snapshot(schema))) !== undefined) {
 			lines.push(
 				`The models changed after ${last.name} was written: the next start syncs them.`,

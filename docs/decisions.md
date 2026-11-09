@@ -4078,7 +4078,7 @@ await Ticket.update({ where: { id }, data: { label: 'x' } }, { as: master })
 
 ## D-105: `ultimabase.config.ts`, the `ultimabase` commands and a schema snapshot
 
-Amended by D-171, D-232, D-280 and D-307.
+Amended by D-171, D-232, D-280, D-307 and D-347.
 
 Choice: amends D-26, D-73 and D-98 point 1.
 
@@ -21052,7 +21052,7 @@ with the suite green.
 
 ## D-347: The kernel after its audit
 
-Choice: amends D-138, point 5.
+Choice: amends D-138, point 5, and D-105, point 6.
 
 1. A `connectOrCreate`'s `where` obeys the fields' read rules, as a find's
    does: on a field the caller may not read, it is refused with
@@ -21095,3 +21095,16 @@ a row linked to a model learned who held a value it may not read, one request
 at a time: an email it cannot see linked the note to its holder, whose id
 came back, and a missing one tried a create. The documentation already
 refused a filter on such a field.
+
+7. A deploy's `Run` holds `known`, the name of every file the code holds.
+   Under the lock of each file, and under the one that stores the snapshot,
+   the adapter refuses the deploy when the database applied a file `known`
+   does not name: `Another deploy changed the database meanwhile: deploy
+again.` Identical deploys, as replicas deploying at start, still pass.
+
+Why, for point 7: a deploy plans outside the lock. When older code planned,
+then newer code applied its files, the older one applied a file of its own
+after them and stored its snapshot over the newer one: every production
+start then refused, the models' hash no longer matching. `from`, the files
+the plan read, as a sync's, would refuse two replicas deploying at start;
+`known` refuses only other code.

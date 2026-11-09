@@ -186,6 +186,10 @@ export async function sync(from: Schema | undefined, to: Schema) {
 	return statements
 }
 
+/** The names of `files`: what a deploy's code holds. */
+export const names = (files: readonly { readonly name: string }[]) =>
+	files.map(({ name }) => name)
+
 export const file = (name: string, sql: string, transaction = true) => ({
 	name,
 	sql,

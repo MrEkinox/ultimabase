@@ -74,6 +74,11 @@ export type Run =
 	| {
 			readonly kind: 'deploy'
 			readonly files: readonly Migration[]
+			/**
+			 * Every file name the code holds: the deploy is refused, under the
+			 * lock, when the database applied another (D-347).
+			 */
+			readonly known: readonly string[]
 			readonly to: unknown
 	  }
 

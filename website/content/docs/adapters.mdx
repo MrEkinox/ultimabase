@@ -397,6 +397,9 @@ for a database that starts empty every time, as `memory()`, has none.
 - `plan` gives the statements from one snapshot to the models', each with what
   it does and, for the log, what it loses or may break.
 - `apply` runs a sync or a deploy under a lock one database holds at a time.
+  A sync is refused when the database's snapshot is no longer its `from`,
+  and a deploy when the database applied a file its `known` does not name:
+  another process changed the database since the plan was read.
 
 ## Log through the kernel
 

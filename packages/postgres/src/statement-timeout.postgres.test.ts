@@ -134,6 +134,7 @@ describe('a statement timeout', () => {
 		if (migrations === undefined) throw new Error('postgres() migrates.')
 		await migrations.apply({
 			kind: 'deploy',
+			known: ['1_slow.sql', '2_slow.sql'],
 			files: [
 				file('1_slow.sql', 'select pg_sleep(0.6);'),
 				file(
