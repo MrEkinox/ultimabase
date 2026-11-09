@@ -1,5 +1,11 @@
 # create-ultimabase
 
+## 0.7.0
+
+### Patch Changes
+
+- 1f34e7a: The `cd` it prints is quoted for any character a shell would read otherwise, not only a space.
+
 ## 0.6.0
 
 ### Patch Changes

@@ -1,5 +1,39 @@
 # @ultimabase/postgres
 
+## 0.7.0
+
+### Minor Changes
+
+- 1f34e7a: Two `migrate deploy` of different code at the same time no longer leave the older snapshot stored,
+  which made every production start refuse: the deploy that read the database before the other ran
+  is refused with `Another deploy changed the database meanwhile: deploy again.`, and applies no file
+  of its own after the other's. Identical deploys, such as replicas deploying at start, still pass.
+
+  For adapter authors: a deploy `Run` holds `known`, every file name the code holds. `apply` refuses
+  the deploy, under its lock, when the database applied a file `known` does not name.
+
+### Patch Changes
+
+- 1f34e7a: An aggregate outside a transaction tests a stored key's target with one id on the key itself, as `findMany` and `count` do (D-320): PostgreSQL plans it without an `exists` per relation.
+- 1f34e7a: A delete on a model of more than 99 stored keys, or of long key names, no
+  longer fails: its change then tells the ids alone.
+- 1f34e7a: A deploy is refused when another deploy applied a file of the same name and
+  other content meanwhile, instead of skipping that file.
+- Updated dependencies [1f34e7a]
+- Updated dependencies [1f34e7a]
+- Updated dependencies [1f34e7a]
+- Updated dependencies [1f34e7a]
+- Updated dependencies [1f34e7a]
+- Updated dependencies [1f34e7a]
+- Updated dependencies [1f34e7a]
+- Updated dependencies [1f34e7a]
+- Updated dependencies [1f34e7a]
+- Updated dependencies [1f34e7a]
+- Updated dependencies [1f34e7a]
+- Updated dependencies [1f34e7a]
+- Updated dependencies [1f34e7a]
+  - ultimabase@0.7.0
+
 ## 0.6.0
 
 ### Minor Changes

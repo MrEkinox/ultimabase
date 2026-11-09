@@ -1,5 +1,40 @@
 # @ultimabase/graphql
 
+## 0.7.0
+
+### Patch Changes
+
+- 1f34e7a: A variable's value outside its enum is no longer sent back in the error: `Value "secretpw" does not exist in "PostStatus" enum.` is now `The value does not exist in "PostStatus" enum.`, as every other refused value already was.
+- 1f34e7a: A GraphQL live list returning more than 50 values a row it reads, the rows it nests included, is refused at subscribe.
+- 1f34e7a: Over a GraphQL WebSocket, `signUp`, `signIn` and `changePassword` are refused with `BAD_REQUEST` before anything is written: a sign-up no longer creates its user, nor a password change its password, then fails at the cookie. `client.cookies.settable` says whether a cookie can be set, and auth's API gives `needsCookies(client)` to refuse the same way.
+- 1f34e7a: A subscription whose variables are nested deeper than the stack is refused with `The variables are nested too deep.` (`BAD_USER_INPUT`), as the same query over HTTP. It failed with `Internal error.` and logged a `RangeError`.
+- 1f34e7a: A document that returns more than 50 values a row of `maxRows`, 1,000,000 by default, is refused before it runs: "The document returns more than 1,000,000 values. Select fewer fields, aliases or rows." Each field counts once per row above it, so 120,000 aliases of `title` over 100 posts no longer make the server read 12,000,000 values. A live row over a WebSocket counts its values too. Master is not counted.
+- Updated dependencies [1f34e7a]
+- Updated dependencies [1f34e7a]
+- Updated dependencies [1f34e7a]
+- Updated dependencies [1f34e7a]
+- Updated dependencies [1f34e7a]
+- Updated dependencies [1f34e7a]
+- Updated dependencies [1f34e7a]
+- Updated dependencies [1f34e7a]
+- Updated dependencies [1f34e7a]
+- Updated dependencies [1f34e7a]
+- Updated dependencies [1f34e7a]
+- Updated dependencies [1f34e7a]
+- Updated dependencies [1f34e7a]
+- Updated dependencies [1f34e7a]
+- Updated dependencies [1f34e7a]
+- Updated dependencies [1f34e7a]
+- Updated dependencies [1f34e7a]
+- Updated dependencies [1f34e7a]
+- Updated dependencies [1f34e7a]
+- Updated dependencies [1f34e7a]
+- Updated dependencies [1f34e7a]
+- Updated dependencies [1f34e7a]
+  - ultimabase@0.7.0
+  - @ultimabase/http@0.7.0
+  - @ultimabase/realtime@0.7.0
+
 ## 0.6.0
 
 ### Patch Changes
