@@ -410,6 +410,50 @@ describe('the row budget', () => {
 	})
 })
 
+/** `count` aliases of `field`, a post's title by default. */
+const aliased = (count: number, field = 'title') =>
+	Array.from({ length: count }, (_, i) => `a${i}: ${field}`).join(' ')
+
+describe('the value budget (D-349)', () => {
+	it('refuses more than 50 values a row of maxRows, unless Master asks', async () => {
+		await serving({ maxRows: 2 }, async (url) => {
+			// __typename and posts count 1 value; edges, node and each title 2.
+			const most = `{ __typename posts(first: 2) { edges { node { ${aliased(47)} } } } }`
+			expect((await post(url, most)).errors).toBeUndefined()
+			const more = `{ __typename posts(first: 2) { edges { node { ${aliased(47)} __typename } } } }`
+			expect(messages(await post(url, more))).toStrictEqual([
+				'The document returns more than 100 values. Select fewer fields, aliases or rows.',
+			])
+			const master = await post(url, more, undefined, asMaster)
+			expect(master.errors).toBeUndefined()
+		})
+	})
+
+	it('names the rows first, when both are past their budget', async () => {
+		await serving({ maxRows: 2 }, async (url) => {
+			const both = `{ posts(first: 3) { edges { node { ${aliased(60)} } } } }`
+			expect(messages(await post(url, both))).toStrictEqual([
+				'The document asks for more than 2 rows. Ask for fewer with first or last.',
+			])
+		})
+	})
+
+	it('stops counting past the budget', async () => {
+		// 1,500,000 titles: counting them all took 1.2 s of the loop.
+		const fanned = `{ posts(first: 1) { ...E } }
+			fragment E on PostConnection { ${aliased(100, 'edges { ...N }')} }
+			fragment N on PostEdge { ${aliased(100, 'node { ...T }')} }
+			fragment T on Post { ${aliased(150)} }`
+		await serving({ maxRows: 2 }, async (url) => {
+			const begin = performance.now()
+			expect(messages(await post(url, fanned))).toStrictEqual([
+				'The document returns more than 100 values. Select fewer fields, aliases or rows.',
+			])
+			expect(performance.now() - begin).toBeLessThan(1000)
+		})
+	})
+})
+
 const rootsRefused = [
 	'The document asks for more than 20 root fields, a totalCount counted as one more. Send several documents.',
 ]

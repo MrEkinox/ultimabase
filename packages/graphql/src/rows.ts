@@ -3,7 +3,8 @@
 // refused before it runs. Each list counts the rows it asks for, times the
 // rows of the lists above it. Each relation a list's `orderBy` goes through
 // counts one level of `maxDepth` under the list (D-134), whose level counts
-// no connection or edge (D-185).
+// no connection or edge (D-185). Each field counts one value per row above
+// it: past 50 values a row of `maxRows`, the document is refused (D-349).
 import type {
 	FieldNode,
 	GraphQLObjectType,
@@ -99,6 +100,8 @@ export function rowBudget(
 			variableValues: args.variableValues,
 		}
 		let rows = 0
+		let values = 0
+		const maxValues = maxRows * 50
 		let rootFields = 0
 		let deepest = 0
 		const walk = (
@@ -107,15 +110,20 @@ export function rowBudget(
 			times: number,
 			root: string,
 			level: number,
+			live = false,
 		): void => {
 			for (const fields of grouped(info, nodes, responseKey).values()) {
-				if (rows > maxRows) return
+				if (rows > maxRows || values > maxValues) return
+				// One per row above it, `__typename` included.
+				values += times
 				const [node] = fields
 				const field = type.getFields()[node.name.value]
 				if (field === undefined) continue
 				const read = readOf(type, root, node.name.value)
-				// A live list's rows are bounded by `maxLive` instead (D-154).
-				if (root === 'subscription' && read === undefined) continue
+				// A live row's and list's rows are bounded by `maxLive` instead
+				// (D-154); a live row's values count (D-349).
+				const liveRow = root === 'subscription' && read === undefined
+				if (liveRow && roots.get(node.name.value) !== one) continue
 				let each = times
 				if (read?.kind === 'many') {
 					const asked = getArgumentValues(field, node, args.variableValues)
@@ -129,13 +137,13 @@ export function rowBudget(
 					each *= counted ? Math.max(size, read.entry.take) : size
 					if (counted && root !== '') rootFields += 1
 				} else if (read?.kind === 'list') each *= read.size
-				if (read !== undefined) rows += each
+				if (read !== undefined && !live) rows += each
 				if (root !== '') rootFields += 1
 				const named = getNamedType(field.type)
 				// A connection's and an edge's fields are no level (D-185).
 				const below = registry.wrappers.has(type.name) ? level : level + 1
 				if (isObjectType(named) && each > 0) {
-					walk(named, fields, each, '', below)
+					walk(named, fields, each, '', below, live || liveRow)
 				}
 			}
 		}
@@ -153,10 +161,15 @@ export function rowBudget(
 				`The document asks for more than ${maxRoots} root fields, a totalCount counted as one more. Send several documents.`,
 			)
 		}
-		if (rows <= maxRows) return undefined
-		const fewer = list ? 'take' : 'first or last'
+		if (rows > maxRows) {
+			const fewer = list ? 'take' : 'first or last'
+			return new GraphQLError(
+				`The document asks for more than ${maxRows.toLocaleString('en-US')} rows. Ask for fewer with ${fewer}.`,
+			)
+		}
+		if (values <= maxValues) return undefined
 		return new GraphQLError(
-			`The document asks for more than ${maxRows.toLocaleString('en-US')} rows. Ask for fewer with ${fewer}.`,
+			`The document returns more than ${maxValues.toLocaleString('en-US')} values. Select fewer fields, aliases or rows.`,
 		)
 	}
 }

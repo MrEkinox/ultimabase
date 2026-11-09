@@ -1103,6 +1103,29 @@ describe('a live row', () => {
 		})
 		await results.return?.()
 	})
+
+	it('counts its values, not the rows maxLive bounds (D-349)', async () => {
+		const url = await started({
+			graphql: { maxRows: 10 },
+			models: [Task, Note, Board, Card],
+		})
+		const { id } = await Board.create({ data: {} }, M)
+		// 100 cards: 2 values, then 3 for each card, past 10 rows.
+		const most = `subscription { board(where: { id: "${id}" }) { cards { edges { node { id } } } } }`
+		expect(await next(subscribed(url, most))).toMatchObject({
+			data: { board: { cards: { edges: [] } } },
+		})
+		const more = most.replace('node { id }', 'node { id a: id b: id }')
+		expect(await next(subscribed(url, more))).toEqual({
+			errors: [
+				containing({
+					message:
+						'The document returns more than 500 values. Select fewer fields, aliases or rows.',
+					extensions: { code: 'BAD_USER_INPUT' },
+				}),
+			],
+		})
+	})
 })
 
 describe('the subscriptions', () => {

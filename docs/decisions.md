@@ -4666,7 +4666,7 @@ curl -X POST localhost:3000/webhooks/stripe -d '{"id":"…"}' \
 
 ## D-107: `graphqlPlugin()`, the schema it generates and how it mounts
 
-Amended by D-125, D-128, D-132, D-153, D-185, D-206 and D-227.
+Amended by D-125, D-128, D-132, D-153, D-185, D-206, D-227 and D-349.
 
 Choice: completes D-16, D-34, D-41, D-45 and D-55.
 
@@ -4731,7 +4731,10 @@ startsWith, endsWith }`, `is`/`isNot`, `some`/`every`/`none`,
    most, and `take` at least when it selects `totalCount`, since a count
    reads the rows it counts. A single row, a `one` relation and a mutation
    count one row each. Each alias counts apart; a fragment spread twice
-   counts once (amended 2026-10-23) A document of more than 2,000 tokens,
+   counts once (amended 2026-10-23). A document that returns more than 50
+   values a row of `maxRows` (1,000,000) is refused too, Master's excepted:
+   each field counts one value per row above it (amended 2026-11-09, D-349).
+   A document of more than 2,000 tokens,
    about ten times the standard introspection query, is refused before it is
    validated, Master's included: graphql-js validates a field repeated under
    one key in quadratic time, and 12,000 copies took 6 seconds (amended
@@ -15425,6 +15428,8 @@ query ($where: PostWhereInput) {
 
 ## D-229: A live function's rows count in `maxRows` over a WebSocket
 
+Amended by D-349.
+
 Choice: amends D-154 point 12; D-107's row budget is unchanged.
 
 1. A live function's subscription over a WebSocket is counted by the row
@@ -15436,7 +15441,8 @@ Choice: amends D-154 point 12; D-107's row budget is unchanged.
 3. A model's live list and live row stay out of `maxRows`: `maxLive`,
    `maxTake` in page mode and `maxConnectionRows` bound them (D-154), and
    the rows of the relations they select count in `maxLive` instead. REST's
-   live lists check their depth only.
+   live lists check their depth only. A live row's values count in the value
+   budget (amended 2026-11-09, D-349).
 
 Why: `{ ranked(above: 0) { id } }` over HTTP was refused past `maxRows`, but
 `subscription { ranked(above: 0) { id } }` ran in full, then again at each
@@ -21173,4 +21179,53 @@ access-control-request-method: POST
 
 # Before: no access-control-max-age; after:
 access-control-max-age: 600
+```
+
+## D-349: graphql after its audit
+
+Choice: amends D-107 point 6 and D-229 point 3.
+
+1. A document that returns more than 50 values a row of `maxRows`, 1,000,000
+   by default, is refused before it runs with `BAD_USER_INPUT`: "The document
+   returns more than 1,000,000 values. Select fewer fields, aliases or rows."
+   Each field counts one value per row above it, a connection's `edges` and
+   `node`, a scalar and `__typename` included; each alias counts apart.
+   Master's documents are not counted, as for the row budget. It is no
+   option: `maxRows` sets both.
+2. Past both budgets, the row budget's error is the one sent: it names the
+   argument to lower.
+3. Over a WebSocket, a live function's values count as over HTTP; a model's
+   live row counts its values, while the rows of its relations stay bounded
+   by `maxLive` (D-229 point 3). A model's live list is not counted yet.
+4. A subscription's variables nested too deep are refused as a query's
+   (D-228), and an enum value graphql-js refuses is not sent back in the
+   error (D-107 point 8).
+
+Why: the row budget bounds rows, not what each row returns. Under
+`maxRows: 20000`, `{ posts(first: 100) { edges { node { t0: title … } } } }`
+with 120,000 aliases of `title` is 100 rows, but 12,000,000 values: the
+server read and serialized them for one request. Fifty values a row leaves
+room for a wide model at the full row budget. The count stops once past the
+budget, so a document built to be counted slowly is refused in under a
+second.
+Rejected: a `maxValues` option, until an application needs one; counting a
+model's live list by its `first`, which would refuse a live list of 50,000
+rows of 21 fields that `maxLive` serves today.
+Example:
+
+```graphql
+# graphqlPlugin({ maxRows: 2 })
+query {
+	posts(first: 2) {
+		edges {
+			node {
+				t0: title
+				t1: title
+				# … 60 aliases
+			}
+		}
+	}
+}
+# Before: served. After: The document returns more than 100 values. Select
+# fewer fields, aliases or rows.
 ```
