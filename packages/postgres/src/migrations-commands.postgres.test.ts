@@ -204,7 +204,7 @@ describe('the commands on postgres()', () => {
 		])
 
 		await config(
-			"label: f.string(), done: f.boolean({ default: false }), tags: f.string({ list: true }), kept: f.string({ list: true, default: ['a'] })",
+			"label: f.string(), done: f.boolean({ default: false }), tags: f.string({ list: true }), kept: f.string({ list: true, default: ['a'] }), sized: f.string({ list: true, size: { min: 1 } }), kinds: f.string({ list: true, default: ['a'], size: { min: 1 } })",
 		)
 		await ultimabase(dir, ['migrate', 'create', 'lists'], {})
 		const named = await readdir(joinPath(dir, 'migrations'))
@@ -218,6 +218,18 @@ describe('the commands on postgres()', () => {
 			'-- The stored rows hold an empty "Locker.tags": fill them here if the model needs a value.',
 			'',
 			`alter table "locker" add column "kept" text[] not null default '{"a"}'::text[];`,
+			'',
+			`alter table "locker" add column "sized" text[] not null default '{}'::text[];`,
+			'-- The stored rows hold an empty "Locker.sized": fill them here if the model needs a value.',
+			'',
+			`alter table "locker" add column "kinds" text[] not null default '{"a"}'::text[];`,
+			'',
+			'-- bounding the size of "Locker.sized" fails when a row holds another number of values.',
+			'alter table "locker" add constraint "locker_sized_size_check" check (cardinality("sized") >= 1);',
+			'-- Code still running without "Locker.sized" inserts it empty, which this refuses: with a rolling deploy, bound its size in a later deploy.',
+			'',
+			'-- bounding the size of "Locker.kinds" fails when a row holds another number of values.',
+			'alter table "locker" add constraint "locker_kinds_size_check" check (cardinality("kinds") >= 1);',
 			'',
 		])
 	}, 30_000)
@@ -270,6 +282,7 @@ describe('the commands on postgres()', () => {
 		expect(generated.slice(1)).toStrictEqual([
 			'-- adding the required "Locker.kind" fails when Locker holds rows: make it optional, or give it a value as its default, not a function.',
 			'alter table "locker" add column "kind" text collate "C" not null;',
+			'-- Code still running without "Locker.kind" fails to insert once this runs: with a rolling deploy, make it required in a later deploy.',
 			'',
 			'-- limiting "Locker.kind" to wood, glass fails when a row holds another value.',
 			`alter table "locker" add constraint "locker_kind_check" check ("kind" in ('wood', 'glass'));`,

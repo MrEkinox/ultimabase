@@ -278,6 +278,10 @@ its data: give Locker.title dbName: 'label'.` That `dbName` keeps the old
 - A change of the column's type drops the default.
 - A list without a default is empty in the stored rows: a comment below its
   statement says so, and that is where to write the values the rows need.
+- A required field without a fixed default, and a list whose `size` refuses
+  that empty default, make code still running without them fail to insert:
+  a comment below the statement says so (see
+  [A rolling deploy](/docs/next/deploy#a-rolling-deploy)).
 
 ### Constraints
 

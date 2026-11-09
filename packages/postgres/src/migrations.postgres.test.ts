@@ -1854,6 +1854,9 @@ describe('a sync on postgres()', () => {
 		})
 		await run(`delete from note_tasks where task_id = '${other}'`)
 		const statements = await sync(notes(false), notes(true))
+		expect(statements[2]?.note).toBe(
+			'Code still running without "Note.tasks.project" fails to insert once this runs: with a rolling deploy, make it required in a later deploy',
+		)
 		expect(
 			statements.map(({ sql, does, tries }) => [sql, does, tries]),
 		).toStrictEqual([
