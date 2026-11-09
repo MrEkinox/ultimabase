@@ -18,9 +18,10 @@ const atOnce = 20
 
 type Row = RecordOf<typeof JobsRun>
 
-/** The rows due at `now` that no instance holds. */
-function due(now: Date) {
+/** The rows due at `now` that no instance holds, of the jobs it declares. */
+function due(app: Running, now: Date) {
 	return {
+		job: { in: [...app.jobs.keys()] },
 		state: 'pending',
 		dueAt: { lte: now },
 		OR: [{ lockedUntil: null }, { lockedUntil: { lt: now } }],
@@ -28,10 +29,10 @@ function due(now: Date) {
 }
 
 /** The row, once this instance holds it until `held`: one update returns it. */
-async function claim(id: string, now: number, held: Date) {
+async function claim(app: Running, id: string, now: number, held: Date) {
 	const [row] = await JobsRun.updateManyAndReturn(
 		{
-			where: { AND: [{ id }, due(new Date(now))] },
+			where: { AND: [{ id }, due(app, new Date(now))] },
 			data: { lockedUntil: held },
 		},
 		M,
@@ -61,19 +62,19 @@ function messageOf(error: unknown): string {
 function failed(
 	app: Running,
 	row: Row,
-	job: JobRecord | undefined,
+	job: JobRecord,
 	error: unknown,
 	now: number,
 ) {
 	const message = messageOf(error)
 	const facts = { err: error, job: row.job, run: row.id }
-	if (job?.schedule !== undefined && row.recurring !== null) {
+	if (job.schedule !== undefined && row.recurring !== null) {
 		app.logger.error(facts, `The job ${row.job} failed.`)
 		const dueAt = following(job, row, now)
 		return { dueAt, lockedUntil: null, error: message }
 	}
 	const tried = row.attempts + 1
-	const last = job === undefined || tried >= attempts
+	const last = tried >= attempts
 	if (last) {
 		app.logger.error(facts, `The job ${row.job} failed: its run is kept.`)
 	} else {
@@ -90,12 +91,7 @@ function failed(
 }
 
 /** What a run writes to its row: its failure, its next time, or none. */
-async function ran(app: Running, row: Row, now: number) {
-	const job = app.jobs.get(row.job)
-	if (job === undefined) {
-		const error = new Error(`The job ${row.job} is not in jobsPlugin's jobs.`)
-		return failed(app, row, job, error, now)
-	}
+async function ran(app: Running, row: Row, job: JobRecord, now: number) {
 	const { id, input } = row
 	try {
 		await job.run(job.input === undefined ? { id } : { id, input })
@@ -111,9 +107,11 @@ async function ran(app: Running, row: Row, now: number) {
 async function runRow(app: Running, id: string): Promise<boolean> {
 	const now = Date.now()
 	const held = new Date(now + lease)
-	const row = await claim(id, now, held)
-	if (row === undefined) return false
-	const data = await ran(app, row, now)
+	const row = await claim(app, id, now, held)
+	// A claimed row's job is one this instance declares.
+	const job = app.jobs.get(row?.job ?? '')
+	if (row === undefined || job === undefined) return false
+	const data = await ran(app, row, job, now)
 	// Only while this instance holds the row: another took it over after.
 	const where = { id, lockedUntil: held }
 	const { count } =
@@ -212,7 +210,7 @@ async function pass(app: Running): Promise<boolean> {
 	if (closed || failure !== undefined) return false
 	const rows = await JobsRun.findMany(
 		{
-			where: due(new Date()),
+			where: due(app, new Date()),
 			orderBy: [{ dueAt: 'asc' }],
 			take: atOnce,
 			select: { id: true },
@@ -254,7 +252,7 @@ export async function drain(app: Running): Promise<void> {
 	)
 }
 
-/** Creates the rows of new recurring jobs, and deletes those of old ones. */
+/** Creates, re-times, sets pending again and deletes the recurring rows. */
 export async function schedule(app: Running): Promise<void> {
 	const now = Date.now()
 	const rows = await JobsRun.findMany(
@@ -266,8 +264,10 @@ export async function schedule(app: Running): Promise<void> {
 		if (job?.schedule === undefined) {
 			// Another instance starting at once may have deleted it.
 			await JobsRun.deleteMany({ where: { id: row.id } }, M)
-		} else if (job.schedule !== row.schedule) {
-			const data = { schedule: job.schedule, dueAt: new Date(job.next(now)) }
+		} else if (job.schedule !== row.schedule || row.state !== 'pending') {
+			const { schedule: given } = job
+			const dueAt = new Date(job.next(now))
+			const data = { schedule: given, state: 'pending', attempts: 0, dueAt }
 			await JobsRun.update({ where: { id: row.id }, data }, M)
 		}
 	}

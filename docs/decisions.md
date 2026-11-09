@@ -14748,7 +14748,7 @@ cycle of models such as `Task` and `Milestone`, makes the types circular).
 
 ## D-221: Jobs: an outbox and scheduled jobs, a plugin
 
-Amended by D-302.
+Amended by D-302 and D-352.
 
 Choice: the plugin `@ultimabase/jobs` runs work after a write commits, later,
 or on a schedule, with no kernel change (D-25):
@@ -21406,6 +21406,14 @@ Choice: amends D-221 points 3 and 11.
 4. A run writes its end only while its instance holds the row's lease. A
    run that outlived its lease leaves the row to the instance that took it
    over, and logs a warning.
+5. An instance runs only the rows of the jobs it declares: another
+   version's are left pending, for the instances that declare them, where
+   they turned `failed` (D-221 point 11). At startup, a recurring job's row
+   that is not pending, as one an older version turned `failed`, is set
+   pending again, its attempts at 0, due at its next time. During a rolling
+   deploy an older instance that starts still deletes the recurring rows of
+   the jobs it does not declare; the next instance of the newer version to
+   start creates them again.
 
 Why: `enqueue` stored the schema's output as it came. A `Date` or a key set
 to `undefined` is no JSON value, so the write was refused as 400
@@ -21417,7 +21425,10 @@ job's row failed the same way with `NOT_FOUND`. A run that threw a message
 holding a NUL could not store it: the run ran again after each lease, its
 attempts never counted, for ever. A run that outlived its lease and the
 instance that took it over both wrote its end: the second write found no
-row, and `runJobs()` failed with "runJobs could not run a job."
+row, and `runJobs()` failed with "runJobs could not run a job." During a
+rolling deploy, an older instance turned a run of a job the newer version
+added `failed` for good, a recurring job's row included: that job never ran
+again.
 
 Example:
 

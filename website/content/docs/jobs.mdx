@@ -102,6 +102,10 @@ month and day of the week, in `timeZone`, UTC by default:
 
 - At start, it writes the rows of new recurring jobs, re-times those whose
   schedule changed, and deletes those of jobs no longer declared.
+- A server runs only the jobs it declares. During a deploy, a run of a new job
+  waits for a server of the new version. A server of the old version that
+  starts deletes the new recurring jobs' rows, until a server of the new
+  version starts.
 - Stopping, a server waits for the runs it started.
 
 ## In a test

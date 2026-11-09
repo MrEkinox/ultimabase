@@ -253,7 +253,22 @@ describe('the recurring rows at startup', () => {
 		await third.start()
 		const [row] = await rows()
 		expect(row?.dueAt).toStrictEqual(new Date('2027-01-04T09:00:00Z'))
+		// One an older version turned failed is pending again (D-352).
+		const failed = { state: 'failed', attempts: 1 }
+		await JobsRun.updateMany({ where: { job: 'weekly' }, data: failed }, M)
 		await third.stop()
+		const fourth = runOf([everyHalfHour, weekly])
+		await fourth.start()
+		expect(await rows()).toMatchObject([
+			{ job: 'hourly', state: 'pending', attempts: 0 },
+			{
+				job: 'weekly',
+				state: 'pending',
+				attempts: 0,
+				dueAt: new Date('2027-01-04T09:00:00Z'),
+			},
+		])
+		await fourth.stop()
 	})
 })
 

@@ -9,6 +9,8 @@ import { defineApp, memory, PublicError, transaction } from 'ultimabase'
 import type { Job } from './index.ts'
 import { defineJob, jobsPlugin } from './index.ts'
 import { JobsRun, M } from './model.ts'
+import { start as startRun } from './runner.ts'
+import { runningOf } from './state.ts'
 
 const lines: { level: string; message: string }[] = []
 const logger: Logger = {
@@ -254,26 +256,18 @@ describe('a run that fails', () => {
 		])
 	})
 
-	it('turns failed at once when its job is not declared', async () => {
-		await JobsRun.create(
-			{
-				data: {
-					job: 'gone',
-					state: 'pending',
-					dueAt: new Date(),
-					attempts: 0,
-				},
-			},
+	it('leaves a run of a job it does not declare to the instances that do (D-352)', async () => {
+		const data = { job: 'newer', state: 'pending', attempts: 0 }
+		const row = await JobsRun.create(
+			{ data: { ...data, dueAt: new Date() } },
 			M,
 		)
 		await runJobs()
+		expect(await startRun(runningOf('the test'), row.id)).toBe(false)
 		expect(await rows()).toMatchObject([
-			{
-				state: 'failed',
-				attempts: 1,
-				error: "The job gone is not in jobsPlugin's jobs.",
-			},
+			{ ...data, lockedUntil: null, error: null },
 		])
+		expect(lines).toStrictEqual([])
 	})
 
 	it('is not run by an instance while another holds it', async () => {
