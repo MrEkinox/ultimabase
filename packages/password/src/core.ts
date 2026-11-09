@@ -12,7 +12,7 @@ import type {
 	Row,
 	UserOf,
 } from 'ultimabase'
-import { isMaster, master, PublicError, transaction } from 'ultimabase'
+import { master, PublicError, transaction } from 'ultimabase'
 import { dummyHash, hashPassword, verifyPassword } from './hash.ts'
 import type { SendEmail } from './email-flows.ts'
 import { normalized } from './input.ts'
@@ -260,19 +260,3 @@ export async function signedIn(
 
 export const callerOf = (options: QueryOptions | undefined): Identity =>
 	options?.as ?? { kind: 'anonymous' }
-
-/** Refuses `command` on user `id` but as Master or as that user. */
-export function selfOrMaster(
-	options: QueryOptions | undefined,
-	id: string,
-	command: string,
-): void {
-	const caller = callerOf(options)
-	const self = caller.kind === 'user' && caller.user.id === id
-	if (!self && !isMaster(caller)) {
-		throw new PublicError(
-			'ACCESS_DENIED',
-			`User.${command} runs as Master or as the user.`,
-		)
-	}
-}

@@ -296,7 +296,7 @@ It adds:
 
 | What     | Name             | Effect                                                                                          |
 | -------- | ---------------- | ----------------------------------------------------------------------------------------------- |
-| function | `signOut`        | Ends the caller's session and the cookie's, then clears it; `true`.                             |
+| function | `signOut`        | Clears the cookie, ends the caller's session and the cookie's; `true`. Fails over a WebSocket.  |
 | query    | `viewer`         | The signed-in user's row, read with their rules, or `null`.                                     |
 | command  | `revokeSessions` | `User.revokeSessions({ id }, { as })`, as Master or as the user.                                |
 | models   | `AuthSession`    | The sessions; each token is stored as its SHA-256, never in clear.                              |

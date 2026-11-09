@@ -1,8 +1,8 @@
 // auth's ready-made rules and default (D-10, D-62, D-79, D-83, D-241), and their
 // function counterpart (D-181): each reads the caller, the record's stored
 // keys (D-77) and the value written.
-import type { Caller, CallerRule, Register, UserOf } from 'ultimabase'
-import { PublicError } from 'ultimabase'
+import type { Caller, CallerRule, Identity, Register, UserOf } from 'ultimabase'
+import { isMaster, PublicError } from 'ultimabase'
 
 /** The rule "the caller is signed in" (D-10). */
 export const isAuthenticated: CallerRule = ({ caller }) =>
@@ -165,4 +165,23 @@ export function currentUser(facts: {
 	readonly caller: Caller
 }): { readonly id: string } | undefined {
 	return facts.caller.kind === 'user' ? { id: facts.caller.user.id } : undefined
+}
+
+/**
+ * Refuses a command on the user `id` unless `caller` is Master or that user:
+ * the check of the user commands auth and its sign-in methods add, which
+ * these reach as `AuthApi.selfOrMaster` (D-346).
+ */
+export function selfOrMaster(
+	caller: Identity | undefined,
+	id: string,
+	command: string,
+): void {
+	const self = caller?.kind === 'user' && caller.user.id === id
+	if (!self && (caller === undefined || !isMaster(caller))) {
+		throw new PublicError(
+			'ACCESS_DENIED',
+			`User.${command} runs as Master or as the user.`,
+		)
+	}
 }
