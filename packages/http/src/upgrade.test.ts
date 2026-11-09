@@ -131,12 +131,16 @@ async function upgraded(
 }
 
 /** The whole answer to an upgrade of `target`, as the server wrote it. */
-async function raw(url: string, target: string): Promise<string> {
+async function raw(
+	url: string,
+	target: string,
+	host = 'localhost',
+): Promise<string> {
 	const { port } = new URL(url)
 	return new Promise<string>((done) => {
 		const socket = connect(Number(port), 'localhost', () => {
 			socket.write(
-				`GET ${target} HTTP/1.1\r\nhost: localhost\r\nconnection: Upgrade\r\nupgrade: websocket\r\n\r\n`,
+				`GET ${target} HTTP/1.1\r\nhost: ${host}\r\nconnection: Upgrade\r\nupgrade: websocket\r\n\r\n`,
 			)
 		})
 		let text = ''
@@ -210,6 +214,16 @@ describe('an upgrade', () => {
 		const answer = await raw(url, 'http://localhost/live')
 		expect(answer).toMatch(/^HTTP\/1\.1 400 Bad Request\r\n/)
 		expect(answer).toContain('"code":"BAD_REQUEST"')
+	})
+
+	// A request refuses a URL with credentials: the server answers, and lives.
+	it('is refused with credentials in its host', async () => {
+		const { url } = await started()
+		const answer = await raw(url, '/live', 'a@localhost')
+		expect(answer).toMatch(/^HTTP\/1\.1 400 Bad Request\r\n/)
+		const after = await upgraded(`${url}/live`)
+		expect(after.status).toBe(101)
+		after.socket?.destroy()
 	})
 })
 

@@ -109,15 +109,19 @@ function requestOf(incoming: IncomingMessage): Request | undefined {
 	const { host } = incoming.headers
 	const target = incoming.url ?? ''
 	const url = `http://${host ?? ''}${target}`
-	if (host === undefined || !target.startsWith('/') || !URL.canParse(url)) {
-		return undefined
-	}
+	if (host === undefined || !target.startsWith('/')) return undefined
 	const headers = new Headers()
 	const raw = incoming.rawHeaders
 	for (let index = 0; index + 1 < raw.length; index += 2) {
 		headers.append(raw[index] ?? '', raw[index + 1] ?? '')
 	}
-	return new Request(url, { headers })
+	// It runs outside any catch: a URL a request refuses, invalid or with
+	// credentials, would end the process.
+	try {
+		return new Request(url, { headers })
+	} catch {
+		return undefined
+	}
 }
 
 /**
