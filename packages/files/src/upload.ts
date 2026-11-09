@@ -230,52 +230,52 @@ export async function upload(
 	const read = buffered
 		? { sample: await bytesOf(body), body: undefined }
 		: await sampled(body)
-	const { type, attachment } = await typeOf(
-		read.sample,
-		options.type,
-		field.accept,
-	)
+	const bytes = read.sample
+	const { type, attachment } = await typeOf(bytes, options.type, field.accept)
+	if (buffered && bytes.length !== size) {
+		throw invalid('size', `The file has ${bytes.length} bytes, not ${size}.`)
+	}
+	// Made before the rows, so an upload writes its row, then its variants'.
+	const made = buffered
+		? await madeOf(field, { body: bytes, type, name })
+		: undefined
 	const prefix = field.public === true ? 'public' : 'private'
 	const keyOf = () => `${prefix}/${randomUUID()}`
 	const uploadedBy = uploaderOf(caller)
 	const deleteAfter = new Date(Date.now() + hour)
 	const blob = { field: options.for, uploadedBy, state: 'pending', deleteAfter }
 	const main = await FilesBlob.create(
-		{ data: { ...blob, key: keyOf(), name, type, size } },
+		{
+			data: {
+				...blob,
+				key: keyOf(),
+				name,
+				type,
+				size,
+				inline: made?.inline ?? null,
+			},
+		},
 		{ as: caller },
 	)
-	const keys = [main.key]
-	const ids = [main.id]
+	const variants = (made?.variants ?? []).map(
+		([key, variantBody, variantType]) => ({
+			row: {
+				...blob,
+				key: keyOf(),
+				name: key,
+				type: variantType,
+				size: variantBody.length,
+				variantOf: main.id,
+			},
+			body: variantBody,
+		}),
+	)
 	try {
 		if (read.body !== undefined) {
 			await storage.put(main.key, read.body, { type, size, attachment })
 			return { id: main.id }
 		}
-		const bytes = read.sample
-		if (bytes.length !== size) {
-			throw invalid('size', `The file has ${bytes.length} bytes, not ${size}.`)
-		}
-		const made = await madeOf(field, { body: bytes, type, name })
-		const variants = await settled(
-			made.variants.map(async ([key, variantBody, variantType]) => {
-				const row = await FilesBlob.create(
-					{
-						data: {
-							...blob,
-							key: keyOf(),
-							name: key,
-							type: variantType,
-							size: variantBody.length,
-							variantOf: main.id,
-						},
-					},
-					M,
-				)
-				keys.push(row.key)
-				ids.push(row.id)
-				return { row, body: variantBody }
-			}),
-		)
+		await FilesBlob.createMany({ data: variants.map(({ row }) => row) }, M)
 		await settled([
 			storage.put(main.key, bytes, { type, size, attachment }),
 			...variants.map(async ({ row, body: variantBody }) =>
@@ -286,16 +286,14 @@ export async function upload(
 				}),
 			),
 		])
-		await FilesBlob.update(
-			{ where: { id: main.id }, data: { inline: made.inline } },
-			M,
-		)
 		return { id: main.id }
 	} catch (error) {
 		// The sweep deletes what this cannot: the rows expire within the hour.
 		try {
+			const keys = [main.key, ...variants.map(({ row }) => row.key)]
 			await Promise.all(keys.map((key) => storage.delete(key)))
-			await FilesBlob.deleteMany({ where: { id: { in: ids } } }, M)
+			const where = { OR: [{ id: main.id }, { variantOf: main.id }] }
+			await FilesBlob.deleteMany({ where }, M)
 		} catch (cleanup) {
 			logger.warn({ err: cleanup }, 'A failed upload was not cleaned up.')
 		}

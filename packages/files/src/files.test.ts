@@ -329,6 +329,32 @@ describe('an upload', () => {
 		expect(await blobs()).toStrictEqual([])
 	})
 
+	it('deletes its objects and its rows when one is not stored', async () => {
+		const { storage } = await start()
+		const put = storage.put.bind(storage)
+		// The file's object, then its variant's, refused.
+		for (const refused of ['image/png', 'image/webp']) {
+			vi.spyOn(storage, 'put').mockImplementation(
+				async (key, body, options) => {
+					if (options.type === refused) throw new Error('Storage down.')
+					await put(key, body, options)
+				},
+			)
+			await expect(cover()).rejects.toThrow('Storage down.')
+			expect(storage.objects.size).toBe(0)
+			expect(await blobs()).toStrictEqual([])
+		}
+	})
+
+	it('writes its row, then its variants’ rows at once (D-351)', async () => {
+		const touched: string[] = []
+		await start({}, watched(touched))
+		// The sweep at startup writes too.
+		touched.length = 0
+		await cover()
+		expect(touched.filter((kind) => kind === 'write')).toHaveLength(2)
+	})
+
 	it('refuses an inline value that is not JSON of 2 KB, or not its schema', async () => {
 		await start()
 		await expect(
