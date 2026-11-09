@@ -302,7 +302,6 @@ Exit: the audit's fixes are published.
 
 ## Phase 7: Parity with the previous base
 
-- [ ] `vector()` field type for pgvector (D-32).
 - [x] Maintenance on every server, Master still served (D-205).
 - [x] Every code a server may send, typed for its client (D-206).
 - [x] A limit on each address's requests in `httpPlugin()`, and a hook's
@@ -317,6 +316,7 @@ Exit: every feature of the previous base has an example, in far fewer lines.
 OAuth and magic link, admin, multi-tenancy (D-25).
 A typed browser client (D-25).
 A `geoPoint()` field type (D-57).
+A `vector()` field type for pgvector (D-32), once an application needs it.
 MySQL, SQLite and MongoDB adapters (D-51).
 An import from a Parse database: its rows, relations and users, whose bcrypt
 password hashes are read until the next sign-in rehashes them.
