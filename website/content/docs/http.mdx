@@ -109,7 +109,8 @@ The tests set `rateLimit` to 100 requests and send 100 from
   `TOO_MANY_ATTEMPTS` and `details.retryAfter`; the socket stays open.
 - The address is the one `proxies` reads. An IPv6 address counts by its
   /64, and a local or private address is never counted.
-- The master key passes over the limit.
+- The master key passes over the limit. Once an address sent a wrong one
+  there, its master-key requests are refused until the window ends.
 - Each instance counts in its own memory: behind a load balancer, the limit
   is per instance.
 - A limit per person on a write is a

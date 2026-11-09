@@ -60,8 +60,8 @@ function limitOf(option: RateLimit | false | undefined): RateLimit | false {
 
 /**
  * Counts each address's requests in a window that every address shares, and
- * refuses those over the limit, Master's excepted. A private or local
- * address is never counted: a proxy or a load balancer connects from one.
+ * refuses those over the limit, but Master's until a wrong key. A private or
+ * local address is never counted: a proxy or load balancer connects from one.
  */
 export function limiter(
 	option: RateLimit | false | undefined,
@@ -70,6 +70,7 @@ export function limiter(
 ): Limiter {
 	const limit = limitOf(option)
 	const counts = new Map<string, number>()
+	const guessed = new Set<string>()
 	let ends = 0
 	return async (request, address) => {
 		if (limit === false || address === '' || isNearby(address)) {
@@ -78,16 +79,18 @@ export function limiter(
 		const now = Date.now()
 		if (now >= ends) {
 			counts.clear()
+			guessed.clear()
 			ends = now + limit.window
 		}
 		const network = networkOf(address)
 		const count = (counts.get(network) ?? 0) + 1
 		counts.set(network, count)
 		if (count <= limit.requests) return undefined
-		// The master key costs no database read, unlike a session.
-		if (request.headers.has(masterKeyHeader)) {
+		// The master key costs no database read, unlike a session (D-348).
+		if (request.headers.has(masterKeyHeader) && !guessed.has(network)) {
 			const caller = await identify(request).catch(() => undefined)
 			if (caller?.kind === 'master') return undefined
+			guessed.add(network)
 		}
 		if (count === limit.requests + 1) {
 			logger.warn(

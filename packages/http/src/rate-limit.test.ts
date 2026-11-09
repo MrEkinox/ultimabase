@@ -2,8 +2,8 @@
 // gates and the caller, per public address, an IPv6 one by its /64, upgrades
 // included; Master passes.
 import { connect } from 'node:net'
-import type { Logger, PluginTypes } from 'ultimabase'
-import { defineApp, definePlugin, memory } from 'ultimabase'
+import type { Caller, Logger, PluginTypes } from 'ultimabase'
+import { defineApp, definePlugin, master as Master, memory } from 'ultimabase'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { Http, HttpApi, HttpOptions } from './index.ts'
 import { httpPlugin, routes } from './index.ts'
@@ -198,6 +198,11 @@ describe('the rate limit', () => {
 
 const identify = async () => ({ kind: 'anonymous' }) as const
 
+const keyed = (key: string) =>
+	new Request('http://localhost/notes', {
+		headers: { 'x-ultimabase-master-key': key },
+	})
+
 describe('the limiter', () => {
 	const request = new Request('http://localhost/notes')
 
@@ -211,6 +216,33 @@ describe('the limiter', () => {
 		expect(await limit(request, '203.0.113.5')).toBe(1)
 		vi.advanceTimersByTime(500)
 		expect(await limit(request, '203.0.113.5')).toBeUndefined()
+	})
+
+	it('checks no more master key from an address that sent a wrong one (D-348)', async () => {
+		vi.useFakeTimers({ toFake: ['Date'] })
+		const keys: string[] = []
+		const checking = async (sent: Request): Promise<Caller> => {
+			const key = sent.headers.get('x-ultimabase-master-key') ?? ''
+			keys.push(key)
+			if (key === 'secret') return Master
+			throw new Error('A wrong master key.')
+		}
+		const limit = limiter({ requests: 1, window: 60_000 }, checking, logger)
+		expect(await limit(request, '203.0.113.5')).toBeUndefined()
+		const refused = []
+		for (const key of ['guess', 'guess', 'secret']) {
+			refused.push(await limit(keyed(key), '203.0.113.5'))
+		}
+		expect(refused).toEqual([60, 60, 60])
+		expect(await limit(request, '2001:db8::1')).toBeUndefined()
+		expect(await limit(keyed('secret'), '2001:db8::1')).toBeUndefined()
+		vi.advanceTimersByTime(60_000)
+		expect(await limit(request, '203.0.113.5')).toBeUndefined()
+		expect(await limit(keyed('secret'), '203.0.113.5')).toBeUndefined()
+		expect(keys).toEqual(['guess', 'secret', 'secret'])
+		expect(warned).toEqual([
+			'203.0.113.5 sent over 1 requests in 60000 ms: refused until the window ends.',
+		])
 	})
 
 	it('never counts a request without an address', async () => {
