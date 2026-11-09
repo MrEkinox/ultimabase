@@ -224,6 +224,10 @@ relations.
 	../examples/relations/src/queries.test.ts#filter-many
 </include>
 
+A filter through a `one` sees only the targets the caller can read, so a row
+whose target is hidden matches no condition on it, not even its key in a
+unique `where`. A filter never reveals a row the caller cannot read.
+
 `is: null` finds the rows whose optional `one` is empty, `isNot: null` those
 where it is set. `every` is true for a row with no related row.
 

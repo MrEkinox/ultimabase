@@ -108,6 +108,11 @@ rows before the cursor.
 `findUnique` takes a unique `where`: the `id`, a unique field, or the fields of
 a unique index together.
 
+A `one` field in a unique index filters through the relation, as
+[`is`](/docs/next/relations#filter-through-a-relation) does: it finds only a
+row whose target the caller can read. When the target may be hidden from a
+caller who reads the row, find the row by its `id`.
+
 <include cwd meta='title="src/queries.test.ts"'>
 	../examples/models-and-queries/src/queries.test.ts#unique
 </include>
