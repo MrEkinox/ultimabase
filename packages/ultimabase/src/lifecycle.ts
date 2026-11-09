@@ -104,14 +104,9 @@ async function follow(
 	schema: Schema,
 	logger: Logger,
 ): Promise<void> {
-	try {
-		await (process.env['NODE_ENV'] === 'production'
-			? checked(database, schema, logger)
-			: synced(database, schema, logger, false))
-	} catch (error) {
-		await database.stop()
-		throw error
-	}
+	await (process.env['NODE_ENV'] === 'production'
+		? checked(database, schema, logger)
+		: synced(database, schema, logger, false))
 }
 
 /** The application `options` declare, its database not started. */
