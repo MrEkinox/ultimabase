@@ -4,7 +4,7 @@ import { files } from './index.ts'
 import { sweep } from './lifecycle.ts'
 import { FilesBlob } from './model.ts'
 import { alice, bob, M, pdf, png, Post, started, text } from './test/app.ts'
-import { upload } from './upload.ts'
+import { shown, upload } from './upload.ts'
 
 type Started = Awaited<ReturnType<typeof started>>
 let running: Started | undefined
@@ -206,6 +206,41 @@ describe('an upload', () => {
 		})
 		const types = (await blobs()).map(({ type }) => type)
 		expect(types).toStrictEqual(['application/octet-stream', 'application/pdf'])
+	})
+
+	it('serves only images, audio, video and PDF inline (D-351)', async () => {
+		const { storage } = await start()
+		// Detected as application/xml; a browser runs their scripts.
+		const svg = new TextEncoder().encode(
+			'<?xml version="1.0"?>\n<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>',
+		)
+		const xhtml = new TextEncoder().encode(
+			'<?xml version="1.0"?>\n<html xmlns="http://www.w3.org/1999/xhtml"><script>alert(1)</script></html>',
+		)
+		for (const [body, name] of [
+			[svg, 'a.svg'],
+			[xhtml, 'a.xhtml'],
+			[pdf, 'a.pdf'],
+		] as const) {
+			await files.upload(body, { for: 'Post.attachments', name, as: alice })
+		}
+		// Its variant's bytes are application/xml too.
+		await files.upload(svg, { for: 'Page.markup', name: 'b.svg', as: alice })
+		const served = (await blobs()).map(({ key, name, type }) => [
+			name,
+			type,
+			storage.objects.get(key)?.attachment,
+		])
+		expect(served).toStrictEqual([
+			['a.pdf', 'application/pdf', false],
+			['a.svg', 'application/xml', true],
+			['a.xhtml', 'application/xml', true],
+			['b.svg', 'application/xml', true],
+			['copy', 'application/xml', true],
+		])
+		expect(
+			['image/png', 'video/mp4', 'image/svg+xml', 'text/html'].map(shown),
+		).toStrictEqual([true, true, false, false])
 	})
 
 	it('deletes its objects and its rows when a variant fails', async () => {

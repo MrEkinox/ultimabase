@@ -93,6 +93,15 @@ const matches = (accept: readonly string[], type: string): boolean =>
 			: pattern === type,
 	)
 
+/**
+ * Whether a browser may show a detected type inline: an image, audio, video
+ * or a PDF. Anything else, XML that holds SVG or XHTML included, runs its
+ * scripts or does nothing inline, so it is a download (D-351). `file-type`
+ * detects no SVG today; one it detects later stays a download.
+ */
+export const shown = (type: string): boolean =>
+	/^(?:image\/(?!svg)|audio\/|video\/|application\/pdf$)/u.test(type)
+
 /** The type a file is stored with, and whether it is served as a download. */
 async function typeOf(
 	sample: Uint8Array,
@@ -104,7 +113,7 @@ async function typeOf(
 		detected !== undefined &&
 		(accept === undefined || matches(accept, detected))
 	) {
-		return { type: detected, attachment: detected === 'image/svg+xml' }
+		return { type: detected, attachment: !shown(detected) }
 	}
 	const [media = ''] = (declared ?? '').split(';')
 	const type = media.trim().toLowerCase()
@@ -124,10 +133,10 @@ async function typeOf(
 	)
 }
 
-/** A variant's own type, served as a download unless its bytes say it. */
+/** A variant's own type, served as a download unless its bytes say it, shown. */
 async function attachmentOf(body: Uint8Array, type: string): Promise<boolean> {
 	const detected = (await fileTypeFromBuffer(body))?.mime
-	return detected !== type || type === 'image/svg+xml'
+	return detected !== type || !shown(type)
 }
 
 async function inlineValue(

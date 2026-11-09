@@ -10,7 +10,7 @@ export interface PutOptions {
 	readonly type: string
 	/** The body's length in bytes, which the storage checks. */
 	readonly size: number
-	/** Served as a download, so a browser never runs it: SVG, undetected types. */
+	/** Served as a download, so a browser never runs it: all but media (D-351). */
 	readonly attachment: boolean
 }
 

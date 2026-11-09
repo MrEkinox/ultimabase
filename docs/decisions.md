@@ -9187,7 +9187,7 @@ type Stage {
 
 ## D-152: Files
 
-Amended by D-200, D-202 and D-250.
+Amended by D-200, D-202, D-250 and D-351.
 
 Choice: completes D-32 and D-122; amends D-32 (no `local()`), D-89 (a
 plugin model knows its name) and D-122 points 2 and 5.
@@ -21301,4 +21301,32 @@ await Node.create({ data }, { as: master })
 restPlugin() // NODE_ENV=production
 // Before: GET /api/openapi.json answers 200.
 // After: 404; restPlugin({ openapi: true }) serves it, for a gateway.
+```
+
+## D-351: files after its audit
+
+Choice: amends D-152 point 5.
+
+1. Only a detected image other than SVG, audio, video or PDF is served
+   inline. Every other type is served with `Content-Disposition:
+attachment`: SVG and XHTML that `file-type` detects as
+   `application/xml`, any XML, and undetected types. A variant is served
+   inline only when its bytes are detected as its type and that type is
+   one of these.
+
+Why: D-152 named SVG as the type a browser runs, and `file-type` never
+detects SVG. An SVG that opens with an XML prolog, or an XHTML document, is
+detected as `application/xml`, which D-152 served inline; on S3, which
+sends no `Content-Security-Policy`, its script ran on the storage's origin.
+A list of types a browser shows without running anything stays closed as
+`file-type` learns new types; a list of dangerous types does not.
+Rejected: adding `application/xml` to the dangerous types, which leaves
+the next detected markup type inline; sniffing the XML for `<svg` or
+`<html`, which an attacker's namespace or comment defeats.
+Example:
+
+```ts
+await files.upload(svgWithXmlProlog, { for: 'Post.attachments', name: 'a.svg' })
+// Before: stored as application/xml, opened inline, its <script> ran.
+// After: stored as application/xml with Content-Disposition: attachment.
 ```
