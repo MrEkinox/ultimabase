@@ -116,17 +116,11 @@ async function typeOf(
 	) {
 		return { type: detected, attachment: !shown(detected) }
 	}
-	const [media = ''] = (declared ?? '').split(';')
-	const type = media.trim().toLowerCase()
-	if (detected === undefined && accept === undefined) {
-		return {
-			type: type === '' ? 'application/octet-stream' : type,
-			attachment: true,
-		}
-	}
+	const type = (declared ?? '').split(';')[0]?.trim().toLowerCase() ?? ''
 	// An undetected type is taken as declared only when accept lists it.
-	if (detected === undefined && accept?.includes(type) === true) {
-		return { type, attachment: true }
+	if (detected === undefined && (accept?.includes(type) ?? true)) {
+		const known = type === '' ? 'application/octet-stream' : type
+		return { type: known, attachment: true }
 	}
 	throw new PublicError(
 		'UNSUPPORTED_MEDIA_TYPE',
