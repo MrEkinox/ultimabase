@@ -91,10 +91,12 @@ export interface RecurringJob<N extends string> {
 	readonly name: N
 }
 
+type Standard = NonNullable<ReturnType<typeof standardOf>>
+
 /** What the plugin reads of a job. */
 export interface JobRecord {
 	readonly name: string
-	readonly input: StandardSchema | undefined
+	readonly input: Standard | undefined
 	/** `every <ms>` or `cron <pattern> <zone>`, for a recurring job. */
 	readonly schedule: string | undefined
 	/** The first due time after `from`, for a recurring job. */
@@ -163,7 +165,8 @@ function recordFor(definition: object): JobRecord {
 	if (timeZone !== undefined && cron === undefined) {
 		throw new Refused(`${name}: timeZone goes with cron.`)
 	}
-	if (input !== undefined && standardOf(input) === undefined) {
+	const standard = standardOf(input)
+	if (input !== undefined && standard === undefined) {
 		throw new Refused(`${name}: input is a Standard Schema.`)
 	}
 	if (every !== undefined && !isDuration(every)) {
@@ -182,14 +185,11 @@ function recordFor(definition: object): JobRecord {
 				: `every ${every}`
 	const runs = (facts: Facts & { readonly input?: unknown }): Done =>
 		Reflect.apply(run, undefined, [facts])
-	const schema = standardOf(input)?.schema
-	return { name, input: schema, schedule, next, run: runs }
+	return { name, input: standard, schedule, next, run: runs }
 }
 
 /** The input's validated value; refuses it as `VALIDATION_FAILED`. */
-async function validated(name: string, schema: StandardSchema, input: unknown) {
-	const standard = standardOf(schema)
-	if (standard === undefined) return input
+async function validated(name: string, standard: Standard, input: unknown) {
 	const result = await checked(standard, input, [], name)
 	if ('issues' in result) {
 		throw new PublicError('VALIDATION_FAILED', 'Invalid input.', {
