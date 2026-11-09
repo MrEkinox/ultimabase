@@ -1,7 +1,14 @@
 // password's emails (D-117): the tokens their links carry, used once, and
 // the emails each account receives within one hour.
 import { createHash, randomBytes } from 'node:crypto'
-import type { Field, ModelOf, One, ScalarOptions } from 'ultimabase'
+import type {
+	Field,
+	ModelOf,
+	One,
+	Register,
+	ScalarOptions,
+	UserOf,
+} from 'ultimabase'
 import { AppUser, defineModel, master, PublicError } from 'ultimabase'
 import { hour, hourly } from './models.ts'
 
@@ -15,7 +22,8 @@ export type EmailKind = 'reset' | 'verify' | 'emailChange'
 /**
  * What `sendEmail` receives: the application writes the text and the link.
  * `'emailChanged'` tells the old address its email changed (D-162),
- * `'passwordChanged'` the account its password changed (D-169).
+ * `'passwordChanged'` the account its password changed (D-169). `user` is
+ * the user's row read as Master, every field there, as `caller.user` (D-357).
  */
 export type Email =
 	| {
@@ -24,21 +32,25 @@ export type Email =
 			readonly to: string
 			/** What the link carries, for the function its kind names. */
 			readonly token: string
-			readonly userId: string
+			readonly user: UserOf<Register>
 	  }
 	| {
 			readonly kind: 'emailChanged'
 			/** The old address. */
 			readonly to: string
 			readonly newEmail: string
-			readonly userId: string
+			readonly user: UserOf<Register>
 	  }
 	| {
 			readonly kind: 'passwordChanged'
 			/** The account's email. */
 			readonly to: string
-			readonly userId: string
+			readonly user: UserOf<Register>
 	  }
+
+type Without<E> = E extends unknown ? Omit<E, 'user'> : never
+/** An email before its user's row is read. */
+export type Unsent = Without<Email>
 
 const lifetimes: Readonly<Record<EmailKind, number>> = {
 	reset: hour,

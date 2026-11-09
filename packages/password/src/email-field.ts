@@ -4,7 +4,7 @@ import type { Caller } from 'ultimabase'
 import { isMaster, master, PublicError } from 'ultimabase'
 import type { State } from './core.ts'
 import { method, passwordSet } from './core.ts'
-import { later } from './email-flows.ts'
+import { deliver, later } from './email-flows.ts'
 import { emailOf, valid } from './input.ts'
 import { PasswordToken } from './tokens.ts'
 
@@ -104,12 +104,13 @@ export async function committed(
 			// A user stored before D-162 reads no email: its account has it.
 			const to = await auth.subjectOf(userId, method)
 			if (to === undefined) return
-			await sendEmail({ kind: 'passwordChanged', to, userId })
+			await deliver(state, sendEmail, userId, { kind: 'passwordChanged', to })
 		})
 	}
 	const [from, to] = [previous.email, record.email]
 	if (from === null || to === null || from === to) return
 	later(state, async () => {
-		await sendEmail({ kind: 'emailChanged', to: from, newEmail: to, userId })
+		const email = { kind: 'emailChanged', to: from, newEmail: to } as const
+		await deliver(state, sendEmail, userId, email)
 	})
 }

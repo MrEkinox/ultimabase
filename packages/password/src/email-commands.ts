@@ -57,7 +57,7 @@ function mailerIn(state: State, command: string): Mailer {
 	if (state.sendEmail === undefined) {
 		throw new Error(`User.${command} needs passwordPlugin({ sendEmail }).`)
 	}
-	return mailerOf(state.sendEmail)
+	return mailerOf(() => state, state.sendEmail)
 }
 
 export const emailCommands = (stateOf: () => State): EmailCommands => ({

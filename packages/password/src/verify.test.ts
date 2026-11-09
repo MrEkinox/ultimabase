@@ -14,6 +14,7 @@ import {
 	tokenOf,
 	User,
 	tokenIn,
+	rowOf,
 } from './test/app.ts'
 import { issueToken, PasswordToken } from './tokens.ts'
 
@@ -118,7 +119,7 @@ describe('signing up', () => {
 				kind: 'verify',
 				to: 'ada@example.com',
 				token: tokenAt(0),
-				userId: user?.id,
+				user: rowOf(user?.id),
 			},
 		])
 		expect(tokenOf(body, 'signUp')).not.toBe('undefined')
@@ -234,7 +235,12 @@ describe('sending the verification email again', () => {
 			data: { sendVerificationEmail: true },
 		})
 		expect(outbox).toEqual([
-			{ kind: 'verify', to: ada.email, token: tokenAt(0), userId: user.id },
+			{
+				kind: 'verify',
+				to: ada.email,
+				token: tokenAt(0),
+				user: rowOf(user.id),
+			},
 		])
 		expect(await PasswordToken.count({}, M)).toBe(1)
 		expect((await verify(url, older)).body).toMatchObject(invalidLink)

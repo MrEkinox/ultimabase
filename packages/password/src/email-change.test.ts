@@ -18,6 +18,7 @@ import {
 	tokenIn,
 	tokenOf,
 	User,
+	rowOf,
 } from './test/app.ts'
 import { issueToken, PasswordToken } from './tokens.ts'
 
@@ -257,7 +258,7 @@ describe('User.email', () => {
 			kind: 'emailChanged',
 			to: ada.email,
 			newEmail: 'ada@new.example',
-			userId: user.id,
+			user: rowOf(user.id),
 		})
 	})
 
@@ -293,7 +294,7 @@ describe('requestEmailChange and confirmEmailChange', () => {
 		const asked = await request(url, session, 'Ada@New.Example')
 		expect(asked.body).toStrictEqual({ data: { requestEmailChange: true } })
 		expect(outbox).toMatchObject([
-			{ kind: 'emailChange', to: 'ada@new.example', userId: user.id },
+			{ kind: 'emailChange', to: 'ada@new.example', user: { id: user.id } },
 		])
 		await expect(emailOf(user.id)).resolves.toBe(ada.email)
 		const confirmed = await confirm(url, tokenIn(outbox[0]))

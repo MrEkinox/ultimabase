@@ -2,6 +2,7 @@
 // emails, reached from server code, which waits for the email.
 import { afterEach, describe, expect, expectTypeOf, it, vi } from 'vitest'
 import type { Caller } from 'ultimabase'
+import { transaction } from 'ultimabase'
 import type { Email, PasswordOptions } from './index.ts'
 import { M, started, tokenIn, User } from './test/app.ts'
 
@@ -55,13 +56,11 @@ describe('User.requestPasswordReset', () => {
 		const done = User.requestPasswordReset({ email: ' ADA@example.com ' })
 		expectTypeOf(done).toEqualTypeOf<Promise<void>>()
 		await done
+		// The row Master reads, `email` included, which a read rule guards.
+		const row = await User.findUnique({ where: { id: user.id } }, M)
+		expect(row?.email).toBe(ada.email)
 		expect(outbox).toEqual([
-			{
-				kind: 'reset',
-				to: ada.email,
-				token: tokenIn(outbox[0]),
-				userId: user.id,
-			},
+			{ kind: 'reset', to: ada.email, token: tokenIn(outbox[0]), user: row },
 		])
 	})
 
@@ -189,9 +188,22 @@ describe('User.requestEmailChange and User.confirmEmailChange', () => {
 				kind: 'emailChanged',
 				to: ada.email,
 				newEmail,
-				userId: user.id,
+				// Read once the change commits: its new email.
+				user: row,
 			})
 		})
+	})
+
+	it('tells no user deleted before the notice goes', async () => {
+		const { user, app } = await server()
+		const where = { id: user.id }
+		await transaction(async () => {
+			await User.update({ where, data: { email: 'ada@new.example' } }, M)
+			await User.delete({ where }, M)
+		})
+		// Stopping waits for the emails under way.
+		await app.stop()
+		expect(outbox).toEqual([])
 	})
 
 	it('refuses a taken email with its details, and another caller', async () => {

@@ -1,10 +1,11 @@
 // What password's email functions and commands share (D-117, D-162, D-198):
 // sending an email with its token, and redeeming one.
+import type { Register, UserOf } from 'ultimabase'
 import { master, PublicError, transaction } from 'ultimabase'
 import type { State } from './core.ts'
 import { checkNewFor, method, setPassword } from './core.ts'
 import { hashPassword } from './hash.ts'
-import type { Email, EmailKind } from './tokens.ts'
+import type { Email, EmailKind, Unsent } from './tokens.ts'
 import { emailLimited, invalidLink, issueToken, redeemToken } from './tokens.ts'
 
 /**
@@ -26,6 +27,28 @@ export function later(state: State, work: () => Promise<void>): void {
 /** The application's `sendEmail` (D-117). */
 export type SendEmail = (email: Email) => Promise<void>
 
+const M = { as: master }
+
+/**
+ * Sends `email` with `userId`'s row, read as Master when it goes (D-357);
+ * nothing to a user deleted since.
+ */
+export async function deliver(
+	state: State,
+	sendEmail: SendEmail,
+	userId: string,
+	email: Unsent,
+): Promise<void> {
+	// A transport's queries are untyped; this is the user model's row.
+	const row: unknown = await state.users.queries.findUnique(
+		{ where: { id: userId } },
+		M,
+	)
+	if (row === null) return
+	// oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the user model is the one the application registers (D-62, D-80).
+	await sendEmail({ ...email, user: row as UserOf<Register> })
+}
+
 /**
  * Sends `userId` an email of `kind` to `to`, with a new token; past the
  * account's hourly limit, the refusal instead.
@@ -37,16 +60,14 @@ export type Mailer = (
 ) => Promise<PublicError | undefined>
 
 export const mailerOf =
-	(sendEmail: SendEmail): Mailer =>
+	(stateOf: () => State, sendEmail: SendEmail): Mailer =>
 	async (kind, userId, to) => {
 		const refused = await emailLimited(userId)
 		if (refused !== undefined) return refused
 		const token = await issueToken(userId, kind, to)
-		await sendEmail({ kind, to, token, userId })
+		await deliver(stateOf(), sendEmail, userId, { kind, to, token })
 		return undefined
 	}
-
-const M = { as: master }
 
 /** Marks `userId`'s email verified: the user received an email (D-117). */
 async function verify(state: State, userId: string): Promise<void> {

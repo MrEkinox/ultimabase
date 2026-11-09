@@ -291,7 +291,8 @@ const definition = definePlugin<Password>({
 		const { users, fields } = configOf(options, models)
 		const state = () => stateOf(plugins.auth)
 		const { sendEmail } = options
-		const mailer = sendEmail === undefined ? undefined : mailerOf(sendEmail)
+		const mailer =
+			sendEmail === undefined ? undefined : mailerOf(state, sendEmail)
 		return [
 			...passwordFunctions(state, users, fields, mailer),
 			...(mailer === undefined ? [] : emailFunctions(state, mailer)),

@@ -7,8 +7,13 @@ import { realtimePlugin } from '@ultimabase/realtime'
 import type { Adapter, Logger } from 'ultimabase'
 import { allow, defineApp, master, memory } from 'ultimabase'
 import type { Email, PasswordOptions } from '../index.ts'
+import { expect } from 'vitest'
 import { z } from 'zod'
 import { password, passwordPlugin } from '../index.ts'
+
+/** The `user` of an email `sendEmail` received: the row of the user `id`. */
+export const rowOf = (id: string | undefined): unknown =>
+	expect.objectContaining({ id })
 
 export const M = { as: master }
 
