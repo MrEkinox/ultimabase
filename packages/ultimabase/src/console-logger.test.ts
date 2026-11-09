@@ -76,6 +76,21 @@ describe('consoleLogger', () => {
 			containing({ app: 'a', request: 'r', msg: 'Done.' }),
 		])
 	})
+	it('writes a BigInt or a cycle as inspect shows it, not throwing', () => {
+		const cyclic: { self?: unknown } = {}
+		cyclic.self = cyclic
+		consoleLogger().error({ count: 1n, cyclic, id: 2 }, 'Failed.')
+		expect(entries('error')).toEqual([
+			{
+				level: 'error',
+				time: aTime,
+				count: '1n',
+				cyclic: '<ref *1> { self: [Circular *1] }',
+				id: 2,
+				msg: 'Failed.',
+			},
+		])
+	})
 })
 
 describe('consoleLogger in a terminal', () => {
@@ -122,6 +137,19 @@ describe('consoleLogger in a terminal', () => {
 			...(err.stack ?? '').split('\n').map((part) => `    ${part}`),
 			'    TypeError: No stack.',
 		])
+	})
+
+	it('shows a BigInt or a cycle as inspect does, not throwing', () => {
+		terminal(true)
+		const cyclic: { self?: unknown } = {}
+		cyclic.self = cyclic
+		consoleLogger().error({ count: 1n, cyclic }, 'Failed.')
+		expect(written('error')[0]).toMatch(
+			new RegExp(
+				String.raw`^${time} ERROR Failed\. count="1n" cyclic="<ref \*1> \{ self: \[Circular \*1\] \}"$`,
+				'u',
+			),
+		)
 	})
 
 	it('colors the level when the terminal shows colors', () => {
