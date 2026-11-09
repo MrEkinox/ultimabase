@@ -5,12 +5,19 @@ import type {
 	Caller,
 	CallerRule,
 	ExposedModel,
+	Logger,
 	ModelQueries,
 	PluginOf,
 	PluginTypes,
 	UseOf,
 } from 'ultimabase'
-import { definePlugin, master, Refused } from 'ultimabase'
+import {
+	definePlugin,
+	isMaster,
+	master,
+	PublicError,
+	Refused,
+} from 'ultimabase'
 import manifest from '../package.json' with { type: 'json' }
 
 /** The roles plugin's types (D-57). */
@@ -107,14 +114,36 @@ async function rolesOfUser(
 	return roles
 }
 
+type Write = { readonly caller: Caller; readonly name: string }
+
+// The running application's logger, which refusals go to: one application
+// runs at a time in a realm.
+let logger: Logger | undefined
+
+/**
+ * Only Master, so server code, writes a role (D-355): any other caller is
+ * refused and logged as an access rule's refusal is (D-82, D-88).
+ */
+const masterOnly =
+	(operation: 'create' | 'update' | 'delete') =>
+	({ caller, name }: Write): void => {
+		if (isMaster(caller)) return
+		const details = { model: name, operation }
+		const callerId = caller.kind === 'user' ? caller.user.id : null
+		const message = `${name} ${operation} refused.`
+		logger?.warn({ ...details, callerId }, message)
+		throw new PublicError('ACCESS_DENIED', message, { details })
+	}
+
 const isHeld = (value: unknown): value is readonly Held[] =>
 	typeof value === 'object' && value !== null && given.has(value)
 
 const roles = definePlugin<Roles>({
 	name: 'roles',
 	manifest,
-	start: ({ models }) => {
-		rolesModelOf(models)
+	start: (context) => {
+		rolesModelOf(context.models)
+		logger = context.logger
 	},
 	caller: async ({ user }, { models }) => {
 		// Built apart: a key no interface declares is not an excess one.
@@ -122,6 +151,11 @@ const roles = definePlugin<Roles>({
 			[rolesKey]: await rolesOfUser(user.id, rolesModelOf(models)),
 		}
 		return keys
+	},
+	hooks: {
+		beforeCreate: masterOnly('create'),
+		beforeUpdate: masterOnly('update'),
+		beforeDelete: masterOnly('delete'),
 	},
 })
 

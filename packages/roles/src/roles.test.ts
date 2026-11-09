@@ -344,14 +344,14 @@ describe('defineRole', () => {
 		)
 	})
 
-	it('keeps its dbName and indexes', async () => {
+	it('keeps its name, dbName and indexes', async () => {
 		const Team = defineRole({
 			name: 'Team',
 			dbName: 'teams',
 			members: () => Player,
 			fields: (f) => ({ rank: f.number() }),
 			indexes: [{ fields: ['rank'] }],
-		})
+		}).with({ access: allow.public })
 		const Player = defineModel({
 			name: 'Player',
 			fields: (f) => ({ roles: f.many(() => Team, { inverse: 'members' }) }),
@@ -365,6 +365,15 @@ describe('defineRole', () => {
 		try {
 			const team = await Team.create({ data: { name: 'Red', rank: 1 } }, M)
 			expect(team.rank).toBe(1)
+			// Open to all, its roles plugin refuses a client under the model's
+			// own name (D-355).
+			const anonymous = { as: { kind: 'anonymous' } } as const
+			await expect(
+				Team.create({ data: { name: 'Blue', rank: 2 } }, anonymous),
+			).rejects.toMatchObject({
+				code: 'ACCESS_DENIED',
+				details: { model: 'Team', operation: 'create' },
+			})
 		} finally {
 			await app.stop()
 		}

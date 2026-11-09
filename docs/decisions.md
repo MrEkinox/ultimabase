@@ -6179,7 +6179,7 @@ await Note.update(
 
 ## D-123: `rolesPlugin()`, `defineRole` and roles inside roles
 
-Amended by D-126, D-213 and D-237.
+Amended by D-126, D-213, D-237 and D-355.
 
 Choice: amends D-13; Parse's roles.
 
@@ -14107,6 +14107,8 @@ await transaction(async () => {
 
 ## D-213: Only Master gives a role, from either side of the link
 
+Amended by D-355.
+
 Choice: amends D-86 point 1 and D-123 point 2.
 
 1. A `many` relation written from its other side passes this side's field
@@ -21555,4 +21557,56 @@ that signs in its own way refuses first, with the auth API it holds:
 plugins.auth.needsCookies(client)
 const userId = await spendCode(input.code)
 await plugins.auth.signIn(userId, client)
+```
+
+## D-355: Only Master writes a role
+
+Choice: amends D-123, point 2, and D-213, point 2.
+
+1. The roles plugin runs `beforeCreate`, `beforeUpdate` and `beforeDelete`
+   on the role model: any caller but Master is refused with
+   `ACCESS_DENIED`, `details: { model, operation }`, and logged with its
+   `callerId`, as an access rule's refusal is (D-82, D-88). It covers every
+   write: `createMany`, `updateMany`, `deleteMany`, `upsert`, and a role
+   updated or deleted through the user's `roles`.
+2. The role model's `access` decides who reads a role. Its write rules still
+   run first, but a write they allow is refused all the same.
+3. An application that lets an admin manage roles writes a function that
+   checks the caller, then writes as Master, as D-213 already asked for
+   members.
+
+Why: a role is matched by its name (D-126). The audit of roles found that a
+client allowed to update roles, `allow.public` or any rule written for
+another field, renamed `Admin` away, then renamed its own `Team` to
+`Admin`, and `hasRole(caller, 'Admin')` held. D-213 closed the links, not
+the name. A role is the root of every rule that asks for one, so no rule
+the developer writes should open it.
+
+Rejected: `write: allow.private` on `name` (fields the developer adds stay
+open, and a client still creates or deletes a role); refusing at startup a
+role model whose `access` allows a write (it reads the shape of every rule
+for a case the hook already refuses); leaving it to the role model's
+`access` (one loose rule makes anyone an Admin).
+
+Example, before and after the same code:
+
+```ts
+export const Role = defineRole({
+	name: 'Role',
+	members: () => User,
+}).with({ access: allow.public })
+
+await Role.update(
+	{ where: { name: 'Team' }, data: { name: 'Admin' } },
+	{ as: asUser(eve) },
+)
+// Before: Team is now Admin, and so is every member of it.
+// After: ACCESS_DENIED, "Role update refused.".
+
+// A function renames it, after its own check:
+if (!hasRole(caller, 'Admin')) throw new PublicError('ACCESS_DENIED', '…')
+await Role.update(
+	{ where: { id: input.id }, data: { name: input.name } },
+	{ as: master },
+)
 ```
