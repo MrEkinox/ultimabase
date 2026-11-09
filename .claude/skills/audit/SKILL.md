@@ -150,6 +150,9 @@ machine, three times each, and compares the medians:
 | `realtime`, `live`                | `bench/realtime` (chosen cases) |
 | types of `ultimabase`             | `bench/typing`                  |
 
+- The reference runs in a checkout of its own, installed there
+  (`yarn install --immutable`): `node_modules/ultimabase` must link to its
+  own `packages/ultimabase`, or Node finds another one higher up.
 - Each bench's `README.md` says how to run it; PostgreSQL is on
   `localhost:54318` unless `BENCH_DATABASE_URL` says otherwise.
 - Every run has a hard limit (`perl -e 'alarm shift; exec @ARGV' <s> ...`)
@@ -221,3 +224,7 @@ a step that cost more than it found. The skill improves one audit at a time.
   returned): check each fix with those, not with `tsc` alone. A commit message
   or changeset states only what a probe showed: one said that `update` picked
   any row, the probe showed it refused.
+- `ultimabase`, benchmark (2026-11-09): the reference checkout had no
+  `node_modules`, so its benchmark imported an older `ultimabase` from a
+  parent folder and showed gains no commit made. A gain or a loss no commit
+  explains is checked before it is reported.
