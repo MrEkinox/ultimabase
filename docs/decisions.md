@@ -7593,7 +7593,7 @@ const running = testApplication(app, { database: 'declared' })
 
 ## D-138: Nested `set`, `update`, `delete` and `connectOrCreate`
 
-Amended by D-227.
+Amended by D-227 and D-347.
 
 Choice: a relation write takes Prisma's `set`, `update` and `delete` in
 `update`, and `connectOrCreate` in `create` and `update` (D-20). It amends
@@ -7630,6 +7630,9 @@ D-20, D-86 and D-128.
    `connect`, which the `connect` check then holds to the caller's rules
    (D-86); none becomes a nested `create` (D-128). Two concurrent writes that
    create the same row: the second gets `UNIQUE_VIOLATION`, without a retry.
+   The row rules are skipped, not the field rules: a `where` on a field the
+   caller may not read is refused, as a find's is (amended 2026-11-09,
+   D-347).
 6. A relation's field rule (D-86) judges the links only. A `many` value is
    `{ connect, disconnect, create, delete }`; on a `one`, `delete: true`
    reads as `null`, as `disconnect` does. A relation write that only updates
@@ -21046,3 +21049,18 @@ cookie headers are written after the function returns. A security check kept
 in two plugins drifts when only one is fixed. Every test sent the session
 cookie alone, so a broken cookie parser would have signed every browser out
 with the suite green.
+
+## D-347: The kernel after its audit
+
+Choice: amends D-138, point 5.
+
+1. A `connectOrCreate`'s `where` obeys the fields' read rules, as a find's
+   does: on a field the caller may not read, it is refused with
+   `INVALID_QUERY`, unless the value is trusted (D-67). The row it names is
+   still found without the row rules.
+
+Why: the lookup skipped every rule, so a caller who could create a row
+linked to a model learned who held a value it may not read, one request at a
+time: an email it cannot see linked the note to its holder, whose id came
+back, and a missing one tried a create. The documentation already refused a
+filter on such a field.
