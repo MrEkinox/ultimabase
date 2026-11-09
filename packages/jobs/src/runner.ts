@@ -2,6 +2,7 @@
 // by an update that only one instance counts; a run that fails waits twice as
 // long each time, up to ten attempts.
 import type { RecordOf } from 'ultimabase'
+import { PublicError } from 'ultimabase'
 import type { JobRecord } from './define-job.ts'
 import { JobsRun, M } from './model.ts'
 import type { Running } from './state.ts'
@@ -252,7 +253,8 @@ export async function schedule(app: Running): Promise<void> {
 	for (const row of rows) {
 		const job = app.jobs.get(row.recurring ?? '')
 		if (job?.schedule === undefined) {
-			await JobsRun.delete({ where: { id: row.id } }, M)
+			// Another instance starting at once may have deleted it.
+			await JobsRun.deleteMany({ where: { id: row.id } }, M)
 		} else if (job.schedule !== row.schedule) {
 			const data = { schedule: job.schedule, dueAt: new Date(job.next(now)) }
 			await JobsRun.update({ where: { id: row.id }, data }, M)
@@ -269,10 +271,11 @@ export async function schedule(app: Running): Promise<void> {
 			dueAt: new Date(job.next(now)),
 			attempts: 0,
 		}
-		// Another instance starting at once may have created it.
-		await JobsRun.upsert(
-			{ where: { recurring: job.name }, create, update: {} },
-			M,
-		)
+		await JobsRun.create({ data: create }, M).catch((error: unknown) => {
+			// Another instance starting at once may have created it.
+			const taken =
+				error instanceof PublicError && error.code === 'UNIQUE_VIOLATION'
+			if (!taken) throw error
+		})
 	}
 }

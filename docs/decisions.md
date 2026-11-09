@@ -21394,15 +21394,20 @@ await files.check({ delete: true })
 
 ## D-352: jobs after its audit
 
-Choice: amends D-221 point 3.
+Choice: amends D-221 points 3 and 11.
 
 1. `enqueue` stores its input's validated value as JSON, as the
    documentation says: a date as its ISO string, an undefined key left out.
+2. Instances that start at once sync the recurring rows without failing: a
+   row another instance created or deleted first is left as it is.
 
 Why: `enqueue` stored the schema's output as it came. A `Date` or a key set
 to `undefined` is no JSON value, so the write was refused as 400
 `VALIDATION_FAILED` "Invalid data." on `input`, and the caller's whole
-transaction rolled back.
+transaction rolled back. Two instances that started at once both created a
+new recurring job's row: the second start failed with `UNIQUE_VIOLATION`,
+and on PostgreSQL 39 of 40 concurrent starts failed. Deleting an undeclared
+job's row failed the same way with `NOT_FOUND`.
 
 Example:
 

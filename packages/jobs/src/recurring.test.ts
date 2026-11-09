@@ -17,6 +17,8 @@ import { quietRuns } from 'ultimabase/internal'
 import type { JobsOptions } from './index.ts'
 import { defineJob, jobsPlugin } from './index.ts'
 import { JobsRun, M } from './model.ts'
+import { schedule } from './runner.ts'
+import { runningOf } from './state.ts'
 import { kept } from './test/kept.ts'
 
 const lines: { level: string; message: string }[] = []
@@ -135,6 +137,26 @@ describe('a recurring job', () => {
 		vi.setSystemTime(new Date('2027-01-04T10:00:00Z'))
 		await runJobs()
 		expect(await rows()).toMatchObject([{ error: null }, {}])
+	})
+
+	it('has its rows synced by instances starting at once (D-352)', async () => {
+		const app = runningOf('the test')
+		await JobsRun.deleteMany({ where: { job: 'hourly' } }, M)
+		const gone = { job: 'gone', recurring: 'gone', state: 'pending' }
+		await JobsRun.create(
+			{ data: { ...gone, dueAt: new Date(), attempts: 0 } },
+			M,
+		)
+		await Promise.all([schedule(app), schedule(app), schedule(app)])
+		expect(await rows()).toMatchObject([{ job: 'hourly' }, { job: 'nightly' }])
+		// Any other refusal stops the start.
+		const record = app.jobs.get('hourly')
+		if (record === undefined) throw new Error('No hourly.')
+		const broken = { ...record, name: 'broken', next: () => Number.NaN }
+		const jobs = new Map([['broken', broken]])
+		await expect(schedule({ ...app, jobs })).rejects.toMatchObject({
+			code: 'VALIDATION_FAILED',
+		})
 	})
 })
 
