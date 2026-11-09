@@ -20,7 +20,10 @@ export const whoOf = (caller: Caller): string => {
 }
 
 /** Refuses one more live read past what a connection holds. */
-export function holds(reads: number, maxSubscriptions: number): void {
+export function holds(
+	reads: number,
+	{ maxSubscriptions }: { readonly maxSubscriptions: number },
+): void {
 	if (reads < maxSubscriptions) return
 	throw invalid(
 		'subscriptions',
