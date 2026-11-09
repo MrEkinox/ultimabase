@@ -83,8 +83,8 @@ export function jsonCondition(
 			)
 			continue
 		}
-		const check = operands[operator]
-		if (check === undefined) throw unknownKey(at, model)
+		const check = Object.hasOwn(operands, operator) && operands[operator]
+		if (!check) throw unknownKey(at, model)
 		condition[operator] = check(operand, at)
 	}
 	const tested = Object.keys(condition).filter(

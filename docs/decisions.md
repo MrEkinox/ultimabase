@@ -21066,6 +21066,12 @@ Choice: amends D-138, point 5.
    memory adapter, against 60 ms without the hook; now 62 ms. Rows stamped
    with equal dates share one change, as equal strings did.
 
+3. A json path filter takes as operators its own keys only. `constructor`,
+   `toString` or `__proto__`, which every object inherits, are refused with
+   `INVALID_QUERY`, as an unknown operator is: any caller who may filter
+   could return rows a filter never selected, or fail the request with a
+   `TypeError`.
+
 Why, for point 1: the lookup skipped every rule, so a caller who could create
 a row linked to a model learned who held a value it may not read, one request
 at a time: an email it cannot see linked the note to its holder, whose id
