@@ -67,6 +67,12 @@ async function directoryOf(io: Io): Promise<string> {
 	return answer === '' ? fallback : answer
 }
 
+/** A directory as a POSIX shell reads it back, quoted when it must be. */
+const quoted = (directory: string): string =>
+	/^[\w@%+=:,./-]+$/u.test(directory)
+		? directory
+		: `"${directory.replaceAll(/["$`\\]/gu, '\\$&')}"`
+
 const empty = (target: string): boolean =>
 	!existsSync(target) ||
 	(statSync(target).isDirectory() && readdirSync(target).length === 0)
@@ -93,10 +99,7 @@ export async function main(args: readonly string[], io: Io): Promise<number> {
 	}
 	const manager = managerOf(io.userAgent)
 	write(target, name, manager)
-	const cd =
-		relative(io.cwd, target) === ''
-			? []
-			: [`cd ${/\s/u.test(directory) ? `"${directory}"` : directory}`]
+	const cd = relative(io.cwd, target) === '' ? [] : [`cd ${quoted(directory)}`]
 	const next = [...cd, ...steps[manager]].map((step) => `  ${step}`)
 	io.print(`\nCreated ${name}. Next:\n\n${next.join('\n')}\n`)
 	return 0

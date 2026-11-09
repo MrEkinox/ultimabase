@@ -133,6 +133,15 @@ it('quotes a directory with a space in the cd it prints', async () => {
 	expect(printed[0]).toContain('  cd "my apps/blog"\n')
 })
 
+it.each([
+	["it's/blog", `"it's/blog"`],
+	['my $apps/blog', '"my \\$apps/blog"'],
+	['a"b`c\\d/blog', '"a\\"b\\`c\\\\d/blog"'],
+])('quotes %s as a shell reads it back', async (directory, cd) => {
+	expect(await main([directory], io())).toBe(0)
+	expect(printed[0]).toContain(`  cd ${cd}\n`)
+})
+
 it('refuses a directory that is not empty, or a file', async () => {
 	mkdirSync(join(cwd, 'blog'))
 	writeFileSync(join(cwd, 'blog/notes.txt'), '')
