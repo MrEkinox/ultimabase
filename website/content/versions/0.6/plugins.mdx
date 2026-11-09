@@ -6,7 +6,7 @@ description: Add fields, hooks, commands, field types, identities, functions or 
 A plugin is one interface of types and one `definePlugin`. The smallest has a
 name:
 
-```ts
+```ts title="src/plugins/color.ts"
 import type { PluginOf, PluginTypes } from 'ultimabase'
 import { defineFieldType, definePlugin } from 'ultimabase'
 import { z } from 'zod'
@@ -67,7 +67,7 @@ Vitest.
 `plugins` lists, and `use`, the entry a model's `use` lists. Export each with
 its type, `PluginOf<T>` and `UseOf<T>`, so their types travel with them:
 
-```ts
+```ts title="src/plugins/publishing.ts"
 /** The entry of a model's `use`. */
 export const publishing: UseOf<Publishing> = definition.use
 /** The value of the application's `plugins`. */
@@ -77,7 +77,7 @@ export const publishingPlugin: PluginOf<Publishing> = definition.plugin
 The application lists the plugins of its models, in the order that matters
 for [`caller`](#keys-of-the-caller) and [hooks](#hooks):
 
-```ts
+```ts title="src/app.ts"
 export const app = defineApp({
 	database: memory(),
 	masterKey: 'dev-master-key',
@@ -116,7 +116,7 @@ A published plugin passes its imported `package.json`, written
 
 The `rpc` plugin is written to be published, and writes its manifest by hand:
 
-```ts
+```ts title="src/plugins/rpc.ts"
 const definition = definePlugin<Rpc>({
 	name: 'rpc',
 	// Written to be published, it passes a manifest; a package imports its
@@ -134,7 +134,7 @@ const definition = definePlugin<Rpc>({
 A model plugin adds to each model that lists its entry in `use`. Its types say
 what it adds; `this['fields']` is the fields of that model:
 
-```ts
+```ts title="src/plugins/publishing.ts"
 export interface Publishing extends PluginTypes {
 	readonly name: 'publishing'
 	/** `publishing({ publishOnCreate: true })`, in a model's `use`. */
@@ -149,7 +149,7 @@ export interface Publishing extends PluginTypes {
 `addedFields` builds the fields, with the same builders as a model, and their
 rules. `addedIndexes` indexes them on each model:
 
-```ts
+```ts title="src/plugins/publishing.ts"
 addedFields: (f) => ({
 	// Only an editor dates a row, through `publish` or a write.
 	publishedAt: f.dateTime({ optional: true }).with({
@@ -165,7 +165,7 @@ addedIndexes: [{ fields: ['publishedAt'] }],
 The entry takes the `options` of the types, here `publishOnCreate`. Each model
 reads its own:
 
-```ts
+```ts title="src/models.ts"
 // Published as soon as it is written.
 export const News = defineModel({
 	name: 'News',
@@ -181,7 +181,7 @@ export const News = defineModel({
 
 `News` is published as soon as it is created:
 
-```ts
+```ts title="src/app.test.ts"
 const news = await News.create({ data: { title: 'Open' } }, M)
 expect(news.publishedAt).toBeInstanceOf(Date)
 expect(await News.count({}, { as: asUser({ id: 'bob' }) })).toBe(1)
@@ -197,7 +197,7 @@ expect(await News.count({}, { as: asUser({ id: 'bob' }) })).toBe(1)
 - the `plugins` it needs;
 - `command`, the plugin's command the operation came through.
 
-```ts
+```ts title="src/plugins/publishing.ts"
 hooks: {
 	beforeFind: ({ caller, where, command }) => {
 		if (command === 'drafts') return where({ publishedAt: null })
@@ -217,7 +217,7 @@ hooks: {
 with the `editor` key, [added below](#keys-of-the-caller). Here Ada, who is
 not an editor, creates a draft and does not read it:
 
-```ts
+```ts title="src/app.test.ts"
 const ada = asUser({ id })
 await Article.create({ data: { title: 'Draft' } }, { as: ada })
 // A user who is not an editor reads no draft.
@@ -227,14 +227,14 @@ expect(await Article.count({}, { as: ada })).toBe(0)
 Nor does an anonymous caller. The `titles` function lists the titles its
 caller reads, and answers none:
 
-```http
+```http title="Request"
 POST /rpc/titles
 content-type: application/json
 
 {}
 ```
 
-```json
+```json title="Response"
 { "output": [] }
 ```
 
@@ -243,7 +243,7 @@ content-type: application/json
 `redirect` replaces an operation: here, a delete unpublishes the row. It runs
 after the `delete` rule and the `beforeDelete` hooks, so as Master.
 
-```ts
+```ts title="src/plugins/publishing.ts"
 // A delete unpublishes the row instead: it goes back to the drafts. It
 // runs after the `delete` rule and the `beforeDelete` hooks, so as Master.
 redirect: {
@@ -255,7 +255,7 @@ redirect: {
 The row stays, as a draft. A news item that was deleted is read by editors
 alone, and is found by `drafts`:
 
-```ts
+```ts title="src/app.test.ts"
 const news = await News.create({ data: { title: 'Open' } }, M)
 await News.delete({ where: { id: news.id } }, M)
 // The row stays, as a draft: nobody else reads it.
@@ -271,7 +271,7 @@ expect(await News.drafts.findMany({}, M)).toMatchObject([
 `Article.publish`. They are built from the model's `queries`, so the caller's
 rules and the plugin's hooks apply to them. Their types:
 
-```ts
+```ts title="src/plugins/publishing.ts"
 type Unique<F> = Parameters<Queries<F>['findUnique']>[0]['where']
 
 /** What `publishing()` adds to a model: `Article.drafts`, `Article.publish`. */
@@ -289,7 +289,7 @@ export interface PublishingCommands<F> {
 
 And what the plugin builds:
 
-```ts
+```ts title="src/plugins/publishing.ts"
 commands: ({ queries }) => ({
 	drafts: { findMany: queries.findMany, count: queries.count },
 	publish: ({ where }, options) =>
@@ -302,7 +302,7 @@ commands: ({ queries }) => ({
 
 A draft is counted, published, and no longer a draft:
 
-```ts
+```ts title="src/app.test.ts"
 const draft = await Article.create({ data: { title: 'Launch' } }, M)
 expect(await Article.drafts.count({}, M)).toBe(1)
 const published = await Article.publish({ where: { id: draft.id } }, M)
@@ -312,21 +312,21 @@ expect(await Article.drafts.count({}, M)).toBe(0)
 
 The `titles` function then lists it:
 
-```http
+```http title="Request"
 POST /rpc/titles
 content-type: application/json
 
 {}
 ```
 
-```json
+```json title="Response"
 { "output": ["Launch"] }
 ```
 
 A caller who does not read the draft does not find it, and only an editor sets
 `publishedAt` itself. Here Bob is a user who is not an editor:
 
-```ts
+```ts title="src/app.test.ts"
 const bob = asUser({ id: 'bob' })
 const draft = await Article.create({ data: { title: 'Launch' } }, M)
 // Bob does not read the draft, so it is not found for him.
@@ -351,7 +351,7 @@ application's user model, which it names `AppUser`: startup resolves it to the
 model `defineUser` declares. Here, `models: [Editor]`, the users who are
 editors, each row going with its user:
 
-```ts
+```ts title="src/plugins/publishing.ts"
 // Every user caller gets `editor`, which rules and hooks read.
 declare module 'ultimabase' {
 	interface UserCallerKeys {
@@ -380,7 +380,7 @@ const isEditor = (caller: Caller) =>
 read. Declare the keys in `UserCallerKeys`, as above. It runs once for each
 caller the kernel receives, each plugin's in the order of `plugins`:
 
-```ts
+```ts title="src/plugins/publishing.ts"
 caller: async ({ user }) => ({
 	editor:
 		(await Editor.count(
@@ -394,7 +394,7 @@ It runs again once a model the plugin owns or a model that uses it changes,
 as the `Editor` rows here. What it reads elsewhere is read again only when
 auth gives the caller up. Once Ada is an editor, she reads the draft:
 
-```ts
+```ts title="src/app.test.ts"
 await Editor.create({ data: { user: { connect: { id } } } }, M)
 expect(await Article.count({}, { as: asUser({ id }) })).toBe(1)
 ```
@@ -408,7 +408,7 @@ written `{ kind: 'master' }` is not one.
 through a kernel field, and code reads what `decode` gives. First what the
 type converts, a color between `#rrggbb` and its channels:
 
-```ts
+```ts title="src/plugins/color.ts"
 const Hex = z.string().regex(/^#[0-9a-f]{6}$/, 'A color is #rrggbb.')
 const Rgb = z.object({
 	red: z.int().min(0).max(255),
@@ -428,7 +428,7 @@ const hexOf = ({ red, green, blue }: Rgb): string =>
 
 Then the field type:
 
-```ts
+```ts title="src/plugins/color.ts"
 /** `color({ palette })` takes only the colors of its palette. */
 type ColorOptions = { readonly palette?: readonly string[] }
 
@@ -453,7 +453,7 @@ export const color = defineFieldType({
 
 A model uses it as a builder, with the options its type declares:
 
-```ts
+```ts title="src/models.ts"
 import { allow, defineModel } from 'ultimabase'
 import { color } from './plugins/color.ts'
 import { publishing } from './plugins/publishing.ts'
@@ -480,7 +480,7 @@ export const Article = defineModel({
 
 Code reads the channels, a field's default included:
 
-```ts
+```ts title="src/app.test.ts"
 const red = await Article.create(
 	{ data: { title: 'Red', accent: '#b91c1c' } },
 	M,
@@ -497,7 +497,7 @@ expect(green.accent).toEqual({ red: 21, green: 128, blue: 61 })
 
 A color outside the palette is refused:
 
-```ts
+```ts title="src/app.test.ts"
 await expect(
 	Article.create({ data: { title: 'Pink', accent: '#ff00ff' } }, M),
 ).rejects.toMatchObject({ code: 'VALIDATION_FAILED' })
@@ -513,7 +513,7 @@ The plugin it names must be in `plugins`; otherwise the application stops:
 refuse it. `ApiKey` is the plugin's model of keys, and `hashOf` hashes a key
 with SHA-256:
 
-```ts
+```ts title="src/plugins/api-keys.ts"
 identify: async (request, context) => {
 	const key = request.headers.get(context.options.header ?? 'x-api-key')
 	if (key === null) return undefined
@@ -540,7 +540,7 @@ identify: async (request, context) => {
 Master creates a key for Ada, who owns it. `M` stands for `{ as: master }`,
 and the key is shown only here:
 
-```ts
+```ts title="src/app.test.ts"
 // Master creates a key; the key itself is shown only here.
 const { key } = await createApiKey.run({ owner: 'ada', name: 'CI' }, M)
 ```
@@ -548,7 +548,7 @@ const { key } = await createApiKey.run({ owner: 'ada', name: 'CI' }, M)
 A request that sends it runs as Ada. `$key` is the key just created, and
 `whoami` answers its caller (see [A transport](#a-transport)):
 
-```http
+```http title="Request"
 POST /rpc/whoami
 content-type: application/json
 x-api-key: $key
@@ -556,13 +556,13 @@ x-api-key: $key
 {}
 ```
 
-```json
+```json title="Response"
 { "output": { "user": "ada", "editor": false } }
 ```
 
 A key the plugin does not know is refused with HTTP 401:
 
-```http
+```http title="Request"
 POST /rpc/whoami
 content-type: application/json
 x-api-key: guess
@@ -570,7 +570,7 @@ x-api-key: guess
 {}
 ```
 
-```json
+```json title="Response"
 { "code": "UNAUTHENTICATED", "message": "This API key is unknown." }
 ```
 
@@ -581,7 +581,7 @@ model. A `viewer` filter on a relation to it is the signed-in user, as
 [Authentication](/docs/next/auth) shows; the auth plugin's `defineUser` is such
 a model. Two models that use one stop the start.
 
-```ts
+```ts title="src/plugins/members.ts"
 import type { PluginOf, PluginTypes, UseOf } from 'ultimabase'
 import { definePlugin } from 'ultimabase'
 
@@ -599,7 +599,7 @@ export const members: UseOf<Members> = definition.use
 export const membersPlugin: PluginOf<Members> = definition.plugin
 ```
 
-```ts
+```ts title="src/member.ts"
 import { defineModel } from 'ultimabase'
 import { members } from './plugins/members.ts'
 
@@ -616,7 +616,7 @@ export const Member = defineModel({
 under the plugin's name: `apiKeys.createApiKey`. A function without an access
 rule is Master's only:
 
-```ts
+```ts title="src/plugins/api-keys.ts"
 /** Master only, as every function without an access rule. */
 export const createApiKey = defineFunction({
 	name: 'createApiKey',
@@ -635,7 +635,7 @@ Master calls it over the transport of [A transport](#a-transport), with the
 master key. It answers HTTP 200 with `{ "output": { "key": … } }`, the key
 itself:
 
-```http
+```http title="Request"
 POST /rpc/apiKeys.createApiKey
 content-type: application/json
 x-ultimabase-master-key: dev-master-key
@@ -645,7 +645,7 @@ x-ultimabase-master-key: dev-master-key
 
 Without the header, the caller is anonymous and is refused with HTTP 403:
 
-```json
+```json title="Response"
 {
 	"code": "ACCESS_DENIED",
 	"message": "createApiKey refused.",
@@ -665,7 +665,7 @@ the same database. More hooks keep what it learns right:
 
 A cache uses them all. Each running application has its own:
 
-```ts
+```ts title="src/plugins/api-keys.ts"
 // Each running application's keys, by hash: the owner, or null for none.
 const caches = new WeakMap<object, Map<string, string | null>>()
 const cacheOf = (context: PluginContext<ApiKeys>) => {
@@ -677,7 +677,7 @@ const cacheOf = (context: PluginContext<ApiKeys>) => {
 const blind = new WeakSet<object>()
 ```
 
-```ts
+```ts title="src/plugins/api-keys.ts"
 // A key created or deleted, on this server or another: read them again.
 changed: (changes, context) => {
 	if (changes.some((change) => change.model === 'ApiKey')) {
@@ -701,7 +701,7 @@ stop: (context) => {
 
 Ada's key is deleted, and the cache forgets it:
 
-```ts
+```ts title="src/app.test.ts"
 // The cache forgets a deleted key: `changed` cleared it.
 await ApiKey.deleteMany({ where: { owner: 'ada' } }, M)
 ```
@@ -714,7 +714,7 @@ The request that worked answers HTTP 401 again, as for an unknown key.
 `start` and `stop` read them in `options`. Throw a `Refused` from `start` for a
 wrong setup: the application stops and prints the message, without a stack.
 
-```ts
+```ts title="src/plugins/api-keys.ts"
 const definition = definePlugin<ApiKeys>({
 	name: 'apiKeys',
 	models: [ApiKey],
@@ -734,7 +734,7 @@ const definition = definePlugin<ApiKeys>({
 
 An empty header name stops the application:
 
-```ts
+```ts title="src/start.test.ts"
 const app = defineApp({
 	database: memory(),
 	plugins: [apiKeysPlugin({ header: '' })],
@@ -758,7 +758,7 @@ A plugin that requires the HTTP plugin adds a check to `GET /ready` with
 `plugins.http.ready(check)`. Here `broker` stands for a message broker's
 client:
 
-```ts
+```ts title="src/plugins/broker.ts"
 const definition = definePlugin<Broker>({
 	name: 'broker',
 	requires: { http: httpPlugin },
@@ -779,17 +779,17 @@ const definition = definePlugin<Broker>({
 
 While the broker is connected, `GET /ready` answers HTTP 200:
 
-```http
+```http title="Request"
 GET /ready
 ```
 
-```json
+```json title="Response"
 { "status": "ok" }
 ```
 
 When it is not, it answers HTTP 503:
 
-```json
+```json title="Response"
 { "code": "UNAVAILABLE", "message": "A readiness check failed." }
 ```
 
@@ -798,7 +798,7 @@ here, 5000 by default in production. The broker takes messages once started.
 It takes no more once the stop begins, during the drain and before any plugin
 stops:
 
-```ts
+```ts title="src/broker.test.ts"
 const served = defineApp({
 	database: memory(),
 	plugins: [httpPlugin({ port: 0, drain: 100 }), brokerPlugin()],
@@ -822,7 +822,7 @@ its error, as a failing `stop`.
 from the directory the command runs in. The `rpc` plugin writes the names of
 the functions it serves:
 
-```ts
+```ts title="src/plugins/rpc.ts"
 // Written by `ultimabase generate`, and by `ultimabase dev` as it starts.
 generate: ({ functions, options }) => {
 	if (options.generated === undefined) return []
@@ -839,7 +839,7 @@ generate: ({ functions, options }) => {
 
 The application sets the path, and reads what was written:
 
-```ts
+```ts title="src/start.test.ts"
 const ping = defineFunction({ name: 'ping', use: [rpc()], run: () => {} })
 const app = defineApp({
 	database: memory(),
@@ -859,7 +859,7 @@ each function of the definition holds their APIs, `undefined` for an optional
 one the application does not install. A plugin offers its API from `api`, built
 once before any `start`:
 
-```ts
+```ts title="src/plugins/rpc.ts"
 import type { Http } from '@ultimabase/http'
 import { clientOf, httpPlugin, routes, validate } from '@ultimabase/http'
 import type { PluginOf, PluginTypes, UseOf } from 'ultimabase'
@@ -886,7 +886,7 @@ export interface Rpc extends PluginTypes {
 application that lists `httpPlugin()`, `rpcPlugin()` and `apiKeysPlugin()`
 logs, once started (`logged` is what its logger received):
 
-```ts
+```ts title="src/start.test.ts"
 expect(logged).toContainEqual(
 	expect.stringMatching(
 		/^Create an API key: POST http:\/\/localhost:\d+\/rpc\/apiKeys\.createApiKey with the master key\.$/,
@@ -903,7 +903,7 @@ A transport reads `models` and `functions` in `api`, and serves them. This one
 mounts a route on the HTTP plugin for each function, which runs it as the
 request's caller:
 
-```ts
+```ts title="src/plugins/rpc.ts"
 api: ({ plugins, functions, options }) => {
 	const base = options.path ?? '/rpc'
 	const app = routes()
@@ -935,7 +935,7 @@ api: ({ plugins, functions, options }) => {
 `isLocalHost(hostname)` is true for this machine only, so the list of
 functions stays a developer's:
 
-```ts
+```ts title="src/plugins/rpc.ts"
 	// The list of functions, for a developer on this machine only.
 	app.get(base, (c) =>
 		isLocalHost(new URL(c.req.url).hostname) ? c.json(names) : c.notFound(),
@@ -949,30 +949,30 @@ functions stays a developer's:
 A client calls a function with `POST /rpc/<name>`, here `whoami`, which
 answers who calls. Without a key, the caller is anonymous:
 
-```http
+```http title="Request"
 POST /rpc/whoami
 content-type: application/json
 
 {}
 ```
 
-```json
+```json title="Response"
 { "output": { "user": null, "editor": false } }
 ```
 
 On this machine, `GET /rpc` lists the functions:
 
-```http
+```http title="Request"
 GET /rpc
 ```
 
-```json
+```json title="Response"
 ["whoami", "titles", "apiKeys.createApiKey"]
 ```
 
 Under another host name, the same request answers HTTP 404:
 
-```ts
+```ts title="src/app.test.ts"
 // The same request under another host name.
 const response = await new Promise<IncomingMessage>((resolve, reject) => {
 	const headers = { host: 'api.example.com' }
@@ -987,7 +987,7 @@ expect(response.statusCode).toBe(404)
 A transport refuses at start what it cannot serve. This function returns a
 model, `Note`, which `rpc` cannot answer as JSON:
 
-```ts
+```ts title="src/start.test.ts"
 const latest = defineFunction({
 	name: 'latest',
 	use: [rpc()],
@@ -998,7 +998,7 @@ const latest = defineFunction({
 
 Starting an application that lists it stops with that message:
 
-```ts
+```ts title="src/start.test.ts"
 await expect(app.start()).rejects.toThrow(
 	'rpc answers JSON, and latest returns a model: give it a schema output, or .with({ rpc: false }).',
 )
@@ -1010,7 +1010,7 @@ await expect(app.start()).rejects.toThrow(
 the function out of it. `latest`, above, then starts and runs from server code
 only:
 
-```ts
+```ts title="src/start.test.ts"
 // Kept out of the transport, it runs from server code only.
 const served = defineApp({
 	database: memory(),

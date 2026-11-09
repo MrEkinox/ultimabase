@@ -7,7 +7,7 @@ One write is always atomic: its row, its nested writes, its cascades and the
 writes of its `after*` hooks commit together. To make several writes one,
 `transaction` runs them in a callback.
 
-```ts
+```ts title="src/close.ts"
 import { master, transaction } from 'ultimabase'
 import { Account } from './models.ts'
 
@@ -50,7 +50,7 @@ Ada holds 100 in account `A-1`, and Grace 0 in `G-1`. In the tests, `from` and
 A `transfer` function takes the two ids and an amount, and only a signed-in
 user may call it: its rule is `({ caller }) => caller.kind === 'user'`.
 
-```ts
+```ts title="src/functions.ts"
 import { PublicError, defineFunction, master, transaction } from 'ultimabase'
 import { z } from 'zod'
 import { Account, Like } from './models.ts'
@@ -63,12 +63,12 @@ export const transfer = defineFunction({
 
 It checks the owner, then moves money between the two accounts:
 
-```ts
+```ts title="src/functions.ts"
 // NOT_FOUND unless the caller owns the account.
 await Account.findUniqueOrThrow({ where: { id: input.from } }, { as: caller })
 ```
 
-```ts
+```ts title="src/functions.ts"
 const as = { as: master }
 await transaction(async () => {
 	// The update locks the row: a second transfer waits for this one.
@@ -93,7 +93,7 @@ await transaction(async () => {
 })
 ```
 
-```ts
+```ts title="src/app.test.ts"
 await transfer.run({ from, to, amount: 30 }, ada)
 const rows = await Account.findMany(
 	{ orderBy: { number: 'asc' }, select: { balance: true } },
@@ -105,7 +105,7 @@ expect(rows).toEqual([{ balance: 70 }, { balance: 30 }])
 When the callback throws, every write made inside it is undone, its hooks'
 writes included, and `transaction` rejects with that error:
 
-```ts
+```ts title="src/app.test.ts"
 await expect(
 	transfer.run({ from, to, amount: 130 }, ada),
 ).rejects.toMatchObject({ code: 'INSUFFICIENT_FUNDS' })
@@ -120,7 +120,7 @@ expect(rows).toEqual([{ balance: 100 }, { balance: 0 }])
 Closing an account moves its balance and deletes it, both or neither. Closing
 Ada's account into Grace's leaves one account holding 100:
 
-```ts
+```ts title="src/app.test.ts"
 await closeAccount(from, to)
 const rows = await Account.findMany({ select: { balance: true } }, as)
 expect(rows).toEqual([{ balance: 100 }])
@@ -128,7 +128,7 @@ expect(rows).toEqual([{ balance: 100 }])
 
 When the credit fails, the account is kept:
 
-```ts
+```ts title="src/app.test.ts"
 // No account holds a random id: the credit fails, the delete is undone.
 await expect(closeAccount(from, randomUUID())).rejects.toMatchObject({
 	code: 'NOT_FOUND',
@@ -145,7 +145,7 @@ expect(rows).toEqual([{ balance: 100 }, { balance: 0 }])
 A `transaction` called inside another joins it: no savepoint. Here both
 transfers commit together, and the second's failure undoes the first:
 
-```ts
+```ts title="src/app.test.ts"
 // The second transfer fails: the first is undone with it.
 await expect(
 	transaction(async () => {
@@ -160,7 +160,7 @@ await expect(
 A query that fails inside a transaction rolls it all back, even when the
 callback catches the error, as PostgreSQL does:
 
-```ts
+```ts title="src/app.test.ts"
 const duplicate = { data: { number: 'A-1', ownerId: 'ada' } }
 await expect(
 	transaction(async () => {
@@ -200,7 +200,7 @@ it.
 The `like` function takes the user to like, and answers whether the two now
 match. It reads the caller's id as `me`, and `as` is `{ as: master }`:
 
-```ts
+```ts title="src/functions.ts"
 export const like = defineFunction({
 	name: 'like',
 	input: z.object({ user: z.string() }),
@@ -212,7 +212,7 @@ export const like = defineFunction({
 
 It saves the like, then looks for the other's:
 
-```ts
+```ts title="src/functions.ts"
 // Two likes at once: one commits, the other runs again and matches.
 return transaction(
 	async () => {
@@ -249,7 +249,7 @@ Here the second like runs again, sees the first and makes the match. `ada` is
 as above and `grace` is `{ as: asUser({ id: 'grace' }) }`; each `result` is
 `{ matched }`:
 
-```ts
+```ts title="src/app.test.ts"
 const grace = { as: asUser({ id: 'grace' }) }
 const results = await Promise.all([
 	like.run({ user: 'grace' }, ada),
@@ -277,7 +277,7 @@ went through, not by row. Without an index, it tracks the whole table, and
 every serializable transaction on it conflicts with the others: index the
 fields the callback reads by.
 
-```ts
+```ts title="src/models.ts"
 /** One user's like of another; two that face each other make a match. */
 export const Like = defineModel({
 	name: 'Like',

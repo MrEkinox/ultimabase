@@ -6,7 +6,7 @@ description: Read, filter, sort, page, count, aggregate, search and write many r
 Each model has its queries: `Product.findMany`, `Product.create`… They take an
 object of arguments, then `{ as }`, the caller whose access rules apply.
 
-```ts
+```ts title="src/stock.ts"
 import { master } from 'ultimabase'
 import { Product } from './models.ts'
 
@@ -56,7 +56,7 @@ The examples below read four products:
 `where` keeps the rows that match every field it names. A value compares for
 equality; an object holds operators:
 
-```ts
+```ts title="src/queries.test.ts"
 const published = await Product.findMany(
 	{
 		where: { status: 'published', price: { lt: '50.00' } },
@@ -69,7 +69,7 @@ expect(published).toEqual([{ name: 'Desk lamp' }])
 
 A string and a day:
 
-```ts
+```ts title="src/queries.test.ts"
 const filtered = await Product.findMany(
 	{
 		where: {
@@ -85,7 +85,7 @@ expect(filtered).toEqual([{ name: 'Floor lamp' }])
 
 A list, and a number:
 
-```ts
+```ts title="src/queries.test.ts"
 // A list: has, hasSome, hasEvery, isEmpty.
 const kitchen = await Product.findMany(
 	{
@@ -99,7 +99,7 @@ expect(kitchen).toEqual([{ name: 'Mug' }])
 
 `AND`, `OR` and `NOT` combine filters:
 
-```ts
+```ts title="src/queries.test.ts"
 // AND, OR and NOT combine filters; null matches a missing value.
 const either = await Product.findMany(
 	{
@@ -125,7 +125,7 @@ expect(either).toEqual([{ name: 'Floor lamp' }, { name: 'Mug' }])
 `orderBy` takes a field and `'asc'` or `'desc'`, or a list of them, the first
 deciding. `skip` leaves rows out, `take` keeps at most that many:
 
-```ts
+```ts title="src/queries.test.ts"
 const cheapest = await Product.findMany(
 	{ orderBy: { price: 'asc' }, skip: 1, take: 2, select: { name: true } },
 	as,
@@ -138,7 +138,7 @@ expect(cheapest).toEqual([{ name: 'Teapot' }, { name: 'Desk lamp' }])
 - An optional field's `null`s sort last when ascending. `{ sort, nulls }`
   places them:
 
-```ts
+```ts title="src/queries.test.ts"
 const byRelease = await Product.findMany(
 	{ orderBy: { releasedOn: { sort: 'desc', nulls: 'last' } } },
 	as,
@@ -154,7 +154,7 @@ expect(byRelease.map((product) => product.name)).toEqual([
 A `cursor` names a unique row the page starts at. Read a first page, and keep
 its last row:
 
-```ts
+```ts title="src/queries.test.ts"
 const first = await Product.findMany({ orderBy: { name: 'asc' }, take: 2 }, as)
 const last = first.at(-1)
 if (last === undefined) throw new Error('The first page is empty.')
@@ -163,7 +163,7 @@ if (last === undefined) throw new Error('The first page is empty.')
 `skip: 1` starts the next page after that row. A negative `take` reads the
 rows before the cursor.
 
-```ts
+```ts title="src/queries.test.ts"
 // The next page starts after the last row of this one.
 const next = await Product.findMany(
 	{
@@ -183,12 +183,12 @@ expect(next).toEqual([{ name: 'Mug' }, { name: 'Teapot' }])
 `findUnique` takes a unique `where`: the `id`, a unique field, or the fields of
 a unique index together.
 
-```ts
+```ts title="src/queries.test.ts"
 const mug = await Product.findUnique({ where: { sku: 'MUG-001' } }, as)
 expect(mug?.price).toBe('12.00')
 ```
 
-```ts
+```ts title="src/queries.test.ts"
 // A unique index's fields together find a row too.
 const lamp = await Product.findUnique(
 	{ where: { name: 'Desk lamp', releasedOn: '2026-03-01' } },
@@ -201,7 +201,7 @@ expect(lamp?.sku).toBe('LMP-001')
 return `null` when nothing matches. Their `OrThrow` forms fail with
 `NOT_FOUND`:
 
-```ts
+```ts title="src/queries.test.ts"
 expect(await Product.findFirst({ where: { stock: 99 } }, as)).toBeNull()
 await expect(
 	Product.findUniqueOrThrow({ where: { sku: 'CUP-001' } }, as),
@@ -213,7 +213,7 @@ await expect(
 A read returns every stored field by default, and relations only when
 `include` or `select` names them. `select` returns the fields it names:
 
-```ts
+```ts title="src/queries.test.ts"
 const rows = await Product.findMany(
 	{ where: { status: 'published' }, select: { name: true, price: true } },
 	as,
@@ -226,7 +226,7 @@ expect(rows).toEqual([
 
 `omit` returns all but the fields it names:
 
-```ts
+```ts title="src/queries.test.ts"
 const mug = await Product.findUniqueOrThrow(
 	{ where: { sku: 'MUG-001' }, omit: { specs: true, keywords: true } },
 	as,
@@ -239,7 +239,7 @@ expect(mug).not.toHaveProperty('specs')
 `_search` keeps the rows whose `search: true` fields hold the words, and
 `orderBy: { _relevance: 'desc' }` puts the best matches first:
 
-```ts
+```ts title="src/queries.test.ts"
 // Words, "quoted phrases", `or`, and -word to leave one out.
 const lamps = await Product.findMany(
 	{
@@ -261,7 +261,7 @@ expect(lamps).toEqual([{ name: 'Desk lamp' }])
 `count` counts the rows of a `where`. `exists` says whether there is one, and
 reads at most one:
 
-```ts
+```ts title="src/queries.test.ts"
 expect(await Product.count({ where: { stock: { gt: 0 } } }, as)).toBe(3)
 // Reads at most one row, rather than counting them all.
 expect(await Product.exists({ where: { stock: { gt: 20 } } }, as)).toBe(true)
@@ -270,7 +270,7 @@ expect(await Product.exists({ where: { stock: { gt: 20 } } }, as)).toBe(true)
 `aggregate` computes `_count`, `_sum`, `_avg`, `_min` and `_max` of the rows the
 caller reads:
 
-```ts
+```ts title="src/queries.test.ts"
 const totals = await Product.aggregate(
 	{ _count: true, _sum: { stock: true, price: true } },
 	as,
@@ -279,7 +279,7 @@ const totals = await Product.aggregate(
 expect(totals).toEqual({ _count: 4, _sum: { stock: 57, price: '165.40' } })
 ```
 
-```ts
+```ts title="src/queries.test.ts"
 const range = await Product.aggregate(
 	{ _min: { price: true }, _max: { releasedOn: true } },
 	as,
@@ -293,7 +293,7 @@ expect(range).toEqual({
 `groupBy` computes them per group of `by`'s values. `having` keeps the groups
 whose values or aggregates match:
 
-```ts
+```ts title="src/queries.test.ts"
 const byStatus = await Product.groupBy(
 	{
 		by: ['status'],
@@ -306,7 +306,7 @@ const byStatus = await Product.groupBy(
 )
 ```
 
-```ts
+```ts title="src/queries.test.ts"
 expect(byStatus).toEqual([
 	{ status: 'archived', _count: 1, _sum: { stock: 12 } },
 	{ status: 'draft', _count: 1, _sum: { stock: 40 } },
@@ -317,7 +317,7 @@ expect(byStatus).toEqual([
 `distinct` keeps, of the rows with the same values, the first in the read's
 order:
 
-```ts
+```ts title="src/queries.test.ts"
 // The first row of each status, in the read's order.
 const priciest = await Product.findMany(
 	{
@@ -329,7 +329,7 @@ const priciest = await Product.findMany(
 )
 ```
 
-```ts
+```ts title="src/queries.test.ts"
 expect(priciest).toEqual([
 	{ status: 'published', name: 'Floor lamp' },
 	{ status: 'archived', name: 'Teapot' },
@@ -346,7 +346,7 @@ expect(priciest).toEqual([
 `createMany`, `updateMany` and `deleteMany` return `{ count }`. Each writes all
 its rows or none.
 
-```ts
+```ts title="src/queries.test.ts"
 const { count: created } = await Product.createMany(
 	{
 		data: [
@@ -359,7 +359,7 @@ const { count: created } = await Product.createMany(
 expect(created).toBe(2)
 ```
 
-```ts
+```ts title="src/queries.test.ts"
 const { count } = await Product.updateMany(
 	{
 		where: { keywords: { has: 'light' } },
@@ -370,14 +370,14 @@ const { count } = await Product.updateMany(
 expect(count).toBe(2)
 ```
 
-```ts
+```ts title="src/queries.test.ts"
 const archived = await Product.deleteMany({ where: { status: 'archived' } }, as)
 expect(archived.count).toBe(1)
 ```
 
 `createManyAndReturn` and `updateManyAndReturn` return the rows instead:
 
-```ts
+```ts title="src/queries.test.ts"
 const rows = await Product.updateManyAndReturn(
 	{ where: { keywords: { has: 'kitchen' } }, data: { stock: 1 } },
 	as,
@@ -387,7 +387,7 @@ expect(rows.map(({ name }) => name)).toEqual(['Mug', 'Teapot'])
 
 `upsert` updates the row its unique `where` finds, or creates it:
 
-```ts
+```ts title="src/queries.test.ts"
 // Updates the row the unique `where` finds, or creates it.
 const cup = await Product.upsert(
 	{

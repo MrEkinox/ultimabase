@@ -7,7 +7,7 @@ An adapter is the object an application's `database` holds, and it only stores
 and reads rows. `timed` runs another adapter, counts its calls and logs the
 slow ones:
 
-```ts
+```ts title="src/timed.ts"
 import type {
 	Adapter,
 	BeginOptions,
@@ -37,7 +37,7 @@ and its access rules applied. An adapter is not a plugin: an application has
 one. `timed` counts its calls, each a round trip to the database. An
 application uses it as any adapter:
 
-```ts
+```ts title="src/app.ts"
 export const database = timed(memory(), { slow: 100 })
 
 export const app = defineApp({
@@ -74,7 +74,7 @@ npm install --save-dev @ultimabase/testing vitest
 Run it in a test file, with a new adapter for each test. `roundTrips` says how
 many round trips the adapter has made, for the suite to count:
 
-```ts
+```ts title="src/contract.test.ts"
 let current: Timed | undefined
 testAdapter(
 	'timed',
@@ -92,7 +92,7 @@ testAdapter(
 change feed. It connects; `stop` disconnects. `timed` keeps the logger for its
 warnings and passes all three on:
 
-```ts
+```ts title="src/timed.ts"
 // The kernel's logger and the change feed: pass them on.
 start: async (schema, kernelLogger, feed) => {
 	logger = kernelLogger
@@ -106,7 +106,7 @@ sides and its indexes, `{ name, fields, indexes }`. `id`, `createdAt` and
 `updatedAt` are implicit. For the example's `Author` and `Post`, `start`
 receives these fields, among others. A scalar field with a default:
 
-```ts
+```ts title="src/adapter.test.ts"
 {
 	kind: 'scalar',
 	name: 'views',
@@ -122,7 +122,7 @@ receives these fields, among others. A scalar field with a default:
 A `one` relation with `stored: true` holds the key: `Post` stores its author's
 id under `author`.
 
-```ts
+```ts title="src/adapter.test.ts"
 {
 	kind: 'one',
 	name: 'author',
@@ -138,7 +138,7 @@ id under `author`.
 
 `Author` sees the other side, a `many`:
 
-```ts
+```ts title="src/adapter.test.ts"
 {
 	kind: 'many',
 	name: 'posts',
@@ -157,7 +157,7 @@ id under `author`.
 `find` returns the rows of a `Read`, `count` counts the rows a filter keeps,
 and `aggregate` returns one list per group. `timed` times each one:
 
-```ts
+```ts title="src/timed.ts"
 find: trip(
 	(read) => `find ${read.model}`,
 	async (read) => adapter.find(read),
@@ -176,7 +176,7 @@ A read arrives normalized. The tests record each read in `sent.reads`.
 `Post.findMany({ where: { slug: 'hello' }, include: { author: true } })`
 reaches `find` as:
 
-```ts
+```ts title="src/adapter.test.ts"
 expect(sent.reads.at(-1)).toEqual({
 	model: 'Post',
 	// `{ slug: 'hello' }`, normalized.
@@ -202,7 +202,7 @@ expect(sent.reads.at(-1)).toEqual({
 `write` runs a whole `Write` and returns the rows its `read` selects. `timed`
 times it, and `empty`, which removes every row:
 
-```ts
+```ts title="src/timed.ts"
 write: trip(
 	(write) => `write ${modelsOf(write)}`,
 	async (write) => adapter.write(write),
@@ -217,14 +217,14 @@ A write is one unit: its checks first, then its changes, then its read. A
 `Post.create` that connects the author `ada` sends three parts. First its
 checks:
 
-```ts
+```ts title="src/adapter.test.ts"
 // Written only when the author exists: one row, counted first.
 checks: [{ model: 'Author', where: { id: { in: [ada.id] } }, count: 1 }],
 ```
 
 Then its changes, here one insert:
 
-```ts
+```ts title="src/adapter.test.ts"
 // The id, the dates and the defaults are set; the key is the author's id.
 row: {
 	id: anId,
@@ -238,7 +238,7 @@ row: {
 
 Then the read of the rows to return:
 
-```ts
+```ts title="src/adapter.test.ts"
 // The rows the write returns, read in the same write.
 read: {
 	model: 'Post',
@@ -264,7 +264,7 @@ locks its rows first. `timed` wraps the `tx` its adapter returns in
 `timedTransaction`, and times each call of it. Each is a round trip, the commit
 included:
 
-```ts
+```ts title="src/timed.ts"
 find: trip(
 	(read) => `find ${read.model}`,
 	async (read) => tx.find(read),
@@ -291,7 +291,7 @@ rollback: trip(
 ),
 ```
 
-```ts
+```ts title="src/timed.ts"
 begin: trip<[BeginOptions?], Transaction>(
 	() => 'begin',
 	async (asked) => timedTransaction(await adapter.begin(asked)),
@@ -319,7 +319,7 @@ begin: trip<[BeginOptions?], Transaction>(
 Here the database aborts the first commit: a wrapped `begin` returns its `tx`
 with this `commit`, and `conflicts` starts at 1.
 
-```ts
+```ts title="src/adapter.test.ts"
 commit: async () => {
 	if (conflicts === 0) return tx.commit()
 	conflicts -= 1
@@ -332,7 +332,7 @@ The callback runs twice, and its write is kept once. `transaction` comes from
 `ultimabase`, `Author` is the example's model, and the tests write `M` for
 `{ as: master }`:
 
-```ts
+```ts title="src/adapter.test.ts"
 let attempts = 0
 await transaction(
 	async () => {
@@ -352,7 +352,7 @@ depth, a count, a create and its connections, an update or a delete by id. An
 adapter keeps it so by answering each call in one round trip to its database.
 The suite counts them with `roundTrips`. `timed` counts its calls:
 
-```ts
+```ts title="src/timed.ts"
 /** `run` as one round trip, logged under `label` when it is slow. */
 const trip =
 	<A extends unknown[], R>(
@@ -374,7 +374,7 @@ const trip =
 An application's tests run on its declared adapter with
 `database: 'declared'`. `memory()` starts empty, so each test does:
 
-```ts
+```ts title="src/app.test.ts"
 // memory() starts empty, so each test starts on an empty database.
 testApplication(app, { database: 'declared' })
 ```
@@ -383,7 +383,7 @@ Each query is one round trip, a read and its relations at any depth included:
 two writes and a read make three. `database` is the `timed(memory())` of
 `src/app.ts`:
 
-```ts
+```ts title="src/app.test.ts"
 const before = database.roundTrips()
 const ada = await Author.create({ data: { name: 'Ada' } }, M)
 await Post.create(
@@ -406,7 +406,7 @@ author `a1`.
 
 Throw `UniqueViolation` with the model and the index's fields:
 
-```ts
+```ts title="src/adapter.test.ts"
 await adapter.write({
 	changes: [{ kind: 'insert', model: 'Post', row: hello }],
 })
@@ -423,7 +423,7 @@ await expect(again).rejects.toMatchObject({
 
 The developer sees `UNIQUE_VIOLATION`:
 
-```ts
+```ts title="src/app.test.ts"
 const ada = await Author.create({ data: { name: 'Ada' } }, M)
 const data = { slug: 'hello', author: { connect: { id: ada.id } } }
 await Post.create({ data }, M)
@@ -439,7 +439,7 @@ await expect(Post.create({ data }, M)).rejects.toMatchObject({
 Throw `CheckFailed` with its index in `checks`, and write nothing. `other` is
 a `Post` row:
 
-```ts
+```ts title="src/adapter.test.ts"
 // A connected author that is gone: the first check counts 0, not 1.
 const connected = adapter.write({
 	checks: [{ model: 'Author', where: { id: { in: ['gone'] } }, count: 1 }],
@@ -454,7 +454,7 @@ expect(await adapter.count({ model: 'Post' })).toBe(1)
 The developer sees the error the kernel attached to that check, here a
 connected author that does not exist:
 
-```ts
+```ts title="src/app.test.ts"
 const connect = { id: missing }
 await expect(
 	Post.create({ data: { slug: 'hello', author: { connect } } }, M),
@@ -471,7 +471,7 @@ A computed number falls outside its field's range, or is not finite: throw
 `OutOfRange` with the model and the field. This write increments a view count
 past the largest integer, on `hello`, whose id is `p1`:
 
-```ts
+```ts title="src/adapter.test.ts"
 // Past the largest integer, 2 ** 31 - 1.
 const increment = adapter.write({
 	changes: [
@@ -488,7 +488,7 @@ const increment = adapter.write({
 
 The adapter throws:
 
-```ts
+```ts title="src/adapter.test.ts"
 await expect(increment).rejects.toBeInstanceOf(OutOfRange)
 await expect(increment).rejects.toMatchObject({
 	model: 'Post',
@@ -499,7 +499,7 @@ await expect(increment).rejects.toMatchObject({
 The developer sees `VALIDATION_FAILED`, with the field's range. A post holds
 2,147,483,647 views, and an update increments them:
 
-```ts
+```ts title="src/app.test.ts"
 // `hello` holds 2_147_483_647 views, the largest integer.
 const refused = Post.update(
 	{ where: { slug: 'hello' }, data: { views: { increment: 1 } } },
@@ -510,7 +510,7 @@ await expect(refused).rejects.toMatchObject({ code: 'VALIDATION_FAILED' })
 
 The issue carries the range:
 
-```ts
+```ts title="src/app.test.ts"
 await expect(refused).rejects.toMatchObject({
 	details: {
 		issues: [
@@ -531,7 +531,7 @@ It happens when a row was deleted between the checks and the change: throw
 was restricted. Here the author was deleted between the write's check and its
 insert:
 
-```ts
+```ts title="src/adapter.test.ts"
 const inner = memory()
 // The author was deleted between the write's check and its insert.
 const racing: Adapter = {
@@ -545,7 +545,7 @@ const racing: Adapter = {
 The developer sees `NOT_FOUND`, or `RELATION_RESTRICTED` when `restricted` is
 true. Here it is false:
 
-```ts
+```ts title="src/adapter.test.ts"
 const connect = { id: 'a1' }
 await expect(
 	Post.create({ data: { slug: 'hello', author: { connect } } }, M),
@@ -561,7 +561,7 @@ Throw `MigrationFailed` with the statement or the file, and what the database
 said. This adapter's `migrations.apply` refuses `sql`, the statement
 `CREATE TABLE "Post" ()`:
 
-```ts
+```ts title="src/adapter.test.ts"
 apply: async () => {
 	throw new MigrationFailed(sql, 'permission denied for schema public')
 },
@@ -569,7 +569,7 @@ apply: async () => {
 
 In development the start stops with:
 
-```ts
+```ts title="src/adapter.test.ts"
 await expect(app.start()).rejects.toThrow(
 	[
 		'UltimaBase did not sync Post: the database refused it.',
@@ -595,7 +595,7 @@ The feed is the third argument of `start`:
 started with a `changed` that pushes to `fed`, and `author` stands for a row
 with the id `a1` and its dates. An insert is fed once it commits:
 
-```ts
+```ts title="src/adapter.test.ts"
 await adapter.write({
 	changes: [
 		{ kind: 'insert', model: 'Author', row: { ...author, name: 'Ada' } },
@@ -609,7 +609,7 @@ await expect
 
 A change lists at most `feedIds` ids or pairs; past that, it lists none:
 
-```ts
+```ts title="src/adapter.test.ts"
 const rows = Array.from({ length: feedIds + 1 }, (_, index) => ({
 	...author,
 	id: `a${String(index)}`,
@@ -626,7 +626,7 @@ An update lists the fields it set, `updatedAt` included, unless they are every
 field or, as JSON, longer than `feedFields`. The model `Wide` has a field
 named by that many characters:
 
-```ts
+```ts title="src/adapter.test.ts"
 // A field name as long as `feedFields`: the list of fields, as JSON, is longer.
 const long = 'x'.repeat(feedFields)
 ```
@@ -635,7 +635,7 @@ const long = 'x'.repeat(feedFields)
 `feed`. It holds one row, whose insert is `feed[0]`, and an update sets that
 field:
 
-```ts
+```ts title="src/adapter.test.ts"
 await watched.write({
 	changes: [
 		{
@@ -650,7 +650,7 @@ await watched.write({
 
 The change lists the row and no field:
 
-```ts
+```ts title="src/adapter.test.ts"
 await expect
 	.poll(() => feed[1])
 	.toEqual([{ kind: 'update', model: 'Wide', ids: ['a1'] }])
@@ -668,7 +668,7 @@ for a database that starts empty every time, as `memory()`, has none.
 
 `timed` passes its adapter's on:
 
-```ts
+```ts title="src/timed.ts"
 // memory() has none; PostgreSQL's sync and deploy go through as they are.
 ...(adapter.migrations !== undefined && {
 	migrations: adapter.migrations,
@@ -688,7 +688,7 @@ messages share the application's format and level. `timed` warns of each call
 that takes `slow` milliseconds or more. The tests' `capturing` logger keeps its
 warnings in `warnings`:
 
-```ts
+```ts title="src/adapter.test.ts"
 // From 0 ms, every call is slow.
 const app = defineApp({
 	database: timed(memory(), { slow: 0 }),

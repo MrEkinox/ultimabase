@@ -5,14 +5,19 @@
 import { readFileSync } from 'node:fs'
 import { extname, join } from 'node:path'
 
-/** An include of a page: the file from `website/`, and its region if any. */
+/**
+ * An include of a page: the file from `website/`, its region if any, and its
+ * code block's meta if any, such as `title="src/models.ts"`.
+ */
 export interface Include {
 	readonly tag: string
 	readonly file: string
 	readonly region: string | undefined
+	readonly meta: string | undefined
 }
 
 const tags = /<include(?<attributes>[^>]*)>(?<target>[^<]*)<\/include>/gu
+const metas = /\bmeta=(?:'(?<single>[^']*)'|"(?<double>[^"]*)")/u
 const start = /^\s*\/\/\s*#?region\b\s*(?<name>.*?)\s*$/u
 const end = /^\s*\/\/\s*#?endregion\b\s*(?<name>.*?)\s*$/u
 
@@ -21,10 +26,12 @@ export function includesOf(page: string): Include[] {
 	return [...page.matchAll(tags)].map((match) => {
 		const target = match.groups?.['target']?.trim() ?? ''
 		const at = target.lastIndexOf('#')
+		const meta = metas.exec(match.groups?.['attributes'] ?? '')?.groups
 		return {
 			tag: match[0],
 			file: at === -1 ? target : target.slice(0, at),
 			region: at === -1 ? undefined : target.slice(at + 1),
+			meta: meta?.['single'] ?? meta?.['double'],
 		}
 	})
 }
@@ -78,7 +85,8 @@ export function codeBlock(website: string, include: Include): string {
 	let fence = '```'
 	while (code.includes(fence)) fence += '`'
 	const language = extname(include.file).slice(1)
-	return `${fence}${language}\n${code.replace(/\r?\n$/u, '')}\n${fence}`
+	const meta = include.meta === undefined ? '' : ` ${include.meta}`
+	return `${fence}${language}${meta}\n${code.replace(/\r?\n$/u, '')}\n${fence}`
 }
 
 /** The part of a Markdown tree `codeEndsAtItsLastLine` reads. */

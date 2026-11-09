@@ -11,7 +11,7 @@ declares with its members, the users:
 npm install @ultimabase/roles
 ```
 
-```ts
+```ts title="src/models.ts"
 import { defineUser } from '@ultimabase/auth'
 import { graphql } from '@ultimabase/graphql'
 import { password } from '@ultimabase/password'
@@ -43,7 +43,7 @@ The full example, with its tests: [`examples/roles-and-acl`](https://github.com/
 The user model lists its roles in `roles`, the other side of `members`,
 which it names with `inverse`:
 
-```ts
+```ts title="src/models.ts"
 export const User = defineUser({
 	name: 'User',
 	use: [graphql(), password()],
@@ -64,7 +64,7 @@ declare module 'ultimabase' {
 [Authentication](/docs/next/auth), which gives each request its user, and
 [ACL](/docs/next/acl):
 
-```ts
+```ts title="src/app.ts"
 plugins: [
 	// Listens on PORT, or 3000.
 	httpPlugin(),
@@ -83,7 +83,7 @@ A role is an ordinary row: Master creates it and connects its members, as
 any [relation](/docs/next/relations). The tests write `as` for
 `{ as: master }`. The server gives Ada the `writer` role:
 
-```ts
+```ts title="src/app.test.ts"
 await Role.create(
 	{ data: { name: 'writer', members: { connect: [{ id: ada.id }] } } },
 	as,
@@ -92,7 +92,7 @@ await Role.create(
 
 and Ada and Grace the `team` role:
 
-```ts
+```ts title="src/app.test.ts"
 await Role.create(
 	{
 		data: {
@@ -116,7 +116,7 @@ await Role.create(
 `Note` model of [ACL](/docs/next/acl), in `src/notes.ts`, only a
 writer creates a note:
 
-```ts
+```ts title="src/notes.ts"
 // The ACL picks the rows; the rules pick who writes a new note.
 access: {
 	read: allow.public,
@@ -128,7 +128,7 @@ access: {
 
 Ada, a writer, creates a note, sent with her `Authorization: Bearer` token:
 
-```graphql
+```graphql title="Request"
 mutation {
 	createNote(data: { title: "Plans" }) {
 		id
@@ -137,7 +137,7 @@ mutation {
 }
 ```
 
-```json
+```json title="Response"
 { "data": { "createNote": { "id": "…", "title": "Plans" } } }
 ```
 
@@ -154,7 +154,7 @@ A role's `inherits` lists the roles it includes: a member of `editor`, which
 inherits `writer`, is a writer too. `inheritedBy` is the other side. Here
 Bob, a user, is an editor, and `writer` is the role created above:
 
-```ts
+```ts title="src/app.test.ts"
 await Role.create(
 	{
 		data: {
@@ -171,7 +171,7 @@ Bob can now create a note. `rolesOf(caller)` lists the caller's roles,
 inherited ones included, each `{ id, name }`. The `myRoles` function returns
 their names. Bob sends the request, and gets his own roles:
 
-```ts
+```ts title="src/functions.ts"
 // The caller's roles, inherited ones included, read once per request.
 export const myRoles = defineFunction({
 	name: 'myRoles',
@@ -180,13 +180,13 @@ export const myRoles = defineFunction({
 }).with({ access: isAuthenticated })
 ```
 
-```graphql
+```graphql title="Request"
 mutation {
 	myRoles
 }
 ```
 
-```json
+```json title="Response"
 { "data": { "myRoles": ["editor", "writer"] } }
 ```
 

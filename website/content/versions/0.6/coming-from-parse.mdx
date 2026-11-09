@@ -28,13 +28,13 @@ on every task, and hooks that keep the role's users in step with the project. A
 right that follows from the data needs neither. Here a task belongs to a project,
 which lists its `members`:
 
-```ts
+```ts title="src/projects.ts"
 import { graphql } from '@ultimabase/graphql'
 import { PublicError, allow, defineModel } from 'ultimabase'
 import type { Caller } from 'ultimabase'
 ```
 
-```ts
+```ts title="src/projects.ts"
 fields: (f) => ({
 	title: f.string(),
 	done: f.boolean({ default: false }),
@@ -45,7 +45,7 @@ fields: (f) => ({
 The members of the project read its tasks, and a member who leaves reads none of
 them from the next query on:
 
-```ts
+```ts title="src/projects.ts"
 // The members of its project read a task, one relation further.
 read: ({ caller, where }) =>
 	caller.kind === 'user' &&
@@ -83,7 +83,7 @@ its read rules. A row that leaves the caller's rights leaves the list.
 
 The query, written as a `subscription`:
 
-```tsx
+```tsx title="src/TaskList.tsx"
 type Tasks = {
 	readonly tasks: {
 		readonly edges: readonly {
@@ -112,7 +112,7 @@ const TasksDocument = gql`
 
 A component reads it with `useLiveSubscription`, from `@ultimabase/live/react`:
 
-```tsx
+```tsx title="src/TaskList.tsx"
 export function TaskList() {
 	const { data, fetchMore, fetchingMore } = useLiveSubscription<Tasks>(
 		TasksDocument,
@@ -150,7 +150,7 @@ Here the relation says it, as `Task.project` does above, with
 transaction. Deleting the author `ursula` deletes her two books of the three, and
 their links to tags; the tags stay. The test writes `as` for `{ as: master }`:
 
-```ts
+```ts title="src/queries.test.ts"
 await Author.delete({ where: { id: ursula.id } }, as)
 expect(await Book.count({}, as)).toBe(1)
 expect(await Tag.count({}, as)).toBe(2)
@@ -169,7 +169,7 @@ row: `post.set('cover', file)`. Here the field states what it accepts,
 `file({ accept: ['image/png'], maxSize: 5_000_000 })`, and the client uploads.
 Here `running` is the server a test starts, and `png` the image's bytes:
 
-```ts
+```ts title="src/app.test.ts"
 const client = uploader({ url: running.url })
 const cover = new File([png], 'cover.png', { type: 'image/png' })
 const id = await client.upload(cover, { for: 'Post.cover' })
@@ -177,7 +177,7 @@ const id = await client.upload(cover, { for: 'Post.cover' })
 
 Then it writes the id the upload returned, as `$cover`, and reads the file back:
 
-```graphql
+```graphql title="Request"
 mutation ($cover: JSON) {
 	createPost(data: { title: "Hello", cover: $cover }) {
 		cover {
@@ -196,7 +196,7 @@ mutation ($cover: JSON) {
 }
 ```
 
-```json
+```json title="Response"
 {
 	"data": {
 		"createPost": {
@@ -221,13 +221,13 @@ there, and an upload written in no row within the hour is deleted.
 A client tests a string, which `ErrorCodeOf<typeof app>` types. GraphQL puts it
 in the error's `extensions`, and REST in its body:
 
-```graphql
+```graphql title="Request"
 mutation {
 	order(sku: "MUG-1", quantity: 5)
 }
 ```
 
-```json
+```json title="Response"
 {
 	"errors": [
 		{
@@ -266,7 +266,7 @@ an `HttpOnly` cookie.
 `signUp` and `signIn` return the token. Here `$input` is
 `{ email: 'ada@example.com', password: 'correct horse', name: 'Ada' }`:
 
-```graphql
+```graphql title="Request"
 mutation ($input: SignUpInput!) {
 	signUp(input: $input) {
 		token
@@ -281,7 +281,7 @@ mutation ($input: SignUpInput!) {
 Sent with `Authorization: Bearer <token>`, `viewer` reads Ada; without the
 header, `viewer` is `null`:
 
-```graphql
+```graphql title="Request"
 query {
 	viewer {
 		name
@@ -289,7 +289,7 @@ query {
 }
 ```
 
-```json
+```json title="Response"
 { "data": { "viewer": { "name": "Ada" } } }
 ```
 

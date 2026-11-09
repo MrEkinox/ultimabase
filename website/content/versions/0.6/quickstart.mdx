@@ -47,7 +47,7 @@ The model: a table, its fields, and who may read and write it. Its rule,
 application's rules open what its clients may do, as in
 [Access rules](/docs/next/access).
 
-```ts
+```ts title="src/models.ts"
 // The application's models: each one a table, its fields and who may
 // read and write it.
 import { allow, defineModel } from 'ultimabase'
@@ -63,7 +63,7 @@ export const Post = defineModel({
 
 The application: its database, its plugins and its models.
 
-```ts
+```ts title="src/app.ts"
 // The application: its database, its plugins and its models.
 import { graphqlPlugin } from '@ultimabase/graphql'
 import { httpPlugin } from '@ultimabase/http'
@@ -84,7 +84,7 @@ export const app = defineApp({
 
 The file the `dev` and `start` scripts read, which names the application:
 
-```ts
+```ts title="ultimabase.config.ts"
 // What `ultimabase dev` and `ultimabase start` run: the application.
 export { app as default } from './src/app.ts'
 ```
@@ -98,7 +98,7 @@ npm test
 Each test file gets the application on a new in-memory database and a free
 port:
 
-```ts
+```ts title="src/app.test.ts"
 // Each test runs the application on a new in-memory database and a free port.
 import { testApplication } from '@ultimabase/testing'
 import { master } from 'ultimabase'

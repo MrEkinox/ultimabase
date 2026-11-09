@@ -14,7 +14,7 @@ row. Here, a new note is its author's alone:
 npm install @ultimabase/acl
 ```
 
-```ts
+```ts title="src/notes.ts"
 import { ACL, acl } from '@ultimabase/acl'
 import { graphql } from '@ultimabase/graphql'
 import { hasRole } from '@ultimabase/roles'
@@ -56,7 +56,7 @@ The full example, with its tests: [`examples/roles-and-acl`](https://github.com/
 
 `aclPlugin()` goes in the application's plugins:
 
-```ts
+```ts title="src/app.ts"
 plugins: [
 	// Listens on PORT, or 3000.
 	httpPlugin(),
@@ -79,7 +79,7 @@ Each caller meets only the notes its rights name. Ada holds the role `writer`,
 given as [Roles](/docs/next/roles) shows, so she may create a note. She sends
 it with her `Authorization: Bearer` token, and is its author:
 
-```graphql
+```graphql title="Request"
 mutation {
 	createNote(data: { title: "Plans" }) {
 		id
@@ -88,13 +88,13 @@ mutation {
 }
 ```
 
-```json
+```json title="Response"
 { "data": { "createNote": { "id": "…", "title": "Plans" } } }
 ```
 
 She reads it:
 
-```graphql
+```graphql title="Request"
 query {
 	notes {
 		edges {
@@ -106,7 +106,7 @@ query {
 }
 ```
 
-```json
+```json title="Response"
 { "data": { "notes": { "edges": [{ "node": { "title": "Plans" } }] } } }
 ```
 
@@ -118,7 +118,7 @@ Only Master writes an ACL: a client that could, could give itself any row.
 Sharing is a [function](/docs/next/functions) that checks the caller, then
 writes the new rights as Master:
 
-```ts
+```ts title="src/functions.ts"
 export const shareNote = defineFunction({
 	name: 'shareNote',
 	input: z.object({ note: z.string(), role: z.string() }),
@@ -148,7 +148,7 @@ export const shareNote = defineFunction({
 
 Ada shares the note with the role `team`:
 
-```graphql
+```graphql title="Request"
 mutation ($note: String!) {
 	shareNote(note: $note, role: "team") {
 		title
@@ -156,14 +156,14 @@ mutation ($note: String!) {
 }
 ```
 
-```json
+```json title="Response"
 { "data": { "shareNote": { "title": "Plans" } } }
 ```
 
 Grace, a member of `team`, now reads the note, and Bob, who is not, does not.
 Grace has only the read right, so to her the note cannot be updated:
 
-```graphql
+```graphql title="Request"
 mutation ($note: ID!) {
 	updateNote(where: { id: $note }, data: { title: "Mine" }) {
 		title
@@ -171,7 +171,7 @@ mutation ($note: ID!) {
 }
 ```
 
-```json
+```json title="Response"
 {
 	"errors": [
 		{
@@ -201,7 +201,7 @@ Master writes the `acl` field as an `ACL` or as its JSON, `{ read, write }`,
 each a list of subjects: `*` for the public, `user:<id>` or `role:<id>`. A
 client cannot write it, even on its own note:
 
-```graphql
+```graphql title="Request"
 mutation {
 	createNote(data: { title: "Open", acl: { read: ["*"], write: [] } }) {
 		id
@@ -209,7 +209,7 @@ mutation {
 }
 ```
 
-```json
+```json title="Response"
 {
 	"errors": [
 		{
@@ -229,7 +229,7 @@ mutation {
 Master can. The tests write `as` for `{ as: master }`. Here it writes the JSON
 form; `new ACL()` builds the other, as [the class](#the-acl-class) shows:
 
-```ts
+```ts title="src/app.test.ts"
 const note = await Note.create(
 	{ data: { title: 'News', acl: { read: ['*'], write: [] } } },
 	as,
@@ -239,7 +239,7 @@ expect(note.acl.publicCan('read')).toBe(true)
 
 A client reads the field as that JSON:
 
-```graphql
+```graphql title="Request"
 query {
 	notes {
 		edges {
@@ -252,7 +252,7 @@ query {
 }
 ```
 
-```json
+```json title="Response"
 {
 	"data": {
 		"notes": {
@@ -269,7 +269,7 @@ query {
 An `ACL` never changes: each method returns a new one. A method given no
 permission gives or takes both:
 
-```ts
+```ts title="src/app.test.ts"
 const ada = { id: 'u_1' }
 const staff = { id: 'r_1' }
 // Without permissions, a method gives or takes both.
@@ -285,7 +285,7 @@ expect(rights.toJSON()).toEqual({
 
 Ask what the rights hold:
 
-```ts
+```ts title="src/app.test.ts"
 expect(rights.userCan(ada, 'write')).toBe(true)
 expect(rights.roleCan(staff, 'write')).toBe(false)
 expect(rights.users('read')).toEqual(['u_1'])
@@ -294,7 +294,7 @@ expect(rights.roles('read')).toEqual(['r_1'])
 
 Take rights back, and list the stored entries:
 
-```ts
+```ts title="src/app.test.ts"
 const closed = rights.denyPublic().denyUser(ada, 'write')
 expect(closed.publicCan('read')).toBe(false)
 expect(closed.entries()).toEqual(['read:role:r_1', 'read:user:u_1'])
@@ -302,7 +302,7 @@ expect(closed.entries()).toEqual(['read:role:r_1', 'read:user:u_1'])
 
 Turn the JSON back into an ACL, which refuses a bad subject:
 
-```ts
+```ts title="src/app.test.ts"
 // The JSON back to an ACL; a subject is *, user:<id> or role:<id>.
 expect(ACL.fromJSON(closed.toJSON()).entries()).toEqual(closed.entries())
 expect(() => ACL.fromJSON({ read: ['team'] })).toThrow(

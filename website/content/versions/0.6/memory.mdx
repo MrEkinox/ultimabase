@@ -7,7 +7,7 @@ description: The database kept in the process, for a first application and the t
 It ships with `ultimabase`, so a first application and every test start on
 it. The rows last until the application stops.
 
-```ts
+```ts title="src/app.ts"
 import { graphqlPlugin } from '@ultimabase/graphql'
 import { httpPlugin } from '@ultimabase/http'
 import { defineApp, memory } from 'ultimabase'
@@ -38,7 +38,7 @@ the models, the queries and the errors stay the same.
 Each `start` begins on an empty database. `testApplication` starts the
 application around each test, so each test begins without rows:
 
-```ts
+```ts title="src/app.test.ts"
 it('writes a note', async () => {
 	await Note.create({ data: { text: 'Milk', ownerId: 'ada' } }, { as: master })
 	expect(await Note.count({}, { as: master })).toBe(1)
@@ -57,7 +57,7 @@ written before are gone.
 A write that fails puts back every row it changed, so it changes nothing, as
 a PostgreSQL statement does:
 
-```ts
+```ts title="src/app.test.ts"
 const ada = { name: 'Ada', email: 'ada@example.com' }
 // The second has the first's email: the whole write is refused.
 const data = [ada, { ...ada, name: 'Ada L.' }]
@@ -80,7 +80,7 @@ of tests.
 
 Strings sort by their bytes, as PostgreSQL's `"C"` collation does:
 
-```ts
+```ts title="src/app.test.ts"
 const names = ['adam', 'Émile', 'Zoe', 'Ada']
 const data = names.map((name) => ({ name, email: `${name}@example.com` }))
 await Contact.createMany({ data }, as)
@@ -102,7 +102,7 @@ expect(sorted.map((contact) => contact.name)).toEqual([
 - there are no stems and no stop words;
 - relevance follows PostgreSQL's `ts_rank`.
 
-```ts
+```ts title="src/app.test.ts"
 // With the contacts 'Émile Zola' and 'Jean-Paul Sartre'.
 const search = async (words: string) =>
 	(await Contact.findMany({ where: { _search: words } }, as)).map(

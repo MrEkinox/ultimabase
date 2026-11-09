@@ -8,7 +8,7 @@ A relation links the rows of two models: an author's books, a book's tags.
 keys, keeps them valid, and lets every query write, read, filter and sort
 through them:
 
-```ts
+```ts title="src/models.ts"
 import { graphql } from '@ultimabase/graphql'
 import { allow, defineModel } from 'ultimabase'
 
@@ -56,7 +56,7 @@ The queries below run on the server, as Master: the tests write `as` for
 The models of this page: an author writes books, a publisher prints them, tags
 sort them. `Author` is above; these are the others:
 
-```ts
+```ts title="src/models.ts"
 export const Publisher = defineModel({
 	name: 'Publisher',
 	use: [graphql()],
@@ -67,7 +67,7 @@ export const Publisher = defineModel({
 }).with({ access: allow.public })
 ```
 
-```ts
+```ts title="src/models.ts"
 export const Tag = defineModel({
 	name: 'Tag',
 	use: [graphql()],
@@ -79,7 +79,7 @@ export const Tag = defineModel({
 }).with({ access: allow.public })
 ```
 
-```ts
+```ts title="src/models.ts"
 export const Book = defineModel({
 	name: 'Book',
 	use: [graphql()],
@@ -143,7 +143,7 @@ Heaven; Octavia E. Butler (`octavia`) with Kindred. `dispossessed`, `lathe`,
 `one` takes a single object; a `many` takes a list. A required `one` must be
 written when the row is created, by `connect` or `create`:
 
-```ts
+```ts title="src/queries.test.ts"
 const sower = await Book.create(
 	{
 		data: {
@@ -162,7 +162,7 @@ const sower = await Book.create(
 `connect` adds links and `disconnect` removes them, from either side of the
 relation:
 
-```ts
+```ts title="src/queries.test.ts"
 await Book.update(
 	{
 		where: { id: lathe.id },
@@ -172,7 +172,7 @@ await Book.update(
 )
 ```
 
-```ts
+```ts title="src/queries.test.ts"
 // The same link, removed from the other side:
 await Tag.update(
 	{
@@ -185,7 +185,7 @@ await Tag.update(
 
 Connecting a `one` replaces its row. Here a book moves to another author:
 
-```ts
+```ts title="src/queries.test.ts"
 await Book.update(
 	{
 		where: { id: kindred.id },
@@ -197,7 +197,7 @@ await Book.update(
 
 An optional `one` is emptied with `disconnect: true`:
 
-```ts
+```ts title="src/shapes.test.ts"
 await Category.update(
 	{ where: { id: fantasy.id }, data: { parent: { disconnect: true } } },
 	as,
@@ -208,7 +208,7 @@ await Category.update(
 
 `set` replaces every link of a `many` with the rows it names:
 
-```ts
+```ts title="src/queries.test.ts"
 await Book.update(
 	{
 		where: { id: dispossessed.id },
@@ -221,7 +221,7 @@ await Book.update(
 `connectOrCreate` links the row its `where` finds, by `id` or a unique field,
 and creates it from `create` when there is none:
 
-```ts
+```ts title="src/queries.test.ts"
 const utopia = { where: { label: 'utopia' }, create: { label: 'utopia' } }
 const anarchy = {
 	where: { label: 'anarchy' },
@@ -241,7 +241,7 @@ await Book.update(
 `update` changes linked rows and `delete` deletes them. On a `many`, each one
 names its rows with a `where`; only rows linked to this row are reached.
 
-```ts
+```ts title="src/queries.test.ts"
 await Author.update(
 	{
 		where: { id: ursula.id },
@@ -255,7 +255,7 @@ await Author.update(
 )
 ```
 
-```ts
+```ts title="src/queries.test.ts"
 await Author.update(
 	{
 		where: { id: ursula.id },
@@ -272,7 +272,7 @@ linked row, as [one-to-one](#one-to-one) shows.
 
 A `connect` to a row that does not exist fails with `NOT_FOUND`:
 
-```ts
+```ts title="src/queries.test.ts"
 const data = {
 	title: 'The Word for World Is Forest',
 	author: { connect: { id: ursula.id } },
@@ -288,7 +288,7 @@ A write the types refuse, such as linking a book back to the publisher being
 created, throws an `InvalidQuery` (`INVALID_QUERY`) when the types are
 bypassed, and answers `BAD_USER_INPUT`, a `400`, when a client sends it:
 
-```ts
+```ts title="src/queries.test.ts"
 const book = {
 	title: 'The Left Hand of Darkness',
 	author: { connect: { id: ursula.id } },
@@ -317,7 +317,7 @@ Here Ursula's books are sorted by title, each with its publisher, whose `name`
 reads `'Ace'`. Adding `take: 10` keeps the first ten, and `tags: true` in the
 book's `include` adds its tags.
 
-```ts
+```ts title="src/queries.test.ts"
 const author = await Author.findUniqueOrThrow(
 	{
 		where: { id: ursula.id },
@@ -332,7 +332,7 @@ const author = await Author.findUniqueOrThrow(
 `select` returns only the fields it names, relations included, at any depth.
 The result's type follows it:
 
-```ts
+```ts title="src/queries.test.ts"
 const books = await Book.findMany(
 	{
 		where: { title: 'Kindred' },
@@ -355,7 +355,7 @@ A `where` reaches the related rows: `is` and `isNot` on a `one`, `some`,
 `every` and `none` on a `many`. They nest, so a filter can cross several
 relations.
 
-```ts
+```ts title="src/queries.test.ts"
 // `is` and `isNot` on a `one`
 const hers = await Book.findMany(
 	{ where: { author: { is: { name: 'Octavia E. Butler' } } } },
@@ -364,7 +364,7 @@ const hers = await Book.findMany(
 expect(hers.map((book) => book.title)).toEqual(['Kindred'])
 ```
 
-```ts
+```ts title="src/queries.test.ts"
 const withClassic = await Author.findMany(
 	{ where: { books: { some: { tags: { some: { label: 'classic' } } } } } },
 	as,
@@ -386,7 +386,7 @@ where it is set. `every` is true for a row with no related row.
 `_count: { select: { books: { where: { title: 'Kindred' } } } }`. An `orderBy`
 sorts by that count. Ursula has 2 books and Octavia 1:
 
-```ts
+```ts title="src/queries.test.ts"
 const authors = await Author.findMany(
 	{
 		orderBy: { books: { _count: 'desc' } },
@@ -399,7 +399,7 @@ expect(authors.map((author) => author._count.books)).toEqual([2, 1])
 
 An `orderBy` also sorts through a `one`, by a field of the related row:
 
-```ts
+```ts title="src/queries.test.ts"
 const books = await Book.findMany(
 	{ orderBy: [{ author: { name: 'asc' } }, { title: 'asc' }] },
 	as,
@@ -429,7 +429,7 @@ point to it.
 `Book.author` cascades: deleting an author deletes her books, and their links
 to tags. The tags stay.
 
-```ts
+```ts title="src/queries.test.ts"
 await Author.delete({ where: { id: ursula.id } }, as)
 expect(await Book.count({}, as)).toBe(1)
 expect(await Tag.count({}, as)).toBe(2)
@@ -437,7 +437,7 @@ expect(await Tag.count({}, as)).toBe(2)
 
 `Book.publisher` restricts: a publisher with books cannot be deleted.
 
-```ts
+```ts title="src/queries.test.ts"
 await expect(
 	Publisher.delete({ where: { id: ace.id } }, as),
 ).rejects.toMatchObject({
@@ -455,7 +455,7 @@ a parent, as [A model related to itself](#a-model-related-to-itself) shows.
 `size` on a `many` that faces a `one` bounds how many rows each parent
 holds: every poll keeps 2 to 4 choices.
 
-```ts
+```ts title="src/shapes.ts"
 export const Poll = defineModel({
 	name: 'Poll',
 	fields: (f) => ({
@@ -481,7 +481,7 @@ A write that leaves a parent out of its bounds is refused with
 `RELATION_SIZE`, and nothing of it is kept. The bound is checked at the end of
 the write, or of the [transaction](/docs/next/transactions):
 
-```ts
+```ts title="src/shapes.test.ts"
 const poll = await Poll.create(
 	{
 		data: {
@@ -494,7 +494,7 @@ const poll = await Poll.create(
 )
 ```
 
-```ts
+```ts title="src/shapes.test.ts"
 // A poll with one choice cannot be created.
 const one = { question: 'Yes?', choices: { create: [{ label: 'Yes' }] } }
 await expect(Poll.create({ data: one }, as)).rejects.toMatchObject({
@@ -515,7 +515,7 @@ optional and stores no key. The side it names stores the key, unique, and
 `onDelete` belongs to it. A member has at most one card; a card always has its
 member.
 
-```ts
+```ts title="src/shapes.ts"
 export const Member = defineModel({
 	name: 'Member',
 	fields: (f) => ({
@@ -535,7 +535,7 @@ export const Card = defineModel({
 })
 ```
 
-```ts
+```ts title="src/shapes.test.ts"
 const ada = await Member.create(
 	{ data: { name: 'Ada', card: { create: { number: 'C-1' } } } },
 	as,
@@ -547,7 +547,7 @@ const card = await Card.findUniqueOrThrow(
 expect(card.member?.name).toBe('Ada')
 ```
 
-```ts
+```ts title="src/shapes.test.ts"
 await Member.update(
 	{ where: { id: ada.id }, data: { card: { update: { number: 'C-2' } } } },
 	as,
@@ -575,7 +575,7 @@ card holds fails with `UNIQUE_VIOLATION`.
 A `one` that no relation names stores its key, and its target has no field
 for it. A notice belongs to a branch; a branch does not list its notices:
 
-```ts
+```ts title="src/shapes.ts"
 // Named by no relation: the notice stores its branch's key, and `Branch` has
 // no field for its notices.
 export const Notice = defineModel({
@@ -590,7 +590,7 @@ export const Notice = defineModel({
 It is written, read, filtered and sorted like any `one`, and its `onDelete`
 applies when the branch is deleted. `paris` is a branch whose city is Paris:
 
-```ts
+```ts title="src/shapes.test.ts"
 await Notice.create(
 	{
 		data: { text: 'Closed on Monday', branch: { connect: { id: paris.id } } },
@@ -599,7 +599,7 @@ await Notice.create(
 )
 ```
 
-```ts
+```ts title="src/shapes.test.ts"
 const found = await Notice.findMany(
 	{ where: { branch: { is: { city: 'Paris' } } }, include: { branch: true } },
 	as,
@@ -616,7 +616,7 @@ for it. Declare `notices: f.many(() => Notice, { inverse: 'branch' })` on
 A `many` with `inverse: false` is a many-to-many its target has no field
 for. A reading list names its books; a book does not list the reading lists:
 
-```ts
+```ts title="src/shapes.ts"
 // A many-to-many declared on one side: a reading list names its books, and
 // `Book` has no field for the lists that name it.
 export const ReadingList = defineModel({
@@ -633,7 +633,7 @@ read, filtered, counted and sorted like one, takes `within`, and deleting a
 row of either side removes its links. `earthsea` is the book A Wizard of
 Earthsea:
 
-```ts
+```ts title="src/shapes.test.ts"
 const list = await ReadingList.create(
 	{
 		data: { title: 'Winter', books: { connect: [{ id: earthsea.id }] } },
@@ -642,7 +642,7 @@ const list = await ReadingList.create(
 )
 ```
 
-```ts
+```ts title="src/shapes.test.ts"
 const found = await ReadingList.findMany(
 	{
 		where: { books: { some: { title: { contains: 'Earthsea' } } } },
@@ -666,7 +666,7 @@ expect(found).toEqual([
 
 A relation may target its own model: a category's parent and children.
 
-```ts
+```ts title="src/shapes.ts"
 export const Category = defineModel({
 	name: 'Category',
 	fields: (f) => ({
@@ -680,7 +680,7 @@ export const Category = defineModel({
 
 A category is created with its children:
 
-```ts
+```ts title="src/shapes.test.ts"
 const fiction = await Category.create(
 	{
 		data: {
@@ -694,7 +694,7 @@ const fiction = await Category.create(
 
 `parent` is optional, so deleting a category empties its children's parent:
 
-```ts
+```ts title="src/shapes.test.ts"
 await Category.delete({ where: { id: fiction.id } }, as)
 const left = await Category.findMany(
 	{ orderBy: { name: 'asc' }, include: { parent: true } },
@@ -711,7 +711,7 @@ expect(left.map(({ name, parent }) => [name, parent])).toEqual([
 When two models are linked twice, each `many` names its own `one`, as any
 `many` does:
 
-```ts
+```ts title="src/shapes.ts"
 export const Branch = defineModel({
 	name: 'Branch',
 	fields: (f) => ({
@@ -732,7 +732,7 @@ export const Transfer = defineModel({
 })
 ```
 
-```ts
+```ts title="src/shapes.test.ts"
 const paris = await Branch.create({ data: { city: 'Paris' } }, as)
 const transfer = { copies: 12, from: { connect: { id: paris.id } } }
 await Branch.create(
@@ -741,7 +741,7 @@ await Branch.create(
 )
 ```
 
-```ts
+```ts title="src/shapes.test.ts"
 const read = await Branch.findUniqueOrThrow(
 	{
 		where: { id: paris.id },
@@ -759,7 +759,7 @@ The join table of a many-to-many holds only the two keys. To store more, a
 role or a date, make the join a model with two `one` relations. A reader and a
 club each list their memberships:
 
-```ts
+```ts title="src/shapes.ts"
 export const Reader = defineModel({
 	name: 'Reader',
 	fields: (f) => ({
@@ -777,7 +777,7 @@ export const Club = defineModel({
 })
 ```
 
-```ts
+```ts title="src/shapes.ts"
 // A many-to-many with fields of its own: a model with two `one` relations.
 export const Membership = defineModel({
 	name: 'Membership',
@@ -792,7 +792,7 @@ export const Membership = defineModel({
 `club` is a club named Thursday readers. Grace joins it as its host, and the
 club reads its members through the join:
 
-```ts
+```ts title="src/shapes.test.ts"
 const membership = {
 	role: 'host' as const,
 	club: { connect: { id: club.id } },
@@ -803,7 +803,7 @@ await Reader.create(
 )
 ```
 
-```ts
+```ts title="src/shapes.test.ts"
 const read = await Club.findUniqueOrThrow(
 	{
 		where: { id: club.id },
@@ -822,7 +822,7 @@ A view is a read-only `many` that shows some of the rows of another `many` of
 the same model: `from` names that relation, and `.with({ relations })` gives
 the filter. A `one` view shows the one row its filter keeps, or `null`:
 
-```ts
+```ts title="src/shapes.ts"
 export const Series = defineModel({
 	name: 'Series',
 	fields: (f) => ({
@@ -845,7 +845,7 @@ A `many` view is read, filtered, counted and sorted like any relation. A
 `one` view is read and filtered. Here a series, Earthsea, has two volumes, Wizard
 (released) and Wind:
 
-```ts
+```ts title="src/shapes.test.ts"
 const series = await Series.create(
 	{
 		data: {
@@ -859,7 +859,7 @@ const series = await Series.create(
 )
 ```
 
-```ts
+```ts title="src/shapes.test.ts"
 const read = await Series.findUniqueOrThrow(
 	{
 		where: { id: series.id },
@@ -877,7 +877,7 @@ expect(read._count).toEqual({ volumes: 2, released: 1 })
 A unique index on the target's key, with a `where` the filter keeps, holds
 a `one` view's row single:
 
-```ts
+```ts title="src/shapes.ts"
 export const Volume = defineModel({
 	name: 'Volume',
 	fields: (f) => ({
@@ -893,7 +893,7 @@ export const Volume = defineModel({
 A `one` view is read and filtered like a `one`, with `is`, `isNot` and
 `is: null`:
 
-```ts
+```ts title="src/shapes.test.ts"
 const next = await Series.findUniqueOrThrow(
 	{
 		where: { id: series.id },
@@ -904,7 +904,7 @@ const next = await Series.findUniqueOrThrow(
 expect(next.upcoming).toEqual({ title: 'Wind' })
 ```
 
-```ts
+```ts title="src/shapes.test.ts"
 // Filtered like a `one`.
 const writing = await Series.findMany(
 	{ where: { upcoming: { isNot: null } } },
@@ -919,7 +919,7 @@ A `one` view can pin a relation to the user model to the signed-in user with
 `viewer: true`, at the top of its filter. A unique index on the target's key
 and that relation holds the row single, so each user reads their own:
 
-```ts
+```ts title="src/models.ts"
 export const Poll = defineModel({
 	name: 'Poll',
 	use: [graphql()],
@@ -941,7 +941,7 @@ export const Poll = defineModel({
 })
 ```
 
-```ts
+```ts title="src/models.ts"
 export const Vote = defineModel({
 	name: 'Vote',
 	use: [graphql()],
@@ -961,7 +961,7 @@ A poll asks `Tabs?`, created as Master. Ada, signed in, sent
 `createVote(data: { choice: "yes", poll: { connect: { id: $poll } } })`, with
 `$poll` the poll's id, so her request reads her vote:
 
-```graphql
+```graphql title="Request"
 query {
 	polls {
 		edges {
@@ -977,7 +977,7 @@ query {
 }
 ```
 
-```json
+```json title="Response"
 {
 	"data": {
 		"polls": {
@@ -1016,7 +1016,7 @@ a row, `false` those whose view keeps none.
 `within` keeps a `one`'s target in the row's parent: a task links only a
 milestone of its own project.
 
-```ts
+```ts title="src/shapes.ts"
 export const Project = defineModel({
 	name: 'Project',
 	fields: (f) => ({
@@ -1028,7 +1028,7 @@ export const Project = defineModel({
 })
 ```
 
-```ts
+```ts title="src/shapes.ts"
 export const Milestone = defineModel({
 	name: 'Milestone',
 	fields: (f) => ({
@@ -1059,7 +1059,7 @@ a task links it.
 is `VALIDATION_FAILED` with the issue `{ path: ['milestone'], message: 'Task.milestone
 needs a Milestone of the same project.' }`.
 
-```ts
+```ts title="src/shapes.test.ts"
 await Task.create(
 	{
 		data: {
@@ -1072,7 +1072,7 @@ await Task.create(
 )
 ```
 
-```ts
+```ts title="src/shapes.test.ts"
 // A task of another project cannot link the milestone.
 const data = {
 	title: 'Ship',
@@ -1082,7 +1082,7 @@ const data = {
 await expect(Task.create({ data }, as)).rejects.toMatchObject(refused)
 ```
 
-```ts
+```ts title="src/shapes.test.ts"
 // Nor can the milestone leave its project while a task links it.
 const move = { project: { connect: { id: shop.id } } }
 await expect(
@@ -1093,7 +1093,7 @@ await expect(
 A many-to-many takes `within` too, on one side: every task a note links
 has the note's `project`.
 
-```ts
+```ts title="src/shapes.ts"
 export const Note = defineModel({
 	name: 'Note',
 	fields: (f) => ({
@@ -1113,7 +1113,7 @@ task to another project while a link holds it.
 Here `site` and `shop` are projects, and `task` is a task of `shop`. A refusal from the note carries the
 issue `{ path: ['tasks'], message: 'Note.tasks needs a Task of the same project.' }`.
 
-```ts
+```ts title="src/shapes.test.ts"
 const here = { connect: { id: site.id } }
 const note = await Note.create(
 	{
@@ -1127,7 +1127,7 @@ const note = await Note.create(
 )
 ```
 
-```ts
+```ts title="src/shapes.test.ts"
 // A task of another project cannot be linked, from the note...
 const link = { tasks: { connect: [{ id: task.id }] } }
 await expect(
@@ -1135,7 +1135,7 @@ await expect(
 ).rejects.toMatchObject(refused)
 ```
 
-```ts
+```ts title="src/shapes.test.ts"
 // ...nor from the task.
 const back = { notes: { connect: [{ id: note.id }] } }
 await expect(
@@ -1149,7 +1149,7 @@ A remark is on an article or on a video, never both and never neither.
 `f.oneOf` takes the kinds, each named and given its model; each model names
 the field back from a `many`, as for a `one`.
 
-```ts
+```ts title="src/shapes.ts"
 export const Article = defineModel({
 	name: 'Article',
 	fields: (f) => ({
@@ -1159,7 +1159,7 @@ export const Article = defineModel({
 })
 ```
 
-```ts
+```ts title="src/shapes.ts"
 export const Video = defineModel({
 	name: 'Video',
 	fields: (f) => ({
@@ -1185,7 +1185,7 @@ export const Remark = defineModel({
 `article` is an Article titled Looms. A write names the kind it links or
 creates:
 
-```ts
+```ts title="src/shapes.test.ts"
 // A write names the kind it links or creates.
 const clear = await Remark.create(
 	{
@@ -1198,7 +1198,7 @@ const clear = await Remark.create(
 )
 ```
 
-```ts
+```ts title="src/shapes.test.ts"
 const video = { title: 'Intro', url: 'intro.mp4' }
 const short = await Remark.create(
 	{
@@ -1214,7 +1214,7 @@ A read gives the kind, and the row of each kind it asks for: `select` and
 A kind the read leaves out reads `{ kind }` alone, and TypeScript narrows the
 value on `kind`:
 
-```ts
+```ts title="src/shapes.test.ts"
 // A read gives the kind, and the row of each kind it asks for.
 const remarks = await Remark.findMany(
 	{
@@ -1229,7 +1229,7 @@ expect(remarks).toEqual([
 ])
 ```
 
-```ts
+```ts title="src/shapes.test.ts"
 // TypeScript narrows the value on its kind.
 const { subject } = short
 const id = subject?.kind === 'video' ? subject.video.id : ''
@@ -1239,7 +1239,7 @@ expect(subject).toMatchObject({ kind: 'video', video: { title: 'Intro' } })
 Linking another kind empties the former. An optional `oneOf` reads `null` when
 it is empty, and takes `disconnect: true`:
 
-```ts
+```ts title="src/shapes.test.ts"
 // Linking another kind empties the former.
 await Remark.update(
 	{
@@ -1250,7 +1250,7 @@ await Remark.update(
 )
 ```
 
-```ts
+```ts title="src/shapes.test.ts"
 const articles = await Article.findUnique(
 	{ where: { id: article.id }, include: { remarks: true } },
 	as,
@@ -1261,7 +1261,7 @@ expect(articles).toMatchObject({ remarks: [] })
 A `where` filters through one kind, through the fields every kind declares
 with the same type, or by kind:
 
-```ts
+```ts title="src/shapes.test.ts"
 // Through one kind, or through the fields every kind shares.
 const onIntro = await Remark.count(
 	{ where: { subject: { video: { is: { url: { equals: 'intro.mp4' } } } } } },
@@ -1274,7 +1274,7 @@ const startingWithI = await Remark.count(
 expect([onIntro, startingWithI]).toEqual([2, 2])
 ```
 
-```ts
+```ts title="src/shapes.test.ts"
 // By kind.
 const onArticles = await Remark.count(
 	{ where: { subject: { kind: 'article' } } },
@@ -1302,7 +1302,7 @@ The `graphql()` plugin of each model serves the same writes and reads. A
 client creates an author with her books and their tags in one mutation.
 `$publisher` is the id of a publisher created before:
 
-```graphql
+```graphql title="Request"
 mutation ($publisher: ID!) {
 	createAuthor(
 		data: {
@@ -1330,7 +1330,7 @@ mutation ($publisher: ID!) {
 }
 ```
 
-```json
+```json title="Response"
 {
 	"data": {
 		"createAuthor": {
@@ -1345,7 +1345,7 @@ A `many` is a connection, with `edges { node }` and `totalCount`, and takes
 the same `where`, `orderBy`, `take`, `skip` and `cursor`. With a second book,
 The Lathe of Heaven, written the same way, and `$id` the author's id:
 
-```graphql
+```graphql title="Request"
 query ($id: ID!) {
 	author(where: { id: $id }) {
 		books(orderBy: [{ title: asc }]) {
@@ -1363,7 +1363,7 @@ query ($id: ID!) {
 }
 ```
 
-```json
+```json title="Response"
 {
 	"data": {
 		"author": {

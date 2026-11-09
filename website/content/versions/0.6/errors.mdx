@@ -6,7 +6,7 @@ description: Refuse with an error the client can read, and keep every other erro
 A `PublicError` is an error the client is meant to read. Throw one from a
 function, a hook or a plugin to refuse:
 
-```ts
+```ts title="src/functions.ts"
 import { PublicError, allow, defineFunction, master } from 'ultimabase'
 import { z } from 'zod'
 import { Product } from './models.ts'
@@ -65,7 +65,7 @@ stock: 2 }`, and its `sku` is `unique`: so `Only 2 left.`, `left: 2` and
 
 A caller in server code catches it, and branches on its `code`:
 
-```ts
+```ts title="src/app.test.ts"
 // A caller branches on the code, and lets any other error go on.
 const outcome = await order.run({ sku: 'MUG-1', quantity: 5 }).then(
 	() => 'Ordered.',
@@ -81,7 +81,7 @@ expect(outcome).toBe('Sorry: Only 2 left.')
 
 The details are on the error too:
 
-```ts
+```ts title="src/app.test.ts"
 await expect(order.run({ sku: 'MUG-1', quantity: 5 })).rejects.toMatchObject({
 	code: 'OUT_OF_STOCK',
 	details: { sku: 'MUG-1', left: 2 },
@@ -91,7 +91,7 @@ await expect(order.run({ sku: 'MUG-1', quantity: 5 })).rejects.toMatchObject({
 The kernel's own errors are `PublicError`s too, with the codes listed in
 [Codes](#codes):
 
-```ts
+```ts title="src/app.test.ts"
 await expect(
 	Product.create({ data: { sku: 'MUG-1', name: 'Other mug' } }, { as: master }),
 ).rejects.toMatchObject({
@@ -105,14 +105,14 @@ await expect(
 REST answers with the error as its body, and a status from its code. An
 application's own code is a `400`:
 
-```http
+```http title="Request"
 POST /api/functions/order
 content-type: application/json
 
 { "sku": "MUG-1", "quantity": 5 }
 ```
 
-```json
+```json title="Response"
 {
 	"code": "OUT_OF_STOCK",
 	"message": "Only 2 left.",
@@ -125,13 +125,13 @@ content-type: application/json
 GraphQL puts the code and the details in the error's `extensions`, with the
 `path` of the field that failed. Its requests go to `POST /graphql`:
 
-```graphql
+```graphql title="Request"
 mutation {
 	order(sku: "MUG-1", quantity: 5)
 }
 ```
 
-```json
+```json title="Response"
 {
 	"errors": [
 		{
@@ -153,7 +153,7 @@ mutation {
 An error that is not a `PublicError`, a bug or a service that failed, never
 reaches the client: its message could hold a secret.
 
-```ts
+```ts title="src/functions.ts"
 export const subscribe = defineFunction({
 	name: 'subscribe',
 	input: z.object({ email: z.email() }),
@@ -170,14 +170,14 @@ Its request answers `INTERNAL` with a `500` and a correlation id, which the
 response file shows as `…`: it changes at each run. The server logs the error
 with the same id:
 
-```http
+```http title="Request"
 POST /api/functions/subscribe
 content-type: application/json
 
 { "email": "ada@example.com" }
 ```
 
-```json
+```json title="Response"
 {
 	"code": "INTERNAL",
 	"message": "Internal error.",
@@ -187,7 +187,7 @@ content-type: application/json
 
 The test reads that id from the response, and the line the server logs:
 
-```ts
+```ts title="src/app.test.ts"
 // The log line holds the same id, and the error with its stack.
 const line = String(logged.mock.calls[0]?.[0])
 expect(line).toContain(correlationId)
@@ -207,7 +207,7 @@ expect(line).toContain('NEWSLETTER_URL is not set.')
 kernel's, and those of each plugin it lists, as HTTP's `PAYLOAD_TOO_LARGE`.
 Add the application's own codes to it:
 
-```ts
+```ts title="src/messages.ts"
 import type { ErrorCodeOf } from 'ultimabase'
 import type { app } from './app.ts'
 
@@ -217,7 +217,7 @@ type Code = ErrorCodeOf<typeof app> | 'OUT_OF_STOCK'
 A client types its messages against it. A code a new plugin adds, or one a
 plugin drops, fails its typing:
 
-```ts
+```ts title="src/messages.ts"
 const messages = {
 	OUT_OF_STOCK: 'This product is out of stock.',
 	ACCESS_DENIED: 'You cannot do this.',
@@ -240,7 +240,7 @@ const messages = {
 } satisfies Record<Code, string>
 ```
 
-```ts
+```ts title="src/messages.ts"
 const known: ReadonlyMap<string, string> = new Map(Object.entries(messages))
 
 /** The message for a code a response carries, or a generic one. */
@@ -248,7 +248,7 @@ export const messageOf = (code: string): string =>
 	known.get(code) ?? messages.INTERNAL
 ```
 
-```ts
+```ts title="src/app.test.ts"
 // `code` is the one of the REST answer above: OUT_OF_STOCK.
 expect(messageOf(code)).toBe('This product is out of stock.')
 expect(messageOf('A_CODE_NO_SERVER_SENDS')).toBe('Something went wrong.')
@@ -263,7 +263,7 @@ A plugin declares its codes beside its name, in its
 
 A query the kernel refuses throws an `InvalidQuery`:
 
-```ts
+```ts title="src/app.test.ts"
 await expect(
 	// @ts-expect-error `titel` is no field: the types refuse it too.
 	Product.findMany({ where: { titel: 'Mug' } }, { as: master }),

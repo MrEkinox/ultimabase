@@ -12,7 +12,7 @@ free port. Tests run with [Vitest](https://vitest.dev); install
 npm install -D @ultimabase/testing vitest
 ```
 
-```ts
+```ts title="src/app.test.ts"
 // Starts the application before each test, on a new in-memory database and
 // a free port, and stops it after.
 import { asUser, testApplication } from '@ultimabase/testing'
@@ -44,7 +44,7 @@ included, but without its info lines: warnings and errors still print.
 Each test starts on an empty database: a row one test writes is gone in the
 next, so tests run in any order.
 
-```ts
+```ts title="src/app.test.ts"
 it('writes a note', async () => {
 	await Note.create({ data: { text: 'Milk', ownerId: 'ada' } }, { as: master })
 	expect(await Note.count({}, { as: master })).toBe(1)
@@ -60,7 +60,7 @@ it('starts on an empty database', async () => {
 `asUser({ id })` is the caller a session gives, without signing in: its
 access rules apply, as in the application.
 
-```ts
+```ts title="src/app.test.ts"
 // A caller as a session gives it, without signing in.
 const ada = { as: asUser({ id: 'ada' }) }
 const note = await Note.create({ data: { text: 'Milk' } }, ada)
@@ -81,7 +81,7 @@ expect(await Note.findMany({}, grace)).toEqual([])
 `ada`. Without a session the caller is anonymous, so no note is its own and
 the list is empty:
 
-```graphql
+```graphql title="Request"
 query {
 	notes {
 		edges {
@@ -93,7 +93,7 @@ query {
 }
 ```
 
-```json
+```json title="Response"
 { "data": { "notes": { "edges": [] } } }
 ```
 
@@ -102,7 +102,7 @@ query {
 `running.queries(callback)` lists the queries the callback sends to the
 database, in their order. A test proves that a refusal reads nothing:
 
-```ts
+```ts title="src/app.test.ts"
 // The queries the callback sends to the database, in their order.
 const refused = await running.queries(async () => {
 	await expect(Note.create({ data: { text: 'Milk' } })).rejects.toMatchObject({
@@ -115,7 +115,7 @@ expect(refused).toEqual([])
 Or that a loop does not query once per row. An entry names the operation
 and the model:
 
-```ts
+```ts title="src/app.test.ts"
 const ada = { as: asUser({ id: 'ada' }) }
 const written = await running.queries(async () => {
 	await Note.create({ data: { text: 'Milk' } }, ada)
@@ -137,7 +137,7 @@ expect(written).toEqual(['write Note', 'find Note'])
 database: on `postgres()`, in a schema of the test file's own, named
 `ultimabase_test_<random>`.
 
-```ts
+```ts title="src/tasks.postgres.test.ts"
 // On the database DATABASE_URL names: the file's own schema, its tables
 // emptied before each test, dropped after the last.
 testApplication(app, { database: 'declared' })
@@ -163,7 +163,7 @@ A plugin that follows the [changes](/docs/next/plugins#follow-the-changes)
 reads again, in `missed`, what it may have lost after a lost connection.
 This one counts the open tasks again:
 
-```ts
+```ts title="src/open-tasks.ts"
 import type { PluginTypes } from 'ultimabase'
 import { definePlugin, master } from 'ultimabase'
 import { Task } from './models.ts'
@@ -194,7 +194,7 @@ connection. On `postgres()`, `database.sql` writes a change the feed does
 not report, since the feed reports the writes of the API only. The
 application of the test:
 
-```ts
+```ts title="src/missed.postgres.test.ts"
 const database = postgres({ url: process.env['DATABASE_URL'] })
 const app = defineApp({
 	database,
@@ -204,7 +204,7 @@ const app = defineApp({
 const running = testApplication(app, { database: 'declared' })
 ```
 
-```ts
+```ts title="src/missed.postgres.test.ts"
 it('counts the open tasks again after lost changes', async () => {
 	const tasks = { create: [{ title: 'Write' }] }
 	await Project.create({ data: { name: 'Launch', tasks } }, { as: master })
@@ -224,7 +224,7 @@ A front end's end-to-end tests run against `ultimabase dev`.
 `POST /_ultimabase/reset` with the master key empties the database: each
 test starts from no rows and seeds its own through the API.
 
-```http
+```http title="Request"
 POST /_ultimabase/reset
 x-ultimabase-master-key: dev-master-key
 ```

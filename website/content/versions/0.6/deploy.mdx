@@ -19,7 +19,7 @@ npx ultimabase start
 application that `ultimabase.config.ts` exports; the starter's `npm start`
 runs it. The application reads its settings from the environment:
 
-```ts
+```ts title="src/app.ts"
 import { graphqlPlugin } from '@ultimabase/graphql'
 import { httpPlugin } from '@ultimabase/http'
 import { postgres } from '@ultimabase/postgres'
@@ -71,7 +71,7 @@ application above reads.
 master key is refused in production.`
 - A key shorter than 32 characters refuses the start:
 
-```console
+```console title="Terminal"
 $ MASTER_KEY=secret npx ultimabase start
 The master key is 6 characters long; production needs 32 at least: `openssl rand -base64 32` gives one.
 ```
@@ -93,7 +93,7 @@ stopped.`, and ends by the signal, which a shell reports as 143: 128
 Once the migrations are deployed, a test starts the application in
 production and sends it this request, which creates a project with a task:
 
-```graphql
+```graphql title="Request"
 mutation {
 	createProject(
 		data: { name: "Launch", tasks: { create: [{ title: "Write the README" }] } }
@@ -112,7 +112,7 @@ mutation {
 }
 ```
 
-```json
+```json title="Response"
 {
 	"data": {
 		"createProject": {
@@ -136,12 +136,12 @@ mutation {
 Without a deploy, or with a database that does not answer, it prints why
 and exits 1:
 
-```console
+```console title="Terminal"
 $ npx ultimabase start
 The database has no UltimaBase schema: run `npx ultimabase migrate deploy`, then start again.
 ```
 
-```console
+```console title="Terminal"
 $ DATABASE_URL= npx ultimabase start
 postgres() was given no url: is the variable it reads set?
 $ DATABASE_URL=postgres://postgres@localhost:1/app npx ultimabase start
@@ -158,7 +158,7 @@ stack.
 when there is one: a release step can run it to know whether a deploy has
 work to do.
 
-```console
+```console title="Terminal"
 $ npx ultimabase migrate status
 20261026200257_init.sql is pending.
 20261029230454_add_priority.sql is pending.
@@ -215,7 +215,7 @@ HTTPS in front of it. Set `proxies` to the number of proxies in front of
 the server, so that rules and limits read the client's address in
 `X-Forwarded-For` (see [HTTP](/docs/next/http#the-caller)):
 
-```ts
+```ts title="src/app.ts"
 plugins: [
 	httpPlugin({
 		routes: [shop],

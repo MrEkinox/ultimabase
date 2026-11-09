@@ -11,7 +11,7 @@ model's `use`:
 npm install @ultimabase/realtime @ultimabase/live
 ```
 
-```ts
+```ts title="src/models.ts"
 import { graphql } from '@ultimabase/graphql'
 import { realtime } from '@ultimabase/realtime'
 import { rest } from '@ultimabase/rest'
@@ -41,7 +41,7 @@ The full example, with its tests: [`examples/realtime`](https://github.com/MrEki
 its own: `graphqlPlugin()` and `restPlugin()` serve the live reads when it is
 there.
 
-```ts
+```ts title="src/app.ts"
 // Listens on PORT, or 3000; GraphQL subscriptions on ws://…/graphql.
 plugins: [
 	// No new WebSocket during maintenance.
@@ -89,7 +89,7 @@ over WebSocket, on the GraphQL path, with
 
 With tasks `a`, `b` and `c`, ranked 1 to 3:
 
-```graphql
+```graphql title="Request"
 subscription {
 	tasks(first: 2, orderBy: [{ rank: asc }]) {
 		edges {
@@ -105,7 +105,7 @@ subscription {
 The first result is the list, `data`, with its `revision` and the `resume`
 token under `extensions.live`:
 
-```json
+```json title="Response"
 {
 	"data": {
 		"tasks": {
@@ -122,7 +122,7 @@ token under `extensions.live`:
 Each later result holds only what changed, under `extensions.live`. Here a task
 `new`, ranked 0, enters first, and `b` leaves the window of two, as `remove`:
 
-```json
+```json title="Response"
 {
 	"extensions": {
 		"live": {
@@ -140,7 +140,7 @@ A client connects with `createClient({ url: 'ws://localhost:3000/graphql' })`,
 from graphql-ws. `applyLive`, from `@ultimabase/live`, applies each change to
 the list it holds, here to `new` and `a`:
 
-```ts
+```ts title="src/follow.ts"
 import type { LiveMessage } from '@ultimabase/live'
 import { applyLive } from '@ultimabase/live'
 import type { Client } from 'graphql-ws'
@@ -177,7 +177,7 @@ export async function follow(
 A row subscription takes `where: { id }`, as its query, and sends the whole
 row again on each change. `$id` is the id of `a`:
 
-```graphql
+```graphql title="Request"
 subscription ($id: ID!) {
 	task(where: { id: $id }) {
 		title
@@ -186,7 +186,7 @@ subscription ($id: ID!) {
 }
 ```
 
-```json
+```json title="Response"
 {
 	"data": { "task": { "title": "a", "done": false } },
 	"extensions": { "live": { "revision": 1 } }
@@ -195,7 +195,7 @@ subscription ($id: ID!) {
 
 Once `a` is done:
 
-```json
+```json title="Response"
 {
 	"data": { "task": { "title": "a", "done": true } },
 	"extensions": { "live": { "revision": 2 } }
@@ -204,7 +204,7 @@ Once `a` is done:
 
 It sends `null` once the row is deleted or the caller can no longer read it:
 
-```json
+```json title="Response"
 { "data": { "task": null }, "extensions": { "live": { "revision": 3 } } }
 ```
 
@@ -213,14 +213,14 @@ It sends `null` once the row is deleted or the caller can no longer read it:
 A client without `@ultimabase/live` asks for page mode, with the `query` above,
 and gets the whole window on each change:
 
-```ts
+```ts title="src/app.test.ts"
 const results = client.iterate({
 	query,
 	extensions: { live: { mode: 'page' } },
 })
 ```
 
-```json
+```json title="Response"
 {
 	"data": {
 		"tasks": {
@@ -236,7 +236,7 @@ const results = client.iterate({
 
 Once `new` is created:
 
-```json
+```json title="Response"
 {
 	"data": {
 		"tasks": {
@@ -263,7 +263,7 @@ hands Apollo the result.
 npm install @apollo/client graphql-ws rxjs
 ```
 
-```tsx
+```tsx title="src/TaskList.tsx"
 /** An Apollo client whose subscriptions go over `socket`. */
 export function apolloClient(socket: Client): ApolloClient {
 	return new ApolloClient({
@@ -276,7 +276,7 @@ export function apolloClient(socket: Client): ApolloClient {
 
 The subscription is Apollo's own document:
 
-```tsx
+```tsx title="src/TaskList.tsx"
 type Tasks = {
 	readonly tasks: {
 		readonly edges: readonly {
@@ -307,7 +307,7 @@ const TasksDocument = gql`
 Apollo's `useSubscription` and returns its result plus `fetchMore`, which adds
 rows to the list on the same socket, and `fetchingMore`, true while it runs:
 
-```tsx
+```tsx title="src/TaskList.tsx"
 export function TaskList() {
 	const { data, fetchMore, fetchingMore } = useLiveSubscription<Tasks>(
 		TasksDocument,
@@ -347,7 +347,7 @@ A REST list or row URL with `Accept: text/event-stream` is live too.
 each listener the whole result, here `a` and `b`. `running.url` is the server's
 address:
 
-```ts
+```ts title="src/app.test.ts"
 const tasks = liveFetch<Tasks['tasks']>(
 	`${running.url}/api/tasks?first=2&orderBy=[{"rank":"asc"}]`,
 )
@@ -358,7 +358,7 @@ It reads over `fetch`, so it sends an `Authorization` header, which
 `EventSource` cannot. `fetchMore` grows the list, as in React, here to `a`, `b`
 and `c`:
 
-```ts
+```ts title="src/app.test.ts"
 await tasks.fetchMore({ first: 1 })
 ```
 
@@ -373,7 +373,7 @@ A function with `query: true` whose `use` lists `realtime()` is live: it runs
 again when a row it read changes, and sends its new value, unless it is the
 same.
 
-```ts
+```ts title="src/models.ts"
 // A query function whose `use` lists realtime() is live too.
 export const tasksLeft = defineFunction({
 	name: 'tasksLeft',
@@ -388,19 +388,19 @@ export const tasksLeft = defineFunction({
 GraphQL adds a `Subscription` field of its name; REST serves its `GET` route
 as a stream:
 
-```graphql
+```graphql title="Request"
 subscription {
 	tasksLeft
 }
 ```
 
-```json
+```json title="Response"
 { "data": { "tasksLeft": 3 }, "extensions": { "live": { "revision": 1 } } }
 ```
 
 Once a task is done:
 
-```json
+```json title="Response"
 { "data": { "tasksLeft": 2 }, "extensions": { "live": { "revision": 2 } } }
 ```
 
@@ -429,7 +429,7 @@ different one:
 A [plugin](/docs/next/plugins) can serve live reads over its own socket.
 `plugins.http.upgrade(path, accept, { close })` hands it the upgrade:
 
-```ts
+```ts title="src/feed.ts"
 export const taskFeedPlugin: PluginOf<TaskFeed> = definePlugin<TaskFeed>({
 	name: 'taskFeed',
 	requires: { http: httpPlugin, realtime: realtimePlugin },
@@ -463,7 +463,7 @@ their password, closed their account or saw their session end, or the
 application stops. Close the socket there, and close the viewer when the
 socket closes:
 
-```ts
+```ts title="src/feed.ts"
 /** Sends the first ten tasks, then what changed, as long as both stay. */
 async function follow(
 	realtime: RealtimeApi,
@@ -486,7 +486,7 @@ async function follow(
 
 A client of the socket reads the list, then what changed:
 
-```ts
+```ts title="src/feed.test.ts"
 const socket = new WebSocket(`${running.url.replace(/^http/, 'ws')}/tasks`)
 const messages: unknown[] = []
 socket.addEventListener('message', ({ data }) => {
@@ -511,7 +511,7 @@ takes it, GraphQL's included. A `Response` refuses it, sent as it is, and
 `undefined` lets it through. It runs after the origin check and reads no
 caller. During maintenance, it refuses every new socket:
 
-```ts
+```ts title="src/maintenance.ts"
 /** httpPlugin's `upgrade`: no new socket during maintenance. */
 export const refusedInMaintenance: Gate = () =>
 	enabled
@@ -527,7 +527,7 @@ path or on `path` alone. 1012, Service Restart, tells a client to come back
 later. A plugin that requires the HTTP plugin calls it, from a maintenance
 switch of the application:
 
-```ts
+```ts title="src/maintenance.ts"
 /** Keeps the HTTP plugin's API while the application runs. */
 export const maintenancePlugin: PluginOf<Maintenance> =
 	definePlugin<Maintenance>({
@@ -548,7 +548,7 @@ export function setMaintenance(on: boolean): void {
 The sockets open close with 1012, and a new one meets the 503. `wsUrl` is the
 server's address with the `ws` scheme, and `query` a subscription:
 
-```ts
+```ts title="src/maintenance.test.ts"
 const closes: unknown[] = []
 const client = createClient({
 	url: `${wsUrl}/graphql`,
@@ -559,7 +559,7 @@ const results = client.iterate({ query })
 await results.next()
 ```
 
-```ts
+```ts title="src/maintenance.test.ts"
 const feed = new WebSocket(`${wsUrl}/tasks`)
 await new Promise((done) => feed.once('open', done))
 const feedClosed = new Promise((done) => feed.once('close', done))
@@ -568,7 +568,7 @@ setMaintenance(true)
 expect(await feedClosed).toBe(1012)
 ```
 
-```ts
+```ts title="src/maintenance.test.ts"
 const refused = new WebSocket(`${wsUrl}/graphql`, 'graphql-transport-ws')
 const status = await new Promise((done) => {
 	refused.once('unexpected-response', (_request, response) => {
@@ -601,7 +601,7 @@ own `.with({ realtime: { maxLive } })`. Nested rows do not count: a nested list
 is bounded by its `take`. The `Task` model here sets 50. A `first` past it at
 subscribe is refused:
 
-```graphql
+```graphql title="Request"
 subscription {
 	tasks(first: 60) {
 		edges {
@@ -613,7 +613,7 @@ subscription {
 }
 ```
 
-```json
+```json title="Response"
 {
 	"errors": [
 		{
@@ -641,7 +641,7 @@ subscription {
 Over Server-Sent Events, `subscribe`'s second function gets the refusal, a
 `LiveError`:
 
-```ts
+```ts title="src/app.test.ts"
 const tasks = liveFetch(`${running.url}/api/tasks?first=60`)
 const error = await new Promise<LiveError>((failed) => {
 	stops.push(tasks.subscribe(() => undefined, failed))
@@ -674,7 +674,7 @@ The request sorts with `orderBy`, here
 `encodeURIComponent('[{"rank":"asc"}]')`, and each page has the shape
 `{ edges, pageInfo: { hasNextPage, endCursor } }`:
 
-```ts
+```ts title="src/history.ts"
 const live = liveFetch<Page>(`${url}/api/tasks?first=25&orderBy=${orderBy}`)
 let latest: Page | undefined
 const stop = live.subscribe((page) => {
@@ -686,7 +686,7 @@ Once `hasNextPage` is `false`, read the next ones with ordinary queries, from
 the cursor where the live window ends. `after` holds it, and `older` the tasks
 read so far:
 
-```ts
+```ts title="src/history.ts"
 /** Grows the live list, then, past its limit, reads the next tasks once. */
 async function more(): Promise<void> {
 	if (after === undefined) {

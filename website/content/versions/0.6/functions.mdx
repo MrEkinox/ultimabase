@@ -7,7 +7,7 @@ A function is an operation the server runs: search the books, borrow one,
 merge two accounts. `defineFunction` names it, validates its input, types its
 output, and every transport serves it:
 
-```ts
+```ts title="src/search.ts"
 import { allow, defineFunction } from 'ultimabase'
 import { z } from 'zod'
 import { Book } from './models.ts'
@@ -47,7 +47,7 @@ npm install zod
 The functions read and write `Book`, a model with a searchable `title` and
 an optional `borrowedBy`. Clients may only read it:
 
-```ts
+```ts title="src/models.ts"
 import { graphql } from '@ultimabase/graphql'
 import { rest } from '@ultimabase/rest'
 import { allow, defineModel } from 'ultimabase'
@@ -79,7 +79,7 @@ The tests write two books, Emma and Dune, as Master.
 
 `defineApp({ functions: [...] })` lists every function:
 
-```ts
+```ts title="src/app.ts"
 import { graphqlPlugin } from '@ultimabase/graphql'
 import { httpPlugin } from '@ultimabase/http'
 import { restPlugin } from '@ultimabase/rest'
@@ -105,7 +105,7 @@ the caller's rules, or `{ as: master }` to write what no client writes, as
 `Book` here. The function below returns a `Loan`, a named object that holds a
 model and data:
 
-```ts
+```ts title="src/functions.ts"
 // A named object: a model and data together.
 export const Loan = defineType({
 	name: 'Loan',
@@ -113,7 +113,7 @@ export const Loan = defineType({
 })
 ```
 
-```ts
+```ts title="src/functions.ts"
 export const borrowBook = defineFunction({
 	name: 'borrowBook',
 	input: z.object({ book: z.string(), days: z.int().min(1).max(30) }),
@@ -156,13 +156,13 @@ validates the input, then runs the function and returns its output, typed.
 In the tests, `ada` and `grace` stand for `{ as: asUser({ id: 'ada' }) }` and
 `{ as: asUser({ id: 'grace' }) }`, and `dune` for the id of the book Dune:
 
-```ts
+```ts title="src/app.test.ts"
 const loan = await borrowBook.run({ book: dune, days: 14 }, ada)
 expect(loan.book.borrowedBy).toBe('ada')
 expect(loan.dueOn).toMatch(/^\d{4}-\d{2}-\d{2}$/)
 ```
 
-```ts
+```ts title="src/app.test.ts"
 // A PublicError thrown by `run` reaches the caller.
 await expect(
 	borrowBook.run({ book: dune, days: 7 }, grace),
@@ -171,7 +171,7 @@ await expect(
 
 A function without an input takes only `{ as }`:
 
-```ts
+```ts title="src/app.test.ts"
 // A function without an input takes only `{ as }`.
 await returnBooks.run(ada)
 const available = await searchBooks.run({ text: 'dune', available: true }, ada)
@@ -188,7 +188,7 @@ function without one is closed to all but Master. The rule runs before the
 input is validated, so a refused caller learns nothing of what the input
 should be:
 
-```ts
+```ts title="src/app.test.ts"
 // Without `as`, the caller is anonymous.
 await expect(borrowBook.run({ book: dune, days: 14 })).rejects.toMatchObject({
 	code: 'ACCESS_DENIED',
@@ -199,7 +199,7 @@ await expect(borrowBook.run({ book: dune, days: 14 })).rejects.toMatchObject({
 
 An input that does not match is refused after the rule:
 
-```ts
+```ts title="src/app.test.ts"
 await expect(
 	borrowBook.run({ book: dune, days: 90 }, ada),
 ).rejects.toMatchObject({
@@ -226,7 +226,7 @@ Without an output, `run` returns nothing and GraphQL answers `true`.
 `@ultimabase/graphql`), and a function takes `{ name }` there, to rename it in
 that transport:
 
-```ts
+```ts title="src/functions.ts"
 // No input and no output: GraphQL answers `true`.
 export const returnBooks = defineFunction({
 	name: 'returnBooks',
@@ -258,7 +258,7 @@ same output.
 
 GraphQL:
 
-```graphql
+```graphql title="Request"
 query {
 	searchBooks(text: "dune", available: true) {
 		title
@@ -266,17 +266,17 @@ query {
 }
 ```
 
-```json
+```json title="Response"
 { "data": { "searchBooks": [{ "title": "Dune" }] } }
 ```
 
 REST, a GET with the input in the query string:
 
-```http
+```http title="Request"
 GET /api/functions/searchBooks?text=dune&available=true
 ```
 
-```json
+```json title="Response"
 [
 	{
 		"id": "…",
@@ -292,14 +292,14 @@ A mutation is a POST with its input in the body. `$id` stands for the id of
 Dune, which the test fills in. This request has no session, so the rule refuses
 it with a `403`:
 
-```http
+```http title="Request"
 POST /api/functions/borrowBook
 content-type: application/json
 
 { "book": "$id", "days": 14 }
 ```
 
-```json
+```json title="Response"
 {
 	"code": "ACCESS_DENIED",
 	"message": "borrowBook refused.",
@@ -310,13 +310,13 @@ content-type: application/json
 `returnBooks` above is named `giveBack` in GraphQL, and keeps `returnBooks` in
 REST. Called without a session on `POST /graphql`, it answers `ACCESS_DENIED`:
 
-```graphql
+```graphql title="Request"
 mutation {
 	giveBack
 }
 ```
 
-```json
+```json title="Response"
 {
 	"errors": [
 		{
@@ -346,7 +346,7 @@ A query whose output is `Book.paginated()` returns `Book.paginate(...)`: the
 rows its `where` and `orderBy` keep, read as the caller. Nothing is read until
 a transport, or server code, asks for the rows or the count:
 
-```ts
+```ts title="src/functions.ts"
 // A page: a client pages it as Book's generated list, and counts it.
 export const shelf = defineFunction({
 	name: 'shelf',
@@ -362,7 +362,7 @@ export const shelf = defineFunction({
 
 From server code, `run` returns the page:
 
-```ts
+```ts title="src/app.test.ts"
 // From server code, `run` returns the page: rows and a count, read when asked.
 const page = await shelf.run(ada)
 expect(await page.count()).toBe(2)
@@ -379,7 +379,7 @@ asks for it.
 
 Both books are on the shelf. A page of one holds Dune, and `totalCount` is 2:
 
-```graphql
+```graphql title="Request"
 query {
 	shelf(first: 1) {
 		edges {
@@ -392,7 +392,7 @@ query {
 }
 ```
 
-```json
+```json title="Response"
 {
 	"data": {
 		"shelf": { "edges": [{ "node": { "title": "Dune" } }], "totalCount": 2 }
@@ -403,11 +403,11 @@ query {
 REST answers as `GET /api/books` does, with the same parameters. With one book
 asked, `hasNextPage` is `true`:
 
-```http
+```http title="Request"
 GET /api/functions/shelf?first=1&totalCount=true
 ```
 
-```json
+```json title="Response"
 {
 	"edges": [
 		{

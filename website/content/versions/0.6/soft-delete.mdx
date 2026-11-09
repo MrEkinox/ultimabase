@@ -11,7 +11,7 @@ trash still finds it. `softDelete()` goes in a model's `use`:
 npm install @ultimabase/soft-delete
 ```
 
-```ts
+```ts title="src/models.ts"
 import { graphql } from '@ultimabase/graphql'
 import { softDelete } from '@ultimabase/soft-delete'
 import { allow, defineModel } from 'ultimabase'
@@ -42,7 +42,7 @@ The full example, with its tests: [`examples/soft-delete`](https://github.com/Mr
 
 `softDeletePlugin()` goes in the application's plugins:
 
-```ts
+```ts title="src/app.ts"
 // Listens on PORT, or 3000.
 plugins: [httpPlugin(), graphqlPlugin(), softDeletePlugin()],
 ```
@@ -52,7 +52,7 @@ plugins: [httpPlugin(), graphqlPlugin(), softDeletePlugin()],
 The server holds two posts, `Kept` and `Draft`. A client deletes `Draft` as
 usual, with `deletePost`; `$id` is its id:
 
-```graphql
+```graphql title="Request"
 mutation ($id: ID!) {
 	deletePost(where: { id: $id }) {
 		id
@@ -60,13 +60,13 @@ mutation ($id: ID!) {
 }
 ```
 
-```json
+```json title="Response"
 { "data": { "deletePost": { "id": "…" } } }
 ```
 
 `Draft` leaves `posts`, and `Kept` stays:
 
-```graphql
+```graphql title="Request"
 query {
 	posts {
 		edges {
@@ -78,7 +78,7 @@ query {
 }
 ```
 
-```json
+```json title="Response"
 { "data": { "posts": { "edges": [{ "node": { "title": "Kept" } }] } } }
 ```
 
@@ -88,7 +88,7 @@ No transport exposes the trash or `restore` by themselves: a function gives
 them to clients, with the rules it chooses. Each command runs as the caller,
 so the model's rules apply:
 
-```ts
+```ts title="src/functions.ts"
 export const trash = defineFunction({
 	name: 'trash',
 	query: true,
@@ -108,7 +108,7 @@ export const restorePost = defineFunction({
 
 The trash has `Draft`, the deleted post:
 
-```graphql
+```graphql title="Request"
 query {
 	trash {
 		title
@@ -116,13 +116,13 @@ query {
 }
 ```
 
-```json
+```json title="Response"
 { "data": { "trash": [{ "title": "Draft" }] } }
 ```
 
 `restorePost` brings `Draft` back, by its id, with `deletedAt` set to `null`:
 
-```graphql
+```graphql title="Request"
 mutation ($id: ID!) {
 	restorePost(id: $id) {
 		title
@@ -131,7 +131,7 @@ mutation ($id: ID!) {
 }
 ```
 
-```json
+```json title="Response"
 { "data": { "restorePost": { "title": "Draft", "deletedAt": null } } }
 ```
 
@@ -143,7 +143,7 @@ The model gets two commands. The tests below write `as` for `{ as: master }`.
 `Post.trash` reads the deleted rows with `findMany`, `findFirst`,
 `findUnique` and `count`:
 
-```ts
+```ts title="src/app.test.ts"
 const post = await Post.create({ data: { title: 'Draft' } }, as)
 const removed = await Post.delete({ where: { id: post.id } }, as)
 expect(removed.deletedAt).toBeInstanceOf(Date)
@@ -152,7 +152,7 @@ expect(await Post.findUnique({ where: { id: post.id } }, as)).toBeNull()
 expect(await Post.trash.count({}, as)).toBe(1)
 ```
 
-```ts
+```ts title="src/app.test.ts"
 const found = await Post.trash.findUnique({ where: { id: post.id } }, as)
 expect(found?.title).toBe('Draft')
 ```
@@ -160,7 +160,7 @@ expect(found?.title).toBe('Draft')
 A deleted row is gone for every other read, Master's included. `deleteMany`
 keeps its rows too:
 
-```ts
+```ts title="src/app.test.ts"
 await Post.create({ data: { title: 'Old' } }, as)
 expect(await Post.deleteMany({}, as)).toEqual({ count: 1 })
 expect(await Post.trash.count({}, as)).toBe(2)
@@ -168,7 +168,7 @@ expect(await Post.trash.count({}, as)).toBe(2)
 
 `Post.restore` brings one back and returns it:
 
-```ts
+```ts title="src/app.test.ts"
 const restored = await Post.restore({ where: { id: post.id } }, as)
 expect(restored.deletedAt).toBeNull()
 ```
@@ -178,7 +178,7 @@ expect(restored.deletedAt).toBeNull()
 A deleted row keeps its values, unique ones included, so a new row cannot
 take them. `Tag` has a plain unique `name`:
 
-```ts
+```ts title="src/models.ts"
 export const Tag = defineModel({
 	name: 'Tag',
 	use: [softDelete()],
@@ -189,7 +189,7 @@ export const Tag = defineModel({
 
 Deleting the tag `news` does not free its name:
 
-```ts
+```ts title="src/app.test.ts"
 const tag = await Tag.create({ data: { name: 'news' } }, as)
 await Tag.delete({ where: { id: tag.id } }, as)
 await expect(Tag.create({ data: { name: 'news' } }, as)).rejects.toMatchObject({
@@ -202,7 +202,7 @@ An index whose `where` keeps only the rows not deleted, as `Post` has on its
 title (`where: { deletedAt: null }`), frees the value of a deleted row.
 Restoring that row is then a `UNIQUE_VIOLATION`:
 
-```ts
+```ts title="src/app.test.ts"
 const post = await Post.create({ data: { title: 'Draft' } }, as)
 await Post.delete({ where: { id: post.id } }, as)
 await Post.create({ data: { title: 'Draft' } }, as)
@@ -223,7 +223,7 @@ await expect(
 Only Master writes `deletedAt`: a client deletes through the `delete` rule and
 never dates a row itself. The request is refused with `ACCESS_DENIED`:
 
-```graphql
+```graphql title="Request"
 mutation {
 	createPost(data: { title: "Old", deletedAt: "2026-01-01T00:00:00Z" }) {
 		id
@@ -231,7 +231,7 @@ mutation {
 }
 ```
 
-```json
+```json title="Response"
 {
 	"errors": [
 		{
