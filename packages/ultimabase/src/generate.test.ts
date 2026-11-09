@@ -27,6 +27,7 @@ const io = (): Io => ({
 	out: (text) => out.push(text),
 	err: (text) => err.push(text),
 	now: () => new Date(),
+	interactive: true,
 	node: async () => 0,
 })
 

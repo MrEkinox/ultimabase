@@ -4078,7 +4078,7 @@ await Ticket.update({ where: { id }, data: { label: 'x' } }, { as: master })
 
 ## D-105: `ultimabase.config.ts`, the `ultimabase` commands and a schema snapshot
 
-Amended by D-171, D-232, D-280, D-307 and D-347.
+Amended by D-171, D-232, D-280, D-307, D-347 and D-356.
 
 Choice: amends D-26, D-73 and D-98 point 1.
 
@@ -21609,4 +21609,46 @@ await Role.update(
 	{ where: { id: input.id }, data: { name: input.name } },
 	{ as: master },
 )
+```
+
+## D-356: `dev` run by a program exits when its first start fails
+
+Choice: amends D-105, point 1.
+
+1. `ultimabase dev` run by a program, its output not a terminal or `CI`
+   set, exits with the code of its first start when that start fails,
+   instead of waiting for a file change. A start that succeeds, and every
+   restart after a change, behave as before: the watcher keeps running.
+2. In a terminal, without `CI`, nothing changes: a person fixes the file,
+   and the restart follows.
+3. No option: the run itself says whether a person watches it.
+4. The command listens on a port of `127.0.0.1` and gives it to the
+   application in `ULTIMABASE_DEV_REPORT`. The first start sends its exit
+   code there; the command stops listening after that report, and stops
+   the watcher when the code is not 0. A later start finds no one
+   listening and goes on.
+
+Why: an end-to-end runner (Playwright's `webServer`) starts `dev` and
+waits for a ready route. A sync that needs `--force`, after a switch
+between branches whose models differ, failed the start, but `node --watch`
+kept the process alive: the runner waited its whole timeout (300 s), then
+said only "Timed out waiting for the web server". The refusal already
+names `npx ultimabase sync --force`; it now ends the run at once.
+
+Rejected: `--exit-on-start-failure` (every runner would have to know it,
+and a program never wants the wait); exiting on any failed start
+(a runner's own file change would end its run); running `sync` before
+`dev` in each application's script (a step every application repeats);
+leaving `--watch` to the application's own process (D-105 keeps it in the
+command). Another local process could send a code to that port first: it
+can at most end a `dev` that no person watches.
+
+Example, before and after the same run:
+
+```sh
+# The models drop a table that still holds rows.
+CI=1 npx ultimabase dev
+# Before: the refusal, then "Waiting for file changes before restarting",
+#   until the runner gives up.
+# After: the refusal, then exit code 1.
 ```

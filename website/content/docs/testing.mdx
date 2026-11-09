@@ -138,7 +138,12 @@ application of the test:
 
 ## End-to-end tests
 
-A front end's end-to-end tests run against `ultimabase dev`.
+A front end's end-to-end tests run against `ultimabase dev`. Run by a
+program, as Playwright's `webServer`, or with `CI` set, it exits with code
+1 when its first start fails, a sync that needs `--force` for instance,
+instead of waiting for a file change: the runner fails at once, with the
+reason printed.
+
 `POST /_ultimabase/reset` with the master key empties the database: each
 test starts from no rows and seeds its own through the API.
 
