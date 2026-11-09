@@ -160,7 +160,7 @@ function follower(
 			const rows =
 				message.kind === 'reset'
 					? message.rows
-					: applied(window, message.changes, (row) => row)
+					: applied(window, message.changes)
 			if (page) window = rows
 			ends = endsOf(
 				[rows[0], rows.at(-1)].flatMap((row) => (row ? [row.id] : [])),
