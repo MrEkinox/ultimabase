@@ -240,3 +240,11 @@ a step that cost more than it found. The skill improves one audit at a time.
   concurrency probe needs a real wait. Vitest hides a passing test's logs:
   to read a probe's value, make its assertion fail. A depth finding in a
   package behind the transports is weighed against their `maxDepth` first.
+- `http` (2026-11-09): 17 findings, 1 false positive (a "duplicate" status
+  map that holds other codes). A fix at the line budget's edge paid for
+  itself by removing a check its new `try` already covered, and dead exports
+  freed room: look for lines to drop before raising a budget. A fix that
+  looks internal can contradict a decision's point (D-218's Master over the
+  limit, D-116's entry that is not an address): read the decision before
+  sorting the finding. Socket-level probes (`node:net`) prove what `fetch`
+  cannot send, as an upgrade's raw `Host`.
