@@ -9898,6 +9898,7 @@ Amended 2026-10-30: the landing page shows regions of several examples,
 each linking to its file.
 Amended 2026-10-30: Cloudflare serves the site at ultimabase.dev.
 Amended 2026-11-06: a page shows what a developer writes (D-282).
+Amended 2026-11-09: the versions npm deprecates leave the site (D-345).
 
 Choice: completes D-31; the examples stay its source of truth.
 
@@ -20960,4 +20961,51 @@ Applied 20261108_orphans.sql.
 Applied 20261108_orphans.sql.
   delete from "auth_session" as "row" where not exists (select from "user" where "…: DELETE 0
   delete from "auth_account" as "row" where not exists (select from "user" where "…: DELETE 12
+```
+
+## D-345: The versions npm deprecates leave the site
+
+Choice: amends D-155, point 8; a published version's pages are kept only
+while npm does not deprecate it.
+
+1. Every version before 0.6.0 is deprecated on npm, each package's message
+   pointing to `latest`: 0.6.0 is the one version an application installs.
+2. The documentation keeps its versions by minor version, but only those npm
+   does not deprecate: the copies of 0.1 to 0.5 in `website/content/versions/`
+   are removed, so the menu holds 0.6, served at `/docs`, and `next`, the
+   pages of `main`, at `/docs/next`.
+3. Deprecating a later minor version removes its copy in the same way, in a
+   commit of its own.
+
+Why: a deprecated version's pages invite a developer to keep using it, and
+its menu entry suggests it is still supported. Before 0.6, every minor version
+changed the API; an application on an older one moves to 0.6 rather than reads
+its old pages.
+
+Implicit choices:
+
+- The old pages' URLs, `/docs/0.5/…` and below, answer 404: no redirect to
+  their page in 0.6, since a static export has no server to redirect and the
+  site has had few readers before 0.6.
+- The canaries and `0.0.0-stage` are deprecated with the releases: npm's range
+  `<0.6.0` holds them.
+
+Rejected:
+
+- Keeping only the latest version and `next` from now on: a version npm still
+  supports would lose its pages as soon as the next one ships.
+- Hiding the old versions from the menu but keeping their pages: pages no
+  link reaches, still built and searched.
+
+Example, the documentation's versions:
+
+```text
+# Before
+website/content/versions/0.1 … 0.5   /docs/0.1 … /docs/0.5
+website/content/versions/0.6         /docs          (latest)
+website/content/docs                 /docs/next     (main)
+
+# After
+website/content/versions/0.6         /docs          (latest)
+website/content/docs                 /docs/next     (main)
 ```
