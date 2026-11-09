@@ -234,3 +234,9 @@ a step that cost more than it found. The skill improves one audit at a time.
   first in each pair was faster by 0.7 % on `createMany`, ranges apart; run
   in the other order, the gap was gone. Rerun a gap in the reverse order
   before calling it a slowdown.
+- `realtime` (2026-11-09): the first probe of a race passed, because
+  `memory()` resolves in microtasks and nothing interleaved; a `beforeFind`
+  that waits on a `setTimeout` showed 5 reads opened at a limit of 2. A
+  concurrency probe needs a real wait. Vitest hides a passing test's logs:
+  to read a probe's value, make its assertion fail. A depth finding in a
+  package behind the transports is weighed against their `maxDepth` first.
