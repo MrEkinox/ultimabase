@@ -51,9 +51,9 @@ on style, naming or structure are not findings.
   performance goes to the user, with its numbers.
 - Every package's fixes go on one audit branch, one commit per fix, so that
   each audit reads the code the previous ones fixed. It becomes one pull
-  request at the end; a serious hole gets its own pull request at once.
-  Nothing is pushed and no pull request is opened without the user's
-  confirmation.
+  request at the end, security fixes included: while one application runs
+  UltimaBase, a hole waits for it like any other fix. Nothing is pushed and
+  no pull request is opened without the user's confirmation.
 
 ## 1. Prepare
 
