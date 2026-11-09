@@ -23,7 +23,7 @@ together.
 Each model is a table: `defineModel` names it and declares its fields, then
 `.with()` adds what reads its typed rows, its access rules and its hooks.
 
-```ts
+```ts title="src/models.ts"
 import { graphql } from '@ultimabase/graphql'
 import { PublicError, allow, defineModel, master } from 'ultimabase'
 
@@ -51,7 +51,7 @@ export const Product = defineModel({
 
 An order takes from the stock, in its own transaction:
 
-```ts
+```ts title="src/models.ts"
 export const Order = defineModel({
 	name: 'Order',
 	use: [graphql()],
@@ -87,7 +87,7 @@ and [Hooks](/docs/next/hooks) cover each part.
 A function is an operation of your own, with a validated input, typed
 output and its own access rule. See [Functions](/docs/next/functions).
 
-```ts
+```ts title="src/functions.ts"
 import { allow, defineFunction, master, transaction } from 'ultimabase'
 import { z } from 'zod'
 import { Order } from './models.ts'
@@ -122,7 +122,7 @@ It checks them together where you write it: a model that uses `graphql()`
 without `graphqlPlugin()` in `plugins`, or a relation to a model missing
 from `models`, is a type error on this line.
 
-```ts
+```ts title="src/app.ts"
 import { graphqlPlugin } from '@ultimabase/graphql'
 import { httpPlugin } from '@ultimabase/http'
 import { defineApp, memory } from 'ultimabase'
@@ -144,7 +144,7 @@ export const app = defineApp({
 `ultimabase.config.ts` default-exports the application, for the
 `ultimabase` command:
 
-```ts
+```ts title="ultimabase.config.ts"
 // What `ultimabase dev` and `ultimabase start` run: the application.
 export { app as default } from './src/app.ts'
 ```

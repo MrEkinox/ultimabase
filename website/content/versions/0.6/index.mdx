@@ -11,7 +11,7 @@ sign-in, files, realtime, the databases.
 
 A model, and the rule that decides what a client reads:
 
-```ts
+```ts title="src/models.ts"
 import { defineModel } from 'ultimabase'
 
 export const Post = defineModel({
@@ -32,7 +32,7 @@ The full example, with its tests: [`examples/introduction`](https://github.com/M
 Server code, acting as `master` from `ultimabase`, past every rule, writes a
 published post and a draft:
 
-```ts
+```ts title="src/app.test.ts"
 await Post.createMany(
 	{ data: [{ title: 'Hello', published: true }, { title: 'Draft' }] },
 	{ as: master },
@@ -42,7 +42,7 @@ await Post.createMany(
 A client asks for the posts over GraphQL, and gets the published one, the rule
 applied:
 
-```graphql
+```graphql title="Request"
 query {
 	posts {
 		edges {
@@ -54,7 +54,7 @@ query {
 }
 ```
 
-```json
+```json title="Response"
 { "data": { "posts": { "edges": [{ "node": { "title": "Hello" } }] } } }
 ```
 

@@ -12,7 +12,7 @@ commit; `migrate deploy` applies those files.
 npm install @ultimabase/postgres
 ```
 
-```ts
+```ts title="src/app.ts"
 import { graphqlPlugin } from '@ultimabase/graphql'
 import { httpPlugin } from '@ultimabase/http'
 import { postgres } from '@ultimabase/postgres'
@@ -51,7 +51,7 @@ The full example, with its tests: [`examples/postgres`](https://github.com/MrEki
 run the application that `ultimabase.config.ts` exports. They look for the
 migration files in `migrations/`, beside it:
 
-```ts
+```ts title="ultimabase.config.ts"
 export { app as default } from './src/app.ts'
 ```
 
@@ -68,7 +68,7 @@ file changes, it restarts it, and syncs the tables again. `sync` does the
 same without starting the application. The first one logs `Created the
 database's tables.`, and the next:
 
-```console
+```console title="Terminal"
 $ npx ultimabase sync
 The database already matches the models.
 ```
@@ -99,7 +99,7 @@ Each model is a table, each field a column, named in snake case: `Task` is
 `task`, `createdAt` is `created_at`. `dbName` names a table or a column
 yourself (see [Models and fields](/docs/next/models)).
 
-```ts
+```ts title="src/models.ts"
 export const Project = defineModel({
 	name: 'Project',
 	use: [graphql()],
@@ -161,7 +161,7 @@ Here, `priority` was added to `Task`. The command wrote
 and updated `migrations/schema.json`, the models the migrations lead to.
 Commit both:
 
-```sql
+```sql title="migrations/20261029230454_add_priority.sql"
 -- ultimabase schema 2fd2b10f400fc79147980938759b63aa232ffc47d63c95701d415c339b13725c
 
 alter table "task" add column "priority" integer not null default 0;
@@ -180,7 +180,7 @@ change, a view, an index of your own. It prints `Wrote
 migrations/20261029230505_first_tasks_urgent.sql: no model changed, write
 your SQL in it.` Here, the update is written in it:
 
-```sql
+```sql title="migrations/20261029230505_first_tasks_urgent.sql"
 -- ultimabase schema 2fd2b10f400fc79147980938759b63aa232ffc47d63c95701d415c339b13725c
 
 -- The tasks written before priorities came first.
@@ -199,7 +199,7 @@ back. Some statements cannot run in a transaction, such as
 `create index concurrently`. Put such a statement alone in its file, with
 `-- ultimabase no transaction` as the second line:
 
-```sql
+```sql title="migrations/20261029230507_open_tasks_index.sql"
 -- ultimabase schema 2fd2b10f400fc79147980938759b63aa232ffc47d63c95701d415c339b13725c
 -- ultimabase no transaction
 
@@ -213,7 +213,7 @@ create index concurrently "task_open_idx" on "task" ("project_id") where not "do
 something to do. `migrate deploy` applies the files the database lacks, in
 order:
 
-```console
+```console title="Terminal"
 $ npx ultimabase migrate status
 20261026200257_init.sql is pending.
 20261029230454_add_priority.sql is pending.
@@ -221,7 +221,7 @@ $ npx ultimabase migrate status
 20261029230507_open_tasks_index.sql is pending.
 ```
 
-```console
+```console title="Terminal"
 $ npx ultimabase migrate deploy
 Applied 20261026200257_init.sql.
 Applied 20261029230454_add_priority.sql.
@@ -240,7 +240,7 @@ Running it, its stops and its refusals in production are on
 Deploy applies migrations only to a database they built. After a sync, it
 is refused:
 
-```console
+```console title="Terminal"
 $ npx ultimabase migrate deploy
 Development sync changed this database since its last deploy: deploy applies migrations only to a database they built.
 Restore the dump you test on, or rebuild this database from the migrations with `npx ultimabase reset`.
@@ -249,7 +249,7 @@ Restore the dump you test on, or rebuild this database from the migrations with 
 `reset` drops every table, then applies the migrations. It gives you the
 database production will have:
 
-```console
+```console title="Terminal"
 $ npx ultimabase reset
 Dropped project, task.
 Applied 20261026200257_init.sql.
@@ -268,7 +268,7 @@ development, then run `npx ultimabase migrate deploy`.
 application's own PostgreSQL, in a schema of the file's own: its tables are
 emptied before each test, and the schema is dropped after the last one.
 
-```ts
+```ts title="src/tasks.postgres.test.ts"
 // On the database DATABASE_URL names: the file's own schema, its tables
 // emptied before each test, dropped after the last.
 testApplication(app, { database: 'declared' })
@@ -287,7 +287,7 @@ Name these files `*.postgres.test.ts`, and keep the other tests on
 statement is planned once per connection, `searchLanguage` the language of
 the search, and `statementTimeout` how long a statement may run:
 
-```ts
+```ts title="src/search.postgres.test.ts"
 database: postgres({
 	url: process.env['DATABASE_URL'],
 	// At most 20 queries at once; the next waits up to 10 s for one.
@@ -305,7 +305,7 @@ database: postgres({
 `searchLanguage` names a text search configuration of the server, such as
 `'english'` or `'french'`. It stems the words that `_search` reads:
 
-```ts
+```ts title="src/search.postgres.test.ts"
 await Article.create(
 	{ data: { body: 'She runs every morning' } },
 	{ as: master },

@@ -13,7 +13,7 @@ npm install @ultimabase/files
 `filesPlugin()` goes in the application's plugins, after `httpPlugin()`, which
 it requires. It takes the storage, and who may upload:
 
-```ts
+```ts title="src/app.ts"
 import { filesPlugin } from '@ultimabase/files'
 import { graphqlPlugin } from '@ultimabase/graphql'
 import { httpPlugin } from '@ultimabase/http'
@@ -56,7 +56,7 @@ object is left without a row.
 `use: [graphql()]` and ends with `.with({ access: allow.public })`: the model
 is open to every client, to keep the example on files.
 
-```ts
+```ts title="src/models.ts"
 import { file } from '@ultimabase/files'
 import { graphql } from '@ultimabase/graphql'
 import { allow, defineModel } from 'ultimabase'
@@ -65,7 +65,7 @@ import { z } from 'zod'
 
 A post here has a public cover image, which takes PNG files of 5 MB at most:
 
-```ts
+```ts title="src/models.ts"
 cover: file({
 	optional: true,
 	accept: ['image/png'],
@@ -92,7 +92,7 @@ A client sends the file to `POST /files` with the field it is for, and gets
 its `id` back. In a browser, `uploader()` from `@ultimabase/files/client` does
 it, then the client writes the id in the post, over GraphQL or REST:
 
-```ts
+```ts title="src/app.test.ts"
 const client = uploader({ url: running.url })
 const cover = new File([png], 'cover.png', { type: 'image/png' })
 const id = await client.upload(cover, { for: 'Post.cover' })
@@ -100,7 +100,7 @@ const id = await client.upload(cover, { for: 'Post.cover' })
 
 The Request writes the id the upload returned, as `$cover`:
 
-```graphql
+```graphql title="Request"
 mutation ($cover: JSON) {
 	createPost(data: { title: "Hello", cover: $cover }) {
 		cover {
@@ -119,7 +119,7 @@ mutation ($cover: JSON) {
 }
 ```
 
-```json
+```json title="Response"
 {
 	"data": {
 		"createPost": {
@@ -140,7 +140,7 @@ them, such as an input's `FileList`. The client reads the file back with its
 `url` and its `inline` values; a public file's `url` is stable. The Request
 reads it:
 
-```graphql
+```graphql title="Request"
 query {
 	posts {
 		edges {
@@ -170,7 +170,7 @@ which the application serves for `memoryFiles()`.
 A field with `list: true` holds files in order, each once, and reads `[]` when
 empty. The attachments of a post are private text files:
 
-```ts
+```ts title="src/models.ts"
 attachments: file({
 	list: true,
 	// Text is not detected from its bytes: these types are taken as
@@ -202,7 +202,7 @@ Pushing a file. The post holds `notes.txt`, a 17-byte text file; the request
 pushes `prices.txt`, and the test passes `$id` as the post's id and `$attachments`
 as `{ push: [<id of prices.txt>] }`:
 
-```graphql
+```graphql title="Request"
 mutation ($id: ID!, $attachments: JSON) {
 	updatePost(where: { id: $id }, data: { attachments: $attachments }) {
 		attachments {
@@ -218,7 +218,7 @@ mutation ($id: ID!, $attachments: JSON) {
 }
 ```
 
-```json
+```json title="Response"
 {
 	"data": {
 		"updatePost": {
@@ -248,7 +248,7 @@ The type is read from the file's first bytes, never trusted from the client.
 `accept` lists the types a field takes, and an upload of another type is
 refused:
 
-```ts
+```ts title="src/app.test.ts"
 const client = uploader({ url: running.url })
 const text = new File(['Not a picture.'], 'cover.txt', {
 	type: 'text/plain',
@@ -271,7 +271,7 @@ expect(refused).toMatchObject({
 
 `maxSize` limits each field before the body is read:
 
-```ts
+```ts title="src/app.test.ts"
 const large = new File(['x'.repeat(100_001)], 'big.txt', {
 	type: 'text/plain',
 })
@@ -296,7 +296,7 @@ second request: a blurred placeholder, a page count, an image's size. Each is
 a function of `{ body, type, name }`, or `{ run, schema }` to type it in
 GraphQL and OpenAPI. Here the size of a PNG comes from its header:
 
-```ts
+```ts title="src/models.ts"
 const signature = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]
 
 /** A PNG's width and height, from its header; `null` for other bytes. */
@@ -342,7 +342,7 @@ A private file's URL stays the same for 15 minutes:
 without `as`, it uploads as a visitor. `files.check()` compares the storage
 with the database:
 
-```ts
+```ts title="src/app.test.ts"
 const as = { as: master }
 const { id } = await files.upload(png, { for: 'Post.cover', name: 'a.png' })
 const post = await Post.create({ data: { title: 'Hi', cover: id } }, as)
@@ -368,7 +368,7 @@ so neither the example's server nor its tests write to a real storage.
 `s3()` takes a bucket on S3 or on any S3-compatible storage: DigitalOcean
 Spaces, Cloudflare R2, MinIO, SeaweedFS:
 
-```ts
+```ts title="src/storage.ts"
 if (process.env.NODE_ENV === 'production') {
 	return s3({
 		bucket: process.env.S3_BUCKET,
@@ -387,7 +387,7 @@ if (process.env.NODE_ENV === 'production') {
 `diskFiles()` keeps the files in a directory, for a single server whose
 directory is a persistent volume, as a staging server without S3:
 
-```ts
+```ts title="src/storage.ts"
 if (process.env.FILES_DIR !== undefined) {
 	return diskFiles({
 		// A persistent volume: the files outlive a deploy.
@@ -402,7 +402,7 @@ if (process.env.FILES_DIR !== undefined) {
 
 `memoryFiles()` keeps them in memory, for tests and development:
 
-```ts
+```ts title="src/storage.ts"
 return memoryFiles()
 ```
 

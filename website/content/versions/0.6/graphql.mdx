@@ -15,7 +15,7 @@ Every model and every function of the application is served. Listing `graphql()`
 in a model's `use` lets its `.with({ graphql })` set its name and its limits,
 or hide it:
 
-```ts
+```ts title="src/models.ts"
 import { graphql } from '@ultimabase/graphql'
 import { allow, defineModel } from 'ultimabase'
 
@@ -39,7 +39,7 @@ The full example, with its tests: [`examples/graphql`](https://github.com/MrEkin
 `graphqlPlugin()` goes in the application's plugins, after `httpPlugin()`, which
 it requires:
 
-```ts
+```ts title="src/app.ts"
 plugins: [
 	httpPlugin(),
 	graphqlPlugin({
@@ -66,14 +66,14 @@ The API is on `/graphql`. Outside production, a browser opening that URL gets
 
 A client sends a document as JSON, with `POST`:
 
-```http
+```http title="Request"
 POST /graphql
 content-type: application/json
 
 { "query": "{ posts { totalCount } }" }
 ```
 
-```json
+```json title="Response"
 { "data": { "posts": { "totalCount": 3 } } }
 ```
 
@@ -100,7 +100,7 @@ A write nests its [relations](/docs/next/relations)' writes: `connect`, `create`
 and `connectOrCreate`, and in an update `update`, `disconnect`, `set` and
 `delete`. Here a person is created with three posts:
 
-```graphql
+```graphql title="Request"
 mutation {
 	createPerson(
 		data: {
@@ -127,7 +127,7 @@ mutation {
 }
 ```
 
-```json
+```json title="Response"
 {
 	"data": {
 		"createPerson": {
@@ -150,7 +150,7 @@ mutation {
 A list is a [Relay](https://relay.dev/graphql/connections.htm) connection: `first`
 rows `after` a cursor, or `last` rows `before` one.
 
-```graphql
+```graphql title="Request"
 query ($after: String) {
 	posts(first: 2, after: $after, orderBy: [{ likes: desc }]) {
 		totalCount
@@ -169,7 +169,7 @@ query ($after: String) {
 }
 ```
 
-```json
+```json title="Response"
 {
 	"data": {
 		"posts": {
@@ -195,13 +195,13 @@ query ($after: String) {
 
 `pagination: 'list'` serves lists instead, with `take` and `skip`, at every depth:
 
-```ts
+```ts title="src/list.ts"
 plugins: [httpPlugin(), graphqlPlugin({ pagination: 'list' })],
 ```
 
 With a person who has two posts:
 
-```graphql
+```graphql title="Request"
 query {
 	posts(take: 1, skip: 1, orderBy: [{ title: asc }]) {
 		title
@@ -215,7 +215,7 @@ query {
 }
 ```
 
-```json
+```json title="Response"
 {
 	"data": {
 		"posts": [
@@ -244,7 +244,7 @@ query {
 | a relation to many    | `some`, `every`, `none`                                                  |
 | filters               | `AND`, `OR`, `NOT` combine them                                          |
 
-```graphql
+```graphql title="Request"
 query {
 	posts(
 		where: {
@@ -269,7 +269,7 @@ query {
 }
 ```
 
-```json
+```json title="Response"
 {
 	"data": {
 		"posts": { "edges": [{ "node": { "title": "Notes" } }] },
@@ -284,7 +284,7 @@ query {
 `{ name_releasedOn: { name, releasedOn } }`. It returns `null` when no row
 matches, or when the caller may not read it:
 
-```graphql
+```graphql title="Request"
 query {
 	notes: post(where: { slug: "notes" }) {
 		title
@@ -298,7 +298,7 @@ query {
 }
 ```
 
-```json
+```json title="Response"
 {
 	"data": {
 		"notes": { "title": "Notes", "author": { "name": "Ada" } },
@@ -310,11 +310,11 @@ query {
 A query may also come over `GET`, as `?query=…&variables=…`; a mutation comes only
 over `POST`:
 
-```http
+```http title="Request"
 GET /graphql?query={post(where:{slug:"notes"}){title}}
 ```
 
-```json
+```json title="Response"
 { "data": { "post": { "title": "Notes" } } }
 ```
 
@@ -322,7 +322,7 @@ GET /graphql?query={post(where:{slug:"notes"}){title}}
 
 `updatePost` finds its row as `post` does; a row it does not find is `NOT_FOUND`:
 
-```graphql
+```graphql title="Request"
 mutation {
 	updatePost(where: { slug: "sketch" }, data: { likes: 4, status: published }) {
 		title
@@ -332,7 +332,7 @@ mutation {
 }
 ```
 
-```json
+```json title="Response"
 {
 	"data": {
 		"updatePost": { "title": "Sketch", "likes": 4, "status": "published" }
@@ -343,7 +343,7 @@ mutation {
 `upsertPost` updates the row its `where` finds, or creates it. `$ada` is the
 author's id:
 
-```graphql
+```graphql title="Request"
 mutation ($ada: ID!) {
 	upsertPost(
 		where: { slug: "ideas" }
@@ -356,7 +356,7 @@ mutation ($ada: ID!) {
 }
 ```
 
-```json
+```json title="Response"
 { "data": { "upsertPost": { "title": "Ideas", "likes": 0 } } }
 ```
 
@@ -365,7 +365,7 @@ Sent again, it finds the row and answers `likes: 1`.
 `deletePost` finds its row as `post` does too; a row it does not find is
 `NOT_FOUND`. It answers the row as it was, without its relations or its virtuals:
 
-```graphql
+```graphql title="Request"
 mutation {
 	deletePost(where: { slug: "plans" }) {
 		id
@@ -374,7 +374,7 @@ mutation {
 }
 ```
 
-```json
+```json title="Response"
 { "data": { "deletePost": { "id": "…", "title": "Plans" } } }
 ```
 
@@ -389,7 +389,7 @@ A refused request answers its error in `errors`, with its code and details under
 `extensions`, as [Errors](/docs/next/errors) lists them; the field is `null`. Here
 a post takes a slug already used:
 
-```graphql
+```graphql title="Request"
 mutation ($ada: ID!) {
 	createPost(
 		data: { title: "Again", slug: "notes", author: { connect: { id: $ada } } }
@@ -399,7 +399,7 @@ mutation ($ada: ID!) {
 }
 ```
 
-```json
+```json title="Response"
 {
 	"errors": [
 		{
@@ -431,7 +431,7 @@ A model's list field is its name in the plural: `Post` gives `posts`, `Category`
 gives `categories`. `.with({ graphql: { plural } })` names it otherwise, as
 `people` for `Person`:
 
-```ts
+```ts title="src/models.ts"
 export const Person = defineModel({
 	name: 'Person',
 	use: [graphql()],
@@ -449,7 +449,7 @@ export const Person = defineModel({
 relations of the models that are served. A write of those connects, disconnects or
 sets its rows, and never creates or updates one:
 
-```ts
+```ts title="src/models.ts"
 export const Revision = defineModel({
 	name: 'Revision',
 	use: [graphql()],
@@ -458,7 +458,7 @@ export const Revision = defineModel({
 }).with({ access: allow.readOnly, graphql: false })
 ```
 
-```graphql
+```graphql title="Request"
 query {
 	post(where: { slug: "notes" }) {
 		revisions {
@@ -472,7 +472,7 @@ query {
 }
 ```
 
-```json
+```json title="Response"
 {
 	"data": {
 		"post": {
@@ -491,7 +491,7 @@ A function is a mutation, or a query with `query: true`, named after the functio
 `.with({ graphql: { name } })` renames it, and `.with({ graphql: false })` keeps
 it off GraphQL:
 
-```ts
+```ts title="src/functions.ts"
 export const topPosts = defineFunction({
 	name: 'topPosts',
 	use: [graphql()],
@@ -516,7 +516,7 @@ export const reindex = defineFunction({
 
 `trending` is served, and so is `people`:
 
-```graphql
+```graphql title="Request"
 query {
 	people {
 		edges {
@@ -531,7 +531,7 @@ query {
 }
 ```
 
-```json
+```json title="Response"
 {
 	"data": {
 		"people": { "edges": [{ "node": { "name": "Ada" } }] },
@@ -548,7 +548,7 @@ query {
 `extend` takes the generated schema and returns the one to serve, built with
 [graphql-js](https://www.graphql-js.org):
 
-```ts
+```ts title="src/schema.ts"
 import type { GraphQLFieldConfigMap } from 'graphql'
 import {
 	assertObjectType,
@@ -579,7 +579,7 @@ A field it adds gets the request's `GraphqlContext`: `context.caller` to act as 
 caller, and `context.select(info)`, the selection the client sent, relations
 included, to read every row the field returns in one query:
 
-```ts
+```ts title="src/schema.ts"
 function added(
 	post: GraphQLObjectType,
 ): GraphQLFieldConfigMap<unknown, GraphqlContext> {
@@ -602,7 +602,7 @@ function added(
 }
 ```
 
-```graphql
+```graphql title="Request"
 query {
 	me
 	drafts {
@@ -614,7 +614,7 @@ query {
 }
 ```
 
-```json
+```json title="Response"
 {
 	"data": {
 		"me": "anonymous",
@@ -673,7 +673,7 @@ A relation or a virtual is read once per row, so one selected twice with differe
 arguments, under two aliases or in two fragments, is refused before anything runs,
 for every caller:
 
-```graphql
+```graphql title="Request"
 query {
 	people {
 		edges {
@@ -700,7 +700,7 @@ fragment Footer on Person {
 }
 ```
 
-```json
+```json title="Response"
 {
 	"errors": [
 		{
@@ -718,7 +718,7 @@ fragment Footer on Person {
 Select it once with what both fragments need, the larger `first` and the fields of
 both, and slice it on the client:
 
-```graphql
+```graphql title="Request"
 query {
 	people(first: 10) {
 		edges {

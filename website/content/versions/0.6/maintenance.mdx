@@ -12,7 +12,7 @@ npm install @ultimabase/maintenance
 
 `maintenancePlugin()` goes in the application's plugins, after `httpPlugin()`:
 
-```ts
+```ts title="src/app.ts"
 import { graphqlPlugin } from '@ultimabase/graphql'
 import { httpPlugin } from '@ultimabase/http'
 import { maintenancePlugin } from '@ultimabase/maintenance'
@@ -53,7 +53,7 @@ answer 503, and the WebSockets open close.
 `PUT /_ultimabase/maintenance` turns it on with `{ "enabled": true }` and off
 with `{ "enabled": false }`. It answers 200 with the state as stored:
 
-```http
+```http title="Request"
 PUT /_ultimabase/maintenance
 content-type: application/json
 x-ultimabase-maintenance-key: dev-maintenance-key
@@ -61,7 +61,7 @@ x-ultimabase-maintenance-key: dev-maintenance-key
 { "enabled": true }
 ```
 
-```json
+```json title="Response"
 { "enabled": true }
 ```
 
@@ -95,13 +95,13 @@ While it is on, every request answers 503 with the code `MAINTENANCE`, and
 `Retry-After` in seconds. A client that shows a maintenance page sends any
 request, as `{ __typename }` to GraphQL, and reads both:
 
-```graphql
+```graphql title="Request"
 query {
 	__typename
 }
 ```
 
-```json
+```json title="Response"
 {
 	"code": "MAINTENANCE",
 	"message": "The application is under maintenance.",
@@ -130,7 +130,7 @@ with `The master key is refused in production.`
 The `Post` model has a `title`, which every client reads. No rule opens a
 create, so only Master writes one:
 
-```graphql
+```graphql title="Request"
 mutation {
 	createPost(data: { title: "Migrated" }) {
 		title
@@ -138,7 +138,7 @@ mutation {
 }
 ```
 
-```json
+```json title="Response"
 { "data": { "createPost": { "title": "Migrated" } } }
 ```
 

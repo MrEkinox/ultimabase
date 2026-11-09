@@ -8,7 +8,7 @@ Master, the server's own code. A model's `.with({ access })` decides what
 each caller may do, and a model without rules is closed to everyone but
 Master. Each rule is a plain function that returns `true` or `false`:
 
-```ts
+```ts title="src/models.ts"
 import { graphql } from '@ultimabase/graphql'
 import { allOf, allow, anyOf, defineModel } from 'ultimabase'
 import type { Caller } from 'ultimabase'
@@ -34,7 +34,7 @@ The full example, with its tests: [`examples/access-rules`](https://github.com/M
 write `ada` and `grace` for `{ as: asUser({ id }) }`, two signed-in users.
 Ada creates a comment; a visitor, who has no `{ as }`, cannot:
 
-```ts
+```ts title="src/app.test.ts"
 await Comment.create({ data: { body: 'Well said' } }, ada)
 await expect(Comment.create({ data: { body: 'Spam' } })).rejects.toMatchObject({
 	code: 'ACCESS_DENIED',
@@ -62,7 +62,7 @@ all, or a filter built with the `where` it receives, in the form of a
 query's `where`. `Article` shows everyone what is published, and an author
 their drafts too:
 
-```ts
+```ts title="src/models.ts"
 // Everyone reads what is published; an author reads their drafts too.
 read: anyOf(
 	({ where }) => where({ status: 'published' }),
@@ -79,7 +79,7 @@ read: anyOf(
 
 Ada writes a draft and a published article:
 
-```ts
+```ts title="src/app.test.ts"
 await Article.create(
 	{ data: { title: 'Draft', notes: 'Check the dates.' } },
 	ada,
@@ -92,7 +92,7 @@ await Article.create(
 
 Each caller reads what its rule lets through:
 
-```ts
+```ts title="src/app.test.ts"
 // The filter joins the query: pages and counts stay exact.
 const select = { title: true }
 expect(await Article.findMany({ select }, ada)).toEqual([
@@ -110,13 +110,13 @@ and a specific key wins over it. `Article` lets a user create, an author
 update, and an author delete a draft only. Its rules read the caller's id with
 `userId`:
 
-```ts
+```ts title="src/models.ts"
 /** The caller's user id, or `undefined` for anyone else. */
 const userId = (caller: Caller) =>
 	caller.kind === 'user' ? caller.user.id : undefined
 ```
 
-```ts
+```ts title="src/models.ts"
 create: ({ caller }) => caller.kind === 'user',
 update: ({ caller, record }) => record.authorId === userId(caller),
 // An author deletes their own drafts, and nothing published.
@@ -135,7 +135,7 @@ A row the caller cannot read cannot be written either: it is `NOT_FOUND`, so
 a refusal never tells that the row exists. Grace reads no draft of Ada's, so
 to her it does not exist:
 
-```ts
+```ts title="src/app.test.ts"
 const draft = await Article.create({ data: { title: 'Draft' } }, ada)
 expect(draft.authorId).toBe('ada')
 
@@ -149,7 +149,7 @@ A refused write writes nothing and fails with `ACCESS_DENIED`. Its `details`
 name the model, the operation and the field whose rule refused. Once Ada
 publishes her draft, it refuses her delete:
 
-```ts
+```ts title="src/app.test.ts"
 await Article.update(
 	{ where: { id: draft.id }, data: { status: 'published' } },
 	ada,
@@ -173,7 +173,7 @@ and the field's `value`.
 `authorId` is written once, with the caller's id: nobody signs for someone
 else. A field rule refuses with the field in its `details`:
 
-```ts
+```ts title="src/models.ts"
 title: f.string(),
 status: f.enumOf(['draft', 'published'], { default: 'draft' }),
 // Written once, with the caller's id: nobody signs for someone else.
@@ -185,7 +185,7 @@ authorId: f.string({ default: ({ caller }) => userId(caller) }).with({
 }),
 ```
 
-```ts
+```ts title="src/app.test.ts"
 // A field rule: nobody signs an article for someone else.
 await expect(
 	Article.create({ data: { title: 'Fake', authorId: 'grace' } }, ada),
@@ -200,7 +200,7 @@ await expect(
 `defineModel` checks that each type matches the model's. A field rule sees
 `record.id` typed and the other fields as `unknown` otherwise.
 
-```ts
+```ts title="src/models.ts"
 // The author's notes: other readers get the article without them.
 notes: f.string({ optional: true }).with<{ authorId: string }>({
 	access: {
@@ -211,7 +211,7 @@ notes: f.string({ optional: true }).with<{ authorId: string }>({
 
 A read rule on a field hides its value from the rows it refuses:
 
-```ts
+```ts title="src/app.test.ts"
 // A field read rule hides the value, row by row.
 const [launch] = await Article.findMany({}, grace)
 expect(launch).not.toHaveProperty('notes')
@@ -220,7 +220,7 @@ expect(launch).not.toHaveProperty('notes')
 A caller other than Master cannot filter, sort or aggregate on such a field,
 which would reveal the value one guess at a time:
 
-```ts
+```ts title="src/app.test.ts"
 // Nor can a filter guess it.
 await expect(
 	Article.findMany({ where: { notes: { contains: 'E' } } }, grace),
@@ -237,7 +237,7 @@ await expect(
   sorts on a field that has them, and only the writes are checked.
 - `featured` has `allow.readOnly`: only the server writes it.
 
-```ts
+```ts title="src/models.ts"
 // Only the server features an article.
 featured: f.boolean({ default: false }).with({ access: allow.readOnly }),
 ```
@@ -248,7 +248,7 @@ A read rule's filter goes through relations as a query's does. A project's
 members read it, and the tasks in it, with no role to keep in step. `Person`
 and `Project` relate by `members`:
 
-```ts
+```ts title="src/projects.ts"
 export const Person = defineModel({
 	name: 'Person',
 	use: [graphql()],
@@ -260,7 +260,7 @@ export const Person = defineModel({
 }).with({ access: allow.readOnly })
 ```
 
-```ts
+```ts title="src/projects.ts"
 fields: (f) => ({
 	name: f.string(),
 	owner: f.one(() => Person),
@@ -271,7 +271,7 @@ fields: (f) => ({
 
 The project's members read it, through the relation to the caller:
 
-```ts
+```ts title="src/projects.ts"
 access: {
 	// Its members read a project, through the relation to the caller.
 	read: ({ caller, where }) =>
@@ -285,7 +285,7 @@ access: {
 A task's `project` is a relation too, so its members read it one relation
 further:
 
-```ts
+```ts title="src/projects.ts"
 fields: (f) => ({
 	title: f.string(),
 	done: f.boolean({ default: false }),
@@ -293,7 +293,7 @@ fields: (f) => ({
 }),
 ```
 
-```ts
+```ts title="src/projects.ts"
 // The members of its project read a task, one relation further.
 read: ({ caller, where }) =>
 	caller.kind === 'user' &&
@@ -310,7 +310,7 @@ A member who leaves the project reads none of its tasks from the next query on,
 and a [live read](/docs/next/realtime#rights) follows the relations its filter
 goes through:
 
-```ts
+```ts title="src/projects.test.ts"
 await Task.create(
 	{ data: { title: 'Parse', project: { connect: { id: project.id } } } },
 	ada,
@@ -320,7 +320,7 @@ expect(await Task.count({}, grace)).toBe(1)
 expect(await Task.count({}, alan)).toBe(0)
 ```
 
-```ts
+```ts title="src/projects.test.ts"
 // Out of the project, Grace reads nothing from her next query on.
 await Project.update(
 	{
@@ -345,7 +345,7 @@ A write rule receives the row, with its own `one` relations as `{ id }`:
 rule does. `Task.write` keeps a task's writes to its project's owner, and
 refuses with a `PublicError`, imported from `ultimabase`:
 
-```ts
+```ts title="src/projects.ts"
 // Only the project's owner writes its tasks: the row matches the
 // filter before an update or a delete, and after a create or an
 // update, so no task moves to a project of someone else's.
@@ -370,7 +370,7 @@ The row must match the filter:
 Grace, a member, reads `task`, a task Ada created in `project`, but the rule
 refuses her update:
 
-```ts
+```ts title="src/projects.test.ts"
 // Grace reads the task, but the rule refuses her writes.
 const refused = {
 	code: 'NOT_PROJECT_OWNER',
@@ -383,13 +383,13 @@ await expect(
 
 She cannot delete it, nor create another in the project:
 
-```ts
+```ts title="src/projects.test.ts"
 await expect(
 	Task.delete({ where: { id: task.id } }, grace),
 ).rejects.toMatchObject(refused)
 ```
 
-```ts
+```ts title="src/projects.test.ts"
 await expect(
 	Task.create(
 		{ data: { title: 'Lex', project: { connect: { id: project.id } } } },
@@ -400,7 +400,7 @@ await expect(
 
 Ada, the owner, updates the task and deletes it:
 
-```ts
+```ts title="src/projects.test.ts"
 // Ada, the owner, does both.
 const done = await Task.update(
 	{ where: { id: task.id }, data: { done: true } },
@@ -421,7 +421,7 @@ as Master only with the master key (see [HTTP](/docs/next/http)), and in
 production only with a key written `{ key, production: true }` (see
 [Deploy](/docs/next/deploy)). Ada cannot feature an article; Master can:
 
-```ts
+```ts title="src/app.test.ts"
 const draft = await Article.create({ data: { title: 'Draft' } }, ada)
 await expect(
 	Article.update({ where: { id: draft.id }, data: { featured: true } }, ada),
@@ -437,7 +437,7 @@ A function or a hook receives the `caller` it runs for: `{ as: caller }` runs
 the rules for that caller, `{ as: master }` acts as the server. `allow.readOnly` is no read
 rule, so the author filters on `featured`:
 
-```ts
+```ts title="src/app.test.ts"
 // allow.readOnly is no read rule: the author filters on the field.
 const listed = await Article.findMany(
 	{ where: { featured: { equals: true } } },
@@ -451,7 +451,7 @@ expect(listed.map(({ id }) => id)).toEqual([draft.id])
 A client meets the same rules, with the same error. An anonymous caller
 creates an article:
 
-```graphql
+```graphql title="Request"
 mutation {
 	createArticle(data: { title: "Hi" }) {
 		id
@@ -459,7 +459,7 @@ mutation {
 }
 ```
 
-```json
+```json title="Response"
 {
 	"errors": [
 		{

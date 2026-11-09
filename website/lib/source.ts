@@ -19,9 +19,15 @@ export const published: readonly string[] = [
 /** The version `/docs` shows: the latest published one, else `next`. */
 export const latest: string = published[0] ?? 'next'
 
+/** The roadmap follows `main`, not a version (D-192): each version serves it. */
+const roadmap = next.files.filter(({ path }) => path === 'roadmap.mdx')
+
 const files: typeof next.files = [
 	...next.files.map((file) => ({ ...file, path: `next/${file.path}` })),
 	...frozen.files,
+	...published.flatMap((version) =>
+		roadmap.map((file) => ({ ...file, path: `${version}/${file.path}` })),
+	),
 ]
 
 export const source = loader({

@@ -11,7 +11,7 @@ such as a webhook, with [Hono](https://hono.dev).
 npm install @ultimabase/http
 ```
 
-```ts
+```ts title="src/routes.ts"
 import { routes, validate } from '@ultimabase/http'
 import { HTTPException } from 'hono/http-exception'
 import { master, PublicError } from 'ultimabase'
@@ -51,7 +51,7 @@ The full example, with its tests: [`examples/http`](https://github.com/MrEkinox/
 `httpPlugin({ routes })` serves them at the root, before the routes other
 plugins mount. The other options are on the same call:
 
-```ts
+```ts title="src/app.ts"
 plugins: [
 	httpPlugin({
 		routes: [shop],
@@ -81,7 +81,7 @@ The test writes an order of 30, as Master (`M` is `{ as: master }`), then
 calls the route without the server, inside the application
 [`testApplication`](#testing-a-route) starts:
 
-```ts
+```ts title="src/app.test.ts"
 const order = await Order.create({ data: { total: 30 } }, M)
 const response = await shop.request(`/orders/${order.id}/receipt`)
 expect(await response.text()).toBe(`Order ${order.id}: 30 EUR, due.`)
@@ -98,7 +98,7 @@ so the model's rules apply to the route as to any client:
 
 `c.var.address` is the client's address, `''` when unknown:
 
-```ts
+```ts title="src/routes.ts"
 // Who sends the request, and from where.
 shop.get('/whoami', (c) =>
 	c.json({ caller: c.var.caller.kind, address: c.var.address }),
@@ -110,12 +110,12 @@ Behind a proxy, as a load balancer, every connection comes from the proxy.
 address is then the entry of `X-Forwarded-For` that many from the right,
 which a client cannot forge. With `proxies: 1`, as in the application above:
 
-```http
+```http title="Request"
 GET /whoami
 x-forwarded-for: 203.0.113.7
 ```
 
-```json
+```json title="Response"
 { "caller": "anonymous", "address": "203.0.113.7" }
 ```
 
@@ -135,7 +135,7 @@ the limit, before any session is read, the server answers:
 The tests set `rateLimit` to 100 requests and send 100 from
 `x-forwarded-for: 198.51.100.4`, so the 101st is refused:
 
-```ts
+```ts title="src/app.test.ts"
 expect(refused.status).toBe(429)
 // The seconds until the minute ends, also in details.retryAfter.
 expect(Number(refused.headers.get('retry-after'))).toBeGreaterThan(0)
@@ -163,7 +163,7 @@ The route reads the value, typed, with `c.req.valid(target)`. This webhook
 checks its secret header and its JSON body, then writes as Master, since a
 provider sends no session:
 
-```ts
+```ts title="src/routes.ts"
 // The provider's secret, from the environment in production.
 const secret = process.env['PAYMENT_SECRET'] ?? 'dev-secret'
 
@@ -189,7 +189,7 @@ shop.post(
 
 The provider calls it, and the route answers:
 
-```ts
+```ts title="src/app.test.ts"
 const order = await Order.create({ data: { total: 30 } }, M)
 const paid = await shop.request('/webhooks/payment', {
 	method: 'POST',
@@ -201,7 +201,7 @@ expect(await paid.json()).toEqual({ order: order.id, amount: 30, paid: true })
 
 A wrong secret is the `HTTPException` the route throws:
 
-```http
+```http title="Request"
 POST /webhooks/payment
 content-type: application/json
 x-secret: guess
@@ -209,14 +209,14 @@ x-secret: guess
 { "order": "any", "amount": 30 }
 ```
 
-```json
+```json title="Response"
 { "code": "UNAUTHORIZED", "message": "Wrong secret." }
 ```
 
 A value the schema refuses is `VALIDATION_FAILED` (400), with the same
 `issues` as the kernel's errors, their `path` inside the value:
 
-```http
+```http title="Request"
 POST /webhooks/payment
 content-type: application/json
 x-secret: dev-secret
@@ -224,7 +224,7 @@ x-secret: dev-secret
 { "order": "any" }
 ```
 
-```json
+```json title="Response"
 {
 	"code": "VALIDATION_FAILED",
 	"message": "Invalid data.",
@@ -248,7 +248,7 @@ A query parameter, a header or a route parameter is text: a schema that
 coerces it gives the route a number. The tests hold two orders, of 10 and 50. Without `min`, the default of 0 counts both: the route answers `2`.
 With `min=20`, it counts one:
 
-```ts
+```ts title="src/routes.ts"
 // `?min=` arrives as text: the schema turns it into a number.
 shop.get(
 	'/orders',
@@ -261,11 +261,11 @@ shop.get(
 )
 ```
 
-```http
+```http title="Request"
 GET /orders?min=20
 ```
 
-```json
+```json title="Response"
 1
 ```
 
@@ -300,7 +300,7 @@ Errors table of the Reference.
 A browser calls the API from another origin only when `cors` lists it, and
 then sends its cookies, as auth's session. A preflight from a listed origin:
 
-```http
+```http title="Request"
 OPTIONS /webhooks/payment
 origin: https://shop.example.com
 access-control-request-method: POST
@@ -310,7 +310,7 @@ The server answers it with these headers. `listed` is the answer to a
 preflight from `https://shop.example.com`, `other` the answer to one from
 `https://elsewhere.example`, which `cors` does not list:
 
-```ts
+```ts title="src/app.test.ts"
 expect(listed.headers.get('access-control-allow-origin')).toBe(
 	'https://shop.example.com',
 )
@@ -327,7 +327,7 @@ An HTML form posts to any site with that site's cookies, and CORS never
 stops it. A form from another origin is refused with 403; a webhook sends no
 `Origin` and no cookies, and passes:
 
-```http
+```http title="Request"
 POST /webhooks/payment
 origin: https://elsewhere.example
 content-type: text/plain
@@ -335,7 +335,7 @@ content-type: text/plain
 {}
 ```
 
-```json
+```json title="Response"
 { "code": "ACCESS_DENIED", "message": "A form from another origin is refused." }
 ```
 
@@ -344,7 +344,7 @@ content-type: text/plain
 A response may hold the caller's data, so every response is sent with
 `Cache-Control: no-store`, unless its route sets its own:
 
-```ts
+```ts title="src/routes.ts"
 // Every response is `Cache-Control: no-store`, unless its route sets one.
 shop.get('/prices', (c) => {
 	c.header('cache-control', 'public, max-age=60')
@@ -354,7 +354,7 @@ shop.get('/prices', (c) => {
 
 `prices` and `whoami` are the responses to `GET /prices` and `GET /whoami`:
 
-```ts
+```ts title="src/app.test.ts"
 expect(prices.headers.get('cache-control')).toBe('public, max-age=60')
 expect(whoami.headers.get('cache-control')).toBe('no-store')
 ```
@@ -368,11 +368,11 @@ expect(whoami.headers.get('cache-control')).toBe('no-store')
 
 A load balancer sends traffic only to an instance that is ready.
 
-```http
+```http title="Request"
 GET /health
 ```
 
-```json
+```json title="Response"
 { "status": "ok" }
 ```
 
@@ -389,13 +389,13 @@ request. A test that needs another caller, or the database, starts the
 application with [`testApplication`](/docs/next/testing), as in the test
 above:
 
-```ts
+```ts title="src/app.test.ts"
 const running = testApplication(app)
 ```
 
 A route that needs no database is called directly:
 
-```ts
+```ts title="src/app.test.ts"
 // `routes().request` answers as an anonymous request, with no server.
 const response = await shop.request('/whoami')
 expect(await response.json()).toEqual({ caller: 'anonymous', address: '' })

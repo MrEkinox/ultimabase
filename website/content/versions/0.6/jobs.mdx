@@ -12,7 +12,7 @@ npm install @ultimabase/jobs
 
 A job takes a name, the input its runs take, and the function that runs them:
 
-```ts
+```ts title="src/models.ts"
 // The calls, whose video room closes in a job ten minutes after they end.
 import { defineJob } from '@ultimabase/jobs'
 import { defineModel } from 'ultimabase'
@@ -56,7 +56,7 @@ A run is a row of the database, written in the write's transaction:
 `afterUpdate` hook, the run exists if the update commits, and never after a
 rollback. `after` delays it, in milliseconds:
 
-```ts
+```ts title="src/models.ts"
 export const Call = defineModel({
 	name: 'Call',
 	fields: (f) => ({
@@ -103,7 +103,7 @@ five minutes later. So:
 
 A job with `every` runs every few milliseconds from the start:
 
-```ts
+```ts title="src/app.ts"
 // Every hour from the start, in milliseconds.
 export const purgeCalls = defineJob({
 	name: 'purgeCalls',
@@ -121,7 +121,7 @@ export const purgeCalls = defineJob({
 One with `cron` runs on a five-field pattern, minute, hour, day of the month,
 month and day of the week, in `timeZone`, UTC by default:
 
-```ts
+```ts title="src/app.ts"
 // At 3:00 each night in Paris, daylight saving included; UTC by default.
 export const nightlyReport = defineJob({
 	name: 'nightlyReport',
@@ -150,7 +150,7 @@ export const nightlyReport = defineJob({
 
 `jobsPlugin()` takes every job the application runs:
 
-```ts
+```ts title="src/app.ts"
 export const app = defineApp({
 	// Kept in memory, so the example needs no database.
 	database: memory(),
@@ -175,7 +175,7 @@ they enqueue, as the servers would. The clock decides what is due.
 still run, before the application starts, so the recurring jobs are due from
 it:
 
-```ts
+```ts title="src/app.test.ts"
 beforeEach(() => {
 	// Before the application starts: its recurring jobs are due from now.
 	vi.useFakeTimers({ toFake: ['Date'] })
@@ -189,7 +189,7 @@ testApplication(app)
 
 A delayed run is due once the test moves the clock past its delay:
 
-```ts
+```ts title="src/app.test.ts"
 const call = await Call.create({ data: { room: 'standup' } }, { as: master })
 const ending = { where: { id: call.id }, data: { endedAt: new Date() } }
 await Call.update(ending, { as: master })
@@ -204,7 +204,7 @@ expect(closedRooms).toEqual(['standup'])
 
 And a recurring job, once the clock reaches its time:
 
-```ts
+```ts title="src/app.test.ts"
 await Call.create(
 	{ data: { room: 'standup', endedAt: new Date() } },
 	{ as: master },

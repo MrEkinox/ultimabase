@@ -17,7 +17,7 @@ Every model and every function of the application is served. Listing `rest()`
 in a model's `use` lets its `.with({ rest })` set its routes' name and its
 limits, or hide it:
 
-```ts
+```ts title="src/models.ts"
 import { graphql } from '@ultimabase/graphql'
 import { rest } from '@ultimabase/rest'
 import { allow, defineModel } from 'ultimabase'
@@ -43,7 +43,7 @@ The full example, with its tests: [`examples/rest`](https://github.com/MrEkinox/
 `restPlugin()` goes in the application's plugins, after `httpPlugin()`, which
 it requires:
 
-```ts
+```ts title="src/app.ts"
 plugins: [
 	httpPlugin(),
 	restPlugin({
@@ -62,11 +62,11 @@ http://localhost:3000/api.` outside production. The examples below start from
 one person, Ada, with three posts: the request that creates her is under [What
 a model gets](#what-a-model-gets). A client lists the people with a `GET`:
 
-```http
+```http title="Request"
 GET /api/people?select={"name":true}
 ```
 
-```json
+```json title="Response"
 {
 	"edges": [{ "cursor": "…", "node": { "name": "Ada" } }],
 	"pageInfo": {
@@ -118,7 +118,7 @@ and `connectOrCreate`, and in an update `update`, `disconnect`, `set` and
 `delete`. A write takes `select` or `include` as query parameters, to shape its
 answer. Here a person is created with three posts, and answers `201`:
 
-```http
+```http title="Request"
 POST /api/people?include={"posts":{"select":{"slug":true}}}
 content-type: application/json
 
@@ -134,7 +134,7 @@ content-type: application/json
 }
 ```
 
-```json
+```json title="Response"
 {
 	"id": "…",
 	"createdAt": "…",
@@ -162,11 +162,11 @@ A list answers a [Relay](https://relay.dev/graphql/connections.htm) connection,
 as GraphQL does: `first` rows `after` a cursor, or `last` rows `before` one. It
 answers `200`:
 
-```http
+```http title="Request"
 GET /api/posts?first=2&orderBy={"likes":"desc"}&select={"title":true}&totalCount=true
 ```
 
-```json
+```json title="Response"
 {
 	"edges": [
 		{ "cursor": "…", "node": { "title": "Notes" } },
@@ -193,11 +193,11 @@ GET /api/posts?first=2&orderBy={"likes":"desc"}&select={"title":true}&totalCount
 
 The next page sends that cursor as `after`, here the last post, `Sketch`:
 
-```http
+```http title="Request"
 GET /api/posts?first=2&after=$after&orderBy={"likes":"desc"}&select={"title":true}
 ```
 
-```json
+```json title="Response"
 {
 	"edges": [{ "cursor": "…", "node": { "title": "Sketch" } }],
 	"pageInfo": {
@@ -212,17 +212,17 @@ GET /api/posts?first=2&after=$after&orderBy={"likes":"desc"}&select={"title":tru
 `pagination: 'list'` serves arrays instead, paged with `take` and `skip`, at every
 depth, and without `totalCount`:
 
-```ts
+```ts title="src/list.ts"
 plugins: [httpPlugin(), restPlugin({ pagination: 'list' }), graphqlPlugin()],
 ```
 
 With a person who has two posts:
 
-```http
+```http title="Request"
 GET /api/posts?take=1&skip=1&orderBy={"title":"asc"}&select={"title":true,"author":{"select":{"name":true,"posts":{"take":5,"select":{"slug":true}}}}}
 ```
 
-```json
+```json title="Response"
 [
 	{
 		"title": "Plans",
@@ -239,11 +239,11 @@ GET /api/posts?take=1&skip=1&orderBy={"title":"asc"}&select={"title":true,"autho
 `GET /api/posts/:id` reads a row by its id, and answers `200`. Here `$id` is
 the id of Ada's post `Notes`:
 
-```http
+```http title="Request"
 GET /api/posts/$id
 ```
 
-```json
+```json title="Response"
 {
 	"id": "…",
 	"createdAt": "…",
@@ -258,11 +258,11 @@ GET /api/posts/$id
 
 A row that does not exist, or that the caller may not read, is a `404`:
 
-```http
+```http title="Request"
 GET /api/posts/nowhere
 ```
 
-```json
+```json title="Response"
 { "code": "NOT_FOUND", "message": "No Post matches." }
 ```
 
@@ -278,11 +278,11 @@ fields. A row takes one of the two, never both. Both nest: a relation's value
 is `true`, or what to read of it, with a many relation's own `where`,
 `orderBy`, `first` and `totalCount`. Here `$id` is Ada's id:
 
-```http
+```http title="Request"
 GET /api/people/$id?select={"name":true,"posts":{"first":1,"orderBy":{"likes":"asc"},"select":{"slug":true}}}
 ```
 
-```json
+```json title="Response"
 {
 	"name": "Ada",
 	"posts": {
@@ -300,11 +300,11 @@ GET /api/people/$id?select={"name":true,"posts":{"first":1,"orderBy":{"likes":"a
 `include` keeps the default fields, and adds the author. `$id` is the id of
 `Notes`:
 
-```http
+```http title="Request"
 GET /api/posts/$id?include={"author":true}
 ```
 
-```json
+```json title="Response"
 {
 	"id": "…",
 	"createdAt": "…",
@@ -343,11 +343,11 @@ This table is not complete. These are the operators of
 Here a filter on two
 fields and on a relation to one row:
 
-```http
+```http title="Request"
 GET /api/posts?where={"status":{"equals":"published"},"likes":{"gte":10},"author":{"is":{"name":{"startsWith":"A"}}}}&select={"title":true}
 ```
 
-```json
+```json title="Response"
 {
 	"edges": [{ "cursor": "…", "node": { "title": "Notes" } }],
 	"pageInfo": {
@@ -361,11 +361,11 @@ GET /api/posts?where={"status":{"equals":"published"},"likes":{"gte":10},"author
 
 And one on a relation to many:
 
-```http
+```http title="Request"
 GET /api/people?where={"posts":{"some":{"likes":{"lt":5}}}}&select={"name":true}
 ```
 
-```json
+```json title="Response"
 {
 	"edges": [{ "cursor": "…", "node": { "name": "Ada" } }],
 	"pageInfo": {
@@ -382,7 +382,7 @@ GET /api/people?where={"posts":{"some":{"likes":{"lt":5}}}}&select={"name":true}
 A `dateTime` is ISO 8601 text, in a response, a body or a filter. Here a post
 is created with a date, and answers `201`. `$id` is Ada's id:
 
-```http
+```http title="Request"
 POST /api/posts
 content-type: application/json
 
@@ -394,7 +394,7 @@ content-type: application/json
 }
 ```
 
-```json
+```json title="Response"
 {
 	"id": "…",
 	"createdAt": "…",
@@ -409,11 +409,11 @@ content-type: application/json
 
 A filter on it answers `200`:
 
-```http
+```http title="Request"
 GET /api/posts?where={"publishedAt":{"gte":"2026-07-01T00:00:00.000Z"}}&select={"slug":true}
 ```
 
-```json
+```json title="Response"
 {
 	"edges": [{ "cursor": "…", "node": { "slug": "launch" } }],
 	"pageInfo": {
@@ -432,14 +432,14 @@ A `date` is a day, as `'2026-07-31'`, and a `decimal` is text, as `'12.50'`.
 `PATCH` sets the fields its body holds, and leaves the others. `$id` is the id
 of `Sketch`. It answers `200`:
 
-```http
+```http title="Request"
 PATCH /api/posts/$id?select={"likes":true,"status":true}
 content-type: application/json
 
 { "likes": 4, "status": "published" }
 ```
 
-```json
+```json title="Response"
 { "likes": 4, "status": "published" }
 ```
 
@@ -447,7 +447,7 @@ content-type: application/json
 `update`, or creates it from `create` when there is none. The status says which
 it did, `201` for a created row. `$id` is Ada's id:
 
-```http
+```http title="Request"
 PUT /api/posts?select={"slug":true,"likes":true}
 content-type: application/json
 
@@ -462,7 +462,7 @@ content-type: application/json
 }
 ```
 
-```json
+```json title="Response"
 { "slug": "ideas", "likes": 0 }
 ```
 
@@ -472,11 +472,11 @@ Sent again, it finds the row and answers `200`, with `likes: 1`.
 the dates and its scalar fields, without its relations or its virtuals. The
 row is gone: reading it again is a `404`. `$id` is the id of `Plans`:
 
-```http
+```http title="Request"
 DELETE /api/posts/$id
 ```
 
-```json
+```json title="Response"
 {
 	"id": "…",
 	"createdAt": "…",
@@ -499,7 +499,7 @@ An error is a status and a body `{ code, message, details }`, with the status of
 its code, as [Errors](/docs/next/errors) lists them. Here a post takes a slug
 already used, a `409`. `$id` is Ada's id:
 
-```http
+```http title="Request"
 POST /api/posts
 content-type: application/json
 
@@ -510,7 +510,7 @@ content-type: application/json
 }
 ```
 
-```json
+```json title="Response"
 {
 	"code": "UNIQUE_VIOLATION",
 	"message": "Unique constraint failed on Post (slug).",
@@ -520,11 +520,11 @@ content-type: application/json
 
 A wrong query parameter is a `400` `BAD_USER_INPUT`, before the request runs:
 
-```http
+```http title="Request"
 GET /api/posts?first=two
 ```
 
-```json
+```json title="Response"
 {
 	"code": "BAD_USER_INPUT",
 	"message": "The query parameter first is not JSON."
@@ -544,7 +544,7 @@ A route's name is the model's plural, in lower case: `posts` for `Post`. A
 plural the default spells wrong takes `.with({ rest: { plural } })`; the
 `/api/people` request above uses it:
 
-```ts
+```ts title="src/models.ts"
 export const Person = defineModel({
 	name: 'Person',
 	use: [rest(), graphql()],
@@ -566,7 +566,7 @@ export const Person = defineModel({
 through its relations, and connected, never created. Server code creates its
 rows, as Master; the revision below was created that way:
 
-```ts
+```ts title="src/models.ts"
 export const Revision = defineModel({
 	name: 'Revision',
 	use: [rest(), graphql()],
@@ -578,11 +578,11 @@ export const Revision = defineModel({
 A post reads its revisions, and answers `200`. `$id` is the id of `Notes`, the
 post that revision belongs to:
 
-```http
+```http title="Request"
 GET /api/posts/$id?select={"revisions":{"select":{"text":true}}}
 ```
 
-```json
+```json title="Response"
 {
 	"revisions": {
 		"edges": [{ "cursor": "…", "node": { "text": "First draft" } }],
@@ -603,7 +603,7 @@ At the root, `GET /api/revisions` is a `404`.
 A function is served under `/api/functions/`, and `rest()` in its `use` lets
 `.with({ rest })` rename its route or hide it. A query function is a `GET`:
 
-```ts
+```ts title="src/functions.ts"
 export const topPosts = defineFunction({
 	name: 'topPosts',
 	use: [rest()],
@@ -625,11 +625,11 @@ export const topPosts = defineFunction({
 - `.with({ rest: { name } })` renames its route: this one is served as
   `trending`.
 
-```http
+```http title="Request"
 GET /api/functions/trending?count=1
 ```
 
-```json
+```json title="Response"
 [
 	{
 		"id": "…",
@@ -647,7 +647,7 @@ GET /api/functions/trending?count=1
 Any other function is a `POST`, its body its input, and it answers `200`, not
 `201`:
 
-```ts
+```ts title="src/functions.ts"
 export const like = defineFunction({
 	name: 'like',
 	use: [rest()],
@@ -662,14 +662,14 @@ export const like = defineFunction({
 }).with({ access: allow.public })
 ```
 
-```http
+```http title="Request"
 POST /api/functions/like
 content-type: application/json
 
 { "slug": "sketch" }
 ```
 
-```json
+```json title="Response"
 {
 	"id": "…",
 	"createdAt": "…",
@@ -684,7 +684,7 @@ content-type: application/json
 
 `.with({ rest: false })` does not serve a function:
 
-```ts
+```ts title="src/functions.ts"
 export const reindex = defineFunction({
 	name: 'reindex',
 	use: [rest()],
@@ -700,11 +700,11 @@ export const reindex = defineFunction({
 Both APIs read the same arguments and answer the same JSON: a client moves from
 one to the other without changing its data.
 
-```http
+```http title="Request"
 GET /api/posts?where={"likes":{"gt":10}}&select={"title":true,"author":{"select":{"name":true}}}
 ```
 
-```json
+```json title="Response"
 {
 	"edges": [
 		{ "cursor": "…", "node": { "title": "Notes", "author": { "name": "Ada" } } }
@@ -720,7 +720,7 @@ GET /api/posts?where={"likes":{"gt":10}}&select={"title":true,"author":{"select"
 
 The same read in GraphQL:
 
-```graphql
+```graphql title="Request"
 query {
 	posts(where: { likes: { gt: 10 } }) {
 		edges {
@@ -744,7 +744,7 @@ query {
 
 It answers the REST body, under `data.posts`:
 
-```json
+```json title="Response"
 {
 	"data": {
 		"posts": {
@@ -772,7 +772,7 @@ It answers the REST body, under `data.posts`:
 parameters, its bodies, its answers and its errors, as JSON Schema. A client
 generator or a tool such as Swagger UI reads it:
 
-```http
+```http title="Request"
 GET /api/openapi.json
 ```
 

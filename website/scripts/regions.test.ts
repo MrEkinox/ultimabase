@@ -83,6 +83,20 @@ describe('codeBlock', () => {
 		)
 	})
 
+	it("keeps the include's meta, so a frozen block keeps its file's title", () => {
+		const directory = mkdtempSync(join(tmpdir(), 'regions-'))
+		writeFileSync(
+			join(directory, 'a.ts'),
+			'//#region doc\nconst a = 1\n//#endregion\n',
+		)
+		const [include] = includesOf(
+			`<include cwd meta='title="src/a.ts"'>a.ts#doc</include>`,
+		)
+		expect(include && codeBlock(directory, include)).toBe(
+			'```ts title="src/a.ts"\nconst a = 1\n```',
+		)
+	})
+
 	it('names a region that is missing', () => {
 		const directory = mkdtempSync(join(tmpdir(), 'regions-'))
 		writeFileSync(join(directory, 'a.ts'), 'const a = 1\n')

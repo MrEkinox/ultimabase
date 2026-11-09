@@ -6,7 +6,7 @@ description: Run code before and after each read and write of a model, in its tr
 A hook is a model's own code, run on each of its reads and writes. A model's
 `.with({ hooks })` lists them:
 
-```ts
+```ts title="src/tag.ts"
 import { allow, defineModel } from 'ultimabase'
 
 export const Tag = defineModel({
@@ -42,7 +42,7 @@ makes passes its own `{ as }`: `{ as: caller }` for the caller's rules,
 The sections below show the hooks of a support ticket, which starts like this.
 Its tests write `as` for `{ as: master }`.
 
-```ts
+```ts title="src/models.ts"
 export const Ticket = defineModel({
 	name: 'Ticket',
 	use: [graphql()],
@@ -64,7 +64,7 @@ export const Ticket = defineModel({
 `beforeCreate` receives the `data` of the create; `beforeUpdate` the stored
 `record` and the `data` of the update. Each changes `data` in place:
 
-```ts
+```ts title="src/models.ts"
 // Changes `data` in place, before it is written.
 beforeCreate: ({ data }) => {
 	data.title = data.title.trim()
@@ -76,7 +76,7 @@ beforeUpdate: ({ record, data }) => {
 },
 ```
 
-```ts
+```ts title="src/app.test.ts"
 const ticket = await Ticket.create({ data: { title: '  Printer jam ' } }, as)
 expect(ticket.title).toBe('Printer jam')
 
@@ -99,7 +99,7 @@ expect(closed.closedAt).toBeInstanceOf(Date)
 
 A `before*` hook refuses by throwing, and nothing is written:
 
-```ts
+```ts title="src/models.ts"
 // Throwing refuses the write; a PublicError reaches the client.
 beforeDelete: ({ record }) => {
 	if (record.status === 'open') {
@@ -108,7 +108,7 @@ beforeDelete: ({ record }) => {
 },
 ```
 
-```ts
+```ts title="src/app.test.ts"
 const ticket = await Ticket.create({ data: { title: 'Printer jam' } }, as)
 await expect(
 	Ticket.delete({ where: { id: ticket.id } }, as),
@@ -126,7 +126,7 @@ expect(await Ticket.count({}, as)).toBe(1)
 
 Over GraphQL, the same error:
 
-```graphql
+```graphql title="Request"
 mutation ($id: ID!) {
 	deleteTicket(where: { id: $id }) {
 		id
@@ -134,7 +134,7 @@ mutation ($id: ID!) {
 }
 ```
 
-```json
+```json title="Response"
 {
 	"errors": [
 		{
@@ -152,12 +152,12 @@ mutation ($id: ID!) {
 
 `beforeFind` returns a filter built with `where`, or nothing:
 
-```ts
+```ts title="src/models.ts"
 // A spam ticket exists for nobody, Master included.
 beforeFind: ({ where }) => where({ spam: false }),
 ```
 
-```ts
+```ts title="src/app.test.ts"
 await Ticket.create({ data: { title: 'Printer jam' } }, as)
 await Ticket.create({ data: { title: 'Cheap watches', spam: true } }, as)
 // Master included: a hook is the model's own code.
@@ -179,7 +179,7 @@ deleted rows.
 once the row is written. `record` is the row as written, and an update's
 `previous` the row before:
 
-```ts
+```ts title="src/models.ts"
 // In the write's transaction: if it throws, the update is undone.
 afterUpdate: async ({ record, previous }) => {
 	if (previous.status === record.status) return
@@ -195,7 +195,7 @@ afterUpdate: async ({ record, previous }) => {
 },
 ```
 
-```ts
+```ts title="src/app.test.ts"
 const ticket = await Ticket.create({ data: { title: 'Printer jam' } }, as)
 await Ticket.update(
 	{ where: { id: ticket.id }, data: { status: 'closed' } },
@@ -218,7 +218,7 @@ A rule that compares fields of one row reads the row as written, in
 `afterCreate` and `afterUpdate`: an update's `data` holds only the fields it
 changes, `record` all of them. Here a call ends with a reason:
 
-```ts
+```ts title="src/models.ts"
 type Ending = { endedAt: Date | null; endReason: string | null }
 
 // Read on the row as written, whichever fields the write changed.
@@ -229,7 +229,7 @@ function checkEnding({ endedAt, endReason }: Ending): void {
 }
 ```
 
-```ts
+```ts title="src/models.ts"
 /** A call ends with a reason: both fields are set, or neither. */
 export const Call = defineModel({
 	name: 'Call',
@@ -251,7 +251,7 @@ export const Call = defineModel({
 })
 ```
 
-```ts
+```ts title="src/app.test.ts"
 // The update gives one field; the hook reads both on the row.
 await expect(
 	Call.update({ where: { id: call.id }, data: { endReason: 'done' } }, as),
@@ -276,7 +276,7 @@ facts as the `after*` hooks, and run once the transaction commits. They are for
 what cannot be undone: an email, a webhook, a message to another service. Here
 `outbox` stands for an email service: an array of the messages sent.
 
-```ts
+```ts title="src/models.ts"
 // Once the transaction commits, never after a rollback.
 afterUpdateCommit: ({ record, previous }) => {
 	if (previous.status !== 'closed' && record.status === 'closed') {
@@ -287,7 +287,7 @@ afterUpdateCommit: ({ record, previous }) => {
 
 A rollback sends nothing, and the ticket stays open:
 
-```ts
+```ts title="src/app.test.ts"
 await expect(
 	transaction(async () => {
 		await Ticket.update(
@@ -303,7 +303,7 @@ expect(await Ticket.count({ where: { status: 'open' } }, as)).toBe(1)
 
 A commit sends it:
 
-```ts
+```ts title="src/app.test.ts"
 await Ticket.update(
 	{ where: { id: ticket.id }, data: { status: 'closed' } },
 	as,
@@ -328,7 +328,7 @@ The HTTP server limits each address's requests
 
 A comment stores its author, and only a signed-in person may create one:
 
-```ts
+```ts title="src/models.ts"
 fields: (f) => ({
 	text: f.string(),
 	authorId: f.string({
@@ -338,7 +338,7 @@ fields: (f) => ({
 }),
 ```
 
-```ts
+```ts title="src/models.ts"
 // Counts operations, not requests: REST, GraphQL and server code alike.
 beforeCreate: async ({ caller }): Promise<void> => {
 	if (caller.kind !== 'user') return
@@ -355,7 +355,7 @@ beforeCreate: async ({ caller }): Promise<void> => {
 },
 ```
 
-```ts
+```ts title="src/app.test.ts"
 const ada = { as: asUser({ id: 'ada' }) }
 for (const text of ['1', '2', '3', '4', '5']) {
 	await Comment.create({ data: { text } }, ada)
