@@ -6,7 +6,7 @@ import { isMaster, PublicError } from 'ultimabase'
 import type { FileOptions } from './field.ts'
 import { keysOf } from './field.ts'
 import { FilesBlob, M } from './model.ts'
-import { settled } from './storage.ts'
+import { pooled } from './storage.ts'
 import type { FileValue, StoredVariant } from './values.ts'
 import { fileValue, isFile, Pending, runningOf, storedFile } from './values.ts'
 
@@ -194,21 +194,42 @@ export async function release({ name, record }: Facts): Promise<void> {
 	await FilesBlob.updateMany({ where, data: { state: 'released' } }, M)
 }
 
+/** Released rows read at once, and objects deleted at a time (D-351). */
+const pageSize = 500
+const width = 16
+
 /**
- * Deletes the released blobs `where` names: their objects, then their rows.
- * A failure keeps the rows, which the sweep deletes later.
+ * Deletes the released blobs `where` names, a page at a time: their objects,
+ * then the rows of the objects deleted. The page read next starts where this
+ * one ended, its rows deleted; a failure keeps its row and ends the purge,
+ * which the next sweep runs again.
  */
 async function purge(where: NonNullable<BlobWhere>): Promise<void> {
 	const { storage, logger } = runningOf()
+	let full = true
 	try {
-		const blobs = await FilesBlob.findMany(
-			{ where: { AND: [where, { state: 'released' }] } },
-			M,
-		)
-		if (blobs.length === 0) return
-		await settled(blobs.map(({ key }) => storage.delete(key)))
-		const ids = blobs.map(({ id }) => id)
-		await FilesBlob.deleteMany({ where: { id: { in: ids } } }, M)
+		while (full) {
+			const blobs = await FilesBlob.findMany(
+				{
+					where: { AND: [where, { state: 'released' }] },
+					select: { id: true, key: true },
+					take: pageSize,
+				},
+				M,
+			)
+			const deleted = await pooled(blobs, width, ({ key }) =>
+				storage.delete(key),
+			)
+			const ids = blobs
+				.filter((_, at) => deleted[at]?.status === 'fulfilled')
+				.map(({ id }) => id)
+			if (ids.length > 0) {
+				await FilesBlob.deleteMany({ where: { id: { in: ids } } }, M)
+			}
+			const refused = deleted.find((result) => result.status === 'rejected')
+			if (refused !== undefined) throw refused.reason
+			full = blobs.length === pageSize
+		}
 	} catch (error) {
 		logger.warn({ err: error }, 'Released files were not deleted yet.')
 	}
@@ -264,7 +285,9 @@ export async function check(options?: {
 	const objects = keys.filter((key) => !held.has(key))
 	const rows = blobs.map(({ key }) => key).filter((key) => !stored.has(key))
 	if (options?.delete === true) {
-		await settled(objects.map((key) => storage.delete(key)))
+		const deleted = await pooled(objects, width, (key) => storage.delete(key))
+		const failed = deleted.find((result) => result.status === 'rejected')
+		if (failed !== undefined) throw failed.reason
 	}
 	return { objects, rows }
 }

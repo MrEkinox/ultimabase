@@ -567,6 +567,18 @@ describe('a list', () => {
 	})
 })
 
+// A released row, which the sweep deletes.
+const releasedRow = (at: number) => ({
+	key: `private/${String(at).padStart(36, '0')}`,
+	name: String(at),
+	type: 'text/plain',
+	size: 1,
+	field: 'Post.doc',
+	uploadedBy: null,
+	state: 'released',
+	deleteAfter: null,
+})
+
 describe('the sweep', () => {
 	it('deletes the expired pending files, and the released ones a crash left', async () => {
 		const { storage } = await start()
@@ -613,6 +625,48 @@ describe('the sweep', () => {
 		expect(await blobs()).toHaveLength(2)
 		expect(warnings).toHaveLength(1)
 	})
+
+	it('deletes page after page, 16 objects at a time (D-351)', async () => {
+		const { storage } = await start()
+		await FilesBlob.createMany(
+			{ data: Array.from({ length: 1001 }, (_, at) => releasedRow(at)) },
+			M,
+		)
+		let busy = 0
+		let most = 0
+		const deleted: string[] = []
+		vi.spyOn(storage, 'delete').mockImplementation(async (key) => {
+			busy += 1
+			most = Math.max(most, busy)
+			await new Promise((resolve) => setTimeout(resolve, 0))
+			deleted.push(key)
+			busy -= 1
+		})
+		await sweep()
+		expect(most).toBe(16)
+		expect(new Set(deleted).size).toBe(1001)
+		expect(await blobs()).toStrictEqual([])
+	})
+
+	it('deletes the rows of the objects it deleted only (D-351)', async () => {
+		const { storage, warnings } = await start()
+		await cover()
+		await FilesBlob.updateMany(
+			{ where: {}, data: { deleteAfter: new Date(Date.now() - 1) } },
+			M,
+		)
+		const [, thumb] = await blobs()
+		const remove = storage.delete.bind(storage)
+		vi.spyOn(storage, 'delete').mockImplementation(async (key) => {
+			if (key === thumb?.key) throw new Error('Down.')
+			await remove(key)
+		})
+		await sweep()
+		expect((await blobs()).map(({ name }) => name)).toStrictEqual(['thumb'])
+		expect(storage.objects.has(thumb?.key ?? '')).toBe(true)
+		expect(storage.objects.size).toBe(1)
+		expect(warnings).toHaveLength(1)
+	})
 })
 
 describe('files.check', () => {
@@ -634,6 +688,24 @@ describe('files.check', () => {
 		await files.check({ delete: true })
 		expect(storage.objects.size).toBe(0)
 		expect(row?.id).toBe(id)
+	})
+
+	it('deletes every object it can, then fails with the first refusal (D-351)', async () => {
+		const { storage } = await start()
+		const put = (key: string) =>
+			storage.put(key, text, {
+				type: 'text/plain',
+				size: text.length,
+				attachment: true,
+			})
+		await Promise.all(['private/a', 'private/b', 'private/c'].map(put))
+		const remove = storage.delete.bind(storage)
+		vi.spyOn(storage, 'delete').mockImplementation(async (key) => {
+			if (key === 'private/b') throw new Error('Down.')
+			await remove(key)
+		})
+		await expect(files.check({ delete: true })).rejects.toThrow('Down.')
+		expect([...storage.objects.keys()]).toStrictEqual(['private/b'])
 	})
 
 	it('needs the plugin started', async () => {

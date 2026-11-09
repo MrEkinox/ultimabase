@@ -21324,6 +21324,11 @@ attachment`: SVG and XHTML that `file-type` detects as
    and keeps the keys `keyPattern` matches, as `diskFiles()` does. A
    bucket may hold other objects, which `files.check({ delete: true })`
    leaves.
+4. The sweep and the deletions after a commit read released rows 500 at a
+   time, delete 16 objects at a time, and delete the rows of the objects
+   deleted only. A refused deletion keeps its row, ends the run and is
+   logged once; the next sweep runs it again. `files.check({ delete: true })`
+   deletes 16 objects at a time too.
 
 Why: D-152 named SVG as the type a browser runs, and `file-type` never
 detects SVG. An SVG that opens with an XML prolog, or an XHTML document, is
@@ -21337,6 +21342,10 @@ caller had the server buffer up to `maxSize` of a field with variants, its
 the `FilesBlob` model, which D-110 hides.
 `s3().keys()` listed the whole bucket, so `check({ delete: true })` deleted
 every object files did not write, a backup next to the uploads included.
+The sweep read every released row at once and deleted all their objects at
+once: after a mass delete, tens of thousands of requests left together, and
+one refusal kept every row, so the next sweep deleted the same objects
+again.
 Rejected: adding `application/xml` to the dangerous types, which leaves
 the next detected markup type inline; sniffing the XML for `<svg` or
 `<html`, which an attacker's namespace or comment defeats.
