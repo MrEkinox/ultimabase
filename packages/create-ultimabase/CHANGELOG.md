@@ -1,5 +1,11 @@
 # create-ultimabase
 
+## 0.6.0
+
+### Patch Changes
+
+- 412f269: The starter's test writes its GraphQL document with `query`, as the documentation does.
+
 ## 0.5.0
 
 No changes in this release.

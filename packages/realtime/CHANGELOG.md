@@ -1,5 +1,60 @@
 # @ultimabase/realtime
 
+## 0.6.0
+
+### Minor Changes
+
+- a47bbc4: A live list costs what its readers see, whatever its length. `maxLive` is now 50 000 rows by default, where it was 1000, and `maxConnectionRows` 100 000, where it was 10 000. Nested rows no longer count toward `maxLive`: a nested list is bounded by its `take`. `fetchMore` past `maxLive` is no longer refused: it adds what fits, then `hasNextPage` is `false`. A connection past `maxConnectionRows` still refuses the growth.
+
+  A write in a read's reach no longer sends the rows that did not change. The read still reads them again, and a page-mode read still resends its window.
+
+### Patch Changes
+
+- a47bbc4: A storm of connections no longer fails. The server's connection queue holds 4096, and at most 8 connections open at once. A socket closed by a failure of the server now gets `1013`, which `graphql-ws` retries, where it got `4403`: `4403` now means refused, and only that. `liveFetch` reconnects at a random moment of its wait, so that clients cut together do not come back together.
+- 9d5dee3: A deleted row visits only the live lists that hold it or count their rows: a
+  delete is faster when many follow lists of the same shape.
+- f25bb39: Two flushes of live changes stay at least 50 ms apart even on a busy server, whose timers could ring a few milliseconds early and split changes the gather should have sent together.
+- da11cfa: A live list of 120000 rows or more reads its window, and sends the rows its virtual fields changed, instead of failing.
+- c5ddcbd: When the database's change feed reconnects, live reads no longer stop until every one of them was read again. The viewers read again 32 at a time, with the writes' messages in between. With 10 000 connected callers, a lost listening connection stopped every live read for up to 40 s.
+- d6ec5d4: A live list no longer stays wrong for good after concurrent writes, with rows missing or out of order or `hasMore` false: it refills from the sort keys it holds, not from where its last row has moved to.
+- 08ce21c: The `refresh` of live callers no longer holds every live read while all callers are built again. Each caller is built again `refresh` after it connected, then every `refresh`, and the callers due are built 32 at a time, with the writes' messages in between. With 10 000 connected callers, every live read stopped for about 10 s every 5 minutes.
+- ed78183: A live list whose rule goes through a relation asks once per related row: a write of 1000 documents across 50 teams reaches 1000 lists 39 % sooner.
+- bce3bbe: A live list no longer drops a row it may read when a write made it readable during a flush, and no longer reads the whole list again for it.
+- 0ce209d: A write no longer visits every live read of a model when those reads filter on a text field: with 10 000 such reads, a write is told in 11 ms instead of 70 ms.
+- 0a6de4d: A live read with a virtual field costs less for each row it holds: with 1000 subscribers on a list of 1000 rows, the last of them hears of a write 31 % sooner.
+- 1644bb1: Subscribers whose virtual fields read the same thing share one statement during a change: 1000 subscribers on one list went from 1002 statements a write to 3, and the last of them hears 53 % sooner.
+- 627ce40: During a storm of connections, a new visitor and a health probe no longer wait behind those
+  arriving: the longest wait falls from about 28 s to about 6 s, at the same pace of openings.
+- a47bbc4: A write costs its readers: it visits only the reads it can concern, and runs fewer statements. Subscribers of one row share its execution, a document is validated once, and a message is compressed only above 2 KB.
+- 10a1c8c: A flush builds a refill's filter once for the live lists that share it: a
+  delete on a list many follow is faster.
+- Updated dependencies [e97378e]
+- Updated dependencies [778bbbc]
+- Updated dependencies [2bccedd]
+- Updated dependencies [f808da8]
+- Updated dependencies [7c20553]
+- Updated dependencies [2f1baf1]
+- Updated dependencies [945b1b3]
+- Updated dependencies [4ff9d42]
+- Updated dependencies [41b5dca]
+- Updated dependencies [703ed93]
+- Updated dependencies [76509c3]
+- Updated dependencies [a6394ba]
+- Updated dependencies [41b5dca]
+- Updated dependencies [41b5dca]
+- Updated dependencies [ce7e68f]
+- Updated dependencies [d6ec5d4]
+- Updated dependencies [0a6de4d]
+- Updated dependencies [1644bb1]
+- Updated dependencies [12edcfd]
+- Updated dependencies [a479bca]
+- Updated dependencies [0102aa8]
+- Updated dependencies [7a8d0d8]
+- Updated dependencies [e3d051f]
+- Updated dependencies [6140b2b]
+- Updated dependencies [0699e37]
+  - ultimabase@0.6.0
+
 ## 0.5.0
 
 ### Patch Changes

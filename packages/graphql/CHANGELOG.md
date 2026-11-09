@@ -1,5 +1,60 @@
 # @ultimabase/graphql
 
+## 0.6.0
+
+### Patch Changes
+
+- a47bbc4: A storm of connections no longer fails. The server's connection queue holds 4096, and at most 8 connections open at once. A socket closed by a failure of the server now gets `1013`, which `graphql-ws` retries, where it got `4403`: `4403` now means refused, and only that. `liveFetch` reconnects at a random moment of its wait, so that clients cut together do not come back together.
+- dcfc0e6: A live list kept for a resume holds no more than its window costs: past
+  that, its resume gets the window whole.
+- 512bf58: A closed WebSocket no longer keeps its completed live lists for 10 seconds: they end at once, as no resume can reach them. A storm of closing connections held about 24 KiB a socket until then.
+- a47bbc4: A write costs its readers: it visits only the reads it can concern, and runs fewer statements. Subscribers of one row share its execution, a document is validated once, and a message is compressed only above 2 KB.
+- 104bcf8: A WebSocket client's invalid or oversized frame closes its own socket, with the code for it, and no longer stops the server.
+- b733636: A WebSocket subscription id used twice closes the socket with 4409 however long the id is, and no longer logs an error.
+- Updated dependencies [e97378e]
+- Updated dependencies [778bbbc]
+- Updated dependencies [a47bbc4]
+- Updated dependencies [2bccedd]
+- Updated dependencies [f808da8]
+- Updated dependencies [a47bbc4]
+- Updated dependencies [7c20553]
+- Updated dependencies [2f1baf1]
+- Updated dependencies [9d5dee3]
+- Updated dependencies [945b1b3]
+- Updated dependencies [4ff9d42]
+- Updated dependencies [f25bb39]
+- Updated dependencies [41b5dca]
+- Updated dependencies [3d7f654]
+- Updated dependencies [703ed93]
+- Updated dependencies [76509c3]
+- Updated dependencies [a6394ba]
+- Updated dependencies [41b5dca]
+- Updated dependencies [41b5dca]
+- Updated dependencies [ce7e68f]
+- Updated dependencies [da11cfa]
+- Updated dependencies [c5ddcbd]
+- Updated dependencies [d6ec5d4]
+- Updated dependencies [08ce21c]
+- Updated dependencies [ed78183]
+- Updated dependencies [bce3bbe]
+- Updated dependencies [0ce209d]
+- Updated dependencies [0a6de4d]
+- Updated dependencies [1644bb1]
+- Updated dependencies [dfa430e]
+- Updated dependencies [12edcfd]
+- Updated dependencies [a479bca]
+- Updated dependencies [627ce40]
+- Updated dependencies [a47bbc4]
+- Updated dependencies [10a1c8c]
+- Updated dependencies [0102aa8]
+- Updated dependencies [7a8d0d8]
+- Updated dependencies [e3d051f]
+- Updated dependencies [6140b2b]
+- Updated dependencies [0699e37]
+  - ultimabase@0.6.0
+  - @ultimabase/realtime@0.6.0
+  - @ultimabase/http@0.6.0
+
 ## 0.5.0
 
 ### Patch Changes

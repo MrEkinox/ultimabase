@@ -1,0 +1,203 @@
+---
+title: Maintenance
+description: Answer 503 to every client while the data changes, on every server, Master still served.
+---
+
+`@ultimabase/maintenance` puts the application in maintenance: every request
+answers 503 until it ends, and Master is still served.
+
+```npm
+npm install @ultimabase/maintenance
+```
+
+`maintenancePlugin()` goes in the application's plugins, after `httpPlugin()`:
+
+```ts
+import { graphqlPlugin } from '@ultimabase/graphql'
+import { httpPlugin } from '@ultimabase/http'
+import { maintenancePlugin } from '@ultimabase/maintenance'
+import { defineApp, memory } from 'ultimabase'
+import { Post } from './models.ts'
+
+export const app = defineApp({
+	database: memory(),
+	masterKey: 'dev-master-key',
+	plugins: [
+		httpPlugin(),
+		graphqlPlugin(),
+		maintenancePlugin({
+			retryAfter: 120_000,
+			key: 'dev-maintenance-key',
+			initial: 'unlocked',
+		}),
+	],
+	models: [Post],
+})
+```
+
+The full example, with its tests: [`examples/maintenance`](https://github.com/MrEkinox/ultimabase/tree/main/examples/maintenance).
+
+| To                                  | Use                                                   |
+| ----------------------------------- | ----------------------------------------------------- |
+| turn it on or off from a deployment | [`PUT /_ultimabase/maintenance`](#turn-it-on-and-off) |
+| start a new database in maintenance | [`initial: 'locked'`](#start-in-maintenance)          |
+| show a maintenance page             | [the 503 and `Retry-After`](#what-a-client-reads)     |
+| run a migration meanwhile           | [the master key](#master)                             |
+| turn it on from a plugin            | [`plugins.maintenance`](#pluginsmaintenance)          |
+
+Every server follows, as the state is a row of the database. GraphQL and REST
+answer 503, and the WebSockets open close.
+
+## Turn it on and off
+
+`PUT /_ultimabase/maintenance` turns it on with `{ "enabled": true }` and off
+with `{ "enabled": false }`. It answers 200 with the state as stored:
+
+```http
+PUT /_ultimabase/maintenance
+content-type: application/json
+x-ultimabase-maintenance-key: dev-maintenance-key
+
+{ "enabled": true }
+```
+
+```json
+{ "enabled": true }
+```
+
+The request takes the maintenance key, in `x-ultimabase-maintenance-key`, or
+the master key, in `x-ultimabase-master-key`. Any other caller is refused. The
+request above holds the maintenance key. The test sends it, and sends
+`turn-off` the same way, with status 200.
+
+A deployment pipeline holds the maintenance key rather than the master key,
+which reads and changes every row. The key does nothing else, and follows the
+master key's rules:
+
+- Empty, it is unset.
+- Under `NODE_ENV=production`, the start refuses one under 32 characters.
+  `openssl rand -base64 32` gives a good one.
+- A request that sends it meets the 503 as any other, and every route reads
+  its caller as before.
+
+## Start in maintenance
+
+`initial: 'locked'` starts the application in maintenance while no state is
+stored, as on a new database or one restored from a backup.
+
+- A stored state always wins, and the start writes none.
+- `initial` is read from no environment variable: the application passes it
+  from its own.
+
+## What a client reads
+
+While it is on, every request answers 503 with the code `MAINTENANCE`, and
+`Retry-After` in seconds. A client that shows a maintenance page sends any
+request, as `{ __typename }` to GraphQL, and reads both:
+
+```graphql
+query {
+	__typename
+}
+```
+
+```json
+{
+	"code": "MAINTENANCE",
+	"message": "The application is under maintenance.",
+	"details": { "retryAfter": 120 }
+}
+```
+
+The response's header is `Retry-After: 120`, as `retryAfter` is 120 000
+milliseconds. The test sends the request while the maintenance is on.
+
+- The WebSockets open close with 1012, Service Restart: a graphql-ws client
+  tries again, meets the 503 and stops.
+- A browser reads the 503 too, as CORS's headers come with it. Preflights
+  still pass.
+- `/health` and `/ready` answer as before: the load balancer keeps the
+  servers, and the clients read the maintenance's answer rather than the load
+  balancer's.
+
+## Master
+
+A request with the master key is served as usual, during maintenance too, for
+the migration's scripts and the admin. The key goes in `x-ultimabase-master-key`,
+and is accepted outside production only: a plain string key is refused there
+with `The master key is refused in production.`
+
+The `Post` model has a `title`, which every client reads. No rule opens a
+create, so only Master writes one:
+
+```graphql
+mutation {
+	createPost(data: { title: "Migrated" }) {
+		title
+	}
+}
+```
+
+```json
+{ "data": { "createPost": { "title": "Migrated" } } }
+```
+
+The test sends it with the header `x-ultimabase-master-key`, and the answer is
+200, as if the maintenance were off.
+
+## Details
+
+- A server that cannot read the state as it starts fails its start rather than
+  guess.
+- Until every plugin started, the HTTP plugin answers every request 503
+  `UNAVAILABLE`, Master's too, so no request is served before the state is
+  read.
+
+## Reference
+
+### `maintenancePlugin(options)`
+
+| Option       | Type                     | Default      | Effect                                                            |
+| ------------ | ------------------------ | ------------ | ----------------------------------------------------------------- |
+| `retryAfter` | milliseconds             | 60 000       | What `Retry-After` tells a client to wait, rounded up to seconds. |
+| `key`        | string                   | none         | Sent in `x-ultimabase-maintenance-key`, switches the maintenance. |
+| `initial`    | `'locked'`, `'unlocked'` | `'unlocked'` | The state while none is stored.                                   |
+
+`retryAfter` is a positive number: another value, as `0` or `NaN`, refuses
+the start with `The maintenance's retryAfter is a positive number of
+milliseconds.` It requires `httpPlugin()`, and adds the model
+`MaintenanceState`, which no transport exposes.
+
+### `plugins.maintenance`
+
+A plugin that requires maintenance turns it on and off from its code, as a
+migration would.
+
+| Member     | Effect                                       |
+| ---------- | -------------------------------------------- |
+| `lock()`   | Turns it on, for every server, once stored.  |
+| `unlock()` | Turns it off, for every server, once stored. |
+| `locked()` | Whether this server is in maintenance.       |
+
+Each server reads the state as it starts, and again on each change of it;
+a read that answers after a later one is ignored. When it cannot read it as
+it starts, the start fails; later, it keeps the state it had and logs the
+error.
+
+### `PUT /_ultimabase/maintenance`
+
+| Status | Code                | When                                                                          |
+| ------ | ------------------- | ----------------------------------------------------------------------------- |
+| 200    |                     | `{ "enabled": true }` or `{ "enabled": false }`, as stored.                   |
+| 400    | `VALIDATION_FAILED` | `The body is { "enabled": true } or { "enabled": false }.`                    |
+| 403    | `ACCESS_DENIED`     | `Only the master key or the maintenance key turns the maintenance on or off.` |
+
+### While it is on
+
+| Request                                          | Answer                                                                                      |
+| ------------------------------------------------ | ------------------------------------------------------------------------------------------- |
+| any but Master's, the maintenance key's included | 503 `MAINTENANCE`, `The application is under maintenance.`, `details.retryAfter` in seconds |
+| a WebSocket upgrade                              | the same 503                                                                                |
+| a WebSocket open                                 | closed with 1012 `Maintenance`                                                              |
+| with the master key                              | as usual                                                                                    |
+| preflight, `/health`, `/ready`                   | as usual                                                                                    |

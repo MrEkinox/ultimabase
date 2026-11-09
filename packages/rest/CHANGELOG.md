@@ -1,5 +1,58 @@
 # @ultimabase/rest
 
+## 0.6.0
+
+### Patch Changes
+
+- dcfc0e6: A live list kept for a resume holds no more than its window costs: past
+  that, its resume gets the window whole.
+- bdc5af7: A live list over Server-Sent Events, kept 10 seconds for a resume once its client left, no longer holds the client's closed connection and its gzip stream: about 43 KiB a list until then.
+- de9c1db: A live list resumed over Server-Sent Events no longer misses a change written while its connection was being cut. `liveFetch` resumes with the revision it last saw, as `Last-Event-ID`, and the server sends the window whole when that connection lost some of what it was written.
+- 6791d1d: A gzipped live read over Server-Sent Events keeps a smaller compressor: about a third less memory a stream (430 to 286 KiB with 2 000 streams open) and a sixth to a quarter less CPU for the server, for 1 to 2 % more bytes an event.
+- Updated dependencies [e97378e]
+- Updated dependencies [778bbbc]
+- Updated dependencies [a47bbc4]
+- Updated dependencies [2bccedd]
+- Updated dependencies [f808da8]
+- Updated dependencies [a47bbc4]
+- Updated dependencies [7c20553]
+- Updated dependencies [2f1baf1]
+- Updated dependencies [9d5dee3]
+- Updated dependencies [945b1b3]
+- Updated dependencies [4ff9d42]
+- Updated dependencies [f25bb39]
+- Updated dependencies [41b5dca]
+- Updated dependencies [3d7f654]
+- Updated dependencies [703ed93]
+- Updated dependencies [76509c3]
+- Updated dependencies [a6394ba]
+- Updated dependencies [41b5dca]
+- Updated dependencies [41b5dca]
+- Updated dependencies [ce7e68f]
+- Updated dependencies [da11cfa]
+- Updated dependencies [c5ddcbd]
+- Updated dependencies [d6ec5d4]
+- Updated dependencies [08ce21c]
+- Updated dependencies [ed78183]
+- Updated dependencies [bce3bbe]
+- Updated dependencies [0ce209d]
+- Updated dependencies [0a6de4d]
+- Updated dependencies [1644bb1]
+- Updated dependencies [dfa430e]
+- Updated dependencies [12edcfd]
+- Updated dependencies [a479bca]
+- Updated dependencies [627ce40]
+- Updated dependencies [a47bbc4]
+- Updated dependencies [10a1c8c]
+- Updated dependencies [0102aa8]
+- Updated dependencies [7a8d0d8]
+- Updated dependencies [e3d051f]
+- Updated dependencies [6140b2b]
+- Updated dependencies [0699e37]
+  - ultimabase@0.6.0
+  - @ultimabase/realtime@0.6.0
+  - @ultimabase/http@0.6.0
+
 ## 0.5.0
 
 ### Patch Changes
