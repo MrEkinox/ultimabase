@@ -28,6 +28,24 @@ const encoded = (value: string): string =>
 const hmac = (key: string | Buffer, value: string): Buffer =>
 	createHmac('sha256', key).update(value).digest()
 
+/** Each signer's key of its last day: four HMACs, half a signature (D-351). */
+const keys = new WeakMap<
+	Signer,
+	{ readonly day: string; readonly key: Buffer }
+>()
+
+/** The signing key of `day`, derived once a day per signer. */
+export function keyOf(signer: Signer, day: string): Buffer {
+	const last = keys.get(signer)
+	if (last?.day === day) return last.key
+	const key = ['s3', 'aws4_request'].reduce(
+		hmac,
+		hmac(hmac(`AWS4${signer.secretAccessKey}`, day), signer.region),
+	)
+	keys.set(signer, { day, key })
+	return key
+}
+
 /** `20130524T000000Z`. */
 const stampOf = (now: Date): string =>
 	now
@@ -76,10 +94,8 @@ export function presign(
 	].join('\n')
 	const digest = createHash('sha256').update(canonical).digest('hex')
 	const toSign = ['AWS4-HMAC-SHA256', stamp, scope, digest].join('\n')
-	const key = ['s3', 'aws4_request'].reduce(
-		hmac,
-		hmac(hmac(`AWS4${signer.secretAccessKey}`, day), signer.region),
-	)
-	const signature = createHmac('sha256', key).update(toSign).digest('hex')
+	const signature = createHmac('sha256', keyOf(signer, day))
+		.update(toSign)
+		.digest('hex')
 	return `${url.origin}${path.join('/')}?${canonicalQuery}&X-Amz-Signature=${signature}`
 }

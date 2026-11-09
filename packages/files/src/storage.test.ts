@@ -4,7 +4,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { memoryFiles } from './memory.ts'
 import { s3 } from './s3.ts'
-import { presign } from './sigv4.ts'
+import { keyOf, presign } from './sigv4.ts'
 
 const signer = {
 	region: 'us-east-1',
@@ -44,6 +44,24 @@ describe('SigV4', () => {
 		expect(url).toBe(
 			'https://examplebucket.s3.amazonaws.com/test.txt?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=AKIAIOSFODNN7EXAMPLE%2F20130524%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Date=20130524T000000Z&X-Amz-Expires=86400&X-Amz-SignedHeaders=host&X-Amz-Signature=aeeed9bbccd4d02ee5c0109b86d86835f995330da4c265957d157751f604d404',
 		)
+	})
+
+	it('signs each day with that day’s key (D-351)', () => {
+		const request = {
+			method: 'GET',
+			url: new URL('https://s3.example.com/b/a'),
+			headers: {},
+			expires: 900,
+		}
+		const kept = { ...signer }
+		for (const at of ['2026-11-09T23:59:59Z', '2026-11-10T00:00:00Z']) {
+			const date = new Date(at)
+			// A fresh signer derives its key anew.
+			expect(presign(kept, request, date)).toBe(
+				presign({ ...signer }, request, date),
+			)
+		}
+		expect(keyOf(kept, '20261110')).toBe(keyOf(kept, '20261110'))
 	})
 
 	it('signs the headers sent and keeps the query', () => {
