@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { httpPlugin } from '@ultimabase/http'
+import type { Adapter, Transaction } from 'ultimabase'
 import { allow, defineApp, definePlugin, memory } from 'ultimabase'
 import { files, filesPlugin, memoryFiles } from './index.ts'
 import { sweep } from './lifecycle.ts'
@@ -340,6 +341,43 @@ describe('an upload', () => {
 	})
 })
 
+/** `memory()`, recording each read and write that names `FilesBlob`. */
+function watched(touched: string[]): Adapter {
+	const database = memory()
+	const note = (kind: string, given: unknown): void => {
+		if (JSON.stringify(given).includes('"FilesBlob"')) touched.push(kind)
+	}
+	const watch = (transaction: Transaction): Transaction => ({
+		find: async (read) => {
+			note('find', read)
+			return transaction.find(read)
+		},
+		count: async (read) => transaction.count(read),
+		aggregate: async (read) => transaction.aggregate(read),
+		write: async (write) => {
+			note('write', write)
+			return transaction.write(write)
+		},
+		commit: async () => transaction.commit(),
+		rollback: async () => transaction.rollback(),
+	})
+	const find = database.find.bind(database)
+	const write = database.write.bind(database)
+	const begin = database.begin.bind(database)
+	vi.spyOn(database, 'find').mockImplementation(async (read) => {
+		note('find', read)
+		return find(read)
+	})
+	vi.spyOn(database, 'write').mockImplementation(async (given) => {
+		note('write', given)
+		return write(given)
+	})
+	vi.spyOn(database, 'begin').mockImplementation(async (options) =>
+		watch(await begin(options)),
+	)
+	return database
+}
+
 describe('a write', () => {
 	it('attaches the uploaded file, which reads with its URLs', async () => {
 		await start()
@@ -488,9 +526,25 @@ describe('a write', () => {
 			{ data: { title: 'a', cover: id, attachments: [a] } },
 			{ as: alice },
 		)
-		await Post.delete({ where: { id: post.id } }, { as: alice })
+		// The hooks read the whole row, whatever the delete selects.
+		await Post.delete(
+			{ where: { id: post.id }, select: { id: true } },
+			{ as: alice },
+		)
 		expect(await blobs()).toStrictEqual([])
 		expect(storage.objects.size).toBe(0)
+	})
+
+	it('reads no blob when a deleted row holds no file (D-351)', async () => {
+		const touched: string[] = []
+		await start({}, watched(touched))
+		const post = await Post.create(
+			{ data: { title: 'a', attachments: [] } },
+			{ as: alice },
+		)
+		touched.length = 0
+		await Post.delete({ where: { id: post.id } }, { as: alice })
+		expect(touched).toStrictEqual([])
 	})
 
 	it('keeps the files when the write rolls back', async () => {

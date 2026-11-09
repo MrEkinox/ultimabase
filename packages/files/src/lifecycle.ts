@@ -188,8 +188,13 @@ const heldBy = (name: string, record: object): NonNullable<BlobWhere> => ({
 	},
 })
 
+/** Whether a row holds a file: one that holds none reads no blob (D-351). */
+const holdsFiles = (name: string, record: object): boolean =>
+	[...fieldsOf(name).keys()].some((field) => idsOf(record, field).length > 0)
+
 /** `afterDelete`: every file of the row, released. */
 export async function release({ name, record }: Facts): Promise<void> {
+	if (!holdsFiles(name, record)) return
 	const where = heldBy(name, record)
 	await FilesBlob.updateMany({ where, data: { state: 'released' } }, M)
 }
@@ -250,7 +255,7 @@ export async function deleteLost(
 
 /** `afterDeleteCommit`: the objects of a deleted row's files, deleted. */
 export async function deleteHeld({ name, record }: Facts): Promise<void> {
-	await purge(heldBy(name, record))
+	if (holdsFiles(name, record)) await purge(heldBy(name, record))
 }
 
 /**
