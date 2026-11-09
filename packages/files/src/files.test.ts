@@ -90,6 +90,50 @@ describe('an upload', () => {
 		expect(storage.objects.get(row?.key ?? '')?.attachment).toBe(true)
 	})
 
+	it('stores a declared type that is no media type as bytes (D-351)', async () => {
+		await start()
+		for (const type of [
+			'text/plain\u0000',
+			'text/plain/x',
+			'text',
+			'/plain',
+			'text /plain',
+			`text/${'x'.repeat(128)}`,
+			`${'x'.repeat(128)}/plain`,
+			'text/<b>',
+			'.x/plain',
+			'text/-x',
+		]) {
+			await files.upload(new Blob([text], { type }), {
+				for: 'Post.attachments',
+				name: 'a.bin',
+				as: alice,
+			})
+		}
+		const long = `x/${'y'.repeat(127)}`
+		for (const type of [long, 'Application/VND.A+json; q=1']) {
+			await files.upload(new Blob([text], { type }), {
+				for: 'Post.attachments',
+				name: 'b.bin',
+				as: alice,
+			})
+		}
+		const types = (await blobs()).map(({ type }) => type)
+		expect(types.toSorted()).toStrictEqual([
+			...Array.from({ length: 10 }, () => 'application/octet-stream'),
+			'application/vnd.a+json',
+			long,
+		])
+		// Accept never matches one.
+		await expect(
+			files.upload(new Blob([text], { type: 'text/' }), {
+				for: 'Post.doc',
+				name: 'a.txt',
+				as: alice,
+			}),
+		).rejects.toThrow('An undetected type is not accepted.')
+	})
+
 	it('streams a body without inline values or variants, its first bytes read once', async () => {
 		const { storage } = await start()
 		const bytes = new Uint8Array(10_000)

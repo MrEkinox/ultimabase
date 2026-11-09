@@ -21337,6 +21337,9 @@ attachment`: SVG and XHTML that `file-type` detects as
    or inline value fails, writes no row.
 8. `diskFiles()` deletes at start the temporary files a crash left: those
    no put has written for an hour.
+9. A declared type is kept only when it is a media type, RFC 6838's two
+   names of 127 characters at most; any other is no type: stored as
+   `application/octet-stream`, or refused by `accept`.
 
 Why: D-152 named SVG as the type a browser runs, and `file-type` never
 detects SVG. An SVG that opens with an XML prolog, or an XHTML document, is
@@ -21363,6 +21366,8 @@ An upload wrote its row, each variant's row, then its inline values: N + 2
 writes for N variants, and a failing variant left rows to delete.
 A crash during a put left its temporary files in `dir`: neither `keys()`
 nor `check()` listed them, so nothing ever deleted them.
+A declared type was stored as sent, of any length and grammar, then sent
+back as `Content-Type` by S3 and `diskFiles()`.
 Rejected: adding `application/xml` to the dangerous types, which leaves
 the next detected markup type inline; sniffing the XML for `<svg` or
 `<html`, which an attacker's namespace or comment defeats.

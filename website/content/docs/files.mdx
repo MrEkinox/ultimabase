@@ -144,6 +144,8 @@ refused:
 - A type it does not detect, such as text, is taken as declared only when
   `accept` lists it as is, as `text/plain`, and the file is then served as a
   download.
+- A declared type that is no media type, such as `text` or `a/b/c`, counts
+  as none: the file is stored as `application/octet-stream`.
 - Only images, audio, video and PDF are shown in a browser. Anything else,
   an SVG or any XML included, is served as a download, so a browser never
   runs it.

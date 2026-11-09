@@ -103,6 +103,9 @@ const matches = (accept: readonly string[], type: string): boolean =>
 export const shown = (type: string): boolean =>
 	/^(?:image\/(?!svg)|audio\/|video\/|application\/pdf$)/u.test(type)
 
+/** A media type: two names of 127 characters at most, RFC 6838's. */
+const mediaType = /^[a-z\d][\w!#$&^.+-]{0,126}\/[a-z\d][\w!#$&^.+-]{0,126}$/u
+
 /** The type a file is stored with, and whether it is served as a download. */
 async function typeOf(
 	sample: Uint8Array,
@@ -116,7 +119,9 @@ async function typeOf(
 	) {
 		return { type: detected, attachment: !shown(detected) }
 	}
-	const type = (declared ?? '').split(';')[0]?.trim().toLowerCase() ?? ''
+	const media = (declared ?? '').split(';')[0]?.trim().toLowerCase() ?? ''
+	// RFC 6838's grammar: anything else is no type (D-351).
+	const type = mediaType.test(media) ? media : ''
 	// An undetected type is taken as declared only when accept lists it.
 	if (detected === undefined && (accept?.includes(type) ?? true)) {
 		const known = type === '' ? 'application/octet-stream' : type
