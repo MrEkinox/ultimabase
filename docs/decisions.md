@@ -21667,12 +21667,13 @@ Choice: amends D-117, point 1, D-162, point 5, and D-169, point 5.
 4. The row's fields guarded by a read rule are there too: `sendEmail` runs
    on the server, and decides what the text shows.
 
-Why: an issue asked for a hook before each email, to read the user's
-language. The need was the row: every `sendEmail` that writes more than a
-link reads it again with `findUnique` by `userId`, as Master, to greet the
-user, pick their language or skip a closed account. password already has
-the user model's queries; reading it once there removes that code from
-every application.
+Why: an issue asked to type a field with a read rule as required in a
+read as Master, so that `sendEmail` reads the user's language without a
+fallback; D-199 keeps it optional. The need was the row: every
+`sendEmail` that writes more than a link reads it again with `findUnique`
+by `userId`, as Master, to greet the user, pick their language or skip a
+closed account. password already has the user model's queries; reading
+it once there removes that code from every application.
 
 Rejected: `user` beside `userId` (two names for one id, before the first
 1.0 there is no one to keep compatible); the record of the hook that sent
