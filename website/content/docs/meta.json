@@ -29,6 +29,7 @@
 		"realtime",
 		"maintenance",
 		"jobs",
+		"sentry",
 		"---Transports---",
 		"http",
 		"graphql",

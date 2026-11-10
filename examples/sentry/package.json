@@ -1,0 +1,25 @@
+{
+	"name": "example-sentry",
+	"version": "0.0.0",
+	"private": true,
+	"description": "Sentry: each query and hook in its request's trace, each failed mail an issue.",
+	"type": "module",
+	"license": "Apache-2.0",
+	"engines": {
+		"node": ">=24.7.0"
+	},
+	"scripts": {
+		"start": "node src/server.ts"
+	},
+	"dependencies": {
+		"@sentry/node": "11.11.0",
+		"@ultimabase/http": "workspace:*",
+		"@ultimabase/sentry": "workspace:*",
+		"ultimabase": "workspace:*"
+	},
+	"devDependencies": {
+		"@ultimabase/testing": "workspace:*",
+		"vite": "8.3.4",
+		"vitest": "5.0.5"
+	}
+}
