@@ -16,11 +16,13 @@
 		"@ultimabase/graphql": "workspace:*",
 		"@ultimabase/http": "workspace:*",
 		"@ultimabase/password": "workspace:*",
+		"@ultimabase/realtime": "workspace:*",
 		"graphql": "17.0.2",
 		"ultimabase": "workspace:*"
 	},
 	"devDependencies": {
 		"@ultimabase/testing": "workspace:*",
+		"graphql-ws": "6.4.1",
 		"vite": "8.3.4",
 		"vitest": "5.0.5",
 		"zod": "4.6.7"

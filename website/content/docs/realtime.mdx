@@ -220,6 +220,42 @@ Once a task is done:
   `.with({ realtime: { debounce } })` sets the wait.
 - The function runs as the subscriber.
 
+### A plugin's function
+
+A plugin's query lists no `realtime()`: the application names it in
+`liveFunctions`, by its plugin and name. Here auth's `viewer` sends the
+signed-in user again once their email is verified:
+
+<include cwd meta='title="src/app.ts"'>
+	../examples/password-sign-in/src/app.ts#live-viewer
+</include>
+
+A WebSocket sends its token in `connection_init`'s parameters:
+
+<include cwd meta='title="src/live.test.ts"'>
+	../examples/password-sign-in/src/live.test.ts#subscribe
+</include>
+
+<include cwd meta='title="Request"'>
+	../examples/password-sign-in/src/requests/live-viewer.graphql
+</include>
+
+<include cwd meta='title="Response"'>
+	../examples/password-sign-in/src/requests/live-viewer.json
+</include>
+
+Once the email is verified:
+
+<include cwd meta='title="Response"'>
+	../examples/password-sign-in/src/requests/live-viewer-verified.json
+</include>
+
+- A name that is no plugin's query refuses to start, and so does an
+  application's own function, which lists `realtime()` in its `use`.
+- When the user signs out, the subscription closes, as every live read of a
+  caller who is no longer the same user does; read again without a token,
+  `viewer` is `null`.
+
 ## Virtual fields
 
 A live row or list that selects a
@@ -411,6 +447,7 @@ that must keep it on screen keeps the rows it showed.
 | `maxSubscriptions`  | 100       | The most live reads one connection holds.               |
 | `maxConnectionRows` | 100 000   | The most list rows one connection follows in all.       |
 | `refresh`           | 5 minutes | How often, in milliseconds, each caller is built again. |
+| `liveFunctions`     | none      | Plugin queries made live, as `auth.viewer`.             |
 
 ### Messages
 

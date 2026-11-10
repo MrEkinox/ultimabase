@@ -113,6 +113,13 @@ const plain = defineFunction({
 	run: async () => 1,
 }).with({ access: allow.public })
 
+const whoAmI = defineFunction({
+	name: 'whoAmI',
+	query: true,
+	output: z.string().nullable(),
+	run: async ({ caller }) => (caller.kind === 'user' ? caller.user.id : null),
+}).with({ access: allow.public })
+
 const errors: unknown[] = []
 let listening = ''
 const logger: Logger = {
@@ -142,6 +149,8 @@ const sessions = definePlugin<Sessions>({
 		version: '1.0.0',
 		peerDependencies: { ultimabase: '*' },
 	},
+	// A plugin's query, which realtime makes live only by name (D-362).
+	functions: () => [whoAmI],
 	identify: async (request): Promise<Identity | undefined> => {
 		identifiedFrom.push(request)
 		const id = request.headers.get('authorization')
@@ -966,6 +975,18 @@ describe('a live function', () => {
 			body: {
 				code: 'BAD_USER_INPUT',
 				message: 'plain is not live: list realtime() in its use.',
+			},
+		})
+	})
+
+	it('is refused, for a plugin’s, unless realtime names it', async () => {
+		const api = await started()
+		expect(await answered(`${api}/functions/whoAmI`)).toEqual({
+			status: 400,
+			body: {
+				code: 'BAD_USER_INPUT',
+				message:
+					"sessions.whoAmI is not live: name it in realtime's liveFunctions.",
 			},
 		})
 	})

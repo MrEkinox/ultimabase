@@ -232,7 +232,11 @@ export async function liveValue(
 	compute: (caller: Caller) => Promise<unknown>,
 ): Promise<Response> {
 	if (live === undefined || !live.realtime.liveFunction(owner)) {
-		throw badInput(`${owner} is not live: list realtime() in its use.`)
+		// A plugin's function, `plugin.name`, is made live by the app (D-362).
+		const how = owner.includes('.')
+			? "name it in realtime's liveFunctions"
+			: 'list realtime() in its use'
+		throw badInput(`${owner} is not live: ${how}.`)
 	}
 	const { logger } = live
 	return streamed(live, request, noShape, async (viewer, send) =>

@@ -455,3 +455,73 @@ describe('the live functions', () => {
 		app = undefined
 	})
 })
+
+// A plugin's functions, which list no realtime() (D-362).
+const open = defineFunction({
+	name: 'open',
+	query: true,
+	output: z.array(z.string()),
+	run: async ({ caller }) => {
+		const found = await Post.findMany(
+			{ where: { open: true }, orderBy: { rank: 'asc' } },
+			{ as: caller },
+		)
+		return found.map(({ title }) => title)
+	},
+}).with({ access: allow.public })
+const close = defineFunction({ name: 'close', run: () => undefined })
+const board = definePlugin<PluginTypes & { readonly name: 'board' }>({
+	name: 'board',
+	manifest: {
+		name: 'board',
+		version: '1.0.0',
+		peerDependencies: { ultimabase: '*' },
+	},
+	functions: () => [open, close],
+})
+
+/** Starts the application with board's functions, `names` live. */
+async function startedWith(names: readonly string[]): Promise<void> {
+	app = defineApp({
+		database: memory(),
+		models: [Session, Team, Post],
+		functions: [titles],
+		plugins: [
+			realtimePlugin({ liveFunctions: names }),
+			watching.plugin(),
+			board.plugin(),
+		],
+		logger,
+	})
+	await app.start()
+}
+
+describe('a plugin’s function named in liveFunctions', () => {
+	it('is live, and runs again when a write changes what it read', async () => {
+		await startedWith(['board.open'])
+		expect(api?.liveFunction('board.open')).toBe(true)
+		expect(api?.liveFunction('board.close')).toBe(false)
+		await Session.create({ data: { token: 'ada', user: 'ada' } }, M)
+		const team = await Team.create({ data: { name: 'One' } }, M)
+		const data = { title: 'p1', rank: 1, team: { connect: { id: team.id } } }
+		await Post.create({ data }, M)
+		await quiet()
+		const { seen } = await value(await connect(), 'board.open', async (as) =>
+			open.run({ as }),
+		)
+		expect(await message(seen, 1)).toMatchObject({ value: ['p1'] })
+		await update('p1', { open: false })
+		expect(await message(seen, 2)).toMatchObject({ value: [] })
+	})
+
+	it('refuses a name that is no plugin’s query', async () => {
+		for (const [name, refusal] of [
+			['board.missing', "names board.missing, which is not a plugin's"],
+			['titles', "names titles, the application's own: list realtime()"],
+			['board.close', 'board.close is a mutation: it cannot be live.'],
+		] as const) {
+			await expect(startedWith([name])).rejects.toThrow(refusal)
+		}
+		app = undefined
+	})
+})
