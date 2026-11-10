@@ -1,7 +1,6 @@
 // Transactions (D-36, D-88): `AsyncLocalStorage` carries the open one, so a
 // hook's queries join it without a `tx` argument.
 import { AsyncLocalStorage } from 'node:async_hooks'
-import { randomUUID } from 'node:crypto'
 import { setTimeout } from 'node:timers/promises'
 import type {
 	Adapter,
@@ -21,6 +20,7 @@ import type { Touched } from './sizes.ts'
 import { bounded, checkSizes, touch } from './sizes.ts'
 import { refused } from './write-target.ts'
 import { readsOver, stopSharing } from './live-shared.ts'
+import { logFailure } from './traced.ts'
 
 /** What a query reads and writes through. */
 export type Store = Pick<
@@ -170,10 +170,7 @@ async function committed(logger: Logger, commits: Commit[]): Promise<void> {
 		try {
 			await commit()
 		} catch (error) {
-			logger.error(
-				{ correlationId: randomUUID(), err: error },
-				'A commit hook failed; the write is kept.',
-			)
+			logFailure(logger, error, 'A commit hook failed; the write is kept.')
 		}
 	}
 }

@@ -23,6 +23,7 @@ import {
 import type { Running } from './running.ts'
 import { register, unregister, Work } from './running.ts'
 import { resolve } from './schema.ts'
+import { logFailure } from './traced.ts'
 
 export type Lifecycle = {
 	readonly start: () => Promise<void>
@@ -44,7 +45,7 @@ async function drained(plugins: readonly Installed[]): Promise<unknown[]> {
 			try {
 				await Reflect.apply(code.stopping, undefined, [context])
 			} catch (error) {
-				context.logger.error({ err: error }, 'The plugin failed to stop.')
+				logFailure(context.logger, error, 'The plugin failed to stop.')
 				errors.push(error)
 			}
 		}),
@@ -60,7 +61,7 @@ async function stopped(plugins: readonly Installed[]): Promise<unknown[]> {
 		try {
 			await Reflect.apply(code.stop, undefined, [context])
 		} catch (error) {
-			context.logger.error({ err: error }, 'The plugin failed to stop.')
+			logFailure(context.logger, error, 'The plugin failed to stop.')
 			errors.push(error)
 		}
 	}
@@ -245,7 +246,7 @@ export function lifecycle(options: LifecycleOptions): Lifecycle {
 		const onSigterm = () => {
 			void stop()
 				.catch((error: unknown) => {
-					logger.error({ err: error }, 'The application stopped with an error.')
+					logFailure(logger, error, 'The application stopped with an error.')
 				})
 				// The last lines first: a pipe may write them later.
 				.then(written)

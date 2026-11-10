@@ -8,6 +8,7 @@ import { setImmediate as turn, setTimeout as after } from 'node:timers/promises'
 import type { ClientConfig } from 'pg'
 import { Client } from 'pg'
 import type { Changed, Feed, Logger } from 'ultimabase'
+import { logFailure } from 'ultimabase/internal'
 import { changedOf } from './notify.ts'
 
 /** The feed's channel of `schema`, within the 63 bytes of a name. */
@@ -129,9 +130,9 @@ export async function listening(
 	/** Behind a pooler, a pulse heard later says nothing of the changes. */
 	const deafened = (): void => {
 		deaf = true
-		logger.error(
-			"The change feed does not hear its own notifications: realtime and the caller cache's invalidation stop. Is the url behind a pooler in transaction mode, such as PgBouncer? LISTEN needs a direct connection to PostgreSQL.",
-		)
+		const message =
+			"The change feed does not hear its own notifications: realtime and the caller cache's invalidation stop. Is the url behind a pooler in transaction mode, such as PgBouncer? LISTEN needs a direct connection to PostgreSQL."
+		logFailure(logger, new Error(message), message)
 		feed?.lost()
 	}
 	const retry = (wait: number): void => {

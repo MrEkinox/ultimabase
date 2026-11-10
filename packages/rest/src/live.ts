@@ -3,7 +3,6 @@
 // sends under `extensions.live`; in page mode, `event: data` each time. A
 // list first sends the token that resumes it, as `event: resume`. A live
 // function sends its whole result as `event: data` each time it changes.
-import { randomUUID } from 'node:crypto'
 import {
 	applied,
 	badInput,
@@ -13,6 +12,7 @@ import {
 } from '@ultimabase/http/internal'
 import type { Caller, Logger, Row } from 'ultimabase'
 import { PublicError } from 'ultimabase'
+import { logFailure } from 'ultimabase/internal'
 import type { Api, Args, Entry } from './entries.ts'
 import { readerOf } from './fields.ts'
 import type { Shape } from './shapes.ts'
@@ -215,8 +215,7 @@ function failure(error: unknown, logger: Logger): unknown {
 			? { code, message }
 			: { code, message, details }
 	}
-	const correlationId = randomUUID()
-	logger.error({ correlationId, err: error }, 'A live function failed.')
+	const correlationId = logFailure(logger, error, 'A live function failed.')
 	return { code: 'INTERNAL', message: 'Internal error.', correlationId }
 }
 

@@ -2,7 +2,7 @@
 // stops holding, and who hears that it closed.
 import type { Caller, ExposedFunction, ExposedModel, Logger } from 'ultimabase'
 import { PublicError } from 'ultimabase'
-import { recording } from 'ultimabase/internal'
+import { logFailure, recording } from 'ultimabase/internal'
 import type { Gate } from './gate.ts'
 
 export type Settings = {
@@ -38,7 +38,7 @@ export async function builtAgain(
 	} catch (error) {
 		const failed = !(error instanceof PublicError)
 		if (failed) {
-			settings.logger.error({ err: error }, 'A live caller was not read.')
+			logFailure(settings.logger, error, 'A live caller was not read.')
 		}
 		return { failed }
 	}
@@ -65,7 +65,7 @@ export function told(listeners: (() => void)[], logger: Logger): void {
 		try {
 			listener()
 		} catch (error) {
-			logger.error({ err: error }, 'A close listener failed.')
+			logFailure(logger, error, 'A close listener failed.')
 		}
 	}
 }

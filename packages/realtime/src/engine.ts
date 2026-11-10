@@ -3,7 +3,12 @@
 // concern (D-256), a few at a time.
 // Each viewer's caller is built again on its own timer, and when it expires.
 import type { Changed } from 'ultimabase'
-import { liveSchema, recording, SharedReads } from 'ultimabase/internal'
+import {
+	liveSchema,
+	logFailure,
+	recording,
+	SharedReads,
+} from 'ultimabase/internal'
 import { batchOf } from './changes.ts'
 import { whoOf } from './checked.ts'
 import type { Owner } from './readers.ts'
@@ -220,7 +225,7 @@ export class Engine {
 		try {
 			await task()
 		} catch (error) {
-			this.#settings.logger.error({ err: error }, 'A live viewer failed.')
+			logFailure(this.#settings.logger, error, 'A live viewer failed.')
 			viewer.end(true)
 		}
 	}

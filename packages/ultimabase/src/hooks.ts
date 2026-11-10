@@ -13,6 +13,7 @@ import { filterOf, isReadFilter, readFilter } from './rules.ts'
 import type { ModelInfo } from './schema.ts'
 import type { Models } from './query-where.ts'
 import { byIds, isObject, normalizeWhere } from './query-where.ts'
+import { hooks as traces, traced } from './traced.ts'
 import type { Commit, Store } from './transaction.ts'
 import { writesSoFar } from './transaction.ts'
 
@@ -47,7 +48,11 @@ function ownHook(model: ModelInfo, name: HookName): Hook | undefined {
 		throw new TypeError(`${model.name}.hooks.${name} is a function.`)
 	}
 	const path = `${model.name}.hooks.${name}`
-	return { path, run: async (facts) => called(hook, facts) }
+	const message = () => ({ model: model.name, hook: name, plugin: undefined })
+	return {
+		path,
+		run: async (facts) => traced(traces, message, () => called(hook, facts)),
+	}
 }
 
 /**
@@ -61,14 +66,17 @@ function hooksOf(model: ModelInfo, name: HookName): readonly Hook[] {
 		const hook = use.code.hooks[name]
 		if (hook === undefined) continue
 		const plugin = use.code.name
+		const message = () => ({ model: model.name, hook: name, plugin })
 		hooks.push({
 			path: `${plugin}.hooks.${name} on ${model.name}`,
 			run: async (facts) =>
-				called(hook, {
-					...facts,
-					...use.model,
-					command: commandOf(model.name, plugin),
-				}),
+				traced(traces, message, () =>
+					called(hook, {
+						...facts,
+						...use.model,
+						command: commandOf(model.name, plugin),
+					}),
+				),
 		})
 	}
 	const own = ownHook(model, name)

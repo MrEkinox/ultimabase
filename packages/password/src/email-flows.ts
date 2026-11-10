@@ -2,6 +2,7 @@
 // sending an email with its token, and redeeming one.
 import type { Register, UserOf } from 'ultimabase'
 import { master, PublicError, transaction } from 'ultimabase'
+import { logFailure } from 'ultimabase/internal'
 import type { State } from './core.ts'
 import { checkNewFor, method, setPassword } from './core.ts'
 import { hashPassword } from './hash.ts'
@@ -16,7 +17,7 @@ export function later(state: State, work: () => Promise<void>): void {
 	const task: Promise<void> = Promise.resolve()
 		.then(work)
 		.catch((error: unknown) => {
-			state.logger.error({ err: error }, 'An email failed to send.')
+			logFailure(state.logger, error, 'An email failed to send.')
 		})
 		.finally(() => {
 			state.sending.delete(task)

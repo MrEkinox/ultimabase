@@ -2,7 +2,6 @@
 // probes (D-204), CORS, the rate limit (D-218), the plugins' gates (D-205), forms from other
 // origins, the body limit, each request's caller, the routes, the reset
 // route outside production (D-188), and errors as D-72 sends them.
-import { randomUUID } from 'node:crypto'
 import { STATUS_CODES } from 'node:http'
 import type { Context } from 'hono'
 import { Hono } from 'hono'
@@ -13,6 +12,7 @@ import type { ContentfulStatusCode } from 'hono/utils/http-status'
 import { getPath } from 'hono/utils/url'
 import type { Caller, ErrorCode, Logger } from 'ultimabase'
 import { isLocalHost, PublicError } from 'ultimabase'
+import { logFailure } from 'ultimabase/internal'
 import { isOwnOrigin } from './address.ts'
 import type { Limiter, RateLimit } from './limit.ts'
 import { tooMany } from './limit.ts'
@@ -120,8 +120,7 @@ function failed(error: unknown, c: Context, logger: Logger): Response {
 			? c.json({ code, message }, status)
 			: c.json({ code, message, details }, status)
 	}
-	const correlationId = randomUUID()
-	logger.error({ correlationId, err: error }, 'A request failed.')
+	const correlationId = logFailure(logger, error, 'A request failed.')
 	return c.json(
 		{ code: 'INTERNAL', message: 'Internal error.', correlationId },
 		500,

@@ -1,0 +1,48 @@
+{
+	"name": "@ultimabase/sentry",
+	"version": "0.7.0",
+	"description": "Sentry for UltimaBase: each operation, hook, virtual field and function a span of its request's trace, each error the server masks an issue.",
+	"type": "module",
+	"license": "Apache-2.0",
+	"homepage": "https://ultimabase.dev/docs/sentry",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/MrEkinox/ultimabase.git",
+		"directory": "packages/sentry"
+	},
+	"engines": {
+		"node": ">=24.7.0"
+	},
+	"exports": {
+		".": "./src/index.ts"
+	},
+	"files": [
+		"dist",
+		"src",
+		"!src/**/*.test.ts",
+		"!src/test"
+	],
+	"scripts": {
+		"prepack": "rm -rf dist && yarn run -T tsc --project tsconfig.build.json"
+	},
+	"publishConfig": {
+		"exports": {
+			".": "./dist/index.js"
+		}
+	},
+	"peerDependencies": {
+		"@sentry/node": "^11.11.0",
+		"ultimabase": "^0.7.0"
+	},
+	"devDependencies": {
+		"@sentry/node": "11.11.0",
+		"@ultimabase/testing": "workspace:*",
+		"ultimabase": "workspace:*",
+		"vite": "8.3.4",
+		"vitest": "5.0.5",
+		"zod": "4.6.7"
+	},
+	"dependencies": {
+		"@sentry/core": "^11.11.0"
+	}
+}

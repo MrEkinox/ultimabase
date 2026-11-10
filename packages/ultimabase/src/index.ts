@@ -149,3 +149,10 @@ export type {
 	UpdateDataOf,
 	WhereOf,
 } from './types.ts'
+export type {
+	ErrorMessage,
+	FunctionMessage,
+	HookMessage,
+	OperationMessage,
+	VirtualMessage,
+} from './traced.ts'

@@ -11,6 +11,7 @@ import {
 	memory,
 } from './index.ts'
 
+const anId: unknown = expect.any(String)
 const Note = defineModel({
 	name: 'Note',
 	fields: (f) => ({ text: f.string() }),
@@ -92,7 +93,10 @@ it("calls each plugin's hooks in order, past a plugin that fails", async () => {
 	feed()?.missed()
 	expect(calls).toEqual(['changed 1', 'missed'])
 	expect(errors).toEqual([
-		[{ err: new Error('Broken.') }, "The plugin's changed failed."],
+		[
+			{ correlationId: anId, err: new Error('Broken.') },
+			"The plugin's changed failed.",
+		],
 	])
 	await app.stop()
 })
@@ -142,8 +146,14 @@ it("logs an async hook's rejection, which nothing awaits", async () => {
 	await Note.create({ data: { text: 'a' } }, { as: master })
 	await vi.waitFor(() => expect(errors).toHaveLength(2))
 	expect(errors).toEqual([
-		[{ err: new Error('Broken started.') }, "The plugin's started failed."],
-		[{ err: new Error('Broken changed.') }, "The plugin's changed failed."],
+		[
+			{ correlationId: anId, err: new Error('Broken started.') },
+			"The plugin's started failed.",
+		],
+		[
+			{ correlationId: anId, err: new Error('Broken changed.') },
+			"The plugin's changed failed.",
+		],
 	])
 	await app.stop()
 })

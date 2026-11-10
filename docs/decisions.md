@@ -765,6 +765,8 @@ use: [softDelete()], // soft delete has no key on a function
 
 ## D-28: Errors are hidden unless public
 
+Amended by D-360.
+
 Choice: only a `PublicError` reaches clients; every other error is masked as
 an internal error that carries a correlation id, also written to the server
 log. Kernel errors have stable, typed codes (`ACCESS_DENIED`, `NOT_FOUND`,
@@ -1578,7 +1580,7 @@ fields: (f) => ({
 
 ## D-58: One pino-compatible logger
 
-Amended by D-93.
+Amended by D-93, D-360.
 
 Choice: `defineApp({ logger })` takes any logger with pino's interface
 (`info`, `warn`, `error`, `child`); without one, the kernel writes JSON lines
@@ -21838,4 +21840,193 @@ const users = await User.findMany(
 	{ where: { hasBlockedMe: false } },
 	{ as: caller },
 )
+```
+
+## D-360: The kernel publishes its work on tracing channels
+
+Choice: amends D-58 ("OpenTelemetry comes later, as a plugin") and D-28.
+
+1. The kernel publishes what it runs on Node's `diagnostics_channel` tracing
+   channels, through `tracePromise`, so a store a subscriber binds follows
+   the work and a span opened inside nests under it:
+   - `ultimabase:operation`: one model operation, as `Post.findMany`, with
+     `{ model, operation, caller }`. A query a hook, a virtual or a function
+     makes is an operation of its own, inside the one that made it.
+   - `ultimabase:hook`: one hook's run, with `{ model, hook, plugin }`;
+     `plugin` is `undefined` for the application's.
+   - `ultimabase:virtual`: one virtual field on the rows of one read, its
+     `run` for each row or its `runMany` once, with `{ model, field, rows }`.
+   - `ultimabase:function`: one call of a `defineFunction`, with
+     `{ name, caller }`.
+2. Without a subscriber nothing is built: each place checks
+   `hasSubscribers` and runs its work directly. The `writes` and `http`
+   benches show no change beyond their noise.
+3. Every error the server logs at error level, masked for a client (D-28)
+   or swallowed (a commit hook, a job, a socket, the pool), goes through one
+   internal function of the official packages. It logs the error with its
+   correlation id, as today, and publishes
+   `{ error, correlationId, message }` on the channel `ultimabase:error`.
+4. The kernel publishes only what it alone knows. An HTTP request, an SQL
+   query and a GraphQL execution are already published, by Node's HTTP
+   server, `pg`'s instrumentations and graphql 17's own channels.
+5. The channel names and the type of each message are public and
+   documented: any tool that reads tracing channels may read them, not only
+   ours. A message holds names, counts and the caller, never a row's
+   values.
+6. `@ultimabase/sentry` reads these channels, under its own decision. An
+   OpenTelemetry plugin comes later and reads the same ones.
+
+Why:
+
+- One source serves Sentry now and OpenTelemetry later. Sentry 11
+  (2026-09) no longer sets up OpenTelemetry by default: its spans are its
+  own, read from the tracing channels libraries publish, as graphql 17,
+  postgres.js 4, mysql2 and fastify do. A kernel written on
+  `@opentelemetry/api` would serve OpenTelemetry alone.
+- The kernel keeps its single dependency, as D-58 keeps it free of a
+  logging library, and a project with no subscriber pays one boolean check
+  per step.
+- A channel observes: a subscriber cannot change the input or the result,
+  so this is not the generic interceptor D-15 rejects.
+- Today a masked error reaches Sentry only as a log line, through the
+  application's logger, with no model, no caller and no trace.
+
+Rejected:
+
+- The kernel depending on `@opentelemetry/api`, OpenTelemetry's advice for
+  libraries: 623 kB in a kernel that depends on one package, and Sentry 11
+  no longer builds its spans on it.
+- A plugin hook wrapping each step, `trace: (step, run) => run()`: it could
+  skip `run` or change its result, and no tool outside our plugins reads it.
+- Errors read from the logger, as Sentry's `pinoIntegration` does: it
+  depends on the application's logger being pino, and Sentry makes log
+  lines, not issues, by default.
+- An `ultimabase:access` channel: access rules become SQL filters, so their
+  time is the query's.
+
+Risk: `bindStore`, which nests spans, is still experimental in Node 26.8,
+while `TracingChannel` itself is stable. Sentry relies on it already. A
+test binds a store and reads it inside a hook, so a change shows at once.
+
+Example: an application writes nothing new. A request then reads, in Sentry
+or any OpenTelemetry viewer:
+
+```text
+POST /graphql                         42 ms   Node's HTTP server
+└ query Feed                          40 ms   graphql 17
+  └ Post.findMany                     31 ms   ultimabase:operation
+    ├ Post.beforeFind (soft-delete)    1 ms   ultimabase:hook
+    ├ SELECT … FROM "post"            12 ms   pg
+    └ Post.likedByMe (20 rows)        14 ms   ultimabase:virtual
+      └ Like.findMany                 13 ms   ultimabase:operation
+        └ SELECT … FROM "like"        11 ms   pg
+```
+
+A plugin, before and after, for the masked error of a request:
+
+```ts
+// Before: a logger that forwards error lines
+const logger = pino()
+Sentry.init({
+	dsn,
+	integrations: [Sentry.pinoIntegration({ error: { levels: ['error'] } })],
+})
+defineApp({ logger, plugins: [httpPlugin()] })
+
+// After: the plugin reads the channel
+import { channel } from 'node:diagnostics_channel'
+import type { ErrorMessage } from 'ultimabase'
+
+channel('ultimabase:error').subscribe((message) => {
+	const { error, correlationId } = message as ErrorMessage
+	Sentry.captureException(error, { tags: { correlationId } })
+})
+```
+
+## D-361: `@ultimabase/sentry` reads the tracing channels
+
+Choice: builds on D-360; D-92 for its dependency.
+
+1. `sentryPlugin()` takes no options. The application calls `Sentry.init`
+   itself, before it imports anything, as Sentry asks: only then are its
+   HTTP and SQL spans recorded. The plugin reads the kernel's channels into
+   the client `init` made.
+2. Each message of `ultimabase:operation`, `ultimabase:hook`,
+   `ultimabase:virtual` and `ultimabase:function` is a span:
+   - named `Post.findMany`, `Post.beforeFind (soft-delete)`,
+     `Post.likedByMe` and `countPosts`, so spans of one kind group;
+   - with the op `ultimabase.operation`, `ultimabase.hook`,
+     `ultimabase.virtual` or `ultimabase.function`;
+   - with its message's names and counts as attributes, and its caller as
+     `ultimabase.caller`: `anonymous`, `master` or `user:<id>`.
+     A span starts only inside a trace, as Sentry's own integrations do: a
+     query of a job or of the start makes no transaction alone.
+3. A span is the active span of the work it runs, so a query, a hook, a
+   virtual and an SQL span started inside it nest under it. This uses the
+   store Sentry binds to tracing channels, which `@sentry/core` reaches
+   through an API it marks private, the one its own integrations use.
+   Without it, the spans are made flat, under the request's span, and the
+   plugin warns once at start.
+4. An issue comes only from `ultimabase:error`: `captureException` with the
+   correlation id as a tag and the log line's message. The error a span
+   ends with marks the span failed and makes no issue: a `NOT_FOUND` or a
+   refused input is an answer, not a fault. The failed span carries
+   `error.type`, the error's code or else its name, never its message,
+   which may hold a user's data.
+5. No `Sentry.setUser`: it writes to a scope that is the request's only
+   when Sentry's HTTP integration is loaded, and would otherwise carry one
+   request's user into the next. An issue's user is read on its trace.
+6. Outside `NODE_ENV=test`, the plugin warns at start when `Sentry.init`
+   has not run, and does nothing else: a development machine without a DSN
+   starts as before.
+7. `@sentry/node` `^11.11.0` is a peer dependency, the application's own;
+   `@sentry/core` `^11.11.0` is a dependency, for the store of 3. Sentry
+   keeps that store per version, so two versions of `@sentry/core` in one
+   application give the flat spans of 3, and the warning names the fix.
+
+Why:
+
+- Sentry asks for `init` before the application's imports; a plugin starts
+  after them, too late to make the HTTP and SQL spans an option would
+  promise.
+- One store makes the whole tree: a request, its GraphQL execution, its
+  operations, their hooks and virtuals, and their SQL, as D-360's example
+  shows. Flat spans would lose which hook sent which query.
+- An issue per refused input would drown the faults in answers.
+- Span names without counts group in Sentry's performance views; the row
+  count is an attribute.
+
+Rejected:
+
+- `sentryPlugin({ dsn })` calling `init` itself: too late for HTTP and SQL,
+  and a second place to configure Sentry.
+- `bindTracingChannelToSpan` of `@sentry/server-utils`: Sentry says that
+  package is not part of its public API, and it would be one more
+  dependency for what 3 does in a few lines.
+- Public API only (`startInactiveSpan` with a parent): the SQL a query
+  sends would not nest under it.
+- `Sentry.setUser` from the caller, for 5.
+
+Risk: the store of 3 is private to Sentry and may change in a minor
+version. A test makes a request's tree with the version installed, so an
+upgrade that breaks it fails at once, and the plugin then falls back to
+flat spans rather than failing.
+
+Example, before and after:
+
+```ts
+// Before: instrument.ts, loaded with node --import ./instrument.ts
+Sentry.init({
+	dsn: process.env['SENTRY_DSN'],
+	integrations: [Sentry.pinoIntegration({ error: { levels: ['error'] } })],
+})
+// app.ts: a masked error is a log line, with no model and no trace
+defineApp({ logger: pino(), plugins: [httpPlugin()], models })
+```
+
+```ts
+// After: instrument.ts
+Sentry.init({ dsn: process.env['SENTRY_DSN'], tracesSampleRate: 0.1 })
+// app.ts
+defineApp({ plugins: [httpPlugin(), sentryPlugin()], models })
 ```

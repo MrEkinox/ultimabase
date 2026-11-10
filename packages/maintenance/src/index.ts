@@ -7,6 +7,7 @@ import type { Http } from '@ultimabase/http'
 import { httpPlugin, routes } from '@ultimabase/http'
 import type { Logger, PluginOf, PluginTypes } from 'ultimabase'
 import { definePlugin, master, PublicError, Refused } from 'ultimabase'
+import { logFailure } from 'ultimabase/internal'
 import manifest from '../package.json' with { type: 'json' }
 import { keyed } from './key.ts'
 import { MaintenanceState } from './state.ts'
@@ -100,8 +101,9 @@ async function reload(state: State): Promise<void> {
 	try {
 		await read(state)
 	} catch (error) {
-		state.logger.error(
-			{ err: error },
+		logFailure(
+			state.logger,
+			error,
 			'The maintenance state could not be read: it stays as it was.',
 		)
 	}

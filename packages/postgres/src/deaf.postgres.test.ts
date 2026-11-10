@@ -51,12 +51,13 @@ const port = typeof address === 'object' && address ? address.port : 0
 const url = new URL(server)
 url.host = `localhost:${port}`
 
-// A test application logs no info lines.
+// A test application logs no info lines. A line's message is its last
+// argument, after the error and correlation id an error line carries.
 const said: string[] = []
 const logger: Logger = {
 	info: () => undefined,
-	warn: (message) => said.push(`warn ${JSON.stringify(message)}`),
-	error: (message) => said.push(`error ${JSON.stringify(message)}`),
+	warn: (...line) => said.push(`warn ${JSON.stringify(line.at(-1))}`),
+	error: (...line) => said.push(`error ${JSON.stringify(line.at(-1))}`),
 	child: () => logger,
 }
 

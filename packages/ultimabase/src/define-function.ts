@@ -37,6 +37,7 @@ import type { Caller } from './rules.ts'
 import { isMaster } from './rules.ts'
 import type { Running } from './running.ts'
 import { current } from './running.ts'
+import { functions, traced } from './traced.ts'
 import { checked, standardOf } from './validation.ts'
 
 export function defineType<
@@ -107,25 +108,28 @@ export async function called(
 	const [input, options] =
 		schema === undefined ? [undefined, args[0]] : [args[0], args[1]]
 	const identity = callerOf(options, name)
-	return app.work.run(async () => {
-		const caller = await app.complete(identity)
-		allowed(record, caller, app)
-		const facts: { [key: string]: unknown } = { caller, client }
-		const standard = standardOf(schema)
-		if (standard !== undefined) {
-			const result = await checked(standard, input, [], name)
-			if ('issues' in result) {
-				throw new PublicError('VALIDATION_FAILED', 'Invalid input.', {
-					details: { issues: result.issues },
-				})
+	const message = () => ({ name, caller: identity })
+	return traced(functions, message, () =>
+		app.work.run(async () => {
+			const caller = await app.complete(identity)
+			allowed(record, caller, app)
+			const facts: { [key: string]: unknown } = { caller, client }
+			const standard = standardOf(schema)
+			if (standard !== undefined) {
+				const result = await checked(standard, input, [], name)
+				if ('issues' in result) {
+					throw new PublicError('VALIDATION_FAILED', 'Invalid input.', {
+						details: { issues: result.issues },
+					})
+				}
+				facts['input'] = result.value
 			}
-			facts['input'] = result.value
-		}
-		const output: unknown = await Reflect.apply(record.run, undefined, [
-			Object.freeze(facts),
-		])
-		return record.output === undefined ? undefined : output
-	})
+			const output: unknown = await Reflect.apply(record.run, undefined, [
+				Object.freeze(facts),
+			])
+			return record.output === undefined ? undefined : output
+		}),
+	)
 }
 
 export function defineFunction<

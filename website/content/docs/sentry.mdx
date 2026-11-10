@@ -1,0 +1,121 @@
+---
+title: Sentry
+description: See each query, hook and function in its request's trace, and each error the server masks as an issue.
+---
+
+`@ultimabase/sentry` reads the application's work into
+[Sentry](https://sentry.io): each query, hook, virtual field and function a
+span of its request's trace, each error the server masks an issue.
+
+```npm
+npm install @ultimabase/sentry @sentry/node
+```
+
+Sentry is initialized before the application, in a file the server imports
+first:
+
+<include cwd meta='title="src/instrument.ts"'>
+	../examples/sentry/src/instrument.ts#init
+</include>
+
+<include cwd meta='title="src/server.ts"'>
+	../examples/sentry/src/server.ts#server
+</include>
+
+Sentry then records each HTTP request. To record the SQL of a database
+driver too, Node loads the file before any module, as Sentry recommends:
+`node --import ./src/instrument.ts src/server.ts`.
+
+The plugin takes no options: it reads into the client `Sentry.init` made.
+
+<include cwd meta='title="src/app.ts"'>
+	../examples/sentry/src/app.ts#plugins
+</include>
+
+The full example, with its tests: [`examples/sentry`](https://github.com/MrEkinox/ultimabase/tree/main/examples/sentry).
+
+## Traces
+
+Inside a trace, each query is a span, and the hooks, virtual fields and SQL
+it runs are spans under it:
+
+<include cwd meta='title="src/app.test.ts"'>
+	../examples/sentry/src/app.test.ts#trace
+</include>
+
+| Work            | Span name                       | Op                     | Attributes                                                      |
+| --------------- | ------------------------------- | ---------------------- | --------------------------------------------------------------- |
+| a query         | `Post.findMany`                 | `ultimabase.operation` | `ultimabase.model`, `ultimabase.operation`, `ultimabase.caller` |
+| a hook          | `Post.beforeFind (soft-delete)` | `ultimabase.hook`      | `ultimabase.model`, `ultimabase.hook`, `ultimabase.plugin`      |
+| a virtual field | `Post.likedByMe`                | `ultimabase.virtual`   | `ultimabase.model`, `ultimabase.field`, `ultimabase.rows`       |
+| a function      | `countPosts`                    | `ultimabase.function`  | `ultimabase.function`, `ultimabase.caller`                      |
+
+- `ultimabase.caller` is `anonymous`, `master` or `user:<id>`; a hook's
+  plugin is left out for the application's own hooks.
+- A span starts only inside a trace, as a request's: a job's query or the
+  start's makes none alone.
+- A span that ends with an error is failed, with `error.type` the error's
+  code, as `NOT_FOUND`, or else its name. It makes no issue: a row not found
+  or a refused input is an answer, not a fault.
+
+## Issues
+
+An issue comes from each error the server logs at error level: an
+`INTERNAL` it masks for a client, or the failure of a `*Commit` hook. It
+carries the log line's correlation id as the `correlationId` tag, so the
+line and the client's error lead to it.
+
+<include cwd meta='title="src/app.test.ts"'>
+	../examples/sentry/src/app.test.ts#issue
+</include>
+
+The plugin does not set Sentry's user: the caller is the
+`ultimabase.caller` of the trace's spans.
+
+## In a test
+
+A test initializes Sentry with a transport that sends nothing, and keeps
+the spans and issues:
+
+<include cwd meta='title="src/app.test.ts"'>
+	../examples/sentry/src/app.test.ts#init
+</include>
+
+Under `NODE_ENV=test`, an application whose tests do not initialize Sentry
+starts without a warning.
+
+## Another tool
+
+The plugin reads Node's
+[tracing channels](https://nodejs.org/api/diagnostics_channel.html#class-tracingchannel),
+on which the kernel publishes its work. Another tool subscribes to them the
+same way:
+
+<include cwd meta='title="src/app.test.ts"'>
+	../examples/sentry/src/app.test.ts#channel
+</include>
+
+| Channel                | Kind            | Message                             |
+| ---------------------- | --------------- | ----------------------------------- |
+| `ultimabase:operation` | tracing channel | `{ model, operation, caller }`      |
+| `ultimabase:hook`      | tracing channel | `{ model, hook, plugin }`           |
+| `ultimabase:virtual`   | tracing channel | `{ model, field, rows }`            |
+| `ultimabase:function`  | tracing channel | `{ name, caller }`                  |
+| `ultimabase:error`     | channel         | `{ error, correlationId, message }` |
+
+`ultimabase` exports their types: `OperationMessage`, `HookMessage`,
+`VirtualMessage`, `FunctionMessage` and `ErrorMessage`. Without a
+subscriber, the kernel builds no message.
+
+## Reference
+
+### `sentryPlugin()`
+
+Takes no options.
+
+### Warnings
+
+| Message                                                                                                      | When                                                                                 |
+| ------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------ |
+| `Sentry is not initialized: call Sentry.init before the app starts.`                                         | At start, outside `NODE_ENV=test`; the plugin then does nothing.                     |
+| `Sentry’s spans of UltimaBase are flat: the application has two versions of @sentry/core; deduplicate them.` | At start: the spans are all under the request's, and the SQL is not under its query. |

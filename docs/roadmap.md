@@ -308,6 +308,9 @@ Exit: the audit's fixes are published.
       per person (D-218).
 - [x] Jobs: runs enqueued in a write's transaction, delayed or recurring,
       retried until they succeed (D-221).
+- [x] The kernel publishes its work on tracing channels (D-360).
+- [x] `@ultimabase/sentry`: errors and their traces, read from those
+      channels (D-361).
 
 Exit: every feature of the previous base has an example, in far fewer lines.
 
@@ -321,6 +324,6 @@ MySQL, SQLite and MongoDB adapters (D-51).
 An import from a Parse database: its rows, relations and users, whose bcrypt
 password hashes are read until the next sign-in rehashes them.
 Outgoing webhooks: a `POST` to a URL when a row changes, from the feed.
-OpenTelemetry traces of requests, queries, hooks and virtual fields.
+An OpenTelemetry plugin, reading the kernel's tracing channels (D-360).
 `migrate squash`, once an application's history needs it (D-105).
 A query cache, as a plugin, dropping what it keeps when a row it read changes.

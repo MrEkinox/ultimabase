@@ -5,6 +5,7 @@ import { Pool } from 'pg'
 import { parse } from 'pg-connection-string'
 import type { Logger } from 'ultimabase'
 import { PublicError } from 'ultimabase'
+import { logFailure } from 'ultimabase/internal'
 import { counted } from './counted.ts'
 import { watched } from './deadline.ts'
 import { preparing } from './prepared.ts'
@@ -72,7 +73,7 @@ export function pooled(pool: Pool, pooling: Pooling): PostgresPool {
 			} catch (error) {
 				const reason = failed(url, error, connections, wait)
 				if (reason === error || !serving()) throw reason
-				logger.error({ err: reason }, 'A request found no database connection.')
+				logFailure(logger, reason, 'A request found no database connection.')
 				const busy = error instanceof Error && error.message === waited
 				throw new PublicError(
 					'UNAVAILABLE',

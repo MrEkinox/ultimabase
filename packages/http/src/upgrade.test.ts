@@ -10,6 +10,7 @@ import { defineApp, definePlugin, memory } from 'ultimabase'
 import type { Accept, Gate, HttpApi, Upgrade } from './index.ts'
 import { httpPlugin } from './index.ts'
 
+const anId: unknown = expect.any(String)
 const errors: unknown[] = []
 const warnings: unknown[] = []
 const logger: Logger = {
@@ -210,7 +211,7 @@ describe('an upgrade', () => {
 			status: 500,
 			body: { code: 'INTERNAL', message: 'Internal error.' },
 		})
-		expect(errors).toEqual([{ err: new Error('broken') }])
+		expect(errors).toEqual([{ correlationId: anId, err: new Error('broken') }])
 	})
 
 	it('is refused without a path', async () => {
@@ -284,7 +285,7 @@ describe('the gate', () => {
 			status: 500,
 			body: { code: 'INTERNAL', message: 'Internal error.' },
 		})
-		expect(errors).toEqual([{ err: new Error('gate') }])
+		expect(errors).toEqual([{ correlationId: anId, err: new Error('gate') }])
 		expect(taken).toEqual([])
 	})
 })

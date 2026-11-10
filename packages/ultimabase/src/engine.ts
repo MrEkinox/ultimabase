@@ -22,6 +22,7 @@ import { removeMany } from './delete-many.ts'
 import { updateMany, updateManyAndReturn } from './update-many.ts'
 import { createMany, createManyAndReturn } from './create-many.ts'
 import { upsert } from './upsert.ts'
+import { operations, traced } from './traced.ts'
 import { create, remove, update } from './writes.ts'
 
 export type Operation =
@@ -247,17 +248,24 @@ export async function query(
 	const { app, model } = runningModel(name)
 	const identity = callerOf(options, name)
 	counted()
-	return held(async () =>
-		app.work.run(async () => {
-			const context = await contextOf(app, model, identity)
-			if (isRead(operation)) {
-				const read = reads[operation]
-				return reading(app, async (store) => read(context, store, args))
-			}
-			const write = writes[operation]
-			return writing(app, async (store, commits) =>
-				write(context, store, commits, args),
-			)
-		}),
+	const message = () => ({
+		model: name,
+		operation: operation === 'upserted' ? ('upsert' as const) : operation,
+		caller: identity,
+	})
+	return traced(operations, message, () =>
+		held(async () =>
+			app.work.run(async () => {
+				const context = await contextOf(app, model, identity)
+				if (isRead(operation)) {
+					const read = reads[operation]
+					return reading(app, async (store) => read(context, store, args))
+				}
+				const write = writes[operation]
+				return writing(app, async (store, commits) =>
+					write(context, store, commits, args),
+				)
+			}),
+		),
 	)
 }
