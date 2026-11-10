@@ -21,6 +21,7 @@ The full example, with its tests: [`examples/hooks`](https://github.com/MrEkinox
 | compare a row's fields              | [`afterCreate`, `afterUpdate`](#a-rule-across-a-rows-fields)  |
 | email, call a webhook               | [`afterCreateCommit` and the others](#once-it-commits)        |
 | limit a person's writes             | [`beforeCreate`](#limit-a-persons-writes)                     |
+| number rows in order                | [the parent's `beforeUpdate`](#number-rows-in-order)          |
 
 Each hook receives the `caller` of the query, and may be `async`. A query it
 makes passes its own `{ as }`: `{ as: caller }` for the caller's rules,
@@ -199,6 +200,32 @@ A comment stores its author, and only a signed-in person may create one:
   never be exceeded runs the write in a
   [serializable transaction](/docs/next/transactions#serializable-transactions).
 
+## Number rows in order
+
+A card goes after the last card of its board, those the caller cannot read
+included, so the server numbers it. Its `position` returns no default: a
+create may leave it out, and the check after the hooks still requires it.
+
+<include cwd meta='title="src/cards.ts"'>
+	../examples/hooks/src/cards.ts#card
+</include>
+
+The cards one write creates are written together, after all their hooks, so
+each card's own hook would read the same last position. The board numbers
+them first:
+
+<include cwd meta='title="src/cards.ts"'>
+	../examples/hooks/src/cards.ts#board
+</include>
+
+<include cwd meta='title="src/app.test.ts"'>
+	../examples/hooks/src/app.test.ts#cards
+</include>
+
+- A position the write gives is kept.
+- Cards created at the same instant, in two writes, may take the same
+  position; order them by `position`, then `createdAt`.
+
 ## Details
 
 ### `beforeFind`
@@ -248,6 +275,9 @@ each `one` relation as `{ id }` or `null`. `beforeFind` returns
 - A cascade runs the `beforeUpdate` of its `setNull` rows, then the
   `beforeDelete` of the deleted rows, the deepest first; the `after*` hooks
   follow in the same order. See [Relations](/docs/next/relations).
+- A nested write runs the `before*` hooks of all its rows, then writes them
+  together: a hook does not see the rows created beside its own. See
+  [Number rows in order](#number-rows-in-order).
 - `beforeFind` runs once per query and model.
 
 ### Errors
