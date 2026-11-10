@@ -22030,3 +22030,67 @@ Sentry.init({ dsn: process.env['SENTRY_DSN'], tracesSampleRate: 0.1 })
 // app.ts
 defineApp({ plugins: [httpPlugin(), sentryPlugin()], models })
 ```
+
+## D-362: An application makes a plugin's query live
+
+Choice: amends D-154.
+
+1. `realtimePlugin({ liveFunctions })` names plugin functions the
+   application wants live, by their owner name: `['auth.viewer']`. Each is
+   then live as if its `use` listed `realtime()`: GraphQL gives it a
+   subscription named as its field, REST streams it, and it runs again when
+   what it read changes.
+2. At start, realtime refuses a name that is not a plugin's function, a
+   mutation and a function that returns a page, with the errors D-154 gives
+   a function's `use`. An application's own function is refused too: it
+   lists `realtime()` in its `use`, beside its definition.
+3. The function keeps D-154's default wait for quiet; the option sets no
+   `with`.
+4. Nothing else changes for the caller. When the caller is no longer the
+   same user, the live read closes, as every live read does (D-154); a
+   client that reads again as anonymous gets `viewer`'s `null`.
+
+Why:
+
+- A plugin that lists `realtime()` in a function's `use` would need
+  `@ultimabase/realtime` installed, and fails every application without
+  it. The application, which installs realtime, is the one that knows.
+- One way per case: an application's function says it is live where it is
+  defined; a plugin's, which the application cannot edit, in the option.
+
+Rejected:
+
+- `use: [realtime()]` in `@ultimabase/auth`: couples auth to realtime.
+- An optional use marker, ignored when its plugin is missing: a typo in a
+  plugin list would then turn a feature off in silence.
+- `null` sent on sign-out: a closed read already tells the client its user
+  changed.
+- Plugin models in the option: no usage yet.
+
+Example, before and after:
+
+```ts
+// Before: the application copies auth's viewer to make it live
+const me = defineFunction({
+	name: 'me',
+	query: true,
+	use: [realtime()],
+	output: users.output.nullable(),
+	run: ({ caller }) =>
+		caller.kind === 'user'
+			? users.queries.findUnique(
+					{ where: { id: caller.user.id } },
+					{ as: caller },
+				)
+			: null,
+})
+defineApp({ functions: [me], plugins: [auth(), realtimePlugin()] })
+```
+
+```ts
+// After
+defineApp({
+	plugins: [auth(), realtimePlugin({ liveFunctions: ['auth.viewer'] })],
+})
+// The client: subscription { viewer { id emailVerified } }
+```
