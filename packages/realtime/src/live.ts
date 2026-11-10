@@ -6,6 +6,7 @@ import type { LivePlan, LiveReader } from 'ultimabase/internal'
 import {
 	liveReader,
 	liveSchema,
+	logFailure,
 	recordingVirtuals,
 	sortKeys,
 	storedRows,
@@ -149,14 +150,11 @@ export class Live {
 	async #recover(error: unknown): Promise<void> {
 		const { logger, model, send } = this.#spec
 		if (this.#closed) return
-		logger.error(
-			{ err: error },
-			`A live read of ${model} failed: it reads again.`,
-		)
+		logFailure(logger, error, `A live read of ${model} failed: it reads again.`)
 		try {
 			await this.#reset()
 		} catch (again) {
-			logger.error({ err: again }, `A live read of ${model} failed: it closes.`)
+			logFailure(logger, again, `A live read of ${model} failed: it closes.`)
 			this.close()
 			send({ kind: 'closed' })
 		}

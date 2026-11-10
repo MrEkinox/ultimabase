@@ -7,6 +7,7 @@ import { defineApp, definePlugin, memory } from 'ultimabase'
 import type { HttpApi, HttpOptions, ReadyCheck } from './index.ts'
 import { httpPlugin, routes } from './index.ts'
 
+const anId: unknown = expect.any(String)
 type Line = { readonly level: string; readonly first: unknown }
 function recorder(lines: Line[]): Logger {
 	const at = (level: string) => (first: string | object) => {
@@ -226,7 +227,10 @@ describe('/ready', () => {
 		expect(await answer(await fetch(`${url}/ready`))).toEqual(
 			unavailable('A readiness check failed.'),
 		)
-		expect(lines).toContainEqual({ level: 'error', first: { err: error } })
+		expect(lines).toContainEqual({
+			level: 'error',
+			first: { correlationId: anId, err: error },
+		})
 	})
 
 	it('refuses a check added once the server runs', async () => {

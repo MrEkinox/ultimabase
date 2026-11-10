@@ -25,6 +25,7 @@ import type { RawData, WebSocket } from 'ws'
 import { WebSocketServer } from 'ws'
 import type { Caller, Client, Logger } from 'ultimabase'
 import { PublicError } from 'ultimabase'
+import { logFailure } from 'ultimabase/internal'
 import { cookiesOf } from './upgrade-cookies.ts'
 import type { formatter } from './errors.ts'
 import { shallow } from './errors.ts'
@@ -178,7 +179,7 @@ export function serveSockets(
 				return true
 			} catch (error) {
 				if (!(error instanceof PublicError)) {
-					logger.error({ err: error }, 'A WebSocket caller was not read.')
+					logFailure(logger, error, 'A WebSocket caller was not read.')
 					tryAgain(socket)
 				}
 				return false
@@ -343,7 +344,7 @@ export function serveSockets(
 				onMessage: (received) => {
 					socket.on('message', (data: RawData) => {
 						received(text(data)).catch((error: unknown) => {
-							logger.error({ err: error }, 'A WebSocket message failed.')
+							logFailure(logger, error, 'A WebSocket message failed.')
 							socket.close(CloseCode.InternalServerError, 'Internal error')
 						})
 					})

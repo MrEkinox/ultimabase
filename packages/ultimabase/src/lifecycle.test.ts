@@ -14,6 +14,7 @@ import {
 } from './index.ts'
 
 const M = { as: master }
+const anId: unknown = expect.any(String)
 const manifest = {
 	name: 'test-plugin',
 	version: '1.0.0',
@@ -223,7 +224,10 @@ describe('plugins', () => {
 		expect(entries).toContainEqual({
 			level: 'error',
 			name: 'http',
-			first: { err: new Error('http.stop failed.') },
+			first: {
+				correlationId: anId,
+				err: new Error('http.stop failed.'),
+			},
 			message: 'The plugin failed to stop.',
 		})
 		await expect(Note.count({}, M)).rejects.toMatchObject(stopped)
@@ -250,7 +254,10 @@ describe('plugins', () => {
 		expect(entries).toContainEqual({
 			level: 'error',
 			name: 'http',
-			first: { err: new Error('http.stopping failed.') },
+			first: {
+				correlationId: anId,
+				err: new Error('http.stopping failed.'),
+			},
 			message: 'The plugin failed to stop.',
 		})
 	})
@@ -389,7 +396,10 @@ describe('SIGTERM', () => {
 		expect(entries).toContainEqual({
 			level: 'error',
 			name: 'ultimabase',
-			first: { err: new Error('cache.stop failed.') },
+			first: {
+				correlationId: anId,
+				err: new Error('cache.stop failed.'),
+			},
 			message: 'The application stopped with an error.',
 		})
 	})

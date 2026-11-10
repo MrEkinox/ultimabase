@@ -13,9 +13,12 @@ import { start as startRun } from './runner.ts'
 import { runningOf } from './state.ts'
 
 const lines: { level: string; message: string }[] = []
+// The error each warning carries.
+const warned: unknown[] = []
 const logger: Logger = {
 	info: () => undefined,
-	warn: (_facts: object | string, message?: string) => {
+	warn: (facts: object | string, message?: string) => {
+		if (typeof facts === 'object') warned.push(Reflect.get(facts, 'err'))
 		lines.push({ level: 'warn', message: String(message) })
 	},
 	error: (_facts: object | string, message?: string) => {
@@ -95,6 +98,7 @@ beforeEach(() => {
 	closed.length = 0
 	inputs.length = 0
 	lines.length = 0
+	warned.length = 0
 	failures = 0
 	chained = 0
 })
@@ -223,6 +227,7 @@ describe('a run that fails', () => {
 			{ level: 'warn', message: 'The job flaky failed: it runs again.' },
 			{ level: 'warn', message: 'The job flaky failed: it runs again.' },
 		])
+		expect(warned).toStrictEqual([new Error('Not yet.'), new Error('Not yet.')])
 	})
 
 	it('turns failed after ten attempts, and is kept', async () => {

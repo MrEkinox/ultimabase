@@ -1,19 +1,19 @@
 {
-	"ultimabase": 22381,
+	"ultimabase": 22520,
 	"testing": 5740,
 	"soft-delete": 150,
 	"maintenance": 265,
-	"postgres": 5755,
-	"http": 1822,
-	"graphql": 5756,
+	"postgres": 5757,
+	"http": 1823,
+	"graphql": 5760,
 	"auth": 1034,
-	"password": 2277,
+	"password": 2278,
 	"roles": 348,
 	"acl": 350,
 	"rest": 3853,
 	"create-ultimabase": 250,
 	"files": 2243,
-	"realtime": 4722,
+	"realtime": 4723,
 	"live": 940,
-	"jobs": 765
+	"jobs": 774
 }

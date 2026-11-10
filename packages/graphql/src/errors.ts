@@ -2,10 +2,10 @@
 // code and details, any other error masked and logged with its id, and
 // graphql-js's own as `BAD_USER_INPUT`, as REST refuses a query (D-206),
 // without the values they refused.
-import { randomUUID } from 'node:crypto'
 import { GraphQLError } from 'graphql'
 import type { Logger } from 'ultimabase'
 import { PublicError } from 'ultimabase'
+import { logFailure } from 'ultimabase/internal'
 
 type Format = (error: Readonly<GraphQLError | Error>) => GraphQLError | Error
 
@@ -62,8 +62,11 @@ export function formatter(logger: Logger): Format {
 				extensions: details === undefined ? { code } : { code, details },
 			})
 		}
-		const correlationId = randomUUID()
-		logger.error({ correlationId, err: original }, 'A GraphQL field failed.')
+		const correlationId = logFailure(
+			logger,
+			original,
+			'A GraphQL field failed.',
+		)
 		return new GraphQLError('Internal error.', {
 			...at,
 			extensions: { code: 'INTERNAL', correlationId },

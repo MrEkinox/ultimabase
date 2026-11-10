@@ -8,6 +8,7 @@ import { PublicError } from 'ultimabase'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { pooled } from './pool.ts'
 
+const anId: unknown = expect.any(String)
 const errors: unknown[] = []
 const logger: Logger = {
 	info: () => undefined,
@@ -74,7 +75,7 @@ describe('a connection the pool cannot give', () => {
 			details: { retryAfter: 1 },
 		})
 		const cause: unknown = Reflect.get(Object(error), 'cause')
-		expect(errors).toEqual([{ err: cause }])
+		expect(errors).toEqual([{ correlationId: anId, err: cause }])
 		expect(cause).toMatchObject({
 			message:
 				'Cannot reach PostgreSQL at localhost:1 (ECONNREFUSED): is it running, and is its url right?',

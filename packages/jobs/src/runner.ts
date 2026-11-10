@@ -3,6 +3,7 @@
 // long each time, up to ten attempts.
 import type { RecordOf } from 'ultimabase'
 import { PublicError } from 'ultimabase'
+import { logFailure } from 'ultimabase/internal'
 import type { JobRecord } from './define-job.ts'
 import { JobsRun, M } from './model.ts'
 import type { Running } from './state.ts'
@@ -67,18 +68,26 @@ function failed(
 	now: number,
 ) {
 	const message = messageOf(error)
-	const facts = { err: error, job: row.job, run: row.id }
+	const facts = { job: row.job, run: row.id }
 	if (job.schedule !== undefined && row.recurring !== null) {
-		app.logger.error(facts, `The job ${row.job} failed.`)
+		logFailure(app.logger, error, `The job ${row.job} failed.`, facts)
 		const dueAt = following(job, row, now)
 		return { dueAt, lockedUntil: null, error: message }
 	}
 	const tried = row.attempts + 1
 	const last = tried >= attempts
 	if (last) {
-		app.logger.error(facts, `The job ${row.job} failed: its run is kept.`)
+		logFailure(
+			app.logger,
+			error,
+			`The job ${row.job} failed: its run is kept.`,
+			facts,
+		)
 	} else {
-		app.logger.warn(facts, `The job ${row.job} failed: it runs again.`)
+		app.logger.warn(
+			{ ...facts, err: error },
+			`The job ${row.job} failed: it runs again.`,
+		)
 	}
 	return {
 		attempts: tried,
@@ -190,7 +199,7 @@ export function start(app: Running, id: string): Promise<boolean> {
 		})
 		.catch((error: unknown) => {
 			failure ??= { error }
-			app.logger.error({ err: error, run: id }, 'A job could not run.')
+			logFailure(app.logger, error, 'A job could not run.', { run: id })
 			return false
 		})
 	running.add(run)

@@ -6,7 +6,7 @@
 // again as the rebuilt caller.
 import type { Caller } from 'ultimabase'
 import type { Recorded } from 'ultimabase/internal'
-import { livePlan, recording } from 'ultimabase/internal'
+import { livePlan, logFailure, recording } from 'ultimabase/internal'
 import type { Batch } from './changes.ts'
 import { checked, fits, holds, invalid, whoOf, within } from './checked.ts'
 import { Computed, debounce, ownerOf } from './computed.ts'
@@ -258,10 +258,8 @@ export class Viewer implements Owner {
 					subscription.expires = planned.expires
 					await live.replan(caller, planned.result)
 				} catch (error) {
-					this.#settings.logger.error(
-						{ err: error },
-						`A live read of ${subscription.model} cannot be planned: it closes.`,
-					)
+					const message = `A live read of ${subscription.model} cannot be planned: it closes.`
+					logFailure(this.#settings.logger, error, message)
 					this.#drop(live)
 				}
 			}),

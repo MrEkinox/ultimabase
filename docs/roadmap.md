@@ -308,7 +308,7 @@ Exit: the audit's fixes are published.
       per person (D-218).
 - [x] Jobs: runs enqueued in a write's transaction, delayed or recurring,
       retried until they succeed (D-221).
-- [ ] The kernel publishes its work on tracing channels (D-360).
+- [x] The kernel publishes its work on tracing channels (D-360).
 - [ ] `@ultimabase/sentry`: errors, their users and their traces, read from
       those channels.
 

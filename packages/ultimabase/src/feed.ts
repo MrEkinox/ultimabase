@@ -5,6 +5,7 @@ import { AsyncLocalStorage } from 'node:async_hooks'
 import type { Feed } from './adapter.ts'
 import type { PluginRecord } from './definition.ts'
 import { inOrder, type Installed } from './plugin-app.ts'
+import { logFailure } from './traced.ts'
 
 // Outside every async context: an adapter may deliver from within the write,
 // whose transaction and recording a hook's queries must not join.
@@ -13,8 +14,9 @@ const outside = AsyncLocalStorage.snapshot()
 /** Logs a plugin's hook failing, thrown or rejected: nothing awaits it. */
 export const guarded =
 	({ logger }: Installed['context'], hook: string) =>
-	(err: unknown): void =>
-		logger.error({ err }, `The plugin's ${hook} failed.`)
+	(err: unknown): void => {
+		logFailure(logger, err, `The plugin's ${hook} failed.`)
+	}
 
 /**
  * Calls the kernel's `own` feed, then each plugin's `changed`, `lost` and

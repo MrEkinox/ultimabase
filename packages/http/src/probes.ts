@@ -3,6 +3,7 @@
 // server serves nothing else.
 import { Hono } from 'hono'
 import type { Logger } from 'ultimabase'
+import { logFailure } from 'ultimabase/internal'
 import type { Gate } from './upgrade.ts'
 
 /** Whether a service the instance needs is there, read on each `/ready`. */
@@ -20,7 +21,7 @@ async function passes(check: ReadyCheck, logger: Logger): Promise<boolean> {
 	try {
 		return await check()
 	} catch (error) {
-		logger.error({ err: error }, 'A readiness check failed.')
+		logFailure(logger, error, 'A readiness check failed.')
 		return false
 	}
 }

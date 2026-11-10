@@ -13,6 +13,7 @@ import { planned } from './scope.ts'
 import type { Store } from './transaction.ts'
 import { checked } from './validation.ts'
 import { virtualRun } from './recorder.ts'
+import { traced, virtuals } from './traced.ts'
 
 type Row = { readonly [field: string]: unknown }
 
@@ -58,7 +59,14 @@ export async function computeVirtuals(
 		const shown = found.filter((row) => unseen.get(row)?.has(name) !== true)
 		if (shown.length === 0) continue
 		const keyed = shown.map((row) => ({ ...row, ...keys.get(row['id']) }))
-		const values = await valuesOf(context, store, read, keyed, hidden)
+		const message = () => ({
+			model: read.info.model,
+			field: name,
+			rows: shown.length,
+		})
+		const values = await traced(virtuals, message, () =>
+			valuesOf(context, store, read, keyed, hidden),
+		)
 		shown.forEach((row, index) => {
 			const known = computed.get(row) ?? new Map<string, unknown>()
 			known.set(name, values[index])

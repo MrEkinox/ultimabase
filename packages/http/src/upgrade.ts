@@ -6,6 +6,7 @@ import type { IncomingMessage, Server } from 'node:http'
 import { STATUS_CODES } from 'node:http'
 import type { Duplex } from 'node:stream'
 import type { Logger } from 'ultimabase'
+import { logFailure } from 'ultimabase/internal'
 import { isOwnOrigin } from './address.ts'
 import type { Limiter } from './limit.ts'
 import { tooMany } from './limit.ts'
@@ -171,7 +172,7 @@ export function upgrading(
 				if (refused !== undefined) return await send(socket, refused)
 				taker.accept({ request, address, incoming, socket, head, limit })
 			} catch (error) {
-				logger.error({ err: error }, 'An upgrade failed.')
+				logFailure(logger, error, 'An upgrade failed.')
 				refuse(socket, 500, 'INTERNAL', 'Internal error.')
 			}
 		})()
