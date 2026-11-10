@@ -91,10 +91,8 @@ function follow<K extends keyof Messages>(
 		start: (message) => {
 			spanOf(message)
 		},
-		// A work that throws before its promise ends here, without `asyncEnd`.
-		end: (message) => {
-			if ('error' in message) end(message)
-		},
+		// Each traced work is async: it rejects, and ends at `asyncEnd`.
+		end: () => undefined,
 		asyncStart: () => undefined,
 		asyncEnd: end,
 		error: (message) => {

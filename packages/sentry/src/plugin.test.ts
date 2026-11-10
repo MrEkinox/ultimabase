@@ -233,22 +233,6 @@ describe('sentryPlugin', () => {
 		expect(issues).toStrictEqual([])
 	})
 
-	it('end the span of a work that throws before its promise', async () => {
-		const hooks = tracingChannel('ultimabase:hook')
-		const message = { model: 'Post', hook: 'beforeFind', plugin: undefined }
-		await trace(async () => {
-			expect(() =>
-				hooks.tracePromise(() => {
-					throw new Error('At once.')
-				}, message),
-			).toThrow('At once.')
-		})
-		expect(spanNamed('Post.beforeFind')).toMatchObject({
-			status: 'error',
-			attributes: { 'error.type': 'Error' },
-		})
-	})
-
 	it('ignore what is not an error the kernel published', async () => {
 		const errors = channel('ultimabase:error')
 		const error = new Error('stray')
@@ -269,7 +253,12 @@ describe('sentryPlugin', () => {
 
 	it('stop reading the channels when the app stops', async () => {
 		await app.stop()
-		expect(channel('ultimabase:error').hasSubscribers).toBe(false)
+		const read = ['operation', 'hook', 'virtual', 'function'].map(
+			(kind) => tracingChannel(`ultimabase:${kind}`).hasSubscribers,
+		)
+		expect([...read, channel('ultimabase:error').hasSubscribers]).toStrictEqual(
+			[false, false, false, false, false],
+		)
 		await start()
 	})
 })

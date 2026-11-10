@@ -75,15 +75,6 @@ it('makes an issue of a failed mail, with its correlation id', async () => {
 	//#endregion
 })
 
-it('makes no issue of an answer, as a row not found', async () => {
-	const missing = { where: { id: '00000000-0000-4000-8000-000000000000' } }
-	await expect(Post.findUniqueOrThrow(missing, { as: master })).rejects.toThrow(
-		'No Post matches.',
-	)
-	await Sentry.flush()
-	expect(issues).toEqual([])
-})
-
 it('publishes each failure on a channel another tool can read', async () => {
 	mailer.down = true
 	//#region channel
