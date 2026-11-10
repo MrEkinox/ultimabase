@@ -2,7 +2,13 @@
 // the models that use it, which follow each commit's changes and send only
 // what changed, under the caller's read rules; and the live functions, the
 // queries whose `use` lists it, run again when what they read changes.
-import type { ExposedOutput, PluginOf, PluginTypes, UseOf } from 'ultimabase'
+import type {
+	ExposedFunction,
+	ExposedOutput,
+	PluginOf,
+	PluginTypes,
+	UseOf,
+} from 'ultimabase'
 import { definePlugin } from 'ultimabase'
 import manifest from '../package.json' with { type: 'json' }
 import { ownerOf } from './computed.ts'
@@ -22,6 +28,11 @@ export type RealtimeOptions = {
 	readonly maxConnectionRows?: number
 	/** How often, in milliseconds, each caller is built again; 5 minutes. */
 	readonly refresh?: number
+	/**
+	 * Plugin functions live as if their `use` listed `realtime()`, by owner
+	 * name, as `auth.viewer` (D-362).
+	 */
+	readonly liveFunctions?: readonly string[]
 }
 
 /** What the realtime plugin offers transports. */
@@ -60,11 +71,31 @@ const holdsPage = (output: ExposedOutput | undefined): boolean =>
 	output?.kind === 'page' ||
 	(output?.kind === 'type' && [...output.type.fields.values()].some(holdsPage))
 
+type Fn = ExposedFunction<{ readonly debounce?: number }>
+
+/** `functions`, the plugin functions `names` names live (D-362). */
+function marked(functions: readonly Fn[], names: readonly string[]): Fn[] {
+	const live = new Set(names)
+	for (const name of live) {
+		const fn = functions.find((one) => ownerOf(one) === name)
+		if (fn?.plugin !== undefined) continue
+		const why =
+			fn === undefined
+				? "which is not a plugin's function"
+				: "the application's own: list realtime() in its use"
+		throw new Error(`realtime's liveFunctions names ${name}, ${why}.`)
+	}
+	return functions.map((fn) =>
+		live.has(ownerOf(fn)) ? { ...fn, used: true } : fn,
+	)
+}
+
 const realtimeDefinition = definePlugin<Realtime>({
 	name: 'realtime',
 	manifest,
 	api: (context) => {
-		const { options, identify, logger, models, functions } = context
+		const { options, identify, logger, models } = context
+		const functions = marked(context.functions, options.liveFunctions ?? [])
 		positive('maxLive', options.maxLive)
 		positive('maxSubscriptions', options.maxSubscriptions)
 		positive('maxConnectionRows', options.maxConnectionRows)

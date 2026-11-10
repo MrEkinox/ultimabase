@@ -3,6 +3,7 @@ import { authPlugin } from '@ultimabase/auth'
 import { graphqlPlugin } from '@ultimabase/graphql'
 import { httpPlugin } from '@ultimabase/http'
 import { passwordPlugin } from '@ultimabase/password'
+import { realtimePlugin } from '@ultimabase/realtime'
 import { defineApp, memory } from 'ultimabase'
 import { sendEmail } from './mail.ts'
 import { Poll, Post, Vote } from './models.ts'
@@ -22,6 +23,11 @@ export const app = defineApp({
 		// the reset and verification emails sendEmail sends. A new password
 		// in a known data breach is refused.
 		passwordPlugin({ signUp: ['name'], sendEmail, breached: true }),
+		//#region live-viewer
+		// auth's viewer query is live: a subscription to it sends the user
+		// again when a write changes them, as their email verified.
+		realtimePlugin({ liveFunctions: ['auth.viewer'] }),
+		//#endregion
 	],
 	//#endregion
 	models: [User, Post, Poll, Vote],
