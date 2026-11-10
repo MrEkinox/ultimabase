@@ -21873,14 +21873,15 @@ Choice: amends D-58 ("OpenTelemetry comes later, as a plugin") and D-28.
    documented: any tool that reads tracing channels may read them, not only
    ours. A message holds names, counts and the caller, never a row's
    values.
-6. `@ultimabase/sentry`, then `@ultimabase/opentelemetry`, read these
-   channels; each gets its own decision.
+6. `@ultimabase/sentry` reads these channels, under its own decision. An
+   OpenTelemetry plugin comes later and reads the same ones.
 
 Why:
 
-- One source serves both plugins. Sentry 11 (2026-09) no longer builds on
-  OpenTelemetry: it reads the tracing channels libraries publish, as
-  graphql 17, postgres.js 4, mysql2 and fastify do. A kernel written on
+- One source serves Sentry now and OpenTelemetry later. Sentry 11
+  (2026-09) no longer builds on OpenTelemetry: it reads the tracing
+  channels libraries publish, as graphql 17, postgres.js 4, mysql2 and
+  fastify do. A kernel written on
   `@opentelemetry/api` would serve OpenTelemetry alone.
 - The kernel keeps its single dependency, as D-58 keeps it free of a
   logging library, and a project with no subscriber pays one boolean check
