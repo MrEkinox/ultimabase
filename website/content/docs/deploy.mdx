@@ -45,7 +45,7 @@ The full example, with its tests: [`examples/postgres`](https://github.com/MrEki
 | `PORT`         | `httpPlugin()`            | The port to listen on; `3000` when it is unset.           |
 | `MASTER_KEY`   | `masterKey`, here         | 32 characters at least, from `openssl rand -base64 32`.   |
 
-`ultimabase start` and `migrate deploy` never read a `.env` file: set the
+`ultimabase start` and `migrate deploy` never read a `.env` or `.env.local` file: set the
 variables on the host. `DATABASE_URL` and `MASTER_KEY` are the names the
 application above reads.
 

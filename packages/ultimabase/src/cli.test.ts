@@ -52,6 +52,7 @@ beforeEach(async () => {
 afterEach(async () => {
 	process.env['NODE_ENV'] = environment
 	delete process.env['ULTIMABASE_CLI_ENV']
+	delete process.env['ULTIMABASE_CLI_SHARED']
 	await rm(dir, { recursive: true })
 })
 
@@ -806,14 +807,16 @@ describe('start and dev', () => {
 		expect(existsSync(serveFile)).toBe(true)
 	})
 
-	it('runs dev with the .env beside the config, which --watch also watches (D-171)', async () => {
+	it('runs dev with the .env and .env.local beside the config, the last winning, which --watch also watches (D-171, D-363)', async () => {
 		const file = await config('dev-env', { Locker: ['label'] })
 		await writeFile(join(dir, '.env'), 'ULTIMABASE_CLI_ENV=file\n')
+		await writeFile(join(dir, '.env.local'), 'ULTIMABASE_CLI_ENV=local\n')
 		expect(await run('dev', '--config', file)).toBe(7)
 		expect(ran).toStrictEqual([
 			[
 				'--watch',
 				`--env-file=${join(dir, '.env')}`,
+				`--env-file=${join(dir, '.env.local')}`,
 				serveFile,
 				join(dir, file),
 			],
@@ -858,9 +861,35 @@ describe('the .env file (D-171)', () => {
 		}
 	})
 
-	it('leaves a variable already set, and the production commands without it', async () => {
+	it('prefers .env.local to .env, and loads it without a .env (D-363)', async () => {
+		const file = await config('env-local', { Locker: ['label'] })
+		await writeFile(
+			join(dir, '.env'),
+			'ULTIMABASE_CLI_ENV=file\nULTIMABASE_CLI_SHARED=file\n',
+		)
+		await writeFile(join(dir, '.env.local'), 'ULTIMABASE_CLI_ENV=local\n')
+		for (const command of [
+			['sync'],
+			['reset'],
+			['migrate', 'create', 'init'],
+			['generate'],
+		]) {
+			delete process.env['ULTIMABASE_CLI_ENV']
+			delete process.env['ULTIMABASE_CLI_SHARED']
+			await run(...command, '--config', file)
+			expect(process.env['ULTIMABASE_CLI_ENV']).toBe('local')
+			expect(process.env['ULTIMABASE_CLI_SHARED']).toBe('file')
+		}
+		await rm(join(dir, '.env'))
+		delete process.env['ULTIMABASE_CLI_ENV']
+		await run('sync', '--config', file)
+		expect(process.env['ULTIMABASE_CLI_ENV']).toBe('local')
+	})
+
+	it('leaves a variable already set, and the production commands without either file', async () => {
 		const file = await config('env-production', { Locker: ['label'] })
 		await writeFile(join(dir, '.env'), 'ULTIMABASE_CLI_ENV=file\n')
+		await writeFile(join(dir, '.env.local'), 'ULTIMABASE_CLI_ENV=local\n')
 		process.env['ULTIMABASE_CLI_ENV'] = 'set'
 		expect(await run('sync', '--config', file)).toBe(0)
 		expect(process.env['ULTIMABASE_CLI_ENV']).toBe('set')

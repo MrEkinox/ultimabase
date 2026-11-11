@@ -31,8 +31,8 @@ const usage = `Usage: ultimabase <command> [--config <path>]
                          starting the application. --check writes
                          nothing, and exits 1 if a file is out of date.
 
-dev, sync, reset, migrate create and generate load the .env beside the
-config.`
+dev, sync, reset, migrate create and generate load the .env and the
+.env.local beside the config; .env.local wins.`
 
 export type Io = {
 	readonly cwd: string
@@ -152,20 +152,21 @@ async function run(args: readonly string[], io: Io): Promise<number> {
 		return 1
 	}
 	const path = configPath(io.cwd, values.config)
-	// The `.env` beside the config, for the development commands (D-171).
-	const env = join(dirname(path), '.env')
-	const local =
-		existsSync(env) &&
-		command !== 'start' &&
-		sub !== 'deploy' &&
-		sub !== 'status'
+	// The `.env` and `.env.local` beside the config, for the development
+	// commands (D-171, D-363).
+	const production = command === 'start' || sub === 'deploy' || sub === 'status'
+	const files = (production ? [] : ['.env', '.env.local'])
+		.map((env) => join(dirname(path), env))
+		.filter((file) => existsSync(file))
 	if (command === 'dev') {
 		process.env['NODE_ENV'] ??= 'development'
-		const file = local ? [`--env-file=${env}`] : []
-		const watch = ['--watch', ...file, serveFile, path]
+		// The last --env-file wins; a change to either file restarts.
+		const env = files.map((file) => `--env-file=${file}`)
+		const watch = ['--watch', ...env, serveFile, path]
 		return io.interactive ? io.node(watch) : unattended(watch, io.node)
 	}
-	if (local) process.loadEnvFile(env)
+	// loadEnvFile keeps a variable already set: the first file wins.
+	for (const file of files.toReversed()) process.loadEnvFile(file)
 	if (command === 'start') process.env['NODE_ENV'] ??= 'production'
 	if (command === 'generate') process.env['NODE_ENV'] ??= 'development'
 	const app = await load(path)
