@@ -348,9 +348,10 @@ its data: give Locker.title dbName: 'label'.` That `dbName` keeps the old
 | `ultimabase start`                 | Starts the application in production (see [Deploy](/docs/next/deploy)).                                                   |
 
 Each takes `--config <path>` for a config other than `ultimabase.config.ts`,
-and exits 1 when it fails. `dev`, `sync`, `reset` and `migrate create` load
-the `.env` file beside the config, without changing a variable already set;
-`start`, `migrate deploy` and `migrate status` never read it.
+and exits 1 when it fails. `dev`, `sync`, `reset`, `migrate create` and
+`generate` load the `.env` and `.env.local` files beside the config, `.env.local`
+winning, without changing a variable already set; `start`, `migrate deploy`
+and `migrate status` never read them.
 
 ### Messages
 

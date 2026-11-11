@@ -57,6 +57,10 @@ it('writes the starter in the directory it is given', async () => {
 		'tsconfig.json',
 		'ultimabase.config.ts',
 	])
+	// A git-ignored .env.local holds a developer's secrets (D-363).
+	expect(readFileSync(join(cwd, 'blog', '.gitignore'), 'utf8')).toContain(
+		'.env.local',
+	)
 	expect(manifest('blog')).toMatchObject({
 		name: 'blog',
 		scripts: {

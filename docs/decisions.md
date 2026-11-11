@@ -11135,6 +11135,8 @@ create unique index "user_username_lower_key" on "user" (lower("username" collat
 
 ## D-171: The development commands load the `.env` beside the config
 
+Amended by D-363.
+
 Choice: amends D-105.
 
 1. `ultimabase dev`, `sync`, `reset` and `migrate create` load the `.env`
@@ -22093,4 +22095,56 @@ defineApp({
 	plugins: [auth(), realtimePlugin({ liveFunctions: ['auth.viewer'] })],
 })
 // The client: subscription { viewer { id emailVerified } }
+```
+
+## D-363: The development commands also load a `.env.local`
+
+Choice: amends D-171.
+
+1. The commands that load the `.env` beside the config (`dev`, `sync`,
+   `reset`, `migrate create` and `generate`) also load the `.env.local`
+   beside it, with or without a `.env`. `start`, `migrate deploy` and
+   `migrate status` load neither.
+2. A variable already set wins, then `.env.local`, then `.env`: the file
+   kept out of Git overrides the committed one, and the shell overrides
+   both.
+3. `dev` passes `--env-file` for each file that exists, `.env` first, so a
+   change to either restarts the application. The other commands call
+   `process.loadEnvFile`, `.env.local` first, since it keeps a variable
+   already set.
+4. The `create` template's `.gitignore` lists `.env.local`.
+
+Why:
+
+- A project commits its `.env`, so every developer starts with the same
+  local values, and needs somewhere for a secret no commit should hold, as
+  a payment provider's test key. Each project then writes
+  `node --env-file-if-exists=.env.local $(yarn bin ultimabase) dev`.
+- The name is the one most tools read for that purpose; one more file and
+  one order is the whole cost.
+
+Rejected:
+
+- `.env.development`, `.env.[mode].local` and the rest of a cascade: the
+  commands that load a file all run in development, so a mode adds no
+  choice.
+- Loading `.env.local` for `start`: D-171's point 2 holds for it too.
+- Loading the files in the application's tests: Vitest does not run
+  through the CLI, which is already true of the `.env`.
+
+Example, before:
+
+```json
+{
+	"scripts": {
+		"dev": "node --env-file-if-exists=.env.local $(yarn bin ultimabase) dev"
+	}
+}
+```
+
+After, with `DATABASE_URL` in the committed `packages/backend/.env` and
+`STRIPE_SECRET_KEY` in the ignored `packages/backend/.env.local`:
+
+```json
+{ "scripts": { "dev": "ultimabase dev" } }
 ```
