@@ -113,7 +113,6 @@ describe('a job with a key', () => {
 		await vi.waitFor(() => {
 			expect(runs.get('b')).toBe(1)
 		})
-		await new Promise((resolve) => setTimeout(resolve, 20))
 		expect(runs.get('a')).toBe(1)
 		expect(await JobsRun.count({}, M)).toBe(3)
 		release()
