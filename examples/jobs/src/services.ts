@@ -1,5 +1,5 @@
 // Stands for the services the jobs call: a video call service, which takes
-// an idempotency key, and an email service.
+// an idempotency key and tells who is in a room, and an email service.
 
 /** The rooms the video call service closed, in order. */
 export const closedRooms: string[] = []
@@ -13,6 +13,17 @@ export function closeVideoRoom(
 	if (keys.has(options.key)) return
 	keys.add(options.key)
 	closedRooms.push(room)
+}
+
+/** The people in each room, as the video call service counts them. */
+export const roomSizes = new Map<string, number>()
+/** The rooms fetched, in order. */
+export const fetchedRooms: string[] = []
+
+/** The video call service's state of a room, as it is now. */
+export function fetchRoom(room: string) {
+	fetchedRooms.push(room)
+	return { participants: roomSizes.get(room) ?? 0 }
 }
 
 /** The emails sent, in order. */

@@ -65,6 +65,21 @@ describe('defineJob', () => {
 			// @ts-expect-error: timeZone goes with cron.
 			defineJob({ name: 'zoned', every: 1000, timeZone: 'UTC', run })
 		expect(zoned).toThrow('zoned: timeZone goes with cron.')
+
+		const keyed = defineJob({
+			name: 'sync',
+			input: z.object({ account: z.string() }),
+			key: (input) => {
+				expectTypeOf(input).toEqualTypeOf<{ account: string }>()
+				return input.account
+			},
+			run,
+		})
+		expectTypeOf(keyed).toEqualTypeOf<Job<'sync', { account: string }>>()
+		const recurring = () =>
+			// @ts-expect-error: a recurring job takes no key (D-365).
+			defineJob({ name: 'nightly', every: 1000, key: () => 'all', run })
+		expect(recurring).toThrow('nightly: a recurring job takes no key.')
 	})
 
 	it('refuses a definition it cannot run', () => {
@@ -72,6 +87,9 @@ describe('defineJob', () => {
 			'defineJob: name is a non-empty string.',
 		)
 		expect(refused({ name: 'nothing' })).toThrow('nothing: run is a function.')
+		expect(refused({ name: 'keyed', key: 'all', run })).toThrow(
+			'keyed: key is a function.',
+		)
 		expect(refused({ name: 'schema', input: {}, run })).toThrow(
 			'schema: input is a Standard Schema.',
 		)

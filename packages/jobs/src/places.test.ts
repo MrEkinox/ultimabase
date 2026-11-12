@@ -145,14 +145,14 @@ async function twice(): Promise<number> {
 	const app = runningOf('the test')
 	const [row] = await JobsRun.findMany({}, M)
 	if (row === undefined) throw new Error('No row.')
-	const first = start(app, row.id)
+	const first = start(app, row)
 	await vi.waitFor(() => {
 		expect(inFlight).toBe(1)
 	})
 	const ending = release
 	shut()
 	vi.setSystemTime(Date.now() + lease + 1)
-	const second = start(app, row.id)
+	const second = start(app, row)
 	await vi.waitFor(() => {
 		expect(inFlight).toBe(2)
 	})

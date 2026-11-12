@@ -254,6 +254,7 @@ describe('a run that fails', () => {
 	})
 
 	it('turns failed after ten attempts, and is kept', async () => {
+		const anId: unknown = expect.any(String)
 		// A failed run is published where an error tracker reads it (D-360).
 		const published: unknown[] = []
 		const errors = channel('ultimabase:error')
@@ -274,7 +275,7 @@ describe('a run that fails', () => {
 		expect(published).toStrictEqual([
 			{
 				error: new Error('Not yet.'),
-				correlationId: expect.any(String),
+				correlationId: anId,
 				message: 'The job flaky failed: its run is kept.',
 			},
 		])
@@ -314,7 +315,7 @@ describe('a run that fails', () => {
 			M,
 		)
 		await runJobs()
-		expect(await startRun(runningOf('the test'), row.id)).toBe(false)
+		expect(await startRun(runningOf('the test'), row)).toBe(false)
 		expect(await rows()).toMatchObject([
 			{ ...data, lockedUntil: null, error: null },
 		])

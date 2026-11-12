@@ -23,6 +23,7 @@ The full example, with its tests: [`examples/jobs`](https://github.com/MrEkinox/
 | run code once a write commits        | [`enqueue`](#enqueue-a-run)                   |
 | run it later                         | [`enqueue(input, { after })`](#enqueue-a-run) |
 | retry a failure, or run twice safely | [`id`, the idempotency key](#once-or-more)    |
+| run one run of an object at a time   | [`key`](#one-run-per-key)                     |
 | run every hour                       | [`every`](#recurring-jobs)                    |
 | run at 3:00 each night               | [`cron` and `timeZone`](#recurring-jobs)      |
 | start the jobs                       | [`jobsPlugin()`](#the-plugin)                 |
@@ -75,6 +76,27 @@ five minutes later. So:
   key, as `closeRoom` does above, or checks the state it changes.
 - A run is never cancelled: the job reads what is still true when it runs, as
   whether the call is still over.
+
+## One run per key
+
+Webhooks about one object arrive twice and out of order; a run that fetches
+the object as it is now answers them all. `key` names the object of a run:
+
+<include cwd meta='title="src/models.ts"'>
+	../examples/jobs/src/models.ts#key
+</include>
+
+- While a run of the key waits, `enqueue` adds none: the waiting run keeps
+  its input, and runs at the earlier of the two due times.
+- A run enqueued while one of its key runs waits for it to end, on any
+  server: it fetches what that run may have missed.
+- A run that failed frees its key, and waits to run again as any run.
+- Adding none is best effort: two `enqueue` at once, in two transactions,
+  may each add a run. They still run one at a time.
+
+<include cwd meta='title="src/app.test.ts"'>
+	../examples/jobs/src/app.test.ts#keyed
+</include>
 
 ## Recurring jobs
 
@@ -151,6 +173,7 @@ And a recurring job, once the clock reaches its time:
 | `every`    | milliseconds                         | Runs every `every` milliseconds from the start.                |
 | `cron`     | five fields                          | Runs on the pattern.                                           |
 | `timeZone` | IANA time zone, as `'Europe/Paris'`  | The zone of `cron`; `'UTC'` by default.                        |
+| `key`      | `(input) => string`                  | The run's key: one run of each key waits, and one runs.        |
 
 `logger` is the application's logger, bound to `{ job: name, run: id }`.
 
@@ -179,6 +202,8 @@ pending or failed run, and one for each recurring job.
 | `attempts`    | The runs that failed.                                    |
 | `error`       | The last failure's message.                              |
 | `lockedUntil` | Until when a server holds it.                            |
+| `key`         | A keyed job's name and key, as JSON.                     |
+| `holding`     | The key, while the run runs: unique.                     |
 | `recurring`   | A recurring job's name, on its one row.                  |
 | `schedule`    | A recurring job's `every` or `cron`, to tell it changed. |
 
@@ -200,9 +225,12 @@ resolves.
 | `closeRoom: cron "0 0 30 2 *" never runs.`                                              | At import: no date matches the pattern, as 30 February.    |
 | `closeRoom: timeZone goes with cron.`                                                   | At import.                                                 |
 | `closeRoom: timeZone is an IANA time zone.`                                             | At import.                                                 |
+| `closeRoom: key is a function.`                                                         | At import.                                                 |
+| `closeRoom: a recurring job takes no key.`                                              | At import.                                                 |
 | `jobsPlugin’s jobs is an array of defineJob values.`                                    | At start.                                                  |
 | `jobsPlugin’s jobs name closeRoom twice.`                                               | At start.                                                  |
 | `closeRoom: after is a positive number of milliseconds, ending before the year 10000.`  | `enqueue`.                                                 |
+| `closeRoom: key returns a string.`                                                      | `enqueue`, when `key` returns no string.                   |
 | `closeRoom is not in jobsPlugin's jobs.`                                                | `enqueue` of a job the plugin was not given.               |
 | `closeRoom.enqueue needs an application with jobsPlugin() started.`                     | `enqueue` before the start, or after the stop.             |
 | `runJobs() runs during a test of an application with jobsPlugin().`                     | `runJobs()` outside such a test.                           |
@@ -219,3 +247,6 @@ resolves.
 - A run's input is stored as JSON: it holds what JSON holds, a date as
   its ISO string.
 - `cron` takes five fields, no seconds.
+- A run of a key holds it for its lease: a run longer than five minutes may
+  overlap the next run of its key.
+- A waiting run moved earlier by an `enqueue` starts within five seconds.
