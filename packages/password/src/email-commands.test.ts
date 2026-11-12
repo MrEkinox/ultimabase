@@ -64,6 +64,20 @@ describe('User.requestPasswordReset', () => {
 		])
 	})
 
+	it("gives sendEmail the application's logger (D-368)", async () => {
+		const { named } = await server({
+			sendEmail: async ({ kind }, { logger }) => {
+				logger.info({ kind }, 'Email sent.')
+			},
+		})
+		await User.requestPasswordReset({ email: ada.email })
+		expect(named).toContainEqual({
+			name: 'app',
+			kind: 'reset',
+			msg: 'Email sent.',
+		})
+	})
+
 	it('sends nothing to an email without an account', async () => {
 		await server()
 		await User.requestPasswordReset({ email: 'nobody@example.com' })

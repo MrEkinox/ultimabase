@@ -1,8 +1,8 @@
 // What password's email functions and commands share (D-117, D-162, D-198):
 // sending an email with its token, and redeeming one.
-import type { Register, UserOf } from 'ultimabase'
+import type { Logger, Register, UserOf } from 'ultimabase'
 import { master, PublicError, transaction } from 'ultimabase'
-import { logFailure } from 'ultimabase/internal'
+import { appLogger, logFailure } from 'ultimabase/internal'
 import type { State } from './core.ts'
 import { checkNewFor, method, setPassword } from './core.ts'
 import { hashPassword } from './hash.ts'
@@ -25,8 +25,11 @@ export function later(state: State, work: () => Promise<void>): void {
 	state.sending.add(task)
 }
 
-/** The application's `sendEmail` (D-117). */
-export type SendEmail = (email: Email) => Promise<void>
+/** The application's `sendEmail` (D-117), with its logger (D-368). */
+export type SendEmail = (
+	email: Email,
+	facts: { readonly logger: Logger },
+) => Promise<void>
 
 const M = { as: master }
 
@@ -47,7 +50,8 @@ export async function deliver(
 	)
 	if (row === null) return
 	// oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the user model is the one the application registers (D-62, D-80).
-	await sendEmail({ ...email, user: row as UserOf<Register> })
+	const user = row as UserOf<Register>
+	await sendEmail({ ...email, user }, { logger: appLogger() })
 }
 
 /**
