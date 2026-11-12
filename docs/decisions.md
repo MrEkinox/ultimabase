@@ -5798,7 +5798,7 @@ before.
 
 ## D-117: Password reset and email verification
 
-Amended by D-162, D-212 and D-357.
+Amended by D-162, D-212, D-357 and D-368.
 
 Choice: completes D-113 point 12 and D-115.
 
@@ -22151,6 +22151,8 @@ After, with `DATABASE_URL` in the committed `packages/backend/.env` and
 
 ## D-364: The application's code logs with the application's logger
 
+Amended by D-368.
+
 Choice: amends D-58.
 
 1. The kernel gives the application's code a child of the application's
@@ -22453,6 +22455,126 @@ Publish each first version by hand and trust this workflow, then run again (D-36
   git checkout -- packages
   npm publish /tmp/first.tgz --tag canary --access public
   npm trust github @ultimabase/sentry --file ci.yml --repo MrEkinox/ultimabase --env npm --allow-publish -y
+```
+
+## D-368: `sendEmail` receives the application's logger
+
+Choice: amends D-117 point 1 and D-364.
+
+1. password calls `sendEmail(email, { logger })`. `logger` is the `app`
+   logger itself (D-364): `sendEmail` is the application's code, as a hook
+   or a route, which receive it unbound.
+2. No correlation id: the email goes after the response (D-117), when no
+   request is left to name, and D-364 point 6 makes none per request.
+3. A `sendEmail` that throws needs no log of its own: password logs the
+   error under its name, or a command rejects with it (D-198).
+
+Why:
+
+- `sendEmail` was the application's only code without the application's
+  logger: its lines went through `console`, outside the JSON lines and the
+  level filter.
+- A second argument keeps a one-argument `sendEmail` as it is.
+
+Rejected:
+
+- A child bound to `{ email: kind }`: the application binds what it logs,
+  as in a hook.
+- Sending through a job for its logger: a queue and a stored token for a
+  log line.
+
+Example, before and after:
+
+```ts
+// Before
+passwordPlugin({
+	sendEmail: async (email) => {
+		console.info(`Email ${email.kind} to user ${email.user.id}`)
+		try {
+			await provider.send(render(email))
+		} catch (error) {
+			console.error(`The ${email.kind} email was not sent: ${String(error)}`)
+		}
+	},
+})
+```
+
+```ts
+// After: a thrown error is logged by password
+passwordPlugin({
+	sendEmail: async (email, { logger }) => {
+		await provider.send(render(email))
+		logger.info({ kind: email.kind, user: email.user.id }, 'Email sent.')
+	},
+})
+```
+
+## D-369: A plugin adds its jobs to `jobsPlugin`
+
+Choice: amends D-221 point 1.
+
+1. The jobs plugin's API offers `add(jobs)`. A plugin that requires or may
+   use `jobsPlugin` adds its `defineJob` values in its `api` step, as files
+   mounts its routes with `plugins.http.mount` (D-107). They run, retry and
+   recur as the application's.
+2. Every API is built before any `start` (D-89): `jobsPlugin` reads the
+   added jobs with the application's at its start. `add` after that start
+   throws, since the recurring rows of D-221 point 11 would already have
+   been reconciled without them.
+3. A name added twice, by the application or by plugins, is refused at
+   start, as one listed twice in `jobsPlugin({ jobs })`. A plugin prefixes
+   its job names, as `stripe.syncCustomer`, by convention only.
+4. A job's `run` gets no plugin context. One application runs per realm
+   (D-18): a plugin keeps what its jobs need, its options among them, in
+   module state set in its `start`, as files and jobs do.
+5. The kernel does not change: jobs stay a plugin's concern (D-01, D-21).
+
+Why: a plugin with background work, a payment provider's sync for one,
+could only export its jobs and ask each application to spread them into
+`jobsPlugin({ jobs })`. The wiring leaked into every application.
+
+Rejected:
+
+- A `jobs` key in `definePlugin`: the kernel would know about a plugin.
+- The declaring plugin's context in `run`: a `defineJob` generic over its
+  plugin, for state that one application per realm already keeps.
+
+Example, before and after:
+
+```ts
+// Before: the application wires the plugin's jobs
+import { stripeJobs, stripePlugin } from './plugins/stripe'
+
+export const app = defineApp({
+	database,
+	models,
+	plugins: [
+		stripePlugin({ secretKey, webhookSecret }),
+		jobsPlugin({ jobs: [...appJobs, ...stripeJobs] }),
+	],
+})
+```
+
+```ts
+// After: the plugin adds them
+const definition = definePlugin<StripeTypes>({
+	name: 'stripe',
+	requires: { http: httpPlugin, jobs: jobsPlugin },
+	models: [StripeCustomer, StripeEvent],
+	api: ({ plugins }) => {
+		plugins.http.mount(webhook())
+		plugins.jobs.add([syncCustomer, processEvent, closeCustomer, reconcile])
+	},
+})
+
+export const app = defineApp({
+	database,
+	models,
+	plugins: [
+		stripePlugin({ secretKey, webhookSecret }),
+		jobsPlugin({ jobs: appJobs }),
+	],
+})
 ```
 
 ## D-370: A definition refuses the keys of `.with`

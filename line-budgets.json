@@ -7,7 +7,7 @@
 	"http": 1829,
 	"graphql": 5760,
 	"auth": 1034,
-	"password": 2278,
+	"password": 2282,
 	"roles": 352,
 	"acl": 350,
 	"rest": 3856,
@@ -15,6 +15,6 @@
 	"files": 2582,
 	"realtime": 4754,
 	"live": 940,
-	"jobs": 885,
+	"jobs": 909,
 	"sentry": 250
 }

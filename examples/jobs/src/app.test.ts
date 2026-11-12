@@ -106,3 +106,14 @@ it('sends a report at 3:00 in Paris', async () => {
 	expect(outbox).toEqual(['Calls ended yesterday: 1.'])
 	//#endregion
 })
+
+it("sends the digest plugin's report on Monday at 9:00 in Paris", async () => {
+	//#region plugin
+	await Call.create({ data: { room: 'standup' } }, { as: master })
+	// The next Monday, 9:00 in Paris, in winter.
+	vi.setSystemTime(new Date('2027-01-11T08:00:00Z'))
+	await runJobs()
+	// The nightly report, missed since Tuesday, runs too.
+	expect(outbox).toContain('Calls this week: 1.')
+	//#endregion
+})
