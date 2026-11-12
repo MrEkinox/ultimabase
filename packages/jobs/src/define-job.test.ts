@@ -143,7 +143,7 @@ describe('jobsPlugin', () => {
 			'jobsPlugin’s jobs is an array of defineJob values.',
 		)
 		await expect(started([sweep, again])).rejects.toThrow(
-			'jobsPlugin’s jobs name sweep twice.',
+			'Two jobs are named sweep.',
 		)
 		await expect(started([sweep])).resolves.toBeUndefined()
 	})

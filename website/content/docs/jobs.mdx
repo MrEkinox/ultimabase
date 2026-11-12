@@ -27,6 +27,7 @@ The full example, with its tests: [`examples/jobs`](https://github.com/MrEkinox/
 | run every hour                       | [`every`](#recurring-jobs)                    |
 | run at 3:00 each night               | [`cron` and `timeZone`](#recurring-jobs)      |
 | start the jobs                       | [`jobsPlugin()`](#the-plugin)                 |
+| ship jobs in a plugin                | [`plugins.jobs.add`](#a-plugins-jobs)         |
 | run the jobs in a test               | [`runJobs()`](#in-a-test)                     |
 
 A run is a row of the database, written in the write's transaction:
@@ -125,7 +126,7 @@ month and day of the week, in `timeZone`, UTC by default:
 
 ## The plugin
 
-`jobsPlugin()` takes every job the application runs:
+`jobsPlugin()` takes the application's jobs; [plugins add theirs](#a-plugins-jobs):
 
 <include cwd meta='title="src/app.ts"'>
 	../examples/jobs/src/app.ts#plugins
@@ -138,6 +139,24 @@ month and day of the week, in `timeZone`, UTC by default:
   starts deletes the new recurring jobs' rows, until a server of the new
   version starts.
 - Stopping, a server waits for the runs it started.
+
+## A plugin's jobs
+
+A plugin that requires `jobsPlugin` adds its own jobs from its `api`, with
+`plugins.jobs.add(jobs)`: the application lists the plugin, not its jobs.
+
+<include cwd meta='title="src/digest.ts"'>
+	../examples/jobs/src/digest.ts#plugin
+</include>
+
+- Its jobs run as the application's: enqueued, keyed or recurring alike.
+- `add` runs in `api`, before any start; anywhere else it throws.
+- Two jobs of one name, the application's or a plugin's, stop the start:
+  a plugin's names start with its own, as `digest.weekly`.
+
+<include cwd meta='title="src/app.test.ts"'>
+	../examples/jobs/src/app.test.ts#plugin
+</include>
 
 ## In a test
 
@@ -169,7 +188,7 @@ And a recurring job, once the clock reaches its time:
 
 | Key        | Type                                 | Effect                                                         |
 | ---------- | ------------------------------------ | -------------------------------------------------------------- |
-| `name`     | string                               | The job's name, once in `jobsPlugin()`'s jobs.                 |
+| `name`     | string                               | The job's name, once among the application's jobs.             |
 | `run`      | `({ id, input, logger }) => unknown` | Runs a run: `id` is the run's, `input` the validated input's.  |
 | `input`    | Standard Schema, as Zod's            | The input of each run, validated by `enqueue`, stored as JSON. |
 | `every`    | milliseconds                         | Runs every `every` milliseconds from the start.                |
@@ -188,9 +207,12 @@ none, it has `enqueue(input?, options?)`:
 
 ### `jobsPlugin(options)`
 
-| Option | Type               | Effect                          |
-| ------ | ------------------ | ------------------------------- |
-| `jobs` | `defineJob` values | Every job the application runs. |
+| Option | Type               | Effect                                        |
+| ------ | ------------------ | --------------------------------------------- |
+| `jobs` | `defineJob` values | The application's jobs, besides its plugins'. |
+
+Its API, a required plugin's `plugins.jobs`, has `add(jobs)`, which takes
+`defineJob` values in the plugin's `api`.
 
 It adds the model `JobsRun`, which no transport exposes: one row for each
 pending or failed run, and one for each recurring job.
@@ -230,7 +252,9 @@ resolves.
 | `closeRoom: key is a function.`                                                         | At import.                                                 |
 | `closeRoom: a recurring job takes no key.`                                              | At import.                                                 |
 | `jobsPlugin’s jobs is an array of defineJob values.`                                    | At start.                                                  |
-| `jobsPlugin’s jobs name closeRoom twice.`                                               | At start.                                                  |
+| `jobs.add’s jobs is an array of defineJob values.`                                      | At start, from a plugin's `api`.                           |
+| `jobs.add runs in a plugin’s api.`                                                      | `plugins.jobs.add` outside a plugin's `api`.               |
+| `Two jobs are named closeRoom.`                                                         | At start.                                                  |
 | `closeRoom: after is a positive number of milliseconds, ending before the year 10000.`  | `enqueue`.                                                 |
 | `closeRoom: key returns a string.`                                                      | `enqueue`, when `key` returns no string.                   |
 | `closeRoom is not in jobsPlugin's jobs.`                                                | `enqueue` of a job the plugin was not given.               |

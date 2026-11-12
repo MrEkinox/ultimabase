@@ -1,8 +1,10 @@
 // The application: calls whose room closes in a job, a purge every hour and
-// a report each night. The jobs run on every server, each run on one.
+// a report each night, and a plugin's weekly digest. The jobs run on every
+// server, each run on one.
 import { httpPlugin } from '@ultimabase/http'
 import { defineJob, jobsPlugin } from '@ultimabase/jobs'
 import { defineApp, master, memory } from 'ultimabase'
+import { digestPlugin } from './digest.ts'
 import { Call, closeRoom, syncRoom } from './models.ts'
 import { outbox } from './services.ts'
 
@@ -48,6 +50,8 @@ export const app = defineApp({
 	plugins: [
 		httpPlugin(),
 		jobsPlugin({ jobs: [closeRoom, syncRoom, purgeCalls, nightlyReport] }),
+		// Its job runs with these; no job to list for it.
+		digestPlugin(),
 	],
 	models: [Call],
 })
