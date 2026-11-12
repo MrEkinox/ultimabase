@@ -7,6 +7,7 @@ import type {
 	PluginCode,
 	TypeDefinition,
 } from './definition.ts'
+import type { Logger } from './app-options.ts'
 import { called } from './define-function.ts'
 import type { Client } from './function.ts'
 import { functionDefinitions } from './definition.ts'
@@ -152,4 +153,22 @@ export function exposedFunctions(
 				),
 		})
 	})
+}
+
+/**
+ * Each function's logger, built once: the application's bound to its name,
+ * a plugin's naming its plugin (D-364).
+ */
+export function functionLoggers(
+	functions: Functions,
+	base: Logger,
+	app: Logger,
+): ReadonlyMap<object, Logger> {
+	const loggers = new Map<object, Logger>()
+	for (const [value, { name }] of functions.definitions) {
+		const plugin = functions.plugins.get(value)
+		const logger = plugin === undefined ? app : base.child({ name: plugin })
+		loggers.set(value, logger.child({ function: name }))
+	}
+	return loggers
 }

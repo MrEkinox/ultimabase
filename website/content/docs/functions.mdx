@@ -281,6 +281,7 @@ asked, `hasNextPage` is `true`:
 | `input`  | the validated input, with the schema's defaults and transforms         |
 | `caller` | who calls: see [Access rules](/docs/next/access)                       |
 | `client` | over a transport, `{ address, cookies }`; `undefined` from server code |
+| `logger` | the application's logger, bound to `{ function: name }`                |
 
 `client.cookies` has `get(name)`, `set(name, value, options?)` and
 `clear(name, options?)`, written on the HTTP response. Over a GraphQL

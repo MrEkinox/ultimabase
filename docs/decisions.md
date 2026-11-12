@@ -1580,7 +1580,7 @@ fields: (f) => ({
 
 ## D-58: One pino-compatible logger
 
-Amended by D-93, D-360.
+Amended by D-93, D-360, D-364.
 
 Choice: `defineApp({ logger })` takes any logger with pino's interface
 (`info`, `warn`, `error`, `child`); without one, the kernel writes JSON lines
@@ -22147,4 +22147,74 @@ After, with `DATABASE_URL` in the committed `packages/backend/.env` and
 
 ```json
 { "scripts": { "dev": "ultimabase dev" } }
+```
+
+## D-364: The application's code logs with the application's logger
+
+Choice: amends D-58.
+
+1. The kernel gives the application's code a child of the application's
+   logger named `app`, beside `ultimabase` and each plugin's name.
+2. A function's `run` receives `logger`, a child bound to
+   `{ function: name }`, built once per started application, not per call.
+   A plugin's function names its plugin instead of `app`.
+3. The application's hooks (D-71), `beforeFind` included, receive `logger`,
+   the `app` logger itself. A plugin's hooks keep their plugin's logger.
+4. A route reads `c.var.logger`, the `app` logger itself: the access line
+   already names the route, and a child per request would cost on the
+   hottest path.
+5. A job's `run` receives `logger`, a child bound to `{ job: name, run: id }`,
+   built per run.
+6. No correlation id per request: D-28's id is made per error. No global
+   `logger()` accessor: a helper takes the logger as an argument, as any
+   other dependency.
+
+Why:
+
+- An application's code had only `console`, which bypasses the JSON lines,
+  the level filter and the logger the host collects.
+- Each line says where it comes from, which a search in the host's logs
+  needs.
+
+Rejected:
+
+- A global `logger()` accessor: hidden state, and nothing a parameter does
+  not already give.
+- A child per route and per request: a cost on every request for a binding
+  the access line already holds.
+
+Example, before:
+
+```ts
+shop.post('/webhooks/payment', async (c) => {
+	console.warn('Event of the other mode dropped.')
+	return c.body(null, 200)
+})
+```
+
+After:
+
+```ts
+shop.post('/webhooks/payment', async (c) => {
+	c.var.logger.warn({ event }, 'Event of the other mode dropped.')
+	return c.body(null, 200)
+})
+
+defineFunction({
+	name: 'refund',
+	input,
+	run: async ({ input, logger }) => {
+		logger.info({ order: input.order }, 'Refunded.')
+	},
+})
+```
+
+```json
+{
+	"level": "info",
+	"name": "app",
+	"function": "refund",
+	"order": "0193…",
+	"msg": "Refunded."
+}
 ```

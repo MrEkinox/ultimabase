@@ -2,6 +2,7 @@
 // or on a `cron` pattern. A job with no schedule is enqueued, from its
 // definition, in the current transaction (D-36).
 import { Cron } from 'croner'
+import type { Logger } from 'ultimabase'
 import { PublicError, Refused } from 'ultimabase'
 import { checked, standardOf } from 'ultimabase/internal'
 import { JobsRun, M } from './model.ts'
@@ -28,8 +29,12 @@ type Types<S> =
 /** What a job's `run` returns, which nothing reads. */
 type Done = unknown
 
-/** The id of the run's row, the key that makes its effect idempotent. */
-type Facts = { readonly id: string }
+type Facts = {
+	/** The id of the run's row, the key that makes its effect idempotent. */
+	readonly id: string
+	/** The application's logger, bound to the job and the run (D-364). */
+	readonly logger: Logger
+}
 
 type Schedule = {
 	readonly input?: never

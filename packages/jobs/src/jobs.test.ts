@@ -15,17 +15,21 @@ import { runningOf } from './state.ts'
 const lines: { level: string; message: string }[] = []
 // The error each warning carries.
 const warned: unknown[] = []
-const logger: Logger = {
+// The bindings of the logger that wrote each warning.
+const bound: object[] = []
+const logging = (bindings: object): Logger => ({
 	info: () => undefined,
 	warn: (facts: object | string, message?: string) => {
+		bound.push(bindings)
 		if (typeof facts === 'object') warned.push(Reflect.get(facts, 'err'))
 		lines.push({ level: 'warn', message: String(message) })
 	},
 	error: (_facts: object | string, message?: string) => {
 		lines.push({ level: 'error', message: String(message) })
 	},
-	child: () => logger,
-}
+	child: (more) => logging({ ...bindings, ...more }),
+})
+const appLogger = logging({})
 
 const closed: { room: string; id: string }[] = []
 const closeRoom = defineJob({
@@ -67,6 +71,14 @@ const throwing = defineJob({
 		throw thrown
 	},
 })
+// A run that logs: its id, and the bindings of its logger's warning.
+const noted = defineJob({
+	name: 'noted',
+	run: ({ id, logger }) => {
+		closed.push({ room: 'noted', id })
+		logger.warn('Noted.')
+	},
+})
 const outside = defineJob({ name: 'outside', run: () => undefined })
 const inputs: unknown[] = []
 const dated = defineJob({
@@ -81,9 +93,11 @@ const app = defineApp({
 	database: memory(),
 	models: [],
 	plugins: [
-		jobsPlugin({ jobs: [closeRoom, flaky, chain, forever, dated, throwing] }),
+		jobsPlugin({
+			jobs: [closeRoom, flaky, chain, forever, dated, throwing, noted],
+		}),
 	],
-	logger,
+	logger: appLogger,
 })
 
 /** The rows of `JobsRun`, by due time. */
@@ -98,6 +112,7 @@ beforeEach(() => {
 	closed.length = 0
 	inputs.length = 0
 	lines.length = 0
+	bound.length = 0
 	warned.length = 0
 	failures = 0
 	chained = 0
@@ -119,6 +134,13 @@ describe('a job enqueued', () => {
 		expect(closed[0]?.id).toMatch(/./)
 		// A run that succeeds leaves no row.
 		expect(await rows()).toStrictEqual([])
+	})
+
+	it('logs with the application’s logger, bound to the job and the run (D-364)', async () => {
+		await noted.enqueue()
+		await runJobs()
+		const run = closed[0]?.id
+		expect(bound).toStrictEqual([{ name: 'app', job: 'noted', run }])
 	})
 
 	it('does not exist when its transaction rolls back', async () => {

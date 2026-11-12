@@ -332,6 +332,42 @@ describe('routes alone', () => {
 	})
 })
 
+describe('c.var.logger', () => {
+	it('is the application’s logger, named app (D-364)', async () => {
+		const lines: { bindings: object; first: unknown; message: unknown }[] = []
+		const binding = (bindings: object): Logger => ({
+			info: () => undefined,
+			warn: (first: unknown, message?: string) => {
+				lines.push({ bindings, first, message })
+			},
+			error: () => undefined,
+			child: (more) => binding({ ...bindings, ...more }),
+		})
+		const hooked = routes().post('/webhooks/payment', (c) => {
+			c.var.logger.warn({ event: 'evt_1' }, 'Event of the other mode dropped.')
+			return c.body(null, 200)
+		})
+		const app = defineApp({
+			database: memory(),
+			plugins: [
+				httpPlugin({ port: 0, routes: [hooked], drain: 0 }),
+				mounting.plugin(),
+			],
+			models: [],
+			logger: binding({}),
+		})
+		await app.start()
+		stop = async () => app.stop()
+		const url = http?.url() ?? ''
+		expect((await post(`${url}/webhooks/payment`, '{}')).status).toBe(200)
+		expect(lines).toContainEqual({
+			bindings: { name: 'app' },
+			first: { event: 'evt_1' },
+			message: 'Event of the other mode dropped.',
+		})
+	})
+})
+
 describe('a middleware of the application', () => {
 	it('runs for the routes after it, other plugins’ included', async () => {
 		const own = routes()

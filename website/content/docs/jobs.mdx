@@ -136,14 +136,16 @@ And a recurring job, once the clock reaches its time:
 
 ### `defineJob(definition)`
 
-| Key        | Type                                | Effect                                                         |
-| ---------- | ----------------------------------- | -------------------------------------------------------------- |
-| `name`     | string                              | The job's name, once in `jobsPlugin()`'s jobs.                 |
-| `run`      | `({ id, input }) => unknown`        | Runs a run: `id` is the run's, `input` the validated input's.  |
-| `input`    | Standard Schema, as Zod's           | The input of each run, validated by `enqueue`, stored as JSON. |
-| `every`    | milliseconds                        | Runs every `every` milliseconds from the start.                |
-| `cron`     | five fields                         | Runs on the pattern.                                           |
-| `timeZone` | IANA time zone, as `'Europe/Paris'` | The zone of `cron`; `'UTC'` by default.                        |
+| Key        | Type                                 | Effect                                                         |
+| ---------- | ------------------------------------ | -------------------------------------------------------------- |
+| `name`     | string                               | The job's name, once in `jobsPlugin()`'s jobs.                 |
+| `run`      | `({ id, input, logger }) => unknown` | Runs a run: `id` is the run's, `input` the validated input's.  |
+| `input`    | Standard Schema, as Zod's            | The input of each run, validated by `enqueue`, stored as JSON. |
+| `every`    | milliseconds                         | Runs every `every` milliseconds from the start.                |
+| `cron`     | five fields                          | Runs on the pattern.                                           |
+| `timeZone` | IANA time zone, as `'Europe/Paris'`  | The zone of `cron`; `'UTC'` by default.                        |
+
+`logger` is the application's logger, bound to `{ job: name, run: id }`.
 
 A job takes one of `input`, `every` and `cron`, or none. With `input` or
 none, it has `enqueue(input?, options?)`:

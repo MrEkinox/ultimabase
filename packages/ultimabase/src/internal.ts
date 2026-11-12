@@ -43,6 +43,7 @@ export { compareKeys } from './memory-values.ts'
 export { maxFilterDepth } from './query-where.ts'
 export { maxWriteDepth } from './write-data.ts'
 export { logFailure } from './traced.ts'
+export { appLogger } from './running.ts'
 
 /** `logger` without its info lines. */
 function quieted(logger: Logger): Logger {

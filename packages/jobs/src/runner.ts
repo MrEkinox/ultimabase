@@ -3,7 +3,7 @@
 // long each time, up to ten attempts.
 import type { RecordOf } from 'ultimabase'
 import { PublicError } from 'ultimabase'
-import { logFailure } from 'ultimabase/internal'
+import { appLogger, logFailure } from 'ultimabase/internal'
 import type { JobRecord } from './define-job.ts'
 import { JobsRun, M } from './model.ts'
 import type { Running } from './state.ts'
@@ -102,8 +102,11 @@ function failed(
 /** What a run writes to its row: its failure, its next time, or none. */
 async function ran(app: Running, row: Row, job: JobRecord, now: number) {
 	const { id, input } = row
+	const logger = appLogger().child({ job: row.job, run: id })
 	try {
-		await job.run(job.input === undefined ? { id } : { id, input })
+		await job.run(
+			job.input === undefined ? { id, logger } : { id, input, logger },
+		)
 	} catch (error) {
 		return failed(app, row, job, error, now)
 	}
