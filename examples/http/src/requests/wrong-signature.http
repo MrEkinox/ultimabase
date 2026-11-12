@@ -1,0 +1,5 @@
+POST /webhooks/payment
+content-type: application/json
+x-signature: eb597493de636d33baf76b27aac490a822c86519777aefc3d9240588c613bdb8
+
+{ "event": "evt_3", "order": "any", "amount": 30 }

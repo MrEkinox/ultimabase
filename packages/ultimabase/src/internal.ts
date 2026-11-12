@@ -44,6 +44,7 @@ export { compareKeys } from './memory-values.ts'
 export { maxFilterDepth } from './query-where.ts'
 export { maxWriteDepth } from './write-data.ts'
 export { logFailure } from './traced.ts'
+export { appLogger } from './running.ts'
 export type { StoredField } from './stored-fields.ts'
 export { storedFields } from './stored-fields.ts'
 

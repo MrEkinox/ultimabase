@@ -1,8 +1,10 @@
-// What each route's context holds (D-106, D-108): the caller, and a body
-// that, when it is not the JSON or the form it claims, is the client's error.
+// What each route's context holds (D-106, D-108, D-364): the caller, the
+// application's logger, and a body that, when it is not the JSON or the form
+// it claims, is the client's error.
 import type { Context } from 'hono'
 import { HTTPException } from 'hono/http-exception'
 import type { Caller } from 'ultimabase'
+import { appLogger } from 'ultimabase/internal'
 import type { HttpEnv } from './app.ts'
 
 /** `c.req[method]`, its parsing failure, `parsing`, a 400. */
@@ -32,6 +34,7 @@ export function hold(
 ): void {
 	c.set('caller', caller)
 	c.set('address', address)
+	c.set('logger', appLogger())
 	// Only parsing the body throws these here, not the server's code.
 	malformed(c, 'json', SyntaxError, 'Malformed JSON in request body')
 	const form = 'Malformed form data in request body'

@@ -24,6 +24,7 @@ The full example, with its tests: [`examples/http`](https://github.com/MrEkinox/
 | read the client's address behind a proxy | [`proxies`](#the-caller)                          |
 | limit the requests of an address         | [`rateLimit`](#rate-limit)                        |
 | check a body, a query or a header        | [`validate(target, schema)`](#validate-a-request) |
+| take a provider's signed webhook         | [`c.req.text()`](#a-signed-webhook)               |
 | refuse a request                         | [`throw`](#errors)                                |
 | call the API from a browser              | [`cors`](#browsers)                               |
 | set a response's cache                   | [`cache-control`](#caching)                       |
@@ -124,27 +125,11 @@ The tests set `rateLimit` to 100 requests and send 100 from
 `validate(target, schema)` checks a part of the request with any
 [Standard Schema](https://standardschema.dev), as Zod, Valibot or ArkType.
 The route reads the value, typed, with `c.req.valid(target)`. This webhook
-checks its secret header and its JSON body, then writes as Master, since a
-provider sends no session:
+checks its JSON body, then writes as Master, since a provider sends no
+session:
 
-<include cwd meta='title="src/routes.ts"'>
-	../examples/http/src/routes.ts#webhook
-</include>
-
-The provider calls it, and the route answers:
-
-<include cwd meta='title="src/app.test.ts"'>
-	../examples/http/src/app.test.ts#webhook
-</include>
-
-A wrong secret is the `HTTPException` the route throws:
-
-<include cwd meta='title="Request"'>
-	../examples/http/src/requests/wrong-secret.http
-</include>
-
-<include cwd meta='title="Response"'>
-	../examples/http/src/requests/wrong-secret.json
+<include cwd meta='title="src/webhook.ts"'>
+	../examples/http/src/webhook.ts#webhook
 </include>
 
 A value the schema refuses is `VALIDATION_FAILED` (400), with the same
@@ -179,6 +164,47 @@ With `min=20`, it counts one:
 	../examples/http/src/requests/orders.json
 </include>
 
+## A signed webhook
+
+A provider signs each call with a secret it shares with the application.
+The route checks the signature over the bytes it received, before the body
+is parsed: the same JSON with other spaces or key order has another
+signature. `c.req.text()` gives those bytes, and `validate('json')` reads
+them again after.
+
+<include cwd meta='title="src/webhook.ts"'>
+	../examples/http/src/webhook.ts#signed
+</include>
+
+Each provider has its own header and format: read its documentation, or use
+its SDK's check. A provider may send an event twice, so the route takes each
+once: the event's id is unique, and the receipt is a
+[job](/docs/next/jobs) enqueued in the same transaction.
+
+<include cwd meta='title="src/webhook.ts"'>
+	../examples/http/src/webhook.ts#event
+</include>
+
+<include cwd meta='title="src/webhook.ts"'>
+	../examples/http/src/webhook.ts#job
+</include>
+
+The provider sends the same event twice, and one receipt is sent:
+
+<include cwd meta='title="src/app.test.ts"'>
+	../examples/http/src/app.test.ts#webhook
+</include>
+
+A wrong signature is the `HTTPException` the route throws:
+
+<include cwd meta='title="Request"'>
+	../examples/http/src/requests/wrong-signature.http
+</include>
+
+<include cwd meta='title="Response"'>
+	../examples/http/src/requests/wrong-signature.json
+</include>
+
 ## Errors
 
 A route throws to refuse a request:
@@ -188,7 +214,7 @@ A route throws to refuse a request:
   [Errors](/docs/next/errors) lists them; an application's own code is a
   `400`;
 - Hono's `HTTPException` keeps its status, its code the status's name, as
-  `UNAUTHORIZED` for the wrong secret above;
+  `UNAUTHORIZED` for the wrong signature above;
 - any other error is `500` `INTERNAL`, `Internal error.`, with a
   `correlationId` the server logs beside the error.
 
@@ -397,6 +423,7 @@ middlewares and `streamSSE`.
 | ------------------------ | -------------------------------------------------------- |
 | `c.var.caller`           | The request's caller, to pass as `{ as: c.var.caller }`. |
 | `c.var.address`          | The client's address, `''` when unknown.                 |
+| `c.var.logger`           | The application's logger.                                |
 | `c.req.valid(target)`    | What `validate(target, schema)` accepted, typed.         |
 | `routes().request(path)` | A response, as an anonymous request, without the server. |
 

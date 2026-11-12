@@ -4408,6 +4408,7 @@ __metadata:
   resolution: "example-http@workspace:examples/http"
   dependencies:
     "@ultimabase/http": "workspace:*"
+    "@ultimabase/jobs": "workspace:*"
     "@ultimabase/testing": "workspace:*"
     hono: "npm:4.13.13"
     ultimabase: "workspace:*"

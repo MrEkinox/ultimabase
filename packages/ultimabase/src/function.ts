@@ -1,6 +1,7 @@
 // Functions (D-27, D-45, D-109): a server operation with a Standard Schema
 // input and a typed output, which `defineApp({ functions })` adds to the
 // application, and the named objects its output may hold.
+import type { Logger } from './app-options.ts'
 import type { AnyCheck, SchemaTypes, StandardSchema } from './fields.ts'
 import type { ModelShape } from './model.ts'
 import type { Page } from './page.ts'
@@ -131,12 +132,14 @@ export interface Client {
 
 /**
  * What `run` receives: the caller, its client when a transport calls it,
- * and the validated input if any (D-113). A wrapper of `run` reads it before
+ * its logger (D-364) and the validated input if any (D-113). A wrapper of `run` reads it before
  * `I` is inferred, as `never`: no input then (D-181).
  */
 export type RunFacts<I> = {
 	readonly caller: Caller
 	readonly client: Client | undefined
+	/** The application's logger, bound to the function's name (D-364). */
+	readonly logger: Logger
 } & ([I] extends [never]
 	? unknown
 	: [I] extends [StandardSchema]

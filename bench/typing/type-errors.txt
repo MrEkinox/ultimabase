@@ -229,7 +229,7 @@ prototype/example/define-function.ts: a type's field is an output, not nothing.
 TS2322: Type 'undefined' is not assignable to type 'OutputSpec'.
 
 prototype/example/define-function.ts: without an input, `run` receives none.
-TS2339: Property 'input' does not exist on type '{ readonly caller: Caller; readonly client: Client | undefined; }'.
+TS2339: Property 'input' does not exist on type '{ readonly caller: Caller; readonly client: Client | undefined; readonly logger: Logger; }'.
 
 prototype/example/define-function.ts: an input typed `any` would hide the input's type.
 TS2375: Type 'ZodAny' is not assignable to type 'ZodAny & "the schema types its input as any"' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
@@ -270,7 +270,7 @@ prototype/example/define-plugin.ts: the interface declares no commands.
 TS2322: Type '() => {}' is not assignable to type 'never'.
 
 prototype/example/hooks.ts: a filter only comes from `where`.
-TS2322: Type '() => { status: string; }' is not assignable to type '(facts: { readonly caller: Caller; readonly operation: FindOperation; readonly where: (filter: FindWhere<{ readonly title: Field<string, StringOptions, never, never, string, false, never>; readonly status: Field<...>; readonly locked: Field<...>; }>) => ReadFilter; }) => void | ... 1 more ... | ReadFilter'.
+TS2322: Type '() => { status: string; }' is not assignable to type '(facts: { readonly caller: Caller; readonly logger: Logger; readonly operation: FindOperation; readonly where: (filter: FindWhere<{ readonly title: Field<string, StringOptions, ... 4 more ..., never>; readonly status: Field<...>; readonly locked: Field<...>; }>) => ReadFilter; }) => void | ... 1 more ... | ReadFilter'.
   Type '{ status: string; }' is not assignable to type 'void | Promise<void | ReadFilter> | ReadFilter'.
 
 prototype/example/hooks.ts: `statuss` is not a field of Doc.
@@ -283,7 +283,7 @@ prototype/example/hooks.ts: `titel` is not a field of Doc.
 TS2551: Property 'titel' does not exist on type 'Draft<{ readonly title: string; readonly status: "archived" | "draft" | "published"; } & { readonly locked?: boolean | undefined; } & { readonly locked: boolean; }>'. Did you mean 'title'?
 
 prototype/example/hooks.ts: a created record has no previous version.
-TS2339: Property 'previous' does not exist on type '{ readonly record: StoredRecord<{ readonly title: Field<string, StringOptions, never, never, string, false, never>; readonly status: Field<"archived" | "draft" | "published", SingleOptions<"archived" | "draft" | "published">, ... 4 more ..., never>; readonly locked: Field<...>; }>; } & { ...; }'.
+TS2339: Property 'previous' does not exist on type '{ readonly record: StoredRecord<{ readonly title: Field<string, StringOptions, never, never, string, false, never>; readonly status: Field<"archived" | "draft" | "published", SingleOptions<"archived" | "draft" | "published">, ... 4 more ..., never>; readonly locked: Field<...>; }>; } & HookFacts'.
 
 prototype/example/hooks.ts: `afterFind` is not a hook (D-71).
 TS2353: Object literal may only specify known properties, and 'afterFind' does not exist in type 'ModelHooks<{ readonly title: Field<string, StringOptions, never, never, string, false, never>; readonly status: Field<"archived" | "draft" | "published", SingleOptions<"archived" | "draft" | "published">, ... 4 more ..., never>; readonly locked: Field<...>; }, "Doc">'.
@@ -375,7 +375,7 @@ prototype/example/plugin-own.ts: `trahs` is not a command of the plugin.
 TS2367: This comparison appears to be unintentional because the types '"trash" | undefined' and '"trahs"' have no overlap.
 
 prototype/example/plugin-own.ts: a filter only comes from `where`.
-TS2322: Type '() => { trashedAt: null; }' is not assignable to type '(facts: { readonly caller: Caller; readonly operation: FindOperation; readonly where: (filter: FindWhere<{ readonly trashedAt: Field<Date, { readonly optional: true; }, never, never, Date, false, never>; }>) => ReadFilter; } & PluginModel<...> & { ...; }) => void | ... 1 more ... | ReadFilter'.
+TS2322: Type '() => { trashedAt: null; }' is not assignable to type '(facts: { readonly caller: Caller; readonly logger: Logger; readonly operation: FindOperation; readonly where: (filter: FindWhere<{ readonly trashedAt: Field<Date, { readonly optional: true; }, ... 4 more ..., never>; }>) => ReadFilter; } & PluginModel<...> & { ...; }) => void | ... 1 more ... | ReadFilter'.
   Type '{ trashedAt: null; }' is not assignable to type 'void | Promise<void | ReadFilter> | ReadFilter'.
 
 prototype/example/plugin-parts.ts: the value is a string.

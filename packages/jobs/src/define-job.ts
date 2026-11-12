@@ -1,7 +1,9 @@
 // `defineJob` (D-221): a job takes an input, or runs `every` milliseconds,
 // or on a `cron` pattern. A job with no schedule is enqueued, from its
-// definition, in the current transaction (D-36).
+// definition, in the current transaction (D-36), and its `key` runs one run
+// of each key at a time (D-365).
 import { Cron } from 'croner'
+import type { Logger } from 'ultimabase'
 import { PublicError, Refused } from 'ultimabase'
 import { checked, standardOf } from 'ultimabase/internal'
 import { JobsRun, M } from './model.ts'
@@ -28,25 +30,37 @@ type Types<S> =
 /** What a job's `run` returns, which nothing reads. */
 type Done = unknown
 
-/** The id of the run's row, the key that makes its effect idempotent. */
-type Facts = { readonly id: string }
+type Facts = {
+	/** The id of the run's row, the key that makes its effect idempotent. */
+	readonly id: string
+	/** The application's logger, bound to the job and the run (D-364). */
+	readonly logger: Logger
+}
 
 type Schedule = {
 	readonly input?: never
 	readonly every?: never
 	readonly cron?: never
 	readonly timeZone?: never
+	readonly key?: never
 }
 
-type InputDefinition<N, S> = Omit<Schedule, 'input'> & {
+type InputDefinition<N, S> = Omit<Schedule, 'input' | 'key'> & {
 	readonly name: N
 	/** Validated when the run is enqueued, and stored as JSON. */
 	readonly input: S
+	/**
+	 * The run's key, from its validated input: a run of a key waiting adds
+	 * none, and one run of each key runs at a time (D-365).
+	 */
+	readonly key?: (input: Types<S>['output']) => string
 	readonly run: (facts: Facts & { readonly input: Types<S>['output'] }) => Done
 }
 
-type PlainDefinition<N> = Schedule & {
+type PlainDefinition<N> = Omit<Schedule, 'key'> & {
 	readonly name: N
+	/** The runs' key: a run waiting adds none, one runs at a time (D-365). */
+	readonly key?: () => string
 	readonly run: (facts: Facts) => Done
 }
 
@@ -101,6 +115,8 @@ export interface JobRecord {
 	readonly schedule: string | undefined
 	/** The first due time after `from`, for a recurring job. */
 	readonly next: (from: number) => number
+	/** A keyed job's key, from the run's validated input. */
+	readonly key: ((input: unknown) => unknown) | undefined
 	readonly run: (facts: Facts & { readonly input?: unknown }) => Done
 }
 
@@ -153,13 +169,14 @@ function cronNext(
 /** The record of a job's definition, checked at import. */
 function recordFor(definition: object): JobRecord {
 	const read = (key: string): unknown => Reflect.get(definition, key)
-	const [name, input, every, cron, timeZone, run] = [
+	const [name, input, every, cron, timeZone, run, key] = [
 		'name',
 		'input',
 		'every',
 		'cron',
 		'timeZone',
 		'run',
+		'key',
 	].map(read)
 	if (typeof name !== 'string' || name === '') {
 		throw new Refused('defineJob: name is a non-empty string.')
@@ -172,6 +189,12 @@ function recordFor(definition: object): JobRecord {
 	}
 	if (timeZone !== undefined && cron === undefined) {
 		throw new Refused(`${name}: timeZone goes with cron.`)
+	}
+	if (key !== undefined && typeof key !== 'function') {
+		throw new Refused(`${name}: key is a function.`)
+	}
+	if (key !== undefined && (every !== undefined || cron !== undefined)) {
+		throw new Refused(`${name}: a recurring job takes no key.`)
 	}
 	const standard = standardOf(input)
 	if (input !== undefined && standard === undefined) {
@@ -193,7 +216,11 @@ function recordFor(definition: object): JobRecord {
 				: `every ${every}`
 	const runs = (facts: Facts & { readonly input?: unknown }): Done =>
 		Reflect.apply(run, undefined, [facts])
-	return { name, input: standard, schedule, next, run: runs }
+	const keys =
+		key === undefined
+			? undefined
+			: (value: unknown): unknown => Reflect.apply(key, undefined, [value])
+	return { name, input: standard, schedule, next, key: keys, run: runs }
 }
 
 /** The input's validated value; refuses it as `VALIDATION_FAILED`. */
@@ -223,16 +250,52 @@ async function enqueue(record: JobRecord, args: readonly unknown[]) {
 	}
 	const value =
 		schema === undefined ? null : await validated(name, schema, input)
+	const key = keyOf(record, value)
+	const dueAt = new Date(Date.now() + (after ?? 0))
+	if (key !== null && (await joined(key, dueAt))) return
 	// Stored as JSON: a date as its ISO string, an undefined key left out.
 	const json: unknown = JSON.parse(JSON.stringify(value ?? null))
 	const data = {
 		job: name,
 		input: json,
+		key,
 		state: 'pending',
-		dueAt: new Date(Date.now() + (after ?? 0)),
+		dueAt,
 		attempts: 0,
 	}
 	await JobsRun.create({ data }, M)
+}
+
+/** The run's key, the job's name with it, or null for a job with none. */
+function keyOf(record: JobRecord, value: unknown): string | null {
+	if (record.key === undefined) return null
+	const key = record.key(value)
+	if (typeof key !== 'string') {
+		throw new TypeError(`${record.name}: key returns a string.`)
+	}
+	return JSON.stringify([record.name, key])
+}
+
+/**
+ * Whether a run of the key waits: it keeps its input and runs at the earlier
+ * due time (D-365).
+ */
+async function joined(key: string, dueAt: Date): Promise<boolean> {
+	const [waiting] = await JobsRun.findMany(
+		{
+			where: { key, state: 'pending', holding: null },
+			orderBy: [{ dueAt: 'asc' }],
+			take: 1,
+			select: { id: true, dueAt: true },
+		},
+		M,
+	)
+	if (waiting === undefined) return false
+	if (dueAt < waiting.dueAt) {
+		const where = { id: waiting.id, holding: null }
+		await JobsRun.updateMany({ where, data: { dueAt } }, M)
+	}
+	return true
 }
 
 export function defineJob<

@@ -85,7 +85,7 @@ const definition = definePlugin<Jobs>({
 		const app: Running = {
 			jobs: jobsOf(options.jobs),
 			logger,
-			kick: (id) => void start(app, id),
+			kick: (row) => void start(app, row),
 		}
 		useRunning(app)
 		open()

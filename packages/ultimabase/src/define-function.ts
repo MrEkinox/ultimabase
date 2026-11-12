@@ -113,7 +113,8 @@ export async function called(
 		app.work.run(async () => {
 			const caller = await app.complete(identity)
 			allowed(record, caller, app)
-			const facts: { [key: string]: unknown } = { caller, client }
+			const logger = app.functionLoggers.get(value)
+			const facts: { [key: string]: unknown } = { caller, client, logger }
 			const standard = standardOf(schema)
 			if (standard !== undefined) {
 				const result = await checked(standard, input, [], name)

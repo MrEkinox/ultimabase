@@ -1580,7 +1580,7 @@ fields: (f) => ({
 
 ## D-58: One pino-compatible logger
 
-Amended by D-93, D-360.
+Amended by D-93, D-360, D-364.
 
 Choice: `defineApp({ logger })` takes any logger with pino's interface
 (`info`, `warn`, `error`, `child`); without one, the kernel writes JSON lines
@@ -14754,7 +14754,7 @@ cycle of models such as `Task` and `Milestone`, makes the types circular).
 
 ## D-221: Jobs: an outbox and scheduled jobs, a plugin
 
-Amended by D-302 and D-352.
+Amended by D-302, D-352 and D-365.
 
 Choice: the plugin `@ultimabase/jobs` runs work after a write commits, later,
 or on a schedule, with no kernel change (D-25):
@@ -22147,6 +22147,161 @@ After, with `DATABASE_URL` in the committed `packages/backend/.env` and
 
 ```json
 { "scripts": { "dev": "ultimabase dev" } }
+```
+
+## D-364: The application's code logs with the application's logger
+
+Choice: amends D-58.
+
+1. The kernel gives the application's code a child of the application's
+   logger named `app`, beside `ultimabase` and each plugin's name.
+2. A function's `run` receives `logger`, a child bound to
+   `{ function: name }`, built once per started application, not per call.
+   A plugin's function names its plugin instead of `app`.
+3. The application's hooks (D-71), `beforeFind` included, receive `logger`,
+   the `app` logger itself. A plugin's hooks keep their plugin's logger.
+4. A route reads `c.var.logger`, the `app` logger itself: the access line
+   already names the route, and a child per request would cost on the
+   hottest path.
+5. A job's `run` receives `logger`, a child bound to `{ job: name, run: id }`,
+   built per run.
+6. No correlation id per request: D-28's id is made per error. No global
+   `logger()` accessor: a helper takes the logger as an argument, as any
+   other dependency.
+
+Why:
+
+- An application's code had only `console`, which bypasses the JSON lines,
+  the level filter and the logger the host collects.
+- Each line says where it comes from, which a search in the host's logs
+  needs.
+
+Rejected:
+
+- A global `logger()` accessor: hidden state, and nothing a parameter does
+  not already give.
+- A child per route and per request: a cost on every request for a binding
+  the access line already holds.
+
+Example, before:
+
+```ts
+shop.post('/webhooks/payment', async (c) => {
+	console.warn('Event of the other mode dropped.')
+	return c.body(null, 200)
+})
+```
+
+After:
+
+```ts
+shop.post('/webhooks/payment', async (c) => {
+	c.var.logger.warn({ event }, 'Event of the other mode dropped.')
+	return c.body(null, 200)
+})
+
+defineFunction({
+	name: 'refund',
+	input,
+	run: async ({ input, logger }) => {
+		logger.info({ order: input.order }, 'Refunded.')
+	},
+})
+```
+
+```json
+{
+	"level": "info",
+	"name": "app",
+	"function": "refund",
+	"order": "0193…",
+	"msg": "Refunded."
+}
+```
+
+## D-365: A job's key runs one run of each key at a time
+
+Choice: amends D-221.
+
+1. `defineJob({ key })` takes a function of the run's validated input that
+   returns a string; a job with no input takes `key: () => string`. A
+   recurring job takes no key: it has one row already. `key` that is no
+   function is refused at import; a key that is no string, at `enqueue`.
+2. A run waits while it is pending and not running. `enqueue` of a key with a
+   waiting run adds none: the waiting run keeps its input, and its due time
+   becomes the earlier of the two. A run enqueued while a run of its key runs
+   is a new waiting run, which starts once that run ends.
+3. Never two runs of one key at once, on any server. A run of a key holds it
+   in `JobsRun.holding`, a unique column set by the update that claims the
+   row (D-221, point 7) and cleared when the run ends. A claim the unique
+   column refuses leaves the row held for a lease, waiting; the run that ends
+   frees the waiting rows of its key and starts the first due.
+4. A failed run frees its key: a run waiting to run again counts as a
+   waiting run, so an `enqueue` may move it earlier; a run kept `failed`
+   blocks nothing.
+5. The key is stored with the job's name, `["syncAccount","acct_1"]`: two
+   jobs with the same key do not wait for each other.
+6. Adding no run is best effort: two `enqueue` at once, in two transactions,
+   may each add one. Running one at a time is strict, within the lease: a
+   run that outlives its five minutes may overlap the next, as D-221 already
+   says of any run.
+
+Why:
+
+- Webhooks about one external object arrive twice and out of order; the
+  answer is a run that fetches the object as it is now. Without a key, two
+  runs of one object run at once, and the slower writes an older state
+  last.
+- The workarounds cost more than the feature: a unique event row drops a
+  delivery sent twice, not two events about one object; a row lock held
+  during the provider's call holds a transaction open across the network,
+  which the transactions page advises against, and needs a row to lock.
+- A unique column is the lease pattern D-221 already uses: no advisory
+  lock, no long transaction, the same on `memory()` and PostgreSQL.
+
+Rejected:
+
+- `enqueue(input, { key })`: the key belongs to what the job does, not to
+  each call; one place to read it, and no call that forgets it.
+- A waiting run takes the newer input: a run that fetches the object needs
+  none, and a job whose input matters keys on it.
+- A hook such as `onFailed`, and attempts per job: not asked for (#285).
+
+Example, before:
+
+```ts
+const syncAccount = defineJob({
+	name: 'syncAccount',
+	input: z.object({ accountId: z.string() }),
+	run: async ({ input }) => {
+		// Takes the account's row lock, held during the provider's call.
+		await transaction(async () => {
+			await Account.update(
+				{ where: { id: input.accountId }, data: { syncedAt: new Date() } },
+				{ as: master },
+			)
+			const account = await provider.accounts.retrieve(input.accountId)
+			await Account.update(/* … */, { as: master })
+		})
+	},
+})
+```
+
+After:
+
+```ts
+const syncAccount = defineJob({
+	name: 'syncAccount',
+	input: z.object({ accountId: z.string() }),
+	key: ({ accountId }) => accountId,
+	run: async ({ input }) => {
+		const account = await provider.accounts.retrieve(input.accountId)
+		await Account.update(/* … */, { as: master })
+	},
+})
+
+// A run of this account waits: no new run.
+await syncAccount.enqueue({ accountId })
 ```
 
 ## D-366: `files.refresh` computes a field's missing inline values and variants

@@ -3,11 +3,17 @@
 import type { Logger } from 'ultimabase'
 import type { JobRecord } from './define-job.ts'
 
+/** A row to run: its id, and its key if its job has one (D-365). */
+export interface Due {
+	readonly id: string
+	readonly key: string | null
+}
+
 export interface Running {
 	readonly jobs: ReadonlyMap<string, JobRecord>
 	readonly logger: Logger
-	/** Runs the row `id` now, in this instance. */
-	readonly kick: (id: string) => void
+	/** Runs the row now, in this instance. */
+	readonly kick: (row: Due) => void
 }
 
 let running: Running | undefined
