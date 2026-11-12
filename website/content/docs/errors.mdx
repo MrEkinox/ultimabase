@@ -119,6 +119,10 @@ The test reads that id from the response, and the line the server logs:
   logger with its `info`, `warn`, `error` and `child`.
 - Without a logger, the kernel writes a readable line in a terminal and a JSON
   line everywhere else.
+- The application's own code logs with that logger, its lines named `app`: a
+  function's `run`, a hook and a job's `run` receive `logger`, a route reads
+  `c.var.logger`. A function's lines also carry `function`, a job's `job` and
+  `run`.
 
 ## Type the codes in a client
 

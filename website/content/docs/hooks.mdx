@@ -263,7 +263,8 @@ delete; [postgres()](/docs/next/postgres#your-own-sql) returns its refusal as
 
 `record` and `previous` hold `id`, `createdAt`, `updatedAt`, each field, and
 each `one` relation as `{ id }` or `null`. `beforeFind` returns
-`where({ ... })` or nothing; the others return nothing.
+`where({ ... })` or nothing; the others return nothing. Each hook also receives
+`logger`, the application's logger.
 
 ### When they run
 

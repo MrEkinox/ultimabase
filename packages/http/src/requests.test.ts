@@ -156,6 +156,28 @@ describe('validate', () => {
 		expect(await charset.json()).toStrictEqual({ named: 'desk' })
 	})
 
+	it('keeps the bytes received, read before or after the schema', async () => {
+		// A signature covers the bytes sent, their spaces and key order.
+		const read: string[] = []
+		const raw = routes().post(
+			'/raw',
+			async (c, next) => {
+				read.push(await c.req.text())
+				await next()
+			},
+			validate('json', z.object({ name: z.string() })),
+			async (c) => {
+				read.push(await c.req.text())
+				return c.json({ named: c.req.valid('json').name })
+			},
+		)
+		const { url } = await serving(raw)
+		const sent = '{ "z": 1,\n  "name" :"lamp" }'
+		const answer = await post(`${url}/raw`, sent)
+		expect(await answer.json()).toStrictEqual({ named: 'lamp' })
+		expect(read).toStrictEqual([sent, sent])
+	})
+
 	it('reads any Standard Schema, its path segments and its absent path', async () => {
 		const symbol = Symbol('tag')
 		const schema: StandardSchema = {
@@ -307,6 +329,42 @@ describe('routes alone', () => {
 			body: '{oops',
 		})
 		expect(malformed.status).toBe(400)
+	})
+})
+
+describe('c.var.logger', () => {
+	it('is the application’s logger, named app (D-364)', async () => {
+		const lines: { bindings: object; first: unknown; message: unknown }[] = []
+		const binding = (bindings: object): Logger => ({
+			info: () => undefined,
+			warn: (first: unknown, message?: string) => {
+				lines.push({ bindings, first, message })
+			},
+			error: () => undefined,
+			child: (more) => binding({ ...bindings, ...more }),
+		})
+		const hooked = routes().post('/webhooks/payment', (c) => {
+			c.var.logger.warn({ event: 'evt_1' }, 'Event of the other mode dropped.')
+			return c.body(null, 200)
+		})
+		const app = defineApp({
+			database: memory(),
+			plugins: [
+				httpPlugin({ port: 0, routes: [hooked], drain: 0 }),
+				mounting.plugin(),
+			],
+			models: [],
+			logger: binding({}),
+		})
+		await app.start()
+		stop = async () => app.stop()
+		const url = http?.url() ?? ''
+		expect((await post(`${url}/webhooks/payment`, '{}')).status).toBe(200)
+		expect(lines).toContainEqual({
+			bindings: { name: 'app' },
+			first: { event: 'evt_1' },
+			message: 'Event of the other mode dropped.',
+		})
 	})
 })
 

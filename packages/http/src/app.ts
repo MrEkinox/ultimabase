@@ -25,10 +25,13 @@ import type { Gate } from './upgrade.ts'
 import { answer } from './upgrade.ts'
 
 /**
- * What a route's context holds: `c.var.caller` (D-106) and `c.var.address`,
- * the client's, `''` when unknown (D-113, D-116).
+ * What a route's context holds: `c.var.caller` (D-106), `c.var.address`,
+ * the client's, `''` when unknown (D-113, D-116), and `c.var.logger`, the
+ * application's (D-364).
  */
-export type HttpEnv = { Variables: { caller: Caller; address: string } }
+export type HttpEnv = {
+	Variables: { caller: Caller; address: string; logger: Logger }
+}
 
 /** Routes the application writes, read by `httpPlugin({ routes })`. */
 export type Routes = Hono<HttpEnv>

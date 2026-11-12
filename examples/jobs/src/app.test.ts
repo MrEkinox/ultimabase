@@ -4,8 +4,8 @@ import { runJobs, testApplication } from '@ultimabase/testing'
 import { master, transaction } from 'ultimabase'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { app } from './app.ts'
-import { Call } from './models.ts'
-import { closedRooms, outbox } from './services.ts'
+import { Call, syncRoom } from './models.ts'
+import { closedRooms, fetchedRooms, outbox, roomSizes } from './services.ts'
 
 const minute = 60 * 1000
 const day = 24 * 60 * minute
@@ -27,6 +27,8 @@ testApplication(app)
 beforeEach(() => {
 	closedRooms.length = 0
 	outbox.length = 0
+	fetchedRooms.length = 0
+	roomSizes.clear()
 })
 
 it('closes the room ten minutes after the call ends', async () => {
@@ -41,6 +43,23 @@ it('closes the room ten minutes after the call ends', async () => {
 	vi.setSystemTime(Date.now() + 10 * minute)
 	await runJobs()
 	expect(closedRooms).toEqual(['standup'])
+	//#endregion
+})
+
+it('fetches a room once for the webhooks that arrive while its run waits', async () => {
+	//#region keyed
+	await Call.create({ data: { room: 'standup' } }, { as: master })
+	roomSizes.set('standup', 3)
+	// Three webhooks in the same second; each run waits a second for the
+	// others, which add none.
+	for (const _ of [1, 2, 3]) {
+		await syncRoom.enqueue({ room: 'standup' }, { after: 1000 })
+	}
+	vi.setSystemTime(Date.now() + 1000)
+	await runJobs()
+	expect(fetchedRooms).toEqual(['standup'])
+	const call = await Call.findFirstOrThrow({}, { as: master })
+	expect(call.participants).toBe(3)
 	//#endregion
 })
 

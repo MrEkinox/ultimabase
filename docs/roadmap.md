@@ -317,6 +317,7 @@ Exit: every feature of the previous base has an example, in far fewer lines.
 ## Beyond
 
 OAuth and magic link, admin, multi-tenancy (D-25).
+Retrying a job's failed runs, from a command or an admin.
 A typed browser client (D-25).
 A `geoPoint()` field type (D-57).
 A `vector()` field type for pgvector (D-32), once an application needs it.

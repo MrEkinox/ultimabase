@@ -1,6 +1,7 @@
 // Jobs (D-221) on `memory()`: a run enqueued in a transaction exists if and
 // only if it commits, runs once committed or once due, fails again later up
 // to ten attempts, and recurring jobs run on their schedule.
+import { channel } from 'node:diagnostics_channel'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { z } from 'zod'
 import { runJobs, testApplication } from '@ultimabase/testing'
@@ -15,17 +16,21 @@ import { runningOf } from './state.ts'
 const lines: { level: string; message: string }[] = []
 // The error each warning carries.
 const warned: unknown[] = []
-const logger: Logger = {
+// The bindings of the logger that wrote each warning.
+const bound: object[] = []
+const logging = (bindings: object): Logger => ({
 	info: () => undefined,
 	warn: (facts: object | string, message?: string) => {
+		bound.push(bindings)
 		if (typeof facts === 'object') warned.push(Reflect.get(facts, 'err'))
 		lines.push({ level: 'warn', message: String(message) })
 	},
 	error: (_facts: object | string, message?: string) => {
 		lines.push({ level: 'error', message: String(message) })
 	},
-	child: () => logger,
-}
+	child: (more) => logging({ ...bindings, ...more }),
+})
+const appLogger = logging({})
 
 const closed: { room: string; id: string }[] = []
 const closeRoom = defineJob({
@@ -67,6 +72,14 @@ const throwing = defineJob({
 		throw thrown
 	},
 })
+// A run that logs: its id, and the bindings of its logger's warning.
+const noted = defineJob({
+	name: 'noted',
+	run: ({ id, logger }) => {
+		closed.push({ room: 'noted', id })
+		logger.warn('Noted.')
+	},
+})
 const outside = defineJob({ name: 'outside', run: () => undefined })
 const inputs: unknown[] = []
 const dated = defineJob({
@@ -81,9 +94,11 @@ const app = defineApp({
 	database: memory(),
 	models: [],
 	plugins: [
-		jobsPlugin({ jobs: [closeRoom, flaky, chain, forever, dated, throwing] }),
+		jobsPlugin({
+			jobs: [closeRoom, flaky, chain, forever, dated, throwing, noted],
+		}),
 	],
-	logger,
+	logger: appLogger,
 })
 
 /** The rows of `JobsRun`, by due time. */
@@ -98,6 +113,7 @@ beforeEach(() => {
 	closed.length = 0
 	inputs.length = 0
 	lines.length = 0
+	bound.length = 0
 	warned.length = 0
 	failures = 0
 	chained = 0
@@ -119,6 +135,13 @@ describe('a job enqueued', () => {
 		expect(closed[0]?.id).toMatch(/./)
 		// A run that succeeds leaves no row.
 		expect(await rows()).toStrictEqual([])
+	})
+
+	it('logs with the application’s logger, bound to the job and the run (D-364)', async () => {
+		await noted.enqueue()
+		await runJobs()
+		const run = closed[0]?.id
+		expect(bound).toStrictEqual([{ name: 'app', job: 'noted', run }])
 	})
 
 	it('does not exist when its transaction rolls back', async () => {
@@ -231,14 +254,31 @@ describe('a run that fails', () => {
 	})
 
 	it('turns failed after ten attempts, and is kept', async () => {
+		const anId: unknown = expect.any(String)
+		// A failed run is published where an error tracker reads it (D-360).
+		const published: unknown[] = []
+		const errors = channel('ultimabase:error')
+		const handler = (message: unknown) => published.push(message)
+		errors.subscribe(handler)
 		failures = 10
 		await flaky.enqueue()
-		for (let tried = 0; tried < 10; tried++) {
+		try {
+			for (let tried = 0; tried < 10; tried++) {
+				await runJobs()
+				const [row] = await rows()
+				if (row !== undefined) vi.setSystemTime(row.dueAt)
+			}
 			await runJobs()
-			const [row] = await rows()
-			if (row !== undefined) vi.setSystemTime(row.dueAt)
+		} finally {
+			errors.unsubscribe(handler)
 		}
-		await runJobs()
+		expect(published).toStrictEqual([
+			{
+				error: new Error('Not yet.'),
+				correlationId: anId,
+				message: 'The job flaky failed: its run is kept.',
+			},
+		])
 		expect(closed).toStrictEqual([])
 		expect(await rows()).toMatchObject([
 			{ state: 'failed', attempts: 10, error: 'Not yet.' },
@@ -275,7 +315,7 @@ describe('a run that fails', () => {
 			M,
 		)
 		await runJobs()
-		expect(await startRun(runningOf('the test'), row.id)).toBe(false)
+		expect(await startRun(runningOf('the test'), row)).toBe(false)
 		expect(await rows()).toMatchObject([
 			{ ...data, lockedUntil: null, error: null },
 		])

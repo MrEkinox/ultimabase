@@ -3,7 +3,7 @@
 import { httpPlugin } from '@ultimabase/http'
 import { defineJob, jobsPlugin } from '@ultimabase/jobs'
 import { defineApp, master, memory } from 'ultimabase'
-import { Call, closeRoom } from './models.ts'
+import { Call, closeRoom, syncRoom } from './models.ts'
 import { outbox } from './services.ts'
 
 const day = 24 * 60 * 60 * 1000
@@ -47,7 +47,7 @@ export const app = defineApp({
 	// Listens on PORT, or 3000, and answers /health.
 	plugins: [
 		httpPlugin(),
-		jobsPlugin({ jobs: [closeRoom, purgeCalls, nightlyReport] }),
+		jobsPlugin({ jobs: [closeRoom, syncRoom, purgeCalls, nightlyReport] }),
 	],
 	models: [Call],
 })

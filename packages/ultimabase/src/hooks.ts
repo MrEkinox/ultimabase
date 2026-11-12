@@ -13,6 +13,7 @@ import { filterOf, isReadFilter, readFilter } from './rules.ts'
 import type { ModelInfo } from './schema.ts'
 import type { Models } from './query-where.ts'
 import { byIds, isObject, normalizeWhere } from './query-where.ts'
+import { appLogger } from './running.ts'
 import { hooks as traces, traced } from './traced.ts'
 import type { Commit, Store } from './transaction.ts'
 import { writesSoFar } from './transaction.ts'
@@ -51,7 +52,10 @@ function ownHook(model: ModelInfo, name: HookName): Hook | undefined {
 	const message = () => ({ model: model.name, hook: name, plugin: undefined })
 	return {
 		path,
-		run: async (facts) => traced(traces, message, () => called(hook, facts)),
+		run: async (facts) =>
+			traced(traces, message, () =>
+				called(hook, { ...facts, logger: appLogger() }),
+			),
 	}
 }
 

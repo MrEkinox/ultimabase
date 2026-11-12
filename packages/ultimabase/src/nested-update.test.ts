@@ -640,7 +640,8 @@ describe('a nested set', () => {
 		expect(await Tag.count({ where: { posts: { some: {} } } }, M)).toBe(many)
 		await Post.update({ where, data: { tags: { set: [] } } }, M)
 		expect(await Tag.count({ where: { posts: { some: {} } } }, M)).toBe(0)
-	}, 30_000)
+		// About 5 s alone, six times that under coverage beside the other files.
+	}, 60_000)
 
 	it('is refused when the other side needs its key', async () => {
 		const post = await Post.create({ data: { title: 'p' } }, M)

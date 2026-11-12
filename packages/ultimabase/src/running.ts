@@ -5,6 +5,7 @@ import { AsyncLocalStorage } from 'node:async_hooks'
 import type { Adapter, Feed } from './adapter.ts'
 import type { Logger } from './app-options.ts'
 import type { Complete } from './complete.ts'
+import { consoleLogger } from './console-logger.ts'
 import type { FunctionDefinition } from './definition.ts'
 import type { Resolved } from './schema.ts'
 
@@ -16,6 +17,10 @@ export type Running = {
 	/** What it gives the adapter, `undefined` when no plugin takes it (D-154). */
 	readonly feed: Feed | undefined
 	readonly logger: Logger
+	/** The application's code logs with it, as `app` (D-364). */
+	readonly appLogger: Logger
+	/** Each function's logger, by its `defineFunction` value (D-364). */
+	readonly functionLoggers: ReadonlyMap<object, Logger>
 	/** Each plugin's API, by its name (D-16). */
 	readonly apis: ReadonlyMap<string, unknown>
 	readonly work: Work
@@ -100,4 +105,12 @@ export function unregister(app: Running): void {
 /** The running application, `undefined` before `start`. */
 export function current(): Running | undefined {
 	return running
+}
+
+/**
+ * The running application's `app` logger (D-364); without one, as for
+ * routes requested on their own, the console's.
+ */
+export function appLogger(): Logger {
+	return running?.appLogger ?? consoleLogger({ name: 'app' })
 }

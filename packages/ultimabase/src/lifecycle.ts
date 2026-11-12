@@ -6,6 +6,7 @@ import type { PluginCaller } from './complete.ts'
 import { completer, concerning } from './complete.ts'
 import { consoleLogger } from './console-logger.ts'
 import { feedOf, guarded } from './feed.ts'
+import { functionLoggers } from './functions.ts'
 import type { Generated } from './generate.ts'
 import { generatedOf, written as wrote } from './generate.ts'
 import type { PluginIdentify } from './identify.ts'
@@ -140,11 +141,14 @@ function prepared(options: LifecycleOptions) {
 	identifiers.push(...pluginIdentifiers(records, plugins))
 	callers.push(...pluginCallers(records, plugins))
 	const apis = new Map<string, unknown>()
+	const appLogger = base.child({ name: 'app' })
 	const app: Running = {
 		resolved,
 		adapter: options.database,
 		feed: feedOf(records, plugins, feed),
 		logger,
+		appLogger,
+		functionLoggers: functionLoggers(functions, base, appLogger),
 		apis,
 		functions: functions.definitions,
 		work: new Work(),

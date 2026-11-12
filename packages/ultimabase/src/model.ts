@@ -1,5 +1,6 @@
 // The model `defineModel(...).with(...)` returns (D-07, D-24) and the
 // application `defineApp` assembles.
+import type { Logger } from './app-options.ts'
 import type { Codes, PublicError } from './errors.ts'
 import type { Nullable, Paginated } from './function.ts'
 import type { Page, PageQuery } from './page.ts'
@@ -77,9 +78,9 @@ export type ModelAccess<F, N extends string> =
 			>
 	  }
 
-type Hook<Facts> = (
-	facts: Facts & { readonly caller: Caller },
-) => void | Promise<void>
+/** A hook logs with the application's logger (D-364). */
+type HookFacts = { readonly caller: Caller; readonly logger: Logger }
+type Hook<Facts> = (facts: Facts & HookFacts) => void | Promise<void>
 type RecordHook<F> = Hook<{
 	readonly record: StoredRecord<F>
 }>
@@ -122,6 +123,7 @@ export type ModelHooks<F, N extends string = string> = {
 	 */
 	readonly beforeFind?: (facts: {
 		readonly caller: Caller
+		readonly logger: Logger
 		readonly operation: FindOperation
 		readonly where: (filter: FindWhere<F>) => ReadFilter
 	}) => ReadFilter | void | Promise<ReadFilter | void>
