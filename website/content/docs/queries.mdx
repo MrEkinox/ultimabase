@@ -37,6 +37,7 @@ The examples below read four products:
 | find words in the text fields     | [`_search`](#search)                                    |
 | count, total, group               | [`count`, `aggregate`, `groupBy`](#count-and-aggregate) |
 | write, update or delete many rows | [`createMany`, `updateMany`…](#write-many-rows)         |
+| write a row another write races   | [`UNIQUE_VIOLATION`, `[]`](#concurrent-writes)          |
 
 ## Filter
 
@@ -236,6 +237,24 @@ its rows or none.
 - Each row's access rules and hooks run as for one write.
 - To write several models together, see
   [Transactions](/docs/next/transactions).
+
+## Concurrent writes
+
+Two creates of one unique value at once both find no row, and the second
+fails with `UNIQUE_VIOLATION`; two `upsert` too. To keep the first row, read
+it when the create fails:
+
+<include cwd meta='title="src/queries.test.ts"'>
+	../examples/models-and-queries/src/queries.test.ts#create-or-read
+</include>
+
+An `update` waiting on a row's lock while another write deletes it fails
+with `NOT_FOUND`. `updateManyAndReturn` on a unique `where` returns `[]`
+instead:
+
+<include cwd meta='title="src/queries.test.ts"'>
+	../examples/models-and-queries/src/queries.test.ts#if-present
+</include>
 
 ## Details
 
