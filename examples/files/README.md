@@ -11,7 +11,8 @@ attachments, each with a preview variant. A client uploads a file with
   `s3()` when `NODE_ENV` is `production`.
 - `src/requests/`: the GraphQL requests and responses the page shows.
 - `src/app.test.ts`: uploads over HTTP, writes over GraphQL, the refused
-  uploads, and `files.upload` and `files.check` from server code.
+  uploads, and `files.upload`, `files.check` and `files.refresh` from server
+  code.
 
 `yarn start` serves it on http://localhost:3000/graphql; `yarn vitest
 examples/files` runs its tests.

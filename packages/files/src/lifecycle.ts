@@ -7,10 +7,10 @@ import type { FileOptions } from './field.ts'
 import { keysOf } from './field.ts'
 import { FilesBlob, M } from './model.ts'
 import { pooled } from './storage.ts'
-import type { FileValue, StoredVariant } from './values.ts'
+import type { FileValue, StoredFile, StoredVariant } from './values.ts'
 import { fileValue, isFile, Pending, runningOf, storedFile } from './values.ts'
 
-type Blob = typeof FilesBlob extends {
+export type Blob = typeof FilesBlob extends {
 	findMany(...args: never[]): Promise<(infer R)[]>
 }
 	? R
@@ -42,6 +42,24 @@ const idsOf = (record: object, field: string): readonly string[] =>
 	heldOf(Reflect.get(record, field)).map(({ id }) => id)
 
 const idOf = (record: object): string => String(Reflect.get(record, 'id'))
+
+/** What the copy of a file reads of a blob, a variant's included. */
+type Copied = Pick<Blob, 'id' | 'key' | 'name' | 'type' | 'size' | 'inline'>
+type Made = Pick<Blob, 'variantOf' | 'name' | 'key' | 'type' | 'size'>
+
+/**
+ * The copy a row stores of a blob, with its variants among `made`: what
+ * attaching it writes, and what `files.refresh` writes again (D-366).
+ */
+export function blobCopy(blob: Copied, made: readonly Made[]): StoredFile {
+	const variants: { [key: string]: StoredVariant } = {}
+	for (const { variantOf, name, key, type, size } of made) {
+		if (variantOf === blob.id) variants[name] = { key, type, size }
+	}
+	const { id, key, name, type, size, inline } = blob
+	const copy = { id, key, name, type, size, inline: inline ?? {}, variants }
+	return storedFile(copy, 'FilesBlob')
+}
 
 /** Whether `caller` may attach a pending blob: its uploader, or Master. */
 function usable(blob: Blob, target: string, caller: Caller): boolean {
@@ -79,15 +97,9 @@ async function pendingFiles(
 	const made = await FilesBlob.findMany({ where: { variantOf: where.id } }, M)
 	const keys = keysOf(options)
 	return new Map(
-		blobs.map((blob) => {
-			const variants: { [key: string]: StoredVariant } = {}
-			for (const { variantOf, name, key, type, size } of made) {
-				if (variantOf === blob.id) variants[name] = { key, type, size }
-			}
-			const { id, key, name, type, size, inline } = blob
-			const copy = { id, key, name, type, size, inline: inline ?? {}, variants }
-			return [id, fileValue(storedFile(copy, 'FilesBlob'), keys)] as const
-		}),
+		blobs.map(
+			(blob) => [blob.id, fileValue(blobCopy(blob, made), keys)] as const,
+		),
 	)
 }
 

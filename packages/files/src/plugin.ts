@@ -26,6 +26,8 @@ import {
 } from './lifecycle.ts'
 import { FilesBlob } from './model.ts'
 import type { FileBody, FileStorage } from './storage.ts'
+import type { Refreshed } from './refresh.ts'
+import { refresh } from './refresh.ts'
 import { served, uploads } from './routes.ts'
 import { upload } from './upload.ts'
 import { runningOf, useRunning } from './values.ts'
@@ -150,6 +152,12 @@ export const files: {
 	): Promise<{ readonly id: string }>
 	/** Compares the storage's keys with `FilesBlob`. */
 	check(options?: { readonly delete?: boolean }): Promise<Checked>
+	/**
+	 * Makes the inline values and variants a field's files lack, keys added
+	 * to its options since they were stored, and writes them in their rows'
+	 * copies; Master only (D-366).
+	 */
+	refresh(field: string, options?: QueryOptions): Promise<Refreshed>
 } = {
 	upload: (body, args) => {
 		const given: FileBody = body instanceof Uint8Array ? body : body.stream()
@@ -160,4 +168,5 @@ export const files: {
 		})
 	},
 	check: (options) => check(options),
+	refresh: (field, options) => refresh(field, options),
 }
