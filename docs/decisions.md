@@ -22508,3 +22508,71 @@ passwordPlugin({
 	},
 })
 ```
+
+## D-369: A plugin adds its jobs to `jobsPlugin`
+
+Choice: amends D-221 point 1.
+
+1. The jobs plugin's API offers `add(jobs)`. A plugin that requires or may
+   use `jobsPlugin` adds its `defineJob` values in its `api` step, as files
+   mounts its routes with `plugins.http.mount` (D-107). They run, retry and
+   recur as the application's.
+2. Every API is built before any `start` (D-89): `jobsPlugin` reads the
+   added jobs with the application's at its start. `add` after that start
+   throws, since the recurring rows of D-221 point 11 would already have
+   been reconciled without them.
+3. A name added twice, by the application or by plugins, is refused at
+   start, as one listed twice in `jobsPlugin({ jobs })`. A plugin prefixes
+   its job names, as `stripe.syncCustomer`, by convention only.
+4. A job's `run` gets no plugin context. One application runs per realm
+   (D-18): a plugin keeps what its jobs need, its options among them, in
+   module state set in its `start`, as files and jobs do.
+5. The kernel does not change: jobs stay a plugin's concern (D-01, D-21).
+
+Why: a plugin with background work, a payment provider's sync for one,
+could only export its jobs and ask each application to spread them into
+`jobsPlugin({ jobs })`. The wiring leaked into every application.
+
+Rejected:
+
+- A `jobs` key in `definePlugin`: the kernel would know about a plugin.
+- The declaring plugin's context in `run`: a `defineJob` generic over its
+  plugin, for state that one application per realm already keeps.
+
+Example, before and after:
+
+```ts
+// Before: the application wires the plugin's jobs
+import { stripeJobs, stripePlugin } from './plugins/stripe'
+
+export const app = defineApp({
+	database,
+	models,
+	plugins: [
+		stripePlugin({ secretKey, webhookSecret }),
+		jobsPlugin({ jobs: [...appJobs, ...stripeJobs] }),
+	],
+})
+```
+
+```ts
+// After: the plugin adds them
+const definition = definePlugin<StripeTypes>({
+	name: 'stripe',
+	requires: { http: httpPlugin, jobs: jobsPlugin },
+	models: [StripeCustomer, StripeEvent],
+	api: ({ plugins }) => {
+		plugins.http.mount(webhook())
+		plugins.jobs.add([syncCustomer, processEvent, closeCustomer, reconcile])
+	},
+})
+
+export const app = defineApp({
+	database,
+	models,
+	plugins: [
+		stripePlugin({ secretKey, webhookSecret }),
+		jobsPlugin({ jobs: appJobs }),
+	],
+})
+```
