@@ -464,7 +464,8 @@ kernel sets.` at start.
 `.with({ access, hooks, virtuals, relations })` adds the rules that read the
 typed rows: [access](/docs/next/access), [hooks](/docs/next/hooks), the
 virtuals' `run`, and [relation filters](/docs/next/relations). Each plugin of
-`use` adds its own key.
+`use` adds its own key. Given to `defineModel` instead, one stops the import:
+`Note: the definition takes no hooks; access, hooks and plugin options go in .with().`
 `.commands<T>(build)` adds the application's [commands](#commands).
 
 ### Field types

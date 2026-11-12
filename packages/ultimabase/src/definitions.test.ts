@@ -87,6 +87,14 @@ describe('defineModel', () => {
 		).toThrow('Note.text is not a field a builder returned.')
 	})
 
+	it('refuses a key of .with, whose value it would drop (D-370)', () => {
+		expect(() =>
+			untyped({ name: 'Note', fields: () => ({}), hooks: {} }),
+		).toThrow(
+			'Note: the definition takes no hooks; access, hooks and plugin options go in .with().',
+		)
+	})
+
 	it('refuses a definition that names its fault, and errs otherwise (D-119)', () => {
 		expect(() =>
 			untyped({ name: 'Note', dbName: 3, fields: () => ({}) }),

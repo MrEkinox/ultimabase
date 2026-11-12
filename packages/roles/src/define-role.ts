@@ -12,6 +12,7 @@ import type {
 	PluginTypes,
 } from 'ultimabase'
 import { allow, defineModel, Refused } from 'ultimabase'
+import { knownKeys } from 'ultimabase/internal'
 import type { Roles } from './plugin.ts'
 import { roleModels, rolesUse } from './plugin.ts'
 
@@ -60,6 +61,8 @@ type RoleDefinition<N, M, F, U extends Uses, X> = {
 	>
 }
 
+const roleKeys = ['name', 'dbName', 'members', 'use', 'fields', 'indexes']
+
 /** The application's one role model, with its own fields (D-123). */
 export function defineRole<
 	const N extends string,
@@ -90,6 +93,7 @@ export function defineRole(definition: {
 	readonly indexes?: readonly IndexShape[]
 }): object {
 	const { name, members, fields } = definition
+	knownKeys(name, definition, roleKeys, 'access, hooks and plugin options')
 	if (typeof members !== 'function') {
 		throw new Refused(`defineRole(${name}): members is () => the user model.`)
 	}

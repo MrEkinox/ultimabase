@@ -2,7 +2,7 @@
 // new in-memory database holding four products. Its short regions are shown
 // on the page (D-282).
 import { testApplication } from '@ultimabase/testing'
-import { master } from 'ultimabase'
+import { master, PublicError } from 'ultimabase'
 import { beforeEach, expect, it } from 'vitest'
 import { app } from './app.ts'
 import { Product } from './models.ts'
@@ -327,5 +327,32 @@ it('returns the rows a bulk write touched', async () => {
 		as,
 	)
 	expect(rows.map(({ name }) => name)).toEqual(['Mug', 'Teapot'])
+	//#endregion
+})
+
+it('reads the row a concurrent create took', async () => {
+	const data = { name: 'Cup', sku: 'CUP-001', price: '8.00' }
+	const first = await Product.create({ data }, as)
+	//#region create-or-read
+	// A concurrent create took the SKU first: read its row.
+	const cup = await Product.create({ data }, as).catch((error: unknown) => {
+		const taken =
+			error instanceof PublicError && error.code === 'UNIQUE_VIOLATION'
+		if (!taken) throw error
+		return Product.findUniqueOrThrow({ where: { sku: data.sku } }, as)
+	})
+	//#endregion
+	expect(cup.id).toBe(first.id)
+})
+
+it('updates a row only if no concurrent delete took it', async () => {
+	await Product.delete({ where: { sku: 'LMP-001' } }, as)
+	//#region if-present
+	// The lamp a concurrent write deleted: [] where update throws NOT_FOUND.
+	const [lamp] = await Product.updateManyAndReturn(
+		{ where: { sku: 'LMP-001' }, data: { stock: 0 } },
+		as,
+	)
+	expect(lamp).toBeUndefined()
 	//#endregion
 })
