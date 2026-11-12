@@ -177,8 +177,8 @@ const heldIn = (value: unknown): readonly StoredFile[] =>
 
 /**
  * Writes again the copies a row holds that lack a key, from their files, in
- * one write guarded by the row's `updatedAt`: the files it wrote, or the
- * files it did not because the row changed since it was read.
+ * one write guarded by the row's `updatedAt` and value: the files it wrote,
+ * or the files it did not because the row changed since it was read.
  */
 async function rewritten(
 	keys: Keys,

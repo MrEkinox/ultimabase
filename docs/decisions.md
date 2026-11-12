@@ -22193,11 +22193,13 @@ Choice: amends D-152 point 4; adds a function to `ultimabase/internal`
    `ultimabase/internal`, which files alone uses:
    - It reads a field's stored value in rows of a model, by id, through the
      running adapter, before the values are made.
-   - Its `write` stores one row's new value with the adapter's `write`,
-     guarded by a check that the row still has the `updatedAt` read, under
-     a row lock. A row written or deleted since the read is left as it is,
-     and its files fail as "the row changed"; the next call takes them
-     again, without a retry in the same call.
+   - Its `write` stores one row's new value in a transaction that reads the
+     row again under a row lock and writes only when its `updatedAt` and
+     the field are still those read: a write that keeps `updatedAt`, or one
+     in the same millisecond, changes the field alone. A row written or
+     deleted since the read is left as it is, and its files fail as "the
+     row changed"; the next call takes them again, without a retry in the
+     same call.
    - It runs no hook, no rule and no `beforeFind`, and keeps `updatedAt`:
      the value is the plugin's own copy, and the row's own data did not
      change.
