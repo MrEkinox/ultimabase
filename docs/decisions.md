@@ -22620,3 +22620,332 @@ export const Thing = defineModel({
 	fields: (f) => ({ label: f.string() }),
 }).with({ hooks: { afterDelete: cleanUp } })
 ```
+
+## D-371: `@ultimabase/stripe`, payments on Stripe's hosted pages
+
+Choice: an official plugin sells subscriptions, one-time products and
+credits through Stripe, for any application.
+
+1. `@ultimabase/stripe` exports `stripePlugin(options)`, which requires
+   `httpPlugin` and `jobsPlugin`. It depends on `stripe`, Stripe's SDK
+   (D-92): it signs requests, retries them with idempotency keys, verifies
+   webhook signatures and types every object, all code we would own.
+2. Its options:
+   - `keys: { secret, webhook } | undefined`. Without keys the application
+     starts, and every call that needs Stripe throws `PAYMENT_UNAVAILABLE`
+     (503): a development machine without a sandbox runs the rest.
+   - `currency`, lowercase (`'eur'`), one per application.
+   - `taxBehavior: 'inclusive' | 'exclusive'`, `'inclusive'` by default:
+     whether the catalog's amounts include taxes.
+   - `products`, the catalog (D-372).
+   - `portal: { returnUrl, termsUrl?, privacyUrl? }`, the customer portal.
+   - `customer: (payer) => ({ email?, name?, locale? })`, what Stripe shows
+     of a payer, read when its customer is created or its row changes.
+   - `webhookPath`, `/webhooks/stripe` by default.
+   - `oneSubscription`, `false` by default (D-373).
+3. Only Stripe's hosted pages take a payment. `stripe.checkout(...)` returns
+   a Checkout URL, `stripe.portal(...)` a customer portal URL, and
+   `stripe.syncCheckout(sessionId, payer)` syncs a completed Checkout when
+   the client comes back, without waiting for the webhook. The
+   application's functions call them; the plugin adds no function of its
+   own, so the application names them and keeps its access rules.
+4. The webhook takes thin events: it verifies the signature on the raw
+   body, refuses an event whose `livemode` is not its key's, stores the
+   event and enqueues its job in one transaction, and answers 200. An event
+   received twice is stored once. Its job reads the object from Stripe and
+   syncs the payer's state under its customer's lock, so events out of
+   order or lost leave nothing stale. An hourly job reconciles every
+   customer with what Stripe holds.
+5. Its jobs, added with `plugins.jobs.add` (D-369), are named `stripe.*`.
+6. Its own models (D-110) hold what no application exposes: `StripeCustomer`
+   (one per payer, D-373), `StripeEvent` and `StripeCreditEntry` (D-374).
+7. Its public codes are `PAYMENT_UNAVAILABLE`, `ALREADY_SUBSCRIBED` (D-373)
+   and `NOT_ENOUGH_CREDITS` (D-374).
+8. `@ultimabase/stripe/testing` exports a fake Stripe in memory, which
+   `yarn validate` uses; no test there reaches Stripe. Tests named
+   `*.stripe.test.ts` run against a sandbox with `yarn test:stripe`, which
+   reads `STRIPE_SECRET_KEY` from the environment, as `test:postgres` runs
+   outside `yarn validate`. CI runs none of them.
+
+Why: an application that sells something copied the same thousands of
+lines: a webhook that survives retries and disorder, a customer created
+once, a sync under a lock, a catalog kept in step with Stripe. Hosted
+pages keep card data and Strong Customer Authentication at Stripe, and need
+no interface in the application.
+
+Rejected:
+
+- Elements and PaymentIntents in the application's pages: more surface for
+  little gain at first.
+- Usage-based billing (Stripe meters), several currencies, credits given
+  each month by a subscription: none is needed yet; each can be added
+  without breaking an application.
+- Functions the plugin defines (`createCheckoutSession`): their names,
+  inputs and rules are the application's.
+- Snapshot events, whose payload may be stale when it arrives.
+
+Example, before and after:
+
+```ts
+// Before: each application writes its Stripe plugin, about 3000 lines
+import { stripePlugin } from './plugins/stripe'
+stripePlugin({ keys, onSync: syncPackSubscriptions, customerProfile })
+```
+
+```ts
+// After
+import { stripePlugin } from '@ultimabase/stripe'
+stripePlugin({
+	keys: { secret: env.STRIPE_SECRET_KEY, webhook: env.STRIPE_WEBHOOK_SECRET },
+	currency: 'eur',
+	products: [pro, gems500],
+	portal: { returnUrl: 'https://app.example.com/shop' },
+	customer: (user) => ({ email: user.email, locale: user.lang }),
+})
+```
+
+## D-372: The catalog in code: `defineProduct` and `defineCredit`
+
+Choice: an application declares what it sells with values it imports, and
+the plugin writes them to Stripe.
+
+1. `defineCredit({ key })` declares a kind of credit, as blue gems. It
+   returns a function: `blueGems(500)` is 500 of them, a positive integer,
+   or it throws `Refused`.
+2. `defineProduct({ key, name, taxCode?, ... })` declares a product, with
+   either:
+   - `prices: { monthly: { amount: 9_90, every: 'month' }, ... }`, a
+     subscription's recurring prices, `every` being `'day'`, `'week'`,
+     `'month'` or `'year'`, with an optional `everyCount`;
+   - or `price: { amount: 4_99 }` and an optional `gives: [blueGems(500)]`,
+     a one-time product and the credits it gives.
+
+   An amount is an integer in the currency's smallest unit. `key` is the
+   product's name in the application and never changes; `name` is what
+   Checkout and the invoices show.
+
+3. Stripe finds a product by `metadata.key` and a price by its
+   `lookup_key`, `<product key>.<price name>`, or the product's key for a
+   one-time price. Applying the catalog creates what is missing, renames,
+   and for a changed amount creates a new price, moves the lookup key to it
+   and archives the old one: a subscriber keeps their price. A product left
+   out of the catalog is archived. Nothing is ever deleted, and only objects
+   whose `metadata.managedBy` is `ultimabase` are touched.
+4. When it is applied, with no CLI command (the CLI knows no plugin, D-191,
+   D-201):
+   - with `NODE_ENV=development` and a test key, at each start, logging each
+     change, as `ultimabase dev` writes the generated files;
+   - otherwise never by itself. Start compares, and logs a warning listing
+     the differences. The application applies them from its own deploy
+     script with `applyStripeCatalog({ secret, currency, taxBehavior,
+products, portal, dryRun })`, which prints the plan and needs no running
+     application.
+5. Start refuses, naming the product: two products with one key, a
+   subscription product without a `defineSubscription` model, a product
+   with `gives` without a `defineBalance` model (D-373).
+
+Why: a catalog in code is reviewed, versioned, and the same in every
+sandbox and in production. A credit or a product imported as a value, not
+a string, turns a typo into a type error (D-14). Prices are immutable at
+Stripe, so a changed amount needs a new price; archiving keeps every
+subscription and invoice valid.
+
+Rejected:
+
+- `ultimabase stripe sync`: a CLI that knows a plugin (D-191, D-201).
+- Applying at a production start: a deploy would change prices with no
+  review of its plan, and every instance would race to apply it.
+- A catalog in the Dashboard only: sandboxes and production drift apart,
+  and the application names prices by strings.
+- `defineCurrency`: Stripe's currency is the euro, not a gem.
+
+Example:
+
+```ts
+// Before: prices created by hand in the Dashboard, named by strings
+const priceId = process.env.STRIPE_PRICE_PRO_MONTHLY
+
+// After
+export const blueGems = defineCredit({ key: 'blueGems' })
+export const pinkGems = defineCredit({ key: 'pinkGems' })
+
+export const pro = defineProduct({
+	key: 'pro',
+	name: 'Pro',
+	prices: {
+		monthly: { amount: 9_90, every: 'month' },
+		yearly: { amount: 99_00, every: 'year' },
+	},
+})
+export const gems500 = defineProduct({
+	key: 'gems-500',
+	name: '500 gems',
+	price: { amount: 4_99 },
+	gives: [blueGems(500), pinkGems(20)],
+})
+```
+
+```ts
+// scripts/stripe-catalog.ts, run by the deploy, --dry-run first
+await applyStripeCatalog({
+	secret: process.env.STRIPE_SECRET_KEY,
+	currency: 'eur',
+	products: [pro, gems500],
+	portal: { returnUrl: 'https://app.example.com/shop' },
+	dryRun: process.argv.includes('--dry-run'),
+})
+```
+
+## D-373: The application's billing models: `defineSubscription`, `definePurchase`, `defineBalance`
+
+Choice: what a payer bought lives in the application's own models, which
+the plugin fills, as `defineRole` builds a role model (D-13, D-123).
+
+1. Each builds an ordinary model through `defineModel`, with the plugin
+   first in its `use`. The application names it, adds its own fields and
+   indexes, and gives its rules in `.with` (D-370). Each is optional, and an
+   application has at most one of each.
+2. The fields each adds, refused as the application's own field names:
+   - `defineSubscription({ name, payer })`: `payer`, a `one` without
+     `inverse` (D-237), cascading; `stripeId`, unique; `product` and `price`,
+     the keys of D-372; `status`, Stripe's; `quantity`; `currentPeriodEnd`;
+     `cancelAt`, `canceledAt` and `trialEnd`, optional; `startedAt`.
+   - `definePurchase({ name, payer })`: `payer`; `stripeId`, unique;
+     `product`; `amount` and `refunded`, in the smallest unit; `status`,
+     `'paid'` or `'refunded'`; `paidAt`.
+   - `defineBalance({ name, owner })`: `owner`; `credit`, the credit's key;
+     `amount`, never below zero; unique on `owner` and `credit`.
+3. `payer` and `owner` name any model of the application: a user, a team.
+   A payer has one Stripe customer, kept in the plugin's `StripeCustomer`
+   by model and id (D-110 point 1: no `AppUser`, D-333, fits any model).
+   Deleting a payer cascades its rows; deleting a subscription row closes
+   its customer at Stripe, and the hourly job closes the customer of a
+   payer gone without one.
+4. Only the plugin writes them. Its hooks refuse a create, an update or a
+   delete from any caller but Master, whatever the application's rules
+   say: a rule opened by mistake cannot forge a subscription. Reads follow
+   the application's rules, closed by default (D-04), and live queries see
+   each sync.
+5. A subscription's row keeps its last state when it ends (`canceled`):
+   the application reads its history.
+6. With `oneSubscription: true`, `stripe.checkout` throws
+   `ALREADY_SUBSCRIBED` (409) for a payer with a live subscription, and a
+   second one paid anyway, from two tabs, is canceled and refunded. A
+   change of plan goes through the portal, which prorates it.
+7. `stripe.checkout({ payer, product, price?, quantity?, trialDays?,
+terms?, promotionCodes?, successUrl, cancelUrl, metadata? })` creates
+   the payer's customer once, expires the Checkouts it left open, and opens
+   a new one, under its customer's lock: two tabs cannot both pay.
+   `trialDays` and the terms checkbox are the application's choice per
+   call.
+
+Why: with the plugin's models hidden (D-110), each application copied
+every subscription into a model of its own through a callback, and wrote
+the sync. Its own models give the client live reads and the application's
+rules, with no copy.
+
+Rejected:
+
+- An `onSync` callback that copies into the application's models: the same
+  code in every application.
+- Fields added to the payer's model through `use`: the kernel lets a plugin
+  add fields only through its `define<Kind>`, and one column per credit
+  would change the schema with the catalog.
+- The plugin's models exposed: against D-110, and the application could not
+  give them its rules.
+
+Example, before and after:
+
+```ts
+// Before: the application's model, and a callback that fills it
+export const PackSubscription = defineModel({
+	name: 'PackSubscription',
+	fields: (f) => ({
+		user: f.one(() => User),
+		stripeId: f.string({ unique: true }),
+		status: f.enumOf(subscriptionStatuses),
+		currentPeriodEnd: f.dateTime(),
+		// ... and 150 lines in onSync
+	}),
+})
+```
+
+```ts
+// After
+export const Subscription = defineSubscription({
+	name: 'Subscription',
+	payer: () => User,
+}).with({ access: { read: isOwner('payer') } })
+
+export const createCheckout = defineFunction({
+	name: 'createCheckout',
+	input: z.object({ price: z.enum(['monthly', 'yearly']) }),
+	output: z.object({ url: z.string() }),
+	run: signedInRun(async ({ input, user }) => ({
+		url: await stripe.checkout({
+			payer: user,
+			product: pro,
+			price: input.price,
+			trialDays: 14,
+			successUrl: 'https://app.example.com/shop?session={CHECKOUT_SESSION_ID}',
+			cancelUrl: 'https://app.example.com/shop',
+		}),
+	})),
+}).with({ access: signedIn })
+```
+
+## D-374: Credits are bought with a product and spent by the application
+
+Choice: a payer buys credits with a one-time product (D-372), and the
+application spends them in its own writes.
+
+1. A paid purchase of a product with `gives` adds its credits to its
+   payer's balances, in the transaction that writes the purchase, once per
+   payment. `defineBalance`'s `owner` and `definePurchase`'s `payer` name
+   the same model, or start refuses.
+2. `stripe.spend(owner, credits, { reason })` takes one credit amount or
+   several (`[blueGems(300), pinkGems(5)]`). It runs in the caller's
+   transaction when there is one, and lowers each balance on its locked
+   row (D-132). When one would fall below zero, it throws
+   `NOT_ENOUGH_CREDITS` (409) with `details: { credit, balance, needed }`
+   and changes nothing.
+3. A refund of the whole payment, or a lost dispute, takes back the
+   credits it gave, down to zero and never below: what was already spent
+   stays spent, and is logged as a warning. The purchase becomes
+   `refunded`. A partial refund raises `refunded` and takes nothing back.
+4. Each movement, a purchase, a spend or a refund, is written to the
+   plugin's `StripeCreditEntry` with its reason, for support.
+5. No credit moves between payers, and the application gives none without
+   a payment.
+
+Why: an in-app shop sells packs of credits, then sells items for them.
+Spending in the application's transaction makes the item and the price one
+write: a failed write leaves the balance whole, and two spends at once
+cannot both pass on one balance.
+
+Rejected:
+
+- A credits plugin of its own: the credits come from payments only, so a
+  second package would be API for no current use.
+- A `grant` without payment, transfers between payers, and credits that
+  expire: none is needed yet.
+- Negative balances after a refund: the application would have to handle
+  a debt.
+
+Example, before and after:
+
+```ts
+// Before: a balance field, written by hand, racing with itself
+const user = await User.findUniqueOrThrow({ where: { id } }, M)
+if (user.gems < 300) throw new PublicError('NOT_ENOUGH_GEMS')
+await User.update({ where: { id }, data: { gems: user.gems - 300 } }, M)
+await Inventory.create({ data: { owner: id, item: 'sword' } }, M)
+```
+
+```ts
+// After: one transaction; the second of two clicks is refused
+await transaction(async () => {
+	await stripe.spend(user, blueGems(300), { reason: 'sword' })
+	await Inventory.create({ data: { owner: user.id, item: 'sword' } }, M)
+})
+```
