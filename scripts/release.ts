@@ -1,5 +1,6 @@
 // Publishes the packages from CI (D-156), safe to rerun: a version npm
-// already has is skipped, a release GitHub already has is kept.
+// already has is skipped, a release GitHub already has is kept. A package npm
+// lacks stops it before anything is published (D-367).
 //
 //   node scripts/release.ts canary   the pending changesets as a snapshot,
 //                                    `0.1.2-canary.<datetime>`, under `canary`
@@ -15,6 +16,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { setTimeout } from 'node:timers/promises'
 import { gte } from 'semver'
+import { requireKnown } from './npm-knows.ts'
 import { publishTaken } from './publish-taken.ts'
 import { releaseNotes } from './release-notes.ts'
 
@@ -66,18 +68,17 @@ const packages = (): Package[] =>
 			return read('private') === true ? [] : [{ directory, name, version }]
 		})
 
-/** Whether npm serves this version; any answer but "not found" throws. */
-const published = async ({ name, version }: Package): Promise<boolean> => {
-	const result = await attempt('npm', [
-		'view',
-		`${name}@${version}`,
-		'version',
-		'--prefer-online',
-	])
-	if (result.ok) return result.output.trim() === version
-	if (result.output.includes('E404')) return false
-	throw new Error(`npm view ${name}@${version}\n${result.output}`)
+/** A field npm serves for `spec`, or none; any answer but "not found" throws. */
+const view = async (spec: string, field: string): Promise<string> => {
+	const result = await attempt('npm', ['view', spec, field, '--prefer-online'])
+	if (result.ok) return result.output.trim()
+	if (result.output.includes('E404')) return ''
+	throw new Error(`npm view ${spec}\n${result.output}`)
 }
+
+/** Whether npm serves this version. */
+const published = async ({ name, version }: Package): Promise<boolean> =>
+	(await view(`${name}@${version}`, 'version')) === version
 
 /** Packs and publishes a version npm lacks, three tries at most. */
 const publish = async (pkg: Package, tag: string, packs: string) => {
@@ -110,6 +111,10 @@ const publishAll = async (tag: string): Promise<Package[]> => {
 	// The first npm that publishes with the workflow's OIDC token.
 	if (!gte(npm, '11.5.1')) throw new Error(`npm ${npm} cannot use OIDC.`)
 	const all = packages()
+	await requireKnown(
+		all.map(({ name }) => name),
+		async (name) => (await view(name, 'name')) === name,
+	)
 	const packs = mkdtempSync(join(tmpdir(), 'ultimabase-release-'))
 	// One after the other, so that a failure stops before the next package.
 	for (const pkg of all) await publish(pkg, tag, packs)
