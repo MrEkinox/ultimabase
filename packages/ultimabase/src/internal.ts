@@ -4,7 +4,8 @@
 // need (D-137), what live reads need (D-154), the feed tests call (D-168),
 // the pages functions return (D-182), the reset route (D-188) and the
 // master key's header the rate limit checks (D-218) and the Standard Schema
-// check a job's input takes (D-221) and the deepest filter (D-228).
+// check a job's input takes (D-221), the deepest filter (D-228) and a
+// plugin's stored value rewritten without hooks (D-366).
 import type { Adapter, Feed } from './adapter.ts'
 import { internalsOf } from './app-internals.ts'
 import type { Logger } from './app-options.ts'
@@ -43,6 +44,8 @@ export { compareKeys } from './memory-values.ts'
 export { maxFilterDepth } from './query-where.ts'
 export { maxWriteDepth } from './write-data.ts'
 export { logFailure } from './traced.ts'
+export type { StoredField } from './stored-fields.ts'
+export { storedFields } from './stored-fields.ts'
 
 /** `logger` without its info lines. */
 function quieted(logger: Logger): Logger {
