@@ -1,0 +1,25 @@
+{
+	"name": "example-stripe",
+	"version": "0.0.0",
+	"private": true,
+	"description": "Stripe: a catalog of subscriptions and gems declared in code, written to Stripe by a deploy script.",
+	"type": "module",
+	"license": "Apache-2.0",
+	"engines": {
+		"node": ">=24.7.0"
+	},
+	"scripts": {
+		"start": "node src/server.ts",
+		"deploy": "node src/deploy.ts"
+	},
+	"dependencies": {
+		"@ultimabase/http": "workspace:*",
+		"@ultimabase/stripe": "workspace:*",
+		"ultimabase": "workspace:*"
+	},
+	"devDependencies": {
+		"@ultimabase/testing": "workspace:*",
+		"vite": "8.3.4",
+		"vitest": "5.0.5"
+	}
+}

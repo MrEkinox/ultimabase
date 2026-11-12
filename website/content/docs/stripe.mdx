@@ -1,0 +1,64 @@
+---
+title: Stripe
+description: Declare what the application sells in code, and bring a Stripe account to it from the deploy script.
+---
+
+`@ultimabase/stripe` keeps what the application sells in its code: products,
+their prices and the credits a purchase gives. The deploy script writes them
+to [Stripe](https://stripe.com), with the customer portal's configuration.
+
+```npm
+npm install @ultimabase/stripe
+```
+
+## The catalog
+
+A product is a subscription, with its recurring prices by name, or a product
+paid once, with one price and the credits it gives. An amount is an integer
+in the currency's smallest unit: `9_90` is 9.90 EUR.
+
+<include cwd meta='title="src/catalog.ts"'>
+	../examples/stripe/src/catalog.ts#catalog
+</include>
+
+- A key holds letters, digits, `-` and `_`; a price's lookup key in Stripe is
+  `<product>.<price>`, as `pro.monthly`, or the product's key for a price
+  paid once.
+- A subscription has one price per interval: the customer portal moves a
+  subscription between them.
+- `everyCount` bills every few intervals, up to three years.
+
+## Deploy
+
+`applyStripeCatalog` reads the account, prints the plan, a line a change, and
+applies it. `dryRun` prints the plan alone.
+
+<include cwd meta='title="src/stripe.ts"'>
+	../examples/stripe/src/stripe.ts#deploy
+</include>
+
+<include cwd meta='title="src/deploy.ts"'>
+	../examples/stripe/src/deploy.ts#script
+</include>
+
+Each line names a change, as `create the price pro.quarterly: 27.00 EUR
+every 3 months`; `yarn deploy --dry-run` prints them and changes nothing.
+
+- A run changes only what differs: a second run prints `up to date`.
+- Stripe never changes a price's amount or interval: a new price replaces it,
+  takes its lookup key, and the old one is archived. Subscriptions on the old
+  price keep it.
+- A product or price the catalog no longer lists is archived, never deleted.
+- `taxBehavior` is `'inclusive'` unless set: the amounts include the taxes.
+- The secret key's mode is printed: `sk_live_…` writes to the live account.
+
+## Testing
+
+`fakeStripe()` is a Stripe account in memory, reached by its `secret`: no
+test reaches Stripe.
+
+<include cwd meta='title="src/app.test.ts"'>
+	../examples/stripe/src/app.test.ts#fake
+</include>
+
+The full example, with its tests: [`examples/stripe`](https://github.com/MrEkinox/ultimabase/tree/main/examples/stripe).

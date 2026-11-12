@@ -3351,6 +3351,24 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@ultimabase/stripe@workspace:*, @ultimabase/stripe@workspace:packages/stripe":
+  version: 0.0.0-use.local
+  resolution: "@ultimabase/stripe@workspace:packages/stripe"
+  dependencies:
+    "@ultimabase/http": "workspace:*"
+    "@ultimabase/jobs": "workspace:*"
+    "@ultimabase/testing": "workspace:*"
+    stripe: "npm:23.1.0"
+    ultimabase: "workspace:*"
+    vite: "npm:8.3.4"
+    vitest: "npm:5.0.5"
+  peerDependencies:
+    "@ultimabase/http": ^0.7.0
+    "@ultimabase/jobs": ^0.7.0
+    ultimabase: ^0.7.0
+  languageName: unknown
+  linkType: soft
+
 "@ultimabase/testing@workspace:*, @ultimabase/testing@workspace:packages/testing":
   version: 0.0.0-use.local
   resolution: "@ultimabase/testing@workspace:packages/testing"
@@ -4644,6 +4662,19 @@ __metadata:
     vite: "npm:8.3.4"
     vitest: "npm:5.0.5"
     zod: "npm:4.6.7"
+  languageName: unknown
+  linkType: soft
+
+"example-stripe@workspace:examples/stripe":
+  version: 0.0.0-use.local
+  resolution: "example-stripe@workspace:examples/stripe"
+  dependencies:
+    "@ultimabase/http": "workspace:*"
+    "@ultimabase/stripe": "workspace:*"
+    "@ultimabase/testing": "workspace:*"
+    ultimabase: "workspace:*"
+    vite: "npm:8.3.4"
+    vitest: "npm:5.0.5"
   languageName: unknown
   linkType: soft
 
@@ -7617,6 +7648,18 @@ __metadata:
   dependencies:
     ansi-regex: "npm:^6.2.2"
   checksum: 10c0/544d13b7582f8254811ea97db202f519e189e59d35740c46095897e254e4f1aa9fe1524a83ad6bc5ad67d4dd6c0281d2e0219ed62b880a6238a16a17d375f221
+  languageName: node
+  linkType: hard
+
+"stripe@npm:23.1.0":
+  version: 23.1.0
+  resolution: "stripe@npm:23.1.0"
+  peerDependencies:
+    "@types/node": ">=20"
+  peerDependenciesMeta:
+    "@types/node":
+      optional: true
+  checksum: 10c0/9f17a0317824e499297efcf89e37cecdab456b019005efb54f62e3a932f59dc44663e8eac01cd04034c68d73d8748cc04d169308536c8098a273a3066b7caf4b
   languageName: node
   linkType: hard
 

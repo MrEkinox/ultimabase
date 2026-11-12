@@ -1,0 +1,51 @@
+{
+	"name": "@ultimabase/stripe",
+	"version": "0.7.0",
+	"description": "Stripe for UltimaBase: a catalog of products and credits declared in code and kept in step with Stripe.",
+	"type": "module",
+	"license": "Apache-2.0",
+	"homepage": "https://ultimabase.dev/docs/stripe",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/MrEkinox/ultimabase.git",
+		"directory": "packages/stripe"
+	},
+	"engines": {
+		"node": ">=24.7.0"
+	},
+	"exports": {
+		".": "./src/index.ts",
+		"./testing": "./src/testing.ts"
+	},
+	"files": [
+		"dist",
+		"src",
+		"!src/**/*.test.ts",
+		"!src/test"
+	],
+	"scripts": {
+		"prepack": "rm -rf dist && yarn run -T tsc --project tsconfig.build.json"
+	},
+	"publishConfig": {
+		"exports": {
+			".": "./dist/index.js",
+			"./testing": "./dist/testing.js"
+		}
+	},
+	"peerDependencies": {
+		"@ultimabase/http": "^0.7.0",
+		"@ultimabase/jobs": "^0.7.0",
+		"ultimabase": "^0.7.0"
+	},
+	"devDependencies": {
+		"@ultimabase/http": "workspace:*",
+		"@ultimabase/jobs": "workspace:*",
+		"@ultimabase/testing": "workspace:*",
+		"ultimabase": "workspace:*",
+		"vite": "8.3.4",
+		"vitest": "5.0.5"
+	},
+	"dependencies": {
+		"stripe": "23.1.0"
+	}
+}
