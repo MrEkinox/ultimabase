@@ -125,6 +125,8 @@ async function started() {
 	return { storage, warnings }
 }
 
+const changed = 'The file changed during the refresh; refresh it again.'
+
 const uploaded = async (name = 'a.png'): Promise<string> =>
 	(await files.upload(png, { for: 'Album.cover', name, ...M })).id
 
@@ -392,7 +394,7 @@ describe('files.refresh', () => {
 		const { failed } = await files.refresh('Album.cover', M)
 		expect(failed).toContainEqual({
 			id,
-			error: 'The file changed during the refresh; refresh it again.',
+			error: changed,
 		})
 		await vi.waitFor(async () => {
 			const where = { variantOf: id }
@@ -401,6 +403,45 @@ describe('files.refresh', () => {
 		// No object is left without its row, nor a row without its object.
 		expect(await files.check()).toStrictEqual({ objects: [], rows: [] })
 		expect(storage.objects.size).toBeGreaterThan(0)
+	})
+
+	it('deletes the variants of a file released meanwhile, before its purge', async () => {
+		const { storage } = await started()
+		const id = await uploaded()
+		const objects = storage.objects.size
+		variants['small'] = async ({ body }) => {
+			// Released, its objects not deleted yet: as a purge that failed.
+			const data = { state: 'released' }
+			await FilesBlob.updateMany({ where: { id }, data }, M)
+			return { body: body.slice(0, 8), type: 'image/webp' }
+		}
+		expect(await files.refresh('Album.cover', M)).toStrictEqual({
+			refreshed: 0,
+			failed: [{ id, error: changed }],
+		})
+		const where = { variantOf: id }
+		expect(await FilesBlob.findMany({ where }, M)).toStrictEqual([])
+		expect(storage.objects.size).toBe(objects)
+	})
+
+	it('attaches the variants of a file attached meanwhile', async () => {
+		await started()
+		const id = await uploaded()
+		let album = ''
+		variants['small'] = async ({ body }) => {
+			album = (await albumWith(id)).id
+			return { body: body.slice(0, 8), type: 'image/webp' }
+		}
+		expect(await files.refresh('Album.cover', M)).toStrictEqual({
+			refreshed: 0,
+			failed: [{ id, error: changed }],
+		})
+		const small = await FilesBlob.findFirst({ where: { variantOf: id } }, M)
+		expect(small).toMatchObject({
+			state: 'attached',
+			attachedTo: `Album.cover:${album}`,
+			deleteAfter: null,
+		})
 	})
 
 	it('only runs for Master, on a file field', async () => {
