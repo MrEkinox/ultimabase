@@ -10102,7 +10102,7 @@ website/content/versions/0.1/relations.mdx   /docs/0.1/relations
 
 ## D-156: Releases from CI: canaries, a release pull request, one tag
 
-Amended by D-157.
+Amended by D-157, D-367.
 
 Choice: completes D-60; nothing is published from a laptop.
 
@@ -22408,4 +22408,49 @@ post.cover?.inline.size // null for a cover stored before the key
 // After: one call, once the deploy that adds the key runs
 const { refreshed, failed } = await files.refresh('Post.cover', { as: master })
 // → { refreshed: 1240, failed: [{ id: '0193…', error: 'The file is not in the storage.' }] }
+```
+
+## D-367: A release stops before publishing when npm lacks a package
+
+Choice: amends D-156 point 4.
+
+1. Before it publishes anything, `scripts/release.ts` asks npm for each
+   package's name. When npm has none of one, it publishes nothing and fails,
+   naming each such package with the commands that publish its first
+   version by hand and trust the workflow.
+2. That first version is `0.0.0-first.0` under the npm tag `canary`: no
+   peer range matches it, so nothing installs it by accident. The next
+   canary or release replaces it under its tag.
+
+Why:
+
+- npm trusts a workflow per package, and only for a package it has: a new
+  package's first publish from CI fails with `ENEEDAUTH`.
+- Packages publish one after the other: `@ultimabase/sentry` stopped a
+  canary halfway, the packages after it left on the previous canary, and
+  `npm create ultimabase@canary` wrote a starter on versions npm lacked.
+  The same failure in a release would leave `latest` split across versions.
+
+Rejected:
+
+- Publishing the packages npm has and skipping the others: a split tag is
+  the failure this prevents.
+- An npm token for first publishes: D-156 keeps none.
+
+Example:
+
+```text
+# Before: the canary publishes 15 packages, then stops
+Published @ultimabase/roles@0.8.0-canary.20261112102022 under canary.
+Publishing @ultimabase/sentry@0.8.0-canary.20261112102022 failed (try 1):
+npm error code ENEEDAUTH
+
+# After: the canary publishes nothing
+npm has no @ultimabase/sentry: nothing was published.
+Publish each first version by hand and trust this workflow, then run again (D-367):
+  yarn workspace @ultimabase/sentry exec npm pkg set version=0.0.0-first.0
+  yarn workspace @ultimabase/sentry pack --out /tmp/first.tgz
+  git checkout -- packages
+  npm publish /tmp/first.tgz --tag canary --access public
+  npm trust github @ultimabase/sentry --file ci.yml --repo MrEkinox/ultimabase --env npm --allow-publish -y
 ```
