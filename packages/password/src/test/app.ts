@@ -46,24 +46,33 @@ export const User = defineUser({
 	},
 })
 
+/**
+ * The application's logger: `named` gets each info line with its logger's
+ * bindings, as `{ name: 'app', kind: 'reset', msg: 'Email sent.' }`.
+ */
 function listening(
 	lines: string[],
 	errors: string[],
 	warnings: string[],
+	named: object[],
+	bindings: object = {},
 ): Logger {
-	const logger: Logger = {
-		info: (first) => {
+	return {
+		info: (first: object | string, message?: string) => {
 			if (typeof first === 'string') lines.push(first)
+			const facts = typeof first === 'string' ? {} : first
+			const msg = typeof first === 'string' ? first : message
+			named.push({ ...bindings, ...facts, msg })
 		},
-		warn: (first, message?: string) => {
+		warn: (first: object | string, message?: string) => {
 			warnings.push(typeof first === 'string' ? first : String(message))
 		},
-		error: (first, message?: string) => {
+		error: (first: object | string, message?: string) => {
 			errors.push(typeof first === 'string' ? first : String(message))
 		},
-		child: () => logger,
+		child: (more) =>
+			listening(lines, errors, warnings, named, { ...bindings, ...more }),
 	}
-	return logger
 }
 
 /** A started application on a free port. */
@@ -75,6 +84,7 @@ export async function started(
 	const lines: string[] = []
 	const errors: string[] = []
 	const warnings: string[] = []
+	const named: object[] = []
 	const app = defineApp({
 		database,
 		plugins: [
@@ -85,12 +95,12 @@ export async function started(
 			passwordPlugin(options),
 		],
 		models: [User],
-		logger: listening(lines, errors, warnings),
+		logger: listening(lines, errors, warnings, named),
 	})
 	await app.start()
 	const line = lines.find((first) => first.startsWith('Listening on')) ?? ''
 	const url = line.replace(/^Listening on (.*)\.$/, '$1')
-	return { app, url, errors, warnings }
+	return { app, url, errors, warnings, named }
 }
 
 export const bearer = (token: string) => ({ authorization: `Bearer ${token}` })
