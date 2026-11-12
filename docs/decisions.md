@@ -22638,7 +22638,8 @@ credits through Stripe, for any application.
    - `taxBehavior: 'inclusive' | 'exclusive'`, `'inclusive'` by default:
      whether the catalog's amounts include taxes.
    - `products`, the catalog (D-372).
-   - `portal: { returnUrl, termsUrl?, privacyUrl? }`, the customer portal.
+   - `portal: { returnUrl, termsUrl?, privacyUrl?, upgrades?, downgrades?,
+trialChange?, cancel? }`, the customer portal (D-373 point 8).
    - `customer: (payer) => ({ email?, name?, locale? })`, what Stripe shows
      of a payer, read when its customer is created or its row changes.
    - `webhookPath`, `/webhooks/stripe` by default.
@@ -22659,8 +22660,8 @@ credits through Stripe, for any application.
 5. Its jobs, added with `plugins.jobs.add` (D-369), are named `stripe.*`.
 6. Its own models (D-110) hold what no application exposes: `StripeCustomer`
    (one per payer, D-373), `StripeEvent` and `StripeCreditEntry` (D-374).
-7. Its public codes are `PAYMENT_UNAVAILABLE`, `ALREADY_SUBSCRIBED` (D-373)
-   and `NOT_ENOUGH_CREDITS` (D-374).
+7. Its public codes are `PAYMENT_UNAVAILABLE`, `ALREADY_SUBSCRIBED` and
+   `NOT_SUBSCRIBED` (D-373), and `NOT_ENOUGH_CREDITS` (D-374).
 8. `@ultimabase/stripe/testing` exports a fake Stripe in memory, which
    `yarn validate` uses; no test there reaches Stripe. Tests named
    `*.stripe.test.ts` run against a sandbox with `yarn test:stripe`, which
@@ -22809,7 +22810,9 @@ the plugin fills, as `defineRole` builds a role model (D-13, D-123).
    - `defineSubscription({ name, payer })`: `payer`, a `one` without
      `inverse` (D-237), cascading; `stripeId`, unique; `product` and `price`,
      the keys of D-372; `status`, Stripe's; `quantity`; `currentPeriodEnd`;
-     `cancelAt`, `canceledAt` and `trialEnd`, optional; `startedAt`.
+     `cancelAt`, `canceledAt` and `trialEnd`, optional; `startedAt`;
+     `scheduledProduct`, `scheduledPrice` and `scheduledAt`, optional, a
+     change that waits for the period's end (point 8).
    - `definePurchase({ name, payer })`: `payer`; `stripeId`, unique;
      `product`; `amount` and `refunded`, in the smallest unit; `status`,
      `'paid'` or `'refunded'`; `paidAt`.
@@ -22831,13 +22834,35 @@ the plugin fills, as `defineRole` builds a role model (D-13, D-123).
 6. With `oneSubscription: true`, `stripe.checkout` throws
    `ALREADY_SUBSCRIBED` (409) for a payer with a live subscription, and a
    second one paid anyway, from two tabs, is canceled and refunded. A
-   change of plan goes through the portal, which prorates it.
+   change of plan goes through the portal (point 8).
 7. `stripe.checkout({ payer, product, price?, quantity?, trialDays?,
 terms?, promotionCodes?, successUrl, cancelUrl, metadata? })` creates
    the payer's customer once, expires the Checkouts it left open, and opens
    a new one, under its customer's lock: two tabs cannot both pay.
    `trialDays` and the terms checkbox are the application's choice per
    call.
+8. A payer changes plan, or cancels, on the portal. `stripe.portal({ payer,
+returnUrl?, change?, cancel? })` opens its home, or, deep-linked, the
+   confirmation of one change:
+   - `change: { product, price, subscription? }` moves a subscription to
+     another product or price of the catalog, quantity kept;
+   - `cancel: { subscription? }` its cancellation.
+
+   `subscription` is a row's id, needed only when the payer has several
+   live subscriptions; otherwise their one is taken, and none throws
+   `NOT_SUBSCRIBED` (409). The portal lets a payer switch between every
+   price of the catalog's subscription products. `portal`'s options say
+   how, with these defaults:
+   - `upgrades: 'invoiceNow'`: a dearer plan starts at once, and its
+     prorated difference is charged at once (`'nextInvoice'` adds it to
+     the next invoice);
+   - `downgrades: 'atPeriodEnd'`: a cheaper plan, or a shorter interval,
+     starts at the period's end, and the row shows it in its `scheduled*`
+     fields until then (`'now'` applies it at once, with a credit);
+   - `trialChange: 'endTrial'`: a change during a trial ends it and
+     charges the new plan (`'keepTrial'` keeps it);
+   - `cancel: 'atPeriodEnd'`, with `cancelAt` set until then (`'now'`
+     ends it at once).
 
 Why: with the plugin's models hidden (D-110), each application copied
 every subscription into a model of its own through a callback, and wrote
@@ -22889,6 +22914,19 @@ export const createCheckout = defineFunction({
 			trialDays: 14,
 			successUrl: 'https://app.example.com/shop?session={CHECKOUT_SESSION_ID}',
 			cancelUrl: 'https://app.example.com/shop',
+		}),
+	})),
+}).with({ access: signedIn })
+
+// Pro monthly to Pro yearly: the portal confirms, prorates and charges
+export const changePlan = defineFunction({
+	name: 'changePlan',
+	input: z.object({ price: z.enum(['monthly', 'yearly']) }),
+	output: z.object({ url: z.string() }),
+	run: signedInRun(async ({ input, user }) => ({
+		url: await stripe.portal({
+			payer: user,
+			change: { product: pro, price: input.price },
 		}),
 	})),
 }).with({ access: signedIn })
