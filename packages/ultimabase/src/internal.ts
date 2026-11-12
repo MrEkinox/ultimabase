@@ -47,6 +47,7 @@ export { logFailure } from './traced.ts'
 export { appLogger } from './running.ts'
 export type { StoredField } from './stored-fields.ts'
 export { storedFields } from './stored-fields.ts'
+export { knownKeys } from './known-keys.ts'
 
 /** `logger` without its info lines. */
 function quieted(logger: Logger): Logger {

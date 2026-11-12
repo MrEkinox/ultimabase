@@ -325,6 +325,16 @@ describe('defineRole', () => {
 				fields: () => 'color',
 			}),
 		).toThrow('defineRole(Bad): fields returns an object.')
+		expect(() =>
+			defineRole({
+				name: 'Bad',
+				members: () => User,
+				// @ts-expect-error: hooks go in .with (D-370).
+				hooks: {},
+			}),
+		).toThrow(
+			'Bad: the definition takes no hooks; access, hooks and plugin options go in .with().',
+		)
 	})
 
 	it('needs the user model to list its roles in roles (D-237)', async () => {

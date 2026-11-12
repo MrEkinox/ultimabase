@@ -272,7 +272,9 @@ asked, `hasNextPage` is `true`:
 | `deprecated`  | `string`                   | none     | Why clients should stop calling it, and what replaces it: `@deprecated` in GraphQL, `deprecated: true` in OpenAPI. |
 
 `.with({ access, graphql, rest })` sets its rule and, for a transport of
-`use`, `{ name }` to rename it there or `false` to hide it.
+`use`, `{ name }` to rename it there or `false` to hide it. Given to
+`defineFunction` instead, one stops the import:
+`borrowBook: the definition takes no access; access and plugin options go in .with().`
 
 ### What `run` receives
 

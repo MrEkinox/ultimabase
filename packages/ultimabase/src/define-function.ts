@@ -32,6 +32,7 @@ import type {
 	TypeFields,
 } from './function.ts'
 import type { ModelUse } from './plugin.ts'
+import { knownKeys } from './known-keys.ts'
 import { isObject } from './query-where.ts'
 import type { Caller } from './rules.ts'
 import { isMaster } from './rules.ts'
@@ -133,6 +134,17 @@ export async function called(
 	)
 }
 
+const functionKeys = [
+	'name',
+	'description',
+	'deprecated',
+	'query',
+	'use',
+	'input',
+	'output',
+	'run',
+]
+
 export function defineFunction<
 	const N extends string,
 	const O extends OutputSpec | undefined = undefined,
@@ -159,6 +171,7 @@ export function defineFunction<
 ): ServerFunction<N, I, O, U[number]['plugin'], FunctionWithKeys<U[number]>> {
 	const { query = false, input, output, run } = definition
 	const name = nameOf(definition.name, 'defineFunction')
+	knownKeys(name, definition, functionKeys, 'access and plugin options')
 	const description = describedBy(definition.description, name)
 	const deprecated = describedBy(definition.deprecated, name, 'deprecated')
 	if (typeof query !== 'boolean')

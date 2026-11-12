@@ -24,6 +24,7 @@ import type {
 } from './model-indexes.ts'
 import type { ForModel, ModelUse, PluginTypes } from './plugin.ts'
 import { Refused } from './errors.ts'
+import { knownKeys } from './known-keys.ts'
 import { paginate } from './page.ts'
 import { isObject } from './query-where.ts'
 
@@ -129,6 +130,8 @@ export function defineModel<
 	readonly fields: ModelFields<F, U>
 	readonly indexes?: ModelIndexes<X, F, U>
 }): ModelOf<N, F, U, X> {
+	const name = nameOf(definition.name, 'defineModel')
+	knownKeys(name, definition, modelKeys, 'access, hooks and plugin options')
 	const model = createModel({
 		name: definition.name,
 		description: definition.description,
@@ -140,6 +143,8 @@ export function defineModel<
 	// oxlint-disable-next-line typescript/no-unsafe-type-assertion -- createModel builds the value ModelOf describes; the types follow the definition.
 	return model as unknown as ModelOf<N, F, U, X>
 }
+
+const modelKeys = ['name', 'description', 'dbName', 'use', 'fields', 'indexes']
 
 const operations: readonly Operation[] = [
 	'findMany',

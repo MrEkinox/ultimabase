@@ -368,6 +368,9 @@ describe('defineFunction', () => {
 			'f: input is a Standard Schema.',
 		)
 		expect(refused({ name: 'f' })).toThrow('f: run is a function.')
+		expect(refused({ name: 'f', access: () => true, run: one })).toThrow(
+			'f: the definition takes no access; access and plugin options go in .with().',
+		)
 		expect(refused({ name: 'f', use: rpc.use(), run: one })).toThrow(
 			'f.use is a list.',
 		)

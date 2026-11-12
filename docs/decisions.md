@@ -22454,3 +22454,47 @@ Publish each first version by hand and trust this workflow, then run again (D-36
   npm publish /tmp/first.tgz --tag canary --access public
   npm trust github @ultimabase/sentry --file ci.yml --repo MrEkinox/ultimabase --env npm --allow-publish -y
 ```
+
+## D-370: A definition refuses the keys of `.with`
+
+Choice: completes D-12 and D-42.
+
+1. `defineModel`, and `defineUser` through it, refuse a key of their
+   definition they do not take, naming it and where rules go:
+   `Note: the definition takes no hooks; access, hooks and plugin options go in .with().`
+2. `defineRole` does the same: its model takes its rules in `.with` too.
+3. `defineFunction` does the same, its rules being `access` and the plugins'
+   options: `f: the definition takes no access; access and plugin options go in .with().`
+4. The types do not change: TypeScript already refuses the key, at its line.
+
+Why: a `hooks` or an `access` given to `defineModel` is the first place one
+tries, and the definition dropped it unread. From JavaScript, or through a
+cast, the application started, and the hook never ran.
+
+Rejected:
+
+- A typed `hooks?: never` in the definition, whose type would carry the
+  fix: autocompletion would offer `hooks` as a key of `defineModel`, the
+  mistake it guards against, and an intersection with `never` is `never`,
+  so the message would never show.
+- One message per `.with` key: a plugin's key is known only from its `use`,
+  and one message names them all.
+- `defineJob`, `definePlugin` and `defineApp`: they take no `.with`.
+
+Example:
+
+```ts
+// Before: starts, and afterDelete never runs
+export const Thing = defineModel({
+	name: 'Thing',
+	fields: (f) => ({ label: f.string() }),
+	hooks: { afterDelete: cleanUp },
+} as never)
+
+// After: the same definition stops at import
+// Thing: the definition takes no hooks; access, hooks and plugin options go in .with().
+export const Thing = defineModel({
+	name: 'Thing',
+	fields: (f) => ({ label: f.string() }),
+}).with({ hooks: { afterDelete: cleanUp } })
+```
