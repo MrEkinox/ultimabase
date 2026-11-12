@@ -28,6 +28,7 @@ The full example, with its tests: [`examples/files`](https://github.com/MrEkinox
 | read a width, a thumbnail             | [`inline`, `variants`](#inline-values-and-variants) |
 | serve a file from a CDN, or privately | [`public`](#public-and-private-files)               |
 | upload from server code               | [`files.upload`, `files.check`](#from-server-code)  |
+| fill a key added to `inline` later    | [`files.refresh`](#from-server-code)                |
 | choose S3, a directory or memory      | [`s3()`, `diskFiles()`, `memoryFiles()`](#storage)  |
 
 A client uploads a file first, then writes its id in a row, as any other
@@ -215,6 +216,26 @@ with the database:
   It sees only the keys files writes, `public/<uuid>` and `private/<uuid>`,
   so a bucket can hold other objects.
 
+A key added to `inline` or `variants` reads `null` for the files stored before
+it. `files.refresh(field, { as: master })` fills it after the deploy that adds
+it:
+
+<include cwd meta='title="src/app.test.ts"'>
+	../examples/files/src/app.test.ts#refresh
+</include>
+
+- It reads each file that lacks a key from the storage, runs only the missing
+  functions, checked as at upload, and stores the values and variants as an
+  upload does.
+- It writes the file again in the row that holds it, without the model's
+  hooks and keeping its `updatedAt`; live reads see the change.
+- A key a file holds is never made again, so a changed function does not
+  change the files stored before it, and a second call does nothing.
+- A file it cannot refresh, its body gone or its row written meanwhile, is in
+  `failed` with the reason, and the others go on; the next call takes it
+  again.
+- Only Master calls it.
+
 ## Storage
 
 The example's `chooseStorage()` picks one by environment: S3 under
@@ -253,7 +274,7 @@ file at a stable URL, a private one at a URL signed for 15 to 30 minutes.
   and `Content-Security-Policy: sandbox`, so an HTML or SVG file opened from
   the application's origin runs no script there.
 - A key added to `inline` or `variants` later reads `null` for the files
-  stored before it.
+  stored before it, until [`files.refresh`](#from-server-code) fills it.
 
 ## Reference
 
@@ -271,7 +292,7 @@ file at a stable URL, a private one at a URL signed for 15 to 30 minutes.
 | `description` | string                               | none         | The field's description in GraphQL and OpenAPI.                              |
 
 A key added to `inline` or `variants` later reads `null` for the files
-stored before it.
+stored before it, until [`files.refresh`](#from-server-code) fills it.
 
 ### What a file reads as
 
@@ -382,10 +403,11 @@ A failed upload rejects with a `FileError`, whose `code`, `message` and
 
 ### `files`
 
-| Function                                | Returns             | Effect                                                                                       |
-| --------------------------------------- | ------------------- | -------------------------------------------------------------------------------------------- |
-| `files.upload(body, { for, name, as })` | `{ id }`            | Uploads a `Uint8Array` or a `Blob`, as a visitor without `as`.                               |
-| `files.check({ delete })`               | `{ objects, rows }` | The objects without a row, and the rows without an object; `delete: true` deletes the first. |
+| Function                                | Returns                 | Effect                                                                                                 |
+| --------------------------------------- | ----------------------- | ------------------------------------------------------------------------------------------------------ |
+| `files.upload(body, { for, name, as })` | `{ id }`                | Uploads a `Uint8Array` or a `Blob`, as a visitor without `as`.                                         |
+| `files.check({ delete })`               | `{ objects, rows }`     | The objects without a row, and the rows without an object; `delete: true` deletes the first.           |
+| `files.refresh(field, { as })`          | `{ refreshed, failed }` | Makes the inline values and variants a field's files lack, and writes them in their rows; Master only. |
 
 ### Errors in a write
 

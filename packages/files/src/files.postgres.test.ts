@@ -1,7 +1,8 @@
 // Files on PostgreSQL (D-152): concurrent writes of one row keep each
 // other's files, one file goes to one row only, and a row's files live and
-// go with it.
+// go with it; a stored copy is rewritten only on the row read (D-366).
 import { afterEach, expect, it } from 'vitest'
+import { storedFields } from 'ultimabase/internal'
 import { files } from './index.ts'
 import { FilesBlob } from './model.ts'
 import { alice, M, png, Post, started, text } from './test/app.ts'
@@ -90,5 +91,23 @@ for (const url of urls) {
 		await Post.delete({ where: { id: post.id } }, M)
 		expect(storage.objects.size).toBe(0)
 		expect(await states()).toStrictEqual([])
+	})
+
+	it(`rewrites a stored copy only on the row read on ${host}`, async () => {
+		await start(url)
+		const { id } = await attachment('a')
+		const post = await Post.create(
+			{ data: { title: 'a', attachments: [id] } },
+			{ as: alice },
+		)
+		const [first, second] = await Promise.all(
+			[1, 2].map(async () => storedFields('Post', 'attachments', [post.id])),
+		)
+		const value = first?.get(post.id)?.value
+		expect(await first?.get(post.id)?.write(value)).toBe(true)
+		await Post.update({ where: { id: post.id }, data: { title: 'b' } }, M)
+		expect(await second?.get(post.id)?.write([])).toBe(false)
+		const read = await Post.findUnique({ where: { id: post.id } }, M)
+		expect(read?.attachments.map((copy) => copy.id)).toStrictEqual([id])
 	})
 }

@@ -3102,6 +3102,7 @@ __metadata:
     "@types/pg": "npm:8.23.1"
     "@ultimabase/http": "workspace:*"
     "@ultimabase/postgres": "workspace:*"
+    "@ultimabase/realtime": "workspace:*"
     file-type: "npm:22.2.0"
     pg: "npm:8.23.1"
     ultimabase: "workspace:*"

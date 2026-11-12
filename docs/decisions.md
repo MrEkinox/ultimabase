@@ -9189,7 +9189,7 @@ type Stage {
 
 ## D-152: Files
 
-Amended by D-200, D-202, D-250 and D-351.
+Amended by D-200, D-202, D-250, D-351 and D-366.
 
 Choice: completes D-32 and D-122; amends D-32 (no `local()`), D-89 (a
 plugin model knows its name) and D-122 points 2 and 5.
@@ -9233,7 +9233,7 @@ publicUrl })` speaks to any S3-compatible storage (AWS, DigitalOcean
    - The body is held in memory only when the field has `inline` or
      `variants`; otherwise it is streamed to the storage.
    - A key added to `inline` or `variants` later reads `null` for the
-     files stored before it.
+     files stored before it, until `files.refresh` fills it (D-366).
 5. Upload: `POST /files?for=Post.cover&name=photo.jpg`, the file as the
    raw body, through the HTTP plugin (D-16); `files.upload(body, { for,
 name, as })` does the same from server code.
@@ -22302,4 +22302,110 @@ const syncAccount = defineJob({
 
 // A run of this account waits: no new run.
 await syncAccount.enqueue({ accountId })
+```
+
+## D-366: `files.refresh` computes a field's missing inline values and variants
+
+Choice: amends D-152 point 4; adds a function to `ultimabase/internal`
+(D-130).
+
+1. `files.refresh(field, { as })` gives each file of `field` the inline
+   values and variants its options name and the file lacks: keys added to
+   `inline` or `variants` after it was stored. It returns
+   `{ refreshed, failed }`: the number of files it changed, and each file
+   it could not, as `{ id, error }`.
+2. Only Master calls it. Another caller is refused with `ACCESS_DENIED`,
+   logged with its id, before the field is checked, as an upload's refusal
+   is (D-351). A name that is not a file field is refused as `files.upload`
+   refuses it.
+3. It reads the field's main files, pending or attached, never a variant:
+   their ids first, then the files 100 at a time, so a file attached,
+   released or deleted meanwhile moves no other out of a page. The bodies
+   are read 4 at a time.
+4. A file lacks a key when its blob's `inline` has no such own key, or no
+   variant row of that name points at it. Only the missing functions run,
+   on the body read back from the storage, checked as at upload: JSON of
+   2 KB at most, the schema, a variant's type and download flag. A key the
+   file holds is never made again, so a changed function changes no file
+   stored before it, and a second call refreshes nothing.
+5. The body is read through the storage's `serve` when it has one (D-202),
+   otherwise with `fetch(storage.url(key))`. A `404` fails the file as "not
+   in the storage"; any other answer that is not `ok` fails it with its
+   status.
+6. The values and variants are stored as an upload stores them: the
+   variant rows first, as their file's, with its state, row and expiry,
+   then their objects; a failed object deletes the objects and rows just
+   made. The file is then read again: when it was released or deleted
+   meanwhile, the new variants are deleted; when it was attached
+   elsewhere, they follow it. Either way the file fails, and the next call
+   takes it again. Otherwise its `inline` gains the new keys.
+7. An attached file is written again in the row it is attached to, as
+   attaching it writes it: the same copy, built by the same function. A
+   row's copies that lack a key are written in one write, a list's
+   included. A pending file only gets its blob; the write that attaches it
+   copies the blob then.
+8. The row is written through `storedFields`, one function added to
+   `ultimabase/internal`, which files alone uses:
+   - It reads a field's stored value in rows of a model, by id, through the
+     running adapter, before the values are made.
+   - Its `write` stores one row's new value in a transaction that reads the
+     row again under a row lock and writes only when its `updatedAt` and
+     the field are still those read: a write that keeps `updatedAt`, or one
+     in the same millisecond, changes the field alone. A row written or
+     deleted since the read is left as it is, and its files fail as "the
+     row changed"; the next call takes them again, without a retry in the
+     same call.
+   - It runs no hook, no rule and no `beforeFind`, and keeps `updatedAt`:
+     the value is the plugin's own copy, and the row's own data did not
+     change.
+   - The adapter feeds the write to the change feed, as every write
+     (D-168), so live reads send the row again.
+9. One failure does not stop the others. When files failed, one warning
+   gives the field and their number; `logFailure` is not called per file,
+   since `failed` is the report, as `files.check`'s lists are.
+10. It has no option but `as`: no `missing`, no batch size.
+
+Why:
+
+- A key added to a field leaves every earlier file with `null`, and the
+  only way out was uploading each file again. The body is in the storage,
+  and the functions are in the field: the plugin has all it needs.
+- Writing the row through the model would run the application's hooks for
+  a change the application did not make, and set `updatedAt`, which a
+  client reads as the row's own change. D-48 rejects "bulk writes that skip
+  hooks or rules" as a public write, which would let data bypass the
+  rules. `storedFields` is neither public nor bulk: one row, one field the
+  calling plugin owns, the value its own hooks wrote, read and written
+  under a guard.
+- The `updatedAt` guard keeps a write made meanwhile, through hooks and
+  rules, instead of overwriting it with a copy built before it.
+
+Rejected:
+
+- A `skip` option on `files.upload`, to upload again only the missing
+  keys: an upload makes a new file, and the row would need a write anyway.
+- Writing the rows through `Model.update` as Master: the application's
+  hooks run, and `updatedAt` changes.
+- A public hookless write: D-48's rejection holds for it.
+- A retry within the call when a row changed: the next call takes the file
+  again, and a row written often would hold a call in a loop.
+- `missing` and `batch` options: no usage needs them yet.
+- Recomputing the keys a file holds: a changed function would change files
+  stored long before, without anyone asking.
+- `logFailure` per file: a storage that lost many files would fill the
+  error channel with one cause.
+
+Example, before and after:
+
+```ts
+// Before: a key added to `inline` reads null for every earlier cover, and
+// each one is uploaded again.
+const cover = file({ inline: { size: ({ body }) => pngSize(body) } })
+post.cover?.inline.size // null for a cover stored before the key
+```
+
+```ts
+// After: one call, once the deploy that adds the key runs
+const { refreshed, failed } = await files.refresh('Post.cover', { as: master })
+// → { refreshed: 1240, failed: [{ id: '0193…', error: 'The file is not in the storage.' }] }
 ```

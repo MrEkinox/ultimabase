@@ -7,10 +7,12 @@ import type { Identity, JsonValue, QueryOptions } from 'ultimabase'
 import { isMaster, PublicError } from 'ultimabase'
 import { completedCaller } from 'ultimabase/internal'
 import type { FileInput, FileOptions, Inline } from './field.ts'
+import { keysOf } from './field.ts'
 import { bytesOf } from './memory.ts'
 import { FilesBlob, hour, M } from './model.ts'
 import type { FileBody } from './storage.ts'
 import { settled } from './storage.ts'
+import type { Keys } from './values.ts'
 import { runningOf } from './values.ts'
 
 /** What an upload says of its file. */
@@ -32,7 +34,7 @@ const invalid = (path: string, message: string): PublicError =>
 		details: { issues: [{ path: [path], message }] },
 	})
 
-function fieldOf(target: string): FileOptions {
+export function fieldOf(target: string): FileOptions {
 	const [model = '', field = ''] = target.split('.')
 	const options = runningOf().fields.get(model)?.get(field)
 	if (options === undefined) {
@@ -134,7 +136,10 @@ async function typeOf(
 }
 
 /** A variant's own type, served as a download unless its bytes say it, shown. */
-async function attachmentOf(body: Uint8Array, type: string): Promise<boolean> {
+export async function attachmentOf(
+	body: Uint8Array,
+	type: string,
+): Promise<boolean> {
 	const detected = (await fileTypeFromBuffer(body))?.mime
 	return detected !== type || !shown(type)
 }
@@ -180,23 +185,30 @@ async function allowed(caller: Identity): Promise<void> {
 const uploaderOf = (caller: Identity): string | null =>
 	isMaster(caller) ? 'master' : caller.kind === 'user' ? caller.user.id : null
 
-/** What a buffered upload made: its inline values and its variants. */
-async function madeOf(
+/**
+ * What a buffered upload made: its inline values and its variants, those
+ * `wanted` names, all by default; `files.refresh` wants the missing (D-366).
+ */
+export async function madeOf(
 	options: FileOptions,
 	file: FileInput,
+	wanted: Keys = keysOf(options),
 ): Promise<{
 	readonly inline: { readonly [key: string]: JsonValue }
 	readonly variants: readonly (readonly [string, Uint8Array, string])[]
 }> {
-	const inline = Object.entries(options.inline ?? {}).map(
-		async ([key, given]) => [key, await inlineValue(key, given, file)] as const,
-	)
-	const variants = Object.entries(options.variants ?? {}).map(
-		async ([key, variant]) => {
+	const inline = Object.entries(options.inline ?? {})
+		.filter(([key]) => wanted.inline.includes(key))
+		.map(
+			async ([key, given]) =>
+				[key, await inlineValue(key, given, file)] as const,
+		)
+	const variants = Object.entries(options.variants ?? {})
+		.filter(([key]) => wanted.variants.includes(key))
+		.map(async ([key, variant]) => {
 			const { body, type } = await variant(file)
 			return [key, body, type] as const
-		},
-	)
+		})
 	const [values, made] = await Promise.all([
 		Promise.all(inline),
 		Promise.all(variants),

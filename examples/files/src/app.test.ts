@@ -161,3 +161,15 @@ it('uploads and checks the files from server code', async () => {
 	expect(await files.check()).toEqual({ objects: [], rows: [] })
 	//#endregion
 })
+
+it('refreshes a field after a deploy that adds a key', async () => {
+	//#region refresh
+	// After a deploy that adds a key to the cover's `inline` or `variants`:
+	// the covers stored before it get it, from their bodies.
+	const { refreshed, failed } = await files.refresh('Post.cover', {
+		as: master,
+	})
+	//#endregion
+	// No cover was stored before its keys here.
+	expect({ refreshed, failed }).toEqual({ refreshed: 0, failed: [] })
+})
