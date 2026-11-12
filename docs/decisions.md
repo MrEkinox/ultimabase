@@ -5798,7 +5798,7 @@ before.
 
 ## D-117: Password reset and email verification
 
-Amended by D-162, D-212 and D-357.
+Amended by D-162, D-212, D-357 and D-368.
 
 Choice: completes D-113 point 12 and D-115.
 
@@ -22151,6 +22151,8 @@ After, with `DATABASE_URL` in the committed `packages/backend/.env` and
 
 ## D-364: The application's code logs with the application's logger
 
+Amended by D-368.
+
 Choice: amends D-58.
 
 1. The kernel gives the application's code a child of the application's
@@ -22453,4 +22455,56 @@ Publish each first version by hand and trust this workflow, then run again (D-36
   git checkout -- packages
   npm publish /tmp/first.tgz --tag canary --access public
   npm trust github @ultimabase/sentry --file ci.yml --repo MrEkinox/ultimabase --env npm --allow-publish -y
+```
+
+## D-368: `sendEmail` receives the application's logger
+
+Choice: amends D-117 point 1 and D-364.
+
+1. password calls `sendEmail(email, { logger })`. `logger` is the `app`
+   logger itself (D-364): `sendEmail` is the application's code, as a hook
+   or a route, which receive it unbound.
+2. No correlation id: the email goes after the response (D-117), when no
+   request is left to name, and D-364 point 6 makes none per request.
+3. A `sendEmail` that throws needs no log of its own: password logs the
+   error under its name, or a command rejects with it (D-198).
+
+Why:
+
+- `sendEmail` was the application's only code without the application's
+  logger: its lines went through `console`, outside the JSON lines and the
+  level filter.
+- A second argument keeps a one-argument `sendEmail` as it is.
+
+Rejected:
+
+- A child bound to `{ email: kind }`: the application binds what it logs,
+  as in a hook.
+- Sending through a job for its logger: a queue and a stored token for a
+  log line.
+
+Example, before and after:
+
+```ts
+// Before
+passwordPlugin({
+	sendEmail: async (email) => {
+		console.info(`Email ${email.kind} to user ${email.user.id}`)
+		try {
+			await provider.send(render(email))
+		} catch (error) {
+			console.error(`The ${email.kind} email was not sent: ${String(error)}`)
+		}
+	},
+})
+```
+
+```ts
+// After: a thrown error is logged by password
+passwordPlugin({
+	sendEmail: async (email, { logger }) => {
+		await provider.send(render(email))
+		logger.info({ kind: email.kind, user: email.user.id }, 'Email sent.')
+	},
+})
 ```
