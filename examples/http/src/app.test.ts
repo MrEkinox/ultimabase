@@ -1,17 +1,24 @@
 // Calls the routes as a client does, each test on a new in-memory database.
-import { testApplication } from '@ultimabase/testing'
+import { createHmac } from 'node:crypto'
+import { runJobs, testApplication } from '@ultimabase/testing'
 import { master } from 'ultimabase'
-import { expect, it } from 'vitest'
+import { beforeEach, expect, it } from 'vitest'
 import { requestFiles } from '../../../scripts/requests.ts'
 import { app } from './app.ts'
+import { outbox } from './mail.ts'
 import { Order } from './models.ts'
 import { shop } from './routes.ts'
+import { payments } from './webhook.ts'
 
 //#region running
 const running = testApplication(app)
 //#endregion
 const { check } = requestFiles(new URL('requests/', import.meta.url), running)
 const M = { as: master }
+
+beforeEach(() => {
+	outbox.length = 0
+})
 
 /** A browser's preflight request from `origin`. */
 const preflight = (origin: string) =>
@@ -36,17 +43,31 @@ it('reads a receipt as the caller', async () => {
 	//#endregion
 })
 
-it('takes a payment webhook', async () => {
+/** The provider's signature of `body`: an HMAC-SHA256 with its secret, in hex. */
+const signature = (body: string) =>
+	createHmac('sha256', 'dev-secret').update(body).digest('hex')
+
+it('takes a signed payment webhook, each event once', async () => {
 	//#region webhook
 	const order = await Order.create({ data: { total: 30 } }, M)
-	const paid = await shop.request('/webhooks/payment', {
-		method: 'POST',
-		headers: { 'content-type': 'application/json', 'x-secret': 'dev-secret' },
-		body: JSON.stringify({ order: order.id, amount: 30 }),
-	})
+	const body = JSON.stringify({ event: 'evt_1', order: order.id, amount: 30 })
+	const deliver = () =>
+		payments.request('/webhooks/payment', {
+			method: 'POST',
+			headers: {
+				'content-type': 'application/json',
+				'x-signature': signature(body),
+			},
+			body,
+		})
+	const paid = await deliver()
 	expect(await paid.json()).toEqual({ order: order.id, amount: 30, paid: true })
+	// The provider sends the event again: it is taken once.
+	expect((await deliver()).status).toBe(200)
+	await runJobs()
+	expect(outbox).toEqual([`Order ${order.id} is paid: 30 EUR.`])
 	//#endregion
-	await check('wrong-secret', {}, { status: 401 })
+	await check('wrong-signature', {}, { status: 401 })
 })
 
 it('refuses a webhook whose body is not valid', async () => {
@@ -111,7 +132,7 @@ it('refuses a large body, a body that is not JSON and an unknown route', async (
 	const post = (type: string, body: string) =>
 		fetch(`${running.url}/webhooks/payment`, {
 			method: 'POST',
-			headers: { 'content-type': type, 'x-secret': 'dev-secret' },
+			headers: { 'content-type': type, 'x-signature': signature(body) },
 			body,
 		})
 	const large = await post('application/json', 'x'.repeat(70_000))

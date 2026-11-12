@@ -1,8 +1,7 @@
 // The application's own routes, served beside the API.
 //#region routes
 import { routes, validate } from '@ultimabase/http'
-import { HTTPException } from 'hono/http-exception'
-import { master, PublicError } from 'ultimabase'
+import { PublicError } from 'ultimabase'
 import { z } from 'zod'
 import { Order } from './models.ts'
 
@@ -17,30 +16,6 @@ shop.get('/orders/:id/receipt', async (c) => {
 		`Order ${order.id}: ${order.total} EUR, ${order.paid ? 'paid' : 'due'}.`,
 	)
 })
-//#endregion
-
-//#region webhook
-// The provider's secret, from the environment in production.
-const secret = process.env['PAYMENT_SECRET'] ?? 'dev-secret'
-
-// The provider sends no session: the route checks its secret, then writes
-// as Master.
-shop.post(
-	'/webhooks/payment',
-	validate('header', z.object({ 'x-secret': z.string() })),
-	validate('json', z.object({ order: z.string(), amount: z.int().positive() })),
-	async (c) => {
-		if (c.req.valid('header')['x-secret'] !== secret) {
-			throw new HTTPException(401, { message: 'Wrong secret.' })
-		}
-		const { order, amount } = c.req.valid('json')
-		const paid = await Order.update(
-			{ where: { id: order }, data: { paid: true } },
-			{ as: master },
-		)
-		return c.json({ order: paid.id, amount, paid: paid.paid })
-	},
-)
 //#endregion
 
 //#region query

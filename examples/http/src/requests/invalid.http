@@ -1,5 +1,5 @@
 POST /webhooks/payment
 content-type: application/json
-x-secret: dev-secret
+x-signature: 7fb26d53ff0d7a65a9da90e630b33366b6915d35de42a7d06e8e42e4d4cafaf0
 
-{ "order": "any" }
+{ "event": "evt_2", "order": "any" }

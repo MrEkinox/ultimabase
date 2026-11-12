@@ -1,5 +1,5 @@
 POST /webhooks/payment
 content-type: application/json
-x-secret: dev-secret
+x-signature: 9c7c464e057483373b7bd4137072ff6f0222f725b8e47c64e354634e83330a99
 
 {
