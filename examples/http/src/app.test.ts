@@ -51,22 +51,17 @@ it('takes a signed payment webhook, each event once', async () => {
 	//#region webhook
 	const order = await Order.create({ data: { total: 30 } }, M)
 	const body = JSON.stringify({ event: 'evt_1', order: order.id, amount: 30 })
-	const deliver = () =>
-		payments.request('/webhooks/payment', {
-			method: 'POST',
-			headers: {
-				'content-type': 'application/json',
-				'x-signature': signature(body),
-			},
-			body,
-		})
-	const paid = await deliver()
-	expect(await paid.json()).toEqual({ order: order.id, amount: 30, paid: true })
-	// The provider sends the event again: it is taken once.
-	expect((await deliver()).status).toBe(200)
+	const signed = createHmac('sha256', 'dev-secret').update(body).digest('hex')
+	const headers = { 'content-type': 'application/json', 'x-signature': signed }
+	const init = { method: 'POST', headers, body }
+	// The provider sends the event twice: it is taken once.
+	const paid = await payments.request('/webhooks/payment', init)
+	const again = await payments.request('/webhooks/payment', init)
 	await runJobs()
 	expect(outbox).toEqual([`Order ${order.id} is paid: 30 EUR.`])
 	//#endregion
+	expect(await paid.json()).toEqual({ order: order.id, amount: 30, paid: true })
+	expect(again.status).toBe(200)
 	await check('wrong-signature', {}, { status: 401 })
 })
 

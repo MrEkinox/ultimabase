@@ -181,8 +181,13 @@ describe('run (D-75)', () => {
 
 	it('validates the input after the rule, and runs on its output', async () => {
 		await expect(greet.run({ name: ' Ada ' })).resolves.toBe('Hello Ada')
+		const aLogger: unknown = expect.anything()
 		expect(seen).toEqual([
-			{ caller: { kind: 'anonymous' }, input: { name: 'Ada' } },
+			{
+				caller: { kind: 'anonymous' },
+				input: { name: 'Ada' },
+				logger: aLogger,
+			},
 		])
 		expect(Object.isFrozen(seen[0])).toBe(true)
 		const failed = greet.run({ name: ' ' })

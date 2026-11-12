@@ -63,7 +63,9 @@ After ten attempts, about 2 h 50 min, its row turns `failed` and is kept, with
 its last error, for someone to read.
 
 Each failure is logged with `job` and `run`: a warning while the run will run
-again, an error with a `correlationId` once it is kept. That error is also
+again, an error with a `correlationId` once it is kept.
+
+That error is also
 published on the `ultimabase:error` channel, so with
 [`sentryPlugin()`](/docs/next/sentry) a kept run is a Sentry issue, and
 another error tracker subscribes to the channel. A recurring job's failed run is
