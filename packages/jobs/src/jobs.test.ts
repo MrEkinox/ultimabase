@@ -1,6 +1,7 @@
 // Jobs (D-221) on `memory()`: a run enqueued in a transaction exists if and
 // only if it commits, runs once committed or once due, fails again later up
 // to ten attempts, and recurring jobs run on their schedule.
+import { channel } from 'node:diagnostics_channel'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { z } from 'zod'
 import { runJobs, testApplication } from '@ultimabase/testing'
@@ -253,14 +254,30 @@ describe('a run that fails', () => {
 	})
 
 	it('turns failed after ten attempts, and is kept', async () => {
+		// A failed run is published where an error tracker reads it (D-360).
+		const published: unknown[] = []
+		const errors = channel('ultimabase:error')
+		const handler = (message: unknown) => published.push(message)
+		errors.subscribe(handler)
 		failures = 10
 		await flaky.enqueue()
-		for (let tried = 0; tried < 10; tried++) {
+		try {
+			for (let tried = 0; tried < 10; tried++) {
+				await runJobs()
+				const [row] = await rows()
+				if (row !== undefined) vi.setSystemTime(row.dueAt)
+			}
 			await runJobs()
-			const [row] = await rows()
-			if (row !== undefined) vi.setSystemTime(row.dueAt)
+		} finally {
+			errors.unsubscribe(handler)
 		}
-		await runJobs()
+		expect(published).toStrictEqual([
+			{
+				error: new Error('Not yet.'),
+				correlationId: expect.any(String),
+				message: 'The job flaky failed: its run is kept.',
+			},
+		])
 		expect(closed).toStrictEqual([])
 		expect(await rows()).toMatchObject([
 			{ state: 'failed', attempts: 10, error: 'Not yet.' },
