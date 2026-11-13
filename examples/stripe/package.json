@@ -2,7 +2,7 @@
 	"name": "example-stripe",
 	"version": "0.0.0",
 	"private": true,
-	"description": "Stripe: a catalog of subscriptions and gems declared in code, written to Stripe by a deploy script.",
+	"description": "Stripe: a catalog declared in code and written to Stripe by a deploy script; subscriptions and gems sold on Checkout, kept in step by the webhook.",
 	"type": "module",
 	"license": "Apache-2.0",
 	"engines": {
@@ -14,6 +14,7 @@
 	},
 	"dependencies": {
 		"@ultimabase/http": "workspace:*",
+		"@ultimabase/jobs": "workspace:*",
 		"@ultimabase/stripe": "workspace:*",
 		"ultimabase": "workspace:*"
 	},
