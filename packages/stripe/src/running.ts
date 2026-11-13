@@ -8,6 +8,7 @@ import { unavailable } from './billing-gateway.ts'
 import type { Catalog } from './catalog.ts'
 import type { Enums } from './kinds.ts'
 import type { Product } from './product.ts'
+import type { RiskOptions } from './risk.ts'
 
 /** A row as the plugin reads it, from a model it does not type. */
 export type Row = { readonly id: string; readonly [field: string]: unknown }
@@ -74,6 +75,7 @@ export interface Running {
 	readonly products: ReadonlyMap<string, Product>
 	readonly customer: ((payer: never) => CustomerProfile) | undefined
 	readonly oneSubscription: boolean
+	readonly risk: RiskOptions
 	readonly subscription: Billing | undefined
 	readonly purchase: Billing | undefined
 	readonly balance: Billing | undefined

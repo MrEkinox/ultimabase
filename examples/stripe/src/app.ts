@@ -32,6 +32,9 @@ const stripe = stripePlugin({
 	// refunds one made anyway.
 	webhookPath: '/webhooks/stripe',
 	oneSubscription: false,
+	// Off unless set: an early fraud warning refunds its payment, and it or
+	// a dispute ends the payer's subscriptions at once.
+	risk: { earlyFraudWarning: 'refundAndCancel', dispute: 'cancel' },
 })
 //#endregion
 

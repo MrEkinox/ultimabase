@@ -20,7 +20,7 @@ export type {
 	StripeSubscription,
 } from './billing-gateway.ts'
 export type { FakeBilling, FakeCheckout, FakeCustomer } from './fake-billing.ts'
-export { postEvent, thinEvent } from './fake-billing.ts'
+export { postEvent, thinEvent } from './fake-events.ts'
 export type { PortalSettings, StripePrice, StripeProduct } from './gateway.ts'
 
 /**

@@ -33,3 +33,4 @@ export type {
 	SubscriptionProduct,
 } from './product.ts'
 export { defineProduct } from './product.ts'
+export type { RiskOptions } from './risk.ts'

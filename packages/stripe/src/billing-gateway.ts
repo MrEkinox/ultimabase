@@ -178,6 +178,27 @@ export interface RecoveryGateway {
 	 * the time of each one's last event.
 	 */
 	readonly changedSince: (since: Date) => Promise<ReadonlyMap<string, Date>>
+	/** The charge an early fraud warning or a dispute is about (D-388). */
+	readonly riskOf: (type: string, id: string) => Promise<StripeRisk | null>
+	/**
+	 * Refunds a charge in full; done again, or for a charge refunded or
+	 * disputed, it changes nothing.
+	 */
+	readonly refundCharge: (id: string) => Promise<void>
+	/**
+	 * Ends at once each of a customer's subscriptions that has not ended;
+	 * gives their ids.
+	 */
+	readonly cancelSubscriptions: (
+		customerId: string,
+	) => Promise<readonly string[]>
+}
+
+/** A charge at risk (D-388). */
+export interface StripeRisk {
+	readonly charge: string
+	/** An early fraud warning Stripe still holds actionable. */
+	readonly refundable: boolean
 }
 
 /** An object Stripe does not hold, or no longer does. */

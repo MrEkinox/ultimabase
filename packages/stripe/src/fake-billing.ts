@@ -1,7 +1,6 @@
 // The fake account's payers (D-371 point 8): customers, Checkouts a test
 // pays, subscriptions and payments, and the thin events each change sends
 // to the webhook, signed as Stripe signs them.
-import { Stripe } from 'stripe'
 import type {
 	BillingGateway,
 	CheckoutWrite,
@@ -13,6 +12,9 @@ import type {
 	StripeSubscription,
 } from './billing-gateway.ts'
 import { Missing } from './billing-gateway.ts'
+import { postEvent, thinEvent } from './fake-events.ts'
+import type { FakeRisks } from './fake-risk.ts'
+import { fakeRisks } from './fake-risk.ts'
 import type { StripePrice } from './gateway.ts'
 
 /** A customer of the fake account. */
@@ -32,7 +34,7 @@ export interface FakeCheckout extends CheckoutWrite {
 }
 
 /** What the fake account holds of its payers, and what a test does at Stripe. */
-export interface FakeBilling {
+export interface FakeBilling extends FakeRisks {
 	readonly webhookSecret: string
 	readonly customers: Map<string, FakeCustomer>
 	readonly checkouts: Map<string, FakeCheckout>
@@ -65,42 +67,6 @@ export interface FakeBilling {
 	/** Posts each event sent since the last call to the application at `url`. */
 	readonly deliver: (url: string, path?: string) => Promise<void>
 }
-
-/** A thin event's body, as Stripe sends it to an event destination. */
-export const thinEvent = (event: {
-	readonly id?: string
-	/** Its v1 type: `customer.subscription.updated`. */
-	readonly type: string
-	/** Its related object: `{ id: 'sub_1', type: 'subscription' }`. */
-	readonly object: { readonly id: string; readonly type: string }
-	readonly livemode?: boolean
-}): string =>
-	JSON.stringify({
-		id: event.id ?? `evt_${crypto.randomUUID().replaceAll('-', '')}`,
-		object: 'v2.core.event',
-		type: `v1.${event.type}`,
-		livemode: event.livemode ?? false,
-		created: new Date().toISOString(),
-		related_object: { ...event.object, url: `/v1/${event.object.id}` },
-	})
-
-/** Posts `payload` to the webhook of the application at `url`, signed. */
-export const postEvent = async (
-	url: string,
-	payload: string,
-	options: { readonly secret: string; readonly path?: string | undefined },
-): Promise<Response> =>
-	fetch(`${url}${options.path ?? '/webhooks/stripe'}`, {
-		method: 'POST',
-		headers: {
-			'content-type': 'application/json',
-			'stripe-signature': Stripe.webhooks.generateTestHeaderString({
-				payload,
-				secret: options.secret,
-			}),
-		},
-		body: payload,
-	})
 
 const found = <T>(map: ReadonlyMap<string, T>, id: string): T => {
 	const record = map.get(id)
@@ -141,12 +107,22 @@ export function fakeBilling(
 		sent.push(thinEvent({ type, object: { id, type: object } }))
 		listed.push({ id, type: object, at: new Date() })
 	}
+	const risk = fakeRisks({
+		payments,
+		invoices,
+		subscriptions,
+		newId,
+		send,
+		refund: (id, amount) => fake.refund(id, amount),
+	})
 	const ownerOf = (type: string, id: string): string | null => {
 		const maps: Record<string, ReadonlyMap<string, { customerId: string }>> = {
 			'checkout.session': checkouts,
 			subscription: subscriptions,
 			payment_intent: payments,
 			invoice: invoices,
+			'radar.early_fraud_warning': risk.fake.risks,
+			dispute: risk.fake.risks,
 		}
 		if (type === 'customer') return customers.has(id) ? id : null
 		return maps[type]?.get(id)?.customerId ?? null
@@ -305,6 +281,7 @@ export function fakeBilling(
 			}
 			return changed
 		},
+		...risk.gateway,
 	}
 	const fake: FakeBilling = {
 		webhookSecret: `whsec_fake_${crypto.randomUUID()}`,
@@ -315,6 +292,7 @@ export function fakeBilling(
 		invoices,
 		portalSessions,
 		subscriptionRefunds,
+		...risk.fake,
 		pay: (url, options) => {
 			const checkout = [...checkouts.values()].find((one) => one.url === url)
 			if (checkout?.status !== 'open') throw new Error(`${url} is not open.`)

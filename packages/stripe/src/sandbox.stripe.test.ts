@@ -468,3 +468,74 @@ describe('a payer over time', () => {
 			.toMatchObject({ status: 'refunded', gems: 0 })
 	})
 })
+
+/** What the application holds of a payer at risk, once the jobs ran. */
+const heldAtRisk = async (payer: { readonly id: string }) => {
+	await runJobs()
+	const where = { owner: { is: { id: payer.id } } }
+	const [balance] = await Balance.findMany({ where }, M)
+	const mine = { where: { payer: { is: { id: payer.id } } } }
+	const subscriptions = await Subscription.findMany(mine, M)
+	const purchases = await Purchase.findMany(mine, M)
+	return {
+		subscriptions: subscriptions.map(({ status }) => status),
+		purchases: purchases.map(({ status }) => status),
+		gems: balance?.amount ?? 0,
+	}
+}
+
+describe('a payment at risk (D-388)', () => {
+	const risk = {
+		earlyFraudWarning: 'refundAndCancel',
+		dispute: 'cancel',
+	} as const
+	// Stripe's own thin events: their object's type is what the plugin reads.
+	const test = billingTest(sandboxApp({ keys: cliKeys(), risk }))
+	it('refunds a payment Radar warns of, and ends its payer’s subscription', async () => {
+		const stop = await forwarded(test.url)
+		try {
+			const { payer, customer } = await payerAtStripe()
+			await subscribed(customer)
+			const warned = await client.paymentMethods.attach(
+				'pm_card_createIssuerFraudRecord',
+				{ customer },
+			)
+			const intent = await bought(customer, warned.id)
+			await expect
+				.poll(async () => heldAtRisk(payer), poll)
+				.toStrictEqual({
+					subscriptions: ['canceled'],
+					purchases: ['refunded'],
+					gems: 100,
+				})
+			const { data } = await client.refunds.list({ payment_intent: intent.id })
+			expect(data.map(({ amount }) => amount)).toStrictEqual([4_90])
+		} finally {
+			stop()
+		}
+	})
+
+	it('ends a disputed payment’s subscription, and refunds nothing', async () => {
+		const stop = await forwarded(test.url)
+		try {
+			const { payer, customer } = await payerAtStripe()
+			await subscribed(customer)
+			const disputed = await client.paymentMethods.attach(
+				'pm_card_createDispute',
+				{ customer },
+			)
+			const intent = await bought(customer, disputed.id)
+			await expect
+				.poll(async () => heldAtRisk(payer), poll)
+				.toStrictEqual({
+					subscriptions: ['canceled'],
+					purchases: ['paid'],
+					gems: 600,
+				})
+			const { data } = await client.refunds.list({ payment_intent: intent.id })
+			expect(data).toStrictEqual([])
+		} finally {
+			stop()
+		}
+	})
+})

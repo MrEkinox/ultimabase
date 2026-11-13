@@ -56,8 +56,12 @@ export async function ownerOf(
 			return (await client.paymentIntents.retrieve(id)).customer
 		case 'charge':
 			return (await client.charges.retrieve(id)).customer
-		case 'dispute': {
-			const { charge } = await client.disputes.retrieve(id)
+		case 'dispute':
+		case 'radar.early_fraud_warning': {
+			const { charge } =
+				type === 'dispute'
+					? await client.disputes.retrieve(id)
+					: await client.radar.earlyFraudWarnings.retrieve(id)
 			const chargeId = refOf(charge)
 			return chargeId === null
 				? null
