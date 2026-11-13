@@ -191,17 +191,22 @@ describe('the hourly reconciliation', () => {
 	})
 
 	it('reads every customer, page after page', async () => {
-		const data = Array.from({ length: 501 }, (_, index) => ({
-			model: 'User',
-			payer: `gone-${String(index)}`,
+		// A payer model no billing model names any more keeps its rows: a
+		// first page of 500 of them.
+		const data = Array.from({ length: 500 }, (_, index) => ({
+			model: 'Removed',
+			payer: `kept-${String(index)}`,
 		}))
-		// A payer model no billing model names any more keeps its rows.
-		const kept = { model: 'Removed', payer: 'still-there' }
-		await StripeCustomer.createMany({ data: [...data, kept] }, master)
+		await StripeCustomer.createMany({ data }, master)
+		// Made after, so its id sorts on the second page.
+		const gone = { model: 'User', payer: 'gone' }
+		await StripeCustomer.create({ data: gone }, master)
 		vi.useFakeTimers({ toFake: ['Date'] })
 		vi.setSystemTime(Date.now() + hour)
 		await runJobs()
-		expect(await StripeCustomer.findMany({}, master)).toMatchObject([kept])
+		const left = await StripeCustomer.findMany({}, master)
+		expect(left).toHaveLength(500)
+		expect(left.map(({ model }) => model)).not.toContain('User')
 	})
 
 	it('runs the events still waiting, and forgets the old processed ones', async () => {
