@@ -8,8 +8,8 @@ export type {
 	CreditHistoryFields,
 	PurchaseFields,
 	SubscriptionFields,
-	WithStripe,
-} from './billing.ts'
+} from './billing-fields.ts'
+export type { WithStripe } from './billing.ts'
 export {
 	defineBalance,
 	defineCreditHistory,
@@ -22,7 +22,7 @@ export { stripe } from './calls.ts'
 export type { Credit, CreditAmount } from './credit.ts'
 export { defineCredit } from './credit.ts'
 export type { Stripe, StripeOptions } from './plugin.ts'
-export { stripePlugin } from './plugin.ts'
+export { stripePayer, stripePlugin } from './plugin.ts'
 export type { PortalOptions } from './portal.ts'
 export type {
 	Every,

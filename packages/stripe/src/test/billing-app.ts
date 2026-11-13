@@ -5,7 +5,14 @@ import { jobsPlugin } from '@ultimabase/jobs'
 import type { TestApplication } from '@ultimabase/testing'
 import { testApplication } from '@ultimabase/testing'
 import type { Logger } from 'ultimabase'
-import { allow, defineApp, defineModel, master, memory } from 'ultimabase'
+import {
+	allow,
+	defineApp,
+	defineEnum,
+	defineModel,
+	master,
+	memory,
+} from 'ultimabase'
 import { afterEach, expect } from 'vitest'
 import {
 	defineBalance,
@@ -15,33 +22,49 @@ import {
 } from '../billing.ts'
 import { defineCredit } from '../credit.ts'
 import type { StripeOptions } from '../plugin.ts'
-import { stripePlugin } from '../plugin.ts'
+import { stripePayer, stripePlugin } from '../plugin.ts'
 import { defineProduct } from '../product.ts'
 import type { FakeStripe } from '../testing.ts'
 import { fakeStripe } from '../testing.ts'
 
 export const M = { as: master }
 
-// A user reads and deletes its own account, and its billing rows with it.
+// A user reads, updates and deletes its own account, and its billing rows
+// with it.
 export const User = defineModel({
 	name: 'User',
-	fields: (f) => ({ email: f.string(), name: f.string({ optional: true }) }),
+	use: [stripePayer()],
+	fields: (f) => ({
+		email: f.string(),
+		name: f.string({ optional: true }),
+		lang: f.string({ optional: true }),
+	}),
 }).with({
 	access: {
 		read: ({ caller, where }) =>
+			caller.kind === 'user' && where({ id: { equals: caller.user.id } }),
+		update: ({ caller, where }) =>
 			caller.kind === 'user' && where({ id: { equals: caller.user.id } }),
 		delete: ({ caller, where }) =>
 			caller.kind === 'user' && where({ id: { equals: caller.user.id } }),
 	},
 })
+// The catalog's keys and price names, which type the rows (D-387); a key
+// the catalog dropped stays in its enum while rows hold it.
+export const Plan = defineEnum('Plan', ['pro', 'team', 'legacy'])
+export const Period = defineEnum('Period', ['monthly', 'yearly'])
+export const Pack = defineEnum('Pack', ['gemPack'])
 // Public, so that only the plugin's hooks keep a user from writing them.
 export const Subscription = defineSubscription({
 	name: 'Subscription',
 	payer: () => User,
+	product: Plan,
+	price: Period,
 }).with({ access: allow.public })
 export const Purchase = definePurchase({
 	name: 'Purchase',
 	payer: () => User,
+	product: Pack,
 	fields: (f) => ({ note: f.string({ optional: true }) }),
 }).with({ access: allow.public })
 export const Balance = defineBalance({
@@ -119,9 +142,10 @@ export function billingApp(options: Partial<StripeOptions> = {}): {
 				currency: 'eur',
 				products: [pro, team, gemPack],
 				portal: { returnUrl: 'https://app.test/account' },
-				customer: (user: { readonly email: string }) => ({
-					email: user.email,
-				}),
+				customer: (user: {
+					readonly email: string
+					readonly lang: string | null
+				}) => ({ email: user.email, locale: user.lang }),
 				...options,
 			}),
 		],

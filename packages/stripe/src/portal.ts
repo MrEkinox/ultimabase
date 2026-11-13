@@ -1,6 +1,6 @@
 // The customer portal's options (D-373 point 8), in Stripe's words: how a
 // change of plan bills, which changes wait for the period's end, what a
-// change during a trial does, and how a cancellation ends.
+// change during a trial does, how a cancellation ends, and why (D-384).
 import { Refused } from 'ultimabase'
 import type { PortalProduct, PortalSettings } from './gateway.ts'
 import { ownKeys } from './keys.ts'
@@ -19,7 +19,22 @@ export interface PortalOptions {
 	readonly trialChange?: 'endTrial' | 'keepTrial'
 	/** `'atPeriodEnd'` ends a canceled subscription at its period's end. */
 	readonly cancel?: 'atPeriodEnd' | 'now'
+	/** The reasons the portal offers a payer who cancels (D-384). */
+	readonly cancelReasons?: readonly CancelReason[]
 }
+
+/** The reasons a payer may give on canceling, in Stripe's words. */
+const cancelReasons = [
+	'too_expensive',
+	'missing_features',
+	'switched_service',
+	'unused',
+	'customer_service',
+	'too_complex',
+	'low_quality',
+	'other',
+] as const
+export type CancelReason = (typeof cancelReasons)[number]
 
 /** Each option's values, in Stripe's words; the first is the default. */
 const choices = {
@@ -32,7 +47,7 @@ const urls = ['returnUrl', 'termsUrl', 'privacyUrl'] as const
 
 /** Refuses portal options Stripe would refuse, naming the option. */
 export function checkPortal(portal: unknown): asserts portal is PortalOptions {
-	ownKeys('portal', portal, [...urls, ...Object.keys(choices)])
+	ownKeys('portal', portal, [...urls, ...Object.keys(choices), 'cancelReasons'])
 	for (const name of urls) {
 		const url: unknown = Reflect.get(portal, name)
 		if (url === undefined && name !== 'returnUrl') continue
@@ -51,6 +66,19 @@ export function checkPortal(portal: unknown): asserts portal is PortalOptions {
 			)
 		}
 	}
+	const reasons: unknown = Reflect.get(portal, 'cancelReasons')
+	if (reasons === undefined) return
+	if (
+		!Array.isArray(reasons) ||
+		reasons.length === 0 ||
+		!reasons.every((one) => cancelReasons.some((known) => known === one))
+	) {
+		throw new Refused(
+			`portal: cancelReasons lists some of ${cancelReasons
+				.map((one) => `'${one}'`)
+				.join(', ')}.`,
+		)
+	}
 }
 
 /** The portal's settings, letting a subscription move to `products`. */
@@ -68,6 +96,7 @@ export const portalSettings = (
 		: [],
 	trialUpdate: choices.trialChange[portal.trialChange ?? 'endTrial'],
 	cancelMode: choices.cancel[portal.cancel ?? 'atPeriodEnd'],
+	cancelReasons: portal.cancelReasons ?? [],
 	products,
 	active: true,
 })
@@ -82,6 +111,7 @@ const sorted = (settings: PortalSettings): string =>
 		settings.scheduleAtPeriodEnd.toSorted(),
 		settings.trialUpdate,
 		settings.cancelMode,
+		settings.cancelReasons.toSorted(),
 		settings.active,
 		settings.products
 			?.map(({ productId, priceIds }) => [productId, priceIds.toSorted()])

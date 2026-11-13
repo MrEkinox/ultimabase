@@ -2,14 +2,24 @@
 // on its raw body, stored once and answered at once; its job, the hourly
 // reconciliation and a payer's delete keep the rows in step with Stripe.
 import { asUser, runJobs } from '@ultimabase/testing'
-import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import {
+	afterEach,
+	beforeAll,
+	describe,
+	expect,
+	expectTypeOf,
+	it,
+	vi,
+} from 'vitest'
 import { stripe } from './index.ts'
 import { M as master, StripeCustomer, StripeEvent } from './models.ts'
 import {
 	billingTest,
 	Balance,
 	billingApp,
+	gemPack,
 	M,
+	Purchase,
 	Subscription,
 	team,
 	urls,
@@ -230,6 +240,121 @@ describe('the hourly reconciliation', () => {
 		const left = await StripeEvent.findMany({}, master)
 		expect(left.map(({ id }) => id)).toStrictEqual([waiting.id])
 		expect(left[0]?.processedAt).toBeInstanceOf(Date)
+	})
+})
+
+describe('a sync', () => {
+	const hand = { product: null, price: null, priceId: 'price_hand' }
+
+	it('logs a subscription whose price is outside the catalog, and writes no row', async () => {
+		const ada = await signUp()
+		const url = await stripe.checkout({ payer: ada, product: team, ...urls })
+		const subscription = fake.pay(url)
+		fake.update(subscription, hand)
+		await delivered()
+		expect(await Subscription.findMany({}, M)).toStrictEqual([])
+		expect(lines).toContainEqual({
+			level: 'error',
+			message:
+				'A Stripe subscription has a price outside the catalog: its payer gets nothing.',
+			details: {
+				subscription,
+				price: 'price_hand',
+				customer: fake.subscriptions.get(subscription)?.customerId,
+			},
+		})
+	})
+
+	it('still ends the row of a subscription moved outside the catalog', async () => {
+		const { subscription } = await subscribed()
+		const canceledAt = new Date()
+		fake.update(subscription, { ...hand, status: 'canceled', canceledAt })
+		await delivered()
+		expect(await Subscription.findMany({}, M)).toMatchObject([
+			{ product: 'team', price: 'monthly', status: 'canceled', canceledAt },
+		])
+	})
+
+	it('types the product and the price with the model’s enums', async () => {
+		await subscribed()
+		const [row] = await Subscription.findMany({}, M)
+		if (row === undefined) throw new Error('No subscription.')
+		expectTypeOf(row.product).toEqualTypeOf<'pro' | 'team' | 'legacy'>()
+		expectTypeOf(row.scheduledPrice).toEqualTypeOf<
+			'monthly' | 'yearly' | null
+		>()
+		const [purchase] = await Purchase.findMany({}, M)
+		expectTypeOf(purchase?.product).toEqualTypeOf<'gemPack' | undefined>()
+		const data = { product: 'tema' }
+		await expect(
+			// @ts-expect-error: a Plan is pro, team or legacy.
+			Subscription.update({ where: { id: row.id }, data }, M),
+		).rejects.toMatchObject({ code: 'VALIDATION_FAILED' })
+	})
+
+	it('logs a subscription whose product its enum misses, and still ends its row', async () => {
+		const { subscription, customer } = await subscribed()
+		const canceledAt = new Date()
+		const retired = { product: 'retired', status: 'canceled', canceledAt }
+		fake.update(subscription, retired)
+		await delivered()
+		expect(await Subscription.findMany({}, M)).toMatchObject([
+			{ product: 'team', status: 'canceled', canceledAt },
+		])
+		expect(lines).toContainEqual({
+			level: 'error',
+			message:
+				"A Stripe subscription has a product or price Subscription's enums miss: its payer gets nothing.",
+			details: {
+				subscription,
+				price: fake.subscriptions.get(subscription)?.priceId,
+				customer,
+			},
+		})
+	})
+
+	it('logs a subscription whose next price its enum misses', async () => {
+		const { subscription, customer } = await subscribed()
+		const before = lines.length
+		const at = new Date(Date.now() + 86_400_000)
+		fake.update(subscription, {
+			scheduled: { product: 'team', price: 'weekly', at },
+		})
+		await delivered()
+		expect(await Subscription.findMany({}, M)).toMatchObject([
+			{ scheduledPrice: null },
+		])
+		expect(lines.slice(before)).toContainEqual({
+			level: 'error',
+			message:
+				"A Stripe subscription has a product or price Subscription's enums miss: its payer gets nothing.",
+			details: {
+				subscription,
+				price: fake.subscriptions.get(subscription)?.priceId,
+				customer,
+			},
+		})
+	})
+
+	it('logs a payment of a product the catalog no longer holds', async () => {
+		const ada = await signUp()
+		const url = await stripe.checkout({ payer: ada, product: gemPack, ...urls })
+		const id = fake.pay(url)
+		const payment = fake.payments.get(id)
+		if (payment === undefined) throw new Error('No payment.')
+		fake.payments.set(id, { ...payment, product: 'retiredPack' })
+		await delivered()
+		expect(await Purchase.findMany({}, M)).toStrictEqual([])
+		expect(lines).toContainEqual({
+			level: 'error',
+			message:
+				'A Stripe payment has a product outside the catalog: its payer gets nothing.',
+			details: {
+				payment: id,
+				product: 'retiredPack',
+				customer: payment.customerId,
+			},
+		})
 	})
 })
 

@@ -185,6 +185,7 @@ export function fakeBilling(
 		subscriptions.set(id, {
 			id,
 			customerId: checkout.customerId,
+			priceId: price.id,
 			product,
 			price: name,
 			status: trialEnd === null ? 'active' : 'trialing',

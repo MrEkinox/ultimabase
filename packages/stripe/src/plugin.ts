@@ -21,6 +21,7 @@ import type { CustomerProfile } from './billing-gateway.ts'
 import type { Catalog } from './catalog.ts'
 import { applyCatalog, planCatalog } from './catalog.ts'
 import { describeStep } from './describe.ts'
+import { checkEnums } from './enums.ts'
 import { stripeClient } from './gateway.ts'
 import { closeJob, stripeJobs } from './jobs.ts'
 import { ownKeys } from './keys.ts'
@@ -29,8 +30,9 @@ import { billingModels } from './kinds.ts'
 import { M, StripeCustomer, StripeEvent, StripeScan } from './models.ts'
 import type { PortalOptions } from './portal.ts'
 import type { Product } from './product.ts'
+import { profileChanged } from './profile.ts'
 import type { Billing, Running } from './running.ts'
-import { rowsOf, runningOf, useRunning } from './running.ts'
+import { isBilling, rowsOf, runningOf, useRunning } from './running.ts'
 import { webhookRoutes } from './webhook.ts'
 
 /** What `stripePlugin` takes (D-371 point 2). */
@@ -121,10 +123,17 @@ function billingOf(
 	const name = first.model.schema.name
 	// The kernel refuses a relation to a model the application lacks.
 	if (payer === undefined) throw new TypeError(`${name}'s payer is unknown.`)
+	// A payer at Stripe: its hook pushes a changed profile (D-385).
+	if ((kind === 'subscription' || kind === 'purchase') && !payer.used) {
+		throw new Refused(
+			`${payer.schema.name} pays at Stripe: add stripePayer() to its use.`,
+		)
+	}
 	return {
 		name,
 		queries: rowsOf(first.model.queries),
 		payer: { name: payer.schema.name, queries: rowsOf(payer.queries) },
+		enums: first.declared.enums,
 	}
 }
 
@@ -206,11 +215,15 @@ function refuse(caller: Caller, name: string, operation: string): never {
 
 type Facts = { readonly caller: Caller; readonly name: string }
 
-/** Only Master, so the plugin, creates or updates a billing model. */
+/**
+ * Only Master, so the plugin, creates or updates a billing model; a payer
+ * model, which uses the plugin too, is the application's to write.
+ */
 const masterOnly =
 	(operation: 'create' | 'update') =>
 	({ caller, name }: Facts): void => {
-		if (!isMaster(caller)) refuse(caller, name, operation)
+		if (isMaster(caller) || !isBilling(runningOf(entry), name)) return
+		refuse(caller, name, operation)
 	}
 
 /**
@@ -255,6 +268,7 @@ const definition = definePlugin<Stripe>({
 	hooks: {
 		beforeCreate: masterOnly('create'),
 		beforeUpdate: masterOnly('update'),
+		afterUpdate: profileChanged,
 		afterDelete: deleted,
 	},
 	start: async ({ options, models, logger }) => {
@@ -275,6 +289,7 @@ const definition = definePlugin<Stripe>({
 			history: billingOf(models, 'history'),
 		}
 		checkModels(catalog.products, billing)
+		checkEnums(catalog.products, billing.subscription, billing.purchase)
 		const running: Running = {
 			stripe:
 				keys === undefined
@@ -305,3 +320,8 @@ const definition = definePlugin<Stripe>({
 export const stripePlugin: PluginOf<Stripe> = definition.plugin
 /** The plugin's entry in a billing model's `use`, which `define*` adds. */
 export const stripeUse: UseOf<Stripe> = definition.use
+/**
+ * The payer model's entry in its `use`: a change of the profile `customer`
+ * gives reaches Stripe (D-385).
+ */
+export const stripePayer: UseOf<Stripe> = definition.use

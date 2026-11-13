@@ -11,8 +11,9 @@ import { strings } from './job-input.ts'
 import type { RecoveryGateway } from './billing-gateway.ts'
 import { duplicateJob } from './duplicates.ts'
 import { M, StripeCustomer, StripeEvent, StripeScan } from './models.ts'
-import type { Rows, Running } from './running.ts'
-import { runningOf, stripeOf } from './running.ts'
+import { profileJob } from './profile.ts'
+import type { Running } from './running.ts'
+import { payersOf, runningOf, stripeOf } from './running.ts'
 import { syncCustomer } from './sync.ts'
 
 const minute = 60 * 1000
@@ -72,17 +73,6 @@ const syncJob = defineJob({
 		await syncCustomer(input.customer)
 	},
 })
-
-/** The queries of each payer model, by name. */
-const payersOf = (running: Running): ReadonlyMap<string, Rows> =>
-	new Map(
-		[running.subscription, running.purchase, running.balance].flatMap(
-			(billing) =>
-				billing === undefined
-					? []
-					: [[billing.payer.name, billing.payer.queries] as const],
-		),
-	)
 
 /**
  * Closes the customer of a deleted payer: Stripe deletes it, which ends its
@@ -227,4 +217,12 @@ const reconcileJob: RecurringJob<'stripe.reconcile'> = defineJob({
 /** The jobs the plugin adds (D-369). */
 export const stripeJobs: readonly (
 	Job<string, never> | RecurringJob<string>
-)[] = [eventJob, syncJob, closeJob, duplicateJob, reconcileJob, auditJob]
+)[] = [
+	eventJob,
+	syncJob,
+	closeJob,
+	duplicateJob,
+	profileJob,
+	reconcileJob,
+	auditJob,
+]

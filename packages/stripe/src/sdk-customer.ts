@@ -43,6 +43,7 @@ async function subscriptionOf(
 	return {
 		id: subscription.id,
 		customerId: refOf(subscription.customer) ?? '',
+		priceId: item?.price.id ?? null,
 		...(item === undefined
 			? { product: null, price: null }
 			: keysOf(item.price)),

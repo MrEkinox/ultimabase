@@ -1,7 +1,7 @@
 // A payer subscribes through Checkout (D-371, D-373 points 7 and 8): the
 // webhook's job writes the subscription, the payer comes back before it, or
 // opens the portal to change or cancel.
-import { runJobs } from '@ultimabase/testing'
+import { asUser, runJobs } from '@ultimabase/testing'
 import { Refused } from 'ultimabase'
 import { beforeAll, describe, expect, it, vi } from 'vitest'
 import { stripe } from './index.ts'
@@ -222,6 +222,72 @@ describe('stripe.checkout', () => {
 		expect(customerOf(url)?.id).toBe(customerOf(first)?.id)
 		expect(customerOf(url)?.profile.email).toBe('ada@lovelace.test')
 	})
+
+	it('pushes the payer’s new profile without a Checkout', async () => {
+		const ada = await signUp()
+		const url = await stripe.checkout({ payer: ada, product: team, ...urls })
+		const where = { id: ada.id }
+		const data = { email: 'ada@lovelace.test' }
+		// The payer's own write: the plugin refuses only its billing models'.
+		await User.update({ where, data }, { as: asUser(ada) })
+		await runJobs()
+		expect(customerOf(url)?.profile).toStrictEqual({
+			email: 'ada@lovelace.test',
+			name: null,
+			locale: null,
+		})
+	})
+
+	it('creates no customer for a payer who never paid', async () => {
+		const ada = await signUp()
+		const before = fake.customers.size
+		const where = { id: ada.id }
+		await User.update({ where, data: { email: 'ada@lovelace.test' } }, M)
+		await runJobs()
+		expect(fake.customers.size).toBe(before)
+	})
+
+	it('leaves a customer Stripe deleted to its sync', async () => {
+		const ada = await signUp()
+		const url = await stripe.checkout({ payer: ada, product: team, ...urls })
+		const deleted = customerOf(url)?.id ?? ''
+		fake.deleteCustomer(deleted)
+		const before = fake.customers.size
+		const where = { id: ada.id }
+		await User.update({ where, data: { email: 'ada@lovelace.test' } }, M)
+		await runJobs()
+		expect(fake.customers.size).toBe(before)
+		expect(customerOf(url)?.profile.email).toBe('ada@example.com')
+	})
+
+	it('speaks the payer’s language, on Checkout and the portal', async () => {
+		const data = { email: 'ada@example.com', lang: 'fr-BE' }
+		const ada = await User.create({ data }, M)
+		const url = await stripe.checkout({ payer: ada, product: team, ...urls })
+		expect(fake.checkouts.get(sessionOf(url))?.locale).toBe('fr-BE')
+		await paid(url)
+		await stripe.portal({ payer: ada })
+		expect(fake.portalSessions.at(-1)?.locale).toBe('fr-BE')
+	})
+
+	it('shows the application’s text by the terms checkbox', async () => {
+		const ada = await signUp()
+		const acceptance = 'I accept the [terms](https://app.test/terms).'
+		const args = { payer: ada, product: team, ...urls }
+		const url = await stripe.checkout({ ...args, terms: { acceptance } })
+		expect(fake.checkouts.get(sessionOf(url))?.terms).toStrictEqual({
+			acceptance,
+		})
+		const plain = await stripe.checkout({ ...args, terms: true })
+		expect(fake.checkouts.get(sessionOf(plain))?.terms).toStrictEqual({
+			acceptance: null,
+		})
+		for (const text of [' ', 'x'.repeat(1201)]) {
+			await expect(
+				stripe.checkout({ ...args, terms: { acceptance: text } }),
+			).rejects.toThrow('terms.acceptance is a text of 1 to 1,200 characters')
+		}
+	})
 })
 
 describe('stripe.syncCheckout', () => {
@@ -267,6 +333,7 @@ describe('stripe.portal', () => {
 				...urls,
 			}),
 		)
+		const opened = fake.portalSessions.length
 		const url = await stripe.portal({ payer: ada })
 		expect(url).toMatch(/^https:\/\/billing\.stripe\.test\//)
 		await stripe.portal({
@@ -276,7 +343,7 @@ describe('stripe.portal', () => {
 		})
 		await stripe.portal({ payer: ada, cancel: {} })
 		const [portal] = fake.portals.keys()
-		expect(fake.portalSessions).toMatchObject([
+		expect(fake.portalSessions.slice(opened)).toMatchObject([
 			{
 				configuration: portal,
 				returnUrl: 'https://app.test/account',

@@ -4,7 +4,7 @@
 import { httpPlugin } from '@ultimabase/http'
 import { jobsPlugin } from '@ultimabase/jobs'
 import { runJobs } from '@ultimabase/testing'
-import { defineApp, defineModel, memory } from 'ultimabase'
+import { defineApp, defineEnum, defineModel, memory } from 'ultimabase'
 import { quietRuns } from 'ultimabase/internal'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
@@ -19,6 +19,7 @@ import {
 	billingTest,
 	Balance,
 	billingApp,
+	CreditHistory,
 	gemPack,
 	M,
 	pro,
@@ -86,8 +87,42 @@ const SecondSubscription = defineSubscription({
 	name: 'SecondSubscription',
 	payer: () => User,
 })
+const NarrowPlan = defineSubscription({
+	name: 'NarrowPlan',
+	payer: () => User,
+	product: defineEnum('ProOnly', ['pro']),
+})
+const NarrowPeriod = defineSubscription({
+	name: 'NarrowPeriod',
+	payer: () => User,
+	price: defineEnum('MonthlyOnly', ['monthly']),
+})
+const NarrowPack = definePurchase({
+	name: 'NarrowPack',
+	payer: () => User,
+	product: defineEnum('PosterOnly', ['poster']),
+})
+
+// A payer the application did not give stripePayer().
+const Member = defineModel({
+	name: 'Member',
+	fields: (f) => ({ email: f.string() }),
+})
+const MemberPlan = defineSubscription({
+	name: 'MemberPlan',
+	payer: () => Member,
+})
+const MemberPack = definePurchase({ name: 'MemberPack', payer: () => Member })
 
 describe('stripePlugin’s start', () => {
+	it('refuses a payer without stripePayer() in its use', async () => {
+		for (const billing of [MemberPlan, MemberPack]) {
+			await expect(started([Member, billing])).rejects.toThrow(
+				'Member pays at Stripe: add stripePayer() to its use.',
+			)
+		}
+	})
+
 	it('refuses keys that are not a secret key and a signing secret', async () => {
 		const keys = { secret: 'pk_test_x', webhook: 'whsec_x' }
 		await expect(started([User], { keys })).rejects.toThrow(
@@ -154,6 +189,26 @@ describe('stripePlugin’s start', () => {
 			'pro gives credits: declare their model with defineBalance.',
 		)
 	})
+
+	it('refuses enums that miss a key or a price name of the catalog', async () => {
+		const credits = [User, Balance, CreditHistory]
+		const products = [pro, team, gemPack]
+		await expect(
+			started([...credits, NarrowPlan], { products }),
+		).rejects.toThrow(
+			"defineSubscription(NarrowPlan): product misses 'team', a key of the catalog.",
+		)
+		await expect(
+			started([...credits, NarrowPeriod], { products }),
+		).rejects.toThrow(
+			"defineSubscription(NarrowPeriod): price misses 'yearly', a price name of the catalog.",
+		)
+		await expect(
+			started([...credits, NarrowPack], { products: [gemPack] }),
+		).rejects.toThrow(
+			"definePurchase(NarrowPack): product misses 'gemPack', a key of the catalog.",
+		)
+	})
 })
 
 describe('the billing models', () => {
@@ -175,6 +230,19 @@ describe('the billing models', () => {
 				{ name: 'Open', owner: () => User, access: {} },
 			])
 		}).toThrow('Open: the definition takes no access')
+	})
+
+	it('refuse a product or a price that is not a defineEnum', () => {
+		expect(() => {
+			Reflect.apply(defineSubscription, undefined, [
+				{ name: 'Listed', payer: () => User, price: ['monthly'] },
+			])
+		}).toThrow('defineSubscription(Listed): price is a defineEnum.')
+		expect(() => {
+			Reflect.apply(definePurchase, undefined, [
+				{ name: 'Named', payer: () => User, product: 'gemPack' },
+			])
+		}).toThrow('definePurchase(Named): product is a defineEnum.')
 	})
 })
 

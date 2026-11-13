@@ -22805,7 +22805,7 @@ await applyStripeCatalog({
 
 ## D-373: The application's billing models: `defineSubscription`, `definePurchase`, `defineBalance`
 
-Amended by D-375, D-376 and D-377.
+Amended by D-375, D-376, D-377, D-383, D-384 and D-387.
 
 Choice: what a payer bought lives in the application's own models, which
 the plugin fills, as `defineRole` builds a role model (D-13, D-123).
@@ -22999,6 +22999,8 @@ await transaction(async () => {
 ```
 
 ## D-375: Stripe's sync holds no lock across Stripe, and recovers from Stripe's events
+
+Amended by D-385.
 
 Choice: amends D-371 points 2, 4 and 6, and D-373 points 3, 4 and 6.
 
@@ -23475,4 +23477,296 @@ socket.on('message:send', (input, ack) => {
 	"err": { "message": "…" },
 	"msg": "A socket event failed."
 }
+```
+
+## D-382: Checkout and the portal speak the payer's language
+
+Choice: builds on D-375 point 1.
+
+1. The `locale` that `customer` gives a payer is passed to each Checkout
+   and each portal session it opens, as Stripe's `locale`.
+2. Each page takes its own list of languages, Stripe's: Checkout knows
+   `hi-IN`, the portal `en-AU`. A locale is first made canonical
+   (`fr-be` is `fr-BE`), then kept when the page knows it, else its
+   language is kept when the page knows it (`fr-BE` is `fr`), else the page
+   chooses (`'auto'`). No locale, or one that is not a locale, is `'auto'`.
+3. The customer's `preferred_locales` keeps the raw value, as today: Stripe
+   reads it for its emails.
+4. No option per call: the payer's profile is the one source.
+
+Why: an application gives each user a language, and `customer` already
+reads it. Without it, Stripe guessed from the browser, so a user who chose
+French in the application could pay on an English page. Stripe refuses a
+locale outside each page's list, and the two lists differ, so the plugin
+maps it rather than letting the call fail.
+
+Rejected:
+
+- A `locale` option on `stripe.checkout` and `stripe.portal`: the profile
+  already holds it, and two sources would disagree.
+- Passing the raw value: `fr-BE` would fail the call.
+
+Example, before and after: nothing changes in the application's code.
+
+```ts
+stripePlugin({
+	// …
+	customer: (user) => ({ email: user.email, locale: user.lang }),
+})
+// Before: Checkout chose its language from the browser.
+// After: a user whose lang is 'fr-BE' pays on a French page.
+```
+
+## D-383: A Checkout's terms checkbox carries the application's text
+
+Choice: amends D-373 point 7.
+
+1. `stripe.checkout`'s `terms` is `true`, or `{ acceptance }`: a text,
+   in Stripe's Markdown, shown beside the checkbox instead of Stripe's.
+2. An empty text, or one over 1,200 characters, Stripe's limit, throws a
+   `TypeError` at the call.
+3. `true` stays as it was: the checkbox with Stripe's text.
+4. A Stripe account with Managed Payments, the default for a new account,
+   refuses the text; Stripe's error reaches the call. The plugin does not
+   turn Managed Payments off for the session: that changes who sells, so
+   who owes the taxes, which is the account's choice.
+
+Why: the terms Stripe's text links to are the account's, set in the
+Dashboard, in one language. An application that sells in several languages,
+or versions its terms, needs to say which terms the payer accepts, in the
+payer's language.
+
+Rejected:
+
+- A `termsUrl` option: Stripe has none for Checkout; the link lives in the
+  account's public details, and the text can carry its own link.
+- Checking the Markdown: Stripe renders it and refuses what it cannot.
+
+Example, before:
+
+```ts
+await stripe.checkout({
+	payer,
+	product: 'pro',
+	terms: true,
+	successUrl,
+	cancelUrl,
+})
+// "I agree to the Terms of Service", in the browser's language
+```
+
+After:
+
+```ts
+await stripe.checkout({
+	payer,
+	product: 'pro',
+	terms: {
+		acceptance: 'J’accepte les [conditions de vente](https://example.com/cgv).',
+	},
+	successUrl,
+	cancelUrl,
+})
+```
+
+## D-384: The portal asks why a payer cancels
+
+Choice: amends D-373 point 8.
+
+1. `portal.cancelReasons` lists the reasons the portal offers a payer who
+   cancels, in Stripe's words: `'too_expensive'`, `'missing_features'`,
+   `'switched_service'`, `'unused'`, `'customer_service'`,
+   `'too_complex'`, `'low_quality'`, `'other'`.
+2. Without it the portal asks nothing, as today. An empty list, or an
+   unknown reason, is refused at start.
+3. The catalog writes it to the managed portal configuration, and its
+   comparison at start counts it, so a change is applied.
+4. The reason the payer gives stays at Stripe, on the subscription's
+   `cancellation_details`: no field is added to the subscription model.
+
+Why: an application wants to know why its payers leave, and Stripe asks
+for it on the portal it already shows. The answer is read in Stripe's
+Dashboard and reports, where the plugin cannot do better.
+
+Rejected:
+
+- `cancel: { mode, reasons }`: the portal's options stay flat values.
+- A `cancelReason` field on the subscription model: nothing in the
+  application acts on it yet (AGENTS.md: no speculative API).
+
+Example, before and after:
+
+```ts
+// Before: the portal canceled without a question
+stripePlugin({ portal: { returnUrl } })
+
+// After
+stripePlugin({
+	portal: {
+		returnUrl,
+		cancelReasons: ['too_expensive', 'missing_features', 'unused', 'other'],
+	},
+})
+```
+
+## D-385: A change of the payer's profile reaches Stripe
+
+Choice: amends D-375 point 1 and its rejected line.
+
+1. The application adds `stripePayer()` to the `use` of the model that
+   pays subscriptions or purchases; the plugin refuses at start such a
+   model without it. It gives the model the plugin's after-update hook,
+   which computes `customer` of the row before and after; when both give
+   the same profile, it does nothing, and reads nothing.
+2. Otherwise it enqueues `stripe.profile` in the update's transaction,
+   keyed by the payer, so a burst of updates pushes once.
+3. The job, under the customer's lock, reads the payer again and pushes its
+   profile when it differs from the last one pushed. A payer gone, or never
+   a customer, ends the job; so does a customer Stripe deleted, which the
+   job does not create again: its sync forgets it, and the next Checkout
+   creates one.
+4. Checkout and the portal still push a changed profile, as D-375 point 1.
+5. The plugin's refusal of a client's or the server's write applies to the
+   billing models only: the payer model is the application's to write.
+
+Why: D-375 rejected the hook because Stripe needed the profile only on its
+own pages. It does not: Stripe emails receipts, invoices and failed-payment
+notices to the customer's email, in its preferred language. A user who
+changed their email kept receiving them at the old one until their next
+Checkout, which a subscriber never opens.
+
+Rejected:
+
+- Pushing in the hook itself: a call to Stripe in the payer's write would
+  slow it and fail it when Stripe is down.
+- Pushing on every update: most updates change no field `customer` reads.
+- The plugin hooking the payer without the application's line: the core
+  runs a plugin's hooks only on the models whose `use` lists it (D-15). A
+  core way for a plugin to hook a model it names would remove the line; it
+  is a decision of its own.
+- Comparing the profiles in the hourly reconciliation: up to an hour late,
+  and it reads every payer each hour.
+
+Example, before:
+
+```ts
+export const User = defineModel({
+	name: 'User',
+	fields: (f) => ({ email: f.string() }),
+})
+
+await User.update({ where: { id }, data: { email: 'new@example.com' } })
+// Stripe kept emailing the old address.
+```
+
+After:
+
+```ts
+export const User = defineModel({
+	name: 'User',
+	use: [stripePayer()],
+	fields: (f) => ({ email: f.string() }),
+})
+
+await User.update({ where: { id }, data: { email: 'new@example.com' } })
+// stripe.profile pushes the new address within a job's run.
+```
+
+## D-386: A sync logs what it cannot give
+
+Choice: builds on D-371 point 4 and D-372.
+
+1. A subscription whose price the plugin did not write, so without a
+   product key or a price name, as a price made by hand in the Dashboard,
+   is logged at error level, naming the subscription, the price and the
+   customer: "A Stripe subscription has a price outside the catalog: its
+   payer gets nothing." The sync goes on with the customer's other
+   subscriptions.
+2. No row is created for it. A row that exists already, whose subscription
+   moved to such a price, still gets its status and dates, so its
+   cancellation is never lost; its product and price stay the last known.
+3. A one-time payment the plugin opened whose product key the catalog no
+   longer holds is logged at error level the same way. A payment without a
+   product key, an invoice's, stays silent.
+4. A subscription to a product removed from the catalog is not an error:
+   D-372 archives the product, and its subscribers keep it.
+5. The daily audit does not repeat it: each sync logs it, and a payer's
+   subscription is synced at least each period.
+
+Why: a payer charged each month for a price the catalog does not know got
+nothing, and nobody knew. The row of a subscription moved to such a price
+stayed live after Stripe ended it, and kept giving what it gave.
+
+Rejected:
+
+- A line in the daily audit as well: the same fact twice.
+- Skipping the existing row: a cancellation at Stripe would never reach
+  it.
+
+## D-387: A billing model may type its product and price with the application's enums
+
+Choice: amends D-373 point 2.
+
+1. `defineSubscription({ name, payer, product?, price? })` and
+   `definePurchase({ name, payer, product? })` take an enum of
+   `defineEnum` (D-150). `product` types the row's `product`, and a
+   subscription's `scheduledProduct`; `price` types `price` and
+   `scheduledPrice`. Without it, the field stays a string. A value that is
+   not a `defineEnum` is refused when the model is defined.
+2. At start, the catalog's keys must be in the enums: each subscription
+   product's key in the subscription's `product`, each of their price names
+   in its `price`, each one-time product's key in the purchase's `product`.
+   A missing key is refused, naming the model, the option and the key.
+3. An enum may hold more values than the catalog: the keys of products
+   removed from it, which existing rows still hold (D-386 point 4).
+4. A sync that reads a product or a price the enums miss, current or
+   scheduled, as a product removed from both the catalog and the enum,
+   treats the subscription as D-386 points 1 and 2 do: logged at error
+   level, "A Stripe subscription has a product or price <Model>'s enums
+   miss: its payer gets nothing.", no new row, and an existing row gets its
+   status and dates only. Writing the value would fail the enum's check and
+   with it the customer's whole sync.
+
+Why: an application reads `subscription.product` and compares it to its
+keys. As a string, a typo compiles, and GraphQL and REST show a string. As
+an enum, the compiler checks each comparison, and the API shows the values.
+
+Rejected:
+
+- Enums the plugin generates from the catalog: an application already has
+  its own enum, used in its other models, and a generated one would not be
+  in its types before the catalog is read.
+
+Example, before:
+
+```ts
+export const PackSubscription = defineSubscription({
+	name: 'PackSubscription',
+	payer: () => User,
+})
+if (subscription.product === 'teem') {
+	/* never true, compiles */
+}
+```
+
+After:
+
+```ts
+export const Pack = defineEnum('Pack', ['solo', 'team'])
+export const Period = defineEnum('Period', ['monthly', 'yearly'])
+export const PackSubscription = defineSubscription({
+	name: 'PackSubscription',
+	payer: () => User,
+	product: Pack,
+	price: Period,
+})
+if (subscription.product === 'teem') {
+	/* type error */
+}
+```
+
+A catalog with a product `'business'` missing from `Pack` refuses to start:
+
+```
+defineSubscription(PackSubscription): product misses 'business', a key of the catalog.
 ```

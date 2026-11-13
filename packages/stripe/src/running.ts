@@ -6,6 +6,7 @@ import type { Gateway } from './accounts.ts'
 import type { CustomerProfile } from './billing-gateway.ts'
 import { unavailable } from './billing-gateway.ts'
 import type { Catalog } from './catalog.ts'
+import type { Enums } from './kinds.ts'
 import type { Product } from './product.ts'
 
 /** A row as the plugin reads it, from a model it does not type. */
@@ -53,6 +54,8 @@ export interface Billing {
 	readonly queries: Rows
 	/** The payer's or owner's model: its name and queries. */
 	readonly payer: { readonly name: string; readonly queries: Rows }
+	/** The values of its `product` and `price` enums, if typed (D-387). */
+	readonly enums: Enums
 }
 
 /** What the plugin holds while the application runs. */
@@ -95,6 +98,22 @@ export function runningOf(entry: string): Running {
 	}
 	return running
 }
+
+/** The queries of each payer model, by name. */
+export const payersOf = (state: Running): ReadonlyMap<string, Rows> =>
+	new Map(
+		[state.subscription, state.purchase, state.balance].flatMap((billing) =>
+			billing === undefined
+				? []
+				: [[billing.payer.name, billing.payer.queries] as const],
+		),
+	)
+
+/** Whether `name` is one of the billing models, which only the plugin writes. */
+export const isBilling = (state: Running, name: string): boolean =>
+	[state.subscription, state.purchase, state.balance, state.history].some(
+		(billing) => billing?.name === name,
+	)
 
 /** The gateway, or `PAYMENT_UNAVAILABLE` without keys (D-371). */
 export function stripeOf(entry: string): NonNullable<Running['stripe']> {
