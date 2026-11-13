@@ -2,7 +2,8 @@
 // test:stripe` and STRIPE_SECRET_KEY: what the fake cannot prove, that
 // Stripe takes what the plugin sends and sends what the plugin reads. Each
 // run makes a catalog and test clocks of its own, and archives them at the
-// end. CI runs none of it.
+// end. CI runs it each night and on every run of `main` (D-378), never on
+// a pull request.
 import { runJobs } from '@ultimabase/testing'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { applyStripeCatalog } from './apply.ts'
@@ -110,7 +111,7 @@ describe('a payer at Stripe', () => {
 			.toMatchObject([{ status: 'canceled' }])
 	})
 
-	it('buys credits, and gives them back with a refund', async () => {
+	it('buys credits, keeps them after a partial refund, and loses them with the rest', async () => {
 		const { payer, customer, method } = await payerAtStripe()
 		const intent = await client.paymentIntents.create({
 			amount: 4_90,
@@ -126,18 +127,26 @@ describe('a payer at Stripe', () => {
 			const where = { owner: { is: { id: payer.id } } }
 			const [balance] = await Balance.findMany({ where }, M)
 			const [purchase] = await Purchase.findMany({}, M)
-			return { balance: balance?.amount, status: purchase?.status }
+			return {
+				balance: balance?.amount,
+				status: purchase?.status,
+				refunded: purchase?.refunded,
+			}
 		}
 		await expect
 			.poll(credits, poll)
-			.toStrictEqual({ balance: 500, status: 'paid' })
+			.toStrictEqual({ balance: 500, status: 'paid', refunded: 0 })
+		await client.refunds.create({ payment_intent: intent.id, amount: 1_00 })
+		await expect
+			.poll(credits, poll)
+			.toStrictEqual({ balance: 500, status: 'paid', refunded: 1_00 })
 		await client.refunds.create({ payment_intent: intent.id })
 		await expect
 			.poll(credits, poll)
-			.toStrictEqual({ balance: 0, status: 'refunded' })
+			.toStrictEqual({ balance: 0, status: 'refunded', refunded: 4_90 })
 	})
 
-	it('is free with a promotion code, and gives its credits', async () => {
+	it('is free with a full discount, and gives its credits', async () => {
 		const { payer, customer } = await payerAtStripe()
 		const coupon = await client.coupons.create({
 			percent_off: 100,
@@ -313,7 +322,6 @@ describe('a payer over time', () => {
 		return {
 			status: subscription?.status ?? purchase?.status,
 			gems: balance?.amount ?? 0,
-			...(purchase !== undefined && { refunded: purchase.refunded }),
 		}
 	}
 
@@ -387,7 +395,7 @@ describe('a payer over time', () => {
 	)
 
 	it(
-		'is past due, with no credits, when its renewal is declined',
+		'is past due, with no new credits, when its renewal is declined',
 		async () => {
 			const { payer, customer, clock } = await payerAtStripe()
 			await subscribed(customer)
@@ -424,18 +432,6 @@ describe('a payer over time', () => {
 		},
 		clocked,
 	)
-
-	it('keeps its credits after a partial refund', async () => {
-		const { payer, customer, method } = await payerAtStripe()
-		const intent = await bought(customer, method)
-		await expect
-			.poll(async () => held(payer), poll)
-			.toStrictEqual({ status: 'paid', gems: 500, refunded: 0 })
-		await client.refunds.create({ payment_intent: intent.id, amount: 1_00 })
-		await expect
-			.poll(async () => held(payer), poll)
-			.toStrictEqual({ status: 'paid', gems: 500, refunded: 1_00 })
-	})
 
 	it('loses its credits with a lost dispute', async () => {
 		const { payer, customer } = await payerAtStripe()

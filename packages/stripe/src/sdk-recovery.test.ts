@@ -85,9 +85,14 @@ describe('cancelAndRefund', () => {
 			'POST /v1/refunds',
 			'POST /v1/refunds',
 		])
-		expect(requests.slice(2).map(({ params }) => params)).toStrictEqual([
-			{ charge: 'ch_1' },
-			{ charge: 'ch_2' },
+		expect(
+			requests.slice(2).map(({ params, idempotencyKey }) => ({
+				params,
+				idempotencyKey,
+			})),
+		).toStrictEqual([
+			{ params: { charge: 'ch_1' }, idempotencyKey: 'refund-ch_1' },
+			{ params: { charge: 'ch_2' }, idempotencyKey: 'refund-ch_2' },
 		])
 	})
 

@@ -208,6 +208,9 @@ describe('readCustomer', () => {
 			'expand[0]': 'data.schedule',
 		})
 		expect(
+			requests.find(({ path }) => path === '/v1/payment_intents')?.params,
+		).toMatchObject({ customer: 'cus_1', 'expand[0]': 'data.latest_charge' })
+		expect(
 			requests.find(({ path }) => path === '/v1/disputes')?.params,
 		).toMatchObject({ payment_intent: 'pi_2' })
 	})
@@ -230,13 +233,24 @@ describe('readCustomer', () => {
 				case '/v1/subscriptions':
 					return stripeList([])
 				case '/v1/payment_intents':
-					// An invoice's payment, which the plugin did not open.
+					// Invoices' payments, which the plugin did not open.
 					return stripeList([
 						intent('pi_5', {
 							metadata: {},
-							latest_charge: { id: 'ch_5', amount_refunded: 9_90 },
+							latest_charge: {
+								id: 'ch_5',
+								amount_refunded: 9_90,
+								disputed: true,
+							},
+						}),
+						// The open attempt in_1 lists: what it refunded is not in_1's.
+						intent('pi_6', {
+							metadata: {},
+							latest_charge: { id: 'ch_6', amount_refunded: 1_00 },
 						}),
 					])
+				case '/v1/disputes':
+					return stripeList([{ id: 'dp_5', object: 'dispute', status: 'lost' }])
 				case '/v1/invoices':
 					return stripeList([
 						{
@@ -288,7 +302,7 @@ describe('readCustomer', () => {
 				periods: [{ product: 'pro', price: 'monthly', quantity: 2, end }],
 				amount: 9_90,
 				refunded: 9_90,
-				disputeLost: false,
+				disputeLost: true,
 			},
 			{
 				id: 'in_2',
@@ -545,16 +559,25 @@ describe('a Checkout', () => {
 			terms: false,
 			promotionCodes: false,
 		})
-		expect(requests[1]?.params).toMatchObject({
+		// No terms, no promotion codes and no trial: none is sent.
+		expect(requests[1]?.params).toStrictEqual({
 			mode: 'payment',
+			customer: 'cus_1',
+			client_reference_id: 'user_1',
+			'line_items[0][price]': 'price_1',
+			'line_items[0][quantity]': '2',
+			success_url: 'https://app.test/paid',
+			cancel_url: 'https://app.test/shop',
+			'metadata[campaign]': 'spring',
+			'metadata[managedBy]': 'ultimabase',
+			'metadata[product]': 'pro',
 			// The Checkout keeps it too: a free one has no payment.
 			'metadata[quantity]': '2',
+			'payment_intent_data[metadata][campaign]': 'spring',
+			'payment_intent_data[metadata][managedBy]': 'ultimabase',
 			'payment_intent_data[metadata][product]': 'pro',
 			'payment_intent_data[metadata][quantity]': '2',
 		})
-		expect(Object.keys(requests[1]?.params ?? {})).not.toContain(
-			'allow_promotion_codes',
-		)
 	})
 
 	it('refuses a price the catalog did not write', async () => {
