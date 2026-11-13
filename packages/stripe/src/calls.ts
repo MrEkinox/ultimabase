@@ -2,7 +2,7 @@
 // 3, D-373 points 7 and 8): the server calls an application's functions make.
 // Each runs under the payer's customer lock and expires the Checkouts the
 // payer left open, so two tabs cannot both pay.
-import { PublicError } from 'ultimabase'
+import { PublicError, Refused } from 'ultimabase'
 import type { Gateway } from './accounts.ts'
 import type { PortalFlow } from './billing-gateway.ts'
 import { Missing } from './billing-gateway.ts'
@@ -169,11 +169,15 @@ export async function checkout<const P extends Product>(
 	)
 }
 
-/** The payer's subscription a deep link is about, or `NOT_SUBSCRIBED`. */
+/**
+ * The payer's subscription a deep link is about, or `NOT_SUBSCRIBED`; the
+ * code names one with `option` when the payer has several.
+ */
 async function subscriptionOf(
 	model: Billing,
 	payer: Payer,
 	id: string | undefined,
+	option: string,
 ): Promise<Row> {
 	const where = {
 		payer: { is: { id: payer.id } },
@@ -186,8 +190,8 @@ async function subscriptionOf(
 		throw new PublicError('NOT_SUBSCRIBED', 'The payer has no subscription.')
 	}
 	if (other !== undefined) {
-		throw new TypeError(
-			'stripe.portal: the payer has several subscriptions; name one with subscription.',
+		throw new Refused(
+			`stripe.portal: the payer has several live subscriptions; name the one with ${option}, a ${model.name} row’s id.`,
 		)
 	}
 	return one
@@ -206,12 +210,22 @@ async function flowOf(
 	if (change !== undefined) {
 		const product = catalogued(running, change.product)
 		const lookup = lookupKey(product, change.price)
-		const row = await subscriptionOf(model, args.payer, change.subscription)
+		const row = await subscriptionOf(
+			model,
+			args.payer,
+			change.subscription,
+			'change.subscription',
+		)
 		const subscriptionId = String(row['stripeId'])
 		return { kind: 'change', subscriptionId, lookupKey: lookup }
 	}
 	if (cancel !== undefined) {
-		const row = await subscriptionOf(model, args.payer, cancel.subscription)
+		const row = await subscriptionOf(
+			model,
+			args.payer,
+			cancel.subscription,
+			'cancel.subscription',
+		)
 		return { kind: 'cancel', subscriptionId: String(row['stripeId']) }
 	}
 	return { kind: 'home' }

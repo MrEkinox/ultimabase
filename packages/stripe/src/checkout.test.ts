@@ -2,6 +2,7 @@
 // webhook's job writes the subscription, the payer comes back before it, or
 // opens the portal to change or cancel.
 import { runJobs, testApplication } from '@ultimabase/testing'
+import { Refused } from 'ultimabase'
 import { beforeAll, describe, expect, it, vi } from 'vitest'
 import { stripe } from './index.ts'
 import {
@@ -270,8 +271,10 @@ describe('stripe.portal', () => {
 				...urls,
 			}),
 		)
-		await expect(stripe.portal({ payer: ada, cancel: {} })).rejects.toThrow(
-			'stripe.portal: the payer has several subscriptions; name one with subscription.',
+		const unnamed = stripe.portal({ payer: ada, cancel: {} })
+		await expect(unnamed).rejects.toBeInstanceOf(Refused)
+		await expect(unnamed).rejects.toThrow(
+			'stripe.portal: the payer has several live subscriptions; name the one with cancel.subscription, a Subscription row’s id.',
 		)
 		const row = await Subscription.findUniqueOrThrow(
 			{ where: { stripeId: second } },
