@@ -1,11 +1,13 @@
 ---
 title: Stripe
-description: Declare what the application sells in code, and bring a Stripe account to it from the deploy script.
+description: Declare what the application sells in code, sell it on Stripe's hosted pages, and keep subscriptions, purchases and credits in the application's own models.
 ---
 
 `@ultimabase/stripe` keeps what the application sells in its code: products,
 their prices and the credits a purchase gives. The deploy script writes them
 to [Stripe](https://stripe.com), with the customer portal's configuration.
+Users pay on Stripe's Checkout and manage their subscriptions on its portal;
+Stripe's events keep the application's billing models in step.
 
 ```npm
 npm install @ultimabase/stripe
@@ -34,6 +36,10 @@ in the currency's smallest unit: `9_90` is 9.90 EUR.
 applies it. `dryRun` prints the plan alone.
 
 <include cwd meta='title="src/stripe.ts"'>
+	../examples/stripe/src/stripe.ts#selling
+</include>
+
+<include cwd meta='title="src/stripe.ts"'>
 	../examples/stripe/src/stripe.ts#deploy
 </include>
 
@@ -52,6 +58,122 @@ every 3 months`; `yarn deploy --dry-run` prints them and changes nothing.
 - `taxBehavior` is `'inclusive'` unless set: the amounts include the taxes.
 - The secret key's mode is printed: `sk_live_…` writes to the live account.
 
+## The plugin
+
+`stripePlugin` sells the catalog. It needs `httpPlugin`, for Stripe's
+webhook, and `jobsPlugin`, whose jobs write Stripe's events to the models.
+
+```npm
+npm install @ultimabase/jobs
+```
+
+<include cwd meta='title="src/app.ts"'>
+	../examples/stripe/src/app.ts#plugin
+</include>
+
+<include cwd meta='title="src/app.ts"'>
+	../examples/stripe/src/app.ts#app
+</include>
+
+- `keys` holds the secret key and the webhook's signing secret. Without
+  them, the application starts, every call that needs Stripe throws
+  `PAYMENT_UNAVAILABLE`, and the webhook answers 503.
+- `customer` gives what Stripe shows of a payer, from its row: `email`,
+  `name`, `locale`. Each payer has one Stripe customer, created at its first
+  Checkout and closed when the payer's row is deleted.
+- At start, the plugin compares the catalog with Stripe. With
+  `NODE_ENV=development` and a test key it applies it; otherwise it warns
+  and lists the differences: the deploy script applies them.
+- `webhookPath` is `/webhooks/stripe` unless set; `oneSubscription: true`
+  refuses a second live subscription with `ALREADY_SUBSCRIBED`.
+
+## The billing models
+
+Three functions declare the models the plugin writes, each with its fields;
+the application adds its own. Only the plugin writes them: a client's or
+the server's write is refused.
+
+<include cwd meta='title="src/models.ts"'>
+	../examples/stripe/src/models.ts#models
+</include>
+
+- `defineSubscription`: `payer`, `stripeId`, `product`, `price`, `status`,
+  `quantity`, `currentPeriodEnd`, `cancelAt`, `canceledAt`, `trialEnd`,
+  `startedAt`, and the change the portal scheduled: `scheduledProduct`,
+  `scheduledPrice`, `scheduledAt`.
+- `definePurchase`: `payer`, `stripeId`, `product`, `amount`, `refunded`,
+  `status` (`'paid'` or `'refunded'`), `paidAt`.
+- `defineBalance`: `owner`, `credit`, `amount`.
+- An application has at most one model of each; the purchases' payer and
+  the balances' owner are one model.
+
+## Checkout and the portal
+
+`stripe.checkout` opens Stripe's Checkout for a payer and returns its URL.
+It closes the payer's Checkouts still open, so two tabs cannot both pay.
+
+<include cwd meta='title="src/shop.ts"'>
+	../examples/stripe/src/shop.ts#checkout
+</include>
+
+- `price` names one of a subscription's prices; a product with one price
+  needs none.
+- `quantity`, `trialDays`, `terms`, `promotionCodes` and `metadata` are
+  optional.
+
+The success page writes what the payer paid at once, before Stripe's event
+arrives. It finds only the payer's own Checkout.
+
+<include cwd meta='title="src/shop.ts"'>
+	../examples/stripe/src/shop.ts#paid
+</include>
+
+`stripe.portal` opens Stripe's customer portal. `change` and `cancel` open
+it on the confirmation of a change or a cancellation, and throw
+`NOT_SUBSCRIBED` without a live subscription.
+
+<include cwd meta='title="src/shop.ts"'>
+	../examples/stripe/src/shop.ts#portal
+</include>
+
+## The webhook
+
+In Stripe, create an event destination for the application's URL, with
+the path `/webhooks/stripe` and thin payloads, and give its signing secret
+to `keys.webhook`.
+
+- The plugin checks each event's signature on the raw body and its mode,
+  stores it once, enqueues its job and answers at once. A forged event gets 401.
+- The job reads the customer from Stripe and writes its subscriptions,
+  purchases and credits. Events can come late or in any order: the rows
+  follow Stripe, not the event.
+- An hourly job runs the events still waiting, syncs again the customers
+  whose period ended, and closes the customers of deleted payers.
+
+## Credits
+
+A paid product's `gives` adds to the payer's balances, once a payment.
+`stripe.spend` takes them, in the caller's transaction when there is one.
+
+<include cwd meta='title="src/shop.ts"'>
+	../examples/stripe/src/shop.ts#spend
+</include>
+
+- A balance lacking the credits throws `NOT_ENOUGH_CREDITS`, with
+  `{ credit, balance, needed }`, and changes nothing.
+- A full refund or a lost dispute takes back the credits the payment gave;
+  those already spent stay spent, and the plugin warns.
+
+## Errors
+
+| Code                  | When                                                         |
+| --------------------- | ------------------------------------------------------------ |
+| `PAYMENT_UNAVAILABLE` | The plugin has no keys, or Stripe does not answer.           |
+| `ALREADY_SUBSCRIBED`  | `oneSubscription` and a Checkout of a second subscription.   |
+| `NOT_SUBSCRIBED`      | A portal's `change` or `cancel` without a live subscription. |
+| `NOT_ENOUGH_CREDITS`  | `stripe.spend` takes more than the balance holds.            |
+| `NOT_FOUND`           | A payer that is no row, or `syncCheckout` of another payer.  |
+
 ## Testing
 
 `fakeStripe()` is a Stripe account in memory, reached by its `secret`: no
@@ -59,6 +181,27 @@ test reaches Stripe.
 
 <include cwd meta='title="src/app.test.ts"'>
 	../examples/stripe/src/app.test.ts#fake
+</include>
+
+The application gets the fake's keys. A test pays a Checkout with `pay`,
+and `deliver` posts Stripe's signed events to the webhook; `runJobs` runs
+their jobs.
+
+<include cwd meta='title="src/app.test.ts"'>
+	../examples/stripe/src/app.test.ts#keys
+</include>
+
+<include cwd meta='title="src/app.test.ts"'>
+	../examples/stripe/src/app.test.ts#pay
+</include>
+
+`refund`, `loseDispute`, `update` and `deleteCustomer` do at Stripe what
+a payer or the dashboard does. `thinEvent` and `postEvent` post an event of
+the test's own, signed with the secret it is given, to `/webhooks/stripe`
+or its `path`.
+
+<include cwd meta='title="src/app.test.ts"'>
+	../examples/stripe/src/app.test.ts#event
 </include>
 
 The full example, with its tests: [`examples/stripe`](https://github.com/MrEkinox/ultimabase/tree/main/examples/stripe).
