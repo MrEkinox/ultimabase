@@ -13,6 +13,7 @@
 		"deploy": "node src/deploy.ts"
 	},
 	"dependencies": {
+		"@ultimabase/auth": "workspace:*",
 		"@ultimabase/http": "workspace:*",
 		"@ultimabase/jobs": "workspace:*",
 		"@ultimabase/stripe": "workspace:*",

@@ -4669,6 +4669,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "example-stripe@workspace:examples/stripe"
   dependencies:
+    "@ultimabase/auth": "workspace:*"
     "@ultimabase/http": "workspace:*"
     "@ultimabase/jobs": "workspace:*"
     "@ultimabase/stripe": "workspace:*"

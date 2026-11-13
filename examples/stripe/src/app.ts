@@ -5,7 +5,13 @@ import { httpPlugin } from '@ultimabase/http'
 import { jobsPlugin } from '@ultimabase/jobs'
 import { stripePlugin } from '@ultimabase/stripe'
 import { defineApp, memory } from 'ultimabase'
-import { Balance, Purchase, Subscription, User } from './models.ts'
+import {
+	Balance,
+	CreditHistory,
+	Purchase,
+	Subscription,
+	User,
+} from './models.ts'
 import { selling } from './stripe.ts'
 
 //#region plugin
@@ -33,6 +39,6 @@ export const app = defineApp({
 	// Listens on PORT, or 3000; runs each Stripe event's job, and the hourly
 	// reconciliation, which catches the events the webhook missed.
 	plugins: [httpPlugin(), jobsPlugin({ jobs: [] }), stripe],
-	models: [User, Subscription, Purchase, Balance],
+	models: [User, Subscription, Purchase, Balance, CreditHistory],
 })
 //#endregion
