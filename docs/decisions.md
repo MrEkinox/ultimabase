@@ -23169,6 +23169,15 @@ Choice: amends D-372 point 2, D-373 point 2 and D-374 points 4 and 5.
    gives nothing until its first payment, and a prorated upgrade nothing
    until the next renewal. A full refund of the invoice, or a lost dispute,
    takes them back as for a purchase (D-374 point 3).
+   - Only a period that has not ended when the plugin reads its invoice
+     gives: a `gives` added to a live price gives from the next renewal,
+     not for the periods already paid.
+   - A refund takes back what the history shows the payment gave, not what
+     the catalog gives now, and a free invoice, after a full coupon, is
+     never read as refunded.
+   - The plugin reads a payer's paid invoices of the last 400 days, and
+     only when a recurring price gives credits: an application without
+     them makes no more calls to Stripe.
 5. What a page shows comes from the row, not from the catalog in code:
    - a subscription adds `amount`, what one period of its price costs
      times its quantity, before discounts and taxes, and `every` and

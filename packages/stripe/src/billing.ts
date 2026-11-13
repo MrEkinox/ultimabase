@@ -1,6 +1,6 @@
-// `defineSubscription`, `definePurchase` and `defineBalance` (D-373): the
-// application's own models of what a payer bought, which only the plugin
-// writes. Each is an ordinary model with the plugin first in its `use`.
+// `defineSubscription`, `definePurchase`, `defineBalance` and
+// `defineCreditHistory` (D-373, D-377): the application's own models of what
+// a payer bought and of its credits, which only the plugin writes. Each is an ordinary model with the plugin first in its `use`.
 import type {
 	Field,
 	FieldShapes,
@@ -19,6 +19,7 @@ import type { FieldBuilders } from 'ultimabase'
 import { billingModels, type Kind } from './kinds.ts'
 import type { Stripe } from './plugin.ts'
 import { stripeUse } from './plugin.ts'
+import type { Every } from './product.ts'
 
 type Uses = readonly ModelUse<string, PluginTypes>[]
 /** A billing model's `use`: the plugin first, then the developer's. */
@@ -33,6 +34,29 @@ type Moment = Field<Date, ScalarOptions<Date>>
 type Optional<V> = Field<V | null, { readonly optional: true }>
 type StripeId = Field<string, { readonly unique: true }>
 type PayerOf<P> = One<P, { readonly onDelete: 'cascade' }>
+type OneOf<V extends string> = Field<V, ScalarOptions<string>>
+
+/** Stripe's statuses of a subscription. */
+export type SubscriptionStatus =
+	| 'incomplete'
+	| 'incomplete_expired'
+	| 'trialing'
+	| 'active'
+	| 'past_due'
+	| 'canceled'
+	| 'unpaid'
+	| 'paused'
+const statuses: readonly SubscriptionStatus[] = [
+	'incomplete',
+	'incomplete_expired',
+	'trialing',
+	'active',
+	'past_due',
+	'canceled',
+	'unpaid',
+	'paused',
+]
+const intervals: readonly Every[] = ['day', 'week', 'month', 'year']
 
 /** The fields `defineSubscription` adds; `P` is the payer's thunk. */
 export type SubscriptionFields<P> = {
@@ -41,9 +65,16 @@ export type SubscriptionFields<P> = {
 	/** The product's key and the price's name (D-372). */
 	readonly product: Text
 	readonly price: Text
-	/** Stripe's: `active`, `trialing`, `past_due`, `canceled`… */
-	readonly status: Text
+	readonly status: OneOf<SubscriptionStatus>
 	readonly quantity: Int
+	/**
+	 * What one period costs, times the quantity, before discounts and taxes,
+	 * in the currency's smallest unit: the price the payer subscribed at.
+	 */
+	readonly amount: Int
+	/** The price's interval: every `everyCount` `every`. */
+	readonly every: OneOf<Every>
+	readonly everyCount: Int
 	readonly currentPeriodEnd: Moment
 	readonly cancelAt: Optional<Date>
 	readonly canceledAt: Optional<Date>
@@ -60,11 +91,14 @@ export type PurchaseFields<P> = {
 	readonly payer: PayerOf<P>
 	readonly stripeId: StripeId
 	readonly product: Text
+	readonly quantity: Int
 	/** In the currency's smallest unit. */
 	readonly amount: Int
 	readonly refunded: Int
-	readonly status: Field<'paid' | 'refunded', ScalarOptions<string>>
+	readonly status: OneOf<'paid' | 'refunded'>
 	readonly paidAt: Moment
+	/** Stripe's receipt page. */
+	readonly receiptUrl: Optional<string>
 }
 
 /** The fields `defineBalance` adds. */
@@ -74,6 +108,18 @@ export type BalanceFields<P> = {
 	readonly credit: Text
 	/** Never below zero. */
 	readonly amount: Int
+}
+
+/** The fields `defineCreditHistory` adds: one move of credits (D-377). */
+export type CreditHistoryFields<P> = {
+	readonly owner: PayerOf<P>
+	readonly credit: Text
+	/** Positive when given, negative when spent or taken back. */
+	readonly change: Int
+	/** `purchase`, `subscription`, `refund`, or the application's own. */
+	readonly reason: Text
+	/** The Stripe payment or invoice that moved it. */
+	readonly payment: Optional<string>
 }
 
 type Definition<N, F, U extends Uses, X, A> = {
@@ -98,8 +144,11 @@ const added = (
 			stripeId: f.string({ unique: true }),
 			product: f.string(),
 			price: f.string(),
-			status: f.string(),
+			status: f.enumOf(statuses),
 			quantity: f.number({ integer: true }),
+			amount: f.number({ integer: true }),
+			every: f.enumOf(intervals),
+			everyCount: f.number({ integer: true }),
 			currentPeriodEnd: f.dateTime(),
 			cancelAt: f.dateTime(optional),
 			canceledAt: f.dateTime(optional),
@@ -115,10 +164,21 @@ const added = (
 			payer: ref,
 			stripeId: f.string({ unique: true }),
 			product: f.string(),
+			quantity: f.number({ integer: true }),
 			amount: f.number({ integer: true }),
 			refunded: f.number({ integer: true }),
 			status: f.enumOf(['paid', 'refunded']),
 			paidAt: f.dateTime(),
+			receiptUrl: f.string(optional),
+		}
+	}
+	if (kind === 'history') {
+		return {
+			owner: ref,
+			credit: f.string(),
+			change: f.number({ integer: true }),
+			reason: f.string(),
+			payment: f.string(optional),
 		}
 	}
 	return {
@@ -126,6 +186,14 @@ const added = (
 		credit: f.string(),
 		amount: f.number({ integer: true }),
 	}
+}
+
+/** The indexes the plugin's queries need. */
+const indexesOf = (kind: Kind): readonly IndexShape[] => {
+	if (kind === 'balance') return [{ fields: ['owner', 'credit'], unique: true }]
+	// A payment gives its credits once: its moves are looked up by it.
+	if (kind === 'history') return [{ fields: ['payment'] }]
+	return []
 }
 
 // The kernel checks the model the thunk returns.
@@ -136,6 +204,7 @@ const entries = {
 	subscription: ['defineSubscription', 'payer'],
 	purchase: ['definePurchase', 'payer'],
 	balance: ['defineBalance', 'owner'],
+	history: ['defineCreditHistory', 'owner'],
 } as const
 
 type Loose = {
@@ -181,12 +250,7 @@ function billingModel(kind: Kind, definition: Loose): object {
 			}
 			return { ...own, ...adds }
 		},
-		indexes: [
-			...(kind === 'balance'
-				? [{ fields: ['owner', 'credit'], unique: true }]
-				: []),
-			...(definition.indexes ?? []),
-		],
+		indexes: [...indexesOf(kind), ...(definition.indexes ?? [])],
 	})
 	billingModels.set(model, { kind, payer: target })
 	return model
@@ -268,4 +332,30 @@ export function defineBalance<
 ): ModelOf<N, BalanceFields<P>, WithStripe<U>, X>
 export function defineBalance(definition: Loose): object {
 	return billingModel('balance', definition)
+}
+
+/** The application's history of credits, with its own fields (D-377). */
+export function defineCreditHistory<
+	const N extends string,
+	const P extends () => object,
+	const F extends FieldShapes,
+	const U extends Uses = [],
+	const X extends readonly IndexShape[] = [],
+>(
+	definition: Definition<N, F, U, X, CreditHistoryFields<P>> &
+		Own<F, U> & { readonly owner: P },
+): ModelOf<N, F & CreditHistoryFields<P>, WithStripe<U>, X>
+/** The application's history of credits: each move, given or spent (D-377). */
+export function defineCreditHistory<
+	const N extends string,
+	const P extends () => object,
+	const U extends Uses = [],
+	const X extends readonly IndexShape[] = [],
+>(
+	definition: Definition<N, {}, U, X, CreditHistoryFields<P>> & {
+		readonly owner: P
+	},
+): ModelOf<N, CreditHistoryFields<P>, WithStripe<U>, X>
+export function defineCreditHistory(definition: Loose): object {
+	return billingModel('history', definition)
 }

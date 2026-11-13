@@ -4,7 +4,8 @@
 // missed.
 import { Stripe } from 'stripe'
 import type { RecoveryGateway } from './billing-gateway.ts'
-import { all, guarded, ownerOf, refOf } from './sdk-billing.ts'
+import { ownerOf } from './sdk-billing.ts'
+import { all, guarded, refOf } from './sdk-common.ts'
 
 /** The statuses Stripe no longer changes. */
 const ended = new Set(['canceled', 'incomplete_expired'])

@@ -1,13 +1,12 @@
 // The plugin's own models (D-110, D-371 point 6), which no application
-// exposes: a payer's Stripe customer, the events received, and each move
-// of credits.
+// exposes: a payer's Stripe customer, the events received, and how far the
+// hourly job read them.
 import type { Field, ModelOf, ScalarOptions } from 'ultimabase'
 import { defineModel, master } from 'ultimabase'
 
 export const M: { readonly as: typeof master } = { as: master }
 
 type Text = Field<string, ScalarOptions<string>>
-type Int = Field<number, { readonly integer: true }>
 type Optional<V> = Field<V | null, { readonly optional: true }>
 type Counter = Field<
 	number,
@@ -106,30 +105,3 @@ export const StripeScan: ModelOf<'StripeScan', ScanFields, []> = defineModel({
 		until: f.dateTime(),
 	}),
 })
-
-type EntryFields = {
-	/** The owner's model and id. */
-	readonly model: Text
-	readonly owner: Text
-	readonly credit: Text
-	/** Positive when given, negative when spent or taken back. */
-	readonly change: Int
-	readonly reason: Text
-	/** The payment that gave or took it back. */
-	readonly payment: Optional<string>
-}
-
-/** Each move of credits, for support (D-374 point 4). */
-export const StripeCreditEntry: ModelOf<'StripeCreditEntry', EntryFields, []> =
-	defineModel({
-		name: 'StripeCreditEntry',
-		fields: (f) => ({
-			model: f.string(),
-			owner: f.string(),
-			credit: f.string(),
-			change: f.number({ integer: true }),
-			reason: f.string(),
-			payment: f.string({ optional: true }),
-		}),
-		indexes: [{ fields: ['model', 'owner'] }],
-	})

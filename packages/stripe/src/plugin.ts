@@ -26,13 +26,7 @@ import { closeJob, stripeJobs } from './jobs.ts'
 import { ownKeys } from './keys.ts'
 import type { Kind } from './kinds.ts'
 import { billingModels } from './kinds.ts'
-import {
-	M,
-	StripeCreditEntry,
-	StripeCustomer,
-	StripeEvent,
-	StripeScan,
-} from './models.ts'
+import { M, StripeCustomer, StripeEvent, StripeScan } from './models.ts'
 import type { PortalOptions } from './portal.ts'
 import type { Product } from './product.ts'
 import type { Billing, Running } from './running.ts'
@@ -88,6 +82,7 @@ const names = {
 	subscription: 'defineSubscription',
 	purchase: 'definePurchase',
 	balance: 'defineBalance',
+	history: 'defineCreditHistory',
 }
 
 /** The keys, refused when one of them is unset. */
@@ -133,14 +128,30 @@ function billingOf(
 	}
 }
 
-type Models = Pick<Running, 'subscription' | 'purchase' | 'balance'>
+type Models = Pick<Running, 'subscription' | 'purchase' | 'balance' | 'history'>
 
-/** Refuses a product no model records (D-372 point 5, D-374 point 1). */
+/** Whether a product gives credits, by its price or with each of its prices. */
+const givesCredits = (product: Product): boolean =>
+	'prices' in product
+		? Object.values(product.prices).some(({ gives = [] }) => gives.length > 0)
+		: product.gives.length > 0
+
+/**
+ * Refuses a product no model records, and credits without their history
+ * (D-372 point 5, D-374 point 1, D-377 point 2).
+ */
 function checkModels(products: readonly Product[], models: Models): void {
-	const { subscription, purchase, balance } = models
-	if (purchase && balance && purchase.payer.name !== balance.payer.name) {
+	const { subscription, purchase, balance, history } = models
+	for (const other of [purchase, history]) {
+		if (other && balance && other.payer.name !== balance.payer.name) {
+			throw new Refused(
+				`${balance.name}'s owner and ${other.name}'s ${other === purchase ? 'payer' : 'owner'} are one model.`,
+			)
+		}
+	}
+	if (balance && !history) {
 		throw new Refused(
-			`${balance.name}'s owner and ${purchase.name}'s payer are one model.`,
+			`${balance.name} needs its history: declare it with defineCreditHistory.`,
 		)
 	}
 	for (const product of products) {
@@ -149,7 +160,7 @@ function checkModels(products: readonly Product[], models: Models): void {
 				`${product.key} is a subscription: declare its model with defineSubscription.`,
 			)
 		}
-		if (!('prices' in product) && product.gives.length > 0 && !balance) {
+		if (givesCredits(product) && !balance) {
 			throw new Refused(
 				`${product.key} gives credits: declare their model with defineBalance.`,
 			)
@@ -211,7 +222,8 @@ const masterOnly =
 async function deleted(facts: Facts & { readonly record: object }) {
 	const { caller, name, record } = facts
 	const running = runningOf(entry)
-	const billing = [running.subscription, running.purchase, running.balance]
+	const { subscription, purchase, balance, history } = running
+	const billing = [subscription, purchase, balance, history]
 	const model = billing.find((one) => one?.name === name)
 	// The row holds its payer as `{ id }`.
 	const ref: unknown =
@@ -231,7 +243,7 @@ const definition = definePlugin<Stripe>({
 	name: 'stripe',
 	manifest,
 	requires: { http: httpPlugin, jobs: jobsPlugin },
-	models: [StripeCustomer, StripeEvent, StripeScan, StripeCreditEntry],
+	models: [StripeCustomer, StripeEvent, StripeScan],
 	api: ({ plugins, options }) => {
 		const { webhookPath = '/webhooks/stripe' } = options
 		if (typeof webhookPath !== 'string' || !webhookPath.startsWith('/')) {
@@ -260,6 +272,7 @@ const definition = definePlugin<Stripe>({
 			subscription: billingOf(models, 'subscription'),
 			purchase: billingOf(models, 'purchase'),
 			balance: billingOf(models, 'balance'),
+			history: billingOf(models, 'history'),
 		}
 		checkModels(catalog.products, billing)
 		const running: Running = {

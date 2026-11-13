@@ -23,6 +23,10 @@ export interface StripeSubscription extends PriceKeys {
 	readonly customerId: string
 	readonly status: string
 	readonly quantity: number
+	/** One period's price times the quantity, before discounts and taxes. */
+	readonly amount: number
+	readonly every: string
+	readonly everyCount: number
 	readonly currentPeriodEnd: Date
 	readonly cancelAt: Date | null
 	readonly canceledAt: Date | null
@@ -53,6 +57,22 @@ export interface StripePayment {
 	/** Whether a dispute of it was lost. */
 	readonly disputeLost: boolean
 	readonly paidAt: Date
+	readonly receiptUrl: string | null
+}
+
+/** A paid invoice of a subscription (D-377 point 4). */
+export interface StripeInvoice {
+	readonly id: string
+	readonly customerId: string
+	/** Its lines that bill a whole period above zero: no proration, no trial. */
+	readonly periods: readonly (PriceKeys & {
+		readonly quantity: number
+		/** When the period it bills ends. */
+		readonly end: Date
+	})[]
+	readonly amount: number
+	readonly refunded: number
+	readonly disputeLost: boolean
 }
 
 /** What a customer holds. */
@@ -61,6 +81,7 @@ export interface CustomerState {
 	readonly deleted: boolean
 	readonly subscriptions: readonly StripeSubscription[]
 	readonly payments: readonly StripePayment[]
+	readonly invoices: readonly StripeInvoice[]
 }
 
 /** A Checkout the plugin opens. */
@@ -112,7 +133,11 @@ export interface BillingGateway {
 	) => Promise<void>
 	/** Deletes a customer, which ends its subscriptions; a missing one is gone. */
 	readonly deleteCustomer: (id: string) => Promise<void>
-	readonly readCustomer: (id: string) => Promise<CustomerState>
+	/** What a customer holds; its paid invoices of the last 400 days, if asked. */
+	readonly readCustomer: (
+		id: string,
+		options?: { readonly invoices?: boolean },
+	) => Promise<CustomerState>
 	/** The customer an event's object belongs to, if any. */
 	readonly customerOf: (type: string, id: string) => Promise<string | null>
 	/** Opens a Checkout; returns its URL. */

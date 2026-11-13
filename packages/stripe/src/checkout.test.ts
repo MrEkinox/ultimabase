@@ -72,6 +72,10 @@ describe('stripe.checkout', () => {
 				price: 'yearly',
 				status: 'trialing',
 				quantity: 1,
+				// What the payer subscribed at, read from the row.
+				amount: 99_00,
+				every: 'year',
+				everyCount: 1,
 				cancelAt: null,
 			},
 		])

@@ -1,16 +1,18 @@
-// Credits (D-374): a paid gem pack gives its gems once, the application
-// spends them, and a full refund or a lost dispute takes them back.
+// Credits (D-374, D-377): a paid gem pack or subscription period gives its
+// gems once, the application grants and spends them, and a full refund or a
+// lost dispute takes them back.
 import { runJobs, testApplication } from '@ultimabase/testing'
 import { transaction } from 'ultimabase'
 import { beforeAll, describe, expect, it, vi } from 'vitest'
 import { stripe } from './index.ts'
-import { M as master, StripeCreditEntry } from './models.ts'
 import {
 	Balance,
 	billingApp,
+	CreditHistory,
 	gemPack,
 	gems,
 	M,
+	pro,
 	Purchase,
 	urls,
 	User,
@@ -43,9 +45,9 @@ const gemsOf = async (owner: { readonly id: string }) => {
 	return (await Balance.findFirst({ where }, M))?.amount
 }
 const moves = async () =>
-	(
-		await StripeCreditEntry.findMany({ orderBy: { createdAt: 'asc' } }, master)
-	).map(({ credit, change, reason }) => `${reason} ${credit} ${String(change)}`)
+	(await CreditHistory.findMany({ orderBy: { createdAt: 'asc' } }, M)).map(
+		({ credit, change, reason }) => `${reason} ${credit} ${String(change)}`,
+	)
 
 describe('a gem pack', () => {
 	it('records its payment and gives its gems once', async () => {
@@ -55,6 +57,8 @@ describe('a gem pack', () => {
 			payments.map((stripeId) => ({
 				stripeId,
 				product: 'gemPack',
+				quantity: 1,
+				receiptUrl: `https://pay.stripe.test/receipts/${stripeId}`,
 				amount: 4_90,
 				refunded: 0,
 				status: 'paid',
@@ -85,7 +89,10 @@ describe('a gem pack', () => {
 		})
 		const payment = fake.pay(url)
 		await delivered()
-		expect(await Purchase.findFirst({}, M)).toMatchObject({ amount: 14_70 })
+		expect(await Purchase.findFirst({}, M)).toMatchObject({
+			quantity: 3,
+			amount: 14_70,
+		})
 		expect(await gemsOf(ada)).toBe(1_500)
 		fake.refund(payment)
 		await delivered()
@@ -137,6 +144,95 @@ describe('a gem pack', () => {
 		fake.loseDispute(payments[0] ?? '')
 		await delivered()
 		expect(await moves()).toHaveLength(3)
+	})
+})
+
+/** A payer subscribed to pro's monthly price; its subscription's id. */
+async function subscribed(options: { quantity?: number; trialDays?: number }) {
+	const ada = await User.create({ data: { email: 'ada@example.com' } }, M)
+	const price = 'monthly' as const
+	const checkout = { payer: ada, product: pro, price, ...options, ...urls }
+	const url = await stripe.checkout(checkout)
+	const id = fake.pay(url)
+	await delivered()
+	return { ada, id, url }
+}
+const lastInvoice = () => [...fake.invoices.keys()].at(-1) ?? ''
+const day = 24 * 60 * 60 * 1000
+
+describe('a subscription', () => {
+	it('gives each paid period’s gems, times its quantity, once', async () => {
+		const { ada, id } = await subscribed({ quantity: 2 })
+		expect(await gemsOf(ada)).toBe(200)
+		fake.renew(id)
+		await delivered()
+		// A sync again gives nothing more.
+		fake.update(id, {})
+		await delivered()
+		expect(await gemsOf(ada)).toBe(400)
+		expect(await moves()).toStrictEqual([
+			'subscription gems 200',
+			'subscription gems 200',
+		])
+	})
+
+	it('gives nothing for a trial, nor for a period that ended', async () => {
+		const { ada, id } = await subscribed({ trialDays: 14 })
+		expect(await gemsOf(ada)).toBeUndefined()
+		fake.renew(id)
+		await delivered()
+		expect(await gemsOf(ada)).toBe(100)
+		// A period paid 40 days ago, read now, as when gives came later.
+		const bob = await User.create({ data: { email: 'bob@example.com' } }, M)
+		vi.useFakeTimers({ toFake: ['Date'], now: Date.now() - 40 * day })
+		const url = await stripe.checkout({
+			payer: bob,
+			product: pro,
+			...urls,
+			price: 'monthly',
+		})
+		fake.pay(url)
+		vi.useRealTimers()
+		await stripe.syncCheckout(url.split('/').at(-1) ?? '', bob)
+		await delivered()
+		expect(await gemsOf(bob)).toBeUndefined()
+	})
+
+	it('takes back a refunded or lost period’s gems, even after it ended', async () => {
+		const { ada, id } = await subscribed({})
+		const first = lastInvoice()
+		const second = fake.renew(id)
+		await delivered()
+		fake.refund(second)
+		await delivered()
+		expect(await gemsOf(ada)).toBe(100)
+		vi.useFakeTimers({ toFake: ['Date'], now: Date.now() + 70 * day })
+		fake.loseDispute(first)
+		await delivered()
+		vi.useRealTimers()
+		expect(await gemsOf(ada)).toBe(0)
+		expect(await moves()).toStrictEqual([
+			'subscription gems 100',
+			'subscription gems 100',
+			'refund gems -100',
+			'refund gems -100',
+		])
+	})
+})
+
+describe('stripe.grant', () => {
+	it('adds to the balance without a payment, in the caller’s transaction', async () => {
+		const ada = await User.create({ data: { email: 'ada@example.com' } }, M)
+		await expect(
+			transaction(async () => {
+				await stripe.grant(ada, gems(50), { reason: 'welcome' })
+				throw new Error('The sign-up failed.')
+			}),
+		).rejects.toThrow('The sign-up failed.')
+		expect(await gemsOf(ada)).toBeUndefined()
+		await stripe.grant(ada, [gems(50), gems(25)], { reason: 'welcome' })
+		expect(await gemsOf(ada)).toBe(75)
+		expect(await moves()).toStrictEqual(['welcome gems 75'])
 	})
 })
 

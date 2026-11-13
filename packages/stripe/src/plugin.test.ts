@@ -7,7 +7,12 @@ import { runJobs, testApplication } from '@ultimabase/testing'
 import { defineApp, defineModel, memory } from 'ultimabase'
 import { quietRuns } from 'ultimabase/internal'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { defineBalance, definePurchase, defineSubscription } from './billing.ts'
+import {
+	defineBalance,
+	defineCreditHistory,
+	definePurchase,
+	defineSubscription,
+} from './billing.ts'
 import type { StripeOptions } from './index.ts'
 import { stripe, stripePlugin } from './index.ts'
 import {
@@ -69,6 +74,10 @@ const Team = defineModel({
 	fields: (f) => ({ name: f.string() }),
 })
 const TeamBalance = defineBalance({ name: 'TeamBalance', owner: () => Team })
+const TeamHistory = defineCreditHistory({
+	name: 'TeamHistory',
+	owner: () => Team,
+})
 const SecondSubscription = defineSubscription({
 	name: 'SecondSubscription',
 	payer: () => User,
@@ -118,6 +127,12 @@ describe('stripePlugin’s start', () => {
 		await expect(started([User, Team, Purchase, TeamBalance])).rejects.toThrow(
 			"TeamBalance's owner and Purchase's payer are one model.",
 		)
+		await expect(started([User, Team, Balance, TeamHistory])).rejects.toThrow(
+			"Balance's owner and TeamHistory's owner are one model.",
+		)
+		await expect(started([User, Balance])).rejects.toThrow(
+			'Balance needs its history: declare it with defineCreditHistory.',
+		)
 	})
 
 	it('refuses a product no model records', async () => {
@@ -128,6 +143,11 @@ describe('stripePlugin’s start', () => {
 			started([User, Purchase], { products: [gemPack] }),
 		).rejects.toThrow(
 			'gemPack gives credits: declare their model with defineBalance.',
+		)
+		await expect(
+			started([User, Subscription], { products: [pro] }),
+		).rejects.toThrow(
+			'pro gives credits: declare their model with defineBalance.',
 		)
 	})
 })

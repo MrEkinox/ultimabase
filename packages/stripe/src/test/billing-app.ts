@@ -6,6 +6,7 @@ import type { Logger } from 'ultimabase'
 import { allow, defineApp, defineModel, master, memory } from 'ultimabase'
 import {
 	defineBalance,
+	defineCreditHistory,
 	definePurchase,
 	defineSubscription,
 } from '../billing.ts'
@@ -44,14 +45,18 @@ export const Balance = defineBalance({
 	name: 'Balance',
 	owner: () => User,
 }).with({ access: allow.public })
+export const CreditHistory = defineCreditHistory({
+	name: 'CreditHistory',
+	owner: () => User,
+}).with({ access: allow.public })
 
 export const gems = defineCredit({ key: 'gems' })
 export const pro = defineProduct({
 	key: 'pro',
 	name: 'Pro',
 	prices: {
-		monthly: { amount: 9_90, every: 'month' },
-		yearly: { amount: 99_00, every: 'year' },
+		monthly: { amount: 9_90, every: 'month', gives: [gems(100)] },
+		yearly: { amount: 99_00, every: 'year', gives: [gems(1_200)] },
 	},
 })
 export const team = defineProduct({
@@ -102,7 +107,7 @@ export function billingApp(options: Partial<StripeOptions> = {}): {
 	const lines: Line[] = []
 	const app = defineApp({
 		database: memory(),
-		models: [User, Subscription, Purchase, Balance],
+		models: [User, Subscription, Purchase, Balance, CreditHistory],
 		plugins: [
 			httpPlugin(),
 			jobsPlugin({ jobs: [] }),

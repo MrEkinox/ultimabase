@@ -69,6 +69,7 @@ export interface Running {
 	readonly subscription: Billing | undefined
 	readonly purchase: Billing | undefined
 	readonly balance: Billing | undefined
+	readonly history: Billing | undefined
 	readonly logger: Logger
 	/** The managed portal configuration's id, once read. */
 	portal: string | null | undefined

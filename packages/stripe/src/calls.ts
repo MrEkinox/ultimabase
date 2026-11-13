@@ -18,7 +18,7 @@ import { M, StripeCustomer } from './models.ts'
 import type { Product, SubscriptionProduct } from './product.ts'
 import type { Billing, Row, Running } from './running.ts'
 import { runningOf, stripeOf } from './running.ts'
-import { spend } from './credits.ts'
+import { grant, spend } from './credits.ts'
 import { syncCustomer } from './sync.ts'
 
 type Payer = { readonly id: string }
@@ -275,5 +275,6 @@ export const stripe: {
 	readonly checkout: typeof checkout
 	readonly portal: typeof portal
 	readonly syncCheckout: typeof syncCheckout
+	readonly grant: typeof grant
 	readonly spend: typeof spend
-} = { checkout, portal, syncCheckout, spend }
+} = { checkout, portal, syncCheckout, grant, spend }

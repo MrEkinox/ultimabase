@@ -5,11 +5,17 @@ export type { StripeCatalogOptions } from './apply.ts'
 export { applyStripeCatalog } from './apply.ts'
 export type {
 	BalanceFields,
+	CreditHistoryFields,
 	PurchaseFields,
 	SubscriptionFields,
 	WithStripe,
 } from './billing.ts'
-export { defineBalance, definePurchase, defineSubscription } from './billing.ts'
+export {
+	defineBalance,
+	defineCreditHistory,
+	definePurchase,
+	defineSubscription,
+} from './billing.ts'
 export type { CustomerProfile } from './billing-gateway.ts'
 export type { CheckoutArgs, PortalArgs } from './calls.ts'
 export { stripe } from './calls.ts'

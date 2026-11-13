@@ -5,11 +5,12 @@
 import { transaction } from 'ultimabase'
 import type {
 	CustomerState,
+	StripeInvoice,
 	StripePayment,
 	StripeSubscription,
 } from './billing-gateway.ts'
 import { liveStatuses } from './billing-gateway.ts'
-import { settleCredits } from './credits.ts'
+import { lost, settleCredits, totals } from './credits.ts'
 import type { Customer } from './customer.ts'
 import { duplicateJob, duplicatesOf } from './duplicates.ts'
 import { M, StripeCustomer } from './models.ts'
@@ -62,6 +63,9 @@ async function writeSubscription(
 		price: one.price,
 		status: one.status,
 		quantity: one.quantity,
+		amount: one.amount,
+		every: one.every,
+		everyCount: one.everyCount,
 		currentPeriodEnd: one.currentPeriodEnd,
 		cancelAt: one.cancelAt,
 		canceledAt: one.canceledAt,
@@ -89,18 +93,52 @@ async function writePayment(
 			amount: payment.amount,
 			refunded,
 			status: refunded >= payment.amount ? 'refunded' : 'paid',
+			receiptUrl: payment.receiptUrl,
 		}
 		const create = {
 			product: product.key,
+			quantity: payment.quantity,
 			paidAt: payment.paidAt,
 			payer: connect(row.payer),
 		}
 		await save(purchase, payment.id, create, values)
 	}
 	if (!('prices' in product) && ownModel(running.balance, row) !== undefined) {
-		await settleCredits(row.payer, payment, product)
+		const sums = totals(product.gives, payment.quantity)
+		await settleCredits(row.payer, payment, sums, 'purchase')
 	}
 }
+
+/**
+ * Gives what the invoice's periods give, for the periods not ended yet: a
+ * `gives` added later pays nothing for the past (D-377 point 4).
+ */
+async function writeInvoice(
+	running: Running,
+	row: Customer,
+	invoice: StripeInvoice,
+	readAt: Date,
+): Promise<void> {
+	const sums = new Map<string, number>()
+	for (const { product: key, price, quantity, end } of invoice.periods) {
+		const product = key === null ? undefined : running.products.get(key)
+		if (end <= readAt || price === null || !product || !('prices' in product)) {
+			continue
+		}
+		totals(product.prices[price]?.gives ?? [], quantity, sums)
+	}
+	if (sums.size === 0 && !lost(invoice)) return
+	await settleCredits(row.payer, invoice, sums, 'subscription')
+}
+
+/** Whether a recurring price gives credits: then the sync reads invoices. */
+const readsInvoices = ({ products, balance }: Running): boolean =>
+	balance !== undefined &&
+	[...products.values()].some(
+		(product) =>
+			'prices' in product &&
+			Object.values(product.prices).some(({ gives }) => gives !== undefined),
+	)
 
 /** The next time one of the live subscriptions changes by itself. */
 function renewsAt(state: CustomerState): Date | null {
@@ -132,7 +170,12 @@ async function forget(running: Running, row: Customer): Promise<void> {
 }
 
 /** Writes what was read of the customer, under its lock. */
-async function write(running: Running, row: Customer, state: CustomerState) {
+async function write(
+	running: Running,
+	row: Customer,
+	state: CustomerState,
+	readAt: Date,
+) {
 	if (state.deleted) {
 		await forget(running, row)
 		return
@@ -145,6 +188,11 @@ async function write(running: Running, row: Customer, state: CustomerState) {
 	}
 	for (const payment of state.payments) {
 		await writePayment(running, row, payment)
+	}
+	if (ownModel(running.balance, row) !== undefined) {
+		for (const invoice of state.invoices) {
+			await writeInvoice(running, row, invoice, readAt)
+		}
 	}
 	// Enqueued with the write: a sync that writes nothing read older.
 	if (running.oneSubscription) {
@@ -170,7 +218,8 @@ export async function syncCustomer(id: string): Promise<void> {
 	const stripeId = begun?.stripeId ?? null
 	if (begun === undefined || stripeId === null) return
 	const readAt = new Date()
-	const state = await gateway.readCustomer(stripeId)
+	const invoices = readsInvoices(running)
+	const state = await gateway.readCustomer(stripeId, { invoices })
 	await transaction(async () => {
 		const number = begun.syncsBegun
 		const data = {
@@ -183,6 +232,6 @@ export async function syncCustomer(id: string): Promise<void> {
 			{ where: { id, stripeId, syncWritten: { lt: number } }, data },
 			M,
 		)
-		if (row !== undefined) await write(running, row, state)
+		if (row !== undefined) await write(running, row, state, readAt)
 	})
 }

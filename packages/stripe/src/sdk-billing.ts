@@ -1,152 +1,22 @@
 // The billing gateway over Stripe's API: what `gatewayOf` gives a real
 // secret key. Stripe's errors become the plugin's: `PAYMENT_UNAVAILABLE`
 // when Stripe cannot answer, `Missing` for an object it does not hold.
-import { Stripe } from 'stripe'
+import type { Stripe } from 'stripe'
 import type {
 	BillingGateway,
 	CustomerProfile,
-	CustomerState,
 	PortalFlow,
-	PriceKeys,
-	StripePayment,
-	StripeSubscription,
 } from './billing-gateway.ts'
-import { Missing, unavailable } from './billing-gateway.ts'
+import { Missing } from './billing-gateway.ts'
 import { managedBy } from './gateway.ts'
-
-/** Stripe's errors, as the plugin's: unavailable, missing, or a bug. */
-const translated = (error: unknown, id: string): unknown => {
-	if (
-		error instanceof Stripe.errors.StripeConnectionError ||
-		error instanceof Stripe.errors.StripeAPIError ||
-		error instanceof Stripe.errors.StripeRateLimitError
-	) {
-		return unavailable(error)
-	}
-	if (
-		error instanceof Stripe.errors.StripeInvalidRequestError &&
-		error.code === 'resource_missing'
-	) {
-		return new Missing(id)
-	}
-	return error
-}
-
-export const guarded = async <T>(
-	id: string,
-	run: () => Promise<T>,
-): Promise<T> => {
-	try {
-		return await run()
-	} catch (error) {
-		throw translated(error, id)
-	}
-}
-
-export const all = async <T>(list: AsyncIterable<T>): Promise<T[]> => {
-	const items: T[] = []
-	for await (const item of list) items.push(item)
-	return items
-}
-
-export type Ref = string | { readonly id: string } | null
-export const refOf = (value: Ref): string | null =>
-	value === null || typeof value === 'string' ? value : value.id
-
-const dateOf = (seconds: number): Date => new Date(seconds * 1000)
-const maybeDate = (seconds: number | null): Date | null =>
-	seconds === null ? null : dateOf(seconds)
-
-const keysOf = (price: Stripe.Price | Stripe.DeletedPrice): PriceKeys =>
-	'metadata' in price
-		? {
-				product: price.metadata['product'] ?? null,
-				price: price.metadata['price'] ?? null,
-			}
-		: { product: null, price: null }
-
+import type { Ref } from './sdk-common.ts'
+import { all, guarded, refOf } from './sdk-common.ts'
+import { gone, stateOf } from './sdk-customer.ts'
 const profileParams = (profile: CustomerProfile) => ({
 	...(profile.email != null && { email: profile.email }),
 	...(profile.name != null && { name: profile.name }),
 	...(profile.locale != null && { preferred_locales: [profile.locale] }),
 })
-
-/** A subscription's next phase, when its schedule holds one. */
-async function scheduledOf(
-	client: Stripe,
-	schedule: Stripe.Subscription['schedule'],
-): Promise<StripeSubscription['scheduled']> {
-	if (schedule === null || typeof schedule === 'string') return null
-	const now = Date.now() / 1000
-	const next = schedule.phases.find(({ start_date }) => start_date > now)
-	const item = next?.items[0]
-	if (next === undefined || item === undefined) return null
-	const price =
-		typeof item.price === 'string'
-			? await client.prices.retrieve(item.price)
-			: item.price
-	return { ...keysOf(price), at: dateOf(next.start_date) }
-}
-
-async function subscriptionOf(
-	client: Stripe,
-	subscription: Stripe.Subscription,
-): Promise<StripeSubscription> {
-	const item = subscription.items.data[0]
-	const cancelAt =
-		subscription.cancel_at ??
-		(subscription.cancel_at_period_end
-			? (item?.current_period_end ?? null)
-			: null)
-	return {
-		id: subscription.id,
-		customerId: refOf(subscription.customer) ?? '',
-		...(item === undefined
-			? { product: null, price: null }
-			: keysOf(item.price)),
-		status: subscription.status,
-		quantity: item?.quantity ?? 1,
-		currentPeriodEnd: dateOf(
-			item?.current_period_end ?? subscription.start_date,
-		),
-		cancelAt: maybeDate(cancelAt),
-		canceledAt: maybeDate(subscription.canceled_at),
-		trialEnd: maybeDate(subscription.trial_end),
-		startedAt: dateOf(subscription.start_date),
-		scheduled: await scheduledOf(client, subscription.schedule),
-	}
-}
-
-/** The quantity a Checkout wrote to its payment, one when it wrote none. */
-const quantityOf = (value: string | undefined): number => {
-	const quantity = Number(value)
-	return Number.isSafeInteger(quantity) && quantity > 0 ? quantity : 1
-}
-
-async function paymentOf(
-	client: Stripe,
-	intent: Stripe.PaymentIntent,
-): Promise<StripePayment> {
-	const charge =
-		intent.latest_charge === null || typeof intent.latest_charge === 'string'
-			? null
-			: intent.latest_charge
-	const disputes =
-		charge?.disputed === true
-			? await all(client.disputes.list({ payment_intent: intent.id }))
-			: []
-	return {
-		id: intent.id,
-		customerId: refOf(intent.customer) ?? '',
-		product: intent.metadata['product'] ?? null,
-		quantity: quantityOf(intent.metadata['quantity']),
-		amount: intent.amount_received,
-		refunded: charge?.amount_refunded ?? 0,
-		disputeLost: disputes.some(({ status }) => status === 'lost'),
-		paidAt: dateOf(intent.created),
-	}
-}
-
 /** The customer an object belongs to, read from Stripe. */
 export async function ownerOf(
 	client: Stripe,
@@ -227,45 +97,6 @@ async function flowOf(
 		after_completion: after,
 	}
 }
-
-const gone: CustomerState = { deleted: true, subscriptions: [], payments: [] }
-
-/** What a customer holds. */
-async function stateOf(client: Stripe, id: string): Promise<CustomerState> {
-	const customer = await client.customers.retrieve(id)
-	if (customer.deleted === true) return gone
-	const [subscriptions, intents] = await Promise.all([
-		all(
-			client.subscriptions.list({
-				customer: id,
-				status: 'all',
-				limit: 100,
-				expand: ['data.schedule'],
-			}),
-		),
-		all(
-			client.paymentIntents.list({
-				customer: id,
-				limit: 100,
-				expand: ['data.latest_charge'],
-			}),
-		),
-	])
-	const paid = intents.filter(
-		({ status, metadata }) =>
-			status === 'succeeded' && metadata['managedBy'] === managedBy,
-	)
-	return {
-		deleted: false,
-		subscriptions: await Promise.all(
-			subscriptions.map(async (one) => subscriptionOf(client, one)),
-		),
-		payments: await Promise.all(
-			paid.map(async (one) => paymentOf(client, one)),
-		),
-	}
-}
-
 /** The billing gateway over Stripe's API. */
 export const sdkBilling = (client: Stripe): BillingGateway => ({
 	createCustomer: async (profile, idempotencyKey) =>
@@ -287,9 +118,10 @@ export const sdkBilling = (client: Stripe): BillingGateway => ({
 			if (!(error instanceof Missing)) throw error
 		}
 	},
-	readCustomer: async (id) => {
+	readCustomer: async (id, options) => {
 		try {
-			return await guarded(id, async () => stateOf(client, id))
+			const invoices = options?.invoices ?? false
+			return await guarded(id, async () => stateOf(client, id, invoices))
 		} catch (error) {
 			if (error instanceof Missing) return gone
 			throw error

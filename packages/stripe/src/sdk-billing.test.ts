@@ -23,6 +23,8 @@ const price = (product: string, name: string) => ({
 	id: `price_${product}_${name}`,
 	object: 'price',
 	metadata: { product, price: name },
+	unit_amount: 9_90,
+	recurring: { interval: 'month', interval_count: 3 },
 })
 
 const subscription = (fields: object) => ({
@@ -58,7 +60,12 @@ const intent = (id: string, fields: object) => ({
 	amount_received: 4_90,
 	created: now,
 	metadata: { managedBy: 'ultimabase', product: 'gemPack' },
-	latest_charge: { id: `ch_${id}`, amount_refunded: 0, disputed: false },
+	latest_charge: {
+		id: `ch_${id}`,
+		amount_refunded: 0,
+		disputed: false,
+		receipt_url: `https://pay.stripe.com/receipts/ch_${id}`,
+	},
 	...fields,
 })
 
@@ -120,6 +127,7 @@ describe('readCustomer', () => {
 		})
 		const end = new Date((now + 29 * day) * 1000)
 		expect(await gateway.readCustomer('cus_1')).toStrictEqual({
+			invoices: [],
 			deleted: false,
 			subscriptions: [
 				{
@@ -129,6 +137,9 @@ describe('readCustomer', () => {
 					price: 'monthly',
 					status: 'active',
 					quantity: 3,
+					amount: 29_70,
+					every: 'month',
+					everyCount: 3,
 					currentPeriodEnd: end,
 					cancelAt: end,
 					canceledAt: null,
@@ -143,6 +154,9 @@ describe('readCustomer', () => {
 					price: null,
 					status: 'canceled',
 					quantity: 1,
+					amount: 0,
+					every: 'month',
+					everyCount: 1,
 					currentPeriodEnd: new Date((now - day) * 1000),
 					cancelAt: null,
 					canceledAt: new Date(now * 1000),
@@ -162,6 +176,7 @@ describe('readCustomer', () => {
 					refunded: 0,
 					disputeLost: false,
 					paidAt: new Date(now * 1000),
+					receiptUrl: 'https://pay.stripe.com/receipts/ch_pi_1',
 				},
 				{
 					id: 'pi_2',
@@ -172,6 +187,7 @@ describe('readCustomer', () => {
 					refunded: 1_00,
 					disputeLost: true,
 					paidAt: new Date(now * 1000),
+					receiptUrl: null,
 				},
 			],
 		})
@@ -187,8 +203,110 @@ describe('readCustomer', () => {
 		).toMatchObject({ payment_intent: 'pi_2' })
 	})
 
+	it('reads, when asked, the periods paid invoices bill and their refunds', async () => {
+		const line = (fields: object) => ({
+			id: 'il_1',
+			object: 'line_item',
+			amount: 9_90,
+			quantity: 2,
+			period: { start: now, end: now + 30 * day },
+			parent: { subscription_item_details: { proration: false } },
+			pricing: { price_details: { price: price('pro', 'monthly') } },
+			...fields,
+		})
+		const { gateway, requests } = gatewayOn(({ path }) => {
+			switch (path) {
+				case '/v1/customers/cus_1':
+					return { id: 'cus_1', object: 'customer' }
+				case '/v1/subscriptions':
+					return stripeList([])
+				case '/v1/payment_intents':
+					// An invoice's payment, which the plugin did not open.
+					return stripeList([
+						intent('pi_5', {
+							metadata: {},
+							latest_charge: { id: 'ch_5', amount_refunded: 9_90 },
+						}),
+					])
+				case '/v1/invoices':
+					return stripeList([
+						{
+							id: 'in_1',
+							object: 'invoice',
+							customer: 'cus_1',
+							amount_paid: 9_90,
+							lines: stripeList([
+								line({}),
+								// A proration, and a trial's line at zero, bill no period.
+								line({
+									parent: { subscription_item_details: { proration: true } },
+								}),
+								line({ amount: 0 }),
+							]),
+							payments: stripeList([
+								{ status: 'paid', payment: { payment_intent: 'pi_5' } },
+								{ status: 'open', payment: { payment_intent: 'pi_6' } },
+							]),
+						},
+						{
+							id: 'in_2',
+							object: 'invoice',
+							customer: 'cus_1',
+							amount_paid: 9_90,
+							lines: stripeList([], true),
+						},
+					])
+				case '/v1/invoices/in_2/lines':
+					return stripeList([
+						line({
+							quantity: null,
+							pricing: { price_details: { price: 'price_pro_yearly' } },
+						}),
+						line({ pricing: null }),
+					])
+				case '/v1/prices/price_pro_yearly':
+					return price('pro', 'yearly')
+				default:
+					throw new Error(path)
+			}
+		})
+		const end = new Date((now + 30 * day) * 1000)
+		const state = await gateway.readCustomer('cus_1', { invoices: true })
+		expect(state.invoices).toStrictEqual([
+			{
+				id: 'in_1',
+				customerId: 'cus_1',
+				periods: [{ product: 'pro', price: 'monthly', quantity: 2, end }],
+				amount: 9_90,
+				refunded: 9_90,
+				disputeLost: false,
+			},
+			{
+				id: 'in_2',
+				customerId: 'cus_1',
+				periods: [{ product: 'pro', price: 'yearly', quantity: 1, end }],
+				amount: 9_90,
+				refunded: 0,
+				disputeLost: false,
+			},
+		])
+		expect(state.payments).toStrictEqual([])
+		expect(
+			requests.find(({ path }) => path === '/v1/invoices')?.params,
+		).toMatchObject({
+			customer: 'cus_1',
+			status: 'paid',
+			'expand[0]': 'data.payments',
+		})
+	})
+
 	it('reads a customer deleted or unknown at Stripe as deleted', async () => {
-		const gone = { deleted: true, subscriptions: [], payments: [] }
+		const gone = {
+			deleted: true,
+			subscriptions: [],
+			payments: [],
+			invoices: [],
+		}
 		const deleted = gatewayOn(() => ({
 			id: 'cus_1',
 			object: 'customer',

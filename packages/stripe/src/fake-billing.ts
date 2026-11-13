@@ -8,6 +8,7 @@ import type {
 	RecoveryGateway,
 	CustomerProfile,
 	PortalWrite,
+	StripeInvoice,
 	StripePayment,
 	StripeSubscription,
 } from './billing-gateway.ts'
@@ -35,6 +36,8 @@ export interface FakeBilling {
 	readonly checkouts: Map<string, FakeCheckout>
 	readonly subscriptions: Map<string, StripeSubscription>
 	readonly payments: Map<string, StripePayment>
+	/** The paid invoices of subscriptions, each period's. */
+	readonly invoices: Map<string, StripeInvoice>
 	/** Each portal session opened, in order. */
 	readonly portalSessions: PortalWrite[]
 	/** The subscriptions whose latest payment the plugin refunded. */
@@ -46,7 +49,9 @@ export interface FakeBilling {
 		id: string,
 		changes: Partial<Omit<StripeSubscription, 'id'>>,
 	) => void
-	/** Refunds a payment, all of it by default. */
+	/** Pays a subscription's next period, as Stripe renews it; gives its invoice. */
+	readonly renew: (id: string) => string
+	/** Refunds a payment or an invoice, all of it by default. */
 	readonly refund: (id: string, amount?: number) => void
 	readonly loseDispute: (id: string) => void
 	/** Deletes a customer, as the dashboard would. */
@@ -104,6 +109,8 @@ const days: Readonly<Record<string, number>> = {
 	month: 30,
 	year: 365,
 }
+const periodOf = ({ every, everyCount }: StripeSubscription): number =>
+	(days[every] ?? 30) * everyCount * day
 
 /** The fake's billing, over its catalog's prices. */
 export function fakeBilling(
@@ -118,6 +125,7 @@ export function fakeBilling(
 	const checkouts = new Map<string, FakeCheckout>()
 	const subscriptions = new Map<string, StripeSubscription>()
 	const payments = new Map<string, StripePayment>()
+	const invoices = new Map<string, StripeInvoice>()
 	const portalSessions: PortalWrite[] = []
 	const subscriptionRefunds = new Set<string>()
 	const sent: string[] = []
@@ -132,6 +140,7 @@ export function fakeBilling(
 			'checkout.session': checkouts,
 			subscription: subscriptions,
 			payment_intent: payments,
+			invoice: invoices,
 		}
 		if (type === 'customer') return customers.has(id) ? id : null
 		return maps[type]?.get(id)?.customerId ?? null
@@ -147,6 +156,16 @@ export function fakeBilling(
 		const customer = found(customers, id)
 		if (customer.deleted) throw new Missing(id)
 		return customer
+	}
+	/** Bills a subscription's period, which ends at `end`. */
+	const bill = (subscription: StripeSubscription, end: Date): string => {
+		const id = newId('in')
+		const { product, price, quantity, amount, customerId } = subscription
+		const periods = [{ product, price, quantity, end }]
+		const refunds = { refunded: 0, disputeLost: false }
+		invoices.set(id, { id, customerId, periods, amount, ...refunds })
+		send('invoice.paid', id, 'invoice')
+		return id
 	}
 	const subscribe = (checkout: FakeCheckout, price: StripePrice): string => {
 		const id = newId('sub')
@@ -164,6 +183,9 @@ export function fakeBilling(
 			price: name,
 			status: trialEnd === null ? 'active' : 'trialing',
 			quantity: checkout.quantity,
+			amount: (price.amount ?? 0) * checkout.quantity,
+			every,
+			everyCount: count,
 			currentPeriodEnd:
 				trialEnd ?? new Date(now + (days[every] ?? 30) * count * day),
 			cancelAt: null,
@@ -173,6 +195,8 @@ export function fakeBilling(
 			scheduled: null,
 		})
 		send('customer.subscription.created', id, 'subscription')
+		const created = found(subscriptions, id)
+		if (trialEnd === null) bill(created, created.currentPeriodEnd)
 		return id
 	}
 	const charge = (checkout: FakeCheckout, price: StripePrice): string => {
@@ -186,6 +210,7 @@ export function fakeBilling(
 			refunded: 0,
 			disputeLost: false,
 			paidAt: new Date(),
+			receiptUrl: `https://pay.stripe.test/receipts/${id}`,
 		})
 		send('payment_intent.succeeded', id, 'payment_intent')
 		return id
@@ -205,10 +230,10 @@ export function fakeBilling(
 		deleteCustomer: async (id) => {
 			fake.deleteCustomer(id)
 		},
-		readCustomer: async (id) => {
+		readCustomer: async (id, options) => {
 			const customer = customers.get(id)
 			if (customer === undefined || customer.deleted) {
-				return { deleted: true, subscriptions: [], payments: [] }
+				return { deleted: true, subscriptions: [], payments: [], invoices: [] }
 			}
 			const own = <T extends { readonly customerId: string }>(
 				map: ReadonlyMap<string, T>,
@@ -217,6 +242,7 @@ export function fakeBilling(
 				deleted: false,
 				subscriptions: own(subscriptions),
 				payments: own(payments),
+				invoices: options?.invoices === true ? own(invoices) : [],
 			}
 		},
 		customerOf: async (type, id) => ownerOf(type, id),
@@ -266,6 +292,7 @@ export function fakeBilling(
 		checkouts,
 		subscriptions,
 		payments,
+		invoices,
 		portalSessions,
 		subscriptionRefunds,
 		pay: (url) => {
@@ -284,15 +311,38 @@ export function fakeBilling(
 			subscriptions.set(id, { ...found(subscriptions, id), ...changes })
 			send('customer.subscription.updated', id, 'subscription')
 		},
+		renew: (id) => {
+			const held = found(subscriptions, id)
+			const start = Math.max(held.currentPeriodEnd.getTime(), Date.now())
+			const end = new Date(start + periodOf(held))
+			const renewed = { ...held, status: 'active', currentPeriodEnd: end }
+			subscriptions.set(id, renewed)
+			send('customer.subscription.updated', id, 'subscription')
+			return bill(renewed, end)
+		},
 		refund: (id, amount) => {
-			const payment = found(payments, id)
-			const refunded = payment.refunded + (amount ?? payment.amount)
-			payments.set(id, { ...payment, refunded })
-			send('charge.refunded', id, 'payment_intent')
+			const map: Map<string, StripePayment | StripeInvoice> = invoices.has(id)
+				? invoices
+				: payments
+			const paid = found(map, id)
+			const refunded = paid.refunded + (amount ?? paid.amount)
+			map.set(id, { ...paid, refunded })
+			send(
+				'charge.refunded',
+				id,
+				invoices.has(id) ? 'invoice' : 'payment_intent',
+			)
 		},
 		loseDispute: (id) => {
-			payments.set(id, { ...found(payments, id), disputeLost: true })
-			send('charge.dispute.closed', id, 'payment_intent')
+			const map: Map<string, StripePayment | StripeInvoice> = invoices.has(id)
+				? invoices
+				: payments
+			map.set(id, { ...found(map, id), disputeLost: true })
+			send(
+				'charge.dispute.closed',
+				id,
+				invoices.has(id) ? 'invoice' : 'payment_intent',
+			)
 		},
 		deleteCustomer: (id) => {
 			const customer = customers.get(id)

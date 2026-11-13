@@ -1,8 +1,8 @@
-// The models `defineSubscription`, `definePurchase` and `defineBalance`
-// returned, which the plugin finds among the application's at start.
+// The models `defineSubscription`, `definePurchase`, `defineBalance` and
+// `defineCreditHistory` returned, which the plugin finds among the application's at start.
 
 /** The billing model kinds (D-373). */
-export type Kind = 'subscription' | 'purchase' | 'balance'
+export type Kind = 'subscription' | 'purchase' | 'balance' | 'history'
 
 /** What a billing model was declared with. */
 export interface Declared {
