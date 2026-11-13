@@ -166,6 +166,7 @@ export async function payerAtStripe(): Promise<{
 	readonly payer: { readonly id: string; readonly email: string }
 	readonly customer: string
 	readonly method: string
+	readonly clock: string
 }> {
 	const email = `${run}@example.com`
 	const payer = await User.create({ data: { email } }, { as: master })
@@ -189,7 +190,21 @@ export async function payerAtStripe(): Promise<{
 		{ data: { model: 'User', payer: payer.id, stripeId: customer } },
 		{ as: master },
 	)
-	return { payer, customer, method }
+	return { payer, customer, method, clock: clock.id }
+}
+
+/** Moves a test clock `days` ahead, once Stripe ran what that time does. */
+export async function advanced(clock: string, days: number): Promise<void> {
+	const testClocks = client.testHelpers.testClocks
+	const { frozen_time: now } = await testClocks.retrieve(clock)
+	await testClocks.advance(clock, { frozen_time: now + days * 24 * 60 * 60 })
+	for (let tries = 0; tries < 90; tries += 1) {
+		const { status } = await testClocks.retrieve(clock)
+		if (status === 'ready') return
+		if (status === 'internal_failure') throw new Error('The clock failed.')
+		await new Promise((resolve) => setTimeout(resolve, 2_000))
+	}
+	throw new Error('The test clock took more than 3 minutes.')
 }
 
 const posted = new Set<string>()
@@ -197,14 +212,22 @@ const posted = new Set<string>()
 /**
  * Posts the events Stripe listed since the run began, each once, as thin
  * events signed with the webhook's secret, then runs the jobs: what the
- * Stripe CLI would forward, with no CLI.
+ * Stripe CLI would forward, with no CLI. They come newest first, out of the
+ * order they happened in; `again`, a customer, posts its events once more,
+ * as Stripe does when an answer is lost.
  */
-export async function delivered(url: string): Promise<void> {
+export async function delivered(
+	url: string,
+	options: { readonly again?: string } = {},
+): Promise<void> {
 	const created = { gte: began }
 	for await (const event of client.events.list({ created, limit: 100 })) {
-		if (posted.has(event.id)) continue
-		posted.add(event.id)
 		const object: unknown = event.data.object
+		const again =
+			options.again !== undefined &&
+			Reflect.get(Object(object), 'customer') === options.again
+		if (posted.has(event.id) && !again) continue
+		posted.add(event.id)
 		const id: unknown = Reflect.get(Object(object), 'id')
 		const type: unknown = Reflect.get(Object(object), 'object')
 		if (typeof id !== 'string' || typeof type !== 'string') continue
