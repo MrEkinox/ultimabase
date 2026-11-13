@@ -7,6 +7,7 @@ import { runJobs, testApplication } from '@ultimabase/testing'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { applyStripeCatalog } from './apply.ts'
 import { stripe } from './calls.ts'
+import { StripeEvent } from './models.ts'
 import {
 	Balance,
 	M,
@@ -17,8 +18,10 @@ import {
 } from './test/billing-app.ts'
 import {
 	archived,
+	cliKeys,
 	client,
 	delivered,
+	forwarded,
 	gemPack,
 	listed,
 	payerAtStripe,
@@ -228,5 +231,35 @@ describe('one subscription per payer', () => {
 			payment_intent: typeof paid === 'string' ? paid : (paid?.id ?? ''),
 		})
 		expect(refunds.data).toHaveLength(1)
+	})
+})
+
+describe("Stripe's own events", () => {
+	const test = testApplication(sandboxApp({ keys: cliKeys() }))
+
+	it('reach the webhook signed by Stripe, and sync the payer', async () => {
+		const stop = await forwarded(test.url)
+		try {
+			const { customer } = await payerAtStripe()
+			const { id } = await client.subscriptions.create({
+				customer,
+				items: [{ price: await priceId(`${pro.key}.monthly`) }],
+			})
+			const held = async () => {
+				await runJobs()
+				const where = { objectId: id, type: 'customer.subscription.created' }
+				const events = await StripeEvent.findMany({ where }, M)
+				const subscriptions = await Subscription.findMany({}, M)
+				return {
+					events: events.map(({ objectType }) => objectType),
+					statuses: subscriptions.map(({ status }) => status),
+				}
+			}
+			await expect
+				.poll(held, poll)
+				.toStrictEqual({ events: ['subscription'], statuses: ['active'] })
+		} finally {
+			stop()
+		}
 	})
 })

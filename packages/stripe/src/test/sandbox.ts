@@ -1,8 +1,9 @@
 // What the sandbox suite (`yarn test:stripe`, D-371 point 8) runs on: a
 // Stripe sandbox's secret key, a catalog of its run's own, payers whose
 // customers sit on test clocks, and the events Stripe lists, posted signed
-// to the webhook as Stripe would. It never reads a live key, and never
-// prints the key.
+// to the webhook as Stripe would, or forwarded by Stripe's own CLI. It never
+// reads a live key, and never prints the key.
+import { execFileSync, spawn } from 'node:child_process'
 import { randomBytes } from 'node:crypto'
 import { httpPlugin } from '@ultimabase/http'
 import { jobsPlugin } from '@ultimabase/jobs'
@@ -43,6 +44,60 @@ function sandboxKey(): string {
 const secret = sandboxKey()
 export const client: Stripe = stripeClient(secret)
 const webhook = `whsec_${randomBytes(24).toString('base64')}`
+
+// The Stripe CLI reads the key from its environment, never its arguments.
+const cliEnv = { ...process.env, STRIPE_API_KEY: secret }
+const noCli =
+	'yarn test:stripe needs the Stripe CLI: brew install stripe/stripe-cli/stripe.'
+
+/** The keys of an application whose events the Stripe CLI signs. */
+export function cliKeys(): {
+	readonly secret: string
+	readonly webhook: string
+} {
+	try {
+		const options = { env: cliEnv, encoding: 'utf8' as const, timeout: 60_000 }
+		const signing = execFileSync(
+			'stripe',
+			['listen', '--print-secret'],
+			options,
+		)
+		return { secret, webhook: signing.trim() }
+	} catch (cause) {
+		throw new Error(noCli, { cause })
+	}
+}
+
+/**
+ * Forwards Stripe's own thin events, signed by its CLI, to the webhook of
+ * the application at `url`, until the returned function stops it.
+ */
+export async function forwarded(url: string): Promise<() => void> {
+	const target = `${url}/webhooks/stripe`
+	const cli = spawn(
+		'stripe',
+		['listen', '--all-thin', '--forward-to', target],
+		{
+			env: cliEnv,
+			stdio: ['ignore', 'ignore', 'pipe'],
+		},
+	)
+	await new Promise<void>((resolve, reject) => {
+		cli.once('error', (cause) => {
+			reject(new Error(noCli, { cause }))
+		})
+		cli.once('exit', () => {
+			reject(new Error('stripe listen ended before it was ready.'))
+		})
+		// Its log, which holds the signing secret, is read and never printed.
+		cli.stderr.on('data', (chunk: Buffer) => {
+			if (chunk.toString('utf8').includes('Ready!')) resolve()
+		})
+	})
+	return () => {
+		cli.kill()
+	}
+}
 
 /** This run's name, which prefixes everything it makes at Stripe. */
 export const run = `ub_${Date.now().toString(36)}_${randomBytes(3).toString('hex')}`
