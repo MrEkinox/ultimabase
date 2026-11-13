@@ -15,6 +15,7 @@ const settings: PortalSettings = {
 	scheduleAtPeriodEnd: ['decreasing_item_amount'],
 	trialUpdate: 'end_trial',
 	cancelMode: 'at_period_end',
+	cancelReasons: ['too_expensive', 'other'],
 	products: [{ productId: 'prod_1', priceIds: ['price_1', 'price_2'] }],
 	active: true,
 }
@@ -45,7 +46,10 @@ const portal = (id: string, metadata: Record<string, string> | null) => ({
 			trial_update_behavior: 'end_trial',
 			products: [{ product: 'prod_1', prices: ['price_1'] }],
 		},
-		subscription_cancel: { mode: 'immediately' },
+		subscription_cancel: {
+			mode: 'immediately',
+			cancellation_reason: { enabled: true, options: ['unused'] },
+		},
 	},
 	metadata,
 })
@@ -157,6 +161,7 @@ describe('sdkGateway', () => {
 				scheduleAtPeriodEnd: ['shortening_interval'],
 				trialUpdate: 'end_trial',
 				cancelMode: 'immediately',
+				cancelReasons: ['unused'],
 				products: [{ productId: 'prod_1', priceIds: ['price_1'] }],
 				active: true,
 			},
@@ -188,14 +193,19 @@ describe('sdkGateway', () => {
 									...unlisted.features.subscription_update,
 									products: undefined,
 								},
+								// A disabled question keeps its options.
+								subscription_cancel: {
+									mode: 'immediately',
+									cancellation_reason: { enabled: false, options: ['other'] },
+								},
 							},
 						},
 					])
 				: stripeList([]),
 		)
-		expect(
-			(await sdkGateway(client).readCatalog()).portal?.settings.products,
-		).toBeNull()
+		const read = (await sdkGateway(client).readCatalog()).portal?.settings
+		expect(read?.products).toBeNull()
+		expect(read?.cancelReasons).toStrictEqual([])
 		const none = stripeApi(() => stripeList([]))
 		expect((await sdkGateway(none.client).readCatalog()).portal).toBeNull()
 	})
@@ -313,6 +323,7 @@ describe('sdkGateway', () => {
 			returnUrl: null,
 			products: null,
 			scheduleAtPeriodEnd: [],
+			cancelReasons: [],
 		})
 		const [created, updated] = requests
 		expect(created?.path).toBe('/v1/billing_portal/configurations')
@@ -330,6 +341,10 @@ describe('sdkGateway', () => {
 				'decreasing_item_amount',
 			'features[subscription_cancel][enabled]': 'true',
 			'features[subscription_cancel][mode]': 'at_period_end',
+			'features[subscription_cancel][cancellation_reason][enabled]': 'true',
+			'features[subscription_cancel][cancellation_reason][options][0]':
+				'too_expensive',
+			'features[subscription_cancel][cancellation_reason][options][1]': 'other',
 			'features[payment_method_update][enabled]': 'true',
 			'features[invoice_history][enabled]': 'true',
 			'metadata[managedBy]': 'ultimabase',
@@ -342,6 +357,8 @@ describe('sdkGateway', () => {
 			'business_profile[privacy_policy_url]': 'https://app.test/privacy',
 			'features[subscription_update][enabled]': 'false',
 			'features[subscription_update][schedule_at_period_end][conditions]': '',
+			'features[subscription_cancel][cancellation_reason][enabled]': 'false',
+			'features[subscription_cancel][cancellation_reason][options]': '',
 			active: 'true',
 		})
 		expect(updated?.params).not.toHaveProperty('default_return_url')

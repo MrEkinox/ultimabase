@@ -3,6 +3,7 @@
 // Stripe's errors become the plugin's; on a client the test answers.
 import { describe, expect, it } from 'vitest'
 import { Missing } from './billing-gateway.ts'
+import { checkoutLocales, pageLocale, portalLocales } from './locale.ts'
 import { sdkBilling } from './sdk-billing.ts'
 import type { StripeRequest } from './test/stripe-api.ts'
 import { stripeApi, stripeError, stripeList } from './test/stripe-api.ts'
@@ -140,6 +141,7 @@ describe('readCustomer', () => {
 				{
 					id: 'sub_1',
 					customerId: 'cus_1',
+					priceId: 'price_pro_monthly',
 					product: 'pro',
 					price: 'monthly',
 					status: 'active',
@@ -158,6 +160,7 @@ describe('readCustomer', () => {
 				{
 					id: 'sub_2',
 					customerId: 'cus_1',
+					priceId: null,
 					product: null,
 					price: null,
 					status: 'canceled',
@@ -523,8 +526,10 @@ describe('a Checkout', () => {
 				...write,
 				mode: 'subscription',
 				trialDays: 14,
-				terms: true,
+				terms: { acceptance: 'I accept the [terms](https://app.test/terms).' },
 				promotionCodes: true,
+				// Checkout knows French, not Belgian French.
+				locale: 'fr-be',
 			}),
 		).toBe('https://checkout.stripe.com/c/cs_9')
 		expect(requests.map(({ params }) => params)).toStrictEqual([
@@ -540,7 +545,10 @@ describe('a Checkout', () => {
 				'metadata[campaign]': 'spring',
 				'metadata[managedBy]': 'ultimabase',
 				'metadata[product]': 'pro',
+				locale: 'fr',
 				'consent_collection[terms_of_service]': 'required',
+				'custom_text[terms_of_service_acceptance][message]':
+					'I accept the [terms](https://app.test/terms).',
 				allow_promotion_codes: 'true',
 				'subscription_data[metadata][campaign]': 'spring',
 				'subscription_data[metadata][managedBy]': 'ultimabase',
@@ -556,10 +564,11 @@ describe('a Checkout', () => {
 			...write,
 			mode: 'payment',
 			trialDays: null,
-			terms: false,
+			terms: null,
 			promotionCodes: false,
+			locale: null,
 		})
-		// No terms, no promotion codes and no trial: none is sent.
+		// No terms, promotion codes, trial or locale: none is sent.
 		expect(requests[1]?.params).toStrictEqual({
 			mode: 'payment',
 			customer: 'cus_1',
@@ -586,8 +595,9 @@ describe('a Checkout', () => {
 		await expect(
 			gateway.openCheckout({
 				...checkout,
-				terms: false,
+				terms: null,
 				promotionCodes: false,
+				locale: null,
 			}),
 		).rejects.toThrow(
 			'Stripe holds no active price pro.monthly: apply the catalog.',
@@ -632,6 +642,7 @@ describe('the portal', () => {
 		customerId: 'cus_1',
 		configuration: 'bpc_1',
 		returnUrl: 'https://app.test/account',
+		locale: null,
 	}
 
 	it('opens its home, a cancellation and a change, keeping the quantity', async () => {
@@ -641,6 +652,8 @@ describe('the portal', () => {
 		).toBe('https://billing.stripe.com/p/bps_1')
 		await gateway.openPortal({
 			...portal,
+			// The portal knows Australian English, Checkout does not.
+			locale: 'en-AU',
 			configuration: null,
 			flow: { kind: 'cancel', subscriptionId: 'sub_1' },
 		})
@@ -664,6 +677,7 @@ describe('the portal', () => {
 			{
 				customer: 'cus_1',
 				return_url: 'https://app.test/account',
+				locale: 'en-AU',
 				'flow_data[type]': 'subscription_cancel',
 				'flow_data[subscription_cancel][subscription]': 'sub_1',
 				'flow_data[after_completion][type]': 'redirect',
@@ -724,5 +738,24 @@ describe('moveCard', () => {
 				card: 'pm_1',
 			}),
 		).rejects.toMatchObject({ code: 'PAYMENT_UNAVAILABLE' })
+	})
+})
+
+describe('a page’s locale', () => {
+	it('is the payer’s, else its language, else the page’s choice', () => {
+		const cases = [
+			['fr', checkoutLocales, 'fr'],
+			['pt-br', checkoutLocales, 'pt-BR'],
+			['fr-BE', checkoutLocales, 'fr'],
+			['en-AU', checkoutLocales, 'en'],
+			['en-AU', portalLocales, 'en-AU'],
+			['hi-IN', checkoutLocales, 'hi-IN'],
+			['hi-IN', portalLocales, 'auto'],
+			['eo', checkoutLocales, 'auto'],
+			['not a locale', checkoutLocales, 'auto'],
+			[null, portalLocales, 'auto'],
+		] as const
+		const pages = cases.map(([locale, known]) => pageLocale(locale, known))
+		expect(pages).toEqual(cases.map(([, , page]) => page))
 	})
 })

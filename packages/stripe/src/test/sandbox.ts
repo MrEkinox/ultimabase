@@ -9,21 +9,16 @@ import { httpPlugin } from '@ultimabase/http'
 import { jobsPlugin } from '@ultimabase/jobs'
 import { runJobs } from '@ultimabase/testing'
 import type { Stripe } from 'stripe'
-import { defineApp, master, memory } from 'ultimabase'
+import { allow, defineApp, master, memory } from 'ultimabase'
+import { definePurchase, defineSubscription } from '../billing.ts'
 import { stripeClient } from '../gateway.ts'
 import { StripeCustomer } from '../models.ts'
 import type { StripeOptions } from '../plugin.ts'
+import type { PortalOptions } from '../portal.ts'
 import { stripePlugin } from '../plugin.ts'
 import { defineProduct } from '../product.ts'
 import { postEvent, thinEvent } from '../testing.ts'
-import {
-	Balance,
-	CreditHistory,
-	gems,
-	Purchase,
-	Subscription,
-	User,
-} from './billing-app.ts'
+import { Balance, CreditHistory, gems, User } from './billing-app.ts'
 
 /** The sandbox's secret key, or an error that says what to set. */
 function sandboxKey(): string {
@@ -122,7 +117,21 @@ export const gemPack = defineProduct({
 	gives: [gems(500)],
 })
 export const products = [pro, gemPack]
-export const portal = { returnUrl: 'https://example.com/account' }
+export const portal: PortalOptions = {
+	returnUrl: 'https://example.com/account',
+	cancelReasons: ['too_expensive', 'other'],
+}
+
+// This run's keys are new each run, so no enum lists them: its rows keep
+// strings, as an application without enums.
+export const Subscription = defineSubscription({
+	name: 'Subscription',
+	payer: () => User,
+}).with({ access: allow.public })
+export const Purchase = definePurchase({
+	name: 'Purchase',
+	payer: () => User,
+}).with({ access: allow.public })
 
 /** An application that sells this run's catalog on the sandbox. */
 export const sandboxApp = (options: Partial<StripeOptions> = {}): object =>
@@ -137,9 +146,10 @@ export const sandboxApp = (options: Partial<StripeOptions> = {}): object =>
 				currency: 'eur',
 				products,
 				portal,
-				customer: (user: { readonly email: string }) => ({
-					email: user.email,
-				}),
+				customer: (user: {
+					readonly email: string
+					readonly lang: string | null
+				}) => ({ email: user.email, locale: user.lang }),
 				...options,
 			}),
 		],
@@ -169,7 +179,9 @@ export async function payerAtStripe(): Promise<{
 	readonly clock: string
 }> {
 	const email = `${run}@example.com`
-	const payer = await User.create({ data: { email } }, { as: master })
+	// Checkout knows no fr-BE: its page speaks fr (D-382).
+	const data = { email, lang: 'fr-BE' }
+	const payer = await User.create({ data }, { as: master })
 	const clock = await client.testHelpers.testClocks.create({
 		frozen_time: Math.floor(Date.now() / 1000),
 		name: run,

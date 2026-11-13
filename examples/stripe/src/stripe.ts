@@ -20,6 +20,8 @@ export const selling = {
 		downgrades: 'atPeriodEnd',
 		trialChange: 'endTrial',
 		cancel: 'atPeriodEnd',
+		// Asked of a user who cancels; the answer stays in Stripe.
+		cancelReasons: ['too_expensive', 'missing_features', 'unused', 'other'],
 	},
 } satisfies Omit<StripeCatalogOptions, 'secret'>
 //#endregion

@@ -13,6 +13,7 @@ import { liveStatuses } from './billing-gateway.ts'
 import { lost, settleCredits, totals } from './credits.ts'
 import type { Customer } from './customer.ts'
 import { duplicateJob, duplicatesOf } from './duplicates.ts'
+import { fits } from './enums.ts'
 import { M, StripeCustomer } from './models.ts'
 import type { Billing, Row, Running } from './running.ts'
 import { runningOf, stripeOf } from './running.ts'
@@ -33,18 +34,20 @@ const holds = (row: Row, values: Readonly<Record<string, unknown>>) =>
 	})
 
 /**
- * Creates the row of `stripeId`, or updates it when one of its values
- * changed: a sync that finds it unchanged writes nothing, so the model's
- * hooks run on a change only. The customer's lock is held.
+ * Creates the row of `stripeId`, unless `create` is `null`, or updates it
+ * when one of its values changed: a sync that finds it unchanged writes
+ * nothing, so the model's hooks run on a change only. The customer's lock
+ * is held.
  */
 async function save(
 	model: Billing,
 	stripeId: string,
-	create: object,
+	create: object | null,
 	values: Readonly<Record<string, unknown>>,
 ): Promise<void> {
 	const row = await model.queries.findUnique({ where: { stripeId } }, M)
 	if (row === null) {
+		if (create === null) return
 		const data = { ...create, ...values, stripeId }
 		await model.queries.create({ data }, M)
 	} else if (!holds(row, values)) {
@@ -53,24 +56,41 @@ async function save(
 }
 
 async function writeSubscription(
+	running: Running,
 	model: Billing,
 	row: Customer,
 	one: StripeSubscription,
 ): Promise<void> {
-	if (one.product === null || one.price === null) return
-	const values = {
-		product: one.product,
-		price: one.price,
+	const dates = {
 		status: one.status,
-		quantity: one.quantity,
-		amount: one.amount,
-		every: one.every,
-		everyCount: one.everyCount,
 		currentPeriodEnd: one.currentPeriodEnd,
 		cancelAt: one.cancelAt,
 		canceledAt: one.canceledAt,
 		trialEnd: one.trialEnd,
 		startedAt: one.startedAt,
+	}
+	const outside = one.product === null || one.price === null
+	if (outside || !fits(model.enums, one)) {
+		const { id: subscription, priceId: price, customerId: customer } = one
+		running.logger.error(
+			{ subscription, price, customer },
+			outside
+				? 'A Stripe subscription has a price outside the catalog: its payer gets nothing.'
+				: `A Stripe subscription has a product or price ${model.name}'s enums miss: its payer gets nothing.`,
+		)
+		// Its row, if any, keeps its last product, and still ends (D-386,
+		// D-387 point 4).
+		await save(model, one.id, null, dates)
+		return
+	}
+	const values = {
+		...dates,
+		product: one.product,
+		price: one.price,
+		quantity: one.quantity,
+		amount: one.amount,
+		every: one.every,
+		everyCount: one.everyCount,
 		scheduledProduct: one.scheduled?.product ?? null,
 		scheduledPrice: one.scheduled?.price ?? null,
 		scheduledAt: one.scheduled?.at ?? null,
@@ -83,9 +103,17 @@ async function writePayment(
 	row: Customer,
 	payment: StripePayment,
 ): Promise<void> {
-	const product =
-		payment.product === null ? undefined : running.products.get(payment.product)
-	if (product === undefined) return
+	// A payment without a product key is an invoice's: not the catalog's.
+	if (payment.product === null) return
+	const product = running.products.get(payment.product)
+	if (product === undefined) {
+		const { id, product: key, customerId: customer } = payment
+		running.logger.error(
+			{ payment: id, product: key, customer },
+			'A Stripe payment has a product outside the catalog: its payer gets nothing.',
+		)
+		return
+	}
 	const purchase = ownModel(running.purchase, row)
 	if (purchase !== undefined) {
 		const refunded = payment.disputeLost ? payment.amount : payment.refunded
@@ -184,7 +212,7 @@ async function write(
 	const subscription = ownModel(running.subscription, row)
 	if (subscription !== undefined) {
 		for (const one of state.subscriptions) {
-			await writeSubscription(subscription, row, one)
+			await writeSubscription(running, subscription, row, one)
 		}
 	}
 	for (const payment of state.payments) {

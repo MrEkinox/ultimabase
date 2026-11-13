@@ -55,6 +55,8 @@ export interface PortalSettings {
 	readonly trialUpdate: string
 	/** `at_period_end` or `immediately`. */
 	readonly cancelMode: string
+	/** The reasons a payer may give on canceling; none asks nothing. */
+	readonly cancelReasons: readonly string[]
 	/** `null` when Stripe did not list them. */
 	readonly products: readonly PortalProduct[] | null
 	readonly active: boolean
@@ -158,6 +160,7 @@ const portalOf = (
 	portal: Stripe.BillingPortal.Configuration,
 ): PortalSettings => {
 	const update = portal.features.subscription_update
+	const cancel = portal.features.subscription_cancel
 	return {
 		returnUrl: portal.default_return_url,
 		termsUrl: portal.business_profile.terms_of_service_url,
@@ -167,7 +170,10 @@ const portalOf = (
 			({ type }) => type,
 		),
 		trialUpdate: update.trial_update_behavior,
-		cancelMode: portal.features.subscription_cancel.mode,
+		cancelMode: cancel.mode,
+		cancelReasons: cancel.cancellation_reason.enabled
+			? cancel.cancellation_reason.options
+			: [],
 		products:
 			update.products?.map(({ product, prices }) => ({
 				productId: product,
@@ -212,6 +218,11 @@ export const portalParams = (
 			subscription_cancel: {
 				enabled: true,
 				mode: settings.cancelMode,
+				// An empty string clears the options, on an update too.
+				cancellation_reason:
+					settings.cancelReasons.length > 0
+						? { enabled: true, options: [...settings.cancelReasons] }
+						: { enabled: false, options: '' },
 			},
 			payment_method_update: { enabled: true },
 			invoice_history: { enabled: true },

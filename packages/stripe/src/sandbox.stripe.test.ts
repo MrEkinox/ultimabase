@@ -6,6 +6,7 @@
 // a pull request.
 import { runJobs } from '@ultimabase/testing'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
+import { gatewayOf } from './accounts.ts'
 import { applyStripeCatalog } from './apply.ts'
 import { stripe } from './calls.ts'
 import { StripeEvent } from './models.ts'
@@ -14,8 +15,6 @@ import {
 	Balance,
 	CreditHistory,
 	M,
-	Purchase,
-	Subscription,
 	urls,
 	User,
 } from './test/billing-app.ts'
@@ -28,6 +27,8 @@ import {
 	forwarded,
 	gemPack,
 	listed,
+	Purchase,
+	Subscription,
 	payerAtStripe,
 	portal,
 	priceId,
@@ -67,6 +68,13 @@ afterAll(async () => {
 
 describe('a payer at Stripe', () => {
 	const test = billingTest(sandboxApp())
+
+	it('is asked why it cancels, by the portal Stripe holds (D-384)', async () => {
+		const secret = process.env['STRIPE_SECRET_KEY'] ?? ''
+		const { portal: held } = await gatewayOf(secret).readCatalog()
+		expect(held?.settings.cancelReasons).toStrictEqual(portal.cancelReasons)
+	})
+
 	const subscriptions = async () => {
 		await delivered(test.url)
 		return Subscription.findMany({}, M)
@@ -81,6 +89,10 @@ describe('a payer at Stripe', () => {
 			...urls,
 		})
 		expect(checkout).toMatch(/^https:\/\/checkout\.stripe\.com\//u)
+		// Stripe takes the payer's language. The sandbox account has Managed
+		// Payments, which refuses the terms text (D-383 point 4).
+		const [session] = (await client.checkout.sessions.list({ customer })).data
+		expect(session).toMatchObject({ locale: 'fr' })
 		// Paid through the API, as Checkout would.
 		const created = await client.subscriptions.create({
 			customer,

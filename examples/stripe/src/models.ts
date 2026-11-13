@@ -6,19 +6,37 @@ import {
 	defineCreditHistory,
 	definePurchase,
 	defineSubscription,
+	stripePayer,
 } from '@ultimabase/stripe'
-import { defineModel, master } from 'ultimabase'
+import { defineEnum, defineModel, master } from 'ultimabase'
 
+//#region payer
+// The payer: Stripe gets its profile again when `customer`'s result changes.
 export const User = defineModel({
 	name: 'User',
-	fields: (f) => ({ email: f.string({ unique: true }) }),
+	use: [stripePayer()],
+	fields: (f) => ({
+		email: f.string({ unique: true }),
+		// Checkout and the portal speak it.
+		lang: f.string({ default: 'en' }),
+	}),
 })
+//#endregion
+
+//#region enums
+// The catalog's keys and price names, so a row's `product` and `price` are
+// typed: the plugin refuses at start an enum that misses one.
+export const Plan = defineEnum('Plan', ['pro'])
+export const Period = defineEnum('Period', ['monthly', 'quarterly', 'yearly'])
+export const Pack = defineEnum('Pack', ['gems500'])
+//#endregion
 
 //#region models
 // A row a payment made once, refunds included.
 export const Purchase = definePurchase({
 	name: 'Purchase',
 	payer: () => User,
+	product: Pack,
 }).with({ access: { read: isOwner('payer') } })
 // A row a credit a user holds: the gems given, less those spent.
 export const Balance = defineBalance({
@@ -37,6 +55,8 @@ export const CreditHistory = defineCreditHistory({
 export const Subscription = defineSubscription({
 	name: 'Subscription',
 	payer: () => User,
+	product: Plan,
+	price: Period,
 }).with({
 	access: { read: isOwner('payer') },
 	hooks: {

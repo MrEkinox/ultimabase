@@ -21,6 +21,8 @@ export interface PriceKeys {
 export interface StripeSubscription extends PriceKeys {
 	readonly id: string
 	readonly customerId: string
+	/** Its price's id at Stripe, which a log names. */
+	readonly priceId: string | null
 	readonly status: string
 	readonly quantity: number
 	/** One period's price times the quantity, before discounts and taxes. */
@@ -96,11 +98,14 @@ export interface CheckoutWrite {
 	readonly lookupKey: string
 	readonly quantity: number
 	readonly trialDays: number | null
-	readonly terms: boolean
+	/** The terms checkbox, with the application's text or Stripe's. */
+	readonly terms: { readonly acceptance: string | null } | null
 	readonly promotionCodes: boolean
 	readonly successUrl: string
 	readonly cancelUrl: string
 	readonly metadata: Readonly<Record<string, string>>
+	/** The payer's locale, as its profile gives it. */
+	readonly locale: string | null
 }
 
 /** The portal's page a session opens on. */
@@ -120,6 +125,8 @@ export interface PortalWrite {
 	readonly configuration: string | null
 	readonly returnUrl: string
 	readonly flow: PortalFlow
+	/** The payer's locale, as its profile gives it. */
+	readonly locale: string | null
 }
 
 /** What the plugin asks Stripe of its payers. */

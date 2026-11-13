@@ -35,8 +35,11 @@ export interface CheckoutArgs<P extends Product = Product> {
 	/** 1 by default. */
 	readonly quantity?: number
 	readonly trialDays?: number
-	/** Whether the payer must accept the portal's `termsUrl`. */
-	readonly terms?: boolean
+	/**
+	 * A checkbox the payer must tick to accept the account's terms, with
+	 * `acceptance` in place of Stripe's text: Markdown, up to 1,200 characters.
+	 */
+	readonly terms?: boolean | { readonly acceptance: string }
 	readonly promotionCodes?: boolean
 	/** Where Stripe sends the payer back; `{CHECKOUT_SESSION_ID}` is replaced. */
 	readonly successUrl: string
@@ -99,17 +102,25 @@ function billingOf(running: Running, product: Product): Billing {
 async function withCustomer<R>(
 	billing: Billing,
 	payer: Payer,
-	run: (gateway: Gateway, customerId: string, row: Customer) => Promise<R>,
+	run: (
+		gateway: Gateway,
+		customerId: string,
+		locale: string | null,
+	) => Promise<R>,
 ): Promise<R> {
 	const { gateway } = stripeOf('stripe')
 	const read = await payerRow(billing.payer, payer.id)
 	const held = await customerRow(billing.payer.name, payer.id)
 	const done = await locked(held.id, async (row) => {
 		const attempt = async (current: Customer): Promise<R> => {
-			const { row: saved, stripeId } = await ensureCustomer(current, read)
+			const {
+				row: saved,
+				stripeId,
+				profile,
+			} = await ensureCustomer(current, read)
 			try {
 				await gateway.expireCheckouts(stripeId)
-				return await run(gateway, stripeId, saved)
+				return await run(gateway, stripeId, profile.locale ?? null)
 			} catch (error) {
 				if (!(error instanceof Missing) || current !== row) throw error
 				return attempt(await renewed(saved))
@@ -127,6 +138,21 @@ const checkPositive = (name: string, value: number | undefined): void => {
 	}
 }
 
+/** The terms checkbox, refusing a text Stripe would refuse (D-383). */
+function termsOf(
+	terms: CheckoutArgs['terms'],
+): { readonly acceptance: string | null } | null {
+	if (terms === undefined || terms === false) return null
+	if (terms === true) return { acceptance: null }
+	const { acceptance } = terms
+	if (acceptance.trim() === '' || acceptance.length > 1200) {
+		throw new TypeError(
+			'stripe.checkout: terms.acceptance is a text of 1 to 1,200 characters.',
+		)
+	}
+	return { acceptance }
+}
+
 /** Opens a Checkout for the payer and returns its URL. */
 export async function checkout<const P extends Product>(
 	args: CheckoutArgs<P>,
@@ -137,11 +163,12 @@ export async function checkout<const P extends Product>(
 	const key = lookupKey(product, args.price)
 	checkPositive('quantity', args.quantity)
 	checkPositive('trialDays', args.trialDays)
+	const terms = termsOf(args.terms)
 	const subscribing = 'prices' in product
 	return withCustomer(
 		billingOf(running, product),
 		args.payer,
-		async (gateway, customerId) => {
+		async (gateway, customerId, locale) => {
 			if (subscribing && running.oneSubscription) {
 				const { subscriptions } = await gateway.readCustomer(customerId)
 				if (subscriptions.some(({ status }) => liveStatuses.includes(status))) {
@@ -159,11 +186,12 @@ export async function checkout<const P extends Product>(
 				lookupKey: key,
 				quantity: args.quantity ?? 1,
 				trialDays: subscribing ? (args.trialDays ?? null) : null,
-				terms: args.terms ?? false,
+				terms,
 				promotionCodes: args.promotionCodes ?? false,
 				successUrl: args.successUrl,
 				cancelUrl: args.cancelUrl,
 				metadata: args.metadata ?? {},
+				locale,
 			})
 		},
 	)
@@ -245,8 +273,8 @@ export async function portal<const P extends SubscriptionProduct>(
 	running.portal ??= (await gateway.readCatalog()).portal?.id ?? null
 	const configuration = running.portal
 	const returnUrl = args.returnUrl ?? running.catalog.portal.returnUrl
-	return withCustomer(model, args.payer, async (_, customerId) =>
-		gateway.openPortal({ customerId, configuration, returnUrl, flow }),
+	return withCustomer(model, args.payer, async (_, customerId, locale) =>
+		gateway.openPortal({ customerId, configuration, returnUrl, flow, locale }),
 	)
 }
 

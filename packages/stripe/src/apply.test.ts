@@ -124,5 +124,10 @@ Stripe catalog: applied.
 		await expect(
 			refused({ portal: { returnUrl: 'https://app.test', upgrades: 1 } }),
 		).rejects.toThrow("portal: upgrades is 'invoiceNow' or 'nextInvoice'.")
+		for (const cancelReasons of [[], ['bored'], 'unused']) {
+			await expect(
+				refused({ portal: { returnUrl: 'https://app.test', cancelReasons } }),
+			).rejects.toThrow("portal: cancelReasons lists some of 'too_expensive',")
+		}
 	})
 })

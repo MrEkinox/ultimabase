@@ -123,6 +123,7 @@ describe('planCatalog and applyCatalog', () => {
 			scheduleAtPeriodEnd: ['decreasing_item_amount', 'shortening_interval'],
 			trialUpdate: 'end_trial',
 			cancelMode: 'at_period_end',
+			cancelReasons: [],
 			products: [{ productId: 'prod_1', priceIds: ['price_3', 'price_4'] }],
 			active: true,
 		})
@@ -300,26 +301,36 @@ describe('planCatalog and applyCatalog', () => {
 
 	it('saves the portal when its options change, or when none is saved', async () => {
 		const fake = await synced()
-		expect(
-			await apply(fake, {
-				...catalog,
-				portal: {
-					returnUrl: 'https://app.test/shop',
-					termsUrl: 'https://app.test/terms',
-					upgrades: 'nextInvoice',
-					downgrades: 'now',
-					trialChange: 'keepTrial',
-					cancel: 'now',
-				},
-			}),
-		).toEqual(['update the customer portal configuration bpc_6'])
+		const portal = {
+			returnUrl: 'https://app.test/shop',
+			termsUrl: 'https://app.test/terms',
+			upgrades: 'nextInvoice',
+			downgrades: 'now',
+			trialChange: 'keepTrial',
+			cancel: 'now',
+			cancelReasons: ['unused', 'too_expensive'],
+		} as const
+		expect(await apply(fake, { ...catalog, portal })).toEqual([
+			'update the customer portal configuration bpc_6',
+		])
 		expect(fake.portals.get('bpc_6')).toMatchObject({
 			termsUrl: 'https://app.test/terms',
 			prorationBehavior: 'create_prorations',
 			scheduleAtPeriodEnd: [],
 			trialUpdate: 'continue_trial',
 			cancelMode: 'immediately',
+			cancelReasons: ['unused', 'too_expensive'],
 		})
+		// The reasons' order is not a change.
+		const reordered = {
+			...portal,
+			cancelReasons: ['too_expensive', 'unused'],
+		} as const
+		expect(await plan(fake, { ...catalog, portal: reordered })).toEqual([])
+		const fewer = { ...portal, cancelReasons: ['unused'] } as const
+		expect(await plan(fake, { ...catalog, portal: fewer })).toEqual([
+			{ kind: 'savePortal', id: 'bpc_6' },
+		])
 		fake.portals.clear()
 		expect(await plan(fake)).toEqual([{ kind: 'savePortal', id: null }])
 	})

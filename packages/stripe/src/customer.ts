@@ -61,7 +61,7 @@ export async function locked<R>(
 }
 
 /** What Stripe shows of the payer, from the `customer` option. */
-function profileOf(payer: Row): CustomerProfile {
+export function profileOf(payer: object): CustomerProfile {
 	const { customer } = runningOf('stripe')
 	const given: unknown =
 		customer === undefined ? {} : Reflect.apply(customer, undefined, [payer])
@@ -90,12 +90,16 @@ export async function renewed(row: Customer): Promise<Customer> {
 export async function ensureCustomer(
 	row: Customer,
 	payer: Row,
-): Promise<{ readonly row: Customer; readonly stripeId: string }> {
+): Promise<{
+	readonly row: Customer
+	readonly stripeId: string
+	readonly profile: CustomerProfile
+}> {
 	const { gateway } = stripeOf('stripe')
 	const profile = profileOf(payer)
 	const json = JSON.stringify(profile)
 	if (row.stripeId !== null) {
-		if (row.profile === json) return { row, stripeId: row.stripeId }
+		if (row.profile === json) return { row, stripeId: row.stripeId, profile }
 		try {
 			await gateway.updateCustomer(row.stripeId, profile)
 		} catch (error) {
@@ -104,10 +108,10 @@ export async function ensureCustomer(
 		}
 		const data = { profile: json }
 		await StripeCustomer.update({ where: { id: row.id }, data }, M)
-		return { row, stripeId: row.stripeId }
+		return { row, stripeId: row.stripeId, profile }
 	}
 	const stripeId = await gateway.createCustomer(profile, `customer-${row.id}`)
 	const data = { stripeId, profile: json }
 	await StripeCustomer.update({ where: { id: row.id }, data }, M)
-	return { row, stripeId }
+	return { row, stripeId, profile }
 }

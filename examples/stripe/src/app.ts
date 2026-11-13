@@ -22,8 +22,11 @@ const stripe = stripePlugin({
 	// Without them, the application starts and payments are unavailable.
 	keys: secret && webhook ? { secret, webhook } : undefined,
 	...selling,
-	// What Stripe shows of a user.
-	customer: (user: { readonly email: string }) => ({ email: user.email }),
+	// What Stripe shows of a user; Checkout and the portal speak its locale.
+	customer: (user: { readonly email: string; readonly lang: string }) => ({
+		email: user.email,
+		locale: user.lang,
+	}),
 	// The defaults: Stripe posts its events here, and a user may hold
 	// several subscriptions; `true` refuses a second one, and cancels and
 	// refunds one made anyway.

@@ -4,11 +4,13 @@
 import type { Stripe } from 'stripe'
 import type {
 	BillingGateway,
+	CheckoutWrite,
 	CustomerProfile,
 	PortalFlow,
 } from './billing-gateway.ts'
 import { Missing } from './billing-gateway.ts'
 import { managedBy } from './gateway.ts'
+import { checkoutLocales, pageLocale, portalLocales } from './locale.ts'
 import type { Ref } from './sdk-common.ts'
 import { all, guarded, refOf } from './sdk-common.ts'
 import { gone, stateOf } from './sdk-customer.ts'
@@ -16,6 +18,22 @@ const profileParams = (profile: CustomerProfile) => ({
 	...(profile.email != null && { email: profile.email }),
 	...(profile.name != null && { name: profile.name }),
 	...(profile.locale != null && { preferred_locales: [profile.locale] }),
+})
+/** Stripe's `locale` of a page, unless the page chooses (D-382). */
+const localeParam = (locale: string | null, known: ReadonlySet<string>) => {
+	const page = pageLocale(locale, known)
+	return page === 'auto' ? {} : { locale: page }
+}
+/** The terms checkbox, with the application's text (D-383). */
+const termsParams = (terms: CheckoutWrite['terms']) => ({
+	...(terms !== null && {
+		consent_collection: { terms_of_service: 'required' as const },
+	}),
+	...(terms?.acceptance != null && {
+		custom_text: {
+			terms_of_service_acceptance: { message: terms.acceptance },
+		},
+	}),
 })
 /** The customer an object belongs to, read from Stripe. */
 export async function ownerOf(
@@ -158,9 +176,8 @@ export const sdkBilling = (client: Stripe): BillingGateway => ({
 				success_url: checkout.successUrl,
 				cancel_url: checkout.cancelUrl,
 				metadata,
-				...(checkout.terms && {
-					consent_collection: { terms_of_service: 'required' },
-				}),
+				...localeParam(checkout.locale, checkoutLocales),
+				...termsParams(checkout.terms),
 				...(checkout.promotionCodes && { allow_promotion_codes: true }),
 				...(checkout.mode === 'subscription'
 					? {
@@ -198,12 +215,13 @@ export const sdkBilling = (client: Stripe): BillingGateway => ({
 			throw error
 		}
 	},
-	openPortal: async ({ customerId, configuration, returnUrl, flow }) =>
+	openPortal: async ({ customerId, configuration, returnUrl, flow, locale }) =>
 		guarded(customerId, async () => {
 			const flowData = await flowOf(client, flow, returnUrl)
 			const session = await client.billingPortal.sessions.create({
 				customer: customerId,
 				return_url: returnUrl,
+				...localeParam(locale, portalLocales),
 				...(configuration !== null && { configuration }),
 				...(flowData !== undefined && { flow_data: flowData }),
 			})

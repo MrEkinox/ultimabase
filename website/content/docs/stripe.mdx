@@ -87,8 +87,11 @@ npm install @ultimabase/jobs
   `PAYMENT_UNAVAILABLE`, and the webhook answers 503.
 - `customer` gives what Stripe shows of a payer, from its row: `email`,
   `name`, `locale`. Each payer has one Stripe customer, created at its first
-  Checkout and closed when the payer's row is deleted. Stripe gets the
-  profile again at a Checkout or a portal visit when it changed.
+  Checkout and closed when the payer's row is deleted. A payer's update
+  that changes this profile sends it to Stripe, by a job: see
+  [the billing models](#the-billing-models).
+- Checkout and the portal speak the payer's `locale`: `fr-BE` when the page
+  knows it, else `fr`, else the browser's language.
 - At start, the plugin compares the catalog with Stripe. With
   `NODE_ENV=development` and a test key it applies it; otherwise it warns
   and lists the differences: the deploy script applies them.
@@ -104,6 +107,14 @@ the application adds its own. Only the plugin writes them: a client's or
 the server's write is refused. Reads follow the application's rules: here,
 with `isOwner` from `@ultimabase/auth`, each user reads their own rows.
 Deleting a payer, under its own rules, takes its rows with it.
+
+The payer's model lists `stripePayer()` in its `use`: an update that
+changes what `customer` gives sends the new profile to Stripe, and the
+application does not start without it.
+
+<include cwd meta='title="src/models.ts"'>
+	../examples/stripe/src/models.ts#payer
+</include>
 
 <include cwd meta='title="src/models.ts"'>
 	../examples/stripe/src/models.ts#models
@@ -125,6 +136,21 @@ The subscriptions' model, with its hook, is under
 - An application has at most one model of each. The purchases' payer, the
   balances' owner and the history's owner are one model, and a balance
   needs its history: the application does not start without it.
+
+A subscription's `product` and `price`, and a purchase's `product`, are
+strings, or the application's enums: then each row is typed, and a query
+filters on the values.
+
+<include cwd meta='title="src/models.ts"'>
+	../examples/stripe/src/models.ts#enums
+</include>
+
+- An enum lists every key, or price name, of the catalog the model records,
+  and may hold more, as a product the catalog no longer sells: one that
+  misses a value of the catalog stops the application at start.
+- A subscription Stripe moves to a product or price the enums miss is
+  logged as an error, as one outside the catalog (see
+  [The webhook](#the-webhook)).
 
 A page reads what a user pays from the row, not from the catalog: a
 subscriber keeps the price they subscribed at after the catalog changed.
@@ -158,6 +184,12 @@ It closes the payer's Checkouts still open, so two tabs cannot both pay.
   needs none.
 - `quantity`, `trialDays`, `terms`, `promotionCodes` and `metadata` are
   optional.
+- `terms: true` adds a checkbox the payer ticks, with Stripe's text and the
+  terms of the Stripe account; `terms: { acceptance }` shows the
+  application's text instead, in Stripe's Markdown, up to 1,200 characters,
+  so it names the terms the payer accepts, in their language. A Stripe
+  account with Managed Payments refuses that text, and its error reaches
+  the call: such an account keeps `terms: true`.
 - With `promotionCodes: true`, the payer can type a code created in Stripe.
   A purchase a code made free is recorded at zero and gives its credits.
 - Checkout leaves the card that paid on the subscription, where the portal
@@ -179,6 +211,10 @@ it on the confirmation of a change or a cancellation, and throw
 	../examples/stripe/src/shop.ts#portal
 </include>
 
+The portal's options, under `portal` in the catalog, set what it allows.
+`cancelReasons` lists the reasons it asks a payer who cancels, in Stripe's
+words; the answers stay in Stripe's Dashboard and reports.
+
 ## The webhook
 
 In Stripe, create an event destination for the application's URL, with
@@ -191,6 +227,13 @@ to `keys.webhook`.
 - The job reads the customer from Stripe and writes its subscriptions,
   purchases and credits. Events can come late or in any order: the rows
   follow Stripe, not the event.
+- A subscription to a price the plugin did not write, as one made by hand
+  in the Dashboard, gives nothing: the sync logs an error (`A Stripe
+subscription has a price outside the catalog: its payer gets nothing.`,
+  with the subscription, the price and the customer). Its row, if any,
+  keeps its product and price, and still gets its status and dates, so it
+  ends when Stripe ends it. A payment for a product the catalog no longer
+  holds is logged the same way.
 - An hourly job runs the events still waiting, syncs again the customers
   whose period ended, and closes the customers of deleted payers. It also
   reads Stripe's list of events since its last run, and syncs each customer

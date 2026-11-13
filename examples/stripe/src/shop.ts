@@ -15,6 +15,11 @@ export const subscribe = (user: Payer) =>
 		payer: user,
 		product: pro,
 		price: 'monthly',
+		// A checkbox the user ticks, with the application's text.
+		terms: {
+			acceptance:
+				'I accept the [terms of sale](https://app.example.com/terms).',
+		},
 		// Stripe fills in the session's id.
 		successUrl: 'https://app.example.com/paid?session={CHECKOUT_SESSION_ID}',
 		cancelUrl: 'https://app.example.com/pricing',
