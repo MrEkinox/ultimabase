@@ -19,7 +19,8 @@ const stripe = stripePlugin({
 	// What Stripe shows of a user.
 	customer: (user: { readonly email: string }) => ({ email: user.email }),
 	// The defaults: Stripe posts its events here, and a user may hold
-	// several subscriptions; `true` refuses a second one.
+	// several subscriptions; `true` refuses a second one, and cancels and
+	// refunds one made anyway.
 	webhookPath: '/webhooks/stripe',
 	oneSubscription: false,
 })
@@ -30,7 +31,7 @@ export const app = defineApp({
 	// Kept in memory, so the example needs no database.
 	database: memory(),
 	// Listens on PORT, or 3000; runs each Stripe event's job, and the hourly
-	// reconciliation.
+	// reconciliation, which catches the events the webhook missed.
 	plugins: [httpPlugin(), jobsPlugin({ jobs: [] }), stripe],
 	models: [User, Subscription, Purchase, Balance],
 })

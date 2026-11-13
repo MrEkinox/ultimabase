@@ -80,18 +80,22 @@ npm install @ultimabase/jobs
   `PAYMENT_UNAVAILABLE`, and the webhook answers 503.
 - `customer` gives what Stripe shows of a payer, from its row: `email`,
   `name`, `locale`. Each payer has one Stripe customer, created at its first
-  Checkout and closed when the payer's row is deleted.
+  Checkout and closed when the payer's row is deleted. Stripe gets the
+  profile again at a Checkout or a portal visit when it changed.
 - At start, the plugin compares the catalog with Stripe. With
   `NODE_ENV=development` and a test key it applies it; otherwise it warns
   and lists the differences: the deploy script applies them.
 - `webhookPath` is `/webhooks/stripe` unless set; `oneSubscription: true`
-  refuses a second live subscription with `ALREADY_SUBSCRIBED`.
+  refuses a second live subscription with `ALREADY_SUBSCRIBED`, and one made
+  anyway, in the Dashboard or by a race, is canceled at once, its payment
+  refunded, and logged as an error.
 
 ## The billing models
 
 Three functions declare the models the plugin writes, each with its fields;
 the application adds its own. Only the plugin writes them: a client's or
-the server's write is refused.
+the server's write is refused. Deleting a payer, under its own rules, takes
+its rows with it.
 
 <include cwd meta='title="src/models.ts"'>
 	../examples/stripe/src/models.ts#models
@@ -143,12 +147,16 @@ the path `/webhooks/stripe` and thin payloads, and give its signing secret
 to `keys.webhook`.
 
 - The plugin checks each event's signature on the raw body and its mode,
-  stores it once, enqueues its job and answers at once. A forged event gets 401.
+  stores it once, enqueues its job and answers at once. A forged event gets
+  401; an event of the other mode, live or test, is dropped with a warning.
 - The job reads the customer from Stripe and writes its subscriptions,
   purchases and credits. Events can come late or in any order: the rows
   follow Stripe, not the event.
 - An hourly job runs the events still waiting, syncs again the customers
-  whose period ended, and closes the customers of deleted payers.
+  whose period ended, and closes the customers of deleted payers. It also
+  reads Stripe's list of events since its last run, and syncs each customer
+  they changed that no sync read since: an event the webhook missed costs
+  one sync within the hour.
 
 ## Credits
 
