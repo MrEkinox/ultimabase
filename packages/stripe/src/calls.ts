@@ -5,7 +5,7 @@
 import { PublicError, Refused } from 'ultimabase'
 import type { Gateway } from './accounts.ts'
 import type { PortalFlow } from './billing-gateway.ts'
-import { Missing } from './billing-gateway.ts'
+import { liveStatuses, Missing } from './billing-gateway.ts'
 import type { Customer } from './customer.ts'
 import {
 	customerRow,
@@ -19,7 +19,7 @@ import type { Product, SubscriptionProduct } from './product.ts'
 import type { Billing, Row, Running } from './running.ts'
 import { runningOf, stripeOf } from './running.ts'
 import { spend } from './credits.ts'
-import { liveStatuses, syncCustomer } from './sync.ts'
+import { syncCustomer } from './sync.ts'
 
 type Payer = { readonly id: string }
 /** A product's price names: `'monthly' | 'yearly'`. */

@@ -221,7 +221,7 @@ describe('one subscription per payer', () => {
 	beforeEach(() => {
 		vi.stubEnv('NODE_ENV', 'development')
 	})
-	const { app, fake } = billingApp({
+	const { app, fake, lines } = billingApp({
 		oneSubscription: true,
 		webhookPath: '/stripe/events',
 	})
@@ -239,5 +239,38 @@ describe('one subscription per payer', () => {
 		).rejects.toMatchObject({ code: 'ALREADY_SUBSCRIBED' })
 		await stripe.checkout({ payer: ada, product: gemPack, ...urls })
 		expect(await Balance.count({}, M)).toBe(0)
+	})
+
+	it('ends a second subscription at once, and refunds it', async () => {
+		const ada = await signUp()
+		const url = await stripe.checkout({ payer: ada, product: team, ...urls })
+		const first = fake.pay(url)
+		await fake.deliver(test.url, '/stripe/events')
+		await runJobs()
+		// A second one, made at Stripe outside the plugin.
+		const held = fake.subscriptions.get(first)
+		if (held === undefined) throw new Error('No subscription.')
+		// Begun the same second: the id decides which one stays.
+		const second = 'sub_second'
+		fake.subscriptions.set(second, { ...held, id: second })
+		fake.update(second, {})
+		await fake.deliver(test.url, '/stripe/events')
+		await runJobs()
+		expect(fake.subscriptions.get(first)?.status).toBe('active')
+		expect(fake.subscriptions.get(second)?.status).toBe('canceled')
+		expect([...fake.subscriptionRefunds]).toStrictEqual([second])
+		expect(lines).toContainEqual(
+			expect.objectContaining({
+				level: 'error',
+				message: 'A payer’s second subscription was canceled and refunded.',
+			}),
+		)
+		await fake.deliver(test.url, '/stripe/events')
+		await runJobs()
+		const rows = await Subscription.findMany({}, M)
+		expect(rows.map(({ status }) => status).toSorted()).toStrictEqual([
+			'active',
+			'canceled',
+		])
 	})
 })

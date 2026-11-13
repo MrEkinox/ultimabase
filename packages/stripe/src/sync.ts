@@ -1,26 +1,20 @@
-// A payer's sync (D-371 point 4): under its customer's lock, what Stripe
-// holds now is written to the application's subscription and purchase rows,
-// so events out of order or lost leave nothing stale.
+// A payer's sync (D-371 point 4, D-375): what Stripe holds now is written
+// to the application's subscription and purchase rows, so events out of
+// order or lost leave nothing stale. Stripe is read outside any transaction;
+// the write takes the customer's lock.
+import { transaction } from 'ultimabase'
 import type {
 	CustomerState,
 	StripePayment,
 	StripeSubscription,
 } from './billing-gateway.ts'
+import { liveStatuses } from './billing-gateway.ts'
 import { settleCredits } from './credits.ts'
 import type { Customer } from './customer.ts'
-import { locked } from './customer.ts'
+import { duplicateJob, duplicatesOf } from './duplicates.ts'
 import { M, StripeCustomer } from './models.ts'
 import type { Billing, Running } from './running.ts'
 import { runningOf, stripeOf } from './running.ts'
-
-/** Stripe's statuses of a subscription that still gives access. */
-export const liveStatuses: readonly string[] = [
-	'active',
-	'trialing',
-	'past_due',
-	'unpaid',
-	'paused',
-]
 
 /** The model when its payer is the customer's, else nothing to write. */
 const ownModel = (model: Billing | undefined, row: Customer) =>
@@ -118,27 +112,58 @@ async function forget(running: Running, row: Customer): Promise<void> {
 	await StripeCustomer.delete({ where: { id: row.id } }, M)
 }
 
-/** Writes what Stripe holds of the customer of row `id`. */
+/** Writes what was read of the customer, under its lock. */
+async function write(running: Running, row: Customer, state: CustomerState) {
+	if (state.deleted) {
+		await forget(running, row)
+		return
+	}
+	const subscription = ownModel(running.subscription, row)
+	if (subscription !== undefined) {
+		for (const one of state.subscriptions) {
+			await writeSubscription(subscription, row, one)
+		}
+	}
+	for (const payment of state.payments) {
+		await writePayment(running, row, payment)
+	}
+	// Enqueued with the write: a sync that writes nothing read older.
+	if (running.oneSubscription) {
+		for (const { id } of duplicatesOf(state.subscriptions)) {
+			await duplicateJob.enqueue({ subscription: id })
+		}
+	}
+}
+
+/**
+ * Writes what Stripe holds of the customer of row `id`. The sync takes the
+ * next number of the customer's syncs, reads Stripe, then writes only when
+ * no sync begun after it wrote first. A change at Stripe sends an event
+ * whose sync begins after it, so no sync begun before overwrites it.
+ */
 export async function syncCustomer(id: string): Promise<void> {
 	const running = runningOf('stripe.sync')
 	const { gateway } = stripeOf('stripe.sync')
-	await locked(id, async (row) => {
-		if (row.stripeId === null) return
-		const state = await gateway.readCustomer(row.stripeId)
-		if (state.deleted) {
-			await forget(running, row)
-			return
+	const [begun] = await StripeCustomer.updateManyAndReturn(
+		{ where: { id }, data: { syncsBegun: { increment: 1 } } },
+		M,
+	)
+	const stripeId = begun?.stripeId ?? null
+	if (begun === undefined || stripeId === null) return
+	const readAt = new Date()
+	const state = await gateway.readCustomer(stripeId)
+	await transaction(async () => {
+		const number = begun.syncsBegun
+		const data = {
+			syncWritten: number,
+			syncedAt: readAt,
+			renewsAt: renewsAt(state),
 		}
-		const subscription = ownModel(running.subscription, row)
-		if (subscription !== undefined) {
-			for (const one of state.subscriptions) {
-				await writeSubscription(subscription, row, one)
-			}
-		}
-		for (const payment of state.payments) {
-			await writePayment(running, row, payment)
-		}
-		const data = { syncedAt: new Date(), renewsAt: renewsAt(state) }
-		await StripeCustomer.update({ where: { id: row.id }, data }, M)
+		// The customer's lock, taken by the write.
+		const [row] = await StripeCustomer.updateManyAndReturn(
+			{ where: { id, stripeId, syncWritten: { lt: number } }, data },
+			M,
+		)
+		if (row !== undefined) await write(running, row, state)
 	})
 }

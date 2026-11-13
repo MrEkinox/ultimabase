@@ -5,6 +5,7 @@ import { Stripe } from 'stripe'
 import type {
 	BillingGateway,
 	CheckoutWrite,
+	RecoveryGateway,
 	CustomerProfile,
 	PortalWrite,
 	StripePayment,
@@ -36,6 +37,8 @@ export interface FakeBilling {
 	readonly payments: Map<string, StripePayment>
 	/** Each portal session opened, in order. */
 	readonly portalSessions: PortalWrite[]
+	/** The subscriptions whose latest payment the plugin refunded. */
+	readonly subscriptionRefunds: Set<string>
 	/** Pays an open Checkout, by its URL, as its payer would; gives its id. */
 	readonly pay: (url: string) => string
 	/** Changes a subscription, as the portal or a renewal would. */
@@ -106,16 +109,32 @@ const days: Readonly<Record<string, number>> = {
 export function fakeBilling(
 	prices: ReadonlyMap<string, StripePrice>,
 	newId: (prefix: string) => string,
-): { readonly gateway: BillingGateway; readonly fake: FakeBilling } {
+): {
+	readonly gateway: BillingGateway & RecoveryGateway
+	readonly fake: FakeBilling
+} {
 	const customers = new Map<string, FakeCustomer>()
 	const keys = new Map<string, string>()
 	const checkouts = new Map<string, FakeCheckout>()
 	const subscriptions = new Map<string, StripeSubscription>()
 	const payments = new Map<string, StripePayment>()
 	const portalSessions: PortalWrite[] = []
+	const subscriptionRefunds = new Set<string>()
 	const sent: string[] = []
+	/** Each event's object and time, which Stripe lists for 30 days. */
+	const listed: { readonly id: string; readonly type: string; at: Date }[] = []
 	const send = (type: string, id: string, object: string) => {
 		sent.push(thinEvent({ type, object: { id, type: object } }))
+		listed.push({ id, type: object, at: new Date() })
+	}
+	const ownerOf = (type: string, id: string): string | null => {
+		const maps: Record<string, ReadonlyMap<string, { customerId: string }>> = {
+			'checkout.session': checkouts,
+			subscription: subscriptions,
+			payment_intent: payments,
+		}
+		if (type === 'customer') return customers.has(id) ? id : null
+		return maps[type]?.get(id)?.customerId ?? null
 	}
 	const priceOf = (lookupKey: string): StripePrice => {
 		const held = [...prices.values()].find(
@@ -170,7 +189,7 @@ export function fakeBilling(
 		send('payment_intent.succeeded', id, 'payment_intent')
 		return id
 	}
-	const gateway: BillingGateway = {
+	const gateway: BillingGateway & RecoveryGateway = {
 		createCustomer: async (profile, idempotencyKey) => {
 			const held = keys.get(idempotencyKey)
 			if (held !== undefined) return held
@@ -199,18 +218,7 @@ export function fakeBilling(
 				payments: own(payments),
 			}
 		},
-		customerOf: async (type, id) => {
-			const maps: Record<
-				string,
-				ReadonlyMap<string, { customerId: string }>
-			> = {
-				'checkout.session': checkouts,
-				subscription: subscriptions,
-				payment_intent: payments,
-			}
-			if (type === 'customer') return customers.has(id) ? id : null
-			return maps[type]?.get(id)?.customerId ?? null
-		},
+		customerOf: async (type, id) => ownerOf(type, id),
 		openCheckout: async (checkout) => {
 			live(checkout.customerId)
 			priceOf(checkout.lookupKey)
@@ -233,6 +241,23 @@ export function fakeBilling(
 			portalSessions.push(portal)
 			return `https://billing.stripe.test/${newId('bps')}`
 		},
+		cancelAndRefund: async (id) => {
+			const held = found(subscriptions, id)
+			if (held.status !== 'canceled') {
+				const ended = { status: 'canceled', canceledAt: new Date() }
+				subscriptions.set(id, { ...held, ...ended })
+				send('customer.subscription.deleted', id, 'subscription')
+			}
+			subscriptionRefunds.add(id)
+		},
+		changedSince: async (since) => {
+			const changed = new Map<string, Date>()
+			for (const { id, type, at } of listed) {
+				const customer = ownerOf(type, id)
+				if (customer !== null && at > since) changed.set(customer, at)
+			}
+			return changed
+		},
 	}
 	const fake: FakeBilling = {
 		webhookSecret: `whsec_fake_${crypto.randomUUID()}`,
@@ -241,6 +266,7 @@ export function fakeBilling(
 		subscriptions,
 		payments,
 		portalSessions,
+		subscriptionRefunds,
 		pay: (url) => {
 			const checkout = [...checkouts.values()].find((one) => one.url === url)
 			if (checkout?.status !== 'open') throw new Error(`${url} is not open.`)

@@ -173,6 +173,37 @@ describe('the hourly reconciliation', () => {
 		])
 	})
 
+	it('syncs a customer whose events were lost, once', async () => {
+		const { subscription } = await subscribed()
+		// Changed at Stripe, its event lost.
+		fake.update(subscription, { status: 'past_due' })
+		vi.useFakeTimers({ toFake: ['Date'] })
+		vi.setSystemTime(Date.now() + hour)
+		await runJobs()
+		expect(await Subscription.findMany({}, M)).toMatchObject([
+			{ status: 'past_due' },
+		])
+		const [synced] = await StripeCustomer.findMany({}, master)
+		vi.setSystemTime(Date.now() + hour)
+		await runJobs()
+		const [after] = await StripeCustomer.findMany({}, master)
+		expect(after?.syncsBegun).toBe(synced?.syncsBegun)
+	})
+
+	it('reads every customer, page after page', async () => {
+		const data = Array.from({ length: 501 }, (_, index) => ({
+			model: 'User',
+			payer: `gone-${String(index)}`,
+		}))
+		// A payer model no billing model names any more keeps its rows.
+		const kept = { model: 'Removed', payer: 'still-there' }
+		await StripeCustomer.createMany({ data: [...data, kept] }, master)
+		vi.useFakeTimers({ toFake: ['Date'] })
+		vi.setSystemTime(Date.now() + hour)
+		await runJobs()
+		expect(await StripeCustomer.findMany({}, master)).toMatchObject([kept])
+	})
+
 	it('runs the events still waiting, and forgets the old processed ones', async () => {
 		const { customer } = await subscribed()
 		const waiting = await StripeEvent.create(

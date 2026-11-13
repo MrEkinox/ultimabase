@@ -32,6 +32,15 @@ export interface StripeSubscription extends PriceKeys {
 	readonly scheduled: (PriceKeys & { readonly at: Date }) | null
 }
 
+/** Stripe's statuses of a subscription that still gives access. */
+export const liveStatuses: readonly string[] = [
+	'active',
+	'trialing',
+	'past_due',
+	'unpaid',
+	'paused',
+]
+
 /** A one-time payment of a catalog product. */
 export interface StripePayment {
 	readonly id: string
@@ -112,6 +121,20 @@ export interface BillingGateway {
 	readonly checkoutCustomer: (id: string) => Promise<string | null>
 	/** Opens a portal session; returns its URL. */
 	readonly openPortal: (portal: PortalWrite) => Promise<string>
+}
+
+/** What the plugin asks Stripe to set right what went wrong (D-375). */
+export interface RecoveryGateway {
+	/**
+	 * Ends a subscription at once, unless it ended, and refunds its latest
+	 * payment; done again, it changes nothing.
+	 */
+	readonly cancelAndRefund: (id: string) => Promise<void>
+	/**
+	 * The customers whose objects Stripe's events changed after `since`, with
+	 * the time of each one's last event.
+	 */
+	readonly changedSince: (since: Date) => Promise<ReadonlyMap<string, Date>>
 }
 
 /** An object Stripe does not hold, or no longer does. */

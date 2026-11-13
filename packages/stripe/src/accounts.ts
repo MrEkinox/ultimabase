@@ -2,12 +2,13 @@
 // `@ultimabase/stripe/testing` registers its own key here, so a test hands
 // that key to the code under test as it would hand a real one: no option
 // of the public API exists for tests alone, and each fake is its own account.
-import type { BillingGateway } from './billing-gateway.ts'
+import type { BillingGateway, RecoveryGateway } from './billing-gateway.ts'
 import { sdkBilling } from './sdk-billing.ts'
+import { sdkRecovery } from './sdk-recovery.ts'
 import { type StripeGateway, sdkGateway, stripeClient } from './gateway.ts'
 
 /** Everything the plugin asks a Stripe account. */
-export type Gateway = StripeGateway & BillingGateway
+export type Gateway = StripeGateway & BillingGateway & RecoveryGateway
 
 const fakes = new Map<string, Gateway>()
 
@@ -21,5 +22,9 @@ export const gatewayOf = (secret: string): Gateway => {
 	const fake = fakes.get(secret)
 	if (fake !== undefined) return fake
 	const client = stripeClient(secret)
-	return { ...sdkGateway(client), ...sdkBilling(client) }
+	return {
+		...sdkGateway(client),
+		...sdkBilling(client),
+		...sdkRecovery(client),
+	}
 }

@@ -26,7 +26,13 @@ import { closeJob, stripeJobs } from './jobs.ts'
 import { ownKeys } from './keys.ts'
 import type { Kind } from './kinds.ts'
 import { billingModels } from './kinds.ts'
-import { M, StripeCreditEntry, StripeCustomer, StripeEvent } from './models.ts'
+import {
+	M,
+	StripeCreditEntry,
+	StripeCustomer,
+	StripeEvent,
+	StripeScan,
+} from './models.ts'
 import type { PortalOptions } from './portal.ts'
 import type { Product } from './product.ts'
 import type { Billing, Running } from './running.ts'
@@ -225,7 +231,7 @@ const definition = definePlugin<Stripe>({
 	name: 'stripe',
 	manifest,
 	requires: { http: httpPlugin, jobs: jobsPlugin },
-	models: [StripeCustomer, StripeEvent, StripeCreditEntry],
+	models: [StripeCustomer, StripeEvent, StripeScan, StripeCreditEntry],
 	api: ({ plugins, options }) => {
 		const { webhookPath = '/webhooks/stripe' } = options
 		if (typeof webhookPath !== 'string' || !webhookPath.startsWith('/')) {

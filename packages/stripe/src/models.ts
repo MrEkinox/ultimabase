@@ -9,6 +9,10 @@ export const M: { readonly as: typeof master } = { as: master }
 type Text = Field<string, ScalarOptions<string>>
 type Int = Field<number, { readonly integer: true }>
 type Optional<V> = Field<V | null, { readonly optional: true }>
+type Counter = Field<
+	number,
+	{ readonly integer: true; readonly default: number }
+>
 
 type CustomerFields = {
 	/** The payer's model, `User`, and its row's id (D-373 point 3). */
@@ -19,7 +23,11 @@ type CustomerFields = {
 		string | null,
 		{ readonly optional: true; readonly unique: true }
 	>
+	/** When the last sync written began to read Stripe. */
 	readonly syncedAt: Optional<Date>
+	/** The syncs begun, and the number of the last one written. */
+	readonly syncsBegun: Counter
+	readonly syncWritten: Counter
 	/** When a subscription renews, ends or changes: the hourly job syncs it. */
 	readonly renewsAt: Optional<Date>
 	/** Written to take the customer's lock. */
@@ -46,6 +54,8 @@ export const StripeCustomer: ModelOf<
 		payer: f.string(),
 		stripeId: f.string({ optional: true, unique: true }),
 		syncedAt: f.dateTime({ optional: true }),
+		syncsBegun: f.number({ integer: true, default: 0 }),
+		syncWritten: f.number({ integer: true, default: 0 }),
 		renewsAt: f.dateTime({ optional: true }),
 		lockedAt: f.dateTime({ optional: true }),
 		profile: f.string({ optional: true }),
@@ -80,6 +90,22 @@ export const StripeEvent: ModelOf<'StripeEvent', EventFields, []> = defineModel(
 		indexes: [{ fields: ['processedAt'] }],
 	},
 )
+
+type ScanFields = {
+	/** `events`: the one scan. */
+	readonly name: Field<string, { readonly unique: true }>
+	/** Stripe's events up to this time were read. */
+	readonly until: Field<Date, ScalarOptions<Date>>
+}
+
+/** How far the hourly job read Stripe's events (D-375). */
+export const StripeScan: ModelOf<'StripeScan', ScanFields, []> = defineModel({
+	name: 'StripeScan',
+	fields: (f) => ({
+		name: f.string({ unique: true }),
+		until: f.dateTime(),
+	}),
+})
 
 type EntryFields = {
 	/** The owner's model and id. */

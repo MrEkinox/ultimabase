@@ -32,7 +32,10 @@ const translated = (error: unknown, id: string): unknown => {
 	return error
 }
 
-const guarded = async <T>(id: string, run: () => Promise<T>): Promise<T> => {
+export const guarded = async <T>(
+	id: string,
+	run: () => Promise<T>,
+): Promise<T> => {
 	try {
 		return await run()
 	} catch (error) {
@@ -40,14 +43,14 @@ const guarded = async <T>(id: string, run: () => Promise<T>): Promise<T> => {
 	}
 }
 
-const all = async <T>(list: AsyncIterable<T>): Promise<T[]> => {
+export const all = async <T>(list: AsyncIterable<T>): Promise<T[]> => {
 	const items: T[] = []
 	for await (const item of list) items.push(item)
 	return items
 }
 
-type Ref = string | { readonly id: string } | null
-const refOf = (value: Ref): string | null =>
+export type Ref = string | { readonly id: string } | null
+export const refOf = (value: Ref): string | null =>
 	value === null || typeof value === 'string' ? value : value.id
 
 const dateOf = (seconds: number): Date => new Date(seconds * 1000)
@@ -138,7 +141,11 @@ async function paymentOf(
 }
 
 /** The customer an object belongs to, read from Stripe. */
-async function ownerOf(client: Stripe, type: string, id: string): Promise<Ref> {
+export async function ownerOf(
+	client: Stripe,
+	type: string,
+	id: string,
+): Promise<Ref> {
 	switch (type) {
 		case 'customer':
 			return id
