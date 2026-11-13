@@ -311,8 +311,8 @@ Exit: the audit's fixes are published.
 - [x] The kernel publishes its work on tracing channels (D-360).
 - [x] `@ultimabase/sentry`: errors and their traces, read from those
       channels (D-361).
-- [ ] `@ultimabase/stripe`: subscriptions, one-time products and credits on
-      Stripe's hosted pages, checked against a sandbox (D-371 to D-374).
+- [x] `@ultimabase/stripe`: subscriptions, one-time products and credits on
+      Stripe's hosted pages, checked against a sandbox (D-371 to D-376).
 
 Exit: every feature of the previous base has an example, in far fewer lines.
 

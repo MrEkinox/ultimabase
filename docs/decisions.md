@@ -22623,7 +22623,7 @@ export const Thing = defineModel({
 
 ## D-371: `@ultimabase/stripe`, payments on Stripe's hosted pages
 
-Amended by D-375.
+Amended by D-375 and D-376.
 
 Choice: an official plugin sells subscriptions, one-time products and
 credits through Stripe, for any application.
@@ -22708,6 +22708,8 @@ stripePlugin({
 ```
 
 ## D-372: The catalog in code: `defineProduct` and `defineCredit`
+
+Amended by D-376.
 
 Choice: an application declares what it sells with values it imports, and
 the plugin writes them to Stripe.
@@ -22801,7 +22803,7 @@ await applyStripeCatalog({
 
 ## D-373: The application's billing models: `defineSubscription`, `definePurchase`, `defineBalance`
 
-Amended by D-375.
+Amended by D-375 and D-376.
 
 Choice: what a payer bought lives in the application's own models, which
 the plugin fills, as `defineRole` builds a role model (D-13, D-123).
@@ -22938,6 +22940,8 @@ export const changePlan = defineFunction({
 
 ## D-374: Credits are bought with a product and spent by the application
 
+Amended by D-376.
+
 Choice: a payer buys credits with a one-time product (D-372), and the
 application spends them in its own writes.
 
@@ -23069,4 +23073,69 @@ await User.delete({ where: { id: user.id } }, { as: user })
 
 // After: the rows go with the user, and a job closes its customer at Stripe
 await User.delete({ where: { id: user.id } }, { as: user })
+```
+
+## D-376: Stripe's codes answer 400, `customer` is annotated, and the catalog's names hold no dot
+
+Choice: amends D-371 points 2 and 7, D-372 points 2 and 5, D-373 point 6 and
+D-374 point 2.
+
+1. The plugin's codes go out as every plugin's (D-72, D-206): a `400` with
+   the code, over REST and GraphQL alike. `ALREADY_SUBSCRIBED` and
+   `NOT_ENOUGH_CREDITS` are not `409`, and `PAYMENT_UNAVAILABLE` thrown by a
+   call is not `503`. Only the webhook's own answer stays `503`, for Stripe
+   to retry.
+2. `stripe.portal` for a payer with several live subscriptions and none
+   named throws `Refused`, a `500`: the application allows several and must
+   name one, a fix in its code that its log names.
+3. `customer` types its parameter with the payer's record:
+   `customer: (user: { readonly email: string }) => ({ email: user.email })`.
+   Without the annotation the parameter is `never`, and reading it is a type
+   error.
+4. A product's key and a price's name are letters, digits, `_` and `-`:
+   they make the lookup key `<product>.<price>`, which a dot would make
+   ambiguous. Start refuses one, naming it.
+5. A subscription product has one price per interval: Stripe's portal
+   takes one, and start refuses a second, naming both.
+
+Why: a client decides on the code, never the status, and GraphQL has no
+status per error; a status per code would be an option of every plugin for
+nothing. The plugin cannot know the payers' models, which can be several;
+inferring them needs generics whose errors no one reads, and a wrong
+annotation costs an empty field at Stripe, not a failure. The two catalog
+rules turn a late and obscure Stripe error into a clear one at start, and
+refuse nothing a coupon or a second product does not cover.
+
+Rejected:
+
+- A plugin declaring a status per code: REST and GraphQL would differ
+  (D-129).
+- `stripe.portal`'s refusal as a public code: it would hide an
+  application's bug behind a client error.
+- Inferring `customer`'s parameter from the payer models.
+- Two prices of one interval, the second kept out of the portal.
+
+Example, before and after:
+
+```ts
+// Before (D-373, D-374): HTTP 409 { "code": "NOT_ENOUGH_CREDITS" }
+// After: HTTP 400 { "code": "NOT_ENOUGH_CREDITS", "message": "Not enough gems." }
+if (error.code === 'NOT_ENOUGH_CREDITS') showShop()
+
+// Before (D-371's example): customer: (user) => ({ email: user.email })
+stripePlugin({
+	...options,
+	customer: (user: { readonly email: string }) => ({ email: user.email }),
+})
+
+// Both refused at start
+defineProduct({ key: 'pro.v2', name: 'Pro', prices: { monthly } })
+defineProduct({
+	key: 'pro',
+	name: 'Pro',
+	prices: {
+		monthly: { amount: 9_90, every: 'month' },
+		monthlyPromo: { amount: 4_90, every: 'month' },
+	},
+})
 ```
