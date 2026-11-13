@@ -181,6 +181,7 @@ export function fakeBilling(
 			id,
 			customerId: checkout.customerId,
 			product: checkout.product,
+			quantity: checkout.quantity,
 			amount: (price.amount ?? 0) * checkout.quantity,
 			refunded: 0,
 			disputeLost: false,

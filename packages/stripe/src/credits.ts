@@ -12,11 +12,14 @@ import { runningOf } from './running.ts'
 
 type Owner = { readonly id: string }
 
-/** Each credit's total, in the order first named. */
-function totals(credits: readonly CreditAmount[]): Map<string, number> {
+/** Each credit's total, `times` over, in the order first named. */
+function totals(
+	credits: readonly CreditAmount[],
+	times = 1,
+): Map<string, number> {
 	const sums = new Map<string, number>()
 	for (const { credit, amount } of credits) {
-		sums.set(credit, (sums.get(credit) ?? 0) + amount)
+		sums.set(credit, (sums.get(credit) ?? 0) + amount * times)
 	}
 	return sums
 }
@@ -98,7 +101,7 @@ export async function settleCredits(
 ): Promise<void> {
 	const { balance, logger } = runningOf('stripe')
 	if (balance === undefined || product.gives.length === 0) return
-	const sums = totals(product.gives)
+	const sums = totals(product.gives, payment.quantity)
 	if (!(await moved(payment.id, 'purchase'))) {
 		for (const [credit, amount] of sums) {
 			await balance.queries.upsert(

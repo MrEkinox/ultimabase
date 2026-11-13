@@ -46,6 +46,8 @@ export interface StripePayment {
 	readonly id: string
 	readonly customerId: string
 	readonly product: string | null
+	/** How many of the product were paid: what it gives, so many times. */
+	readonly quantity: number
 	readonly amount: number
 	readonly refunded: number
 	/** Whether a dispute of it was lost. */

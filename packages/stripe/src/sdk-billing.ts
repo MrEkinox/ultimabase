@@ -117,6 +117,12 @@ async function subscriptionOf(
 	}
 }
 
+/** The quantity a Checkout wrote to its payment, one when it wrote none. */
+const quantityOf = (value: string | undefined): number => {
+	const quantity = Number(value)
+	return Number.isSafeInteger(quantity) && quantity > 0 ? quantity : 1
+}
+
 async function paymentOf(
 	client: Stripe,
 	intent: Stripe.PaymentIntent,
@@ -133,6 +139,7 @@ async function paymentOf(
 		id: intent.id,
 		customerId: refOf(intent.customer) ?? '',
 		product: intent.metadata['product'] ?? null,
+		quantity: quantityOf(intent.metadata['quantity']),
 		amount: intent.amount_received,
 		refunded: charge?.amount_refunded ?? 0,
 		disputeLost: disputes.some(({ status }) => status === 'lost'),
@@ -325,7 +332,12 @@ export const sdkBilling = (client: Stripe): BillingGateway => ({
 								}),
 							},
 						}
-					: { payment_intent_data: { metadata } }),
+					: {
+							// The payment keeps its quantity: its credits are so many times.
+							payment_intent_data: {
+								metadata: { ...metadata, quantity: String(checkout.quantity) },
+							},
+						}),
 			})
 			if (session.url === null) throw new Error('Checkout gave no URL.')
 			return session.url

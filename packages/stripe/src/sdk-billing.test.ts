@@ -98,6 +98,11 @@ describe('readCustomer', () => {
 					return stripeList([
 						intent('pi_1', {}),
 						intent('pi_2', {
+							metadata: {
+								managedBy: 'ultimabase',
+								product: 'gemPack',
+								quantity: '3',
+							},
 							latest_charge: {
 								id: 'ch_2',
 								amount_refunded: 1_00,
@@ -151,6 +156,8 @@ describe('readCustomer', () => {
 					id: 'pi_1',
 					customerId: 'cus_1',
 					product: 'gemPack',
+					// A payment with no quantity written is one.
+					quantity: 1,
 					amount: 4_90,
 					refunded: 0,
 					disputeLost: false,
@@ -160,6 +167,7 @@ describe('readCustomer', () => {
 					id: 'pi_2',
 					customerId: 'cus_1',
 					product: 'gemPack',
+					quantity: 3,
 					amount: 4_90,
 					refunded: 1_00,
 					disputeLost: true,
@@ -360,6 +368,7 @@ describe('a Checkout', () => {
 		expect(requests[1]?.params).toMatchObject({
 			mode: 'payment',
 			'payment_intent_data[metadata][product]': 'pro',
+			'payment_intent_data[metadata][quantity]': '2',
 		})
 		expect(Object.keys(requests[1]?.params ?? {})).not.toContain(
 			'allow_promotion_codes',
