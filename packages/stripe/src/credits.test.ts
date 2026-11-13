@@ -1,11 +1,12 @@
 // Credits (D-374, D-377): a paid gem pack or subscription period gives its
 // gems once, the application grants and spends them, and a full refund or a
 // lost dispute takes them back.
-import { runJobs, testApplication } from '@ultimabase/testing'
+import { runJobs } from '@ultimabase/testing'
 import { transaction } from 'ultimabase'
 import { beforeAll, describe, expect, it, vi } from 'vitest'
 import { stripe } from './index.ts'
 import {
+	billingTest,
 	Balance,
 	billingApp,
 	CreditHistory,
@@ -23,7 +24,7 @@ beforeAll(() => {
 })
 
 const { app, fake, lines } = billingApp()
-const test = testApplication(app)
+const test = billingTest(app)
 
 const delivered = async () => {
 	await fake.deliver(test.url)

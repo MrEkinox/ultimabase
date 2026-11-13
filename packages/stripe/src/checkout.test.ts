@@ -1,11 +1,12 @@
 // A payer subscribes through Checkout (D-371, D-373 points 7 and 8): the
 // webhook's job writes the subscription, the payer comes back before it, or
 // opens the portal to change or cancel.
-import { runJobs, testApplication } from '@ultimabase/testing'
+import { runJobs } from '@ultimabase/testing'
 import { Refused } from 'ultimabase'
 import { beforeAll, describe, expect, it, vi } from 'vitest'
 import { stripe } from './index.ts'
 import {
+	billingTest,
 	billingApp,
 	gemPack,
 	M,
@@ -21,7 +22,7 @@ beforeAll(() => {
 })
 
 const { app, fake } = billingApp()
-const test = testApplication(app)
+const test = billingTest(app)
 
 const signUp = (email = 'ada@example.com') =>
 	User.create({ data: { email } }, M)

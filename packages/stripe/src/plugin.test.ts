@@ -3,7 +3,7 @@
 // and one subscription per payer.
 import { httpPlugin } from '@ultimabase/http'
 import { jobsPlugin } from '@ultimabase/jobs'
-import { runJobs, testApplication } from '@ultimabase/testing'
+import { runJobs } from '@ultimabase/testing'
 import { defineApp, defineModel, memory } from 'ultimabase'
 import { quietRuns } from 'ultimabase/internal'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -16,6 +16,7 @@ import {
 import type { StripeOptions } from './index.ts'
 import { stripe, stripePlugin } from './index.ts'
 import {
+	billingTest,
 	Balance,
 	billingApp,
 	gemPack,
@@ -186,7 +187,7 @@ describe('the server calls', () => {
 
 describe('outside development', () => {
 	const { app, fake, lines } = billingApp()
-	testApplication(app)
+	billingTest(app)
 
 	it('lists how the Stripe catalog differs, and changes nothing', () => {
 		expect(fake.products.size).toBe(0)
@@ -212,7 +213,7 @@ describe('outside development', () => {
 
 describe('without keys', () => {
 	const { app } = billingApp({ keys: undefined })
-	const test = testApplication(app)
+	const test = billingTest(app)
 
 	it('starts, and every payment is unavailable', async () => {
 		const ada = await signUp()
@@ -245,7 +246,7 @@ describe('one subscription per payer', () => {
 		oneSubscription: true,
 		webhookPath: '/stripe/events',
 	})
-	const test = testApplication(app)
+	const test = billingTest(app)
 
 	it('refuses a second subscription, not a gem pack', async () => {
 		const ada = await signUp()

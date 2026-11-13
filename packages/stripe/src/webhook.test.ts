@@ -1,11 +1,12 @@
 // The webhook (D-371 point 4) and the jobs behind it: an event is verified
 // on its raw body, stored once and answered at once; its job, the hourly
 // reconciliation and a payer's delete keep the rows in step with Stripe.
-import { asUser, runJobs, testApplication } from '@ultimabase/testing'
+import { asUser, runJobs } from '@ultimabase/testing'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { stripe } from './index.ts'
 import { M as master, StripeCustomer, StripeEvent } from './models.ts'
 import {
+	billingTest,
 	Balance,
 	billingApp,
 	M,
@@ -24,7 +25,7 @@ afterEach(() => {
 })
 
 const { app, fake, lines } = billingApp()
-const test = testApplication(app)
+const test = billingTest(app)
 
 const signUp = () => User.create({ data: { email: 'ada@example.com' } }, M)
 const delivered = async () => {

@@ -3,12 +3,13 @@
 // Stripe takes what the plugin sends and sends what the plugin reads. Each
 // run makes a catalog and test clocks of its own, and archives them at the
 // end. CI runs none of it.
-import { runJobs, testApplication } from '@ultimabase/testing'
+import { runJobs } from '@ultimabase/testing'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { applyStripeCatalog } from './apply.ts'
 import { stripe } from './calls.ts'
 import { StripeEvent } from './models.ts'
 import {
+	billingTest,
 	Balance,
 	CreditHistory,
 	M,
@@ -64,7 +65,7 @@ afterAll(async () => {
 })
 
 describe('a payer at Stripe', () => {
-	const test = testApplication(sandboxApp())
+	const test = billingTest(sandboxApp())
 	const subscriptions = async () => {
 		await delivered(test.url)
 		return Subscription.findMany({}, M)
@@ -211,7 +212,7 @@ describe('a payer at Stripe', () => {
 })
 
 describe('one subscription per payer', () => {
-	const test = testApplication(sandboxApp({ oneSubscription: true }))
+	const test = billingTest(sandboxApp({ oneSubscription: true }))
 
 	it('cancels and refunds a second subscription', async () => {
 		const { customer } = await payerAtStripe()
@@ -249,7 +250,7 @@ describe('one subscription per payer', () => {
 })
 
 describe("Stripe's own events", () => {
-	const test = testApplication(sandboxApp({ keys: cliKeys() }))
+	const test = billingTest(sandboxApp({ keys: cliKeys() }))
 
 	it('reach the webhook signed by Stripe, and sync the payer', async () => {
 		const stop = await forwarded(test.url)
@@ -301,7 +302,7 @@ const bought = async (customer: string, method: string) =>
 	})
 
 describe('a payer over time', () => {
-	const test = testApplication(sandboxApp())
+	const test = billingTest(sandboxApp())
 	/** What the application holds of `payer`, once Stripe's events came. */
 	const held = async (payer: { readonly id: string }) => {
 		await delivered(test.url)
