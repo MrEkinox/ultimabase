@@ -123,6 +123,9 @@ The test reads that id from the response, and the line the server logs:
   function's `run`, a hook and a job's `run` receive `logger`, a route reads
   `c.var.logger`. A function's lines also carry `function`, a job's `job` and
   `run`.
+- An error line of that code or of a plugin, with the error as `err`, gets a
+  `correlationId` unless it has one, as the kernel's, and is a
+  [Sentry issue](/docs/next/sentry#issues) the same way.
 
 ## Type the codes in a client
 

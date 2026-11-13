@@ -5,7 +5,7 @@ import * as Sentry from '@sentry/node'
 import { testApplication } from '@ultimabase/testing'
 import { master } from 'ultimabase'
 import { beforeAll, beforeEach, expect, it } from 'vitest'
-import { app, Post } from './app.ts'
+import { app, Post, sendDigest } from './app.ts'
 import { mailer } from './services.ts'
 
 type Span = Parameters<NonNullable<Sentry.NodeOptions['beforeSendSpan']>>[0]
@@ -70,6 +70,21 @@ it('makes an issue of a failed mail, with its correlation id', async () => {
 			exception: { values: [{ value: 'The mail service is down.' }] },
 			// The id of the server's log line, to find it.
 			tags: { correlationId: anId },
+		},
+	])
+	//#endregion
+})
+
+it('makes an issue of a failure the application logs', async () => {
+	mailer.down = true
+	//#region logged
+	await sendDigest.run({ as: master })
+	await Sentry.flush()
+	expect(issues).toMatchObject([
+		{
+			exception: { values: [{ value: 'The mail service is down.' }] },
+			tags: { correlationId: anId },
+			extra: { message: 'The digest was not sent.' },
 		},
 	])
 	//#endregion

@@ -24,7 +24,7 @@ import {
 import type { Running } from './running.ts'
 import { register, unregister, Work } from './running.ts'
 import { resolve } from './schema.ts'
-import { logFailure } from './traced.ts'
+import { logFailure, reporting } from './traced.ts'
 
 export type Lifecycle = {
 	readonly start: () => Promise<void>
@@ -96,9 +96,16 @@ export function schemaOf(options: LifecycleOptions): Schema {
 	).schema
 }
 
-/** The kernel's logger: the application's, or JSON lines. */
+/**
+ * The application's logger, or JSON lines, reporting the failures it logs
+ * (D-381): every logger the kernel gives is a child of it.
+ */
+const baseLogger = (options: LifecycleOptions): Logger =>
+	reporting(options.logger ?? consoleLogger())
+
+/** The kernel's logger. */
 export const kernelLogger = (options: LifecycleOptions): Logger =>
-	(options.logger ?? consoleLogger()).child({ name: 'ultimabase' })
+	baseLogger(options).child({ name: 'ultimabase' })
 
 /** Syncs a development database, or checks a production one (D-105). */
 async function follow(
@@ -118,7 +125,7 @@ function prepared(options: LifecycleOptions) {
 		options.models,
 		records.map((plugin) => plugin.code),
 	)
-	const base = options.logger ?? consoleLogger()
+	const base = baseLogger(options)
 	const logger = base.child({ name: 'ultimabase' })
 	// Plugins identify with their contexts, which hold identify.
 	const identifiers: PluginIdentify[] = []

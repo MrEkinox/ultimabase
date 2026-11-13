@@ -21846,6 +21846,8 @@ const users = await User.findMany(
 
 ## D-360: The kernel publishes its work on tracing channels
 
+Amended by D-381.
+
 Choice: amends D-58 ("OpenTelemetry comes later, as a plugin") and D-28.
 
 1. The kernel publishes what it runs on Node's `diagnostics_channel` tracing
@@ -23405,4 +23407,72 @@ Example:
 
 # After: the first sync moves the Visa to the customer; the portal's
 # Mastercard replaces it there, and the renewal charges the Mastercard.
+```
+
+## D-381: The kernel's loggers report the failures they log
+
+Choice: amends D-360 point 3; builds on D-364.
+
+1. The loggers the kernel gives report a failure: the kernel's, the
+   application's `app` logger and its children (functions, hooks, routes,
+   jobs), and each plugin's. A line they log at error level with an `err`
+   gets a new `correlationId`, unless it has one, and is published on
+   `ultimabase:error` as `{ error: err, correlationId, message }`.
+2. An error line without `err`, and the `info` and `warn` lines, are only
+   logged, as today.
+3. The official packages' internal `logFailure` logs through that same
+   logger, so a failure is published once. Nothing new is exported.
+4. Without a subscriber, the line is all that happens, as D-360 point 2.
+
+Why:
+
+- An application's code and plugins already log their failures as
+  `logger.error({ err }, message)`: a socket handler, a sync at start, a
+  timer, work done after answering. Those lines never reached
+  `ultimabase:error`, so `@ultimabase/sentry` made no issue of them, and an
+  application reported each one to Sentry by hand, without the line's
+  correlation id.
+- A function to call beside each line would be forgotten; the line is
+  already written.
+- This is not the logger reading D-360 rejects: the kernel wraps the
+  `Logger` interface it hands out, whatever logger stands behind it.
+
+Rejected:
+
+- `logFailure` exported from `ultimabase`: every call site changes, and a
+  plugin that logs with its logger still reports nothing.
+- A `logger.failure(error, message)` method: pino has none, so the
+  `Logger` interface would stop being pino's (D-58).
+- Every error line published, `err` or not: a line without an error has no
+  stack to make an issue of.
+
+Example, before:
+
+```ts
+socket.on('message:send', (input, ack) => {
+	queue = queue.then(handle).catch((error: unknown) => {
+		logger.error({ err: error }, 'A socket event failed.')
+		Sentry.captureException(error)
+	})
+})
+```
+
+After, the line is the report, and the issue carries its correlation id:
+
+```ts
+socket.on('message:send', (input, ack) => {
+	queue = queue.then(handle).catch((error: unknown) => {
+		logger.error({ err: error }, 'A socket event failed.')
+	})
+})
+```
+
+```json
+{
+	"level": "error",
+	"name": "socket",
+	"correlationId": "0193…",
+	"err": { "message": "…" },
+	"msg": "A socket event failed."
+}
 ```

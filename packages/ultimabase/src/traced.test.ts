@@ -200,3 +200,105 @@ describe('the tracing channels', () => {
 		])
 	})
 })
+
+describe('the failures the server’s loggers log (D-381)', () => {
+	type Line = { readonly bindings: object; readonly message?: string }
+	const lines: Line[] = []
+	const recording = (bound: object): Logger => ({
+		info: () => undefined,
+		warn: () => undefined,
+		error: (first: object | string, message?: string) => {
+			if (typeof first === 'string')
+				lines.push({ bindings: bound, message: first })
+			else {
+				const bindings = { ...bound, ...first }
+				lines.push(message === undefined ? { bindings } : { bindings, message })
+			}
+		},
+		child: (more) => recording({ ...bound, ...more }),
+	})
+	let socket: Logger = silent
+	const sockets = definePlugin({
+		name: 'sockets',
+		manifest: {
+			name: 'sockets',
+			version: '1.0.0',
+			peerDependencies: { ultimabase: '*' },
+		},
+		start: ({ logger }) => {
+			socket = logger
+		},
+	})
+	const down = new Error('The socket is down.')
+	const send = defineFunction({
+		name: 'send',
+		run: ({ logger }) => {
+			logger.error({ err: down }, 'The send failed.')
+		},
+	})
+
+	let app: ReturnType<typeof defineApp>
+	let seen: unknown[]
+	beforeEach(async () => {
+		lines.length = 0
+		seen = []
+		app = defineApp({
+			database: memory(),
+			models: [],
+			functions: [send],
+			plugins: [sockets.plugin()],
+			logger: recording({}),
+		})
+		await app.start()
+		const errors = channel('ultimabase:error')
+		const handler = (message: unknown): void => {
+			seen.push(message)
+		}
+		errors.subscribe(handler)
+		stops.push(() => errors.unsubscribe(handler))
+	})
+	afterEach(async () => {
+		for (const stop of stops.splice(0)) stop()
+		await app.stop()
+	})
+
+	it('publish what a plugin or a function logs with an err, as its line', async () => {
+		socket.error({ err: down, room: 'r1' }, 'The join failed.')
+		await send.run({ as: M.as })
+		const logged = lines.map(({ bindings }) => bindings)
+		expect(logged).toStrictEqual([
+			{ name: 'sockets', room: 'r1', err: down, correlationId: anId },
+			{ name: 'app', function: 'send', err: down, correlationId: anId },
+		])
+		expect(seen).toStrictEqual(
+			logged.map((line, at) => ({
+				error: down,
+				correlationId: 'correlationId' in line ? line.correlationId : '',
+				message: ['The join failed.', 'The send failed.'][at],
+			})),
+		)
+	})
+
+	it('keep the correlation id a line has', () => {
+		socket.error({ err: down, correlationId: 'c-1' })
+		expect(seen).toStrictEqual([
+			{ error: down, correlationId: 'c-1', message: '' },
+		])
+		expect(lines).toStrictEqual([
+			{ bindings: { name: 'sockets', err: down, correlationId: 'c-1' } },
+		])
+	})
+
+	it('only log an error line without an err', () => {
+		socket.error({ room: 'r1' }, 'The room is full.')
+		socket.error('The room closed.')
+		expect(seen).toStrictEqual([])
+		expect(lines).toStrictEqual([
+			{
+				bindings: { name: 'sockets', room: 'r1' },
+				message: 'The room is full.',
+			},
+			{ bindings: { name: 'sockets' }, message: 'The room closed.' },
+		])
+	})
+})
