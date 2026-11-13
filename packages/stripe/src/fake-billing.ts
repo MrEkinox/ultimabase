@@ -253,7 +253,10 @@ export function fakeBilling(
 			return {
 				deleted: false,
 				subscriptions: own(subscriptions),
-				payments: own(payments),
+				// Stripe lists a free Checkout only when asked to.
+				payments: own(payments).filter(
+					(one) => options?.free === true || !one.id.startsWith('cs_'),
+				),
 				invoices: options?.invoices === true ? own(invoices) : [],
 			}
 		},

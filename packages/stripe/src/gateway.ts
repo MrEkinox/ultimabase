@@ -3,6 +3,7 @@
 // memory, and no test of `yarn validate` reaches Stripe.
 import { Stripe } from 'stripe'
 import type { Every } from './product.ts'
+import { all } from './sdk-common.ts'
 
 /** How often a price bills: Stripe's `interval` and `interval_count`. */
 export interface Recurring<E extends string = string> {
@@ -130,13 +131,6 @@ export const stripeClient = (secret: string): Stripe =>
 		// A request past 10 s fails, and its caller retries.
 		timeout: 10_000,
 	})
-
-/** Every item of a list, past its pages: no cap drops one. */
-const all = async <T>(list: AsyncIterable<T>): Promise<T[]> => {
-	const items: T[] = []
-	for await (const item of list) items.push(item)
-	return items
-}
 
 const idOf = (value: string | { readonly id: string }): string =>
 	typeof value === 'string' ? value : value.id

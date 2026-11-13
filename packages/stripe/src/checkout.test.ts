@@ -192,6 +192,7 @@ describe('stripe.checkout', () => {
 			stripe.checkout({ payer: ada, product: team, ...urls }),
 			stripe.checkout({ payer: ada, product: gemPack, ...urls }),
 		])
+		expect(customerOf(first)?.id).toMatch(/^cus_/u)
 		expect(customerOf(first)?.id).toBe(customerOf(second ?? '')?.id)
 	})
 

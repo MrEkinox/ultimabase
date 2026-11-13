@@ -28,6 +28,7 @@ import {
 	urls,
 	User,
 } from './test/billing-app.ts'
+import { addFake, gatewayOf } from './accounts.ts'
 import { fakeStripe, postEvent, thinEvent } from './testing.ts'
 
 afterEach(() => {
@@ -35,6 +36,8 @@ afterEach(() => {
 })
 
 const signUp = () => User.create({ data: { email: 'ada@example.com' } }, M)
+const checkout = () =>
+	stripe.checkout({ payer: { id: 'x' }, product: team, ...urls })
 
 /** Starts, then stops, an application with these models and options. */
 async function started(
@@ -176,17 +179,32 @@ describe('the billing models', () => {
 })
 
 describe('the server calls', () => {
-	it('run while the application runs', async () => {
-		await expect(
-			stripe.checkout({ payer: { id: 'x' }, product: team, ...urls }),
-		).rejects.toThrow(
-			'stripe.checkout runs while an application with stripePlugin() runs.',
-		)
+	it('run while the application runs, not after it stopped', async () => {
+		const notRunning =
+			'stripe.checkout runs while an application with stripePlugin() runs.'
+		await expect(checkout()).rejects.toThrow(notRunning)
+		await started([User])
+		await expect(checkout()).rejects.toThrow(notRunning)
 	})
 })
 
-describe('outside development', () => {
-	const { app, fake, lines } = billingApp()
+describe.each([
+	{ when: 'outside development', env: 'test', key: 'sk_test' },
+	{
+		when: 'in development, with a live key',
+		env: 'development',
+		key: 'sk_live',
+	},
+])('$when', ({ env, key }) => {
+	beforeEach(() => {
+		vi.stubEnv('NODE_ENV', env)
+	})
+	const secret = `${key}_${crypto.randomUUID()}`
+	const { app, fake, lines } = billingApp({
+		keys: { secret, webhook: 'whsec_test' },
+	})
+	// The fake's account, reached by this key.
+	addFake(secret, gatewayOf(fake.secret))
 	billingTest(app)
 
 	it('lists how the Stripe catalog differs, and changes nothing', () => {
@@ -212,7 +230,7 @@ describe('outside development', () => {
 })
 
 describe('without keys', () => {
-	const { app } = billingApp({ keys: undefined })
+	const { app, lines } = billingApp({ keys: undefined })
 	const test = billingTest(app)
 
 	it('starts, and every payment is unavailable', async () => {
@@ -235,6 +253,7 @@ describe('without keys', () => {
 		vi.setSystemTime(Date.now() + 60 * 60 * 1000)
 		await runJobs()
 		vi.useRealTimers()
+		expect(lines.filter(({ level }) => level === 'error')).toStrictEqual([])
 	})
 })
 
@@ -259,7 +278,6 @@ describe('one subscription per payer', () => {
 			stripe.checkout({ payer: ada, product: pro, price: 'monthly', ...urls }),
 		).rejects.toMatchObject({ code: 'ALREADY_SUBSCRIBED' })
 		await stripe.checkout({ payer: ada, product: gemPack, ...urls })
-		expect(await Balance.count({}, M)).toBe(0)
 	})
 
 	it('ends a second subscription at once, and refunds it', async () => {

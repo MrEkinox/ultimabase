@@ -47,10 +47,10 @@ export const eventJob: Job<'stripe.event', { readonly event: string }> =
 			)
 			if (event === null || event.processedAt !== null) return
 			const { gateway } = stripeOf('stripe.event')
-			const customerId =
-				event.objectId === ''
-					? null
-					: await gateway.customerOf(event.objectType, event.objectId)
+			const customerId = await gateway.customerOf(
+				event.objectType,
+				event.objectId,
+			)
 			const where = { stripeId: customerId }
 			const row =
 				customerId === null

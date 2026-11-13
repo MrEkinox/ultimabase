@@ -33,6 +33,7 @@ export const guarded = async <T>(
 	}
 }
 
+/** Every item of a list, past its pages: no cap drops one. */
 export const all = async <T>(list: AsyncIterable<T>): Promise<T[]> => {
 	const items: T[] = []
 	for await (const item of list) items.push(item)

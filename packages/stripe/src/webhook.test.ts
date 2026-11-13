@@ -104,13 +104,14 @@ describe('the webhook', () => {
 	})
 
 	it('marks an event about no object processed', async () => {
-		const payload = thinEvent({
-			type: 'account.updated',
-			object: { id: '', type: 'account' },
-		})
-		await post(payload)
+		const body: unknown = JSON.parse(
+			thinEvent({ type: 'account.updated', object: { id: '', type: '' } }),
+		)
+		const payload = JSON.stringify({ ...Object(body), related_object: null })
+		expect((await post(payload)).status).toBe(200)
 		await runJobs()
 		const [stored] = await StripeEvent.findMany({}, master)
+		expect(stored).toMatchObject({ objectType: '', objectId: '' })
 		expect(stored?.processedAt).toBeInstanceOf(Date)
 	})
 })
@@ -234,8 +235,23 @@ describe('the hourly reconciliation', () => {
 
 describe('a billing model', () => {
 	it('is written by the plugin only', async () => {
-		const ada = await signUp()
+		const { ada, subscription } = await subscribed()
 		const as = asUser(ada)
+		await expect(
+			Subscription.updateMany({ data: { status: 'active' } }, { as }),
+		).rejects.toMatchObject({ code: 'ACCESS_DENIED' })
+		expect(await Subscription.findMany({}, M)).toMatchObject([
+			{ stripeId: subscription },
+		])
+		expect(lines).toContainEqual({
+			level: 'warn',
+			message: 'Subscription update refused.',
+			details: {
+				model: 'Subscription',
+				operation: 'update',
+				callerId: ada.id,
+			},
+		})
 		const data = {
 			owner: { connect: { id: ada.id } },
 			credit: 'gems',
