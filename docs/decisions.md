@@ -22709,7 +22709,7 @@ stripePlugin({
 
 ## D-372: The catalog in code: `defineProduct` and `defineCredit`
 
-Amended by D-376.
+Amended by D-376 and D-377.
 
 Choice: an application declares what it sells with values it imports, and
 the plugin writes them to Stripe.
@@ -22803,7 +22803,7 @@ await applyStripeCatalog({
 
 ## D-373: The application's billing models: `defineSubscription`, `definePurchase`, `defineBalance`
 
-Amended by D-375 and D-376.
+Amended by D-375, D-376 and D-377.
 
 Choice: what a payer bought lives in the application's own models, which
 the plugin fills, as `defineRole` builds a role model (D-13, D-123).
@@ -22940,7 +22940,7 @@ export const changePlan = defineFunction({
 
 ## D-374: Credits are bought with a product and spent by the application
 
-Amended by D-376.
+Amended by D-376 and D-377.
 
 Choice: a payer buys credits with a one-time product (D-372), and the
 application spends them in its own writes.
@@ -23138,4 +23138,106 @@ defineProduct({
 		monthlyPromo: { amount: 4_90, every: 'month' },
 	},
 })
+```
+
+## D-377: Credits are granted, given by subscriptions, and kept in a history the application reads
+
+Choice: amends D-372 point 2, D-373 point 2 and D-374 points 4 and 5.
+
+1. `stripe.grant(owner, credits, { reason })` adds credits without a
+   payment: a welcome bonus, a support gesture, a daily reward. It takes
+   what `stripe.spend` takes, one credit amount or several, runs in the
+   caller's transaction when there is one, and adds to each balance on its
+   locked row, creating it at the first grant.
+2. `defineCreditHistory({ name, owner })` builds the application's model of
+   every move of credits, in place of the plugin's hidden
+   `StripeCreditEntry`. It adds `owner`, the same model as the balance's,
+   cascading; `credit`; `change`, positive when given, negative when spent
+   or taken back; `reason`; and `payment`, the Stripe payment or invoice
+   that moved it, optional. Like the other billing models (D-373 point 4),
+   only the plugin writes it and reads follow the application's rules.
+   Start refuses a `defineBalance` without a `defineCreditHistory`: the
+   history is what makes a payment give its credits once.
+3. The plugin's moves carry the reasons `purchase`, `subscription` and
+   `refund`; a grant and a spend carry the application's.
+4. A subscription's price can give credits:
+   `monthly: { amount: 9_90, every: 'month', gives: [gems(100)] }`. Each
+   paid invoice gives, once per invoice, the credits of each of its lines
+   that bills a whole period above zero, times the line's quantity: the
+   first payment, each renewal, and a change of interval, which bills a new
+   period. A yearly price gives its credits at once, for the year. A trial
+   gives nothing until its first payment, and a prorated upgrade nothing
+   until the next renewal. A full refund of the invoice, or a lost dispute,
+   takes them back as for a purchase (D-374 point 3).
+5. What a page shows comes from the row, not from the catalog in code:
+   - a subscription adds `amount`, what one period of its price costs
+     times its quantity, before discounts and taxes, and `every` and
+     `everyCount`, its interval as the catalog writes it. A payer keeps the
+     price they subscribed at, and the row shows it after the catalog
+     changed.
+   - its `status` is an enum of Stripe's statuses: `incomplete`,
+     `incomplete_expired`, `trialing`, `active`, `past_due`, `canceled`,
+     `unpaid` and `paused`.
+   - a purchase adds `quantity` and `receiptUrl`, Stripe's receipt page,
+     optional.
+6. A subscription's invoices stay on Stripe's portal: the plugin keeps no
+   invoice model.
+
+Why: an application needs to give credits it was not paid for, and to give
+a subscriber credits each period; a job of its own would have to know
+which periods were paid, refunded or prorated, which the plugin already
+reads. Support and the payer's own page need the history, which a hidden
+model kept from both. A page that read the catalog showed the new price to
+a payer who kept the old one.
+
+Rejected:
+
+- A monthly job in the application that gives a subscriber's credits: it
+  would give for an unpaid or refunded period, and twice when it ran twice.
+- Credits during a trial: a payer would take them and cancel before paying.
+- Credits for a prorated upgrade: a fraction of a credit pack has no sense,
+  and the next renewal gives the new plan's.
+- The history optional: a payment could no longer be given once.
+- `defineCreditTransaction`: it reads as the kernel's `transaction`.
+- An invoice model: the portal shows the invoices, with their PDFs.
+- `amount` after discounts: a coupon's end would change it with no event to
+  follow.
+
+Example, before and after:
+
+```ts
+// Before: a welcome bonus is impossible, the history hidden, and the page
+// reads the catalog
+const label = `${pro.prices[sub.price].amount / 100} €`
+```
+
+```ts
+// After
+export const Balance = defineBalance({
+	name: 'Balance',
+	owner: () => User,
+}).with({ access: { read: isOwner('owner') } })
+export const CreditHistory = defineCreditHistory({
+	name: 'CreditHistory',
+	owner: () => User,
+}).with({ access: { read: isOwner('owner') } })
+
+export const pro = defineProduct({
+	key: 'pro',
+	name: 'Pro',
+	prices: {
+		monthly: { amount: 9_90, every: 'month', gives: [gems(100)] },
+		yearly: { amount: 99_00, every: 'year', gives: [gems(1_200)] },
+	},
+})
+
+await stripe.grant(user, gems(50), { reason: 'welcome' })
+
+// A page: 9.90 €/month, and the moves of gems
+const label = `${sub.amount / 100} €/${sub.every}`
+const moves = await CreditHistory.findMany(
+	{ where: { owner: { is: { id: user.id } } }, orderBy: { createdAt: 'desc' } },
+	{ as: user },
+)
+// [{ credit: 'gems', change: 50, reason: 'welcome', payment: null }, ...]
 ```
