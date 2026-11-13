@@ -3,7 +3,7 @@
 // It prints the plan, a line a change, and applies it unless `dryRun`.
 import { Refused } from 'ultimabase'
 import { gatewayOf } from './accounts.ts'
-import { applyCatalog, planCatalog } from './catalog.ts'
+import { type Catalog, applyCatalog, planCatalog } from './catalog.ts'
 import { describeStep } from './describe.ts'
 import { ownKeys } from './keys.ts'
 import { type PortalOptions, checkPortal } from './portal.ts'
@@ -37,48 +37,50 @@ const print = (line: string): void => {
 	process.stdout.write(`${line}\n`)
 }
 
-/** Refuses options Stripe would refuse, or that name a product twice. */
-function checkOptions(options: StripeCatalogOptions): string {
-	ownKeys(entry, options, optionKeys)
-	const { secret, currency, taxBehavior, products } = options
-	if (typeof secret !== 'string' || secret === '') {
-		throw new Refused(`${entry}: secret is the account's secret key, sk_….`)
-	}
+type CatalogOptions = Pick<
+	StripeCatalogOptions,
+	'currency' | 'taxBehavior' | 'products' | 'portal'
+>
+
+/**
+ * The catalog of `options`, shared with `stripePlugin`; refuses what Stripe
+ * would refuse, and a product named twice (D-372 point 5).
+ */
+export function catalogOf(caller: string, options: CatalogOptions): Catalog {
+	const { currency, taxBehavior = 'inclusive', products, portal } = options
 	if (typeof currency !== 'string' || !/^[a-z]{3}$/u.test(currency)) {
-		throw new Refused(`${entry}: currency is a lowercase ISO code, as eur.`)
+		throw new Refused(`${caller}: currency is a lowercase ISO code, as eur.`)
 	}
-	if (
-		taxBehavior !== undefined &&
-		!['inclusive', 'exclusive'].includes(taxBehavior)
-	) {
-		throw new Refused(`${entry}: taxBehavior is 'inclusive' or 'exclusive'.`)
+	if (!['inclusive', 'exclusive'].includes(taxBehavior)) {
+		throw new Refused(`${caller}: taxBehavior is 'inclusive' or 'exclusive'.`)
 	}
-	if (!Array.isArray(products)) {
-		throw new Refused(`${entry}: products lists what defineProduct returns.`)
+	// `Array.isArray` would type the products `any[]`.
+	const listed: unknown = products
+	if (!Array.isArray(listed)) {
+		throw new Refused(`${caller}: products lists what defineProduct returns.`)
 	}
 	const keys = new Set<string>()
-	for (const { key } of options.products) {
+	for (const { key } of products) {
 		if (keys.has(key)) {
-			throw new Refused(`${entry}: two products have the key ${key}.`)
+			throw new Refused(`${caller}: two products have the key ${key}.`)
 		}
 		keys.add(key)
 	}
-	checkPortal(options.portal)
-	return secret
+	checkPortal(portal)
+	return { currency, taxBehavior, products, portal }
 }
 
 /** Brings the Stripe account of `secret` to the catalog, unless `dryRun`. */
 export async function applyStripeCatalog(
 	options: StripeCatalogOptions,
 ): Promise<void> {
-	const secret = checkOptions(options)
-	const { currency, products, portal, dryRun = false } = options
-	const catalog = {
-		currency,
-		taxBehavior: options.taxBehavior ?? 'inclusive',
-		products,
-		portal,
+	ownKeys(entry, options, optionKeys)
+	const { secret, dryRun = false } = options
+	if (typeof secret !== 'string' || secret === '') {
+		throw new Refused(`${entry}: secret is the account's secret key, sk_….`)
 	}
+	const catalog = catalogOf(entry, options)
+	const { currency } = catalog
 	const gateway = gatewayOf(secret)
 	const state = await gateway.readCatalog()
 	const steps = planCatalog(catalog, state)

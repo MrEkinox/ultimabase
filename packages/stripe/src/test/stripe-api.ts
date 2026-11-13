@@ -9,9 +9,23 @@ export interface StripeRequest {
 	readonly path: string
 	/** The query's or the form body's fields, as Stripe encodes them. */
 	readonly params: Readonly<Record<string, string>>
+	readonly idempotencyKey: string | null
 }
 
-/** A Stripe client whose requests `answer` answers, listed in `requests`. */
+/** An error as the API answers it, with its HTTP status. */
+export const stripeError = (
+	status: number,
+	error: { readonly type: string; readonly code?: string },
+): Response =>
+	new Response(JSON.stringify({ error: { message: 'Refused.', ...error } }), {
+		status,
+		headers: { 'content-type': 'application/json' },
+	})
+
+/**
+ * A Stripe client whose requests `answer` answers, listed in `requests`; an
+ * answer that is a `Response` is sent as is.
+ */
 export const stripeApi = (
 	answer: (request: StripeRequest) => unknown,
 ): { client: Stripe; requests: StripeRequest[] } => {
@@ -25,12 +39,16 @@ export const stripeApi = (
 			params: Object.fromEntries(
 				new URLSearchParams(parsed.search === '' ? body : parsed.search),
 			),
+			idempotencyKey: new Headers(init?.headers).get('idempotency-key'),
 		}
 		requests.push(request)
+		const answered = answer(request)
 		return Promise.resolve(
-			new Response(JSON.stringify(answer(request)), {
-				headers: { 'content-type': 'application/json' },
-			}),
+			answered instanceof Response
+				? answered
+				: new Response(JSON.stringify(answered), {
+						headers: { 'content-type': 'application/json' },
+					}),
 		)
 	}
 	const client = new Stripe('sk_test_api', {

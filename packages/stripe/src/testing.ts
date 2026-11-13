@@ -2,6 +2,8 @@
 // Its secret key reaches it wherever a real key reaches Stripe, so a test
 // runs the application's own calls, and no test reaches Stripe.
 import { addFake } from './accounts.ts'
+import type { FakeBilling } from './fake-billing.ts'
+import { fakeBilling } from './fake-billing.ts'
 import type {
 	PortalSettings,
 	StripeGateway,
@@ -9,10 +11,24 @@ import type {
 	StripeProduct,
 } from './gateway.ts'
 
+export type {
+	CheckoutWrite,
+	CustomerProfile,
+	PortalFlow,
+	PortalWrite,
+	StripePayment,
+	StripeSubscription,
+} from './billing-gateway.ts'
+export type { FakeBilling, FakeCheckout, FakeCustomer } from './fake-billing.ts'
+export { postEvent, thinEvent } from './fake-billing.ts'
 export type { PortalSettings, StripePrice, StripeProduct } from './gateway.ts'
 
-/** A Stripe account in memory, with what the catalog wrote to it. */
-export interface FakeStripe {
+/**
+ * A Stripe account in memory: what the catalog wrote to it, its payers, and
+ * what a test does at Stripe. Hand `secret` and `webhookSecret` to
+ * `stripePlugin`'s keys.
+ */
+export interface FakeStripe extends FakeBilling {
 	/** Its secret key: hand it to the code under test. */
 	readonly secret: string
 	/** The products the catalog manages, by id. */
@@ -32,17 +48,21 @@ const found = <T>(map: ReadonlyMap<string, T>, id: string): T => {
 
 /** A new Stripe account in memory; `secret` reaches it. */
 export const fakeStripe = (): FakeStripe => {
-	const fake: FakeStripe = {
-		secret: `sk_test_fake_${crypto.randomUUID()}`,
-		products: new Map(),
-		prices: new Map(),
-		portals: new Map(),
-	}
-	const { products, prices, portals } = fake
+	const products = new Map<string, StripeProduct>()
+	const prices = new Map<string, StripePrice>()
+	const portals = new Map<string, PortalSettings>()
 	let created = 0
 	const newId = (prefix: string): string => {
 		created += 1
 		return `${prefix}_${String(created)}`
+	}
+	const billing = fakeBilling(prices, newId)
+	const fake: FakeStripe = {
+		...billing.fake,
+		secret: `sk_test_fake_${crypto.randomUUID()}`,
+		products,
+		prices,
+		portals,
 	}
 	const gateway: StripeGateway = {
 		readCatalog: async () => {
@@ -110,6 +130,6 @@ export const fakeStripe = (): FakeStripe => {
 			return saved
 		},
 	}
-	addFake(fake.secret, gateway)
+	addFake(fake.secret, { ...gateway, ...billing.gateway })
 	return fake
 }
