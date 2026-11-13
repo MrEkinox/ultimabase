@@ -237,4 +237,10 @@ export async function syncCustomer(id: string): Promise<void> {
 		)
 		if (row !== undefined) await write(running, row, state, readAt)
 	})
+	// Outside the lock, as any call to Stripe (D-380).
+	for (const one of state.subscriptions) {
+		if (one.card !== null && liveStatuses.includes(one.status)) {
+			await gateway.moveCard({ ...one, card: one.card })
+		}
+	}
 }

@@ -82,6 +82,40 @@ describe('stripe.checkout', () => {
 		])
 	})
 
+	it('moves the card Checkout left on the subscription to its customer', async () => {
+		const ada = await signUp()
+		const url = await stripe.checkout({
+			payer: ada,
+			product: pro,
+			price: 'monthly',
+			...urls,
+		})
+		const id = fake.pay(url)
+		const card = fake.subscriptions.get(id)?.card
+		expect(card).toMatch(/^pm_/u)
+		await fake.deliver(test.url)
+		await runJobs()
+		// The portal changes the customer's card: the renewal now charges it.
+		expect(customerOf(url)?.card).toBe(card)
+		expect(fake.subscriptions.get(id)?.card).toBeNull()
+	})
+
+	it('leaves the card of a subscription that ended before its sync', async () => {
+		const ada = await signUp()
+		const url = await stripe.checkout({
+			payer: ada,
+			product: pro,
+			price: 'monthly',
+			...urls,
+		})
+		const id = fake.pay(url)
+		fake.update(id, { status: 'incomplete_expired' })
+		await fake.deliver(test.url)
+		await runJobs()
+		expect(customerOf(url)?.card).toBeNull()
+		expect(fake.subscriptions.get(id)?.card).toMatch(/^pm_/u)
+	})
+
 	it('takes a product’s only price by default, and refuses a wrong one', async () => {
 		const ada = await signUp()
 		const url = await stripe.checkout({ payer: ada, product: team, ...urls })

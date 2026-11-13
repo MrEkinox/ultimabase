@@ -23359,3 +23359,50 @@ ERROR stripe.audit: A balance is not the sum of its history.
 ERROR stripe.audit: A paid payment has no purchase.
       { payment: "pi_3Q…", customer: "cus_R…", paidAt: "2026-11-12T18:04:00Z" }
 ```
+
+## D-380: A Checkout's card moves to its customer, so the portal changes it
+
+Choice: amends D-371 point 4 and D-375.
+
+1. A subscription made by the plugin's Checkout (its metadata names the
+   plugin) has its card on its own `default_payment_method`: Checkout puts it
+   there. When a sync reads such a subscription, live and with a card of its
+   own, the plugin sets that card as the customer's
+   `invoice_settings.default_payment_method`, then clears the subscription's.
+2. The move runs in the sync, after its transaction, outside the customer's
+   lock (D-375). The customer is written first: a failure between the two
+   calls leaves the card on both, and the job's retry does both again.
+3. A subscription made elsewhere, in the Dashboard or by the API, keeps its
+   card: the plugin only undoes what its own Checkout did.
+
+Why:
+
+- Stripe charges a subscription's own card before the customer's. The
+  customer portal changes only the customer's default card, so a payer who
+  replaces a card in the portal is still charged on the old one at renewal.
+  A sandbox run with a test clock showed it: the renewal charged the old
+  card with the card on the subscription, the new one once it was moved.
+- The plugin opens the Checkout and configures the portal; Stripe has no
+  setting for it. Checkout puts the card on the subscription, so the
+  plugin, which asked for that Checkout, moves it.
+- With the card on the customer, the portal's change, Stripe's own card
+  updater and a second subscription all use the same card.
+
+Rejected:
+
+- Watching the customer's card changes and copying them to each
+  subscription: one more event to follow for each change, and the card would
+  still differ between the customer and its subscriptions.
+- Keeping a newer customer card in the window before the first sync: a card
+  changed in the portal within seconds of paying is rare, and its rule would
+  need a read of when each card was set.
+
+Example:
+
+```text
+# Before: the payer pays a Checkout with a Visa, replaces it in the portal
+# with a Mastercard; the renewal charges the Visa.
+
+# After: the first sync moves the Visa to the customer; the portal's
+# Mastercard replaces it there, and the renewal charges the Mastercard.
+```

@@ -34,6 +34,8 @@ export interface StripeSubscription extends PriceKeys {
 	readonly startedAt: Date
 	/** A change waiting for the period's end. */
 	readonly scheduled: (PriceKeys & { readonly at: Date }) | null
+	/** The card its Checkout left on it, moved to its customer (D-380). */
+	readonly card: string | null
 }
 
 /** Stripe's statuses of a subscription that still gives access. */
@@ -151,6 +153,10 @@ export interface BillingGateway {
 	readonly checkoutCustomer: (id: string) => Promise<string | null>
 	/** Opens a portal session; returns its URL. */
 	readonly openPortal: (portal: PortalWrite) => Promise<string>
+	/** Makes a subscription's card its customer's, then clears its own (D-380). */
+	readonly moveCard: (
+		one: Pick<StripeSubscription, 'id' | 'customerId'> & { card: string },
+	) => Promise<void>
 }
 
 /** What the plugin asks Stripe to set right what went wrong (D-375). */

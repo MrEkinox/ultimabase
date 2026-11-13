@@ -38,6 +38,8 @@ const subscription = (fields: object) => ({
 	trial_end: null,
 	start_date: now - day,
 	schedule: null,
+	metadata: {},
+	default_payment_method: null,
 	items: {
 		object: 'list',
 		data: [
@@ -78,6 +80,9 @@ describe('readCustomer', () => {
 				case '/v1/subscriptions':
 					return stripeList([
 						subscription({
+							// The plugin's Checkout made it: its card moves.
+							metadata: { managedBy: 'ultimabase' },
+							default_payment_method: 'pm_1',
 							cancel_at_period_end: true,
 							schedule: {
 								id: 'sub_sched_1',
@@ -93,6 +98,8 @@ describe('readCustomer', () => {
 						subscription({
 							id: 'sub_2',
 							status: 'canceled',
+							// Made elsewhere: its card stays.
+							default_payment_method: { id: 'pm_2' },
 							canceled_at: now,
 							trial_end: now - day,
 							items: { object: 'list', data: [] },
@@ -146,6 +153,7 @@ describe('readCustomer', () => {
 					trialEnd: null,
 					startedAt: new Date((now - day) * 1000),
 					scheduled: { product: 'pro', price: 'yearly', at: end },
+					card: 'pm_1',
 				},
 				{
 					id: 'sub_2',
@@ -163,6 +171,7 @@ describe('readCustomer', () => {
 					trialEnd: new Date((now - day) * 1000),
 					startedAt: new Date((now - day) * 1000),
 					scheduled: null,
+					card: null,
 				},
 			],
 			payments: [
@@ -666,5 +675,31 @@ describe('the portal', () => {
 				},
 			}),
 		).rejects.toThrow('The subscription has no item.')
+	})
+})
+
+describe('moveCard', () => {
+	it("makes the card its customer's, then clears the subscription's", async () => {
+		const { gateway, requests } = gatewayOn(() => ({ id: 'x' }))
+		await gateway.moveCard({ id: 'sub_1', customerId: 'cus_1', card: 'pm_1' })
+		expect(
+			requests.map(({ path, params }) => ({ path, params })),
+		).toStrictEqual([
+			{
+				path: '/v1/customers/cus_1',
+				params: { 'invoice_settings[default_payment_method]': 'pm_1' },
+			},
+			{
+				path: '/v1/subscriptions/sub_1',
+				params: { default_payment_method: '' },
+			},
+		])
+		await expect(
+			gatewayOn(down).gateway.moveCard({
+				id: 'sub_1',
+				customerId: 'cus_1',
+				card: 'pm_1',
+			}),
+		).rejects.toMatchObject({ code: 'PAYMENT_UNAVAILABLE' })
 	})
 })

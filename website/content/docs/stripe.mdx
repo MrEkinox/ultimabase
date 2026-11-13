@@ -160,6 +160,9 @@ It closes the payer's Checkouts still open, so two tabs cannot both pay.
   optional.
 - With `promotionCodes: true`, the payer can type a code created in Stripe.
   A purchase a code made free is recorded at zero and gives its credits.
+- Checkout leaves the card that paid on the subscription, where the portal
+  cannot change it. The plugin's sync makes it the customer's default card
+  instead: a card the payer replaces in the portal pays the next renewals.
 
 The success page writes what the payer paid at once, before Stripe's event
 arrives. It finds only the payer's own Checkout.

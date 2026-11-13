@@ -337,6 +337,56 @@ describe('a payer over time', () => {
 	)
 
 	it(
+		'pays its renewal with the card it set in the portal (D-380)',
+		async () => {
+			const { payer, customer, method, clock } = await payerAtStripe()
+			// As Checkout leaves it: the card on the subscription, none on the customer.
+			await client.customers.update(customer, {
+				invoice_settings: { default_payment_method: '' },
+			})
+			const { id } = await client.subscriptions.create({
+				customer,
+				items: [{ price: await priceId(`${pro.key}.monthly`) }],
+				default_payment_method: method,
+				metadata: { managedBy: 'ultimabase' },
+			})
+			await expect
+				.poll(async () => held(payer), poll)
+				.toStrictEqual({ status: 'active', gems: 100 })
+			const cards = async () => {
+				const [one, subscription] = await Promise.all([
+					client.customers.retrieve(customer),
+					client.subscriptions.retrieve(id),
+				])
+				return {
+					customer: one.deleted
+						? null
+						: one.invoice_settings.default_payment_method,
+					subscription: subscription.default_payment_method,
+				}
+			}
+			await expect
+				.poll(cards, poll)
+				.toStrictEqual({ customer: method, subscription: null })
+			// What the portal does: a new card, the customer's default.
+			const fresh = await client.paymentMethods.attach('pm_card_mastercard', {
+				customer,
+			})
+			await client.customers.update(customer, {
+				invoice_settings: { default_payment_method: fresh.id },
+			})
+			await advanced(clock, 32)
+			const charged = async () => {
+				const { data } = await client.charges.list({ customer })
+				return data.map(({ payment_method_details: paid }) => paid?.card?.last4)
+			}
+			// Newest first: the renewal on the new card, the first payment on the old.
+			await expect.poll(charged, poll).toStrictEqual(['4444', '4242'])
+		},
+		clocked,
+	)
+
+	it(
 		'is past due, with no credits, when its renewal is declined',
 		async () => {
 			const { payer, customer, clock } = await payerAtStripe()

@@ -209,4 +209,12 @@ export const sdkBilling = (client: Stripe): BillingGateway => ({
 			})
 			return session.url
 		}),
+	// The customer first: a failure between the two leaves both cards set.
+	moveCard: async ({ id, customerId, card }) =>
+		guarded(id, async () => {
+			await client.customers.update(customerId, {
+				invoice_settings: { default_payment_method: card },
+			})
+			await client.subscriptions.update(id, { default_payment_method: '' })
+		}),
 })

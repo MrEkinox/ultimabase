@@ -20,6 +20,8 @@ export interface FakeCustomer {
 	readonly id: string
 	readonly profile: CustomerProfile
 	readonly deleted: boolean
+	/** Its default card: the one a renewal charges (D-380). */
+	readonly card: string | null
 }
 
 /** A Checkout of the fake account. */
@@ -197,6 +199,7 @@ export function fakeBilling(
 			trialEnd,
 			startedAt: new Date(now),
 			scheduled: null,
+			card: newId('pm'),
 		})
 		send('customer.subscription.created', id, 'subscription')
 		const created = found(subscriptions, id)
@@ -229,7 +232,7 @@ export function fakeBilling(
 			const held = keys.get(idempotencyKey)
 			if (held !== undefined) return held
 			const id = newId('cus')
-			customers.set(id, { id, profile, deleted: false })
+			customers.set(id, { id, profile, deleted: false, card: null })
 			keys.set(idempotencyKey, id)
 			return id
 		},
@@ -276,6 +279,10 @@ export function fakeBilling(
 			live(portal.customerId)
 			portalSessions.push(portal)
 			return `https://billing.stripe.test/${newId('bps')}`
+		},
+		moveCard: async ({ id, customerId, card }) => {
+			customers.set(customerId, { ...live(customerId), card })
+			fake.update(id, { card: null })
 		},
 		cancelAndRefund: async (id) => {
 			const held = found(subscriptions, id)

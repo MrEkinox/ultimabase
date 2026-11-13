@@ -59,6 +59,10 @@ async function subscriptionOf(
 		trialEnd: maybeDate(subscription.trial_end),
 		startedAt: dateOf(subscription.start_date),
 		scheduled: await scheduledOf(client, subscription.schedule),
+		card:
+			subscription.metadata['managedBy'] === managedBy
+				? refOf(subscription.default_payment_method)
+				: null,
 	}
 }
 
