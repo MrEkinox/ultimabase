@@ -1,0 +1,27 @@
+{
+	"name": "example-stripe",
+	"version": "0.0.0",
+	"private": true,
+	"description": "Stripe: a catalog declared in code and written to Stripe by a deploy script; subscriptions and gems sold on Checkout, kept in step by the webhook.",
+	"type": "module",
+	"license": "Apache-2.0",
+	"engines": {
+		"node": ">=24.7.0"
+	},
+	"scripts": {
+		"start": "node src/server.ts",
+		"deploy": "node src/deploy.ts"
+	},
+	"dependencies": {
+		"@ultimabase/auth": "workspace:*",
+		"@ultimabase/http": "workspace:*",
+		"@ultimabase/jobs": "workspace:*",
+		"@ultimabase/stripe": "workspace:*",
+		"ultimabase": "workspace:*"
+	},
+	"devDependencies": {
+		"@ultimabase/testing": "workspace:*",
+		"vite": "8.3.4",
+		"vitest": "5.0.5"
+	}
+}

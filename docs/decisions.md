@@ -22623,6 +22623,792 @@ export const Thing = defineModel({
 }).with({ hooks: { afterDelete: cleanUp } })
 ```
 
+## D-371: `@ultimabase/stripe`, payments on Stripe's hosted pages
+
+Amended by D-375, D-376, D-378 and D-379.
+
+Choice: an official plugin sells subscriptions, one-time products and
+credits through Stripe, for any application.
+
+1. `@ultimabase/stripe` exports `stripePlugin(options)`, which requires
+   `httpPlugin` and `jobsPlugin`. It depends on `stripe`, Stripe's SDK
+   (D-92): it signs requests, retries them with idempotency keys, verifies
+   webhook signatures and types every object, all code we would own.
+2. Its options:
+   - `keys: { secret, webhook } | undefined`. Without keys the application
+     starts, and every call that needs Stripe throws `PAYMENT_UNAVAILABLE`
+     (503): a development machine without a sandbox runs the rest.
+   - `currency`, lowercase (`'eur'`), one per application.
+   - `taxBehavior: 'inclusive' | 'exclusive'`, `'inclusive'` by default:
+     whether the catalog's amounts include taxes.
+   - `products`, the catalog (D-372).
+   - `portal: { returnUrl, termsUrl?, privacyUrl?, upgrades?, downgrades?,
+trialChange?, cancel? }`, the customer portal (D-373 point 8).
+   - `customer: (payer) => ({ email?, name?, locale? })`, what Stripe shows
+     of a payer, read when its customer is created or its row changes.
+   - `webhookPath`, `/webhooks/stripe` by default.
+   - `oneSubscription`, `false` by default (D-373).
+3. Only Stripe's hosted pages take a payment. `stripe.checkout(...)` returns
+   a Checkout URL, `stripe.portal(...)` a customer portal URL, and
+   `stripe.syncCheckout(sessionId, payer)` syncs a completed Checkout when
+   the client comes back, without waiting for the webhook. The
+   application's functions call them; the plugin adds no function of its
+   own, so the application names them and keeps its access rules.
+4. The webhook takes thin events: it verifies the signature on the raw
+   body, refuses an event whose `livemode` is not its key's, stores the
+   event and enqueues its job in one transaction, and answers 200. An event
+   received twice is stored once. Its job reads the object from Stripe and
+   syncs the payer's state under its customer's lock, so events out of
+   order or lost leave nothing stale. An hourly job reconciles every
+   customer with what Stripe holds.
+5. Its jobs, added with `plugins.jobs.add` (D-369), are named `stripe.*`.
+6. Its own models (D-110) hold what no application exposes: `StripeCustomer`
+   (one per payer, D-373), `StripeEvent` and `StripeCreditEntry` (D-374).
+7. Its public codes are `PAYMENT_UNAVAILABLE`, `ALREADY_SUBSCRIBED` and
+   `NOT_SUBSCRIBED` (D-373), and `NOT_ENOUGH_CREDITS` (D-374).
+8. `@ultimabase/stripe/testing` exports a fake Stripe in memory, which
+   `yarn validate` uses; no test there reaches Stripe. Tests named
+   `*.stripe.test.ts` run against a sandbox with `yarn test:stripe`, which
+   reads `STRIPE_SECRET_KEY` from the environment, as `test:postgres` runs
+   outside `yarn validate`. CI runs none of them.
+
+Why: an application that sells something copied the same thousands of
+lines: a webhook that survives retries and disorder, a customer created
+once, a sync under a lock, a catalog kept in step with Stripe. Hosted
+pages keep card data and Strong Customer Authentication at Stripe, and need
+no interface in the application.
+
+Rejected:
+
+- Elements and PaymentIntents in the application's pages: more surface for
+  little gain at first.
+- Usage-based billing (Stripe meters), several currencies, credits given
+  each month by a subscription: none is needed yet; each can be added
+  without breaking an application.
+- Functions the plugin defines (`createCheckoutSession`): their names,
+  inputs and rules are the application's.
+- Snapshot events, whose payload may be stale when it arrives.
+
+Example, before and after:
+
+```ts
+// Before: each application writes its Stripe plugin, about 3000 lines
+import { stripePlugin } from './plugins/stripe'
+stripePlugin({ keys, onSync: syncPackSubscriptions, customerProfile })
+```
+
+```ts
+// After
+import { stripePlugin } from '@ultimabase/stripe'
+stripePlugin({
+	keys: { secret: env.STRIPE_SECRET_KEY, webhook: env.STRIPE_WEBHOOK_SECRET },
+	currency: 'eur',
+	products: [pro, gems500],
+	portal: { returnUrl: 'https://app.example.com/shop' },
+	customer: (user) => ({ email: user.email, locale: user.lang }),
+})
+```
+
+## D-372: The catalog in code: `defineProduct` and `defineCredit`
+
+Amended by D-376 and D-377.
+
+Choice: an application declares what it sells with values it imports, and
+the plugin writes them to Stripe.
+
+1. `defineCredit({ key })` declares a kind of credit, as blue gems. It
+   returns a function: `blueGems(500)` is 500 of them, a positive integer,
+   or it throws `Refused`.
+2. `defineProduct({ key, name, taxCode?, ... })` declares a product, with
+   either:
+   - `prices: { monthly: { amount: 9_90, every: 'month' }, ... }`, a
+     subscription's recurring prices, `every` being `'day'`, `'week'`,
+     `'month'` or `'year'`, with an optional `everyCount`;
+   - or `price: { amount: 4_99 }` and an optional `gives: [blueGems(500)]`,
+     a one-time product and the credits it gives.
+
+   An amount is an integer in the currency's smallest unit. `key` is the
+   product's name in the application and never changes; `name` is what
+   Checkout and the invoices show.
+
+3. Stripe finds a product by `metadata.key` and a price by its
+   `lookup_key`, `<product key>.<price name>`, or the product's key for a
+   one-time price. Applying the catalog creates what is missing, renames,
+   and for a changed amount creates a new price, moves the lookup key to it
+   and archives the old one: a subscriber keeps their price. A product left
+   out of the catalog is archived. Nothing is ever deleted, and only objects
+   whose `metadata.managedBy` is `ultimabase` are touched.
+4. When it is applied, with no CLI command (the CLI knows no plugin, D-191,
+   D-201):
+   - with `NODE_ENV=development` and a test key, at each start, logging each
+     change, as `ultimabase dev` writes the generated files;
+   - otherwise never by itself. Start compares, and logs a warning listing
+     the differences. The application applies them from its own deploy
+     script with `applyStripeCatalog({ secret, currency, taxBehavior,
+products, portal, dryRun })`, which prints the plan and needs no running
+     application.
+5. Start refuses, naming the product: two products with one key, a
+   subscription product without a `defineSubscription` model, a product
+   with `gives` without a `defineBalance` model (D-373).
+
+Why: a catalog in code is reviewed, versioned, and the same in every
+sandbox and in production. A credit or a product imported as a value, not
+a string, turns a typo into a type error (D-14). Prices are immutable at
+Stripe, so a changed amount needs a new price; archiving keeps every
+subscription and invoice valid.
+
+Rejected:
+
+- `ultimabase stripe sync`: a CLI that knows a plugin (D-191, D-201).
+- Applying at a production start: a deploy would change prices with no
+  review of its plan, and every instance would race to apply it.
+- A catalog in the Dashboard only: sandboxes and production drift apart,
+  and the application names prices by strings.
+- `defineCurrency`: Stripe's currency is the euro, not a gem.
+
+Example:
+
+```ts
+// Before: prices created by hand in the Dashboard, named by strings
+const priceId = process.env.STRIPE_PRICE_PRO_MONTHLY
+
+// After
+export const blueGems = defineCredit({ key: 'blueGems' })
+export const pinkGems = defineCredit({ key: 'pinkGems' })
+
+export const pro = defineProduct({
+	key: 'pro',
+	name: 'Pro',
+	prices: {
+		monthly: { amount: 9_90, every: 'month' },
+		yearly: { amount: 99_00, every: 'year' },
+	},
+})
+export const gems500 = defineProduct({
+	key: 'gems-500',
+	name: '500 gems',
+	price: { amount: 4_99 },
+	gives: [blueGems(500), pinkGems(20)],
+})
+```
+
+```ts
+// scripts/stripe-catalog.ts, run by the deploy, --dry-run first
+await applyStripeCatalog({
+	secret: process.env.STRIPE_SECRET_KEY,
+	currency: 'eur',
+	products: [pro, gems500],
+	portal: { returnUrl: 'https://app.example.com/shop' },
+	dryRun: process.argv.includes('--dry-run'),
+})
+```
+
+## D-373: The application's billing models: `defineSubscription`, `definePurchase`, `defineBalance`
+
+Amended by D-375, D-376 and D-377.
+
+Choice: what a payer bought lives in the application's own models, which
+the plugin fills, as `defineRole` builds a role model (D-13, D-123).
+
+1. Each builds an ordinary model through `defineModel`, with the plugin
+   first in its `use`. The application names it, adds its own fields and
+   indexes, and gives its rules in `.with` (D-370). Each is optional, and an
+   application has at most one of each.
+2. The fields each adds, refused as the application's own field names:
+   - `defineSubscription({ name, payer })`: `payer`, a `one` without
+     `inverse` (D-237), cascading; `stripeId`, unique; `product` and `price`,
+     the keys of D-372; `status`, Stripe's; `quantity`; `currentPeriodEnd`;
+     `cancelAt`, `canceledAt` and `trialEnd`, optional; `startedAt`;
+     `scheduledProduct`, `scheduledPrice` and `scheduledAt`, optional, a
+     change that waits for the period's end (point 8).
+   - `definePurchase({ name, payer })`: `payer`; `stripeId`, unique;
+     `product`; `amount` and `refunded`, in the smallest unit; `status`,
+     `'paid'` or `'refunded'`; `paidAt`.
+   - `defineBalance({ name, owner })`: `owner`; `credit`, the credit's key;
+     `amount`, never below zero; unique on `owner` and `credit`.
+3. `payer` and `owner` name any model of the application: a user, a team.
+   A payer has one Stripe customer, kept in the plugin's `StripeCustomer`
+   by model and id (D-110 point 1: no `AppUser`, D-333, fits any model).
+   Deleting a payer cascades its rows; deleting a subscription row closes
+   its customer at Stripe, and the hourly job closes the customer of a
+   payer gone without one.
+4. Only the plugin writes them. Its hooks refuse a create, an update or a
+   delete from any caller but Master, whatever the application's rules
+   say: a rule opened by mistake cannot forge a subscription. Reads follow
+   the application's rules, closed by default (D-04), and live queries see
+   each sync.
+5. A subscription's row keeps its last state when it ends (`canceled`):
+   the application reads its history.
+6. With `oneSubscription: true`, `stripe.checkout` throws
+   `ALREADY_SUBSCRIBED` (409) for a payer with a live subscription, and a
+   second one paid anyway, from two tabs, is canceled and refunded. A
+   change of plan goes through the portal (point 8).
+7. `stripe.checkout({ payer, product, price?, quantity?, trialDays?,
+terms?, promotionCodes?, successUrl, cancelUrl, metadata? })` creates
+   the payer's customer once, expires the Checkouts it left open, and opens
+   a new one, under its customer's lock: two tabs cannot both pay.
+   `trialDays` and the terms checkbox are the application's choice per
+   call.
+8. A payer changes plan, or cancels, on the portal. `stripe.portal({ payer,
+returnUrl?, change?, cancel? })` opens its home, or, deep-linked, the
+   confirmation of one change:
+   - `change: { product, price, subscription? }` moves a subscription to
+     another product or price of the catalog, quantity kept;
+   - `cancel: { subscription? }` its cancellation.
+
+   `subscription` is a row's id, needed only when the payer has several
+   live subscriptions; otherwise their one is taken, and none throws
+   `NOT_SUBSCRIBED` (409). The portal lets a payer switch between every
+   price of the catalog's subscription products. `portal`'s options say
+   how, with these defaults:
+   - `upgrades: 'invoiceNow'`: a dearer plan starts at once, and its
+     prorated difference is charged at once (`'nextInvoice'` adds it to
+     the next invoice);
+   - `downgrades: 'atPeriodEnd'`: a cheaper plan, or a shorter interval,
+     starts at the period's end, and the row shows it in its `scheduled*`
+     fields until then (`'now'` applies it at once, with a credit);
+   - `trialChange: 'endTrial'`: a change during a trial ends it and
+     charges the new plan (`'keepTrial'` keeps it);
+   - `cancel: 'atPeriodEnd'`, with `cancelAt` set until then (`'now'`
+     ends it at once).
+
+Why: with the plugin's models hidden (D-110), each application copied
+every subscription into a model of its own through a callback, and wrote
+the sync. Its own models give the client live reads and the application's
+rules, with no copy.
+
+Rejected:
+
+- An `onSync` callback that copies into the application's models: the same
+  code in every application.
+- Fields added to the payer's model through `use`: the kernel lets a plugin
+  add fields only through its `define<Kind>`, and one column per credit
+  would change the schema with the catalog.
+- The plugin's models exposed: against D-110, and the application could not
+  give them its rules.
+
+Example, before and after:
+
+```ts
+// Before: the application's model, and a callback that fills it
+export const PackSubscription = defineModel({
+	name: 'PackSubscription',
+	fields: (f) => ({
+		user: f.one(() => User),
+		stripeId: f.string({ unique: true }),
+		status: f.enumOf(subscriptionStatuses),
+		currentPeriodEnd: f.dateTime(),
+		// ... and 150 lines in onSync
+	}),
+})
+```
+
+```ts
+// After
+export const Subscription = defineSubscription({
+	name: 'Subscription',
+	payer: () => User,
+}).with({ access: { read: isOwner('payer') } })
+
+export const createCheckout = defineFunction({
+	name: 'createCheckout',
+	input: z.object({ price: z.enum(['monthly', 'yearly']) }),
+	output: z.object({ url: z.string() }),
+	run: signedInRun(async ({ input, user }) => ({
+		url: await stripe.checkout({
+			payer: user,
+			product: pro,
+			price: input.price,
+			trialDays: 14,
+			successUrl: 'https://app.example.com/shop?session={CHECKOUT_SESSION_ID}',
+			cancelUrl: 'https://app.example.com/shop',
+		}),
+	})),
+}).with({ access: signedIn })
+
+// Pro monthly to Pro yearly: the portal confirms, prorates and charges
+export const changePlan = defineFunction({
+	name: 'changePlan',
+	input: z.object({ price: z.enum(['monthly', 'yearly']) }),
+	output: z.object({ url: z.string() }),
+	run: signedInRun(async ({ input, user }) => ({
+		url: await stripe.portal({
+			payer: user,
+			change: { product: pro, price: input.price },
+		}),
+	})),
+}).with({ access: signedIn })
+```
+
+## D-374: Credits are bought with a product and spent by the application
+
+Amended by D-376 and D-377.
+
+Choice: a payer buys credits with a one-time product (D-372), and the
+application spends them in its own writes.
+
+1. A paid purchase of a product with `gives` adds its credits to its
+   payer's balances, in the transaction that writes the purchase, once per
+   payment. `defineBalance`'s `owner` and `definePurchase`'s `payer` name
+   the same model, or start refuses.
+2. `stripe.spend(owner, credits, { reason })` takes one credit amount or
+   several (`[blueGems(300), pinkGems(5)]`). It runs in the caller's
+   transaction when there is one, and lowers each balance on its locked
+   row (D-132). When one would fall below zero, it throws
+   `NOT_ENOUGH_CREDITS` (409) with `details: { credit, balance, needed }`
+   and changes nothing.
+3. A refund of the whole payment, or a lost dispute, takes back the
+   credits it gave, down to zero and never below: what was already spent
+   stays spent, and is logged as a warning. The purchase becomes
+   `refunded`. A partial refund raises `refunded` and takes nothing back.
+4. Each movement, a purchase, a spend or a refund, is written to the
+   plugin's `StripeCreditEntry` with its reason, for support.
+5. No credit moves between payers, and the application gives none without
+   a payment.
+
+Why: an in-app shop sells packs of credits, then sells items for them.
+Spending in the application's transaction makes the item and the price one
+write: a failed write leaves the balance whole, and two spends at once
+cannot both pass on one balance.
+
+Rejected:
+
+- A credits plugin of its own: the credits come from payments only, so a
+  second package would be API for no current use.
+- A `grant` without payment, transfers between payers, and credits that
+  expire: none is needed yet.
+- Negative balances after a refund: the application would have to handle
+  a debt.
+
+Example, before and after:
+
+```ts
+// Before: a balance field, written by hand, racing with itself
+const user = await User.findUniqueOrThrow({ where: { id } }, M)
+if (user.gems < 300) throw new PublicError('NOT_ENOUGH_GEMS')
+await User.update({ where: { id }, data: { gems: user.gems - 300 } }, M)
+await Inventory.create({ data: { owner: id, item: 'sword' } }, M)
+```
+
+```ts
+// After: one transaction; the second of two clicks is refused
+await transaction(async () => {
+	await stripe.spend(user, blueGems(300), { reason: 'sword' })
+	await Inventory.create({ data: { owner: user.id, item: 'sword' } }, M)
+})
+```
+
+## D-375: Stripe's sync holds no lock across Stripe, and recovers from Stripe's events
+
+Choice: amends D-371 points 2, 4 and 6, and D-373 points 3, 4 and 6.
+
+1. `customer` is read when a payer's customer is created and at each
+   `stripe.checkout` and `stripe.portal`, which push it to Stripe when it
+   changed since the last push. A change of the payer's row alone pushes
+   nothing: the plugin does not watch the application's models.
+2. An event whose `livemode` is not the key's is answered 200 with
+   `{ received: false }` and dropped, with a warning naming it: Stripe does
+   not retry it, and the log shows a destination pointed at the wrong
+   application.
+3. A sync takes no lock while it reads Stripe. `StripeCustomer` counts the
+   syncs begun, `syncsBegun`, and the number of the last one written,
+   `syncWritten`. A sync takes the next number outside any transaction,
+   reads Stripe, then, in one transaction, writes the rows only when no
+   sync numbered after it wrote first; that write locks the customer's row
+   for the rows and the credits. A change at Stripe sends an event whose
+   sync begins after it, so no sync begun before overwrites it.
+   `stripe.checkout` and a customer's close keep the customer's lock across
+   their Stripe calls (D-373 point 7), bounded by the client's 10-second
+   timeout and two retries.
+4. The hourly job, with no daily sync of every customer:
+   - reads the customers in pages of 500 by id from a cursor, enqueues the
+     close of those whose payer is gone once the pages are read, and syncs
+     those whose period ended (`renewsAt`);
+   - enqueues the events still waiting, and deletes the processed ones
+     older than 90 days;
+   - lists Stripe's events since the last scan, minus 10 minutes, or a day
+     back for the first, and syncs each customer whose last event came
+     later than a minute before its last sync began. The plugin's
+     `StripeScan` model keeps the time each scan began.
+
+   Its cost follows the account's activity: an event lost by the webhook
+   costs one sync within the hour, and a quiet customer costs nothing.
+
+5. With `oneSubscription: true`, a sync that finds a payer with several
+   live subscriptions enqueues `stripe.duplicate` for each but the oldest,
+   in the transaction of its write. The job cancels it at once, without
+   proration, refunds the payments of its latest invoice, once by an
+   idempotency key, and logs an error: the payer paid twice, through a race
+   or a subscription made in the Dashboard. Its events then sync the payer.
+6. A billing row is deleted by a caller other than Master only through the
+   cascade of its payer's delete, which the payer's rules allow. Deleting a
+   billing row alone, while its payer remains, is refused and logged as a
+   warning.
+
+Why: a sync that held the customer's row locked while it read Stripe kept a
+database connection busy for up to a network timeout, and a slow Stripe
+stalled the pool. A daily sync of every customer costs a full read of
+Stripe per customer per day, most of it finding nothing, and still missed a
+lost event for up to a day; the events list finds the same changes within
+the hour, for the customers that changed. A user who deletes their account
+needs their billing rows gone with it, and the refusal of D-373 point 4
+made that delete fail.
+
+Rejected:
+
+- A daily sync of every customer: its cost grows with the customers, not
+  with what changed.
+- A lock held across Stripe's calls in the sync: the pool, not Stripe,
+  becomes the limit.
+- Pushing the profile when the payer's row changes: the plugin would hook
+  every payer model, and Stripe needs the profile only on its own pages.
+- Answering an event of the other mode 400: Stripe would retry it for three
+  days.
+- Refusing every delete but Master's: a payer could not delete itself.
+
+Example, before and after:
+
+```ts
+// Before: a user's own delete failed on its subscription rows
+await User.delete({ where: { id: user.id } }, { as: user })
+// => ACCESS_DENIED, "Subscription delete refused."
+
+// After: the rows go with the user, and a job closes its customer at Stripe
+await User.delete({ where: { id: user.id } }, { as: user })
+```
+
+## D-376: Stripe's codes answer 400, `customer` is annotated, and the catalog's names hold no dot
+
+Choice: amends D-371 points 2 and 7, D-372 points 2 and 5, D-373 point 6 and
+D-374 point 2.
+
+1. The plugin's codes go out as every plugin's (D-72, D-206): a `400` with
+   the code, over REST and GraphQL alike. `ALREADY_SUBSCRIBED` and
+   `NOT_ENOUGH_CREDITS` are not `409`, and `PAYMENT_UNAVAILABLE` thrown by a
+   call is not `503`. Only the webhook's own answer stays `503`, for Stripe
+   to retry.
+2. `stripe.portal` for a payer with several live subscriptions and none
+   named throws `Refused`, a `500`: the application allows several and must
+   name one, a fix in its code that its log names.
+3. `customer` types its parameter with the payer's record:
+   `customer: (user: { readonly email: string }) => ({ email: user.email })`.
+   Without the annotation the parameter is `never`, and reading it is a type
+   error.
+4. A product's key and a price's name are letters, digits, `_` and `-`:
+   they make the lookup key `<product>.<price>`, which a dot would make
+   ambiguous. Start refuses one, naming it.
+5. A subscription product has one price per interval: Stripe's portal
+   takes one, and start refuses a second, naming both.
+
+Why: a client decides on the code, never the status, and GraphQL has no
+status per error; a status per code would be an option of every plugin for
+nothing. The plugin cannot know the payers' models, which can be several;
+inferring them needs generics whose errors no one reads, and a wrong
+annotation costs an empty field at Stripe, not a failure. The two catalog
+rules turn a late and obscure Stripe error into a clear one at start, and
+refuse nothing a coupon or a second product does not cover.
+
+Rejected:
+
+- A plugin declaring a status per code: REST and GraphQL would differ
+  (D-129).
+- `stripe.portal`'s refusal as a public code: it would hide an
+  application's bug behind a client error.
+- Inferring `customer`'s parameter from the payer models.
+- Two prices of one interval, the second kept out of the portal.
+
+Example, before and after:
+
+```ts
+// Before (D-373, D-374): HTTP 409 { "code": "NOT_ENOUGH_CREDITS" }
+// After: HTTP 400 { "code": "NOT_ENOUGH_CREDITS", "message": "Not enough gems." }
+if (error.code === 'NOT_ENOUGH_CREDITS') showShop()
+
+// Before (D-371's example): customer: (user) => ({ email: user.email })
+stripePlugin({
+	...options,
+	customer: (user: { readonly email: string }) => ({ email: user.email }),
+})
+
+// Both refused at start
+defineProduct({ key: 'pro.v2', name: 'Pro', prices: { monthly } })
+defineProduct({
+	key: 'pro',
+	name: 'Pro',
+	prices: {
+		monthly: { amount: 9_90, every: 'month' },
+		monthlyPromo: { amount: 4_90, every: 'month' },
+	},
+})
+```
+
+## D-377: Credits are granted, given by subscriptions, and kept in a history the application reads
+
+Choice: amends D-372 point 2, D-373 point 2 and D-374 points 4 and 5.
+
+1. `stripe.grant(owner, credits, { reason })` adds credits without a
+   payment: a welcome bonus, a support gesture, a daily reward. It takes
+   what `stripe.spend` takes, one credit amount or several, runs in the
+   caller's transaction when there is one, and adds to each balance on its
+   locked row, creating it at the first grant.
+2. `defineCreditHistory({ name, owner })` builds the application's model of
+   every move of credits, in place of the plugin's hidden
+   `StripeCreditEntry`. It adds `owner`, the same model as the balance's,
+   cascading; `credit`; `change`, positive when given, negative when spent
+   or taken back; `reason`; and `payment`, the Stripe payment or invoice
+   that moved it, optional. Like the other billing models (D-373 point 4),
+   only the plugin writes it and reads follow the application's rules.
+   Start refuses a `defineBalance` without a `defineCreditHistory`: the
+   history is what makes a payment give its credits once.
+3. The plugin's moves carry the reasons `purchase`, `subscription` and
+   `refund`; a grant and a spend carry the application's.
+4. A subscription's price can give credits:
+   `monthly: { amount: 9_90, every: 'month', gives: [gems(100)] }`. Each
+   paid invoice gives, once per invoice, the credits of each of its lines
+   that bills a whole period above zero, times the line's quantity: the
+   first payment, each renewal, and a change of interval, which bills a new
+   period. A yearly price gives its credits at once, for the year. A trial
+   gives nothing until its first payment, and a prorated upgrade nothing
+   until the next renewal. A full refund of the invoice, or a lost dispute,
+   takes them back as for a purchase (D-374 point 3).
+   - Only a period that has not ended when the plugin reads its invoice
+     gives: a `gives` added to a live price gives from the next renewal,
+     not for the periods already paid.
+   - A refund takes back what the history shows the payment gave, not what
+     the catalog gives now, and a free invoice, after a full coupon, is
+     never read as refunded.
+   - The plugin reads a payer's paid invoices of the last 400 days, and
+     only when a recurring price gives credits: an application without
+     them makes no more calls to Stripe.
+   - A purchase a promotion code made free has no payment at Stripe: the
+     plugin reads the payer's completed Checkouts of the last 400 days,
+     only when the catalog sells once, and records such a purchase at
+     zero, paid, with its credits.
+5. What a page shows comes from the row, not from the catalog in code:
+   - a subscription adds `amount`, what one period of its price costs
+     times its quantity, before discounts and taxes, and `every` and
+     `everyCount`, its interval as the catalog writes it. A payer keeps the
+     price they subscribed at, and the row shows it after the catalog
+     changed.
+   - its `status` is an enum of Stripe's statuses: `incomplete`,
+     `incomplete_expired`, `trialing`, `active`, `past_due`, `canceled`,
+     `unpaid` and `paused`.
+   - a purchase adds `quantity` and `receiptUrl`, Stripe's receipt page,
+     optional.
+6. A subscription's invoices stay on Stripe's portal: the plugin keeps no
+   invoice model.
+
+Why: an application needs to give credits it was not paid for, and to give
+a subscriber credits each period; a job of its own would have to know
+which periods were paid, refunded or prorated, which the plugin already
+reads. Support and the payer's own page need the history, which a hidden
+model kept from both. A page that read the catalog showed the new price to
+a payer who kept the old one.
+
+Rejected:
+
+- A monthly job in the application that gives a subscriber's credits: it
+  would give for an unpaid or refunded period, and twice when it ran twice.
+- Credits during a trial: a payer would take them and cancel before paying.
+- Credits for a prorated upgrade: a fraction of a credit pack has no sense,
+  and the next renewal gives the new plan's.
+- The history optional: a payment could no longer be given once.
+- `defineCreditTransaction`: it reads as the kernel's `transaction`.
+- An invoice model: the portal shows the invoices, with their PDFs.
+- `amount` after discounts: a coupon's end would change it with no event to
+  follow.
+
+Example, before and after:
+
+```ts
+// Before: a welcome bonus is impossible, the history hidden, and the page
+// reads the catalog
+const label = `${pro.prices[sub.price].amount / 100} €`
+```
+
+```ts
+// After
+export const Balance = defineBalance({
+	name: 'Balance',
+	owner: () => User,
+}).with({ access: { read: isOwner('owner') } })
+export const CreditHistory = defineCreditHistory({
+	name: 'CreditHistory',
+	owner: () => User,
+}).with({ access: { read: isOwner('owner') } })
+
+export const pro = defineProduct({
+	key: 'pro',
+	name: 'Pro',
+	prices: {
+		monthly: { amount: 9_90, every: 'month', gives: [gems(100)] },
+		yearly: { amount: 99_00, every: 'year', gives: [gems(1_200)] },
+	},
+})
+
+await stripe.grant(user, gems(50), { reason: 'welcome' })
+
+// A page: 9.90 €/month, and the moves of gems
+const label = `${sub.amount / 100} €/${sub.every}`
+const moves = await CreditHistory.findMany(
+	{ where: { owner: { is: { id: user.id } } }, orderBy: { createdAt: 'desc' } },
+	{ as: user },
+)
+// [{ credit: 'gems', change: 50, reason: 'welcome', payment: null }, ...]
+```
+
+## D-378: CI runs the Stripe sandbox each night and before `main` publishes
+
+Choice: amends D-371 point 8.
+
+1. `.github/workflows/stripe.yml` runs `yarn test:stripe` against the
+   maintainer's Stripe sandbox each night, on "Run workflow", and from
+   `ci.yml` on every run of `main`, pushes and canaries alike. The release
+   and canary jobs wait for it: a payment the sandbox refuses publishes
+   nothing.
+2. It reads the sandbox's test secret key from the repository secret
+   `STRIPE_SECRET_KEY`. A run without it fails with the suite's own
+   message: it is never skipped as a success.
+3. A pull request does not run it: it holds no secret, and `yarn validate`
+   keeps the fake Stripe (D-371 point 8).
+4. The Stripe CLI, which forwards Stripe's own signed events, is
+   downloaded at a pinned version and checked against its checksum.
+
+Why:
+
+- The fake proves the plugin's logic; only Stripe proves that Stripe takes
+  what the plugin sends and sends what it reads. An API version, a field
+  Stripe renames or an account setting would pass every fake test.
+- Each night finds a change at Stripe the day it happens, with no push.
+- The release pull request is opened with the workflow's token and runs no
+  check (D-193): the push to `main` is the last run before publishing.
+
+Rejected:
+
+- On every pull request: the secret would reach every branch's code, and
+  each run makes customers, clocks and a catalog at Stripe.
+- Nightly only: a release would publish code the sandbox never ran.
+- A run without the secret passing as skipped: a missing key would look
+  green.
+- The CLI from Stripe's apt repository: an unpinned version and a new
+  signing key to trust.
+
+Example:
+
+```text
+# Before: CI never reaches Stripe
+git push origin main   # → Validate, Packed, Website, PostgreSQL, S3 → Release
+
+# After: the repository secret STRIPE_SECRET_KEY=sk_test_… is set
+git push origin main   # → … S3, Stripe sandbox (12 tests, ~3 min) → Release
+# 03:17 UTC each night → Stripe sandbox; a failure mails the maintainer
+```
+
+## D-379: A daily audit logs what the ledger and Stripe disagree on
+
+Choice: amends D-371 point 5.
+
+1. The plugin adds the recurring job `stripe.audit`, run every 24 hours,
+   always on, with no option. It reads and logs; it never writes.
+2. Each balance is the sum of its history (D-377): for each page of 500
+   owners, read in one serializable transaction, a balance that differs from
+   the sum of the owner's moves of that credit, or moves of a credit with no
+   balance, logs the error `A balance is not the sum of its history.` with
+   the owner, the credit, the balance and the sum.
+3. Each payment Stripe took has its purchase: each payment for a product of
+   the catalog, paid between 2 days and 2 hours ago, by a customer of the
+   purchase model's payer, with no purchase of its id, logs the error
+   `A paid payment has no purchase.` with the payment, the customer and when
+   it was paid. The customers read are those Stripe's events changed in the
+   last 2 days, so its cost follows the account's activity (D-375).
+4. The payment check runs last, and only with keys and a purchase model; the
+   balance check runs with a balance and a history model.
+5. Not checked: subscriptions, which the hourly reconciliation already reads
+   back from Stripe (D-375); a Checkout a full discount made free, which has
+   no payment; and a move whose owner was deleted.
+
+Why:
+
+- The ledger is money: a gap must be seen the day it happens, not when a
+  user complains. Every test already checks the first rule (D-377); in
+  production, only a job can.
+- A purchase missing for a paid payment is the one loss the reconciliation
+  cannot see by itself: it reads customers whose events it missed, and a
+  payment whose sync failed every time stays silent.
+- The 2 hours leave the hourly reconciliation time to heal a late webhook,
+  so that the audit reports only what recovery failed to fix. The 2 days
+  overlap two runs, so that a run skipped by a deploy loses nothing.
+- Logging only: a fix written by a check would hide the bug that made the
+  gap, and the right fix depends on that bug.
+
+Rejected:
+
+- An option to turn it off: it costs one read per page of owners and per
+  changed customer a day, and an application that sells wants it.
+- Fixing a balance from its history: the history may be the wrong side.
+- Reading every Stripe customer each day: the cost would follow the number
+  of customers, not the day's payments.
+- Checking subscriptions too: the reconciliation writes them back each hour.
+
+Example:
+
+```text
+# Before: a balance written outside grant() and spend() stays wrong, silently
+
+# After: the next day's run logs
+ERROR stripe.audit: A balance is not the sum of its history.
+      { owner: "u_42", credit: "gems", balance: 480, history: 500 }
+ERROR stripe.audit: A paid payment has no purchase.
+      { payment: "pi_3Q…", customer: "cus_R…", paidAt: "2026-11-12T18:04:00Z" }
+```
+
+## D-380: A Checkout's card moves to its customer, so the portal changes it
+
+Choice: amends D-371 point 4 and D-375.
+
+1. A subscription made by the plugin's Checkout (its metadata names the
+   plugin) has its card on its own `default_payment_method`: Checkout puts it
+   there. When a sync reads such a subscription, live and with a card of its
+   own, the plugin sets that card as the customer's
+   `invoice_settings.default_payment_method`, then clears the subscription's.
+2. The move runs in the sync, after its transaction, outside the customer's
+   lock (D-375). The customer is written first: a failure between the two
+   calls leaves the card on both, and the job's retry does both again.
+3. A subscription made elsewhere, in the Dashboard or by the API, keeps its
+   card: the plugin only undoes what its own Checkout did.
+
+Why:
+
+- Stripe charges a subscription's own card before the customer's. The
+  customer portal changes only the customer's default card, so a payer who
+  replaces a card in the portal is still charged on the old one at renewal.
+  A sandbox run with a test clock showed it: the renewal charged the old
+  card with the card on the subscription, the new one once it was moved.
+- The plugin opens the Checkout and configures the portal; Stripe has no
+  setting for it. Checkout puts the card on the subscription, so the
+  plugin, which asked for that Checkout, moves it.
+- With the card on the customer, the portal's change, Stripe's own card
+  updater and a second subscription all use the same card.
+
+Rejected:
+
+- Watching the customer's card changes and copying them to each
+  subscription: one more event to follow for each change, and the card would
+  still differ between the customer and its subscriptions.
+- Keeping a newer customer card in the window before the first sync: a card
+  changed in the portal within seconds of paying is rare, and its rule would
+  need a read of when each card was set.
+
+Example:
+
+```text
+# Before: the payer pays a Checkout with a Visa, replaces it in the portal
+# with a Mastercard; the renewal charges the Visa.
+
+# After: the first sync moves the Visa to the customer; the portal's
+# Mastercard replaces it there, and the renewal charges the Mastercard.
+```
+
 ## D-381: The kernel's loggers report the failures they log
 
 Choice: amends D-360 point 3; builds on D-364.

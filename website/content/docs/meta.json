@@ -30,6 +30,7 @@
 		"maintenance",
 		"jobs",
 		"sentry",
+		"stripe",
 		"---Transports---",
 		"http",
 		"graphql",
