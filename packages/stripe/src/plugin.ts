@@ -34,6 +34,8 @@ import { profileChanged } from './profile.ts'
 import type { Billing, Running } from './running.ts'
 import { isBilling, rowsOf, runningOf, useRunning } from './running.ts'
 import { webhookRoutes } from './webhook.ts'
+import type { RiskOptions } from './risk.ts'
+import { riskOptionsOf } from './risk.ts'
 
 /** What `stripePlugin` takes (D-371 point 2). */
 export interface StripeOptions {
@@ -55,6 +57,8 @@ export interface StripeOptions {
 	readonly webhookPath?: string
 	/** One live subscription per payer (D-373 point 6). */
 	readonly oneSubscription?: boolean
+	/** What a payment at risk does to its payer's subscriptions (D-388). */
+	readonly risk?: RiskOptions
 }
 
 /** The Stripe plugin's types (D-57). */
@@ -79,6 +83,7 @@ const optionKeys = [
 	'customer',
 	'webhookPath',
 	'oneSubscription',
+	'risk',
 ]
 const names = {
 	subscription: 'defineSubscription',
@@ -288,6 +293,7 @@ const definition = definePlugin<Stripe>({
 			balance: billingOf(models, 'balance'),
 			history: billingOf(models, 'history'),
 		}
+		const risk = riskOptionsOf(entry, options.risk)
 		checkModels(catalog.products, billing)
 		checkEnums(catalog.products, billing.subscription, billing.purchase)
 		const running: Running = {
@@ -304,6 +310,7 @@ const definition = definePlugin<Stripe>({
 			products: new Map(catalog.products.map((one) => [one.key, one])),
 			customer,
 			oneSubscription,
+			risk,
 			...billing,
 			logger,
 			portal: undefined,

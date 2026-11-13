@@ -184,3 +184,94 @@ describe('changedSince', () => {
 		})
 	})
 })
+
+describe('a payment at risk', () => {
+	const risks = gatewayOn(({ path }) => {
+		switch (path) {
+			case '/v1/radar/early_fraud_warnings/issfr_1':
+				return { id: 'issfr_1', charge: 'ch_1', actionable: true }
+			case '/v1/radar/early_fraud_warnings/issfr_2':
+				return { id: 'issfr_2', charge: { id: 'ch_2' }, actionable: false }
+			case '/v1/disputes/du_1':
+				return { id: 'du_1', charge: 'ch_3' }
+			default:
+				return { id: 'du_2', charge: null }
+		}
+	}).gateway
+
+	it('names its charge, refundable while its warning is actionable', async () => {
+		const warning = 'radar.early_fraud_warning'
+		expect(await risks.riskOf(warning, 'issfr_1')).toStrictEqual({
+			charge: 'ch_1',
+			refundable: true,
+		})
+		expect(await risks.riskOf(warning, 'issfr_2')).toStrictEqual({
+			charge: 'ch_2',
+			refundable: false,
+		})
+		expect(await risks.riskOf('dispute', 'du_1')).toStrictEqual({
+			charge: 'ch_3',
+			refundable: false,
+		})
+		expect(await risks.riskOf('dispute', 'du_2')).toBeNull()
+		expect(await risks.riskOf('charge', 'ch_1')).toBeNull()
+	})
+
+	it('refunds its charge once, and tolerates one refunded already', async () => {
+		const { gateway, requests } = gatewayOn(({ params }) =>
+			params.charge === 'ch_2'
+				? stripeError(400, {
+						type: 'invalid_request_error',
+						code: 'charge_already_refunded',
+					})
+				: { id: 're_1' },
+		)
+		await gateway.refundCharge('ch_1')
+		await gateway.refundCharge('ch_2')
+		expect(
+			requests.map(({ path, params, idempotencyKey }) => ({
+				path,
+				params,
+				idempotencyKey,
+			})),
+		).toStrictEqual([
+			{
+				path: '/v1/refunds',
+				params: { charge: 'ch_1' },
+				idempotencyKey: 'refund-ch_1',
+			},
+			{
+				path: '/v1/refunds',
+				params: { charge: 'ch_2' },
+				idempotencyKey: 'refund-ch_2',
+			},
+		])
+	})
+
+	it('ends its payer’s subscriptions that have not ended, at once', async () => {
+		const { gateway, requests } = gatewayOn(({ method, path }) =>
+			method === 'GET'
+				? stripeList([
+						{ id: 'sub_1', status: 'active' },
+						{ id: 'sub_2', status: 'canceled' },
+						{ id: 'sub_3', status: 'past_due' },
+						{ id: 'sub_4', status: 'incomplete_expired' },
+					])
+				: { id: path },
+		)
+		expect(await gateway.cancelSubscriptions('cus_1')).toStrictEqual([
+			'sub_1',
+			'sub_3',
+		])
+		expect(sent(requests)).toStrictEqual([
+			'GET /v1/subscriptions',
+			'DELETE /v1/subscriptions/sub_1',
+			'DELETE /v1/subscriptions/sub_3',
+		])
+		expect(requests[0]?.params).toMatchObject({
+			customer: 'cus_1',
+			status: 'all',
+		})
+		expect(requests[1]?.params).toStrictEqual({ prorate: 'false' })
+	})
+})

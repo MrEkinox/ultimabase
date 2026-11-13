@@ -12,6 +12,7 @@ import type { RecoveryGateway } from './billing-gateway.ts'
 import { duplicateJob } from './duplicates.ts'
 import { M, StripeCustomer, StripeEvent, StripeScan } from './models.ts'
 import { profileJob } from './profile.ts'
+import { settleRisk } from './risk.ts'
 import type { Running } from './running.ts'
 import { payersOf, runningOf, stripeOf } from './running.ts'
 import { syncCustomer } from './sync.ts'
@@ -35,13 +36,16 @@ const overlap = 10 * minute
  */
 const margin = minute
 
-/** Syncs the customer a stored event is about, then marks it processed. */
+/**
+ * Acts on a payment at risk (D-388), syncs the customer a stored event is
+ * about, then marks it processed.
+ */
 export const eventJob: Job<'stripe.event', { readonly event: string }> =
 	defineJob({
 		name: 'stripe.event',
 		input: strings('event'),
 		key: ({ event }) => event,
-		run: async ({ input }) => {
+		run: async ({ input, logger }) => {
 			const event = await StripeEvent.findUnique(
 				{ where: { id: input.event } },
 				M,
@@ -58,7 +62,10 @@ export const eventJob: Job<'stripe.event', { readonly event: string }> =
 					? null
 					: await StripeCustomer.findUnique({ where }, M)
 			// Synced here: the event stays waiting, so retried, until it is.
-			if (row !== null) await syncCustomer(row.id)
+			if (customerId !== null && row !== null) {
+				await settleRisk(event, customerId, logger)
+				await syncCustomer(row.id)
+			}
 			const data = { processedAt: new Date() }
 			await StripeEvent.update({ where: { id: event.id }, data }, M)
 		},

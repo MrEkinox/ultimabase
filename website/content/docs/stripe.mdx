@@ -99,6 +99,13 @@ npm install @ultimabase/jobs
   refuses a second live subscription with `ALREADY_SUBSCRIBED`, and one made
   anyway, in the Dashboard or by a race, is canceled at once, its payment
   refunded, and logged as an error.
+- `risk` acts on a payment at risk, and nothing does unless it is set.
+  `earlyFraudWarning: 'refundAndCancel'` refunds the payment Stripe's Radar
+  warns of, once and while Stripe still lets it; `dispute: 'cancel'` leaves
+  the disputed payment to the dispute. Both end the payer's live
+  subscriptions at once, without proration, and warn. The sync then writes
+  the rows: a refund takes back its credits, as below. A customer the
+  application does not hold is left alone.
 
 ## The billing models
 
@@ -330,8 +337,9 @@ their jobs.
 	../examples/stripe/src/app.test.ts#pay
 </include>
 
-`renew`, `refund`, `loseDispute`, `update` and `deleteCustomer` do at
-Stripe what a payer, a renewal or the dashboard does. `thinEvent` and `postEvent` post an event of
+`renew`, `refund`, `loseDispute`, `warnFraud`, `openDispute`, `update` and
+`deleteCustomer` do at Stripe what a payer, a renewal, Radar or the
+dashboard does. `thinEvent` and `postEvent` post an event of
 the test's own, signed with the secret it is given, to `/webhooks/stripe`
 or its `path`.
 

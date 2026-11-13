@@ -469,6 +469,7 @@ describe('customerOf', () => {
 		'/v1/charges/ch_1': { customer: 'cus_1' },
 		'/v1/disputes/dp_1': { charge: 'ch_1' },
 		'/v1/disputes/dp_2': { charge: null },
+		'/v1/radar/early_fraud_warnings/issfr_1': { charge: { id: 'ch_1' } },
 	}
 	const { gateway } = gatewayOn(({ path }) => objects[path] ?? missing())
 
@@ -483,6 +484,7 @@ describe('customerOf', () => {
 		expect(await read('payment_intent', 'pi_1')).toBe('cus_1')
 		expect(await read('charge', 'ch_1')).toBe('cus_1')
 		expect(await read('dispute', 'dp_1')).toBe('cus_1')
+		expect(await read('radar.early_fraud_warning', 'issfr_1')).toBe('cus_1')
 	})
 
 	it('finds none for an object of no customer, or one Stripe lacks', async () => {

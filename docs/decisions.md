@@ -23770,3 +23770,81 @@ A catalog with a product `'business'` missing from `Pack` refuses to start:
 ```
 defineSubscription(PackSubscription): product misses 'business', a key of the catalog.
 ```
+
+## D-388: A payment at risk ends its payer's subscriptions, if the application asks
+
+Choice: builds on D-371 point 4, D-375 and D-377.
+
+1. `stripePlugin({ risk })` takes what a payment at risk does. Without
+   `risk`, nothing changes. `risk.earlyFraudWarning: 'refundAndCancel'`
+   acts on `radar.early_fraud_warning.created`; `risk.dispute: 'cancel'`
+   acts on `charge.dispute.created`. Each key is optional, and any other
+   key or value is refused at start. The values are words, not `true`, so
+   that another action can join one later.
+2. The event's charge must belong to one of the application's customers:
+   an early fraud warning is routed to its customer through its charge, as
+   a dispute is. A charge of another customer, or of none, is left alone.
+3. `'refundAndCancel'` refunds the charge in full while Stripe still holds
+   the warning actionable, so neither disputed nor refunded in full, with
+   the idempotency key `refund-<charge>`; Stripe's refusal of a refunded or
+   disputed charge is not a failure. Then each of the customer's
+   subscriptions that has not ended (`canceled`, `incomplete_expired`) ends
+   at once, without proration and without refunding its other payments.
+   `'cancel'` ends the subscriptions the same way and refunds nothing:
+   Stripe holds a disputed payment.
+4. The calls to Stripe run in the event's job, outside the customer's lock
+   (D-375), each changing nothing when run again, so a retried job is safe.
+   The event's sync then writes the rows: each subscription `canceled`, a
+   refunded payment's purchase `refunded`, and a full refund's credits
+   taken back (D-374, D-377).
+5. Each handling is logged at warn level, "A payment is at risk: its
+   payer's subscriptions were canceled.", with the event's type, the
+   charge, the customer, whether it was refunded and the subscriptions
+   ended. Warn, not error: the plugin acted, and D-381 makes an error line
+   a failure to report.
+6. The hourly reconciliation does not act on a risk: it syncs. Stripe
+   retries a delivery for three days, and the reconciliation runs again the
+   stored events still waiting.
+7. The fake of `@ultimabase/stripe/testing` puts a payment at risk:
+   `fake.warnFraud(payment)` opens an early fraud warning and
+   `fake.openDispute(payment)` a dispute, on a payment or an invoice, each
+   sending its event.
+
+Why: a payment Stripe's network reports as fraud, or a payer disputes,
+leaves its subscriptions renewing on the same card, so the next periods
+are disputed too, and each dispute costs a fee. An early fraud warning
+refunded in time avoids the dispute and its fee. The application asked to
+end the subscriptions itself, with no code of its own.
+
+Rejected:
+
+- An `onRisk` hook: the application wanted the action, not a place to
+  write it, and a hook would be a second way to do the same.
+- `true` for each risk: no room for another action, such as a refund
+  without ending the subscriptions.
+- Refunding the subscriptions' other payments: only the payment at risk is
+  suspect.
+- Acting under the customer's lock: no lock is held across Stripe (D-375).
+
+Example, before: the application listened to Stripe's events itself, with
+a second webhook, its own refund and its own cancellations.
+
+After:
+
+```ts
+stripePlugin({
+	keys,
+	currency: 'eur',
+	products,
+	portal,
+	risk: { earlyFraudWarning: 'refundAndCancel', dispute: 'cancel' },
+})
+```
+
+The log of an early fraud warning:
+
+```
+WARN A payment is at risk: its payer's subscriptions were canceled.
+  event: "radar.early_fraud_warning.created", charge: "ch_1", customer: "cus_1",
+  refunded: true, canceled: ["sub_1"]
+```

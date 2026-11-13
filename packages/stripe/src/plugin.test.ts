@@ -149,6 +149,17 @@ describe('stripePlugin’s start', () => {
 			'stripePlugin: webhookPath is a path, as /webhooks/stripe.',
 		)
 		await expect(wrong({ trial: 7 })).rejects.toThrow('takes no trial')
+		await expect(wrong({ risk: { refund: 'always' } })).rejects.toThrow(
+			"stripePlugin's risk takes no refund.",
+		)
+		await expect(
+			wrong({ risk: { earlyFraudWarning: 'cancel' } }),
+		).rejects.toThrow(
+			"stripePlugin: risk.earlyFraudWarning is 'refundAndCancel'.",
+		)
+		await expect(wrong({ risk: { dispute: true } })).rejects.toThrow(
+			"stripePlugin: risk.dispute is 'cancel'.",
+		)
 	})
 
 	it('refuses two models of one kind, and a payer not in the models', async () => {
