@@ -22623,7 +22623,7 @@ export const Thing = defineModel({
 
 ## D-371: `@ultimabase/stripe`, payments on Stripe's hosted pages
 
-Amended by D-375 and D-376.
+Amended by D-375, D-376 and D-378.
 
 Choice: an official plugin sells subscriptions, one-time products and
 credits through Stripe, for any application.
@@ -23253,4 +23253,51 @@ const moves = await CreditHistory.findMany(
 	{ as: user },
 )
 // [{ credit: 'gems', change: 50, reason: 'welcome', payment: null }, ...]
+```
+
+## D-378: CI runs the Stripe sandbox each night and before `main` publishes
+
+Choice: amends D-371 point 8.
+
+1. `.github/workflows/stripe.yml` runs `yarn test:stripe` against the
+   maintainer's Stripe sandbox each night, on "Run workflow", and from
+   `ci.yml` on every run of `main`, pushes and canaries alike. The release
+   and canary jobs wait for it: a payment the sandbox refuses publishes
+   nothing.
+2. It reads the sandbox's test secret key from the repository secret
+   `STRIPE_SECRET_KEY`. A run without it fails with the suite's own
+   message: it is never skipped as a success.
+3. A pull request does not run it: it holds no secret, and `yarn validate`
+   keeps the fake Stripe (D-371 point 8).
+4. The Stripe CLI, which forwards Stripe's own signed events, is
+   downloaded at a pinned version and checked against its checksum.
+
+Why:
+
+- The fake proves the plugin's logic; only Stripe proves that Stripe takes
+  what the plugin sends and sends what it reads. An API version, a field
+  Stripe renames or an account setting would pass every fake test.
+- Each night finds a change at Stripe the day it happens, with no push.
+- The release pull request is opened with the workflow's token and runs no
+  check (D-193): the push to `main` is the last run before publishing.
+
+Rejected:
+
+- On every pull request: the secret would reach every branch's code, and
+  each run makes customers, clocks and a catalog at Stripe.
+- Nightly only: a release would publish code the sandbox never ran.
+- A run without the secret passing as skipped: a missing key would look
+  green.
+- The CLI from Stripe's apt repository: an unpinned version and a new
+  signing key to trust.
+
+Example:
+
+```text
+# Before: CI never reaches Stripe
+git push origin main   # → Validate, Packed, Website, PostgreSQL, S3 → Release
+
+# After: the repository secret STRIPE_SECRET_KEY=sk_test_… is set
+git push origin main   # → … S3, Stripe sandbox (12 tests, ~3 min) → Release
+# 03:17 UTC each night → Stripe sandbox; a failure mails the maintainer
 ```
