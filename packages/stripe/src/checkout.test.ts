@@ -193,10 +193,14 @@ describe('stripe.syncCheckout', () => {
 		expect(await Subscription.findMany({}, M)).toMatchObject([
 			{ product: 'team', price: 'monthly', status: 'active' },
 		])
-		// The webhook's event finds it written already.
+		const written = await Subscription.findMany({}, M)
+		// The webhook's event, a minute later, finds it written already and
+		// writes nothing: the model's hooks run on a change only.
+		vi.useFakeTimers({ toFake: ['Date'], now: Date.now() + 60_000 })
 		await fake.deliver(test.url)
 		await runJobs()
-		expect(await Subscription.count({}, M)).toBe(1)
+		vi.useRealTimers()
+		expect(await Subscription.findMany({}, M)).toStrictEqual(written)
 	})
 
 	it('finds no Checkout of another payer, nor an unknown one', async () => {

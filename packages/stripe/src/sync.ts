@@ -13,7 +13,7 @@ import { settleCredits } from './credits.ts'
 import type { Customer } from './customer.ts'
 import { duplicateJob, duplicatesOf } from './duplicates.ts'
 import { M, StripeCustomer } from './models.ts'
-import type { Billing, Running } from './running.ts'
+import type { Billing, Row, Running } from './running.ts'
 import { runningOf, stripeOf } from './running.ts'
 
 /** The model when its payer is the customer's, else nothing to write. */
@@ -21,6 +21,35 @@ const ownModel = (model: Billing | undefined, row: Customer) =>
 	model?.payer.name === row.model ? model : undefined
 
 const connect = (id: string) => ({ connect: { id } })
+
+/** Whether the row holds each value already. */
+const holds = (row: Row, values: Readonly<Record<string, unknown>>) =>
+	Object.entries(values).every(([field, value]) => {
+		const held = row[field]
+		return value instanceof Date && held instanceof Date
+			? value.getTime() === held.getTime()
+			: held === value
+	})
+
+/**
+ * Creates the row of `stripeId`, or updates it when one of its values
+ * changed: a sync that finds it unchanged writes nothing, so the model's
+ * hooks run on a change only. The customer's lock is held.
+ */
+async function save(
+	model: Billing,
+	stripeId: string,
+	create: object,
+	values: Readonly<Record<string, unknown>>,
+): Promise<void> {
+	const row = await model.queries.findUnique({ where: { stripeId } }, M)
+	if (row === null) {
+		const data = { ...create, ...values, stripeId }
+		await model.queries.create({ data }, M)
+	} else if (!holds(row, values)) {
+		await model.queries.update({ where: { id: row.id }, data: values }, M)
+	}
+}
 
 async function writeSubscription(
 	model: Billing,
@@ -42,9 +71,7 @@ async function writeSubscription(
 		scheduledPrice: one.scheduled?.price ?? null,
 		scheduledAt: one.scheduled?.at ?? null,
 	}
-	const where = { stripeId: one.id }
-	const create = { ...values, stripeId: one.id, payer: connect(row.payer) }
-	await model.queries.upsert({ where, create, update: values }, M)
+	await save(model, one.id, { payer: connect(row.payer) }, values)
 }
 
 async function writePayment(
@@ -63,20 +90,12 @@ async function writePayment(
 			refunded,
 			status: refunded >= payment.amount ? 'refunded' : 'paid',
 		}
-		await purchase.queries.upsert(
-			{
-				where: { stripeId: payment.id },
-				create: {
-					...values,
-					stripeId: payment.id,
-					product: product.key,
-					paidAt: payment.paidAt,
-					payer: connect(row.payer),
-				},
-				update: values,
-			},
-			M,
-		)
+		const create = {
+			product: product.key,
+			paidAt: payment.paidAt,
+			payer: connect(row.payer),
+		}
+		await save(purchase, payment.id, create, values)
 	}
 	if (!('prices' in product) && ownModel(running.balance, row) !== undefined) {
 		await settleCredits(row.payer, payment, product)
