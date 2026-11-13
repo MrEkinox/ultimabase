@@ -56,6 +56,8 @@ every 3 months`; `yarn deploy --dry-run` prints them and changes nothing.
   price keep it.
 - A product or price the catalog no longer lists is archived, never deleted.
 - `taxBehavior` is `'inclusive'` unless set: the amounts include the taxes.
+- A new Stripe account sells through Managed Payments, whose Checkout refuses
+  a product with no `taxCode`, as `taxCode: 'txcd_10103000'`.
 - The secret key's mode is printed: `sk_live_…` writes to the live account.
 
 ## The plugin

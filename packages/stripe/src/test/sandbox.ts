@@ -45,6 +45,8 @@ const began = Math.floor(Date.now() / 1000)
 export const pro = defineProduct({
 	key: `${run}_pro`,
 	name: `Pro (${run})`,
+	// A new account sells through Managed Payments, which needs a tax code.
+	taxCode: 'txcd_10103000',
 	prices: {
 		monthly: { amount: 9_90, every: 'month' },
 		yearly: { amount: 99_00, every: 'year' },
@@ -53,6 +55,7 @@ export const pro = defineProduct({
 export const gemPack = defineProduct({
 	key: `${run}_gems`,
 	name: `500 gems (${run})`,
+	taxCode: 'txcd_10000000',
 	price: { amount: 4_90 },
 	gives: [gems(500)],
 })

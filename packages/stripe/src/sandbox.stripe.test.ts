@@ -140,7 +140,14 @@ describe('a payer at Stripe', () => {
 	it('is closed at Stripe when the payer is deleted', async () => {
 		const { payer, customer } = await payerAtStripe()
 		await User.delete({ where: { id: payer.id } }, M)
-		await runJobs()
+		// With no billing row to take along, the hourly job finds it gone.
+		vi.useFakeTimers({ toFake: ['Date'] })
+		try {
+			vi.setSystemTime(Date.now() + hour)
+			await runJobs()
+		} finally {
+			vi.useRealTimers()
+		}
 		const held = await client.customers.retrieve(customer)
 		expect(held.deleted).toBe(true)
 	})
