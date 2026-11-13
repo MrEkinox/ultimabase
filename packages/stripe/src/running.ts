@@ -22,6 +22,10 @@ export interface Rows {
 		args: object,
 		options: QueryOptions,
 	): Promise<readonly Row[]>
+	groupBy(
+		args: object,
+		options: QueryOptions,
+	): Promise<readonly Readonly<Record<string, unknown>>[]>
 }
 
 const methods = [
@@ -31,6 +35,7 @@ const methods = [
 	'update',
 	'upsert',
 	'updateManyAndReturn',
+	'groupBy',
 ]
 
 const isRows = (queries: object): queries is Rows =>

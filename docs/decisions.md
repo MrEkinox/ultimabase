@@ -22623,7 +22623,7 @@ export const Thing = defineModel({
 
 ## D-371: `@ultimabase/stripe`, payments on Stripe's hosted pages
 
-Amended by D-375, D-376 and D-378.
+Amended by D-375, D-376, D-378 and D-379.
 
 Choice: an official plugin sells subscriptions, one-time products and
 credits through Stripe, for any application.
@@ -23300,4 +23300,62 @@ git push origin main   # → Validate, Packed, Website, PostgreSQL, S3 → Relea
 # After: the repository secret STRIPE_SECRET_KEY=sk_test_… is set
 git push origin main   # → … S3, Stripe sandbox (12 tests, ~3 min) → Release
 # 03:17 UTC each night → Stripe sandbox; a failure mails the maintainer
+```
+
+## D-379: A daily audit logs what the ledger and Stripe disagree on
+
+Choice: amends D-371 point 5.
+
+1. The plugin adds the recurring job `stripe.audit`, run every 24 hours,
+   always on, with no option. It reads and logs; it never writes.
+2. Each balance is the sum of its history (D-377): for each page of 500
+   owners, read in one serializable transaction, a balance that differs from
+   the sum of the owner's moves of that credit, or moves of a credit with no
+   balance, logs the error `A balance is not the sum of its history.` with
+   the owner, the credit, the balance and the sum.
+3. Each payment Stripe took has its purchase: each payment for a product of
+   the catalog, paid between 2 days and 2 hours ago, by a customer of the
+   purchase model's payer, with no purchase of its id, logs the error
+   `A paid payment has no purchase.` with the payment, the customer and when
+   it was paid. The customers read are those Stripe's events changed in the
+   last 2 days, so its cost follows the account's activity (D-375).
+4. The payment check runs last, and only with keys and a purchase model; the
+   balance check runs with a balance and a history model.
+5. Not checked: subscriptions, which the hourly reconciliation already reads
+   back from Stripe (D-375); a Checkout a full discount made free, which has
+   no payment; and a move whose owner was deleted.
+
+Why:
+
+- The ledger is money: a gap must be seen the day it happens, not when a
+  user complains. Every test already checks the first rule (D-377); in
+  production, only a job can.
+- A purchase missing for a paid payment is the one loss the reconciliation
+  cannot see by itself: it reads customers whose events it missed, and a
+  payment whose sync failed every time stays silent.
+- The 2 hours leave the hourly reconciliation time to heal a late webhook,
+  so that the audit reports only what recovery failed to fix. The 2 days
+  overlap two runs, so that a run skipped by a deploy loses nothing.
+- Logging only: a fix written by a check would hide the bug that made the
+  gap, and the right fix depends on that bug.
+
+Rejected:
+
+- An option to turn it off: it costs one read per page of owners and per
+  changed customer a day, and an application that sells wants it.
+- Fixing a balance from its history: the history may be the wrong side.
+- Reading every Stripe customer each day: the cost would follow the number
+  of customers, not the day's payments.
+- Checking subscriptions too: the reconciliation writes them back each hour.
+
+Example:
+
+```text
+# Before: a balance written outside grant() and spend() stays wrong, silently
+
+# After: the next day's run logs
+ERROR stripe.audit: A balance is not the sum of its history.
+      { owner: "u_42", credit: "gems", balance: 480, history: 500 }
+ERROR stripe.audit: A paid payment has no purchase.
+      { payment: "pi_3Q…", customer: "cus_R…", paidAt: "2026-11-12T18:04:00Z" }
 ```

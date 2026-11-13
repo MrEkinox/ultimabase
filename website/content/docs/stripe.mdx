@@ -193,6 +193,12 @@ to `keys.webhook`.
   reads Stripe's list of events since its last run, and syncs each customer
   they changed that no sync read since: an event the webhook missed costs
   one sync within the hour.
+- A daily job, `stripe.audit`, logs an error for each balance that is not
+  the sum of its history (`A balance is not the sum of its history.`, with
+  the owner, the credit and both amounts), and for each payment of the last
+  two days that still has no purchase two hours after it (`A paid payment
+has no purchase.`, with the payment and the customer). It only logs: the
+  fix depends on the bug that made the gap.
 
 ## Credits
 

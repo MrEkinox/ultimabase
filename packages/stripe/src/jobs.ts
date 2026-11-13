@@ -4,6 +4,7 @@
 // left behind.
 import type { Job, RecurringJob } from '@ultimabase/jobs'
 import { defineJob } from '@ultimabase/jobs'
+import { auditJob } from './audit.ts'
 import type { Customer } from './customer.ts'
 import { locked } from './customer.ts'
 import { strings } from './job-input.ts'
@@ -226,4 +227,4 @@ const reconcileJob: RecurringJob<'stripe.reconcile'> = defineJob({
 /** The jobs the plugin adds (D-369). */
 export const stripeJobs: readonly (
 	Job<string, never> | RecurringJob<string>
-)[] = [eventJob, syncJob, closeJob, duplicateJob, reconcileJob]
+)[] = [eventJob, syncJob, closeJob, duplicateJob, reconcileJob, auditJob]
