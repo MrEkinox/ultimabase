@@ -23178,6 +23178,10 @@ Choice: amends D-372 point 2, D-373 point 2 and D-374 points 4 and 5.
    - The plugin reads a payer's paid invoices of the last 400 days, and
      only when a recurring price gives credits: an application without
      them makes no more calls to Stripe.
+   - A purchase a promotion code made free has no payment at Stripe: the
+     plugin reads the payer's completed Checkouts of the last 400 days,
+     only when the catalog sells once, and records such a purchase at
+     zero, paid, with its credits.
 5. What a page shows comes from the row, not from the catalog in code:
    - a subscription adds `amount`, what one period of its price costs
      times its quantity, before discounts and taxes, and `every` and

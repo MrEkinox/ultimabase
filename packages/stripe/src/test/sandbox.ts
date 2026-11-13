@@ -15,7 +15,14 @@ import type { StripeOptions } from '../plugin.ts'
 import { stripePlugin } from '../plugin.ts'
 import { defineProduct } from '../product.ts'
 import { postEvent, thinEvent } from '../testing.ts'
-import { Balance, gems, Purchase, Subscription, User } from './billing-app.ts'
+import {
+	Balance,
+	CreditHistory,
+	gems,
+	Purchase,
+	Subscription,
+	User,
+} from './billing-app.ts'
 
 /** The sandbox's secret key, or an error that says what to set. */
 function sandboxKey(): string {
@@ -66,7 +73,7 @@ export const portal = { returnUrl: 'https://example.com/account' }
 export const sandboxApp = (options: Partial<StripeOptions> = {}): object =>
 	defineApp({
 		database: memory(),
-		models: [User, Subscription, Purchase, Balance],
+		models: [User, Subscription, Purchase, Balance, CreditHistory],
 		plugins: [
 			httpPlugin(),
 			jobsPlugin({ jobs: [] }),

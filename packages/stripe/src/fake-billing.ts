@@ -42,8 +42,12 @@ export interface FakeBilling {
 	readonly portalSessions: PortalWrite[]
 	/** The subscriptions whose latest payment the plugin refunded. */
 	readonly subscriptionRefunds: Set<string>
-	/** Pays an open Checkout, by its URL, as its payer would; gives its id. */
-	readonly pay: (url: string) => string
+	/**
+	 * Pays an open Checkout, by its URL, as its payer would; gives its id.
+	 * `free`: a promotion code took the whole price, and Stripe makes no
+	 * payment for a purchase.
+	 */
+	readonly pay: (url: string, options?: { readonly free?: boolean }) => string
 	/** Changes a subscription, as the portal or a renewal would. */
 	readonly update: (
 		id: string,
@@ -199,20 +203,25 @@ export function fakeBilling(
 		if (trialEnd === null) bill(created, created.currentPeriodEnd)
 		return id
 	}
-	const charge = (checkout: FakeCheckout, price: StripePrice): string => {
-		const id = newId('pi')
+	const charge = (
+		checkout: FakeCheckout,
+		price: StripePrice,
+		free: boolean,
+	): string => {
+		// A free Checkout stands for its payment, which Stripe does not make.
+		const id = free ? checkout.id : newId('pi')
 		payments.set(id, {
 			id,
 			customerId: checkout.customerId,
 			product: checkout.product,
 			quantity: checkout.quantity,
-			amount: (price.amount ?? 0) * checkout.quantity,
+			amount: free ? 0 : (price.amount ?? 0) * checkout.quantity,
 			refunded: 0,
 			disputeLost: false,
 			paidAt: new Date(),
-			receiptUrl: `https://pay.stripe.test/receipts/${id}`,
+			receiptUrl: free ? null : `https://pay.stripe.test/receipts/${id}`,
 		})
-		send('payment_intent.succeeded', id, 'payment_intent')
+		if (!free) send('payment_intent.succeeded', id, 'payment_intent')
 		return id
 	}
 	const gateway: BillingGateway & RecoveryGateway = {
@@ -295,7 +304,7 @@ export function fakeBilling(
 		invoices,
 		portalSessions,
 		subscriptionRefunds,
-		pay: (url) => {
+		pay: (url, options) => {
 			const checkout = [...checkouts.values()].find((one) => one.url === url)
 			if (checkout?.status !== 'open') throw new Error(`${url} is not open.`)
 			const price = priceOf(checkout.lookupKey)
@@ -303,7 +312,7 @@ export function fakeBilling(
 			const id =
 				checkout.mode === 'subscription'
 					? subscribe(checkout, price)
-					: charge(checkout, price)
+					: charge(checkout, price, options?.free ?? false)
 			send('checkout.session.completed', checkout.id, 'checkout.session')
 			return id
 		},

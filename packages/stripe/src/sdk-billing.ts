@@ -120,8 +120,11 @@ export const sdkBilling = (client: Stripe): BillingGateway => ({
 	},
 	readCustomer: async (id, options) => {
 		try {
-			const invoices = options?.invoices ?? false
-			return await guarded(id, async () => stateOf(client, id, invoices))
+			const asked = {
+				invoices: options?.invoices ?? false,
+				free: options?.free ?? false,
+			}
+			return await guarded(id, async () => stateOf(client, id, asked))
 		} catch (error) {
 			if (error instanceof Missing) return gone
 			throw error
@@ -142,6 +145,10 @@ export const sdkBilling = (client: Stripe): BillingGateway => ({
 				...checkout.metadata,
 				managedBy,
 				product: checkout.product,
+				// A purchase keeps its quantity: its credits are so many times.
+				...(checkout.mode === 'payment' && {
+					quantity: String(checkout.quantity),
+				}),
 			}
 			const session = await client.checkout.sessions.create({
 				mode: checkout.mode,
@@ -164,12 +171,7 @@ export const sdkBilling = (client: Stripe): BillingGateway => ({
 								}),
 							},
 						}
-					: {
-							// The payment keeps its quantity: its credits are so many times.
-							payment_intent_data: {
-								metadata: { ...metadata, quantity: String(checkout.quantity) },
-							},
-						}),
+					: { payment_intent_data: { metadata } }),
 			})
 			if (session.url === null) throw new Error('Checkout gave no URL.')
 			return session.url

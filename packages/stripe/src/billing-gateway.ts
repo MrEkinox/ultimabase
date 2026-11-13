@@ -133,10 +133,13 @@ export interface BillingGateway {
 	) => Promise<void>
 	/** Deletes a customer, which ends its subscriptions; a missing one is gone. */
 	readonly deleteCustomer: (id: string) => Promise<void>
-	/** What a customer holds; its paid invoices of the last 400 days, if asked. */
+	/**
+	 * What a customer holds; if asked, of the last 400 days, its paid
+	 * invoices and its Checkouts a full discount made free.
+	 */
 	readonly readCustomer: (
 		id: string,
-		options?: { readonly invoices?: boolean },
+		options?: { readonly invoices?: boolean; readonly free?: boolean },
 	) => Promise<CustomerState>
 	/** The customer an event's object belongs to, if any. */
 	readonly customerOf: (type: string, id: string) => Promise<string | null>

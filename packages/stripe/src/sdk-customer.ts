@@ -1,6 +1,6 @@
 // What a customer holds at Stripe, read for its sync: its subscriptions,
-// the one-time payments the plugin opened, and its subscriptions' paid
-// invoices.
+// the one-time payments the plugin opened, its Checkouts a full discount
+// made free, and its subscriptions' paid invoices.
 import type { Stripe } from 'stripe'
 import type {
 	CustomerState,
@@ -93,6 +93,27 @@ async function paymentOf(
 	}
 }
 
+/**
+ * A Checkout of the plugin's that a full discount made free: Stripe makes
+ * no payment for it, so it stands for one.
+ */
+const freeOf = (session: Stripe.Checkout.Session): StripePayment => ({
+	id: session.id,
+	customerId: refOf(session.customer) ?? '',
+	product: session.metadata?.['product'] ?? null,
+	quantity: quantityOf(session.metadata?.['quantity']),
+	amount: 0,
+	refunded: 0,
+	disputeLost: false,
+	paidAt: dateOf(session.created),
+	receiptUrl: null,
+})
+
+const isFree = (session: Stripe.Checkout.Session): boolean =>
+	session.mode === 'payment' &&
+	session.payment_intent === null &&
+	session.metadata?.['managedBy'] === managedBy
+
 export const gone: CustomerState = {
 	deleted: true,
 	subscriptions: [],
@@ -102,15 +123,17 @@ export const gone: CustomerState = {
 
 const day = 24 * 60 * 60
 
-/** What a customer holds. */
+/** What a customer holds; its invoices and free Checkouts, if asked. */
 export async function stateOf(
 	client: Stripe,
 	id: string,
-	withInvoices: boolean,
+	asked: { readonly invoices: boolean; readonly free: boolean },
 ): Promise<CustomerState> {
 	const customer = await client.customers.retrieve(id)
 	if (customer.deleted === true) return gone
-	const [subscriptions, intents, invoices] = await Promise.all([
+	// A refund comes within the year; a paid period, within its own.
+	const created = { gte: Math.floor(Date.now() / 1000) - 400 * day }
+	const [subscriptions, intents, invoices, sessions] = await Promise.all([
 		all(
 			client.subscriptions.list({
 				customer: id,
@@ -126,15 +149,24 @@ export async function stateOf(
 				expand: ['data.latest_charge'],
 			}),
 		),
-		withInvoices
+		asked.invoices
 			? all(
 					client.invoices.list({
 						customer: id,
 						status: 'paid',
-						// A refund comes within the year; a paid period, within its own.
-						created: { gte: Math.floor(Date.now() / 1000) - 400 * day },
+						created,
 						limit: 100,
 						expand: ['data.payments'],
+					}),
+				)
+			: [],
+		asked.free
+			? all(
+					client.checkout.sessions.list({
+						customer: id,
+						status: 'complete',
+						created,
+						limit: 100,
 					}),
 				)
 			: [],
@@ -154,7 +186,10 @@ export async function stateOf(
 		subscriptions: await Promise.all(
 			subscriptions.map(async (one) => subscriptionOf(client, one)),
 		),
-		payments: paid.filter((one) => opened.has(one.id)),
+		payments: [
+			...paid.filter((one) => opened.has(one.id)),
+			...sessions.filter(isFree).map(freeOf),
+		],
 		invoices: await invoicesOf(
 			client,
 			invoices,

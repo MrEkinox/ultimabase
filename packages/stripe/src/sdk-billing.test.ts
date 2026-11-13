@@ -300,6 +300,59 @@ describe('readCustomer', () => {
 		})
 	})
 
+	it('reads a Checkout a full discount made free as a purchase, if asked', async () => {
+		const session = (id: string, fields: object) => ({
+			id,
+			object: 'checkout.session',
+			customer: 'cus_1',
+			mode: 'payment',
+			payment_intent: null,
+			created: now,
+			metadata: { managedBy: 'ultimabase', product: 'gemPack', quantity: '2' },
+			...fields,
+		})
+		const { gateway, requests } = gatewayOn(({ path }) => {
+			switch (path) {
+				case '/v1/customers/cus_1':
+					return { id: 'cus_1', object: 'customer' }
+				case '/v1/checkout/sessions':
+					return stripeList([
+						session('cs_1', {}),
+						// Paid, a subscription, or not the plugin's: not a free purchase.
+						session('cs_2', { payment_intent: 'pi_2' }),
+						session('cs_3', { mode: 'subscription' }),
+						session('cs_4', { metadata: {} }),
+					])
+				default:
+					return stripeList([])
+			}
+		})
+		expect(
+			(await gateway.readCustomer('cus_1', { free: true })).payments,
+		).toStrictEqual([
+			{
+				id: 'cs_1',
+				customerId: 'cus_1',
+				product: 'gemPack',
+				quantity: 2,
+				amount: 0,
+				refunded: 0,
+				disputeLost: false,
+				paidAt: new Date(now * 1000),
+				receiptUrl: null,
+			},
+		])
+		expect(
+			requests.find(({ path }) => path === '/v1/checkout/sessions')?.params,
+		).toMatchObject({ customer: 'cus_1', status: 'complete' })
+		// Not asked, the Checkouts are not read.
+		const before = requests.length
+		await gateway.readCustomer('cus_1')
+		expect(requests.slice(before).map(({ path }) => path)).not.toContain(
+			'/v1/checkout/sessions',
+		)
+	})
+
 	it('reads a customer deleted or unknown at Stripe as deleted', async () => {
 		const gone = {
 			deleted: true,
@@ -485,6 +538,8 @@ describe('a Checkout', () => {
 		})
 		expect(requests[1]?.params).toMatchObject({
 			mode: 'payment',
+			// The Checkout keeps it too: a free one has no payment.
+			'metadata[quantity]': '2',
 			'payment_intent_data[metadata][product]': 'pro',
 			'payment_intent_data[metadata][quantity]': '2',
 		})

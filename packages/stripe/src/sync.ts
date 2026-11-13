@@ -92,7 +92,8 @@ async function writePayment(
 		const values = {
 			amount: payment.amount,
 			refunded,
-			status: refunded >= payment.amount ? 'refunded' : 'paid',
+			// A free purchase, after a full discount, is paid, not refunded.
+			status: lost(payment) ? 'refunded' : 'paid',
 			receiptUrl: payment.receiptUrl,
 		}
 		const create = {
@@ -219,7 +220,9 @@ export async function syncCustomer(id: string): Promise<void> {
 	if (begun === undefined || stripeId === null) return
 	const readAt = new Date()
 	const invoices = readsInvoices(running)
-	const state = await gateway.readCustomer(stripeId, { invoices })
+	// Only a catalog that sells once has Checkouts a discount made free.
+	const free = [...running.products.values()].some((one) => !('prices' in one))
+	const state = await gateway.readCustomer(stripeId, { invoices, free })
 	await transaction(async () => {
 		const number = begun.syncsBegun
 		const data = {

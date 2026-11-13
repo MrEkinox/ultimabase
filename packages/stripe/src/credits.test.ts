@@ -78,6 +78,24 @@ describe('a gem pack', () => {
 		])
 	})
 
+	it('gives its gems when a promotion code made it free', async () => {
+		const ada = await User.create({ data: { email: 'ada@example.com' } }, M)
+		const url = await stripe.checkout({ payer: ada, product: gemPack, ...urls })
+		const checkout = fake.pay(url, { free: true })
+		await delivered()
+		expect(await Purchase.findMany({}, M)).toMatchObject([
+			{
+				stripeId: checkout,
+				amount: 0,
+				refunded: 0,
+				status: 'paid',
+				receiptUrl: null,
+			},
+		])
+		expect(await gemsOf(ada)).toBe(500)
+		expect(await moves()).toStrictEqual(['purchase gems 500'])
+	})
+
 	it('gives its gems once a pack paid, and takes them all back', async () => {
 		const ada = await User.create({ data: { email: 'ada@example.com' } }, M)
 		const product = gemPack

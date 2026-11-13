@@ -158,6 +158,8 @@ It closes the payer's Checkouts still open, so two tabs cannot both pay.
   needs none.
 - `quantity`, `trialDays`, `terms`, `promotionCodes` and `metadata` are
   optional.
+- With `promotionCodes: true`, the payer can type a code created in Stripe.
+  A purchase a code made free is recorded at zero and gives its credits.
 
 The success page writes what the payer paid at once, before Stripe's event
 arrives. It finds only the payer's own Checkout.
@@ -264,6 +266,7 @@ test reaches Stripe.
 </include>
 
 The application gets the fake's keys. A test pays a Checkout with `pay`,
+or with `pay(url, { free: true })` as with a code that took the whole price,
 and `deliver` posts Stripe's signed events to the webhook; `runJobs` runs
 their jobs.
 
