@@ -42,8 +42,8 @@ export type FunctionMessage = {
 }
 
 /**
- * An error the server logged at error level, masked for a client or
- * swallowed, on `ultimabase:error`.
+ * An error line with an `err`, on `ultimabase:error`: the kernel's, for an
+ * error masked for a client or swallowed, the application's or a plugin's.
  */
 export type ErrorMessage = {
 	readonly error: unknown
@@ -82,9 +82,51 @@ export function traced<M extends object, T>(
 	return on.tracePromise(work, message())
 }
 
+const reporters = new WeakSet<Logger>()
+
+/** The line's own correlation id, or a new one. */
+const idOf = (bindings: object): string =>
+	'correlationId' in bindings && typeof bindings.correlationId === 'string'
+		? bindings.correlationId
+		: randomUUID()
+
+/**
+ * `logger`, whose error lines with an `err` get a correlation id and are
+ * published on `ultimabase:error`, and so are its children's (D-381).
+ */
+export function reporting(logger: Logger): Logger {
+	if (reporters.has(logger)) return logger
+	// The line keeps its arguments: a message is passed only when given.
+	const error = (first: object | string, ...rest: [string?]): void => {
+		const [message] = rest
+		if (typeof first === 'string') logger.error(first)
+		else if (!('err' in first)) logger.error(first, ...rest)
+		else {
+			const correlationId = idOf(first)
+			logger.error({ ...first, correlationId }, ...rest)
+			if (errors.hasSubscribers) {
+				const published: ErrorMessage = {
+					error: first.err,
+					correlationId,
+					message: message ?? '',
+				}
+				errors.publish(published)
+			}
+		}
+	}
+	const reported: Logger = {
+		info: logger.info.bind(logger),
+		warn: logger.warn.bind(logger),
+		error,
+		child: (bindings) => reporting(logger.child(bindings)),
+	}
+	reporters.add(reported)
+	return reported
+}
+
 /**
  * Logs `error` at error level with a new correlation id, which it returns,
- * and publishes it on `ultimabase:error` (D-360).
+ * and publishes it on `ultimabase:error` (D-360, D-381).
  */
 export function logFailure(
 	logger: Logger,
@@ -93,10 +135,6 @@ export function logFailure(
 	facts: object = {},
 ): string {
 	const correlationId = randomUUID()
-	logger.error({ ...facts, correlationId, err: error }, message)
-	if (errors.hasSubscribers) {
-		const published: ErrorMessage = { error, correlationId, message }
-		errors.publish(published)
-	}
+	reporting(logger).error({ ...facts, correlationId, err: error }, message)
 	return correlationId
 }

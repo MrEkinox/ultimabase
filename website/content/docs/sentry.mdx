@@ -69,6 +69,21 @@ line and the client's error lead to it.
 	../examples/sentry/src/app.test.ts#issue
 </include>
 
+A failure the application handles is an issue too, once its code logs it
+with its error as `err`. A function's `run`, a hook, a job, a route and a
+plugin log with the application's logger, so no line calls Sentry:
+
+<include cwd meta='title="src/app.ts"'>
+	../examples/sentry/src/app.ts#logged
+</include>
+
+<include cwd meta='title="src/app.test.ts"'>
+	../examples/sentry/src/app.test.ts#logged
+</include>
+
+The line gets a `correlationId` unless it has one. An error line without
+`err` stays a line.
+
 The plugin does not set Sentry's user: the caller is the
 `ultimabase.caller` of the trace's spans.
 

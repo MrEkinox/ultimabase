@@ -2,7 +2,7 @@
 // each query and hook in its request's trace, and each failed mail.
 import { httpPlugin } from '@ultimabase/http'
 import { sentryPlugin } from '@ultimabase/sentry'
-import { defineApp, defineModel, memory } from 'ultimabase'
+import { defineApp, defineFunction, defineModel, memory } from 'ultimabase'
 import { mailer } from './services.ts'
 
 export const Post = defineModel({
@@ -17,6 +17,21 @@ export const Post = defineModel({
 	},
 })
 
+//#region logged
+// Mails the day's digest: a failure is logged with its error, which makes it
+// a Sentry issue.
+export const sendDigest = defineFunction({
+	name: 'sendDigest',
+	run: ({ logger }) => {
+		try {
+			mailer.send('Your digest.')
+		} catch (error) {
+			logger.error({ err: error }, 'The digest was not sent.')
+		}
+	},
+})
+//#endregion
+
 //#region plugins
 export const app = defineApp({
 	// Kept in memory, so the example needs no database.
@@ -24,5 +39,6 @@ export const app = defineApp({
 	// Reads the application's work into the client Sentry.init made.
 	plugins: [httpPlugin(), sentryPlugin()],
 	models: [Post],
+	functions: [sendDigest],
 })
 //#endregion
