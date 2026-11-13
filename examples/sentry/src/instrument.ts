@@ -1,5 +1,5 @@
 //#region init
-// Imported first by `src/server.ts`, before the application's modules.
+// Imported first, before the application: it imports none of its modules.
 import * as Sentry from '@sentry/node'
 
 Sentry.init({

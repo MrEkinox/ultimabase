@@ -11,20 +11,30 @@ span of its request's trace, each error the server masks an issue.
 npm install @ultimabase/sentry @sentry/node
 ```
 
-Sentry is initialized before the application, in a file the server imports
-first:
+Sentry is initialized before the application, in a file imported first:
 
 <include cwd meta='title="src/instrument.ts"'>
 	../examples/sentry/src/instrument.ts#init
 </include>
 
+With `ultimabase dev` and `ultimabase start`, the config imports it before
+the application:
+
+<include cwd meta='title="ultimabase.config.ts"'>
+	../examples/sentry/ultimabase.config.ts#config
+</include>
+
+A server started by hand imports it first the same way:
+
 <include cwd meta='title="src/server.ts"'>
 	../examples/sentry/src/server.ts#server
 </include>
 
-Sentry then records each HTTP request. To record the SQL of a database
-driver too, Node loads the file before any module, as Sentry recommends:
-`node --import ./src/instrument.ts src/server.ts`.
+Either way, Sentry records each HTTP request and the SQL of the `pg` driver:
+modules run in the order they are imported, and `pg` loads after
+`Sentry.init`. So `src/instrument.ts` imports nothing of the application,
+not even its config: a module it imports runs before `Sentry.init`, and its
+database driver is not recorded.
 
 The plugin takes no options: it reads into the client `Sentry.init` made.
 
