@@ -311,6 +311,7 @@ describe('sdkGateway', () => {
 			privacyUrl: 'https://app.test/privacy',
 			returnUrl: null,
 			products: null,
+			scheduleAtPeriodEnd: [],
 		})
 		const [created, updated] = requests
 		expect(created?.path).toBe('/v1/billing_portal/configurations')
@@ -328,16 +329,18 @@ describe('sdkGateway', () => {
 				'decreasing_item_amount',
 			'features[subscription_cancel][enabled]': 'true',
 			'features[subscription_cancel][mode]': 'at_period_end',
-			'features[subscription_cancel][cancellation_reason][enabled]': 'false',
 			'features[payment_method_update][enabled]': 'true',
 			'features[invoice_history][enabled]': 'true',
 			'metadata[managedBy]': 'ultimabase',
 		})
-		// With no subscription to move to, the portal allows no update.
+		// With no subscription to move to, the portal allows no update; an
+		// empty string clears what Stripe would keep from an absent value.
 		expect(updated?.path).toBe('/v1/billing_portal/configurations/bpc_1')
 		expect(updated?.params).toMatchObject({
+			'business_profile[terms_of_service_url]': '',
 			'business_profile[privacy_policy_url]': 'https://app.test/privacy',
 			'features[subscription_update][enabled]': 'false',
+			'features[subscription_update][schedule_at_period_end][conditions]': '',
 			active: 'true',
 		})
 		expect(updated?.params).not.toHaveProperty('default_return_url')

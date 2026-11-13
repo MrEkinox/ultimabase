@@ -218,7 +218,6 @@ export const portalParams = (
 			subscription_cancel: {
 				enabled: true,
 				mode: settings.cancelMode,
-				cancellation_reason: { enabled: false, options: [] },
 			},
 			payment_method_update: { enabled: true },
 			invoice_history: { enabled: true },
@@ -311,13 +310,30 @@ export const sdkGateway = (client: Stripe): StripeGateway => ({
 	},
 	savePortal: async (id, settings) => {
 		const params = portalParams(settings)
-		const portal =
-			id === null
-				? await client.billingPortal.configurations.create(params)
-				: await client.billingPortal.configurations.update(id, {
-						...params,
-						active: true,
-					})
-		return portal.id
+		if (id === null) {
+			return (await client.billingPortal.configurations.create(params)).id
+		}
+		// Stripe drops an empty list or an absent key, keeping the old value:
+		// an update clears a setting with an empty string.
+		const { subscription_update: update } = params.features
+		const conditions = update?.schedule_at_period_end?.conditions ?? []
+		await client.billingPortal.configurations.update(id, {
+			...params,
+			business_profile: {
+				terms_of_service_url: settings.termsUrl ?? '',
+				privacy_policy_url: settings.privacyUrl ?? '',
+			},
+			features: {
+				...params.features,
+				subscription_update: {
+					...update,
+					schedule_at_period_end: {
+						conditions: conditions.length > 0 ? conditions : '',
+					},
+				},
+			},
+			active: true,
+		})
+		return id
 	},
 })
