@@ -34,7 +34,7 @@
 	},
 	"dependencies": {
 		"@hono/node-server": "2.1.6",
-		"hono": "4.13.13",
+		"hono": "4.13.16",
 		"ipaddr.js": "2.5.0"
 	},
 	"peerDependencies": {
