@@ -1,0 +1,40 @@
+name: Stripe sandbox
+
+# `yarn test:stripe` against the maintainer's Stripe sandbox (D-378): each
+# night, on "Run workflow", and from `ci.yml` before `main` publishes.
+on:
+  schedule:
+    - cron: '17 3 * * *'
+  workflow_dispatch:
+  workflow_call:
+    secrets:
+      # Optional, so that a missing key reaches the suite, which names it.
+      STRIPE_SECRET_KEY:
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  sandbox:
+    name: Stripe sandbox
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/setup
+      # The CLI forwards Stripe's own signed events to the webhook; its
+      # archive is pinned by version and checksum.
+      - name: Install the Stripe CLI
+        run: |
+          curl --fail --silent --show-error --location --output "$RUNNER_TEMP/stripe.tar.gz" \
+            "https://github.com/stripe/stripe-cli/releases/download/v$VERSION/stripe_${VERSION}_linux_x86_64.tar.gz"
+          echo "$SHA256  $RUNNER_TEMP/stripe.tar.gz" | sha256sum --check
+          tar --extract --gzip --file "$RUNNER_TEMP/stripe.tar.gz" --directory "$RUNNER_TEMP" stripe
+          echo "$RUNNER_TEMP" >> "$GITHUB_PATH"
+        env:
+          VERSION: 1.55.11
+          SHA256: c710bdb63045ea8e4c3d218efe4c269a90a32bd807c1306a29438e54f80bcfdc
+      - run: yarn test:stripe
+        env:
+          STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}

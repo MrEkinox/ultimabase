@@ -5,9 +5,11 @@ import { defineConfig } from 'vitest/config'
 const postgresTests = '**/*.postgres.test.ts'
 // S3 tests need SeaweedFS from `compose.yaml` (D-152).
 const s3Tests = '**/*.s3.test.ts'
+// Stripe tests need a sandbox's key, and CI runs none of them (D-371).
+const stripeTests = '**/*.stripe.test.ts'
 // Unit tests share their modules within a worker (D-304), except those that
 // replace a module: they need their own copy of it.
-const unitExcluded = ['**/node_modules/**', postgresTests, s3Tests]
+const unitExcluded = ['**/node_modules/**', postgresTests, s3Tests, stripeTests]
 const mocking = globSync('**/*.test.ts', { exclude: unitExcluded }).filter(
 	(file) => /\bvi\.(?:do)?[mM]ock\(/.test(readFileSync(file, 'utf8')),
 )
@@ -66,6 +68,16 @@ export default defineConfig({
 					name: 's3',
 					include: [s3Tests],
 					exclude: ['**/node_modules/**'],
+				},
+			},
+			{
+				test: {
+					name: 'stripe',
+					include: [stripeTests],
+					exclude: ['**/node_modules/**'],
+					// Each test waits for Stripe's events.
+					testTimeout: 120_000,
+					hookTimeout: 120_000,
 				},
 			},
 		],

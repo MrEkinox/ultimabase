@@ -103,6 +103,15 @@ jobs:
       - run: docker compose up --detach --wait seaweedfs
       - run: yarn test:s3
 
+  # Before `main` publishes, the plugin against the Stripe sandbox (D-378);
+  # a pull request has no secret to reach it.
+  stripe:
+    name: Stripe sandbox
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    uses: ./.github/workflows/stripe.yml
+    secrets:
+      STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+
   # Both publish from this file, after every check of the commit: npm trusts
   # one workflow file and one environment per package (D-156). The commit
   # messages are not waited for: a pushed commit cannot be reworded.
@@ -110,7 +119,7 @@ jobs:
   canary:
     name: Canary
     if: github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch'
-    needs: [validate, packed, website, postgres, s3]
+    needs: [validate, packed, website, postgres, s3, stripe]
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     environment: npm
@@ -130,7 +139,7 @@ jobs:
   release:
     name: Release
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    needs: [validate, packed, website, postgres, s3]
+    needs: [validate, packed, website, postgres, s3, stripe]
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     environment: npm

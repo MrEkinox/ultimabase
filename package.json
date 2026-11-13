@@ -24,6 +24,7 @@
 		"test:packed": "node scripts/test-packed.ts",
 		"test:postgres": "COVERAGE=postgres vitest run --project postgres --coverage --passWithNoTests",
 		"test:s3": "vitest run --project s3",
+		"test:stripe": "vitest run --project stripe",
 		"typecheck": "tsc --project tsconfig.json && tsc --project packages/create-ultimabase/template && yarn workspace website generate && node scripts/typecheck.ts",
 		"validate": "node scripts/validate.ts",
 		"website:build": "yarn workspace website build",

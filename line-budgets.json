@@ -16,5 +16,6 @@
 	"realtime": 4754,
 	"live": 940,
 	"jobs": 909,
-	"sentry": 250
+	"sentry": 250,
+	"stripe": 4950
 }
