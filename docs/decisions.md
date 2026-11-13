@@ -22623,6 +22623,8 @@ export const Thing = defineModel({
 
 ## D-371: `@ultimabase/stripe`, payments on Stripe's hosted pages
 
+Amended by D-375.
+
 Choice: an official plugin sells subscriptions, one-time products and
 credits through Stripe, for any application.
 
@@ -22798,6 +22800,8 @@ await applyStripeCatalog({
 ```
 
 ## D-373: The application's billing models: `defineSubscription`, `definePurchase`, `defineBalance`
+
+Amended by D-375.
 
 Choice: what a payer bought lives in the application's own models, which
 the plugin fills, as `defineRole` builds a role model (D-13, D-123).
@@ -22986,4 +22990,83 @@ await transaction(async () => {
 	await stripe.spend(user, blueGems(300), { reason: 'sword' })
 	await Inventory.create({ data: { owner: user.id, item: 'sword' } }, M)
 })
+```
+
+## D-375: Stripe's sync holds no lock across Stripe, and recovers from Stripe's events
+
+Choice: amends D-371 points 2, 4 and 6, and D-373 points 3, 4 and 6.
+
+1. `customer` is read when a payer's customer is created and at each
+   `stripe.checkout` and `stripe.portal`, which push it to Stripe when it
+   changed since the last push. A change of the payer's row alone pushes
+   nothing: the plugin does not watch the application's models.
+2. An event whose `livemode` is not the key's is answered 200 with
+   `{ received: false }` and dropped, with a warning naming it: Stripe does
+   not retry it, and the log shows a destination pointed at the wrong
+   application.
+3. A sync takes no lock while it reads Stripe. `StripeCustomer` counts the
+   syncs begun, `syncsBegun`, and the number of the last one written,
+   `syncWritten`. A sync takes the next number outside any transaction,
+   reads Stripe, then, in one transaction, writes the rows only when no
+   sync numbered after it wrote first; that write locks the customer's row
+   for the rows and the credits. A change at Stripe sends an event whose
+   sync begins after it, so no sync begun before overwrites it.
+   `stripe.checkout` and a customer's close keep the customer's lock across
+   their Stripe calls (D-373 point 7), bounded by the client's 10-second
+   timeout and two retries.
+4. The hourly job, with no daily sync of every customer:
+   - reads the customers in pages of 500 by id from a cursor, enqueues the
+     close of those whose payer is gone once the pages are read, and syncs
+     those whose period ended (`renewsAt`);
+   - enqueues the events still waiting, and deletes the processed ones
+     older than 90 days;
+   - lists Stripe's events since the last scan, minus 10 minutes, or a day
+     back for the first, and syncs each customer whose last event came
+     later than a minute before its last sync began. The plugin's
+     `StripeScan` model keeps the time each scan began.
+
+   Its cost follows the account's activity: an event lost by the webhook
+   costs one sync within the hour, and a quiet customer costs nothing.
+
+5. With `oneSubscription: true`, a sync that finds a payer with several
+   live subscriptions enqueues `stripe.duplicate` for each but the oldest,
+   in the transaction of its write. The job cancels it at once, without
+   proration, refunds the payments of its latest invoice, once by an
+   idempotency key, and logs an error: the payer paid twice, through a race
+   or a subscription made in the Dashboard. Its events then sync the payer.
+6. A billing row is deleted by a caller other than Master only through the
+   cascade of its payer's delete, which the payer's rules allow. Deleting a
+   billing row alone, while its payer remains, is refused and logged as a
+   warning.
+
+Why: a sync that held the customer's row locked while it read Stripe kept a
+database connection busy for up to a network timeout, and a slow Stripe
+stalled the pool. A daily sync of every customer costs a full read of
+Stripe per customer per day, most of it finding nothing, and still missed a
+lost event for up to a day; the events list finds the same changes within
+the hour, for the customers that changed. A user who deletes their account
+needs their billing rows gone with it, and the refusal of D-373 point 4
+made that delete fail.
+
+Rejected:
+
+- A daily sync of every customer: its cost grows with the customers, not
+  with what changed.
+- A lock held across Stripe's calls in the sync: the pool, not Stripe,
+  becomes the limit.
+- Pushing the profile when the payer's row changes: the plugin would hook
+  every payer model, and Stripe needs the profile only on its own pages.
+- Answering an event of the other mode 400: Stripe would retry it for three
+  days.
+- Refusing every delete but Master's: a payer could not delete itself.
+
+Example, before and after:
+
+```ts
+// Before: a user's own delete failed on its subscription rows
+await User.delete({ where: { id: user.id } }, { as: user })
+// => ACCESS_DENIED, "Subscription delete refused."
+
+// After: the rows go with the user, and a job closes its customer at Stripe
+await User.delete({ where: { id: user.id } }, { as: user })
 ```
