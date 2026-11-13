@@ -55,7 +55,7 @@ export const pro = defineProduct({
 	// A new account sells through Managed Payments, which needs a tax code.
 	taxCode: 'txcd_10103000',
 	prices: {
-		monthly: { amount: 9_90, every: 'month' },
+		monthly: { amount: 9_90, every: 'month', gives: [gems(100)] },
 		yearly: { amount: 99_00, every: 'year' },
 	},
 })

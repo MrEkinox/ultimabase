@@ -26,6 +26,7 @@ import {
 	priceId,
 	pro,
 	products,
+	run,
 	sandboxApp,
 } from './test/sandbox.ts'
 
@@ -116,6 +117,45 @@ describe('a payer at Stripe', () => {
 		await expect
 			.poll(credits, poll)
 			.toStrictEqual({ balance: 0, status: 'refunded' })
+	})
+
+	it('is free with a promotion code, and gives its credits', async () => {
+		const { payer, customer } = await payerAtStripe()
+		const coupon = await client.coupons.create({
+			percent_off: 100,
+			duration: 'forever',
+			name: run,
+		})
+		try {
+			const created = await client.subscriptions.create({
+				customer,
+				items: [{ price: await priceId(`${pro.key}.monthly`) }],
+				discounts: [{ coupon: coupon.id }],
+			})
+			const invoice = await client.invoices.retrieve(
+				typeof created.latest_invoice === 'string'
+					? created.latest_invoice
+					: (created.latest_invoice?.id ?? ''),
+			)
+			expect(invoice).toMatchObject({ status: 'paid', amount_paid: 0 })
+			const held = async () => {
+				await delivered(test.url)
+				const where = { owner: { is: { id: payer.id } } }
+				const [subscription] = await Subscription.findMany({}, M)
+				const [balance] = await Balance.findMany({ where }, M)
+				return {
+					status: subscription?.status,
+					amount: subscription?.amount,
+					gems: balance?.amount,
+				}
+			}
+			// The amount is the price before the discount.
+			await expect
+				.poll(held, poll)
+				.toStrictEqual({ status: 'active', amount: 9_90, gems: 100 })
+		} finally {
+			await client.coupons.del(coupon.id)
+		}
 	})
 
 	it('is synced by the hourly job when its events never came', async () => {
