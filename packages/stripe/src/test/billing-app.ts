@@ -18,9 +18,17 @@ import { fakeStripe } from '../testing.ts'
 
 export const M = { as: master }
 
+// A user reads and deletes its own account, and its billing rows with it.
 export const User = defineModel({
 	name: 'User',
 	fields: (f) => ({ email: f.string(), name: f.string({ optional: true }) }),
+}).with({
+	access: {
+		read: ({ caller, where }) =>
+			caller.kind === 'user' && where({ id: { equals: caller.user.id } }),
+		delete: ({ caller, where }) =>
+			caller.kind === 'user' && where({ id: { equals: caller.user.id } }),
+	},
 })
 // Public, so that only the plugin's hooks keep a user from writing them.
 export const Subscription = defineSubscription({

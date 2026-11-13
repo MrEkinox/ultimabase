@@ -125,6 +125,15 @@ describe('a payer’s delete', () => {
 		await delivered()
 	})
 
+	it('removes the billing rows when the payer deletes itself', async () => {
+		const { ada, subscription, customer } = await subscribed()
+		await User.delete({ where: { id: ada.id } }, { as: asUser(ada) })
+		expect(await Subscription.count({}, M)).toBe(0)
+		await runJobs()
+		expect(fake.customers.get(customer)?.deleted).toBe(true)
+		expect(fake.subscriptions.get(subscription)?.status).toBe('canceled')
+	})
+
 	it('leaves the customer of a payer still there', async () => {
 		const { ada, customer } = await subscribed()
 		const where = { payer: { is: { id: ada.id } } }
@@ -202,6 +211,24 @@ describe('a billing model', () => {
 			level: 'warn',
 			message: 'Balance create refused.',
 			details: { model: 'Balance', operation: 'create', callerId: ada.id },
+		})
+	})
+
+	it('is not deleted alone by a user', async () => {
+		const { ada } = await subscribed()
+		const as = asUser(ada)
+		await expect(Subscription.deleteMany({}, { as })).rejects.toMatchObject({
+			code: 'ACCESS_DENIED',
+		})
+		expect(await Subscription.count({}, M)).toBe(1)
+		expect(lines).toContainEqual({
+			level: 'warn',
+			message: 'Subscription delete refused.',
+			details: {
+				model: 'Subscription',
+				operation: 'delete',
+				callerId: ada.id,
+			},
 		})
 	})
 })

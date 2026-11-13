@@ -26,7 +26,7 @@ import { closeJob, stripeJobs } from './jobs.ts'
 import { ownKeys } from './keys.ts'
 import type { Kind } from './kinds.ts'
 import { billingModels } from './kinds.ts'
-import { StripeCreditEntry, StripeCustomer, StripeEvent } from './models.ts'
+import { M, StripeCreditEntry, StripeCustomer, StripeEvent } from './models.ts'
 import type { PortalOptions } from './portal.ts'
 import type { Product } from './product.ts'
 import type { Billing, Running } from './running.ts'
@@ -178,20 +178,32 @@ async function compare(running: Running, logger: Logger): Promise<void> {
 	}
 }
 
-/** Only Master, so the plugin, writes a billing model (D-373 point 4). */
+/** Refuses a write to a billing model, and logs it (D-373 point 4). */
+function refuse(caller: Caller, name: string, operation: string): never {
+	const details = { model: name, operation }
+	const callerId = caller.kind === 'user' ? caller.user.id : null
+	const message = `${name} ${operation} refused.`
+	runningOf(entry).logger.warn({ ...details, callerId }, message)
+	throw new PublicError('ACCESS_DENIED', message, { details })
+}
+
+type Facts = { readonly caller: Caller; readonly name: string }
+
+/** Only Master, so the plugin, creates or updates a billing model. */
 const masterOnly =
-	(operation: 'create' | 'update' | 'delete') =>
-	({ caller, name }: { readonly caller: Caller; readonly name: string }) => {
-		if (isMaster(caller)) return
-		const details = { model: name, operation }
-		const callerId = caller.kind === 'user' ? caller.user.id : null
-		const message = `${name} ${operation} refused.`
-		runningOf(entry).logger.warn({ ...details, callerId }, message)
-		throw new PublicError('ACCESS_DENIED', message, { details })
+	(operation: 'create' | 'update') =>
+	({ caller, name }: Facts): void => {
+		if (!isMaster(caller)) refuse(caller, name, operation)
 	}
 
-/** Closes the customer of a payer whose billing rows its delete removed. */
-async function closeLater(name: string, record: object): Promise<void> {
+/**
+ * A billing row goes with its payer, whoever deletes the payer (D-373 point
+ * 3), and alone only by Master; then its customer is closed. The hook runs
+ * in the delete's transaction after its one write: a payer still stored
+ * means the row went alone, and the refusal rolls the delete back.
+ */
+async function deleted(facts: Facts & { readonly record: object }) {
+	const { caller, name, record } = facts
 	const running = runningOf(entry)
 	const billing = [running.subscription, running.purchase, running.balance]
 	const model = billing.find((one) => one?.name === name)
@@ -199,8 +211,13 @@ async function closeLater(name: string, record: object): Promise<void> {
 	const ref: unknown =
 		Reflect.get(record, 'payer') ?? Reflect.get(record, 'owner')
 	const payer: unknown = Reflect.get(Object(ref), 'id')
-	if (running.stripe === undefined || model === undefined) return
-	if (typeof payer !== 'string') return
+	if (model === undefined || typeof payer !== 'string') return
+	if (!isMaster(caller)) {
+		const where = { id: payer }
+		const kept = await model.payer.queries.findUnique({ where }, M)
+		if (kept !== null) refuse(caller, name, 'delete')
+	}
+	if (running.stripe === undefined) return
 	await closeJob.enqueue({ model: model.payer.name, payer })
 }
 
@@ -220,8 +237,7 @@ const definition = definePlugin<Stripe>({
 	hooks: {
 		beforeCreate: masterOnly('create'),
 		beforeUpdate: masterOnly('update'),
-		beforeDelete: masterOnly('delete'),
-		afterDelete: ({ name, record }) => closeLater(name, record),
+		afterDelete: deleted,
 	},
 	start: async ({ options, models, logger }) => {
 		ownKeys(entry, options, optionKeys)
