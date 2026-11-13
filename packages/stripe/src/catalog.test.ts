@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest'
 import { gatewayOf } from './accounts.ts'
 import { type Catalog, applyCatalog, planCatalog } from './catalog.ts'
 import { defineCredit } from './credit.ts'
-import { describeStep, formatAmount } from './describe.ts'
+import { describeStep } from './describe.ts'
 import type { StripePrice } from './gateway.ts'
 import { defineProduct } from './product.ts'
 import { type FakeStripe, fakeStripe } from './testing.ts'
@@ -48,6 +48,12 @@ const apply = async (fake: FakeStripe, wanted: Catalog = catalog) => {
 	await applyCatalog(wanted, gateway, state, steps)
 	return steps.map((step) => describeStep(step, wanted.currency))
 }
+
+/** The prices the plan of `fake` to `wanted` replaces, by id. */
+const replaced = async (fake: FakeStripe, wanted: Catalog = catalog) =>
+	(await plan(fake, wanted)).flatMap((step) =>
+		step.kind === 'createPrice' ? [step.replaces?.id] : [],
+	)
 
 /** A fake account the catalog was applied to. */
 const synced = async () => {
@@ -157,22 +163,34 @@ describe('planCatalog and applyCatalog', () => {
 		expect(await plan(fake, changed)).toEqual([])
 	})
 
-	it('replaces a price whose currency, interval, tax behavior or product changed', async () => {
+	it('replaces a price whose interval count changed, and that one only', async () => {
 		const fake = await synced()
 		const held = priceOf(fake, 'pro.yearly')
 		fake.prices.set(held.id, {
 			...held,
 			recurring: { every: 'year', count: 2 },
 		})
-		const monthly = priceOf(fake, 'pro.monthly')
-		fake.prices.set(monthly.id, { ...monthly, productId: 'prod_2' })
-		const steps = await plan(fake, { ...catalog, taxBehavior: 'exclusive' })
-		expect(steps.map(({ kind }) => kind)).toEqual([
-			'createPrice',
-			'createPrice',
-			'createPrice',
-			'savePortal',
-		])
+		expect(await replaced(fake)).toEqual([held.id])
+	})
+
+	it('replaces a price held on another product, and that one only', async () => {
+		const fake = await synced()
+		const held = priceOf(fake, 'pro.monthly')
+		fake.prices.set(held.id, { ...held, productId: 'prod_2' })
+		expect(await replaced(fake)).toEqual([held.id])
+	})
+
+	it('replaces every price when the tax behavior changed', async () => {
+		const fake = await synced()
+		const ids = ['pro.monthly', 'pro.yearly', 'gems500'].map(
+			(key) => priceOf(fake, key).id,
+		)
+		const exclusive = { ...catalog, taxBehavior: 'exclusive' } as const
+		expect(new Set(await replaced(fake, exclusive))).toEqual(new Set(ids))
+	})
+
+	it('replaces a price whose currency changed', async () => {
+		const fake = await synced()
 		const once = defineProduct({
 			key: 'gems500',
 			name: '500 blue gems',
@@ -343,8 +361,6 @@ describe('planCatalog and applyCatalog', () => {
 
 describe('describeStep', () => {
 	it('tells an amount in the currency, and how often it bills', () => {
-		expect(formatAmount(1_000, 'jpy')).toBe('1000 JPY')
-		expect(formatAmount(1_000, 'bhd')).toBe('1.000 BHD')
 		const price = {
 			product: 'pro',
 			lookupKey: 'pro.quarterly',
@@ -355,6 +371,14 @@ describe('describeStep', () => {
 		expect(
 			describeStep({ kind: 'createPrice', price, replaces: null }, 'eur'),
 		).toBe('create the price pro.quarterly: 27.00 EUR every 3 months')
+		// A currency's own number of digits: none for JPY, three for BHD.
+		const step = { kind: 'createPrice', price, replaces: null } as const
+		expect(describeStep(step, 'jpy')).toBe(
+			'create the price pro.quarterly: 2700 JPY every 3 months',
+		)
+		expect(describeStep(step, 'bhd')).toBe(
+			'create the price pro.quarterly: 2.700 BHD every 3 months',
+		)
 		expect(
 			describeStep(
 				{

@@ -3,7 +3,7 @@ import type { CatalogStep } from './catalog.ts'
 import type { Recurring, StripePrice } from './gateway.ts'
 
 /** An amount in the currency's smallest unit, as `9.90 EUR`. */
-export const formatAmount = (amount: number, currency: string): string => {
+const formatAmount = (amount: number, currency: string): string => {
 	const digits = Number(
 		new Intl.NumberFormat('en', {
 			style: 'currency',

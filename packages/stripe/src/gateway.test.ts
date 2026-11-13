@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest'
 import { gatewayOf } from './accounts.ts'
 import { type PortalSettings, sdkGateway, stripeClient } from './gateway.ts'
 import { stripeApi, stripeList } from './test/stripe-api.ts'
+import { fakeStripe } from './testing.ts'
 
 const settings: PortalSettings = {
 	returnUrl: 'https://app.test/shop',
@@ -350,6 +351,9 @@ describe('sdkGateway', () => {
 describe('the account of a secret key', () => {
 	it('is Stripe, through its SDK, unless a fake holds the key', () => {
 		expect(stripeClient('sk_test_none')).toBeInstanceOf(Stripe)
-		expect(Object.keys(gatewayOf('sk_test_none'))).toContain('readCatalog')
+		// The SDK's gateway does all a fake does: no call is left undefined.
+		const sdk = new Set(Object.keys(gatewayOf('sk_test_none')))
+		const fake = new Set(Object.keys(gatewayOf(fakeStripe().secret)))
+		expect(sdk).toEqual(fake)
 	})
 })
