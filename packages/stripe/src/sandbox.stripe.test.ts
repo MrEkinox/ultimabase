@@ -2,8 +2,8 @@
 // test:stripe` and STRIPE_SECRET_KEY: what the fake cannot prove, that
 // Stripe takes what the plugin sends and sends what the plugin reads. Each
 // run makes a catalog and test clocks of its own, and archives them at the
-// end. CI runs it each night and on every run of `main` (D-378), never on
-// a pull request.
+// end; it never starts while another run holds the sandbox (D-393). CI runs
+// it each night and on every run of `main` (D-378), never on a pull request.
 import { runJobs } from '@ultimabase/testing'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { gatewayOf } from './accounts.ts'
@@ -20,6 +20,7 @@ import {
 } from './test/billing-app.ts'
 import {
 	advanced,
+	alone,
 	archived,
 	cliKeys,
 	client,
@@ -55,6 +56,7 @@ async function found<T>(find: () => Promise<T | undefined>): Promise<T> {
 }
 
 beforeAll(async () => {
+	await alone()
 	await applyStripeCatalog({
 		secret: process.env['STRIPE_SECRET_KEY'],
 		currency: 'eur',

@@ -99,6 +99,32 @@ export const run = `ub_${Date.now().toString(36)}_${randomBytes(3).toString('hex
 /** When this run began, in Stripe's seconds. */
 const began = Math.floor(Date.now() / 1000)
 
+/** How long a run may hold the sandbox: the CI job's limit. */
+const longestRun = 20 * 60 * 1000
+
+/**
+ * Refuses to start while another run holds the sandbox (D-393): this run's
+ * catalog would archive that run's, and fail its payments. A run older than
+ * the CI job's limit is over: the catalog archives what it left.
+ */
+export async function alone(): Promise<void> {
+	for await (const product of client.products.list({
+		limit: 100,
+		active: true,
+	})) {
+		const key = product.metadata['key'] ?? ''
+		const other = /^(ub_([0-9a-z]+)_[0-9a-f]{6})_/u.exec(key)
+		if (other?.[1] === undefined || other[1] === run) continue
+		const started = Number.parseInt(other[2] ?? '', 36)
+		if (Date.now() - started < longestRun) {
+			const at = new Date(started).toISOString().slice(11, 16)
+			throw new Error(
+				`Another sandbox run, ${other[1]}, started at ${at} UTC, is using this sandbox: run again once it ends.`,
+			)
+		}
+	}
+}
+
 export const pro = defineProduct({
 	key: `${run}_pro`,
 	name: `Pro (${run})`,
