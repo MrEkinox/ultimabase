@@ -1,44 +1,25 @@
-// What the sandbox suite (`yarn test:stripe`, D-371 point 8) runs on: a
-// Stripe sandbox's secret key, a catalog of its run's own, payers whose
-// customers sit on test clocks, and the events Stripe lists, posted signed
-// to the webhook as Stripe would, or forwarded by Stripe's own CLI. It never
-// reads a live key, and never prints the key.
+// What the sandbox suite (`yarn test:stripe`, D-371 point 8) runs on: the
+// `@ultimabase/stripe/sandbox` an application's tests take (D-401), a
+// catalog of its run's own, and Stripe's own events, forwarded by its CLI.
+// It never reads a live key, and never prints the key.
 import { execFileSync, spawn } from 'node:child_process'
 import { randomBytes } from 'node:crypto'
 import { httpPlugin } from '@ultimabase/http'
 import { jobsPlugin } from '@ultimabase/jobs'
-import { runJobs } from '@ultimabase/testing'
-import type { Stripe } from 'stripe'
 import { allow, defineApp, master, memory } from 'ultimabase'
 import { definePurchase, defineSubscription } from '../billing.ts'
-import { stripeClient } from '../gateway.ts'
-import { StripeCustomer } from '../models.ts'
 import type { StripeOptions } from '../plugin.ts'
 import type { PortalOptions } from '../portal.ts'
 import { stripePlugin } from '../plugin.ts'
 import { defineProduct } from '../product.ts'
-import { postEvent, thinEvent } from '../testing.ts'
+import { stripeSandbox } from '../sandbox.ts'
 import { Balance, CreditHistory, gems, User } from './billing-app.ts'
 
-/** The sandbox's secret key, or an error that says what to set. */
-function sandboxKey(): string {
-	const key = process.env['STRIPE_SECRET_KEY'] ?? ''
-	if (key === '') {
-		throw new Error(
-			'yarn test:stripe needs STRIPE_SECRET_KEY, the secret key of a Stripe sandbox (sk_test_…).',
-		)
-	}
-	if (!key.startsWith('sk_test_')) {
-		throw new Error(
-			'yarn test:stripe runs on a sandbox only: STRIPE_SECRET_KEY must be a test secret key, sk_test_….',
-		)
-	}
-	return key
-}
-
-const secret = sandboxKey()
-export const client: Stripe = stripeClient(secret)
+// The suite runs on what an application's tests run on (D-401).
+const secret = process.env['STRIPE_SECRET_KEY'] ?? ''
 const webhook = `whsec_${randomBytes(24).toString('base64')}`
+export const sandbox = stripeSandbox({ secret, webhook })
+export const { client, run } = sandbox
 
 // The Stripe CLI reads the key from its environment, never its arguments.
 const cliEnv = { ...process.env, STRIPE_API_KEY: secret }
@@ -94,8 +75,6 @@ export async function forwarded(url: string): Promise<() => void> {
 	}
 }
 
-/** This run's name, which prefixes everything it makes at Stripe. */
-export const run = `ub_${Date.now().toString(36)}_${randomBytes(3).toString('hex')}`
 /** When this run began, in Stripe's seconds. */
 const began = Math.floor(Date.now() / 1000)
 
@@ -181,18 +160,8 @@ export const sandboxApp = (options: Partial<StripeOptions> = {}): object =>
 		],
 	})
 
-/** A price's id, by its lookup key. */
-export async function priceId(lookupKey: string): Promise<string> {
-	const { data } = await client.prices.list({
-		lookup_keys: [lookupKey],
-		active: true,
-	})
-	const [price] = data
-	if (price === undefined) throw new Error(`No price is ${lookupKey}.`)
-	return price.id
-}
-
-const clocks: string[] = []
+/** The payer's address: the run's, deleted at the end. */
+const email = sandbox.email('payer')
 
 /**
  * A payer whose customer sits on a test clock of its own, with a card that
@@ -204,85 +173,14 @@ export async function payerAtStripe(): Promise<{
 	readonly method: string
 	readonly clock: string
 }> {
-	const email = `${run}@example.com`
 	// Checkout knows no fr-BE: its page speaks fr (D-382).
 	const data = { email, lang: 'fr-BE' }
 	const payer = await User.create({ data }, { as: master })
-	const clock = await client.testHelpers.testClocks.create({
-		frozen_time: Math.floor(Date.now() / 1000),
-		name: run,
-	})
-	clocks.push(clock.id)
-	const { id: customer } = await client.customers.create({
-		email,
-		test_clock: clock.id,
-		metadata: { managedBy: 'ultimabase' },
-	})
-	const { id: method } = await client.paymentMethods.attach('pm_card_visa', {
-		customer,
-	})
-	await client.customers.update(customer, {
-		invoice_settings: { default_payment_method: method },
-	})
-	await StripeCustomer.create(
-		{ data: { model: 'User', payer: payer.id, stripeId: customer } },
-		{ as: master },
-	)
-	return { payer, customer, method, clock: clock.id }
+	const made = await sandbox.payer({ model: User, id: payer.id, email })
+	return { payer, ...made }
 }
 
-/** Moves a test clock `days` ahead, once Stripe ran what that time does. */
-export async function advanced(clock: string, days: number): Promise<void> {
-	const testClocks = client.testHelpers.testClocks
-	const { frozen_time: now } = await testClocks.retrieve(clock)
-	await testClocks.advance(clock, { frozen_time: now + days * 24 * 60 * 60 })
-	for (let tries = 0; tries < 90; tries += 1) {
-		const { status } = await testClocks.retrieve(clock)
-		if (status === 'ready') return
-		if (status === 'internal_failure') throw new Error('The clock failed.')
-		await new Promise((resolve) => setTimeout(resolve, 2_000))
-	}
-	throw new Error('The test clock took more than 3 minutes.')
-}
-
-const posted = new Set<string>()
-
-/**
- * Posts the events Stripe listed since the run began, each once, as thin
- * events signed with the webhook's secret, then runs the jobs: what the
- * Stripe CLI would forward, with no CLI. They come newest first, out of the
- * order they happened in; `again`, a customer, posts its events once more,
- * as Stripe does when an answer is lost.
- */
-export async function delivered(
-	url: string,
-	options: { readonly again?: string } = {},
-): Promise<void> {
-	const created = { gte: began }
-	for await (const event of client.events.list({ created, limit: 100 })) {
-		const object: unknown = event.data.object
-		const again =
-			options.again !== undefined &&
-			Reflect.get(Object(object), 'customer') === options.again
-		if (posted.has(event.id) && !again) continue
-		posted.add(event.id)
-		const id: unknown = Reflect.get(Object(object), 'id')
-		const type: unknown = Reflect.get(Object(object), 'object')
-		if (typeof id !== 'string' || typeof type !== 'string') continue
-		const payload = thinEvent({
-			id: event.id,
-			type: event.type,
-			object: { id, type },
-		})
-		const response = await postEvent(url, payload, { secret: webhook })
-		if (!response.ok) {
-			throw new Error(`The webhook answered ${String(response.status)}.`)
-		}
-	}
-	await runJobs()
-}
-
-/** Whether Stripe lists an event of `customer` yet. */
+/** Whether Stripe lists an event of `customer` since the run began. */
 export async function listed(customer: string): Promise<boolean> {
 	const created = { gte: began }
 	for await (const event of client.events.list({ created, limit: 100 })) {
@@ -293,11 +191,11 @@ export async function listed(customer: string): Promise<boolean> {
 }
 
 /**
- * Archives what the run made: its test clocks go with their customers and
- * subscriptions, and its products and prices are archived.
+ * Deletes what the run made, its test clocks with their customers and
+ * subscriptions, and archives its products and prices.
  */
 export async function archived(): Promise<void> {
-	for (const clock of clocks) await client.testHelpers.testClocks.del(clock)
+	await sandbox.cleanup()
 	const keys = new Set<string>(products.map(({ key }) => key))
 	for await (const product of client.products.list({
 		limit: 100,

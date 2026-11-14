@@ -370,4 +370,52 @@ or its `path`.
 	../examples/stripe/src/app.test.ts#event
 </include>
 
+### Against a Stripe sandbox
+
+`@ultimabase/stripe/sandbox` runs the same tests against a Stripe sandbox,
+where renewals, failed cards and Stripe's own rules happen for real. It
+takes the sandbox's secret key, `sk_test_…`, and refuses any other, and the
+webhook secret the application's `stripePlugin` reads, which signs what it
+posts.
+
+<include cwd meta='title="src/app.stripe.test.ts"'>
+	../examples/stripe/src/app.stripe.test.ts#sandbox
+</include>
+
+`expectCatalog` fails when the sandbox's catalog differs from the code,
+with the changes `applyStripeCatalog` would make.
+
+<include cwd meta='title="src/app.stripe.test.ts"'>
+	../examples/stripe/src/app.stripe.test.ts#catalog
+</include>
+
+`payer` gives a payer a customer on a test clock of its own, with a card
+that pays.
+
+<include cwd meta='title="src/app.stripe.test.ts"'>
+	../examples/stripe/src/app.stripe.test.ts#payer
+</include>
+
+`deliver` posts the events of the run's customers to the webhook, each
+once, signed, then runs their jobs; `{ again: customer }` posts that
+customer's events once more, as Stripe does when an answer is lost.
+`advance` moves a test clock days ahead, once Stripe ran what that time
+does.
+
+<include cwd meta='title="src/app.stripe.test.ts"'>
+	../examples/stripe/src/app.stripe.test.ts#renewal
+</include>
+
+`cleanup` deletes the run's test clocks, with their customers and
+subscriptions, and the customers of its `email` addresses.
+`customerOf(email)` finds the customer Checkout made for an address,
+`payWith` gives a customer a card, and `client` is Stripe's own client on
+the sandbox.
+
+A sandbox serves one run at a time: `applyStripeCatalog` from one run
+archives the prices of another. A scheduled CI job runs these tests with
+the key in the repository's secrets, in one concurrency group, as
+[UltimaBase's own](https://github.com/MrEkinox/ultimabase/blob/main/.github/workflows/stripe.yml)
+does each night.
+
 The full example, with its tests: [`examples/stripe`](https://github.com/MrEkinox/ultimabase/tree/main/examples/stripe).

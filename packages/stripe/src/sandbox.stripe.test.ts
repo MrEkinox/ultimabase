@@ -19,12 +19,10 @@ import {
 	User,
 } from './test/billing-app.ts'
 import {
-	advanced,
 	alone,
 	archived,
 	cliKeys,
 	client,
-	delivered,
 	forwarded,
 	gemPack,
 	listed,
@@ -32,10 +30,10 @@ import {
 	Subscription,
 	payerAtStripe,
 	portal,
-	priceId,
 	pro,
 	products,
 	run,
+	sandbox,
 	sandboxApp,
 } from './test/sandbox.ts'
 
@@ -63,6 +61,8 @@ beforeAll(async () => {
 		products,
 		portal,
 	})
+	// Stripe holds what the code declares, read back as an application's tests would.
+	await sandbox.expectCatalog({ currency: 'eur', products, portal })
 })
 afterAll(async () => {
 	await archived()
@@ -78,7 +78,7 @@ describe('a payer at Stripe', () => {
 	})
 
 	const subscriptions = async () => {
-		await delivered(test.url)
+		await sandbox.deliver(test.url)
 		return Subscription.findMany({}, M)
 	}
 
@@ -98,7 +98,7 @@ describe('a payer at Stripe', () => {
 		// Paid through the API, as Checkout would.
 		const created = await client.subscriptions.create({
 			customer,
-			items: [{ price: await priceId(`${pro.key}.monthly`) }],
+			items: [{ price: await sandbox.priceId(`${pro.key}.monthly`) }],
 		})
 		await expect
 			.poll(subscriptions, poll)
@@ -114,7 +114,7 @@ describe('a payer at Stripe', () => {
 		}
 		const item = created.items.data[0]?.id ?? ''
 		await client.subscriptions.update(created.id, {
-			items: [{ id: item, price: await priceId(`${pro.key}.yearly`) }],
+			items: [{ id: item, price: await sandbox.priceId(`${pro.key}.yearly`) }],
 			proration_behavior: 'none',
 		})
 		await expect
@@ -138,7 +138,7 @@ describe('a payer at Stripe', () => {
 			metadata: { managedBy: 'ultimabase', product: gemPack.key },
 		})
 		const credits = async () => {
-			await delivered(test.url)
+			await sandbox.deliver(test.url)
 			const where = { owner: { is: { id: payer.id } } }
 			const [balance] = await Balance.findMany({ where }, M)
 			const [purchase] = await Purchase.findMany({}, M)
@@ -171,7 +171,7 @@ describe('a payer at Stripe', () => {
 		try {
 			const created = await client.subscriptions.create({
 				customer,
-				items: [{ price: await priceId(`${pro.key}.monthly`) }],
+				items: [{ price: await sandbox.priceId(`${pro.key}.monthly`) }],
 				discounts: [{ coupon: coupon.id }],
 			})
 			const invoice = await client.invoices.retrieve(
@@ -181,7 +181,7 @@ describe('a payer at Stripe', () => {
 			)
 			expect(invoice).toMatchObject({ status: 'paid', amount_paid: 0 })
 			const held = async () => {
-				await delivered(test.url)
+				await sandbox.deliver(test.url)
 				const where = { owner: { is: { id: payer.id } } }
 				const [subscription] = await Subscription.findMany({}, M)
 				const [balance] = await Balance.findMany({ where }, M)
@@ -204,7 +204,7 @@ describe('a payer at Stripe', () => {
 		const { customer } = await payerAtStripe()
 		await client.subscriptions.create({
 			customer,
-			items: [{ price: await priceId(`${pro.key}.monthly`) }],
+			items: [{ price: await sandbox.priceId(`${pro.key}.monthly`) }],
 		})
 		await expect.poll(async () => listed(customer), poll).toBe(true)
 		vi.useFakeTimers({ toFake: ['Date'] })
@@ -240,7 +240,7 @@ describe('one subscription per payer', () => {
 
 	it('cancels and refunds a second subscription', async () => {
 		const { customer } = await payerAtStripe()
-		const price = await priceId(`${pro.key}.monthly`)
+		const price = await sandbox.priceId(`${pro.key}.monthly`)
 		const ids: string[] = []
 		for (const _ of [1, 2]) {
 			ids.push(
@@ -249,7 +249,7 @@ describe('one subscription per payer', () => {
 			)
 		}
 		const statuses = async () => {
-			await delivered(test.url)
+			await sandbox.deliver(test.url)
 			const held = await Promise.all(
 				ids.map(async (id) => client.subscriptions.retrieve(id)),
 			)
@@ -282,7 +282,7 @@ describe("Stripe's own events", () => {
 			const { customer } = await payerAtStripe()
 			const { id } = await client.subscriptions.create({
 				customer,
-				items: [{ price: await priceId(`${pro.key}.monthly`) }],
+				items: [{ price: await sandbox.priceId(`${pro.key}.monthly`) }],
 			})
 			const held = async () => {
 				await runJobs()
@@ -310,7 +310,7 @@ const subscribed = async (
 ) =>
 	client.subscriptions.create({
 		customer,
-		items: [{ price: await priceId(`${pro.key}.monthly`) }],
+		items: [{ price: await sandbox.priceId(`${pro.key}.monthly`) }],
 		...params,
 	})
 /** A gem pack, paid by `method`. */
@@ -329,7 +329,7 @@ describe('a payer over time', () => {
 	const test = billingTest(sandboxApp())
 	/** What the application holds of `payer`, once Stripe's events came. */
 	const held = async (payer: { readonly id: string }) => {
-		await delivered(test.url)
+		await sandbox.deliver(test.url)
 		const where = { owner: { is: { id: payer.id } } }
 		const [subscription] = await Subscription.findMany({}, M)
 		const [purchase] = await Purchase.findMany({}, M)
@@ -341,7 +341,7 @@ describe('a payer over time', () => {
 	}
 	/** The plan the application holds, and the one it holds as scheduled. */
 	const plan = async () => {
-		await delivered(test.url)
+		await sandbox.deliver(test.url)
 		const [row] = await Subscription.findMany({}, M)
 		return { price: row?.price, scheduledPrice: row?.scheduledPrice }
 	}
@@ -353,11 +353,11 @@ describe('a payer over time', () => {
 			await subscribed(customer)
 			const active = { status: 'active', gems: 100 }
 			await expect.poll(async () => held(payer), poll).toStrictEqual(active)
-			await advanced(clock, 32)
+			await sandbox.advance(clock, { days: 32 })
 			const renewed = { status: 'active', gems: 200 }
 			await expect.poll(async () => held(payer), poll).toStrictEqual(renewed)
 			// Every event once more, newest first, as lost answers bring them.
-			await delivered(test.url, { again: customer })
+			await sandbox.deliver(test.url, { again: customer })
 			expect(await held(payer)).toStrictEqual(renewed)
 			const where = { reason: 'subscription' }
 			expect(await CreditHistory.findMany({ where }, M)).toHaveLength(2)
@@ -375,7 +375,7 @@ describe('a payer over time', () => {
 			})
 			const { id } = await client.subscriptions.create({
 				customer,
-				items: [{ price: await priceId(`${pro.key}.monthly`) }],
+				items: [{ price: await sandbox.priceId(`${pro.key}.monthly`) }],
 				default_payment_method: method,
 				metadata: { managedBy: 'ultimabase' },
 			})
@@ -404,7 +404,7 @@ describe('a payer over time', () => {
 			await client.customers.update(customer, {
 				invoice_settings: { default_payment_method: fresh.id },
 			})
-			await advanced(clock, 32)
+			await sandbox.advance(clock, { days: 32 })
 			const charged = async () => {
 				const { data } = await client.charges.list({ customer })
 				return data.map(({ payment_method_details: paid }) => paid?.card?.last4)
@@ -430,7 +430,7 @@ describe('a payer over time', () => {
 			await client.customers.update(customer, {
 				invoice_settings: { default_payment_method: declined.id },
 			})
-			await advanced(clock, 32)
+			await sandbox.advance(clock, { days: 32 })
 			await expect
 				.poll(async () => held(payer), poll)
 				.toStrictEqual({ status: 'past_due', gems: 100 })
@@ -446,7 +446,7 @@ describe('a payer over time', () => {
 			await expect
 				.poll(async () => held(payer), poll)
 				.toStrictEqual({ status: 'trialing', gems: 0 })
-			await advanced(clock, 8)
+			await sandbox.advance(clock, { days: 8 })
 			await expect
 				.poll(async () => held(payer), poll)
 				.toStrictEqual({ status: 'active', gems: 100 })
@@ -467,18 +467,18 @@ describe('a payer over time', () => {
 			await client.subscriptionSchedules.update(schedule.id, {
 				phases: [
 					{
-						items: [{ price: await priceId(`${pro.key}.monthly`) }],
+						items: [{ price: await sandbox.priceId(`${pro.key}.monthly`) }],
 						start_date: current.start_date,
 						end_date: current.end_date,
 					},
-					{ items: [{ price: await priceId(`${pro.key}.yearly`) }] },
+					{ items: [{ price: await sandbox.priceId(`${pro.key}.yearly`) }] },
 				],
 			})
 			await expect
 				.poll(plan, poll)
 				.toStrictEqual({ price: 'monthly', scheduledPrice: 'yearly' })
 			// Stripe's time now runs a month ahead of the server's.
-			await advanced(clock, 32)
+			await sandbox.advance(clock, { days: 32 })
 			await expect
 				.poll(plan, poll)
 				.toStrictEqual({ price: 'yearly', scheduledPrice: null })
