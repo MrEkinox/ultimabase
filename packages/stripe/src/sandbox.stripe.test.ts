@@ -103,10 +103,10 @@ describe('a payer at Stripe', () => {
 			.toMatchObject([{ product: pro.key, price: 'monthly', status: 'active' }])
 		for (const flow of [
 			{},
-			{ change: { product: pro, price: 'yearly' as const } },
-			{ cancel: {} },
-			{ paymentMethod: {} },
-		]) {
+			{ open: 'change', product: pro, price: 'yearly' },
+			{ open: 'cancel' },
+			{ open: 'paymentMethod' },
+		] as const) {
 			const url = await stripe.portal({ payer, ...flow })
 			expect(url).toMatch(/^https:\/\/billing\.stripe\.com\//u)
 		}

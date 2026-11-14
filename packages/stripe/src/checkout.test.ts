@@ -399,11 +399,13 @@ describe('stripe.portal', () => {
 		expect(url).toMatch(/^https:\/\/billing\.stripe\.test\//)
 		await stripe.portal({
 			payer: ada,
-			change: { product: team, price: 'monthly' },
+			open: 'change',
+			product: team,
+			price: 'monthly',
 			returnUrl: 'https://app.test/plans',
 		})
-		await stripe.portal({ payer: ada, cancel: {} })
-		await stripe.portal({ payer: ada, paymentMethod: {} })
+		await stripe.portal({ payer: ada, open: 'cancel' })
+		await stripe.portal({ payer: ada, open: 'paymentMethod' })
 		const [portal] = fake.portals.keys()
 		expect(fake.portalSessions.slice(opened)).toMatchObject([
 			{
@@ -420,22 +422,25 @@ describe('stripe.portal', () => {
 		])
 	})
 
-	it('refuses a deep link without a live subscription, or with two links', async () => {
+	it('refuses a deep link without a live subscription, or an unknown page', async () => {
 		const ada = await signUp()
 		await expect(
-			stripe.portal({ payer: ada, cancel: {} }),
+			stripe.portal({ payer: ada, open: 'cancel' }),
 		).rejects.toMatchObject({ code: 'NOT_SUBSCRIBED' })
-		const twice = 'stripe.portal takes one of change, cancel and paymentMethod.'
 		await expect(
 			stripe.portal({
 				payer: ada,
-				cancel: {},
-				change: { product: team, price: 'monthly' },
+				open: 'cancel',
+				// @ts-expect-error: one page at a time; a product is a change's.
+				product: team,
 			}),
-		).rejects.toThrow(twice)
+		).rejects.toMatchObject({ code: 'NOT_SUBSCRIBED' })
 		await expect(
-			stripe.portal({ payer: ada, cancel: {}, paymentMethod: {} }),
-		).rejects.toThrow(twice)
+			// @ts-expect-error: a page the portal does not open.
+			stripe.portal({ payer: ada, open: 'invoices' }),
+		).rejects.toThrow(
+			'stripe.portal opens change, cancel or paymentMethod, not invoices.',
+		)
 	})
 
 	it('asks which subscription when the payer has several', async () => {
@@ -449,16 +454,20 @@ describe('stripe.portal', () => {
 				...urls,
 			}),
 		)
-		const unnamed = stripe.portal({ payer: ada, cancel: {} })
+		const unnamed = stripe.portal({ payer: ada, open: 'cancel' })
 		await expect(unnamed).rejects.toBeInstanceOf(Refused)
 		await expect(unnamed).rejects.toThrow(
-			'stripe.portal: the payer has several live subscriptions; name the one with cancel.subscription, a Subscription row’s id.',
+			'stripe.portal: the payer has several live subscriptions; name the one with subscription, a Subscription row’s id.',
 		)
 		const row = await Subscription.findUniqueOrThrow(
 			{ where: { stripeId: second } },
 			M,
 		)
-		await stripe.portal({ payer: ada, cancel: { subscription: row.id } })
+		await stripe.portal({
+			payer: ada,
+			open: 'cancel',
+			subscription: row.id,
+		})
 		expect(fake.portalSessions.at(-1)?.flow).toStrictEqual({
 			kind: 'cancel',
 			subscriptionId: second,
