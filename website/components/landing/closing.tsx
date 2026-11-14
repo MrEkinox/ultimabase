@@ -16,8 +16,9 @@ export function Questions() {
 					generated code.
 				</Question>
 				<Question title="Can I use it in production?">
-					Not yet. UltimaBase is pre-release, and its API may still change
-					before 1.0.
+					Yes, from 1.0. A change that breaks your code comes only in a major
+					version, and <To href={docs('upgrading')}>Upgrading</To> says what to
+					change.
 				</Question>
 				<Question title="Is UltimaBase a hosted service?">
 					No. It is a library and a command line: the application is yours, and
@@ -42,15 +43,16 @@ export function Questions() {
 					suite: see <To href={docs('adapters')}>Write a database adapter</To>.
 				</Question>
 				<Question title="Can it run on several instances?">
-					Sessions are rows in the database, and with PostgreSQL the realtime
-					plugin hears changes through <code>pg_notify</code>. Running several
-					instances behind a load balancer is not documented yet.
+					Yes. Sessions and jobs are rows in the database, and with PostgreSQL
+					the realtime plugin hears changes through <code>pg_notify</code>. See{' '}
+					<To href={docs('deploy')}>Deploy</To> for a rolling deploy.
 				</Question>
 				<Question title="What is not there yet?">
-					An admin interface, sign-in with OAuth or a magic link, background
-					jobs and multi-tenancy: they come after 0.1. Sign-in today is an email
-					and a password, and a plugin can add other callers, such as an API
-					key: see <To href={docs('plugins')}>Write a plugin</To>.
+					An admin interface, sign-in with OAuth or a magic link, and
+					multi-tenancy: see the <To href={docs('roadmap')}>Roadmap</To>.
+					Sign-in today is an email and a password, and a plugin can add other
+					callers, such as an API key: see{' '}
+					<To href={docs('plugins')}>Write a plugin</To>.
 				</Question>
 			</div>
 		</section>
@@ -72,7 +74,7 @@ export function Start() {
 			</div>
 			<p className="ub-note">
 				<span aria-hidden="true" className="ub-dot" />
-				Apache-2.0 · Pre-release
+				Apache-2.0 · Ready for production
 			</p>
 		</section>
 	)

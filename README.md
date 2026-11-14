@@ -30,8 +30,9 @@
 </p>
 
 > [!NOTE]
-> UltimaBase is pre-release: try it, build with it, tell us what breaks, but
-> do not put it in production yet. Its API may still change before 1.0.
+> UltimaBase 1.0 is ready for production. A change that breaks your code
+> comes only in a major version, with a page that says what to change:
+> [Upgrading](https://ultimabase.dev/docs/upgrading).
 
 ## Start
 

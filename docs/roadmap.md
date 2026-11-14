@@ -4,8 +4,8 @@ The path from the restart to the features of the previous base, then beyond.
 Each phase ends on a measurable exit criterion; the next phase starts once it
 is proven. The commit that meets a criterion ticks it here.
 
-Status: **Phase 6b**. Phase 6 is closed: `npm create ultimabase` produces
-an application that starts, published as 0.1.1, then 0.2.
+Status: **Phase 8**. Phase 7 is closed: every feature of the previous base
+has an example. 1.0.0 is the first version for production (D-397).
 
 What a user would notice of the phases below is on the website's roadmap
 page, `website/content/docs/roadmap.mdx`; a commit that changes such an item
@@ -252,8 +252,8 @@ Exit: `npm create ultimabase` produces an application that starts.
 
 ## Phase 6b: After 0.1
 
-0.1 is published before its audit, as a pre-release: the site says it is not
-for production yet, and fixes ship as 0.1.x or 0.2.
+0.1 was published before its audit, as a pre-release: the site said it was
+not for production yet, and fixes shipped as 0.x until 1.0 (D-397).
 
 - [x] Decide releases from CI: D-156.
 - [x] Releases from CI (D-156, D-157), proved by a canary and a release.
@@ -315,6 +315,15 @@ Exit: the audit's fixes are published.
       Stripe's hosted pages, checked against a sandbox (D-371 to D-376).
 
 Exit: every feature of the previous base has an example, in far fewer lines.
+
+## Phase 8: Release 1.0
+
+- [x] Every package audited before 1.0.
+- [x] Decide 1.0: semver from it, a section of the upgrade page for each
+      major version, checked by the repository test (D-397).
+- [ ] 1.0.0 published, and every version before it deprecated on npm.
+
+Exit: `npm create ultimabase` installs 1.0.0 from `latest`.
 
 ## Beyond
 

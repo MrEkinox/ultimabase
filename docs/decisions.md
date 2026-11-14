@@ -1603,7 +1603,7 @@ Rejected: starting on import; leaving signals to each application.
 
 ## D-60: Releases are 0.x, versioned together, with Changesets
 
-Amended by D-156.
+Amended by D-156, D-397.
 
 Choice: until 1.0, any minor version may break. The kernel and the official
 plugins are released together with the same version number, and Changesets
@@ -10276,6 +10276,8 @@ npm install ultimabase@canary
 ```
 
 ## D-158: The repository's README
+
+Amended by D-397.
 
 Choice: completes D-155.
 
@@ -24413,6 +24415,97 @@ const response = await fetch(`${url}/api/posts`)
 // After: 503, Retry-After: 1
 //   { code: 'UNAVAILABLE', message: 'The database is busy: try again shortly.',
 //     details: { retryAfter: 1 } }
+```
+
+## D-397: 1.0.0, the first version for production
+
+Choice: amends D-60 and D-158 point 1, and applies D-345 point 3; every
+package moves to 1.0.0.
+
+1. A changeset bumps `ultimabase` to a major version; the fixed group
+   (D-60) carries every package to 1.0.0, and each package's kernel range
+   to `^1.0.0`.
+2. From 1.0.0 the versions follow semver. A change is breaking, and its
+   version major, when an application's code that compiled and ran must
+   change, when a client's request that succeeded fails, or when a
+   migration changes or removes data the application stored. Its changeset
+   says what breaks in a paragraph that starts with `Breaking:`, and a
+   repository test refuses such a changeset unless it bumps a major
+   version.
+3. Each major version has a section in the documentation's page
+   `upgrading.mdx`, `## To 2.0, from 1.x`: what breaks, and what the
+   developer changes. The repository test
+   refuses a pending major version without its section. The first one is
+   `## To 1.0, from 0.7`.
+4. A breaking change keeps an alias to the old name only when it reaches
+   most applications; otherwise the old name goes in the major version
+   that renames it.
+5. Once 1.0.0 is published, every version before it is deprecated on npm,
+   each package's message pointing to `latest`, and the copies of 0.6 and
+   0.7 leave `website/content/versions/` in a commit of their own (D-345
+   point 3).
+6. The README, `SECURITY.md` and the landing page no longer call
+   UltimaBase pre-release: 1.0 is for production.
+
+Why: the audit before 1.0 is done and an application runs on UltimaBase
+in production. Until 1.0, any minor version could break (D-60), and the
+breaks were only announced in the changelogs; a developer upgrading needs
+to know from the number alone whether their code still works, and to find
+in one place what to change.
+
+Implicit choices:
+
+- A migration that only adds, a column or an index `ultimabase migrate
+create` writes alone, is not breaking: its changeset says to run it, in
+  a minor version.
+- Only the latest major version gets fixes, security fixes included. A fix
+  for a security hole may refuse what was accepted before, in a patch
+  version; its changeset says so.
+- Between the merge of this decision and the release, `/docs` shows `next`:
+  0.6 and 0.7 are gone, and `versions/1.0` is written by the release pull
+  request.
+- `upgrading.mdx` sits in the documentation's first section, after the
+  roadmap.
+
+Rejected:
+
+- Staying on 0.x after production: the number would still say any minor
+  version may break.
+- A deprecation period for every breaking change, the old name warning for
+  a major version: it doubles the code to keep, for a handful of
+  applications.
+- Fixes for the previous major version: one maintainer, and an upgrade
+  page that says what to change.
+
+Example, a breaking change after 1.0:
+
+```md
+<!-- Before: .changeset/send-email-user.md -->
+
+---
+
+'@ultimabase/password': minor
+---
+
+Breaking: `sendEmail` receives `user` in place of `userId`.
+
+<!-- After -->
+
+---
+
+'@ultimabase/password': major
+---
+
+Breaking: `sendEmail` receives `user` in place of `userId`.
+```
+
+with, in `upgrading.mdx`:
+
+```md
+## To 2.0, from 1.x
+
+`sendEmail` receives `email.user`, the user's row: read `email.user.id`
+where you read `email.userId`.
 ```
 
 ## D-398: The documents kept hold 256 KB of text at most
