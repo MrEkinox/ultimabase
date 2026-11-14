@@ -152,6 +152,14 @@ async function tracked<R>(open: Open, running: Promise<R>): Promise<R> {
 }
 
 /**
+ * Runs `run` apart from the open transaction: its writes stay when that one
+ * rolls back (D-400).
+ */
+export async function apart<R>(run: () => Promise<R>): Promise<R> {
+	return opened.exit(run)
+}
+
+/**
  * Runs a model's query, held in the open transaction from its call on: one
  * the callback does not wait for still ends before it (D-208).
  */

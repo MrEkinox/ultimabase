@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { httpPlugin } from '@ultimabase/http'
 import type { Adapter, Transaction } from 'ultimabase'
-import { allow, defineApp, definePlugin, memory } from 'ultimabase'
+import { allow, defineApp, definePlugin, memory, transaction } from 'ultimabase'
 import { files, filesPlugin, memoryFiles } from './index.ts'
 import { sweep } from './lifecycle.ts'
 import { FilesBlob } from './model.ts'
@@ -409,6 +409,20 @@ describe('an upload', () => {
 		).rejects.toThrow('The inline count does not match its schema.')
 		expect(await blobs()).toStrictEqual([])
 	})
+
+	// Its objects stay stored: without their rows, no sweep deletes them.
+	it('keeps its rows when the transaction around it rolls back', async () => {
+		const { storage } = await start()
+		await expect(
+			transaction(async () => {
+				await cover()
+				throw new Error('A later step failed.')
+			}),
+		).rejects.toThrow('A later step failed.')
+		const keys = (await blobs()).map(({ key }) => key).toSorted()
+		expect(keys).toHaveLength(2)
+		expect([...storage.objects.keys()].toSorted()).toStrictEqual(keys)
+	})
 })
 
 /** `memory()`, recording each read and write that names `FilesBlob`. */
@@ -417,19 +431,19 @@ function watched(touched: string[]): Adapter {
 	const note = (kind: string, given: unknown): void => {
 		if (JSON.stringify(given).includes('"FilesBlob"')) touched.push(kind)
 	}
-	const watch = (transaction: Transaction): Transaction => ({
+	const watch = (tx: Transaction): Transaction => ({
 		find: async (read) => {
 			note('find', read)
-			return transaction.find(read)
+			return tx.find(read)
 		},
-		count: async (read) => transaction.count(read),
-		aggregate: async (read) => transaction.aggregate(read),
+		count: async (read) => tx.count(read),
+		aggregate: async (read) => tx.aggregate(read),
 		write: async (write) => {
 			note('write', write)
-			return transaction.write(write)
+			return tx.write(write)
 		},
-		commit: async () => transaction.commit(),
-		rollback: async () => transaction.rollback(),
+		commit: async () => tx.commit(),
+		rollback: async () => tx.rollback(),
 	})
 	const find = database.find.bind(database)
 	const write = database.write.bind(database)

@@ -5,7 +5,8 @@
 // the pages functions return (D-182), the reset route (D-188) and the
 // master key's header the rate limit checks (D-218) and the Standard Schema
 // check a job's input takes (D-221), the deepest filter (D-228) and a
-// plugin's stored value rewritten without hooks (D-366).
+// plugin's stored value rewritten without hooks (D-366), and a write kept
+// apart from the open transaction (D-400).
 import type { Adapter, Feed } from './adapter.ts'
 import { internalsOf } from './app-internals.ts'
 import type { Logger } from './app-options.ts'
@@ -21,7 +22,7 @@ export { scratchable, scratchOf } from './scratch.ts'
 export { isRow } from './field-codec.ts'
 export type { PageSource } from './page.ts'
 export { pageSource } from './page.ts'
-export { joining } from './transaction.ts'
+export { apart, joining } from './transaction.ts'
 export { masterKeyHeader } from './identify.ts'
 export { issueOf } from './write-data.ts'
 export { decimalPattern } from './decimal.ts'

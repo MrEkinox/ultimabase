@@ -9191,7 +9191,7 @@ type Stage {
 
 ## D-152: Files
 
-Amended by D-200, D-202, D-250, D-351 and D-366.
+Amended by D-200, D-202, D-250, D-351, D-366 and D-400.
 
 Choice: completes D-32 and D-122; amends D-32 (no `local()`), D-89 (a
 plugin model knows its name) and D-122 points 2 and 5.
@@ -24342,3 +24342,24 @@ during the stop.
 
 Rejected: counting each request from its first byte, which Node does not
 tell; waiting for every open connection, which D-395 already rejected.
+
+## D-400: An upload is written apart from the open transaction
+
+Choice: amends D-152; nothing changes in a developer's code.
+
+1. `files.upload`, and `POST /files`, write their `FilesBlob` rows apart
+   from the transaction the caller opened: when that one rolls back, the
+   rows stay pending, and the sweep deletes them and their objects within
+   the hour, as it deletes any upload no write attached.
+2. `ultimabase/internal` exports `apart(run)`, which runs `run` outside the
+   open transaction. On PostgreSQL its writes take a second connection; with
+   `connections: 1` an upload inside a transaction waits for the pool, then
+   fails.
+
+Why: the objects are stored outside any transaction. Their rows rolled back
+with the caller's, so no row named them and no sweep deleted them; a
+serializable transaction that ran again stored them once per attempt.
+
+Rejected: refusing an upload inside a transaction, which breaks a caller
+that uploads then writes in one; deleting the objects on rollback, which a
+crash between the two still leaks.
