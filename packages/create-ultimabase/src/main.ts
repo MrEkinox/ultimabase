@@ -1,6 +1,8 @@
 // `npm create ultimabase [directory]` (D-130): writes the starter in an empty
 // directory, installs nothing, and prints the next commands.
 import { existsSync, readdirSync, statSync } from 'node:fs'
+import { isBuiltin } from 'node:module'
+import { homedir } from 'node:os'
 import { createInterface } from 'node:readline/promises'
 import { basename, relative, resolve } from 'node:path'
 import type { Manager } from './starter.ts'
@@ -10,8 +12,8 @@ export type Io = {
 	readonly cwd: string
 	/** `npm_config_user_agent`, which names the package manager that ran it. */
 	readonly userAgent: string | undefined
-	/** Asks in a terminal; `undefined` elsewhere. */
-	readonly ask: ((question: string) => Promise<string>) | undefined
+	/** Asks in a terminal, `undefined` once ended; `undefined` elsewhere. */
+	readonly ask: ((question: string) => Promise<string | undefined>) | undefined
 	readonly print: (text: string) => void
 	readonly fail: (text: string) => void
 }
@@ -23,6 +25,10 @@ const fallback = 'my-app'
 const named = (name: string): boolean =>
 	name.length <= 214 && /^[a-z0-9][a-z0-9._-]*$/u.test(name)
 
+/** Names npm refuses for a new package: its own, and Node's modules. */
+const taken = (name: string): boolean =>
+	name === 'node_modules' || name === 'favicon.ico' || isBuiltin(name)
+
 const managerOf = (userAgent: string | undefined): Manager => {
 	const name = userAgent?.split('/')[0]
 	return name === 'yarn' || name === 'pnpm' ? name : 'npm'
@@ -33,13 +39,16 @@ const steps: Record<Manager, readonly string[]> = {
 	pnpm: ['pnpm install', 'pnpm dev'],
 }
 
-/** A question asked on `input` and `output`, a terminal. */
+/** A question asked on `input` and `output`, a terminal; Ctrl+C or Ctrl+D ends it. */
 export const terminal =
 	(input: NodeJS.ReadableStream, output: NodeJS.WritableStream) =>
-	async (question: string): Promise<string> => {
+	async (question: string): Promise<string | undefined> => {
 		const line = createInterface({ input, output })
 		try {
 			return await line.question(question)
+		} catch {
+			// The only rejection: the interface closed, by Ctrl+C or Ctrl+D.
+			return undefined
 		} finally {
 			line.close()
 		}
@@ -61,17 +70,18 @@ export function processIo(): Io {
 	}
 }
 
-async function directoryOf(io: Io): Promise<string> {
+async function directoryOf(io: Io): Promise<string | undefined> {
 	if (io.ask === undefined) return fallback
-	const answer = (await io.ask(`? Project name: (${fallback}) `)).trim()
+	const answer = (await io.ask(`? Project name: (${fallback}) `))?.trim()
 	return answer === '' ? fallback : answer
 }
 
-/** A directory as a POSIX shell reads it back, quoted when it must be. */
-const quoted = (directory: string): string =>
-	/^[\w@%+=:,./-]+$/u.test(directory)
-		? directory
-		: `"${directory.replaceAll(/["$`\\]/gu, '\\$&')}"`
+/** A path as a POSIX shell reads it back, quoted when it must be. */
+const quoted = (path: string): string =>
+	/^[\w@%+=:,./-]*$/u.test(path) ? path : `'${path.replaceAll("'", `'\\''`)}'`
+
+/** `~` and `~/…` as the shell reads them, which `npm create` does not. */
+const home = /^~(?=\/|$)/u
 
 const empty = (target: string): boolean =>
 	!existsSync(target) ||
@@ -85,21 +95,37 @@ export async function main(args: readonly string[], io: Io): Promise<number> {
 		return 1
 	}
 	const directory = given ?? (await directoryOf(io))
-	const target = resolve(io.cwd, directory)
+	if (directory === undefined) {
+		io.fail('\nCancelled: nothing was written.')
+		return 130
+	}
+	const target = resolve(io.cwd, directory.replace(home, homedir()))
 	const name = basename(target)
-	if (!named(name)) {
+	if (!named(name) || taken(name)) {
 		io.fail(
-			`${name} cannot name a package: use lowercase letters, digits, '-', '.' and '_', and start with a letter or a digit.`,
+			taken(name)
+				? `${name} cannot name a package: Node or npm uses it.`
+				: `${name} cannot name a package: use lowercase letters, digits, '-', '.' and '_', and start with a letter or a digit.`,
 		)
 		return 1
 	}
-	if (!empty(target)) {
-		io.fail(`${directory} is not an empty directory.`)
+	const manager = managerOf(io.userAgent)
+	try {
+		if (!empty(target)) {
+			io.fail(`${directory} is not an empty directory.`)
+			return 1
+		}
+		write(target, name, manager)
+	} catch (error) {
+		io.fail(
+			`Cannot write ${directory}: ${error instanceof Error ? error.message : String(error)}`,
+		)
 		return 1
 	}
-	const manager = managerOf(io.userAgent)
-	write(target, name, manager)
-	const cd = relative(io.cwd, target) === '' ? [] : [`cd ${quoted(directory)}`]
+	const at = home.test(directory)
+		? `~/${quoted(directory.slice(2))}`
+		: quoted(directory)
+	const cd = relative(io.cwd, target) === '' ? [] : [`cd ${at}`]
 	const next = [...cd, ...steps[manager]].map((step) => `  ${step}`)
 	io.print(`\nCreated ${name}. Next:\n\n${next.join('\n')}\n`)
 	return 0

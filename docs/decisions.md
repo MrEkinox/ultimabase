@@ -6930,6 +6930,20 @@ Choice: completes D-40, D-61 and D-80.
    directory's name is the package's. It refuses a directory that is not
    empty, installs nothing, and prints the next commands for the package
    manager that ran it. It asks nothing else.
+
+   Amended 2026-11-14, after its audit:
+   - Ctrl+C or Ctrl+D at the question ends it with code 130 and one line,
+     `Cancelled: nothing was written.`, not a stack trace.
+   - A directory it cannot write, under a file or without the right to,
+     fails with one line, `Cannot write <directory>: <reason>`.
+   - The `cd` it prints quotes with single quotes, which keep every
+     character: `!` in double quotes is expanded by zsh and an interactive
+     bash.
+   - A leading `~` reads as the home directory, as the shell would have
+     expanded it before a quoted argument; the `cd` keeps `~/`.
+   - It refuses the names npm refuses for a new package beyond its pattern:
+     `node_modules`, `favicon.ico` and Node's modules, such as `http`.
+
 6. The starter holds `src/models.ts` (a public `Post`), `src/app.ts`
    (`memory()`, `httpPlugin()`, `graphqlPlugin()`), `src/app.test.ts`
    written with `testApplication`, `ultimabase.config.ts`, which
