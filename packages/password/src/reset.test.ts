@@ -127,6 +127,27 @@ describe('requesting a reset', () => {
 		expect(outbox).toHaveLength(1)
 	})
 
+	it('waits ten seconds at most for an email that never ends', async () => {
+		const { url, app, warnings } = await server({
+			sendEmail: async () => new Promise<void>(() => undefined),
+		})
+		await request(url)
+		vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+		let stopped = false
+		const stopping = (async () => {
+			await app.stop()
+			stopped = true
+		})()
+		await vi.advanceTimersByTimeAsync(9999)
+		expect(stopped).toBe(false)
+		await vi.advanceTimersByTimeAsync(1)
+		vi.useRealTimers()
+		await stopping
+		expect(warnings).toEqual([
+			'Stopped with 1 emails still sending: they may never arrive.',
+		])
+	})
+
 	it('logs a failed send, and answers alike', async () => {
 		const { url, app, errors } = await server({
 			sendEmail: async () => {

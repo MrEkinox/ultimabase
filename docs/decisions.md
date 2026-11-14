@@ -5837,7 +5837,9 @@ Choice: completes D-113 point 12 and D-115.
    are made after the response, so its time tells nothing either. An
    unknown email sends nothing. A failed send is logged with
    `logger.error`; the client sees no difference. Stopping the application
-   waits for the sends under way.
+   waits for the sends under way, 10 seconds at most, then warns of those
+   left: a platform kills a process 30 seconds after asking it to stop
+   (amended 2026-11-14).
 4. `resetPassword` sets the password, which ends every session (D-113), and
    opens none. It marks the email verified: the user received it.
 5. Tokens. 32 random bytes in base64url; `PasswordToken` stores their

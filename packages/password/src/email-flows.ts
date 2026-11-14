@@ -11,7 +11,7 @@ import { emailLimited, invalidLink, issueToken, redeemToken } from './tokens.ts'
 
 /**
  * Runs `work` after the response, so its time tells nothing; a failure is
- * logged, and stopping the application waits for it.
+ * logged, and stopping the application waits for it, 10 seconds at most.
  */
 export function later(state: State, work: () => Promise<void>): void {
 	const task: Promise<void> = Promise.resolve()
@@ -23,6 +23,23 @@ export function later(state: State, work: () => Promise<void>): void {
 			state.sending.delete(task)
 		})
 	state.sending.add(task)
+}
+
+/** How long a stop waits for the emails under way: a platform kills at 30 s. */
+const stopWait = 10_000
+
+/** Once the emails under way are sent, or 10 seconds on, naming those left. */
+export async function sentWithin(state: State): Promise<void> {
+	let timer: NodeJS.Timeout | undefined
+	const late = new Promise<'late'>((resolve) => {
+		timer = setTimeout(() => resolve('late'), stopWait)
+	})
+	const ended = await Promise.race([Promise.all(state.sending), late])
+	clearTimeout(timer)
+	if (ended !== 'late') return
+	state.logger.warn(
+		`Stopped with ${state.sending.size} emails still sending: they may never arrive.`,
+	)
 }
 
 /** The application's `sendEmail` (D-117), with its logger (D-368). */
