@@ -119,7 +119,11 @@ function requestOf(incoming: IncomingMessage): Request | undefined {
 	}
 	// Outside any catch, a URL a request refuses would end the process.
 	try {
-		return new Request(url, { headers })
+		const request = new Request(url, { headers })
+		// A host holding a path or a query would pick the plugin: refused, as
+		// `@hono/node-server` refuses it on a request.
+		const named = host.replace(/:\d+$/, '').toLowerCase()
+		return new URL(request.url).hostname === named ? request : undefined
 	} catch {
 		return undefined
 	}

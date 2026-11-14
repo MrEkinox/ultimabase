@@ -257,6 +257,15 @@ describe('an upgrade', () => {
 		expect(after.status).toBe(101)
 		after.socket?.destroy()
 	})
+
+	// Behind a proxy that routes by path, it would reach a path it forbids.
+	it('is refused with a path in its host', async () => {
+		const { url } = await started()
+		const answer = await raw(url, '/nothing', 'localhost/live?')
+		expect(answer).toMatch(/^HTTP\/1\.1 400 Bad Request\r\n/)
+		expect(answer).toContain('"code":"BAD_REQUEST"')
+		expect(taken).toEqual([])
+	})
 })
 
 describe('the gate', () => {
