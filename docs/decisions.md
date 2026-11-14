@@ -23261,6 +23261,8 @@ const moves = await CreditHistory.findMany(
 
 ## D-378: CI runs the Stripe sandbox each night and before `main` publishes
 
+Amended by D-393.
+
 Choice: amends D-371 point 8.
 
 1. `.github/workflows/stripe.yml` runs `yarn test:stripe` against the
@@ -23847,4 +23849,45 @@ The log of an early fraud warning:
 WARN A payment is at risk: its payer's subscriptions were canceled.
   event: "radar.early_fraud_warning.created", charge: "ch_1", customer: "cus_1",
   refunded: true, canceled: ["sub_1"]
+```
+
+## D-393: One Stripe sandbox run at a time
+
+Choice: amends D-378.
+
+1. The sandbox job of `.github/workflows/stripe.yml` is in the concurrency
+   group `stripe-sandbox`, never canceled: the nightly run and a run of
+   `main` wait for each other.
+2. `yarn test:stripe` refuses to start while another run holds the sandbox:
+   an active product of another run's name, started less than 20 minutes
+   ago, the CI job's limit. Its error names that run and when it started.
+   An older run is over, and applying the catalog archives what it left.
+
+Why:
+
+- Each run applies a catalog of its own, and applying a catalog archives
+  every product and price it does not declare: a second run archives the
+  first's, whose next payments fail with `No price is …`. A nightly run,
+  late by hours, met a local run that way, and failed 8 of its 15 tests.
+- The concurrency group covers the runs CI starts; only the suite sees a
+  run started on a development machine with the same key.
+
+Rejected:
+
+- Waiting for the other run: a wait loop with a limit of its own, for a
+  case only a developer's run meets, who can run again.
+- A catalog that archives only its own run's products: a test-only option
+  of `applyStripeCatalog`, whose contract is that the code is the whole
+  catalog.
+- A sandbox per run: a sandbox is made in the Dashboard, not by the API.
+
+Example:
+
+```text
+# Before: a local run starts while the nightly run pays
+yarn test:stripe   # the nightly run fails: No price is ub_mwg9dzio_c08374_pro.monthly.
+
+# After
+yarn test:stripe   # Another sandbox run, ub_mwg9dzio_c08374, started at 10:24 UTC,
+                   # is using this sandbox: run again once it ends.
 ```
