@@ -104,6 +104,9 @@ async function flowOf(
 			after_completion: after,
 		}
 	}
+	if (flow.kind === 'paymentMethod') {
+		return { type: 'payment_method_update', after_completion: after }
+	}
 	if (flow.kind === 'home') return undefined
 	const subscription = await client.subscriptions.retrieve(flow.subscriptionId)
 	const [item] = subscription.items.data

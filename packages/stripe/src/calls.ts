@@ -19,6 +19,8 @@ import type { Product, SubscriptionProduct } from './product.ts'
 import type { Billing, Row, Running } from './running.ts'
 import { runningOf, stripeOf } from './running.ts'
 import { grant, spend } from './credits.ts'
+import type { Texts } from './locale.ts'
+import { canonical, checkoutLocales, localized, pageLocale } from './locale.ts'
 import { syncCustomer } from './sync.ts'
 
 type Payer = { readonly id: string }
@@ -34,12 +36,14 @@ export interface CheckoutArgs<P extends Product = Product> {
 	readonly price?: PriceOf<P>
 	/** 1 by default. */
 	readonly quantity?: number
+	/** Days of trial, 0 for none; the price's on a first subscription by default (D-391). */
 	readonly trialDays?: number
 	/**
 	 * A checkbox the payer must tick to accept the account's terms, with
-	 * `acceptance` in place of Stripe's text: Markdown, up to 1,200 characters.
+	 * `acceptance` in place of Stripe's text: Markdown, up to 1,200 characters,
+	 * or such texts by locale, the page's language picking one (D-390).
 	 */
-	readonly terms?: boolean | { readonly acceptance: string }
+	readonly terms?: boolean | { readonly acceptance: string | Texts }
 	readonly promotionCodes?: boolean
 	/** Where Stripe sends the payer back; `{CHECKOUT_SESSION_ID}` is replaced. */
 	readonly successUrl: string
@@ -47,23 +51,29 @@ export interface CheckoutArgs<P extends Product = Product> {
 	readonly metadata?: Readonly<Record<string, string>>
 }
 
-/** What `stripe.portal` takes (D-373 point 8). */
-export interface PortalArgs<
-	P extends SubscriptionProduct = SubscriptionProduct,
-> {
+/**
+ * What `stripe.portal` takes (D-373 point 8, D-394): `open` names the page
+ * the portal opens on, its home without one.
+ */
+export type PortalArgs<P extends SubscriptionProduct = SubscriptionProduct> = {
 	readonly payer: Payer
 	/** The portal option's `returnUrl` by default. */
 	readonly returnUrl?: string
-	/** Opens the confirmation of a move to another product or price. */
-	readonly change?: {
-		readonly product: P
-		readonly price: PriceOf<P>
-		/** The subscription row's id, when the payer has several live ones. */
-		readonly subscription?: string
-	}
-	/** Opens the confirmation of a cancellation. */
-	readonly cancel?: { readonly subscription?: string }
-}
+} & (
+	| { readonly open?: undefined }
+	/** The form that changes the payer's payment method (D-389). */
+	| { readonly open: 'paymentMethod' }
+	/** The confirmation of a cancellation. */
+	| { readonly open: 'cancel'; readonly subscription?: string }
+	/** The confirmation of a move to another product or price. */
+	| {
+			readonly open: 'change'
+			readonly product: P
+			readonly price: PriceOf<P>
+			/** The subscription row's id, when the payer has several live ones. */
+			readonly subscription?: string
+	  }
+)
 
 /** The catalog's product, or a bug: a product the plugin was not given. */
 function catalogued(running: Running, product: Product): Product {
@@ -81,6 +91,21 @@ function lookupKey(product: Product, price: string | undefined): string {
 		throw new TypeError(`${product.key}'s price is one of ${names.join(', ')}.`)
 	}
 	return `${product.key}.${name}`
+}
+
+/** The trial a price declares, if the payer never subscribed (D-391). */
+async function firstTrial(
+	model: Billing,
+	payer: Payer,
+	product: Product,
+	key: string,
+): Promise<number> {
+	const name = key.slice(product.key.length + 1)
+	const days = 'prices' in product ? product.prices[name]?.trialDays : undefined
+	if (days === undefined) return 0
+	const where = { payer: { is: { id: payer.id } } }
+	const [had] = await model.queries.findMany({ where, take: 1 }, M)
+	return had === undefined ? days : 0
 }
 
 /** The model naming the payers of a product: who the customer is for. */
@@ -138,19 +163,28 @@ const checkPositive = (name: string, value: number | undefined): void => {
 	}
 }
 
-/** The terms checkbox, refusing a text Stripe would refuse (D-383). */
+/** The terms checkbox's texts by locale, as Stripe takes them (D-383, D-390). */
 function termsOf(
 	terms: CheckoutArgs['terms'],
-): { readonly acceptance: string | null } | null {
+): { readonly acceptance: Texts | null } | null {
 	if (terms === undefined || terms === false) return null
 	if (terms === true) return { acceptance: null }
 	const { acceptance } = terms
-	if (acceptance.trim() === '' || acceptance.length > 1200) {
-		throw new TypeError(
-			'stripe.checkout: terms.acceptance is a text of 1 to 1,200 characters.',
-		)
+	const texts =
+		typeof acceptance === 'string' ? { default: acceptance } : acceptance
+	for (const [key, text] of Object.entries(texts)) {
+		if (key !== 'default' && canonical(key) !== key) {
+			throw new TypeError(
+				`stripe.checkout: terms.acceptance's key '${key}' is not a canonical locale, such as 'fr' or 'pt-BR'.`,
+			)
+		}
+		if (text.trim() === '' || text.length > 1200) {
+			throw new TypeError(
+				'stripe.checkout: terms.acceptance is a text of 1 to 1,200 characters.',
+			)
+		}
 	}
-	return { acceptance }
+	return { acceptance: texts }
 }
 
 /** Opens a Checkout for the payer and returns its URL. */
@@ -162,13 +196,16 @@ export async function checkout<const P extends Product>(
 	const product = catalogued(running, args.product)
 	const key = lookupKey(product, args.price)
 	checkPositive('quantity', args.quantity)
-	checkPositive('trialDays', args.trialDays)
+	if (args.trialDays !== 0) checkPositive('trialDays', args.trialDays)
 	const terms = termsOf(args.terms)
 	const subscribing = 'prices' in product
+	const model = billingOf(running, product)
 	return withCustomer(
-		billingOf(running, product),
+		model,
 		args.payer,
 		async (gateway, customerId, locale) => {
+			const trial =
+				args.trialDays ?? (await firstTrial(model, args.payer, product, key))
 			if (subscribing && running.oneSubscription) {
 				const { subscriptions } = await gateway.readCustomer(customerId)
 				if (subscriptions.some(({ status }) => liveStatuses.includes(status))) {
@@ -185,8 +222,12 @@ export async function checkout<const P extends Product>(
 				product: product.key,
 				lookupKey: key,
 				quantity: args.quantity ?? 1,
-				trialDays: subscribing ? (args.trialDays ?? null) : null,
-				terms,
+				trialDays: subscribing && trial > 0 ? trial : null,
+				terms: terms && {
+					acceptance:
+						terms.acceptance &&
+						localized(terms.acceptance, pageLocale(locale, checkoutLocales)),
+				},
 				promotionCodes: args.promotionCodes ?? false,
 				successUrl: args.successUrl,
 				cancelUrl: args.cancelUrl,
@@ -199,13 +240,12 @@ export async function checkout<const P extends Product>(
 
 /**
  * The payer's subscription a deep link is about, or `NOT_SUBSCRIBED`; the
- * code names one with `option` when the payer has several.
+ * code names one with `subscription` when the payer has several.
  */
 async function subscriptionOf(
 	model: Billing,
 	payer: Payer,
 	id: string | undefined,
-	option: string,
 ): Promise<Row> {
 	const where = {
 		payer: { is: { id: payer.id } },
@@ -219,7 +259,7 @@ async function subscriptionOf(
 	}
 	if (other !== undefined) {
 		throw new Refused(
-			`stripe.portal: the payer has several live subscriptions; name the one with ${option}, a ${model.name} row’s id.`,
+			`stripe.portal: the payer has several live subscriptions; name the one with subscription, a ${model.name} row’s id.`,
 		)
 	}
 	return one
@@ -231,32 +271,28 @@ async function flowOf(
 	model: Billing,
 	args: PortalArgs,
 ): Promise<PortalFlow> {
-	const { change, cancel } = args
-	if (change !== undefined && cancel !== undefined) {
-		throw new TypeError('stripe.portal takes change or cancel, not both.')
+	const page: unknown = args.open
+	switch (args.open) {
+		case undefined:
+			return { kind: 'home' }
+		case 'paymentMethod':
+			return { kind: 'paymentMethod' }
+		case 'cancel': {
+			const row = await subscriptionOf(model, args.payer, args.subscription)
+			return { kind: 'cancel', subscriptionId: String(row['stripeId']) }
+		}
+		case 'change': {
+			const product = catalogued(running, args.product)
+			const lookup = lookupKey(product, args.price)
+			const row = await subscriptionOf(model, args.payer, args.subscription)
+			const subscriptionId = String(row['stripeId'])
+			return { kind: 'change', subscriptionId, lookupKey: lookup }
+		}
+		default:
+			throw new TypeError(
+				`stripe.portal opens change, cancel or paymentMethod, not ${String(page)}.`,
+			)
 	}
-	if (change !== undefined) {
-		const product = catalogued(running, change.product)
-		const lookup = lookupKey(product, change.price)
-		const row = await subscriptionOf(
-			model,
-			args.payer,
-			change.subscription,
-			'change.subscription',
-		)
-		const subscriptionId = String(row['stripeId'])
-		return { kind: 'change', subscriptionId, lookupKey: lookup }
-	}
-	if (cancel !== undefined) {
-		const row = await subscriptionOf(
-			model,
-			args.payer,
-			cancel.subscription,
-			'cancel.subscription',
-		)
-		return { kind: 'cancel', subscriptionId: String(row['stripeId']) }
-	}
-	return { kind: 'home' }
 }
 
 /** Opens the payer's customer portal, or one change's confirmation. */

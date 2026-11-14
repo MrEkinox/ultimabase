@@ -683,7 +683,7 @@ describe('the portal', () => {
 		locale: null,
 	}
 
-	it('opens its home, a cancellation and a change, keeping the quantity', async () => {
+	it('opens its home, a cancellation, a change keeping the quantity, and the payment method', async () => {
 		const { gateway, requests } = gatewayOn(portalAnswer)
 		expect(
 			await gateway.openPortal({ ...portal, flow: { kind: 'home' } }),
@@ -703,6 +703,7 @@ describe('the portal', () => {
 				lookupKey: 'team.monthly',
 			},
 		})
+		await gateway.openPortal({ ...portal, flow: { kind: 'paymentMethod' } })
 		const sessions = requests.filter(
 			({ path }) => path === '/v1/billing_portal/sessions',
 		)
@@ -731,6 +732,15 @@ describe('the portal', () => {
 				'flow_data[subscription_update_confirm][items][0][id]': 'si_1',
 				'flow_data[subscription_update_confirm][items][0][price]': 'price_team',
 				'flow_data[subscription_update_confirm][items][0][quantity]': '3',
+				'flow_data[after_completion][type]': 'redirect',
+				'flow_data[after_completion][redirect][return_url]':
+					'https://app.test/account',
+			},
+			{
+				customer: 'cus_1',
+				return_url: 'https://app.test/account',
+				configuration: 'bpc_1',
+				'flow_data[type]': 'payment_method_update',
 				'flow_data[after_completion][type]': 'redirect',
 				'flow_data[after_completion][redirect][return_url]':
 					'https://app.test/account',

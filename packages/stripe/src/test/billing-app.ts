@@ -82,7 +82,12 @@ export const pro = defineProduct({
 	name: 'Pro',
 	prices: {
 		monthly: { amount: 9_90, every: 'month', gives: [gems(100)] },
-		yearly: { amount: 99_00, every: 'year', gives: [gems(1_200)] },
+		yearly: {
+			amount: 99_00,
+			every: 'year',
+			gives: [gems(1_200)],
+			trialDays: 30,
+		},
 	},
 })
 export const team = defineProduct({

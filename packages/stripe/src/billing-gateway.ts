@@ -117,6 +117,7 @@ export type PortalFlow =
 			readonly lookupKey: string
 	  }
 	| { readonly kind: 'cancel'; readonly subscriptionId: string }
+	| { readonly kind: 'paymentMethod' }
 
 /** A portal session the plugin opens. */
 export interface PortalWrite {
