@@ -13610,7 +13610,10 @@ Choice: amends D-106 and D-166.
    answers 503, `Retry-After` in seconds, and:
    `{ "code": "MAINTENANCE", "message": "The application is under maintenance.", "details": { "retryAfter": 60 } }`.
    `/graphql` is no exception. As it begins, the sockets open close with
-   1012 `Maintenance` (D-166).
+   1012 `Maintenance` (D-166), and the event streams open end:
+   `plugins.http.closeStreams()` ends every `text/event-stream` answer,
+   whose client reconnects and meets the 503. A live list's stream would
+   otherwise go on serving changes (amended 2026-11-14).
 4. `PUT /_ultimabase/maintenance` with `{ "enabled": true }` or
    `{ "enabled": false }` turns it on or off, with the master key only:
    403 `ACCESS_DENIED` for another caller, 400 `VALIDATION_FAILED` for

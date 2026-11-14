@@ -1,9 +1,9 @@
 // The port the server listens on, and its listening (D-106); the body
 // limit and the drain (D-223); its connection queue (D-276); its listeners
-// (D-292); how long it waits for headers (D-348).
+// (D-292); how long it waits for headers (D-348); its event streams (D-205).
 import cluster from 'node:cluster'
 import type { Server } from 'node:http'
-import { createServer } from 'node:http'
+import { createServer, ServerResponse } from 'node:http'
 import {
 	createServer as createListener,
 	type Server as Listener,
@@ -165,13 +165,41 @@ export const stopping = {
 	message: 'The application is stopping.',
 } as const
 
+/** Each server's event streams still open. */
+const streams = new WeakMap<Server, Set<ServerResponse>>()
+
+/** `response` as an event stream `closeStreams` ends. */
+function held(server: Server, response: ServerResponse): void {
+	const open = streams.get(server) ?? new Set<ServerResponse>()
+	streams.set(server, open)
+	open.add(response)
+	response.once('close', () => open.delete(response))
+}
+
+/**
+ * Ends `server`'s event streams, as maintenance does (D-205): their client
+ * reconnects, then gets the answer the server gives at that time.
+ */
+export function closeStreams(server: Server): void {
+	for (const response of streams.get(server) ?? []) response.destroy()
+}
+
 /** A Node server for `fetch`, Hono's handler. */
 export function serverOf(
 	fetch: Parameters<typeof getRequestListener>[0],
 ): Server {
-	const listener = getRequestListener(async (request, env) =>
-		counted(server, async () => fetch(request, env)),
-	)
+	const listener = getRequestListener(async (request, env) => {
+		const answer = await counted(server, async () => fetch(request, env))
+		if (
+			answer instanceof Response &&
+			answer.headers.get('content-type')?.startsWith('text/event-stream') ===
+				true &&
+			env.outgoing instanceof ServerResponse
+		) {
+			held(server, env.outgoing)
+		}
+		return answer
+	})
 	const server = createServer(waits, (request, response) => {
 		// Once `stop` began, it would run after the plugins it uses (D-399).
 		if (!server.listening) {

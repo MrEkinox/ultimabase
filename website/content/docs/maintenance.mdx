@@ -85,6 +85,8 @@ milliseconds. The test sends the request while the maintenance is on.
 
 - The WebSockets open close with 1012, Service Restart: a graphql-ws client
   tries again, meets the 503 and stops.
+- The live lists' event streams (`text/event-stream`) end: the client
+  reconnects and meets the 503.
 - A browser reads the 503 too, as CORS's headers come with it. Preflights
   still pass.
 - `/health` and `/ready` answer as before: the load balancer keeps the
@@ -166,5 +168,6 @@ error.
 | any but Master's, the maintenance key's included | 503 `MAINTENANCE`, `The application is under maintenance.`, `details.retryAfter` in seconds |
 | a WebSocket upgrade                              | the same 503                                                                                |
 | a WebSocket open                                 | closed with 1012 `Maintenance`                                                              |
+| an event stream open                             | ended                                                                                       |
 | with the master key                              | as usual                                                                                    |
 | preflight, `/health`, `/ready`                   | as usual                                                                                    |

@@ -95,7 +95,20 @@ function kept(): Adapter & { readonly missed: () => void } {
 	}
 }
 
-const notes = routes().get('/notes', (c) => c.json([]))
+// `/events` streams until its client goes, as a live list's SSE.
+const notes = routes()
+	.get('/notes', (c) => c.json([]))
+	.get(
+		'/events',
+		() =>
+			new Response(
+				new ReadableStream({
+					start: (stream) =>
+						stream.enqueue(new TextEncoder().encode(': on\n\n')),
+				}),
+				{ headers: { 'content-type': 'text/event-stream' } },
+			),
+	)
 const app = defineApp({
 	database: memory(),
 	plugins: [
@@ -242,6 +255,25 @@ describe('the maintenance', () => {
 		expect(await upgrade(running.url, '/live')).toBe(
 			'HTTP/1.1 101 Switching Protocols',
 		)
+	})
+
+	it('ends the open event streams, whose next request meets 503', async () => {
+		const events = await fetch(`${running.url}/events`)
+		const reader = events.body?.getReader()
+		if (reader === undefined) throw new Error('No body.')
+		expect((await reader.read()).done).toBe(false)
+		await maintenance().lock()
+		// Ended, or still open after a second: the stream stayed on.
+		const ended = await Promise.race([
+			reader.read().then(
+				({ done }) => done,
+				() => true,
+			),
+			new Promise((done) => setTimeout(() => done(false), 1000)),
+		])
+		await reader.cancel().catch(() => undefined)
+		expect(ended).toBe(true)
+		expect((await fetch(`${running.url}/events`)).status).toBe(503)
 	})
 
 	it('stores its state, as another server reads it', async () => {

@@ -156,8 +156,11 @@ const maintenance = definePlugin<Maintenance>({
 			begun: 0,
 			applied: 0,
 			initial: initial === 'locked',
-			close: () =>
-				plugins.http.closeUpgrades({ code: 1012, reason: 'Maintenance' }),
+			// A live list's stream reconnects too, then gets the 503 (D-205).
+			close: () => {
+				plugins.http.closeUpgrades({ code: 1012, reason: 'Maintenance' })
+				plugins.http.closeStreams()
+			},
 			logger,
 		}
 		states.set(context, state)

@@ -408,6 +408,7 @@ the HTTP plugin:
 | ----------------------------------------------- | ----------------------------------------------------------------------------------------- |
 | `plugins.http.upgrade(path, accept, { close })` | Takes the upgrades of `path`, from the plugin's `api`; `close(code, reason)` closes them. |
 | `plugins.http.closeUpgrades({ code, reason })`  | Closes the sockets open; with `path`, those of one path. Cuts those without `close`.      |
+| `plugins.http.closeStreams()`                   | Ends the event streams open (`text/event-stream` answers): their clients reconnect.       |
 
 `accept` receives the upgrade: its `request`, the client's `address`, the
 `socket`, and `limit()`, which counts one more request of the address and

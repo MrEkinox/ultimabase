@@ -13,7 +13,14 @@ import { limiter } from './limit.ts'
 import type { Probes, ReadyCheck } from './probes.ts'
 import { startingGate } from './probes.ts'
 import { hold } from './request.ts'
-import { drainOf, listening, portOf, serverOf, shutdown } from './server.ts'
+import {
+	closeStreams,
+	drainOf,
+	listening,
+	portOf,
+	serverOf,
+	shutdown,
+} from './server.ts'
 import type { Accept, Close, Closing, Gate, Taker } from './upgrade.ts'
 import { closeUpgrades, upgrading } from './upgrade.ts'
 
@@ -47,6 +54,11 @@ export interface HttpApi {
 	 * those of a plugin that gave no `close` are cut (D-166).
 	 */
 	closeUpgrades(closing: Closing): void
+	/**
+	 * Ends the open event streams (`text/event-stream` answers): each client
+	 * reconnects, as maintenance needs (D-205).
+	 */
+	closeStreams(): void
 	/**
 	 * Adds a check `GET /ready` runs on each request: it answers 503 while
 	 * one fails; call it from your `api` (D-204).
@@ -141,6 +153,10 @@ const http = definePlugin<Http>({
 			},
 			closeUpgrades: (closing) => {
 				closeUpgrades(takers, taken.get(context), closing)
+			},
+			closeStreams: () => {
+				const server = servers.get(context)
+				if (server !== undefined) closeStreams(server)
 			},
 			url: () => {
 				const url = urls.get(context)
