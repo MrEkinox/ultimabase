@@ -14138,9 +14138,12 @@ Choice: amends D-86 point 1 and D-123 point 2.
    The target model's own rules stay as D-124 point 5 says: linking a row
    reads it.
 2. `defineRole` gives `members`, `inherits` and `inheritedBy` the rule
-   `write: allow.private`. Only Master, so server code, gives or takes a
-   role, from the role or from the user's `roles`; a client writes the
-   role's own fields as its `access` allows.
+   `write: allow.private`, and every `many` field the developer adds to the
+   role too, whatever write rule it was given; its read rule stays the
+   developer's. Only Master, so server code, gives or takes a role, from
+   the role or from the user's `roles`, and links a role from the other
+   side of the developer's own relations; a client writes the role's own
+   fields as its `access` allows (amended 2026-11-14).
 3. Known and kept: the read of a caller's roles (D-123 point 4) follows
    five levels in one statement, so a graph where each role inherits many
    others reads that many rows to the power five; only Master writes the

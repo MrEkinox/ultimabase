@@ -12,7 +12,7 @@ import type {
 	PluginTypes,
 } from 'ultimabase'
 import { allow, defineModel, Refused } from 'ultimabase'
-import { knownKeys } from 'ultimabase/internal'
+import { knownKeys, ruledField } from 'ultimabase/internal'
 import type { Roles } from './plugin.ts'
 import { roleModels, rolesUse } from './plugin.ts'
 
@@ -62,6 +62,26 @@ type RoleDefinition<N, M, F, U extends Uses, X> = {
 }
 
 const roleKeys = ['name', 'dbName', 'members', 'use', 'fields', 'indexes']
+
+/** Only Master gives a role, from either side of its links (D-213). */
+const given = { access: { write: allow.private } }
+
+/**
+ * The developer's `many` field, written by Master alone whatever write rule
+ * it was given, its read rule kept (D-355); any other field as it is.
+ */
+function closed(value: unknown): unknown {
+	const field = ruledField(value)
+	if (field?.kind !== 'many') return value
+	const { rules = {} } = field
+	const access: unknown = Reflect.get(rules, 'access')
+	const read: unknown =
+		typeof access === 'object' && access !== null
+			? Reflect.get(access, 'read')
+			: access
+	const kept = read === undefined ? {} : { read }
+	return field.ruled({ ...rules, access: { ...kept, ...given.access } })
+}
 
 /** The application's one role model, with its own fields (D-123). */
 export function defineRole<
@@ -120,10 +140,11 @@ export function defineRole(definition: {
 					`defineRole(${name}): ${taken} is a field defineRole adds.`,
 				)
 			}
-			// Only Master gives a role, from either side of its links (D-213).
-			const given = { access: { write: allow.private } }
+			const linked: { readonly [key: string]: unknown } = Object.fromEntries(
+				Object.entries(own).map(([key, value]) => [key, closed(value)]),
+			)
 			return {
-				...own,
+				...linked,
 				name: f.string({ unique: true }),
 				members: f.many(members, { inverse: 'roles' }).with(given),
 				inherits: f.many(self, { inverse: 'inheritedBy' }).with(given),

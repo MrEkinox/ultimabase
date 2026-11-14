@@ -1,5 +1,5 @@
 {
-	"ultimabase": 22739,
+	"ultimabase": 22760,
 	"testing": 5740,
 	"soft-delete": 150,
 	"maintenance": 266,
@@ -8,7 +8,7 @@
 	"graphql": 5767,
 	"auth": 1053,
 	"password": 2282,
-	"roles": 352,
+	"roles": 373,
 	"acl": 353,
 	"rest": 3890,
 	"create-ultimabase": 250,
