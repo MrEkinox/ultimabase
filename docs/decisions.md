@@ -4900,7 +4900,9 @@ data in request body` (amended 2026-10-23).
    `info`: `POST /notes 201 12ms`. In production nothing is logged per
    request. A control character in a path stays encoded (`%0A`), so a path
    cannot forge a line; a client that leaves before its body ends is `499`,
-   as nginx counts it, and not logged as an error (amended 2026-10-23).
+   as nginx counts it, and not logged as an error (amended 2026-10-23);
+   only the client's own failure is: a failure of the server's own
+   meanwhile still answers `500` and is logged (amended 2026-11-14).
 6. The HTTP plugin's API gains `url()`, the address the server listens on
    once it started (`http://localhost:3000`); before, it throws. Outside
    production, `graphqlPlugin` logs `GraphiQL on http://localhost:3000/graphql.`

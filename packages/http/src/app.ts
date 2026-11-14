@@ -101,10 +101,22 @@ function refused(error: HTTPException, c: Context): Response {
 	return c.json({ code, message }, error.status)
 }
 
+/**
+ * Whether `error` came from the client leaving: its body read cut, or the
+ * request's signal, as a `fetch` given it throws.
+ */
+const isLeaving = (error: unknown, signal: AbortSignal) =>
+	signal.aborted &&
+	(error === signal.reason ||
+		(error instanceof Error && Reflect.get(error, 'code') === 'ECONNRESET'))
+
 /** A `PublicError` as is; any other error masked, logged with its id. */
 function failed(error: unknown, c: Context, logger: Logger): Response {
-	// The client left: its request failed, not the server (499, as nginx).
-	if (c.req.raw.signal.aborted) return new Response(null, { status: 499 })
+	// Its request failed, not the server (499, as nginx); a failure of the
+	// server's own meanwhile is still logged (D-108).
+	if (isLeaving(error, c.req.raw.signal)) {
+		return new Response(null, { status: 499 })
+	}
 	if (error instanceof HTTPException) return refused(error, c)
 	if (error instanceof PublicError) {
 		const { code, message, details } = error
