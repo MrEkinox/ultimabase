@@ -5,7 +5,7 @@ import type { EventSourceMessage } from 'eventsource-parser/stream'
 import { EventSourceParserStream } from 'eventsource-parser/stream'
 import { applyLive } from './apply.ts'
 import { LiveError, liveErrorOf } from './error.ts'
-import { isList, isMessage } from './guards.ts'
+import { isMessage, isRecord } from './guards.ts'
 
 /** What a live read sends with each request. */
 export type LiveFetchOptions = {
@@ -114,7 +114,7 @@ export function liveFetch<T = unknown>(
 		if (event !== 'live') return true
 		const list = result?.value
 		const next =
-			isMessage(body) && body.revision === revision + 1 && isList(list)
+			isMessage(body) && body.revision === revision + 1 && isRecord(list)
 				? applyLive(list, body)
 				: undefined
 		// Out of step: read the list again.

@@ -11,7 +11,7 @@ import { Observable } from 'rxjs'
 import type { LiveChange, LiveList } from './apply.ts'
 import { applyLive } from './apply.ts'
 import { LiveError, liveErrorOf } from './error.ts'
-import { isList, isMessage, isRecord } from './guards.ts'
+import { isMessage, isRecord } from './guards.ts'
 import { CachedRows, rowsOf } from './rows.ts'
 
 /** A growth's rows: `first`, or as many as the first page's. */
@@ -169,11 +169,11 @@ function followed(
 			}
 			const list = data?.[key]
 			const next =
-				data !== undefined && live.revision === revision + 1 && isList(list)
+				data !== undefined && live.revision === revision + 1 && isRecord(list)
 					? applyLive(list, live)
 					: undefined
 			// Out of step: read the list again.
-			if (data === undefined || next === undefined || !isList(list)) {
+			if (data === undefined || next === undefined || !isRecord(list)) {
 				data = undefined
 				token = undefined
 				return open()
