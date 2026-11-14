@@ -75,6 +75,25 @@ const ownSpan = defineFunction({
 	run: async () => Sentry.startSpan({ name: 'own' }, async () => 1),
 })
 
+/** An error whose `key` throws as it is read. */
+function unreadable(key: 'code' | 'message'): Error {
+	const error = new Error(key)
+	Object.defineProperty(error, key, {
+		get: () => {
+			throw new Error(`Its ${key} throws.`)
+		},
+	})
+	return error
+}
+let thrown: unknown
+const throws = defineFunction({
+	name: 'throws',
+	output: z.number(),
+	run: async () => {
+		throw thrown
+	},
+})
+
 type Streamed = Parameters<NonNullable<Sentry.NodeOptions['beforeSendSpan']>>[0]
 
 const issues: Event[] = []
@@ -89,7 +108,7 @@ const logger: Logger = {
 	child: () => logger,
 }
 
-beforeAll(() => {
+const init = (): void => {
 	Sentry.init({
 		dsn: 'https://key@sentry.invalid/1',
 		defaultIntegrations: false,
@@ -104,7 +123,8 @@ beforeAll(() => {
 			return span
 		},
 	})
-})
+}
+beforeAll(init)
 
 type Seen = {
 	readonly op: unknown
@@ -138,7 +158,7 @@ const start = async (): Promise<void> => {
 	app = defineApp({
 		database: memory(),
 		models: [Post],
-		functions: [countPosts, ownSpan],
+		functions: [countPosts, ownSpan, throws],
 		plugins: [watch.plugin(), sentryPlugin()],
 		logger,
 	})
@@ -264,6 +284,31 @@ describe('sentryPlugin', () => {
 		}
 		await Sentry.flush()
 		expect(issues).toStrictEqual([])
+	})
+
+	// A subscriber's exception is thrown again, uncaught: it ended the process.
+	it('read an error it cannot read without throwing', async () => {
+		const uncaught = vi.fn<(error: unknown) => void>()
+		process.prependListener('uncaughtException', uncaught)
+		try {
+			thrown = unreadable('code')
+			await trace(async () => throws.run(M).catch(() => null))
+			channel('ultimabase:error').publish({
+				error: unreadable('message'),
+				correlationId: 'c',
+				message: 'm',
+			})
+			await new Promise((resolve) => setImmediate(resolve))
+		} finally {
+			process.off('uncaughtException', uncaught)
+			// Its capture thrown, Sentry's client never flushes again.
+			init()
+		}
+		expect(uncaught).not.toHaveBeenCalled()
+		expect(spanNamed('throws')).toMatchObject({
+			status: 'error',
+			attributes: { 'error.type': 'unknown' },
+		})
 	})
 
 	it('stop reading the channels when the app stops', async () => {

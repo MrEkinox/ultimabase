@@ -46,12 +46,19 @@ export function sentryStore(): AsyncLocalStorage<unknown> | undefined {
 	return store instanceof AsyncLocalStorage ? store : undefined
 }
 
-/** A failed span's `error.type`: the error's public code, or its name. */
+/**
+ * A failed span's `error.type`: the error's public code, or its name;
+ * `unknown` for an error that throws as it is read.
+ */
 function typeOf(error: unknown): string {
 	if (typeof error !== 'object' || error === null) return 'unknown'
-	const code: unknown = 'code' in error ? error.code : undefined
-	if (typeof code === 'string') return code
-	return error instanceof Error ? error.name : 'unknown'
+	try {
+		const code: unknown = 'code' in error ? error.code : undefined
+		if (typeof code === 'string') return code
+		return error instanceof Error ? error.name : 'unknown'
+	} catch {
+		return 'unknown'
+	}
 }
 
 type Messages = {
@@ -187,7 +194,12 @@ function report(published: unknown): void {
 	if (!('correlationId' in published) || !('message' in published)) return
 	const { error, correlationId, message } = published
 	if (typeof correlationId !== 'string' || typeof message !== 'string') return
-	captureException(error, { tags: { correlationId }, extra: { message } })
+	// A subscriber that throws ends the process; the server logged the error.
+	try {
+		captureException(error, { tags: { correlationId }, extra: { message } })
+	} catch {
+		// Sentry could not read it.
+	}
 }
 
 /** Each message of `ultimabase:error` an issue; returns its undo. */
