@@ -3,6 +3,9 @@ import { GraphQLError, parse, Source } from 'graphql'
 import { describe, expect, it, vi } from 'vitest'
 import { parsedOnce, validatedOnce } from './documents.ts'
 
+/** A dense document of 4 KB: up to 210 bytes a character once read. */
+const dense = (at: number) => `{ a${at}${' a'.repeat(2044)} }`
+
 describe('parsedOnce', () => {
 	it('answers a document it has read with the same tree', () => {
 		const reading = vi.fn<typeof parse>(parse)
@@ -28,6 +31,17 @@ describe('parsedOnce', () => {
 		read('{ past }')
 		expect(read('{ asked }')).toBe(asked)
 		expect(read('{ old }')).not.toBe(old)
+	})
+
+	it('forgets the least recently asked past 256 KB of text', () => {
+		const read = parsedOnce(parse)
+		const first = read(dense(0))
+		const second = read(dense(1))
+		for (let at = 2; at < 64; at += 1) read(dense(at))
+		expect(read(dense(0)) === first).toBe(true)
+		read(dense(64))
+		expect(read(dense(0)) === first).toBe(true)
+		expect(read(dense(1)) === second).toBe(false)
 	})
 
 	it('holds no document too long, as a source or as text', () => {

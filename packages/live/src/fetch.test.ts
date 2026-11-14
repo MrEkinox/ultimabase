@@ -297,6 +297,48 @@ describe('liveFetch out of step', () => {
 		])
 	})
 
+	it('reads the list afresh at its first size when its grown size is refused', async () => {
+		const held = new Response(
+			new ReadableStream({
+				start: (controller) => {
+					const blocks = ['event: resume\ndata: "t"', data(1, ['a'])]
+					controller.enqueue(
+						new TextEncoder().encode(`${blocks.join('\n\n')}\n\n`),
+					)
+				},
+			}),
+			{ headers: { 'content-type': 'text/event-stream' } },
+		)
+		const refused = new Response(
+			JSON.stringify({
+				code: 'VALIDATION_FAILED',
+				message: 'A list follows at most 1 row.',
+			}),
+			{ status: 400 },
+		)
+		const urls = answering(
+			held,
+			sse(
+				'event: resume\ndata: "t"',
+				live(2, [{ upsert: { id: 'b' }, after: 'a' }]),
+				live(4, []),
+			),
+			refused,
+			sse(data(1, ['c'])),
+		)
+		const fetched = liveFetch('http://x/api/tasks?take=1')
+		const watched = seen(fetched)
+		await watched.at(1)
+		await fetched.fetchMore({ first: 1 })
+		expect(await watched.at(3)).toEqual([{ id: 'c' }])
+		expect(urls.map((each) => new URL(each).searchParams.get('take'))).toEqual([
+			'1',
+			'2',
+			'2',
+			'1',
+		])
+	})
+
 	it('reconnects after a server error or what it cannot read, backing off', async () => {
 		vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
 		vi.spyOn(Math, 'random').mockReturnValue(1)
@@ -314,6 +356,29 @@ describe('liveFetch out of step', () => {
 			// The token's event reset the backoff.
 			await vi.advanceTimersByTimeAsync(100)
 			expect(urls[2]).toBe('http://x/api/tasks?take=1&resume=t')
+			expect(await watched.at(1)).toEqual([{ id: 'a' }])
+		} finally {
+			vi.useRealTimers()
+		}
+	})
+
+	it('reconnects once the wait a refusal for too many requests asks has passed', async () => {
+		vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+		vi.spyOn(Math, 'random').mockReturnValue(1)
+		try {
+			const urls = answering(
+				Response.json(
+					{ code: 'TOO_MANY_ATTEMPTS', message: 'Too many requests.' },
+					{ status: 429, headers: { 'retry-after': '2' } },
+				),
+				sse(data(1, ['a'])),
+			)
+			const watched = seen(liveFetch('http://x/api/tasks?take=1'))
+			// Two seconds, then the backoff's 100 ms.
+			await vi.advanceTimersByTimeAsync(2099)
+			expect(urls).toHaveLength(1)
+			await vi.advanceTimersByTimeAsync(1)
+			expect(urls).toHaveLength(2)
 			expect(await watched.at(1)).toEqual([{ id: 'a' }])
 		} finally {
 			vi.useRealTimers()

@@ -270,6 +270,38 @@ describe('the recurring rows at startup', () => {
 		])
 		await fourth.stop()
 	})
+
+	// Their rows wait forever, and each poll reads past them.
+	it('name the jobs whose runs wait and that no longer are declared', async () => {
+		const database = kept()
+		const runs = quietRuns(
+			defineApp({
+				database,
+				models: [],
+				plugins: [jobsPlugin({ jobs: [hourly] })],
+				logger,
+			}),
+		)
+		if (runs === undefined) throw new Error('No runs.')
+		const first = runs.on(database)
+		await first.start()
+		const run = { job: 'gone', dueAt: now, attempts: 0 }
+		for (const state of ['pending', 'pending', 'failed']) {
+			await JobsRun.create({ data: { ...run, state } }, M)
+		}
+		await first.stop()
+		lines.length = 0
+		const second = runs.on(database)
+		await second.start()
+		await second.stop()
+		expect(lines).toStrictEqual([
+			{
+				level: 'warn',
+				message:
+					'The job gone has 2 runs waiting, and is not declared: they run once a version declaring it does.',
+			},
+		])
+	})
 })
 
 describe('the poll', () => {

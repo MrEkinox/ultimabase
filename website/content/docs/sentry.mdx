@@ -37,6 +37,8 @@ not even its config: a module it imports runs before `Sentry.init`, and its
 database driver is not recorded.
 
 The plugin takes no options: it reads into the client `Sentry.init` made.
+It goes first in `plugins`: the plugins stop in reverse order, so it stops
+last and reads the errors of the others as they stop.
 
 <include cwd meta='title="src/app.ts"'>
 	../examples/sentry/src/app.ts#plugins

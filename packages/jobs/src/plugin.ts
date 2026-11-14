@@ -6,14 +6,14 @@ import { definePlugin, Refused } from 'ultimabase'
 import manifest from '../package.json' with { type: 'json' }
 import type { JobRecord, Job, RecurringJob } from './define-job.ts'
 import { recordOf } from './define-job.ts'
-import { JobsRun } from './model.ts'
+import { JobsRun, M } from './model.ts'
 import {
 	close,
 	drain,
 	open,
 	passes,
 	schedule,
-	settled,
+	settledWithin,
 	start,
 } from './runner.ts'
 import type { Running } from './state.ts'
@@ -43,6 +43,8 @@ export interface Jobs extends PluginTypes {
 
 /** Five seconds, between two looks for due rows. */
 const pollEvery = 5000
+/** Ten seconds, the most the stop waits for running runs, as http's. */
+const stopWait = 10_000
 
 /** The `defineJob` values in `jobs`; refuses any other, naming `where`. */
 function recordsOf(jobs: unknown, where: string): readonly JobRecord[] {
@@ -86,6 +88,16 @@ async function poll(app: Running): Promise<void> {
 	}
 }
 
+/** Names each job not declared whose runs wait: no instance may run them. */
+async function warnUndeclared(app: Running): Promise<void> {
+	const where = { state: 'pending', job: { notIn: [...app.jobs.keys()] } }
+	const groups = await JobsRun.groupBy({ by: ['job'], _count: true, where }, M)
+	for (const { job, _count: count } of groups) {
+		const message = `The job ${job} has ${count} runs waiting, and is not declared: they run once a version declaring it does.`
+		app.logger.warn({ job, runs: count }, message)
+	}
+}
+
 const definition = definePlugin<Jobs>({
 	name: 'jobs',
 	manifest,
@@ -114,6 +126,7 @@ const definition = definePlugin<Jobs>({
 		useRunning(app)
 		open()
 		await schedule(app)
+		await warnUndeclared(app)
 	},
 	// What was due while no instance ran runs once now.
 	started: () => {
@@ -122,11 +135,15 @@ const definition = definePlugin<Jobs>({
 		timer = setInterval(() => void poll(app), pollEvery)
 		timer.unref()
 	},
-	stopping: async () => {
+	stopping: async ({ logger }) => {
 		clearInterval(timer)
 		timer = undefined
 		close()
-		await settled()
+		const left = await settledWithin(stopWait)
+		if (left.length > 0) {
+			const message = `Stopped with ${left.length} job runs still running: they run again once their lease ends.`
+			logger.warn({ runs: left }, message)
+		}
 	},
 	stop: () => {
 		useRunning(undefined)

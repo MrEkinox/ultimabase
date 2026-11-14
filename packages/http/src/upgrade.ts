@@ -10,6 +10,7 @@ import { logFailure } from 'ultimabase/internal'
 import { isOwnOrigin } from './address.ts'
 import type { Limiter } from './limit.ts'
 import { tooMany } from './limit.ts'
+import { counted, stopping } from './server.ts'
 
 /**
  * An upgrade a plugin takes: Node's request, its socket and first bytes, as
@@ -118,7 +119,11 @@ function requestOf(incoming: IncomingMessage): Request | undefined {
 	}
 	// Outside any catch, a URL a request refuses would end the process.
 	try {
-		return new Request(url, { headers })
+		const request = new Request(url, { headers })
+		// A host holding a path or a query would pick the plugin: refused, as
+		// `@hono/node-server` refuses it on a request.
+		const named = host.replace(/:\d+$/, '').toLowerCase()
+		return new URL(request.url).hostname === named ? request : undefined
 	} catch {
 		return undefined
 	}
@@ -137,6 +142,10 @@ export function upgrading(
 	server.on('upgrade', (incoming: IncomingMessage, socket: Duplex, head) => {
 		// A client that leaves mid-answer must not stop the server.
 		socket.on('error', () => socket.destroy())
+		// Its plugin may have stopped already (D-399).
+		if (!server.listening) {
+			return refuse(socket, 503, stopping.code, stopping.message)
+		}
 		const request = requestOf(incoming)
 		if (request === undefined) {
 			return refuse(socket, 400, 'BAD_REQUEST', 'The upgrade has no URL.')
@@ -162,7 +171,7 @@ export function upgrading(
 		// Open while the gate answers, so `stop` waits for it too.
 		open.set(socket, pathname)
 		socket.once('close', () => open.delete(socket))
-		void (async () => {
+		void counted(server, async () => {
 			try {
 				const address = addressOf({ incoming })
 				const limit = async () => rateLimit(request, address)
@@ -175,7 +184,7 @@ export function upgrading(
 				logFailure(logger, error, 'An upgrade failed.')
 				refuse(socket, 500, 'INTERNAL', 'Internal error.')
 			}
-		})()
+		})
 	})
 	return open
 }

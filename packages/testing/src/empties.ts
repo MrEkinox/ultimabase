@@ -1,8 +1,10 @@
 // `empty()` in the contract (D-188): every model's rows go, join rows
 // included, whatever references them; the tables stay, and take new rows.
+// A database without migrations starts empty every time.
 import type { Adapter, Identity } from 'ultimabase'
-import { defineModel, master } from 'ultimabase'
+import { defineApp, defineModel, master } from 'ultimabase'
 import { describe, expect, it } from 'vitest'
+import { silent } from './silent.ts'
 import { started } from './suite.ts'
 
 const M: { readonly as: Identity } = { as: master }
@@ -76,6 +78,26 @@ export function empties(create: () => Adapter): void {
 				M,
 			)
 			expect(read?.tags).toEqual([{ text: 'sf' }])
+		})
+	})
+
+	// testApplication starts such a database as it is: rows it kept would
+	// carry over from one test file to the next.
+	describe('a restart', () => {
+		it('leaves no row in a database without migrations', async () => {
+			const database = create()
+			const models = [Shelf, Book, Tag]
+			const app = defineApp({ database, models, logger: silent })
+			await app.start()
+			await Shelf.create({ data: { name: 'Top' } }, M)
+			await app.stop()
+			await app.start()
+			try {
+				const kept = database.migrations === undefined
+				expect(kept ? await Shelf.count({}, M) : 0).toBe(0)
+			} finally {
+				await app.stop()
+			}
 		})
 	})
 }

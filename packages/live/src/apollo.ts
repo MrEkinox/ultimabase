@@ -11,7 +11,7 @@ import { Observable } from 'rxjs'
 import type { LiveChange, LiveList } from './apply.ts'
 import { applyLive } from './apply.ts'
 import { LiveError, liveErrorOf } from './error.ts'
-import { isList, isMessage, isRecord } from './guards.ts'
+import { isMessage, isRecord } from './guards.ts'
 import { CachedRows, rowsOf } from './rows.ts'
 
 /** A growth's rows: `first`, or as many as the first page's. */
@@ -83,6 +83,16 @@ function collect(cache: ApolloCache): void {
 	}, collectAfter)
 }
 
+/** Evicts `row` from `cache`, by its `__typename` and `id`. */
+function evictRow(cache: ApolloCache, row: unknown): void {
+	const { id, __typename } = isRecord(row) ? row : {}
+	const entity =
+		typeof id === 'string' && typeof __typename === 'string'
+			? cache.identify({ __typename, id })
+			: undefined
+	if (entity !== undefined) cache.evict({ id: entity })
+}
+
 /** Evicts from `cache` the rows of `list` that `changes` names gone. */
 function evict(
 	cache: ApolloCache,
@@ -96,12 +106,8 @@ function evict(
 	)
 	if (gone.size === 0) return
 	for (const row of rowsOf(list)) {
-		const { id, __typename } = isRecord(row) ? row : {}
-		const entity =
-			typeof id === 'string' && typeof __typename === 'string' && gone.has(id)
-				? cache.identify({ __typename, id })
-				: undefined
-		if (entity !== undefined) cache.evict({ id: entity })
+		const id = isRecord(row) ? row['id'] : undefined
+		if (typeof id === 'string' && gone.has(id)) evictRow(cache, row)
 	}
 	collect(cache)
 }
@@ -124,6 +130,8 @@ function followed(
 				? new CachedRows(operation, field)
 				: undefined
 		let data: Data | undefined
+		// The live row last shown.
+		let row: unknown = null
 		let revision = 0
 		let token: string | undefined
 		let inner: Subscription | undefined
@@ -165,17 +173,32 @@ function followed(
 				const resume: unknown = Reflect.get(live, 'resume')
 				if (typeof resume === 'string') token = resume
 				settle()
-				return observer.next(result)
+				observer.next(result)
+				// A live row is null once deleted or unreadable: no other component
+				// keeps it (D-154 point 10).
+				const shown = whole[key]
+				if (shown === null && row !== null) {
+					evictRow(cache, row)
+					collect(cache)
+				}
+				row = shown
+				return
 			}
 			const list = data?.[key]
 			const next =
-				data !== undefined && live.revision === revision + 1 && isList(list)
+				data !== undefined && live.revision === revision + 1 && isRecord(list)
 					? applyLive(list, live)
 					: undefined
-			// Out of step: read the list again.
-			if (data === undefined || next === undefined || !isList(list)) {
+			// Out of step: read the list again; refused, grown past what a new read
+			// may ask, at its first size (D-252).
+			if (data === undefined || next === undefined || !isRecord(list)) {
 				data = undefined
 				token = undefined
+				if (grows !== undefined) {
+					undo = () => {
+						operation.variables = { ...operation.variables, [grows]: page }
+					}
+				}
 				return open()
 			}
 			revision += 1

@@ -13,6 +13,7 @@ import { asUser } from '@ultimabase/testing'
 import type { Caller } from 'ultimabase'
 import { defineApp, defineModel, master, memory } from 'ultimabase'
 import { softDelete, softDeletePlugin } from './index.ts'
+import { z } from 'zod'
 
 const M = { as: master }
 
@@ -57,9 +58,49 @@ const Comment = defineModel({
 	}),
 })
 
+// A virtual each read computes, which the delete's own write must not.
+const computed: string[] = []
+const Note = defineModel({
+	name: 'Note',
+	fields: (f) => ({
+		text: f.string(),
+		loud: f.virtual(z.string(), { needs: ['text'] }),
+		live: f.virtual(z.number()),
+		lives: f.virtual(z.number()),
+	}),
+	use: [softDelete()],
+}).with({
+	virtuals: {
+		loud: {
+			run: ({ record }) => {
+				computed.push(record.text)
+				return record.text.toUpperCase()
+			},
+		},
+		// Its query is its own: it reads the rows not deleted, from the trash too.
+		live: { run: async () => Note.count({}, M) },
+		lives: {
+			runMany: async ({ records }) => {
+				const live = await Note.count({}, M)
+				return records.map(() => live)
+			},
+		},
+	},
+})
+
+// A folder in another: the trash reads a deleted one under its live parent.
+const Folder = defineModel({
+	name: 'Folder',
+	fields: (f) => ({
+		name: f.string(),
+		parent: f.one(() => Folder, { optional: true }),
+	}),
+	use: [softDelete()],
+})
+
 const app = defineApp({
 	database: memory(),
-	models: [Post, Comment],
+	models: [Post, Comment, Note, Folder],
 	plugins: [softDeletePlugin()],
 })
 const titles = async (): Promise<string[]> =>
@@ -107,6 +148,15 @@ describe('a deleted row', () => {
 		await Post.restore({ where: { id } }, user('ada'))
 		await Post.update({ where: { id }, data: { title: 'Back' } }, M)
 		expect(updated).toEqual(['master:delete', 'user:restore', 'master:edit'])
+	})
+
+	// Its update computed the virtuals it threw away: a read per row deleted.
+	it('computes the virtuals once, for the row it returns', async () => {
+		const note = await Note.create({ data: { text: 'hi' } }, M)
+		computed.length = 0
+		const removed = await Note.delete({ where: { id: note.id } }, M)
+		expect(removed.loud).toBe('HI')
+		expect(computed).toEqual(['hi'])
 	})
 
 	it('needs the delete rule', async () => {
@@ -171,6 +221,45 @@ describe('restore', () => {
 		await expect(Post.restore({ where: { id } }, M)).rejects.toMatchObject({
 			code: 'NOT_FOUND',
 		})
+	})
+})
+
+describe('the trash', () => {
+	it('runs no virtual as its command (D-89)', async () => {
+		for (const text of ['a', 'b', 'c']) {
+			await Note.create({ data: { text } }, M)
+		}
+		const a = await Note.findFirstOrThrow({ where: { text: 'a' } }, M)
+		await Note.delete({ where: { id: a.id } }, M)
+		const read = { select: { text: true, live: true, lives: true } }
+		expect(await Note.trash.findMany(read, M)).toEqual([
+			{ text: 'a', live: 2, lives: 2 },
+		])
+	})
+})
+
+describe('a trash read', () => {
+	it('reads the rows under its own as any read does (D-89)', async () => {
+		const root = await Folder.create({ data: { name: 'root' } }, M)
+		const gone = await Folder.create({ data: { name: 'gone' } }, M)
+		const child = { name: 'child', parent: { connect: { id: root.id } } }
+		const under = { name: 'under', parent: { connect: { id: gone.id } } }
+		for (const data of [child, under]) {
+			const { id: made } = await Folder.create({ data }, M)
+			await Folder.delete({ where: { id: made } }, M)
+		}
+		await Folder.delete({ where: { id: gone.id } }, M)
+		const read = {
+			select: { name: true, parent: { select: { name: true } } },
+			orderBy: { name: 'asc' },
+		} as const
+		expect(await Folder.trash.findMany(read, M)).toEqual([
+			{ name: 'child', parent: { name: 'root' } },
+			{ name: 'gone', parent: null },
+			{ name: 'under', parent: null },
+		])
+		const where = { parent: { is: { name: 'root' } } }
+		expect(await Folder.trash.count({ where }, M)).toBe(1)
 	})
 })
 

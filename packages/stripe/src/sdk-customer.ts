@@ -136,7 +136,8 @@ export async function stateOf(
 ): Promise<CustomerState> {
 	const customer = await client.customers.retrieve(id)
 	if (customer.deleted === true) return gone
-	// A refund comes within the year; a paid period, within its own.
+	// A refund or a dispute comes within the year; a paid period, within its
+	// own. An older payment keeps the state it was last synced with.
 	const created = { gte: Math.floor(Date.now() / 1000) - 400 * day }
 	const [subscriptions, intents, invoices, sessions] = await Promise.all([
 		all(
@@ -150,6 +151,7 @@ export async function stateOf(
 		all(
 			client.paymentIntents.list({
 				customer: id,
+				created,
 				limit: 100,
 				expand: ['data.latest_charge'],
 			}),

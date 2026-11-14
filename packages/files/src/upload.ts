@@ -5,7 +5,7 @@ import { randomUUID } from 'node:crypto'
 import { fileTypeFromBuffer } from 'file-type'
 import type { Identity, JsonValue, QueryOptions } from 'ultimabase'
 import { isMaster, PublicError } from 'ultimabase'
-import { completedCaller } from 'ultimabase/internal'
+import { apart, completedCaller } from 'ultimabase/internal'
 import type { FileInput, FileOptions, Inline } from './field.ts'
 import { keysOf } from './field.ts'
 import { bytesOf } from './memory.ts'
@@ -219,8 +219,18 @@ export async function madeOf(
 /**
  * Stores a file for `options.for`, as `POST /files` does, and gives its id,
  * which a write of that field takes. `size` is the body's length in bytes.
+ * Its rows are written apart from the open transaction: when that one rolls
+ * back, they stay pending, so the sweep deletes the objects (D-400).
  */
 export async function upload(
+	body: FileBody,
+	size: number,
+	options: UploadOptions,
+): Promise<{ readonly id: string }> {
+	return apart(async () => stored(body, size, options))
+}
+
+async function stored(
 	body: FileBody,
 	size: number,
 	options: UploadOptions,

@@ -50,8 +50,10 @@ rollback. `after` delays it, in milliseconds:
 - A run due now starts as its transaction commits, on the server that wrote it.
 - A delayed run starts within five seconds of its due time, on whichever
   server finds it first.
-- An invalid input is refused with `VALIDATION_FAILED`, as a function's, and
-  no run is written.
+- An invalid input is the server's error, not the client's: `enqueue`
+  throws a plain error naming the job and each issue, the request answers
+  `500` and logs it, and no run is written. Validate what a client sends in
+  the function that receives it.
 
 A `*Commit` [hook](/docs/next/hooks) runs once too, but in memory: a crash
 before it ends loses it, and it never runs again. A job is for what must
@@ -73,7 +75,11 @@ another error tracker subscribes to the channel. A recurring job's failed run is
 an error at once, and the job runs at its next time.
 
 A run may also run twice: a server that crashes mid-run leaves it to another
-five minutes later. So:
+five minutes later, and a server that stops waits ten seconds for its runs,
+then leaves those still running to another the same way.
+
+A run that never ends ten times in a row, as one that runs its server out of
+memory, turns `failed` instead of running an eleventh time. So:
 
 - A job that calls another service passes `id`, the run's, as its idempotency
   key, as `closeRoom` does above, or checks the state it changes.
@@ -223,7 +229,7 @@ pending or failed run, and one for each recurring job.
 | `input`       | The validated input, as JSON.                            |
 | `state`       | `'pending'`, or `'failed'` after ten attempts.           |
 | `dueAt`       | When it runs next.                                       |
-| `attempts`    | The runs that failed.                                    |
+| `attempts`    | The runs started.                                        |
 | `error`       | The last failure's message.                              |
 | `lockedUntil` | Until when a server holds it.                            |
 | `key`         | A keyed job's name and key, as JSON.                     |
@@ -266,13 +272,12 @@ resolves.
 
 - A run starts within five seconds of its due time, each server polling
   the database; a run due now starts as its write commits.
-- A server runs 20 runs at a time, and holds each for five minutes: a run
-  longer than that may start again on another server.
+- A server runs 20 runs at a time, and holds each while it runs: it warns
+  every five minutes of a run still running.
 - Each run runs at least once, not exactly once: its `id` is the
   idempotency key.
 - A run's input is stored as JSON: it holds what JSON holds, a date as
   its ISO string.
 - `cron` takes five fields, no seconds.
-- A run of a key holds it for its lease: a run longer than five minutes may
-  overlap the next run of its key.
+- A run of a key holds it while it runs: the next run of its key waits.
 - A waiting run moved earlier by an `enqueue` starts within five seconds.

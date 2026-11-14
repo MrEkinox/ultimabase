@@ -231,6 +231,42 @@ describe('a function returning a page (D-182)', () => {
 		})
 	})
 
+	it('counts take rows for a list it returns, as GraphQL does', async () => {
+		const everyone = defineFunction({
+			name: 'everyone',
+			query: true,
+			output: [User],
+			run: () => User.findMany({}, M),
+		}).with({ access: allow.public })
+		const renamed = defineFunction({
+			name: 'renamed',
+			output: [User],
+			run: () => User.findMany({}, M),
+		}).with({ access: allow.public })
+		const running = await started({ maxRows: 99 }, memory(), [
+			everyone,
+			renamed,
+		])
+		try {
+			await seeded()
+			const above = refused(
+				'The request asks for more than 99 rows. Ask for fewer with first or last.',
+			)
+			const route = running.url
+			expect(await call(route, 'GET', '/api/functions/everyone')).toStrictEqual(
+				above,
+			)
+			expect(await call(route, 'POST', '/api/functions/renamed')).toStrictEqual(
+				above,
+			)
+			const master = { headers: asMaster }
+			const read = await call(route, 'GET', '/api/functions/everyone', master)
+			expect(read.status).toBe(200)
+		} finally {
+			await running.app.stop()
+		}
+	})
+
 	it('is a list of rows with pagination: list, and has no count', async () => {
 		await serving({ pagination: 'list' }, async (get) => {
 			const read = await get('functions/paged', {

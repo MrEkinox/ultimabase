@@ -184,6 +184,19 @@ describe('applyLive', () => {
 		expect(reads.count).toBeLessThan(1500)
 	})
 
+	// Each row then stood one place further from where it was read: its search
+	// grew with every remove before it, 3.8 s for 10,000 of 50,000 rows.
+	it('reads a list a few times for many rows removed front to back', () => {
+		const { reads, rows } = counted(2000)
+		const changes = Array.from({ length: 1000 }, (_, index) => ({
+			remove: `r${index}`,
+		}))
+		const next = applyLive(rows, { revision: 2, changes })
+		expect(next?.length).toBe(1000)
+		expect(next?.[0]).toBe(rows[1000])
+		expect(reads.count).toBeLessThan(100_000)
+	})
+
 	it("needs each row's id", () => {
 		const message = { revision: 2, changes: [{ remove: 'a' }] }
 		expect(() => applyLive([{ title: 'a' }], message)).toThrow(

@@ -154,3 +154,39 @@ describe('a big live list reading its window', () => {
 		expect(placed.map(({ id }) => id)).toEqual([moved.id])
 	})
 })
+
+const listed = async (seen: LiveMessage[]) =>
+	(await viewer()).list(
+		'Item',
+		{ orderBy: [{ rank: 'asc' }], first: 1000, select: { slow: true } },
+		(message) => {
+			seen.push(message)
+		},
+	)
+const resets = (seen: readonly LiveMessage[]) =>
+	seen.filter(({ kind }) => kind === 'reset').length
+
+describe('reads of a whole window asked again', () => {
+	it('run once for all asked before it began', async () => {
+		const seen: LiveMessage[] = []
+		const handle = await listed(seen)
+		await Promise.all([handle.resend(), handle.resend(), handle.resend()])
+		expect(resets(seen)).toBe(2)
+	})
+
+	it('run again for one asked once it began', async () => {
+		const seen: LiveMessage[] = []
+		const handle = await listed(seen)
+		const { gate, open } = opened()
+		held = gate
+		const first = handle.resend()
+		await vi.waitFor(() => {
+			expect(reading).toBe(true)
+		})
+		const second = handle.resend()
+		held = undefined
+		open()
+		await Promise.all([first, second])
+		expect(resets(seen)).toBe(3)
+	})
+})

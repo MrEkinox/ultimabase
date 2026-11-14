@@ -158,7 +158,9 @@ caller reads, and answers none:
 ### Replace a delete
 
 `redirect` replaces an operation: here, a delete unpublishes the row. It runs
-after the `delete` rule and the `beforeDelete` hooks, so as Master.
+after the `delete` rule and the `beforeDelete` hooks, so as Master. Its `where`
+names every row the delete removes, `{ id: { in: ids } }`: a `deleteMany` of a
+thousand rows calls it once, so it writes them with one `updateMany`.
 
 <include cwd meta='title="src/plugins/publishing.ts"'>
 	../examples/plugins/src/plugins/publishing.ts#redirect
@@ -635,7 +637,7 @@ definition required, as `addedFields` or `api`.
 | `addedFields`  | `(f, options) => fields`                      | The fields of `addedFields`, built for each model.                                          |
 | `addedIndexes` | `{ fields, unique?, contains?: true }[]`      | Indexes on its added fields; `contains` is a trigram index.                                 |
 | `hooks`        | `{ beforeFind?, beforeCreate?, … }`           | Run on each model that uses it, before the model's own.                                     |
-| `redirect`     | `{ delete? }`                                 | Replaces a delete, as [soft-delete](/docs/next/soft-delete) does.                           |
+| `redirect`     | `{ delete? }`                                 | Replaces a delete, given its rows' ids, as [soft-delete](/docs/next/soft-delete) does.      |
 | `commands`     | `(model) => commands`                         | Built once for each model that uses it.                                                     |
 | `caller`       | `({ user }, context) => keys`                 | Keys of each user caller.                                                                   |
 | `identify`     | `(request, context) => Identity \| undefined` | Who sends a request; `undefined` leaves it to the next plugin.                              |

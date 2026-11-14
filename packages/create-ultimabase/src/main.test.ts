@@ -27,6 +27,7 @@ beforeEach(() => {
 afterEach(() => {
 	rmSync(cwd, { recursive: true, force: true })
 	vi.restoreAllMocks()
+	vi.unstubAllEnvs()
 })
 
 const io = (more: Partial<Io> = {}): Io => ({
@@ -134,16 +135,43 @@ it('writes in the current directory, named after it, when it is empty', async ()
 
 it('quotes a directory with a space in the cd it prints', async () => {
 	expect(await main(['my apps/blog'], io())).toBe(0)
-	expect(printed[0]).toContain('  cd "my apps/blog"\n')
+	expect(printed[0]).toContain("  cd 'my apps/blog'\n")
 })
 
+// Single quotes keep every character, `!` included, which zsh and an
+// interactive bash expand inside double quotes.
 it.each([
-	["it's/blog", `"it's/blog"`],
-	['my $apps/blog', '"my \\$apps/blog"'],
-	['a"b`c\\d/blog', '"a\\"b\\`c\\\\d/blog"'],
+	["it's/blog", `'it'\\''s/blog'`],
+	['my $apps/blog', `'my $apps/blog'`],
+	['a"b`c\\d/blog', `'a"b\`c\\d/blog'`],
+	['wow!x/blog', `'wow!x/blog'`],
 ])('quotes %s as a shell reads it back', async (directory, cd) => {
 	expect(await main([directory], io())).toBe(0)
 	expect(printed[0]).toContain(`  cd ${cd}\n`)
+})
+
+// `npm create` passes a quoted `~` on, which the shell would have expanded.
+it.each([
+	['~/blog', 'blog', '  cd ~/blog\n'],
+	['~/my apps/blog', 'my apps/blog', "  cd ~/'my apps/blog'\n"],
+])('writes %s in the home directory', async (directory, path, cd) => {
+	vi.stubEnv('HOME', cwd)
+	expect(await main([directory], io({ cwd: tmpdir() }))).toBe(0)
+	expect(manifest(path)).toMatchObject({ name: 'blog' })
+	expect(printed[0]).toContain(cd)
+})
+
+it('ends quietly when the question is cancelled, Ctrl+C or Ctrl+D', async () => {
+	expect(await main([], io({ ask: async () => undefined }))).toBe(130)
+	expect(failed).toEqual(['\nCancelled: nothing was written.'])
+	expect(readdirSync(cwd)).toEqual([])
+})
+
+it('refuses in one line a directory it cannot write', async () => {
+	writeFileSync(join(cwd, 'file'), '')
+	expect(await main(['file/blog'], io())).toBe(1)
+	expect(failed).toHaveLength(1)
+	expect(failed[0]).toMatch(/^Cannot write file\/blog: ENOTDIR: /u)
 })
 
 it('refuses a directory that is not empty, or a file', async () => {
@@ -166,6 +194,17 @@ it.each(['Blog', 'my_app!', '.hidden', '_app', 'blog~1', 'a'.repeat(215)])(
 		expect(failed[0]).toBe(
 			`${name} cannot name a package: use lowercase letters, digits, '-', '.' and '_', and start with a letter or a digit.`,
 		)
+	},
+)
+
+it.each(['node_modules', 'favicon.ico', 'http', 'events'])(
+	'refuses %s, a name npm refuses for a package',
+	async (name) => {
+		expect(await main([name], io())).toBe(1)
+		expect(failed).toEqual([
+			`${name} cannot name a package: Node or npm uses it.`,
+		])
+		expect(readdirSync(cwd)).toEqual([])
 	},
 )
 
@@ -204,6 +243,18 @@ it('asks its question on a terminal', async () => {
 	expect(String(output.read())).toBe('? Project name: (my-app) ')
 })
 
+it.each([
+	['Ctrl+C', '\x03'],
+	['Ctrl+D', '\x04'],
+])('answers nothing once %s ends the terminal', async (_, key) => {
+	const input = new PassThrough()
+	// A TTY output makes readline read keys, as in a terminal.
+	const output = Object.assign(new PassThrough(), { isTTY: true })
+	const asked = terminal(input, output)('? Project name: (my-app) ')
+	input.write(key)
+	expect(await asked).toBeUndefined()
+})
+
 it('reads the process', () => {
 	vi.stubEnv('npm_config_user_agent', 'pnpm/10.0.0')
 	const log = vi.spyOn(console, 'log').mockImplementation(() => undefined)
@@ -215,5 +266,4 @@ it('reads the process', () => {
 	expect(own.userAgent).toBe('pnpm/10.0.0')
 	expect(log).toHaveBeenCalledWith('out')
 	expect(error).toHaveBeenCalledWith('err')
-	vi.unstubAllEnvs()
 })

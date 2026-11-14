@@ -202,6 +202,11 @@ describe('ultimabaseLive', () => {
 		expect(await watched.at(1)).toMatchObject({ task: { title: 'a' } })
 		await Task.update({ where: { id: a?.id ?? '' }, data: { title: 'A' } }, M)
 		expect(await watched.at(2)).toMatchObject({ task: { title: 'A' } })
+		expect(client.cache.extract()).toHaveProperty(`Task:${a?.id}`)
+		// Unreadable now, no other component keeps it.
+		await Task.update({ where: { id: a?.id ?? '' }, data: { owner: 'bob' } }, M)
+		expect(await watched.at(3)).toStrictEqual({ task: null })
+		expect(client.cache.extract()).not.toHaveProperty(`Task:${a?.id}`)
 	})
 
 	it('refuses to grow a list whose first is no variable, or by a bad count', async () => {
@@ -375,6 +380,40 @@ describe('ultimabaseLive out of step', () => {
 		expect(await anonymous.failed()).toMatchObject({
 			message: "Select the node's id to follow a live list.",
 		})
+	})
+
+	it('reads the list afresh at its first size when its grown size is refused', async () => {
+		const refused = {
+			errors: [
+				{
+					message: 'A list follows at most 1 row.',
+					extensions: { code: 'VALIDATION_FAILED' },
+				},
+			],
+		}
+		const { client, sent } = answering(
+			[rows(1, ['a'], 't')],
+			[changes(2, { upsert: { id: 'b' }, after: 'a' }), changes(4)],
+			[refused],
+			[rows(1, ['c'], 'u')],
+		)
+		const live: LiveControl = {}
+		const watched = seen(
+			client.subscribe({
+				...unstored,
+				variables: { take: 1 },
+				context: { live },
+			}),
+		)
+		await watched.at(1)
+		await live.fetchMore?.({ first: 1 })
+		expect(await watched.at(3)).toEqual({ all: [{ id: 'c' }] })
+		expect(sent.map(({ variables }) => variables)).toEqual([
+			{ take: 1 },
+			{ take: 2 },
+			{ take: 2 },
+			{ take: 1 },
+		])
 	})
 
 	it('settles a grow once it completes, then grows only its variable', async () => {

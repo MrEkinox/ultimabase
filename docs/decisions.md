@@ -2854,15 +2854,31 @@ D-67's place for `redirect` and D-57's name `adds`.
 1. A redirected `delete` runs the path of a `delete`: the lookup of its row
    (`beforeFind`, `NOT_FOUND`), the model's `delete` access rule, the
    `beforeDelete` hooks, then the redirect in place of the write, given
-   `where: { id }` of the row found, in the operation's transaction. Then
-   `afterDelete` with the record as it was, the commit and
+   `where: { id: { in: ids } }` of the rows found, once per model, in the
+   operation's transaction: a `deleteMany` of a thousand rows writes them
+   once, not a thousand times (amended 2026-11-14; it was `where: { id }`, once
+   per row). Then `afterDelete` with the record as it was, the commit and
    `afterDeleteCommit`. The redirect's own queries run their own pipeline.
    `delete` returns the row as stored after the redirect, under the caller's
    field rules, or the record as it was when the redirect removed it.
+
+   ```ts
+   // Before
+   redirect: { delete: ({ where, queries }) =>
+      queries.update({ where, data: { deletedAt: new Date() } }, { as: master }) }
+   // After
+   redirect: { delete: ({ where, queries }) =>
+      queries.updateMany({ where, data: { deletedAt: new Date() } }, { as: master }) }
+   ```
+
 2. While a command runs, the queries it makes on its model give the
    plugin's hooks on that model `command`, its name. A query a hook makes,
-   the application's or a plugin's, gets no `command`. A command is a
-   function or an object of functions (`trash: queries`).
+   the application's or a plugin's, gets no `command`. Nor does a query a
+   virtual field makes: its value is the same from any read. Nor do the
+   rows read under the query's own, by `include`, `select` or a relation
+   filter: the trash reads a deleted row's live parent (amended
+   2026-11-14). A command is a function or an object of functions
+   (`trash: queries`).
 3. The interface declares a plugin's fields in `addedFields`, and its code
    builds them in `addedFields: (f, options) => ({ ... })`, required when
    the interface declares them. It runs once per model entry, with the
@@ -3062,7 +3078,7 @@ await User.delete({ where: { id } }, { as: caller })
 
 ## D-91: `start` and `stop` at run time
 
-Amended by D-204.
+Amended by D-204 and D-395.
 
 Choice: eight details of D-58 and D-59 at run time.
 
@@ -4900,7 +4916,9 @@ data in request body` (amended 2026-10-23).
    `info`: `POST /notes 201 12ms`. In production nothing is logged per
    request. A control character in a path stays encoded (`%0A`), so a path
    cannot forge a line; a client that leaves before its body ends is `499`,
-   as nginx counts it, and not logged as an error (amended 2026-10-23).
+   as nginx counts it, and not logged as an error (amended 2026-10-23);
+   only the client's own failure is: a failure of the server's own
+   meanwhile still answers `500` and is logged (amended 2026-11-14).
 6. The HTTP plugin's API gains `url()`, the address the server listens on
    once it started (`http://localhost:3000`); before, it throws. Outside
    production, `graphqlPlugin` logs `GraphiQL on http://localhost:3000/graphql.`
@@ -5051,7 +5069,9 @@ Choice: completes D-27, D-45, D-75 and D-107, and amends D-45's outputs.
    than `take` rows under a selected relation fails the call, its log naming
    the function and `take`, since its re-read would pass `maxRows`
    (amended 2026-10-23). `maxDepth`, the token limit and `maxRows` apply as
-   to any field.
+   to any field. REST counts a function's rows the same way, its whole output
+   selected, a mutation's included, before the function runs (amended
+   2026-11-14).
 9. The kernel gives every plugin's `api`, `start` and `stop` the
    application's `functions`, as it gives `models` (D-107): each function's
    name, `query`, its input and output, its `.with` key for that plugin, and
@@ -5623,7 +5643,9 @@ Choice: completes D-113.
    address, until the oldest of the hundred is 15 minutes old. A success
    clears its own address's failures only. Each address, whatever the
    subject, has the same ceiling: the 101st failed attempt from it within
-   15 minutes is refused on every subject (amended 2026-10-24).
+   15 minutes is refused on every subject (amended 2026-10-24). Each of
+   the three counts reads an index: the failures are indexed by subject and
+   address, and by address and time (amended 2026-11-14).
 3. At most `os.availableParallelism()` Argon2 computations run at once in a
    process, and 64 more wait; one more fails with `TOO_MANY_ATTEMPTS` and
    `retryAfter: 1`, and an attempt that fails so is not counted.
@@ -5815,7 +5837,9 @@ Choice: completes D-113 point 12 and D-115.
    are made after the response, so its time tells nothing either. An
    unknown email sends nothing. A failed send is logged with
    `logger.error`; the client sees no difference. Stopping the application
-   waits for the sends under way.
+   waits for the sends under way, 10 seconds at most, then warns of those
+   left: a platform kills a process 30 seconds after asking it to stop
+   (amended 2026-11-14).
 4. `resetPassword` sets the password, which ends every session (D-113), and
    opens none. It marks the email verified: the user received it.
 5. Tokens. 32 random bytes in base64url; `PasswordToken` stores their
@@ -6307,8 +6331,11 @@ Choice: amends D-71; Parse's ACL, stored in one string list.
 8. `acl()` without `default` is refused, by its types and when its model
    is defined. The field's schema takes an `ACL` or a `{ read, write }`
    object, not an array, each subject `*`, `user:<id>` or `role:<id>`.
-   `@ultimabase/roles` is a peer dependency: one copy of it keeps the key
-   `rolesOf` reads (D-126) (amended 2026-10-26, 2026-11-03).
+   That object is plain: another class's instance, such as an ACL of
+   another copy of the package, or a `Date`, is refused rather than read as
+   an empty ACL. `@ultimabase/roles` is a peer dependency: one copy of it
+   keeps the key `rolesOf` reads (D-126) (amended 2026-10-26, 2026-11-03,
+   2026-11-14).
 
 Why: `access` says what a kind of caller may do on a model; an ACL says who
 may see or change one row, which only data can hold (a shared note, a
@@ -6903,6 +6930,20 @@ Choice: completes D-40, D-61 and D-80.
    directory's name is the package's. It refuses a directory that is not
    empty, installs nothing, and prints the next commands for the package
    manager that ran it. It asks nothing else.
+
+   Amended 2026-11-14, after its audit:
+   - Ctrl+C or Ctrl+D at the question ends it with code 130 and one line,
+     `Cancelled: nothing was written.`, not a stack trace.
+   - A directory it cannot write, under a file or without the right to,
+     fails with one line, `Cannot write <directory>: <reason>`.
+   - The `cd` it prints quotes with single quotes, which keep every
+     character: `!` in double quotes is expanded by zsh and an interactive
+     bash.
+   - A leading `~` reads as the home directory, as the shell would have
+     expanded it before a quoted argument; the `cd` keeps `~/`.
+   - It refuses the names npm refuses for a new package beyond its pattern:
+     `node_modules`, `favicon.ico` and Node's modules, such as `http`.
+
 6. The starter holds `src/models.ts` (a public `Post`), `src/app.ts`
    (`memory()`, `httpPlugin()`, `graphqlPlugin()`), `src/app.test.ts`
    written with `testApplication`, `ultimabase.config.ts`, which
@@ -9189,7 +9230,7 @@ type Stage {
 
 ## D-152: Files
 
-Amended by D-200, D-202, D-250, D-351 and D-366.
+Amended by D-200, D-202, D-250, D-351, D-366 and D-400.
 
 Choice: completes D-32 and D-122; amends D-32 (no `local()`), D-89 (a
 plugin model knows its name) and D-122 points 2 and 5.
@@ -9280,7 +9321,10 @@ attachment`, so a browser never runs them. Files are served from the
    - a soft delete keeps its files (D-96): it is an update.
    - A sweep, at startup and every 10 minutes, first marks the expired
      pending rows `released`, so no write can attach them, then deletes
-     their objects, then their rows. The two delays are fixed.
+     their objects, then their rows. The two delays are fixed. The start
+     does not wait for its sweep, so a slow storage holds no start; one
+     sweep runs at a time, and the stop waits for the one under way
+     (amended 2026-11-14).
    - `files.check({ delete })` compares the storage's keys with
      `FilesBlob` and reports the objects without a row and the rows
      without an object; `delete: true` deletes the first.
@@ -9777,7 +9821,8 @@ maxConnectionRows })`; a subscribe past either fails with
     - A flush and a rebuild reach the viewers 8 at a time, so a change of
       the role tree does not read every window at once.
     - A row removed for rights is `gone`; the link evicts it from Apollo's
-      cache, so no other component keeps it.
+      cache, so no other component keeps it. A live row that turns `null`,
+      deleted or unreadable, is evicted the same way (amended 2026-11-14).
 11. Robustness:
     - A client whose socket buffer holds more than 1 MB loses its pending
       messages and gets the whole window once the buffer drains.
@@ -13486,7 +13531,7 @@ bob?.email // `string | null | undefined`
 
 ## D-204: `/health` and `/ready`, and a drain before the stop
 
-Amended by D-207 and D-223.
+Amended by D-207, D-223 and D-395.
 
 Choice: amends D-91 and D-106.
 
@@ -13590,16 +13635,26 @@ Choice: amends D-106 and D-166.
    `/health` and `/ready` are answered before them (D-204).
 2. A new package, `@ultimabase/maintenance`, exports
    `maintenancePlugin({ retryAfter })`. It requires http. `retryAfter` is
-   in milliseconds, 60 000 by default.
+   in milliseconds, 60 000 by default, a day at most: a client told to
+   wait longer would not come back (amended 2026-11-14).
 3. While the maintenance is on, every request and upgrade but Master's
    answers 503, `Retry-After` in seconds, and:
    `{ "code": "MAINTENANCE", "message": "The application is under maintenance.", "details": { "retryAfter": 60 } }`.
    `/graphql` is no exception. As it begins, the sockets open close with
-   1012 `Maintenance` (D-166).
+   1012 `Maintenance` (D-166), and the event streams open end:
+   `plugins.http.closeStreams()` ends every `text/event-stream` answer,
+   whose client reconnects and meets the 503. A live list's stream would
+   otherwise go on serving changes (amended 2026-11-14).
 4. `PUT /_ultimabase/maintenance` with `{ "enabled": true }` or
    `{ "enabled": false }` turns it on or off, with the master key only:
    403 `ACCESS_DENIED` for another caller, 400 `VALIDATION_FAILED` for
    another body. It answers `{ "enabled": … }`. It is never refused.
+   While it is on, the gate lets the switch through with a key only, and
+   answers another caller's 403 itself: a route of the application that
+   matched the path, which runs before the plugin's, would run for anyone
+   otherwise. The HTTP plugin refuses at start a route of the application
+   that answers a plugin's path under `/_ultimabase/` (amended
+   2026-11-14).
 5. A plugin that requires maintenance reads `plugins.maintenance`:
    `lock()` and `unlock()`, which resolve once the state is stored, and
    `locked()`, this server's state.
@@ -13607,7 +13662,10 @@ Choice: amends D-106 and D-166.
    (D-110), which no transport exposes. Each server reads it as it starts,
    and again on a change of it and on `missed` (D-154): every server
    follows. When the row cannot be read, the server keeps its state and
-   logs the error.
+   logs the error. `lock()` and `unlock()` read the row back once stored,
+   rather than follow the state they wrote: another server's switch stored
+   after it wins on this server too; when that read fails, they reject and
+   the change feed brings the state (amended 2026-11-14).
 7. `/ready` stays as D-204 has it: the maintenance does not change it.
 
 Why:
@@ -14125,9 +14183,12 @@ Choice: amends D-86 point 1 and D-123 point 2.
    The target model's own rules stay as D-124 point 5 says: linking a row
    reads it.
 2. `defineRole` gives `members`, `inherits` and `inheritedBy` the rule
-   `write: allow.private`. Only Master, so server code, gives or takes a
-   role, from the role or from the user's `roles`; a client writes the
-   role's own fields as its `access` allows.
+   `write: allow.private`, and every `many` field the developer adds to the
+   role too, whatever write rule it was given; its read rule stays the
+   developer's. Only Master, so server code, gives or takes a role, from
+   the role or from the user's `roles`, and links a role from the other
+   side of the developer's own relations; a client writes the role's own
+   fields as its `access` allows (amended 2026-11-14).
 3. Known and kept: the read of a caller's roles (D-123 point 4) follows
    five levels in one statement, so a graph where each role inherits many
    others reads that many rows to the power five; only Master writes the
@@ -14769,7 +14830,10 @@ or on a schedule, with no kernel change (D-25):
    `fn.run` (D-75): `job.enqueue(input, { after })`, or
    `job.enqueue({ after })` when it has no input. It validates the input
    (a Standard Schema, as a function's, D-27) and writes the row in the
-   current transaction, or alone outside one (D-36). Written from an
+   current transaction, or alone outside one (D-36). An invalid input is
+   the server's error, not the client's: a plain error naming the job and
+   each issue, so a `500`, logged, and never a `400` that shows a client
+   the schema of a job it never called (amended 2026-11-14). Written from an
    `after*` hook, the row exists if and only if the write committed. It
    takes no `as`: enqueuing is server code.
 4. No `job.run`: it would skip the queue and the retries. Tests run the due
@@ -14787,14 +14851,25 @@ or on a schedule, with no kernel change (D-25):
 7. One instance runs a row at a time, through a lease: an `updateMany` of
    the row where its lease has expired sets it five minutes ahead, and only
    the instance whose update counts one row runs it. It works on memory and
-   postgres alike, and a lease held by an instance that died expires.
-8. A run happens at least once: a run longer than its lease, or an instance
-   dying after the job's effect and before the row's delete, runs it again.
-   `id`, the row's id, is the key a job makes its effect idempotent with.
+   postgres alike, and a lease held by an instance that died expires. While
+   the run runs, its instance sets the lease five minutes ahead again every
+   100 s, and warns every five minutes of a run still running, with the
+   job's name: a run longer than five minutes is not run twice
+   (amended 2026-11-14).
+8. A run happens at least once: an instance dying after the job's effect
+   and before the row's delete runs it again. `id`, the row's id, is the
+   key a job makes its effect idempotent with. An instance that stops waits
+   ten seconds at most for its runs, as http waits for its requests, then
+   stops and warns with the ids of those left: their lease ends, and
+   another instance runs them again (amended 2026-11-14).
 9. A failed run is retried after 10 s, 20 s, 40 s and so on, doubling, up
    to ten attempts (about 2 h 50 min in all); then its row turns `failed`,
    is kept, and is logged with the job's name and the error. A recurring
-   job's failure is logged and its next occurrence runs as usual.
+   job's failure is logged and its next occurrence runs as usual. An
+   attempt counts as its run starts, so a run that stops its instance each
+   time, out of memory say, counts too: once ten runs never ended, the
+   eleventh claim turns the row `failed` without running it, logged as
+   such (amended 2026-11-14).
 10. The instance that enqueued a run starts it right after the commit when
     it is due; every instance looks for due rows every five seconds, a
     fixed value and not an option.
@@ -17477,7 +17552,9 @@ growing up to the limit, D-195 and D-196.
    growth past `maxConnectionRows`. A growth that crossed the limit leaves the
    client's `first` above it: reconnecting with its token opens at the limit,
    and without a token it is refused as at subscribe, so that a `first` too
-   large is never accepted in silence.
+   large is never accepted in silence. A client out of step reads its list
+   again without a token: refused that way, it reads it again at its first
+   size rather than ending the list (amended 2026-11-14).
 7. `useLiveSubscription` holds the pagination:
    - `fetchMore()` without argument adds a page of the first page's size;
      `fetchMore({ first })` stays. A call during a growth is ignored.
@@ -18143,6 +18220,8 @@ second 1 551, 2 382 to 593, 1 147 ms; 1 000 a second 4 045, 6 113 to 3 750, 5 68
 45, 73 to 41, 64 ms.
 
 ## D-268: A document is read and validated once
+
+Amended by D-398.
 
 Choice: nothing changes in a developer's code.
 
@@ -20504,6 +20583,8 @@ await Book.create({ data: { shelf: { connect: { id } } } }, M)
 
 ## D-335: A database the server cannot use answers 503
 
+Amended by D-396.
+
 Choice: amends D-47, D-72 and D-105.
 
 1. `UNAVAILABLE` is a kernel code, no longer the `http` plugin's: REST
@@ -21152,7 +21233,16 @@ Choice: amends D-106, D-116 point 3 and D-218 point 3.
    `headersTimeout`, 60 s by default), then closes the connection. Node
    checks every second, not every 30 s. It caps
    no connections per address: clients behind one NAT share an address, and
-   a proxy in front caps connections better.
+   a proxy in front caps connections better. An idle connection is kept
+   65 s, not Node's 5, past a load balancer's 60 s (AWS's default), which
+   otherwise reuses a connection Node just closed and answers `502`. A
+   request's body arrives within 120 s, not Node's 300, which still lets a
+   mobile client upload a file. A socket quiet for 120 s, as a client that
+   stopped reading its response, is closed; live streams and sockets send
+   something every 12 s. None is an option. Once the stop began, idle
+   connections are closed every 100 ms: one still reading a body it was
+   answered for, as a `413`, turns idle with no event, and would otherwise
+   hold the stop until its keep-alive timeout (amended 2026-11-14).
 2. Over the limit, once an address sent a wrong master key, its next
    master-key requests are refused until the window ends, without checking
    the key and without logging it. Master's key still passes over the limit
@@ -21427,7 +21517,9 @@ Choice: amends D-221 points 3, 6 and 11.
    pending again, its attempts at 0, due at its next time. During a rolling
    deploy an older instance that starts still deletes the recurring rows of
    the jobs it does not declare; the next instance of the newer version to
-   start creates them again.
+   start creates them again. At startup an instance warns of each job it
+   does not declare whose runs wait, with their count: without a version
+   declaring it they wait forever (amended 2026-11-14).
 6. `every` and `after` are refused at import and at `enqueue` unless the
    run they time is due before the year 10000, the last a stored date
    holds (D-94). A cron pattern no date matches, as `0 0 30 2 *`, is
@@ -21523,6 +21615,31 @@ await graphql(
      answers faster until its next sign-in rehashes it. Hashing the dummy with
      each stored parameter set would cost a hash per set for every unknown
      email.
+   - The `User.requestPasswordReset` command tells whether an email has an
+     account: it resolves at once without one, and only with one waits for
+     the email and rejects with `sendEmail`'s error or `TOO_MANY_ATTEMPTS`
+     (added 2026-11-14). It is server code, which knows the accounts; the
+     public function answers alike. The password page warns a function that
+     returns the command's result to a client.
+
+5. A password holding a lone surrogate is refused with `VALIDATION_ERROR`, and
+   a sign-in with one fails as a wrong password. An email holding a control or
+   format character (Unicode Cc or Cf: a zero-width space, a direction
+   override, a soft hyphen) or a lone surrogate is refused as
+   `Expected an email address.` (added 2026-11-14).
+
+Why: UTF-8 encodes every lone surrogate as U+FFFD before Argon2 hashes it, so
+`'a\uD800'` and `'a\uDC00'` were one password. A hidden character made
+`ada@example.com` and `ada​@example.com` two accounts that read the same
+in an email client and an admin list.
+
+Example:
+
+```ts
+await User.signUp({ email: 'ada​@example.com', password })
+// Before: a second account that reads as ada@example.com.
+// After: VALIDATION_ERROR, Expected an email address.
+```
 
 ## D-354: Signing in over a WebSocket
 
@@ -21955,6 +22072,8 @@ Choice: builds on D-360; D-92 for its dependency.
    itself, before it imports anything, as Sentry asks: only then are its
    HTTP and SQL spans recorded. The plugin reads the kernel's channels into
    the client `init` made.
+   It goes first in `plugins`: plugins stop in reverse order, and a plugin
+   listed after it would stop with its errors unread (amended 2026-11-14).
 2. Each message of `ultimabase:operation`, `ultimabase:hook`,
    `ultimabase:virtual` and `ultimabase:function` is a span:
    - named `Post.findMany`, `Post.beforeFind (soft-delete)`,
@@ -21971,6 +22090,9 @@ Choice: builds on D-360; D-92 for its dependency.
    through an API it marks private, the one its own integrations use.
    Without it, the spans are made flat, under the request's span, and the
    plugin warns once at start.
+   Outside a trace, where it makes no span, the active span stays the
+   one before: a span the application starts in the work is its own
+   transaction (amended 2026-11-14).
 4. An issue comes only from `ultimabase:error`: `captureException` with the
    correlation id as a tag and the log line's message. The error a span
    ends with marks the span failed and makes no issue: a `NOT_FOUND` or a
@@ -22234,7 +22356,11 @@ Choice: amends D-221.
 2. A run waits while it is pending and not running. `enqueue` of a key with a
    waiting run adds none: the waiting run keeps its input, and its due time
    becomes the earlier of the two. A run enqueued while a run of its key runs
-   is a new waiting run, which starts once that run ends.
+   is a new waiting run, which starts once that run ends. The join writes the
+   waiting run even when its due time stays: the row stays locked until the
+   enqueue commits, so no instance runs it on state not yet written; a run
+   claimed between the read and the join leaves a new waiting run (amended
+   2026-11-14).
 3. Never two runs of one key at once, on any server. A run of a key holds it
    in `JobsRun.holding`, a unique column set by the update that claims the
    row (D-221, point 7) and cleared when the run ends. A claim the unique
@@ -24202,3 +24328,158 @@ const url = await stripe.portal({
 			: {}),
 })
 ```
+
+## D-395: http answers its running requests before any plugin stops
+
+Amended by D-399.
+
+Choice: amends D-91 point 5 and D-204 point 6.
+
+1. After its drain, http's `stopping` stops accepting connections and waits
+   for every request its server has not answered yet: a request is
+   answered once its handler returns its `Response`. `stopping` runs before
+   any plugin's `stop` (D-204 point 5), so a plugin that a request uses is
+   still running until it is answered.
+2. A stream (an event stream, a download) and a socket a plugin took go on
+   after their answer. Their plugin ends them in its `stop`, as REST's live
+   streams and GraphQL's sockets already do, and http's `stop` waits for
+   them, then for the connections to end.
+3. The 10 seconds of D-106 count from the end of the drain and cover both
+   waits; past them, http closes every connection and says so, as before.
+
+Why: D-91 point 5 said the HTTP plugin's `stop` refuses requests first,
+"since it needs the others". It is the other way round: files, auth, REST,
+GraphQL and Stripe require http, so http starts first and stops last. A
+request still running when the drain ended met the plugins it used already
+stopped: an upload ended in `filesPlugin has not started.`, and a sign-up
+that enqueued its welcome email failed with a 500 and no email, what point
+5 exists to prevent. The kernel's lifecycle test named a plugin `http` that
+required another, and hid it.
+
+Rejected:
+
+- Stopping the plugins in start order: a plugin relies on what it needs
+  until its last line (D-91 point 1).
+- Waiting in `stopping` for every connection to end: a live stream or a
+  socket ends only in its plugin's `stop`, so every stop would wait the full
+  10 seconds.
+- A hook for plugins to end their streams in http's `stopping`: REST and
+  GraphQL already end theirs in their `stop`, which now runs once the
+  requests were answered.
+
+Example: a plugin's route, during a deployment.
+
+```ts
+files.post('/upload', async (c) => {
+	const body = await c.req.arrayBuffer() // the body arrives after the drain
+	return c.json(await upload(body)) // before: filesPlugin has not started
+})
+```
+
+After: `stop` waits for this handler's `Response`, then stops `filesPlugin`.
+Nothing changes in the application's code.
+
+## D-396: A server that refuses connections answers 503 too
+
+Choice: amends D-335 point 2.
+
+1. A connection PostgreSQL refuses for want of room is busy: `53300` (too
+   many clients) and `53400` (a role's or a database's connection limit).
+   Once the application serves, the client reads `The database is busy: try
+again shortly.`; the developer reads that the server takes no more
+   connections, and to keep `connections` times the server processes below
+   its `max_connections`.
+2. A server that takes no connection now cannot be reached: `57P03`
+   (starting, stopping or recovering), a connection reset (`ECONNRESET`,
+   `EPIPE`) or closed while it opens. The client reads `The database cannot
+be reached: try again shortly.`
+3. Both keep `retryAfter: 1`; any other refusal stays a 500 (D-335 point
+   5).
+
+Why: D-335 sent 503 for a full pool, but the processes of one application
+each open up to `connections`, and together they can pass the server's
+`max_connections`; a deploy that overlaps old and new processes, or a
+managed database's failover, then answered 500 `INTERNAL`, which says the
+server has a bug and asks nobody to try again.
+
+Rejected: a 503 for every error at connect, such as a wrong password
+(`28P01`), which a retry repeats.
+
+Example, during a deploy whose processes pass `max_connections`:
+
+```ts
+const response = await fetch(`${url}/api/posts`)
+// Before: 500 { code: 'INTERNAL', message: 'Internal error.', correlationId }
+// After: 503, Retry-After: 1
+//   { code: 'UNAVAILABLE', message: 'The database is busy: try again shortly.',
+//     details: { retryAfter: 1 } }
+```
+
+## D-398: The documents kept hold 256 KB of text at most
+
+Choice: amends D-268 point 1; nothing changes in a developer's code.
+
+1. The GraphQL plugin keeps the documents it was last asked for while they
+   are at most 500 and hold at most 256 KB of text together, the least
+   recently asked given up first.
+2. A tree holds up to 210 bytes a character of its text, in a document that
+   packs a token in every two characters, so the bound is at most 55 MB a
+   process.
+
+Why: D-268 bounded the documents by count, assuming 40 bytes a character.
+Each node keeps its location and each token its neighbours: 500 documents
+of 4 KB, each one field repeated, held 420 MB after collection. They are
+kept before validation, so an anonymous client filled every process with
+500 refused requests, inside the default rate limit.
+
+Rejected: parsing without locations, which held 124 MB but takes the
+`locations` out of every refusal; giving up what validation refuses, which
+a client passes with valid documents of the same shape.
+
+Measured with 500 documents of 3 986 characters, `{ q<i> a a … }`, the
+heap after `gc()`: 420.5 MB before, 54.8 MB after.
+
+## D-399: A request that comes once the stop began is refused
+
+Choice: amends D-395 point 1; nothing changes in a developer's code.
+
+1. Once http's `stopping` stops accepting connections, a request whose
+   headers end on a connection already open is answered 503
+   `{ "code": "UNAVAILABLE", "message": "The application is stopping." }`,
+   as `/ready` answers, and its connection is closed. An upgrade is
+   refused the same way.
+2. An upgrade counts as a request `stopping` waits for, from its headers
+   until its plugin takes it: the gate and the rate limit run while the
+   plugins they read still run.
+
+Why: D-395 waits for the requests whose handler runs when the stop begins.
+A request whose headers were still arriving was neither running nor idle:
+it ran once its headers ended, after the plugins it used stopped. An
+upgrade was not counted at all, so its gate could read a stopped plugin
+and its plugin take a socket after its own stop. A client reaches both
+with a slow connection, or a keep-alive one that sends its next request
+during the stop.
+
+Rejected: counting each request from its first byte, which Node does not
+tell; waiting for every open connection, which D-395 already rejected.
+
+## D-400: An upload is written apart from the open transaction
+
+Choice: amends D-152; nothing changes in a developer's code.
+
+1. `files.upload`, and `POST /files`, write their `FilesBlob` rows apart
+   from the transaction the caller opened: when that one rolls back, the
+   rows stay pending, and the sweep deletes them and their objects within
+   the hour, as it deletes any upload no write attached.
+2. `ultimabase/internal` exports `apart(run)`, which runs `run` outside the
+   open transaction. On PostgreSQL its writes take a second connection; with
+   `connections: 1` an upload inside a transaction waits for the pool, then
+   fails.
+
+Why: the objects are stored outside any transaction. Their rows rolled back
+with the caller's, so no row named them and no sweep deleted them; a
+serializable transaction that ran again stored them once per attempt.
+
+Rejected: refusing an upload inside a transaction, which breaks a caller
+that uploads then writes in one; deleting the objects on rollback, which a
+crash between the two still leaks.

@@ -85,7 +85,7 @@ const trash = definePlugin<Trash>({
 	addedFields: (f) => ({ trashedAt: f.dateTime({ optional: true }) }),
 	redirect: {
 		delete: async ({ where, queries }) =>
-			queries.update({ where, data: { trashedAt: new Date() } }, M),
+			queries.updateMany({ where, data: { trashedAt: new Date() } }, M),
 	},
 	hooks: {
 		beforeFind: ({ where, command }) =>

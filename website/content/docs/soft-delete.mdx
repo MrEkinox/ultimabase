@@ -103,6 +103,10 @@ The model gets two commands. The tests below write `as` for `{ as: master }`.
 	../examples/soft-delete/src/app.test.ts#trash-find
 </include>
 
+The trash holds the rows it reads, not the rows under them: an `include` or
+a relation filter reads related rows as any read does. A deleted folder's
+parent that is still there is read; a deleted parent reads as `null`.
+
 A deleted row is gone for every other read, Master's included. `deleteMany`
 keeps its rows too:
 

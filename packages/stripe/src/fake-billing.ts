@@ -93,7 +93,8 @@ export function fakeBilling(
 	readonly fake: FakeBilling
 } {
 	const customers = new Map<string, FakeCustomer>()
-	const keys = new Map<string, string>()
+	// Like Stripe's: a key gives its first answer to the same parameters only.
+	const keys = new Map<string, readonly [id: string, params: string]>()
 	const checkouts = new Map<string, FakeCheckout>()
 	const subscriptions = new Map<string, StripeSubscription>()
 	const payments = new Map<string, StripePayment>()
@@ -206,11 +207,13 @@ export function fakeBilling(
 	}
 	const gateway: BillingGateway & RecoveryGateway = {
 		createCustomer: async (profile, idempotencyKey) => {
+			const params = JSON.stringify(profile)
 			const held = keys.get(idempotencyKey)
-			if (held !== undefined) return held
+			if (held?.[1] === params) return held[0]
+			if (held !== undefined) throw new Error('idempotency_error')
 			const id = newId('cus')
 			customers.set(id, { id, profile, deleted: false, card: null })
-			keys.set(idempotencyKey, id)
+			keys.set(idempotencyKey, [id, params])
 			return id
 		},
 		updateCustomer: async (id, profile) => {

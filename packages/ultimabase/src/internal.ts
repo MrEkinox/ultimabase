@@ -5,13 +5,17 @@
 // the pages functions return (D-182), the reset route (D-188) and the
 // master key's header the rate limit checks (D-218) and the Standard Schema
 // check a job's input takes (D-221), the deepest filter (D-228) and a
-// plugin's stored value rewritten without hooks (D-366).
+// plugin's stored value rewritten without hooks (D-366), a write kept apart
+// from the open transaction (D-400), and a field under other rules (D-213).
 import type { Adapter, Feed } from './adapter.ts'
 import { internalsOf } from './app-internals.ts'
 import type { Logger } from './app-options.ts'
 import { consoleLogger } from './console-logger.ts'
+import type { FieldDefinition } from './definition.ts'
+import { build, fieldDefinitions } from './definition.ts'
 import type { Lifecycle } from './lifecycle.ts'
 import { lifecycle } from './lifecycle.ts'
+import { isObject } from './query-where.ts'
 import { current } from './running.ts'
 import type { Caller, Identity } from './rules.ts'
 
@@ -21,7 +25,7 @@ export { scratchable, scratchOf } from './scratch.ts'
 export { isRow } from './field-codec.ts'
 export type { PageSource } from './page.ts'
 export { pageSource } from './page.ts'
-export { joining } from './transaction.ts'
+export { apart, joining } from './transaction.ts'
 export { masterKeyHeader } from './identify.ts'
 export { issueOf } from './write-data.ts'
 export { decimalPattern } from './decimal.ts'
@@ -110,4 +114,22 @@ export async function emptyRunning(): Promise<void> {
 	if (app === undefined) throw new Error('No application is running.')
 	await app.work.alone(5000, async () => app.adapter.empty())
 	app.feed?.missed()
+}
+
+/**
+ * A value a builder returned: its kind, its rules, and the same field under
+ * other rules, as `defineRole` gives its relations (D-213); `undefined` for
+ * another value.
+ */
+export function ruledField(value: unknown):
+	| {
+			readonly kind: FieldDefinition['kind']
+			readonly rules: object | undefined
+			readonly ruled: (rules: object) => object
+	  }
+	| undefined {
+	const definition = isObject(value) ? fieldDefinitions.get(value) : undefined
+	if (definition === undefined) return undefined
+	const { kind, rules } = definition
+	return { kind, rules, ruled: (next) => build({ ...definition, rules: next }) }
 }

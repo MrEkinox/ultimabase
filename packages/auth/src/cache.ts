@@ -16,14 +16,18 @@ export interface Read {
 	readonly renewAt: number
 }
 
+/** A read running, and the epoch it began in. */
+type Running = { readonly at: number; readonly read: Promise<Read | undefined> }
+
 /** One application's callers, by token. */
 export interface Cache {
 	/** The caller `token` gave, while nothing changed it. */
 	readonly hit: (token: string) => Read | undefined
-	/** Reads `token` with `read`, kept unless a change came meanwhile. */
+	/** Reads `token` with `read`, or joins a read begun since the last change. */
 	readonly through: (
 		token: string,
 		read: () => Promise<Read | undefined>,
+		alone: boolean,
 	) => Promise<Read | undefined>
 	readonly changed: (changes: readonly Changed[]) => void
 	readonly lost: () => void
@@ -69,6 +73,8 @@ export function cacheOf(users: string): Cache {
 	let epoch = 0
 	/** Between `lost` and `missed`, changes go unheard: nothing is kept. */
 	let blind = false
+	/** The reads running, by token. */
+	const running = new Map<string, Running>()
 
 	const drop = (token: string): void => {
 		const entry = byToken.get(token)
@@ -117,11 +123,22 @@ export function cacheOf(users: string): Cache {
 			drop(token)
 			return undefined
 		},
-		through: async (token, read) => {
+		through: async (token, read, alone) => {
+			const begun = running.get(token)
+			// One begun before a change may give what the change ended.
+			if (!alone && begun?.at === epoch && !blind) return begun.read
 			const at = epoch
-			const result = await read()
-			if (result !== undefined && epoch === at && !blind) keep(token, result)
-			return result
+			const reading = read().then((result) => {
+				if (result !== undefined && epoch === at && !blind) keep(token, result)
+				return result
+			})
+			const entry = { at, read: reading }
+			running.set(token, entry)
+			try {
+				return await reading
+			} finally {
+				if (running.get(token) === entry) running.delete(token)
+			}
 		},
 		changed: (changes) => {
 			for (const change of changes) {

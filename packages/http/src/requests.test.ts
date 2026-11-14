@@ -258,6 +258,10 @@ describe('a body that is not the form it claims', () => {
 	})
 })
 
+/** Settles once the client left. */
+const left = async (signal: AbortSignal) =>
+	new Promise((done) => signal.addEventListener('abort', done))
+
 describe('a client that leaves before its body ends', () => {
 	it('is no server error: 499 in the log, as nginx', async () => {
 		const { url, lines } = await serving(
@@ -275,6 +279,35 @@ describe('a client that leaves before its body ends', () => {
 			expect(logged).toContainEqual(expect.stringMatching(/^POST \/raw 499 /))
 		})
 		expect(lines.filter((line) => line.level === 'error')).toStrictEqual([])
+	})
+
+	it('leaves the server’s own failure meanwhile logged', async () => {
+		const { url, lines } = await serving(
+			routes()
+				.get('/bug', async (c) => {
+					await left(c.req.raw.signal)
+					throw new TypeError('a bug in the route')
+				})
+				// As a `fetch` given the request's signal throws.
+				.get('/forwarded', async (c) => {
+					await left(c.req.raw.signal)
+					throw c.req.raw.signal.reason
+				}),
+		)
+		for (const path of ['/bug', '/forwarded']) {
+			const socket = connect(Number(new URL(url).port), 'localhost', () => {
+				socket.write(`GET ${path} HTTP/1.1\r\nHost: localhost\r\n\r\n`)
+				setTimeout(() => socket.destroy(), 20)
+			})
+		}
+		await vi.waitFor(() => {
+			const logged = lines.map((line) => String(line.first))
+			expect(logged).toContainEqual(expect.stringMatching(/^GET \/bug 500 /))
+			expect(logged).toContainEqual(
+				expect.stringMatching(/^GET \/forwarded 499 /),
+			)
+		})
+		expect(lines.filter((line) => line.level === 'error')).toHaveLength(1)
 	})
 })
 

@@ -5,7 +5,7 @@ import type { EventSourceMessage } from 'eventsource-parser/stream'
 import { EventSourceParserStream } from 'eventsource-parser/stream'
 import { applyLive } from './apply.ts'
 import { LiveError, liveErrorOf } from './error.ts'
-import { isList, isMessage } from './guards.ts'
+import { isMessage, isRecord } from './guards.ts'
 
 /** What a live read sends with each request. */
 export type LiveFetchOptions = {
@@ -95,8 +95,15 @@ export function liveFetch<T = unknown>(
 		}
 		void read(controller, `${path}?${asked.toString()}`, sent)
 	}
+	const initial = params.get(arg ?? '')
 	const afresh = () => {
 		token = undefined
+		// Refused, grown past what a new read may ask: at its first size (D-252).
+		if (arg !== undefined && initial !== null) {
+			undo = () => {
+				params.set(arg, initial)
+			}
+		}
 		open()
 	}
 	/** Handles `event`; `false` once the stream is replaced or failed. */
@@ -114,7 +121,7 @@ export function liveFetch<T = unknown>(
 		if (event !== 'live') return true
 		const list = result?.value
 		const next =
-			isMessage(body) && body.revision === revision + 1 && isList(list)
+			isMessage(body) && body.revision === revision + 1 && isRecord(list)
 				? applyLive(list, body)
 				: undefined
 		// Out of step: read the list again.
@@ -131,10 +138,13 @@ export function liveFetch<T = unknown>(
 		href: string,
 		sent: Headers,
 	) {
+		let after = 0 // The wait a 429's retry-after asks, in ms.
 		try {
 			const { signal } = controller
 			const response = await fetch(href, { headers: sent, signal })
-			if (!response.ok && response.status < 500) {
+			if (response.status === 429) {
+				after = Number(response.headers.get('retry-after')) * 1000 || 0
+			} else if (!response.ok && response.status < 500) {
 				const body: unknown = await response.json().catch(() => undefined)
 				// A growth refused, past maxLive: the list goes on as it was (D-186).
 				if (undo !== undefined) {
@@ -160,7 +170,7 @@ export function liveFetch<T = unknown>(
 		}
 		if (request !== controller) return
 		// Cut, ended or refused: reconnect with the token, at random (D-275).
-		timer = setTimeout(open, Math.random() * backoff)
+		timer = setTimeout(open, after + Math.random() * backoff)
 		backoff = Math.min(backoff * 2, lastBackoff)
 	}
 

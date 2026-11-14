@@ -131,16 +131,16 @@ export async function beforeFind(
 
 /**
  * The plugin's `redirect.delete`, which replaces the write of a `delete`,
- * given `where: { id }` of the row found (D-15, D-89).
+ * given `where: { id: { in } }` of the rows found (D-15, D-89).
  */
 export function redirectOf(
 	model: ModelInfo,
-): ((caller: Caller, id: string) => Promise<unknown>) | undefined {
+): ((caller: Caller, ids: readonly string[]) => Promise<unknown>) | undefined {
 	const use = model.plugins.find((each) => each.code.redirect !== undefined)
 	const redirect = use?.code.redirect
 	if (use === undefined || redirect === undefined) return undefined
-	return async (caller, id) => {
-		const facts = { caller, where: { id }, ...use.model }
+	return async (caller, ids) => {
+		const facts = { caller, where: { id: { in: ids } }, ...use.model }
 		const result: unknown = await Reflect.apply(redirect, undefined, [facts])
 		return result
 	}

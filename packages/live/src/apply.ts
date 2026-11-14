@@ -46,15 +46,19 @@ function placed(
 		index >= 0 && index < next.length && idOf(next[index], connected) === id
 	// One change scans. More read the list once: a message of many then costs
 	// what it changes, and a row stands within one place of where it stood for
-	// each splice since.
-	const places =
-		changes.length > 1
-			? new Map(next.map((row, i) => [idOf(row, connected), i] as const))
-			: undefined
+	// each splice since, until the list is read again.
+	const placesOf = () =>
+		new Map(next.map((row, i) => [idOf(row, connected), i] as const))
+	let places = changes.length > 1 ? placesOf() : undefined
 	let shifts = 0
 	const at = (id: string) => {
 		if (places === undefined) {
 			return next.findIndex((row) => idOf(row, connected) === id)
+		}
+		// Past √n splices, reading the list again costs less than searching.
+		if (shifts * shifts > next.length) {
+			places = placesOf()
+			shifts = 0
 		}
 		const place = places.get(id)
 		if (place !== undefined) {

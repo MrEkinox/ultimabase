@@ -161,6 +161,11 @@ export function inCommand<R>(command: Command, run: () => R): R {
 	return commands.run(command, run)
 }
 
+/** Whether a command runs: the rows a query reads under its own run outside. */
+export function commandRunning(): boolean {
+	return commands.getStore() !== undefined
+}
+
 /** Runs a hook's body: the queries it makes run outside any command. */
 export function outsideCommands<R>(run: () => R): R {
 	return commands.exit(run)

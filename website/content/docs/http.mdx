@@ -342,7 +342,11 @@ A route that needs no database is called directly:
 - `/ready` checks no database: when it fails, every instance would leave
   the load balancer at once.
 - A client that has not sent all its headers 10 s after it connected is
-  disconnected, so slow clients cannot hold every socket.
+  disconnected, so slow clients cannot hold every socket. A request's body
+  arrives within 120 s, and a socket quiet for 120 s is closed.
+- An idle connection is kept 65 s, past a load balancer's 60 s: a load
+  balancer that keeps connections longer than that answers some requests
+  `502`; set its idle timeout under 65 s.
 
 ## Reference
 
@@ -362,6 +366,11 @@ A route that needs no database is called directly:
 Outside production, local origins over `http:` are allowed besides `cors`,
 and `POST /_ultimabase/reset` empties the database for the master key, for
 [end-to-end tests](/docs/next/testing#end-to-end-tests).
+
+A route of `routes` that answers a plugin's path under `/_ultimabase/`, as
+`PUT /:a/:b` answers `PUT /_ultimabase/maintenance`, refuses the start: it
+would run in the plugin's place.
+
 On `stop`, after the `drain`, the server stops taking connections and waits
 10 seconds at most for the requests still running.
 
@@ -404,6 +413,7 @@ the HTTP plugin:
 | ----------------------------------------------- | ----------------------------------------------------------------------------------------- |
 | `plugins.http.upgrade(path, accept, { close })` | Takes the upgrades of `path`, from the plugin's `api`; `close(code, reason)` closes them. |
 | `plugins.http.closeUpgrades({ code, reason })`  | Closes the sockets open; with `path`, those of one path. Cuts those without `close`.      |
+| `plugins.http.closeStreams()`                   | Ends the event streams open (`text/event-stream` answers): their clients reconnect.       |
 
 `accept` receives the upgrade: its `request`, the client's `address`, the
 `socket`, and `limit()`, which counts one more request of the address and

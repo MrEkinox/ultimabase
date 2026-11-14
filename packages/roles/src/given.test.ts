@@ -20,9 +20,24 @@ const M = { as: master }
 const Role = defineRole({
 	name: 'Role',
 	members: () => User,
+	fields: (f) => ({
+		perms: f.many(() => Perm, { inverse: 'roles' }),
+		pinned: f
+			.many(() => Perm, { inverse: 'pinnedBy' })
+			.with({ access: { read: allow.private, update: allow.public } }),
+	}),
 }).with({
 	access: allow.public,
 })
+// Anyone writes a permission, and links it to the roles it reads.
+const Perm = defineModel({
+	name: 'Perm',
+	fields: (f) => ({
+		title: f.string(),
+		roles: f.many(() => Role, { inverse: 'perms' }),
+		pinnedBy: f.many(() => Role, { inverse: 'pinned' }),
+	}),
+}).with({ access: allow.public })
 // A user edits their own row, as a profile.
 const User = defineModel({
 	name: 'User',
@@ -68,7 +83,7 @@ beforeEach(async () => {
 		database: memory(),
 		logger,
 		plugins: [rolesPlugin()],
-		models: [Role, User, Post],
+		models: [Role, User, Post, Perm],
 	})
 	await app.start()
 	const admin = await Role.create({ data: { name: 'Admin' } }, M)
@@ -183,6 +198,49 @@ it("refuses a client who writes a role's members or inheritance", async () => {
 	)
 	expect(await inherited).toMatchObject({ code: 'ACCESS_DENIED' })
 	expect(await isAdmin()).toBe(false)
+})
+
+// Before: a client allowed to write Perm linked it to Admin from Perm's side.
+it("refuses a client who links a role through the developer's own relations", async () => {
+	const perm = await Perm.create({ data: { title: 'Billing' } }, M)
+	const linked = refusal(async () =>
+		Perm.update(
+			{
+				where: { id: perm.id },
+				data: { roles: { connect: [{ id: ids.admin }] } },
+			},
+			eve(),
+		),
+	)
+	expect(await linked).toMatchObject({
+		code: 'ACCESS_DENIED',
+		details: { model: 'Role', field: 'perms', via: 'Perm.roles' },
+	})
+	// A write rule the developer gives the field opens it no more (D-355).
+	const pinned = refusal(async () =>
+		Perm.create(
+			{
+				data: { title: 'Root', pinnedBy: { connect: [{ id: ids.admin }] } },
+			},
+			eve(),
+		),
+	)
+	expect(await pinned).toMatchObject({
+		code: 'ACCESS_DENIED',
+		details: { model: 'Role', field: 'pinned', via: 'Perm.pinnedBy' },
+	})
+	const admin = await Role.findUnique(
+		{ where: { id: ids.admin }, include: { perms: true, pinned: true } },
+		M,
+	)
+	expect(admin).toMatchObject({ perms: [], pinned: [] })
+	// Its read rule stays the developer's: the field is left out.
+	const read = await Role.findUnique(
+		{ where: { id: ids.admin }, include: { pinned: true } },
+		eve(),
+	)
+	expect(read).not.toHaveProperty('pinned')
+	expect(read).toMatchObject({ name: 'Admin' })
 })
 
 it('refuses a client who renames a role into one it lacks', async () => {

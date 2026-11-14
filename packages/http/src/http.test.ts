@@ -21,7 +21,7 @@ import { clientOf, httpPlugin, routes } from './index.ts'
 import { addresses } from './address.ts'
 import {
 	bodyLimitOf,
-	closed,
+	shutdown,
 	drainOf,
 	listening as listeningOn,
 	portOf,
@@ -120,8 +120,52 @@ const ownBody = definePlugin<Reading>({
 	},
 })
 
+interface Serving extends PluginTypes {
+	readonly name: 'serving'
+	readonly requires: Http
+}
+// Routes that use what their plugin holds from its start to its stop, and a
+// stream its stop ends, as rest's does.
+let holding = false
+let answer: (() => void) | undefined
+let ending: (() => void) | undefined
+const serving = definePlugin<Serving>({
+	name: 'serving',
+	manifest: { ...manifest, name: 'serving' },
+	requires: { http: httpPlugin },
+	api: ({ plugins }) => {
+		plugins.http.mount(
+			routes()
+				.post('/upload', async (c) => {
+					await new Promise<void>((done) => {
+						answer = done
+					})
+					return c.text(holding ? 'stored' : 'stopped')
+				})
+				.get('/use', (c) => c.text(holding ? 'running' : 'stopped'))
+				.get('/stream', (c) =>
+					streamSSE(c, async (stream) => {
+						await stream.writeSSE({ data: 'open' })
+						await new Promise<void>((done) => {
+							ending = done
+						})
+					}),
+				),
+		)
+	},
+	start: () => {
+		holding = true
+	},
+	stop: () => {
+		holding = false
+		ending?.()
+	},
+})
+
 type Mounted =
-	ReturnType<typeof mounting.plugin> | ReturnType<typeof ownBody.plugin>
+	| ReturnType<typeof mounting.plugin>
+	| ReturnType<typeof ownBody.plugin>
+	| ReturnType<typeof serving.plugin>
 
 /** A started application on a free port, and what it logged. */
 async function started(
@@ -218,6 +262,8 @@ describe('a response', () => {
 	})
 })
 
+const ownText = (c: Context) => c.text('own')
+
 describe('mount', () => {
 	it('adds a plugin’s routes after the application’s', async () => {
 		const own = routes().get('/a', (c) => c.text('own'))
@@ -227,6 +273,23 @@ describe('mount', () => {
 			headers: { 'x-ultimabase-master-key': 'secret' },
 		})
 		expect(await master.json()).toMatchObject({ kind: 'master' })
+	})
+
+	it('refuses an application route that answers a plugin’s path', async () => {
+		// Outside production, `POST /_ultimabase/reset` is mounted.
+		const shadowing = routes().get('/:a/:b', ownText).post('/:a/:b', ownText)
+		const refused = started({ routes: [shadowing] }).then(async ({ app }) =>
+			app.stop(),
+		)
+		await expect(refused).rejects.toThrow(
+			"The application's route POST /:a/:b answers POST /_ultimabase/reset, which a plugin serves: give it another path.",
+		)
+		// Another method, or a middleware, answers no plugin's path.
+		const passing = routes()
+			.use(async (_, next) => next())
+			.get('/:a/:b', ownText)
+		const { url } = await server({ routes: [passing] })
+		expect(await (await fetch(`${url}/x/y`)).text()).toBe('own')
 	})
 
 	it('throws once the server runs', async () => {
@@ -740,7 +803,7 @@ describe('the port', () => {
 		await new Promise((done) => queued.close(done))
 	})
 
-	it('waits 10 s for headers, checked every second (D-348)', async () => {
+	it('waits 10 s for headers, 120 s for a request and a quiet socket, and keeps a connection 65 s (D-348)', async () => {
 		const slow = serverOf(() => new Response(null))
 		await listeningOn(slow, 0)
 		// Node keeps the timer of its checks under this symbol only.
@@ -750,6 +813,10 @@ describe('the port', () => {
 		const timer: unknown = checks && Reflect.get(slow, checks)
 		expect(slow.headersTimeout).toBe(10_000)
 		expect(timer).toMatchObject({ _repeat: 1000 })
+		// Past a load balancer's 60 s, which reuses the connections it keeps.
+		expect(slow.keepAliveTimeout).toBe(65_000)
+		expect(slow.requestTimeout).toBe(120_000)
+		expect(slow.timeout).toBe(120_000)
 		await new Promise((done) => slow.close(done))
 	})
 
@@ -783,7 +850,7 @@ describe('the port', () => {
 		// The first one still answers, alone on its port.
 		holder.on('request', (_, response) => response.end('held'))
 		expect(await (await fetch(`http://127.0.0.1:${port}`)).text()).toBe('held')
-		await closed(holder, recorder([]), new Map())
+		await shutdown(holder, recorder([]), new Map()).closed
 	})
 
 	it.runIf(process.platform === 'linux')(
@@ -808,7 +875,7 @@ describe('the port', () => {
 			clearImmediate(turning)
 			expect(Math.max(...accepted.values())).toBeGreaterThan(1)
 			for (const client of clients) client.destroy()
-			await closed(queued, recorder([]), new Map())
+			await shutdown(queued, recorder([]), new Map()).closed
 		},
 	)
 })
@@ -872,6 +939,74 @@ describe('stop', () => {
 		// Its connection, idle after it, closes now, not at the client's timeout.
 		expect(Date.now() - released).toBeLessThan(1000)
 		await expect(fetch(`${url}/caller`)).rejects.toThrow('fetch failed')
+	})
+	it('closes a connection idle once its body ends after the stop began', async () => {
+		// Answered 413 before its body ends, it is idle only once Node has read
+		// the rest: it then stayed open until the keep-alive timeout, 65 s.
+		const { app, url } = await started({ bodyLimit: 1000 })
+		const socket = connect(Number(new URL(url).port), '127.0.0.1')
+		await new Promise((done) => socket.once('connect', done))
+		const answered = new Promise((done) => socket.once('data', done))
+		const closed = new Promise((done) => socket.once('close', done))
+		socket.write(
+			'POST /notes HTTP/1.1\r\nHost: localhost\r\nContent-Length: 2000\r\n\r\n',
+		)
+		expect(String(await answered)).toMatch(/^HTTP\/1\.1 413 /)
+		let stopped = false
+		const stopping = (async () => {
+			await app.stop()
+			stopped = true
+		})()
+		await new Promise((done) => setTimeout(done, 50))
+		expect(stopped).toBe(false)
+		socket.write('x'.repeat(2000))
+		const ended = Date.now()
+		await Promise.race([closed, new Promise((done) => setTimeout(done, 2000))])
+		const waited = Date.now() - ended
+		// Closed by the test otherwise, so the stop ends here, not after it.
+		socket.destroy()
+		await stopping
+		expect(waited).toBeLessThan(1000)
+	})
+	it('answers a running request before the plugins it uses stop', async () => {
+		// http starts first, so it stops last: its stop came too late (D-395).
+		const { app, url } = await started({}, serving.plugin())
+		const upload = fetch(`${url}/upload`, { method: 'POST' })
+		await expect.poll(() => answer).toBeDefined()
+		const stopping = app.stop()
+		await new Promise((done) => setTimeout(done, 50))
+		answer?.()
+		expect(await (await upload).text()).toBe('stored')
+		await stopping
+	})
+	it('refuses a request whose headers end once the stop began', async () => {
+		// It was not running when the stop began, so it ran after its plugin's.
+		const { app, url } = await started({}, serving.plugin())
+		const socket = connect(Number(new URL(url).port), '127.0.0.1')
+		await new Promise((done) => socket.once('connect', done))
+		let received = ''
+		socket.on('data', (chunk: Buffer) => {
+			received += chunk.toString()
+		})
+		const closed = new Promise((done) => socket.once('close', done))
+		socket.write('GET /use HTTP/1.1\r\nHost: localhost\r\n')
+		await new Promise((done) => setTimeout(done, 50))
+		const stopping = app.stop()
+		await expect.poll(() => holding).toBe(false)
+		socket.write('\r\n')
+		await closed
+		await stopping
+		expect(received).toMatch(/^HTTP\/1\.1 503 /)
+		expect(received.toLowerCase()).toContain('connection: close')
+		expect(received).toContain('The application is stopping.')
+	})
+	it('stops at once while a stream its plugin ends is open', async () => {
+		const { app, url } = await started({}, serving.plugin())
+		const response = await fetch(`${url}/stream`)
+		await response.body?.getReader().read()
+		const began = Date.now()
+		await app.stop()
+		expect(Date.now() - began).toBeLessThan(1000)
 	})
 	it('closes a stream still open 10 seconds after stop, and says so', async () => {
 		const events = routes()

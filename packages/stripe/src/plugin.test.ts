@@ -152,6 +152,9 @@ describe('stripePlugin’s start', () => {
 			'stripePlugin: webhookPath is a path, as /webhooks/stripe.',
 		)
 		await expect(wrong({ trial: 7 })).rejects.toThrow('takes no trial')
+		await expect(wrong({ key: 'sk_test_quoted' })).rejects.toThrow(
+			/^stripePlugin takes no key\.$/u,
+		)
 		await expect(wrong({ risk: { refund: 'always' } })).rejects.toThrow(
 			"stripePlugin's risk takes no refund.",
 		)
@@ -308,6 +311,18 @@ describe.each([
 				],
 			},
 		})
+	})
+
+	it('opens the portal on Stripe’s default, reading the catalog once', async () => {
+		const reads = vi.spyOn(gatewayOf(fake.secret), 'readCatalog')
+		const ada = await User.create({ data: { email: 'ada@example.com' } }, M)
+		await stripe.portal({ payer: ada })
+		await stripe.portal({ payer: ada })
+		expect(fake.portalSessions).toMatchObject([
+			{ configuration: null },
+			{ configuration: null },
+		])
+		expect(reads).toHaveBeenCalledTimes(1)
 	})
 })
 

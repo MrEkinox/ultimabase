@@ -1,9 +1,9 @@
 // The port the server listens on, and its listening (D-106); the body
 // limit and the drain (D-223); its connection queue (D-276); its listeners
-// (D-292); how long it waits for headers (D-348).
+// (D-292); how long it waits for headers (D-348); its event streams (D-205).
 import cluster from 'node:cluster'
 import type { Server } from 'node:http'
-import { createServer } from 'node:http'
+import { createServer, ServerResponse } from 'node:http'
 import {
 	createServer as createListener,
 	type Server as Listener,
@@ -124,16 +124,90 @@ export async function listening(server: Server, port: number): Promise<number> {
 
 /**
  * A client that never ends its headers holds a socket 10 s, not Node's 60;
- * checked every second, not every 30.
+ * checked every second, not every 30. An idle connection stays 65 s, past a
+ * load balancer's 60, which would otherwise reuse one Node closed: a 502. A
+ * request's body arrives within 120 s, not 300, a mobile upload included.
  */
-const waits = { headersTimeout: 10_000, connectionsCheckingInterval: 1000 }
+const waits = {
+	headersTimeout: 10_000,
+	connectionsCheckingInterval: 1000,
+	keepAliveTimeout: 65_000,
+	requestTimeout: 120_000,
+}
+/** A socket quiet that long, as a client that no longer reads, is closed. */
+const idle = 120_000
+
+/** Each server's requests not answered yet, and who waits for none. */
+const answering = new WeakMap<Server, { count: number; none?: () => void }>()
+
+/**
+ * What `work` gives, as a request `stop` waits for: a request until its
+ * handler returns, a stream going on after (D-395); an upgrade until its
+ * plugin takes it (D-399).
+ */
+export async function counted<T>(
+	server: Server,
+	work: () => Promise<T>,
+): Promise<T> {
+	const running = answering.get(server) ?? { count: 0 }
+	running.count += 1
+	try {
+		return await work()
+	} finally {
+		running.count -= 1
+		if (running.count === 0) running.none?.()
+	}
+}
+
+/** The answer to a request that comes once the stop began, as `/ready`'s. */
+export const stopping = {
+	code: 'UNAVAILABLE',
+	message: 'The application is stopping.',
+} as const
+
+/** Each server's event streams still open. */
+const streams = new WeakMap<Server, Set<ServerResponse>>()
+
+/** `response` as an event stream `closeStreams` ends. */
+function held(server: Server, response: ServerResponse): void {
+	const open = streams.get(server) ?? new Set<ServerResponse>()
+	streams.set(server, open)
+	open.add(response)
+	response.once('close', () => open.delete(response))
+}
+
+/**
+ * Ends `server`'s event streams, as maintenance does (D-205): their client
+ * reconnects, then gets the answer the server gives at that time.
+ */
+export function closeStreams(server: Server): void {
+	for (const response of streams.get(server) ?? []) response.destroy()
+}
 
 /** A Node server for `fetch`, Hono's handler. */
 export function serverOf(
 	fetch: Parameters<typeof getRequestListener>[0],
 ): Server {
-	const listener = getRequestListener(fetch)
+	const listener = getRequestListener(async (request, env) => {
+		const answer = await counted(server, async () => fetch(request, env))
+		if (
+			answer instanceof Response &&
+			answer.headers.get('content-type')?.startsWith('text/event-stream') ===
+				true &&
+			env.outgoing instanceof ServerResponse
+		) {
+			held(server, env.outgoing)
+		}
+		return answer
+	})
 	const server = createServer(waits, (request, response) => {
+		// Once `stop` began, it would run after the plugins it uses (D-399).
+		if (!server.listening) {
+			response.shouldKeepAlive = false
+			response.writeHead(503, { 'content-type': 'application/json' })
+			response.end(JSON.stringify(stopping))
+			return
+		}
 		// A request running when `stop` began leaves its connection idle after
 		// its response: close it, rather than wait for the client to.
 		response.once('finish', () => {
@@ -141,6 +215,8 @@ export function serverOf(
 		})
 		void listener(request, response)
 	})
+	server.setTimeout(idle)
+	answering.set(server, { count: 0 })
 	return server
 }
 
@@ -148,26 +224,37 @@ export function serverOf(
 const grace = 10_000
 
 /**
- * Stops accepting connections, then waits for running requests and the
- * sockets plugins took (D-59), 10 seconds at most (D-106).
+ * Stops accepting connections: `answered` once no request awaits its handler,
+ * before any plugin stops (D-395); `closed` once the streams and sockets the
+ * plugins' `stop` ends are closed (D-59). 10 seconds at most in all (D-106).
  */
-export async function closed(
+export function shutdown(
 	server: Server,
 	logger: Logger,
 	taken: ReadonlyMap<Duplex, string>,
-): Promise<void> {
+): Record<'answered' | 'closed', Promise<unknown>> {
+	const running = answering.get(server) ?? { count: 0 }
 	const cutting = setTimeout(() => {
 		logger.warn(
 			`Stopped ${grace / 1000} s after stop began: closed the requests still running.`,
 		)
 		server.closeAllConnections()
 		for (const socket of taken.keys()) socket.destroy()
+		running.none?.()
 	}, grace)
-	try {
-		const closing = [server, ...(others.get(server) ?? [])].map(shut)
-		server.closeIdleConnections()
-		await Promise.all(closing)
-	} finally {
+	const shutting = [server, ...(others.get(server) ?? [])].map(shut)
+	server.closeIdleConnections()
+	// A connection still reading a body it was answered for turns idle later,
+	// with no event: it would stay open the keep-alive timeout, 65 s.
+	const idling = setInterval(() => server.closeIdleConnections(), 100)
+	const closed = Promise.all(shutting).finally(() => {
 		clearTimeout(cutting)
-	}
+		clearInterval(idling)
+	})
+	closed.catch(() => undefined) // Read by `stop`, once the plugins stopped.
+	const answered = new Promise<void>((done) => {
+		running.none = done
+		if (running.count === 0) done()
+	})
+	return { answered, closed }
 }

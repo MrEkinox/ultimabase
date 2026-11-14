@@ -168,17 +168,19 @@ async function readCaller(
 /**
  * A session token's caller, until it ends; `undefined` for an unknown one.
  * The same caller serves again while its session and user are unchanged
- * and no renewal is due (D-332), except to a recording, which keeps what
- * the caller is read from (D-343).
+ * and no renewal is due (D-332), and requests at once share one read,
+ * except a recording, which keeps what the caller is read from (D-343).
  */
 async function callerOf(
 	token: string,
 	state: State,
 	expires: (at: Date) => void,
 ): Promise<Identity | undefined> {
+	const recorded = recordingRuns()
+	const read = async () => readCaller(token, state)
 	const found =
-		(recordingRuns() ? undefined : state.cache.hit(token)) ??
-		(await state.cache.through(token, async () => readCaller(token, state)))
+		(recorded ? undefined : state.cache.hit(token)) ??
+		(await state.cache.through(token, read, recorded))
 	if (found === undefined) return undefined
 	expires(found.expiresAt)
 	return found.caller

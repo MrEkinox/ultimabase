@@ -56,8 +56,9 @@ const softDeleteDefinition = definePlugin<SoftDelete>({
 	},
 	// Runs after the `delete` access rule and the `beforeDelete` hooks.
 	redirect: {
+		// Every row a delete or a deleteMany removes, in one write.
 		delete: ({ where, queries }) =>
-			queries.update(
+			queries.updateMany(
 				{ where, data: { deletedAt: new Date(Date.now()) } },
 				{ as: master },
 			),

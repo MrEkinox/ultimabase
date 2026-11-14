@@ -45,7 +45,8 @@ const trash = definePlugin<Trash>({
 	redirect: {
 		delete: async ({ where, queries }) => {
 			log.push('redirect')
-			return queries.update({ where, data: { trashedAt: new Date() } }, M)
+			facts.set('redirect', where)
+			return queries.updateMany({ where, data: { trashedAt: new Date() } }, M)
 		},
 	},
 	hooks: {
@@ -279,6 +280,18 @@ describe('a redirected delete', () => {
 		).rejects.toMatchObject({ code: 'NOT_FOUND' })
 	})
 
+	it("gives a deleteMany's rows in one call", async () => {
+		const ids: string[] = []
+		for (const label of ['a', 'b', 'c']) {
+			ids.push((await Bin.create({ data: { label } }, M)).id)
+		}
+		clear()
+		expect(await Bin.deleteMany({}, M)).toEqual({ count: 3 })
+		expect(log.filter((entry) => entry === 'redirect')).toHaveLength(1)
+		expect(facts.get('redirect')).toEqual({ id: { in: ids } })
+		expect(await Bin.trash.count({}, M)).toBe(3)
+	})
+
 	it('keeps the delete access rule', async () => {
 		const row = await Shelf.create({ data: { label: 'a' } }, M)
 		clear()
@@ -339,7 +352,7 @@ describe('a redirect that removes the row', () => {
 		addedFields: (f) => ({ purged: f.boolean({ default: false }) }),
 		redirect: {
 			delete: async ({ where, queries }) =>
-				queries.update({ where, data: { purged: true } }, M),
+				queries.updateMany({ where, data: { purged: true } }, M),
 		},
 	})
 	const Note = defineModel({

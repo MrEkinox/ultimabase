@@ -36,8 +36,9 @@ export const sendDigest = defineFunction({
 export const app = defineApp({
 	// Kept in memory, so the example needs no database.
 	database: memory(),
-	// Reads the application's work into the client Sentry.init made.
-	plugins: [httpPlugin(), sentryPlugin()],
+	// Reads the application's work into the client Sentry.init made; first,
+	// so it stops after the others and reads their errors.
+	plugins: [sentryPlugin(), httpPlugin()],
 	models: [Post],
 	functions: [sendDigest],
 })

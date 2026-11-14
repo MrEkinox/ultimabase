@@ -23,9 +23,12 @@ export function ownKeys(
 	if (typeof definition !== 'object' || definition === null) {
 		throw new Refused(`${entry} takes an object.`)
 	}
+	// Only a definition that takes a key is named by it: an option misspelt
+	// `key` may hold a secret key, never quoted.
+	const where = keys.includes('key') ? whereOf(entry, definition) : entry
 	for (const key of Object.keys(definition)) {
 		if (!keys.includes(key)) {
-			throw new Refused(`${whereOf(entry, definition)} takes no ${key}.`)
+			throw new Refused(`${where} takes no ${key}.`)
 		}
 	}
 }

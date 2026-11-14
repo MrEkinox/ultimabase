@@ -40,25 +40,42 @@ const isObject = (value: unknown): value is Node =>
 const text = (value: unknown): Read =>
 	typeof value === 'string' ? { value } : { message: 'Expected a string.' }
 
+/** A character that shows nothing or turns the text: a look-alike address. */
+const hidden = /[\p{Cc}\p{Cf}]/u
+
 /** The email trimmed, lowercased and in NFC, the account's subject (D-113, D-353). */
 export function emailOf(value: unknown): Read {
 	if (typeof value !== 'string') return { message: 'Expected a string.' }
 	const trimmed = value.trim()
 	const email =
-		trimmed.length > 1016 ? '' : trimmed.toLowerCase().normalize('NFC')
-	if (email.length > 254 || !/^[^\s@]+@[^\s@]+$/.test(email)) {
+		trimmed.length > 1016 || !trimmed.isWellFormed()
+			? ''
+			: trimmed.toLowerCase().normalize('NFC')
+	if (
+		email.length > 254 ||
+		hidden.test(email) ||
+		!/^[^\s@]+@[^\s@]+$/.test(email)
+	) {
 		return { message: 'Expected an email address.' }
 	}
 	return { value: email }
 }
 
-/** A password as typed, in NFKC (D-115); unread past 4 units a character (D-353). */
+/**
+ * A password as typed, in NFKC (D-115); unread past 4 units a character, or
+ * with a lone surrogate, which UTF-8 hashes as any other (D-353).
+ */
 export const normalized = (password: string): string | undefined =>
-	password.length > 1024 ? undefined : password.normalize('NFKC')
+	password.length > 1024 || !password.isWellFormed()
+		? undefined
+		: password.normalize('NFKC')
 
 /** A password to store, normalized: 8 to 256 characters, no other rule (D-113, D-224). */
 export function passwordOf(value: unknown): Read {
 	if (typeof value !== 'string') return { message: 'Expected a string.' }
+	if (!value.isWellFormed()) {
+		return { message: 'Expected text without a lone surrogate.' }
+	}
 	const password = normalized(value)
 	const length = Array.from(password ?? '').length
 	if (password === undefined || length < 8 || length > 256) {
@@ -239,6 +256,9 @@ function objectJson(properties: ReadonlyMap<string, Property>): Node {
 /** What a named input's `run` reads, under `input` (D-109). */
 export type Named<O> = { readonly input: O }
 
+/** The schema of an input `namedInput` makes. */
+type Input<T> = StandardSchema<Named<T>, Named<T>>
+
 /**
  * One `input` argument of the object `id`, typed `SignUpInput` over GraphQL
  * for the id `SignUp`; the email is normalized, the dates read (D-113).
@@ -246,7 +266,7 @@ export type Named<O> = { readonly input: O }
 export function namedInput<O extends object>(
 	id: string,
 	properties: ReadonlyMap<string, Property>,
-): StandardSchema<Named<O>, Named<O>> {
+): Input<O> {
 	const json = (): Node => ({
 		$schema: 'https://json-schema.org/draft/2020-12/schema',
 		type: 'object',
@@ -290,10 +310,7 @@ type ChangePassword = {
 }
 type SignUp = Credentials & { readonly [field: string]: unknown }
 
-export const signInInput: StandardSchema<
-	Named<Credentials>,
-	Named<Credentials>
-> = namedInput(
+export const signInInput: Input<Credentials> = namedInput(
 	'SignIn',
 	new Map([
 		['email', email],
@@ -301,10 +318,7 @@ export const signInInput: StandardSchema<
 	]),
 )
 
-export const changePasswordInput: StandardSchema<
-	Named<ChangePassword>,
-	Named<ChangePassword>
-> = namedInput(
+export const changePasswordInput: Input<ChangePassword> = namedInput(
 	'ChangePassword',
 	new Map([
 		['currentPassword', property(text, string)],
@@ -315,16 +329,13 @@ export const changePasswordInput: StandardSchema<
 type ResetPassword = { readonly token: string; readonly password: string }
 
 /** What `requestPasswordReset` takes (D-117). */
-export const requestResetInput: StandardSchema<
-	Named<{ readonly email: string }>,
-	Named<{ readonly email: string }>
-> = namedInput('RequestPasswordReset', new Map([['email', email]]))
+export const requestResetInput: Input<{ readonly email: string }> = namedInput(
+	'RequestPasswordReset',
+	new Map([['email', email]]),
+)
 
 /** What `resetPassword` takes: the email's token and the new password (D-117). */
-export const resetPasswordInput: StandardSchema<
-	Named<ResetPassword>,
-	Named<ResetPassword>
-> = namedInput(
+export const resetPasswordInput: Input<ResetPassword> = namedInput(
 	'ResetPassword',
 	new Map([
 		['token', property(text, string)],
@@ -333,10 +344,10 @@ export const resetPasswordInput: StandardSchema<
 )
 
 /** What `verifyEmail` takes: the email's token (D-117). */
-export const verifyEmailInput: StandardSchema<
-	Named<{ readonly token: string }>,
-	Named<{ readonly token: string }>
-> = namedInput('VerifyEmail', new Map([['token', property(text, string)]]))
+export const verifyEmailInput: Input<{ readonly token: string }> = namedInput(
+	'VerifyEmail',
+	new Map([['token', property(text, string)]]),
+)
 
 type RequestEmailChange = {
 	readonly newEmail: string
@@ -344,10 +355,7 @@ type RequestEmailChange = {
 }
 
 /** What `requestEmailChange` takes: the new email and the password (D-162). */
-export const requestEmailChangeInput: StandardSchema<
-	Named<RequestEmailChange>,
-	Named<RequestEmailChange>
-> = namedInput(
+export const requestEmailChangeInput: Input<RequestEmailChange> = namedInput(
 	'RequestEmailChange',
 	new Map([
 		['newEmail', email],
@@ -356,18 +364,13 @@ export const requestEmailChangeInput: StandardSchema<
 )
 
 /** What `confirmEmailChange` takes: the email's token (D-162). */
-export const confirmEmailChangeInput: StandardSchema<
-	Named<{ readonly token: string }>,
-	Named<{ readonly token: string }>
-> = namedInput(
-	'ConfirmEmailChange',
-	new Map([['token', property(text, string)]]),
-)
+export const confirmEmailChangeInput: Input<{ readonly token: string }> =
+	namedInput('ConfirmEmailChange', new Map([['token', property(text, string)]]))
 
 /** The email, the password and the listed user fields, by their names. */
 export const signUpInput = (
 	fields: ReadonlyMap<string, Property>,
-): StandardSchema<Named<SignUp>, Named<SignUp>> =>
+): Input<SignUp> =>
 	namedInput(
 		'SignUp',
 		new Map([

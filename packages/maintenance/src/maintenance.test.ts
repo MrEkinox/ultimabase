@@ -95,7 +95,20 @@ function kept(): Adapter & { readonly missed: () => void } {
 	}
 }
 
-const notes = routes().get('/notes', (c) => c.json([]))
+// `/events` streams until its client goes, as a live list's SSE.
+const notes = routes()
+	.get('/notes', (c) => c.json([]))
+	.get(
+		'/events',
+		() =>
+			new Response(
+				new ReadableStream({
+					start: (stream) =>
+						stream.enqueue(new TextEncoder().encode(': on\n\n')),
+				}),
+				{ headers: { 'content-type': 'text/event-stream' } },
+			),
+	)
 const app = defineApp({
 	database: memory(),
 	plugins: [
@@ -242,6 +255,25 @@ describe('the maintenance', () => {
 		expect(await upgrade(running.url, '/live')).toBe(
 			'HTTP/1.1 101 Switching Protocols',
 		)
+	})
+
+	it('ends the open event streams, whose next request meets 503', async () => {
+		const events = await fetch(`${running.url}/events`)
+		const reader = events.body?.getReader()
+		if (reader === undefined) throw new Error('No body.')
+		expect((await reader.read()).done).toBe(false)
+		await maintenance().lock()
+		// Ended, or still open after a second: the stream stayed on.
+		const ended = await Promise.race([
+			reader.read().then(
+				({ done }) => done,
+				() => true,
+			),
+			new Promise((done) => setTimeout(() => done(false), 1000)),
+		])
+		await reader.cancel().catch(() => undefined)
+		expect(ended).toBe(true)
+		expect((await fetch(`${running.url}/events`)).status).toBe(503)
 	})
 
 	it('stores its state, as another server reads it', async () => {
@@ -400,13 +432,69 @@ describe('its initial state', () => {
 	})
 })
 
+describe('its switch', () => {
+	it('lets through only a caller with a key while on', async () => {
+		// An application route that answers any path, a middleware's way.
+		let ran = 0
+		const any = routes().all('/:a/:b', (c) => {
+			ran += 1
+			return c.text('ran')
+		})
+		const application = defineApp({
+			database: memory(),
+			plugins: [
+				httpPlugin({ port: 0, drain: 0, routes: [any] }),
+				maintenancePlugin({ initial: 'locked', key: 'deploy-key' }),
+				watching.plugin(),
+			],
+			models: [],
+			masterKey: 'secret',
+			logger,
+		})
+		await application.start()
+		try {
+			const switching = (headers: object) =>
+				fetch(`${address()}/_ultimabase/maintenance`, {
+					method: 'PUT',
+					headers,
+					body: JSON.stringify({ enabled: false }),
+				})
+			const anonymous = await switching({})
+			expect(anonymous.status).toBe(403)
+			expect(await anonymous.json()).toEqual({
+				code: 'ACCESS_DENIED',
+				message:
+					'Only the master key or the maintenance key turns the maintenance on or off.',
+			})
+			expect(ran).toBe(0)
+			const keyed = await switching({
+				'x-ultimabase-maintenance-key': 'deploy-key',
+			})
+			expect(keyed.status).toBe(200)
+			expect(ran).toBe(1)
+		} finally {
+			await application.stop()
+		}
+	})
+})
+
 describe('its retryAfter', () => {
-	it('is refused unless a positive number of milliseconds', async () => {
-		for (const retryAfter of [Number.NaN, 0, -5000, Infinity]) {
-			await expect(appOn(memory(), { retryAfter }).start()).rejects.toThrow(
-				"The maintenance's retryAfter is a positive number of milliseconds.",
+	it('is refused unless a positive number of milliseconds, a day at most', async () => {
+		for (const retryAfter of [Number.NaN, 0, -5000, Infinity, 86_400_001]) {
+			const application = appOn(memory(), { retryAfter })
+			// Stopped once started, so that a failure stays in this test.
+			const refused = await application.start().then(
+				async () => application.stop(),
+				(error: unknown) => error,
+			)
+			expect(refused).toHaveProperty(
+				'message',
+				"The maintenance's retryAfter is a positive number of milliseconds, a day at most.",
 			)
 		}
+		const running = appOn(memory(), { retryAfter: 86_400_000 })
+		await running.start()
+		await running.stop()
 	})
 })
 
@@ -481,6 +569,55 @@ function holding(): Adapter & {
 		missed: () => feed?.missed(),
 	}
 }
+
+/**
+ * `memory()` whose write after `holdNext()` writes at once and answers once
+ * `release` is called.
+ */
+function answeringLate(): Adapter & { readonly holdNext: () => void } {
+	const base = memory()
+	let hold = false
+	return {
+		...base,
+		write: async (write) => {
+			const result = await base.write(write)
+			if (hold) {
+				hold = false
+				const { promise, resolve } = Promise.withResolvers<void>()
+				release = resolve
+				await promise
+			}
+			return result
+		},
+		holdNext: () => {
+			hold = true
+		},
+	}
+}
+
+describe('its writes', () => {
+	// Another server unlocks while this server's lock() waits for its answer.
+	it('leave a state stored after them as it is', async () => {
+		const database = answeringLate()
+		const application = await started(database)
+		try {
+			database.holdNext()
+			const locking = maintenance().lock()
+			await vi.waitFor(() => expect(release).toBeDefined())
+			await MaintenanceState.update(
+				{ where: { key: 'state' }, data: { enabled: false } },
+				{ as: master },
+			)
+			await vi.waitFor(() => expect(maintenance().locked()).toBe(false))
+			release?.()
+			await locking
+			expect(maintenance().locked()).toBe(false)
+		} finally {
+			release = undefined
+			await application.stop()
+		}
+	})
+})
 
 describe('its reads', () => {
 	it('leave a lock stored after they began as it is', async () => {

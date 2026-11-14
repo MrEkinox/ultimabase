@@ -2,7 +2,8 @@
 // Master's answers 503 `MAINTENANCE`, and the sockets open close with 1012.
 // Its state is a row: every server follows it through the change feed, and
 // starts from `initial` while there is none (D-207). A read is numbered as it
-// begins, a write once stored: one that ends after a later one has no effect.
+// begins, and a write is read back once stored: a read that ends after a later
+// one has no effect.
 import type { Http } from '@ultimabase/http'
 import { httpPlugin, routes } from '@ultimabase/http'
 import type { Logger, PluginOf, PluginTypes } from 'ultimabase'
@@ -14,7 +15,7 @@ import { MaintenanceState } from './state.ts'
 
 /** What `maintenancePlugin` takes. */
 export interface MaintenanceOptions {
-	/** In milliseconds, how long a client waits before it tries again: 60 000 by default. */
+	/** In milliseconds, how long a client waits before it tries again: 60 000 by default, a day at most. */
 	readonly retryAfter?: number
 	/** Sent in `x-ultimabase-maintenance-key`, it switches the maintenance and nothing else. */
 	readonly key?: string | undefined
@@ -92,8 +93,9 @@ async function store(state: State, locked: boolean): Promise<void> {
 		},
 		{ as: master },
 	)
-	// A read begun before the write was stored may hold the state it replaced.
-	follow(state, ++state.begun, locked)
+	// Read, not followed as written: another server's write may be stored
+	// after it, and a read begun before it may hold the state it replaced.
+	await read(state)
 }
 
 /** Reads the state again; keeps the last one when it cannot. */
@@ -131,6 +133,13 @@ function enabledIn(body: unknown): boolean {
 	return enabled
 }
 
+/** Why a caller with neither key cannot switch the maintenance. */
+const denied =
+	'Only the master key or the maintenance key turns the maintenance on or off.'
+
+/** The longest `retryAfter`, in milliseconds. */
+const day = 86_400_000
+
 const maintenance = definePlugin<Maintenance>({
 	name: 'maintenance',
 	manifest,
@@ -143,9 +152,10 @@ const maintenance = definePlugin<Maintenance>({
 			throw new Refused("The maintenance's initial is 'locked' or 'unlocked'.")
 		}
 		const { retryAfter = 60_000 } = options
-		if (!Number.isFinite(retryAfter) || retryAfter <= 0) {
+		// Past a day, a client told to wait would not come back after it.
+		if (!Number.isFinite(retryAfter) || retryAfter <= 0 || retryAfter > day) {
 			throw new Refused(
-				"The maintenance's retryAfter is a positive number of milliseconds.",
+				"The maintenance's retryAfter is a positive number of milliseconds, a day at most.",
 			)
 		}
 		const switches = keyed(options.key)
@@ -154,20 +164,30 @@ const maintenance = definePlugin<Maintenance>({
 			begun: 0,
 			applied: 0,
 			initial: initial === 'locked',
-			close: () =>
-				plugins.http.closeUpgrades({ code: 1012, reason: 'Maintenance' }),
+			// A live list's stream reconnects too, then gets the 503 (D-205).
+			close: () => {
+				plugins.http.closeUpgrades({ code: 1012, reason: 'Maintenance' })
+				plugins.http.closeStreams()
+			},
 			logger,
 		}
 		states.set(context, state)
 		const seconds = Math.ceil(retryAfter / 1000)
 		plugins.http.gate(async (request) => {
+			if (!state.locked) return undefined
+			// The switch passes with its key only: a route of the application
+			// that matched its path would run for anyone otherwise.
 			const switching =
 				request.method === 'PUT' && new URL(request.url).pathname === path
-			if (!state.locked || switching) {
-				return undefined
-			}
+			if (switching && switches(request)) return undefined
 			const caller = await identify(request).catch(() => undefined)
 			if (caller?.kind === 'master') return undefined
+			if (switching) {
+				return Response.json(
+					{ code: 'ACCESS_DENIED', message: denied },
+					{ status: 403 },
+				)
+			}
 			return Response.json(
 				{
 					code: 'MAINTENANCE',
@@ -180,10 +200,7 @@ const maintenance = definePlugin<Maintenance>({
 		plugins.http.mount(
 			routes().put(path, async (c) => {
 				if (c.var.caller.kind !== 'master' && !switches(c.req.raw)) {
-					throw new PublicError(
-						'ACCESS_DENIED',
-						'Only the master key or the maintenance key turns the maintenance on or off.',
-					)
+					throw new PublicError('ACCESS_DENIED', denied)
 				}
 				const enabled = enabledIn(await c.req.json().catch(() => undefined))
 				await store(state, enabled)

@@ -185,7 +185,8 @@ and `c`:
 </include>
 
 - Cut, it reconnects at a random moment of a wait that grows from 100 ms to
-  5 s, so that clients cut together do not come back together.
+  5 s, so that clients cut together do not come back together. Refused for
+  too many requests (429), it first waits the `retry-after` the server sends.
 - It resumes where it was within 10 seconds.
 - One stream serves every listener of the same `liveFetch`.
 

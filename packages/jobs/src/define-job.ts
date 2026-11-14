@@ -4,7 +4,7 @@
 // of each key at a time (D-365).
 import { Cron } from 'croner'
 import type { Logger } from 'ultimabase'
-import { PublicError, Refused } from 'ultimabase'
+import { Refused } from 'ultimabase'
 import { checked, standardOf } from 'ultimabase/internal'
 import { JobsRun, M } from './model.ts'
 import { runningOf } from './state.ts'
@@ -223,13 +223,19 @@ function recordFor(definition: object): JobRecord {
 	return { name, input: standard, schedule, next, key: keys, run: runs }
 }
 
-/** The input's validated value; refuses it as `VALIDATION_FAILED`. */
+/**
+ * The input's validated value. An invalid one is the server's own error, not
+ * the client's: a plain error, which answers 500 and is logged.
+ */
 async function validated(name: string, standard: Standard, input: unknown) {
 	const result = await checked(standard, input, [], name)
 	if ('issues' in result) {
-		throw new PublicError('VALIDATION_FAILED', 'Invalid input.', {
-			details: { issues: result.issues },
-		})
+		const issues = result.issues.map(
+			({ path, message }) => `${path.join('.') || 'input'}: ${message}`,
+		)
+		throw new Error(
+			`${name}.enqueue received an invalid input: ${issues.join('; ')}`,
+		)
 	}
 	return result.value
 }
@@ -291,11 +297,13 @@ async function joined(key: string, dueAt: Date): Promise<boolean> {
 		M,
 	)
 	if (waiting === undefined) return false
-	if (dueAt < waiting.dueAt) {
-		const where = { id: waiting.id, holding: null }
-		await JobsRun.updateMany({ where, data: { dueAt } }, M)
-	}
-	return true
+	// Written even unchanged: the row stays locked until the caller commits, so
+	// no instance runs it before, on state the caller has not written yet.
+	const data = { dueAt: dueAt < waiting.dueAt ? dueAt : waiting.dueAt }
+	const where = { id: waiting.id, holding: null }
+	const { count } = await JobsRun.updateMany({ where, data }, M)
+	// Claimed meanwhile, it runs without this enqueue: a new run waits.
+	return count > 0
 }
 
 export function defineJob<

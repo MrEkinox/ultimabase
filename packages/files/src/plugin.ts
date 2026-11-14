@@ -6,6 +6,7 @@ import { httpPlugin } from '@ultimabase/http'
 import type {
 	CallerRule,
 	ExposedModel,
+	Logger,
 	PluginOf,
 	PluginTypes,
 	QueryOptions,
@@ -30,7 +31,7 @@ import type { Refreshed } from './refresh.ts'
 import { refresh } from './refresh.ts'
 import { served, uploads } from './routes.ts'
 import { upload } from './upload.ts'
-import { runningOf, useRunning } from './values.ts'
+import { useRunning } from './values.ts'
 
 /** What `filesPlugin` takes (D-152). */
 export interface FilesOptions {
@@ -76,16 +77,22 @@ function fieldsOf(
 
 const signedIn: CallerRule = ({ caller }) => caller.kind === 'user'
 
-// The sweep's timer, while the application runs.
+// The sweep's timer, and the sweep under way, while the application runs.
 let timer: NodeJS.Timeout | undefined
+let sweeping: Promise<void> | undefined
 
-/** Sweeps, then again every ten minutes; a failed sweep is logged. */
-async function sweeping(): Promise<void> {
-	try {
-		await sweep()
-	} catch (error) {
-		runningOf().logger.warn({ err: error }, 'The files sweep failed.')
-	}
+/**
+ * Sweeps unless a sweep is under way; a failed sweep is logged. The start
+ * does not wait for it, so a slow storage holds no start; the stop does.
+ */
+function swept(logger: Logger): void {
+	sweeping ??= sweep()
+		.catch((error: unknown) => {
+			logger.warn({ err: error }, 'The files sweep failed.')
+		})
+		.finally(() => {
+			sweeping = undefined
+		})
 }
 
 const definition = definePlugin<Files>({
@@ -122,13 +129,16 @@ const definition = definePlugin<Files>({
 			fields,
 			logger,
 		})
-		await sweeping()
-		timer = setInterval(() => void sweeping(), sweepEvery)
+		swept(logger)
+		timer = setInterval(() => {
+			swept(logger)
+		}, sweepEvery)
 		timer.unref()
 	},
-	stop: () => {
+	stop: async () => {
 		clearInterval(timer)
 		timer = undefined
+		await sweeping
 		useRunning(undefined)
 	},
 })

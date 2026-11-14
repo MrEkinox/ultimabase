@@ -39,7 +39,7 @@ import {
 import type { EmailCommands } from './email-commands.ts'
 import { emailCommands } from './email-commands.ts'
 import type { SendEmail } from './email-flows.ts'
-import { mailerOf } from './email-flows.ts'
+import { mailerOf, sentWithin } from './email-flows.ts'
 import { hashPassword } from './hash.ts'
 import { emailFunctions } from './email-functions.ts'
 import { passwordFunctions } from './functions.ts'
@@ -285,7 +285,7 @@ const definition = definePlugin<Password>({
 	},
 	// The emails under way still query: they end before the database closes.
 	stop: async ({ plugins }) => {
-		await Promise.all(stateOf(plugins.auth).sending)
+		await sentWithin(stateOf(plugins.auth))
 	},
 	functions: ({ options, plugins, models }) => {
 		const { users, fields } = configOf(options, models)

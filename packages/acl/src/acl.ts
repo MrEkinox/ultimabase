@@ -42,12 +42,22 @@ const given = (perms: readonly Permission[]): readonly Permission[] =>
 	perms.length === 0 ? permissions : perms
 
 /**
+ * Whether a value is a plain object: another class's instance, such as
+ * another copy's ACL, would read as `{}`.
+ */
+function isPlain(value: unknown): value is object {
+	if (typeof value !== 'object' || value === null) return false
+	const prototype: unknown = Object.getPrototypeOf(value)
+	return prototype === Object.prototype || prototype === null
+}
+
+/**
  * The ACL a value is, or what it lacks: an `ACL`, or `{ read, write }`
  * listing subjects `*`, `user:<id>` or `role:<id>`.
  */
 export function parsed(value: unknown): ACL | string {
 	if (value instanceof ACL) return value
-	if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+	if (!isPlain(value)) {
 		return 'An ACL is an ACL or { read, write }.'
 	}
 	const entries: string[] = []

@@ -45,7 +45,7 @@ const trash = definePlugin<Trash>({
 	redirect: {
 		delete: async ({ where, queries }) => {
 			log.push('redirect')
-			return queries.update({ where, data: { trashedAt: new Date() } }, M)
+			return queries.updateMany({ where, data: { trashedAt: new Date() } }, M)
 		},
 	},
 	hooks: {

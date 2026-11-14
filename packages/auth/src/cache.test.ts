@@ -4,6 +4,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { Adapter, Changed, Feed } from 'ultimabase'
 import { memory } from 'ultimabase'
+import { recording } from 'ultimabase/internal'
 import { kept } from './cache.ts'
 import { AuthSession } from './sessions.ts'
 import {
@@ -11,6 +12,7 @@ import {
 	callerOf,
 	cookie,
 	day,
+	given,
 	graphqlOf,
 	M,
 	signIn,
@@ -18,26 +20,29 @@ import {
 	User,
 } from './test/app.ts'
 
+/** Lets held reads go, so a failed test still stops its server. */
+let released: (() => void) | undefined
+
 /** A memory database that counts its reads by model, and hands out its feed. */
 function watched() {
 	const database = memory()
 	const reads = new Map<string, number>()
 	let feed: Feed | undefined
 	/** While set, a read of a session waits for it. */
-	let hold: Promise<void> | undefined
+	let held: Promise<void> | undefined
 	const counted = async <R extends { readonly model: string }, T>(
 		read: R,
 		run: (read: R) => Promise<T>,
 	): Promise<T> => {
 		reads.set(read.model, (reads.get(read.model) ?? 0) + 1)
-		if (read.model === 'AuthSession' && hold !== undefined) await hold
+		if (read.model === 'AuthSession' && held !== undefined) await held
 		return run(read)
 	}
 	const adapter: Adapter = {
 		...database,
-		start: async (schema, logger, given) => {
-			feed = given
-			await database.start(schema, logger, given)
+		start: async (schema, logger, fed) => {
+			feed = fed
+			await database.start(schema, logger, fed)
 		},
 		find: async (read) => counted(read, database.find),
 		begin: async () => {
@@ -55,8 +60,12 @@ function watched() {
 			if (feed === undefined) throw new Error('auth takes the feed.')
 			return feed
 		},
-		holding: (until: Promise<void>) => {
-			hold = until
+		/** Holds the session reads; returns what lets them go. */
+		hold: () => {
+			const { promise, resolve } = Promise.withResolvers<void>()
+			held = promise
+			released = resolve
+			return resolve
 		},
 	}
 }
@@ -65,6 +74,8 @@ let stop: (() => Promise<void>) | undefined
 afterEach(async () => {
 	vi.restoreAllMocks()
 	kept.most = 10_000
+	released?.()
+	released = undefined
 	await stop?.()
 	stop = undefined
 })
@@ -234,19 +245,61 @@ describe('a lost listener', () => {
 
 describe('a read during a change', () => {
 	it('keeps nothing', async () => {
-		const { url, token, read, feed, holding } = await server()
-		const { promise, resolve } = Promise.withResolvers<void>()
-		holding(promise)
+		const { url, token, read, feed, hold } = await server()
+		const resolve = hold()
 		const before = read('AuthSession')
 		const reading = callerOf(url, bearer(token))
 		await vi.waitFor(() => expect(read('AuthSession')).toBe(before + 1))
 		feed().changed([{ kind: 'update', model: 'User', ids: ['other'] }])
-		holding(Promise.resolve())
 		resolve()
 		expect((await reading).status).toBe(200)
 		const users = read('User')
 		await callerOf(url, bearer(token))
 		expect(read('User')).toBe(users + 1)
+	})
+})
+
+describe('requests with one token at once', () => {
+	it('share one read of the session and the user', async () => {
+		const { url, token, read, hold } = await server()
+		const resolve = hold()
+		const [sessions, users] = [read('AuthSession'), read('User')]
+		const asked = Array.from({ length: 5 }, async () =>
+			callerOf(url, bearer(token)),
+		)
+		await vi.waitFor(() =>
+			expect(read('AuthSession')).toBeGreaterThan(sessions),
+		)
+		resolve()
+		const answers = await Promise.all(asked)
+		expect(answers.map(({ status }) => status)).toEqual([
+			200, 200, 200, 200, 200,
+		])
+		expect([read('AuthSession'), read('User')]).toEqual([
+			sessions + 1,
+			users + 1,
+		])
+	})
+
+	it('read again once a change came after the read began, or to record', async () => {
+		const { url, token, read, feed, hold } = await server()
+		const resolve = hold()
+		const before = read('AuthSession')
+		const first = callerOf(url, bearer(token))
+		await vi.waitFor(() => expect(read('AuthSession')).toBe(before + 1))
+		feed().changed([{ kind: 'update', model: 'User', ids: ['other'] }])
+		const after = callerOf(url, bearer(token))
+		await vi.waitFor(() => expect(read('AuthSession')).toBe(before + 2))
+		const recorded = recording(async () =>
+			given.identify?.(new Request(url, { headers: bearer(token) })),
+		)
+		await vi.waitFor(() => expect(read('AuthSession')).toBe(before + 3))
+		resolve()
+		expect([(await first).status, (await after).status]).toEqual([200, 200])
+		const { reads } = await recorded
+		expect(reads.map(({ model }) => model)).toEqual(
+			expect.arrayContaining(['AuthSession', 'User']),
+		)
 	})
 })
 

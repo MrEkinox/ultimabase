@@ -12,6 +12,8 @@ export class Tasks {
 	#busy = 0
 	/** The reads of the whole window it is running or has queued. */
 	#rereads = 0
+	/** The read of the whole window queued and not begun. */
+	#waiting: Promise<void> | undefined
 	readonly #readers: Readers
 	readonly #reader: object
 
@@ -67,15 +69,23 @@ export class Tasks {
 		return [run, settled]
 	}
 
-	/** Queues a read of the whole window, as `add` does. */
+	/**
+	 * Queues a read of the whole window, as `add` does; one queued and not
+	 * begun reads for every later ask too.
+	 */
 	async reread(
 		read: () => Promise<void> | undefined,
 		recover: (error: unknown) => Promise<void>,
 	): Promise<void> {
+		if (this.#waiting !== undefined) return this.#waiting
 		this.#rereads += 1
-		const [, settled] = this.add(read, recover)
-		return settled.finally(() => {
+		const [, settled] = this.add(() => {
+			this.#waiting = undefined
+			return read()
+		}, recover)
+		this.#waiting = settled.finally(() => {
 			this.#rereads -= 1
 		})
+		return this.#waiting
 	}
 }

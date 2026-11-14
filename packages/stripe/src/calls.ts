@@ -122,8 +122,8 @@ function billingOf(running: Running, product: Product): Billing {
 }
 
 /**
- * Runs `run` with the payer's customer at Stripe, under its lock, after
- * expiring its open Checkouts; a customer deleted at Stripe is created again.
+ * Runs `run` with the payer's customer at Stripe, under its lock; a customer
+ * deleted at Stripe is created again.
  */
 async function withCustomer<R>(
 	billing: Billing,
@@ -145,7 +145,6 @@ async function withCustomer<R>(
 				profile,
 			} = await ensureCustomer(current, read)
 			try {
-				await gateway.expireCheckouts(stripeId)
 				return await run(gateway, stripeId, profile.locale ?? null)
 			} catch (error) {
 				if (!(error instanceof Missing) || current !== row) throw error
@@ -205,6 +204,7 @@ export async function checkout<const P extends Product>(
 		model,
 		args.payer,
 		async (gateway, customerId, locale) => {
+			await gateway.expireCheckouts(customerId)
 			const trial =
 				args.trialDays ?? (await firstTrial(model, args.payer, product, key))
 			if (subscribing && running.oneSubscription) {
@@ -307,7 +307,8 @@ export async function portal<const P extends SubscriptionProduct>(
 		throw new Error('stripe.portal needs a model defineSubscription returned.')
 	}
 	const flow = await flowOf(running, model, args)
-	running.portal ??= (await gateway.readCatalog()).portal?.id ?? null
+	if (running.portal === undefined)
+		running.portal = (await gateway.readCatalog()).portal?.id ?? null
 	const configuration = running.portal
 	const returnUrl = args.returnUrl ?? running.catalog.portal.returnUrl
 	return withCustomer(model, args.payer, async (_, customerId, locale) =>

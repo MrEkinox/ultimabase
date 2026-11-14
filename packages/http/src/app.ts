@@ -11,7 +11,7 @@ import { HTTPException } from 'hono/http-exception'
 import type { ContentfulStatusCode } from 'hono/utils/http-status'
 import { getPath } from 'hono/utils/url'
 import type { Caller, ErrorCode, Logger } from 'ultimabase'
-import { isLocalHost, PublicError } from 'ultimabase'
+import { isLocalHost, PublicError, Refused } from 'ultimabase'
 import { logFailure } from 'ultimabase/internal'
 import { isOwnOrigin } from './address.ts'
 import type { Limiter, RateLimit } from './limit.ts'
@@ -101,10 +101,22 @@ function refused(error: HTTPException, c: Context): Response {
 	return c.json({ code, message }, error.status)
 }
 
+/**
+ * Whether `error` came from the client leaving: its body read cut, or the
+ * request's signal, as a `fetch` given it throws.
+ */
+const isLeaving = (error: unknown, signal: AbortSignal) =>
+	signal.aborted &&
+	(error === signal.reason ||
+		(error instanceof Error && Reflect.get(error, 'code') === 'ECONNRESET'))
+
 /** A `PublicError` as is; any other error masked, logged with its id. */
 function failed(error: unknown, c: Context, logger: Logger): Response {
-	// The client left: its request failed, not the server (499, as nginx).
-	if (c.req.raw.signal.aborted) return new Response(null, { status: 499 })
+	// Its request failed, not the server (499, as nginx); a failure of the
+	// server's own meanwhile is still logged (D-108).
+	if (isLeaving(error, c.req.raw.signal)) {
+		return new Response(null, { status: 499 })
+	}
 	if (error instanceof HTTPException) return refused(error, c)
 	if (error instanceof PublicError) {
 		const { code, message, details } = error
@@ -177,6 +189,34 @@ function stamp(c: Context, name: string, value: string, append = false): void {
 }
 
 /**
+ * Refuses an application route that answers a plugin's path under
+ * `/_ultimabase/`, as `PUT /:a/:b` would the maintenance's switch: it comes
+ * first, so it would run in the plugin's place (D-205).
+ */
+function refuseShadows(
+	own: readonly Routes[],
+	mounted: readonly Routes[],
+): void {
+	const app = new Hono()
+	for (const routes of own) {
+		for (const { method, path } of routes.routes) {
+			if (method !== 'ALL') app.on(method, path, (c) => c.body(null))
+		}
+	}
+	for (const routes of mounted) {
+		for (const { method, path } of routes.routes) {
+			if (method === 'ALL' || !path.startsWith('/_ultimabase/')) continue
+			const [[first]] = app.router.match(method, path)
+			if (first === undefined) continue
+			const [, route] = first[0]
+			throw new Refused(
+				`The application's route ${route.method} ${route.path} answers ${method} ${path}, which a plugin serves: give it another path.`,
+			)
+		}
+	}
+}
+
+/**
  * Reads `NODE_ENV` once, when the application starts. The application's
  * routes come before those plugins mounted (D-107).
  */
@@ -198,6 +238,10 @@ export function appOf(
 	logger: Logger,
 ): Hono<HttpEnv> {
 	const local = process.env['NODE_ENV'] !== 'production'
+	refuseShadows(options.routes ?? [], [
+		...mounted.map((mount) => mount.routes),
+		...(local ? [resetRoutes] : []),
+	])
 	const allows = allowing(options)
 	const maxSize = bodyLimitOf(options.bodyLimit)
 	const app = new Hono<HttpEnv>({ getPath: pathOf })

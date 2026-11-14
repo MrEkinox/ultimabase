@@ -358,3 +358,36 @@ describe('a password or an email too long to hold its characters', () => {
 		normalize.mockRestore()
 	})
 })
+
+describe('a password or an email that hides what it holds', () => {
+	it('refuses a password with a lone surrogate, which UTF-8 hashes as another', () => {
+		// Each turns into U+FFFD: both would match the same hash.
+		for (const password of ['secret \uD800 one', 'secret \uDC00 one']) {
+			expect(passwordOf(password)).toStrictEqual({
+				message: 'Expected text without a lone surrogate.',
+			})
+			expect(normalized(password)).toBeUndefined()
+		}
+		expect(passwordOf('secret \u{1F600} one')).toStrictEqual({
+			value: 'secret \u{1F600} one',
+		})
+	})
+
+	it.each([
+		['a zero-width space', 'ada\u200B@example.com'],
+		['a direction override', 'ada@exa\u202Emple.com'],
+		['a soft hyphen', 'a\u00ADda@example.com'],
+		['a control character', 'ada\u0007@example.com'],
+		['a lone surrogate', 'ada\uD800@example.com'],
+	])('refuses an email with %s', (_, email) => {
+		expect(emailOf(email)).toStrictEqual({
+			message: 'Expected an email address.',
+		})
+	})
+
+	it('takes an email in any script', () => {
+		expect(emailOf('Zoë@Exämple.com')).toStrictEqual({
+			value: 'zoë@exämple.com',
+		})
+	})
+})

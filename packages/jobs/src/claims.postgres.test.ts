@@ -1,11 +1,12 @@
 // Claims at once (D-221): instances that read the same due row each run it
 // only when their conditional update counted it, so each run runs once; the
-// runs of a key run one at a time (D-365).
+// runs of a key run one at a time (D-365); a run an enqueue joins waits for
+// its commit.
 import { randomUUID } from 'node:crypto'
 import { expect, it, vi } from 'vitest'
 import { z } from 'zod'
-import { defineApp } from 'ultimabase'
-import { quietRuns } from 'ultimabase/internal'
+import { defineApp, transaction } from 'ultimabase'
+import { apart, quietRuns } from 'ultimabase/internal'
 import { defineJob, jobsPlugin } from './index.ts'
 import { JobsRun, M } from './model.ts'
 import { drain, start } from './runner.ts'
@@ -124,6 +125,33 @@ for (const url of urls) {
 			expect(ran.size).toBe(8)
 			expect([...ran.values()].every((times) => times === 1)).toBe(true)
 			expect(await JobsRun.count({}, M)).toBe(0)
+		})
+	})
+
+	it(`runs a run an enqueue joins only once the enqueue commits on ${new URL(url).host}`, async () => {
+		await on(url, async () => {
+			const hour = 60 * 60 * 1000
+			await serial.enqueue({ account: 'a' }, { after: hour })
+			vi.useFakeTimers({ toFake: ['Date'] })
+			vi.setSystemTime(Date.now() + hour)
+			const app = runningOf('the test')
+			const [row] = await JobsRun.findMany(
+				{ select: { id: true, key: true } },
+				M,
+			)
+			if (row === undefined) throw new Error('No row.')
+			let claimed: Promise<boolean> = Promise.resolve(false)
+			await transaction(async () => {
+				// Due later than the waiting run, the join keeps its due time.
+				await serial.enqueue({ account: 'a' }, { after: hour })
+				// Another instance claims the waiting run before the commit.
+				claimed = apart(async () => start(app, row))
+				await new Promise((resolve) => setTimeout(resolve, 200))
+				expect(ran.size).toBe(0)
+			})
+			expect(await claimed).toBe(true)
+			await drain(app)
+			expect(ran.size).toBe(1)
 		})
 	})
 }
