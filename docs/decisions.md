@@ -13619,6 +13619,12 @@ Choice: amends D-106 and D-166.
    `{ "enabled": false }` turns it on or off, with the master key only:
    403 `ACCESS_DENIED` for another caller, 400 `VALIDATION_FAILED` for
    another body. It answers `{ "enabled": … }`. It is never refused.
+   While it is on, the gate lets the switch through with a key only, and
+   answers another caller's 403 itself: a route of the application that
+   matched the path, which runs before the plugin's, would run for anyone
+   otherwise. The HTTP plugin refuses at start a route of the application
+   that answers a plugin's path under `/_ultimabase/` (amended
+   2026-11-14).
 5. A plugin that requires maintenance reads `plugins.maintenance`:
    `lock()` and `unlock()`, which resolve once the state is stored, and
    `locked()`, this server's state.

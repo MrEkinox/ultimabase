@@ -262,6 +262,8 @@ describe('a response', () => {
 	})
 })
 
+const ownText = (c: Context) => c.text('own')
+
 describe('mount', () => {
 	it('adds a plugin’s routes after the application’s', async () => {
 		const own = routes().get('/a', (c) => c.text('own'))
@@ -271,6 +273,23 @@ describe('mount', () => {
 			headers: { 'x-ultimabase-master-key': 'secret' },
 		})
 		expect(await master.json()).toMatchObject({ kind: 'master' })
+	})
+
+	it('refuses an application route that answers a plugin’s path', async () => {
+		// Outside production, `POST /_ultimabase/reset` is mounted.
+		const shadowing = routes().get('/:a/:b', ownText).post('/:a/:b', ownText)
+		const refused = started({ routes: [shadowing] }).then(async ({ app }) =>
+			app.stop(),
+		)
+		await expect(refused).rejects.toThrow(
+			"The application's route POST /:a/:b answers POST /_ultimabase/reset, which a plugin serves: give it another path.",
+		)
+		// Another method, or a middleware, answers no plugin's path.
+		const passing = routes()
+			.use(async (_, next) => next())
+			.get('/:a/:b', ownText)
+		const { url } = await server({ routes: [passing] })
+		expect(await (await fetch(`${url}/x/y`)).text()).toBe('own')
 	})
 
 	it('throws once the server runs', async () => {

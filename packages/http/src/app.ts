@@ -11,7 +11,7 @@ import { HTTPException } from 'hono/http-exception'
 import type { ContentfulStatusCode } from 'hono/utils/http-status'
 import { getPath } from 'hono/utils/url'
 import type { Caller, ErrorCode, Logger } from 'ultimabase'
-import { isLocalHost, PublicError } from 'ultimabase'
+import { isLocalHost, PublicError, Refused } from 'ultimabase'
 import { logFailure } from 'ultimabase/internal'
 import { isOwnOrigin } from './address.ts'
 import type { Limiter, RateLimit } from './limit.ts'
@@ -189,6 +189,34 @@ function stamp(c: Context, name: string, value: string, append = false): void {
 }
 
 /**
+ * Refuses an application route that answers a plugin's path under
+ * `/_ultimabase/`, as `PUT /:a/:b` would the maintenance's switch: it comes
+ * first, so it would run in the plugin's place (D-205).
+ */
+function refuseShadows(
+	own: readonly Routes[],
+	mounted: readonly Routes[],
+): void {
+	const app = new Hono()
+	for (const routes of own) {
+		for (const { method, path } of routes.routes) {
+			if (method !== 'ALL') app.on(method, path, (c) => c.body(null))
+		}
+	}
+	for (const routes of mounted) {
+		for (const { method, path } of routes.routes) {
+			if (method === 'ALL' || !path.startsWith('/_ultimabase/')) continue
+			const [[first]] = app.router.match(method, path)
+			if (first === undefined) continue
+			const [, route] = first[0]
+			throw new Refused(
+				`The application's route ${route.method} ${route.path} answers ${method} ${path}, which a plugin serves: give it another path.`,
+			)
+		}
+	}
+}
+
+/**
  * Reads `NODE_ENV` once, when the application starts. The application's
  * routes come before those plugins mounted (D-107).
  */
@@ -210,6 +238,10 @@ export function appOf(
 	logger: Logger,
 ): Hono<HttpEnv> {
 	const local = process.env['NODE_ENV'] !== 'production'
+	refuseShadows(options.routes ?? [], [
+		...mounted.map((mount) => mount.routes),
+		...(local ? [resetRoutes] : []),
+	])
 	const allows = allowing(options)
 	const maxSize = bodyLimitOf(options.bodyLimit)
 	const app = new Hono<HttpEnv>({ getPath: pathOf })

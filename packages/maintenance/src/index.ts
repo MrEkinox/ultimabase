@@ -133,6 +133,10 @@ function enabledIn(body: unknown): boolean {
 	return enabled
 }
 
+/** Why a caller with neither key cannot switch the maintenance. */
+const denied =
+	'Only the master key or the maintenance key turns the maintenance on or off.'
+
 /** The longest `retryAfter`, in milliseconds. */
 const day = 86_400_000
 
@@ -170,13 +174,20 @@ const maintenance = definePlugin<Maintenance>({
 		states.set(context, state)
 		const seconds = Math.ceil(retryAfter / 1000)
 		plugins.http.gate(async (request) => {
+			if (!state.locked) return undefined
+			// The switch passes with its key only: a route of the application
+			// that matched its path would run for anyone otherwise.
 			const switching =
 				request.method === 'PUT' && new URL(request.url).pathname === path
-			if (!state.locked || switching) {
-				return undefined
-			}
+			if (switching && switches(request)) return undefined
 			const caller = await identify(request).catch(() => undefined)
 			if (caller?.kind === 'master') return undefined
+			if (switching) {
+				return Response.json(
+					{ code: 'ACCESS_DENIED', message: denied },
+					{ status: 403 },
+				)
+			}
 			return Response.json(
 				{
 					code: 'MAINTENANCE',
@@ -189,10 +200,7 @@ const maintenance = definePlugin<Maintenance>({
 		plugins.http.mount(
 			routes().put(path, async (c) => {
 				if (c.var.caller.kind !== 'master' && !switches(c.req.raw)) {
-					throw new PublicError(
-						'ACCESS_DENIED',
-						'Only the master key or the maintenance key turns the maintenance on or off.',
-					)
+					throw new PublicError('ACCESS_DENIED', denied)
 				}
 				const enabled = enabledIn(await c.req.json().catch(() => undefined))
 				await store(state, enabled)

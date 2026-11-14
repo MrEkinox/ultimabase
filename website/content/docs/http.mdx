@@ -366,6 +366,9 @@ A route that needs no database is called directly:
 Outside production, local origins over `http:` are allowed besides `cors`,
 and `POST /_ultimabase/reset` empties the database for the master key, for
 [end-to-end tests](/docs/next/testing#end-to-end-tests).
+A route of `routes` that answers a plugin's path under `/_ultimabase/`, as
+`PUT /:a/:b` answers `PUT /_ultimabase/maintenance`, refuses the start: it
+would run in the plugin's place.
 On `stop`, after the `drain`, the server stops taking connections and waits
 10 seconds at most for the requests still running.
 

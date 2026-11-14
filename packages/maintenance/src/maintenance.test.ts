@@ -432,6 +432,52 @@ describe('its initial state', () => {
 	})
 })
 
+describe('its switch', () => {
+	it('lets through only a caller with a key while on', async () => {
+		// An application route that answers any path, a middleware's way.
+		let ran = 0
+		const any = routes().all('/:a/:b', (c) => {
+			ran += 1
+			return c.text('ran')
+		})
+		const application = defineApp({
+			database: memory(),
+			plugins: [
+				httpPlugin({ port: 0, drain: 0, routes: [any] }),
+				maintenancePlugin({ initial: 'locked', key: 'deploy-key' }),
+				watching.plugin(),
+			],
+			models: [],
+			masterKey: 'secret',
+			logger,
+		})
+		await application.start()
+		try {
+			const switching = (headers: object) =>
+				fetch(`${address()}/_ultimabase/maintenance`, {
+					method: 'PUT',
+					headers,
+					body: JSON.stringify({ enabled: false }),
+				})
+			const anonymous = await switching({})
+			expect(anonymous.status).toBe(403)
+			expect(await anonymous.json()).toEqual({
+				code: 'ACCESS_DENIED',
+				message:
+					'Only the master key or the maintenance key turns the maintenance on or off.',
+			})
+			expect(ran).toBe(0)
+			const keyed = await switching({
+				'x-ultimabase-maintenance-key': 'deploy-key',
+			})
+			expect(keyed.status).toBe(200)
+			expect(ran).toBe(1)
+		} finally {
+			await application.stop()
+		}
+	})
+})
+
 describe('its retryAfter', () => {
 	it('is refused unless a positive number of milliseconds, a day at most', async () => {
 		for (const retryAfter of [Number.NaN, 0, -5000, Infinity, 86_400_001]) {
