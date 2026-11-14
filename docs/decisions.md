@@ -3062,7 +3062,7 @@ await User.delete({ where: { id } }, { as: caller })
 
 ## D-91: `start` and `stop` at run time
 
-Amended by D-204.
+Amended by D-204 and D-395.
 
 Choice: eight details of D-58 and D-59 at run time.
 
@@ -13486,7 +13486,7 @@ bob?.email // `string | null | undefined`
 
 ## D-204: `/health` and `/ready`, and a drain before the stop
 
-Amended by D-207 and D-223.
+Amended by D-207, D-223 and D-395.
 
 Choice: amends D-91 and D-106.
 
@@ -24202,3 +24202,51 @@ const url = await stripe.portal({
 			: {}),
 })
 ```
+
+## D-395: http answers its running requests before any plugin stops
+
+Choice: amends D-91 point 5 and D-204 point 6.
+
+1. After its drain, http's `stopping` stops accepting connections and waits
+   for every request its server has not answered yet: a request is
+   answered once its handler returns its `Response`. `stopping` runs before
+   any plugin's `stop` (D-204 point 5), so a plugin that a request uses is
+   still running until it is answered.
+2. A stream (an event stream, a download) and a socket a plugin took go on
+   after their answer. Their plugin ends them in its `stop`, as REST's live
+   streams and GraphQL's sockets already do, and http's `stop` waits for
+   them, then for the connections to end.
+3. The 10 seconds of D-106 count from the end of the drain and cover both
+   waits; past them, http closes every connection and says so, as before.
+
+Why: D-91 point 5 said the HTTP plugin's `stop` refuses requests first,
+"since it needs the others". It is the other way round: files, auth, REST,
+GraphQL and Stripe require http, so http starts first and stops last. A
+request still running when the drain ended met the plugins it used already
+stopped: an upload ended in `filesPlugin has not started.`, and a sign-up
+that enqueued its welcome email failed with a 500 and no email, what point
+5 exists to prevent. The kernel's lifecycle test named a plugin `http` that
+required another, and hid it.
+
+Rejected:
+
+- Stopping the plugins in start order: a plugin relies on what it needs
+  until its last line (D-91 point 1).
+- Waiting in `stopping` for every connection to end: a live stream or a
+  socket ends only in its plugin's `stop`, so every stop would wait the full
+  10 seconds.
+- A hook for plugins to end their streams in http's `stopping`: REST and
+  GraphQL already end theirs in their `stop`, which now runs once the
+  requests were answered.
+
+Example: a plugin's route, during a deployment.
+
+```ts
+files.post('/upload', async (c) => {
+	const body = await c.req.arrayBuffer() // the body arrives after the drain
+	return c.json(await upload(body)) // before: filesPlugin has not started
+})
+```
+
+After: `stop` waits for this handler's `Response`, then stops `filesPlugin`.
+Nothing changes in the application's code.

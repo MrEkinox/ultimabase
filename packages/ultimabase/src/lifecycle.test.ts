@@ -45,7 +45,7 @@ function recorder(bindings: object = {}): Logger {
 }
 
 let gate: Promise<void> = Promise.resolve()
-/** What http's `stopping` waits for. */
+/** What search's `stopping` waits for. */
 let leaving: Promise<void> = Promise.resolve()
 const Note = defineModel({
 	name: 'Note',
@@ -83,31 +83,32 @@ const cache = definePlugin<Cache>({
 	},
 })
 
-interface Http extends PluginTypes {
-	readonly name: 'http'
+interface Search extends PluginTypes {
+	readonly name: 'search'
 	readonly requires: Cache
 }
-const http = definePlugin<Http>({
-	name: 'http',
+const search = definePlugin<Search>({
+	name: 'search',
 	manifest,
 	requires: { cache: cache.plugin },
 	// Seeds at start; its stop still reads the database.
 	start: async () => {
 		await Note.create({ data: { text: 'seed' } }, M)
-		log.push('http.start')
-		if (failing.has('http.start')) throw new Error('http.start failed.')
+		log.push('search.start')
+		if (failing.has('search.start')) throw new Error('search.start failed.')
 	},
 	started: () => {
-		log.push('http.started')
+		log.push('search.started')
 	},
 	stopping: async () => {
 		await leaving
-		log.push('http.stopping')
-		if (failing.has('http.stopping')) throw new Error('http.stopping failed.')
+		log.push('search.stopping')
+		if (failing.has('search.stopping'))
+			throw new Error('search.stopping failed.')
 	},
 	stop: async () => {
-		log.push(`http.stop ${await Note.count({}, M)}`)
-		if (failing.has('http.stop')) throw new Error('http.stop failed.')
+		log.push(`search.stop ${await Note.count({}, M)}`)
+		if (failing.has('search.stop')) throw new Error('search.stop failed.')
 	},
 })
 
@@ -125,7 +126,7 @@ const started = () =>
 	defineApp({
 		database: tracked(),
 		// Out of order: each plugin starts after those it needs.
-		plugins: [http.plugin(), cache.plugin({ size: 2 })],
+		plugins: [search.plugin(), cache.plugin({ size: 2 })],
 		models: [Note],
 		logger: recorder(),
 	})
@@ -170,12 +171,12 @@ describe('plugins', () => {
 		expect(log).toEqual([
 			'cache.start 2',
 			'Note.afterCreateCommit',
-			'http.start',
+			'search.start',
 			'cache.started',
-			'http.started',
+			'search.started',
 			'cache.stopping',
-			'http.stopping',
-			'http.stop 1',
+			'search.stopping',
+			'search.stop 1',
 			'cache.stop',
 			'database.stop',
 		])
@@ -202,8 +203,8 @@ describe('plugins', () => {
 	})
 
 	it('stop those that started when one fails to start', async () => {
-		failing.add('http.start')
-		await expect(app.start()).rejects.toThrow('http.start failed.')
+		failing.add('search.start')
+		await expect(app.start()).rejects.toThrow('search.start failed.')
 		expect(log.slice(-2)).toEqual(['cache.stop', 'database.stop'])
 		await expect(Note.count({}, M)).rejects.toMatchObject(stopped)
 		expect(listeners()).toBe(before)
@@ -214,19 +215,19 @@ describe('plugins', () => {
 
 	it('all stop when one fails to stop', async () => {
 		await app.start()
-		failing.add('http.stop')
-		await expect(app.stop()).rejects.toThrow('http.stop failed.')
+		failing.add('search.stop')
+		await expect(app.stop()).rejects.toThrow('search.stop failed.')
 		expect(log.slice(-3)).toEqual([
-			'http.stop 1',
+			'search.stop 1',
 			'cache.stop',
 			'database.stop',
 		])
 		expect(entries).toContainEqual({
 			level: 'error',
-			name: 'http',
+			name: 'search',
 			first: {
 				correlationId: anId,
-				err: new Error('http.stop failed.'),
+				err: new Error('search.stop failed.'),
 			},
 			message: 'The plugin failed to stop.',
 		})
@@ -237,26 +238,26 @@ describe('plugins', () => {
 		await app.start()
 		const { promise, resolve } = Promise.withResolvers<void>()
 		leaving = promise
-		failing.add('http.stopping')
+		failing.add('search.stopping')
 		const stopping = app.stop()
 		await vi.waitFor(() => {
 			expect(log.at(-1)).toBe('cache.stopping')
 		})
-		expect(log).not.toContain('http.stop 1')
+		expect(log).not.toContain('search.stop 1')
 		resolve()
-		await expect(stopping).rejects.toThrow('http.stopping failed.')
+		await expect(stopping).rejects.toThrow('search.stopping failed.')
 		expect(log.slice(-4)).toEqual([
-			'http.stopping',
-			'http.stop 1',
+			'search.stopping',
+			'search.stop 1',
 			'cache.stop',
 			'database.stop',
 		])
 		expect(entries).toContainEqual({
 			level: 'error',
-			name: 'http',
+			name: 'search',
 			first: {
 				correlationId: anId,
-				err: new Error('http.stopping failed.'),
+				err: new Error('search.stopping failed.'),
 			},
 			message: 'The plugin failed to stop.',
 		})

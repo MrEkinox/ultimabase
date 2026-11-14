@@ -3,7 +3,7 @@
 import type { Server } from 'node:http'
 import type { Duplex } from 'node:stream'
 import { Hono } from 'hono'
-import type { Caller, PluginOf, PluginTypes } from 'ultimabase'
+import type { Caller, Logger, PluginOf, PluginTypes } from 'ultimabase'
 import { definePlugin } from 'ultimabase'
 import manifest from '../package.json' with { type: 'json' }
 import type { HttpEnv, HttpOptions, Mounted, Routes } from './app.ts'
@@ -13,7 +13,7 @@ import { limiter } from './limit.ts'
 import type { Probes, ReadyCheck } from './probes.ts'
 import { startingGate } from './probes.ts'
 import { hold } from './request.ts'
-import { closed, drainOf, listening, portOf, serverOf } from './server.ts'
+import { drainOf, listening, portOf, serverOf, shutdown } from './server.ts'
 import type { Accept, Close, Closing, Gate, Taker } from './upgrade.ts'
 import { closeUpgrades, upgrading } from './upgrade.ts'
 
@@ -83,6 +83,18 @@ const taken = new WeakMap<object, ReadonlyMap<Duplex, string>>()
 const urls = new WeakMap<object, string>()
 const probing = new WeakMap<object, Probes & { drain: number }>()
 const gated = new WeakMap<object, Gate[]>()
+const closings = new WeakMap<object, ReturnType<typeof shutdown>>()
+
+/** The server's close, begun once; none before it listens. */
+function closingOf(context: { readonly logger: Logger }) {
+	const server = servers.get(context)
+	if (server === undefined) return undefined
+	const begun =
+		closings.get(context) ??
+		shutdown(server, context.logger, taken.get(context) ?? new Map())
+	closings.set(context, begun)
+	return begun
+}
 
 const http = definePlugin<Http>({
 	name: 'http',
@@ -186,25 +198,22 @@ const http = definePlugin<Http>({
 		probesOf(context).started = true
 	},
 	// `/ready` answers 503, and the load balancer has `drain` to leave (D-204).
+	// Then answers the running requests before any plugin stops (D-395).
 	stopping: async (context) => {
 		const probes = probesOf(context)
 		probes.stopping = true
 		if (probes.drain > 0) {
 			await new Promise((resolve) => setTimeout(resolve, probes.drain))
 		}
+		await closingOf(context)?.answered
 	},
-	// Stops accepting connections, then waits for running requests (D-59, D-106).
+	// Then waits for the streams and sockets the plugins' stop ended (D-59, D-106).
 	stop: async (context) => {
-		const { logger } = context
-		const server = servers.get(context)
-		if (server === undefined) return
-		servers.delete(context)
-		urls.delete(context)
-		probing.delete(context)
-		gated.delete(context)
-		const open = taken.get(context) ?? new Map<Duplex, string>()
-		taken.delete(context)
-		await closed(server, logger, open)
+		const closed = closingOf(context)?.closed
+		for (const map of [servers, urls, probing, gated, taken, closings]) {
+			map.delete(context)
+		}
+		await closed
 	},
 })
 

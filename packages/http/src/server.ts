@@ -128,11 +128,24 @@ export async function listening(server: Server, port: number): Promise<number> {
  */
 const waits = { headersTimeout: 10_000, connectionsCheckingInterval: 1000 }
 
+/** Each server's requests not answered yet, and who waits for none. */
+const answering = new WeakMap<Server, { count: number; none?: () => void }>()
+
 /** A Node server for `fetch`, Hono's handler. */
 export function serverOf(
 	fetch: Parameters<typeof getRequestListener>[0],
 ): Server {
-	const listener = getRequestListener(fetch)
+	const running: { count: number; none?: () => void } = { count: 0 }
+	// Answered once its handler returns: a stream goes on after (D-395).
+	const listener = getRequestListener(async (request, env) => {
+		running.count += 1
+		try {
+			return await fetch(request, env)
+		} finally {
+			running.count -= 1
+			if (running.count === 0) running.none?.()
+		}
+	})
 	const server = createServer(waits, (request, response) => {
 		// A request running when `stop` began leaves its connection idle after
 		// its response: close it, rather than wait for the client to.
@@ -141,6 +154,7 @@ export function serverOf(
 		})
 		void listener(request, response)
 	})
+	answering.set(server, running)
 	return server
 }
 
@@ -148,26 +162,31 @@ export function serverOf(
 const grace = 10_000
 
 /**
- * Stops accepting connections, then waits for running requests and the
- * sockets plugins took (D-59), 10 seconds at most (D-106).
+ * Stops accepting connections: `answered` once no request awaits its handler,
+ * before any plugin stops (D-395); `closed` once the streams and sockets the
+ * plugins' `stop` ends are closed (D-59). 10 seconds at most in all (D-106).
  */
-export async function closed(
+export function shutdown(
 	server: Server,
 	logger: Logger,
 	taken: ReadonlyMap<Duplex, string>,
-): Promise<void> {
+): Record<'answered' | 'closed', Promise<unknown>> {
+	const running = answering.get(server) ?? { count: 0 }
 	const cutting = setTimeout(() => {
 		logger.warn(
 			`Stopped ${grace / 1000} s after stop began: closed the requests still running.`,
 		)
 		server.closeAllConnections()
 		for (const socket of taken.keys()) socket.destroy()
+		running.none?.()
 	}, grace)
-	try {
-		const closing = [server, ...(others.get(server) ?? [])].map(shut)
-		server.closeIdleConnections()
-		await Promise.all(closing)
-	} finally {
-		clearTimeout(cutting)
-	}
+	const shutting = [server, ...(others.get(server) ?? [])].map(shut)
+	server.closeIdleConnections()
+	const closed = Promise.all(shutting).finally(() => clearTimeout(cutting))
+	closed.catch(() => undefined) // Read by `stop`, once the plugins stopped.
+	const answered = new Promise<void>((done) => {
+		running.none = done
+		if (running.count === 0) done()
+	})
+	return { answered, closed }
 }
