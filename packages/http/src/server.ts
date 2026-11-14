@@ -124,9 +124,18 @@ export async function listening(server: Server, port: number): Promise<number> {
 
 /**
  * A client that never ends its headers holds a socket 10 s, not Node's 60;
- * checked every second, not every 30.
+ * checked every second, not every 30. An idle connection stays 65 s, past a
+ * load balancer's 60, which would otherwise reuse one Node closed: a 502. A
+ * request's body arrives within 120 s, not 300, a mobile upload included.
  */
-const waits = { headersTimeout: 10_000, connectionsCheckingInterval: 1000 }
+const waits = {
+	headersTimeout: 10_000,
+	connectionsCheckingInterval: 1000,
+	keepAliveTimeout: 65_000,
+	requestTimeout: 120_000,
+}
+/** A socket quiet that long, as a client that no longer reads, is closed. */
+const idle = 120_000
 
 /** Each server's requests not answered yet, and who waits for none. */
 const answering = new WeakMap<Server, { count: number; none?: () => void }>()
@@ -178,6 +187,7 @@ export function serverOf(
 		})
 		void listener(request, response)
 	})
+	server.setTimeout(idle)
 	answering.set(server, { count: 0 })
 	return server
 }
@@ -206,7 +216,13 @@ export function shutdown(
 	}, grace)
 	const shutting = [server, ...(others.get(server) ?? [])].map(shut)
 	server.closeIdleConnections()
-	const closed = Promise.all(shutting).finally(() => clearTimeout(cutting))
+	// A connection still reading a body it was answered for turns idle later,
+	// with no event: it would stay open the keep-alive timeout, 65 s.
+	const idling = setInterval(() => server.closeIdleConnections(), 100)
+	const closed = Promise.all(shutting).finally(() => {
+		clearTimeout(cutting)
+		clearInterval(idling)
+	})
 	closed.catch(() => undefined) // Read by `stop`, once the plugins stopped.
 	const answered = new Promise<void>((done) => {
 		running.none = done

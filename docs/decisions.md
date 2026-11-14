@@ -21191,7 +21191,16 @@ Choice: amends D-106, D-116 point 3 and D-218 point 3.
    `headersTimeout`, 60 s by default), then closes the connection. Node
    checks every second, not every 30 s. It caps
    no connections per address: clients behind one NAT share an address, and
-   a proxy in front caps connections better.
+   a proxy in front caps connections better. An idle connection is kept
+   65 s, not Node's 5, past a load balancer's 60 s (AWS's default), which
+   otherwise reuses a connection Node just closed and answers `502`. A
+   request's body arrives within 120 s, not Node's 300, which still lets a
+   mobile client upload a file. A socket quiet for 120 s, as a client that
+   stopped reading its response, is closed; live streams and sockets send
+   something every 12 s. None is an option. Once the stop began, idle
+   connections are closed every 100 ms: one still reading a body it was
+   answered for, as a `413`, turns idle with no event, and would otherwise
+   hold the stop until its keep-alive timeout (amended 2026-11-14).
 2. Over the limit, once an address sent a wrong master key, its next
    master-key requests are refused until the window ends, without checking
    the key and without logging it. Master's key still passes over the limit

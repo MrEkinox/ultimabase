@@ -784,7 +784,7 @@ describe('the port', () => {
 		await new Promise((done) => queued.close(done))
 	})
 
-	it('waits 10 s for headers, checked every second (D-348)', async () => {
+	it('waits 10 s for headers, 120 s for a request and a quiet socket, and keeps a connection 65 s (D-348)', async () => {
 		const slow = serverOf(() => new Response(null))
 		await listeningOn(slow, 0)
 		// Node keeps the timer of its checks under this symbol only.
@@ -794,6 +794,10 @@ describe('the port', () => {
 		const timer: unknown = checks && Reflect.get(slow, checks)
 		expect(slow.headersTimeout).toBe(10_000)
 		expect(timer).toMatchObject({ _repeat: 1000 })
+		// Past a load balancer's 60 s, which reuses the connections it keeps.
+		expect(slow.keepAliveTimeout).toBe(65_000)
+		expect(slow.requestTimeout).toBe(120_000)
+		expect(slow.timeout).toBe(120_000)
 		await new Promise((done) => slow.close(done))
 	})
 
@@ -916,6 +920,34 @@ describe('stop', () => {
 		// Its connection, idle after it, closes now, not at the client's timeout.
 		expect(Date.now() - released).toBeLessThan(1000)
 		await expect(fetch(`${url}/caller`)).rejects.toThrow('fetch failed')
+	})
+	it('closes a connection idle once its body ends after the stop began', async () => {
+		// Answered 413 before its body ends, it is idle only once Node has read
+		// the rest: it then stayed open until the keep-alive timeout, 65 s.
+		const { app, url } = await started({ bodyLimit: 1000 })
+		const socket = connect(Number(new URL(url).port), '127.0.0.1')
+		await new Promise((done) => socket.once('connect', done))
+		const answered = new Promise((done) => socket.once('data', done))
+		const closed = new Promise((done) => socket.once('close', done))
+		socket.write(
+			'POST /notes HTTP/1.1\r\nHost: localhost\r\nContent-Length: 2000\r\n\r\n',
+		)
+		expect(String(await answered)).toMatch(/^HTTP\/1\.1 413 /)
+		let stopped = false
+		const stopping = (async () => {
+			await app.stop()
+			stopped = true
+		})()
+		await new Promise((done) => setTimeout(done, 50))
+		expect(stopped).toBe(false)
+		socket.write('x'.repeat(2000))
+		const ended = Date.now()
+		await Promise.race([closed, new Promise((done) => setTimeout(done, 2000))])
+		const waited = Date.now() - ended
+		// Closed by the test otherwise, so the stop ends here, not after it.
+		socket.destroy()
+		await stopping
+		expect(waited).toBeLessThan(1000)
 	})
 	it('answers a running request before the plugins it uses stop', async () => {
 		// http starts first, so it stops last: its stop came too late (D-395).
