@@ -105,9 +105,10 @@ describe('a payer at Stripe', () => {
 			.toMatchObject([{ product: pro.key, price: 'monthly', status: 'active' }])
 		for (const flow of [
 			{},
-			{ change: { product: pro, price: 'yearly' as const } },
-			{ cancel: {} },
-		]) {
+			{ open: 'change', product: pro, price: 'yearly' },
+			{ open: 'cancel' },
+			{ open: 'paymentMethod' },
+		] as const) {
 			const url = await stripe.portal({ payer, ...flow })
 			expect(url).toMatch(/^https:\/\/billing\.stripe\.com\//u)
 		}
@@ -338,6 +339,12 @@ describe('a payer over time', () => {
 			gems: balance?.amount ?? 0,
 		}
 	}
+	/** The plan the application holds, and the one it holds as scheduled. */
+	const plan = async () => {
+		await delivered(test.url)
+		const [row] = await Subscription.findMany({}, M)
+		return { price: row?.price, scheduledPrice: row?.scheduledPrice }
+	}
 
 	it(
 		'gets its credits again with each renewal, once each',
@@ -443,6 +450,38 @@ describe('a payer over time', () => {
 			await expect
 				.poll(async () => held(payer), poll)
 				.toStrictEqual({ status: 'active', gems: 100 })
+		},
+		clocked,
+	)
+
+	it(
+		'switches to the plan it scheduled, by Stripe’s time',
+		async () => {
+			const { customer, clock } = await payerAtStripe()
+			const { id } = await subscribed(customer)
+			const schedule = await client.subscriptionSchedules.create({
+				from_subscription: id,
+			})
+			const [current] = schedule.phases
+			if (current === undefined) throw new Error('No phase.')
+			await client.subscriptionSchedules.update(schedule.id, {
+				phases: [
+					{
+						items: [{ price: await priceId(`${pro.key}.monthly`) }],
+						start_date: current.start_date,
+						end_date: current.end_date,
+					},
+					{ items: [{ price: await priceId(`${pro.key}.yearly`) }] },
+				],
+			})
+			await expect
+				.poll(plan, poll)
+				.toStrictEqual({ price: 'monthly', scheduledPrice: 'yearly' })
+			// Stripe's time now runs a month ahead of the server's.
+			await advanced(clock, 32)
+			await expect
+				.poll(plan, poll)
+				.toStrictEqual({ price: 'yearly', scheduledPrice: null })
 		},
 		clocked,
 	)

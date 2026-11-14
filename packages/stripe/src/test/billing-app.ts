@@ -1,7 +1,9 @@
 // An application that sells with the plugin, on a fake Stripe account: a
 // user pays subscriptions and gem packs, and keeps a balance of gems.
+import { graphqlPlugin } from '@ultimabase/graphql'
 import { httpPlugin } from '@ultimabase/http'
 import { jobsPlugin } from '@ultimabase/jobs'
+import { restPlugin } from '@ultimabase/rest'
 import type { TestApplication } from '@ultimabase/testing'
 import { testApplication } from '@ultimabase/testing'
 import type { Logger } from 'ultimabase'
@@ -82,7 +84,12 @@ export const pro = defineProduct({
 	name: 'Pro',
 	prices: {
 		monthly: { amount: 9_90, every: 'month', gives: [gems(100)] },
-		yearly: { amount: 99_00, every: 'year', gives: [gems(1_200)] },
+		yearly: {
+			amount: 99_00,
+			every: 'year',
+			gives: [gems(1_200)],
+			trialDays: 30,
+		},
 	},
 })
 export const team = defineProduct({
@@ -123,8 +130,14 @@ function loggerOf(lines: Line[]): Logger {
 	return logger
 }
 
-/** The application, its fake Stripe account and its log. */
-export function billingApp(options: Partial<StripeOptions> = {}): {
+/**
+ * The application, its fake Stripe account and its log; `served` adds
+ * GraphQL and REST.
+ */
+export function billingApp(
+	options: Partial<StripeOptions> = {},
+	served = false,
+): {
 	readonly app: object
 	readonly fake: FakeStripe
 	readonly lines: Line[]
@@ -148,6 +161,7 @@ export function billingApp(options: Partial<StripeOptions> = {}): {
 				}) => ({ email: user.email, locale: user.lang }),
 				...options,
 			}),
+			...(served ? [graphqlPlugin(), restPlugin()] : []),
 		],
 		logger: loggerOf(lines),
 	})

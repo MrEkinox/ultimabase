@@ -22805,7 +22805,7 @@ await applyStripeCatalog({
 
 ## D-373: The application's billing models: `defineSubscription`, `definePurchase`, `defineBalance`
 
-Amended by D-375, D-376, D-377, D-383, D-384 and D-387.
+Amended by D-375, D-376, D-377, D-383, D-384, D-387 and D-394.
 
 Choice: what a payer bought lives in the application's own models, which
 the plugin fills, as `defineRole` builds a role model (D-13, D-123).
@@ -23851,6 +23851,261 @@ WARN A payment is at risk: its payer's subscriptions were canceled.
   refunded: true, canceled: ["sub_1"]
 ```
 
+## D-389: The portal opens on the payment method form
+
+Amended by D-394.
+
+Choice: builds on D-373 point 8 and D-380.
+
+1. `stripe.portal({ payer, paymentMethod: {} })` opens the customer
+   portal's `payment_method_update` flow, which returns to `returnUrl` once
+   done. It names no subscription: the payment method is the customer's.
+2. `stripe.portal` takes at most one of `change`, `cancel` and
+   `paymentMethod`; two are refused.
+3. `paymentMethod` is an empty object, as `cancel: {}` is, so that an
+   option can join it later.
+4. The new payment method becomes the customer's default, and the
+   subscriptions hold none of their own (D-380): Stripe's next retry of a
+   failed renewal charges it.
+
+Why: a renewal that fails leaves the subscription `past_due`, then
+`unpaid`, and the application tells the payer to change their card. The
+portal's home made the payer look for the button, at the moment a payer
+is most likely to leave.
+
+Rejected:
+
+- `card: {}`: the portal also takes other payment methods, such as SEPA
+  debits.
+- `paymentMethod: true`: the one boolean among the portal's objects.
+- The failed invoice's hosted page: the plugin stores no invoice URL, and
+  that page pays one invoice without changing the card for the next ones.
+
+Example, before: the application sent the payer to the portal's home.
+
+```ts
+const url = await stripe.portal({ payer: { id: me } })
+```
+
+After:
+
+```ts
+const url = await stripe.portal({ payer: { id: me }, paymentMethod: {} })
+```
+
+## D-390: The terms text follows the Checkout page's language
+
+Choice: builds on D-382 and D-383.
+
+1. `terms.acceptance` takes a text, as before, or texts by locale with a
+   required `default` key: `{ default: '…', fr: '…', 'pt-BR': '…' }`.
+2. The text is chosen by the Checkout page's locale (D-382), not the
+   payer's: the page's own key, else its language's, else `default`. A page
+   left to Stripe's choice (`'auto'`) shows `default`, so the text never
+   speaks a language the page does not.
+3. Each key other than `default` is a canonical locale, as
+   `Intl.getCanonicalLocales` writes it: `en-gb` and `fr_FR` are refused,
+   so that a key the page could never match fails at the call. Each text
+   keeps D-383's bounds, 1 to 1,200 characters.
+4. A single text stays a text: it is the `default` of a one-key table.
+
+Why: Checkout shows the page in the payer's language but the terms text
+in one language, the application's. The application knows the payer's
+language only through the plugin's `customer` profile, so it read it a
+second time to pick the text, and still could not know when the page fell
+back to Stripe's choice.
+
+Rejected:
+
+- A function `(locale) => text`: the plugin would have to call application
+  code and check its result at each Checkout, for what a table says.
+- Choosing by the payer's locale: a payer in a language Checkout does not
+  speak sees a page in Stripe's choice, and a text in their own.
+- Ignoring unknown keys: `en-gb` would silently never match.
+
+Example, before: the application read the payer's language to pick the
+text.
+
+```ts
+const { lang } = await User.findUnique({ where: { id: me } })
+const url = await stripe.checkout({
+	payer: { id: me },
+	product: pro,
+	terms: { acceptance: salesTerms[lang] },
+	...urls,
+})
+```
+
+After:
+
+```ts
+const url = await stripe.checkout({
+	payer: { id: me },
+	product: pro,
+	terms: { acceptance: { default: salesTerms.en, fr: salesTerms.fr } },
+	...urls,
+})
+```
+
+## D-391: A price declares its trial, given on a payer's first subscription
+
+Choice: builds on D-372 and D-373 point 7.
+
+1. A recurring price takes `trialDays`, an integer from 1 to 730, Stripe's
+   bound. It stays in the plugin: Stripe's Checkout takes the trial as a
+   session parameter, so the Stripe price neither carries nor compares it,
+   and changing it creates no price.
+2. `stripe.checkout` gives the price's trial only when the payer has no
+   row of the subscription model, in any status and for any product: a
+   payer who cancels, or moves from one product to another, does not get a
+   second trial. The read runs under the payer's customer lock (D-373
+   point 7), so two tabs cannot both take the first trial.
+3. The call's `trialDays` wins, for any payer: an application can still
+   offer a returning payer a trial. `trialDays: 0` gives none.
+
+Why: which prices come with a trial is a catalog fact, the one a pricing
+page announces, and Stripe gives a trial on every Checkout that asks. Each
+application read its own subscription rows before each Checkout, and one
+that forgot gave a trial on each return.
+
+Rejected:
+
+- Once per payer and product: moving from Pro to Team would give a second
+  trial, the same abuse.
+- Stripe's price-level trial: Checkout ignores it.
+- Reading the payer's subscriptions at Stripe: one request per Checkout for
+  what the rows already hold, since a row is ended, never deleted.
+
+Example, before: the application read its rows to decide.
+
+```ts
+const had = await Subscription.exists(
+	{ where: { payer: { is: { id: me } } } },
+	{ as: master },
+)
+const url = await stripe.checkout({
+	payer: { id: me },
+	product: pro,
+	price: 'month',
+	...(had ? {} : { trialDays: 14 }),
+	...urls,
+})
+```
+
+After: the price says it, the plugin decides.
+
+```ts
+const pro = defineProduct({
+	key: 'pro',
+	name: 'Pro',
+	prices: {
+		month: { amount: 9_90, every: 'month', trialDays: 14 },
+		year: { amount: 99_00, every: 'year' },
+	},
+})
+
+const url = await stripe.checkout({
+	payer: { id: me },
+	product: pro,
+	price: 'month',
+	...urls,
+})
+```
+
+## D-392: The catalog is a public query, opted into
+
+Choice: builds on D-372, D-387 and D-391.
+
+1. `stripePlugin({ catalog: true })` adds the public query `stripeCatalog`,
+   in GraphQL and at `GET /api/functions/stripeCatalog` (D-129). Without the
+   option, the plugin adds no function. Its name is fixed: one name for
+   every application and its documentation; a function of the same name in
+   the application is refused at start, as any taken name is.
+2. It returns the catalog the code declares, in its order, without calling
+   Stripe: the deploy script keeps Stripe equal to it (D-372), and the query
+   answers without keys.
+3. Its shape, `StripeCatalog`, holds two lists, empty when the application
+   sells nothing of the kind:
+   - `subscriptions`, of `StripeSubscriptionProduct`: `key`, `name`, and
+     `prices`, of `StripeRecurringPrice`: `name`, `amount`, `currency`,
+     `every` (the enum `StripeEvery`), `everyCount` (1 when unset),
+     `trialDays` (`null` without a trial, D-391), and `gives`;
+   - `purchases`, of `StripeOneTimeProduct`: `key`, `name`, `amount`,
+     `currency`, and `gives`.
+     `gives` lists `StripeCreditAmount`: `credit`, a string, and `amount`.
+     Amounts are in the currency's smallest unit. The shape is one JSON
+     Schema whose `$defs` name these types, not `defineType` lists: a
+     function's list counts as a page of rows (D-109), and three nested ones
+     pass the row budget (D-107), while the code bounds the catalog.
+4. A product's `key` and a price's `name` take the billing model's enums
+   when it declares them (D-387), the same GraphQL enums its rows show;
+   otherwise they are strings.
+5. `stripe.catalog()` returns the same value on the server, synchronously,
+   whether the option is set or not.
+
+Why: a pricing page shows what the catalog declares. Each application
+copied the amounts, interval names and trials into its client, and guarded
+the copy with a test reading the server's source; a price change touched
+both sides.
+
+Rejected:
+
+- A name the application chooses: each application, and its
+  documentation, would name the same query differently, for no gain the
+  fixed, prefixed name lacks.
+- One list of products with nullable fields (`every: null` for a one-time
+  product): each client tests each field, and the types say nothing.
+- A GraphQL union of the two kinds: the client writes
+  `... on StripeOneTimeProduct`, which REST has no match for (D-129).
+- Reading the prices from Stripe: a request per read, keys required, and
+  the product keys and price names lost.
+- `taxBehavior` in the result: no client asked; an application knows
+  whether its amounts include the taxes.
+
+Example, before: the client copied the catalog.
+
+```ts
+// client
+export const plans = [
+	{ key: 'pro', name: 'Pro', prices: { month: 9_90, year: 99_00 } },
+]
+```
+
+After: the server opts in, the client reads it.
+
+```ts
+stripePlugin({ …, catalog: true })
+```
+
+```graphql
+query {
+	stripeCatalog {
+		subscriptions {
+			key
+			name
+			prices {
+				name
+				amount
+				currency
+				every
+				everyCount
+				trialDays
+			}
+		}
+		purchases {
+			key
+			name
+			amount
+			currency
+			gives {
+				credit
+				amount
+			}
+		}
+	}
+}
+```
+
 ## D-393: One Stripe sandbox run at a time
 
 Choice: amends D-378.
@@ -23890,4 +24145,60 @@ yarn test:stripe   # the nightly run fails: No price is ub_mwg9dzio_c08374_pro.m
 # After
 yarn test:stripe   # Another sandbox run, ub_mwg9dzio_c08374, started at 10:24 UTC,
                    # is using this sandbox: run again once it ends.
+```
+
+## D-394: The portal opens one page, named by `open`
+
+Choice: amends D-373 point 8 and D-389 points 1 to 3.
+
+1. `stripe.portal` takes `open`, the page the portal opens on: `'change'`,
+   `'cancel'` or `'paymentMethod'`. Without it, the portal opens on its
+   home.
+2. The page's own arguments sit beside `open`: `product` and `price` for
+   `'change'`, and `subscription` for `'change'` and `'cancel'`. The type
+   is a union on `open`, so TypeScript refuses an argument of another page.
+3. `change` and `cancel`, released in 0.7.0, are removed without an alias:
+   a minor release of a 0.x package may break. An `open` the plugin does
+   not know, from JavaScript, throws a `TypeError`.
+4. The code `NOT_SUBSCRIBED` and the error that asks for `subscription`
+   are unchanged; the error names `subscription`, the one option left.
+
+Why: one object per page let a call ask for two pages, which only failed
+at run time, and `cancel: {}` and `paymentMethod: {}` were empty objects
+used as switches. The application's call shows both: it spread one object
+for a change and another for a cancellation, and nothing kept it from
+sending both.
+
+Rejected:
+
+- A function per page, `stripe.portal.cancel({ payer })`: four functions
+  for one session, and a call that picks the page from its input chooses
+  between functions instead of a value.
+- `flow`, Stripe's word: `open: 'cancel'` reads as what the call does.
+- `open: { change: { product, price } }`: a string for two pages and an
+  object for the third.
+
+Example, before:
+
+```ts
+const url = await stripe.portal({
+	payer: { id: me },
+	...(changeTo === undefined
+		? {}
+		: { change: { product: plans[changeTo.plan], price: changeTo.every } }),
+	...(cancel === true ? { cancel: {} } : {}),
+})
+```
+
+After:
+
+```ts
+const url = await stripe.portal({
+	payer: { id: me },
+	...(changeTo !== undefined
+		? { open: 'change', product: plans[changeTo.plan], price: changeTo.every }
+		: cancel
+			? { open: 'cancel' }
+			: {}),
+})
 ```

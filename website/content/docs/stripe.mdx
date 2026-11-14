@@ -34,6 +34,9 @@ the currency's smallest unit: `9_90` is 9.90 EUR.
 - A subscription has one price per interval: the customer portal moves a
   subscription between them.
 - `everyCount` bills every few intervals, up to three years.
+- `trialDays`, from 1 to 730, gives a recurring price a free trial. Checkout
+  gives it to a payer who never subscribed; the call's `trialDays` wins,
+  and `trialDays: 0` gives none.
 
 ## Deploy
 
@@ -106,6 +109,12 @@ npm install @ultimabase/jobs
   subscriptions at once, without proration, and warn. The sync then writes
   the rows: a refund takes back its credits, as below. A customer the
   application does not hold is left alone.
+- `catalog: true` adds the public query `stripeCatalog`, in GraphQL and at
+  `GET /api/functions/stripeCatalog`: the `subscriptions`, each with its
+  `prices`, and the `purchases`, in their declared order, with amounts,
+  intervals, trials and credits. It reads the code, not Stripe, so it
+  answers without keys; keys and price names are typed by the billing
+  models' enums. `stripe.catalog()` returns the same on the server.
 
 ## The billing models
 
@@ -187,6 +196,10 @@ It closes the payer's Checkouts still open, so two tabs cannot both pay.
 	../examples/stripe/src/shop.ts#checkout
 </include>
 
+<include cwd meta='title="src/shop.ts"'>
+	../examples/stripe/src/shop.ts#buy
+</include>
+
 - `price` names one of a subscription's prices; a product with one price
   needs none.
 - `quantity`, `trialDays`, `terms`, `promotionCodes` and `metadata` are
@@ -194,7 +207,9 @@ It closes the payer's Checkouts still open, so two tabs cannot both pay.
 - `terms: true` adds a checkbox the payer ticks, with Stripe's text and the
   terms of the Stripe account; `terms: { acceptance }` shows the
   application's text instead, in Stripe's Markdown, up to 1,200 characters,
-  so it names the terms the payer accepts, in their language. A Stripe
+  so it names the terms the payer accepts. Texts by locale,
+  `{ default, fr, 'pt-BR' }`, follow the Checkout page's language: its
+  locale, then its language, then `default`. A Stripe
   account with Managed Payments refuses that text, and its error reaches
   the call: such an account keeps `terms: true`.
 - With `promotionCodes: true`, the payer can type a code created in Stripe.
@@ -210,9 +225,17 @@ arrives. It finds only the payer's own Checkout.
 	../examples/stripe/src/shop.ts#paid
 </include>
 
-`stripe.portal` opens Stripe's customer portal. `change` and `cancel` open
-it on the confirmation of a change or a cancellation, and throw
-`NOT_SUBSCRIBED` without a live subscription.
+`stripe.portal` opens Stripe's customer portal, on its home or on the page
+`open` names:
+
+- `'change'`, with `product` and `price`, the confirmation of a move to
+  another product or price;
+- `'cancel'`, the confirmation of a cancellation;
+- `'paymentMethod'`, the form that changes the payer's card, after a
+  renewal that failed.
+
+`change` and `cancel` throw `NOT_SUBSCRIBED` without a live subscription,
+and take `subscription`, a row's id, when the payer has several.
 
 <include cwd meta='title="src/shop.ts"'>
 	../examples/stripe/src/shop.ts#portal

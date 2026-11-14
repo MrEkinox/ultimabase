@@ -7,8 +7,7 @@ export const blueGems = defineCredit({ key: 'blueGems' })
 export const pro = defineProduct({
 	key: 'pro',
 	name: 'Pro',
-	// Stripe Tax's code of software as a service.
-	taxCode: 'txcd_10103000',
+	taxCode: 'txcd_10103000', // Stripe Tax's software as a service
 	prices: {
 		// Each paid period gives its gems: a trial gives none.
 		monthly: { amount: 9_90, every: 'month', gives: [blueGems(100)] },
@@ -18,7 +17,12 @@ export const pro = defineProduct({
 			everyCount: 3,
 			gives: [blueGems(300)],
 		},
-		yearly: { amount: 99_00, every: 'year', gives: [blueGems(1_200)] },
+		yearly: {
+			amount: 99_00,
+			every: 'year',
+			trialDays: 14, // free, for a payer who never subscribed
+			gives: [blueGems(1_200)],
+		},
 	},
 })
 //#endregion

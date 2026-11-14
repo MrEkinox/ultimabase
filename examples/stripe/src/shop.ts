@@ -15,16 +15,21 @@ export const subscribe = (user: Payer) =>
 		payer: user,
 		product: pro,
 		price: 'monthly',
-		// A checkbox the user ticks, with the application's text.
+		// A checkbox the user ticks, with the application's text in the
+		// page's language.
 		terms: {
-			acceptance:
-				'I accept the [terms of sale](https://app.example.com/terms).',
+			acceptance: {
+				default: 'I accept the [terms of sale](https://app.example.com/terms).',
+				fr: 'J’accepte les [conditions de vente](https://app.example.com/terms).',
+			},
 		},
 		// Stripe fills in the session's id.
 		successUrl: 'https://app.example.com/paid?session={CHECKOUT_SESSION_ID}',
 		cancelUrl: 'https://app.example.com/pricing',
 	})
+//#endregion
 
+//#region buy
 /** The Checkout page where `user` buys 500 blue gems. */
 export const buyGems = (user: Payer) =>
 	stripe.checkout({
@@ -44,7 +49,15 @@ export const paid = (session: string, user: Payer) =>
 //#region portal
 /** Stripe's portal, open on the cancellation of `user`'s subscription. */
 export const cancelPage = (user: Payer) =>
-	stripe.portal({ payer: user, cancel: {} })
+	stripe.portal({ payer: user, open: 'cancel' })
+
+/** Stripe's portal, open on the move of `user`'s subscription to yearly. */
+export const yearlyPage = (user: Payer) =>
+	stripe.portal({ payer: user, open: 'change', product: pro, price: 'yearly' })
+
+/** Stripe's portal, open on the form that changes `user`'s card. */
+export const cardPage = (user: Payer) =>
+	stripe.portal({ payer: user, open: 'paymentMethod' })
 //#endregion
 
 //#region grant

@@ -36,6 +36,8 @@ async function paid(url: string): Promise<string> {
 }
 
 const sessionOf = (url: string) => url.split('/').at(-1) ?? ''
+/** The trial days the Checkout at `url` gives. */
+const trialOf = (url: string) => fake.checkouts.get(sessionOf(url))?.trialDays
 /** The customer at Stripe of the Checkout at `url`. */
 const customerOf = (url: string) =>
 	fake.customers.get(fake.checkouts.get(sessionOf(url))?.customerId ?? '')
@@ -270,6 +272,26 @@ describe('stripe.checkout', () => {
 		expect(fake.portalSessions.at(-1)?.locale).toBe('fr-BE')
 	})
 
+	it('gives the price’s trial on a payer’s first subscription only', async () => {
+		const ada = await signUp()
+		const yearly = {
+			payer: ada,
+			product: pro,
+			price: 'yearly',
+			...urls,
+		} as const
+		expect(trialOf(await stripe.checkout(yearly))).toBe(30)
+		expect(
+			trialOf(await stripe.checkout({ ...yearly, trialDays: 0 })),
+		).toBeNull()
+		const monthly = { ...yearly, price: 'monthly' } as const
+		expect(trialOf(await stripe.checkout(monthly))).toBeNull()
+		await paid(await stripe.checkout(monthly))
+		// A payer who subscribed once, even to another price, has had theirs.
+		expect(trialOf(await stripe.checkout(yearly))).toBeNull()
+		expect(trialOf(await stripe.checkout({ ...yearly, trialDays: 7 }))).toBe(7)
+	})
+
 	it('shows the application’s text by the terms checkbox', async () => {
 		const ada = await signUp()
 		const acceptance = 'I accept the [terms](https://app.test/terms).'
@@ -287,6 +309,45 @@ describe('stripe.checkout', () => {
 				stripe.checkout({ ...args, terms: { acceptance: text } }),
 			).rejects.toThrow('terms.acceptance is a text of 1 to 1,200 characters')
 		}
+	})
+
+	it('shows the terms text in the page’s language, else its default', async () => {
+		const acceptance = {
+			default: 'I accept the terms.',
+			fr: 'J’accepte les conditions.',
+			'pt-BR': 'Aceito os termos.',
+		}
+		// The page's own locale, its language, then the default.
+		const pages = [
+			['pt-BR', 'Aceito os termos.'],
+			['fr-CA', 'J’accepte les conditions.'],
+			['fr-BE', 'J’accepte les conditions.'],
+			['de', 'I accept the terms.'],
+			['xx-unknown', 'I accept the terms.'],
+		] as const
+		for (const [lang, text] of pages) {
+			const data = { email: `${lang}@example.com`, lang }
+			const payer = await User.create({ data }, M)
+			const args = { payer, product: team, terms: { acceptance }, ...urls }
+			const url = await stripe.checkout(args)
+			expect(fake.checkouts.get(sessionOf(url))?.terms).toStrictEqual({
+				acceptance: text,
+			})
+		}
+		const ada = await signUp()
+		const args = { payer: ada, product: team, ...urls }
+		for (const key of ['en-gb', 'fr_FR', 'auto']) {
+			const texts = { ...acceptance, [key]: 'Text.' }
+			await expect(
+				stripe.checkout({ ...args, terms: { acceptance: texts } }),
+			).rejects.toThrow(
+				`terms.acceptance's key '${key}' is not a canonical locale`,
+			)
+		}
+		const empty = { ...acceptance, fr: '' }
+		await expect(
+			stripe.checkout({ ...args, terms: { acceptance: empty } }),
+		).rejects.toThrow('terms.acceptance is a text of 1 to 1,200 characters')
 	})
 })
 
@@ -323,7 +384,7 @@ describe('stripe.syncCheckout', () => {
 })
 
 describe('stripe.portal', () => {
-	it('opens the portal, and its change and cancel confirmations', async () => {
+	it('opens the portal, its change and cancel confirmations, and its payment method form', async () => {
 		const ada = await signUp()
 		const id = await paid(
 			await stripe.checkout({
@@ -338,10 +399,13 @@ describe('stripe.portal', () => {
 		expect(url).toMatch(/^https:\/\/billing\.stripe\.test\//)
 		await stripe.portal({
 			payer: ada,
-			change: { product: team, price: 'monthly' },
+			open: 'change',
+			product: team,
+			price: 'monthly',
 			returnUrl: 'https://app.test/plans',
 		})
-		await stripe.portal({ payer: ada, cancel: {} })
+		await stripe.portal({ payer: ada, open: 'cancel' })
+		await stripe.portal({ payer: ada, open: 'paymentMethod' })
 		const [portal] = fake.portals.keys()
 		expect(fake.portalSessions.slice(opened)).toMatchObject([
 			{
@@ -354,21 +418,29 @@ describe('stripe.portal', () => {
 				flow: { kind: 'change', subscriptionId: id, lookupKey: 'team.monthly' },
 			},
 			{ flow: { kind: 'cancel', subscriptionId: id } },
+			{ flow: { kind: 'paymentMethod' } },
 		])
 	})
 
-	it('refuses a deep link without a live subscription, or with two links', async () => {
+	it('refuses a deep link without a live subscription, or an unknown page', async () => {
 		const ada = await signUp()
 		await expect(
-			stripe.portal({ payer: ada, cancel: {} }),
+			stripe.portal({ payer: ada, open: 'cancel' }),
 		).rejects.toMatchObject({ code: 'NOT_SUBSCRIBED' })
 		await expect(
 			stripe.portal({
 				payer: ada,
-				cancel: {},
-				change: { product: team, price: 'monthly' },
+				open: 'cancel',
+				// @ts-expect-error: one page at a time; a product is a change's.
+				product: team,
 			}),
-		).rejects.toThrow('stripe.portal takes change or cancel, not both.')
+		).rejects.toMatchObject({ code: 'NOT_SUBSCRIBED' })
+		await expect(
+			// @ts-expect-error: a page the portal does not open.
+			stripe.portal({ payer: ada, open: 'invoices' }),
+		).rejects.toThrow(
+			'stripe.portal opens change, cancel or paymentMethod, not invoices.',
+		)
 	})
 
 	it('asks which subscription when the payer has several', async () => {
@@ -382,16 +454,20 @@ describe('stripe.portal', () => {
 				...urls,
 			}),
 		)
-		const unnamed = stripe.portal({ payer: ada, cancel: {} })
+		const unnamed = stripe.portal({ payer: ada, open: 'cancel' })
 		await expect(unnamed).rejects.toBeInstanceOf(Refused)
 		await expect(unnamed).rejects.toThrow(
-			'stripe.portal: the payer has several live subscriptions; name the one with cancel.subscription, a Subscription row’s id.',
+			'stripe.portal: the payer has several live subscriptions; name the one with subscription, a Subscription row’s id.',
 		)
 		const row = await Subscription.findUniqueOrThrow(
 			{ where: { stripeId: second } },
 			M,
 		)
-		await stripe.portal({ payer: ada, cancel: { subscription: row.id } })
+		await stripe.portal({
+			payer: ada,
+			open: 'cancel',
+			subscription: row.id,
+		})
 		expect(fake.portalSessions.at(-1)?.flow).toStrictEqual({
 			kind: 'cancel',
 			subscriptionId: second,

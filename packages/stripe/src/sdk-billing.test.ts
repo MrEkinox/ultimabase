@@ -73,6 +73,42 @@ const intent = (id: string, fields: object) => ({
 })
 
 describe('readCustomer', () => {
+	it('takes a phase Stripe has begun as current, whatever the server’s clock', async () => {
+		// A test clock a year ahead: the server's clock says the last phase
+		// is to come, Stripe's current phase says it has begun.
+		const switched = now + 366 * day
+		const { gateway } = gatewayOn(({ path }) => {
+			switch (path) {
+				case '/v1/customers/cus_1':
+					return { id: 'cus_1', object: 'customer' }
+				case '/v1/subscriptions':
+					return stripeList([
+						subscription({
+							schedule: {
+								id: 'sub_sched_1',
+								current_phase: { start_date: switched, end_date: null },
+								phases: [
+									{ start_date: now - day, items: [{ price: 'price_x' }] },
+									{
+										start_date: switched,
+										items: [{ price: 'price_pro_yearly' }],
+									},
+								],
+							},
+						}),
+					])
+				case '/v1/prices/price_pro_yearly':
+					return price('pro', 'yearly')
+				case '/v1/payment_intents':
+					return stripeList([])
+				default:
+					throw new Error(path)
+			}
+		})
+		const { subscriptions } = await gateway.readCustomer('cus_1')
+		expect(subscriptions[0]?.scheduled).toBeNull()
+	})
+
 	it('reads the subscriptions and the paid payments the plugin opened', async () => {
 		const { gateway, requests } = gatewayOn(({ path }) => {
 			switch (path) {
@@ -647,7 +683,7 @@ describe('the portal', () => {
 		locale: null,
 	}
 
-	it('opens its home, a cancellation and a change, keeping the quantity', async () => {
+	it('opens its home, a cancellation, a change keeping the quantity, and the payment method', async () => {
 		const { gateway, requests } = gatewayOn(portalAnswer)
 		expect(
 			await gateway.openPortal({ ...portal, flow: { kind: 'home' } }),
@@ -667,6 +703,7 @@ describe('the portal', () => {
 				lookupKey: 'team.monthly',
 			},
 		})
+		await gateway.openPortal({ ...portal, flow: { kind: 'paymentMethod' } })
 		const sessions = requests.filter(
 			({ path }) => path === '/v1/billing_portal/sessions',
 		)
@@ -695,6 +732,15 @@ describe('the portal', () => {
 				'flow_data[subscription_update_confirm][items][0][id]': 'si_1',
 				'flow_data[subscription_update_confirm][items][0][price]': 'price_team',
 				'flow_data[subscription_update_confirm][items][0][quantity]': '3',
+				'flow_data[after_completion][type]': 'redirect',
+				'flow_data[after_completion][redirect][return_url]':
+					'https://app.test/account',
+			},
+			{
+				customer: 'cus_1',
+				return_url: 'https://app.test/account',
+				configuration: 'bpc_1',
+				'flow_data[type]': 'payment_method_update',
 				'flow_data[after_completion][type]': 'redirect',
 				'flow_data[after_completion][redirect][return_url]':
 					'https://app.test/account',

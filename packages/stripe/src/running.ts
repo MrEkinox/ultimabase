@@ -55,7 +55,7 @@ export interface Billing {
 	readonly queries: Rows
 	/** The payer's or owner's model: its name and queries. */
 	readonly payer: { readonly name: string; readonly queries: Rows }
-	/** The values of its `product` and `price` enums, if typed (D-387). */
+	/** Its `product` and `price` enums, if typed (D-387). */
 	readonly enums: Enums
 }
 
