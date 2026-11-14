@@ -327,6 +327,9 @@ async function resumed(
 	return eventsFor(live, request, stream).response
 }
 
+/** What a realtime viewer throws once it closed under a follow. */
+const closedViewer = 'The viewer is closed.'
+
 /**
  * `request`'s stream of the read `open` starts, closed with the client; a
  * list resumes the one its token keeps when it may.
@@ -358,6 +361,9 @@ export async function streamed(
 	} catch (error) {
 		finish()
 		viewer.close()
+		// Its client left during the first read, closing its viewer: a 499.
+		const closed = error instanceof Error && error.message === closedViewer
+		if (stream.ended && closed) throw request.signal.reason
 		throw error
 	}
 	if (stream.ended) stream.handle.close()

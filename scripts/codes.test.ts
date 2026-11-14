@@ -29,6 +29,7 @@ const notCodes = new Set([
 	'ENOENT',
 	'EADDRINUSE',
 	'ECONNREFUSED',
+	'ECONNRESET',
 	'SIGTERM',
 	'POST',
 	'PATCH',
