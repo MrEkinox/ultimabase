@@ -1,0 +1,523 @@
+---
+title: Hooks
+description: Run code before and after each read and write of a model, in its transaction or once it commits.
+---
+
+A hook is a model's own code, run on each of its reads and writes. A model's
+`.with({ hooks })` lists them:
+
+```ts title="src/tag.ts"
+import { allow, defineModel } from 'ultimabase'
+
+export const Tag = defineModel({
+	name: 'Tag',
+	fields: (f) => ({ label: f.string() }),
+}).with({
+	access: allow.public,
+	hooks: {
+		// Changes `data` before it is written.
+		beforeCreate: ({ data }) => {
+			data.label = data.label.trim().toLowerCase()
+		},
+	},
+})
+```
+
+The full example, with its tests: [`examples/hooks`](https://github.com/MrEkinox/ultimabase/tree/main/examples/hooks).
+
+| To                                  | Use                                                           |
+| ----------------------------------- | ------------------------------------------------------------- |
+| change the data before it's written | [`beforeCreate`, `beforeUpdate`](#change-the-data)            |
+| refuse a write                      | [any `before*` hook](#refuse-a-write)                         |
+| hide rows                           | [`beforeFind`](#hide-rows)                                    |
+| write more with the row             | [`afterCreate`, `afterUpdate`, `afterDelete`](#after-a-write) |
+| compare a row's fields              | [`afterCreate`, `afterUpdate`](#a-rule-across-a-rows-fields)  |
+| email, call a webhook               | [`afterCreateCommit` and the others](#once-it-commits)        |
+| limit a person's writes             | [`beforeCreate`](#limit-a-persons-writes)                     |
+| number rows in order                | [the parent's `beforeUpdate`](#number-rows-in-order)          |
+
+Each hook receives the `caller` of the query, and may be `async`. A query it
+makes passes its own `{ as }`: `{ as: caller }` for the caller's rules,
+`{ as: master }` for none, with `master` from `ultimabase`.
+
+The sections below show the hooks of a support ticket, which starts like this.
+Its tests write `as` for `{ as: master }`.
+
+```ts title="src/models.ts"
+export const Ticket = defineModel({
+	name: 'Ticket',
+	use: [graphql()],
+	fields: (f) => ({
+		title: f.string(),
+		status: f.enumOf(['open', 'closed'], { default: 'open' }),
+		closedAt: f.dateTime({ optional: true }),
+		spam: f.boolean({ default: false }),
+		activity: f.many(() => Activity, { inverse: 'ticket' }),
+	}),
+}).with({
+	access: allow.public,
+	hooks: {
+		// The sections below show each hook.
+```
+
+## Change the data
+
+`beforeCreate` receives the `data` of the create; `beforeUpdate` the stored
+`record` and the `data` of the update. Each changes `data` in place:
+
+```ts title="src/models.ts"
+// Changes `data` in place, before it is written.
+beforeCreate: ({ data }) => {
+	data.title = data.title.trim()
+},
+beforeUpdate: ({ record, data }) => {
+	if (data.status === 'closed' && record.status !== 'closed') {
+		data.closedAt = new Date()
+	}
+},
+```
+
+```ts title="src/app.test.ts"
+const ticket = await Ticket.create({ data: { title: '  Printer jam ' } }, as)
+expect(ticket.title).toBe('Printer jam')
+
+const closed = await Ticket.update(
+	{ where: { id: ticket.id }, data: { status: 'closed' } },
+	as,
+)
+expect(closed.closedAt).toBeInstanceOf(Date)
+```
+
+- They run after the access rules, and before the write.
+- `beforeCreate` runs after the defaults: a field with a default is already
+  set, in its value and in its type.
+- A field a hook writes skips its field access rules: here `closedAt`, which
+  no client writes.
+- The data is checked again after the hooks: a required field left empty fails
+  with `VALIDATION_FAILED` and `Required.`, so a hook may fill it.
+
+## Refuse a write
+
+A `before*` hook refuses by throwing, and nothing is written:
+
+```ts title="src/models.ts"
+// Throwing refuses the write; a PublicError reaches the client.
+beforeDelete: ({ record }) => {
+	if (record.status === 'open') {
+		throw new PublicError('TICKET_OPEN', 'Close the ticket first.')
+	}
+},
+```
+
+```ts title="src/app.test.ts"
+const ticket = await Ticket.create({ data: { title: 'Printer jam' } }, as)
+await expect(
+	Ticket.delete({ where: { id: ticket.id } }, as),
+).rejects.toMatchObject({
+	code: 'TICKET_OPEN',
+	message: 'Close the ticket first.',
+})
+expect(await Ticket.count({}, as)).toBe(1)
+```
+
+- A `PublicError`, from `ultimabase`, reaches the client with its code, message
+  and details. See [Errors](/docs/next/errors).
+- Any other error is `INTERNAL` for the client, its message logged and never
+  sent.
+
+Over GraphQL, the same error:
+
+```graphql title="Request"
+mutation ($id: ID!) {
+	deleteTicket(where: { id: $id }) {
+		id
+	}
+}
+```
+
+```json title="Response"
+{
+	"errors": [
+		{
+			"message": "Close the ticket first.",
+			"locations": [{ "line": 2, "column": 2 }],
+			"path": ["deleteTicket"],
+			"extensions": { "code": "TICKET_OPEN" }
+		}
+	],
+	"data": null
+}
+```
+
+## Hide rows
+
+`beforeFind` returns a filter built with `where`, or nothing:
+
+```ts title="src/models.ts"
+// A spam ticket exists for nobody, Master included.
+beforeFind: ({ where }) => where({ spam: false }),
+```
+
+```ts title="src/app.test.ts"
+await Ticket.create({ data: { title: 'Printer jam' } }, as)
+await Ticket.create({ data: { title: 'Cheap watches', spam: true } }, as)
+// Master included: a hook is the model's own code.
+const titles = await Ticket.findMany({ select: { title: true } }, as)
+expect(titles).toEqual([{ title: 'Printer jam' }])
+```
+
+The filter joins every query that reaches the model, whoever the caller, Master
+included: lists, counts, includes, relation filters, and the rows an update or
+a delete targets. This is how [soft delete](/docs/next/soft-delete) hides the
+deleted rows.
+
+`operation` says what the rows are found for: `'read'`, `'update'` or
+`'delete'`.
+
+## After a write
+
+`afterCreate`, `afterUpdate` and `afterDelete` run in the write's transaction,
+once the row is written. `record` is the row as written, and an update's
+`previous` the row before:
+
+```ts title="src/models.ts"
+// In the write's transaction: if it throws, the update is undone.
+afterUpdate: async ({ record, previous }) => {
+	if (previous.status === record.status) return
+	await Activity.create(
+		{
+			data: {
+				ticket: { connect: { id: record.id } },
+				text: `${previous.status} → ${record.status}`,
+			},
+		},
+		{ as: master },
+	)
+},
+```
+
+```ts title="src/app.test.ts"
+const ticket = await Ticket.create({ data: { title: 'Printer jam' } }, as)
+await Ticket.update(
+	{ where: { id: ticket.id }, data: { status: 'closed' } },
+	as,
+)
+const activity = await Activity.findMany(
+	{ where: { ticket: { is: { id: ticket.id } } }, select: { text: true } },
+	as,
+)
+expect(activity).toEqual([{ text: 'open → closed' }])
+```
+
+- What they write commits with the row, and a hook that throws undoes it all.
+- `create` and `update` read their row again after these hooks, so the returned
+  row shows what they wrote.
+
+## A rule across a row's fields
+
+A rule that compares fields of one row reads the row as written, in
+`afterCreate` and `afterUpdate`: an update's `data` holds only the fields it
+changes, `record` all of them. Here a call ends with a reason:
+
+```ts title="src/models.ts"
+type Ending = { endedAt: Date | null; endReason: string | null }
+
+// Read on the row as written, whichever fields the write changed.
+function checkEnding({ endedAt, endReason }: Ending): void {
+	if ((endedAt === null) !== (endReason === null)) {
+		throw new PublicError('CALL_ENDING', 'An ended call has a reason.')
+	}
+}
+```
+
+```ts title="src/models.ts"
+/** A call ends with a reason: both fields are set, or neither. */
+export const Call = defineModel({
+	name: 'Call',
+	fields: (f) => ({
+		endedAt: f.dateTime({ optional: true }),
+		endReason: f.enumOf(['done', 'missed'], { optional: true }),
+	}),
+}).with({
+	hooks: {
+		// For every caller and each row of a createMany or an updateMany, in
+		// the write's transaction: throwing undoes the write.
+		afterCreate: ({ record }) => {
+			checkEnding(record)
+		},
+		afterUpdate: ({ record }) => {
+			checkEnding(record)
+		},
+	},
+})
+```
+
+```ts title="src/app.test.ts"
+// The update gives one field; the hook reads both on the row.
+await expect(
+	Call.update({ where: { id: call.id }, data: { endReason: 'done' } }, as),
+).rejects.toMatchObject({ code: 'CALL_ENDING' })
+const ended = await Call.update(
+	{
+		where: { id: call.id },
+		data: { endedAt: new Date(), endReason: 'done' },
+	},
+	as,
+)
+expect(ended.endReason).toBe('done')
+```
+
+The hooks run for every caller, Master included, and for each row of a
+`createMany` or an `updateMany`. A throw undoes the write.
+
+## Once it commits
+
+`afterCreateCommit`, `afterUpdateCommit` and `afterDeleteCommit` get the same
+facts as the `after*` hooks, and run once the transaction commits. They are for
+what cannot be undone: an email, a webhook, a message to another service. Here
+`outbox` stands for an email service: an array of the messages sent.
+
+```ts title="src/models.ts"
+// Once the transaction commits, never after a rollback.
+afterUpdateCommit: ({ record, previous }) => {
+	if (previous.status !== 'closed' && record.status === 'closed') {
+		outbox.push(`Your ticket "${record.title}" is closed.`)
+	}
+},
+```
+
+A rollback sends nothing, and the ticket stays open:
+
+```ts title="src/app.test.ts"
+await expect(
+	transaction(async () => {
+		await Ticket.update(
+			{ where: { id: ticket.id }, data: { status: 'closed' } },
+			as,
+		)
+		throw new Error('Something else failed.')
+	}),
+).rejects.toThrow('Something else failed.')
+expect(outbox).toEqual([])
+expect(await Ticket.count({ where: { status: 'open' } }, as)).toBe(1)
+```
+
+A commit sends it:
+
+```ts title="src/app.test.ts"
+await Ticket.update(
+	{ where: { id: ticket.id }, data: { status: 'closed' } },
+	as,
+)
+expect(outbox).toEqual(['Your ticket "Printer jam" is closed.'])
+```
+
+- The write, or the outermost [transaction](/docs/next/transactions), resolves
+  once they are done, so a test or a serverless function never ends before them.
+- A `*Commit` hook that throws is logged at `error` and is not thrown: the write
+  is already committed.
+- A `*Commit` hook runs in memory: a crash before it ends loses it. What must
+  happen even then goes in a [job](/docs/next/jobs), enqueued from an `after*`
+  hook in the write's transaction.
+
+## Limit a person's writes
+
+The HTTP server limits each address's requests
+([rate limit](/docs/next/http#rate-limit)). A limit per person on a write is a
+`beforeCreate` hook that counts the caller's recent rows and throws
+`TOO_MANY_ATTEMPTS`, sent with HTTP 429 and `Retry-After`.
+
+A comment stores its author, and only a signed-in person may create one:
+
+```ts title="src/models.ts"
+fields: (f) => ({
+	text: f.string(),
+	authorId: f.string({
+		default: ({ caller }) =>
+			caller.kind === 'user' ? caller.user.id : undefined,
+	}),
+}),
+```
+
+```ts title="src/models.ts"
+// Counts operations, not requests: REST, GraphQL and server code alike.
+beforeCreate: async ({ caller }): Promise<void> => {
+	if (caller.kind !== 'user') return
+	const since = new Date(Date.now() - 60_000)
+	const recent = await Comment.count(
+		{ where: { authorId: caller.user.id, createdAt: { gt: since } } },
+		{ as: master },
+	)
+	if (recent >= 5) {
+		throw new PublicError('TOO_MANY_ATTEMPTS', 'Wait a minute.', {
+			details: { retryAfter: 60 },
+		})
+	}
+},
+```
+
+```ts title="src/app.test.ts"
+const ada = { as: asUser({ id: 'ada' }) }
+for (const text of ['1', '2', '3', '4', '5']) {
+	await Comment.create({ data: { text } }, ada)
+}
+await expect(
+	Comment.create({ data: { text: '6' } }, ada),
+).rejects.toMatchObject({
+	code: 'TOO_MANY_ATTEMPTS',
+	details: { retryAfter: 60 },
+})
+```
+
+- Each person's comments count apart.
+- It counts writes, not requests: a GraphQL document that creates ten comments
+  with aliases counts ten.
+- Writes sent at the same instant may each pass the count; a limit that must
+  never be exceeded runs the write in a
+  [serializable transaction](/docs/next/transactions#serializable-transactions).
+
+## Number rows in order
+
+A card goes after the last card of its board, those the caller cannot read
+included, so the server numbers it. Its `position` returns no default: a
+create may leave it out, and the check after the hooks still requires it.
+
+```ts title="src/cards.ts"
+export const Card = defineModel({
+	name: 'Card',
+	fields: (f) => ({
+		board: f.one(() => Board),
+		title: f.string(),
+		// Returns no default: optional to create, the hooks fill it.
+		position: f.number({ integer: true, default: () => undefined }),
+	}),
+}).with({
+	access: allow.public,
+	hooks: {
+		// A card created alone; Board numbers the cards it creates.
+		beforeCreate: async ({ data }) => {
+			if (data.position !== undefined || !('connect' in data.board)) return
+			data.position = await after(data.board.connect.id)
+		},
+	},
+})
+```
+
+The cards one write creates are written together, after all their hooks, so
+each card's own hook would read the same last position. The board numbers
+them first:
+
+```ts title="src/cards.ts"
+export const Board = defineModel({
+	name: 'Board',
+	fields: (f) => ({
+		name: f.string(),
+		cards: f.many(() => Card, { inverse: 'board' }),
+	}),
+}).with({
+	access: allow.public,
+	hooks: {
+		// The cards of one write are written together, after all their
+		// hooks: each would read the same last position.
+		beforeUpdate: async ({ record, data }) => {
+			const create = data.cards?.create
+			if (create === undefined) return
+			let next = await after(record.id)
+			data.cards = {
+				...data.cards,
+				create: create.map((card) => ({
+					...card,
+					position: card.position ?? next++,
+				})),
+			}
+		},
+	},
+})
+```
+
+```ts title="src/app.test.ts"
+const where = { id: board.id }
+const create = [{ title: 'a' }, { title: 'b' }]
+await Board.update({ where, data: { cards: { create } } }, as)
+await Card.create({ data: { board: { connect: where }, title: 'c' } }, as)
+const cards = await Card.findMany({ orderBy: { position: 'asc' } }, as)
+expect(cards.map((card) => [card.title, card.position])).toEqual([
+	['a', 0],
+	['b', 1],
+	['c', 2],
+])
+```
+
+- A position the write gives is kept.
+- Cards created at the same instant, in two writes, may take the same
+  position; order them by `position`, then `createdAt`.
+
+## Details
+
+### `beforeFind`
+
+- A create returns its row even when the filter hides it.
+- A `cascade` delete reaches the hidden rows too.
+
+### A rule and `setNull`
+
+`afterUpdate` also runs on the rows a `setNull` relation empties when its target
+is deleted. The hook decides when its rule applies: a rule that needs the
+relation can check only the writes that change it, comparing `record` with
+`previous`, and the delete goes through.
+
+A `check` constraint written in SQL holds at every write, and would refuse that
+delete; [postgres()](/docs/next/postgres#your-own-sql) returns its refusal as
+`VALIDATION_FAILED`.
+
+## Reference
+
+### Hooks
+
+| Hook                | Receives                       | Runs                                     |
+| ------------------- | ------------------------------ | ---------------------------------------- |
+| `beforeFind`        | `caller`, `operation`, `where` | on each query that reaches the model     |
+| `beforeCreate`      | `caller`, `data`               | after the access rules, before the write |
+| `beforeUpdate`      | `caller`, `record`, `data`     | after the access rules, before the write |
+| `beforeDelete`      | `caller`, `record`             | after the access rules, before the write |
+| `afterCreate`       | `caller`, `record`             | after the write, in its transaction      |
+| `afterUpdate`       | `caller`, `record`, `previous` | after the write, in its transaction      |
+| `afterDelete`       | `caller`, `record`             | after the write, in its transaction      |
+| `afterCreateCommit` | as `afterCreate`               | once the transaction commits             |
+| `afterUpdateCommit` | as `afterUpdate`               | once the transaction commits             |
+| `afterDeleteCommit` | as `afterDelete`               | once the transaction commits             |
+
+`record` and `previous` hold `id`, `createdAt`, `updatedAt`, each field, and
+each `one` relation as `{ id }` or `null`. `beforeFind` returns
+`where({ ... })` or nothing; the others return nothing. Each hook also receives
+`logger`, the application's logger.
+
+### When they run
+
+- The plugins' hooks run first, in the order of `plugins`, then the model's.
+- `createMany`, `updateMany` and `deleteMany` run the hooks of each row.
+- A nested write runs the hooks of each model it writes. A row a relation
+  write moves runs `beforeUpdate`, with `data` holding the relation as
+  `{ connect: { id } }` or `{ disconnect: true }`, then `afterUpdate`.
+- A cascade runs the `beforeUpdate` of its `setNull` rows, then the
+  `beforeDelete` of the deleted rows, the deepest first; the `after*` hooks
+  follow in the same order. See [Relations](/docs/next/relations).
+- A nested write runs the `before*` hooks of all its rows, then writes them
+  together: a hook does not see the rows created beside its own. See
+  [Number rows in order](#number-rows-in-order).
+- `beforeFind` runs once per query and model.
+
+### Errors
+
+| Thrown by a hook | The client receives                                      |
+| ---------------- | -------------------------------------------------------- |
+| a `PublicError`  | its code, message and details                            |
+| any other error  | `INTERNAL`, with a correlation id; the message is logged |
+| in a `*Commit`   | nothing: logged at `error`, the write already resolved   |
+
+### Limits
+
+- There is no `afterFind`: a value computed on read is a
+  [virtual field](/docs/next/models).
+- A hook's own queries run its hooks too: a hook that updates its own model
+  runs again.

@@ -1,5 +1,40 @@
 # @ultimabase/graphql
 
+## 1.0.0
+
+### Patch Changes
+
+- 4b2278d: The documents a server keeps parsed hold 256 KB of text at most: 500 dense documents of 4 KB, sent by an anonymous client and refused, held 420 MB of heap in every process; they now hold 55 MB at most.
+- 1520a09: The kernel publishes each model operation, hook, virtual field and function on Node's tracing channels `ultimabase:operation`, `ultimabase:hook`, `ultimabase:virtual` and `ultimabase:function`, nested, and each error the server logs at error level on `ultimabase:error` with its correlation id. A tool such as an error tracker subscribes to them; without a subscriber, nothing is built.
+- Updated dependencies [20aec1b]
+- Updated dependencies [b2aa312]
+- Updated dependencies [94145f9]
+- Updated dependencies [8f82820]
+- Updated dependencies [1b9515a]
+- Updated dependencies [4b2278d]
+- Updated dependencies [458361b]
+- Updated dependencies [4c9e506]
+- Updated dependencies [4b2278d]
+- Updated dependencies [4b2278d]
+- Updated dependencies [4b2278d]
+- Updated dependencies [4b2278d]
+- Updated dependencies [4b2278d]
+- Updated dependencies [95ce1d5]
+- Updated dependencies [51f8f04]
+- Updated dependencies [4b2278d]
+- Updated dependencies [4b2278d]
+- Updated dependencies [3099475]
+- Updated dependencies [fd85be5]
+- Updated dependencies [4b2278d]
+- Updated dependencies [4b2278d]
+- Updated dependencies [4b2278d]
+- Updated dependencies [1520a09]
+- Updated dependencies [4b2278d]
+- Updated dependencies [4b2278d]
+  - ultimabase@1.0.0
+  - @ultimabase/http@1.0.0
+  - @ultimabase/realtime@1.0.0
+
 ## 0.7.0
 
 ### Patch Changes

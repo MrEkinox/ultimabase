@@ -1,5 +1,45 @@
 # @ultimabase/http
 
+## 1.0.0
+
+### Minor Changes
+
+- 20aec1b: The application's code logs with the application's logger, its lines named `app` (D-364): a function's `run` receives `logger`, bound to `{ function: name }`; each hook receives `logger`; a route reads `c.var.logger`; a job's `run` receives `logger`, bound to `{ job: name, run: id }`.
+- 4b2278d: The maintenance ends the open event streams as it begins: a live list's
+  stream no longer goes on serving changes during maintenance. The HTTP plugin's
+  new `plugins.http.closeStreams()` ends every `text/event-stream` answer.
+
+### Patch Changes
+
+- 458361b: `hono` 4.13.16 fixes its advisories: a `multipart/form-data` body with an extra parameter, as `charset`, is now validated as a form, and wildcard middleware now runs for every route the default router matches.
+- 4c9e506: `@hono/node-server` 2.1.6 fixes two advisories: a connection reset during a WebSocket upgrade no longer crashes the process, and a backslash in a request's path no longer passes a reverse proxy's path rules as a separator.
+- 4b2278d: A request still running when `stop` begins is answered before any plugin stops: an upload, or a sign-up that sends its welcome email, no longer fails because the plugin it uses stopped first. Live streams and WebSockets still end with their plugin's `stop`, and the whole stop still takes 10 seconds at most (D-395).
+- 4b2278d: A route that fails on its own while its client leaves answers `500` and is logged again; only the
+  client leaving, its body read cut, gives `499`.
+- 4b2278d: A request whose headers end once the stop began answers 503 and closes its connection, as `/ready` does: it ran after the plugins it used had stopped. An upgrade is refused the same way, and one whose gate runs when the stop begins is taken before its plugin stops.
+- 4b2278d: An idle connection is kept 65 s, past a load balancer's 60 s, which no longer answers `502` on a connection the server just closed. A request's body arrives within 120 s, not 300, and a socket quiet for 120 s is closed. A connection that turns idle once the stop began is closed at once, rather than holding the stop.
+- 4b2278d: An upgrade whose `Host` header holds a path or a query, such as `localhost/admin?`, is refused with 400: it picked the plugin of that path, whatever path the request named.
+- 4b2278d: During maintenance, `PUT /_ultimabase/maintenance` passes the gate with the
+  master key or the maintenance key only: an application route matching that
+  path no longer runs for an anonymous caller. The HTTP plugin refuses to start
+  when an application route answers a plugin's path under `/_ultimabase/`.
+- 1520a09: The kernel publishes each model operation, hook, virtual field and function on Node's tracing channels `ultimabase:operation`, `ultimabase:hook`, `ultimabase:virtual` and `ultimabase:function`, nested, and each error the server logs at error level on `ultimabase:error` with its correlation id. A tool such as an error tracker subscribes to them; without a subscriber, nothing is built.
+- Updated dependencies [20aec1b]
+- Updated dependencies [b2aa312]
+- Updated dependencies [94145f9]
+- Updated dependencies [8f82820]
+- Updated dependencies [1b9515a]
+- Updated dependencies [4b2278d]
+- Updated dependencies [51f8f04]
+- Updated dependencies [3099475]
+- Updated dependencies [fd85be5]
+- Updated dependencies [4b2278d]
+- Updated dependencies [4b2278d]
+- Updated dependencies [1520a09]
+- Updated dependencies [4b2278d]
+- Updated dependencies [4b2278d]
+  - ultimabase@1.0.0
+
 ## 0.7.0
 
 ### Patch Changes

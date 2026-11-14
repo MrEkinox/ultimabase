@@ -1,5 +1,30 @@
 # @ultimabase/soft-delete
 
+## 1.0.0
+
+### Patch Changes
+
+- 4b2278d: A redirected delete is given every row it removes, `where: { id: { in: ids } }`,
+  in one call per model: a plugin writes them with `updateMany`, and a
+  `deleteMany` into the trash makes one write, not one per row.
+- 4b2278d: A soft delete no longer computes the row's virtual fields twice: the update that marks the row deleted reads only its id, and the delete computes them once, for the row it returns.
+- 4b2278d: A plugin's command applies to the rows it reads, not to the rows under them: `Post.trash.findMany({ include: { author: true } })` reads the author as any read does, where a deleted post's live parent read `null` before.
+- Updated dependencies [20aec1b]
+- Updated dependencies [b2aa312]
+- Updated dependencies [94145f9]
+- Updated dependencies [8f82820]
+- Updated dependencies [1b9515a]
+- Updated dependencies [4b2278d]
+- Updated dependencies [51f8f04]
+- Updated dependencies [3099475]
+- Updated dependencies [fd85be5]
+- Updated dependencies [4b2278d]
+- Updated dependencies [4b2278d]
+- Updated dependencies [1520a09]
+- Updated dependencies [4b2278d]
+- Updated dependencies [4b2278d]
+  - ultimabase@1.0.0
+
 ## 0.7.0
 
 ### Patch Changes

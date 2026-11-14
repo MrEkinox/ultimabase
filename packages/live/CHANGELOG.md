@@ -1,5 +1,16 @@
 # @ultimabase/live
 
+## 1.0.0
+
+### Patch Changes
+
+- 4b2278d: `applyLive` stays fast when a message removes many rows from the front of a long list.
+- 4b2278d: A live list out of step, grown past what a new read may ask, reads again at its first size instead of
+  ending with an error.
+- 4b2278d: The Apollo link evicts a live row from the cache once it turns null, deleted or unreadable, as it
+  already did for a live list's gone rows.
+- 4b2278d: `liveFetch` reconnects after a 429, once the `retry-after` the server sends has passed, then the usual backoff. Before, a live list refused for too many requests stopped for good with `TOO_MANY_ATTEMPTS`, though the server answers "try again later".
+
 ## 0.7.0
 
 No changes in this release.
