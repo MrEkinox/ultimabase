@@ -74,7 +74,9 @@ export default defineConfig({
 				test: {
 					name: 'stripe',
 					include: [stripeTests],
-					exclude: ['**/node_modules/**'],
+					// An example's sandbox test needs that application's sandbox,
+					// its catalog deployed (D-401).
+					exclude: ['**/node_modules/**', 'examples/**'],
 					// Each test waits for Stripe's events.
 					testTimeout: 120_000,
 					hookTimeout: 120_000,

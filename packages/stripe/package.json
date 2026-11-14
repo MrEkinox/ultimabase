@@ -15,6 +15,7 @@
 	},
 	"exports": {
 		".": "./src/index.ts",
+		"./sandbox": "./src/sandbox.ts",
 		"./testing": "./src/testing.ts"
 	},
 	"files": [
@@ -29,13 +30,20 @@
 	"publishConfig": {
 		"exports": {
 			".": "./dist/index.js",
+			"./sandbox": "./dist/sandbox.js",
 			"./testing": "./dist/testing.js"
 		}
 	},
 	"peerDependencies": {
 		"@ultimabase/http": "^0.7.0",
 		"@ultimabase/jobs": "^0.7.0",
+		"@ultimabase/testing": "^0.7.0",
 		"ultimabase": "^0.7.0"
+	},
+	"peerDependenciesMeta": {
+		"@ultimabase/testing": {
+			"optional": true
+		}
 	},
 	"devDependencies": {
 		"@ultimabase/graphql": "workspace:*",

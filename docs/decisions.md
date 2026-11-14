@@ -24483,3 +24483,78 @@ serializable transaction that ran again stored them once per attempt.
 Rejected: refusing an upload inside a transaction, which breaks a caller
 that uploads then writes in one; deleting the objects on rollback, which a
 crash between the two still leaks.
+
+## D-401: `@ultimabase/stripe/sandbox`, an application's tests on a Stripe sandbox
+
+Choice: amends D-371 point 8 and D-378; adds an entry point.
+
+1. `@ultimabase/stripe/sandbox` exports `stripeSandbox({ secret, webhook })`:
+   the secret key of a Stripe sandbox, `sk_test_…`, refused when unset or
+   any other, and the webhook secret the application's `stripePlugin`
+   reads. It returns:
+   - `client`, Stripe's client on the sandbox, and `run`,
+     `ub_<time>_<random>`, the run's name;
+   - `email(name)`, an address of the run, `<run>-<name>@example.com`;
+   - `payer({ model, id, email?, card? })`: a customer on a test clock of
+     its own, with a card that pays, `pm_card_visa` by default, linked to
+     the payer row as the plugin would link the one it makes;
+   - `customerOf(email)`, the one customer Checkout made for an address,
+     and `payWith(customer, card?)`;
+   - `priceId(lookupKey)`, and `expectCatalog(catalog)`, which throws the
+     changes `applyStripeCatalog` would make, one a line;
+   - `advance(clock, { days })`, which returns once the clock is ready, and
+     throws when Stripe fails it or after 3 minutes;
+   - `deliver(url, { again?, path? })`: the events Stripe lists since the
+     run began, of the run's customers only, each posted once, thin and
+     signed, to the webhook of the application at `url`, then `runJobs()`;
+     `again`, a customer, posts its events once more;
+   - `cleanup()`, which deletes the run's test clocks, with their customers
+     and subscriptions, then the customers of the run's addresses.
+2. `@ultimabase/testing` is an optional peer dependency: only `deliver`
+   needs it, in the tests that import this entry point.
+3. UltimaBase's own sandbox suite (D-378) runs on this entry point; what
+   only it needs, its catalog of the run's own, the archive of that
+   catalog, the Stripe CLI and the check that it runs alone (D-393), stays
+   in its test files.
+4. An example's sandbox test is not run by `yarn test:stripe`: it needs
+   that application's sandbox, its catalog deployed. It is typechecked.
+
+Why: an application tested its billing against a fake only. Renewals,
+failed cards, disputes and Stripe's own rules (Managed Payments, a tax code
+a product lacks) happen in a sandbox, a month in minutes on a test clock.
+UltimaBase's nightly suite already did it, with helpers no application
+could import: the application's nightly job did not move a clock, and
+posted no events of its own.
+
+Rejected:
+
+- Forwarding events with the Stripe CLI: a binary to install in CI, and its
+  events come with no way to tell the run's from another's. `deliver` lists
+  them, keeps the run's customers' and posts them once.
+- `deliver` posting every event of the sandbox since the run began: two
+  runs, or a developer's run beside the nightly one, would each write the
+  other's payments.
+- An option of `fakeStripe` that reaches Stripe: the fake's helpers do at
+  Stripe what only the fake can, `renew` or `loseDispute` included.
+
+Example:
+
+```ts
+// Before: the application's sandbox test could not move time
+await stripe.subscriptions.create({ customer, items: [{ price }] })
+// ...and waited for a renewal a month away, or copied UltimaBase's helpers
+
+// After
+const sandbox = stripeSandbox({
+	secret: process.env['STRIPE_SECRET_KEY'],
+	webhook,
+})
+const { customer, clock } = await sandbox.payer({
+	model: User,
+	id: user.id,
+	email,
+})
+await sandbox.client.subscriptions.create({ customer, items: [{ price }] })
+await sandbox.advance(clock, { days: 32 })
+await sandbox.deliver(test.url) // the renewal's events, then their jobs
+```
