@@ -382,6 +382,40 @@ describe('ultimabaseLive out of step', () => {
 		})
 	})
 
+	it('reads the list afresh at its first size when its grown size is refused', async () => {
+		const refused = {
+			errors: [
+				{
+					message: 'A list follows at most 1 row.',
+					extensions: { code: 'VALIDATION_FAILED' },
+				},
+			],
+		}
+		const { client, sent } = answering(
+			[rows(1, ['a'], 't')],
+			[changes(2, { upsert: { id: 'b' }, after: 'a' }), changes(4)],
+			[refused],
+			[rows(1, ['c'], 'u')],
+		)
+		const live: LiveControl = {}
+		const watched = seen(
+			client.subscribe({
+				...unstored,
+				variables: { take: 1 },
+				context: { live },
+			}),
+		)
+		await watched.at(1)
+		await live.fetchMore?.({ first: 1 })
+		expect(await watched.at(3)).toEqual({ all: [{ id: 'c' }] })
+		expect(sent.map(({ variables }) => variables)).toEqual([
+			{ take: 1 },
+			{ take: 2 },
+			{ take: 2 },
+			{ take: 1 },
+		])
+	})
+
 	it('settles a grow once it completes, then grows only its variable', async () => {
 		const { client, sent } = answering([rows(1, ['a'])], [])
 		const live: LiveControl = {}

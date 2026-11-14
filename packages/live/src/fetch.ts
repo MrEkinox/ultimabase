@@ -95,8 +95,15 @@ export function liveFetch<T = unknown>(
 		}
 		void read(controller, `${path}?${asked.toString()}`, sent)
 	}
+	const initial = params.get(arg ?? '')
 	const afresh = () => {
 		token = undefined
+		// Refused, grown past what a new read may ask: at its first size (D-252).
+		if (arg !== undefined && initial !== null) {
+			undo = () => {
+				params.set(arg, initial)
+			}
+		}
 		open()
 	}
 	/** Handles `event`; `false` once the stream is replaced or failed. */

@@ -189,10 +189,16 @@ function followed(
 				data !== undefined && live.revision === revision + 1 && isRecord(list)
 					? applyLive(list, live)
 					: undefined
-			// Out of step: read the list again.
+			// Out of step: read the list again; refused, grown past what a new read
+			// may ask, at its first size (D-252).
 			if (data === undefined || next === undefined || !isRecord(list)) {
 				data = undefined
 				token = undefined
+				if (grows !== undefined) {
+					undo = () => {
+						operation.variables = { ...operation.variables, [grows]: page }
+					}
+				}
 				return open()
 			}
 			revision += 1

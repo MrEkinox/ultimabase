@@ -17536,7 +17536,9 @@ growing up to the limit, D-195 and D-196.
    growth past `maxConnectionRows`. A growth that crossed the limit leaves the
    client's `first` above it: reconnecting with its token opens at the limit,
    and without a token it is refused as at subscribe, so that a `first` too
-   large is never accepted in silence.
+   large is never accepted in silence. A client out of step reads its list
+   again without a token: refused that way, it reads it again at its first
+   size rather than ending the list (amended 2026-11-14).
 7. `useLiveSubscription` holds the pagination:
    - `fetchMore()` without argument adds a page of the first page's size;
      `fetchMore({ first })` stays. A call during a growth is ignored.
