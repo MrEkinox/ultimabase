@@ -136,7 +136,10 @@ const answering = new WeakMap<Server, { count: number; none?: () => void }>()
  * handler returns, a stream going on after (D-395); an upgrade until its
  * plugin takes it (D-399).
  */
-export async function counted<T>(server: Server, work: () => Promise<T>) {
+export async function counted<T>(
+	server: Server,
+	work: () => Promise<T>,
+): Promise<T> {
 	const running = answering.get(server) ?? { count: 0 }
 	running.count += 1
 	try {
