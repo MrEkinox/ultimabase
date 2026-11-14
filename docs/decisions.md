@@ -21995,6 +21995,9 @@ Choice: builds on D-360; D-92 for its dependency.
    through an API it marks private, the one its own integrations use.
    Without it, the spans are made flat, under the request's span, and the
    plugin warns once at start.
+   Outside a trace, where it makes no span, the active span stays the
+   one before: a span the application starts in the work is its own
+   transaction (amended 2026-11-14).
 4. An issue comes only from `ultimabase:error`: `captureException` with the
    correlation id as a tag and the log line's message. The error a span
    ends with marks the span failed and makes no issue: a `NOT_FOUND` or a

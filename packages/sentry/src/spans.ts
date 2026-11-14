@@ -105,9 +105,13 @@ function follow<K extends keyof Messages>(
 	}
 	on.subscribe(subscribers)
 	if (store !== undefined) {
-		on.start.bindStore(store, (message) =>
-			withActiveSpan(spanOf(message), () => store.getStore()),
-		)
+		// Outside a trace its span records nothing: made active, it would hide
+		// the spans the application starts in the work.
+		on.start.bindStore(store, (message) => {
+			const span = spanOf(message)
+			if (!span.isRecording()) return store.getStore()
+			return withActiveSpan(span, () => store.getStore())
+		})
 	}
 	return () => {
 		on.unsubscribe(subscribers)

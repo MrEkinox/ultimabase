@@ -68,6 +68,13 @@ const countPosts = defineFunction({
 	run: async () => Post.count({}, M),
 })
 
+/** A function starting a span of the application's own. */
+const ownSpan = defineFunction({
+	name: 'ownSpan',
+	output: z.number(),
+	run: async () => Sentry.startSpan({ name: 'own' }, async () => 1),
+})
+
 type Streamed = Parameters<NonNullable<Sentry.NodeOptions['beforeSendSpan']>>[0]
 
 const issues: Event[] = []
@@ -131,7 +138,7 @@ const start = async (): Promise<void> => {
 	app = defineApp({
 		database: memory(),
 		models: [Post],
-		functions: [countPosts],
+		functions: [countPosts, ownSpan],
 		plugins: [watch.plugin(), sentryPlugin()],
 		logger,
 	})
@@ -208,6 +215,14 @@ describe('sentryPlugin', () => {
 		await Post.findMany({}, M)
 		await Sentry.flush()
 		expect(sent).toStrictEqual([])
+	})
+
+	// Its span made active outside a trace, a job's own spans were never sent.
+	it('leave the application’s spans outside a trace its own', async () => {
+		sent.length = 0
+		await ownSpan.run(M)
+		await Sentry.flush()
+		expect(sent).toMatchObject([{ name: 'own', is_segment: true }])
 	})
 
 	it('make an issue of an error the server masks, with its id', async () => {
