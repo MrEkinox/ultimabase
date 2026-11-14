@@ -77,6 +77,18 @@ describe('an ACL', () => {
 		)
 		expect(() => ACL.fromJSON(null)).toThrow('An ACL is an ACL')
 		expect(() => ACL.fromJSON([])).toThrow('An ACL is an ACL')
+		// Another copy's ACL, or a Date, read as `{}`: an empty ACL.
+		class Foreign {
+			readonly #entries = new Set(['read:*'])
+			entries() {
+				return [...this.#entries]
+			}
+		}
+		for (const value of [new Foreign(), new Date(), new Map()]) {
+			expect(() => ACL.fromJSON(value)).toThrow('An ACL is an ACL')
+		}
+		const bare: unknown = Object.setPrototypeOf({ read: ['*'] }, null)
+		expect(ACL.fromJSON(bare).toJSON()).toEqual({ read: ['*'], write: [] })
 		expect(() => ACL.fromJSON({ delete: [] })).toThrow(
 			'delete is not a permission.',
 		)

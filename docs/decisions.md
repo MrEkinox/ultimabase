@@ -6311,8 +6311,11 @@ Choice: amends D-71; Parse's ACL, stored in one string list.
 8. `acl()` without `default` is refused, by its types and when its model
    is defined. The field's schema takes an `ACL` or a `{ read, write }`
    object, not an array, each subject `*`, `user:<id>` or `role:<id>`.
-   `@ultimabase/roles` is a peer dependency: one copy of it keeps the key
-   `rolesOf` reads (D-126) (amended 2026-10-26, 2026-11-03).
+   That object is plain: another class's instance, such as an ACL of
+   another copy of the package, or a `Date`, is refused rather than read as
+   an empty ACL. `@ultimabase/roles` is a peer dependency: one copy of it
+   keeps the key `rolesOf` reads (D-126) (amended 2026-10-26, 2026-11-03,
+   2026-11-14).
 
 Why: `access` says what a kind of caller may do on a model; an ACL says who
 may see or change one row, which only data can hold (a shared note, a
