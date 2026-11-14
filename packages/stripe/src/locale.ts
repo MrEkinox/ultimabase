@@ -62,7 +62,7 @@ export const portalLocales: ReadonlySet<string> = new Set([
 ])
 
 /** `locale` made canonical, or `null` when it is not a locale. */
-function canonical(locale: string): string | null {
+export function canonical(locale: string): string | null {
 	try {
 		return Intl.getCanonicalLocales(locale)[0] ?? null
 	} catch {
@@ -83,4 +83,13 @@ export function pageLocale(
 	if (known.has(exact)) return exact
 	const [language = ''] = exact.split('-')
 	return known.has(language) ? language : 'auto'
+}
+
+/** Texts by locale, such as `fr` or `pt-BR`; `default` for the others. */
+export type Texts = Readonly<{ default: string } & Record<string, string>>
+
+/** A page's text: its locale's, else its language's, else `default` (D-390). */
+export function localized(texts: Texts, page: string): string {
+	const [language = ''] = page.split('-')
+	return texts[page] ?? texts[language] ?? texts.default
 }

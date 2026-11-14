@@ -19,6 +19,8 @@ import type { Product, SubscriptionProduct } from './product.ts'
 import type { Billing, Row, Running } from './running.ts'
 import { runningOf, stripeOf } from './running.ts'
 import { grant, spend } from './credits.ts'
+import type { Texts } from './locale.ts'
+import { canonical, checkoutLocales, localized, pageLocale } from './locale.ts'
 import { syncCustomer } from './sync.ts'
 
 type Payer = { readonly id: string }
@@ -37,9 +39,10 @@ export interface CheckoutArgs<P extends Product = Product> {
 	readonly trialDays?: number
 	/**
 	 * A checkbox the payer must tick to accept the account's terms, with
-	 * `acceptance` in place of Stripe's text: Markdown, up to 1,200 characters.
+	 * `acceptance` in place of Stripe's text: Markdown, up to 1,200 characters,
+	 * or such texts by locale, the page's language picking one (D-390).
 	 */
-	readonly terms?: boolean | { readonly acceptance: string }
+	readonly terms?: boolean | { readonly acceptance: string | Texts }
 	readonly promotionCodes?: boolean
 	/** Where Stripe sends the payer back; `{CHECKOUT_SESSION_ID}` is replaced. */
 	readonly successUrl: string
@@ -140,19 +143,28 @@ const checkPositive = (name: string, value: number | undefined): void => {
 	}
 }
 
-/** The terms checkbox, refusing a text Stripe would refuse (D-383). */
+/** The terms checkbox's texts by locale, as Stripe takes them (D-383, D-390). */
 function termsOf(
 	terms: CheckoutArgs['terms'],
-): { readonly acceptance: string | null } | null {
+): { readonly acceptance: Texts | null } | null {
 	if (terms === undefined || terms === false) return null
 	if (terms === true) return { acceptance: null }
 	const { acceptance } = terms
-	if (acceptance.trim() === '' || acceptance.length > 1200) {
-		throw new TypeError(
-			'stripe.checkout: terms.acceptance is a text of 1 to 1,200 characters.',
-		)
+	const texts =
+		typeof acceptance === 'string' ? { default: acceptance } : acceptance
+	for (const [key, text] of Object.entries(texts)) {
+		if (key !== 'default' && canonical(key) !== key) {
+			throw new TypeError(
+				`stripe.checkout: terms.acceptance's key '${key}' is not a canonical locale, such as 'fr' or 'pt-BR'.`,
+			)
+		}
+		if (text.trim() === '' || text.length > 1200) {
+			throw new TypeError(
+				'stripe.checkout: terms.acceptance is a text of 1 to 1,200 characters.',
+			)
+		}
 	}
-	return { acceptance }
+	return { acceptance: texts }
 }
 
 /** Opens a Checkout for the payer and returns its URL. */
@@ -188,7 +200,11 @@ export async function checkout<const P extends Product>(
 				lookupKey: key,
 				quantity: args.quantity ?? 1,
 				trialDays: subscribing ? (args.trialDays ?? null) : null,
-				terms,
+				terms: terms && {
+					acceptance:
+						terms.acceptance &&
+						localized(terms.acceptance, pageLocale(locale, checkoutLocales)),
+				},
 				promotionCodes: args.promotionCodes ?? false,
 				successUrl: args.successUrl,
 				cancelUrl: args.cancelUrl,

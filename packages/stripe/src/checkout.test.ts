@@ -288,6 +288,45 @@ describe('stripe.checkout', () => {
 			).rejects.toThrow('terms.acceptance is a text of 1 to 1,200 characters')
 		}
 	})
+
+	it('shows the terms text in the page’s language, else its default', async () => {
+		const acceptance = {
+			default: 'I accept the terms.',
+			fr: 'J’accepte les conditions.',
+			'pt-BR': 'Aceito os termos.',
+		}
+		// The page's own locale, its language, then the default.
+		const pages = [
+			['pt-BR', 'Aceito os termos.'],
+			['fr-CA', 'J’accepte les conditions.'],
+			['fr-BE', 'J’accepte les conditions.'],
+			['de', 'I accept the terms.'],
+			['xx-unknown', 'I accept the terms.'],
+		] as const
+		for (const [lang, text] of pages) {
+			const data = { email: `${lang}@example.com`, lang }
+			const payer = await User.create({ data }, M)
+			const args = { payer, product: team, terms: { acceptance }, ...urls }
+			const url = await stripe.checkout(args)
+			expect(fake.checkouts.get(sessionOf(url))?.terms).toStrictEqual({
+				acceptance: text,
+			})
+		}
+		const ada = await signUp()
+		const args = { payer: ada, product: team, ...urls }
+		for (const key of ['en-gb', 'fr_FR', 'auto']) {
+			const texts = { ...acceptance, [key]: 'Text.' }
+			await expect(
+				stripe.checkout({ ...args, terms: { acceptance: texts } }),
+			).rejects.toThrow(
+				`terms.acceptance's key '${key}' is not a canonical locale`,
+			)
+		}
+		const empty = { ...acceptance, fr: '' }
+		await expect(
+			stripe.checkout({ ...args, terms: { acceptance: empty } }),
+		).rejects.toThrow('terms.acceptance is a text of 1 to 1,200 characters')
+	})
 })
 
 describe('stripe.syncCheckout', () => {

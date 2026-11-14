@@ -23888,3 +23888,57 @@ After:
 ```ts
 const url = await stripe.portal({ payer: { id: me }, paymentMethod: {} })
 ```
+
+## D-390: The terms text follows the Checkout page's language
+
+Choice: builds on D-382 and D-383.
+
+1. `terms.acceptance` takes a text, as before, or texts by locale with a
+   required `default` key: `{ default: '…', fr: '…', 'pt-BR': '…' }`.
+2. The text is chosen by the Checkout page's locale (D-382), not the
+   payer's: the page's own key, else its language's, else `default`. A page
+   left to Stripe's choice (`'auto'`) shows `default`, so the text never
+   speaks a language the page does not.
+3. Each key other than `default` is a canonical locale, as
+   `Intl.getCanonicalLocales` writes it: `en-gb` and `fr_FR` are refused,
+   so that a key the page could never match fails at the call. Each text
+   keeps D-383's bounds, 1 to 1,200 characters.
+4. A single text stays a text: it is the `default` of a one-key table.
+
+Why: Checkout shows the page in the payer's language but the terms text
+in one language, the application's. The application knows the payer's
+language only through the plugin's `customer` profile, so it read it a
+second time to pick the text, and still could not know when the page fell
+back to Stripe's choice.
+
+Rejected:
+
+- A function `(locale) => text`: the plugin would have to call application
+  code and check its result at each Checkout, for what a table says.
+- Choosing by the payer's locale: a payer in a language Checkout does not
+  speak sees a page in Stripe's choice, and a text in their own.
+- Ignoring unknown keys: `en-gb` would silently never match.
+
+Example, before: the application read the payer's language to pick the
+text.
+
+```ts
+const { lang } = await User.findUnique({ where: { id: me } })
+const url = await stripe.checkout({
+	payer: { id: me },
+	product: pro,
+	terms: { acceptance: salesTerms[lang] },
+	...urls,
+})
+```
+
+After:
+
+```ts
+const url = await stripe.checkout({
+	payer: { id: me },
+	product: pro,
+	terms: { acceptance: { default: salesTerms.en, fr: salesTerms.fr } },
+	...urls,
+})
+```
