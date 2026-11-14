@@ -9282,7 +9282,10 @@ attachment`, so a browser never runs them. Files are served from the
    - a soft delete keeps its files (D-96): it is an update.
    - A sweep, at startup and every 10 minutes, first marks the expired
      pending rows `released`, so no write can attach them, then deletes
-     their objects, then their rows. The two delays are fixed.
+     their objects, then their rows. The two delays are fixed. The start
+     does not wait for its sweep, so a slow storage holds no start; one
+     sweep runs at a time, and the stop waits for the one under way
+     (amended 2026-11-14).
    - `files.check({ delete })` compares the storage's keys with
      `FilesBlob` and reports the objects without a row and the rows
      without an object; `delete: true` deletes the first.

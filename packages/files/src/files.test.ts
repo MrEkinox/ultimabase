@@ -393,7 +393,13 @@ describe('an upload', () => {
 	it('writes its row, then its variants’ rows at once (D-351)', async () => {
 		const touched: string[] = []
 		await start({}, watched(touched))
-		// The sweep at startup writes too.
+		// The sweep at startup writes, then reads its first page; it ends there.
+		await vi.waitFor(() => {
+			expect([touched.includes('write'), touched.at(-1)]).toStrictEqual([
+				true,
+				'find',
+			])
+		})
 		touched.length = 0
 		await cover()
 		expect(touched.filter((kind) => kind === 'write')).toHaveLength(2)
@@ -425,21 +431,26 @@ describe('an upload', () => {
 	})
 })
 
-/** `memory()`, recording each read and write that names `FilesBlob`. */
-function watched(touched: string[]): Adapter {
+/**
+ * `memory()`, recording each read and write that names `FilesBlob`; each
+ * such write waits for `held`.
+ */
+function watched(touched: string[], held?: Promise<unknown>): Adapter {
 	const database = memory()
-	const note = (kind: string, given: unknown): void => {
-		if (JSON.stringify(given).includes('"FilesBlob"')) touched.push(kind)
+	const note = async (kind: string, given: unknown): Promise<void> => {
+		if (!JSON.stringify(given).includes('"FilesBlob"')) return
+		touched.push(kind)
+		if (kind === 'write') await held
 	}
 	const watch = (tx: Transaction): Transaction => ({
 		find: async (read) => {
-			note('find', read)
+			await note('find', read)
 			return tx.find(read)
 		},
 		count: async (read) => tx.count(read),
 		aggregate: async (read) => tx.aggregate(read),
 		write: async (write) => {
-			note('write', write)
+			await note('write', write)
 			return tx.write(write)
 		},
 		commit: async () => tx.commit(),
@@ -449,11 +460,11 @@ function watched(touched: string[]): Adapter {
 	const write = database.write.bind(database)
 	const begin = database.begin.bind(database)
 	vi.spyOn(database, 'find').mockImplementation(async (read) => {
-		note('find', read)
+		await note('find', read)
 		return find(read)
 	})
 	vi.spyOn(database, 'write').mockImplementation(async (given) => {
-		note('write', given)
+		await note('write', given)
 		return write(given)
 	})
 	vi.spyOn(database, 'begin').mockImplementation(async (options) =>
@@ -745,6 +756,46 @@ describe('the sweep', () => {
 			await vi.waitFor(() => expect(storage.objects.size).toBe(0))
 			expect(await blobs()).toStrictEqual([])
 		} finally {
+			vi.useRealTimers()
+		}
+	})
+
+	it('holds no start while its write hangs, and ends before the stop', async () => {
+		// The sweep at startup waits on its first write.
+		const freed = Promise.withResolvers<undefined>()
+		const touched: string[] = []
+		const { app } = await start({}, watched(touched, freed.promise))
+		await vi.waitFor(() => expect(touched).toStrictEqual(['write']))
+		let stopped = false
+		const stopping = (async () => {
+			await app.stop()
+			stopped = true
+		})()
+		await new Promise((resolve) => setTimeout(resolve, 10))
+		expect(stopped).toBe(false)
+		freed.resolve(undefined)
+		await stopping
+		// It read its first page before the stop ended.
+		expect(touched).toStrictEqual(['write', 'find'])
+		running = undefined
+	})
+
+	it('runs one sweep at a time', async () => {
+		vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] })
+		const freed = Promise.withResolvers<undefined>()
+		try {
+			const storage = memoryFiles()
+			const deleting = vi
+				.spyOn(storage, 'delete')
+				.mockImplementation(async () => freed.promise)
+			await start({ storage })
+			await FilesBlob.createMany({ data: [releasedRow(0)] }, M)
+			await vi.advanceTimersByTimeAsync(10 * 60 * 1000)
+			await vi.waitFor(() => expect(deleting).toHaveBeenCalledOnce())
+			await vi.advanceTimersByTimeAsync(20 * 60 * 1000)
+			expect(deleting).toHaveBeenCalledOnce()
+		} finally {
+			freed.resolve(undefined)
 			vi.useRealTimers()
 		}
 	})
