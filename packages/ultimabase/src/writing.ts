@@ -32,16 +32,19 @@ export async function cascaded(
 			record: recordOf(model, row),
 		})
 	}
-	const kept: { readonly model: string; readonly id: string }[] = []
-	for (const { model, row, redirected } of cascade.deleted) {
-		const redirect = redirected ? redirectOf(model) : undefined
-		// Its queries run their own pipeline, in this transaction (D-89).
-		if (redirect !== undefined) await redirect(caller, row.id)
-		else kept.push({ model: model.name, id: row.id })
-	}
-	for (const [model, rows] of Map.groupBy(kept, (row) => row.model)) {
-		const where = { id: { in: rows.map(({ id }) => id) } }
-		changes.push({ kind: 'delete', model, where })
+	const byModel = Map.groupBy(cascade.deleted, ({ model }) => model)
+	for (const [model, rows] of byModel) {
+		const ids = rows.map(({ row }) => row.id)
+		const redirect = rows[0]?.redirected ? redirectOf(model) : undefined
+		// One call for its rows; its queries run their own pipeline, in this
+		// transaction (D-89).
+		if (redirect !== undefined) await redirect(caller, ids)
+		else
+			changes.push({
+				kind: 'delete',
+				model: model.name,
+				where: { id: { in: ids } },
+			})
 	}
 	for (const { model, row } of cascade.deleted) {
 		writing.events.push({ model, operation: 'delete', id: row.id, before: row })

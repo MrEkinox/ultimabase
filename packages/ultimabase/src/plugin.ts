@@ -11,7 +11,7 @@ import { pluginEntries, pluginValues } from './definition.ts'
 import { pluginCode } from './plugin-code.ts'
 import type { FieldShape, ModelHooks, ModelShape } from './model.ts'
 import type { Changed } from './adapter.ts'
-import type { Queries, UniqueWhere } from './query.ts'
+import type { Queries } from './query.ts'
 import type {
 	Caller,
 	Identity,
@@ -156,12 +156,15 @@ export type PluginHooks<F, O, A, C> = {
 			PluginModel<F, O, A> & { readonly command: C | undefined },
 	) => ReturnType<NonNullable<ModelHooks<F>[K]>>
 }
-/** `redirect` replaces an operation with another (D-15). */
+/**
+ * `redirect` replaces an operation with another (D-15): `delete`, the rows a
+ * delete or a `deleteMany` removes, by their ids, in one call (D-89).
+ */
 export type PluginRedirects<F, O, A> = {
 	readonly delete?: (
 		facts: {
 			readonly caller: Caller
-			readonly where: UniqueWhere<F>
+			readonly where: { readonly id: { readonly in: readonly string[] } }
 		} & PluginModel<F, O, A>,
 	) => Promise<unknown>
 }

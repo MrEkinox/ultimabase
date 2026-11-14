@@ -19,7 +19,7 @@ const trashDefinition = definePlugin<Trash>({
 	addedFields: (f) => ({ trashedAt: f.dateTime({ optional: true }) }),
 	redirect: {
 		delete: ({ where, queries }) =>
-			queries.update({ where, data: { trashedAt: new Date() } }),
+			queries.updateMany({ where, data: { trashedAt: new Date() } }),
 	},
 	hooks: {
 		// Trashed rows do not exist, except through `trash` (D-17, D-71).

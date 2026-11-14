@@ -2854,11 +2854,23 @@ D-67's place for `redirect` and D-57's name `adds`.
 1. A redirected `delete` runs the path of a `delete`: the lookup of its row
    (`beforeFind`, `NOT_FOUND`), the model's `delete` access rule, the
    `beforeDelete` hooks, then the redirect in place of the write, given
-   `where: { id }` of the row found, in the operation's transaction. Then
-   `afterDelete` with the record as it was, the commit and
+   `where: { id: { in: ids } }` of the rows found, once per model, in the
+   operation's transaction: a `deleteMany` of a thousand rows writes them
+   once, not a thousand times (amended 2026-11-14; it was `where: { id }`, once
+   per row). Then `afterDelete` with the record as it was, the commit and
    `afterDeleteCommit`. The redirect's own queries run their own pipeline.
    `delete` returns the row as stored after the redirect, under the caller's
    field rules, or the record as it was when the redirect removed it.
+
+   ```ts
+   // Before
+   redirect: { delete: ({ where, queries }) =>
+      queries.update({ where, data: { deletedAt: new Date() } }, { as: master }) }
+   // After
+   redirect: { delete: ({ where, queries }) =>
+      queries.updateMany({ where, data: { deletedAt: new Date() } }, { as: master }) }
+   ```
+
 2. While a command runs, the queries it makes on its model give the
    plugin's hooks on that model `command`, its name. A query a hook makes,
    the application's or a plugin's, gets no `command`. Nor does a query a

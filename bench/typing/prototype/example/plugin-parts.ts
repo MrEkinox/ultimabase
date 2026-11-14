@@ -29,7 +29,7 @@ declare const manifest: {
 }
 
 // A stand-in for the plugin's runtime, as for soft delete.
-declare function markArchived<F>(queries: Queries<F>): Queries<F>['delete']
+declare function markArchived<F>(queries: Queries<F>): Queries<F>['deleteMany']
 
 // 6a: the rules of the model's plugins on a field's `.with`, typed by the
 // field's value (D-12): `fields` is a callback whose builders know `use`.

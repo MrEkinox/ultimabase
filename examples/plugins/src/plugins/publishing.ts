@@ -114,7 +114,10 @@ const definition = definePlugin<Publishing>({
 	// runs after the `delete` rule and the `beforeDelete` hooks, so as Master.
 	redirect: {
 		delete: ({ where, queries }) =>
-			queries.update({ where, data: { publishedAt: null } }, { as: master }),
+			queries.updateMany(
+				{ where, data: { publishedAt: null } },
+				{ as: master },
+			),
 	},
 	//#endregion
 	//#region commands
