@@ -1,5 +1,12 @@
 # create-ultimabase
 
+## 1.0.0
+
+### Patch Changes
+
+- 4b2278d: Ctrl+C at the question ends quietly, and a directory it cannot write fails with one line. The `cd` it prints uses single quotes, so `!` survives zsh; a leading `~` is the home directory; `node_modules`, `favicon.ico` and Node's module names are refused.
+- 8f82820: `ultimabase dev`, `sync`, `reset`, `migrate create` and `generate` also load the `.env.local` beside the config, whose values win over the `.env`'s; a variable already set still wins over both. The starter's `.gitignore` lists `.env.local`.
+
 ## 0.7.0
 
 ### Patch Changes

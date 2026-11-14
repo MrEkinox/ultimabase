@@ -1,5 +1,37 @@
 # ultimabase
 
+## 1.0.0
+
+### Major Changes
+
+- fd85be5: UltimaBase 1.0 is ready for production (D-397). From 1.0, a change that breaks an application's code, a client's request or stored data comes only in a major version, and the documentation's page Upgrading says what to change. Upgrading from 0.7: https://ultimabase.dev/docs/upgrading
+
+### Minor Changes
+
+- 20aec1b: The application's code logs with the application's logger, its lines named `app` (D-364): a function's `run` receives `logger`, bound to `{ function: name }`; each hook receives `logger`; a route reads `c.var.logger`; a job's `run` receives `logger`, bound to `{ job: name, run: id }`.
+- 8f82820: `ultimabase dev`, `sync`, `reset`, `migrate create` and `generate` also load the `.env.local` beside the config, whose values win over the `.env`'s; a variable already set still wins over both. The starter's `.gitignore` lists `.env.local`.
+- 1b9515a: `f.exists(target, { from, readRule: false })` reads whether its view keeps a row the caller cannot read, as a user blocked by someone whose blocks only they read. Only the boolean tells; the target's `beforeFind` still applies, and a `many` or `one` view refuses `readRule`.
+- 51f8f04: An error line with an `err`, logged by the application's code or a plugin, as `logger.error({ err: error }, 'The join failed.')`, gets a `correlationId` unless it has one and is published on `ultimabase:error`, as the kernel's failures are: with `sentryPlugin()` it is a Sentry issue, with no `Sentry.captureException` beside it (D-381).
+- 4b2278d: A redirected delete is given every row it removes, `where: { id: { in: ids } }`,
+  in one call per model: a plugin writes them with `updateMany`, and a
+  `deleteMany` into the trash makes one write, not one per row.
+- 1520a09: The kernel publishes each model operation, hook, virtual field and function on Node's tracing channels `ultimabase:operation`, `ultimabase:hook`, `ultimabase:virtual` and `ultimabase:function`, nested, and each error the server logs at error level on `ultimabase:error` with its correlation id. A tool such as an error tracker subscribes to them; without a subscriber, nothing is built.
+
+### Patch Changes
+
+- b2aa312: `defineModel`, `defineUser`, `defineRole` and `defineFunction` refuse a key they do not take, as
+  `hooks` or `access` given to the definition instead of `.with()`, which was dropped unread (D-370).
+- 94145f9: `ultimabase dev` run by a program, its output not a terminal or `CI` set, exits with code 1 when its first start fails, instead of waiting for a file change. A test runner that starts it fails at once.
+- 4b2278d: An upload inside a transaction that rolls back no longer leaves its objects in storage for good:
+  its rows are written apart from that transaction, so the sweep deletes them within the hour.
+- 3099475: `migrate` says when `migrations/schema.json` holds merge conflict markers, and the PostgreSQL docs say how to write a pending migration again after merging the base branch.
+- 4b2278d: Only Master links a role through a `many` field the developer adds to the role model, from either
+  side. A client allowed to write the other model, such as `Perm.update` with
+  `roles: { connect: [{ id: admin.id }] }`, linked a role and is now refused with `ACCESS_DENIED`. A
+  write rule the developer gives such a field no longer opens it; its read rule still applies.
+- 4b2278d: A plugin's command applies to the rows it reads, not to the rows under them: `Post.trash.findMany({ include: { author: true } })` reads the author as any read does, where a deleted post's live parent read `null` before.
+- 4b2278d: A virtual field's queries no longer run as the plugin command that read its row: read from a soft-delete trash, a virtual that counts the rows counted the trash instead of the rows not deleted.
+
 ## 0.7.0
 
 ### Minor Changes

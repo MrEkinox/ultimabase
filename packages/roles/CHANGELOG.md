@@ -1,5 +1,31 @@
 # @ultimabase/roles
 
+## 1.0.0
+
+### Patch Changes
+
+- b2aa312: `defineModel`, `defineUser`, `defineRole` and `defineFunction` refuse a key they do not take, as
+  `hooks` or `access` given to the definition instead of `.with()`, which was dropped unread (D-370).
+- 4b2278d: Only Master links a role through a `many` field the developer adds to the role model, from either
+  side. A client allowed to write the other model, such as `Perm.update` with
+  `roles: { connect: [{ id: admin.id }] }`, linked a role and is now refused with `ACCESS_DENIED`. A
+  write rule the developer gives such a field no longer opens it; its read rule still applies.
+- Updated dependencies [20aec1b]
+- Updated dependencies [b2aa312]
+- Updated dependencies [94145f9]
+- Updated dependencies [8f82820]
+- Updated dependencies [1b9515a]
+- Updated dependencies [4b2278d]
+- Updated dependencies [51f8f04]
+- Updated dependencies [3099475]
+- Updated dependencies [fd85be5]
+- Updated dependencies [4b2278d]
+- Updated dependencies [4b2278d]
+- Updated dependencies [1520a09]
+- Updated dependencies [4b2278d]
+- Updated dependencies [4b2278d]
+  - ultimabase@1.0.0
+
 ## 0.7.0
 
 ### Patch Changes

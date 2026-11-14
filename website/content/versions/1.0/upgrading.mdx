@@ -1,0 +1,74 @@
+---
+title: Upgrading
+description: What changes in your application from one major version to the next.
+---
+
+From 1.0, a version that breaks your code, your clients' requests or your
+data is a major version. Each one has a section here: what breaks, and what
+you change. A minor or patch version needs no change; its changelog says
+when it brings a migration to create.
+
+## To 1.0, from 0.7
+
+Update every package together: they share one version.
+
+```bash
+npm install ultimabase@1 @ultimabase/http@1 @ultimabase/graphql@1
+```
+
+List each `@ultimabase` package your application uses in that command.
+
+### Create a migration
+
+Two plugins add to their tables: [password](/docs/next/password) indexes its
+sign-in failures by address, and [jobs](/docs/next/jobs) stores a run's
+`key`. On PostgreSQL, create the migration and deploy it with the new
+version:
+
+```bash
+npx ultimabase migrate create upgrade_1_0
+```
+
+Then run `npx ultimabase migrate deploy` where you deploy, as for any
+[migration](/docs/next/postgres#migrations).
+
+### Your code
+
+- **Definitions refuse unknown keys.** `defineModel`, `defineUser`,
+  `defineRole` and `defineFunction` refuse a key they do not take, such as
+  `hooks` or `access`, which was dropped unread. Move it to `.with()`.
+- **`sendEmail` receives the user.** The password plugin's `sendEmail`
+  gets `email.user`, the user's row, in place of `email.userId`. Read
+  `email.user.id` where you read `email.userId`, and drop the `findUnique`
+  that fetched the user.
+- **A job's input is checked by its function.** `enqueue` with an invalid
+  input throws a plain error, a `500`, instead of a `400` with the code
+  `VALIDATION_FAILED`. Validate what a client sends in the function that
+  receives it.
+- **`retryAfter` is a day at most.** A longer maintenance `retryAfter`
+  refuses the start.
+- **No application route under `/_ultimabase/`.** The HTTP plugin refuses to
+  start when an application route answers a plugin's path there.
+
+### Your clients
+
+- **Roles are linked by Master.** A client can no longer link a role through
+  a `many` field you added to the role model: it gets `ACCESS_DENIED`. Link
+  it from your code with `{ as: master }`.
+- **A request body arrives within 120 s**, not 300.
+- **A function's list counts its rows.** Over REST, a function returning a
+  list counts `take` rows against `maxRows`, as GraphQL does.
+- **Passwords and emails.** A password holding a lone surrogate is refused,
+  and so is an email holding an invisible or control character.
+- **The trash reads parents as any read does.** In `Post.trash.findMany`, an
+  `include` of a live parent returns it, where it returned `null`.
+
+### Your environment
+
+`ultimabase dev`, `sync`, `reset`, `migrate create` and `generate` also load
+the `.env.local` beside the config, and its values win over the `.env`'s.
+
+### Plugin authors
+
+A redirected delete gets every row it removes in one call per model,
+`where: { id: { in: ids } }`: write them with `updateMany`.

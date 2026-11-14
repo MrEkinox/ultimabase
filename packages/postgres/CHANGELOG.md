@@ -1,5 +1,28 @@
 # @ultimabase/postgres
 
+## 1.0.0
+
+### Patch Changes
+
+- 4b2278d: A PostgreSQL server that refuses a connection now answers 503 `UNAVAILABLE` with `retryAfter: 1`, as a full pool already did: too many clients (53300), out of resources (53400), a server still starting or shutting down (57P03), and a connection cut while it opened. Before, these answered 500. Any other refusal, such as a wrong password, still answers 500 (D-396).
+- 65852ad: `migrate create` writes a note below a statement that makes code still running without a new field fail to insert during a rolling deploy: the `set not null` of a required field without a fixed default, and the size check whose minimum refuses the empty list a new column keeps. The note says to make that change in a later deploy.
+- 1520a09: The kernel publishes each model operation, hook, virtual field and function on Node's tracing channels `ultimabase:operation`, `ultimabase:hook`, `ultimabase:virtual` and `ultimabase:function`, nested, and each error the server logs at error level on `ultimabase:error` with its correlation id. A tool such as an error tracker subscribes to them; without a subscriber, nothing is built.
+- Updated dependencies [20aec1b]
+- Updated dependencies [b2aa312]
+- Updated dependencies [94145f9]
+- Updated dependencies [8f82820]
+- Updated dependencies [1b9515a]
+- Updated dependencies [4b2278d]
+- Updated dependencies [51f8f04]
+- Updated dependencies [3099475]
+- Updated dependencies [fd85be5]
+- Updated dependencies [4b2278d]
+- Updated dependencies [4b2278d]
+- Updated dependencies [1520a09]
+- Updated dependencies [4b2278d]
+- Updated dependencies [4b2278d]
+  - ultimabase@1.0.0
+
 ## 0.7.0
 
 ### Minor Changes

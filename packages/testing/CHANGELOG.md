@@ -1,5 +1,26 @@
 # @ultimabase/testing
 
+## 1.0.0
+
+### Patch Changes
+
+- 4b2278d: The adapter contract checks that a database without migrations holds no row after a restart, as `testApplication` relies on.
+- Updated dependencies [20aec1b]
+- Updated dependencies [b2aa312]
+- Updated dependencies [94145f9]
+- Updated dependencies [8f82820]
+- Updated dependencies [1b9515a]
+- Updated dependencies [4b2278d]
+- Updated dependencies [51f8f04]
+- Updated dependencies [3099475]
+- Updated dependencies [fd85be5]
+- Updated dependencies [4b2278d]
+- Updated dependencies [4b2278d]
+- Updated dependencies [1520a09]
+- Updated dependencies [4b2278d]
+- Updated dependencies [4b2278d]
+  - ultimabase@1.0.0
+
 ## 0.7.0
 
 ### Patch Changes
