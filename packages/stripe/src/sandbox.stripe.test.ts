@@ -105,6 +105,7 @@ describe('a payer at Stripe', () => {
 			{},
 			{ change: { product: pro, price: 'yearly' as const } },
 			{ cancel: {} },
+			{ paymentMethod: {} },
 		]) {
 			const url = await stripe.portal({ payer, ...flow })
 			expect(url).toMatch(/^https:\/\/billing\.stripe\.com\//u)

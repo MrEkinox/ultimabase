@@ -63,6 +63,8 @@ export interface PortalArgs<
 	}
 	/** Opens the confirmation of a cancellation. */
 	readonly cancel?: { readonly subscription?: string }
+	/** Opens the form that changes the payer's payment method (D-389). */
+	readonly paymentMethod?: Readonly<Record<string, never>>
 }
 
 /** The catalog's product, or a bug: a product the plugin was not given. */
@@ -231,10 +233,16 @@ async function flowOf(
 	model: Billing,
 	args: PortalArgs,
 ): Promise<PortalFlow> {
-	const { change, cancel } = args
-	if (change !== undefined && cancel !== undefined) {
-		throw new TypeError('stripe.portal takes change or cancel, not both.')
+	const { change, cancel, paymentMethod } = args
+	const asked = [change, cancel, paymentMethod].filter(
+		(one) => one !== undefined,
+	)
+	if (asked.length > 1) {
+		throw new TypeError(
+			'stripe.portal takes one of change, cancel and paymentMethod.',
+		)
 	}
+	if (paymentMethod !== undefined) return { kind: 'paymentMethod' }
 	if (change !== undefined) {
 		const product = catalogued(running, change.product)
 		const lookup = lookupKey(product, change.price)

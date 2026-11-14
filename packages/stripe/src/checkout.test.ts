@@ -323,7 +323,7 @@ describe('stripe.syncCheckout', () => {
 })
 
 describe('stripe.portal', () => {
-	it('opens the portal, and its change and cancel confirmations', async () => {
+	it('opens the portal, its change and cancel confirmations, and its payment method form', async () => {
 		const ada = await signUp()
 		const id = await paid(
 			await stripe.checkout({
@@ -342,6 +342,7 @@ describe('stripe.portal', () => {
 			returnUrl: 'https://app.test/plans',
 		})
 		await stripe.portal({ payer: ada, cancel: {} })
+		await stripe.portal({ payer: ada, paymentMethod: {} })
 		const [portal] = fake.portals.keys()
 		expect(fake.portalSessions.slice(opened)).toMatchObject([
 			{
@@ -354,6 +355,7 @@ describe('stripe.portal', () => {
 				flow: { kind: 'change', subscriptionId: id, lookupKey: 'team.monthly' },
 			},
 			{ flow: { kind: 'cancel', subscriptionId: id } },
+			{ flow: { kind: 'paymentMethod' } },
 		])
 	})
 
@@ -362,13 +364,17 @@ describe('stripe.portal', () => {
 		await expect(
 			stripe.portal({ payer: ada, cancel: {} }),
 		).rejects.toMatchObject({ code: 'NOT_SUBSCRIBED' })
+		const twice = 'stripe.portal takes one of change, cancel and paymentMethod.'
 		await expect(
 			stripe.portal({
 				payer: ada,
 				cancel: {},
 				change: { product: team, price: 'monthly' },
 			}),
-		).rejects.toThrow('stripe.portal takes change or cancel, not both.')
+		).rejects.toThrow(twice)
+		await expect(
+			stripe.portal({ payer: ada, cancel: {}, paymentMethod: {} }),
+		).rejects.toThrow(twice)
 	})
 
 	it('asks which subscription when the payer has several', async () => {

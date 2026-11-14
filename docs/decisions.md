@@ -23848,3 +23848,43 @@ WARN A payment is at risk: its payer's subscriptions were canceled.
   event: "radar.early_fraud_warning.created", charge: "ch_1", customer: "cus_1",
   refunded: true, canceled: ["sub_1"]
 ```
+
+## D-389: The portal opens on the payment method form
+
+Choice: builds on D-373 point 8 and D-380.
+
+1. `stripe.portal({ payer, paymentMethod: {} })` opens the customer
+   portal's `payment_method_update` flow, which returns to `returnUrl` once
+   done. It names no subscription: the payment method is the customer's.
+2. `stripe.portal` takes at most one of `change`, `cancel` and
+   `paymentMethod`; two are refused.
+3. `paymentMethod` is an empty object, as `cancel: {}` is, so that an
+   option can join it later.
+4. The new payment method becomes the customer's default, and the
+   subscriptions hold none of their own (D-380): Stripe's next retry of a
+   failed renewal charges it.
+
+Why: a renewal that fails leaves the subscription `past_due`, then
+`unpaid`, and the application tells the payer to change their card. The
+portal's home made the payer look for the button, at the moment a payer
+is most likely to leave.
+
+Rejected:
+
+- `card: {}`: the portal also takes other payment methods, such as SEPA
+  debits.
+- `paymentMethod: true`: the one boolean among the portal's objects.
+- The failed invoice's hosted page: the plugin stores no invoice URL, and
+  that page pays one invoice without changing the card for the next ones.
+
+Example, before: the application sent the payer to the portal's home.
+
+```ts
+const url = await stripe.portal({ payer: { id: me } })
+```
+
+After:
+
+```ts
+const url = await stripe.portal({ payer: { id: me }, paymentMethod: {} })
+```
