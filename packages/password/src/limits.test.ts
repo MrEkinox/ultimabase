@@ -1,7 +1,8 @@
 // password's limits against many addresses (D-114): IPv6 networks, the
 // account and address ceilings, the hashing queue and the hourly limits.
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { PublicError } from 'ultimabase'
+import type { Adapter } from 'ultimabase'
+import { memory, PublicError } from 'ultimabase'
 import { hashPassword, lanes, threads, waiting } from './hash.ts'
 import {
 	hourly,
@@ -147,6 +148,30 @@ describe('the sign-in limit', () => {
 		}).catch((error: unknown) => error)
 		expect(busy).toMatchObject(tooMany)
 		expect(await PasswordAttempt.count({}, M)).toBe(0)
+	})
+
+	// Read one after another, they cost every sign-in two round trips more.
+	it('reads the three counts of an attempt at once', async () => {
+		const database = memory()
+		let reading = 0
+		let peak = 0
+		const adapter: Adapter = {
+			...database,
+			find: async (read) => {
+				if (read.model !== PasswordAttempt.name) return database.find(read)
+				reading += 1
+				peak = Math.max(peak, reading)
+				await new Promise((resolve) => setTimeout(resolve, 5))
+				reading -= 1
+				return database.find(read)
+			},
+		}
+		const running = await started(undefined, adapter)
+		stop = async () => running.app.stop()
+		expect(await fail('ada', '::1')).toMatchObject({
+			code: 'INVALID_CREDENTIALS',
+		})
+		expect(peak).toBe(3)
 	})
 })
 

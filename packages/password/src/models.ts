@@ -118,7 +118,8 @@ async function nth(
 /**
  * The failures but `id` that refuse the attempt: from one address, the 10th
  * on the subject or the 100th on it or from the address; without one, the
- * 10th on the subject from anywhere, and no address is filled (D-161).
+ * 10th on the subject from anywhere, and no address is filled (D-161). The
+ * three are read at once.
  */
 async function reached(
 	subject: string,
@@ -126,11 +127,11 @@ async function reached(
 	id: string,
 ): Promise<readonly (Date | undefined)[]> {
 	if (address === undefined) return [await nth({ subject }, id, limit)]
-	return [
-		await nth({ subject, address }, id, limit),
-		await nth({ subject }, id, ceiling),
-		await nth({ address }, id, ceiling),
-	]
+	return Promise.all([
+		nth({ subject, address }, id, limit),
+		nth({ subject }, id, ceiling),
+		nth({ address }, id, ceiling),
+	])
 }
 
 /**
