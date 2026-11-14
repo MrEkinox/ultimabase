@@ -9,7 +9,8 @@ import { defineApp, memory } from 'ultimabase'
 import { quietRuns } from 'ultimabase/internal'
 import { defineJob, jobsPlugin } from './index.ts'
 import { JobsRun, M } from './model.ts'
-import { drain, lease, passes, start } from './runner.ts'
+import { lease } from './lease.ts'
+import { drain, passes, start } from './runner.ts'
 import { runningOf } from './state.ts'
 import { kept } from './test/kept.ts'
 
@@ -186,11 +187,11 @@ describe('a run that outlived its lease', () => {
 		await runJobs()
 	})
 
-	it('counts the attempt of the instance that took it over (D-352)', async () => {
+	it('counts the attempt of each instance that ran it (D-352)', async () => {
 		late = true
 		await twice()
 		expect(await JobsRun.findMany({}, M)).toMatchObject([
-			{ state: 'pending', attempts: 1, error: 'Late.' },
+			{ state: 'pending', attempts: 2, error: 'Late.' },
 		])
 		const again = {
 			level: 'warn',

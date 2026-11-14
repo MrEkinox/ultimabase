@@ -1,16 +1,16 @@
 // Runs the due rows (D-221). An instance holds a row through its lease, set
-// by an update that only one instance counts; a run that fails waits twice as
-// long each time, up to ten attempts. A run of a keyed job holds its key
-// while it runs: the unique column lets one run of each key run (D-365).
+// by an update that only one instance counts and renewed while its run runs;
+// each claim counts an attempt, and a run that fails waits twice as long each
+// time, up to ten attempts. A run of a keyed job holds its key while it runs:
+// the unique column lets one run of each key run (D-365).
 import type { RecordOf } from 'ultimabase'
 import { PublicError } from 'ultimabase'
 import { appLogger, logFailure } from 'ultimabase/internal'
 import type { JobRecord } from './define-job.ts'
+import { hold, lease } from './lease.ts'
 import { JobsRun, M } from './model.ts'
 import type { Due, Running } from './state.ts'
 
-/** Five minutes, an instance's hold on a row. */
-export const lease: number = 5 * 60 * 1000
 /** The attempts of a run before it turns `failed`. */
 export const attempts = 10
 /** Ten seconds, the wait after a first failure. */
@@ -37,7 +37,8 @@ function due(app: Running, now: Date) {
 async function claim(app: Running, { id, key }: Due, now: number, held: Date) {
 	const where = { AND: [{ id }, due(app, new Date(now))] }
 	try {
-		const data = { lockedUntil: held, holding: key }
+		// Counted as it starts: a run that stops its instance counts too.
+		const data = { lockedUntil: held, holding: key, attempts: { increment: 1 } }
 		const [row] = await JobsRun.updateManyAndReturn({ where, data }, M)
 		return row
 	} catch (error) {
@@ -98,10 +99,10 @@ function failed(
 	if (job.schedule !== undefined && row.recurring !== null) {
 		logFailure(app.logger, error, `The job ${row.job} failed.`, facts)
 		const dueAt = following(job, row, now)
-		return { dueAt, lockedUntil: null, error: message }
+		return { dueAt, attempts: 0, lockedUntil: null, error: message }
 	}
 	const freed = { lockedUntil: null, holding: null, error: message }
-	const tried = row.attempts + 1
+	const tried = row.attempts
 	const last = tried >= attempts
 	if (last) {
 		logFailure(
@@ -141,16 +142,35 @@ async function ran(app: Running, row: Row, job: JobRecord, now: number) {
 	return { dueAt, attempts: 0, lockedUntil: null, error: null }
 }
 
+/** What ends a row whose runs never ended: they stopped their instance. */
+function stopped(app: Running, row: Row) {
+	const facts = { job: row.job, run: row.id }
+	const message = `The job ${row.job} never ended its last ${attempts} runs: its run is kept.`
+	app.logger.error(facts, message)
+	const error = `Its last ${attempts} runs never ended.`
+	return { state: 'failed', lockedUntil: null, holding: null, error }
+}
+
 /** Runs the row once this instance holds it; whether it did. */
 async function runRow(app: Running, target: Due): Promise<boolean> {
 	const { id, key } = target
 	const now = Date.now()
-	const held = new Date(now + lease)
+	let held = new Date(now + lease)
 	const row = await claim(app, target, now, held)
 	// A claimed row's job is one this instance declares.
 	const job = app.jobs.get(row?.job ?? '')
 	if (row === undefined || job === undefined) return false
-	const data = await ran(app, row, job, now)
+	let data: Awaited<ReturnType<typeof ran>> | ReturnType<typeof stopped>
+	if (row.attempts > attempts) {
+		data = stopped(app, row)
+	} else {
+		const end = hold(app, row, held)
+		try {
+			data = await ran(app, row, job, now)
+		} finally {
+			held = await end()
+		}
+	}
 	// Only while this instance holds the row: another took it over after.
 	const where = { id, lockedUntil: held }
 	const { count } =
@@ -167,8 +187,8 @@ async function runRow(app: Running, target: Due): Promise<boolean> {
 	return true
 }
 
-/** The runs this instance has started and not finished. */
-const running = new Set<Promise<unknown>>()
+/** The runs this instance has started and not finished, and their rows. */
+const running = new Map<Promise<unknown>, string>()
 
 // The runs that hold one of the `atOnce` places (D-302), those waiting for
 // one in the order they started, and the passes waiting for room.
@@ -234,7 +254,7 @@ export function start(app: Running, target: Due): Promise<boolean> {
 			logFailure(app.logger, error, 'A job could not run.', { run: target.id })
 			return false
 		})
-	running.add(run)
+	running.set(run, target.id)
 	void run.finally(() => running.delete(run))
 	return run
 }
@@ -270,7 +290,18 @@ export async function passes(app: Running): Promise<void> {
 
 /** Waits for the runs this instance started. */
 export async function settled(): Promise<void> {
-	await Promise.all(running)
+	await Promise.all(running.keys())
+}
+
+/** Waits for the runs this instance started, `wait` ms at most; the rows left. */
+export async function settledWithin(wait: number): Promise<readonly string[]> {
+	let timer: NodeJS.Timeout | undefined
+	const late = new Promise<void>((resolve) => {
+		timer = setTimeout(resolve, wait)
+	})
+	await Promise.race([settled(), late])
+	clearTimeout(timer)
+	return [...running.values()]
 }
 
 /**

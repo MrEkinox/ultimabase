@@ -13,7 +13,7 @@ import {
 	open,
 	passes,
 	schedule,
-	settled,
+	settledWithin,
 	start,
 } from './runner.ts'
 import type { Running } from './state.ts'
@@ -43,6 +43,8 @@ export interface Jobs extends PluginTypes {
 
 /** Five seconds, between two looks for due rows. */
 const pollEvery = 5000
+/** Ten seconds, the most the stop waits for running runs, as http's. */
+const stopWait = 10_000
 
 /** The `defineJob` values in `jobs`; refuses any other, naming `where`. */
 function recordsOf(jobs: unknown, where: string): readonly JobRecord[] {
@@ -133,11 +135,15 @@ const definition = definePlugin<Jobs>({
 		timer = setInterval(() => void poll(app), pollEvery)
 		timer.unref()
 	},
-	stopping: async () => {
+	stopping: async ({ logger }) => {
 		clearInterval(timer)
 		timer = undefined
 		close()
-		await settled()
+		const left = await settledWithin(stopWait)
+		if (left.length > 0) {
+			const message = `Stopped with ${left.length} job runs still running: they run again once their lease ends.`
+			logger.warn({ runs: left }, message)
+		}
 	},
 	stop: () => {
 		useRunning(undefined)

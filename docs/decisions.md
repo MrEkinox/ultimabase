@@ -14808,14 +14808,25 @@ or on a schedule, with no kernel change (D-25):
 7. One instance runs a row at a time, through a lease: an `updateMany` of
    the row where its lease has expired sets it five minutes ahead, and only
    the instance whose update counts one row runs it. It works on memory and
-   postgres alike, and a lease held by an instance that died expires.
-8. A run happens at least once: a run longer than its lease, or an instance
-   dying after the job's effect and before the row's delete, runs it again.
-   `id`, the row's id, is the key a job makes its effect idempotent with.
+   postgres alike, and a lease held by an instance that died expires. While
+   the run runs, its instance sets the lease five minutes ahead again every
+   100 s, and warns every five minutes of a run still running, with the
+   job's name: a run longer than five minutes is not run twice
+   (amended 2026-11-14).
+8. A run happens at least once: an instance dying after the job's effect
+   and before the row's delete runs it again. `id`, the row's id, is the
+   key a job makes its effect idempotent with. An instance that stops waits
+   ten seconds at most for its runs, as http waits for its requests, then
+   stops and warns with the ids of those left: their lease ends, and
+   another instance runs them again (amended 2026-11-14).
 9. A failed run is retried after 10 s, 20 s, 40 s and so on, doubling, up
    to ten attempts (about 2 h 50 min in all); then its row turns `failed`,
    is kept, and is logged with the job's name and the error. A recurring
-   job's failure is logged and its next occurrence runs as usual.
+   job's failure is logged and its next occurrence runs as usual. An
+   attempt counts as its run starts, so a run that stops its instance each
+   time, out of memory say, counts too: once ten runs never ended, the
+   eleventh claim turns the row `failed` without running it, logged as
+   such (amended 2026-11-14).
 10. The instance that enqueued a run starts it right after the commit when
     it is due; every instance looks for due rows every five seconds, a
     fixed value and not an option.
