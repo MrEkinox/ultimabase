@@ -76,9 +76,10 @@ an error at once, and the job runs at its next time.
 
 A run may also run twice: a server that crashes mid-run leaves it to another
 five minutes later, and a server that stops waits ten seconds for its runs,
-then leaves those still running to another the same way. A run that never
-ends ten times in a row, as one that runs its server out of memory, turns
-`failed` instead of running an eleventh time. So:
+then leaves those still running to another the same way.
+
+A run that never ends ten times in a row, as one that runs its server out of
+memory, turns `failed` instead of running an eleventh time. So:
 
 - A job that calls another service passes `id`, the run's, as its idempotency
   key, as `closeRoom` does above, or checks the state it changes.
