@@ -24209,6 +24209,8 @@ const url = await stripe.portal({
 
 ## D-395: http answers its running requests before any plugin stops
 
+Amended by D-399.
+
 Choice: amends D-91 point 5 and D-204 point 6.
 
 1. After its drain, http's `stopping` stops accepting connections and waits
@@ -24314,3 +24316,27 @@ a client passes with valid documents of the same shape.
 
 Measured with 500 documents of 3 986 characters, `{ q<i> a a … }`, the
 heap after `gc()`: 420.5 MB before, 54.8 MB after.
+
+## D-399: A request that comes once the stop began is refused
+
+Choice: amends D-395 point 1; nothing changes in a developer's code.
+
+1. Once http's `stopping` stops accepting connections, a request whose
+   headers end on a connection already open is answered 503
+   `{ "code": "UNAVAILABLE", "message": "The application is stopping." }`,
+   as `/ready` answers, and its connection is closed. An upgrade is
+   refused the same way.
+2. An upgrade counts as a request `stopping` waits for, from its headers
+   until its plugin takes it: the gate and the rate limit run while the
+   plugins they read still run.
+
+Why: D-395 waits for the requests whose handler runs when the stop begins.
+A request whose headers were still arriving was neither running nor idle:
+it ran once its headers ended, after the plugins it used stopped. An
+upgrade was not counted at all, so its gate could read a stopped plugin
+and its plugin take a socket after its own stop. A client reaches both
+with a slow connection, or a keep-alive one that sends its next request
+during the stop.
+
+Rejected: counting each request from its first byte, which Node does not
+tell; waiting for every open connection, which D-395 already rejected.

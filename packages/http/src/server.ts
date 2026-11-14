@@ -131,22 +131,43 @@ const waits = { headersTimeout: 10_000, connectionsCheckingInterval: 1000 }
 /** Each server's requests not answered yet, and who waits for none. */
 const answering = new WeakMap<Server, { count: number; none?: () => void }>()
 
+/**
+ * What `work` gives, as a request `stop` waits for: a request until its
+ * handler returns, a stream going on after (D-395); an upgrade until its
+ * plugin takes it (D-399).
+ */
+export async function counted<T>(server: Server, work: () => Promise<T>) {
+	const running = answering.get(server) ?? { count: 0 }
+	running.count += 1
+	try {
+		return await work()
+	} finally {
+		running.count -= 1
+		if (running.count === 0) running.none?.()
+	}
+}
+
+/** The answer to a request that comes once the stop began, as `/ready`'s. */
+export const stopping = {
+	code: 'UNAVAILABLE',
+	message: 'The application is stopping.',
+} as const
+
 /** A Node server for `fetch`, Hono's handler. */
 export function serverOf(
 	fetch: Parameters<typeof getRequestListener>[0],
 ): Server {
-	const running: { count: number; none?: () => void } = { count: 0 }
-	// Answered once its handler returns: a stream goes on after (D-395).
-	const listener = getRequestListener(async (request, env) => {
-		running.count += 1
-		try {
-			return await fetch(request, env)
-		} finally {
-			running.count -= 1
-			if (running.count === 0) running.none?.()
-		}
-	})
+	const listener = getRequestListener(async (request, env) =>
+		counted(server, async () => fetch(request, env)),
+	)
 	const server = createServer(waits, (request, response) => {
+		// Once `stop` began, it would run after the plugins it uses (D-399).
+		if (!server.listening) {
+			response.shouldKeepAlive = false
+			response.writeHead(503, { 'content-type': 'application/json' })
+			response.end(JSON.stringify(stopping))
+			return
+		}
 		// A request running when `stop` began leaves its connection idle after
 		// its response: close it, rather than wait for the client to.
 		response.once('finish', () => {
@@ -154,7 +175,7 @@ export function serverOf(
 		})
 		void listener(request, response)
 	})
-	answering.set(server, running)
+	answering.set(server, { count: 0 })
 	return server
 }
 

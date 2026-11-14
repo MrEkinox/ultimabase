@@ -10,6 +10,7 @@ import { logFailure } from 'ultimabase/internal'
 import { isOwnOrigin } from './address.ts'
 import type { Limiter } from './limit.ts'
 import { tooMany } from './limit.ts'
+import { counted, stopping } from './server.ts'
 
 /**
  * An upgrade a plugin takes: Node's request, its socket and first bytes, as
@@ -137,6 +138,10 @@ export function upgrading(
 	server.on('upgrade', (incoming: IncomingMessage, socket: Duplex, head) => {
 		// A client that leaves mid-answer must not stop the server.
 		socket.on('error', () => socket.destroy())
+		// Its plugin may have stopped already (D-399).
+		if (!server.listening) {
+			return refuse(socket, 503, stopping.code, stopping.message)
+		}
 		const request = requestOf(incoming)
 		if (request === undefined) {
 			return refuse(socket, 400, 'BAD_REQUEST', 'The upgrade has no URL.')
@@ -162,7 +167,7 @@ export function upgrading(
 		// Open while the gate answers, so `stop` waits for it too.
 		open.set(socket, pathname)
 		socket.once('close', () => open.delete(socket))
-		void (async () => {
+		void counted(server, async () => {
 			try {
 				const address = addressOf({ incoming })
 				const limit = async () => rateLimit(request, address)
@@ -175,7 +180,7 @@ export function upgrading(
 				logFailure(logger, error, 'An upgrade failed.')
 				refuse(socket, 500, 'INTERNAL', 'Internal error.')
 			}
-		})()
+		})
 	})
 	return open
 }

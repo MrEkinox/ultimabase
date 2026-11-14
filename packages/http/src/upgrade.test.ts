@@ -35,9 +35,13 @@ interface Sockets extends PluginTypes {
 const taken: Upgrade[] = []
 const closes: (readonly [number, string])[] = []
 let late: HttpApi | undefined
+/** Whether the plugin taking the upgrades runs, as each one was taken. */
+let up = false
+const takenUp: boolean[] = []
 /** Switches protocols, and closes its socket when the client leaves. */
 const switching: Accept = (upgrade) => {
 	taken.push(upgrade)
+	takenUp.push(up)
 	// A client that leaves closes its socket, as ws does.
 	upgrade.socket.once('end', () => upgrade.socket.end())
 	upgrade.socket.write(
@@ -70,11 +74,20 @@ const sockets = definePlugin<Sockets>({
 			throw new Error('broken')
 		})
 	},
+	start: () => {
+		up = true
+	},
+	stop: () => {
+		up = false
+	},
 })
 
 let stop: (() => Promise<void>) | undefined
 afterEach(async () => {
+	// A failed test's sockets would hold the stop 10 seconds.
+	for (const { socket } of taken) socket.destroy()
 	taken.length = 0
+	takenUp.length = 0
 	closes.length = 0
 	errors.length = 0
 	warnings.length = 0
@@ -355,6 +368,48 @@ describe('the upgrades', () => {
 		await expect(app.start()).rejects.toThrow(
 			'Two plugins take the upgrades of /live.',
 		)
+	})
+
+	it('whose gate runs when stop begins are taken before their plugin stops', async () => {
+		let release: (() => void) | undefined
+		const { app, url } = await started(async () => {
+			await new Promise<void>((done) => {
+				release = done
+			})
+			return undefined
+		})
+		const answer = upgraded(`${url}/live`)
+		await expect.poll(() => release).toBeDefined()
+		const stopping = app.stop()
+		await new Promise((done) => setTimeout(done, 50))
+		release?.()
+		;(await answer).socket?.destroy()
+		await stopping
+		expect(takenUp).toEqual([true])
+	})
+
+	it('that come once stop began are refused', async () => {
+		const { app, url } = await started()
+		const socket = connect(Number(new URL(url).port), 'localhost')
+		await new Promise((done) => socket.once('connect', done))
+		let text = ''
+		socket.on('data', (chunk: Buffer) => {
+			text += chunk.toString()
+		})
+		const closed = new Promise((done) => socket.once('close', done))
+		socket.write(
+			'GET /live HTTP/1.1\r\nhost: localhost\r\nconnection: Upgrade\r\n',
+		)
+		await new Promise((done) => setTimeout(done, 50))
+		const stopping = app.stop()
+		await expect.poll(() => up).toBe(false)
+		socket.write('upgrade: websocket\r\n\r\n')
+		await Promise.race([closed, new Promise((done) => setTimeout(done, 1000))])
+		socket.destroy()
+		await stopping
+		expect(text).toMatch(/^HTTP\/1\.1 503 Service Unavailable\r\n/)
+		expect(text).toContain('"message":"The application is stopping."')
+		expect(taken).toEqual([])
 	})
 
 	it('still open 10 seconds after stop are closed', async () => {

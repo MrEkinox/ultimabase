@@ -142,6 +142,7 @@ const serving = definePlugin<Serving>({
 					})
 					return c.text(holding ? 'stored' : 'stopped')
 				})
+				.get('/use', (c) => c.text(holding ? 'running' : 'stopped'))
 				.get('/stream', (c) =>
 					streamSSE(c, async (stream) => {
 						await stream.writeSSE({ data: 'open' })
@@ -926,6 +927,27 @@ describe('stop', () => {
 		answer?.()
 		expect(await (await upload).text()).toBe('stored')
 		await stopping
+	})
+	it('refuses a request whose headers end once the stop began', async () => {
+		// It was not running when the stop began, so it ran after its plugin's.
+		const { app, url } = await started({}, serving.plugin())
+		const socket = connect(Number(new URL(url).port), '127.0.0.1')
+		await new Promise((done) => socket.once('connect', done))
+		let received = ''
+		socket.on('data', (chunk: Buffer) => {
+			received += chunk.toString()
+		})
+		const closed = new Promise((done) => socket.once('close', done))
+		socket.write('GET /use HTTP/1.1\r\nHost: localhost\r\n')
+		await new Promise((done) => setTimeout(done, 50))
+		const stopping = app.stop()
+		await expect.poll(() => holding).toBe(false)
+		socket.write('\r\n')
+		await closed
+		await stopping
+		expect(received).toMatch(/^HTTP\/1\.1 503 /)
+		expect(received.toLowerCase()).toContain('connection: close')
+		expect(received).toContain('The application is stopping.')
 	})
 	it('stops at once while a stream its plugin ends is open', async () => {
 		const { app, url } = await started({}, serving.plugin())
