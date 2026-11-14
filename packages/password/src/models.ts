@@ -48,7 +48,13 @@ export const PasswordAttempt: ModelOf<'PasswordAttempt', AttemptFields, []> =
 			address: f.string(),
 			at: f.dateTime(),
 		}),
-		indexes: [{ fields: ['subject', 'address'] }, { fields: ['at'] }],
+		// Each count reads an index: the pair, the subject, and the address,
+		// whose ceiling is counted on every attempt (D-114).
+		indexes: [
+			{ fields: ['subject', 'address'] },
+			{ fields: ['address', 'at'] },
+			{ fields: ['at'] },
+		],
 	})
 
 type RequestFields = {

@@ -5627,7 +5627,9 @@ Choice: completes D-113.
    address, until the oldest of the hundred is 15 minutes old. A success
    clears its own address's failures only. Each address, whatever the
    subject, has the same ceiling: the 101st failed attempt from it within
-   15 minutes is refused on every subject (amended 2026-10-24).
+   15 minutes is refused on every subject (amended 2026-10-24). Each of
+   the three counts reads an index: the failures are indexed by subject and
+   address, and by address and time (amended 2026-11-14).
 3. At most `os.availableParallelism()` Argon2 computations run at once in a
    process, and 64 more wait; one more fails with `TOO_MANY_ATTEMPTS` and
    `retryAfter: 1`, and an attempt that fails so is not counted.
