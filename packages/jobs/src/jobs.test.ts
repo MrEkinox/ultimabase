@@ -156,16 +156,17 @@ describe('a job enqueued', () => {
 		expect(await rows()).toStrictEqual([])
 	})
 
-	it('refuses an invalid input as VALIDATION_FAILED', async () => {
+	// The server's own error: a client that sent it no input sees no 400 naming
+	// the schema's paths.
+	it('refuses an invalid input as a plain error naming its job', async () => {
 		const refused = closeRoom.enqueue(
 			// @ts-expect-error: room is a string.
 			{ room: 1 },
 		)
-		await expect(refused).rejects.toBeInstanceOf(PublicError)
-		await expect(refused).rejects.toMatchObject({
-			code: 'VALIDATION_FAILED',
-			details: { issues: [{ path: ['room'] }] },
-		})
+		await expect(refused).rejects.not.toBeInstanceOf(PublicError)
+		await expect(refused).rejects.toThrow(
+			/^closeRoom\.enqueue received an invalid input: room: /u,
+		)
 		expect(await rows()).toStrictEqual([])
 	})
 

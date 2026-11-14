@@ -14790,7 +14790,10 @@ or on a schedule, with no kernel change (D-25):
    `fn.run` (D-75): `job.enqueue(input, { after })`, or
    `job.enqueue({ after })` when it has no input. It validates the input
    (a Standard Schema, as a function's, D-27) and writes the row in the
-   current transaction, or alone outside one (D-36). Written from an
+   current transaction, or alone outside one (D-36). An invalid input is
+   the server's error, not the client's: a plain error naming the job and
+   each issue, so a `500`, logged, and never a `400` that shows a client
+   the schema of a job it never called (amended 2026-11-14). Written from an
    `after*` hook, the row exists if and only if the write committed. It
    takes no `as`: enqueuing is server code.
 4. No `job.run`: it would skip the queue and the retries. Tests run the due
