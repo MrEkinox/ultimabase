@@ -21451,7 +21451,9 @@ Choice: amends D-221 points 3, 6 and 11.
    pending again, its attempts at 0, due at its next time. During a rolling
    deploy an older instance that starts still deletes the recurring rows of
    the jobs it does not declare; the next instance of the newer version to
-   start creates them again.
+   start creates them again. At startup an instance warns of each job it
+   does not declare whose runs wait, with their count: without a version
+   declaring it they wait forever (amended 2026-11-14).
 6. `every` and `after` are refused at import and at `enqueue` unless the
    run they time is due before the year 10000, the last a stored date
    holds (D-94). A cron pattern no date matches, as `0 0 30 2 *`, is

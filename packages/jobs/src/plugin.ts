@@ -6,7 +6,7 @@ import { definePlugin, Refused } from 'ultimabase'
 import manifest from '../package.json' with { type: 'json' }
 import type { JobRecord, Job, RecurringJob } from './define-job.ts'
 import { recordOf } from './define-job.ts'
-import { JobsRun } from './model.ts'
+import { JobsRun, M } from './model.ts'
 import {
 	close,
 	drain,
@@ -86,6 +86,16 @@ async function poll(app: Running): Promise<void> {
 	}
 }
 
+/** Names each job not declared whose runs wait: no instance may run them. */
+async function warnUndeclared(app: Running): Promise<void> {
+	const where = { state: 'pending', job: { notIn: [...app.jobs.keys()] } }
+	const groups = await JobsRun.groupBy({ by: ['job'], _count: true, where }, M)
+	for (const { job, _count: count } of groups) {
+		const message = `The job ${job} has ${count} runs waiting, and is not declared: they run once a version declaring it does.`
+		app.logger.warn({ job, runs: count }, message)
+	}
+}
+
 const definition = definePlugin<Jobs>({
 	name: 'jobs',
 	manifest,
@@ -114,6 +124,7 @@ const definition = definePlugin<Jobs>({
 		useRunning(app)
 		open()
 		await schedule(app)
+		await warnUndeclared(app)
 	},
 	// What was due while no instance ran runs once now.
 	started: () => {
