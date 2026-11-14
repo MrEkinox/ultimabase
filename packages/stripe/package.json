@@ -1,6 +1,6 @@
 {
 	"name": "@ultimabase/stripe",
-	"version": "0.7.0",
+	"version": "0.8.0",
 	"description": "Stripe for UltimaBase: a catalog declared in code, sold on Stripe's Checkout, with subscriptions, purchases and credits kept in the application's models.",
 	"type": "module",
 	"license": "Apache-2.0",
@@ -33,9 +33,9 @@
 		}
 	},
 	"peerDependencies": {
-		"@ultimabase/http": "^0.7.0",
-		"@ultimabase/jobs": "^0.7.0",
-		"ultimabase": "^0.7.0"
+		"@ultimabase/http": "^0.8.0",
+		"@ultimabase/jobs": "^0.8.0",
+		"ultimabase": "^0.8.0"
 	},
 	"devDependencies": {
 		"@ultimabase/graphql": "workspace:*",

@@ -1,5 +1,11 @@
 # create-ultimabase
 
+## 0.8.0
+
+### Patch Changes
+
+- 8f82820: `ultimabase dev`, `sync`, `reset`, `migrate create` and `generate` also load the `.env.local` beside the config, whose values win over the `.env`'s; a variable already set still wins over both. The starter's `.gitignore` lists `.env.local`.
+
 ## 0.7.0
 
 ### Patch Changes

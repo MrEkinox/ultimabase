@@ -1,6 +1,6 @@
 {
 	"name": "@ultimabase/http",
-	"version": "0.7.0",
+	"version": "0.8.0",
 	"description": "An HTTP server for UltimaBase: Hono routes that read the caller, CORS and a body limit.",
 	"type": "module",
 	"license": "Apache-2.0",
@@ -38,7 +38,7 @@
 		"ipaddr.js": "2.5.0"
 	},
 	"peerDependencies": {
-		"ultimabase": "^0.7.0"
+		"ultimabase": "^0.8.0"
 	},
 	"devDependencies": {
 		"ultimabase": "workspace:*",

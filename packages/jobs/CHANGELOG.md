@@ -1,5 +1,26 @@
 # @ultimabase/jobs
 
+## 0.8.0
+
+### Minor Changes
+
+- 20aec1b: The application's code logs with the application's logger, its lines named `app` (D-364): a function's `run` receives `logger`, bound to `{ function: name }`; each hook receives `logger`; a route reads `c.var.logger`; a job's `run` receives `logger`, bound to `{ job: name, run: id }`.
+- 20aec1b: `defineJob({ key })` runs one run of each key at a time: while a run of the key waits, `enqueue` adds none, and a run enqueued while one runs starts once it ends, on any server (D-365).
+- 81f66fb: A plugin adds its own jobs from its `api`, with `plugins.jobs.add(jobs)` (D-369): the application lists the plugin, not its jobs. Two jobs of one name, the application's or a plugin's, fail the start with `Two jobs are named <name>.`
+
+### Patch Changes
+
+- 1520a09: The kernel publishes each model operation, hook, virtual field and function on Node's tracing channels `ultimabase:operation`, `ultimabase:hook`, `ultimabase:virtual` and `ultimabase:function`, nested, and each error the server logs at error level on `ultimabase:error` with its correlation id. A tool such as an error tracker subscribes to them; without a subscriber, nothing is built.
+- Updated dependencies [20aec1b]
+- Updated dependencies [b2aa312]
+- Updated dependencies [94145f9]
+- Updated dependencies [8f82820]
+- Updated dependencies [1b9515a]
+- Updated dependencies [51f8f04]
+- Updated dependencies [3099475]
+- Updated dependencies [1520a09]
+  - ultimabase@0.8.0
+
 ## 0.7.0
 
 ### Patch Changes

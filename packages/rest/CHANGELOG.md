@@ -1,5 +1,29 @@
 # @ultimabase/rest
 
+## 0.8.0
+
+### Patch Changes
+
+- 95ce1d5: `realtimePlugin({ liveFunctions })` makes a plugin's query live by its owner name, as
+  `liveFunctions: ['auth.viewer']`: a subscription to `viewer` sends the signed-in user again when a
+  write changes them (D-362). REST's refusal of a plugin's query that is not live says to name it
+  there.
+- 1520a09: The kernel publishes each model operation, hook, virtual field and function on Node's tracing channels `ultimabase:operation`, `ultimabase:hook`, `ultimabase:virtual` and `ultimabase:function`, nested, and each error the server logs at error level on `ultimabase:error` with its correlation id. A tool such as an error tracker subscribes to them; without a subscriber, nothing is built.
+- Updated dependencies [20aec1b]
+- Updated dependencies [b2aa312]
+- Updated dependencies [94145f9]
+- Updated dependencies [8f82820]
+- Updated dependencies [1b9515a]
+- Updated dependencies [458361b]
+- Updated dependencies [4c9e506]
+- Updated dependencies [95ce1d5]
+- Updated dependencies [51f8f04]
+- Updated dependencies [3099475]
+- Updated dependencies [1520a09]
+  - ultimabase@0.8.0
+  - @ultimabase/http@0.8.0
+  - @ultimabase/realtime@0.8.0
+
 ## 0.7.0
 
 ### Minor Changes

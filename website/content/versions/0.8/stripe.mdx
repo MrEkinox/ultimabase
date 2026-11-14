@@ -1,0 +1,615 @@
+---
+title: Stripe
+description: Declare what the application sells in code, sell it on Stripe's hosted pages, and keep subscriptions, purchases, credits and their history in the application's own models.
+---
+
+`@ultimabase/stripe` keeps what the application sells in its code: products,
+their prices and the credits a payment gives. The deploy script writes them
+to [Stripe](https://stripe.com), with the customer portal's configuration.
+Users pay on Stripe's Checkout and manage their subscriptions on its portal;
+Stripe's events keep the application's billing models in step.
+
+```npm
+npm install @ultimabase/stripe
+```
+
+## The catalog
+
+A product is a subscription, with its recurring prices by name, or a product
+paid once, with one price. Either gives credits with `gives`: a purchase
+once, a subscription's price each paid period. An amount is an integer in
+the currency's smallest unit: `9_90` is 9.90 EUR.
+
+```ts title="src/catalog.ts"
+import { defineCredit, defineProduct } from '@ultimabase/stripe'
+
+export const blueGems = defineCredit({ key: 'blueGems' })
+
+export const pro = defineProduct({
+	key: 'pro',
+	name: 'Pro',
+	taxCode: 'txcd_10103000', // Stripe Tax's software as a service
+	prices: {
+		// Each paid period gives its gems: a trial gives none.
+		monthly: { amount: 9_90, every: 'month', gives: [blueGems(100)] },
+		quarterly: {
+			amount: 27_00,
+			every: 'month',
+			everyCount: 3,
+			gives: [blueGems(300)],
+		},
+		yearly: {
+			amount: 99_00,
+			every: 'year',
+			trialDays: 14, // free, for a payer who never subscribed
+			gives: [blueGems(1_200)],
+		},
+	},
+})
+```
+
+```ts title="src/catalog.ts"
+export const gems500 = defineProduct({
+	key: 'gems500',
+	name: '500 blue gems',
+	price: { amount: 4_99 },
+	gives: [blueGems(500)],
+})
+```
+
+- A key holds letters, digits, `-` and `_`; a price's lookup key in Stripe is
+  `<product>.<price>`, as `pro.monthly`, or the product's key for a price
+  paid once.
+- A subscription has one price per interval: the customer portal moves a
+  subscription between them.
+- `everyCount` bills every few intervals, up to three years.
+- `trialDays`, from 1 to 730, gives a recurring price a free trial. Checkout
+  gives it to a payer who never subscribed; the call's `trialDays` wins,
+  and `trialDays: 0` gives none.
+
+## Deploy
+
+`applyStripeCatalog` reads the account, prints the plan, a line a change, and
+applies it. `dryRun` prints the plan alone.
+
+```ts title="src/stripe.ts"
+import type { StripeCatalogOptions } from '@ultimabase/stripe'
+import { applyStripeCatalog } from '@ultimabase/stripe'
+import { gems500, pro } from './catalog.ts'
+
+export const selling = {
+	currency: 'eur',
+	// The amounts include the taxes.
+	taxBehavior: 'inclusive',
+	products: [pro, gems500],
+	portal: {
+		returnUrl: 'https://app.example.com/account',
+		termsUrl: 'https://app.example.com/terms',
+		privacyUrl: 'https://app.example.com/privacy',
+		// The defaults: a dearer plan is charged at once, a cheaper one
+		// starts at the period's end.
+		upgrades: 'invoiceNow',
+		downgrades: 'atPeriodEnd',
+		trialChange: 'endTrial',
+		cancel: 'atPeriodEnd',
+		// Asked of a user who cancels; the answer stays in Stripe.
+		cancelReasons: ['too_expensive', 'missing_features', 'unused', 'other'],
+	},
+} satisfies Omit<StripeCatalogOptions, 'secret'>
+```
+
+```ts title="src/stripe.ts"
+/** Brings the Stripe account of `secret` to the catalog. */
+export const deployCatalog = (secret: string | undefined, dryRun: boolean) =>
+	applyStripeCatalog({ secret, ...selling, dryRun })
+```
+
+```ts title="src/deploy.ts"
+// `yarn deploy`: brings Stripe to the catalog, from the deploy pipeline;
+// `yarn deploy --dry-run` prints the plan and changes nothing.
+import { deployCatalog } from './stripe.ts'
+
+await deployCatalog(
+	process.env['STRIPE_SECRET_KEY'],
+	process.argv.includes('--dry-run'),
+)
+```
+
+Each line names a change, as `create the price pro.quarterly: 27.00 EUR
+every 3 months`; `yarn deploy --dry-run` prints them and changes nothing.
+
+- A run changes only what differs: a second run prints `up to date`.
+- Stripe never changes a price's amount or interval: a new price replaces it,
+  takes its lookup key, and the old one is archived. Subscriptions on the old
+  price keep it.
+- A product or price the catalog no longer lists is archived, never deleted.
+- `taxBehavior` is `'inclusive'` unless set: the amounts include the taxes.
+- A new Stripe account sells through Managed Payments, whose Checkout refuses
+  a product with no `taxCode`, as `taxCode: 'txcd_10103000'`.
+- The secret key's mode is printed: `sk_live_…` writes to the live account.
+
+## The plugin
+
+`stripePlugin` sells the catalog. It needs `httpPlugin`, for Stripe's
+webhook, and `jobsPlugin`, whose jobs write Stripe's events to the models.
+
+```npm
+npm install @ultimabase/jobs
+```
+
+```ts title="src/app.ts"
+const secret = process.env['STRIPE_SECRET_KEY']
+const webhook = process.env['STRIPE_WEBHOOK_SECRET']
+
+const stripe = stripePlugin({
+	// Without them, the application starts and payments are unavailable.
+	keys: secret && webhook ? { secret, webhook } : undefined,
+	...selling,
+	// What Stripe shows of a user; Checkout and the portal speak its locale.
+	customer: (user: { readonly email: string; readonly lang: string }) => ({
+		email: user.email,
+		locale: user.lang,
+	}),
+	// The defaults: Stripe posts its events here, and a user may hold
+	// several subscriptions; `true` refuses a second one, and cancels and
+	// refunds one made anyway.
+	webhookPath: '/webhooks/stripe',
+	oneSubscription: false,
+	// Off unless set: an early fraud warning refunds its payment, and it or
+	// a dispute ends the payer's subscriptions at once.
+	risk: { earlyFraudWarning: 'refundAndCancel', dispute: 'cancel' },
+	// Adds the public query `stripeCatalog`, for a pricing page.
+	catalog: true,
+})
+```
+
+```ts title="src/app.ts"
+export const app = defineApp({
+	// Kept in memory, so the example needs no database.
+	database: memory(),
+	// Listens on PORT, or 3000; runs each Stripe event's job, and the hourly
+	// reconciliation, which catches the events the webhook missed.
+	plugins: [httpPlugin(), jobsPlugin({ jobs: [] }), stripe],
+	models: [User, Subscription, Purchase, Balance, CreditHistory],
+})
+```
+
+- `keys` holds the secret key and the webhook's signing secret. Without
+  them, the application starts, every call that needs Stripe throws
+  `PAYMENT_UNAVAILABLE`, and the webhook answers 503.
+- `customer` gives what Stripe shows of a payer, from its row: `email`,
+  `name`, `locale`. Each payer has one Stripe customer, created at its first
+  Checkout and closed when the payer's row is deleted. A payer's update
+  that changes this profile sends it to Stripe, by a job: see
+  [the billing models](#the-billing-models).
+- Checkout and the portal speak the payer's `locale`: `fr-BE` when the page
+  knows it, else `fr`, else the browser's language.
+- At start, the plugin compares the catalog with Stripe. With
+  `NODE_ENV=development` and a test key it applies it; otherwise it warns
+  and lists the differences: the deploy script applies them.
+- `webhookPath` is `/webhooks/stripe` unless set; `oneSubscription: true`
+  refuses a second live subscription with `ALREADY_SUBSCRIBED`, and one made
+  anyway, in the Dashboard or by a race, is canceled at once, its payment
+  refunded, and logged as an error.
+- `risk` acts on a payment at risk, and nothing does unless it is set.
+  `earlyFraudWarning: 'refundAndCancel'` refunds the payment Stripe's Radar
+  warns of, once and while Stripe still lets it; `dispute: 'cancel'` leaves
+  the disputed payment to the dispute. Both end the payer's live
+  subscriptions at once, without proration, and warn. The sync then writes
+  the rows: a refund takes back its credits, as below. A customer the
+  application does not hold is left alone.
+- `catalog: true` adds the public query `stripeCatalog`, in GraphQL and at
+  `GET /api/functions/stripeCatalog`: the `subscriptions`, each with its
+  `prices`, and the `purchases`, in their declared order, with amounts,
+  intervals, trials and credits. It reads the code, not Stripe, so it
+  answers without keys; keys and price names are typed by the billing
+  models' enums. `stripe.catalog()` returns the same on the server.
+
+## The billing models
+
+Four functions declare the models the plugin writes, each with its fields;
+the application adds its own. Only the plugin writes them: a client's or
+the server's write is refused. Reads follow the application's rules: here,
+with `isOwner` from `@ultimabase/auth`, each user reads their own rows.
+Deleting a payer, under its own rules, takes its rows with it.
+
+The payer's model lists `stripePayer()` in its `use`: an update that
+changes what `customer` gives sends the new profile to Stripe, and the
+application does not start without it.
+
+```ts title="src/models.ts"
+// The payer: Stripe gets its profile again when `customer`'s result changes.
+export const User = defineModel({
+	name: 'User',
+	use: [stripePayer()],
+	fields: (f) => ({
+		email: f.string({ unique: true }),
+		// Checkout and the portal speak it.
+		lang: f.string({ default: 'en' }),
+	}),
+})
+```
+
+```ts title="src/models.ts"
+// A row a payment made once, refunds included.
+export const Purchase = definePurchase({
+	name: 'Purchase',
+	payer: () => User,
+	product: Pack,
+}).with({ access: { read: isOwner('payer') } })
+// A row a credit a user holds: the gems given, less those spent.
+export const Balance = defineBalance({
+	name: 'Balance',
+	owner: () => User,
+}).with({ access: { read: isOwner('owner') } })
+// A row a move of credits: given, spent or taken back, and why.
+export const CreditHistory = defineCreditHistory({
+	name: 'CreditHistory',
+	owner: () => User,
+}).with({ access: { read: isOwner('owner') } })
+```
+
+The subscriptions' model, with its hook, is under
+[React to changes](#react-to-changes).
+
+- `defineSubscription`: `payer`, `stripeId`, `product`, `price`, `status`,
+  `quantity`, `amount`, `every`, `everyCount`, `currentPeriodEnd`,
+  `cancelAt`, `canceledAt`, `trialEnd`, `startedAt`, and the change the
+  portal scheduled: `scheduledProduct`, `scheduledPrice`, `scheduledAt`.
+- `definePurchase`: `payer`, `stripeId`, `product`, `quantity`, `amount`,
+  `refunded`, `status` (`'paid'` or `'refunded'`), `paidAt`, `receiptUrl`.
+- `defineBalance`: `owner`, `credit`, `amount`.
+- `defineCreditHistory`: `owner`, `credit`, `change`, positive when given
+  and negative when spent or taken back, `reason`, and `payment`, the
+  Stripe payment or invoice that moved it.
+- An application has at most one model of each. The purchases' payer, the
+  balances' owner and the history's owner are one model, and a balance
+  needs its history: the application does not start without it.
+
+A subscription's `product` and `price`, and a purchase's `product`, are
+strings, or the application's enums: then each row is typed, and a query
+filters on the values.
+
+```ts title="src/models.ts"
+// The catalog's keys and price names, so a row's `product` and `price` are
+// typed: the plugin refuses at start an enum that misses one.
+export const Plan = defineEnum('Plan', ['pro'])
+export const Period = defineEnum('Period', ['monthly', 'quarterly', 'yearly'])
+export const Pack = defineEnum('Pack', ['gems500'])
+```
+
+- An enum lists every key, or price name, of the catalog the model records,
+  and may hold more, as a product the catalog no longer sells: one that
+  misses a value of the catalog stops the application at start.
+- A subscription Stripe moves to a product or price the enums miss is
+  logged as an error, as one outside the catalog (see
+  [The webhook](#the-webhook)).
+
+A page reads what a user pays from the row, not from the catalog: a
+subscriber keeps the price they subscribed at after the catalog changed.
+
+```ts title="src/shop.ts"
+/**
+ * The account page of a function's `caller`: the plan as they pay it, and
+ * the moves of their gems. Their rules let them read their own rows only.
+ */
+export async function account(caller: Identity) {
+	const as = { as: caller }
+	const plans = await Subscription.findMany({}, as)
+	const moves = await CreditHistory.findMany(
+		{ orderBy: { createdAt: 'desc' } },
+		as,
+	)
+	return {
+		// 9.90 EUR every month: what the row holds, whatever the catalog says.
+		plans: plans.map(
+			(plan) =>
+				`${(plan.amount / 100).toFixed(2)} EUR every ${plan.every}: ${plan.status}`,
+		),
+		moves: moves.map(({ change, reason }) => `${change} ${reason}`),
+	}
+}
+```
+
+```ts title="src/app.test.ts"
+expect(await accountPage(asUser(ada))).toStrictEqual({
+	plans: ['9.90 EUR every month: active'],
+	moves: ['100 subscription', '50 welcome'],
+})
+// Bob reads none of Ada's rows.
+expect(await accountPage(asUser(bob))).toStrictEqual({
+	plans: [],
+	moves: [],
+})
+```
+
+- `amount` is one period's price times the quantity, before discounts and
+  taxes; `every` and `everyCount` are the interval as the catalog writes
+  it.
+- `status` is one of Stripe's: `incomplete`, `incomplete_expired`,
+  `trialing`, `active`, `past_due`, `canceled`, `unpaid`, `paused`.
+- The invoices stay on Stripe's portal, with their PDFs; a purchase's
+  `receiptUrl` is Stripe's receipt page.
+
+## Checkout and the portal
+
+`stripe.checkout` opens Stripe's Checkout for a payer and returns its URL.
+It closes the payer's Checkouts still open, so two tabs cannot both pay.
+
+```ts title="src/shop.ts"
+/** The Checkout page where `user` subscribes to Pro, billed each month. */
+export const subscribe = (user: Payer) =>
+	stripe.checkout({
+		payer: user,
+		product: pro,
+		price: 'monthly',
+		// A checkbox the user ticks, with the application's text in the
+		// page's language.
+		terms: {
+			acceptance: {
+				default: 'I accept the [terms of sale](https://app.example.com/terms).',
+				fr: 'J’accepte les [conditions de vente](https://app.example.com/terms).',
+			},
+		},
+		// Stripe fills in the session's id.
+		successUrl: 'https://app.example.com/paid?session={CHECKOUT_SESSION_ID}',
+		cancelUrl: 'https://app.example.com/pricing',
+	})
+```
+
+```ts title="src/shop.ts"
+/** The Checkout page where `user` buys 500 blue gems. */
+export const buyGems = (user: Payer) =>
+	stripe.checkout({
+		payer: user,
+		product: gems500,
+		successUrl: 'https://app.example.com/paid?session={CHECKOUT_SESSION_ID}',
+		cancelUrl: 'https://app.example.com/shop',
+	})
+```
+
+- `price` names one of a subscription's prices; a product with one price
+  needs none.
+- `quantity`, `trialDays`, `terms`, `promotionCodes` and `metadata` are
+  optional.
+- `terms: true` adds a checkbox the payer ticks, with Stripe's text and the
+  terms of the Stripe account; `terms: { acceptance }` shows the
+  application's text instead, in Stripe's Markdown, up to 1,200 characters,
+  so it names the terms the payer accepts. Texts by locale,
+  `{ default, fr, 'pt-BR' }`, follow the Checkout page's language: its
+  locale, then its language, then `default`. A Stripe
+  account with Managed Payments refuses that text, and its error reaches
+  the call: such an account keeps `terms: true`.
+- With `promotionCodes: true`, the payer can type a code created in Stripe.
+  A purchase a code made free is recorded at zero and gives its credits.
+- Checkout leaves the card that paid on the subscription, where the portal
+  cannot change it. The plugin's sync makes it the customer's default card
+  instead: a card the payer replaces in the portal pays the next renewals.
+
+The success page writes what the payer paid at once, before Stripe's event
+arrives. It finds only the payer's own Checkout.
+
+```ts title="src/shop.ts"
+/** The success page: writes what `user` paid, before Stripe's event. */
+export const paid = (session: string, user: Payer) =>
+	stripe.syncCheckout(session, user)
+```
+
+`stripe.portal` opens Stripe's customer portal, on its home or on the page
+`open` names:
+
+- `'change'`, with `product` and `price`, the confirmation of a move to
+  another product or price;
+- `'cancel'`, the confirmation of a cancellation;
+- `'paymentMethod'`, the form that changes the payer's card, after a
+  renewal that failed.
+
+`change` and `cancel` throw `NOT_SUBSCRIBED` without a live subscription,
+and take `subscription`, a row's id, when the payer has several.
+
+```ts title="src/shop.ts"
+/** Stripe's portal, open on the cancellation of `user`'s subscription. */
+export const cancelPage = (user: Payer) =>
+	stripe.portal({ payer: user, open: 'cancel' })
+
+/** Stripe's portal, open on the move of `user`'s subscription to yearly. */
+export const yearlyPage = (user: Payer) =>
+	stripe.portal({ payer: user, open: 'change', product: pro, price: 'yearly' })
+
+/** Stripe's portal, open on the form that changes `user`'s card. */
+export const cardPage = (user: Payer) =>
+	stripe.portal({ payer: user, open: 'paymentMethod' })
+```
+
+The portal's options, under `portal` in the catalog, set what it allows.
+`cancelReasons` lists the reasons it asks a payer who cancels, in Stripe's
+words; the answers stay in Stripe's Dashboard and reports.
+
+## The webhook
+
+In Stripe, create an event destination for the application's URL, with
+the path `/webhooks/stripe` and thin payloads, and give its signing secret
+to `keys.webhook`.
+
+- The plugin checks each event's signature on the raw body and its mode,
+  stores it once, enqueues its job and answers at once. A forged event gets
+  401; an event of the other mode, live or test, is dropped with a warning.
+- The job reads the customer from Stripe and writes its subscriptions,
+  purchases and credits. Events can come late or in any order: the rows
+  follow Stripe, not the event.
+- A subscription to a price the plugin did not write, as one made by hand
+  in the Dashboard, gives nothing: the sync logs an error (`A Stripe
+subscription has a price outside the catalog: its payer gets nothing.`,
+  with the subscription, the price and the customer). Its row, if any,
+  keeps its product and price, and still gets its status and dates, so it
+  ends when Stripe ends it. A payment for a product the catalog no longer
+  holds is logged the same way.
+- An hourly job runs the events still waiting, syncs again the customers
+  whose period ended, and closes the customers of deleted payers. It also
+  reads Stripe's list of events since its last run, and syncs each customer
+  they changed that no sync read since: an event the webhook missed costs
+  one sync within the hour.
+- A daily job, `stripe.audit`, logs an error for each balance that is not
+  the sum of its history (`A balance is not the sum of its history.`, with
+  the owner, the credit and both amounts), and for each payment of the last
+  two days that still has no purchase two hours after it (`A paid payment
+has no purchase.`, with the payment and the customer). It only logs: the
+  fix depends on the bug that made the gap.
+
+## Credits
+
+A payment adds what its product gives to the payer's balances, once:
+
+- a purchase, times its quantity;
+- a subscription, each paid invoice, for each period it bills, times the
+  quantity: the first payment and each renewal. A yearly price gives its
+  credits at once, for the year.
+- A trial gives nothing until its first payment, and a prorated change
+  nothing until the next renewal. A period that ended before the plugin
+  read its invoice gives nothing: a `gives` added to a live price gives
+  from the next renewal.
+
+`stripe.grant` adds credits without a payment, and `stripe.spend` takes
+them, each in the caller's transaction when there is one.
+
+```ts title="src/shop.ts"
+/** 50 gems for a new user, without a payment. */
+export const welcome = (user: Payer) =>
+	stripe.grant(user, blueGems(50), { reason: 'welcome' })
+```
+
+```ts title="src/shop.ts"
+/** Spends 100 of `user`'s gems: `NOT_ENOUGH_CREDITS` when they lack them. */
+export const boost = (user: Payer) =>
+	stripe.spend(user, blueGems(100), { reason: 'boost' })
+```
+
+- A balance lacking the credits throws `NOT_ENOUGH_CREDITS`, with
+  `{ credit, balance, needed }`, and changes nothing.
+- A full refund or a lost dispute takes back what the payment gave; those
+  already spent stay spent, and the plugin warns.
+- Each move is a row of the history, with its `reason`: the
+  application's, or the plugin's `purchase`, `subscription` and `refund`.
+
+## React to changes
+
+The models' hooks run on the plugin's writes, as on any other: a sync
+writes a row only when Stripe changed it, so a hook runs once a change,
+not once an event. Its `caller` is `master`.
+
+```ts title="src/models.ts"
+// A row a subscription: its product, price, amount, status and period.
+export const Subscription = defineSubscription({
+	name: 'Subscription',
+	payer: () => User,
+	product: Plan,
+	price: Period,
+}).with({
+	access: { read: isOwner('payer') },
+	hooks: {
+		// Once the plugin's write commits: a subscription that was not
+		// canceled now is.
+		afterUpdateCommit: async ({ record, previous }) => {
+			if (previous.status === 'canceled' || record.status !== 'canceled') {
+				return
+			}
+			const where = { id: record.payer.id }
+			const user = await User.findUniqueOrThrow({ where }, { as: master })
+			mails.push({ to: user.email, text: `Your ${record.product} ended.` })
+		},
+	},
+})
+```
+
+```ts title="src/app.test.ts"
+// Stripe ends the subscription; its event's job writes the row, and the
+// hook runs once the write commits.
+account.update(id, { status: 'canceled', canceledAt: new Date() })
+await account.deliver(test.url)
+await runJobs()
+expect(mails).toStrictEqual([
+	{ to: 'ada@example.com', text: 'Your pro ended.' },
+])
+```
+
+- `afterCreate` and `afterUpdate` run in the sync's transaction: throwing
+  undoes it.
+- A mail or a call to another service waits for `afterCreateCommit` or
+  `afterUpdateCommit`, which run once the write commits. See
+  [Hooks](/docs/next/hooks).
+- A history's `afterCreateCommit` sees each move of credits.
+
+## Errors
+
+| Code                  | When                                                         |
+| --------------------- | ------------------------------------------------------------ |
+| `PAYMENT_UNAVAILABLE` | The plugin has no keys, or Stripe does not answer.           |
+| `ALREADY_SUBSCRIBED`  | `oneSubscription` and a Checkout of a second subscription.   |
+| `NOT_SUBSCRIBED`      | A portal's `change` or `cancel` without a live subscription. |
+| `NOT_ENOUGH_CREDITS`  | `stripe.spend` takes more than the balance holds.            |
+| `NOT_FOUND`           | A payer that is no row, or `syncCheckout` of another payer.  |
+
+## Testing
+
+`fakeStripe()` is a Stripe account in memory, reached by its `secret`: no
+test reaches Stripe.
+
+```ts title="src/app.test.ts"
+// A Stripe account in memory: its key reaches it, and no test reaches Stripe.
+const stripe = fakeStripe()
+await deployCatalog(stripe.secret, false)
+const prices = [...stripe.prices.values()].map(
+	({ lookupKey, amount }) => `${String(lookupKey)}: ${String(amount)}`,
+)
+expect(prices).toEqual([
+	'pro.monthly: 990',
+	'pro.quarterly: 2700',
+	'pro.yearly: 9900',
+	'gems500: 499',
+])
+```
+
+The application gets the fake's keys. A test pays a Checkout with `pay`,
+or with `pay(url, { free: true })` as with a code that took the whole price,
+and `deliver` posts Stripe's signed events to the webhook; `runJobs` runs
+their jobs.
+
+```ts title="src/app.test.ts"
+// The application's account: it reads the keys when `app.ts` loads.
+const account = fakeStripe()
+vi.stubEnv('STRIPE_SECRET_KEY', account.secret)
+vi.stubEnv('STRIPE_WEBHOOK_SECRET', account.webhookSecret)
+// In development, with a test key, the plugin brings the account to the
+// catalog at start.
+vi.stubEnv('NODE_ENV', 'development')
+const { app } = await import('./app.ts')
+```
+
+```ts title="src/app.test.ts"
+// The test pays on Checkout; Stripe's signed events reach the webhook,
+// and their jobs write the subscription.
+account.pay(await subscribe(ada))
+await account.deliver(test.url)
+await runJobs()
+expect(await Subscription.findMany({}, M)).toMatchObject([
+	{ product: 'pro', price: 'monthly', status: 'active' },
+])
+```
+
+`renew`, `refund`, `loseDispute`, `warnFraud`, `openDispute`, `update` and
+`deleteCustomer` do at Stripe what a payer, a renewal, Radar or the
+dashboard does. `thinEvent` and `postEvent` post an event of
+the test's own, signed with the secret it is given, to `/webhooks/stripe`
+or its `path`.
+
+```ts title="src/app.test.ts"
+// An event of the test's own, signed with another secret.
+const event = thinEvent({
+	type: 'customer.updated',
+	object: { id: 'cus_1', type: 'customer' },
+})
+const response = await postEvent(test.url, event, { secret: 'whsec_other' })
+expect(response.status).toBe(401)
+```
+
+The full example, with its tests: [`examples/stripe`](https://github.com/MrEkinox/ultimabase/tree/main/examples/stripe).
