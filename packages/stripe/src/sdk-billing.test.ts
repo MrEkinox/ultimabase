@@ -246,9 +246,18 @@ describe('readCustomer', () => {
 			status: 'all',
 			'expand[0]': 'data.schedule',
 		})
-		expect(
-			requests.find(({ path }) => path === '/v1/payment_intents')?.params,
-		).toMatchObject({ customer: 'cus_1', 'expand[0]': 'data.latest_charge' })
+		const intents = requests.find(
+			({ path }) => path === '/v1/payment_intents',
+		)?.params
+		expect(intents).toMatchObject({
+			customer: 'cus_1',
+			'expand[0]': 'data.latest_charge',
+		})
+		// The payments of the last 400 days only: a sync costs no more as the
+		// payer ages.
+		const since = Number(Reflect.get(Object(intents), 'created[gte]'))
+		expect(now - since).toBeGreaterThanOrEqual(400 * 24 * 60 * 60 - 60)
+		expect(now - since).toBeLessThanOrEqual(400 * 24 * 60 * 60)
 		expect(
 			requests.find(({ path }) => path === '/v1/disputes')?.params,
 		).toMatchObject({ payment_intent: 'pi_2' })
