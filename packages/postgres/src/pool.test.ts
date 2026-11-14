@@ -105,3 +105,50 @@ describe('a connection the pool cannot give', () => {
 		await pool.end()
 	})
 })
+
+// A server that refuses each connection as PostgreSQL does: an
+// ErrorResponse with `code` after the startup message, or a cut socket.
+const field = (key: string, value: string) => `${key}${value}\0`
+
+async function refusing(code?: string) {
+	const fields = Buffer.from(
+		`${field('S', 'FATAL')}${field('C', code ?? '')}${field('M', 'refused')}\0`,
+	)
+	const length = Buffer.alloc(4)
+	length.writeInt32BE(fields.length + 4)
+	const server = createServer((socket) => {
+		socket.once('data', () => {
+			if (code === undefined) socket.destroy()
+			else socket.end(Buffer.concat([Buffer.from('E'), length, fields]))
+		})
+	})
+	await new Promise<void>((listening) => {
+		server.listen(0, 'localhost', () => listening())
+	})
+	const address = server.address()
+	const bound =
+		typeof address === 'object' && address !== null ? address.port : 0
+	return { server, url: `postgres://u@localhost:${bound}/x` }
+}
+
+describe('a server that refuses the connection', () => {
+	it.each([
+		['53300', 'The database is busy: try again shortly.'],
+		['53400', 'The database is busy: try again shortly.'],
+		['57P03', 'The database cannot be reached: try again shortly.'],
+		[undefined, 'The database cannot be reached: try again shortly.'],
+	])('%s tells a client to come back once serving', async (code, message) => {
+		errors.length = 0
+		const { server, url } = await refusing(code)
+		const { pool, given } = at(url, true)
+		const error: unknown = await given.connect().catch((e: unknown) => e)
+		expect(error).toMatchObject({
+			code: 'UNAVAILABLE',
+			message,
+			details: { retryAfter: 1 },
+		})
+		expect(errors).toHaveLength(1)
+		await pool.end()
+		server.close()
+	})
+})

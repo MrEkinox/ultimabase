@@ -20504,6 +20504,8 @@ await Book.create({ data: { shelf: { connect: { id } } } }, M)
 
 ## D-335: A database the server cannot use answers 503
 
+Amended by D-396.
+
 Choice: amends D-47, D-72 and D-105.
 
 1. `UNAVAILABLE` is a kernel code, no longer the `http` plugin's: REST
@@ -24250,3 +24252,39 @@ files.post('/upload', async (c) => {
 
 After: `stop` waits for this handler's `Response`, then stops `filesPlugin`.
 Nothing changes in the application's code.
+
+## D-396: A server that refuses connections answers 503 too
+
+Choice: amends D-335 point 2.
+
+1. A connection PostgreSQL refuses for want of room is busy: `53300` (too
+   many clients) and `53400` (a role's or a database's connection limit).
+   Once the application serves, the client reads `The database is busy: try
+again shortly.`; the developer reads that the server takes no more
+   connections, and to keep `connections` times the server processes below
+   its `max_connections`.
+2. A server that takes no connection now cannot be reached: `57P03`
+   (starting, stopping or recovering), a connection reset (`ECONNRESET`,
+   `EPIPE`) or closed while it opens. The client reads `The database cannot
+be reached: try again shortly.`
+3. Both keep `retryAfter: 1`; any other refusal stays a 500 (D-335 point
+   5).
+
+Why: D-335 sent 503 for a full pool, but the processes of one application
+each open up to `connections`, and together they can pass the server's
+`max_connections`; a deploy that overlaps old and new processes, or a
+managed database's failover, then answered 500 `INTERNAL`, which says the
+server has a bug and asks nobody to try again.
+
+Rejected: a 503 for every error at connect, such as a wrong password
+(`28P01`), which a retry repeats.
+
+Example, during a deploy whose processes pass `max_connections`:
+
+```ts
+const response = await fetch(`${url}/api/posts`)
+// Before: 500 { code: 'INTERNAL', message: 'Internal error.', correlationId }
+// After: 503, Retry-After: 1
+//   { code: 'UNAVAILABLE', message: 'The database is busy: try again shortly.',
+//     details: { retryAfter: 1 } }
+```

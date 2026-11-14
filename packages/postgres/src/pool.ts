@@ -10,13 +10,21 @@ import { counted } from './counted.ts'
 import { watched } from './deadline.ts'
 import { preparing } from './prepared.ts'
 
-/** The codes of a server the network does not reach, or does not know. */
+/** Codes of a server unreachable, unknown, cutting, or not open now (57P03). */
 const unreachable =
-	/^(ECONNREFUSED|ENOTFOUND|EAI_AGAIN|ETIMEDOUT|EHOSTUNREACH|ENETUNREACH)$/
+	/^(ECONNREFUSED|ENOTFOUND|EAI_AGAIN|ETIMEDOUT|EHOSTUNREACH|ENETUNREACH|ECONNRESET|EPIPE|57P03)$/
 
-/** What pg-pool throws when no connection frees, or opens, in time. */
+/** No connection freed or opened in time; the server closed the one it opened. */
 const waited = 'timeout exceeded when trying to connect'
 const silent = 'Connection terminated due to connection timeout'
+const cut = 'Connection terminated unexpectedly'
+
+/** Every connection stayed taken, or the server takes no more (D-396). */
+function busy(error: unknown): boolean {
+	const code: unknown = Reflect.get(Object(error), 'code')
+	if (code === '53300' || code === '53400') return true
+	return error instanceof Error && error.message === waited
+}
 
 /**
  * `error`, or one naming the server `url` cannot reach, not its password
@@ -30,18 +38,25 @@ function failed(
 ): unknown {
 	const message = error instanceof Error ? error.message : ''
 	const seconds = `${wait / 1000}s`
-	if (message === waited) {
+	const code: unknown = Reflect.get(Object(error), 'code')
+	if (busy(error)) {
 		return new Error(
-			`Every one of the ${connections} PostgreSQL connections stayed busy for ${seconds}: a transaction may wait on something slow or never end.`,
+			message === waited
+				? `Every one of the ${connections} PostgreSQL connections stayed busy for ${seconds}: a transaction may wait on something slow or never end.`
+				: `PostgreSQL takes no more connections (${String(code)}): keep connections times the server processes below its max_connections.`,
 			{ cause: error },
 		)
 	}
-	const code: unknown = Reflect.get(Object(error), 'code')
 	const reachable = typeof code !== 'string' || !unreachable.test(code)
-	if (reachable && message !== silent) return error
+	if (reachable && message !== silent && message !== cut) return error
 	const { host, port } = parse(url)
 	const address = `${host || process.env['PGHOST'] || 'localhost'}:${port || 5432}`
-	const why = reachable ? `no answer in ${seconds}` : code
+	const why =
+		message === silent
+			? `no answer in ${seconds}`
+			: typeof code === 'string'
+				? code
+				: 'closed'
 	const reached = new Error(
 		`Cannot reach PostgreSQL at ${address} (${why}): is it running, and is its url right?`,
 		{ cause: error },
@@ -74,10 +89,9 @@ export function pooled(pool: Pool, pooling: Pooling): PostgresPool {
 				const reason = failed(url, error, connections, wait)
 				if (reason === error || !serving()) throw reason
 				logFailure(logger, reason, 'A request found no database connection.')
-				const busy = error instanceof Error && error.message === waited
 				throw new PublicError(
 					'UNAVAILABLE',
-					busy
+					busy(error)
 						? 'The database is busy: try again shortly.'
 						: 'The database cannot be reached: try again shortly.',
 					{ details: { retryAfter: 1 }, cause: reason },
