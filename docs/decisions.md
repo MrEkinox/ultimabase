@@ -21601,6 +21601,31 @@ await graphql(
      answers faster until its next sign-in rehashes it. Hashing the dummy with
      each stored parameter set would cost a hash per set for every unknown
      email.
+   - The `User.requestPasswordReset` command tells whether an email has an
+     account: it resolves at once without one, and only with one waits for
+     the email and rejects with `sendEmail`'s error or `TOO_MANY_ATTEMPTS`
+     (added 2026-11-14). It is server code, which knows the accounts; the
+     public function answers alike. The password page warns a function that
+     returns the command's result to a client.
+
+5. A password holding a lone surrogate is refused with `VALIDATION_ERROR`, and
+   a sign-in with one fails as a wrong password. An email holding a control or
+   format character (Unicode Cc or Cf: a zero-width space, a direction
+   override, a soft hyphen) or a lone surrogate is refused as
+   `Expected an email address.` (added 2026-11-14).
+
+Why: UTF-8 encodes every lone surrogate as U+FFFD before Argon2 hashes it, so
+`'a\uD800'` and `'a\uDC00'` were one password. A hidden character made
+`ada@example.com` and `ada​@example.com` two accounts that read the same
+in an email client and an admin list.
+
+Example:
+
+```ts
+await User.signUp({ email: 'ada​@example.com', password })
+// Before: a second account that reads as ada@example.com.
+// After: VALIDATION_ERROR, Expected an email address.
+```
 
 ## D-354: Signing in over a WebSocket
 
