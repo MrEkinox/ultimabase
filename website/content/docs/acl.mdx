@@ -239,3 +239,11 @@ a row created without one.`
 - The rights are checked on every query, at every level of a relation; a
   read adds one filter on the indexed `acl` field.
 - A role's rights reach its members only with `rolesPlugin()`.
+- A delete checks the rights of the row it deletes, not of the rows its
+  relations reach: an `onDelete: 'cascade'` deletes, and a `'setNull'`
+  writes, rows the caller could not write. Give those relations to rows the
+  same owner holds, or `restrict`.
+- A unique field tells that a value exists: a create or an update that repeats
+  the value of a row the caller cannot read fails with `UNIQUE_VIOLATION`.
+- A caller that reads a row reads its whole ACL, with the ids of the users and
+  roles it names.

@@ -22072,6 +22072,8 @@ Choice: builds on D-360; D-92 for its dependency.
    itself, before it imports anything, as Sentry asks: only then are its
    HTTP and SQL spans recorded. The plugin reads the kernel's channels into
    the client `init` made.
+   It goes first in `plugins`: plugins stop in reverse order, and a plugin
+   listed after it would stop with its errors unread (amended 2026-11-14).
 2. Each message of `ultimabase:operation`, `ultimabase:hook`,
    `ultimabase:virtual` and `ultimabase:function` is a span:
    - named `Post.findMany`, `Post.beforeFind (soft-delete)`,
