@@ -8,8 +8,12 @@ import type {
 	ValidationRule,
 } from 'graphql'
 
-/** Bounds what unknown documents can hold: 40 bytes or so a character. */
+/**
+ * Bounds what unknown documents can hold: a tree holds up to 210 bytes a
+ * character, so 256 KB of text holds 55 MB at most.
+ */
 const documents = 500
+const text = 256 * 1024
 const longest = 4096
 
 /** `parse`, which answers a document it has read with the same tree. */
@@ -17,6 +21,7 @@ export function parsedOnce(
 	parse: (source: string | Source) => DocumentNode,
 ): (source: string | Source) => DocumentNode {
 	const parsed = new Map<string, DocumentNode>()
+	let size = 0
 	return (source) => {
 		if (typeof source !== 'string' || source.length > longest) {
 			return parse(source)
@@ -30,9 +35,11 @@ export function parsedOnce(
 		}
 		const document = parse(source)
 		parsed.set(source, document)
-		if (parsed.size > documents) {
-			const [oldest] = parsed.keys()
-			if (oldest !== undefined) parsed.delete(oldest)
+		size += source.length
+		for (const oldest of parsed.keys()) {
+			if (parsed.size <= documents && size <= text) break
+			parsed.delete(oldest)
+			size -= oldest.length
 		}
 		return document
 	}

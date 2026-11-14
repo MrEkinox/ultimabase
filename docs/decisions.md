@@ -18144,6 +18144,8 @@ second 1 551, 2 382 to 593, 1 147 ms; 1 000 a second 4 045, 6 113 to 3 750, 5 68
 
 ## D-268: A document is read and validated once
 
+Amended by D-398.
+
 Choice: nothing changes in a developer's code.
 
 An application sends the same few documents again and again, yet each subscription of each user
@@ -24288,3 +24290,27 @@ const response = await fetch(`${url}/api/posts`)
 //   { code: 'UNAVAILABLE', message: 'The database is busy: try again shortly.',
 //     details: { retryAfter: 1 } }
 ```
+
+## D-398: The documents kept hold 256 KB of text at most
+
+Choice: amends D-268 point 1; nothing changes in a developer's code.
+
+1. The GraphQL plugin keeps the documents it was last asked for while they
+   are at most 500 and hold at most 256 KB of text together, the least
+   recently asked given up first.
+2. A tree holds up to 210 bytes a character of its text, in a document that
+   packs a token in every two characters, so the bound is at most 55 MB a
+   process.
+
+Why: D-268 bounded the documents by count, assuming 40 bytes a character.
+Each node keeps its location and each token its neighbours: 500 documents
+of 4 KB, each one field repeated, held 420 MB after collection. They are
+kept before validation, so an anonymous client filled every process with
+500 refused requests, inside the default rate limit.
+
+Rejected: parsing without locations, which held 124 MB but takes the
+`locations` out of every refusal; giving up what validation refuses, which
+a client passes with valid documents of the same shape.
+
+Measured with 500 documents of 3 986 characters, `{ q<i> a a … }`, the
+heap after `gc()`: 420.5 MB before, 54.8 MB after.
