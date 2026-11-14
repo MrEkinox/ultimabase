@@ -4,6 +4,7 @@
 import { asUser, runJobs } from '@ultimabase/testing'
 import { Refused } from 'ultimabase'
 import { beforeAll, describe, expect, it, vi } from 'vitest'
+import { gatewayOf } from './accounts.ts'
 import { stripe } from './index.ts'
 import {
 	billingTest,
@@ -213,6 +214,20 @@ describe('stripe.checkout', () => {
 		expect(customerOf(url)?.id).not.toBe(deleted)
 		await fake.deliver(test.url)
 		await runJobs()
+	})
+
+	it('creates the customer again when its first Checkout failed and the profile changed', async () => {
+		const ada = await signUp()
+		// Stripe creates the customer, then fails to open the Checkout: the
+		// customer's row rolls back.
+		const gateway = gatewayOf(fake.secret)
+		vi.spyOn(gateway, 'openCheckout').mockRejectedValueOnce(new Error('down'))
+		const opening = stripe.checkout({ payer: ada, product: team, ...urls })
+		await expect(opening).rejects.toThrow('down')
+		const where = { id: ada.id }
+		await User.update({ where, data: { email: 'ada@lovelace.test' } }, M)
+		const url = await stripe.checkout({ payer: ada, product: team, ...urls })
+		expect(customerOf(url)?.profile.email).toBe('ada@lovelace.test')
 	})
 
 	it('updates the customer’s profile when the payer’s changed', async () => {

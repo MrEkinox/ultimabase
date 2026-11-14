@@ -1,6 +1,7 @@
 // A payer's Stripe customer (D-373 point 3): one row per payer in
 // `StripeCustomer`, whose update is the lock every write about the payer
 // takes, and one customer at Stripe, created once.
+import { hash } from 'node:crypto'
 import type { RecordOf } from 'ultimabase'
 import { PublicError, transaction } from 'ultimabase'
 import type { CustomerProfile } from './billing-gateway.ts'
@@ -84,8 +85,8 @@ export async function renewed(row: Customer): Promise<Customer> {
 
 /**
  * The payer's customer at Stripe, under its lock: created once, with an
- * idempotency key, and given the payer's profile when it changed. A customer
- * deleted at Stripe gives the payer a new row, so a new key.
+ * idempotency key per row and profile, and given the payer's profile when it
+ * changed. A customer deleted at Stripe gives the payer a new row.
  */
 export async function ensureCustomer(
 	row: Customer,
@@ -110,7 +111,9 @@ export async function ensureCustomer(
 		await StripeCustomer.update({ where: { id: row.id }, data }, M)
 		return { row, stripeId: row.stripeId, profile }
 	}
-	const stripeId = await gateway.createCustomer(profile, `customer-${row.id}`)
+	// A rolled back creation leaves its key used, with the profile it sent.
+	const key = hash('sha256', row.id + json, 'base64url')
+	const stripeId = await gateway.createCustomer(profile, `customer-${key}`)
 	const data = { stripeId, profile: json }
 	await StripeCustomer.update({ where: { id: row.id }, data }, M)
 	return { row, stripeId, profile }
