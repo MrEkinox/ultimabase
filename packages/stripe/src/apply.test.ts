@@ -110,6 +110,10 @@ Stripe catalog: applied.
 		await expect(refused({ dry: true })).rejects.toThrow(
 			'applyStripeCatalog takes no dry.',
 		)
+		// A misspelt `key` holds a secret: the message never quotes it.
+		await expect(refused({ key: 'sk_test_quoted' })).rejects.toThrow(
+			/^applyStripeCatalog takes no key\.$/u,
+		)
 		await expect(refused({ portal: {} })).rejects.toThrow(
 			'portal: returnUrl is an absolute URL.',
 		)

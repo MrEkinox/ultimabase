@@ -152,6 +152,9 @@ describe('stripePlugin’s start', () => {
 			'stripePlugin: webhookPath is a path, as /webhooks/stripe.',
 		)
 		await expect(wrong({ trial: 7 })).rejects.toThrow('takes no trial')
+		await expect(wrong({ key: 'sk_test_quoted' })).rejects.toThrow(
+			/^stripePlugin takes no key\.$/u,
+		)
 		await expect(wrong({ risk: { refund: 'always' } })).rejects.toThrow(
 			"stripePlugin's risk takes no refund.",
 		)
