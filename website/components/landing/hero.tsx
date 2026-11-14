@@ -73,7 +73,7 @@ export function Hero() {
 				</div>
 				<p className="ub-note">
 					<span aria-hidden="true" className="ub-dot" />
-					Open source · Pre-release, not for production yet · Node.js 24.7+
+					Open source · Ready for production · Node.js 24.7+
 				</p>
 			</div>
 			<Equation />
