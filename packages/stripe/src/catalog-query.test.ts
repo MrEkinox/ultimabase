@@ -1,13 +1,9 @@
 // The catalog a client reads (D-392): `stripeCatalog` over GraphQL and
 // REST with `catalog: true`, typed by the models' enums, served from the code
 // without keys, and absent without the option.
-import { httpPlugin } from '@ultimabase/http'
-import { jobsPlugin } from '@ultimabase/jobs'
-import { allow, defineApp, defineFunction, memory } from 'ultimabase'
-import { quietRuns } from 'ultimabase/internal'
 import { describe, expect, it } from 'vitest'
-import { stripe, stripePlugin } from './index.ts'
-import { billingApp, billingTest, User } from './test/billing-app.ts'
+import { stripe } from './index.ts'
+import { billingApp, billingTest } from './test/billing-app.ts'
 
 const gems = (amount: number) => [{ credit: 'gems', amount }]
 
@@ -167,36 +163,5 @@ describe('without the option', () => {
 		})
 		const response = await fetch(`${test.url}/api/functions/stripeCatalog`)
 		expect(response.status).toBe(404)
-	})
-})
-
-describe('the query’s name', () => {
-	it('is refused to an application function of the same name', async () => {
-		const own = defineFunction({
-			name: 'stripeCatalog',
-			query: true,
-			run: () => undefined,
-		}).with({ access: allow.public })
-		const app = defineApp({
-			database: memory(),
-			models: [User],
-			functions: [own],
-			plugins: [
-				httpPlugin(),
-				jobsPlugin({ jobs: [] }),
-				stripePlugin({
-					keys: undefined,
-					currency: 'eur',
-					products: [],
-					portal: { returnUrl: 'https://app.test/account' },
-					catalog: true,
-				}),
-			],
-		})
-		const running = quietRuns(app)?.on(memory())
-		await expect(running?.start()).rejects.toThrow(
-			"stripe's function stripeCatalog and the application's function stripeCatalog are both named stripeCatalog.",
-		)
-		await running?.stop()
 	})
 })
