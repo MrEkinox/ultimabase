@@ -6,7 +6,7 @@
 	"postgres": 5771,
 	"http": 1857,
 	"graphql": 5760,
-	"auth": 1034,
+	"auth": 1053,
 	"password": 2282,
 	"roles": 352,
 	"acl": 350,
