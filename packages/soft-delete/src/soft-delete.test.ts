@@ -13,6 +13,7 @@ import { asUser } from '@ultimabase/testing'
 import type { Caller } from 'ultimabase'
 import { defineApp, defineModel, master, memory } from 'ultimabase'
 import { softDelete, softDeletePlugin } from './index.ts'
+import { z } from 'zod'
 
 const M = { as: master }
 
@@ -57,9 +58,29 @@ const Comment = defineModel({
 	}),
 })
 
+// A virtual each read computes, which the delete's own write must not.
+const computed: string[] = []
+const Note = defineModel({
+	name: 'Note',
+	fields: (f) => ({
+		text: f.string(),
+		loud: f.virtual(z.string(), { needs: ['text'] }),
+	}),
+	use: [softDelete()],
+}).with({
+	virtuals: {
+		loud: {
+			run: ({ record }) => {
+				computed.push(record.text)
+				return record.text.toUpperCase()
+			},
+		},
+	},
+})
+
 const app = defineApp({
 	database: memory(),
-	models: [Post, Comment],
+	models: [Post, Comment, Note],
 	plugins: [softDeletePlugin()],
 })
 const titles = async (): Promise<string[]> =>
@@ -107,6 +128,15 @@ describe('a deleted row', () => {
 		await Post.restore({ where: { id } }, user('ada'))
 		await Post.update({ where: { id }, data: { title: 'Back' } }, M)
 		expect(updated).toEqual(['master:delete', 'user:restore', 'master:edit'])
+	})
+
+	// Its update computed the virtuals it threw away: a read per row deleted.
+	it('computes the virtuals once, for the row it returns', async () => {
+		const note = await Note.create({ data: { text: 'hi' } }, M)
+		computed.length = 0
+		const removed = await Note.delete({ where: { id: note.id } }, M)
+		expect(removed.loud).toBe('HI')
+		expect(computed).toEqual(['hi'])
 	})
 
 	it('needs the delete rule', async () => {
