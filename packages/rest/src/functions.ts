@@ -13,7 +13,14 @@ import { checkName, entryOf } from './entries.ts'
 import { defaultShape, defaultVirtuals } from './fields.ts'
 import { shaped } from './shapes.ts'
 import type { Paging } from './function-pages.ts'
-import { pageParams, pagesOf, pagingOf, readPage } from './function-pages.ts'
+import {
+	outputRows,
+	pageParams,
+	pagesOf,
+	pagingOf,
+	readPage,
+} from './function-pages.ts'
+import { bounded } from './limits.ts'
 import { acceptsNull, isText, resolved } from './json-schema.ts'
 import { anyBody } from './models.ts'
 import type { Accepted } from './params.ts'
@@ -198,6 +205,7 @@ export function functionRoutes(
 					output.kind !== 'page' &&
 					output.form === 'nullable'
 		const pages = pagesOf(output)
+		const fixed = outputRows(output, api.take)
 		const answer = async (
 			as: Caller,
 			client: Client,
@@ -237,19 +245,21 @@ export function functionRoutes(
 				}
 				const { caller } = c.var
 				const paging = await run(async () =>
-					pagingOf(api, caller, pages, params),
+					pagingOf(api, caller, pages, params, fixed),
 				)
 				return sent(c.json(await answer(caller, client, given, paging)))
 			})
 		} else if (input === undefined) {
 			app.post(path, async (c) => {
 				paramsOf(c.req.url, none)
+				bounded(api, c.var.caller, { fields: [] }, fixed)
 				const { client, sent } = clientOf(c)
 				return sent(c.json(await answer(c.var.caller, client, undefined)))
 			})
 		} else {
 			app.post(path, validate('json', anyBody), async (c) => {
 				paramsOf(c.req.url, none)
+				bounded(api, c.var.caller, { fields: [] }, fixed)
 				const { client, sent } = clientOf(c)
 				const body: unknown = c.req.valid('json')
 				return sent(c.json(await answer(c.var.caller, client, body)))

@@ -5053,7 +5053,9 @@ Choice: completes D-27, D-45, D-75 and D-107, and amends D-45's outputs.
    than `take` rows under a selected relation fails the call, its log naming
    the function and `take`, since its re-read would pass `maxRows`
    (amended 2026-10-23). `maxDepth`, the token limit and `maxRows` apply as
-   to any field.
+   to any field. REST counts a function's rows the same way, its whole output
+   selected, a mutation's included, before the function runs (amended
+   2026-11-14).
 9. The kernel gives every plugin's `api`, `start` and `stop` the
    application's `functions`, as it gives `models` (D-107): each function's
    name, `query`, its input and output, its `.with` key for that plugin, and

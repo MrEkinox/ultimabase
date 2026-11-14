@@ -73,16 +73,34 @@ export function pageParams(
 	return params
 }
 
-/** The page of each path as `params` ask, all of them bounded together. */
+/**
+ * The rows `output` counts as GraphQL counts them, its pages aside (D-109):
+ * one for a row or a type, `take` for a list, times the lists above it.
+ */
+export function outputRows(
+	output: ExposedOutput | undefined,
+	take: number,
+	times = 1,
+): number {
+	if (output === undefined || output.kind === 'schema') return 0
+	if (output.kind === 'page') return 0
+	const each = output.form === 'list' ? times * take : times
+	if (output.kind === 'model') return each
+	const below = [...output.type.fields.values()]
+	return below.reduce((sum, field) => sum + outputRows(field, take, each), each)
+}
+
+/** The page of each path as `params` ask, bounded with the `fixed` rows. */
 export function pagingOf(
 	api: Api,
 	caller: Caller,
 	pages: readonly PageAt[],
 	params: Args,
+	fixed: number,
 ): ReadonlyMap<string, Paging> {
 	const keys = keysOf(api)
 	const found = new Map<string, Paging>()
-	let rows = 0
+	let rows = fixed
 	for (const { path, model } of pages) {
 		const at = (key: string): string => (path === '' ? key : `${path}.${key}`)
 		const given = path === '' ? params : (params[path] ?? {})
