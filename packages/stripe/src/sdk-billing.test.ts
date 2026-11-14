@@ -73,6 +73,42 @@ const intent = (id: string, fields: object) => ({
 })
 
 describe('readCustomer', () => {
+	it('takes a phase Stripe has begun as current, whatever the server’s clock', async () => {
+		// A test clock a year ahead: the server's clock says the last phase
+		// is to come, Stripe's current phase says it has begun.
+		const switched = now + 366 * day
+		const { gateway } = gatewayOn(({ path }) => {
+			switch (path) {
+				case '/v1/customers/cus_1':
+					return { id: 'cus_1', object: 'customer' }
+				case '/v1/subscriptions':
+					return stripeList([
+						subscription({
+							schedule: {
+								id: 'sub_sched_1',
+								current_phase: { start_date: switched, end_date: null },
+								phases: [
+									{ start_date: now - day, items: [{ price: 'price_x' }] },
+									{
+										start_date: switched,
+										items: [{ price: 'price_pro_yearly' }],
+									},
+								],
+							},
+						}),
+					])
+				case '/v1/prices/price_pro_yearly':
+					return price('pro', 'yearly')
+				case '/v1/payment_intents':
+					return stripeList([])
+				default:
+					throw new Error(path)
+			}
+		})
+		const { subscriptions } = await gateway.readCustomer('cus_1')
+		expect(subscriptions[0]?.scheduled).toBeNull()
+	})
+
 	it('reads the subscriptions and the paid payments the plugin opened', async () => {
 		const { gateway, requests } = gatewayOn(({ path }) => {
 			switch (path) {

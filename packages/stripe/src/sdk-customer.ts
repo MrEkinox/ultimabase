@@ -11,14 +11,14 @@ import { managedBy } from './gateway.ts'
 import { all, dateOf, keysOf, maybeDate, refOf } from './sdk-common.ts'
 import { invoicesOf } from './sdk-invoices.ts'
 
-/** A subscription's next phase, when its schedule holds one. */
+/** A subscription's next phase: after the one Stripe's time has begun. */
 async function scheduledOf(
 	client: Stripe,
 	schedule: Stripe.Subscription['schedule'],
 ): Promise<StripeSubscription['scheduled']> {
 	if (schedule === null || typeof schedule === 'string') return null
-	const now = Date.now() / 1000
-	const next = schedule.phases.find(({ start_date }) => start_date > now)
+	const after = schedule.current_phase?.start_date ?? Date.now() / 1000
+	const next = schedule.phases.find(({ start_date }) => start_date > after)
 	const item = next?.items[0]
 	if (next === undefined || item === undefined) return null
 	const price =
