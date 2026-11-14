@@ -18,6 +18,7 @@ export {
 } from './billing.ts'
 export type { CustomerProfile } from './billing-gateway.ts'
 export type { CheckoutArgs, PortalArgs } from './calls.ts'
+export type { CatalogPrice, CatalogView } from './catalog-query.ts'
 export { stripe } from './calls.ts'
 export type { Credit, CreditAmount } from './credit.ts'
 export { defineCredit } from './credit.ts'

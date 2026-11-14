@@ -1,6 +1,7 @@
 // The application's enums of a billing model's product and price (D-387):
 // refused at start when they miss a key of the catalog, and checked by the
 // sync, since a product removed from the catalog leaves the check.
+import type { Enum } from 'ultimabase'
 import { Refused } from 'ultimabase'
 import type { StripeSubscription } from './billing-gateway.ts'
 import type { Enums } from './kinds.ts'
@@ -17,7 +18,7 @@ function refuseMissing(
 	keys: readonly string[],
 	what: string,
 ): void {
-	const values = model?.enums[option]
+	const values = model?.enums[option]?.values
 	if (model === undefined || values === undefined) return
 	const key = keys.find((one) => !values.includes(one))
 	if (key === undefined) return
@@ -43,8 +44,8 @@ export function checkEnums(
 	refuseMissing('definePurchase', purchase, 'product', keysOnce, 'a key')
 }
 
-const takes = (values: readonly string[] | undefined, value: string | null) =>
-	value === null || values === undefined || values.includes(value)
+const takes = (typed: Enum | undefined, value: string | null) =>
+	value === null || typed === undefined || typed.values.includes(value)
 
 /** Whether the model's enums take the subscription's products and prices. */
 export const fits = (enums: Enums, one: StripeSubscription): boolean =>

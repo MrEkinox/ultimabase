@@ -35,6 +35,8 @@ const stripe = stripePlugin({
 	// Off unless set: an early fraud warning refunds its payment, and it or
 	// a dispute ends the payer's subscriptions at once.
 	risk: { earlyFraudWarning: 'refundAndCancel', dispute: 'cancel' },
+	// Adds the public query `stripeCatalog`, for a pricing page.
+	catalog: true,
 })
 //#endregion
 

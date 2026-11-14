@@ -145,6 +145,9 @@ describe('stripePlugin’s start', () => {
 		await expect(wrong({ oneSubscription: 'yes' })).rejects.toThrow(
 			'stripePlugin: oneSubscription is true or false.',
 		)
+		await expect(wrong({ catalog: 'yes' })).rejects.toThrow(
+			'stripePlugin: catalog is true or false.',
+		)
 		await expect(wrong({ webhookPath: 'webhooks' })).rejects.toThrow(
 			'stripePlugin: webhookPath is a path, as /webhooks/stripe.',
 		)

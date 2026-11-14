@@ -38,8 +38,10 @@
 		"ultimabase": "^0.7.0"
 	},
 	"devDependencies": {
+		"@ultimabase/graphql": "workspace:*",
 		"@ultimabase/http": "workspace:*",
 		"@ultimabase/jobs": "workspace:*",
+		"@ultimabase/rest": "workspace:*",
 		"@ultimabase/testing": "workspace:*",
 		"ultimabase": "workspace:*",
 		"vite": "8.3.4",

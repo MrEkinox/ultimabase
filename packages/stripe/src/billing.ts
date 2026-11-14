@@ -188,11 +188,7 @@ function billingModel(kind: Kind, definition: Loose): object {
 		},
 		indexes: [...indexesOf(kind), ...(definition.indexes ?? [])],
 	})
-	const enums = {
-		...(typed.product && { product: typed.product.values }),
-		...(typed.price && { price: typed.price.values }),
-	}
-	billingModels.set(model, { kind, payer: target, enums })
+	billingModels.set(model, { kind, payer: target, enums: typed })
 	return model
 }
 
