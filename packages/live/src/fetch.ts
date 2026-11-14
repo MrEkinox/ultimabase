@@ -131,10 +131,13 @@ export function liveFetch<T = unknown>(
 		href: string,
 		sent: Headers,
 	) {
+		let after = 0 // The wait a 429's retry-after asks, in ms.
 		try {
 			const { signal } = controller
 			const response = await fetch(href, { headers: sent, signal })
-			if (!response.ok && response.status < 500) {
+			if (response.status === 429) {
+				after = Number(response.headers.get('retry-after')) * 1000 || 0
+			} else if (!response.ok && response.status < 500) {
 				const body: unknown = await response.json().catch(() => undefined)
 				// A growth refused, past maxLive: the list goes on as it was (D-186).
 				if (undo !== undefined) {
@@ -160,7 +163,7 @@ export function liveFetch<T = unknown>(
 		}
 		if (request !== controller) return
 		// Cut, ended or refused: reconnect with the token, at random (D-275).
-		timer = setTimeout(open, Math.random() * backoff)
+		timer = setTimeout(open, after + Math.random() * backoff)
 		backoff = Math.min(backoff * 2, lastBackoff)
 	}
 

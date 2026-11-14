@@ -320,6 +320,29 @@ describe('liveFetch out of step', () => {
 		}
 	})
 
+	it('reconnects once the wait a refusal for too many requests asks has passed', async () => {
+		vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+		vi.spyOn(Math, 'random').mockReturnValue(1)
+		try {
+			const urls = answering(
+				Response.json(
+					{ code: 'TOO_MANY_ATTEMPTS', message: 'Too many requests.' },
+					{ status: 429, headers: { 'retry-after': '2' } },
+				),
+				sse(data(1, ['a'])),
+			)
+			const watched = seen(liveFetch('http://x/api/tasks?take=1'))
+			// Two seconds, then the backoff's 100 ms.
+			await vi.advanceTimersByTimeAsync(2099)
+			expect(urls).toHaveLength(1)
+			await vi.advanceTimersByTimeAsync(1)
+			expect(urls).toHaveLength(2)
+			expect(await watched.at(1)).toEqual([{ id: 'a' }])
+		} finally {
+			vi.useRealTimers()
+		}
+	})
+
 	it('reconnects at a random moment of the backoff, so clients cut together spread', async () => {
 		vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
 		const random = vi.spyOn(Math, 'random').mockReturnValue(0.5)
