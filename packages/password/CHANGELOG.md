@@ -1,5 +1,26 @@
 # @ultimabase/password
 
+## 0.8.0
+
+### Minor Changes
+
+- 1861475: `sendEmail` receives the application's logger as its second argument, `sendEmail(email, { logger })`, so its lines are named `app` like the functions' (D-368).
+- 1d0cb0a: Breaking: `sendEmail` receives `user`, the user's row with every field, in place of `userId`; read `email.user.id` for the id. The row is read as Master just before the email goes, so `sendEmail` greets the user or picks their language without its own `findUnique`. A user deleted before its email goes receives none.
+
+### Patch Changes
+
+- 1520a09: The kernel publishes each model operation, hook, virtual field and function on Node's tracing channels `ultimabase:operation`, `ultimabase:hook`, `ultimabase:virtual` and `ultimabase:function`, nested, and each error the server logs at error level on `ultimabase:error` with its correlation id. A tool such as an error tracker subscribes to them; without a subscriber, nothing is built.
+- Updated dependencies [20aec1b]
+- Updated dependencies [b2aa312]
+- Updated dependencies [94145f9]
+- Updated dependencies [8f82820]
+- Updated dependencies [1b9515a]
+- Updated dependencies [51f8f04]
+- Updated dependencies [3099475]
+- Updated dependencies [1520a09]
+  - ultimabase@0.8.0
+  - @ultimabase/auth@0.8.0
+
 ## 0.7.0
 
 ### Patch Changes

@@ -1,5 +1,21 @@
 # @ultimabase/roles
 
+## 0.8.0
+
+### Patch Changes
+
+- b2aa312: `defineModel`, `defineUser`, `defineRole` and `defineFunction` refuse a key they do not take, as
+  `hooks` or `access` given to the definition instead of `.with()`, which was dropped unread (D-370).
+- Updated dependencies [20aec1b]
+- Updated dependencies [b2aa312]
+- Updated dependencies [94145f9]
+- Updated dependencies [8f82820]
+- Updated dependencies [1b9515a]
+- Updated dependencies [51f8f04]
+- Updated dependencies [3099475]
+- Updated dependencies [1520a09]
+  - ultimabase@0.8.0
+
 ## 0.7.0
 
 ### Patch Changes

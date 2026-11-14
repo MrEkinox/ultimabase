@@ -1,5 +1,21 @@
 # @ultimabase/postgres
 
+## 0.8.0
+
+### Patch Changes
+
+- 65852ad: `migrate create` writes a note below a statement that makes code still running without a new field fail to insert during a rolling deploy: the `set not null` of a required field without a fixed default, and the size check whose minimum refuses the empty list a new column keeps. The note says to make that change in a later deploy.
+- 1520a09: The kernel publishes each model operation, hook, virtual field and function on Node's tracing channels `ultimabase:operation`, `ultimabase:hook`, `ultimabase:virtual` and `ultimabase:function`, nested, and each error the server logs at error level on `ultimabase:error` with its correlation id. A tool such as an error tracker subscribes to them; without a subscriber, nothing is built.
+- Updated dependencies [20aec1b]
+- Updated dependencies [b2aa312]
+- Updated dependencies [94145f9]
+- Updated dependencies [8f82820]
+- Updated dependencies [1b9515a]
+- Updated dependencies [51f8f04]
+- Updated dependencies [3099475]
+- Updated dependencies [1520a09]
+  - ultimabase@0.8.0
+
 ## 0.7.0
 
 ### Minor Changes

@@ -1,0 +1,415 @@
+---
+title: Jobs
+description: Run code once a write commits, after a delay, or on a schedule, retried until it succeeds, on every server.
+---
+
+`@ultimabase/jobs` runs code outside the request that asked for it, retried
+until it succeeds.
+
+```npm
+npm install @ultimabase/jobs
+```
+
+A job takes a name, the input its runs take, and the function that runs them:
+
+```ts title="src/models.ts"
+// The calls, whose video room closes in a job ten minutes after they end.
+import { defineJob } from '@ultimabase/jobs'
+import { defineModel, master } from 'ultimabase'
+import { z } from 'zod'
+import { closeVideoRoom, fetchRoom } from './services.ts'
+
+export const closeRoom = defineJob({
+	name: 'closeRoom',
+	// Validated when the run is enqueued, and stored with it.
+	input: z.object({ room: z.string() }),
+	// A run may run twice, after a crash: `id`, the run's, is the key that
+	// makes the service close the room once.
+	run: ({ input, id }) => {
+		closeVideoRoom(input.room, { key: id })
+	},
+})
+```
+
+The full example, with its tests: [`examples/jobs`](https://github.com/MrEkinox/ultimabase/tree/main/examples/jobs).
+
+| To                                   | Use                                           |
+| ------------------------------------ | --------------------------------------------- |
+| run code once a write commits        | [`enqueue`](#enqueue-a-run)                   |
+| run it later                         | [`enqueue(input, { after })`](#enqueue-a-run) |
+| retry a failure, or run twice safely | [`id`, the idempotency key](#once-or-more)    |
+| run one run of an object at a time   | [`key`](#one-run-per-key)                     |
+| run every hour                       | [`every`](#recurring-jobs)                    |
+| run at 3:00 each night               | [`cron` and `timeZone`](#recurring-jobs)      |
+| start the jobs                       | [`jobsPlugin()`](#the-plugin)                 |
+| ship jobs in a plugin                | [`plugins.jobs.add`](#a-plugins-jobs)         |
+| run the jobs in a test               | [`runJobs()`](#in-a-test)                     |
+
+A run is a row of the database, written in the write's transaction:
+
+- It exists if and only if the write committed.
+- A crash or a restart does not lose it.
+- Every server runs the jobs, and each run on one server at a time.
+
+## Enqueue a run
+
+`enqueue` validates the input, then writes the run in the current
+[transaction](/docs/next/transactions), or alone outside one. From an
+`afterUpdate` hook, the run exists if the update commits, and never after a
+rollback. `after` delays it, in milliseconds:
+
+```ts title="src/models.ts"
+export const Call = defineModel({
+	name: 'Call',
+	fields: (f) => ({
+		room: f.string(),
+		endedAt: f.dateTime({ optional: true }),
+		participants: f.number({ default: 0 }),
+	}),
+}).with({
+	hooks: {
+		// In the write's transaction: the run exists if the update commits.
+		afterUpdate: async ({ record, previous }) => {
+			if (previous.endedAt !== null || record.endedAt === null) return
+			// In milliseconds: the room stays open ten minutes, to rejoin.
+			await closeRoom.enqueue({ room: record.room }, { after: 10 * 60 * 1000 })
+		},
+	},
+})
+```
+
+- A run due now starts as its transaction commits, on the server that wrote it.
+- A delayed run starts within five seconds of its due time, on whichever
+  server finds it first.
+- An invalid input is refused with `VALIDATION_FAILED`, as a function's, and
+  no run is written.
+
+A `*Commit` [hook](/docs/next/hooks) runs once too, but in memory: a crash
+before it ends loses it, and it never runs again. A job is for what must
+happen, even after a crash.
+
+## Once or more
+
+A run that throws runs again 10 seconds later, then twice as long each time.
+After ten attempts, about 2 h 50 min, its row turns `failed` and is kept, with
+its last error, for someone to read.
+
+Each failure is logged with `job` and `run`: a warning while the run will run
+again, an error with a `correlationId` once it is kept.
+
+That error is also
+published on the `ultimabase:error` channel, so with
+[`sentryPlugin()`](/docs/next/sentry) a kept run is a Sentry issue, and
+another error tracker subscribes to the channel. A recurring job's failed run is
+an error at once, and the job runs at its next time.
+
+A run may also run twice: a server that crashes mid-run leaves it to another
+five minutes later. So:
+
+- A job that calls another service passes `id`, the run's, as its idempotency
+  key, as `closeRoom` does above, or checks the state it changes.
+- A run is never cancelled: the job reads what is still true when it runs, as
+  whether the call is still over.
+
+## One run per key
+
+Webhooks about one object arrive twice and out of order; a run that fetches
+the object as it is now answers them all. `key` names the object of a run:
+
+```ts title="src/models.ts"
+// Each webhook of the video service says a room changed: the job fetches the
+// room as it is now. While a run of the room waits, another adds none; and
+// runs of a room never run at once, so an older state never lands last.
+export const syncRoom = defineJob({
+	name: 'syncRoom',
+	input: z.object({ room: z.string() }),
+	key: ({ room }) => room,
+	run: async ({ input }) => {
+		const { participants } = fetchRoom(input.room)
+		await Call.updateMany(
+			{ where: { room: input.room }, data: { participants } },
+			{ as: master },
+		)
+	},
+})
+```
+
+- While a run of the key waits, `enqueue` adds none: the waiting run keeps
+  its input, and runs at the earlier of the two due times.
+- A run enqueued while one of its key runs waits for it to end, on any
+  server: it fetches what that run may have missed.
+- A run that failed frees its key, and waits to run again as any run.
+- Adding none is best effort: two `enqueue` at once, in two transactions,
+  may each add a run. They still run one at a time.
+
+```ts title="src/app.test.ts"
+await Call.create({ data: { room: 'standup' } }, { as: master })
+roomSizes.set('standup', 3)
+// Three webhooks in the same second; each run waits a second for the
+// others, which add none.
+for (const _ of [1, 2, 3]) {
+	await syncRoom.enqueue({ room: 'standup' }, { after: 1000 })
+}
+vi.setSystemTime(Date.now() + 1000)
+await runJobs()
+expect(fetchedRooms).toEqual(['standup'])
+const call = await Call.findFirstOrThrow({}, { as: master })
+expect(call.participants).toBe(3)
+```
+
+## Recurring jobs
+
+A job with `every` runs every few milliseconds from the start:
+
+```ts title="src/app.ts"
+// Every hour from the start, in milliseconds.
+export const purgeCalls = defineJob({
+	name: 'purgeCalls',
+	every: 60 * 60 * 1000,
+	run: async () => {
+		const before = new Date(Date.now() - 30 * day)
+		await Call.deleteMany(
+			{ where: { endedAt: { lt: before } } },
+			{ as: master },
+		)
+	},
+})
+```
+
+One with `cron` runs on a five-field pattern, minute, hour, day of the month,
+month and day of the week, in `timeZone`, UTC by default:
+
+```ts title="src/app.ts"
+// At 3:00 each night in Paris, daylight saving included; UTC by default.
+export const nightlyReport = defineJob({
+	name: 'nightlyReport',
+	cron: '0 3 * * *',
+	timeZone: 'Europe/Paris',
+	run: async () => {
+		const since = new Date(Date.now() - day)
+		const ended = await Call.count(
+			{ where: { endedAt: { gte: since } } },
+			{ as: master },
+		)
+		outbox.push(`Calls ended yesterday: ${ended}.`)
+	},
+})
+```
+
+- A recurring job takes no input and is never enqueued.
+- Each has one row, holding its next due time, so each occurrence runs on one
+  server.
+- While no server ran, missed occurrences run once, not once each.
+- A failure is logged at `error`, and the next occurrence runs as planned.
+- Across daylight saving, a time the clocks skip runs at the first time after
+  the gap, and a time they repeat runs once.
+
+## The plugin
+
+`jobsPlugin()` takes the application's jobs; [plugins add theirs](#a-plugins-jobs):
+
+```ts title="src/app.ts"
+export const app = defineApp({
+	// Kept in memory, so the example needs no database.
+	database: memory(),
+	// Listens on PORT, or 3000, and answers /health.
+	plugins: [
+		httpPlugin(),
+		jobsPlugin({ jobs: [closeRoom, syncRoom, purgeCalls, nightlyReport] }),
+		// Its job runs with these; no job to list for it.
+		digestPlugin(),
+	],
+	models: [Call],
+})
+```
+
+- At start, it writes the rows of new recurring jobs, re-times those whose
+  schedule changed, and deletes those of jobs no longer declared.
+- A server runs only the jobs it declares. During a deploy, a run of a new job
+  waits for a server of the new version. A server of the old version that
+  starts deletes the new recurring jobs' rows, until a server of the new
+  version starts.
+- Stopping, a server waits for the runs it started.
+
+## A plugin's jobs
+
+A plugin that requires `jobsPlugin` adds its own jobs from its `api`, with
+`plugins.jobs.add(jobs)`: the application lists the plugin, not its jobs.
+
+```ts title="src/digest.ts"
+interface Digest extends PluginTypes {
+	readonly name: 'digest'
+	readonly requires: Jobs
+}
+
+export const digestPlugin = definePlugin<Digest>({
+	name: 'digest',
+	manifest: {
+		name: 'example-digest',
+		version: '1.0.0',
+		peerDependencies: { ultimabase: '*', '@ultimabase/jobs': '*' },
+	},
+	requires: { jobs: jobsPlugin },
+	// `api` runs before any start, when jobsPlugin takes the jobs.
+	api: ({ plugins }) => {
+		plugins.jobs.add([weeklyDigest])
+	},
+}).plugin
+```
+
+- Its jobs run as the application's: enqueued, keyed or recurring alike.
+- `add` runs in `api`, before any start; anywhere else it throws.
+- Two jobs of one name, the application's or a plugin's, stop the start:
+  a plugin's names start with its own, as `digest.weekly`.
+
+```ts title="src/app.test.ts"
+await Call.create({ data: { room: 'standup' } }, { as: master })
+// The next Monday, 9:00 in Paris, in winter.
+vi.setSystemTime(new Date('2027-01-11T08:00:00Z'))
+await runJobs()
+// The nightly report, missed since Tuesday, runs too.
+expect(outbox).toContain('Calls this week: 1.')
+```
+
+## In a test
+
+`runJobs()`, from `@ultimabase/testing`, runs every run due now, and the runs
+they enqueue, as the servers would. The clock decides what is due.
+`vi.useFakeTimers({ toFake: ['Date'] })` moves the date alone, so the timers
+still run, before the application starts, so the recurring jobs are due from
+it:
+
+```ts title="src/app.test.ts"
+beforeEach(() => {
+	// Before the application starts: its recurring jobs are due from now.
+	vi.useFakeTimers({ toFake: ['Date'] })
+	vi.setSystemTime(new Date('2027-01-04T08:00:00Z'))
+})
+afterEach(() => {
+	vi.useRealTimers()
+})
+testApplication(app)
+```
+
+A delayed run is due once the test moves the clock past its delay:
+
+```ts title="src/app.test.ts"
+const call = await Call.create({ data: { room: 'standup' } }, { as: master })
+const ending = { where: { id: call.id }, data: { endedAt: new Date() } }
+await Call.update(ending, { as: master })
+// Runs what is due now: the room stays open ten minutes.
+await runJobs()
+expect(closedRooms).toEqual([])
+
+vi.setSystemTime(Date.now() + 10 * minute)
+await runJobs()
+expect(closedRooms).toEqual(['standup'])
+```
+
+And a recurring job, once the clock reaches its time:
+
+```ts title="src/app.test.ts"
+await Call.create(
+	{ data: { room: 'standup', endedAt: new Date() } },
+	{ as: master },
+)
+// 3:00 in Paris, in winter.
+vi.setSystemTime(new Date('2027-01-05T02:00:00Z'))
+await runJobs()
+expect(outbox).toEqual(['Calls ended yesterday: 1.'])
+```
+
+## Reference
+
+### `defineJob(definition)`
+
+| Key        | Type                                 | Effect                                                         |
+| ---------- | ------------------------------------ | -------------------------------------------------------------- |
+| `name`     | string                               | The job's name, once among the application's jobs.             |
+| `run`      | `({ id, input, logger }) => unknown` | Runs a run: `id` is the run's, `input` the validated input's.  |
+| `input`    | Standard Schema, as Zod's            | The input of each run, validated by `enqueue`, stored as JSON. |
+| `every`    | milliseconds                         | Runs every `every` milliseconds from the start.                |
+| `cron`     | five fields                          | Runs on the pattern.                                           |
+| `timeZone` | IANA time zone, as `'Europe/Paris'`  | The zone of `cron`; `'UTC'` by default.                        |
+| `key`      | `(input) => string`                  | The run's key: one run of each key waits, and one runs.        |
+
+`logger` is the application's logger, bound to `{ job: name, run: id }`.
+
+A job takes one of `input`, `every` and `cron`, or none. With `input` or
+none, it has `enqueue(input?, options?)`:
+
+| Option  | Type         | Default | Effect                  |
+| ------- | ------------ | ------- | ----------------------- |
+| `after` | milliseconds | none    | How long the run waits. |
+
+### `jobsPlugin(options)`
+
+| Option | Type               | Effect                                        |
+| ------ | ------------------ | --------------------------------------------- |
+| `jobs` | `defineJob` values | The application's jobs, besides its plugins'. |
+
+Its API, a required plugin's `plugins.jobs`, has `add(jobs)`, which takes
+`defineJob` values in the plugin's `api`.
+
+It adds the model `JobsRun`, which no transport exposes: one row for each
+pending or failed run, and one for each recurring job.
+
+| Field         | Effect                                                   |
+| ------------- | -------------------------------------------------------- |
+| `job`         | The job's name.                                          |
+| `input`       | The validated input, as JSON.                            |
+| `state`       | `'pending'`, or `'failed'` after ten attempts.           |
+| `dueAt`       | When it runs next.                                       |
+| `attempts`    | The runs that failed.                                    |
+| `error`       | The last failure's message.                              |
+| `lockedUntil` | Until when a server holds it.                            |
+| `key`         | A keyed job's name and key, as JSON.                     |
+| `holding`     | The key, while the run runs: unique.                     |
+| `recurring`   | A recurring job's name, on its one row.                  |
+| `schedule`    | A recurring job's `every` or `cron`, to tell it changed. |
+
+### `runJobs()`
+
+Runs, during a test, every run due now and the runs they enqueue, then
+resolves.
+
+### Errors
+
+| Message                                                                                 | When                                                       |
+| --------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
+| `defineJob: name is a non-empty string.`                                                | At import.                                                 |
+| `closeRoom: run is a function.`                                                         | At import.                                                 |
+| `closeRoom: a job takes one of input, every and cron.`                                  | At import.                                                 |
+| `closeRoom: input is a Standard Schema.`                                                | At import.                                                 |
+| `closeRoom: every is a positive number of milliseconds, ending before the year 10000.`  | At import.                                                 |
+| `closeRoom: cron is a pattern of five fields.`                                          | At import; a pattern croner refuses gives its own message. |
+| `closeRoom: cron "0 0 30 2 *" never runs.`                                              | At import: no date matches the pattern, as 30 February.    |
+| `closeRoom: timeZone goes with cron.`                                                   | At import.                                                 |
+| `closeRoom: timeZone is an IANA time zone.`                                             | At import.                                                 |
+| `closeRoom: key is a function.`                                                         | At import.                                                 |
+| `closeRoom: a recurring job takes no key.`                                              | At import.                                                 |
+| `jobsPlugin’s jobs is an array of defineJob values.`                                    | At start.                                                  |
+| `jobs.add’s jobs is an array of defineJob values.`                                      | At start, from a plugin's `api`.                           |
+| `jobs.add runs in a plugin’s api.`                                                      | `plugins.jobs.add` outside a plugin's `api`.               |
+| `Two jobs are named closeRoom.`                                                         | At start.                                                  |
+| `closeRoom: after is a positive number of milliseconds, ending before the year 10000.`  | `enqueue`.                                                 |
+| `closeRoom: key returns a string.`                                                      | `enqueue`, when `key` returns no string.                   |
+| `closeRoom is not in jobsPlugin's jobs.`                                                | `enqueue` of a job the plugin was not given.               |
+| `closeRoom.enqueue needs an application with jobsPlugin() started.`                     | `enqueue` before the start, or after the stop.             |
+| `runJobs() runs during a test of an application with jobsPlugin().`                     | `runJobs()` outside such a test.                           |
+| `runJobs stopped after 100 passes: a job enqueues a run due at once each time it runs.` | A job that enqueues itself, due now, on each run.          |
+
+### Limits
+
+- A run starts within five seconds of its due time, each server polling
+  the database; a run due now starts as its write commits.
+- A server runs 20 runs at a time, and holds each for five minutes: a run
+  longer than that may start again on another server.
+- Each run runs at least once, not exactly once: its `id` is the
+  idempotency key.
+- A run's input is stored as JSON: it holds what JSON holds, a date as
+  its ISO string.
+- `cron` takes five fields, no seconds.
+- A run of a key holds it for its lease: a run longer than five minutes may
+  overlap the next run of its key.
+- A waiting run moved earlier by an `enqueue` starts within five seconds.

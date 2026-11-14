@@ -1,5 +1,26 @@
 # @ultimabase/files
 
+## 0.8.0
+
+### Minor Changes
+
+- 5253dde: `files.refresh('Post.cover', { as: master })` gives the files stored before a key was added to `inline` or `variants` that key: it runs only the missing functions on each body, stores the values and variants as an upload does, and writes the file again in its row without the model's hooks, keeping `updatedAt`, so live reads see it. It returns `{ refreshed, failed }`; a file whose body is gone or whose row changed meanwhile is in `failed`, and the next call takes it again.
+
+### Patch Changes
+
+- Updated dependencies [20aec1b]
+- Updated dependencies [b2aa312]
+- Updated dependencies [94145f9]
+- Updated dependencies [8f82820]
+- Updated dependencies [1b9515a]
+- Updated dependencies [458361b]
+- Updated dependencies [4c9e506]
+- Updated dependencies [51f8f04]
+- Updated dependencies [3099475]
+- Updated dependencies [1520a09]
+  - ultimabase@0.8.0
+  - @ultimabase/http@0.8.0
+
 ## 0.7.0
 
 ### Patch Changes

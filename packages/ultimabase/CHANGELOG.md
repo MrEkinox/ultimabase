@@ -1,5 +1,22 @@
 # ultimabase
 
+## 0.8.0
+
+### Minor Changes
+
+- 20aec1b: The application's code logs with the application's logger, its lines named `app` (D-364): a function's `run` receives `logger`, bound to `{ function: name }`; each hook receives `logger`; a route reads `c.var.logger`; a job's `run` receives `logger`, bound to `{ job: name, run: id }`.
+- 8f82820: `ultimabase dev`, `sync`, `reset`, `migrate create` and `generate` also load the `.env.local` beside the config, whose values win over the `.env`'s; a variable already set still wins over both. The starter's `.gitignore` lists `.env.local`.
+- 1b9515a: `f.exists(target, { from, readRule: false })` reads whether its view keeps a row the caller cannot read, as a user blocked by someone whose blocks only they read. Only the boolean tells; the target's `beforeFind` still applies, and a `many` or `one` view refuses `readRule`.
+- 51f8f04: An error line with an `err`, logged by the application's code or a plugin, as `logger.error({ err: error }, 'The join failed.')`, gets a `correlationId` unless it has one and is published on `ultimabase:error`, as the kernel's failures are: with `sentryPlugin()` it is a Sentry issue, with no `Sentry.captureException` beside it (D-381).
+- 1520a09: The kernel publishes each model operation, hook, virtual field and function on Node's tracing channels `ultimabase:operation`, `ultimabase:hook`, `ultimabase:virtual` and `ultimabase:function`, nested, and each error the server logs at error level on `ultimabase:error` with its correlation id. A tool such as an error tracker subscribes to them; without a subscriber, nothing is built.
+
+### Patch Changes
+
+- b2aa312: `defineModel`, `defineUser`, `defineRole` and `defineFunction` refuse a key they do not take, as
+  `hooks` or `access` given to the definition instead of `.with()`, which was dropped unread (D-370).
+- 94145f9: `ultimabase dev` run by a program, its output not a terminal or `CI` set, exits with code 1 when its first start fails, instead of waiting for a file change. A test runner that starts it fails at once.
+- 3099475: `migrate` says when `migrations/schema.json` holds merge conflict markers, and the PostgreSQL docs say how to write a pending migration again after merging the base branch.
+
 ## 0.7.0
 
 ### Minor Changes
