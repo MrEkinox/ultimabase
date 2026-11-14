@@ -474,6 +474,15 @@ describe('stripe.portal', () => {
 		})
 	})
 
+	it('leaves the payer’s open Checkout open', async () => {
+		const ada = await signUp()
+		await paid(await stripe.checkout({ payer: ada, product: team, ...urls }))
+		// A purchase waits in another tab while the payer opens the portal.
+		const url = await stripe.checkout({ payer: ada, product: gemPack, ...urls })
+		await stripe.portal({ payer: ada })
+		expect(fake.checkouts.get(sessionOf(url))?.status).toBe('open')
+	})
+
 	it('follows what the payer changed on the portal', async () => {
 		const ada = await signUp()
 		const id = await paid(

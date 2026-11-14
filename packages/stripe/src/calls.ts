@@ -122,8 +122,8 @@ function billingOf(running: Running, product: Product): Billing {
 }
 
 /**
- * Runs `run` with the payer's customer at Stripe, under its lock, after
- * expiring its open Checkouts; a customer deleted at Stripe is created again.
+ * Runs `run` with the payer's customer at Stripe, under its lock; a customer
+ * deleted at Stripe is created again.
  */
 async function withCustomer<R>(
 	billing: Billing,
@@ -145,7 +145,6 @@ async function withCustomer<R>(
 				profile,
 			} = await ensureCustomer(current, read)
 			try {
-				await gateway.expireCheckouts(stripeId)
 				return await run(gateway, stripeId, profile.locale ?? null)
 			} catch (error) {
 				if (!(error instanceof Missing) || current !== row) throw error
@@ -205,6 +204,7 @@ export async function checkout<const P extends Product>(
 		model,
 		args.payer,
 		async (gateway, customerId, locale) => {
+			await gateway.expireCheckouts(customerId)
 			const trial =
 				args.trialDays ?? (await firstTrial(model, args.payer, product, key))
 			if (subscribing && running.oneSubscription) {
