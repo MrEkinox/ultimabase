@@ -9,6 +9,7 @@ import type { Context } from './query-context.ts'
 import type { Computed, Hidden } from './query-project.ts'
 import { project, unseenVirtuals } from './query-project.ts'
 import { isObject, modelOf, normalizeWhere } from './query-where.ts'
+import { outsideCommands } from './plugin-code.ts'
 import { planned } from './scope.ts'
 import type { Store } from './transaction.ts'
 import { checked } from './validation.ts'
@@ -141,7 +142,9 @@ async function valuesOf(
 		// Its queries are its own, not those of a `run` around it.
 		const result: unknown = await sent.exit(async () =>
 			virtualRun(async () =>
-				info.run(Object.freeze({ caller, input, records })),
+				outsideCommands(async () =>
+					info.run(Object.freeze({ caller, input, records })),
+				),
 			),
 		)
 		if (!Array.isArray(result) || result.length !== records.length) {
@@ -154,9 +157,11 @@ async function valuesOf(
 		const calls = { count: 0 }
 		values = await sent.run(calls, async () =>
 			virtualRun(async () =>
-				Promise.all(
-					records.map(async (record) =>
-						info.run(Object.freeze({ caller, input, record })),
+				outsideCommands(async () =>
+					Promise.all(
+						records.map(async (record) =>
+							info.run(Object.freeze({ caller, input, record })),
+						),
 					),
 				),
 			),

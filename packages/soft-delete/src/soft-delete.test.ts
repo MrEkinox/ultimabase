@@ -65,6 +65,8 @@ const Note = defineModel({
 	fields: (f) => ({
 		text: f.string(),
 		loud: f.virtual(z.string(), { needs: ['text'] }),
+		live: f.virtual(z.number()),
+		lives: f.virtual(z.number()),
 	}),
 	use: [softDelete()],
 }).with({
@@ -73,6 +75,14 @@ const Note = defineModel({
 			run: ({ record }) => {
 				computed.push(record.text)
 				return record.text.toUpperCase()
+			},
+		},
+		// Its query is its own: it reads the rows not deleted, from the trash too.
+		live: { run: async () => Note.count({}, M) },
+		lives: {
+			runMany: async ({ records }) => {
+				const live = await Note.count({}, M)
+				return records.map(() => live)
 			},
 		},
 	},
@@ -201,6 +211,20 @@ describe('restore', () => {
 		await expect(Post.restore({ where: { id } }, M)).rejects.toMatchObject({
 			code: 'NOT_FOUND',
 		})
+	})
+})
+
+describe('the trash', () => {
+	it('runs no virtual as its command (D-89)', async () => {
+		for (const text of ['a', 'b', 'c']) {
+			await Note.create({ data: { text } }, M)
+		}
+		const a = await Note.findFirstOrThrow({ where: { text: 'a' } }, M)
+		await Note.delete({ where: { id: a.id } }, M)
+		const read = { select: { text: true, live: true, lives: true } }
+		expect(await Note.trash.findMany(read, M)).toEqual([
+			{ text: 'a', live: 2, lives: 2 },
+		])
 	})
 })
 

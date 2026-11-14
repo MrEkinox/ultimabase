@@ -2861,8 +2861,10 @@ D-67's place for `redirect` and D-57's name `adds`.
    field rules, or the record as it was when the redirect removed it.
 2. While a command runs, the queries it makes on its model give the
    plugin's hooks on that model `command`, its name. A query a hook makes,
-   the application's or a plugin's, gets no `command`. A command is a
-   function or an object of functions (`trash: queries`).
+   the application's or a plugin's, gets no `command`. Nor does a query a
+   virtual field makes: its value is the same from any read (amended
+   2026-11-14). A command is a function or an object of functions
+   (`trash: queries`).
 3. The interface declares a plugin's fields in `addedFields`, and its code
    builds them in `addedFields: (f, options) => ({ ... })`, required when
    the interface declares them. It runs once per model entry, with the
