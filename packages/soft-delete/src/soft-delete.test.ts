@@ -88,9 +88,19 @@ const Note = defineModel({
 	},
 })
 
+// A folder in another: the trash reads a deleted one under its live parent.
+const Folder = defineModel({
+	name: 'Folder',
+	fields: (f) => ({
+		name: f.string(),
+		parent: f.one(() => Folder, { optional: true }),
+	}),
+	use: [softDelete()],
+})
+
 const app = defineApp({
 	database: memory(),
-	models: [Post, Comment, Note],
+	models: [Post, Comment, Note, Folder],
 	plugins: [softDeletePlugin()],
 })
 const titles = async (): Promise<string[]> =>
@@ -225,6 +235,31 @@ describe('the trash', () => {
 		expect(await Note.trash.findMany(read, M)).toEqual([
 			{ text: 'a', live: 2, lives: 2 },
 		])
+	})
+})
+
+describe('a trash read', () => {
+	it('reads the rows under its own as any read does (D-89)', async () => {
+		const root = await Folder.create({ data: { name: 'root' } }, M)
+		const gone = await Folder.create({ data: { name: 'gone' } }, M)
+		const child = { name: 'child', parent: { connect: { id: root.id } } }
+		const under = { name: 'under', parent: { connect: { id: gone.id } } }
+		for (const data of [child, under]) {
+			const { id: made } = await Folder.create({ data }, M)
+			await Folder.delete({ where: { id: made } }, M)
+		}
+		await Folder.delete({ where: { id: gone.id } }, M)
+		const read = {
+			select: { name: true, parent: { select: { name: true } } },
+			orderBy: { name: 'asc' },
+		} as const
+		expect(await Folder.trash.findMany(read, M)).toEqual([
+			{ name: 'child', parent: { name: 'root' } },
+			{ name: 'gone', parent: null },
+			{ name: 'under', parent: null },
+		])
+		const where = { parent: { is: { name: 'root' } } }
+		expect(await Folder.trash.count({ where }, M)).toBe(1)
 	})
 })
 

@@ -2862,7 +2862,9 @@ D-67's place for `redirect` and D-57's name `adds`.
 2. While a command runs, the queries it makes on its model give the
    plugin's hooks on that model `command`, its name. A query a hook makes,
    the application's or a plugin's, gets no `command`. Nor does a query a
-   virtual field makes: its value is the same from any read (amended
+   virtual field makes: its value is the same from any read. Nor do the
+   rows read under the query's own, by `include`, `select` or a relation
+   filter: the trash reads a deleted row's live parent (amended
    2026-11-14). A command is a function or an object of functions
    (`trash: queries`).
 3. The interface declares a plugin's fields in `addedFields`, and its code

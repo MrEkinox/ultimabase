@@ -5,6 +5,7 @@ import type { Access } from './access.ts'
 import { and } from './access.ts'
 import type { Filter } from './adapter.ts'
 import { beforeFind } from './hooks.ts'
+import { commandRunning, outsideCommands } from './plugin-code.ts'
 import type { FindOperation } from './model.ts'
 import type { Caller } from './rules.ts'
 import { Relations } from './relations.ts'
@@ -22,7 +23,11 @@ export class QueryScope implements Scope {
 	private readonly narrowed = new Map<string, Filter | undefined>()
 	private readonly wanted = new Map<
 		string,
-		{ readonly name: string; readonly operation: FindOperation }
+		{
+			readonly name: string
+			readonly operation: FindOperation
+			readonly nested: boolean
+		}
 	>()
 	readonly models: Models
 	readonly caller: Caller
@@ -63,12 +68,15 @@ export class QueryScope implements Scope {
 		field: Extract<FieldInfo, { readonly kind: 'one' | 'many' }>,
 	): Filter | undefined {
 		// An exists may skip its target's read rule, not its hooks (D-359).
+		// A command reads its root rows only: the rows under them are read as
+		// any query reads them (D-89).
+		const hooked = this.narrowing(field.target, 'read', true)
 		const rows =
 			field.kind === 'many' &&
 			field.exists &&
 			field.options['readRule'] === false
-				? this.narrowing(field.target, 'read')
-				: this.readable(field.target)
+				? hooked
+				: and(hooked, this.access?.readable(field.target))
 		return and(this.relations.filter(model, field), rows)
 	}
 
@@ -78,16 +86,12 @@ export class QueryScope implements Scope {
 	 */
 	async ready(): Promise<boolean> {
 		let narrowed = false
-		for (const [key, { name, operation }] of this.wanted) {
+		for (const [key, { name, operation, nested }] of this.wanted) {
 			this.wanted.delete(key)
 			const model = modelOf(this.models, name)
-			const filter = await beforeFind(
-				this.models,
-				model,
-				this.caller,
-				operation,
-				this.relations,
-			)
+			const run = async () =>
+				beforeFind(this.models, model, this.caller, operation, this.relations)
+			const filter = await (nested ? outsideCommands(run) : run())
 			this.narrowed.set(key, filter)
 			if (filter !== undefined) narrowed = true
 		}
@@ -113,10 +117,13 @@ export class QueryScope implements Scope {
 	private narrowing(
 		name: string,
 		operation: FindOperation,
+		under = false,
 	): Filter | undefined {
-		const key = `${operation} ${name}`
+		// Apart from the root's only while a command runs: they differ then.
+		const nested = under && commandRunning()
+		const key = `${operation} ${name}${nested ? ' nested' : ''}`
 		if (this.narrowed.has(key)) return this.narrowed.get(key)
-		this.wanted.set(key, { name, operation })
+		this.wanted.set(key, { name, operation, nested })
 		return undefined
 	}
 }
