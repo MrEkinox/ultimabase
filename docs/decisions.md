@@ -22245,7 +22245,11 @@ Choice: amends D-221.
 2. A run waits while it is pending and not running. `enqueue` of a key with a
    waiting run adds none: the waiting run keeps its input, and its due time
    becomes the earlier of the two. A run enqueued while a run of its key runs
-   is a new waiting run, which starts once that run ends.
+   is a new waiting run, which starts once that run ends. The join writes the
+   waiting run even when its due time stays: the row stays locked until the
+   enqueue commits, so no instance runs it on state not yet written; a run
+   claimed between the read and the join leaves a new waiting run (amended
+   2026-11-14).
 3. Never two runs of one key at once, on any server. A run of a key holds it
    in `JobsRun.holding`, a unique column set by the update that claims the
    row (D-221, point 7) and cleared when the run ends. A claim the unique

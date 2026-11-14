@@ -291,11 +291,13 @@ async function joined(key: string, dueAt: Date): Promise<boolean> {
 		M,
 	)
 	if (waiting === undefined) return false
-	if (dueAt < waiting.dueAt) {
-		const where = { id: waiting.id, holding: null }
-		await JobsRun.updateMany({ where, data: { dueAt } }, M)
-	}
-	return true
+	// Written even unchanged: the row stays locked until the caller commits, so
+	// no instance runs it before, on state the caller has not written yet.
+	const data = { dueAt: dueAt < waiting.dueAt ? dueAt : waiting.dueAt }
+	const where = { id: waiting.id, holding: null }
+	const { count } = await JobsRun.updateMany({ where, data }, M)
+	// Claimed meanwhile, it runs without this enqueue: a new run waits.
+	return count > 0
 }
 
 export function defineJob<

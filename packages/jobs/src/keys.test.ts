@@ -4,7 +4,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { z } from 'zod'
 import { runJobs, testApplication } from '@ultimabase/testing'
-import type { Logger } from 'ultimabase'
+import type { Adapter, Logger, Read, Row } from 'ultimabase'
 import { defineApp, memory } from 'ultimabase'
 import { defineJob, jobsPlugin } from './index.ts'
 import { JobsRun, M } from './model.ts'
@@ -56,6 +56,25 @@ const odd = defineJob({
 	run: () => undefined,
 })
 
+// `memory()`, which runs `joining` once after the read of a run to join.
+let joining: (() => Promise<void>) | undefined
+async function afterRead(read: Read, found: Row[]): Promise<Row[]> {
+	const then = joining
+	if (then === undefined || read.model !== 'JobsRun' || read.take !== 1) {
+		return found
+	}
+	joining = undefined
+	await then()
+	return found
+}
+function racing(): Adapter {
+	const base = memory()
+	return {
+		...base,
+		find: async (read) => afterRead(read, await base.find(read)),
+	}
+}
+
 const hour = 60 * 60 * 1000
 const minute = 60 * 1000
 
@@ -68,6 +87,7 @@ beforeEach(() => {
 	runs.clear()
 	overlapped = false
 	failing = ''
+	joining = undefined
 })
 afterEach(() => {
 	release()
@@ -78,11 +98,12 @@ afterEach(() => {
 describe('a job with a key', () => {
 	testApplication(
 		defineApp({
-			database: memory(),
+			database: racing(),
 			models: [],
 			plugins: [jobsPlugin({ jobs: [sync, odd] })],
 			logger,
 		}),
+		{ database: 'declared' },
 	)
 
 	it('adds no run while one of the key waits: it keeps its input, at the earlier time', async () => {
@@ -98,6 +119,24 @@ describe('a job with a key', () => {
 		vi.setSystemTime(now + hour)
 		await runJobs()
 		expect(ended.toSorted()).toStrictEqual(['first', 'other'])
+	})
+
+	it('adds a run when the one it joins is claimed meanwhile', async () => {
+		const now = Date.now()
+		await sync.enqueue({ account: 'a', note: 'first' }, { after: minute })
+		// Another instance claims the waiting run between the read and the join.
+		joining = async () => {
+			const data = {
+				holding: '["sync","a"]',
+				lockedUntil: new Date(now + hour),
+			}
+			await JobsRun.updateMany({ where: {}, data }, M)
+		}
+		await sync.enqueue({ account: 'a', note: 'second' }, { after: hour })
+		expect(await rows()).toMatchObject([
+			{ input: { note: 'first' }, holding: '["sync","a"]' },
+			{ input: { note: 'second' }, holding: null, dueAt: new Date(now + hour) },
+		])
 	})
 
 	it('runs a run enqueued while one of the key runs once it ends', async () => {
