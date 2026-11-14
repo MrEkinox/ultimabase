@@ -3367,7 +3367,11 @@ __metadata:
   peerDependencies:
     "@ultimabase/http": ^0.7.0
     "@ultimabase/jobs": ^0.7.0
+    "@ultimabase/testing": ^0.7.0
     ultimabase: ^0.7.0
+  peerDependenciesMeta:
+    "@ultimabase/testing":
+      optional: true
   languageName: unknown
   linkType: soft
 
