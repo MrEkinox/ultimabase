@@ -52,25 +52,29 @@ export interface CheckoutArgs<P extends Product = Product> {
 	readonly metadata?: Readonly<Record<string, string>>
 }
 
-/** What `stripe.portal` takes (D-373 point 8). */
-export interface PortalArgs<
-	P extends SubscriptionProduct = SubscriptionProduct,
-> {
+/**
+ * What `stripe.portal` takes (D-373 point 8, D-394): `open` names the page
+ * the portal opens on, its home without one.
+ */
+export type PortalArgs<P extends SubscriptionProduct = SubscriptionProduct> = {
 	readonly payer: Payer
 	/** The portal option's `returnUrl` by default. */
 	readonly returnUrl?: string
-	/** Opens the confirmation of a move to another product or price. */
-	readonly change?: {
-		readonly product: P
-		readonly price: PriceOf<P>
-		/** The subscription row's id, when the payer has several live ones. */
-		readonly subscription?: string
-	}
-	/** Opens the confirmation of a cancellation. */
-	readonly cancel?: { readonly subscription?: string }
-	/** Opens the form that changes the payer's payment method (D-389). */
-	readonly paymentMethod?: Readonly<Record<string, never>>
-}
+} & (
+	| { readonly open?: undefined }
+	/** The form that changes the payer's payment method (D-389). */
+	| { readonly open: 'paymentMethod' }
+	/** The confirmation of a cancellation. */
+	| { readonly open: 'cancel'; readonly subscription?: string }
+	/** The confirmation of a move to another product or price. */
+	| {
+			readonly open: 'change'
+			readonly product: P
+			readonly price: PriceOf<P>
+			/** The subscription row's id, when the payer has several live ones. */
+			readonly subscription?: string
+	  }
+)
 
 /** The catalog's product, or a bug: a product the plugin was not given. */
 function catalogued(running: Running, product: Product): Product {
@@ -237,13 +241,12 @@ export async function checkout<const P extends Product>(
 
 /**
  * The payer's subscription a deep link is about, or `NOT_SUBSCRIBED`; the
- * code names one with `option` when the payer has several.
+ * code names one with `subscription` when the payer has several.
  */
 async function subscriptionOf(
 	model: Billing,
 	payer: Payer,
 	id: string | undefined,
-	option: string,
 ): Promise<Row> {
 	const where = {
 		payer: { is: { id: payer.id } },
@@ -257,7 +260,7 @@ async function subscriptionOf(
 	}
 	if (other !== undefined) {
 		throw new Refused(
-			`stripe.portal: the payer has several live subscriptions; name the one with ${option}, a ${model.name} row’s id.`,
+			`stripe.portal: the payer has several live subscriptions; name the one with subscription, a ${model.name} row’s id.`,
 		)
 	}
 	return one
@@ -269,38 +272,28 @@ async function flowOf(
 	model: Billing,
 	args: PortalArgs,
 ): Promise<PortalFlow> {
-	const { change, cancel, paymentMethod } = args
-	const asked = [change, cancel, paymentMethod].filter(
-		(one) => one !== undefined,
-	)
-	if (asked.length > 1) {
-		throw new TypeError(
-			'stripe.portal takes one of change, cancel and paymentMethod.',
-		)
+	const page: unknown = args.open
+	switch (args.open) {
+		case undefined:
+			return { kind: 'home' }
+		case 'paymentMethod':
+			return { kind: 'paymentMethod' }
+		case 'cancel': {
+			const row = await subscriptionOf(model, args.payer, args.subscription)
+			return { kind: 'cancel', subscriptionId: String(row['stripeId']) }
+		}
+		case 'change': {
+			const product = catalogued(running, args.product)
+			const lookup = lookupKey(product, args.price)
+			const row = await subscriptionOf(model, args.payer, args.subscription)
+			const subscriptionId = String(row['stripeId'])
+			return { kind: 'change', subscriptionId, lookupKey: lookup }
+		}
+		default:
+			throw new TypeError(
+				`stripe.portal opens change, cancel or paymentMethod, not ${String(page)}.`,
+			)
 	}
-	if (paymentMethod !== undefined) return { kind: 'paymentMethod' }
-	if (change !== undefined) {
-		const product = catalogued(running, change.product)
-		const lookup = lookupKey(product, change.price)
-		const row = await subscriptionOf(
-			model,
-			args.payer,
-			change.subscription,
-			'change.subscription',
-		)
-		const subscriptionId = String(row['stripeId'])
-		return { kind: 'change', subscriptionId, lookupKey: lookup }
-	}
-	if (cancel !== undefined) {
-		const row = await subscriptionOf(
-			model,
-			args.payer,
-			cancel.subscription,
-			'cancel.subscription',
-		)
-		return { kind: 'cancel', subscriptionId: String(row['stripeId']) }
-	}
-	return { kind: 'home' }
 }
 
 /** Opens the payer's customer portal, or one change's confirmation. */

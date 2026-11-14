@@ -22805,7 +22805,7 @@ await applyStripeCatalog({
 
 ## D-373: The application's billing models: `defineSubscription`, `definePurchase`, `defineBalance`
 
-Amended by D-375, D-376, D-377, D-383, D-384 and D-387.
+Amended by D-375, D-376, D-377, D-383, D-384, D-387 and D-394.
 
 Choice: what a payer bought lives in the application's own models, which
 the plugin fills, as `defineRole` builds a role model (D-13, D-123).
@@ -23851,6 +23851,8 @@ WARN A payment is at risk: its payer's subscriptions were canceled.
 
 ## D-389: The portal opens on the payment method form
 
+Amended by D-394.
+
 Choice: builds on D-373 point 8 and D-380.
 
 1. `stripe.portal({ payer, paymentMethod: {} })` opens the customer
@@ -24100,4 +24102,60 @@ query {
 		}
 	}
 }
+```
+
+## D-394: The portal opens one page, named by `open`
+
+Choice: amends D-373 point 8 and D-389 points 1 to 3.
+
+1. `stripe.portal` takes `open`, the page the portal opens on: `'change'`,
+   `'cancel'` or `'paymentMethod'`. Without it, the portal opens on its
+   home.
+2. The page's own arguments sit beside `open`: `product` and `price` for
+   `'change'`, and `subscription` for `'change'` and `'cancel'`. The type
+   is a union on `open`, so TypeScript refuses an argument of another page.
+3. `change` and `cancel`, released in 0.7.0, are removed without an alias:
+   a minor release of a 0.x package may break. An `open` the plugin does
+   not know, from JavaScript, throws a `TypeError`.
+4. The code `NOT_SUBSCRIBED` and the error that asks for `subscription`
+   are unchanged; the error names `subscription`, the one option left.
+
+Why: one object per page let a call ask for two pages, which only failed
+at run time, and `cancel: {}` and `paymentMethod: {}` were empty objects
+used as switches. The application's call shows both: it spread one object
+for a change and another for a cancellation, and nothing kept it from
+sending both.
+
+Rejected:
+
+- A function per page, `stripe.portal.cancel({ payer })`: four functions
+  for one session, and a call that picks the page from its input chooses
+  between functions instead of a value.
+- `flow`, Stripe's word: `open: 'cancel'` reads as what the call does.
+- `open: { change: { product, price } }`: a string for two pages and an
+  object for the third.
+
+Example, before:
+
+```ts
+const url = await stripe.portal({
+	payer: { id: me },
+	...(changeTo === undefined
+		? {}
+		: { change: { product: plans[changeTo.plan], price: changeTo.every } }),
+	...(cancel === true ? { cancel: {} } : {}),
+})
+```
+
+After:
+
+```ts
+const url = await stripe.portal({
+	payer: { id: me },
+	...(changeTo !== undefined
+		? { open: 'change', product: plans[changeTo.plan], price: changeTo.every }
+		: cancel
+			? { open: 'cancel' }
+			: {}),
+})
 ```
