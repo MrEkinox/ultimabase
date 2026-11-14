@@ -23942,3 +23942,68 @@ const url = await stripe.checkout({
 	...urls,
 })
 ```
+
+## D-391: A price declares its trial, given on a payer's first subscription
+
+Choice: builds on D-372 and D-373 point 7.
+
+1. A recurring price takes `trialDays`, an integer from 1 to 730, Stripe's
+   bound. It stays in the plugin: Stripe's Checkout takes the trial as a
+   session parameter, so the Stripe price neither carries nor compares it,
+   and changing it creates no price.
+2. `stripe.checkout` gives the price's trial only when the payer has no
+   row of the subscription model, in any status and for any product: a
+   payer who cancels, or moves from one product to another, does not get a
+   second trial. The read runs under the payer's customer lock (D-373
+   point 7), so two tabs cannot both take the first trial.
+3. The call's `trialDays` wins, for any payer: an application can still
+   offer a returning payer a trial. `trialDays: 0` gives none.
+
+Why: which prices come with a trial is a catalog fact, the one a pricing
+page announces, and Stripe gives a trial on every Checkout that asks. Each
+application read its own subscription rows before each Checkout, and one
+that forgot gave a trial on each return.
+
+Rejected:
+
+- Once per payer and product: moving from Pro to Team would give a second
+  trial, the same abuse.
+- Stripe's price-level trial: Checkout ignores it.
+- Reading the payer's subscriptions at Stripe: one request per Checkout for
+  what the rows already hold, since a row is ended, never deleted.
+
+Example, before: the application read its rows to decide.
+
+```ts
+const had = await Subscription.exists(
+	{ where: { payer: { is: { id: me } } } },
+	{ as: master },
+)
+const url = await stripe.checkout({
+	payer: { id: me },
+	product: pro,
+	price: 'month',
+	...(had ? {} : { trialDays: 14 }),
+	...urls,
+})
+```
+
+After: the price says it, the plugin decides.
+
+```ts
+const pro = defineProduct({
+	key: 'pro',
+	name: 'Pro',
+	prices: {
+		month: { amount: 9_90, every: 'month', trialDays: 14 },
+		year: { amount: 99_00, every: 'year' },
+	},
+})
+
+const url = await stripe.checkout({
+	payer: { id: me },
+	product: pro,
+	price: 'month',
+	...urls,
+})
+```

@@ -16,6 +16,8 @@ export interface RecurringPrice {
 	readonly everyCount?: number
 	/** The credits each paid period gives (D-377 point 4). */
 	readonly gives?: readonly CreditAmount[]
+	/** Days of trial, 1 to 730, given on a payer's first subscription (D-391). */
+	readonly trialDays?: number
 }
 
 /** A one-time product's price. */
@@ -70,8 +72,16 @@ function checkAmount(where: string, amount: unknown): void {
 
 /** Refuses a recurring price Stripe would refuse; returns its interval. */
 function checkRecurring(where: string, price: unknown): string {
-	ownKeys(where, price, ['amount', 'every', 'everyCount', 'gives'])
+	ownKeys(where, price, ['amount', 'every', 'everyCount', 'gives', 'trialDays'])
 	checkAmount(where, Reflect.get(price, 'amount'))
+	const trial: unknown = Reflect.get(price, 'trialDays') ?? 1
+	if (
+		!Number.isSafeInteger(trial) ||
+		Number(trial) < 1 ||
+		Number(trial) > 730
+	) {
+		throw new Refused(`${where}: trialDays is an integer from 1 to 730.`)
+	}
 	checkGives(where, Reflect.get(price, 'gives') ?? [])
 	const every: unknown = Reflect.get(price, 'every')
 	const most = Object.entries(longest).find(([name]) => name === every)?.[1]

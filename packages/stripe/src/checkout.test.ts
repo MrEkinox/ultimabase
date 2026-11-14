@@ -36,6 +36,8 @@ async function paid(url: string): Promise<string> {
 }
 
 const sessionOf = (url: string) => url.split('/').at(-1) ?? ''
+/** The trial days the Checkout at `url` gives. */
+const trialOf = (url: string) => fake.checkouts.get(sessionOf(url))?.trialDays
 /** The customer at Stripe of the Checkout at `url`. */
 const customerOf = (url: string) =>
 	fake.customers.get(fake.checkouts.get(sessionOf(url))?.customerId ?? '')
@@ -268,6 +270,26 @@ describe('stripe.checkout', () => {
 		await paid(url)
 		await stripe.portal({ payer: ada })
 		expect(fake.portalSessions.at(-1)?.locale).toBe('fr-BE')
+	})
+
+	it('gives the price’s trial on a payer’s first subscription only', async () => {
+		const ada = await signUp()
+		const yearly = {
+			payer: ada,
+			product: pro,
+			price: 'yearly',
+			...urls,
+		} as const
+		expect(trialOf(await stripe.checkout(yearly))).toBe(30)
+		expect(
+			trialOf(await stripe.checkout({ ...yearly, trialDays: 0 })),
+		).toBeNull()
+		const monthly = { ...yearly, price: 'monthly' } as const
+		expect(trialOf(await stripe.checkout(monthly))).toBeNull()
+		await paid(await stripe.checkout(monthly))
+		// A payer who subscribed once, even to another price, has had theirs.
+		expect(trialOf(await stripe.checkout(yearly))).toBeNull()
+		expect(trialOf(await stripe.checkout({ ...yearly, trialDays: 7 }))).toBe(7)
 	})
 
 	it('shows the application’s text by the terms checkbox', async () => {

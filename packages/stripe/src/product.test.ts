@@ -56,9 +56,9 @@ describe('defineProduct', () => {
 			name: 'Pro',
 			taxCode: 'txcd_10103000',
 			prices: {
-				monthly: { amount: 9_90, every: 'month' },
+				monthly: { amount: 9_90, every: 'month', trialDays: 1 },
 				quarterly: { amount: 27_00, every: 'month', everyCount: 3 },
-				yearly: { amount: 99_00, every: 'year' },
+				yearly: { amount: 99_00, every: 'year', trialDays: 730 },
 			},
 		})
 		expect(pro).toEqual({
@@ -66,9 +66,9 @@ describe('defineProduct', () => {
 			name: 'Pro',
 			taxCode: 'txcd_10103000',
 			prices: {
-				monthly: { amount: 9_90, every: 'month' },
+				monthly: { amount: 9_90, every: 'month', trialDays: 1 },
 				quarterly: { amount: 27_00, every: 'month', everyCount: 3 },
-				yearly: { amount: 99_00, every: 'year' },
+				yearly: { amount: 99_00, every: 'year', trialDays: 730 },
 			},
 		})
 		expect(Object.isFrozen(pro)).toBe(true)
@@ -179,6 +179,13 @@ describe('defineProduct', () => {
 		expect(
 			prices({ monthly: { amount: 990, every: 'month', trial: 7 } }),
 		).toThrow('defineProduct(pro).monthly takes no trial.')
+		for (const trialDays of [0, 731, 1.5]) {
+			expect(
+				prices({ monthly: { amount: 990, every: 'month', trialDays } }),
+			).toThrow(
+				'defineProduct(pro).monthly: trialDays is an integer from 1 to 730.',
+			)
+		}
 		// The customer portal takes one price per interval of a product.
 		expect(
 			prices({

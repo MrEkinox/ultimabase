@@ -36,6 +36,7 @@ export interface CheckoutArgs<P extends Product = Product> {
 	readonly price?: PriceOf<P>
 	/** 1 by default. */
 	readonly quantity?: number
+	/** Days of trial, 0 for none; the price's on a first subscription by default (D-391). */
 	readonly trialDays?: number
 	/**
 	 * A checkbox the payer must tick to accept the account's terms, with
@@ -86,6 +87,21 @@ function lookupKey(product: Product, price: string | undefined): string {
 		throw new TypeError(`${product.key}'s price is one of ${names.join(', ')}.`)
 	}
 	return `${product.key}.${name}`
+}
+
+/** The trial a price declares, if the payer never subscribed (D-391). */
+async function firstTrial(
+	model: Billing,
+	payer: Payer,
+	product: Product,
+	key: string,
+): Promise<number> {
+	const name = key.slice(product.key.length + 1)
+	const days = 'prices' in product ? product.prices[name]?.trialDays : undefined
+	if (days === undefined) return 0
+	const where = { payer: { is: { id: payer.id } } }
+	const [had] = await model.queries.findMany({ where, take: 1 }, M)
+	return had === undefined ? days : 0
 }
 
 /** The model naming the payers of a product: who the customer is for. */
@@ -176,13 +192,16 @@ export async function checkout<const P extends Product>(
 	const product = catalogued(running, args.product)
 	const key = lookupKey(product, args.price)
 	checkPositive('quantity', args.quantity)
-	checkPositive('trialDays', args.trialDays)
+	if (args.trialDays !== 0) checkPositive('trialDays', args.trialDays)
 	const terms = termsOf(args.terms)
 	const subscribing = 'prices' in product
+	const model = billingOf(running, product)
 	return withCustomer(
-		billingOf(running, product),
+		model,
 		args.payer,
 		async (gateway, customerId, locale) => {
+			const trial =
+				args.trialDays ?? (await firstTrial(model, args.payer, product, key))
 			if (subscribing && running.oneSubscription) {
 				const { subscriptions } = await gateway.readCustomer(customerId)
 				if (subscriptions.some(({ status }) => liveStatuses.includes(status))) {
@@ -199,7 +218,7 @@ export async function checkout<const P extends Product>(
 				product: product.key,
 				lookupKey: key,
 				quantity: args.quantity ?? 1,
-				trialDays: subscribing ? (args.trialDays ?? null) : null,
+				trialDays: subscribing && trial > 0 ? trial : null,
 				terms: terms && {
 					acceptance:
 						terms.acceptance &&
