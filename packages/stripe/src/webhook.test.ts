@@ -11,6 +11,7 @@ import {
 	it,
 	vi,
 } from 'vitest'
+import { gatewayOf } from './accounts.ts'
 import { stripe } from './index.ts'
 import { M as master, StripeCustomer, StripeEvent } from './models.ts'
 import {
@@ -111,6 +112,28 @@ describe('the webhook', () => {
 		await expect(fake.deliver(test.url, '/elsewhere')).rejects.toThrow(
 			'The webhook answered 404.',
 		)
+	})
+
+	it('merges the syncs of events that arrive during one', async () => {
+		const ada = await signUp()
+		const url = await stripe.checkout({ payer: ada, product: team, ...urls })
+		fake.pay(url)
+		// Stripe answers slowly: the next events arrive while a sync reads.
+		const gateway = gatewayOf(fake.secret)
+		const read = gateway.readCustomer.bind(gateway)
+		vi.spyOn(gateway, 'readCustomer').mockImplementation(async (id) => {
+			await new Promise((resolve) => setTimeout(resolve, 50))
+			return read(id)
+		})
+		await fake.deliver(test.url)
+		expect(await StripeEvent.count({}, master)).toBe(3)
+		await runJobs()
+		// One sync for the first event, one for the two that came during it.
+		const [customer] = await StripeCustomer.findMany({}, master)
+		expect(customer).toMatchObject({ syncsBegun: 2, syncWritten: 2 })
+		expect(await Subscription.findMany({}, M)).toMatchObject([
+			{ status: 'active' },
+		])
 	})
 
 	it('marks an event about no object processed', async () => {

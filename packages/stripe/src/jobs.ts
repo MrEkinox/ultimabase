@@ -4,6 +4,7 @@
 // left behind.
 import type { Job, RecurringJob } from '@ultimabase/jobs'
 import { defineJob } from '@ultimabase/jobs'
+import { transaction } from 'ultimabase'
 import { auditJob } from './audit.ts'
 import type { Customer } from './customer.ts'
 import { locked } from './customer.ts'
@@ -36,9 +37,21 @@ const overlap = 10 * minute
  */
 const margin = minute
 
+/** Syncs one customer: an event's, or one the reconciliation found stale. */
+const syncJob = defineJob({
+	name: 'stripe.sync',
+	input: strings('customer'),
+	key: ({ customer }) => customer,
+	run: async ({ input }) => {
+		await syncCustomer(input.customer)
+	},
+})
+
 /**
- * Acts on a payment at risk (D-388), syncs the customer a stored event is
- * about, then marks it processed.
+ * Acts on a payment at risk (D-388), enqueues the sync of the customer a
+ * stored event is about, then marks it processed. The sync's key merges the
+ * events of one customer that arrive together into one waiting run, which
+ * begins after them all (D-365).
  */
 export const eventJob: Job<'stripe.event', { readonly event: string }> =
 	defineJob({
@@ -61,25 +74,17 @@ export const eventJob: Job<'stripe.event', { readonly event: string }> =
 				customerId === null
 					? null
 					: await StripeCustomer.findUnique({ where }, M)
-			// Synced here: the event stays waiting, so retried, until it is.
 			if (customerId !== null && row !== null) {
 				await settleRisk(event, customerId, logger)
-				await syncCustomer(row.id)
 			}
-			const data = { processedAt: new Date() }
-			await StripeEvent.update({ where: { id: event.id }, data }, M)
+			// A customer with no row yet is synced by the hourly scan.
+			await transaction(async () => {
+				if (row !== null) await syncJob.enqueue({ customer: row.id })
+				const data = { processedAt: new Date() }
+				await StripeEvent.update({ where: { id: event.id }, data }, M)
+			})
 		},
 	})
-
-/** Syncs one customer, which the reconciliation found stale. */
-const syncJob = defineJob({
-	name: 'stripe.sync',
-	input: strings('customer'),
-	key: ({ customer }) => customer,
-	run: async ({ input }) => {
-		await syncCustomer(input.customer)
-	},
-})
 
 /**
  * Closes the customer of a deleted payer: Stripe deletes it, which ends its
