@@ -482,6 +482,55 @@ function holding(): Adapter & {
 	}
 }
 
+/**
+ * `memory()` whose write after `holdNext()` writes at once and answers once
+ * `release` is called.
+ */
+function answeringLate(): Adapter & { readonly holdNext: () => void } {
+	const base = memory()
+	let hold = false
+	return {
+		...base,
+		write: async (write) => {
+			const result = await base.write(write)
+			if (hold) {
+				hold = false
+				const { promise, resolve } = Promise.withResolvers<void>()
+				release = resolve
+				await promise
+			}
+			return result
+		},
+		holdNext: () => {
+			hold = true
+		},
+	}
+}
+
+describe('its writes', () => {
+	// Another server unlocks while this server's lock() waits for its answer.
+	it('leave a state stored after them as it is', async () => {
+		const database = answeringLate()
+		const application = await started(database)
+		try {
+			database.holdNext()
+			const locking = maintenance().lock()
+			await vi.waitFor(() => expect(release).toBeDefined())
+			await MaintenanceState.update(
+				{ where: { key: 'state' }, data: { enabled: false } },
+				{ as: master },
+			)
+			await vi.waitFor(() => expect(maintenance().locked()).toBe(false))
+			release?.()
+			await locking
+			expect(maintenance().locked()).toBe(false)
+		} finally {
+			release = undefined
+			await application.stop()
+		}
+	})
+})
+
 describe('its reads', () => {
 	it('leave a lock stored after they began as it is', async () => {
 		const database = holding()

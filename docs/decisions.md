@@ -13614,7 +13614,10 @@ Choice: amends D-106 and D-166.
    (D-110), which no transport exposes. Each server reads it as it starts,
    and again on a change of it and on `missed` (D-154): every server
    follows. When the row cannot be read, the server keeps its state and
-   logs the error.
+   logs the error. `lock()` and `unlock()` read the row back once stored,
+   rather than follow the state they wrote: another server's switch stored
+   after it wins on this server too; when that read fails, they reject and
+   the change feed brings the state (amended 2026-11-14).
 7. `/ready` stays as D-204 has it: the maintenance does not change it.
 
 Why:

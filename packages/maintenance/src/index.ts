@@ -2,7 +2,8 @@
 // Master's answers 503 `MAINTENANCE`, and the sockets open close with 1012.
 // Its state is a row: every server follows it through the change feed, and
 // starts from `initial` while there is none (D-207). A read is numbered as it
-// begins, a write once stored: one that ends after a later one has no effect.
+// begins, and a write is read back once stored: a read that ends after a later
+// one has no effect.
 import type { Http } from '@ultimabase/http'
 import { httpPlugin, routes } from '@ultimabase/http'
 import type { Logger, PluginOf, PluginTypes } from 'ultimabase'
@@ -92,8 +93,9 @@ async function store(state: State, locked: boolean): Promise<void> {
 		},
 		{ as: master },
 	)
-	// A read begun before the write was stored may hold the state it replaced.
-	follow(state, ++state.begun, locked)
+	// Read, not followed as written: another server's write may be stored
+	// after it, and a read begun before it may hold the state it replaced.
+	await read(state)
 }
 
 /** Reads the state again; keeps the last one when it cannot. */
