@@ -9791,7 +9791,8 @@ maxConnectionRows })`; a subscribe past either fails with
     - A flush and a rebuild reach the viewers 8 at a time, so a change of
       the role tree does not read every window at once.
     - A row removed for rights is `gone`; the link evicts it from Apollo's
-      cache, so no other component keeps it.
+      cache, so no other component keeps it. A live row that turns `null`,
+      deleted or unreadable, is evicted the same way (amended 2026-11-14).
 11. Robustness:
     - A client whose socket buffer holds more than 1 MB loses its pending
       messages and gets the whole window once the buffer drains.

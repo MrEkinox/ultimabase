@@ -202,6 +202,11 @@ describe('ultimabaseLive', () => {
 		expect(await watched.at(1)).toMatchObject({ task: { title: 'a' } })
 		await Task.update({ where: { id: a?.id ?? '' }, data: { title: 'A' } }, M)
 		expect(await watched.at(2)).toMatchObject({ task: { title: 'A' } })
+		expect(client.cache.extract()).toHaveProperty(`Task:${a?.id}`)
+		// Unreadable now, no other component keeps it.
+		await Task.update({ where: { id: a?.id ?? '' }, data: { owner: 'bob' } }, M)
+		expect(await watched.at(3)).toStrictEqual({ task: null })
+		expect(client.cache.extract()).not.toHaveProperty(`Task:${a?.id}`)
 	})
 
 	it('refuses to grow a list whose first is no variable, or by a bad count', async () => {
