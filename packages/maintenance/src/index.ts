@@ -15,7 +15,7 @@ import { MaintenanceState } from './state.ts'
 
 /** What `maintenancePlugin` takes. */
 export interface MaintenanceOptions {
-	/** In milliseconds, how long a client waits before it tries again: 60 000 by default. */
+	/** In milliseconds, how long a client waits before it tries again: 60 000 by default, a day at most. */
 	readonly retryAfter?: number
 	/** Sent in `x-ultimabase-maintenance-key`, it switches the maintenance and nothing else. */
 	readonly key?: string | undefined
@@ -133,6 +133,9 @@ function enabledIn(body: unknown): boolean {
 	return enabled
 }
 
+/** The longest `retryAfter`, in milliseconds. */
+const day = 86_400_000
+
 const maintenance = definePlugin<Maintenance>({
 	name: 'maintenance',
 	manifest,
@@ -145,9 +148,10 @@ const maintenance = definePlugin<Maintenance>({
 			throw new Refused("The maintenance's initial is 'locked' or 'unlocked'.")
 		}
 		const { retryAfter = 60_000 } = options
-		if (!Number.isFinite(retryAfter) || retryAfter <= 0) {
+		// Past a day, a client told to wait would not come back after it.
+		if (!Number.isFinite(retryAfter) || retryAfter <= 0 || retryAfter > day) {
 			throw new Refused(
-				"The maintenance's retryAfter is a positive number of milliseconds.",
+				"The maintenance's retryAfter is a positive number of milliseconds, a day at most.",
 			)
 		}
 		const switches = keyed(options.key)

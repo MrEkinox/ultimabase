@@ -132,9 +132,9 @@ The test sends it with the header `x-ultimabase-master-key`, and the answer is
 | `key`        | string                   | none         | Sent in `x-ultimabase-maintenance-key`, switches the maintenance. |
 | `initial`    | `'locked'`, `'unlocked'` | `'unlocked'` | The state while none is stored.                                   |
 
-`retryAfter` is a positive number: another value, as `0` or `NaN`, refuses
-the start with `The maintenance's retryAfter is a positive number of
-milliseconds.` It requires `httpPlugin()`, and adds the model
+`retryAfter` is a positive number, a day (86 400 000) at most: another
+value, as `0` or `NaN`, refuses the start with `The maintenance's retryAfter
+is a positive number of milliseconds, a day at most.` It requires `httpPlugin()`, and adds the model
 `MaintenanceState`, which no transport exposes.
 
 ### `plugins.maintenance`

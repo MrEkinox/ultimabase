@@ -433,12 +433,22 @@ describe('its initial state', () => {
 })
 
 describe('its retryAfter', () => {
-	it('is refused unless a positive number of milliseconds', async () => {
-		for (const retryAfter of [Number.NaN, 0, -5000, Infinity]) {
-			await expect(appOn(memory(), { retryAfter }).start()).rejects.toThrow(
-				"The maintenance's retryAfter is a positive number of milliseconds.",
+	it('is refused unless a positive number of milliseconds, a day at most', async () => {
+		for (const retryAfter of [Number.NaN, 0, -5000, Infinity, 86_400_001]) {
+			const application = appOn(memory(), { retryAfter })
+			// Stopped once started, so that a failure stays in this test.
+			const refused = await application.start().then(
+				async () => application.stop(),
+				(error: unknown) => error,
+			)
+			expect(refused).toHaveProperty(
+				'message',
+				"The maintenance's retryAfter is a positive number of milliseconds, a day at most.",
 			)
 		}
+		const running = appOn(memory(), { retryAfter: 86_400_000 })
+		await running.start()
+		await running.stop()
 	})
 })
 

@@ -13605,7 +13605,8 @@ Choice: amends D-106 and D-166.
    `/health` and `/ready` are answered before them (D-204).
 2. A new package, `@ultimabase/maintenance`, exports
    `maintenancePlugin({ retryAfter })`. It requires http. `retryAfter` is
-   in milliseconds, 60 000 by default.
+   in milliseconds, 60 000 by default, a day at most: a client told to
+   wait longer would not come back (amended 2026-11-14).
 3. While the maintenance is on, every request and upgrade but Master's
    answers 503, `Retry-After` in seconds, and:
    `{ "code": "MAINTENANCE", "message": "The application is under maintenance.", "details": { "retryAfter": 60 } }`.
