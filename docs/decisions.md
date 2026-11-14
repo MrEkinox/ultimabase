@@ -24007,3 +24007,97 @@ const url = await stripe.checkout({
 	...urls,
 })
 ```
+
+## D-392: The catalog is a public query, opted into
+
+Choice: builds on D-372, D-387 and D-391.
+
+1. `stripePlugin({ catalog: true })` adds the public query `stripeCatalog`,
+   in GraphQL and at `GET /api/functions/stripeCatalog` (D-129). Without the
+   option, the plugin adds no function. Its name is fixed: one name for
+   every application and its documentation; a function of the same name in
+   the application is refused at start, as any taken name is.
+2. It returns the catalog the code declares, in its order, without calling
+   Stripe: the deploy script keeps Stripe equal to it (D-372), and the query
+   answers without keys.
+3. Its shape, `StripeCatalog`, holds two lists, empty when the application
+   sells nothing of the kind:
+   - `subscriptions`, of `StripeSubscriptionProduct`: `key`, `name`, and
+     `prices`, of `StripeRecurringPrice`: `name`, `amount`, `currency`,
+     `every` (the enum `StripeEvery`), `everyCount` (1 when unset),
+     `trialDays` (`null` without a trial, D-391), and `gives`;
+   - `purchases`, of `StripeOneTimeProduct`: `key`, `name`, `amount`,
+     `currency`, and `gives`.
+     `gives` lists `StripeCreditAmount`: `credit`, a string, and `amount`.
+     Amounts are in the currency's smallest unit. The shape is one JSON
+     Schema whose `$defs` name these types, not `defineType` lists: a
+     function's list counts as a page of rows (D-109), and three nested ones
+     pass the row budget (D-107), while the code bounds the catalog.
+4. A product's `key` and a price's `name` take the billing model's enums
+   when it declares them (D-387), the same GraphQL enums its rows show;
+   otherwise they are strings.
+5. `stripe.catalog()` returns the same value on the server, synchronously,
+   whether the option is set or not.
+
+Why: a pricing page shows what the catalog declares. Each application
+copied the amounts, interval names and trials into its client, and guarded
+the copy with a test reading the server's source; a price change touched
+both sides.
+
+Rejected:
+
+- A name the application chooses: each application, and its
+  documentation, would name the same query differently, for no gain the
+  fixed, prefixed name lacks.
+- One list of products with nullable fields (`every: null` for a one-time
+  product): each client tests each field, and the types say nothing.
+- A GraphQL union of the two kinds: the client writes
+  `... on StripeOneTimeProduct`, which REST has no match for (D-129).
+- Reading the prices from Stripe: a request per read, keys required, and
+  the product keys and price names lost.
+- `taxBehavior` in the result: no client asked; an application knows
+  whether its amounts include the taxes.
+
+Example, before: the client copied the catalog.
+
+```ts
+// client
+export const plans = [
+	{ key: 'pro', name: 'Pro', prices: { month: 9_90, year: 99_00 } },
+]
+```
+
+After: the server opts in, the client reads it.
+
+```ts
+stripePlugin({ …, catalog: true })
+```
+
+```graphql
+query {
+	stripeCatalog {
+		subscriptions {
+			key
+			name
+			prices {
+				name
+				amount
+				currency
+				every
+				everyCount
+				trialDays
+			}
+		}
+		purchases {
+			key
+			name
+			amount
+			currency
+			gives {
+				credit
+				amount
+			}
+		}
+	}
+}
+```

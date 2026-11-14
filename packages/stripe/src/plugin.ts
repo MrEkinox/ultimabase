@@ -27,6 +27,7 @@ import { closeJob, stripeJobs } from './jobs.ts'
 import { ownKeys } from './keys.ts'
 import type { Kind } from './kinds.ts'
 import { billingModels } from './kinds.ts'
+import { catalogFunctions } from './catalog-query.ts'
 import { M, StripeCustomer, StripeEvent, StripeScan } from './models.ts'
 import type { PortalOptions } from './portal.ts'
 import type { Product } from './product.ts'
@@ -59,6 +60,8 @@ export interface StripeOptions {
 	readonly oneSubscription?: boolean
 	/** What a payment at risk does to its payer's subscriptions (D-388). */
 	readonly risk?: RiskOptions
+	/** `true` adds the public query `stripeCatalog` (D-392). */
+	readonly catalog?: boolean
 }
 
 /** The Stripe plugin's types (D-57). */
@@ -84,6 +87,7 @@ const optionKeys = [
 	'webhookPath',
 	'oneSubscription',
 	'risk',
+	'catalog',
 ]
 const names = {
 	subscription: 'defineSubscription',
@@ -270,6 +274,7 @@ const definition = definePlugin<Stripe>({
 		plugins.http.mount(webhookRoutes(webhookPath))
 		plugins.jobs.add(stripeJobs)
 	},
+	functions: ({ options, models }) => catalogFunctions(options.catalog, models),
 	hooks: {
 		beforeCreate: masterOnly('create'),
 		beforeUpdate: masterOnly('update'),

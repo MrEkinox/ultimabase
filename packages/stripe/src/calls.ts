@@ -19,6 +19,7 @@ import type { Product, SubscriptionProduct } from './product.ts'
 import type { Billing, Row, Running } from './running.ts'
 import { runningOf, stripeOf } from './running.ts'
 import { grant, spend } from './credits.ts'
+import { catalog } from './catalog-query.ts'
 import type { Texts } from './locale.ts'
 import { canonical, checkoutLocales, localized, pageLocale } from './locale.ts'
 import { syncCustomer } from './sync.ts'
@@ -348,4 +349,5 @@ export const stripe: {
 	readonly syncCheckout: typeof syncCheckout
 	readonly grant: typeof grant
 	readonly spend: typeof spend
-} = { checkout, portal, syncCheckout, grant, spend }
+	readonly catalog: typeof catalog
+} = { checkout, portal, syncCheckout, grant, spend, catalog }

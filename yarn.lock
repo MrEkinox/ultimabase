@@ -3355,8 +3355,10 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@ultimabase/stripe@workspace:packages/stripe"
   dependencies:
+    "@ultimabase/graphql": "workspace:*"
     "@ultimabase/http": "workspace:*"
     "@ultimabase/jobs": "workspace:*"
+    "@ultimabase/rest": "workspace:*"
     "@ultimabase/testing": "workspace:*"
     stripe: "npm:23.1.0"
     ultimabase: "workspace:*"
