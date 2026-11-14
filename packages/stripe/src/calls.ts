@@ -307,7 +307,8 @@ export async function portal<const P extends SubscriptionProduct>(
 		throw new Error('stripe.portal needs a model defineSubscription returned.')
 	}
 	const flow = await flowOf(running, model, args)
-	running.portal ??= (await gateway.readCatalog()).portal?.id ?? null
+	if (running.portal === undefined)
+		running.portal = (await gateway.readCatalog()).portal?.id ?? null
 	const configuration = running.portal
 	const returnUrl = args.returnUrl ?? running.catalog.portal.returnUrl
 	return withCustomer(model, args.payer, async (_, customerId, locale) =>

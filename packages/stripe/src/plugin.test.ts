@@ -309,6 +309,18 @@ describe.each([
 			},
 		})
 	})
+
+	it('opens the portal on Stripe’s default, reading the catalog once', async () => {
+		const reads = vi.spyOn(gatewayOf(fake.secret), 'readCatalog')
+		const ada = await User.create({ data: { email: 'ada@example.com' } }, M)
+		await stripe.portal({ payer: ada })
+		await stripe.portal({ payer: ada })
+		expect(fake.portalSessions).toMatchObject([
+			{ configuration: null },
+			{ configuration: null },
+		])
+		expect(reads).toHaveBeenCalledTimes(1)
+	})
 })
 
 describe('without keys', () => {
