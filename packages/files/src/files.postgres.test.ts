@@ -1,11 +1,12 @@
 // Files on PostgreSQL (D-152): concurrent writes of one row keep each
 // other's files, one file goes to one row only, and a row's files live and
-// go with it; a stored copy is rewritten only on the row read (D-366).
+// go with it; a stored copy is rewritten only on the row read (D-366); a
+// file field is filtered on its presence (D-404).
 import { afterEach, expect, it } from 'vitest'
 import { storedFields } from 'ultimabase/internal'
 import { files } from './index.ts'
 import { FilesBlob } from './model.ts'
-import { alice, M, png, Post, started, text } from './test/app.ts'
+import { alice, M, pdf, png, Post, started, text } from './test/app.ts'
 import { database, urls } from './test/postgres.ts'
 
 let stop: (() => Promise<void>) | undefined
@@ -27,6 +28,9 @@ const states = async () =>
 	(await FilesBlob.findMany({ orderBy: { name: 'asc' } }, M)).map(
 		({ name, state }) => `${name} ${state}`,
 	)
+
+const titles = async (doc: null | { not: null }) =>
+	(await Post.findMany({ where: { doc } }, M)).map(({ title }) => title)
 
 for (const url of urls) {
 	const host = new URL(url).host
@@ -91,6 +95,27 @@ for (const url of urls) {
 		await Post.delete({ where: { id: post.id } }, M)
 		expect(storage.objects.size).toBe(0)
 		expect(await states()).toStrictEqual([])
+	})
+
+	it(`filters a file field on its presence on ${host} (D-404)`, async () => {
+		await start(url)
+		const { id } = await files.upload(pdf, {
+			for: 'Post.doc',
+			name: 'a.pdf',
+			as: alice,
+		})
+		await Post.create(
+			{ data: { title: 'with', doc: id, attachments: [] } },
+			{ as: alice },
+		)
+		await Post.create({ data: { title: 'without', attachments: [] } }, M)
+		expect(await titles({ not: null })).toStrictEqual(['with'])
+		expect(await titles(null)).toStrictEqual(['without'])
+		const { count } = await Post.updateMany(
+			{ where: { doc: null }, data: { title: 'none' } },
+			M,
+		)
+		expect(count).toBe(1)
 	})
 
 	it(`rewrites a stored copy only on the row read on ${host}`, async () => {

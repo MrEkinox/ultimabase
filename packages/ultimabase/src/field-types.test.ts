@@ -1,5 +1,6 @@
 // Plugin field types (D-122): stored through a kernel field, decoded on each
-// read, encoded after the hooks, filtered by a beforeFind only.
+// read, encoded after the hooks, filtered by a beforeFind, and by any query
+// on its presence alone (D-404).
 import {
 	afterEach,
 	beforeEach,
@@ -72,11 +73,22 @@ const Post = defineModel({
 	},
 })
 
+/** A mood a client sends lower-cased, which code reads upper-cased. */
+const mood = defineFieldType({
+	plugin: 'tags',
+	stored: (f) => f.string({ optional: true }),
+	decode: (stored) => stored.toUpperCase(),
+	encode: (value: string) => value.toLowerCase(),
+	schema: z.string(),
+	toJSON: (value) => value,
+})
+
 const Note = defineModel({
 	name: 'Note',
 	fields: (f) => ({
 		body: f.string(),
 		labels: tagSet({ default: ['draft'] }),
+		mood: mood(),
 	}),
 })
 
@@ -263,14 +275,43 @@ describe('a field type value', () => {
 		expect(titles).toEqual(['kept'])
 	})
 
-	it('is neither filtered nor sorted by a query', async () => {
+	it('is filtered by a query on its presence alone (D-404)', async () => {
+		await Note.create({ data: { body: 'calm', mood: 'Calm' } }, M)
+		await Note.create({ data: { body: 'none' } }, M)
+		const bodies = async (where: Parameters<typeof Note.findMany>[0]) =>
+			(await Note.findMany(where, M)).map(({ body }) => body)
+		expect(await bodies({ where: { mood: { not: null } } })).toEqual(['calm'])
+		expect(await bodies({ where: { mood: null } })).toEqual(['none'])
+		const cleared = await Note.updateMany(
+			{ where: { mood: { not: null } }, data: { mood: null } },
+			M,
+		)
+		expect(cleared).toEqual({ count: 1 })
+		expect(await bodies({ where: { mood: null } })).toEqual(['calm', 'none'])
+	})
+
+	it('refuses a value, or a list, in a query', async () => {
 		await expect(
-			// @ts-expect-error: only a beforeFind filters a plugin field.
-			Post.findMany({ where: { tags: { has: 'a' } } }, M),
+			// @ts-expect-error: a query filters a plugin field's presence alone.
+			Note.findMany({ where: { mood: 'calm' } }, M),
 		).rejects.toMatchObject({
 			code: 'INVALID_QUERY',
 			message:
-				'where.tags: Post.tags is a tags field, which only a beforeFind filters.',
+				'where.mood: Note.mood is a tags field: a where filters its presence alone, null or { not: null }.',
+		})
+		for (const filter of [{ equals: null }, { not: 'calm' }]) {
+			await expect(
+				// @ts-expect-error: only `{ not: null }` is a presence filter.
+				Note.findMany({ where: { mood: filter } }, M),
+			).rejects.toMatchObject({ code: 'INVALID_QUERY' })
+		}
+		await expect(
+			// @ts-expect-error: a list is never null.
+			Post.findMany({ where: { tags: null } }, M),
+		).rejects.toMatchObject({
+			code: 'INVALID_QUERY',
+			message:
+				'where.tags: Post.tags is a tags list, never null: only a beforeFind filters it.',
 		})
 		await expect(
 			// @ts-expect-error: a plugin field is not sorted.

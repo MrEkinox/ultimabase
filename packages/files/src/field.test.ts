@@ -186,6 +186,25 @@ describe('a file field', () => {
 		})
 	})
 
+	it('is filtered on its presence, a list never (D-404)', async () => {
+		await start()
+		await Post.create({ data: { title: 'none', attachments: [] } }, M)
+		expect(
+			await Post.findMany({ where: { doc: { not: null } } }, M),
+		).toStrictEqual([])
+		expect(
+			(await Post.findMany({ where: { doc: null } }, M)).map(
+				({ title }) => title,
+			),
+		).toStrictEqual(['none'])
+		await expect(
+			// @ts-expect-error -- a files list is never null.
+			Post.findMany({ where: { attachments: null } }, M),
+		).rejects.toThrow(
+			'where.attachments: Post.attachments is a files list, never null: only a beforeFind filters it.',
+		)
+	})
+
 	it('refuses a row whose copy is not a file', () => {
 		expect(() => storedFile({ id: 'f' }, 'A test')).toThrow(
 			'A test: the row holds a file that is not one.',

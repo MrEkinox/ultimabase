@@ -1,6 +1,6 @@
 // Plugin field types over GraphQL (D-122): read as `toJSON` gives and
-// written through `schema`, as `JSON` or typed by their shape (D-152); never
-// filtered nor sorted.
+// written through `schema`, as `JSON` or typed by their shape (D-152);
+// filtered on their presence alone (D-404), never sorted.
 import { httpPlugin } from '@ultimabase/http'
 import type { GraphQLSchema } from 'graphql'
 import { printType } from 'graphql'
@@ -109,11 +109,48 @@ const typeOf = (name: string): string => {
 	return type === undefined ? 'none' : printType(type)
 }
 
-it('reads and writes JSON, and leaves it out of filters and sorts', () => {
+it('reads and writes JSON, and leaves a list out of filters and sorts', () => {
 	expect(typeOf('Note')).toContain('  labels: JSON!\n')
 	expect(typeOf('NoteCreateInput')).toContain('  labels: JSON\n')
 	expect(typeOf('NoteWhereInput')).not.toContain('labels')
 	expect(typeOf('NoteOrderByInput')).not.toContain('labels')
+	expect(typeOf('NoteOrderByInput')).not.toContain('where')
+})
+
+const only = (body: string) => ({
+	data: { notes: { edges: [{ node: { body } }] } },
+})
+
+it('filters a single field on its presence alone (D-404)', async () => {
+	expect(typeOf('NoteWhereInput')).toContain('  where: PresenceFilter\n')
+	expect(typeOf('PresenceFilter')).toBe(
+		'"""A plugin field: null, or { not: null }."""\ninput PresenceFilter {\n  not: JSON\n}',
+	)
+	await post(
+		url,
+		`mutation { a: createNote(data: { body: "here", where: [1, 2] }) { body }
+			b: createNote(data: { body: "nowhere" }) { body } }`,
+		undefined,
+		asMaster,
+	)
+	const read = async (where: string) =>
+		post(
+			url,
+			`{ notes(where: { body: { endsWith: "here" }, where: ${where} }) { edges { node { body } } } }`,
+			undefined,
+			asMaster,
+		)
+	expect(await read('{ not: null }')).toStrictEqual(only('here'))
+	expect(await read('null')).toStrictEqual(only('nowhere'))
+	expect(await read('{ not: [1, 2] }')).toMatchObject({
+		errors: [
+			{
+				message:
+					'where.where: Note.where is a tags field: a where filters its presence alone, null or { not: null }.',
+				extensions: { code: 'BAD_USER_INPUT' },
+			},
+		],
+	})
 })
 
 it('types a read by its shape, and takes JSON', async () => {

@@ -304,6 +304,9 @@ file at a stable URL, a private one at a URL signed for 15 to 30 minutes.
 
 ## Details
 
+- A query's `where` filters a single file field on its presence alone:
+  `{ cover: null }` finds the posts without a cover, `{ cover: { not: null } }`
+  those with one. A list of files, never `null`, is left out of `where`.
 - Each option of `s3()` and `diskFiles()` takes `undefined`, so the environment
   fills it directly; a missing one throws at start.
 - A served file is answered with its type, `X-Content-Type-Options: nosniff`

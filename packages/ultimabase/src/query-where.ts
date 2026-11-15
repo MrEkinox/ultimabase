@@ -8,6 +8,7 @@ import type { FieldInfo, ModelInfo } from './schema.ts'
 import { oneOfFilters } from './one-of-where.ts'
 import { concealed } from './one-sided.ts'
 import { listCondition } from './query-conditions.ts'
+import { checkPresence } from './query-presence.ts'
 import { isPathFilter, jsonCondition } from './query-json.ts'
 import { searchedFields } from './query-search.ts'
 import {
@@ -319,9 +320,10 @@ export function checkDepth(depth: number, path: string): void {
 
 /**
  * A `where` of `model`, normalized; `path` names it in errors. With a
- * `scope`, relation filters see readable rows only (D-86). Only a
- * `beforeFind`'s, `stored`, filters a plugin field, in its stored form
- * (D-122). Each `AND`, `OR`, `NOT` and relation filter is a level deeper.
+ * `scope`, relation filters see readable rows only (D-86). A plugin field
+ * is filtered on its presence alone (D-404), save in a `beforeFind`'s,
+ * `stored`, in its stored form (D-122). Each `AND`, `OR`, `NOT` and
+ * relation filter is a level deeper.
  */
 export function normalizeWhere(
 	models: Models,
@@ -362,12 +364,8 @@ export function normalizeWhere(
 		if ((field === undefined && type === undefined) || concealed(field)) {
 			throw unknownKey(at, model.name)
 		}
-		const codec = field?.kind === 'scalar' ? field.codec : undefined
-		if (codec !== undefined && !stored) {
-			throw new InvalidQuery(
-				at,
-				`${at}: ${model.name}.${key} is a ${codec.plugin} field, which only a beforeFind filters.`,
-			)
+		if (field?.kind === 'scalar' && field.codec !== undefined && !stored) {
+			checkPresence(`${model.name}.${key}`, field.codec, field.list, value, at)
 		}
 		scope?.check(model, key, at, 'filters')
 		if (field !== undefined && field.kind !== 'scalar') {

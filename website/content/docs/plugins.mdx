@@ -271,7 +271,11 @@ A model uses it as a builder, with the options its type declares:
 
 - A write takes what `schema` accepts, here `{ red, green, blue }` or its
   `#rrggbb`.
-- Filters, indexes and `unique` work on the stored value.
+- Indexes and `unique` work on the stored value.
+- A query's `where` filters the field on its presence alone:
+  `{ accent: null }` or `{ accent: { not: null } }`. Only a `beforeFind`
+  filters its stored value. A list field, never `null`, is left out of
+  `where`; no query sorts the field.
 - Clients read what `toJSON` gives.
 
 Code reads the channels, a field's default included:

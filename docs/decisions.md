@@ -6133,7 +6133,7 @@ access: {
 
 ## D-122: Plugin field types at run time
 
-Amended by D-216.
+Amended by D-216, D-404.
 
 Choice: completes D-32, typed until now and not run.
 
@@ -24777,4 +24777,78 @@ After:
 
 ```ts
 const url = await stripe.portal({ payer: { id: me }, open: 'change' })
+```
+
+## D-404: A plugin field is filtered on its presence
+
+Choice: amends D-122 points 4 and 5.
+
+1. Every `where` filters a single plugin field on its presence: `null`, the
+   field holds nothing, and `{ not: null }`, it holds a value. A client's, a
+   function's and Master's alike, with the access rules of any filter
+   (D-57). Any other value or operator on a plugin field stays refused,
+   and the message names the two forms:
+   `where.mood: Note.mood is a tags field: a where filters its presence alone, null or { not: null }.`
+2. A list plugin field, as the ACL's, holds `[]` when empty and is never
+   `null`: it stays refused, with
+   `where.tags: Post.tags is a tags list, never null: only a beforeFind filters it.`
+   A list is the kernel's, or one its field type declares with a `list`
+   option and stores itself, as a files list stored as JSON `[]`.
+3. The condition is the stored column's `is null` or `is not null`, on
+   PostgreSQL and in memory alike: a stored field already filters `null`.
+   A `beforeFind`'s filter still takes the stored form, as before.
+4. TypeScript types a single plugin field's filter as
+   `null | { readonly not: null }`; a list plugin field stays out of
+   `where`. `orderBy` still names no plugin field.
+5. REST and GraphQL take the same two forms (D-129). OpenAPI shows the
+   field's filter as the component `PresenceFilter`, `null` or
+   `{ not: null }`. GraphQL shows it as the input `PresenceFilter`, one
+   for every plugin field, with `not: JSON`:
+   GraphQL has no type that holds `null` alone, so a value other than
+   `null` gets the kernel's refusal. `attachment: null` is the first form.
+
+Why: a job that empties old attachments reads the rows that still hold a
+file. Without a filter it reads every old row, emptied or not, at each
+run, or keeps a second field in step with the file. Presence reads the
+stored column alone: it shows nothing of the value a plugin encodes, so
+`beforeFind` stays the one boundary for what the value holds.
+
+Rejected:
+
+- `isSet: true`, an operator of its own: a kernel scalar field already
+  says absence with `null` and presence with `{ not: null }`.
+- `{ equals: null }`: a second spelling of `null`, which no kernel user
+  needs here.
+- Filtering a plugin field's value, as a file's type or size: each plugin
+  stores its own shape, and the value's filters would be its own decision.
+- Presence on a list plugin field, `[]` or not: no use asks for it.
+
+Example, before:
+
+```ts
+// Refused: "attachment is a files field, which only a beforeFind filters"
+// A second field kept in step with the file, to filter on
+await Message.updateMany(
+	{
+		where: { attachmentExpiredAt: null, createdAt: { lt: cutoff } },
+		data: { attachment: null, attachmentExpiredAt: new Date() },
+	},
+	M,
+)
+```
+
+After:
+
+```ts
+await Message.updateMany(
+	{
+		where: { attachment: { not: null }, createdAt: { lt: cutoff } },
+		data: { attachment: null },
+	},
+	M,
+)
+```
+
+```graphql
+messages(where: { attachment: { not: null } }) { edges { node { id } } }
 ```
