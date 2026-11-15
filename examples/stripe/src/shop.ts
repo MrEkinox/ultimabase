@@ -60,6 +60,12 @@ export const cardPage = (user: Payer) =>
 	stripe.portal({ payer: user, open: 'paymentMethod' })
 //#endregion
 
+//#region plans
+/** Stripe's plan picker: `user` picks among the prices the portal offers. */
+export const plansPage = (user: Payer) =>
+	stripe.portal({ payer: user, open: 'change' })
+//#endregion
+
 //#region grant
 /** 50 gems for a new user, without a payment. */
 export const welcome = (user: Payer) =>

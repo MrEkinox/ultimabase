@@ -66,14 +66,18 @@ export type PortalArgs<P extends SubscriptionProduct = SubscriptionProduct> = {
 	| { readonly open: 'paymentMethod' }
 	/** The confirmation of a cancellation. */
 	| { readonly open: 'cancel'; readonly subscription?: string }
-	/** The confirmation of a move to another product or price. */
-	| {
+	/**
+	 * The confirmation of a move to `product` and `price`; without them, the
+	 * plan picker of the payer's subscription (D-403).
+	 */
+	| ({
 			readonly open: 'change'
-			readonly product: P
-			readonly price: PriceOf<P>
 			/** The subscription row's id, when the payer has several live ones. */
 			readonly subscription?: string
-	  }
+	  } & (
+			| { readonly product: P; readonly price: PriceOf<P> }
+			| { readonly product?: undefined; readonly price?: undefined }
+	  ))
 )
 
 /** The catalog's product, or a bug: a product the plugin was not given. */
@@ -283,11 +287,20 @@ async function flowOf(
 			return { kind: 'cancel', subscriptionId: String(row['stripeId']) }
 		}
 		case 'change': {
-			const product = catalogued(running, args.product)
-			const lookup = lookupKey(product, args.price)
+			if (args.product === undefined && args.price !== undefined) {
+				throw new TypeError(
+					'stripe.portal: price is a price of product; give product too.',
+				)
+			}
+			const lookup =
+				args.product === undefined
+					? undefined
+					: lookupKey(catalogued(running, args.product), args.price)
 			const row = await subscriptionOf(model, args.payer, args.subscription)
 			const subscriptionId = String(row['stripeId'])
-			return { kind: 'change', subscriptionId, lookupKey: lookup }
+			return lookup === undefined
+				? { kind: 'change', subscriptionId }
+				: { kind: 'change', subscriptionId, lookupKey: lookup }
 		}
 		default:
 			throw new TypeError(

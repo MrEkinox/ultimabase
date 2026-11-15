@@ -24277,6 +24277,8 @@ yarn test:stripe   # Another sandbox run, ub_mwg9dzio_c08374, started at 10:24 U
 
 ## D-394: The portal opens one page, named by `open`
 
+Amended by D-403.
+
 Choice: amends D-373 point 8 and D-389 points 1 to 3.
 
 1. `stripe.portal` takes `open`, the page the portal opens on: `'change'`,
@@ -24650,4 +24652,50 @@ const { customer, clock } = await sandbox.payer({
 await sandbox.client.subscriptions.create({ customer, items: [{ price }] })
 await sandbox.advance(clock, { days: 32 })
 await sandbox.deliver(test.url) // the renewal's events, then their jobs
+```
+
+## D-403: `open: 'change'` without a price opens Stripe's plan picker
+
+Choice: amends D-394 point 2.
+
+1. `stripe.portal({ payer, open: 'change' })`, with neither `product` nor
+   `price`, opens the portal's plan picker on the payer's subscription:
+   the payer chooses among the prices the portal offers. With both, the
+   portal opens on the confirmation of that move, as before.
+2. `product` and `price` come both or neither. The type refuses `price`
+   alone; from JavaScript, `price` without `product` throws a `TypeError`.
+   `product` alone is refused by the type, as before.
+3. `subscription` and `NOT_SUBSCRIBED` are unchanged: the picker needs the
+   payer's subscription, found as for a move.
+4. The picker shows the products the portal configuration allows. The
+   configuration the plugin manages (D-373) allows those of the catalog;
+   an application's own configuration must enable subscription updates.
+5. Inside the plugin, the gateway's `change` flow carries an optional
+   `lookupKey`: without one, Stripe's `subscription_update` flow.
+
+Why: a « Change plan » button that names no plan had no page to open.
+The application sent the payer to the portal's home, one click further,
+or built its own picker from the catalog, which Stripe already shows with
+prices, prorations and taxes.
+
+Rejected:
+
+- `open: 'plans'`, a fourth page: the move and the picker end in the same
+  change of the same subscription, and Stripe names both "update".
+- The portal's home: it shows the picker behind a button, beside invoices
+  and cancellation the button did not ask for.
+- A `price` alone, its product found from the catalog: two products may
+  name their prices alike, `'monthly'`.
+
+Example, before:
+
+```ts
+// No page for « Change plan »: the portal's home, or a picker of our own
+const url = await stripe.portal({ payer: { id: me } })
+```
+
+After:
+
+```ts
+const url = await stripe.portal({ payer: { id: me }, open: 'change' })
 ```
